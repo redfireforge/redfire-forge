@@ -79,7 +79,7 @@
 | GQL-14 Multi-Tab | ✅ `demo-gql-multi-tab.spec.ts` (+ Phase 8 auto-play) |
 | GQL-15 Batch | ✅ `demo-gql-batch-execution.spec.ts` |
 | GQL-16..19 Workflow | ✅ `demo-gql-workflow-*.spec.ts` (GQL-19 added) |
-| GQL-6 Mutations | ✅ `demo-gql-mutations.spec.ts` updated for **18 steps** |
+| GQL-6 Mutations | ✅ `demo-gql-mutations.spec.ts` updated for **19 steps** |
 
 ### P2 — Deferred / optional (explicitly out of scope for now)
 
@@ -89,11 +89,11 @@
 | **GQL-20+** | Future | No slots in `graphql-lessons.ts` |
 | Basic Auth demo steps | Security Phase 2 | ✅ Shipped in GQL-4 step `gql6-basic` (configure + execute + Metadata verify) |
 | OAuth2 / OIDC lesson beat | Security Phase 2 | ✅ Shipped in GQL-4 step `gql6-oauth` (client credentials + preview) |
-| GQL-7 subscription-channel auth step | Security Phase 2 | Cross-ref in GQL-4 only |
+| GQL-7 subscription-channel auth step | Security Phase 2 | ✅ Shipped — `gql5-subscription-auth` in GQL-7 (2026-06-24) |
 | Tab rename `data-testid` for GQL-14 | 11.4 | `gql14-real-world` — verify at E2E time |
 | `graphql-studio-plan.md` 6G-7 E2E | Engineering | Two endpoints → two batch groups — ✅ `graphql-multi-tab.spec.ts` §6G-7 |
 | Per-tab PEM cert fields | TLS product | CA/client cert/key are **page-level defaults** with tab inheritance — not independent per-tab PEM stores |
-| Native Rust TLS in Tauri | TLS product | Custom CA/mTLS/APQ-with-PEM routes through **Node proxy** (`localhost:3001`), not native webview TLS |
+| Native Rust TLS in Tauri | TLS product | ✅ GraphQL HTTP (`gql_http_fetch`) + WS share rustls client config |
 | GQL-5 full Docker E2E in CI | E2E | ✅ `e2e-gql5-docker` CI job — `E2E_GQL5_DOCKER=1` starts TLS (4444) + mTLS (4446) + plain GraphQL (4010) |
 
 ### ✅ Recently completed (2026-06-22 — GQL-5 TLS/mTLS session)
@@ -105,7 +105,7 @@
 | Web transport | `gqlFetch` → Vite `__proxy` or `/api/graphql/*`; APQ GET supports **skipTlsVerify only** — PEM rejected on GET (`routeTlsQueryGuards.ts`) |
 | Tauri transport | Skip-cert + APQ GET + incremental delivery route through Node proxy; relative `/api/*` resolution |
 | Page cert persistence | `gql_tls_certs_v1` — CA/client PEM survive refresh (like `skipTlsVerify` page default) |
-| `gqlUpload` mTLS | `x-gql-tls-config` header + server-side `buildGraphqlTlsAgent` |
+| `gqlUpload` mTLS Tauri | ✅ Native `gql_http_upload` rustls (2026-06-24); web still uses `x-gql-tls-config` proxy |
 | PrerequisiteGate | `dockerEndpoints: [4444, 4446]` — both TLS and mTLS stacks required before Start Demo |
 | Demo E2E | `e2e/demo-gql-https-tls.spec.ts` — shell (12 steps) ✅; full auto-play skips without Docker |
 | Tech-debt cleanup | Duplicate `tlsAgentForEndpoint` removed; health-probe gate aligned with `docker-compose.mtls.yml` |
@@ -129,7 +129,7 @@
 | Area | Behavior | Notes |
 |------|----------|-------|
 | **Web custom TLS** | Node.js proxy required | Browser cannot attach custom CA/mTLS to `fetch`; web mode shows **Proxy** transport badge |
-| **Tauri custom TLS** | Routes through Node proxy (`localhost:3001`) | Not native Rust/webview TLS for CA/mTLS/APQ-with-PEM paths |
+| **Tauri custom TLS** | Native rustls via `gql_http_fetch` | Skip-cert / CA / mTLS HTTP on desktop — same stack as WS Studio (2026-06-24) |
 | **APQ GET** | `skipTlsVerify` only | PEM fields (`caCert`, `clientCert`, `clientKey`) **rejected** on GET — use POST `/api/graphql/query` |
 | **SSE GET** | `skipTlsVerify` only | CA/mTLS subscriptions use POST `/api/graphql/sse` with JSON body |
 | **PEM storage** | Page-level default | `gql_tls_certs_v1`; tabs inherit via `tabConnectionResolution` — no separate per-tab PEM vault |
@@ -163,7 +163,7 @@
 After a thorough comparison of the Workflow demo lessons (`ws-workflow-builder`, `kafka-workflow-produce`, `kafka-workflow-consume-wait`, `ws-tls-local`, `kafka-secure`, `kafka-tls`) against the 13 GraphQL demo lessons, **six structural quality gaps** were identified:
 
 1. **Concept diagrams are schematic boxes, not mockups** — Workflow lessons use rich 700×430 SVG studio mockups (~190 lines). **GQL-1 & GQL-2 meet this bar** (§3.5, §3.6). **GQL-3..13** (current registry) still use pipeline arrows or interim work — **scheduled for reimplementation**.
-2. **Highlight/spotlight mismatches on ~11 steps across 6 lessons** — **GQL-1 & GQL-2 fixed**. Remaining: **GQL-6** Mutations, **GQL-7** Subscriptions, **GQL-11** Tracing, **GQL-16** Workflow, **GQL-13** Mock — fix during enhancement pass.
+2. **Highlight/spotlight mismatches on ~11 steps across 6 lessons** — **GQL-1 & GQL-2 fixed**. **GQL-6**, **GQL-7**, **GQL-11**, **GQL-13**, **GQL-16** — ✅ fixed (2026-06-24).
 3. **Workflow Integration (GQL-16) steps are thinner than their WS/Kafka counterparts** — No Console tour, no Workflow Runner step, no Debug Mode, no empty-state callout, shorter descriptions overall.
 4. **Three entire workflow-era features have no GraphQL lesson** — ~~No GraphQL Mutation node lesson, no GraphQL Subscription node in the Designer, and no "GraphQL Workflow Runner & Results" close-the-loop lesson~~ **Resolved (2026-06-21):** GQL-17..19 authored; GQL-16 integration lesson still needs enhancement depth.
 5. **Security coverage gap vs WebSocket and Kafka** — Credential injection + Basic + OAuth (**GQL-4** ✅). **Transport security + mTLS** (**GQL-5** ✅). Subscription-channel auth in GQL-7 remains cross-ref only (deferred).
@@ -429,7 +429,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 | GQL-13 | `gql-mock-server` | **15** | ✅ | 🔨 audit | ✅ `demo-gql-mock-server` | ✅ **Audit** | ✅ |
 | GQL-14 | `gql-multi-tab` | **10** | ✅ | ✅ | ✅ `demo-gql-multi-tab` | ✅ Authored | ✅ `tabBudget:2` |
 | GQL-15 | `gql-batch-execution` | **9** | ✅ | 🔨 audit | — | ✅ Authored | ✅ `tabBudget:2` |
-| GQL-16 | `gql-workflow-integration` | **11** | ✅ | 🔨 audit | ✅ `demo-gql-workflow-integration` | 🔲 Pending | N/A |
+| GQL-16 | `gql-workflow-integration` | **12** | ✅ | ✅ | ✅ `demo-gql-workflow-integration` | ✅ **Complete** | N/A |
 | GQL-17 | `gql-workflow-runner` | 10 | ✅ | 🔨 audit | — | ✅ Authored | N/A |
 | GQL-18 | `gql-workflow-mutation` | 8 | ✅ | 🔨 audit | — | ✅ Authored | N/A |
 | GQL-19 | `gql-workflow-subscription` | 9 | ✅ | 🔨 audit | ✅ `demo-gql-workflow-subscription` | ✅ Authored | N/A |
@@ -484,7 +484,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 
 ### 4.2 Verdict
 
-GraphQL's security curriculum today covers **credential injection**, **Basic Auth**, and **OAuth 2.0** via **GQL-4** Auth and **transport security + mTLS** via **GQL-5** (`gql-https-tls`). Phase 8 Tauri validation pending for GQL-5. §11.0 demo isolation **shipped for GQL-1..15**. Dedicated subscription auth step in GQL-7 remains deferred (cross-ref in GQL-4 step 9).
+GraphQL's security curriculum today covers **credential injection**, **Basic Auth**, and **OAuth 2.0** via **GQL-4** Auth, **transport security + mTLS** via **GQL-5** (`gql-https-tls`), and **subscription-channel auth** via **GQL-7** step `gql5-subscription-auth`. Phase 8 Tauri validation pending for GQL-5. §11.0 demo isolation **shipped for GQL-1..15**.
 
 ---
 
@@ -494,7 +494,7 @@ GraphQL's security curriculum today covers **credential injection**, **Basic Aut
 
 | Lesson | Step ID | Description says | highlight points to | Fix |
 |--------|---------|-----------------|---------------------|-----|
-| **GQL-6** Mutations | `gql3-write-delete` | "Load the **deleteUser mutation**" (editor action) | `GQL.VARS_PANEL` (variables panel) | 🔲 Split + `GQL.EDITOR` highlight (partially shipped — verify) |
+| **GQL-6** Mutations | `gql3-write-delete` | "Load the **deleteUser mutation**" (editor action) | `GQL.EDITOR` | ✅ Fixed (2026-06-23) |
 
 ### 5.2 Action/outcome conflation (trigger spotlighted; narration describes result)
 
@@ -502,13 +502,13 @@ GraphQL's security curriculum today covers **credential injection**, **Basic Aut
 |--------|---------|-----------|----------------------|-----|
 | GQL-1 First Query | `gql1-execute` | `GQL.EXECUTE_BTN` | Response tab + `"health": "ok"` body | ✅ Fixed — `gql1-read-response` shipped |
 | GQL-2 Variables | `gql2-exec-bob` | `GQL.EXECUTE_BTN` | Bob response body + History intro | ✅ Fixed — `gql2-read-bob` shipped |
-| **GQL-6** Mutations | create flow | various | execute + response conflation | 🔲 Split action/observe steps (create shipped; order/delete pending) |
-| **GQL-6** Mutations | `gql3-idempotency` | `GQL.EXECUTE_BTN` | Second delete + `success: false` outcome | 🔲 Split observe step for `success: false` read |
-| **GQL-7** Subscriptions | `gql5-intro` | `GQL.TAB_BAR` | Connection bar Subscribe + log panel | 🔲 Pending |
-| `gql-subscriptions` | `gql5-write-sub` | `GQL.EDITOR` | Transport select before subscribe | 🔲 Pending |
-| **GQL-11** Performance Tracing | `gql10-execute` | `GQL.EXECUTE_BTN` | Tracing badge outcome | 🔲 Pending |
-| **GQL-16** Workflow Integration | `gql11-run-fail` | assert node | Split threshold vs observe | 🔲 Pending |
-| GQL-13 Mock Server | mock steps | execute btn | response / latency / restore | 🔲 Pending |
+| **GQL-6** Mutations | create/order/delete flows | various | execute + response conflation | ✅ Split action/observe steps shipped (`gql3-observe-*`) |
+| **GQL-6** Mutations | `gql3-idempotency-exec` / `gql3-observe-idempotency` | `GQL.EXECUTE_BTN` / response | Second delete + `success: false` outcome | ✅ Split shipped |
+| **GQL-7** Subscriptions | `gql5-intro` / `gql5-connection-bar` | `GQL.CONNECTION_BAR` | Connection bar Subscribe + log panel | ✅ Shipped |
+| `gql-subscriptions` | `gql5-transport-select` | `GQL.CONNECTION_BAR` | Transport select before subscribe | ✅ Shipped |
+| **GQL-11** Performance Tracing | `gql10-tracing-badge` | tracing badge | Tracing badge outcome | ✅ Shipped |
+| **GQL-16** Workflow Integration | `gql11-tighten-threshold` / `gql11-observe-failure` | assert node | Split threshold vs observe | ✅ Shipped (replaces `gql11-run-fail`) |
+| GQL-13 Mock Server | mock observe steps | execute btn | response / latency / restore | ✅ Shipped |
 
 ### 5.3 Description density gaps in `gql-workflow-integration` (vs WS/Kafka workflow peers)
 
@@ -529,7 +529,7 @@ Step ids are `gql11-*` (frozen; see **§3.2** — card **GQL-16**, not prefix 16
 
 **GQL-2:** ✅ Shipped — 700×430 studio chrome SVG with Variables panel + Alice/Bob columns (§3.6; unit-tested).
 
-**GQL-4..13:** 🔲 **Enhancement pending** — upgrade remaining lessons to the GQL-1/GQL-2 diagram + step-quality standard (**GQL-3 ✅ complete**).
+**GQL-4..16:** ✅ **Enhancement complete** — all lessons meet GQL-1/GQL-2 diagram + step-quality standard (quality audit in `graphql-lesson-quality-audit.test.ts`).
 
 ### 6.1 Diagram target matrix
 
@@ -548,7 +548,7 @@ Step ids are `gql11-*` (frozen; see **§3.2** — card **GQL-16**, not prefix 16
 | GQL-11 Perf Tracing | ✅ Complete | **Studio chrome** — Tracing tab, waterfall, histogram strip |
 | GQL-12 Schema Diff | ✅ Complete | **Studio chrome** — Changelog tab, diff modal overlay |
 | GQL-13 Mock Server | ✅ Complete | **Studio chrome** — Mock panel, :3001 endpoint, mock response |
-| GQL-16 Workflow Integration | 🔲 Pending | **Workflow Designer chrome**: canvas with 4 nodes wired, Quick Test button, green/red node state overlay |
+| GQL-16 Workflow Integration | ✅ Complete | **700×430 Workflow Designer chrome**: canvas with 4 nodes wired, Quick Test button, green/red node state overlay |
 
 ### 6.2 SVG size standard
 
@@ -872,7 +872,7 @@ The `gql1-env-config` step already does this in `preAction` (navigates back to G
 | `graphql-mutations.ts` | `gql3-write-delete` | `GQL.EDITOR` + separate `gql3-wire-delete-var` on `GQL.VARS_PANEL` | 🔨 Partially shipped — verify + order/delete observe splits |
 | `graphql-mutations.ts` | create flow | Split: `gql3-set-create-vars` / `gql3-exec-create` / `gql3-observe-create` | ✅ Shipped (**GQL-6**) |
 | `graphql-mutations.ts` | order flow | Split: `gql3-write-order-mutation` / `gql3-set-order-vars` / `gql3-exec-order` + observe | ✅ `gql3-observe-order` shipped (**GQL-6**, 16 steps) |
-| `graphql-subscriptions.ts` | `gql5-intro` | Expand or add step on `GQL.CONNECTION_BAR` | 🔲 **GQL-7** |
+| `graphql-subscriptions.ts` | `gql5-intro` | Expand or add step on `GQL.CONNECTION_BAR` | ✅ Shipped (`gql5-connection-bar`, `gql5-transport-select`) (**GQL-7**) |
 | `graphql-subscriptions.ts` | `gql5-write-sub` | Add `GQL.TRANSPORT_SELECT` step before subscribe | 🔲 |
 | `graphql-performance-tracing.ts` | `gql10-execute` | Add `gql10-tracing-badge` on `GQL.RV_TRACING_BADGE` | 🔲 |
 | `graphql-workflow-integration.ts` | `gql11-run-fail` | Split: tighten-threshold + observe-failure | 🔲 |
@@ -925,8 +925,8 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 | GQL-3 | `gql-schema-exploration` | 10 | 5 min | ✅ **Complete** |
 | GQL-4 | `gql-auth-headers` | **9** | 6 min | 🔨 Shipped · full Docker E2E ✅ |
 | GQL-5 | `gql-https-tls` | **12** | **8 min** | ✅ Shipped (7A + mTLS) · full Docker E2E ✅ |
-| GQL-6 | `gql-mutations` | **18** | **9 min** | 🔨 Enhancement partial (`gql3-observe-order`) |
-| GQL-7 | `gql-subscriptions` | 12 | 5 min | 🔲 Enhancement pending |
+| GQL-6 | `gql-mutations` | **19** | **10 min** | ✅ **Enhancement complete** (2026-06-23) |
+| GQL-7 | `gql-subscriptions` | **14** | **7 min** | ✅ **Enhancement complete** (2026-06-23) |
 | GQL-8 | `gql-query-builder` | 10 | 4 min | ✅ Enhancement complete |
 | GQL-9 | `gql-collections-history` | 8 | 4 min | ✅ Enhancement complete |
 | GQL-10 | `gql-export-share` | 5 | 3 min | ✅ Enhancement complete |
@@ -935,7 +935,7 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 | GQL-13 | `gql-mock-server` | **15** | 6 min | ✅ Enhancement complete |
 | GQL-14 | `gql-multi-tab` | **10** | 6 min | ✅ Authored · 7C profiles+polling ✅ · demo E2E ✅ |
 | GQL-15 | `gql-batch-execution` | **9** | 4 min | ✅ Authored · demo E2E ✅ |
-| GQL-16 | `gql-workflow-integration` | **11** | 6 min | ✅ Enhancement complete (§9.2–9.3) |
+| GQL-16 | `gql-workflow-integration` | **12** | **7 min** | ✅ **Enhancement complete** (§9.2–9.3; diagram hex 2026-06-24) |
 | GQL-17–19 | workflow new | 10 / 8 / 9 | 5 / 4 / 5 min | ✅ Authored · demo E2E ✅ |
 
 **Total curriculum time (19-lesson roster):** ~104 min. See **§3.1**.
@@ -946,23 +946,23 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 
 ### Phase 1: Spotlight Fixes
 *Apply during GQL-3..13 **reimplementation** (GQL-1 ✅ §3.5; GQL-2 ✅ §3.6)*  
-**Status:** 🔨 Pending for GQL-3..13 — **GQL-1 & GQL-2** marked done
+**Status:** ✅ Complete (2026-06-24)
 
 - [x] **GQL-1:** Add `gql1-read-response` step after `gql1-execute`
 - [x] **GQL-2:** Add `gql2-read-bob` step after `gql2-exec-bob`
 - [x] **GQL-2:** Add `gql2-vars-metadata` step after `gql2-read-alice`
-- [ ] **GQL-6:** Verify `gql3-write-delete` + `gql3-wire-delete-var` spotlight alignment
-- [ ] **GQL-6:** Add observe steps for order, delete, and idempotency reads
-- [ ] **GQL-7:** Add `gql5-connection-bar` intro step or expand `gql5-intro`
-- [ ] **GQL-7:** Add `gql5-transport-select` step
-- [ ] **GQL-11:** Add `gql10-tracing-badge` step
-- [ ] **GQL-16:** Split `gql11-run-fail` into 2 steps
-- [ ] Add `gql13-observe-mock-response` step
-- [ ] Add `gql13-observe-latency-effect` step
-- [ ] Split `gql13-restore-live` into 2 steps
-- [ ] Update all affected test files (step count, IDs, estimatedMinutes)
-- [ ] `npx tsc -b --noEmit` → zero errors
-- [ ] `npx vitest run` on touched test files → zero failures
+- [x] **GQL-6:** Verify `gql3-write-delete` + `gql3-wire-delete-var` spotlight alignment
+- [x] **GQL-6:** Add observe steps for order, delete, and idempotency reads
+- [x] **GQL-7:** Add `gql5-connection-bar` intro step or expand `gql5-intro`
+- [x] **GQL-7:** Add `gql5-transport-select` step
+- [x] **GQL-11:** Add `gql10-tracing-badge` step
+- [x] **GQL-16:** Split `gql11-run-fail` into `gql11-tighten-threshold` + `gql11-observe-failure`
+- [x] Add `gql13-observe-mock-response` step
+- [x] Add `gql13-observe-latency-effect` step
+- [x] Split `gql13-restore-live` into 2 steps
+- [x] Update all affected test files (step count, IDs, estimatedMinutes)
+- [x] `npx tsc -b --noEmit` → zero errors
+- [x] `npx vitest run` on touched test files → zero failures
 
 ### Phase 2: Description Depth + Diagram Upgrades
 *Estimated effort: part of GQL-3..13 **reimplementation** pass*
@@ -1013,7 +1013,7 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 - [x] `routeTlsQueryGuards.ts` — reject PEM on GET query strings
 - [x] TLS on query/batch/subscribe/SSE/upload routes; `sseRouteHandler.ts` extracted
 - [x] `GraphqlTlsPanel.tsx` + connection bar wiring; page PEM persistence `gql_tls_certs_v1`
-- [x] `gqlFetch` / Tauri proxy paths; `gqlUpload` mTLS via `x-gql-tls-config`
+- [x] `gqlFetch` native Tauri rustls; `gqlUpload` mTLS via native `gql_http_upload` on Tauri + `x-gql-tls-config` proxy on web
 - [x] `PrerequisiteGate` multi-endpoint (`dockerEndpoints`) for dual Docker health
 
 ### Phase 5: New Workflow + Batch Lessons (GQL-15–19)

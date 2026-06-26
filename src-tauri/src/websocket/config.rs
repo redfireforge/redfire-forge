@@ -18,17 +18,10 @@ use tokio_tungstenite::Connector;
 
 use super::types::WsTlsConfig;
 
-/// Build a TLS connector from the user's TLS configuration.
-///
-/// Returns `Ok(None)` when no custom TLS is needed (default behaviour covers
-/// `wss://` URLs with system roots). Returns `Ok(Some(Connector::Rustls(...)))`
-/// when custom CA, client certs, or `rejectUnauthorized: false` is requested.
-pub(super) fn build_ws_connector(tls: Option<&WsTlsConfig>) -> Result<Option<Connector>, String> {
-    let tls = match tls {
-        Some(t) => t,
-        None => return Ok(None),
-    };
-
+/// Build a rustls `ClientConfig` from TLS settings shared by WebSocket and GraphQL.
+pub(crate) fn build_rustls_client_config(
+    tls: &WsTlsConfig,
+) -> Result<Option<Arc<ClientConfig>>, String> {
     let has_custom = tls.reject_unauthorized == Some(false)
         || tls.ca_cert.is_some()
         || tls.client_cert.is_some()
@@ -76,7 +69,24 @@ pub(super) fn build_ws_connector(tls: Option<&WsTlsConfig>) -> Result<Option<Con
         wants_client_cert.with_no_client_auth()
     };
 
-    Ok(Some(Connector::Rustls(Arc::new(config))))
+    Ok(Some(Arc::new(config)))
+}
+
+/// Build a TLS connector from the user's TLS configuration.
+///
+/// Returns `Ok(None)` when no custom TLS is needed (default behaviour covers
+/// `wss://` URLs with system roots). Returns `Ok(Some(Connector::Rustls(...)))`
+/// when custom CA, client certs, or `rejectUnauthorized: false` is requested.
+pub(super) fn build_ws_connector(tls: Option<&WsTlsConfig>) -> Result<Option<Connector>, String> {
+    let tls = match tls {
+        Some(t) => t,
+        None => return Ok(None),
+    };
+
+    match build_rustls_client_config(tls)? {
+        None => Ok(None),
+        Some(config) => Ok(Some(Connector::Rustls(config))),
+    }
 }
 
 /// Build a `RootCertStore` with system roots and an optional custom CA.

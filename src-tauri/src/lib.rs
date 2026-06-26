@@ -1,6 +1,7 @@
 pub mod assertion_evaluator;
 mod arrival_executor;
 mod commands;
+mod graphql;
 mod kafka;
 mod websocket;
 pub mod date_helpers;
@@ -94,6 +95,8 @@ pub fn run() {
       websocket::operations::ws_send,
       websocket::operations::ws_ping,
       websocket::operations::ws_receive_next,
+      graphql::http_fetch::gql_http_fetch,
+      graphql::http_upload::gql_http_upload,
     ]);
 
   #[cfg(debug_assertions)]

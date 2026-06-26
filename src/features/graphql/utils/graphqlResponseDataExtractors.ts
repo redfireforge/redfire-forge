@@ -19,3 +19,13 @@ export function getResponseDataCreateUser(
   if (!createUser || typeof createUser !== 'object' || Array.isArray(createUser)) return null;
   return createUser as Record<string, unknown>;
 }
+
+/** Extract `data.createOrder` when present — used for the Mutations lesson spotlight card. */
+export function getResponseDataCreateOrder(
+  response: GraphqlResponse | null,
+): Record<string, unknown> | null {
+  if (!response?.data || typeof response.data !== 'object') return null;
+  const createOrder = (response.data as { createOrder?: unknown }).createOrder;
+  if (!createOrder || typeof createOrder !== 'object' || Array.isArray(createOrder)) return null;
+  return createOrder as Record<string, unknown>;
+}

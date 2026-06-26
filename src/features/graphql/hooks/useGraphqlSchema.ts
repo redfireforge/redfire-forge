@@ -9,8 +9,8 @@
  *   - Supports optional schema polling at a configurable interval
  *   - Pauses polling while the browser tab is hidden
  *
- * HTTP transport: uses httpFetch() which routes through the Vite /__proxy
- * middleware in web mode (CORS-safe) and the Tauri HTTP plugin in desktop mode.
+ * HTTP transport: uses gqlFetch() — web routes through Vite /__proxy; Tauri uses
+ * native rustls for custom TLS and the Node proxy for plain loopback HTTP.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';

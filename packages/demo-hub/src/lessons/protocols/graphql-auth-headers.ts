@@ -462,7 +462,8 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       id: 'gql6-inherit-observe',
       title: 'Inherit — Verify in Metadata',
       description:
-        `Execute and read **Metadata → Request headers**. You should see \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` sourced from the **shared catalog**, not from Env variables on this tab.`,
+        `Execute and read **Metadata → Request headers**. You should see \`Authorization: Bearer ${LESSON6_AUTH_TOKEN_VALUE}\` sourced from the **shared catalog**, not from Env variables on this tab.\n\n` +
+        `**Note:** **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** is a **global auth profile** (Auth panel → Inherit from Auth Profile). It will **not** appear in the **Profiles** saved list — that list is for **connection profiles** (endpoint shortcuts) only.`,
       highlight: LESSON6_RV_AUTHORIZATION_VAL,
       preAction: prepareInheritObserveReading,
       action: async (ctx) => {
@@ -494,7 +495,9 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       id: 'gql6-subscription-exec',
       title: 'Auth Carries into Subscriptions — Execute',
       description:
-        `The **🔒 Auth badge** configures credentials for the **active tab**. With one tab open, edits set the **page-level default** — the same resolved auth is used for HTTP queries **and** for WebSocket subscription handshakes (**GQL-7**). **Reminder:** **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** (Auth panel, bottom-left) is the global catalog credential; **${LESSON6_PROFILE_NAME}** (Profiles modal) is the connection shortcut you saved — two different names, two different roles. Saving a connection profile may reset auth mode, so we re-bind **Inherit** before executing.`,
+        'Click **Execute** — the response proves your query ran with the **Inherit** auth already bound in the **Auth** panel below (**' +
+        `${LESSON6_GLOBAL_AUTH_PROFILE_NAME}\`). No separate auth setup exists for subscriptions: the same resolved credential is reused on the WebSocket handshake in **GQL-7**.\n\n` +
+        '**What to watch for:** The spotlight is on **Execute**; after the run, the demo re-opens the **Auth** panel so you can confirm **Inherit from Auth Profile** is still selected.',
       highlight: GQL.EXECUTE_BTN,
       preAction: prepareSubscriptionExecReading,
       action: async (ctx) => {

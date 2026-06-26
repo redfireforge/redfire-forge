@@ -5,6 +5,7 @@ import { describe, it, expect } from 'vitest';
 import {
   getResponseDataUser,
   getResponseDataCreateUser,
+  getResponseDataCreateOrder,
 } from './graphqlResponseDataExtractors';
 
 describe('graphqlResponseDataExtractors', () => {
@@ -32,5 +33,18 @@ describe('graphqlResponseDataExtractors', () => {
     expect(getResponseDataCreateUser(null)).toBeNull();
     expect(getResponseDataCreateUser({ data: {} })).toBeNull();
     expect(getResponseDataCreateUser({ data: { createUser: 'bad' } })).toBeNull();
+  });
+
+  it('getResponseDataCreateOrder returns createOrder object from data.createOrder', () => {
+    const result = getResponseDataCreateOrder({
+      data: { createOrder: { id: 'ord-1', status: 'PENDING', customerId: 'cust-demo' } },
+    });
+    expect(result).toEqual({ id: 'ord-1', status: 'PENDING', customerId: 'cust-demo' });
+  });
+
+  it('getResponseDataCreateOrder returns null when createOrder missing or non-object', () => {
+    expect(getResponseDataCreateOrder(null)).toBeNull();
+    expect(getResponseDataCreateOrder({ data: {} })).toBeNull();
+    expect(getResponseDataCreateOrder({ data: { createOrder: 'bad' } })).toBeNull();
   });
 });

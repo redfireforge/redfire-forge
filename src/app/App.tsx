@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { useAppLayoutSync } from './hooks/useAppLayoutSync';
 import { useGalleryMigration } from './hooks/useGalleryMigration';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
@@ -62,9 +62,12 @@ import '../styles/index.css';
 import { DEMO_HUB_ENABLED } from '../config/features';
 import { demoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
 import { shouldExitLiveDemoForTabChange } from './demo/liveDemoTabGuard';
-import { DemoShellHost } from './demo/DemoShellHost';
 import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
+
+const DemoShellHost = lazy(() =>
+  import('./demo/DemoShellHost').then((m) => ({ default: m.DemoShellHost })),
+);
 
 export default function App() {
   const {
@@ -383,19 +386,21 @@ export default function App() {
   return (
     <>
       {DEMO_HUB_ENABLED && (
-        <DemoShellHost
-          navigateToTab={navigateToTab}
-          activeTab={activeTab}
-          setActiveTab={setActiveTab}
-          setSidebarCollapsed={setSidebarCollapsed}
-          setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
-          selectedEnvId={selectedEnvId}
-          selectedSvcId={selectedSvcId}
-          setEnvironments={setEnvironments}
-          setMicroservices={setMicroservices}
-          setSelectedEnvId={setSelectedEnvId}
-          setSelectedSvcId={setSelectedSvcId}
-        />
+        <Suspense fallback={null}>
+          <DemoShellHost
+            navigateToTab={navigateToTab}
+            activeTab={activeTab}
+            setActiveTab={setActiveTab}
+            setSidebarCollapsed={setSidebarCollapsed}
+            setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
+            selectedEnvId={selectedEnvId}
+            selectedSvcId={selectedSvcId}
+            setEnvironments={setEnvironments}
+            setMicroservices={setMicroservices}
+            setSelectedEnvId={setSelectedEnvId}
+            setSelectedSvcId={setSelectedSvcId}
+          />
+        </Suspense>
       )}
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <AppHeader

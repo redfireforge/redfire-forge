@@ -330,10 +330,44 @@ function getMonacoApi(): {
   return w.monaco ?? null;
 }
 
+function resolveActiveGqlModelUri(): string | null {
+  const activeTabId = getActiveGqlTabIdFromDom();
+  return activeTabId ? gqlModelUriForTabId(activeTabId) : null;
+}
+
+function isGqlQueryModelUri(uri: string): boolean {
+  return uri.includes('inmemory://graphql/') && !uri.includes('inmemory://graphql-vars/');
+}
+
+function findGqlQueryModel(models: MonacoGqlModel[], targetUri: string | null): MonacoGqlModel | undefined {
+  return models.find((m) => {
+    const uri = m.uri.toString();
+    if (targetUri) return uri === targetUri;
+    return isGqlQueryModelUri(uri);
+  });
+}
+
+function findGqlQueryEditor(editors: MonacoGqlEditor[], targetUri: string | null): MonacoGqlEditor | undefined {
+  return editors.find((e) => {
+    const uri = e.getModel()?.uri.toString() ?? '';
+    if (targetUri) return uri === targetUri;
+    return isGqlQueryModelUri(uri);
+  });
+}
+
 export function getMonacoGqlModel(): MonacoGqlModel | null {
   const monaco = getMonacoApi();
-  const models = monaco?.editor?.getModels?.() ?? [];
-  return models.find((m) => m.uri.toString().includes('inmemory://graphql/')) ?? null;
+  if (!monaco?.editor) return null;
+  const models = monaco.editor.getModels?.() ?? [];
+  return findGqlQueryModel(models, resolveActiveGqlModelUri()) ?? null;
+}
+
+/** Monaco editor instance for the active GraphQL tab's query document. */
+export function getMonacoGqlEditorInstance(): MonacoGqlEditor | null {
+  const monaco = getMonacoApi();
+  if (!monaco?.editor) return null;
+  const editors = monaco.editor.getEditors?.() ?? [];
+  return findGqlQueryEditor(editors, resolveActiveGqlModelUri()) ?? null;
 }
 
 /** Active studio tab id from the tab bar (e.g. `gql-tab-1`). */
@@ -360,25 +394,16 @@ export function syncGqlQueryToAppState(query: string): void {
 function setMonacoGqlValue(query: string): boolean {
   const monaco = getMonacoApi();
   if (!monaco?.editor) return false;
-  const activeTabId = getActiveGqlTabIdFromDom();
-  const targetUri = activeTabId ? gqlModelUriForTabId(activeTabId) : null;
+  const targetUri = resolveActiveGqlModelUri();
 
   const editors = monaco.editor.getEditors?.() ?? [];
-  const editor = editors.find((e) => {
-    const uri = e.getModel()?.uri.toString() ?? '';
-    if (targetUri) return uri === targetUri;
-    return uri.includes('inmemory://graphql/') && !uri.includes('inmemory://graphql-vars/');
-  });
+  const editor = findGqlQueryEditor(editors, targetUri);
   if (editor) {
     editor.setValue(query);
     return true;
   }
   const models = monaco.editor.getModels?.() ?? [];
-  const model = models.find((m) => {
-    const uri = m.uri.toString();
-    if (targetUri) return uri === targetUri;
-    return uri.includes('inmemory://graphql/') && !uri.includes('inmemory://graphql-vars/');
-  });
+  const model = findGqlQueryModel(models, targetUri);
   if (model) {
     model.setValue(query);
     return true;
@@ -533,6 +558,13 @@ export async function ensureResponseCreateUserVisible(ctx: DemoActionContext): P
   await ctx.click(GQL.RIGHT_TAB_RESPONSE);
   await ctx.delay(300);
   await ctx.waitFor(GQL.RESPONSE_DATA_CREATE_USER, 10000);
+}
+
+/** Ensure the Response pane is open and the compact data.createOrder card is visible. */
+export async function ensureResponseCreateOrderVisible(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+  await ctx.delay(300);
+  await ctx.waitFor(GQL.RESPONSE_DATA_CREATE_ORDER, 10000);
 }
 
 /** Ensure the Response pane is open and the compact data.user card is visible. */
@@ -721,6 +753,26 @@ export async function ensureIntrospected(ctx: DemoActionContext): Promise<void> 
   await ctx.delay(400);
   await ctx.waitFor(GQL.SCHEMA_TYPE_QUERY, 15000);
   _schemaLoaded = hasUsableSchemaBadge() && schemaExplorerShowsQueryType();
+}
+
+/**
+ * Collapse the GraphQL Studio left activity strip (History / Collections / Mock).
+ * Tauri persists the Mock tab — lessons that need the main editor must close it first.
+ */
+export async function closeGqlActivityPanelIfOpen(ctx: DemoActionContext): Promise<void> {
+  const tabs: Array<{ selector: string }> = [
+    { selector: GQL.ACTIVITY_MOCK },
+    { selector: GQL.ACTIVITY_HISTORY },
+    { selector: GQL.ACTIVITY_COLLECTIONS },
+  ];
+  for (const { selector } of tabs) {
+    const btn = document.querySelector<HTMLElement>(selector);
+    if (btn?.classList.contains('gql-activity-tab--active')) {
+      await ctx.click(selector);
+      await ctx.delay(300);
+      return;
+    }
+  }
 }
 
 /** Ensure GraphQL editor mode is active. */

@@ -13,7 +13,6 @@ import {
   ensureDemoOrderCreated,
   ensurePauseResumeDemo,
   ensureSubscriptionQueryWritten,
-  ensureSubscriptionVars,
   ensureSubscribedWithMessages,
   ensureVariablesPanelOpen,
   ensureWsTransport,
@@ -28,6 +27,9 @@ import {
   prepareGql5ExecCreateOrderReading,
   prepareGql5IntroReading,
   prepareGql5ObserveCreateOrderReading,
+  prepareGql5SubscriptionAuthReading,
+  demonstrateSubscriptionAuthHandshake,
+  ensureSubscriptionAuthConfigured,
   storeCreatedOrderIdFromResponse,
 } from './graphql-lesson-helpers';
 
@@ -38,7 +40,7 @@ export const gqlSubscriptionsLesson: DemoLesson = {
   name: 'Subscriptions — Real-Time Data',
   description:
     'Subscribe to live GraphQL events over WebSocket, choose the transport protocol, watch the message log, pause and filter streams, add real-time assertions, and disconnect cleanly.',
-  estimatedMinutes: 7,
+  estimatedMinutes: 8,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
@@ -460,17 +462,36 @@ Choosing the wrong protocol causes a silent handshake failure — the connection
       pauseAfter: true,
     },
 
-    // ── Step 7: Subscribe ───────────────────────────────────────────────────
+    // ── Step 8: Subscription channel auth ───────────────────────────────────
+    {
+      id: 'gql5-subscription-auth',
+      title: 'Wire Auth Into the WebSocket Handshake',
+      description:
+        'Open the **Auth** panel and set **Bearer** to `{{authToken}}` — the same pattern from **GQL-4**.\n\n' +
+        'Browsers cannot attach custom HTTP headers to a WebSocket upgrade. GraphQL Studio therefore sends credentials as **`connectionParams`** in the first `connection_init` frame (`Authorization: Bearer …`). ' +
+        'Watch the **Auth preview** resolve the token from your active environment — that value is what rides on the subscription channel. No second auth panel exists for WebSocket.\n\n' +
+        '**What to watch for:** The spotlight is on the resolved preview row; the connection-bar **Auth** badge confirms the tab is armed before you click **Subscribe** in the next step.',
+      highlight: GQL.AUTH_PREVIEW,
+      preAction: prepareGql5SubscriptionAuthReading,
+      action: async (ctx) => {
+        await demonstrateSubscriptionAuthHandshake(ctx);
+      },
+      verify: GQL.AUTH_PREVIEW,
+      pauseAfter: true,
+    },
+
+    // ── Step 9: Subscribe ───────────────────────────────────────────────────
     {
       id: 'gql5-subscribe',
       title: 'Open the Subscription',
       description:
         'Click **Subscribe** — the Studio opens a WebSocket connection to `ws://localhost:4010/graphql` and sends the subscription operation. ' +
+        'The **Bearer** credential you configured in the prior step is included automatically in the `connection_init` handshake — no extra auth step.\n\n' +
         'Watch the status badge switch from **Connecting…** to **● LIVE**.\n\n' +
         'The right panel transforms into the **subscription log**. The test server emits three status updates ~300ms apart — **PENDING → PROCESSING → COMPLETE**. ' +
         'Each message arrives as a `{ data: { orderStatus: { status, updatedAt } } }` response and appears as a new log row.',
       highlight: GQL.SUBSCRIBE_BTN,
-      preAction: ensureSubscriptionVars,
+      preAction: ensureSubscriptionAuthConfigured,
       action: async (ctx) => {
         await ctx.click(GQL.RIGHT_TAB_RESPONSE);
         await ctx.delay(200);

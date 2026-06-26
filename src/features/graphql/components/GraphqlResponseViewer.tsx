@@ -15,7 +15,11 @@ import type { ApolloTracingData, GraphqlResponse } from '../../../shared/types/g
 import { GraphqlTracingView } from './GraphqlTracingView';
 import { GqlLatencyHistogram } from './GqlLatencyHistogram';
 import { useGraphqlResponseDataOnly } from '../hooks/useGraphqlResponseDataOnly';
-import { getResponseDataCreateUser, getResponseDataUser } from '../utils/graphqlResponseDataExtractors';
+import {
+  getResponseDataCreateOrder,
+  getResponseDataCreateUser,
+  getResponseDataUser,
+} from '../utils/graphqlResponseDataExtractors';
 import { authSentSourceLabel } from '../utils/gqlAuthResolve';
 import { serializeGraphqlResponseBody } from '../utils/graphqlResponseBodyPayload';
 
@@ -424,6 +428,7 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
 
   const dataUser = useMemo(() => getResponseDataUser(response), [response]);
   const dataCreateUser = useMemo(() => getResponseDataCreateUser(response), [response]);
+  const dataCreateOrder = useMemo(() => getResponseDataCreateOrder(response), [response]);
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(prettyJson).then(() => {
@@ -636,6 +641,13 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
           path="data.createUser"
           data={dataCreateUser}
           testId="gql-response-data-create-user"
+        />
+      )}
+      {dataCreateOrder && (
+        <ResponseDataSummaryCard
+          path="data.createOrder"
+          data={dataCreateOrder}
+          testId="gql-response-data-create-order"
         />
       )}
 

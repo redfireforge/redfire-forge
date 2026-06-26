@@ -11,6 +11,7 @@ import {
   ensureAliasConfigured,
   ensureBuilderMode,
   ensureEditedToEditor,
+  closeGqlActivityPanelIfOpen,
   prepareEditInEditorReading,
   prepareEditorCommentReading,
   prepareOneWaySyncReading,
@@ -302,12 +303,15 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-builder',
       title: 'Open Builder Mode',
       description:
-        'Click **Builder** on the editor mode toolbar to open the visual workspace. The Monaco editor is replaced by a three-panel layout.\n\n' +
+        'Click **Builder** on the editor mode toolbar to open the visual workspace. The Monaco editor is replaced by a three-panel layout. Any open **Mock** / **History** side panel is collapsed first so the Builder tree is unobstructed.\n\n' +
         '**Why Builder mode?** When you join a new project or explore an unfamiliar API, reading raw SDL is slow — you\'d need to mentally parse type definitions just to figure out which fields exist. ' +
         `Builder reads the introspected schema from \`${GQL_DEMO_HTTP}\` and renders it as a **clickable tree**, so you can see every available field instantly. ` +
         'The left panel lists **Query** root fields — `health` (a simple health check) and `user(id: ID!)` (an object type requiring an id argument).',
       highlight: GQL.MODE_BUILDER,
-      preAction: ensureIntrospected,
+      preAction: async (ctx) => {
+        await closeGqlActivityPanelIfOpen(ctx);
+        await ensureIntrospected(ctx);
+      },
       action: async (ctx) => {
         await ensureBuilderMode(ctx);
         await ctx.delay(800);

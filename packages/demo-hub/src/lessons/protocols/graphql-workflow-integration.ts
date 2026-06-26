@@ -87,7 +87,7 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
     ],
     diagram: `<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">
   <!-- Window chrome -->
-  <rect width="700" height="430" rx="10" fill="var(--bg)" stroke="var(--border)" stroke-width="1.5"/>
+  <rect width="700" height="430" rx="10" fill="#0f172a" stroke="#3b4a60" stroke-width="1.5"/>
   <rect width="700" height="32" rx="10" fill="#1e293b"/>
   <rect y="22" width="700" height="10" fill="#1e293b"/>
   <circle cx="20" cy="16" r="5" fill="#ef4444" opacity="0.8"/>
@@ -98,7 +98,7 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
   <!-- Toolbar -->
   <rect y="32" width="700" height="34" fill="#1e293b" stroke="#334155" stroke-width="0.5"/>
   <!-- Toolbar workflow name badge -->
-  <rect x="12" y="40" width="140" height="18" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+  <rect x="12" y="40" width="140" height="18" rx="4" fill="#0f172a" stroke="#3b4a60" stroke-width="1"/>
   <text x="82" y="53" text-anchor="middle" fill="#94a3b8" font-size="9.5">GraphQL Latency Demo</text>
   <!-- Save button -->
   <rect x="165" y="40" width="44" height="18" rx="4" fill="#1e293b" stroke="#3b4a60" stroke-width="1"/>
@@ -124,7 +124,7 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
   <text x="65" y="179" text-anchor="middle" fill="#6ee7b7" font-size="8">Assertion node</text>
 
   <!-- Canvas area -->
-  <rect x="130" y="66" width="570" height="300" fill="var(--bg)"/>
+  <rect x="130" y="66" width="570" height="300" fill="#0f172a"/>
   <!-- Grid dots -->
   <pattern id="grid16" x="130" y="66" width="20" height="20" patternUnits="userSpaceOnUse">
     <circle cx="10" cy="10" r="0.8" fill="#1e2d45" opacity="0.6"/>
@@ -188,7 +188,7 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
   <!-- Console panel (docked, collapsed) -->
   <rect x="130" y="366" width="570" height="30" fill="#1e293b" stroke="#334155" stroke-width="0.5"/>
   <!-- Console badge -->
-  <rect x="140" y="373" width="56" height="16" rx="4" fill="var(--bg)" stroke="var(--border)" stroke-width="1"/>
+  <rect x="140" y="373" width="56" height="16" rx="4" fill="#0f172a" stroke="#3b4a60" stroke-width="1"/>
   <text x="168" y="385" text-anchor="middle" fill="#60a5fa" font-size="8.5" font-weight="600">Console ●</text>
   <!-- Console log excerpt -->
   <text x="210" y="381" fill="#6ee7b7" font-size="7.5">[node:graphqlQuery]</text>
@@ -196,7 +196,7 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
   <text x="530" y="381" fill="#f87171" font-size="7.5">[FAIL] 28 ≮ 1</text>
 
   <!-- Bottom caption -->
-  <rect x="0" y="396" width="700" height="34" rx="0" fill="var(--bg)"/>
+  <rect x="0" y="396" width="700" height="34" rx="0" fill="#0f172a"/>
   <rect x="0" y="396" width="700" height="1" fill="#334155"/>
   <text x="350" y="418" text-anchor="middle" fill="#475569" font-size="9">Protocols → GraphQL → GQL-16 Workflow Integration</text>
 </svg>`,

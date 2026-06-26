@@ -114,6 +114,15 @@ async function closeEnvIfOpen(ctx: DemoActionContext): Promise<void> {
   }
 }
 
+async function closeProfileIfOpen(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GQL.PROFILE_MODAL)) return;
+  const closeBtn = document.querySelector<HTMLElement>(GQL.PROFILE_CLOSE_BTN);
+  if (closeBtn) {
+    await ctx.click(GQL.PROFILE_CLOSE_BTN);
+    await ctx.delay(300);
+  }
+}
+
 /** Seed the demo global auth profile via the App bridge. */
 export function seedLesson6GlobalAuthProfile(): void {
   upsertGlobalAuthProfile({
@@ -499,6 +508,8 @@ export async function prepareInheritConfigReading(ctx: DemoActionContext): Promi
 export async function prepareInheritObserveReading(ctx: DemoActionContext): Promise<void> {
   await ensureOauthDone(ctx);
   seedLesson6GlobalAuthProfile();
+  await closeEnvIfOpen(ctx);
+  await closeProfileIfOpen(ctx);
   await configureInheritOnly(ctx);
   await prepareMetadataRequestHeadersReading(ctx, 'Authorization');
 }
