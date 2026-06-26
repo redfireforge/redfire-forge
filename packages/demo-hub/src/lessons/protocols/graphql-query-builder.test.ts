@@ -244,11 +244,13 @@ describe('gql-query-builder lesson', () => {
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
       <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-activity-mock" class="gql-activity-tab--active"></button>
       <button data-testid="gql-mode-builder"></button>
       <div data-testid="gql-qb-field-tree"></div>
     `;
     const step = gqlQueryBuilderLesson.steps.find((s) => s.id === 'gql7-builder')!;
     await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_MOCK);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.MODE_BUILDER);
   });

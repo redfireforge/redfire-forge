@@ -463,6 +463,13 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(step.verify).toBe(LESSON6_RV_AUTHORIZATION_VAL);
   });
 
+  it('gql6-inherit-observe description distinguishes global auth profile from connection profiles', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-inherit-observe')!;
+    expect(step.description).toContain(LESSON6_GLOBAL_AUTH_PROFILE_NAME);
+    expect(step.description).toContain('global auth profile');
+    expect(step.description).toContain('connection profiles');
+  });
+
   it('gql6-inherit-observe action executes and opens Metadata tab', async () => {
     buildLessonDom();
     const ctx = makeCtx();
@@ -517,6 +524,13 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-exec')!;
     expect(typeof step.action).toBe('function');
     expect(step.highlight).toBe(GQL.EXECUTE_BTN);
+  });
+
+  it('gql6-subscription-exec description leads with Execute to match spotlight', () => {
+    const step = gqlAuthHeadersLesson.steps.find((s) => s.id === 'gql6-subscription-exec')!;
+    expect(step.description).toMatch(/^Click \*\*Execute\*\*/);
+    expect(step.description).toContain(LESSON6_GLOBAL_AUTH_PROFILE_NAME);
+    expect(step.description.toLowerCase()).toContain('subscription');
   });
 
   it('gql6-subscription-observe highlights inherit Authorization value row', () => {

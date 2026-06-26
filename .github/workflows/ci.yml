@@ -114,6 +114,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build:prod
+      - run: npm run audit:prod-demo-bundle
       - name: Verify dist output
         run: |
           if [ ! -f dist/index.html ]; then

@@ -33,7 +33,7 @@ curl --noproxy '*' http://127.0.0.1:4010/health
 
 1. With Vite already on **5173** (Playwright/E2E dev server): `cd src-tauri && cargo run --no-default-features` — or stop Vite first and run `npm run tauri:dev`.
 2. Repeat Web checklist on desktop build.
-3. Confirm TLS traffic routes through Node proxy (transport badge / metadata as described in lesson).
+3. Confirm TLS traffic uses native rustls on desktop (TLS panel notice) — no Node proxy required for mTLS.
 4. mTLS steps 9–11 succeed with same PEM fields as web.
 
 **Launch note (2026-06-23):** `npm run tauri:dev` fails when port 5173 is occupied; `cargo run` against existing Vite succeeds.

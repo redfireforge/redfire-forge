@@ -124,15 +124,10 @@ describe('buildApqSendFn', () => {
     expect(calledUrl).toContain('operationName=HashOp');
   });
 
-  it('GET via TLS proxy POSTs to proxy when client certs require POST body', async () => {
+  it('GET with mTLS PEM fields POSTs directly via gqlFetch', async () => {
     vi.mocked(gqlRequiresTlsProxy).mockReturnValue(true);
     vi.mocked(tlsApqGetNeedsPostProxy).mockReturnValue(true);
-    const fetchMock = vi.fn().mockResolvedValue({
-      status: 200,
-      headers: new Headers({ 'content-type': 'application/json' }),
-      text: async () => '{"data":{"ok":true}}',
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    vi.mocked(gqlFetch).mockResolvedValue({ status: 200, headers: {}, body: '{"data":{"ok":true}}' });
 
     const sendFn = buildApqSendFn({
       endpoint: 'https://localhost:4445/graphql',
@@ -152,25 +147,21 @@ describe('buildApqSendFn', () => {
       'GET',
     );
 
-    expect(fetchMock).toHaveBeenCalledWith(
-      'http://proxy.test/api/graphql/query',
-      expect.objectContaining({
-        method: 'POST',
-        body: expect.stringContaining('hash123'),
-      }),
+    expect(gqlFetch).toHaveBeenCalledWith(
+      'https://localhost:4445/graphql',
+      'POST',
+      expect.any(Object),
+      expect.stringContaining('hash123'),
+      expect.any(AbortSignal),
+      { caCert: '-----BEGIN CERTIFICATE-----\nabc\n-----END CERTIFICATE-----' },
     );
     expect(parseHttpBody).toHaveBeenCalled();
   });
 
-  it('GET via TLS proxy POST omits optional body fields when absent', async () => {
+  it('GET with mTLS POST omits optional body fields when absent', async () => {
     vi.mocked(gqlRequiresTlsProxy).mockReturnValue(true);
     vi.mocked(tlsApqGetNeedsPostProxy).mockReturnValue(true);
-    const fetchMock = vi.fn().mockResolvedValue({
-      status: 200,
-      headers: new Headers(),
-      text: async () => '{}',
-    });
-    vi.stubGlobal('fetch', fetchMock);
+    vi.mocked(gqlFetch).mockResolvedValue({ status: 200, headers: {}, body: '{}' });
 
     const sendFn = buildApqSendFn({
       endpoint: 'https://localhost:4445/graphql',
@@ -184,7 +175,7 @@ describe('buildApqSendFn', () => {
 
     await sendFn({ query: 'query { health }', extensions: { persistedQuery: { version: 1, sha256Hash: 'h' } } }, 'GET');
 
-    const body = JSON.parse(String(fetchMock.mock.calls[0][1].body));
+    const body = JSON.parse(String(vi.mocked(gqlFetch).mock.calls[0][3]));
     expect(body.query).toBe('query { health }');
     expect(body.extensions).toBeDefined();
     expect(body.variables).toBeUndefined();

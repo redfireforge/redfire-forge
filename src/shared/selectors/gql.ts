@@ -79,6 +79,7 @@ export const GQL = {
   /** Compact data.user field summary — narrower spotlight target for variable lessons */
   RESPONSE_DATA_USER:  '[data-testid="gql-response-data-user"]',
   RESPONSE_DATA_CREATE_USER: '[data-testid="gql-response-data-create-user"]',
+  RESPONSE_DATA_CREATE_ORDER: '[data-testid="gql-response-data-create-order"]',
   RESPONSE_ERRORS:     '[data-testid="gql-response-error-count"]',
   RV_TAB_BODY:         '[data-testid="gql-rv-tab-body"]',
   RV_TAB_METADATA:     '[data-testid="gql-rv-tab-metadata"]',

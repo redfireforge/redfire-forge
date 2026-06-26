@@ -1,5 +1,5 @@
 import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
-import { gqlRequiresTlsProxy, tlsApqGetNeedsPostProxy, serializeGqlTlsForProxy } from '../../../shared/types/gqlTls';
+import { gqlRequiresTlsProxy, tlsApqGetNeedsPostProxy } from '../../../shared/types/gqlTls';
 import { getProxyBase } from '../utils/graphqlProxyTransports';
 import { gqlFetch } from '../utils/gqlFetch';
 import { parseHttpBody } from '../utils/graphqlExecutionResponseParsing';
@@ -38,24 +38,20 @@ export function buildApqSendFn(params: BuildApqSendFnParams): APQSendFn {
           if (requestBody.operationName != null) {
             postBody.operationName = requestBody.operationName;
           }
-          const result = await fetch(`${getProxyBase()}/api/graphql/query`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Accept: 'application/json', ...getHeaders },
-            body: JSON.stringify({
-              endpoint,
+          const result = await gqlFetch(
+            endpoint,
+            'POST',
+            { 'Content-Type': 'application/json', Accept: 'application/json', ...getHeaders },
+            JSON.stringify({
               query: postBody.query,
               ...(postBody.extensions !== undefined ? { extensions: postBody.extensions } : {}),
               ...(postBody.variables !== undefined ? { variables: postBody.variables } : {}),
               ...(postBody.operationName !== undefined ? { operationName: postBody.operationName } : {}),
-              headers,
-              ...serializeGqlTlsForProxy(tls),
             }),
             signal,
-          });
-          const text = await result.text();
-          const resHeaders: Record<string, string> = {};
-          result.headers.forEach((v, k) => { resHeaders[k] = v; });
-          return parseHttpBody(result.status, resHeaders, text, Math.round(performance.now() - startTime));
+            tls,
+          );
+          return parseHttpBody(result.status, result.headers, result.body, Math.round(performance.now() - startTime), result.error);
         }
 
         const proxyParams = new URLSearchParams();

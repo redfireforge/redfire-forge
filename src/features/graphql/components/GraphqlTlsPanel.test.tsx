@@ -197,11 +197,11 @@ describe('GraphqlTlsPanel', () => {
     expect(screen.getByTestId('gql-tls-proxy-notice')).toBeTruthy();
   });
 
-  it('hides web proxy notice on Tauri', () => {
+  it('shows native rustls notice on Tauri', () => {
     platformMocks.isTauri = true;
     render(<GraphqlTlsPanel skipTlsVerify={false} onTlsChange={vi.fn()} />);
     openModal();
-    expect(screen.queryByTestId('gql-tls-proxy-notice')).toBeNull();
+    expect(screen.getByTestId('gql-tls-proxy-notice').textContent).toContain('rustls');
   });
 
   it('shows warning badge inside modal when skipTlsVerify is enabled', () => {

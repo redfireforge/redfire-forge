@@ -28,6 +28,11 @@ import {
   restorePageEndpointSnapshot,
 } from './adapters';
 import {
+  GQL_MODAL_LOCK_OPEN,
+  resolveGqlModalLockForStepHighlight,
+  syncGqlModalLock,
+} from './adapters/gqlModalLockBridge';
+import {
   clearDemoLiveSession,
   consumeLiveDemoResumeOnce,
   persistDemoLiveSession,
@@ -536,6 +541,11 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const scaleMs = (ms: number) => Math.round(ms / speed);
 
     try {
+      const lesson = state.selectedLesson;
+      if (lesson && isGraphqlStudioLesson(lesson)) {
+        syncGqlModalLock(resolveGqlModalLockForStepHighlight(step.highlight));
+      }
+
       // Phase 1: preAction (invisible navigation)
       setStepPhase('pre');
       if (step.preAction) {
@@ -596,7 +606,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         setStepPhase('done');
       }
     }
-  }, [buildContext, buildQuietContext, waitForElement, abortableSleep]);
+  }, [buildContext, buildQuietContext, waitForElement, abortableSleep, state.selectedLesson]);
 
   /** Run action + verify when the user skips the reading pause via Next / ArrowRight. */
   const finishCurrentStepFromReading = useCallback(async (step: DemoStep, speed: SpeedMultiplier) => {
@@ -890,6 +900,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   // the user should never see a blank body while cleanup operations complete.
   const exitLiveDemo = useCallback(async () => {
     await syncDemoLiveGuard(false);
+    syncGqlModalLock(GQL_MODAL_LOCK_OPEN);
     clearDemoLiveSession();
     closeWorkflowConfigModal();
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);

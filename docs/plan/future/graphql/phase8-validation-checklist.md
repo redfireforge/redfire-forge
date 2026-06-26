@@ -70,7 +70,7 @@ cd src-tauri && cargo run --no-default-features
 | GQL-5 | HTTPS, TLS & Certificates | 16 | `npm run test:e2e:demo:gql5` | [ ] | [ ] | **mTLS steps 9–11 — Tauri required** |
 | GQL-6 | Mutations | 19 | `npm run test:e2e:demo:gql6` | [ ] | [ ] | Quality audit ✅ |
 | GQL-7 | Subscriptions | 14 | `npm run test:e2e:demo:gql7` | [ ] | [ ] | Quality audit ✅ |
-| GQL-8 | Query Builder | 10 | `npm run test:e2e:demo:gql8` | [ ] | [ ] | Quality audit ✅ |
+| GQL-8 | Query Builder | 10 | `npm run test:e2e:demo:gql8` | [x] | [x] | Quality audit ✅ · human Web+Tauri 2026-06-26 |
 | GQL-9 | Collections & History | 9 | `npm run test:e2e:demo:gql9` | [ ] | [ ] | Quality audit ✅ |
 | GQL-10 | Export & Share | 7 | `npm run test:e2e:demo:gql10` | [ ] | [ ] | Quality audit ✅ |
 | GQL-11 | Performance Tracing | 8 | `npm run test:e2e:demo:gql11` | [ ] | [ ] | Quality audit ✅ |
@@ -78,7 +78,7 @@ cd src-tauri && cargo run --no-default-features
 | GQL-13 | Mock Server | 15 | `npm run test:e2e:demo:gql13` | [ ] | [ ] | Desktop + :3001 mock |
 | GQL-14 | Multi-Tab Workspaces | 10 | `npm run test:e2e:demo:gql14` | [ ] | [ ] | `tabBudget: 2` |
 | GQL-15 | Batch Execution | 9 | `npm run test:e2e:demo:gql15` | [ ] | [ ] | `tabBudget: 2` |
-| GQL-16 | Workflow Integration | 12 | `npm run test:e2e:demo:gql16` | [ ] | [ ] | Workflow tab |
+| GQL-16 | Workflow Integration | 12 | `npm run test:e2e:demo:gql16` | [ ] | [ ] | Enhancement complete ✅ |
 | GQL-17 | Workflow Runner | 10 | `npm run test:e2e:demo:gql17` | [ ] | [ ] | |
 | GQL-18 | Mutation Node in Workflow | 8 | `npm run test:e2e:demo:gql18` | [ ] | [ ] | CRUD + teardown |
 | GQL-19 | Subscription in Workflow | 9 | `npm run test:e2e:demo:gql19` | [ ] | [ ] | |

@@ -1137,6 +1137,16 @@
   white-space: nowrap;
 }
 
+.gql-connection-badge--demo-locked {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.gql-connection-badge--demo-locked:hover {
+  border-color: var(--border);
+  background: var(--surface);
+}
+
 /* ─── Phase 1E: Environment Manager Modal ────────────────────────────────── */
 
 .gql-env-modal-overlay {
@@ -4972,6 +4982,37 @@
   color: var(--text-muted);
   opacity: 0.75;
   white-space: nowrap;
+}
+
+.gql-profile-inherit-note {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.gql-profile-inherit-note__title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.gql-profile-inherit-note__name {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.gql-profile-inherit-note__hint {
+  margin: 0;
+  font-size: 0.7rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  opacity: 0.85;
 }
 
 /* ── Empty state ───────────────────────────────────────────────────── */

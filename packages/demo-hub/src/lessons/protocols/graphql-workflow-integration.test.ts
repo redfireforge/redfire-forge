@@ -88,9 +88,9 @@ describe('gql-workflow-integration lesson', () => {
     expect(gqlWorkflowIntegrationLesson.concept.title).toContain('Automated Test');
   });
 
-  it('concept diagram uses CSS design tokens', () => {
-    expect(gqlWorkflowIntegrationLesson.concept.diagram).toContain('var(--bg)');
-    expect(gqlWorkflowIntegrationLesson.concept.diagram).not.toContain('#0f172a');
+  it('concept diagram uses fixed dark-theme hex palette (ConceptSlide-safe)', () => {
+    expect(gqlWorkflowIntegrationLesson.concept.diagram).toContain('#0f172a');
+    expect(gqlWorkflowIntegrationLesson.concept.diagram).not.toContain('var(--');
   });
 
   it('concept body explains WHY GraphQL Query node vs generic HTTP', () => {

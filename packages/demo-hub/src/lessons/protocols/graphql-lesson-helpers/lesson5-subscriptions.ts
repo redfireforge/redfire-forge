@@ -20,7 +20,14 @@ import {
   resetGqlLesson3SessionFlags,
 } from './lesson3-mutations';
 import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
+import {
+  LESSON6_AUTH_TOKEN_VALUE,
+  LESSON6_BEARER_TEMPLATE,
+  ensureEnvReady,
+  resetGqlLesson6SessionFlags,
+} from './lesson6-auth-headers';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import { ensureAuthPanelVisible, selectAuthInPanel } from './core';
 
 /** orderStatus subscription — requires `$orderId` from a prior createOrder. */
 export const GQL_ORDER_STATUS_SUBSCRIPTION = `subscription OrderUpdates($orderId: ID!) {
@@ -37,6 +44,7 @@ let _lesson5Subscribed = false;
 let _lesson5PauseDemoDone = false;
 let _lesson5FilterDemoDone = false;
 let _lesson5AssertionAdded = false;
+let _lesson5AuthConfigured = false;
 
 /** Reset Lesson 5 session flags. */
 export function resetGqlLesson5SessionFlags(): void {
@@ -47,6 +55,7 @@ export function resetGqlLesson5SessionFlags(): void {
   _lesson5PauseDemoDone = false;
   _lesson5FilterDemoDone = false;
   _lesson5AssertionAdded = false;
+  _lesson5AuthConfigured = false;
 }
 
 export function getLesson5OrderId(): string {
@@ -153,6 +162,53 @@ export async function ensureWsTransport(ctx: DemoActionContext): Promise<void> {
   }
 }
 
+async function configureSubscriptionBearerAuth(ctx: DemoActionContext): Promise<void> {
+  await ensureEnvReady(ctx);
+  await ensureAuthPanelVisible(ctx);
+  await ctx.delay(800);
+  await selectAuthInPanel(ctx, 'bearer');
+  await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON6_BEARER_TEMPLATE);
+  await ctx.delay(500);
+}
+
+async function waitForResolvedAuthPreview(ctx: DemoActionContext): Promise<void> {
+  const deadline = Date.now() + 8000;
+  while (Date.now() < deadline) {
+    const preview = document.querySelector(GQL.AUTH_PREVIEW);
+    if (preview?.textContent?.includes(LESSON6_AUTH_TOKEN_VALUE)) return;
+    await ctx.delay(200);
+  }
+  await ctx.waitFor(GQL.AUTH_PREVIEW, 5000);
+}
+
+/** Step gql5-subscription-auth reading — transport + subscription query ready; auth not yet shown. */
+export async function prepareGql5SubscriptionAuthReading(ctx: DemoActionContext): Promise<void> {
+  await ensureSubscriptionVars(ctx);
+  await ensureWsTransport(ctx);
+}
+
+/** Ensure Bearer auth is configured for the subscription WebSocket handshake. */
+export async function ensureSubscriptionAuthConfigured(ctx: DemoActionContext): Promise<void> {
+  if (_lesson5AuthConfigured) return;
+  await prepareGql5SubscriptionAuthReading(ctx);
+  await configureSubscriptionBearerAuth(ctx);
+  _lesson5AuthConfigured = true;
+}
+
+/** Visible auth setup for gql5-subscription-auth step action. */
+export async function demonstrateSubscriptionAuthHandshake(ctx: DemoActionContext): Promise<void> {
+  await configureSubscriptionBearerAuth(ctx);
+  await waitForResolvedAuthPreview(ctx);
+  await ctx.delay(800);
+  await ctx.click(GQL.AUTH_BADGE_BTN);
+  await ctx.delay(800);
+  markSubscriptionAuthDone();
+}
+
+export function markSubscriptionAuthDone(): void {
+  _lesson5AuthConfigured = true;
+}
+
 /** Step 1 reading — demo endpoint ready; connection bar visible. */
 export async function prepareGql5IntroReading(ctx: DemoActionContext): Promise<void> {
   await ensureDemoEndpoint(ctx);
@@ -250,8 +306,7 @@ export async function ensureSubscriptionVars(ctx: DemoActionContext): Promise<vo
 
 /** Subscribe and wait until PENDING → COMPLETE messages appear in the log. */
 export async function ensureSubscribedWithMessages(ctx: DemoActionContext): Promise<void> {
-  await ensureSubscriptionVars(ctx);
-  await ensureWsTransport(ctx);
+  await ensureSubscriptionAuthConfigured(ctx);
   if (_lesson5Subscribed && subscriptionRowCount() >= 3 && subscriptionLogText().includes('COMPLETE')) {
     return;
   }
@@ -336,6 +391,7 @@ export async function gqlSubscriptionsLessonSetup(ctx: DemoActionContext): Promi
   resetGqlLesson3SessionFlags();
   resetGqlLesson4SessionFlags();
   resetGqlLesson5SessionFlags();
+  resetGqlLesson6SessionFlags();
 
   const editorBtn = document.querySelector<HTMLElement>(GQL.MODE_EDITOR);
   if (editorBtn && !editorBtn.classList.contains('gql-mode-btn--active')) {

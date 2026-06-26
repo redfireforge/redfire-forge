@@ -11,6 +11,7 @@ export type DemoBridgeWindow = Window &
     __demoUpsertGqlEnv?: (name: string, envVars: Array<{ key: string; value: string; masked?: boolean }>) => void;
     __demoApplyGqlTlsSettings?: (patch: Partial<GqlTlsSettings>) => void;
     __demoSetGqlQuery?: (query: string) => void;
+    __demoSetGqlModalLock?: (lock: { envAllowed: boolean; profileAllowed: boolean }) => void;
     __demoDeleteGqlEnvByName?: (name: string) => void;
     __wfDeleteByName?: (name: string) => void;
     __wfInsertWorkflow?: (wf: Record<string, unknown>) => void;

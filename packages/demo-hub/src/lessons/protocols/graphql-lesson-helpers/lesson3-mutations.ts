@@ -19,6 +19,7 @@ import {
   schemaBadgeShowsEmpty,
   openResponseBodyTab,
   ensureResponseCreateUserVisible,
+  ensureResponseCreateOrderVisible,
   clearActiveTabEndpointOverride,
   configureDemoTabEndpointOverride,
 } from './core';
@@ -466,7 +467,7 @@ export async function prepareGql3ExecOrderReading(ctx: DemoActionContext): Promi
 export async function prepareGql3ObserveOrderReading(ctx: DemoActionContext): Promise<void> {
   await ensureCreateOrderExecuted(ctx);
   await openResponseBodyTab(ctx);
-  await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+  await ensureResponseCreateOrderVisible(ctx);
 }
 
 /** Step 13 reading — createOrder response visible, editor still on createOrder. */

@@ -19,6 +19,7 @@ import type { GraphqlAuth } from '../../../shared/types/graphql';
 import type { GlobalAuthProfile } from '../../../shared/types';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 import { authBadgeLabel, isAuthConfigured } from '../utils/authUtils';
+import { inheritAuthProfileLabel } from '../utils/gqlAuthResolve';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -116,6 +117,10 @@ export function GraphqlProfileModal({
   }, []);
 
   const canSave = newName.trim().length > 0 && currentEndpoint.trim().length > 0;
+  const inheritProfileName =
+    currentAuth?.type === 'inherit'
+      ? inheritAuthProfileLabel(currentAuth, globalAuthProfiles)
+      : null;
   const profileCountLabel =
     profiles.length === 0
       ? 'No saved profiles'
@@ -169,6 +174,19 @@ export function GraphqlProfileModal({
 
         {/* Body */}
         <div className="gql-profile-modal__body">
+          {inheritProfileName && (
+            <div className="gql-profile-inherit-note" data-testid="gql-profile-inherit-note">
+              <span className="gql-profile-inherit-note__title">Global auth profile (not a connection profile)</span>
+              <span className="gql-profile-inherit-note__name">{inheritProfileName}</span>
+              <p className="gql-profile-inherit-note__hint">
+                This credential lives in the <strong>Auth</strong> panel under{' '}
+                <strong>Inherit from Auth Profile</strong> and in Environment Manager.
+                Saved profiles below only store endpoint + auth <em>mode</em> — they do not duplicate
+                the global catalog entry.
+              </p>
+            </div>
+          )}
+
           {/* Saved profiles */}
           <div className="gql-profile-section">
             <div className="gql-profile-section__heading-row">

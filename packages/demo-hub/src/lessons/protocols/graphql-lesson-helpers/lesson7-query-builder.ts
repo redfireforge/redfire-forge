@@ -6,9 +6,11 @@ import {
   ensureDemoEndpoint,
   ensureEditorMode,
   ensureIntrospected,
+  closeGqlActivityPanelIfOpen,
   fillGqlEditor,
   getDemoUserAId,
   getGqlEditorQuery,
+  getMonacoGqlEditorInstance,
   syncGqlQueryToAppState,
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
@@ -75,6 +77,7 @@ async function expandSummaryFieldOption(ctx: DemoActionContext, path: string): P
 
 /** Switch to Builder mode with introspected schema loaded. */
 export async function ensureBuilderMode(ctx: DemoActionContext): Promise<void> {
+  await closeGqlActivityPanelIfOpen(ctx);
   await ensureDemoEndpoint(ctx);
   await ensureIntrospected(ctx);
   const active = document.querySelector<HTMLElement>(GQL.MODE_BUILDER)?.classList.contains('gql-mode-btn--active');
@@ -240,14 +243,6 @@ type MonacoTypingEditor = {
   revealLineInCenter?(line: number): void;
 };
 
-function getMonacoGqlEditorInstance(): MonacoTypingEditor | null {
-  const w = window as unknown as {
-    monaco?: { editor: { getEditors: () => MonacoTypingEditor[] } };
-  };
-  const editors = w.monaco?.editor?.getEditors?.() ?? [];
-  return editors.find((e) => e.getModel()?.uri.toString().includes('inmemory://graphql/')) ?? null;
-}
-
 async function typeTextAtMonacoCursor(
   ctx: DemoActionContext,
   editor: MonacoTypingEditor,
@@ -291,7 +286,7 @@ export async function demonstrateEditorCommentLine(ctx: DemoActionContext): Prom
     return;
   }
 
-  const editor = getMonacoGqlEditorInstance();
+  const editor = getMonacoGqlEditorInstance() as MonacoTypingEditor | null;
   if (editor?.executeEdits) {
     editor.setPosition?.({ lineNumber: 1, column: 1 });
     editor.focus?.();
@@ -371,6 +366,7 @@ export async function gqlQueryBuilderLessonSetup(ctx: DemoActionContext): Promis
   resetGqlLesson6SessionFlags();
   resetGqlLesson7SessionFlags();
 
+  await closeGqlActivityPanelIfOpen(ctx);
   await ensureEditorMode(ctx);
 
   await ensureGqlDemoTab(ctx, 'gql-query-builder', 'Query Builder — Visual Operations');

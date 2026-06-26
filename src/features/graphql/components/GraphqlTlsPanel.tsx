@@ -129,10 +129,12 @@ export function GraphqlTlsPanel({
         !isTauri()
           ? <>
               In web mode, HTTPS requests with custom TLS settings route through the Vite{' '}
-              <code>/__proxy</code> middleware. On Tauri desktop, the same settings route through
-              the Node.js proxy on port 3001.
+              <code>/__proxy</code> middleware.
             </>
-          : undefined
+          : <>
+              On Tauri desktop, skip-cert, custom CA, and mTLS route through the native Rust
+              HTTP client (rustls) — the same stack as WebSocket Studio.
+            </>
       }
     />
   );

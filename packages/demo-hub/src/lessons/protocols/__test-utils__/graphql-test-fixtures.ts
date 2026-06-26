@@ -60,6 +60,113 @@ export function stubMonacoEditor(query = 'query { health }'): {
   return { setQuery, setVars };
 }
 
+/** Two GraphQL studio tabs — models are ordered local-first (matches real mount order). */
+export function stubMultiTabMonacoEditor(opts: {
+  localQuery?: string;
+  demoQuery: string;
+  activeTabId: 'local-tab' | 'demo-tab';
+}): { setDemoQuery: ReturnType<typeof vi.fn>; setLocalQuery: ReturnType<typeof vi.fn> } {
+  const localQuery = opts.localQuery ?? 'query { health }';
+  let demoQuery = opts.demoQuery;
+  let localQ = localQuery;
+  const setDemoQuery = vi.fn((v: string) => { demoQuery = v; });
+  const setLocalQuery = vi.fn((v: string) => { localQ = v; });
+
+  if (!document.querySelector('[data-testid="gql-tab-bar"]')) {
+    document.body.insertAdjacentHTML(
+      'afterbegin',
+      `<div data-testid="gql-tab-bar">
+        <button role="tab" data-testid="gql-tab-local-tab" aria-selected="${opts.activeTabId === 'local-tab'}"></button>
+        <button role="tab" data-testid="gql-tab-demo-tab" aria-selected="${opts.activeTabId === 'demo-tab'}"></button>
+      </div>`,
+    );
+  }
+
+  const w = window as unknown as {
+    monaco?: {
+      editor: {
+        getModels: () => Array<{
+          getValue: () => string;
+          setValue: (v: string) => void;
+          uri: { toString: () => string };
+        }>;
+        getEditors: () => Array<{
+          getModel: () => { getValue: () => string; uri: { toString: () => string } } | null;
+          setValue: (v: string) => void;
+          setPosition?: (pos: { lineNumber: number; column: number }) => void;
+          getPosition?: () => { lineNumber: number; column: number };
+          focus?: () => void;
+          executeEdits?: (
+            source: string,
+            edits: Array<{ range: Record<string, number>; text: string; forceMoveMarkers?: boolean }>,
+          ) => void;
+          revealLineInCenter?: (line: number) => void;
+        }>;
+      };
+    };
+  };
+
+  w.monaco = {
+    editor: {
+      getModels: () => [
+        {
+          getValue: () => localQ,
+          setValue: (v: string) => {
+            localQ = v;
+            setLocalQuery(v);
+          },
+          uri: { toString: () => 'inmemory://graphql/local-tab' },
+        },
+        {
+          getValue: () => demoQuery,
+          setValue: (v: string) => {
+            demoQuery = v;
+            setDemoQuery(v);
+          },
+          uri: { toString: () => 'inmemory://graphql/demo-tab' },
+        },
+        {
+          getValue: () => '{}',
+          setValue: () => {},
+          uri: { toString: () => 'inmemory://graphql-vars/demo-tab' },
+        },
+      ],
+      getEditors: () => [
+        {
+          getModel: () => ({
+            getValue: () => localQ,
+            uri: { toString: () => 'inmemory://graphql/local-tab' },
+          }),
+          setValue: (v: string) => {
+            localQ = v;
+            setLocalQuery(v);
+          },
+        },
+        {
+          getModel: () => ({
+            getValue: () => demoQuery,
+            uri: { toString: () => 'inmemory://graphql/demo-tab' },
+          }),
+          setValue: (v: string) => {
+            demoQuery = v;
+            setDemoQuery(v);
+          },
+          setPosition: vi.fn(),
+          getPosition: () => ({ lineNumber: 1, column: 1 }),
+          focus: vi.fn(),
+          executeEdits: (_source: string, edits: Array<{ text: string }>) => {
+            for (const edit of edits) demoQuery = edit.text + demoQuery;
+            setDemoQuery(demoQuery);
+          },
+          revealLineInCenter: vi.fn(),
+        },
+      ],
+    },
+  };
+
+  return { setDemoQuery, setLocalQuery };
+}
+
 /** Minimal GraphQL Studio DOM shell for mutation/subscription/variables lessons. */
 export function stubGqlStudioShell(extra = ''): void {
   document.body.innerHTML = `

@@ -24,7 +24,6 @@ export const LESSON8_COLLECTION_NAME = 'Lesson 8 Collection';
 
 let _lesson8HealthExecuted = false;
 let _lesson8HistoryReady = false;
-let _lesson8PreviewOpen = false;
 let _lesson8Loaded = false;
 let _lesson8Run = false;
 let _lesson8Saved = false;
@@ -34,7 +33,6 @@ let _lesson8Restored = false;
 export function resetGqlLesson8SessionFlags(): void {
   _lesson8HealthExecuted = false;
   _lesson8HistoryReady = false;
-  _lesson8PreviewOpen = false;
   _lesson8Loaded = false;
   _lesson8Run = false;
   _lesson8Saved = false;
@@ -48,7 +46,7 @@ export async function openHistoryPanel(ctx: DemoActionContext): Promise<void> {
   if (!active) {
     await ctx.click(GQL.ACTIVITY_HISTORY);
     await ctx.waitFor(GQL.HISTORY_PANEL, 5000);
-    await ctx.delay(400);
+    await ctx.delay(800);
   }
 }
 
@@ -58,7 +56,7 @@ export async function openCollectionsPanel(ctx: DemoActionContext): Promise<void
   if (!active) {
     await ctx.click(GQL.ACTIVITY_COLLECTIONS);
     await ctx.waitFor(GQL.COLLECTIONS_PANEL, 5000);
-    await ctx.delay(400);
+    await ctx.delay(800);
   }
 }
 
@@ -68,7 +66,7 @@ async function expandFirstCollection(ctx: DemoActionContext): Promise<void> {
   const expanded = node?.getAttribute('aria-expanded') === 'true';
   if (header && !expanded) {
     header.click();
-    await ctx.delay(400);
+    await ctx.delay(500);
   }
 }
 
@@ -77,7 +75,7 @@ async function clickContextMenuItem(ctx: DemoActionContext, label: string): Prom
     .find((b) => b.textContent?.trim().startsWith(label));
   if (btn) {
     btn.click();
-    await ctx.delay(400);
+    await ctx.delay(500);
   }
 }
 
@@ -85,7 +83,7 @@ async function openFirstCollectionItemContextMenu(ctx: DemoActionContext): Promi
   const item = document.querySelector<HTMLElement>(GQL.COL_ITEM);
   if (item) {
     item.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 120, clientY: 120 }));
-    await ctx.delay(400);
+    await ctx.delay(600);
   }
 }
 
@@ -93,7 +91,7 @@ async function openCollectionHeaderContextMenu(ctx: DemoActionContext): Promise<
   const header = document.querySelector<HTMLElement>('.gql-col-node-header');
   if (header) {
     header.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: 120, clientY: 120 }));
-    await ctx.delay(400);
+    await ctx.delay(600);
   }
 }
 
@@ -143,33 +141,81 @@ export function buildLesson8ImportPayload(): string {
   }, null, 2);
 }
 
+/** Execute health query once (visible step 1 action). */
+export async function executeLesson8HealthQuery(ctx: DemoActionContext): Promise<void> {
+  await ensureHealthQuery(ctx);
+  if (_lesson8HealthExecuted) return;
+  await ctx.click(GQL.EXECUTE_BTN);
+  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+  _lesson8HealthExecuted = true;
+  await ctx.delay(700);
+}
+
 /** Step 1 reading — health query in editor, ready to execute. */
 export async function prepareGql8ExecHealthReading(ctx: DemoActionContext): Promise<void> {
   await ensureIntrospected(ctx);
   await ensureHealthQuery(ctx);
 }
 
-/** Step 1b reading — health query executed; History panel can open. */
+/** Step 2 reading — response ready; History panel opens on the next visible click. */
 export async function prepareGql8ObserveHistoryReading(ctx: DemoActionContext): Promise<void> {
-  if (!_lesson8HealthExecuted) {
-    await ensureHealthQuery(ctx);
-    await ctx.click(GQL.EXECUTE_BTN);
-    await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-    _lesson8HealthExecuted = true;
-    await ctx.delay(500);
-  }
+  await executeLesson8HealthQuery(ctx);
 }
 
-/** Execute health query and ensure a History entry exists. */
-export async function ensureHealthExecutedWithHistory(ctx: DemoActionContext): Promise<void> {
-  if (_lesson8HistoryReady && document.querySelector(GQL.HISTORY_ENTRY)) return;
-  if (!_lesson8HealthExecuted) {
-    await ensureHealthQuery(ctx);
-    await ctx.click(GQL.EXECUTE_BTN);
-    await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-    _lesson8HealthExecuted = true;
-    await ctx.delay(500);
+/** Step 3 reading — history entry visible; preview opens on the visible click. */
+export async function prepareGql8PreviewReading(ctx: DemoActionContext): Promise<void> {
+  await ensureHealthExecutedWithHistory(ctx);
+}
+
+/** Step 4 reading — preview visible; Load runs on the visible click. */
+export async function prepareGql8LoadReading(ctx: DemoActionContext): Promise<void> {
+  await openHistoryPreviewIfMissing(ctx);
+}
+
+/** Step 5 reading — preview ready; Run executes on the visible click. */
+export async function prepareGql8RunReading(ctx: DemoActionContext): Promise<void> {
+  await openHistoryPreviewIfMissing(ctx);
+}
+
+/** Step 6 reading — collection exists and preview ready; Save runs on the visible click. */
+export async function prepareGql8SaveReading(ctx: DemoActionContext): Promise<void> {
+  if (!_lesson8Run) {
+    await runHistoryEntry(ctx);
+  } else {
+    await openHistoryPreviewIfMissing(ctx);
   }
+  await ensureDemoCollectionExists(ctx);
+  await openHistoryPanel(ctx);
+}
+
+/** Step 7 reading — saved item visible in Collections; rename runs on the visible click. */
+export async function prepareGql8RenameReading(ctx: DemoActionContext): Promise<void> {
+  if (!_lesson8Saved) {
+    await saveHistoryToCollection(ctx);
+  }
+  await openCollectionsPanel(ctx);
+  await expandFirstCollection(ctx);
+  await ctx.waitFor(GQL.COL_ITEM, 8000);
+}
+
+/** Step 8 reading — renamed item in tree; Export runs on the visible click. */
+export async function prepareGql8ExportReading(ctx: DemoActionContext): Promise<void> {
+  const itemName = document.querySelector('.gql-col-item-name')?.textContent?.trim();
+  if (!_lesson8Renamed || itemName !== LESSON8_ITEM_RENAME) {
+    if (!_lesson8Saved) await saveHistoryToCollection(ctx);
+    await renameCollectionItem(ctx);
+  }
+  await openCollectionsPanel(ctx);
+  await expandFirstCollection(ctx);
+}
+
+/** Step 9 reading — collection ready for delete + import demo. */
+export async function prepareGql8ImportReading(ctx: DemoActionContext): Promise<void> {
+  await prepareGql8ExportReading(ctx);
+}
+
+async function openHistoryPanelWithEntry(ctx: DemoActionContext): Promise<void> {
+  await executeLesson8HealthQuery(ctx);
   await openHistoryPanel(ctx);
   if (!document.querySelector(GQL.HISTORY_ENTRY)) {
     await ctx.click(GQL.EXECUTE_BTN);
@@ -181,39 +227,71 @@ export async function ensureHealthExecutedWithHistory(ctx: DemoActionContext): P
   _lesson8HistoryReady = true;
 }
 
-/** Single-click history entry and open the preview panel. */
-export async function ensureHistoryPreviewOpen(ctx: DemoActionContext): Promise<void> {
-  await ensureHealthExecutedWithHistory(ctx);
-  if (_lesson8PreviewOpen && document.querySelector(GQL.HISTORY_PREVIEW)) return;
-  await ctx.click(GQL.HISTORY_ENTRY);
-  await ctx.waitFor(GQL.HISTORY_PREVIEW, 5000);
-  await ctx.delay(400);
-  _lesson8PreviewOpen = true;
+/** Execute health query and ensure a History entry exists. */
+export async function ensureHealthExecutedWithHistory(ctx: DemoActionContext): Promise<void> {
+  if (_lesson8HistoryReady && document.querySelector(GQL.HISTORY_ENTRY)) return;
+  await openHistoryPanelWithEntry(ctx);
 }
 
-/** Load history entry into editor without executing. */
-export async function ensureHistoryLoadedToEditor(ctx: DemoActionContext): Promise<void> {
-  await ensureHistoryPreviewOpen(ctx);
+/** Open History panel and pause so the new entry is readable (step 2 action). */
+export async function revealHistoryPanel(ctx: DemoActionContext): Promise<void> {
+  await openHistoryPanel(ctx);
+  await ctx.waitFor(GQL.HISTORY_ENTRY, 8000);
+  await ctx.delay(1000);
+  _lesson8HistoryReady = true;
+}
+
+async function openHistoryPreviewIfMissing(ctx: DemoActionContext): Promise<void> {
+  await ensureHealthExecutedWithHistory(ctx);
+  if (document.querySelector(GQL.HISTORY_PREVIEW)) return;
+  await openHistoryPanel(ctx);
+  await ctx.click(GQL.HISTORY_ENTRY);
+  await ctx.waitFor(GQL.HISTORY_PREVIEW, 5000);
+  await ctx.delay(300);
+}
+
+/** Single-click history entry and open the preview panel (step 3 action). */
+export async function openHistoryPreview(ctx: DemoActionContext): Promise<void> {
+  await ensureHealthExecutedWithHistory(ctx);
+  await openHistoryPanel(ctx);
+  await ctx.click(GQL.HISTORY_ENTRY);
+  await ctx.waitFor(GQL.HISTORY_PREVIEW, 5000);
+  await ctx.delay(1000);
+}
+
+/** @deprecated Use openHistoryPreview */
+export const ensureHistoryPreviewOpen = openHistoryPreview;
+
+/** Load history entry into editor without executing (step 4 action). */
+export async function loadHistoryToEditor(ctx: DemoActionContext): Promise<void> {
+  await openHistoryPreview(ctx);
   if (_lesson8Loaded && getGqlEditorQuery().includes('health')) return;
   await ctx.click(GQL.HISTORY_LOAD);
-  await ctx.delay(800);
+  await ctx.delay(1000);
   _lesson8Loaded = true;
 }
 
-/** Run history entry — loads query and executes immediately. */
-export async function ensureHistoryRunExecuted(ctx: DemoActionContext): Promise<void> {
-  await ensureHistoryPreviewOpen(ctx);
+/** @deprecated Use loadHistoryToEditor */
+export const ensureHistoryLoadedToEditor = loadHistoryToEditor;
+
+/** Run history entry — loads query and executes immediately (step 5 action). */
+export async function runHistoryEntry(ctx: DemoActionContext): Promise<void> {
+  await openHistoryPreview(ctx);
   if (!document.querySelector(GQL.HISTORY_PREVIEW)) {
     await openHistoryPanel(ctx);
     await ctx.click(GQL.HISTORY_ENTRY);
     await ctx.waitFor(GQL.HISTORY_PREVIEW, 5000);
+    await ctx.delay(600);
   }
-  if (_lesson8Run && document.querySelector(GQL.RESPONSE_VIEWER)) return;
+  if (_lesson8Run) return;
   await ctx.click(GQL.HISTORY_RUN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(500);
+  await ctx.delay(1000);
   _lesson8Run = true;
 }
+
+/** @deprecated Use runHistoryEntry */
+export const ensureHistoryRunExecuted = runHistoryEntry;
 
 /** Ensure at least one collection exists in the Collections panel. */
 export async function ensureDemoCollectionExists(ctx: DemoActionContext): Promise<void> {
@@ -221,21 +299,20 @@ export async function ensureDemoCollectionExists(ctx: DemoActionContext): Promis
   if (!document.querySelector(GQL.COL_NODE)) {
     await ctx.click(GQL.COLLECTIONS_NEW);
     await ctx.waitFor(GQL.COL_NODE, 5000);
-    await ctx.delay(500);
+    await ctx.delay(700);
   }
 }
 
-/** Save the selected history entry to a collection via the modal. */
-export async function ensureSavedToCollectionFromHistory(ctx: DemoActionContext): Promise<void> {
+/** Save the selected history entry to a collection via the modal (step 6 action). */
+export async function saveHistoryToCollection(ctx: DemoActionContext): Promise<void> {
   await ensureDemoCollectionExists(ctx);
-  await ensureHistoryPreviewOpen(ctx);
-  if (_lesson8Saved && document.querySelector(GQL.COL_ITEM)) return;
-
+  await openHistoryPanel(ctx);
   if (!document.querySelector(GQL.HISTORY_PREVIEW)) {
-    await openHistoryPanel(ctx);
     await ctx.click(GQL.HISTORY_ENTRY);
     await ctx.waitFor(GQL.HISTORY_PREVIEW, 5000);
+    await ctx.delay(600);
   }
+  if (_lesson8Saved && document.querySelector(GQL.COL_ITEM)) return;
 
   await ctx.click(GQL.HISTORY_SAVE_TO_COL);
   await ctx.waitFor(GQL.SAVE_COL_MODAL, 5000);
@@ -247,15 +324,16 @@ export async function ensureSavedToCollectionFromHistory(ctx: DemoActionContext)
     await openHistoryPanel(ctx);
     await ctx.click(GQL.HISTORY_ENTRY);
     await ctx.waitFor(GQL.HISTORY_PREVIEW, 5000);
+    await ctx.delay(600);
     await ctx.click(GQL.HISTORY_SAVE_TO_COL);
     await ctx.waitFor(GQL.SAVE_COL_MODAL, 5000);
     await ctx.delay(600);
   }
 
   await ctx.fill(GQL.SAVE_COL_NAME, LESSON8_ITEM_NAME);
-  await ctx.delay(400);
+  await ctx.delay(500);
   await ctx.click(GQL.SAVE_COL_SAVE);
-  await ctx.delay(800);
+  await ctx.delay(700);
 
   await openCollectionsPanel(ctx);
   await expandFirstCollection(ctx);
@@ -263,9 +341,14 @@ export async function ensureSavedToCollectionFromHistory(ctx: DemoActionContext)
   _lesson8Saved = true;
 }
 
-/** Rename the saved collection item via context menu. */
-export async function ensureCollectionItemRenamed(ctx: DemoActionContext): Promise<void> {
-  await ensureSavedToCollectionFromHistory(ctx);
+/** @deprecated Use saveHistoryToCollection */
+export const ensureSavedToCollectionFromHistory = saveHistoryToCollection;
+
+/** Rename the saved collection item via context menu (step 7 action). */
+export async function renameCollectionItem(ctx: DemoActionContext): Promise<void> {
+  if (!_lesson8Saved) {
+    await saveHistoryToCollection(ctx);
+  }
   const itemName = document.querySelector('.gql-col-item-name')?.textContent?.trim();
   if (_lesson8Renamed && itemName === LESSON8_ITEM_RENAME) return;
 
@@ -274,17 +357,24 @@ export async function ensureCollectionItemRenamed(ctx: DemoActionContext): Promi
   await openFirstCollectionItemContextMenu(ctx);
   await clickContextMenuItem(ctx, 'Rename');
   await ctx.waitFor(GQL.COL_ITEM_RENAME, 5000);
+  await ctx.delay(600);
   await ctx.fill(GQL.COL_ITEM_RENAME, LESSON8_ITEM_RENAME);
-  await ctx.delay(300);
+  await ctx.delay(500);
   const input = document.querySelector<HTMLInputElement>(GQL.COL_ITEM_RENAME);
   input?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
-  await ctx.delay(600);
+  await ctx.delay(700);
   _lesson8Renamed = true;
 }
 
-/** Import collections JSON (after delete) to restore the saved operation. */
-export async function ensureCollectionRestoredViaImport(ctx: DemoActionContext): Promise<void> {
-  await ensureCollectionItemRenamed(ctx);
+/** @deprecated Use renameCollectionItem */
+export const ensureCollectionItemRenamed = renameCollectionItem;
+
+/** Import collections JSON (after delete) to restore the saved operation (step 9 action). */
+export async function restoreCollectionViaImport(ctx: DemoActionContext): Promise<void> {
+  const itemName = document.querySelector('.gql-col-item-name')?.textContent?.trim();
+  if (!_lesson8Renamed || itemName !== LESSON8_ITEM_RENAME) {
+    await renameCollectionItem(ctx);
+  }
   if (_lesson8Restored && document.querySelector(GQL.COL_ITEM)) return;
 
   await openCollectionsPanel(ctx);
@@ -293,15 +383,19 @@ export async function ensureCollectionRestoredViaImport(ctx: DemoActionContext):
   await ctx.delay(800);
 
   await ctx.click(GQL.COLLECTIONS_IMPORT);
-  await ctx.delay(300);
+  await ctx.delay(500);
   injectCollectionsImportFile(buildLesson8ImportPayload());
   await ctx.waitFor(GQL.IMPORT_MODE_DIALOG, 8000);
+  await ctx.delay(600);
   await ctx.click(GQL.IMPORT_MODE_MERGE);
-  await ctx.delay(1000);
+  await ctx.delay(1500);
   await expandFirstCollection(ctx);
   await ctx.waitFor(GQL.COL_ITEM, 8000);
   _lesson8Restored = true;
 }
+
+/** @deprecated Use restoreCollectionViaImport */
+export const ensureCollectionRestoredViaImport = restoreCollectionViaImport;
 
 /** Setup for Lesson 8 (GQL-9) — demo tab; close activity panels. */
 export async function gqlCollectionsHistoryLessonSetup(ctx: DemoActionContext): Promise<void> {
@@ -342,4 +436,3 @@ export async function gqlCollectionsHistoryLessonCleanup(ctx: DemoActionContext)
   resetGqlLesson8SessionFlags();
   await closeGqlDemoTabs(ctx, 'gql-collections-history');
 }
-

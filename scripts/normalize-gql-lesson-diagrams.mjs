@@ -15,6 +15,7 @@ const FILES = process.argv.slice(2).length
     'packages/demo-hub/src/lessons/protocols/graphql-performance-tracing.ts',
     'packages/demo-hub/src/lessons/protocols/graphql-schema-diff.ts',
     'packages/demo-hub/src/lessons/protocols/graphql-mock-server.ts',
+    'packages/demo-hub/src/lessons/protocols/graphql-workflow-integration.ts',
   ];
 
 const REPS = [

@@ -30,6 +30,10 @@ import {
   ensureFilterDemo,
   ensureAssertionAdded,
   ensureWsTransport,
+  prepareGql5SubscriptionAuthReading,
+  ensureSubscriptionAuthConfigured,
+  markSubscriptionAuthDone,
+  ensureEnvReady,
   gqlSubscriptionsLessonCleanup,
   resetGqlLesson3SessionFlags,
 } from './graphql-lesson-helpers';
@@ -51,8 +55,8 @@ describe('gql-subscriptions lesson', () => {
     expect(gqlSubscriptionsLesson.domainId).toBe('protocols');
     expect(gqlSubscriptionsLesson.category).toBe('graphql');
     expect(gqlSubscriptionsLesson.name).toBe('Subscriptions — Real-Time Data');
-    expect(gqlSubscriptionsLesson.steps.length).toBe(14);
-    expect(gqlSubscriptionsLesson.estimatedMinutes).toBe(7);
+    expect(gqlSubscriptionsLesson.steps.length).toBe(15);
+    expect(gqlSubscriptionsLesson.estimatedMinutes).toBe(8);
     expect(gqlSubscriptionsLesson.initialTab).toBe('graphql-studio');
     expect(gqlSubscriptionsLesson.tabBudget).toBe(1);
   });
@@ -79,6 +83,7 @@ describe('gql-subscriptions lesson', () => {
       'gql5-observe-create-order',
       'gql5-write-sub',
       'gql5-transport-select',
+      'gql5-subscription-auth',
       'gql5-subscribe',
       'gql5-watch-log',
       'gql5-pause',
@@ -88,13 +93,13 @@ describe('gql-subscriptions lesson', () => {
     ]);
   });
 
-  it('all 14 steps have pauseAfter: true', () => {
+  it('all 15 steps have pauseAfter: true', () => {
     gqlSubscriptionsLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
   });
 
-  it('stateful steps 2–14 have preAction guards', () => {
+  it('stateful steps 2–15 have preAction guards', () => {
     gqlSubscriptionsLesson.steps.slice(1).forEach((step) => {
       expect(step.preAction).toBeTypeOf('function');
     });
@@ -124,6 +129,12 @@ describe('gql-subscriptions lesson', () => {
   it('gql5-transport-select highlights transport select dropdown', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-transport-select')!;
     expect(step.highlight).toBe(GQL.TRANSPORT_SELECT);
+  });
+
+  it('gql5-subscription-auth highlights auth preview row', () => {
+    const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-subscription-auth')!;
+    expect(step.highlight).toBe(GQL.AUTH_PREVIEW);
+    expect(step.verify).toBe(GQL.AUTH_PREVIEW);
   });
 
   it('gql5-subscribe highlights subscribe button', () => {
@@ -244,6 +255,51 @@ describe('gql-subscriptions lesson', () => {
     const ctx = makeCtx();
     // preAction is ensureSubscriptionQueryWritten — resolves without error
     await expect(step.preAction!(ctx)).resolves.toBeUndefined();
+  });
+
+  it('gql5-subscription-auth description mentions connectionParams handshake', () => {
+    const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-subscription-auth')!;
+    expect(step.description).toContain('connectionParams');
+    expect(step.description).toContain('connection_init');
+  });
+
+  it('gql5-subscription-auth action configures bearer auth preview', async () => {
+    stubGqlStudioShell(`
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-auth-badge-btn"></button>
+      <div data-testid="gql-bottom-tab-auth" aria-selected="true"></div>
+      <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
+      <input data-testid="gql-auth-bearer-input" />
+      <div data-testid="gql-auth-preview">Authorization: Bearer lesson6-demo-jwt</div>
+    `);
+    stubMonacoEditor(GQL_ORDER_STATUS_SUBSCRIPTION);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { createOrder: { id: 'ord-auth' } } }),
+    }));
+    const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-subscription-auth')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, '{{authToken}}');
+    expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
+  });
+
+  it('gql5-subscription-auth preAction prepares transport without configuring auth', async () => {
+    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+    stubMonacoEditor(GQL_ORDER_STATUS_SUBSCRIPTION);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { createOrder: { id: 'ord-pre' } } }),
+    }));
+    const ctx = makeCtx();
+    await prepareGql5SubscriptionAuthReading(ctx);
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, '{{authToken}}');
+  });
+
+  it('ensureSubscriptionAuthConfigured guard skips when auth already done', async () => {
+    markSubscriptionAuthDone();
+    const ctx = makeCtx();
+    await ensureSubscriptionAuthConfigured(ctx);
+    expect(ctx.fill).not.toHaveBeenCalled();
   });
 
   it('gql5-endpoint preAction ensures demo endpoint is ready', async () => {
@@ -661,6 +717,32 @@ describe('gql-subscriptions lesson', () => {
     });
     await ensureAssertionAdded(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ASSERTION_TOGGLE);
+  });
+
+  it('gqlSubscriptionsLessonSetup resets lesson6 flags so ensureEnvReady runs again after restart', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="${GQL_DEMO_HTTP}" />
+      <button data-testid="gql-env-badge"></button>
+      <div data-testid="gql-env-modal">
+        <button data-testid="gql-env-new-btn"></button>
+        <button data-testid="gql-env-var-add-btn"></button>
+        <button data-testid="gql-env-set-active-btn"></button>
+        <button data-testid="gql-env-close-btn"></button>
+      </div>
+      <span data-testid="gql-schema-badge-ok"></span>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+    `;
+    stubMonacoEditor('subscription { }');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      json: async () => ({ data: { createOrder: { id: 'ord-setup' } } }),
+    }));
+    await ensureEnvReady(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await gqlSubscriptionsLessonSetup(ctx);
+    await ensureEnvReady(ctx);
+    expect(vi.mocked(ctx.click).mock.calls.length).toBeGreaterThan(0);
   });
 
   it('gqlSubscriptionsLessonCleanup closes demo tab and resets flags', async () => {

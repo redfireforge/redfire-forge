@@ -193,10 +193,10 @@ describe('gql-mutations lesson', () => {
     expect(step.highlight).toBe(GQL.EXECUTE_BTN);
   });
 
-  it('gql3-observe-order highlights response body', () => {
+  it('gql3-observe-order highlights compact createOrder response card', () => {
     const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-observe-order')!;
-    expect(step.highlight).toBe(GQL.RESPONSE_BODY);
-    expect(step.verify).toBe(GQL.RESPONSE_BODY);
+    expect(step.highlight).toBe(GQL.RESPONSE_DATA_CREATE_ORDER);
+    expect(step.verify).toBe(GQL.RESPONSE_DATA_CREATE_ORDER);
   });
 
   it('gql3-write-delete highlights editor (not variables panel — spotlight fix)', () => {
