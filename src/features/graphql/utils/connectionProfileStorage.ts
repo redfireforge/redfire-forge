@@ -89,7 +89,6 @@ export async function writeConnectionProfiles(profiles: ConnectionProfile[]): Pr
       return;
     } catch (err) {
       console.error('[Storage] GraphQL profiles IDB save failed', err);
-      return;
     }
   }
   await writeKey(GQL_PROFILES_STORAGE_KEY, JSON.stringify(profiles));

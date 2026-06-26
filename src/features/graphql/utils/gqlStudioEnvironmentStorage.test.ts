@@ -8,6 +8,10 @@ vi.mock('../../../shared/utils/storage', () => ({
   writeKey: vi.fn(),
 }));
 
+vi.mock('../../../shared/utils/platform', () => ({
+  isTauri: vi.fn(() => true),
+}));
+
 import { readKey, writeKey } from '../../../shared/utils/storage';
 import {
   readGqlStudioEnvironments,
