@@ -251,8 +251,36 @@ describe('GqlBatchSettingsPanel', () => {
     expect(screen.getByTestId('gql-adv-batch-tab-row-t1')).toHaveTextContent('(empty query)');
   });
 
+  it('normalizes multiline query to a single-line preview', () => {
+    render(
+      <GqlBatchSettingsPanel
+        groups={[groups[0]!]}
+        activeGroupKey={groups[0]!.key}
+        onGroupChange={vi.fn()}
+        batchedTabIds={new Set()}
+        onToggleBatchTab={vi.fn()}
+        tabs={[makeTab('t1', { query: 'query {\n  health\n}' })]}
+      />,
+    );
+    expect(screen.getByTestId('gql-adv-batch-tab-row-t1')).toHaveTextContent('query { health }');
+  });
+
+  it('shows (empty query) for query { } placeholder', () => {
+    render(
+      <GqlBatchSettingsPanel
+        groups={[groups[0]!]}
+        activeGroupKey={groups[0]!.key}
+        onGroupChange={vi.fn()}
+        batchedTabIds={new Set()}
+        onToggleBatchTab={vi.fn()}
+        tabs={[makeTab('t1', { query: 'query {\n\n}' })]}
+      />,
+    );
+    expect(screen.getByTestId('gql-adv-batch-tab-row-t1')).toHaveTextContent('(empty query)');
+  });
+
   it('truncates long query preview with ellipsis', () => {
-    const longQuery = `query { ${'x'.repeat(60)} }`;
+    const longQuery = `query { ${'x'.repeat(100)} }`;
     render(
       <GqlBatchSettingsPanel
         groups={[groups[0]!]}

@@ -70,13 +70,15 @@ function stubBatchDom(tabCount = 1, batchChecked = false, batchEnabled = false):
   `).join('');
 
   const batchEnabledSection = batchEnabled ? `
-    <span data-testid="gql-batch-summary-chip">Batch ${tabCount}/${tabCount}</span>
-    <label data-testid="gql-adv-batch-enable-toggle" class="gql-advsettings-toggle">
-      <input type="checkbox" aria-label="Enable query batching" checked />
-    </label>
-    <button data-testid="gql-adv-settings-tab-batch" class="gql-advsettings-tab active"></button>
-    <div data-testid="gql-adv-batch-panel">${advBatchRows}</div>
-    <button data-testid="gql-adv-settings-save-btn"></button>
+    <div data-testid="gql-adv-settings-modal">
+      <span data-testid="gql-batch-summary-chip">Batch ${tabCount}/${tabCount}</span>
+      <label data-testid="gql-adv-batch-enable-toggle" class="gql-advsettings-toggle">
+        <input type="checkbox" aria-label="Enable query batching" checked />
+      </label>
+      <button data-testid="gql-adv-settings-tab-batch" class="gql-advsettings-tab active"></button>
+      <div data-testid="gql-adv-batch-panel">${advBatchRows}</div>
+      <button data-testid="gql-adv-settings-save-btn"></button>
+    </div>
   ` : '';
 
   document.body.innerHTML = `
@@ -119,7 +121,7 @@ describe('gql-batch-execution lesson', () => {
     expect(gqlBatchExecutionLesson.category).toBe('graphql');
     expect(gqlBatchExecutionLesson.name).toBe('Batch Execution');
     expect(gqlBatchExecutionLesson.steps.length).toBe(9);
-    expect(gqlBatchExecutionLesson.estimatedMinutes).toBe(4);
+    expect(gqlBatchExecutionLesson.estimatedMinutes).toBe(5);
     expect(gqlBatchExecutionLesson.tabBudget).toBe(2);
   });
 
@@ -246,9 +248,9 @@ describe('gql-batch-execution lesson', () => {
     expect(step.highlight).toBe(GQL.TAB_BAR);
   });
 
-  it('gql15-enable-batch highlights ADV_SETTINGS_BTN', () => {
+  it('gql15-enable-batch highlights batch panel in Advanced settings', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-enable-batch')!;
-    expect(step.highlight).toBe(GQL.ADV_SETTINGS_BTN);
+    expect(step.highlight).toBe(GQL.ADV_BATCH_PANEL);
   });
 
   it('gql15-add-tab highlights TAB_ADD_BTN', () => {
@@ -256,9 +258,9 @@ describe('gql-batch-execution lesson', () => {
     expect(step.highlight).toBe(GQL.TAB_ADD_BTN);
   });
 
-  it('gql15-batch-select highlights ADV_SETTINGS_BTN', () => {
+  it('gql15-batch-select highlights batch panel in Advanced settings', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-batch-select')!;
-    expect(step.highlight).toBe(GQL.ADV_SETTINGS_BTN);
+    expect(step.highlight).toBe(GQL.ADV_BATCH_PANEL);
   });
 
   it('gql15-write-queries highlights EDITOR', () => {
@@ -399,9 +401,9 @@ describe('gql-batch-execution lesson', () => {
     const ctx = makeCtx();
     stubBatchDom(1, false, true);
     await ensureLesson15BatchEnabled(ctx);
-    // The checkbox is already there (in DOM stub), no need to open settings
+    vi.mocked(ctx.click).mockClear();
     await ensureLesson15BatchEnabled(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ADV_SETTINGS_BTN);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('ensureLesson15TwoTabsSameEndpoint adds a second tab', async () => {
@@ -519,7 +521,7 @@ describe('gql-batch-execution lesson', () => {
     expect(ctx.delay).toHaveBeenCalled();
   });
 
-  it('gql15-enable-batch action opens Advanced Settings and saves', async () => {
+  it('gql15-enable-batch action enables batch without toggling modal closed', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <div data-testid="gql-tab-bar">
@@ -527,20 +529,15 @@ describe('gql-batch-execution lesson', () => {
         <button data-testid="gql-tab-add-btn">+</button>
       </div>
       <button data-testid="gql-adv-settings-btn">⚙</button>
+      <div data-testid="gql-adv-settings-modal">
+        <button data-testid="gql-adv-settings-tab-batch" class="active"></button>
+        <label data-testid="gql-adv-batch-enable-toggle" class="gql-advsettings-toggle">
+          <input type="checkbox" aria-label="Enable query batching" />
+        </label>
+        <button data-testid="gql-adv-settings-save-btn">Save</button>
+      </div>
     `;
     vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
-      if (sel === GQL.ADV_SETTINGS_BTN) {
-        document.body.insertAdjacentHTML('beforeend', `
-          <button data-testid="gql-adv-settings-tab-batch"></button>
-          <label data-testid="gql-adv-batch-enable-toggle" class="gql-advsettings-toggle">
-            <input type="checkbox" aria-label="Enable query batching" />
-          </label>
-          <button data-testid="gql-adv-settings-save-btn">Save</button>
-        `);
-      }
-      if (sel === GQL.ADV_SETTINGS_TAB_BATCH) {
-        document.querySelector<HTMLElement>(GQL.ADV_SETTINGS_TAB_BATCH)?.classList.add('active');
-      }
       if (sel === GQL.ADV_BATCH_ENABLE_TOGGLE) {
         const cb = document.querySelector<HTMLInputElement>(GQL.ADV_BATCH_ENABLE)!;
         cb.checked = true;
@@ -554,11 +551,11 @@ describe('gql-batch-execution lesson', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-enable-batch')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.ADV_SETTINGS_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ADV_SETTINGS_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ADV_BATCH_ENABLE_TOGGLE);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ADV_SETTINGS_SAVE_BTN);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ADV_BATCH_PANEL, 5000);
-    expect(ctx.delay).toHaveBeenCalledWith(2000);
+    expect(ctx.delay).toHaveBeenCalledWith(3500);
   });
 
   it('gql15-add-tab action adds second tab only', async () => {

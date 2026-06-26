@@ -103,6 +103,7 @@ export interface GraphqlStudioSplitWorkspaceProps {
   assertionResultMap: Map<string, MessageAssertionResults>;
   onExportSubscription: () => void;
   onStopSubscription: () => void;
+  onResubscribeSubscription: () => void;
 }
 
 export function GraphqlStudioSplitWorkspace({
@@ -173,6 +174,7 @@ export function GraphqlStudioSplitWorkspace({
   assertionResultMap,
   onExportSubscription,
   onStopSubscription,
+  onResubscribeSubscription,
 }: GraphqlStudioSplitWorkspaceProps) {
   const runnerTree = runnerCollectionId
     ? collections.trees.find((t) => t.collection.id === runnerCollectionId)
@@ -309,7 +311,7 @@ export function GraphqlStudioSplitWorkspace({
                 data-testid="gql-bottom-panel-divider"
                 {...bottomPanelDividerProps}
               />
-              <div className="gql-bottom-panel-container" style={{ height: bottomPanelHeight, overflowY: 'auto' }}>
+              <div className="gql-bottom-panel-container" style={{ height: bottomPanelHeight }}>
                 <GqlBottomPanel
                   activeTab={(bottomTab === 'runner' ? 'variables' : bottomTab) as BottomPanelTab}
                   onTabChange={(tab) => onSetBottomTab(tab as BottomPanelTabExtended)}
@@ -387,6 +389,7 @@ export function GraphqlStudioSplitWorkspace({
                     onClear: subscription.clear,
                     onExport: onExportSubscription,
                     onStop: onStopSubscription,
+                    onResubscribe: onResubscribeSubscription,
                   }
                 : null
             }

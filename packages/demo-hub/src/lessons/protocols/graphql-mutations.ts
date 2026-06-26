@@ -11,6 +11,7 @@ import {
   GQL_DEMO_HEALTH,
   GQL_STUDIO_LESSON_ALLOWED_TABS,
   configureDemoTabEndpointOverride,
+  openSchemaTabWhenCached,
   prepareGql3IntroReading,
   prepareGql3EndpointReading,
   prepareGql3IntrospectReading,
@@ -22,6 +23,7 @@ import {
   prepareGql3ExecCreateReading,
   prepareGql3ObserveCreateReading,
   prepareGql3ObserveIntrospectReading,
+  syncSchemaTabWhenCachedDuringReading,
   prepareGql3WriteOrderReading,
   prepareGql3SetOrderVarsReading,
   prepareGql3ExecOrderReading,
@@ -335,12 +337,15 @@ export const gqlMutationsLesson: DemoLesson = {
       title: 'Confirm Schema Loaded',
       description:
         'Watch the green **Schema loaded** badge with a **non-zero** type count (e.g. `12 types`). ' +
+        'The **Schema** tab on the right opens with the full type list so you can confirm introspection succeeded — not just the badge alone. ' +
         'A count of `(0)` means something went wrong — wrong port, server not running, or CORS blocked the request. ' +
         'Once loaded, the editor gains full autocomplete for mutation names, argument names, and return fields.',
       highlight: GQL.SCHEMA_BADGE_OK,
       preAction: prepareGql3ObserveIntrospectReading,
+      readingSync: syncSchemaTabWhenCachedDuringReading,
       action: async (ctx) => {
         await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 5000);
+        await openSchemaTabWhenCached(ctx);
         await ctx.delay(800);
       },
       verify: GQL.SCHEMA_BADGE_OK,

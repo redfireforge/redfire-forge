@@ -1065,11 +1065,11 @@
 /* ─── Live Demo Panel (floating, bottom-right) ───────────────── */
 .demo-live-panel {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
   z-index: 10110;
-  width: 400px;
-  max-width: calc(100vw - 48px);
+  min-width: 300px;
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
   border-radius: 14px;
   background: var(--surface, #1e293b);
   border: 1px solid var(--border, #3b4a60);
@@ -1078,6 +1078,53 @@
   font-family: var(--font, 'Inter'), sans-serif;
   animation: demo-slide-up 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   overflow: hidden;
+}
+
+.demo-live-resize-handle {
+  position: absolute;
+  z-index: 3;
+  background: transparent;
+  touch-action: none;
+}
+
+.demo-live-resize-handle--top {
+  top: 0;
+  left: 10px;
+  right: 10px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.demo-live-resize-handle--left {
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.demo-live-resize-handle--right {
+  top: 10px;
+  bottom: 10px;
+  right: 0;
+  width: 8px;
+  cursor: ew-resize;
+}
+
+.demo-live-resize-handle:hover {
+  background: color-mix(in srgb, var(--primary, #3b82f6) 18%, transparent);
+}
+
+.demo-live-resize-handle--top:hover {
+  border-top: 2px solid color-mix(in srgb, var(--primary, #3b82f6) 55%, transparent);
+}
+
+.demo-live-resize-handle--left:hover {
+  border-left: 2px solid color-mix(in srgb, var(--primary, #3b82f6) 55%, transparent);
+}
+
+.demo-live-resize-handle--right:hover {
+  border-right: 2px solid color-mix(in srgb, var(--primary, #3b82f6) 55%, transparent);
 }
 
 @keyframes demo-slide-up {
@@ -1090,6 +1137,7 @@
   align-items: center;
   gap: 10px;
   padding: 14px 16px 8px;
+  flex-shrink: 0;
 }
 
 .demo-live-panel-header--draggable {
@@ -1142,6 +1190,7 @@
 }
 
 .demo-live-progress-bar {
+  flex-shrink: 0;
   height: 2px;
   background: rgba(255, 255, 255, 0.08);
   margin: 0 16px;
@@ -1157,7 +1206,14 @@
 }
 
 .demo-live-panel-body {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding: 14px 16px;
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border, #3b4a60) transparent;
 }
 
 .demo-live-step-title {
@@ -1214,6 +1270,7 @@
 }
 
 .demo-live-panel-controls {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1302,6 +1359,7 @@
   font-size: 10px;
   color: rgba(168, 184, 204, 0.4);
   text-align: center;
+  flex-shrink: 0;
 }
 
 /* ─── Overview toggle button (in panel header) ───────────────── */
@@ -1794,8 +1852,7 @@
   }
 
   .demo-live-panel {
-    right: 8px;
-    bottom: 8px;
-    width: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
   }
 }

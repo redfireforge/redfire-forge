@@ -48,6 +48,7 @@ export interface SubscriptionLogProps {
   onClear(): void;
   onExport(): void;
   onStop(): void;
+  onResubscribe?(): void;
 }
 
 interface GqlRightPaneProps {
@@ -239,6 +240,7 @@ export function GqlRightPane({
             onClear={subscriptionLog.onClear}
             onExport={subscriptionLog.onExport}
             onStop={subscriptionLog.onStop}
+            onResubscribe={subscriptionLog.onResubscribe}
           />
         )}
 

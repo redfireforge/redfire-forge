@@ -295,7 +295,7 @@ describe('useDemoHub', () => {
     // Start the step pipeline (it will block in the reading phase)
     const stepPromise = act(async () => {
       result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(400);
+      await vi.advanceTimersByTimeAsync(300);
     });
 
     // Skip the reading phase

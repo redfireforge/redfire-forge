@@ -212,19 +212,26 @@ export interface ScriptEditorSavePayload {
   collectionPostScript?: string;
 }
 
+// ─── Phase hints ──────────────────────────────────────────────────────────────
+
+const PHASE_HINTS: Record<'pre' | 'post', string> = {
+  pre: 'Runs before the HTTP request — set headers, refresh tokens, or abort early.',
+  post: 'Runs after the response — assert results, extract values, or chain to later items.',
+};
+
 // ─── Execution order diagram ──────────────────────────────────────────────────
 
 function ExecutionOrderDiagram() {
   return (
-    <div className="gql-script-order-diagram">
+    <div className="gql-script-order-diagram" data-testid="gql-script-order-diagram">
       <span className="gql-script-order-step">Collection pre-request</span>
-      <span className="gql-script-order-arrow">→</span>
+      <span className="gql-script-order-arrow" aria-hidden="true">→</span>
       <span className="gql-script-order-step gql-script-order-step--item">Item pre-request</span>
-      <span className="gql-script-order-arrow">→</span>
+      <span className="gql-script-order-arrow" aria-hidden="true">→</span>
       <span className="gql-script-order-step gql-script-order-step--http">HTTP request</span>
-      <span className="gql-script-order-arrow">→</span>
+      <span className="gql-script-order-arrow" aria-hidden="true">→</span>
       <span className="gql-script-order-step gql-script-order-step--item">Item post-response</span>
-      <span className="gql-script-order-arrow">→</span>
+      <span className="gql-script-order-arrow" aria-hidden="true">→</span>
       <span className="gql-script-order-step">Collection post-response</span>
     </div>
   );
@@ -479,134 +486,129 @@ export function GraphqlScriptEditorModal({
         data-testid="gql-script-modal"
       >
         {/* Header */}
-        <div className="gql-script-modal-header">
-          <div className="gql-script-modal-title-row">
-            <span className="gql-script-modal-title">
-              {context === 'collection' ? 'Collection Scripts' : 'Item Scripts'}
-              <span className="gql-script-modal-subtitle"> — {name}</span>
-            </span>
+        <header className="gql-script-modal-header">
+          <div className="gql-script-modal-header-main">
+            <div className="gql-script-modal-heading">
+              <span className="gql-script-modal-badge">
+                {context === 'collection' ? 'Collection' : 'Item'}
+              </span>
+              <h2 className="gql-script-modal-title">
+                {context === 'collection' ? 'Collection Scripts' : 'Item Scripts'}
+              </h2>
+            </div>
+            <p className="gql-script-modal-target" data-testid="gql-script-modal-target">{name}</p>
+          </div>
+          <button
+            type="button"
+            className={`gql-script-modal-order-toggle${showOrder ? ' gql-script-modal-order-toggle--active' : ''}`}
+            onClick={() => setShowOrder((v) => !v)}
+            aria-expanded={showOrder}
+            aria-label="Toggle execution order diagram"
+            data-testid="gql-script-order-toggle"
+          >
+            <span className="gql-script-modal-order-toggle-label">Execution order</span>
+            <span className="gql-script-modal-order-toggle-chevron" aria-hidden="true">{showOrder ? '▴' : '▾'}</span>
+          </button>
+          {showOrder && <ExecutionOrderDiagram />}
+        </header>
+
+        {/* Toolbar: phase tabs + template library */}
+        <div className="gql-script-toolbar">
+          <div className="gql-script-tab-group" role="tablist" aria-label="Script phase">
             <button
               type="button"
-              className="gql-script-modal-order-toggle"
-              onClick={() => setShowOrder((v) => !v)}
-              aria-expanded={showOrder}
-              aria-label="Toggle execution order diagram"
-              data-testid="gql-script-order-toggle"
+              role="tab"
+              aria-selected={activePhase === 'pre'}
+              className={`gql-script-tab${activePhase === 'pre' ? ' gql-script-tab--active' : ''}`}
+              onClick={() => setActivePhase('pre')}
+              data-testid="gql-script-tab-pre"
             >
-              {showOrder ? '▲ Execution order' : '▼ Execution order'}
+              Pre-Request
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activePhase === 'post'}
+              className={`gql-script-tab${activePhase === 'post' ? ' gql-script-tab--active' : ''}`}
+              onClick={() => setActivePhase('post')}
+              data-testid="gql-script-tab-post"
+            >
+              Post-Response
             </button>
           </div>
-          {showOrder && <ExecutionOrderDiagram />}
+          <div className="gql-script-toolbar-actions">
+            <div className="gql-script-template-wrap" ref={templatesRef}>
+              <button
+                type="button"
+                className={`gql-script-template-btn${showTemplates ? ' gql-script-template-btn--active' : ''}`}
+                onClick={() => setShowTemplates((v) => !v)}
+                aria-haspopup="listbox"
+                aria-expanded={showTemplates}
+                data-testid="gql-script-template-btn"
+              >
+                Insert template
+                <span className="gql-script-template-btn-chevron" aria-hidden="true">▾</span>
+              </button>
+              {showTemplates && (
+                <div className="gql-script-template-dropdown" role="listbox" data-testid="gql-script-template-dropdown">
+                  {filteredTemplates.map((t) => (
+                    <button
+                      key={t.label}
+                      type="button"
+                      role="option"
+                      className="gql-script-template-item"
+                      onClick={() => handleInsertTemplate(t)}
+                      data-testid={`gql-script-template-${t.label.replace(/\s+/g, '-').toLowerCase()}`}
+                    >
+                      <span className="gql-script-template-label">{t.label}</span>
+                      <span className="gql-script-template-desc">{t.description}</span>
+                    </button>
+                  ))}
+                  {filteredTemplates.length === 0 && (
+                    <div className="gql-script-template-empty">No templates for this phase</div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Phase tabs */}
-        <div className="gql-script-tabs">
-          <button
-            type="button"
-            className={`gql-script-tab${activePhase === 'pre' ? ' gql-script-tab--active' : ''}`}
-            onClick={() => setActivePhase('pre')}
-            data-testid="gql-script-tab-pre"
-          >
-            Pre-Request
-          </button>
-          <button
-            type="button"
-            className={`gql-script-tab${activePhase === 'post' ? ' gql-script-tab--active' : ''}`}
-            onClick={() => setActivePhase('post')}
-            data-testid="gql-script-tab-post"
-          >
-            Post-Response
-          </button>
-          <div className="gql-script-tabs-spacer" />
-          {/* Template library dropdown */}
-          <div className="gql-script-template-wrap" ref={templatesRef}>
-            <button
-              type="button"
-              className="gql-script-template-btn"
-              onClick={() => setShowTemplates((v) => !v)}
-              aria-haspopup="listbox"
-              aria-expanded={showTemplates}
-              data-testid="gql-script-template-btn"
-            >
-              Insert template ▾
-            </button>
-            {showTemplates && (
-              <div className="gql-script-template-dropdown" role="listbox" data-testid="gql-script-template-dropdown">
-                {filteredTemplates.map((t) => (
-                  <button
-                    key={t.label}
-                    type="button"
-                    role="option"
-                    className="gql-script-template-item"
-                    onClick={() => handleInsertTemplate(t)}
-                    data-testid={`gql-script-template-${t.label.replace(/\s+/g, '-').toLowerCase()}`}
-                  >
-                    <span className="gql-script-template-label">{t.label}</span>
-                    <span className="gql-script-template-desc">{t.description}</span>
-                  </button>
-                ))}
-                {filteredTemplates.length === 0 && (
-                  <div className="gql-script-template-empty">No templates for this phase</div>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
+        <p className="gql-script-phase-hint" data-testid="gql-script-phase-hint">
+          {PHASE_HINTS[activePhase]}
+        </p>
 
         {/* Monaco editor */}
-        <div className="gql-script-editor-wrap" data-testid="gql-script-editor-wrap">
-          <Editor
-            height="240px"
-            language="javascript"
-            theme="vs-dark"
-            value={currentScript}
-            onChange={handleEditorChange}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 13,
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-              tabSize: 2,
-              folding: false,
-              overviewRulerLanes: 0,
-              renderLineHighlight: 'line',
-              glyphMargin: false,
-              lineDecorationsWidth: 4,
-            }}
-          />
-        </div>
-
-        {/* Item-only settings */}
-        {context === 'item' && (
-          <div className="gql-script-settings">
-            <label className="gql-script-setting-row">
-              <input
-                type="checkbox"
-                checked={enabled}
-                onChange={(e) => setEnabled(e.target.checked)}
-                data-testid="gql-script-enabled"
-              />
-              <span>Scripts enabled</span>
-            </label>
-            <label className="gql-script-setting-row">
-              <span>Timeout (ms)</span>
-              <input
-                type="number"
-                className="gql-script-timeout-input"
-                value={timeout}
-                min={1000}
-                max={120000}
-                step={1000}
-                onChange={(e) => {
-                  const n = Number(e.target.value);
-                  if (!Number.isNaN(n) && n >= 1000) setTimeout_(Math.min(120000, n));
-                }}
-                data-testid="gql-script-timeout"
-              />
-            </label>
+        <div className="gql-script-editor-panel">
+          <div className="gql-script-editor-toolbar">
+            <span className="gql-script-lang-badge">JavaScript</span>
+            <span className="gql-script-editor-hint">
+              Type <code>rf.</code> for API autocomplete
+            </span>
           </div>
-        )}
+          <div className="gql-script-editor-wrap" data-testid="gql-script-editor-wrap">
+            <Editor
+              height="280px"
+              language="javascript"
+              theme="vs-dark"
+              value={currentScript}
+              onChange={handleEditorChange}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 13,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                wordWrap: 'on',
+                tabSize: 2,
+                folding: false,
+                overviewRulerLanes: 0,
+                renderLineHighlight: 'line',
+                glyphMargin: false,
+                lineDecorationsWidth: 4,
+                padding: { top: 8, bottom: 8 },
+              }}
+            />
+          </div>
+        </div>
 
         {/* Dry-run console */}
         {(dryRunLogs.length > 0 || dryRunning) && (
@@ -640,40 +642,75 @@ export function GraphqlScriptEditorModal({
         )}
 
         {/* Footer */}
-        <div className="gql-script-modal-footer">
-          <button
-            type="button"
-            className="gql-script-btn gql-script-btn--secondary"
-            onClick={onClose}
-            data-testid="gql-script-cancel"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="gql-script-btn gql-script-btn--test"
-            onClick={() => { handleTestScript().catch(() => {}); }}
-            disabled={dryRunning || (activePhase === 'post' && !testResponse)}
-            title={
-              activePhase === 'post' && !testResponse
-                ? 'Execute a request first to populate rf.response for post-script testing'
-                : activePhase === 'post'
-                ? 'Run against most recent response'
-                : 'Dry-run the pre-request script'
-            }
-            data-testid="gql-script-test"
-          >
-            {dryRunning ? 'Running…' : 'Test Script'}
-          </button>
-          <button
-            type="button"
-            className="gql-script-btn gql-script-btn--primary"
-            onClick={handleSave}
-            data-testid="gql-script-save"
-          >
-            Save
-          </button>
-        </div>
+        <footer className="gql-script-modal-footer">
+          {context === 'item' ? (
+            <div className="gql-script-settings" data-testid="gql-script-settings">
+              <label className="gql-script-setting-row gql-script-setting-row--toggle">
+                <input
+                  type="checkbox"
+                  checked={enabled}
+                  onChange={(e) => setEnabled(e.target.checked)}
+                  data-testid="gql-script-enabled"
+                />
+                <span>Scripts enabled</span>
+              </label>
+              <label className="gql-script-setting-row gql-script-setting-row--timeout">
+                <span className="gql-script-setting-label">Timeout</span>
+                <input
+                  type="number"
+                  className="gql-script-timeout-input"
+                  value={timeout}
+                  min={1000}
+                  max={120000}
+                  step={1000}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    if (!Number.isNaN(n) && n >= 1000) setTimeout_(Math.min(120000, n));
+                  }}
+                  data-testid="gql-script-timeout"
+                  aria-label="Script timeout in milliseconds"
+                />
+                <span className="gql-script-setting-suffix">ms</span>
+              </label>
+            </div>
+          ) : (
+            <div className="gql-script-footer-spacer" />
+          )}
+          <div className="gql-script-footer-actions">
+            <button
+              type="button"
+              className="gql-script-btn gql-script-btn--secondary"
+              onClick={onClose}
+              data-testid="gql-script-cancel"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="gql-script-btn gql-script-btn--test"
+              onClick={() => { handleTestScript().catch(() => {}); }}
+              disabled={dryRunning || (activePhase === 'post' && !testResponse)}
+              title={
+                activePhase === 'post' && !testResponse
+                  ? 'Execute a request first to populate rf.response for post-script testing'
+                  : activePhase === 'post'
+                  ? 'Run against most recent response'
+                  : 'Dry-run the pre-request script'
+              }
+              data-testid="gql-script-test"
+            >
+              {dryRunning ? 'Running…' : 'Test Script'}
+            </button>
+            <button
+              type="button"
+              className="gql-script-btn gql-script-btn--primary"
+              onClick={handleSave}
+              data-testid="gql-script-save"
+            >
+              Save
+            </button>
+          </div>
+        </footer>
       </div>
     </div>
   );

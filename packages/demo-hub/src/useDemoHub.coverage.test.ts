@@ -787,7 +787,7 @@ describe('useDemoHub (branch coverage)', () => {
     // Start the demo and immediately skip reading
     await act(async () => {
       result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(400); // past preAction settle
+      await vi.advanceTimersByTimeAsync(150); // past preAction settle, into reading
       result.current.skipReading();
       await vi.advanceTimersByTimeAsync(5000);
     });
@@ -862,7 +862,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       void result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(400);
+      await vi.advanceTimersByTimeAsync(100);
     });
     act(() => result.current.toggleAutoPlay());
     act(() => result.current.goToDomains());
@@ -1052,7 +1052,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(400);
+      await vi.advanceTimersByTimeAsync(100);
       result.current.skipReading();
       await vi.advanceTimersByTimeAsync(5000);
       await p;

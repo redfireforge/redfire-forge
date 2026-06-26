@@ -8,8 +8,21 @@ vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   closeGqlDemoTabs: vi.fn(async () => {}),
 }));
 
+vi.mock('../../adapters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../adapters')>();
+  return {
+    ...actual,
+    purgeGqlLesson9WorkspaceArtifacts: vi.fn(async () => ({
+      collectionsRemoved: 0,
+      itemsRemoved: 0,
+      historyEntriesRemoved: 0,
+    })),
+  };
+});
+
 import { gqlCollectionsHistoryLesson } from './graphql-collections-history';
 import { ensureGqlDemoTab, closeGqlDemoTabs } from './graphql-lesson-helpers/gql-demo-tab';
+import { purgeGqlLesson9WorkspaceArtifacts } from '../../adapters';
 import { makeCtx } from './ws-test-utils';
 import { GQL } from '@shared/selectors';
 import {
@@ -22,6 +35,8 @@ import {
   ensureHealthExecutedWithHistory,
   ensureHistoryPreviewOpen,
   ensureHistoryLoadedToEditor,
+  loadHistoryToEditor,
+  runHistoryEntry,
   ensureHistoryRunExecuted,
   ensureSavedToCollectionFromHistory,
   ensureCollectionItemRenamed,
@@ -48,8 +63,8 @@ describe('gql-collections-history lesson', () => {
     expect(gqlCollectionsHistoryLesson.id).toBe('gql-collections-history');
     expect(gqlCollectionsHistoryLesson.category).toBe('graphql');
     expect(gqlCollectionsHistoryLesson.name).toBe('Collections & History');
-    expect(gqlCollectionsHistoryLesson.steps.length).toBe(9);
-    expect(gqlCollectionsHistoryLesson.estimatedMinutes).toBe(6);
+    expect(gqlCollectionsHistoryLesson.steps.length).toBe(11);
+    expect(gqlCollectionsHistoryLesson.estimatedMinutes).toBe(7);
     expect(gqlCollectionsHistoryLesson.tabBudget).toBe(1);
   });
 
@@ -64,10 +79,10 @@ describe('gql-collections-history lesson', () => {
     expect(gqlCollectionsHistoryLesson.concept.body).toContain('automatically appended');
   });
 
-  it('concept body explains Preview, Load, Run distinction', () => {
+  it('concept body explains Preview, Load into editor, and Open & Run distinction', () => {
     expect(gqlCollectionsHistoryLesson.concept.body).toContain('Preview');
-    expect(gqlCollectionsHistoryLesson.concept.body).toContain('Load');
-    expect(gqlCollectionsHistoryLesson.concept.body).toContain('Run');
+    expect(gqlCollectionsHistoryLesson.concept.body).toContain('Load into editor');
+    expect(gqlCollectionsHistoryLesson.concept.body).toContain('Open & Run');
   });
 
   it('concept body explains Merge vs Replace import modes', () => {
@@ -86,6 +101,11 @@ describe('gql-collections-history lesson', () => {
   it('key terms include Preview (read-only)', () => {
     const terms = gqlCollectionsHistoryLesson.concept.keyTerms.map((k) => k.term);
     expect(terms).toContain('Preview (read-only)');
+  });
+
+  it('key terms include Load into editor vs Open & Run', () => {
+    const terms = gqlCollectionsHistoryLesson.concept.keyTerms.map((k) => k.term);
+    expect(terms).toContain('Load into editor vs Open & Run');
   });
 
   it('key terms include Import merge vs replace', () => {
@@ -115,9 +135,9 @@ describe('gql-collections-history lesson', () => {
     expect(gqlCollectionsHistoryLesson.concept.diagram).toContain('Save to Collection');
   });
 
-  it('diagram shows Load and Run action buttons', () => {
-    expect(gqlCollectionsHistoryLesson.concept.diagram).toContain('Load');
-    expect(gqlCollectionsHistoryLesson.concept.diagram).toContain('Run');
+  it('diagram shows Load into editor and Open & Run action buttons', () => {
+    expect(gqlCollectionsHistoryLesson.concept.diagram).toContain('Load into editor');
+    expect(gqlCollectionsHistoryLesson.concept.diagram).toContain('Open &amp; Run');
   });
 
   it('diagram shows lifecycle legend with Execute → Import flow', () => {
@@ -183,9 +203,21 @@ describe('gql-collections-history lesson', () => {
     expect(step.verify).toBe(GQL.COLLECTIONS_EXPORT);
   });
 
-  it('gql8-import highlights collections import button', () => {
-    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-import')!;
+  it('gql8-delete highlights collection node', () => {
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-delete')!;
+    expect(step.highlight).toBe(GQL.COL_NODE);
+    expect(step.verify).toBe(GQL.COLLECTIONS_PANEL);
+  });
+
+  it('gql8-import-file highlights collections import button', () => {
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-import-file')!;
     expect(step.highlight).toBe(GQL.COLLECTIONS_IMPORT);
+    expect(step.verify).toBe(GQL.IMPORT_MODE_DIALOG);
+  });
+
+  it('gql8-import-merge highlights merge mode button', () => {
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-import-merge')!;
+    expect(step.highlight).toBe(GQL.IMPORT_MODE_MERGE);
     expect(step.verify).toBe(GQL.COL_ITEM);
   });
 
@@ -202,13 +234,15 @@ describe('gql-collections-history lesson', () => {
     expect(step.description).toContain('read-only');
   });
 
-  it('gql8-load description explains WHY Load differs from Run', () => {
+  it('gql8-load description uses Load into editor button label', () => {
     const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-load')!;
+    expect(step.description).toContain('Load into editor');
     expect(step.description).toContain('without');
   });
 
-  it('gql8-run description explains WHY Run collapses Load+Execute', () => {
+  it('gql8-run description uses Open & Run button label', () => {
     const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-run')!;
+    expect(step.description).toContain('Open & Run');
     expect(step.description).toContain('immediately');
   });
 
@@ -230,8 +264,8 @@ describe('gql-collections-history lesson', () => {
     expect(step.description).toContain('version control');
   });
 
-  it('gql8-import description explains Merge vs Replace', () => {
-    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-import')!;
+  it('gql8-import-merge description explains Merge vs Replace', () => {
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-import-merge')!;
     expect(step.description).toContain('Merge');
     expect(step.description).toContain('Replace');
   });
@@ -251,11 +285,13 @@ describe('gql-collections-history lesson', () => {
       'gql8-save',
       'gql8-rename',
       'gql8-export',
-      'gql8-import',
+      'gql8-delete',
+      'gql8-import-file',
+      'gql8-import-merge',
     ]);
   });
 
-  it('all 9 steps have pauseAfter: true', () => {
+  it('all 11 steps have pauseAfter: true', () => {
     gqlCollectionsHistoryLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
@@ -320,7 +356,9 @@ describe('gql-collections-history lesson', () => {
       'prepareGql8SaveReading',
       'prepareGql8RenameReading',
       'prepareGql8ExportReading',
-      'prepareGql8ImportReading',
+      'prepareGql8DeleteReading',
+      'prepareGql8ImportFileReading',
+      'prepareGql8ImportMergeReading',
     ]);
   });
 
@@ -361,6 +399,22 @@ describe('gql-collections-history lesson', () => {
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.HISTORY_LOAD);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.HISTORY_ENTRY);
+  });
+
+  it('loadHistoryToEditor skips re-opening preview when already visible', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-history-load"></button>
+      <div data-testid="gql-history-preview"></div>
+      <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-history-panel"><div data-testid="gql-history-entry"></div></div>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    `;
+    stubMonacoEditor();
+    await loadHistoryToEditor(ctx);
+    expect(ctx.click).toHaveBeenCalledTimes(1);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.HISTORY_LOAD);
   });
 
   it('gql8-save opens save-to-collection modal', async () => {
@@ -372,10 +426,7 @@ describe('gql-collections-history lesson', () => {
       <div data-testid="gql-history-panel"><div data-testid="gql-history-entry"></div></div>
       <button data-testid="gql-activity-collections"></button>
       <div data-testid="gql-collections-panel">
-        <div data-testid="gql-col-node" aria-expanded="true">
-          <div class="gql-col-node-header"></div>
-          <div data-testid="gql-col-item"><span class="gql-col-item-name">${LESSON8_ITEM_NAME}</span></div>
-        </div>
+        <div data-testid="gql-col-node" aria-expanded="true"><div class="gql-col-node-header"></div></div>
       </div>
       <div data-testid="gql-save-col-modal">
         <input data-testid="gql-save-col-name" />
@@ -418,6 +469,19 @@ describe('gql-collections-history lesson', () => {
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.HISTORY_RUN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.HISTORY_ENTRY);
+  });
+
+  it('runHistoryEntry does not block on response viewer during visible action', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-history-run"></button>
+      <div data-testid="gql-history-preview"></div>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    `;
+    stubMonacoEditor('query { health }');
+    await runHistoryEntry(ctx);
+    expect(ctx.waitFor).not.toHaveBeenCalledWith(GQL.RESPONSE_VIEWER, 15000);
   });
 
   it('gql8-rename opens rename modal for collection item', async () => {
@@ -533,24 +597,36 @@ describe('gql-collections-history lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.HISTORY_ENTRY);
   });
 
-  it('gql8-import action calls collection restore helper', async () => {
+  it('gql8-import-merge action calls confirmImportWithMerge helper', async () => {
     const ctx = makeCtx();
     const spy = vi.spyOn(
       await import('./graphql-lesson-helpers'),
-      'restoreCollectionViaImport',
+      'confirmImportWithMerge',
     ).mockResolvedValue(undefined);
-    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-import')!;
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-import-merge')!;
     await step.action!(ctx);
     expect(spy).toHaveBeenCalledWith(ctx);
     spy.mockRestore();
   });
 
-  it('gql8-import step uses prepareGql8ImportReading as preAction', async () => {
-    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-import')!;
+  it('gql8-import-merge step uses prepareGql8ImportMergeReading as preAction', async () => {
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-import-merge')!;
     expect(step.verify).toBe(GQL.COL_ITEM);
     expect(step.preAction).toBe(
-      (await import('./graphql-lesson-helpers')).prepareGql8ImportReading,
+      (await import('./graphql-lesson-helpers')).prepareGql8ImportMergeReading,
     );
+  });
+
+  it('gql8-import-file action calls triggerCollectionsImportFile helper', async () => {
+    const ctx = makeCtx();
+    const spy = vi.spyOn(
+      await import('./graphql-lesson-helpers'),
+      'triggerCollectionsImportFile',
+    ).mockResolvedValue(undefined);
+    const step = gqlCollectionsHistoryLesson.steps.find((s) => s.id === 'gql8-import-file')!;
+    await step.action!(ctx);
+    expect(spy).toHaveBeenCalledWith(ctx);
+    spy.mockRestore();
   });
 
   it('ensureHealthExecutedWithHistory guard skips repeat execute', async () => {
@@ -570,6 +646,41 @@ describe('gql-collections-history lesson', () => {
     vi.mocked(ctx.click).mockClear();
     await ensureHealthExecutedWithHistory(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('ensureHealthExecutedWithHistory skips when preview is open without list entry', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-execute-btn"></button>
+      <div data-testid="gql-response-viewer"></div>
+      <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-history-panel"><div data-testid="gql-history-preview"></div></div>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+    `;
+    stubMonacoEditor('query { health }');
+    await ensureHealthExecutedWithHistory(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureHealthExecutedWithHistory(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('prepareGql8RunReading is instant when history preview already open', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div data-testid="gql-history-preview"></div>
+      <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-history-panel"></div>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    `;
+    stubMonacoEditor('query { health }');
+    const { prepareGql8RunReading } = await import('./graphql-lesson-helpers');
+    await ensureHealthExecutedWithHistory(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await prepareGql8RunReading(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('setup creates demo tab', async () => {
@@ -938,6 +1049,14 @@ describe('gql-collections-history lesson', () => {
     const tab = document.querySelector<HTMLElement>(GQL.RIGHT_TAB_RESPONSE)!;
     const clickSpy = vi.spyOn(tab, 'click');
     await gqlCollectionsHistoryLessonSetup(ctx);
+    expect(purgeGqlLesson9WorkspaceArtifacts).toHaveBeenCalled();
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('gqlCollectionsHistoryLessonCleanup purges lesson artifacts', async () => {
+    const ctx = makeCtx();
+    await gqlCollectionsHistoryLessonCleanup(ctx);
+    expect(purgeGqlLesson9WorkspaceArtifacts).toHaveBeenCalled();
+    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-collections-history');
   });
 });

@@ -34,16 +34,18 @@ export function GraphqlAuthPanel({
 }: GraphqlAuthPanelProps) {
   return (
     <div className="gql-auth-panel" data-testid="gql-auth-panel">
-      <GraphqlAuthForm
-        storedAuth={storedAuth}
-        authScope={authScope}
-        hasAuthOverride={hasAuthOverride}
-        onResetToInherit={onResetToInherit}
-        onChange={onChange}
-        linkedProfileName={linkedProfileName}
-        globalAuthProfiles={globalAuthProfiles}
-        defaultAuthProfileId={defaultAuthProfileId}
-      />
+      <div className="gql-auth-panel-scroll" data-testid="gql-auth-panel-scroll">
+        <GraphqlAuthForm
+          storedAuth={storedAuth}
+          authScope={authScope}
+          hasAuthOverride={hasAuthOverride}
+          onResetToInherit={onResetToInherit}
+          onChange={onChange}
+          linkedProfileName={linkedProfileName}
+          globalAuthProfiles={globalAuthProfiles}
+          defaultAuthProfileId={defaultAuthProfileId}
+        />
+      </div>
       <div className="gql-auth-panel-footer">
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <circle cx="12" cy="12" r="10" />

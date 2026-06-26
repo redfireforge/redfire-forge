@@ -17,6 +17,7 @@ import { resetGqlLesson5SessionFlags } from './lesson5-subscriptions';
 import { resetGqlLesson6SessionFlags } from './lesson6-auth-headers';
 import { resetGqlLesson7SessionFlags } from './lesson7-query-builder';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import { purgeGqlLesson9WorkspaceArtifacts } from '../../../adapters';
 
 export const LESSON8_ITEM_NAME = 'Health Check';
 export const LESSON8_ITEM_RENAME = 'Lesson 8 Health';
@@ -28,6 +29,7 @@ let _lesson8Loaded = false;
 let _lesson8Run = false;
 let _lesson8Saved = false;
 let _lesson8Renamed = false;
+let _lesson8Deleted = false;
 let _lesson8Restored = false;
 
 export function resetGqlLesson8SessionFlags(): void {
@@ -37,7 +39,23 @@ export function resetGqlLesson8SessionFlags(): void {
   _lesson8Run = false;
   _lesson8Saved = false;
   _lesson8Renamed = false;
+  _lesson8Deleted = false;
   _lesson8Restored = false;
+}
+
+function domHasLesson8SavedItem(): boolean {
+  return Array.from(document.querySelectorAll('.gql-col-item-name')).some((el) => {
+    const name = el.textContent?.trim();
+    return name === LESSON8_ITEM_NAME || name === LESSON8_ITEM_RENAME;
+  });
+}
+
+function syncLesson8SavedFlagFromDom(): void {
+  if (domHasLesson8SavedItem()) {
+    _lesson8Saved = true;
+    const renamed = document.querySelector('.gql-col-item-name')?.textContent?.trim() === LESSON8_ITEM_RENAME;
+    if (renamed) _lesson8Renamed = true;
+  }
 }
 
 /** Open the History activity panel. */
@@ -99,9 +117,17 @@ function injectCollectionsImportFile(json: string): void {
   const input = document.querySelector<HTMLInputElement>(GQL.COLLECTIONS_IMPORT_INPUT);
   if (!input) return;
   const file = new File([json], 'lesson8-collections.json', { type: 'application/json' });
-  const dt = new DataTransfer();
-  dt.items.add(file);
-  input.files = dt.files;
+  try {
+    const dt = new DataTransfer();
+    dt.items.add(file);
+    input.files = dt.files;
+  } catch {
+    Object.defineProperty(input, 'files', {
+      value: [file],
+      writable: true,
+      configurable: true,
+    });
+  }
   input.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
@@ -130,7 +156,6 @@ export function buildLesson8ImportPayload(): string {
         updatedAt: now,
         operation: {
           id: 'op-lesson8',
-          name: 'HealthCheck',
           query: GQL_HEALTH_QUERY,
           variables: '{}',
           operationType: 'query',
@@ -186,10 +211,12 @@ export async function prepareGql8SaveReading(ctx: DemoActionContext): Promise<vo
   }
   await ensureDemoCollectionExists(ctx);
   await openHistoryPanel(ctx);
+  syncLesson8SavedFlagFromDom();
 }
 
 /** Step 7 reading — saved item visible in Collections; rename runs on the visible click. */
 export async function prepareGql8RenameReading(ctx: DemoActionContext): Promise<void> {
+  syncLesson8SavedFlagFromDom();
   if (!_lesson8Saved) {
     await saveHistoryToCollection(ctx);
   }
@@ -209,19 +236,51 @@ export async function prepareGql8ExportReading(ctx: DemoActionContext): Promise<
   await expandFirstCollection(ctx);
 }
 
-/** Step 9 reading — collection ready for delete + import demo. */
-export async function prepareGql8ImportReading(ctx: DemoActionContext): Promise<void> {
+/** Step 9 reading — renamed item visible; delete runs on the visible click. */
+export async function prepareGql8DeleteReading(ctx: DemoActionContext): Promise<void> {
   await prepareGql8ExportReading(ctx);
+  await openCollectionsPanel(ctx);
+  await expandFirstCollection(ctx);
+}
+
+/** Step 10 reading — collection removed; Import opens the file picker on the visible click. */
+export async function prepareGql8ImportFileReading(ctx: DemoActionContext): Promise<void> {
+  if (!_lesson8Deleted && document.querySelector(GQL.COL_NODE)) {
+    await deleteLesson8Collection(ctx);
+  }
+  await openCollectionsPanel(ctx);
+}
+
+/** Step 11 reading — import mode dialog open; Merge runs on the visible click. */
+export async function prepareGql8ImportMergeReading(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GQL.IMPORT_MODE_DIALOG)) {
+    await triggerCollectionsImportFile(ctx);
+  }
+}
+
+/** @deprecated Use prepareGql8DeleteReading + prepareGql8ImportFileReading */
+export async function prepareGql8ImportReading(ctx: DemoActionContext): Promise<void> {
+  await prepareGql8DeleteReading(ctx);
 }
 
 async function openHistoryPanelWithEntry(ctx: DemoActionContext): Promise<void> {
-  await executeLesson8HealthQuery(ctx);
+  if (!_lesson8HealthExecuted) {
+    await executeLesson8HealthQuery(ctx);
+  }
   await openHistoryPanel(ctx);
+  if (document.querySelector(GQL.HISTORY_PREVIEW)) {
+    _lesson8HistoryReady = true;
+    return;
+  }
   if (!document.querySelector(GQL.HISTORY_ENTRY)) {
     await ctx.click(GQL.EXECUTE_BTN);
     await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
     await ctx.delay(500);
     await openHistoryPanel(ctx);
+  }
+  if (document.querySelector(GQL.HISTORY_PREVIEW)) {
+    _lesson8HistoryReady = true;
+    return;
   }
   await ctx.waitFor(GQL.HISTORY_ENTRY, 8000);
   _lesson8HistoryReady = true;
@@ -229,7 +288,14 @@ async function openHistoryPanelWithEntry(ctx: DemoActionContext): Promise<void> 
 
 /** Execute health query and ensure a History entry exists. */
 export async function ensureHealthExecutedWithHistory(ctx: DemoActionContext): Promise<void> {
-  if (_lesson8HistoryReady && document.querySelector(GQL.HISTORY_ENTRY)) return;
+  if (_lesson8HistoryReady && (
+    document.querySelector(GQL.HISTORY_ENTRY) ||
+    document.querySelector(GQL.HISTORY_PREVIEW)
+  )) return;
+  if (_lesson8HealthExecuted && document.querySelector(GQL.HISTORY_PREVIEW)) {
+    _lesson8HistoryReady = true;
+    return;
+  }
   await openHistoryPanelWithEntry(ctx);
 }
 
@@ -242,6 +308,7 @@ export async function revealHistoryPanel(ctx: DemoActionContext): Promise<void> 
 }
 
 async function openHistoryPreviewIfMissing(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(GQL.HISTORY_PREVIEW)) return;
   await ensureHealthExecutedWithHistory(ctx);
   if (document.querySelector(GQL.HISTORY_PREVIEW)) return;
   await openHistoryPanel(ctx);
@@ -264,10 +331,12 @@ export const ensureHistoryPreviewOpen = openHistoryPreview;
 
 /** Load history entry into editor without executing (step 4 action). */
 export async function loadHistoryToEditor(ctx: DemoActionContext): Promise<void> {
-  await openHistoryPreview(ctx);
   if (_lesson8Loaded && getGqlEditorQuery().includes('health')) return;
+  if (!document.querySelector(GQL.HISTORY_PREVIEW)) {
+    await openHistoryPreviewIfMissing(ctx);
+  }
   await ctx.click(GQL.HISTORY_LOAD);
-  await ctx.delay(1000);
+  await ctx.delay(700);
   _lesson8Loaded = true;
 }
 
@@ -276,17 +345,13 @@ export const ensureHistoryLoadedToEditor = loadHistoryToEditor;
 
 /** Run history entry — loads query and executes immediately (step 5 action). */
 export async function runHistoryEntry(ctx: DemoActionContext): Promise<void> {
-  await openHistoryPreview(ctx);
-  if (!document.querySelector(GQL.HISTORY_PREVIEW)) {
-    await openHistoryPanel(ctx);
-    await ctx.click(GQL.HISTORY_ENTRY);
-    await ctx.waitFor(GQL.HISTORY_PREVIEW, 5000);
-    await ctx.delay(600);
-  }
   if (_lesson8Run) return;
+  if (!document.querySelector(GQL.HISTORY_PREVIEW)) {
+    await openHistoryPreviewIfMissing(ctx);
+  }
   await ctx.click(GQL.HISTORY_RUN);
-  await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(1000);
+  // Response viewer unmounts during execute (loading spinner). Verify phase waits for the result.
+  await ctx.delay(400);
   _lesson8Run = true;
 }
 
@@ -312,7 +377,10 @@ export async function saveHistoryToCollection(ctx: DemoActionContext): Promise<v
     await ctx.waitFor(GQL.HISTORY_PREVIEW, 5000);
     await ctx.delay(600);
   }
-  if (_lesson8Saved && document.querySelector(GQL.COL_ITEM)) return;
+  if (_lesson8Saved || domHasLesson8SavedItem()) {
+    _lesson8Saved = true;
+    return;
+  }
 
   await ctx.click(GQL.HISTORY_SAVE_TO_COL);
   await ctx.waitFor(GQL.SAVE_COL_MODAL, 5000);
@@ -369,35 +437,66 @@ export async function renameCollectionItem(ctx: DemoActionContext): Promise<void
 /** @deprecated Use renameCollectionItem */
 export const ensureCollectionItemRenamed = renameCollectionItem;
 
-/** Import collections JSON (after delete) to restore the saved operation (step 9 action). */
-export async function restoreCollectionViaImport(ctx: DemoActionContext): Promise<void> {
+/** Delete the saved collection via header context menu (step 9 action). */
+export async function deleteLesson8Collection(ctx: DemoActionContext): Promise<void> {
   const itemName = document.querySelector('.gql-col-item-name')?.textContent?.trim();
   if (!_lesson8Renamed || itemName !== LESSON8_ITEM_RENAME) {
     await renameCollectionItem(ctx);
   }
-  if (_lesson8Restored && document.querySelector(GQL.COL_ITEM)) return;
+  if (_lesson8Deleted || !document.querySelector(GQL.COL_NODE)) {
+    _lesson8Deleted = true;
+    return;
+  }
 
   await openCollectionsPanel(ctx);
+  await expandFirstCollection(ctx);
   await openCollectionHeaderContextMenu(ctx);
-  await clickContextMenuItem(ctx, 'Delete');
   await ctx.delay(800);
+  await clickContextMenuItem(ctx, 'Delete');
+  await ctx.delay(1000);
+  _lesson8Deleted = true;
+}
 
+/** Click Import and attach the lesson JSON — opens the mode dialog (step 10 action). */
+export async function triggerCollectionsImportFile(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(GQL.IMPORT_MODE_DIALOG)) return;
+
+  await openCollectionsPanel(ctx);
   await ctx.click(GQL.COLLECTIONS_IMPORT);
-  await ctx.delay(500);
+  await ctx.delay(600);
   injectCollectionsImportFile(buildLesson8ImportPayload());
   await ctx.waitFor(GQL.IMPORT_MODE_DIALOG, 8000);
-  await ctx.delay(600);
+  await ctx.delay(1000);
+}
+
+/** Confirm Merge on the import mode dialog — restores the saved operation (step 11 action). */
+export async function confirmImportWithMerge(ctx: DemoActionContext): Promise<void> {
+  if (_lesson8Restored && document.querySelector(GQL.COL_ITEM)) return;
+
+  if (!document.querySelector(GQL.IMPORT_MODE_DIALOG)) {
+    await triggerCollectionsImportFile(ctx);
+  }
+  await ctx.waitFor(GQL.IMPORT_MODE_MERGE, 8000);
+  await ctx.delay(800);
   await ctx.click(GQL.IMPORT_MODE_MERGE);
   await ctx.delay(1500);
+  await openCollectionsPanel(ctx);
   await expandFirstCollection(ctx);
   await ctx.waitFor(GQL.COL_ITEM, 8000);
   _lesson8Restored = true;
 }
 
+/** Import collections JSON (after delete) to restore the saved operation. */
+export async function restoreCollectionViaImport(ctx: DemoActionContext): Promise<void> {
+  await deleteLesson8Collection(ctx);
+  await triggerCollectionsImportFile(ctx);
+  await confirmImportWithMerge(ctx);
+}
+
 /** @deprecated Use restoreCollectionViaImport */
 export const ensureCollectionRestoredViaImport = restoreCollectionViaImport;
 
-/** Setup for Lesson 8 (GQL-9) — demo tab; close activity panels. */
+/** Setup for Lesson 8 (GQL-9) — demo tab; purge prior lesson artifacts. */
 export async function gqlCollectionsHistoryLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
@@ -407,6 +506,8 @@ export async function gqlCollectionsHistoryLessonSetup(ctx: DemoActionContext): 
   resetGqlLesson6SessionFlags();
   resetGqlLesson7SessionFlags();
   resetGqlLesson8SessionFlags();
+
+  await purgeGqlLesson9WorkspaceArtifacts();
 
   const editorBtn = document.querySelector<HTMLElement>(GQL.MODE_EDITOR);
   if (editorBtn && !editorBtn.classList.contains('gql-mode-btn--active')) {
@@ -431,8 +532,9 @@ export async function gqlCollectionsHistoryLessonSetup(ctx: DemoActionContext): 
   await fillGqlEditor(ctx, '', { focus: false });
 }
 
-/** Cleanup for Lesson 8 (GQL-9) — close demo tab and reset session flags. */
+/** Cleanup for Lesson 8 (GQL-9) — purge lesson artifacts and close demo tab. */
 export async function gqlCollectionsHistoryLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson8SessionFlags();
+  await purgeGqlLesson9WorkspaceArtifacts();
   await closeGqlDemoTabs(ctx, 'gql-collections-history');
 }

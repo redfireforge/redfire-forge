@@ -65,3 +65,23 @@ test('subscription stats show message count after stream completes', async ({ pa
   await expect(page.locator('[data-testid="gql-sub-stats-bar"]')).toBeVisible({ timeout: 10_000 });
   await expect(page.locator('[data-testid="gql-sub-stats-bar"]')).toContainText('3', { timeout: 15_000 });
 });
+
+test('stream toolbar re-subscribe stays live long enough for pause control', async ({ page, request }) => {
+  const orderId = await createTestOrder(request);
+
+  await fillMonacoEditor(page, subscriptionQuery(orderId));
+  await page.locator('[data-testid="gql-transport-select"]').selectOption('graphql-transport-ws');
+  await page.locator('[data-testid="gql-subscribe-btn"]').click();
+
+  await expect(page.locator('[data-testid="gql-sub-message-list"]')).toContainText('COMPLETE', { timeout: 20_000 });
+  await expect(page.locator('[data-testid="gql-sub-resubscribe-btn"]')).toBeVisible({ timeout: 5_000 });
+
+  await page.locator('[data-testid="gql-sub-resubscribe-btn"]').click();
+  await expect(page.locator('[data-testid="gql-sub-pause-btn"]')).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('[data-testid="gql-sub-stop-btn"]')).toBeVisible();
+
+  // Stream must not snap back to "Completed" instantly — Pause should remain for at least 1s.
+  await page.waitForTimeout(1_000);
+  await expect(page.locator('[data-testid="gql-sub-pause-btn"]')).toBeVisible();
+  await expect(page.locator('[data-testid="gql-sub-resubscribe-btn"]')).not.toBeVisible();
+});

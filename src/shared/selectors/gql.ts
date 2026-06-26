@@ -84,11 +84,19 @@ export const GQL = {
   RV_TAB_BODY:         '[data-testid="gql-rv-tab-body"]',
   RV_TAB_METADATA:     '[data-testid="gql-rv-tab-metadata"]',
   RV_METADATA:         '[data-testid="gql-rv-metadata"]',
+  RV_REQUEST_BODY:     '[data-testid="gql-rv-request-body"]',
+  RV_REQUEST_BODY_TOGGLE: '[data-testid="gql-rv-request-body-toggle"]',
+  RV_REQUEST_BODY_PRETTY_BTN: '[data-testid="gql-rv-request-body-pretty-btn"]',
+  RV_REQUEST_BODY_CONTENT: '[data-testid="gql-rv-request-body-content"]',
   RV_AUTH_SENT:          '[data-testid="gql-rv-auth-sent"]',
   RV_REQUEST_HEADERS:  '[data-testid="gql-rv-request-headers"]',
+  RV_REQUEST_HEADERS_TOGGLE: '[data-testid="gql-rv-request-headers-toggle"]',
   /** Metadata request-headers table — one row per header name (case-sensitive). */
   rvRequestHeaderKey:  (name: string) => `[data-testid="gql-rv-request-header-key-${name}"]`,
   rvRequestHeaderVal:  (name: string) => `[data-testid="gql-rv-request-header-val-${name}"]`,
+  /** Scoped to the response viewer — avoids demo spotlight matching auth-panel preview rows. */
+  rvMetadataRequestHeaderVal: (name: string) =>
+    `[data-testid="gql-response-viewer"] [data-testid="gql-rv-request-header-val-${name}"]`,
 
   // ── TLS (Lesson 5) — toggle appears only for https:// endpoints ──────────
   TLS_TOGGLE:          '[data-testid="gql-tls-toggle"]',
@@ -133,6 +141,8 @@ export const GQL = {
   PROFILE_NAME_INPUT:  '[data-testid="gql-profile-name-input"]',
   PROFILE_SAVE_BTN:    '[data-testid="gql-profile-save-btn"]',
   PROFILE_CLOSE_BTN:   '[data-testid="gql-profile-close-btn"]',
+  PROFILE_LOADED_BADGE:'[data-testid="gql-profile-loaded-badge"]',
+  profileRow: (id: string) => `[data-testid="gql-profile-row-${id}"]`,
   ENV_BADGE:           '[data-testid="gql-env-badge"]',
   ENV_MODAL:           '[data-testid="gql-env-modal"]',
   ENV_CLOSE_BTN:       '[data-testid="gql-env-close-btn"]',
@@ -194,11 +204,17 @@ export const GQL = {
   SUB_STATS_BAR:           '[data-testid="gql-sub-stats-bar"]',
   SUBSCRIPTION_PAUSE_BTN:  '[data-testid="gql-sub-pause-btn"]',
   SUBSCRIPTION_RESUME_BTN: '[data-testid="gql-sub-resume-btn"]',
+  SUBSCRIPTION_RESUBSCRIBE_BTN: '[data-testid="gql-sub-resubscribe-btn"]',
+  /** Spotlight: Re-subscribe when closed, Pause/Resume when live. */
+  SUBSCRIPTION_STREAM_CONTROLS:
+    '[data-testid="gql-sub-resubscribe-btn"], [data-testid="gql-sub-pause-btn"], [data-testid="gql-sub-resume-btn"]',
+  SUBSCRIPTION_TOOLBAR:    '[data-testid="gql-sub-toolbar"]',
   SUBSCRIPTION_CLEAR_BTN:  '[data-testid="gql-sub-clear-btn"]',
   SUBSCRIPTION_EXPORT_BTN: '[data-testid="gql-sub-export-btn"]',
   SUBSCRIPTION_FILTER_BTN: '[data-testid="gql-sub-filter-btn"]',
   SUBSCRIPTION_FILTER_BAR: '[data-testid="gql-sub-filter-bar"]',
   SUBSCRIPTION_FILTER_INPUT:'[data-testid="gql-sub-filter-input"]',
+  SUBSCRIPTION_FILTER_CLEAR:'[data-testid="gql-sub-filter-clear"]',
   SUB_STOP_BTN:            '[data-testid="gql-sub-stop-btn"]',
   // Legacy aliases (deprecated testids — do not use in new lesson steps)
   SUBSCRIPTION_STATS:      '[data-testid="gql-sub-stats-bar"]',
@@ -324,6 +340,8 @@ export const GQL = {
   COL_VARS_EDITOR:     '[data-testid="gql-col-vars-editor"]',
   COLLECTIONS_IMPORT_INPUT: '[data-testid="gql-collections-import-input"]',
   IMPORT_MODE_DIALOG:  '[data-testid="gql-import-mode-dialog"]',
+  IMPORT_MODE_FILE:    '[data-testid="gql-import-mode-file"]',
+  IMPORT_MODE_SUMMARY: '[data-testid="gql-import-mode-summary"]',
   IMPORT_MODE_MERGE:   '[data-testid="gql-import-mode-merge"]',
   COL_CTX_MENU:        '.gql-history-context-menu',
   SAVE_COL_MODAL:      '[data-testid="gql-save-col-modal"]',
@@ -401,6 +419,7 @@ export const GQL = {
   // ── Advanced Settings — Phase 3F ─────────────────────────────────────────
   /** Gear button that opens the Advanced Settings popover. */
   ADV_SETTINGS_BTN:        '[data-testid="gql-adv-settings-btn"]',
+  ADV_SETTINGS_MODAL:      '[data-testid="gql-adv-settings-modal"]',
   /** Footer Close button inside the Advanced Settings popover. */
   ADV_SETTINGS_CANCEL_BTN: '[data-testid="gql-adv-settings-cancel-btn"]',
   ADV_SETTINGS_SAVE_BTN:   '[data-testid="gql-adv-settings-save-btn"]',

@@ -5,6 +5,7 @@ import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import { resolveTabRawEndpoint } from '../utils/tabConnectionResolution';
 import { normalizeGraphqlEndpoint } from '../utils/graphqlEndpointUtils';
+import { resolveGraphqlRequestOperationName } from '../utils/graphqlQueryParseUtils';
 import { resolveVars } from '../utils/envUtils';
 import type { UseGraphqlHistoryResult } from './useGraphqlHistory';
 
@@ -74,7 +75,10 @@ export function useGqlExecutionCompletedHandler({
       connectionId: executedTabEndpoint,
       operation: {
         id: executedTab.id,
-        name: executedTab.selectedOperation ?? (executedTab.label !== 'Untitled' ? executedTab.label : undefined),
+        name: resolveGraphqlRequestOperationName(
+          executedTab.query,
+          executedTab.selectedOperation,
+        ),
         query: executedTab.query,
         variables: executedTab.variables,
         operationType: (executedTab.operationType ?? 'query') as 'query' | 'mutation' | 'subscription',

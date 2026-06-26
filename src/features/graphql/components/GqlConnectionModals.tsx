@@ -15,6 +15,7 @@ interface GqlConnectionModalsProps {
   profileModalOpen: boolean;
   onProfileModalClose: () => void;
   profiles: ConnectionProfile[];
+  activeConnectionId?: string | null;
   endpoint: string;
   auth: GraphqlAuth | null;
   globalAuthProfiles?: GlobalAuthProfile[];
@@ -41,6 +42,7 @@ export function GqlConnectionModals({
   profileModalOpen,
   onProfileModalClose,
   profiles,
+  activeConnectionId = null,
   endpoint,
   auth,
   globalAuthProfiles = [],
@@ -65,6 +67,7 @@ export function GqlConnectionModals({
       {profileModalOpen && (
         <GraphqlProfileModal
           profiles={profiles}
+          activeConnectionId={activeConnectionId}
           currentEndpoint={endpoint}
           currentAuth={auth}
           globalAuthProfiles={globalAuthProfiles}

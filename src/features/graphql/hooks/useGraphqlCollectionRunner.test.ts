@@ -77,6 +77,29 @@ describe('useGraphqlCollectionRunner — sequential run', () => {
     expect(result.current.state.running).toBe(false);
   });
 
+  it('omits operationName for anonymous queries with a mismatched stored name', async () => {
+    mockExecute.mockResolvedValue(successResponse());
+    const { result } = renderHook(() => useGraphqlCollectionRunner());
+    const item = makeItem({
+      id: 'anon-op',
+      operation: {
+        id: 'op-1',
+        query: 'query { health }',
+        variables: '{}',
+        operationType: 'query',
+        name: 'Demo: Collections & History',
+      },
+    });
+
+    await act(async () => {
+      await result.current.run({ items: [item], endpoint: 'http://test/graphql' });
+    });
+
+    expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({
+      operationName: undefined,
+    }));
+  });
+
   it('forwards skipTlsVerify to executeGraphqlOperation (Phase 6)', async () => {
     mockExecute.mockResolvedValue(successResponse());
     const { result } = renderHook(() => useGraphqlCollectionRunner());

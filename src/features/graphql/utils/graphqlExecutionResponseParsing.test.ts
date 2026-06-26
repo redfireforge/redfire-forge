@@ -87,6 +87,35 @@ describe('stampRequestHeaders', () => {
     expect(stamped.authSentSource).toBeUndefined();
     expect(stamped.authSentLines).toBeUndefined();
   });
+
+  it('stamps request method and body when requestStamp is provided', () => {
+    const base = parseHttpBody(200, {}, '{}', 1);
+    const stamped = stampRequestHeaders(
+      base,
+      { 'Content-Type': 'application/json' },
+      undefined,
+      {
+        method: 'POST',
+        body: { query: 'query GetUser($id: ID!) { user(id: $id) { id } }', variables: { id: 'usr-1' } },
+      },
+    );
+    expect(stamped.requestMethod).toBe('POST');
+    expect(stamped.requestBody).toEqual({
+      query: 'query GetUser($id: ID!) { user(id: $id) { id } }',
+      variables: { id: 'usr-1' },
+    });
+  });
+
+  it('clears request method and body when requestStamp is omitted', () => {
+    const base = {
+      ...parseHttpBody(200, {}, '{}', 1),
+      requestMethod: 'POST',
+      requestBody: { query: 'query { health }' },
+    };
+    const stamped = stampRequestHeaders(base, { 'Content-Type': 'application/json' });
+    expect(stamped.requestMethod).toBeUndefined();
+    expect(stamped.requestBody).toBeUndefined();
+  });
 });
 
 describe('apqInfoFromResponse', () => {

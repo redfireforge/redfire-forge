@@ -52,9 +52,24 @@ export {
 export { purgeGqlStudioEnvironmentsByName, GQL_ENVS_STORAGE_KEY } from '@graphql/utils/gqlStudioEnvironmentStorage';
 
 export {
+  purgeGqlLesson9CollectionArtifacts,
+  purgeGqlLesson9DemoHistory,
+  purgeGqlLesson9WorkspaceArtifacts,
+  GQL9_DEMO_ITEM_NAMES,
+  GQL9_DEMO_COLLECTION_NAMES,
+} from '@graphql/utils/gqlDemoCollectionsCleanup';
+
+export {
   applyGqlTlsSettings,
   deleteGqlEnvironmentByName,
   upsertGqlEnvironment,
   upsertGlobalAuthProfile,
+  purgeGqlDemoGlobalAuthProfiles,
   type GqlDemoEnvVar,
 } from './environmentAdapter';
+
+export {
+  GQL6_DEMO_GLOBAL_AUTH_PROFILE_ID,
+  GQL6_DEMO_GLOBAL_AUTH_PROFILE_NAME,
+  ALL_GQL_DEMO_GLOBAL_AUTH_PROFILE_SPECS,
+} from '@graphql/utils/gqlDemoGlobalAuthProfiles';

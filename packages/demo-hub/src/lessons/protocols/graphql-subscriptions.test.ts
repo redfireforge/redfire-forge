@@ -34,6 +34,7 @@ import {
   ensureSubscriptionAuthConfigured,
   markSubscriptionAuthDone,
   ensureEnvReady,
+  resetGqlLesson6SessionFlags,
   gqlSubscriptionsLessonCleanup,
   resetGqlLesson3SessionFlags,
 } from './graphql-lesson-helpers';
@@ -147,6 +148,13 @@ describe('gql-subscriptions lesson', () => {
     expect(step.highlight).toBe(GQL.STOP_SUB_BTN);
   });
 
+  it('gql5-observe-create-order highlights compact data.createOrder card', () => {
+    const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-observe-create-order')!;
+    expect(step.highlight).toBe(GQL.RESPONSE_DATA_CREATE_ORDER);
+    expect(step.verify).toBe(GQL.RESPONSE_DATA_CREATE_ORDER);
+    expect(step.description).toContain('data.createOrder.id');
+  });
+
   // ─── Concept ────────────────────────────────────────────────────────────
 
   it('concept body explains WHY subscriptions differ from queries', () => {
@@ -213,10 +221,12 @@ describe('gql-subscriptions lesson', () => {
     expect(step.description).toContain('$orderId');
   });
 
-  it('gql5-assertions description explains real-time pass/fail badges', () => {
+  it('gql5-assertions description explains re-subscribe and pass/fail badges', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-assertions')!;
     expect(step.description).toContain('COMPLETE');
     expect(step.description).toContain('$.orderStatus.status');
+    expect(step.description.toLowerCase()).toContain('re-subscrib');
+    expect(step.verify).toBe(GQL.ASSERTION_BADGE);
   });
 
   it('gql5-disconnect description explains log persists after stop', () => {
@@ -261,6 +271,8 @@ describe('gql-subscriptions lesson', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-subscription-auth')!;
     expect(step.description).toContain('connectionParams');
     expect(step.description).toContain('connection_init');
+    expect(step.description).toContain('auto-seeds');
+    expect(step.description).toContain('authToken');
   });
 
   it('gql5-subscription-auth action configures bearer auth preview', async () => {
@@ -284,15 +296,25 @@ describe('gql-subscriptions lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
   });
 
-  it('gql5-subscription-auth preAction prepares transport without configuring auth', async () => {
-    stubGqlStudioShell('<span data-testid="gql-schema-badge-ok"></span>');
+  it('gql5-subscription-auth preAction seeds env and configures bearer auth preview', async () => {
+    resetGqlLesson6SessionFlags();
+    stubGqlStudioShell(`
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-env-badge"></button>
+      <div data-testid="gql-bottom-tab-auth" aria-selected="true"></div>
+      <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
+      <input data-testid="gql-auth-bearer-input" />
+      <div data-testid="gql-auth-preview">Authorization: Bearer lesson6-demo-jwt</div>
+    `);
     stubMonacoEditor(GQL_ORDER_STATUS_SUBSCRIPTION);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       json: async () => ({ data: { createOrder: { id: 'ord-pre' } } }),
     }));
+    (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = vi.fn();
     const ctx = makeCtx();
     await prepareGql5SubscriptionAuthReading(ctx);
-    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, '{{authToken}}');
+    expect((window as unknown as Record<string, unknown>).__demoUpsertGqlEnv).toHaveBeenCalled();
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, '{{authToken}}');
   });
 
   it('ensureSubscriptionAuthConfigured guard skips when auth already done', async () => {
@@ -377,13 +399,22 @@ describe('gql-subscriptions lesson', () => {
     const ctx = makeCtx();
     await step.preAction!(ctx);
     await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIPTION_RESUBSCRIBE_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIPTION_PAUSE_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIPTION_RESUME_BTN);
   });
 
+  it('gql5-pause highlights stream control buttons', () => {
+    const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-pause')!;
+    expect(step.highlight).toBe(GQL.SUBSCRIPTION_STREAM_CONTROLS);
+    expect(step.verify).toBe(GQL.SUBSCRIPTION_STREAM_CONTROLS);
+  });
+
   it('gql5-pause falls back to ensurePauseResumeDemo when pause btn missing', async () => {
-    stubSubscriptionShell('<button data-testid="gql-subscribe-btn"></button>');
+    stubSubscriptionShell();
+    document.querySelector(GQL.SUBSCRIPTION_RESUBSCRIBE_BTN)?.remove();
     document.querySelector(GQL.SUBSCRIPTION_PAUSE_BTN)?.remove();
+    document.querySelector<HTMLButtonElement>(GQL.SUBSCRIBE_BTN)!.disabled = true;
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-pause')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
@@ -400,7 +431,7 @@ describe('gql-subscriptions lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.SUBSCRIPTION_FILTER_INPUT, 'COMPLETE');
   });
 
-  it('gql5-assertions adds subscription assertion row', async () => {
+  it('gql5-assertions adds assertion then re-subscribes for badge demo', async () => {
     stubSubscriptionShell();
     stubMonacoEditor(GQL_ORDER_STATUS_SUBSCRIPTION);
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-assertions')!;
@@ -408,6 +439,17 @@ describe('gql-subscriptions lesson', () => {
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ASSERTION_JSONPATH, '$.orderStatus.status');
+    expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIPTION_RESUBSCRIBE_BTN);
+  });
+
+  it('gql5-disconnect preAction re-subscribes when stop is not yet visible', async () => {
+    stubSubscriptionShell();
+    document.querySelector(GQL.STOP_SUB_BTN)?.remove();
+    document.querySelector(GQL.SUB_STOP_BTN)?.remove();
+    const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-disconnect')!;
+    const ctx = makeCtx();
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIPTION_RESUBSCRIBE_BTN);
   });
 
   it('gql5-disconnect clicks stop on connection bar', async () => {
@@ -823,6 +865,7 @@ describe('gql-subscriptions lesson', () => {
     const step = gqlSubscriptionsLesson.steps.find((s) => s.id === 'gql5-pause')!;
     const ctx = makeCtx();
     await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIPTION_RESUBSCRIBE_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIPTION_PAUSE_BTN);
     expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIPTION_RESUME_BTN);
   });
@@ -897,6 +940,7 @@ describe('gql-subscriptions lesson', () => {
   it('ensurePauseResumeDemo skips subscribe when button disabled and no pause btn', async () => {
     stubSubscriptionShell();
     document.querySelector<HTMLButtonElement>(GQL.SUBSCRIBE_BTN)!.disabled = true;
+    document.querySelector(GQL.SUBSCRIPTION_RESUBSCRIBE_BTN)?.remove();
     document.querySelector(GQL.SUBSCRIPTION_PAUSE_BTN)?.remove();
     const ctx = makeCtx();
     await ensureSubscribedWithMessages(ctx);

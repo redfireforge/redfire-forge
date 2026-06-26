@@ -7,6 +7,7 @@ import {
   ensureDemoEndpoint,
   ensureEditorMode,
   ensureIntrospected,
+  ensureResponseCreateOrderVisible,
   fillGqlEditor,
   fillGqlVariables,
   getGqlEditorQuery,
@@ -44,6 +45,7 @@ let _lesson5Subscribed = false;
 let _lesson5PauseDemoDone = false;
 let _lesson5FilterDemoDone = false;
 let _lesson5AssertionAdded = false;
+let _lesson5AssertionStreamDone = false;
 let _lesson5AuthConfigured = false;
 
 /** Reset Lesson 5 session flags. */
@@ -55,6 +57,7 @@ export function resetGqlLesson5SessionFlags(): void {
   _lesson5PauseDemoDone = false;
   _lesson5FilterDemoDone = false;
   _lesson5AssertionAdded = false;
+  _lesson5AssertionStreamDone = false;
   _lesson5AuthConfigured = false;
 }
 
@@ -154,6 +157,38 @@ async function waitForSubscriptionComplete(ctx: DemoActionContext, minRows = 3):
   }
 }
 
+/** Wait until the stream is live and the Pause control is visible. */
+async function waitForSubscriptionLive(ctx: DemoActionContext, timeoutMs = 8000): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (document.querySelector(GQL.SUBSCRIPTION_PAUSE_BTN)) return true;
+    const state = document.querySelector(GQL.SUB_STATE);
+    if (state?.textContent?.includes('Live')) return true;
+    await ctx.delay(100);
+  }
+  return false;
+}
+
+/** Re-subscribe via stream toolbar (preferred) or connection bar, then wait for live Pause. */
+export async function clickResubscribeAndWaitForLive(ctx: DemoActionContext): Promise<boolean> {
+  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+  await ctx.delay(200);
+  const toolbarResub = document.querySelector(GQL.SUBSCRIPTION_RESUBSCRIBE_BTN);
+  const subscribeBtn = document.querySelector<HTMLButtonElement>(GQL.SUBSCRIBE_BTN);
+  const canResubscribe = !!toolbarResub || !!(subscribeBtn && !subscribeBtn.disabled);
+  if (!canResubscribe) return false;
+
+  if (toolbarResub) {
+    await ctx.click(GQL.SUBSCRIPTION_RESUBSCRIBE_BTN);
+  } else {
+    await ctx.click(GQL.SUBSCRIBE_BTN);
+  }
+  await ctx.waitFor(GQL.SUBSCRIPTION_LOG, 15000);
+  const live = await waitForSubscriptionLive(ctx);
+  if (live) await ctx.delay(200);
+  return live;
+}
+
 export async function ensureWsTransport(ctx: DemoActionContext): Promise<void> {
   const select = document.querySelector<HTMLSelectElement>(GQL.TRANSPORT_SELECT);
   if (select && select.value !== 'graphql-transport-ws') {
@@ -181,10 +216,13 @@ async function waitForResolvedAuthPreview(ctx: DemoActionContext): Promise<void>
   await ctx.waitFor(GQL.AUTH_PREVIEW, 5000);
 }
 
-/** Step gql5-subscription-auth reading — transport + subscription query ready; auth not yet shown. */
+/** Step gql5-subscription-auth reading — transport + subscription query ready; env + auth preview armed. */
 export async function prepareGql5SubscriptionAuthReading(ctx: DemoActionContext): Promise<void> {
   await ensureSubscriptionVars(ctx);
   await ensureWsTransport(ctx);
+  await ensureEnvReady(ctx);
+  await configureSubscriptionBearerAuth(ctx);
+  await waitForResolvedAuthPreview(ctx);
 }
 
 /** Ensure Bearer auth is configured for the subscription WebSocket handshake. */
@@ -249,8 +287,7 @@ export async function prepareGql5ExecCreateOrderReading(ctx: DemoActionContext):
 /** Step 4b reading — createOrder response with captured order id. */
 export async function prepareGql5ObserveCreateOrderReading(ctx: DemoActionContext): Promise<void> {
   await ensureDemoOrderCreated(ctx);
-  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
-  await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+  await ensureResponseCreateOrderVisible(ctx);
 }
 
 /** Ensure createOrder mutation ran and order id is stored. */
@@ -315,17 +352,31 @@ export async function ensureSubscribedWithMessages(ctx: DemoActionContext): Prom
   _lesson5Subscribed = true;
 }
 
+/**
+ * Step gql5-pause reading — prior run finished (Completed); stream toolbar shows Re-subscribe.
+ * Does not re-open the stream so Pause/Resume spotlight targets stay predictable.
+ */
+export async function prepareGql5PauseReading(ctx: DemoActionContext): Promise<void> {
+  await ensureSubscriptionAuthConfigured(ctx);
+  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+  await ctx.delay(300);
+  if (!document.querySelector(GQL.SUBSCRIPTION_LOG)) {
+    await clickSubscribeAndWait(ctx);
+    await waitForSubscriptionComplete(ctx);
+    _lesson5Subscribed = true;
+  } else if (subscriptionRowCount() < 1) {
+    await clickSubscribeAndWait(ctx);
+    await waitForSubscriptionComplete(ctx);
+    _lesson5Subscribed = true;
+  }
+}
+
 /** Re-subscribe, pause while active, then resume (pause/resume demo). */
 export async function ensurePauseResumeDemo(ctx: DemoActionContext): Promise<void> {
-  await ensureSubscribedWithMessages(ctx);
+  await ensureSubscriptionAuthConfigured(ctx);
   if (_lesson5PauseDemoDone) return;
 
-  const subscribeBtn = document.querySelector<HTMLButtonElement>(GQL.SUBSCRIBE_BTN);
-  if (subscribeBtn && !subscribeBtn.disabled) {
-    await ctx.click(GQL.SUBSCRIBE_BTN);
-    await ctx.waitFor(GQL.SUBSCRIPTION_LOG, 15000);
-    await ctx.delay(200);
-  }
+  await clickResubscribeAndWaitForLive(ctx);
 
   const pauseBtn = document.querySelector(GQL.SUBSCRIPTION_PAUSE_BTN);
   if (pauseBtn) {
@@ -353,6 +404,78 @@ export async function ensureFilterDemo(ctx: DemoActionContext): Promise<void> {
   await ctx.fill(GQL.SUBSCRIPTION_FILTER_INPUT, 'COMPLETE');
   await ctx.delay(600);
   _lesson5FilterDemoDone = true;
+}
+
+/** Clear an active subscription log text filter from the filter step. */
+export async function clearSubscriptionFilterIfActive(ctx: DemoActionContext): Promise<void> {
+  const input = document.querySelector<HTMLInputElement>(GQL.SUBSCRIPTION_FILTER_INPUT);
+  if (!input?.value.trim()) return;
+  const clearBtn = document.querySelector<HTMLElement>(GQL.SUBSCRIPTION_FILTER_CLEAR);
+  if (clearBtn) {
+    await ctx.click(GQL.SUBSCRIPTION_FILTER_CLEAR);
+    await ctx.delay(300);
+    return;
+  }
+  await ctx.fill(GQL.SUBSCRIPTION_FILTER_INPUT, '');
+  await ctx.delay(300);
+}
+
+async function waitForAssertionBadgeCount(
+  ctx: DemoActionContext,
+  minBadges: number,
+  timeoutMs = 20000,
+): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (document.querySelectorAll(GQL.ASSERTION_BADGE).length >= minBadges) return;
+    await ctx.delay(200);
+  }
+}
+
+/**
+ * Re-subscribe after assertions are configured so pass/fail badges appear on each row.
+ * Clears any active log filter first so all three lifecycle events stay visible.
+ */
+export async function demonstrateAssertionStream(ctx: DemoActionContext): Promise<void> {
+  if (_lesson5AssertionStreamDone
+    && document.querySelectorAll(GQL.ASSERTION_BADGE).length >= 3
+    && subscriptionLogText().includes('COMPLETE')) {
+    return;
+  }
+
+  await ensureSubscriptionAuthConfigured(ctx);
+  await ensureSubscriptionQueryWritten(ctx);
+  await clearSubscriptionFilterIfActive(ctx);
+  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+  await ctx.delay(300);
+
+  const live = await clickResubscribeAndWaitForLive(ctx);
+  if (!live) {
+    await clickSubscribeAndWait(ctx);
+    await waitForSubscriptionLive(ctx);
+  }
+
+  await waitForAssertionBadgeCount(ctx, 1);
+  await waitForSubscriptionComplete(ctx);
+  await waitForAssertionBadgeCount(ctx, 3);
+  await ctx.delay(1200);
+  _lesson5AssertionStreamDone = true;
+}
+
+/** Step gql5-disconnect reading — re-open a live stream so Stop is visible. */
+export async function prepareGql5DisconnectReading(ctx: DemoActionContext): Promise<void> {
+  await ensureSubscriptionAuthConfigured(ctx);
+  await ensureAssertionAdded(ctx);
+  await clearSubscriptionFilterIfActive(ctx);
+  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+  await ctx.delay(300);
+
+  const stopBar = document.querySelector(GQL.STOP_SUB_BTN);
+  const stopLog = document.querySelector(GQL.SUB_STOP_BTN);
+  if (stopBar || stopLog) return;
+
+  await clickResubscribeAndWaitForLive(ctx);
+  await waitForSubscriptionLive(ctx, 10000);
 }
 
 /** Add a JSONPath assertion on orderStatus.status. */

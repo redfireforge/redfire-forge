@@ -120,8 +120,8 @@ describe('useGqlExecutionCompletedHandler', () => {
     expect(saveHistory).not.toHaveBeenCalled();
   });
 
-  it('uses tab label as operation name when selectedOperation is absent', () => {
-    const tabs = [makeTab({ label: 'NamedQuery', selectedOperation: undefined })];
+  it('omits operation name for anonymous queries even when the tab has a label', () => {
+    const tabs = [makeTab({ label: 'NamedQuery', selectedOperation: undefined, query: 'query { hello }' })];
     const response = makeResponse();
     const { result } = renderHook(() => useGqlExecutionCompletedHandler(makeHandlerParams({ tabs })));
 
@@ -130,7 +130,25 @@ describe('useGqlExecutionCompletedHandler', () => {
     });
 
     expect(saveHistory).toHaveBeenCalledWith(expect.objectContaining({
-      operation: expect.objectContaining({ name: 'NamedQuery' }),
+      operation: expect.objectContaining({ name: undefined }),
+    }));
+  });
+
+  it('derives operation name from a named query when selectedOperation is absent', () => {
+    const tabs = [makeTab({
+      label: 'TabLabel',
+      selectedOperation: undefined,
+      query: 'query GetUsers { users { id } }',
+    })];
+    const response = makeResponse();
+    const { result } = renderHook(() => useGqlExecutionCompletedHandler(makeHandlerParams({ tabs })));
+
+    act(() => {
+      result.current('tab-1', 'success', response, null);
+    });
+
+    expect(saveHistory).toHaveBeenCalledWith(expect.objectContaining({
+      operation: expect.objectContaining({ name: 'GetUsers' }),
     }));
   });
 
@@ -149,7 +167,11 @@ describe('useGqlExecutionCompletedHandler', () => {
   });
 
   it('prefers selectedOperation over tab label for history name', () => {
-    const tabs = [makeTab({ label: 'TabLabel', selectedOperation: 'GetUsers' })];
+    const tabs = [makeTab({
+      label: 'TabLabel',
+      selectedOperation: 'GetUsers',
+      query: 'query GetUsers { users { id } }',
+    })];
     const response = makeResponse();
     const { result } = renderHook(() => useGqlExecutionCompletedHandler(makeHandlerParams({ tabs })));
 

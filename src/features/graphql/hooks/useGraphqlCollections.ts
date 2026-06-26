@@ -34,6 +34,7 @@ import type {
   GraphqlCollectionItem,
   GraphqlOperation,
 } from '../../../shared/types/graphql';
+import { GQL_COLLECTIONS_RELOAD_EVENT } from '../utils/gqlDemoCollectionsCleanup';
 
 export interface CollectionTree {
   collection: GraphqlCollection;
@@ -88,6 +89,14 @@ export function useGraphqlCollections(): UseGraphqlCollectionsResult {
   useEffect(() => {
     setLoading(true);
     reload().catch(() => {}).finally(() => setLoading(false));
+  }, [reload]);
+
+  useEffect(() => {
+    const onReload = () => {
+      reload().catch(() => {});
+    };
+    window.addEventListener(GQL_COLLECTIONS_RELOAD_EVENT, onReload);
+    return () => window.removeEventListener(GQL_COLLECTIONS_RELOAD_EVENT, onReload);
   }, [reload]);
 
   // ── Collections ─────────────────────────────────────────────────────────────

@@ -46,7 +46,7 @@ describe('useGraphqlStudioSplitPanes', () => {
 
     expect(result.current.editorPaneWidth).toBe(640);
     expect(result.current.activityPanelWidth).toBe(320);
-    expect(result.current.bottomPanelHeight).toBe(320);
+    expect(result.current.bottomPanelHeight).toBe(368);
   });
 
   it('provides divider props for all split panes', () => {

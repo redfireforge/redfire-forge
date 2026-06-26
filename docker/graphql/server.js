@@ -130,9 +130,12 @@ const resolvers = {
   Subscription: {
     orderStatus: {
       subscribe: async function* (_root, { orderId }) {
+        // 2s between events (~6s total) — long enough to exercise Pause/Resume in GraphQL Studio.
+        // Override for faster CI: ORDER_STATUS_STEP_MS=300 docker compose up -d
+        const stepMs = Number(process.env.ORDER_STATUS_STEP_MS ?? 2000);
         const progression = ['PENDING', 'PROCESSING', 'COMPLETE'];
         for (const status of progression) {
-          await new Promise((r) => setTimeout(r, 300));
+          await new Promise((r) => setTimeout(r, stepMs));
           const order = orders.get(orderId);
           if (order) order.status = status;
           yield {
