@@ -12,11 +12,13 @@ dist
 dist-cli
 dist-server
 dist-ssr
+build-artifacts/
 *.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+.cursor/demo-live-guard.json
 .idea
 .DS_Store
 *.suo
