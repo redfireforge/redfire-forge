@@ -17,24 +17,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
 import { gqlFetch } from '../utils/gqlFetch';
 import { INTROSPECTION_QUERY } from '../utils/graphqlIntrospectionQuery';
+import {
+  loadCachedSchemaEntry,
+  saveCachedSchemaEntry,
+} from '../utils/graphqlSchemaCache';
 import { parseIntrospectionResult } from '../utils/schemaParser';
-
-// ─── Cache key ───────────────────────────────────────────────────────────────
-
-/** DJB2 hash of the endpoint URL — keeps localStorage keys short */
-function hashEndpoint(url: string): string {
-  let h = 5381;
-  for (let i = 0; i < url.length; i++) {
-    h = ((h << 5) + h) ^ url.charCodeAt(i);
-  }
-  return (h >>> 0).toString(16);
-}
-
-const SCHEMA_CACHE_PREFIX = 'gql_schema_v1_';
-
-function cacheKey(endpoint: string): string {
-  return `${SCHEMA_CACHE_PREFIX}${hashEndpoint(endpoint)}`;
-}
 
 // ─── SDL hash (DJB2) ─────────────────────────────────────────────────────────
 
@@ -151,52 +138,8 @@ function classifyError(
   return { status: 'loaded', message: '' };
 }
 
-// ─── Cache persistence ────────────────────────────────────────────────────────
-
-interface CachedSchema {
-  schemaInfo: GraphqlSchemaInfo;
-  sdlHash: number;
-  /**
-   * BUG-GQL-R7-2: Raw introspection data cached alongside schemaInfo so that
-   * Monaco's language service receives schema data on reload without requiring a
-   * manual re-introspect. Omitted when the serialized size would exceed 2 MB to
-   * avoid blowing the localStorage quota on giant schemas.
-   */
-  rawIntrospection?: Record<string, unknown>;
-}
-
-function loadCachedSchema(endpoint: string): CachedSchema | null {
-  if (!endpoint) return null;
-  try {
-    const raw = localStorage.getItem(cacheKey(endpoint));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as CachedSchema;
-    // BUG-GQL-R9-2 fix: validate that schemaInfo.types is an array. A partial or
-    // corrupt cache entry (e.g. from an interrupted write) can cause `.types.filter()`
-    // and `.types.length` to throw and crash the Schema Explorer with a white screen.
-    if (
-      !parsed.schemaInfo ||
-      typeof parsed.sdlHash !== 'number' ||
-      !Array.isArray(parsed.schemaInfo.types)
-    ) {
-      return null;
-    }
-    return parsed;
-  } catch {
-    return null;
-  }
-}
-
 /** 2 MB cap — skip caching rawIntrospection if it would exceed this */
 const RAW_INTROSPECTION_CACHE_LIMIT = 2 * 1024 * 1024;
-
-function saveCachedSchema(endpoint: string, entry: CachedSchema): void {
-  try {
-    localStorage.setItem(cacheKey(endpoint), JSON.stringify(entry));
-  } catch {
-    // Quota exceeded — silently skip caching
-  }
-}
 
 // ─── Hook state ──────────────────────────────────────────────────────────────
 
@@ -243,30 +186,14 @@ export function useGraphqlSchema(
   const { pollingIntervalMs = 0, onSchemaChanged, skipTlsVerify = false, tls: tlsInput } = options;
   const tls = tlsInput ?? (skipTlsVerify ? { skipTlsVerify: true } : {});
 
-  const [state, setState] = useState<GraphqlSchemaState>(() => {
-    // Pre-populate from cache on first render
-    const cached = loadCachedSchema(endpoint);
-    if (cached) {
-      return {
-        status: 'loaded',
-        schemaInfo: cached.schemaInfo,
-        // BUG-GQL-R7-2 fix: restore rawIntrospection from cache so Monaco's language
-        // service receives schema data immediately on reload — no manual re-introspect needed.
-        rawIntrospection: cached.rawIntrospection ?? null,
-        errorMessage: null,
-        introspecting: false,
-        pollErrorMessage: null,
-      };
-    }
-    return {
-      status: 'idle',
-      schemaInfo: null,
-      rawIntrospection: null,
-      errorMessage: null,
-      introspecting: false,
-      pollErrorMessage: null,
-    };
-  });
+  const [state, setState] = useState<GraphqlSchemaState>(() => ({
+    status: 'idle',
+    schemaInfo: null,
+    rawIntrospection: null,
+    errorMessage: null,
+    introspecting: false,
+    pollErrorMessage: null,
+  }));
 
   // Keep latest refs for use inside intervals/event listeners without stale closures
   const endpointRef = useRef(endpoint);
@@ -405,7 +332,7 @@ export function useGraphqlSchema(
         // gets autocomplete data on next reload. Guard against > 2 MB schemas to
         // avoid blowing the localStorage quota.
         const rawJson = JSON.stringify(responseData);
-        saveCachedSchema(endpointRef.current, {
+        saveCachedSchemaEntry(endpointRef.current, {
           schemaInfo,
           sdlHash: newSdlHash,
           rawIntrospection: rawJson.length <= RAW_INTROSPECTION_CACHE_LIMIT ? responseData : undefined,
@@ -447,25 +374,32 @@ export function useGraphqlSchema(
     void runIntrospection(false);
   }, [runIntrospection]);
 
-  // Reset state when endpoint changes (but restore from cache if available)
+  // Reset state when endpoint changes (restore from IDB cache when available)
   useEffect(() => {
-    // BUG-GQL-R8-2 fix: bump sequence so any in-flight request for the previous
-    // endpoint will see a mismatch and discard its result.
     introspectionSeqRef.current += 1;
+    const loadSeq = introspectionSeqRef.current;
     lastSdlHashRef.current = 0;
-    const cached = loadCachedSchema(endpoint);
-    setState({
-      status: cached ? 'loaded' : 'idle',
-      schemaInfo: cached?.schemaInfo ?? null,
-      // BUG-GQL-R7-2 fix: restore rawIntrospection from cache on endpoint change too
-      rawIntrospection: cached?.rawIntrospection ?? null,
-      errorMessage: null,
-      introspecting: false,
-      pollErrorMessage: null,
-    });
-    if (cached) {
-      lastSdlHashRef.current = cached.sdlHash;
-    }
+    let cancelled = false;
+
+    void (async () => {
+      const cached = await loadCachedSchemaEntry(endpoint);
+      if (cancelled || loadSeq !== introspectionSeqRef.current) return;
+      setState({
+        status: cached ? 'loaded' : 'idle',
+        schemaInfo: cached?.schemaInfo ?? null,
+        rawIntrospection: cached?.rawIntrospection ?? null,
+        errorMessage: null,
+        introspecting: false,
+        pollErrorMessage: null,
+      });
+      if (cached) {
+        lastSdlHashRef.current = cached.sdlHash;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [endpoint]);
 
   // Schema polling

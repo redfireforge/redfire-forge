@@ -90,6 +90,15 @@ npm run test:e2e:demo:gql3
 
 Heavy Docker steps: **300s** action timeout. Project: `workers: 1`, `retries: 0`.
 
+### Live demo guard (manual watching + sweep)
+
+While you run a **live demo** on `http://localhost:5173`, the app writes `.cursor/demo-live-guard.json` (heartbeat every 30s). Phase 8 sweep and `run-graphql-e2e-clean.sh` **skip killing :5173** when that file is fresh.
+
+- Playwright E2E (`navigator.webdriver`) never writes the guard — lesson walkthroughs do not block resets
+- Override manually: `PHASE8_SKIP_SERVER_RESET=1 ./scripts/phase8-gql-e2e-sweep.sh`
+- Guard does **not** stop HMR from file saves — only blocks `kill -9 :5173`
+- Stale after **2 minutes** without heartbeat (tab closed / crash)
+
 ## Demo lesson merge gate
 
 Lesson-only PRs use the **5-item done checklist** — not the full wrapper unit-test bar:

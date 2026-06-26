@@ -3,6 +3,9 @@
   "private": true,
   "version": "0.6.0",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "bin": {
     "redfireforge": "dist-cli/redfireforge.mjs"
   },
@@ -12,6 +15,7 @@
     "build": "npm run build:prod",
     "build:prod": "tsc -b && VITE_ENABLE_DEMO_HUB=false vite build --mode production",
     "build:demo": "tsc -b && VITE_ENABLE_DEMO_HUB=true vite build --mode production.demo",
+    "audit:prod-demo-bundle": "node scripts/audit-prod-demo-bundle.mjs",
     "build:cli": "node scripts/build-cli.mjs",
     "build:cli-package": "./scripts/build-cli-package.sh",
     "build:server": "node scripts/build-server.mjs",

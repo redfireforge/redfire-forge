@@ -242,6 +242,29 @@ expectUserWorkspaceIntact(snap, { userTabCount: 7 });
 
 **After exit:** Call `waitForGqlDemoCleanup(page)` — cleanup is async after the concept view appears.
 
+---
+
+## 11. Live demo guard (Phase 8 sweep vs manual demo)
+
+**Problem:** `scripts/phase8-gql-e2e-sweep.sh` kills `:5173` before each lesson. That disconnects a manual live demo in the same browser.
+
+**Fix:** While `useDemoHub` is in `view: 'live'`, the app heartbeats to Vite middleware → `.cursor/demo-live-guard.json`. Sweep scripts call `scripts/check-demo-live-guard.ts` and **skip the kill** when the guard is active and fresh (< 2 min).
+
+**Playwright E2E is excluded:** automated browsers (`navigator.webdriver`) never write the guard. Phase 8 specs also set `window.__PHASE8_E2E_SWEEP__` via `installPhase8DemoGuardBypass` in `openDemoHub` as a fallback.
+
+Active guards **must include `lessonId`** — prevents spoofed/torn file reads from blocking sweeps.
+
+| Override | When |
+|----------|------|
+| Exit live demo / wait 2 min | Guard clears automatically |
+| `PHASE8_SKIP_SERVER_RESET=1` | Force skip kill (no active demo needed) |
+
+**While guard is active:** sweep reuses your existing Vite on :5173 (no per-lesson server reset). E2E may be slightly less isolated — exit the demo before a full sweep if you need a clean run.
+
+**Does not fix:** Agent saving source files → Vite HMR still reloads your tab on 5173.
+
+**Files:** `packages/demo-hub/src/demoLiveGuard*.ts`, `vite/demoLiveGuardPlugin.ts`, `scripts/demo-live-guard-lib.sh`
+
 **Demo tab locator:** Use `[data-demo-lesson="gql-first-query"]` — not `/^Demo:/` on `[role="tab"]` (child nodes break `^` anchor).
 
 **Tab capacity model:** `MAX_TABS = 8`, `MAX_USER_TABS = 7`. Lessons with `tabBudget: 2` (GQL-14, GQL-15) show `PrerequisiteGate` tab-capacity UI when `userTabsToCloseForLesson(count, 2) > 0`.

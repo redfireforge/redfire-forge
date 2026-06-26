@@ -20,6 +20,12 @@ async function writeJson(key: string, data: unknown, swallowWriteErrors: boolean
   await writeKey(key, payload);
 }
 
+function removeLegacyLocalStorageKey(key: string): void {
+  try {
+    if (localStorage.getItem(key)) localStorage.removeItem(key);
+  } catch { /* ignore */ }
+}
+
 export function createDualModeArrayStorage<T>(config: DualModeArrayStorageConfig<T>): {
   load(): Promise<T[]>;
   save(data: T[]): Promise<void>;
@@ -38,12 +44,17 @@ export function createDualModeArrayStorage<T>(config: DualModeArrayStorageConfig
       }
       try {
         const fromIdb = await idbLoad();
-        if (fromIdb) return fromIdb;
+        if (fromIdb !== null) {
+          removeLegacyLocalStorageKey(key);
+          return fromIdb;
+        }
         const r = await readKey(key);
         if (r) {
           const items = JSON.parse(r);
-          if (Array.isArray(items) && items.length > 0) await idbMigrate(key);
-          return Array.isArray(items) ? items : [];
+          if (Array.isArray(items)) {
+            await idbMigrate(key);
+            return items;
+          }
         }
       } catch { /* ignore */ }
       return [];
@@ -56,9 +67,10 @@ export function createDualModeArrayStorage<T>(config: DualModeArrayStorageConfig
       }
       try {
         await idbSave(data);
-        if (localStorage.getItem(key)) localStorage.removeItem(key);
-      } catch {
-        await writeJson(key, data, swallowWriteErrors);
+        removeLegacyLocalStorageKey(key);
+      } catch (err) {
+        // Never fall back to localStorage on web — large blobs belong in IDB only.
+        console.error(`[Storage] IndexedDB save failed for "${key}"`, err);
       }
     },
   };

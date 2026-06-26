@@ -7,6 +7,7 @@ import { GraphqlEnvModal } from './GraphqlEnvModal';
 import { removeKey } from '../../../shared/utils/storage';
 import { ENDPOINT_BASE_STORAGE_KEY } from '../utils/tabPersistence';
 import type { GraphqlAuth, GraphqlEnvironment, GraphqlEnvironmentVariable } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 
 interface GqlConnectionModalsProps {
@@ -16,6 +17,7 @@ interface GqlConnectionModalsProps {
   profiles: ConnectionProfile[];
   endpoint: string;
   auth: GraphqlAuth | null;
+  globalAuthProfiles?: GlobalAuthProfile[];
   onSaveProfile: (name: string) => unknown;
   onDeleteProfile: (id: string) => void;
   onApplyProfileToActiveTab: (profile: ConnectionProfile) => void;
@@ -41,6 +43,7 @@ export function GqlConnectionModals({
   profiles,
   endpoint,
   auth,
+  globalAuthProfiles = [],
   onSaveProfile,
   onDeleteProfile,
   onApplyProfileToActiveTab,
@@ -64,6 +67,7 @@ export function GqlConnectionModals({
           profiles={profiles}
           currentEndpoint={endpoint}
           currentAuth={auth}
+          globalAuthProfiles={globalAuthProfiles}
           onClose={() => {
             onProfileModalClose();
             requestAnimationFrame(() => {

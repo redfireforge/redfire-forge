@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useGraphqlStudioExecute } from './useGraphqlStudioExecute';
+import { useGraphqlStudioExecute, resolveLiveGqlQuery } from './useGraphqlStudioExecute';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { AdvancedSettingsValues } from '../components/GraphqlAdvancedSettings';
 
@@ -366,6 +366,48 @@ describe('useGraphqlStudioExecute', () => {
     expect(execute).toHaveBeenCalledWith(expect.objectContaining({
       formData: expect.any(FormData),
       variables: '{"id":"1"}',
+    }));
+  });
+
+  it('resolveLiveGqlQuery prefers live Monaco model over stale tab state', () => {
+    const tab = makeTab({
+      modelUri: 'inmemory://graphql/tab-1',
+      query: 'query {\n  \n}',
+    });
+    const editorMountRef = {
+      current: {
+        getModel: () => ({
+          uri: { toString: () => 'inmemory://graphql/tab-1' },
+          getValue: () => 'query { health }',
+        }),
+      },
+    } as Parameters<typeof resolveLiveGqlQuery>[1];
+
+    expect(resolveLiveGqlQuery(tab, editorMountRef)).toBe('query { health }');
+    expect(resolveLiveGqlQuery(tab)).toBe('query {\n  \n}');
+  });
+
+  it('execute sends live Monaco query when tab state is stale', () => {
+    const tab = makeTab({
+      modelUri: 'inmemory://graphql/tab-1',
+      query: 'query {\n  \n}',
+    });
+    const editorMountRef = {
+      current: {
+        getModel: () => ({
+          uri: { toString: () => 'inmemory://graphql/tab-1' },
+          getValue: () => 'query { health }',
+        }),
+      },
+    } as Parameters<typeof useGraphqlStudioExecute>[0]['editorMountRef'];
+
+    const { params, execute } = makeParams({ activeTab: tab, editorMountRef });
+    const { result } = renderHook(() => useGraphqlStudioExecute(params));
+
+    act(() => { result.current(); });
+
+    expect(execute).toHaveBeenCalledWith(expect.objectContaining({
+      query: 'query { health }',
     }));
   });
 });

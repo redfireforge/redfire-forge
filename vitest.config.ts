@@ -7,6 +7,7 @@ import {
   PRODUCT_COVERAGE_EXCLUDE,
   PRODUCT_TEST_EXCLUDE,
 } from './vitest.projectPatterns';
+import { demoHubRootImportsPlugin } from './vite/demoHubRootImports';
 
 const productCoverageExclude = [
   ...PRODUCT_COVERAGE_EXCLUDE,
@@ -30,9 +31,16 @@ const sharedTestOptions = {
   },
 };
 
-const resolveAlias = {
-  alias: {
-    '@': path.resolve(__dirname, './src'),
+const sharedProjectConfig = {
+  plugins: [demoHubRootImportsPlugin()],
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, './src'),
+      '@redfireforge/demo-hub': path.resolve(__dirname, './packages/demo-hub/src'),
+      '@shared': path.resolve(__dirname, './src/shared'),
+      '@graphql': path.resolve(__dirname, './src/features/graphql'),
+    '@workflow': path.resolve(__dirname, './src/features/workflow'),
+    },
   },
 };
 
@@ -40,11 +48,11 @@ export default defineConfig({
   test: {
     poolMatchGlobs: [
       ['src-server/**', 'forks'],
-      ['src/features/demo-player/useDemoHub.coverage*.ts', 'forks'],
+      ['packages/demo-hub/useDemoHub.coverage*.ts', 'forks'],
     ],
     projects: [
       {
-        resolve: resolveAlias,
+        ...sharedProjectConfig,
         test: {
           ...sharedTestOptions,
           name: 'product',
@@ -60,7 +68,7 @@ export default defineConfig({
         },
       },
       {
-        resolve: resolveAlias,
+        ...sharedProjectConfig,
         test: {
           ...sharedTestOptions,
           name: 'demo',

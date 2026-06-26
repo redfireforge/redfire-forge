@@ -133,12 +133,11 @@ describe('GraphqlEnvModal — close behaviors', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('calls onClose when clicking outside the panel (mousedown on overlay)', () => {
+  it('does NOT call onClose when clicking outside the panel (mousedown on overlay)', () => {
     const onClose = vi.fn();
     render(<GraphqlEnvModal {...makeProps({ onClose })} />);
-    // Click directly on the overlay (not inside the panel)
     fireEvent.mouseDown(screen.getByTestId('gql-env-modal-overlay'));
-    expect(onClose).toHaveBeenCalledOnce();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it('does NOT call onClose when clicking inside the panel', () => {

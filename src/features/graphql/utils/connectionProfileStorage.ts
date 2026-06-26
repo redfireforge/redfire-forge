@@ -2,7 +2,13 @@
  * Shared read/write helpers for GraphQL connection profiles (gql_profiles_v1).
  */
 import type { GraphqlAuth } from '../../../shared/types/graphql';
+import {
+  idbLoadConnectionProfiles,
+  idbMigrateConnectionProfilesFromLocalStorage,
+  idbSaveConnectionProfiles,
+} from '../../../shared/utils/idbGraphqlStudio';
 import { readKey, writeKey } from '../../../shared/utils/storage';
+import { isTauri } from '../../../shared/utils/platform';
 
 export const GQL_PROFILES_STORAGE_KEY = 'gql_profiles_v1';
 
@@ -41,7 +47,29 @@ export function parseConnectionProfiles(raw: string | null | undefined): Connect
   }
 }
 
+async function loadProfilesFromIdb(): Promise<ConnectionProfile[] | null> {
+  try {
+    let data = await idbLoadConnectionProfiles();
+    if (!data) {
+      const migrated = await idbMigrateConnectionProfilesFromLocalStorage(GQL_PROFILES_STORAGE_KEY);
+      if (!migrated) return null;
+      data = await idbLoadConnectionProfiles();
+    }
+    if (!data) return null;
+    try {
+      localStorage.removeItem(GQL_PROFILES_STORAGE_KEY);
+    } catch { /* ignore */ }
+    return parseConnectionProfiles(JSON.stringify(data));
+  } catch {
+    return null;
+  }
+}
+
 export async function readConnectionProfiles(): Promise<ConnectionProfile[]> {
+  if (!isTauri()) {
+    const fromIdb = await loadProfilesFromIdb();
+    if (fromIdb !== null) return fromIdb;
+  }
   try {
     const raw = await readKey(GQL_PROFILES_STORAGE_KEY);
     return parseConnectionProfiles(raw);
@@ -51,6 +79,19 @@ export async function readConnectionProfiles(): Promise<ConnectionProfile[]> {
 }
 
 export async function writeConnectionProfiles(profiles: ConnectionProfile[]): Promise<void> {
+  if (!isTauri()) {
+    try {
+      await idbSaveConnectionProfiles(profiles);
+      try {
+        localStorage.removeItem(GQL_PROFILES_STORAGE_KEY);
+      } catch { /* ignore */ }
+      dispatchGqlProfilesReload();
+      return;
+    } catch (err) {
+      console.error('[Storage] GraphQL profiles IDB save failed', err);
+      return;
+    }
+  }
   await writeKey(GQL_PROFILES_STORAGE_KEY, JSON.stringify(profiles));
   dispatchGqlProfilesReload();
 }

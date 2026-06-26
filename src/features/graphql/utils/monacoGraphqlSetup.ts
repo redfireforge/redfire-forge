@@ -261,6 +261,8 @@ export function getGraphqlEditorOptions(): MonacoType.editor.IStandaloneEditorCo
     tabSize: 2,
     insertSpaces: true,
     bracketPairColorization: { enabled: true },
+    // Space after "#" must insert a comment character, not commit an empty suggestion.
+    acceptSuggestionOnCommitCharacter: false,
     suggest: {
       showWords: false,
       showSnippets: true,

@@ -14,8 +14,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ApolloTracingData, GraphqlResponse } from '../../../shared/types/graphql';
 import { GraphqlTracingView } from './GraphqlTracingView';
 import { GqlLatencyHistogram } from './GqlLatencyHistogram';
+import { useGraphqlResponseDataOnly } from '../hooks/useGraphqlResponseDataOnly';
 import { getResponseDataCreateUser, getResponseDataUser } from '../utils/graphqlResponseDataExtractors';
 import { authSentSourceLabel } from '../utils/gqlAuthResolve';
+import { serializeGraphqlResponseBody } from '../utils/graphqlResponseBodyPayload';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -377,6 +379,7 @@ function ResponseDataSummaryCard({
 export function GraphqlResponseViewer({ response, loading = false, latencyHistory = [] }: GraphqlResponseViewerProps) {
   const [activeTab, setActiveTab] = useState<ResponseTab>('body');
   const [copied, setCopied] = useState(false);
+  const { dataOnly, setDataOnly } = useGraphqlResponseDataOnly();
   // BUG-GQL-R9-9 fix: track copy feedback timer for cleanup on unmount
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => () => { if (copyTimerRef.current) clearTimeout(copyTimerRef.current); }, []);
@@ -409,16 +412,7 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
 
   const { prettyJson, tokens, bodySize, isLargeResponse } = useMemo(() => {
     if (!response) return { prettyJson: '', tokens: [], bodySize: 0, isLargeResponse: false };
-    const payload: Record<string, unknown> = {};
-    if (response.data !== undefined) payload.data = response.data;
-    if (response.errors && response.errors.length > 0) payload.errors = response.errors;
-    if (response.extensions) payload.extensions = response.extensions;
-    let pj: string;
-    try {
-      pj = JSON.stringify(payload, null, 2);
-    } catch {
-      pj = '// Could not serialize response body — it may contain non-JSON values';
-    }
+    const pj = serializeGraphqlResponseBody(response, { dataOnly });
     const size = new TextEncoder().encode(pj).length;
     return {
       prettyJson: pj,
@@ -426,7 +420,7 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
       bodySize: size,
       isLargeResponse: size > LARGE_RESPONSE_THRESHOLD,
     };
-  }, [response]);
+  }, [response, dataOnly]);
 
   const dataUser = useMemo(() => getResponseDataUser(response), [response]);
   const dataCreateUser = useMemo(() => getResponseDataCreateUser(response), [response]);
@@ -588,6 +582,19 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
             </button>
           )}
         </div>
+        <label
+          className="gql-rv-data-only-toggle"
+          title="Hide extensions in Body tab and Copy output — tracing remains on the Tracing tab"
+        >
+          <input
+            type="checkbox"
+            checked={dataOnly}
+            onChange={(e) => setDataOnly(e.target.checked)}
+            data-testid="gql-rv-data-only-toggle"
+            aria-label="Data only — hide extensions in response body and copy output"
+          />
+          <span className="gql-rv-data-only-label">Data only</span>
+        </label>
         {/* Right: Copy button — copies the JSON body */}
         <button
           type="button"

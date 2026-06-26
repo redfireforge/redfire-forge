@@ -97,6 +97,8 @@ export const GraphqlQueryBuilder = memo(function GraphqlQueryBuilder({
   // Keyboard: → expands, ← collapses focused field row; Space toggles checkbox
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      const builderPane = document.querySelector('.gql-mode-pane--builder');
+      if (builderPane?.classList.contains('gql-mode-pane--hidden')) return;
       const active = document.activeElement as HTMLElement | null;
       if (!active?.closest('.gql-qb-field-tree')) return;
       if (e.key === 'ArrowRight') {

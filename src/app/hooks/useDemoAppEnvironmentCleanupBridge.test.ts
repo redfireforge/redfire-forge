@@ -8,9 +8,9 @@ import {
   GQL_DEMO_ENV_NAME,
   GQL_DEMO_SVC_NAME,
   GQL_STUDIO_DEMO_ENV_NAME,
-} from '../../features/demo-player/lessons/env-manager-lesson-helpers';
+} from '@redfireforge/demo-hub/lessons/env-manager-lesson-helpers';
 
-vi.mock('../../features/demo-player/lessons/gql-demo-app-environment-cleanup', () => ({
+vi.mock('@redfireforge/demo-hub/lessons/gql-demo-app-environment-cleanup', () => ({
   purgeGqlDemoLessonEnvironmentsFromStorage: vi.fn(async () => ({
     removedStudioEnv: true,
     removedEmEnvId: 'e-demo',
@@ -20,7 +20,7 @@ vi.mock('../../features/demo-player/lessons/gql-demo-app-environment-cleanup', (
   })),
 }));
 
-import { purgeGqlDemoLessonEnvironmentsFromStorage } from '../../features/demo-player/lessons/gql-demo-app-environment-cleanup';
+import { purgeGqlDemoLessonEnvironmentsFromStorage } from '@redfireforge/demo-hub/lessons/gql-demo-app-environment-cleanup';
 
 describe('useDemoAppEnvironmentCleanupBridge', () => {
   beforeEach(() => {

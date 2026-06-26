@@ -262,6 +262,11 @@ export function GraphqlStudioPage({
     editorMountRef, prettifyError, insertToast, handlePrettify, handleInsertField,
   } = useGqlStudioEditorActions({ activeQuery: activeTab?.query ?? '', onQueryChange: handleQueryChange });
 
+  const handleDemoSetGqlQuery = useCallback((query: string) => {
+    editorMountRef.current?.setValue(query);
+    handleQueryChange(query);
+  }, [handleQueryChange, editorMountRef]);
+
   const activeTabForHeaders = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
   const activeTabHeaders = useMemo(
     () => buildActiveTabHeaderMap(activeTabForHeaders?.headers),
@@ -497,6 +502,7 @@ export function GraphqlStudioPage({
     setRightView,
     setTabUploadProgress,
     endpointLinkPending: hasPendingProfileEndpoint,
+    editorMountRef,
   });
 
   const { handleRunCollection } = useGraphqlCollectionRun({
@@ -571,6 +577,7 @@ export function GraphqlStudioPage({
             upsertEnvironment={upsertEnvironment}
             deleteEnvironmentByName={deleteEnvironmentByName}
             applyTlsSettings={handleConnectionTlsChange}
+            setGqlQuery={handleDemoSetGqlQuery}
           />
         </Suspense>
       )}
@@ -673,6 +680,7 @@ export function GraphqlStudioPage({
           profiles,
           endpoint: resolvedTabEndpoint,
           auth: resolvedTabAuth,
+          globalAuthProfiles,
           onSaveProfile: (name) => saveProfile(name, resolvedTabEndpoint, resolvedTabAuth),
           onDeleteProfile: (id) => {
             deleteProfile(id);

@@ -154,7 +154,7 @@ export default function SettingsStorageTab({
           <button type="button" className="btn btn-secondary btn-sm" onClick={async () => {
             let demo = { profilesRemoved: 0, runnerConfigsRemoved: 0, freedKB: 0 };
             if (DEMO_HUB_ENABLED) {
-              const { purgeGqlDemoEphemeralStorage } = await import('../demo-player/lessons/gql-demo-storage-cleanup');
+              const { purgeGqlDemoEphemeralStorage } = await import('@redfireforge/demo-hub/lessons/gql-demo-storage-cleanup');
               demo = await purgeGqlDemoEphemeralStorage();
             }
             const stale = cleanupStaleStorageKeys();
