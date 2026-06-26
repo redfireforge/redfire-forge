@@ -456,12 +456,21 @@ describe('GraphqlHistoryPanel', () => {
     expect(screen.getByTestId('gql-history-context-menu')).toBeInTheDocument();
   });
 
-  it('closes context menu on mouse leave', () => {
+  it('closes context menu on outside click', () => {
     const items = [makeHistoryItem()];
     const history = makeHistory(items);
     render(<GraphqlHistoryPanel {...makeProps({ history })} />);
     fireEvent.contextMenu(screen.getByTestId('gql-history-entry'), { clientX: 100, clientY: 200 });
-    fireEvent.mouseLeave(screen.getByTestId('gql-history-context-menu'));
+    fireEvent.mouseDown(document.body);
+    expect(screen.queryByTestId('gql-history-context-menu')).not.toBeInTheDocument();
+  });
+
+  it('closes context menu on Escape', () => {
+    const items = [makeHistoryItem()];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history })} />);
+    fireEvent.contextMenu(screen.getByTestId('gql-history-entry'), { clientX: 100, clientY: 200 });
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(screen.queryByTestId('gql-history-context-menu')).not.toBeInTheDocument();
   });
 
@@ -489,9 +498,20 @@ describe('GraphqlHistoryPanel', () => {
     const history = makeHistory(items);
     render(<GraphqlHistoryPanel {...makeProps({ history, endpoint: 'http://api/graphql' })} />);
     fireEvent.contextMenu(screen.getByTestId('gql-history-entry'));
-    fireEvent.click(screen.getByRole('menuitem', { name: /Copy as cURL/i }));
+    fireEvent.click(screen.getByTestId('gql-history-ctx-copy-curl'));
     expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
       expect.stringContaining('curl -X POST'),
+    );
+  });
+
+  it('adds --noproxy to cURL for localhost endpoints', () => {
+    const items = [makeHistoryItem()];
+    const history = makeHistory(items);
+    render(<GraphqlHistoryPanel {...makeProps({ history, endpoint: 'http://127.0.0.1:4010/graphql' })} />);
+    fireEvent.contextMenu(screen.getByTestId('gql-history-entry'));
+    fireEvent.click(screen.getByTestId('gql-history-ctx-copy-curl'));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(
+      expect.stringContaining("--noproxy '*'"),
     );
   });
 

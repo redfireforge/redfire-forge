@@ -4,8 +4,6 @@ import type { DemoActionContext } from '../../../types';
 import { GQL_DEMO_HEALTH } from './core';
 import { seedNamedWorkflow } from '../../../adapters';
 
-export { GQL_DEMO_HEALTH };
-
 /** Workflow name shared with GQL-16 — Runner builds on the Designer lesson. */
 export const LESSON17_WF_NAME = 'GraphQL Latency Demo';
 

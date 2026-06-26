@@ -7,7 +7,12 @@ import {
   RUNNER_CONFIG_KEY,
   FLAT_SEL_ENV_KEY,
   FLAT_SEL_SVC_KEY,
+  FLAT_ENVS_KEY,
+  FLAT_SVCS_KEY,
+  FLAT_FGS_KEY,
 } from './storageKeys';
+import { idbMigrateEnvironments, idbMigrateMicroservices } from './idbEnvironmentsMicroservices';
+import { idbMigrateFeatureGroups } from './idbFeatureGroups';
 
 /** Suffixes we always retain across runner-config purges. */
 const RUNNER_CONFIG_KEEP_SUFFIXES = ['_workflow_runner'];
@@ -117,6 +122,9 @@ async function migrateRemainingLargeKeysToIdb(): Promise<void> {
   const migrations: Array<{ check: string; fn: () => Promise<boolean | number> }> = [
     { check: REQUESTS_KEY, fn: () => idbMigrateRequests(REQUESTS_KEY) },
     { check: PROJECTS_KEY, fn: () => idbMigrateProjects(PROJECTS_KEY) },
+    { check: FLAT_ENVS_KEY, fn: () => idbMigrateEnvironments(FLAT_ENVS_KEY) },
+    { check: FLAT_SVCS_KEY, fn: () => idbMigrateMicroservices(FLAT_SVCS_KEY) },
+    { check: FLAT_FGS_KEY, fn: () => idbMigrateFeatureGroups(FLAT_FGS_KEY) },
   ];
   for (const { check, fn } of migrations) {
     if (localStorage.getItem(check)) {
@@ -124,4 +132,21 @@ async function migrateRemainingLargeKeysToIdb(): Promise<void> {
     }
   }
   await migrateCatalogKeysToIdb();
+}
+
+/**
+ * Move environments, microservices, and feature groups off localStorage when still present.
+ * Safe before GraphQL demo lessons — frees quota for selection keys and runner config.
+ */
+export async function migrateAppFlatDataFromLocalStorage(): Promise<{
+  environments: boolean;
+  microservices: boolean;
+  featureGroups: boolean;
+}> {
+  const [environments, microservices, featureGroups] = await Promise.all([
+    idbMigrateEnvironments(FLAT_ENVS_KEY),
+    idbMigrateMicroservices(FLAT_SVCS_KEY),
+    idbMigrateFeatureGroups(FLAT_FGS_KEY),
+  ]);
+  return { environments, microservices, featureGroups };
 }

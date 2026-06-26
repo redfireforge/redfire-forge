@@ -17,6 +17,7 @@ import type { GraphqlHistoryItem } from '../../../shared/types/graphql';
 import type { UseGraphqlHistoryResult } from '../hooks/useGraphqlHistory';
 import { DEFAULT_MAX_ITEMS } from '../hooks/useGraphqlHistory';
 import { historyEntrySummary } from '../utils/historyItemParse';
+import { buildGraphqlCurlCommand } from '../utils/graphqlCurlExport';
 import { GraphqlHistoryComparePanel } from './GraphqlHistoryComparePanel';
 import { HistoryGroup } from './GraphqlHistoryList';
 import { GraphqlHistoryPreviewPanel } from './GraphqlHistoryPreviewPanel';
@@ -175,19 +176,33 @@ export function GraphqlHistoryPanel({
   }, [closeContextMenu]);
 
   const copyAsCurl = useCallback((item: GraphqlHistoryItem, endpointUrl: string) => {
-    // Parse variables string to object so JSON.stringify embeds it as a nested object,
-    // not a double-encoded string. Fall back to {} if empty or invalid.
     let parsedVars: unknown = {};
     try {
       const raw = item.operation.variables?.trim();
       if (raw && raw !== '{}') parsedVars = JSON.parse(raw);
     } catch { /* leave as {} */ }
-    const body = JSON.stringify({ query: item.operation.query, variables: parsedVars });
-    const url = endpointUrl.trim() || '<endpoint>';
-    const curl = `curl -X POST -H "Content-Type: application/json" -d '${body.replace(/'/g, "'\\''")}' '${url}'`;
+    const curl = buildGraphqlCurlCommand(item.operation.query, parsedVars, endpointUrl);
     navigator.clipboard.writeText(curl).catch(() => {});
     closeContextMenu();
   }, [closeContextMenu]);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const onPointerDown = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (contextMenuRef.current?.contains(target)) return;
+      closeContextMenu();
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeContextMenu();
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [contextMenu, closeContextMenu]);
 
   // handleMaxItemsInput MUST be declared before any early return to satisfy React Rules of Hooks
   const handleMaxItemsInput = useCallback((raw: string) => {
@@ -421,11 +436,17 @@ export function GraphqlHistoryPanel({
           style={{ top: contextMenu.y, left: contextMenu.x }}
           role="menu"
           data-testid="gql-history-context-menu"
-          onMouseLeave={closeContextMenu}
         >
           <button type="button" role="menuitem" onClick={() => { onSaveToCollection(contextMenu.item); closeContextMenu(); }}>Save to Collection</button>
           <button type="button" role="menuitem" onClick={() => copyQuery(contextMenu.item)}>Copy query</button>
-          <button type="button" role="menuitem" onClick={() => copyAsCurl(contextMenu.item, endpoint)}>Copy as cURL</button>
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="gql-history-ctx-copy-curl"
+            onClick={() => copyAsCurl(contextMenu.item, endpoint)}
+          >
+            Copy as cURL
+          </button>
           <button type="button" role="menuitem" className="gql-history-ctx-danger" onClick={() => {
             // Clear the preview panel if the deleted item is currently selected so
             // the side-panel doesn't keep showing a deleted entry.

@@ -8,7 +8,7 @@
  */
 
 const DB_NAME = 'redfireforge';
-const DB_VERSION = 6; // v6: adds 5 graphql Phase-3 stores (history, collections, folders, schema-snapshots, diff-acks)
+const DB_VERSION = 7; // v7: environments + microservices moved off localStorage
 const OPEN_TIMEOUT_MS = 3000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -98,6 +98,13 @@ export function openDB(): Promise<IDBDatabase> {
         const ackStore = db.createObjectStore('graphql-diff-acknowledgements', { keyPath: 'id' });
         ackStore.createIndex('connectionId', 'connectionId', { unique: false });
         ackStore.createIndex('snapshotId', 'snapshotId', { unique: false });
+      }
+      // v7: app config blobs — free localStorage quota for selection keys / runner config
+      if (!db.objectStoreNames.contains('environments')) {
+        db.createObjectStore('environments');
+      }
+      if (!db.objectStoreNames.contains('microservices')) {
+        db.createObjectStore('microservices');
       }
     };
     req.onblocked = () => {

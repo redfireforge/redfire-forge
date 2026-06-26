@@ -417,7 +417,7 @@ After executing a query, right-clicking a History entry reveals **Copy as cURL**
       description:
         '**Right-click** the History entry → **Copy as cURL**. A complete `curl -X POST` command with your endpoint and JSON body is copied to your clipboard.\n\n' +
         '**Why cURL is the universal sharing format:** A cURL command encodes the complete HTTP request — URL, headers, and body — in a single string that works in any terminal on any operating system. It is also the language that engineers, support teams, and CI pipelines share when discussing API calls.',
-      highlight: GQL.HISTORY_CONTEXT_MENU,
+      highlight: GQL.HISTORY_CTX_COPY_CURL,
       preAction: prepareGql9CurlReading,
       action: async (ctx) => {
         await copyHistoryAsCurl(ctx);

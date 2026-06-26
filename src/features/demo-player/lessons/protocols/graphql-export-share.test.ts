@@ -156,9 +156,9 @@ describe('gql-export-share lesson', () => {
     expect(step.verify).toBe(GQL.MODE_EDITOR);
   });
 
-  it('gql9-curl highlights history context menu and verifies history entry', () => {
+  it('gql9-curl highlights Copy as cURL menu item and verifies history entry', () => {
     const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
-    expect(step.highlight).toBe(GQL.HISTORY_CONTEXT_MENU);
+    expect(step.highlight).toBe(GQL.HISTORY_CTX_COPY_CURL);
     expect(step.verify).toBe(GQL.HISTORY_ENTRY);
   });
 
@@ -280,7 +280,7 @@ describe('gql-export-share lesson', () => {
       <div data-testid="gql-history-panel">
         <div data-testid="gql-history-entry"></div>
         <div data-testid="gql-history-context-menu">
-          <button type="button">Copy as cURL</button>
+          <button type="button" data-testid="gql-history-ctx-copy-curl">Copy as cURL</button>
         </div>
       </div>
       <button data-testid="gql-qb-edit"></button>
@@ -302,7 +302,7 @@ describe('gql-export-share lesson', () => {
     const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.HISTORY_CTX_COPY_CURL);
     expect(document.querySelector(GQL.HISTORY_CONTEXT_MENU)).toBeNull();
   });
 
@@ -315,7 +315,7 @@ describe('gql-export-share lesson', () => {
     const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
     await step.preAction!(ctx);
     expect(dispatchSpy).toHaveBeenCalled();
-    expect(ctx.delay).toHaveBeenCalledWith(600);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.HISTORY_CONTEXT_MENU, 5000);
   });
 
   it('gql9-preview reads SDL and re-selects fields when incomplete', async () => {
@@ -496,7 +496,7 @@ describe('gql-export-share lesson', () => {
       <button data-testid="gql-activity-history"></button>
       <div data-testid="gql-history-panel">
         <div data-testid="gql-history-entry"></div>
-        <div data-testid="gql-history-context-menu"><button type="button">Copy as cURL</button></div>
+        <div data-testid="gql-history-context-menu"><button type="button" data-testid="gql-history-ctx-copy-curl">Copy as cURL</button></div>
       </div>
       <button data-testid="gql-qb-edit"></button>
       <button data-testid="gql-mode-builder" class="gql-mode-btn--active"></button>
@@ -511,7 +511,7 @@ describe('gql-export-share lesson', () => {
     await ensureHistoryCopyAsCurl(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureHistoryCopyAsCurl(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.HISTORY_CTX_COPY_CURL);
   });
 
   it('setup creates demo tab', async () => {
@@ -572,7 +572,7 @@ describe('gql-export-share lesson', () => {
       <button data-testid="gql-activity-history"></button>
       <div data-testid="gql-history-panel">
         <div data-testid="gql-history-entry"></div>
-        <div data-testid="gql-history-context-menu"><button type="button">Copy as cURL</button></div>
+        <div data-testid="gql-history-context-menu"><button type="button" data-testid="gql-history-ctx-copy-curl">Copy as cURL</button></div>
       </div>
       <div data-testid="gql-qb-field-tree">
         <div class="gql-qb-field-row"><span class="gql-qb-expand-spacer"></span><button class="gql-qb-check gql-qb-check--checked"></button><span class="gql-qb-field-name">health</span></div>
@@ -586,6 +586,6 @@ describe('gql-export-share lesson', () => {
     await ensureHistoryCopyAsCurl(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureHistoryCopyAsCurl(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.HISTORY_CTX_COPY_CURL);
   });
 });
