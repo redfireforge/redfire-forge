@@ -15,6 +15,7 @@ import {
   prepareEditorCommentReading,
   prepareOneWaySyncReading,
   ensureHealthFieldSelected,
+  ensureIncludeConfigured,
   ensureIntrospected,
   ensureSelectAllDemonstrated,
   ensureUserFieldConfigured,
@@ -471,7 +472,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
         'Once you\'ve built the skeleton in Builder, transfer it to Monaco for fine-tuning. ' +
         'You get the best of both worlds: visual construction for the boilerplate, textual editing for the advanced features.',
       highlight: GQL.QB_EDIT,
-      preAction: ensureIncludeConfigured,
+      preAction: prepareEditInEditorReading,
       action: async (ctx) => {
         await ensureEditedToEditor(ctx);
         await ctx.delay(800);
@@ -503,13 +504,14 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       id: 'gql7-one-way',
       title: 'One-Way Sync Explained',
       description:
-        'Click **Builder** once — the **Generated query** panel shows the builder export **without** your `' +
-        `${LESSON7_EDITOR_COMMENT}\` comment, while Monaco still has it if you switch back to **Editor**.\n\n` +
+        'You stay in **Editor** (Monaco with your `' +
+        `${LESSON7_EDITOR_COMMENT}\` comment) until you click **Play**. The demo then switches to **Builder** once — ` +
+        'watch the **Generated query** preview appear **without** your comment. Switch back to **Editor** anytime and the comment is still there.\n\n' +
         '**Why sync is one-way:** Builder maintains a *selection model* — which fields are checked, arguments filled, aliases and directives set. ' +
         'That model cannot be reconstructed from arbitrary SDL (comments, inline fragments, custom variable names all break the mapping). ' +
         'So Builder → Editor is a one-way export. Switching back to **Builder** restores checkbox selections, aliases, and directives — but not manual Monaco edits. ' +
         'Builder is your **sketch pad**; Editor is your **production draft**.',
-      highlight: GQL.MODE_BUILDER,
+      highlight: GQL.QB_CODE,
       preAction: prepareOneWaySyncReading,
       action: async (ctx) => {
         await demonstrateOneWaySyncContrast(ctx);
