@@ -13,14 +13,14 @@ export const ALL_TEST_GLOBS = [
 
 /** Demo-only test files — run in the `demo` Vitest project. */
 export const DEMO_TEST_GLOBS = [
-  'src/features/demo-player/**/*.test.{ts,tsx}',
+  'packages/demo-hub/**/*.test.{ts,tsx}',
   'src/**/useDemo*.test.ts',
   'src/app/components/AppLiveDemoOverlay.test.tsx',
 ] as const;
 
 /** Excluded from the `product` Vitest project (must stay in sync with DEMO_TEST_GLOBS). */
 export const PRODUCT_TEST_EXCLUDE = [
-  'src/features/demo-player/**',
+  'packages/demo-hub/**',
   'src/**/useDemo*.test.ts',
   'src/app/components/AppLiveDemoOverlay.test.tsx',
 ] as const;
@@ -42,8 +42,8 @@ export const PRODUCT_COVERAGE_EXCLUDE = [
   '**/*.test.{ts,tsx}',
   '**/*.config.{ts,js}',
   'src/shared/types/index.ts',
-  // Entire demo hub — product coverage gate (Phase 1 + Phase 3 shell)
-  '**/src/features/demo-player/**',
+  // Entire demo hub — product coverage gate (Phase 1 + Phase 3 shell + Phase 7 package)
+  '**/packages/demo-hub/**',
   '**/src/app/demo/**',
   '**/src/app/hooks/useDemo*.ts',
   '**/src/styles/demo-player.css',
@@ -78,7 +78,9 @@ export function isProductTestFile(path: string): boolean {
 /** Istanbul coverage map paths to strip from the product coverage gate. */
 export function isDemoCoveragePath(filePath: string): boolean {
   const normalized = filePath.replace(/\\/g, '/');
-  return /\/demo-player(\/|\.)/.test(normalized)
+  return /\/demo-hub(\/|\.)/.test(normalized)
+    || /\/packages\/demo-hub\//.test(normalized)
+    || /\/demo-player(\/|\.)/.test(normalized)
     || /\/src\/app\/demo\//.test(normalized)
     || normalized.endsWith('/demo-hub.css')
     || /\/useDemo[^/]*\.ts$/.test(normalized);

@@ -29,11 +29,12 @@
 
 import { test, expect, type Page } from '@playwright/test';
 import { makeProxyResponse, silenceLogStream } from './graphql-helpers';
+import { REDFIREFORGE_IDB_VERSION } from './helpers';
 
 const GQL_URL = '/?tab=graphql-studio';
 const TEST_ENDPOINT = 'https://api.example.com/graphql';
 const DB_NAME = 'redfireforge';
-const DB_VERSION = 6;
+const DB_VERSION = REDFIREFORGE_IDB_VERSION;
 
 /** Suppress the SSE log-stream endpoint to avoid connection errors in E2E tests. */
 // silenceLogStream is imported from graphql-helpers

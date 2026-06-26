@@ -13,7 +13,7 @@ const STORE_NAME = 'featureGroups';
 
 const featureGroupsStore = createIdbBlobStore<FeatureGroup[]>(
   STORE_NAME,
-  (d) => Array.isArray(d) && d.length > 0,
+  (d) => Array.isArray(d),
 );
 
 export const idbLoadFeatureGroups = featureGroupsStore.load;

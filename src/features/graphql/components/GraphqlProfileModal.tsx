@@ -16,6 +16,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
 import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 import { authBadgeLabel, isAuthConfigured } from '../utils/authUtils';
 
@@ -25,6 +26,7 @@ interface GraphqlProfileModalProps {
   profiles: ConnectionProfile[];
   currentEndpoint: string;
   currentAuth: GraphqlAuth | null | undefined;
+  globalAuthProfiles?: GlobalAuthProfile[];
   onClose: () => void;
   onSave: (name: string) => void;
   onLoad: (profile: ConnectionProfile) => void;
@@ -46,6 +48,7 @@ export function GraphqlProfileModal({
   profiles,
   currentEndpoint,
   currentAuth,
+  globalAuthProfiles = [],
   onClose,
   onSave,
   onLoad,
@@ -184,8 +187,8 @@ export function GraphqlProfileModal({
             ) : (
               <ul className="gql-profile-list" role="list">
                 {profiles.map((profile) => {
-                  const authConfigured = isAuthConfigured(profile.auth);
-                  const authLabel = authBadgeLabel(profile.auth);
+                  const authConfigured = isAuthConfigured(profile.auth, globalAuthProfiles);
+                  const authLabel = authBadgeLabel(profile.auth, globalAuthProfiles);
                   const isConfirmingDelete = confirmDeleteId === profile.id;
 
                   return (
@@ -250,8 +253,8 @@ export function GraphqlProfileModal({
                 </div>
                 <div className="gql-profile-save-preview-row">
                   <span className="gql-profile-save-preview-label">Auth</span>
-                  <span className={`gql-profile-auth-badge${isAuthConfigured(currentAuth) ? ' gql-profile-auth-badge--active' : ''}`}>
-                    {authBadgeLabel(currentAuth)}
+                  <span className={`gql-profile-auth-badge${isAuthConfigured(currentAuth, globalAuthProfiles) ? ' gql-profile-auth-badge--active' : ''}`}>
+                    {authBadgeLabel(currentAuth, globalAuthProfiles)}
                   </span>
                 </div>
               </div>

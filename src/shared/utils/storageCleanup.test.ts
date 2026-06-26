@@ -2,14 +2,16 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys } from './storageCleanup';
+import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, ensureBrowserLargeDataMigrated } from './storageCleanup';
 import {
   FLAT_SEL_ENV_KEY,
   FLAT_SEL_SVC_KEY,
   RUNNER_CONFIG_KEY,
+  FLAT_SVCS_KEY,
+  GLOBAL_AUTH_KEY,
 } from './storageKeys';
 
-const { isTauriMock, migrateWorkflowKeysToIdbMock, migrateCatalogKeysToIdbMock, idbMigrateRequestsMock, idbMigrateProjectsMock, idbMigrateEnvironmentsMock, idbMigrateMicroservicesMock, idbMigrateFeatureGroupsMock } = vi.hoisted(() => ({
+const { isTauriMock, migrateWorkflowKeysToIdbMock, migrateCatalogKeysToIdbMock, idbMigrateRequestsMock, idbMigrateProjectsMock, idbMigrateEnvironmentsMock, idbMigrateMicroservicesMock, idbMigrateFeatureGroupsMock, idbMigrateGlobalAuthProfilesMock, idbLoadEnvironmentsMock, idbLoadMicroservicesMock, idbLoadFeatureGroupsMock, idbLoadGlobalAuthProfilesMock } = vi.hoisted(() => ({
   isTauriMock: vi.fn(() => false),
   migrateWorkflowKeysToIdbMock: vi.fn(async () => {}),
   migrateCatalogKeysToIdbMock: vi.fn(async () => {}),
@@ -18,6 +20,11 @@ const { isTauriMock, migrateWorkflowKeysToIdbMock, migrateCatalogKeysToIdbMock, 
   idbMigrateEnvironmentsMock: vi.fn(async () => true),
   idbMigrateMicroservicesMock: vi.fn(async () => true),
   idbMigrateFeatureGroupsMock: vi.fn(async () => true),
+  idbMigrateGlobalAuthProfilesMock: vi.fn(async () => true),
+  idbLoadEnvironmentsMock: vi.fn(async () => []),
+  idbLoadMicroservicesMock: vi.fn(async () => []),
+  idbLoadFeatureGroupsMock: vi.fn(async () => []),
+  idbLoadGlobalAuthProfilesMock: vi.fn(async () => []),
 }));
 
 vi.mock('./platform', () => ({
@@ -43,10 +50,18 @@ vi.mock('./idbProjects', () => ({
 vi.mock('./idbEnvironmentsMicroservices', () => ({
   idbMigrateEnvironments: idbMigrateEnvironmentsMock,
   idbMigrateMicroservices: idbMigrateMicroservicesMock,
+  idbLoadEnvironments: idbLoadEnvironmentsMock,
+  idbLoadMicroservices: idbLoadMicroservicesMock,
 }));
 
 vi.mock('./idbFeatureGroups', () => ({
   idbMigrateFeatureGroups: idbMigrateFeatureGroupsMock,
+  idbLoadFeatureGroups: idbLoadFeatureGroupsMock,
+}));
+
+vi.mock('./idbGlobalAuthProfiles', () => ({
+  idbMigrateGlobalAuthProfiles: idbMigrateGlobalAuthProfilesMock,
+  idbLoadGlobalAuthProfiles: idbLoadGlobalAuthProfilesMock,
 }));
 
 describe('purgeStaleRunnerConfigKeys', () => {
@@ -185,6 +200,7 @@ describe('cleanupStaleStorageKeys', () => {
     localStorage.setItem('perf-test-v3-environments', '[]');
     localStorage.setItem('perf-test-v3-microservices', '[]');
     localStorage.setItem('perf-test-v3-feature-groups', '[]');
+    localStorage.setItem(GLOBAL_AUTH_KEY, '[]');
     cleanupStaleStorageKeys();
     await vi.waitFor(() => {
       expect(migrateWorkflowKeysToIdbMock).toHaveBeenCalled();
@@ -193,6 +209,7 @@ describe('cleanupStaleStorageKeys', () => {
       expect(idbMigrateEnvironmentsMock).toHaveBeenCalled();
       expect(idbMigrateMicroservicesMock).toHaveBeenCalled();
       expect(idbMigrateFeatureGroupsMock).toHaveBeenCalled();
+      expect(idbMigrateGlobalAuthProfilesMock).toHaveBeenCalled();
       expect(migrateCatalogKeysToIdbMock).toHaveBeenCalled();
     });
   });
@@ -213,5 +230,31 @@ describe('cleanupStaleStorageKeys', () => {
     await vi.waitFor(() => {
       expect(migrateWorkflowKeysToIdbMock).toHaveBeenCalled();
     });
+  });
+});
+
+describe('ensureBrowserLargeDataMigrated', () => {
+  beforeEach(() => {
+    isTauriMock.mockReturnValue(false);
+    localStorage.clear();
+    vi.clearAllMocks();
+  });
+
+  it('migrates flat keys and removes localStorage copies when IDB has data', async () => {
+    localStorage.setItem(FLAT_SVCS_KEY, JSON.stringify([{ id: 's1', name: 'api', baseUrls: {} }]));
+    idbLoadMicroservicesMock.mockResolvedValue([{ id: 's1', name: 'api', baseUrls: {} }]);
+
+    await ensureBrowserLargeDataMigrated();
+
+    expect(idbMigrateMicroservicesMock).toHaveBeenCalled();
+    expect(localStorage.getItem(FLAT_SVCS_KEY)).toBeNull();
+  });
+
+  it('no-ops on Tauri', async () => {
+    isTauriMock.mockReturnValue(true);
+    localStorage.setItem(FLAT_SVCS_KEY, '[]');
+    await ensureBrowserLargeDataMigrated();
+    expect(idbMigrateMicroservicesMock).not.toHaveBeenCalled();
+    expect(localStorage.getItem(FLAT_SVCS_KEY)).not.toBeNull();
   });
 });

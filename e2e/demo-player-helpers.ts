@@ -40,8 +40,17 @@
  */
 
 import { type Page, expect } from '@playwright/test';
+import { PHASE8_E2E_GUARD_BYPASS_KEY } from '../packages/demo-hub/src/demoLiveGuard';
 import * as fs from 'fs';
 import * as path from 'path';
+
+/** Prevent Phase 8 Playwright live-demo walks from writing the manual demo guard file. */
+export async function installPhase8DemoGuardBypass(page: Page): Promise<void> {
+  if (process.env.PHASE8_E2E_SWEEP !== '1') return;
+  await page.addInitScript((key) => {
+    (window as Window & Record<string, unknown>)[key] = true;
+  }, PHASE8_E2E_GUARD_BYPASS_KEY);
+}
 
 // ─── Timeouts ─────────────────────────────────────────────────────────────────
 
@@ -51,9 +60,37 @@ const RESTART_TIMEOUT   = 30_000;  // restart includes cleanup + setup
 
 // ─── Navigation helpers ───────────────────────────────────────────────────────
 
+/** Clear browser storage between Phase 8 sweep lessons (avoids QuotaExceededError). */
+export async function clearDemoE2EStorage(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    try {
+      localStorage.clear();
+    } catch {
+      /* quota or security — best effort */
+    }
+    try {
+      sessionStorage.clear();
+    } catch {
+      /* ignore */
+    }
+    // Drop IDB between sweep lessons — stale GraphQL tabs/snapshots cause hangs (GQL-12).
+    await new Promise<void>((resolve) => {
+      const del = indexedDB.deleteDatabase('redfireforge');
+      del.onsuccess = () => resolve();
+      del.onerror = () => resolve();
+      del.onblocked = () => resolve();
+    });
+  });
+}
+
 /** Navigate to the root page and open the Demo Hub pane. */
 export async function openDemoHub(page: Page): Promise<void> {
+  await installPhase8DemoGuardBypass(page);
   await page.goto('http://localhost:5173', { waitUntil: 'networkidle' });
+  if (process.env.PHASE8_E2E_SWEEP === '1') {
+    await clearDemoE2EStorage(page);
+    await page.reload({ waitUntil: 'networkidle' });
+  }
   await page.locator('[title="Demo Hub"]').click();
   await page.waitForSelector('.demo-domain-card', { timeout: HUB_TIMEOUT });
 }

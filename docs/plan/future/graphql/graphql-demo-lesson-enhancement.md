@@ -217,12 +217,12 @@ Auth and TLS lessons were added to the WS and Kafka curricula when secure Docker
 | **GQL-5** | `gql-https-tls` | HTTPS, TLS & Certificates | **12** | **8 min** | ✅ **Complete (7A + mTLS)** · full Docker E2E ✅ · Phase 8 Tauri manual pending |
 | **GQL-6** | `gql-mutations` | Mutations — Create, Update, Delete | **19** | **10 min** | ✅ **Enhancement complete** (2026-06-23) |
 | **GQL-7** | `gql-subscriptions` | Subscriptions — Real-Time Data | **14** | **6 min** | ✅ **Enhancement complete** (2026-06-23) |
-| **GQL-8** | `gql-query-builder` | Query Builder | 10 | 4 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
+| **GQL-8** | `gql-query-builder` | Query Builder | 10 | 4 min | ✅ **Enhancement complete** · §11.0 ✅ |
 | **GQL-9** | `gql-collections-history` | Collections & History | **9** | **5 min** | ✅ **Enhancement complete** (2026-06-23) |
-| **GQL-10** | `gql-export-share` | Export & Share Queries | 5 | 3 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
-| **GQL-11** | `gql-performance-tracing` | Performance Tracing | 8 | 4 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
-| **GQL-12** | `gql-schema-diff` | Schema Diff | 7 | 4 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
-| **GQL-13** | `gql-mock-server` | Mock Server | **15** | 6 min | 🔨 Shipped · enhancement pending · §11.0 ✅ |
+| **GQL-10** | `gql-export-share` | Export & Share Queries | 5 | 3 min | ✅ **Enhancement complete** · §11.0 ✅ |
+| **GQL-11** | `gql-performance-tracing` | Performance Tracing | 8 | 4 min | ✅ **Enhancement complete** · §11.0 ✅ |
+| **GQL-12** | `gql-schema-diff` | Schema Diff | 7 | 4 min | ✅ **Enhancement complete** · §11.0 ✅ |
+| **GQL-13** | `gql-mock-server` | Mock Server | **15** | 6 min | ✅ **Enhancement complete** · §11.0 ✅ |
 | **GQL-14** | `gql-multi-tab` | Multi-Tab Workspaces | **10** | 6 min | ✅ Authored (7B) · `tabBudget:2` · §11.0 ✅ |
 | **GQL-15** | `gql-batch-execution` | Batch Execution | **9** | 4 min | ✅ Authored · Advanced Settings batch · `tabBudget:2` · §11.0 ✅ |
 | **GQL-16** | `gql-workflow-integration` | Workflow Integration | **12** | **7 min** | ✅ **Enhancement complete** (2026-06-23) |
@@ -538,16 +538,16 @@ Step ids are `gql11-*` (frozen; see **§3.2** — card **GQL-16**, not prefix 16
 | GQL-1 First Query | ✅ Shipped | **GraphQL Studio chrome**: connection bar, editor pane, right panel (Schema/Response tabs), bottom bar, 5-step flow legend |
 | GQL-2 Variables | ✅ Shipped | **Studio chrome** with editor pane + Variables bottom panel; Alice / Bob result columns |
 | GQL-3 Schema Exploration | ✅ Complete | **700×430 studio chrome** — editor + Schema Explorer + Try → + SDL export |
-| GQL-4 Auth & Headers | 🔲 Pending | **Studio chrome** with auth popover open, bearer input, header preview, HTTPS padlock on endpoint |
+| GQL-4 Auth & Headers | ✅ Complete | **700×430 studio chrome** — auth popover, bearer, header preview |
 | GQL-5 HTTPS/TLS | ✅ Shipped | **Studio chrome** with TLS panel, skip-cert, CA + client cert fields, mTLS on 4445 |
-| GQL-6 Mutations | 🔲 Pending | **Studio chrome** with M badge on tab, mutation in editor, returned id in response panel |
-| GQL-7 Subscriptions | 🔲 Pending | **Studio chrome** with Subscribe button on connection bar, subscription log replacing response panel |
-| GQL-8 Query Builder | 🔲 Pending | **Studio chrome** with Builder mode active, field tree on left, generated query on right |
-| GQL-9 Collections & History | 🔲 Pending | **Studio chrome** with left activity bar (History + Collections icons highlighted), save dialog overlay |
-| GQL-10 Export & Share | 🔲 Pending | **Studio chrome** showing Builder view + history context menu with cURL option |
-| GQL-11 Perf Tracing | 🔲 Pending | **Studio chrome** with response panel showing Tracing tab, waterfall bars, histogram strip below |
-| GQL-12 Schema Diff | 🔲 Pending | **Studio chrome** showing Schema Explorer with Changelog tab, diff modal overlay |
-| GQL-13 Mock Server | 🔲 Pending | **Studio chrome** with Mock panel open on left, endpoint bar showing :3001/mock, mock response in result panel |
+| GQL-6 Mutations | ✅ Complete | **700×430 studio chrome** — M badge, mutation editor, response id |
+| GQL-7 Subscriptions | ✅ Complete | **700×430 studio chrome** — Subscribe, subscription log panel |
+| GQL-8 Query Builder | ✅ Complete | **700×430 studio chrome** — Builder mode, field tree, SDL preview, Summary panel |
+| GQL-9 Collections & History | ✅ Complete | **Studio chrome** with History + Collections activity bar |
+| GQL-10 Export & Share | ✅ Complete | **Studio chrome** — Builder + History cURL export flow |
+| GQL-11 Perf Tracing | ✅ Complete | **Studio chrome** — Tracing tab, waterfall, histogram strip |
+| GQL-12 Schema Diff | ✅ Complete | **Studio chrome** — Changelog tab, diff modal overlay |
+| GQL-13 Mock Server | ✅ Complete | **Studio chrome** — Mock panel, :3001 endpoint, mock response |
 | GQL-16 Workflow Integration | 🔲 Pending | **Workflow Designer chrome**: canvas with 4 nodes wired, Quick Test button, green/red node state overlay |
 
 ### 6.2 SVG size standard
@@ -927,12 +927,12 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 | GQL-5 | `gql-https-tls` | **12** | **8 min** | ✅ Shipped (7A + mTLS) · full Docker E2E ✅ |
 | GQL-6 | `gql-mutations` | **18** | **9 min** | 🔨 Enhancement partial (`gql3-observe-order`) |
 | GQL-7 | `gql-subscriptions` | 12 | 5 min | 🔲 Enhancement pending |
-| GQL-8 | `gql-query-builder` | 10 | 4 min | 🔲 Enhancement pending |
-| GQL-9 | `gql-collections-history` | 8 | 4 min | 🔲 Enhancement pending |
-| GQL-10 | `gql-export-share` | 5 | 3 min | 🔲 Enhancement pending |
-| GQL-11 | `gql-performance-tracing` | 7→8 | 4 min | 🔲 Enhancement pending |
-| GQL-12 | `gql-schema-diff` | 7 | 4 min | 🔲 Enhancement pending |
-| GQL-13 | `gql-mock-server` | **15** | 6 min | 🔲 Enhancement pending |
+| GQL-8 | `gql-query-builder` | 10 | 4 min | ✅ Enhancement complete |
+| GQL-9 | `gql-collections-history` | 8 | 4 min | ✅ Enhancement complete |
+| GQL-10 | `gql-export-share` | 5 | 3 min | ✅ Enhancement complete |
+| GQL-11 | `gql-performance-tracing` | 7→8 | 4 min | ✅ Enhancement complete |
+| GQL-12 | `gql-schema-diff` | 7 | 4 min | ✅ Enhancement complete |
+| GQL-13 | `gql-mock-server` | **15** | 6 min | ✅ Enhancement complete |
 | GQL-14 | `gql-multi-tab` | **10** | 6 min | ✅ Authored · 7C profiles+polling ✅ · demo E2E ✅ |
 | GQL-15 | `gql-batch-execution` | **9** | 4 min | ✅ Authored · demo E2E ✅ |
 | GQL-16 | `gql-workflow-integration` | **11** | 6 min | ✅ Enhancement complete (§9.2–9.3) |

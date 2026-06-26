@@ -16,6 +16,11 @@ import {
   idbLoadEnvironments, idbSaveEnvironments, idbMigrateEnvironments,
   idbLoadMicroservices, idbSaveMicroservices, idbMigrateMicroservices,
 } from './idbEnvironmentsMicroservices';
+import {
+  idbLoadGlobalAuthProfiles,
+  idbSaveGlobalAuthProfiles,
+  idbMigrateGlobalAuthProfiles,
+} from './idbGlobalAuthProfiles';
 import { createDualModeArrayStorage } from './storageDualMode';
 import {
   idbLoadSharedDataSources, idbSaveSharedDataSources, idbMigrateSharedDataSources,
@@ -29,7 +34,7 @@ import {
   idbLoadProjects,
 } from './idbProjects';
 import { compressTrace, sampleIterations } from './traceCompression';
-import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys } from './storageCleanup';
+import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, reclaimLocalStorageQuotaForWrite } from './storageCleanup';
 import {
   STORAGE_KEY,
   GLOBAL_AUTH_KEY,
@@ -56,7 +61,7 @@ export {
   SELECTED_PROJECT_KEY,
 } from './storageKeys';
 
-export { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, migrateAppFlatDataFromLocalStorage } from './storageCleanup';
+export { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, migrateAppFlatDataFromLocalStorage, ensureBrowserLargeDataMigrated, reclaimLocalStorageQuotaForWrite } from './storageCleanup';
 
 const DEFAULT_MAX_RUNS = 50;
 const RESPONSE_BODY_MAX_CHARS = 2000;
@@ -83,6 +88,7 @@ export async function writeKey(key: string, value: string): Promise<void> {
       console.warn(`[Storage] QuotaExceededError writing "${key}" — running cleanup and retrying`);
       purgeStaleRunnerConfigKeys();
       cleanupStaleStorageKeys();
+      await reclaimLocalStorageQuotaForWrite();
       try {
         localStorage.setItem(key, value);
         return;
@@ -241,6 +247,7 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
     { label: 'projects (IndexedDB)', fn: idbLoadProjects },
     { label: 'environments (IndexedDB)', fn: idbLoadEnvironments },
     { label: 'microservices (IndexedDB)', fn: idbLoadMicroservices },
+    { label: 'global auth (IndexedDB)', fn: idbLoadGlobalAuthProfiles },
   ];
   for (const { label, fn } of idbChecks) {
     try {
@@ -498,6 +505,13 @@ const microservicesStorage = createDualModeArrayStorage<Microservice>({
   idbMigrate: idbMigrateMicroservices,
 });
 
+const globalAuthProfilesStorage = createDualModeArrayStorage<GlobalAuthProfile>({
+  key: GLOBAL_AUTH_KEY,
+  idbLoad: idbLoadGlobalAuthProfiles,
+  idbSave: idbSaveGlobalAuthProfiles,
+  idbMigrate: idbMigrateGlobalAuthProfiles,
+});
+
 const featureGroupsStorage = createDualModeArrayStorage<FeatureGroup>({
   key: FLAT_FGS_KEY,
   idbLoad: idbLoadFeatureGroups,
@@ -565,8 +579,12 @@ export async function loadSelectedSvcId(): Promise<string> { return (await readK
 
 // ---------- Global Auth Profiles ----------
 
-export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> { await saveJsonKey(GLOBAL_AUTH_KEY, profiles); }
-export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> { return loadJsonKey<GlobalAuthProfile>(GLOBAL_AUTH_KEY); }
+export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> {
+  await globalAuthProfilesStorage.save(profiles);
+}
+export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> {
+  return globalAuthProfilesStorage.load();
+}
 
 // ---------- Shared Data Sources ----------
 

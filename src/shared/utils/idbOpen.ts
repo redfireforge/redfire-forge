@@ -8,28 +8,26 @@
  */
 
 const DB_NAME = 'redfireforge';
-const DB_VERSION = 7; // v7: environments + microservices moved off localStorage
-const OPEN_TIMEOUT_MS = 3000;
+const DB_VERSION = 9; // v9: GraphQL Studio tabs, envs, profiles, auth, schema cache → IDB
+const OPEN_TIMEOUT_MS = 10_000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 
-export function openDB(): Promise<IDBDatabase> {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise<IDBDatabase>((resolve, reject) => {
-    const timer = setTimeout(() => {
-      // Keep dbPromise cached so subsequent callers get an instant rejection
-      // instead of starting a new 3-second timeout each time.
-      reject(new Error('IndexedDB open timed out'));
-    }, OPEN_TIMEOUT_MS);
-
+function openDBInternal(): Promise<IDBDatabase> {
+  return new Promise<IDBDatabase>((resolve, reject) => {
     let req: IDBOpenDBRequest;
     try {
       req = indexedDB.open(DB_NAME, DB_VERSION);
     } catch (e) {
-      clearTimeout(timer);
       reject(e);
       return;
     }
+
+    const timer = setTimeout(() => {
+      dbPromise = null;
+      try { req.result?.close(); } catch { /* ignore */ }
+      reject(new Error('IndexedDB open timed out'));
+    }, OPEN_TIMEOUT_MS);
 
     req.onupgradeneeded = () => {
       const db = req.result;
@@ -106,6 +104,26 @@ export function openDB(): Promise<IDBDatabase> {
       if (!db.objectStoreNames.contains('microservices')) {
         db.createObjectStore('microservices');
       }
+      // v8: global auth profiles — keeps localStorage headroom for small prefs
+      if (!db.objectStoreNames.contains('globalAuthProfiles')) {
+        db.createObjectStore('globalAuthProfiles');
+      }
+      // v9: GraphQL Studio — free localStorage for demo/introspection workloads
+      if (!db.objectStoreNames.contains('gqlStudioTabs')) {
+        db.createObjectStore('gqlStudioTabs');
+      }
+      if (!db.objectStoreNames.contains('gqlStudioEnvironments')) {
+        db.createObjectStore('gqlStudioEnvironments');
+      }
+      if (!db.objectStoreNames.contains('gqlConnectionProfiles')) {
+        db.createObjectStore('gqlConnectionProfiles');
+      }
+      if (!db.objectStoreNames.contains('gqlPageAuth')) {
+        db.createObjectStore('gqlPageAuth');
+      }
+      if (!db.objectStoreNames.contains('gqlSchemaCache')) {
+        db.createObjectStore('gqlSchemaCache');
+      }
     };
     req.onblocked = () => {
       clearTimeout(timer);
@@ -130,5 +148,15 @@ export function openDB(): Promise<IDBDatabase> {
       reject(req.error);
     };
   });
+}
+
+/** Shared IndexedDB handle — retries open after transient timeout/error. */
+export function openDB(): Promise<IDBDatabase> {
+  if (!dbPromise) {
+    dbPromise = openDBInternal().catch((err) => {
+      dbPromise = null;
+      throw err;
+    });
+  }
   return dbPromise;
 }

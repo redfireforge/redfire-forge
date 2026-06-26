@@ -4,6 +4,8 @@ import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { readFileSync, existsSync } from 'fs'
 import { resolve, join } from 'path'
 import { isLoopbackUrl, resolveLoopbackUrl } from './src/shared/utils/loopbackUrl'
+import { demoHubRootImportsPlugin } from './vite/demoHubRootImports'
+import { demoLiveGuardPlugin } from './vite/demoLiveGuardPlugin'
 
 const PROXY_RETRY_CODES = new Set([
   'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET',
@@ -249,11 +251,33 @@ const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), proxyPlugin(), docsPlugin()],
+  plugins: [demoHubRootImportsPlugin(), react(), proxyPlugin(), demoLiveGuardPlugin(), docsPlugin()],
+  resolve: {
+    alias: {
+      '@redfireforge/demo-hub': resolve(__dirname, 'packages/demo-hub/src'),
+      '@shared': resolve(__dirname, 'src/shared'),
+      '@graphql': resolve(__dirname, 'src/features/graphql'),
+      '@workflow': resolve(__dirname, 'src/features/workflow'),
+    },
+  },
   clearScreen: false,
   server: {
     strictPort: true,
     port: 5173,
+    hmr: process.env.PHASE8_E2E_SWEEP !== '1',
+    watch: {
+      // Runtime writes (API correlation store, E2E artifacts) must not trigger full reloads.
+      ignored: [
+        '**/data/**',
+        '**/*.db',
+        '**/*.db-journal',
+        '**/.cursor/**',
+        '**/coverage/**',
+        '**/e2e/screenshots/**',
+        '**/playwright-report/**',
+        '**/test-results/**',
+      ],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

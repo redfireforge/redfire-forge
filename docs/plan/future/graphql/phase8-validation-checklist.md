@@ -4,9 +4,15 @@
 
 **Automated proxy (Web):** Playwright full-lesson walks (`npm run test:e2e:demo:gqlN`). Green E2E ≠ human sign-off — use for regression; still eyeball pacing and narration once.
 
-**Last automated sweep:** 2026-06-24 — run `scripts/phase8-gql-e2e-sweep.sh` and paste results below.
+**Last automated sweep:** 2026-06-26 — `./scripts/phase8-gql-e2e-sweep.sh` (see results below)
 
-**Quality audit GQL-4..13:** ✅ `graphql-lesson-quality-audit.test.ts` (11/11) — 2026-06-24
+**Sweep results (2026-06-26):**
+- First full sweep: 18/20 pass (GQL-12 timeout under stale IDB; gql110 blocked by script tail error)
+- Fixes: IDB v9 alignment, GQL-12 baseline seed after `openDemoHub` clear, IDB wipe in `clearDemoE2EStorage`, workspace helpers → IDB tabs
+- Re-verify under `PHASE8_E2E_SWEEP=1`: GQL-12 ✅ (1.6m), gql110 ✅ (4/4)
+- Re-run full sweep before merge: `./scripts/phase8-gql-e2e-sweep.sh`
+
+**Quality audit GQL-4..13:** ✅ `packages/demo-hub/src/lessons/protocols/graphql-lesson-quality-audit.test.ts` (11/11) — 2026-06-26
 
 ---
 
@@ -79,7 +85,7 @@ cd src-tauri && cargo run --no-default-features
 
 **§11.0 acceptance:** `npm run test:e2e:demo:gql110` (4 scenarios)
 
-**Full sweep:** `scripts/phase8-gql-e2e-sweep.sh` (sequential, HTML report per project)
+**Full sweep:** `scripts/phase8-gql-e2e-sweep.sh` (sequential; kills :5173 + clears storage between lessons; `PHASE8_E2E_SWEEP=1` disables Vite HMR)
 
 ---
 
@@ -106,7 +112,7 @@ Detail: [gql5-phase8-validation-checklist.md](./gql5-phase8-validation-checklist
 
 ## GQL-4..13 quality audit (automated)
 
-Unit gate: `npx vitest run src/features/demo-player/lessons/protocols/graphql-lesson-quality-audit.test.ts`
+Unit gate: `npx vitest run packages/demo-hub/src/lessons/protocols/graphql-lesson-quality-audit.test.ts`
 
 Checks vs GQL-1/GQL-2 bar:
 
@@ -124,7 +130,7 @@ Checks vs GQL-1/GQL-2 bar:
 | Gate | Owner | Date | Status |
 |------|-------|------|--------|
 | Quality audit GQL-4..13 | CI / agent | 2026-06-24 | ✅ 11/11 tests |
-| Web E2E sweep (19 lessons) | CI / agent | | |
+| Web E2E sweep (19 + gql110) | CI / agent | 2026-06-26 | ✅ GQL-12 + gql110 fixed; re-run full sweep |
 | Web human 1× (19 lessons) | User | | |
 | Tauri human 1× (19 lessons) | User | | |
 | GQL-5 mTLS Tauri | User | | |

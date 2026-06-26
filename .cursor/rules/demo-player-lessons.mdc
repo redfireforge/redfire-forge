@@ -6,7 +6,7 @@ alwaysApply: true
 # Demo Player Lesson Authoring Rules
 
 These rules apply whenever creating or modifying lesson files under
-`src/features/demo-player/lessons/`.
+`packages/demo-hub/src/lessons/` (import via `@redfireforge/demo-hub/lessons/...`).
 
 ---
 
@@ -334,13 +334,13 @@ import { prepareDemoWorkspace } from '../../../../graphql/utils/gqlDemoWorkspace
 ```
 
 **Allowed import paths from lesson code:**
-- `src/features/demo-player/adapters/` (or relative `../adapters`)
+- `packages/demo-hub/src/adapters/` (or `@redfireforge/demo-hub/adapters`)
 - `src/shared/selectors.ts` (`GQL`, `WF`, `WS`, …)
-- Other files under `src/features/demo-player/` (helpers, types)
+- Other files under `packages/demo-hub/src/` (helpers, types)
 
 **New bridge usage:** add a function to the appropriate adapter (`graphqlStudioAdapter`, `workflowDesignerAdapter`, `environmentAdapter`, `appShellAdapter`) — never call `window.__wf*` or `window.__demo*` directly in new lesson code.
 
-Enforced by `src/features/demo-player/adapters/adaptersImportAudit.test.ts`.
+Enforced by `packages/demo-hub/src/adapters/adaptersImportAudit.test.ts`.
 
 ---
 

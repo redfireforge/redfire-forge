@@ -16,8 +16,17 @@ import { GraphqlEditor } from './GraphqlEditor';
 // ─── Monaco mock ──────────────────────────────────────────────────────────────
 
 const mockFocus = vi.fn();
+const mockStopPropagation = vi.fn();
+const mockOnKeyDown = vi.fn((handler: (e: { keyCode: number; stopPropagation: () => void }) => void) => {
+  keyDownHandler = handler;
+  return { dispose: mockKeyDownDispose };
+});
+const mockKeyDownDispose = vi.fn();
+let keyDownHandler: ((e: { keyCode: number; stopPropagation: () => void }) => void) | null = null;
+
 const mockEditorInstance = {
   focus: mockFocus,
+  onKeyDown: mockOnKeyDown,
 };
 
 let mountCallback: ((editor: unknown) => void) | null = null;
@@ -64,6 +73,7 @@ beforeEach(() => {
   beforeMountCallback = null;
   onChangeCb = null;
   mockedMonacoValue = null;
+  keyDownHandler = null;
   // Reset RAF stubs
   vi.useRealTimers();
 });
@@ -110,6 +120,15 @@ describe('GraphqlEditor', () => {
     act(() => { mountCallback?.(mockEditorInstance); });
     expect(editorMountRef.current).toBe(mockEditorInstance);
     expect(mockFocus).toHaveBeenCalled();
+  });
+
+  it('onMount registers Space stopPropagation so demo shortcuts do not steal input', () => {
+    render(<GraphqlEditor {...makeProps()} />);
+    act(() => { mountCallback?.(mockEditorInstance, { KeyCode: { Space: 10 } }); });
+    expect(mockOnKeyDown).toHaveBeenCalled();
+    const event = { keyCode: 10, stopPropagation: mockStopPropagation };
+    keyDownHandler?.(event);
+    expect(mockStopPropagation).toHaveBeenCalled();
   });
 
   it('onMount does NOT focus when readOnly=true', () => {

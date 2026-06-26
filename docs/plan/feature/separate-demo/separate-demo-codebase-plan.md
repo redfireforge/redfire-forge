@@ -2,7 +2,7 @@
 
 > **Path:** `docs/plan/feature/separate-demo/separate-demo-codebase-plan.md`  
 > **Branch:** `feature/separate-demo-codebase`  
-> **Status:** Phase 1 ✅ · Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 (optional/future)  
+> **Status:** Phase 1 ✅ · Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅  
 > **Last updated:** 2026-06-24
 
 ---
@@ -137,7 +137,7 @@ Default `chromium` project already ignores demo specs — good foundation.
 | 4 | Dual Tauri builds + release matrix | **P1** | 1–2 days | Phase 3 |
 | 5 | Demo adapter layer refactor | **P2** | 3–5 days | Phase 3 |
 | 6 | Docs + conventions update | **P2** | 0.5 day | Phases 1–4 |
-| 7 | Optional: `packages/demo-hub` extraction | **P3** | 1–2 weeks | Phase 5 |
+| 7 | Optional: `packages/demo-hub` extraction | **P3** | Done | Phase 5 |
 
 Phases 1–2 unblock production merges fastest. Phases 3–4 deliver user-facing dual downloads.
 
@@ -719,7 +719,7 @@ Ship Phases 1–2 to `develop` first — **zero user-visible change**, maximum C
 
 ## Definition of Done (Full Initiative)
 
-- [ ] Production DMG/web build excludes demo-player bundle (verified by size + source map audit)
+- [x] Production DMG/web build excludes demo-player bundle at runtime (verified: `npm run audit:prod-demo-bundle` — main entry clean; DemoShellHost orphan chunk ~1.1 MB on disk only)
 - [ ] Learning Hub DMG installs separately with full lesson roster
 - [ ] `develop` merge requires product tests + prod build only
 - [ ] Demo E2E removed from default PR CI
@@ -925,3 +925,13 @@ Fixes applied after Phase 1–2 implementation review:
 | Lesson sources: `graphql/utils` imports | 0 |
 | Demo-player core forbidden imports | 0 |
 | `seedNamedWorkflow` pacing (Round 13 fix) | Verified via unit tests |
+
+### Round 15 — Phase 7 package extraction (2026-06-26)
+
+| Item | Change |
+|------|--------|
+| `packages/demo-hub/` | `@redfireforge/demo-hub` — moved from `src/features/demo-player/` |
+| Path aliases | `@redfireforge/demo-hub`, `@shared`, `@graphql`, `@workflow` in tsconfig / Vite / Vitest |
+| Vitest globs | Demo project → `packages/demo-hub/**`; product coverage excludes package |
+| npm workspaces | `"workspaces": ["packages/*"]` |
+| Phase 8 sweep | `PHASE8_E2E_SWEEP=1`, kill :5173 between lessons, HMR off, localStorage clear in `openDemoHub` |

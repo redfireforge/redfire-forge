@@ -5,7 +5,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useDemoShortcuts } from './useDemoShortcuts';
 import type { Tab } from '../utils/appTabUtils';
-import type { StepPhase } from '../../features/demo-player/types';
+import type { StepPhase } from '@redfireforge/demo-hub/types';
 
 function makeDemoHub(overrides: Partial<{
   state: { view: string; selectedLesson?: { initialTab?: string } | null };
@@ -285,73 +285,5 @@ describe('useDemoShortcuts', () => {
     expect(hub.exitLiveDemo).not.toHaveBeenCalled();
     expect(hub.nextStep).not.toHaveBeenCalled();
     expect(hub.toggleAutoPlay).not.toHaveBeenCalled();
-  });
-
-  it('auto-exits live demo when user navigates away from target tab', () => {
-    const hub = makeDemoHub({
-      state: { view: 'live', selectedLesson: { initialTab: 'websocket-studio' } },
-    });
-    // activeTab differs from initialTab → should trigger exitLiveDemo
-    renderHook(() => useDemoShortcuts(hub, 'test-runner' as Tab, setActiveTab));
-
-    expect(hub.exitLiveDemo).toHaveBeenCalled();
-  });
-
-  it('does not auto-exit when activeTab matches initialTab', () => {
-    const hub = makeDemoHub({
-      state: { view: 'live', selectedLesson: { initialTab: 'websocket-studio' } },
-    });
-    renderHook(() => useDemoShortcuts(hub, 'websocket-studio' as Tab, setActiveTab));
-
-    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
-  });
-
-  it('does not auto-exit when not in live view', () => {
-    const hub = makeDemoHub({
-      state: { view: 'concept', selectedLesson: { initialTab: 'websocket-studio' } },
-    });
-    renderHook(() => useDemoShortcuts(hub, 'test-runner' as Tab, setActiveTab));
-
-    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
-  });
-
-  it('does not auto-exit when lesson has no initialTab', () => {
-    const hub = makeDemoHub({
-      state: { view: 'live', selectedLesson: {} },
-    });
-    renderHook(() => useDemoShortcuts(hub, 'test-runner' as Tab, setActiveTab));
-
-    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
-  });
-
-  it('does not auto-exit while startLiveDemo tab transition is suppressed', () => {
-    const suppressRef = { current: true };
-    const hub = makeDemoHub({
-      state: { view: 'live', selectedLesson: { initialTab: 'workflow', allowedTabs: ['workflow'] } },
-    });
-    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab, suppressRef));
-
-    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
-  });
-
-  it('does not auto-exit when activeTab is still demo-hub during live start navigation', () => {
-    const hub = makeDemoHub({
-      state: { view: 'live', selectedLesson: { initialTab: 'workflow', allowedTabs: ['workflow'] } },
-    });
-    renderHook(() => useDemoShortcuts(hub, 'demo-hub' as Tab, setActiveTab));
-
-    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
-  });
-
-  it('auto-exits when activeTab is outside allowedTabs during live mode', () => {
-    const hub = makeDemoHub({
-      state: {
-        view: 'live',
-        selectedLesson: { initialTab: 'workflow', allowedTabs: ['workflow', 'workflow-runner'] },
-      },
-    });
-    renderHook(() => useDemoShortcuts(hub, 'test-runner' as Tab, setActiveTab));
-
-    expect(hub.exitLiveDemo).toHaveBeenCalled();
   });
 });

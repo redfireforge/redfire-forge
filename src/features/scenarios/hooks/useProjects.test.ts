@@ -26,6 +26,7 @@ const m = {
   getStorageUsage: vi.fn(),
   loadTestRunsLite: vi.fn(),
   loadTheme: vi.fn(),
+  ensureBrowserLargeDataMigrated: vi.fn(),
 };
 const mPurge = vi.fn();
 const mNormalize = vi.fn();
@@ -54,6 +55,7 @@ vi.mock('../../../shared/utils/storage', () => ({
   getStorageUsage: (...a: unknown[]) => m.getStorageUsage(...a),
   loadTestRunsLite: (...a: unknown[]) => m.loadTestRunsLite(...a),
   loadTheme: (...a: unknown[]) => m.loadTheme(...a),
+  ensureBrowserLargeDataMigrated: (...a: unknown[]) => m.ensureBrowserLargeDataMigrated(...a),
 }));
 vi.mock('../../../shared/utils/trashStorage', () => ({ purgeExpired: (...a: unknown[]) => mPurge(...a) }));
 vi.mock('../../../shared/utils/scenarioMigration', () => ({ normalizeGroupActionTypes: (...a: unknown[]) => mNormalize(...a) }));
@@ -81,6 +83,7 @@ describe('useProjects', () => {
     mPurge.mockReset(); mNormalize.mockReset(); mIsCustom.mockReset(); mFindSaved.mockReset(); mApplyCustom.mockReset();
     localStorage.clear();
     m.migrateToFlat.mockResolvedValue(undefined);
+    m.ensureBrowserLargeDataMigrated.mockResolvedValue(undefined);
     m.migratePerFgSharedDataSourcesToTopLevel.mockResolvedValue(undefined);
     m.loadEnvironments.mockResolvedValue([{ id: 'e1' } as Environment]);
     m.loadMicroservices.mockResolvedValue([{ id: 'm1' } as Microservice]);

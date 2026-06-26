@@ -214,7 +214,7 @@ alwaysApply: true
 | Unit tests — product only | `npm run test:product` |
 | Unit tests — demo lessons | `npm run test:demo` |
 
-Product PRs that do **not** touch `demo-player/` or demo E2E specs are **not** required to run demo E2E or `test:demo`. Demo lesson work uses the [5-item done checklist](../../docs/guides/demo-lesson-done-checklist.md).
+Product PRs that do **not** touch `packages/demo-hub/` or demo E2E specs are **not** required to run demo E2E or `test:demo`. Demo lesson work uses the [5-item done checklist](../../docs/guides/demo-lesson-done-checklist.md).
 
 ### Rules
 - **Use shared test factories** — Import `makeScenario`, `makeResult`, `makeConfig` from `src/test-utils/factories.ts` instead of defining local factory functions in each test file. Wrap with thin local aliases if you need different defaults (e.g. `const makeScenario = (id) => _makeScenario({ id })`).

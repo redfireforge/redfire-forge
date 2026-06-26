@@ -6,6 +6,7 @@
  */
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import 'fake-indexeddb/auto';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
@@ -20,6 +21,10 @@ vi.mock('../utils/schemaParser', () => ({
 import { gqlFetch } from '../utils/gqlFetch';
 import { parseIntrospectionResult } from '../utils/schemaParser';
 import { useGraphqlSchema } from './useGraphqlSchema';
+import {
+  clearGraphqlSchemaMemoryCacheForTests,
+  loadCachedSchemaEntry,
+} from '../utils/graphqlSchemaCache';
 import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
 
 const mockGqlFetch = vi.mocked(gqlFetch);
@@ -75,12 +80,14 @@ function makeGqlFetchError(status: number, body = '') {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  clearGraphqlSchemaMemoryCacheForTests();
   localStorage.clear();
   mockParseIntrospection.mockReturnValue(makeSchemaInfo());
   mockGqlFetch.mockResolvedValue(makeGqlFetchSuccess());
 });
 
 afterEach(() => {
+  clearGraphqlSchemaMemoryCacheForTests();
   localStorage.clear();
 });
 
@@ -94,7 +101,7 @@ describe('useGraphqlSchema — initial state', () => {
     expect(result.current.rawIntrospection).toBeNull();
   });
 
-  it('restores from cache if localStorage has valid cached schema', () => {
+  it('restores from cache if localStorage has valid cached schema', async () => {
     const schemaInfo = makeSchemaInfo();
     const cachedData = {
       schemaInfo,
@@ -105,35 +112,36 @@ describe('useGraphqlSchema — initial state', () => {
 
     const { result } = renderHook(() => useGraphqlSchema(ENDPOINT));
 
-    expect(result.current.status).toBe('loaded');
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
     expect(result.current.schemaInfo).toEqual(schemaInfo);
     expect(result.current.rawIntrospection).toEqual({ __schema: {} });
   });
 
-  it('ignores corrupt localStorage cache', () => {
+  it('ignores corrupt localStorage cache', async () => {
     localStorage.setItem(makeCacheKey(ENDPOINT), 'not-valid-json');
     const { result } = renderHook(() => useGraphqlSchema(ENDPOINT));
-    expect(result.current.status).toBe('idle');
+    await waitFor(() => expect(result.current.status).toBe('idle'));
   });
 
-  it('ignores cache with missing schemaInfo.types array', () => {
+  it('ignores cache with missing schemaInfo.types array', async () => {
     localStorage.setItem(
       makeCacheKey(ENDPOINT),
       JSON.stringify({ schemaInfo: { types: null }, sdlHash: 123 }),
     );
     const { result } = renderHook(() => useGraphqlSchema(ENDPOINT));
-    expect(result.current.status).toBe('idle');
+    await waitFor(() => expect(result.current.status).toBe('idle'));
   });
 
-  it('restores rawIntrospection as null when not in cache', () => {
+  it('restores rawIntrospection as null when not in cache', async () => {
+    const endpoint = 'https://no-raw-introspection.example.com/graphql';
     const schemaInfo = makeSchemaInfo();
     // Cache without rawIntrospection (schema too large)
     const cachedData = { schemaInfo, sdlHash: 12345 };
-    localStorage.setItem(makeCacheKey(ENDPOINT), JSON.stringify(cachedData));
+    localStorage.setItem(makeCacheKey(endpoint), JSON.stringify(cachedData));
 
-    const { result } = renderHook(() => useGraphqlSchema(ENDPOINT));
+    const { result } = renderHook(() => useGraphqlSchema(endpoint));
 
-    expect(result.current.status).toBe('loaded');
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
     expect(result.current.rawIntrospection).toBeNull();
   });
 });
@@ -187,18 +195,17 @@ describe('useGraphqlSchema — introspect()', () => {
     expect(mockGqlFetch).not.toHaveBeenCalled();
   });
 
-  it('caches schema to localStorage after successful introspection', async () => {
+  it('caches schema to IndexedDB after successful introspection', async () => {
     const { result } = renderHook(() => useGraphqlSchema(ENDPOINT));
 
     act(() => { result.current.introspect(); });
 
     await waitFor(() => expect(result.current.status).toBe('loaded'));
 
-    const cached = localStorage.getItem(makeCacheKey(ENDPOINT));
+    const cached = await loadCachedSchemaEntry(ENDPOINT);
     expect(cached).not.toBeNull();
-    const parsed = JSON.parse(cached!);
-    expect(parsed.schemaInfo).toBeDefined();
-    expect(typeof parsed.sdlHash).toBe('number');
+    expect(cached?.schemaInfo).toBeDefined();
+    expect(typeof cached?.sdlHash).toBe('number');
   });
 });
 
@@ -381,7 +388,7 @@ describe('useGraphqlSchema — endpoint change', () => {
     rerender({ ep: 'https://other.example.com/graphql' });
 
     // State should reset to idle (no cache for this endpoint)
-    expect(result.current.status).toBe('idle');
+    await waitFor(() => expect(result.current.status).toBe('idle'));
     expect(result.current.schemaInfo).toBeNull();
   });
 
@@ -400,7 +407,7 @@ describe('useGraphqlSchema — endpoint change', () => {
 
     rerender({ ep: otherEndpoint });
 
-    expect(result.current.status).toBe('loaded');
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
     expect(result.current.schemaInfo?.sdl).toContain('cached');
   });
 });
@@ -423,7 +430,7 @@ describe('useGraphqlSchema — Phase 6 per-tab endpoint cache isolation', () => 
 
     act(() => { result.current.introspect(); });
     await waitFor(() => expect(result.current.status).toBe('loaded'));
-    expect(localStorage.getItem(makeCacheKey(staging))).toBeTruthy();
+    expect(await loadCachedSchemaEntry(staging)).toBeTruthy();
 
     localStorage.setItem(
       makeCacheKey(prod),
@@ -436,10 +443,10 @@ describe('useGraphqlSchema — Phase 6 per-tab endpoint cache isolation', () => 
 
     rerender({ ep: prod });
 
-    expect(result.current.status).toBe('loaded');
+    await waitFor(() => expect(result.current.status).toBe('loaded'));
     expect(result.current.schemaInfo?.sdl).toContain('prodField');
-    expect(localStorage.getItem(makeCacheKey(staging))).toBeTruthy();
-    expect(localStorage.getItem(makeCacheKey(prod))).toBeTruthy();
+    expect(await loadCachedSchemaEntry(staging)).toBeTruthy();
+    expect(await loadCachedSchemaEntry(prod)).toBeTruthy();
   });
 });
 

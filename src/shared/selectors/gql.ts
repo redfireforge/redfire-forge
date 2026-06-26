@@ -85,6 +85,9 @@ export const GQL = {
   RV_METADATA:         '[data-testid="gql-rv-metadata"]',
   RV_AUTH_SENT:          '[data-testid="gql-rv-auth-sent"]',
   RV_REQUEST_HEADERS:  '[data-testid="gql-rv-request-headers"]',
+  /** Metadata request-headers table — one row per header name (case-sensitive). */
+  rvRequestHeaderKey:  (name: string) => `[data-testid="gql-rv-request-header-key-${name}"]`,
+  rvRequestHeaderVal:  (name: string) => `[data-testid="gql-rv-request-header-val-${name}"]`,
 
   // ── TLS (Lesson 5) — toggle appears only for https:// endpoints ──────────
   TLS_TOGGLE:          '[data-testid="gql-tls-toggle"]',
@@ -255,6 +258,7 @@ export const GQL = {
 
   // ── Performance — Phase 2G ─────────────────────────────────────────────────
   COMPLEXITY_BADGE:    '[data-testid="gql-complexity-badge"]',
+  RV_DATA_ONLY_TOGGLE: '[data-testid="gql-rv-data-only-toggle"]',
   RV_TRACING_BADGE:    '[data-testid="gql-rv-tracing-badge"]',
   RV_TAB_TRACING:      '[data-testid="gql-rv-tab-tracing"]',
   TRACE_VIEW:          '[data-testid="gql-trace-view"]',

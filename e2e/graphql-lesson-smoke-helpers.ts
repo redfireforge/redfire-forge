@@ -17,6 +17,12 @@ import {
   runNextStep,
   completeCurrentStepAction,
   finishDemoStep,
+  openDemoHub,
+  selectProtocolsDomain,
+  selectCategory,
+  openLesson,
+  waitForPrerequisiteGateUp,
+  startLesson,
 } from './demo-player-helpers';
 import {
   seedGqlDemoEnvironmentForE2e,
@@ -29,6 +35,7 @@ import {
   GQL_HTTP,
   seedGqlStudioSettings,
 } from './graphql-helpers';
+import { REDFIREFORGE_IDB_VERSION } from './helpers';
 
 export const GQL1_LESSON = { name: 'Your First GraphQL Query', steps: 13 } as const;
 export const GQL2_LESSON = { name: 'Variables & Arguments', steps: 18 } as const;
@@ -37,7 +44,7 @@ export const GQL4_LESSON = { name: 'Authentication & Headers', steps: 14 } as co
 export const GQL5_LESSON = { name: 'HTTPS, TLS & Certificates', steps: 16 } as const;
 export const GQL6_LESSON = { name: 'Mutations — Create, Update, Delete', steps: 19 } as const;
 export const GQL7_LESSON = { name: 'Subscriptions — Real-Time Data', steps: 14 } as const;
-export const GQL8_LESSON = { name: 'Query Builder — Visual Operations', steps: 10 } as const;
+export const GQL8_LESSON = { name: 'Query Builder — Visual Operations', steps: 11 } as const;
 export const GQL9_LESSON = { name: 'Collections & History', steps: 9 } as const;
 export const GQL10_LESSON = { name: 'Export & Share Queries', steps: 7 } as const;
 export const GQL11_LESSON = { name: 'Performance Tracing', steps: 8 } as const;
@@ -835,6 +842,12 @@ function gql12StepTimeout(stepIndex: number): number {
 /** Play through all 7 GQL-12 steps (snapshots, changelog diff, export JSON). */
 export async function walkFullGql12Lesson(page: Page): Promise<void> {
   for (let i = 0; i < GQL12_LESSON.steps - 1; i++) {
+    const info = await page.evaluate(() => ({
+      counter: document.querySelector('.demo-live-step-counter')?.textContent?.trim() ?? '',
+      title: document.querySelector('.demo-live-step-title')?.textContent?.trim() ?? '',
+      phase: document.querySelector('[data-testid="demo-live-panel"]')?.getAttribute('data-step-phase') ?? '',
+    }));
+    console.log(`[GQL-12 walk] step ${i + 1} — ${info.counter} ${info.title} (phase=${info.phase})`);
     await advanceOneGql12Step(page, gql12StepTimeout(i));
   }
   await completeGql12DemoStep(page, DEMO_ACTION_TIMEOUT);
@@ -896,7 +909,7 @@ async function advanceOneGql12Step(page: Page, timeout = DEMO_ACTION_TIMEOUT): P
   if (enteringLastStep) {
     await waitForGql12StepReady(page, timeout);
   } else {
-    await waitForGql12StepReady(page, timeout);
+    await waitForReadingPhase(page, timeout);
   }
 }
 
@@ -1249,14 +1262,17 @@ export async function prepareGql12DockerLesson(
 ): Promise<void> {
   await seedGqlDemoEnvironmentForE2e(page);
   await setupLiveProxy(page, request);
-  // Seed baseline in IDB before lesson setup — Studio normalizes localhost → 127.0.0.1 for snapshot keys.
-  await page.goto('/?tab=graphql-studio');
+  // Phase 8 sweep clears storage in openDemoHub — seed baseline IDB after that clear.
+  await openDemoHub(page);
+  await selectProtocolsDomain(page);
+  await selectCategory(page, 'GraphQL');
+  await openLesson(page, GQL12_LESSON.name);
+  await waitForPrerequisiteGateUp(page);
+  await seedGql12BaselineSnapshotForE2e(page);
+  await startLesson(page);
   await page.waitForSelector('[data-testid="gql-studio-page"]', { timeout: 180_000 });
   await ensureGqlDemoHeaderSelected(page);
   await ensureGql3StudioEndpoint(page);
-  await seedGql12BaselineSnapshotForE2e(page);
-  await launchGqlLesson(page, GQL12_LESSON.name);
-  await page.waitForSelector('[data-testid="gql-studio-page"]', { timeout: 180_000 });
   await waitForReadingPhase(page, 180_000);
 }
 
@@ -1358,7 +1374,7 @@ async function seedGql12BaselineSnapshotForE2e(page: Page): Promise<void> {
         };
         req.onerror = () => reject(req.error);
       }),
-    { snap: snapshot, dbName: 'redfireforge', dbVersion: 6 },
+    { snap: snapshot, dbName: 'redfireforge', dbVersion: REDFIREFORGE_IDB_VERSION },
   );
 }
 

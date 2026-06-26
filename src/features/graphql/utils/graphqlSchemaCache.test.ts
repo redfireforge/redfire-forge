@@ -2,7 +2,11 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { loadCachedGraphqlSchemaSdl } from './graphqlSchemaCache';
+import 'fake-indexeddb/auto';
+import {
+  clearGraphqlSchemaMemoryCacheForTests,
+  loadCachedGraphqlSchemaSdl,
+} from './graphqlSchemaCache';
 import { normalizeGraphqlEndpoint } from './graphqlEndpointUtils';
 
 const SCHEMA_CACHE_PREFIX = 'gql_schema_v1_';
@@ -33,10 +37,12 @@ const validSchemaInfo = {
 
 describe('loadCachedGraphqlSchemaSdl', () => {
   beforeEach(() => {
+    clearGraphqlSchemaMemoryCacheForTests();
     localStorage.clear();
   });
 
   afterEach(() => {
+    clearGraphqlSchemaMemoryCacheForTests();
     localStorage.clear();
   });
 
