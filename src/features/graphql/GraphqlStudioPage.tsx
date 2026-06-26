@@ -33,6 +33,8 @@ import { useGraphqlStudioSplitPanes } from './hooks/useGraphqlStudioSplitPanes';
 import { useGraphqlCollectionRun } from './hooks/useGraphqlCollectionRun';
 import { useGraphqlStudioEnvMap } from './hooks/useGraphqlStudioEnvMap';
 
+import { useDemoGqlModalLockBridge } from './hooks/useDemoGqlModalLockBridge';
+
 const LazyDemoGqlStudioBridges = DEMO_HUB_ENABLED
   ? lazy(() => import('./DemoGqlStudioBridges'))
   : null;
@@ -266,6 +268,13 @@ export function GraphqlStudioPage({
     editorMountRef.current?.setValue(query);
     handleQueryChange(query);
   }, [handleQueryChange, editorMountRef]);
+
+  const gqlModalLock = useDemoGqlModalLockBridge({
+    envModalOpen,
+    profileModalOpen,
+    setEnvModalOpen,
+    setProfileModalOpen,
+  });
 
   const activeTabForHeaders = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
   const activeTabHeaders = useMemo(
@@ -612,9 +621,15 @@ export function GraphqlStudioPage({
         activeEnvironment={activeEnvironment}
         globalEnvMap={globalEnvMap}
         endpointProtocolStatus={endpointProtocolStatus}
-        onEnvBadgeClick={() => setEnvModalOpen(true)}
+        onEnvBadgeClick={() => {
+          if (gqlModalLock.envAllowed) setEnvModalOpen(true);
+        }}
         profiles={profiles}
-        onProfileBadgeClick={() => setProfileModalOpen(true)}
+        onProfileBadgeClick={() => {
+          if (gqlModalLock.profileAllowed) setProfileModalOpen(true);
+        }}
+        envBadgeDemoLocked={!gqlModalLock.envAllowed}
+        profileBadgeDemoLocked={!gqlModalLock.profileAllowed}
         skipTlsVerify={resolvedTabSkipTlsVerify}
         onSkipTlsVerifyChange={handleConnectionSkipTlsChange}
         tlsCaCert={resolvedTabTls.caCert}

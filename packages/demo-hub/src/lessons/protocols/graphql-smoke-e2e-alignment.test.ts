@@ -45,7 +45,7 @@ const GQL6_LESSON_SOURCE = {
 /** Step metadata from graphql-subscriptions (avoid barrel import — pulls monaco in node vitest). */
 const GQL7_LESSON_SOURCE = {
   name: 'Subscriptions — Real-Time Data',
-  steps: 14,
+  steps: 15,
 } as const;
 
 /** Step metadata from graphql-query-builder (avoid barrel import — pulls monaco in node vitest). */

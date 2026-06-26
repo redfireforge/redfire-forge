@@ -68,7 +68,7 @@ export const gqlHttpsTlsLesson: DemoLesson = {
 
 2. **Custom CA Certificate** *(advanced)* — paste your organisation's root CA PEM. The proxy validates the full certificate chain without bypassing any checks. Safe for staging environments with internal CAs.
 
-**How RedfireForge routes TLS traffic:** In **web mode**, the browser cannot open raw TLS connections to non-public CAs. GraphQL Studio routes \`https://\` requests through a local Node.js proxy that applies the skip-cert or CA cert settings before forwarding. In **Tauri desktop mode**, the native Rust HTTP client handles TLS directly — no proxy needed.
+**How RedfireForge routes TLS traffic:** In **web mode**, the browser cannot attach custom CA or client certificates to \`fetch\`. GraphQL Studio routes \`https://\` requests through a local **Node.js proxy** (Vite \`/__proxy\` or port 3001) that applies skip-cert, CA, and mTLS settings before forwarding. In **Tauri desktop mode**, the same TLS options are applied by a **native Rust HTTP client** (rustls) — the same stack as WebSocket Studio — so mTLS on \`https://localhost:4445\` works without starting \`npm run server\`.
 
 | Endpoint | Encryption | Certificate check |
 |----------|-----------|------------------|
@@ -104,7 +104,7 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       {
         term: 'TLS proxy',
         definition:
-          'Custom TLS settings cannot be applied inside the browser or Tauri native HTTP stack. Web mode routes through Vite\'s `/__proxy` middleware; Tauri routes through the Node.js proxy on port 3001. Both apply skip-cert, CA, and mTLS options server-side.',
+          'Web mode routes custom TLS through Vite\'s `/__proxy` middleware or the Node.js proxy on port 3001. Tauri desktop uses native rustls for skip-cert, CA, and mTLS HTTP — no proxy required for those paths.',
       },
     ],
     diagram: `<svg viewBox="0 0 700 430" xmlns="http://www.w3.org/2000/svg" font-family="system-ui, -apple-system, sans-serif">

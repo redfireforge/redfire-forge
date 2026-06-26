@@ -4,8 +4,10 @@
  * Thin wrapper around httpFetch that adds `skipTlsVerify` support.
  * In web mode the flag is forwarded to the /__proxy middleware which
  * creates an undici Agent with rejectUnauthorized:false for that request.
- * In Tauri mode, loopback POST and custom TLS route through the Node proxy on
- * port 3001; trusted remote HTTPS uses httpFetch directly.
+ * In Tauri mode, loopback POST and custom TLS use different paths: plain loopback
+ * HTTP routes through the Node proxy on port 3001; skip-cert / CA / mTLS use the
+ * native Rust HTTP command (`gql_http_fetch`) with rustls — same stack as WS Studio.
+ * Multipart uploads with custom TLS use `gql_http_upload` on Tauri.
  *
  * Phase 2.0 Sprint 4: also exports `gqlUpload` for multipart file upload via
  * the /api/graphql/upload proxy route.
@@ -18,12 +20,13 @@ import {
   gqlRequiresTlsProxy,
   normalizeGqlFetchTls,
   serializeGqlTlsForProxy,
-  tlsApqGetNeedsPostProxy,
   type GqlTlsSettings,
 } from '../../../shared/types/gqlTls';
 import { isLoopbackUrl } from '../../../shared/utils/loopbackUrl';
 import { isGraphqlMockEndpoint } from './graphqlEndpointUtils';
 import { getProxyBase } from './graphqlProxyTransports';
+import { tauriGqlNativeFetch } from './tauriGqlNativeFetch';
+import { tauriGqlNativeUpload } from './tauriGqlNativeUpload';
 
 /** Relay POST GraphQL through Node /api/graphql/query (Tauri + custom TLS). */
 async function gqlFetchViaGraphqlQueryProxy(
@@ -102,6 +105,11 @@ export async function gqlFetch(
   const tls = normalizeGqlFetchTls(tlsInput);
   const proxyBase = getProxyBase();
 
+  // Tauri: native rustls for custom TLS (skip-cert, CA, mTLS) — GQL-5 Phase 3 on desktop.
+  if (isTauri() && gqlRequiresTlsProxy(tls)) {
+    return tauriGqlNativeFetch(url, method, headers, body, signal, tls);
+  }
+
   // Tauri: loopback GraphQL POST via Node proxy — avoids corporate-proxy breakage
   // when localhost→127.0.0.1 rewriting bypasses NO_PROXY; mock server also lives on :3001.
   // Mock execute/introspect must hit /api/graphql/mock directly, not via /api/graphql/query.
@@ -122,45 +130,6 @@ export async function gqlFetch(
       ? `${getProxyBase()}${url}`
       : url;
     return httpFetch(resolvedUrl, method, headers, body, signal);
-  }
-
-  // Tauri native HTTP cannot apply custom TLS — route through the Node proxy.
-  if (isTauri() && method === 'POST' && body) {
-    return gqlFetchViaGraphqlQueryProxy(url, headers, body, signal, tls);
-  }
-
-  if (
-    isTauri() &&
-    method === 'GET' &&
-    gqlRequiresTlsProxy(tls) &&
-    !url.startsWith('/api/') &&
-    !url.startsWith(`${proxyBase}/api/`)
-  ) {
-    if (tlsApqGetNeedsPostProxy(tls)) {
-      return {
-        status: 0,
-        statusText: '',
-        headers: {},
-        body: '',
-        error: 'Custom TLS certificates require a POST GraphQL request on desktop',
-      };
-    }
-    try {
-      const parsed = new URL(url);
-      const proxyParams = new URLSearchParams();
-      proxyParams.set('endpoint', `${parsed.origin}${parsed.pathname}`);
-      parsed.searchParams.forEach((v, k) => proxyParams.set(k, v));
-      if (tls.skipTlsVerify) proxyParams.set('skipTlsVerify', 'true');
-      return httpFetch(
-        `${proxyBase}/api/graphql/query?${proxyParams.toString()}`,
-        'GET',
-        headers,
-        undefined,
-        signal,
-      );
-    } catch {
-      /* fall through to direct httpFetch */
-    }
   }
 
   // Web: Vite / preview POST /__proxy with TLS options.
@@ -244,8 +213,15 @@ export async function gqlUpload(
     return { status: 0, statusText: '', headers: {}, body: '', error: 'Aborted' };
   }
 
-  const uploadProxyUrl = `${getProxyBase()}/api/graphql/upload`;
   const tls = normalizeGqlFetchTls(tlsInput);
+
+  // Tauri: native rustls multipart upload for custom TLS (skip-cert, CA, mTLS).
+  // Upload progress (onProgress) is not reported on this path — use web/proxy or plain Tauri upload instead.
+  if (isTauri() && gqlRequiresTlsProxy(tls)) {
+    return tauriGqlNativeUpload(endpoint, formData, headers, signal, tls);
+  }
+
+  const uploadProxyUrl = `${getProxyBase()}/api/graphql/upload`;
   const fetchHeaders: Record<string, string> = {
     ...headers,
     'x-graphql-endpoint': endpoint,

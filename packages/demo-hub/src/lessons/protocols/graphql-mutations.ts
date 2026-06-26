@@ -519,14 +519,14 @@ export const gqlMutationsLesson: DemoLesson = {
         'The **Response** body shows `data.createOrder` with `id`, `status`, and `customerId` — exactly the selection set you declared. ' +
         'Compare to the **createUser** response above: same amber **M** badge and POST transport, but the payload used a nested `$input` object instead of separate scalar variables.\n\n' +
         'In production, you would persist the returned `id` if downstream mutations or workflows need to reference this order.',
-      highlight: GQL.RESPONSE_BODY,
+      highlight: GQL.RESPONSE_DATA_CREATE_ORDER,
       preAction: prepareGql3ObserveOrderReading,
       action: async (ctx) => {
         await openResponseBodyTab(ctx);
-        await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+        await ctx.waitFor(GQL.RESPONSE_DATA_CREATE_ORDER, 5000);
         await ctx.delay(800);
       },
-      verify: GQL.RESPONSE_BODY,
+      verify: GQL.RESPONSE_DATA_CREATE_ORDER,
       pauseAfter: true,
     },
 

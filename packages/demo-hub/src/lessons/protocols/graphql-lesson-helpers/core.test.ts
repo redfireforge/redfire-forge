@@ -10,7 +10,7 @@ vi.mock('./gql-demo-tab', () => ({
 
 import { makeCtx } from '../ws-test-utils';
 import { GQL } from '@shared/selectors';
-import { stubMonacoEditor } from '../__test-utils__/graphql-test-fixtures';
+import { stubMonacoEditor, stubMultiTabMonacoEditor } from '../__test-utils__/graphql-test-fixtures';
 import { ensureGqlDemoTab, closeGqlDemoTabs } from './gql-demo-tab';
 import {
   GQL_DEMO_VAR,
@@ -22,6 +22,7 @@ import {
   getMonacoGqlModel,
   getGqlVariablesJson,
   getGqlEditorQuery,
+  syncGqlQueryToAppState,
   responseBodyText,
   scrollResponseBodyToTop,
   areLesson2StudioExecutionsDone,
@@ -39,6 +40,7 @@ import {
   ensureGqlDemoPageDefaultEndpoint,
   openAuthPanelQuiet,
   closeAuthPanelQuiet,
+  closeGqlActivityPanelIfOpen,
   _openAuthPanel,
   _closeAuthPanelIfOpen,
   selectAuthInPanel,
@@ -75,9 +77,49 @@ describe('graphql-lesson-helpers core', () => {
     expect(getGqlEditorQuery()).toContain('health');
   });
 
+  it('getMonacoGqlModel prefers the active tab when multiple query models exist', () => {
+    stubMultiTabMonacoEditor({
+      localQuery: 'query { health }',
+      demoQuery: 'query MyQuery { health user(id: "usr-1") { userId: id @include(if: true) name email } }',
+      activeTabId: 'demo-tab',
+    });
+    expect(getGqlEditorQuery()).toContain('MyQuery');
+    expect(getGqlEditorQuery()).toContain('userId');
+    expect(getGqlEditorQuery()).not.toBe('query { health }');
+  });
+
+  it('syncGqlQueryToAppState syncs the active tab query model', () => {
+    stubMultiTabMonacoEditor({
+      localQuery: 'query { health }',
+      demoQuery: 'query MyQuery { health user(id: "usr-1") { userId: id @include(if: true) name email } }',
+      activeTabId: 'demo-tab',
+    });
+    const setGqlQuery = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoSetGqlQuery = setGqlQuery;
+    syncGqlQueryToAppState(getGqlEditorQuery());
+    expect(setGqlQuery).toHaveBeenCalledWith(expect.stringContaining('MyQuery'));
+    expect(setGqlQuery).not.toHaveBeenCalledWith('query { health }');
+  });
+
   it('getGqlVariablesJson reads vars model', () => {
     stubMonacoEditor('query { }');
     expect(getGqlVariablesJson()).toBe('{}');
+  });
+
+  it('closeGqlActivityPanelIfOpen toggles off active mock activity tab', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML =
+      '<button data-testid="gql-activity-mock" class="gql-activity-tab--active"></button>';
+    await closeGqlActivityPanelIfOpen(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_MOCK);
+  });
+
+  it('closeGqlActivityPanelIfOpen is a no-op when no activity tab is active', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML =
+      '<button data-testid="gql-activity-mock"></button>';
+    await closeGqlActivityPanelIfOpen(ctx);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('fillGqlEditor updates monaco query model', async () => {

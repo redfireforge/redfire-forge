@@ -6,18 +6,25 @@ import {
   GQL_STUDIO_LESSON_ALLOWED_TABS,
   LESSON8_ITEM_NAME,
   LESSON8_ITEM_RENAME,
-  ensureCollectionItemRenamed,
-  ensureCollectionRestoredViaImport,
-  ensureHealthExecutedWithHistory,
-  ensureHistoryLoadedToEditor,
-  ensureHistoryPreviewOpen,
-  ensureHistoryRunExecuted,
-  ensureSavedToCollectionFromHistory,
+  executeLesson8HealthQuery,
+  revealHistoryPanel,
+  openHistoryPreview,
+  loadHistoryToEditor,
+  runHistoryEntry,
+  saveHistoryToCollection,
+  renameCollectionItem,
+  restoreCollectionViaImport,
   gqlCollectionsHistoryLessonCleanup,
   gqlCollectionsHistoryLessonSetup,
-  openHistoryPanel,
   prepareGql8ExecHealthReading,
   prepareGql8ObserveHistoryReading,
+  prepareGql8PreviewReading,
+  prepareGql8LoadReading,
+  prepareGql8RunReading,
+  prepareGql8SaveReading,
+  prepareGql8RenameReading,
+  prepareGql8ExportReading,
+  prepareGql8ImportReading,
 } from './graphql-lesson-helpers';
 
 export const gqlCollectionsHistoryLesson: DemoLesson = {
@@ -27,7 +34,7 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
   name: 'Collections & History',
   description:
     'Use execution History to preview, load, and re-run queries; save operations to Collections; rename items; export and import collection JSON.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 6,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
@@ -327,9 +334,7 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       highlight: GQL.EXECUTE_BTN,
       preAction: prepareGql8ExecHealthReading,
       action: async (ctx) => {
-        await ctx.click(GQL.EXECUTE_BTN);
-        await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-        await ctx.delay(500);
+        await executeLesson8HealthQuery(ctx);
       },
       verify: GQL.RESPONSE_VIEWER,
       pauseAfter: true,
@@ -345,9 +350,7 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
       highlight: GQL.HISTORY_ENTRY,
       preAction: prepareGql8ObserveHistoryReading,
       action: async (ctx) => {
-        await openHistoryPanel(ctx);
-        await ctx.waitFor(GQL.HISTORY_ENTRY, 8000);
-        await ctx.delay(800);
+        await revealHistoryPanel(ctx);
       },
       verify: GQL.HISTORY_ENTRY,
       pauseAfter: true,
@@ -362,10 +365,9 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
         '**Why preview is read-only:** Seeing the query and response together before deciding what to do prevents accidental re-execution. You might want to compare this response against a newer run, or just confirm the query text before editing it. ' +
         'The preview shows status code, latency, and timestamp — enough context to understand what happened without running anything.',
       highlight: GQL.HISTORY_PREVIEW,
-      preAction: ensureHealthExecutedWithHistory,
+      preAction: prepareGql8PreviewReading,
       action: async (ctx) => {
-        await ensureHistoryPreviewOpen(ctx);
-        await ctx.delay(800);
+        await openHistoryPreview(ctx);
       },
       verify: GQL.HISTORY_PREVIEW,
       pauseAfter: true,
@@ -380,10 +382,9 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
         '**Why Load ≠ Run:** Load is the "inspect before committing" action. Common uses: you want to add a field to the query before re-running, you want to adjust a variable value, or you want to refactor the query into a mutation. ' +
         'It gives you a starting point without hitting the server — useful in production environments where unnecessary queries have cost or side-effect implications.',
       highlight: GQL.HISTORY_LOAD,
-      preAction: ensureHistoryPreviewOpen,
+      preAction: prepareGql8LoadReading,
       action: async (ctx) => {
-        await ensureHistoryLoadedToEditor(ctx);
-        await ctx.delay(800);
+        await loadHistoryToEditor(ctx);
       },
       verify: GQL.EDITOR,
       pauseAfter: true,
@@ -398,10 +399,9 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
         '**Why Run exists separately:** The most common history use case is re-running a query to see if the server response changed (e.g., checking if a data mutation took effect, or re-testing after a server fix). ' +
         'Run collapses Load + Execute into a single click, saving the extra interaction when you want an exact replay with no changes.',
       highlight: GQL.HISTORY_RUN,
-      preAction: ensureHistoryLoadedToEditor,
+      preAction: prepareGql8RunReading,
       action: async (ctx) => {
-        await ensureHistoryRunExecuted(ctx);
-        await ctx.delay(800);
+        await runHistoryEntry(ctx);
       },
       verify: GQL.RESPONSE_VIEWER,
       pauseAfter: true,
@@ -417,10 +417,9 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
         'Collections persist even if you clear History, survive browser storage resets (in Tauri, they live in the file system), and can be shared via export. ' +
         'Think of History as your browser history and Collections as your bookmarks.',
       highlight: GQL.HISTORY_SAVE_TO_COL,
-      preAction: ensureHistoryRunExecuted,
+      preAction: prepareGql8SaveReading,
       action: async (ctx) => {
-        await ensureSavedToCollectionFromHistory(ctx);
-        await ctx.delay(800);
+        await saveHistoryToCollection(ctx);
       },
       verify: GQL.COL_ITEM,
       pauseAfter: true,
@@ -436,10 +435,9 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
         'Rename is a less frequent operation, deliberately placed in the context menu to prevent accidental renames. ' +
         'The context menu also offers **Delete** and **Duplicate** so you have full lifecycle control without cluttering the item row.',
       highlight: GQL.COL_ITEM_RENAME,
-      preAction: ensureSavedToCollectionFromHistory,
+      preAction: prepareGql8RenameReading,
       action: async (ctx) => {
-        await ensureCollectionItemRenamed(ctx);
-        await ctx.delay(800);
+        await renameCollectionItem(ctx);
       },
       verify: GQL.COL_ITEM,
       pauseAfter: true,
@@ -457,10 +455,10 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
         '- Archive a project\'s API surface before sunsetting it\n' +
         '- Migrate queries to a new environment by importing on the target machine',
       highlight: GQL.COLLECTIONS_EXPORT,
-      preAction: ensureCollectionItemRenamed,
+      preAction: prepareGql8ExportReading,
       action: async (ctx) => {
         await ctx.click(GQL.COLLECTIONS_EXPORT);
-        await ctx.delay(1500);
+        await ctx.delay(2000);
       },
       verify: GQL.COLLECTIONS_EXPORT,
       pauseAfter: true,
@@ -477,10 +475,9 @@ export const gqlCollectionsHistoryLesson: DemoLesson = {
         '- **Replace** — overwrites all collections with the imported file. Use for environment resets or seeding a fresh install.\n\n' +
         'This step demonstrates that the exported JSON is a complete, self-contained backup — the collection fully restores from the file alone.',
       highlight: GQL.COLLECTIONS_IMPORT,
-      preAction: ensureCollectionItemRenamed,
+      preAction: prepareGql8ImportReading,
       action: async (ctx) => {
-        await ensureCollectionRestoredViaImport(ctx);
-        await ctx.delay(800);
+        await restoreCollectionViaImport(ctx);
       },
       verify: GQL.COL_ITEM,
       pauseAfter: true,

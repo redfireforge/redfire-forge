@@ -67,9 +67,13 @@ interface GraphqlConnectionBarProps {
   onRemoveRecentEndpoint?: (url: string) => void;
   activeEnvName?: string | null;
   onEnvBadgeClick?: () => void;
+  /** Live demo: Env modal is not the current step spotlight — badge is inert. */
+  envBadgeDemoLocked?: boolean;
   queryValidationErrors?: number;
   profiles?: ConnectionProfile[];
   onProfileBadgeClick?: () => void;
+  /** Live demo: Profiles modal is not the current step spotlight — badge is inert. */
+  profileBadgeDemoLocked?: boolean;
   skipTlsVerify?: boolean;
   onSkipTlsVerifyChange?: (skip: boolean) => void;
   tlsCaCert?: string;
@@ -153,9 +157,11 @@ export function GraphqlConnectionBar({
   onRemoveRecentEndpoint,
   activeEnvName,
   onEnvBadgeClick,
+  envBadgeDemoLocked = false,
   queryValidationErrors = 0,
   profiles = [],
   onProfileBadgeClick,
+  profileBadgeDemoLocked = false,
   skipTlsVerify = false,
   onSkipTlsVerifyChange,
   tlsCaCert,
@@ -282,17 +288,21 @@ export function GraphqlConnectionBar({
       {onProfileBadgeClick && (
         <button
           type="button"
-          className={`gql-profile-badge${profiles.length > 0 ? ' gql-profile-badge--has-profiles' : ''}`}
+          className={`gql-profile-badge${profiles.length > 0 ? ' gql-profile-badge--has-profiles' : ''}${profileBadgeDemoLocked ? ' gql-connection-badge--demo-locked' : ''}`}
           onClick={onProfileBadgeClick}
-          disabled={disabled}
+          disabled={disabled || profileBadgeDemoLocked}
           data-testid="gql-profile-badge"
           title={
-            profiles.length > 0
+            profileBadgeDemoLocked
+              ? 'Profiles are locked during this demo step'
+              : profiles.length > 0
               ? `${profiles.length} saved profile${profiles.length !== 1 ? 's' : ''} — click to manage`
               : 'No saved profiles — click to save current connection'
           }
           aria-label={
-            profiles.length > 0
+            profileBadgeDemoLocked
+              ? 'Profiles locked during demo step'
+              : profiles.length > 0
               ? `${profiles.length} saved profile${profiles.length !== 1 ? 's' : ''} — click to manage`
               : 'No saved profiles — click to save current connection'
           }
@@ -477,17 +487,21 @@ export function GraphqlConnectionBar({
       {onEnvBadgeClick && (
         <button
           type="button"
-          className={`gql-env-badge${activeEnvName ? ' gql-env-badge--active' : ''}`}
+          className={`gql-env-badge${activeEnvName ? ' gql-env-badge--active' : ''}${envBadgeDemoLocked ? ' gql-connection-badge--demo-locked' : ''}`}
           onClick={onEnvBadgeClick}
-          disabled={disabled}
+          disabled={disabled || envBadgeDemoLocked}
           data-testid="gql-env-badge"
           title={
-            activeEnvName
+            envBadgeDemoLocked
+              ? 'Environment is locked during this demo step'
+              : activeEnvName
               ? `Active environment: ${activeEnvName} — click to manage`
               : 'No environment active — click to set up environment variables'
           }
           aria-label={
-            activeEnvName
+            envBadgeDemoLocked
+              ? 'Environment locked during demo step'
+              : activeEnvName
               ? `Active environment: ${activeEnvName} — click to manage`
               : 'No environment active — click to set up environment variables'
           }

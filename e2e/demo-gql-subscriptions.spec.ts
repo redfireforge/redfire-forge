@@ -7,7 +7,7 @@
  * Full lesson (createOrder, subscribe, pause/filter, disconnect) needs Docker on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 12 disables Next — use walkFullGql7Lesson (GQL-4 style), not runNextStep on the final step.
+ * Last-step rule: step 15 disables Next — use walkFullGql7Lesson (GQL-4 style), not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';
@@ -68,7 +68,7 @@ test.describe('GQL-7 — full lesson (Docker)', () => {
     await expect(page.locator('[data-testid="gql-sub-log"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="gql-assertion-row"]')).toBeVisible({ timeout: 15_000 });
 
-    // Step 10 leaves a COMPLETE text filter active — clear before asserting log content.
+    // Step 13 leaves a COMPLETE text filter active — clear before asserting log content.
     const filterClear = page.locator('[data-testid="gql-sub-filter-clear"]');
     if (await filterClear.isVisible().catch(() => false)) {
       await filterClear.click({ force: true });

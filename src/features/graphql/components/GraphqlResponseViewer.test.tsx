@@ -84,6 +84,16 @@ describe('GraphqlResponseViewer', () => {
     expect(card.textContent).toContain('carol@demo.local');
   });
 
+  it('renders compact data.createOrder summary card when createOrder data is present', () => {
+    render(<GraphqlResponseViewer response={makeResponse({
+      data: { createOrder: { id: 'ord-1', status: 'PENDING', customerId: 'cust-demo' } },
+    })} />);
+    const card = screen.getByTestId('gql-response-data-create-order');
+    expect(card.textContent).toContain('data.createOrder');
+    expect(card.textContent).toContain('ord-1');
+    expect(card.textContent).toContain('cust-demo');
+  });
+
   it('keeps data.createUser summary card visible when Tracing sub-tab is active', () => {
     const tracing = {
       version: 1,

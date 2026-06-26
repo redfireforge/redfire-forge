@@ -154,6 +154,8 @@ describe('GraphqlProfileModal', () => {
       />,
     );
     expect(screen.getAllByText('Inherit (Lesson 6 Bearer)').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByTestId('gql-profile-inherit-note')).toBeInTheDocument();
+    expect(screen.getByText('Lesson 6 Bearer')).toBeInTheDocument();
   });
 
   it('shows plain Inherit when global auth catalog is unavailable', () => {

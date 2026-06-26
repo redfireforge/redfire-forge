@@ -291,7 +291,7 @@ describe('lesson3-mutations helpers', () => {
 
   it('prepareGql3ObserveOrderReading ensures createOrder executed and opens response', async () => {
     buildGql3StudioDom(`
-      <pre data-testid="gql-response-body">{"data":{"createOrder":{"id":"ord-1"}}}</pre>
+      <div data-testid="gql-response-data-create-order"></div>
     `);
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       json: async () => ({ data: { createOrder: { id: 'ord-1', status: 'NEW' } } }),
@@ -301,7 +301,7 @@ describe('lesson3-mutations helpers', () => {
     const ctx = makeCtx();
     await prepareGql3ObserveOrderReading(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.RESPONSE_BODY, 5000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.RESPONSE_DATA_CREATE_ORDER, 10000);
   });
 
   it('prepareGql3WriteDeleteReading waits for createOrder response body', async () => {
