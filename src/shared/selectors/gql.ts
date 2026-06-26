@@ -302,6 +302,7 @@ export const GQL = {
   HISTORY_MAX_ITEMS:   '[data-testid="gql-history-max-items"]',
   HISTORY_SETTINGS:    '[data-testid="gql-history-settings"]',
   HISTORY_CONTEXT_MENU:'[data-testid="gql-history-context-menu"]',
+  HISTORY_CTX_COPY_CURL: '[data-testid="gql-history-ctx-copy-curl"]',
 
   // ── Collections Panel — Phase 3A ────────────────────────────────────────
   COLLECTIONS_PANEL:   '[data-testid="gql-collections-panel"]',

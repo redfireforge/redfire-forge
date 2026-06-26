@@ -12,6 +12,10 @@ import {
 import {
   idbLoadFeatureGroups, idbSaveFeatureGroups, idbMigrateFeatureGroups,
 } from './idbFeatureGroups';
+import {
+  idbLoadEnvironments, idbSaveEnvironments, idbMigrateEnvironments,
+  idbLoadMicroservices, idbSaveMicroservices, idbMigrateMicroservices,
+} from './idbEnvironmentsMicroservices';
 import { createDualModeArrayStorage } from './storageDualMode';
 import {
   idbLoadSharedDataSources, idbSaveSharedDataSources, idbMigrateSharedDataSources,
@@ -52,7 +56,7 @@ export {
   SELECTED_PROJECT_KEY,
 } from './storageKeys';
 
-export { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys } from './storageCleanup';
+export { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, migrateAppFlatDataFromLocalStorage } from './storageCleanup';
 
 const DEFAULT_MAX_RUNS = 50;
 const RESPONSE_BODY_MAX_CHARS = 2000;
@@ -235,6 +239,8 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
     { label: 'requests (IndexedDB)', fn: idbLoadRequests },
     { label: 'catalog (IndexedDB)', fn: () => idbLoadCatalogEntries() },
     { label: 'projects (IndexedDB)', fn: idbLoadProjects },
+    { label: 'environments (IndexedDB)', fn: idbLoadEnvironments },
+    { label: 'microservices (IndexedDB)', fn: idbLoadMicroservices },
   ];
   for (const { label, fn } of idbChecks) {
     try {
@@ -464,11 +470,33 @@ export interface AppData {
 async function saveJsonKey<T>(key: string, data: T): Promise<void> { await writeKey(key, JSON.stringify(data)); }
 async function loadJsonKey<T>(key: string): Promise<T[]> { try { const r = await readKey(key); return r ? JSON.parse(r) : []; } catch { return []; } }
 
-export async function saveEnvironments(envs: Environment[]): Promise<void> { await saveJsonKey(FLAT_ENVS_KEY, envs); }
-export async function loadEnvironments(): Promise<Environment[]> { return loadJsonKey<Environment>(FLAT_ENVS_KEY); }
+export async function saveEnvironments(envs: Environment[]): Promise<void> {
+  await environmentsStorage.save(envs);
+}
+export async function loadEnvironments(): Promise<Environment[]> {
+  return environmentsStorage.load();
+}
 
-export async function saveMicroservices(svcs: Microservice[]): Promise<void> { await saveJsonKey(FLAT_SVCS_KEY, svcs); }
-export async function loadMicroservices(): Promise<Microservice[]> { return loadJsonKey<Microservice>(FLAT_SVCS_KEY); }
+export async function saveMicroservices(svcs: Microservice[]): Promise<void> {
+  await microservicesStorage.save(svcs);
+}
+export async function loadMicroservices(): Promise<Microservice[]> {
+  return microservicesStorage.load();
+}
+
+const environmentsStorage = createDualModeArrayStorage<Environment>({
+  key: FLAT_ENVS_KEY,
+  idbLoad: idbLoadEnvironments,
+  idbSave: idbSaveEnvironments,
+  idbMigrate: idbMigrateEnvironments,
+});
+
+const microservicesStorage = createDualModeArrayStorage<Microservice>({
+  key: FLAT_SVCS_KEY,
+  idbLoad: idbLoadMicroservices,
+  idbSave: idbSaveMicroservices,
+  idbMigrate: idbMigrateMicroservices,
+});
 
 const featureGroupsStorage = createDualModeArrayStorage<FeatureGroup>({
   key: FLAT_FGS_KEY,

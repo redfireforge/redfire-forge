@@ -9,12 +9,15 @@ import {
   RUNNER_CONFIG_KEY,
 } from './storageKeys';
 
-const { isTauriMock, migrateWorkflowKeysToIdbMock, migrateCatalogKeysToIdbMock, idbMigrateRequestsMock, idbMigrateProjectsMock } = vi.hoisted(() => ({
+const { isTauriMock, migrateWorkflowKeysToIdbMock, migrateCatalogKeysToIdbMock, idbMigrateRequestsMock, idbMigrateProjectsMock, idbMigrateEnvironmentsMock, idbMigrateMicroservicesMock, idbMigrateFeatureGroupsMock } = vi.hoisted(() => ({
   isTauriMock: vi.fn(() => false),
   migrateWorkflowKeysToIdbMock: vi.fn(async () => {}),
   migrateCatalogKeysToIdbMock: vi.fn(async () => {}),
   idbMigrateRequestsMock: vi.fn(async () => true),
   idbMigrateProjectsMock: vi.fn(async () => true),
+  idbMigrateEnvironmentsMock: vi.fn(async () => true),
+  idbMigrateMicroservicesMock: vi.fn(async () => true),
+  idbMigrateFeatureGroupsMock: vi.fn(async () => true),
 }));
 
 vi.mock('./platform', () => ({
@@ -35,6 +38,15 @@ vi.mock('./idbRequests', () => ({
 
 vi.mock('./idbProjects', () => ({
   idbMigrateProjects: idbMigrateProjectsMock,
+}));
+
+vi.mock('./idbEnvironmentsMicroservices', () => ({
+  idbMigrateEnvironments: idbMigrateEnvironmentsMock,
+  idbMigrateMicroservices: idbMigrateMicroservicesMock,
+}));
+
+vi.mock('./idbFeatureGroups', () => ({
+  idbMigrateFeatureGroups: idbMigrateFeatureGroupsMock,
 }));
 
 describe('purgeStaleRunnerConfigKeys', () => {
@@ -160,18 +172,27 @@ describe('cleanupStaleStorageKeys', () => {
     getItemSpy.mockRestore();
   });
 
-  it('triggers IDB migration for requests and projects keys on cleanup', async () => {
+  it('triggers IDB migration for requests, projects, envs, svcs, and feature groups on cleanup', async () => {
     migrateWorkflowKeysToIdbMock.mockClear();
     migrateCatalogKeysToIdbMock.mockClear();
     idbMigrateRequestsMock.mockClear();
     idbMigrateProjectsMock.mockClear();
+    idbMigrateEnvironmentsMock.mockClear();
+    idbMigrateMicroservicesMock.mockClear();
+    idbMigrateFeatureGroupsMock.mockClear();
     localStorage.setItem('perf-test-requests', '[]');
     localStorage.setItem('perf-test-projects', '[]');
+    localStorage.setItem('perf-test-v3-environments', '[]');
+    localStorage.setItem('perf-test-v3-microservices', '[]');
+    localStorage.setItem('perf-test-v3-feature-groups', '[]');
     cleanupStaleStorageKeys();
     await vi.waitFor(() => {
       expect(migrateWorkflowKeysToIdbMock).toHaveBeenCalled();
       expect(idbMigrateRequestsMock).toHaveBeenCalled();
       expect(idbMigrateProjectsMock).toHaveBeenCalled();
+      expect(idbMigrateEnvironmentsMock).toHaveBeenCalled();
+      expect(idbMigrateMicroservicesMock).toHaveBeenCalled();
+      expect(idbMigrateFeatureGroupsMock).toHaveBeenCalled();
       expect(migrateCatalogKeysToIdbMock).toHaveBeenCalled();
     });
   });

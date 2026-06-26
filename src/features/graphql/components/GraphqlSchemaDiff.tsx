@@ -130,7 +130,6 @@ export function GraphqlSchemaDiff({
     <div
       className={`gql-diff-backdrop${isDragged ? ' gql-diff-backdrop--dragged' : ''}`}
       style={overlayStyle}
-      onClick={onClose}
       data-testid="gql-diff-backdrop"
     >
       <div

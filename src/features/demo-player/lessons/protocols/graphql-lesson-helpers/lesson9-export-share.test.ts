@@ -28,7 +28,7 @@ vi.mock('./core', async (importOriginal) => {
 
 function stubHistoryMenu(open: boolean): void {
   document.body.innerHTML = open
-    ? '<div data-testid="gql-history-context-menu"><button>Copy as cURL</button></div>'
+    ? '<div data-testid="gql-history-context-menu"><button data-testid="gql-history-ctx-copy-curl">Copy as cURL</button></div>'
     : '<div data-testid="gql-history-entry">Run 1</div>';
 }
 

@@ -334,10 +334,10 @@ describe('GraphqlSchemaDiff', () => {
     expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onClose when backdrop clicked', () => {
+  it('does NOT call onClose when backdrop clicked', () => {
     render(<GraphqlSchemaDiff {...defaultProps} />);
     fireEvent.click(screen.getByTestId('gql-diff-backdrop'));
-    expect(defaultProps.onClose).toHaveBeenCalledTimes(1);
+    expect(defaultProps.onClose).not.toHaveBeenCalled();
   });
 
   it('does NOT call onClose when clicking inside modal', () => {
