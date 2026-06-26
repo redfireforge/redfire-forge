@@ -19,6 +19,10 @@ vi.mock('../../../shared/utils/storage', () => ({
   writeKey: vi.fn(),
 }));
 
+vi.mock('../../../shared/utils/platform', () => ({
+  isTauri: vi.fn(() => true),
+}));
+
 const validProfile: ConnectionProfile = {
   id: 'prof-1',
   name: 'Local',

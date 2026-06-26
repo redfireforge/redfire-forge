@@ -13,6 +13,10 @@ vi.mock('../../../shared/utils/storage', () => ({
   writeKey: vi.fn(),
 }));
 
+vi.mock('../../../shared/utils/platform', () => ({
+  isTauri: vi.fn(() => true),
+}));
+
 vi.mock('../utils/connectionProfileStorage', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../utils/connectionProfileStorage')>();
   return {

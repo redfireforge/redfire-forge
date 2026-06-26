@@ -2,6 +2,16 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('../adapters', () => ({
+  purgeGqlStudioEnvironmentsByName: vi.fn(async () => false),
+  purgeGqlDemoConnectionProfiles: vi.fn(async () => 0),
+  purgeGqlDemoGlobalAuthProfiles: vi.fn(async () => 0),
+  purgeGqlLesson9CollectionArtifacts: vi.fn(async () => ({ collectionsRemoved: 0, itemsRemoved: 0 })),
+  purgeGqlLesson9DemoHistory: vi.fn(async () => 0),
+  deleteGqlEnvironmentByName: vi.fn(),
+}));
+
 import {
   navigateToEnvironmentManager,
   expandFirstMicroservice,

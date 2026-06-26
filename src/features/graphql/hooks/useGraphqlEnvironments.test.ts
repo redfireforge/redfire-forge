@@ -10,6 +10,10 @@ vi.mock('../../../shared/utils/storage', () => ({
   writeKey: vi.fn().mockResolvedValue(undefined),
 }));
 
+vi.mock('../../../shared/utils/platform', () => ({
+  isTauri: vi.fn(() => true),
+}));
+
 import { readKey, writeKey } from '../../../shared/utils/storage';
 import { GQL_ENVS_RELOAD_EVENT } from '../utils/gqlStudioEnvironmentStorage';
 import { useGraphqlEnvironments, generateVarId } from './useGraphqlEnvironments';
