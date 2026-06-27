@@ -58,7 +58,7 @@ test.describe('GQL-15 — full lesson (Docker)', () => {
 
     const { counter, title } = await getStepInfo(page);
     expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
-    expect(title).toMatch(/Sequential Fallback/i);
+    expect(title).toMatch(/Batch History & CI Export/i);
 
     await expect(page.locator('[data-testid="gql-history-panel"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="gql-batch-summary-chip"]')).toBeVisible({ timeout: 15_000 });

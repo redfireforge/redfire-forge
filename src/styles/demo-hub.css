@@ -1238,6 +1238,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 .demo-live-step-counter {

@@ -23,6 +23,8 @@ import { useWorkflowDesignerInspectActions } from './useWorkflowDesignerInspectA
 import { useWorkflowPreviewReactFlowInit } from './useWorkflowPreviewReactFlowInit';
 import { useDemoWorkflowConfigModalBridge } from '../../../app/hooks/useDemoWorkflowConfigModalBridge';
 import { useDemoWorkflowCanvasBridge } from '../../../app/hooks/useDemoWorkflowCanvasBridge';
+import { useDemoWorkflowLivePatchSync } from '../../../app/hooks/useDemoWorkflowLivePatchSync';
+import { useDemoWorkflowRunBridge } from '../../../app/hooks/useDemoWorkflowRunBridge';
 import type { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
 
 /**
@@ -154,6 +156,14 @@ export function useWorkflowDesignerControllerPartB(
   const closeConfigModal = useCallback(() => setConfigModalNodeId(null), [setConfigModalNodeId]);
   useDemoWorkflowConfigModalBridge(closeConfigModal);
   useDemoWorkflowCanvasBridge(nodes, handleUpdateNode);
+  useDemoWorkflowLivePatchSync(
+    selected?.name,
+    nodes,
+    setWorkflowVariables,
+    a.workflowVariablesRef,
+    handleUpdateNode,
+  );
+  useDemoWorkflowRunBridge(handleResetRunStatus, clearConsole);
 
   const effectiveQuickTestBaseUrl = useMemo(() => {
     if (selectedNode && isHttpWorkflowNode(selectedNode)) {

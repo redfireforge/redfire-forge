@@ -180,6 +180,9 @@ export async function configureDemoTabEndpointOverride(
   if ((getEndpointInput()?.value ?? '').trim() !== trimmed) {
     await fillActiveTabEndpoint(ctx, trimmed);
   }
+  if (demoEndpointLooksConfigured()) {
+    _endpointSet = true;
+  }
 }
 
 /** True when the connection bar still shows a TLS lesson endpoint or TLS chrome. */
@@ -638,9 +641,12 @@ function demoEndpointLooksConfigured(): boolean {
 
 /** Ensure the demo endpoint is filled in the connection bar. */
 export async function ensureDemoEndpoint(ctx: DemoActionContext): Promise<void> {
+  if (_endpointSet && demoEndpointLooksConfigured()) {
+    await navigateToGraphqlStudio(ctx);
+    return;
+  }
   await ensureGqlDemoHeaderContext(ctx);
   await navigateToGraphqlStudio(ctx);
-  if (_endpointSet && demoEndpointLooksConfigured()) return;
   if (!demoEndpointLooksConfigured()) {
     await fillActiveTabEndpoint(ctx, GQL_DEMO_VAR);
   }

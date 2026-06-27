@@ -106,6 +106,13 @@ export function patchWorkflowNodeDataByType(
   return getDemoBridgeWindow().__wfPatchNodeDataByType?.(nodeType, patch) ?? false;
 }
 
+export function patchWorkflowNodeDataById(
+  nodeId: string,
+  patch: Record<string, unknown>,
+): boolean {
+  return getDemoBridgeWindow().__wfPatchNodeDataById?.(nodeId, patch) ?? false;
+}
+
 export function patchWorkflowByName(
   name: string,
   patch: Record<string, unknown>,
@@ -189,6 +196,10 @@ export function triggerWorkflowQuickTest(): void {
 
 export function closeWorkflowConfigModal(): void {
   getDemoBridgeWindow().__wfCloseConfigModal?.();
+}
+
+export function resetWorkflowRunState(): boolean {
+  return getDemoBridgeWindow().__wfResetRunState?.() ?? false;
 }
 
 /** Alias retained for workflow-integration lessons. */

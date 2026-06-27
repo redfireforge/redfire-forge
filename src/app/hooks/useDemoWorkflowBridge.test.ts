@@ -141,10 +141,13 @@ describe('useDemoWorkflowBridge', () => {
       variables: {},
     } as import('../../features/workflow/types/workflow').Workflow;
     const update = vi.fn();
+    const sync = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfSyncLiveWorkflowFromPatch = sync;
     renderHook(() => useDemoWorkflowBridge([wf], vi.fn(), undefined, undefined, true, update));
     const patch = (window as unknown as Record<string, (name: string, p: object) => boolean>).__wfPatchWorkflowByName;
     expect(patch('GraphQL Latency Demo', { variables: { graphqlUrl: 'http://localhost:4010/graphql' } })).toBe(true);
     expect(update).toHaveBeenCalledWith('wf-1', { variables: { graphqlUrl: 'http://localhost:4010/graphql' } });
+    expect(sync).toHaveBeenCalledWith('GraphQL Latency Demo', { variables: { graphqlUrl: 'http://localhost:4010/graphql' } });
     expect(patch('Missing', { variables: {} })).toBe(false);
   });
 

@@ -10,6 +10,7 @@
  *
  * Features:
  *   - Schema: user CRUD, createOrder, orderStatus subscription
+ *   - HTTP array batching (allowBatchedHttpRequests — off by default in Apollo Server 4)
  *   - Apollo Tracing v1 in extensions.tracing
  *   - APQ (Automatic Persisted Queries) via Apollo persistedQueries cache
  *   - @faker-js/faker for generated user data
@@ -213,6 +214,8 @@ async function main() {
 
   const server = new ApolloServer({
     schema,
+    // Enable JSON-array batch POSTs for GraphQL Studio batch execution (GQL-15 demo).
+    allowBatchedHttpRequests: true,
     persistedQueries: {
       cache: new InMemoryLRUCache({ maxSize: 500 }),
     },

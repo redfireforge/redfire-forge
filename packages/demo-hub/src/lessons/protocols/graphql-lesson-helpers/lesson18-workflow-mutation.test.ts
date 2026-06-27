@@ -25,6 +25,10 @@ import {
   ensureLesson18AssertConfigured,
   ensureLesson18QuickTestRun,
   ensureLesson18DeleteNodeAdded,
+  prepareLesson18BeforeDeleteNode,
+  prepareLesson18BeforeFinalQuickTest,
+  ensureLesson18FinalQuickTestRun,
+  ensureLesson18DeleteConfigured,
   resolveLesson18DeleteNodeId,
   isLesson18DeleteNodeReady,
   selectGqlMutationDemoWorkflow,
@@ -316,9 +320,27 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     const ctx = makeCtx();
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
-    await ensureLesson18QuickTestRun(ctx);
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => createGqlMutationDemoWorkflow();
+    await ensureLesson18AssertConfigured(ctx);
+    vi.mocked(ctx.click).mockClear();
     await ensureLesson18DeleteNodeAdded(ctx);
     expect(ctx.click).toHaveBeenCalledWith(WF.PAL_GQL_MUTATION);
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
+  });
+
+  it('ensureLesson18DeleteNodeAdded does not run Quick Test', async () => {
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div data-testid="exec-summary" class="wf-exec-strip wf-exec-strip-pass"></div>
+      <button class="wf-quick-test-btn"></button>
+      <button class="wf-palette-block-graphqlMutation"></button>
+    `;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => createGqlMutationDemoWorkflow();
+    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn(() => true);
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await ensureLesson18DeleteNodeAdded(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
   });
 
   it('resolveLesson18DeleteNodeId prefers preset id then extra mutation node', () => {
@@ -392,6 +414,85 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     await ensureLesson18DeleteNodeAdded(ctx);
     expect(addNode).not.toHaveBeenCalled();
     expect(ctx.click).not.toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
+  });
+
+  it('prepareLesson18BeforeDeleteNode does not click Quick Test', async () => {
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div data-testid="exec-summary" class="wf-exec-strip wf-exec-strip-pass"></div>
+      <button class="wf-quick-test-btn"></button>
+      <div data-testid="gql-wf-assert-panel">
+        <button class="wf-config-tab">Assertions</button>
+        <div data-testid="gql-wf-assert-row"></div>
+        <div class="wf-config-modal-footer-actions"><button class="btn-primary">Save</button></div>
+      </div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => createGqlMutationDemoWorkflow();
+    const ctx = makeCtx();
+    await prepareLesson18BeforeDeleteNode(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
+  });
+
+  it('prepareLesson18BeforeFinalQuickTest does not fit view (runLesson18QuickTest centers once)', async () => {
+    const wf = createGqlMutationDemoWorkflow();
+    const nodes = wf.nodes as Array<{ id: string; type: string; data: Record<string, unknown>; position: { x: number; y: number } }>;
+    nodes.push({
+      id: LESSON18_NODE_DELETE,
+      type: 'graphqlMutation',
+      position: { x: 780, y: 280 },
+      data: {
+        label: 'Delete User',
+        endpoint: GQL_DEMO_HTTP,
+        query: LESSON18_DELETE_MUTATION,
+        variables: LESSON18_DELETE_VARS,
+      },
+    });
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="react-flow__node" data-id="${LESSON18_NODE_DELETE}"></div>
+      <div data-testid="exec-summary"></div>
+      <button title="Fit view"></button>
+      <button class="wf-quick-test-btn"></button>
+    `;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => wf;
+    const fitBtn = document.querySelector('button[title="Fit view"]')!;
+    const fitSpy = vi.spyOn(fitBtn, 'click');
+    const ctx = makeCtx();
+    await ensureLesson18DeleteConfigured(ctx);
+    fitSpy.mockClear();
+    await prepareLesson18BeforeFinalQuickTest(ctx);
+    expect(fitSpy).not.toHaveBeenCalled();
+  });
+
+  it('ensureLesson18FinalQuickTestRun fits view once before Quick Test', async () => {
+    const wf = createGqlMutationDemoWorkflow();
+    const nodes = wf.nodes as Array<{ id: string; type: string; data: Record<string, unknown>; position: { x: number; y: number } }>;
+    nodes.push({
+      id: LESSON18_NODE_DELETE,
+      type: 'graphqlMutation',
+      position: { x: 780, y: 280 },
+      data: {
+        label: 'Delete User',
+        endpoint: GQL_DEMO_HTTP,
+        query: LESSON18_DELETE_MUTATION,
+        variables: LESSON18_DELETE_VARS,
+      },
+    });
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="react-flow__node" data-id="${LESSON18_NODE_DELETE}"></div>
+      <div data-testid="exec-summary"></div>
+      <button title="Fit view"></button>
+      <button class="wf-quick-test-btn"></button>
+    `;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => wf;
+    const fitBtn = document.querySelector('button[title="Fit view"]')!;
+    const fitSpy = vi.spyOn(fitBtn, 'click');
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await ensureLesson18FinalQuickTestRun(ctx);
+    expect(fitSpy).toHaveBeenCalledTimes(1);
+    expect(ctx.click).toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
   });
 
   it('gqlWorkflowMutationLessonSetup runs without workflow bridges', async () => {

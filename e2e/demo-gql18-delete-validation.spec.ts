@@ -19,7 +19,9 @@ import {
   prepareGql18DockerLesson,
 } from './graphql-lesson-smoke-helpers';
 
-const DELETE_NODE_ID = 'gql18-delete';
+/** Second mutation node on canvas (UI-created id — not gql18-create). */
+const LESSON18_DELETE_NODE_SELECTOR =
+  '.react-flow__node-graphqlMutation:not([data-id="gql18-create"])';
 const MUTATION_TIMEOUT = 300_000;
 
 test.describe.configure({ retries: 0 });
@@ -52,8 +54,11 @@ test.describe('GQL-18 — Delete User steps (manual validation)', () => {
 
     await completeCurrentStepAction(page, MUTATION_TIMEOUT);
 
-    await expect(page.locator(`[data-id="${DELETE_NODE_ID}"]`)).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('[data-testid="gql-canvas-mutation-node"]')).toHaveCount(2, {
+    await expect(page.locator(LESSON18_DELETE_NODE_SELECTOR)).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator(GQL.WF_CANVAS_MUTATION_NODE)).toHaveCount(2, {
+      timeout: 15_000,
+    });
+    await expect(page.locator(LESSON18_DELETE_NODE_SELECTOR)).toContainText('Delete User', {
       timeout: 15_000,
     });
 
@@ -76,10 +81,10 @@ test.describe('GQL-18 — Delete User steps (manual validation)', () => {
 
     await completeCurrentStepAction(page, MUTATION_TIMEOUT);
 
-    await expect(page.locator(GQL.WF_MUTATION_PANEL)).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('[data-testid="gql-wf-query-editor"]')).toContainText('deleteUser', {
-      timeout: 10_000,
-    });
+    const deleteNode = page.locator(LESSON18_DELETE_NODE_SELECTOR);
+    await expect(deleteNode).toBeVisible({ timeout: 15_000 });
+    await expect(deleteNode).not.toContainText('No endpoint', { timeout: 15_000 });
+    await expect(deleteNode).toContainText(/4010|graphql/i, { timeout: 15_000 });
 
     await takeNamedScreenshot(page, 'gql18-step14-delete-configured');
   });

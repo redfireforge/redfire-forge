@@ -483,7 +483,7 @@ describe('gql-workflow-mutation lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_VARIABLES_EDITOR, LESSON18_MUTATION_VARS);
   });
 
-  it('ensureLesson18DeleteNodeAdded calls __wfAddNode and rewires assert to delete', async () => {
+  it('ensureLesson18DeleteNodeAdded closes console and rewires assert to delete', async () => {
     const ctx = makeCtx();
     const addSpy = vi.fn();
     const removeEdgeSpy = vi.fn();
@@ -492,8 +492,13 @@ describe('gql-workflow-mutation lesson', () => {
     (window as unknown as Record<string, unknown>).__wfAddNode = addSpy;
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     (window as unknown as Record<string, unknown>).__wfRemoveEdge = removeEdgeSpy;
-    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div><button class="wf-quick-test-btn"></button>${buildMutationPanelDom()}`;
+    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div><div class="wf-console-panel"></div><button class="wf-console-badge"></button><button class="wf-quick-test-btn"></button>${buildMutationPanelDom()}`;
+    const badgeClickSpy = vi.fn();
+    document.querySelector<HTMLElement>('.wf-console-badge')!.addEventListener('click', badgeClickSpy);
+    vi.mocked(ctx.click).mockClear();
     await ensureLesson18DeleteNodeAdded(ctx);
+    expect(badgeClickSpy).toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.QUICK_TEST_BTN);
     expect(removeEdgeSpy).toHaveBeenCalledWith(LESSON18_NODE_ASSERT, LESSON18_NODE_END);
     expect(addSpy).toHaveBeenCalled();
   });
@@ -506,6 +511,14 @@ describe('gql-workflow-mutation lesson', () => {
     expect((wf.nodes as unknown[]).length).toBe(5);
     expect((wf.edges as unknown[]).length).toBe(4);
     expect(wf.variables).toMatchObject({ [LESSON18_TEST_NAME_VAR]: LESSON18_TEST_NAME });
+    const start = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === 'gql18-start');
+    expect((start?.data?.inputVariables as Record<string, string> | undefined)?.[LESSON18_TEST_NAME_VAR]).toBe(LESSON18_TEST_NAME);
+  });
+
+  it('createGqlMutationBlankWorkflow seeds testName on start inputVariables', () => {
+    const wf = createGqlMutationBlankWorkflow();
+    const start = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === 'gql18-start');
+    expect((start?.data?.inputVariables as Record<string, string> | undefined)?.[LESSON18_TEST_NAME_VAR]).toBe(LESSON18_TEST_NAME);
   });
 
   it('createGqlMutationDemoWorkflow includes mutation, query, and assert nodes', () => {

@@ -52,6 +52,21 @@ describe('deriveExecutionStatusFromGraphqlResponse', () => {
     expect(deriveExecutionStatusFromGraphqlResponse(makeResponse({ httpStatus: 500, data: null }))).toBe('error');
     expect(deriveExecutionStatusFromGraphqlResponse(makeResponse({ httpStatus: 0, data: null }))).toBe('error');
   });
+
+  it('returns success for Apollo-style batch HTTP 400 when operation has data', () => {
+    expect(deriveExecutionStatusFromGraphqlResponse(makeResponse({
+      httpStatus: 400,
+      data: { health: 'ok' },
+    }))).toBe('success');
+  });
+
+  it('returns error for Apollo-style batch HTTP 400 when operation has errors only', () => {
+    expect(deriveExecutionStatusFromGraphqlResponse(makeResponse({
+      httpStatus: 400,
+      data: null,
+      errors: [{ message: 'Cannot query field "nonexistent"' }],
+    }))).toBe('error');
+  });
 });
 
 describe('buildBatchTabResponseSyncs', () => {

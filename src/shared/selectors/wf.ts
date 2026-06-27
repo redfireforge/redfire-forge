@@ -54,6 +54,8 @@ export const WF = {
   WORKFLOW_SELECT:     '[data-testid="workflow-select"]',
   // Console badge and Debug button (Demo Player lessons)
   CONSOLE_BADGE:       '.wf-console-badge',
+  RESET_RUN_BTN:       '.wf-toolbar-reset-btn',
+  CONSOLE_CLEAR_BTN:   '.wf-console-action-btn[title="Clear console"]',
   DEBUG_BTN:           'button[title="Run workflow step-by-step"]',
   DEBUG_STEP_BTN:      '.wf-debug-step-btn',
   // Defaults (Variables) modal

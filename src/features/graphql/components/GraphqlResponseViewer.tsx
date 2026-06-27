@@ -52,9 +52,16 @@ interface GraphqlResponseViewerProps {
   onOpenBatchResults?: () => void;
   /** Ring buffer of recent latency values (ms). Histogram shown when length ≥ 2. */
   latencyHistory?: number[];
+  /** Workspace tab id — scopes new-execution reset so tab switches keep the sub-tab. */
+  workspaceTabId?: string;
+  /** Controlled response sub-tab (Body / Headers / Metadata / Tracing). */
+  responseSubTab?: GraphqlResponseViewerTab;
+  onResponseSubTabChange?: (tab: GraphqlResponseViewerTab) => void;
 }
 
-type ResponseTab = 'body' | 'headers' | 'metadata' | 'tracing';
+export type GraphqlResponseViewerTab = 'body' | 'headers' | 'metadata' | 'tracing';
+
+type ResponseTab = GraphqlResponseViewerTab;
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -64,8 +71,17 @@ export function GraphqlResponseViewer({
   batchExecuting = false,
   onOpenBatchResults,
   latencyHistory = [],
+  workspaceTabId,
+  responseSubTab,
+  onResponseSubTabChange,
 }: GraphqlResponseViewerProps) {
-  const [activeTab, setActiveTab] = useState<ResponseTab>('body');
+  const [internalTab, setInternalTab] = useState<ResponseTab>('body');
+  const isControlled = responseSubTab !== undefined && onResponseSubTabChange !== undefined;
+  const activeTab = isControlled ? (responseSubTab ?? 'body') : internalTab;
+  const setActiveTab = useCallback((tab: ResponseTab) => {
+    if (isControlled) onResponseSubTabChange!(tab);
+    else setInternalTab(tab);
+  }, [isControlled, onResponseSubTabChange]);
   const [copied, setCopied] = useState(false);
   const { dataOnly, setDataOnly } = useGraphqlResponseDataOnly();
   // BUG-GQL-R9-9 fix: track copy feedback timer for cleanup on unmount
@@ -77,20 +93,30 @@ export function GraphqlResponseViewer({
   const safeHeaders = response?.httpHeaders ?? {};
   const headerCount = response ? Object.keys(safeHeaders).length : 0;
 
-  // Reset to Body tab only at the START of a new execution.
+  // Reset to Body tab only at the START of a new execution on the same workspace tab.
   // Bug fix: during streaming, `response.timestamp` changes with every chunk because
   // each chunk calls `Date.now()`. Without this guard, the tab resets to 'body' on
   // every streaming chunk, even if the user has navigated to Headers/Metadata.
   // Fix: only reset when `chunkCount` is absent (non-streaming) or equals 1 (first chunk).
+  // Tab switches load a different cached response — must not reset the sub-tab.
+  const prevTimestampByTabRef = useRef<Map<string, number>>(new Map());
   const prevTimestampRef = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!response) return;
     const isFirstOrNonStreaming = !response.chunkCount || response.chunkCount === 1;
+    if (workspaceTabId) {
+      const prevTs = prevTimestampByTabRef.current.get(workspaceTabId);
+      if (isFirstOrNonStreaming && response.timestamp !== prevTs) {
+        prevTimestampByTabRef.current.set(workspaceTabId, response.timestamp);
+        setActiveTab('body');
+      }
+      return;
+    }
     if (isFirstOrNonStreaming && response.timestamp !== prevTimestampRef.current) {
       prevTimestampRef.current = response.timestamp;
       setActiveTab('body');
     }
-  }, [response]);
+  }, [response, workspaceTabId, setActiveTab]);
 
   // Build pretty JSON and tokens (memoized)
   // BUG-GQL-R10-6 fix: wrap stringify in try/catch — BigInt, circular structures,
@@ -133,6 +159,8 @@ export function GraphqlResponseViewer({
     if (typeof t.version !== 'number' || typeof t.duration !== 'number') return null;
     return t as unknown as ApolloTracingData;
   }, [response]);
+
+  const resolvedTab = activeTab === 'tracing' && !tracingData ? 'body' : activeTab;
 
   // ── Loading state ────────────────────────────────────────────────────────
   if (loading && !response?.isStreaming) {
@@ -436,9 +464,9 @@ export function GraphqlResponseViewer({
         id="gql-rv-tabpanel"
         className="gql-rv-content"
         role="tabpanel"
-        aria-labelledby={`gql-rv-tab-${activeTab}-btn`}
+        aria-labelledby={`gql-rv-tab-${resolvedTab}-btn`}
       >
-        {activeTab === 'body' && (
+        {resolvedTab === 'body' && (
           // BUG-GQL-R6-5 fix: tabIndex={0} makes the scrollable area keyboard-focusable so
           // keyboard-only users can Tab to it and use arrow keys / Page Down to scroll through
           // large responses. Without this, the content is only reachable via a pointing device.
@@ -465,13 +493,13 @@ export function GraphqlResponseViewer({
             </pre>
           </div>
         )}
-        {activeTab === 'headers' && (
+        {resolvedTab === 'headers' && (
           <HeadersTab headers={safeHeaders} />
         )}
-        {activeTab === 'metadata' && (
+        {resolvedTab === 'metadata' && (
           <MetadataTab response={response} bodySize={bodySize} />
         )}
-        {activeTab === 'tracing' && tracingData && (
+        {resolvedTab === 'tracing' && tracingData && (
           <div className="gql-rv-tracing-scroll" data-testid="gql-rv-tracing-scroll">
             <GraphqlTracingView tracing={tracingData} />
           </div>

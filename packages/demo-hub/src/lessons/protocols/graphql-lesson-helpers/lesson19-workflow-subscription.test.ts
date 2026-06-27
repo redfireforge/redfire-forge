@@ -229,7 +229,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const wf = createGqlOrderFlowDemoWorkflow();
     const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
     sub.data.subscriptionQuery = 'subscription { orderStatus { status } }';
-    sub.data.stopAfterMs = 5000;
+    sub.data.stopAfterMs = Number(LESSON19_STOP_AFTER_SECS) * 1000;
     sub.data.stopAfterMessages = 3;
     sub.data.outputBindings = [{ field: 'lastMessage', variableName: LESSON19_FINAL_STATUS_VAR, enabled: true }];
     (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
@@ -348,7 +348,7 @@ describe('lesson19-workflow-subscription helpers (direct)', () => {
     const wf = createGqlOrderFlowDemoWorkflow();
     const sub = (wf.nodes as Array<{ id: string; data: Record<string, unknown> }>).find((n) => n.id === LESSON19_NODE_SUB)!;
     sub.data.subscriptionQuery = 'subscription { orderStatus { status } }';
-    sub.data.stopAfterMs = 5000;
+    sub.data.stopAfterMs = Number(LESSON19_STOP_AFTER_SECS) * 1000;
     sub.data.stopAfterMessages = 3;
     sub.data.outputBindings = [{ field: 'lastMessage', variableName: LESSON19_FINAL_STATUS_VAR, enabled: true }];
     (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>

@@ -149,7 +149,12 @@ export default function LiveDemo({
     <>
       {/* Spotlight ring — hidden while steps overview is open */}
       {targetFound && step.highlight && stepPhase !== 'pre' && !overviewOpen && (
-        <DemoSpotlight selector={step.highlight} active={true} />
+        <DemoSpotlight
+          key={`${stepIndex}:${step.highlight}`}
+          trackKey={`${stepIndex}:${step.highlight}`}
+          selector={step.highlight}
+          active={true}
+        />
       )}
 
       {/* Steps overview — read-only floating modal, no jump-to-step */}

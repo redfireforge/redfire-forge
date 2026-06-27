@@ -79,6 +79,8 @@ export interface GqlStudioTab extends GraphqlOperationTab {
   auth?: GraphqlAuth | null;
   /** Set when Demo Hub created this tab — stripped on lesson cleanup. */
   demoLessonId?: string;
+  /** Last-selected response viewer sub-tab (Body / Headers / Metadata / Tracing). */
+  responseSubTab?: 'body' | 'headers' | 'metadata' | 'tracing';
 }
 
 // ─── Tab ID sequence ──────────────────────────────────────────────────────────
@@ -311,6 +313,10 @@ export function normalizeTab(raw: unknown): GqlStudioTab | null {
       typeof t.demoLessonId === 'string' && t.demoLessonId.trim()
         ? t.demoLessonId.trim()
         : undefined,
+    responseSubTab: (() => {
+      const r = t.responseSubTab;
+      return r === 'body' || r === 'headers' || r === 'metadata' || r === 'tracing' ? r : undefined;
+    })(),
     ...(() => {
       if (!('auth' in t)) return {};
       const normalized = normalizeGraphqlAuth(t.auth);

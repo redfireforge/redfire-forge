@@ -20,12 +20,14 @@ import {
   ensureLesson18AssertRuleConfigured,
   ensureLesson18QuickTestRun,
   ensureLesson18DeleteNodeAdded,
-  ensureLesson18DeleteConfigured,
   demonstrateLesson18DeleteNodeAdded,
   demonstrateLesson18DeleteConfigured,
   ensureLesson18FinalQuickTestRun,
   gqlWorkflowMutationLessonSetup,
   gqlWorkflowMutationLessonCleanup,
+  prepareLesson18BeforeQuickTest,
+  prepareLesson18BeforeDeleteNode,
+  prepareLesson18BeforeFinalQuickTest,
 } from './graphql-lesson-helpers';
 
 export const gqlWorkflowMutationLesson: DemoLesson = {
@@ -365,7 +367,7 @@ Integration tests that create data without cleaning up pollute shared environmen
       description:
         `Click **▶ Quick Test**. Watch the canvas as each node executes:\n\n1. **Create User** — mutation returns an \`id\`, \`${LESSON18_CREATED_USER_ID_VAR}\` is bound\n2. **Fetch User** — query retrieves the user using that ID\n3. **Verify User** — \`$.user.name\` equals \`{{${LESSON18_TEST_NAME_VAR}}}\`\n\nAll three nodes should turn **green** against the local Docker server.`,
       highlight: WF.QUICK_TEST_BTN,
-      preAction: ensureLesson18AssertRuleConfigured,
+      preAction: prepareLesson18BeforeQuickTest,
       action: async (ctx) => {
         await ensureLesson18QuickTestRun(ctx);
         await ctx.delay(800);
@@ -380,7 +382,7 @@ Integration tests that create data without cleaning up pollute shared environmen
       description:
         `Integration tests must clean up. Click **GraphQL Mutation** in the palette again — watch the ripple on the amber **M** block. A second mutation node appears on the canvas; rename it **Delete User** if needed. Rewire: **Verify User → Delete User → End** (remove the old Assert → End edge).\n\nTeardown runs only after assertions pass — the same \`afterEach\` pattern CI pipelines use.`,
       highlight: WF.PAL_GQL_MUTATION,
-      preAction: ensureLesson18QuickTestRun,
+      preAction: prepareLesson18BeforeDeleteNode,
       action: async (ctx) => {
         await demonstrateLesson18DeleteNodeAdded(ctx);
         await ctx.delay(800);
@@ -410,7 +412,7 @@ Integration tests that create data without cleaning up pollute shared environmen
       description:
         `Click **▶ Quick Test** again. All **four** action nodes should pass in sequence: **Create User** → **Fetch User** → **Verify User** → **Delete User**.\n\nThe shared Docker server is back to a clean state — ready for the next run. This is the complete CRUD integration-test pattern: write, read back, assert, teardown.`,
       highlight: WF.QUICK_TEST_BTN,
-      preAction: ensureLesson18DeleteConfigured,
+      preAction: prepareLesson18BeforeFinalQuickTest,
       action: async (ctx) => {
         await ensureLesson18FinalQuickTestRun(ctx);
         await ctx.delay(800);

@@ -22,6 +22,7 @@ import { GqlComplexityWarningBanner } from './GqlComplexityWarningBanner';
 import { GraphqlCollectionRunnerPanel } from './GraphqlCollectionRunnerPanel';
 import { GqlBottomPanel } from './GqlBottomPanel';
 import { GqlRightPane } from './GqlRightPane';
+import type { GraphqlResponseViewerTab } from './GraphqlResponseViewer';
 import type { UseGraphqlCollectionRunnerResult } from '../hooks/useGraphqlCollectionRunner';
 import type { UseGraphqlCollectionsResult } from '../hooks/useGraphqlCollections';
 import type { UseGraphqlSubscriptionResult } from '../hooks/useGraphqlSubscription';
@@ -106,6 +107,7 @@ export interface GraphqlStudioSplitWorkspaceProps {
   onResubscribeSubscription: () => void;
   onOpenBatchResults?: () => void;
   batchExecuting?: boolean;
+  onResponseSubTabChange?: (tab: GraphqlResponseViewerTab) => void;
 }
 
 export function GraphqlStudioSplitWorkspace({
@@ -179,6 +181,7 @@ export function GraphqlStudioSplitWorkspace({
   onResubscribeSubscription,
   onOpenBatchResults,
   batchExecuting = false,
+  onResponseSubTabChange,
 }: GraphqlStudioSplitWorkspaceProps) {
   const runnerTree = runnerCollectionId
     ? collections.trees.find((t) => t.collection.id === runnerCollectionId)
@@ -375,6 +378,9 @@ export function GraphqlStudioSplitWorkspace({
             onOpenCollectionItem={onOpenCollectionItem}
             onOpenBatchResults={onOpenBatchResults}
             batchExecuting={batchExecuting}
+            workspaceTabId={activeTab.id}
+            responseSubTab={activeTab.responseSubTab}
+            onResponseSubTabChange={onResponseSubTabChange}
             subscriptionLog={
               activeTab.operationType === 'subscription' && subscription.state !== 'idle'
                 ? {

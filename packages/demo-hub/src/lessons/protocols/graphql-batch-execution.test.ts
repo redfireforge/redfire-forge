@@ -131,6 +131,7 @@ describe('gql-batch-execution lesson', () => {
 
   it('has docker prerequisite fields', () => {
     expect(gqlBatchExecutionLesson.dockerEndpoint).toContain('localhost:4010');
+    expect(gqlBatchExecutionLesson.dockerCommand).toContain('--build');
     expect(gqlBatchExecutionLesson.tag).toBe('🐳 Docker');
   });
 
@@ -382,9 +383,10 @@ describe('gql-batch-execution lesson', () => {
     expect(step.description).toContain('Batch N/M');
   });
 
-  it('gql15-export-batch description explains sequential fallback and CI export', () => {
+  it('gql15-export-batch description explains batch history and sequential fallback for other servers', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-export-batch')!;
-    expect(step.description).toContain('Sequential fallback');
+    expect(step.description).toContain('JSON-array batch');
+    expect(step.description).toContain('sequential fallback');
     expect(step.description).toContain('History');
   });
 

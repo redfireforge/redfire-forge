@@ -17,6 +17,7 @@ import {
   clickWfDebugStepButtons,
   closeWfConfigModalIfOpen,
   closeWfConsoleIfOpen,
+  cleanupWorkflowDemoRunUi,
   collapseWfDemoAppSidebar,
   expandWfDemoAppSidebar,
   fillWfConfigField,
@@ -477,8 +478,8 @@ export async function gqlWorkflowIntegrationLessonSetup(ctx: DemoActionContext):
   if (deleteWorkflowByName(LESSON11_WF_NAME)) {
     await ctx.delay(300);
   }
+  await cleanupWorkflowDemoRunUi(ctx);
   await closeWfConfigModalIfOpen(ctx);
-  await closeWfConsoleIfOpen(ctx);
   ctx.navigateToTab('workflow');
   await ctx.delay(300);
 }
@@ -486,7 +487,7 @@ export async function gqlWorkflowIntegrationLessonSetup(ctx: DemoActionContext):
 /** Cleanup for Lesson 11. */
 export async function gqlWorkflowIntegrationLessonCleanup(ctx: DemoActionContext): Promise<void> {
   await closeWfConfigModalIfOpen(ctx);
-  await closeWfConsoleIfOpen(ctx);
+  await cleanupWorkflowDemoRunUi(ctx);
   deleteWorkflowByName(LESSON11_WF_NAME);
   resetGqlLesson11SessionFlags();
   await ctx.delay(100);

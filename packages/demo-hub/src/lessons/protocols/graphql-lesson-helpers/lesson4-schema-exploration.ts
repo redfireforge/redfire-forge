@@ -3,7 +3,6 @@
 import type { DemoActionContext } from '../../../types';
 import { GQL } from '@shared/selectors';
 import {
-  ensureDemoEndpoint,
   ensureEditorMode,
   ensureIntrospected,
   fillGqlEditor,
@@ -16,6 +15,7 @@ import {
 } from './core';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import { ensureGqlDemoHeaderContext } from '../../env-manager-lesson-helpers';
 
 /** Minimal query template for Try → field insert demos. */
 export const GQL_INSERT_TEMPLATE_QUERY = `query {
@@ -56,7 +56,6 @@ export {
  * otherwise keep Response visible for the Introspect spotlight.
  */
 export async function prepareGql4IntrospectReading(ctx: DemoActionContext): Promise<void> {
-  await ensureDemoEndpoint(ctx);
   const cached = await waitForSchemaCached(ctx, 8000);
   if (cached && (await openSchemaTabWhenCached(ctx))) {
     return;
@@ -163,6 +162,7 @@ export async function ensureTryInsertDone(ctx: DemoActionContext): Promise<void>
 
 /** Setup for Lesson 4 (GQL-3) — demo tab with insert template query. */
 export async function gqlSchemaLessonSetup(ctx: DemoActionContext): Promise<void> {
+  await ensureGqlDemoHeaderContext(ctx);
   resetGqlLessonSessionFlags();
   resetGqlLesson2SessionFlags();
   resetGqlLesson3SessionFlags();

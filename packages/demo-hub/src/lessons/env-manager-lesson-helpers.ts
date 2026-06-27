@@ -5,6 +5,7 @@
 import type { DemoActionContext } from '../types';
 import { APP, EM, emAddProtocolItemSel, emRemoveProtocolSel } from '@shared/selectors';
 import type { ProtocolKey } from '@shared/types';
+import { isDemoTargetVisible } from '../demoSpotlightUtils';
 import { fillControlledInput } from './setup-helpers';
 
 /** Shared SSE demo lesson identifiers and endpoint (basic + advanced lessons). */
@@ -151,6 +152,8 @@ export async function ensureGqlDemoHeaderContext(ctx: DemoActionContext): Promis
   }
   await selectEnvInHeader(ctx, GQL_DEMO_ENV_NAME);
   await selectSvcInHeader(ctx, GQL_DEMO_SVC_NAME);
+  // EM setup uses navigateToTab('environments'); GraphQL lesson steps need Studio UI afterward.
+  await navigateToGraphqlStudio(ctx);
 }
 
 // ── Demo-dedicated env / microservice creation & cleanup ───────────────────
@@ -386,7 +389,7 @@ function panelScoped(selector: string): string {
  * handler and calls raw `setActiveTab` directly, keeping the demo alive.
  */
 export async function navigateToEnvironmentManager(ctx: DemoActionContext): Promise<void> {
-  if (!document.querySelector(EM.MANAGER)) {
+  if (!isDemoTargetVisible(EM.MANAGER)) {
     ctx.navigateToTab('environments');
     await ctx.delay(400);
     await ctx.waitFor(EM.MANAGER);
@@ -673,7 +676,7 @@ export async function selectSvcInHeader(
 }
 
 export async function navigateToWebSocketStudio(ctx: DemoActionContext): Promise<void> {
-  if (!document.querySelector('[data-testid="ws-studio"]')) {
+  if (!isDemoTargetVisible('[data-testid="ws-studio"]')) {
     ctx.navigateToTab('websocket-studio');
     await ctx.delay(400);
     await ctx.waitFor('[data-testid="ws-studio"]');
@@ -681,7 +684,7 @@ export async function navigateToWebSocketStudio(ctx: DemoActionContext): Promise
 }
 
 export async function navigateToSseStudio(ctx: DemoActionContext): Promise<void> {
-  if (!document.querySelector('[data-testid="sse-studio"]')) {
+  if (!isDemoTargetVisible('[data-testid="sse-studio"]')) {
     ctx.navigateToTab('sse-studio');
     await ctx.delay(400);
     await ctx.waitFor('[data-testid="sse-studio"]');
@@ -689,7 +692,7 @@ export async function navigateToSseStudio(ctx: DemoActionContext): Promise<void>
 }
 
 export async function navigateToGraphqlStudio(ctx: DemoActionContext): Promise<void> {
-  if (!document.querySelector('[data-testid="gql-studio-page"]')) {
+  if (!isDemoTargetVisible('[data-testid="gql-studio-page"]')) {
     ctx.navigateToTab('graphql-studio');
     await ctx.delay(400);
     await ctx.waitFor('[data-testid="gql-studio-page"]');

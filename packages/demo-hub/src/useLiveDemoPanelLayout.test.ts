@@ -44,6 +44,43 @@ describe('useLiveDemoPanelLayout', () => {
     });
   });
 
+  it('does not start drag when mousedown is on the lesson name', () => {
+    const { result } = renderHook(() => useLiveDemoPanelLayout());
+    const panel = document.createElement('div');
+    const lessonName = document.createElement('span');
+    lessonName.className = 'demo-live-lesson-name';
+    panel.appendChild(lessonName);
+    Object.defineProperty(result.current.panelRef, 'current', { value: panel, writable: true });
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+      top: 400,
+      left: 800,
+      width: 400,
+      height: 440,
+      right: 1200,
+      bottom: 840,
+      x: 800,
+      y: 400,
+      toJSON: () => ({}),
+    });
+    const startTop = result.current.panelStyle.top;
+
+    act(() => {
+      result.current.onDragMouseDown({
+        preventDefault: vi.fn(),
+        clientX: 820,
+        clientY: 410,
+        target: lessonName,
+      } as unknown as React.MouseEvent);
+    });
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 920, clientY: 510 }));
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+
+    expect(result.current.panelStyle.top).toBe(startTop);
+  });
+
   it('resizes wider when dragging the right edge', () => {
     const { result } = renderHook(() => useLiveDemoPanelLayout());
     const panel = document.createElement('div');

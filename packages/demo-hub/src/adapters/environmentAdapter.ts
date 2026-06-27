@@ -4,6 +4,7 @@ import {
   ALL_GQL_DEMO_GLOBAL_AUTH_PROFILE_SPECS,
   purgeGqlDemoGlobalAuthProfilesFromStorage,
 } from '@graphql/utils/gqlDemoGlobalAuthProfiles';
+import { purgeGqlDemoBatchDetectionFlags } from '@graphql/utils/gqlDemoBatchDetectionCleanup';
 import { getDemoBridgeWindow } from './bridgeWindow';
 
 export type GqlDemoEnvVar = { key: string; value: string; masked?: boolean };
@@ -48,4 +49,14 @@ export function applyGqlTlsSettings(patch: Partial<GqlTlsSettings>): boolean {
 
 export function deleteGqlEnvironmentByName(name: string): void {
   getDemoBridgeWindow().__demoDeleteGqlEnvByName?.(name);
+}
+
+/**
+ * Clear cached "batch unsupported" for the demo server — live Studio state when mounted,
+ * plus persisted per-connection detection keys in storage.
+ */
+export async function resetGqlDemoBatchDetection(): Promise<boolean> {
+  const live = getDemoBridgeWindow().__demoResetGqlBatchDetection?.() ?? false;
+  await purgeGqlDemoBatchDetectionFlags();
+  return live;
 }

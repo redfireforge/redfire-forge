@@ -211,6 +211,11 @@ describe('normalizeTab', () => {
     expect(result!.unsavedChanges).toBe(false);
   });
 
+  it('preserves responseSubTab when valid', () => {
+    expect(normalizeTab({ id: 't', responseSubTab: 'metadata' })!.responseSubTab).toBe('metadata');
+    expect(normalizeTab({ id: 't', responseSubTab: 'invalid' })!.responseSubTab).toBeUndefined();
+  });
+
   // ── Phase 6: per-tab endpoint + TLS ─────────────────────────────────────────
   it('normalizes missing endpoint and skipTlsVerify to undefined (legacy tabs)', () => {
     const result = normalizeTab({ id: 'legacy-tab' });

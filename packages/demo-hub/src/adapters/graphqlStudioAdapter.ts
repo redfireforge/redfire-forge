@@ -61,6 +61,11 @@ export {
 } from '@graphql/utils/gqlDemoCollectionsCleanup';
 
 export {
+  purgeGqlDemoBatchDetectionFlags,
+  demoBatchDetectionConnectionIds,
+} from '@graphql/utils/gqlDemoBatchDetectionCleanup';
+
+export {
   applyGqlTlsSettings,
   deleteGqlEnvironmentByName,
   upsertGqlEnvironment,

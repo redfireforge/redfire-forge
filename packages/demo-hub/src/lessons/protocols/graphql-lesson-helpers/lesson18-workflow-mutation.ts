@@ -8,6 +8,8 @@ import {
   clickWfConfigTab,
   closeWfConfigModalIfOpen,
   collapseWfDemoAppSidebar,
+  cleanupWorkflowDemoRunUi,
+  closeWfConsoleIfOpen,
   dismissWorkflowExecSummary,
   expandWfDemoAppSidebar,
   fillWfConfigField,
@@ -16,6 +18,7 @@ import {
   saveAndCloseWfConfigModal,
   selectWfConfigOption,
   selectWorkflowFromAppSidebar,
+  openWfConsoleIfClosed,
   waitForWfConfigPanel,
 } from '../../wf-demo-helpers';
 import {
@@ -24,6 +27,7 @@ import {
   deleteWorkflowByName,
   getWorkflowByName,
   patchWorkflowByName,
+  patchWorkflowNodeDataById,
   removeWorkflowEdge,
 } from '../../../adapters';
 
@@ -41,6 +45,7 @@ export const LESSON18_NODE_FETCH = 'gql18-fetch';
 export const LESSON18_NODE_ASSERT = 'gql18-assert';
 export const LESSON18_NODE_DELETE = 'gql18-delete';
 export const LESSON18_NODE_END = 'gql18-end';
+const LESSON18_DELETE_NODE_SELECTOR = `.react-flow__node[data-id="${LESSON18_NODE_DELETE}"], ${GQL.WF_CANVAS_MUTATION_NODE}`;
 
 export const LESSON18_CREATE_MUTATION =
   'mutation CreateUser($name: String!, $email: String!) {\n' +
@@ -302,7 +307,7 @@ export function createGqlMutationBlankWorkflow(): Record<string, unknown> {
         id: LESSON18_NODE_START,
         type: 'start',
         position: { x: 100, y: 150 },
-        data: { label: 'Start', inputVariables: {} },
+        data: { label: 'Start', inputVariables: { [LESSON18_TEST_NAME_VAR]: LESSON18_TEST_NAME } },
       },
       {
         id: LESSON18_NODE_END,
@@ -337,7 +342,7 @@ export function createGqlMutationDemoWorkflow(): Record<string, unknown> {
         id: LESSON18_NODE_START,
         type: 'start',
         position: { x: 100, y: 150 },
-        data: { label: 'Start', inputVariables: {} },
+        data: { label: 'Start', inputVariables: { [LESSON18_TEST_NAME_VAR]: LESSON18_TEST_NAME } },
       },
       {
         id: LESSON18_NODE_CREATE,
@@ -426,6 +431,38 @@ async function clickWfFitView(ctx: DemoActionContext): Promise<void> {
   }
 }
 
+/** Close console + exec strip without re-centering the canvas. */
+async function prepareLesson18CanvasUiOnly(ctx: DemoActionContext): Promise<void> {
+  ctx.navigateToTab('workflow');
+  await ctx.delay(300);
+  await dismissWorkflowExecSummary(ctx);
+  await closeWfConsoleIfOpen(ctx);
+}
+
+/** Close console + exec strip so canvas/node palette steps are unobstructed. */
+async function prepareLesson18CanvasForBuilding(ctx: DemoActionContext): Promise<void> {
+  await prepareLesson18CanvasUiOnly(ctx);
+  await clickWfFitView(ctx);
+}
+
+/** Reading phase before Quick Test — assert chain ready, canvas clear, console closed until run. */
+export async function prepareLesson18BeforeQuickTest(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson18AssertRuleConfigured(ctx);
+  await prepareLesson18CanvasForBuilding(ctx);
+}
+
+/** Reading phase before teardown Quick Test — delete node configured, canvas clear. */
+export async function prepareLesson18BeforeFinalQuickTest(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson18DeleteConfigured(ctx);
+  await prepareLesson18CanvasUiOnly(ctx);
+}
+
+/** Reading phase before adding Delete User — no Quick Test re-run, console closed. */
+export async function prepareLesson18BeforeDeleteNode(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson18AssertRuleConfigured(ctx);
+  await prepareLesson18CanvasForBuilding(ctx);
+}
+
 /** Collapse the workflows list once after create — never toggle again mid-lesson. */
 async function collapseLesson18SidebarOnce(ctx: DemoActionContext): Promise<void> {
   if (_lesson18SidebarCollapsed) return;
@@ -451,13 +488,35 @@ async function addLesson18PaletteNode(
 }
 
 function patchLesson18WorkflowVariablesQuiet(): boolean {
-  return patchWorkflowByName(LESSON18_WF_NAME, {
+  const nodes = readLesson18WorkflowNodes();
+  const startNode = nodes?.find((n) => n.type === 'start');
+  const startInputVariables = {
+    ...((startNode?.data?.inputVariables as Record<string, string> | undefined) ?? {}),
+    [LESSON18_TEST_NAME_VAR]: LESSON18_TEST_NAME,
+  };
+  const patch: Record<string, unknown> = {
     variables: {
       [LESSON18_TEST_NAME_VAR]: LESSON18_TEST_NAME,
       [LESSON18_CREATED_USER_ID_VAR]: '',
       [LESSON18_FETCHED_USER_VAR]: '',
     },
-  });
+  };
+
+  if (nodes && startNode) {
+    patch.nodes = nodes.map((n) =>
+      n.id === startNode.id
+        ? {
+            ...n,
+            data: {
+              ...n.data,
+              inputVariables: startInputVariables,
+            },
+          }
+        : n,
+    );
+  }
+
+  return patchWorkflowByName(LESSON18_WF_NAME, patch);
 }
 
 function findLesson18SidebarItem(): HTMLElement | null {
@@ -771,6 +830,8 @@ async function runLesson18QuickTest(
 ): Promise<void> {
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
+  patchLesson18WorkflowVariablesQuiet();
+  await openWfConsoleIfClosed(ctx);
   await clickWfFitView(ctx);
   const saveBtn = document.querySelector<HTMLElement>('.wf-toolbar-save-wrap button');
   saveBtn?.click();
@@ -802,11 +863,13 @@ export async function ensureLesson18QuickTestRun(ctx: DemoActionContext): Promis
 
 /** Add Delete User node from palette and rewire Assert → Delete → End (quiet guard). */
 export async function ensureLesson18DeleteNodeAdded(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson18QuickTestRun(ctx);
+  await ensureLesson18AssertRuleConfigured(ctx);
 
   if (_lesson18DeleteAdded && isLesson18DeleteOnCanvas()) {
     return;
   }
+
+  await prepareLesson18CanvasForBuilding(ctx);
 
   if (!isLesson18DeleteOnCanvas()) {
     if (!addWorkflowNodeWithPreset('graphqlMutation', LESSON18_NODE_DELETE, 'Delete User', { x: 780, y: 280 })) {
@@ -823,8 +886,7 @@ export async function ensureLesson18DeleteNodeAdded(ctx: DemoActionContext): Pro
 
 /** Visible demo: click GraphQL Mutation palette to add Delete User and rewire the chain. */
 export async function demonstrateLesson18DeleteNodeAdded(ctx: DemoActionContext): Promise<void> {
-  ctx.navigateToTab('workflow');
-  await ctx.delay(400);
+  await prepareLesson18CanvasForBuilding(ctx);
 
   if (_lesson18DeleteAdded && isLesson18DeleteOnCanvas()) {
     await clickWfFitView(ctx);
@@ -835,7 +897,8 @@ export async function demonstrateLesson18DeleteNodeAdded(ctx: DemoActionContext)
   pal?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
   await ctx.delay(400);
   await ctx.click(WF.PAL_GQL_MUTATION);
-  await ctx.delay(800);
+  await ctx.waitFor(LESSON18_DELETE_NODE_SELECTOR);
+  await ctx.delay(400);
 
   if (!isLesson18DeleteOnCanvas()) {
     addWorkflowNodeWithPreset('graphqlMutation', LESSON18_NODE_DELETE, 'Delete User', { x: 780, y: 280 });
@@ -845,6 +908,29 @@ export async function demonstrateLesson18DeleteNodeAdded(ctx: DemoActionContext)
   await ctx.delay(400);
   await clickWfFitView(ctx);
   _lesson18DeleteAdded = true;
+}
+
+function renameLesson18DeleteNodeLabel(deleteNodeId: string): void {
+  if (patchWorkflowNodeDataById(deleteNodeId, { label: 'Delete User' })) {
+    return;
+  }
+
+  const nodes = readLesson18WorkflowNodes();
+  if (!nodes?.length) return;
+
+  const targetId =
+    nodes.some((n) => n.id === deleteNodeId)
+      ? deleteNodeId
+      : nodes.find((n) => n.type === 'graphqlMutation' && n.id !== LESSON18_NODE_CREATE)?.id;
+  if (!targetId) return;
+
+  patchWorkflowByName(LESSON18_WF_NAME, {
+    nodes: nodes.map((n) =>
+      n.id === targetId
+        ? { ...n, data: { ...n.data, label: 'Delete User' } }
+        : n,
+    ),
+  });
 }
 
 function wireLesson18DeleteNode(): void {
@@ -864,6 +950,7 @@ function wireLesson18DeleteNode(): void {
   } else {
     connectWfNodesBySelector(WF.NODE_GQL_MUTATION, WF.NODE_END);
   }
+  renameLesson18DeleteNodeLabel(deleteNodeId);
 }
 
 /** Configure deleteUser teardown mutation (quiet guard). */
@@ -900,7 +987,9 @@ async function configureLesson18DeleteNode(ctx: DemoActionContext): Promise<void
 
 /** Re-run Quick Test with teardown node — all four action nodes should pass. */
 export async function ensureLesson18FinalQuickTestRun(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson18DeleteConfigured(ctx);
+  if (!isLesson18DeleteNodeReady()) {
+    await ensureLesson18DeleteConfigured(ctx);
+  }
   if (_lesson18FinalQuickTestRun && isLesson18QuickTestPassVisible() && isLesson18DeleteNodeReady()) {
     return;
   }
@@ -917,7 +1006,7 @@ export async function gqlWorkflowMutationLessonSetup(ctx: DemoActionContext): Pr
   if (deleteWorkflowByName(LESSON18_WF_NAME)) {
     await ctx.delay(300);
   }
-  await dismissWorkflowExecSummary(ctx);
+  await cleanupWorkflowDemoRunUi(ctx);
   await closeWfConfigModalIfOpen(ctx);
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
@@ -926,6 +1015,7 @@ export async function gqlWorkflowMutationLessonSetup(ctx: DemoActionContext): Pr
 
 export async function gqlWorkflowMutationLessonCleanup(ctx: DemoActionContext): Promise<void> {
   await closeWfConfigModalIfOpen(ctx);
+  await cleanupWorkflowDemoRunUi(ctx);
   deleteWorkflowByName(LESSON18_WF_NAME);
   resetGqlLesson18SessionFlags();
   await ctx.delay(100);
