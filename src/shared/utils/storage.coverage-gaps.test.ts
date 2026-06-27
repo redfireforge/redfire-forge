@@ -103,6 +103,24 @@ vi.mock('./idbSharedDataSources', () => ({
   idbMigrateSharedDataSources: (key: string) => sharedIdb.idbMigrateSharedDataSources(key),
 }));
 
+const workflowsIdb = vi.hoisted(() => ({
+  folders: null as unknown[] | null,
+  idbLoadWorkflowFolders: vi.fn(async () => workflowsIdb.folders),
+  idbSaveWorkflowFolders: vi.fn(async (folders: unknown[]) => {
+    workflowsIdb.folders = folders;
+  }),
+  idbMigrateWorkflowFolders: vi.fn(async () => false),
+}));
+
+vi.mock('./idbWorkflows', () => ({
+  idbLoadWorkflows: vi.fn(async () => null),
+  idbSaveWorkflows: vi.fn(async () => {}),
+  idbMigrateWorkflows: vi.fn(async () => false),
+  idbLoadWorkflowFolders: () => workflowsIdb.idbLoadWorkflowFolders(),
+  idbSaveWorkflowFolders: (folders: unknown[]) => workflowsIdb.idbSaveWorkflowFolders(folders),
+  idbMigrateWorkflowFolders: (key: string) => workflowsIdb.idbMigrateWorkflowFolders(key),
+}));
+
 import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, getStorageDiagnostics, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, saveRunnerConfig, writeKey, loadWorkflowFolders, saveWorkflowFolders, } from './storage';
 import { SharedDataSource, TestRun } from '../types';
 import { idbSaveTestRun, idbLoadTestRuns, idbGetRunsInfo, idbLoadTestRunsLite, idbLoadTrace, } from './idbTestRuns';
@@ -169,6 +187,12 @@ beforeEach(() => {
   sharedIdb.idbLoadSharedDataSources.mockImplementation(async () => null);
   sharedIdb.idbSaveSharedDataSources.mockImplementation(async () => {});
   sharedIdb.idbMigrateSharedDataSources.mockImplementation(async () => false);
+  workflowsIdb.folders = null;
+  workflowsIdb.idbLoadWorkflowFolders.mockImplementation(async () => workflowsIdb.folders);
+  workflowsIdb.idbSaveWorkflowFolders.mockImplementation(async (folders: unknown[]) => {
+    workflowsIdb.folders = folders;
+  });
+  workflowsIdb.idbMigrateWorkflowFolders.mockImplementation(async () => false);
 });
 
 describe('storage — coverage gaps (Tauri test runs)', () => {

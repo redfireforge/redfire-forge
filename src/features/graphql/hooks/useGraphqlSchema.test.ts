@@ -24,6 +24,7 @@ import { useGraphqlSchema } from './useGraphqlSchema';
 import {
   clearGraphqlSchemaMemoryCacheForTests,
   loadCachedSchemaEntry,
+  saveCachedSchemaEntry,
 } from '../utils/graphqlSchemaCache';
 import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
 
@@ -510,14 +511,11 @@ describe('useGraphqlSchema — Phase 6 per-tab endpoint cache isolation', () => 
     await waitFor(() => expect(result.current.status).toBe('loaded'));
     expect(await loadCachedSchemaEntry(staging)).toBeTruthy();
 
-    localStorage.setItem(
-      makeCacheKey(prod),
-      JSON.stringify({
-        schemaInfo: makeSchemaInfo({ sdl: 'type Query { prodField: String }' }),
-        sdlHash: 4242,
-        rawIntrospection: null,
-      }),
-    );
+    await saveCachedSchemaEntry(prod, {
+      schemaInfo: makeSchemaInfo({ sdl: 'type Query { prodField: String }' }),
+      sdlHash: 4242,
+      rawIntrospection: null,
+    });
 
     rerender({ ep: prod });
 

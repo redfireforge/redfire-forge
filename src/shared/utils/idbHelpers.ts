@@ -73,6 +73,7 @@ export function createIdbBlobStore<T>(
       if (!raw) return false;
       const items = JSON.parse(raw);
       if (!validate(items)) return false;
+      if (Array.isArray(items) && items.length === 0) return false;
       await save(items as T);
       localStorage.removeItem(lsKey);
       return true;
