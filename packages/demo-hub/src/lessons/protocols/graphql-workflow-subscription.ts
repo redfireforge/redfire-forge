@@ -139,7 +139,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
   <rect x="352" y="155" width="110" height="76" rx="6" fill="#042f2e" stroke="#14b8a6" stroke-width="2"/>
   <text x="407" y="172" text-anchor="middle" fill="#5eead4" font-size="8" font-weight="700">S Watch Status</text>
   <text x="407" y="185" text-anchor="middle" fill="#2dd4bf" font-size="7">orderStatus(id)</text>
-  <text x="407" y="198" text-anchor="middle" fill="#94a3b8" font-size="6.5">Stop: 3 msgs · 5s max</text>
+  <text x="407" y="198" text-anchor="middle" fill="#94a3b8" font-size="6.5">Stop: 3 msgs · ${LESSON19_STOP_AFTER_SECS}s max</text>
   <!-- Mini event stream -->
   <rect x="362" y="204" width="28" height="10" rx="2" fill="#1e293b" stroke="#64748b" stroke-width="0.6"/>
   <text x="376" y="212" text-anchor="middle" fill="#f59e0b" font-size="5.5">PEND</text>
@@ -182,9 +182,9 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
   <text x="244" y="303" text-anchor="middle" fill="#e2e8f0" font-size="8">3</text>
   <text x="280" y="302" fill="#94a3b8" font-size="8">After (seconds)</text>
   <rect x="358" y="293" width="28" height="14" rx="3" fill="#0f172a" stroke="#3b4a60" stroke-width="1"/>
-  <text x="372" y="303" text-anchor="middle" fill="#e2e8f0" font-size="8">5</text>
-  <text x="152" y="322" fill="#64748b" font-size="7.5">3 msgs = PENDING → PROCESSING → COMPLETE progression</text>
-  <text x="152" y="334" fill="#64748b" font-size="7.5">5s wall-clock cap prevents hung workflows (like Kafka maxWaitMs)</text>
+  <text x="372" y="303" text-anchor="middle" fill="#e2e8f0" font-size="8">${LESSON19_STOP_AFTER_SECS}</text>
+  <text x="152" y="322" fill="#64748b" font-size="7.5">3 msgs = PENDING → PROCESSING → COMPLETE (~2s apart)</text>
+  <text x="152" y="334" fill="#64748b" font-size="7.5">${LESSON19_STOP_AFTER_SECS}s wall-clock cap prevents hung workflows (like Kafka maxWaitMs)</text>
   <!-- Output binding row -->
   <text x="152" y="356" fill="#94a3b8" font-size="8">Output: lastMessage → finalStatus</text>
   <text x="152" y="368" fill="#64748b" font-size="7.5">Variables: { "orderId": {{orderId}} } — correlation scoped to this run</text>
@@ -248,7 +248,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-timeout',
       title: 'Subscription Timeout — Wall-Clock Safety Cap',
       description:
-        `The **Stop** tab is open. Set **After (seconds)** to **${LESSON19_STOP_AFTER_SECS}**.\n\nThis is the maximum wall-clock time the subscription node waits before exiting — directly analogous to Kafka Wait's \`maxWaitMs\`. If the WebSocket stream delivers no events within 5 seconds, the node completes anyway instead of hanging the workflow indefinitely.\n\nIn production, set this generously above your expected event latency (e.g. 30–60 s for slow pipelines). For the Docker demo server, events arrive within ~1 s, so 5 s is a comfortable safety margin with room to spare.`,
+        `The **Stop** tab is open. Set **After (seconds)** to **${LESSON19_STOP_AFTER_SECS}**.\n\nThis is the maximum wall-clock time the subscription node waits before exiting — directly analogous to Kafka Wait's \`maxWaitMs\`. If the WebSocket stream delivers no events within ${LESSON19_STOP_AFTER_SECS} seconds, the node completes anyway instead of hanging the workflow indefinitely.\n\nIn production, set this generously above your expected event latency (e.g. 30–60 s for slow pipelines). The Docker demo server emits three \`orderStatus\` events ~2 s apart (~6 s total), so ${LESSON19_STOP_AFTER_SECS} s leaves headroom for WebSocket connect time and upstream Create Order latency.`,
       highlight: GQL.WF_STOP_SECS_INPUT,
       preAction: async (ctx) => {
         await ensureLesson19WorkflowLoaded(ctx);
@@ -269,7 +269,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-correlation',
       title: 'Correlation — Scoped to This Order',
       description:
-        `Still on the **Stop** tab, set **After N messages** to **${LESSON19_STOP_AFTER_MESSAGES}**.\n\nThe Docker test server emits exactly three \`orderStatus\` events per order: **PENDING** → **PROCESSING** → **COMPLETE** (300 ms apart). Collecting 3 messages ensures the node captures the full progression and the \`lastMessage\` binding holds the final **COMPLETE** status.\n\nCombined with the Variables JSON \`"orderId": {{${LESSON19_ORDER_ID_VAR}}}\`, this is full **correlation**: each concurrent workflow iteration creates its own order, subscribes to its own ID, and collects its own three events — no cross-contamination between parallel runs.`,
+        `Still on the **Stop** tab, set **After N messages** to **${LESSON19_STOP_AFTER_MESSAGES}**.\n\nThe Docker test server emits exactly three \`orderStatus\` events per order: **PENDING** → **PROCESSING** → **COMPLETE** (~2 s apart). Collecting 3 messages ensures the node captures the full progression and the \`lastMessage\` binding holds the final **COMPLETE** status.\n\nCombined with the Variables JSON \`"orderId": {{${LESSON19_ORDER_ID_VAR}}}\`, this is full **correlation**: each concurrent workflow iteration creates its own order, subscribes to its own ID, and collects its own three events — no cross-contamination between parallel runs.`,
       highlight: GQL.WF_STOP_MESSAGES_INPUT,
       preAction: async (ctx) => {
         await ensureLesson19WorkflowLoaded(ctx);
@@ -291,7 +291,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-sample-payload',
       title: 'Output Binding — Capture the Final Event',
       description:
-        `The **Output** tab is open. Click **+ Add** and configure:\n\n- **Field:** \`lastMessage\`\n- **Variable name:** \`${LESSON19_FINAL_STATUS_VAR}\`\n\nSave.\n\nKafka's Wait node has a **Sample Payload** field for Quick Test without a live broker. GraphQL Subscription has no equivalent — instead, this demo relies on **live WebSocket events** from the Docker server: when Create Order runs, the server automatically emits the three status events on the subscription stream.\n\nThe **Stop** rules (3 messages + 5 s cap) are the anti-hang safeguard: they ensure Quick Test always completes even if the WebSocket connection is slow to establish.`,
+        `The **Output** tab is open. Click **+ Add** and configure:\n\n- **Field:** \`lastMessage\`\n- **Variable name:** \`${LESSON19_FINAL_STATUS_VAR}\`\n\nSave.\n\nKafka's Wait node has a **Sample Payload** field for Quick Test without a live broker. GraphQL Subscription has no equivalent — instead, this demo relies on **live WebSocket events** from the Docker server: when Create Order runs, the server automatically emits the three status events on the subscription stream.\n\nThe **Stop** rules (3 messages + ${LESSON19_STOP_AFTER_SECS} s cap) are the anti-hang safeguard: they ensure Quick Test always completes even if the WebSocket connection is slow to establish.`,
       highlight: GQL.WF_OUTPUT_ADD_BTN,
       preAction: async (ctx) => {
         await ensureLesson19WorkflowLoaded(ctx);
@@ -314,7 +314,7 @@ Binding \`lastMessage\` → \`${LESSON19_FINAL_STATUS_VAR}\` gives the Assert no
       id: 'gql19-quick-test',
       title: 'Quick Test — Live Event Chain',
       description:
-        `With the **Console** floating on the left, click **▶ Quick Test** and watch the canvas execute in sequence:\n\n1. **Create Order** turns green — mutation returns an \`orderId\`, bound via Extraction\n2. **Watch Order Status** turns green — WebSocket receives 3 events (PENDING → PROCESSING → COMPLETE)\n3. **Assert Complete** turns green — \`$.orderStatus.status\` equals **COMPLETE**\n\nThe Console shows the full chain: mutation variables and response data, each subscription message, extracted \`${LESSON19_ORDER_ID_VAR}\` and \`${LESSON19_FINAL_STATUS_VAR}\`, and the pass summary. Total wall time is typically under 2 seconds against the local Docker server.`,
+        `With the **Console** floating on the left, click **▶ Quick Test** and watch the canvas execute in sequence:\n\n1. **Create Order** turns green — mutation returns an \`orderId\`, bound via Extraction\n2. **Watch Order Status** turns green — WebSocket receives 3 events (PENDING → PROCESSING → COMPLETE)\n3. **Assert Complete** turns green — \`$.orderStatus.status\` equals **COMPLETE**\n\nThe Console shows the full chain: mutation variables and response data, each subscription message, extracted \`${LESSON19_ORDER_ID_VAR}\` and \`${LESSON19_FINAL_STATUS_VAR}\`, and the pass summary. Total wall time is typically ~7–8 seconds against the local Docker server (Create Order + three ~2 s status events).`,
       highlight: WF.QUICK_TEST_BTN,
       preAction: async (ctx) => {
         await ensureLesson19SubscriptionOutputBound(ctx);

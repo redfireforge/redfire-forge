@@ -208,7 +208,7 @@ export interface GraphqlHistoryItem {
   connectionId: string;
   timestamp: number;                 // Unix ms — compound IDB index key with connectionId
   latencyMs: number;
-  status: 'success' | 'error';       // 'error' = GraphQL errors[] present OR HTTP non-2xx
+  status: 'success' | 'error';       // per-operation: error when no data and (GraphQL errors or HTTP failure)
 }
 
 // Phase 1 — named environment containing resolved key-value variable pairs

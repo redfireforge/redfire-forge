@@ -1233,6 +1233,30 @@ describe('POST /api/graphql/batch', () => {
     expect(res.body.results[1].data).toEqual({ op2: true });
   });
 
+  it('array batch: upstream returns 400 with JSON array (Apollo partial validation) → batchUnsupported=false', async () => {
+    let callCount = 0;
+    mockUpstreamHandler = (_req, res) => {
+      callCount++;
+      res.writeHead(400, { 'content-type': 'application/json' });
+      res.end(JSON.stringify([
+        { data: { health: 'ok' } },
+        { errors: [{ message: 'Cannot query field "nonexistent" on type "Query".' }] },
+      ]));
+    };
+    const res = await request(buildApp())
+      .post('/api/graphql/batch')
+      .send({
+        endpoint: `http://127.0.0.1:${mockUpstreamPort}/graphql`,
+        operations: [{ query: '{ health }' }, { query: '{ nonexistent }' }],
+      });
+    expect(res.status).toBe(200);
+    expect(res.body.batchUnsupported).toBe(false);
+    expect(res.body.results).toHaveLength(2);
+    expect(res.body.results[0].data).toEqual({ health: 'ok' });
+    expect(res.body.results[1].errors[0].message).toContain('nonexistent');
+    expect(callCount).toBe(1);
+  });
+
   it('array batch: upstream returns 400 → falls back to sequential, batchUnsupported=true', async () => {
     let callCount = 0;
     mockUpstreamHandler = (_req, res) => {

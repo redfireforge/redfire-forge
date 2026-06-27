@@ -63,6 +63,10 @@ export function useDemoWorkflowBridge(
       const wf = workflowsRef.current.find((w) => w.name === name);
       if (!wf) return false;
       upd(wf.id, patch);
+      const sync = win.__wfSyncLiveWorkflowFromPatch as
+        | ((workflowName: string, p: Partial<Omit<Workflow, 'id' | 'createdAt'>>) => boolean)
+        | undefined;
+      sync?.(name, patch);
       return true;
     };
 

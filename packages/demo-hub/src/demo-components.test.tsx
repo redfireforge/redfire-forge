@@ -394,6 +394,11 @@ describe('DemoSpotlight', () => {
     overlay.appendChild(dialog);
     document.body.appendChild(overlay);
 
+    vi.spyOn(overlay, 'getBoundingClientRect').mockReturnValue({
+      top: 0, left: 0, width: 400, height: 300,
+      right: 400, bottom: 300, x: 0, y: 0, toJSON: () => ({}),
+    });
+
     vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
       top: 10, left: 10, width: 80, height: 30,
       right: 90, bottom: 40, x: 10, y: 10, toJSON: () => ({}),

@@ -11142,28 +11142,33 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 28px 18px;
-  min-height: 140px;
+  gap: 12px;
+  padding: 32px 24px;
+  min-height: 200px;
   text-align: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 3%, var(--surface));
+  border: 1px dashed color-mix(in srgb, var(--primary) 25%, var(--border));
 }
 .gql-mock-empty-icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--text-muted);
-  opacity: 0.55;
+  color: color-mix(in srgb, var(--primary) 50%, var(--text-muted));
+  opacity: 0.7;
+  font-size: 2.5em;
 }
 .gql-mock-empty-title {
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   color: var(--text);
+  letter-spacing: -0.3px;
 }
 .gql-mock-empty-hint {
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   color: var(--text-muted);
-  line-height: 1.45;
-  max-width: 240px;
+  line-height: 1.5;
+  max-width: 280px;
 }
 .gql-mock-inline-code {
   font-family: var(--font-mono, monospace);
@@ -11252,91 +11257,201 @@
 .gql-mock-script-input:focus { border-color: var(--primary); outline: none; }
 
 /* ── Scenarios tab ───────────────────────────────────────────────────────── */
-.gql-mock-scenarios { padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.gql-mock-scenarios { padding: 16px; display: flex; flex-direction: column; gap: 12px; }
 .gql-mock-scenario-card {
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 8px 10px;
+  border-radius: 8px;
+  padding: 14px 16px;
   background: var(--surface);
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+.gql-mock-scenario-card:hover {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+  background: color-mix(in srgb, var(--primary) 2%, var(--surface));
 }
 .gql-mock-scenario-card--active {
   border-color: var(--primary);
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 .gql-mock-scenario-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 6px;
+  gap: 12px;
 }
-.gql-mock-scenario-name { font-weight: 600; color: var(--text); font-size: 0.8rem; }
-.gql-mock-scenario-actions { display: flex; gap: 5px; align-items: center; }
+.gql-mock-scenario-name {
+  font-weight: 700;
+  color: var(--text);
+  font-size: 0.93rem;
+  flex: 1;
+  word-break: break-word;
+}
+.gql-mock-scenario-actions { display: flex; gap: 8px; align-items: center; }
 .gql-mock-scenario-activate, .gql-mock-scenario-deactivate {
-  font-size: 0.7rem;
-  padding: 2px 8px;
-  border-radius: 4px;
-  border: 1px solid var(--primary);
+  font-size: 0.76rem;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: 5px;
+  border: none;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.18s ease;
+  white-space: nowrap;
 }
 .gql-mock-scenario-activate {
-  background: none;
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
   color: var(--primary);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
 }
-.gql-mock-scenario-activate:hover { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.gql-mock-scenario-activate:hover {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
+  transform: translateY(-1px);
+}
+.gql-mock-scenario-activate:active { transform: translateY(0); }
 .gql-mock-scenario-deactivate {
-  background: var(--primary);
-  color: #fff;
+  background: color-mix(in srgb, var(--primary) 95%, white);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  font-weight: 600;
 }
+.gql-mock-scenario-deactivate:hover {
+  background: var(--primary);
+  color: white;
+  transform: translateY(-1px);
+}
+.gql-mock-scenario-deactivate:active { transform: translateY(0); }
 .gql-mock-scenario-delete {
   background: none;
   border: none;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 0.9rem;
-  padding: 2px 4px;
+  font-size: 1.1rem;
+  padding: 5px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  opacity: 0.6;
 }
-.gql-mock-scenario-delete:hover { color: var(--danger, #f87171); }
-.gql-mock-scenario-resolvers-count { font-size: 0.7rem; color: var(--text-muted); margin-top: 3px; }
+.gql-mock-scenario-delete:hover {
+  color: var(--danger, #f87171);
+  background: color-mix(in srgb, var(--danger, #f87171) 8%, transparent);
+  opacity: 1;
+}
+.gql-mock-scenario-resolvers-count {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
 
 .gql-mock-scenario-add-form {
   display: flex;
-  gap: 6px;
-  align-items: center;
-  padding: 4px 0;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 3%, var(--surface));
 }
 .gql-mock-scenario-name-input {
   flex: 1;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: 4px;
-  color: var(--text);
-  padding: 4px 8px;
-  font-size: 0.78rem;
-}
-.gql-mock-scenario-name-input:focus { border-color: var(--primary); outline: none; }
-.gql-mock-add-btn, .gql-mock-cancel-btn {
-  padding: 4px 10px;
-  border-radius: 4px;
-  font-size: 0.73rem;
-  cursor: pointer;
-  border: 1px solid var(--border);
-}
-.gql-mock-add-btn { background: var(--primary); color: #fff; border-color: var(--primary); }
-.gql-mock-cancel-btn { background: none; color: var(--text-muted); }
-.gql-mock-add-scenario-btn {
-  background: none;
-  border: 1px dashed var(--border);
   border-radius: 5px;
-  color: var(--text-muted);
-  padding: 7px;
+  color: var(--text);
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  transition: border-color 0.18s, box-shadow 0.18s;
+}
+.gql-mock-scenario-name-input::placeholder { color: var(--text-muted); opacity: 0.7; }
+.gql-mock-scenario-name-input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
+.gql-mock-scenario-snap-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text);
   cursor: pointer;
-  font-size: 0.76rem;
+  user-select: none;
+}
+.gql-mock-scenario-snap-label input[type="checkbox"] {
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+.gql-mock-add-btn, .gql-mock-cancel-btn {
+  padding: 8px 14px;
+  border-radius: 5px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.gql-mock-add-btn {
+  background: var(--primary);
+  color: white;
+}
+.gql-mock-add-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--primary) 110%, white);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.2);
+}
+.gql-mock-add-btn:active:not(:disabled) { transform: translateY(0); }
+.gql-mock-add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.gql-mock-cancel-btn {
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  color: var(--text-muted);
+}
+.gql-mock-cancel-btn:hover {
+  background: color-mix(in srgb, var(--text-muted) 25%, transparent);
+  color: var(--text);
+}
+.gql-mock-add-scenario-btn {
+  background: transparent;
+  border: 2px dashed color-mix(in srgb, var(--primary) 40%, var(--border));
+  border-radius: 8px;
+  color: var(--text-muted);
+  padding: 18px 16px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 500;
   width: 100%;
   text-align: center;
-  transition: border-color 0.15s, color 0.15s;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
-.gql-mock-add-scenario-btn:hover { border-color: var(--primary); color: var(--primary); }
+.gql-mock-add-scenario-btn::before {
+  content: "→ ";
+  font-weight: 700;
+  font-size: 1.1em;
+  opacity: 0.6;
+}
+.gql-mock-add-scenario-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 5%, transparent);
+}
+.gql-mock-add-scenario-btn:hover::before { opacity: 1; }
 
 /* ── Scalar factories tab ────────────────────────────────────────────────── */
 .gql-mock-scalar-factories { padding: 4px 0; }

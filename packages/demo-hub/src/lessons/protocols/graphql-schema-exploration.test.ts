@@ -8,6 +8,14 @@ vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
   closeGqlDemoTabs: vi.fn(async () => {}),
 }));
 
+vi.mock('../env-manager-lesson-helpers', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../env-manager-lesson-helpers')>();
+  return {
+    ...actual,
+    ensureGqlDemoHeaderContext: vi.fn().mockResolvedValue(undefined),
+  };
+});
+
 import { gqlSchemaLesson } from './graphql-schema-exploration';
 import { ensureGqlDemoTab, closeGqlDemoTabs } from './graphql-lesson-helpers/gql-demo-tab';
 import { makeCtx } from './ws-test-utils';
@@ -34,6 +42,7 @@ import {
   searchSchemaTypes,
 } from './graphql-lesson-helpers';
 import { getDemoBridgeWindow } from '../../adapters/bridgeWindow';
+import { ensureGqlDemoHeaderContext } from '../env-manager-lesson-helpers';
 import { stubSchemaExplorerDom, stubMonacoEditor } from './__test-utils__/graphql-test-fixtures';
 
 describe('gql-schema-exploration lesson', () => {
@@ -546,6 +555,7 @@ describe('gql schema selector helpers', () => {
     const clickSpy = vi.spyOn(tab, 'click');
     const ctx = makeCtx();
     await gqlSchemaLessonSetup(ctx);
+    expect(ensureGqlDemoHeaderContext).toHaveBeenCalled();
     expect(clickSpy).toHaveBeenCalled();
   });
 
@@ -589,8 +599,10 @@ describe('gql schema selector helpers', () => {
       <button data-testid="gql-right-tab-response" aria-selected="false"></button>
       <button data-testid="gql-right-tab-schema" aria-selected="false"></button>
     `;
+    vi.mocked(ensureGqlDemoHeaderContext).mockClear();
     const ctx = makeCtx();
     await prepareGql4IntrospectReading(ctx);
+    expect(ensureGqlDemoHeaderContext).not.toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
   });
 

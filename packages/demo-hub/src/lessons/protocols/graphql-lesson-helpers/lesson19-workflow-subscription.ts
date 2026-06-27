@@ -8,6 +8,7 @@ import {
   clickWfConfigTab,
   closeWfConfigModalIfOpen,
   closeWfConsoleIfOpen,
+  cleanupWorkflowDemoRunUi,
   collapseWfDemoAppSidebar,
   ensureWfNodeConfigModalOpen,
   fillWfConfigField,
@@ -62,7 +63,7 @@ export const LESSON19_SUBSCRIPTION_QUERY =
 export const LESSON19_SUBSCRIPTION_VARS = '{\n  "orderId": {{orderId}}\n}';
 
 /** Wall-clock safety cap (seconds) on the Stop tab — analogous to Kafka maxWaitMs. */
-export const LESSON19_STOP_AFTER_SECS = '5';
+export const LESSON19_STOP_AFTER_SECS = '10';
 
 /** Collect all three status events (PENDING → PROCESSING → COMPLETE). */
 export const LESSON19_STOP_AFTER_MESSAGES = '3';
@@ -398,6 +399,7 @@ export async function ensureLesson19QuickTestRun(ctx: DemoActionContext): Promis
 
 export async function gqlWorkflowSubscriptionLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson19SessionFlags();
+  await cleanupWorkflowDemoRunUi(ctx);
   await seedNamedWorkflow(ctx, LESSON19_WF_NAME, createGqlOrderFlowDemoWorkflow(), {
     deleteDelayMs: 100,
     insertDelayMs: 300,
@@ -412,7 +414,7 @@ export async function gqlWorkflowSubscriptionLessonSetup(ctx: DemoActionContext)
 
 export async function gqlWorkflowSubscriptionLessonCleanup(ctx: DemoActionContext): Promise<void> {
   await closeWfConfigModalIfOpen(ctx);
-  await closeWfConsoleIfOpen(ctx);
+  await cleanupWorkflowDemoRunUi(ctx);
   deleteWorkflowByName(LESSON19_WF_NAME);
   resetGqlLesson19SessionFlags();
   await ctx.delay(100);

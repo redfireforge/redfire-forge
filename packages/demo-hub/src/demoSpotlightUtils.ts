@@ -4,7 +4,20 @@ export function isDemoElementVisible(el: Element): boolean {
   const rect = el.getBoundingClientRect();
   if (rect.width === 0 && rect.height === 0) return false;
   const style = getComputedStyle(el);
-  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
+  if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') {
+    return false;
+  }
+  let node: Element | null = el;
+  while (node) {
+    if (node instanceof HTMLElement && node.hidden) return false;
+    node = node.parentElement;
+  }
+  return true;
+}
+
+/** True when a selector matches an element that is visible in the active app pane. */
+export function isDemoTargetVisible(selector: string): boolean {
+  return findFirstVisibleElement(selector) !== null;
 }
 
 /** Nearest ancestor with vertical overflow scrolling (e.g. Metadata tab, Auth panel). */

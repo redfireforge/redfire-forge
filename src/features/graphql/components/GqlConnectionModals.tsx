@@ -86,7 +86,6 @@ export function GqlConnectionModals({
           onSave={onSaveProfile}
           onLoad={(profile) => {
             onApplyProfileToActiveTab(profile);
-            onProfileModalClose();
             prevBaseUrlRef.current = '\0profile-pinned';
             removeKey(ENDPOINT_BASE_STORAGE_KEY).catch(() => { /* silent */ });
           }}

@@ -256,6 +256,58 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_PRODUCTION_PROFILE_NAME));
   });
 
+  it('demonstrateLesson14LoadProfilesOnly opens modal before Load when profile modal is unmounted', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    stubProfileDom();
+    const profileListHtml = `
+      <li class="gql-profile-row">
+        <span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span>
+        <span class="gql-profile-row__unused-hint">Not linked to any tab</span>
+        <button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_STAGING_PROFILE_NAME}">Load</button>
+      </li>
+      <li class="gql-profile-row">
+        <span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span>
+        <span class="gql-profile-row__unused-hint">Not linked to any tab</span>
+        <button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_PRODUCTION_PROFILE_NAME}">Load</button>
+      </li>`;
+
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.PROFILE_SAVE_BTN) {
+        document.querySelector('.gql-profile-list')!.innerHTML = profileListHtml;
+      }
+      if (sel === GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME)
+        || sel === GQL.profileLoadBtn(LESSON14_PRODUCTION_PROFILE_NAME)) {
+        const row = document.querySelector(sel)?.closest('.gql-profile-row');
+        row?.querySelector('.gql-profile-row__unused-hint')?.remove();
+        row?.querySelector('.gql-profile-btn--load')?.replaceWith(
+          '<span class="gql-profile-loaded-badge" data-testid="gql-profile-loaded-badge">Loaded</span>',
+        );
+      }
+    });
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+
+    await demonstrateLesson14SaveProfiles(ctx);
+    document.querySelector(GQL.PROFILE_MODAL)?.remove();
+
+    const w = window as unknown as Record<string, unknown>;
+    w.__demoOpenGqlProfileModal = () => {
+      if (document.querySelector(GQL.PROFILE_MODAL)) return true;
+      document.body.insertAdjacentHTML('beforeend', `
+        <div data-testid="gql-profile-modal">
+          <button data-testid="gql-profile-close-btn"></button>
+          <ul class="gql-profile-list">${profileListHtml}</ul>
+        </div>`);
+      return true;
+    };
+
+    vi.mocked(ctx.click).mockClear();
+    await demonstrateLesson14LoadProfilesOnly(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME));
+    expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_PRODUCTION_PROFILE_NAME));
+    delete w.__demoOpenGqlProfileModal;
+  });
+
   it('demonstrateLesson14ProfileAuthLink opens inherit banner on Production tab', async () => {
     const ctx = makeCtx();
     stubTwoTabDom();
@@ -291,7 +343,6 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     });
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await demonstrateLesson14ProfileLinks(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_BADGE);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.PROFILE_MODAL, 5000);
     expect(ctx.delay).toHaveBeenCalledWith(2500);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 5000);
@@ -468,8 +519,10 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
           <li class="gql-profile-row"><span class="gql-profile-row__name">Staging</span><button class="gql-profile-btn--load">Load</button></li>`);
       }
     });
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson14TabProfileLinks(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_BADGE);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.PROFILE_MODAL, 5000);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME));
   });
 
   it('closeProfileModalIfOpen closes modal when open during profile save', async () => {

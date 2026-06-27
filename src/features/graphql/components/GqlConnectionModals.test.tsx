@@ -141,7 +141,7 @@ describe('GqlConnectionModals — profile modal interactions', () => {
     expect(onSaveProfile).toHaveBeenCalledWith('New Profile');
   });
 
-  it('Phase 6F: applies profile to active tab on profile load', () => {
+  it('Phase 6F: applies profile to active tab on profile load without closing modal', () => {
     const onApplyProfileToActiveTab = vi.fn();
     const onProfileModalClose = vi.fn();
     render(<GqlConnectionModals {...makeDefaultProps({ profileModalOpen: true, onApplyProfileToActiveTab, onProfileModalClose })} />);
@@ -150,7 +150,7 @@ describe('GqlConnectionModals — profile modal interactions', () => {
       endpoint: 'https://new.endpoint/gql',
       auth: null,
     });
-    expect(onProfileModalClose).toHaveBeenCalledOnce();
+    expect(onProfileModalClose).not.toHaveBeenCalled();
     expect(removeKey).toHaveBeenCalledWith('gql-endpoint-base');
   });
 

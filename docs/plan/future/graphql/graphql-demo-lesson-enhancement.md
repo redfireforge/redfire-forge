@@ -214,8 +214,8 @@ Auth and TLS lessons were added to the WS and Kafka curricula when secure Docker
 
 | Slot | `id` | Title | Steps | Est. | Status |
 |------|------|-------|-------|------|--------|
-| **GQL-1** | `gql-first-query` | Your First GraphQL Query | 13 | 7 min | ✅ **Enhancement complete** (**§3.5**) |
-| **GQL-2** | `gql-variables` | Variables & Arguments | 18 | 9 min | ✅ **Enhancement complete** (**§3.6**) |
+| **GQL-1** | `gql-first-query` | Your First GraphQL Query | 13 | 7 min | ✅ **Phase 8 E2E complete** (2026-06-27) · §3.5 reference lesson |
+| **GQL-2** | `gql-variables` | Variables & Arguments | 18 | 9 min | ✅ **Phase 8 E2E complete** (2026-06-27) · §3.6 reference lesson |
 | **GQL-3** | `gql-schema-exploration` | Schema Exploration | 10 | 5 min | ✅ **Enhancement complete** (2026-06-23) |
 | **GQL-4** | `gql-auth-headers` | Authentication & Headers | **14** | 6 min | ✅ **Enhancement complete** · Basic + OAuth + inherit ✅ · full Docker E2E ✅ |
 | **GQL-5** | `gql-https-tls` | HTTPS, TLS & Certificates | **18** | **10 min** | ✅ **Complete (7A + mTLS + auth-on-TLS)** · full Docker E2E ✅ · **Phase 8 Tauri ✅** |
@@ -227,11 +227,11 @@ Auth and TLS lessons were added to the WS and Kafka curricula when secure Docker
 | **GQL-11** | `gql-performance-tracing` | Performance Tracing | 8 | 4 min | ✅ **Enhancement complete** · §11.0 ✅ |
 | **GQL-12** | `gql-schema-diff` | Schema Diff | 7 | 4 min | ✅ **Enhancement complete** · §11.0 ✅ |
 | **GQL-13** | `gql-mock-server` | Mock Server | **15** | 6 min | ✅ **Enhancement complete** · §11.0 ✅ |
-| **GQL-14** | `gql-multi-tab` | Multi-Tab Workspaces | **10** | 6 min | ✅ Authored (7B) · `tabBudget:2` · §11.0 ✅ |
-| **GQL-15** | `gql-batch-execution` | Batch Execution | **9** | 4 min | ✅ Authored · Advanced Settings batch · `tabBudget:2` · §11.0 ✅ |
+| **GQL-14** | `gql-multi-tab` | Multi-Tab Workspaces | **12** | 6 min | ✅ **Phase 8 E2E complete** (2026-06-27) · `tabBudget:2` · profiles + polling |
+| **GQL-15** | `gql-batch-execution` | Batch Execution | **10** | 6 min | ✅ **Phase 8 E2E complete** (2026-06-27) · `tabBudget:2` · Advanced Settings batch |
 | **GQL-16** | `gql-workflow-integration` | Workflow Integration | **12** | **7 min** | ✅ **Enhancement complete** (2026-06-23) |
 | **GQL-17** | `gql-workflow-runner` | Workflow Runner & Results | 10 | 5 min | ✅ Authored · Phase 8 pending · N/A |
-| **GQL-18** | `gql-workflow-mutation` | Mutation Node in Workflow | 8 | 4 min | ✅ Authored · Phase 8 pending · N/A |
+| **GQL-18** | `gql-workflow-mutation` | Mutation Node in Workflow | **15** | **8 min** | ✅ **Phase 8 E2E complete** (2026-06-27) · blank canvas + Delete User |
 | **GQL-19** | `gql-workflow-subscription` | Subscription Node in Workflow | 9 | 5 min | ✅ Authored · Phase 8 pending · N/A |
 
 **Total curriculum time:** ~104 min (sum of `estimatedMinutes` in lesson files; verify with `graphql-smoke-e2e-alignment.test.ts`).
@@ -431,11 +431,11 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 | GQL-11 | `gql-performance-tracing` | **8** | ✅ | 🔨 audit | ✅ `demo-gql-performance-tracing` | ✅ **Audit** | ✅ |
 | GQL-12 | `gql-schema-diff` | **7** | ✅ | 🔨 audit | ✅ `demo-gql-schema-diff` | ✅ **Audit** | ✅ |
 | GQL-13 | `gql-mock-server` | **15** | ✅ | 🔨 audit | ✅ `demo-gql-mock-server` | ✅ **Audit** | ✅ |
-| GQL-14 | `gql-multi-tab` | **10** | ✅ | ✅ | ✅ `demo-gql-multi-tab` | ✅ Authored | ✅ `tabBudget:2` |
-| GQL-15 | `gql-batch-execution` | **9** | ✅ | 🔨 audit | ✅ `demo-gql-batch-execution` | ✅ Authored | ✅ `tabBudget:2` |
+| GQL-14 | `gql-multi-tab` | **12** | ✅ | ✅ | ✅ `demo-gql-multi-tab` | ✅ **Complete** | ✅ `tabBudget:2` |
+| GQL-15 | `gql-batch-execution` | **10** | ✅ | ✅ | ✅ `demo-gql-batch-execution` | ✅ **Complete** | ✅ `tabBudget:2` |
 | GQL-16 | `gql-workflow-integration` | **12** | ✅ | ✅ | ✅ `demo-gql-workflow-integration` | ✅ **Complete** | N/A |
 | GQL-17 | `gql-workflow-runner` | 10 | ✅ | 🔨 audit | ✅ `demo-gql-workflow-runner` | ✅ Authored | N/A |
-| GQL-18 | `gql-workflow-mutation` | 8 | ✅ | 🔨 audit | — | ✅ Authored | N/A |
+| GQL-18 | `gql-workflow-mutation` | **15** | ✅ | ✅ | ✅ `demo-gql-workflow-mutation` + `demo-gql18-delete-validation` | ✅ **Complete** | N/A |
 | GQL-19 | `gql-workflow-subscription` | 9 | ✅ | 🔨 audit | ✅ `demo-gql-workflow-subscription` | ✅ Authored | N/A |
 
 **E2E notes (2026-06-26):**
@@ -459,7 +459,8 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 | `e2e/demo-gql-batch-execution.spec.ts` | GQL-15 |
 | `e2e/demo-gql-workflow-integration.spec.ts` | GQL-16 |
 | `e2e/demo-gql-workflow-runner.spec.ts` | GQL-17 |
-| `e2e/demo-gql-workflow-mutation.spec.ts` | GQL-18 |
+| `e2e/demo-gql-workflow-mutation.spec.ts` | GQL-18 (15 steps, full walk) |
+| `e2e/demo-gql18-delete-validation.spec.ts` | GQL-18 steps 13–14 (Delete User add + configure) |
 | `e2e/demo-gql-workflow-subscription.spec.ts` | GQL-19 |
 | `e2e/demo-gql-workspace-isolation.spec.ts` | §11.0 acceptance (`gql110`) |
 | `e2e/graphql-lessons.spec.ts` | Smoke auto-play GQL-1..3 via `graphql-lesson-smoke-helpers.ts` |
@@ -1049,7 +1050,7 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 - [x] Create `graphql-workflow-runner.ts` (GQL-17, 10 steps)
   - [x] Helper: `lesson17-workflow-runner.ts`
   - [x] Test: `graphql-workflow-runner.test.ts`
-- [x] Create `graphql-workflow-mutation.ts` (GQL-18, 8 steps)
+- [x] Create `graphql-workflow-mutation.ts` (GQL-18, **15 steps** — blank canvas build + Delete User teardown)
   - [x] Helper: `lesson18-workflow-mutation.ts` (or inline helpers)
   - [x] Test: `graphql-workflow-mutation.test.ts`
 - [x] Create `graphql-workflow-subscription.ts` (GQL-19, 9 steps)

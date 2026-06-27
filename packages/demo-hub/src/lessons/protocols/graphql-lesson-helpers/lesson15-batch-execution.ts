@@ -16,7 +16,7 @@ import {
   resetGqlLesson2SessionFlags,
   resetGqlLessonSessionFlags,
 } from './core';
-import { patchDemoTabConnection, patchDemoTabConnectionById } from '../../../adapters';
+import { patchDemoTabConnection, patchDemoTabConnectionById, resetGqlDemoBatchDetection } from '../../../adapters';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
 import { resetGqlLesson5SessionFlags } from './lesson5-subscriptions';
@@ -680,6 +680,8 @@ export async function gqlBatchLessonSetup(ctx: DemoActionContext): Promise<void>
   resetGqlLesson14SessionFlags();
   resetGqlLesson15SessionFlags();
 
+  await resetGqlDemoBatchDetection();
+
   await ensureEditorMode(ctx);
   await closeGqlActivityPanelIfOpen(ctx);
   const responseTab = document.querySelector<HTMLElement>(GQL.RIGHT_TAB_RESPONSE);
@@ -695,6 +697,7 @@ export async function gqlBatchLessonSetup(ctx: DemoActionContext): Promise<void>
 /** Batch lesson cleanup (GQL-15) — close sidebar panels and demo tabs. */
 export async function gqlBatchLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlLesson15SessionFlags();
+  await resetGqlDemoBatchDetection();
   await closeGqlActivityPanelIfOpen(ctx);
   await closeGqlDemoTabs(ctx, GQL15_LESSON_ID);
 }

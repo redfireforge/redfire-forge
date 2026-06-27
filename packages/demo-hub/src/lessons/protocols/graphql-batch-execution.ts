@@ -42,7 +42,7 @@ export const gqlBatchExecutionLesson: DemoLesson = {
   tabBudget: 2,
 
   dockerEndpoint: GQL_DEMO_HEALTH,
-  dockerCommand: 'cd docker/graphql && docker compose up -d',
+  dockerCommand: 'cd docker/graphql && docker compose up -d --build',
   tag: '🐳 Docker',
 
   setup: gqlBatchLessonSetup,
@@ -62,7 +62,7 @@ Mutations with observable side-effects (creating users, sending emails, charging
 A batch request is a single HTTP call to one URL. If two tabs point to different servers (e.g. staging vs. production from GQL-14), there is no single URL that can receive both operations. Studio enforces this constraint at the UI level — the **Send Batch** button is disabled when checked tabs have different resolved endpoints. This is the converse of GQL-14: multi-tab isolation enables parallel cross-server work, while batch execution requires same-server unity.
 
 **What happens when the server does not support batching?**
-RFC-compliant GraphQL servers accept an array body and return an array response. Older servers (e.g. those built on graphql-js before array support was added) reject the array and return a single error object. Studio detects this on the first attempt and falls back to **sequential** execution — each operation is sent individually, but results are still aggregated in the same Batch Results panel so your test suite continues to work. A "Sequential fallback" badge appears on the panel header.`,
+The Docker demo server on port **4010** has JSON-array batching **enabled** — you should see **1 upstream HTTP POST · JSON array batch** in the Batch Results transport line. For other endpoints, RFC-compliant servers accept an array body and return an array response. Older servers reject the array and return a single error object. Studio detects this on the first attempt and falls back to **sequential** execution — each operation is sent individually, but results are still aggregated in the same Batch Results panel. A **Sequential fallback** badge appears on the panel header for those servers only.`,
     keyTerms: [
       {
         term: 'Batch request',
@@ -336,7 +336,7 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
       id: 'gql15-batch-results',
       title: 'Batch Results Panel',
       description:
-        'The floating **Batch execution** modal opens with a transport line such as **1 upstream HTTP POST · JSON array batch · N ms total** (or **sequential fallback** when the server rejects array bodies). **N passed / M failed** pills summarise the run; each stacked card shows operation name, HTTP status, latency, and JSON body.\n\n' +
+        'The floating **Batch execution** modal opens with a transport line such as **1 upstream HTTP POST · JSON array batch · N ms total** on the demo Docker server (true single-request batching). On servers that reject array bodies, the same line shows **sequential fallback** instead. **N passed / M failed** pills summarise the run; each stacked card shows operation name, HTTP status, latency, and JSON body.\n\n' +
         '**Why a separate modal?** Batch runs produce N results at once — a single Response pane cannot show them all without hiding context. The modal is the authoritative full-batch view; you can dismiss it and still inspect each tab individually (next step).',
       highlight: GQL.BATCH_RESULTS,
       preAction: prepareGql15BatchResultsReading,
@@ -373,13 +373,13 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
       pauseAfter: true,
     },
 
-    // ── Step 10: Sequential Fallback & Export ──────────────────────────────────
+    // ── Step 10: Batch History & CI Export ─────────────────────────────────────
     {
       id: 'gql15-export-batch',
-      title: 'Sequential Fallback & CI Export',
+      title: 'Batch History & CI Export',
       description:
-        'If a server rejects JSON-array batching, Studio falls back to **sequential execution** — each operation is sent individually, results still land in the same Batch Results modal, and **Sequential fallback** appears in the header transport line. Per-tab Response banners then show **op N** latency per operation instead of one shared batch time.\n\n' +
-        '**Why does this matter for CI?** Older GraphQL servers may not accept an array body. Sequential fallback lets you write tests assuming batch semantics without knowing the server upfront. For regression snapshots: open the **History** sidebar (⏱ in the activity bar) — each batch run is logged. Select an entry and click **Load** to restore the full result, or copy JSON from the result cards.',
+        'On the demo Docker server you ran a **true JSON-array batch** — one HTTP POST, one response array. Studio still supports **sequential fallback** for older servers that reject array bodies; that mode shows a **Sequential fallback** badge and per-operation latency (**op N**) instead of a shared batch time.\n\n' +
+        '**Why does this matter for CI?** Batch runs are logged per connection. Open the **History** sidebar (⏱ in the activity bar) — each batch run is stored. Select an entry and click **Load** to restore the full result, or copy JSON from the result cards for regression snapshots.',
       highlight: GQL.ACTIVITY_HISTORY,
       preAction: prepareGql15ExportBatchReading,
       action: demonstrateLesson15OpenHistory,

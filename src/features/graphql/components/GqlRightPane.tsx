@@ -18,6 +18,7 @@ import type {
 } from '../../../shared/types/graphql';
 import type { DeprecatedFieldUsage } from '../utils/deprecatedFieldScanner';
 import { GraphqlResponseViewer } from './GraphqlResponseViewer';
+import type { GraphqlResponseViewerTab } from './GraphqlResponseViewer';
 import { GraphqlSchemaExplorer } from './GraphqlSchemaExplorer';
 import { GraphqlSubscriptionLog } from './GraphqlSubscriptionLog';
 import type { MessageAssertionResults } from '../utils/subscriptionAssertions';
@@ -86,6 +87,10 @@ interface GqlRightPaneProps {
   onOpenBatchResults?: () => void;
   /** True while Send Batch is in flight */
   batchExecuting?: boolean;
+  /** Active workspace tab id — per-tab response sub-tab memory */
+  workspaceTabId?: string;
+  responseSubTab?: GraphqlResponseViewerTab;
+  onResponseSubTabChange?: (tab: GraphqlResponseViewerTab) => void;
 }
 
 export function GqlRightPane({
@@ -111,6 +116,9 @@ export function GqlRightPane({
   onOpenCollectionItem,
   onOpenBatchResults,
   batchExecuting = false,
+  workspaceTabId,
+  responseSubTab,
+  onResponseSubTabChange,
 }: GqlRightPaneProps) {
   const hasErrors = !!(response?.errors?.length);
   const hasData = response?.data != null;
@@ -286,6 +294,9 @@ export function GqlRightPane({
             batchExecuting={batchExecuting}
             onOpenBatchResults={onOpenBatchResults}
             latencyHistory={latencyHistory}
+            workspaceTabId={workspaceTabId}
+            responseSubTab={responseSubTab}
+            onResponseSubTabChange={onResponseSubTabChange}
           />
         )}
 

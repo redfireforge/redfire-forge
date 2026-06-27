@@ -149,6 +149,30 @@ export async function dismissWorkflowExecSummary(ctx: DemoActionContext): Promis
   }
 }
 
+/**
+ * Clear Quick Test run badges, console logs, exec summary strip, and close the console panel.
+ * Call from demo setup/cleanup so exiting a lesson does not leave stale run UI.
+ */
+export function resetWorkflowRunStateQuiet(): boolean {
+  const bridge = (window as unknown as Record<string, unknown>).__wfResetRunState as
+    | (() => boolean)
+    | undefined;
+  if (bridge?.()) return true;
+
+  document.querySelector<HTMLElement>(WF.RESET_RUN_BTN)?.click();
+  const clearBtn = document.querySelector<HTMLButtonElement>(WF.CONSOLE_CLEAR_BTN);
+  if (clearBtn && !clearBtn.disabled) clearBtn.click();
+  document.querySelector<HTMLElement>('.wf-exec-strip-close')?.click();
+  return false;
+}
+
+export async function cleanupWorkflowDemoRunUi(ctx: DemoActionContext): Promise<void> {
+  resetWorkflowRunStateQuiet();
+  await dismissWorkflowExecSummary(ctx);
+  await closeWfConsoleIfOpen(ctx);
+  await ctx.delay(200);
+}
+
 /** Hide the app-level Workflows list sidebar so the canvas has maximum space. */
 export async function collapseWfDemoAppSidebar(ctx: DemoActionContext): Promise<void> {
   collapseAppSidebar();

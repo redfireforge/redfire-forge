@@ -109,6 +109,7 @@ export function useLiveDemoPanelLayout(): {
 
   const onDragMouseDown = useCallback((e: ReactMouseEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
+    if ((e.target as HTMLElement).closest('.demo-live-lesson-name')) return;
     e.preventDefault();
 
     const panel = panelRef.current;

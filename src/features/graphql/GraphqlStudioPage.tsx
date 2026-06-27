@@ -10,6 +10,7 @@ import { GraphqlStudioDemoBridges } from './components/GraphqlStudioDemoBridges'
 import { GraphqlStudioPageOverlays } from './components/GraphqlStudioPageOverlays';
 import { GraphqlStudioLeftActivityPanel } from './components/GraphqlStudioLeftActivityPanel';
 import { GraphqlStudioSplitWorkspace } from './components/GraphqlStudioSplitWorkspace';
+import type { GraphqlResponseViewerTab } from './components/GraphqlResponseViewer';
 import { loadPersistedActivityTab } from './utils/gqlActivityBarUtils';
 import { useGraphqlStudioTabExecution } from './hooks/useGraphqlStudioTabExecution';
 import { useQueryValidation } from './hooks/useQueryValidation';
@@ -145,6 +146,7 @@ export function GraphqlStudioPage({
     updateActiveTabTlsSettings,
     updateActiveTabPolling, clearActiveTabPolling, hasActiveTabPollingOverride, hasPendingProfileEndpoint,
     updateActiveTabAuth, clearActiveTabAuth, hasActiveTabAuthOverride,
+    updateActiveTab,
     handleSelectOperation, handleQueryChange, handleVariablesChange,
     handleHeadersChange, handleAssertionsChange, handleSubscriptionTransportChange,
     activeDemoLessonId,
@@ -377,6 +379,13 @@ export function GraphqlStudioPage({
   } = useGraphqlAdvancedSettings(tabSchemaConnectionId, activeTabApqInfo);
 
   const onIntrospectComplete = useCallback(() => setRightView('schema'), [setRightView]);
+
+  const handleResponseSubTabChange = useCallback(
+    (subTab: GraphqlResponseViewerTab) => {
+      updateActiveTab({ responseSubTab: subTab });
+    },
+    [updateActiveTab],
+  );
 
   const {
     schemaStatus,
@@ -629,6 +638,8 @@ export function GraphqlStudioPage({
         applyTlsSettings={handleConnectionTlsChange}
         setGqlQuery={handleDemoSetGqlQuery}
         setRightView={setRightView}
+        handleAdvSettingsChange={handleAdvSettingsChange}
+        setBatchUnsupportedToast={setBatchUnsupportedToast}
       />
       {executionLayers}
       <GraphqlStudioPageToolbar
@@ -863,6 +874,7 @@ export function GraphqlStudioPage({
             onResubscribeSubscription={handleSubscribe}
             onOpenBatchResults={batchResult ? openBatchResults : undefined}
             batchExecuting={batchExecuting && activeTabId != null && batchedTabIdsSet.has(activeTabId)}
+            onResponseSubTabChange={handleResponseSubTabChange}
           />
         </div>
       </div>

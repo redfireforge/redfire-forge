@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { flushSync } from 'react-dom';
 import { useAppLayoutSync } from './hooks/useAppLayoutSync';
 import { useGalleryMigration } from './hooks/useGalleryMigration';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
@@ -127,7 +128,10 @@ export default function App() {
   const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
-  const navigateToTab = useCallback((t: string) => setActiveTab(t as Tab), [setActiveTab]);
+  /** Demo lesson tab switches must commit before waitFor/click — Tauri WebView can lag async setState. */
+  const navigateToTab = useCallback((t: string) => {
+    flushSync(() => setActiveTab(t as Tab));
+  }, [setActiveTab]);
 
   // When sidebar / sub-nav navigates during live mode, exit only if leaving the
   // lesson's tab scope. Same-tab clicks (e.g. workflow sidebar re-select) must
