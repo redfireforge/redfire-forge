@@ -1,16 +1,12 @@
-/**
- * GraphqlStudioPage — GraphQL Studio main page (tabs, execution, schema, collections).
- * Orchestration hooks live under hooks/; layout pieces under components/GraphqlStudioPage*.
- */
-import { useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react';
+import { useMemo, useRef, useState, useCallback } from 'react';
 import { useMonaco } from '@monaco-editor/react';
 import { GQL_STUDIO_PROXY_BASE } from './graphqlStudioPageConstants';
 import type { GraphqlHistoryItem, GraphqlAuth } from '../../shared/types/graphql';
-import { GraphqlConnectionBar } from './components/GraphqlConnectionBar';
 import { GqlTabBar } from './components/GqlTabBar';
-import { GraphqlAdvancedSettings } from './components/GraphqlAdvancedSettings';
 import { GraphqlStudioActivityBar } from './components/GraphqlStudioActivityBar';
-import { GraphqlStudioPageDialogs } from './components/GraphqlStudioPageDialogs';
+import { GraphqlStudioPageToolbar } from './components/GraphqlStudioPageToolbar';
+import { buildGraphqlStudioPageToolbarProps } from './utils/graphqlStudioPageToolbarProps';
+import { GraphqlStudioDemoBridges } from './components/GraphqlStudioDemoBridges';
 import { GraphqlStudioPageOverlays } from './components/GraphqlStudioPageOverlays';
 import { GraphqlStudioLeftActivityPanel } from './components/GraphqlStudioLeftActivityPanel';
 import { GraphqlStudioSplitWorkspace } from './components/GraphqlStudioSplitWorkspace';
@@ -27,17 +23,11 @@ import { useGraphqlCollections } from './hooks/useGraphqlCollections';
 import { useGraphqlCollectionRunner } from './hooks/useGraphqlCollectionRunner';
 import { useGraphqlConnectionSettings } from './hooks/useGraphqlConnectionSettings';
 import { useGqlItemLoaders } from './hooks/useGqlItemLoaders';
-import { DEMO_HUB_ENABLED } from '../../config/features';
 import { useGraphqlStudioShortcutsBridge } from './hooks/useGraphqlStudioShortcutsBridge';
 import { useGraphqlStudioSplitPanes } from './hooks/useGraphqlStudioSplitPanes';
 import { useGraphqlCollectionRun } from './hooks/useGraphqlCollectionRun';
 import { useGraphqlStudioEnvMap } from './hooks/useGraphqlStudioEnvMap';
-
 import { useDemoGqlModalLockBridge } from './hooks/useDemoGqlModalLockBridge';
-
-const LazyDemoGqlStudioBridges = DEMO_HUB_ENABLED
-  ? lazy(() => import('./DemoGqlStudioBridges'))
-  : null;
 import { useGraphqlHistoryMaxItems } from './hooks/useGraphqlHistoryMaxItems';
 import { useMonacoExecutionMarkers } from './hooks/useMonacoExecutionMarkers';
 import { resolveVars } from './utils/envUtils';
@@ -57,7 +47,6 @@ import { syncBatchResultsToTabResponses } from './utils/syncBatchResultsToTabRes
 import { useGqlTabConnectionHandlers } from './hooks/useGqlTabConnectionHandlers';
 import { resolveGqlAuthBadgePresentation } from './utils/authUtils';
 import { findProfileById } from './utils/tabConnectionResolution';
-import { buildStudioTabLinkSlices } from './utils/profileTabUsage';
 import { useGqlExecutionCompletedHandler } from './hooks/useGqlExecutionCompletedHandler';
 import { useGraphqlStudioExecute } from './hooks/useGraphqlStudioExecute';
 import { useGqlVariablesValidation } from './hooks/useGqlVariablesValidation';
@@ -634,144 +623,124 @@ export function GraphqlStudioPage({
 
   return (
     <div className="gql-studio" data-testid="gql-studio-page">
-      {LazyDemoGqlStudioBridges && (
-        <Suspense fallback={null}>
-          <LazyDemoGqlStudioBridges
-            upsertEnvironment={upsertEnvironment}
-            deleteEnvironmentByName={deleteEnvironmentByName}
-            applyTlsSettings={handleConnectionTlsChange}
-            setGqlQuery={handleDemoSetGqlQuery}
-            setRightView={setRightView}
-          />
-        </Suspense>
-      )}
+      <GraphqlStudioDemoBridges
+        upsertEnvironment={upsertEnvironment}
+        deleteEnvironmentByName={deleteEnvironmentByName}
+        applyTlsSettings={handleConnectionTlsChange}
+        setGqlQuery={handleDemoSetGqlQuery}
+        setRightView={setRightView}
+      />
       {executionLayers}
-      <GraphqlConnectionBar
-        endpoint={resolvedTabEndpoint}
-        onEndpointChange={handleConnectionEndpointChange}
-        hasEndpointOverride={hasActiveTabEndpointOverride || hasActiveTabProfileLink}
-        onClearEndpoint={clearActiveTabEndpoint}
-        onExecute={handleExecute}
-        onCancel={handleCancel}
-        executing={isActiveTabExecuting}
-        introspecting={introspecting}
-        onIntrospect={handleIntrospect}
-        schemaStatus={connectionBarSchemaStatus}
-        typesCount={schemaInfo?.types?.length}
-        schemaPolling={resolvedTabPollingEnabled}
-        operations={operations}
-        selectedOperation={selectedOperation}
-        onSelectOperation={handleSelectOperation}
-        varsInvalid={varsError !== null}
-        queryEmpty={!activeTab?.query.trim()}
-        fileErrors={fileEntries.some((e) => e.error !== null)}
-        queryValidationErrors={queryValidationErrorCount}
-        auth={resolvedTabAuth}
-        onFocusAuthPanel={focusAuthPanel}
-        authBadgePresentation={authBadgePresentation}
-        globalAuthProfiles={globalAuthProfiles}
-        recentEndpoints={recentEndpoints}
-        onRemoveRecentEndpoint={removeRecentEndpoint}
-        activeEnvName={activeEnvironment?.name ?? null}
-        activeEnvironment={activeEnvironment}
-        globalEnvMap={globalEnvMap}
-        endpointProtocolStatus={endpointProtocolStatus}
-        onEnvBadgeClick={() => setEnvModalOpen(true)}
-        profiles={profiles}
-        onProfileBadgeClick={() => setProfileModalOpen(true)}
-        skipTlsVerify={resolvedTabSkipTlsVerify}
-        onSkipTlsVerifyChange={handleConnectionSkipTlsChange}
-        tlsCaCert={resolvedTabTls.caCert}
-        tlsClientCert={resolvedTabTls.clientCert}
-        tlsClientKey={resolvedTabTls.clientKey}
-        onTlsSettingsChange={handleConnectionTlsChange}
-        pollingEnabled={resolvedTabPollingEnabled}
-        pollingIntervalSeconds={resolvedTabPollingIntervalSeconds}
-        onPollingChange={handleConnectionPollingChange}
-        hasPollingOverride={hasActiveTabPollingOverride}
-        onClearPolling={clearActiveTabPolling}
-        endpointLinkPending={hasPendingProfileEndpoint}
-        pollErrorMessage={pollErrorMessage}
-        activeOperationType={activeTab?.operationType ?? null}
-        subscriptionState={subscription.state}
-        onSubscribe={handleSubscribe}
-        onStop={handleStopSubscription}
-        subscriptionTransport={activeTab?.subscriptionTransport ?? 'auto'}
-        onSubscriptionTransportChange={handleSubscriptionTransportChange}
-        complexityScore={complexityResult?.score}
-        complexityLevel={complexityResult?.level}
-        advancedSettingsOpen={advSettingsOpen}
-        onAdvancedSettingsClick={() => setAdvSettingsOpen((v) => !v)}
-        advSettingsBtnRef={advSettingsBtnRef}
-        batchEnabled={advSettings.batchEnabled}
-        batchedTabCount={effectiveBatchedTabs.length}
-        batchSummaryLabel={batchSummaryLabel}
-        batchExecuting={batchExecuting}
-        batchEndpointMismatch={batchEndpointMismatch}
-        batchEndpointReady={batchEndpointReady}
-        batchProfileLinkPending={batchProfileLinkPending}
-        onSendBatch={handleSendBatch}
-        apqCacheHit={activeTabApqInfo?.cacheHit}
-        apqHash={activeTabApqInfo?.hash}
-        apqUnsupported={activeTabApqInfo?.unsupported}
-      />
-
-      <GraphqlAdvancedSettings
-        values={advSettings}
-        onSave={handleAdvSettingsSave}
-        onClose={handleAdvSettingsCancel}
-        anchorRef={advSettingsBtnRef}
-        open={advSettingsOpen}
-        batchSettings={advSettingsOpen ? batchSettingsProps : null}
-      />
-
-      <GraphqlStudioPageDialogs
-        complexityGatePending={complexityGatePending}
-        complexityResult={complexityResult}
-        advSettings={advSettings}
-        pendingExecuteAfterGateRef={pendingExecuteAfterGateRef}
-        sessionBypassComplexityGateRef={sessionBypassComplexityGateRef}
-        skipComplexityGateRef={skipComplexityGateRef}
-        setComplexityGatePending={setComplexityGatePending}
-        setComplexityWarningPending={setComplexityWarningPending}
-        isDuplicate={isDuplicate}
-        duplicateSourceTabId={duplicateSourceTabId}
-        activeTabId={activeTabId}
-        resolveDedupChoice={resolveDedupChoice}
-        connectionModals={{
-          profileModalOpen,
-          onProfileModalClose: () => setProfileModalOpen(false),
-          profiles,
-          studioTabs: buildStudioTabLinkSlices(
+      <GraphqlStudioPageToolbar
+        {...buildGraphqlStudioPageToolbarProps({
+          tab: {
+            activeTab,
+            activeTabId,
             tabs,
-            profiles,
+            operations,
+            selectedOperation,
+            varsError,
+            queryValidationErrorCount,
+            fileEntries,
+          },
+          connection: {
+            resolvedTabEndpoint,
+            resolvedTabAuth,
+            resolvedTabSkipTlsVerify,
+            resolvedTabTls,
+            resolvedTabPollingEnabled,
+            resolvedTabPollingIntervalSeconds,
+            hasActiveTabEndpointOverride,
+            hasActiveTabProfileLink,
+            hasActiveTabPollingOverride,
+            hasPendingProfileEndpoint,
             endpoint,
             pageDefaultEndpointResolved,
-          ),
-          activeTabId,
-          activeConnectionId: activeTab?.connectionId ?? null,
-          endpoint: resolvedTabEndpoint,
-          auth: resolvedTabAuth,
-          globalAuthProfiles,
-          onSaveProfile: (name) => saveProfile(name, resolvedTabEndpoint, resolvedTabAuth),
-          onDeleteProfile: (id) => {
-            deleteProfile(id);
-            clearConnectionIdsForProfile(id);
+            recentEndpoints,
+            profiles,
+            activeEnvironment,
+            globalEnvMap,
+            endpointProtocolStatus,
+            pollErrorMessage,
+            globalAuthProfiles,
+            authBadgePresentation,
           },
-          onApplyProfileToActiveTab: applyProfileToActiveTab,
-          prevBaseUrlRef,
-          envModalOpen,
-          onEnvModalClose: () => setEnvModalOpen(false),
-          environments,
-          activeEnvironmentId: activeEnvironment?.id ?? null,
-          onCreateEnvironment: createEnvironment,
-          onDeleteEnvironment: deleteEnvironment,
-          onSetActiveEnvironment: setActiveEnvironment,
-          onRenameEnvironment: updateEnvironmentName,
-          onUpdateVariables: updateVariables,
-          onImportEnvironment: importEnvironment,
-          onExportEnvironment: exportEnvironment,
-        }}
+          execution: {
+            handleExecute,
+            handleCancel,
+            isActiveTabExecuting,
+            handleSubscribe,
+            handleStopSubscription,
+            handleSelectOperation,
+            handleSubscriptionTransportChange,
+            subscriptionState: subscription.state,
+            complexityResult,
+            activeTabApqInfo,
+          },
+          schema: {
+            connectionBarSchemaStatus,
+            schemaInfo,
+            introspecting,
+            handleIntrospect,
+          },
+          connectionHandlers: {
+            handleConnectionEndpointChange,
+            clearActiveTabEndpoint,
+            handleConnectionSkipTlsChange,
+            handleConnectionTlsChange,
+            handleConnectionPollingChange,
+            clearActiveTabPolling,
+            removeRecentEndpoint,
+            focusAuthPanel,
+          },
+          batch: {
+            advSettings,
+            advSettingsOpen,
+            advSettingsBtnRef,
+            setAdvSettingsOpen,
+            batchSettingsProps,
+            batchSummaryLabel,
+            batchExecuting,
+            batchEndpointMismatch,
+            batchEndpointReady,
+            batchProfileLinkPending,
+            effectiveBatchedTabs,
+            handleSendBatch,
+            handleAdvSettingsSave,
+            handleAdvSettingsCancel,
+          },
+          dialogs: {
+            complexityGatePending,
+            complexityResult,
+            pendingExecuteAfterGateRef,
+            sessionBypassComplexityGateRef,
+            skipComplexityGateRef,
+            setComplexityGatePending,
+            setComplexityWarningPending,
+            isDuplicate,
+            duplicateSourceTabId,
+            resolveDedupChoice,
+          },
+          modals: {
+            profileModalOpen,
+            setProfileModalOpen,
+            envModalOpen,
+            setEnvModalOpen,
+            saveProfile,
+            deleteProfile,
+            clearConnectionIdsForProfile,
+            applyProfileToActiveTab,
+            prevBaseUrlRef,
+            environments,
+            createEnvironment,
+            deleteEnvironment,
+            setActiveEnvironment,
+            updateEnvironmentName,
+            updateVariables,
+            importEnvironment,
+            exportEnvironment,
+          },
+        })}
       />
 
       <GqlTabBar

@@ -52,7 +52,11 @@ export function createDualModeArrayStorage<T>(config: DualModeArrayStorageConfig
         if (r) {
           const items = JSON.parse(r);
           if (Array.isArray(items)) {
-            await idbMigrate(key);
+            if (items.length > 0) {
+              await idbMigrate(key);
+            } else {
+              removeLegacyLocalStorageKey(key);
+            }
             return items;
           }
         }

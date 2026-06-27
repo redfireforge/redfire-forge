@@ -671,18 +671,35 @@ describe('gql-https-tls lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
   });
 
-  it('gqlTlsLessonSetup leaves auth panel open when auth tab is inactive', async () => {
+  it('gqlTlsLessonSetup does not close auth panel when auth tab is inactive', async () => {
+    (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = vi.fn();
+    const { loadTabs } = await import('@graphql/utils/tabPersistence');
+    vi.mocked(loadTabs).mockResolvedValueOnce([
+      {
+        id: 'demo-tab-gql5',
+        endpoint: GQL_PLAIN_HTTP,
+        query: '',
+        variables: '{}',
+        headers: [],
+        operationType: 'query',
+        modelUri: 'file:///demo',
+        label: 'Demo',
+        unsavedChanges: false,
+      },
+    ]);
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="" />
+      <input data-testid="gql-endpoint-input" value="${GQL_PLAIN_HTTP}" />
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
       <div data-testid="gql-auth-panel"></div>
       <button data-testid="gql-auth-badge-btn"></button>
+      <button data-testid="gql-right-tab-response" aria-selected="true"></button>
     `;
     stubMonacoEditor('');
     await gqlTlsLessonSetup(ctx);
-    expect(ctx.click).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
   });
 
   it('gqlt-endpoint step action fills HTTPS endpoint', async () => {

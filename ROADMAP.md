@@ -22,7 +22,9 @@ RedfireForge is a visual API testing and workflow automation workbench combining
 - API catalog core functionality
 - Kafka integration foundation and modularized service layer
 - Rust executor path and performance-oriented execution modes
-- **Dual-track builds (Standard vs Learning Hub):** `VITE_ENABLE_DEMO_HUB` feature flag, separate vitest product/demo projects, demo adapter layer, lazy `DemoShellHost`, dual Tauri bundle IDs (`com.redfireforge.desktop` / `.demo`)
+- **Dual-track builds (Standard vs Learning Hub):** `VITE_ENABLE_DEMO_HUB` feature flag, separate vitest product/demo projects, demo adapter layer (`packages/demo-hub/`), lazy `DemoShellHost`, dual Tauri bundle IDs (`com.redfireforge.desktop` / `.demo`)
+- **GraphQL Studio:** batch execution with per-tab response sync, batch results modal, SDL schema diff, collections runner/import preview, multi-tab workspace, mock server, and IndexedDB-backed tabs/auth/schema cache (DB v9)
+- **GraphQL Demo Hub:** 19 interactive lessons (GQL-1–GQL-19) with Lesson Notes panel, Docker-backed E2E smoke specs, and demo workspace isolation
 
 ### In Progress / Deferred
 - Distributed execution (future scale milestone)
