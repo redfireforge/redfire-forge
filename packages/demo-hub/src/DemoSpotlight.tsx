@@ -8,6 +8,8 @@ import {
 interface SpotlightProps {
   selector?: string;
   active: boolean;
+  /** Bumps when the live step changes — forces a fresh track loop (Tauri WebView). */
+  trackKey?: string;
 }
 
 interface SpotlightRect {
@@ -17,16 +19,22 @@ interface SpotlightRect {
   height: number;
 }
 
-export default function DemoSpotlight({ selector, active }: SpotlightProps) {
+const SPOTLIGHT_TRACK_INTERVAL_MS = 250;
+
+export default function DemoSpotlight({ selector, active, trackKey }: SpotlightProps) {
   const [rect, setRect] = useState<SpotlightRect | null>(null);
   const rafRef = useRef<number>(0);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
-    // Clear stale position immediately so the old highlight doesn't flash
     setRect(null);
     if (!active || !selector) { return; }
 
+    let cancelled = false;
+
     const track = () => {
+      if (cancelled) return;
+
       const el = findFirstVisibleElement(selector);
       if (el && !isSpotlightSuppressedForModal(el)) {
         const r = el.getBoundingClientRect();
@@ -48,16 +56,37 @@ export default function DemoSpotlight({ selector, active }: SpotlightProps) {
       } else {
         setRect((prev) => (prev === null ? prev : null));
       }
-      rafRef.current = requestAnimationFrame(track);
     };
 
-    // Initial delay for DOM updates
-    const timeout = setTimeout(() => { rafRef.current = requestAnimationFrame(track); }, 200);
-    return () => {
-      clearTimeout(timeout);
-      cancelAnimationFrame(rafRef.current);
+    const scheduleRaf = () => {
+      if (cancelled || typeof requestAnimationFrame !== 'function') return;
+      rafRef.current = requestAnimationFrame(() => {
+        track();
+        scheduleRaf();
+      });
     };
-  }, [selector, active]);
+
+    track();
+    scheduleRaf();
+    intervalRef.current = setInterval(track, SPOTLIGHT_TRACK_INTERVAL_MS);
+
+    const onLayoutChange = () => { track(); };
+    window.addEventListener('resize', onLayoutChange);
+    window.addEventListener('scroll', onLayoutChange, true);
+
+    return () => {
+      cancelled = true;
+      if (typeof cancelAnimationFrame === 'function') {
+        cancelAnimationFrame(rafRef.current);
+      }
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      window.removeEventListener('resize', onLayoutChange);
+      window.removeEventListener('scroll', onLayoutChange, true);
+    };
+  }, [selector, active, trackKey]);
 
   if (!active || !rect) return null;
 

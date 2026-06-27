@@ -494,9 +494,10 @@ function ScenariosTab({ config, mockServer }: { config: GraphqlMockConfig; mockS
                   type="button"
                   className="gql-mock-scenario-deactivate"
                   onClick={() => mockServer.activateScenario(undefined)}
+                  title="Deactivate this scenario"
                   data-testid="gql-mock-scenario-deactivate"
                 >
-                  ✓ Active — Deactivate
+                  ✓ Active
                 </button>
               )}
               <button
@@ -519,16 +520,16 @@ function ScenariosTab({ config, mockServer }: { config: GraphqlMockConfig; mockS
 
       {adding ? (
         <div className="gql-mock-scenario-add-form" data-testid="gql-mock-scenario-add-form">
-      <input
-          type="text"
-          className="gql-mock-scenario-name-input"
-          value={newName}
-          placeholder="Scenario name"
-          onChange={(e) => setNewName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setAdding(false); setNewName(''); } }}
-          autoFocus
-          data-testid="gql-mock-scenario-name-input"
-        />
+          <input
+            type="text"
+            className="gql-mock-scenario-name-input"
+            value={newName}
+            placeholder="Enter scenario name..."
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleAdd(); if (e.key === 'Escape') { setAdding(false); setNewName(''); } }}
+            autoFocus
+            data-testid="gql-mock-scenario-name-input"
+          />
           <label className="gql-mock-scenario-snap-label" title="Capture current resolver overrides into this scenario">
             <input
               type="checkbox"
@@ -536,10 +537,22 @@ function ScenariosTab({ config, mockServer }: { config: GraphqlMockConfig; mockS
               onChange={(e) => setSnapResolvers(e.target.checked)}
               data-testid="gql-mock-scenario-snap-checkbox"
             />
-            {' Snapshot resolvers'}
+            Snapshot current resolvers into this scenario
           </label>
-          <button type="button" className="gql-mock-add-btn" onClick={handleAdd} data-testid="gql-mock-scenario-add-confirm">Add</button>
-          <button type="button" className="gql-mock-cancel-btn" onClick={() => { setAdding(false); setNewName(''); setSnapResolvers(true); }}>Cancel</button>
+          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+            <button type="button" className="gql-mock-cancel-btn" onClick={() => { setAdding(false); setNewName(''); setSnapResolvers(true); }}>Cancel</button>
+            <button
+              type="button"
+              className="gql-mock-add-btn"
+              onClick={handleAdd}
+              disabled={!newName.trim()}
+              title={!newName.trim() ? 'Enter a scenario name' : 'Create new scenario'}
+              data-testid="gql-mock-scenario-add-confirm"
+              style={!newName.trim() ? { opacity: 0.6, cursor: 'not-allowed' } : {}}
+            >
+              Create Scenario
+            </button>
+          </div>
         </div>
       ) : (
         <button
@@ -548,7 +561,7 @@ function ScenariosTab({ config, mockServer }: { config: GraphqlMockConfig; mockS
           onClick={() => setAdding(true)}
           data-testid="gql-mock-add-scenario-btn"
         >
-          + Add Scenario
+          Add Scenario
         </button>
       )}
     </div>

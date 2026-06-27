@@ -2,7 +2,7 @@
 
 import type { DemoActionContext } from '../../../types';
 import { APP, GQL } from '@shared/selectors';
-import { ensureGqlDemoHeaderContext } from '../../env-manager-lesson-helpers';
+import { ensureGqlDemoHeaderContext, navigateToGraphqlStudio } from '../../env-manager-lesson-helpers';
 import {
   GQL_DEMO_HTTP,
   GQL_HEALTH_QUERY,
@@ -45,6 +45,7 @@ import {
   patchDemoTabConnectionById,
   purgeGqlDemoConnectionProfiles,
 } from '../../../adapters';
+import { openGqlProfileModal } from '../../../adapters/gqlModalLockBridge';
 
 const GQL14_LESSON_ID = 'gql-multi-tab';
 
@@ -208,6 +209,7 @@ export async function executeOnActiveTabQuiet(ctx: DemoActionContext, query: str
  */
 export async function ensureLesson14Tab1Configured(ctx: DemoActionContext): Promise<void> {
   if (_lesson14Tab1Set) return;
+  await navigateToGraphqlStudio(ctx);
   if (graphQlHeaderSelectorsPresent()) {
     await ensureGqlDemoHeaderContext(ctx);
   }
@@ -385,6 +387,26 @@ function findProfileRowByName(name: string): HTMLElement | null {
   return null;
 }
 
+/** True when the profile row shows tab linkage (Used by pills or Loaded on active tab). */
+function isProfileRowLinked(name: string): boolean {
+  const row = findProfileRowByName(name);
+  if (!row) return false;
+  if (row.querySelector('.gql-profile-row__unused-hint')) return false;
+  if (row.querySelector('.gql-profile-loaded-badge')) return true;
+  if (row.querySelector('.gql-profile-row__tab-pill')) return true;
+  return false;
+}
+
+/** Open Profiles modal — bridge first (Tauri-safe), then badge click. */
+async function openProfileModal(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GQL.PROFILE_MODAL)) {
+    const opened = openGqlProfileModal();
+    if (!opened) await ctx.click(GQL.PROFILE_BADGE);
+  }
+  await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
+  await ctx.delay(800);
+}
+
 async function closeProfileModalIfOpen(ctx: DemoActionContext): Promise<void> {
   if (!document.querySelector(GQL.PROFILE_MODAL)) return;
   await ctx.click(GQL.PROFILE_CLOSE_BTN);
@@ -473,10 +495,11 @@ async function saveCurrentTabAsProfile(
   name: string,
   options?: { observeUnlinked?: boolean },
 ): Promise<void> {
-  if (findProfileRowByName(name)) return;
-  await ctx.click(GQL.PROFILE_BADGE);
-  await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
-  await ctx.delay(800);
+  await openProfileModal(ctx);
+  if (findProfileRowByName(name)) {
+    await closeProfileModalIfOpen(ctx);
+    return;
+  }
   await ctx.fill(GQL.PROFILE_NAME_INPUT, name);
   await ctx.delay(600);
   await ctx.click(GQL.PROFILE_SAVE_BTN);
@@ -487,26 +510,16 @@ async function saveCurrentTabAsProfile(
   await closeProfileModalIfOpen(ctx);
 }
 
-async function loadProfileOntoActiveTab(ctx: DemoActionContext, name: string): Promise<void> {
-  await ctx.click(GQL.PROFILE_BADGE);
-  await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
-  await ctx.delay(1200);
+async function loadProfileOntoActiveTab(ctx: DemoActionContext, name: string): Promise<boolean> {
+  await openProfileModal(ctx);
   const loadSel = GQL.profileLoadBtn(name);
   if (document.querySelector(loadSel)) {
     await ctx.click(loadSel);
-    await ctx.delay(1200); // modal closes after Load — reopen to show Used by pills
-    await ctx.click(GQL.PROFILE_BADGE);
-    await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
-    await ctx.delay(2500);
+    await ctx.delay(2500); // modal stays open — read Used by on the loaded row
   }
+  const linked = isProfileRowLinked(name);
   await closeProfileModalIfOpen(ctx);
-}
-
-async function observeProfileModalUsedBy(ctx: DemoActionContext): Promise<void> {
-  await ctx.click(GQL.PROFILE_BADGE);
-  await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
-  await ctx.delay(2500);
-  await closeProfileModalIfOpen(ctx);
+  return linked;
 }
 
 /** Visible save beat — each profile row shows "Not linked to any tab" until Load. */
@@ -530,30 +543,29 @@ export async function ensureLesson14ProfilesSaved(ctx: DemoActionContext): Promi
   await demonstrateLesson14SaveProfiles(ctx);
 }
 
-/** Visible load beat — click Load on each tab, then read Used by pills (step 10). */
+/** Visible load beat — click Load on each tab once, then read Used by (step 10). */
 export async function demonstrateLesson14LoadProfilesOnly(ctx: DemoActionContext): Promise<void> {
   await ensureLesson14ProfilesSaved(ctx);
 
   if (_lesson14ProfilesLinked) {
-    await activateGqlTabByIndex(ctx, 1);
-    await observeProfileModalUsedBy(ctx);
+    await ctx.delay(800);
     return;
   }
 
   await ctx.delay(800);
   await activateGqlTabByIndex(ctx, 0);
   await ctx.delay(800);
-  await loadProfileOntoActiveTab(ctx, LESSON14_STAGING_PROFILE_NAME);
+  const stagingLinked = await loadProfileOntoActiveTab(ctx, LESSON14_STAGING_PROFILE_NAME);
   await ctx.delay(1500);
 
   await activateGqlTabByIndex(ctx, 1);
   await ctx.delay(800);
-  await loadProfileOntoActiveTab(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
+  const productionLinked = await loadProfileOntoActiveTab(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
   await ctx.delay(1500);
 
-  await observeProfileModalUsedBy(ctx);
-  await ctx.delay(2000);
-  _lesson14ProfilesLinked = true;
+  if (stagingLinked && productionLinked) {
+    _lesson14ProfilesLinked = true;
+  }
 }
 
 /** Visible auth beat — Production tab shows profile-linked auth editing (step 11). */
@@ -693,6 +705,7 @@ export async function ensureLesson14IntroReady(ctx: DemoActionContext): Promise<
 
 /** Step 2 reading — page default visible before Tab 1 introspect/execute action. */
 export async function ensureLesson14Tab1EndpointReadingReady(ctx: DemoActionContext): Promise<void> {
+  await navigateToGraphqlStudio(ctx);
   await ctx.waitFor(GQL.TAB_BAR, 5000);
   if (graphQlHeaderSelectorsPresent()) {
     await ensureGqlDemoHeaderContext(ctx);
@@ -720,6 +733,7 @@ export async function gqlMultiTabLessonSetup(ctx: DemoActionContext): Promise<vo
 
   await ensureEditorMode(ctx);
   await closeGqlActivityPanelIfOpen(ctx);
+  await navigateToGraphqlStudio(ctx);
   await ensureGqlDemoTab(ctx, GQL14_LESSON_ID, 'Multi-Tab Workspaces', 2);
   if (graphQlHeaderSelectorsPresent()) {
     await ensureGqlDemoHeaderContext(ctx);

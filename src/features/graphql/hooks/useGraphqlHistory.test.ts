@@ -92,13 +92,30 @@ describe('useGraphqlHistory — saveHistory', () => {
     expect(result.current.items[0].status).toBe('error');
   });
 
-  it('marks an entry as error when httpStatus >= 400', async () => {
+  it('marks an entry as error when httpStatus >= 400 and no data', async () => {
     const { result } = renderHook(() => useGraphqlHistory('conn-1'));
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => {
-      await result.current.saveHistory({ connectionId: 'conn-1', operation: op, response: { ...resp, httpStatus: 500 } });
+      await result.current.saveHistory({
+        connectionId: 'conn-1',
+        operation: op,
+        response: { ...resp, httpStatus: 500, data: null },
+      });
     });
     expect(result.current.items[0].status).toBe('error');
+  });
+
+  it('marks batch partial success as success when HTTP 400 but data is present', async () => {
+    const { result } = renderHook(() => useGraphqlHistory('conn-1'));
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    await act(async () => {
+      await result.current.saveHistory({
+        connectionId: 'conn-1',
+        operation: op,
+        response: { ...resp, httpStatus: 400, data: { health: 'ok' } },
+      });
+    });
+    expect(result.current.items[0].status).toBe('success');
   });
 
   it('does not save when connectionId is empty', async () => {

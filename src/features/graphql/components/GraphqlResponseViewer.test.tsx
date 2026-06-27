@@ -4,6 +4,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { useState } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { GraphqlResponseViewer } from './GraphqlResponseViewer';
 import type { GraphqlResponse } from '../../../shared/types/graphql';
@@ -183,6 +184,46 @@ describe('GraphqlResponseViewer', () => {
   it('renders metadata tab when switching', () => {
     render(<GraphqlResponseViewer response={makeResponse()} />);
     fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    expect(screen.getByTestId('gql-rv-metadata')).toBeTruthy();
+  });
+
+  it('controlled mode keeps response sub-tab when workspace tab response is restored', () => {
+    const stagingResponse = makeResponse({ timestamp: 1000, data: { health: 'ok' } });
+    const productionResponse = makeResponse({ timestamp: 2000, data: { user: { name: 'Bob' } } });
+
+    function Harness() {
+      const [activeWorkspaceTabId, setActiveWorkspaceTabId] = useState('gql-tab-staging');
+      const [subTabs, setSubTabs] = useState<Record<string, 'body' | 'metadata'>>({
+        'gql-tab-staging': 'body',
+        'gql-tab-production': 'body',
+      });
+      const response = activeWorkspaceTabId === 'gql-tab-staging' ? stagingResponse : productionResponse;
+      return (
+        <>
+          <button type="button" data-testid="switch-production" onClick={() => setActiveWorkspaceTabId('gql-tab-production')}>
+            Production
+          </button>
+          <button type="button" data-testid="switch-staging" onClick={() => setActiveWorkspaceTabId('gql-tab-staging')}>
+            Staging
+          </button>
+          <GraphqlResponseViewer
+            response={response}
+            workspaceTabId={activeWorkspaceTabId}
+            responseSubTab={subTabs[activeWorkspaceTabId]}
+            onResponseSubTabChange={(t) => {
+              setSubTabs((prev) => ({ ...prev, [activeWorkspaceTabId]: t as 'body' | 'metadata' }));
+            }}
+          />
+        </>
+      );
+    }
+
+    render(<Harness />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    expect(screen.getByTestId('gql-rv-metadata')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('switch-production'));
+    expect(screen.getByTestId('gql-response-body')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('switch-staging'));
     expect(screen.getByTestId('gql-rv-metadata')).toBeTruthy();
   });
 

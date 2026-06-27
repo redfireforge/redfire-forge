@@ -1,19 +1,22 @@
 import type { GraphqlBatchResult, GraphqlResponse } from '../../../shared/types/graphql';
-import type { ExecutionStatus } from '../hooks/useGraphqlExecution';
 import type { GqlStudioTab } from './tabPersistence';
 
-/** Maps a GraphQL HTTP response to the studio execution status badge semantics. */
-export function deriveExecutionStatusFromGraphqlResponse(response: GraphqlResponse): ExecutionStatus {
-  if (response.httpStatus >= 400 || response.httpStatus === 0) return 'error';
+export type GraphqlOperationOutcome = 'success' | 'error';
+
+/** Maps a GraphQL HTTP response to per-operation success/error semantics. */
+export function deriveExecutionStatusFromGraphqlResponse(response: GraphqlResponse): GraphqlOperationOutcome {
   const hasErrors = (response.errors?.length ?? 0) > 0;
   const hasData = response.data !== null && response.data !== undefined;
+
+  if (response.httpStatus === 0) return 'error';
   if (hasErrors && !hasData) return 'error';
+  if (response.httpStatus >= 400 && !hasData) return 'error';
   return 'success';
 }
 
 export interface BatchTabResponseSync {
   tabId: string;
-  status: ExecutionStatus;
+  status: GraphqlOperationOutcome;
   response: GraphqlResponse;
 }
 
@@ -39,12 +42,12 @@ export function buildBatchTabResponseSyncs(
 export interface BatchTabResponseSyncHandlers {
   cacheExecutionResult: (
     tabId: string,
-    status: ExecutionStatus,
+    status: GraphqlOperationOutcome,
     response: GraphqlResponse | null,
   ) => void;
   applyTabResult: (
     tabId: string,
-    status: ExecutionStatus,
+    status: GraphqlOperationOutcome,
     response: GraphqlResponse | null,
   ) => void;
 }

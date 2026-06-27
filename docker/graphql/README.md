@@ -25,6 +25,7 @@ curl http://localhost:4010/health
 
 ## Features
 
+- HTTP array batching (`allowBatchedHttpRequests: true` — Apollo Server 4 disables this by default)
 - Apollo Tracing v1 (`extensions.tracing`)
 - APQ (Automatic Persisted Queries)
 - CORS enabled

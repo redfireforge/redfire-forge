@@ -9,6 +9,7 @@ vi.mock('../adapters', () => ({
   purgeGqlDemoGlobalAuthProfiles: vi.fn(async () => 0),
   purgeGqlLesson9CollectionArtifacts: vi.fn(async () => ({ collectionsRemoved: 0, itemsRemoved: 0 })),
   purgeGqlLesson9DemoHistory: vi.fn(async () => 0),
+  purgeGqlDemoBatchDetectionFlags: vi.fn(async () => 0),
   deleteGqlEnvironmentByName: vi.fn(),
 }));
 
@@ -43,6 +44,20 @@ import {
 import { makeCtx } from './protocols/ws-test-utils';
 import { EM } from '@shared/selectors';
 
+function mockRect(el: Element, width: number, height: number): void {
+  vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
+    top: 0,
+    left: 0,
+    width,
+    height,
+    right: width,
+    bottom: height,
+    x: 0,
+    y: 0,
+    toJSON: () => ({}),
+  } as DOMRect);
+}
+
 describe('env-manager-lesson-helpers', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
@@ -56,7 +71,10 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('navigateToEnvironmentManager skips navigation when manager already visible', async () => {
-    document.body.innerHTML = '<div class="env-manager"></div>';
+    const manager = document.createElement('div');
+    manager.className = 'env-manager';
+    mockRect(manager, 100, 100);
+    document.body.append(manager);
     const ctx = makeCtx();
     await navigateToEnvironmentManager(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
@@ -458,6 +476,7 @@ describe('env-manager-lesson-helpers', () => {
     await ensureGqlDemoHeaderContext(ctx);
     expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-env-select"]', 'e1');
     expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="header-svc-select"]', 's1');
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('graphql-studio');
   });
 
   it('editNamedProtocolEndpoint edits the row matching the environment name', async () => {
@@ -564,7 +583,10 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('navigateToWebSocketStudio is no-op when studio already visible', async () => {
-    document.body.innerHTML = '<div data-testid="ws-studio"></div>';
+    const page = document.createElement('div');
+    page.dataset.testid = 'ws-studio';
+    mockRect(page, 100, 100);
+    document.body.append(page);
     const ctx = makeCtx();
     await navigateToWebSocketStudio(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
@@ -577,7 +599,10 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('navigateToSseStudio is no-op when studio already visible', async () => {
-    document.body.innerHTML = '<div data-testid="sse-studio"></div>';
+    const page = document.createElement('div');
+    page.dataset.testid = 'sse-studio';
+    mockRect(page, 100, 100);
+    document.body.append(page);
     const ctx = makeCtx();
     await navigateToSseStudio(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
@@ -590,10 +615,26 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('navigateToGraphqlStudio is no-op when studio already visible', async () => {
-    document.body.innerHTML = '<div data-testid="gql-studio-page"></div>';
+    const page = document.createElement('div');
+    page.dataset.testid = 'gql-studio-page';
+    mockRect(page, 100, 100);
+    document.body.innerHTML = '';
+    document.body.append(page);
     const ctx = makeCtx();
     await navigateToGraphqlStudio(ctx);
     expect(ctx.navigateToTab).not.toHaveBeenCalled();
+  });
+
+  it('navigateToGraphqlStudio navigates when studio exists but is hidden', async () => {
+    const page = document.createElement('div');
+    page.dataset.testid = 'gql-studio-page';
+    page.hidden = true;
+    mockRect(page, 100, 100);
+    document.body.innerHTML = '';
+    document.body.append(page);
+    const ctx = makeCtx();
+    await navigateToGraphqlStudio(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('graphql-studio');
   });
 
   // ── ensureDemoEnvironment ────────────────────────────────────────
@@ -671,12 +712,18 @@ describe('env-manager-lesson-helpers', () => {
   });
 
   it('expandNamedMicroservice is no-op when the named card is already expanded', async () => {
-    document.body.innerHTML = `
-      <div class="env-manager"></div>
-      <div data-svc-name="ws-demo">
-        <button data-testid="em-svc-configure-abc">Collapse</button>
-        <div data-testid="microservice-protocol-panel"></div>
-      </div>`;
+    const manager = document.createElement('div');
+    manager.className = 'env-manager';
+    mockRect(manager, 100, 100);
+    const svcCard = document.createElement('div');
+    svcCard.dataset.svcName = 'ws-demo';
+    const configBtn = document.createElement('button');
+    configBtn.dataset.testid = 'em-svc-configure-abc';
+    configBtn.textContent = 'Collapse';
+    const panel = document.createElement('div');
+    panel.dataset.testid = 'microservice-protocol-panel';
+    svcCard.append(configBtn, panel);
+    document.body.append(manager, svcCard);
     const ctx = makeCtx();
     await expandNamedMicroservice(ctx, 'ws-demo');
     expect(ctx.waitFor).not.toHaveBeenCalled();

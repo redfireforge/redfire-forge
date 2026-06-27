@@ -9,7 +9,9 @@ import {
   clickWfDebugStepButtons,
   closeWfConfigModalIfOpen,
   closeWfConsoleIfOpen,
+  cleanupWorkflowDemoRunUi,
   collapseWfDemoAppSidebar,
+  resetWorkflowRunStateQuiet,
   ensureWfNodeConfigModalOpen,
   fillWfConfigField,
   isWfConfigTabActive,
@@ -115,6 +117,32 @@ describe('wf-demo-helpers', () => {
     document.body.appendChild(badge);
     const ctx = makeCtx();
     await closeWfConsoleIfOpen(ctx);
+    expect(document.querySelector('.wf-console-panel')).toBeNull();
+  });
+
+  it('resetWorkflowRunStateQuiet uses bridge when mounted', () => {
+    const spy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfResetRunState = spy;
+    expect(resetWorkflowRunStateQuiet()).toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('cleanupWorkflowDemoRunUi closes console and dismisses exec strip', async () => {
+    document.body.innerHTML = `
+      <div class="wf-exec-strip"><button class="wf-exec-strip-close"></button></div>
+      <div class="wf-console-panel"></div>
+      <button class="wf-console-badge"></button>
+    `;
+    const stripClose = document.querySelector<HTMLElement>('.wf-exec-strip-close')!;
+    stripClose.addEventListener('click', () => stripClose.closest('.wf-exec-strip')?.remove());
+    const badge = document.querySelector<HTMLElement>('.wf-console-badge')!;
+    badge.addEventListener('click', () => document.querySelector('.wf-console-panel')?.remove());
+    const resetSpy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfResetRunState = resetSpy;
+    const ctx = makeCtx();
+    await cleanupWorkflowDemoRunUi(ctx);
+    expect(resetSpy).toHaveBeenCalled();
+    expect(document.querySelector('.wf-exec-strip')).toBeNull();
     expect(document.querySelector('.wf-console-panel')).toBeNull();
   });
 

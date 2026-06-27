@@ -21,6 +21,7 @@ import {
 import { GQL_HISTORY_RELOAD_EVENT } from '../utils/gqlDemoCollectionsCleanup';
 import type { GraphqlHistoryItem, GraphqlOperation, GraphqlResponse } from '../../../shared/types/graphql';
 import { filterHistoryItems } from '../utils/historyCompare';
+import { deriveExecutionStatusFromGraphqlResponse } from '../utils/syncBatchResultsToTabResponses';
 
 export const DEFAULT_MAX_ITEMS = 100;
 export const RECENT_COUNT = 5;
@@ -139,9 +140,7 @@ export function useGraphqlHistory(
       serialized = serialized + '\n__TRUNCATED__';
     }
     const status: GraphqlHistoryItem['status'] =
-      (response.errors && response.errors.length > 0) || response.httpStatus >= 400
-        ? 'error'
-        : 'success';
+      deriveExecutionStatusFromGraphqlResponse(response);
     const item: GraphqlHistoryItem = {
       id: crypto.randomUUID(),
       connectionId: cid,

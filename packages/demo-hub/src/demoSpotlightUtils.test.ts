@@ -10,6 +10,7 @@ import {
   installDemoUserScrollListeners,
   isDemoAutoScrollPaused,
   isDemoElementVisible,
+  isDemoTargetVisible,
   isSpotlightSuppressedForModal,
   pauseDemoAutoScroll,
   scrollDemoTargetIntoView,
@@ -43,6 +44,26 @@ describe('demoSpotlightUtils', () => {
     mockRect(visible, 10, 10);
     document.body.append(hidden, visible);
     expect(findFirstVisibleElement('.pick-me')).toBe(visible);
+  });
+
+  it('findFirstVisibleElement skips elements inside hidden ancestors', () => {
+    const wrapper = document.createElement('div');
+    wrapper.hidden = true;
+    const target = document.createElement('div');
+    target.className = 'hidden-parent-target';
+    mockRect(target, 10, 10);
+    wrapper.append(target);
+    document.body.append(wrapper);
+    expect(findFirstVisibleElement('.hidden-parent-target')).toBeNull();
+    expect(isDemoTargetVisible('.hidden-parent-target')).toBe(false);
+  });
+
+  it('isDemoTargetVisible returns true for visible matches', () => {
+    const target = document.createElement('div');
+    target.className = 'visible-target';
+    mockRect(target, 12, 12);
+    document.body.append(target);
+    expect(isDemoTargetVisible('.visible-target')).toBe(true);
   });
 
   it('findVisibleAppModal detects open modal-overlay dialogs', () => {

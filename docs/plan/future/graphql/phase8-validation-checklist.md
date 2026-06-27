@@ -25,8 +25,8 @@ Run **before** the full 19-lesson human pass. Automated E2E first, then **Web + 
 | **GQL-5** | 18 | auth-on-TLS **7–9**; mTLS **13–16**; restore **17–18** | `npm run test:e2e:demo:gql5` | [x] E2E ✅ 2026-06-26 | [x] **mTLS Tauri ✅** |
 | **GQL-6** | 19 | create/update/delete observe splits | `npm run test:e2e:demo:gql6` | [x] E2E ✅ 2026-06-26 | [x] human Tauri ✅ |
 | **GQL-7** | 15 | **`gql5-subscription-auth`** (step 9); subscribe step 10 | `npm run test:e2e:demo:gql7` | [x] E2E ✅ 2026-06-26 | [x] human Tauri ✅ |
-| **GQL-14** | 10 | `tabBudget: 2`; profiles + polling | `npm run test:e2e:demo:gql14` | [x] E2E ✅ 2026-06-26 | [ ] |
-| **GQL-15** | 9 | Advanced Settings → Batch; two tabs | `npm run test:e2e:demo:gql15` | [x] E2E ✅ 2026-06-26 | [ ] |
+| **GQL-14** | 12 | `tabBudget: 2`; profiles + polling | `npm run test:e2e:demo:gql14` | [x] E2E ✅ 2026-06-27 | [ ] |
+| **GQL-15** | 10 | Advanced Settings → Batch; two tabs | `npm run test:e2e:demo:gql15` | [x] E2E ✅ 2026-06-27 | [ ] |
 | **GQL-17** | 10 | Workflow Runner close-the-loop | `npm run test:e2e:demo:gql17` | [x] E2E ✅ 2026-06-26 | [ ] |
 
 **Batch E2E (Web, Docker 4010):**
@@ -95,8 +95,8 @@ cd src-tauri && cargo run --no-default-features
 
 | Slot | Lesson | Steps | Web E2E | Web 1× human | Tauri 1× human | Notes |
 |------|--------|------:|---------|--------------|----------------|-------|
-| GQL-1 | Your First GraphQL Query | 13 | `npm run test:e2e:demo:gql1` | [ ] | [x] | §11.0 baseline · human Tauri ✅ |
-| GQL-2 | Variables & Arguments | 18 | `npm run test:e2e:demo:gql2` | [x] | [x] | Reference quality · human Web+Tauri ✅ |
+| GQL-1 | Your First GraphQL Query | 13 | `npm run test:e2e:demo:gql1` | [x] E2E ✅ 2026-06-27 | [x] | §11.0 baseline · reference lesson · human Tauri ✅ |
+| GQL-2 | Variables & Arguments | 18 | `npm run test:e2e:demo:gql2` | [x] E2E ✅ 2026-06-27 | [x] | Reference quality · human Web+Tauri ✅ |
 | GQL-3 | Schema Exploration | 10 | `npm run test:e2e:demo:gql3` | [ ] | [x] | human Tauri ✅ |
 | GQL-4 | Authentication & Headers | 14 | `npm run test:e2e:demo:gql4` | [ ] | [x] | Quality audit ✅ · human Tauri ✅ |
 | GQL-5 | HTTPS, TLS & Certificates | 18 | `npm run test:e2e:demo:gql5` | [ ] | [x] | **mTLS 13–16** · auth-on-TLS 7–9 · human Tauri ✅ |
@@ -108,11 +108,11 @@ cd src-tauri && cargo run --no-default-features
 | GQL-11 | Performance Tracing | 8 | `npm run test:e2e:demo:gql11` | [x] E2E ✅ 2026-06-27 | [ ] | [x] | human Tauri ✅ |
 | GQL-12 | Schema Diff & Breaking Changes | 7 | `npm run test:e2e:demo:gql12` | [x] E2E ✅ 2026-06-27 | [ ] | [x] | human Tauri ✅ |
 | GQL-13 | Mock Server | 15 | `npm run test:e2e:demo:gql13` | [ ] | [ ] | Desktop + :3001 mock |
-| GQL-14 | Multi-Tab Workspaces | 10 | `npm run test:e2e:demo:gql14` | [ ] | [ ] | `tabBudget: 2` · spot-check |
-| GQL-15 | Batch Execution | 9 | `npm run test:e2e:demo:gql15` | [ ] | [ ] | `tabBudget: 2` · spot-check |
+| GQL-14 | Multi-Tab Workspaces | 12 | `npm run test:e2e:demo:gql14` | [x] E2E ✅ 2026-06-27 | [ ] | `tabBudget: 2` · profiles + polling |
+| GQL-15 | Batch Execution | 10 | `npm run test:e2e:demo:gql15` | [x] E2E ✅ 2026-06-27 | [ ] | `tabBudget: 2` · Advanced Settings batch |
 | GQL-16 | Workflow Integration | 12 | `npm run test:e2e:demo:gql16` | [ ] | [ ] | Enhancement complete ✅ |
 | GQL-17 | Workflow Runner | 10 | `npm run test:e2e:demo:gql17` | [ ] | [ ] | spot-check |
-| GQL-18 | Mutation Node in Workflow | 8 | `npm run test:e2e:demo:gql18` | [ ] | [ ] | CRUD + teardown |
+| GQL-18 | Mutation Node in Workflow | 15 | `npm run test:e2e:demo:gql18` | [x] E2E ✅ 2026-06-27 | [ ] | Blank canvas CRUD + Delete User teardown · Playwright 4/4 |
 | GQL-19 | Subscription in Workflow | 9 | `npm run test:e2e:demo:gql19` | [ ] | [ ] | |
 
 **§11.0 acceptance:** `npm run test:e2e:demo:gql110` (4 scenarios)

@@ -291,45 +291,49 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
           return;
         }
 
-        // Check if upstream returned an array (batch-capable server)
-        if (batchResult.status !== 400 && batchResult.status !== 405) {
-          try {
-            const parsed = JSON.parse(batchResult.body) as unknown;
-            if (Array.isArray(parsed)) {
-              // Pad or truncate to match operations.length so card order is preserved.
-              // Missing slots get a synthetic error entry; extra slots are dropped.
-              const normalized = operations.map((_, i) => {
-                const item = (parsed as Record<string, unknown>[])[i];
-                if (item != null) {
-                  return attachBatchResultMeta(
-                    { ...item, _index: i },
-                    batchResult.status,
-                    batchWireMeta,
-                  );
-                }
+        // Batch-capable servers return a JSON array body — including Apollo Server, which
+        // uses HTTP 400 when any batched operation has validation errors while still
+        // returning per-operation results in array form. Only non-array bodies (e.g. a
+        // single `{ errors: [...] }` object) mean the server rejected array batching.
+        try {
+          const parsed = JSON.parse(batchResult.body) as unknown;
+          if (Array.isArray(parsed)) {
+            // Pad or truncate to match operations.length so card order is preserved.
+            // Missing slots get a synthetic error entry; extra slots are dropped.
+            const normalized = operations.map((_, i) => {
+              const item = (parsed as Record<string, unknown>[])[i];
+              if (item != null) {
                 return attachBatchResultMeta(
-                  {
-                    data: null,
-                    errors: [{ message: `No result returned for operation ${i}` }],
-                    _index: i,
-                  },
+                  { ...item, _index: i },
                   batchResult.status,
                   batchWireMeta,
                 );
-              });
-              if (parsed.length !== operations.length) {
-                log(onLog, 'warn', 'Batch proxy: response array length mismatch', {
-                  expected: operations.length,
-                  got: parsed.length,
-                });
               }
-              res.json({ results: normalized, batchUnsupported: false });
-              log(onLog, 'info', 'Batch proxy: array batch succeeded', { count: normalized.length });
-              return;
+              return attachBatchResultMeta(
+                {
+                  data: null,
+                  errors: [{ message: `No result returned for operation ${i}` }],
+                  _index: i,
+                },
+                batchResult.status,
+                batchWireMeta,
+              );
+            });
+            if (parsed.length !== operations.length) {
+              log(onLog, 'warn', 'Batch proxy: response array length mismatch', {
+                expected: operations.length,
+                got: parsed.length,
+              });
             }
-          } catch {
-            // Non-JSON response — fall through to sequential
+            res.json({ results: normalized, batchUnsupported: false });
+            log(onLog, 'info', 'Batch proxy: array batch succeeded', {
+              count: normalized.length,
+              httpStatus: batchResult.status,
+            });
+            return;
           }
+        } catch {
+          // Non-JSON response — fall through to sequential
         }
 
         // Array batch not supported by upstream — fall back to sequential within remaining deadline

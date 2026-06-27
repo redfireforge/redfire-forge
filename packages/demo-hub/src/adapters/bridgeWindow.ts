@@ -17,12 +17,17 @@ export type DemoBridgeWindow = Window &
     __demoSetGqlModalLock?: (lock: { envAllowed: boolean; profileAllowed: boolean }) => void;
     __demoOpenGqlProfileModal?: () => boolean;
     __demoDeleteGqlEnvByName?: (name: string) => void;
+    __demoResetGqlBatchDetection?: () => boolean;
     __wfDeleteByName?: (name: string) => void;
     __wfInsertWorkflow?: (wf: Record<string, unknown>) => void;
     __wfGetWorkflowByName?: (name: string) => unknown;
     __wfSelectByName?: (name: string) => boolean;
     __wfPatchWorkflowByName?: (
       name: string,
+      patch: Record<string, unknown>,
+    ) => boolean;
+    __wfSyncLiveWorkflowFromPatch?: (
+      workflowName: string,
       patch: Record<string, unknown>,
     ) => boolean;
     __wfWorkflowsLoaded?: boolean;
@@ -37,6 +42,8 @@ export type DemoBridgeWindow = Window &
     ) => void;
     __wfRemoveEdge?: (sourceId: string, targetId: string) => void;
     __wfPatchNodeDataByType?: (nodeType: string, patch: Record<string, unknown>) => boolean;
+    __wfPatchNodeDataById?: (nodeId: string, patch: Record<string, unknown>) => boolean;
+    __wfResetRunState?: () => boolean;
     __wfAddNode?: {
       (type: string): string | undefined;
       (type: string, id: string, label: string, position: { x: number; y: number }): void;

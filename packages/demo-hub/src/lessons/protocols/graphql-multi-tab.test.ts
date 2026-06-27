@@ -865,16 +865,16 @@ describe('gql-multi-tab lesson', () => {
   it('gql14-profiles-load action clicks Load on both profiles', async () => {
     const ctx = makeCtx();
     stubMultiTabDom(2);
+    const profileRowsHtml = `
+      <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span><span class="gql-profile-row__unused-hint">Not linked to any tab</span><button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_STAGING_PROFILE_NAME}">Load</button></li>
+      <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span><span class="gql-profile-row__unused-hint">Not linked to any tab</span><button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_PRODUCTION_PROFILE_NAME}">Load</button></li>`;
     document.body.insertAdjacentHTML('beforeend', `
       <button data-testid="gql-profile-badge"></button>
       <div data-testid="gql-profile-modal">
         <input data-testid="gql-profile-name-input" />
         <button data-testid="gql-profile-save-btn"></button>
         <button data-testid="gql-profile-close-btn"></button>
-        <ul class="gql-profile-list">
-          <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span><button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_STAGING_PROFILE_NAME}">Load</button></li>
-          <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span><button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_PRODUCTION_PROFILE_NAME}">Load</button></li>
-        </ul>
+        <ul class="gql-profile-list">${profileRowsHtml}</ul>
       </div>
       <input data-testid="gql-tab-rename-0" value="Staging" />
       <input data-testid="gql-tab-rename-1" value="Production" />
@@ -886,11 +886,33 @@ describe('gql-multi-tab lesson', () => {
     stubMonacoEditor();
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles-load')!;
     await step.preAction!(ctx);
+    document.querySelector(GQL.PROFILE_MODAL)?.remove();
+    const w = window as unknown as Record<string, unknown>;
+    w.__demoOpenGqlProfileModal = () => {
+      if (document.querySelector(GQL.PROFILE_MODAL)) return true;
+      document.body.insertAdjacentHTML('beforeend', `
+        <div data-testid="gql-profile-modal">
+          <button data-testid="gql-profile-close-btn"></button>
+          <ul class="gql-profile-list">${profileRowsHtml}</ul>
+        </div>`);
+      return true;
+    };
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME)
+        || sel === GQL.profileLoadBtn(LESSON14_PRODUCTION_PROFILE_NAME)) {
+        const row = document.querySelector(sel)?.closest('.gql-profile-row');
+        row?.querySelector('.gql-profile-row__unused-hint')?.remove();
+        row?.querySelector('.gql-profile-btn--load')?.replaceWith(
+          '<span class="gql-profile-loaded-badge" data-testid="gql-profile-loaded-badge">Loaded</span>',
+        );
+      }
+    });
     vi.mocked(ctx.click).mockClear();
     await step.action!(ctx);
+    delete w.__demoOpenGqlProfileModal;
     expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME));
     expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_PRODUCTION_PROFILE_NAME));
-    expect(ctx.delay).toHaveBeenCalledWith(2000);
+    expect(ctx.delay).toHaveBeenCalledWith(2500);
   });
 
   it('gql14-profile-auth action opens Auth panel on Production tab', async () => {

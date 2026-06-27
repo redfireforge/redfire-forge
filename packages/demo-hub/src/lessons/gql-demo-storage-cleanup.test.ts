@@ -8,6 +8,7 @@ vi.mock('../adapters', () => ({
   purgeGqlDemoGlobalAuthProfiles: vi.fn(async () => 1),
   purgeGqlLesson9CollectionArtifacts: vi.fn(async () => ({ collectionsRemoved: 1, itemsRemoved: 4 })),
   purgeGqlLesson9DemoHistory: vi.fn(async () => 3),
+  purgeGqlDemoBatchDetectionFlags: vi.fn(async () => 2),
 }));
 
 vi.mock('@shared/utils/storage', () => ({
@@ -16,7 +17,7 @@ vi.mock('@shared/utils/storage', () => ({
   cleanupStaleStorageKeys: vi.fn(() => ({ removed: 5, freedKB: 12 })),
 }));
 
-import { purgeGqlDemoConnectionProfiles, purgeGqlDemoGlobalAuthProfiles, purgeGqlLesson9CollectionArtifacts, purgeGqlLesson9DemoHistory } from '../adapters';
+import { purgeGqlDemoConnectionProfiles, purgeGqlDemoGlobalAuthProfiles, purgeGqlLesson9CollectionArtifacts, purgeGqlLesson9DemoHistory, purgeGqlDemoBatchDetectionFlags } from '../adapters';
 import { purgeStaleRunnerConfigKeys, cleanupStaleStorageKeys, ensureBrowserLargeDataMigrated } from '@shared/utils/storage';
 import { purgeGqlDemoEphemeralStorage } from './gql-demo-storage-cleanup';
 
@@ -32,6 +33,7 @@ describe('purgeGqlDemoEphemeralStorage', () => {
     expect(purgeGqlDemoGlobalAuthProfiles).toHaveBeenCalled();
     expect(purgeGqlLesson9CollectionArtifacts).toHaveBeenCalled();
     expect(purgeGqlLesson9DemoHistory).toHaveBeenCalled();
+    expect(purgeGqlDemoBatchDetectionFlags).toHaveBeenCalled();
     expect(purgeStaleRunnerConfigKeys).toHaveBeenCalled();
     expect(cleanupStaleStorageKeys).toHaveBeenCalled();
     expect(result).toEqual({
@@ -42,6 +44,7 @@ describe('purgeGqlDemoEphemeralStorage', () => {
       collectionItemsRemoved: 4,
       historyEntriesRemoved: 3,
       globalAuthProfilesRemoved: 1,
+      batchDetectionFlagsRemoved: 2,
       freedKB: 16,
     });
   });

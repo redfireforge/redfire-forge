@@ -8,7 +8,13 @@ import {
   purgeStaleRunnerConfigKeys,
   ensureBrowserLargeDataMigrated,
 } from '@shared/utils/storage';
-import { purgeGqlDemoConnectionProfiles, purgeGqlLesson9CollectionArtifacts, purgeGqlLesson9DemoHistory, purgeGqlDemoGlobalAuthProfiles } from '../adapters';
+import {
+  purgeGqlDemoConnectionProfiles,
+  purgeGqlLesson9CollectionArtifacts,
+  purgeGqlLesson9DemoHistory,
+  purgeGqlDemoGlobalAuthProfiles,
+  purgeGqlDemoBatchDetectionFlags,
+} from '../adapters';
 
 export interface GqlDemoEphemeralPurgeResult {
   profilesRemoved: number;
@@ -18,6 +24,7 @@ export interface GqlDemoEphemeralPurgeResult {
   collectionItemsRemoved: number;
   historyEntriesRemoved: number;
   globalAuthProfilesRemoved: number;
+  batchDetectionFlagsRemoved: number;
   freedKB: number;
 }
 
@@ -31,6 +38,7 @@ export async function purgeGqlDemoEphemeralStorage(): Promise<GqlDemoEphemeralPu
   const globalAuthProfilesRemoved = await purgeGqlDemoGlobalAuthProfiles();
   const { collectionsRemoved, itemsRemoved } = await purgeGqlLesson9CollectionArtifacts();
   const historyEntriesRemoved = await purgeGqlLesson9DemoHistory();
+  const batchDetectionFlagsRemoved = await purgeGqlDemoBatchDetectionFlags();
   const runnerPurge = purgeStaleRunnerConfigKeys();
   const stale = cleanupStaleStorageKeys();
   const freedKB = stale.freedKB + Math.round(runnerPurge.freedBytes / 1024);
@@ -42,6 +50,7 @@ export async function purgeGqlDemoEphemeralStorage(): Promise<GqlDemoEphemeralPu
     collectionItemsRemoved: itemsRemoved,
     historyEntriesRemoved,
     globalAuthProfilesRemoved,
+    batchDetectionFlagsRemoved,
     freedKB,
   };
 }

@@ -407,7 +407,7 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       id: 'gql14-profiles-load',
       title: 'Load Profiles onto Tabs',
       description:
-        'Switch to **Staging** (Tab 1), open **Profiles**, and click **Load** on **GQL-14 Staging**. The modal closes — reopen **Profiles** to read **Used by → Staging**. Switch to **Production** (Tab 2) and repeat with **GQL-14 Production**.\n\n' +
+        'Switch to **Staging** (Tab 1), open **Profiles**, and click **Load** on **GQL-14 Staging**. The modal stays open so you can read **Used by → Staging** on that row. Switch to **Production** (Tab 2) and repeat with **GQL-14 Production**.\n\n' +
         '**Load** sets `connectionId` on the active tab — that is what populates **Used by**. The same profile can appear on multiple tabs if you **Load** it on each one. Saving only adds a catalog preset; **Load** is what wires a tab to that preset.',
       highlight: GQL.PROFILE_BADGE,
       preAction: ensureLesson14ProfilesSaved,

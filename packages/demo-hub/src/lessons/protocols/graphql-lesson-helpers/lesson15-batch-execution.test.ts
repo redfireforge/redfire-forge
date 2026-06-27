@@ -9,6 +9,16 @@ vi.mock('./gql-demo-tab', () => ({
   GQL15_LESSON_ID: 'gql-batch-execution',
 }));
 
+vi.mock('../../../adapters', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../adapters')>();
+  return {
+    ...actual,
+    resetGqlDemoBatchDetection: vi.fn(async () => true),
+  };
+});
+
+import { resetGqlDemoBatchDetection } from '../../../adapters';
+
 import { makeCtx } from '../ws-test-utils';
 import { GQL } from '@shared/selectors';
 import { stubMonacoEditor } from '../__test-utils__/graphql-test-fixtures';
@@ -403,6 +413,22 @@ describe('lesson15-batch-execution helpers (direct)', () => {
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.TAB_BAR, 5000);
   });
 
+  it('gqlBatchLessonSetup clears cached batch-unsupported detection before studio setup', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select"><option>GraphQL Demo</option></select>
+      <select data-testid="header-svc-select"><option>graphql-demo</option></select>
+      <input data-testid="gql-endpoint-input" value="" />
+      <button data-testid="gql-mode-editor" class="gql-mode-btn"></button>
+      <button data-testid="gql-right-tab-response" aria-selected="true"></button>
+      <div data-testid="gql-tab-bar"><button ${DEMO_TAB}>Q1</button></div>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    `;
+    stubMonacoEditor('query { health }');
+    const ctx = makeCtx();
+    await gqlBatchLessonSetup(ctx);
+    expect(resetGqlDemoBatchDetection).toHaveBeenCalled();
+  });
+
   it('gqlBatchLessonSetup ensures editor mode, demo endpoint, and introspection', async () => {
     document.body.innerHTML = `
       <select data-testid="header-env-select"><option>GraphQL Demo</option></select>
@@ -506,6 +532,13 @@ describe('lesson15-batch-execution helpers (direct)', () => {
     vi.mocked(ctx.click).mockClear();
     await ensureLesson15Executed(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
+  });
+
+  it('gqlBatchLessonCleanup clears cached batch-unsupported detection', async () => {
+    vi.mocked(resetGqlDemoBatchDetection).mockClear();
+    const ctx = makeCtx();
+    await gqlBatchLessonCleanup(ctx);
+    expect(resetGqlDemoBatchDetection).toHaveBeenCalled();
   });
 
   it('gqlBatchLessonCleanup closes activity panel and demo tabs', async () => {
