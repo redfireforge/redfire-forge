@@ -166,7 +166,6 @@ export async function selectWorkflowFromAppSidebar(
   ctx: DemoActionContext,
   workflowName: string,
 ): Promise<boolean> {
-  await expandWfDemoAppSidebar(ctx);
   const findExactSidebarItem = () =>
     Array.from(document.querySelectorAll<HTMLElement>('.wf-sidebar-item-name')).find(
       (el) => el.textContent?.trim() === workflowName,
@@ -179,15 +178,22 @@ export async function selectWorkflowFromAppSidebar(
   }
 
   const target = nameEl?.closest<HTMLElement>('.wf-sidebar-item, [data-testid="wf-sidebar-item"], .wf-workflow-item');
-  if (target) {
-    target.click();
+  if (target?.classList.contains('active') && getWorkflowByName(workflowName)) {
+    return true;
+  }
+
+  await expandWfDemoAppSidebar(ctx);
+  nameEl = findExactSidebarItem();
+  const activeTarget = nameEl?.closest<HTMLElement>('.wf-sidebar-item, [data-testid="wf-sidebar-item"], .wf-workflow-item');
+  if (activeTarget) {
+    activeTarget.click();
     await ctx.delay(700);
   } else {
     selectWorkflowByName(workflowName);
     await ctx.delay(400);
   }
   await collapseWfDemoAppSidebar(ctx);
-  return !!target || !!getWorkflowByName(workflowName);
+  return !!activeTarget || !!getWorkflowByName(workflowName);
 }
 
 /** Force console panel mode (docked bottom / floating / maximized). */

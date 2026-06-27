@@ -106,7 +106,7 @@ const GQL17_LESSON_SOURCE = {
 
 const GQL18_LESSON_SOURCE = {
   name: 'Mutation Node in Workflow',
-  steps: 8,
+  steps: 15,
 } as const;
 
 const GQL19_LESSON_SOURCE = {

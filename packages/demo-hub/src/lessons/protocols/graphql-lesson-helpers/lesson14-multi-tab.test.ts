@@ -4,7 +4,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { makeCtx } from '../ws-test-utils';
-import { GQL } from '@shared/selectors';
+import { APP, GQL } from '@shared/selectors';
 
 vi.mock('../../../adapters', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../adapters')>();
@@ -21,6 +21,7 @@ import {
   ensureLesson14TabProfileLinks,
   ensureLesson14Tab2BadgeHighlight,
   ensureLesson14IntroReady,
+  ensureLesson14Tab1EndpointReadingReady,
   ensureLesson14PerTabAuthConfigured,
   LESSON14_TAB2_BEARER_TOKEN,
   purgeLesson14ConnectionProfiles,
@@ -118,6 +119,24 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     await ensureLesson14IntroReady(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.TAB_BAR, 5000);
+  });
+
+  it('ensureLesson14Tab1EndpointReadingReady selects GraphQL demo header context before page default endpoint', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    document.body.insertAdjacentHTML('beforeend', `
+      <select data-testid="header-env-select">
+        <option value="">Environment…</option>
+        <option value="e1">GraphQL Demo</option>
+      </select>
+      <select data-testid="header-svc-select">
+        <option value="">Service…</option>
+        <option value="s1">graphql-demo</option>
+      </select>
+    `);
+    await ensureLesson14Tab1EndpointReadingReady(ctx);
+    expect(ctx.selectOption).toHaveBeenCalledWith(APP.HEADER_ENV_SELECT, 'e1');
+    expect(ctx.selectOption).toHaveBeenCalledWith(APP.HEADER_SVC_SELECT, 's1');
   });
 
   it('renameDemoTabByIndex returns early when tab index is missing', async () => {

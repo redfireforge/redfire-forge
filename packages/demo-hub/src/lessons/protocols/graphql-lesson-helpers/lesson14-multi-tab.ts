@@ -1,13 +1,15 @@
 // ── Lesson 14: Multi-Tab Workspaces ──────────────────────────────────────────
 
 import type { DemoActionContext } from '../../../types';
-import { GQL } from '@shared/selectors';
+import { APP, GQL } from '@shared/selectors';
+import { ensureGqlDemoHeaderContext } from '../../env-manager-lesson-helpers';
 import {
   GQL_DEMO_HTTP,
   GQL_HEALTH_QUERY,
   clearActiveTabEndpointOverride,
   configureDemoTabEndpointOverride,
   configureDemoTabInheritPageDefault,
+  ensureGqlDemoPageDefaultEndpoint,
   ensureEditorMode,
   closeGqlActivityPanelIfOpen,
   fillActiveTabEndpoint,
@@ -67,6 +69,11 @@ const GQL14_LESSON_PROFILE_NAMES = [
   GQL14_PRODUCTION_PROFILE_NAME,
 ] as const;
 
+function graphQlHeaderSelectorsPresent(): boolean {
+  return Boolean(document.querySelector(APP.HEADER_ENV_SELECT))
+    && Boolean(document.querySelector(APP.HEADER_SVC_SELECT));
+}
+
 let _lesson14Tab1Set = false;
 let _lesson14Tab2Added = false;
 let _lesson14Tab2Set = false;
@@ -121,6 +128,7 @@ function hasSchemaBadge(): boolean {
 export async function activateGqlTabByIndex(ctx: DemoActionContext, index: number): Promise<void> {
   const tab = getDemoTabByIndex(index);
   if (!tab) return;
+  if (tab.getAttribute('aria-selected') === 'true') return;
   const attr = `gql14-tab-${index}`;
   tab.setAttribute('data-lesson-target', attr);
   await ctx.click(`[data-lesson-target="${attr}"]`);
@@ -158,28 +166,17 @@ function getDemoTabIdByIndex(index: number): string | null {
   const prefix = 'gql-tab-';
   return testId.startsWith(prefix) ? testId.slice(prefix.length) : null;
 }
-
-/** Demo tab inherits page `{{graphqlUrl}}` — no stored per-tab duplicate. */
-async function ensureDemoTabInheritsPageDefault(ctx: DemoActionContext, index: number): Promise<void> {
-  await activateGqlTabByIndex(ctx, index);
-  await clearActiveTabEndpointOverride(ctx);
-  const tabId = getDemoTabIdByIndex(index);
-  if (index === 0) {
-    await patchDemoTabConnection({ endpoint: undefined });
-  } else if (tabId) {
-    await patchDemoTabConnectionById(tabId, { endpoint: undefined });
-  }
-  await ctx.delay(400);
-}
-
-/** Demo tab with an intentionally blank endpoint field (Tab 2 before override step). */
-async function ensureDemoTabBlankEndpoint(ctx: DemoActionContext, index: number): Promise<void> {
-  await activateGqlTabByIndex(ctx, index);
+/** Persist a blank endpoint on a demo tab without switching tabs (quiet guard). */
+async function patchDemoTabBlankEndpointQuiet(index: number): Promise<void> {
   const tabId = getDemoTabIdByIndex(index);
   if (tabId) {
     await patchDemoTabConnectionById(tabId, { endpoint: '' });
   }
-  await ctx.delay(400);
+}
+
+/** Tag Tab 2 for step verify/highlight selectors. */
+function tagLesson14Tab2(): void {
+  getDemoTabByIndex(1)?.setAttribute('data-lesson-target', 'gql14-tab-1');
 }
 
 /**
@@ -211,6 +208,9 @@ export async function executeOnActiveTabQuiet(ctx: DemoActionContext, query: str
  */
 export async function ensureLesson14Tab1Configured(ctx: DemoActionContext): Promise<void> {
   if (_lesson14Tab1Set) return;
+  if (graphQlHeaderSelectorsPresent()) {
+    await ensureGqlDemoHeaderContext(ctx);
+  }
   await activateGqlTabByIndex(ctx, 0);
   await configureDemoTabInheritPageDefault(ctx);
   await introspectActiveTabQuiet(ctx);
@@ -219,19 +219,43 @@ export async function ensureLesson14Tab1Configured(ctx: DemoActionContext): Prom
 }
 
 /**
- * Guard: At least two workspace tabs exist. Creates Tab 2 if missing.
+ * Guard: At least two workspace tabs exist; Tab 2 endpoint field is blank until step 4.
+ * Recovery path adds Tab 2 without revisiting Tab 1 endpoint configuration.
  */
 export async function ensureLesson14Tab2Added(ctx: DemoActionContext): Promise<void> {
   await ensureLesson14Tab1Configured(ctx);
-  if (_lesson14Tab2Added && getDemoTabCount() >= 2) {
-    await activateGqlTabByIndex(ctx, 1);
+
+  if (getDemoTabCount() >= 2) {
+    if (!_lesson14Tab2Added) {
+      await patchDemoTabBlankEndpointQuiet(1);
+      tagLesson14Tab2();
+      _lesson14Tab2Added = true;
+    }
     return;
   }
-  await ensureDemoTabInheritsPageDefault(ctx, 0);
-  await ensureGqlTabCount(ctx, 2);
-  await ensureDemoTabInheritsPageDefault(ctx, 0);
-  await ensureDemoTabBlankEndpoint(ctx, 1);
-  getDemoTabByIndex(1)?.setAttribute('data-lesson-target', 'gql14-tab-1');
+
+  await ctx.click(GQL.TAB_ADD_BTN);
+  await ctx.waitFor(GQL14_DEMO_TAB_SELECTOR, 5000);
+  await ctx.delay(500);
+  await patchDemoTabBlankEndpointQuiet(1);
+  tagLesson14Tab2();
+  _lesson14Tab2Added = true;
+}
+
+/** Step action: add the second demo tab with the + button (no tab-bar hopping). */
+export async function demonstrateLesson14AddSecondTab(ctx: DemoActionContext): Promise<void> {
+  if (getDemoTabCount() >= 2) {
+    _lesson14Tab2Added = true;
+    tagLesson14Tab2();
+    await ctx.delay(900);
+    return;
+  }
+
+  await ctx.click(GQL.TAB_ADD_BTN);
+  await ctx.waitFor(GQL14_DEMO_TAB_SELECTOR, 5000);
+  await ctx.delay(800);
+  await patchDemoTabBlankEndpointQuiet(1);
+  tagLesson14Tab2();
   _lesson14Tab2Added = true;
 }
 
@@ -250,20 +274,32 @@ export async function ensureLesson14Tab2Configured(ctx: DemoActionContext): Prom
 
 /**
  * Guard: Tab 2 has executed `query { health }` so its response is cached.
+ * Quiet recovery only — visible execute lives in demonstrateLesson14TabResponseSwitch.
  */
 export async function ensureLesson14Tab2Executed(ctx: DemoActionContext): Promise<void> {
   await ensureLesson14Tab2Configured(ctx);
   if (_lesson14Tab2Executed) return;
+  await activateGqlTabByIndex(ctx, 1);
   await executeOnActiveTabQuiet(ctx, GQL_HEALTH_QUERY);
   _lesson14Tab2Executed = true;
 }
 
-/** Visible tab-switch beat: pause on Tab 2 response, then switch to Tab 1 cache. */
+/** Visible tab-switch beat: execute on Tab 2, pause, then switch to Tab 1 cache. */
 export async function demonstrateLesson14TabResponseSwitch(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14Tab2Executed(ctx);
+  await ensureLesson14Tab2Configured(ctx);
   await activateGqlTabByIndex(ctx, 1);
-  await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
-  await ctx.delay(2500);
+
+  if (!_lesson14Tab2Executed) {
+    await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
+    await ctx.delay(400);
+    await ctx.click(GQL.EXECUTE_BTN);
+    await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+    await ctx.delay(2500);
+    _lesson14Tab2Executed = true;
+  } else {
+    await ctx.delay(1200);
+  }
+
   await activateGqlTabByIndex(ctx, 0);
   await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
   await ctx.delay(2500);
@@ -272,6 +308,7 @@ export async function demonstrateLesson14TabResponseSwitch(ctx: DemoActionContex
 
 /** Guard: switched to Tab 1 with Tab 2 response cached (used by later steps). */
 export async function ensureLesson14SwitchedToTab1(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson14Tab2Executed(ctx);
   if (_lesson14SwitchedToTab1) {
     await activateGqlTabByIndex(ctx, 0);
     return;
@@ -321,7 +358,7 @@ export async function renameDemoTabByIndex(
 
 /** Guard: Tab 1 → "Staging", Tab 2 → "Production" (step 7 narration). */
 export async function ensureLesson14TabsRenamed(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14SwitchedToTab1(ctx);
+  await ensureLesson14Tab2Executed(ctx);
   if (
     _lesson14TabsRenamed
     && demoTabLabelText(0) === LESSON14_STAGING_LABEL
@@ -640,7 +677,7 @@ export async function ensureLesson14ProfileAuthHintVisible(ctx: DemoActionContex
 
 /** Tag demo Tab 2 for the step-6 spotlight (whole tab — title + hostname subtitle). */
 export async function ensureLesson14Tab2BadgeHighlight(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14SwitchedToTab1(ctx);
+  await ensureLesson14Tab2Configured(ctx);
   const tab = getDemoTabByIndex(1);
   if (!tab) return;
   tab.setAttribute('data-lesson-target', 'gql14-tab2-badge');
@@ -652,6 +689,16 @@ export async function ensureLesson14Tab2BadgeHighlight(ctx: DemoActionContext): 
 export async function ensureLesson14IntroReady(ctx: DemoActionContext): Promise<void> {
   await closeGqlActivityPanelIfOpen(ctx);
   await ctx.waitFor(GQL.TAB_BAR, 5000);
+}
+
+/** Step 2 reading — page default visible before Tab 1 introspect/execute action. */
+export async function ensureLesson14Tab1EndpointReadingReady(ctx: DemoActionContext): Promise<void> {
+  await ctx.waitFor(GQL.TAB_BAR, 5000);
+  if (graphQlHeaderSelectorsPresent()) {
+    await ensureGqlDemoHeaderContext(ctx);
+  }
+  await ensureGqlDemoPageDefaultEndpoint(ctx);
+  await patchDemoTabConnection({ endpoint: undefined });
 }
 
 /** Multi-Tab lesson setup (GQL-14) — demo tab with tabBudget 2. */
@@ -674,6 +721,11 @@ export async function gqlMultiTabLessonSetup(ctx: DemoActionContext): Promise<vo
   await ensureEditorMode(ctx);
   await closeGqlActivityPanelIfOpen(ctx);
   await ensureGqlDemoTab(ctx, GQL14_LESSON_ID, 'Multi-Tab Workspaces', 2);
+  if (graphQlHeaderSelectorsPresent()) {
+    await ensureGqlDemoHeaderContext(ctx);
+  }
+  await ensureGqlDemoPageDefaultEndpoint(ctx);
+  await patchDemoTabConnection({ endpoint: undefined });
   await ctx.waitFor(GQL.PROFILE_BADGE, 5000);
   await purgeLesson14ConnectionProfiles(ctx);
 }
