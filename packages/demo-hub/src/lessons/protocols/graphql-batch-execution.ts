@@ -14,8 +14,6 @@ import {
   demonstrateLesson15RunBatch,
   demonstrateLesson15SelectBatchTabs,
   demonstrateLesson15WriteQueries,
-  ensureLesson15BatchEnabled,
-  ensureLesson15BothTabsChecked,
   ensureLesson15IntroReady,
   ensureLesson15ReadyToExecute,
   gqlBatchLessonCleanup,
@@ -23,6 +21,8 @@ import {
   prepareGql15BatchSelectReading,
   prepareGql15BatchResultsReading,
   prepareGql15BatchResponseSliceReading,
+  prepareGql15AddTabReading,
+  prepareGql15WriteQueriesReading,
   prepareGql15EnableBatchReading,
   prepareGql15ExportBatchReading,
   prepareGql15PartialErrorReading,
@@ -224,23 +224,23 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
     </marker>
   </defs>
 
-  <text x="36" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text)">Enable Batch</text>
-  <text x="36" y="417" text-anchor="middle" font-size="7" fill="var(--text-muted)">⚙ → Batch tab</text>
+  <text x="36" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text)">Add Tab 2</text>
+  <text x="36" y="417" text-anchor="middle" font-size="7" fill="var(--text-muted)">same endpoint</text>
   <line x1="74" y1="407" x2="102" y2="407" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#gql15-arr)"/>
-  <text x="146" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text)">Add Tab 2</text>
-  <text x="146" y="417" text-anchor="middle" font-size="7" fill="var(--text-muted)">same endpoint</text>
+  <text x="146" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text)">Write queries</text>
+  <text x="146" y="417" text-anchor="middle" font-size="7" fill="var(--text-muted)">both tabs</text>
   <line x1="186" y1="407" x2="212" y2="407" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#gql15-arr)"/>
-  <text x="260" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text)">Check ☑ both tabs</text>
-  <text x="260" y="417" text-anchor="middle" font-size="7" fill="var(--text-muted)">batch checkboxes</text>
+  <text x="260" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text)">Enable Batch</text>
+  <text x="260" y="417" text-anchor="middle" font-size="7" fill="var(--text-muted)">⚙ → Batch tab</text>
   <line x1="316" y1="407" x2="344" y2="407" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#gql15-arr)"/>
-  <text x="394" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text)">Send Batch (2)</text>
-  <text x="394" y="417" text-anchor="middle" font-size="7" fill="var(--primary)">1 HTTP request</text>
+  <text x="394" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text)">Check ☑ both tabs</text>
+  <text x="394" y="417" text-anchor="middle" font-size="7" fill="var(--text-muted)">batch table</text>
   <line x1="440" y1="407" x2="468" y2="407" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#gql15-arr)"/>
-  <text x="550" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="#28c840">Batch of 2 ✓ ✓</text>
-  <text x="550" y="417" text-anchor="middle" font-size="7" fill="var(--text-muted)">stacked result cards</text>
+  <text x="550" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text)">Send Batch (2)</text>
+  <text x="550" y="417" text-anchor="middle" font-size="7" fill="var(--primary)">1 HTTP request</text>
   <line x1="600" y1="407" x2="628" y2="407" stroke="var(--primary)" stroke-width="1.5" marker-end="url(#gql15-arr)"/>
-  <text x="664" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="var(--text)">Compare</text>
-  <text x="664" y="417" text-anchor="middle" font-size="7" fill="var(--text-muted)">or export</text>
+  <text x="664" y="405" text-anchor="middle" font-size="8" font-weight="600" fill="#28c840">Batch of 2 ✓ ✓</text>
+  <text x="664" y="417" text-anchor="middle" font-size="7" fill="var(--text-muted)">stacked cards</text>
 </svg>`,
   },
 
@@ -261,33 +261,49 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
       pauseAfter: true,
     },
 
-    // ── Step 2: Enable Batch Mode ─────────────────────────────────────────────
+    // ── Step 2: Add Second Tab ────────────────────────────────────────────────
+    {
+      id: 'gql15-add-tab',
+      title: 'Add a Second Tab',
+      description:
+        'Click the **+** button at the end of the tab bar to open a second workspace tab. On **Tab 2**, change the endpoint to `http://localhost:4010/graphql` — a direct URL override (you will see the **:4010** hostname badge on the tab). Switch back to **Tab 1** and confirm it still shows `{{graphqlUrl}}` with no override badge.\n\n' +
+        '**Why can batch use different *stored* URLs?** Batch cares about the **resolved** server, not the literal string in the connection bar. Tab 1\'s `{{graphqlUrl}}` and Tab 2\'s direct localhost URL both resolve to the same Docker server — so **Send Batch** stays enabled once you turn batch mode on. That is the opposite of GQL-14, where staging and production were genuinely different servers.',
+      highlight: GQL.TAB_ADD_BTN,
+      preAction: prepareGql15AddTabReading,
+      action: demonstrateLesson15AddSecondTab,
+      verify: GQL.TAB_BAR,
+      pauseAfter: true,
+    },
+
+    // ── Step 3: Write Queries on Both Tabs ────────────────────────────────────
+    {
+      id: 'gql15-write-queries',
+      title: 'Write a Query on Each Tab',
+      description:
+        'Switch to **Tab 1** and confirm `query { health }` is in the editor. Switch to **Tab 2** and enter `query CheckHealth { health }` — a different operation name so the batch result cards are easy to tell apart.\n\n' +
+        '**Why different operation names?** Batch results are labelled by operation name, not tab title. Distinct names (`GetHealth` vs `CheckHealth`) make the stacked cards self-explanatory in screenshots and CI logs — you can see which response came from which tab without cross-referencing the tab bar.',
+      highlight: GQL.EDITOR,
+      preAction: prepareGql15WriteQueriesReading,
+      action: demonstrateLesson15WriteQueries,
+      verify: GQL.EDITOR,
+      pauseAfter: true,
+    },
+
+    // ── Step 4: Enable Batch Mode ─────────────────────────────────────────────
     {
       id: 'gql15-enable-batch',
       title: 'Enable Batch Mode',
       description:
-        'Click the **⚙ gear** in the connection bar to open **Advanced settings**, switch to the **Batch** tab, and turn on **Enable query batching**. Review the operation table and timeout, then click **Save** — a batch summary chip appears on the connection bar and the **Send Batch** controls unlock once two operations are selected.\n\n' +
-        '**Why live in Advanced Settings?** Batch configuration (which operations share one HTTP request, timeout, fallback behaviour) is advanced transport tuning — not something you change on every query. Keeping it in the gear menu keeps the connection bar clean while still making batch mode one click away when you need it.',
+        'With both tabs configured, click the **⚙ gear** in the connection bar to open **Advanced settings**, switch to the **Batch** tab, and turn on **Enable query batching**. Review the operation table and timeout, then click **Save** — a batch summary chip appears on the connection bar and the **Send Batch** controls unlock once two operations are selected.\n\n' +
+        '**Why wait until both tabs exist?** Batching sends multiple operations in one HTTP request — you need at least two ready tabs on the same endpoint before the toggle appears. Keeping batch setup in Advanced Settings keeps the connection bar clean while still making batch mode one click away when you need it.',
       highlight: GQL.ADV_BATCH_PANEL,
       preAction: prepareGql15EnableBatchReading,
       action: demonstrateLesson15EnableBatch,
       verify: GQL.BATCH_SUMMARY_CHIP,
       pauseAfter: true,
     },
-    {
-      id: 'gql15-add-tab',
-      title: 'Add a Second Tab',
-      description:
-        'Click the **+** button at the end of the tab bar to open a second workspace tab. Both tabs inherit the page default endpoint (`{{graphqlUrl}}`) — no per-tab override badge appears because they share the same server.\n\n' +
-        '**Why do both tabs need the same endpoint?** A batch request is a single HTTP POST to one URL. If Tab 1 pointed to staging and Tab 2 to production — as in GQL-14 — there is no single URL that can receive both operations. Studio enforces **endpoint parity**: **Send Batch** stays disabled when selected tabs resolve to different servers. Keeping both demo tabs on `{{graphqlUrl}}` satisfies that rule.',
-      highlight: GQL.TAB_ADD_BTN,
-      preAction: ensureLesson15BatchEnabled,
-      action: demonstrateLesson15AddSecondTab,
-      verify: GQL.TAB_BAR,
-      pauseAfter: true,
-    },
 
-    // ── Step 4: Select Batch Operations ───────────────────────────────────────
+    // ── Step 5: Select Batch Operations ───────────────────────────────────────
     {
       id: 'gql15-batch-select',
       title: 'Select Operations for the Batch',
@@ -298,20 +314,6 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
       preAction: prepareGql15BatchSelectReading,
       action: demonstrateLesson15SelectBatchTabs,
       verify: GQL.TAB_BAR,
-      pauseAfter: true,
-    },
-
-    // ── Step 5: Write Queries on Both Tabs ────────────────────────────────────
-    {
-      id: 'gql15-write-queries',
-      title: 'Write a Query on Each Tab',
-      description:
-        'Switch to **Tab 1** and confirm `query { health }` is in the editor. Switch to **Tab 2** and enter `query CheckHealth { health }` — a different operation name so the batch result cards are easy to tell apart.\n\n' +
-        '**Why different operation names?** Batch results are labelled by operation name, not tab title. Distinct names (`GetHealth` vs `CheckHealth`) make the stacked cards self-explanatory in screenshots and CI logs — you can see which response came from which tab without cross-referencing the tab bar.',
-      highlight: GQL.EDITOR,
-      preAction: ensureLesson15BothTabsChecked,
-      action: demonstrateLesson15WriteQueries,
-      verify: GQL.EDITOR,
       pauseAfter: true,
     },
 

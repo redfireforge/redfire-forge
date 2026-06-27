@@ -113,7 +113,10 @@ const DEMO_GQL16_SPEC = '**/demo-gql-workflow-integration.spec.ts';
 /** GQL-17 only — Workflow Runner & Results lesson validation. */
 const DEMO_GQL17_SPEC = '**/demo-gql-workflow-runner.spec.ts';
 /** GQL-18 only — Mutation Node in Workflow lesson validation. */
-const DEMO_GQL18_SPEC = '**/demo-gql-workflow-mutation.spec.ts';
+const DEMO_GQL18_SPEC = [
+  '**/demo-gql-workflow-mutation.spec.ts',
+  '**/demo-gql18-delete-validation.spec.ts',
+];
 /** GQL-19 only — Subscription Node in Workflow lesson validation. */
 const DEMO_GQL19_SPEC = '**/demo-gql-workflow-subscription.spec.ts';
 /** §11.0 — Demo workspace isolation acceptance (GQL-1 / GQL-14 gate / lesson switch). */

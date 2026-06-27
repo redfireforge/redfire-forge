@@ -7,7 +7,7 @@
  * Full lesson needs Docker GraphQL on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 8 disables Next — use walkFullGql18Lesson, not runNextStep on the final step.
+ * Last-step rule: step 15 disables Next — use walkFullGql18Lesson, not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';
@@ -59,7 +59,7 @@ test.describe('GQL-18 — full lesson (Docker)', () => {
 
     const { counter, title } = await getStepInfo(page);
     expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
-    expect(title).toMatch(/Teardown with deleteUser/i);
+    expect(title).toMatch(/Full Chain Passes/i);
 
     await expect(page.locator('.wf-canvas-area')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="gql-canvas-mutation-node"]')).toHaveCount(2, { timeout: 15_000 });

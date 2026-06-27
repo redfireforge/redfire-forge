@@ -97,6 +97,7 @@ export async function patchDemoTabConnection(patch: DemoTabConnectionPatch): Pro
   const nextTabs = tabs.map((t) => {
     if (t.id !== session.demoTabId) return t;
     const next: GqlStudioTab = { ...t, ...patch, unsavedChanges: true };
+    if ('endpoint' in patch && patch.endpoint === undefined) delete next.endpoint;
     if (patch.skipTlsVerify === undefined) delete next.skipTlsVerify;
     if (patch.tlsCaCert === undefined) delete next.tlsCaCert;
     if (patch.tlsClientCert === undefined) delete next.tlsClientCert;
@@ -122,6 +123,7 @@ export async function patchDemoTabConnectionById(
   const nextTabs = tabs.map((t) => {
     if (t.id !== tabId) return t;
     const next: GqlStudioTab = { ...t, ...patch, unsavedChanges: true };
+    if ('endpoint' in patch && patch.endpoint === undefined) delete next.endpoint;
     if (patch.skipTlsVerify === undefined) delete next.skipTlsVerify;
     if (patch.tlsCaCert === undefined) delete next.tlsCaCert;
     if (patch.tlsClientCert === undefined) delete next.tlsClientCert;

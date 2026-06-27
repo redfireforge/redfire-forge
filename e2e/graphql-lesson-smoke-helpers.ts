@@ -54,7 +54,7 @@ export const GQL14_LESSON = { name: 'Multi-Tab Workspaces', steps: 12 } as const
 export const GQL15_LESSON = { name: 'Batch Execution', steps: 10 } as const;
 export const GQL16_LESSON = { name: 'Workflow Integration', steps: 12 } as const;
 export const GQL17_LESSON = { name: 'Workflow Runner & Results', steps: 10 } as const;
-export const GQL18_LESSON = { name: 'Mutation Node in Workflow', steps: 8 } as const;
+export const GQL18_LESSON = { name: 'Mutation Node in Workflow', steps: 15 } as const;
 export const GQL19_LESSON = { name: 'Subscription Node in Workflow', steps: 9 } as const;
 
 /** Bottom Auth panel selectors for GQL-4 / GQL-14 lesson walks (Slice 7.6 — Option D). */
@@ -1125,8 +1125,8 @@ export const walkFullGql16Lesson = makeGqlLessonWalk(GQL16_LESSON, 6);
 /** Play through all 10 GQL-17 steps (workflow runner; extended timeouts from start-run). */
 export const walkFullGql17Lesson = makeGqlLessonWalk(GQL17_LESSON, 3);
 
-/** Play through all 8 GQL-18 steps (mutation chain; extended timeouts from Quick Test). */
-export const walkFullGql18Lesson = makeGqlLessonWalk(GQL18_LESSON, 6);
+/** Play through all 15 GQL-18 steps (blank canvas build; extended timeouts from first Quick Test). */
+export const walkFullGql18Lesson = makeGqlLessonWalk(GQL18_LESSON, 11);
 
 /** Play through all 9 GQL-19 steps (subscription workflow; extended timeouts from Quick Test). */
 export const walkFullGql19Lesson = makeGqlLessonWalk(GQL19_LESSON, 6);
@@ -1422,7 +1422,7 @@ export async function prepareGql14DockerLesson(
   await setupLiveProxy(page, request);
   await launchGqlStudio(page, GQL14_LESSON.name);
   await ensureGqlDemoHeaderSelected(page);
-  await ensureGql3StudioEndpoint(page);
+  await ensureGql2StudioEndpoint(page);
 }
 
 /** GQL-15: seed EM + proxy + endpoint bootstrap (batch; tabBudget 2). */

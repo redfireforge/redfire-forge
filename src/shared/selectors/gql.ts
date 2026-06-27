@@ -455,6 +455,8 @@ export const GQL = {
   ADV_BATCH_ENABLE:        '[aria-label="Enable query batching"]',
   /** Visible label row for Enable query batching — demo player clicks this. */
   ADV_BATCH_ENABLE_TOGGLE: '[data-testid="gql-adv-batch-enable-toggle"]',
+  /** Shown when fewer than two tabs share an endpoint — batch toggle is hidden until then. */
+  ADV_BATCH_PREREQUISITE:  '[data-testid="gql-adv-batch-prerequisite"]',
   advBatchTabLabel:        (tabId: string) => `[data-testid="gql-adv-batch-tab-label-${tabId}"]`,
 
   // ── Workflow canvas nodes (Phase 4) — the draggable node cards on canvas ─────

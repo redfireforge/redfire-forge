@@ -760,6 +760,19 @@ export async function ensureIntrospected(ctx: DemoActionContext): Promise<void> 
   await runEnsureIntrospected(ctx);
 }
 
+/**
+ * Introspect using page-level `{{graphqlUrl}}` — demo tabs inherit without per-tab override.
+ * Use for multi-tab / batch lessons (GQL-14, GQL-15) where batch parity requires a shared page default.
+ */
+export async function ensureIntrospectedWithPageDefault(ctx: DemoActionContext): Promise<void> {
+  await ensureGqlDemoHeaderContext(ctx);
+  await navigateToGraphqlStudio(ctx);
+  await ensureGqlDemoPageDefaultEndpoint(ctx);
+  await patchDemoTabConnection({ endpoint: undefined });
+  _endpointSet = true;
+  await runEnsureIntrospected(ctx);
+}
+
 /** Introspect on the demo tab using a direct HTTP endpoint (skips Environment Manager). */
 export async function ensureIntrospectedOnDirectEndpoint(ctx: DemoActionContext): Promise<void> {
   await ensureDemoTabDirectHttpEndpoint(ctx);
