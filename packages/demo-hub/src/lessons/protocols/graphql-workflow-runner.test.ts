@@ -7,6 +7,8 @@ import { makeCtx } from './ws-test-utils';
 import { stubWorkflowSeedBridge } from '../../test-utils/workflowBridgeStubs';
 import { WF } from '@shared/selectors';
 import {
+  GQL_DEMO_HTTP,
+  GQL_DEMO_VAR,
   LESSON17_WF_NAME,
   LESSON17_RUN_BTN,
   LESSON17_WORKFLOW_SELECT,
@@ -158,6 +160,11 @@ describe('gql-workflow-runner lesson', () => {
     expect(gqlWorkflowRunnerLesson.concept.diagram).toContain('GraphQL Latency Demo');
   });
 
+  it('diagram shows graphqlUrl in Initial Variables panel', () => {
+    expect(gqlWorkflowRunnerLesson.concept.diagram).toContain('graphqlUrl');
+    expect(gqlWorkflowRunnerLesson.concept.diagram).not.toContain('No input variables defined');
+  });
+
   it('diagram shows Run Workflow button', () => {
     expect(gqlWorkflowRunnerLesson.concept.diagram).toContain('▶ Run Workflow');
   });
@@ -269,7 +276,9 @@ describe('gql-workflow-runner lesson', () => {
   it('gql17-runner-variables description explains WHY variable overrides are per-run', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-runner-variables')!;
     expect(step.description).toContain('Initial Variables');
+    expect(step.description).toContain('graphqlUrl');
     expect(step.description).toContain('per-run');
+    expect(step.description).not.toContain('no workflow-level input variables');
   });
 
   it('gql17-config-run description explains iterations, concurrency, and think time', () => {
@@ -491,10 +500,15 @@ describe('gql-workflow-runner lesson', () => {
     const nodes = wf.nodes as Array<{ type: string; data: Record<string, unknown> }>;
     const queryNode = nodes.find((n) => n.type === 'graphqlQuery');
     expect(queryNode).toBeTruthy();
-    expect(queryNode!.data.endpoint).toContain('4010');
+    expect(queryNode!.data.endpoint).toBe(GQL_DEMO_VAR);
     expect(queryNode!.data.query).toContain('health');
     const bindings = queryNode!.data.outputBindings as Array<{ field: string; variableName: string; enabled?: boolean }>;
     expect(bindings.some((b) => b.field === 'latencyMs' && b.variableName === 'gqlLatency' && b.enabled === true)).toBe(true);
+  });
+
+  it('createGqlLatencyDemoWorkflow seeds graphqlUrl workflow default', () => {
+    const wf = createGqlLatencyDemoWorkflow();
+    expect(wf.variables).toEqual({ graphqlUrl: GQL_DEMO_HTTP });
   });
 
   it('createGqlLatencyDemoWorkflow includes graphqlAssert node with < 500 assertion', () => {
@@ -523,7 +537,10 @@ describe('gql-workflow-runner lesson', () => {
     })));
 
     const cbResult = makeCallbacks();
-    const hCtx = makeHandlerContext({ callbacks: cbResult.callbacks });
+    const hCtx = makeHandlerContext({
+      callbacks: cbResult.callbacks,
+      initialVariables: { graphqlUrl: GQL_DEMO_HTTP },
+    });
     const queryPassed = makePassedFlag();
     await handleGraphqlQueryNode(queryRaw.id, queryNode, hCtx, queryPassed);
     expect(queryPassed.value).toBe(true);

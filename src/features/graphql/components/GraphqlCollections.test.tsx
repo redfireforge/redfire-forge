@@ -377,6 +377,65 @@ describe('GraphqlCollections', () => {
     expect(screen.getByTestId('gql-import-mode-summary')).toHaveTextContent('0 collections · 0 operations');
   });
 
+  it('import mode dialog has draggable header and shows full file name', async () => {
+    render(<GraphqlCollections {...defaultProps} />);
+    const longName = 'redfire-graphql-collections-1782524123456-export.json';
+    const validData = JSON.stringify({ collections: [], _exportMeta: { version: '1.0' } });
+    const file = new File([validData], longName, { type: 'application/json' });
+    const input = screen.getByTestId('gql-collections-import-input');
+
+    await act(async () => {
+      Object.defineProperty(input, 'files', { value: [file], configurable: true });
+      fireEvent.change(input);
+    });
+
+    await waitFor(() => expect(screen.getByTestId('gql-import-mode-header')).toBeInTheDocument());
+    expect(screen.getByTestId('gql-import-mode-header')).toHaveClass('gql-import-mode-header--draggable');
+    expect(screen.getByTestId('gql-import-mode-file-preview')).toHaveTextContent(longName);
+  });
+
+  it('toggles import preview when Preview is clicked', async () => {
+    render(<GraphqlCollections {...defaultProps} />);
+    const validData = JSON.stringify({
+      collections: [{
+        collection: { id: 'c1', name: 'Imported Collection', createdAt: 1, updatedAt: 1 },
+        folders: [],
+        items: [{
+          id: 'i1',
+          collectionId: 'c1',
+          name: 'Health',
+          sortOrder: 0,
+          operation: { id: 'op1', query: 'query { health }', operationType: 'query' },
+          createdAt: 1,
+          updatedAt: 1,
+        }],
+      }],
+      _exportMeta: { version: '1.1', exportedAt: '2026-06-23T12:00:00.000Z', source: 'RedfireForge/GraphQL' },
+    });
+    const file = new File([validData], 'export.json', { type: 'application/json' });
+    const input = screen.getByTestId('gql-collections-import-input');
+
+    await act(async () => {
+      Object.defineProperty(input, 'files', { value: [file], configurable: true });
+      fireEvent.change(input);
+    });
+    await waitFor(() => screen.getByTestId('gql-import-mode-preview-toggle'));
+
+    expect(screen.queryByTestId('gql-import-mode-preview')).not.toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('gql-import-mode-preview-toggle'));
+    });
+    expect(screen.getByTestId('gql-import-mode-preview')).toBeInTheDocument();
+    expect(screen.getByText('Imported Collection')).toBeInTheDocument();
+    expect(screen.getByText('Health')).toBeInTheDocument();
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('gql-import-mode-file-preview'));
+    });
+    expect(screen.queryByTestId('gql-import-mode-preview')).not.toBeInTheDocument();
+  });
+
   it('handles merge import', async () => {
     render(<GraphqlCollections {...defaultProps} />);
     const validData = JSON.stringify({ collections: [], _exportMeta: { version: '1.0' } });
@@ -427,7 +486,10 @@ describe('GraphqlCollections', () => {
       fireEvent.change(input);
     });
     await waitFor(() => screen.getByTestId('gql-import-mode-dialog'));
-    fireEvent.click(screen.getByTestId('gql-import-mode-cancel'));
+    const cancelBtn = screen.getByTestId('gql-import-mode-cancel');
+    expect(cancelBtn).toHaveClass('gql-script-btn', 'gql-script-btn--secondary');
+    expect(cancelBtn.closest('.gql-import-mode-footer')).toBeInTheDocument();
+    fireEvent.click(cancelBtn);
     expect(screen.queryByTestId('gql-import-mode-dialog')).not.toBeInTheDocument();
   });
 

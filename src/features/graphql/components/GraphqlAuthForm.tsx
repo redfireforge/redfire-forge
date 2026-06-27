@@ -130,8 +130,8 @@ export function GraphqlAuthForm({
         >
           {linkedProfileName ? (
             <>
-              Inheriting auth from profile <strong>{linkedProfileName}</strong>
-              {' '}— no tab override.
+              Editing profile <strong>{linkedProfileName}</strong>
+              {' '}— auth changes are saved to this profile.
             </>
           ) : (
             <>

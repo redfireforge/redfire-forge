@@ -25,6 +25,8 @@ import {
   ensureLesson15ReadyToExecute,
   ensureLesson15Executed,
   ensureLesson15PartialErrorExecuted,
+  ensureLesson15IntroReady,
+  prepareGql15BatchResultsReading,
   gqlBatchLessonSetup,
   gqlBatchLessonCleanup,
 } from './graphql-lesson-helpers';
@@ -96,6 +98,7 @@ function stubBatchDom(tabCount = 1, batchChecked = false, batchEnabled = false):
     <div data-testid="gql-response-body"></div>
     <div data-testid="gql-batch-results">
       <div class="gql-batch-results-header">Batch of ${tabCount}</div>
+      <button data-testid="gql-batch-results-close-btn">Close</button>
     </div>
     <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
     <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
@@ -120,8 +123,8 @@ describe('gql-batch-execution lesson', () => {
     expect(gqlBatchExecutionLesson.id).toBe('gql-batch-execution');
     expect(gqlBatchExecutionLesson.category).toBe('graphql');
     expect(gqlBatchExecutionLesson.name).toBe('Batch Execution');
-    expect(gqlBatchExecutionLesson.steps.length).toBe(9);
-    expect(gqlBatchExecutionLesson.estimatedMinutes).toBe(5);
+    expect(gqlBatchExecutionLesson.steps.length).toBe(10);
+    expect(gqlBatchExecutionLesson.estimatedMinutes).toBe(6);
     expect(gqlBatchExecutionLesson.tabBudget).toBe(2);
   });
 
@@ -139,12 +142,13 @@ describe('gql-batch-execution lesson', () => {
       'gql15-write-queries',
       'gql15-batch-run',
       'gql15-batch-results',
+      'gql15-batch-response-slice',
       'gql15-partial-error',
       'gql15-export-batch',
     ]);
   });
 
-  it('all 9 steps have pauseAfter: true', () => {
+  it('all 10 steps have pauseAfter: true', () => {
     gqlBatchExecutionLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
@@ -183,17 +187,18 @@ describe('gql-batch-execution lesson', () => {
     expect(gqlBatchExecutionLesson.concept.body).toContain('fallback');
   });
 
-  it('has exactly 5 key terms', () => {
-    expect(gqlBatchExecutionLesson.concept.keyTerms.length).toBe(5);
+  it('has exactly 6 key terms', () => {
+    expect(gqlBatchExecutionLesson.concept.keyTerms.length).toBe(6);
   });
 
-  it('key terms cover: batch request, endpoint parity, partial error, sequential fallback, batch inclusion', () => {
+  it('key terms cover batch request, endpoint parity, partial error, sequential fallback, batch inclusion, and response slice', () => {
     const terms = gqlBatchExecutionLesson.concept.keyTerms.map((k) => k.term);
     expect(terms).toContain('Batch request');
     expect(terms).toContain('Endpoint parity');
     expect(terms).toContain('Partial error');
     expect(terms).toContain('Sequential fallback');
     expect(terms).toContain('Batch inclusion');
+    expect(terms).toContain('Batch response slice');
   });
 
   it('Partial error key term explains no fail-fast behavior', () => {
@@ -243,6 +248,11 @@ describe('gql-batch-execution lesson', () => {
 
   // ── Step spotlights ────────────────────────────────────────────────────────
 
+  it('gql15-intro preAction is ensureLesson15IntroReady', () => {
+    const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-intro')!;
+    expect(step.preAction).toBe(ensureLesson15IntroReady);
+  });
+
   it('gql15-intro highlights TAB_BAR', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-intro')!;
     expect(step.highlight).toBe(GQL.TAB_BAR);
@@ -278,9 +288,14 @@ describe('gql-batch-execution lesson', () => {
     expect(step.highlight).toBe(GQL.BATCH_RESULTS);
   });
 
-  it('gql15-partial-error highlights EDITOR', () => {
+  it('gql15-batch-response-slice highlights RESPONSE_BATCH_BANNER', () => {
+    const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-batch-response-slice')!;
+    expect(step.highlight).toBe(GQL.RESPONSE_BATCH_BANNER);
+  });
+
+  it('gql15-partial-error highlights BATCH_RESULTS', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-partial-error')!;
-    expect(step.highlight).toBe(GQL.EDITOR);
+    expect(step.highlight).toBe(GQL.BATCH_RESULTS);
   });
 
   it('gql15-export-batch highlights ACTIVITY_HISTORY', () => {
@@ -336,16 +351,24 @@ describe('gql-batch-execution lesson', () => {
     expect(step.description).toContain('array');
   });
 
-  it('gql15-batch-results description explains WHY order matters for CI', () => {
+  it('gql15-batch-results description explains transport summary and modal role', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-batch-results')!;
-    expect(step.description).toContain('order');
-    expect(step.description).toContain('CI');
+    expect(step.description).toContain('upstream HTTP POST');
+    expect(step.description).toContain('modal');
+  });
+
+  it('gql15-batch-response-slice description explains per-tab banner and View full batch', () => {
+    const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-batch-response-slice')!;
+    expect(step.description).toContain('Batch 1/2');
+    expect(step.description).toContain('View full batch');
+    expect(step.description).toContain('Metadata');
   });
 
   it('gql15-partial-error description explains WHY batch does not fail-fast', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-partial-error')!;
     expect(step.description).toContain('independently');
     expect(step.description).toContain('partial');
+    expect(step.description).toContain('Batch N/M');
   });
 
   it('gql15-export-batch description explains sequential fallback and CI export', () => {
@@ -558,7 +581,7 @@ describe('gql-batch-execution lesson', () => {
     expect(ctx.delay).toHaveBeenCalledWith(3500);
   });
 
-  it('gql15-add-tab action adds second tab only', async () => {
+  it('gql15-add-tab action clicks TAB_ADD_BTN only (no tab-bar hopping)', async () => {
     const ctx = makeCtx();
     stubBatchDom(1, false, true);
     vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
@@ -572,14 +595,20 @@ describe('gql-batch-execution lesson', () => {
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-add-tab')!;
     await step.preAction!(ctx);
+    vi.mocked(ctx.click).mockClear();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.TAB_ADD_BTN);
+    const tabBarHops = vi.mocked(ctx.click).mock.calls.filter(([sel]) =>
+      String(sel).includes('data-lesson-target'),
+    );
+    expect(tabBarHops).toHaveLength(0);
   });
 
   it('gql15-batch-run action clicks BATCH_EXECUTE_BTN', async () => {
     const ctx = makeCtx();
     stubBatchDom(2, true, true);
     stubMonacoEditor('query { health }');
+    document.querySelector(GQL.BATCH_RESULTS)?.remove();
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-batch-run')!;
     await step.preAction!(ctx);
@@ -587,14 +616,60 @@ describe('gql-batch-execution lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
   });
 
-  it('gql15-batch-results action calls delay (observation step)', async () => {
+  it('gql15-batch-results preAction is prepareGql15BatchResultsReading', () => {
+    const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-batch-results')!;
+    expect(step.preAction).toBe(prepareGql15BatchResultsReading);
+  });
+
+  it('gql15-batch-results action observes batch modal without closing', async () => {
     const ctx = makeCtx();
     stubBatchDom(2, true, true);
     stubMonacoEditor('query { health }');
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-batch-results')!;
     await step.preAction!(ctx);
+    vi.mocked(ctx.click).mockClear();
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalled();
+    expect(ctx.delay).toHaveBeenCalledWith(2000);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_RESULTS_CLOSE_BTN);
+    expect(document.querySelector(GQL.BATCH_RESULTS)).not.toBeNull();
+  });
+
+  it('gql15-batch-response-slice action closes modal, opens metadata, and reopens via View full batch', async () => {
+    const ctx = makeCtx();
+    stubBatchDom(2, true, true);
+    stubMonacoEditor('query { health }');
+    document.body.insertAdjacentHTML('beforeend', `
+      <div data-testid="gql-response-viewer">
+        <button data-testid="gql-rv-tab-metadata">Metadata</button>
+        <div data-testid="gql-rv-batch-banner">
+          <span data-testid="gql-rv-batch-pill">Batch 1/2</span>
+          <button data-testid="gql-rv-open-batch-results">View full batch</button>
+        </div>
+        <div data-testid="gql-rv-meta-batch"></div>
+        <button data-testid="gql-rv-wire-batch-body-toggle">Wire batch body</button>
+        <div data-testid="gql-rv-wire-batch-body"></div>
+      </div>
+    `);
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.BATCH_RESULTS_CLOSE_BTN) {
+        document.querySelector(GQL.BATCH_RESULTS)?.remove();
+      }
+      if (sel === GQL.RESPONSE_OPEN_BATCH_RESULTS) {
+        document.body.insertAdjacentHTML('beforeend', `
+          <div data-testid="gql-batch-results">
+            <button data-testid="gql-batch-results-close-btn">Close</button>
+          </div>
+        `);
+      }
+    });
+    const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-batch-response-slice')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BATCH_RESULTS_CLOSE_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RESPONSE_OPEN_BATCH_RESULTS);
   });
 
   it('gql15-partial-error action re-executes batch after error query', async () => {
@@ -629,6 +704,15 @@ describe('gql-batch-execution lesson', () => {
 
   // ── Setup / cleanup ────────────────────────────────────────────────────────
 
+  it('gqlBatchLessonCleanup closes activity panel and demo tabs', async () => {
+    document.body.innerHTML =
+      '<button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>';
+    const ctx = makeCtx();
+    await gqlBatchLessonCleanup(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
+    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-batch-execution');
+  });
+
   it('gqlBatchLessonSetup creates demo workspace and seeds endpoint', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
@@ -651,13 +735,9 @@ describe('gql-batch-execution lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
   });
 
-  it('gqlBatchLessonCleanup closes demo tabs', async () => {
-    const ctx = makeCtx();
-    await gqlBatchLessonCleanup(ctx);
-    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-batch-execution');
-  });
+  // gqlBatchLessonCleanup covered above (activity panel + demo tabs)
 
-  it('ensureLesson15TwoTabsSameEndpoint fills empty endpoint before adding tab', async () => {
+  it('ensureLesson15TwoTabsSameEndpoint configures inherit when endpoint input is blank', async () => {
     const ctx = makeCtx();
     stubBatchDom(1, false, true);
     document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = '';
@@ -671,7 +751,8 @@ describe('gql-batch-execution lesson', () => {
     });
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson15TwoTabsSameEndpoint(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.any(Number));
+    expect(ctx.click).toHaveBeenCalledWith(GQL.TAB_ADD_BTN);
   });
 
   it('ensureLesson15PartialErrorExecuted guard skips when already executed', async () => {

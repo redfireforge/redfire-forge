@@ -6,6 +6,7 @@ import {
   getResponseDataUser,
   getResponseDataCreateUser,
   getResponseDataCreateOrder,
+  getResponseDataDeleteUser,
 } from './graphqlResponseDataExtractors';
 
 describe('graphqlResponseDataExtractors', () => {
@@ -46,5 +47,18 @@ describe('graphqlResponseDataExtractors', () => {
     expect(getResponseDataCreateOrder(null)).toBeNull();
     expect(getResponseDataCreateOrder({ data: {} })).toBeNull();
     expect(getResponseDataCreateOrder({ data: { createOrder: 'bad' } })).toBeNull();
+  });
+
+  it('getResponseDataDeleteUser returns deleteUser object from data.deleteUser', () => {
+    const result = getResponseDataDeleteUser({
+      data: { deleteUser: { success: false } },
+    });
+    expect(result).toEqual({ success: false });
+  });
+
+  it('getResponseDataDeleteUser returns null when deleteUser missing or non-object', () => {
+    expect(getResponseDataDeleteUser(null)).toBeNull();
+    expect(getResponseDataDeleteUser({ data: {} })).toBeNull();
+    expect(getResponseDataDeleteUser({ data: { deleteUser: 'bad' } })).toBeNull();
   });
 });

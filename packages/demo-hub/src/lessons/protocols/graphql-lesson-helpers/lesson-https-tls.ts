@@ -7,9 +7,11 @@ import {
   closeAuthPanelQuiet,
   configureDemoTabEndpointOverride,
   ensureAuthPanelVisible,
-  ensureHealthQuery,
+  ensureEditorMode,
   fillGqlEditor,
   getEndpointInput,
+  getGqlEditorQuery,
+  resetDemoTabToPlainHttp,
   resetGqlLessonSessionFlags,
   resetGqlLesson2SessionFlags,
   selectAuthInPanel,
@@ -18,10 +20,11 @@ import { resetLesson2VariablesHistoryFlags } from './lesson2-variables-history';
 import { resetGqlLesson3SessionFlags } from './lesson3-mutations';
 import { resetGqlLesson4SessionFlags } from './lesson4-schema-exploration';
 import { resetGqlLesson5SessionFlags } from './lesson5-subscriptions';
-import { resetGqlLesson6SessionFlags, LESSON6_AUTH_TOKEN_VALUE, LESSON6_RV_AUTHORIZATION_VAL, upsertGqlDemoEnvVars } from './lesson6-auth-headers';
+import { resetGqlLesson6SessionFlags, LESSON6_AUTH_TOKEN_VALUE, LESSON6_RV_METADATA_AUTHORIZATION_VAL, upsertGqlDemoEnvVars } from './lesson6-auth-headers';
 import { closeGqlDemoTabs, ensureGqlDemoTab, activateGqlDemoTabQuiet } from './gql-demo-tab';
 import {
   applyGqlTlsSettings,
+  getDemoBridgeWindow,
   loadDemoSession,
   loadTabs,
   patchDemoTabConnection,
@@ -137,6 +140,7 @@ let _gqltSkipCertEnabled = false;
 let _gqltIntrospected = false;
 let _gqltAuthConfigured = false;
 let _gqltAuthExecuted = false;
+let _gqltAuthMetadataReady = false;
 let _gqltCaConfigured = false;
 let _gqltCaIntrospected = false;
 let _gqltMtlsConfigured = false;
@@ -149,6 +153,7 @@ export function resetGqlTlsSessionFlags(): void {
   _gqltIntrospected = false;
   _gqltAuthConfigured = false;
   _gqltAuthExecuted = false;
+  _gqltAuthMetadataReady = false;
   _gqltCaConfigured = false;
   _gqltCaIntrospected = false;
   _gqltMtlsConfigured = false;
@@ -189,16 +194,47 @@ function isTlsCaConfiguredInDom(): boolean {
   return !!(ca?.value?.includes('BEGIN CERTIFICATE') && isSkipCertDisabledInDom());
 }
 
-function isMtlsConfiguredInDom(): boolean {
-  if (!isSkipCertDisabledInDom()) return false;
-  if (document.querySelector(GQL.TLS_INDICATOR_MTLS)) return true;
-  const cert = document.querySelector<HTMLTextAreaElement>(GQL.TLS_CLIENT_CERT);
-  const key = document.querySelector<HTMLTextAreaElement>(GQL.TLS_CLIENT_KEY);
-  return !!(cert?.value?.includes('BEGIN CERTIFICATE') && key?.value?.includes('BEGIN'));
+function isMtlsBadgeActive(): boolean {
+  return !!document.querySelector(GQL.TLS_INDICATOR_MTLS);
 }
 
 function applyGqlTlsViaDemoBridge(patch: Partial<GqlTlsSettings>): boolean {
   return applyGqlTlsSettings(patch);
+}
+
+/** Sync skip-cert to React state and demo-tab storage — required for Tauri native TLS introspect. */
+async function persistSkipCertForTlsDemo(ctx: DemoActionContext): Promise<void> {
+  await activateGqlDemoTabQuiet(ctx);
+  applyGqlTlsViaDemoBridge({ skipTlsVerify: true });
+  await patchDemoTabConnection({ skipTlsVerify: true });
+  await ctx.delay(500);
+  for (let i = 0; i < 30; i++) {
+    const btn = document.querySelector<HTMLButtonElement>(GQL.TLS_TOGGLE);
+    if (btn?.getAttribute('aria-pressed') === 'true') break;
+    await ctx.delay(100);
+  }
+}
+
+/** Sync mTLS PEM fields to React state and demo-tab storage — required before port 4445 introspect. */
+async function persistMtlsForTlsDemo(ctx: DemoActionContext): Promise<void> {
+  await activateGqlDemoTabQuiet(ctx);
+  applyGqlTlsViaDemoBridge({
+    skipTlsVerify: false,
+    caCert: GQL_TLS_CA_CERT,
+    clientCert: GQL_TLS_CLIENT_CERT,
+    clientKey: GQL_TLS_CLIENT_KEY,
+  });
+  await patchDemoTabConnection({
+    skipTlsVerify: false,
+    tlsCaCert: GQL_TLS_CA_CERT,
+    tlsClientCert: GQL_TLS_CLIENT_CERT,
+    tlsClientKey: GQL_TLS_CLIENT_KEY,
+  });
+  await ctx.delay(500);
+  for (let i = 0; i < 40; i++) {
+    if (isMtlsBadgeActive()) break;
+    await ctx.delay(100);
+  }
 }
 
 async function ensureGqlTlsPanelOpen(ctx: DemoActionContext): Promise<void> {
@@ -337,6 +373,7 @@ async function runMtlsCredsDemoAction(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(700);
 
   await closeGqlTlsModal(ctx, { visible: true });
+  await persistMtlsForTlsDemo(ctx);
   _gqltMtlsConfigured = true;
 }
 
@@ -467,7 +504,7 @@ export async function ensureMtlsConfigured(
 ): Promise<void> {
   const visible = opts.visible !== false;
   await ensureMtlsEndpoint(ctx);
-  if (_gqltMtlsConfigured && isMtlsConfiguredInDom()) return;
+  if (_gqltMtlsConfigured && isMtlsBadgeActive()) return;
   _gqltMtlsConfigured = false;
 
   if (!visible && applyGqlTlsViaDemoBridge({
@@ -476,7 +513,7 @@ export async function ensureMtlsConfigured(
     clientCert: GQL_TLS_CLIENT_CERT,
     clientKey: GQL_TLS_CLIENT_KEY,
   })) {
-    await ctx.waitFor(GQL.TLS_INDICATOR_MTLS, 5000);
+    await persistMtlsForTlsDemo(ctx);
     _gqltMtlsConfigured = true;
     return;
   }
@@ -495,12 +532,16 @@ export async function ensureMtlsConfigured(
   await ctx.fill(GQL.TLS_CLIENT_KEY, GQL_TLS_CLIENT_KEY);
   await ctx.delay(200);
   await saveGqlTlsModal(ctx);
+  await persistMtlsForTlsDemo(ctx);
   _gqltMtlsConfigured = true;
 }
 
 /** Introspect over mTLS on port 4445 (Phase 3). */
 export async function ensureMtlsIntrospected(ctx: DemoActionContext): Promise<void> {
   await ensureMtlsConfigured(ctx, { visible: false });
+  if (!isMtlsBadgeActive()) {
+    await persistMtlsForTlsDemo(ctx);
+  }
   if (_gqltMtlsIntrospected && document.querySelector(GQL.SCHEMA_BADGE_OK)) return;
   await ctx.click(GQL.INTROSPECT_BTN);
   await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
@@ -519,25 +560,13 @@ export async function ensurePlainHttpEndpoint(ctx: DemoActionContext): Promise<v
     const tab = (await loadTabs()).find((t) => t.id === session.demoTabId);
     storagePlain = tab?.endpoint === GQL_PLAIN_HTTP;
   }
-  if (isPlainHttpDom && storagePlain && !document.querySelector(GQL.TLS_TOGGLE)) return;
-
-  await patchDemoTabConnection({
-    endpoint: GQL_PLAIN_HTTP,
-    skipTlsVerify: undefined,
-    tlsCaCert: undefined,
-    tlsClientCert: undefined,
-    tlsClientKey: undefined,
-  });
-  await activateGqlDemoTabQuiet(ctx);
-  await ctx.delay(500);
-
-  const after = endpointValue().toLowerCase();
-  const stillHttps =
-    after.startsWith('https://') || after.includes(':4443') || after.includes(':4445');
-  if (stillHttps || document.querySelector(GQL.TLS_TOGGLE)) {
-    await configureDemoTabEndpointOverride(ctx, GQL_PLAIN_HTTP);
+  if (isPlainHttpDom && storagePlain && !document.querySelector(GQL.TLS_TOGGLE)) {
+    _gqltEndpointSet = false;
+    _gqltSkipCertEnabled = false;
+    return;
   }
-  await ctx.delay(200);
+
+  await resetDemoTabToPlainHttp(ctx);
   _gqltEndpointSet = false;
   _gqltSkipCertEnabled = false;
 }
@@ -549,6 +578,7 @@ export async function ensureTlsEndpoint(ctx: DemoActionContext): Promise<void> {
   // Also recover from a stale mTLS port (4445) left on the tab from a prior run.
   const onTlsOnlyPort = endpointIsHttpsTls() && !endpointIsMtls();
   if (_gqltEndpointSet && onTlsOnlyPort) return;
+  await activateGqlDemoTabQuiet(ctx);
   await configureDemoTabEndpointOverride(ctx, GQL_TLS_HTTPS_ENDPOINT);
   await ctx.waitFor(GQL.TLS_TOGGLE, 5000);
   await ctx.delay(200);
@@ -558,15 +588,20 @@ export async function ensureTlsEndpoint(ctx: DemoActionContext): Promise<void> {
 /** Enable skip-cert toggle if not already enabled. */
 export async function ensureSkipCertEnabled(ctx: DemoActionContext): Promise<void> {
   await ensureTlsEndpoint(ctx);
-  if (_gqltSkipCertEnabled && isTlsToggleActive()) return;
+  if (_gqltSkipCertEnabled && isTlsToggleActive()) {
+    await persistSkipCertForTlsDemo(ctx);
+    return;
+  }
   if (!document.querySelector(GQL.TLS_TOGGLE)) {
     _gqltSkipCertEnabled = false;
+    return;
   }
   const btn = document.querySelector<HTMLButtonElement>(GQL.TLS_TOGGLE);
   if (btn && btn.getAttribute('aria-pressed') !== 'true') {
     btn.click();
     await ctx.delay(400);
   }
+  await persistSkipCertForTlsDemo(ctx);
   _gqltSkipCertEnabled = true;
 }
 
@@ -577,6 +612,14 @@ export async function ensureTlsIntrospected(ctx: DemoActionContext): Promise<voi
 
 /** Click Introspect only — outcome verified in the following observe step. */
 export async function runTlsIntrospectClickOnly(ctx: DemoActionContext): Promise<void> {
+  if (endpointIsMtls()) {
+    if (!isMtlsBadgeActive()) {
+      await persistMtlsForTlsDemo(ctx);
+    }
+  } else if (endpointIsHttpsTls() && isTlsToggleActive()) {
+    // Phase 1 skip-cert on port 4443 only — never on mTLS (4445) or CA-validated (4443) paths.
+    await persistSkipCertForTlsDemo(ctx);
+  }
   await ctx.click(GQL.INTROSPECT_BTN);
   await ctx.delay(400);
 }
@@ -595,6 +638,15 @@ export async function ensureTlsSkipIntrospectOutcome(ctx: DemoActionContext): Pr
 
 export async function prepareGqltSkipIntrospectReading(ctx: DemoActionContext): Promise<void> {
   await ensureSkipCertEnabled(ctx);
+  // Clear a stale schema-error from introspecting before skip-cert was persisted (common on Tauri).
+  if (document.querySelector(GQL.SCHEMA_BADGE_ERROR) && !document.querySelector(GQL.SCHEMA_BADGE_OK)) {
+    await ctx.click(GQL.INTROSPECT_BTN);
+    await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
+    await ctx.delay(400);
+    if (document.querySelector(GQL.SCHEMA_BADGE_OK)) {
+      _gqltIntrospected = true;
+    }
+  }
 }
 
 /** Ensure Phase 2 CA-validated introspect outcome. */
@@ -622,6 +674,9 @@ export async function prepareGqltCaIntrospectReading(ctx: DemoActionContext): Pr
 /** Ensure Phase 3 mTLS introspect outcome. */
 export async function ensureMtlsIntrospectOutcome(ctx: DemoActionContext): Promise<void> {
   await ensureMtlsConfigured(ctx, { visible: false });
+  if (!isMtlsBadgeActive()) {
+    await persistMtlsForTlsDemo(ctx);
+  }
   if (_gqltMtlsIntrospected && document.querySelector(GQL.SCHEMA_BADGE_OK)) return;
   if (!document.querySelector(GQL.SCHEMA_BADGE_OK)) {
     await ctx.click(GQL.INTROSPECT_BTN);
@@ -633,6 +688,9 @@ export async function ensureMtlsIntrospectOutcome(ctx: DemoActionContext): Promi
 
 export async function prepareGqltMtlsIntrospectReading(ctx: DemoActionContext): Promise<void> {
   await ensureMtlsConfigured(ctx, { visible: false });
+  if (!isMtlsBadgeActive()) {
+    await persistMtlsForTlsDemo(ctx);
+  }
 }
 
 /** Ensure plain HTTP restore + introspect outcome. */
@@ -654,9 +712,28 @@ export async function prepareGqltRestoreReading(ctx: DemoActionContext): Promise
   await ensureMtlsIntrospected(ctx);
 }
 
+/** Ensure `query { health }` is in the editor without Environment Manager setup (TLS demo tab). */
+async function ensureTlsHealthQuery(ctx: DemoActionContext): Promise<void> {
+  await activateGqlDemoTabQuiet(ctx);
+  await ensureEditorMode(ctx);
+  if (getGqlEditorQuery().includes('health')) return;
+  await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
+}
+
+/** Poll until GraphQL Studio mounts the env bridge (lazy Suspense on first paint). */
+async function waitForGqlEnvBridge(ctx: DemoActionContext, timeoutMs = 8000): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (getDemoBridgeWindow().__demoUpsertGqlEnv) return true;
+    await ctx.delay(100);
+  }
+  return !!getDemoBridgeWindow().__demoUpsertGqlEnv;
+}
+
 /** Seed Demo env with authToken so {{authToken}} resolves during auth-over-TLS. */
 export async function ensureTlsEnvReady(ctx: DemoActionContext): Promise<void> {
   if (_gqltEnvReady) return;
+  await waitForGqlEnvBridge(ctx);
   await upsertGqlDemoEnvVars(ctx, [{ key: 'authToken', value: LESSON6_AUTH_TOKEN_VALUE }]);
   _gqltEnvReady = true;
 }
@@ -672,19 +749,86 @@ export async function ensureTlsAuthConfigured(ctx: DemoActionContext): Promise<v
   _gqltAuthConfigured = true;
 }
 
-/** Execute with TLS auth and confirm the header appears in Metadata. */
-export async function ensureTlsAuthExecuted(ctx: DemoActionContext): Promise<void> {
+/** Step gqlt-auth-tls-config reading — TLS introspected, Demo env armed, Auth panel open. */
+export async function prepareGqltAuthConfigReading(ctx: DemoActionContext): Promise<void> {
+  await ensureTlsIntrospected(ctx);
+  await ensureTlsEnvReady(ctx);
+  if (!_gqltAuthConfigured) {
+    await ensureAuthPanelVisible(ctx);
+    return;
+  }
+  const input = document.querySelector<HTMLInputElement>(GQL.AUTH_BEARER_INPUT);
+  if (input?.value !== GQL_TLS_BEARER_TEMPLATE) {
+    await ensureAuthPanelVisible(ctx);
+    await selectAuthInPanel(ctx, 'bearer');
+    await ctx.fill(GQL.AUTH_BEARER_INPUT, GQL_TLS_BEARER_TEMPLATE);
+    await ctx.delay(400);
+  }
+  await ensureAuthPanelVisible(ctx);
+}
+
+/** Visible Bearer setup for gqlt-auth-tls-config. */
+export async function runGqltAuthConfigAction(ctx: DemoActionContext): Promise<void> {
+  await selectAuthInPanel(ctx, 'bearer');
+  await ctx.delay(600);
+  await ctx.fill(GQL.AUTH_BEARER_INPUT, GQL_TLS_BEARER_TEMPLATE);
+  await ctx.delay(700);
+  _gqltAuthConfigured = true;
+}
+
+/** Step gqlt-auth-tls-exec reading — Bearer configured, Response pane visible. */
+export async function prepareGqltAuthExecReading(ctx: DemoActionContext): Promise<void> {
   await ensureTlsAuthConfigured(ctx);
-  if (_gqltAuthExecuted) return;
-  await ensureHealthQuery(ctx);
+  await ensureTlsHealthQuery(ctx);
+  const responseTab = document.querySelector<HTMLElement>(GQL.RIGHT_TAB_RESPONSE);
+  if (responseTab?.getAttribute('aria-selected') !== 'true') {
+    await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+    await ctx.delay(800);
+  }
+}
+
+/** Visible Execute for gqlt-auth-tls-exec. */
+export async function runGqltAuthExecAction(ctx: DemoActionContext): Promise<void> {
+  await ensureTlsHealthQuery(ctx);
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(800);
-  await ctx.click(GQL.RV_TAB_METADATA);
-  await ctx.waitFor(LESSON6_RV_AUTHORIZATION_VAL, 5000);
-  await ctx.delay(800);
-  await ensureAuthPanelVisible(ctx);
+  await ctx.delay(1000);
   _gqltAuthExecuted = true;
+}
+
+/** Step gqlt-auth-tls-observe reading — health response present, Metadata primed quietly if needed. */
+export async function prepareGqltAuthObserveReading(ctx: DemoActionContext): Promise<void> {
+  await ensureTlsAuthConfigured(ctx);
+  if (!_gqltAuthExecuted || !document.querySelector(GQL.RESPONSE_VIEWER)) {
+    await ensureTlsHealthQuery(ctx);
+    await ctx.click(GQL.EXECUTE_BTN);
+    await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
+    await ctx.delay(800);
+    _gqltAuthExecuted = true;
+  }
+  if (!document.querySelector(LESSON6_RV_METADATA_AUTHORIZATION_VAL)) {
+    await ctx.click(GQL.RV_TAB_METADATA);
+    await ctx.waitFor(LESSON6_RV_METADATA_AUTHORIZATION_VAL, 5000);
+    await ctx.delay(800);
+  }
+  await ensureAuthPanelVisible(ctx);
+}
+
+/** Open Metadata and pause on the Authorization row (gqlt-auth-tls-observe action). */
+export async function runGqltAuthObserveAction(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(GQL.RV_TAB_METADATA);
+  await ctx.waitFor(LESSON6_RV_METADATA_AUTHORIZATION_VAL, 5000);
+  await ctx.delay(1200);
+  await ensureAuthPanelVisible(ctx);
+  _gqltAuthMetadataReady = true;
+}
+
+/** Execute with TLS auth and confirm the header appears in Metadata (quiet chain for Phase 2). */
+export async function ensureTlsAuthExecuted(ctx: DemoActionContext): Promise<void> {
+  if (_gqltAuthMetadataReady) return;
+  await prepareGqltAuthObserveReading(ctx);
+  if (_gqltAuthMetadataReady) return;
+  await runGqltAuthObserveAction(ctx);
 }
 
 /** Ensure mTLS endpoint is set (quiet preAction — modal opens during action). */
@@ -724,10 +868,13 @@ export async function gqlTlsLessonSetup(ctx: DemoActionContext): Promise<void> {
   await ensureGqlDemoTab(ctx, 'gql-https-tls', 'HTTPS, TLS & Certificates');
   await ensurePlainHttpEndpoint(ctx);
   await fillGqlEditor(ctx, GQL_HEALTH_QUERY, { focus: false });
+  // Seed authToken quietly during setup so auth steps never open Settings → Environments.
+  await ensureTlsEnvReady(ctx);
 }
 
-/** Cleanup for Lesson GQL-5 — close demo tab (HTTPS/skip-cert stay on demo tab only). */
+/** Cleanup for Lesson GQL-5 — reset TLS endpoint then close demo tab. */
 export async function gqlTlsLessonCleanup(ctx: DemoActionContext): Promise<void> {
   resetGqlTlsSessionFlags();
+  await resetDemoTabToPlainHttp(ctx);
   await closeGqlDemoTabs(ctx, 'gql-https-tls');
 }

@@ -8,6 +8,7 @@ import {
   isMonacoEditorFocused,
   isFocusedMonacoInput,
 } from '@redfireforge/demo-hub/demoShortcutUtils';
+import { lessonNotesPanelOpenRef } from '@redfireforge/demo-hub/LessonNotesContext';
 
 /**
  * Keyboard shortcuts and auto-exit behaviour for the Demo Hub.
@@ -48,6 +49,7 @@ export function useDemoShortcuts(
       if (demoHub.state.view === 'live') {
         switch (e.key) {
           case 'Escape':
+            if (lessonNotesPanelOpenRef.current) return;
             e.preventDefault();
             demoHub.exitLiveDemo();
             setActiveTab('demo-hub');

@@ -15,6 +15,7 @@ export interface UseGqlTabConnectionHandlersParams {
   hasActiveTabAuthOverride: boolean;
   /** When true, auth edits may unlink connectionId (explicit override — not inherit-global). */
   hasActiveTabConnectionId: boolean;
+  activeConnectionId?: string | null;
   hasActiveTabSkipTlsOverride: boolean;
   hasActiveTabTlsCertOverride: boolean;
   hasActiveTabPollingOverride: boolean;
@@ -28,6 +29,8 @@ export interface UseGqlTabConnectionHandlersParams {
   updateActiveTabPolling: (enabled: boolean, intervalSeconds: number) => void;
   handleAuthChange: (newAuth: GraphqlAuth | null) => void;
   updateActiveTabAuth: (newAuth: GraphqlAuth | null, options?: { clearProfileLink?: boolean }) => void;
+  updateLinkedProfileAuth: (profileId: string, auth: GraphqlAuth | null) => void;
+  clearActiveTabAuth: () => void;
 }
 
 export interface UseGqlTabConnectionHandlersResult {
@@ -48,6 +51,7 @@ export function useGqlTabConnectionHandlers({
   hasActiveTabProfileLink,
   hasActiveTabAuthOverride,
   hasActiveTabConnectionId,
+  activeConnectionId,
   hasActiveTabSkipTlsOverride,
   hasActiveTabTlsCertOverride,
   hasActiveTabPollingOverride,
@@ -61,6 +65,8 @@ export function useGqlTabConnectionHandlers({
   updateActiveTabPolling,
   handleAuthChange,
   updateActiveTabAuth,
+  updateLinkedProfileAuth,
+  clearActiveTabAuth,
 }: UseGqlTabConnectionHandlersParams): UseGqlTabConnectionHandlersResult {
   const usesPageDefaultConnection =
     tabsLength === 1 && !hasActiveTabEndpointOverride && !hasActiveTabProfileLink;
@@ -132,14 +138,23 @@ export function useGqlTabConnectionHandlers({
           handleAuthChange(newAuth);
           return;
         }
+        if (activeConnectionId && !hasActiveTabAuthOverride) {
+          updateLinkedProfileAuth(activeConnectionId, newAuth);
+          clearActiveTabAuth();
+          return;
+        }
         updateActiveTabAuth(newAuth, {
           clearProfileLink: hasActiveTabConnectionId && !isInheritGlobalAuth(newAuth),
         });
       },
       [
         usesPageDefaultAuth,
+        activeConnectionId,
+        hasActiveTabAuthOverride,
         hasActiveTabConnectionId,
         handleAuthChange,
+        updateLinkedProfileAuth,
+        clearActiveTabAuth,
         updateActiveTabAuth,
       ],
     ),

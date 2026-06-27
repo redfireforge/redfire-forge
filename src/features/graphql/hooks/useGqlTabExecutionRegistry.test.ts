@@ -11,6 +11,7 @@ function makeHandle(overrides: Partial<GqlTabExecutionHandle> = {}): GqlTabExecu
     execute: vi.fn(),
     cancel: vi.fn(),
     resolveDedupChoice: vi.fn(),
+    applyResult: vi.fn(),
     getState: () => ({
       status: 'idle',
       response: null,

@@ -28,6 +28,8 @@ import WebSocket from 'ws';
 import type { LogLine } from '../../../src/shared/types/server-api.js';
 import { createMockRouter } from './mock-routes.js';
 import {
+  attachBatchResultMeta,
+  collectIncomingHttpHeaders,
   padTimedOutResults,
   runSequentialWithTimeout,
   type BatchContext,
@@ -237,12 +239,13 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
         const bodyBuf = Buffer.from(bodyStr, 'utf8');
         const headers = { ...baseHeaders, 'content-length': String(bodyBuf.length) };
 
-        const batchResult = await new Promise<{ status: number; body: string }>((resolve) => {
+        const batchStartedAt = Date.now();
+        const batchResult = await new Promise<{ status: number; body: string; headers: Record<string, string> }>((resolve) => {
           const holder: { req?: ReturnType<typeof transport.request> } = {};
           const remainingMs = Math.max(0, batchDeadline - Date.now());
           const timer = setTimeout(() => {
             holder.req?.destroy();
-            resolve({ status: 408, body: JSON.stringify({ errors: [{ message: 'Batch timeout' }] }) });
+            resolve({ status: 408, body: JSON.stringify({ errors: [{ message: 'Batch timeout' }] }), headers: {} });
           }, remainingMs);
 
           holder.req = transport.request(
@@ -257,13 +260,29 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
             (r) => {
               let raw = '';
               r.on('data', (c: Buffer) => { raw += c.toString('utf8'); });
-              r.on('end', () => { clearTimeout(timer); resolve({ status: r.statusCode ?? 200, body: raw }); });
+              r.on('end', () => {
+                clearTimeout(timer);
+                resolve({
+                  status: r.statusCode ?? 200,
+                  body: raw,
+                  headers: collectIncomingHttpHeaders(r.headers),
+                });
+              });
             },
           );
-          holder.req.on('error', (err) => { clearTimeout(timer); resolve({ status: 0, body: JSON.stringify({ errors: [{ message: err.message }] }) }); });
+          holder.req.on('error', (err) => {
+            clearTimeout(timer);
+            resolve({
+              status: 0,
+              body: JSON.stringify({ errors: [{ message: err.message }] }),
+              headers: {},
+            });
+          });
           holder.req.write(bodyBuf);
           holder.req.end();
         });
+        const batchLatencyMs = Date.now() - batchStartedAt;
+        const batchWireMeta = { headers: batchResult.headers, latencyMs: batchLatencyMs };
 
         // Timeout abort: the entire batch timed out — return error, no fallback.
         if (batchResult.status === 408) {
@@ -282,14 +301,21 @@ export function createGraphqlRouter(options: CreateGraphqlRouterOptions = {}): R
               const normalized = operations.map((_, i) => {
                 const item = (parsed as Record<string, unknown>[])[i];
                 if (item != null) {
-                  return { ...item, _httpStatus: batchResult.status, _index: i };
+                  return attachBatchResultMeta(
+                    { ...item, _index: i },
+                    batchResult.status,
+                    batchWireMeta,
+                  );
                 }
-                return {
-                  data: null,
-                  errors: [{ message: `No result returned for operation ${i}` }],
-                  _httpStatus: batchResult.status,
-                  _index: i,
-                };
+                return attachBatchResultMeta(
+                  {
+                    data: null,
+                    errors: [{ message: `No result returned for operation ${i}` }],
+                    _index: i,
+                  },
+                  batchResult.status,
+                  batchWireMeta,
+                );
               });
               if (parsed.length !== operations.length) {
                 log(onLog, 'warn', 'Batch proxy: response array length mismatch', {

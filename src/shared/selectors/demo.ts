@@ -12,4 +12,10 @@ export const DEMO = {
   PHASE_SKIPPABLE:   '.demo-live-phase-badge.skippable',
   PLAY_BTN:          '.demo-live-play-btn',
   CATEGORY_TAB:      '.demo-category-tab',
+  LESSON_NOTE_BTN:   '[data-testid="demo-lesson-note-btn"]',
+  LESSON_NOTES_PANEL:'[data-testid="demo-lesson-notes-panel"]',
+  NOTES_SAVE_BTN:    '[data-testid="demo-lesson-notes-save-btn"]',
+  NOTES_CLOSE_BTN:   '[data-testid="demo-lesson-notes-close-btn"]',
+  LIVE_NOTES_BTN:    '[data-testid="demo-live-notes-btn"]',
+  SIDEBAR_NOTES:     '[data-testid="demo-lesson-sidebar-notes"]',
 } as const;

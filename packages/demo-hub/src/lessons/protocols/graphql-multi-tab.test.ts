@@ -44,7 +44,6 @@ import {
   gqlMultiTabLessonSetup,
   gqlMultiTabLessonCleanup,
 } from './graphql-lesson-helpers';
-import { LESSON6_RV_AUTHORIZATION_VAL } from './graphql-lesson-helpers/lesson6-auth-headers';
 
 /** Generic badge selector matching the lesson. */
 const LESSON14_TAB2_BADGE = GQL.LESSON14_TAB2_BADGE;
@@ -137,8 +136,8 @@ describe('gql-multi-tab lesson', () => {
     expect(gqlMultiTabLesson.id).toBe('gql-multi-tab');
     expect(gqlMultiTabLesson.category).toBe('graphql');
     expect(gqlMultiTabLesson.name).toBe('Multi-Tab Workspaces');
-    expect(gqlMultiTabLesson.steps.length).toBe(10);
-    expect(gqlMultiTabLesson.estimatedMinutes).toBe(7);
+    expect(gqlMultiTabLesson.steps.length).toBe(12);
+    expect(gqlMultiTabLesson.estimatedMinutes).toBe(9);
     expect(gqlMultiTabLesson.tabBudget).toBe(2);
   });
 
@@ -157,12 +156,14 @@ describe('gql-multi-tab lesson', () => {
       'gql14-tab-badge',
       'gql14-real-world',
       'gql14-per-tab-auth',
-      'gql14-profiles',
+      'gql14-profiles-save',
+      'gql14-profiles-load',
+      'gql14-profile-auth',
       'gql14-polling',
     ]);
   });
 
-  it('all 10 steps have pauseAfter enabled', () => {
+  it('all 12 steps have pauseAfter enabled', () => {
     gqlMultiTabLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBeTruthy();
     });
@@ -280,10 +281,11 @@ describe('gql-multi-tab lesson', () => {
     expect(step.verify).toBe(GQL.SCHEMA_BADGE_OK);
   });
 
-  it('gql14-switch-responses highlights Tab 1 and verifies response body', () => {
+  it('gql14-switch-responses highlights tab bar and verifies response body', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-switch-responses')!;
-    expect(step.highlight).toBe(GQL.LESSON14_TAB1);
+    expect(step.highlight).toBe(GQL.TAB_BAR);
     expect(step.verify).toBe(GQL.RESPONSE_BODY);
+    expect(step.pauseAfter).toBe(6000);
   });
 
   it('gql14-tab-badge highlights demo Tab 2 endpoint badge', () => {
@@ -292,23 +294,45 @@ describe('gql-multi-tab lesson', () => {
     expect(step.verify).toBe(LESSON14_TAB2_BADGE);
   });
 
-  it('gql14-real-world highlights Staging tab after rename', () => {
+  it('gql14-real-world highlights tab bar for Staging/Production rename', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-real-world')!;
-    expect(step.highlight).toBe(GQL.LESSON14_TAB1);
+    expect(step.highlight).toBe(GQL.TAB_BAR);
   });
 
-  it('gql14-profiles highlights AUTH_INHERIT_BANNER and verifies inherit banner', () => {
-    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles')!;
+  it('gql14-profiles-save highlights PROFILE_BADGE and saves with Not linked pause', () => {
+    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles-save')!;
+    expect(step.highlight).toBe(GQL.PROFILE_BADGE);
+    expect(step.verify).toBe(GQL.PROFILE_MODAL);
+    expect(step.preAction).toBe(ensureLesson14PerTabAuthConfigured);
+    expect(step.description).toContain('Not linked to any tab');
+    expect(step.description).toContain('Load');
+    expect(step.pauseAfter).toBe(6000);
+  });
+
+  it('gql14-profiles-load highlights PROFILE_BADGE and verifies profile modal', () => {
+    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles-load')!;
+    expect(step.highlight).toBe(GQL.PROFILE_BADGE);
+    expect(step.verify).toBe(GQL.PROFILE_MODAL);
+    expect(step.description).toContain('Load');
+    expect(step.description).toContain('Used by');
+    expect(step.description).not.toContain('Editing profile');
+    expect(step.pauseAfter).toBe(6500);
+  });
+
+  it('gql14-profile-auth highlights inherit banner and verifies auth panel link', () => {
+    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profile-auth')!;
     expect(step.highlight).toBe(GQL.AUTH_INHERIT_BANNER);
     expect(step.verify).toBe(GQL.AUTH_INHERIT_BANNER);
-    expect(step.preAction).toBe(ensureLesson14PerTabAuthConfigured);
+    expect(step.description).toContain('Editing profile');
+    expect(step.pauseAfter).toBe(6000);
   });
 
-  it('gql14-per-tab-auth highlights Production Bearer Authorization value row', () => {
+  it('gql14-per-tab-auth highlights Auth tab and verifies auth panel', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-per-tab-auth')!;
-    expect(step.highlight).toBe(LESSON6_RV_AUTHORIZATION_VAL);
-    expect(step.verify).toBe(LESSON6_RV_AUTHORIZATION_VAL);
+    expect(step.highlight).toBe(GQL.BOTTOM_TAB_AUTH);
+    expect(step.verify).toBe(GQL.AUTH_PANEL);
     expect(step.preAction).toBe(ensureLesson14TabsRenamed);
+    expect(step.pauseAfter).toBe(6500);
   });
 
   it('gql14-per-tab-auth description mentions per-tab auth', () => {
@@ -361,7 +385,7 @@ describe('gql-multi-tab lesson', () => {
 
   it('gql14-add-tab2 description explains WHY Tab 2 starts empty', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-add-tab2')!;
-    expect(step.description).toContain('blank slate');
+    expect(step.description).toContain('empty endpoint field');
     expect(step.description).toContain('schema badge');
   });
 
@@ -390,9 +414,15 @@ describe('gql-multi-tab lesson', () => {
     expect(step.description).toContain('Production');
   });
 
-  it('gql14-profiles description explains inherit banner from profile', () => {
-    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles')!;
-    expect(step.description).toContain('inherit banner');
+  it('gql14-profiles-load description explains Load wires Used by', () => {
+    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles-load')!;
+    expect(step.description).toContain('connectionId');
+    expect(step.description).not.toContain('Editing profile');
+  });
+
+  it('gql14-profile-auth description explains profile-linked auth editing', () => {
+    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profile-auth')!;
+    expect(step.description).toContain('Editing profile');
     expect(step.description).toContain(LESSON14_PRODUCTION_PROFILE_NAME);
   });
 
@@ -500,8 +530,8 @@ describe('gql-multi-tab lesson', () => {
     document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = GQL_DEMO_HTTP;
     stubMonacoEditor('query { health }');
     await ensureLesson14Tab1Configured(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ENDPOINT_RESET_BTN);
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
   });
 
   it('ensureLesson14Tab1Configured guard skips on repeat', async () => {
@@ -593,6 +623,19 @@ describe('gql-multi-tab lesson', () => {
 
   // ── Step actions ───────────────────────────────────────────────────────────
 
+  it('gql14-intro preAction closes the history panel and waits for the tab bar', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-history-panel"></div>
+      <div data-testid="gql-tab-bar"></div>
+    `;
+    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-intro')!;
+    await step.preAction!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.TAB_BAR, 5000);
+  });
+
   it('gql14-intro action calls delay (observation step)', async () => {
     const ctx = makeCtx();
     stubMultiTabDom(1);
@@ -602,7 +645,7 @@ describe('gql-multi-tab lesson', () => {
     expect(ctx.delay).toHaveBeenCalled();
   });
 
-  it('gql14-tab1-endpoint action fills endpoint with env-var', async () => {
+  it('gql14-tab1-endpoint action inherits page default without duplicating env-var on tab', async () => {
     const ctx = makeCtx();
     stubMultiTabDom(1);
     document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = GQL_DEMO_HTTP;
@@ -610,8 +653,8 @@ describe('gql-multi-tab lesson', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-tab1-endpoint')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
     expect(ctx.click).toHaveBeenCalledWith(GQL.ENDPOINT_RESET_BTN);
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
   });
 
   it('gql14-add-tab2 action adds a second tab', async () => {
@@ -766,7 +809,7 @@ describe('gql-multi-tab lesson', () => {
       </div>
       <button data-testid="gql-auth-badge-btn"></button>
       <div data-testid="gql-auth-panel">
-        <p data-testid="gql-auth-inherit-banner">Inheriting auth from profile <strong>${LESSON14_PRODUCTION_PROFILE_NAME}</strong></p>
+        <p data-testid="gql-auth-inherit-banner">Editing profile <strong>${LESSON14_PRODUCTION_PROFILE_NAME}</strong></p>
       </div>
       <button data-testid="gql-introspect-btn"></button>
       <span data-testid="gql-schema-badge-ok"></span>
@@ -780,7 +823,7 @@ describe('gql-multi-tab lesson', () => {
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 5000);
   });
 
-  it('gql14-profiles action opens Auth panel on Production tab', async () => {
+  it('gql14-profiles-load action clicks Load on both profiles', async () => {
     const ctx = makeCtx();
     stubMultiTabDom(2);
     document.body.insertAdjacentHTML('beforeend', `
@@ -790,13 +833,9 @@ describe('gql-multi-tab lesson', () => {
         <button data-testid="gql-profile-save-btn"></button>
         <button data-testid="gql-profile-close-btn"></button>
         <ul class="gql-profile-list">
-          <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span><button class="gql-profile-btn--load">Load</button></li>
-          <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span><button class="gql-profile-btn--load">Load</button></li>
+          <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span><button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_STAGING_PROFILE_NAME}">Load</button></li>
+          <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span><button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_PRODUCTION_PROFILE_NAME}">Load</button></li>
         </ul>
-      </div>
-      <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-panel">
-        <p data-testid="gql-auth-inherit-banner">Inheriting auth from profile <strong>${LESSON14_PRODUCTION_PROFILE_NAME}</strong></p>
       </div>
       <input data-testid="gql-tab-rename-0" value="Staging" />
       <input data-testid="gql-tab-rename-1" value="Production" />
@@ -806,13 +845,45 @@ describe('gql-multi-tab lesson', () => {
     tab0Label.textContent = LESSON14_STAGING_LABEL;
     tab1Label.textContent = LESSON14_PRODUCTION_LABEL;
     stubMonacoEditor();
-    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles')!;
+    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profiles-load')!;
+    await step.preAction!(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME));
+    expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_PRODUCTION_PROFILE_NAME));
+    expect(ctx.delay).toHaveBeenCalledWith(2000);
+  });
+
+  it('gql14-profile-auth action opens Auth panel on Production tab', async () => {
+    const ctx = makeCtx();
+    stubMultiTabDom(2);
+    document.body.insertAdjacentHTML('beforeend', `
+      <button data-testid="gql-profile-badge"></button>
+      <div data-testid="gql-profile-modal">
+        <button data-testid="gql-profile-close-btn"></button>
+        <ul class="gql-profile-list">
+          <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span><button class="gql-profile-btn--load">Load</button></li>
+          <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span><button class="gql-profile-btn--load">Load</button></li>
+        </ul>
+      </div>
+      <button data-testid="gql-auth-badge-btn"></button>
+      <div data-testid="gql-auth-panel">
+        <p data-testid="gql-auth-inherit-banner">Editing profile <strong>${LESSON14_PRODUCTION_PROFILE_NAME}</strong></p>
+      </div>
+      <input data-testid="gql-tab-rename-0" value="Staging" />
+      <input data-testid="gql-tab-rename-1" value="Production" />
+    `);
+    const tab0Label = document.querySelector('[data-testid="gql-tab-0"] .gql-tab-label')!;
+    const tab1Label = document.querySelector('[data-testid="gql-tab-1"] .gql-tab-label')!;
+    tab0Label.textContent = LESSON14_STAGING_LABEL;
+    tab1Label.textContent = LESSON14_PRODUCTION_LABEL;
+    stubMonacoEditor();
+    const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-profile-auth')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.AUTH_BADGE_BTN);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_PANEL, 5000);
     expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 5000);
-    expect(ctx.delay).toHaveBeenCalledWith(1500);
+    expect(ctx.delay).toHaveBeenCalledWith(2500);
   });
 
   it('ensureLesson14TabProfileLinks guard skips when profiles already linked', async () => {
@@ -957,6 +1028,8 @@ describe('gql-multi-tab lesson', () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-history-panel"></div>
       <div data-testid="gql-tab-bar">
         <button role="tab" data-demo-lesson="gql-multi-tab" aria-selected="true">Demo</button>
       </div>
@@ -967,6 +1040,7 @@ describe('gql-multi-tab lesson', () => {
       </div>
     `;
     await gqlMultiTabLessonSetup(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
     expect(ensureGqlDemoTab).toHaveBeenCalledWith(
       ctx,
       'gql-multi-tab',

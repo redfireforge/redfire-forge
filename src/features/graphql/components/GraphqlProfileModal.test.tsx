@@ -101,6 +101,58 @@ describe('GraphqlProfileModal', () => {
     expect(screen.getByTestId('gql-profile-row-p1')).toHaveAttribute('aria-current', 'true');
   });
 
+  it('shows Used by tab pills for profiles linked to workspace tabs', () => {
+    const profiles = [
+      makeProfile({ id: 'p1', name: 'Staging' }),
+      makeProfile({ id: 'p2', name: 'Production' }),
+    ];
+    render(
+      <GraphqlProfileModal
+        {...defaultProps}
+        profiles={profiles}
+        activeTabId="tab-2"
+        activeConnectionId="p2"
+        studioTabs={[
+          { id: 'tab-1', label: 'Staging', connectionId: 'p1' },
+          { id: 'tab-2', label: 'Production', connectionId: 'p2' },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('gql-profile-tab-usage-p1')).toHaveTextContent('Used by');
+    expect(screen.getByTestId('gql-profile-tab-pill-p1-tab-1')).toHaveTextContent('Staging');
+    expect(screen.getByTestId('gql-profile-tab-pill-p2-tab-2')).toHaveTextContent('Production');
+    expect(screen.getByTestId('gql-profile-tab-pill-p2-tab-2')).toHaveClass('gql-profile-row__tab-pill--active');
+  });
+
+  it('shows Not linked to any tab when profile has no tab links', () => {
+    const profiles = [makeProfile({ id: 'p1', name: 'Orphan' })];
+    render(
+      <GraphqlProfileModal
+        {...defaultProps}
+        profiles={profiles}
+        studioTabs={[{ id: 'tab-1', label: 'Query 1', connectionId: undefined }]}
+      />,
+    );
+    expect(screen.getByTestId('gql-profile-tab-usage-p1')).toHaveTextContent('Not linked to any tab');
+  });
+
+  it('marks profile row in-use when linked on another tab', () => {
+    const profiles = [makeProfile({ id: 'p1', name: 'Shared' })];
+    render(
+      <GraphqlProfileModal
+        {...defaultProps}
+        profiles={profiles}
+        activeTabId="tab-2"
+        activeConnectionId="p2"
+        studioTabs={[
+          { id: 'tab-1', label: 'Tab A', connectionId: 'p1' },
+          { id: 'tab-2', label: 'Tab B', connectionId: 'p2' },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId('gql-profile-row-p1')).toHaveClass('gql-profile-row--in-use');
+  });
+
   // ─── Endpoint truncation ──────────────────────────────────────────────────
 
   it('truncates long endpoint URLs in profile list', () => {

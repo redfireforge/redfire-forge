@@ -208,14 +208,23 @@ export function useGqlStudioTabs({
       advanceSeqPastRestoredIds(filtered.length > 0 ? filtered : normalized);
       const savedActiveId = await loadActiveTabId();
       const tabsToUse = filtered.length > 0 ? filtered : [makeBlankTab()];
-      const activeExists = tabsToUse.some((t) => t.id === savedActiveId);
+      const inMemoryActive = activeTabIdRef.current;
+      const inMemoryValid = Boolean(
+        inMemoryActive && tabsToUse.some((t) => t.id === inMemoryActive),
+      );
+      const savedValid = tabsToUse.some((t) => t.id === savedActiveId);
+      const nextActive = inMemoryValid
+        ? inMemoryActive
+        : savedValid
+          ? savedActiveId
+          : tabsToUse[0]!.id;
       setTabs(tabsToUse);
-      setActiveTabId(activeExists ? savedActiveId : tabsToUse[0]!.id);
+      setActiveTabId(nextActive);
       onClearFileEntriesRef.current();
       if (filtered.length !== normalized.length) {
         void saveTabs(
           tabsToUse,
-          activeExists ? savedActiveId : tabsToUse[0]!.id,
+          nextActive,
         );
       }
     } else {
@@ -266,8 +275,23 @@ export function useGqlStudioTabs({
   }, [tabs, activeTabId, persistTabsToStorage]);
 
   // ── Tab CRUD ────────────────────────────────────────────────────────────────
+  const persistTabsNow = useCallback(async (nextTabs: GqlStudioTab[], nextActiveId: string) => {
+    const session = await loadDemoSession();
+    demoSessionRef.current = session;
+    setActiveDemoLessonId(session?.lessonId ?? null);
+    if (session?.demoTabId && !nextTabs.some((t) => t.id === session.demoTabId)) {
+      return;
+    }
+    const filtered = filterTabsForPersistence(nextTabs, session);
+    const activeId = pickPersistedActiveTabId(filtered, nextActiveId);
+    await saveTabs(filtered, activeId);
+  }, []);
+
   const addTab = useCallback(() => {
     const session = demoSessionRef.current;
+    let tab: GqlStudioTab;
+    let nextTabs: GqlStudioTab[];
+
     if (session) {
       const budget = Math.max(1, session.tabBudget ?? 1);
       const demoCount = tabs.filter((t) => t.demoLessonId === session.lessonId).length;
@@ -275,22 +299,34 @@ export function useGqlStudioTabs({
         const suffix = demoCount + 1;
         const base = session.displayName ?? `Demo: ${session.lessonId}`;
         const label = budget > 1 && suffix > 1 ? `${base} — ${suffix}` : base;
-        const tab = makeDemoTab(session.lessonId, label);
-        setTabs((prev) => [...prev, tab]);
-        setActiveTabId(tab.id);
-        if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
-        setConfirmingCloseTabId(null);
-        return;
+        tab = makeDemoTab(session.lessonId, label);
+        if (tabs.length >= 1) tab.endpoint = '';
+        nextTabs = [...tabs, tab];
+      } else {
+        if (countUserTabs(tabs) >= MAX_USER_TABS || tabs.length >= MAX_TABS) return;
+        tab = makeBlankTab();
+        if (tabs.length >= 1) tab.endpoint = '';
+        nextTabs = [...tabs, tab];
       }
+    } else {
+      if (countUserTabs(tabs) >= MAX_USER_TABS || tabs.length >= MAX_TABS) return;
+      tab = makeBlankTab();
+      if (tabs.length >= 1) tab.endpoint = '';
+      nextTabs = [...tabs, tab];
     }
 
-    if (countUserTabs(tabs) >= MAX_USER_TABS || tabs.length >= MAX_TABS) return;
-    const tab = makeBlankTab();
-    setTabs((prev) => [...prev, tab]);
-    setActiveTabId(tab.id);
+    activeTabIdRef.current = tab.id;
+    onClearFileEntriesRef.current();
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
     setConfirmingCloseTabId(null);
-  }, [tabs]);
+    setTabs(nextTabs);
+    setActiveTabId(tab.id);
+
+    if (loadedRef.current) {
+      void persistTabsNow(nextTabs, tab.id);
+    }
+  }, [tabs, persistTabsNow]);
 
   const handleTabClick = useCallback((tabId: string) => {
     setActiveTabId(tabId);
@@ -409,7 +445,15 @@ export function useGqlStudioTabs({
   const updateActiveTabEndpoint = useCallback((endpoint: string) => {
     const trimmed = endpoint.trim();
     const pageDefault = pageDefaultEndpoint.trim();
-    const nextEndpoint = !trimmed || trimmed === pageDefault ? undefined : trimmed;
+    let nextEndpoint: string | undefined;
+    if (!trimmed) {
+      // Multi-tab: blank field is an explicit empty override; single-tab clears to page inherit.
+      nextEndpoint = tabs.length > 1 ? '' : undefined;
+    } else if (trimmed === pageDefault) {
+      nextEndpoint = undefined;
+    } else {
+      nextEndpoint = trimmed;
+    }
     setTabs((prev) =>
       prev.map((t) => {
         if (t.id !== activeTabIdRef.current) return t;
@@ -422,7 +466,7 @@ export function useGqlStudioTabs({
         });
       }),
     );
-  }, [pageDefaultEndpoint, relabelTab]);
+  }, [pageDefaultEndpoint, relabelTab, tabs.length]);
 
   const applyProfileToActiveTab = useCallback((profile: ConnectionProfile) => {
     const trimmed = profile.endpoint.trim();

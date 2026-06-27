@@ -13,10 +13,25 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
+import ModalResizeHandles from '../../../shared/components/ModalResizeHandles';
 import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
+import { useModalResize } from '../../../shared/hooks/useModalResize';
 import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
 import type { GraphqlSchemaDiffChange, GraphqlSchemaDiffResult } from '../../../shared/types/graphql';
+import { saveFile, saveJsonFile } from '../../../shared/utils/fileSaver';
+import {
+  annotateSplitDiffHunks,
+  buildSplitDiffRows,
+  canonicalizeSdlForDiff,
+  computeInlineDiffSpans,
+  computeLineDiff,
+  summarizeSplitDiffRows,
+  type AnnotatedSdlSplitDiffRow,
+  type HunkSegmentRole,
+  type InlineDiffSpan,
+  type SdlSplitRowKind,
+} from '../utils/sdlLineDiff';
 import { tokenizeSDL } from '../utils/sdlTokenizer';
 
 export type DiffSeverityFilter = 'all' | 'breaking' | 'dangerous' | 'safe' | 'deprecated';
@@ -86,6 +101,7 @@ export function GraphqlSchemaDiff({
   const [expandedAck, setExpandedAck]     = useState<string | null>(null);
   const [sdlView, setSdlView]             = useState<'changes' | 'sdl'>('changes');
   const { onDragStart, isDragged, overlayStyle, modalStyle } = useModalDrag(true);
+  const { resizeStyle, onRightEdge, onCorner, onBottomEdge } = useModalResize(680, 420);
 
   useModalEscapeClose(onClose, { capture: true });
 
@@ -113,17 +129,24 @@ export function GraphqlSchemaDiff({
   }, [ackNotes, onAcknowledge]);
 
   const handleExportJson = useCallback(() => {
-    const json = JSON.stringify({ oldLabel, newLabel, ...result }, null, 2);
-    downloadBlob(json, 'application/json', `schema-diff-${Date.now()}.json`);
+    void saveJsonFile({ oldLabel, newLabel, ...result }, `schema-diff-${Date.now()}.json`);
   }, [result, oldLabel, newLabel]);
 
   const handleExportHtml = useCallback(() => {
     const html = generateHtmlReport(result, oldLabel, newLabel);
-    downloadBlob(html, 'text/html', `schema-diff-${Date.now()}.html`);
+    void saveFile(new Blob([html], { type: 'text/html' }), {
+      filename: `schema-diff-${Date.now()}.html`,
+      mimeType: 'text/html',
+      description: 'HTML report',
+    });
   }, [result, oldLabel, newLabel]);
 
   const handleDownloadSdl = useCallback(() => {
-    downloadBlob(newSdl, 'text/plain', `schema-${Date.now()}.graphql`);
+    void saveFile(new Blob([newSdl], { type: 'text/plain' }), {
+      filename: `schema-${Date.now()}.graphql`,
+      mimeType: 'text/plain',
+      description: 'GraphQL SDL',
+    });
   }, [newSdl]);
 
   return (
@@ -138,7 +161,7 @@ export function GraphqlSchemaDiff({
           sdlView === 'sdl' ? 'gql-diff-modal--wide' : '',
           isDragged ? 'gql-diff-modal--dragged' : '',
         ].filter(Boolean).join(' ')}
-        style={modalStyle}
+        style={{ ...modalStyle, ...resizeStyle }}
         role="dialog"
         aria-modal="true"
         aria-label={`Schema diff: ${oldLabel} → ${newLabel}`}
@@ -246,7 +269,7 @@ export function GraphqlSchemaDiff({
         </div>
 
         {/* Content area */}
-        <div className="gql-diff-content">
+        <div className={`gql-diff-content${sdlView === 'sdl' ? ' gql-diff-content--sdl' : ''}`}>
           {/* 3D-6: Broken operations banner — shown when schema changes broke collection items */}
           {brokenItemCount > 0 && sdlView === 'changes' && (
             <div className="gql-diff-broken-banner" role="alert" data-testid="gql-diff-broken-banner">
@@ -261,7 +284,7 @@ export function GraphqlSchemaDiff({
             </div>
           )}
           {sdlView === 'sdl' ? (
-            <SdlDiffView oldSdl={oldSdl} newSdl={newSdl} />
+            <SdlDiffView oldSdl={oldSdl} newSdl={newSdl} oldLabel={oldLabel} newLabel={newLabel} />
           ) : (
             <>
               {filteredChanges.length === 0 && (
@@ -348,6 +371,7 @@ export function GraphqlSchemaDiff({
             Done
           </button>
         </div>
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} />
       </div>
     </div>
   );
@@ -486,36 +510,191 @@ function SdlHighlightedLine({ text }: { text: string }) {
   );
 }
 
-function SdlDiffView({ oldSdl, newSdl }: { oldSdl: string; newSdl: string }) {
+function SdlInlineDiffLine({ spans }: { spans: InlineDiffSpan[] }) {
+  return (
+    <span className="gql-diff-sdl-text">
+      {spans.map((span, j) => (
+        span.kind === 'same'
+          ? <span key={j}>{span.text}</span>
+          : (
+            <span
+              key={j}
+              className={span.kind === 'delete' ? 'gql-diff-sdl-inline-del' : 'gql-diff-sdl-inline-ins'}
+            >
+              {span.text}
+            </span>
+          )
+      ))}
+    </span>
+  );
+}
+
+function SdlDiffLineContent({
+  text,
+  kind,
+  side,
+  pairText,
+}: {
+  text: string;
+  kind: SdlSplitRowKind;
+  side: 'left' | 'right';
+  pairText?: string;
+}) {
+  const inlineSpans = useMemo(() => {
+    if (kind !== 'modified' || pairText == null || pairText === text) return null;
+    const left = side === 'left' ? text : pairText;
+    const right = side === 'right' ? text : pairText;
+    return computeInlineDiffSpans(left, right)[side];
+  }, [text, pairText, kind, side]);
+
+  if (inlineSpans) {
+    return <SdlInlineDiffLine spans={inlineSpans} />;
+  }
+  return <SdlHighlightedLine text={text} />;
+}
+
+function SdlDiffConnectorGutter({
+  kind,
+  hunkRole,
+}: {
+  kind: SdlSplitRowKind;
+  hunkRole: HunkSegmentRole;
+}) {
+  if (kind === 'unchanged') {
+    return (
+      <div
+        className="gql-diff-sdl-connector gql-diff-sdl-connector--unchanged gql-diff-sdl-connector--slot-mid"
+        aria-hidden="true"
+        data-testid="gql-diff-sdl-connector"
+      />
+    );
+  }
+
+  const label = kind === 'modified' ? 'Updated line' : kind === 'removed' ? 'Deleted line' : 'Added line';
+  const arrow = kind === 'modified' ? '↔' : kind === 'removed' ? '»' : '«';
+
+  return (
+    <div
+      className={`gql-diff-sdl-connector gql-diff-sdl-connector--${kind} gql-diff-sdl-connector--${hunkRole} gql-diff-sdl-connector--slot-mid`}
+      aria-label={label}
+      title={label}
+      data-testid="gql-diff-sdl-connector"
+    >
+      <svg className="gql-diff-sdl-connector-svg" viewBox="0 0 40 24" preserveAspectRatio="none" aria-hidden="true">
+        {kind === 'removed' && (
+          <polygon className="gql-diff-sdl-connector-shape gql-diff-sdl-connector-shape--removed" points="0,12 40,2 40,22" />
+        )}
+        {kind === 'added' && (
+          <polygon className="gql-diff-sdl-connector-shape gql-diff-sdl-connector-shape--added" points="0,2 0,22 40,12" />
+        )}
+        {kind === 'modified' && (
+          <polygon className="gql-diff-sdl-connector-shape gql-diff-sdl-connector-shape--modified" points="0,10 40,10 40,14 0,14" />
+        )}
+      </svg>
+      <span className="gql-diff-sdl-connector-arrow" aria-hidden="true">{arrow}</span>
+    </div>
+  );
+}
+
+function SdlDiffPanePlaceholder({ side }: { side: 'left' | 'right' }) {
+  return (
+    <>
+      <span className="gql-diff-sdl-ln gql-diff-sdl-ln--empty" aria-hidden="true" />
+      <span
+        className={`gql-diff-sdl-placeholder-cell gql-diff-sdl-placeholder-cell--${side}`}
+        aria-hidden="true"
+      />
+    </>
+  );
+}
+
+function SdlSplitDiffRowView({ row }: { row: AnnotatedSdlSplitDiffRow }) {
+  const showLeft = row.leftText != null;
+  const showRight = row.rightText != null;
+
+  return (
+    <div className={`gql-diff-sdl-row gql-diff-sdl-row--${row.kind}`} data-testid="gql-diff-sdl-row">
+      <div className={`gql-diff-sdl-pane gql-diff-sdl-pane--left gql-diff-sdl-pane--slot-left${showLeft ? '' : ' gql-diff-sdl-pane--placeholder-side'}`}>
+        {showLeft ? (
+          <>
+            <span className="gql-diff-sdl-ln" aria-hidden="true">{row.leftLineNum ?? ''}</span>
+            <SdlDiffLineContent
+              text={row.leftText!}
+              kind={row.kind}
+              side="left"
+              pairText={row.rightText}
+            />
+          </>
+        ) : (
+          <SdlDiffPanePlaceholder side="left" />
+        )}
+      </div>
+      <SdlDiffConnectorGutter kind={row.kind} hunkRole={row.hunkRole} />
+      <div className={`gql-diff-sdl-pane gql-diff-sdl-pane--right gql-diff-sdl-pane--slot-right${showRight ? '' : ' gql-diff-sdl-pane--placeholder-side'}`}>
+        {showRight ? (
+          <>
+            <span className="gql-diff-sdl-ln" aria-hidden="true">{row.rightLineNum ?? ''}</span>
+            <SdlDiffLineContent
+              text={row.rightText!}
+              kind={row.kind}
+              side="right"
+              pairText={row.leftText}
+            />
+          </>
+        ) : (
+          <SdlDiffPanePlaceholder side="right" />
+        )}
+      </div>
+    </div>
+  );
+}
+
+function SdlDiffView({
+  oldSdl,
+  newSdl,
+  oldLabel,
+  newLabel,
+}: {
+  oldSdl: string;
+  newSdl: string;
+  oldLabel: string;
+  newLabel: string;
+}) {
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const lineRefs = useRef<Map<number, HTMLDivElement>>(new Map());
+  const rowRefs = useRef<Map<number, HTMLDivElement>>(new Map());
   const [hideUnchanged, setHideUnchanged] = useState(false);
 
-  const diffLines = useMemo(() => computeLineDiff(oldSdl, newSdl), [oldSdl, newSdl]);
+  const canonicalSdl = useMemo(() => ({
+    old: canonicalizeSdlForDiff(oldSdl),
+    new: canonicalizeSdlForDiff(newSdl),
+  }), [oldSdl, newSdl]);
 
-  const stats = useMemo(() => ({
-    added: diffLines.filter((l) => l.type === 'added').length,
-    removed: diffLines.filter((l) => l.type === 'removed').length,
-    unchanged: diffLines.filter((l) => l.type === 'unchanged').length,
-  }), [diffLines]);
+  const splitRows = useMemo(
+    () => annotateSplitDiffHunks(buildSplitDiffRows(computeLineDiff(canonicalSdl.old, canonicalSdl.new))),
+    [canonicalSdl],
+  );
 
-  const displayLines = useMemo(
-    () => (hideUnchanged ? diffLines.filter((l) => l.type !== 'unchanged') : diffLines),
-    [diffLines, hideUnchanged],
+  const stats = useMemo(() => summarizeSplitDiffRows(splitRows), [splitRows]);
+
+  const displayRows = useMemo(
+    () => (hideUnchanged ? splitRows.filter((r) => r.kind !== 'unchanged') : splitRows),
+    [splitRows, hideUnchanged],
   );
 
   const [searchQuery, setSearchQuery] = useState('');
 
-  const matchingLineIndices = useMemo(() => {
+  const matchingRowIndices = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return [];
-    return displayLines.reduce<number[]>((acc, line, i) => {
-      if (line.text.toLowerCase().includes(q)) acc.push(i);
+    return displayRows.reduce<number[]>((acc, row, i) => {
+      const left = row.leftText?.toLowerCase().includes(q);
+      const right = row.rightText?.toLowerCase().includes(q);
+      if (left || right) acc.push(i);
       return acc;
     }, []);
-  }, [displayLines, searchQuery]);
+  }, [displayRows, searchQuery]);
 
-  const matchCount = matchingLineIndices.length;
+  const matchCount = matchingRowIndices.length;
 
   const {
     currentMatchIndex,
@@ -535,7 +714,7 @@ function SdlDiffView({ oldSdl, newSdl }: { oldSdl: string; newSdl: string }) {
     clearNav();
   }, [clearNav]);
 
-  const activeLineIndex = matchCount > 0 ? matchingLineIndices[currentMatchIndex] : -1;
+  const activeRowIndex = matchCount > 0 ? matchingRowIndices[currentMatchIndex] : -1;
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -550,11 +729,11 @@ function SdlDiffView({ oldSdl, newSdl }: { oldSdl: string; newSdl: string }) {
   }, []);
 
   useEffect(() => {
-    if (activeLineIndex < 0) return;
-    lineRefs.current.get(activeLineIndex)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-  }, [activeLineIndex]);
+    if (activeRowIndex < 0) return;
+    rowRefs.current.get(activeRowIndex)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }, [activeRowIndex]);
 
-  const hasEdits = stats.added > 0 || stats.removed > 0;
+  const hasEdits = stats.removed > 0 || stats.added > 0 || stats.modified > 0;
 
   return (
     <div className="gql-diff-sdl-view" data-testid="gql-diff-sdl-view">
@@ -563,6 +742,11 @@ function SdlDiffView({ oldSdl, newSdl }: { oldSdl: string; newSdl: string }) {
           <span className="gql-diff-sdl-stat gql-diff-sdl-stat--removed">
             − {stats.removed} removed
           </span>
+          {stats.modified > 0 && (
+            <span className="gql-diff-sdl-stat gql-diff-sdl-stat--modified">
+              ↔ {stats.modified} modified
+            </span>
+          )}
           <span className="gql-diff-sdl-stat gql-diff-sdl-stat--added">
             + {stats.added} added
           </span>
@@ -611,14 +795,21 @@ function SdlDiffView({ oldSdl, newSdl }: { oldSdl: string; newSdl: string }) {
         />
       </div>
 
-      <div className="gql-diff-sdl-header">
-        <span className="gql-diff-sdl-gutter-label" aria-hidden="true">#</span>
-        <span className="gql-diff-sdl-col-label gql-diff-sdl-col-label--removed">− Removed</span>
-        <span className="gql-diff-sdl-col-label gql-diff-sdl-col-label--added">+ Added</span>
-        <span className="gql-diff-sdl-col-label gql-diff-sdl-col-label--unchanged">Unchanged</span>
+      <div className="gql-diff-sdl-header gql-diff-sdl-header--split">
+        <div className="gql-diff-sdl-pane-head gql-diff-sdl-pane-head--left">
+          <span className="gql-diff-sdl-gutter-label" aria-hidden="true">#</span>
+          <span className="gql-diff-sdl-col-label gql-diff-sdl-col-label--left">{oldLabel}</span>
+        </div>
+        <div className="gql-diff-sdl-connector-head" aria-hidden="true" title="Change linkage">
+          <span className="gql-diff-sdl-connector-head-icon">↔</span>
+        </div>
+        <div className="gql-diff-sdl-pane-head gql-diff-sdl-pane-head--right">
+          <span className="gql-diff-sdl-gutter-label" aria-hidden="true">#</span>
+          <span className="gql-diff-sdl-col-label gql-diff-sdl-col-label--right">{newLabel}</span>
+        </div>
       </div>
 
-      <div className="gql-diff-sdl-body">
+      <div className="gql-diff-sdl-body gql-diff-sdl-body--split">
         {!hasEdits && (
           <div className="gql-diff-sdl-no-edits" data-testid="gql-diff-sdl-no-edits">
             <span className="gql-diff-sdl-no-edits-icon" aria-hidden="true">✓</span>
@@ -626,31 +817,22 @@ function SdlDiffView({ oldSdl, newSdl }: { oldSdl: string; newSdl: string }) {
           </div>
         )}
 
-        {displayLines.length === 0 && hasEdits && hideUnchanged && (
+        {displayRows.length === 0 && hasEdits && hideUnchanged && (
           <div className="gql-diff-sdl-no-edits">
             <span>All visible lines are unchanged. Uncheck &ldquo;Changes only&rdquo; to see full SDL.</span>
           </div>
         )}
 
-        {displayLines.map((line, i) => (
+        {displayRows.map((row, i) => (
           <div
-            key={`${line.type}:${i}:${line.text}`}
+            key={`${row.kind}:${i}:${row.leftLineNum ?? ''}:${row.rightLineNum ?? ''}:${row.leftText ?? ''}:${row.rightText ?? ''}`}
             ref={(el) => {
-              if (el) lineRefs.current.set(i, el);
-              else lineRefs.current.delete(i);
+              if (el) rowRefs.current.set(i, el);
+              else rowRefs.current.delete(i);
             }}
-            className={[
-              'gql-diff-sdl-line',
-              `gql-diff-sdl-line--${line.type}`,
-              i === activeLineIndex ? 'gql-diff-sdl-line--search-active' : '',
-            ].filter(Boolean).join(' ')}
-            data-testid="gql-diff-sdl-line"
+            className={i === activeRowIndex ? 'gql-diff-sdl-row-wrap gql-diff-sdl-row-wrap--search-active' : 'gql-diff-sdl-row-wrap'}
           >
-            <span className="gql-diff-sdl-ln" aria-hidden="true">{i + 1}</span>
-            <span className={`gql-diff-sdl-marker gql-diff-sdl-marker--${line.type}`}>
-              {line.type === 'added' ? '+' : line.type === 'removed' ? '−' : ' '}
-            </span>
-            <SdlHighlightedLine text={line.text} />
+            <SdlSplitDiffRowView row={row} />
           </div>
         ))}
       </div>
@@ -659,97 +841,6 @@ function SdlDiffView({ oldSdl, newSdl }: { oldSdl: string; newSdl: string }) {
 }
 
 // ─── Utilities ─────────────────────────────────────────────────────────────────
-
-function downloadBlob(content: string, mimeType: string, filename: string): void {
-  const blob = new Blob([content], { type: mimeType });
-  const url  = URL.createObjectURL(blob);
-  const a    = document.createElement('a');
-  a.href     = url;
-  a.download = filename;
-  // Must be attached to the DOM for Firefox; revoke after a tick so the browser
-  // has time to start the download before the object URL is invalidated.
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 150);
-}
-
-type DiffLineType = 'added' | 'removed' | 'unchanged';
-interface DiffLine { type: DiffLineType; text: string }
-
-/**
- * Line-level diff using Myers' O(ND) LCS algorithm.
- * Produces a proper interleaved diff (removed/added lines in context).
- */
-function computeLineDiff(oldText: string, newText: string): DiffLine[] {
-  const a = oldText.split('\n');
-  const b = newText.split('\n');
-  const n = a.length;
-  const m = b.length;
-
-  // Myers' diff: find the LCS edit script
-  const max = n + m;
-  const v = new Array<number>(2 * max + 1).fill(0);
-  const trace: number[][] = [];
-
-  let found = false;
-  outer: for (let d = 0; d <= max; d++) {
-    trace.push([...v]);
-    for (let k = -d; k <= d; k += 2) {
-      const idx = k + max;
-      let x: number;
-      if (k === -d || (k !== d && v[idx - 1] < v[idx + 1])) {
-        x = v[idx + 1];
-      } else {
-        x = v[idx - 1] + 1;
-      }
-      let y = x - k;
-      while (x < n && y < m && a[x] === b[y]) { x++; y++; }
-      v[idx] = x;
-      if (x >= n && y >= m) { found = true; break outer; }
-    }
-  }
-  /* c8 ignore next 7 -- Myers always terminates within n+m steps; defensive fallback only */
-  if (!found) {
-    return [
-      ...a.map((text) => ({ type: 'removed' as DiffLineType, text })),
-      ...b.map((text) => ({ type: 'added' as DiffLineType, text })),
-    ];
-  }
-
-  // Back-track through trace to build the edit script
-  const edits: DiffLine[] = [];
-  let x = n;
-  let y = m;
-  for (let d = trace.length - 1; d >= 0; d--) {
-    const vd = trace[d];
-    const k = x - y;
-    const idx = k + max;
-    let prevK: number;
-    if (k === -d || (k !== d && vd[idx - 1] < vd[idx + 1])) {
-      prevK = k + 1;
-    } else {
-      prevK = k - 1;
-    }
-    const prevX = vd[prevK + max];
-    const prevY = prevX - prevK;
-    while (x > prevX && y > prevY) {
-      edits.unshift({ type: 'unchanged', text: a[x - 1] });
-      x--; y--;
-    }
-    if (d > 0) {
-      if (x === prevX) {
-        edits.unshift({ type: 'added', text: b[y - 1] });
-        y--;
-      } else {
-        edits.unshift({ type: 'removed', text: a[x - 1] });
-        x--;
-      }
-    }
-  }
-
-  return edits;
-}
 
 /** Generate a self-contained HTML diff report (3D-9) */
 function generateHtmlReport(

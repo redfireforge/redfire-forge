@@ -7,7 +7,7 @@
  * Full lesson needs Docker GraphQL on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 10 disables Next — use walkFullGql14Lesson, not runNextStep on the final step.
+ * Last-step rule: step 12 disables Next — use walkFullGql14Lesson, not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';
@@ -55,7 +55,7 @@ async function waitForAutoPlayComplete(page: Parameters<typeof waitForReadingPha
     }
     await page.waitForTimeout(5_000);
   }
-  throw new Error('GQL-14 auto-play did not reach step 10/10 done within 14 minutes');
+  throw new Error('GQL-14 auto-play did not reach step 12/12 done within 14 minutes');
 }
 
 async function mockGraphqlHealthProbe(page: Parameters<typeof silenceLogStream>[0]): Promise<void> {
@@ -104,7 +104,7 @@ test.describe('GQL-14 — full lesson (Docker)', () => {
     await exitLesson(page);
   });
 
-  test('Phase 8 — 1× auto-play completes all 10 steps', async ({ page, request }) => {
+  test('Phase 8 — 1× auto-play completes all 12 steps', async ({ page, request }) => {
     const healthy = await isGraphqlServerHealthy(request);
     test.skip(!healthy, 'GraphQL test server not running on port 4010 — start docker/graphql');
 
@@ -113,19 +113,24 @@ test.describe('GQL-14 — full lesson (Docker)', () => {
     await restartLesson(page);
     await waitForReadingPhase(page, MUTATION_TIMEOUT);
 
-    const step9Shot = page
-      .waitForSelector('[data-testid="gql-auth-inherit-banner"]', { timeout: MUTATION_TIMEOUT })
-      .then(() => takeNamedScreenshot(page, 'gql14-step9-inherit-banner'))
+    const step10Shot = page
+      .waitForSelector('[data-testid="gql-profile-modal"]', { timeout: MUTATION_TIMEOUT })
+      .then(() => takeNamedScreenshot(page, 'gql14-step10-profiles-load'))
       .catch(() => undefined);
 
-    const step10Shot = page
+    const step11Shot = page
+      .waitForSelector('[data-testid="gql-auth-inherit-banner"]', { timeout: MUTATION_TIMEOUT })
+      .then(() => takeNamedScreenshot(page, 'gql14-step11-inherit-banner'))
+      .catch(() => undefined);
+
+    const step12Shot = page
       .waitForSelector('[data-testid="gql-polling-popover"]', { timeout: MUTATION_TIMEOUT })
-      .then(() => takeNamedScreenshot(page, 'gql14-step10-polling-popover'))
+      .then(() => takeNamedScreenshot(page, 'gql14-step12-polling-popover'))
       .catch(() => undefined);
 
     await enableAutoPlay(page);
     await waitForAutoPlayComplete(page);
-    await Promise.all([step9Shot, step10Shot]);
+    await Promise.all([step10Shot, step11Shot, step12Shot]);
 
     const { counter, title } = await getStepInfo(page);
     expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
@@ -141,7 +146,7 @@ test.describe('GQL-14 — full lesson (Docker)', () => {
     await exitLesson(page);
   });
 
-  test('Phase 8 — rapid Next preAction guards recover on step 10', async ({ page, request }) => {
+  test('Phase 8 — rapid Next preAction guards recover on step 12', async ({ page, request }) => {
     const healthy = await isGraphqlServerHealthy(request);
     test.skip(!healthy, 'GraphQL test server not running on port 4010 — start docker/graphql');
 
@@ -156,8 +161,8 @@ test.describe('GQL-14 — full lesson (Docker)', () => {
     }
 
     let { counter, title } = await getStepInfo(page);
-    // Rapid Next skips actions — land on step 9/10 until finishDemoStep runs step 10 preAction.
-    expect(counter).toMatch(/9\s*[/]\s*10/);
+    // Rapid Next skips actions — land on step 11/12 until finishDemoStep runs step 12 preAction.
+    expect(counter).toMatch(/11\s*[/]\s*12/);
 
     // Last step: Next stays disabled — use finishDemoStep, not completeCurrentStepAction.
     await finishDemoStep(page, MUTATION_TIMEOUT);
@@ -170,7 +175,7 @@ test.describe('GQL-14 — full lesson (Docker)', () => {
     ).first();
     await pollingBtn.click({ force: true });
     await expect(page.locator('[data-testid="gql-polling-popover"]')).toBeVisible({ timeout: MUTATION_TIMEOUT });
-    await takeNamedScreenshot(page, 'gql14-rapid-next-step10-recovery');
+    await takeNamedScreenshot(page, 'gql14-rapid-next-step12-recovery');
     await exitLesson(page);
   });
 });

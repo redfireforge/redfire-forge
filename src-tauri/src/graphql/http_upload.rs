@@ -142,11 +142,13 @@ pub async fn gql_http_upload(
 
     let client = if let Some(cfg) = rustls_cfg {
         reqwest::Client::builder()
-            .use_preconfigured_tls(cfg)
+            .no_proxy()
+            .use_preconfigured_tls((*cfg).clone())
             .build()
             .map_err(|e| format!("Failed to build TLS HTTP client: {}", e))?
     } else {
         reqwest::Client::builder()
+            .no_proxy()
             .build()
             .map_err(|e| format!("Failed to build HTTP client: {}", e))?
     };

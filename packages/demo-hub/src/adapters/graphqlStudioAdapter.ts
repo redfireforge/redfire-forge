@@ -7,6 +7,7 @@ export {
   closeDemoWorkspace,
   loadDemoSession,
   patchDemoTabConnection,
+  patchDemoTabConnectionById,
   dispatchGqlTabsReload,
   dispatchGqlPageAuthReload,
   dispatchGqlPageEndpointReload,

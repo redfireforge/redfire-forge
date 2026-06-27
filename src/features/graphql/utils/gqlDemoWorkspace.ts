@@ -103,7 +103,32 @@ export async function patchDemoTabConnection(patch: DemoTabConnectionPatch): Pro
     if (patch.tlsClientKey === undefined) delete next.tlsClientKey;
     return next;
   });
-  await saveTabs(nextTabs, session.demoTabId);
+  await saveTabs(nextTabs, pickPersistedActiveTabId(nextTabs, await loadActiveTabId()));
+  dispatchGqlTabsReload();
+  return true;
+}
+
+/** Persist connection fields on any demo tab belonging to the active demo session. */
+export async function patchDemoTabConnectionById(
+  tabId: string,
+  patch: DemoTabConnectionPatch,
+): Promise<boolean> {
+  if (!DEMO_HUB_ENABLED) return false;
+  const session = await loadDemoSession();
+  if (!session?.lessonId) return false;
+  const tabs = await loadTabs();
+  const target = tabs.find((t) => t.id === tabId && t.demoLessonId === session.lessonId);
+  if (!target) return false;
+  const nextTabs = tabs.map((t) => {
+    if (t.id !== tabId) return t;
+    const next: GqlStudioTab = { ...t, ...patch, unsavedChanges: true };
+    if (patch.skipTlsVerify === undefined) delete next.skipTlsVerify;
+    if (patch.tlsCaCert === undefined) delete next.tlsCaCert;
+    if (patch.tlsClientCert === undefined) delete next.tlsClientCert;
+    if (patch.tlsClientKey === undefined) delete next.tlsClientKey;
+    return next;
+  });
+  await saveTabs(nextTabs, pickPersistedActiveTabId(nextTabs, await loadActiveTabId()));
   dispatchGqlTabsReload();
   return true;
 }

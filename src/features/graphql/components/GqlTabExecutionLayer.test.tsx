@@ -17,6 +17,8 @@ vi.mock('../utils/authUtils', () => ({
   })),
 }));
 
+const mockApplyResult = vi.fn();
+
 vi.mock('../hooks/useGraphqlExecution', () => ({
   useGraphqlExecution: () => ({
     status: 'loading' as const,
@@ -27,6 +29,7 @@ vi.mock('../hooks/useGraphqlExecution', () => ({
     execute: mockExecute,
     cancel: mockCancel,
     resolveDedupChoice: mockResolveDedupChoice,
+    applyResult: mockApplyResult,
   }),
 }));
 
@@ -55,6 +58,7 @@ describe('GqlTabExecutionLayer', () => {
         execute: expect.any(Function),
         cancel: mockCancel,
         resolveDedupChoice: mockResolveDedupChoice,
+        applyResult: mockApplyResult,
         getState: expect.any(Function),
       }),
     );

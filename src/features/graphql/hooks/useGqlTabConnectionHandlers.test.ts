@@ -25,6 +25,8 @@ describe('useGqlTabConnectionHandlers', () => {
     updateActiveTabPolling: vi.fn(),
     handleAuthChange: vi.fn(),
     updateActiveTabAuth: vi.fn(),
+    updateLinkedProfileAuth: vi.fn(),
+    clearActiveTabAuth: vi.fn(),
   };
 
   it('routes endpoint change to page default for single inheriting tab (Phase 6 PT-6)', () => {
@@ -130,33 +132,40 @@ describe('useGqlTabConnectionHandlers', () => {
     expect(handleAuthChange).not.toHaveBeenCalled();
   });
 
-  it('Phase 6H: auth change unlinks profile before updating tab auth when profile-linked', () => {
-    const handleAuthChange = vi.fn();
+  it('Phase 6H: auth change updates linked profile when tab has no auth override', () => {
+    const updateLinkedProfileAuth = vi.fn();
+    const clearActiveTabAuth = vi.fn();
     const updateActiveTabAuth = vi.fn();
     const { result } = renderHook(() => useGqlTabConnectionHandlers({
       ...base,
       hasActiveTabProfileLink: true,
       hasActiveTabConnectionId: true,
-      handleAuthChange,
+      activeConnectionId: 'prof-staging',
+      updateLinkedProfileAuth,
+      clearActiveTabAuth,
       updateActiveTabAuth,
     }));
 
     act(() => { result.current.handleConnectionAuthChange({ type: 'bearer', token: 'x' }); });
-    expect(updateActiveTabAuth).toHaveBeenCalledWith(
+    expect(updateLinkedProfileAuth).toHaveBeenCalledWith(
+      'prof-staging',
       { type: 'bearer', token: 'x' },
-      { clearProfileLink: true },
     );
-    expect(handleAuthChange).not.toHaveBeenCalled();
+    expect(clearActiveTabAuth).toHaveBeenCalled();
+    expect(updateActiveTabAuth).not.toHaveBeenCalled();
   });
 
-  it('Phase 6H: inherit-global auth edit keeps profile link when profile-linked', () => {
-    const handleAuthChange = vi.fn();
+  it('Phase 6H: inherit-global auth edit updates linked profile when tab has no override', () => {
+    const updateLinkedProfileAuth = vi.fn();
+    const clearActiveTabAuth = vi.fn();
     const updateActiveTabAuth = vi.fn();
     const { result } = renderHook(() => useGqlTabConnectionHandlers({
       ...base,
       hasActiveTabProfileLink: true,
       hasActiveTabConnectionId: true,
-      handleAuthChange,
+      activeConnectionId: 'prof-staging',
+      updateLinkedProfileAuth,
+      clearActiveTabAuth,
       updateActiveTabAuth,
     }));
 
@@ -166,11 +175,33 @@ describe('useGqlTabConnectionHandlers', () => {
         globalProfileId: 'catalog-prof-2',
       });
     });
-    expect(updateActiveTabAuth).toHaveBeenCalledWith(
+    expect(updateLinkedProfileAuth).toHaveBeenCalledWith(
+      'prof-staging',
       { type: 'inherit', globalProfileId: 'catalog-prof-2' },
-      { clearProfileLink: false },
     );
-    expect(handleAuthChange).not.toHaveBeenCalled();
+    expect(clearActiveTabAuth).toHaveBeenCalled();
+    expect(updateActiveTabAuth).not.toHaveBeenCalled();
+  });
+
+  it('Phase 6H: tab auth override still routes to tab layer when profile-linked', () => {
+    const updateLinkedProfileAuth = vi.fn();
+    const updateActiveTabAuth = vi.fn();
+    const { result } = renderHook(() => useGqlTabConnectionHandlers({
+      ...base,
+      hasActiveTabProfileLink: true,
+      hasActiveTabConnectionId: true,
+      hasActiveTabAuthOverride: true,
+      activeConnectionId: 'prof-staging',
+      updateLinkedProfileAuth,
+      updateActiveTabAuth,
+    }));
+
+    act(() => { result.current.handleConnectionAuthChange({ type: 'bearer', token: 'x' }); });
+    expect(updateLinkedProfileAuth).not.toHaveBeenCalled();
+    expect(updateActiveTabAuth).toHaveBeenCalledWith(
+      { type: 'bearer', token: 'x' },
+      { clearProfileLink: true },
+    );
   });
 
   it('Phase 6H: auth change does not unlink when routing to page default', () => {

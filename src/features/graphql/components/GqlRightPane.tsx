@@ -82,6 +82,10 @@ interface GqlRightPaneProps {
   // 3D-7: deprecated field usages
   deprecatedUsages?: DeprecatedFieldUsage[];
   onOpenCollectionItem?: (itemId: string) => void;
+  /** Re-open the floating batch results panel when viewing a batch slice */
+  onOpenBatchResults?: () => void;
+  /** True while Send Batch is in flight */
+  batchExecuting?: boolean;
 }
 
 export function GqlRightPane({
@@ -105,6 +109,8 @@ export function GqlRightPane({
   onOpenDiff,
   deprecatedUsages,
   onOpenCollectionItem,
+  onOpenBatchResults,
+  batchExecuting = false,
 }: GqlRightPaneProps) {
   const hasErrors = !!(response?.errors?.length);
   const hasData = response?.data != null;
@@ -118,6 +124,8 @@ export function GqlRightPane({
 
   useEffect(() => {
     if (!response || response.latencyMs == null) return;
+    // Batch slices use shared or per-op batch timing — skip histogram to avoid skewing Execute stats.
+    if (response.batchContext) return;
     if (response.timestamp === lastTimestampRef.current) return;
     lastTimestampRef.current = response.timestamp;
     const next = [...latencyHistoryRef.current, response.latencyMs];
@@ -272,7 +280,13 @@ export function GqlRightPane({
 
         {/* Query/mutation response viewer */}
         {view === 'response' && !showSubscriptionLog && !showSubscriptionHint && (
-          <GraphqlResponseViewer response={response} loading={executing} latencyHistory={latencyHistory} />
+          <GraphqlResponseViewer
+            response={response}
+            loading={executing}
+            batchExecuting={batchExecuting}
+            onOpenBatchResults={onOpenBatchResults}
+            latencyHistory={latencyHistory}
+          />
         )}
 
         {view === 'schema' && (

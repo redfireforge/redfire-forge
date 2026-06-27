@@ -257,11 +257,16 @@
 }
 
 /* ─── Lesson List ────────────────────────────────────────────── */
+.demo-lesson-list {
+  user-select: text;
+}
+
 .demo-lesson-items {
   display: flex;
   flex-direction: column;
   gap: 2px;
-  max-width: 700px;
+  max-width: 960px;
+  width: 100%;
   border: 1px solid var(--border, #3b4a60);
   border-radius: 12px;
   overflow: hidden;
@@ -281,6 +286,17 @@
   color: var(--text, #f1f5f9);
   width: 100%;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.demo-lesson-item:focus-visible {
+  outline: 2px solid var(--primary, #3b82f6);
+  outline-offset: -2px;
+}
+
+.demo-lesson-item[aria-disabled='true'] {
+  cursor: not-allowed;
 }
 
 .demo-lesson-item:last-child {
@@ -349,6 +365,9 @@
   display: flex;
   flex-direction: column;
   gap: 3px;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 .demo-lesson-name {
@@ -357,6 +376,8 @@
   gap: 6px;
   font-size: 14px;
   font-weight: 600;
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .demo-lesson-desc {
@@ -366,6 +387,9 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 .demo-lesson-meta {
@@ -463,14 +487,58 @@
   border-bottom: none; /* row wrapper owns the border */
 }
 
-/* ─── Per-lesson reset zone ──────────────────────────────────────── */
+/* ─── Per-lesson row actions (notes + reset) ───────────────────── */
+.demo-lesson-row-actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  border-left: 1px solid var(--border, #3b4a60);
+  background: color-mix(in srgb, var(--bg, #0f172a) 35%, transparent);
+}
+
+.demo-lesson-row-actions-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.demo-lesson-row-actions-slot--notes,
+.demo-lesson-row-actions-slot--reset {
+  width: 40px;
+  min-height: 100%;
+}
+
+.demo-lesson-row-actions-slot--reset {
+  border-left: 1px solid color-mix(in srgb, var(--border, #3b4a60) 55%, transparent);
+}
+
+.demo-lesson-row-actions--reset-pending {
+  padding: 0 8px 0 0;
+}
+
+.demo-lesson-row-actions--reset-pending .demo-lesson-row-actions-slot--reset {
+  width: auto;
+  min-width: 40px;
+  padding-right: 4px;
+}
+
+/* Legacy alias — kept for older selectors/docs */
 .demo-lesson-reset-zone {
   display: flex;
   align-items: center;
   padding: 0 10px;
-  border-left: 1px solid rgba(255,255,255,0.05);
+  border-left: 1px solid color-mix(in srgb, var(--border, #3b4a60) 55%, transparent);
   flex-shrink: 0;
-  min-width: 36px; /* always reserve space for the ↺ button */
+  min-width: 40px;
+}
+
+.demo-lesson-note-zone {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
 }
 
 /* ↺ icon button — subtle but always visible for completed lessons */
@@ -481,11 +549,16 @@
   color: var(--text-muted, #a8b8cc);
   font-size: 15px;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 5px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 7px;
   transition: opacity 0.15s, background 0.15s, color 0.15s;
   font-family: inherit;
   line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 .demo-lesson-row:hover .demo-lesson-reset-btn,
 .demo-lesson-reset-btn:focus-visible {
@@ -1828,6 +1901,339 @@
 
 .prereq-gate--desktop {
   border-color: color-mix(in srgb, var(--primary) 35%, var(--border, #3b4a60));
+}
+
+/* ─── Per-lesson notes ───────────────────────────────────────── */
+.demo-lesson-notes-btn {
+  position: relative;
+  opacity: 0.45;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--text-muted, #a8b8cc);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 6px;
+  transition: opacity 0.15s, background 0.15s, color 0.15s, border-color 0.15s;
+  font-family: inherit;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.demo-lesson-notes-btn svg {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.demo-lesson-notes-btn--compact {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 7px;
+}
+
+.demo-lesson-notes-btn--compact svg {
+  width: 15px;
+  height: 15px;
+}
+
+.demo-lesson-row:hover .demo-lesson-notes-btn,
+.demo-lesson-notes-btn:focus-visible {
+  opacity: 0.85;
+}
+
+.demo-lesson-notes-btn:hover {
+  opacity: 1;
+  background: var(--surface-hover, #2d3a4d);
+  color: var(--text, #f1f5f9);
+  border-color: var(--border, #3b4a60);
+}
+
+.demo-lesson-notes-btn.has-notes {
+  opacity: 1;
+  color: #2dd4bf;
+  border-color: color-mix(in srgb, #2dd4bf 40%, var(--border, #3b4a60));
+  background: color-mix(in srgb, #2dd4bf 8%, var(--surface, #1e293b));
+}
+
+.demo-lesson-notes-btn.has-notes:hover {
+  color: #5eead4;
+  border-color: color-mix(in srgb, #2dd4bf 55%, var(--border, #3b4a60));
+  background: color-mix(in srgb, #2dd4bf 14%, var(--surface, #1e293b));
+}
+
+.demo-lesson-note-dot {
+  position: absolute;
+  top: 5px;
+  right: 5px;
+  width: 5px;
+  height: 5px;
+  background: #2dd4bf;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1.5px var(--surface, #1e293b);
+}
+
+.demo-lesson-notes-btn--compact .demo-lesson-note-dot {
+  top: 4px;
+  right: 4px;
+}
+
+.demo-lesson-notes-panel {
+  position: fixed;
+  max-height: calc(100vh - 96px);
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--border, #3b4a60);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px color-mix(in srgb, #000 45%, transparent);
+  display: flex;
+  flex-direction: column;
+  z-index: 10120;
+}
+
+.demo-lesson-notes-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border, #3b4a60);
+  background: var(--bg, #0f172a);
+  border-radius: 12px 12px 0 0;
+  flex-shrink: 0;
+}
+
+.demo-lesson-notes-panel-header--draggable {
+  cursor: grab;
+  user-select: none;
+}
+
+.demo-lesson-notes-panel-header--draggable:active {
+  cursor: grabbing;
+}
+
+.demo-lesson-notes-drag-handle {
+  font-size: 14px;
+  color: var(--text-muted, #a8b8cc);
+  opacity: 0.55;
+  letter-spacing: -1px;
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.demo-lesson-notes-panel-title {
+  font-size: 13px;
+  font-weight: 600;
+  flex: 1;
+  min-width: 0;
+}
+
+.demo-lesson-notes-panel-title span {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-muted, #a8b8cc);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.demo-lesson-notes-panel-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 14px 16px 16px;
+  min-height: 0;
+}
+
+.demo-lesson-player-content:has(.demo-notes-inline) {
+  overflow: hidden;
+  padding: 0;
+}
+
+.demo-notes-inline {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+  padding: 24px 28px 20px;
+}
+
+.demo-notes-inline .demo-lesson-notes-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.demo-notes-inline .demo-lesson-notes-textarea {
+  flex: 1;
+  min-height: 420px;
+}
+
+.demo-lesson-notes-editor {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.demo-lesson-notes-panel .demo-lesson-notes-editor {
+  flex: 1;
+  min-height: 0;
+}
+
+.demo-lesson-notes-panel .demo-lesson-notes-textarea {
+  flex: 1;
+  min-height: 340px;
+}
+
+.demo-lesson-notes-inline-header {
+  margin-bottom: 14px;
+}
+
+.demo-lesson-notes-inline-title {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.demo-lesson-notes-inline-sub {
+  font-size: 12px;
+  color: var(--text-muted, #a8b8cc);
+}
+
+.demo-lesson-notes-textarea {
+  width: 100%;
+  min-height: 320px;
+  flex: 1;
+  background: var(--bg, #0f172a);
+  border: 1px solid var(--border, #3b4a60);
+  border-radius: 8px;
+  color: var(--text, #f1f5f9);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  resize: vertical;
+  font-family: inherit;
+}
+
+.demo-lesson-notes-textarea:focus {
+  outline: none;
+  border-color: #2dd4bf;
+  box-shadow: 0 0 0 3px color-mix(in srgb, #2dd4bf 20%, transparent);
+}
+
+.demo-lesson-notes-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted, #a8b8cc);
+  opacity: 0.75;
+  flex-shrink: 0;
+}
+
+.demo-lesson-notes-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border, #3b4a60);
+  flex-shrink: 0;
+}
+
+.demo-lesson-notes-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--text-muted, #a8b8cc);
+}
+
+.demo-lesson-notes-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #22c55e;
+}
+
+.demo-lesson-notes-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.demo-lesson-notes-close-btn,
+.demo-lesson-notes-save-btn {
+  font-size: 12px;
+  padding: 7px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.demo-lesson-notes-close-btn {
+  background: var(--bg, #0f172a);
+  border: 1px solid var(--border, #3b4a60);
+  color: var(--text-muted, #a8b8cc);
+}
+
+.demo-lesson-notes-save-btn {
+  background: #0d9488;
+  border: 1px solid color-mix(in srgb, #0d9488 80%, var(--border, #3b4a60));
+  color: #fff;
+  font-weight: 600;
+}
+
+.demo-lesson-notes-save-btn:hover {
+  background: #0f766e;
+}
+
+.demo-sidebar-nav-item.notes-active {
+  background: color-mix(in srgb, #2dd4bf 10%, var(--surface, #1e293b));
+  color: #2dd4bf;
+  border-right: 2px solid #2dd4bf;
+}
+
+.demo-sidebar-nav-item--notes .demo-sidebar-nav-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.demo-sidebar-notes-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #2dd4bf;
+  box-shadow: 0 0 0 1px var(--surface, #1e293b);
+}
+
+.demo-live-notes-btn-wrap .demo-lesson-notes-btn {
+  opacity: 0.65;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border-radius: 6px;
+}
+
+.demo-live-notes-btn-wrap .demo-lesson-notes-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.demo-live-notes-btn-wrap .demo-lesson-notes-btn:hover,
+.demo-live-notes-btn-wrap .demo-lesson-notes-btn.active {
+  opacity: 1;
+  background: color-mix(in srgb, #2dd4bf 12%, var(--surface, #1e293b));
+  color: #2dd4bf;
+  border-color: color-mix(in srgb, #2dd4bf 35%, var(--border, #3b4a60));
+}
+
+.demo-live-notes-btn-wrap .demo-lesson-notes-btn.active.has-notes {
+  background: color-mix(in srgb, #2dd4bf 16%, var(--surface, #1e293b));
 }
 
 /* ─── Responsive ─────────────────────────────────────────────── */

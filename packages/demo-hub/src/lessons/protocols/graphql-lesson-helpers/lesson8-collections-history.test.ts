@@ -114,6 +114,30 @@ describe('lesson8-collections-history pacing', () => {
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.SAVE_COL_NAME, LESSON8_ITEM_NAME);
   });
 
+  it('prepareGql8SaveReading does not re-run history or switch to Collections', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-history-save-to-col"></button>
+      <div data-testid="gql-history-preview"></div>
+      <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-history-panel"><div data-testid="gql-history-entry"></div></div>
+      <button data-testid="gql-activity-collections"></button>
+      <div data-testid="gql-collections-panel"></div>
+      <button data-testid="gql-history-run"></button>
+      <button data-testid="gql-execute-btn"></button>
+      <div data-testid="gql-response-viewer"></div>
+      <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    `;
+    stubMonacoEditor();
+    ctx.click.mockClear();
+    await prepareGql8SaveReading(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.HISTORY_RUN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ACTIVITY_COLLECTIONS);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
   it('saveHistoryToCollection skips save when lesson item already exists in DOM', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `

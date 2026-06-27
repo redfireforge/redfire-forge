@@ -7,6 +7,7 @@ import type { Workflow } from '../../features/workflow/types/workflow';
  *   - `__wfInsertWorkflow(wf)` — add a workflow into React state (used by lessons to seed demo data)
  *   - `__wfGetWorkflowByName(name)` — read live workflow snapshot (nodes/edges) for preAction guards
  *   - `__wfSelectByName(name)` — select workflow by display name
+ *   - `__wfPatchWorkflowByName(name, patch)` — merge patch into a workflow by display name
  *   - `__wfWorkflowsLoaded` — true after persisted workflows have hydrated
  *
  * Bridge callbacks read `workflowsRef` so lesson setup can query by name immediately after
@@ -18,6 +19,7 @@ export function useDemoWorkflowBridge(
   insert?: (wf: Workflow) => void,
   select?: (id: string) => void,
   loaded = false,
+  update?: (id: string, patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>) => void,
 ): void {
   const workflowsRef = useRef(workflows);
   workflowsRef.current = workflows;
@@ -27,6 +29,8 @@ export function useDemoWorkflowBridge(
   insertRef.current = insert;
   const selectRef = useRef(select);
   selectRef.current = select;
+  const updateRef = useRef(update);
+  updateRef.current = update;
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
 
@@ -50,10 +54,23 @@ export function useDemoWorkflowBridge(
       return true;
     };
 
+    win.__wfPatchWorkflowByName = (
+      name: string,
+      patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>,
+    ) => {
+      const upd = updateRef.current;
+      if (!upd) return false;
+      const wf = workflowsRef.current.find((w) => w.name === name);
+      if (!wf) return false;
+      upd(wf.id, patch);
+      return true;
+    };
+
     return () => {
       delete win.__wfDeleteByName;
       delete win.__wfGetWorkflowByName;
       delete win.__wfSelectByName;
+      delete win.__wfPatchWorkflowByName;
       delete win.__wfInsertWorkflow;
       delete win.__wfWorkflowsLoaded;
     };

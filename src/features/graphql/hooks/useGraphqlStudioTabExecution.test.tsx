@@ -11,6 +11,7 @@ const handleFns = {
   execute: vi.fn(),
   cancel: vi.fn(),
   resolveDedupChoice: vi.fn(),
+  applyResult: vi.fn(),
 };
 
 vi.mock('../components/GqlTabExecutionLayer', () => ({
@@ -34,6 +35,7 @@ vi.mock('../components/GqlTabExecutionLayer', () => ({
       execute: handleFns.execute,
       cancel: handleFns.cancel,
       resolveDedupChoice: handleFns.resolveDedupChoice,
+      applyResult: handleFns.applyResult,
       getState: () => ({
         status: tabId === 'tab-1' ? 'loading' : 'idle',
         response: null,
@@ -80,6 +82,32 @@ describe('useGraphqlStudioTabExecution', () => {
     expect(result.current.activeState.status).toBe('loading');
     expect(result.current.isTabExecuting('tab-1')).toBe(true);
     expect(result.current.isTabExecuting('tab-2')).toBe(false);
+  });
+
+  it('applyTabResult forwards completed batch responses to the tab handle', async () => {
+    const { result } = renderHook(() =>
+      useGraphqlStudioTabExecution({
+        tabs: [makeTab('tab-1'), makeTab('tab-2')],
+        activeTabId: 'tab-1',
+      }),
+    );
+
+    render(<>{result.current.executionLayers}</>);
+    await act(async () => {});
+
+    const response = {
+      data: { ok: true },
+      httpStatus: 200,
+      httpHeaders: {},
+      latencyMs: 1,
+      timestamp: Date.now(),
+    };
+
+    act(() => {
+      result.current.applyTabResult('tab-2', 'success', response);
+    });
+
+    expect(handleFns.applyResult).toHaveBeenCalledWith('success', response);
   });
 
   it('returns idle state when active tab has no handle yet', () => {

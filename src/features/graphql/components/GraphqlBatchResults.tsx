@@ -6,7 +6,9 @@
  */
 
 import { useEffect, useId, useState } from 'react';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 import type { GraphqlBatchResult, GraphqlBatchOperationResult } from '../../../shared/types/graphql';
+import { batchResultTransportSummary, batchTransportSummaryForResponse } from '../utils/batchResponseContextUtils';
 
 interface GraphqlBatchResultsProps {
   result: GraphqlBatchResult;
@@ -119,12 +121,17 @@ function BatchOpCard({ item }: BatchOpCardProps) {
 
 export function GraphqlBatchResults({ result, onDismiss }: GraphqlBatchResultsProps) {
   const titleId = useId();
+  const { onDragStart, isDragged, overlayStyle, modalStyle } = useModalDrag(true);
   const total = result.results.length;
   const passed = result.results.filter(
     (r) => (r.response.errors?.length ?? 0) === 0 || r.response.data !== null,
   ).length;
   const failed = total - passed;
   const allPassed = failed === 0;
+  const firstResult = result.results[0];
+  const transportSummary = firstResult?.response.batchContext
+    ? batchTransportSummaryForResponse(firstResult.response.batchContext, firstResult.response)
+    : batchResultTransportSummary(result);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -139,55 +146,83 @@ export function GraphqlBatchResults({ result, onDismiss }: GraphqlBatchResultsPr
 
   return (
     <div
-      className="gql-batch-results"
-      data-testid="gql-batch-results"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
+      className={`gql-batch-overlay${isDragged ? ' gql-batch-overlay--dragged' : ''}`}
+      style={overlayStyle}
+      data-testid="gql-batch-results-overlay"
     >
-      <header className="gql-batch-results-header">
-        <div className="gql-batch-results-heading">
-          <h2 id={titleId} className="gql-batch-results-title">Batch execution</h2>
-          <p className="gql-batch-results-subtitle">
-            {total} operation{total !== 1 ? 's' : ''} completed
-          </p>
-        </div>
-        <div className="gql-batch-results-badges">
-          <span className={`gql-batch-summary-pill gql-batch-summary-pill--passed${allPassed ? ' gql-batch-summary-pill--solo' : ''}`}>
-            {passed} passed
-          </span>
-          {failed > 0 && (
-            <span className="gql-batch-summary-pill gql-batch-summary-pill--failed">
-              {failed} failed
-            </span>
-          )}
-          {result.batchUnsupported && (
-            <span
-              className="gql-batch-summary-pill gql-batch-summary-pill--fallback"
-              title="Server does not support array batching — operations were sent individually"
-            >
-              Sequential fallback
-            </span>
-          )}
-        </div>
-      </header>
-
-      <div className="gql-batch-cards">
-        {result.results.map((item) => (
-          <BatchOpCard key={item.index} item={item} />
-        ))}
-      </div>
-
-      <footer className="gql-batch-results-footer">
-        <button
-          type="button"
-          className="gql-btn gql-btn--secondary gql-batch-results-close-btn"
-          onClick={onDismiss}
-          aria-label="Close batch results"
+      <div
+        className={`gql-batch-results${isDragged ? ' gql-batch-results--dragged' : ''}`}
+        style={modalStyle}
+        data-testid="gql-batch-results"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+      >
+        <header
+          className="gql-batch-results-header gql-batch-results-header--draggable"
+          onMouseDown={onDragStart}
+          data-testid="gql-batch-results-header"
         >
-          Close
-        </button>
-      </footer>
+          <span className="gql-batch-results-drag-grip" aria-hidden="true" title="Drag to move">
+            <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+              <circle cx="2" cy="2" r="1.2" /><circle cx="8" cy="2" r="1.2" />
+              <circle cx="2" cy="8" r="1.2" /><circle cx="8" cy="8" r="1.2" />
+              <circle cx="2" cy="14" r="1.2" /><circle cx="8" cy="14" r="1.2" />
+            </svg>
+          </span>
+          <div className="gql-batch-results-heading">
+            <h2 id={titleId} className="gql-batch-results-title">Batch execution</h2>
+            <p className="gql-batch-results-subtitle">
+              {total} operation{total !== 1 ? 's' : ''} completed
+            </p>
+            {transportSummary && (
+              <p className="gql-batch-results-transport" data-testid="gql-batch-results-transport">
+                {transportSummary}
+              </p>
+            )}
+          </div>
+          <div className="gql-batch-results-badges">
+            <span className={`gql-batch-summary-pill gql-batch-summary-pill--passed${allPassed ? ' gql-batch-summary-pill--solo' : ''}`}>
+              {passed} passed
+            </span>
+            {failed > 0 && (
+              <span
+                className="gql-batch-summary-pill gql-batch-summary-pill--failed"
+                data-testid="gql-batch-results-failed-pill"
+              >
+                {failed} failed
+              </span>
+            )}
+            {result.batchUnsupported && (
+              <span
+                className="gql-batch-summary-pill gql-batch-summary-pill--fallback"
+                title="Server does not support array batching — operations were sent individually"
+              >
+                Sequential fallback
+              </span>
+            )}
+          </div>
+        </header>
+
+        <div className="gql-batch-cards">
+          {result.results.map((item) => (
+            <BatchOpCard key={item.index} item={item} />
+          ))}
+        </div>
+
+        <footer className="gql-batch-results-footer">
+          <button
+            type="button"
+            className="gql-btn gql-btn--secondary gql-batch-results-close-btn"
+            onClick={onDismiss}
+            aria-label="Close batch results"
+            data-testid="gql-batch-results-close-btn"
+          >
+            Close
+          </button>
+        </footer>
+      </div>
     </div>
   );
 }

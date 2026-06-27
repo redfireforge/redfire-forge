@@ -21,7 +21,7 @@ export interface GqlModalLockStepHints {
 /** First step id per lesson after which the Profiles bookmark stays unlocked. */
 export const LESSON_PROFILE_INTRO_STEP_ID: Record<string, string> = {
   'gql-auth-headers': 'gql6-profile',
-  'gql-multi-tab': 'gql14-profiles',
+  'gql-multi-tab': 'gql14-profiles-save',
 };
 
 /** First step id per lesson after which the Env badge stays unlocked for the session. */

@@ -1,6 +1,7 @@
 /** Lesson GQL-17: Workflow Runner & Results */
 import type { DemoLesson } from '../../types';
 import {
+  GQL_DEMO_HTTP,
   LESSON17_WF_NAME,
   LESSON17_DOCKER_ENDPOINT,
   selectGqlLatencyDemoWorkflow,
@@ -106,9 +107,11 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
   <rect x="10" y="118" width="300" height="70" rx="5" fill="#1e293b" stroke="#334155" stroke-width="1"/>
   <text x="20" y="133" fill="#94a3b8" font-size="8" font-weight="600" letter-spacing="0.3">INITIAL VARIABLES</text>
   <line x1="10" y1="137" x2="310" y2="137" stroke="#334155" stroke-width="0.5"/>
-  <!-- Variable row (empty — GQL Latency Demo has no input vars) -->
-  <text x="155" y="162" text-anchor="middle" fill="#475569" font-size="8" font-style="italic">No input variables defined</text>
-  <text x="155" y="174" text-anchor="middle" fill="#334155" font-size="7.5">Override endpoint or auth by adding variables in Designer</text>
+  <!-- graphqlUrl variable row -->
+  <text x="20" y="158" fill="#94a3b8" font-size="8" font-family="'SF Mono','Fira Code',monospace">graphqlUrl</text>
+  <rect x="88" y="148" width="212" height="16" rx="3" fill="#0f172a" stroke="#3b4a60" stroke-width="1"/>
+  <text x="96" y="160" fill="#f59e0b" font-size="7.5" font-family="'SF Mono','Fira Code',monospace">localhost:4010/graphql</text>
+  <text x="20" y="176" fill="#475569" font-size="7.5">Override endpoint per run — workflow definition unchanged</text>
 
   <!-- Config section header -->
   <text x="14" y="206" fill="#94a3b8" font-size="9" font-weight="600" letter-spacing="0.3">EXECUTION CONFIG</text>
@@ -267,11 +270,16 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
 
     {
       id: 'gql17-runner-variables',
-      title: 'Variable Override Panel',
+      title: 'Initial Variables — Override graphqlUrl',
       description:
-        `The **Initial Variables** panel shows every variable defined in the selected workflow. Overrides you enter here are applied **per-run** — the workflow definition itself is not modified. This is the equivalent of environment variables for a CI job: you can point the same workflow at staging, production, or a local mock server without branching the definition.\n\nThe **GraphQL Latency Demo** has no workflow-level input variables because the endpoint is hardcoded in the Query node configuration. In real teams, best practice is to parameterize the endpoint as \`{{gqlEndpoint}}\` so the same workflow can target any environment from here. You will see this pattern in GQL-18 and GQL-19.`,
+        `The **Initial Variables** panel shows every variable defined in the selected workflow. **GraphQL Latency Demo** has one — \`graphqlUrl\`, pre-set to \`${GQL_DEMO_HTTP}\` (the Docker test server from GQL-16). The GraphQL Query node uses \`{{graphqlUrl}}\` as its endpoint, so you can point this workflow at staging, production, or another local mock server **without editing the workflow definition**.\n\nOverrides here are applied **per-run** — the same pattern as environment variables for a CI job. Leave the default for this lesson; in production you'd swap the URL to match the target environment.`,
       highlight: '.workflow-vars-section',
-      preAction: ensureLesson17WorkflowSelected,
+      preAction: async (ctx) => {
+        await ensureLesson17WorkflowSelected(ctx);
+        if (!document.querySelector('.wfp-var-row')) {
+          await selectGqlLatencyDemoWorkflow(ctx);
+        }
+      },
       pauseAfter: true,
     },
 

@@ -6,6 +6,7 @@ import { renderHook } from '@testing-library/react';
 import { useDemoShortcuts } from './useDemoShortcuts';
 import type { Tab } from '../utils/appTabUtils';
 import type { StepPhase } from '@redfireforge/demo-hub/types';
+import { lessonNotesPanelOpenRef } from '@redfireforge/demo-hub/LessonNotesContext';
 
 function makeDemoHub(overrides: Partial<{
   state: { view: string; selectedLesson?: { initialTab?: string } | null };
@@ -285,5 +286,18 @@ describe('useDemoShortcuts', () => {
     expect(hub.exitLiveDemo).not.toHaveBeenCalled();
     expect(hub.nextStep).not.toHaveBeenCalled();
     expect(hub.toggleAutoPlay).not.toHaveBeenCalled();
+  });
+
+  it('does not exit live demo on Escape while lesson notes panel is open', () => {
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: { initialTab: 'workflow' } },
+    });
+    renderHook(() => useDemoShortcuts(hub, activeTab, setActiveTab));
+    lessonNotesPanelOpenRef.current = true;
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+
+    expect(hub.exitLiveDemo).not.toHaveBeenCalled();
+    lessonNotesPanelOpenRef.current = false;
   });
 });

@@ -106,6 +106,13 @@ export function patchWorkflowNodeDataByType(
   return getDemoBridgeWindow().__wfPatchNodeDataByType?.(nodeType, patch) ?? false;
 }
 
+export function patchWorkflowByName(
+  name: string,
+  patch: Record<string, unknown>,
+): boolean {
+  return getDemoBridgeWindow().__wfPatchWorkflowByName?.(name, patch) ?? false;
+}
+
 export function addWorkflowNode(type: string): string | undefined {
   return getDemoBridgeWindow().__wfAddNode?.(type);
 }

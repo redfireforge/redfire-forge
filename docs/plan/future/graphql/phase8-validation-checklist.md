@@ -22,9 +22,9 @@ Run **before** the full 19-lesson human pass. Automated E2E first, then **Web + 
 
 | Slot | Steps | Focus | Web E2E | Web 1× human | Tauri 1× human |
 |------|------:|-------|---------|--------------|----------------|
-| **GQL-5** | 16 | mTLS **11–14**; restore **15–16**; native rustls on Tauri | `npm run test:e2e:demo:gql5` | [x] E2E ✅ 2026-06-26 | [ ] **required** |
-| **GQL-6** | 19 | create/update/delete observe splits | `npm run test:e2e:demo:gql6` | [x] E2E ✅ 2026-06-26 | [ ] |
-| **GQL-7** | 15 | **`gql5-subscription-auth`** (step 9); subscribe step 10 | `npm run test:e2e:demo:gql7` | [x] E2E ✅ 2026-06-26 | [ ] |
+| **GQL-5** | 18 | auth-on-TLS **7–9**; mTLS **13–16**; restore **17–18** | `npm run test:e2e:demo:gql5` | [x] E2E ✅ 2026-06-26 | [x] **mTLS Tauri ✅** |
+| **GQL-6** | 19 | create/update/delete observe splits | `npm run test:e2e:demo:gql6` | [x] E2E ✅ 2026-06-26 | [x] human Tauri ✅ |
+| **GQL-7** | 15 | **`gql5-subscription-auth`** (step 9); subscribe step 10 | `npm run test:e2e:demo:gql7` | [x] E2E ✅ 2026-06-26 | [x] human Tauri ✅ |
 | **GQL-14** | 10 | `tabBudget: 2`; profiles + polling | `npm run test:e2e:demo:gql14` | [x] E2E ✅ 2026-06-26 | [ ] |
 | **GQL-15** | 9 | Advanced Settings → Batch; two tabs | `npm run test:e2e:demo:gql15` | [x] E2E ✅ 2026-06-26 | [ ] |
 | **GQL-17** | 10 | Workflow Runner close-the-loop | `npm run test:e2e:demo:gql17` | [x] E2E ✅ 2026-06-26 | [ ] |
@@ -98,15 +98,15 @@ cd src-tauri && cargo run --no-default-features
 | GQL-1 | Your First GraphQL Query | 13 | `npm run test:e2e:demo:gql1` | [ ] | [x] | §11.0 baseline · human Tauri ✅ |
 | GQL-2 | Variables & Arguments | 18 | `npm run test:e2e:demo:gql2` | [x] | [x] | Reference quality · human Web+Tauri ✅ |
 | GQL-3 | Schema Exploration | 10 | `npm run test:e2e:demo:gql3` | [ ] | [x] | human Tauri ✅ |
-| GQL-4 | Authentication & Headers | 14 | `npm run test:e2e:demo:gql4` | [ ] | [ ] | Quality audit ✅ |
-| GQL-5 | HTTPS, TLS & Certificates | 16 | `npm run test:e2e:demo:gql5` | [ ] | [ ] | **mTLS steps 11–14 — Tauri required** |
-| GQL-6 | Mutations | 19 | `npm run test:e2e:demo:gql6` | [ ] | [ ] | Quality audit ✅ · spot-check |
-| GQL-7 | Subscriptions | 15 | `npm run test:e2e:demo:gql7` | [ ] | [ ] | **`gql5-subscription-auth`** · spot-check |
-| GQL-8 | Query Builder | 11 | `npm run test:e2e:demo:gql8` | [x] | [x] | Quality audit ✅ · human Web+Tauri 2026-06-26 |
-| GQL-9 | Collections & History | 9 | `npm run test:e2e:demo:gql9` | [ ] | [ ] | Quality audit ✅ |
-| GQL-10 | Export & Share | 7 | `npm run test:e2e:demo:gql10` | [ ] | [ ] | Quality audit ✅ |
-| GQL-11 | Performance Tracing | 8 | `npm run test:e2e:demo:gql11` | [ ] | [ ] | Quality audit ✅ |
-| GQL-12 | Schema Diff | 7 | `npm run test:e2e:demo:gql12` | [ ] | [ ] | Quality audit ✅ |
+| GQL-4 | Authentication & Headers | 14 | `npm run test:e2e:demo:gql4` | [ ] | [x] | Quality audit ✅ · human Tauri ✅ |
+| GQL-5 | HTTPS, TLS & Certificates | 18 | `npm run test:e2e:demo:gql5` | [ ] | [x] | **mTLS 13–16** · auth-on-TLS 7–9 · human Tauri ✅ |
+| GQL-6 | Mutations | 19 | `npm run test:e2e:demo:gql6` | [ ] | [x] | create/update/delete observe splits · human Tauri ✅ |
+| GQL-7 | Subscriptions | 15 | `npm run test:e2e:demo:gql7` | [ ] | [x] | **`gql5-subscription-auth`** · spot-check · human Tauri ✅ |
+| GQL-8 | Query Builder — Visual Operations | 11 | `npm run test:e2e:demo:gql8` | [x] | [x] | human Web+Tauri ✅ 2026-06-27 |
+| GQL-9 | Collections & History | 11 | `npm run test:e2e:demo:gql9` | [x] E2E ✅ 2026-06-27 | [ ] | [x] | human Tauri ✅ |
+| GQL-10 | Export & Share Queries | 7 | `npm run test:e2e:demo:gql10` | [x] E2E ✅ 2026-06-27 | [ ] | [x] | human Tauri ✅ |
+| GQL-11 | Performance Tracing | 8 | `npm run test:e2e:demo:gql11` | [x] E2E ✅ 2026-06-27 | [ ] | [x] | human Tauri ✅ |
+| GQL-12 | Schema Diff & Breaking Changes | 7 | `npm run test:e2e:demo:gql12` | [x] E2E ✅ 2026-06-27 | [ ] | [x] | human Tauri ✅ |
 | GQL-13 | Mock Server | 15 | `npm run test:e2e:demo:gql13` | [ ] | [ ] | Desktop + :3001 mock |
 | GQL-14 | Multi-Tab Workspaces | 10 | `npm run test:e2e:demo:gql14` | [ ] | [ ] | `tabBudget: 2` · spot-check |
 | GQL-15 | Batch Execution | 9 | `npm run test:e2e:demo:gql15` | [ ] | [ ] | `tabBudget: 2` · spot-check |
@@ -131,20 +131,21 @@ cd src-tauri && cargo run --no-default-features
 6. **Exit** lesson — user workspace unchanged (studio lessons GQL-1..15).
 7. Check console for unhandled errors.
 
-### GQL-5 Tauri focus (steps 11–14)
+### GQL-5 Tauri focus (steps 13–16 mTLS; 7–9 auth-on-TLS)
 
-- [ ] Client cert + key PEM fields paste and persist on desktop
-- [ ] Connect `https://localhost:4445/graphql` — schema loads (`gqlt-mtls-connect`)
-- [ ] Steps **15–16** restore plain `http://localhost:4010/graphql`
-- [ ] Rapid **Next** through 11–14 — guards recover
+- [x] Steps **7–9** — Bearer auth on HTTPS (`gqlt-auth-tls-*`); Metadata shows `Authorization`
+- [x] Client cert + key PEM fields paste and persist on desktop (steps **14–15**)
+- [x] Connect `https://localhost:4445/graphql` — schema loads (`gqlt-mtls-connect`, step **15**)
+- [x] Steps **17–18** restore plain `http://localhost:4010/graphql`
+- [x] Rapid **Next** through 13–16 — guards recover
 
 Detail: [gql5-phase8-validation-checklist.md](./gql5-phase8-validation-checklist.md)
 
 ### GQL-7 auth step (step 9 — `gql5-subscription-auth`)
 
-- [ ] Auth panel shows Bearer `{{authToken}}` resolving from demo environment
-- [ ] Auth preview shows `Authorization: Bearer …` before Subscribe
-- [ ] Subscribe (step 10) reaches **● LIVE** without separate WS auth panel
+- [x] Auth panel shows Bearer `{{authToken}}` resolving from demo environment
+- [x] Auth preview shows `Authorization: Bearer …` before Subscribe
+- [x] Subscribe (step 10) reaches **● LIVE** without separate WS auth panel
 
 ---
 
@@ -170,6 +171,12 @@ Checks vs GQL-1/GQL-2 bar:
 | Quality audit GQL-4..13 | CI / agent | 2026-06-24 | ✅ 11/11 tests |
 | Web E2E sweep (19 + gql110) | CI / agent | 2026-06-26 | ✅ GQL-12 + gql110 fixed; re-run full sweep |
 | Spot-check E2E GQL-5/6/7/14/15/17 | CI / agent | 2026-06-26 | ✅ **19/19** Web batch (see §Spot-check) |
-| Web human 1× (19 lessons) | User | 2026-06-26 | 🔨 **1/19** — GQL-2 ✅ |
-| Tauri human 1× (19 lessons) | User | 2026-06-26 | 🔨 **4/19** — GQL-1 ✅, GQL-2 ✅, GQL-3 ✅, GQL-8 ✅ |
-| GQL-5 mTLS Tauri | User | | Steps 11–14 |
+| Web human 1× (19 lessons) | User | 2026-06-27 | 🔨 **2/19** — GQL-2 ✅, **GQL-8 ✅** |
+| Tauri human 1× (19 lessons) | User | 2026-06-27 | 🔨 **12/19** — GQL-1 ✅ … GQL-11 ✅, **GQL-12 ✅** |
+| GQL-5 mTLS Tauri | User | 2026-06-26 | ✅ Steps 13–16 (+ auth-on-TLS 7–9) |
+| GQL-6 Mutations Tauri | User | 2026-06-27 | ✅ create/update/delete observe splits (19 steps) |
+| GQL-8 Query Builder | User | 2026-06-27 | ✅ Web + Tauri · Visual Operations (11 steps) |
+| GQL-9 Collections & History | User | 2026-06-27 | ✅ Tauri · Collections & History (11 steps) |
+| GQL-10 Export & Share | User | 2026-06-27 | ✅ Tauri · Export & Share Queries (7 steps) |
+| GQL-11 Performance Tracing | User | 2026-06-27 | ✅ Tauri · Performance Tracing (8 steps) |
+| GQL-12 Schema Diff | User | 2026-06-27 | ✅ Tauri · Schema Diff & Breaking Changes (7 steps) |

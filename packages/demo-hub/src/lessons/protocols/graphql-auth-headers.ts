@@ -480,7 +480,8 @@ With a **single tab**, auth edits update the **page-level default** — every ne
       id: 'gql6-profile',
       title: 'Save a Connection Profile',
       description:
-        `Click **Profiles** on the connection bar → enter name **${LESSON6_PROFILE_NAME}** → **Save**. This saves a **connection profile** — a shortcut for endpoint + auth mode. The saved row shows **${LESSON6_PROFILE_NAME}**, not **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}**. That is expected: **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** is the **global auth catalog** entry in the Auth panel below (Inherit from Auth Profile). The connection profile only records that auth mode is *inherit* — look for **Inherit (${LESSON6_GLOBAL_AUTH_PROFILE_NAME})** on the Auth preview row in this modal.`,
+        `Click **Profiles** on the connection bar → enter name **${LESSON6_PROFILE_NAME}** → **Save**. This saves a **connection profile** — a shortcut for endpoint + auth mode. The saved row shows **${LESSON6_PROFILE_NAME}**, not **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}**. That is expected: **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** is the **global auth catalog** entry in the Auth panel below (Inherit from Auth Profile). The connection profile only records that auth mode is *inherit* — look for **Inherit (${LESSON6_GLOBAL_AUTH_PROFILE_NAME})** on the Auth preview row in this modal.\n\n` +
+        `Below the endpoint, read **Used by** — it shows *Not linked to any tab* until you **Load** this profile onto a workspace tab (**GQL-14** demonstrates tab pills after load). Saving does not auto-link; **Load** is what connects a tab to a profile.`,
       highlight: GQL.PROFILE_BADGE,
       preAction: preProfileStep,
       action: async (ctx) => {

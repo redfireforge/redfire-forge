@@ -27,7 +27,14 @@ import {
   demonstrateLesson15SelectBatchTabs,
   demonstrateLesson15WriteQueries,
   demonstrateLesson15PartialError,
+  demonstrateLesson15BatchResults,
+  demonstrateLesson15BatchResponseSlice,
   demonstrateLesson15OpenHistory,
+  prepareGql15BatchResultsReading,
+  prepareGql15BatchResponseSliceReading,
+  prepareGql15ExportBatchReading,
+  prepareGql15PartialErrorReading,
+  ensureLesson15IntroReady,
   gqlBatchLessonSetup,
   gqlBatchLessonCleanup,
   LESSON15_TAB2_QUERY,
@@ -116,20 +123,40 @@ describe('lesson15-batch-execution helpers (direct)', () => {
     const ctx = makeCtx();
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson15Executed(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson15Executed(ctx);
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
   });
 
-  it('ensureLesson15TwoTabsSameEndpoint fills endpoint when input is blank', async () => {
+  it('ensureLesson15Executed skips when batch banner visible without modal', async () => {
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-send-batch-btn"></button>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <div data-testid="gql-response-viewer">
+        <div data-testid="gql-rv-batch-banner"></div>
+      </div>
+    `;
+    document.querySelector(GQL.BATCH_RESULTS)?.remove();
+    stubMonacoEditor('query { health }');
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await ensureLesson15Executed(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
+  });
+
+  it('ensureLesson15TwoTabsSameEndpoint configures inherit when endpoint input is blank', async () => {
     document.body.innerHTML = `
       <span data-testid="gql-batch-summary-chip">Batch</span>
       <input data-testid="gql-endpoint-input" value="" />
       <div data-testid="gql-tab-bar"><button ${DEMO_TAB0}>Q1</button></div>
     `;
     const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson15TwoTabsSameEndpoint(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.any(Number));
   });
 
   it('ensureLesson15BatchEnabled finds Batch tab via settings tab strip text', async () => {
@@ -324,6 +351,43 @@ describe('lesson15-batch-execution helpers (direct)', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
   });
 
+  it('gqlBatchLessonSetup closes an open History activity panel', async () => {
+    document.body.innerHTML = `
+      <select data-testid="header-env-select"><option>GraphQL Demo</option></select>
+      <select data-testid="header-svc-select"><option>graphql-demo</option></select>
+      <input data-testid="gql-endpoint-input" value="" />
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-history-panel"></div>
+      <button data-testid="gql-right-tab-response"></button>
+      <button data-testid="gql-right-tab-schema" aria-selected="true"></button>
+      <button data-testid="gql-introspect-btn"></button>
+      <div data-testid="gql-tab-bar"><button ${DEMO_TAB}>Q1</button></div>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <div data-testid="gql-schema-explorer">
+        <div data-testid="gql-se-type-list">
+          <button data-testid="gql-se-type-Query"></button>
+        </div>
+      </div>
+    `;
+    stubMonacoEditor('');
+    const ctx = makeCtx();
+    await gqlBatchLessonSetup(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
+  });
+
+  it('ensureLesson15IntroReady closes History sidebar before step 1 reading', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-tab-bar"></div>
+    `;
+    const ctx = makeCtx();
+    await ensureLesson15IntroReady(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.TAB_BAR, 5000);
+  });
+
   it('gqlBatchLessonSetup ensures editor mode, demo endpoint, and introspection', async () => {
     document.body.innerHTML = `
       <select data-testid="header-env-select"><option>GraphQL Demo</option></select>
@@ -408,7 +472,7 @@ describe('lesson15-batch-execution helpers (direct)', () => {
     expect(ctx.click).toHaveBeenCalled();
   });
 
-  it('ensureLesson15Executed re-runs when results panel disappears after first run', async () => {
+  it('ensureLesson15Executed does not re-run when results panel is dismissed after first run', async () => {
     document.body.innerHTML = `
       ${stubAdvBatchDom(2, true)}
       <button data-testid="gql-send-batch-btn"></button>
@@ -426,7 +490,16 @@ describe('lesson15-batch-execution helpers (direct)', () => {
     document.querySelector(GQL.BATCH_RESULTS)?.remove();
     vi.mocked(ctx.click).mockClear();
     await ensureLesson15Executed(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
+  });
+
+  it('gqlBatchLessonCleanup closes activity panel and demo tabs', async () => {
+    document.body.innerHTML =
+      '<button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>';
+    const ctx = makeCtx();
+    await gqlBatchLessonCleanup(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
+    expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-batch-execution');
   });
 
   it('gqlBatchLessonCleanup delegates to closeGqlDemoTabs', async () => {
@@ -519,6 +592,10 @@ describe('lesson15 demonstrate actions', () => {
     });
     await demonstrateLesson15AddSecondTab(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.TAB_ADD_BTN);
+    const tabBarHops = vi.mocked(ctx.click).mock.calls.filter(([sel]) =>
+      String(sel).includes('data-lesson-target'),
+    );
+    expect(tabBarHops).toHaveLength(0);
   });
 
   it('demonstrateLesson15AddSecondTab short-circuits when two tabs exist', async () => {
@@ -562,6 +639,231 @@ describe('lesson15 demonstrate actions', () => {
     expect(ctx.click).toHaveBeenCalled();
   });
 
+  it('prepareGql15BatchResultsReading reopens batch modal when dismissed after execute', async () => {
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-send-batch-btn"></button>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <div data-testid="gql-response-viewer">
+        <div data-testid="gql-rv-batch-banner">
+          <button data-testid="gql-rv-open-batch-results">View full batch</button>
+        </div>
+      </div>
+    `;
+    stubMonacoEditor('query { health }');
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.RESPONSE_OPEN_BATCH_RESULTS) {
+        document.body.insertAdjacentHTML('beforeend', `
+          <div data-testid="gql-batch-results">
+            <p data-testid="gql-batch-results-transport">1 upstream HTTP POST</p>
+          </div>
+        `);
+      }
+    });
+    await prepareGql15BatchResultsReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RESPONSE_OPEN_BATCH_RESULTS);
+    expect(document.querySelector(GQL.BATCH_RESULTS)).not.toBeNull();
+  });
+
+  it('demonstrateLesson15BatchResults observes modal without closing', async () => {
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-send-batch-btn"></button>
+      <div data-testid="gql-batch-results">
+        <p data-testid="gql-batch-results-transport">1 upstream HTTP POST</p>
+        <button data-testid="gql-batch-results-close-btn">Close</button>
+      </div>
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await demonstrateLesson15BatchResults(ctx);
+    expect(ctx.delay).toHaveBeenCalledWith(2000);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_RESULTS_CLOSE_BTN);
+    expect(document.querySelector(GQL.BATCH_RESULTS)).not.toBeNull();
+  });
+
+  it('demonstrateLesson15BatchResponseSlice closes modal and reopens via link', async () => {
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-send-batch-btn"></button>
+      <div data-testid="gql-batch-results">
+        <button data-testid="gql-batch-results-close-btn">Close</button>
+      </div>
+      <div data-testid="gql-response-viewer">
+        <div data-testid="gql-rv-batch-banner">
+          <span data-testid="gql-rv-batch-pill">Batch 1/2</span>
+          <button data-testid="gql-rv-open-batch-results">View full batch</button>
+        </div>
+      </div>
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.BATCH_RESULTS_CLOSE_BTN) {
+        document.querySelector(GQL.BATCH_RESULTS)?.remove();
+      }
+      if (sel === GQL.RESPONSE_OPEN_BATCH_RESULTS) {
+        document.body.insertAdjacentHTML('beforeend', `
+          <div data-testid="gql-batch-results">
+            <button data-testid="gql-batch-results-close-btn">Close</button>
+          </div>
+        `);
+      }
+    });
+    await demonstrateLesson15BatchResponseSlice(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BATCH_RESULTS_CLOSE_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RESPONSE_OPEN_BATCH_RESULTS);
+  });
+
+  it('prepareGql15BatchResponseSliceReading dismisses modal and waits for batch banner', async () => {
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-send-batch-btn"></button>
+      <div data-testid="gql-batch-results">
+        <button data-testid="gql-batch-results-close-btn">Close</button>
+      </div>
+      <div data-testid="gql-response-viewer">
+        <div data-testid="gql-rv-batch-banner"></div>
+      </div>
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.BATCH_RESULTS_CLOSE_BTN) {
+        document.querySelector(GQL.BATCH_RESULTS)?.remove();
+      }
+    });
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await prepareGql15BatchResponseSliceReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BATCH_RESULTS_CLOSE_BTN);
+    expect(document.querySelector(GQL.BATCH_RESULTS)).toBeNull();
+  });
+
+  it('prepareGql15PartialErrorReading reopens batch modal when partial error already ran', async () => {
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-send-batch-btn"></button>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <div data-testid="gql-response-viewer">
+        <button data-testid="gql-rv-open-batch-results">View full batch</button>
+      </div>
+    `;
+    stubMonacoEditor('query { health }');
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.BATCH_EXECUTE_BTN) {
+        document.body.insertAdjacentHTML('beforeend', `
+          <div data-testid="gql-batch-results">
+            <span data-testid="gql-batch-results-failed-pill">1 failed</span>
+          </div>
+        `);
+      }
+      if (sel === GQL.BATCH_RESULTS_CLOSE_BTN) {
+        document.querySelector(GQL.BATCH_RESULTS)?.remove();
+      }
+      if (sel === GQL.RESPONSE_OPEN_BATCH_RESULTS) {
+        document.body.insertAdjacentHTML('beforeend', `
+          <div data-testid="gql-batch-results">
+            <span data-testid="gql-batch-results-failed-pill">1 failed</span>
+          </div>
+        `);
+      }
+    });
+    await ensureLesson15PartialErrorExecuted(ctx);
+    document.querySelector(GQL.BATCH_RESULTS)?.remove();
+    vi.mocked(ctx.click).mockClear();
+    await prepareGql15PartialErrorReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RESPONSE_OPEN_BATCH_RESULTS);
+    expect(document.querySelector(GQL.BATCH_RESULTS)).not.toBeNull();
+  });
+
+  it('prepareGql15PartialErrorReading dismisses open batch results panel', async () => {
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-send-batch-btn"></button>
+      <div data-testid="gql-batch-results">
+        <button data-testid="gql-batch-results-close-btn">Close</button>
+      </div>
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.BATCH_RESULTS_CLOSE_BTN) {
+        document.querySelector(GQL.BATCH_RESULTS)?.remove();
+      }
+    });
+    await prepareGql15PartialErrorReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BATCH_RESULTS_CLOSE_BTN);
+    expect(document.querySelector(GQL.BATCH_RESULTS)).toBeNull();
+  });
+
+  it('prepareGql15PartialErrorReading focuses Tab 2 editor after dismissing batch modal', async () => {
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-send-batch-btn"></button>
+      <div data-testid="gql-batch-results">
+        <button data-testid="gql-batch-results-close-btn">Close</button>
+      </div>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    `;
+    stubMonacoEditor('query { health }');
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.BATCH_RESULTS_CLOSE_BTN) {
+        document.querySelector(GQL.BATCH_RESULTS)?.remove();
+      }
+    });
+    await prepareGql15PartialErrorReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BATCH_RESULTS_CLOSE_BTN);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.EDITOR, expect.any(Number));
+  });
+
+  it('ensureLesson15PartialErrorExecuted skips when failed pill already visible', async () => {
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-send-batch-btn"></button>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <div data-testid="gql-batch-results">
+        <span data-testid="gql-batch-results-failed-pill">1 failed</span>
+      </div>
+    `;
+    stubMonacoEditor('query { health }');
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await ensureLesson15PartialErrorExecuted(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureLesson15PartialErrorExecuted(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
+  });
+
+  it('prepareGql15ExportBatchReading dismisses batch modal after partial-error run', async () => {
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-send-batch-btn"></button>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <div data-testid="gql-batch-results">
+        <button data-testid="gql-batch-results-close-btn">Close</button>
+      </div>
+    `;
+    stubMonacoEditor('query { health }');
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.BATCH_RESULTS_CLOSE_BTN) {
+        document.querySelector(GQL.BATCH_RESULTS)?.remove();
+      }
+    });
+    await prepareGql15ExportBatchReading(ctx);
+    expect(document.querySelector(GQL.BATCH_RESULTS)).toBeNull();
+  });
+
   it('demonstrateLesson15PartialError writes error query and re-runs batch', async () => {
     document.body.innerHTML = `
       ${stubAdvBatchDom(2, true)}
@@ -577,13 +879,15 @@ describe('lesson15 demonstrate actions', () => {
     expect(ctx.click).toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
   });
 
-  it('demonstrateLesson15OpenHistory opens history panel after partial error', async () => {
+  it('demonstrateLesson15OpenHistory closes batch modal before opening history', async () => {
     document.body.innerHTML = `
       ${stubAdvBatchDom(2, true)}
       <button data-testid="gql-send-batch-btn"></button>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
-      <div data-testid="gql-batch-results"></div>
+      <div data-testid="gql-batch-results">
+        <button data-testid="gql-batch-results-close-btn">Close</button>
+      </div>
       <button data-testid="gql-activity-history"></button>
     `;
     stubMonacoEditor('query { health }');
@@ -593,7 +897,14 @@ describe('lesson15 demonstrate actions', () => {
         document.body.insertAdjacentHTML('beforeend', '<div data-testid="gql-history-panel"></div>');
       }
     });
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.BATCH_RESULTS_CLOSE_BTN) {
+        document.querySelector(GQL.BATCH_RESULTS)?.remove();
+      }
+    });
     await demonstrateLesson15OpenHistory(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.BATCH_RESULTS_CLOSE_BTN);
+    expect(document.querySelector(GQL.BATCH_RESULTS)).toBeNull();
     expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
   });
 

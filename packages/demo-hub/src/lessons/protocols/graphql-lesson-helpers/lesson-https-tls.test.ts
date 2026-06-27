@@ -37,6 +37,9 @@ import {
   prepareGqltMtlsIntrospectReading,
   ensurePlainRestoreIntrospectOutcome,
   prepareGqltRestoreReading,
+  prepareGqltAuthExecReading,
+  prepareGqltAuthConfigReading,
+  prepareGqltAuthObserveReading,
   ensureMtlsPanelReady,
   gqlTlsLessonSetup,
   gqlTlsLessonCleanup,
@@ -128,9 +131,10 @@ function stubTlsChainDom(opts: {
     <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
     <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
     <button data-testid="gql-execute-btn"></button>
-    <div data-testid="gql-response-viewer"></div>
+    <div data-testid="gql-response-viewer">
+      <span data-testid="gql-rv-request-header-val-Authorization"></span>
+    </div>
     <button data-testid="gql-rv-tab-metadata"></button>
-    <div data-testid="gql-rv-request-headers">Authorization</div>
     <button data-testid="gql-right-tab-response" aria-selected="true"></button>
     <button data-testid="gql-right-tab-schema" aria-selected="false"></button>
     <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
@@ -139,6 +143,7 @@ function stubTlsChainDom(opts: {
 }
 
 function installTlsBridgeMock(): void {
+  (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = vi.fn();
   (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings = (patch: {
     skipTlsVerify?: boolean;
     caCert?: string;
@@ -167,6 +172,7 @@ function installTlsBridgeMock(): void {
 
 function clearTlsBridge(): void {
   delete (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings;
+  delete (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv;
 }
 
 const TLS_PANEL_HTML = `
@@ -206,6 +212,7 @@ describe('lesson-https-tls helpers', () => {
 
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings;
+    delete (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv;
   });
 
   it('ensureTlsEndpoint skips when flag set and endpoint is https', async () => {
@@ -277,6 +284,19 @@ describe('lesson-https-tls helpers', () => {
     const clickSpy = vi.spyOn(toggle, 'click');
     await ensureSkipCertEnabled(ctx);
     expect(clickSpy).not.toHaveBeenCalled();
+    expect(patchDemoTabConnection).toHaveBeenCalledWith({ skipTlsVerify: true });
+  });
+
+  it('prepareGqltSkipIntrospectReading re-introspects when schema error badge is stale', async () => {
+    stubTlsChainDom({ skipCert: true, schemaOk: false });
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      '<span data-testid="gql-schema-badge-error">Schema error</span>',
+    );
+    const ctx = makeCtx();
+    await prepareGqltSkipIntrospectReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.SCHEMA_BADGE_OK, 25000);
   });
 
   it('ensureTlsIntrospected skips when schema badge already present', async () => {
@@ -307,6 +327,41 @@ describe('lesson-https-tls helpers', () => {
     vi.mocked(ctx.fill).mockClear();
     await ensureTlsAuthConfigured(ctx);
     expect(ctx.fill).not.toHaveBeenCalled();
+  });
+
+  it('prepareGqltAuthExecReading does not navigate to Environment Manager', async () => {
+    stubTlsChainDom();
+    document.body.innerHTML += `
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+    `;
+    const ctx = makeCtx();
+    await prepareGqltAuthExecReading(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+  });
+
+  it('prepareGqltAuthConfigReading does not navigate to Environment Manager', async () => {
+    stubTlsChainDom({ schemaOk: true });
+    (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = vi.fn();
+    const ctx = makeCtx();
+    await prepareGqltAuthConfigReading(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+  });
+
+  it('prepareGqltAuthObserveReading does not navigate to Environment Manager', async () => {
+    stubTlsChainDom({ schemaOk: true });
+    (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = vi.fn();
+    const ctx = makeCtx();
+    await prepareGqltAuthObserveReading(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+  });
+
+  it('ensureTlsPhase2Ready does not navigate to Environment Manager', async () => {
+    stubTlsChainDom({ schemaOk: true });
+    (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = vi.fn();
+    const ctx = makeCtx();
+    await ensureTlsPhase2Ready(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
   });
 
   it('ensureTlsAuthExecuted skips repeat execution', async () => {
@@ -543,12 +598,15 @@ describe('lesson-https-tls helpers', () => {
 
   it('gqlTlsLessonSetup closes history panel when active', async () => {
     stubTlsChainDom();
+    const upsert = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv = upsert;
     const historyBtn = document.querySelector<HTMLElement>(GQL.ACTIVITY_HISTORY)!;
     const clickSpy = vi.spyOn(historyBtn, 'click');
     const ctx = makeCtx();
     await gqlTlsLessonSetup(ctx);
     expect(clickSpy).toHaveBeenCalled();
     expect(ensureGqlDemoTab).toHaveBeenCalledWith(ctx, 'gql-https-tls', 'HTTPS, TLS & Certificates');
+    expect(upsert).toHaveBeenCalledWith('Demo', [{ key: 'authToken', value: 'lesson6-demo-jwt', masked: true }]);
   });
 
   it('gqlTlsLessonCleanup closes demo tabs', async () => {
@@ -580,13 +638,12 @@ describe('lesson-https-tls helpers', () => {
     expect(checkbox().checked).toBe(false);
   });
 
-  it('ensureTlsAuthConfigured closes auth panel by switching to Variables', async () => {
+  it('ensureTlsAuthConfigured seeds auth via bridge without opening env modal', async () => {
     stubTlsChainDom();
     const ctx = makeCtx();
-    const authTab = document.querySelector<HTMLButtonElement>(GQL.BOTTOM_TAB_AUTH)!;
-    authTab.setAttribute('aria-selected', 'true');
     await ensureTlsAuthConfigured(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.BOTTOM_TAB_VARS);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENV_BADGE);
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
   });
 
   it('ensureTlsPhase2Ready chains auth executed + TLS endpoint', async () => {
@@ -601,8 +658,26 @@ describe('lesson-https-tls helpers', () => {
     stubTlsChainDom({ schemaOk: false });
     const ctx = makeCtx();
     await runTlsIntrospectClickOnly(ctx);
+    expect(patchDemoTabConnection).toHaveBeenCalledWith({ skipTlsVerify: true });
     expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
     expect(ctx.waitFor).not.toHaveBeenCalledWith(GQL.SCHEMA_BADGE_OK, 25000);
+  });
+
+  it('runTlsIntrospectClickOnly persists mTLS on port 4445 instead of skip-cert', async () => {
+    installTlsBridgeMock();
+    stubTlsChainDom({ endpoint: GQL_TLS_MTLS_ENDPOINT, skipCert: false, tlsBadge: 'none' });
+    const ctx = makeCtx();
+    vi.mocked(patchDemoTabConnection).mockClear();
+    await runTlsIntrospectClickOnly(ctx);
+    expect(patchDemoTabConnection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skipTlsVerify: false,
+        tlsClientCert: expect.stringContaining('BEGIN CERTIFICATE'),
+        tlsClientKey: expect.stringContaining('BEGIN'),
+      }),
+    );
+    expect(patchDemoTabConnection).not.toHaveBeenCalledWith({ skipTlsVerify: true });
+    expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
   });
 
   it('ensureTlsSkipIntrospectOutcome introspects when badge absent', async () => {
@@ -859,6 +934,14 @@ describe('lesson-https-tls helpers', () => {
     await ensureMtlsConfigured(ctx, { visible: false });
     expect(document.querySelector(GQL.TLS_INDICATOR_MTLS)).toBeTruthy();
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.TLS_CLIENT_KEY, GQL_TLS_CLIENT_KEY);
+    expect(patchDemoTabConnection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        skipTlsVerify: false,
+        tlsCaCert: expect.stringContaining('BEGIN CERTIFICATE'),
+        tlsClientCert: expect.stringContaining('BEGIN CERTIFICATE'),
+        tlsClientKey: expect.stringContaining('BEGIN'),
+      }),
+    );
   });
 
   it('runTlsCaCertDemoAction skips modal open when TLS body already present', async () => {
@@ -896,7 +979,7 @@ describe('lesson-https-tls helpers', () => {
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.TLS_CA_CERT, GQL_TLS_CA_CERT);
   });
 
-  it('ensureMtlsConfigured skips when client cert fields populated without mTLS badge', async () => {
+  it('ensureMtlsConfigured re-syncs when DOM has PEM but mTLS badge is missing', async () => {
     clearTlsBridge();
     stubTlsChainDom({
       endpoint: GQL_TLS_MTLS_ENDPOINT,
@@ -911,7 +994,7 @@ describe('lesson-https-tls helpers', () => {
     await ensureMtlsConfigured(ctx, { visible: false });
     vi.mocked(ctx.fill).mockClear();
     await ensureMtlsConfigured(ctx, { visible: false });
-    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.TLS_CLIENT_KEY, GQL_TLS_CLIENT_KEY);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.TLS_CLIENT_KEY, GQL_TLS_CLIENT_KEY);
   });
 
   it('ensureSkipCertDisabled clicks TLS toggle when skip-cert is active before CA setup', async () => {

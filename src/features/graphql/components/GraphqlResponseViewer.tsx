@@ -18,17 +18,29 @@ import { useGraphqlResponseDataOnly } from '../hooks/useGraphqlResponseDataOnly'
 import {
   getResponseDataCreateOrder,
   getResponseDataCreateUser,
+  getResponseDataDeleteUser,
   getResponseDataUser,
 } from '../utils/graphqlResponseDataExtractors';
 import { authSentSourceLabel } from '../utils/gqlAuthResolve';
 import { serializeGraphqlResponseBody } from '../utils/graphqlResponseBodyPayload';
 import { serializeGraphqlRequestBody } from '../utils/graphqlRequestBodyDisplay';
+import {
+  batchLatencyStatusLabel,
+  batchOperationSlotLabel,
+  batchResponseExplainer,
+  batchStatusPillLabel,
+  batchTransportSummaryForResponse,
+} from '../utils/batchResponseContextUtils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface GraphqlResponseViewerProps {
   response: GraphqlResponse | null;
   loading?: boolean;
+  /** True while Send Batch is in flight — shows batch-specific loading copy */
+  batchExecuting?: boolean;
+  /** Re-open the floating batch results panel (when viewing a batch slice) */
+  onOpenBatchResults?: () => void;
   /** Ring buffer of recent latency values (ms). Histogram shown when length ≥ 2. */
   latencyHistory?: number[];
 }
@@ -330,7 +342,9 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
         <div className="gql-rv-meta-row">
           <span className="gql-rv-meta-label">Latency</span>
           <span className="gql-rv-meta-value gql-rv-meta-latency" data-testid="gql-rv-meta-latency">
-            {response.latencyMs} ms
+            {response.batchContext
+              ? batchLatencyStatusLabel(response.batchContext, response.latencyMs)
+              : `${response.latencyMs} ms`}
           </span>
         </div>
         <div className="gql-rv-meta-row">
@@ -400,6 +414,25 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
             </span>
           </div>
         )}
+        {response.batchContext && (
+          <div className="gql-rv-meta-batch-block" data-testid="gql-rv-meta-batch">
+            <div className="gql-rv-meta-row">
+              <span className="gql-rv-meta-label">Batch slot</span>
+              <span className="gql-rv-meta-value" data-testid="gql-rv-meta-batch-slot">
+                {batchOperationSlotLabel(response.batchContext)}
+              </span>
+            </div>
+            <div className="gql-rv-meta-row">
+              <span className="gql-rv-meta-label">Batch transport</span>
+              <span className="gql-rv-meta-value" data-testid="gql-rv-meta-batch-transport">
+                {batchTransportSummaryForResponse(response.batchContext, response)}
+              </span>
+            </div>
+            <p className="gql-rv-meta-batch-explainer" data-testid="gql-rv-meta-batch-explainer">
+              {batchResponseExplainer(response.batchContext)}
+            </p>
+          </div>
+        )}
       </div>
 
       {response.requestHeaders && Object.keys(response.requestHeaders).length > 0 && (
@@ -435,6 +468,22 @@ function MetadataTab({ response, bodySize }: MetadataTabProps) {
 
       {response.requestBody && Object.keys(response.requestBody).length > 0 && (
         <MetadataRequestBodySection body={response.requestBody} />
+      )}
+
+      {response.batchContext?.wireRequestBody && response.batchContext.wireRequestBody.length > 0 && (
+        <MetadataCollapsibleSection
+          title="Wire batch body (upstream POST)"
+          sectionTestId="gql-rv-wire-batch-body"
+          toggleTestId="gql-rv-wire-batch-body-toggle"
+          defaultExpanded={false}
+          collapsedSummary={`JSON array · ${response.batchContext.wireRequestBody.length} operation${
+            response.batchContext.wireRequestBody.length === 1 ? '' : 's'
+          } — click to expand`}
+        >
+          <pre className="gql-rv-request-body-json" data-testid="gql-rv-wire-batch-body-content">
+            {JSON.stringify(response.batchContext.wireRequestBody, null, 2)}
+          </pre>
+        </MetadataCollapsibleSection>
       )}
 
       {/* GraphQL error detail cards */}
@@ -500,7 +549,13 @@ function ResponseDataSummaryCard({
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export function GraphqlResponseViewer({ response, loading = false, latencyHistory = [] }: GraphqlResponseViewerProps) {
+export function GraphqlResponseViewer({
+  response,
+  loading = false,
+  batchExecuting = false,
+  onOpenBatchResults,
+  latencyHistory = [],
+}: GraphqlResponseViewerProps) {
   const [activeTab, setActiveTab] = useState<ResponseTab>('body');
   const [copied, setCopied] = useState(false);
   const { dataOnly, setDataOnly } = useGraphqlResponseDataOnly();
@@ -549,6 +604,7 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
   const dataUser = useMemo(() => getResponseDataUser(response), [response]);
   const dataCreateUser = useMemo(() => getResponseDataCreateUser(response), [response]);
   const dataCreateOrder = useMemo(() => getResponseDataCreateOrder(response), [response]);
+  const dataDeleteUser = useMemo(() => getResponseDataDeleteUser(response), [response]);
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(prettyJson).then(() => {
@@ -574,10 +630,12 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
     return (
       <div className="gql-rv gql-rv--loading" data-testid="gql-response-loading">
         <div className="gql-rv-spinner-wrap">
-          <div className="gql-response-spinner" aria-label="Executing…" />
-          <span className="gql-rv-loading-text">Executing…</span>
+          <div className="gql-response-spinner" aria-label={batchExecuting ? 'Batching…' : 'Executing…'} />
+          <span className="gql-rv-loading-text">{batchExecuting ? 'Batching…' : 'Executing…'}</span>
           <span className="gql-rv-loading-hint">
-            Press <kbd>Esc</kbd> to cancel
+            {batchExecuting
+              ? 'Sending batched operations to the server'
+              : <>Press <kbd>Esc</kbd> to cancel</>}
           </span>
         </div>
       </div>
@@ -649,6 +707,29 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
         </div>
       )}
 
+      {response.batchContext && (
+        <div className="gql-rv-batch-banner" role="status" data-testid="gql-rv-batch-banner">
+          <span className="gql-rv-batch-banner-pill" data-testid="gql-rv-batch-pill">
+            {batchStatusPillLabel(response.batchContext)}
+          </span>
+          <span className="gql-rv-batch-banner-text">
+            {batchOperationSlotLabel(response.batchContext)}
+            {' · '}
+            {batchTransportSummaryForResponse(response.batchContext, response)}
+          </span>
+          {onOpenBatchResults && (
+            <button
+              type="button"
+              className="gql-rv-batch-banner-link"
+              onClick={onOpenBatchResults}
+              data-testid="gql-rv-open-batch-results"
+            >
+              View full batch
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Status bar — always visible; Copy button lives here */}
       <div className="gql-rv-statusbar" data-testid="gql-rv-statusbar">
         {/* Left: status info */}
@@ -663,7 +744,9 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
             {isPureGqlError ? 'GraphQL Error' : isPartial ? 'Partial' : statusBadgeLabel(response.httpStatus)}
           </span>
           <span className="gql-rv-latency" data-testid="gql-response-latency">
-            {response.latencyMs} ms
+            {response.batchContext
+              ? batchLatencyStatusLabel(response.batchContext, response.latencyMs)
+              : `${response.latencyMs} ms`}
           </span>
           <span className="gql-rv-size">{humanizeBytes(bodySize)}</span>
           {isPartial && (
@@ -768,6 +851,13 @@ export function GraphqlResponseViewer({ response, loading = false, latencyHistor
           path="data.createOrder"
           data={dataCreateOrder}
           testId="gql-response-data-create-order"
+        />
+      )}
+      {dataDeleteUser && (
+        <ResponseDataSummaryCard
+          path="data.deleteUser"
+          data={dataDeleteUser}
+          testId="gql-response-data-delete-user"
         />
       )}
 

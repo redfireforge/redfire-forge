@@ -5,6 +5,8 @@ import DemoSpotlight from './DemoSpotlight';
 import { renderMarkdown } from './ConceptSlide';
 import StepOverviewDrawer from './StepOverviewDrawer';
 import { useLiveDemoPanelLayout } from './useLiveDemoPanelLayout';
+import LessonNotesIcon from './LessonNotesIcon';
+import { useLessonNotesContextOptional } from './LessonNotesContext';
 import {
   findFirstVisibleElement,
   hasDemoHubTextSelection,
@@ -73,6 +75,8 @@ export default function LiveDemo({
   const autoScrolledRef = useRef(false);
   const { panelRef, panelStyle, onDragMouseDown, onResizeMouseDown } = useLiveDemoPanelLayout();
   const closeOverview = useCallback(() => setOverviewOpen(false), []);
+  const notesCtx = useLessonNotesContextOptional();
+  const notesOpen = notesCtx?.panelTarget?.lessonId === lesson.id && notesCtx.panelOpen;
 
   useEffect(() => installDemoUserScrollListeners(), []);
 
@@ -205,6 +209,20 @@ export default function LiveDemo({
               <line x1="2" y1="12" x2="14" y2="12"/>
             </svg>
           </button>
+          {notesCtx && (
+            <span className="demo-live-notes-btn-wrap">
+              <LessonNotesIcon
+                lessonName={lesson.name}
+                hasContent={notesCtx.hasNote(lesson.id)}
+                onClick={() => {
+                  if (notesOpen) notesCtx.closePanel();
+                  else notesCtx.openPanel({ lessonId: lesson.id, lessonName: lesson.name });
+                }}
+                className={`demo-live-notes-btn${notesOpen ? ' active' : ''}`}
+                testId="demo-live-notes-btn"
+              />
+            </span>
+          )}
         </div>
 
         <div className="demo-live-progress-bar">

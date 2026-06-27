@@ -214,6 +214,35 @@ describe('useGraphqlConnectionProfiles — saveProfile', () => {
   });
 });
 
+describe('useGraphqlConnectionProfiles — updateProfile', () => {
+  it('updates auth on an existing profile', async () => {
+    const stored = [makeProfile({ id: 'p-1', auth: null })];
+    mockReadKey.mockResolvedValue(JSON.stringify(stored));
+
+    const { result } = renderHook(() => useGraphqlConnectionProfiles());
+    await waitFor(() => expect(result.current.profiles).toHaveLength(1));
+
+    const auth = { type: 'bearer' as const, token: 'updated' };
+    act(() => { result.current.updateProfile('p-1', { auth }); });
+
+    expect(result.current.profiles[0].auth).toEqual(auth);
+    expect(mockWriteKey).toHaveBeenCalled();
+  });
+
+  it('no-ops when profile id is unknown', async () => {
+    const stored = [makeProfile({ id: 'p-1' })];
+    mockReadKey.mockResolvedValue(JSON.stringify(stored));
+
+    const { result } = renderHook(() => useGraphqlConnectionProfiles());
+    await waitFor(() => expect(result.current.profiles).toHaveLength(1));
+
+    act(() => { result.current.updateProfile('missing', { auth: null }); });
+
+    expect(result.current.profiles[0].auth).toBeNull();
+    expect(mockWriteKey).not.toHaveBeenCalled();
+  });
+});
+
 describe('useGraphqlConnectionProfiles — renameProfile', () => {
   it('renames an existing profile', async () => {
     const stored = [makeProfile({ id: 'p-1', name: 'Old Name' })];

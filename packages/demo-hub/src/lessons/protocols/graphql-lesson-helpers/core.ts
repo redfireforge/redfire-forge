@@ -6,7 +6,7 @@ import {
   navigateToGraphqlStudio,
 } from '../../env-manager-lesson-helpers';
 import { resetLesson2VariablesHistoryFlags } from './lesson2-variables-history';
-import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
+import { closeGqlDemoTabs, ensureGqlDemoTab, activateGqlDemoTabQuiet } from './gql-demo-tab';
 import {
   dispatchGqlPageEndpointReload,
   getDemoBridgeWindow,
@@ -168,11 +168,6 @@ export async function configureDemoTabInheritPageDefault(ctx: DemoActionContext)
   await ctx.delay(400);
   await clearActiveTabEndpointOverride(ctx);
   await patchDemoTabConnection({ endpoint: undefined });
-  const v = (getEndpointInput()?.value ?? '').trim();
-  if (v !== GQL_DEMO_VAR) {
-    await fillActiveTabEndpoint(ctx, GQL_DEMO_VAR);
-    await patchDemoTabConnection({ endpoint: undefined });
-  }
 }
 
 /** Demo tab explicit per-tab URL override (mutations server, mock, TLS, schema literal URL). */
@@ -185,6 +180,37 @@ export async function configureDemoTabEndpointOverride(
   if ((getEndpointInput()?.value ?? '').trim() !== trimmed) {
     await fillActiveTabEndpoint(ctx, trimmed);
   }
+}
+
+/** True when the connection bar still shows a TLS lesson endpoint or TLS chrome. */
+export function demoTabShowsStaleTlsState(): boolean {
+  const v = (getEndpointInput()?.value ?? '').trim().toLowerCase();
+  if (v.startsWith('https://') || v.includes(':4443') || v.includes(':4445')) return true;
+  return Boolean(document.querySelector(GQL.TLS_TOGGLE));
+}
+
+/**
+ * Reset the demo tab to plain HTTP and clear TLS overrides — e.g. after GQL-5 or when
+ * starting a port-4010 lesson with stale https://127.0.0.1:4443 still on the tab.
+ */
+export async function resetDemoTabToPlainHttp(ctx: DemoActionContext): Promise<void> {
+  const session = await loadDemoSession();
+  if (session?.demoTabId) {
+    await patchDemoTabConnection({
+      endpoint: GQL_DEMO_HTTP,
+      skipTlsVerify: undefined,
+      tlsCaCert: undefined,
+      tlsClientCert: undefined,
+      tlsClientKey: undefined,
+    });
+    await activateGqlDemoTabQuiet(ctx);
+    await ctx.delay(500);
+  }
+
+  if (demoTabShowsStaleTlsState()) {
+    await configureDemoTabEndpointOverride(ctx, GQL_DEMO_HTTP);
+  }
+  await ctx.delay(200);
 }
 
 /** True when the bottom Auth tab is the active bottom-panel tab (Slice 7.3+). */
@@ -567,6 +593,13 @@ export async function ensureResponseCreateOrderVisible(ctx: DemoActionContext): 
   await ctx.waitFor(GQL.RESPONSE_DATA_CREATE_ORDER, 10000);
 }
 
+/** Ensure the Response pane is open and the compact data.deleteUser card is visible. */
+export async function ensureResponseDeleteUserVisible(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(GQL.RIGHT_TAB_RESPONSE);
+  await ctx.delay(300);
+  await ctx.waitFor(GQL.RESPONSE_DATA_DELETE_USER, 10000);
+}
+
 /** Ensure the Response pane is open and the compact data.user card is visible. */
 export async function ensureResponseDataUserVisible(ctx: DemoActionContext): Promise<void> {
   await ctx.click(GQL.RIGHT_TAB_RESPONSE);
@@ -770,10 +803,21 @@ export async function openSchemaExplorer(ctx: DemoActionContext): Promise<void> 
   await ctx.delay(400);
 }
 
-/** Ensure schema introspection completed and the Query type is browsable. */
-export async function ensureIntrospected(ctx: DemoActionContext): Promise<void> {
-  await ensureDemoEndpoint(ctx);
+/**
+ * Demo tab at literal `http://localhost:4010/graphql` — no Environment Manager round-trip.
+ * Use for lessons that isolate work on the demo tab (Query Builder, mutations, etc.).
+ */
+export async function ensureDemoTabDirectHttpEndpoint(ctx: DemoActionContext): Promise<void> {
+  await navigateToGraphqlStudio(ctx);
+  await activateGqlDemoTabQuiet(ctx);
+  if (!demoEndpointLooksConfigured()) {
+    await configureDemoTabEndpointOverride(ctx, GQL_DEMO_HTTP);
+    await patchDemoTabConnection({ endpoint: GQL_DEMO_HTTP });
+  }
+  _endpointSet = true;
+}
 
+async function runEnsureIntrospected(ctx: DemoActionContext): Promise<void> {
   const waitForQueryType = async (): Promise<boolean> => {
     await ctx.click(GQL.RIGHT_TAB_SCHEMA);
     await ctx.delay(400);
@@ -802,6 +846,18 @@ export async function ensureIntrospected(ctx: DemoActionContext): Promise<void> 
   await ctx.delay(400);
   await ctx.waitFor(GQL.SCHEMA_TYPE_QUERY, 15000);
   _schemaLoaded = hasUsableSchemaBadge() && schemaExplorerShowsQueryType();
+}
+
+/** Ensure schema introspection completed and the Query type is browsable. */
+export async function ensureIntrospected(ctx: DemoActionContext): Promise<void> {
+  await ensureDemoEndpoint(ctx);
+  await runEnsureIntrospected(ctx);
+}
+
+/** Introspect on the demo tab using a direct HTTP endpoint (skips Environment Manager). */
+export async function ensureIntrospectedOnDirectEndpoint(ctx: DemoActionContext): Promise<void> {
+  await ensureDemoTabDirectHttpEndpoint(ctx);
+  await runEnsureIntrospected(ctx);
 }
 
 /**

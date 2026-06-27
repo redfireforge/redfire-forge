@@ -51,52 +51,52 @@ export { LESSON12_BASELINE_LABEL };
  * Compared to the live introspected schema this yields BREAKING + SAFE rows.
  */
 export const LESSON12_BASELINE_SDL = `
-  type Query {
-    health: String
-    user(id: ID!): User
-    users: [User!]!
-  }
+type Query {
+  health: String
+  user(id: ID!): User
+  users: [User!]!
+}
 
-  type User {
-    id: ID!
-    name: String!
-  }
+type User {
+  id: ID!
+  name: String!
+}
 
-  input OrderInput {
-    customerId: ID!
-    items: [String!]
-  }
+input OrderInput {
+  customerId: ID!
+  items: [String!]
+}
 
-  type Order {
-    id: ID!
-    status: OrderStatusEnum!
-    customerId: ID!
-  }
+type Order {
+  id: ID!
+  status: OrderStatusEnum!
+  customerId: ID!
+}
 
-  enum OrderStatusEnum {
-    PENDING
-    PROCESSING
-    COMPLETE
-  }
+enum OrderStatusEnum {
+  PENDING
+  PROCESSING
+  COMPLETE
+}
 
-  type OrderStatus {
-    status: OrderStatusEnum!
-    updatedAt: String!
-  }
+type OrderStatus {
+  status: OrderStatusEnum!
+  updatedAt: String!
+}
 
-  type Mutation {
-    createOrder(input: OrderInput!): Order!
-    createUser(name: String!, email: String!): User!
-    deleteUser(id: ID!): DeleteResult!
-  }
+type Mutation {
+  createOrder(input: OrderInput!): Order!
+  createUser(name: String!, email: String!): User!
+  deleteUser(id: ID!): DeleteResult!
+}
 
-  type DeleteResult {
-    success: Boolean!
-  }
+type DeleteResult {
+  success: Boolean!
+}
 
-  type Subscription {
-    orderStatus(orderId: ID!): OrderStatus!
-  }
+type Subscription {
+  orderStatus(orderId: ID!): OrderStatus!
+}
 `;
 
 let _lesson12StartTime = 0;

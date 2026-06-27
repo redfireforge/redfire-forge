@@ -15,6 +15,8 @@ interface GqlConnectionModalsProps {
   profileModalOpen: boolean;
   onProfileModalClose: () => void;
   profiles: ConnectionProfile[];
+  studioTabs?: ReadonlyArray<{ id: string; label: string; connectionId?: string }>;
+  activeTabId?: string | null;
   activeConnectionId?: string | null;
   endpoint: string;
   auth: GraphqlAuth | null;
@@ -42,6 +44,8 @@ export function GqlConnectionModals({
   profileModalOpen,
   onProfileModalClose,
   profiles,
+  studioTabs = [],
+  activeTabId = null,
   activeConnectionId = null,
   endpoint,
   auth,
@@ -67,6 +71,8 @@ export function GqlConnectionModals({
       {profileModalOpen && (
         <GraphqlProfileModal
           profiles={profiles}
+          studioTabs={studioTabs}
+          activeTabId={activeTabId}
           activeConnectionId={activeConnectionId}
           currentEndpoint={endpoint}
           currentAuth={auth}

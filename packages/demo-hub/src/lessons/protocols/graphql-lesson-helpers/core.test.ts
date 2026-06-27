@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 vi.mock('./gql-demo-tab', () => ({
   ensureGqlDemoTab: vi.fn(async () => 'demo-tab-1'),
   closeGqlDemoTabs: vi.fn(async () => {}),
+  activateGqlDemoTabQuiet: vi.fn(async () => {}),
 }));
 
 import { makeCtx } from '../ws-test-utils';
@@ -14,7 +15,10 @@ import { stubMonacoEditor, stubMultiTabMonacoEditor } from '../__test-utils__/gr
 import { ensureGqlDemoTab, closeGqlDemoTabs } from './gql-demo-tab';
 import {
   GQL_DEMO_VAR,
+  GQL_DEMO_HTTP,
   GQL_HEALTH_QUERY,
+  demoTabShowsStaleTlsState,
+  resetDemoTabToPlainHttp,
   resetGqlLessonSessionFlags,
   resetGqlLesson2SessionFlags,
   schemaBadgeShowsEmpty,
@@ -41,6 +45,7 @@ import {
   openAuthPanelQuiet,
   closeAuthPanelQuiet,
   closeGqlActivityPanelIfOpen,
+  ensureIntrospectedOnDirectEndpoint,
   _openAuthPanel,
   _closeAuthPanelIfOpen,
   selectAuthInPanel,
@@ -234,7 +239,8 @@ describe('graphql-lesson-helpers core', () => {
     const ctx = makeCtx();
     await gqlVariablesLessonSetup(ctx);
     expect(ensureGqlDemoTab).toHaveBeenCalledWith(ctx, 'gql-variables', 'Variables & Arguments');
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
   });
 
   it('gqlVariablesLessonSetup survives seedDemoUsers failure', async () => {
@@ -411,5 +417,37 @@ describe('graphql-lesson-helpers core', () => {
     const ctx = makeCtx();
     await selectNoAuthInPanel(ctx);
     expect(ctx.selectOption).toHaveBeenCalledWith(GQL.AUTH_TYPE_SELECT, 'none');
+  });
+
+  it('demoTabShowsStaleTlsState detects HTTPS endpoint and TLS toggle', () => {
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="https://127.0.0.1:4443/graphql" />
+      <button data-testid="gql-tls-toggle"></button>
+    `;
+    expect(demoTabShowsStaleTlsState()).toBe(true);
+  });
+
+  it('resetDemoTabToPlainHttp fills plain HTTP when stale TLS chrome is visible', async () => {
+    document.body.innerHTML = `
+      <input data-testid="gql-endpoint-input" value="https://127.0.0.1:4443/graphql" />
+      <button data-testid="gql-tls-toggle"></button>
+    `;
+    const ctx = makeCtx();
+    await resetDemoTabToPlainHttp(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_HTTP);
+  });
+
+  it('ensureIntrospectedOnDirectEndpoint skips Environment Manager navigation', async () => {
+    document.body.innerHTML = `
+      <div data-testid="gql-studio-page"></div>
+      <input data-testid="gql-endpoint-input" value="" />
+      <span data-testid="gql-schema-badge-ok"></span>
+      <button data-testid="gql-right-tab-schema"></button>
+      <div data-testid="gql-schema-type-query"></div>
+    `;
+    const ctx = makeCtx();
+    await ensureIntrospectedOnDirectEndpoint(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_HTTP);
   });
 });
