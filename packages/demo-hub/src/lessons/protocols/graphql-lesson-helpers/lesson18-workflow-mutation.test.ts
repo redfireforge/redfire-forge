@@ -12,9 +12,13 @@ import {
   LESSON18_DELETE_VARS,
   GQL_DEMO_HTTP,
   createGqlMutationDemoWorkflow,
+  createGqlMutationBlankWorkflow,
   resetGqlLesson18SessionFlags,
   gqlWorkflowMutationLessonSetup,
+  ensureLesson18WorkflowCreated,
   ensureLesson18WorkflowLoaded,
+  isLesson18WorkflowActive,
+  ensureLesson18MutationNodeAdded,
   ensureLesson18MutationConfigured,
   ensureLesson18MutationOutputBound,
   ensureLesson18QueryConfigured,
@@ -55,13 +59,86 @@ describe('lesson18-workflow-mutation helpers (direct)', () => {
     expect(clickSpy).not.toHaveBeenCalled();
   });
 
-  it('ensureLesson18WorkflowLoaded skips navigation when canvas already present', async () => {
-    document.body.innerHTML = '<div class="wf-canvas-area"></div>';
+  it('isLesson18WorkflowActive is false when canvas shows a different workflow', () => {
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">Other Workflow</span></div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+      name === LESSON18_WF_NAME ? createGqlMutationBlankWorkflow() : null;
+    expect(isLesson18WorkflowActive()).toBe(false);
+  });
+
+  it('isLesson18WorkflowActive is true when lesson workflow is selected in sidebar', () => {
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">${LESSON18_WF_NAME}</span></div>
+    `;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+      name === LESSON18_WF_NAME ? createGqlMutationBlankWorkflow() : null;
+    expect(isLesson18WorkflowActive()).toBe(true);
+  });
+
+  it('ensureLesson18WorkflowCreated opens New dialog when another workflow canvas is visible', async () => {
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">Other Workflow</span></div>
+      <button title="New workflow"></button>
+      <div class="wf-new-dropdown-item"></div>
+      <input class="req-confirm-input" />
+      <button class="req-confirm-ok"></button>
+      <button title="Fit view"></button>
+    `;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => null;
+    const ctx = makeCtx();
+    await ensureLesson18WorkflowCreated(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.SIDEBAR_NEW_BTN);
+  });
+
+  it('ensureLesson18WorkflowLoaded skips recreate when lesson workflow is already active', async () => {
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">${LESSON18_WF_NAME}</span></div>
+      <button title="Fit view"></button>
+    `;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+      name === LESSON18_WF_NAME ? createGqlMutationBlankWorkflow() : null;
     const ctx = makeCtx();
     await ensureLesson18WorkflowLoaded(ctx);
-    vi.mocked(ctx.navigateToTab).mockClear();
+    vi.mocked(ctx.click).mockClear();
     await ensureLesson18WorkflowLoaded(ctx);
-    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.SIDEBAR_NEW_BTN);
+  });
+
+  it('ensureLesson18MutationNodeAdded wires Start using UI-generated start node id', async () => {
+    const uiStartId = 'ui-start-abc';
+    const wf = createGqlMutationBlankWorkflow();
+    wf.nodes = [
+      {
+        id: uiStartId,
+        type: 'start',
+        position: { x: 100, y: 150 },
+        data: { label: 'Start', inputVariables: {} },
+      },
+      ...(wf.nodes as Array<{ id: string; type: string }>).filter((n) => n.type === 'end'),
+    ];
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+      name === LESSON18_WF_NAME ? wf : null;
+    const connectSpy = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfConnect = connectSpy;
+    (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn(() => LESSON18_NODE_CREATE);
+
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">${LESSON18_WF_NAME}</span></div>
+      <div class="react-flow__node-start" data-id="${uiStartId}"></div>
+      <div class="react-flow__node-graphqlMutation" data-id="${LESSON18_NODE_CREATE}"></div>
+      <button class="wf-palette-block-graphqlMutation"></button>
+      <button title="Fit view"></button>
+    `;
+    const ctx = makeCtx();
+    await ensureLesson18MutationNodeAdded(ctx);
+    expect(connectSpy).toHaveBeenCalledWith(uiStartId, LESSON18_NODE_CREATE, 'out', null);
   });
 
   it('ensureLesson18MutationConfigured skips on second call', async () => {

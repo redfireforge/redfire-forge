@@ -16,7 +16,6 @@ import { GQL } from '@shared/selectors';
 import {
   LESSON15_TAB2_QUERY,
   LESSON15_ERROR_QUERY,
-  GQL_DEMO_VAR,
   resetGqlLesson15SessionFlags,
   resetGqlLessonSessionFlags,
   ensureLesson15BatchEnabled,
@@ -26,6 +25,8 @@ import {
   ensureLesson15Executed,
   ensureLesson15PartialErrorExecuted,
   ensureLesson15IntroReady,
+  prepareGql15AddTabReading,
+  prepareGql15WriteQueriesReading,
   prepareGql15BatchResultsReading,
   gqlBatchLessonSetup,
   gqlBatchLessonCleanup,
@@ -136,10 +137,10 @@ describe('gql-batch-execution lesson', () => {
   it('has correct step IDs in order', () => {
     expect(gqlBatchExecutionLesson.steps.map((s) => s.id)).toEqual([
       'gql15-intro',
-      'gql15-enable-batch',
       'gql15-add-tab',
-      'gql15-batch-select',
       'gql15-write-queries',
+      'gql15-enable-batch',
+      'gql15-batch-select',
       'gql15-batch-run',
       'gql15-batch-results',
       'gql15-batch-response-slice',
@@ -258,6 +259,16 @@ describe('gql-batch-execution lesson', () => {
     expect(step.highlight).toBe(GQL.TAB_BAR);
   });
 
+  it('gql15-add-tab preAction is prepareGql15AddTabReading', () => {
+    const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-add-tab')!;
+    expect(step.preAction).toBe(prepareGql15AddTabReading);
+  });
+
+  it('gql15-write-queries preAction is prepareGql15WriteQueriesReading', () => {
+    const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-write-queries')!;
+    expect(step.preAction).toBe(prepareGql15WriteQueriesReading);
+  });
+
   it('gql15-enable-batch highlights batch panel in Advanced settings', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-enable-batch')!;
     expect(step.highlight).toBe(GQL.ADV_BATCH_PANEL);
@@ -330,8 +341,8 @@ describe('gql-batch-execution lesson', () => {
 
   it('gql15-add-tab description explains WHY endpoint parity is needed', () => {
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-add-tab')!;
-    expect(step.description).toContain('endpoint');
-    expect(step.description).toContain('disabled');
+    expect(step.description).toContain('resolved');
+    expect(step.description).toContain('localhost:4010');
   });
 
   it('gql15-add-tab description cross-references GQL-14', () => {
@@ -422,7 +433,9 @@ describe('gql-batch-execution lesson', () => {
 
   it('ensureLesson15BatchEnabled guard skips when already enabled', async () => {
     const ctx = makeCtx();
-    stubBatchDom(1, false, true);
+    stubBatchDom(2, false, true);
+    stubMonacoEditor('query { health }');
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson15BatchEnabled(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson15BatchEnabled(ctx);
@@ -546,12 +559,9 @@ describe('gql-batch-execution lesson', () => {
 
   it('gql15-enable-batch action enables batch without toggling modal closed', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = `
-      <div data-testid="gql-tab-bar">
-        <button role="tab" data-testid="gql-tab-tab0" data-demo-lesson="${GQL15_DEMO}" aria-selected="true">Q GetHealth</button>
-        <button data-testid="gql-tab-add-btn">+</button>
-      </div>
-      <button data-testid="gql-adv-settings-btn">⚙</button>
+    stubBatchDom(2, false, false);
+    stubMonacoEditor('query { health }');
+    document.body.insertAdjacentHTML('beforeend', `
       <div data-testid="gql-adv-settings-modal">
         <button data-testid="gql-adv-settings-tab-batch" class="active"></button>
         <label data-testid="gql-adv-batch-enable-toggle" class="gql-advsettings-toggle">
@@ -559,7 +569,7 @@ describe('gql-batch-execution lesson', () => {
         </label>
         <button data-testid="gql-adv-settings-save-btn">Save</button>
       </div>
-    `;
+    `);
     vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
       if (sel === GQL.ADV_BATCH_ENABLE_TOGGLE) {
         const cb = document.querySelector<HTMLInputElement>(GQL.ADV_BATCH_ENABLE)!;
@@ -581,7 +591,7 @@ describe('gql-batch-execution lesson', () => {
     expect(ctx.delay).toHaveBeenCalledWith(3500);
   });
 
-  it('gql15-add-tab action clicks TAB_ADD_BTN only (no tab-bar hopping)', async () => {
+  it('gql15-add-tab action adds Tab 2 and sets direct localhost endpoint', async () => {
     const ctx = makeCtx();
     stubBatchDom(1, false, true);
     vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
@@ -595,13 +605,10 @@ describe('gql-batch-execution lesson', () => {
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     const step = gqlBatchExecutionLesson.steps.find((s) => s.id === 'gql15-add-tab')!;
     await step.preAction!(ctx);
-    vi.mocked(ctx.click).mockClear();
+    vi.mocked(ctx.fill).mockClear();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.TAB_ADD_BTN);
-    const tabBarHops = vi.mocked(ctx.click).mock.calls.filter(([sel]) =>
-      String(sel).includes('data-lesson-target'),
-    );
-    expect(tabBarHops).toHaveLength(0);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.stringContaining('4010'));
   });
 
   it('gql15-batch-run action clicks BATCH_EXECUTE_BTN', async () => {
@@ -732,12 +739,12 @@ describe('gql-batch-execution lesson', () => {
       'Batch Execution',
       2,
     );
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
   });
 
   // gqlBatchLessonCleanup covered above (activity panel + demo tabs)
 
-  it('ensureLesson15TwoTabsSameEndpoint configures inherit when endpoint input is blank', async () => {
+  it('ensureLesson15TwoTabsSameEndpoint sets Tab 2 direct URL when second tab is added', async () => {
     const ctx = makeCtx();
     stubBatchDom(1, false, true);
     document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = '';
@@ -745,13 +752,13 @@ describe('gql-batch-execution lesson', () => {
       if (sel === GQL.TAB_ADD_BTN) {
         document.querySelector(GQL.TAB_BAR)!.insertAdjacentHTML(
           'beforeend',
-          '<button role="tab">Q CheckHealth</button>',
+          `<button role="tab" data-testid="gql-tab-tab1" data-demo-lesson="gql-batch-execution">Q CheckHealth</button>`,
         );
       }
     });
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson15TwoTabsSameEndpoint(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.any(Number));
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.stringContaining('4010'));
     expect(ctx.click).toHaveBeenCalledWith(GQL.TAB_ADD_BTN);
   });
 

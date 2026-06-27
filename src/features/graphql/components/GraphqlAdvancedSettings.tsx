@@ -151,9 +151,21 @@ function AdvFormRow({
   );
 }
 
-function AdvNote({ children, variant = 'info' }: { children: ReactNode; variant?: 'info' | 'warn' }) {
+function AdvNote({
+  children,
+  variant = 'info',
+  testId,
+}: {
+  children: ReactNode;
+  variant?: 'info' | 'warn';
+  testId?: string;
+}) {
   return (
-    <p className={`gql-advsettings-note gql-advsettings-note--${variant}`} role="note">
+    <p
+      className={`gql-advsettings-note gql-advsettings-note--${variant}`}
+      role="note"
+      data-testid={testId}
+    >
       {children}
     </p>
   );
@@ -244,6 +256,8 @@ export function GraphqlAdvancedSettings({
   if (!open) return null;
 
   const tabMeta = TAB_META[activeTab];
+  const batchGroupReady =
+    batchSettings?.groups.some((group) => group.tabIds.length >= 2) ?? false;
 
   return (
     <div
@@ -354,14 +368,20 @@ export function GraphqlAdvancedSettings({
             </AdvNote>
 
             <AdvFormCard>
-              <AdvToggleRow
-                checked={draft.batchEnabled}
-                onChange={(batchEnabled) => patchDraft({ batchEnabled })}
-                title="Enable query batching"
-                hint="Select tabs by endpoint to include."
-                ariaLabel="Enable query batching"
-                testId="gql-adv-batch-enable-toggle"
-              />
+              {batchGroupReady ? (
+                <AdvToggleRow
+                  checked={draft.batchEnabled}
+                  onChange={(batchEnabled) => patchDraft({ batchEnabled })}
+                  title="Enable query batching"
+                  hint="Select tabs by endpoint to include."
+                  ariaLabel="Enable query batching"
+                  testId="gql-adv-batch-enable-toggle"
+                />
+              ) : (
+                <AdvNote testId="gql-adv-batch-prerequisite">
+                  Add another tab with the same endpoint before enabling batch execution.
+                </AdvNote>
+              )}
             </AdvFormCard>
 
             {draft.batchEnabled && batchSettings && (

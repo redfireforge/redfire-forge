@@ -26,6 +26,7 @@ import {
   executeOnActiveTabQuiet,
   ensureLesson14Tab1Configured,
   ensureLesson14Tab2Added,
+  demonstrateLesson14AddSecondTab,
   ensureLesson14Tab2Configured,
   ensureLesson14Tab2Executed,
   ensureLesson14SwitchedToTab1,
@@ -86,7 +87,7 @@ function stubMultiTabDom(tabCount = 1): void {
   const tabs = Array.from({ length: tabCount }, (_, i) => {
     const labelText = i === 1 ? 'Demo: Multi-Tab Works…' : `Query ${i + 1}`;
     const subtitle = i === 1
-      ? '<span class="gql-tab-subtitle">127.0.0.1:4010</span>'
+      ? '<span class="gql-tab-subtitle">localhost:4010</span>'
       : '';
     return `
     <button role="tab" data-testid="gql-tab-${i}" data-tab-id="tab-${i}"
@@ -273,6 +274,7 @@ describe('gql-multi-tab lesson', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-add-tab2')!;
     expect(step.highlight).toBe(GQL.TAB_ADD_BTN);
     expect(step.verify).toBe(GQL.LESSON14_TAB2);
+    expect(step.action).toBe(demonstrateLesson14AddSecondTab);
   });
 
   it('gql14-tab2-endpoint highlights ENDPOINT_INPUT and verifies schema badge', () => {
@@ -383,9 +385,9 @@ describe('gql-multi-tab lesson', () => {
     expect(step.description).toContain('badge');
   });
 
-  it('gql14-add-tab2 description explains WHY Tab 2 starts empty', () => {
+  it('gql14-add-tab2 description explains WHY Tab 2 has no hostname subtitle yet', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-add-tab2')!;
-    expect(step.description).toContain('empty endpoint field');
+    expect(step.description).toContain('no hostname subtitle');
     expect(step.description).toContain('schema badge');
   });
 
@@ -403,7 +405,7 @@ describe('gql-multi-tab lesson', () => {
 
   it('gql14-tab-badge description explains hostname subtitle on overridden tabs', () => {
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-tab-badge')!;
-    expect(step.description).toContain('127.0.0.1:4010');
+    expect(step.description).toContain('localhost:4010');
     expect(step.description).toContain('second line');
     expect(step.description).toContain('page default');
   });
@@ -434,11 +436,19 @@ describe('gql-multi-tab lesson', () => {
 
   // ── Helper unit tests ──────────────────────────────────────────────────────
 
-  it('activateGqlTabByIndex tags and clicks the nth tab', async () => {
+  it('activateGqlTabByIndex tags and clicks the nth tab when not already active', async () => {
     const ctx = makeCtx();
     stubMultiTabDom(2);
+    await activateGqlTabByIndex(ctx, 0);
+    expect(ctx.click).toHaveBeenCalledWith('[data-lesson-target="gql14-tab-0"]');
+  });
+
+  it('activateGqlTabByIndex skips click when tab is already active', async () => {
+    const ctx = makeCtx();
+    stubMultiTabDom(2);
+    vi.mocked(ctx.click).mockClear();
     await activateGqlTabByIndex(ctx, 1);
-    expect(ctx.click).toHaveBeenCalledWith('[data-lesson-target="gql14-tab-1"]');
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('activateGqlTabByIndex does nothing when index out of range', async () => {
@@ -542,6 +552,33 @@ describe('gql-multi-tab lesson', () => {
     vi.mocked(ctx.fill).mockClear();
     await ensureLesson14Tab1Configured(ctx);
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+  });
+
+  it('demonstrateLesson14AddSecondTab clicks TAB_ADD_BTN without revisiting Tab 1 endpoint', async () => {
+    const ctx = makeCtx();
+    stubMultiTabDom(1);
+    stubMonacoEditor('query { health }');
+    vi.mocked(ctx.click).mockImplementation(async (sel: string) => {
+      if (sel === GQL.TAB_ADD_BTN) {
+        document.querySelector(GQL.TAB_BAR)!.insertAdjacentHTML(
+          'beforeend',
+          `<button role="tab" data-demo-lesson="${GQL14_DEMO}" data-testid="gql-tab-1">Query 2</button>`,
+        );
+      }
+    });
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await demonstrateLesson14AddSecondTab(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.TAB_ADD_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENDPOINT_RESET_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith('[data-lesson-target="gql14-tab-0"]');
+  });
+
+  it('demonstrateLesson14AddSecondTab guard skips when 2 tabs already exist', async () => {
+    const ctx = makeCtx();
+    stubMultiTabDom(2);
+    vi.mocked(ctx.click).mockClear();
+    await demonstrateLesson14AddSecondTab(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.TAB_ADD_BTN);
   });
 
   it('ensureLesson14Tab2Added clicks TAB_ADD_BTN to create Tab 2', async () => {
@@ -657,7 +694,7 @@ describe('gql-multi-tab lesson', () => {
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
   });
 
-  it('gql14-add-tab2 action adds a second tab', async () => {
+  it('gql14-add-tab2 action is demonstrateLesson14AddSecondTab (click + only)', async () => {
     const ctx = makeCtx();
     stubMultiTabDom(1);
     stubMonacoEditor('query { health }');
@@ -672,8 +709,10 @@ describe('gql-multi-tab lesson', () => {
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-add-tab2')!;
     await step.preAction!(ctx);
+    vi.mocked(ctx.click).mockClear();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.TAB_ADD_BTN);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.ENDPOINT_RESET_BTN);
   });
 
   it('gql14-tab2-endpoint action fills direct URL on Tab 2', async () => {
@@ -686,14 +725,14 @@ describe('gql-multi-tab lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_HTTP);
   });
 
-  it('gql14-switch-responses action pauses on Tab 2 then switches to Tab 1', async () => {
+  it('gql14-switch-responses action executes on Tab 2 then switches to Tab 1', async () => {
     const ctx = makeCtx();
     stubMultiTabDom(2);
     stubMonacoEditor('query { health }');
     const step = gqlMultiTabLesson.steps.find((s) => s.id === 'gql14-switch-responses')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith('[data-lesson-target="gql14-tab-1"]');
+    expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
     expect(ctx.click).toHaveBeenCalledWith('[data-lesson-target="gql14-tab-0"]');
   });
 

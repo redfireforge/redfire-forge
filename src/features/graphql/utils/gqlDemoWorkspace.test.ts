@@ -284,6 +284,34 @@ describe('gqlDemoWorkspace', () => {
     expect(savedTabs.find((t) => t.id === tab2.id)?.endpoint).toBe('');
   });
 
+  it('patchDemoTabConnectionById removes endpoint key when patch.endpoint is undefined', async () => {
+    const user = makeBlankTab();
+    const tab1 = makeDemoTab('gql-batch-execution', 'Tab 1');
+    tab1.endpoint = 'http://localhost:4010/graphql';
+    const tab2 = makeDemoTab('gql-batch-execution', 'Tab 2');
+    tab2.endpoint = '';
+    seedTabs([user, tab1, tab2], tab1.id);
+    mockReadKey.mockImplementation(async (key: string) => {
+      if (key === DEMO_SESSION_KEY) {
+        return JSON.stringify({
+          lessonId: 'gql-batch-execution',
+          priorActiveTabId: user.id,
+          demoTabId: tab1.id,
+        });
+      }
+      if (key === STORAGE_KEY) return JSON.stringify([user, tab1, tab2]);
+      if (key === `${STORAGE_KEY}_active`) return tab1.id;
+      return null;
+    });
+
+    const ok = await patchDemoTabConnectionById(tab2.id, { endpoint: undefined });
+    expect(ok).toBe(true);
+
+    const tabsWrite = mockWriteKey.mock.calls.find(([k]) => k === STORAGE_KEY);
+    const savedTabs = JSON.parse(tabsWrite![1] as string) as { id: string; endpoint?: string }[];
+    expect(savedTabs.find((t) => t.id === tab2.id)?.endpoint).toBeUndefined();
+  });
+
   it('prepareDemoWorkspace rejects when user tab cap exceeded for tabBudget', async () => {
     const users = Array.from({ length: 7 }, () => makeBlankTab());
     seedTabs(users, users[0].id);

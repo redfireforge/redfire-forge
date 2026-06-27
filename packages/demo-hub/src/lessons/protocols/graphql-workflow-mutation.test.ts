@@ -16,7 +16,6 @@ import {
   LESSON18_GET_USER_QUERY,
   LESSON18_QUERY_VARS,
   LESSON18_DELETE_MUTATION,
-  LESSON18_DELETE_VARS,
   LESSON18_EXTRACTION_JSONPATH,
   LESSON18_NODE_CREATE,
   LESSON18_NODE_FETCH,
@@ -28,14 +27,17 @@ import {
   resolveLesson18DeleteNodeId,
   isLesson18DeleteNodeReady,
   resetGqlLesson18SessionFlags,
+  createGqlMutationBlankWorkflow,
   createGqlMutationDemoWorkflow,
   gqlWorkflowMutationLessonSetup,
   gqlWorkflowMutationLessonCleanup,
+  ensureLesson18WorkflowCreated,
   ensureLesson18WorkflowLoaded,
   ensureLesson18MutationConfigured,
   ensureLesson18QueryConfigured,
   ensureLesson18AssertConfigured,
   ensureLesson18DeleteNodeAdded,
+  demonstrateLesson18DeleteNodeAdded,
 } from './graphql-lesson-helpers';
 import {
   handleGraphqlQueryNode,
@@ -79,8 +81,8 @@ describe('gql-workflow-mutation lesson', () => {
     expect(gqlWorkflowMutationLesson.id).toBe('gql-workflow-mutation');
     expect(gqlWorkflowMutationLesson.category).toBe('graphql');
     expect(gqlWorkflowMutationLesson.name).toBe('Mutation Node in Workflow');
-    expect(gqlWorkflowMutationLesson.steps.length).toBe(8);
-    expect(gqlWorkflowMutationLesson.estimatedMinutes).toBe(4);
+    expect(gqlWorkflowMutationLesson.steps.length).toBe(15);
+    expect(gqlWorkflowMutationLesson.estimatedMinutes).toBe(8);
   });
 
   it('starts at workflow tab', () => {
@@ -91,17 +93,24 @@ describe('gql-workflow-mutation lesson', () => {
   it('has correct step IDs in order', () => {
     expect(gqlWorkflowMutationLesson.steps.map((s) => s.id)).toEqual([
       'gql18-intro',
-      'gql18-canvas-tour',
+      'gql18-create',
+      'gql18-add-mutation',
       'gql18-config-mutation',
-      'gql18-output-binding',
+      'gql18-bind-extraction',
+      'gql18-add-query',
       'gql18-config-query',
-      'gql18-assert',
+      'gql18-bind-query-output',
+      'gql18-add-assert',
+      'gql18-assert-source',
+      'gql18-assert-rule',
       'gql18-quick-test',
-      'gql18-cleanup',
+      'gql18-add-delete',
+      'gql18-config-delete',
+      'gql18-final-run',
     ]);
   });
 
-  it('all 8 steps have pauseAfter: true', () => {
+  it('all 15 steps have pauseAfter: true', () => {
     gqlWorkflowMutationLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
@@ -184,9 +193,14 @@ describe('gql-workflow-mutation lesson', () => {
     expect(step.highlight).toBe(WF.PAL_GQL_MUTATION);
   });
 
-  it('gql18-canvas-tour highlights canvas and verifies mutation node', () => {
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-canvas-tour')!;
-    expect(step.highlight).toBe(WF.CANVAS);
+  it('gql18-create highlights new workflow button', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-create')!;
+    expect(step.highlight).toBe(WF.SIDEBAR_NEW_BTN);
+  });
+
+  it('gql18-add-mutation highlights mutation palette and verifies mutation node', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-add-mutation')!;
+    expect(step.highlight).toBe(WF.PAL_GQL_MUTATION);
     expect(step.verify).toBe(GQL.WF_CANVAS_MUTATION_NODE);
   });
 
@@ -195,9 +209,14 @@ describe('gql-workflow-mutation lesson', () => {
     expect(step.highlight).toBe(GQL.WF_MUTATION_PANEL);
   });
 
-  it('gql18-output-binding highlights extraction table', () => {
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-output-binding')!;
+  it('gql18-bind-extraction highlights extraction table', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-bind-extraction')!;
     expect(step.highlight).toBe(GQL.WF_EXTRACTION_TABLE);
+  });
+
+  it('gql18-add-query highlights query palette', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-add-query')!;
+    expect(step.highlight).toBe(WF.PAL_GQL_QUERY);
   });
 
   it('gql18-config-query highlights query panel', () => {
@@ -205,9 +224,24 @@ describe('gql-workflow-mutation lesson', () => {
     expect(step.highlight).toBe(GQL.WF_QUERY_PANEL);
   });
 
-  it('gql18-assert highlights assert panel', () => {
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-assert')!;
+  it('gql18-bind-query-output highlights output table', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-bind-query-output')!;
+    expect(step.highlight).toBe(GQL.WF_OUTPUT_TABLE);
+  });
+
+  it('gql18-add-assert highlights assert palette', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-add-assert')!;
+    expect(step.highlight).toBe(WF.PAL_GQL_ASSERT);
+  });
+
+  it('gql18-assert-source highlights assert panel', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-assert-source')!;
     expect(step.highlight).toBe(GQL.WF_ASSERT_PANEL);
+  });
+
+  it('gql18-assert-rule highlights assert row', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-assert-rule')!;
+    expect(step.highlight).toBe(GQL.WF_ASSERT_ROW);
   });
 
   it('gql18-quick-test highlights Quick Test button and verifies exec summary', () => {
@@ -216,25 +250,43 @@ describe('gql-workflow-mutation lesson', () => {
     expect(step.verify).toBe(WF.EXEC_SUMMARY);
   });
 
-  it('gql18-cleanup highlights mutation palette for teardown node', () => {
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-cleanup')!;
+  it('gql18-add-delete highlights mutation palette for teardown node', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-add-delete')!;
     expect(step.highlight).toBe(WF.PAL_GQL_MUTATION);
+    expect(step.verify).toBe(`.react-flow__node[data-id="${LESSON18_NODE_DELETE}"]`);
+  });
+
+  it('gql18-config-delete highlights mutation panel for delete config', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-config-delete')!;
+    expect(step.highlight).toBe(GQL.WF_MUTATION_PANEL);
+    expect(step.verify).toBe(GQL.WF_MUTATION_PANEL);
+  });
+
+  it('gql18-final-run highlights Quick Test for teardown run', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-final-run')!;
+    expect(step.highlight).toBe(WF.QUICK_TEST_BTN);
+    expect(step.verify).toBe(WF.EXEC_SUMMARY);
   });
 
   // ── Step descriptions — WHY framing ──────────────────────────────────────
 
-  it('gql18-intro description explains mutation node purpose and GQL-16 prerequisite', () => {
+  it('gql18-intro description explains blank-canvas build and GQL-16 prerequisite', () => {
     const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-intro')!;
     expect(step.description).toContain('Mutation node');
     expect(step.description).toContain('GQL-16');
-    expect(step.description).toContain('create');
+    expect(step.description).toContain('blank canvas');
   });
 
-  it('gql18-canvas-tour description explains node chain data flow', () => {
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-canvas-tour')!;
-    expect(step.description).toContain('Create User');
-    expect(step.description).toContain('Fetch User');
-    expect(step.description).toContain('Verify User');
+  it('gql18-create description explains blank workflow', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-create')!;
+    expect(step.description).toContain('Blank Workflow');
+    expect(step.description).toContain(LESSON18_WF_NAME);
+  });
+
+  it('gql18-add-mutation description explains palette add and wiring', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-add-mutation')!;
+    expect(step.description).toContain('GraphQL Mutation');
+    expect(step.description).toContain('Start');
   });
 
   it('gql18-config-mutation description explains testName template variable', () => {
@@ -243,21 +295,21 @@ describe('gql-workflow-mutation lesson', () => {
     expect(step.description).toContain(LESSON18_TEST_NAME_VAR);
   });
 
-  it('gql18-output-binding description explains extraction binding analogy', () => {
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-output-binding')!;
+  it('gql18-bind-extraction description explains extraction binding analogy', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-bind-extraction')!;
     expect(step.description).toContain('Extraction');
     expect(step.description).toContain(LESSON18_CREATED_USER_ID_VAR);
     expect(step.description).toContain('Kafka');
   });
 
-  it('gql18-config-query description explains why read-back is separate', () => {
+  it('gql18-config-query description explains read-back query wiring', () => {
     const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-config-query')!;
-    expect(step.description).toContain('persisted');
-    expect(step.description).toContain(LESSON18_FETCHED_USER_VAR);
+    expect(step.description).toContain('Fetch User');
+    expect(step.description).toContain(LESSON18_CREATED_USER_ID_VAR);
   });
 
-  it('gql18-assert description explains variable chain', () => {
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-assert')!;
+  it('gql18-assert-rule description explains variable chain', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-assert-rule')!;
     expect(step.description).toContain('$.user.name');
     expect(step.description).toContain(LESSON18_TEST_NAME_VAR);
   });
@@ -266,24 +318,40 @@ describe('gql-workflow-mutation lesson', () => {
     const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-quick-test')!;
     expect(step.description).toContain('Quick Test');
     expect(step.description).toContain('Create User');
-    expect(step.description).toContain('Console');
+    expect(step.description).toContain('Verify User');
   });
 
-  it('gql18-cleanup description explains teardown pattern', () => {
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-cleanup')!;
+  it('gql18-config-delete description explains teardown pattern', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-config-delete')!;
     expect(step.description).toContain('deleteUser');
-    expect(step.description).toContain('afterEach');
+  });
+
+  it('gql18-final-run description explains four-node pass sequence', () => {
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-final-run')!;
+    expect(step.description).toContain('Delete User');
+    expect(step.description).toContain('Quick Test');
   });
 
   // ── Action tests ──────────────────────────────────────────────────────────
 
-  it('gql18-canvas-tour action loads workflow onto canvas', async () => {
+  it('gql18-create action creates blank workflow', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = buildWorkflowDom();
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-canvas-tour')!;
+    document.body.innerHTML = buildWorkflowCreateDom();
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-create')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
+    expect(ctx.click).toHaveBeenCalledWith(WF.SIDEBAR_NEW_BTN);
+  });
+
+  it('gql18-add-mutation action adds mutation node to canvas', async () => {
+    const ctx = makeCtx();
+    stubNodeConfigBridge();
+    stubLesson18BlankWorkflowInStore();
+    document.body.innerHTML = `${buildWorkflowDom()}<button class="wf-palette-block-graphqlMutation"></button>`;
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-add-mutation')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.PAL_GQL_MUTATION);
   });
 
   it('gql18-config-mutation action fills mutation endpoint and query', async () => {
@@ -297,11 +365,11 @@ describe('gql-workflow-mutation lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_QUERY_EDITOR, LESSON18_CREATE_MUTATION);
   });
 
-  it('gql18-output-binding action configures extraction rule', async () => {
+  it('gql18-bind-extraction action configures extraction rule', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
     document.body.innerHTML = buildMutationPanelDom(true);
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-output-binding')!;
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-bind-extraction')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_EXTRACTION_JSONPATH, LESSON18_EXTRACTION_JSONPATH);
@@ -328,52 +396,81 @@ describe('gql-workflow-mutation lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_QUERY_EDITOR, LESSON18_GET_USER_QUERY);
   });
 
-  it('gql18-assert action configures assert node on fetched user name', async () => {
+  it('gql18-assert-rule action configures assert node on fetched user name', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
     document.body.innerHTML = `${buildMutationPanelDom(true)}${buildQueryPanelDom(true)}${buildAssertPanelDom()}`;
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-assert')!;
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-assert-rule')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ASSERT_JSONPATH, '$.user.name');
   });
 
-  it('gql18-cleanup action adds delete node and configures teardown mutation', async () => {
+  it('gql18-config-delete action configures delete mutation', async () => {
     const ctx = makeCtx();
     stubNodeConfigBridge();
     (window as unknown as Record<string, unknown>).__wfAddNode = vi.fn();
-    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div>${buildMutationPanelDom()}`;
-    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-cleanup')!;
+    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div>${buildMutationPanelDom()}<div class="react-flow__node" data-id="${LESSON18_NODE_DELETE}"></div>`;
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-config-delete')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_QUERY_EDITOR, LESSON18_DELETE_MUTATION);
   });
 
+  it('gql18-add-delete action clicks palette to add delete node', async () => {
+    const ctx = makeCtx();
+    stubNodeConfigBridge();
+    document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div><button class="wf-palette-block-graphqlMutation"></button>`;
+    const step = gqlWorkflowMutationLesson.steps.find((s) => s.id === 'gql18-add-delete')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.PAL_GQL_MUTATION);
+  });
+
+  it('demonstrateLesson18DeleteNodeAdded always clicks mutation palette', async () => {
+    const ctx = makeCtx();
+    stubNodeConfigBridge();
+    document.body.innerHTML = `${buildWorkflowDom()}<button class="wf-palette-block-graphqlMutation"></button>`;
+    await demonstrateLesson18DeleteNodeAdded(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.PAL_GQL_MUTATION);
+  });
+
   // ── Guard / setup tests ───────────────────────────────────────────────────
 
-  it('setup seeds workflow via __wfInsertWorkflow', async () => {
+  it('setup deletes stale workflow and navigates to designer', async () => {
     const ctx = makeCtx();
     const deleteSpy = vi.fn();
-    const insertSpy = vi.fn();
-    const win = window as unknown as Record<string, unknown>;
-    win.__wfDeleteByName = deleteSpy;
-    win.__wfInsertWorkflow = insertSpy;
-    win.__wfWorkflowsLoaded = true;
-    win.__wfGetWorkflowByName = vi.fn(() => null);
-    document.body.innerHTML = buildWorkflowDom();
+    (window as unknown as Record<string, unknown>).__wfDeleteByName = deleteSpy;
     await gqlWorkflowMutationLessonSetup(ctx);
     expect(deleteSpy).toHaveBeenCalledWith(LESSON18_WF_NAME);
-    expect(insertSpy).toHaveBeenCalled();
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
   });
 
-  it('ensureLesson18WorkflowLoaded skips when canvas already visible', async () => {
+  it('ensureLesson18WorkflowCreated creates lesson workflow when another canvas is open', async () => {
     const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">Other Workflow</span></div>
+      <button title="New workflow"></button>
+      <div class="wf-new-dropdown-item"></div>
+      <input class="req-confirm-input" />
+      <button class="req-confirm-ok"></button>
+      <button title="Fit view"></button>
+    `;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => null;
+    await ensureLesson18WorkflowCreated(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.SIDEBAR_NEW_BTN);
+    expect(ctx.fill).toHaveBeenCalledWith(WF.CREATE_INPUT, LESSON18_WF_NAME);
+  });
+
+  it('ensureLesson18WorkflowLoaded skips recreate when lesson workflow is already active', async () => {
+    const ctx = makeCtx();
+    stubLesson18WorkflowInStore();
     document.body.innerHTML = buildWorkflowDom();
     await ensureLesson18WorkflowLoaded(ctx);
-    vi.mocked(ctx.navigateToTab).mockClear();
+    vi.mocked(ctx.click).mockClear();
     await ensureLesson18WorkflowLoaded(ctx);
-    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.SIDEBAR_NEW_BTN);
   });
 
   it('ensureLesson18MutationConfigured opens create node config', async () => {
@@ -386,25 +483,19 @@ describe('gql-workflow-mutation lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_VARIABLES_EDITOR, LESSON18_MUTATION_VARS);
   });
 
-  it('ensureLesson18DeleteNodeAdded calls __wfAddNode and configures delete mutation', async () => {
+  it('ensureLesson18DeleteNodeAdded calls __wfAddNode and rewires assert to delete', async () => {
     const ctx = makeCtx();
     const addSpy = vi.fn();
     const removeEdgeSpy = vi.fn();
     stubNodeConfigBridge();
+    stubLesson18WorkflowInStore();
     (window as unknown as Record<string, unknown>).__wfAddNode = addSpy;
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     (window as unknown as Record<string, unknown>).__wfRemoveEdge = removeEdgeSpy;
     document.body.innerHTML = `${buildWorkflowDom()}<div data-testid="exec-summary"></div><button class="wf-quick-test-btn"></button>${buildMutationPanelDom()}`;
     await ensureLesson18DeleteNodeAdded(ctx);
     expect(removeEdgeSpy).toHaveBeenCalledWith(LESSON18_NODE_ASSERT, LESSON18_NODE_END);
-    expect(addSpy).toHaveBeenCalledWith(
-      'graphqlMutation',
-      LESSON18_NODE_DELETE,
-      'Delete User',
-      expect.objectContaining({ x: expect.any(Number) }),
-    );
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_QUERY_EDITOR, LESSON18_DELETE_MUTATION);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_VARIABLES_EDITOR, LESSON18_DELETE_VARS);
+    expect(addSpy).toHaveBeenCalled();
   });
 
   // ── Helper unit tests ─────────────────────────────────────────────────────
@@ -535,15 +626,35 @@ function stubNodeConfigBridge(openSpy = vi.fn()): void {
   (window as unknown as Record<string, unknown>).__wfRemoveEdge = vi.fn();
 }
 
+function buildWorkflowCreateDom(): string {
+  return `
+    <button data-testid="wf-sidebar-new-btn"></button>
+    <button data-testid="wf-new-blank-item"></button>
+    <input data-testid="wf-create-input" />
+    <button data-testid="wf-create-ok"></button>
+    <button title="Fit view"></button>
+  `;
+}
+
 function buildWorkflowDom(): string {
   return `
     <div class="wf-canvas-area"></div>
-    <div class="wf-sidebar-item">GraphQL User CRUD Demo</div>
+    <div class="wf-sidebar-item active"><span class="wf-sidebar-item-name">${LESSON18_WF_NAME}</span></div>
     <div data-testid="gql-canvas-mutation-node"></div>
     <div data-testid="gql-canvas-query-node"></div>
     <div data-testid="gql-canvas-assert-node"></div>
     <button title="Fit view"></button>
   `;
+}
+
+function stubLesson18WorkflowInStore(): void {
+  (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+    name === LESSON18_WF_NAME ? createGqlMutationDemoWorkflow() : null;
+}
+
+function stubLesson18BlankWorkflowInStore(): void {
+  (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
+    name === LESSON18_WF_NAME ? createGqlMutationBlankWorkflow() : null;
 }
 
 function buildMutationPanelDom(withExtraction = false): string {

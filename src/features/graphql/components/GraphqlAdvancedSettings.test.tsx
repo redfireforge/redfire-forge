@@ -36,6 +36,18 @@ function makeValues(overrides: Partial<AdvancedSettingsValues> = {}): AdvancedSe
   };
 }
 
+function makeBatchSettings(tabCount = 2) {
+  const tabIds = Array.from({ length: tabCount }, (_, i) => `t${i + 1}`);
+  return {
+    groups: [{ key: 'k', resolvedEndpoint: 'http://a.com/gql', displayLabel: 'a.com', tabIds }],
+    activeGroupKey: 'k',
+    onGroupChange: vi.fn(),
+    batchedTabIds: new Set<string>(),
+    onToggleBatchTab: vi.fn(),
+    tabs: [],
+  };
+}
+
 function renderSettings(
   overrides: Partial<Parameters<typeof GraphqlAdvancedSettings>[0]> = {},
 ) {
@@ -174,9 +186,16 @@ describe('GraphqlAdvancedSettings', () => {
   });
 
   it('switches to Batch tab on click', () => {
-    renderSettings();
+    renderSettings({ batchSettings: makeBatchSettings(2) });
     fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
     expect(screen.getByLabelText('Enable query batching')).toBeInTheDocument();
+  });
+
+  it('shows batch prerequisite note when fewer than two tabs share an endpoint', () => {
+    renderSettings({ batchSettings: makeBatchSettings(1) });
+    fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
+    expect(screen.getByTestId('gql-adv-batch-prerequisite')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Enable query batching')).not.toBeInTheDocument();
   });
 
   it('switches to Dedup tab on click', () => {
@@ -248,7 +267,7 @@ describe('GraphqlAdvancedSettings', () => {
   // ── Batch Tab ─────────────────────────────────────────────────────────────────
 
   it('shows batch timeout input when batchEnabled is true', () => {
-    renderSettings({ values: makeValues({ batchEnabled: true }) });
+    renderSettings({ values: makeValues({ batchEnabled: true }), batchSettings: makeBatchSettings(2) });
     fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
     expect(screen.getByLabelText('Batch timeout in milliseconds')).toBeInTheDocument();
   });
@@ -260,7 +279,10 @@ describe('GraphqlAdvancedSettings', () => {
   });
 
   it('calls onChange with batchTimeoutMs on input change', () => {
-    const { props } = renderSettings({ values: makeValues({ batchEnabled: true }) });
+    const { props } = renderSettings({
+      values: makeValues({ batchEnabled: true }),
+      batchSettings: makeBatchSettings(2),
+    });
     fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
     const input = screen.getByLabelText('Batch timeout in milliseconds');
     fireEvent.change(input, { target: { value: '60000' } });
@@ -269,7 +291,10 @@ describe('GraphqlAdvancedSettings', () => {
   });
 
   it('falls back to 30000 for invalid batch timeout', () => {
-    const { props } = renderSettings({ values: makeValues({ batchEnabled: true }) });
+    const { props } = renderSettings({
+      values: makeValues({ batchEnabled: true }),
+      batchSettings: makeBatchSettings(2),
+    });
     fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
     const input = screen.getByLabelText('Batch timeout in milliseconds');
     fireEvent.change(input, { target: { value: '100' } }); // below minimum 5000
@@ -286,14 +311,7 @@ describe('GraphqlAdvancedSettings', () => {
   it('shows batch settings panel when batchEnabled and batchSettings provided', () => {
     renderSettings({
       values: makeValues({ batchEnabled: true }),
-      batchSettings: {
-        groups: [{ key: 'k', resolvedEndpoint: 'http://a.com/gql', displayLabel: 'a.com', tabIds: ['t1'] }],
-        activeGroupKey: 'k',
-        onGroupChange: vi.fn(),
-        batchedTabIds: new Set(),
-        onToggleBatchTab: vi.fn(),
-        tabs: [],
-      },
+      batchSettings: makeBatchSettings(2),
     });
     fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
     expect(screen.getByTestId('gql-adv-batch-panel')).toBeInTheDocument();

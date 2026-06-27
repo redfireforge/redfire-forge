@@ -300,18 +300,15 @@ export function useGqlStudioTabs({
         const base = session.displayName ?? `Demo: ${session.lessonId}`;
         const label = budget > 1 && suffix > 1 ? `${base} — ${suffix}` : base;
         tab = makeDemoTab(session.lessonId, label);
-        if (tabs.length >= 1) tab.endpoint = '';
         nextTabs = [...tabs, tab];
       } else {
         if (countUserTabs(tabs) >= MAX_USER_TABS || tabs.length >= MAX_TABS) return;
         tab = makeBlankTab();
-        if (tabs.length >= 1) tab.endpoint = '';
         nextTabs = [...tabs, tab];
       }
     } else {
       if (countUserTabs(tabs) >= MAX_USER_TABS || tabs.length >= MAX_TABS) return;
       tab = makeBlankTab();
-      if (tabs.length >= 1) tab.endpoint = '';
       nextTabs = [...tabs, tab];
     }
 
@@ -728,7 +725,8 @@ export function useGqlStudioTabs({
     if (!activeTab) return pageDefaultEndpoint;
     return resolveTabRawEndpoint(activeTab, profiles, pageDefaultEndpoint);
   }, [activeTab, profiles, pageDefaultEndpoint]);
-  const hasActiveTabEndpointOverride = activeTab?.endpoint !== undefined;
+  const hasActiveTabEndpointOverride =
+    activeTab?.endpoint !== undefined && activeTab.endpoint.trim() !== '';
   const hasResolvedProfileLink = activeTab
     ? isTabProfileLinked(activeTab, profiles)
     : false;

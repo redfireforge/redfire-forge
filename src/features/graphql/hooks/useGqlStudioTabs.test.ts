@@ -189,7 +189,7 @@ describe('useGqlStudioTabs', () => {
 
     expect(result.current.tabs).toHaveLength(2);
     expect(result.current.activeTabId).toBe('tab-2');
-    expect(result.current.tabs[1].endpoint).toBe('');
+    expect(result.current.tabs[1].endpoint).toBeUndefined();
     expect(result.current.resolvedTabEndpoint).toBe('');
     expect(mockSaveTabs).toHaveBeenCalledWith(
       expect.arrayContaining([expect.objectContaining({ id: 'tab-2' })]),

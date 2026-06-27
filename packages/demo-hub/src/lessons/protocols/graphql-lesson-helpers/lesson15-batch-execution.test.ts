@@ -78,8 +78,14 @@ describe('lesson15-batch-execution helpers (direct)', () => {
   });
 
   it('ensureLesson15BatchEnabled skips when flag set and batch chip visible', async () => {
-    document.body.innerHTML = `<span data-testid="gql-batch-summary-chip">Batch</span>`;
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    `;
+    stubMonacoEditor('query { health }');
     const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson15BatchEnabled(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson15BatchEnabled(ctx);
@@ -147,16 +153,25 @@ describe('lesson15-batch-execution helpers (direct)', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.BATCH_EXECUTE_BTN);
   });
 
-  it('ensureLesson15TwoTabsSameEndpoint configures inherit when endpoint input is blank', async () => {
+  it('ensureLesson15TwoTabsSameEndpoint sets Tab 2 direct URL when second tab is added', async () => {
     document.body.innerHTML = `
       <span data-testid="gql-batch-summary-chip">Batch</span>
       <input data-testid="gql-endpoint-input" value="" />
       <div data-testid="gql-tab-bar"><button ${DEMO_TAB0}>Q1</button></div>
+      <button data-testid="gql-tab-add-btn"></button>
     `;
     const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.TAB_ADD_BTN) {
+        document.querySelector(GQL.TAB_BAR)!.insertAdjacentHTML(
+          'beforeend',
+          `<button ${DEMO_TAB1}>Q2</button>`,
+        );
+      }
+    });
     vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson15TwoTabsSameEndpoint(ctx);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.any(Number));
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.stringContaining('4010'));
   });
 
   it('ensureLesson15BatchEnabled finds Batch tab via settings tab strip text', async () => {
@@ -408,7 +423,7 @@ describe('lesson15-batch-execution helpers (direct)', () => {
     stubMonacoEditor('query { health }');
     const ctx = makeCtx();
     await gqlBatchLessonSetup(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
     expect(ctx.click).toHaveBeenCalledWith(GQL.MODE_EDITOR);
   });
 
@@ -569,15 +584,21 @@ describe('lesson15 demonstrate actions', () => {
   });
 
   it('demonstrateLesson15EnableBatch short-circuits when batch already enabled', async () => {
-    document.body.innerHTML = '<span data-testid="gql-batch-summary-chip">Batch</span>';
+    document.body.innerHTML = `
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+    `;
+    stubMonacoEditor('query { health }');
     const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await demonstrateLesson15EnableBatch(ctx);
     vi.mocked(ctx.click).mockClear();
     await demonstrateLesson15EnableBatch(ctx);
     expect(ctx.click).not.toHaveBeenCalled();
   });
 
-  it('demonstrateLesson15AddSecondTab adds tab when only one exists', async () => {
+  it('demonstrateLesson15AddSecondTab adds tab and sets Tab 2 localhost URL', async () => {
     document.body.innerHTML = `
       <span data-testid="gql-batch-summary-chip">Batch</span>
       <input data-testid="gql-endpoint-input" value="${GQL_DEMO_VAR}" />
@@ -587,26 +608,29 @@ describe('lesson15 demonstrate actions', () => {
     const ctx = makeCtx();
     vi.mocked(ctx.click).mockImplementation(async (sel) => {
       if (sel === GQL.TAB_ADD_BTN) {
-        document.querySelector(GQL.TAB_BAR)!.insertAdjacentHTML('beforeend', `<button ${DEMO_TAB}>Q2</button>`);
+        document.querySelector(GQL.TAB_BAR)!.insertAdjacentHTML(
+          'beforeend',
+          `<button ${DEMO_TAB1}>Q2</button>`,
+        );
       }
     });
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await demonstrateLesson15AddSecondTab(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.TAB_ADD_BTN);
-    const tabBarHops = vi.mocked(ctx.click).mock.calls.filter(([sel]) =>
-      String(sel).includes('data-lesson-target'),
-    );
-    expect(tabBarHops).toHaveLength(0);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, expect.stringContaining('4010'));
   });
 
-  it('demonstrateLesson15AddSecondTab short-circuits when two tabs exist', async () => {
+  it('demonstrateLesson15AddSecondTab short-circuits add when two tabs exist', async () => {
     document.body.innerHTML = `
       <span data-testid="gql-batch-summary-chip">Batch</span>
+      <input data-testid="gql-endpoint-input" value="${GQL_DEMO_VAR}" />
       <div data-testid="gql-tab-bar">
         <button ${DEMO_TAB0}>Q1</button>
         <button ${DEMO_TAB1}>Q2</button>
       </div>
     `;
     const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await demonstrateLesson15AddSecondTab(ctx);
     vi.mocked(ctx.click).mockClear();
     await demonstrateLesson15AddSecondTab(ctx);
@@ -910,10 +934,13 @@ describe('lesson15 demonstrate actions', () => {
 
   it('ensureLesson15BatchEnabled detects batch via ADV_BATCH_ENABLE checkbox without opening settings', async () => {
     document.body.innerHTML = `
-      <input type="checkbox" aria-label="Enable query batching" checked />
-      <span data-testid="gql-batch-summary-chip">Batch</span>
+      ${stubAdvBatchDom(2, true)}
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
     `;
+    stubMonacoEditor('query { health }');
     const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
     await ensureLesson15BatchEnabled(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureLesson15BatchEnabled(ctx);
