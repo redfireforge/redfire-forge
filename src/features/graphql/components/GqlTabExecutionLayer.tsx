@@ -45,6 +45,7 @@ export function GqlTabExecutionLayer({
     execute,
     cancel,
     resolveDedupChoice,
+    applyResult,
   } = useGraphqlExecution();
 
   const resolvedAuthRef = useRef(resolvedAuth);
@@ -102,9 +103,10 @@ export function GqlTabExecutionLayer({
       execute: wrappedExecute,
       cancel,
       resolveDedupChoice,
+      applyResult,
       getState: () => stateRef.current,
     }),
-    [wrappedExecute, cancel, resolveDedupChoice],
+    [wrappedExecute, cancel, resolveDedupChoice, applyResult],
   );
 
   useLayoutEffect(() => {

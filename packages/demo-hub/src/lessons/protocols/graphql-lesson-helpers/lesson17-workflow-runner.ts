@@ -1,11 +1,14 @@
 // ── Lesson 17: Workflow Runner & Results ─────────────────────────────────────
 
 import type { DemoActionContext } from '../../../types';
-import { GQL_DEMO_HEALTH } from './core';
+import { GQL_DEMO_HEALTH, GQL_DEMO_HTTP, GQL_DEMO_VAR } from './core';
 import { seedNamedWorkflow } from '../../../adapters';
 
 /** Workflow name shared with GQL-16 — Runner builds on the Designer lesson. */
 export const LESSON17_WF_NAME = 'GraphQL Latency Demo';
+
+/** Workflow variable for GraphQL HTTP endpoint — overridable in Workflow Runner Initial Variables. */
+export const LESSON17_GRAPHQL_URL_VAR = 'graphqlUrl';
 
 /** Docker endpoint for prerequisite check (same server as GQL-16). */
 export const LESSON17_DOCKER_ENDPOINT = GQL_DEMO_HEALTH;
@@ -48,7 +51,7 @@ export function createGqlLatencyDemoWorkflow(): Record<string, unknown> {
     id: crypto.randomUUID(),
     name: LESSON17_WF_NAME,
     schemaVersion: 6,
-    variables: {},
+    variables: { [LESSON17_GRAPHQL_URL_VAR]: GQL_DEMO_HTTP },
     services: [],
     hostProfiles: [],
     authProfiles: [],
@@ -65,7 +68,7 @@ export function createGqlLatencyDemoWorkflow(): Record<string, unknown> {
         position: { x: 300, y: 150 },
         data: {
           label: 'GraphQL Query',
-          endpoint: 'http://localhost:4010/graphql',
+          endpoint: GQL_DEMO_VAR,
           query: 'query { health }',
           variables: '{}',
           headers: [],

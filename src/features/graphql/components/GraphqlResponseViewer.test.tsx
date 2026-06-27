@@ -94,6 +94,32 @@ describe('GraphqlResponseViewer', () => {
     expect(card.textContent).toContain('cust-demo');
   });
 
+  it('renders compact data.deleteUser summary card when deleteUser data is present', () => {
+    render(<GraphqlResponseViewer response={makeResponse({
+      data: { deleteUser: { success: false } },
+    })} />);
+    const card = screen.getByTestId('gql-response-data-delete-user');
+    expect(card.textContent).toContain('data.deleteUser');
+    expect(card.textContent).toContain('false');
+  });
+
+  it('keeps data.deleteUser summary card visible when Tracing sub-tab is active', () => {
+    const tracing = {
+      version: 1,
+      startTime: '2024-01-01T00:00:00.000Z',
+      endTime: '2024-01-01T00:00:00.010Z',
+      duration: 10_000_000,
+      execution: { resolvers: [] },
+    };
+    render(<GraphqlResponseViewer response={makeResponse({
+      data: { deleteUser: { success: false } },
+      extensions: { tracing },
+    })} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-tracing'));
+    const card = screen.getByTestId('gql-response-data-delete-user');
+    expect(card.textContent).toContain('false');
+  });
+
   it('keeps data.createUser summary card visible when Tracing sub-tab is active', () => {
     const tracing = {
       version: 1,
@@ -786,5 +812,59 @@ describe('GraphqlResponseViewer — branch gap coverage', () => {
     render(<GraphqlResponseViewer response={makeResponse({ data: hugeData })} />);
     // The component should render without crashing even with large data
     expect(screen.getByTestId('gql-response-viewer')).toBeTruthy();
+  });
+});
+
+describe('GraphqlResponseViewer — batch slice UX', () => {
+  const batchContext = {
+    batchIndex: 1,
+    batchSize: 2,
+    batchUnsupported: false,
+    upstreamRequestCount: 1,
+    batchLatencyMs: 30,
+    wireRequestBody: [{ query: '{ a }' }, { query: '{ b }' }],
+  };
+
+  it('shows batch banner, pill, and batch latency in status bar', () => {
+    render(<GraphqlResponseViewer response={makeResponse({ latencyMs: 30, batchContext })} />);
+    expect(screen.getByTestId('gql-rv-batch-banner')).toBeTruthy();
+    expect(screen.getByTestId('gql-rv-batch-pill').textContent).toBe('Batch 2/2');
+    expect(screen.getByTestId('gql-response-latency').textContent).toBe('30 ms batch');
+  });
+
+  it('calls onOpenBatchResults from banner link', () => {
+    const onOpenBatchResults = vi.fn();
+    render(
+      <GraphqlResponseViewer
+        response={makeResponse({ batchContext })}
+        onOpenBatchResults={onOpenBatchResults}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('gql-rv-open-batch-results'));
+    expect(onOpenBatchResults).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows batch metadata and wire body section', () => {
+    render(<GraphqlResponseViewer response={makeResponse({ batchContext })} />);
+    fireEvent.click(screen.getByTestId('gql-rv-tab-metadata'));
+    expect(screen.getByTestId('gql-rv-meta-batch')).toBeTruthy();
+    expect(screen.getByTestId('gql-rv-meta-batch-slot').textContent).toBe('Operation 2 of 2');
+    expect(screen.getByTestId('gql-rv-wire-batch-body')).toBeTruthy();
+  });
+
+  it('hides View full batch link when callback is omitted', () => {
+    render(<GraphqlResponseViewer response={makeResponse({ batchContext })} />);
+    expect(screen.queryByTestId('gql-rv-open-batch-results')).toBeNull();
+  });
+
+  it('shows proxy failure transport when batch response has httpStatus 0', () => {
+    render(<GraphqlResponseViewer response={makeResponse({ httpStatus: 0, batchContext })} />);
+    expect(screen.getByTestId('gql-rv-batch-banner').textContent).toContain('before reaching GraphQL server');
+  });
+
+  it('shows batching copy while batchExecuting', () => {
+    render(<GraphqlResponseViewer response={null} loading batchExecuting />);
+    expect(screen.getByText('Batching…')).toBeTruthy();
+    expect(screen.getByText('Sending batched operations to the server')).toBeTruthy();
   });
 });

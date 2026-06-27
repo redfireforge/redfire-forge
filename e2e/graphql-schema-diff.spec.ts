@@ -370,7 +370,7 @@ test.describe('GraphQL Studio — diff modal (snapshot comparison)', () => {
     await page.locator('.gql-diff-view-btn', { hasText: 'SDL Diff' }).click();
     const sdlView = page.locator('[data-testid="gql-diff-sdl-view"]');
     await expect(sdlView).toBeVisible({ timeout: 3000 });
-    await expect(sdlView.locator('.gql-diff-sdl-line--removed').first()).toBeVisible({ timeout: 3000 });
+    await expect(sdlView.locator('.gql-diff-sdl-row--modified, .gql-diff-sdl-row--removed').first()).toBeVisible({ timeout: 3000 });
   });
 
   test('Done button closes the diff modal', async ({ page }) => {

@@ -273,4 +273,4 @@ Active guards **must include `lessonId`** — prevents spoofed/torn file reads f
 
 **Last-step rule still applies** when walking lessons inside §11.0 tests — use `finishDemoStep` on step N/N.
 
-**Step counts (2026-06-24):** GQL-5 = **16** steps; GQL-7 = **15** steps (includes `gql5-subscription-auth`). Keep `e2e/graphql-lesson-smoke-helpers.ts` in sync with lesson files.
+**Step counts (2026-06-27):** GQL-5 = **18** steps (incl. `gqlt-auth-tls-*` 7–9); GQL-7 = **15** steps (includes `gql5-subscription-auth`). Keep `e2e/graphql-lesson-smoke-helpers.ts` in sync with lesson files.

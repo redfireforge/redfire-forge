@@ -9,7 +9,7 @@ import {
   configureDemoTabEndpointOverride,
   configureDemoTabInheritPageDefault,
   ensureEditorMode,
-  ensureGqlDemoPageDefaultEndpoint,
+  closeGqlActivityPanelIfOpen,
   fillActiveTabEndpoint,
   fillGqlEditor,
   resetGqlLesson2SessionFlags,
@@ -39,6 +39,8 @@ import { fillControlledInput } from '../../setup-helpers';
 import {
   GQL14_PRODUCTION_PROFILE_NAME,
   GQL14_STAGING_PROFILE_NAME,
+  patchDemoTabConnection,
+  patchDemoTabConnectionById,
   purgeGqlDemoConnectionProfiles,
 } from '../../../adapters';
 
@@ -72,6 +74,7 @@ let _lesson14Tab2Executed = false;
 let _lesson14SwitchedToTab1 = false;
 let _lesson14TabsRenamed = false;
 let _lesson14PerTabAuthConfigured = false;
+let _lesson14ProfilesSaved = false;
 let _lesson14ProfilesLinked = false;
 let _lesson14PollingConfigured = false;
 
@@ -83,6 +86,7 @@ export function resetGqlLesson14SessionFlags(): void {
   _lesson14SwitchedToTab1 = false;
   _lesson14TabsRenamed = false;
   _lesson14PerTabAuthConfigured = false;
+  _lesson14ProfilesSaved = false;
   _lesson14ProfilesLinked = false;
   _lesson14PollingConfigured = false;
 }
@@ -147,6 +151,37 @@ export async function setActiveTabEndpoint(ctx: DemoActionContext, url: string):
 
 export { clearActiveTabEndpointOverride };
 
+/** Return persisted tab id for the Nth GQL-14 demo tab (0-based). */
+function getDemoTabIdByIndex(index: number): string | null {
+  const el = getDemoTabByIndex(index);
+  const testId = el?.getAttribute('data-testid') ?? '';
+  const prefix = 'gql-tab-';
+  return testId.startsWith(prefix) ? testId.slice(prefix.length) : null;
+}
+
+/** Demo tab inherits page `{{graphqlUrl}}` — no stored per-tab duplicate. */
+async function ensureDemoTabInheritsPageDefault(ctx: DemoActionContext, index: number): Promise<void> {
+  await activateGqlTabByIndex(ctx, index);
+  await clearActiveTabEndpointOverride(ctx);
+  const tabId = getDemoTabIdByIndex(index);
+  if (index === 0) {
+    await patchDemoTabConnection({ endpoint: undefined });
+  } else if (tabId) {
+    await patchDemoTabConnectionById(tabId, { endpoint: undefined });
+  }
+  await ctx.delay(400);
+}
+
+/** Demo tab with an intentionally blank endpoint field (Tab 2 before override step). */
+async function ensureDemoTabBlankEndpoint(ctx: DemoActionContext, index: number): Promise<void> {
+  await activateGqlTabByIndex(ctx, index);
+  const tabId = getDemoTabIdByIndex(index);
+  if (tabId) {
+    await patchDemoTabConnectionById(tabId, { endpoint: '' });
+  }
+  await ctx.delay(400);
+}
+
 /**
  * Introspect the active tab's schema quietly — skips if the badge is already present.
  * Avoids re-introspecting when switching tabs (each tab caches its own schema).
@@ -188,12 +223,14 @@ export async function ensureLesson14Tab1Configured(ctx: DemoActionContext): Prom
  */
 export async function ensureLesson14Tab2Added(ctx: DemoActionContext): Promise<void> {
   await ensureLesson14Tab1Configured(ctx);
-  if (_lesson14Tab2Added && getDemoTabCount() >= 2) return;
+  if (_lesson14Tab2Added && getDemoTabCount() >= 2) {
+    await activateGqlTabByIndex(ctx, 1);
+    return;
+  }
+  await ensureDemoTabInheritsPageDefault(ctx, 0);
   await ensureGqlTabCount(ctx, 2);
-  // Re-assert Tab 1 has no per-tab override once a second tab exists.
-  await activateGqlTabByIndex(ctx, 0);
-  await ensureGqlDemoPageDefaultEndpoint(ctx);
-  await clearActiveTabEndpointOverride(ctx);
+  await ensureDemoTabInheritsPageDefault(ctx, 0);
+  await ensureDemoTabBlankEndpoint(ctx, 1);
   getDemoTabByIndex(1)?.setAttribute('data-lesson-target', 'gql14-tab-1');
   _lesson14Tab2Added = true;
 }
@@ -226,10 +263,10 @@ export async function demonstrateLesson14TabResponseSwitch(ctx: DemoActionContex
   await ensureLesson14Tab2Executed(ctx);
   await activateGqlTabByIndex(ctx, 1);
   await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
-  await ctx.delay(1500);
+  await ctx.delay(2500);
   await activateGqlTabByIndex(ctx, 0);
   await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
-  await ctx.delay(1500);
+  await ctx.delay(2500);
   _lesson14SwitchedToTab1 = true;
 }
 
@@ -359,25 +396,26 @@ export async function demonstrateLesson14PerTabAuth(ctx: DemoActionContext): Pro
 
   await activateGqlTabByIndex(ctx, 0);
   await selectNoAuthInPanel(ctx);
-  await ctx.delay(800);
+  await ctx.delay(1200);
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(1200);
+  await ctx.delay(2000);
   await ctx.click(GQL.RV_TAB_METADATA);
   await ctx.waitFor(GQL.RV_AUTH_SENT, 5000);
-  await ctx.delay(1500);
+  await ctx.delay(2500);
   await ensureAuthPanelVisible(ctx);
 
   await activateGqlTabByIndex(ctx, 1);
+  await ctx.delay(800);
   await selectAuthInPanel(ctx, 'bearer');
   await ctx.fill(GQL.AUTH_BEARER_INPUT, LESSON14_TAB2_BEARER_TOKEN);
-  await ctx.delay(800);
+  await ctx.delay(1200);
   await ctx.click(GQL.EXECUTE_BTN);
   await ctx.waitFor(GQL.RESPONSE_VIEWER, 15000);
-  await ctx.delay(1200);
+  await ctx.delay(2000);
   await ctx.click(GQL.RV_TAB_METADATA);
   await ctx.waitFor(LESSON6_RV_AUTHORIZATION_VAL, 5000);
-  await ctx.delay(1500);
+  await ctx.delay(2500);
   await ensureAuthPanelVisible(ctx);
 
   _lesson14PerTabAuthConfigured = true;
@@ -393,55 +431,123 @@ export async function ensureLesson14PerTabAuthConfigured(ctx: DemoActionContext)
   _lesson14PerTabAuthConfigured = true;
 }
 
-async function saveCurrentTabAsProfile(ctx: DemoActionContext, name: string): Promise<void> {
+async function saveCurrentTabAsProfile(
+  ctx: DemoActionContext,
+  name: string,
+  options?: { observeUnlinked?: boolean },
+): Promise<void> {
   if (findProfileRowByName(name)) return;
   await ctx.click(GQL.PROFILE_BADGE);
   await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
   await ctx.delay(800);
   await ctx.fill(GQL.PROFILE_NAME_INPUT, name);
-  await ctx.delay(500);
+  await ctx.delay(600);
   await ctx.click(GQL.PROFILE_SAVE_BTN);
   await ctx.delay(1200);
+  if (options?.observeUnlinked) {
+    await ctx.delay(1500); // viewer reads "Not linked to any tab" on the new row
+  }
   await closeProfileModalIfOpen(ctx);
 }
 
 async function loadProfileOntoActiveTab(ctx: DemoActionContext, name: string): Promise<void> {
-  const row = findProfileRowByName(name);
-  if (!row) return;
   await ctx.click(GQL.PROFILE_BADGE);
   await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
-  await ctx.delay(700);
-  const loadBtn = row.querySelector<HTMLElement>('.gql-profile-btn--load');
-  loadBtn?.click();
   await ctx.delay(1200);
+  const loadSel = GQL.profileLoadBtn(name);
+  if (document.querySelector(loadSel)) {
+    await ctx.click(loadSel);
+    await ctx.delay(1200); // modal closes after Load — reopen to show Used by pills
+    await ctx.click(GQL.PROFILE_BADGE);
+    await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
+    await ctx.delay(2500);
+  }
   await closeProfileModalIfOpen(ctx);
 }
 
-/**
- * Visible profile save/load beat for the lesson (step 9 action).
- * Saves Staging + Production profiles, reloads them, then opens the inherit banner.
- */
-export async function demonstrateLesson14ProfileLinks(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson14PerTabAuthConfigured(ctx);
+async function observeProfileModalUsedBy(ctx: DemoActionContext): Promise<void> {
+  await ctx.click(GQL.PROFILE_BADGE);
+  await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
+  await ctx.delay(2500);
+  await closeProfileModalIfOpen(ctx);
+}
 
-  if (!_lesson14ProfilesLinked) {
-    await activateGqlTabByIndex(ctx, 0);
-    await saveCurrentTabAsProfile(ctx, LESSON14_STAGING_PROFILE_NAME);
+/** Visible save beat — each profile row shows "Not linked to any tab" until Load. */
+export async function demonstrateLesson14SaveProfiles(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson14PerTabAuthConfigured(ctx);
+  if (_lesson14ProfilesSaved) {
+    await ctx.delay(800);
+    return;
+  }
+  await activateGqlTabByIndex(ctx, 0);
+  await saveCurrentTabAsProfile(ctx, LESSON14_STAGING_PROFILE_NAME, { observeUnlinked: true });
+  await ctx.delay(1000);
+  await activateGqlTabByIndex(ctx, 1);
+  await saveCurrentTabAsProfile(ctx, LESSON14_PRODUCTION_PROFILE_NAME, { observeUnlinked: true });
+  _lesson14ProfilesSaved = true;
+}
+
+/** Guard: Staging + Production profiles saved from the current tab state. */
+export async function ensureLesson14ProfilesSaved(ctx: DemoActionContext): Promise<void> {
+  if (_lesson14ProfilesSaved) return;
+  await demonstrateLesson14SaveProfiles(ctx);
+}
+
+/** Visible load beat — click Load on each tab, then read Used by pills (step 10). */
+export async function demonstrateLesson14LoadProfilesOnly(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson14ProfilesSaved(ctx);
+
+  if (_lesson14ProfilesLinked) {
     await activateGqlTabByIndex(ctx, 1);
-    await saveCurrentTabAsProfile(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
-    await ctx.delay(1000);
-    await activateGqlTabByIndex(ctx, 0);
-    await loadProfileOntoActiveTab(ctx, LESSON14_STAGING_PROFILE_NAME);
-    await activateGqlTabByIndex(ctx, 1);
-    await loadProfileOntoActiveTab(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
-    await ctx.delay(1000);
-    _lesson14ProfilesLinked = true;
+    await observeProfileModalUsedBy(ctx);
+    return;
   }
 
+  await ctx.delay(800);
+  await activateGqlTabByIndex(ctx, 0);
+  await ctx.delay(800);
+  await loadProfileOntoActiveTab(ctx, LESSON14_STAGING_PROFILE_NAME);
+  await ctx.delay(1500);
+
   await activateGqlTabByIndex(ctx, 1);
+  await ctx.delay(800);
+  await loadProfileOntoActiveTab(ctx, LESSON14_PRODUCTION_PROFILE_NAME);
+  await ctx.delay(1500);
+
+  await observeProfileModalUsedBy(ctx);
+  await ctx.delay(2000);
+  _lesson14ProfilesLinked = true;
+}
+
+/** Visible auth beat — Production tab shows profile-linked auth editing (step 11). */
+export async function demonstrateLesson14ProfileAuthLink(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson14ProfilesLinked(ctx);
+  await activateGqlTabByIndex(ctx, 1);
+  await ctx.delay(800);
   await openAuthPanelQuiet(ctx);
   await ctx.waitFor(GQL.AUTH_INHERIT_BANNER, 5000);
-  await ctx.delay(1500);
+  await ctx.delay(2500);
+}
+
+/** Full load + auth beat (used by guards and E2E recovery). */
+export async function demonstrateLesson14LoadProfiles(ctx: DemoActionContext): Promise<void> {
+  await demonstrateLesson14LoadProfilesOnly(ctx);
+  await demonstrateLesson14ProfileAuthLink(ctx);
+}
+
+/**
+ * Visible profile save/load beat for the lesson (steps 9–11 action).
+ * Saves Staging + Production profiles, loads them onto tabs, then opens the inherit banner.
+ */
+export async function demonstrateLesson14ProfileLinks(ctx: DemoActionContext): Promise<void> {
+  await demonstrateLesson14SaveProfiles(ctx);
+  await demonstrateLesson14LoadProfiles(ctx);
+}
+
+/** Guard: both demo tabs are linked to their saved profiles (Load complete). */
+export async function ensureLesson14ProfilesLinked(ctx: DemoActionContext): Promise<void> {
+  if (_lesson14ProfilesLinked) return;
+  await demonstrateLesson14LoadProfilesOnly(ctx);
 }
 
 /**
@@ -504,7 +610,7 @@ export async function demonstrateLesson14TabPolling(ctx: DemoActionContext): Pro
 
   await activateGqlTabByIndex(ctx, 1);
   await openPollingConfig(ctx);
-  await ctx.delay(1200);
+  await ctx.delay(2000);
   await closePollingPopover(ctx);
 
   _lesson14PollingConfigured = true;
@@ -542,6 +648,12 @@ export async function ensureLesson14Tab2BadgeHighlight(ctx: DemoActionContext): 
 
 // ── Setup / cleanup ───────────────────────────────────────────────────────────
 
+/** Step 1 / lesson start — focus the tab bar without the History sidebar open. */
+export async function ensureLesson14IntroReady(ctx: DemoActionContext): Promise<void> {
+  await closeGqlActivityPanelIfOpen(ctx);
+  await ctx.waitFor(GQL.TAB_BAR, 5000);
+}
+
 /** Multi-Tab lesson setup (GQL-14) — demo tab with tabBudget 2. */
 export async function gqlMultiTabLessonSetup(ctx: DemoActionContext): Promise<void> {
   resetGqlLessonSessionFlags();
@@ -560,6 +672,7 @@ export async function gqlMultiTabLessonSetup(ctx: DemoActionContext): Promise<vo
   resetGqlLesson14SessionFlags();
 
   await ensureEditorMode(ctx);
+  await closeGqlActivityPanelIfOpen(ctx);
   await ensureGqlDemoTab(ctx, GQL14_LESSON_ID, 'Multi-Tab Workspaces', 2);
   await ctx.waitFor(GQL.PROFILE_BADGE, 5000);
   await purgeLesson14ConnectionProfiles(ctx);

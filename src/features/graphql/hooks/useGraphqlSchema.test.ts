@@ -173,9 +173,53 @@ describe('useGraphqlSchema — introspect()', () => {
     expect(result.current.status).toBe('loading');
     expect(result.current.introspecting).toBe(true);
 
-    await act(async () => { resolveGqlFetch(makeGqlFetchSuccess()); });
+    await act(async () => {
+      resolveGqlFetch(makeGqlFetchSuccess());
+    });
+  });
+
+  it('passes skipTlsVerify to gqlFetch when tls settings object is empty', async () => {
+    mockParseIntrospection.mockReturnValue(makeSchemaInfo());
+    const { result } = renderHook(() =>
+      useGraphqlSchema('https://localhost:4443/graphql', {}, { skipTlsVerify: true, tls: {} }),
+    );
+
+    act(() => { result.current.introspect(); });
 
     await waitFor(() => expect(result.current.status).toBe('loaded'));
+    expect(mockGqlFetch).toHaveBeenCalledWith(
+      'https://localhost:4443/graphql',
+      'POST',
+      expect.any(Object),
+      expect.any(String),
+      undefined,
+      { skipTlsVerify: true },
+    );
+  });
+
+  it('auto-introspects when skipTlsVerify becomes true on an HTTPS endpoint', async () => {
+    mockParseIntrospection.mockReturnValue(makeSchemaInfo());
+    mockGqlFetch.mockResolvedValue(makeGqlFetchSuccess());
+
+    const { rerender } = renderHook(
+      ({ skip }: { skip: boolean }) =>
+        useGraphqlSchema('https://localhost:4443/graphql', {}, { skipTlsVerify: skip }),
+      { initialProps: { skip: false } },
+    );
+
+    expect(mockGqlFetch).not.toHaveBeenCalled();
+
+    rerender({ skip: true });
+
+    await waitFor(() => expect(mockGqlFetch).toHaveBeenCalled());
+    expect(mockGqlFetch).toHaveBeenCalledWith(
+      'https://localhost:4443/graphql',
+      'POST',
+      expect.any(Object),
+      expect.any(String),
+      undefined,
+      { skipTlsVerify: true },
+    );
   });
 
   it('does not fetch when endpoint is empty', async () => {
@@ -293,6 +337,40 @@ describe('useGraphqlSchema — error classification', () => {
 
     await waitFor(() => expect(result.current.status).toBe('error'));
     expect(result.current.errorMessage).toContain('Cannot reach endpoint');
+    expect(result.current.errorMessage).toContain('Network failure');
+  });
+
+  it('shows mTLS hint when nginx rejects missing client certificate', async () => {
+    mockGqlFetch.mockResolvedValue({
+      status: 400,
+      headers: {},
+      body: '<html><body>No required SSL certificate was sent</body></html>',
+    });
+
+    const { result } = renderHook(() =>
+      useGraphqlSchema('https://localhost:4445/graphql', {}, {
+        tls: {
+          clientCert: '-----BEGIN CERTIFICATE-----\ntest\n-----END CERTIFICATE-----',
+          clientKey: '-----BEGIN PRIVATE KEY-----\ntest\n-----END PRIVATE KEY-----',
+        },
+      }),
+    );
+    act(() => { result.current.introspect(); });
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.errorMessage).toContain('Client certificate required');
+    expect(mockGqlFetch).toHaveBeenCalled();
+  });
+
+  it('blocks introspection on port 4445 when client cert is missing', async () => {
+    const { result } = renderHook(() =>
+      useGraphqlSchema('https://localhost:4445/graphql', {}, { skipTlsVerify: true }),
+    );
+    act(() => { result.current.introspect(); });
+
+    await waitFor(() => expect(result.current.status).toBe('error'));
+    expect(result.current.errorMessage).toContain('Client certificate required');
+    expect(mockGqlFetch).not.toHaveBeenCalled();
   });
 
   it('shows non-JSON error when response body is not JSON', async () => {

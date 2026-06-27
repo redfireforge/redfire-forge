@@ -6,6 +6,8 @@ import type { DemoHubApi } from './demoHubApi';
 import { syncDemoHubRuntimeRef, resetDemoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demoHubRuntimeRef';
 import { useDemoHub } from '@redfireforge/demo-hub/useDemoHub';
 import DemoHub from '@redfireforge/demo-hub/DemoHub';
+import { LessonNotesProvider } from '@redfireforge/demo-hub/LessonNotesContext';
+import LessonNotesPanel from '@redfireforge/demo-hub/LessonNotesPanel';
 import { useDemoShortcuts } from '../hooks/useDemoShortcuts';
 import { useDemoSidebarBridge } from '../hooks/useDemoSidebarBridge';
 import { useDemoGlobalAuthBridge } from '../hooks/useDemoGlobalAuthBridge';
@@ -83,12 +85,13 @@ export function DemoShellHost({
   }, [activeTab]);
 
   return (
-    <>
+    <LessonNotesProvider>
       {mountEl && activeTab === 'demo-hub' && createPortal(
         <DemoHub hub={demoHub} />,
         mountEl,
       )}
       <AppLiveDemoOverlay demoHub={demoHub} setActiveTab={setActiveTab} />
-    </>
+      <LessonNotesPanel />
+    </LessonNotesProvider>
   );
 }

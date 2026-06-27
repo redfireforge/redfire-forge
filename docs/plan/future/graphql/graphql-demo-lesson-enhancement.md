@@ -1,7 +1,7 @@
 # GraphQL Demo Lesson Enhancement Plan
 
-**Status:** Active — **All 19 lessons registered (§3.1 ✅)**; enhancement pass **GQL-1..16 ✅**; **§11.0 acceptance E2E ✅** (`gql110` 4/4); **Phase 8 spot-check Web E2E ✅** (GQL-5/6/7/14/15/17, 19/19, 2026-06-26); **human Web+Tauri 1×** still pending (GQL-5 Tauri mTLS steps 11–14 highest priority)  
-**Last Updated:** 2026-06-26 (spot-check E2E batch; GQL-7 **15** steps + `gql5-subscription-auth`; GQL-5 **16** steps)  
+**Status:** Active — **All 19 lessons registered (§3.1 ✅)**; enhancement pass **GQL-1..16 ✅**; **§11.0 acceptance E2E ✅** (`gql110` 4/4); **Phase 8 spot-check Web E2E ✅** (GQL-5/6/7/14/15/17, 19/19); **GQL-12 Tauri ✅** (7 steps · Schema Diff & Breaking Changes); **human Web+Tauri 1×** in progress (**12/19** Tauri, **2/19** Web — see [phase8-validation-checklist.md](./phase8-validation-checklist.md))  
+**Last Updated:** 2026-06-27 (GQL-5 **18** steps / 10 min + `gqlt-auth-tls-*` beats 7–9; GQL-7 **15** steps)  
 **Branch target:** `feature/graphql-demo-quality` (or current GraphQL feature branch)  
 **Created:** 2026-06-20  
 **Scope:** 13 shipped GraphQL demo lessons + 6 new lessons (`gql-https-tls`, `gql-multi-tab`, `gql-batch-execution`, 3 workflow lessons) → **19-lesson final roster**  
@@ -30,7 +30,7 @@
 | **GQL-1 (`gql-first-query`)** | Phases 1–2 | ✅ **Enhancement complete** | **§3.5** — reference lesson; smoke E2E ✅; §11.0 demo tab ✅ |
 | **GQL-2 (`gql-variables`)** | Phases 1–2 | ✅ **Enhancement complete** | **§3.6** — reference lesson; demo E2E spec ✅; §11.0 demo tab ✅ |
 | **GQL-3..13 + GQL-16** | Phases 1–2 | ✅ **Enhancement complete (2026-06-22)** | Diagrams 700×430; spotlight action/observe splits; GQL-N cross-refs — see commit |
-| **GQL-5 TLS (`gql-https-tls`)** | **7A** | ✅ **Complete (lesson + product)** | **16 steps** · 9 min · skip-cert → CA → **mTLS (4445)** · observe splits · **full Docker E2E ✅** · Phase 8 Tauri manual pending |
+| **GQL-5 TLS (`gql-https-tls`)** | **7A** | ✅ **Complete (lesson + product)** | **18 steps** · 10 min · skip-cert → auth-on-TLS → CA → **mTLS (4445)** · observe splits · **full Docker E2E ✅** · **Phase 8 Tauri ✅** |
 | **GQL-14 Multi-tab (`gql-multi-tab`)** | **7B** | ✅ **Authored** | **10 steps** · 6 min · `tabBudget: 2` · §11.0 ✅ · 7C profiles+polling ✅ · **`demo-gql-multi-tab.spec.ts` ✅** |
 | **GQL-15 Batch (`gql-batch-execution`)** | Phase 5 / 6G-8 | ✅ **Authored** | **9 steps** · `tabBudget: 2` · Advanced Settings batch UI · §11.0 ✅ · **`demo-gql-batch-execution.spec.ts` ✅** |
 | **GQL-17..19 Workflow cluster** | Phase 5 | ✅ **Authored** | Runner / mutation / subscription · unit tests ✅; Phase 8 pending |
@@ -38,7 +38,7 @@
 | **Demo workspace isolation** | **§11.0 / 7-pre** | ✅ **Engineering complete** | `gqlDemoWorkspace.ts`, `gql-demo-tab.ts`, `demoLessonId`, `MAX_USER_TABS`, `PrerequisiteGate`, `useDemoHub` cleanup, `purgeOrphanDemoTabs` — wired **GQL-1..15** |
 | **§11.0 acceptance proof** | E2E | ✅ **Done** | `demo-gql-workspace-isolation.spec.ts` · `npm run test:e2e:demo:gql110` · memo §10 |
 | **Studio TLS transport** | Product | ✅ **Complete (2026-06-24)** | `gqlTls.ts`, Node proxy (web), **native rustls** on Tauri (`gql_http_fetch`, `gql_http_upload`, WS); page-level PEM (`gql_tls_certs_v1`) |
-| **Visual validation** | Phase 8 | 🔨 Partial | Demo E2E for GQL-1..19 + TLS; GQL-5 full Docker walk ✅; human Tauri 1× pending |
+| **Visual validation** | Phase 8 | 🔨 In progress | Demo E2E GQL-1..19 ✅; GQL-5/7 Tauri human ✅; **12** Tauri + **17** Web lessons remaining |
 
 **Recommended implementation order (revised 2026-06-24):**
 1. ~~**§11.0 acceptance E2E**~~ ✅ — `demo-gql-workspace-isolation.spec.ts` + memo §10–11.
@@ -58,9 +58,8 @@
 
 | Item | Track | Notes |
 |------|-------|-------|
-| Phase 8 human validation | QA | 1× auto-play at 1× for all **19** lessons — **GQL-8** signed off; spot-check **Web E2E ✅** (2026-06-26); human Web+Tauri pending |
-| Phase 8 spot-check (priority) | QA | **GQL-5** (Tauri mTLS 11–14), **GQL-6**, **GQL-7** (`gql5-subscription-auth`), **GQL-14**, **GQL-15**, **GQL-17** — Web E2E ✅; human pass → [phase8-validation-checklist.md](./phase8-validation-checklist.md) §Spot-check |
-| GQL-5 Tauri mTLS manual | QA | Native rustls on desktop — steps **11–14** (`gqlt-mtls-*`, `gqlt-observe-mtls`) |
+| Phase 8 human validation | QA | 1× auto-play at 1× — **12/19 Tauri**, **2/19 Web** signed off; see [phase8-validation-checklist.md](./phase8-validation-checklist.md) |
+| Phase 8 spot-check (priority) | QA | **GQL-5** ✅ (**18** steps · Tauri mTLS 13–16); **GQL-6** ✅ Tauri; **GQL-7** ✅ Tauri; **GQL-14**, **GQL-15**, **GQL-17** — Web E2E ✅; Tauri human pending on 14/15/17 |
 
 ### P0 — Proof & safety (done)
 
@@ -69,6 +68,7 @@
 | §11.0 acceptance E2E | E2E | ✅ `demo-gql-workspace-isolation.spec.ts` — `npm run test:e2e:demo:gql110` (4/4) |
 | `e2e/DEMO-LESSON-E2E-MEMO.md` §10–11 | Docs | ✅ §11.0 patterns + live-demo guard documented |
 | Demo-hub slim prod build | Infra | ✅ `VITE_ENABLE_DEMO_HUB`, lazy `DemoShellHost`, `audit:prod-demo-bundle`, CI gate |
+| GQL-5 Tauri mTLS manual | QA | ✅ Native rustls — steps **13–16** (+ auth-on-TLS **7–9**) — 2026-06-26 |
 
 ### P1 — Quality enhancement (shipped but below GQL-1/GQL-2 bar)
 
@@ -108,14 +108,14 @@
 
 | Item | Notes |
 |------|-------|
-| GQL-5 lesson extended | **8 → 16 steps** (observe splits + mTLS arc); **9 min**; mirrors `ws-tls-local` 3-phase arc |
+| GQL-5 lesson extended | **8 → 18 steps** (+ auth-on-TLS **7–9**, observe splits + mTLS arc); **10 min**; mirrors `ws-tls-local` 3-phase arc |
 | Studio TLS product | `src/shared/types/gqlTls.ts`; `GraphqlTlsPanel`; `tlsAgent.ts` + consolidated `tlsAgentForEndpoint`; routes for query/batch/subscribe/SSE/upload |
 | Web transport | `gqlFetch` → Vite `__proxy` or `/api/graphql/*`; APQ GET supports **skipTlsVerify only** — PEM rejected on GET (`routeTlsQueryGuards.ts`) |
 | Tauri transport | Native rustls for custom TLS HTTP/upload; skip-cert APQ GET + loopback may use Node proxy |
 | Page cert persistence | `gql_tls_certs_v1` — CA/client PEM survive refresh (like `skipTlsVerify` page default) |
 | `gqlUpload` mTLS Tauri | ✅ Native `gql_http_upload` rustls (2026-06-24); web still uses `x-gql-tls-config` proxy |
 | PrerequisiteGate | `dockerEndpoints: [4444, 4446]` — both TLS and mTLS stacks required before Start Demo |
-| Demo E2E | `e2e/demo-gql-https-tls.spec.ts` — shell (**16** steps) + full auto-play ✅ |
+| Demo E2E | `e2e/demo-gql-https-tls.spec.ts` — shell (**18** steps) + full auto-play ✅ |
 | Tech-debt cleanup | Duplicate `tlsAgentForEndpoint` removed; health-probe gate aligned with `docker-compose.mtls.yml` |
 
 ### ✅ Recently completed (2026-06-22 — earlier session)
@@ -148,13 +148,13 @@
 
 | Item | Priority | Notes |
 |------|----------|-------|
-| Phase 8 human validation GQL-5 | P0 | Web E2E ✅; **Tauri manual 1×** at steps **11–14** (mTLS) still pending |
+| Phase 8 human validation GQL-5 | P0 | Web E2E ✅; **Tauri manual 1×** at steps **13–16** (mTLS) ✅ — 2026-06-26 |
 | Per-tab independent PEM stores | P3 | Only if product demands different certs per tab |
 
 ### Recommended next tackles (priority order)
 
 1. **§11.0 acceptance E2E** — highest safety value; unblocks merge confidence for all studio lessons.
-2. **Phase 8 spot-check GQL-5** — Web validated via full Docker E2E auto-play ✅ (2026-06-26); **Tauri manual 1×** still pending.
+2. **Phase 8 spot-check GQL-5** — Web + Tauri validated ✅ (2026-06-26); mTLS steps **13–16**.
 3. **Demo E2E GQL-14 + GQL-15** — follow `demo-gql-https-tls.spec.ts` pattern.
 4. **Enhancement pass GQL-3..13** — spotlight + 700×430 diagrams to GQL-1/GQL-2 bar.
 5. **GQL-16 workflow depth** — Console + Debug steps (§9.2–9.3).
@@ -173,7 +173,7 @@ After a thorough comparison of the Workflow demo lessons (`ws-workflow-builder`,
 5. **Security coverage gap vs WebSocket and Kafka** — Credential injection + Basic + OAuth (**GQL-4** ✅). **Transport security + mTLS** (**GQL-5** ✅). **Subscription-channel auth** (**GQL-7** step `gql5-subscription-auth` ✅).
 6. **Demo lessons pollute the user's GraphQL Studio workspace** — ~~Lessons run in the real Studio and mutate page-level endpoint storage~~ **Resolved for GQL-1..15 (2026-06-22):** §11.0 reserved demo tab (`ensureGqlDemoTab` / `closeGqlDemoTabs`). **Acceptance E2E ✅** — `demo-gql-workspace-isolation.spec.ts` (`npm run test:e2e:demo:gql110`).
 
-> **2026-06-23 update:** **GQL-3** enhancement-complete. **§11.0 acceptance E2E** in `demo-gql-workspace-isolation.spec.ts`. **GQL-5** Web validated via full Docker E2E; Tauri manual pending. Enhancement pass continues on **GQL-4..13, GQL-16**.
+> **2026-06-27 update:** GQL-5 extended to **18 steps** (`gqlt-auth-tls-*` beats 7–9). **GQL-5/7 Tauri** human sign-off ✅. Phase 8 human pass continues on remaining lessons.
 
 ## 2. Root Cause Analysis — Why the Quality Gap Exists
 
@@ -202,7 +202,7 @@ The single GraphQL workflow lesson (`gql-workflow-integration`, 8 steps) shows j
 
 ### 2.5 Security lessons never prioritized for GraphQL
 
-Auth and TLS lessons were added to the WS and Kafka curricula when secure Docker stacks landed. GraphQL now has **`gql-auth-headers` (GQL-4)** and **`gql-https-tls` (GQL-5)** with skip-cert → CA → mTLS parity to `ws-tls-local` — Phase 8 human validation pending. §11.0 demo isolation **shipped for GQL-1..15**.
+Auth and TLS lessons were added to the WS and Kafka curricula when secure Docker stacks landed. GraphQL now has **`gql-auth-headers` (GQL-4)** and **`gql-https-tls` (GQL-5, **18** steps)** with skip-cert → auth-on-TLS → CA → mTLS parity to `ws-tls-local` — **GQL-5 Tauri ✅** (2026-06-26); Web manual 1× still open. §11.0 demo isolation **shipped for GQL-1..15**.
 
 ---
 
@@ -218,7 +218,7 @@ Auth and TLS lessons were added to the WS and Kafka curricula when secure Docker
 | **GQL-2** | `gql-variables` | Variables & Arguments | 18 | 9 min | ✅ **Enhancement complete** (**§3.6**) |
 | **GQL-3** | `gql-schema-exploration` | Schema Exploration | 10 | 5 min | ✅ **Enhancement complete** (2026-06-23) |
 | **GQL-4** | `gql-auth-headers` | Authentication & Headers | **14** | 6 min | ✅ **Enhancement complete** · Basic + OAuth + inherit ✅ · full Docker E2E ✅ |
-| **GQL-5** | `gql-https-tls` | HTTPS, TLS & Certificates | **16** | **9 min** | ✅ **Complete (7A + mTLS)** · full Docker E2E ✅ · Phase 8 Tauri manual pending |
+| **GQL-5** | `gql-https-tls` | HTTPS, TLS & Certificates | **18** | **10 min** | ✅ **Complete (7A + mTLS + auth-on-TLS)** · full Docker E2E ✅ · **Phase 8 Tauri ✅** |
 | **GQL-6** | `gql-mutations` | Mutations — Create, Update, Delete | **19** | **10 min** | ✅ **Enhancement complete** (2026-06-23) |
 | **GQL-7** | `gql-subscriptions` | Subscriptions — Real-Time Data | **15** | **8 min** | ✅ **Enhancement complete** (2026-06-24; +`gql5-subscription-auth`) |
 | **GQL-8** | `gql-query-builder` | Query Builder | **11** | 4 min | ✅ **Enhancement complete** · §11.0 ✅ · Phase 8 human Web+Tauri ✅ |
@@ -422,7 +422,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 | GQL-2 | `gql-variables` | 18 | ✅ | ✅ | ✅ `demo-gql-variables` | ✅ **Complete** | ✅ |
 | GQL-3 | `gql-schema-exploration` | 10 | ✅ | ✅ | ✅ `demo-gql-schema-exploration` | ✅ **Complete** | ✅ |
 | GQL-4 | `gql-auth-headers` | **14** | ✅ | ✅ | ✅ `demo-gql-auth-headers` full walk ✅ | ✅ **Audit** | ✅ |
-| GQL-5 | `gql-https-tls` | **16** | ✅ | ✅ | ✅ `demo-gql-https-tls` | ✅ **Complete (7A+mTLS)** | ✅ |
+| GQL-5 | `gql-https-tls` | **18** | ✅ | ✅ | ✅ `demo-gql-https-tls` | ✅ **Complete (7A+mTLS+auth-on-TLS)** | ✅ |
 | GQL-6 | `gql-mutations` | **19** | ✅ | 🔨 audit | ✅ `demo-gql-mutations` | ✅ **Audit** | ✅ |
 | GQL-7 | `gql-subscriptions` | **15** | ✅ | 🔨 audit | ✅ `demo-gql-subscriptions` | ✅ **Audit** | ✅ |
 | GQL-8 | `gql-query-builder` | **11** | ✅ | 🔨 audit | ✅ `demo-gql-query-builder` | ✅ **Audit** | ✅ |
@@ -446,7 +446,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 | `e2e/demo-gql-variables.spec.ts` | GQL-2 |
 | `e2e/demo-gql-schema-exploration.spec.ts` | GQL-3 |
 | `e2e/demo-gql-auth-headers.spec.ts` | GQL-4 |
-| `e2e/demo-gql-https-tls.spec.ts` | GQL-5 (TLS Docker, **16** steps) |
+| `e2e/demo-gql-https-tls.spec.ts` | GQL-5 (TLS Docker, **18** steps) |
 | `e2e/demo-gql-mutations.spec.ts` | GQL-6 (**19** steps) |
 | `e2e/demo-gql-subscriptions.spec.ts` | GQL-7 (**15** steps) |
 | `e2e/demo-gql-query-builder.spec.ts` | GQL-8 |
@@ -469,7 +469,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 
 1. ~~**§11.0 acceptance E2E**~~ ✅ — `demo-gql-workspace-isolation.spec.ts`.
 2. ~~**Phase 8 spot-check Web E2E**~~ ✅ — GQL-5/6/7/14/15/17 batch (19/19).
-3. **Phase 8 human 1×** — Web + Tauri for all 19; GQL-5 Tauri mTLS (steps 11–14) first.
+3. **Phase 8 human 1×** — Web + Tauri for remaining **12** Tauri / **17** Web lessons.
 4. **Full E2E sweep** — `./scripts/phase8-gql-e2e-sweep.sh` before merge.
 
 ---
@@ -489,7 +489,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 | Transport mode selection | ✅ `ws-auth-transport` — Direct/Proxy/Native | N/A | **❌ No transport lesson for HTTP** |
 | HTTPS / TLS encryption | ✅ `ws-tls` (public wss echo server) | ✅ `kafka-tls` (SASL+TLS, skip-cert) | ✅ **`gql-https-tls` (GQL-5) authored** — Docker `docker/graphql/tls/` |
 | Skip certificate validation | ✅ `ws-tls` + `ws-tls-local` | ✅ `kafka-tls` | ✅ GQL-5 step `gqlt-skip-cert` |
-| Custom CA / certificate chain | ✅ `ws-tls-local` Phase 2 | Partial | 🔨 GQL-5 CA beat — verify in Phase 8 |
+| Custom CA / certificate chain | ✅ `ws-tls-local` Phase 2 | Partial | ✅ GQL-5 CA beat (steps **10–12**) · Phase 8 Tauri ✅ |
 | Mutual TLS (mTLS / client certs) | ✅ `ws-tls-local` Phase 3 | **❌ Absent** | ✅ GQL-5 steps `gqlt-mtls-*` · Docker **4445** / health **4446** |
 | SASL / broker auth | N/A | ✅ `kafka-secure` (PLAIN, SCRAM-256, SCRAM-512) | N/A |
 | Subscription auth over WebSocket | ✅ `ws-auth-transport` | N/A | ✅ GQL-7 step `gql5-subscription-auth` (step 9) |
@@ -498,7 +498,7 @@ Card number (`GQL-N`) and step prefix **diverge** for lessons authored before th
 
 ### 4.2 Verdict
 
-GraphQL's security curriculum today covers **credential injection**, **Basic Auth**, and **OAuth 2.0** via **GQL-4** Auth, **transport security + mTLS** via **GQL-5** (`gql-https-tls`), and **subscription-channel auth** via **GQL-7** step `gql5-subscription-auth`. Phase 8 Tauri validation pending for GQL-5. §11.0 demo isolation **shipped for GQL-1..15**.
+GraphQL's security curriculum today covers **credential injection**, **Basic Auth**, and **OAuth 2.0** via **GQL-4** Auth, **transport security + mTLS** via **GQL-5** (`gql-https-tls`, **18** steps), and **subscription-channel auth** via **GQL-7** step `gql5-subscription-auth`. **GQL-5/7 Tauri** human validation ✅ (2026-06-26). §11.0 demo isolation **shipped for GQL-1..15**.
 
 ---
 
@@ -607,7 +607,7 @@ Add final step `gql6-subscription-auth`:
 
 **ID:** `gql-https-tls`  
 **Final card:** **GQL-5**  
-**Estimated minutes:** **8**  
+**Estimated minutes:** **10**  
 **Position:** Slot **5** — security arc, immediately after `gql-auth-headers` (GQL-4)  
 **Docker:** Yes — `docker/graphql/tls/` stack (TLS + mTLS compose files)  
 **dockerEndpoint:** `http://127.0.0.1:4444/health` (legacy single-probe field)  
@@ -615,7 +615,7 @@ Add final step `gql6-subscription-auth`:
 **dockerCommand:** `cd docker/graphql/tls && ./generate-cert.sh && ./generate-client-cert.sh && docker compose up -d && docker compose -f docker-compose.mtls.yml up -d`  
 **tag:** `🐳 Docker`  
 **Analogy:** `ws-tls-local` (3-phase TLS lab: skip-cert → CA cert → mTLS)  
-**Status:** ✅ **Shipped (2026-06-22)** — **16 steps**; studio TLS proxy; demo E2E full walk ✅; Phase 8 Tauri human pass pending
+**Status:** ✅ **Shipped (2026-06-27)** — **18 steps** · auth-on-TLS **7–9**; studio TLS proxy + native rustls; demo E2E full walk ✅; **Phase 8 Tauri ✅**
 
 **Port map:**
 
@@ -634,22 +634,28 @@ Client cert: GQL_TLS_CLIENT_CERT
 Client key:  GQL_TLS_CLIENT_KEY
 ```
 
-**Shipped steps (12 — prefix `gqlt-*`):**
+**Shipped steps (18 — prefix `gqlt-*`):**
 
 | Step ID | Title | Phase |
 |---------|-------|-------|
-| `gqlt-intro` | HTTPS for GraphQL | Intro |
-| `gqlt-endpoint` | Set HTTPS Endpoint | Setup |
-| `gqlt-tls-panel` | TLS Configuration Panel | UI tour |
-| `gqlt-skip-cert` | Skip Certificate Validation | Phase 1 |
+| `gqlt-intro` | Why GraphQL Needs HTTPS | Intro |
+| `gqlt-endpoint` | Switch to the HTTPS Endpoint | Setup |
+| `gqlt-tls-panel` | The SSL Badge — Your TLS Control | UI tour |
+| `gqlt-skip-cert` | Phase 1 — Enable Skip Certificate Validation | Phase 1 |
 | `gqlt-connect-skip` | Introspect Over TLS (Phase 1) | Phase 1 |
-| `gqlt-auth-tls` | Credentials Over TLS | Auth + TLS |
-| `gqlt-ca-cert` | Custom CA Certificate | Phase 2 |
-| `gqlt-connect-ca` | Introspect with CA Validation | Phase 2 |
-| `gqlt-mtls-intro` | Mutual TLS (mTLS) | Phase 3 intro |
-| `gqlt-mtls-creds` | Client Certificate & Key | Phase 3 |
-| `gqlt-mtls-connect` | Connect with mTLS | Phase 3 |
-| `gqlt-restore` | Restore to Plain HTTP | Cleanup |
+| `gqlt-observe-skip` | Schema Loaded Over Encrypted TLS | Phase 1 observe |
+| `gqlt-auth-tls-config` | Wire Bearer Auth for TLS | Auth-on-TLS **7** |
+| `gqlt-auth-tls-exec` | Execute Over Encrypted TLS | Auth-on-TLS **8** |
+| `gqlt-auth-tls-observe` | Credentials Encrypted Inside TLS | Auth-on-TLS **9** |
+| `gqlt-ca-cert` | Phase 2 — Paste the CA Certificate | Phase 2 |
+| `gqlt-connect-ca` | Introspect With CA Validation (Phase 2) | Phase 2 |
+| `gqlt-observe-ca` | Full Chain Validation — Schema Confirmed | Phase 2 observe |
+| `gqlt-mtls-intro` | Phase 3 — Switch to the mTLS Endpoint | Phase 3 intro **13** |
+| `gqlt-mtls-creds` | Paste Client Certificate & Key | Phase 3 **14** |
+| `gqlt-mtls-connect` | Introspect Over mTLS (Phase 3) | Phase 3 **15** |
+| `gqlt-observe-mtls` | mTLS Handshake Complete | Phase 3 observe **16** |
+| `gqlt-restore` | Restore to Plain HTTP | Cleanup **17** |
+| `gqlt-observe-restore` | Plain HTTP Schema Reloaded | Cleanup **18** |
 
 **E2E:** `e2e/demo-gql-https-tls.spec.ts` — shell test (step count) always runs; full auto-play requires TLS + mTLS + plain GraphQL Docker.
 
@@ -938,7 +944,7 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 | GQL-2 | `gql-variables` | 18 | 9 min | ✅ **Locked (§3.6)** |
 | GQL-3 | `gql-schema-exploration` | 10 | 5 min | ✅ **Complete** |
 | GQL-4 | `gql-auth-headers` | **14** | 6 min | ✅ Shipped · full Docker E2E ✅ |
-| GQL-5 | `gql-https-tls` | **16** | **9 min** | ✅ Shipped (7A + mTLS + observe splits) · full Docker E2E ✅ |
+| GQL-5 | `gql-https-tls` | **18** | **10 min** | ✅ Shipped (7A + auth-on-TLS + mTLS + observe splits) · full Docker E2E ✅ · Tauri ✅ |
 | GQL-6 | `gql-mutations` | **19** | **10 min** | ✅ **Enhancement complete** (2026-06-23) |
 | GQL-7 | `gql-subscriptions` | **15** | **8 min** | ✅ **Enhancement complete** (2026-06-24; +`gql5-subscription-auth`) |
 | GQL-8 | `gql-query-builder` | **11** | 4 min | ✅ Enhancement complete · Phase 8 human ✅ |
@@ -1013,9 +1019,9 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 **Docker infrastructure (✅ DONE):**
 - [x] `docker/graphql/tls/` — TLS (4443/4444) + mTLS (4445/4446) compose files, cert scripts, nginx configs, README
 
-**Lesson implementation (✅ DONE — 16 steps):**
+**Lesson implementation (✅ DONE — 18 steps):**
 - [x] `graphql-lesson-helpers/lesson-https-tls.ts` — endpoints, embedded PEMs, `GQL_TLS_DOCKER_HEALTH_PROBES`
-- [x] `graphql-https-tls.ts` (**16** steps, prefix `gqlt-*`, mTLS phase + observe splits)
+- [x] `graphql-https-tls.ts` (**18** steps, prefix `gqlt-*`, auth-on-TLS + mTLS + observe splits)
 - [x] `graphql-https-tls.test.ts`
 - [x] Registered at **GQL-5** in `graphql-lessons.ts`
 - [x] **§11.0** demo tab migration
@@ -1056,7 +1062,7 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 
 ### Phase 7: Demo Teaching Track (GQL-5 TLS + GQL-14 Multi-Tab + optional 6F extensions)
 
-**Status:** 🔨 **7-pre ✅ · 7A ✅ (mTLS) · 7B ✅ authored** — Phase 8 + §11.0 acceptance E2E remain
+**Status:** ✅ **7-pre · 7A (18 steps + mTLS) · 7B authored · §11.0 E2E ✅** — Phase 8 human pass remains (GQL-5 Tauri ✅; Web manual open)
 
 **Prerequisite (engineering — all ✅):** Phase 6A–6F, TLS Docker, studio TLS proxy, multi-tab selectors, §11.0 demo tab.
 
@@ -1066,14 +1072,15 @@ Add a final step `gql6-subscription-auth` bridging to **GQL-7 Subscriptions** (d
 
 - [x] `GqlStudioTab.demoLessonId`, `gql-demo-tab.ts`, `tabBudget`, PrerequisiteGate tab-capacity + **`dockerEndpoints[]`**
 - [x] Migrated GQL-1..15 setup/cleanup
-- [ ] §11.0 acceptance E2E + `e2e/DEMO-LESSON-E2E-MEMO.md` update
+- [x] §11.0 acceptance E2E + `e2e/DEMO-LESSON-E2E-MEMO.md` update (GQL-5 = **18** steps)
 
-#### 7A — GQL-5 HTTPS, TLS & Certificates — ✅ Complete (2026-06-22)
+#### 7A — GQL-5 HTTPS, TLS & Certificates — ✅ Complete (2026-06-27)
 
-- [x] `lesson-https-tls.ts` + `graphql-https-tls.ts` (**16 steps**, mTLS on 4445)
+- [x] `lesson-https-tls.ts` + `graphql-https-tls.ts` (**18 steps** · **10 min**, auth-on-TLS **7–9**, mTLS on 4445)
 - [x] Studio TLS product (see Phase 4 product checklist)
 - [x] `demo-gql-https-tls.spec.ts`
-- [ ] Phase 8 visual validation Web + Tauri
+- [x] Phase 8 Tauri visual validation (mTLS **13–16**, auth-on-TLS **7–9**) — 2026-06-26
+- [ ] Phase 8 Web manual 1× auto-play
 
 #### 7B — GQL-14 Multi-Tab Workspaces — ✅ Authored (2026-06-21)
 
@@ -1443,7 +1450,7 @@ See **§10 Phase 7** for the actionable task list. Summary (2026-06-22):
 - [x] E2E isolation spec (`e2e/graphql-multi-tab.spec.ts`, incl. 6F-13)
 - [x] TLS Docker stack (`docker/graphql/tls/`)
 - [x] Phase 3 registry sync — all 19 lessons in `graphql-lessons.ts`
-- [x] **7A** — `graphql-https-tls.ts` + helper + tests + **mTLS** + studio TLS product (**GQL-5**, **16** steps)
+- [x] **7A** — `graphql-https-tls.ts` + helper + tests + **mTLS** + studio TLS product (**GQL-5**, **18** steps)
 - [x] **7B** — `graphql-multi-tab.ts` + `lesson14-multi-tab.ts` + tests (**GQL-14**)
 - [x] **Phase 5** — GQL-15 (9 steps), GQL-17, GQL-18, GQL-19 authored
 - [x] **§11.0 / 7-pre** — Demo workspace isolation — **engineering complete GQL-1..15**

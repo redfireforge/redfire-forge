@@ -4,7 +4,8 @@ import type { GraphqlAuth } from '../../../shared/types/graphql';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import { GqlTabExecutionLayer } from '../components/GqlTabExecutionLayer';
-import type { ExecuteParams } from './useGraphqlExecution';
+import type { GraphqlResponse } from '../../../shared/types/graphql';
+import type { ExecuteParams, ExecutionStatus } from './useGraphqlExecution';
 import {
   IDLE_GQL_TAB_EXECUTION_STATE,
   type GqlTabExecutionState,
@@ -36,6 +37,7 @@ export interface UseGraphqlStudioTabExecutionResult {
   cancel: () => void;
   cancelTab: (tabId: string) => void;
   resolveDedupChoice: (choice: DedupChoice) => void;
+  applyTabResult: (tabId: string, status: ExecutionStatus, response: GraphqlResponse | null) => void;
   isTabExecuting: (tabId: string) => boolean;
   executionLayers: ReactNode;
 }
@@ -111,6 +113,15 @@ export function useGraphqlStudioTabExecution({
     getHandleRef.current(activeTabIdRef.current)?.resolveDedupChoice(choice);
   }, []);
 
+  const applyTabResult = useCallback((
+    tabId: string,
+    status: ExecutionStatus,
+    response: GraphqlResponse | null,
+  ) => {
+    getHandleRef.current(tabId)?.applyResult(status, response);
+    notifyStateChange();
+  }, [notifyStateChange]);
+
   const isTabExecuting = useCallback((tabId: string) => {
     return getHandleRef.current(tabId)?.getState().status === 'loading';
   }, []);
@@ -142,6 +153,7 @@ export function useGraphqlStudioTabExecution({
     cancel,
     cancelTab,
     resolveDedupChoice,
+    applyTabResult,
     isTabExecuting,
     executionLayers,
   };

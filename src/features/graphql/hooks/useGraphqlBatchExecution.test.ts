@@ -90,6 +90,11 @@ describe('useGraphqlBatchExecution', () => {
       expect(result.current.batchExecuting).toBe(false);
     });
 
+    it('initializes batchResultsOpen to false', () => {
+      const { result } = renderHook(() => useGraphqlBatchExecution(defaultParams()));
+      expect(result.current.batchResultsOpen).toBe(false);
+    });
+
     it('initializes complexityGatePending to false', () => {
       const { result } = renderHook(() => useGraphqlBatchExecution(defaultParams()));
       expect(result.current.complexityGatePending).toBe(false);
@@ -278,6 +283,32 @@ describe('useGraphqlBatchExecution', () => {
       );
     });
 
+    it('opens batch results and switches to response view', async () => {
+      vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({ results: [{ data: { a: 1 } }, { data: { b: 2 } }] }),
+      });
+      const tabs = [makeTab('t1', 'query { a }'), makeTab('t2', 'query { b }')];
+      const params = { ...defaultParams(), tabs };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
+      act(() => { result.current.dismissBatchResults(); });
+      expect(result.current.batchResultsOpen).toBe(false);
+      act(() => { result.current.openBatchResults(); });
+      expect(result.current.batchResultsOpen).toBe(true);
+      expect(params.setRightView).toHaveBeenCalledWith('response');
+    });
+
+    it('openBatchResults is a no-op when batchResult is null', () => {
+      const params = defaultParams();
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.openBatchResults(); });
+      expect(result.current.batchResultsOpen).toBe(false);
+      expect(params.setRightView).not.toHaveBeenCalled();
+    });
+
     it('sets batchResult with successful responses', async () => {
       vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
         ok: true,
@@ -291,7 +322,45 @@ describe('useGraphqlBatchExecution', () => {
       await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
       expect(result.current.batchResult).not.toBeNull();
       expect(result.current.batchResult?.results).toHaveLength(2);
+      expect(result.current.batchResultsOpen).toBe(true);
       expect(params.setRightView).toHaveBeenCalledWith('response');
+    });
+
+    it('syncs batch results to the response pane when callback is provided', async () => {
+      vi.mocked(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          results: [
+            {
+              data: { a: 1 },
+              _httpStatus: 200,
+              _httpHeaders: { 'content-type': 'application/json' },
+              _latencyMs: 25,
+            },
+            {
+              data: { b: 2 },
+              _httpStatus: 200,
+              _httpHeaders: { 'content-type': 'application/json' },
+              _latencyMs: 31,
+            },
+          ],
+        }),
+      });
+      const tabs = [makeTab('t1', 'query { a }'), makeTab('t2', 'query { b }')];
+      const syncBatchResultsToResponsePane = vi.fn();
+      const params = { ...defaultParams(), tabs, syncBatchResultsToResponsePane };
+      const { result } = renderHook(() => useGraphqlBatchExecution(params));
+      act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
+      await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
+      expect(syncBatchResultsToResponsePane).toHaveBeenCalledTimes(1);
+      expect(syncBatchResultsToResponsePane.mock.calls[0]![0]).toEqual(tabs);
+      const batchResult = syncBatchResultsToResponsePane.mock.calls[0]![1];
+      expect(batchResult?.results).toHaveLength(2);
+      expect(batchResult?.results[0]?.response.requestMethod).toBe('POST');
+      expect(batchResult?.results[0]?.response.requestBody?.query).toBe('query { a }');
+      expect(batchResult?.results[0]?.response.httpHeaders['content-type']).toBe('application/json');
+      expect(batchResult?.results[0]?.response.latencyMs).toBe(25);
     });
 
     it('persists each batch operation to history when saveHistory is provided', async () => {
@@ -325,6 +394,7 @@ describe('useGraphqlBatchExecution', () => {
       act(() => { result.current.handleToggleBatch('t1'); result.current.handleToggleBatch('t2'); });
       await act(async () => { result.current.handleSendBatch(); await new Promise((r) => setTimeout(r, 50)); });
       expect(result.current.batchResult?.results[0].response.errors?.[0].message).toBe('Network error');
+      expect(result.current.batchResult?.results[0].response.batchContext?.batchSize).toBe(2);
     });
 
     it('detects batch unsupported and calls setAdvSettings + setBatchUnsupportedToast', async () => {
@@ -356,6 +426,7 @@ describe('useGraphqlBatchExecution', () => {
       expect(result.current.batchResult?.results).toHaveLength(2);
       expect(result.current.batchResult?.results[0].response.httpStatus).toBe(200);
       expect(result.current.batchResult?.results[1].response.httpStatus).toBe(408);
+      expect(result.current.batchResult?.results[0].response.batchContext?.batchSize).toBe(2);
     });
 
     it('Phase 6G: cannot batch tabs from different endpoint groups', () => {

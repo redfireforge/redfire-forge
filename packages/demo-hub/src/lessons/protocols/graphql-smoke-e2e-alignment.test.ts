@@ -34,7 +34,7 @@ const GQL3_LESSON_SOURCE = { name: 'Schema Exploration', steps: 10 } as const;
 const GQL4_LESSON_SOURCE = { name: 'Authentication & Headers', steps: 14 } as const;
 const GQL5_LESSON_SOURCE = {
   name: 'HTTPS, TLS & Certificates',
-  steps: 16,
+  steps: 18,
 } as const;
 
 const GQL6_LESSON_SOURCE = {
@@ -86,12 +86,12 @@ const GQL13_LESSON_SOURCE = {
 
 const GQL14_LESSON_SOURCE = {
   name: 'Multi-Tab Workspaces',
-  steps: 10,
+  steps: 12,
 } as const;
 
 const GQL15_LESSON_SOURCE = {
   name: 'Batch Execution',
-  steps: 9,
+  steps: 10,
 } as const;
 
 const GQL16_LESSON_SOURCE = {

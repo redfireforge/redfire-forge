@@ -34,8 +34,16 @@ export function resolveMockServerConnectionId(
 /** Normalize endpoint text: trim whitespace and strip invisible Unicode characters. */
 export function normalizeGraphqlEndpoint(url: string | undefined | null): string {
   const cleaned = (url ?? '').trim().replace(/[\u200B-\u200D\uFEFF]/g, '');
-  if (isTauri()) {
-    return preferLocalhostHostname(cleaned);
+  if (!cleaned) return cleaned;
+  try {
+    const parsed = new URL(cleaned);
+    // HTTPS loopback: keep `localhost` (Docker TLS/mTLS proxies, SNI). Plain HTTP on web
+    // still resolves to 127.0.0.1 for Node proxy / corporate NO_PROXY quirks.
+    if (parsed.protocol === 'https:' || isTauri()) {
+      return preferLocalhostHostname(cleaned);
+    }
+  } catch {
+    /* fall through */
   }
   return resolveLoopbackUrl(cleaned);
 }

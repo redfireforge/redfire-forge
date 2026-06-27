@@ -1,7 +1,14 @@
 /** Lesson List — shows lessons within a domain with optional category tabs */
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type KeyboardEvent } from 'react';
 import type { DemoDomain, DemoLesson, DemoProgress } from './types';
 import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
+import LessonNotesIcon from './LessonNotesIcon';
+import { useLessonNotesContext } from './LessonNotesContext';
+
+function hasActiveTextSelection(): boolean {
+  const selection = window.getSelection();
+  return Boolean(selection && selection.toString().length > 0);
+}
 
 interface LessonListProps {
   domain: DemoDomain;
@@ -19,6 +26,7 @@ interface LessonListProps {
 }
 
 export default function LessonList({ domain, progress, onSelect, onBack, onResetLesson, onResetAll, initialCategory, onCategoryChange }: LessonListProps) {
+  const { hasNote, openPanel } = useLessonNotesContext();
   const hasCategories = domain.categories && domain.categories.length > 0;
   const [activeCategory, setActiveCategory] = useState<string | null>(() => {
     if (!hasCategories) return null;
@@ -128,17 +136,34 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
 
           const statusClass = isComplete ? 'completed' : isInProgress ? 'in-progress' : '';
 
+          const openLesson = () => {
+            if (isPendingReset || desktopBlocked) return;
+            onSelect(lesson);
+          };
+
+          const handleLessonKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
+            if (isPendingReset || desktopBlocked) return;
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              openLesson();
+            }
+          };
+
           return (
             <div
               key={lesson.id}
               className={`demo-lesson-row ${statusClass}${desktopBlocked ? ' demo-lesson-row--desktop-blocked' : ''}`}
             >
-              <button
+              <div
+                role="button"
+                tabIndex={desktopBlocked || isPendingReset ? -1 : 0}
                 className={`demo-lesson-item ${statusClass}${desktopBlocked ? ' demo-lesson-item--desktop-blocked' : ''}`}
                 onClick={() => {
-                  if (isPendingReset) return;
-                  onSelect(lesson);
+                  if (hasActiveTextSelection()) return;
+                  openLesson();
                 }}
+                onKeyDown={handleLessonKeyDown}
+                aria-disabled={desktopBlocked || isPendingReset ? true : undefined}
                 title={desktopBlocked ? 'Desktop app required — open RedfireForge on desktop to run this demo' : undefined}
               >
                 <span className={`demo-lesson-status ${statusClass}`}>
@@ -169,42 +194,54 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                     <span className="demo-lesson-restart-badge">Restart</span>
                   ) : null}
                 </div>
-              </button>
+              </div>
 
-              {/* Per-lesson reset controls — for completed and in-progress lessons */}
-              {(isComplete || isInProgress) && (
-                <div className="demo-lesson-reset-zone">
-                  {isPendingReset ? (
-                    <div className="demo-lesson-reset-confirm" data-testid={`reset-confirm-${lesson.id}`}>
-                      <span className="demo-lesson-reset-confirm-label">Reset progress?</span>
+              <div
+                className={`demo-lesson-row-actions${isPendingReset ? ' demo-lesson-row-actions--reset-pending' : ''}`}
+              >
+                <div className="demo-lesson-row-actions-slot demo-lesson-row-actions-slot--notes">
+                  <LessonNotesIcon
+                    lessonName={lesson.name}
+                    hasContent={hasNote(lesson.id)}
+                    onClick={() => openPanel({ lessonId: lesson.id, lessonName: lesson.name })}
+                    testId={`demo-lesson-note-btn-${lesson.id}`}
+                    compact
+                  />
+                </div>
+                <div className="demo-lesson-row-actions-slot demo-lesson-row-actions-slot--reset">
+                  {(isComplete || isInProgress) && (
+                    isPendingReset ? (
+                      <div className="demo-lesson-reset-confirm" data-testid={`reset-confirm-${lesson.id}`}>
+                        <span className="demo-lesson-reset-confirm-label">Reset progress?</span>
+                        <button
+                          className="demo-lesson-reset-yes"
+                          onClick={() => handleResetLesson(lesson.id)}
+                          aria-label={`Confirm reset for ${lesson.name}`}
+                        >
+                          ↺ Yes
+                        </button>
+                        <button
+                          className="demo-lesson-reset-no"
+                          onClick={() => setPendingResetId(null)}
+                          aria-label="Cancel reset"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
                       <button
-                        className="demo-lesson-reset-yes"
-                        onClick={() => handleResetLesson(lesson.id)}
-                        aria-label={`Confirm reset for ${lesson.name}`}
+                        className="demo-lesson-reset-btn"
+                        onClick={(e) => { e.stopPropagation(); setPendingResetId(lesson.id); }}
+                        title="Reset completion for this lesson"
+                        aria-label={`Reset progress for ${lesson.name}`}
+                        data-testid={`reset-lesson-${lesson.id}`}
                       >
-                        ↺ Yes
+                        ↺
                       </button>
-                      <button
-                        className="demo-lesson-reset-no"
-                        onClick={() => setPendingResetId(null)}
-                        aria-label="Cancel reset"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <button
-                      className="demo-lesson-reset-btn"
-                      onClick={(e) => { e.stopPropagation(); setPendingResetId(lesson.id); }}
-                      title="Reset completion for this lesson"
-                      aria-label={`Reset progress for ${lesson.name}`}
-                      data-testid={`reset-lesson-${lesson.id}`}
-                    >
-                      ↺
-                    </button>
+                    )
                   )}
                 </div>
-              )}
+              </div>
             </div>
           );
         })}

@@ -16,6 +16,11 @@ describe('normalizeGraphqlEndpoint', () => {
     expect(normalizeGraphqlEndpoint('  http://localhost:4010/graphql  ')).toBe('http://127.0.0.1:4010/graphql');
   });
 
+  it('keeps localhost for HTTPS loopback on web (TLS/mTLS lesson stacks)', () => {
+    expect(normalizeGraphqlEndpoint('https://localhost:4445/graphql')).toBe('https://localhost:4445/graphql');
+    expect(normalizeGraphqlEndpoint('https://127.0.0.1:4443/graphql')).toBe('https://localhost:4443/graphql');
+  });
+
   it('keeps localhost on desktop (Tauri)', () => {
     vi.mocked(isTauri).mockReturnValue(true);
     expect(normalizeGraphqlEndpoint('http://localhost:4010/graphql')).toBe('http://localhost:4010/graphql');

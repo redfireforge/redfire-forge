@@ -7,7 +7,7 @@
  * Full lesson (execute, history preview/load/run, save, export/import) needs Docker on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 8 disables Next — use walkFullGql9Lesson (GQL-4 style), not runNextStep on the final step.
+ * Last-step rule: step 11 disables Next — use walkFullGql9Lesson (GQL-4 style), not runNextStep on the final step.
  */
 
 import { test, expect, type Page } from '@playwright/test';
@@ -70,7 +70,7 @@ test.describe('GQL-9 — full lesson (Docker)', () => {
 
     const { counter, title } = await getStepInfo(page);
     expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
-    expect(title).toMatch(/Delete.*Import/i);
+    expect(title).toMatch(/Merge to Restore/i);
 
     await expect(page.locator('[data-testid="gql-endpoint-input"]')).toHaveValue(GQL_HTTP);
     await expect(page.locator('[data-testid="gql-schema-badge-ok"]')).toBeVisible({ timeout: 15_000 });

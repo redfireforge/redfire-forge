@@ -85,6 +85,10 @@ describe('gql-mutations lesson', () => {
     expect(gqlMutationsLesson.tabBudget).toBe(1);
   });
 
+  it('allowedTabs is graphql-studio only — no Environment Manager setup in this lesson', () => {
+    expect(gqlMutationsLesson.allowedTabs).toEqual(['graphql-studio']);
+  });
+
   it('has docker prerequisite fields for port 4010 test server', () => {
     expect(gqlMutationsLesson.tag).toBe('🐳 Docker');
     expect(gqlMutationsLesson.dockerEndpoint).toContain('localhost:4010');
@@ -166,6 +170,12 @@ describe('gql-mutations lesson', () => {
     expect(step.highlight).not.toBe(GQL.VARS_PANEL);
   });
 
+  it('gql3-write-create keeps Schema tab visible during mutation write', () => {
+    const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-write-create')!;
+    expect(step.description).toContain('Schema');
+    expect(step.readingSync).toBeDefined();
+  });
+
   it('gql3-set-create-vars highlights variables panel', () => {
     const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-set-create-vars')!;
     expect(step.highlight).toBe(GQL.VARS_PANEL);
@@ -215,9 +225,10 @@ describe('gql-mutations lesson', () => {
     expect(step.highlight).toBe(GQL.EXECUTE_BTN);
   });
 
-  it('gql3-observe-delete highlights response body after first delete', () => {
+  it('gql3-observe-delete highlights compact data.deleteUser card after first delete', () => {
     const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-observe-delete')!;
-    expect(step.highlight).toBe(GQL.RESPONSE_BODY);
+    expect(step.highlight).toBe(GQL.RESPONSE_DATA_DELETE_USER);
+    expect(step.verify).toBe(GQL.RESPONSE_DATA_DELETE_USER);
   });
 
   it('gql3-idempotency-exec highlights Execute for second delete click', () => {
@@ -225,9 +236,10 @@ describe('gql-mutations lesson', () => {
     expect(step.highlight).toBe(GQL.EXECUTE_BTN);
   });
 
-  it('gql3-observe-idempotency highlights response body for success: false', () => {
+  it('gql3-observe-idempotency highlights compact data.deleteUser card for success: false', () => {
     const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-observe-idempotency')!;
-    expect(step.highlight).toBe(GQL.RESPONSE_BODY);
+    expect(step.highlight).toBe(GQL.RESPONSE_DATA_DELETE_USER);
+    expect(step.verify).toBe(GQL.RESPONSE_DATA_DELETE_USER);
   });
 
   // ─── Description content ─────────────────────────────────────────────────
@@ -394,16 +406,20 @@ describe('gql-mutations lesson', () => {
   });
 
   it('gql3-write-create fills createUser mutation in editor', async () => {
-    document.body.innerHTML = `
+    stubGqlStudioShell(`
+      <span data-testid="gql-schema-badge-ok">Schema loaded (12)</span>
+      <button data-testid="gql-right-tab-schema"></button>
       <button data-testid="gql-mode-editor" class="gql-mode-btn gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
-    `;
+      <div data-testid="gql-schema-explorer"><div data-testid="gql-se-type-list"></div></div>
+    `);
     const { setQuery } = stubMonacoEditor();
     const ctx = makeCtx();
     const step = gqlMutationsLesson.steps.find((s) => s.id === 'gql3-write-create')!;
     await step.action!(ctx);
     expect(setQuery).toHaveBeenCalledWith(expect.stringContaining('createUser'));
     expect(setQuery).toHaveBeenCalledWith(expect.stringContaining('$name'));
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
   });
 
   it('gql3-set-create-vars opens variables panel and fills Carol vars', async () => {

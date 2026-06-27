@@ -11,6 +11,7 @@ describe('useDemoWorkflowBridge', () => {
     delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
     delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfSelectByName;
+    delete (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfWorkflowsLoaded;
   });
 
@@ -129,5 +130,28 @@ describe('useDemoWorkflowBridge', () => {
     expect((window as unknown as Record<string, unknown>).__wfWorkflowsLoaded).toBe(false);
     rerender({ loaded: true });
     expect((window as unknown as Record<string, unknown>).__wfWorkflowsLoaded).toBe(true);
+  });
+
+  it('__wfPatchWorkflowByName merges patch when update is provided', () => {
+    const wf = {
+      id: 'wf-1',
+      name: 'GraphQL Latency Demo',
+      nodes: [],
+      edges: [],
+      variables: {},
+    } as import('../../features/workflow/types/workflow').Workflow;
+    const update = vi.fn();
+    renderHook(() => useDemoWorkflowBridge([wf], vi.fn(), undefined, undefined, true, update));
+    const patch = (window as unknown as Record<string, (name: string, p: object) => boolean>).__wfPatchWorkflowByName;
+    expect(patch('GraphQL Latency Demo', { variables: { graphqlUrl: 'http://localhost:4010/graphql' } })).toBe(true);
+    expect(update).toHaveBeenCalledWith('wf-1', { variables: { graphqlUrl: 'http://localhost:4010/graphql' } });
+    expect(patch('Missing', { variables: {} })).toBe(false);
+  });
+
+  it('does not expose __wfPatchWorkflowByName when update is not provided', () => {
+    renderHook(() => useDemoWorkflowBridge([], vi.fn()));
+    expect((window as unknown as Record<string, unknown>).__wfPatchWorkflowByName).toBeTypeOf('function');
+    const patch = (window as unknown as Record<string, (name: string, p: object) => boolean>).__wfPatchWorkflowByName;
+    expect(patch('Any', { variables: {} })).toBe(false);
   });
 });

@@ -165,15 +165,36 @@ describe('useGqlStudioTabs', () => {
     expect(result.current.hasActiveTabEndpointOverride).toBe(false);
   });
 
+  it('addTab persists the new tab and active id immediately', async () => {
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    mockMakeBlankTab.mockReturnValueOnce(makeTab({ id: 'tab-2' }));
+    await act(async () => {
+      result.current.addTab();
+      await Promise.resolve();
+    });
+
+    expect(mockSaveTabs).toHaveBeenCalled();
+    const lastCall = mockSaveTabs.mock.calls.at(-1);
+    expect(lastCall?.[1]).toBe('tab-2');
+  });
+
   it('addTab creates a new tab and activates it', async () => {
     const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
     await act(async () => {});
 
     mockMakeBlankTab.mockReturnValueOnce(makeTab({ id: 'tab-2' }));
-    act(() => { result.current.addTab(); });
+    await act(async () => { result.current.addTab(); });
 
     expect(result.current.tabs).toHaveLength(2);
     expect(result.current.activeTabId).toBe('tab-2');
+    expect(result.current.tabs[1].endpoint).toBe('');
+    expect(result.current.resolvedTabEndpoint).toBe('');
+    expect(mockSaveTabs).toHaveBeenCalledWith(
+      expect.arrayContaining([expect.objectContaining({ id: 'tab-2' })]),
+      'tab-2',
+    );
   });
 
   it('addTab does nothing at MAX_USER_TABS (7)', async () => {
@@ -259,6 +280,10 @@ describe('useGqlStudioTabs', () => {
     await act(async () => {});
     expect(result.current.tabs[0]?.id).toBe('tab-1');
 
+    mockMakeBlankTab.mockReturnValueOnce(makeTab({ id: 'tab-2' }));
+    await act(async () => { result.current.addTab(); });
+    expect(result.current.activeTabId).toBe('tab-2');
+
     await act(async () => {
       window.dispatchEvent(new Event('gql-tabs-reload'));
       await Promise.resolve();
@@ -266,6 +291,7 @@ describe('useGqlStudioTabs', () => {
 
     expect(loadCount).toBeGreaterThanOrEqual(2);
     expect(result.current.tabs.some((t) => t.id === 'tab-2')).toBe(true);
+    expect(result.current.activeTabId).toBe('tab-2');
   });
 
   it('closeTab triggers confirmation for unsaved changes', async () => {
@@ -443,6 +469,21 @@ describe('useGqlStudioTabs', () => {
       act(() => { result.current.updateActiveTabEndpoint('   '); });
       expect(result.current.tabs[0].endpoint).toBeUndefined();
       expect(result.current.resolvedTabEndpoint).toBe('https://default.example/graphql');
+    });
+
+    it('updateActiveTabEndpoint stores explicit empty endpoint when clearing in multi-tab workspace', async () => {
+      const tab1 = makeTab({ id: 'tab-1' });
+      const tab2 = makeTab({ id: 'tab-2', endpoint: 'https://staging.example/graphql' });
+      mockLoadTabs.mockResolvedValue([tab1, tab2] as never);
+      const { result } = renderHook(() =>
+        useGqlStudioTabs(defaultOptions({ pageDefaultEndpoint: 'https://default.example/graphql' })),
+      );
+      await act(async () => {});
+
+      act(() => { result.current.handleTabClick('tab-2'); });
+      act(() => { result.current.updateActiveTabEndpoint('   '); });
+      expect(result.current.tabs[1].endpoint).toBe('');
+      expect(result.current.resolvedTabEndpoint).toBe('');
     });
 
     it('updateActiveTabEndpoint clears override when value matches page default (Phase 6 PT-5)', async () => {

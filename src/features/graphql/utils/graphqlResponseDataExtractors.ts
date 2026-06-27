@@ -29,3 +29,13 @@ export function getResponseDataCreateOrder(
   if (!createOrder || typeof createOrder !== 'object' || Array.isArray(createOrder)) return null;
   return createOrder as Record<string, unknown>;
 }
+
+/** Extract `data.deleteUser` when present — used for the Mutations lesson delete/idempotency spotlight. */
+export function getResponseDataDeleteUser(
+  response: GraphqlResponse | null,
+): Record<string, unknown> | null {
+  if (!response?.data || typeof response.data !== 'object') return null;
+  const deleteUser = (response.data as { deleteUser?: unknown }).deleteUser;
+  if (!deleteUser || typeof deleteUser !== 'object' || Array.isArray(deleteUser)) return null;
+  return deleteUser as Record<string, unknown>;
+}

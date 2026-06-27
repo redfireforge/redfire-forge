@@ -12,7 +12,6 @@ import {
   ensurePlainHttpEndpoint,
   ensureTlsEndpoint,
   ensureSkipCertEnabled,
-  ensureTlsIntrospected,
   ensureTlsSkipIntrospectOutcome,
   prepareGqltSkipIntrospectReading,
   ensureTlsCaIntrospectOutcome,
@@ -22,7 +21,12 @@ import {
   ensurePlainRestoreIntrospectOutcome,
   prepareGqltRestoreReading,
   runTlsIntrospectClickOnly,
-  ensureTlsAuthExecuted,
+  prepareGqltAuthConfigReading,
+  runGqltAuthConfigAction,
+  prepareGqltAuthExecReading,
+  runGqltAuthExecAction,
+  prepareGqltAuthObserveReading,
+  runGqltAuthObserveAction,
   ensureTlsPhase2Ready,
   ensureTlsCaConfigured,
   ensureTlsCaIntrospected,
@@ -31,7 +35,7 @@ import {
   ensureMtlsConfigured,
   gqlTlsLessonSetup,
   gqlTlsLessonCleanup,
-  LESSON6_RV_AUTHORIZATION_VAL,
+  LESSON6_RV_METADATA_AUTHORIZATION_VAL,
 } from './graphql-lesson-helpers';
 
 export const gqlHttpsTlsLesson: DemoLesson = {
@@ -41,7 +45,7 @@ export const gqlHttpsTlsLesson: DemoLesson = {
   name: 'HTTPS, TLS & Certificates',
   description:
     'Connect to a real HTTPS GraphQL server, bypass self-signed certificate errors with skip-cert validation, and understand how TLS protects the auth credentials you configured in GQL-4.',
-  estimatedMinutes: 9,
+  estimatedMinutes: 10,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Reserved demo tab slot — user workspace must stay untouched (§11.0). */
@@ -289,14 +293,14 @@ export const gqlHttpsTlsLesson: DemoLesson = {
       id: 'gqlt-skip-cert',
       title: 'Phase 1 — Enable Skip Certificate Validation',
       description:
-        'Click the **SSL badge** to enable skip-cert mode. The badge turns amber with a ⚠ struck-through shield. What this disables: **hostname check** (server name matches cert), **chain-of-trust check** (cert signed by a trusted CA), and **expiry check**. Traffic is still encrypted with AES-256 — skip-cert removes *identity verification*, not encryption. In web mode, Studio routes the request through a local Node.js proxy that sets `rejectUnauthorized: false`. **Only use this on loopback (localhost) where you control the server.**',
-      highlight: GQL.TLS_TOGGLE,
+        'Click the **SSL badge** to enable skip-cert mode. The **TLS** button then shows an amber **Skip Verify** badge — that is the spotlighted control. What skip-cert disables: **hostname check** (server name matches cert), **chain-of-trust check** (cert signed by a trusted CA), and **expiry check**. Traffic is still encrypted with AES-256 — skip-cert removes *identity verification*, not encryption. In web mode, Studio routes the request through a local Node.js proxy that sets `rejectUnauthorized: false`. **Only use this on loopback (localhost) where you control the server.**',
+      highlight: GQL.TLS_INDICATOR_SKIP,
       preAction: ensureTlsEndpoint,
       action: async (ctx) => {
         await ensureSkipCertEnabled(ctx);
         await ctx.delay(600);
       },
-      verify: GQL.TLS_TOGGLE,
+      verify: GQL.TLS_INDICATOR_SKIP,
       pauseAfter: true,
     },
 
@@ -330,16 +334,50 @@ export const gqlHttpsTlsLesson: DemoLesson = {
     },
 
     {
-      id: 'gqlt-auth-tls',
+      id: 'gqlt-auth-tls-config',
+      title: 'Wire Bearer Auth for TLS',
+      description:
+        'The **Demo** environment stores `authToken = lesson6-demo-jwt` so Bearer auth can use the `{{authToken}}` placeholder. ' +
+        'Open the **Auth** bottom tab → select **Bearer Token** → enter `' + GQL_TLS_BEARER_TEMPLATE + '`. ' +
+        'Watch the footer preview resolve the placeholder to `Authorization: Bearer lesson6-demo-jwt` **before** you execute — that is the same env-variable pattern from GQL-4.',
+      highlight: GQL.AUTH_BEARER_INPUT,
+      preAction: prepareGqltAuthConfigReading,
+      action: async (ctx) => {
+        await runGqltAuthConfigAction(ctx);
+      },
+      verify: GQL.AUTH_BEARER_INPUT,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gqlt-auth-tls-exec',
+      title: 'Execute Over Encrypted TLS',
+      description:
+        'Click **Execute** to send the `health` query over the TLS tunnel on port **4443**. ' +
+        'The response you see is decrypted by Studio for display — on the wire it was ciphertext. ' +
+        'The next step opens **Metadata** so you can inspect exactly what left your machine inside that tunnel.',
+      highlight: GQL.EXECUTE_BTN,
+      preAction: prepareGqltAuthExecReading,
+      action: async (ctx) => {
+        await runGqltAuthExecAction(ctx);
+      },
+      verify: GQL.RESPONSE_VIEWER,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gqlt-auth-tls-observe',
       title: 'Credentials Encrypted Inside TLS',
       description:
-        'The **Demo** environment stores `authToken = lesson6-demo-jwt` so Bearer auth can use the `{{authToken}}` placeholder. Open the **Auth** badge → select **Bearer Token** → enter `' + GQL_TLS_BEARER_TEMPLATE + '`. Click **Execute**. Then open the **Metadata** tab — you see `Authorization: Bearer lesson6-demo-jwt` in Request Headers (the env variable resolved before send). What you\'re seeing is the *decoded* header logged by Studio. On the wire, that entire header is encrypted inside the TLS tunnel. **This is the correct mental model:** HTTPS does not protect credentials that are already visible in the app — it protects them *in transit* so they cannot be intercepted between your machine and the server.',
-      highlight: LESSON6_RV_AUTHORIZATION_VAL,
-      preAction: ensureTlsIntrospected,
+        'The spotlighted **Authorization** row in **Metadata → Request headers** shows `Bearer lesson6-demo-jwt` — the env variable resolved before send. ' +
+        'What you are reading is the *decoded* header logged by Studio for debugging. ' +
+        'On the wire, that entire value was encrypted inside the TLS tunnel. **Mental model:** HTTPS does not hide credentials from your screen — it protects them *in transit* so they cannot be intercepted between your machine and the server.',
+      highlight: LESSON6_RV_METADATA_AUTHORIZATION_VAL,
+      preAction: prepareGqltAuthObserveReading,
       action: async (ctx) => {
-        await ensureTlsAuthExecuted(ctx);
+        await runGqltAuthObserveAction(ctx);
       },
-      verify: LESSON6_RV_AUTHORIZATION_VAL,
+      verify: LESSON6_RV_METADATA_AUTHORIZATION_VAL,
       pauseAfter: true,
     },
 

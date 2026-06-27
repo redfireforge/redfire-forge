@@ -73,6 +73,16 @@ describe('parseResult', () => {
     expect(result._httpStatus).toBe(401);
     expect(result.error).toBe('unauthorized');
   });
+
+  it('attachBatchResultMeta adds headers and latency when provided', () => {
+    const result = parseResult(
+      '{"data":{"ok":true}}',
+      200,
+      { headers: { 'content-type': 'application/json' }, latencyMs: 17 },
+    );
+    expect(result._httpHeaders).toEqual({ 'content-type': 'application/json' });
+    expect(result._latencyMs).toBe(17);
+  });
 });
 
 // ─── padTimedOutResults ───────────────────────────────────────────────────────
@@ -210,6 +220,8 @@ describe('runSequentialWithTimeout', () => {
     expect(timedOut).toBe(false);
     expect(results).toHaveLength(2);
     expect(results[0].data).toEqual({ ok: true });
+    expect(results[0]._httpHeaders).toMatchObject({ 'content-type': 'application/json' });
+    expect(typeof results[0]._latencyMs).toBe('number');
   });
 
   it('returns timedOut=true when batchDeadline passes before first op', async () => {

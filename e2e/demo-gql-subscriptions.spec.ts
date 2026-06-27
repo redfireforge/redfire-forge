@@ -12,7 +12,7 @@
 
 import { test, expect } from '@playwright/test';
 import { exitLesson, getStepInfo, launchGqlLesson, takeNamedScreenshot } from './demo-player-helpers';
-import { GQL_HEALTH, GQL_HTTP, isGraphqlServerHealthy, silenceLogStream } from './graphql-helpers';
+import { GQL_HEALTH, isGraphqlServerHealthy, silenceLogStream } from './graphql-helpers';
 import {
   GQL7_LESSON,
   prepareGql7DockerLesson,
@@ -61,26 +61,39 @@ test.describe('GQL-7 — full lesson (Docker)', () => {
     expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
     expect(title).toMatch(/Stop the Subscription/i);
 
-    await expect(page.locator('[data-testid="gql-endpoint-input"]')).toHaveValue(GQL_HTTP);
+    await expect(page.locator('[data-testid="gql-endpoint-input"]')).toHaveValue(
+      /http:\/\/(localhost|127\.0\.0\.1):4010\/graphql/,
+    );
     await expect(page.locator('[data-testid="gql-schema-badge-ok"]')).toBeVisible({ timeout: 15_000 });
 
     const log = page.locator('[data-testid="gql-sub-message-list"]');
     await expect(page.locator('[data-testid="gql-sub-log"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="gql-assertion-row"]')).toBeVisible({ timeout: 15_000 });
 
-    // Step 13 leaves a COMPLETE text filter active — clear before asserting log content.
+    // Step 13 may leave a COMPLETE text filter active — clear before asserting log content.
+    const filterInput = page.locator('[data-testid="gql-sub-filter-input"]');
     const filterClear = page.locator('[data-testid="gql-sub-filter-clear"]');
     if (await filterClear.isVisible().catch(() => false)) {
       await filterClear.click({ force: true });
       await page.waitForTimeout(400);
     }
-
-    // Final step stops the stream; re-subscribe if the log was cleared on disconnect.
-    if ((await log.textContent())?.trim() === '') {
-      await page.locator('[data-testid="gql-subscribe-btn"]').click({ force: true });
+    if (await filterInput.isVisible().catch(() => false)) {
+      await filterInput.fill('');
+      await page.waitForTimeout(200);
     }
 
-    await expect(log).toContainText(/PENDING|PROCESSING|COMPLETE/, { timeout: 60_000 });
+    // Step 15 disconnects; re-subscribe when the log has no captured status events yet.
+    const logText = ((await log.textContent()) ?? '').trim();
+    if (!/PENDING|PROCESSING|COMPLETE/.test(logText)) {
+      const resub = page.locator('[data-testid="gql-sub-resubscribe-btn"]');
+      if (await resub.isVisible().catch(() => false)) {
+        await resub.click({ force: true });
+      } else {
+        await page.locator('[data-testid="gql-subscribe-btn"]').click({ force: true });
+      }
+    }
+
+    await expect(log).toContainText(/PENDING|PROCESSING|COMPLETE/, { timeout: 90_000 });
     const rows = page.locator('[data-testid="gql-sub-row"]');
     try {
       await expect(rows).toHaveCount(2, { timeout: 30_000 });

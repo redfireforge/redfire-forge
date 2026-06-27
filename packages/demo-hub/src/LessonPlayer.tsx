@@ -7,15 +7,18 @@ import DesktopOnlyGate from './components/DesktopOnlyGate';
 import { renderMarkdown } from './ConceptSlide';
 import { isGraphqlStudioLesson } from './adapters';
 import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
+import LessonNotesEditor from './LessonNotesEditor';
+import { useLessonNotesContext } from './LessonNotesContext';
 
 interface LessonPlayerProps {
   lesson: DemoLesson;
   onStartDemo: () => void;
 }
 
-type SelectedPanel = 'concept' | number;
+type SelectedPanel = 'concept' | 'notes' | number;
 
 export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps) {
+  const { getNote, hasNote, saveNote } = useLessonNotesContext();
   const [dockerGateCleared, setDockerGateCleared] = useState(false);
   const [tabGateCleared, setTabGateCleared] = useState(false);
   const [selected, setSelected] = useState<SelectedPanel>('concept');
@@ -61,7 +64,6 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
 
   return (
     <div className="demo-lesson-player">
-      {/* ── Left sidebar ── */}
       <div className="demo-lesson-player-sidebar">
         <div className="demo-sidebar-section">
           <button
@@ -70,6 +72,20 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
           >
             <span className="demo-sidebar-nav-icon">📖</span>
             <span className="demo-sidebar-nav-label">Concept</span>
+          </button>
+
+          <button
+            className={`demo-sidebar-nav-item demo-sidebar-nav-item--notes ${selected === 'notes' ? 'notes-active' : ''}`}
+            onClick={() => setSelected('notes')}
+            data-testid="demo-lesson-sidebar-notes"
+          >
+            <span className="demo-sidebar-nav-icon">📝</span>
+            <span className="demo-sidebar-nav-label">
+              Notes
+              {hasNote(lesson.id) && (
+                <span className="demo-sidebar-notes-dot" aria-label="Has saved notes" />
+              )}
+            </span>
           </button>
 
           <div className="demo-sidebar-steps-label">Steps</div>
@@ -86,10 +102,20 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
         </div>
       </div>
 
-      {/* ── Right content panel ── */}
       <div className="demo-lesson-player-content">
         {selected === 'concept' ? (
           <ConceptSlide concept={lesson.concept} />
+        ) : selected === 'notes' ? (
+          <div className="demo-notes-inline">
+            <LessonNotesEditor
+              lessonId={lesson.id}
+              lessonName={lesson.name}
+              savedText={getNote(lesson.id)}
+              onSave={(text) => saveNote(lesson.id, text)}
+              onClose={() => setSelected('concept')}
+              showHeader
+            />
+          </div>
         ) : selectedStep ? (
           <div className="demo-step-detail">
             <div className="demo-step-detail-header">
@@ -111,7 +137,6 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
 
         {selected === 'concept' && desktopBlocked && <DesktopOnlyGate />}
 
-        {/* Docker prerequisite gate — only relevant when on Concept view */}
         {selected === 'concept' && needsDockerGate && !desktopBlocked && (
           <PrerequisiteGate
             endpoints={dockerEndpoints}
@@ -122,7 +147,6 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
           />
         )}
 
-        {/* Footer — always visible; step nav on left, Start Demo pinned right */}
         <div className="demo-lesson-player-footer">
           {typeof selected === 'number' ? (
             <div className="demo-step-detail-nav">
@@ -144,10 +168,9 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
               )}
             </div>
           ) : (
-            // Empty left side when on Concept view — keeps Start Demo right-aligned
             <span />
           )}
-          {startBtn}
+          {selected !== 'notes' && startBtn}
         </div>
       </div>
     </div>

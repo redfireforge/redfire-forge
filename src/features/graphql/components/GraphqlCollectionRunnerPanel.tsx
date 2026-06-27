@@ -7,9 +7,16 @@
  * Controls: Pause/Resume, Abort, Export results as JSON.
  */
 
-import { useCallback, useState } from 'react';
-import type { CollectionRunEvent, GraphqlCollectionItem, ScriptLogEntry } from '../../../shared/types/graphql';
+import { useCallback, useMemo, useState } from 'react';
+import type { CollectionRunEvent, GraphqlCollectionItem } from '../../../shared/types/graphql';
 import type { UseGraphqlCollectionRunnerResult } from '../hooks/useGraphqlCollectionRunner';
+import { saveJsonFile } from '../../../shared/utils/fileSaver';
+import {
+  buildRunnerConsoleEntries,
+  buildRunnerExportPayload,
+  isRunnerResultEvent,
+  runnerExportFilename,
+} from '../utils/runnerPanelUtils';
 
 export interface GraphqlCollectionRunnerPanelProps {
   runner: UseGraphqlCollectionRunnerResult;
@@ -19,48 +26,84 @@ export interface GraphqlCollectionRunnerPanelProps {
   onClose?: () => void;
 }
 
+function RunnerCloseIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+      <path
+        d="M2.5 2.5l7 7M9.5 2.5l-7 7"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 export function GraphqlCollectionRunnerPanel({
   runner,
   items,
   collectionName,
   onClose,
 }: GraphqlCollectionRunnerPanelProps) {
-  const { state, pause, resume, abort, exportResults } = runner;
+  const { state, pause, resume, abort } = runner;
   const [activeTab, setActiveTab] = useState<'results' | 'console'>('results');
   const [clearBefore, setClearBefore] = useState<number>(0);
+  const [exporting, setExporting] = useState(false);
 
-  const handleExport = useCallback(() => {
-    const json = exportResults();
-    const blob = new Blob([json], { type: 'application/json' });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement('a');
-    a.href     = url;
-    a.download = `runner-results-${Date.now()}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-  }, [exportResults]);
+  const itemMap = useMemo(() => new Map(items.map((i) => [i.id, i])), [items]);
+  const itemNameById = useMemo(
+    () => new Map(items.map((i) => [i.id, i.name])),
+    [items],
+  );
 
-  const itemMap = new Map(items.map((i) => [i.id, i]));
-  const resultEvents = state.events.filter((e) => e.type === 'result' || e.type === 'error' || e.type === 'skip');
-  const passCount  = resultEvents.filter((e) => e.type === 'result').length;
-  const failCount  = resultEvents.filter((e) => e.type === 'error').length;
-  const skipCount  = resultEvents.filter((e) => e.type === 'skip').length;
+  const resultEvents = useMemo(
+    () => state.events.filter(isRunnerResultEvent),
+    [state.events],
+  );
 
-  // Aggregate all log entries from all result events for the console tab
-  const allLogs: Array<ScriptLogEntry & { itemName: string }> = resultEvents.flatMap((evt) =>
-    (evt.logs ?? []).map((log) => ({
-      ...log,
-      itemName: itemMap.get(evt.itemId)?.name ?? evt.itemId,
-    })),
+  const passCount = resultEvents.filter((e) => e.type === 'result').length;
+  const failCount = resultEvents.filter((e) => e.type === 'error').length;
+  const skipCount = resultEvents.filter((e) => e.type === 'skip').length;
+
+  const allLogs = useMemo(
+    () => buildRunnerConsoleEntries(state.events, itemNameById),
+    [state.events, itemNameById],
   );
   const visibleLogs = clearBefore > 0 ? allLogs.filter((l) => l.timestamp > clearBefore) : allLogs;
   const logCount = visibleLogs.length;
+
+  const handleExport = useCallback(async () => {
+    setExporting(true);
+    try {
+      const payload = buildRunnerExportPayload(collectionName, state.events);
+      await saveJsonFile(payload, runnerExportFilename(collectionName));
+    } catch {
+      // User cancelled the save dialog — no action needed.
+    } finally {
+      setExporting(false);
+    }
+  }, [collectionName, state.events]);
+
+  const statusBadge = state.running
+    ? { label: 'Running', className: 'gql-runner-status-badge--running' }
+    : state.aborted
+      ? { label: 'Aborted', className: 'gql-runner-status-badge--aborted' }
+      : resultEvents.length > 0
+        ? { label: 'Complete', className: 'gql-runner-status-badge--complete' }
+        : null;
 
   return (
     <div className="gql-runner-panel" data-testid="gql-runner-panel">
       {/* Header */}
       <div className="gql-runner-header">
-        <span className="gql-runner-title">Running: {collectionName}</span>
+        <div className="gql-runner-header-main">
+          <span className="gql-runner-title" data-testid="gql-runner-title">{collectionName}</span>
+          {statusBadge && (
+            <span className={`gql-runner-status-badge ${statusBadge.className}`} data-testid="gql-runner-status-badge">
+              {statusBadge.label}
+            </span>
+          )}
+        </div>
         <div className="gql-runner-controls">
           {state.running && !state.paused && (
             <button type="button" className="gql-runner-btn" onClick={pause} data-testid="gql-runner-pause">Pause</button>
@@ -72,21 +115,29 @@ export function GraphqlCollectionRunnerPanel({
             <button type="button" className="gql-runner-btn gql-runner-btn--danger" onClick={abort} data-testid="gql-runner-abort">Abort</button>
           )}
           {!state.running && resultEvents.length > 0 && (
-            <button type="button" className="gql-runner-btn" onClick={handleExport} data-testid="gql-runner-export">Export JSON</button>
-          )}
-          {onClose && (
             <button
               type="button"
-              className="gql-runner-btn gql-runner-btn--close"
-              onClick={onClose}
-              title="Close runner panel"
-              aria-label="Close runner panel"
-              data-testid="gql-runner-close"
+              className="gql-runner-btn gql-runner-btn--export"
+              onClick={() => { handleExport().catch(() => {}); }}
+              disabled={exporting}
+              data-testid="gql-runner-export"
             >
-              ✕
+              {exporting ? 'Exporting…' : 'Export JSON'}
             </button>
           )}
         </div>
+        {onClose && (
+          <button
+            type="button"
+            className="gql-runner-close-btn"
+            onClick={onClose}
+            title="Close runner panel"
+            aria-label="Close runner panel"
+            data-testid="gql-runner-close"
+          >
+            <RunnerCloseIcon />
+          </button>
+        )}
       </div>
 
       {/* Summary row */}
@@ -151,7 +202,7 @@ export function GraphqlCollectionRunnerPanel({
       {activeTab === 'console' && (
         <div className="gql-runner-console" data-testid="gql-runner-console">
           <div className="gql-runner-console-toolbar">
-            <span className="gql-runner-console-label">Script output</span>
+            <span className="gql-runner-console-label">Run log</span>
             {visibleLogs.length > 0 && (
               <button
                 type="button"
@@ -165,13 +216,23 @@ export function GraphqlCollectionRunnerPanel({
             )}
           </div>
           {visibleLogs.length === 0 ? (
-            <div className="gql-runner-console-empty">
-              {state.running ? 'Waiting for script output…' : 'No script output for this run.'}
+            <div className="gql-runner-console-empty" data-testid="gql-runner-console-empty">
+              {state.running
+                ? 'Waiting for run output…'
+                : 'No run output yet. Execute a collection to see results here.'}
+              {!state.running && (
+                <p className="gql-runner-console-hint">
+                  Script messages from <code>rf.log()</code>, <code>rf.warn()</code>, and{' '}
+                  <code>rf.error()</code> appear here when item scripts are configured.
+                </p>
+              )}
             </div>
           ) : (
             visibleLogs.map((log, i) => (
               <div key={i} className={`gql-runner-console-line gql-runner-console-line--${log.level}`}>
-                <span className="gql-runner-console-time">{new Date(log.timestamp).toLocaleTimeString()}</span>
+                <span className="gql-runner-console-time">
+                  {log.timestamp > 0 ? new Date(log.timestamp).toLocaleTimeString() : '—'}
+                </span>
                 <span className="gql-runner-console-item">[{log.itemName}]</span>
                 <span className="gql-runner-console-msg">{log.message}</span>
               </div>

@@ -4,7 +4,6 @@ import type { DemoActionContext } from '../../../types';
 import { GQL } from '@shared/selectors';
 import {
   ensureEditorMode as ensureCoreEditorMode,
-  ensureIntrospected,
   ensureVariablesPanelOpen,
   fillGqlEditor,
   fillGqlVariables,
@@ -20,9 +19,11 @@ import {
   openResponseBodyTab,
   ensureResponseCreateUserVisible,
   ensureResponseCreateOrderVisible,
+  ensureResponseDeleteUserVisible,
   clearActiveTabEndpointOverride,
   configureDemoTabEndpointOverride,
   openSchemaTabWhenCached,
+  resetDemoTabToPlainHttp,
 } from './core';
 import { closeGqlDemoTabs, ensureGqlDemoTab } from './gql-demo-tab';
 
@@ -123,15 +124,25 @@ async function focusResponsePane(ctx: DemoActionContext): Promise<void> {
   await ctx.delay(200);
 }
 
-/** Introspect when needed but keep the Response pane visible (for editor-focused steps). */
-async function ensureGql3SchemaReadyQuiet(ctx: DemoActionContext): Promise<void> {
-  await prepareGql3IntrospectReading(ctx);
+type Gql3QuietPane = 'response' | 'schema';
+
+/** Introspect when needed, then open Response (default) or keep Schema visible. */
+async function ensureGql3SchemaReadyQuiet(
+  ctx: DemoActionContext,
+  opts: { pane?: Gql3QuietPane } = {},
+): Promise<void> {
+  const pane = opts.pane ?? 'response';
+  await prepareGql3IntrospectReading(ctx, { focusResponse: pane === 'response' });
   if (!hasUsableSchemaBadge()) {
     await ctx.click(GQL.INTROSPECT_BTN);
     await ctx.waitFor(GQL.SCHEMA_BADGE_OK, 25000);
     await ctx.delay(800);
   }
-  await focusResponsePane(ctx);
+  if (pane === 'schema') {
+    await openSchemaTabWhenCached(ctx);
+  } else {
+    await focusResponsePane(ctx);
+  }
 }
 
 async function clickExecuteAndWait(ctx: DemoActionContext): Promise<void> {
@@ -147,7 +158,7 @@ async function ensureEditorMode(ctx: DemoActionContext): Promise<void> {
 
 /** Ensure createUser mutation is in the editor. */
 export async function ensureCreateUserMutation(ctx: DemoActionContext): Promise<void> {
-  await ensureIntrospected(ctx);
+  await ensureGql3SchemaReadyQuiet(ctx);
   await ensureEditorMode(ctx);
   const current = getGqlEditorQuery();
   if (_createMutationWritten && current.includes('createUser')) return;
@@ -325,6 +336,7 @@ export async function ensureDeleteUserMutation(ctx: DemoActionContext): Promise<
  */
 export async function prepareGql3IntroReading(ctx: DemoActionContext): Promise<void> {
   await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
+  await resetDemoTabToPlainHttp(ctx);
   await ensureEditorMode(ctx);
   await focusResponsePane(ctx);
 }
@@ -342,7 +354,10 @@ export async function prepareGql3EndpointReading(ctx: DemoActionContext): Promis
  * Step 3 reading guard — literal demo endpoint, clear stale "Schema loaded (0)" badge,
  * and keep the Response pane visible so the Introspect spotlight matches the narration.
  */
-export async function prepareGql3IntrospectReading(ctx: DemoActionContext): Promise<void> {
+export async function prepareGql3IntrospectReading(
+  ctx: DemoActionContext,
+  opts: { focusResponse?: boolean } = {},
+): Promise<void> {
   await ctx.waitFor(GQL.ENDPOINT_INPUT, 5000);
   const input = getEndpointInput();
   if (!input?.value.includes('4010')) {
@@ -351,7 +366,9 @@ export async function prepareGql3IntrospectReading(ctx: DemoActionContext): Prom
   if (schemaBadgeShowsEmpty()) {
     await configureDemoTabEndpointOverride(ctx, GQL_DEMO_HTTP);
   }
-  await focusResponsePane(ctx);
+  if (opts.focusResponse !== false) {
+    await focusResponsePane(ctx);
+  }
 }
 
 /** Step 3 action — click Introspect; badge read happens on the observe step. */
@@ -397,9 +414,9 @@ export async function runGql3SchemaMutationsAction(ctx: DemoActionContext): Prom
   await ctx.delay(1200);
 }
 
-/** Step 5 reading — introspected schema, default query in editor, Response pane empty. */
+/** Step 6 reading — introspected schema, Mutation explorer visible, placeholder query in editor. */
 export async function prepareGql3WriteCreateReading(ctx: DemoActionContext): Promise<void> {
-  await ensureGql3SchemaReadyQuiet(ctx);
+  await ensureGql3SchemaReadyQuiet(ctx, { pane: 'schema' });
   await ensureEditorMode(ctx);
   const current = getGqlEditorQuery();
   if (!current.includes('createUser')) {
@@ -500,7 +517,7 @@ export async function prepareGql3ExecDeleteReading(ctx: DemoActionContext): Prom
 export async function prepareGql3ObserveDeleteReading(ctx: DemoActionContext): Promise<void> {
   await ensureDeleteFirstExecuted(ctx);
   await openResponseBodyTab(ctx);
-  await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+  await ensureResponseDeleteUserVisible(ctx);
 }
 
 /** Step 16 reading — wired delete ready for second execute. */
@@ -524,7 +541,7 @@ export async function ensureSecondDeleteExecuted(ctx: DemoActionContext): Promis
 export async function prepareGql3ObserveIdempotencyReading(ctx: DemoActionContext): Promise<void> {
   await ensureSecondDeleteExecuted(ctx);
   await openResponseBodyTab(ctx);
-  await ctx.waitFor(GQL.RESPONSE_BODY, 5000);
+  await ensureResponseDeleteUserVisible(ctx);
 }
 
 /** @deprecated Use prepareGql3IdempotencyExecReading — kept for tests importing the old name. */
@@ -561,6 +578,7 @@ export async function gqlMutationsLessonSetup(ctx: DemoActionContext): Promise<v
     await ctx.delay(200);
   }
   await ensureGqlDemoTab(ctx, 'gql-mutations', 'Mutations — Create, Update, Delete');
+  await resetDemoTabToPlainHttp(ctx);
   await fillGqlEditor(ctx, 'query { }', { focus: false });
   await fillGqlVariables(ctx, '{\n  \n}', { focus: false, openPanel: false });
 }

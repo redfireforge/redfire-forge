@@ -7,7 +7,7 @@
  * Full lesson needs Docker GraphQL on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 9 disables Next — use walkFullGql15Lesson, not runNextStep on the final step.
+ * Last-step rule: step 10 disables Next — use walkFullGql15Lesson, not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';
@@ -60,8 +60,9 @@ test.describe('GQL-15 — full lesson (Docker)', () => {
     expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
     expect(title).toMatch(/Sequential Fallback/i);
 
-    await expect(page.locator('[data-testid="gql-batch-results"]')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[data-testid="gql-history-panel"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="gql-batch-summary-chip"]')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[data-testid="gql-rv-batch-banner"]')).toBeVisible({ timeout: 15_000 });
 
     await takeNamedScreenshot(page, 'gql15-batch-execution-lesson-complete');
     await exitLesson(page);

@@ -67,7 +67,7 @@ export function resolveTabRawEndpoint(
   profiles: ConnectionProfile[],
   pageDefaultEndpoint: string,
 ): string {
-  if (tab.endpoint !== undefined && tab.endpoint.trim()) return tab.endpoint.trim();
+  if (tab.endpoint !== undefined) return tab.endpoint.trim();
   const profile = findProfileById(profiles, tab.connectionId);
   if (profile?.endpoint.trim()) return profile.endpoint.trim();
   return pageDefaultEndpoint;

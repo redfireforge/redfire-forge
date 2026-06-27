@@ -236,9 +236,9 @@ describe('GraphqlAuthForm — inherit and reset', () => {
     expect(screen.getByTestId('gql-auth-inherit-banner').textContent).toMatch(/workspace default/i);
   });
 
-  it('shows inherit banner with profile name when profile-linked tab inherits', () => {
+  it('shows profile edit banner when profile-linked tab inherits', () => {
     renderForm(undefined, vi.fn(), { authScope: 'tab', linkedProfileName: 'Staging' });
-    expect(screen.getByTestId('gql-auth-inherit-banner').textContent).toContain('Staging');
+    expect(screen.getByTestId('gql-auth-inherit-banner').textContent).toMatch(/Editing profile.*Staging/i);
   });
 
   it('shows reset button when tab has auth override', () => {

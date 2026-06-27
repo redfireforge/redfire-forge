@@ -17,10 +17,15 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
-import Editor, { useMonaco } from '@monaco-editor/react';
+import Editor, { useMonaco, type BeforeMount } from '@monaco-editor/react';
 import type * as MonacoType from 'monaco-editor';
 import type { GraphqlScriptConfig, RfResponseContext, ScriptLogEntry, CollectionRunTestResult } from '../../../shared/types/graphql';
 import { createRfContext, runScript, NO_OP_STORE } from '../utils/preRequestScriptRunner';
+import { defineGraphqlTheme, GRAPHQL_THEME_ID } from '../utils/monacoGraphqlSetup';
+
+const handleScriptEditorBeforeMount: BeforeMount = (monaco) => {
+  defineGraphqlTheme(monaco);
+};
 
 // ─── Script template library (3B-4) ───────────────────────────────────────────
 
@@ -300,6 +305,19 @@ export function GraphqlScriptEditorModal({
   }, [open, onClose]);
 
   useModalEscapeClose(handleEscapeClose, { capture: true });
+
+  // Keep script editor background aligned with var(--bg) when the app theme changes.
+  useEffect(() => {
+    if (!monaco) return;
+    defineGraphqlTheme(monaco);
+    monaco.editor.setTheme(GRAPHQL_THEME_ID);
+    const observer = new MutationObserver(() => {
+      defineGraphqlTheme(monaco);
+      monaco.editor.setTheme(GRAPHQL_THEME_ID);
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, [monaco]);
 
   // Register rf.* completions when Monaco is ready and the modal is open.
   // Scoped to open state so the provider is not active on other JS editors in the app
@@ -589,9 +607,10 @@ export function GraphqlScriptEditorModal({
             <Editor
               height="280px"
               language="javascript"
-              theme="vs-dark"
+              theme={GRAPHQL_THEME_ID}
               value={currentScript}
               onChange={handleEditorChange}
+              beforeMount={handleScriptEditorBeforeMount}
               options={{
                 minimap: { enabled: false },
                 fontSize: 13,

@@ -5,7 +5,7 @@
 import { useMemo, useRef, useState, useCallback, lazy, Suspense } from 'react';
 import { useMonaco } from '@monaco-editor/react';
 import { GQL_STUDIO_PROXY_BASE } from './graphqlStudioPageConstants';
-import type { GraphqlHistoryItem } from '../../shared/types/graphql';
+import type { GraphqlHistoryItem, GraphqlAuth } from '../../shared/types/graphql';
 import { GraphqlConnectionBar } from './components/GraphqlConnectionBar';
 import { GqlTabBar } from './components/GqlTabBar';
 import { GraphqlAdvancedSettings } from './components/GraphqlAdvancedSettings';
@@ -53,8 +53,11 @@ import { buildAssertionResultMap } from './utils/subscriptionAssertions';
 import { useGraphqlAdvancedSettings } from './hooks/useGraphqlAdvancedSettings';
 import { useGraphqlBatchExecution } from './hooks/useGraphqlBatchExecution';
 import { useGqlTabResponseCache, resolveActiveTabUploadProgress } from './hooks/useGqlTabResponseCache';
+import { syncBatchResultsToTabResponses } from './utils/syncBatchResultsToTabResponses';
 import { useGqlTabConnectionHandlers } from './hooks/useGqlTabConnectionHandlers';
 import { resolveGqlAuthBadgePresentation } from './utils/authUtils';
+import { findProfileById } from './utils/tabConnectionResolution';
+import { buildStudioTabLinkSlices } from './utils/profileTabUsage';
 import { useGqlExecutionCompletedHandler } from './hooks/useGqlExecutionCompletedHandler';
 import { useGraphqlStudioExecute } from './hooks/useGraphqlStudioExecute';
 import { useGqlVariablesValidation } from './hooks/useGqlVariablesValidation';
@@ -103,7 +106,7 @@ export function GraphqlStudioPage({
     pollingEnabled, pollingIntervalSeconds, handlePollingChange,
     auth, handleAuthChange,
     recentEndpoints, pushRecentEndpoint, removeRecentEndpoint,
-    profiles, saveProfile, deleteProfile, profileModalOpen, setProfileModalOpen,
+    profiles, saveProfile, updateProfile, deleteProfile, profileModalOpen, setProfileModalOpen,
     profilesReady,
     environments, activeEnvironment,
     createEnvironment, deleteEnvironment, setActiveEnvironment,
@@ -128,7 +131,7 @@ export function GraphqlStudioPage({
   const collections = useGraphqlCollections();
   const runner      = useGraphqlCollectionRunner();
 
-  const { cacheExecutionResult, removeTabFromCache, responseCache, setTabUploadProgress } = useGqlTabResponseCache();
+  const { cacheExecutionResult, removeTabFromCache, responseCache, setTabUploadProgress, resolvePaneState } = useGqlTabResponseCache();
 
   const subscription = useGraphqlSubscription();
 
@@ -201,7 +204,15 @@ export function GraphqlStudioPage({
   });
 
   const linkedProfileName = activeTabConnection?.profileName ?? null;
+  const linkedProfile = findProfileById(profiles, activeTab?.connectionId);
   const defaultAuthProfileId = selectedSvc?.authProfileIds?.[selectedEnvId ?? ''] ?? null;
+
+  const updateLinkedProfileAuth = useCallback(
+    (profileId: string, newAuth: GraphqlAuth | null) => {
+      updateProfile(profileId, { auth: newAuth });
+    },
+    [updateProfile],
+  );
 
   const {
     handleConnectionEndpointChange,
@@ -215,6 +226,7 @@ export function GraphqlStudioPage({
     hasActiveTabProfileLink,
     hasActiveTabAuthOverride,
     hasActiveTabConnectionId: Boolean(activeTab?.connectionId),
+    activeConnectionId: activeTab?.connectionId ?? null,
     hasActiveTabSkipTlsOverride,
     hasActiveTabTlsCertOverride,
     hasActiveTabPollingOverride,
@@ -228,12 +240,18 @@ export function GraphqlStudioPage({
     updateActiveTabPolling,
     handleAuthChange,
     updateActiveTabAuth,
+    updateLinkedProfileAuth,
+    clearActiveTabAuth,
   });
 
   const usesPageDefaultAuth =
     tabs.length === 1 && !hasActiveTabAuthOverride && !hasActiveTabProfileLink;
 
-  const storedAuthForPanel = usesPageDefaultAuth ? auth : activeTab?.auth;
+  const storedAuthForPanel = usesPageDefaultAuth
+    ? auth
+    : (activeTab?.auth !== undefined
+      ? activeTab.auth
+      : linkedProfile?.auth);
 
   const authBadgePresentation = useMemo(
     () => resolveGqlAuthBadgePresentation({
@@ -327,6 +345,7 @@ export function GraphqlStudioPage({
     cancel,
     cancelTab,
     resolveDedupChoice,
+    applyTabResult,
     isTabExecuting,
     executionLayers,
   } = useGraphqlStudioTabExecution({
@@ -350,7 +369,6 @@ export function GraphqlStudioPage({
     duplicateSourceTabId,
   } = activeState;
   const executing = execStatus === 'loading';
-  const isActiveTabExecuting = executing;
 
   const activeTabUploadProgress = useMemo(
     () => resolveActiveTabUploadProgress(activeTabId, responseCache),
@@ -410,7 +428,64 @@ export function GraphqlStudioPage({
     onIntrospectComplete,
   });
 
-  useMonacoExecutionMarkers(response, monacoInstance, responseModelUriRef);
+  const syncBatchResultsToResponsePane = useCallback((
+    batchedTabs: Parameters<typeof syncBatchResultsToTabResponses>[0],
+    batchResult: Parameters<typeof syncBatchResultsToTabResponses>[1],
+  ) => {
+    syncBatchResultsToTabResponses(batchedTabs, batchResult, {
+      cacheExecutionResult,
+      applyTabResult,
+    });
+  }, [cacheExecutionResult, applyTabResult]);
+
+  const {
+    batchResult, batchResultsOpen, dismissBatchResults, openBatchResults,
+    batchExecuting,
+    complexityGatePending, setComplexityGatePending,
+    pendingExecuteAfterGateRef, skipComplexityGateRef, sessionBypassComplexityGateRef,
+    effectiveBatchedTabs, batchedTabIdsSet, batchTabOverrides,
+    batchGroups, activeBatchGroupKey, activeBatchGroup, handleSetActiveBatchGroup,
+    handleToggleBatch, handleSendBatch, setBatchTabOverrides,
+    batchEndpointMismatch, batchEndpointReady, batchProfileLinkPending,
+  } = useGraphqlBatchExecution({
+    tabs,
+    activeTabId,
+    activeDemoLessonId,
+    pageDefaultEndpoint: endpoint, profiles, pageDefaultAuth: auth, activeEnvironment, globalEnvMap,
+    pageDefaultSkipTlsVerify: skipTlsVerify,
+    pageDefaultTlsCaCert: tlsCaCert,
+    pageDefaultTlsClientCert: tlsClientCert,
+    pageDefaultTlsClientKey: tlsClientKey,
+    globalAuthProfiles,
+    advSettingsRef, setAdvSettings, setBatchUnsupportedToast,
+    setRightView, gqlProxyBase: GQL_STUDIO_PROXY_BASE,
+    historyConnectionId: tabSchemaConnectionId,
+    saveHistory: history.saveHistory,
+    syncBatchResultsToResponsePane,
+  });
+
+  const responsePaneState = useMemo(() => {
+    const base = resolvePaneState(activeTabId ?? '', execStatus, response);
+    const isBatchingActiveTab =
+      batchExecuting && activeTabId != null && batchedTabIdsSet.has(activeTabId);
+    if (isBatchingActiveTab) {
+      return { response: null, execStatus: 'loading' as const, executing: true };
+    }
+    return base;
+  }, [
+    resolvePaneState,
+    activeTabId,
+    execStatus,
+    response,
+    batchExecuting,
+    batchedTabIdsSet,
+  ]);
+
+  const displayResponse = responsePaneState.response;
+  const displayExecStatus = responsePaneState.execStatus;
+  const isActiveTabExecuting = responsePaneState.executing;
+
+  useMonacoExecutionMarkers(displayResponse, monacoInstance, responseModelUriRef);
   const queryValidationErrorCount = useQueryValidation(
     activeTab?.query ?? '',
     activeTab?.modelUri ?? '',
@@ -432,30 +507,6 @@ export function GraphqlStudioPage({
     () => buildAssertionResultMap(subscription.messages, activeTab?.subscriptionAssertions ?? []),
     [subscription.messages, activeTab?.subscriptionAssertions],
   );
-
-  const {
-    batchResult, setBatchResult, batchExecuting,
-    complexityGatePending, setComplexityGatePending,
-    pendingExecuteAfterGateRef, skipComplexityGateRef, sessionBypassComplexityGateRef,
-    effectiveBatchedTabs, batchedTabIdsSet, batchTabOverrides,
-    batchGroups, activeBatchGroupKey, activeBatchGroup, handleSetActiveBatchGroup,
-    handleToggleBatch, handleSendBatch, setBatchTabOverrides,
-    batchEndpointMismatch, batchEndpointReady, batchProfileLinkPending,
-  } = useGraphqlBatchExecution({
-    tabs,
-    activeTabId,
-    activeDemoLessonId,
-    pageDefaultEndpoint: endpoint, profiles, pageDefaultAuth: auth, activeEnvironment, globalEnvMap,
-    pageDefaultSkipTlsVerify: skipTlsVerify,
-    pageDefaultTlsCaCert: tlsCaCert,
-    pageDefaultTlsClientCert: tlsClientCert,
-    pageDefaultTlsClientKey: tlsClientKey,
-    globalAuthProfiles,
-    advSettingsRef, setAdvSettings, setBatchUnsupportedToast,
-    setRightView, gqlProxyBase: GQL_STUDIO_PROXY_BASE,
-    historyConnectionId: tabSchemaConnectionId,
-    saveHistory: history.saveHistory,
-  });
 
   const {
     handleAdvSettingsSave,
@@ -691,6 +742,13 @@ export function GraphqlStudioPage({
           profileModalOpen,
           onProfileModalClose: () => setProfileModalOpen(false),
           profiles,
+          studioTabs: buildStudioTabLinkSlices(
+            tabs,
+            profiles,
+            endpoint,
+            pageDefaultEndpointResolved,
+          ),
+          activeTabId,
           activeConnectionId: activeTab?.connectionId ?? null,
           endpoint: resolvedTabEndpoint,
           auth: resolvedTabAuth,
@@ -813,9 +871,9 @@ export function GraphqlStudioPage({
             defaultAuthProfileId={defaultAuthProfileId}
             rightView={rightView}
             onRightViewChange={setRightView}
-            response={response}
+            response={displayResponse}
             isActiveTabExecuting={isActiveTabExecuting}
-            execStatus={execStatus}
+            execStatus={displayExecStatus}
             schemaStatus={schemaStatus}
             schemaErrorMessage={schemaErrorMessage}
             onIntrospect={handleIntrospect}
@@ -834,13 +892,16 @@ export function GraphqlStudioPage({
             onExportSubscription={handleExportSubscription}
             onStopSubscription={handleStopSubscription}
             onResubscribeSubscription={handleSubscribe}
+            onOpenBatchResults={batchResult ? openBatchResults : undefined}
+            batchExecuting={batchExecuting && activeTabId != null && batchedTabIdsSet.has(activeTabId)}
           />
         </div>
       </div>
 
       <GraphqlStudioPageOverlays
         batchResult={batchResult}
-        setBatchResult={setBatchResult}
+        batchResultsOpen={batchResultsOpen}
+        dismissBatchResults={dismissBatchResults}
         schemaDiffToast={schemaDiffToast}
         snapshots={snapshots}
         toastBaselineSnapshotIdRef={toastBaselineSnapshotIdRef}
