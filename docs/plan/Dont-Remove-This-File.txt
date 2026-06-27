@@ -285,13 +285,14 @@ Or close Phase 6 and open a new plan section (e.g. Phase 7) for whatever comes n
 Otherwise the natural next focus is graphql-demo-lesson-enhancement.md Phase 7 (GQL-19 first), or Phases 1–3 polish on existing lessons before new ones.
 
 --------------------------------------------------------------------------
-GQL-5 TLS / mTLS — 2026-06-22 (plan sync)
+GQL-5 TLS / mTLS — 2026-06-27 (plan sync)
 
-Completed: 12-step lesson (skip-cert → CA → mTLS), studio TLS proxy, page PEM persistence,
-dual Docker health gate (4444+4446), demo E2E shell + full Docker walk ✅, tlsAgent consolidation, GET PEM hardening.
-Demo E2E GQL-14 + GQL-15 ✅. GQL-14 7C (profiles+polling) + GQL-16 §9.2–9.3 (Console/Debug) ✅.
+Completed: **18-step** lesson (skip-cert **4–6** → auth-on-TLS **7–9** → CA **10–12** → mTLS **13–16** → restore **17–18**),
+**10 min** estimate, studio TLS proxy, page PEM persistence, dual Docker health gate (4444+4446),
+demo E2E shell + full Docker walk ✅ (18 steps), tlsAgent consolidation, GET PEM hardening.
+§11.0 acceptance E2E ✅ (gql110 4/4). GQL-5 Tauri human ✅ (2026-06-26). GQL-7 Tauri human ✅.
 Docker tip: use curl --noproxy '*' or NO_PROXY='*' for 127.0.0.1 health probes behind corporate proxy.
-Pending: Phase 8 human Web+Tauri pass (GQL-5 mTLS steps 9–11), §11.0 acceptance E2E, enhancement pass GQL-4..13 remainder.
+Pending: Phase 8 Web manual 1× for GQL-5 (Tauri done); remaining Tauri/Web lessons per phase8 checklist.
 Details: docs/plan/future/graphql/graphql-demo-lesson-enhancement.md · gql5-phase8-validation-checklist.md
 
 

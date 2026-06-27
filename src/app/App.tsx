@@ -94,6 +94,7 @@ export default function App() {
     DEMO_HUB_ENABLED ? wfHook.insert : undefined,
     DEMO_HUB_ENABLED ? wfHook.select : undefined,
     DEMO_HUB_ENABLED ? wfHook.loaded : false,
+    DEMO_HUB_ENABLED ? wfHook.update : undefined,
   );
   const {
     previewWorkflow,

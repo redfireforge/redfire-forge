@@ -104,6 +104,8 @@ export interface GraphqlStudioSplitWorkspaceProps {
   onExportSubscription: () => void;
   onStopSubscription: () => void;
   onResubscribeSubscription: () => void;
+  onOpenBatchResults?: () => void;
+  batchExecuting?: boolean;
 }
 
 export function GraphqlStudioSplitWorkspace({
@@ -175,6 +177,8 @@ export function GraphqlStudioSplitWorkspace({
   onExportSubscription,
   onStopSubscription,
   onResubscribeSubscription,
+  onOpenBatchResults,
+  batchExecuting = false,
 }: GraphqlStudioSplitWorkspaceProps) {
   const runnerTree = runnerCollectionId
     ? collections.trees.find((t) => t.collection.id === runnerCollectionId)
@@ -369,6 +373,8 @@ export function GraphqlStudioSplitWorkspace({
             onOpenDiff={onOpenDiff}
             deprecatedUsages={deprecatedUsages}
             onOpenCollectionItem={onOpenCollectionItem}
+            onOpenBatchResults={onOpenBatchResults}
+            batchExecuting={batchExecuting}
             subscriptionLog={
               activeTab.operationType === 'subscription' && subscription.state !== 'idle'
                 ? {

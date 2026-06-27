@@ -6,6 +6,8 @@ import { gqlWorkflowIntegrationLesson } from './graphql-workflow-integration';
 import { makeCtx } from './ws-test-utils';
 import { GQL, WF } from '@shared/selectors';
 import {
+  GQL_DEMO_HTTP,
+  GQL_DEMO_VAR,
   LESSON11_LATENCY_VAR,
   LESSON11_WF_NAME,
   resetGqlLesson11SessionFlags,
@@ -18,7 +20,6 @@ import {
   ensureLesson11WorkflowCreated,
   ensureLesson11ConsoleOpen,
   ensureLesson11DebugRun,
-  GQL_DEMO_HTTP,
 } from './graphql-lesson-helpers';
 
 describe('gql-workflow-integration lesson', () => {
@@ -358,7 +359,7 @@ describe('gql-workflow-integration lesson', () => {
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     await ensureLesson11QueryNodeAdded(ctx);
     await ensureLesson11QueryConfigured(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ENDPOINT_INPUT, expect.stringContaining('4010'));
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ENDPOINT_INPUT, GQL_DEMO_VAR);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_QUERY_EDITOR, expect.stringContaining('health'));
     expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_OUTPUT_VARNAME, LESSON11_LATENCY_VAR);
   });
@@ -371,7 +372,7 @@ describe('gql-workflow-integration lesson', () => {
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-config-query')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ENDPOINT_INPUT, expect.stringContaining('4010'));
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.WF_ENDPOINT_INPUT, GQL_DEMO_VAR);
   });
 
   it('gql11-assert-node adds assert block from palette', async () => {
@@ -655,11 +656,16 @@ describe('gql-workflow-integration lesson', () => {
     (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = vi.fn();
     (window as unknown as Record<string, unknown>).__wfConnect = vi.fn();
     const patchSpy = vi.fn(() => true);
+    const varsPatchSpy = vi.fn(() => true);
     (window as unknown as Record<string, unknown>).__wfPatchNodeDataByType = patchSpy;
+    (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName = varsPatchSpy;
     await ensureLesson11QueryConfigured(ctx);
     expect(patchSpy).toHaveBeenCalledWith('graphqlQuery', expect.objectContaining({
-      endpoint: GQL_DEMO_HTTP,
+      endpoint: GQL_DEMO_VAR,
       query: 'query { health }',
+    }));
+    expect(varsPatchSpy).toHaveBeenCalledWith(LESSON11_WF_NAME, expect.objectContaining({
+      variables: { graphqlUrl: GQL_DEMO_HTTP },
     }));
   });
 
@@ -840,11 +846,12 @@ function mockLesson11WorkflowBridge(thresholdMs = '2000'): void {
   (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) => {
     if (name !== LESSON11_WF_NAME) return null;
     return {
+      variables: { graphqlUrl: GQL_DEMO_HTTP },
       nodes: [
         {
           type: 'graphqlQuery',
           data: {
-            endpoint: GQL_DEMO_HTTP,
+            endpoint: GQL_DEMO_VAR,
             query: 'query { health }',
             outputBindings: [{ field: 'latencyMs', variableName: LESSON11_LATENCY_VAR, enabled: true }],
           },

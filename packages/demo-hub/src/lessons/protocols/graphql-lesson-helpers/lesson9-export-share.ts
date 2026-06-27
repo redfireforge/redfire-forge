@@ -155,19 +155,22 @@ export async function ensureHistoryEntryVisible(ctx: DemoActionContext): Promise
   await ctx.delay(400);
 }
 
-/** Open History context menu for the cURL step reading phase (menu stays open for narration). */
+/** History entry visible for cURL step reading phase — keep context menu closed to avoid duplicating its label in narration. */
 export async function prepareGql9CurlReading(ctx: DemoActionContext): Promise<void> {
-  await ensureHistoryEntryVisible(ctx);
-  if (_lesson9CurlCopied) return;
-  if (!document.querySelector(GQL.HISTORY_CTX_COPY_CURL)) {
-    await openHistoryEntryContextMenu(ctx);
+  if (!document.querySelector(GQL.HISTORY_ENTRY)) {
+    await ensureHistoryEntryVisible(ctx);
+  }
+  if (document.querySelector(GQL.HISTORY_CONTEXT_MENU)) {
+    await dismissHistoryContextMenu(ctx);
   }
 }
 
 /** Copy as cURL from History context menu. */
 export async function copyHistoryAsCurl(ctx: DemoActionContext): Promise<void> {
-  await ensureHistoryEntryVisible(ctx);
   if (_lesson9CurlCopied) return;
+  if (!document.querySelector(GQL.HISTORY_ENTRY)) {
+    await ensureHistoryEntryVisible(ctx);
+  }
   if (!document.querySelector(GQL.HISTORY_CTX_COPY_CURL)) {
     await openHistoryEntryContextMenu(ctx);
     await ctx.delay(1200);

@@ -5,7 +5,7 @@
  * count are scoped to the active group. Demo lessons filter groups to demo tabs only.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GraphqlAuth, GraphqlBatchResult, GraphqlError, GraphqlEnvironment } from '../../../shared/types/graphql';
+import type { GraphqlAuth, GraphqlBatchResult, GraphqlEnvironment } from '../../../shared/types/graphql';
 import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
@@ -27,6 +27,13 @@ import {
 import { serializeGqlTlsForProxy } from '../../../shared/types/gqlTls';
 import type { SaveHistoryFn } from '../utils/saveBatchResultsToHistory';
 import { saveBatchResultsToHistory } from '../utils/saveBatchResultsToHistory';
+import {
+  buildBatchNetworkErrorResponse,
+  buildBatchTimeoutOperationResponse,
+  mapProxyResultsToGraphqlBatchResult,
+  stampBatchContextOnBatchResult,
+  type BatchProxyResultItem,
+} from '../utils/buildBatchOperationResponse';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -59,11 +66,20 @@ interface UseGraphqlBatchExecutionParams {
   historyConnectionId?: string | null;
   /** Persist batch operation results to the History sidebar (Phase 3A + 3F). */
   saveHistory?: SaveHistoryFn;
+  /** Push batch results into per-tab response pane state (Phase 3F + 6D). */
+  syncBatchResultsToResponsePane?: (
+    batchedTabs: GqlStudioTab[],
+    batchResult: GraphqlBatchResult,
+  ) => void;
 }
 
 export interface UseGraphqlBatchExecutionResult {
   batchResult: GraphqlBatchResult | null;
   setBatchResult: React.Dispatch<React.SetStateAction<GraphqlBatchResult | null>>;
+  /** Whether the floating batch results panel is visible */
+  batchResultsOpen: boolean;
+  dismissBatchResults: () => void;
+  openBatchResults: () => void;
   batchExecuting: boolean;
   batchExecutingRef: React.RefObject<boolean>;
   complexityGatePending: boolean;
@@ -113,8 +129,10 @@ export function useGraphqlBatchExecution({
   gqlProxyBase,
   historyConnectionId,
   saveHistory,
+  syncBatchResultsToResponsePane,
 }: UseGraphqlBatchExecutionParams): UseGraphqlBatchExecutionResult {
   const [batchResult, setBatchResult] = useState<GraphqlBatchResult | null>(null);
+  const [batchResultsOpen, setBatchResultsOpen] = useState(false);
   const [batchExecuting, setBatchExecuting] = useState(false);
   const batchExecutingRef = useRef(false);
   if (!batchExecuting) batchExecutingRef.current = false;
@@ -261,6 +279,7 @@ export function useGraphqlBatchExecution({
 
     batchExecutingRef.current = true;
     setBatchExecuting(true);
+    setBatchResultsOpen(false);
     setBatchResult(null);
 
     const buildTabHeaders = (tab: GqlStudioTab): Record<string, string> => {
@@ -290,6 +309,14 @@ export function useGraphqlBatchExecution({
       ).catch(() => { /* silent — IDB unavailable */ });
     };
 
+    const finalizeBatchResult = (result: GraphqlBatchResult) => {
+      persistBatchHistory(result);
+      syncBatchResultsToResponsePane?.(effectiveBatchedTabs, result);
+      setBatchResult(result);
+      setBatchResultsOpen(true);
+      setRightView('response');
+    };
+
     const batchOperations = effectiveBatchedTabs.map((t) => ({
       query: t.query,
       variables: (() => {
@@ -302,6 +329,12 @@ export function useGraphqlBatchExecution({
       operationName: t.selectedOperation,
       headers: buildTabHeaders(t),
     }));
+
+    const batchStampCtx = {
+      profiles,
+      pageDefaults: batchConnectionDefaults,
+      globalAuthProfiles,
+    };
 
     void (async () => {
       try {
@@ -320,7 +353,7 @@ export function useGraphqlBatchExecution({
         });
 
         const json = await resp.json() as {
-          results: Array<{ data?: unknown; errors?: unknown[]; _httpStatus?: number; _index?: number }>;
+          results: BatchProxyResultItem[];
           batchUnsupported?: boolean;
           error?: string;
         };
@@ -332,59 +365,39 @@ export function useGraphqlBatchExecution({
           const partialResults = Array.isArray(json.results) && json.results.length > 0
             ? json.results
             : null;
-          const timeoutResult: GraphqlBatchResult = {
-            batchUnsupported: json.batchUnsupported === true,
-            results: effectiveBatchedTabs.map((_, i) => {
-              const partial = partialResults?.[i];
-              if (partial && partial._httpStatus !== 408) {
-                return {
-                  index: i,
-                  operationName: effectiveBatchedTabs[i]?.selectedOperation ?? effectiveBatchedTabs[i]?.label,
-                  response: {
-                    data: (partial.data as unknown) ?? null,
-                    errors: Array.isArray(partial.errors) ? partial.errors as GraphqlError[] : undefined,
-                    httpStatus: typeof partial._httpStatus === 'number' ? partial._httpStatus : 200,
-                    httpHeaders: {},
-                    latencyMs: 0,
-                    timestamp: Date.now(),
-                  },
-                };
-              }
-              return {
+          const timeoutResult = stampBatchContextOnBatchResult(
+            {
+              batchUnsupported: json.batchUnsupported === true,
+              results: effectiveBatchedTabs.map((tab, i) => ({
                 index: i,
-                operationName: effectiveBatchedTabs[i]?.selectedOperation ?? effectiveBatchedTabs[i]?.label,
-                response: {
-                  data: null,
-                  errors: [{ message: `Batch timed out after ${displayLabel}` }],
-                  httpStatus: 408,
-                  httpHeaders: {},
-                  latencyMs: displayMs,
-                  timestamp: Date.now(),
-                },
-              };
-            }),
-          };
-          persistBatchHistory(timeoutResult);
-          setBatchResult(timeoutResult);
-          setRightView('response');
+                operationName: tab?.selectedOperation ?? tab?.label,
+                response: buildBatchTimeoutOperationResponse(
+                  batchOperations[i] ?? { query: tab?.query ?? '', headers: {} },
+                  tab,
+                  batchStampCtx,
+                  `Batch timed out after ${displayLabel}`,
+                  {
+                    httpStatus: 408,
+                    latencyMs: displayMs,
+                    partial: partialResults?.[i],
+                  },
+                ),
+              })),
+            },
+            batchOperations,
+            partialResults ?? [],
+          );
+          finalizeBatchResult(timeoutResult);
           return;
         }
 
-        const batchResults: GraphqlBatchResult = {
-          batchUnsupported: json.batchUnsupported === true,
-          results: (json.results ?? []).map((r, i) => ({
-            index: i,
-            operationName: effectiveBatchedTabs[i]?.selectedOperation ?? effectiveBatchedTabs[i]?.label,
-            response: {
-              data: (r.data as unknown) ?? null,
-              errors: Array.isArray(r.errors) ? r.errors as GraphqlError[] : undefined,
-              httpStatus: typeof r._httpStatus === 'number' ? r._httpStatus : 200,
-              httpHeaders: {},
-              latencyMs: 0,
-              timestamp: Date.now(),
-            },
-          })),
-        };
+        const batchResults = mapProxyResultsToGraphqlBatchResult(
+          effectiveBatchedTabs,
+          batchOperations,
+          json.results ?? [],
+          json.batchUnsupported === true,
+          batchStampCtx,
+        );
 
         if (json.batchUnsupported && !advSettingsRef.current.batchUnsupportedDetected) {
           setAdvSettings((prev) => ({ ...prev, batchUnsupportedDetected: true }));
@@ -400,27 +413,27 @@ export function useGraphqlBatchExecution({
           }
         }
 
-        persistBatchHistory(batchResults);
-        setBatchResult(batchResults);
-        setRightView('response');
+        finalizeBatchResult(batchResults);
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Batch request failed';
-        const failedResult: GraphqlBatchResult = {
-          batchUnsupported: false,
-          results: effectiveBatchedTabs.map((_, i) => ({
-            index: i,
-            response: {
-              data: null,
-              errors: [{ message: msg }],
-              httpStatus: 0,
-              httpHeaders: {},
-              latencyMs: 0,
-              timestamp: Date.now(),
-            },
-          })),
-        };
-        persistBatchHistory(failedResult);
-        setBatchResult(failedResult);
+        const failedResult = stampBatchContextOnBatchResult(
+          {
+            batchUnsupported: false,
+            results: effectiveBatchedTabs.map((tab, i) => ({
+              index: i,
+              operationName: tab?.selectedOperation ?? tab?.label,
+              response: buildBatchNetworkErrorResponse(
+                batchOperations[i] ?? { query: tab?.query ?? '', headers: {} },
+                tab,
+                batchStampCtx,
+                msg,
+              ),
+            })),
+          },
+          batchOperations,
+          [],
+        );
+        finalizeBatchResult(failedResult);
       } finally {
         batchExecutingRef.current = false;
         setBatchExecuting(false);
@@ -428,11 +441,21 @@ export function useGraphqlBatchExecution({
     })();
   }, [effectiveBatchedTabs, batchExecuting, batchProfileLinkPending, batchEndpointParity, batchSkipTlsVerify, batchTls,
     activeEnvironment, globalEnvMap, profiles, globalAuthProfiles, batchConnectionDefaults, setRightView, advSettingsRef,
-    setAdvSettings, setBatchUnsupportedToast, gqlProxyBase, historyConnectionId, saveHistory]);
+    setAdvSettings, setBatchUnsupportedToast, gqlProxyBase, historyConnectionId, saveHistory, syncBatchResultsToResponsePane]);
+
+  const dismissBatchResults = useCallback(() => setBatchResultsOpen(false), []);
+  const openBatchResults = useCallback(() => {
+    if (!batchResult) return;
+    setBatchResultsOpen(true);
+    setRightView('response');
+  }, [batchResult, setRightView]);
 
   return {
     batchResult,
     setBatchResult,
+    batchResultsOpen,
+    dismissBatchResults,
+    openBatchResults,
     batchExecuting,
     batchExecutingRef,
     complexityGatePending,

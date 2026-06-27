@@ -501,6 +501,8 @@ describe('gql-auth-headers lesson (14-step config + observe splits)', () => {
     expect(step.description).toContain(LESSON6_GLOBAL_AUTH_PROFILE_NAME);
     expect(step.description.toLowerCase()).toContain('connection profile');
     expect(step.description).toContain(`Inherit (${LESSON6_GLOBAL_AUTH_PROFILE_NAME})`);
+    expect(step.description).toContain('Used by');
+    expect(step.description).toContain('Not linked to any tab');
   });
 
   it('gql6-profile preAction keeps auth tab visible', async () => {

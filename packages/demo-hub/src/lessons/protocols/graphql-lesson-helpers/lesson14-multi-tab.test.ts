@@ -20,6 +20,7 @@ import {
   ensureLesson14ProfileAuthHintVisible,
   ensureLesson14TabProfileLinks,
   ensureLesson14Tab2BadgeHighlight,
+  ensureLesson14IntroReady,
   ensureLesson14PerTabAuthConfigured,
   LESSON14_TAB2_BEARER_TOKEN,
   purgeLesson14ConnectionProfiles,
@@ -29,6 +30,11 @@ import {
   ensureTabProfileLink,
   ensureTabPolling,
   demonstrateLesson14TabPolling,
+  demonstrateLesson14ProfileLinks,
+  demonstrateLesson14SaveProfiles,
+  demonstrateLesson14LoadProfiles,
+  demonstrateLesson14LoadProfilesOnly,
+  demonstrateLesson14ProfileAuthLink,
 } from './lesson14-multi-tab';
 
 const GQL14_DEMO = 'gql-multi-tab';
@@ -82,7 +88,7 @@ function stubProfileDom(): void {
           <option value="bearer">Bearer</option>
         </select>
         <input data-testid="gql-auth-bearer-input" value="" />
-        <p data-testid="gql-auth-inherit-banner">Inheriting auth from profile ${LESSON14_PRODUCTION_PROFILE_NAME}</p>
+        <p data-testid="gql-auth-inherit-banner">Editing profile ${LESSON14_PRODUCTION_PROFILE_NAME}</p>
       </div>
     <button data-testid="gql-polling-config-btn"></button>
     <div data-testid="gql-polling-popover">
@@ -100,6 +106,18 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+  });
+
+  it('ensureLesson14IntroReady closes an open history panel before focusing the tab bar', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
+      <div data-testid="gql-history-panel"></div>
+      <div data-testid="gql-tab-bar"></div>
+    `;
+    await ensureLesson14IntroReady(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_HISTORY);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.TAB_BAR, 5000);
   });
 
   it('renameDemoTabByIndex returns early when tab index is missing', async () => {
@@ -152,6 +170,114 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, LESSON14_PRODUCTION_PROFILE_NAME);
   });
 
+  it('demonstrateLesson14SaveProfiles pauses after save for Not linked hint', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    stubProfileDom();
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.PROFILE_SAVE_BTN) {
+        const list = document.querySelector('.gql-profile-list')!;
+        const name = (document.querySelector<HTMLInputElement>(GQL.PROFILE_NAME_INPUT)?.value ?? '').trim();
+        list.insertAdjacentHTML('beforeend', `
+          <li class="gql-profile-row">
+            <span class="gql-profile-row__name">${name}</span>
+          </li>`);
+      }
+    });
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await demonstrateLesson14SaveProfiles(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, LESSON14_STAGING_PROFILE_NAME);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, LESSON14_PRODUCTION_PROFILE_NAME);
+    expect(ctx.delay).toHaveBeenCalledWith(1500);
+  });
+
+  it('demonstrateLesson14LoadProfiles clicks Load with ripple and pauses on Used by', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    stubProfileDom();
+    document.body.insertAdjacentHTML('beforeend', `
+      <p data-testid="gql-auth-inherit-banner">Editing profile</p>
+    `);
+    document.querySelector('.gql-profile-list')!.insertAdjacentHTML('beforeend', `
+      <li class="gql-profile-row">
+        <span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span>
+        <button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_STAGING_PROFILE_NAME}">Load</button>
+      </li>
+      <li class="gql-profile-row">
+        <span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span>
+        <button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_PRODUCTION_PROFILE_NAME}">Load</button>
+      </li>
+    `);
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await demonstrateLesson14LoadProfiles(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME));
+    expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_PRODUCTION_PROFILE_NAME));
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 5000);
+  });
+
+  it('demonstrateLesson14LoadProfilesOnly clicks Load without opening Auth', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    stubProfileDom();
+    document.querySelector('.gql-profile-list')!.insertAdjacentHTML('beforeend', `
+      <li class="gql-profile-row">
+        <span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span>
+        <button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_STAGING_PROFILE_NAME}">Load</button>
+      </li>
+      <li class="gql-profile-row">
+        <span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span>
+        <button class="gql-profile-btn--load" aria-label="Load profile: ${LESSON14_PRODUCTION_PROFILE_NAME}">Load</button>
+      </li>
+    `);
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await demonstrateLesson14SaveProfiles(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await demonstrateLesson14LoadProfilesOnly(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_STAGING_PROFILE_NAME));
+    expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON14_PRODUCTION_PROFILE_NAME));
+  });
+
+  it('demonstrateLesson14ProfileAuthLink opens inherit banner on Production tab', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    stubProfileDom();
+    document.querySelector('.gql-profile-list')!.innerHTML = `
+      <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_STAGING_PROFILE_NAME}</span><button class="gql-profile-btn--load">Load</button></li>
+      <li class="gql-profile-row"><span class="gql-profile-row__name">${LESSON14_PRODUCTION_PROFILE_NAME}</span><button class="gql-profile-btn--load">Load</button></li>`;
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await demonstrateLesson14LoadProfilesOnly(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await demonstrateLesson14ProfileAuthLink(ctx);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 5000);
+    expect(ctx.delay).toHaveBeenCalledWith(2500);
+  });
+
+  it('demonstrateLesson14ProfileLinks pauses on profile modal for Used by pills', async () => {
+    const ctx = makeCtx();
+    stubTwoTabDom();
+    stubProfileDom();
+    document.body.insertAdjacentHTML('beforeend', `
+      <p data-testid="gql-auth-inherit-banner">Editing profile</p>
+    `);
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.PROFILE_SAVE_BTN) {
+        const list = document.querySelector('.gql-profile-list')!;
+        const name = (document.querySelector<HTMLInputElement>(GQL.PROFILE_NAME_INPUT)?.value ?? '').trim();
+        list.insertAdjacentHTML('beforeend', `
+          <li class="gql-profile-row">
+            <span class="gql-profile-row__name">${name}</span>
+            <button class="gql-profile-btn--load">Load</button>
+          </li>`);
+      }
+    });
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await demonstrateLesson14ProfileLinks(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_BADGE);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.PROFILE_MODAL, 5000);
+    expect(ctx.delay).toHaveBeenCalledWith(2500);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.AUTH_INHERIT_BANNER, 5000);
+  });
+
   it('ensureLesson14PerTabAuthConfigured sets No Auth on tab 1 and Bearer on tab 2', async () => {
     const ctx = makeCtx();
     stubTwoTabDom();
@@ -187,7 +313,7 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
       <button data-testid="gql-bottom-tab-auth" aria-selected="false"></button>
       <button data-testid="gql-auth-badge-btn"></button>
       <div data-testid="gql-auth-panel">
-        <p data-testid="gql-auth-inherit-banner">Inheriting auth from profile</p>
+        <p data-testid="gql-auth-inherit-banner">Editing profile</p>
       </div>
     `);
     document.querySelector('.gql-profile-list')!.innerHTML = `
@@ -213,7 +339,7 @@ describe('lesson14-multi-tab helpers (branch coverage)', () => {
       <button data-testid="gql-bottom-tab-auth" aria-selected="true"></button>
       <button data-testid="gql-auth-badge-btn"></button>
       <div data-testid="gql-auth-panel">
-        <p data-testid="gql-auth-inherit-banner">Inheriting auth from profile</p>
+        <p data-testid="gql-auth-inherit-banner">Editing profile</p>
       </div>
     `);
     document.querySelector('.gql-profile-list')!.innerHTML = `

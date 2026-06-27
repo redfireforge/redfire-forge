@@ -28,5 +28,7 @@ export interface GqlTabExecutionHandle {
   execute: (params: ExecuteParams) => void;
   cancel: UseGraphqlExecution['cancel'];
   resolveDedupChoice: (choice: DedupChoice) => void;
+  /** Apply an external completed result (e.g. batch execution) without re-fetching. */
+  applyResult: (status: ExecutionStatus, response: GraphqlResponse | null) => void;
   getState: () => GqlTabExecutionState;
 }

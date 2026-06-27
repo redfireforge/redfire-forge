@@ -15,6 +15,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GraphqlSchemaInfo } from '../../../shared/types/graphql';
+import { gqlTlsSettingsFromPartial } from '../../../shared/types/gqlTls';
 import { gqlFetch } from '../utils/gqlFetch';
 import { INTROSPECTION_QUERY } from '../utils/graphqlIntrospectionQuery';
 import {
@@ -43,9 +44,29 @@ function classifyError(
   error?: string,
 ): { status: SchemaStatus; message: string } {
   if (error || status === 0) {
+    const detail = error?.trim();
     return {
       status: 'error',
-      message: 'Cannot reach endpoint — check URL and network',
+      message: detail
+        ? `Cannot reach endpoint — ${detail}`
+        : 'Cannot reach endpoint — check URL and network',
+    };
+  }
+  if (
+    body.includes('No required SSL certificate was sent')
+    || body.includes('SSL certificate required')
+    || (status === 400 && /<(?:html|body|center)/i.test(body))
+  ) {
+    return {
+      status: 'error',
+      message:
+        'Client certificate required — open TLS, paste the client cert and key (mTLS), then introspect again',
+    };
+  }
+  if (status === 400) {
+    return {
+      status: 'error',
+      message: 'Bad request (HTTP 400) — check TLS/mTLS settings and endpoint URL',
     };
   }
   if (status === 401) {
@@ -184,7 +205,11 @@ export function useGraphqlSchema(
   options: UseGraphqlSchemaOptions = {},
 ): UseGraphqlSchemaResult {
   const { pollingIntervalMs = 0, onSchemaChanged, skipTlsVerify = false, tls: tlsInput } = options;
-  const tls = tlsInput ?? (skipTlsVerify ? { skipTlsVerify: true } : {});
+  const tls = gqlTlsSettingsFromPartial({
+    ...(tlsInput ?? {}),
+    // mTLS client creds take precedence over legacy skip-cert on the same tab.
+    ...(skipTlsVerify && !tlsInput?.clientCert?.trim() ? { skipTlsVerify: true } : {}),
+  });
 
   const [state, setState] = useState<GraphqlSchemaState>(() => ({
     status: 'idle',
@@ -201,6 +226,9 @@ export function useGraphqlSchema(
   const onSchemaChangedRef = useRef(onSchemaChanged);
   const skipTlsVerifyRef = useRef(skipTlsVerify);
   const tlsRef = useRef(tls);
+  const prevSkipTlsVerifyRef = useRef(skipTlsVerify);
+  const autoIntrospectRetryKeyRef = useRef('');
+  const prevMtlsReadyRef = useRef(false);
   endpointRef.current = endpoint;
   headersRef.current = headers;
   onSchemaChangedRef.current = onSchemaChanged;
@@ -230,6 +258,23 @@ export function useGraphqlSchema(
 
       if (!isPoll) {
         setState((s) => ({ ...s, status: 'loading', introspecting: true, errorMessage: null }));
+      }
+
+      const tlsSnapshot = tlsRef.current;
+      if (/:4445\b/.test(url) && !tlsSnapshot.clientCert?.trim()) {
+        if (thisSeq !== introspectionSeqRef.current || !mountedRef.current) return;
+        if (!isPoll) {
+          setState({
+            status: 'error',
+            schemaInfo: null,
+            rawIntrospection: null,
+            errorMessage:
+              'Client certificate required — open TLS, paste the client cert and key (mTLS), then introspect again',
+            introspecting: false,
+            pollErrorMessage: null,
+          });
+        }
+        return;
       }
 
       try {
@@ -377,6 +422,7 @@ export function useGraphqlSchema(
   // Reset state when endpoint changes (restore from IDB cache when available)
   useEffect(() => {
     introspectionSeqRef.current += 1;
+    autoIntrospectRetryKeyRef.current = '';
     const loadSeq = introspectionSeqRef.current;
     lastSdlHashRef.current = 0;
     let cancelled = false;
@@ -401,6 +447,34 @@ export function useGraphqlSchema(
       cancelled = true;
     };
   }, [endpoint]);
+
+  // Re-introspect when skip-cert is enabled on HTTPS after a prior failure (common on Tauri
+  // when the first attempt ran before skipTlsVerify reached the transport layer).
+  useEffect(() => {
+    const wasSkip = prevSkipTlsVerifyRef.current;
+    prevSkipTlsVerifyRef.current = skipTlsVerify;
+    const url = endpoint.trim().toLowerCase();
+    if (!skipTlsVerify || !url.startsWith('https://') || !url.trim()) return;
+
+    const retryKey = `${endpoint}|skip`;
+    const shouldRetryAfterEnable = !wasSkip && skipTlsVerify;
+    const shouldRetryStaleError =
+      skipTlsVerify && state.status === 'error' && autoIntrospectRetryKeyRef.current !== retryKey;
+    if (!shouldRetryAfterEnable && !shouldRetryStaleError) return;
+
+    autoIntrospectRetryKeyRef.current = retryKey;
+    void runIntrospection(false);
+  }, [skipTlsVerify, endpoint, runIntrospection, state.status]);
+
+  // Re-introspect when mTLS client credentials arrive on the Docker mTLS port (4445).
+  const mtlsReady =
+    /:4445\b/.test(endpoint) && !!tls.clientCert?.trim() && !!tls.clientKey?.trim();
+  useEffect(() => {
+    const wasReady = prevMtlsReadyRef.current;
+    prevMtlsReadyRef.current = mtlsReady;
+    if (!mtlsReady || wasReady) return;
+    void runIntrospection(false);
+  }, [mtlsReady, endpoint, runIntrospection]);
 
   // Schema polling
   useEffect(() => {

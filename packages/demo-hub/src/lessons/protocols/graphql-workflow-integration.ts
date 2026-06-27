@@ -4,6 +4,7 @@ import { GQL, WF } from '@shared/selectors';
 import {
   GQL_DEMO_HEALTH,
   GQL_DEMO_HTTP,
+  GQL_DEMO_VAR,
   LESSON11_LATENCY_VAR,
   LESSON11_PASS_THRESHOLD_MS,
   LESSON11_WF_NAME,
@@ -237,7 +238,7 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
       id: 'gql11-config-query',
       title: 'Configure the Query & Bind Output',
       description:
-        `Double-click the **GraphQL Query** node to open its config panel. On the **Operation** tab, set the endpoint to \`${GQL_DEMO_HTTP}\` and the query to \`query { health }\`.\n\nThen switch to the **Output** tab — this is the node's superpower. Click **+ Add**, select \`latencyMs\` from the field dropdown, and enter \`${LESSON11_LATENCY_VAR}\` as the variable name. Save.\n\nThat single binding makes \`${LESSON11_LATENCY_VAR}\` available in **every** downstream node. Without it, each node is an isolated island; with it, your assert node can gate on real measured performance data.`,
+        `Double-click the **GraphQL Query** node to open its config panel. On the **Operation** tab, set the endpoint to \`${GQL_DEMO_VAR}\` (same template as GraphQL Studio) and the query to \`query { health }\`.\n\nThen switch to the **Output** tab — this is the node's superpower. Click **+ Add**, select \`latencyMs\` from the field dropdown, and enter \`${LESSON11_LATENCY_VAR}\` as the variable name. Save.\n\nUsing \`{{graphqlUrl}}\` instead of a hardcoded URL lets the **Workflow Runner** override the endpoint per run without editing the workflow. The default resolves to \`${GQL_DEMO_HTTP}\` via workflow variables.\n\nThat single binding makes \`${LESSON11_LATENCY_VAR}\` available in **every** downstream node. Without it, each node is an isolated island; with it, your assert node can gate on real measured performance data.`,
       highlight: GQL.WF_QUERY_PANEL,
       preAction: ensureLesson11QueryNodeAdded,
       action: async (ctx) => {

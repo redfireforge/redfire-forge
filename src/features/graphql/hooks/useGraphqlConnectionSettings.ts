@@ -51,6 +51,7 @@ export interface GraphqlConnectionSettingsResult {
   profiles: ReturnType<typeof useGraphqlConnectionProfiles>['profiles'];
   profilesReady: ReturnType<typeof useGraphqlConnectionProfiles>['profilesReady'];
   saveProfile: ReturnType<typeof useGraphqlConnectionProfiles>['saveProfile'];
+  updateProfile: ReturnType<typeof useGraphqlConnectionProfiles>['updateProfile'];
   deleteProfile: ReturnType<typeof useGraphqlConnectionProfiles>['deleteProfile'];
   profileModalOpen: boolean;
   setProfileModalOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -158,7 +159,7 @@ export function useGraphqlConnectionSettings(
   const { endpoints: recentEndpoints, push: pushRecentEndpoint, remove: removeRecentEndpoint } = useRecentEndpoints();
 
   // ── Connection profiles ────────────────────────────────────────────────────
-  const { profiles, profilesReady, saveProfile, deleteProfile } = useGraphqlConnectionProfiles();
+  const { profiles, profilesReady, saveProfile, updateProfile, deleteProfile } = useGraphqlConnectionProfiles();
   const [profileModalOpen, setProfileModalOpen] = useState(false);
 
   // ── Environments ───────────────────────────────────────────────────────────
@@ -248,7 +249,7 @@ export function useGraphqlConnectionSettings(
     pollingEnabled, pollingIntervalSeconds, pollingIntervalMs, handlePollingChange,
     auth, handleAuthChange,
     recentEndpoints, pushRecentEndpoint, removeRecentEndpoint,
-    profiles, profilesReady, saveProfile, deleteProfile, profileModalOpen, setProfileModalOpen,
+    profiles, profilesReady, saveProfile, updateProfile, deleteProfile, profileModalOpen, setProfileModalOpen,
     environments, activeEnvironment,
     createEnvironment, deleteEnvironment, setActiveEnvironment,
     updateEnvironmentName, updateVariables, importEnvironment, exportEnvironment,

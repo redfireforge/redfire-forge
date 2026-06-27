@@ -3,9 +3,9 @@
 import type { DemoActionContext } from '../../../types';
 import { GQL } from '@shared/selectors';
 import {
-  ensureDemoEndpoint,
+  ensureDemoTabDirectHttpEndpoint,
   ensureEditorMode,
-  ensureIntrospected,
+  ensureIntrospectedOnDirectEndpoint,
   closeGqlActivityPanelIfOpen,
   fillGqlEditor,
   getDemoUserAId,
@@ -78,8 +78,7 @@ async function expandSummaryFieldOption(ctx: DemoActionContext, path: string): P
 /** Switch to Builder mode with introspected schema loaded. */
 export async function ensureBuilderMode(ctx: DemoActionContext): Promise<void> {
   await closeGqlActivityPanelIfOpen(ctx);
-  await ensureDemoEndpoint(ctx);
-  await ensureIntrospected(ctx);
+  await ensureIntrospectedOnDirectEndpoint(ctx);
   const active = document.querySelector<HTMLElement>(GQL.MODE_BUILDER)?.classList.contains('gql-mode-btn--active');
   if (!active || !document.querySelector(GQL.QB_FIELD_TREE)) {
     await ctx.click(GQL.MODE_BUILDER);
@@ -370,6 +369,7 @@ export async function gqlQueryBuilderLessonSetup(ctx: DemoActionContext): Promis
   await ensureEditorMode(ctx);
 
   await ensureGqlDemoTab(ctx, 'gql-query-builder', 'Query Builder — Visual Operations');
+  await ensureDemoTabDirectHttpEndpoint(ctx);
   await fillGqlEditor(ctx, '', { focus: false });
   try {
     await seedDemoUsers();

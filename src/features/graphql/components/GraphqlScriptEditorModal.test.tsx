@@ -20,23 +20,39 @@ const MOCK_MONACO = {
     CompletionItemKind: { Method: 1 },
     CompletionItemInsertTextRule: { InsertAsSnippet: 4 },
   },
+  editor: {
+    setTheme: vi.fn(),
+  },
 };
 
 let useMonacoReturnValue: typeof MOCK_MONACO | null = null;
+let _lastMonacoTheme: string | undefined;
+
+vi.mock('../utils/monacoGraphqlSetup', () => ({
+  GRAPHQL_THEME_ID: 'graphql-dark',
+  defineGraphqlTheme: vi.fn(),
+}));
 
 vi.mock('@monaco-editor/react', () => ({
-  default: ({ value, onChange, height }: {
+  default: ({ value, onChange, height, theme, beforeMount }: {
     value?: string;
     onChange?: (val: string | undefined) => void;
     height?: string | number;
-  }) => (
-    <textarea
-      data-testid="mock-monaco-editor"
-      value={value ?? ''}
-      style={{ height: String(height ?? '240px') }}
-      onChange={(e) => onChange?.(e.target.value)}
-    />
-  ),
+    theme?: string;
+    beforeMount?: (monaco: typeof MOCK_MONACO) => void;
+  }) => {
+    _lastMonacoTheme = theme;
+    beforeMount?.(MOCK_MONACO);
+    return (
+      <textarea
+        data-testid="mock-monaco-editor"
+        data-theme={theme}
+        value={value ?? ''}
+        style={{ height: String(height ?? '240px') }}
+        onChange={(e) => onChange?.(e.target.value)}
+      />
+    );
+  },
   useMonaco: () => useMonacoReturnValue,
 }));
 
@@ -62,6 +78,7 @@ vi.mock('../utils/preRequestScriptRunner', () => ({
 
 import { GraphqlScriptEditorModal, type GraphqlScriptEditorModalProps } from './GraphqlScriptEditorModal';
 import { createRfContext, runScript } from '../utils/preRequestScriptRunner';
+import { defineGraphqlTheme } from '../utils/monacoGraphqlSetup';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -92,6 +109,12 @@ describe('GraphqlScriptEditorModal — rendering', () => {
   it('shows "Item Scripts" title for item context', () => {
     render(<GraphqlScriptEditorModal {...makeProps()} />);
     expect(screen.getByText('Item Scripts')).toBeInTheDocument();
+  });
+
+  it('uses the shared GraphQL Monaco theme for the script editor', () => {
+    render(<GraphqlScriptEditorModal {...makeProps()} />);
+    expect(screen.getByTestId('mock-monaco-editor')).toHaveAttribute('data-theme', 'graphql-dark');
+    expect(defineGraphqlTheme).toHaveBeenCalled();
   });
 
   it('shows "Collection Scripts" title for collection context', () => {

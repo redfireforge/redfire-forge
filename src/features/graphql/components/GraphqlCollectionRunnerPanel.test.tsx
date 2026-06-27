@@ -9,6 +9,10 @@ import type { GraphqlCollectionRunnerPanelProps } from './GraphqlCollectionRunne
 import type { CollectionRunEvent, GraphqlCollectionItem } from '../../../shared/types/graphql';
 import type { UseGraphqlCollectionRunnerResult } from '../hooks/useGraphqlCollectionRunner';
 
+vi.mock('../../../shared/utils/fileSaver', () => ({
+  saveJsonFile: vi.fn().mockResolvedValue(undefined),
+}));
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function makeItem(id: string, name: string): GraphqlCollectionItem {
@@ -72,7 +76,7 @@ describe('GraphqlCollectionRunnerPanel', () => {
 
   it('shows the collection name in the header', () => {
     render(<GraphqlCollectionRunnerPanel {...makeDefaultProps()} />);
-    expect(screen.getByText('Running: My Collection')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-runner-title')).toHaveTextContent('My Collection');
   });
 
   it('renders the Results and Console tabs', () => {
@@ -146,43 +150,39 @@ describe('GraphqlCollectionRunnerPanel', () => {
     expect(screen.queryByTestId('gql-runner-export')).not.toBeInTheDocument();
   });
 
-  it('calls exportResults and creates a download link on Export click', () => {
-    const exportResults = vi.fn(() => '[{"op":"test"}]');
-    const runner: UseGraphqlCollectionRunnerResult = {
-      ...makeRunner({ running: false, events: [makeResultEvent('item-1')] }),
-      exportResults,
-    };
-
-    // Mock URL methods
-    const createObjectURL = vi.fn(() => 'blob:mock-url');
-    const revokeObjectURL = vi.fn();
-    global.URL.createObjectURL = createObjectURL;
-    global.URL.revokeObjectURL = revokeObjectURL;
-
-    // Mock the anchor element click - use a real anchor but intercept click
-    const anchorEl = document.createElement('a');
-    const clickSpy = vi.spyOn(anchorEl, 'click').mockImplementation(() => {});
-    const originalCreateElement = document.createElement.bind(document);
-    const createElementSpy = vi.spyOn(document, 'createElement').mockImplementation((tag: string) => {
-      if (tag === 'a') return anchorEl;
-      return originalCreateElement(tag);
+  it('calls saveJsonFile with export payload on Export click', async () => {
+    const { saveJsonFile } = await import('../../../shared/utils/fileSaver');
+    const runner = makeRunner({
+      running: false,
+      events: [makeResultEvent('item-1')],
     });
 
-    render(<GraphqlCollectionRunnerPanel {...makeDefaultProps({ runner })} />);
+    render(<GraphqlCollectionRunnerPanel {...makeDefaultProps({ runner, collectionName: 'My Collection' })} />);
     fireEvent.click(screen.getByTestId('gql-runner-export'));
-    expect(exportResults).toHaveBeenCalled();
-    expect(createObjectURL).toHaveBeenCalled();
-    expect(clickSpy).toHaveBeenCalled();
-    expect(revokeObjectURL).toHaveBeenCalledWith('blob:mock-url');
-    createElementSpy.mockRestore();
+    expect(saveJsonFile).toHaveBeenCalledWith(
+      expect.objectContaining({
+        collection: 'My Collection',
+        summary: { passed: 1, failed: 0, skipped: 0 },
+        events: runner.state.events,
+      }),
+      expect.stringMatching(/^runner-results-my-collection-\d+\.json$/),
+    );
   });
 
   // ── Close button ─────────────────────────────────────────────────────────────
 
-  it('shows close button when onClose is provided', () => {
-    const onClose = vi.fn();
-    render(<GraphqlCollectionRunnerPanel {...makeDefaultProps({ onClose })} />);
-    expect(screen.getByTestId('gql-runner-close')).toBeInTheDocument();
+  it('shows Complete badge when run finished', () => {
+    const runner = makeRunner({
+      running: false,
+      events: [makeResultEvent('item-1')],
+    });
+    render(<GraphqlCollectionRunnerPanel {...makeDefaultProps({ runner })} />);
+    expect(screen.getByTestId('gql-runner-status-badge')).toHaveTextContent('Complete');
+  });
+
+  it('uses dedicated close button styling', () => {
+    render(<GraphqlCollectionRunnerPanel {...makeDefaultProps({ onClose: vi.fn() })} />);
+    expect(screen.getByTestId('gql-runner-close')).toHaveClass('gql-runner-close-btn');
   });
 
   it('does not show close button when onClose is not provided', () => {
@@ -229,7 +229,8 @@ describe('GraphqlCollectionRunnerPanel', () => {
       events: [makeResultEvent('item-1')],
     });
     render(<GraphqlCollectionRunnerPanel {...makeDefaultProps({ runner })} />);
-    expect(screen.getByText('Aborted')).toBeInTheDocument();
+    expect(screen.getByTestId('gql-runner-status-badge')).toHaveTextContent('Aborted');
+    expect(document.querySelector('.gql-runner-summary-aborted')).toHaveTextContent('Aborted');
   });
 
   it('shows skip count when skip events exist', () => {
@@ -303,17 +304,34 @@ describe('GraphqlCollectionRunnerPanel', () => {
     expect(screen.getByTestId('gql-runner-console')).toBeInTheDocument();
   });
 
-  it('shows "No script output" message in console tab when no logs', () => {
-    render(<GraphqlCollectionRunnerPanel {...makeDefaultProps()} />);
+  it('shows run summary lines in console when no script logs exist', () => {
+    const runner = makeRunner({
+      events: [makeResultEvent('item-1', { latencyMs: 58, logs: [] })],
+    });
+    render(
+      <GraphqlCollectionRunnerPanel
+        {...makeDefaultProps({
+          runner,
+          items: [makeItem('item-1', 'Lesson 8 Health')],
+        })}
+      />,
+    );
     fireEvent.click(screen.getByTestId('gql-runner-tab-console'));
-    expect(screen.getByText(/No script output for this run/)).toBeInTheDocument();
+    expect(screen.getByText('Completed in 58ms')).toBeInTheDocument();
+    expect(screen.getByText('[Lesson 8 Health]')).toBeInTheDocument();
   });
 
-  it('shows "Waiting for script output…" in console tab when running with no logs', () => {
+  it('shows empty console message when no run has started', () => {
+    render(<GraphqlCollectionRunnerPanel {...makeDefaultProps()} />);
+    fireEvent.click(screen.getByTestId('gql-runner-tab-console'));
+    expect(screen.getByTestId('gql-runner-console-empty')).toHaveTextContent('No run output yet');
+  });
+
+  it('shows waiting message in console tab when running with no output yet', () => {
     const runner = makeRunner({ running: true });
     render(<GraphqlCollectionRunnerPanel {...makeDefaultProps({ runner })} />);
     fireEvent.click(screen.getByTestId('gql-runner-tab-console'));
-    expect(screen.getByText(/Waiting for script output/)).toBeInTheDocument();
+    expect(screen.getByText(/Waiting for run output/)).toBeInTheDocument();
   });
 
   it('shows log entries in console tab', () => {

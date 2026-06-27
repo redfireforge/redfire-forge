@@ -36,6 +36,7 @@ vi.mock('./useGraphqlConnectionProfiles', () => ({
   useGraphqlConnectionProfiles: () => ({
     profiles: [],
     saveProfile: vi.fn(),
+    updateProfile: vi.fn(),
     renameProfile: vi.fn(),
     deleteProfile: vi.fn(),
   }),

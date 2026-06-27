@@ -56,6 +56,7 @@ describe('GraphqlBatchResults — header rendering', () => {
     render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
     expect(screen.getByText('Batch execution')).toBeTruthy();
     expect(screen.getByText('2 operations completed')).toBeTruthy();
+    expect(screen.getByTestId('gql-batch-results-transport').textContent).toContain('JSON array batch');
   });
 
   it('shows correct passed/failed counts for all success', () => {
@@ -75,7 +76,7 @@ describe('GraphqlBatchResults — header rendering', () => {
     };
     render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
     expect(screen.getByText('1 passed')).toBeTruthy();
-    expect(screen.getByText('1 failed')).toBeTruthy();
+    expect(screen.getByTestId('gql-batch-results-failed-pill').textContent).toBe('1 failed');
   });
 
   it('shows "Sequential fallback" badge when batchUnsupported is true', () => {
@@ -188,7 +189,7 @@ describe('GraphqlBatchResults — operation card rendering', () => {
       }],
     };
     render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
-    expect(screen.queryByText(/HTTP/)).toBeNull();
+    expect(screen.queryByText('HTTP 0')).toBeNull();
   });
 });
 
@@ -339,5 +340,30 @@ describe('GraphqlBatchResults — testid', () => {
     };
     render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
     expect(document.querySelector('[data-testid="gql-batch-results"]')).toBeTruthy();
+    expect(document.querySelector('[data-testid="gql-batch-results-overlay"]')).toBeTruthy();
+  });
+
+  it('drag on header moves the panel offset', () => {
+    const result: GraphqlBatchResult = {
+      batchUnsupported: false,
+      results: [makeSuccessResult(0)],
+    };
+    render(<GraphqlBatchResults result={result} onDismiss={vi.fn()} />);
+    const header = document.querySelector('[data-testid="gql-batch-results-header"]')!;
+    const modal = document.querySelector('[data-testid="gql-batch-results"]') as HTMLElement;
+    const rect = { left: 200, top: 120, width: 640, height: 400 };
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      ...rect,
+      right: rect.left + rect.width,
+      bottom: rect.top + rect.height,
+      x: rect.left,
+      y: rect.top,
+      toJSON: () => ({}),
+    });
+    fireEvent.mouseDown(header, { clientX: 220, clientY: 130 });
+    fireEvent.mouseMove(window, { clientX: 280, clientY: 170 });
+    fireEvent.mouseUp(window);
+    expect(modal.style.left).toBe('260px');
+    expect(modal.style.top).toBe('160px');
   });
 });

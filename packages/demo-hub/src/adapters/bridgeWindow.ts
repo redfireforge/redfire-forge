@@ -21,6 +21,10 @@ export type DemoBridgeWindow = Window &
     __wfInsertWorkflow?: (wf: Record<string, unknown>) => void;
     __wfGetWorkflowByName?: (name: string) => unknown;
     __wfSelectByName?: (name: string) => boolean;
+    __wfPatchWorkflowByName?: (
+      name: string,
+      patch: Record<string, unknown>,
+    ) => boolean;
     __wfWorkflowsLoaded?: boolean;
     __wfOpenNodeConfig?: (nodeId: string) => void;
     __wfDeselectAll?: () => void;

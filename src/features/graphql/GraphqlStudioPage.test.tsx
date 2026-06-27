@@ -173,6 +173,7 @@ const mocks = vi.hoisted(() => {
       profiles: [],
       profilesReady: true,
       saveProfile: vi.fn(),
+      updateProfile: vi.fn(),
       deleteProfile: vi.fn(),
       profileModalOpen: false,
       setProfileModalOpen: vi.fn(),
@@ -278,6 +279,15 @@ const mocks = vi.hoisted(() => {
       removeTabFromCache,
       responseCache,
       setTabUploadProgress,
+      resolvePaneState: (
+        tabId: string,
+        status: 'idle' | 'loading' | 'success' | 'error',
+        response: unknown,
+      ) => ({
+        response,
+        execStatus: status,
+        executing: status === 'loading',
+      }),
     })),
     useGraphqlSubscription: vi.fn(() => ({
       state: 'idle' as 'idle' | 'connecting' | 'active',
@@ -404,6 +414,9 @@ const mocks = vi.hoisted(() => {
     useGraphqlBatchExecution: vi.fn(() => ({
       batchResult: null as unknown,
       setBatchResult: vi.fn(),
+      batchResultsOpen: false,
+      dismissBatchResults: vi.fn(),
+      openBatchResults: vi.fn(),
       batchExecuting: false,
       complexityGatePending: false,
       setComplexityGatePending: vi.fn(),
@@ -1002,6 +1015,7 @@ function setupConnection(overrides: Record<string, unknown> = {}) {
     removeRecentEndpoint: vi.fn(),
     profiles: [],
     saveProfile: vi.fn(),
+    updateProfile: vi.fn(),
     deleteProfile: vi.fn(),
     profileModalOpen: false,
     setProfileModalOpen: vi.fn(),
@@ -1037,6 +1051,9 @@ function setupBatch(overrides: Record<string, unknown> = {}) {
   mocks.useGraphqlBatchExecution.mockReturnValue({
     batchResult: null,
     setBatchResult: vi.fn(),
+    batchResultsOpen: false,
+    dismissBatchResults: vi.fn(),
+    openBatchResults: vi.fn(),
     batchExecuting: false,
     complexityGatePending: false,
     setComplexityGatePending: vi.fn(),
@@ -2477,11 +2494,15 @@ describe('GraphqlStudioPage', () => {
     });
 
     it('shows batch results overlay and dismisses', () => {
-      const setBatchResult = vi.fn();
-      setupBatch({ batchResult: { results: [] }, setBatchResult });
+      const dismissBatchResults = vi.fn();
+      setupBatch({
+        batchResult: { batchUnsupported: false, results: [] },
+        batchResultsOpen: true,
+        dismissBatchResults,
+      });
       renderPage();
       fireEvent.click(screen.getByTestId('gql-batch-dismiss'));
-      expect(setBatchResult).toHaveBeenCalledWith(null);
+      expect(dismissBatchResults).toHaveBeenCalledTimes(1);
     });
 
     it('shows schema diff modal and closes', () => {

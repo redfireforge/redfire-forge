@@ -41,7 +41,7 @@ export const GQL1_LESSON = { name: 'Your First GraphQL Query', steps: 13 } as co
 export const GQL2_LESSON = { name: 'Variables & Arguments', steps: 18 } as const;
 export const GQL3_LESSON = { name: 'Schema Exploration', steps: 10 } as const;
 export const GQL4_LESSON = { name: 'Authentication & Headers', steps: 14 } as const;
-export const GQL5_LESSON = { name: 'HTTPS, TLS & Certificates', steps: 16 } as const;
+export const GQL5_LESSON = { name: 'HTTPS, TLS & Certificates', steps: 18 } as const;
 export const GQL6_LESSON = { name: 'Mutations — Create, Update, Delete', steps: 19 } as const;
 export const GQL7_LESSON = { name: 'Subscriptions — Real-Time Data', steps: 15 } as const;
 export const GQL8_LESSON = { name: 'Query Builder — Visual Operations', steps: 11 } as const;
@@ -50,8 +50,8 @@ export const GQL10_LESSON = { name: 'Export & Share Queries', steps: 7 } as cons
 export const GQL11_LESSON = { name: 'Performance Tracing', steps: 8 } as const;
 export const GQL12_LESSON = { name: 'Schema Diff & Breaking Changes', steps: 7 } as const;
 export const GQL13_LESSON = { name: 'Mock Server', steps: 15 } as const;
-export const GQL14_LESSON = { name: 'Multi-Tab Workspaces', steps: 10 } as const;
-export const GQL15_LESSON = { name: 'Batch Execution', steps: 9 } as const;
+export const GQL14_LESSON = { name: 'Multi-Tab Workspaces', steps: 12 } as const;
+export const GQL15_LESSON = { name: 'Batch Execution', steps: 10 } as const;
 export const GQL16_LESSON = { name: 'Workflow Integration', steps: 12 } as const;
 export const GQL17_LESSON = { name: 'Workflow Runner & Results', steps: 10 } as const;
 export const GQL18_LESSON = { name: 'Mutation Node in Workflow', steps: 8 } as const;
@@ -1113,10 +1113,10 @@ function makeGqlLessonWalk(lesson: { steps: number }, timeoutFromStep: number) {
   };
 }
 
-/** Play through all 10 GQL-14 steps (multi-tab workspaces). */
+/** Play through all 12 GQL-14 steps (multi-tab workspaces). */
 export const walkFullGql14Lesson = makeGqlLessonWalk(GQL14_LESSON, 2);
 
-/** Play through all 9 GQL-15 steps (batch execution). */
+/** Play through all 10 GQL-15 steps (batch execution). */
 export const walkFullGql15Lesson = makeGqlLessonWalk(GQL15_LESSON, 4);
 
 /** Play through all 10 GQL-16 steps (workflow designer; extended timeouts from Quick Test). */
@@ -1296,56 +1296,56 @@ const GQL12_BASELINE_LABEL = 'Prior release (demo)';
 
 /** Older SDL variant seeded for GQL-12 diff (matches lesson12-schema-diff helper). */
 const GQL12_BASELINE_SDL = `
-  type Query {
-    health: String
-    user(id: ID!): User
-    users: [User!]!
-  }
+type Query {
+  health: String
+  user(id: ID!): User
+  users: [User!]!
+}
 
-  type User {
-    id: ID!
-    name: String!
-  }
+type User {
+  id: ID!
+  name: String!
+}
 
-  input OrderInput {
-    customerId: ID!
-    items: [String!]
-  }
+input OrderInput {
+  customerId: ID!
+  items: [String!]
+}
 
-  type Order {
-    id: ID!
-    status: OrderStatusEnum!
-    customerId: ID!
-  }
+type Order {
+  id: ID!
+  status: OrderStatusEnum!
+  customerId: ID!
+}
 
-  enum OrderStatusEnum {
-    PENDING
-    PROCESSING
-    COMPLETE
-  }
+enum OrderStatusEnum {
+  PENDING
+  PROCESSING
+  COMPLETE
+}
 
-  type OrderStatus {
-    status: OrderStatusEnum!
-    updatedAt: String!
-  }
+type OrderStatus {
+  status: OrderStatusEnum!
+  updatedAt: String!
+}
 
-  type Mutation {
-    createOrder(input: OrderInput!): Order!
-    createUser(name: String!, email: String!): User!
-    deleteUser(id: ID!): DeleteResult!
-  }
+type Mutation {
+  createOrder(input: OrderInput!): Order!
+  createUser(name: String!, email: String!): User!
+  deleteUser(id: ID!): DeleteResult!
+}
 
-  type DeleteResult {
-    success: Boolean!
-  }
+type DeleteResult {
+  success: Boolean!
+}
 
-  type Subscription {
-    orderStatus(orderId: ID!): OrderStatus!
-  }
+type Subscription {
+  orderStatus(orderId: ID!): OrderStatus!
+}
 `;
 
 /** Seed baseline snapshot on normalized endpoint (lesson setup uses localhost — invisible in UI). */
-async function seedGql12BaselineSnapshotForE2e(page: Page): Promise<void> {
+export async function seedGql12BaselineSnapshotForE2e(page: Page): Promise<void> {
   const snapshot = {
     id: `e2e-gql12-baseline-${Date.now()}`,
     connectionId: GQL12_SCHEMA_CONN_ID,

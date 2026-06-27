@@ -80,6 +80,7 @@ export const GQL = {
   RESPONSE_DATA_USER:  '[data-testid="gql-response-data-user"]',
   RESPONSE_DATA_CREATE_USER: '[data-testid="gql-response-data-create-user"]',
   RESPONSE_DATA_CREATE_ORDER: '[data-testid="gql-response-data-create-order"]',
+  RESPONSE_DATA_DELETE_USER: '[data-testid="gql-response-data-delete-user"]',
   RESPONSE_ERRORS:     '[data-testid="gql-response-error-count"]',
   RV_TAB_BODY:         '[data-testid="gql-rv-tab-body"]',
   RV_TAB_METADATA:     '[data-testid="gql-rv-tab-metadata"]',
@@ -142,7 +143,12 @@ export const GQL = {
   PROFILE_SAVE_BTN:    '[data-testid="gql-profile-save-btn"]',
   PROFILE_CLOSE_BTN:   '[data-testid="gql-profile-close-btn"]',
   PROFILE_LOADED_BADGE:'[data-testid="gql-profile-loaded-badge"]',
+  profileLoadBtn: (name: string) => `[aria-label="Load profile: ${name}"]`,
+  PROFILE_ROW_TAB_USAGE: '.gql-profile-row__tab-usage',
   profileRow: (id: string) => `[data-testid="gql-profile-row-${id}"]`,
+  profileTabUsage: (profileId: string) => `[data-testid="gql-profile-tab-usage-${profileId}"]`,
+  profileTabPill: (profileId: string, tabId: string) =>
+    `[data-testid="gql-profile-tab-pill-${profileId}-${tabId}"]`,
   ENV_BADGE:           '[data-testid="gql-env-badge"]',
   ENV_MODAL:           '[data-testid="gql-env-modal"]',
   ENV_CLOSE_BTN:       '[data-testid="gql-env-close-btn"]',
@@ -342,6 +348,9 @@ export const GQL = {
   IMPORT_MODE_DIALOG:  '[data-testid="gql-import-mode-dialog"]',
   IMPORT_MODE_FILE:    '[data-testid="gql-import-mode-file"]',
   IMPORT_MODE_SUMMARY: '[data-testid="gql-import-mode-summary"]',
+  IMPORT_MODE_PREVIEW_TOGGLE: '[data-testid="gql-import-mode-preview-toggle"]',
+  IMPORT_MODE_PREVIEW:       '[data-testid="gql-import-mode-preview"]',
+  IMPORT_MODE_FILE_PREVIEW:  '[data-testid="gql-import-mode-file-preview"]',
   IMPORT_MODE_MERGE:   '[data-testid="gql-import-mode-merge"]',
   COL_CTX_MENU:        '.gql-history-context-menu',
   SAVE_COL_MODAL:      '[data-testid="gql-save-col-modal"]',
@@ -404,6 +413,21 @@ export const GQL = {
   /** "Send Batch (N)" button in the connection bar — appears only when batch mode is enabled. */
   BATCH_EXECUTE_BTN:   '[data-testid="gql-send-batch-btn"]',
   BATCH_RESULTS:       '[data-testid="gql-batch-results"]',
+  BATCH_RESULTS_CLOSE_BTN: '[data-testid="gql-batch-results-close-btn"]',
+  /** One-line transport summary under the batch modal title (array vs sequential fallback). */
+  BATCH_RESULTS_TRANSPORT: '[data-testid="gql-batch-results-transport"]',
+  /** Failed-count pill in the batch results modal header (partial-error runs). */
+  BATCH_RESULTS_FAILED_PILL: '[data-testid="gql-batch-results-failed-pill"]',
+  /** Response pane banner when viewing one operation from a batch run. */
+  RESPONSE_BATCH_BANNER: '[data-testid="gql-rv-batch-banner"]',
+  RESPONSE_BATCH_PILL:   '[data-testid="gql-rv-batch-pill"]',
+  /** Re-opens the floating batch results modal from a tab response slice. */
+  RESPONSE_OPEN_BATCH_RESULTS: '[data-testid="gql-rv-open-batch-results"]',
+  /** Metadata tab batch slot / transport explainer block. */
+  RESPONSE_BATCH_META:   '[data-testid="gql-rv-meta-batch"]',
+  /** Collapsible wire JSON-array body in Metadata (array batch only). */
+  RESPONSE_WIRE_BATCH_BODY: '[data-testid="gql-rv-wire-batch-body"]',
+  RESPONSE_WIRE_BATCH_BODY_TOGGLE: '[data-testid="gql-rv-wire-batch-body-toggle"]',
   /** Phase 6G — batch configuration panel inside Advanced Settings → Batch. */
   ADV_BATCH_PANEL:     '[data-testid="gql-adv-batch-panel"]',
   ADV_BATCH_GROUP_SELECT: '[data-testid="gql-adv-batch-group-select"]',

@@ -6,20 +6,26 @@ import {
   GQL_STUDIO_LESSON_ALLOWED_TABS,
   LESSON15_ERROR_QUERY,
   demonstrateLesson15AddSecondTab,
+  demonstrateLesson15BatchResults,
+  demonstrateLesson15BatchResponseSlice,
   demonstrateLesson15EnableBatch,
   demonstrateLesson15OpenHistory,
   demonstrateLesson15PartialError,
+  demonstrateLesson15RunBatch,
   demonstrateLesson15SelectBatchTabs,
   demonstrateLesson15WriteQueries,
   ensureLesson15BatchEnabled,
   ensureLesson15BothTabsChecked,
-  ensureLesson15Executed,
-  ensureLesson15PartialErrorExecuted,
+  ensureLesson15IntroReady,
   ensureLesson15ReadyToExecute,
   gqlBatchLessonCleanup,
   gqlBatchLessonSetup,
   prepareGql15BatchSelectReading,
+  prepareGql15BatchResultsReading,
+  prepareGql15BatchResponseSliceReading,
   prepareGql15EnableBatchReading,
+  prepareGql15ExportBatchReading,
+  prepareGql15PartialErrorReading,
 } from './graphql-lesson-helpers';
 
 export const gqlBatchExecutionLesson: DemoLesson = {
@@ -29,7 +35,7 @@ export const gqlBatchExecutionLesson: DemoLesson = {
   name: 'Batch Execution',
   description:
     'Send multiple GraphQL operations in a single HTTP request and receive a combined response array — ideal for integration tests and dashboard pre-fetching.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 6,
   initialTab: 'graphql-studio',
   allowedTabs: GQL_STUDIO_LESSON_ALLOWED_TABS,
   /** Two demo tab slots for batch parity teaching (§11.0). */
@@ -76,7 +82,12 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
       {
         term: 'Sequential fallback',
         definition:
-          'When a server does not support JSON array batching, Studio automatically falls back to sending each operation individually and aggregates the results into the Batch Results panel. A "Sequential fallback" badge in the panel header indicates this mode.',
+          'When a server does not support JSON array batching, Studio automatically falls back to sending each operation individually and aggregates the results into the Batch Results panel. A **Sequential fallback** badge and transport line in the modal header indicate this mode; per-tab Response slices show **op N** latency instead of a shared batch time.',
+      },
+      {
+        term: 'Batch response slice',
+        definition:
+          'Each batched tab\'s **Response** pane shows one operation from the batch run — not a separate Execute. A **Batch N/M** banner, transport summary, and **View full batch** link make that clear. The **Metadata** tab adds batch slot, transport mode, and the wire JSON-array body when array batching succeeded.',
       },
       {
         term: 'Batch inclusion',
@@ -242,9 +253,7 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
         'Batch execution sends **multiple GraphQL operations as a single HTTP request** and receives an **array of results** in return. No sequential round-trips — all operations in the batch share one network round-trip.\n\n' +
         '**Why batch instead of individual requests?** Every HTTP request carries overhead: DNS resolution, TLS handshake, and queue time at the load balancer. For N queries, N individual requests multiply this overhead by N. Batch folds all of them into one request, paying the overhead only once. This is especially effective in integration test pipelines (where dozens of "query → assert" cycles run in sequence) and in dashboard pre-fetching (where 5–10 independent queries must all resolve before the page renders). The result is dramatically faster test suites and faster first meaningful paint for data-heavy UIs.',
       highlight: GQL.TAB_BAR,
-      preAction: async (ctx) => {
-        await ctx.waitFor(GQL.TAB_BAR, 5000);
-      },
+      preAction: ensureLesson15IntroReady,
       action: async (ctx) => {
         await ctx.delay(1000);
       },
@@ -311,15 +320,11 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
       id: 'gql15-batch-run',
       title: 'Send Batch Execute',
       description:
-        'The **⚡ Send Batch (2)** button in the connection bar reflects how many operations are checked. Click it — both queries are serialised into a JSON array and sent to the shared endpoint in **one HTTP request**.\n\n' +
-        '**Why does the button show a count?** The count updates live as you check or uncheck operations in Advanced Settings. Uncheck a tab and it drops out of the batch — handy for selective runs. The request body looks like `[{"query":"query { health }"},{"query":"query CheckHealth { health }"}]` — a standard array that RFC-compliant GraphQL servers handle natively.',
+        'The **⚡ Send Batch (2)** button in the connection bar reflects how many operations are checked. Click it — the connection bar shows **Batching…** while the proxy sends one request. Both queries are serialised into a JSON array for a single upstream HTTP POST when the server supports array batching.\n\n' +
+        '**Why does the button show a count?** The count updates live as you check or uncheck operations in Advanced Settings. Uncheck a tab and it drops out of the batch — handy for selective runs. The upstream body looks like `[{"query":"query { health }"},{"query":"query CheckHealth { health }"}]` — a standard array that RFC-compliant GraphQL servers handle natively.',
       highlight: GQL.BATCH_EXECUTE_BTN,
       preAction: ensureLesson15ReadyToExecute,
-      action: async (ctx) => {
-        await ctx.click(GQL.BATCH_EXECUTE_BTN);
-        await ctx.waitFor(GQL.BATCH_RESULTS, 15000);
-        await ctx.delay(1000);
-      },
+      action: demonstrateLesson15RunBatch,
       verify: GQL.BATCH_RESULTS,
       pauseAfter: true,
     },
@@ -329,40 +334,52 @@ RFC-compliant GraphQL servers accept an array body and return an array response.
       id: 'gql15-batch-results',
       title: 'Batch Results Panel',
       description:
-        'The **Batch Results** panel replaces the response area and shows a stacked card per operation. The header reads **"Batch of N — N passed / M failed"** — a single-glance summary. Each card shows the operation name, HTTP status, latency, and response body.\n\n' +
-        '**Why order matters:** Cards follow the checked-tab order left-to-right. For CI snapshots, `results[0]` always maps to the first checked tab regardless of server timing — unlike concurrent individual requests where response order can vary.',
+        'The floating **Batch execution** modal opens with a transport line such as **1 upstream HTTP POST · JSON array batch · N ms total** (or **sequential fallback** when the server rejects array bodies). **N passed / M failed** pills summarise the run; each stacked card shows operation name, HTTP status, latency, and JSON body.\n\n' +
+        '**Why a separate modal?** Batch runs produce N results at once — a single Response pane cannot show them all without hiding context. The modal is the authoritative full-batch view; you can dismiss it and still inspect each tab individually (next step).',
       highlight: GQL.BATCH_RESULTS,
-      preAction: ensureLesson15Executed,
-      action: async (ctx) => {
-        await ctx.delay(1000);
-      },
+      preAction: prepareGql15BatchResultsReading,
+      action: demonstrateLesson15BatchResults,
       verify: GQL.BATCH_RESULTS,
       pauseAfter: true,
     },
 
-    // ── Step 8: Partial Error Handling ────────────────────────────────────────
+    // ── Step 8: Per-Tab Response Slice ────────────────────────────────────────
+    {
+      id: 'gql15-batch-response-slice',
+      title: 'Per-Tab Response Slice',
+      description:
+        'Close the batch modal and switch between tabs. Each tab\'s **Response** pane shows **one operation from the batch** — not a fresh single Execute. Look for the **Batch 1/2** (or **2/2**) banner, the transport summary, and batch-aware latency (**30 ms batch** for array mode, or **4 ms · op 2** in sequential fallback).\n\n' +
+        '**Why this matters:** Without the banner, batch results look like separate Execute clicks — confusing in demos and CI logs. **View full batch** reopens the modal after you dismiss it. Open the **Metadata** tab on any batched tab for batch slot, transport mode, and the **Wire batch body** JSON array sent upstream.',
+      highlight: GQL.RESPONSE_BATCH_BANNER,
+      preAction: prepareGql15BatchResponseSliceReading,
+      action: demonstrateLesson15BatchResponseSlice,
+      verify: GQL.RESPONSE_BATCH_BANNER,
+      pauseAfter: true,
+    },
+
+    // ── Step 9: Partial Error Handling ────────────────────────────────────────
     {
       id: 'gql15-partial-error',
       title: 'Partial Errors — Batch Does Not Fail-Fast',
       description:
         `On **Tab 2**, replace the query with \`${LESSON15_ERROR_QUERY}\` — a field that does not exist in the schema. Click **Send Batch** again. The header shows **1 passed / 1 failed**: Tab 1's card keeps ✓ data; Tab 2's card shows ✗ with an errors array.\n\n` +
-        '**Why is this important?** Most HTTP stacks fail the whole request when one part fails. GraphQL batch evaluates each operation independently — a schema error on operation 2 does not block operation 1\'s data. In integration tests, your setup query may have succeeded even when an assertion query failed — partial results, not a total blackout.',
-      highlight: GQL.EDITOR,
-      preAction: ensureLesson15Executed,
+        '**Why is this important?** Most HTTP stacks fail the whole request when one part fails. GraphQL batch evaluates each operation independently — a schema error on operation 2 does not block operation 1\'s data. Dismiss the batch modal and switch tabs — each Response pane still shows its **Batch N/M** slice so you can inspect success and failure side by side. In integration tests, your setup query may have succeeded even when an assertion query failed — partial results, not a total blackout.',
+      highlight: GQL.BATCH_RESULTS,
+      preAction: prepareGql15PartialErrorReading,
       action: demonstrateLesson15PartialError,
       verify: GQL.BATCH_RESULTS,
       pauseAfter: true,
     },
 
-    // ── Step 9: Sequential Fallback & Export ──────────────────────────────────
+    // ── Step 10: Sequential Fallback & Export ──────────────────────────────────
     {
       id: 'gql15-export-batch',
       title: 'Sequential Fallback & CI Export',
       description:
-        'If a server rejects JSON-array batching, Studio falls back to **sequential execution** — each operation is sent individually, results still land in the same Batch Results panel, and a **Sequential fallback** badge appears in the header.\n\n' +
+        'If a server rejects JSON-array batching, Studio falls back to **sequential execution** — each operation is sent individually, results still land in the same Batch Results modal, and **Sequential fallback** appears in the header transport line. Per-tab Response banners then show **op N** latency per operation instead of one shared batch time.\n\n' +
         '**Why does this matter for CI?** Older GraphQL servers may not accept an array body. Sequential fallback lets you write tests assuming batch semantics without knowing the server upfront. For regression snapshots: open the **History** sidebar (⏱ in the activity bar) — each batch run is logged. Select an entry and click **Load** to restore the full result, or copy JSON from the result cards.',
       highlight: GQL.ACTIVITY_HISTORY,
-      preAction: ensureLesson15PartialErrorExecuted,
+      preAction: prepareGql15ExportBatchReading,
       action: demonstrateLesson15OpenHistory,
       verify: GQL.HISTORY_PANEL,
       pauseAfter: true,

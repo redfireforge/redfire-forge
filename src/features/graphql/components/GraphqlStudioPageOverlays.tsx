@@ -21,7 +21,8 @@ import { resolveSaveToCollectionDefaultName } from '../utils/graphqlStudioUiUtil
 
 export interface GraphqlStudioPageOverlaysProps {
   batchResult: GraphqlBatchResult | null;
-  setBatchResult: Dispatch<SetStateAction<GraphqlBatchResult | null>>;
+  batchResultsOpen: boolean;
+  dismissBatchResults: () => void;
   schemaDiffToast: boolean;
   snapshots: GraphqlSchemaSnapshot[];
   toastBaselineSnapshotIdRef: MutableRefObject<string | null>;
@@ -52,7 +53,8 @@ export interface GraphqlStudioPageOverlaysProps {
 
 export function GraphqlStudioPageOverlays({
   batchResult,
-  setBatchResult,
+  batchResultsOpen,
+  dismissBatchResults,
   schemaDiffToast,
   snapshots,
   toastBaselineSnapshotIdRef,
@@ -77,10 +79,8 @@ export function GraphqlStudioPageOverlays({
 }: GraphqlStudioPageOverlaysProps) {
   return (
     <>
-      {batchResult && (
-        <div className="gql-batch-overlay">
-          <GraphqlBatchResults result={batchResult} onDismiss={() => setBatchResult(null)} />
-        </div>
+      {batchResult && batchResultsOpen && (
+        <GraphqlBatchResults result={batchResult} onDismiss={dismissBatchResults} />
       )}
 
       <GqlPageToasts

@@ -9,6 +9,7 @@
  */
 import http from 'node:http';
 import https from 'node:https';
+import type { IncomingHttpHeaders } from 'node:http';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -28,17 +29,55 @@ export interface BatchContext {
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
 
+export interface BatchResultWireMeta {
+  headers?: Record<string, string>;
+  latencyMs?: number;
+}
+
+/** Normalize Node incoming headers to a lowercase string map for the client. */
+export function collectIncomingHttpHeaders(headers: IncomingHttpHeaders): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [key, value] of Object.entries(headers)) {
+    if (value == null) continue;
+    out[key.toLowerCase()] = Array.isArray(value) ? value.join(', ') : value;
+  }
+  return out;
+}
+
+export function attachBatchResultMeta(
+  result: Record<string, unknown>,
+  status: number,
+  meta?: BatchResultWireMeta,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = { ...result, _httpStatus: status };
+  if (meta?.headers && Object.keys(meta.headers).length > 0) {
+    out._httpHeaders = meta.headers;
+  }
+  if (meta?.latencyMs !== undefined && Number.isFinite(meta.latencyMs) && meta.latencyMs >= 0) {
+    out._latencyMs = meta.latencyMs;
+  }
+  return out;
+}
+
 /**
  * Parse a raw HTTP response body into a GraphQL ExecutionResult-like object.
  * On JSON parse failure returns a synthetic error entry so the batch result
  * array always has the same length as the operations array.
  */
-export function parseResult(raw: string, status: number): Record<string, unknown> {
+export function parseResult(
+  raw: string,
+  status: number,
+  meta?: BatchResultWireMeta,
+): Record<string, unknown> {
   try {
     const parsed = JSON.parse(raw) as Record<string, unknown>;
-    return { ...parsed, _httpStatus: status };
+    return attachBatchResultMeta(parsed, status, meta);
   } catch {
-    return { data: null, errors: [{ message: `Non-JSON response (HTTP ${status})` }], _httpStatus: status };
+    return attachBatchResultMeta(
+      { data: null, errors: [{ message: `Non-JSON response (HTTP ${status})` }] },
+      status,
+      meta,
+    );
   }
 }
 
@@ -78,12 +117,18 @@ export function sendSinglePostWithTimeout(
   opBody: Record<string, unknown>,
   ctx: BatchContext,
   perOpHeaders?: Record<string, string>,
-): Promise<{ status: number; body: string }> {
+): Promise<{ status: number; body: string; headers: Record<string, string>; latencyMs: number }> {
   const { transport, targetUrl, baseHeaders, tlsAgent, batchDeadline } = ctx;
+  const startedAt = Date.now();
   return new Promise((resolve) => {
     const remainingMs = Math.max(0, batchDeadline - Date.now());
     if (remainingMs === 0) {
-      resolve({ status: 408, body: JSON.stringify({ errors: [{ message: 'Batch timeout' }] }) });
+      resolve({
+        status: 408,
+        body: JSON.stringify({ errors: [{ message: 'Batch timeout' }] }),
+        headers: {},
+        latencyMs: Date.now() - startedAt,
+      });
       return;
     }
 
@@ -102,7 +147,12 @@ export function sendSinglePostWithTimeout(
     const holder: { req?: ReturnType<typeof transport.request> } = {};
     const timer = setTimeout(() => {
       holder.req?.destroy();
-      resolve({ status: 408, body: JSON.stringify({ errors: [{ message: 'Batch timeout' }] }) });
+      resolve({
+        status: 408,
+        body: JSON.stringify({ errors: [{ message: 'Batch timeout' }] }),
+        headers: {},
+        latencyMs: Date.now() - startedAt,
+      });
     }, remainingMs);
 
     holder.req = transport.request(
@@ -117,12 +167,25 @@ export function sendSinglePostWithTimeout(
       (r) => {
         let raw = '';
         r.on('data', (c: Buffer) => { raw += c.toString('utf8'); });
-        r.on('end', () => { clearTimeout(timer); resolve({ status: r.statusCode ?? 200, body: raw }); });
+        r.on('end', () => {
+          clearTimeout(timer);
+          resolve({
+            status: r.statusCode ?? 200,
+            body: raw,
+            headers: collectIncomingHttpHeaders(r.headers),
+            latencyMs: Date.now() - startedAt,
+          });
+        });
       },
     );
     holder.req.on('error', (err) => {
       clearTimeout(timer);
-      resolve({ status: 0, body: JSON.stringify({ errors: [{ message: (err as Error).message }] }) });
+      resolve({
+        status: 0,
+        body: JSON.stringify({ errors: [{ message: (err as Error).message }] }),
+        headers: {},
+        latencyMs: Date.now() - startedAt,
+      });
     });
     holder.req.write(bodyBuf);
     holder.req.end();
@@ -165,7 +228,7 @@ export async function runSequentialWithTimeout(
         ? (op['headers'] as Record<string, string>)
         : null;
 
-    const { status, body: raw } = await sendSinglePostWithTimeout(
+    const { status, body: raw, headers, latencyMs } = await sendSinglePostWithTimeout(
       opBody,
       ctx,
       perOpHeaders ?? undefined,
@@ -176,7 +239,7 @@ export async function runSequentialWithTimeout(
       return { results, timedOut: true };
     }
 
-    results.push(parseResult(raw, status));
+    results.push(parseResult(raw, status, { headers, latencyMs }));
   }
 
   return { results, timedOut: false };

@@ -11,7 +11,10 @@
  *  - "Run All" → emits onRunAll(collectionId)
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
+import { buildCollectionImportPreview } from '../utils/collectionImportPreview';
+import { GraphqlImportPreviewPanel } from './GraphqlImportPreviewPanel';
 import type {
   GraphqlCollectionFolder,
   GraphqlCollectionItem,
@@ -66,8 +69,14 @@ export function GraphqlCollections({
   const [saveTarget, setSaveTarget]     = useState<{ collectionId: string; folderId?: string } | null>(null);
   const [saveVarsError, setSaveVarsError] = useState<string | null>(null);
   const [importPending, setImportPending] = useState<{ data: CollectionExportData; fileName: string } | null>(null);
+  const [importPreviewOpen, setImportPreviewOpen] = useState(false);
   const [importError, setImportError]     = useState<string | null>(null);
   const importInputRef = useRef<HTMLInputElement>(null);
+  const { onDragStart, isDragged, overlayStyle, modalStyle } = useModalDrag(!!importPending);
+  const importPreview = useMemo(
+    () => (importPending ? buildCollectionImportPreview(importPending.data) : null),
+    [importPending],
+  );
 
   const [varsOpenId, setVarsOpenId] = useState<string | null>(null);
 
@@ -153,6 +162,7 @@ export function GraphqlCollections({
       const version = (raw._exportMeta as Record<string, unknown> | undefined)?.version;
       if (version && version !== '1.0' && version !== '1.1') console.warn(`[Import] Unknown collection export version: ${String(version)}`);
       setImportPending({ data: raw as unknown as CollectionExportData, fileName: file.name });
+      setImportPreviewOpen(false);
       setImportError(null);
     } catch (err) {
       setImportError(`Import failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -309,31 +319,89 @@ export function GraphqlCollections({
       />
 
       {importPending && (
-        <div className="gql-import-mode-overlay" role="dialog" aria-modal="true" aria-label={`Import collections from ${importPending.fileName}`} data-testid="gql-import-mode-dialog">
-          <div className="gql-import-mode-panel">
-            <h3 className="gql-import-mode-title">Import Collections</h3>
-            <div className="gql-import-mode-file" data-testid="gql-import-mode-file">
-              <span className="gql-import-mode-file-label">File</span>
-              <span className="gql-import-mode-file-name" title={importPending.fileName}>
-                {importPending.fileName}
+        <div
+          className={`gql-import-mode-overlay${isDragged ? ' gql-import-mode-overlay--dragged' : ''}`}
+          style={overlayStyle}
+          data-testid="gql-import-mode-dialog"
+        >
+          <div
+            className={`gql-import-mode-panel${isDragged ? ' gql-import-mode-panel--dragged' : ''}${importPreviewOpen ? ' gql-import-mode-panel--preview-open' : ''}`}
+            style={modalStyle}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Import collections from ${importPending.fileName}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div
+              className="gql-import-mode-header gql-import-mode-header--draggable"
+              onMouseDown={onDragStart}
+              data-testid="gql-import-mode-header"
+            >
+              <span className="gql-import-mode-drag-grip" aria-hidden="true" title="Drag to move">
+                <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+                  <circle cx="2" cy="2" r="1.2" /><circle cx="8" cy="2" r="1.2" />
+                  <circle cx="2" cy="8" r="1.2" /><circle cx="8" cy="8" r="1.2" />
+                  <circle cx="2" cy="14" r="1.2" /><circle cx="8" cy="14" r="1.2" />
+                </svg>
               </span>
+              <h3 className="gql-import-mode-title">Import Collections</h3>
             </div>
-            <p className="gql-import-mode-summary" data-testid="gql-import-mode-summary">
-              {importPending.data.collections.length} collection{importPending.data.collections.length === 1 ? '' : 's'}
-              {' · '}
-              {importPending.data.collections.reduce((n, g) => n + g.items.length, 0)} operation
-              {importPending.data.collections.reduce((n, g) => n + g.items.length, 0) === 1 ? '' : 's'}
-            </p>
-            <p className="gql-import-mode-desc">How would you like to handle conflicts with existing collections?</p>
-            <div className="gql-import-mode-actions">
-              <button type="button" className="gql-import-mode-btn" onClick={() => { handleImportConfirm('merge').catch(() => {}); }} data-testid="gql-import-mode-merge">
-                <strong>Merge</strong><span className="gql-import-mode-hint">Keep existing, skip or rename conflicts</span>
-              </button>
-              <button type="button" className="gql-import-mode-btn gql-import-mode-btn--replace" onClick={() => { handleImportConfirm('replace').catch(() => {}); }} data-testid="gql-import-mode-replace">
-                <strong>Replace</strong><span className="gql-import-mode-hint">Overwrite all existing collections (destructive)</span>
-              </button>
-              <button type="button" className="gql-import-mode-btn gql-import-mode-btn--cancel" onClick={() => setImportPending(null)} data-testid="gql-import-mode-cancel">Cancel</button>
+            <div className="gql-import-mode-body">
+              <div className="gql-import-mode-file" data-testid="gql-import-mode-file">
+                <span className="gql-import-mode-file-label">File</span>
+                <button
+                  type="button"
+                  className="gql-import-mode-file-name-btn"
+                  title={importPending.fileName}
+                  aria-expanded={importPreviewOpen}
+                  aria-controls="gql-import-mode-preview-panel"
+                  data-testid="gql-import-mode-file-preview"
+                  onClick={() => setImportPreviewOpen((open) => !open)}
+                >
+                  {importPending.fileName}
+                </button>
+                <button
+                  type="button"
+                  className="gql-import-mode-preview-toggle"
+                  aria-expanded={importPreviewOpen}
+                  aria-controls="gql-import-mode-preview-panel"
+                  data-testid="gql-import-mode-preview-toggle"
+                  onClick={() => setImportPreviewOpen((open) => !open)}
+                >
+                  {importPreviewOpen ? 'Hide preview' : 'Preview'}
+                </button>
+              </div>
+              {importPreviewOpen && importPreview && (
+                <div id="gql-import-mode-preview-panel">
+                  <GraphqlImportPreviewPanel preview={importPreview} />
+                </div>
+              )}
+              <p className="gql-import-mode-summary" data-testid="gql-import-mode-summary">
+                {importPending.data.collections.length} collection{importPending.data.collections.length === 1 ? '' : 's'}
+                {' · '}
+                {importPending.data.collections.reduce((n, g) => n + g.items.length, 0)} operation
+                {importPending.data.collections.reduce((n, g) => n + g.items.length, 0) === 1 ? '' : 's'}
+              </p>
+              <p className="gql-import-mode-desc">How would you like to handle conflicts with existing collections?</p>
+              <div className="gql-import-mode-actions">
+                <button type="button" className="gql-import-mode-btn" onClick={() => { handleImportConfirm('merge').catch(() => {}); }} data-testid="gql-import-mode-merge">
+                  <strong>Merge</strong><span className="gql-import-mode-hint">Keep existing, skip or rename conflicts</span>
+                </button>
+                <button type="button" className="gql-import-mode-btn gql-import-mode-btn--replace" onClick={() => { handleImportConfirm('replace').catch(() => {}); }} data-testid="gql-import-mode-replace">
+                  <strong>Replace</strong><span className="gql-import-mode-hint">Overwrite all existing collections (destructive)</span>
+                </button>
+              </div>
             </div>
+            <footer className="gql-import-mode-footer">
+              <button
+                type="button"
+                className="gql-script-btn gql-script-btn--secondary"
+                onClick={() => { setImportPending(null); setImportPreviewOpen(false); }}
+                data-testid="gql-import-mode-cancel"
+              >
+                Cancel
+              </button>
+            </footer>
           </div>
         </div>
       )}

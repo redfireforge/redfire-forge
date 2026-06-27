@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { readFileSync, existsSync } from 'fs'
 import { resolve, join } from 'path'
-import { isLoopbackUrl, resolveLoopbackUrl } from './src/shared/utils/loopbackUrl'
+import { isLoopbackUrl, preferLocalhostHostname, resolveLoopbackUrl } from './src/shared/utils/loopbackUrl'
 import { demoHubRootImportsPlugin } from './vite/demoHubRootImports'
 import { demoLiveGuardPlugin } from './vite/demoLiveGuardPlugin'
 
@@ -100,7 +100,13 @@ function proxyPlugin(): Plugin {
         }
 
         try {
-          payload.url = resolveLoopbackUrl(payload.url);
+          // HTTPS loopback: keep localhost for Docker TLS/mTLS lesson stacks; plain HTTP
+          // still resolves to 127.0.0.1 for Node/undici corporate-proxy quirks.
+          if (payload.url.startsWith('https://')) {
+            payload.url = preferLocalhostHostname(payload.url);
+          } else {
+            payload.url = resolveLoopbackUrl(payload.url);
+          }
           payload.headers['Connection'] = 'keep-alive';
           const fetchOpts: Record<string, unknown> = {
             method: payload.method,

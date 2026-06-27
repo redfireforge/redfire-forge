@@ -9,7 +9,7 @@
  *     && docker compose up -d && docker compose -f docker-compose.mtls.yml up -d
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 16 disables Next — use walkFullGql5Lesson (GQL-1 style), not runNextStep on the final step.
+ * Last-step rule: step 18 disables Next — use walkFullGql5Lesson (GQL-1 style), not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';
@@ -91,12 +91,9 @@ test.describe('GQL-5 — full lesson (Docker)', () => {
     const endpoint = page.locator('[data-testid="gql-endpoint-input"]');
     await expect(endpoint).toHaveValue('http://localhost:4010/graphql');
 
-    await page.locator('[data-testid="gql-right-tab-response"]').click({ force: true });
-    await page.locator('[data-testid="gql-rv-tab-metadata"]').click({ force: true });
-    const headers = page.locator('[data-testid="gql-rv-request-headers"]');
-    await expect(headers).toBeVisible({ timeout: 15_000 });
-    await expect(headers).toContainText('Authorization');
-    await expect(headers).toContainText('lesson6-demo-jwt');
+    // Bearer auth from the TLS phase persists on the demo tab after restore to plain HTTP.
+    await page.locator('[data-testid="gql-bottom-tab-auth"]').click({ force: true });
+    await expect(page.locator('[data-testid="gql-auth-preview"]')).toContainText('lesson6-demo-jwt');
 
     await takeNamedScreenshot(page, 'gql5-https-tls-lesson-complete');
     await exitLesson(page);

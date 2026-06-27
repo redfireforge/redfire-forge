@@ -15,7 +15,8 @@ function effectiveEndpoint(
   tab: Pick<GqlStudioTab, 'endpoint'>,
   resolvedEndpoint?: string | null,
 ): string {
-  return tab.endpoint?.trim() || resolvedEndpoint?.trim() || '';
+  if (tab.endpoint !== undefined) return tab.endpoint.trim();
+  return resolvedEndpoint?.trim() || '';
 }
 
 /**
@@ -64,7 +65,7 @@ export function getTabPresentation(
     : (tab.label.trim() || 'Untitled');
 
   const profile = profileName?.trim() || null;
-  const hasPerTabEndpointOverride = Boolean(tab.endpoint?.trim());
+  const hasPerTabEndpointOverride = tab.endpoint !== undefined && Boolean(tab.endpoint.trim());
   const endpointHost = hasPerTabEndpointOverride
     ? deriveEndpointHostnameBadge(tab.endpoint!.trim())
     : null;

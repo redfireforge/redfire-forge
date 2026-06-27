@@ -135,6 +135,22 @@ export function useGraphqlExecution(): UseGraphqlExecution {
     setDuplicateSourceTabId(null);
   };
 
+  /** Apply an external completed result (batch execution) without triggering history callbacks. */
+  const applyResult = useCallback((nextStatus: ExecutionStatus, nextResponse: GraphqlResponse | null) => {
+    if (!mountedRef.current) return;
+    abortCtrlRef.current = null;
+    pendingDedupRef.current = null;
+    if (waitCancelRef.current) {
+      waitCancelRef.current();
+      waitCancelRef.current = null;
+    }
+    clearDuplicateState();
+    rememberCompletedSnapshot(nextStatus, nextResponse, null);
+    setApqInfo(null);
+    setStatus(nextStatus);
+    setResponse(nextResponse);
+  }, []);
+
   // ── Cancel ────────────────────────────────────────────────────────────────
   // BUG-GQL-R14-5 fix: guard with mountedRef for consistency with async paths.
   // Phase 3F fix: when isDuplicate=true (either undecided or waiting for a shared promise),
@@ -744,5 +760,15 @@ export function useGraphqlExecution(): UseGraphqlExecution {
     };
   }, []);
 
-  return { status, response, execute, cancel, isDuplicate, duplicateSourceTabId, apqInfo, resolveDedupChoice };
+  return {
+    status,
+    response,
+    execute,
+    cancel,
+    isDuplicate,
+    duplicateSourceTabId,
+    apqInfo,
+    resolveDedupChoice,
+    applyResult,
+  };
 }

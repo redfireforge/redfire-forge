@@ -3,12 +3,13 @@
 import type { DemoActionContext } from '../../../types';
 import type { GraphqlAssertNodeData, GraphqlQueryNodeData } from '@workflow/types/workflow';
 import { GQL, WF } from '@shared/selectors';
-import { GQL_DEMO_HTTP } from './core';
+import { GQL_DEMO_HTTP, GQL_DEMO_VAR } from './core';
 import {
   connectWorkflowNodes,
   deleteWorkflowByName,
   getWorkflowByName,
   patchDemoWorkflowNodeDataByType,
+  patchWorkflowByName,
 } from '../../../adapters';
 import {
   clickWfConfigAddRow,
@@ -30,6 +31,7 @@ import {
 
 export const LESSON11_WF_NAME = 'GraphQL Latency Demo';
 export const LESSON11_LATENCY_VAR = 'gqlLatency';
+export const LESSON11_GRAPHQL_URL_VAR = 'graphqlUrl';
 export const LESSON11_HEALTH_QUERY = 'query { health }';
 /** Pass threshold — includes proxy + dev-server overhead (often 500–1500ms locally). */
 export const LESSON11_PASS_THRESHOLD_MS = '2000';
@@ -97,14 +99,25 @@ function readLesson11WorkflowNode(type: string): Record<string, unknown> | null 
   return node?.data ?? null;
 }
 
+function isLesson11EndpointConfigured(endpoint?: string): boolean {
+  const e = endpoint?.trim() ?? '';
+  return e.includes(LESSON11_GRAPHQL_URL_VAR);
+}
+
+function isLesson11WorkflowVariablesConfigured(): boolean {
+  const wf = getWorkflowByName<{ variables?: Record<string, string> }>(LESSON11_WF_NAME);
+  return wf?.variables?.[LESSON11_GRAPHQL_URL_VAR] === GQL_DEMO_HTTP;
+}
+
 function isLesson11QueryConfiguredInWorkflow(): boolean {
   const data = readLesson11WorkflowNode('graphqlQuery') as GraphqlQueryNodeData | null;
   if (!data) return false;
   const bindings = data.outputBindings ?? [];
   return !!(
-    data.endpoint?.trim()
+    isLesson11EndpointConfigured(data.endpoint)
     && data.query?.includes('health')
     && bindings.some((b) => b.field === 'latencyMs' && b.variableName === LESSON11_LATENCY_VAR && b.enabled !== false)
+    && isLesson11WorkflowVariablesConfigured()
   );
 }
 
@@ -123,9 +136,15 @@ function isLesson11AssertRuleConfiguredInWorkflow(thresholdMs: string): boolean 
 
 function patchLesson11QueryNodeQuiet(): boolean {
   return patchDemoWorkflowNodeDataByType('graphqlQuery', {
-    endpoint: GQL_DEMO_HTTP,
+    endpoint: GQL_DEMO_VAR,
     query: LESSON11_HEALTH_QUERY,
     outputBindings: [{ field: 'latencyMs', variableName: LESSON11_LATENCY_VAR, enabled: true }],
+  });
+}
+
+function patchLesson11WorkflowVariablesQuiet(): boolean {
+  return patchWorkflowByName(LESSON11_WF_NAME, {
+    variables: { [LESSON11_GRAPHQL_URL_VAR]: GQL_DEMO_HTTP },
   });
 }
 
@@ -155,7 +174,10 @@ async function syncLesson11QueryConfigured(ctx: DemoActionContext): Promise<bool
     _lesson11QueryConfigured = true;
     return true;
   }
-  if (patchLesson11QueryNodeQuiet()) {
+  let patched = false;
+  if (patchLesson11QueryNodeQuiet()) patched = true;
+  if (patchLesson11WorkflowVariablesQuiet()) patched = true;
+  if (patched) {
     await ctx.delay(200);
     _lesson11QueryConfigured = true;
     return true;
@@ -225,7 +247,7 @@ export async function ensureLesson11QueryConfigured(ctx: DemoActionContext): Pro
   await waitForWfConfigPanel(ctx, GQL.WF_QUERY_PANEL);
   await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Operation');
   await ctx.waitFor(GQL.WF_ENDPOINT_INPUT, 5000);
-  await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_HTTP);
+  await fillWfConfigField(ctx, GQL.WF_ENDPOINT_INPUT, GQL_DEMO_VAR);
   await fillWfConfigField(ctx, GQL.WF_QUERY_EDITOR, LESSON11_HEALTH_QUERY);
   await pauseWfConfigSection(ctx);
   await clickWfConfigTab(ctx, GQL.WF_QUERY_PANEL, 'Output');

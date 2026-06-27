@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import type { ReactElement } from 'react';
 import ConceptSlide, { renderMarkdown } from './ConceptSlide';
 import DomainSelector from './DomainSelector';
 import DemoSpotlight from './DemoSpotlight';
@@ -10,6 +11,7 @@ import DemoHubHeader from './DemoHubHeader';
 import LessonPlayer from './LessonPlayer';
 import LessonList from './LessonList';
 import LiveDemo from './LiveDemo';
+import { LessonNotesProvider } from './LessonNotesContext';
 import type { ConceptContent, DemoDomain, DemoLesson, DemoProgress } from './types';
 
 vi.mock('./utils/checkEndpoint', () => ({
@@ -61,6 +63,18 @@ function makeDomain(overrides: Partial<DemoDomain> = {}): DemoDomain {
     lessons: [makeLesson()],
     ...overrides,
   };
+}
+
+function renderWithLessonNotes(ui: ReactElement) {
+  return render(<LessonNotesProvider>{ui}</LessonNotesProvider>);
+}
+
+/** Click step N in LessonPlayer sidebar (0 = first step). Ignores Concept/Notes items. */
+function clickLessonPlayerStep(stepIndex: number) {
+  const stepNum = document.querySelectorAll('.demo-sidebar-step-num')[stepIndex];
+  const btn = stepNum?.closest('.demo-sidebar-nav-item');
+  if (!btn) throw new Error(`LessonPlayer step nav index ${stepIndex} not found`);
+  fireEvent.click(btn);
 }
 
 // ── ConceptSlide ────────────────────────────────────────────────
@@ -576,7 +590,7 @@ describe('DemoHubHeader', () => {
 
 describe('LessonPlayer', () => {
   it('renders concept slide and step list', () => {
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson()}
         onStartDemo={vi.fn()}
@@ -588,7 +602,7 @@ describe('LessonPlayer', () => {
   });
 
   it('does not render speed selector buttons', () => {
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson()}
         onStartDemo={vi.fn()}
@@ -600,7 +614,7 @@ describe('LessonPlayer', () => {
 
   it('calls onStartDemo when Start Demo is clicked', () => {
     const onStart = vi.fn();
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson()}
         onStartDemo={onStart}
@@ -612,7 +626,7 @@ describe('LessonPlayer', () => {
 
   it('disables start button when lesson has dockerEndpoint and gate not cleared', () => {
     const onStart = vi.fn();
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson({ dockerEndpoint: 'ws://localhost:3100/socket.io/?EIO=4' })}
         onStartDemo={onStart}
@@ -627,7 +641,7 @@ describe('LessonPlayer', () => {
 
   it('disables start button for desktop-only lessons on web', () => {
     const onStart = vi.fn();
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson({ desktopOnly: true })}
         onStartDemo={onStart}
@@ -642,7 +656,7 @@ describe('LessonPlayer', () => {
   });
 
   it('renders PrerequisiteGate when dockerEndpoint is set', () => {
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson({
           dockerEndpoint: 'ws://localhost:3100/test',
@@ -656,7 +670,7 @@ describe('LessonPlayer', () => {
   });
 
   it('does not render PrerequisiteGate without dockerEndpoint', () => {
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson()}
         onStartDemo={vi.fn()}
@@ -666,7 +680,7 @@ describe('LessonPlayer', () => {
   });
 
   it('clicking a step nav item shows its description in the right panel', () => {
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson()}
         onStartDemo={vi.fn()}
@@ -677,9 +691,7 @@ describe('LessonPlayer', () => {
     expect(document.querySelector('.demo-step-detail')).toBeNull();
 
     // Click step 1 in the sidebar
-    const navItems = document.querySelectorAll('.demo-sidebar-nav-item');
-    // navItems[0] = Concept, navItems[1] = Step 1, navItems[2] = Step 2
-    fireEvent.click(navItems[1]);
+    clickLessonPlayerStep(0);
 
     // Concept slide should be replaced by step detail
     expect(document.querySelector('.demo-concept-slide')).toBeNull();
@@ -688,13 +700,13 @@ describe('LessonPlayer', () => {
     expect(document.querySelector('.demo-step-detail-num')?.textContent).toBe('Step 1');
 
     // Clicking Concept nav item restores concept view
-    fireEvent.click(navItems[0]);
+    fireEvent.click(document.querySelectorAll('.demo-sidebar-nav-item')[0]!);
     expect(document.querySelector('.demo-concept-slide')).toBeTruthy();
     expect(document.querySelector('.demo-step-detail')).toBeNull();
   });
 
   it('renders step diagram when step has diagram field', () => {
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson({
           steps: [
@@ -709,19 +721,18 @@ describe('LessonPlayer', () => {
         onStartDemo={vi.fn()}
       />,
     );
-    fireEvent.click(document.querySelectorAll('.demo-sidebar-nav-item')[1]);
+    clickLessonPlayerStep(0);
     expect(document.querySelector('.demo-step-diagram')).toBeTruthy();
     expect(document.querySelector('[data-testid="step-diagram"]')).toBeTruthy();
   });
 
   it('footer always shows Start Demo; Prev/Next appear only when viewing a step', () => {
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson()}
         onStartDemo={vi.fn()}
       />,
     );
-    const navItems = document.querySelectorAll('.demo-sidebar-nav-item');
 
     // Concept view → Start Demo present, no step navigation
     expect(screen.queryByText('Start Demo →')).toBeTruthy();
@@ -729,13 +740,13 @@ describe('LessonPlayer', () => {
     expect(screen.queryByText(/Next →/)).toBeNull();
 
     // Step 1 (non-last, non-first) → Start Demo + Next, no Prev
-    fireEvent.click(navItems[1]);
+    clickLessonPlayerStep(0);
     expect(screen.queryByText('Start Demo →')).toBeTruthy();
     expect(screen.queryByText(/Next →/)).toBeTruthy();
     expect(screen.queryByText(/← Prev/)).toBeNull();
 
     // Step 2 (last) → Start Demo + Prev, no Next
-    fireEvent.click(navItems[2]);
+    clickLessonPlayerStep(1);
     expect(screen.queryByText('Start Demo →')).toBeTruthy();
     expect(screen.queryByText(/← Prev/)).toBeTruthy();
     expect(screen.queryByText(/Next →/)).toBeNull();
@@ -747,7 +758,7 @@ describe('LessonPlayer', () => {
     (checkEndpoint as ReturnType<typeof vi.fn>).mockResolvedValueOnce(false).mockResolvedValue(true);
 
     const onStart = vi.fn();
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson({ dockerEndpoint: 'ws://localhost:3100/test' })}
         onStartDemo={onStart}
@@ -767,14 +778,13 @@ describe('LessonPlayer', () => {
   });
 
   it('Prev and Next buttons navigate between steps', () => {
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson()}
         onStartDemo={vi.fn()}
       />,
     );
-    const navItems = document.querySelectorAll('.demo-sidebar-nav-item');
-    fireEvent.click(navItems[1]);
+    clickLessonPlayerStep(0);
     fireEvent.click(screen.getByText(/Next →/));
     expect(document.querySelector('.demo-step-detail-title')?.textContent).toBe('Step 2');
     fireEvent.click(screen.getByText(/← Prev/));
@@ -782,7 +792,7 @@ describe('LessonPlayer', () => {
   });
 
   it('uses default dockerCommand when lesson omits dockerCommand', () => {
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson({ dockerEndpoint: 'ws://localhost:3100/test' })}
         onStartDemo={vi.fn()}
@@ -797,7 +807,7 @@ describe('LessonPlayer', () => {
     (checkEndpoint as ReturnType<typeof vi.fn>).mockResolvedValue(true);
 
     const onStart = vi.fn();
-    render(
+    renderWithLessonNotes(
       <LessonPlayer
         lesson={makeLesson({
           category: 'graphql',
@@ -829,7 +839,7 @@ describe('LessonList', () => {
   };
 
   it('renders lesson items', () => {
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={baseProgress}
@@ -844,7 +854,7 @@ describe('LessonList', () => {
 
   it('shows completed status', () => {
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -860,7 +870,7 @@ describe('LessonList', () => {
 
   it('shows in-progress indicator for lessons with step progress', () => {
     const progress: DemoProgress = { ...baseProgress, lessonSteps: { l1: 0 } };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -874,7 +884,7 @@ describe('LessonList', () => {
 
   it('shows Resume badge for in-progress lessons', () => {
     const progress: DemoProgress = { ...baseProgress, lessonSteps: { l1: 2 } };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -891,7 +901,7 @@ describe('LessonList', () => {
       lessons: [makeLesson({ id: 'desktop-lesson', desktopOnly: true })],
     });
     const progress: DemoProgress = { ...baseProgress, lessonSteps: { 'desktop-lesson': 1 } };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={domain}
         progress={progress}
@@ -907,7 +917,7 @@ describe('LessonList', () => {
 
   it('calls onSelect when lesson clicked', () => {
     const onSelect = vi.fn();
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={baseProgress}
@@ -922,7 +932,7 @@ describe('LessonList', () => {
 
   it('calls onBack when back button clicked', () => {
     const onBack = vi.fn();
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={baseProgress}
@@ -943,7 +953,7 @@ describe('LessonList', () => {
       ],
       lessons: [makeLesson({ category: 'basics' })],
     });
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={domain}
         progress={baseProgress}
@@ -958,7 +968,7 @@ describe('LessonList', () => {
 
   it('shows per-lesson reset button for completed lessons', () => {
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -972,7 +982,7 @@ describe('LessonList', () => {
 
   it('shows inline confirm when reset lesson button clicked', () => {
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -989,7 +999,7 @@ describe('LessonList', () => {
   it('calls onResetLesson when confirmed', () => {
     const onResetLesson = vi.fn();
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -1007,7 +1017,7 @@ describe('LessonList', () => {
   it('dismisses confirm without resetting when ✕ clicked', () => {
     const onResetLesson = vi.fn();
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -1024,7 +1034,7 @@ describe('LessonList', () => {
   });
 
   it('shows Reset all button only when at least one lesson is completed', () => {
-    render(
+    const { rerender } = renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={baseProgress}
@@ -1036,23 +1046,24 @@ describe('LessonList', () => {
     expect(screen.queryByTestId('reset-all-btn')).toBeNull();
 
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
-    const { rerender } = render(
-      <LessonList
-        domain={makeDomain()}
-        progress={progress}
-        onSelect={vi.fn()}
-        onBack={vi.fn()}
-        {...defaultResetProps}
-      />,
+    rerender(
+      <LessonNotesProvider>
+        <LessonList
+          domain={makeDomain()}
+          progress={progress}
+          onSelect={vi.fn()}
+          onBack={vi.fn()}
+          {...defaultResetProps}
+        />
+      </LessonNotesProvider>,
     );
     expect(screen.getByTestId('reset-all-btn')).toBeTruthy();
-    void rerender; // suppress unused warning
   });
 
   it('shows Reset all confirm then calls onResetAll', () => {
     const onResetAll = vi.fn();
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -1071,7 +1082,7 @@ describe('LessonList', () => {
   it('cancels Reset all without calling onResetAll', () => {
     const onResetAll = vi.fn();
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -1098,7 +1109,7 @@ describe('LessonList', () => {
         makeLesson({ id: 'l2', category: 'advanced', name: 'Advanced Lesson' }),
       ],
     });
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={domain}
         progress={baseProgress}
@@ -1120,7 +1131,7 @@ describe('LessonList', () => {
       ],
       lessons: [makeLesson({ category: 'basics' })],
     });
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={domain}
         progress={baseProgress}
@@ -1139,7 +1150,7 @@ describe('LessonList', () => {
       categories: [{ id: 'basics', label: 'Basics', icon: '📚' }],
       lessons: [],
     });
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={domain}
         progress={baseProgress}
@@ -1152,7 +1163,7 @@ describe('LessonList', () => {
   });
 
   it('renders lesson tag badge when present', () => {
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain({ lessons: [makeLesson({ tag: '🐳 Docker' })] })}
         progress={baseProgress}
@@ -1167,7 +1178,7 @@ describe('LessonList', () => {
   it('blocks lesson select while reset confirmation is open', () => {
     const onSelect = vi.fn();
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -1187,7 +1198,7 @@ describe('LessonList', () => {
       lessons: [makeLesson({ id: 'l1', category: 'basics' })],
     });
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };
-    const { container } = render(
+    const { container } = renderWithLessonNotes(
       <LessonList
         domain={domain}
         progress={progress}
@@ -1201,7 +1212,7 @@ describe('LessonList', () => {
 
   it('shows reset button for in-progress lessons', () => {
     const progress: DemoProgress = { ...baseProgress, lessonSteps: { l1: 1 } };
-    render(
+    renderWithLessonNotes(
       <LessonList
         domain={makeDomain()}
         progress={progress}
@@ -1751,8 +1762,8 @@ describe('LiveDemo', () => {
     visible.style.height = '50px';
     visible.scrollIntoView = vi.fn();
     vi.spyOn(visible, 'getBoundingClientRect').mockReturnValue({
-      top: 10, left: 10, width: 100, height: 50,
-      right: 110, bottom: 60, x: 10, y: 10, toJSON: () => ({}),
+      top: 2000, left: 10, width: 100, height: 50,
+      right: 110, bottom: 2050, x: 10, y: 2000, toJSON: () => ({}),
     });
     document.body.appendChild(visible);
 
@@ -1764,7 +1775,7 @@ describe('LiveDemo', () => {
     });
 
     render(<LiveDemo {...liveProps} lesson={lessonHL} />);
-    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(600); });
     expect(visible.scrollIntoView).toHaveBeenCalled();
     expect(screen.getByText('🟢 Live')).toBeTruthy();
     document.body.removeChild(hidden);

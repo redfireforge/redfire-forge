@@ -79,4 +79,6 @@ export interface UseGraphqlExecution {
   apqInfo: ApqInfo | null;
   /** Resolve a pending dedup situation */
   resolveDedupChoice: (choice: DedupChoice) => void;
+  /** Apply a completed response without sending a network request (batch sync). */
+  applyResult: (status: ExecutionStatus, response: GraphqlResponse | null) => void;
 }

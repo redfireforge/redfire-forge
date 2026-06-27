@@ -133,6 +133,24 @@ describe('gqlFetch', () => {
     expect(mockHttpFetch).not.toHaveBeenCalled();
   });
 
+  it('routes Tauri HTTPS loopback POST through native gql_http_fetch (not Node proxy)', async () => {
+    mockIsTauri.mockReturnValue(true);
+
+    await gqlFetch(
+      'https://localhost:4443/graphql',
+      'POST',
+      { 'Content-Type': 'application/json' },
+      '{"query":"{ __schema { queryType { name } } }"}',
+      undefined,
+      { skipTlsVerify: true },
+    );
+
+    expect(mockTauriGqlNativeFetch).toHaveBeenCalledOnce();
+    expect(mockTauriGqlNativeFetch.mock.calls[0][0]).toBe('https://localhost:4443/graphql');
+    expect(mockTauriGqlNativeFetch.mock.calls[0][5]).toEqual({ skipTlsVerify: true });
+    expect(mockHttpFetch).not.toHaveBeenCalled();
+  });
+
   it('routes Tauri loopback POST without TLS through Node /api/graphql/query proxy', async () => {
     mockIsTauri.mockReturnValue(true);
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({

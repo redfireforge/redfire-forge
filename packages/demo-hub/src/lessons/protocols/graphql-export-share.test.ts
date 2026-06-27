@@ -3,10 +3,15 @@
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 
-vi.mock('./graphql-lesson-helpers/gql-demo-tab', () => ({
-  ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql10'),
-  closeGqlDemoTabs: vi.fn(async () => {}),
-}));
+vi.mock('./graphql-lesson-helpers/gql-demo-tab', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./graphql-lesson-helpers/gql-demo-tab')>();
+  return {
+    ...actual,
+    ensureGqlDemoTab: vi.fn(async () => 'demo-tab-gql10'),
+    closeGqlDemoTabs: vi.fn(async () => {}),
+    activateGqlDemoTabQuiet: vi.fn(async () => {}),
+  };
+});
 
 import { gqlExportShareLesson } from './graphql-export-share';
 import { ensureGqlDemoTab, closeGqlDemoTabs } from './graphql-lesson-helpers/gql-demo-tab';
@@ -157,10 +162,16 @@ describe('gql-export-share lesson', () => {
     expect(step.verify).toBe(GQL.MODE_EDITOR);
   });
 
-  it('gql9-curl highlights Copy as cURL menu item and verifies history entry', () => {
+  it('gql9-curl highlights history entry and verifies it after copy', () => {
     const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
-    expect(step.highlight).toBe(GQL.HISTORY_CTX_COPY_CURL);
+    expect(step.highlight).toBe(GQL.HISTORY_ENTRY);
     expect(step.verify).toBe(GQL.HISTORY_ENTRY);
+  });
+
+  it('gql9-curl description avoids repeating the Copy as cURL menu label', () => {
+    const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
+    expect(step.description).not.toContain('Copy as cURL');
+    expect(step.description).toContain('highlighted history entry');
   });
 
   // ── Step description WHY content ──────────────────────────────────────────
@@ -307,16 +318,23 @@ describe('gql-export-share lesson', () => {
     expect(document.querySelector(GQL.HISTORY_CONTEXT_MENU)).toBeNull();
   });
 
-  it('gql9-curl preAction opens context menu during reading phase when not yet visible', async () => {
+  it('gql9-curl preAction keeps context menu closed during reading phase', async () => {
     const ctx = makeCtx();
-    const entry = document.createElement('div');
-    entry.setAttribute('data-testid', 'gql-history-entry');
-    document.body.appendChild(entry);
+    document.body.innerHTML = `
+      <div data-testid="gql-history-entry">Run 1</div>
+      <div data-testid="gql-history-context-menu">
+        <button data-testid="gql-history-ctx-copy-curl">Copy as cURL</button>
+      </div>
+    `;
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') document.querySelector(GQL.HISTORY_CONTEXT_MENU)?.remove();
+    });
+    const entry = document.querySelector<HTMLElement>(GQL.HISTORY_ENTRY)!;
     const dispatchSpy = vi.spyOn(entry, 'dispatchEvent');
     const step = gqlExportShareLesson.steps.find((s) => s.id === 'gql9-curl')!;
     await step.preAction!(ctx);
-    expect(dispatchSpy).toHaveBeenCalled();
-    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.HISTORY_CONTEXT_MENU, 5000);
+    expect(dispatchSpy).not.toHaveBeenCalled();
+    expect(document.querySelector(GQL.HISTORY_CONTEXT_MENU)).toBeNull();
   });
 
   it('gql9-preview reads SDL and re-selects fields when incomplete', async () => {

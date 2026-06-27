@@ -14,7 +14,6 @@ import { ensureGqlDemoTab, closeGqlDemoTabs } from './gql-demo-tab';
 import {
   GQL_CREATE_ORDER_MUTATION,
   GQL_DEMO_HTTP,
-  GQL_DEMO_VAR,
   resetGqlLessonSessionFlags,
   resetGqlLesson2SessionFlags,
 } from './core';
@@ -84,7 +83,7 @@ function buildGql3StudioDom(extra = ''): void {
     <select data-testid="header-svc-select"><option>graphql-demo</option></select>
     <button data-testid="gql-right-tab-schema"></button>
     <button data-testid="gql-right-tab-response" aria-selected="true"></button>
-    <span data-testid="gql-schema-badge-ok"></span>
+    <span data-testid="gql-schema-badge-ok">Schema loaded (12 types)</span>
     <div data-testid="gql-schema-explorer">
       <div data-testid="gql-se-type-list">
         <button data-testid="gql-se-type-Query"></button>
@@ -99,7 +98,7 @@ function buildGql3StudioDom(extra = ''): void {
     <button data-testid="gql-endpoint-reset-btn"></button>
     ${extra}
   `);
-  document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = GQL_DEMO_VAR;
+  document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = GQL_DEMO_HTTP;
 }
 
 describe('lesson3-mutations helpers', () => {
@@ -147,6 +146,7 @@ describe('lesson3-mutations helpers', () => {
       <div data-testid="gql-studio-page"></div>
       <input data-testid="gql-endpoint-input" value="http://localhost:4010/graphql" />
       <button data-testid="gql-introspect-btn"></button>
+      <button data-testid="gql-right-tab-schema"></button>
       <button data-testid="gql-right-tab-response"></button>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
@@ -155,6 +155,15 @@ describe('lesson3-mutations helpers', () => {
     const ctx = makeCtx();
     await prepareGql3WriteCreateReading(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.INTROSPECT_BTN);
+  });
+
+  it('prepareGql3WriteCreateReading keeps Schema tab open instead of Response', async () => {
+    buildGql3StudioDom();
+    stubMonacoEditor('query { health }');
+    const ctx = makeCtx();
+    await prepareGql3WriteCreateReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RIGHT_TAB_SCHEMA);
+    expect(ctx.click).not.toHaveBeenCalledWith(GQL.RIGHT_TAB_RESPONSE);
   });
 
   it('prepareGql3EndpointReading clears a pre-filled endpoint', async () => {
@@ -562,6 +571,14 @@ describe('lesson3-mutations helpers', () => {
     expect(setQuery).not.toHaveBeenCalled();
   });
 
+  it('ensureCreateUserMutation does not navigate to Environment Manager', async () => {
+    buildGql3StudioDom();
+    stubMonacoEditor('query { }');
+    const ctx = makeCtx();
+    await ensureCreateUserMutation(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalledWith('environments');
+  });
+
   it('ensureCreateVarsSet short-circuits when Carol vars already in model', async () => {
     buildGql3StudioDom();
     stubMonacoEditor(GQL_CREATE_USER_MUTATION);
@@ -725,6 +742,15 @@ describe('lesson3-mutations helpers', () => {
     const ctx = makeCtx();
     await prepareGql3ExecOrderReading(ctx);
     expect(setVars).not.toHaveBeenCalled();
+  });
+
+  it('prepareGql3IntroReading resets stale TLS endpoint from a prior GQL-5 run', async () => {
+    buildGql3StudioDom();
+    document.querySelector<HTMLInputElement>(GQL.ENDPOINT_INPUT)!.value = 'https://127.0.0.1:4443/graphql';
+    document.body.insertAdjacentHTML('beforeend', '<button data-testid="gql-tls-toggle"></button>');
+    const ctx = makeCtx();
+    await prepareGql3IntroReading(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_HTTP);
   });
 
   it('gqlMutationsLessonSetup creates demo tab when endpoint input is blank', async () => {

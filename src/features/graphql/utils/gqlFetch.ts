@@ -110,7 +110,21 @@ export async function gqlFetch(
     return tauriGqlNativeFetch(url, method, headers, body, signal, tls);
   }
 
-  // Tauri: loopback GraphQL POST via Node proxy — avoids corporate-proxy breakage
+  // Tauri: HTTPS loopback POST uses native rustls — not the Node :3001 proxy (often offline
+  // on desktop). Without skip-cert this validates normally; with skip-cert it accepts self-signed.
+  if (
+    isTauri()
+    && method === 'POST'
+    && body
+    && isLoopbackUrl(url)
+    && url.startsWith('https://')
+    && !url.startsWith('/api/')
+    && !url.startsWith(`${proxyBase}/api/`)
+  ) {
+    return tauriGqlNativeFetch(url, method, headers, body, signal, tls);
+  }
+
+  // Tauri: HTTP loopback GraphQL POST via Node proxy — avoids corporate-proxy breakage
   // when localhost→127.0.0.1 rewriting bypasses NO_PROXY; mock server also lives on :3001.
   // Mock execute/introspect must hit /api/graphql/mock directly, not via /api/graphql/query.
   if (

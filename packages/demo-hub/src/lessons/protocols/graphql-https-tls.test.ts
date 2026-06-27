@@ -58,7 +58,7 @@ import {
   gqlTlsLessonSetup,
   gqlTlsLessonCleanup,
 } from './graphql-lesson-helpers';
-import { LESSON6_RV_AUTHORIZATION_VAL } from './graphql-lesson-helpers/lesson6-auth-headers';
+import { LESSON6_RV_METADATA_AUTHORIZATION_VAL } from './graphql-lesson-helpers/lesson6-auth-headers';
 import { stubMonacoEditor } from './__test-utils__/graphql-test-fixtures';
 
 function installTlsBridgeMock(): void {
@@ -101,9 +101,10 @@ function stubFullTlsLessonDom(endpoint = GQL_TLS_HTTPS_ENDPOINT): void {
       <input data-testid="gql-auth-bearer-input" value="${GQL_TLS_BEARER_TEMPLATE}" />
     </div>
     <button data-testid="gql-execute-btn"></button>
-    <div data-testid="gql-response-viewer"></div>
+    <div data-testid="gql-response-viewer">
+      <span data-testid="gql-rv-request-header-val-Authorization"></span>
+    </div>
     <button data-testid="gql-rv-tab-metadata"></button>
-    <div data-testid="gql-rv-request-headers">Authorization Bearer</div>
     <button data-testid="gql-right-tab-response" aria-selected="true"></button>
     <button data-testid="gql-right-tab-schema" aria-selected="false"></button>
     <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
@@ -130,8 +131,8 @@ describe('gql-https-tls lesson', () => {
     expect(gqlHttpsTlsLesson.id).toBe('gql-https-tls');
     expect(gqlHttpsTlsLesson.category).toBe('graphql');
     expect(gqlHttpsTlsLesson.name).toBe('HTTPS, TLS & Certificates');
-    expect(gqlHttpsTlsLesson.steps.length).toBe(16);
-    expect(gqlHttpsTlsLesson.estimatedMinutes).toBe(9);
+    expect(gqlHttpsTlsLesson.steps.length).toBe(18);
+    expect(gqlHttpsTlsLesson.estimatedMinutes).toBe(10);
     expect(gqlHttpsTlsLesson.tabBudget).toBe(1);
   });
 
@@ -152,7 +153,9 @@ describe('gql-https-tls lesson', () => {
       'gqlt-skip-cert',
       'gqlt-connect-skip',
       'gqlt-observe-skip',
-      'gqlt-auth-tls',
+      'gqlt-auth-tls-config',
+      'gqlt-auth-tls-exec',
+      'gqlt-auth-tls-observe',
       'gqlt-ca-cert',
       'gqlt-connect-ca',
       'gqlt-observe-ca',
@@ -165,7 +168,7 @@ describe('gql-https-tls lesson', () => {
     ]);
   });
 
-  it('stateful steps 3–16 have preAction guards', () => {
+  it('stateful steps 3–18 have preAction guards', () => {
     gqlHttpsTlsLesson.steps.slice(2).forEach((step) => {
       expect(step.preAction).toBeTypeOf('function');
     });
@@ -234,13 +237,24 @@ describe('gql-https-tls lesson', () => {
     expect(step.description).toContain('man-in-the-middle');
   });
 
-  it('gqlt-auth-tls explains credentials are protected in transit', () => {
-    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-auth-tls')!;
+  it('gqlt-auth-tls-observe explains credentials are protected in transit', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-auth-tls-observe')!;
     expect(step.description).toContain('in transit');
     expect(step.description).toContain('TLS tunnel');
+    expect(step.description).toContain('lesson6-demo-jwt');
+  });
+
+  it('gqlt-auth-tls-config explains Demo env and bearer template', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-auth-tls-config')!;
     expect(step.description).toContain(GQL_TLS_BEARER_TEMPLATE);
     expect(step.description).toContain('authToken');
-    expect(step.description).toContain('lesson6-demo-jwt');
+    expect(step.highlight).toBe(GQL.AUTH_BEARER_INPUT);
+  });
+
+  it('gqlt-auth-tls-exec highlights Execute and verifies response viewer', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-auth-tls-exec')!;
+    expect(step.highlight).toBe(GQL.EXECUTE_BTN);
+    expect(step.verify).toBe(GQL.RESPONSE_VIEWER);
   });
 
   it('gqlt-ca-cert explains CA certificate chain of trust', () => {
@@ -281,10 +295,11 @@ describe('gql-https-tls lesson', () => {
     expect(step.highlight).toBe(GQL.TLS_TOGGLE);
   });
 
-  it('gqlt-skip-cert highlights and verifies TLS toggle', () => {
+  it('gqlt-skip-cert highlights and verifies TLS Skip Verify badge', () => {
     const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-skip-cert')!;
-    expect(step.highlight).toBe(GQL.TLS_TOGGLE);
-    expect(step.verify).toBe(GQL.TLS_TOGGLE);
+    expect(step.highlight).toBe(GQL.TLS_INDICATOR_SKIP);
+    expect(step.verify).toBe(GQL.TLS_INDICATOR_SKIP);
+    expect(step.highlight).not.toBe(GQL.TLS_TOGGLE);
   });
 
   it('gqlt-connect-skip highlights Introspect (action only)', () => {
@@ -299,10 +314,10 @@ describe('gql-https-tls lesson', () => {
     expect(step.verify).toBe(GQL.SCHEMA_BADGE_OK);
   });
 
-  it('gqlt-auth-tls highlights Authorization bearer value in Metadata', () => {
-    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-auth-tls')!;
-    expect(step.highlight).toBe(LESSON6_RV_AUTHORIZATION_VAL);
-    expect(step.verify).toBe(LESSON6_RV_AUTHORIZATION_VAL);
+  it('gqlt-auth-tls-observe highlights Authorization bearer value in Metadata', () => {
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-auth-tls-observe')!;
+    expect(step.highlight).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
+    expect(step.verify).toBe(LESSON6_RV_METADATA_AUTHORIZATION_VAL);
   });
 
   it('gqlt-ca-cert highlights TLS configure and verifies Custom CA badge', () => {
@@ -559,24 +574,12 @@ describe('gql-https-tls lesson', () => {
   });
 
   it('ensureTlsAuthExecuted skips repeat run when already executed', async () => {
+    stubFullTlsLessonDom();
     const ctx = makeCtx();
-    document.body.innerHTML = `
-      <input data-testid="gql-endpoint-input" value="https://localhost:4443/graphql" />
-      <button data-testid="gql-tls-toggle" aria-pressed="true"></button>
-      <span data-testid="gql-schema-badge-ok"></span>
-      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
-      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
-      <button data-testid="gql-auth-badge-btn"></button>
-      <div data-testid="gql-auth-panel">
-        <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
-        <input data-testid="gql-auth-bearer-input" value="{{authToken}}" />
-      </div>
-    `;
-    stubMonacoEditor(GQL_HEALTH_QUERY);
     await ensureTlsAuthExecuted(ctx);
     vi.mocked(ctx.click).mockClear();
     await ensureTlsAuthExecuted(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('ensureTlsAuthConfigured skips auth badge click when Auth panel already open', async () => {
@@ -618,14 +621,15 @@ describe('gql-https-tls lesson', () => {
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, '');
   });
 
-  it('gqlTlsLessonCleanup closes demo tab without rewriting user endpoint', async () => {
+  it('gqlTlsLessonCleanup resets stale HTTPS endpoint before closing demo tab', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="https://localhost:4443/graphql" />
+      <button data-testid="gql-tls-toggle"></button>
     `;
     await gqlTlsLessonCleanup(ctx);
     expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-https-tls');
-    expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_PLAIN_HTTP);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_PLAIN_HTTP);
   });
 
   it('gqlTlsLessonCleanup does not touch plain http endpoint on demo tab close', async () => {
@@ -697,7 +701,7 @@ describe('gql-https-tls lesson', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_TLS_HTTPS_ENDPOINT);
   });
 
-  it('gqlt-auth-tls step action delegates to ensureTlsAuthExecuted', async () => {
+  it('gqlt-auth-tls-config action configures bearer auth', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <input data-testid="gql-endpoint-input" value="${GQL_TLS_HTTPS_ENDPOINT}" />
@@ -707,17 +711,44 @@ describe('gql-https-tls lesson', () => {
         <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
         <input data-testid="gql-auth-bearer-input" value="" />
       </div>
-      <button data-testid="gql-execute-btn"></button>
-      <div data-testid="gql-response-viewer"></div>
-      <button data-testid="gql-rv-tab-metadata"></button>
-      <div data-testid="gql-rv-request-headers">Authorization Bearer</div>
       <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
       <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
     `;
     stubMonacoEditor('query { health }');
-    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-auth-tls')!;
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-auth-tls-config')!;
+    await step.action!(ctx);
+    expect(ctx.fill).toHaveBeenCalledWith(GQL.AUTH_BEARER_INPUT, GQL_TLS_BEARER_TEMPLATE);
+  });
+
+  it('gqlt-auth-tls-exec action clicks Execute', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-execute-btn"></button>
+      <div data-testid="gql-response-viewer"></div>
+      <div data-testid="gql-editor"><div class="monaco-editor"></div></div>
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+    `;
+    stubMonacoEditor('query { health }');
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-auth-tls-exec')!;
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.EXECUTE_BTN);
+  });
+
+  it('gqlt-auth-tls-observe action opens Metadata authorization row', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-rv-tab-metadata"></button>
+      <div data-testid="gql-rv-request-headers">Authorization Bearer</div>
+      <button data-testid="gql-auth-badge-btn"></button>
+      <div data-testid="gql-auth-panel">
+        <select data-testid="gql-auth-type-select"><option value="bearer">Bearer</option></select>
+        <input data-testid="gql-auth-bearer-input" value="{{authToken}}" />
+      </div>
+      <button data-testid="gql-bottom-tab-variables"></button>
+    `;
+    const step = gqlHttpsTlsLesson.steps.find((s) => s.id === 'gqlt-auth-tls-observe')!;
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.RV_TAB_METADATA);
   });
 
   it('gqlt-ca-cert action delegates to ensureTlsCaConfigured', async () => {

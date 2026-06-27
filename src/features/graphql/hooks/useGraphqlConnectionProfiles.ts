@@ -16,6 +16,7 @@ import {
   writeConnectionProfiles,
   type ConnectionProfile,
 } from '../utils/connectionProfileStorage';
+import { graphqlAuthEquals } from '../utils/tabPersistence';
 
 export type { ConnectionProfile } from '../utils/connectionProfileStorage';
 
@@ -29,12 +30,19 @@ function generateId(): string {
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
+export interface ProfileUpdatePatch {
+  endpoint?: string;
+  auth?: GraphqlAuth | null;
+}
+
 export interface UseGraphqlConnectionProfilesResult {
   profiles: ConnectionProfile[];
   /** False until the initial profile catalog load completes. */
   profilesReady: boolean;
   /** Creates a new profile for the given name/endpoint/auth and persists it. */
   saveProfile: (name: string, endpoint: string, auth: GraphqlAuth | null) => ConnectionProfile;
+  /** Updates endpoint and/or auth on an existing profile (linked-tab edits). */
+  updateProfile: (id: string, patch: ProfileUpdatePatch) => void;
   /** Renames an existing profile in-place. */
   renameProfile: (id: string, newName: string) => void;
   /** Permanently removes a profile by id. */
@@ -86,6 +94,28 @@ export function useGraphqlConnectionProfiles(): UseGraphqlConnectionProfilesResu
     return profile;
   }, []);
 
+  const updateProfile = useCallback((id: string, patch: ProfileUpdatePatch) => {
+    setProfiles((prev) => {
+      const idx = prev.findIndex((p) => p.id === id);
+      if (idx < 0) return prev;
+      const current = prev[idx];
+      const nextProfile: ConnectionProfile = {
+        ...current,
+        ...(patch.endpoint !== undefined ? { endpoint: patch.endpoint } : {}),
+        ...(patch.auth !== undefined ? { auth: patch.auth } : {}),
+      };
+      const authUnchanged = patch.auth === undefined
+        || graphqlAuthEquals(nextProfile.auth ?? null, current.auth ?? null);
+      if (nextProfile.endpoint === current.endpoint && authUnchanged) {
+        return prev;
+      }
+      const next = [...prev];
+      next[idx] = nextProfile;
+      persistProfiles(next);
+      return next;
+    });
+  }, []);
+
   const renameProfile = useCallback((id: string, newName: string) => {
     setProfiles((prev) => {
       const next = prev.map((p) =>
@@ -104,5 +134,5 @@ export function useGraphqlConnectionProfiles(): UseGraphqlConnectionProfilesResu
     });
   }, []);
 
-  return { profiles, profilesReady, saveProfile, renameProfile, deleteProfile };
+  return { profiles, profilesReady, saveProfile, updateProfile, renameProfile, deleteProfile };
 }

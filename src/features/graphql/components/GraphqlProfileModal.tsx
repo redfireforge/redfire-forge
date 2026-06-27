@@ -20,11 +20,17 @@ import type { GlobalAuthProfile } from '../../../shared/types';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
 import { authBadgeLabel, isAuthConfigured } from '../utils/authUtils';
 import { inheritAuthProfileLabel } from '../utils/gqlAuthResolve';
+import { buildProfileTabLinksByProfileId } from '../utils/profileTabUsage';
+import type { ProfileTabLinkSlice } from '../utils/profileTabUsage';
+import { GraphqlProfileRowTabUsage } from './GraphqlProfileRowTabUsage';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 interface GraphqlProfileModalProps {
   profiles: ConnectionProfile[];
+  /** Workspace tabs — used to show which tabs link to each profile. */
+  studioTabs?: ReadonlyArray<ProfileTabLinkSlice>;
+  activeTabId?: string | null;
   /** Profile id linked to the active tab (from tab.connectionId). */
   activeConnectionId?: string | null;
   currentEndpoint: string;
@@ -49,6 +55,8 @@ function truncateEndpoint(url: string, maxLen = 42): string {
 
 export function GraphqlProfileModal({
   profiles,
+  studioTabs = [],
+  activeTabId = null,
   activeConnectionId = null,
   currentEndpoint,
   currentAuth,
@@ -127,6 +135,7 @@ export function GraphqlProfileModal({
   const loadedProfile = activeConnectionId
     ? profiles.find((p) => p.id === activeConnectionId) ?? null
     : null;
+  const tabLinksByProfileId = buildProfileTabLinksByProfileId(studioTabs, activeTabId);
 
   const profileCountLabel =
     profiles.length === 0
@@ -176,7 +185,7 @@ export function GraphqlProfileModal({
               Connection Profiles
             </div>
             <p className="gql-profile-modal__subtitle">
-              Save and restore endpoint + auth combinations for quick switching.
+              Save and restore endpoint + auth combinations. Each profile lists the workspace tabs that load it.
             </p>
           </div>
         </div>
@@ -218,11 +227,13 @@ export function GraphqlProfileModal({
                   const authLabel = authBadgeLabel(profile.auth, globalAuthProfiles);
                   const isConfirmingDelete = confirmDeleteId === profile.id;
                   const isLoaded = activeConnectionId != null && profile.id === activeConnectionId;
+                  const tabLinks = tabLinksByProfileId.get(profile.id) ?? [];
+                  const inUseElsewhere = tabLinks.length > 0 && !isLoaded;
 
                   return (
                     <li
                       key={profile.id}
-                      className={`gql-profile-row${isLoaded ? ' gql-profile-row--loaded' : ''}`}
+                      className={`gql-profile-row${isLoaded ? ' gql-profile-row--loaded' : ''}${inUseElsewhere ? ' gql-profile-row--in-use' : ''}`}
                       data-testid={`gql-profile-row-${profile.id}`}
                       aria-current={isLoaded ? 'true' : undefined}
                     >
@@ -242,6 +253,7 @@ export function GraphqlProfileModal({
                         <span className="gql-profile-row__endpoint" title={profile.endpoint}>
                           {truncateEndpoint(profile.endpoint)}
                         </span>
+                        <GraphqlProfileRowTabUsage profileId={profile.id} links={tabLinks} />
                       </div>
                       <div className="gql-profile-row__actions">
                         <span

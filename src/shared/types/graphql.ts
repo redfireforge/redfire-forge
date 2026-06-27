@@ -120,6 +120,23 @@ export interface GraphqlResponse {
   apqCacheHit?: boolean;
   /** true = server does not support APQ; connection should auto-disable APQ */
   apqUnsupported?: boolean;
+  /** Phase 3F — present when this response came from Send Batch (not single Execute) */
+  batchContext?: GraphqlBatchResponseContext;
+}
+
+/** Metadata stamped on each tab response after a batch run */
+export interface GraphqlBatchResponseContext {
+  /** 0-based slot in the batch result array */
+  batchIndex: number;
+  batchSize: number;
+  /** Server rejected JSON-array batch — proxy sent one POST per operation */
+  batchUnsupported: boolean;
+  /** HTTP POST count from proxy → GraphQL server (1 = array batch, batchSize = sequential) */
+  upstreamRequestCount: number;
+  /** Shared array-batch round-trip ms, or this operation's POST ms in sequential mode */
+  batchLatencyMs: number;
+  /** JSON array body sent upstream when array batch succeeded */
+  wireRequestBody?: unknown[];
 }
 
 export interface GraphqlError {

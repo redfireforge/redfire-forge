@@ -17,10 +17,10 @@ import {
   prepareOneWaySyncReading,
   ensureHealthFieldSelected,
   ensureIncludeConfigured,
-  ensureIntrospected,
   ensureSelectAllDemonstrated,
   ensureUserFieldConfigured,
   ensureUserIdFieldOptionExpanded,
+  ensureIntrospectedOnDirectEndpoint,
   gqlQueryBuilderLessonCleanup,
   gqlQueryBuilderLessonSetup,
 } from './graphql-lesson-helpers';
@@ -310,7 +310,7 @@ export const gqlQueryBuilderLesson: DemoLesson = {
       highlight: GQL.MODE_BUILDER,
       preAction: async (ctx) => {
         await closeGqlActivityPanelIfOpen(ctx);
-        await ensureIntrospected(ctx);
+        await ensureIntrospectedOnDirectEndpoint(ctx);
       },
       action: async (ctx) => {
         await ensureBuilderMode(ctx);

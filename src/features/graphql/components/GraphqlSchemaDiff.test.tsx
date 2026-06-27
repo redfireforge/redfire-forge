@@ -4,10 +4,18 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { GraphqlSchemaDiff } from './GraphqlSchemaDiff';
 import type { GraphqlSchemaDiffResult, GraphqlSchemaDiffChange } from '../../../shared/types/graphql';
+
+const mockSaveJsonFile = vi.fn().mockResolvedValue(undefined);
+const mockSaveFile = vi.fn().mockResolvedValue(undefined);
+
+vi.mock('../../../shared/utils/fileSaver', () => ({
+  saveJsonFile: (...args: unknown[]) => mockSaveJsonFile(...args),
+  saveFile: (...args: unknown[]) => mockSaveFile(...args),
+}));
 
 function makeChange(overrides: Partial<GraphqlSchemaDiffChange> = {}): GraphqlSchemaDiffChange {
   return {
@@ -40,11 +48,11 @@ const defaultProps = {
   onClose: vi.fn(),
 };
 
-// Mock URL and blob APIs
+// Mock scroll + timers
 beforeEach(() => {
   vi.clearAllMocks();
-  URL.createObjectURL = vi.fn().mockReturnValue('blob:test');
-  URL.revokeObjectURL = vi.fn();
+  mockSaveJsonFile.mockResolvedValue(undefined);
+  mockSaveFile.mockResolvedValue(undefined);
   vi.useFakeTimers();
   Element.prototype.scrollIntoView = vi.fn();
 });
@@ -361,45 +369,25 @@ describe('GraphqlSchemaDiff', () => {
 
   // ─── Export buttons ────────────────────────────────────────────────────────
 
-  it('calls downloadBlob for JSON export', () => {
+  it('calls saveJsonFile for JSON export', () => {
     render(<GraphqlSchemaDiff {...defaultProps} />);
-    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => document.body);
-    const removeSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => document.body as HTMLElement);
     fireEvent.click(screen.getByTestId('gql-diff-export-json'));
-    expect(URL.createObjectURL).toHaveBeenCalled();
-    appendSpy.mockRestore();
-    removeSpy.mockRestore();
+    expect(mockSaveJsonFile).toHaveBeenCalledWith(
+      expect.objectContaining({ oldLabel: 'v1.0 snapshot', newLabel: 'Current schema' }),
+      expect.stringMatching(/^schema-diff-\d+\.json$/),
+    );
   });
 
-  it('calls downloadBlob for HTML export', () => {
+  it('calls saveFile for HTML export', () => {
     render(<GraphqlSchemaDiff {...defaultProps} />);
-    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => document.body);
-    const removeSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => document.body as HTMLElement);
     fireEvent.click(screen.getByTestId('gql-diff-export-html'));
-    expect(URL.createObjectURL).toHaveBeenCalled();
-    appendSpy.mockRestore();
-    removeSpy.mockRestore();
+    expect(mockSaveFile).toHaveBeenCalled();
   });
 
-  it('calls downloadBlob for SDL download', () => {
+  it('calls saveFile for SDL download', () => {
     render(<GraphqlSchemaDiff {...defaultProps} />);
-    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => document.body);
-    const removeSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => document.body as HTMLElement);
     fireEvent.click(screen.getByTestId('gql-diff-download-sdl'));
-    expect(URL.createObjectURL).toHaveBeenCalled();
-    appendSpy.mockRestore();
-    removeSpy.mockRestore();
-  });
-
-  it('revokes URL after timeout', () => {
-    render(<GraphqlSchemaDiff {...defaultProps} />);
-    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => document.body);
-    const removeSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => document.body as HTMLElement);
-    fireEvent.click(screen.getByTestId('gql-diff-export-json'));
-    act(() => vi.advanceTimersByTime(200));
-    expect(URL.revokeObjectURL).toHaveBeenCalled();
-    appendSpy.mockRestore();
-    removeSpy.mockRestore();
+    expect(mockSaveFile).toHaveBeenCalled();
   });
 
   // ─── SDL diff view ─────────────────────────────────────────────────────────
@@ -434,7 +422,7 @@ describe('GraphqlSchemaDiff', () => {
     />);
     fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
     expect(document.querySelector('.gql-diff-sdl-ln')).toBeTruthy();
-    expect(document.querySelector('.gql-sdl-keyword')).toBeTruthy();
+    expect(document.querySelector('.gql-diff-sdl-row--modified, .gql-diff-sdl-row--removed, .gql-diff-sdl-row--added')).toBeTruthy();
   });
 
   it('shows SDL diff stats and search bar', () => {
@@ -444,17 +432,27 @@ describe('GraphqlSchemaDiff', () => {
     expect(screen.getByText(/unchanged/)).toBeInTheDocument();
   });
 
-  it('filters SDL diff to changes only', () => {
+  it('shows full SDL diff by default; Changes only collapses unchanged rows', () => {
+    render(<GraphqlSchemaDiff
+      {...defaultProps}
+      oldSdl={'type Query {\n  users: [User]\n  posts: [Post]\n}'}
+      newSdl={'type Query {\n  user(id: ID!): User\n  posts: [Post]\n}'}
+    />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    const fullView = document.querySelectorAll('[data-testid="gql-diff-sdl-row"]').length;
+    fireEvent.click(screen.getByTestId('gql-diff-sdl-hide-unchanged'));
+    const changesOnly = document.querySelectorAll('[data-testid="gql-diff-sdl-row"]').length;
+    expect(fullView).toBeGreaterThan(changesOnly);
+  });
+
+  it('pairs modified SDL lines side by side', () => {
     render(<GraphqlSchemaDiff
       {...defaultProps}
       oldSdl={'type Query {\n  users: [User]\n}'}
       newSdl={'type Query {\n  user(id: ID!): User\n}'}
     />);
     fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
-    const before = document.querySelectorAll('[data-testid="gql-diff-sdl-line"]').length;
-    fireEvent.click(screen.getByTestId('gql-diff-sdl-hide-unchanged'));
-    const after = document.querySelectorAll('[data-testid="gql-diff-sdl-line"]').length;
-    expect(after).toBeLessThan(before);
+    expect(document.querySelector('.gql-diff-sdl-row--modified')).toBeTruthy();
   });
 
   it('shows no-edits banner for identical SDLs', () => {
@@ -490,6 +488,74 @@ describe('GraphqlSchemaDiff', () => {
     fireEvent.mouseUp(window);
     expect(modal.style.left).toBeTruthy();
     expect(modal.style.top).toBeTruthy();
+  });
+
+  it('renders modal resize handles', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    const modal = screen.getByTestId('gql-diff-modal');
+    expect(modal.querySelector('.modal-resize-corner')).toBeTruthy();
+    expect(modal.querySelector('.modal-resize-edge-right')).toBeTruthy();
+    expect(modal.querySelector('.modal-resize-edge-bottom')).toBeTruthy();
+  });
+
+  it('resizes modal from the corner handle', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    const modal = screen.getByTestId('gql-diff-modal');
+    vi.spyOn(modal, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 80, width: 900, height: 600,
+      right: 1000, bottom: 680, x: 100, y: 80, toJSON: () => ({}),
+    });
+    const corner = modal.querySelector('.modal-resize-corner')!;
+    fireEvent.mouseDown(corner, { clientX: 1000, clientY: 680 });
+    fireEvent.mouseMove(window, { clientX: 1060, clientY: 740 });
+    fireEvent.mouseUp(window);
+    expect(modal.style.width).toBeTruthy();
+    expect(modal.style.height).toBeTruthy();
+  });
+
+  it('renders connector gutter between SDL panes', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    const connectors = document.querySelectorAll('[data-testid="gql-diff-sdl-connector"]');
+    expect(connectors.length).toBeGreaterThan(0);
+    expect(document.querySelector('.gql-diff-sdl-connector--modified, .gql-diff-sdl-connector--removed, .gql-diff-sdl-connector--added')).toBeTruthy();
+  });
+
+  it('renders added lines in the right pane slot and removed lines in the left pane slot', () => {
+    render(
+      <GraphqlSchemaDiff
+        {...defaultProps}
+        oldSdl={'type Old {\n  a: String\n}'}
+        newSdl={'type New {\n  b: String\n}'}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+
+    const addedRow = document.querySelector('.gql-diff-sdl-row--added');
+    const removedRow = document.querySelector('.gql-diff-sdl-row--removed');
+    expect(addedRow).toBeTruthy();
+    expect(removedRow).toBeTruthy();
+
+    const addedRight = addedRow!.querySelector('.gql-diff-sdl-pane--slot-right');
+    const addedLeft = addedRow!.querySelector('.gql-diff-sdl-pane--slot-left');
+    expect(addedRight?.textContent).toContain('type New');
+    expect(addedLeft?.querySelector('.gql-diff-sdl-placeholder-cell')).toBeTruthy();
+
+    const removedLeft = removedRow!.querySelector('.gql-diff-sdl-pane--slot-left');
+    const removedRight = removedRow!.querySelector('.gql-diff-sdl-pane--slot-right');
+    expect(removedLeft?.textContent).toContain('type Old');
+    expect(removedRight?.querySelector('.gql-diff-sdl-placeholder-cell')).toBeTruthy();
+
+    expect(addedRow!.querySelector('.gql-diff-sdl-connector-shape--added')).toBeTruthy();
+    expect(removedRow!.querySelector('.gql-diff-sdl-connector-shape--removed')).toBeTruthy();
+  });
+
+  it('keeps Changes only toggle on one line in SDL toolbar', () => {
+    render(<GraphqlSchemaDiff {...defaultProps} />);
+    fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
+    const toggle = screen.getByTestId('gql-diff-sdl-hide-unchanged').closest('.gql-diff-sdl-toggle');
+    expect(toggle).toHaveClass('gql-diff-sdl-toggle');
+    expect(toggle).toHaveTextContent('Changes only');
   });
 
   it('shows total change count when changes exist', () => {
@@ -533,12 +599,8 @@ describe('GraphqlSchemaDiff', () => {
       changes: [makeChange({ acknowledged: true, acknowledgeNote: 'Done' })],
     });
     render(<GraphqlSchemaDiff {...defaultProps} result={result} />);
-    const appendSpy = vi.spyOn(document.body, 'appendChild').mockImplementation(() => document.body);
-    const removeSpy = vi.spyOn(document.body, 'removeChild').mockImplementation(() => document.body as HTMLElement);
     fireEvent.click(screen.getByTestId('gql-diff-export-html'));
-    expect(URL.createObjectURL).toHaveBeenCalledWith(expect.any(Blob));
-    appendSpy.mockRestore();
-    removeSpy.mockRestore();
+    expect(mockSaveFile).toHaveBeenCalled();
   });
 
   // ─── Filter count display ──────────────────────────────────────────────────
@@ -577,9 +639,7 @@ describe('GraphqlSchemaDiff', () => {
     render(<GraphqlSchemaDiff {...defaultProps} oldSdl={sameSdl} newSdl={sameSdl} />);
     fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
     expect(screen.getByTestId('gql-diff-sdl-view')).toBeInTheDocument();
-    // With identical SDLs, all lines are unchanged
-    const diffLines = document.querySelectorAll('.gql-diff-sdl-line--unchanged');
-    expect(diffLines.length).toBeGreaterThan(0);
+    expect(screen.getByTestId('gql-diff-sdl-no-edits')).toBeInTheDocument();
   });
 
   it('renders SDL diff fallback for empty old+new SDLs', () => {
@@ -596,9 +656,9 @@ describe('GraphqlSchemaDiff', () => {
     fireEvent.click(screen.getByRole('button', { name: 'SDL Diff' }));
 
     const searchInput = screen.getByLabelText('Search SDL diff');
-    fireEvent.change(searchInput, { target: { value: 'posts' } });
+    fireEvent.change(searchInput, { target: { value: 'user' } });
     expect(screen.getByText('1/1')).toBeInTheDocument();
-    expect(document.querySelector('.gql-diff-sdl-line--search-active')).toBeTruthy();
+    expect(document.querySelector('.gql-diff-sdl-row-wrap--search-active')).toBeTruthy();
 
     fireEvent.keyDown(searchInput, { key: 'Enter' });
     fireEvent.keyDown(searchInput, { key: 'Enter', shiftKey: true });

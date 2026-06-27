@@ -13,6 +13,7 @@ import {
   openWorkflowNodeConfig,
   patchDemoWorkflowNodeDataByType,
   patchWorkflowNodeDataByType,
+  patchWorkflowByName,
   removeWorkflowEdge,
   closeWorkflowConfigModal,
   seedNamedWorkflow,
@@ -31,6 +32,7 @@ describe('workflowDesignerAdapter', () => {
     delete w.__wfConnect;
     delete w.__wfRemoveEdge;
     delete w.__wfPatchNodeDataByType;
+    delete w.__wfPatchWorkflowByName;
     delete w.__wfAddNode;
     delete w.__wfQuickTest;
     delete w.__wfSetConsoleFloatLayout;
@@ -90,6 +92,17 @@ describe('workflowDesignerAdapter', () => {
     (window as unknown as Record<string, unknown>).__wfPatchNodeDataByType = spy;
     expect(patchDemoWorkflowNodeDataByType('graphqlQuery', { query: 'q' })).toBe(true);
     expect(patchWorkflowNodeDataByType('graphqlQuery', { query: 'q' })).toBe(true);
+  });
+
+  it('patchWorkflowByName delegates to bridge', () => {
+    const spy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName = spy;
+    expect(patchWorkflowByName('GraphQL Latency Demo', { variables: { graphqlUrl: 'x' } })).toBe(true);
+    expect(spy).toHaveBeenCalledWith('GraphQL Latency Demo', { variables: { graphqlUrl: 'x' } });
+  });
+
+  it('patchWorkflowByName returns false when bridge missing', () => {
+    expect(patchWorkflowByName('wf', {})).toBe(false);
   });
 
   it('insertWorkflow and addWorkflowNode delegate to bridges', () => {

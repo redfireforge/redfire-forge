@@ -202,15 +202,9 @@ export async function prepareGql8RunReading(ctx: DemoActionContext): Promise<voi
   await openHistoryPreviewIfMissing(ctx);
 }
 
-/** Step 6 reading — collection exists and preview ready; Save runs on the visible click. */
+/** Step 6 reading — history preview visible with Save to Collection; action opens the modal. */
 export async function prepareGql8SaveReading(ctx: DemoActionContext): Promise<void> {
-  if (!_lesson8Run) {
-    await runHistoryEntry(ctx);
-  } else {
-    await openHistoryPreviewIfMissing(ctx);
-  }
-  await ensureDemoCollectionExists(ctx);
-  await openHistoryPanel(ctx);
+  await openHistoryPreviewIfMissing(ctx);
   syncLesson8SavedFlagFromDom();
 }
 
