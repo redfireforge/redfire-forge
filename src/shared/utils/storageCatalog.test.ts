@@ -173,11 +173,12 @@ describe('storageCatalog — browser (IDB primary)', () => {
       expect(localStorage.getItem(CATALOG_KEY)).toBeNull();
     });
 
-    it('falls back to localStorage when IDB save fails', async () => {
+    it('does not write to localStorage when IDB save fails on web', async () => {
       catalogStore.throwOnSaveEntries = true;
       const entries = [makeEntry('c1', 'Fallback')];
       await saveCatalogEntries(entries);
-      expect(JSON.parse(localStorage.getItem(CATALOG_KEY)!)).toEqual(entries);
+      expect(localStorage.getItem(CATALOG_KEY)).toBeNull();
+      expect(catalogStore.entries).toBeNull();
     });
 
     it('loads from localStorage and migrates when IDB is empty', async () => {

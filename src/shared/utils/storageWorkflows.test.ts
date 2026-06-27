@@ -136,11 +136,12 @@ describe('storageWorkflows — browser (IDB primary)', () => {
       expect(localStorage.getItem(WORKFLOWS_KEY)).toBeNull();
     });
 
-    it('falls back to localStorage when IDB save fails', async () => {
+    it('does not write to localStorage when IDB save fails on web', async () => {
       workflowsStore.throwOnSaveWorkflows = true;
       const workflows = [makeWorkflow({ id: 'w1' })];
       await saveWorkflows(workflows);
-      expect(JSON.parse(localStorage.getItem(WORKFLOWS_KEY)!)).toEqual(workflows);
+      expect(localStorage.getItem(WORKFLOWS_KEY)).toBeNull();
+      expect(workflowsStore.workflows).toBeNull();
     });
 
     it('loads from localStorage and migrates when IDB is empty', async () => {
@@ -188,11 +189,12 @@ describe('storageWorkflows — browser (IDB primary)', () => {
       expect(localStorage.getItem(WORKFLOW_FOLDERS_KEY)).toBeNull();
     });
 
-    it('falls back to localStorage when IDB save fails', async () => {
+    it('does not write to localStorage when IDB save fails on web', async () => {
       workflowsStore.throwOnSaveFolders = true;
       const folders = [makeFolder('f1', 'Fallback')];
       await saveWorkflowFolders(folders);
-      expect(JSON.parse(localStorage.getItem(WORKFLOW_FOLDERS_KEY)!)).toEqual(folders);
+      expect(localStorage.getItem(WORKFLOW_FOLDERS_KEY)).toBeNull();
+      expect(workflowsStore.folders).toBeNull();
     });
 
     it('loads from localStorage and migrates when IDB is empty', async () => {

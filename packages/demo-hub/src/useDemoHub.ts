@@ -5,27 +5,18 @@ import type {
   DemoDomain,
   DemoLesson,
   DemoStep,
-  DemoActionContext,
-  DemoProgress,
   SpeedMultiplier,
   HubView,
   StepPhase,
 } from './types';
 import { calcReadingTime } from './types';
 import { useDemoProgress } from './useDemoProgress';
-import { allDomains } from './lessons/index';
-import { fillControlledInput } from './lessons/setup-helpers';
 import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
-import { cleanupGqlDemoLessonEnvironment } from './lessons/env-manager-lesson-helpers';
 import { isWorkflowDesignerLesson } from './utils/workflowLessonUi';
 import {
   closeWorkflowConfigModal,
-  dispatchGqlPageEndpointReload,
   expandAppSidebar,
   isGraphqlStudioLesson,
-  loadDemoPriorPageEndpointBackup,
-  loadDemoSession,
-  restorePageEndpointSnapshot,
 } from './adapters';
 import {
   GQL_MODAL_LOCK_OPEN,
@@ -42,162 +33,23 @@ import {
 } from './demoLiveSession';
 import { startDemoLiveGuardHeartbeat, syncDemoLiveGuard } from './demoLiveGuard';
 import { scrollDemoTargetIntoView } from './demoSpotlightUtils';
+import {
+  abortableSleep,
+  buildDemoActionContext,
+  buildQuietDemoActionContext,
+  findLessonById,
+  isElementVisible,
+  restoreStateFromProgress,
+  runGqlDemoStorageHygiene,
+  runGqlStudioLessonTeardown,
+  waitForElement,
+} from './useDemoHubHelpers';
 
 /** Step pipeline timing — tuned for snappy Preparing/Acting badges without skipping UI feedback. */
 const DEMO_PRE_SETTLE_MS = 60;
 const DEMO_SPOTLIGHT_SETTLE_MS = 250;
 const DEMO_POST_ACTION_SETTLE_MS = 350;
 const DEMO_VERIFY_ABSORB_MS = 500;
-const DEMO_VISIBLE_RIPPLE_MS = 280;
-const DEMO_VISIBLE_FILL_PAUSE_MS = 200;
-/** preAction is invisible — scale lesson delay() so Preparing does not linger. */
-const DEMO_QUIET_DELAY_FACTOR = 0.25;
-const DEMO_QUIET_DELAY_MIN_MS = 40;
-const DEMO_QUIET_DELAY_MAX_MS = 280;
-
-function scaleQuietDelay(ms: number): number {
-  return Math.min(
-    DEMO_QUIET_DELAY_MAX_MS,
-    Math.max(DEMO_QUIET_DELAY_MIN_MS, Math.round(ms * DEMO_QUIET_DELAY_FACTOR)),
-  );
-}
-
-async function runGqlDemoStorageHygiene(): Promise<void> {
-  try {
-    const { purgeGqlDemoEphemeralStorage } = await import('./lessons/gql-demo-storage-cleanup');
-    const result = await purgeGqlDemoEphemeralStorage();
-    if (result.profilesRemoved > 0 || result.runnerConfigsRemoved > 0 || result.staleKeysRemoved > 0) {
-      console.info(
-        `[DemoHub] GQL storage hygiene: ${result.profilesRemoved} profiles, `
-        + `${result.runnerConfigsRemoved} runner configs, ${result.staleKeysRemoved} stale keys `
-        + `(~${result.freedKB} KB)`,
-      );
-    }
-  } catch (e) {
-    console.warn('[DemoHub] GQL storage hygiene failed:', e);
-  }
-}
-
-async function closeGraphqlDemoWorkspaceQuiet(lessonId: string): Promise<void> {
-  const { closeGqlDemoWorkspaceQuiet } = await import(
-    './lessons/protocols/graphql-lesson-helpers/gql-demo-tab'
-  );
-  await closeGqlDemoWorkspaceQuiet(lessonId);
-}
-
-/** Lesson-specific cleanup + GraphQL Studio demo env / EM teardown. */
-async function runGqlStudioLessonTeardown(
-  lesson: DemoLesson,
-  ctx: DemoActionContext,
-): Promise<void> {
-  const sessionBefore = await loadDemoSession();
-  const endpointToRestore = sessionBefore?.priorPageEndpoint !== undefined
-    ? sessionBefore.priorPageEndpoint
-    : await loadDemoPriorPageEndpointBackup();
-
-  try {
-    if (lesson.cleanup) {
-      await lesson.cleanup(ctx);
-    } else {
-      await closeGraphqlDemoWorkspaceQuiet(lesson.id);
-    }
-  } catch (e) {
-    console.warn('[DemoHub] Lesson cleanup failed:', e);
-  }
-  if (!isGraphqlStudioLesson(lesson)) return;
-  try {
-    await cleanupGqlDemoLessonEnvironment(ctx);
-  } catch (e) {
-    console.warn('[DemoHub] GQL demo environment cleanup failed:', e);
-  }
-  // Env cleanup can trigger a stale React persist of `{{graphqlUrl}}` after
-  // closeDemoWorkspace restored the user's page endpoint (§11.0 gql110).
-  if (endpointToRestore !== undefined) {
-    try {
-      await restorePageEndpointSnapshot(endpointToRestore);
-      dispatchGqlPageEndpointReload();
-    } catch (e) {
-      console.warn('[DemoHub] GQL page endpoint re-restore failed:', e);
-    }
-  }
-}
-
-/** Find the first VISIBLE element matching selector — avoids clicking hidden tab panels */
-function firstVisible(selector: string): HTMLElement | null {
-  const all = document.querySelectorAll(selector);
-  for (const el of Array.from(all)) {
-    if (!(el instanceof HTMLElement)) continue;
-    const rect = el.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) return el;
-  }
-  return null;
-}
-
-const INITIAL_STATE: DemoHubState = {
-  view: 'domains',
-  selectedDomain: null,
-  selectedLesson: null,
-  stepIndex: 0,
-  isPlaying: false,
-  speed: 1,
-};
-
-/**
- * Restore the hub navigation position from persisted progress.
- * When a live session exists in sessionStorage (page reload / HMR), restore live mode
- * so the demo overlay can resume after setup re-runs.
- */
-function findLessonById(lessonId: string): { domain: DemoDomain; lesson: DemoLesson } | null {
-  for (const domain of allDomains) {
-    const lesson = domain.lessons.find(l => l.id === lessonId);
-    if (lesson && domain.available) return { domain, lesson };
-  }
-  return null;
-}
-
-function restoreStateFromProgress(progress: DemoProgress): DemoHubState {
-  const liveSession = readDemoLiveSession();
-  if (liveSession) {
-    const found = findLessonById(liveSession.lessonId);
-    if (found) {
-      return {
-        ...INITIAL_STATE,
-        speed: liveSession.speed ?? progress.speed,
-        view: 'live',
-        selectedDomain: found.domain,
-        selectedLesson: found.lesson,
-        stepIndex: liveSession.stepIndex,
-        isPlaying: liveSession.isPlaying ?? false,
-      };
-    }
-    clearDemoLiveSession();
-  }
-
-  const base: DemoHubState = { ...INITIAL_STATE, speed: progress.speed };
-  const { lastView, lastDomain, lastLesson } = progress;
-
-  // Restore to concept view if we have a lesson and were on concept/live
-  if (lastLesson && (lastView === 'concept' || lastView === undefined)) {
-    for (const domain of allDomains) {
-      const lesson = domain.lessons.find(l => l.id === lastLesson);
-      if (lesson && domain.available) {
-        return { ...base, view: 'concept', selectedDomain: domain, selectedLesson: lesson };
-      }
-    }
-  }
-
-  // Restore to lessons view if we have a domain (with or without a lastLesson)
-  if (lastView === 'lessons' || (lastDomain && !lastLesson)) {
-    const domain = allDomains.find(d => d.id === lastDomain);
-    if (domain?.available) {
-      // Keep lastLesson reference so the category tab is correctly highlighted
-      const lesson = lastLesson ? domain.lessons.find(l => l.id === lastLesson) ?? null : null;
-      return { ...base, view: 'lessons', selectedDomain: domain, selectedLesson: lesson };
-    }
-  }
-
-  return base;
-}
 
 export interface UseDemoHubOptions {
   navigateToTab: (tab: string) => void;
@@ -369,75 +221,16 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   }, [state.selectedLesson, progress]);
 
   // ─── Action Context Builder ────────────────────────────────────
-  const buildContext = useCallback((): DemoActionContext => ({
-    navigateToTab,
-    click: async (selector: string) => {
-      const el = firstVisible(selector);
-      if (el) {
-        // Visual ripple so user sees what was clicked
-        showClickRipple(el);
-        await new Promise(r => setTimeout(r, DEMO_VISIBLE_RIPPLE_MS));
-        el.click();
-      }
-    },
-    fill: async (selector: string, value: string) => {
-      const el = firstVisible(selector);
-      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-        showClickRipple(el);
-        await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
-        fillControlledInput(el, value);
-      }
-    },
-    selectOption: async (selector: string, value: string) => {
-      const el = firstVisible(selector) as HTMLSelectElement | null;
-      if (el) {
-        showClickRipple(el);
-        await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
-        const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
-        nativeSet?.call(el, value);
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    },
-    waitFor: async (selector: string, timeout = 5000) => {
-      const start = Date.now();
-      while (Date.now() - start < timeout) {
-        if (document.querySelector(selector)) return;
-        await new Promise(r => setTimeout(r, 100));
-      }
-    },
-    delay: (ms: number) => new Promise(r => setTimeout(r, ms)),
-  }), [navigateToTab]);
+  const buildContext = useCallback(
+    () => buildDemoActionContext(navigateToTab),
+    [navigateToTab],
+  );
 
   /** Build a "quiet" context without visual ripple — for preAction, setup, cleanup */
-  const buildQuietContext = useCallback((): DemoActionContext => ({
-    navigateToTab,
-    click: async (selector: string) => {
-      const el = firstVisible(selector);
-      if (el) el.click();
-    },
-    fill: async (selector: string, value: string) => {
-      const el = firstVisible(selector);
-      if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
-        fillControlledInput(el, value);
-      }
-    },
-    selectOption: async (selector: string, value: string) => {
-      const el = firstVisible(selector) as HTMLSelectElement | null;
-      if (el) {
-        const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
-        if (desc?.set) desc.set.call(el, value);
-        el.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    },
-    waitFor: async (selector: string, timeout = 5000) => {
-      const start = Date.now();
-      while (Date.now() - start < timeout) {
-        if (document.querySelector(selector)) return;
-        await new Promise(r => setTimeout(r, 100));
-      }
-    },
-    delay: (ms: number) => new Promise(r => setTimeout(r, scaleQuietDelay(ms))),
-  }), [navigateToTab]);
+  const buildQuietContext = useCallback(
+    () => buildQuietDemoActionContext(navigateToTab),
+    [navigateToTab],
+  );
 
   const buildQuietContextRef = useRef(buildQuietContext);
   buildQuietContextRef.current = buildQuietContext;
@@ -524,36 +317,6 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       runLiveLessonCleanup(lesson);
     }
   }, [state.view, state.selectedLesson, progress, runLiveLessonCleanup]);
-
-  // ─── Retry-based element wait ──────────────────────────────────
-  const waitForElement = useCallback(async (
-    selector: string,
-    timeoutMs = 2000,
-    signal?: AbortSignal,
-  ): Promise<boolean> => {
-    const start = Date.now();
-    while (Date.now() - start < timeoutMs) {
-      if (signal?.aborted) return false;
-      // Use querySelectorAll + find-visible so we handle multi-tab DOM correctly:
-      // inactive tabs are display:none — querySelector would always return the
-      // first (hidden) match, causing the wait to time out even when the
-      // intended tab's element is visible.
-      const els = document.querySelectorAll(selector);
-      const visible = Array.from(els).find(e => isElementVisible(e));
-      if (visible) return true;
-      await new Promise(r => setTimeout(r, 100));
-    }
-    return false;
-  }, []);
-
-  /** Abortable sleep — resolves early if signal fires. */
-  const abortableSleep = useCallback((ms: number, signal?: AbortSignal) => {
-    return new Promise<void>(resolve => {
-      if (signal?.aborted) { resolve(); return; }
-      const timer = setTimeout(resolve, ms);
-      signal?.addEventListener('abort', () => { clearTimeout(timer); resolve(); }, { once: true });
-    });
-  }, []);
 
   // ─── Live Demo Execution ───────────────────────────────────────
   const syncGqlModalLockForLessonStep = useCallback((
@@ -691,7 +454,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         setStepPhase('done');
       }
     }
-  }, [buildContext, buildQuietContext, waitForElement, abortableSleep, state.selectedLesson, state.stepIndex, syncGqlModalLockForLessonStep]);
+  }, [buildContext, buildQuietContext, state.selectedLesson, state.stepIndex, syncGqlModalLockForLessonStep]);
 
   /** Run action + verify when the user skips the reading pause via Next / ArrowRight. */
   const finishCurrentStepFromReading = useCallback(async (step: DemoStep, speed: SpeedMultiplier) => {
@@ -730,7 +493,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         setStepPhase('done');
       }
     }
-  }, [buildContext, waitForElement, abortableSleep]);
+  }, [buildContext]);
 
   const runLiveDemoSetup = useCallback(async (lesson: DemoLesson, gen: number): Promise<boolean> => {
     suppressLiveTabExitRef.current = true;
@@ -1054,21 +817,13 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   };
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────
-function isElementVisible(el: Element): boolean {
-  const rect = el.getBoundingClientRect();
-  if (rect.width === 0 && rect.height === 0) return false;
-  const style = getComputedStyle(el);
-  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-}
-
-/** Show a brief CSS ripple animation on an element so the user sees what was clicked. */
-function showClickRipple(el: HTMLElement) {
-  const ring = document.createElement('div');
-  ring.className = 'demo-click-ripple';
-  const rect = el.getBoundingClientRect();
-  ring.style.top = `${rect.top + rect.height / 2}px`;
-  ring.style.left = `${rect.left + rect.width / 2}px`;
-  document.body.appendChild(ring);
-  ring.addEventListener('animationend', () => ring.remove());
-}
+export {
+  abortableSleep,
+  findLessonById,
+  firstVisible,
+  isElementVisible,
+  restoreStateFromProgress,
+  scaleQuietDelay,
+  showClickRipple,
+  waitForElement,
+} from './useDemoHubHelpers';

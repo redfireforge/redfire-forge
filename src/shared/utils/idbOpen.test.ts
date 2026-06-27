@@ -3,6 +3,18 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
+/** All object stores except testRuns — created when upgrading from a testRuns-only DB. */
+const STORES_EXCEPT_TEST_RUNS = [
+  'featureGroups', 'sharedDataSources', 'trash',
+  'workflows', 'workflowFolders', 'requests', 'catalog', 'projects',
+  'graphql-history', 'graphql-collections', 'graphql-collection-folders',
+  'graphql-collection-items', 'graphql-schema-snapshots', 'graphql-diff-acknowledgements',
+  'environments', 'microservices', 'globalAuthProfiles',
+  'gqlStudioTabs', 'gqlStudioEnvironments', 'gqlConnectionProfiles', 'gqlPageAuth', 'gqlSchemaCache',
+] as const;
+
+const ALL_STORES = ['testRuns', ...STORES_EXCEPT_TEST_RUNS] as const;
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -58,7 +70,7 @@ describe('idbOpen.openDB', () => {
       () => { throw new Error('expected rejection'); },
       (e: Error) => e,
     );
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(10_000);
     expect((await settled).message).toBe('IndexedDB open timed out');
   });
 
@@ -158,15 +170,7 @@ describe('idbOpen.openDB', () => {
     // Simulate a db that already has all object stores
     const mockDb = {
       objectStoreNames: {
-        contains: vi.fn((name: string) =>
-          [
-            'testRuns', 'featureGroups', 'sharedDataSources', 'trash', 'workflows', 'workflowFolders',
-            'requests', 'catalog', 'projects',
-            // v6: GraphQL Studio Phase 3 stores
-            'graphql-history', 'graphql-collections', 'graphql-collection-folders',
-            'graphql-collection-items', 'graphql-schema-snapshots', 'graphql-diff-acknowledgements',
-          ].includes(name),
-        ),
+        contains: vi.fn((name: string) => ALL_STORES.includes(name as typeof ALL_STORES[number])),
       },
       createObjectStore: vi.fn(),
       close: vi.fn(),
@@ -247,13 +251,7 @@ describe('idbOpen.openDB', () => {
     });
     
     await p;
-    expect(storesCreated).toEqual([
-      'featureGroups', 'sharedDataSources', 'trash',
-      'workflows', 'workflowFolders', 'requests', 'catalog', 'projects',
-      // v6: GraphQL Studio Phase 3 stores (added after base stores)
-      'graphql-history', 'graphql-collections', 'graphql-collection-folders',
-      'graphql-collection-items', 'graphql-schema-snapshots', 'graphql-diff-acknowledgements',
-    ]);
-    expect(mockDb.createObjectStore).toHaveBeenCalledTimes(14);
+    expect(storesCreated).toEqual([...STORES_EXCEPT_TEST_RUNS]);
+    expect(mockDb.createObjectStore).toHaveBeenCalledTimes(STORES_EXCEPT_TEST_RUNS.length);
   });
 });

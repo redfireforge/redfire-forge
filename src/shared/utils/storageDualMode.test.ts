@@ -105,14 +105,16 @@ describe('createDualModeArrayStorage', () => {
       expect(idbMigrate).toHaveBeenCalledWith(STORAGE_KEY);
     });
 
-    it('Browser mode: readKey returns empty array → migrates and returns []', async () => {
+    it('Browser mode: readKey returns empty array → clears legacy key without migrating', async () => {
       idbLoad.mockResolvedValue(null);
       readKeyMock.mockResolvedValue(JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEY, '[]');
 
       const result = await createStorage().load();
 
       expect(result).toEqual([]);
-      expect(idbMigrate).toHaveBeenCalledWith(STORAGE_KEY);
+      expect(idbMigrate).not.toHaveBeenCalled();
+      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     });
 
     it('Browser mode: readKey returns non-array JSON → returns empty array', async () => {
