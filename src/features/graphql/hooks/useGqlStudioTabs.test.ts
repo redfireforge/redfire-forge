@@ -483,7 +483,7 @@ describe('useGqlStudioTabs', () => {
       act(() => { result.current.handleTabClick('tab-2'); });
       act(() => { result.current.updateActiveTabEndpoint('   '); });
       expect(result.current.tabs[1].endpoint).toBe('');
-      expect(result.current.resolvedTabEndpoint).toBe('');
+      expect(result.current.resolvedTabEndpoint).toBe('https://default.example/graphql');
     });
 
     it('updateActiveTabEndpoint clears override when value matches page default (Phase 6 PT-5)', async () => {

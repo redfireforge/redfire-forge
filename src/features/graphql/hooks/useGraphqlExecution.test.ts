@@ -2447,13 +2447,11 @@ describe('useGraphqlExecution — unmount guards on async completion paths', () 
       return { response, cacheHit: true, hash: 'cert-hash', unsupported: false };
     });
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
+    vi.mocked(gqlFetch).mockResolvedValue({
       status: 200,
-      headers: { forEach: vi.fn() },
-      text: vi.fn().mockResolvedValue(JSON.stringify({ data: { ok: true } })),
+      headers: {},
+      body: JSON.stringify({ data: { ok: true } }),
     });
-    vi.stubGlobal('fetch', fetchMock);
 
     const { result } = renderHook(() => useGraphqlExecution());
 
@@ -2468,13 +2466,14 @@ describe('useGraphqlExecution — unmount guards on async completion paths', () 
     });
 
     await waitFor(() => expect(result.current.status).toBe('success'));
-    expect(fetchMock).toHaveBeenCalledWith(
-      expect.stringContaining('/api/graphql/query'),
-      expect.objectContaining({ method: 'POST' }),
+    expect(gqlFetch).toHaveBeenCalledWith(
+      ENDPOINT,
+      'POST',
+      expect.objectContaining({ 'Content-Type': 'application/json' }),
+      expect.stringContaining('cert-hash'),
+      expect.any(AbortSignal),
+      expect.objectContaining({ caCert: expect.any(String) }),
     );
-    const proxyBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
-    expect(proxyBody.extensions).toBeDefined();
-    vi.unstubAllGlobals();
   });
 
   it('APQ TLS POST proxy forwards operationName and variables from GET body', async () => {
@@ -2489,13 +2488,11 @@ describe('useGraphqlExecution — unmount guards on async completion paths', () 
       return { response, cacheHit: false, hash: 'hash-1', unsupported: false };
     });
 
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
+    vi.mocked(gqlFetch).mockResolvedValue({
       status: 200,
-      headers: { forEach: vi.fn() },
-      text: vi.fn().mockResolvedValue(JSON.stringify({ data: { item: true } })),
+      headers: {},
+      body: JSON.stringify({ data: { item: true } }),
     });
-    vi.stubGlobal('fetch', fetchMock);
 
     const { result } = renderHook(() => useGraphqlExecution());
 
@@ -2512,11 +2509,10 @@ describe('useGraphqlExecution — unmount guards on async completion paths', () 
     });
 
     await waitFor(() => expect(result.current.status).toBe('success'));
-    const proxyBody = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
-    expect(proxyBody.operationName).toBe('ItemQuery');
-    expect(proxyBody.variables).toEqual({ id: '1' });
-    expect(proxyBody.extensions).toBeDefined();
-    vi.unstubAllGlobals();
+    const body = JSON.parse(String(vi.mocked(gqlFetch).mock.calls[0]?.[3]));
+    expect(body.operationName).toBe('ItemQuery');
+    expect(body.variables).toEqual({ id: '1' });
+    expect(body.extensions).toBeDefined();
   });
 
   it('skips setStatus after standard gqlFetch when unmounted before completion', async () => {

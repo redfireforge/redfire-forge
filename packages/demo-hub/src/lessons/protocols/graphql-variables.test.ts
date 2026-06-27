@@ -797,7 +797,7 @@ describe('gql-variables lesson', () => {
       .mockResolvedValueOnce({ json: async () => ({ data: { createUser: { id: 'usr-2' } } }) }));
     const ctx = makeCtx();
     await gqlVariablesLessonSetup(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
     expect(querySetValue).toHaveBeenCalledWith('query { }');
   });
 });
