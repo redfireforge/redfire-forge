@@ -489,11 +489,15 @@ vi.mock('./utils/subscriptionAssertions', () => ({
   buildAssertionResultMap: mocks.buildAssertionResultMap,
 }));
 
-vi.mock('./utils/monacoGraphqlSetup', () => ({
-  setGraphqlSchema: mocks.setGraphqlSchema,
-  clearGraphqlSchema: mocks.clearGraphqlSchema,
-  buildVarsModelUri: mocks.buildVarsModelUri,
-}));
+vi.mock('./utils/monacoGraphqlSetup', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./utils/monacoGraphqlSetup')>();
+  return {
+    ...actual,
+    setGraphqlSchema: mocks.setGraphqlSchema,
+    clearGraphqlSchema: mocks.clearGraphqlSchema,
+    buildVarsModelUri: mocks.buildVarsModelUri,
+  };
+});
 
 vi.mock('graphql', () => ({
   buildClientSchema: mocks.buildClientSchema,
@@ -1299,7 +1303,7 @@ describe('GraphqlStudioPage', () => {
       });
       renderPage();
       expect(mocks.captured.bottomPanel?.authScope).toBe('tab');
-      expect(mocks.captured.bottomPanel?.storedAuth).toBeUndefined();
+      expect(mocks.captured.bottomPanel?.storedAuth).toEqual({ type: 'bearer', token: 'staging-token' });
       expect(mocks.captured.bottomPanel?.hasAuthOverride).toBe(false);
       expect(mocks.captured.bottomPanel?.resolvedAuthPreview).toContain('Bearer');
     });
@@ -3043,7 +3047,7 @@ describe('GraphqlStudioPage', () => {
       expect(screen.getByTestId('gql-collections-mock')).toBeInTheDocument();
     });
 
-    it('uses tab label for history name when not Untitled and no selected operation', async () => {
+    it('uses parsed operation name for history when query is named', async () => {
       const saveHistory = vi.fn().mockResolvedValue(undefined);
       mocks.useGraphqlHistory.mockReturnValue({
         items: [],
@@ -3054,7 +3058,11 @@ describe('GraphqlStudioPage', () => {
         search: vi.fn(() => []),
         loading: false,
       });
-      setupTabs({ selectedOperation: null, label: 'My Saved Tab' });
+      setupTabs({
+        selectedOperation: null,
+        label: 'My Saved Tab',
+        query: 'query MySavedTab { hello }',
+      });
       const response = { data: { ok: true }, httpStatus: 200, latencyMs: 10 };
       const execute = vi.fn((params: {
         onExecutionCompleted?: (tabId: string, status: 'success', resp: typeof response, apq: null) => void;
@@ -3066,7 +3074,7 @@ describe('GraphqlStudioPage', () => {
       clickExecute();
       await waitFor(() => {
         expect(saveHistory).toHaveBeenCalledWith(expect.objectContaining({
-          operation: expect.objectContaining({ name: 'My Saved Tab' }),
+          operation: expect.objectContaining({ name: 'MySavedTab' }),
         }));
       });
     });

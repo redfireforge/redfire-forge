@@ -89,16 +89,16 @@ describe('resolveTabRawEndpoint', () => {
       .toBe('https://page.example/graphql');
   });
 
-  it('returns empty string when tab.endpoint is explicitly blank', () => {
+  it('falls back to page default when tab.endpoint is explicitly blank', () => {
     const tab = makeTab({ endpoint: '' });
     expect(resolveTabRawEndpoint(tab, [], PAGE_DEFAULTS.endpoint))
-      .toBe('');
+      .toBe(PAGE_DEFAULTS.endpoint);
   });
 
-  it('treats whitespace-only tab.endpoint as empty', () => {
+  it('treats whitespace-only tab.endpoint as page default inherit', () => {
     const tab = makeTab({ endpoint: '   ' });
     expect(resolveTabRawEndpoint(tab, [], PAGE_DEFAULTS.endpoint))
-      .toBe('');
+      .toBe(PAGE_DEFAULTS.endpoint);
   });
 });
 

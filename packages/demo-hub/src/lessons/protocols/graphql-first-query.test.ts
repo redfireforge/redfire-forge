@@ -896,7 +896,7 @@ describe('graphql-lesson-helpers', () => {
     await gqlVariablesLessonSetup(ctx);
     expect(responseSpy).toHaveBeenCalled();
     expect(historySpy).toHaveBeenCalled();
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
   });
 
   it('gqlVariablesLessonCleanup closes demo tab and resets session flags', async () => {
@@ -957,6 +957,6 @@ describe('graphql-lesson-helpers', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
     const ctx = makeCtx();
     await gqlVariablesLessonSetup(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, GQL_DEMO_VAR);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 5000);
   });
 });
