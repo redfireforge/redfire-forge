@@ -12,7 +12,8 @@ Format follows Keep a Changelog and Semantic Versioning.
 ## [Unreleased]
 
 ### Added
-- **Dual-track builds:** Standard (`build:prod` / `tauri:build:prod`) vs Learning Hub (`build:demo` / `tauri:build:demo`) with separate Tauri bundle IDs.
+- **gRPC Studio planning document** — expanded architecture and phase plan in `docs/plan/future/grpc/grpc-studio-plan.md`.
+- **`useDemoHub.coverage-resume.test.ts`** — isolated live-demo resume/session coverage tests (module-mock safe).
 - **`@redfireforge/demo-hub` workspace package** (`packages/demo-hub/`): Phase 7 monorepo extraction — lessons, hub UI, adapters; separate Vitest demo project; optional public npm publish deferred.
 - **Demo adapter layer** (`packages/demo-hub/`): stable bridge API for GraphQL Studio, workflow designer, environment, and app shell — lessons no longer import product hooks directly.
 - **Lesson Notes panel** in Demo Hub: per-lesson scratch notes with resizable side panel and persistent storage.
@@ -34,6 +35,8 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Unit test coverage raised to >90% on every source file (statements, branches, functions, lines).
 
 ### Fixed
+- **Demo Hub coverage gate:** remaining lesson helpers and `useDemoHub.ts` brought to ≥90% on all metrics; targeted coverage-gaps tests (no full lesson walks).
+- **`useDemoHub` auto-play pause:** `toggleAutoPlay` now pauses via `isPlayingRef` so `pauseAutoPlay()` runs reliably when stopping playback.
 - PrerequisiteGate infinite re-render loop (`probeEndpoints` memoization).
 - GraphQL endpoint badge hostname display (localhost vs 127.0.0.1).
 - Whitespace-only per-tab GraphQL endpoints now inherit profile/page default (batch endpoint parity).

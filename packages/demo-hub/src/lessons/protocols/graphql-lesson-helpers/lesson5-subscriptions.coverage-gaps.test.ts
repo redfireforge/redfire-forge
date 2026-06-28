@@ -122,4 +122,52 @@ describe('lesson5-subscriptions — coverage gaps', () => {
     await clearSubscriptionFilterIfActive(ctx);
     expect(ctx.click).not.toHaveBeenCalled();
   });
+
+  it('prepareGql5PauseReading subscribes when subscription log is missing', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-right-tab-response"></button>
+      <button data-testid="gql-subscribe-btn"></button>
+      <div data-testid="gql-sub-row"></div>
+      <div data-testid="gql-sub-row"></div>
+      <div data-testid="gql-sub-row"></div>
+      <div data-testid="gql-sub-message-list">COMPLETE</div>
+    `;
+    const { prepareGql5PauseReading, markSubscriptionAuthDone } = await import('./lesson5-subscriptions');
+    markSubscriptionAuthDone();
+    await prepareGql5PauseReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIBE_BTN);
+  });
+
+  it('prepareGql5PauseReading re-subscribes when log exists but has no rows', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-right-tab-response"></button>
+      <button data-testid="gql-subscribe-btn"></button>
+      <div data-testid="gql-sub-log"></div>
+      <div data-testid="gql-sub-message-list">COMPLETE</div>
+    `;
+    const { prepareGql5PauseReading, markSubscriptionAuthDone } = await import('./lesson5-subscriptions');
+    markSubscriptionAuthDone();
+    await prepareGql5PauseReading(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIBE_BTN);
+  });
+
+  it('demonstrateAssertionStream falls back to subscribe when resubscribe is unavailable', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="gql-right-tab-response"></button>
+      <button data-testid="gql-subscribe-btn"></button>
+      <div data-testid="gql-sub-log"></div>
+      <div data-testid="gql-sub-row"></div>
+      <span data-testid="gql-assertion-badge"></span>
+      <span data-testid="gql-assertion-badge"></span>
+      <span data-testid="gql-assertion-badge"></span>
+      <div data-testid="gql-sub-message-list">COMPLETE</div>
+    `;
+    const { demonstrateAssertionStream, markSubscriptionAuthDone } = await import('./lesson5-subscriptions');
+    markSubscriptionAuthDone();
+    await demonstrateAssertionStream(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.SUBSCRIBE_BTN);
+  });
 });
