@@ -96,12 +96,12 @@ const GQL15_LESSON_SOURCE = {
 
 const GQL16_LESSON_SOURCE = {
   name: 'Workflow Integration',
-  steps: 12,
+  steps: 13,
 } as const;
 
 const GQL17_LESSON_SOURCE = {
   name: 'Workflow Runner & Results',
-  steps: 10,
+  steps: 9,
 } as const;
 
 const GQL18_LESSON_SOURCE = {

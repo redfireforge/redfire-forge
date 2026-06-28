@@ -20,7 +20,7 @@ vi.mock('./tauriStore', () => ({
   getUsageBytes: () => tauriGetUsage(),
 }));
 
-const { idbStore, catalogStore, workflowsStore, requestsStore, projectsStore, appConfigStore } = vi.hoisted(() => {
+const { idbStore, catalogStore, workflowsStore, requestsStore, projectsStore, appConfigStore, runnerConfigStore } = vi.hoisted(() => {
   const store: Record<string, unknown> = {};
   return {
     idbStore: store,
@@ -45,6 +45,7 @@ const { idbStore, catalogStore, workflowsStore, requestsStore, projectsStore, ap
       featureGroups: null as unknown[] | null,
       globalAuthProfiles: null as unknown[] | null,
     },
+    runnerConfigStore: {} as Record<string, string>,
   };
 });
 
@@ -119,6 +120,17 @@ vi.mock('./idbGlobalAuthProfiles', () => ({
   idbLoadGlobalAuthProfiles: vi.fn(async () => appConfigStore.globalAuthProfiles),
   idbSaveGlobalAuthProfiles: vi.fn(async (data: unknown[]) => { appConfigStore.globalAuthProfiles = data; }),
   idbMigrateGlobalAuthProfiles: vi.fn(async () => false),
+}));
+
+vi.mock('./idbRunnerConfig', () => ({
+  idbLoadRunnerConfig: vi.fn(async (contextKey: string) => runnerConfigStore[contextKey || '__default__'] ?? null),
+  idbSaveRunnerConfig: vi.fn(async (contextKey: string, payload: string) => {
+    runnerConfigStore[contextKey || '__default__'] = payload;
+  }),
+  idbMigrateRunnerConfigsFromLocalStorage: vi.fn(async () => 0),
+  purgeRunnerConfigLocalStorageKeys: vi.fn(() => ({ removed: 0, freedBytes: 0 })),
+  idbPruneRunnerConfigs: vi.fn(async () => 0),
+  idbListRunnerConfigIds: vi.fn(async () => Object.keys(runnerConfigStore)),
 }));
 
 vi.mock('./idbTestRuns', () => {
@@ -219,6 +231,7 @@ beforeEach(() => {
   appConfigStore.microservices = null;
   appConfigStore.featureGroups = null;
   appConfigStore.globalAuthProfiles = null;
+  for (const k of Object.keys(runnerConfigStore)) delete runnerConfigStore[k];
   _idbInsertOrder = 0;
   isTauriMock.mockReturnValue(false);
   tauriGetItem.mockReset();
@@ -336,26 +349,16 @@ describe('storage — runner config', () => {
     expect(await loadRunnerConfig()).toBeNull();
   });
 
-  it('saveRunnerConfig purges stale keys and retries on quota exceeded', async () => {
-    localStorage.setItem('perf-test-runner-config:stale-env', '{"iterations":1}');
-    const original = Storage.prototype.setItem;
-    let runnerSaveAttempts = 0;
-    Storage.prototype.setItem = function (key: string, value: string) {
-      if (key.startsWith('perf-test-runner-config')) {
-        runnerSaveAttempts += 1;
-        if (runnerSaveAttempts === 1) {
-          throw new DOMException('quota exceeded', 'QuotaExceededError');
-        }
-      }
-      return original.call(this, key, value);
-    };
-    try {
-      await saveRunnerConfig({ concurrency: 2 }, 'env-1:svc-1');
-      expect(await loadRunnerConfig('env-1:svc-1')).toEqual({ concurrency: 2 });
-      expect(localStorage.getItem('perf-test-runner-config:stale-env')).toBeNull();
-    } finally {
-      Storage.prototype.setItem = original;
-    }
+  it('saveRunnerConfig persists to IDB without leaving legacy localStorage keys', async () => {
+    await saveRunnerConfig({ concurrency: 2 }, 'env-1:svc-1');
+    expect(await loadRunnerConfig('env-1:svc-1')).toEqual({ concurrency: 2 });
+    expect(localStorage.getItem('perf-test-runner-config:env-1:svc-1')).toBeNull();
+  });
+
+  it('loadRunnerConfig migrates legacy localStorage into IDB', async () => {
+    localStorage.setItem('perf-test-runner-config:legacy-env', '{"concurrency":7}');
+    const loaded = await loadRunnerConfig('legacy-env');
+    expect(loaded).toEqual({ concurrency: 7 });
   });
 });
 

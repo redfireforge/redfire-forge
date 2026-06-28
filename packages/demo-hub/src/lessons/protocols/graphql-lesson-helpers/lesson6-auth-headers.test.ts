@@ -328,20 +328,38 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.EXECUTE_BTN);
   });
 
-  it('demonstrateSaveConnectionProfile paces modal open, fill, and save for viewers', async () => {
+  it('demonstrateSaveConnectionProfile paces modal open, fill, save, and load for viewers', async () => {
     buildFullDom();
     document.querySelector(GQL.PROFILE_MODAL)?.remove();
-    (window as unknown as Record<string, unknown>).__demoOpenGqlProfileModal = vi.fn(() => false);
+    (window as unknown as Record<string, unknown>).__demoOpenGqlProfileModal = vi.fn(() => {
+      document.body.insertAdjacentHTML('beforeend', `
+        <div data-testid="gql-profile-modal">
+          <input data-testid="gql-profile-name-input" />
+          <button data-testid="gql-profile-save-btn"></button>
+          <ul class="gql-profile-list"></ul>
+        </div>`);
+      return true;
+    });
     const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.PROFILE_SAVE_BTN) {
+        document.querySelector('.gql-profile-list')!.insertAdjacentHTML('beforeend', `
+          <li class="gql-profile-row">
+            <span class="gql-profile-row__name">${LESSON6_PROFILE_NAME}</span>
+            <button aria-label="Load profile: ${LESSON6_PROFILE_NAME}">Load</button>
+          </li>`);
+      }
+    });
     await demonstrateSaveConnectionProfile(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_BADGE);
     expect(ctx.fill).toHaveBeenCalledWith(GQL.PROFILE_NAME_INPUT, LESSON6_PROFILE_NAME);
     expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_SAVE_BTN);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON6_PROFILE_NAME));
     expect(ctx.click).not.toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
     expect(ctx.delay).toHaveBeenCalledWith(50);
     expect(ctx.delay).toHaveBeenCalledWith(800);
     expect(ctx.delay).toHaveBeenCalledWith(600);
     expect(ctx.delay).toHaveBeenCalledWith(1500);
+    expect(ctx.delay).toHaveBeenCalledWith(2500);
   });
 
   it('demonstrateSaveConnectionProfile opens modal via demo bridge when badge is locked', async () => {
@@ -365,7 +383,15 @@ describe('lesson6-auth-headers helpers (rewrite)', () => {
   it('demonstrateSaveConnectionProfile closes modal when closeAfter is true', async () => {
     buildFullDom();
     const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GQL.PROFILE_SAVE_BTN) {
+        const modal = document.querySelector(GQL.PROFILE_MODAL);
+        modal?.insertAdjacentHTML('beforeend', `
+          <button aria-label="Load profile: ${LESSON6_PROFILE_NAME}">Load</button>`);
+      }
+    });
     await demonstrateSaveConnectionProfile(ctx, { closeAfter: true });
+    expect(ctx.click).toHaveBeenCalledWith(GQL.profileLoadBtn(LESSON6_PROFILE_NAME));
     expect(ctx.click).toHaveBeenCalledWith(GQL.PROFILE_CLOSE_BTN);
     expect(ctx.delay).toHaveBeenCalledWith(800);
   });

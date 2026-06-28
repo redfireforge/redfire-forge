@@ -473,6 +473,23 @@ export async function runGraph(
             },
             ...(!passedFlag.value && lastTriggerResult?.errorMessage ? { error: lastTriggerResult.errorMessage } : {}),
           };
+        } else if (
+          node.type === 'graphqlQuery' || node.type === 'graphqlMutation'
+          || node.type === 'graphqlSubscription' || node.type === 'graphqlIntrospect'
+          || node.type === 'graphqlAssert'
+        ) {
+          const gqlResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastResult = gqlResults[gqlResults.length - 1];
+          if (lastResult) {
+            eventDetails = {
+              responseTimeMs: lastResult.responseTimeMs,
+              ...(lastResult.httpStatus ? { statusCode: lastResult.httpStatus } : {}),
+              ...(lastResult.url ? { method: lastResult.method, url: lastResult.url } : {}),
+            };
+            if (!lastResult.passed && lastResult.errorMessage) {
+              eventDetails.error = lastResult.errorMessage;
+            }
+          }
         }
       } else {
         // Minimal: only capture error info for failed nodes
@@ -488,7 +505,10 @@ export async function runGraph(
               };
             }
           } else if (node.type === 'wsConnect' || node.type === 'wsSend' || node.type === 'wsReceive' || node.type === 'wsTrigger'
-            || node.type === 'kafkaProduce' || node.type === 'kafkaConsume') {
+            || node.type === 'kafkaProduce' || node.type === 'kafkaConsume'
+            || node.type === 'graphqlQuery' || node.type === 'graphqlMutation'
+            || node.type === 'graphqlSubscription' || node.type === 'graphqlIntrospect'
+            || node.type === 'graphqlAssert') {
             const transportResults = results.filter(r => r.workflowNodeId === nodeId);
             const lastResult = transportResults[transportResults.length - 1];
             if (lastResult && !lastResult.passed && lastResult.errorMessage) {

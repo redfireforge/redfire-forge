@@ -13,10 +13,13 @@ Format follows Keep a Changelog and Semantic Versioning.
 
 ### Added
 - **Dual-track builds:** Standard (`build:prod` / `tauri:build:prod`) vs Learning Hub (`build:demo` / `tauri:build:demo`) with separate Tauri bundle IDs.
+- **`@redfireforge/demo-hub` workspace package** (`packages/demo-hub/`): Phase 7 monorepo extraction — lessons, hub UI, adapters; separate Vitest demo project; optional public npm publish deferred.
 - **Demo adapter layer** (`packages/demo-hub/`): stable bridge API for GraphQL Studio, workflow designer, environment, and app shell — lessons no longer import product hooks directly.
 - **Lesson Notes panel** in Demo Hub: per-lesson scratch notes with resizable side panel and persistent storage.
 - Environment Manager multi-protocol endpoint panels (GraphQL, WebSocket, SSE, Kafka).
 - GraphQL Demo Hub lessons (GQL-1 through GQL-19): queries, mutations, subscriptions, batch execution, TLS, multi-tab, mock server, workflow integration, and related E2E specs.
+- **§11.0 hard-refresh policy** for GraphQL demo workspace isolation — documented in `e2e/DEMO-LESSON-E2E-MEMO.md` §12; acceptance E2E 5/5 (`gql110`).
+- **GQL-17/19 quality audit** — automated enhancement-tier gate in `graphql-lesson-quality-audit.test.ts` (14/14).
 - **GraphQL Studio batch response UX:** per-tab response slices synced from batch runs, response banner with batch context, failed-operation pill, and **View full batch** modal entry point.
 - GraphQL Studio SDL line diff viewer with golden test cases, collection import preview, profile tab-usage indicators, and schema cache in IndexedDB (v9 stores).
 - GraphQL Studio batch execution UI, advanced settings, schema layer hooks, and live-demo overlay.
@@ -26,6 +29,7 @@ Format follows Keep a Changelog and Semantic Versioning.
 - GraphQL demo workspace mutators (`prepareDemoWorkspace`, `closeDemoWorkspace`, etc.) no-op when `VITE_ENABLE_DEMO_HUB=false`.
 - GraphQL Studio page and App shell refactored to stay under 900-line monolith limit.
 - Demo Player prerequisite gate supports multi-endpoint Docker checks and GraphQL tab-budget gating.
+- **Phase 8 human validation complete** — all 19 GraphQL Demo Hub lessons signed off Web + Tauri (2026-06-27).
 - **Web storage:** large array blobs (catalog, workflows, environments, GraphQL Studio tabs/auth/schema) use IndexedDB only on save — no localStorage fallback for oversized payloads; empty legacy arrays are cleared without migration.
 - Unit test coverage raised to >90% on every source file (statements, branches, functions, lines).
 

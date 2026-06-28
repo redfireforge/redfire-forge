@@ -11,6 +11,7 @@ describe('useDemoWorkflowBridge', () => {
     delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
     delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfSelectByName;
+    delete (window as unknown as Record<string, unknown>).__wfRunnerSelectByName;
     delete (window as unknown as Record<string, unknown>).__wfPatchWorkflowByName;
     delete (window as unknown as Record<string, unknown>).__wfWorkflowsLoaded;
   });
@@ -100,6 +101,15 @@ describe('useDemoWorkflowBridge', () => {
     const fn = (window as unknown as Record<string, (name: string) => boolean>).__wfSelectByName;
     expect(fn('Demo WF')).toBe(true);
     expect(select).toHaveBeenCalledWith('wf-1');
+    expect(fn('Missing')).toBe(false);
+  });
+
+  it('__wfRunnerSelectByName delegates to selectRunnerByName when provided', () => {
+    const selectRunner = vi.fn((name: string) => name === 'GraphQL Latency Demo');
+    renderHook(() => useDemoWorkflowBridge([], vi.fn(), undefined, undefined, false, undefined, selectRunner));
+    const fn = (window as unknown as Record<string, (name: string) => boolean>).__wfRunnerSelectByName;
+    expect(fn('GraphQL Latency Demo')).toBe(true);
+    expect(selectRunner).toHaveBeenCalledWith('GraphQL Latency Demo');
     expect(fn('Missing')).toBe(false);
   });
 

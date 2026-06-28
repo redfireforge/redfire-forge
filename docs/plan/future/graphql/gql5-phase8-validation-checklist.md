@@ -56,7 +56,7 @@ Full walk skips when any of TLS/mTLS/4010 health checks fail.
 ## Sign-off
 
 - [x] **Automated E2E** full Docker walk (Chromium auto-play) — 2026-06-26 (**18** steps)
-- [x] **§11.0 workspace isolation E2E** — 2026-06-23 (`gql110` 4/4)
-- [ ] Web **manual** 1× auto-play — see [phase8-validation-checklist.md](./phase8-validation-checklist.md)
+- [x] **§11.0 workspace isolation E2E** — 2026-06-27 (`gql110` 5/5 incl. hard refresh)
+- [x] Web **manual** 1× auto-play — 2026-06-28 ([phase8-validation-checklist.md](./phase8-validation-checklist.md))
 - [x] Tauri 1× auto-play — **steps 13–16 mTLS focus** (native rustls) — 2026-06-26
 - [x] Screenshot: `e2e/screenshots/gql5-https-tls-lesson-complete-*.png` from E2E

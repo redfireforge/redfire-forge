@@ -183,10 +183,25 @@
 
 .results-explorer-diagram .react-flow {
   flex: 1;
-  height: 0;
+  min-height: 0;
 }
 
-.results-explorer-diagram > .wf-pill-controls {
+.results-explorer-canvas-wrap {
+  flex: 1 1 0;
+  min-height: 0;
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.results-explorer-canvas-wrap .results-explorer-flow {
+  flex: 1;
+  min-height: 0;
+}
+
+.results-explorer-diagram .wf-pill-controls,
+.results-explorer-diagram .results-explorer-canvas-controls .wf-pill-controls {
   position: static !important;
   transform: none !important;
   align-self: center;
@@ -3290,11 +3305,38 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 6px 12px;
+  padding: 6px 36px 6px 12px;
   background: #1e293b;
   border-bottom: 1px solid #334155;
   flex-shrink: 0;
   min-height: 32px;
+}
+
+.re-console-close-btn {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  z-index: 12;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border, #3b4a60);
+  border-radius: 4px;
+  background: var(--surface, #1e293b);
+  color: var(--text-muted, #a8b8cc);
+  cursor: pointer;
+  font-size: 0.78rem;
+  line-height: 1;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.re-console-close-btn:hover {
+  background: var(--surface-hover, #2d3a4d);
+  color: var(--text, #f1f5f9);
+  border-color: var(--primary, #3b82f6);
 }
 
 .re-console-title {

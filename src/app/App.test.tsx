@@ -28,7 +28,8 @@ const h = vi.hoisted(() => {
     'environments', 'preferences', 'kafka-settings', 'requests', 'catalog',
     'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner',
     'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results',
-    'kafka-message-studio', 'websocket-studio', 'sse-studio',
+    'kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio',
+    'demo-hub',
   ];
 
   return {
@@ -297,6 +298,7 @@ vi.mock('./hooks/useGalleryImport', () => ({
 vi.mock('../shared/utils/storage', () => ({
   onStorageFull: vi.fn((cb: (key: string) => void) => { h.storageFullCb = cb; return h.storageFullCleanup; }),
   cleanupStaleStorageKeys: () => h.cleanupStale(),
+  ensureBrowserLargeDataMigrated: vi.fn(async () => undefined),
   readKey: vi.fn(async () => null),
   writeKey: vi.fn(async () => undefined),
 }));
@@ -560,7 +562,19 @@ vi.mock('../features/graphql/GraphqlStudioPage', () => ({
   GraphqlStudioPage: () => <div data-testid="graphql-studio-page" />,
 }));
 
+vi.mock('./demo/DemoShellHost', () => ({
+  DemoShellHost: (props: Record<string, unknown>) => {
+    queueMicrotask(() => {
+      const navigate = props.navigateToTab as ((tab: string) => void) | undefined;
+      navigate?.('workflow');
+    });
+    return <div id="demo-hub-mount" data-testid="demo-shell-host" />;
+  },
+}));
+
 import App from './App';
+import { demoHubRuntimeRef } from './demo/demoHubRuntimeRef';
+import { readKey, ensureBrowserLargeDataMigrated } from '../shared/utils/storage';
 
 // real sample workflow id for the load-template happy path
 (h as unknown as { realSampleId: string }).realSampleId = sampleWorkflowCatalog[0]?.id ?? 'unknown';
@@ -1215,5 +1229,130 @@ describe('App — dev-only Rust executor overlay', () => {
       window.dispatchEvent(new KeyboardEvent('keydown', { key: 'T', metaKey: true, shiftKey: true }));
     });
     expect(screen.queryByTestId('rust-panel')).toBeNull();
+  });
+});
+
+describe('App — coverage gaps', () => {
+  beforeEach(() => {
+    resetState();
+    demoHubRuntimeRef.current = {
+      ...demoHubRuntimeRef.current,
+      state: {
+        view: 'domains',
+        selectedLesson: null,
+        stepIndex: 0,
+        isPlaying: false,
+        speed: 1,
+      },
+      exitLiveDemo: vi.fn(async () => {}),
+      suppressLiveTabExitRef: { current: false },
+    };
+  });
+
+  it('selectRunnerWorkflowByName uses window bridge when available', () => {
+    const bridge = vi.fn(() => true);
+    (window as unknown as { __wfRunnerApplySelection?: typeof bridge }).__wfRunnerApplySelection = bridge;
+    render(<App />);
+    expect((window as unknown as { __wfRunnerSelectByName: (n: string) => boolean }).__wfRunnerSelectByName('Demo WF')).toBe(true);
+    expect(bridge).toHaveBeenCalledWith('Demo WF');
+    delete (window as unknown as { __wfRunnerApplySelection?: typeof bridge }).__wfRunnerApplySelection;
+  });
+
+  it('selectRunnerWorkflowByName falls back to workflow list by name', () => {
+    delete (window as unknown as { __wfRunnerApplySelection?: unknown }).__wfRunnerApplySelection;
+    h.wfHook.workflows = [{ id: 'wf-99', name: 'Runner Target' }];
+    render(<App />);
+    expect((window as unknown as { __wfRunnerSelectByName: (n: string) => boolean }).__wfRunnerSelectByName('Runner Target')).toBe(true);
+    goto('workflow-runner');
+    expect(screen.getByTestId('workflow-runner')).toBeTruthy();
+  });
+
+  it('debounces repeated storage-full toasts within 8 seconds', () => {
+    render(<App />);
+    act(() => { h.storageFullCb?.('first'); });
+    act(() => { h.storageFullCb?.('second'); });
+    expect(h.toast.show).toHaveBeenCalledTimes(1);
+  });
+
+  it('restores last protocols tab from storage on mount', async () => {
+    vi.mocked(readKey).mockResolvedValueOnce('graphql-studio');
+    render(<App />);
+    await act(async () => { await Promise.resolve(); });
+    expect(readKey).toHaveBeenCalled();
+  });
+
+  it('handleSetActiveTab cancels navigation when live demo exit is declined', () => {
+    demoHubRuntimeRef.current = {
+      ...demoHubRuntimeRef.current,
+      state: {
+        view: 'live',
+        selectedLesson: { initialTab: 'graphql-studio', allowedTabs: ['graphql-studio'] },
+        stepIndex: 0,
+        isPlaying: true,
+        speed: 1,
+      },
+      suppressLiveTabExitRef: { current: false },
+    };
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    render(<App />);
+    goto('results');
+    expect(screen.getByTestId('requests-sidebar')).toBeTruthy();
+    vi.mocked(window.confirm).mockRestore();
+  });
+
+  it('handleSetActiveTab exits live demo when navigation is confirmed', async () => {
+    const exitLiveDemo = vi.fn(async () => {});
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(<App />);
+    demoHubRuntimeRef.current = {
+      ...demoHubRuntimeRef.current,
+      state: {
+        view: 'live',
+        selectedLesson: { initialTab: 'graphql-studio', allowedTabs: ['graphql-studio'] },
+        stepIndex: 0,
+        isPlaying: true,
+        speed: 1,
+      },
+      exitLiveDemo,
+      suppressLiveTabExitRef: { current: false },
+    };
+    goto('results');
+    await act(async () => { await Promise.resolve(); });
+    expect(exitLiveDemo).toHaveBeenCalled();
+    vi.mocked(window.confirm).mockRestore();
+  });
+
+  it('calls ensureBrowserLargeDataMigrated on mount', async () => {
+    render(<App />);
+    await act(async () => { await Promise.resolve(); });
+    expect(ensureBrowserLargeDataMigrated).toHaveBeenCalled();
+  });
+
+  it('loads DemoShellHost via lazy import when demo hub is enabled', async () => {
+    render(<App />);
+    goto('demo-hub');
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(document.getElementById('demo-hub-mount')).toBeTruthy();
+  });
+
+  it('handleSetActiveTab navigates directly when not in live demo', () => {
+    render(<App />);
+    goto('scenarios');
+    expect(screen.getByTestId('scenario-builder')).toBeTruthy();
+  });
+
+  it('selectRunnerWorkflowByName returns false when workflow is missing', () => {
+    delete (window as unknown as { __wfRunnerApplySelection?: unknown }).__wfRunnerApplySelection;
+    h.wfHook.workflows = [];
+    render(<App />);
+    expect((window as unknown as { __wfRunnerSelectByName: (n: string) => boolean }).__wfRunnerSelectByName('Missing')).toBe(false);
+  });
+
+  it('DemoShellHost navigateToTab uses flushSync tab switch', async () => {
+    render(<App />);
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByTestId('workflow-sidebar')).toBeTruthy();
   });
 });

@@ -1,0 +1,614 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gRPC Studio — Main Studio (Phase 1)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+.call-area { display: flex; flex-direction: column; flex: 1; min-height: 0; overflow: hidden; }
+.request-pane { display: flex; flex-direction: column; flex: 0 0 55%; min-height: 0; border-bottom: 4px solid var(--border); }
+.response-pane { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.field-row { display: flex; gap: 8px; align-items: flex-start; padding: 7px 14px; border-bottom: 1px solid rgba(49,50,68,0.4); }
+.field-row:hover { background: rgba(255,255,255,0.015); }
+.field-name { font-weight: 600; font-size: 12px; color: var(--text); min-width: 110px; padding-top: 6px; }
+.field-control { flex: 1; }
+.field-note { font-size: 10px; color: var(--text-faint); padding-top: 7px; min-width: 80px; text-align: right; }
+.oneof-group { border: 1px solid rgba(203,166,247,0.3); border-radius: 6px; margin: 0 14px 8px; overflow: hidden; }
+.oneof-header { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; color: var(--mauve); padding: 5px 10px; background: rgba(203,166,247,0.08); border-bottom: 1px solid rgba(203,166,247,0.2); }
+.oneof-radio-row { display: flex; gap: 4px; padding: 6px 10px; background: rgba(203,166,247,0.04); }
+.oneof-radio { padding: 3px 10px; border-radius: 3px; font-size: 11px; cursor: pointer; border: 1px solid var(--border); background: var(--surface2); color: var(--text-muted); }
+.oneof-radio.active { background: rgba(203,166,247,0.15); color: var(--mauve); border-color: rgba(203,166,247,0.4); }
+.repeated-list { display: flex; flex-direction: column; gap: 4px; }
+.repeated-item { display: flex; gap: 6px; align-items: center; }
+.repeated-item input { flex: 1; }
+.repeated-rm { font-size: 14px; color: var(--danger); cursor: pointer; background: none; border: none; padding: 2px 4px; border-radius: 3px; }
+.repeated-rm:hover { background: rgba(243,139,168,0.1); }
+.add-item-btn { font-size: 11px; color: var(--primary); cursor: pointer; background: none; border: 1px dashed rgba(137,180,250,0.3); border-radius: 4px; padding: 4px 10px; margin-top: 4px; width: 100%; display: flex; align-items: center; gap: 4px; justify-content: center; }
+.add-item-btn:hover { background: var(--primary-dim); border-color: var(--primary); }
+.json-tab-body { flex: 1; overflow: auto; background: var(--bg); min-height: 0; }
+.trailer-row { font-family: var(--mono); font-size: 11px; padding: 4px 14px; border-bottom: 1px solid rgba(49,50,68,0.3); display: flex; gap: 12px; }
+.trailer-key { color: var(--text-muted); min-width: 140px; }
+.trailer-val { color: var(--text); }
+.copy-btn { padding: 3px 8px; font-size: 10px; background: var(--surface2); border: 1px solid var(--border); border-radius: 3px; color: var(--text-muted); cursor: pointer; }
+.copy-btn:hover { color: var(--text); background: var(--surface-hover); }
+.send-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.method-info { flex: 1; }
+.method-name { font-size: 13px; font-weight: 600; color: var(--text); }
+.method-type { font-size: 11px; color: var(--text-muted); }
+.request-source { font-size: 11px; padding: 3px 8px; border-radius: 4px; background: var(--surface2); border: 1px solid var(--border); color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+.cancel-btn { background: rgba(243,139,168,0.12); color: var(--danger); border: 1px solid rgba(243,139,168,0.3); padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; display: none; align-items: center; gap: 5px; }
+</style>
+</head>
+<body>
+<div class="app-header">
+  <a class="app-logo" href="index.html">🔥 <span>RedfireForge</span></a>
+  <div class="nav-pills">
+    <button class="nav-pill">API</button>
+    <button class="nav-pill">Workflow</button>
+    <button class="nav-pill">Harness</button>
+    <button class="nav-pill active">Protocols</button>
+  </div>
+  <div class="header-right">
+    <div class="env-badge">🌿 staging</div>
+    <div style="font-size:12px;color:var(--text-muted)">v0.6.0</div>
+  </div>
+</div>
+
+<div class="proto-nav">
+  <button class="proto-tab">Kafka</button>
+  <button class="proto-tab">WebSocket</button>
+  <button class="proto-tab">GraphQL</button>
+  <button class="proto-tab">SSE</button>
+  <button class="proto-tab active"><span class="dot"></span> gRPC</button>
+</div>
+
+<!-- Tab Bar -->
+<div class="tab-bar">
+  <button class="tab active" onclick="selectTab(this)">
+    <span class="call-type unary">U</span>
+    OrderService/CreateOrder
+    <span class="tab-close">×</span>
+  </button>
+  <button class="tab" onclick="selectTab(this)">
+    <span class="call-type ss">SS</span>
+    EchoService/ServerStream
+    <span class="tab-close">×</span>
+  </button>
+  <button class="tab" onclick="selectTab(this)">
+    <span class="call-type unary">U</span>
+    UserService/GetUser
+    <span class="tab-close">×</span>
+  </button>
+  <button class="new-tab-btn" title="New Tab">+</button>
+</div>
+
+<div class="studio-layout" style="flex:1;min-height:0;overflow:hidden;">
+  <!-- Left: Service Explorer -->
+  <div class="sidebar">
+    <div class="sidebar-header">
+      <span class="sidebar-title">Services</span>
+      <button class="btn btn-ghost btn-xs" title="Refresh reflection">⟳</button>
+    </div>
+    <div class="search-input">
+      <span class="search-icon">🔍</span>
+      <input type="text" placeholder="Filter methods…">
+    </div>
+    <div class="sidebar-body">
+      <div class="service-tree">
+
+        <!-- OrderService -->
+        <div class="tree-service">
+          <div class="tree-service-header open" onclick="toggleService(this)">
+            <div class="svc-icon">O</div>
+            ▾ OrderService
+            <span class="chip chip-blue" style="margin-left:auto;font-size:9px;">4</span>
+          </div>
+          <div class="tree-methods" id="svc-order">
+            <div class="tree-method active" onclick="selectMethod(this, 'CreateOrder', 'U')">
+              <span class="method-badge badge-u">U</span>
+              CreateOrder
+            </div>
+            <div class="tree-method" onclick="selectMethod(this, 'GetOrder', 'U')">
+              <span class="method-badge badge-u">U</span>
+              GetOrder
+            </div>
+            <div class="tree-method" onclick="selectMethod(this, 'ListOrders', 'SS')">
+              <span class="method-badge badge-ss">SS</span>
+              ListOrders
+            </div>
+            <div class="tree-method" onclick="selectMethod(this, 'UpdateOrder', 'U')">
+              <span class="method-badge badge-u">U</span>
+              UpdateOrder
+            </div>
+          </div>
+        </div>
+
+        <!-- EchoService -->
+        <div class="tree-service">
+          <div class="tree-service-header" onclick="toggleService(this)">
+            <div class="svc-icon" style="background:rgba(166,227,161,0.15);color:var(--success)">E</div>
+            ▸ EchoService
+            <span class="chip chip-green" style="margin-left:auto;font-size:9px;">4</span>
+          </div>
+          <div class="tree-methods" id="svc-echo" style="display:none">
+            <div class="tree-method" onclick="selectMethod(this, 'Echo', 'U')">
+              <span class="method-badge badge-u">U</span>
+              Echo
+            </div>
+            <div class="tree-method" onclick="selectMethod(this, 'ServerStream', 'SS')">
+              <span class="method-badge badge-ss">SS</span>
+              ServerStream
+            </div>
+            <div class="tree-method" onclick="selectMethod(this, 'ClientStream', 'CS')">
+              <span class="method-badge badge-cs">CS</span>
+              ClientStream
+            </div>
+            <div class="tree-method" onclick="selectMethod(this, 'BidiStream', 'BD')">
+              <span class="method-badge badge-bd">BD</span>
+              BidiStream
+            </div>
+          </div>
+        </div>
+
+        <!-- UserService -->
+        <div class="tree-service">
+          <div class="tree-service-header" onclick="toggleService(this)">
+            <div class="svc-icon" style="background:rgba(203,166,247,0.15);color:var(--mauve)">U</div>
+            ▸ UserService
+            <span class="chip chip-mauve" style="margin-left:auto;font-size:9px;">3</span>
+          </div>
+          <div class="tree-methods" id="svc-user" style="display:none">
+            <div class="tree-method" onclick="selectMethod(this, 'GetUser', 'U')"><span class="method-badge badge-u">U</span> GetUser</div>
+            <div class="tree-method" onclick="selectMethod(this, 'ListUsers', 'SS')"><span class="method-badge badge-ss">SS</span> ListUsers</div>
+            <div class="tree-method" onclick="selectMethod(this, 'CreateUser', 'U')"><span class="method-badge badge-u">U</span> CreateUser</div>
+          </div>
+        </div>
+
+      </div><!-- /service-tree -->
+
+      <div class="section-divider"></div>
+      <div class="info-row">
+        <span>Source:</span>
+        <span class="chip chip-green">● Reflection</span>
+      </div>
+      <div class="info-row">
+        <span>Services:</span>
+        <strong>3</strong>
+      </div>
+      <div class="info-row">
+        <span>Methods:</span>
+        <strong>11</strong>
+      </div>
+      <div style="padding:8px 12px;margin-top:4px;">
+        <button class="btn btn-ghost btn-sm" style="width:100%" onclick="alert('Opens Proto Management panel (Phase 3)')">⚙ Manage Schemas</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <div class="main-content">
+    <!-- Connection Bar -->
+    <div class="connection-bar">
+      <div class="status-dot connected" title="Connected"></div>
+      <input class="target-input" type="text" value="{{grpcHost}}" style="max-width:280px">
+      <div class="tls-badge" onclick="showTlsPanel()" title="TLS enabled — click to configure">🔒 TLS</div>
+      <button class="btn btn-ghost btn-sm" onclick="showTlsPanel()">Auth: Bearer</button>
+      <button class="btn btn-ghost btn-sm" onclick="alert('Opens Call Settings (deadline, compression…)')">⏱ 30s</button>
+      <div class="deadline-badge" style="margin-left:auto">
+        ⏱ deadline: 30s
+      </div>
+      <button class="btn btn-primary btn-sm" id="connectBtn" onclick="toggleConnect(this)">Disconnect</button>
+    </div>
+
+    <!-- Send Bar -->
+    <div class="send-bar">
+      <div class="method-info">
+        <div class="method-name">OrderService / <strong>CreateOrder</strong></div>
+        <div class="method-type">Unary RPC &nbsp;·&nbsp; <span style="font-family:var(--mono);font-size:10px;color:var(--text-faint)">CreateOrderRequest → CreateOrderResponse</span></div>
+      </div>
+      <div class="request-source">📋 Reflection</div>
+      <div class="cancel-btn" id="cancelBtn">✕ Cancel</div>
+      <button class="btn btn-primary" id="sendBtn" onclick="simulateSend()">▶ Send Unary</button>
+    </div>
+
+    <!-- Request / Response split -->
+    <div class="split-v">
+      <!-- Request pane -->
+      <div class="request-pane">
+        <div class="panel-tabs">
+          <button class="panel-tab active" onclick="switchReqTab(this,'form')">Form Input</button>
+          <button class="panel-tab" onclick="switchReqTab(this,'json')">JSON <span class="badge">1</span></button>
+          <button class="panel-tab" onclick="switchReqTab(this,'meta')">Metadata</button>
+        </div>
+
+        <!-- Form tab -->
+        <div id="req-form" class="scrollable">
+          <!-- Scalar fields -->
+          <div class="field-row">
+            <div class="field-name">item_id
+              <div style="font-size:10px;margin-top:2px;"><span class="field-type-badge type-string">string</span></div>
+            </div>
+            <div class="field-control">
+              <input type="text" value="{{testItemId}}" placeholder="string">
+            </div>
+            <div class="field-note">#1 optional</div>
+          </div>
+          <div class="field-row">
+            <div class="field-name">quantity
+              <div style="font-size:10px;margin-top:2px;"><span class="field-type-badge type-int32">int32</span></div>
+            </div>
+            <div class="field-control">
+              <input type="number" value="2" placeholder="int32">
+            </div>
+            <div class="field-note">#2 optional</div>
+          </div>
+          <!-- Enum field -->
+          <div class="field-row">
+            <div class="field-name">priority
+              <div style="font-size:10px;margin-top:2px;"><span class="field-type-badge type-enum">enum</span></div>
+            </div>
+            <div class="field-control">
+              <select>
+                <option>PRIORITY_NORMAL</option>
+                <option selected>PRIORITY_HIGH</option>
+                <option>PRIORITY_URGENT</option>
+              </select>
+            </div>
+            <div class="field-note">#3 optional</div>
+          </div>
+          <!-- Bool field -->
+          <div class="field-row">
+            <div class="field-name">express_shipping
+              <div style="font-size:10px;margin-top:2px;"><span class="field-type-badge type-bool">bool</span></div>
+            </div>
+            <div class="field-control">
+              <select>
+                <option>false</option>
+                <option selected>true</option>
+              </select>
+            </div>
+            <div class="field-note">#4 optional</div>
+          </div>
+          <!-- Timestamp (WKT) -->
+          <div class="field-row">
+            <div class="field-name">requested_at
+              <div style="font-size:10px;margin-top:2px;"><span class="field-type-badge type-ts">Timestamp</span></div>
+            </div>
+            <div class="field-control">
+              <input type="text" value="2026-06-28T10:00:00Z" placeholder="RFC3339 / ISO8601">
+            </div>
+            <div class="field-note">#5 WKT</div>
+          </div>
+          <!-- Repeated field -->
+          <div class="field-row" style="flex-direction:column;gap:6px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="field-name" style="padding-top:0">tags
+                <span class="field-type-badge type-repeated" style="margin-left:6px">repeated string</span>
+              </div>
+              <div class="field-note">#6</div>
+            </div>
+            <div class="field-control">
+              <div class="repeated-list">
+                <div class="repeated-item">
+                  <input type="text" value="priority-order">
+                  <button class="repeated-rm">×</button>
+                </div>
+                <div class="repeated-item">
+                  <input type="text" value="warehouse-A">
+                  <button class="repeated-rm">×</button>
+                </div>
+              </div>
+              <button class="add-item-btn">+ Add item</button>
+            </div>
+          </div>
+          <!-- Nested message -->
+          <div class="field-row" style="flex-direction:column;gap:4px">
+            <div style="display:flex;justify-content:space-between;align-items:center">
+              <div class="field-name" style="padding-top:0">shipping_address
+                <span class="field-type-badge type-msg" style="margin-left:6px">Address</span>
+              </div>
+              <div class="field-note">#7 message</div>
+            </div>
+            <div class="nested-group">
+              <div class="nested-header open" onclick="toggleNested(this)">
+                <span class="chevron">▶</span> Address &nbsp;<span style="font-size:10px;color:var(--text-faint)">(3 fields)</span>
+              </div>
+              <div class="nested-body">
+                <div class="field-row" style="padding:5px 8px">
+                  <div class="field-name" style="min-width:80px;font-size:11px">street</div>
+                  <div class="field-control"><input type="text" value="123 Main St" style="font-size:11px"></div>
+                </div>
+                <div class="field-row" style="padding:5px 8px">
+                  <div class="field-name" style="min-width:80px;font-size:11px">city</div>
+                  <div class="field-control"><input type="text" value="San Francisco" style="font-size:11px"></div>
+                </div>
+                <div class="field-row" style="padding:5px 8px">
+                  <div class="field-name" style="min-width:80px;font-size:11px">zip</div>
+                  <div class="field-control"><input type="text" value="94105" style="font-size:11px"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- oneof -->
+          <div class="oneof-group">
+            <div class="oneof-header">oneof payment_method</div>
+            <div class="oneof-radio-row">
+              <button class="oneof-radio active">card</button>
+              <button class="oneof-radio">bank_transfer</button>
+              <button class="oneof-radio">crypto</button>
+            </div>
+            <div style="padding:8px">
+              <div class="field-row" style="padding:4px 6px">
+                <div class="field-name" style="min-width:80px;font-size:11px">card_number</div>
+                <div class="field-control"><input type="text" value="4111111111111111" style="font-size:11px"></div>
+              </div>
+              <div class="field-row" style="padding:4px 6px">
+                <div class="field-name" style="min-width:80px;font-size:11px">cvv</div>
+                <div class="field-control"><input type="text" value="123" style="font-size:11px"></div>
+              </div>
+            </div>
+          </div>
+          <div style="height:20px"></div>
+        </div>
+
+        <!-- JSON tab (hidden by default) -->
+        <div id="req-json" class="scrollable" style="display:none">
+          <div style="padding:12px 14px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+              <span style="font-size:11px;color:var(--text-muted)">Live JSON — edits sync back to form</span>
+              <div style="display:flex;gap:6px">
+                <button class="body-code-btn" onclick="prettyFormatTextarea(this)" title="Pretty Format JSON">Pretty Format</button>
+                <button class="copy-btn">⎘ Copy</button>
+              </div>
+            </div>
+            <textarea style="width:100%;min-height:280px;font-size:12px;line-height:1.7;background:var(--surface2);border:1px solid var(--border);border-radius:6px;padding:12px;color:var(--text)">
+{
+  "item_id": "{{testItemId}}",
+  "quantity": 2,
+  "priority": "PRIORITY_HIGH",
+  "express_shipping": true,
+  "requested_at": "2026-06-28T10:00:00Z",
+  "tags": ["priority-order", "warehouse-A"],
+  "shipping_address": {
+    "street": "123 Main St",
+    "city": "San Francisco",
+    "zip": "94105"
+  },
+  "payment_method": {
+    "card": {
+      "card_number": "4111111111111111",
+      "cvv": "123"
+    }
+  }
+}</textarea>
+          </div>
+        </div>
+
+        <!-- Metadata tab (hidden) -->
+        <div id="req-meta" class="scrollable" style="display:none">
+          <div style="padding:10px 14px">
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Request metadata (gRPC headers). Special keys shown in italics.</div>
+            <table class="kv-table" style="width:100%">
+              <thead><tr><th>Key</th><th>Value</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>authorization</td><td>Bearer {{authToken}}</td><td><button class="copy-btn">×</button></td></tr>
+                <tr><td>x-request-id</td><td>{{requestId}}</td><td><button class="copy-btn">×</button></td></tr>
+                <tr><td style="font-style:italic;color:var(--text-faint)">grpc-timeout</td><td>30000m</td><td><button class="copy-btn">×</button></td></tr>
+              </tbody>
+            </table>
+            <button class="add-item-btn" style="margin-top:8px">+ Add metadata pair</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="hresize-handle"></div>
+
+      <!-- Response pane -->
+      <div class="response-pane">
+        <div class="response-header" id="respHeader">
+          <div class="status-badge status-ok">OK · 0</div>
+          <div class="duration-label">⚡ 87ms</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-left:4px">· grpc.example.com:50051</div>
+          <button class="copy-btn" style="margin-left:auto">⎘ Copy Response</button>
+          <button class="btn btn-ghost btn-xs" onclick="alert('Save as baseline snapshot (Phase 5 snapshot testing)')">📸 Snapshot</button>
+        </div>
+        <div class="panel-tabs">
+          <button class="panel-tab active" onclick="switchRespTab(this,'body')">Body</button>
+          <button class="panel-tab" onclick="switchRespTab(this,'headers')">Headers <span class="badge">6</span></button>
+          <button class="panel-tab" onclick="switchRespTab(this,'trailers')">Trailers <span class="badge">2</span></button>
+          <button class="panel-tab" onclick="switchRespTab(this,'timing')">Timing</button>
+        </div>
+        <!-- Body tab -->
+        <div id="resp-body-wrap">
+          <div class="code-toolbar">
+            <span class="code-toolbar-label">JSON</span>
+            <span class="code-toolbar-spacer"></span>
+            <button class="body-code-btn" onclick="prettyFormat('resp-body')" title="Pretty Format JSON">Pretty Format</button>
+            <button class="body-code-btn" onclick="copyCodeBody('resp-body')" title="Copy to clipboard">⎘ Copy</button>
+          </div>
+          <div id="resp-body" class="code-body">
+<span class="json-punct">{</span>
+  <span class="json-key">"order_id"</span><span class="json-punct">:</span> <span class="json-str">"ord_a8f2c3d1"</span><span class="json-punct">,</span>
+  <span class="json-key">"status"</span><span class="json-punct">:</span> <span class="json-str">"PENDING"</span><span class="json-punct">,</span>
+  <span class="json-key">"estimated_delivery"</span><span class="json-punct">:</span> <span class="json-str">"2026-07-02T18:00:00Z"</span><span class="json-punct">,</span>
+  <span class="json-key">"total_amount"</span><span class="json-punct">:</span> <span class="json-num">142.50</span><span class="json-punct">,</span>
+  <span class="json-key">"currency"</span><span class="json-punct">:</span> <span class="json-str">"USD"</span><span class="json-punct">,</span>
+  <span class="json-key">"express_shipping"</span><span class="json-punct">:</span> <span class="json-bool">true</span><span class="json-punct">,</span>
+  <span class="json-key">"confirmation_token"</span><span class="json-punct">:</span> <span class="json-str">"conf_x7kp29m"</span>
+<span class="json-punct">}</span>
+          </div>
+        </div>
+        <!-- Headers tab (hidden) -->
+        <div id="resp-headers" style="display:none;flex:1;overflow:auto">
+          <table class="kv-table" style="width:100%">
+            <thead><tr><th>Header Key</th><th>Value</th></tr></thead>
+            <tbody>
+              <tr><td>content-type</td><td>application/grpc+proto</td></tr>
+              <tr><td>x-request-id</td><td>req_7f9a2c1d</td></tr>
+              <tr><td>server</td><td>grpc-go/1.63.0</td></tr>
+              <tr><td>x-envoy-upstream-service-time</td><td>43</td></tr>
+              <tr><td>date</td><td>Sun, 28 Jun 2026 10:15:03 GMT</td></tr>
+              <tr><td>grpc-accept-encoding</td><td>gzip,identity</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <!-- Trailers tab (hidden) -->
+        <div id="resp-trailers" style="display:none;flex:1;overflow:auto">
+          <div class="trailer-row"><span class="trailer-key">grpc-status</span><span class="trailer-val">0</span></div>
+          <div class="trailer-row"><span class="trailer-key">grpc-message</span><span class="trailer-val"></span></div>
+        </div>
+        <!-- Timing tab (hidden) -->
+        <div id="resp-timing" style="display:none;flex:1;overflow:auto;padding:14px">
+          <div style="font-size:12px;margin-bottom:12px;color:var(--text-muted)">RPC call timing breakdown</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:11px;min-width:180px;color:var(--text-muted)">DNS Lookup</span>
+              <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+                <div style="width:3%;height:100%;background:var(--teal)"></div>
+              </div>
+              <span style="font-family:var(--mono);font-size:11px;min-width:40px;text-align:right">2ms</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:11px;min-width:180px;color:var(--text-muted)">TCP Connect + TLS</span>
+              <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+                <div style="width:20%;height:100%;background:var(--warning)"></div>
+              </div>
+              <span style="font-family:var(--mono);font-size:11px;min-width:40px;text-align:right">17ms</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:11px;min-width:180px;color:var(--text-muted)">HTTP/2 Handshake</span>
+              <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+                <div style="width:12%;height:100%;background:var(--mauve)"></div>
+              </div>
+              <span style="font-family:var(--mono);font-size:11px;min-width:40px;text-align:right">10ms</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:11px;min-width:180px;color:var(--text-muted)">Proto Serialization</span>
+              <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+                <div style="width:1%;height:100%;background:var(--sky)"></div>
+              </div>
+              <span style="font-family:var(--mono);font-size:11px;min-width:40px;text-align:right">&lt;1ms</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px">
+              <span style="font-size:11px;min-width:180px;color:var(--text-muted)">Server Processing</span>
+              <div style="flex:1;height:8px;background:var(--surface2);border-radius:4px;overflow:hidden">
+                <div style="width:70%;height:100%;background:var(--primary)"></div>
+              </div>
+              <span style="font-family:var(--mono);font-size:11px;min-width:40px;text-align:right">58ms</span>
+            </div>
+          </div>
+          <div style="margin-top:16px;padding:10px;background:var(--surface2);border-radius:6px;border:1px solid var(--border)">
+            <div style="display:flex;justify-content:space-between;font-size:12px">
+              <span style="color:var(--text-muted)">Total duration:</span>
+              <span style="font-family:var(--mono);color:var(--text)">87ms</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="nav-back">
+  <a href="index.html" class="btn btn-ghost btn-sm">← All Mockups</a>
+</div>
+
+<script>
+function toggleService(header) {
+  const methods = header.nextElementSibling;
+  const isOpen = header.classList.contains('open');
+  header.classList.toggle('open');
+  if (isOpen) {
+    methods.style.display = 'none';
+    header.innerHTML = header.innerHTML.replace('▾','▸');
+  } else {
+    methods.style.display = '';
+    header.innerHTML = header.innerHTML.replace('▸','▾');
+  }
+}
+function toggleNested(header) {
+  header.classList.toggle('open');
+  const body = header.nextElementSibling;
+  body.style.display = header.classList.contains('open') ? '' : 'none';
+}
+function selectMethod(el, name, type) {
+  document.querySelectorAll('.tree-method').forEach(m => m.classList.remove('active'));
+  el.classList.add('active');
+}
+function selectTab(el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+function prettyFormat(id) {
+  const el = document.getElementById(id);
+  const text = el.innerText;
+  try {
+    const pretty = JSON.stringify(JSON.parse(text), null, 2);
+    el.innerHTML = syntaxHighlight(pretty);
+  } catch(e) { /* already pretty or invalid */ }
+}
+function prettyFormatTextarea(btn) {
+  const ta = btn.closest('div').closest('div').querySelector('textarea');
+  try { ta.value = JSON.stringify(JSON.parse(ta.value), null, 2); } catch(e) {}
+}
+function copyCodeBody(id) {
+  navigator.clipboard.writeText(document.getElementById(id).innerText).catch(()=>{});
+}
+function syntaxHighlight(json) {
+  return json.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/("(\\u[a-zA-Z0-9]{4}|\\[^u]|[^\\"])*"(\s*:)?|\b(true|false|null)\b|-?\d+(?:\.\d*)?(?:[eE][+\-]?\d+)?)/g, m => {
+      let cls = 'json-num';
+      if (/^"/.test(m)) cls = /:$/.test(m) ? 'json-key' : 'json-str';
+      else if (/true|false/.test(m)) cls = 'json-bool';
+      else if (/null/.test(m)) cls = 'json-null';
+      return `<span class="${cls}">${m}</span>`;
+    });
+}
+function switchReqTab(el, tab) {
+  document.querySelectorAll('.panel-tabs .panel-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('req-form').style.display = tab === 'form' ? '' : 'none';
+  document.getElementById('req-json').style.display = tab === 'json' ? '' : 'none';
+  document.getElementById('req-meta').style.display = tab === 'meta' ? '' : 'none';
+}
+function switchRespTab(el, tab) {
+  el.closest('.panel-tabs').querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('resp-body').style.display    = tab === 'body'     ? '' : 'none';
+  document.getElementById('resp-headers').style.display = tab === 'headers'  ? '' : 'none';
+  document.getElementById('resp-trailers').style.display= tab === 'trailers' ? '' : 'none';
+  document.getElementById('resp-timing').style.display  = tab === 'timing'   ? '' : 'none';
+}
+let connected = true;
+function toggleConnect(btn) {
+  connected = !connected;
+  btn.textContent = connected ? 'Disconnect' : 'Connect';
+  btn.className = connected ? 'btn btn-primary btn-sm' : 'btn btn-ghost btn-sm';
+  document.querySelector('.status-dot').className = 'status-dot ' + (connected ? 'connected' : 'error');
+}
+let sending = false;
+function simulateSend() {
+  if (!sending) {
+    sending = true;
+    document.getElementById('sendBtn').textContent = '⏳ Sending…';
+    document.getElementById('sendBtn').disabled = true;
+    document.getElementById('cancelBtn').style.display = 'flex';
+    setTimeout(() => {
+      sending = false;
+      document.getElementById('sendBtn').textContent = '▶ Send Unary';
+      document.getElementById('sendBtn').disabled = false;
+      document.getElementById('cancelBtn').style.display = 'none';
+    }, 1200);
+  }
+}
+function showTlsPanel() { alert('Opens TLS & Auth panel (see mockup 04-auth-tls.html)'); }
+document.querySelectorAll('.oneof-radio').forEach(btn => {
+  btn.addEventListener('click', () => {
+    btn.closest('.oneof-radio-row').querySelectorAll('.oneof-radio').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+</script>
+</body>
+</html>

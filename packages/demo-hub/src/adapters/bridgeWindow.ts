@@ -19,9 +19,21 @@ export type DemoBridgeWindow = Window &
     __demoDeleteGqlEnvByName?: (name: string) => void;
     __demoResetGqlBatchDetection?: () => boolean;
     __wfDeleteByName?: (name: string) => void;
+    /** Fit the Results Explorer replay canvas to all nodes (demo lessons). */
+    __reExplorerFitView?: () => boolean;
     __wfInsertWorkflow?: (wf: Record<string, unknown>) => void;
     __wfGetWorkflowByName?: (name: string) => unknown;
     __wfSelectByName?: (name: string) => boolean;
+    /** Select workflow in Workflow Runner (Test Harness) by display name — fixes stale persisted IDs after re-seed. */
+    __wfRunnerSelectByName?: (name: string) => boolean;
+    /** Apply workflow selection directly in Workflow Runner (bypasses initialWorkflowId race). */
+    __wfRunnerApplySelection?: (name: string) => boolean;
+    /** Invoke Workflow Runner handleRun directly (demo lesson fallback when DOM click is ignored). */
+    __wfRunnerTriggerRun?: () => boolean;
+    /** Select workflow by name and start run atomically (avoids stale React closure). */
+    __wfRunnerSelectAndRun?: (name: string) => boolean;
+    /** Force batch execution mode with iterations/concurrency via React state (demo lessons). */
+    __wfRunnerApplyBatchConfig?: (iterations: number, concurrency: number, traceLevel?: import('@shared/types').TraceCaptureLevel) => boolean;
     __wfPatchWorkflowByName?: (
       name: string,
       patch: Record<string, unknown>,

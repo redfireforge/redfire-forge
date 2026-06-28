@@ -13,12 +13,15 @@ export interface GqlTabsPersistedBlob {
   activeId: string;
 }
 
+export function isValidTabsPersistedBlob(data: unknown): data is GqlTabsPersistedBlob {
+  return data !== null
+    && typeof data === 'object'
+    && Array.isArray((data as GqlTabsPersistedBlob).tabs);
+}
+
 const tabsBlobStore = createIdbBlobStore<GqlTabsPersistedBlob>(
   'gqlStudioTabs',
-  (d) =>
-    d !== null &&
-    typeof d === 'object' &&
-    Array.isArray((d as GqlTabsPersistedBlob).tabs),
+  isValidTabsPersistedBlob,
 );
 
 const pageAuthStore = createIdbBlobStore<string>(

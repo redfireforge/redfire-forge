@@ -41,7 +41,13 @@ export function useDemoShortcuts(
 
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'D') {
         e.preventDefault();
-        setActiveTab('demo-hub');
+        // During a live demo the hub body is empty — jump to the lesson tab instead.
+        if (demoHub.state.view === 'live') {
+          const lessonTab = demoHub.state.selectedLesson?.initialTab;
+          if (lessonTab) setActiveTab(lessonTab as Tab);
+        } else {
+          setActiveTab('demo-hub');
+        }
         return;
       }
 

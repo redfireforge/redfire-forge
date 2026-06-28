@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { GraphqlSchemaDiffChange } from '../../../shared/types/graphql';
-import { SEVERITY_CSS, SEVERITY_LABEL } from '../utils/graphqlSchemaDiffConstants';
+import { SEVERITY_CSS, SEVERITY_LABEL, ackSectionChangeRowNoop } from '../utils/graphqlSchemaDiffConstants';
 
 interface ChangeRowProps {
   change: GraphqlSchemaDiffChange;
@@ -106,9 +106,9 @@ export function AcknowledgedSection({
           canAcknowledge={false}
           isAckExpanded={false}
           ackNote=""
-          onToggleAck={() => {}}
-          onAckNoteChange={() => {}}
-          onAckSubmit={() => {}}
+          onToggleAck={ackSectionChangeRowNoop}
+          onAckNoteChange={ackSectionChangeRowNoop}
+          onAckSubmit={ackSectionChangeRowNoop}
           onUnacknowledge={onUnacknowledge ? () => onUnacknowledge(change.path) : undefined}
         />
       ))}

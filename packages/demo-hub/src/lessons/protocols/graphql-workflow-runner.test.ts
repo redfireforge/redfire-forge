@@ -2,9 +2,10 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
+import { RES } from '@shared/selectors/res';
 import { gqlWorkflowRunnerLesson } from './graphql-workflow-runner';
 import { makeCtx } from './ws-test-utils';
-import { stubWorkflowSeedBridge } from '../../test-utils/workflowBridgeStubs';
+import { stubWorkflowSeedBridge, clearWorkflowSeedBridge } from '../../test-utils/workflowBridgeStubs';
 import { WF } from '@shared/selectors';
 import {
   GQL_DEMO_HTTP,
@@ -18,6 +19,7 @@ import {
   runGqlLatencyWorkflow,
   ensureLesson17WorkflowSelected,
   ensureLesson17WorkflowRun,
+  ensureLesson17OnResultsTab,
   ensureLesson17ResultsOpen,
   createGqlLatencyDemoWorkflow,
 } from './graphql-lesson-helpers';
@@ -46,12 +48,12 @@ describe('gql-workflow-runner lesson', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     resetGqlLesson17SessionFlags();
+    stubWorkflowSeedBridge(LESSON17_WF_NAME);
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    delete (window as unknown as Record<string, unknown>).__wfDeleteByName;
-    delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
+    clearWorkflowSeedBridge();
     delete (window as unknown as Record<string, unknown>).__wfQuickTest;
   });
 
@@ -61,7 +63,7 @@ describe('gql-workflow-runner lesson', () => {
     expect(gqlWorkflowRunnerLesson.id).toBe('gql-workflow-runner');
     expect(gqlWorkflowRunnerLesson.category).toBe('graphql');
     expect(gqlWorkflowRunnerLesson.name).toBe('Workflow Runner & Results');
-    expect(gqlWorkflowRunnerLesson.steps.length).toBe(10);
+    expect(gqlWorkflowRunnerLesson.steps.length).toBe(9);
     expect(gqlWorkflowRunnerLesson.estimatedMinutes).toBe(5);
   });
 
@@ -78,16 +80,15 @@ describe('gql-workflow-runner lesson', () => {
       'gql17-runner-variables',
       'gql17-config-run',
       'gql17-start-run',
+      'gql17-view-results',
       'gql17-results-dashboard',
-      'gql17-node-filter',
+      'gql17-request-details',
       'gql17-results-explorer',
-      'gql17-canvas-overlay',
-      'gql17-bottleneck',
       'gql17-export-results',
     ]);
   });
 
-  it('all 10 steps have pauseAfter: true', () => {
+  it('all 9 steps have pauseAfter: true', () => {
     gqlWorkflowRunnerLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
@@ -213,7 +214,7 @@ describe('gql-workflow-runner lesson', () => {
 
   it('gql17-open-runner highlights workflow picker and verifies vars section', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-open-runner')!;
-    expect(step.highlight).toBe('.workflow-picker');
+    expect(step.highlight).toBe(WF.WORKFLOW_SELECT);
     expect(step.verify).toBe('.workflow-vars-section');
   });
 
@@ -222,47 +223,42 @@ describe('gql-workflow-runner lesson', () => {
     expect(step.highlight).toBe('.workflow-vars-section');
   });
 
-  it('gql17-config-run highlights workflow runner config section', () => {
+  it('gql17-config-run highlights iterations field in execution config', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-config-run')!;
-    expect(step.highlight).toBe('.workflow-runner-config-section');
+    expect(step.highlight).toBe('.workflow-runner-config-section .resilience-field:nth-child(2)');
   });
 
-  it('gql17-start-run highlights config form and verifies completion section', () => {
+  it('gql17-start-run highlights run button and verifies completion section', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-start-run')!;
-    expect(step.highlight).toBe('.config-form');
+    expect(step.highlight).toBe(LESSON17_RUN_BTN);
     expect(step.verify).toBe('.completion-section');
   });
 
-  it('gql17-results-dashboard highlights results run filter tabs', () => {
-    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-dashboard')!;
-    expect(step.highlight).toBe('.results-run-filter-tabs');
+  it('gql17-view-results highlights View Full Results button', () => {
+    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-view-results')!;
+    expect(step.highlight).toBe('.completion-section .btn-primary');
     expect(step.verify).toBe('.results-run-filter-tabs');
   });
 
-  it('gql17-node-filter highlights results view tabs', () => {
-    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-node-filter')!;
-    expect(step.highlight).toBe('.results-view-tabs');
+  it('gql17-results-dashboard highlights metrics row', () => {
+    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-dashboard')!;
+    expect(step.highlight).toBe('[data-testid="results-metrics-cards"]');
   });
 
-  it('gql17-results-explorer highlights explore execution button and verifies canvas', () => {
+  it('gql17-request-details highlights Request Details tab', () => {
+    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-request-details')!;
+    expect(step.highlight).toBe('[data-testid="results-tab-requests"]');
+  });
+
+  it('gql17-results-explorer highlights console and verifies console body', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-explorer')!;
-    expect(step.highlight).toBe('button[title="Explore execution results"]');
-    expect(step.verify).toBe('.results-explorer-diagram');
+    expect(step.highlight).toBe('[data-testid="results-console-body"]');
+    expect(step.verify).toBe('[data-testid="results-console-body"]');
   });
 
-  it('gql17-canvas-overlay highlights results explorer diagram', () => {
-    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-canvas-overlay')!;
-    expect(step.highlight).toBe('.results-explorer-diagram');
-  });
-
-  it('gql17-bottleneck highlights results explorer diagram', () => {
-    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-bottleneck')!;
-    expect(step.highlight).toBe('.results-explorer-diagram');
-  });
-
-  it('gql17-export-results highlights results run filter tabs', () => {
+  it('gql17-export-results highlights Export JSON button', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-export-results')!;
-    expect(step.highlight).toBe('.results-run-filter-tabs');
+    expect(step.highlight).toBe(RES.EXPORT_JSON_BTN);
   });
 
   // ── Step descriptions — WHY framing ──────────────────────────────────────
@@ -277,15 +273,15 @@ describe('gql-workflow-runner lesson', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-runner-variables')!;
     expect(step.description).toContain('Initial Variables');
     expect(step.description).toContain('graphqlUrl');
-    expect(step.description).toContain('per-run');
+    expect(step.description).toContain('this run only');
     expect(step.description).not.toContain('no workflow-level input variables');
   });
 
-  it('gql17-config-run description explains iterations, concurrency, and think time', () => {
+  it('gql17-config-run description explains demo iterations and concurrency', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-config-run')!;
     expect(step.description).toContain('Iterations');
     expect(step.description).toContain('Concurrency');
-    expect(step.description).toContain('Think Time');
+    expect(step.description).toContain('3');
   });
 
   it('gql17-start-run description explains progress and persistence', () => {
@@ -294,36 +290,35 @@ describe('gql-workflow-runner lesson', () => {
     expect(step.description).toContain('completion');
   });
 
-  it('gql17-results-dashboard description explains the four metric cards', () => {
+  it('gql17-view-results description explains View Full Results hand-off', () => {
+    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-view-results')!;
+    expect(step.description).toContain('View Full Results');
+    expect(step.description).toContain('Results');
+  });
+
+  it('gql17-results-dashboard description explains the metric cards', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-dashboard')!;
-    expect(step.description).toContain('p50');
-    expect(step.description).toContain('p95');
-    expect(step.description).toContain('histogram');
+    expect(step.description).toContain('P50');
+    expect(step.description).toContain('P95');
+    expect(step.description).toContain('TPS');
+    expect(step.description).toContain('Workflow Execution Summary');
   });
 
-  it('gql17-node-filter description explains per-node row filtering', () => {
-    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-node-filter')!;
+  it('gql17-request-details description explains per-iteration rows', () => {
+    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-request-details')!;
     expect(step.description).toContain('Request Details');
-    expect(step.description).toContain('node');
+    expect(step.description).toContain('GraphQL Query');
   });
 
-  it('gql17-results-explorer description explains three-panel layout', () => {
+  it('gql17-results-explorer description explains three-panel layout, fit view, and console', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-explorer')!;
+    expect(step.description).toContain('Fit view');
+    expect(step.description).toContain('Console');
+    expect(step.description).toContain('iteration #1');
+    expect(step.description).toContain('Minimal');
     expect(step.description).toContain('Canvas');
-    expect(step.description).toContain('Detail Panel');
-    expect(step.description).toContain('Iteration Matrix');
-  });
-
-  it('gql17-canvas-overlay description explains node latency overlay', () => {
-    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-canvas-overlay')!;
-    expect(step.description).toContain('GraphQL Query');
-    expect(step.description).toContain('GraphQL Assert');
-  });
-
-  it('gql17-bottleneck description identifies bottleneck node', () => {
-    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-bottleneck')!;
-    expect(step.description).toContain('GraphQL Query');
-    expect(step.description).toContain('bottleneck');
+    expect(step.description).toContain('Detail panel');
+    expect(step.description).toContain('Iteration matrix');
   });
 
   it('gql17-export-results description explains CI/CD integration', () => {
@@ -354,33 +349,59 @@ describe('gql-workflow-runner lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(LESSON17_WORKFLOW_SELECT);
   });
 
-  it('gql17-start-run action clicks run button and waits for completion', async () => {
+  it('gql17-start-run action clicks run button when completion banner absent', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildRunnerDom()}
       <div class="workflow-vars-section"></div>
-      <div class="completion-section"><button class="btn-primary">View Full Results →</button></div>
     `;
+    const runBtn = document.querySelector<HTMLElement>(LESSON17_RUN_BTN)!;
+    let runClicked = false;
+    runBtn.addEventListener('click', () => {
+      runClicked = true;
+      const stop = document.createElement('button');
+      stop.setAttribute('data-testid', 'workflow-runner-stop-btn');
+      document.body.appendChild(stop);
+      const banner = document.createElement('div');
+      banner.className = 'completion-section';
+      document.body.appendChild(banner);
+    });
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-start-run')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(LESSON17_RUN_BTN);
+    expect(runClicked).toBe(true);
   });
 
-  it('gql17-results-dashboard action navigates to results via completion banner', async () => {
+  it('gql17-start-run action skips run when completion banner already visible', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildRunnerDom()}
+      <div class="workflow-vars-section"></div>
+      <div class="completion-section"></div>
+    `;
+    const runBtn = document.querySelector<HTMLElement>(LESSON17_RUN_BTN)!;
+    let runClicked = false;
+    runBtn.addEventListener('click', () => { runClicked = true; });
+    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-start-run')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(runClicked).toBe(false);
+  });
+
+  it('gql17-view-results action clicks View Full Results button', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildRunnerDom()}
       <div class="workflow-vars-section"></div>
       <div class="completion-section"><button class="btn-primary">View Full Results →</button></div>
     `;
-    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-dashboard')!;
+    const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-view-results')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalled();
+    expect(ctx.click).toHaveBeenCalledWith('.completion-section .btn-primary');
   });
 
-  it('gql17-results-explorer action clicks Results Explorer button', async () => {
+  it('gql17-results-explorer action opens explorer and clicks fit view', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildRunnerDom()}
@@ -390,11 +411,23 @@ describe('gql-workflow-runner lesson', () => {
       <button title="Explore execution results" class="btn btn-primary">📊 Results Explorer</button>
     `;
     const explorerBtn = document.querySelector<HTMLElement>('button[title="Explore execution results"]')!;
-    const clickSpy = vi.spyOn(explorerBtn, 'click');
+    const explorerClickSpy = vi.spyOn(explorerBtn, 'click');
+    explorerBtn.addEventListener('click', () => {
+      const wrap = document.createElement('div');
+      wrap.className = 'results-explorer-diagram';
+      wrap.setAttribute('data-testid', 'results-explorer-diagram');
+      wrap.innerHTML = `
+        <div class="react-flow__node"></div>
+        <button title="Fit view" data-testid="results-explorer-fit-view-btn">Fit</button>
+      `;
+      document.body.appendChild(wrap);
+    });
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-explorer')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(clickSpy).toHaveBeenCalled();
+    expect(explorerClickSpy).toHaveBeenCalled();
+    const fitBtn = document.querySelector<HTMLElement>('[data-testid="results-explorer-fit-view-btn"]')!;
+    expect(fitBtn).toBeTruthy();
   });
 
   it('gql17-results-explorer action is no-op when explorer button is absent', async () => {
@@ -408,7 +441,7 @@ describe('gql-workflow-runner lesson', () => {
     const step = gqlWorkflowRunnerLesson.steps.find((s) => s.id === 'gql17-results-explorer')!;
     await step.preAction!(ctx);
     await step.action!(ctx);
-    expect(ctx.delay).toHaveBeenCalledWith(600);
+    expect(ctx.delay).toHaveBeenCalledWith(800);
   });
 
   // ── Guard tests ───────────────────────────────────────────────────────────
@@ -434,18 +467,42 @@ describe('gql-workflow-runner lesson', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(LESSON17_WORKFLOW_SELECT);
   });
 
-  it('ensureLesson17WorkflowRun clicks run button once then skips', async () => {
+  it('ensureLesson17WorkflowRun clicks run button once then skips even without completion banner', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       ${buildRunnerDom()}
       <div class="workflow-vars-section"></div>
-      <div class="completion-section"><button class="btn-primary">View Full Results →</button></div>
     `;
+    const runBtn = document.querySelector<HTMLElement>(LESSON17_RUN_BTN)!;
+    let runClickCount = 0;
+    runBtn.addEventListener('click', () => {
+      runClickCount += 1;
+      const stop = document.createElement('button');
+      stop.setAttribute('data-testid', 'workflow-runner-stop-btn');
+      document.body.appendChild(stop);
+      const banner = document.createElement('div');
+      banner.className = 'completion-section';
+      document.body.appendChild(banner);
+    });
     await ensureLesson17WorkflowRun(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(LESSON17_RUN_BTN);
-    vi.mocked(ctx.click).mockClear();
+    expect(runClickCount).toBe(1);
+    document.querySelector('.completion-section')?.remove();
     await ensureLesson17WorkflowRun(ctx);
-    expect(ctx.click).not.toHaveBeenCalledWith(LESSON17_RUN_BTN);
+    expect(runClickCount).toBe(1);
+  });
+
+  it('ensureLesson17OnResultsTab skips workflow run when results tab already open', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      ${buildRunnerDom()}
+      <div class="workflow-vars-section"></div>
+      <div class="results-run-filter-tabs"></div>
+    `;
+    const runBtn = document.querySelector<HTMLElement>(LESSON17_RUN_BTN)!;
+    let runClicked = false;
+    runBtn.addEventListener('click', () => { runClicked = true; });
+    await ensureLesson17OnResultsTab(ctx);
+    expect(runClicked).toBe(false);
   });
 
   it('ensureLesson17ResultsOpen navigates to results via View Full Results button', async () => {
@@ -478,8 +535,8 @@ describe('gql-workflow-runner lesson', () => {
     expect(LESSON17_WF_NAME).toBe('GraphQL Latency Demo');
   });
 
-  it('LESSON17_RUN_BTN targets run workflow button', () => {
-    expect(LESSON17_RUN_BTN).toBe('.config-form .form-actions .btn-primary');
+  it('LESSON17_RUN_BTN targets workflow runner run button test id', () => {
+    expect(LESSON17_RUN_BTN).toBe('[data-testid="workflow-runner-run-btn"]');
   });
 
   it('LESSON17_WORKFLOW_SELECT targets workflow picker trigger', () => {
@@ -614,16 +671,20 @@ describe('gql-workflow-runner lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(LESSON17_WORKFLOW_SELECT);
   });
 
-  it('runGqlLatencyWorkflow scrolls completion banner into view when present', async () => {
+  it('runGqlLatencyWorkflow skips when completion banner already visible', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <div class="config-form"><div class="form-actions"><button class="btn btn-primary btn-lg">▶ Run Workflow</button></div></div>
+      <div class="config-form"><div class="form-actions"><button class="btn btn-primary btn-lg" data-testid="workflow-runner-run-btn">▶ Run Workflow</button></div></div>
       <div class="completion-section"></div>
     `;
+    const runBtn = document.querySelector<HTMLElement>(LESSON17_RUN_BTN)!;
+    let runClicked = false;
+    runBtn.addEventListener('click', () => { runClicked = true; });
     const completion = document.querySelector<HTMLElement>('.completion-section')!;
     completion.scrollIntoView = vi.fn();
     await runGqlLatencyWorkflow(ctx);
-    expect(completion.scrollIntoView).toHaveBeenCalled();
+    expect(runClicked).toBe(false);
+    expect(completion.scrollIntoView).not.toHaveBeenCalled();
   });
 
   it('runGqlLatencyWorkflow clicks run button and polls until completion banner appears', async () => {
@@ -631,13 +692,23 @@ describe('gql-workflow-runner lesson', () => {
     document.body.innerHTML = `
       <div class="config-form">
         <div class="form-actions">
-          <button class="btn btn-primary btn-lg">▶ Run Workflow</button>
+          <button type="button" class="btn btn-primary btn-lg" data-testid="workflow-runner-run-btn">▶ Run Workflow</button>
         </div>
       </div>
-      <div class="completion-section"><button class="btn btn-primary">View Full Results →</button></div>
     `;
+    const runBtn = document.querySelector<HTMLElement>(LESSON17_RUN_BTN)!;
+    let runClicked = false;
+    runBtn.addEventListener('click', () => {
+      runClicked = true;
+      const stop = document.createElement('button');
+      stop.setAttribute('data-testid', 'workflow-runner-stop-btn');
+      document.body.appendChild(stop);
+      const banner = document.createElement('div');
+      banner.className = 'completion-section';
+      document.body.appendChild(banner);
+    });
     await runGqlLatencyWorkflow(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(LESSON17_RUN_BTN);
+    expect(runClicked).toBe(true);
   });
 });
 
@@ -651,7 +722,7 @@ function buildRunnerDom(): string {
     <div class="workflow-runner-config-section"></div>
     <div class="config-form">
       <div class="form-actions">
-        <button class="btn btn-primary btn-lg">▶ Run Workflow</button>
+        <button type="button" class="btn btn-primary btn-lg" data-testid="workflow-runner-run-btn">▶ Run Workflow</button>
       </div>
     </div>
   `;

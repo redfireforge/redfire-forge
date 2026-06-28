@@ -335,7 +335,7 @@ test.describe('Results Explorer Console Panel', () => {
     await expect(page.locator('[data-testid="results-console-panel"]')).toBeVisible({ timeout: 3000 });
 
     // Click close button (✕)
-    const closeBtn = page.locator('.re-console-action-btn[title*="Close console"]');
+    const closeBtn = page.locator('[data-testid="results-console-close-btn"]');
     await expect(closeBtn).toBeVisible();
     await closeBtn.click();
 

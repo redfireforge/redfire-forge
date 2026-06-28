@@ -73,6 +73,23 @@ describe('useDemoShortcuts', () => {
     expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
   });
 
+  it('Cmd+Shift+D during live demo navigates to lesson initial tab', () => {
+    const hub = makeDemoHub({
+      state: { view: 'live', selectedLesson: { initialTab: 'workflow-runner' } },
+    });
+    renderHook(() => useDemoShortcuts(hub, 'results' as Tab, setActiveTab));
+
+    const event = new KeyboardEvent('keydown', {
+      key: 'D',
+      metaKey: true,
+      shiftKey: true,
+      bubbles: true,
+    });
+    window.dispatchEvent(event);
+
+    expect(setActiveTab).toHaveBeenCalledWith('workflow-runner');
+  });
+
   it('Ctrl+Shift+D navigates to demo-hub tab', () => {
     const hub = makeDemoHub();
     renderHook(() => useDemoShortcuts(hub, activeTab, setActiveTab));

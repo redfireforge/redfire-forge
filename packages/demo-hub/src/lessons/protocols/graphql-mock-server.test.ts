@@ -992,7 +992,7 @@ describe('gql-mock-server lesson', () => {
   it('gqlMockServerLessonCleanup disables mock and closes demo tab', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <button data-testid="gql-activity-mock"></button>
+      <button data-testid="gql-activity-mock" class="gql-activity-tab--active"></button>
       <div data-testid="gql-mock-panel">
         <input type="checkbox" data-testid="gql-mock-toggle" checked />
       </div>
@@ -1005,6 +1005,7 @@ describe('gql-mock-server lesson', () => {
     });
     await gqlMockServerLessonCleanup(ctx);
     expect(closeGqlDemoTabs).toHaveBeenCalledWith(ctx, 'gql-mock-server');
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_MOCK);
     expect(ctx.fill).not.toHaveBeenCalledWith(GQL.ENDPOINT_INPUT, 'http://localhost:4010/graphql');
   });
 

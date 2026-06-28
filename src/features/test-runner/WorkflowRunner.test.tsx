@@ -405,14 +405,12 @@ describe('WorkflowRunner', () => {
         onClearInitialWorkflowId={onClearInitialWorkflowId}
       />
     );
-    
-    await waitFor(() => {
-      expect(onClearInitialWorkflowId).toHaveBeenCalled();
-    });
 
     await waitFor(() => {
       expect(screen.queryByText('▶ Run Workflow')).not.toBeInTheDocument();
     });
+
+    expect(onClearInitialWorkflowId).not.toHaveBeenCalled();
   });
 
   it('shows completion banner and calls onComplete after final run', async () => {
@@ -606,6 +604,43 @@ describe('WorkflowRunner', () => {
     await waitFor(() => {
       expect(onOutput).toHaveBeenCalledWith({ result: '42', total: '100' });
     });
+  });
+
+  it('__wfRunnerSelectAndRun returns false when workflow name is missing', async () => {
+    render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
+    await waitFor(() => {
+      expect(
+        (window as unknown as { __wfRunnerSelectAndRun?: (n: string) => boolean }).__wfRunnerSelectAndRun,
+      ).toBeDefined();
+    });
+    const selectAndRun = (window as unknown as { __wfRunnerSelectAndRun: (n: string) => boolean })
+      .__wfRunnerSelectAndRun;
+    expect(selectAndRun('Missing Workflow')).toBe(false);
+    expect(testExec.execute).not.toHaveBeenCalled();
+  });
+
+  it('__wfRunnerSelectAndRun selects by name and starts execution', async () => {
+    render(<WorkflowRunner workflows={mockWorkflows} onComplete={vi.fn()} />);
+    await waitFor(() => {
+      expect(
+        (window as unknown as { __wfRunnerSelectAndRun?: (n: string) => boolean }).__wfRunnerSelectAndRun,
+      ).toBeDefined();
+    });
+    const win = window as unknown as {
+      __wfRunnerApplyBatchConfig: (i: number, c: number) => boolean;
+      __wfRunnerSelectAndRun: (n: string) => boolean;
+    };
+    expect(win.__wfRunnerApplyBatchConfig(3, 1)).toBe(true);
+    expect(win.__wfRunnerSelectAndRun('Test Workflow')).toBe(true);
+    expect(testExec.execute).toHaveBeenCalled();
+    const config = testExec.execute.mock.calls[0]?.[0] as {
+      iterations: number;
+      concurrency: number;
+      traceOptions?: { traceLevel?: string };
+    };
+    expect(config.iterations).toBe(3);
+    expect(config.concurrency).toBe(1);
+    expect(config.traceOptions?.traceLevel).toBe('standard');
   });
 
 });

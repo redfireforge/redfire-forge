@@ -113,19 +113,34 @@ export async function seedGqlUserWorkspace(
     primaryTabLabel?: string;
     primaryTabId?: string;
     userTabCount?: number;
+    /** When true, init script runs only once per browser context so hard reload mid-lesson keeps gql_demo_session_v1. */
+    surviveHardReload?: boolean;
   } = {},
 ): Promise<void> {
   const payload = buildUserWorkspacePayload(opts);
+  const surviveHardReload = opts.surviveHardReload === true;
 
   await page.addInitScript(
-    ({ endpoint: ep, tabs, activeId }) => {
+    ({ endpoint: ep, tabs, activeId, surviveHardReload: survive }) => {
+      const initKey = 'gql110_user_workspace_init';
+      if (survive && sessionStorage.getItem(initKey)) {
+        return;
+      }
+      if (survive) {
+        sessionStorage.setItem(initKey, '1');
+      }
       localStorage.setItem('gql_endpoint_v1', ep);
       localStorage.setItem('gql_tabs_v1', JSON.stringify(tabs));
       localStorage.setItem('gql_tabs_v1_active', activeId);
       localStorage.removeItem('gql_demo_session_v1');
       localStorage.removeItem('gql_demo_prior_page_auth_v1');
     },
-    { endpoint: payload.endpoint, tabs: payload.tabs, activeId: payload.activeId },
+    {
+      endpoint: payload.endpoint,
+      tabs: payload.tabs,
+      activeId: payload.activeId,
+      surviveHardReload,
+    },
   );
 
   if (!/localhost:5173|127\.0\.0\.1:5173/.test(page.url())) {

@@ -405,7 +405,37 @@ export async function ensureInheritDone(ctx: DemoActionContext): Promise<void> {
   _inheritDone = true;
 }
 
-/** Human-paced visible beat: open Profiles modal, name, save, pause on saved list. */
+function findConnectionProfileRowByName(name: string): HTMLElement | null {
+  const rows = document.querySelectorAll<HTMLElement>('.gql-profile-row');
+  for (const row of rows) {
+    const nameEl = row.querySelector('.gql-profile-row__name');
+    if (nameEl?.textContent?.trim() === name) return row;
+  }
+  return null;
+}
+
+function isConnectionProfileLinked(name: string): boolean {
+  const row = findConnectionProfileRowByName(name);
+  if (!row) return false;
+  if (row.querySelector('.gql-profile-row__unused-hint')) return false;
+  if (row.querySelector('.gql-profile-loaded-badge')) return true;
+  if (row.querySelector('.gql-profile-row__tab-pill')) return true;
+  return false;
+}
+
+/** Click Load on a saved profile row so Used by shows the active workspace tab. */
+export async function loadConnectionProfileOntoActiveTab(
+  ctx: DemoActionContext,
+  name: string = LESSON6_PROFILE_NAME,
+): Promise<void> {
+  const loadSel = GQL.profileLoadBtn(name);
+  if (isConnectionProfileLinked(name)) return;
+  if (!document.querySelector(loadSel)) return;
+  await ctx.click(loadSel);
+  await ctx.delay(2500); // modal stays open — read Used by on the loaded row
+}
+
+/** Human-paced visible beat: open Profiles modal, name, save, load, pause on Used by. */
 export async function demonstrateSaveConnectionProfile(
   ctx: DemoActionContext,
   options?: { closeAfter?: boolean },
@@ -421,11 +451,15 @@ export async function demonstrateSaveConnectionProfile(
   await ctx.waitFor(GQL.PROFILE_MODAL, 5000);
   await ctx.delay(800); // viewer reads endpoint + auth preview in empty save form
 
-  await ctx.fill(GQL.PROFILE_NAME_INPUT, LESSON6_PROFILE_NAME);
-  await ctx.delay(600); // viewer reads typed profile name
+  if (!findConnectionProfileRowByName(LESSON6_PROFILE_NAME)) {
+    await ctx.fill(GQL.PROFILE_NAME_INPUT, LESSON6_PROFILE_NAME);
+    await ctx.delay(600); // viewer reads typed profile name
 
-  await ctx.click(GQL.PROFILE_SAVE_BTN);
-  await ctx.delay(1500); // outcome: ✓ Saved flash + profile row in list
+    await ctx.click(GQL.PROFILE_SAVE_BTN);
+    await ctx.delay(1500); // outcome: ✓ Saved flash + profile row in list
+  }
+
+  await loadConnectionProfileOntoActiveTab(ctx, LESSON6_PROFILE_NAME);
 
   if (closeAfter && document.querySelector(GQL.PROFILE_MODAL)) {
     await ctx.click(GQL.PROFILE_CLOSE_BTN);

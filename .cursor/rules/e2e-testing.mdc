@@ -90,6 +90,8 @@ npm run test:e2e:demo:gql3
 
 Heavy Docker steps: **300s** action timeout. Project: `workers: 1`, `retries: 0`.
 
+**§11.0 workspace isolation:** `npm run test:e2e:demo:gql110` — 5 scenarios incl. hard refresh mid GQL-1; orphan demo tab policy in `e2e/DEMO-LESSON-E2E-MEMO.md` **§12**.
+
 ### Live demo guard (manual watching + sweep)
 
 While you run a **live demo** on `http://localhost:5173`, the app writes `.cursor/demo-live-guard.json` (heartbeat every 30s). Phase 8 sweep and `run-graphql-e2e-clean.sh` **skip killing :5173** when that file is fresh.

@@ -50,6 +50,14 @@ export default function DemoHub({ hub }: DemoHubProps) {
             onStartDemo={hub.startLiveDemo}
           />
         )}
+        {state.view === 'live' && state.selectedLesson && (
+          <div className="demo-hub-live-placeholder" data-testid="demo-hub-live-placeholder">
+            <p className="demo-hub-live-placeholder-title">Live demo in progress</p>
+            <p className="demo-hub-live-placeholder-desc">
+              Follow the floating guide panel on the lesson tab, or press <kbd>Esc</kbd> to exit.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

@@ -44,4 +44,58 @@ describe('GraphqlImportPreviewPanel', () => {
     render(<GraphqlImportPreviewPanel preview={buildCollectionImportPreview({ _exportMeta: sampleData._exportMeta, collections: [] })} />);
     expect(screen.getByTestId('gql-import-preview-empty')).toHaveTextContent('No collections');
   });
+
+  it('renders nested folders and mutation operation type', () => {
+    const data: CollectionExportData = {
+      _exportMeta: { version: '1.0', exportedAt: 'not-a-date', source: 'test' },
+      collections: [{
+        collection: { id: 'c1', name: 'Nested', createdAt: 1, updatedAt: 1 },
+        folders: [{
+          id: 'f1',
+          collectionId: 'c1',
+          name: 'Ops',
+          parentFolderId: null,
+          sortOrder: 0,
+          createdAt: 1,
+          updatedAt: 1,
+        }],
+        items: [{
+          id: 'i1',
+          collectionId: 'c1',
+          folderId: 'f1',
+          name: 'CreateUser',
+          sortOrder: 0,
+          operation: { id: 'op-1', query: 'mutation { createUser }', operationType: 'mutation' },
+          createdAt: 1,
+          updatedAt: 1,
+        }],
+      }],
+    };
+    render(<GraphqlImportPreviewPanel preview={buildCollectionImportPreview(data)} />);
+    expect(screen.getByTestId('gql-import-preview-folder')).toBeInTheDocument();
+    expect(screen.getByText('Mutation')).toBeInTheDocument();
+    expect(screen.getByText(/not-a-date/)).toBeInTheDocument();
+  });
+
+  it('skips empty folders with no nested content', () => {
+    const data: CollectionExportData = {
+      _exportMeta: sampleData._exportMeta,
+      collections: [{
+        collection: { id: 'c2', name: 'Empty Folder Col', createdAt: 1, updatedAt: 1 },
+        folders: [{
+          id: 'f-empty',
+          collectionId: 'c2',
+          name: 'Empty',
+          parentFolderId: null,
+          sortOrder: 0,
+          createdAt: 1,
+          updatedAt: 1,
+        }],
+        items: [],
+      }],
+    };
+    render(<GraphqlImportPreviewPanel preview={buildCollectionImportPreview(data)} />);
+    expect(screen.queryByTestId('gql-import-preview-folder')).not.toBeInTheDocument();
+    expect(screen.getByText(/0 operation/)).toBeInTheDocument();
+  });
 });

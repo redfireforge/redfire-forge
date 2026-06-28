@@ -7,7 +7,7 @@ interface Props {
 
 export function ResultsMetricsCards({ summary, selectedRun }: Props) {
   return (
-    <>
+    <div data-testid="results-metrics-cards">
       <div className="metrics-row">
         <div className="metric-card accent throughput-card">
           <div className="throughput-grid">
@@ -56,7 +56,7 @@ export function ResultsMetricsCards({ summary, selectedRun }: Props) {
           <div className="metric-label">Max</div>
         </div>
       </div>
-      <div className="metrics-row">
+      <div className="metrics-row" data-testid="results-metrics-latency-row">
         <div className="metric-card">
           <div className="metric-value">{summary.p50ResponseTime ?? '—'} ms</div>
           <div className="metric-label">P50</div>
@@ -106,6 +106,6 @@ export function ResultsMetricsCards({ summary, selectedRun }: Props) {
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }

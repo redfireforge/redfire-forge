@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, ensureBrowserLargeDataMigrated } from './storageCleanup';
+import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, ensureBrowserLargeDataMigrated, trimWorkflowRunCacheStorage } from './storageCleanup';
 import {
   FLAT_SEL_ENV_KEY,
   FLAT_SEL_SVC_KEY,
@@ -62,6 +62,16 @@ vi.mock('./idbFeatureGroups', () => ({
 vi.mock('./idbGlobalAuthProfiles', () => ({
   idbMigrateGlobalAuthProfiles: idbMigrateGlobalAuthProfilesMock,
   idbLoadGlobalAuthProfiles: idbLoadGlobalAuthProfilesMock,
+}));
+
+vi.mock('./idbRunnerConfig', () => ({
+  idbMigrateRunnerConfigsFromLocalStorage: vi.fn(async () => 0),
+  purgeRunnerConfigLocalStorageKeys: vi.fn(() => ({ removed: 0, freedBytes: 0 })),
+}));
+
+vi.mock('./idbGraphqlStudio', () => ({
+  migrateGraphqlStudioFromLocalStorage: vi.fn(async () => {}),
+  purgeGraphqlStudioLocalStorageDuplicates: vi.fn(async () => {}),
 }));
 
 describe('purgeStaleRunnerConfigKeys', () => {
@@ -151,6 +161,18 @@ describe('cleanupStaleStorageKeys', () => {
     const { removed } = cleanupStaleStorageKeys();
     expect(removed).toBeGreaterThanOrEqual(1);
     keySpy.mockRestore();
+  });
+
+  it('trims oversized workflow run cache blob', () => {
+    const entries = Array.from({ length: 10 }, (_, i) => [
+      `wf-${i}`,
+      { lastRunTime: i, consoleLines: Array.from({ length: 600 }, () => ({ text: 'x' })) },
+    ]);
+    localStorage.setItem('rfg-workflow-run-cache', JSON.stringify(entries));
+    const { removed } = trimWorkflowRunCacheStorage(6);
+    expect(removed).toBe(4);
+    const kept = JSON.parse(localStorage.getItem('rfg-workflow-run-cache') ?? '[]') as unknown[];
+    expect(kept).toHaveLength(6);
   });
 
   it('counts zero bytes when ephemeral key disappears before removal', () => {
