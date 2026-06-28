@@ -57,4 +57,33 @@ describe('lesson6-auth-headers — coverage gaps', () => {
     await loadConnectionProfileOntoActiveTab(ctx, 'Demo Profile');
     expect(ctx.click).toHaveBeenCalled();
   });
+
+  it('loadConnectionProfileOntoActiveTab skips when profile row is already linked', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div class="gql-profile-row">
+        <span class="gql-profile-row__name">Demo Profile</span>
+        <span class="gql-profile-loaded-badge"></span>
+        <button aria-label="Load profile: Demo Profile"></button>
+      </div>
+    `;
+    const { loadConnectionProfileOntoActiveTab } = await import('./lesson6-auth-headers');
+    await loadConnectionProfileOntoActiveTab(ctx, 'Demo Profile');
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
+  it('prepareMetadataRequestHeadersReading opens response metadata and expands headers', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div data-testid="gql-response-viewer"></div>
+      <button data-testid="gql-right-tab-response" aria-selected="false"></button>
+      <button data-testid="gql-rv-tab-metadata" aria-selected="false"></button>
+      <button data-testid="gql-rv-request-headers-toggle" aria-expanded="false"></button>
+      <div data-testid="gql-rv-metadata-req-header-val-authorization">Bearer token</div>
+      <button data-testid="gql-bottom-tab-auth"></button>
+    `;
+    const { prepareMetadataRequestHeadersReading } = await import('./lesson6-auth-headers');
+    await prepareMetadataRequestHeadersReading(ctx, 'authorization');
+    expect(ctx.click).toHaveBeenCalled();
+  });
 });

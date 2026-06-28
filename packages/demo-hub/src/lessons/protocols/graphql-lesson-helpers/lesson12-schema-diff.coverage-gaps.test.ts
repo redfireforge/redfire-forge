@@ -23,9 +23,13 @@ vi.mock('../../../adapters', async (importOriginal) => {
   };
 });
 
-vi.mock('./lesson4-schema-exploration', () => ({
-  ensureSchemaExplorerOpen: vi.fn(async () => {}),
-}));
+vi.mock('./lesson4-schema-exploration', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./lesson4-schema-exploration')>();
+  return {
+    ...actual,
+    ensureSchemaExplorerOpen: vi.fn(async () => {}),
+  };
+});
 
 describe('lesson12-schema-diff — coverage gaps', () => {
   beforeEach(() => {
@@ -223,5 +227,50 @@ describe('lesson12-schema-diff — coverage gaps', () => {
     resetGqlLesson12SessionFlags();
     await ensureLesson12BaselineReady(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GQL.CHANGELOG_SHOW_MORE);
+  });
+
+  it('gqlSchemaDiffLessonSetup clicks response tab when not selected', async () => {
+    const ctx = makeCtx();
+    const responseTab = document.createElement('button');
+    responseTab.setAttribute('data-testid', 'gql-right-tab-response');
+    responseTab.setAttribute('aria-selected', 'false');
+    const clickSpy = vi.spyOn(responseTab, 'click');
+    document.body.innerHTML = `
+      <button data-testid="gql-mode-editor" class="gql-mode-btn--active"></button>
+    `;
+    document.body.appendChild(responseTab);
+    const adapters = await import('../../../adapters');
+    vi.mocked(adapters.loadSnapshots).mockResolvedValue([]);
+    const { gqlSchemaDiffLessonSetup } = await import('./lesson12-schema-diff');
+    await gqlSchemaDiffLessonSetup(ctx);
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('ensureLesson12DiffOpen keeps compare select when already empty', async () => {
+    const ctx = makeCtx();
+    const adapters = await import('../../../adapters');
+    vi.mocked(adapters.loadSnapshots).mockResolvedValue([{
+      id: 'snap-1',
+      connectionId: GQL_DEMO_CONNECTION_ID,
+      sdl: 'type Query { health: String }',
+      typesCount: 1,
+      capturedAt: Date.now(),
+      label: LESSON12_BASELINE_LABEL,
+    }]);
+    const select = document.createElement('select');
+    select.setAttribute('data-testid', 'gql-changelog-compare-select');
+    select.value = '';
+    document.body.innerHTML = `
+      <button data-testid="gql-save-snapshot-btn"></button>
+      <button data-testid="gql-changelog-tab"></button>
+      <div data-testid="gql-changelog-panel"></div>
+      <div data-testid="gql-changelog-row">${LESSON12_BASELINE_LABEL}</div>
+      <button data-testid="gql-changelog-diff-btn"></button>
+    `;
+    document.body.appendChild(select);
+    const { ensureLesson12DiffOpen, resetGqlLesson12SessionFlags } = await import('./lesson12-schema-diff');
+    resetGqlLesson12SessionFlags();
+    await ensureLesson12DiffOpen(ctx);
+    expect(select.value).toBe('');
   });
 });
