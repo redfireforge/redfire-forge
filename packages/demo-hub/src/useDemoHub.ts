@@ -611,10 +611,9 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
 
   const toggleAutoPlay = useCallback(() => {
-    let shouldPause = false;
+    const shouldPause = isPlayingRef.current;
     setState(prev => {
       const newPlaying = !prev.isPlaying;
-      if (!newPlaying) shouldPause = true;
       // If starting play at the last step, restart from step 0
       const lesson = prev.selectedLesson;
       const atEnd = lesson && prev.stepIndex >= lesson.steps.length - 1;
