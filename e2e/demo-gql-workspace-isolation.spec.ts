@@ -17,6 +17,7 @@ import {
   exitLesson,
   startLesson,
   waitForPrerequisiteGateUp,
+  waitForReadingPhase,
 } from './demo-player-helpers';
 import { GQL_HEALTH, isGraphqlServerHealthy, silenceLogStream } from './graphql-helpers';
 import {
@@ -186,6 +187,60 @@ test.describe('§11.0 — switch GQL-1 → GQL-2', () => {
 
     await exitLesson(page);
     await waitForGqlDemoCleanup(page);
+    expectUserWorkspaceIntact(await readGqlWorkspaceSnapshot(page));
+  });
+});
+
+test.describe('§11.0 — hard refresh mid GQL-1', () => {
+  test('active demo session and live overlay survive reload; orphans purged after exit', async ({
+    page,
+    request,
+  }) => {
+    const healthy = await isGraphqlServerHealthy(request);
+    test.skip(!healthy, 'GraphQL test server not running on port 4010');
+
+    test.setTimeout(600_000);
+    await page.goto('http://localhost:5173/?tab=demo', { waitUntil: 'domcontentloaded' });
+    await page.evaluate(() => sessionStorage.removeItem('gql110_user_workspace_init'));
+    await seedGqlUserWorkspace(page, { surviveHardReload: true });
+    await openGqlLessonConcept(page, GQL1_NAME);
+
+    const before = await readGqlWorkspaceSnapshot(page);
+    expectUserWorkspaceIntact(before);
+
+    await waitForPrerequisiteGateUp(page);
+    await startLesson(page);
+    await waitForGqlDemoTab(page, 'gql-first-query');
+    await advanceSteps(page, 2, DEMO_ACTION_TIMEOUT);
+
+    const stepBeforeReload = await page.locator('.demo-live-step-counter').textContent();
+    const during = await readGqlWorkspaceSnapshot(page);
+    expect(during.demoSession?.lessonId).toBe('gql-first-query');
+    expect(during.userTabs[0]?.label).toBe(USER_WORKSPACE_TAB_LABEL);
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-testid="demo-live-panel"]')).toBeVisible({ timeout: 60_000 });
+    await waitForReadingPhase(page, DEMO_ACTION_TIMEOUT);
+
+    const stepAfterReload = await page.locator('.demo-live-step-counter').textContent();
+    expect(stepAfterReload).toBe(stepBeforeReload);
+
+    const afterReload = await readGqlWorkspaceSnapshot(page);
+    expect(afterReload.demoSession?.lessonId).toBe('gql-first-query');
+    expect(afterReload.userTabs[0]?.label).toBe(USER_WORKSPACE_TAB_LABEL);
+    expect(afterReload.endpoint).toBe(before.endpoint);
+    expect(afterReload.demoTabs).toHaveLength(1);
+
+    await exitLesson(page);
+    await waitForGqlDemoCleanup(page, 30_000);
+    await navigateToGraphqlStudio(page);
+    expectUserWorkspaceIntact(await readGqlWorkspaceSnapshot(page));
+
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await navigateToGraphqlStudio(page);
+    await expect(
+      page.locator('[data-testid="gql-tab-bar"] [role="tab"][data-demo-lesson="gql-first-query"]'),
+    ).toHaveCount(0, { timeout: 15_000 });
     expectUserWorkspaceIntact(await readGqlWorkspaceSnapshot(page));
   });
 });

@@ -724,10 +724,10 @@ export async function handleGraphqlAssertNode(
   }
 
   hCtx.callbacks.onNodeStateChange(nodeId, { state: 'running' });
-  hCtx.log({ prefix: '→', text: `[${label}] ASSERT on {{${data.sourceVariable}}}` });
 
   const t0 = performance.now();
   const sourceVar = data.sourceVariable.trim();
+  hCtx.log({ prefix: '→', text: `[${label}] ASSERT on ${sourceVar}` });
   const rawSourceValue = hCtx.ctx.resolve(`{{${sourceVar}}}`);
 
   const failures: string[] = [];

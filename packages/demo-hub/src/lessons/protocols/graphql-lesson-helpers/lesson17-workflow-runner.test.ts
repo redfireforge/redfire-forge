@@ -10,6 +10,7 @@ import {
   ensureLesson17WorkflowSelected,
   ensureLesson17ResultsOpen,
   selectGqlLatencyDemoWorkflow,
+  selectLesson17ResultsExplorerIteration,
 } from './lesson17-workflow-runner';
 
 describe('lesson17-workflow-runner helpers (direct)', () => {
@@ -74,8 +75,17 @@ describe('lesson17-workflow-runner helpers (direct)', () => {
 
   it('gqlWorkflowRunnerLessonSetup runs without workflow bridges', async () => {
     const ctx = makeCtx();
-    await gqlWorkflowRunnerLessonSetup(ctx);
-    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+    const adapters = await import('../../../adapters');
+    const seedSpy = vi.spyOn(adapters, 'seedNamedWorkflow').mockResolvedValue(false);
+    const runnerBridgeSpy = vi.spyOn(adapters, 'waitForRunnerBridge').mockResolvedValue(false);
+    document.body.innerHTML = '<div data-testid="workflow-select"></div>';
+    try {
+      await gqlWorkflowRunnerLessonSetup(ctx);
+      expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');
+    } finally {
+      seedSpy.mockRestore();
+      runnerBridgeSpy.mockRestore();
+    }
   });
 
   it('selectGqlLatencyDemoWorkflow picks exact name match over prefix copy', async () => {
@@ -94,5 +104,23 @@ describe('lesson17-workflow-runner helpers (direct)', () => {
     await selectGqlLatencyDemoWorkflow(ctx);
     expect(exactSpy).toHaveBeenCalled();
     expect(copySpy).not.toHaveBeenCalled();
+  });
+
+  it('selectLesson17ResultsExplorerIteration opens picker and selects iteration item', async () => {
+    document.body.innerHTML = `
+      <button class="iter-picker-toggle aggregate" data-testid="iter-picker-toggle">Aggregate</button>
+      <div data-testid="iter-picker-dropdown">
+        <button data-testid="iter-picker-item-0">#1</button>
+      </div>
+    `;
+    const ctx = makeCtx();
+    const toggle = document.querySelector<HTMLElement>('[data-testid="iter-picker-toggle"]')!;
+    toggle.addEventListener('click', () => {
+      /* dropdown already in DOM for test */
+    });
+    const item = document.querySelector<HTMLElement>('[data-testid="iter-picker-item-0"]')!;
+    const itemSpy = vi.spyOn(item, 'click');
+    await selectLesson17ResultsExplorerIteration(ctx, 0);
+    expect(itemSpy).toHaveBeenCalled();
   });
 });

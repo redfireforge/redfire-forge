@@ -227,6 +227,7 @@ npm run test:e2e:demo:gql110
 | 7 user tabs + GQL-1 | Lesson uses slot 8 (7 user + 1 demo); 7 user tabs restored after exit |
 | GQL-14 tab capacity gate | With 7 user tabs, Start blocked until 1 tab closed (`tabBudget: 2`) |
 | GQL-1 → GQL-2 switch | Demo tab wiped and recreated; no `gql-first-query` demo tab after GQL-2 start |
+| Hard refresh mid GQL-1 | Active session + live overlay survive reload; user workspace intact; demo tab purged after exit + reload |
 
 **Helpers:** `e2e/graphql-demo-workspace-helpers.ts`
 
@@ -269,8 +270,36 @@ Active guards **must include `lessonId`** — prevents spoofed/torn file reads f
 
 **Tab capacity model:** `MAX_TABS = 8`, `MAX_USER_TABS = 7`. Lessons with `tabBudget: 2` (GQL-14, GQL-15) show `PrerequisiteGate` tab-capacity UI when `userTabsToCloseForLesson(count, 2) > 0`.
 
-**Orphan demo tabs:** `purgeOrphanDemoTabs()` on Studio mount removes demo tabs when no active `gql_demo_session_v1` — hard refresh mid-lesson is handled separately (not covered by acceptance spec yet).
+**Orphan demo tabs:** `purgeOrphanDemoTabs()` on Studio mount removes demo tabs when no active `gql_demo_session_v1` — see **§12** for hard-refresh policy.
 
 **Last-step rule still applies** when walking lessons inside §11.0 tests — use `finishDemoStep` on step N/N.
 
 **Step counts (2026-06-27):** GQL-5 = **18** steps (incl. `gqlt-auth-tls-*` 7–9); GQL-7 = **15** steps (includes `gql5-subscription-auth`). Keep `e2e/graphql-lesson-smoke-helpers.ts` in sync with lesson files.
+
+---
+
+## 12. §11.0 — Hard refresh mid-lesson (demo tab policy)
+
+**Problem:** After `Cmd+Shift+R` / hard reload during a live GraphQL studio lesson, engineers need predictable behavior: must user workspace stay intact? Should demo tabs survive or be purged?
+
+**Policy (implemented — 2026-06-28):**
+
+| Condition after reload | Demo tabs (`demoLessonId`) | User tabs + `gql_endpoint_v1` | Live demo overlay |
+|------------------------|----------------------------|-------------------------------|-------------------|
+| **Active demo** — `gql_demo_session_v1` present + Demo Hub enabled | **Kept** — `purgeOrphanDemoTabs()` returns early | **Unchanged** — session holds prior page endpoint/auth backups | **Restored** from `sessionStorage` (`redfire-demo-live-session-v1`, max age 6 h) at same step |
+| **Demo exited** — session cleared by `closeGqlDemoTabs` / exit lesson | **Purged** on next Studio mount | **Restored** from session backup keys | N/A — concept/list view |
+| **Stale orphan** — demo tabs in IDB but no session (crash / manual storage edit) | **Purged**; blank tab if no user tabs remain | **Restored** from `gql_demo_prior_page_*` backups when present | N/A |
+
+**Rationale:** During an active lesson the demo tab is intentional workspace state — removing it mid-lesson would break `preAction` guards and force the viewer to restart. After exit, demo tabs are ephemeral scratch space and must not leak into the user's Studio.
+
+**Studio mount sequence:** `useGqlStudioTabs` → `purgeOrphanDemoTabs()` → `filterTabsForPersistence()` → load tabs from IDB.
+
+**Demo Hub mount sequence:** `useDemoHub` → `consumeLiveDemoResumeOnce()` + `readDemoLiveSession()` → resume `view: 'live'` at saved `stepIndex` (once per real page load; HMR guarded).
+
+**Acceptance E2E:** `demo-gql-workspace-isolation.spec.ts` → `§11.0 — hard refresh mid GQL-1` (5th scenario). Run with:
+
+```bash
+npm run test:e2e:demo:gql110
+```
+
+**Manual check (optional):** Start GQL-1 → advance 2 steps → hard refresh → confirm live overlay returns at same step, user tab label/endpoint unchanged in Studio after exit.

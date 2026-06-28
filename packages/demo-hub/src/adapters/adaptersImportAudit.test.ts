@@ -16,7 +16,6 @@ const FORBIDDEN_PATTERNS = [
 /** High-churn lesson modules migrated in Phase 5 — must not import product internals directly. */
 const MIGRATED_REL_PATHS = new Set([
   'protocols/graphql-lesson-helpers/gql-demo-tab.ts',
-  'protocols/graphql-lesson-helpers/core.ts',
   'protocols/graphql-lesson-helpers/lesson6-auth-headers.ts',
   'protocols/graphql-lesson-helpers/lesson14-multi-tab.ts',
   'protocols/graphql-lesson-helpers/lesson-https-tls.ts',

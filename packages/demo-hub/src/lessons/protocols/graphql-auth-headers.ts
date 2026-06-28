@@ -478,10 +478,10 @@ With a **single tab**, auth edits update the **page-level default** — every ne
     // ── Step 12: Save connection profile ──────────────────────────────────────
     {
       id: 'gql6-profile',
-      title: 'Save a Connection Profile',
+      title: 'Save & Load a Connection Profile',
       description:
-        `Click **Profiles** on the connection bar → enter name **${LESSON6_PROFILE_NAME}** → **Save**. This saves a **connection profile** — a shortcut for endpoint + auth mode. The saved row shows **${LESSON6_PROFILE_NAME}**, not **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}**. That is expected: **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** is the **global auth catalog** entry in the Auth panel below (Inherit from Auth Profile). The connection profile only records that auth mode is *inherit* — look for **Inherit (${LESSON6_GLOBAL_AUTH_PROFILE_NAME})** on the Auth preview row in this modal.\n\n` +
-        `Below the endpoint, read **Used by** — it shows *Not linked to any tab* until you **Load** this profile onto a workspace tab (**GQL-14** demonstrates tab pills after load). Saving does not auto-link; **Load** is what connects a tab to a profile.`,
+        `Click **Profiles** on the connection bar → enter name **${LESSON6_PROFILE_NAME}** → **Save**, then click **Load** on that row. This saves a **connection profile** — a shortcut for endpoint + auth mode — and wires it to the active workspace tab. The saved row shows **${LESSON6_PROFILE_NAME}**, not **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}**. That is expected: **${LESSON6_GLOBAL_AUTH_PROFILE_NAME}** is the **global auth catalog** entry in the Auth panel below (Inherit from Auth Profile). The connection profile only records that auth mode is *inherit* — look for **Inherit (${LESSON6_GLOBAL_AUTH_PROFILE_NAME})** on the Auth preview row in this modal.\n\n` +
+        `After **Load**, read **Used by** on the profile row — it shows the active tab name instead of *Not linked to any tab*. **Load** sets \`connectionId\` on the tab so endpoint and inherit auth follow this profile.`,
       highlight: GQL.PROFILE_BADGE,
       preAction: preProfileStep,
       action: async (ctx) => {

@@ -6,6 +6,7 @@ import {
   expandAppSidebar,
   getWorkflowByName,
   openWorkflowNodeConfig,
+  resetWorkflowRunState,
   selectWorkflowByName,
   setWorkflowConsoleFloatLayout,
 } from '../adapters';
@@ -154,10 +155,7 @@ export async function dismissWorkflowExecSummary(ctx: DemoActionContext): Promis
  * Call from demo setup/cleanup so exiting a lesson does not leave stale run UI.
  */
 export function resetWorkflowRunStateQuiet(): boolean {
-  const bridge = (window as unknown as Record<string, unknown>).__wfResetRunState as
-    | (() => boolean)
-    | undefined;
-  if (bridge?.()) return true;
+  if (resetWorkflowRunState()) return true;
 
   document.querySelector<HTMLElement>(WF.RESET_RUN_BTN)?.click();
   const clearBtn = document.querySelector<HTMLButtonElement>(WF.CONSOLE_CLEAR_BTN);

@@ -6,15 +6,25 @@ export { DEMO_LIVE_GUARD_HEARTBEAT_MS } from './demoLiveGuardPolicy';
 
 export const DEMO_LIVE_GUARD_ENDPOINT = '/__demo-live-guard';
 
+/** Vitest hook — compile-time env inlining prevents vi.stubEnv from reaching readViteEnv. */
+let demoLiveGuardEnvOverride: { mode?: string; dev?: boolean } | undefined;
+
+export function setDemoLiveGuardEnvForTests(next?: { mode?: string; dev?: boolean }): void {
+  demoLiveGuardEnvOverride = next;
+}
+
 /** Set by Phase 8 E2E via addInitScript — belt-and-suspenders when webdriver is masked. */
 export const PHASE8_E2E_GUARD_BYPASS_KEY = '__PHASE8_E2E_SWEEP__';
 
 function readViteEnv(): { mode?: string; dev?: boolean } {
+  if (demoLiveGuardEnvOverride) return demoLiveGuardEnvOverride;
   if (typeof import.meta === 'undefined') return {};
-  const env = (import.meta as ImportMeta & { env?: { MODE?: string; DEV?: boolean | string } }).env;
-  const devRaw = env?.DEV as boolean | string | undefined;
+  const env = (import.meta as ImportMeta & { env?: Record<string, boolean | string | undefined> }).env;
+  if (!env) return {};
+  const mode = env['MODE'] as string | undefined;
+  const devRaw = env['DEV'] as boolean | string | undefined;
   const dev = devRaw === true || devRaw === 'true';
-  return { mode: env?.MODE, dev };
+  return { mode, dev };
 }
 
 /** Playwright / WebDriver sessions walk live demos — must not block Phase 8 server resets. */

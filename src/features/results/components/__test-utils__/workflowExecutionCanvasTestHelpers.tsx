@@ -13,7 +13,7 @@
  * such transitive import would cause a circular mock-resolution hang.
  */
 import type { JSX, ReactNode, MouseEvent } from 'react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { expect, vi } from 'vitest';
 import type { Mock } from 'vitest';
 import type * as XyflowReact from '@xyflow/react';
@@ -53,10 +53,21 @@ export function buildMockReactFlowRenderer(flowApi: CanvasFlowApi) {
     onNodeMouseEnter,
     onNodeMouseLeave,
   }: MockReactFlowProps): JSX.Element {
+    const nodesRef = useRef(nodes);
+    nodesRef.current = nodes;
+    const onInitRef = useRef(onInit);
+    onInitRef.current = onInit;
+    const didInitRef = useRef(false);
+
     useEffect(() => {
-      const instance = { fitView: flowApi.fitView } as unknown as ReactFlowInstance<Node, Edge>;
-      onInit?.(instance);
-    }, [onInit]);
+      if (didInitRef.current) return;
+      didInitRef.current = true;
+      const instance = {
+        fitView: flowApi.fitView,
+        getNodes: () => nodesRef.current ?? [],
+      } as unknown as ReactFlowInstance<Node, Edge>;
+      onInitRef.current?.(instance);
+    }, []);
     return (
       <div data-testid="react-flow">
         <div data-testid="flow-pane" onClick={() => onPaneClick?.()}>
@@ -165,6 +176,10 @@ export function MockMiniMap({
   );
 }
 
+export function MockPanel({ children }: { children?: ReactNode }): JSX.Element {
+  return <div data-testid="react-flow-panel">{children}</div>;
+}
+
 /** Default applyNodeChanges stub used by the mock factory. */
 export function applyNodeChangesImpl(
   changes: NodeChange[],
@@ -204,6 +219,17 @@ export const xyflowMockStaticExports = {
   },
   Position: { Top: 'top', Right: 'right', Bottom: 'bottom', Left: 'left' },
 } as const;
+
+/** Minimal bounds helper for replayCanvasFitView in unit tests. */
+export function mockGetNodesBounds(nodes: { width?: number; height?: number }[]): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
+  if (nodes.length === 0) return { x: 0, y: 0, width: 0, height: 0 };
+  return { x: 0, y: 0, width: 220, height: 80 };
+}
 
 // ─── Trace fixture factories ─────────────────────────────────────────
 

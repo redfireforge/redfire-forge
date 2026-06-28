@@ -5,6 +5,7 @@ import { GQL } from '@shared/selectors';
 import {
   ensureEditorMode,
   ensureIntrospected,
+  closeGqlActivityPanelIfOpen,
   fillGqlEditor,
   getGqlEditorQuery,
   openSchemaTabWhenCached,
@@ -176,11 +177,7 @@ export async function gqlSchemaLessonSetup(ctx: DemoActionContext): Promise<void
     responseTab.click();
   }
   await ctx.delay(200);
-  const historyBtn = document.querySelector<HTMLElement>(GQL.ACTIVITY_HISTORY);
-  if (historyBtn?.classList.contains('gql-activity-tab--active')) {
-    historyBtn.click();
-    await ctx.delay(200);
-  }
+  await closeGqlActivityPanelIfOpen(ctx);
   await ensureGqlDemoTab(ctx, 'gql-schema-exploration', 'Schema Exploration');
   await fillGqlEditor(ctx, GQL_INSERT_TEMPLATE_QUERY, { focus: false });
 }

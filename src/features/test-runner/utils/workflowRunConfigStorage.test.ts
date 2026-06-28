@@ -97,6 +97,36 @@ describe('workflowRunConfigStorage', () => {
       expect(configs.length).toBeLessThanOrEqual(15);
       expect(configs[0].variables.iter).toBe('19');
     });
+
+    it('limits total configs across all workflows', () => {
+      for (let i = 0; i < 120; i++) {
+        vi.setSystemTime(new Date(i * 1000));
+        saveWorkflowRunConfig({ workflowId: `wf-${i}`, variables: { n: String(i) } });
+      }
+
+      expect(loadWorkflowRunConfigs().length).toBeLessThanOrEqual(100);
+    });
+
+    it('does not throw when localStorage quota is exceeded', () => {
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const original = localStorage.setItem.bind(localStorage);
+      let calls = 0;
+      vi.spyOn(Storage.prototype, 'setItem').mockImplementation((key, value) => {
+        if (key === 'workflow-run-configs') {
+          calls += 1;
+          if (calls <= 5) {
+            throw new DOMException('Quota exceeded', 'QuotaExceededError');
+          }
+        }
+        original(key, value);
+      });
+
+      expect(() =>
+        saveWorkflowRunConfig({ workflowId: 'wf1', variables: { graphqlUrl: 'http://localhost:4010/graphql' } }),
+      ).not.toThrow();
+
+      warnSpy.mockRestore();
+    });
   });
 
   describe('getWorkflowRunConfigs', () => {

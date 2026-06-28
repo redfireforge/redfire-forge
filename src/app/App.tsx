@@ -57,7 +57,7 @@ import {
   setLastProtocolsTab,
   LAST_PROTOCOLS_TAB_STORAGE_KEY,
 } from './utils/appTabUtils';
-import { onStorageFull, cleanupStaleStorageKeys, readKey, writeKey } from '../shared/utils/storage';
+import { onStorageFull, cleanupStaleStorageKeys, ensureBrowserLargeDataMigrated, readKey, writeKey } from '../shared/utils/storage';
 import { useKafkaState } from './hooks/useKafkaState';
 import '../styles/index.css';
 import { DEMO_HUB_ENABLED } from '../config/features';
@@ -88,7 +88,18 @@ export default function App() {
 
   const wb = useRequests();
   const catalog = useCatalog();
+  const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
+  const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
   const wfHook = useWorkflows();
+  const selectRunnerWorkflowByName = useCallback((name: string): boolean => {
+    const bridge = (window as unknown as { __wfRunnerApplySelection?: (n: string) => boolean })
+      .__wfRunnerApplySelection;
+    if (bridge?.(name)) return true;
+    const wf = wfHook.workflows.find((w) => w.name === name);
+    if (!wf) return false;
+    setWorkflowRunnerInitialId(wf.id);
+    return true;
+  }, [wfHook.workflows]);
   useDemoWorkflowBridge(
     wfHook.workflows,
     wfHook.remove,
@@ -96,6 +107,7 @@ export default function App() {
     DEMO_HUB_ENABLED ? wfHook.select : undefined,
     DEMO_HUB_ENABLED ? wfHook.loaded : false,
     DEMO_HUB_ENABLED ? wfHook.update : undefined,
+    DEMO_HUB_ENABLED ? selectRunnerWorkflowByName : undefined,
   );
   const {
     previewWorkflow,
@@ -123,8 +135,6 @@ export default function App() {
     setActiveTab,
   });
   const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
-  const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
-  const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
   const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
@@ -267,6 +277,7 @@ export default function App() {
   // ---- Auto-cleanup stale keys on first load ----
   useEffect(() => {
     cleanupStaleStorageKeys();
+    void ensureBrowserLargeDataMigrated().catch(() => { /* best effort */ });
     if (DEMO_HUB_ENABLED) {
       void import('@redfireforge/demo-hub/demoLiveSession').then(({ hasRestorableDemoLiveSession }) => {
         if (hasRestorableDemoLiveSession()) return;

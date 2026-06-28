@@ -20,6 +20,7 @@ export function useDemoWorkflowBridge(
   select?: (id: string) => void,
   loaded = false,
   update?: (id: string, patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>) => void,
+  selectRunnerByName?: (name: string) => boolean,
 ): void {
   const workflowsRef = useRef(workflows);
   workflowsRef.current = workflows;
@@ -31,6 +32,8 @@ export function useDemoWorkflowBridge(
   selectRef.current = select;
   const updateRef = useRef(update);
   updateRef.current = update;
+  const selectRunnerRef = useRef(selectRunnerByName);
+  selectRunnerRef.current = selectRunnerByName;
   const loadedRef = useRef(loaded);
   loadedRef.current = loaded;
 
@@ -54,6 +57,12 @@ export function useDemoWorkflowBridge(
       return true;
     };
 
+    win.__wfRunnerSelectByName = (name: string) => {
+      const selRunner = selectRunnerRef.current;
+      if (!selRunner) return false;
+      return selRunner(name);
+    };
+
     win.__wfPatchWorkflowByName = (
       name: string,
       patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>,
@@ -74,6 +83,7 @@ export function useDemoWorkflowBridge(
       delete win.__wfDeleteByName;
       delete win.__wfGetWorkflowByName;
       delete win.__wfSelectByName;
+      delete win.__wfRunnerSelectByName;
       delete win.__wfPatchWorkflowByName;
       delete win.__wfInsertWorkflow;
       delete win.__wfWorkflowsLoaded;

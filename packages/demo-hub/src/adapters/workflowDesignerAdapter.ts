@@ -1,4 +1,5 @@
 import { getDemoBridgeWindow } from './bridgeWindow';
+import { WFR } from '@shared/selectors/wfr';
 
 export function deleteWorkflowByName(name: string): boolean {
   const bridge = getDemoBridgeWindow().__wfDeleteByName;
@@ -21,6 +22,75 @@ export function getWorkflowByName<T = unknown>(name: string): T | null {
 
 export function selectWorkflowByName(name: string): boolean {
   return getDemoBridgeWindow().__wfSelectByName?.(name) ?? false;
+}
+
+/** Select a workflow in Workflow Runner by name — keeps runner ID in sync after re-seed. */
+export function selectRunnerWorkflowByName(name: string): boolean {
+  const win = getDemoBridgeWindow();
+  if (win.__wfRunnerApplySelection?.(name)) return true;
+  return win.__wfRunnerSelectByName?.(name) ?? false;
+}
+
+/** Start a workflow run via the runner bridge (falls back to clicking the Run button). */
+export function triggerRunnerWorkflowRun(): boolean {
+  const win = getDemoBridgeWindow();
+  if (win.__wfRunnerTriggerRun?.()) return true;
+  const runBtn = document.querySelector<HTMLElement>(WFR.RUN_BTN)
+    ?? Array.from(document.querySelectorAll<HTMLElement>('.config-form .form-actions .btn-primary'))
+      .find((el) => el.textContent?.includes('Run Workflow'));
+  if (!runBtn) return false;
+  runBtn.click();
+  return true;
+}
+
+/** Poll until Workflow Runner demo bridge is mounted (max ~8s). */
+export async function waitForRunnerBridge(
+  ctx: DemoSeedDelayContext,
+  timeoutMs = 8000,
+  intervalMs = 100,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (getDemoBridgeWindow().__wfRunnerSelectAndRun) return true;
+    await ctx.delay(intervalMs);
+  }
+  return !!getDemoBridgeWindow().__wfRunnerSelectAndRun;
+}
+
+/** Apply batch iterations/concurrency and trace level through the runner bridge when available. */
+export function applyRunnerBatchConfig(
+  iterations: number,
+  concurrency: number,
+  traceLevel: 'minimal' | 'standard' | 'full' | 'debug' = 'standard',
+): boolean {
+  return getDemoBridgeWindow().__wfRunnerApplyBatchConfig?.(iterations, concurrency, traceLevel) ?? false;
+}
+
+/** Fit the Results Explorer diagram via the canvas bridge (falls back to clicking Fit view). */
+export function fitResultsExplorerDiagram(): boolean {
+  return getDemoBridgeWindow().__reExplorerFitView?.() ?? false;
+}
+
+/** Poll until the Results Explorer fit-view bridge is mounted (max ~8s). */
+export async function waitForResultsExplorerBridge(
+  ctx: DemoSeedDelayContext,
+  timeoutMs = 8000,
+  intervalMs = 100,
+): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (getDemoBridgeWindow().__reExplorerFitView) return true;
+    await ctx.delay(intervalMs);
+  }
+  return !!getDemoBridgeWindow().__reExplorerFitView;
+}
+
+/** Select a named workflow in Workflow Runner and start the run in one bridge call. */
+export function selectAndRunRunnerWorkflow(name: string): boolean {
+  const win = getDemoBridgeWindow();
+  if (win.__wfRunnerSelectAndRun?.(name)) return true;
+  if (!selectRunnerWorkflowByName(name)) return false;
+  return triggerRunnerWorkflowRun();
 }
 
 /** Poll until the demo workflow bridge is mounted on `window` (max ~8s). */
@@ -187,6 +257,7 @@ export async function seedNamedWorkflow(
   }
   await waitForWorkflowInStore(ctx, name, storeTimeoutMs);
   selectWorkflowByName(name);
+  selectRunnerWorkflowByName(name);
   return !!getWorkflowByName(name);
 }
 

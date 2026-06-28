@@ -251,11 +251,21 @@ export default function ResultsExplorerConsolePanel({
           <option value="floating">⧉ Floating</option>
           <option value="maximized">⬜ Full Screen</option>
         </select>
-        <button type="button" className="re-console-action-btn" onClick={onClose} title="Close console (⌘J)">
-          ✕
-        </button>
       </div>
     </div>
+  );
+
+  const renderCloseButton = () => (
+    <button
+      type="button"
+      className="re-console-close-btn"
+      onClick={onClose}
+      title="Close console (⌘J)"
+      aria-label="Close console"
+      data-testid="results-console-close-btn"
+    >
+      ✕
+    </button>
   );
 
   // Search bar
@@ -295,6 +305,7 @@ export default function ResultsExplorerConsolePanel({
   if (isMinimal && logLines.length === 0) {
     return (
       <div className={rootClass} style={rootStyle} data-testid="results-console-panel">
+        {renderCloseButton()}
         {mode === 'docked' && <div className="re-console-resize-handle" onMouseDown={onDockedResizeStart} />}
         {renderHeader()}
         <div className="re-console-body re-console-disabled" data-testid="results-console-disabled">
@@ -318,6 +329,7 @@ export default function ResultsExplorerConsolePanel({
 
   return (
     <div className={rootClass} style={rootStyle} data-testid="results-console-panel">
+      {renderCloseButton()}
       {mode === 'docked' && (
         <div className="re-console-resize-handle" onMouseDown={onDockedResizeStart} />
       )}

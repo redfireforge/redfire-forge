@@ -1,17 +1,30 @@
 /** Lesson GQL-17: Workflow Runner & Results */
 import type { DemoLesson } from '../../types';
+import { WF } from '@shared/selectors';
+import { WFR } from '@shared/selectors/wfr';
+import { RES } from '@shared/selectors/res';
+import { REX } from '@shared/selectors/rex';
+import { GQL_DEMO_HTTP } from './graphql-lesson-helpers/core';
 import {
-  GQL_DEMO_HTTP,
   LESSON17_WF_NAME,
   LESSON17_DOCKER_ENDPOINT,
+  LESSON17_DEMO_ITERATIONS,
+  LESSON17_DEMO_CONCURRENCY,
+  LESSON17_RESULTS_EXPLORER_DIAGRAM,
   selectGqlLatencyDemoWorkflow,
   runGqlLatencyWorkflow,
   ensureLesson17WorkflowSelected,
-  ensureLesson17WorkflowRun,
-  ensureLesson17ResultsOpen,
+  ensureLesson17RunnerDemoConfig,
+  ensureLesson17OnResultsTab,
+  openLesson17ResultsFromCompletionBanner,
+  openLesson17RequestDetailsTab,
+  openAndFitLesson17ResultsExplorer,
+  fitLesson17ResultsExplorerDiagram,
+  showLesson17ResultsExplorerConsole,
+  closeLesson17ResultsExplorerIfOpen,
   gqlWorkflowRunnerLessonSetup,
   gqlWorkflowRunnerLessonCleanup,
-} from './graphql-lesson-helpers';
+} from './graphql-lesson-helpers/lesson17-workflow-runner';
 
 export const gqlWorkflowRunnerLesson: DemoLesson = {
   id: 'gql-workflow-runner',
@@ -22,7 +35,6 @@ export const gqlWorkflowRunnerLesson: DemoLesson = {
     'Graduate the GraphQL Latency Demo workflow from Quick Test to the Workflow Runner — configure iterations, observe live progress, and drill into the Results Explorer for node-level analysis.',
   estimatedMinutes: 5,
   initialTab: 'workflow-runner',
-  // Steps 5–10 navigate to Results Dashboard / Explorer — must not auto-exit live demo.
   allowedTabs: ['workflow', 'workflow-runner', 'results'],
 
   dockerEndpoint: LESSON17_DOCKER_ENDPOINT,
@@ -255,10 +267,11 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
   steps: [
     {
       id: 'gql17-open-runner',
-      title: 'Open the Workflow Runner',
+      title: 'Select GraphQL Latency Demo',
       description:
-        `You are now in the **Workflow Runner** — the tab that bridges the gap between the Workflow Designer and production CI testing.\n\nIn the Designer, **Quick Test** runs once, shows green/red nodes, and vanishes when you navigate away. The Workflow Runner is its tracked counterpart: every run is **saved with a timestamp**, every variable override is **isolated from the workflow definition**, and every iteration produces a result row in the Results Dashboard. The picker at the top lets you select any workflow you have built.\n\nSelect the **${LESSON17_WF_NAME}** workflow — built in GQL-16 — from the dropdown to load it into the Runner.`,
-      highlight: '.workflow-picker',
+        `You are in the **Workflow Runner** — the Test Harness tab where visual workflows become **tracked test executions**. Unlike **Quick Test** in the Designer (one shot, no history), every run here is saved with a timestamp and appears in the **Results** tab.\n\n` +
+        `Open the **Workflow** dropdown at the top and select **${LESSON17_WF_NAME}** — the workflow you built in GQL-16. Once selected, the **Initial Variables** panel and **Execution Config** section appear below the picker.`,
+      highlight: WF.WORKFLOW_SELECT,
       preAction: gqlWorkflowRunnerLessonSetup,
       action: async (ctx) => {
         await selectGqlLatencyDemoWorkflow(ctx);
@@ -272,7 +285,8 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
       id: 'gql17-runner-variables',
       title: 'Initial Variables — Override graphqlUrl',
       description:
-        `The **Initial Variables** panel shows every variable defined in the selected workflow. **GraphQL Latency Demo** has one — \`graphqlUrl\`, pre-set to \`${GQL_DEMO_HTTP}\` (the Docker test server from GQL-16). The GraphQL Query node uses \`{{graphqlUrl}}\` as its endpoint, so you can point this workflow at staging, production, or another local mock server **without editing the workflow definition**.\n\nOverrides here are applied **per-run** — the same pattern as environment variables for a CI job. Leave the default for this lesson; in production you'd swap the URL to match the target environment.`,
+        `The **Initial Variables** panel lists workflow-level defaults you can override for this run only. **${LESSON17_WF_NAME}** defines one variable — \`graphqlUrl\` — pre-filled with \`${GQL_DEMO_HTTP}\`.\n\n` +
+        `The GraphQL Query node references \`{{graphqlUrl}}\` as its endpoint, so you can point this run at staging or another mock server **without editing the workflow**. Leave the default for this lesson.`,
       highlight: '.workflow-vars-section',
       preAction: async (ctx) => {
         await ensureLesson17WorkflowSelected(ctx);
@@ -285,23 +299,34 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
 
     {
       id: 'gql17-config-run',
-      title: 'Configure Iterations & Concurrency',
+      title: 'Set Iterations & Concurrency',
       description:
-        `The **Execution Config** section controls how many times the workflow runs and how much load it generates.\n\n- **Iterations: 10** — the workflow executes 10 times in total, producing 10 result rows.\n- **Concurrency: 2** — two workflow instances run in parallel at a time, meaning 5 batches of 2 simultaneous GraphQL requests hit the server.\n- **Think Time: 200ms** — a 200ms pause between batches simulates realistic inter-request pacing and prevents the test from running at maximum possible speed.\n\nConcurrency is especially important for GraphQL because HTTP/2 multiplexing means two concurrent operations may share a single TCP connection. Measuring at concurrency 2 gives you a realistic read on whether connection-sharing causes head-of-line blocking or actually reduces latency.`,
-      highlight: '.workflow-runner-config-section',
+        `In **Execution Config**, the demo sets **Iterations** to **${LESSON17_DEMO_ITERATIONS}** and **Concurrency** to **${LESSON17_DEMO_CONCURRENCY}** — enough iterations to populate the Results Dashboard without a long wait.\n\n` +
+        `- **Iterations** — how many times the full workflow runs\n` +
+        `- **Concurrency** — how many instances run in parallel (1 = sequential, easy to follow in the progress bar)\n\n` +
+        `For production load tests you might use 10+ iterations at concurrency 2–4. Here we keep it short so you can watch each iteration complete.`,
+      highlight: '.workflow-runner-config-section .resilience-field:nth-child(2)',
       preAction: ensureLesson17WorkflowSelected,
+      action: async (ctx) => {
+        await ensureLesson17RunnerDemoConfig(ctx);
+        await ctx.delay(800);
+      },
       pauseAfter: true,
     },
 
     {
       id: 'gql17-start-run',
-      title: 'Start the Run — Watch Live Progress',
+      title: 'Run the Workflow Once',
       description:
-        `Click **▶ Run Workflow**. The live progress bar counts completed iterations as they finish. Each batch of 2 concurrent runs increments the counter by 2.\n\nWatch the **Console** if you opened it — it streams per-node execution logs: endpoint, HTTP status, response body, latency, and bound variable values (\`gqlLatency=28\`) in real time. After all 10 iterations complete, the **completion banner** appears with total request count and wall-clock duration. The result is immediately persisted to the Results Dashboard — you don't need to do anything to save it.`,
-      highlight: '.config-form',
-      preAction: ensureLesson17WorkflowSelected,
+        `Click **▶ Run Workflow**. The progress bar advances as each iteration completes — watch it count up to **${LESSON17_DEMO_ITERATIONS}**.\n\n` +
+        `Each iteration executes **Start → GraphQL Query → GraphQL Assert → End** against the Docker server. When finished, the green **completion banner** shows total requests and wall-clock time. The run is **automatically saved** — no extra Save step.`,
+      highlight: WFR.RUN_BTN,
+      preAction: ensureLesson17RunnerDemoConfig,
       action: async (ctx) => {
-        await runGqlLatencyWorkflow(ctx);
+        if (!document.querySelector('.completion-section')) {
+          await ensureLesson17WorkflowSelected(ctx);
+          await runGqlLatencyWorkflow(ctx);
+        }
         await ctx.delay(800);
       },
       verify: '.completion-section',
@@ -309,14 +334,15 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
     },
 
     {
-      id: 'gql17-results-dashboard',
-      title: 'Results Dashboard — Throughput Overview',
+      id: 'gql17-view-results',
+      title: 'Open the Results Dashboard',
       description:
-        `Click **View Full Results →** in the completion banner. The app navigates to the **Results Dashboard** filtered to Workflow Runs and auto-selects the run you just executed.\n\nThe four metric cards at the top answer the most important questions immediately:\n- **Req/s** — throughput achieved at your concurrency setting\n- **p50 latency** — median performance (what most requests experience)\n- **p95 latency** — 95th-percentile performance (the slowest 1-in-20 request)\n- **Error rate** — 0% means all 10 iterations passed the GraphQL Assert node\n\nThe **latency histogram** below the cards reveals the shape of the distribution. A tight, unimodal histogram means consistent performance. A bimodal distribution (two humps) suggests occasional cold-start delays or connection pool exhaustion — both invisible in p50 alone.`,
-      highlight: '.results-run-filter-tabs',
-      preAction: ensureLesson17WorkflowRun,
+        `Click **View Full Results →** in the completion banner. The app switches to the **Results** tab and selects the run you just completed.\n\n` +
+        `This is the hand-off from Runner to Results — the same navigation you would use after any production load test.`,
+      highlight: '.completion-section .btn-primary',
+      preAction: ensureLesson17RunnerDemoConfig,
       action: async (ctx) => {
-        await ensureLesson17ResultsOpen(ctx);
+        await openLesson17ResultsFromCompletionBanner(ctx);
         await ctx.delay(800);
       },
       verify: '.results-run-filter-tabs',
@@ -324,60 +350,74 @@ Exporting the run trace as JSON lets CI/CD consume threshold assertions programm
     },
 
     {
-      id: 'gql17-node-filter',
-      title: 'Filter Results by Node',
+      id: 'gql17-results-dashboard',
+      title: 'Throughput & Latency Cards',
       description:
-        `The **Results** view tabs let you pivot between **Overview** (aggregate metrics) and **Request Details** (per-iteration rows grouped by node).\n\nSwitch to **Request Details** to see each node's output across all 10 iterations. For the GraphQL Latency Demo, there is only one HTTP-producing node — **GraphQL Query** — so filtering is trivial. In multi-node workflows (GQL-18: Mutation → Query → Assert), filtering to a single node isolates whether the mutation, the read-back query, or the assert is slow.\n\nClick any iteration row to open the **Response Detail** modal: it shows the exact HTTP request body (the GraphQL operation), the raw response, the latency breakdown, and the extracted \`gqlLatency\` variable value that the Assert node evaluated against.`,
-      highlight: '.results-view-tabs',
-      preAction: ensureLesson17ResultsOpen,
+        `The **headline metric cards** at the top summarize the run in two rows:\n\n` +
+        `- **Row 1** — **TPS** (throughput), avg/min/max response time\n` +
+        `- **Row 2** — **P50 / P95 / P99** latency, **Error rate** (should be **0%** when all Assert nodes pass), total duration, and request count\n\n` +
+        `Scroll down for the **Workflow Execution Summary** — iteration chart, per-step metrics (**GraphQL Query**, **GraphQL Assert**), and the latency histogram.`,
+      highlight: RES.METRICS_CARDS,
+      preAction: ensureLesson17OnResultsTab,
+      pauseAfter: true,
+    },
+
+    {
+      id: 'gql17-request-details',
+      title: 'Request Details — Per-Iteration Rows',
+      description:
+        `Click the **Request Details** tab (next to **Overview**). Each row is one HTTP-producing step from one iteration — for this workflow, rows from **GraphQL Query** show latency and status.\n\n` +
+        `Click any row to open **Response Detail**: the GraphQL operation sent, raw response body, and the \`gqlLatency\` value the Assert node evaluated.`,
+      highlight: RES.REQUEST_DETAILS_TAB,
+      preAction: ensureLesson17OnResultsTab,
+      action: async (ctx) => {
+        await openLesson17RequestDetailsTab(ctx);
+        await ctx.delay(800);
+      },
+      verify: RES.REQUEST_DETAILS_TAB,
       pauseAfter: true,
     },
 
     {
       id: 'gql17-results-explorer',
-      title: 'Open Results Explorer',
+      title: 'Results Explorer — Canvas, Detail & Matrix',
       description:
-        `Click **📊 Results Explorer** in the Results Dashboard header. A full-screen modal opens with three panels:\n\n1. **Canvas** (left) — the same workflow diagram you built in GQL-16, now overlaid with pass/fail badges and execution-time readings for each node across all iterations.\n2. **Detail Panel** (right) — click any node to see its per-iteration variable snapshot: \`gqlLatency\` value, assertion result, request/response bodies.\n3. **Iteration Matrix** (bottom) — a grid of iteration × node showing pass/fail at a glance. Green means the assertion passed for that iteration; red means it failed. Clicking any cell navigates the canvas to that iteration.\n\nThis three-panel layout makes it possible to answer in seconds: "Which iteration caused the regression, and what variable value triggered the assertion failure?"`,
-      highlight: 'button[title="Explore execution results"]',
-      preAction: ensureLesson17ResultsOpen,
-      action: async (ctx) => {
-        const explorerBtn = document.querySelector<HTMLElement>('button[title="Explore execution results"]');
-        if (explorerBtn) {
-          explorerBtn.click();
-          await ctx.delay(600);
+        `Click **📊 Results Explorer** in the header, then **Fit view** on the canvas toolbar so the full **Start → GraphQL Query → GraphQL Assert → End** chain is centered on screen.\n\n` +
+        `Toggle **🖥 Console** — it opens on **Aggregate** first (pass rate, timing table). The demo then selects **iteration #1** so you see the **detailed log**: Start → GraphQL Query → GraphQL Assert → End with per-node timings. Requires **Standard** trace (set in step 3); **Minimal** only shows failures.\n\n` +
+        `The modal has three panels:\n\n` +
+        `1. **Canvas** — your GQL-16 diagram with pass/fail badges and per-node timing across all iterations\n` +
+        `2. **Detail panel** — click a node to see variable snapshots (\`gqlLatency\`) and assertion results for that iteration\n` +
+        `3. **Iteration matrix** — a grid of iteration × node; **GraphQL Query** rows show latency, **GraphQL Assert** rows show pass/fail\n\n` +
+        `For this two-node chain the bottleneck is always **GraphQL Query** (the only HTTP step). In longer workflows (GQL-18) the matrix compares write vs read latency side by side.`,
+      highlight: REX.CONSOLE_BODY,
+      preAction: async (ctx) => {
+        await ensureLesson17OnResultsTab(ctx);
+        if (document.querySelector(LESSON17_RESULTS_EXPLORER_DIAGRAM)) {
+          await fitLesson17ResultsExplorerDiagram(ctx);
+          await showLesson17ResultsExplorerConsole(ctx);
         }
       },
-      verify: '.results-explorer-diagram',
-      pauseAfter: true,
-    },
-
-    {
-      id: 'gql17-canvas-overlay',
-      title: 'Execution State Overlay — Node-Level Latency',
-      description:
-        `The **canvas panel** shows the same Start → GraphQL Query → GraphQL Assert → End diagram, now annotated with execution data from all iterations:\n\n- Each node displays its **aggregate pass/fail count** (e.g. "10/10 passed")\n- Hovering a node opens a **popover** showing per-node statistics: mean latency, p95 latency, pass count, fail count\n- The **GraphQL Query** node's popover will show timing consistent with the p50 card in the dashboard — confirming the histogram is measuring exactly this node's HTTP round-trip\n- The **GraphQL Assert** node shows a trivial execution time (< 1ms) because assertion evaluation is CPU-only with no network call\n\nThis overlay is the fastest way to identify which node in a long workflow is consuming the most wall time.`,
-      highlight: '.results-explorer-diagram',
-      preAction: ensureLesson17ResultsOpen,
-      pauseAfter: true,
-    },
-
-    {
-      id: 'gql17-bottleneck',
-      title: 'Bottleneck Identification',
-      description:
-        `The **Iteration Matrix** at the bottom of the Results Explorer shows each iteration × node combination. For the GraphQL Latency Demo:\n\n- **GraphQL Query** — all rows show a latency value (e.g. 22ms, 28ms, 31ms) plus pass status from the Assert node\n- **GraphQL Assert** — all rows show the assertion result (pass/fail) in under 1ms\n\nThe bottleneck is always **GraphQL Query** — the only node that makes a real HTTP request. The Assert node is CPU-only and never contributes meaningfully to latency.\n\nIn a real mutation → query → assert chain (GQL-18), the matrix lets you compare mutation latency vs read-back latency side by side. If the mutation takes 200ms and the query takes 5ms, the bottleneck is clearly the write path — and you know exactly which node to optimize without guessing.`,
-      highlight: '.results-explorer-diagram',
-      preAction: ensureLesson17ResultsOpen,
+      action: async (ctx) => {
+        await openAndFitLesson17ResultsExplorer(ctx);
+        await showLesson17ResultsExplorerConsole(ctx);
+        await ctx.delay(800);
+      },
+      verify: REX.CONSOLE_BODY,
       pauseAfter: true,
     },
 
     {
       id: 'gql17-export-results',
-      title: 'Export Results for CI',
+      title: 'Export JSON for CI',
       description:
-        `Close the Results Explorer and click **Export JSON** in the Results Dashboard header. The run trace is downloaded as a JSON file containing: run metadata (workflow name, timestamp, concurrency, iterations), per-node latency aggregates (p50, p95, p99, error rate), and per-iteration request/response pairs.\n\nThis JSON file is the bridge between the visual Workflow Runner and a CI/CD pipeline:\n- **Threshold assertions in CI:** Load the JSON in a test script and fail the pipeline if \`p95Latency > 100\`\n- **Historical comparison:** Archive files by build SHA to track performance over time\n- **Audit trail:** The file contains the exact GraphQL operation that ran, so regressions are fully reproducible from the artifact alone\n\nThe Workflow Runner turns a visual workflow from a developer convenience into an **enforceable performance contract**.`,
-      highlight: '.results-run-filter-tabs',
-      preAction: ensureLesson17ResultsOpen,
+        `Close the Results Explorer, then click **Export JSON** in the dashboard header. The file contains run metadata (workflow name, iterations, concurrency), per-node latency aggregates, and per-iteration request/response pairs.\n\n` +
+        `Use it in CI to fail a build when \`p95Latency\` exceeds a threshold, or archive by build SHA to track regressions over time.`,
+      highlight: RES.EXPORT_JSON_BTN,
+      preAction: ensureLesson17OnResultsTab,
+      action: async (ctx) => {
+        await closeLesson17ResultsExplorerIfOpen(ctx);
+        await ctx.delay(800);
+      },
       pauseAfter: true,
     },
   ],

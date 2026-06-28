@@ -52,8 +52,8 @@ export const GQL12_LESSON = { name: 'Schema Diff & Breaking Changes', steps: 7 }
 export const GQL13_LESSON = { name: 'Mock Server', steps: 15 } as const;
 export const GQL14_LESSON = { name: 'Multi-Tab Workspaces', steps: 12 } as const;
 export const GQL15_LESSON = { name: 'Batch Execution', steps: 10 } as const;
-export const GQL16_LESSON = { name: 'Workflow Integration', steps: 12 } as const;
-export const GQL17_LESSON = { name: 'Workflow Runner & Results', steps: 10 } as const;
+export const GQL16_LESSON = { name: 'Workflow Integration', steps: 13 } as const;
+export const GQL17_LESSON = { name: 'Workflow Runner & Results', steps: 9 } as const;
 export const GQL18_LESSON = { name: 'Mutation Node in Workflow', steps: 15 } as const;
 export const GQL19_LESSON = { name: 'Subscription Node in Workflow', steps: 9 } as const;
 
@@ -1119,10 +1119,10 @@ export const walkFullGql14Lesson = makeGqlLessonWalk(GQL14_LESSON, 2);
 /** Play through all 10 GQL-15 steps (batch execution). */
 export const walkFullGql15Lesson = makeGqlLessonWalk(GQL15_LESSON, 4);
 
-/** Play through all 10 GQL-16 steps (workflow designer; extended timeouts from Quick Test). */
-export const walkFullGql16Lesson = makeGqlLessonWalk(GQL16_LESSON, 6);
+/** Play through all 13 GQL-16 steps (workflow designer; extended timeouts from Quick Test). */
+export const walkFullGql16Lesson = makeGqlLessonWalk(GQL16_LESSON, 7);
 
-/** Play through all 10 GQL-17 steps (workflow runner; extended timeouts from start-run). */
+/** Play through all 9 GQL-17 steps (workflow runner; extended timeouts from start-run). */
 export const walkFullGql17Lesson = makeGqlLessonWalk(GQL17_LESSON, 3);
 
 /** Play through all 15 GQL-18 steps (blank canvas build; extended timeouts from first Quick Test). */
@@ -1449,7 +1449,7 @@ export async function prepareGql16DockerLesson(
   await waitForReadingPhase(page, 180_000);
 }
 
-/** GQL-17: seed EM + proxy + Workflow Runner lesson (10-iteration run needs Docker 4010). */
+/** GQL-17: seed EM + proxy + Workflow Runner lesson (3-iteration demo run needs Docker 4010). */
 export async function prepareGql17DockerLesson(
   page: Page,
   request: APIRequestContext,

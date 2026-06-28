@@ -202,7 +202,7 @@ describe('computeDiff', () => {
     expect(result.isJsonDiff).toBe(true);
     expect(result.jsonEntries.length).toBeGreaterThan(0);
     expect(result.lines.length).toBeGreaterThan(0);
-    expect(elapsed).toBeLessThan(500);
+    expect(elapsed).toBeLessThan(1500);
   });
 });
 

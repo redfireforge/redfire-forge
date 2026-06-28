@@ -209,7 +209,7 @@ export async function runGraphLoad(
       );
 
       for (const r of results) {
-        if (!r.iterationIndex) {
+        if (r.iterationIndex === undefined) {
           (r as RequestResult).iterationIndex = myIterationIndex;
         }
         // workflowNodeId is already set by executeHttpNode

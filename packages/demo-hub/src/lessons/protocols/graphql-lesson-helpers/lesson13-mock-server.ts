@@ -7,6 +7,7 @@ import type { DemoActionContext } from '../../../types';
 import { GQL } from '@shared/selectors';
 import {
   GQL_HEALTH_QUERY,
+  closeGqlActivityPanelIfOpen,
   ensureDemoEndpoint,
   ensureEditorMode,
   ensureIntrospected,
@@ -68,6 +69,11 @@ export async function gqlMockServerLessonCleanup(ctx: DemoActionContext): Promis
     }
   } catch {
     // Non-fatal in tests or if the panel is unavailable.
+  }
+  try {
+    await closeGqlActivityPanelIfOpen(ctx);
+  } catch {
+    // Non-fatal when the activity strip is unavailable.
   }
   resetGqlLesson13SessionFlags();
   await closeGqlDemoTabs(ctx, 'gql-mock-server');

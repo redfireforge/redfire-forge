@@ -502,25 +502,27 @@ describe('useGraphqlSchema — Phase 6 per-tab endpoint cache isolation', () => 
     const staging = 'https://staging.example.com/graphql';
     const prod = 'https://prod.example.com/graphql';
 
-    const { result, rerender } = renderHook(
-      ({ ep }: { ep: string }) => useGraphqlSchema(ep),
-      { initialProps: { ep: staging } },
-    );
-
-    act(() => { result.current.introspect(); });
-    await waitFor(() => expect(result.current.status).toBe('loaded'));
-    expect(await loadCachedSchemaEntry(staging)).toBeTruthy();
-
+    await saveCachedSchemaEntry(staging, {
+      schemaInfo: makeSchemaInfo({ sdl: 'type Query { stagingField: String }' }),
+      sdlHash: 1111,
+      rawIntrospection: null,
+    });
     await saveCachedSchemaEntry(prod, {
       schemaInfo: makeSchemaInfo({ sdl: 'type Query { prodField: String }' }),
       sdlHash: 4242,
       rawIntrospection: null,
     });
 
+    const { result, rerender } = renderHook(
+      ({ ep }: { ep: string }) => useGraphqlSchema(ep),
+      { initialProps: { ep: staging } },
+    );
+
+    await waitFor(() => expect(result.current.schemaInfo?.sdl).toContain('stagingField'));
+
     rerender({ ep: prod });
 
-    await waitFor(() => expect(result.current.status).toBe('loaded'));
-    expect(result.current.schemaInfo?.sdl).toContain('prodField');
+    await waitFor(() => expect(result.current.schemaInfo?.sdl).toContain('prodField'));
     expect(await loadCachedSchemaEntry(staging)).toBeTruthy();
     expect(await loadCachedSchemaEntry(prod)).toBeTruthy();
   });

@@ -74,11 +74,13 @@ vi.mock('@xyflow/react', async () => {
     Background: helpers.MockBackground,
     Controls: helpers.MockControls,
     MiniMap: helpers.MockMiniMap,
+    Panel: helpers.MockPanel,
     MarkerType: helpers.xyflowMockStaticExports.MarkerType,
     Position: helpers.xyflowMockStaticExports.Position,
     useReactFlow: () => flowApi,
     useViewport: () => ({ x: viewportState.x, y: viewportState.y, zoom: viewportState.zoom }),
     applyNodeChanges: applyNodeChangesStub,
+    getNodesBounds: helpers.mockGetNodesBounds,
   };
 });
 

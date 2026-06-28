@@ -1,6 +1,6 @@
 # RedfireForge Roadmap (Living)
 
-> Last Updated: 2026-06-24
+> Last Updated: 2026-06-28
 > Purpose: Product direction and active priorities only.
 
 ## Product Position
@@ -22,15 +22,15 @@ RedfireForge is a visual API testing and workflow automation workbench combining
 - API catalog core functionality
 - Kafka integration foundation and modularized service layer
 - Rust executor path and performance-oriented execution modes
-- **Dual-track builds (Standard vs Learning Hub):** `VITE_ENABLE_DEMO_HUB` feature flag, separate vitest product/demo projects, demo adapter layer (`packages/demo-hub/`), lazy `DemoShellHost`, dual Tauri bundle IDs (`com.redfireforge.desktop` / `.demo`)
+- **Dual-track builds (Standard vs Learning Hub):** `VITE_ENABLE_DEMO_HUB` feature flag, separate vitest product/demo projects, **`@redfireforge/demo-hub`** npm workspace package (`packages/demo-hub/`), lazy `DemoShellHost`, dual Tauri bundle IDs (`com.redfireforge.desktop` / `.demo`)
 - **GraphQL Studio:** batch execution with per-tab response sync, batch results modal, SDL schema diff, collections runner/import preview, multi-tab workspace, mock server, and IndexedDB-backed tabs/auth/schema cache (DB v9)
-- **GraphQL Demo Hub:** 19 interactive lessons (GQL-1–GQL-19) with Lesson Notes panel, Docker-backed E2E smoke specs, and demo workspace isolation
+- **GraphQL Demo Hub:** 19 interactive lessons (GQL-1–GQL-19) — Phase 8 human validation **19/19** (Web + Tauri, 2026-06-27); Lesson Notes panel; Docker-backed E2E smoke specs; §11.0 workspace isolation (`gql110` 5/5)
 
 ### In Progress / Deferred
 - Distributed execution (future scale milestone)
 - Remaining selective E2E coverage for environment-dependent scenarios
 - Ongoing UX and maintainability refinements
-- Demo package extraction to standalone npm package (Phase 7 — deferred)
+- **Optional:** publish `@redfireforge/demo-hub` to public npm (monorepo extraction ✅ 2026-06-26; package remains `"private": true`)
 
 ## Priority Tracks
 

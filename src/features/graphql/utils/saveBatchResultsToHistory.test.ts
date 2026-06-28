@@ -79,4 +79,47 @@ describe('saveBatchResultsToHistory', () => {
     });
     expect(saveHistory).not.toHaveBeenCalled();
   });
+
+  it('skips results when tab is missing at index', async () => {
+    const saveHistory = vi.fn().mockResolvedValue(undefined);
+    await saveBatchResultsToHistory(saveHistory, 'http://localhost/graphql', [], {
+      batchUnsupported: true,
+      results: [{
+        index: 0,
+        response: {
+          data: null,
+          httpStatus: 200,
+          httpHeaders: {},
+          latencyMs: 0,
+          timestamp: 1,
+        },
+      }],
+    });
+    expect(saveHistory).not.toHaveBeenCalled();
+  });
+
+  it('uses tab selectedOperation when operationName absent', async () => {
+    const saveHistory = vi.fn().mockResolvedValue(undefined);
+    const tab = { ...makeTab('t1', 'query Named { health }'), selectedOperation: 'Named' };
+    await saveBatchResultsToHistory(saveHistory, 'http://localhost/graphql', [tab], {
+      batchUnsupported: false,
+      results: [{
+        index: 0,
+        response: {
+          data: { health: 'ok' },
+          httpStatus: 200,
+          httpHeaders: {},
+          latencyMs: 1,
+          timestamp: 1,
+          extensions: { trace: true },
+        },
+      }],
+    });
+    expect(saveHistory).toHaveBeenCalledWith(expect.objectContaining({
+      operation: expect.objectContaining({ name: 'Named' }),
+      response: expect.objectContaining({
+        extensions: expect.objectContaining({ trace: true, batchIndex: 0 }),
+      }),
+    }));
+  });
 });

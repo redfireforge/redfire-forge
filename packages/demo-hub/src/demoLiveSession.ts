@@ -59,10 +59,25 @@ export function hasRestorableDemoLiveSession(): boolean {
 /** Module-level guard for non-HMR environments (production / vitest). */
 let resumeConsumedThisPageLoad = false;
 
+/** Vitest hook — force HMR vs module-guard path in consumeLiveDemoResumeOnce. */
+let demoLiveSessionHmrRuntimeOverride: boolean | undefined;
+
+export function setDemoLiveSessionHmrRuntimeForTests(next?: boolean): void {
+  demoLiveSessionHmrRuntimeOverride = next;
+}
+
 function isViteDevHmrRuntime(): boolean {
+  if (demoLiveSessionHmrRuntimeOverride === true) {
+    return typeof import.meta !== 'undefined' && !!import.meta.hot;
+  }
+  if (demoLiveSessionHmrRuntimeOverride === false) return false;
+  const env = typeof import.meta !== 'undefined'
+    ? (import.meta as ImportMeta & { env?: Record<string, unknown> }).env
+    : undefined;
+  const mode = env?.['MODE'];
   return typeof import.meta !== 'undefined'
     && !!import.meta.hot
-    && import.meta.env?.MODE !== 'test';
+    && mode !== 'test';
 }
 
 /**

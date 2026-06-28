@@ -189,7 +189,7 @@ describe('sse-studio lesson', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('sse-studio');
   });
 
-  it('step sse-env-vars preAction skips navigation when already on SSE Studio', async () => {
+  it('step sse-env-vars preAction navigates to SSE Studio to re-select env/svc', async () => {
     const step = sseStudioLesson.steps.find(s => s.id === 'sse-env-vars')!;
     const ctx = makeCtx();
     const studio = document.createElement('div');
@@ -199,7 +199,7 @@ describe('sse-studio lesson', () => {
     studio.appendChild(urlInput);
     document.body.appendChild(studio);
     await step.preAction!(ctx);
-    expect(ctx.navigateToTab).not.toHaveBeenCalled();
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('sse-studio');
   });
 
   it('step sse-env-vars highlights the URL input', () => {
