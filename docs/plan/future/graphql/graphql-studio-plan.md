@@ -105,7 +105,7 @@ These are **not** Studio engineering tasks; listed here so this file stays the s
 | Item | Priority | Status | Detail |
 |------|----------|--------|--------|
 | §11.0 acceptance E2E | P0 | ✅ | `demo-gql-workspace-isolation.spec.ts` — user workspace survives GQL-1 |
-| Phase 8 human validation | P0 | 🔲 | 1× auto-play Web + Tauri for all 19 lessons |
+| Phase 8 human validation | P0 | ✅ **19/19** | 1× auto-play Web + Tauri — complete 2026-06-27 (GQL-17 last) |
 | Demo E2E GQL-19 | P2 | ✅ | `demo-gql-workflow-subscription.spec.ts` |
 | GQL-3…13 + GQL-16 enhancement | P1 | ✅ | Diagrams, spotlight fixes — shipped 2026-06-22 |
 | 7C — GQL-14 optional steps | P2 | ✅ | `gql14-profiles` + `gql14-polling` (10 steps, 6 min) |
@@ -520,7 +520,7 @@ Studio engineering is **done** when:
 - [x] **Phase 6H per-tab auth (Option D)** — see **§ Phase 6H** checklist (user sign-off pending)
 - [x] 19 demo lessons registered with unit tests
 - [x] §11.0 acceptance E2E passes
-- [ ] Phase 8 human validation sign-off (all 19 lessons)
+- [x] Phase 8 human validation sign-off — **19/19 ✅** (2026-06-27)
 - [x] Optional 6G-7 batch-group E2E (two endpoints)
 
 ---

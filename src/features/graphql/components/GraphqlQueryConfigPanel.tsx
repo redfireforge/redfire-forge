@@ -392,61 +392,93 @@ export function GqlOutputSection({
   onAdd: () => void;
 }) {
   return (
-    <div data-testid="gql-wf-output-table">
-      <div className="wf-kafka-section-title">
-        Output Bindings
-        <button type="button" className="wf-section-add-btn" onClick={onAdd} data-testid="gql-wf-output-add-btn">
-          + Add
-        </button>
+    <div className="gql-wf-output-bindings" data-testid="gql-wf-output-table">
+      <div className="gql-wf-section-toolbar">
+        <div className="gql-wf-section-toolbar-text">
+          <h4 className="gql-wf-section-title">Output Bindings</h4>
+          <p className="gql-wf-section-subtitle gql-wf-section-subtitle--inset">
+            Map response fields to workflow variables — reference them downstream as{' '}
+            <code>{'{{variableName}}'}</code>.
+          </p>
+        </div>
+        <div className="gql-wf-section-toolbar-actions">
+          <button
+            type="button"
+            className="btn btn-sm gql-wf-section-add-btn"
+            onClick={onAdd}
+            data-testid="gql-wf-output-add-btn"
+          >
+            + Add binding
+          </button>
+        </div>
       </div>
-      <div className="wf-config-hint">
-        Bind response fields to workflow variables for downstream nodes.
-      </div>
-      {bindings.length === 0 && (
-        <div className="wf-config-empty-hint">No output bindings yet — click + Add</div>
-      )}
-      {bindings.map((binding, index) => {
-        const nameErr = binding.variableName.trim() !== '' && !isValidIdentifier(binding.variableName);
-        return (
-          <div key={index} className="wf-config-kv-row" style={{ alignItems: 'flex-start', marginBottom: 6 }}>
-            <div className="wf-kv-toggle">
-              <input
-                type="checkbox"
-                checked={binding.enabled}
-                onChange={(e) => crud.update(index, { enabled: e.target.checked })}
-                aria-label={`Enable binding ${binding.field}`}
-              />
-            </div>
-            <select
-              value={binding.field}
-              onChange={(e) => crud.update(index, { field: e.target.value })}
-              data-testid="gql-wf-output-field-select"
-            >
-              {fieldOptions.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
-            <span style={{ padding: '4px 6px', color: 'var(--text-muted, #888)' }}>→</span>
-            <div style={{ flex: 1 }}>
-              <input
-                value={binding.variableName}
-                onChange={(e) => crud.update(index, { variableName: e.target.value })}
-                placeholder="variableName"
-                aria-label="Variable name"
-                data-testid="gql-wf-output-varname"
-                className={nameErr ? 'wf-input-error' : undefined}
-              />
-              {nameErr && <span className="wf-config-error">Must be a valid identifier</span>}
-            </div>
-            <button
-              type="button"
-              className="wf-kv-del-btn"
-              onClick={() => crud.remove(index)}
-              aria-label={`Remove binding ${index + 1}`}
-            >
-              ×
-            </button>
+
+      {bindings.length === 0 ? (
+        <div className="wf-config-empty-hint">
+          No output bindings yet — click <strong>+ Add binding</strong> to map a response field to a workflow variable.
+        </div>
+      ) : (
+        <>
+          <div className="gql-wf-output-col-headers" aria-hidden="true">
+            <span className="gql-wf-output-col gql-wf-output-col-toggle">On</span>
+            <span className="gql-wf-output-col gql-wf-output-col-field">Response field</span>
+            <span className="gql-wf-output-col gql-wf-output-col-arrow" />
+            <span className="gql-wf-output-col gql-wf-output-col-var">Workflow variable</span>
+            <span className="gql-wf-output-col gql-wf-output-col-del" />
           </div>
-        );
-      })}
+          <div className="gql-wf-output-list">
+            {bindings.map((binding, index) => {
+              const nameErr = binding.variableName.trim() !== '' && !isValidIdentifier(binding.variableName);
+              return (
+                <div key={index} className="gql-wf-output-row">
+                  <div className="gql-wf-output-col gql-wf-output-col-toggle">
+                    <input
+                      type="checkbox"
+                      checked={binding.enabled}
+                      onChange={(e) => crud.update(index, { enabled: e.target.checked })}
+                      aria-label={`Enable binding ${binding.field}`}
+                    />
+                  </div>
+                  <div className="gql-wf-output-col gql-wf-output-col-field">
+                    <select
+                      value={binding.field}
+                      onChange={(e) => crud.update(index, { field: e.target.value })}
+                      data-testid="gql-wf-output-field-select"
+                      aria-label={`Response field for binding ${index + 1}`}
+                    >
+                      {fieldOptions.map((f) => <option key={f} value={f}>{f}</option>)}
+                    </select>
+                  </div>
+                  <div className="gql-wf-output-col gql-wf-output-col-arrow" aria-hidden="true">
+                    <span className="gql-wf-output-map-arrow" title="Maps to">→</span>
+                  </div>
+                  <div className="gql-wf-output-col gql-wf-output-col-var">
+                    <input
+                      value={binding.variableName}
+                      onChange={(e) => crud.update(index, { variableName: e.target.value })}
+                      placeholder="variableName"
+                      aria-label="Variable name"
+                      data-testid="gql-wf-output-varname"
+                      className={nameErr ? 'wf-input-error' : undefined}
+                    />
+                    {nameErr && <span className="wf-config-error">Must be a valid identifier</span>}
+                  </div>
+                  <div className="gql-wf-output-col gql-wf-output-col-del">
+                    <button
+                      type="button"
+                      className="btn btn-sm btn-danger"
+                      onClick={() => crud.remove(index)}
+                      aria-label={`Remove binding ${index + 1}`}
+                    >
+                      ×
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

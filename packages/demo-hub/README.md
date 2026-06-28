@@ -2,6 +2,8 @@
 
 Learning Hub package — demo lessons, hub UI, and product adapters.
 
+**Monorepo status:** Extracted from `src/features/demo-player/` into `packages/demo-hub/` (Phase 7, 2026-06-26). Consumed via npm workspaces in the root app; `"private": true` — not published to public npm unless explicitly opted in later.
+
 ## Layout
 
 ```

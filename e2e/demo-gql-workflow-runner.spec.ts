@@ -7,7 +7,7 @@
  * Full lesson needs Docker GraphQL on port 4010:
  *   cd docker/graphql && docker compose up -d
  *
- * Last-step rule: step 10 disables Next — use walkFullGql17Lesson, not runNextStep on the final step.
+ * Last-step rule: step 9 disables Next — use walkFullGql17Lesson, not runNextStep on the final step.
  */
 
 import { test, expect } from '@playwright/test';
@@ -59,7 +59,7 @@ test.describe('GQL-17 — full lesson (Docker)', () => {
 
     const { counter, title } = await getStepInfo(page);
     expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
-    expect(title).toMatch(/Export Results for CI/i);
+    expect(title).toMatch(/Export JSON for CI/i);
 
     await expect(page.locator('.results-run-filter-tabs')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('.workflow-name-tag')).toContainText(WF_NAME, { timeout: 15_000 });

@@ -36,6 +36,11 @@ import {
 import { compressTrace, sampleIterations } from './traceCompression';
 import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, reclaimLocalStorageQuotaForWrite } from './storageCleanup';
 import {
+  idbLoadRunnerConfig,
+  idbSaveRunnerConfig,
+  purgeRunnerConfigLocalStorageKeys,
+} from './idbRunnerConfig';
+import {
   STORAGE_KEY,
   GLOBAL_AUTH_KEY,
   MAX_RUNS_KEY,
@@ -76,7 +81,8 @@ export async function readKey(key: string): Promise<string | null> {
   return localStorage.getItem(key);
 }
 
-export async function writeKey(key: string, value: string): Promise<void> {
+export async function writeKey(key: string, value: string, options?: { notifyOnQuotaExhausted?: boolean }): Promise<void> {
+  const notify = options?.notifyOnQuotaExhausted !== false;
   if (isTauri()) {
     await tauriStore.setItem(key, value);
     return;
@@ -85,8 +91,7 @@ export async function writeKey(key: string, value: string): Promise<void> {
     localStorage.setItem(key, value);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      console.warn(`[Storage] QuotaExceededError writing "${key}" — running cleanup and retrying`);
-      purgeStaleRunnerConfigKeys();
+      console.warn(`[Storage] QuotaExceededError writing "${key}" — reclaiming quota and retrying`);
       cleanupStaleStorageKeys();
       await reclaimLocalStorageQuotaForWrite();
       try {
@@ -97,7 +102,7 @@ export async function writeKey(key: string, value: string): Promise<void> {
           console.error(
             `[Storage] QuotaExceededError writing "${key}" after cleanup (${(value.length / 1024).toFixed(0)} KB). localStorage is full.`,
           );
-          notifyStorageFull(key);
+          if (notify) notifyStorageFull(key);
         }
         throw retryErr;
       }
@@ -629,41 +634,88 @@ export {
 
 // ---------- Runner config ----------
 
-export async function saveRunnerConfig(config: unknown, contextKey?: string): Promise<void> {
-  const key = contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
-  const payload = JSON.stringify(config);
+function runnerConfigStorageKey(contextKey?: string): string {
+  return contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
+}
+
+function readLegacyRunnerConfigRaw(contextKey?: string): string | null {
   try {
-    await writeKey(key, payload);
-  } catch (e) {
-    if (!(e instanceof DOMException && e.name === 'QuotaExceededError')) throw e;
+    return localStorage.getItem(runnerConfigStorageKey(contextKey));
+  } catch {
+    return null;
+  }
+}
+
+async function parseRunnerConfigPayload(raw: string, contextKey?: string): Promise<unknown> {
+  const parsed = JSON.parse(raw);
+  if (parsed && typeof parsed === 'object' && 'totalTransactions' in parsed && !('iterations' in parsed)) {
+    (parsed as Record<string, unknown>).iterations = (parsed as Record<string, unknown>).totalTransactions;
+    delete (parsed as Record<string, unknown>).totalTransactions;
+    await saveRunnerConfig(parsed, contextKey);
+  }
+  return parsed;
+}
+
+export async function saveRunnerConfig(config: unknown, contextKey?: string): Promise<void> {
+  const payload = JSON.stringify(config);
+
+  if (isTauri()) {
+    const key = runnerConfigStorageKey(contextKey);
     purgeStaleRunnerConfigKeys(contextKey);
-    cleanupStaleStorageKeys();
     try {
-      await writeKey(key, payload);
-    } catch (retryErr) {
-      if (retryErr instanceof DOMException && retryErr.name === 'QuotaExceededError') {
-        console.warn(`[Storage] Runner config save failed after cleanup for "${key}"`);
-        return;
+      await writeKey(key, payload, { notifyOnQuotaExhausted: false });
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === 'QuotaExceededError')) throw e;
+      purgeStaleRunnerConfigKeys(contextKey);
+      cleanupStaleStorageKeys();
+      try {
+        await writeKey(key, payload, { notifyOnQuotaExhausted: false });
+      } catch {
+        console.warn(`[Storage] Runner config save failed for "${key}" — quota exceeded.`);
       }
-      throw retryErr;
+    }
+    return;
+  }
+
+  try {
+    await idbSaveRunnerConfig(contextKey ?? '', payload);
+    purgeRunnerConfigLocalStorageKeys(contextKey);
+  } catch (err) {
+    console.warn('[Storage] Runner config IDB save failed — localStorage fallback', err);
+    purgeStaleRunnerConfigKeys(contextKey);
+    purgeRunnerConfigLocalStorageKeys(contextKey);
+    try {
+      await writeKey(runnerConfigStorageKey(contextKey), payload, { notifyOnQuotaExhausted: false });
+    } catch {
+      console.warn('[Storage] Runner config save skipped — storage full.');
     }
   }
 }
 
 export async function loadRunnerConfig(contextKey?: string): Promise<unknown | null> {
   try {
-    const key = contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
-    const raw = await readKey(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    // Migrate legacy totalTransactions → iterations
-    if (parsed && typeof parsed === 'object' && 'totalTransactions' in parsed && !('iterations' in parsed)) {
-      (parsed as Record<string, unknown>).iterations = (parsed as Record<string, unknown>).totalTransactions;
-      delete (parsed as Record<string, unknown>).totalTransactions;
-      await saveRunnerConfig(parsed, contextKey);
+    if (isTauri()) {
+      const raw = await readKey(runnerConfigStorageKey(contextKey));
+      if (!raw) return null;
+      return await parseRunnerConfigPayload(raw, contextKey);
     }
-    return parsed;
-  } catch { return null; }
+
+    let raw = await idbLoadRunnerConfig(contextKey ?? '');
+    if (raw === null) {
+      const legacy = readLegacyRunnerConfigRaw(contextKey);
+      if (legacy) {
+        try {
+          await idbSaveRunnerConfig(contextKey ?? '', legacy);
+          purgeRunnerConfigLocalStorageKeys(contextKey);
+        } catch { /* best effort */ }
+        raw = legacy;
+      }
+    }
+    if (!raw) return null;
+    return await parseRunnerConfigPayload(raw, contextKey);
+  } catch {
+    return null;
+  }
 }
 
 // ---------- Theme ----------

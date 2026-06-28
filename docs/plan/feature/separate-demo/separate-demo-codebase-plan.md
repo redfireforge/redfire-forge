@@ -3,7 +3,7 @@
 > **Path:** `docs/plan/feature/separate-demo/separate-demo-codebase-plan.md`  
 > **Branch:** `feature/separate-demo-codebase`  
 > **Status:** Phase 1 ✅ · Phase 2 ✅ · Phase 3 ✅ · Phase 4 ✅ · Phase 5 ✅ · Phase 6 ✅ · Phase 7 ✅  
-> **Last updated:** 2026-06-24
+> **Last updated:** 2026-06-28
 
 ---
 
@@ -587,19 +587,28 @@ Update:
 
 ---
 
-## Phase 7 — Optional Package Extraction (Future)
+## Phase 7 — Package Extraction ✅ Complete (2026-06-26)
 
-**Priority: P3 | Effort: 1–2 weeks**
+**Priority: P3 | Status: Done in monorepo**
 
-If adapter layer still causes too much coupling, extract:
+Extracted Learning Hub into a workspace package:
 
 ```
 packages/
-  demo-hub/          # @redfireforge/demo-hub — lessons + hub UI
-  app/               # main app imports demo-hub only in demo build
+  demo-hub/          # @redfireforge/demo-hub — lessons + hub UI + adapters
+  app/               # (future) optional further split — not required
 ```
 
-Requires Vite alias + conditional dependency. Defer until Phases 1–5 prove insufficient.
+| Deliverable | Status |
+|-------------|--------|
+| `packages/demo-hub/` with `@redfireforge/demo-hub` | ✅ |
+| npm workspaces (`"workspaces": ["packages/*"]`) | ✅ |
+| Path aliases in tsconfig / Vite / Vitest | ✅ |
+| Demo Vitest project → `packages/demo-hub/**` | ✅ |
+| Product coverage excludes demo-hub sources | ✅ |
+| `npm run test:demo` / `test:product` split | ✅ |
+
+**Still optional (not blocking):** publish `@redfireforge/demo-hub` as a public npm package (`"private": true` today). See `packages/demo-hub/README.md`.
 
 ---
 

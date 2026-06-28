@@ -18,6 +18,7 @@ import {
   ensureLesson11AssertRuleConfigured,
   ensureLesson11WorkflowPassRun,
   ensureLesson11WorkflowCreated,
+  ensureLesson11WorkflowVariablesConfigured,
   ensureLesson11ConsoleOpen,
   ensureLesson11DebugRun,
 } from './graphql-lesson-helpers';
@@ -43,8 +44,8 @@ describe('gql-workflow-integration lesson', () => {
     expect(gqlWorkflowIntegrationLesson.id).toBe('gql-workflow-integration');
     expect(gqlWorkflowIntegrationLesson.category).toBe('graphql');
     expect(gqlWorkflowIntegrationLesson.name).toBe('Workflow Integration');
-    expect(gqlWorkflowIntegrationLesson.steps.length).toBe(12);
-    expect(gqlWorkflowIntegrationLesson.estimatedMinutes).toBe(7);
+    expect(gqlWorkflowIntegrationLesson.steps.length).toBe(13);
+    expect(gqlWorkflowIntegrationLesson.estimatedMinutes).toBe(8);
   });
 
   it('allows workflow and workflow-runner tabs', () => {
@@ -56,6 +57,7 @@ describe('gql-workflow-integration lesson', () => {
   it('has correct step IDs in order', () => {
     expect(gqlWorkflowIntegrationLesson.steps.map((s) => s.id)).toEqual([
       'gql11-create',
+      'gql11-workflow-variables',
       'gql11-query-node',
       'gql11-config-query',
       'gql11-assert-node',
@@ -70,7 +72,7 @@ describe('gql-workflow-integration lesson', () => {
     ]);
   });
 
-  it('all 12 steps have pauseAfter: true', () => {
+  it('all 13 steps have pauseAfter: true', () => {
     gqlWorkflowIntegrationLesson.steps.forEach((step) => {
       expect(step.pauseAfter).toBe(true);
     });
@@ -178,6 +180,19 @@ describe('gql-workflow-integration lesson', () => {
     const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-create')!;
     expect(step.highlight).toBe(WF.SIDEBAR_NEW_BTN);
     expect(step.verify).toBe(WF.CANVAS);
+  });
+
+  it('gql11-workflow-variables highlights variables btn and verifies canvas', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-workflow-variables')!;
+    expect(step.highlight).toBe(WF.VARIABLES_BTN);
+    expect(step.verify).toBe(WF.CANVAS);
+  });
+
+  it('gql11-workflow-variables description explains workflow-level defaults', () => {
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-workflow-variables')!;
+    expect(step.description).toContain('Workflow Variables');
+    expect(step.description).toContain('graphqlUrl');
+    expect(step.description).toContain('{{name}}');
   });
 
   it('gql11-query-node highlights GQL Query palette item', () => {
@@ -329,6 +344,36 @@ describe('gql-workflow-integration lesson', () => {
     await step.action!(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
     expect(ctx.fill).toHaveBeenCalledWith(WF.CREATE_INPUT, LESSON11_WF_NAME);
+  });
+
+  it('gql11-workflow-variables opens modal and saves graphqlUrl', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <button data-testid="wf-toolbar-variables-btn"></button>
+      <div class="wf-config-modal wf-defaults-modal">
+        <div class="wf-config-vars">
+          <div class="wf-config-kv-row-vars">
+            <input class="wf-var-key-input" placeholder="name" />
+            <div class="wf-var-new-row-value"><input class="wf-var-value-input" placeholder="value" /></div>
+            <button type="button">+</button>
+          </div>
+        </div>
+        <button class="btn-ghost">Cancel</button>
+        <button class="btn-primary">Save</button>
+      </div>
+      <button title="New workflow"></button>
+      <div class="wf-new-dropdown-item"></div>
+      <input class="req-confirm-input" />
+      <button class="req-confirm-ok"></button>
+    `;
+    const step = gqlWorkflowIntegrationLesson.steps.find((s) => s.id === 'gql11-workflow-variables')!;
+    await step.preAction!(ctx);
+    await step.action!(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(WF.VARIABLES_BTN);
+    expect(ctx.fill).toHaveBeenCalledWith(WF.DEFAULTS_NEW_KEY, 'graphqlUrl');
+    expect(ctx.fill).toHaveBeenCalledWith(WF.DEFAULTS_NEW_VAL, GQL_DEMO_HTTP);
+    expect(ctx.click).toHaveBeenCalledWith(WF.DEFAULTS_SAVE_BTN);
   });
 
   it('gql11-query-node adds palette block and connects start', async () => {
@@ -614,6 +659,22 @@ describe('gql-workflow-integration lesson', () => {
     await gqlWorkflowIntegrationLessonSetup(ctx);
     expect(deleteSpy).toHaveBeenCalledWith(LESSON11_WF_NAME);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
+  });
+
+  it('ensureLesson11WorkflowVariablesConfigured guard skips when already configured', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div class="wf-canvas-area"></div>
+      <button data-testid="wf-toolbar-variables-btn"></button>
+      <button title="New workflow"></button>
+      <div class="wf-new-dropdown-item"></div>
+    `;
+    mockLesson11WorkflowBridge('2000');
+    await ensureLesson11WorkflowCreated(ctx);
+    await ensureLesson11WorkflowVariablesConfigured(ctx);
+    vi.mocked(ctx.click).mockClear();
+    await ensureLesson11WorkflowVariablesConfigured(ctx);
+    expect(ctx.click).not.toHaveBeenCalledWith(WF.VARIABLES_BTN);
   });
 
   it('ensureLesson11QueryNodeAdded guard skips when query node exists', async () => {

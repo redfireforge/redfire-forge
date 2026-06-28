@@ -15,8 +15,11 @@ import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
 import { isWorkflowDesignerLesson } from './utils/workflowLessonUi';
 import {
   closeWorkflowConfigModal,
+  dispatchGqlTabsReload,
   expandAppSidebar,
   isGraphqlStudioLesson,
+  loadDemoSession,
+  purgeOrphanDemoTabs,
 } from './adapters';
 import {
   GQL_MODAL_LOCK_OPEN,
@@ -37,6 +40,7 @@ import {
   abortableSleep,
   buildDemoActionContext,
   buildQuietDemoActionContext,
+  closeGraphqlDemoWorkspaceQuiet,
   findLessonById,
   isElementVisible,
   restoreStateFromProgress,
@@ -760,6 +764,12 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     profilesIntroducedInSessionRef.current = false;
     envIntroducedInSessionRef.current = false;
     syncGqlModalLock(GQL_MODAL_LOCK_OPEN);
+
+    const liveSession = readDemoLiveSession();
+    const lesson =
+      state.selectedLesson
+      ?? (liveSession ? findLessonById(liveSession.lessonId)?.lesson ?? null : null);
+
     clearDemoLiveSession();
     closeWorkflowConfigModal();
     if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
@@ -774,7 +784,6 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     // Run lesson cleanup after the view change so the UI is never blank.
     // Cleanup only manipulates hidden tab DOM (WS Studio, Kafka Studio, etc.)
     // so it is safe to run while the user is viewing the concept page.
-    const lesson = state.selectedLesson;
     if (lesson) {
       if (isWorkflowDesignerLesson(lesson)) {
         expandAppSidebar();
@@ -787,6 +796,17 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       } else if (lesson.cleanup) {
         try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] Lesson cleanup failed:', e); }
       }
+    }
+
+    try {
+      const gqlSession = await loadDemoSession();
+      if (gqlSession) {
+        await closeGraphqlDemoWorkspaceQuiet(gqlSession.lessonId);
+      }
+      await purgeOrphanDemoTabs();
+      dispatchGqlTabsReload();
+    } catch (e) {
+      console.warn('[DemoHub] GQL workspace force cleanup failed:', e);
     }
   }, [state.selectedLesson, buildQuietContext, progress]);
 

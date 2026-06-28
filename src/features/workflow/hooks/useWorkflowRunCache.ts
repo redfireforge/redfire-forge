@@ -55,9 +55,24 @@ function loadCacheFromStorage(): Map<string, CachedWorkflowRun> {
   }
 }
 
+const MAX_CACHED_WORKFLOWS = 6;
+
+function trimCacheEntries(cache: Map<string, CachedWorkflowRun>): [string, CachedWorkflowRun][] {
+  const entries = [...cache.entries()].sort(
+    (a, b) => (b[1].lastRunTime ?? 0) - (a[1].lastRunTime ?? 0),
+  );
+  return entries.slice(0, MAX_CACHED_WORKFLOWS).map(([id, run]) => [
+    id,
+    {
+      ...run,
+      consoleLines: run.consoleLines.slice(-MAX_CONSOLE_LINES),
+    },
+  ]);
+}
+
 function saveCacheToStorage(cache: Map<string, CachedWorkflowRun>): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...cache.entries()]));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(trimCacheEntries(cache)));
   } catch { /* quota exceeded – ignore */ }
 }
 

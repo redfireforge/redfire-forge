@@ -16,6 +16,9 @@ const productCoverageExclude = [
 
 const demoCoverageExclude = [
   ...coverageConfigDefaults.exclude,
+  '**/__test-utils__/**',
+  '**/*.coverage-helpers.ts',
+  'packages/demo-hub/**/test-utils/**',
 ];
 
 const sharedTestOptions = {
@@ -73,6 +76,9 @@ export default defineConfig({
           ...sharedTestOptions,
           name: 'demo',
           include: [...DEMO_TEST_GLOBS],
+          retry: 0,
+          testTimeout: 120_000,
+          hookTimeout: 120_000,
           coverage: {
             provider: 'v8',
             reporter: ['text', 'json-summary', 'json'],

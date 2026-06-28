@@ -132,6 +132,7 @@ describe('workflowDesignerAdapter', () => {
     const deleteSpy = vi.fn();
     const insertSpy = vi.fn();
     const selectSpy = vi.fn(() => true);
+    const runnerSelectSpy = vi.fn(() => true);
     const wf = { name: 'Demo WF' };
     (window as unknown as Record<string, unknown>).__wfDeleteByName = deleteSpy;
     (window as unknown as Record<string, unknown>).__wfInsertWorkflow = insertSpy;
@@ -139,6 +140,7 @@ describe('workflowDesignerAdapter', () => {
     (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = (name: string) =>
       name === 'Demo WF' ? wf : null;
     (window as unknown as Record<string, unknown>).__wfSelectByName = selectSpy;
+    (window as unknown as Record<string, unknown>).__wfRunnerSelectByName = runnerSelectSpy;
     const delays: number[] = [];
     const ctx = { delay: async (ms: number) => { delays.push(ms); } };
     const ok = await seedNamedWorkflow(ctx, 'Demo WF', wf, {
@@ -151,6 +153,7 @@ describe('workflowDesignerAdapter', () => {
     expect(deleteSpy).toHaveBeenCalledWith('Demo WF');
     expect(insertSpy).toHaveBeenCalledWith(wf);
     expect(selectSpy).toHaveBeenCalledWith('Demo WF');
+    expect(runnerSelectSpy).toHaveBeenCalledWith('Demo WF');
     expect(delays).toEqual([50, 25, 75]);
   });
 

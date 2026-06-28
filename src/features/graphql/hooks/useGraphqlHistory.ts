@@ -83,7 +83,6 @@ export function useGraphqlHistory(
       setLoading(false);
       return;
     }
-    if (connectionId === prevConnectionIdRef.current) return;
     prevConnectionIdRef.current = connectionId;
     setLoading(true);
     // Capture connectionId before the async boundary so a rapid A→B connection

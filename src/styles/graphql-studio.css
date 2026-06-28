@@ -11378,16 +11378,24 @@
 }
 .gql-mock-scenario-snap-label {
   display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.8rem;
-  color: var(--text);
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
   cursor: pointer;
   user-select: none;
+  line-height: 1.35;
 }
 .gql-mock-scenario-snap-label input[type="checkbox"] {
   accent-color: var(--primary);
   cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.gql-mock-scenario-add-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
 }
 .gql-mock-add-btn, .gql-mock-cancel-btn {
   padding: 8px 14px;
@@ -11611,15 +11619,6 @@
   opacity: 0.7;
 }
 .gql-mock-import-error-close:hover { opacity: 1; }
-.gql-mock-scenario-snap-label {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  cursor: pointer;
-  white-space: nowrap;
-}
 
 /* ═══════════════════════════════════════════════════════════════════════════
    Phase 3F — Advanced Query Features CSS

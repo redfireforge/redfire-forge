@@ -1,64 +1,52 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import 'fake-indexeddb/auto';
-
-const mockPutCalls: unknown[] = [];
-
-vi.mock('./idbOpen', () => {
-  const createRequest = <T>(result: T): IDBRequest<T> => ({
-    result,
-    error: null,
-    get onsuccess() { return null; },
-    set onsuccess(fn: ((ev: Event) => void) | null) {
-      if (fn) Promise.resolve().then(() => fn(new Event('success')));
-    },
-    get onerror() { return null; },
-    set onerror(fn: ((ev: Event) => void) | null) {
-      if (fn) Promise.resolve().then(() => fn(new Event('error')));
-    },
-  } as unknown as IDBRequest<T>);
-
-  const mockObjectStore = {
-    get: () => createRequest(undefined),
-    put: (data: unknown) => {
-      mockPutCalls.push(data);
-      return createRequest(undefined);
-    },
-  };
-
-  return {
-    openDB: vi.fn().mockResolvedValue({
-      transaction: () => ({ objectStore: () => mockObjectStore }),
-    }),
-  };
-});
-
 import {
-  idbSaveMicroservices,
+  idbLoadEnvironments,
+  idbLoadMicroservices,
+  idbMigrateEnvironments,
   idbMigrateMicroservices,
+  idbSaveEnvironments,
+  idbSaveMicroservices,
 } from './idbEnvironmentsMicroservices';
 
 describe('idbEnvironmentsMicroservices', () => {
   beforeEach(() => {
-    mockPutCalls.length = 0;
     localStorage.clear();
+    indexedDB.deleteDatabase('redfireforge');
   });
 
-  it('saves microservices to IDB', async () => {
-    await idbSaveMicroservices([{ id: 's1', name: 'api', baseUrls: {} }]);
-    expect(mockPutCalls).toHaveLength(1);
+  it('saves and loads environments', async () => {
+    const envs = [{ id: 'e1', name: 'Dev', baseUrl: 'http://localhost' }];
+    await idbSaveEnvironments(envs);
+    expect(await idbLoadEnvironments()).toEqual(envs);
   });
 
-  it('migrates microservices from localStorage and removes the LS key', async () => {
-    localStorage.setItem(
-      'perf-test-v3-microservices',
-      JSON.stringify([{ id: 's1', name: 'graphql-demo', baseUrls: {} }]),
-    );
-    const migrated = await idbMigrateMicroservices('perf-test-v3-microservices');
-    expect(migrated).toBe(true);
-    expect(localStorage.getItem('perf-test-v3-microservices')).toBeNull();
-    expect(mockPutCalls).toHaveLength(1);
+  it('saves and loads microservices', async () => {
+    const svcs = [{ id: 's1', name: 'api', baseUrls: {} }];
+    await idbSaveMicroservices(svcs);
+    expect(await idbLoadMicroservices()).toEqual(svcs);
+  });
+
+  it('migrates environments from localStorage', async () => {
+    const envs = [{ id: 'e1', name: 'Dev', baseUrl: 'http://localhost' }];
+    localStorage.setItem('perf-test-v3-environments', JSON.stringify(envs));
+    expect(await idbMigrateEnvironments('perf-test-v3-environments')).toBe(true);
+    expect(localStorage.getItem('perf-test-v3-environments')).toBeNull();
+    expect(await idbLoadEnvironments()).toEqual(envs);
+  });
+
+  it('migrates microservices from localStorage', async () => {
+    const svcs = [{ id: 's1', name: 'api', baseUrls: {} }];
+    localStorage.setItem('perf-test-v3-microservices', JSON.stringify(svcs));
+    expect(await idbMigrateMicroservices('perf-test-v3-microservices')).toBe(true);
+    expect(await idbLoadMicroservices()).toEqual(svcs);
+  });
+
+  it('returns false when localStorage key is missing', async () => {
+    expect(await idbMigrateEnvironments('missing')).toBe(false);
+    expect(await idbMigrateMicroservices('missing')).toBe(false);
   });
 });

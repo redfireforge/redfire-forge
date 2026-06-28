@@ -64,25 +64,45 @@ export function DemoShellHost({
   useEffect(() => () => resetDemoHubRuntimeRef(), []);
 
   useLayoutEffect(() => {
-    const resolveMount = () => document.getElementById(DEMO_HUB_MOUNT_ID);
-
-    const el = resolveMount();
-    if (el) {
-      setMountEl(el);
-      return;
-    }
-
     if (activeTab !== 'demo-hub') {
       setMountEl(null);
       return;
     }
 
-    // Mount node is a sibling under `.app`; retry one frame if the shell loaded first.
-    const frame = requestAnimationFrame(() => {
-      setMountEl(resolveMount());
-    });
-    return () => cancelAnimationFrame(frame);
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryResolveMount = () => {
+      if (cancelled) return;
+      const el = document.getElementById(DEMO_HUB_MOUNT_ID);
+      if (el) {
+        setMountEl(el);
+        return;
+      }
+      attempts += 1;
+      // Lazy DemoShellHost can mount before the tab pane commits — retry briefly.
+      if (attempts < 24) {
+        requestAnimationFrame(tryResolveMount);
+      }
+    };
+
+    tryResolveMount();
+    return () => { cancelled = true; };
   }, [activeTab]);
+
+  // Live demos render in the active lesson tab — an empty Learning Hub pane is just blue.
+  useEffect(() => {
+    if (demoHub.state.view !== 'live' || activeTab !== 'demo-hub') return;
+    const target = demoHub.state.selectedLesson?.initialTab;
+    if (target && target !== 'demo-hub') {
+      navigateToTab(target);
+    }
+  }, [
+    demoHub.state.view,
+    demoHub.state.selectedLesson,
+    activeTab,
+    navigateToTab,
+  ]);
 
   return (
     <LessonNotesProvider>

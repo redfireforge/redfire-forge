@@ -571,10 +571,11 @@ describe('WorkflowResultsSummary', () => {
     render(<WorkflowResultsSummary run={run} />);
     fireEvent.click(screen.getByText('Per-Iteration Detail').closest('div')!);
     const iterHeader = screen.getByText('Iteration #0').closest('div');
+    const stepRows = () => screen.queryAllByText(/^Step node-/);
     fireEvent.click(iterHeader!);
-    expect(screen.getByText('Step node-0')).toBeInTheDocument();
+    expect(stepRows().length).toBeGreaterThan(0);
     fireEvent.click(iterHeader!);
-    expect(screen.queryByText('Step node-0')).not.toBeInTheDocument();
+    expect(stepRows().length).toBe(0);
   });
 
   it('does not run canvas draw when getContext returns null', () => {

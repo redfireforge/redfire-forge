@@ -62,6 +62,8 @@ export const WF = {
   DEFAULTS_MODAL:      '.wf-defaults-modal',
   DEFAULTS_NEW_KEY:    '.wf-defaults-modal .wf-var-key-input[placeholder="name"]',
   DEFAULTS_NEW_VAL:    '.wf-defaults-modal .wf-var-new-row-value .wf-var-value-input',
+  /** Value input on an existing variable row (not the blank add row). */
+  DEFAULTS_EXISTING_VALUE: '.wf-defaults-modal .wf-config-kv-row-vars:not(:last-child) .wf-var-value-input',
   DEFAULTS_ADD_BTN:    '.wf-defaults-modal .wf-config-vars > div:last-child > button[type="button"]:last-of-type',
   DEFAULTS_SAVE_BTN:   '.wf-defaults-modal .btn-primary',
 } as const;

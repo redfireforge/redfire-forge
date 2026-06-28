@@ -79,6 +79,24 @@ vi.mock('./idbTestRuns', () => {
   };
 });
 
+const runnerConfigIdb = vi.hoisted(() => ({
+  store: {} as Record<string, string>,
+  saveShouldFail: false,
+}));
+
+vi.mock('./idbRunnerConfig', () => ({
+  idbLoadRunnerConfig: vi.fn(async (contextKey: string) =>
+    runnerConfigIdb.store[contextKey || '__default__'] ?? null),
+  idbSaveRunnerConfig: vi.fn(async (contextKey: string, payload: string) => {
+    if (runnerConfigIdb.saveShouldFail) throw new Error('idb save failed');
+    runnerConfigIdb.store[contextKey || '__default__'] = payload;
+  }),
+  idbMigrateRunnerConfigsFromLocalStorage: vi.fn(async () => 0),
+  purgeRunnerConfigLocalStorageKeys: vi.fn(() => ({ removed: 0, freedBytes: 0 })),
+  idbPruneRunnerConfigs: vi.fn(async () => 0),
+  idbListRunnerConfigIds: vi.fn(async () => Object.keys(runnerConfigIdb.store)),
+}));
+
 const fgIdb = vi.hoisted(() => ({
   idbLoadFeatureGroups: vi.fn(async () => null as import('../types').FeatureGroup[] | null),
   idbSaveFeatureGroups: vi.fn(async () => {}),
@@ -121,7 +139,7 @@ vi.mock('./idbWorkflows', () => ({
   idbMigrateWorkflowFolders: (key: string) => workflowsIdb.idbMigrateWorkflowFolders(key),
 }));
 
-import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, getStorageDiagnostics, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, saveRunnerConfig, writeKey, loadWorkflowFolders, saveWorkflowFolders, } from './storage';
+import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, getStorageDiagnostics, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, saveRunnerConfig, writeKey, loadWorkflowFolders, saveWorkflowFolders, onStorageFull, } from './storage';
 import { SharedDataSource, TestRun } from '../types';
 import { idbSaveTestRun, idbLoadTestRuns, idbGetRunsInfo, idbLoadTestRunsLite, idbLoadTrace, } from './idbTestRuns';
 
@@ -512,6 +530,29 @@ describe('storage — feature groups / shared DS branches', () => {
     expect(test.body).toBeDefined();
   });
 
+  it('notifyStorageFull swallows listener errors', async () => {
+    const bad = vi.fn(() => { throw new Error('listener fail'); });
+    const good = vi.fn();
+    onStorageFull(bad);
+    onStorageFull(good);
+    const original = Storage.prototype.setItem;
+    let attempts = 0;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key === 'perf-test-theme') {
+        attempts += 1;
+        throw new DOMException('QuotaExceeded', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+    try {
+      await expect(writeKey('perf-test-theme', 'dark')).rejects.toThrow();
+      expect(attempts).toBeGreaterThanOrEqual(2);
+      expect(good).toHaveBeenCalledWith('perf-test-theme');
+    } finally {
+      Storage.prototype.setItem = original;
+    }
+  });
+
   it('writeKey rethrows non-quota localStorage errors', async () => {
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function () {
@@ -524,8 +565,9 @@ describe('storage — feature groups / shared DS branches', () => {
     }
   });
 
-  it('saveRunnerConfig warns and returns when quota persists after cleanup', async () => {
+  it('saveRunnerConfig warns and skips when IDB and localStorage both fail', async () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    runnerConfigIdb.saveShouldFail = true;
     const original = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key: string, value: string) {
       if (key.startsWith('perf-test-runner-config')) {
@@ -535,10 +577,11 @@ describe('storage — feature groups / shared DS branches', () => {
     };
     try {
       await saveRunnerConfig({ concurrency: 1 }, 'quota-stuck');
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Runner config save failed'));
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Runner config save skipped'));
       expect(await loadRunnerConfig('quota-stuck')).toBeNull();
     } finally {
       Storage.prototype.setItem = original;
+      runnerConfigIdb.saveShouldFail = false;
       warnSpy.mockRestore();
     }
   });
@@ -832,6 +875,38 @@ describe('storage — loadRunnerConfig legacy migration', () => {
     const result = await loadRunnerConfig();
     expect(result).toEqual(expect.objectContaining({ iterations: 100, concurrency: 5 }));
     expect((result as Record<string, unknown>).totalTransactions).toBeUndefined();
+  });
+
+  it('loadRunnerConfig uses Tauri readKey path', async () => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockResolvedValue(JSON.stringify({ iterations: 3, concurrency: 2 }));
+    const result = await loadRunnerConfig('desktop-ctx');
+    expect(result).toEqual({ iterations: 3, concurrency: 2 });
+  });
+
+  it('saveRunnerConfig Tauri retries after QuotaExceededError then succeeds', async () => {
+    isTauriMock.mockReturnValue(true);
+    let attempts = 0;
+    tauriSetItem.mockImplementation(async () => {
+      attempts += 1;
+      if (attempts === 1) throw new DOMException('quota', 'QuotaExceededError');
+    });
+    await saveRunnerConfig({ iterations: 1, concurrency: 1 }, 'tauri-retry');
+    expect(attempts).toBe(2);
+  });
+
+  it('loadRunnerConfig migrates legacy localStorage into IDB on browser path', async () => {
+    isTauriMock.mockReturnValue(false);
+    localStorage.setItem('perf-test-runner-config:legacy-ctx', JSON.stringify({ iterations: 9 }));
+    const result = await loadRunnerConfig('legacy-ctx');
+    expect(result).toEqual(expect.objectContaining({ iterations: 9 }));
+  });
+
+  it('loadRunnerConfig returns null when outer try fails', async () => {
+    isTauriMock.mockReturnValue(false);
+    const { idbLoadRunnerConfig } = await import('./idbRunnerConfig');
+    vi.mocked(idbLoadRunnerConfig).mockRejectedValueOnce(new Error('idb down'));
+    await expect(loadRunnerConfig('broken')).resolves.toBeNull();
   });
 });
 

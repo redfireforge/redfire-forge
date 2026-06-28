@@ -6,6 +6,7 @@ import { render, fireEvent } from '@testing-library/react';
 import React from 'react';
 import '@testing-library/jest-dom';
 import * as XyflowReact from '@xyflow/react';
+import { REPLAY_CANVAS_FIT_VIEW_OPTIONS } from '../utils/replayCanvasFitView';
 import WorkflowExecutionCanvas, {
   type CanvasScreenshotFn,
   type CanvasSvgFn,
@@ -31,6 +32,19 @@ vi.mock('../utils/canvasScreenshot', () => ({
   captureCanvasScreenshot: vi.fn().mockResolvedValue('data:image/png;base64,xx'),
   captureCanvasSvg: vi.fn().mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg"/>'),
 }));
+
+vi.mock('../utils/replayCanvasFitView', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/replayCanvasFitView')>();
+  return {
+    ...actual,
+    scheduleReplayFitView: (instance: { fitView?: (options: unknown) => void } | null | undefined) => {
+      if (instance?.fitView) {
+        void instance.fitView({ ...actual.REPLAY_CANVAS_FIT_VIEW_OPTIONS });
+      }
+      return true;
+    },
+  };
+});
 
 const { flowApi, applyNodeChangesStub } = vi.hoisted(() => {
   const api = {
@@ -75,11 +89,13 @@ vi.mock('@xyflow/react', async () => {
     Background: helpers.MockBackground,
     Controls: helpers.MockControls,
     MiniMap: helpers.MockMiniMap,
+    Panel: helpers.MockPanel,
     MarkerType: helpers.xyflowMockStaticExports.MarkerType,
     Position: helpers.xyflowMockStaticExports.Position,
     useReactFlow: () => flowApi,
     useViewport: () => ({ x: viewportState.x, y: viewportState.y, zoom: viewportState.zoom }),
     applyNodeChanges: applyNodeChangesStub,
+    getNodesBounds: helpers.mockGetNodesBounds,
   };
 });
 
@@ -238,17 +254,36 @@ describe('WorkflowExecutionCanvas', () => {
   });
 
   describe('onInit and dimensions fitView', () => {
+    let resizeObserverRestore: typeof ResizeObserver | undefined;
+
+    beforeEach(() => {
+      resizeObserverRestore = globalThis.ResizeObserver;
+      globalThis.ResizeObserver = class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      } as typeof ResizeObserver;
+    });
+
+    afterEach(() => {
+      if (resizeObserverRestore) {
+        globalThis.ResizeObserver = resizeObserverRestore;
+      }
+    });
+
     it('calls fitView after the first dimensions measurement (debounced)', () => {
       vi.useFakeTimers();
       try {
         const trace = createMockTrace();
         const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+        vi.advanceTimersByTime(200);
+        flowApi.fitView.mockClear();
 
         fireEvent.click(getByTestId('trigger-dimensions-change'));
         vi.advanceTimersByTime(149);
         expect(flowApi.fitView).not.toHaveBeenCalled();
         vi.advanceTimersByTime(2);
-        expect(flowApi.fitView).toHaveBeenCalledWith({ padding: 0.05, duration: 200 });
+        expect(flowApi.fitView).toHaveBeenCalledWith(expect.objectContaining(REPLAY_CANVAS_FIT_VIEW_OPTIONS));
 
         fireEvent.click(getByTestId('trigger-dimensions-change'));
         vi.advanceTimersByTime(200);
@@ -263,6 +298,8 @@ describe('WorkflowExecutionCanvas', () => {
       try {
         const trace = createMockTrace();
         const { getByTestId } = render(<WorkflowExecutionCanvas trace={trace} />);
+        vi.advanceTimersByTime(200);
+        flowApi.fitView.mockClear();
 
         fireEvent.click(getByTestId('trigger-dimensions-change'));
         fireEvent.click(getByTestId('trigger-dimensions-change'));

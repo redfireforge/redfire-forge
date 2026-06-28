@@ -11,10 +11,19 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { exitLesson, getStepInfo, launchGqlLesson, takeNamedScreenshot } from './demo-player-helpers';
+import {
+  exitLesson,
+  finishDemoStep,
+  getStepInfo,
+  launchGqlLesson,
+  restartLesson,
+  takeNamedScreenshot,
+  waitForReadingPhase,
+} from './demo-player-helpers';
 import { GQL_HEALTH, isGraphqlServerHealthy, silenceLogStream } from './graphql-helpers';
 import {
   GQL19_LESSON,
+  MUTATION_TIMEOUT,
   prepareGql19DockerLesson,
   walkFullGql19Lesson,
 } from './graphql-lesson-smoke-helpers';
@@ -22,6 +31,33 @@ import {
 const LESSON_NAME = GQL19_LESSON.name;
 const TOTAL_STEPS = GQL19_LESSON.steps;
 const WF_NAME = 'GraphQL Order Flow Demo';
+const LIVE_PANEL = '[data-testid="demo-live-panel"]';
+
+async function enableAutoPlay(page: Parameters<typeof waitForReadingPhase>[0]): Promise<void> {
+  const playBtn = page.locator('.demo-live-play-btn');
+  const title = await playBtn.getAttribute('title');
+  if (title?.includes('Play')) {
+    await playBtn.click();
+  }
+}
+
+/** Wait until auto-play reaches the last step and its action finishes (1× — no reading skip). */
+async function waitForAutoPlayComplete(page: Parameters<typeof waitForReadingPhase>[0]): Promise<void> {
+  const deadline = Date.now() + 480_000;
+  while (Date.now() < deadline) {
+    const info = await getStepInfo(page);
+    const phase = await page.locator(LIVE_PANEL).getAttribute('data-step-phase');
+    console.log(`[GQL-19 auto-play] ${info.counter} — ${info.title} (phase=${phase})`);
+    const match = info.counter.match(/(\d+)\s*\/\s*(\d+)/);
+    if (match) {
+      const current = parseInt(match[1], 10);
+      const total = parseInt(match[2], 10);
+      if (current === TOTAL_STEPS && total === TOTAL_STEPS && phase === 'done') return;
+    }
+    await page.waitForTimeout(5_000);
+  }
+  throw new Error(`GQL-19 auto-play did not reach step ${TOTAL_STEPS}/${TOTAL_STEPS} done within 8 minutes`);
+}
 
 async function mockGraphqlHealthProbe(page: Parameters<typeof silenceLogStream>[0]): Promise<void> {
   await page.route(GQL_HEALTH, (route) =>
@@ -74,6 +110,78 @@ test.describe('GQL-19 — full lesson (Docker)', () => {
     await expect(page.locator('.wf-exec-strip-pass')).toBeVisible({ timeout: 15_000 });
 
     await takeNamedScreenshot(page, 'gql19-workflow-subscription-lesson-complete');
+    await exitLesson(page);
+  });
+
+  test('Phase 8 — 1× auto-play completes all 9 steps', async ({ page, request }) => {
+    const healthy = await isGraphqlServerHealthy(request);
+    test.skip(!healthy, 'GraphQL test server not running on port 4010 — start docker/graphql');
+
+    test.setTimeout(900_000);
+    await prepareGql19DockerLesson(page, request);
+    await restartLesson(page);
+    await waitForReadingPhase(page, MUTATION_TIMEOUT);
+
+    const quickTestShot = page
+      .waitForSelector('.wf-exec-strip-pass', { timeout: MUTATION_TIMEOUT })
+      .then(() => takeNamedScreenshot(page, 'gql19-step7-quick-test-pass'))
+      .catch(() => undefined);
+
+    await enableAutoPlay(page);
+    await waitForAutoPlayComplete(page);
+    await quickTestShot;
+
+    const { counter, title } = await getStepInfo(page);
+    expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
+    expect(title).toMatch(/Create → Subscribe → Assert/i);
+
+    const phase = await page.locator(LIVE_PANEL).getAttribute('data-step-phase');
+    expect(phase).toBe('done');
+
+    await expect(page.locator('[data-testid="gql-canvas-subscription-node"]')).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.locator('[data-testid="gql-canvas-mutation-node"]')).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.locator('[data-testid="wf-toolbar-select"]')).toContainText(WF_NAME, {
+      timeout: 15_000,
+    });
+
+    await takeNamedScreenshot(page, 'gql19-autoplay-complete');
+    await exitLesson(page);
+  });
+
+  test('Phase 8 — rapid Next preAction guards recover on step 9', async ({ page, request }) => {
+    const healthy = await isGraphqlServerHealthy(request);
+    test.skip(!healthy, 'GraphQL test server not running on port 4010 — start docker/graphql');
+
+    test.setTimeout(900_000);
+    await prepareGql19DockerLesson(page, request);
+    await restartLesson(page);
+
+    for (let i = 0; i < TOTAL_STEPS - 1; i++) {
+      await waitForReadingPhase(page, MUTATION_TIMEOUT);
+      await page.locator('[aria-label="Next step"]').click();
+      await page.waitForTimeout(200);
+    }
+
+    let { counter, title } = await getStepInfo(page);
+    // Rapid Next may land on 8/9 (action skipped) or 9/9 (reading only) — both valid.
+    expect(counter).toMatch(/(?:8|9)\s*[/]\s*9/);
+
+    await finishDemoStep(page, MUTATION_TIMEOUT);
+    ({ counter, title } = await getStepInfo(page));
+    expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
+    expect(title).toMatch(/Create → Subscribe → Assert/i);
+
+    await expect(page.locator('[data-testid="gql-canvas-subscription-node"]')).toBeVisible({
+      timeout: 15_000,
+    });
+    await expect(page.locator('[data-testid="gql-canvas-mutation-node"]')).toBeVisible({
+      timeout: 15_000,
+    });
+    await takeNamedScreenshot(page, 'gql19-rapid-next-step9-recovery');
     await exitLesson(page);
   });
 });

@@ -24,6 +24,14 @@ export interface SdlDiffGoldenCase {
 
 const ps = (sdl: string) => printSchema(buildSchema(sdl));
 
+/** Indents each non-empty SDL line — used by formatting-only golden case. */
+export function indentSdlLinesForGoldenCase(sdl: string): string {
+  return sdl
+    .split('\n')
+    .map((line) => (line ? `  ${line}` : line))
+    .join('\n');
+}
+
 /** Prior-release baseline vs Docker :4010 — the GQL-12 demo pair. */
 const LESSON12_OLD = ps(`
   type Query {
@@ -238,10 +246,7 @@ export const SDL_DIFF_GOLDEN_CASES: SdlDiffGoldenCase[] = [
   {
     id: 'formatting-only-indented',
     description: 'Manual indentation matches after canonicalization — no false edits',
-    oldSdl: ps('type Query { ping: String }')
-      .split('\n')
-      .map((line) => (line ? `  ${line}` : line))
-      .join('\n'),
+    oldSdl: indentSdlLinesForGoldenCase(ps('type Query { ping: String }')),
     newSdl: ps('type Query { ping: String }'),
     stats: { removed: 0, added: 0, modified: 0, unchanged: 3 },
   },

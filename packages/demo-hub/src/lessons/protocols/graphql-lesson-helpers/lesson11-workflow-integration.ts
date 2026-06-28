@@ -38,6 +38,7 @@ export const LESSON11_HEALTH_QUERY = 'query { health }';
 export const LESSON11_PASS_THRESHOLD_MS = '2000';
 
 let _lesson11Created = false;
+let _lesson11VariablesConfigured = false;
 let _lesson11QueryAdded = false;
 let _lesson11QueryConfigured = false;
 let _lesson11AssertAdded = false;
@@ -50,6 +51,7 @@ let _lesson11DebugRun = false;
 
 export function resetGqlLesson11SessionFlags(): void {
   _lesson11Created = false;
+  _lesson11VariablesConfigured = false;
   _lesson11QueryAdded = false;
   _lesson11QueryConfigured = false;
   _lesson11AssertAdded = false;
@@ -169,6 +171,22 @@ function patchLesson11AssertRuleQuiet(thresholdMs: string): boolean {
   });
 }
 
+function lesson11DefaultsModalHasGraphqlUrlRow(): boolean {
+  const rows = document.querySelectorAll(`${WF.DEFAULTS_MODAL} .wf-config-kv-row-vars:not(:last-child)`);
+  for (const row of rows) {
+    const keyInput = row.querySelector<HTMLInputElement>('.wf-var-key-input');
+    if (keyInput?.value.trim() === LESSON11_GRAPHQL_URL_VAR) return true;
+  }
+  return false;
+}
+
+async function closeWfDefaultsModalIfOpen(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(WF.DEFAULTS_MODAL)) return;
+  const cancel = document.querySelector<HTMLElement>(`${WF.DEFAULTS_MODAL} .btn-ghost`);
+  cancel?.click();
+  await ctx.delay(300);
+}
+
 async function syncLesson11QueryConfigured(ctx: DemoActionContext): Promise<boolean> {
   await ctx.delay(200);
   if (isLesson11QueryConfiguredInWorkflow()) {
@@ -177,7 +195,7 @@ async function syncLesson11QueryConfigured(ctx: DemoActionContext): Promise<bool
   }
   let patched = false;
   if (patchLesson11QueryNodeQuiet()) patched = true;
-  if (patchLesson11WorkflowVariablesQuiet()) patched = true;
+  if (!isLesson11WorkflowVariablesConfigured() && patchLesson11WorkflowVariablesQuiet()) patched = true;
   if (patched) {
     await ctx.delay(200);
     _lesson11QueryConfigured = true;
@@ -220,9 +238,44 @@ export async function ensureLesson11WorkflowCreated(ctx: DemoActionContext): Pro
   _lesson11Created = true;
 }
 
+/** Open Workflow Variables and define graphqlUrl default for {{graphqlUrl}} placeholders. */
+export async function ensureLesson11WorkflowVariablesConfigured(ctx: DemoActionContext): Promise<void> {
+  await ensureLesson11WorkflowCreated(ctx);
+  if (_lesson11VariablesConfigured && isLesson11WorkflowVariablesConfigured()) {
+    await closeWfDefaultsModalIfOpen(ctx);
+    return;
+  }
+  _lesson11VariablesConfigured = false;
+
+  await ctx.click(WF.VARIABLES_BTN);
+  await ctx.waitFor(WF.DEFAULTS_MODAL, 5000);
+  await ctx.delay(600);
+
+  if (!lesson11DefaultsModalHasGraphqlUrlRow()) {
+    await ctx.fill(WF.DEFAULTS_NEW_KEY, LESSON11_GRAPHQL_URL_VAR);
+    await ctx.delay(400);
+    await ctx.fill(WF.DEFAULTS_NEW_VAL, GQL_DEMO_HTTP);
+    await ctx.delay(400);
+    await ctx.click(WF.DEFAULTS_ADD_BTN);
+    await ctx.delay(500);
+  } else {
+    await ctx.fill(WF.DEFAULTS_EXISTING_VALUE, GQL_DEMO_HTTP);
+    await ctx.delay(400);
+  }
+
+  await ctx.click(WF.DEFAULTS_SAVE_BTN);
+  await ctx.delay(700);
+
+  if (!isLesson11WorkflowVariablesConfigured()) {
+    patchLesson11WorkflowVariablesQuiet();
+    await ctx.delay(200);
+  }
+  _lesson11VariablesConfigured = true;
+}
+
 /** Add a GraphQL Query node and wire Start → Query. */
 export async function ensureLesson11QueryNodeAdded(ctx: DemoActionContext): Promise<void> {
-  await ensureLesson11WorkflowCreated(ctx);
+  await ensureLesson11WorkflowVariablesConfigured(ctx);
   if (_lesson11QueryAdded && document.querySelector(GQL.WF_CANVAS_QUERY_NODE)) return;
 
   const pal = document.querySelector<HTMLElement>(WF.PAL_GQL_QUERY);
@@ -361,6 +414,10 @@ export async function ensureLesson11GraphReadyForQuickTest(ctx: DemoActionContex
   await closeWfConfigModalIfOpen(ctx);
   if (!isLesson11QueryConfiguredInWorkflow()) {
     patchLesson11QueryNodeQuiet();
+    await ctx.delay(200);
+  }
+  if (!isLesson11WorkflowVariablesConfigured()) {
+    patchLesson11WorkflowVariablesQuiet();
     await ctx.delay(200);
   }
   if (!isLesson11AssertSourceConfiguredInWorkflow()) {

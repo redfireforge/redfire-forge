@@ -6,6 +6,7 @@ import {
   GQL_DEMO_HTTP,
   GQL_DEMO_VAR,
   LESSON11_LATENCY_VAR,
+  LESSON11_GRAPHQL_URL_VAR,
   LESSON11_PASS_THRESHOLD_MS,
   LESSON11_WF_NAME,
   ensureLesson11AssertNodeAdded,
@@ -17,6 +18,7 @@ import {
   ensureLesson11QueryConfigured,
   ensureLesson11QueryNodeAdded,
   ensureLesson11WorkflowCreated,
+  ensureLesson11WorkflowVariablesConfigured,
   prepareGql11DebugReading,
   prepareGql11ObserveFailureReading,
   prepareGql11ObservePassReading,
@@ -33,7 +35,7 @@ export const gqlWorkflowIntegrationLesson: DemoLesson = {
   name: 'Workflow Integration',
   description:
     'Build a GraphQL Query + Assert workflow in the Designer, bind latency output, watch live console logs, and diagnose failures with step-through Debug Mode.',
-  estimatedMinutes: 7,
+  estimatedMinutes: 8,
   initialTab: 'workflow',
   allowedTabs: ['workflow', 'workflow-runner'],
 
@@ -220,6 +222,25 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
     },
 
     {
+      id: 'gql11-workflow-variables',
+      title: 'Define the graphqlUrl Variable',
+      description:
+        `Before adding GraphQL nodes, open **Variables** in the Designer toolbar (between **Services** and **Versions**). ` +
+        `In the **Workflow Variables** modal, add **${LESSON11_GRAPHQL_URL_VAR}** = \`${GQL_DEMO_HTTP}\` and click **Save**.\n\n` +
+        `Workflow variables are defaults available to every step as \`{{name}}\` placeholders — the hint at the top of the modal explains this. ` +
+        `Defining **graphqlUrl** here keeps the Query node endpoint environment-agnostic: the node will reference \`${GQL_DEMO_VAR}\`, ` +
+        `while the **Workflow Runner** can override the URL per run without editing the canvas.`,
+      highlight: WF.VARIABLES_BTN,
+      preAction: ensureLesson11WorkflowCreated,
+      action: async (ctx) => {
+        await ensureLesson11WorkflowVariablesConfigured(ctx);
+        await ctx.delay(800);
+      },
+      verify: WF.CANVAS,
+      pauseAfter: true,
+    },
+
+    {
       id: 'gql11-query-node',
       title: 'Add GraphQL Query Node',
       description:
@@ -238,7 +259,7 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
       id: 'gql11-config-query',
       title: 'Configure the Query & Bind Output',
       description:
-        `Double-click the **GraphQL Query** node to open its config panel. On the **Operation** tab, set the endpoint to \`${GQL_DEMO_VAR}\` (same template as GraphQL Studio) and the query to \`query { health }\`.\n\nThen switch to the **Output** tab — this is the node's superpower. Click **+ Add**, select \`latencyMs\` from the field dropdown, and enter \`${LESSON11_LATENCY_VAR}\` as the variable name. Save.\n\nUsing \`{{graphqlUrl}}\` instead of a hardcoded URL lets the **Workflow Runner** override the endpoint per run without editing the workflow. The default resolves to \`${GQL_DEMO_HTTP}\` via workflow variables.\n\nThat single binding makes \`${LESSON11_LATENCY_VAR}\` available in **every** downstream node. Without it, each node is an isolated island; with it, your assert node can gate on real measured performance data.`,
+        `Double-click the **GraphQL Query** node to open its config panel. On the **Operation** tab, set the endpoint to \`${GQL_DEMO_VAR}\` — the variable you defined in the previous step — and the query to \`query { health }\`.\n\nThen switch to the **Output** tab — this is the node's superpower. Click **+ Add**, select \`latencyMs\` from the field dropdown, and enter \`${LESSON11_LATENCY_VAR}\` as the variable name. Save.\n\nThat single binding makes \`${LESSON11_LATENCY_VAR}\` available in **every** downstream node. Without it, each node is an isolated island; with it, your assert node can gate on real measured performance data.`,
       highlight: GQL.WF_QUERY_PANEL,
       preAction: ensureLesson11QueryNodeAdded,
       action: async (ctx) => {
@@ -319,7 +340,7 @@ Quick Test runs the workflow atomically — all nodes execute, you see the final
       preAction: ensureLesson11ConsoleOpen,
       action: async (ctx) => {
         await runLesson11WorkflowPassExecOnly(ctx);
-        await ctx.delay(800);
+        await ctx.delay(2200);
         await closeLesson11Console(ctx);
       },
       verify: WF.EXEC_SUMMARY,

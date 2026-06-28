@@ -5,9 +5,11 @@ import { fillControlledInput } from './lessons/setup-helpers';
 import { cleanupGqlDemoLessonEnvironment } from './lessons/env-manager-lesson-helpers';
 import {
   dispatchGqlPageEndpointReload,
+  dispatchGqlTabsReload,
   isGraphqlStudioLesson,
   loadDemoPriorPageEndpointBackup,
   loadDemoSession,
+  purgeOrphanDemoTabs,
   restorePageEndpointSnapshot,
 } from './adapters';
 import { clearDemoLiveSession, readDemoLiveSession } from './demoLiveSession';
@@ -94,6 +96,12 @@ export async function runGqlStudioLessonTeardown(
       console.warn('[DemoHub] GQL page endpoint re-restore failed:', e);
     }
   }
+  try {
+    await purgeOrphanDemoTabs();
+    dispatchGqlTabsReload();
+  } catch (e) {
+    console.warn('[DemoHub] GQL orphan demo tab purge failed:', e);
+  }
 }
 
 /** Find the first VISIBLE element matching selector — avoids clicking hidden tab panels */
@@ -171,16 +179,8 @@ export function isElementVisible(el: Element): boolean {
   return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
 }
 
-/** Show a brief CSS ripple animation on an element so the user sees what was clicked. */
-export function showClickRipple(el: HTMLElement) {
-  const ring = document.createElement('div');
-  ring.className = 'demo-click-ripple';
-  const rect = el.getBoundingClientRect();
-  ring.style.top = `${rect.top + rect.height / 2}px`;
-  ring.style.left = `${rect.left + rect.width / 2}px`;
-  document.body.appendChild(ring);
-  ring.addEventListener('animationend', () => ring.remove());
-}
+import { showClickRipple } from './demoRipple';
+export { showClickRipple };
 
 /** Retry-based element wait — finds first visible match in multi-tab DOM. */
 export async function waitForElement(

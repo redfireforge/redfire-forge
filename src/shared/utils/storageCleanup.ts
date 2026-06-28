@@ -25,6 +25,64 @@ import {
   migrateGraphqlStudioFromLocalStorage,
   purgeGraphqlStudioLocalStorageDuplicates,
 } from './idbGraphqlStudio';
+import {
+  idbMigrateRunnerConfigsFromLocalStorage,
+  purgeRunnerConfigLocalStorageKeys,
+} from './idbRunnerConfig';
+
+const WORKFLOW_RUN_CACHE_KEY = 'rfg-workflow-run-cache';
+const MAX_WORKFLOW_RUN_CACHE_ENTRIES = 6;
+const MAX_CONSOLE_LINES_PER_CACHED_WORKFLOW = 200;
+
+/**
+ * Designer Quick Test run cache — one localStorage blob keyed by workflow id.
+ * Demo lessons seed many ephemeral workflow UUIDs; trim to recent entries only.
+ */
+export function trimWorkflowRunCacheStorage(
+  maxEntries = MAX_WORKFLOW_RUN_CACHE_ENTRIES,
+): { removed: number; freedBytes: number } {
+  if (isTauri()) return { removed: 0, freedBytes: 0 };
+  try {
+    const raw = localStorage.getItem(WORKFLOW_RUN_CACHE_KEY);
+    if (!raw) return { removed: 0, freedBytes: 0 };
+    const beforeBytes = raw.length * 2;
+    const parsed = JSON.parse(raw) as Array<[string, { lastRunTime?: number; consoleLines?: unknown[] }]>;
+    if (!Array.isArray(parsed)) return { removed: 0, freedBytes: 0 };
+
+    const sorted = [...parsed].sort(
+      (a, b) => (b[1]?.lastRunTime ?? 0) - (a[1]?.lastRunTime ?? 0),
+    );
+    const kept = sorted.slice(0, maxEntries).map(([id, run]) => [
+      id,
+      {
+        ...run,
+        consoleLines: Array.isArray(run.consoleLines)
+          ? run.consoleLines.slice(-MAX_CONSOLE_LINES_PER_CACHED_WORKFLOW)
+          : run.consoleLines,
+      },
+    ] as [string, typeof run]);
+
+    if (kept.length === parsed.length && kept.length > 0) {
+      const first = parsed[0]?.[1];
+      const firstKept = kept[0]?.[1];
+      if (first?.consoleLines?.length === firstKept?.consoleLines?.length) {
+        return { removed: 0, freedBytes: 0 };
+      }
+    }
+
+    const next = JSON.stringify(kept);
+    localStorage.setItem(WORKFLOW_RUN_CACHE_KEY, next);
+    const freedBytes = Math.max(0, beforeBytes - next.length * 2);
+    return { removed: Math.max(0, parsed.length - kept.length), freedBytes };
+  } catch {
+    try {
+      localStorage.removeItem(WORKFLOW_RUN_CACHE_KEY);
+      return { removed: 1, freedBytes: 0 };
+    } catch {
+      return { removed: 0, freedBytes: 0 };
+    }
+  }
+}
 
 const GQL_STUDIO_LS_KEYS = {
   tabsKey: 'gql_tabs_v1',
@@ -119,6 +177,14 @@ export function cleanupStaleStorageKeys(): { removed: number; freedKB: number } 
   removed += runnerPurge.removed;
   freedBytes += runnerPurge.freedBytes;
 
+  const lsRunnerPurge = purgeRunnerConfigLocalStorageKeys();
+  removed += lsRunnerPurge.removed;
+  freedBytes += lsRunnerPurge.freedBytes;
+
+  const wfCache = trimWorkflowRunCacheStorage();
+  removed += wfCache.removed;
+  freedBytes += wfCache.freedBytes;
+
   migrateRemainingLargeKeysToIdb().catch(() => { /* best effort */ });
 
   const freedKB = Math.round(freedBytes / 1024);
@@ -206,6 +272,9 @@ export async function ensureBrowserLargeDataMigrated(): Promise<void> {
   if (isTauri()) return;
 
   purgeStaleRunnerConfigKeys();
+  await idbMigrateRunnerConfigsFromLocalStorage();
+  purgeRunnerConfigLocalStorageKeys();
+  trimWorkflowRunCacheStorage();
   await migrateRemainingLargeKeysToIdb();
   await migrateAppFlatDataFromLocalStorage();
   await migrateGraphqlStudioFromLocalStorage(GQL_STUDIO_LS_KEYS);

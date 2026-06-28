@@ -559,6 +559,20 @@ describe('gql schema selector helpers', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
+  it('setup closes mock activity panel when left open from a prior lesson', async () => {
+    document.body.innerHTML = `
+      <button data-testid="gql-mode-editor"></button>
+      <button data-testid="gql-activity-mock" class="gql-activity-tab--active"></button>
+      <button data-testid="gql-right-tab-response" aria-selected="true"></button>
+      <input data-testid="gql-endpoint-input" value="" />
+      <div data-testid="gql-editor"></div>
+    `;
+    stubMonacoEditor(GQL_INSERT_TEMPLATE_QUERY);
+    const ctx = makeCtx();
+    await gqlSchemaLessonSetup(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GQL.ACTIVITY_MOCK);
+  });
+
   it('selectSchemaType marks User and Query session flags', async () => {
     stubSchemaExplorerDom();
     const ctx = makeCtx();

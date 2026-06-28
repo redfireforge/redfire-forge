@@ -13,3 +13,6 @@ export const SEVERITY_LABEL: Record<GraphqlSchemaDiffChange['criticality'], stri
   SAFE:       'Safe',
   DEPRECATED: 'Deprecated',
 };
+
+/** Shared no-op for read-only ack rows in AcknowledgedSection (coverage + stable refs). */
+export function ackSectionChangeRowNoop(): void {}

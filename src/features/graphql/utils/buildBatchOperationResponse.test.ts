@@ -3,6 +3,9 @@ import type { GraphqlError } from '../../../shared/types/graphql';
 import {
   buildBatchNetworkErrorResponse,
   buildBatchOperationResponse,
+  buildBatchResponseContext,
+  buildBatchTimeoutOperationResponse,
+  buildBatchWireRequestBody,
   mapProxyResultsToGraphqlBatchResult,
   stampBatchContextOnBatchResult,
 } from './buildBatchOperationResponse';
@@ -76,6 +79,77 @@ describe('buildBatchOperationResponse', () => {
 
     expect(response.errors).toEqual(errors);
     expect(response.extensions).toEqual({ traceId: 'abc' });
+  });
+
+  it('defaults invalid wire metadata and skips non-string header values', () => {
+    const tab = makeTab('tab-w');
+    const response = buildBatchOperationResponse(
+      {
+        data: { ok: true },
+        _httpHeaders: { 'x-num': 42 as unknown as string, valid: 'yes' },
+        _latencyMs: -5,
+      },
+      { query: tab.query, variables: { id: 1 }, headers: { 'x-num': '1' } },
+      tab,
+      stampCtx,
+    );
+    expect(response.httpStatus).toBe(200);
+    expect(response.httpHeaders.valid).toBe('yes');
+    expect(response.httpHeaders['x-num']).toBeUndefined();
+    expect(response.latencyMs).toBe(0);
+    expect(response.requestBody).toMatchObject({ query: tab.query, variables: { id: 1 } });
+  });
+});
+
+describe('buildBatchWireRequestBody and buildBatchResponseContext', () => {
+  it('builds wire bodies and unsupported batch context', () => {
+    const ops = [
+      { query: 'q1', operationName: '  Op1  ', headers: {} },
+      { query: 'q2', headers: {} },
+    ];
+    expect(buildBatchWireRequestBody(ops)).toEqual([
+      { query: 'q1', operationName: 'Op1' },
+      { query: 'q2' },
+    ]);
+    const ctx = buildBatchResponseContext(1, true, ops, [
+      { _latencyMs: 10 },
+      { _latencyMs: 20 },
+    ]);
+    expect(ctx.batchUnsupported).toBe(true);
+    expect(ctx.upstreamRequestCount).toBe(2);
+    expect(ctx.batchLatencyMs).toBe(20);
+    expect(ctx.wireRequestBody).toBeUndefined();
+  });
+
+  it('uses first proxy latency for supported batch transport', () => {
+    const ctx = buildBatchResponseContext(0, false, [{ query: 'q', headers: {} }], [
+      { _latencyMs: 99 },
+    ]);
+    expect(ctx.batchLatencyMs).toBe(99);
+    expect(ctx.wireRequestBody).toHaveLength(1);
+  });
+});
+
+describe('buildBatchTimeoutOperationResponse', () => {
+  it('returns partial response when partial is not a timeout', () => {
+    const tab = makeTab('tab-timeout');
+    const op = { query: tab.query, headers: {} };
+    const partial = { data: { ok: true }, _httpStatus: 200, _latencyMs: 3 };
+    const response = buildBatchTimeoutOperationResponse(op, tab, stampCtx, 'timeout', { partial });
+    expect(response.data).toEqual({ ok: true });
+  });
+
+  it('builds timeout error response with optional partial headers', () => {
+    const tab = makeTab('tab-timeout-2');
+    const op = { query: tab.query, headers: {} };
+    const response = buildBatchTimeoutOperationResponse(op, tab, stampCtx, 'timed out', {
+      httpStatus: 504,
+      latencyMs: 12,
+      partial: { _httpStatus: 408, _httpHeaders: { 'x-test': '1' } },
+    });
+    expect(response.httpStatus).toBe(504);
+    expect(response.errors?.[0]?.message).toBe('timed out');
+    expect(response.httpHeaders['x-test']).toBe('1');
   });
 });
 

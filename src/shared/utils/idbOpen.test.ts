@@ -11,6 +11,7 @@ const STORES_EXCEPT_TEST_RUNS = [
   'graphql-collection-items', 'graphql-schema-snapshots', 'graphql-diff-acknowledgements',
   'environments', 'microservices', 'globalAuthProfiles',
   'gqlStudioTabs', 'gqlStudioEnvironments', 'gqlConnectionProfiles', 'gqlPageAuth', 'gqlSchemaCache',
+  'runnerConfigs',
 ] as const;
 
 const ALL_STORES = ['testRuns', ...STORES_EXCEPT_TEST_RUNS] as const;

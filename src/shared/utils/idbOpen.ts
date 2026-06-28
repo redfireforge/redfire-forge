@@ -8,7 +8,7 @@
  */
 
 const DB_NAME = 'redfireforge';
-const DB_VERSION = 9; // v9: GraphQL Studio tabs, envs, profiles, auth, schema cache → IDB
+const DB_VERSION = 10; // v10: runnerConfigs — move perf-test-runner-config off localStorage
 const OPEN_TIMEOUT_MS = 10_000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -123,6 +123,10 @@ function openDBInternal(): Promise<IDBDatabase> {
       }
       if (!db.objectStoreNames.contains('gqlSchemaCache')) {
         db.createObjectStore('gqlSchemaCache');
+      }
+      // v10: runner UI config (env/svc/workflow-runner) — frees localStorage quota
+      if (!db.objectStoreNames.contains('runnerConfigs')) {
+        db.createObjectStore('runnerConfigs');
       }
     };
     req.onblocked = () => {

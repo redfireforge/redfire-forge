@@ -39,6 +39,7 @@ export const PRODUCT_COVERAGE_EXCLUDE = [
   '**/__mocks__/**',
   '**/test-helpers/**',
   '**/*.coverage-helpers.ts',
+  '**/*.test-utils.{ts,tsx}',
   '**/*.test.{ts,tsx}',
   '**/*.config.{ts,js}',
   'src/shared/types/index.ts',

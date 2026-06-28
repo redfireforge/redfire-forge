@@ -123,7 +123,7 @@ export function WorkflowIterationChart({ iterations, maxHeight = 200 }: Iteratio
     ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
     ctx.font = '10px system-ui';
     ctx.textAlign = 'center';
-    const labelStep = Math.max(1, Math.floor(iterations.length / 10));
+    const labelStep = iterations.length <= 10 ? 1 : Math.max(1, Math.floor(iterations.length / 10));
     iterations.forEach((iter, idx) => {
       if (idx % labelStep === 0 || idx === iterations.length - 1) {
         const x = padding.left + barSpacing + idx * (barWidth + barSpacing) + barWidth / 2;

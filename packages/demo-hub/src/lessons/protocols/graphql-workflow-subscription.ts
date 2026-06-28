@@ -27,7 +27,7 @@ import {
   prepareLesson19SummarySpotlight,
   gqlWorkflowSubscriptionLessonSetup,
   gqlWorkflowSubscriptionLessonCleanup,
-} from './graphql-lesson-helpers';
+} from './graphql-lesson-helpers/lesson19-workflow-subscription';
 
 export const gqlWorkflowSubscriptionLesson: DemoLesson = {
   id: 'gql-workflow-subscription',

@@ -539,7 +539,7 @@ function ScenariosTab({ config, mockServer }: { config: GraphqlMockConfig; mockS
             />
             Snapshot current resolvers into this scenario
           </label>
-          <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+          <div className="gql-mock-scenario-add-actions">
             <button type="button" className="gql-mock-cancel-btn" onClick={() => { setAdding(false); setNewName(''); setSnapResolvers(true); }}>Cancel</button>
             <button
               type="button"

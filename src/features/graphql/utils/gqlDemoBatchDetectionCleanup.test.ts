@@ -35,10 +35,21 @@ describe('gqlDemoBatchDetectionCleanup', () => {
     expect(JSON.parse(String(payload)).batch).toBe(false);
   });
 
-  it('purgeGqlDemoBatchDetectionFlags skips keys without batch:true', async () => {
-    vi.mocked(readKey).mockResolvedValue(JSON.stringify({ batch: false }));
+  it('purgeGqlDemoBatchDetectionFlags resets invalid JSON payloads', async () => {
+    vi.mocked(readKey).mockResolvedValue('{bad-json');
     const cleared = await purgeGqlDemoBatchDetectionFlags();
-    expect(cleared).toBe(0);
+    expect(cleared).toBeGreaterThanOrEqual(1);
+    expect(writeKey).toHaveBeenCalled();
+  });
+
+  it('purgeGqlDemoBatchDetectionFlags skips when batch flag is undefined', async () => {
+    vi.mocked(readKey).mockResolvedValue(JSON.stringify({ apq: true }));
+    expect(await purgeGqlDemoBatchDetectionFlags()).toBe(0);
     expect(writeKey).not.toHaveBeenCalled();
+  });
+
+  it('purgeGqlDemoBatchDetectionFlags skips missing keys', async () => {
+    vi.mocked(readKey).mockResolvedValue(null);
+    expect(await purgeGqlDemoBatchDetectionFlags()).toBe(0);
   });
 });

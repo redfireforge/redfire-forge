@@ -58,6 +58,7 @@ RedfireForge ships two desktop variants (side-by-side install on macOS via diffe
 | **Learning Hub** (interactive lessons) | `npm run tauri:build:demo` | `com.redfireforge.desktop.demo` | On |
 
 Web-only builds: `npm run build:prod` vs `npm run build:demo`.  
+Demo lessons live in the **`@redfireforge/demo-hub`** workspace package (`packages/demo-hub/`).  
 GitHub Releases: tag `vX.Y.Z` for Standard; `vX.Y.Z-demo` or workflow dispatch for Learning Hub.
 
 ### Desktop Build (Production — Local)
@@ -1006,7 +1007,7 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs (throttled updates, incremental metrics) |
 | **Trash Box** | Soft-delete with configurable retention (7–90 days) for Feature Groups, Scenarios, Tests, and Shared Data Sources; 5-second undo toast, Trash Panel for browse/search/restore, automatic purge on startup |
 | **GraphQL Studio** | Multi-tab query workspace with Monaco editor, introspection-driven schema explorer, variables/headers/auth panels, history, collections runner, batch execution (select tabs → Send Batch → per-tab response slices + full batch modal), SDL schema diff, connection profiles, TLS/mTLS settings, mock server mode, and workflow integration hooks |
-| **Learning Hub (Demo)** | Interactive protocol lessons (GraphQL GQL-1–19, Kafka, WebSocket, etc.) with live studio bridges, prerequisite gates, Docker health probes, and per-lesson notes — ships as `npm run tauri:build:demo` |
+| **Learning Hub (Demo)** | Interactive protocol lessons in `@redfireforge/demo-hub` (`packages/demo-hub/`) — GraphQL GQL-1–19 complete (Phase 8 human 19/19; E2E sweep 20/20), Kafka, WebSocket, etc.; live studio bridges, prerequisite gates, Docker health probes, §11.0 workspace isolation, per-lesson notes — ships as `npm run tauri:build:demo` |
 | Persistent configuration | All settings saved across sessions (file system in desktop, IndexedDB + localStorage in browser) |
 | Results filtering | Filter runs by environment and microservice |
 | Multi-level grouped results | Group by Feature → Scenario → Test with cascading sub-groups and per-group summary stats |

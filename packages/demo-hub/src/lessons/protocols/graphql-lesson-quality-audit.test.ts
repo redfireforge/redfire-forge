@@ -18,6 +18,8 @@ import { gqlPerformanceTracingLesson } from './graphql-performance-tracing';
 import { gqlSchemaDiffLesson } from './graphql-schema-diff';
 import { gqlMockServerLesson } from './graphql-mock-server';
 import { gqlWorkflowIntegrationLesson } from './graphql-workflow-integration';
+import { gqlWorkflowRunnerLesson } from './graphql-workflow-runner';
+import { gqlWorkflowSubscriptionLesson } from './graphql-workflow-subscription';
 import { gqlFirstQueryLesson } from './graphql-first-query';
 import { gqlVariablesLesson } from './graphql-variables';
 
@@ -104,6 +106,37 @@ function assertWorkflowIntegrationBar(lesson: DemoLesson, label: string): void {
   expect(lesson.cleanup, `${label} cleanup`).toBeTypeOf('function');
 }
 
+function assertWorkflowRunnerBar(lesson: DemoLesson, label: string): void {
+  expect(lesson.concept?.title?.length ?? 0, `${label} concept.title`).toBeGreaterThan(10);
+  expect(lesson.concept?.body?.length ?? 0, `${label} concept.body`).toBeGreaterThan(120);
+  expect(lesson.concept?.keyTerms?.length ?? 0, `${label} keyTerms`).toBeGreaterThanOrEqual(4);
+  expect(lesson.concept?.diagram ?? '', `${label} diagram`).toContain('viewBox="0 0 700 430"');
+  expect(lesson.concept?.diagram ?? '', `${label} diagram hex palette`).toContain('#0f172a');
+  expect(lesson.concept?.diagram ?? '', `${label} diagram no css vars`).not.toContain('var(--');
+  expect(lesson.concept?.diagram ?? '', `${label} runner title`).toMatch(/Workflow Runner/);
+
+  expect(lesson.estimatedMinutes, `${label} estimatedMinutes`).toBeGreaterThanOrEqual(
+    minEstimatedMinutes(lesson.steps.length),
+  );
+
+  for (const step of lesson.steps) {
+    expect(step.highlight, `${label} ${step.id} highlight`).toBeTruthy();
+    const hasPause =
+      step.pauseAfter === true
+      || (typeof step.pauseAfter === 'number' && step.pauseAfter > 0);
+    expect(hasPause, `${label} ${step.id} pauseAfter`).toBe(true);
+    if (step.action && !step.id.endsWith('-intro')) {
+      expect(step.preAction, `${label} ${step.id} preAction`).toBeTypeOf('function');
+    }
+    if (!step.id.endsWith('-intro')) {
+      expect(step.description.length, `${label} ${step.id} description`).toBeGreaterThan(80);
+    }
+  }
+
+  expect(lesson.setup, `${label} setup`).toBeTypeOf('function');
+  expect(lesson.cleanup, `${label} cleanup`).toBeTypeOf('function');
+}
+
 describe('GQL lesson quality audit — reference bar (GQL-1, GQL-2)', () => {
   it('reference lessons satisfy the audit bar', () => {
     for (const lesson of REFERENCE_LESSONS) {
@@ -115,6 +148,18 @@ describe('GQL lesson quality audit — reference bar (GQL-1, GQL-2)', () => {
 describe('GQL-16 workflow integration quality audit', () => {
   it('meets enhancement-complete bar', () => {
     assertWorkflowIntegrationBar(gqlWorkflowIntegrationLesson, 'GQL-16');
+  });
+});
+
+describe('GQL-17 workflow runner quality audit', () => {
+  it('meets enhancement-complete bar', () => {
+    assertWorkflowRunnerBar(gqlWorkflowRunnerLesson, 'GQL-17');
+  });
+});
+
+describe('GQL-19 workflow subscription quality audit', () => {
+  it('meets enhancement-complete bar', () => {
+    assertWorkflowIntegrationBar(gqlWorkflowSubscriptionLesson, 'GQL-19');
   });
 });
 
