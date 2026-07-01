@@ -13,3 +13,11 @@ export function decodeTemplateBraces(value: string): string {
     .replace(/%7B/gi, '{')
     .replace(/%7D/gi, '}');
 }
+
+/** Replace `{{varName}}` placeholders using data-source body column values. */
+export function substituteBodyColumnTemplateVars(
+  template: string,
+  vars: Record<string, string>,
+): string {
+  return template.replace(/\{\{(\w+)\}\}/g, (_match, name: string) => vars[name] ?? `{{${name}}}`);
+}

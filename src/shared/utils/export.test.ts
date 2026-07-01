@@ -56,6 +56,68 @@ describe('exportJson', () => {
     exportJson(run as TestRun);
     expect(fileSaver.saveJsonFile).toHaveBeenCalledWith(run, expect.stringContaining('test-'));
   });
+
+  it('redacts gRPC harness secrets before JSON file export', () => {
+    const secret = 'grpc-export-json-secret-token';
+    const run = {
+      id: '1',
+      envName: 'dev',
+      svcName: 'api',
+      timestamp: Date.now(),
+      results: [{
+        id: 'r1',
+        scenarioId: 'sc-1',
+        scenarioName: 'Echo',
+        url: 'grpc://localhost:50051/svc/m',
+        method: 'UNARY',
+        httpStatus: 200,
+        responseTimeMs: 5,
+        responseBody: '{}',
+        responseHeaders: { authorization: `Bearer ${secret}` },
+        timestamp: Date.now(),
+        passed: false,
+        validationMode: 'none',
+        failureDetails: [],
+        errorMessage: `got Bearer ${secret}`,
+        transportType: 'grpcCall',
+        grpcResultMeta: {
+          service: 'svc',
+          method: 'm',
+          target: 'localhost:50051',
+          harnessResult: {
+            schemaVersion: '1.0',
+            scenarioId: 'sc-1',
+            callType: 'unary',
+            status: 'failed',
+            durationMs: 5,
+            assertionResults: [],
+            trailers: { authorization: `Bearer ${secret}` },
+            errorDetail: `got Bearer ${secret}`,
+          },
+        },
+      } satisfies RequestResult],
+      summary: {
+        tps: 1,
+        avgResponseTime: 5,
+        minResponseTime: 5,
+        maxResponseTime: 5,
+        p95ResponseTime: 5,
+        p99ResponseTime: 5,
+        errorRate: 100,
+        errorsByStatus: {},
+        totalRequests: 1,
+        successfulRequests: 0,
+        failedRequests: 1,
+        failedValidations: 0,
+        totalDurationMs: 5,
+      },
+      config: { concurrency: 1, iterations: 1, executionMode: 'batch', scenarioWeights: [] },
+    } satisfies TestRun;
+    exportJson(run);
+    const saved = vi.mocked(fileSaver.saveJsonFile).mock.calls.at(-1)?.[0] as TestRun;
+    expect(JSON.stringify(saved)).not.toContain(secret);
+    expect(JSON.stringify(saved)).toContain('Bearer [REDACTED]');
+  });
 });
 
 describe('exportCsv', () => {
@@ -136,5 +198,30 @@ describe('exportCsv', () => {
     const cols = (csv.split('\n')[1] ?? '').split(',');
     const validationCol = cols[7]; // shifted by 2: Data Row ID + Data Row Label
     expect(validationCol).toBe('none');
+  });
+
+  it('redacts gRPC harness secrets in CSV export', () => {
+    const secret = 'grpc-export-csv-secret-token';
+    const result = {
+      scenarioName: 'grpc-echo',
+      url: 'grpc://localhost:50051/svc/m',
+      method: 'UNARY',
+      httpStatus: 200,
+      responseTimeMs: 5,
+      passed: false,
+      timestamp: Date.now(),
+      errorMessage: `assertions[0]: got Bearer ${secret}`,
+      failureDetails: [{ path: '(grpcAssertion)', expected: 'ok', actual: `Bearer ${secret}` }],
+      transportType: 'grpcCall',
+      grpcResultMeta: {
+        service: 'svc',
+        method: 'm',
+        target: 'localhost:50051',
+      },
+    } satisfies RequestResult;
+    exportCsv([result]);
+    const csv: string = vi.mocked(fileSaver.saveCsvFile).mock.calls.at(-1)[0];
+    expect(csv).not.toContain(secret);
+    expect(csv).toContain('Bearer [REDACTED]');
   });
 });

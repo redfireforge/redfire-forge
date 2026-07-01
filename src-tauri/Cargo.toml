@@ -42,6 +42,14 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 rustls-pemfile = "2"
 rustls-native-certs = "0.8"
 base64 = "0.22"
+bytes = "1"
+http = "1"
+tonic = { version = "0.12", features = ["tls", "transport"] }
+prost = "0.13"
+prost-reflect = { version = "0.14", features = ["serde"] }
+prost-types = "0.13"
+sha2 = "0.10"
+hex = "0.4"
 tauri-plugin-connector = { version = "0.12", optional = true }
 tauri-plugin-mcp-bridge = "0.11.2"
 

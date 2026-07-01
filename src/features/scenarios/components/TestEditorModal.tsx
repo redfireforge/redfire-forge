@@ -31,6 +31,7 @@ import {
   createDefaultWsSendAction,
   createDefaultWsReceiveAction,
 } from '../../../shared/utils/wsScenarioDefaults';
+import { makeDefaultGrpcHarnessCallAction } from '../../../shared/utils/grpcHarnessScenarioContracts';
 import {
   createTestEditorExportHandler,
   createTestEditorImportHandler,
@@ -268,6 +269,7 @@ export default function TestEditorModal({
   const isHttp = effectiveTransport === 'http';
   const isWs = isWsActionType(effectiveTransport);
   const isKafka = effectiveTransport === 'kafkaProduce' || effectiveTransport === 'kafkaConsume';
+  const isGrpc = effectiveTransport === 'grpcCall';
 
   const siblingTests = useMemo(() => {
     const fg = featureGroups.find((g) => g.id === editingTest.fgId);
@@ -286,6 +288,7 @@ export default function TestEditorModal({
       wsReceiveAction: undefined,
       kafkaProduceAction: undefined,
       kafkaConsumeAction: undefined,
+      grpcCallAction: undefined,
     };
     if (actionType === 'http') {
       patch.method = 'GET';
@@ -294,7 +297,10 @@ export default function TestEditorModal({
       if (actionType === 'wsConnect') patch.wsConnectAction = createDefaultWsConnectAction();
       else if (actionType === 'wsSend') patch.wsSendAction = createDefaultWsSendAction();
       else if (actionType === 'wsReceive') patch.wsReceiveAction = createDefaultWsReceiveAction();
-    } else {
+    } else if (actionType === 'grpcCall') {
+      patch.method = 'GRPC';
+      patch.grpcCallAction = makeDefaultGrpcHarnessCallAction();
+    } else if (actionType === 'kafkaProduce' || actionType === 'kafkaConsume') {
       patch.method = 'KAFKA';
     }
     if (isWsActionType(actionType) && cur.extractions?.some(e => e.source !== 'body')) {
@@ -601,6 +607,12 @@ export default function TestEditorModal({
             {isKafka && (
               <div className="kafka-editor-placeholder">
                 <p>Kafka scenario editor is planned for a future phase. Configure Kafka actions via JSON import or the data model.</p>
+              </div>
+            )}
+
+            {isGrpc && (
+              <div className="kafka-editor-placeholder">
+                <p>gRPC harness scenario editor is planned for a future phase. Configure gRPC calls via JSON import.</p>
               </div>
             )}
 

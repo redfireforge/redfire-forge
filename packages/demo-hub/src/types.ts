@@ -71,6 +71,8 @@ export interface DemoLesson {
   dockerEndpoints?: string[];
   /** docker compose command the user must run to start the required container. */
   dockerCommand?: string;
+  /** Optional PrerequisiteGate title (default: 🐳 Docker Required). */
+  gateLabel?: string;
   /** GraphQL Studio demo tabs this lesson needs (default 1). User cap = 8 − tabBudget. */
   tabBudget?: number;
   /** When true, the live demo can only run in the Tauri desktop app — web shows a gate and disables Start Demo. */

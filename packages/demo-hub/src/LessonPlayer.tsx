@@ -141,6 +141,7 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
           <PrerequisiteGate
             endpoints={dockerEndpoints}
             dockerCommand={lesson.dockerCommand ?? `docker compose -f docker/websocket/socketio/docker-compose.yml up`}
+            gateLabel={lesson.gateLabel}
             onServerReady={() => setDockerGateCleared(true)}
             tabBudget={needsTabGate ? tabBudget : undefined}
             onTabCapacityReady={needsTabGate ? () => setTabGateCleared(true) : undefined}

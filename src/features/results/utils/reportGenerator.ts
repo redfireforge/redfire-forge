@@ -2,7 +2,12 @@ import type { TestRun, RequestResult } from '../../../shared/types';
 import { getResultErrorMessage } from '../../../shared/utils/helpers';
 import { percentile } from '../../../shared/utils/percentiles';
 import { formatTransportStatus } from './transportStatus';
+import { redactGrpcHarnessRunnerArtifactsForExport } from '../../../shared/grpc/grpcHarnessExport';
 // import { escapeCsv } from '../../../shared/utils/export';
+
+function exportSafeResults(results: RequestResult[]): RequestResult[] {
+  return redactGrpcHarnessRunnerArtifactsForExport(results);
+}
 
 export interface ReportOptions {
   format: 'html' | 'json' | 'markdown';
@@ -51,8 +56,9 @@ function computeRowStats(results: RequestResult[]): RowStats {
 
 function generateHtmlReport(run: TestRun, opts: ReportOptions): string {
   const s = run.summary;
-  const stats = computeRowStats(run.results);
-  const active = run.results.filter(r => !r.cancelled);
+  const results = exportSafeResults(run.results);
+  const stats = computeRowStats(results);
+  const active = results.filter(r => !r.cancelled);
   const failed = active.filter(r => !r.passed);
   const passed = active.filter(r => r.passed);
   const hasDataRows = active.some(r => r.dataRowId);
@@ -160,8 +166,9 @@ function esc(s: string): string {
 // ─── JSON Report ───────────────────────────────────────────
 
 function generateJsonReport(run: TestRun, opts: ReportOptions): string {
-  const active = run.results.filter(r => !r.cancelled);
-  const stats = computeRowStats(run.results);
+  const results = exportSafeResults(run.results);
+  const active = results.filter(r => !r.cancelled);
+  const stats = computeRowStats(results);
   const hasDataRows = active.some(r => r.dataRowId);
   const failed = active.filter(r => !r.passed);
 
@@ -209,8 +216,9 @@ function generateJsonReport(run: TestRun, opts: ReportOptions): string {
 
 function generateMarkdownReport(run: TestRun, opts: ReportOptions): string {
   const s = run.summary;
-  const stats = computeRowStats(run.results);
-  const active = run.results.filter(r => !r.cancelled);
+  const results = exportSafeResults(run.results);
+  const stats = computeRowStats(results);
+  const active = results.filter(r => !r.cancelled);
   const failed = active.filter(r => !r.passed);
   const title = opts.title || `${run.projectName || 'Test'} Report`;
 

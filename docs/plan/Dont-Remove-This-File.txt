@@ -253,46 +253,44 @@ Based on graphql-studio-plan.md file, Pleaes thoroughly re-evaluate Phase 6E and
 Pleaes thoroughly re-evaluate Phase 6D and if there is any missing or bug plan, please update then implement it. After finish it, please re-evaluate your implementation. If you find any bug, please fix it. Repeat this re-evaluation process until no more issue or bug. 
 
 
-1. 6D — Per-tab APQ / execution lifecycle cache (next engineering work)
-Fixes the known gap: APQ badge on the connection bar is still page-global (apqInfo from last execution). Tasks 6D-1 through 6D-5 in graphql-studio-plan.md §PT-7.
-
-2. 6E — Full hook isolation (optional, defer)
-Only if you want background-tab loading spinners, per-tab dedup modals, etc. Not needed for GQL-19 or APQ badge correctness (6D covers that).
-
-3. Deferred Phase 6 follow-ons (not scheduled)
-From the architecture table — fine to leave for later:
-
-Per-tab auth (keep global for MVP)
-Per-tab schema polling settings
-Connection profile per tab (Option B — connectionId field exists but unused)
-4. Nothing blocking demo lessons on engineering
-6A–6B + e2e/graphql-multi-tab.spec.ts already verify isolation. 6D is optional before GQL-19 (lesson does not demo APQ).
-
-5. GQL-18 batch lesson itself is separate
-The batch lesson file does not exist yet (Phase 5 in the demo doc). The parity note is spec'd in §7.6/§11.2 and should be applied when graphql-batch-execution.ts is authored — it can ship before or after GQL-19.
-
-6. When you implement Phase 7 (demo)
-Standard demo checklist only: lesson + helper + unit tests, registry slot 15, visual validation, tsc + scoped vitest. No E2E demo spec required unless you want one later.
 
 
-If you want engineering next (not demos):
+--------- GRPC 
 
-6D-6 — if multipart upload UX on tab switch matters
-4F-7 — quick regression net for existing lessons
-Or close Phase 6 and open a new plan section (e.g. Phase 7) for whatever comes next (TLS lesson infra is already partly built under docker/graphql/tls/)
+Based on grpc-studio-plan.md file. Please thorughly re-evaluate Phase 6I plan if you find any missing or bug, please update md file. And then implement this plan. After implementation is done, please thoroughly re-evalaute what you implemented and if you find any bug, please fix it. Repeate this review process until there is no bug or issue. 
 
 
-Otherwise the natural next focus is graphql-demo-lesson-enhancement.md Phase 7 (GQL-19 first), or Phases 1–3 polish on existing lessons before new ones.
 
---------------------------------------------------------------------------
-GQL-5 TLS / mTLS — 2026-06-27 (plan sync)
-
-Completed: **18-step** lesson (skip-cert **4–6** → auth-on-TLS **7–9** → CA **10–12** → mTLS **13–16** → restore **17–18**),
-**10 min** estimate, studio TLS proxy, page PEM persistence, dual Docker health gate (4444+4446),
-demo E2E shell + full Docker walk ✅ (18 steps), tlsAgent consolidation, GET PEM hardening.
-§11.0 acceptance E2E ✅ (gql110 4/4). GQL-5 Tauri human ✅ (2026-06-26). GQL-7 Tauri human ✅.
-Docker tip: use curl --noproxy '*' or NO_PROXY='*' for 127.0.0.1 health probes behind corporate proxy.
-Pending: Phase 8 Web manual 1× for GQL-5 (Tauri done); remaining Tauri/Web lessons per phase8 checklist.
-Details: docs/plan/future/graphql/graphql-demo-lesson-enhancement.md · gql5-phase8-validation-checklist.md
+Please thoroughly evaluate Phase 6Iand if we have any issue or bug or discrepancy, please fix them. Repeat re-evaulation until there is no issue or bug. 
 
 
+One more deep re-evaluateion please for Phase 12B
+
+
+
+
+
+
+Based on grpc-studio-plan.md file.
+Please thoroughly evaluate all of Phase 2 implementaions and if we have any issue or bug or discrepancy, please fix them. Repeat re-evaulation until there is no issue or bug. 
+
+
+
+Please thorughly re-evaluate Phase 2 plans and if it has any missing or bug, please update it. 
+And let me know what is your implemenation plan for this phase 2? 
+
+
+
+
+Phase 6 — Workflow Integration
+6A -> 6B -> 6C -> 6D -> 6E -> 6F -> 6G -> 6H -> 6I
+
+
+mplementation order I’d follow
+Types + validation first (6A) — fail fast at graph design time.
+Snapshot boundary (6B) — single choke point before any executor work.
+Executors in parallel (6C + 6D) — unary and server-stream once 6B is stable.
+Assert + namespace (6E + 6F) — before UI, so Results Explorer reads final shapes.
+UI + mixed-protocol E2E (6G + 6H) — then 6I gate.
+
+One more deep re-evaluateion please for Phase (6G + 6H)

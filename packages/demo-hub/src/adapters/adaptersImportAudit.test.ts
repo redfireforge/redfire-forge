@@ -8,6 +8,7 @@ const ADAPTERS_ROOT = join(process.cwd(), 'packages/demo-hub/src/adapters');
 
 const FORBIDDEN_PATTERNS = [
   /from ['"][^'"]*features\/graphql\/hooks\//,
+  /from ['"][^'"]*features\/grpc\//,
   /from ['"][^'"]*app\/hooks\/useDemo/,
   /from ['"][^'"]*graphql\/utils\//,
   /await import\(['"][^'"]*graphql\/utils\//,
@@ -33,6 +34,7 @@ const MIGRATED_REL_PATHS = new Set([
   'protocols/kafka-test-runner.ts',
   'protocols/ws-test-runner.ts',
   'protocols/ws-workflow-builder.ts',
+  'protocols/grpc-lesson-helpers.ts',
 ]);
 
 const RAW_WF_BRIDGE_PATTERN = /(?:\(window as unknown[^)]*\)|\bwin)\.__wf[A-Z]/;

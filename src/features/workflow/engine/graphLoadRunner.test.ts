@@ -235,6 +235,7 @@ describe('graphLoadRunner', () => {
         undefined,          // httpTimeoutMs
         undefined,          // kafkaOperations
         undefined,          // wsOperations
+        undefined,          // grpcOperations
       );
     });
 
@@ -810,6 +811,7 @@ describe('graphLoadRunner', () => {
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
         undefined, // wsOperations
+        undefined, // grpcOperations
       );
     });
 
@@ -848,6 +850,46 @@ describe('graphLoadRunner', () => {
         undefined,          // httpTimeoutMs
         kafkaOperations,    // kafkaOperations ← must be threaded through
         undefined,          // wsOperations
+        undefined,          // grpcOperations
+      );
+    });
+
+    it('passes grpcOperations from opts through to runGraph', async () => {
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockResolvedValue([createMockResult()]);
+
+      const grpcOperations = {
+        invokeUnary: vi.fn(),
+        collectServerStream: vi.fn(),
+      };
+
+      await runGraphLoad(workflow, {
+        iterations: 1,
+        concurrency: 1,
+        grpcOperations,
+      });
+
+      expect(mockRunGraph).toHaveBeenCalledWith(
+        workflow.nodes,
+        workflow.edges,
+        expect.any(Object),
+        expect.any(Object),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        true,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        grpcOperations,
       );
     });
 
@@ -870,7 +912,7 @@ describe('graphLoadRunner', () => {
       });
 
       const callArgs = mockRunGraph.mock.calls[0];
-      const passedWsOps = callArgs[callArgs.length - 1];
+      const passedWsOps = callArgs[18];
       expect(passedWsOps).toBeDefined();
       expect(passedWsOps).not.toBe(wsOperations);
       expect(passedWsOps).toHaveProperty('connect');

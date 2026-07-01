@@ -42,7 +42,7 @@
 .pending-panel { width:220px; flex-shrink:0; border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
 </style>
 </head>
-<body>
+<body data-grpc-page="chrome">
 <div class="app-header">
   <a class="app-logo" href="index.html">🔥 <span>RedfireForge</span></a>
   <div class="nav-pills">
@@ -56,13 +56,16 @@
   <button class="proto-tab active"><span class="dot"></span> gRPC</button>
 </div>
 
-<!-- Connection Bar -->
+<!-- Connection Bar (same chrome as mockup 01 — Phase 4J) -->
 <div class="connection-bar">
-  <div class="status-dot connected"></div>
-  <input class="target-input" type="text" value="grpc.example.com:50051" style="max-width:260px">
-  <div class="tls-badge">🔒 TLS</div>
-  <div style="font-size:11px;color:var(--text-muted);margin-left:8px">EchoService</div>
-  <button class="btn btn-ghost btn-sm" style="margin-left:auto">⚙ Call Settings</button>
+  <div class="status-dot connected" title="Per-call transport ready"></div>
+  <input class="target-input grpc-target-input" type="text" value="grpc.example.com:50051" style="max-width:280px" aria-label="gRPC target address">
+  <button type="button" class="tls-badge" id="grpcTlsBadge" title="Configure TLS — shared modal">🔒 TLS</button>
+  <button type="button" class="auth-badge auth-badge--configured" id="grpcAuthBadge" title="Open auth settings">Auth: Bearer</button>
+  <button type="button" class="deadline-badge deadline-badge--btn" data-action="settings" data-settings-panel="call" title="Call settings">⏱ 30s</button>
+  <button type="button" class="btn btn-ghost btn-sm connection-settings-btn" data-action="settings" title="All connection settings">⚙</button>
+  <span style="font-size:11px;color:var(--text-muted);margin-left:4px">EchoService</span>
+  <div class="connection-bar-spacer"></div>
 </div>
 
 <!-- Streaming type selector -->
@@ -390,5 +393,6 @@ function clearLog() {
 document.getElementById('view-ss').style.display = 'flex';
 document.getElementById('view-ss').style.flexDirection = 'column';
 </script>
+<script src="mockup-shared.js"></script>
 </body>
 </html>

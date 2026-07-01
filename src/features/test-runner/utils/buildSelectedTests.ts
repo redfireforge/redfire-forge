@@ -54,6 +54,11 @@ export function buildSelectedTests(
             validation = { ...validation, assertions: [] };
           }
 
+          let grpcCallAction = test.grpcCallAction;
+          if (skipAssertions && grpcCallAction?.assertions?.length) {
+            grpcCallAction = { ...grpcCallAction, assertions: [] };
+          }
+
           if (forceUnordered !== 'default' && validation.mode === 'selective') {
             validation = { ...validation, unorderedArrays: forceUnordered === 'force-on' };
           }
@@ -65,6 +70,7 @@ export function buildSelectedTests(
             auth,
             validation,
             dataSource,
+            grpcCallAction,
             featureGroupName: fg.name,
             groupName: sc.name,
             scenarioTags: sc.tags,

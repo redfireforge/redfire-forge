@@ -36,6 +36,9 @@ import type {
   GraphqlSubscriptionNodeData,
   GraphqlIntrospectNodeData,
   GraphqlAssertNodeData,
+  GrpcUnaryNodeData,
+  GrpcServerStreamNodeData,
+  GrpcAssertNodeData,
 } from '../types/workflow';
 import { isHttpWorkflowNode } from './workflowVariableHints';
 import HttpStepNode from '../components/nodes/HttpStepNode';
@@ -231,6 +234,9 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
     case 'graphqlSubscription': return defaultGraphqlSubscriptionNodeData();
     case 'graphqlIntrospect':   return defaultGraphqlIntrospectNodeData();
     case 'graphqlAssert':       return defaultGraphqlAssertNodeData();
+    case 'grpcUnary':           return defaultGrpcUnaryNodeData();
+    case 'grpcServerStream':    return defaultGrpcServerStreamNodeData();
+    case 'grpcAssert':          return defaultGrpcAssertNodeData();
   }
 }
 
@@ -399,5 +405,43 @@ export function defaultGraphqlAssertNodeData(): GraphqlAssertNodeData {
     sourceVariable: '',
     assertions: [],
     failBehavior: 'error',
+  };
+}
+
+export function defaultGrpcUnaryNodeData(): GrpcUnaryNodeData {
+  return {
+    label: 'gRPC Unary',
+    target: '',
+    descriptorKey: '',
+    service: '',
+    method: '',
+    callType: 'unary',
+    body: {},
+    timeoutMs: 30_000,
+    onError: 'fail',
+  };
+}
+
+export function defaultGrpcServerStreamNodeData(): GrpcServerStreamNodeData {
+  return {
+    label: 'gRPC Server Stream',
+    target: '',
+    descriptorKey: '',
+    service: '',
+    method: '',
+    callType: 'server_streaming',
+    body: {},
+    collect: { maxMessages: 10 },
+    timeoutMs: 30_000,
+    onError: 'fail',
+  };
+}
+
+export function defaultGrpcAssertNodeData(): GrpcAssertNodeData {
+  return {
+    label: 'gRPC Assert',
+    source: '',
+    assertions: [],
+    onError: 'fail',
   };
 }

@@ -8,7 +8,10 @@ import { CircuitBreaker } from './circuitBreaker';
 import { runSequential, runBatch, runPool, resetResultIdCounter, clearPrepCache, type RunOpts } from './requestExecution';
 import { executeKafkaAction } from './kafkaExecution';
 import { executeWsAction } from './wsExecution';
+import { executeGrpcAction } from './grpcExecution';
+import { buildGrpcHarnessOperations } from '../shared/grpc/buildGrpcHarnessOperations';
 import { isWsActionType } from '../shared/types';
+import { isGrpcHarnessScenario, validateGrpcHarnessActionConfig } from '../shared/utils/grpcHarnessScenarioContracts';
 import { runLoadProfile } from './loadProfileRunner';
 import { createThinkTimeDelay } from './thinkTime';
 import { runWorkflow, runWorkflowLoad, runGraphLoad, VariableContext } from '../features/workflow/engine';
@@ -100,6 +103,8 @@ export interface WorkflowResolverData {
   microservices?: Microservice[];
   globalAuthProfiles?: GlobalAuthProfile[];
   selectedEnvId?: string;
+  /** Selected microservice id for gRPC harness `{{grpcHost}}` resolution in workflow runs. */
+  selectedSvcId?: string;
 }
 
 export async function runTest(
@@ -119,6 +124,10 @@ export async function runTest(
   kafkaOperations?: KafkaNodeOperations,
   /** WebSocket operations for WS nodes in workflow execution. */
   wsOperations?: WsNodeOperations,
+  /** gRPC operations for grpcUnary/grpcServerStream nodes in workflow execution. */
+  grpcOperations?: import('../features/workflow/engine/graphRunnerNodeHandlerContext').GrpcNodeOperations,
+  /** Env map for gRPC harness `{{grpcHost}}` template resolution. */
+  grpcHarnessEnv?: Record<string, string>,
 ): Promise<TestResult> {
   resetResultIdCounter(workerIndex);
   clearPrepCache();
@@ -167,22 +176,32 @@ export async function runTest(
 
   const mode = config.executionMode ?? 'batch';
   const getThinkTimeMs = createThinkTimeDelay(config.thinkTime);
+  const harnessOps = buildGrpcHarnessOperations();
   const opts: RunOpts = {
     tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs,
-    executeNonHttp: (kafkaOperations || wsOperations)
-      ? (scenario: Scenario) => {
-          const at = scenario.actionType ?? 'http';
-          if (at === 'kafkaProduce' || at === 'kafkaConsume') {
-            if (!kafkaOperations) throw new Error('Kafka operations not available for action type: ' + at);
-            return executeKafkaAction(scenario, kafkaOperations, timeoutMs);
-          }
-          if (isWsActionType(at)) {
-            if (!wsOperations) throw new Error('WS operations not available for action type: ' + at);
-            return executeWsAction(scenario, wsOperations, timeoutMs);
-          }
-          throw new Error(`Unknown non-HTTP action type: '${at}'`);
+    grpcHarnessEnv,
+    executeNonHttp: (scenario: Scenario) => {
+      const at = scenario.actionType ?? 'http';
+      if (at === 'kafkaProduce' || at === 'kafkaConsume') {
+        if (!kafkaOperations) throw new Error('Kafka operations not available for action type: ' + at);
+        return executeKafkaAction(scenario, kafkaOperations, timeoutMs);
+      }
+      if (isWsActionType(at)) {
+        if (!wsOperations) throw new Error('WS operations not available for action type: ' + at);
+        return executeWsAction(scenario, wsOperations, timeoutMs);
+      }
+      if (at === 'grpcCall' || isGrpcHarnessScenario(scenario)) {
+        const configErrors = validateGrpcHarnessActionConfig(scenario);
+        if (configErrors.length > 0) {
+          throw new Error(`Invalid gRPC harness scenario: ${configErrors.join('; ')}`);
         }
-      : undefined,
+        return executeGrpcAction(scenario, harnessOps, {
+          abortSignal,
+          grpcHarnessEnv,
+        });
+      }
+      throw new Error(`Unknown non-HTTP action type: '${at}'`);
+    },
   };
 
   // Graph-based workflow path — graphRunner handles its own WS cleanup internally
@@ -224,6 +243,7 @@ export async function runTest(
       resolveHttpAuth: resolveAuth,
       kafkaOperations,
       wsOperations,
+      grpcOperations,
     });
   }
 

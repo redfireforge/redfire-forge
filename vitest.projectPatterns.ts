@@ -40,6 +40,7 @@ export const PRODUCT_COVERAGE_EXCLUDE = [
   '**/test-helpers/**',
   '**/*.coverage-helpers.ts',
   '**/*.test-utils.{ts,tsx}',
+  '**/*.testHelpers.ts',
   '**/*.test.{ts,tsx}',
   '**/*.config.{ts,js}',
   'src/shared/types/index.ts',

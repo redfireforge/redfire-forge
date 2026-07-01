@@ -143,18 +143,18 @@ export function createExtractionAdapter(
     fetchTargetSchema: opts.fetchSampleData
       ? async (): Promise<TargetSchemaResult> => {
           const data = await opts.fetchSampleData!();
-          const parsed = typeof data === 'string' ? JSON.parse(data) : data;
-          if (parsed == null || typeof parsed !== 'object') {
-            return { sampleData: parsed };
+          const fetched = coerceSampleData(data);
+          if (fetched == null || typeof fetched !== 'object') {
+            return { sampleData: fetched };
           }
-          const tree = buildJsonTree(parsed, '', '');
+          const tree = buildJsonTree(fetched, '', '');
           const leafPaths = getAllLeafPaths(tree);
           const fields: TargetField[] = leafPaths.map((p) => ({
             path: p,
             label: p.includes('.') ? p.split('.').pop()! : p,
             type: 'string',
           }));
-          return { sampleData: parsed, fields };
+          return { sampleData: fetched, fields };
         }
       : undefined,
 

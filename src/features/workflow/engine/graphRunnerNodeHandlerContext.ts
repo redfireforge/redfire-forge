@@ -13,6 +13,10 @@ import type { GraphRunCallbacks } from './graphRunnerInterfaces';
 import type { CorrelationWaitRunnerConfig, ExecutionTraceOptions, CapturedHttpRequest, CapturedHttpResponse, AssertionResult } from '../../../shared/types';
 import type { Semaphore } from '../../../shared/utils/semaphore';
 import type { KafkaSchemaConfig } from '../../../shared/kafka/kafkaClient';
+import type { GrpcCallRequest, GrpcStreamStartRequest } from '../../../shared/grpc/contracts';
+import type { GrpcServerStreamCollectConfig } from '../types/workflow/node-grpc';
+import type { GrpcUnaryInvokeResult } from '../utils/grpcWorkflowUnaryExecutor';
+import type { GrpcWorkflowStreamCollectionResult } from '../utils/grpcWorkflowStreamCollector';
 
 // ────────────────────────────────────────────────────────
 // Kafka node operations (dependency-injected for testability)
@@ -146,6 +150,21 @@ export interface WsNodeOperations {
 }
 
 // ────────────────────────────────────────────────────────
+// gRPC node operations (dependency-injected for testability)
+// ────────────────────────────────────────────────────────
+
+/** Dependency-injected operations for gRPC workflow node handlers. */
+export interface GrpcNodeOperations {
+  invokeUnary(request: GrpcCallRequest, tabId: string): Promise<GrpcUnaryInvokeResult>;
+  collectServerStream(
+    request: GrpcStreamStartRequest,
+    tabId: string,
+    collect: GrpcServerStreamCollectConfig,
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<GrpcWorkflowStreamCollectionResult>;
+}
+
+// ────────────────────────────────────────────────────────
 // Shared context passed to every handler
 // ────────────────────────────────────────────────────────
 
@@ -261,6 +280,17 @@ export interface NodeHandlerContext {
    * Populated by handleWsConnectNode/handleWsSendNode/handleWsReceiveNode, consumed when building eventDetails.
    */
   capturedWsDetails?: Map<string, import('../../../shared/types').CapturedWsNodeDetails>;
+  /** gRPC client operations for grpcUnary/grpcServerStream node handlers. */
+  grpcOperations?: GrpcNodeOperations;
+  /**
+   * Storage for captured gRPC execution details per node (for trace capture).
+   * Populated by handleGrpcUnaryNode/handleGrpcServerStreamNode.
+   */
+  capturedGrpcDetails?: Map<string, import('../../../shared/types').CapturedGrpcNodeDetails>;
+  /** Frozen per-run gRPC step results for grpcAssert evaluation (Phase 6E). */
+  grpcStepResultStore?: import('../utils/grpcWorkflowStepResultStore').GrpcWorkflowStepResultStore;
+  /** Collision-safe output namespace publisher (Phase 6F). */
+  grpcOutputRegistry?: import('../utils/grpcWorkflowOutputRegistry').GrpcWorkflowOutputRegistry;
 }
 
 /**

@@ -1,0 +1,288 @@
+---
+description: gRPC Studio UI conventions from all mockups (01–06) — layout regions, call-type badges, send/response panels, selectors
+alwaysApply: false
+---
+
+# gRPC Studio UI Rules
+
+These rules apply when creating or modifying **gRPC Studio** UI:
+`src/features/grpc/`, `src/styles/grpc-studio.css`, and related selectors in `src/shared/selectors/grpc.ts`.
+
+**Design tokens:** Follow [`.cursor/rules/ui-design-system.mdc`](ui-design-system.mdc) — use `var(--bg)`, `var(--surface)`, `var(--border)`, `var(--text)`, `var(--text-muted)`, `var(--primary)`. Never hardcode hex/rgba for theme surfaces.
+
+**Phase 1 vs mockup gaps:** See [`docs/plan/future/grpc/grpc-studio-plan.md`](../../docs/plan/future/grpc/grpc-studio-plan.md) § Phase 1 vs mockup gap and **§ Phase 4J — Protocol UI/UX Parity** for TLS/Auth divergence remediation. See [`docs/guides/grpc-phase1-runbook.md`](../../docs/guides/grpc-phase1-runbook.md) § UI mockup parity.
+
+**⚠️ Divergence rule (Phase 4J):** Do **not** add inline PEM editors or page-level TLS blocks. TLS must use **`GrpcTlsConfigModal`** via **`GrpcTlsPanel`** (tri-mode + secret masking — not shared `TlsConfigModal`). Connection bar must expose TLS + Auth badges per mockup `01`.
+
+---
+
+## Mockup catalog
+
+All interactive HTML mockups live under [`docs/plan/future/grpc/mockups/`](../../docs/plan/future/grpc/mockups/). Shared tokens and call-type colors: [`shared.css`](../../docs/plan/future/grpc/mockups/shared.css). Connection bar + TLS modal interactions: [`mockup-shared.js`](../../docs/plan/future/grpc/mockups/mockup-shared.js) (Phase 4J).
+
+**Start here:** [`index.html`](../../docs/plan/future/grpc/mockups/index.html) — phase coverage map, card summaries, competitive differentiators.
+
+| File | Phase | Title | When to open |
+|---|---|---|---|
+| [`01-main-studio.html`](../../docs/plan/future/grpc/mockups/01-main-studio.html) | **1** | Main Studio — Unary Calls | Tab bar, explorer, target bar, send bar, Form/JSON/Metadata, unary response panel |
+| [`02-streaming.html`](../../docs/plan/future/grpc/mockups/02-streaming.html) | **2** | All Streaming Call Types | Server/client/bidi stream UX, message log, EOF, stream cancel, tab call-type pills |
+| [`03-proto-management.html`](../../docs/plan/future/grpc/mockups/03-proto-management.html) | **3** | Schema Sources & Browser | Manage Schemas panel, reflection/proto/protoset/BSR/URL sources, schema browser |
+| [`04-auth-tls.html`](../../docs/plan/future/grpc/mockups/04-auth-tls.html) | **4** | TLS, Auth & Call Settings | Connection bar TLS/Auth badges, settings nav, mTLS, auth types, deadline/compression/health/K8s |
+| [`05-collections-history.html`](../../docs/plan/future/grpc/mockups/05-collections-history.html) | **5** | Collections, History & Snapshots | Collection tree, saved requests, snapshot diff, call history, grpcurl import/export |
+| [`06-advanced-features.html`](../../docs/plan/future/grpc/mockups/06-advanced-features.html) | **11** | Load Testing, Mock Server, Schema Diff, Stats | ghz-style load test, mock server rules, proto diff, per-method RPC stats |
+
+**Phases without dedicated mockups** (reuse patterns from above):
+
+| Phase | UI reference |
+|---|---|
+| 6 — Workflow nodes | Workflow Designer patterns (not a grpc mockup) |
+| 7 — Tauri transport | Same as Phase 1 shell; transport toggle in mockup 04 |
+| 8 — Test Runner assertions | Extends existing Harness UI |
+| 9 — Env interpolation | Shown inline in mockup 01 (`{{grpcHost}}`) |
+| 10 — gRPC-Web | Transport selector in mockup 04 |
+| 12 — Demo lessons | Existing Demo Hub lesson format |
+
+**Rule:** Before implementing UI for phase *N*, open the matching mockup file **and** `index.html` phase map. Phase 1 work uses **01** only; do not pull controls from 02–06 into Phase 1 unless the plan gap table explicitly allows it.
+
+---
+
+## Phase 1 — `01-main-studio.html` (shipped baseline)
+
+### Layout regions (mockup → implementation)
+
+| Mockup region | Component(s) | Notes |
+|---|---|---|
+| Tab bar | `GrpcTabBar.tsx` | Rename (dbl-click), duplicate, close, in-flight highlight |
+| Target / connection | **`GrpcConnectionBar.tsx`** + **`GrpcTargetPanel.tsx`** inside **`grpc-studio-main`** | Phase 4J-A ✅ bar; **4J-B ✅** TLS modal (no inline PEM) |
+| Service explorer sidebar | `GrpcServiceExplorer.tsx` | Search filter, reflect, tree, footer stats |
+| Method summary (optional) | `GrpcMethodDetailPanel.tsx` | Phase 1 addition above call panel |
+| Send bar + request/response | `GrpcCallPanel.tsx` | Send bar, Form/JSON/Metadata tabs, embedded `GrpcResponsePanel` |
+| Explorer + main split | `GrpcExplorerPane.tsx` | Sidebar + `.grpc-studio-main` column |
+
+Page shell: `GrpcStudioPage.tsx` — studio header, tab bar, per-tab pane wrapper.
+
+### Tab bar
+
+- Tabs show **editable title** (default from method or `Tab N`) and **call-type pill** (U/SS/CS/BD) when a method is selected — shipped in **Phase 2G** (`02-streaming.html`, `GrpcTabBar.tsx`).
+- **In-flight** tabs: warning border (`.grpc-tab--in-flight`), not a second spinner on the tab label.
+- **+ New tab** disabled at max tabs (`GRPC_STUDIO_MAX_TABS`).
+- All tab controls need `data-testid` entries in `src/shared/selectors/grpc.ts` (`GRPC` namespace).
+
+### Service explorer (left sidebar)
+
+- Header: **Services** title + **Reflect** button (`grpc-reflect-btn`); disabled when target invalid or already loading.
+- **Search** filters services/methods client-side; reset when `descriptor.key` changes.
+- Service rows: expand/collapse, method count, service initial icon (variant color from `serviceExplorerIconVariant`).
+- Method rows: **call-type badge** + method name; selected row highlighted.
+- Footer (when descriptor loaded): Source chip, service count, method count (filtered/total when searching).
+- **Manage Schemas** button: opens **Manage Schemas** modal (Phase 3I ✅ — `GrpcProtoManageModal`).
+
+### Call-type badge colors (shared across 01 + 02)
+
+Use modifier classes; map via `grpcCallTypeBadgeModifier()`:
+
+| Call type | Badge | Mockup class | Meaning |
+|---|---|---|---|
+| Unary | **U** | `grpc-method-badge--u` | Green — unary Send |
+| Server streaming | **SS** | `grpc-method-badge--ss` | Blue — Start Stream + Cancel |
+| Client streaming | **CS** | `grpc-method-badge--cs` | Amber — Send message + End Stream |
+| Bidirectional | **BD** | `grpc-method-badge--bd` | Mauve — duplex log + compose |
+
+All four call types are executable in **Phase 2**. Layout branches automatically from `method.callType` — see **`02-streaming.html`** and `GrpcCallPanel.tsx` (`Start stream` / compose panel / stream log).
+
+### Target panel (connection bar — Phase 1 subset)
+
+Mockup `connection-bar` in **01** includes TLS, Auth, Connect/Disconnect. Full settings drawer: **`04-auth-tls.html`**.
+
+Phase 1 ships:
+- Target input lives in **`GrpcConnectionBar`** (`grpc-target-input`) with validation strip in **`GrpcTargetPanel`** — `host:port`, `in-process:<name>`, or `{{grpcHost}}`.
+- Validation badge: **ok** (`grpc-target-status-ok`) or **Invalid** (`grpc-target-status-error`) — client-side format/resolution only, not a live network probe.
+- Hint line for unresolved env vars and accepted formats.
+
+**Phase 4J-A ✅:** TLS badge, Auth badge, deadline chip in connection bar.
+
+**Phase 4J-B ✅:** TLS badge opens **`GrpcTlsConfigModal`** (tri-mode + secret fields). No inline PEM on main surface. Auth type pills in **`GrpcAuthPanel`**.
+
+**Phase 4J-C ✅:** Gear + deadline badge open **`GrpcConnectionSettingsDrawer`** (TLS / Auth / Call nav). TLS badge still opens modal fast path. Drawer overlay uses `pointer-events: none` passthrough + badge `z-index` so connection bar chips stay clickable; close via **Close** or Escape (not overlay click).
+
+**Phase 1 ✅:** Connect/Disconnect toggle + status dot probe target via `/api/grpc/status` (not a persistent gRPC channel). While probing, toggle label is **Cancel** (abort in-flight probe).
+
+### Send bar (`GrpcCallPanel`)
+
+Structure (left → right):
+1. **Method info** — `ServiceShort / **Method**` + call type + `RequestType → ResponseType` mono hint.
+2. **Descriptor source** chip — Reflection / Proto files / etc. (`grpc-call-source`).
+3. **Timeout** input (ms) — per-tab, min 1.
+4. **Send** button — `▶ Send Unary` (`grpc-send-btn`); label `Sending…` when in-flight.
+5. **Cancel** — visible only in-flight (`grpc-cancel-btn`); danger-styled, best-effort abort.
+
+Send enablement: method selected + unary-ready + valid target + valid form/JSON/metadata + not in-flight.
+
+### Request composer tabs
+
+Tabs: **Form Input** | **JSON** | **Metadata** | **Auth** (`grpc-request-tab-*`).
+
+- Switching away from Form/JSON/Metadata with validation errors **blocks** the switch and shows an inline alert (same pattern as GraphQL body tabs). **Auth** is always reachable — connection bar badge and Auth tab bypass form/metadata guards (Phase 4J-A).
+- **Form:** proto-driven fields via `GrpcProtoFormBuilder`; type badges on fields; repeated scalars, oneof pills, WKT inputs, map key/value rows.
+- **JSON:** textarea syncs to tab body; toolbar **Pretty Format** + **Copy**; invalid JSON disables Send.
+- **Metadata:** `GrpcMetadataEditor` + `KeyValueEditor`; `-bin` keys require base64; editor local state must gate Send when rows are incomplete.
+
+### Response panel (`GrpcResponsePanel`)
+
+Embedded in call panel (mockup `response-pane` below request split).
+
+#### Header states
+
+| Lifecycle | Header content |
+|---|---|
+| `idle` | “Send a unary call to see the response.” |
+| `calling` | “Calling…” |
+| `success` | Status badge + duration + target + **Copy Response** |
+| `error` | Error summary (`code: message`) |
+| `cancelled` | “Call cancelled” |
+
+Status badge: green for gRPC OK (`status === 0`), red otherwise. Format: `{statusMessage} · {code}`.
+
+#### Response tabs
+
+**Body** | **Headers** (count badge) | **Trailers** (count badge) | **Timing**
+
+- Body: pretty-printed JSON with syntax highlighting (`highlightJson`) + toolbar Pretty/Copy (`grpc-response-body`).
+- Headers/trailers: sortable KV table (`grpc-response-headers`, `grpc-response-trailers`).
+- Timing: breakdown bars per phase (`grpc-response-timing`); server populates `timingBreakdown` when available.
+
+Do **not** add Snapshot baseline button until Phase 5 (`05-collections-history.html`).
+
+---
+
+## Phase 2 — `02-streaming.html`
+
+Reference when implementing streaming routes and UI.
+
+| Mockup region | Expected behavior |
+|---|---|
+| Tab bar | Call-type pill on each tab (U / SS / CS / BD) when method selected |
+| Call type selector row | U / SS / CS / BD tabs — layout gallery without method; locked to proto when method selected |
+| Server streaming | Single request → live **message log** (scrollable), stream status dot, cancel |
+| Client streaming | **Pending queue** (left) + compose (right), **Add to queue**, **Send now**, **Send all** + **End stream** |
+| Bidirectional | Full-duplex log (in/out arrows), compose bar, EOF + cancel |
+| Export log | **Export log** button on stream status bar → JSON download |
+| Connection bar | Reuse Phase 1 target; stream-specific send labels (`▶ Start Stream`, etc.) |
+
+**Call type source:** Execution follows `method.callType`. The selector row previews layouts via `layoutPreviewCallType` when no method is selected — see plan § Phase 2 vs mockup gap.
+
+Reuse `GrpcResponsePanel` for **unary only**; streaming methods use the stream log region instead.
+
+---
+
+## Phase 3 — `03-proto-management.html`
+
+Reference for **Manage Schemas** and descriptor source UX.
+
+| Mockup region | Expected behavior |
+|---|---|
+| Sub-nav tabs | Reflection · Proto Files · Protoset · BSR · Schema Browser |
+| Reflection view | Server URL, reflect button, v1/v1alpha toggle, loaded services list |
+| Proto files | Drag-drop upload zone, import-path resolver, loaded file list |
+| Protoset | Binary upload + parse |
+| BSR | Module/org selector, version pin |
+| Schema browser | Tree (services → methods → messages → fields) + detail pane with docs |
+| Explorer footer | **Manage Schemas** opens this panel (replaces disabled placeholder) |
+
+Form builder enhancements (oneof, WKT, maps) align with field types shown in **01** + schema browser in **03**.
+
+---
+
+## Phase 4 — `04-auth-tls.html`
+
+Reference for connection bar completion and settings panels.
+
+> **Shipped vs mockup:** Phase 4 logic + **4J-A/B/C/D UI** — connection bar badges, TLS modal, auth pills, full settings drawer nav (incl. Compression, Health, K8s stub, Transport). See [`grpc-studio-plan.md`](../../docs/plan/future/grpc/grpc-studio-plan.md) § Phase 4J.
+
+| Mockup region | Expected behavior | 4J sub-phase |
+|---|---|---|
+| Connection bar | Status dot (connected/disconnected), TLS badge, Auth badge, Connect/Disconnect, Save Profile | **4J-A ✅** badges + target; **Phase 1 ✅** Connect/Cancel probe toggle |
+| TLS entry | Bar **`tls-badge`** → modal — **not** inline page panel | **4J-B ✅** — `GrpcTlsConfigModal` + headless `GrpcTlsPanel` host |
+| Auth entry | Bar Auth chip + settings nav; keep bottom Auth tab (dual entry) | **4J-A/C ✅** — pills + drawer Auth nav; badge focuses tab |
+| Settings layout | Left nav (`settings-nav`) + scrollable main (`settings-main`) | **4J-C/D ✅** full nav |
+| TLS / mTLS | Three-mode selector (disabled / TLS / mTLS), cert upload areas, mTLS indicator | **4J-B** in modal |
+| Authentication | Type tabs: None, Bearer, Basic, API Key, OAuth2, GCE; per-type form panels | **4J-B** — pills + two-tone rows |
+| Call settings | Deadline/timeout, keepalive, max message size | **4J-C/D ✅** deadline editable; keepalive/max size disabled rows |
+| Compression | gzip/deflate/none selector | **4J-D ✅** |
+| Health check | `grpc.health.v1` probe UI | **4J-D ✅** |
+| K8s port-forward | Context/namespace/service selectors, auto-forward toggle | **4J-D ✅** stub (kubectl deferred) |
+| Transport | Native vs gRPC-Web toggle (Phase 10 extends this panel) | **4J-D ✅** read-only Express active |
+
+Follow **two-tone form row** pattern from `ui-design-system.mdc` for all settings cards.
+
+**Anti-patterns (do not ship):**
+- Always-visible PEM textareas on the main studio page (`GrpcStudioPage` inline TLS block)
+- Auth type as native `<select>` when pills match GQL/mockup 04
+- gRPC-only TLS CSS that duplicates `TlsConfigModal` / `ws-tls-*` rules
+
+---
+
+## Phase 5 — `05-collections-history.html`
+
+Reference for persistence and regression UX.
+
+| Mockup region | Expected behavior |
+|---|---|
+| Sub-nav | **Collections** · **History** |
+| Collections sidebar | Tree by collection → service → saved method requests |
+| Detail pane | Saved body, metadata, env snapshot, run stats |
+| Snapshot testing | Baseline save, diff modal (Kreya-style), accept/reject |
+| History list | Filterable call log (status, method, timestamp) |
+| History detail | Replay into tab, copy as grpcurl |
+| Modals | grpcurl import, snapshot diff |
+
+Wire **Snapshot** button in response header (`01-main-studio.html`) to this phase.
+
+---
+
+## Phase 11 — `06-advanced-features.html`
+
+Reference for power-user tooling (post-MVP).
+
+| Mockup region | Expected behavior |
+|---|---|
+| Advanced tabs | Load Testing · Mock Server · Schema Diff · RPC Stats |
+| Load testing | Config grid (RPS, duration, concurrency), live metrics, latency histogram, status donut |
+| Mock server | Rule list (condition → response), enable/disable per rule |
+| Schema diff | Service-level diff lines (+/−/~), breaking vs safe badges |
+| RPC stats | Per-method table with call count, error rate, latency bars |
+
+---
+
+## Selectors and CSS
+
+- All interactive `data-testid` strings live in `src/shared/selectors/grpc.ts` — never inline in components.
+- Studio styles: `src/styles/grpc-studio.css` only; no scattered grpc rules in `index.css`.
+- Request/response split: fixed flex ratio in Phase 1 (mockup **01** shows ~55% request); drag resize is optional polish.
+- Mockup-specific layout classes (`settings-nav`, `advanced-tab`, `diff-line`, etc.) should be namespaced under `.grpc-studio-*` or a phase-specific CSS file when implemented.
+
+---
+
+## Phase 4J merge gate
+
+Before merging Phase 4J (or starting Phase 5 **UI**):
+
+```bash
+npm run test:grpc:phase4j
+```
+
+This runs the full Phase 4I chain plus `grpcPhase4JAcceptance.test.ts` and scoped 4J component tests (15 files). Optional shell E2E: `e2e/grpc-studio-tls.spec.ts`.
+
+---
+
+## New UI work checklist
+
+When adding or changing gRPC Studio UI:
+
+1. Identify the **plan phase** and open the matching mockup from the catalog above (+ `index.html` for context).
+2. Use design tokens from `ui-design-system.mdc` (mockup `shared.css` uses the same token names).
+3. Add/update `GRPC.*` selector constants before E2E or demo steps.
+4. If intentionally diverging from mockup, document in plan gap table or phase deliverables.
+5. Streaming methods use **Start stream** / compose controls per `method.callType` — see **`02-streaming.html`** (`GrpcCallPanel.tsx`, `GrpcStreamMessageLog.tsx`).
+6. Do not copy Phase 4+ controls into Phase 1 shell — cross-check the gap table first.
+7. After Phase 4J UI changes, run `npm run test:grpc:phase4j` before merge.

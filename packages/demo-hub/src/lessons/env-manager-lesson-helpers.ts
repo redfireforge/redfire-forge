@@ -698,3 +698,11 @@ export async function navigateToGraphqlStudio(ctx: DemoActionContext): Promise<v
     await ctx.waitFor('[data-testid="gql-studio-page"]');
   }
 }
+
+export async function navigateToGrpcStudio(ctx: DemoActionContext): Promise<void> {
+  if (!isDemoTargetVisible('[data-testid="grpc-studio-page"]')) {
+    ctx.navigateToTab('grpc-studio');
+    await ctx.delay(400);
+    await ctx.waitFor('[data-testid="grpc-studio-page"]');
+  }
+}

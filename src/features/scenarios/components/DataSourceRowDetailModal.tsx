@@ -51,9 +51,8 @@ export default function DataSourceRowDetailModal({
     () => createValidationAdapter({
       sampleResponseBody: sampleJson || undefined,
       selectiveMode: 'include',
-      expectedFields,
     }),
-    [sampleJson, expectedFields],
+    [sampleJson],
   );
 
   const mapperInitialData = useMemo<ValidationAdapterOutput>(() => ({

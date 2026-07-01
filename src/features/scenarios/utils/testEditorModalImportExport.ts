@@ -8,6 +8,7 @@ import Papa from 'papaparse';
 import type { Scenario, DataSource } from '../../../shared/types';
 import { isWsActionType } from '../../../shared/types';
 import { validateWsActionConfig } from '../../../shared/utils/wsScenarioDefaults';
+import { validateGrpcHarnessActionConfig } from '../../../shared/utils/grpcHarnessScenarioContracts';
 import { pickJsonFile, unwrapImport } from '../utils/testEditorUtils';
 import { saveFile } from '../../../shared/utils/fileSaver';
 import type { ImportChoice, ExportChoice } from '../components/ImportExportChoiceModal';
@@ -99,9 +100,12 @@ export function createTestEditorImportHandler(deps: TestEditorImportDeps) {
           toast.show('error', 'Invalid file', 'HTTP tests require a url.');
           return;
         }
-        const wsWarnings = validateWsActionConfig(t);
-        if (wsWarnings.length > 0) {
-          toast.show('warning', 'WS Config Issues', wsWarnings.join('; '));
+        const transportWarnings = [
+          ...validateWsActionConfig(t),
+          ...validateGrpcHarnessActionConfig(t),
+        ];
+        if (transportWarnings.length > 0) {
+          toast.show('warning', 'Transport Config Issues', transportWarnings.join('; '));
         }
         const cur = draftRef.current;
         onDraftChange({ ...t, id: cur.id });

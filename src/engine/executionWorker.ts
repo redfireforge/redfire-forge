@@ -5,6 +5,7 @@ import { runTest } from './executor';
 import { toErrorMessage } from '../shared/utils/helpers';
 import { buildKafkaNodeOperations } from '../shared/kafka/buildKafkaNodeOperations';
 import { buildWsNodeOperations } from '../shared/websocket/buildWsNodeOperations';
+import { buildGrpcNodeOperations } from '../shared/grpc/buildGrpcNodeOperations';
 
 interface WorkerContext {
   postMessage: (msg: WorkerToMainMessage) => void;
@@ -101,6 +102,8 @@ ctx.addEventListener('message', async (e: MessageEvent<MainToWorkerMessage>) => 
           undefined,
           buildKafkaNodeOperations(),
           buildWsNodeOperations(),
+          buildGrpcNodeOperations(),
+          msg.grpcHarnessEnv,
         );
         if (hasPending) {
           postMsg({ type: 'progress', completed: pendingCompleted, total: pendingTotal, newResults: pendingNewResults, meta: pendingMeta });

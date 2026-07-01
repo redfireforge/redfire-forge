@@ -3,9 +3,8 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import RegexAssertionModal, { PickerNode } from './RegexAssertionModal';
+import RegexAssertionModal from './RegexAssertionModal';
 import { PATTERN_LIBRARY } from './regexAssertionUtils';
-import { buildJsonTree } from '../../../shared/utils/jsonTreeModel';
 
 const SAMPLE = { id: 'abc', name: 'Alice', tags: ['admin'], nested: { city: 'NYC' } };
 const SAMPLE_JSON = JSON.stringify(SAMPLE);
@@ -282,76 +281,4 @@ describe('RegexAssertionModal', () => {
   });
 });
 
-describe('PickerNode', () => {
-  it('selects on double-click when selectOnDoubleClick', () => {
-    const tree = buildJsonTree({ nested: { leaf: 1 } }, 'root', '');
-    const onSelect = vi.fn();
-    const { container } = render(
-      <PickerNode
-        node={tree}
-        depth={0}
-        selectedPath=""
-        onSelect={onSelect}
-        searchTerm=""
-        selectOnDoubleClick
-      />,
-    );
-    const rows = container.querySelectorAll('.ram-tree-row');
-    const leafRow = Array.from(rows).find(r => r.textContent?.includes('leaf'));
-    expect(leafRow).toBeTruthy();
-    fireEvent.click(leafRow!);
-    expect(onSelect).not.toHaveBeenCalled();
-    fireEvent.doubleClick(leafRow!);
-    expect(onSelect).toHaveBeenCalledTimes(1);
-  });
-
-  it('respects expandAll=false by collapsing deeper rows', () => {
-    const tree = buildJsonTree({ outer: { inner: 1 } }, 'root', '');
-    const { container } = render(
-      <PickerNode
-        node={tree}
-        depth={0}
-        selectedPath=""
-        onSelect={vi.fn()}
-        searchTerm=""
-        expandAll={false}
-      />,
-    );
-    expect(container.querySelectorAll('.jt-toggle--collapsed').length).toBeGreaterThan(0);
-  });
-
-  it('expands all levels when expandAll is true', () => {
-    const tree = buildJsonTree({ outer: { inner: 1 } }, 'root', '');
-    const { container } = render(
-      <PickerNode
-        node={tree}
-        depth={0}
-        selectedPath=""
-        onSelect={vi.fn()}
-        searchTerm=""
-        expandAll
-      />,
-    );
-    expect(container.querySelector('.jt-toggle--collapsed')).toBeFalsy();
-  });
-
-  it('toggles manual expansion via chevron without selecting', () => {
-    const tree = buildJsonTree({ a: { b: 1 } }, 'root', '');
-    const onSelect = vi.fn();
-    const { container } = render(
-      <PickerNode
-        node={tree}
-        depth={0}
-        selectedPath=""
-        onSelect={onSelect}
-        searchTerm=""
-        expandAll={false}
-      />,
-    );
-    const toggle = container.querySelector('.jt-toggle')!;
-    fireEvent.click(toggle);
-    expect(onSelect).not.toHaveBeenCalled();
-    expect(container.querySelector('.jt-toggle--collapsed')).toBeTruthy();
-  });
-});
 

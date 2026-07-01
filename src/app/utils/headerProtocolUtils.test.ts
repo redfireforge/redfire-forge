@@ -20,6 +20,7 @@ describe('tabToHeaderProtocol', () => {
     expect(tabToHeaderProtocol('websocket-studio')).toBe('websocket');
     expect(tabToHeaderProtocol('sse-studio')).toBe('sse');
     expect(tabToHeaderProtocol('graphql-studio')).toBe('graphql');
+    expect(tabToHeaderProtocol('grpc-studio')).toBe('grpc');
   });
 
   it('maps HTTP-context tabs to http', () => {

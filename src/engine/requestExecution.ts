@@ -1,4 +1,5 @@
 import type { Scenario, RequestResult, TimingBreakdown } from '../shared/types';
+import { buildGrpcHarnessRowTraceKey } from '../shared/grpc/grpcHarnessRowIdentity';
 import { httpFetch } from '../shared/utils/httpClient';
 import { serializeWithContentType } from '../shared/utils/bodySerializer';
 import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
@@ -68,7 +69,9 @@ const _prepCache = new Map<string, PreparedScenario>();
 export function clearPrepCache(): void { _prepCache.clear(); }
 
 export function prepareScenario(scenario: Scenario): PreparedScenario {
-  const cacheKey = scenario.dataRowId ? `${scenario.id}::${scenario.dataRowId}` : scenario.id;
+  const cacheKey = scenario.dataRowId
+    ? buildGrpcHarnessRowTraceKey(scenario.id, scenario.dataRowId)
+    : scenario.id;
   const cached = _prepCache.get(cacheKey);
   if (cached) return cached;
   const { body, contentType } = serializeWithContentType(scenario);
@@ -213,6 +216,8 @@ export interface RunOpts {
    * Kafka (and future protocol) logic lives in the callback — not in this file.
    */
   executeNonHttp?: (scenario: Scenario) => Promise<RequestResult>;
+  /** Env map for gRPC harness template resolution (`{{grpcHost}}`, etc.). */
+  grpcHarnessEnv?: Record<string, string>;
 }
 
 export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<RequestResult[]> {

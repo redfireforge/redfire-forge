@@ -4,6 +4,7 @@
  *
  * Extracted from index.ts (Phase 8 refactor).
  */
+import type { GrpcHarnessErrorCategory, GrpcHarnessResult } from './grpc-harness-result';
 
 /**
  * Transport action type for runner scenarios and results.
@@ -15,7 +16,7 @@ export type KafkaActionType = 'http' | 'kafkaProduce' | 'kafkaConsume';
  * Broader transport type union that includes both Kafka, WebSocket, and GraphQL transports.
  * Used on `RequestResult.transportType` where any transport may appear.
  */
-export type TransportType = KafkaActionType | 'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger' | 'graphqlQuery' | 'graphqlMutation' | 'graphqlSubscription' | 'graphqlIntrospect' | 'graphqlAssert';
+export type TransportType = KafkaActionType | 'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger' | 'graphqlQuery' | 'graphqlMutation' | 'graphqlSubscription' | 'graphqlIntrospect' | 'graphqlAssert' | 'grpcUnary' | 'grpcServerStream' | 'grpcAssert' | 'grpcCall';
 
 /**
  * Kafka message assertion target selector paths.
@@ -98,6 +99,24 @@ export interface KafkaResultMeta {
   headers?: Record<string, string>;
   /** Number of messages matched and consumed (consume actions only). */
   matchedMessages?: number;
+}
+
+/** Metadata captured from an executed gRPC workflow node result. */
+export interface GrpcResultMeta {
+  service: string;
+  method: string;
+  target: string;
+  grpcStatus?: number;
+  grpcStatusMessage?: string;
+  messageCount?: number;
+  streamStopReason?: string;
+  attempts?: number;
+  /** Populated for grpcAssert nodes when assertions fail (Phase 6E). */
+  assertionFailures?: string[];
+  /** Snapshot-build / template failures before transport (Phase 8F). */
+  errorCategory?: GrpcHarnessErrorCategory;
+  /** Canonical harness result publication (Phase 8G). */
+  harnessResult?: GrpcHarnessResult;
 }
 
 // ─── Phase 8: Results Publishing to Kafka ────────────────────────────────────

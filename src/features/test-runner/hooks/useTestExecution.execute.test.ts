@@ -136,6 +136,8 @@ describe('useTestExecution - Execute', () => {
       undefined,
       expect.objectContaining({ consume: expect.any(Function), produce: expect.any(Function) }),
       expect.objectContaining({ connect: expect.any(Function), send: expect.any(Function) }),
+      expect.objectContaining({ invokeUnary: expect.any(Function), collectServerStream: expect.any(Function) }),
+      {},
     );
     expect(mockRunTestInWorker).not.toHaveBeenCalled();
   });
@@ -229,6 +231,8 @@ describe('useTestExecution - Execute', () => {
       undefined,
       expect.objectContaining({ produce: expect.any(Function), consume: expect.any(Function) }),
       expect.objectContaining({ connect: expect.any(Function), send: expect.any(Function) }),
+      expect.objectContaining({ invokeUnary: expect.any(Function), collectServerStream: expect.any(Function) }),
+      {},
     );
   });
 
@@ -263,6 +267,8 @@ describe('useTestExecution - Execute', () => {
       undefined,
       expect.objectContaining({ consume: expect.any(Function), produce: expect.any(Function) }),
       expect.objectContaining({ connect: expect.any(Function), send: expect.any(Function) }),
+      expect.objectContaining({ invokeUnary: expect.any(Function), collectServerStream: expect.any(Function) }),
+      {},
     );
   });
 

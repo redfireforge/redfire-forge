@@ -2,6 +2,7 @@ pub mod assertion_evaluator;
 mod arrival_executor;
 mod commands;
 mod graphql;
+mod grpc;
 mod kafka;
 mod websocket;
 pub mod date_helpers;
@@ -55,7 +56,10 @@ mod validation_result_test;
 mod validation_types_test;
 
 use commands::ExecutorState;
+use grpc::lifecycle;
+use grpc::state::GrpcState;
 use kafka::state::KafkaState;
+use tauri::Manager;
 use websocket::state::WsState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -76,6 +80,7 @@ pub fn run() {
     .manage(ExecutorState::new())
     .manage(KafkaState::new())
     .manage(WsState::new())
+    .manage(GrpcState::new())
     .invoke_handler(tauri::generate_handler![
       commands::start_load_test,
       commands::abort_load_test,
@@ -97,6 +102,15 @@ pub fn run() {
       websocket::operations::ws_receive_next,
       graphql::http_fetch::gql_http_fetch,
       graphql::http_upload::gql_http_upload,
+      grpc::unary::grpc_unary,
+      grpc::unary::grpc_call_cancel,
+      grpc::stream::grpc_stream_start,
+      grpc::stream::grpc_stream_send,
+      grpc::stream::grpc_stream_end,
+      grpc::stream::grpc_stream_cancel,
+      grpc::lifecycle::grpc_tab_cleanup,
+      grpc::lifecycle::grpc_tab_events_attach,
+      grpc::lifecycle::grpc_tab_events_detach,
     ]);
 
   #[cfg(debug_assertions)]
@@ -106,6 +120,9 @@ pub fn run() {
 
   builder
     .setup(|app| {
+      let grpc_state = app.state::<GrpcState>();
+      lifecycle::start_orphan_supervisor(grpc_state.inner().clone());
+
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()
@@ -115,6 +132,18 @@ pub fn run() {
       }
       Ok(())
     })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .on_window_event(|window, event| {
+      if let tauri::WindowEvent::Destroyed = event {
+        let state = window.state::<GrpcState>();
+        lifecycle::shutdown_all(&state);
+      }
+    })
+    .build(tauri::generate_context!())
+    .expect("error while running tauri application")
+    .run(|app_handle, event| {
+      if let tauri::RunEvent::Exit = event {
+        let state = app_handle.state::<GrpcState>();
+        lifecycle::shutdown_all(&state);
+      }
+    });
 }

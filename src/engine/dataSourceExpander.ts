@@ -4,6 +4,8 @@
  * into URL path, query params, headers, body, and validation fields.
  */
 import type { Scenario, DataSourceColumn, DataSourceRow, DataSubset, KeyValue, ExpectedField, ValidationConfig, SharedDataSource, TestScenario, FeatureGroup } from '../shared/types';
+import { interpolateGrpcHarnessCallAction } from '../shared/grpc/grpcHarnessDataSourceInterpolation';
+import { isTemplateToken, decodeTemplateBraces, substituteBodyColumnTemplateVars } from '../shared/utils/templateHelpers';
 
 // ─── Shared Data Source Resolution ────────────────────────────
 
@@ -57,12 +59,8 @@ export function buildRowLabel(row: DataSourceRow, columns: DataSourceColumn[], i
 
 /** Replace all `{{varName}}` placeholders in a string with values from the variable map. */
 function substituteVariables(template: string, vars: Record<string, string>): string {
-  return template.replace(/\{\{(\w+)\}\}/g, (_match, name: string) => {
-    return vars[name] ?? `{{${name}}}`;
-  });
+  return substituteBodyColumnTemplateVars(template, vars);
 }
-
-import { isTemplateToken, decodeTemplateBraces } from '../shared/utils/templateHelpers';
 
 function normalizeUnresolvedQueryPlaceholders(url: string): string {
   try {
@@ -322,6 +320,12 @@ export function resolveScenarioFromDataRow(
       }
     : base.wsReceiveAction;
 
+  const grpcCallAction = interpolateGrpcHarnessCallAction(
+    base.grpcCallAction,
+    bodyVars,
+    hasBodyVars,
+  );
+
   // Build expectedFields from validate columns that have values in this row
   const validateCols = columns.filter(c => c.type === 'validate');
   const expectedFields: ExpectedField[] = validateCols
@@ -384,6 +388,7 @@ export function resolveScenarioFromDataRow(
     wsConnectAction,
     wsSendAction,
     wsReceiveAction,
+    grpcCallAction,
     // Clear the data source on expanded scenarios — they are already resolved
     dataSource: undefined,
     // Tag with row context for result tracking

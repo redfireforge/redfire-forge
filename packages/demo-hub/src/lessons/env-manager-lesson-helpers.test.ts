@@ -34,6 +34,7 @@ import {
   navigateToWebSocketStudio,
   navigateToSseStudio,
   navigateToGraphqlStudio,
+  navigateToGrpcStudio,
   ensureDemoEnvironment,
   ensureDemoMicroservice,
   expandNamedMicroservice,
@@ -635,6 +636,23 @@ describe('env-manager-lesson-helpers', () => {
     const ctx = makeCtx();
     await navigateToGraphqlStudio(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('graphql-studio');
+  });
+
+  it('navigateToGrpcStudio navigates via navigateToTab when studio absent', async () => {
+    const ctx = makeCtx();
+    await navigateToGrpcStudio(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('grpc-studio');
+  });
+
+  it('navigateToGrpcStudio is no-op when studio already visible', async () => {
+    const page = document.createElement('div');
+    page.dataset.testid = 'grpc-studio-page';
+    mockRect(page, 100, 100);
+    document.body.innerHTML = '';
+    document.body.append(page);
+    const ctx = makeCtx();
+    await navigateToGrpcStudio(ctx);
+    expect(ctx.navigateToTab).not.toHaveBeenCalled();
   });
 
   // ── ensureDemoEnvironment ────────────────────────────────────────

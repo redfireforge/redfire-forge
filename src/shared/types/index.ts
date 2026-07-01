@@ -4,6 +4,7 @@ import type {
   KafkaProduceActionConfig,
   KafkaConsumeActionConfig,
   KafkaResultMeta,
+  GrpcResultMeta,
 } from './kafka';
 import type {
   ScenarioActionType,
@@ -14,6 +15,7 @@ import type {
   WsReceiveActionConfig,
   WsResultMeta,
 } from './websocket';
+import type { GrpcHarnessCallActionConfig } from './grpc-harness';
 import type { SlaTarget, TestConfig } from './runner-config';
 
 export interface Environment {
@@ -217,7 +219,7 @@ export interface Extraction {
 export interface TestDefinitionSnapshot {
   name: string;
   url: string;
-  method: HttpMethod | 'KAFKA' | 'WEBSOCKET';
+  method: HttpMethod | 'KAFKA' | 'WEBSOCKET' | 'GRPC';
   headers: KeyValue[];
   body: string;
   bodyType?: BodyType;
@@ -230,6 +232,7 @@ export interface TestDefinitionSnapshot {
   wsReceiveAction?: WsReceiveActionConfig;
   kafkaProduceAction?: KafkaProduceActionConfig;
   kafkaConsumeAction?: KafkaConsumeActionConfig;
+  grpcCallAction?: GrpcHarnessCallActionConfig;
 }
 
 export interface TestDefinitionVersion {
@@ -359,7 +362,7 @@ export interface Scenario {
   id: string;
   name: string;
   url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'KAFKA' | 'WEBSOCKET';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'KAFKA' | 'WEBSOCKET' | 'GRPC';
   headers: KeyValue[];
   body: string;
   bodyType?: BodyType;
@@ -407,6 +410,8 @@ export interface Scenario {
   wsSendAction?: WsSendActionConfig;
   /** Configuration for a WS receive action (present when `actionType === 'wsReceive'`). */
   wsReceiveAction?: WsReceiveActionConfig;
+  /** Configuration for a gRPC harness call (present when `actionType === 'grpcCall'`). */
+  grpcCallAction?: GrpcHarnessCallActionConfig;
 }
 
 export type ScenarioKind = 'standard' | 'parameterized';
@@ -500,6 +505,8 @@ export interface TrashSettings {
 
 export * from './runner-config';
 export * from './kafka';
+export * from './grpc-harness';
+export * from './grpc-harness-snapshot';
 export * from './websocket';
 
 export interface FailureDetail {
@@ -561,6 +568,8 @@ export interface RequestResult {
   kafkaResultMeta?: KafkaResultMeta;
   /** WebSocket-specific result metadata (populated when `transportType` is a WS action). */
   wsResultMeta?: WsResultMeta;
+  /** gRPC-specific result metadata (workflow: `grpcUnary`/`grpcServerStream`; harness: `grpcCall`). */
+  grpcResultMeta?: GrpcResultMeta;
 }
 
 export interface TestSummary {
@@ -613,6 +622,7 @@ export type {
   CapturedKafkaNodeDetails,
   KafkaFailureClass,
   CapturedWsNodeDetails,
+  CapturedGrpcNodeDetails,
   WsFailureClass,
 } from './trace';
 

@@ -8,7 +8,7 @@
  */
 
 const DB_NAME = 'redfireforge';
-const DB_VERSION = 10; // v10: runnerConfigs — move perf-test-runner-config off localStorage
+const DB_VERSION = 11; // v11: gRPC Studio Phase 5B/5D — collections + call history stores
 const OPEN_TIMEOUT_MS = 10_000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -127,6 +127,23 @@ function openDBInternal(): Promise<IDBDatabase> {
       // v10: runner UI config (env/svc/workflow-runner) — frees localStorage quota
       if (!db.objectStoreNames.contains('runnerConfigs')) {
         db.createObjectStore('runnerConfigs');
+      }
+      // v11: gRPC Studio Phase 5B/5D — collections + call history
+      if (!db.objectStoreNames.contains('grpc-collections')) {
+        const grpcColStore = db.createObjectStore('grpc-collections', { keyPath: 'id' });
+        grpcColStore.createIndex('name', 'name', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('grpc-collection-items')) {
+        const grpcItemStore = db.createObjectStore('grpc-collection-items', { keyPath: 'id' });
+        grpcItemStore.createIndex('collectionId', 'collectionId', { unique: false });
+        grpcItemStore.createIndex('collectionId_sortOrder', ['collectionId', 'sortOrder'], { unique: false });
+      }
+      if (!db.objectStoreNames.contains('grpc-call-history')) {
+        const grpcHistStore = db.createObjectStore('grpc-call-history', { keyPath: 'id' });
+        grpcHistStore.createIndex('capturedAt', 'capturedAt', { unique: false });
+        grpcHistStore.createIndex('service', 'service', { unique: false });
+        grpcHistStore.createIndex('method', 'method', { unique: false });
+        grpcHistStore.createIndex('grpcStatus', 'grpcStatus', { unique: false });
       }
     };
     req.onblocked = () => {

@@ -51,6 +51,39 @@ function makeRun(overrides: Partial<TestRun> = {}): TestRun {
   };
 }
 
+function makeGrpcHarnessSecretRun(secret = 'grpc-report-secret-token-value'): TestRun {
+  return makeRun({
+    results: [
+      makeResult({
+        transportType: 'grpcCall',
+        passed: false,
+        errorMessage: `assertions[0]: got Bearer ${secret}`,
+        responseHeaders: { authorization: `Bearer ${secret}` },
+        grpcResultMeta: {
+          service: 'echo.EchoService',
+          method: 'Echo',
+          target: 'localhost:50051',
+          harnessResult: {
+            schemaVersion: '1.0',
+            scenarioId: 'sc-1',
+            callType: 'unary',
+            status: 'failed',
+            durationMs: 5,
+            assertionResults: [{
+              name: 'grpcTrailer:authorization',
+              passed: false,
+              message: `assertions[0]: got Bearer ${secret}`,
+            }],
+            trailers: { authorization: `Bearer ${secret}` },
+            errorCategory: 'assertion',
+            errorDetail: `assertions[0]: got Bearer ${secret}`,
+          },
+        },
+      }),
+    ],
+  });
+}
+
 describe('generateReport', () => {
   describe('HTML format', () => {
     it('generates valid HTML with summary stats', () => {
@@ -211,6 +244,13 @@ describe('generateReport', () => {
       const html = generateReport(run, { format: 'html' });
       expect(html).toContain('1 data rows');
     });
+
+    it('redacts gRPC harness secrets in HTML export', () => {
+      const secret = 'grpc-html-report-secret-token';
+      const html = generateReport(makeGrpcHarnessSecretRun(secret), { format: 'html' });
+      expect(html).not.toContain(secret);
+      expect(html).toContain('Bearer [REDACTED]');
+    });
   });
 
   describe('JSON format', () => {
@@ -245,6 +285,30 @@ describe('generateReport', () => {
       const json = generateReport(makeRun(), { format: 'json', includeResponseBodies: true });
       const parsed = JSON.parse(json);
       expect(parsed.results[0].responseBody).toBe('{}');
+    });
+
+    it('redacts gRPC harness secrets in JSON export', () => {
+      const secret = 'grpc-report-secret-token-value';
+      const json = generateReport(makeGrpcHarnessSecretRun(secret), {
+        format: 'json',
+        includeResponseBodies: true,
+      });
+      expect(json).not.toContain(secret);
+      expect(json).toContain('Bearer [REDACTED]');
+    });
+
+    it('does not break HTTP-only reports when error text resembles a bearer token', () => {
+      const secret = 'http-error-bearer-token-abcdef123456';
+      const run = makeRun({
+        results: [
+          makeResult({
+            passed: false,
+            errorMessage: `Upstream rejected Bearer ${secret}`,
+          }),
+        ],
+      });
+      expect(() => generateReport(run, { format: 'json' })).not.toThrow();
+      expect(generateReport(run, { format: 'json' })).toContain(secret);
     });
 
     it('builds failed row error string from failureDetails when errorMessage is absent', () => {
@@ -305,6 +369,13 @@ describe('generateReport', () => {
       expect(md).toContain('# ');
       expect(md).toContain('| TPS | 10 |');
       expect(md).toContain('## Failed');
+    });
+
+    it('redacts gRPC harness secrets in markdown export', () => {
+      const secret = 'grpc-md-report-secret-token';
+      const md = generateReport(makeGrpcHarnessSecretRun(secret), { format: 'markdown' });
+      expect(md).not.toContain(secret);
+      expect(md).toContain('Bearer [REDACTED]');
     });
 
     it('shows no failed section when all pass', () => {

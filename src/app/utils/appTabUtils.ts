@@ -1,6 +1,6 @@
 import { DEMO_HUB_ENABLED } from '../../config/features';
 
-export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results' | 'kafka-message-studio' | 'websocket-studio' | 'sse-studio' | 'graphql-studio' | 'demo-hub';
+export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results' | 'kafka-message-studio' | 'websocket-studio' | 'sse-studio' | 'graphql-studio' | 'grpc-studio' | 'demo-hub';
 
 export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings' | 'protocols' | 'demo';
 
@@ -19,7 +19,7 @@ export const isApiTab = (t: Tab) => API_TABS.has(t);
 const SETTINGS_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings']);
 export const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
 
-const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio']);
+const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio', 'grpc-studio']);
 export const isProtocolsTab = (t: Tab) => PROTOCOLS_TABS.has(t);
 
 export const PROTOCOLS_DEFAULT_TAB: Tab = 'kafka-message-studio';
@@ -52,7 +52,7 @@ export function domainOf(tab: Tab): Domain {
   return 'settings';
 }
 
-const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results', 'kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio', 'demo-hub']);
+const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results', 'kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio', 'grpc-studio', 'demo-hub']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 

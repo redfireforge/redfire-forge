@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
 import type { EndpointRowStatus } from '../../features/environments/utils/protocolEndpointUtils';
-import { computeStudioEndpointPreview } from '../utils/studioEndpointPreview';
+import {
+  computeStudioEndpointPreview,
+  type StudioEndpointPreviewState,
+} from '../utils/studioEndpointPreview';
 
 export interface ProtocolEndpointPreviewProps {
   draftUrl: string;
@@ -8,6 +11,12 @@ export interface ProtocolEndpointPreviewProps {
   protocolRowStatus?: EndpointRowStatus;
   testId?: string;
   className?: string;
+  /** Override default WS-style preview (gRPC Studio passes Phase 9B resolver preview). */
+  computePreview?: (
+    draftUrl: string,
+    envVarMap: Record<string, string>,
+    protocolRowStatus?: EndpointRowStatus,
+  ) => StudioEndpointPreviewState;
 }
 
 export function ProtocolEndpointPreview({
@@ -16,10 +25,11 @@ export function ProtocolEndpointPreview({
   protocolRowStatus,
   testId = 'protocol-endpoint-preview',
   className = '',
+  computePreview = computeStudioEndpointPreview,
 }: ProtocolEndpointPreviewProps) {
   const preview = useMemo(
-    () => computeStudioEndpointPreview(draftUrl, envVarMap, protocolRowStatus),
-    [draftUrl, envVarMap, protocolRowStatus],
+    () => computePreview(draftUrl, envVarMap, protocolRowStatus),
+    [computePreview, draftUrl, envVarMap, protocolRowStatus],
   );
 
   if (!preview.visible) return null;

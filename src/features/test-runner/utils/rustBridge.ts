@@ -19,6 +19,7 @@ import type { TestResult } from '../../../engine/executor';
 import { buildHeaders, buildUrl } from '../../../engine/executor';
 import { serializeWithContentType } from '../../../shared/utils/bodySerializer';
 import { expandQueue } from '../../../engine/dataSourceExpander';
+import { buildGrpcHarnessRowTraceKey } from '../../../shared/grpc/grpcHarnessRowIdentity';
 import { computeAllocation } from '../../../engine/allocationEngine';
 import { buildValidationResult } from '../../../engine/validationResult';
 import { evaluateAssertions } from '../../../engine/validator';
@@ -709,7 +710,7 @@ function buildScenarioLookup(scenarios: Scenario[], expandedQueue: Scenario[]): 
   }
   for (const s of expandedQueue) {
     if (s.dataRowId) {
-      lookup.set(`${s.id}::${s.dataRowId}`, s);
+      lookup.set(buildGrpcHarnessRowTraceKey(s.id, s.dataRowId), s);
     }
     if (!lookup.has(s.id)) {
       lookup.set(s.id, s);
@@ -720,7 +721,7 @@ function buildScenarioLookup(scenarios: Scenario[], expandedQueue: Scenario[]): 
 
 function findScenario(lookup: Map<string, Scenario>, result: RustExecutionResult): Scenario | undefined {
   if (result.dataRowId) {
-    const composite = lookup.get(`${result.scenarioId}::${result.dataRowId}`);
+    const composite = lookup.get(buildGrpcHarnessRowTraceKey(result.scenarioId, result.dataRowId));
     if (composite) return composite;
   }
   return lookup.get(result.scenarioId);

@@ -3,6 +3,7 @@
 import type { RequestResult, SlaTarget } from '../../../../shared/types';
 import type { WorkflowAuthProfile, WorkflowHostProfile, WorkflowService } from './profiles-service';
 import type { WorkflowNodeData, WorkflowNodeType } from './node-websocket';
+import type { GrpcNodeStatusMeta } from './node-grpc';
 
 export interface WorkflowNode {
   id: string;
@@ -140,5 +141,7 @@ export interface NodeRunStatus {
   extracted?: Record<string, string>;
   /** Full formatted detail for the step result modal (response + errors). */
   responseDetail?: string;
+  /** Phase 6G — gRPC-specific diagnostics; present for grpcUnary/grpcServerStream/grpcAssert nodes. */
+  grpcMeta?: GrpcNodeStatusMeta;
 }
 
