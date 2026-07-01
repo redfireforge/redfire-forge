@@ -40,6 +40,8 @@ export function tabToHeaderProtocol(tab: Tab): ProtocolKey | null {
       return 'sse';
     case 'graphql-studio':
       return 'graphql';
+    case 'grpc-studio':
+      return 'grpc';
     default:
       return HTTP_CONTEXT_TABS.has(tab) ? 'http' : null;
   }

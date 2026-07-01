@@ -1,4 +1,5 @@
 import type { TestRun, RequestResult } from '../shared/types';
+import { buildGrpcHarnessResultTraceKey } from '../shared/grpc/grpcHarnessRowIdentity';
 import { computeMetrics } from './metrics';
 
 /**
@@ -13,12 +14,12 @@ import { computeMetrics } from './metrics';
 export function mergeRerunResults(original: TestRun, rerunResults: RequestResult[]): TestRun {
   // Build a set of keys for the re-run results: scenarioId + dataRowId
   const rerunKeys = new Set(
-    rerunResults.map(r => `${r.scenarioId}::${r.dataRowId ?? ''}`),
+    rerunResults.map((r) => buildGrpcHarnessResultTraceKey(r.scenarioId, r.dataRowId)),
   );
 
   // Keep original results that were NOT re-run, then append re-run results
   const kept = original.results.filter(
-    r => !rerunKeys.has(`${r.scenarioId}::${r.dataRowId ?? ''}`),
+    (r) => !rerunKeys.has(buildGrpcHarnessResultTraceKey(r.scenarioId, r.dataRowId)),
   );
   const merged = [...kept, ...rerunResults];
 

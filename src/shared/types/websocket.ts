@@ -9,6 +9,7 @@
 
 import type { WsTlsConfig, WsProtocolMode } from '../websocket/types';
 import type { KafkaActionType } from './kafka';
+import type { GrpcHarnessActionType } from './grpc-harness';
 import type { KeyValue } from './index';
 
 // Re-export Studio types used by harness action configs
@@ -25,10 +26,9 @@ export type WsActionType = 'wsConnect' | 'wsSend' | 'wsReceive';
 
 /**
  * Combined action type union for `Scenario.actionType`.
- * Extends `KafkaActionType` (`'http' | 'kafkaProduce' | 'kafkaConsume'`) with WS actions.
- * If new Kafka action types are added to `KafkaActionType`, they are automatically included here.
+ * Extends `KafkaActionType` with WebSocket and gRPC harness actions.
  */
-export type ScenarioActionType = KafkaActionType | WsActionType;
+export type ScenarioActionType = KafkaActionType | WsActionType | GrpcHarnessActionType;
 
 // ─── Match Criteria ───────────────────────────────────────────────────────────
 

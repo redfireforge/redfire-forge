@@ -39,6 +39,8 @@ interface Props {
   globalAuthProfiles?: import('../../shared/types').GlobalAuthProfile[];
   /** Currently selected environment ID from the app header. */
   selectedEnvId?: string;
+  /** Currently selected microservice ID from the app header (harness gRPC env resolution). */
+  selectedSvcId?: string;
   /** Persist SLA target changes back to the workflow definition. */
   onUpdateWorkflow?: (id: string, patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>) => void;
   /** Phase 3C: Pre-populate workflow variables from Kafka consume. */
@@ -51,7 +53,7 @@ interface Props {
 
 const PROGRESS_KEY = '_workflow_runner_progress';
 
-export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl, microservices, globalAuthProfiles, selectedEnvId, onUpdateWorkflow: _onUpdateWorkflow, initialWorkflowVariables, onClearInitialWorkflowVariables, onWorkflowOutputAvailable }: Props) {
+export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl, microservices, globalAuthProfiles, selectedEnvId, selectedSvcId, onUpdateWorkflow: _onUpdateWorkflow, initialWorkflowVariables, onClearInitialWorkflowVariables, onWorkflowOutputAvailable }: Props) {
   const {
     concurrency, setConcurrency,
     iterations, setIterations,
@@ -328,7 +330,7 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
     };
 
     void execute(config, [], { projectName: runWorkflow.name }, runWorkflow, resolveSubWorkflow, {
-      microservices, globalAuthProfiles, selectedEnvId,
+      microservices, globalAuthProfiles, selectedEnvId, selectedSvcId,
     });
     return true;
   };

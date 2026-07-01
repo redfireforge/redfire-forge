@@ -4,6 +4,29 @@ import type { Workflow } from '../features/workflow/types/workflow';
 import { buildHeaders, buildUrl, runTest, proxyFetch } from './executor';
 import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '../test-utils/factories';
 
+const harnessMocks = vi.hoisted(() => ({
+  invokeUnary: vi.fn(async () => ({
+    status: 0,
+    statusMessage: 'OK',
+    headers: {},
+    trailers: {},
+    body: { message: 'hello' },
+    durationMs: 5,
+  })),
+  collectHarnessServerStream: vi.fn(),
+  executeClientStream: vi.fn(),
+  executeBidiStream: vi.fn(),
+}));
+
+vi.mock('../shared/grpc/buildGrpcHarnessOperations', () => ({
+  buildGrpcHarnessOperations: () => ({
+    invokeUnary: (...args: unknown[]) => harnessMocks.invokeUnary(...args),
+    collectHarnessServerStream: harnessMocks.collectHarnessServerStream,
+    executeClientStream: harnessMocks.executeClientStream,
+    executeBidiStream: harnessMocks.executeBidiStream,
+  }),
+}));
+
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
 }));
@@ -467,6 +490,30 @@ describe('runTest', () => {
     );
   });
 
+  it('forwards grpcOperations to runGraphLoad in workflow mode', async () => {
+    const { runGraphLoad } = await import('../features/workflow/engine');
+    const s = makeScenario();
+    const config = makeConfig({ executionMode: 'workflow', workflowId: 'w1', iterations: 1 });
+    const grpcOps = { invokeUnary: vi.fn(), collectServerStream: vi.fn() };
+    await runTest(
+      config,
+      [s],
+      vi.fn(),
+      undefined,
+      minimalWorkflow('w1'),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      grpcOps,
+    );
+    expect(vi.mocked(runGraphLoad)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ grpcOperations: grpcOps }),
+    );
+  });
+
   it('uses runWorkflow when workflowId is set but workflow definition is missing', async () => {
     const { runWorkflow, runGraphLoad } = await import('../features/workflow/engine');
     const s = makeScenario();
@@ -699,6 +746,74 @@ describe('runTest', () => {
     await expect(
       runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps),
     ).rejects.toThrow('Unknown non-HTTP action type');
+  });
+
+  it('rejects malformed grpc harness scenarios before execution', async () => {
+    const s = makeScenario({
+      id: 's1',
+      actionType: 'grpcCall',
+      method: 'GRPC',
+      grpcCallAction: {
+        callType: 'unary',
+        target: '',
+        descriptorKey: '',
+        service: '',
+        method: '',
+        body: {},
+      },
+    });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    await expect(
+      runTest(config, [s], vi.fn()),
+    ).rejects.toThrow('Invalid gRPC harness scenario');
+  });
+
+  it('executes valid grpc harness scenarios via executeGrpcAction', async () => {
+    harnessMocks.invokeUnary.mockClear();
+    const s = makeScenario({
+      id: 's1',
+      actionType: 'grpcCall',
+      method: 'GRPC',
+      grpcCallAction: {
+        callType: 'unary',
+        target: 'localhost:50051',
+        descriptorKey: 'echo-v1',
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'hello' },
+      },
+    });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const { results } = await runTest(config, [s], vi.fn());
+    expect(results).toHaveLength(1);
+    expect(results[0]?.transportType).toBe('grpcCall');
+    expect(results[0]?.passed).toBe(true);
+    expect(harnessMocks.invokeUnary).toHaveBeenCalled();
+  });
+
+  it('records grpc harness results in load-profile mode without throwing', async () => {
+    const s = makeScenario({
+      id: 's1',
+      actionType: 'grpcCall',
+      method: 'GRPC',
+      grpcCallAction: {
+        callType: 'unary',
+        target: 'localhost:50051',
+        descriptorKey: 'echo-v1',
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'hello' },
+      },
+    });
+    const config = makeConfig({
+      executionMode: 'load-profile',
+      iterations: 1,
+      scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
+      loadProfile: { type: 'sustained', durationSec: 0.05, maxConcurrency: 1 },
+    });
+    const { results } = await runTest(config, [s], vi.fn());
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((r) => r.transportType === 'grpcCall')).toBe(true);
   });
 
   it('calls wsOperations.disconnectAll in finally block', async () => {

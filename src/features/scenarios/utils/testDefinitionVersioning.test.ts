@@ -477,6 +477,51 @@ describe('createSnapshot — transport fields', () => {
   });
 });
 
+const grpcCallScenario = mkScenario({
+  actionType: 'grpcCall',
+  method: 'GRPC',
+  url: '',
+  grpcCallAction: {
+    callType: 'unary',
+    target: 'localhost:50051',
+    descriptorKey: 'echo-v1',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    body: { message: 'hi' },
+  },
+});
+
+describe('createSnapshot — gRPC harness fields', () => {
+  it('clears resolved target for profile-only gRPC harness binding in definition snapshots (Phase 9F)', () => {
+    const snap = createSnapshot(mkScenario({
+      actionType: 'grpcCall',
+      method: 'GRPC',
+      url: '',
+      grpcCallAction: {
+        callType: 'unary',
+        target: 'localhost:50051',
+        connectionId: 'profile-staging',
+        descriptorKey: 'echo-v1',
+        service: 'echo.EchoService',
+        method: 'Echo',
+      },
+    }));
+    expect(snap.grpcCallAction?.target).toBe('');
+    expect(snap.grpcCallAction?.connectionId).toBe('profile-staging');
+  });
+
+  it('includes actionType and grpcCallAction for gRPC harness scenarios', () => {
+    const snap = createSnapshot(grpcCallScenario);
+    expect(snap.actionType).toBe('grpcCall');
+    expect(snap.grpcCallAction?.service).toBe('echo.EchoService');
+  });
+
+  it('omits grpcCallAction when absent', () => {
+    const snap = createSnapshot(baseScenario);
+    expect(snap.grpcCallAction).toBeUndefined();
+  });
+});
+
 describe('generateChangeSummary — transport changes', () => {
   it('reports action type changed', () => {
     const oldSnap = createSnapshot(baseScenario);
@@ -507,6 +552,16 @@ describe('generateChangeSummary — transport changes', () => {
     const summary = generateChangeSummary(old, modified);
     expect(summary).toContain('WS connect config changed');
   });
+
+  it('reports gRPC call config changed', () => {
+    const old = createSnapshot(grpcCallScenario);
+    const modified = createSnapshot(mkScenario({
+      ...grpcCallScenario,
+      grpcCallAction: { ...grpcCallScenario.grpcCallAction!, target: 'localhost:50052' },
+    }));
+    const summary = generateChangeSummary(old, modified);
+    expect(summary).toContain('gRPC call config changed');
+  });
 });
 
 describe('computeSnapshotDiff — transport changes', () => {
@@ -530,6 +585,17 @@ describe('computeSnapshotDiff — transport changes', () => {
     const snap2 = createSnapshot(mkScenario({
       ...wsConnectScenario,
       wsConnectAction: { ...wsConnectScenario.wsConnectAction!, timeoutMs: 10000 },
+    }));
+    const diff = computeSnapshotDiff(snap1, snap2);
+    expect(diff.actionTypeChanged).toBe(false);
+    expect(diff.transportConfigChanged).toBe(true);
+  });
+
+  it('detects gRPC call config change without action type change', () => {
+    const snap1 = createSnapshot(grpcCallScenario);
+    const snap2 = createSnapshot(mkScenario({
+      ...grpcCallScenario,
+      grpcCallAction: { ...grpcCallScenario.grpcCallAction!, target: 'localhost:50052' },
     }));
     const diff = computeSnapshotDiff(snap1, snap2);
     expect(diff.actionTypeChanged).toBe(false);

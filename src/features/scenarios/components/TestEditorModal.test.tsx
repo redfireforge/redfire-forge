@@ -268,6 +268,46 @@ describe('TestEditorModal — transport switching', () => {
     expect(screen.getByTestId('ws-editor')).toBeInTheDocument();
     rerender(<TestEditorModal {...makeProps({ draft: makeDraft({ actionType: 'kafkaProduce', method: 'KAFKA' }) })} />);
     expect(screen.getByText(/Kafka scenario editor is planned/)).toBeInTheDocument();
+    rerender(<TestEditorModal {...makeProps({
+      draft: makeDraft({
+        actionType: 'grpcCall',
+        method: 'GRPC',
+        grpcCallAction: {
+          callType: 'unary',
+          target: 'localhost:50051',
+          descriptorKey: 'echo-v1',
+          service: 'echo.EchoService',
+          method: 'Echo',
+          body: { message: 'hi' },
+        },
+      }),
+    })} />);
+    expect(screen.getByText(/gRPC harness scenario editor is planned/)).toBeInTheDocument();
+  });
+
+  it('clears grpcCallAction when switching transport away from gRPC', () => {
+    const onDraftChange = vi.fn();
+    render(<TestEditorModal {...makeProps({
+      onDraftChange,
+      draft: makeDraft({
+        actionType: 'grpcCall',
+        method: 'GRPC',
+        grpcCallAction: {
+          callType: 'unary',
+          target: 'localhost:50051',
+          descriptorKey: 'echo-v1',
+          service: 'echo.EchoService',
+          method: 'Echo',
+          body: { message: 'hi' },
+        },
+      }),
+    })} />);
+    fireEvent.change(screen.getByLabelText('Transport type'), { target: { value: 'http' } });
+    expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({
+      method: 'GET',
+      actionType: undefined,
+      grpcCallAction: undefined,
+    }));
   });
 
   it('computes canSave for ws variants', () => {
@@ -776,7 +816,7 @@ describe('TestEditorModal — coverage gaps', () => {
     render(<TestEditorModal {...makeProps({ onActiveTabChange })} />);
     fireEvent.click(screen.getByText('Import ▾'));
     fireEvent.click(screen.getByText('Test Definition'));
-    expect(toastShow).toHaveBeenCalledWith('warning', 'WS Config Issues', expect.any(String));
+    expect(toastShow).toHaveBeenCalledWith('warning', 'Transport Config Issues', expect.any(String));
     expect(onActiveTabChange).toHaveBeenCalledWith('validation');
   });
 

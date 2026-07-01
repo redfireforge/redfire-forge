@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { isTemplateToken, decodeTemplateBraces } from './templateHelpers';
+import { isTemplateToken, decodeTemplateBraces, substituteBodyColumnTemplateVars } from './templateHelpers';
 
 describe('isTemplateToken', () => {
   it('returns true for simple {{var}}', () => {
@@ -63,5 +63,13 @@ describe('decodeTemplateBraces', () => {
 
   it('handles empty string', () => {
     expect(decodeTemplateBraces('')).toBe('');
+  });
+});
+
+describe('substituteBodyColumnTemplateVars', () => {
+  it('replaces known vars and preserves unknown placeholders', () => {
+    const vars = { greeting: 'hello', port: '50051' };
+    expect(substituteBodyColumnTemplateVars('{{greeting}}:{{port}}', vars)).toBe('hello:50051');
+    expect(substituteBodyColumnTemplateVars('{{missing}}', vars)).toBe('{{missing}}');
   });
 });

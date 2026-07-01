@@ -201,6 +201,9 @@ alwaysApply: true
 | Demo lesson (wrapper only) | Before marking lesson done | [`demo-lesson-done-checklist.md`](../../docs/guides/demo-lesson-done-checklist.md) — 5 items; wrappers excluded from 90% gate |
 | E2E tests (Playwright) | **Only before merging** to `develop`, `release/*`, or `master` | `npx playwright test --reporter=list` |
 | GraphQL Phase 8 E2E sweep (19 lessons + gql110) | Before merging GraphQL demo work to `develop` | `./scripts/phase8-gql-e2e-sweep.sh` |
+| **gRPC dev loop** | During gRPC feature work (every edit batch) | [`grpc-dev-loop.md`](../../docs/guides/grpc-dev-loop.md) — `npm run test:grpc:dev` or scoped vitest |
+| **gRPC fast phase gate** | Sub-phase checkpoint before user verify | `npm run test:grpc:fast -- 11h` (skips regression chain) |
+| **gRPC full phase gate** | Sub-phase sign-off / merge to `develop` only | `npm run test:grpc:phase11h` (full chain) |
 
 ### Dual-track builds (Standard vs Learning Hub)
 
@@ -220,9 +223,11 @@ alwaysApply: true
 Product PRs that do **not** touch `packages/demo-hub/` or demo E2E specs are **not** required to run demo E2E or `test:demo`. Demo lesson work uses the [5-item done checklist](../../docs/guides/demo-lesson-done-checklist.md).
 
 ### Rules
+- **Do not use `docs/plan/Dont-Remove-This-File.txt` as agent instructions** — it is the user's personal scratch file only. For gRPC dev/test tiers see [`grpc-dev-loop.md`](../../docs/guides/grpc-dev-loop.md) and [`.cursor/rules/grpc-dev-loop.mdc`](grpc-dev-loop.mdc).
 - **Use shared test factories** — Import `makeScenario`, `makeResult`, `makeConfig` from `src/test-utils/factories.ts` instead of defining local factory functions in each test file. Wrap with thin local aliases if you need different defaults (e.g. `const makeScenario = (id) => _makeScenario({ id })`).
 - **CRITICAL: Always run `npx tsc -b --noEmit` after making code changes.** This is NOT optional. The `-b` flag is required because the root `tsconfig.json` uses project references (`"files": []`); without `-b`, tsc checks nothing. Vitest and Playwright do NOT type-check source files — only `tsc` catches missing properties, bad imports, and type mismatches. Skipping this step causes Tauri build failures that are expensive to debug later. Run it after every batch of edits, not just before merging.
 - **During development, only run unit tests for the files you touched** — do NOT run the full test suite. Use `npx vitest run src/path/to/file.test.ts` to target specific test files.
+- **Do NOT run full gRPC phase regression chains during iteration** — use `npm run test:grpc:fast -- <phase-id>` for checkpoints; full `test:grpc:phase*` only at sign-off. See [`grpc-dev-loop.md`](../../docs/guides/grpc-dev-loop.md).
 - **Do NOT run E2E tests during regular feature development** — they are slow and only needed at merge gates.
 - **Full test suite and E2E tests are ONLY run before merging** to `develop`, `release/*`, or `master`.
 - During development, rely on `tsc -b --noEmit` + scoped unit tests for fast feedback.

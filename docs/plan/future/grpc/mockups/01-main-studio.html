@@ -40,7 +40,7 @@
 .cancel-btn { background: rgba(243,139,168,0.12); color: var(--danger); border: 1px solid rgba(243,139,168,0.3); padding: 6px 12px; border-radius: 4px; font-size: 12px; font-weight: 600; cursor: pointer; display: none; align-items: center; gap: 5px; }
 </style>
 </head>
-<body>
+<body data-grpc-page="studio">
 <div class="app-header">
   <a class="app-logo" href="index.html">🔥 <span>RedfireForge</span></a>
   <div class="nav-pills">
@@ -81,6 +81,12 @@
     <span class="tab-close">×</span>
   </button>
   <button class="new-tab-btn" title="New Tab">+</button>
+</div>
+
+<div class="mockup-ux-callout">
+  <strong>Phase 4J UX (target):</strong> TLS badge opens shared modal (like GraphQL/WebSocket) — not inline PEM on this page.
+  Auth badge + bottom <strong>Auth</strong> tab = dual entry, single state (GraphQL pattern).
+  <a href="04-auth-tls.html">Full connection settings drawer →</a>
 </div>
 
 <div class="studio-layout" style="flex:1;min-height:0;overflow:hidden;">
@@ -188,16 +194,15 @@
 
   <!-- Main content -->
   <div class="main-content">
-    <!-- Connection Bar -->
+    <!-- Connection Bar (GraphQL/WebSocket parity — Phase 4J) -->
     <div class="connection-bar">
-      <div class="status-dot connected" title="Connected"></div>
-      <input class="target-input" type="text" value="{{grpcHost}}" style="max-width:280px">
-      <div class="tls-badge" onclick="showTlsPanel()" title="TLS enabled — click to configure">🔒 TLS</div>
-      <button class="btn btn-ghost btn-sm" onclick="showTlsPanel()">Auth: Bearer</button>
-      <button class="btn btn-ghost btn-sm" onclick="alert('Opens Call Settings (deadline, compression…)')">⏱ 30s</button>
-      <div class="deadline-badge" style="margin-left:auto">
-        ⏱ deadline: 30s
-      </div>
+      <div class="status-dot connected" title="Per-call transport ready (persistent Connect/Disconnect: deferred)"></div>
+      <input class="target-input grpc-target-input" type="text" value="{{grpcHost}}" style="max-width:280px" aria-label="gRPC target address">
+      <button type="button" class="tls-badge" id="grpcTlsBadge" title="Configure TLS — shared modal">🔒 TLS</button>
+      <button type="button" class="auth-badge auth-badge--configured" id="grpcAuthBadge" title="Focus Auth tab">Auth: Bearer</button>
+      <button type="button" class="deadline-badge deadline-badge--btn" data-action="settings" data-settings-panel="call" title="Call settings (deadline, compression…)">⏱ 30s</button>
+      <button type="button" class="btn btn-ghost btn-sm connection-settings-btn" data-action="settings" title="All connection settings">⚙</button>
+      <div class="connection-bar-spacer"></div>
       <button class="btn btn-primary btn-sm" id="connectBtn" onclick="toggleConnect(this)">Disconnect</button>
     </div>
 
@@ -220,6 +225,7 @@
           <button class="panel-tab active" onclick="switchReqTab(this,'form')">Form Input</button>
           <button class="panel-tab" onclick="switchReqTab(this,'json')">JSON <span class="badge">1</span></button>
           <button class="panel-tab" onclick="switchReqTab(this,'meta')">Metadata</button>
+          <button class="panel-tab" data-req-tab="auth" onclick="switchReqTab(this,'auth')">Auth</button>
         </div>
 
         <!-- Form tab -->
@@ -400,6 +406,32 @@
             <button class="add-item-btn" style="margin-top:8px">+ Add metadata pair</button>
           </div>
         </div>
+
+        <!-- Auth tab (dual entry with connection bar — GraphQL pattern) -->
+        <div id="req-auth" class="scrollable auth-tab-body" style="display:none">
+          <div class="auth-form-card">
+            <div class="auth-form-card-header">
+              Credentials inject as gRPC metadata on every call. Conflicts with manual <code style="font-family:var(--mono)">authorization</code> in Metadata tab resolve per Phase 4C precedence rules.
+            </div>
+            <div class="auth-type-tabs-inline">
+              <button type="button" class="auth-type-tab-inline">None</button>
+              <button type="button" class="auth-type-tab-inline active">Bearer Token</button>
+              <button type="button" class="auth-type-tab-inline">Basic Auth</button>
+              <button type="button" class="auth-type-tab-inline">API Key</button>
+              <button type="button" class="auth-type-tab-inline">OAuth2</button>
+            </div>
+            <div class="two-tone-row">
+              <div class="two-tone-label">Bearer token</div>
+              <div class="two-tone-ctrl">
+                <input type="text" value="{{authToken}}" placeholder="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9…">
+              </div>
+            </div>
+          </div>
+          <div class="auth-preview-footer">
+            <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-faint);margin-bottom:4px">Injected as metadata</div>
+            <span class="hl">authorization</span>: Bearer {{authToken}}
+          </div>
+        </div>
       </div>
 
       <div class="hresize-handle"></div>
@@ -566,11 +598,13 @@ function syntaxHighlight(json) {
     });
 }
 function switchReqTab(el, tab) {
-  document.querySelectorAll('.panel-tabs .panel-tab').forEach(t => t.classList.remove('active'));
+  el.closest('.panel-tabs').querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
   document.getElementById('req-form').style.display = tab === 'form' ? '' : 'none';
   document.getElementById('req-json').style.display = tab === 'json' ? '' : 'none';
   document.getElementById('req-meta').style.display = tab === 'meta' ? '' : 'none';
+  const authEl = document.getElementById('req-auth');
+  if (authEl) authEl.style.display = tab === 'auth' ? '' : 'none';
 }
 function switchRespTab(el, tab) {
   el.closest('.panel-tabs').querySelectorAll('.panel-tab').forEach(t => t.classList.remove('active'));
@@ -602,7 +636,7 @@ function simulateSend() {
     }, 1200);
   }
 }
-function showTlsPanel() { alert('Opens TLS & Auth panel (see mockup 04-auth-tls.html)'); }
+function showTlsPanel() { if (window.grpcMockup) window.grpcMockup.openTlsModal(); }
 document.querySelectorAll('.oneof-radio').forEach(btn => {
   btn.addEventListener('click', () => {
     btn.closest('.oneof-radio-row').querySelectorAll('.oneof-radio').forEach(b => b.classList.remove('active'));
@@ -610,5 +644,6 @@ document.querySelectorAll('.oneof-radio').forEach(btn => {
   });
 });
 </script>
+<script src="mockup-shared.js"></script>
 </body>
 </html>

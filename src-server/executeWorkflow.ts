@@ -8,7 +8,7 @@ import type { ExecutionResult, LogLine } from '../src/shared/types/server-api';
 import type { Workflow, NodeRunStatus } from '../src/features/workflow/types/workflow';
 import type { RequestResult, WorkflowIterationTrace, ExecutionTraceOptions } from '../src/shared/types/index';
 import type { ICorrelationStore } from '../src/features/workflow/engine/correlationStore.js';
-import type { KafkaNodeOperations } from '../src/features/workflow/engine/graphRunnerNodeHandlerContext.js';
+import type { KafkaNodeOperations, GrpcNodeOperations } from '../src/features/workflow/engine/graphRunnerNodeHandlerContext.js';
 
 export interface WorkflowExecutionInput {
   executionId: string;
@@ -31,6 +31,8 @@ export interface WorkflowExecutionInput {
    * When omitted, Kafka nodes will fail with 'No Kafka operations configured'.
    */
   kafkaOperations?: KafkaNodeOperations;
+  /** gRPC client operations for grpcUnary/grpcServerStream nodes. */
+  grpcOperations?: GrpcNodeOperations;
 }
 
 export interface WorkflowExecutionOutput {
@@ -49,7 +51,7 @@ export interface WorkflowExecutionOutput {
 export async function executeWorkflow(input: WorkflowExecutionInput): Promise<WorkflowExecutionOutput> {
   const {
     executionId, workflow, initialVariables, triggerType, triggerId,
-    startTime, onLog, traceOptions, correlationStore, kafkaOperations,
+    startTime, onLog, traceOptions, correlationStore, kafkaOperations, grpcOperations,
   } = input;
 
   const executionResults: RequestResult[] = [];
@@ -94,6 +96,7 @@ export async function executeWorkflow(input: WorkflowExecutionInput): Promise<Wo
     undefined,        // httpTimeoutMs
     kafkaOperations,  // KafkaNodeOperations — wire from server-side KafkaService when available
     undefined,        // WsNodeOperations — wire from server-side WsService when available
+    grpcOperations,   // GrpcNodeOperations — wire from server-side gRPC proxy when available
   );
 
   const totalDuration = Date.now() - startTime;

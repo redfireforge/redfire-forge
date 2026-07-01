@@ -189,6 +189,30 @@ describe('TraceCollector', () => {
       expect(events[0].durationMs).toBe(5000);
     });
 
+    it('uses responseTimeMs for grpcUnary nodes', () => {
+      const nodesWithGrpc: WorkflowNode[] = [
+        { id: 'g1', type: 'grpcUnary', data: { label: 'Echo' }, position: { x: 0, y: 0 } },
+      ];
+      const grpcCollector = new TraceCollector(nodesWithGrpc);
+
+      grpcCollector.onNodeStart('g1');
+      grpcCollector.onNodeComplete('g1', 'pass', {
+        responseTimeMs: 42,
+        grpcDetails: {
+          target: 'localhost:50051',
+          service: 'echo.Echo',
+          method: 'Unary',
+          callType: 'unary',
+          durationMs: 42,
+          grpcStatus: 0,
+        },
+      });
+
+      const events = grpcCollector.getEvents();
+      expect(events[0].durationMs).toBe(42);
+      expect(events[0].details?.grpcDetails?.callType).toBe('unary');
+    });
+
     it('extracts node label from data', () => {
       collector.onNodeStart('n1');
       collector.onNodeComplete('n1', 'pass');

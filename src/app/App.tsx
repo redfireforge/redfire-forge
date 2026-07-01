@@ -39,6 +39,7 @@ import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage
 import { WebSocketStudioPage } from '../features/websocket/WebSocketStudioPage';
 import { SseStudioPage } from '../features/sse/SseStudioPage';
 import { GraphqlStudioPage } from '../features/graphql/GraphqlStudioPage';
+import { GrpcStudioPage } from '../features/grpc/GrpcStudioPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
@@ -556,6 +557,7 @@ export default function App() {
                 microservices={microservices}
                 globalAuthProfiles={appGlobalAuthProfiles}
                 selectedEnvId={selectedEnvId}
+                selectedSvcId={selectedSvcId}
                 onImportSample={(wf) => {
                   const existing = wfHook.workflows.find(w => w.id === wf.id);
                   if (existing) {
@@ -661,6 +663,19 @@ export default function App() {
             </div>
           )}
 
+          {activeTab === 'grpc-studio' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <GrpcStudioPage
+                resolvedBaseUrl={resolvedBaseUrl}
+                envName={selectedEnv?.name}
+                svcName={selectedSvc?.name}
+                selectedSvc={selectedSvc}
+                selectedEnvId={selectedEnvId}
+                globalAuthProfiles={appGlobalAuthProfiles}
+              />
+            </div>
+          )}
+
           {activeTab === 'scenarios' && (
             <ScenarioBuilder
               featureGroups={filteredFeatureGroups}
@@ -706,6 +721,7 @@ export default function App() {
               svcId={selectedSvcId}
               isAdditionalEnv={isAdditionalEnv}
               resolvedBaseUrl={resolvedBaseUrl}
+              microservices={microservices}
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
               sharedDataSources={sharedDataSources}
@@ -722,6 +738,7 @@ export default function App() {
               svcId={selectedSvcId}
               isAdditionalEnv={isAdditionalEnv}
               resolvedBaseUrl={resolvedBaseUrl}
+              microservices={microservices}
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
               sharedDataSources={sharedDataSources}

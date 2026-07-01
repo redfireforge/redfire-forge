@@ -46,9 +46,8 @@ export default function SetupStepValidate({
     () => createValidationAdapter({
       sampleResponseBody: sampleJson || undefined,
       selectiveMode: 'include',
-      expectedFields: validateFields,
     }),
-    [sampleJson, validateFields],
+    [sampleJson],
   );
 
   const mapperInitialData = useMemo<ValidationAdapterOutput>(() => ({

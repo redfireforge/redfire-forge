@@ -25,7 +25,7 @@ try {
 const map = libCoverage.createCoverageMap(raw);
 const before = map.files().length;
 
-map.filter((file: string) => !isDemoCoveragePath(file));
+map.filter((file: string) => !isDemoCoveragePath(file) && !file.includes('.testHelpers.'));
 
 const removed = before - map.files().length;
 

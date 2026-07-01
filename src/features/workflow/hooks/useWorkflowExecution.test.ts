@@ -43,6 +43,7 @@ vi.mock('../utils/workflowRunErrors', async (importOriginal) => {
 
 import { runGraph } from '../engine/graphRunner';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
 
 const mockRunGraph = vi.mocked(runGraph);
 const mockCheckEnvReadiness = vi.mocked(checkEnvReadiness);
@@ -202,6 +203,75 @@ describe('useWorkflowExecution', () => {
       expect(opts.setLastRunStatus).toHaveBeenCalledWith('running');
       expect(opts.setNodeStatuses).toHaveBeenCalledWith({});
       expect(mockRunGraph).toHaveBeenCalled();
+    });
+
+    it('blocks Quick Test when gRPC nodes fail graph validation', async () => {
+      const opts = createMockOptions();
+      opts.nodes = [{
+        id: 'grpc-1',
+        type: 'grpcUnary',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'gRPC Unary',
+          target: '',
+          descriptorKey: '',
+          service: '',
+          method: '',
+          callType: 'unary',
+          body: {},
+        },
+      }];
+      opts.nodesRef.current = opts.nodes;
+
+      const { result } = renderHook(() => useWorkflowExecution(opts));
+
+      await act(async () => {
+        result.current.handleQuickTest();
+      });
+
+      expect(mockRunGraph).not.toHaveBeenCalled();
+      expect(opts.setLastRunStatus).toHaveBeenCalledWith('fail');
+      expect(opts.setLastRunError).toHaveBeenCalledWith(expect.stringContaining('Target address or connection profile is required'));
+      expect(opts.toast.show).toHaveBeenCalledWith(
+        'error',
+        'gRPC workflow validation failed',
+        expect.any(String),
+        6000,
+      );
+    });
+
+    it('allows Quick Test when gRPC nodes pass graph validation', async () => {
+      const opts = createMockOptions();
+      opts.nodes = [{
+        id: 'grpc-1',
+        type: 'grpcUnary',
+        position: { x: 0, y: 0 },
+        data: {
+          label: 'gRPC Unary',
+          target: FIXTURE_UNARY_CALL_REQUEST.target.address,
+          descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+          service: FIXTURE_UNARY_CALL_REQUEST.service,
+          method: FIXTURE_UNARY_CALL_REQUEST.method,
+          callType: 'unary',
+          body: { message: 'hello' },
+        },
+      }];
+      opts.nodesRef.current = opts.nodes;
+
+      const { result } = renderHook(() => useWorkflowExecution(opts));
+
+      await act(async () => {
+        result.current.handleQuickTest();
+      });
+
+      expect(mockRunGraph).toHaveBeenCalled();
+      expect(opts.setLastRunStatus).toHaveBeenCalledWith('running');
+      expect(opts.toast.show).not.toHaveBeenCalledWith(
+        'error',
+        'gRPC workflow validation failed',
+        expect.any(String),
+        6000,
+      );
     });
 
     it('stops running workflow when called during run', async () => {

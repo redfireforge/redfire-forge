@@ -18,8 +18,16 @@ import {
   dispatchGqlTabsReload,
   expandAppSidebar,
   isGraphqlStudioLesson,
+  completeGrpcStudioLessonRun,
+  isGrpcStudioLesson,
+  clearGrpcStudioLessonRun,
   loadDemoSession,
+  pauseGrpcStudioLessonRun,
   purgeOrphanDemoTabs,
+  resumeGrpcStudioLessonRun,
+  runGrpcStudioLessonSetup,
+  runGrpcStudioLessonTeardown,
+  syncGrpcStudioLessonStepOnComplete,
 } from './adapters';
 import {
   GQL_MODAL_LOCK_OPEN,
@@ -135,7 +143,11 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     skipReadingRef.current?.();
     skipReadingRef.current = null;
     setStepPhase('done');
-  }, []);
+    const lesson = state.selectedLesson;
+    if (lesson && isGrpcStudioLesson(lesson)) {
+      pauseGrpcStudioLessonRun();
+    }
+  }, [state.selectedLesson]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -221,7 +233,12 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   /** User clicked "Complete" — mark lesson done. exitLiveDemo is called separately. */
   const confirmLessonComplete = useCallback(() => {
     const lesson = state.selectedLesson;
-    if (lesson) progress.markLessonComplete(lesson.id);
+    if (lesson) {
+      if (isGrpcStudioLesson(lesson)) {
+        completeGrpcStudioLessonRun();
+      }
+      progress.markLessonComplete(lesson.id);
+    }
   }, [state.selectedLesson, progress]);
 
   // ─── Action Context Builder ────────────────────────────────────
@@ -248,6 +265,9 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     const ctx = buildQuietContext();
     if (isGraphqlStudioLesson(lesson)) {
       return runGqlStudioLessonTeardown(lesson, ctx);
+    }
+    if (isGrpcStudioLesson(lesson)) {
+      return runGrpcStudioLessonTeardown(lesson, ctx);
     }
     if (lesson.cleanup) {
       return lesson.cleanup(ctx).catch((e) => {
@@ -290,6 +310,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       void runLiveLessonCleanup(liveLesson);
     } else if (lesson && isGraphqlStudioLesson(lesson)) {
       void runGqlStudioLessonTeardown(lesson, buildQuietContextRef.current());
+    } else if (lesson && isGrpcStudioLesson(lesson)) {
+      void runGrpcStudioLessonTeardown(lesson, buildQuietContextRef.current());
     }
     setHubOpen(false);
     setState(prev => ({ ...prev, isPlaying: false }));
@@ -443,12 +465,22 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       }
 
       // Phase 5: verify (retry-wait for result)
+      let stepVerified = !step.verify;
       if (step.verify) {
         setStepPhase('verify');
-        await waitForElement(step.verify, 3000, signal);
+        stepVerified = await waitForElement(step.verify, 3000, signal);
         if (signal.aborted) return;
-        await abortableSleep(scaleMs(DEMO_VERIFY_ABSORB_MS), signal); // absorb result
-        if (signal.aborted) return;
+        if (stepVerified) {
+          await abortableSleep(scaleMs(DEMO_VERIFY_ABSORB_MS), signal); // absorb result
+          if (signal.aborted) return;
+        }
+      }
+
+      if (lesson && isGrpcStudioLesson(lesson)) {
+        syncGrpcStudioLessonStepOnComplete(lesson, step.id, stepIndex, {
+          verifyRequired: Boolean(step.verify),
+          verified: stepVerified,
+        });
       }
 
       setStepPhase('done');
@@ -473,6 +505,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     executingRef.current = true;
     const visibleCtx = buildContext();
     const scaleMs = (ms: number) => Math.round(ms / speed);
+    const lesson = state.selectedLesson;
+    const stepIndex = state.stepIndex;
 
     try {
       if (step.action) {
@@ -482,12 +516,22 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         if (signal.aborted) return;
       }
 
+      let stepVerified = !step.verify;
       if (step.verify) {
         setStepPhase('verify');
-        await waitForElement(step.verify, 25000, signal);
+        stepVerified = await waitForElement(step.verify, 25000, signal);
         if (signal.aborted) return;
-        await abortableSleep(scaleMs(DEMO_VERIFY_ABSORB_MS), signal);
-        if (signal.aborted) return;
+        if (stepVerified) {
+          await abortableSleep(scaleMs(DEMO_VERIFY_ABSORB_MS), signal);
+          if (signal.aborted) return;
+        }
+      }
+
+      if (lesson && isGrpcStudioLesson(lesson)) {
+        syncGrpcStudioLessonStepOnComplete(lesson, step.id, stepIndex, {
+          verifyRequired: Boolean(step.verify),
+          verified: stepVerified,
+        });
       }
 
       setStepPhase('done');
@@ -497,7 +541,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         setStepPhase('done');
       }
     }
-  }, [buildContext]);
+  }, [buildContext, state.selectedLesson, state.stepIndex]);
 
   const runLiveDemoSetup = useCallback(async (lesson: DemoLesson, gen: number): Promise<boolean> => {
     suppressLiveTabExitRef.current = true;
@@ -509,6 +553,13 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       await new Promise(r => setTimeout(r, 350));
       if (isGraphqlStudioLesson(lesson)) {
         await runGqlDemoStorageHygiene();
+      }
+      if (isGrpcStudioLesson(lesson)) {
+        try {
+          runGrpcStudioLessonSetup(lesson);
+        } catch (e) {
+          console.warn('[DemoHub] gRPC lesson runtime setup failed:', e);
+        }
       }
       if (lesson.setup) {
         const ctx = buildQuietContext();
@@ -612,12 +663,20 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
   const toggleAutoPlay = useCallback(() => {
     const shouldPause = isPlayingRef.current;
+    const lesson = state.selectedLesson;
+    const atEnd = lesson != null && state.stepIndex >= lesson.steps.length - 1;
+    const willReplayAtEnd = !shouldPause && atEnd && lesson != null;
+
+    if (willReplayAtEnd && isGrpcStudioLesson(lesson)) {
+      clearGrpcStudioLessonRun();
+    }
+
     setState(prev => {
       const newPlaying = !prev.isPlaying;
       // If starting play at the last step, restart from step 0
-      const lesson = prev.selectedLesson;
-      const atEnd = lesson && prev.stepIndex >= lesson.steps.length - 1;
-      if (newPlaying && atEnd && lesson) {
+      const replayLesson = prev.selectedLesson;
+      const replayAtEnd = replayLesson && prev.stepIndex >= replayLesson.steps.length - 1;
+      if (newPlaying && replayAtEnd && replayLesson) {
         const currentSpeed = prev.speed;
         // Snapshot current generation so the async callback can detect if
         // restart/exit was triggered while cleanup/setup was in progress.
@@ -630,29 +689,36 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         setTimeout(async () => {
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           const ctx = buildQuietContext();
-          if (lesson.cleanup) {
-            try { await lesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] Lesson cleanup failed:', e); }
+          if (replayLesson.cleanup) {
+            try { await replayLesson.cleanup(ctx); } catch (e) { console.warn('[DemoHub] Lesson cleanup failed:', e); }
           }
           /* v8 ignore next */
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           // Navigate back to the lesson's starting tab (same as restartDemo does).
-          if (lesson.initialTab) ctx.navigateToTab(lesson.initialTab);
-          if (isWorkflowDesignerLesson(lesson)) {
+          if (replayLesson.initialTab) ctx.navigateToTab(replayLesson.initialTab);
+          if (isWorkflowDesignerLesson(replayLesson)) {
             expandAppSidebar();
           }
           await new Promise(r => setTimeout(r, 350));
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
-          if (isGraphqlStudioLesson(lesson)) {
+          if (isGraphqlStudioLesson(replayLesson)) {
             await runGqlDemoStorageHygiene();
           }
-          if (lesson.setup) {
-            try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
+          if (isGrpcStudioLesson(replayLesson)) {
+            try {
+              runGrpcStudioLessonSetup(replayLesson);
+            } catch (e) {
+              console.warn('[DemoHub] gRPC lesson runtime setup failed:', e);
+            }
           }
-          if (isMountedRef.current && lesson.steps[0] && autoPlayGenRef.current === atEndGen) {
+          if (replayLesson.setup) {
+            try { await replayLesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
+          }
+          if (isMountedRef.current && replayLesson.steps[0] && autoPlayGenRef.current === atEndGen) {
             // Re-enable auto-play now that setup is done, then execute step 0.
             setState(prev => ({ ...prev, isPlaying: true }));
-            await executeCurrentStep(lesson.steps[0], currentSpeed, { stepIndex: 0 });
-            progress.setLessonStep(lesson.id, 0);
+            await executeCurrentStep(replayLesson.steps[0], currentSpeed, { stepIndex: 0 });
+            progress.setLessonStep(replayLesson.id, 0);
           }
         }, 50);
         // Start with isPlaying: false to prevent the auto-play effect from racing
@@ -661,8 +727,12 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       }
       return { ...prev, isPlaying: newPlaying };
     });
-    if (shouldPause) pauseAutoPlay();
-  }, [buildQuietContext, executeCurrentStep, progress, pauseAutoPlay]);
+    if (shouldPause) {
+      pauseAutoPlay();
+    } else if (state.selectedLesson && isGrpcStudioLesson(state.selectedLesson)) {
+      resumeGrpcStudioLessonRun();
+    }
+  }, [buildQuietContext, executeCurrentStep, progress, pauseAutoPlay, state.selectedLesson, state.stepIndex]);
 
   // Stable progress callbacks — useCallback([update]) where update is useCallback([])
   // so these never change reference across renders. Destructured here to keep
@@ -718,6 +788,9 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const restartDemo = useCallback(async () => {
     const lesson = state.selectedLesson;
     if (!lesson) return;
+    if (isGrpcStudioLesson(lesson)) {
+      clearGrpcStudioLessonRun();
+    }
     profilesIntroducedInSessionRef.current = false;
     envIntroducedInSessionRef.current = false;
     closeWorkflowConfigModal();
@@ -740,6 +813,13 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       await new Promise(r => setTimeout(r, 350));
       if (isGraphqlStudioLesson(lesson)) {
         await runGqlDemoStorageHygiene();
+      }
+      if (isGrpcStudioLesson(lesson)) {
+        try {
+          runGrpcStudioLessonSetup(lesson);
+        } catch (e) {
+          console.warn('[DemoHub] gRPC lesson runtime setup failed:', e);
+        }
       }
       if (lesson.setup) {
         try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] setup failed:', e); }
@@ -790,6 +870,10 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       const ctx = buildQuietContext();
       if (isGraphqlStudioLesson(lesson)) {
         try { await runGqlStudioLessonTeardown(lesson, ctx); } catch (e) {
+          console.warn('[DemoHub] Lesson cleanup failed:', e);
+        }
+      } else if (isGrpcStudioLesson(lesson)) {
+        try { await runGrpcStudioLessonTeardown(lesson, ctx); } catch (e) {
           console.warn('[DemoHub] Lesson cleanup failed:', e);
         }
       } else if (lesson.cleanup) {

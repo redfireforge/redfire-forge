@@ -2,6 +2,8 @@ import { vi } from 'vitest';
 import type { WorkflowNode, WorkflowEdge, WorkflowNodeType, NodeRunStatus } from '../types/workflow';
 import type { TraceCollector } from './traceCollector';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlers';
+import { GrpcWorkflowOutputRegistry } from '../utils/grpcWorkflowOutputRegistry';
+import { GrpcWorkflowStepResultStore } from '../utils/grpcWorkflowStepResultStore';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { executeScript } from './scriptSandbox';
 import { VariableContext } from './variableContext';
@@ -109,6 +111,8 @@ export function makeHandlerContext(overrides: Partial<NodeHandlerContext> & {
     initialVariables: initialVars,
     traceOptions: overrides.traceOptions,
     capturedHttpDetails: overrides.capturedHttpDetails,
+    grpcOutputRegistry: overrides.grpcOutputRegistry ?? new GrpcWorkflowOutputRegistry(),
+    grpcStepResultStore: overrides.grpcStepResultStore ?? new GrpcWorkflowStepResultStore(),
     ...overrides,
   };
 }

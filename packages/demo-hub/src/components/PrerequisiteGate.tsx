@@ -24,6 +24,8 @@ interface PrerequisiteGateProps {
   endpoints?: string[];
   /** Human-readable docker compose command to display */
   dockerCommand: string;
+  /** Optional gate title (default: Docker Required). */
+  gateLabel?: string;
   /** Called once when the server first becomes reachable — parent uses this to enable Start Demo */
   onServerReady: () => void;
   /** GraphQL Studio tab slots this lesson reserves (§11.0). Omit when not a studio lesson. */
@@ -39,6 +41,7 @@ export default function PrerequisiteGate({
   endpoint,
   endpoints,
   dockerCommand,
+  gateLabel = '🐳 Docker Required',
   onServerReady,
   tabBudget,
   onTabCapacityReady,
@@ -117,13 +120,15 @@ export default function PrerequisiteGate({
     idle:     'Checking…',
     checking: 'Checking…',
     up:       'Server detected — ready to start',
-    down:     'Server not detected — start the container below',
+    down:     probeEndpoints.length > 1
+      ? 'Required services not detected — complete the setup below'
+      : 'Server not detected — start the container below',
   }[probeState];
 
   return (
     <div className="prereq-gate" data-testid="prereq-gate">
       <div className="prereq-gate-header">
-        <span className="prereq-gate-label">🐳 Docker Required</span>
+        <span className="prereq-gate-label">{gateLabel}</span>
         {probeState === 'checking' && (
           <span className="prereq-spinner" aria-label="Checking server…" />
         )}
@@ -140,7 +145,7 @@ export default function PrerequisiteGate({
           <code>{dockerCommand}</code>
         </pre>
         <p className="prereq-instruction-note">
-          This page will detect the container automatically — the Start Demo button below will unlock.
+          This page will detect when all required services are reachable — the Start Demo button below will unlock.
         </p>
       </div>
 

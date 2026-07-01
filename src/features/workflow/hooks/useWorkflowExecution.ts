@@ -16,9 +16,15 @@ import { DebugController } from '../engine/debugController';
 import { RemoteCorrelationStore } from '../engine/remoteCorrelationStore';
 import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOperations';
 import { buildWsNodeOperations } from '../../../shared/websocket/buildWsNodeOperations';
+import { buildGrpcNodeOperations } from '../../../shared/grpc/buildGrpcNodeOperations';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
 import { buildQuickTestFailureReport, filterQuickTestVariableSnapshot, isExecutableWorkflowNodeType } from '../utils/workflowRunErrors';
+import {
+  summarizeGrpcWorkflowGraphValidation,
+  validateGrpcWorkflowGraph,
+  workflowGraphHasGrpcNodes,
+} from '../utils/validateGrpcWorkflowGraph';
 import { collectWorkflowReferencedVariables } from '../utils/countWorkflowDesignerVariables';
 import type { RunProgress } from '../components/canvas/WorkflowToolbar';
 import type { ConsoleLine } from '../../requests/hooks/useResponseCache';
@@ -133,6 +139,32 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
   const executeWorkflowRun = useCallback((debugController?: DebugController) => {
     if (!selected || nodes.length === 0) return;
 
+    const liveWorkflowVariables = workflowVariablesRef.current;
+    const wfNodes: WorkflowNode[] = nodesRef.current.map((n) => {
+      const base = { id: n.id, type: n.type, position: n.position };
+      if (!isHttpWorkflowNode(n)) {
+        return { ...base, data: cloneWorkflowNodeDataForStorage(n.data) };
+      }
+      const d = n.data;
+      const refVars = nodeInitialVarsRef.current[n.id];
+      const merged: HttpNodeData = {
+        ...d,
+        initialVariables: { ...liveWorkflowVariables, ...(refVars ?? d.initialVariables ?? {}) },
+      };
+      return { ...base, data: cloneWorkflowNodeDataForStorage(merged) };
+    });
+
+    if (workflowGraphHasGrpcNodes(wfNodes)) {
+      const grpcValidation = validateGrpcWorkflowGraph(wfNodes);
+      if (!grpcValidation.valid) {
+        const message = summarizeGrpcWorkflowGraphValidation(grpcValidation);
+        toast.show('error', 'gRPC workflow validation failed', message, 6000);
+        setLastRunStatus('fail');
+        setLastRunError(message);
+        return;
+      }
+    }
+
     if (selectedEnvId && workflowServices.length) {
       const readiness = checkEnvReadiness(selectedEnvId, workflowServices);
       if (!readiness.ready) {
@@ -156,20 +188,6 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
 
     abortRef.current = new AbortController();
 
-    const liveWorkflowVariables = workflowVariablesRef.current;
-    const wfNodes: WorkflowNode[] = nodesRef.current.map((n) => {
-      const base = { id: n.id, type: n.type, position: n.position };
-      if (!isHttpWorkflowNode(n)) {
-        return { ...base, data: cloneWorkflowNodeDataForStorage(n.data) };
-      }
-      const d = n.data;
-      const refVars = nodeInitialVarsRef.current[n.id];
-      const merged: HttpNodeData = {
-        ...d,
-        initialVariables: { ...liveWorkflowVariables, ...(refVars ?? d.initialVariables ?? {}) },
-      };
-      return { ...base, data: cloneWorkflowNodeDataForStorage(merged) };
-    });
     const wfEdges = edgesRef.current.map(e => ({
       id: e.id,
       source: e.source,
@@ -299,6 +317,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
       undefined, // httpTimeoutMs
       buildKafkaNodeOperations(),
       buildWsNodeOperations(),
+      buildGrpcNodeOperations(),
     ).catch(() => {
       // If the user already stopped the run, don't override with 'fail'
       if (abortRef.current?.signal.aborted) return;

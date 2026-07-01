@@ -1,10 +1,19 @@
 import type { TestRun, RequestResult } from '../types';
+import { redactGrpcHarnessRunnerArtifactsForExport } from '../grpc/grpcHarnessExport';
 import { saveJsonFile, saveCsvFile, buildExportFilename } from './fileSaver';
+
+function exportSafeResults(results: RequestResult[]): RequestResult[] {
+  return redactGrpcHarnessRunnerArtifactsForExport(results);
+}
 
 export function exportJson(run: TestRun): void {
   const date = new Date(run.timestamp).toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const filename = buildExportFilename({ env: run.envName, svc: run.svcName, level: 'results', date });
-  saveJsonFile(run, filename);
+  const safeRun: TestRun = {
+    ...run,
+    results: exportSafeResults(run.results),
+  };
+  saveJsonFile(safeRun, filename);
 }
 
 export function exportCsv(results: RequestResult[], envName?: string, svcName?: string): void {
@@ -25,7 +34,7 @@ export function exportCsv(results: RequestResult[], envName?: string, svcName?: 
     'Timestamp',
   ];
 
-  const rows = results.flatMap((r) => {
+  const rows = exportSafeResults(results).flatMap((r) => {
     if (r.failureDetails.length === 0) {
       return [[
         r.scenarioName,

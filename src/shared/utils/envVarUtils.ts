@@ -1,4 +1,5 @@
 import type { Microservice, ProtocolKey } from '../types';
+import { deriveGrpcPortEnvValue } from '../grpc/grpcCanonicalEnvValidation';
 
 /** Convert an HTTP base URL to a WebSocket URL (https→wss, http→ws). */
 export function httpToWsUrl(baseUrl: string): string {
@@ -72,7 +73,13 @@ export function buildEnvVarMap(
     }
     case 'grpc': {
       const grpcAddr = protoEndpoint?.baseUrl?.trim();
-      if (grpcAddr) map.grpcHost = grpcAddr;
+      if (grpcAddr) {
+        map.grpcHost = grpcAddr;
+        const grpcPort = deriveGrpcPortEnvValue(grpcAddr);
+        if (grpcPort) {
+          map.grpcPort = grpcPort;
+        }
+      }
       break;
     }
     case 'http':

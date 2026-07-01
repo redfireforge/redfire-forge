@@ -40,15 +40,35 @@ import {
   handleGraphqlSubscriptionNode,
   handleGraphqlIntrospectNode,
   handleGraphqlAssertNode,
+  handleGrpcUnaryNode,
+  handleGrpcServerStreamNode,
+  handleGrpcAssertNode,
   type NodeHandlerContext,
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
 import { TraceCollector } from './traceCollector';
+import { GrpcWorkflowStepResultStore } from '../utils/grpcWorkflowStepResultStore';
+import { GrpcWorkflowOutputRegistry } from '../utils/grpcWorkflowOutputRegistry';
 import type { GraphRunCallbacks, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
 // Re-export interfaces so existing consumers of graphRunner.ts stay unbroken.
 export type { GraphRunCallbacks, SubWorkflowRunSummary, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
 export { resolveTraceLevel } from './graphRunnerTraceLevel';
 import { resolveTraceLevel } from './graphRunnerTraceLevel';
+
+/** gRPC nodes record per-node pass/fail on RequestResult; trace must not inherit cumulative workflow state. */
+function resolveNodeTraceState(
+  nodeType: string,
+  nodeId: string,
+  passedFlag: { value: boolean },
+  results: RequestResult[],
+): 'pass' | 'fail' {
+  if (nodeType === 'grpcUnary' || nodeType === 'grpcServerStream' || nodeType === 'grpcAssert') {
+    const nodeResults = results.filter((r) => r.workflowNodeId === nodeId);
+    const lastResult = nodeResults[nodeResults.length - 1];
+    if (lastResult) return lastResult.passed ? 'pass' : 'fail';
+  }
+  return passedFlag.value ? 'pass' : 'fail';
+}
 
 /**
  * Execute a workflow graph with topological traversal.
@@ -92,6 +112,8 @@ export async function runGraph(
   kafkaOperations?: import('./graphRunnerNodeHandlerContext').KafkaNodeOperations,
   /** WebSocket client operations for WS nodes. When omitted, WS nodes will fail. */
   wsOperations?: import('./graphRunnerNodeHandlerContext').WsNodeOperations,
+  /** gRPC client operations for grpcUnary/grpcServerStream nodes. When omitted, gRPC nodes will fail. */
+  grpcOperations?: import('./graphRunnerNodeHandlerContext').GrpcNodeOperations,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -106,6 +128,9 @@ export async function runGraph(
   const capturedScriptOutput = new Map<string, string[]>();
   const capturedKafkaDetails = new Map<string, import('../../../shared/types').CapturedKafkaNodeDetails>();
   const capturedWsDetails = new Map<string, import('../../../shared/types').CapturedWsNodeDetails>();
+  const capturedGrpcDetails = new Map<string, import('../../../shared/types').CapturedGrpcNodeDetails>();
+  const grpcStepResultStore = new GrpcWorkflowStepResultStore();
+  const grpcOutputRegistry = new GrpcWorkflowOutputRegistry();
 
   const effectiveLevelOnce = resolveTraceLevel(traceOptions);
   const nodeLogBuffer = new Map<string, { prefix: string; text: string; ts: number }[]>();
@@ -236,6 +261,10 @@ export async function runGraph(
       capturedKafkaDetails,
       wsOperations,
       capturedWsDetails,
+      grpcOperations,
+      capturedGrpcDetails,
+      grpcStepResultStore,
+      grpcOutputRegistry,
     };
 
     // Phase 7e: Record node execution start
@@ -302,6 +331,12 @@ export async function runGraph(
         await handleGraphqlIntrospectNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'graphqlAssert') {
         await handleGraphqlAssertNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcUnary') {
+        await handleGrpcUnaryNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcServerStream') {
+        await handleGrpcServerStreamNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcAssert') {
+        await handleGrpcAssertNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'end') {
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       }
@@ -490,6 +525,26 @@ export async function runGraph(
               eventDetails.error = lastResult.errorMessage;
             }
           }
+        } else if (node.type === 'grpcUnary' || node.type === 'grpcServerStream') {
+          const grpcCaptured = capturedGrpcDetails.get(nodeId);
+          const grpcResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastResult = grpcResults[grpcResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(grpcCaptured ? { grpcDetails: grpcCaptured } : {}),
+            ...(lastResult ? { responseTimeMs: lastResult.responseTimeMs } : {}),
+            ...(!lastResult?.passed && lastResult?.errorMessage ? { error: lastResult.errorMessage } : {}),
+          };
+        } else if (node.type === 'grpcAssert') {
+          const grpcCaptured = capturedGrpcDetails.get(nodeId);
+          const grpcResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastResult = grpcResults[grpcResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(grpcCaptured ? { grpcDetails: grpcCaptured } : {}),
+            ...(lastResult ? { responseTimeMs: lastResult.responseTimeMs } : {}),
+            ...(!lastResult?.passed && lastResult?.errorMessage ? { error: lastResult.errorMessage } : {}),
+          };
         }
       } else {
         // Minimal: only capture error info for failed nodes
@@ -508,7 +563,9 @@ export async function runGraph(
             || node.type === 'kafkaProduce' || node.type === 'kafkaConsume'
             || node.type === 'graphqlQuery' || node.type === 'graphqlMutation'
             || node.type === 'graphqlSubscription' || node.type === 'graphqlIntrospect'
-            || node.type === 'graphqlAssert') {
+            || node.type === 'graphqlAssert'
+            || node.type === 'grpcUnary' || node.type === 'grpcServerStream'
+            || node.type === 'grpcAssert') {
             const transportResults = results.filter(r => r.workflowNodeId === nodeId);
             const lastResult = transportResults[transportResults.length - 1];
             if (lastResult && !lastResult.passed && lastResult.errorMessage) {
@@ -531,7 +588,11 @@ export async function runGraph(
         }
       }
 
-      traceCollector.onNodeComplete(nodeId, passedFlag.value ? 'pass' : 'fail', eventDetails);
+      traceCollector.onNodeComplete(
+        nodeId,
+        resolveNodeTraceState(node.type, nodeId, passedFlag, results),
+        eventDetails,
+      );
     } catch (err) {
       allPassed = false;
       const technical = toErrorMessage(err);

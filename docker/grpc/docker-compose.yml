@@ -1,0 +1,26 @@
+# gRPC Test Server — echo + server reflection (Phase 1H)
+#
+# Usage:
+#   docker compose up -d
+#   curl http://localhost:50052/health
+#
+# gRPC:
+#   localhost:50051 — echo.EchoService/Echo (unary)
+#   Slow-call hook: message "@sleep:8000" delays 8s (for cancel E2E)
+services:
+  grpc-test-server:
+    build: .
+    container_name: grpc-test-server
+    ports:
+      - "50051:50051"
+      - "50052:50052"
+    environment:
+      - GRPC_PORT=50051
+      - HEALTH_PORT=50052
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:50052/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 8s
+    restart: unless-stopped

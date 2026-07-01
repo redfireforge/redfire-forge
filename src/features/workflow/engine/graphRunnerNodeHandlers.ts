@@ -30,6 +30,7 @@ export type {
   WsSendResult,
   WsReceivedMessage,
   WsMessageMatchCriteria,
+  GrpcNodeOperations,
 } from './graphRunnerNodeHandlerContext';
 
 // ── HTTP ──────────────────────────────────────────────────────────────────────
@@ -87,3 +88,6 @@ export { handleWsConnectNode, handleWsSendNode, handleWsReceiveNode, handleWsTri
 
 // ── GraphQL nodes ─────────────────────────────────────────────────────────────
 export { handleGraphqlQueryNode, handleGraphqlSubscriptionNode, handleGraphqlIntrospectNode, handleGraphqlAssertNode } from './graphRunnerGraphqlNodeHandlers';
+
+// ── gRPC nodes ────────────────────────────────────────────────────────────────
+export { handleGrpcUnaryNode, handleGrpcServerStreamNode, handleGrpcAssertNode } from './graphRunnerGrpcNodeHandlers';

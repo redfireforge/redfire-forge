@@ -34,6 +34,26 @@ function rowStatusToPreviewStatus(
   }
 }
 
+/** Shared preview payload builder for protocol studios and gRPC Phase 9B preview. */
+export function buildStudioEndpointPreviewState(
+  trimmed: string,
+  resolvedUrl: string,
+  protocolRowStatus: EndpointRowStatus | undefined,
+  hasUnresolved: boolean,
+  options?: { hasTemplates?: boolean },
+): StudioEndpointPreviewState {
+  const hasTemplates = options?.hasTemplates ?? trimmed.includes('{{');
+  const status = rowStatusToPreviewStatus(protocolRowStatus, hasUnresolved);
+  const visible = trimmed.length > 0 && (hasTemplates || (!!resolvedUrl && resolvedUrl !== trimmed));
+
+  return {
+    resolvedUrl: resolvedUrl || trimmed,
+    status,
+    statusSymbol: statusSymbolFor(status),
+    visible,
+  };
+}
+
 /**
  * Compute inline resolved-endpoint preview for protocol studios.
  * Shows when the draft contains {{vars}} or resolves to a different URL.
@@ -47,13 +67,11 @@ export function computeStudioEndpointPreview(
   const resolvedUrl = trimmed ? resolveEnvVars(trimmed, envVarMap) : '';
   const hasTemplates = trimmed.includes('{{');
   const hasUnresolved = hasTemplates && (resolvedUrl ? hasUnresolvedVars(resolvedUrl) : true);
-  const status = rowStatusToPreviewStatus(protocolRowStatus, hasUnresolved);
-  const visible = trimmed.length > 0 && (hasTemplates || (!!resolvedUrl && resolvedUrl !== trimmed));
 
-  return {
-    resolvedUrl: resolvedUrl || trimmed,
-    status,
-    statusSymbol: statusSymbolFor(status),
-    visible,
-  };
+  return buildStudioEndpointPreviewState(
+    trimmed,
+    resolvedUrl,
+    protocolRowStatus,
+    hasUnresolved,
+  );
 }

@@ -103,13 +103,14 @@ describe('WsActionType type contract', () => {
 // ─── ScenarioActionType type contract ────────────────────────────────────────
 
 describe('ScenarioActionType type contract', () => {
-  it('includes HTTP, Kafka, and WS action types', () => {
+  it('includes HTTP, Kafka, WS, and gRPC harness action types', () => {
     const all: ScenarioActionType[] = [
       'http',
       'kafkaProduce', 'kafkaConsume',
       'wsConnect', 'wsSend', 'wsReceive',
+      'grpcCall',
     ];
-    expect(all).toHaveLength(6);
+    expect(all).toHaveLength(7);
   });
 });
 

@@ -1,4 +1,5 @@
 import type { Scenario, TestDefinitionVersion, TestDefinitionSnapshot } from '../../../shared/types';
+import { prepareGrpcHarnessCallActionDefinitionSnapshot } from '../../../shared/grpc/grpcInterpolationPersistGuard';
 import { canonicalize } from '../../../shared/utils/canonicalize';
 import {
   computeSnapshotFingerprint,
@@ -30,6 +31,9 @@ export function createSnapshot(scenario: Scenario): TestDefinitionSnapshot {
   if (scenario.wsReceiveAction) snap.wsReceiveAction = scenario.wsReceiveAction;
   if (scenario.kafkaProduceAction) snap.kafkaProduceAction = scenario.kafkaProduceAction;
   if (scenario.kafkaConsumeAction) snap.kafkaConsumeAction = scenario.kafkaConsumeAction;
+  if (scenario.grpcCallAction) {
+    snap.grpcCallAction = prepareGrpcHarnessCallActionDefinitionSnapshot(scenario.grpcCallAction);
+  }
   return snap;
 }
 
@@ -66,6 +70,7 @@ export function generateChangeSummary(
     { key: 'wsReceiveAction', label: 'WS receive config' },
     { key: 'kafkaProduceAction', label: 'Kafka produce config' },
     { key: 'kafkaConsumeAction', label: 'Kafka consume config' },
+    { key: 'grpcCallAction', label: 'gRPC call config' },
   ];
   for (const { key, label } of transportFields) {
     const oldVal = oldSnap[key];
@@ -128,7 +133,14 @@ export function computeSnapshotDiff(
 
   const actionTypeChanged = (older.actionType ?? 'http') !== (newer.actionType ?? 'http');
 
-  const transportFields = ['wsConnectAction', 'wsSendAction', 'wsReceiveAction', 'kafkaProduceAction', 'kafkaConsumeAction'] as const;
+  const transportFields = [
+    'wsConnectAction',
+    'wsSendAction',
+    'wsReceiveAction',
+    'kafkaProduceAction',
+    'kafkaConsumeAction',
+    'grpcCallAction',
+  ] as const;
   const transportConfigChanged = transportFields.some((field) =>
     JSON.stringify(canonicalize(older[field])) !== JSON.stringify(canonicalize(newer[field])),
   );

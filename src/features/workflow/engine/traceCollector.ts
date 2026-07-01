@@ -37,7 +37,8 @@ export class TraceCollector {
     
     const nodeType = node.type;
     const hasOwnTiming = nodeType === 'http' || nodeType === 'correlationWait' || nodeType === 'subWorkflow'
-      || nodeType === 'wsConnect' || nodeType === 'wsSend' || nodeType === 'wsReceive';
+      || nodeType === 'wsConnect' || nodeType === 'wsSend' || nodeType === 'wsReceive'
+      || nodeType === 'grpcUnary' || nodeType === 'grpcServerStream' || nodeType === 'grpcAssert';
     
     let durationMs: number | undefined;
     if (hasOwnTiming) {

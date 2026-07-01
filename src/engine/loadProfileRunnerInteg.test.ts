@@ -64,6 +64,36 @@ describe('runLoadProfile', () => {
     expect(results.length).toBeGreaterThanOrEqual(0);
   });
 
+  it('routes non-HTTP scenarios through executeNonHttp', async () => {
+    const profile: LoadProfileConfig = { type: 'sustained', durationSec: 0.05, maxConcurrency: 1 };
+    const grpcScenario = _makeScenario({
+      id: 'grpc1',
+      name: 'gRPC Echo',
+      url: '',
+      method: 'GRPC',
+      actionType: 'grpcCall',
+    });
+    const scenarios = [grpcScenario];
+    const weights: ScenarioWeight[] = [{ scenarioId: 'grpc1', weight: 1 }];
+    const executeNonHttp = vi.fn(() => Promise.resolve({
+      id: 'r1',
+      scenarioId: 'grpc1',
+      scenarioName: 'gRPC Echo',
+      url: 'grpc://localhost:50051',
+      method: 'UNARY',
+      httpStatus: 200,
+      responseTimeMs: 1,
+      responseBody: '{}',
+      timestamp: Date.now(),
+      passed: true,
+      validationMode: 'none',
+      transportType: 'grpcCall' as const,
+    }));
+    const results = await runLoadProfile(profile, scenarios, weights, makeOpts({ executeNonHttp }));
+    expect(executeNonHttp).toHaveBeenCalled();
+    expect(results.some((r) => r.transportType === 'grpcCall')).toBe(true);
+  });
+
   it('handles zero-weight scenarios', async () => {
     const profile: LoadProfileConfig = { type: 'sustained', durationSec: 0.05, maxConcurrency: 1 };
     const scenarios = [makeScenario('s1'), makeScenario('s2')];
