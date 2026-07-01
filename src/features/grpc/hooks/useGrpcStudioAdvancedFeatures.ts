@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { GrpcDescriptor } from '../../../shared/grpc/contracts';
 import {
   createInitialGrpcAdvancedFeatureRuntimeState,
   requestGrpcAdvancedOperationCancellation,
@@ -8,34 +7,27 @@ import {
 import {
   buildGrpcAdvancedFeatureSourceMetadata,
   type GrpcAdvancedFeatureSourceMetadata,
-  serializeGrpcLoadTestRunSummaryExportSafeCsv,
-  serializeGrpcLoadTestRunSummaryExportSafeJson,
-  serializeGrpcSchemaDiffReportExportSafeJson,
-  serializeGrpcSchemaDiffReportExportSafeMarkdown,
 } from '../../../shared/grpc/grpcAdvancedFeatureExport';
 import type { GrpcMockConfigSource } from '../../../shared/grpc/grpcMockConfigResolution';
 import type { GrpcMockLatencyPolicy } from '../../../shared/grpc/grpcMockLatencySimulation';
 import type { GrpcTabConnectionPageDefaults } from '../utils/resolveGrpcTabConnection';
-import type { UseGrpcStudioReturn } from './useGrpcStudio';
 import {
   createInitialGrpcTabAdvancedFeaturesUiState,
   GRPC_MOCK_WORKSPACE_DEFAULT_RULES_JSON,
   type GrpcAdvancedFeatureTab,
-  type GrpcSchemaDiffSeverityFilter,
   type GrpcTabAdvancedFeaturesUiState,
 } from '../grpcStudioAdvancedTypes';
 import {
   buildMockConfigSourceFromEditor,
-  computeGrpcStudioSchemaDiffReport,
   finalizeGrpcLoadTestRun,
   getGrpcStudioMockRuntimeRegistry,
   resetAdvancedOpToIdle,
   resolveGrpcStudioMockConfig,
   shouldApplyLoadTestRunResult,
+  resolveLoadTestRunOperationTransition,
   startGrpcStudioLoadTestRun,
   nextLoadTestRunGeneration,
   isGrpcAdvancedOperationInFlight,
-  transitionAdvancedOpQuickComplete,
   transitionAdvancedOpToCancelled,
   transitionAdvancedOpToCompleted,
   transitionAdvancedOpToFailed,
@@ -46,18 +38,24 @@ import {
   computeLoadTestProgressPercent,
   parseGrpcMockRuleSetJson,
 } from '../utils/grpcStudioAdvancedModel';
-import type { GrpcLoadTestSchedulerRun } from '../../../shared/grpc/grpcLoadTestSchedulerCore';
+import { resolveGrpcStudioTabTransportMode } from '../grpcStudioTypes';
+import {
+  commitGrpcMockNetworkListener,
+  exportGrpcDescriptorProtoset,
+  startGrpcMockNetworkListener,
+  stopGrpcMockNetworkListener,
+  supportsGrpcMockNetworkListener,
+} from '../utils/grpcMockListenerClient';
 import { findGrpcMethod } from '../utils/grpcExplorerUtils';
+import type { GrpcLoadTestSchedulerRun } from '../../../shared/grpc/grpcLoadTestSchedulerCore';
+import { captureGrpcRpcStatsFromLoadTestSummary } from '../utils/grpcStudioRpcStatsCapture';
+import { useGrpcRpcSessionStats } from './useGrpcRpcSessionStats';
+import { useGrpcAdvancedExportCallbacks } from './useGrpcAdvancedExportCallbacks';
+import { useGrpcLoadTestProfilesState } from './useGrpcLoadTestProfilesState';
+import { useGrpcAdvancedSchemaDiffSession } from './useGrpcAdvancedSchemaDiffSession';
+import type { StudioSlice } from './useGrpcStudioAdvancedFeaturesTypes';
 
-type StudioSlice = Pick<
-  UseGrpcStudioReturn,
-  | 'activeTab'
-  | 'activeTabDescriptor'
-  | 'activeTabId'
-  | 'tabs'
-  | 'prepareExecuteSnapshot'
-  | 'profiles'
->;
+export type { StudioSlice } from './useGrpcStudioAdvancedFeaturesTypes';
 
 export interface UseGrpcStudioAdvancedFeaturesOptions {
   studio: StudioSlice;
@@ -114,6 +112,30 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
   const activeTabId = studio.activeTabId;
   const activeState = getTabState(activeTabId);
 
+  const {
+    loadTestProfiles,
+    loadTestProfilesLoading,
+    loadTestProfileError,
+    selectedLoadTestProfileId,
+    setSelectedLoadTestProfileId,
+    saveLoadTestProfile,
+    loadLoadTestProfile,
+    renameLoadTestProfile,
+    removeLoadTestProfile,
+  } = useGrpcLoadTestProfilesState(activeTabId, activeState.loadTest.config, patchTabState);
+
+  const {
+    schemaDiffAckChangeIds,
+    setSchemaDiffSeverityFilter,
+    setSchemaDiffHideAcknowledged,
+    acknowledgeSchemaDiffChange,
+    unacknowledgeSchemaDiffChange,
+    isSchemaDiffChangeAcknowledged,
+    captureSchemaBaseline,
+    runSchemaDiff,
+    clearSchemaBaseline,
+  } = useGrpcAdvancedSchemaDiffSession(studio, activeTabId, getTabState, patchTabState);
+
   useEffect(() => {
     mockRegistryRef.current.setActiveTab(activeTabId);
   }, [activeTabId]);
@@ -129,6 +151,9 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
       for (const tabId of staleIds) {
         delete next[tabId];
         mockRegistryRef.current.remove(tabId);
+        if (supportsGrpcMockNetworkListener()) {
+          void stopGrpcMockNetworkListener(tabId).catch(() => undefined);
+        }
         clearLoadTestPoll(tabId);
         loadTestRunsRef.current.get(tabId)?.cancel();
         loadTestRunsRef.current.delete(tabId);
@@ -153,6 +178,7 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
   }, []);
 
   const setActiveFeatureTab = useCallback((tab: GrpcAdvancedFeatureTab) => {
+    setAdvancedExportError(undefined);
     patchTabState(activeTabId, { activeFeatureTab: tab });
   }, [activeTabId, patchTabState]);
 
@@ -167,8 +193,11 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
   }, [activeTabId, patchTabState]);
 
   const patchMockRulesJson = useCallback((rulesJson: string) => {
+    const tabId = activeTabId;
+    const tabState = getTabState(tabId);
     const parsed = parseGrpcMockRuleSetJson(rulesJson);
-    patchTabState(activeTabId, (prev) => {
+    const listenerRunning = tabState.mockServer.listenerStatus?.running === true;
+    patchTabState(tabId, (prev) => {
       const mockConfigOverride = parsed.ok
         ? buildMockConfigSourceFromEditor(parsed.ruleSet, prev.mockServer.latencyPolicy)
         : prev.mockServer.mockConfigOverride;
@@ -183,10 +212,45 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
         },
       };
     });
-  }, [activeTabId, patchTabState]);
+    if (parsed.ok && mockRegistryRef.current.hasManager(tabId)) {
+      try {
+        const manager = mockRegistryRef.current.getManager(tabId);
+        if (manager.getState().operation.status === 'running') {
+          manager.commitRuleSet(parsed.ruleSet);
+          const policy = buildMockConfigSourceFromEditor(
+            parsed.ruleSet,
+            tabState.mockServer.latencyPolicy,
+          )?.latencyPolicy;
+          if (policy != null) {
+            manager.commitLatencyPolicy(policy);
+          }
+        }
+      } catch {
+        /* manager sync is best-effort when registry is inconsistent */
+      }
+    }
+    if (parsed.ok && listenerRunning && supportsGrpcMockNetworkListener()) {
+      void commitGrpcMockNetworkListener({
+        tabId,
+        ruleSet: parsed.ruleSet,
+        latencyPolicy: tabState.mockServer.latencyPolicy,
+      }).then((committed) => {
+        patchTabState(tabId, (prev) => ({
+          ...prev,
+          mockServer: {
+            ...prev.mockServer,
+            listenerStatus: prev.mockServer.listenerStatus
+              ? { ...prev.mockServer.listenerStatus, generation: committed.generation }
+              : prev.mockServer.listenerStatus,
+          },
+        }));
+      }).catch(() => undefined);
+    }
+  }, [activeTabId, getTabState, patchTabState]);
 
   const patchMockLatency = useCallback((patch: Partial<GrpcMockLatencyPolicy>) => {
-    patchTabState(activeTabId, (prev) => {
+    const tabId = activeTabId;
+    patchTabState(tabId, (prev) => {
       const mergedLatency = { ...prev.mockServer.latencyPolicy, ...patch };
       const parsed = parseGrpcMockRuleSetJson(prev.mockServer.rulesJson);
       const mockConfigOverride = parsed.ok
@@ -201,14 +265,32 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
         },
       };
     });
-  }, [activeTabId, patchTabState]);
-
-  const setSchemaDiffSeverityFilter = useCallback((filter: GrpcSchemaDiffSeverityFilter) => {
-    patchTabState(activeTabId, (prev) => ({
-      ...prev,
-      schemaDiff: { ...prev.schemaDiff, severityFilter: filter },
-    }));
-  }, [activeTabId, patchTabState]);
+    const tabState = getTabState(tabId);
+    const parsed = parseGrpcMockRuleSetJson(tabState.mockServer.rulesJson);
+    const listenerRunning = tabState.mockServer.listenerStatus?.running === true;
+    const mergedLatency = { ...tabState.mockServer.latencyPolicy, ...patch };
+    if (parsed.ok && mockRegistryRef.current.hasManager(tabId)) {
+      try {
+        const manager = mockRegistryRef.current.getManager(tabId);
+        if (manager.getState().operation.status === 'running') {
+          const policy = buildMockConfigSourceFromEditor(parsed.ruleSet, mergedLatency)?.latencyPolicy;
+          if (policy != null) {
+            manager.commitLatencyPolicy(policy);
+          }
+        }
+      } catch {
+        /* manager sync is best-effort when registry is inconsistent */
+      }
+    }
+    if (parsed.ok && listenerRunning && supportsGrpcMockNetworkListener()) {
+      const policy = buildMockConfigSourceFromEditor(parsed.ruleSet, mergedLatency)?.latencyPolicy;
+      void commitGrpcMockNetworkListener({
+        tabId,
+        ruleSet: parsed.ruleSet,
+        latencyPolicy: policy,
+      }).catch(() => undefined);
+    }
+  }, [activeTabId, getTabState, patchTabState]);
 
   const resolvedMockConfig = useMemo(() => {
     const tab = studio.activeTab;
@@ -225,7 +307,7 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
 
   const loadTestValidationError = useMemo(() => {
     if (!studio.activeTab.service || !studio.activeTab.method) {
-      return 'Select a unary RPC method on the active tab before starting a load test.';
+      return 'Select a unary or server-streaming RPC method on the active tab before starting a load test.';
     }
     const descriptor = studio.activeTabDescriptor.descriptor;
     if (descriptor == null) {
@@ -238,12 +320,21 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     );
     return validateLoadTestPreconditions(method?.callType, activeState.loadTest.config, {
       methodResolved: method != null,
+      transportMode: studio.activeTab.transportMode ?? resolveGrpcStudioTabTransportMode(studio.activeTab),
     });
   }, [
     studio.activeTab,
     studio.activeTabDescriptor.descriptor,
     activeState.loadTest.config,
   ]);
+
+  const activeLoadTestCallType = useMemo(() => {
+    const descriptor = studio.activeTabDescriptor.descriptor;
+    if (!descriptor || !studio.activeTab.service || !studio.activeTab.method) {
+      return undefined;
+    }
+    return findGrpcMethod(descriptor, studio.activeTab.service, studio.activeTab.method)?.callType;
+  }, [studio.activeTab, studio.activeTabDescriptor.descriptor]);
 
   const startLoadTest = useCallback(() => {
     const tabId = activeTabId;
@@ -278,6 +369,25 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     }
 
     const config = current.loadTest.config;
+    const postSnapshotValidationError = validateLoadTestPreconditions(
+      executeSnapshot.callType,
+      config,
+      {
+        transportMode: executeSnapshot.transportMode
+          ?? resolveGrpcStudioTabTransportMode(studio.activeTab),
+      },
+    );
+    if (postSnapshotValidationError) {
+      patchTabState(tabId, (prev) => ({
+        ...prev,
+        runtime: {
+          ...prev.runtime,
+          loadTest: transitionAdvancedOpToFailed(prev.runtime.loadTest, postSnapshotValidationError),
+        },
+      }));
+      return;
+    }
+
     const sourceMetadata = buildGrpcAdvancedFeatureSourceMetadata(executeSnapshot, {
       connectionId: studio.activeTab.connectionId,
     });
@@ -287,12 +397,25 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     const runGeneration = nextLoadTestRunGeneration(loadTestGenerationRef.current.get(tabId));
     loadTestGenerationRef.current.set(tabId, runGeneration);
 
-    const run = startGrpcStudioLoadTestRun({
-      tabId,
-      executeSnapshot,
-      config,
-      resolvedEnvName: envName,
-    });
+    let run;
+    try {
+      run = startGrpcStudioLoadTestRun({
+        tabId,
+        executeSnapshot,
+        config,
+        resolvedEnvName: envName,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start load test';
+      patchTabState(tabId, (prev) => ({
+        ...prev,
+        runtime: {
+          ...prev.runtime,
+          loadTest: transitionAdvancedOpToFailed(prev.runtime.loadTest, message),
+        },
+      }));
+      return;
+    }
     loadTestRunsRef.current.set(tabId, run);
     const operationId = run.runId;
     const startedAtMs = Date.now();
@@ -351,10 +474,16 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
         loadTestRunsRef.current.delete(tabId);
         const exportSource = loadTestExportSourceRef.current.get(tabId);
         loadTestExportSourceRef.current.delete(tabId);
+        captureGrpcRpcStatsFromLoadTestSummary(tabId, summary, {
+          service: executeSnapshot.service,
+          method: executeSnapshot.method,
+          callType: executeSnapshot.callType,
+        });
         patchTabState(tabId, (prev) => {
-          const nextLoadTestOp = summary.stopReason === 'cancelled'
-            ? transitionAdvancedOpToCancelled(prev.runtime.loadTest)
-            : transitionAdvancedOpToCompleted(prev.runtime.loadTest);
+          const nextLoadTestOp = resolveLoadTestRunOperationTransition(
+            prev.runtime.loadTest,
+            summary,
+          );
           return {
             ...prev,
             loadTest: {
@@ -440,7 +569,14 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     }));
   }, [activeTabId, getTabState, patchTabState]);
 
-  const startMockServer = useCallback(() => {
+  const patchMockExposeNetwork = useCallback((exposeNetworkEndpoint: boolean) => {
+    patchTabState(activeTabId, (prev) => ({
+      ...prev,
+      mockServer: { ...prev.mockServer, exposeNetworkEndpoint },
+    }));
+  }, [activeTabId, patchTabState]);
+
+  const startMockServer = useCallback(async () => {
     const tabId = activeTabId;
     const tabState = getTabState(tabId);
     if (tabState.runtime.mockRuntime.status === 'running') {
@@ -468,30 +604,69 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     });
     try {
       mockRegistryRef.current.startTabFromResolved(tabId, config);
+      let listenerStatus = tabState.mockServer.listenerStatus;
+      const shouldExposeNetwork = tabState.mockServer.exposeNetworkEndpoint !== false
+        && supportsGrpcMockNetworkListener();
+      if (shouldExposeNetwork) {
+        const descriptor = studio.activeTabDescriptor.descriptor;
+        if (descriptor == null) {
+          throw new Error('Load a descriptor on the active tab before starting the network mock listener.');
+        }
+        let protosetBase64: string | undefined;
+        try {
+          const exported = await exportGrpcDescriptorProtoset(descriptor.key);
+          protosetBase64 = exported.protosetBase64;
+        } catch {
+          protosetBase64 = undefined;
+        }
+        listenerStatus = await startGrpcMockNetworkListener({
+          tabId,
+          connectionId: config.connectionId,
+          descriptorKey: descriptor.key,
+          protosetBase64,
+          contentSha256: descriptor.contentSha256,
+          ruleSet: parsed.ruleSet,
+          latencyPolicy: tabState.mockServer.latencyPolicy,
+        });
+      }
       patchTabState(tabId, (prev) => ({
         ...prev,
+        mockServer: {
+          ...prev.mockServer,
+          parseError: undefined,
+          listenerStatus: listenerStatus ?? prev.mockServer.listenerStatus,
+        },
         runtime: {
           ...prev.runtime,
           mockRuntime: transitionAdvancedOpToRunning(prev.runtime.mockRuntime, `mock-${tabId}`),
         },
       }));
     } catch (error) {
+      mockRegistryRef.current.stopTab(tabId);
+      if (supportsGrpcMockNetworkListener()) {
+        await stopGrpcMockNetworkListener(tabId).catch(() => undefined);
+      }
       const message = error instanceof Error ? error.message : 'Failed to start mock runtime';
       patchTabState(tabId, (prev) => ({
         ...prev,
+        mockServer: { ...prev.mockServer, listenerStatus: undefined },
         runtime: {
           ...prev.runtime,
           mockRuntime: transitionAdvancedOpToFailed(prev.runtime.mockRuntime, message),
         },
       }));
     }
-  }, [activeTabId, getTabState, patchTabState, studio.activeTab.connectionId, studio.profiles]);
+  }, [activeTabId, getTabState, patchTabState, studio.activeTab.connectionId, studio.activeTabDescriptor.descriptor, studio.profiles]);
 
-  const stopMockServer = useCallback(() => {
+  const stopMockServer = useCallback(async () => {
     const tabId = activeTabId;
+    if (supportsGrpcMockNetworkListener()) {
+      await stopGrpcMockNetworkListener(tabId).catch(() => undefined);
+    }
     mockRegistryRef.current.stopTab(tabId);
     patchTabState(tabId, (prev) => ({
       ...prev,
+      mockServer: { ...prev.mockServer, listenerStatus: undefined },
       runtime: {
         ...prev.runtime,
         mockRuntime: prev.runtime.mockRuntime.status === 'running'
@@ -516,153 +691,14 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     }));
   }, [activeTabId, getTabState, patchTabState]);
 
-  const captureSchemaBaseline = useCallback(() => {
-    const descriptor = studio.activeTabDescriptor.descriptor;
-    if (descriptor == null) {
-      patchTabState(activeTabId, (prev) => ({
-        ...prev,
-        runtime: {
-          ...prev.runtime,
-          schemaDiff: transitionAdvancedOpToFailed(
-            prev.runtime.schemaDiff,
-            'Load a descriptor on the active tab before capturing a baseline.',
-          ),
-        },
-      }));
-      return;
-    }
-    const cloned = structuredClone(descriptor) as GrpcDescriptor;
-    patchTabState(activeTabId, (prev) => ({
-      ...prev,
-      schemaDiff: {
-        ...prev.schemaDiff,
-        baselineDescriptor: cloned,
-        baselineCapturedAt: new Date().toISOString(),
-        lastReport: undefined,
-      },
-      runtime: {
-        ...prev.runtime,
-        schemaDiff: transitionAdvancedOpQuickComplete(prev.runtime.schemaDiff),
-      },
-    }));
-  }, [activeTabId, patchTabState, studio.activeTabDescriptor.descriptor]);
-
-  const runSchemaDiff = useCallback(() => {
-    const tabState = getTabState(activeTabId);
-    const baseline = tabState.schemaDiff.baselineDescriptor;
-    const candidate = studio.activeTabDescriptor.descriptor;
-    if (baseline == null) {
-      patchTabState(activeTabId, (prev) => ({
-        ...prev,
-        runtime: {
-          ...prev.runtime,
-          schemaDiff: transitionAdvancedOpToFailed(prev.runtime.schemaDiff, 'Capture a baseline before comparing.'),
-        },
-      }));
-      return;
-    }
-    if (candidate == null) {
-      patchTabState(activeTabId, (prev) => ({
-        ...prev,
-        runtime: {
-          ...prev.runtime,
-          schemaDiff: transitionAdvancedOpToFailed(prev.runtime.schemaDiff, 'Load a candidate descriptor on the active tab.'),
-        },
-      }));
-      return;
-    }
-    const report = computeGrpcStudioSchemaDiffReport({ baseline, candidate });
-    patchTabState(activeTabId, (prev) => ({
-      ...prev,
-      schemaDiff: { ...prev.schemaDiff, lastReport: report },
-      runtime: {
-        ...prev.runtime,
-        schemaDiff: transitionAdvancedOpQuickComplete(prev.runtime.schemaDiff),
-      },
-    }));
-  }, [activeTabId, getTabState, patchTabState, studio.activeTabDescriptor.descriptor]);
-
-  const clearSchemaBaseline = useCallback(() => {
-    patchTabState(activeTabId, (prev) => ({
-      ...prev,
-      schemaDiff: {
-        ...prev.schemaDiff,
-        baselineDescriptor: undefined,
-        baselineCapturedAt: undefined,
-        lastReport: undefined,
-      },
-      runtime: {
-        ...prev.runtime,
-        schemaDiff: resetAdvancedOpToIdle(prev.runtime.schemaDiff),
-      },
-    }));
-  }, [activeTabId, patchTabState]);
-
-  const exportLoadTestJson = useCallback((): string | undefined => {
-    try {
-      setAdvancedExportError(undefined);
-      const summary = activeState.loadTest.lastSummary;
-      const sourceMetadata = activeState.loadTest.lastExportSource;
-      if (!summary || !sourceMetadata) {
-        return undefined;
-      }
-      return serializeGrpcLoadTestRunSummaryExportSafeJson(summary, sourceMetadata);
-    } catch (error) {
-      setAdvancedExportError(error instanceof Error ? error.message : 'Export blocked for safety');
-      return undefined;
-    }
-  }, [activeState.loadTest.lastSummary, activeState.loadTest.lastExportSource]);
-
-  const exportLoadTestCsv = useCallback((): string | undefined => {
-    try {
-      setAdvancedExportError(undefined);
-      const summary = activeState.loadTest.lastSummary;
-      const sourceMetadata = activeState.loadTest.lastExportSource;
-      if (!summary || !sourceMetadata) {
-        return undefined;
-      }
-      return serializeGrpcLoadTestRunSummaryExportSafeCsv(summary, sourceMetadata);
-    } catch (error) {
-      setAdvancedExportError(error instanceof Error ? error.message : 'Export blocked for safety');
-      return undefined;
-    }
-  }, [activeState.loadTest.lastSummary, activeState.loadTest.lastExportSource]);
-
-  const exportSchemaDiffJson = useCallback((): string | undefined => {
-    try {
-      setAdvancedExportError(undefined);
-      const report = activeState.schemaDiff.lastReport;
-      if (!report) {
-        return undefined;
-      }
-      return serializeGrpcSchemaDiffReportExportSafeJson(report, {
-        baselineCapturedAt: activeState.schemaDiff.baselineCapturedAt,
-      });
-    } catch (error) {
-      setAdvancedExportError(error instanceof Error ? error.message : 'Export blocked for safety');
-      return undefined;
-    }
-  }, [activeState.schemaDiff.lastReport, activeState.schemaDiff.baselineCapturedAt]);
-
-  const exportSchemaDiffMarkdown = useCallback((): string | undefined => {
-    try {
-      setAdvancedExportError(undefined);
-      const report = activeState.schemaDiff.lastReport;
-      if (!report) {
-        return undefined;
-      }
-      return serializeGrpcSchemaDiffReportExportSafeMarkdown(report, {
-        baselineCapturedAt: activeState.schemaDiff.baselineCapturedAt,
-      });
-    } catch (error) {
-      setAdvancedExportError(error instanceof Error ? error.message : 'Export blocked for safety');
-      return undefined;
-    }
-  }, [activeState.schemaDiff.lastReport, activeState.schemaDiff.baselineCapturedAt]);
-
-  const clearAdvancedExportError = useCallback(() => {
-    setAdvancedExportError(undefined);
-  }, []);
+  const {
+    exportLoadTestJson,
+    exportLoadTestCsv,
+    exportSchemaDiffJson,
+    exportSchemaDiffMarkdown,
+    exportMockRulesJson,
+    clearAdvancedExportError,
+  } = useGrpcAdvancedExportCallbacks(activeState, setAdvancedExportError);
 
   const mockManagerState = useMemo(() => {
     if (!mockRegistryRef.current.hasManager(activeTabId)) {
@@ -679,6 +715,16 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
 
   const mockRunning = activeState.runtime.mockRuntime.status === 'running';
 
+  const liveTabIds = useMemo(
+    () => new Set(studio.tabs.map((tab) => tab.id)),
+    [studio.tabs],
+  );
+  const {
+    rpcSessionStats,
+    rpcSessionSummary,
+    resetRpcSessionStats,
+  } = useGrpcRpcSessionStats(activeTabId, liveTabIds);
+
   return {
     activeFeatureTab: activeState.activeFeatureTab,
     runtime: activeState.runtime,
@@ -691,14 +737,31 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     resolvedMockConfig,
     mockManagerState,
     activeTabLabel: studio.activeTab.title,
+    activeTabId: studio.activeTabId,
     activeRpcLabel: studio.activeTab.service && studio.activeTab.method
       ? `${studio.activeTab.service} / ${studio.activeTab.method}`
       : undefined,
+    activeLoadTestCallType,
+    loadTestProfiles,
+    loadTestProfilesLoading,
+    loadTestProfileError,
+    selectedLoadTestProfileId,
+    setSelectedLoadTestProfileId,
+    saveLoadTestProfile,
+    loadLoadTestProfile,
+    renameLoadTestProfile,
+    removeLoadTestProfile,
+    schemaDiffAckChangeIds,
+    acknowledgeSchemaDiffChange,
+    unacknowledgeSchemaDiffChange,
+    isSchemaDiffChangeAcknowledged,
     setActiveFeatureTab,
     patchLoadTestConfig,
     patchMockRulesJson,
     patchMockLatency,
+    patchMockExposeNetwork,
     setSchemaDiffSeverityFilter,
+    setSchemaDiffHideAcknowledged,
     startLoadTest,
     cancelLoadTest,
     resetLoadTestStatus,
@@ -712,9 +775,13 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     exportLoadTestCsv,
     exportSchemaDiffJson,
     exportSchemaDiffMarkdown,
+    exportMockRulesJson,
     advancedExportError,
     clearAdvancedExportError,
     resetMockRulesToDefault: () => patchMockRulesJson(GRPC_MOCK_WORKSPACE_DEFAULT_RULES_JSON),
+    rpcSessionStats,
+    rpcSessionSummary,
+    resetRpcSessionStats,
   };
 }
 

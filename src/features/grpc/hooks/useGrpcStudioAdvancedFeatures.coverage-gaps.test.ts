@@ -3,6 +3,7 @@
  */
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import 'fake-indexeddb/auto';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
@@ -22,6 +23,7 @@ import {
 } from './useGrpcStudioAdvancedFeatures';
 import * as advancedCommands from '../utils/grpcStudioAdvancedCommands';
 import * as advancedFeatureExport from '../../../shared/grpc/grpcAdvancedFeatureExport';
+import * as mockListenerClient from '../utils/grpcMockListenerClient';
 
 const startLoadTestMock = vi.fn();
 const finalizeLoadTestMock = vi.fn();
@@ -32,6 +34,18 @@ vi.mock('../utils/grpcStudioAdvancedCommands', async (importOriginal) => {
     ...actual,
     startGrpcStudioLoadTestRun: (...args: unknown[]) => startLoadTestMock(...args),
     finalizeGrpcLoadTestRun: (...args: unknown[]) => finalizeLoadTestMock(...args),
+  };
+});
+
+vi.mock('../utils/grpcMockListenerClient', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/grpcMockListenerClient')>();
+  return {
+    ...actual,
+    supportsGrpcMockNetworkListener: vi.fn(() => false),
+    startGrpcMockNetworkListener: vi.fn(),
+    stopGrpcMockNetworkListener: vi.fn().mockResolvedValue(undefined),
+    commitGrpcMockNetworkListener: vi.fn(),
+    exportGrpcDescriptorProtoset: vi.fn(),
   };
 });
 
@@ -134,14 +148,38 @@ function makeLoadTestRun(tabId: string, stopReason: 'completed_total_calls' | 'c
   };
 }
 
+async function flushReactEffects(): Promise<void> {
+  await act(async () => {
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+}
+
 describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
+  let consoleErrorSpy: ReturnType<typeof vi.spyOn> | undefined;
+
   beforeEach(() => {
+    const originalError = console.error;
+    consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      const text = args.map((value) => {
+        if (typeof value === 'string') return value;
+        if (value instanceof Error) return value.message;
+        return String(value);
+      }).join(' ');
+      if (text.includes('not wrapped in act')) {
+        return;
+      }
+      originalError(...(args as Parameters<typeof console.error>));
+    });
+
     startLoadTestMock.mockReset();
     finalizeLoadTestMock.mockReset();
     advancedCommands.resetGrpcStudioMockRuntimeRegistryForTests();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await flushReactEffects();
+    consoleErrorSpy?.mockRestore();
     vi.useRealTimers();
     advancedCommands.resetGrpcStudioMockRuntimeRegistryForTests();
   });
@@ -173,7 +211,7 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
       studio,
       pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
     }));
-    expect(result.current.loadTestValidationError).toMatch(/Select a unary RPC/i);
+    expect(result.current.loadTestValidationError).toMatch(/Select a unary or server-streaming RPC/i);
   });
 
   it('starts, polls, completes, and exports load test summary', async () => {
@@ -187,6 +225,10 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
       studio,
       pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
     }));
+
+    await waitFor(() => {
+      expect(result.current.loadTestProfilesLoading).toBe(false);
+    });
 
     act(() => {
       result.current.patchLoadTestConfig({ concurrency: 2, totalCalls: 10, rampUpMs: 0, warmupCalls: 0 });
@@ -238,6 +280,21 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
       thrown.current.startLoadTest();
     });
     expect(thrown.current.runtime.loadTest.error?.message).toBe('snapshot failed');
+
+    const studioDispatchFail = makeStudioSlice();
+    startLoadTestMock.mockImplementationOnce(() => {
+      throw new Error('Server-streaming load tests require Express proxy or native transport.');
+    });
+    const { result: dispatchFail } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio: studioDispatchFail,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+    act(() => {
+      dispatchFail.current.startLoadTest();
+    });
+    expect(dispatchFail.current.runtime.loadTest.status).toBe('failed');
+    expect(dispatchFail.current.runtime.loadTest.error?.message)
+      .toMatch(/Express proxy or native transport/i);
   });
 
   it('cancels an in-flight load test run', async () => {
@@ -332,12 +389,16 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
     startSpy.mockRestore();
   });
 
-  it('captures schema baseline, compares, filters, exports, and clears', () => {
+  it('captures schema baseline, compares, filters, exports, and clears', async () => {
     const studio = makeStudioSlice();
     const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
       studio,
       pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
     }));
+
+    await waitFor(() => {
+      expect(result.current.loadTestProfilesLoading).toBe(false);
+    });
 
     act(() => {
       result.current.captureSchemaBaseline();
@@ -514,6 +575,10 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
       studio,
       pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
     }));
+
+    await waitFor(() => {
+      expect(result.current.loadTestProfilesLoading).toBe(false);
+    });
 
     await act(async () => {
       result.current.startLoadTest();
@@ -990,5 +1055,95 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
     });
     expect(result.current.advancedExportError).toBe('Export blocked for safety');
     serializeSpy.mockRestore();
+  });
+
+  it('starts network mock listener when companion server is supported', async () => {
+    vi.mocked(mockListenerClient.supportsGrpcMockNetworkListener).mockReturnValue(true);
+    vi.mocked(mockListenerClient.exportGrpcDescriptorProtoset).mockResolvedValue({
+      protosetBase64: 'dGVzdA==',
+    });
+    vi.mocked(mockListenerClient.startGrpcMockNetworkListener).mockResolvedValue({
+      running: true,
+      generation: 2,
+      port: 9400,
+    });
+
+    const studio = makeStudioSlice();
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    act(() => {
+      result.current.patchMockRulesJson('{"rules":[]}');
+    });
+    await act(async () => {
+      await result.current.startMockServer();
+    });
+    expect(mockListenerClient.startGrpcMockNetworkListener).toHaveBeenCalled();
+    expect(result.current.mockServer.listenerStatus?.running).toBe(true);
+    expect(result.current.mockRunning).toBe(true);
+
+    await act(async () => {
+      await result.current.stopMockServer();
+    });
+    expect(mockListenerClient.stopGrpcMockNetworkListener).toHaveBeenCalled();
+  });
+
+  it('fails mock start when network listener is required but descriptor is missing', async () => {
+    vi.mocked(mockListenerClient.supportsGrpcMockNetworkListener).mockReturnValue(true);
+    const studio = makeStudioSlice({
+      activeTabDescriptor: createEmptyTabDescriptorState(),
+    });
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    act(() => {
+      result.current.patchMockRulesJson('{"rules":[]}');
+    });
+    await act(async () => {
+      await result.current.startMockServer();
+    });
+    expect(result.current.runtime.mockRuntime.status).toBe('failed');
+    expect(result.current.runtime.mockRuntime.error?.message).toContain('descriptor');
+  });
+
+  it('continues mock start when protoset export fails but listener succeeds', async () => {
+    vi.mocked(mockListenerClient.supportsGrpcMockNetworkListener).mockReturnValue(true);
+    vi.mocked(mockListenerClient.exportGrpcDescriptorProtoset).mockRejectedValue(new Error('export failed'));
+    vi.mocked(mockListenerClient.startGrpcMockNetworkListener).mockResolvedValue({
+      running: true,
+      generation: 1,
+      port: 9401,
+    });
+
+    const studio = makeStudioSlice();
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    act(() => {
+      result.current.patchMockRulesJson('{"rules":[]}');
+    });
+    await act(async () => {
+      await result.current.startMockServer();
+    });
+    expect(result.current.mockRunning).toBe(true);
+  });
+
+  it('patchMockExposeNetwork toggles network exposure flag', () => {
+    const studio = makeStudioSlice();
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    act(() => {
+      result.current.patchMockExposeNetwork(false);
+    });
+    expect(result.current.mockServer.exposeNetworkEndpoint).toBe(false);
   });
 });
