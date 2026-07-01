@@ -12,6 +12,8 @@ import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../
 import { toErrorMessage } from '../../../shared/utils/helpers';
 import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOperations';
 import { buildWsNodeOperations } from '../../../shared/websocket/buildWsNodeOperations';
+import { buildGrpcNodeOperations } from '../../../shared/grpc/buildGrpcNodeOperations';
+import { resolveGrpcHarnessEnv } from '../../../shared/grpc/grpcHarnessRuntimeContext';
 import type { KafkaResultsPublishConfig } from '../../../shared/types';
 import { publishRunResults } from '../../../shared/kafka/kafkaResultsPublisher';
 
@@ -252,7 +254,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
     lastFlushRef.current = now;
   }, []);
 
-  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined, workflowResolverData?: WorkflowResolverData) => {
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string; grpcHarnessEnv?: Record<string, string> }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined, workflowResolverData?: WorkflowResolverData) => {
     abortRef.current = new AbortController();
     startTimeRef.current = performance.now();
     lastSnapshotRef.current = 0;
@@ -342,18 +344,26 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
       // Build Kafka operations for both workflow-mode and harness-mode Kafka scenarios.
       const kafkaOps = buildKafkaNodeOperations();
       const wsOps = buildWsNodeOperations();
+      const grpcOps = buildGrpcNodeOperations();
+      const grpcHarnessEnv = resolveGrpcHarnessEnv({
+        grpcHarnessEnv: meta?.grpcHarnessEnv,
+        microservices: workflowResolverData?.microservices,
+        svcId: workflowResolverData?.selectedSvcId,
+        envId: workflowResolverData?.selectedEnvId,
+        envName: meta?.envName,
+      });
       if (useRust) {
         testResult = await runTestViaRust(config, scenarios, wrappedOnProgress, abortRef.current.signal);
       } else if (useWorker) {
         try {
-          testResult = await runTestMultiWorker(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow);
+          testResult = await runTestMultiWorker(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, grpcHarnessEnv);
         } catch (workerErr) {
           // Worker failed (common in Tauri WebView) — fall back to direct execution
           console.warn('Worker execution failed, falling back to direct execution:', workerErr);
-          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps);
+          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
         }
       } else {
-        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps);
+        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
       }
 
       if (flushTimerRef.current) {

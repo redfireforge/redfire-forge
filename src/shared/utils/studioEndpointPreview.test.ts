@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { computeStudioEndpointPreview } from './studioEndpointPreview';
+import { buildStudioEndpointPreviewState, computeStudioEndpointPreview } from './studioEndpointPreview';
 
 describe('computeStudioEndpointPreview', () => {
   const map = {
@@ -74,5 +74,13 @@ describe('computeStudioEndpointPreview', () => {
     const preview = computeStudioEndpointPreview('{{unknownVar}}', map, 'explicit');
     expect(preview.status).toBe('unresolved');
     expect(preview.resolvedUrl).toBe('{{unknownVar}}');
+  });
+
+  it('honors hasTemplates override for grammar-aware callers (Phase 9G)', () => {
+    const escaped = String.raw`\{{grpcHost}}`;
+    const preview = buildStudioEndpointPreviewState(escaped, escaped, 'explicit', false, {
+      hasTemplates: false,
+    });
+    expect(preview.visible).toBe(false);
   });
 });

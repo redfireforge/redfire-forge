@@ -28,7 +28,7 @@ const h = vi.hoisted(() => {
     'environments', 'preferences', 'kafka-settings', 'requests', 'catalog',
     'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner',
     'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results',
-    'kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio',
+    'kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio', 'grpc-studio',
     'demo-hub',
   ];
 
@@ -43,9 +43,18 @@ const h = vi.hoisted(() => {
     wfIeArgs: {} as Record<string, unknown>,
     wbArgs: {} as Record<string, unknown>,
     rerunArgs: {} as Record<string, unknown>,
-    confirm: vi.fn(),
+  confirm: vi.fn(),
 
-    projects: {
+  demoLive: {
+    hasRestorable: vi.fn(() => false),
+    purge: vi.fn(async () => undefined),
+  },
+
+  featureFlags: {
+    demoHubEnabled: true,
+  },
+
+  projects: {
       loading: false,
       environments: [] as unknown[],
       setEnvironments: fn(),
@@ -301,6 +310,20 @@ vi.mock('../shared/utils/storage', () => ({
   ensureBrowserLargeDataMigrated: vi.fn(async () => undefined),
   readKey: vi.fn(async () => null),
   writeKey: vi.fn(async () => undefined),
+}));
+
+vi.mock('../config/features', () => ({
+  get DEMO_HUB_ENABLED() {
+    return h.featureFlags.demoHubEnabled;
+  },
+}));
+
+vi.mock('@redfireforge/demo-hub/demoLiveSession', () => ({
+  hasRestorableDemoLiveSession: () => h.demoLive.hasRestorable(),
+}));
+
+vi.mock('@redfireforge/demo-hub/lessons/gql-demo-storage-cleanup', () => ({
+  purgeGqlDemoEphemeralStorage: () => h.demoLive.purge(),
 }));
 
 /* ── Component stubs ───────────────────────────────────────────────────── */
@@ -561,6 +584,9 @@ vi.mock('../features/test-runner/components/RustExecutorTestPanel', () => ({
 vi.mock('../features/graphql/GraphqlStudioPage', () => ({
   GraphqlStudioPage: () => <div data-testid="graphql-studio-page" />,
 }));
+vi.mock('../features/grpc/GrpcStudioPage', () => ({
+  GrpcStudioPage: () => <div data-testid="grpc-studio-page" />,
+}));
 
 vi.mock('./demo/DemoShellHost', () => ({
   DemoShellHost: (props: Record<string, unknown>) => {
@@ -596,6 +622,10 @@ function resetState() {
   h.wfHook.workflows = [];
   h.catalogState.showCatalogImport = false;
   h.storageFullCb = null;
+  h.featureFlags.demoHubEnabled = true;
+  h.demoLive.hasRestorable.mockReset();
+  h.demoLive.hasRestorable.mockReturnValue(false);
+  h.demoLive.purge.mockClear();
 }
 
 beforeEach(() => {
@@ -1354,5 +1384,30 @@ describe('App — coverage gaps', () => {
     render(<App />);
     await act(async () => { await Promise.resolve(); });
     expect(screen.getByTestId('workflow-sidebar')).toBeTruthy();
+  });
+});
+
+describe('App — coverage gaps', () => {
+  it('purges gql demo ephemeral storage when no restorable live session exists', async () => {
+    h.demoLive.hasRestorable.mockReturnValue(false);
+    render(<App />);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(h.demoLive.purge).toHaveBeenCalled();
+  });
+
+  it('skips gql demo purge when a restorable live session exists', async () => {
+    h.demoLive.hasRestorable.mockReturnValue(true);
+    render(<App />);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    expect(h.demoLive.purge).not.toHaveBeenCalled();
+  });
+
+  it('redirects away from demo-hub tab when demo hub feature is disabled', async () => {
+    h.featureFlags.demoHubEnabled = false;
+    render(<App />);
+    goto('demo-hub');
+    await act(async () => { await Promise.resolve(); });
+    expect(screen.getByTestId('requests-sidebar')).toBeTruthy();
+    expect(document.getElementById('demo-hub-mount')).toBeNull();
   });
 });

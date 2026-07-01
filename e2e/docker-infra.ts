@@ -20,6 +20,8 @@ interface DockerStackDef {
   name: string;
   cwd: string;
   composeArgs?: string;
+  /** Run `docker compose up -d --build` (Phase 1H gRPC fixture). */
+  buildOnStart?: boolean;
   healthCheck: () => Promise<boolean>;
 }
 
@@ -27,6 +29,17 @@ async function fetchOk(url: string): Promise<boolean> {
   try {
     const resp = await fetch(url, { signal: AbortSignal.timeout(3_000) });
     return resp.ok || resp.status < 600;
+  } catch {
+    return false;
+  }
+}
+
+async function isGrpcTestServerHealthy(): Promise<boolean> {
+  try {
+    const resp = await fetch('http://localhost:50052/health', { signal: AbortSignal.timeout(3_000) });
+    if (!resp.ok) return false;
+    const body = (await resp.json()) as { status?: string };
+    return body.status === 'ok';
   } catch {
     return false;
   }
@@ -80,6 +93,13 @@ const GRAPHQL_STACK: DockerStackDef = {
   healthCheck: isGraphqlHealthy,
 };
 
+const GRPC_STACK: DockerStackDef = {
+  name: 'grpc-test-server',
+  cwd: path.join(REPO_ROOT, 'docker/grpc'),
+  buildOnStart: true,
+  healthCheck: isGrpcTestServerHealthy,
+};
+
 const GQL_TLS_STACK: DockerStackDef = {
   name: 'graphql-tls',
   cwd: path.join(REPO_ROOT, 'docker/graphql/tls'),
@@ -128,6 +148,7 @@ const FULL_DOCKER_STACKS: DockerStackDef[] = [
     composeArgs: '-f docker-compose.all.yml',
     healthCheck: () => fetchOk('http://localhost:3100/'),
   },
+  GRPC_STACK,
 ];
 
 async function waitForHealth(check: () => Promise<boolean>, name: string): Promise<void> {
@@ -145,9 +166,10 @@ async function waitForHealth(check: () => Promise<boolean>, name: string): Promi
 }
 
 function startStack(stack: DockerStackDef): void {
+  const buildFlag = stack.buildOnStart ? ' --build' : '';
   const cmd = stack.composeArgs
-    ? `docker compose ${stack.composeArgs} up -d`
-    : 'docker compose up -d';
+    ? `docker compose ${stack.composeArgs} up -d${buildFlag}`
+    : `docker compose up -d${buildFlag}`;
   console.log(`[docker-infra] Starting ${stack.name} (${stack.cwd})...`);
   execSync(cmd, { cwd: stack.cwd, stdio: 'inherit' });
 }
@@ -204,6 +226,11 @@ export async function ensureDockerInfrastructure(fullDocker: boolean): Promise<v
   await ensureStacks(stacks);
 }
 
+/** Start gRPC echo fixture only (Phase 1H E2E). */
+export async function ensureGrpcTestServerInfrastructure(): Promise<void> {
+  await ensureStacks([GRPC_STACK]);
+}
+
 /** Start plain GraphQL + TLS + mTLS stacks for GQL-5 demo E2E. */
 export async function ensureGql5DockerInfrastructure(): Promise<void> {
   ensureGqlTlsCerts();
@@ -214,6 +241,10 @@ export async function ensureGql5DockerInfrastructure(): Promise<void> {
 export function stopDockerInfrastructure(fullDocker: boolean): void {
   const stacks = fullDocker ? [...FULL_DOCKER_STACKS].reverse() : [GRAPHQL_STACK];
   stopStacks(stacks);
+}
+
+export function stopGrpcTestServerInfrastructure(): void {
+  stopStacks([GRPC_STACK]);
 }
 
 export function stopGql5DockerInfrastructure(): void {

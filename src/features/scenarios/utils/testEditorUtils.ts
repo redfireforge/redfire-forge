@@ -11,6 +11,7 @@ import {
   createDefaultWsSendAction,
   createDefaultWsReceiveAction,
 } from '../../../shared/utils/wsScenarioDefaults';
+import { makeDefaultGrpcHarnessCallAction } from '../../../shared/utils/grpcHarnessScenarioContracts';
 
 export const emptyTest = (actionType?: ScenarioActionType): Scenario => {
   const base: Scenario = {
@@ -38,6 +39,15 @@ export const emptyTest = (actionType?: ScenarioActionType): Scenario => {
     else if (actionType === 'wsSend') ws.wsSendAction = createDefaultWsSendAction();
     else if (actionType === 'wsReceive') ws.wsReceiveAction = createDefaultWsReceiveAction();
     return { ...base, ...ws };
+  }
+
+  if (actionType === 'grpcCall') {
+    return {
+      ...base,
+      actionType,
+      method: 'GRPC',
+      grpcCallAction: makeDefaultGrpcHarnessCallAction(),
+    };
   }
 
   return base;

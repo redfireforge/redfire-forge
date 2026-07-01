@@ -21,6 +21,7 @@ for (const [file, cov] of Object.entries(raw)) {
   if (file.includes('.test-utils.')) continue;
   if (file.endsWith('shared/types/index.ts')) continue;
   if (file.includes('.test.')) continue;
+  if (file.includes('.testHelpers.')) continue;
 
   const s = cov.s ?? {};
   const f = cov.f ?? {};

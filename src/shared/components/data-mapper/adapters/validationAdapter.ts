@@ -43,9 +43,7 @@ export interface ValidationAdapterOutput {
 export interface ValidationAdapterOptions {
   sampleResponseBody?: string | Record<string, unknown>;
   selectiveMode?: SelectiveMode;
-  expectedFields?: ExpectedField[];
   fetchSampleData?: () => Promise<unknown>;
-  unorderedArrays?: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────

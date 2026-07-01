@@ -162,6 +162,9 @@ export interface ExecutionEventDetails {
     messageType?: string;
   };
 
+  /** Structured gRPC execution details (captured at standard+ trace level) */
+  grpcDetails?: CapturedGrpcNodeDetails;
+
   // Errors
   error?: string;
   errorStack?: string;
@@ -202,6 +205,22 @@ export interface CapturedWsNodeDetails {
   bodyPreview?: string;
 }
 
+/** Structured capture of a gRPC workflow node execution for trace/replay. */
+export interface CapturedGrpcNodeDetails {
+  target: string;
+  service: string;
+  method: string;
+  callType: 'unary' | 'server_streaming';
+  durationMs: number;
+  grpcStatus?: number;
+  grpcStatusMessage?: string;
+  messageCount?: number;
+  streamStopReason?: string;
+  attempts?: number;
+  /** Truncated preview of response body or last stream message (max 512 chars). */
+  bodyPreview?: string;
+}
+
 /**
  * Single node execution event within a workflow iteration.
  * Ordered list of these events represents the execution path.
@@ -216,7 +235,8 @@ export interface ExecutionEvent {
            'correlationWait' | 'waitForCondition' | 'subWorkflow' |
            'webhook' | 'schedule' | 'start' | 'errorHandler' |
            'kafkaProduce' | 'kafkaConsume' | 'kafkaTrigger' | 'kafkaWait' |
-           'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger';
+           'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger' |
+           'grpcUnary' | 'grpcServerStream' | 'grpcAssert';
 
   /** User-visible node label */
   nodeLabel: string;

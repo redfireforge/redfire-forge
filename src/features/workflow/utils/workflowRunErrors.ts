@@ -1,6 +1,7 @@
 import type { RequestResult } from '../../../shared/types';
 import { humanizeError, prettyJson } from '../../../shared/utils/helpers';
 import type { WorkflowRunStepSummary } from '../hooks/useWorkflowRunCache';
+export { formatGrpcNodeRunDetail, buildGrpcNodeStatusMeta, grpcStatusLabel } from './grpcWorkflowOutputAdapter';
 
 /** Node types that never execute during Quick Test (structural / triggers only). */
 export const WORKFLOW_STRUCTURAL_NODE_TYPES = new Set(['start', 'webhook', 'schedule', 'end']);

@@ -12,6 +12,7 @@ const STORES_EXCEPT_TEST_RUNS = [
   'environments', 'microservices', 'globalAuthProfiles',
   'gqlStudioTabs', 'gqlStudioEnvironments', 'gqlConnectionProfiles', 'gqlPageAuth', 'gqlSchemaCache',
   'runnerConfigs',
+  'grpc-collections', 'grpc-collection-items', 'grpc-call-history',
 ] as const;
 
 const ALL_STORES = ['testRuns', ...STORES_EXCEPT_TEST_RUNS] as const;

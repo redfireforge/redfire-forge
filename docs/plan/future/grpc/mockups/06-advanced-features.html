@@ -73,7 +73,7 @@
 .latency-bar { height:6px; border-radius:3px; background:var(--primary); display:inline-block; margin-right:6px; vertical-align:middle; }
 </style>
 </head>
-<body>
+<body data-grpc-page="chrome">
 <div class="app-header">
   <a class="app-logo" href="index.html">🔥 <span>RedfireForge</span></a>
   <div class="nav-pills"><button class="nav-pill active">Protocols</button></div>
@@ -85,8 +85,11 @@
 
 <div class="connection-bar">
   <div class="status-dot connected"></div>
-  <input class="target-input" type="text" value="grpc.example.com:50051" style="max-width:260px">
-  <div class="tls-badge">🔒 TLS</div>
+  <input class="target-input grpc-target-input" type="text" value="grpc.example.com:50051" style="max-width:280px" aria-label="gRPC target address">
+  <button type="button" class="tls-badge" id="grpcTlsBadge" title="Configure TLS">🔒 TLS</button>
+  <button type="button" class="auth-badge auth-badge--configured" id="grpcAuthBadge" title="Open auth settings">Auth: Bearer</button>
+  <button type="button" class="btn btn-ghost btn-sm connection-settings-btn" data-action="settings" title="Connection settings">⚙</button>
+  <div class="connection-bar-spacer"></div>
 </div>
 
 <!-- Advanced feature tabs -->
@@ -579,5 +582,6 @@ function startLoad() {
 document.getElementById('view-load').style.display = 'flex';
 document.getElementById('view-load').style.flexDirection = 'column';
 </script>
+<script src="mockup-shared.js"></script>
 </body>
 </html>

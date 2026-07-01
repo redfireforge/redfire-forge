@@ -108,7 +108,7 @@ export async function selectProtocolsDomain(page: Page): Promise<void> {
 /** Click a category tab by name. */
 export async function selectCategory(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC',
 ): Promise<void> {
   const tab = page
     .locator('.demo-category-tab')
@@ -149,7 +149,7 @@ export async function startLesson(page: Page): Promise<void> {
  */
 export async function launchLesson(
   page: Page,
-  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL',
+  category: 'Kafka' | 'WebSocket' | 'SSE' | 'GraphQL' | 'gRPC',
   lessonNameFragment: string,
 ): Promise<void> {
   await openDemoHub(page);
@@ -186,6 +186,22 @@ export async function launchGqlLesson(
   await openDemoHub(page);
   await selectProtocolsDomain(page);
   await selectCategory(page, 'GraphQL');
+  await openLesson(page, lessonNameFragment);
+  await waitForPrerequisiteGateUp(page);
+  await startLesson(page);
+}
+
+/**
+ * Demo Hub → Protocols → gRPC → lesson → prerequisite gate → Start.
+ * Use for Docker-gated gRPC demo lessons (echo server on port 50051).
+ */
+export async function launchGrpcLesson(
+  page: Page,
+  lessonNameFragment: string,
+): Promise<void> {
+  await openDemoHub(page);
+  await selectProtocolsDomain(page);
+  await selectCategory(page, 'gRPC');
   await openLesson(page, lessonNameFragment);
   await waitForPrerequisiteGateUp(page);
   await startLesson(page);

@@ -17,3 +17,4 @@ export { WFR } from './selectors/wfr';
 export { DEMO } from './selectors/demo';
 export { KAFKA } from './selectors/kafka';
 export { GQL } from './selectors/gql';
+export { GRPC } from './selectors/grpc';

@@ -85,10 +85,9 @@ export default function TestEditorValidationTab({
     () => createValidationAdapter({
       sampleResponseBody: draft.validation.sampleJson || undefined,
       selectiveMode: draft.validation.selectiveMode || 'include',
-      expectedFields: draft.validation.expectedFields || [],
       fetchSampleData: fetchSampleDataForMapper,
     }),
-    [draft.validation.sampleJson, draft.validation.selectiveMode, draft.validation.expectedFields, fetchSampleDataForMapper],
+    [draft.validation.sampleJson, draft.validation.selectiveMode, fetchSampleDataForMapper],
   );
 
   const validationMapperInitialData = useMemo<ValidationAdapterOutput>(() => ({

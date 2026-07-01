@@ -14,6 +14,7 @@ import {
   makeWorkflow,
   makeWorkflowNode,
   makeWorkflowEdge,
+  makeWorkflowFolder,
 } from './factories';
 
 describe('factories', () => {
@@ -236,6 +237,46 @@ describe('factories', () => {
       expect(edge.id).toBe('custom-edge');
       expect(edge.source).toBe('a');
       expect(edge.target).toBe('b');
+    });
+  });
+
+  describe('makeWorkflowFolder', () => {
+    it('creates a folder with defaults', () => {
+      const folder = makeWorkflowFolder();
+      expect(folder.id).toBe('folder-1');
+      expect(folder.name).toBe('Test Folder');
+      expect(folder.order).toBe(0);
+    });
+
+    it('allows overrides', () => {
+      const folder = makeWorkflowFolder({ id: 'f-custom', name: 'Custom Folder', order: 3 });
+      expect(folder.id).toBe('f-custom');
+      expect(folder.name).toBe('Custom Folder');
+      expect(folder.order).toBe(3);
+    });
+  });
+
+  describe('makeWorkflowNode default branches', () => {
+    it('uses default type, position, and data when omitted', () => {
+      const node = makeWorkflowNode();
+      expect(node.type).toBe('http');
+      expect(node.position).toEqual({ x: 0, y: 0 });
+      expect(node.data).toEqual({ label: 'Test Node', method: 'GET', url: '/test' });
+    });
+  });
+
+  describe('makeWorkflowEdge default branches', () => {
+    it('uses default source and target when omitted', () => {
+      const edge = makeWorkflowEdge();
+      expect(edge.source).toBe('node-1');
+      expect(edge.target).toBe('node-2');
+    });
+  });
+
+  describe('makeTestScenario default name branch', () => {
+    it('uses generated name when name override is omitted', () => {
+      const ts = makeTestScenario();
+      expect(ts.name).toMatch(/Test Scenario \d+/);
     });
   });
 });

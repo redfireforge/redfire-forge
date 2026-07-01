@@ -116,6 +116,7 @@ describe('appTabUtils', () => {
     it('returns "protocols" for protocol studio tabs', () => {
       expect(domainOf('kafka-message-studio')).toBe('protocols');
       expect(domainOf('graphql-studio')).toBe('protocols');
+      expect(domainOf('grpc-studio')).toBe('protocols');
     });
   });
 

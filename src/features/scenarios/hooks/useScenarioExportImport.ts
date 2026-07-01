@@ -3,9 +3,37 @@ import { v4 as uuidv4 } from 'uuid';
 import type { FeatureGroup, TestScenario, Scenario, SharedDataSource } from '../../../shared/types';
 import { saveJsonFile, buildExportFilename } from '../../../shared/utils/fileSaver';
 import { validateWsActionConfig } from '../../../shared/utils/wsScenarioDefaults';
+import { validateGrpcHarnessActionConfig } from '../../../shared/utils/grpcHarnessScenarioContracts';
 import { pickJsonFile, reIdScenarios, unwrapImport, wrapExport, stripVersions, hasVersionData, normalizeTestFields } from '../utils/scenarioImportExport';
 import { normalizeGroupActionTypes } from '../../../shared/utils/scenarioMigration';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
+
+function collectTransportImportWarnings(
+  tests: Scenario[],
+  formatLabel: (test: Scenario) => string = (t) => t.name,
+): string[] {
+  return tests.flatMap((t) => {
+    const label = formatLabel(t);
+    return [
+      ...validateWsActionConfig(t).map((e) => `${label}: ${e}`),
+      ...validateGrpcHarnessActionConfig(t).map((e) => `${label}: ${e}`),
+    ];
+  });
+}
+
+function collectFeatureGroupTransportWarnings(groups: FeatureGroup[]): string[] {
+  return groups.flatMap((fg) =>
+    (fg.scenarios ?? []).flatMap((sc) =>
+      collectTransportImportWarnings(sc.tests ?? [], (t) => `${fg.name}/${sc.name}/${t.name}`),
+    ),
+  );
+}
+
+function collectScenarioListTransportWarnings(scenarios: TestScenario[]): string[] {
+  return scenarios.flatMap((sc) =>
+    collectTransportImportWarnings(sc.tests ?? [], (t) => `${sc.name}/${t.name}`),
+  );
+}
 
 interface UseScenarioExportImportParams {
   featureGroups: FeatureGroup[];
@@ -139,17 +167,30 @@ export function useScenarioExportImport({
         }
       };
 
+      const proceedFeatureGroupImport = (finalItems: FeatureGroup[]) => {
+        const configErrors = collectFeatureGroupTransportWarnings(finalItems);
+        if (configErrors.length > 0) {
+          confirm(
+            'Import Warnings',
+            `Transport config issues:\n${configErrors.join('\n')}\n\nImport anyway?`,
+            () => doFeatureGroupImport(finalItems),
+          );
+          return;
+        }
+        doFeatureGroupImport(finalItems);
+      };
+
       if (hasVersionData(items)) {
         setPendingImport({
           data: items,
           finalize: (opts) => {
             const stripped = applyImportVersionOpts(items, opts) as FeatureGroup[];
-            doFeatureGroupImport(stripped);
+            proceedFeatureGroupImport(stripped);
             setPendingImport(null);
           },
         });
       } else {
-        doFeatureGroupImport(items);
+        proceedFeatureGroupImport(items);
       }
     }, (msg) => confirm('Import Error', msg, () => {}));
   }, [featureGroups, selectedSvcId, selectedEnvId, setFeatureGroups, setSharedDataSources, applyImportVersionOpts, confirm]);
@@ -210,25 +251,37 @@ export function useScenarioExportImport({
       (items) => items.every((sc) => sc.name && Array.isArray(sc.tests)),
       'Invalid file: expected scenario(s) with a name and tests array.',
       (finalItems) => {
-        const fg = featureGroups.find((f) => f.id === featureId);
-        if (fg) {
-          const existingNames = new Set(fg.scenarios.map((sc) => sc.name.toLowerCase()));
-          const dupes = finalItems.filter((sc) => existingNames.has(sc.name.toLowerCase()));
-          if (dupes.length > 0) {
-            const names = dupes.map((sc) => `  • "${sc.name}"`).join('\n');
-            confirm('Import Conflicts', `These scenarios already exist in "${fg.name}":\n${names}\n\nImport as new copies?`, () => {
-              const imported = reIdScenarios(finalItems);
-              setFeatureGroups((prev) => prev.map((f) =>
-                f.id === featureId ? { ...f, scenarios: [...f.scenarios, ...imported] } : f
-              ));
-            });
-            return;
+        const configErrors = collectScenarioListTransportWarnings(finalItems);
+        const importScenarios = () => {
+          const fg = featureGroups.find((f) => f.id === featureId);
+          if (fg) {
+            const existingNames = new Set(fg.scenarios.map((sc) => sc.name.toLowerCase()));
+            const dupes = finalItems.filter((sc) => existingNames.has(sc.name.toLowerCase()));
+            if (dupes.length > 0) {
+              const names = dupes.map((sc) => `  • "${sc.name}"`).join('\n');
+              confirm('Import Conflicts', `These scenarios already exist in "${fg.name}":\n${names}\n\nImport as new copies?`, () => {
+                const imported = reIdScenarios(finalItems);
+                setFeatureGroups((prev) => prev.map((f) =>
+                  f.id === featureId ? { ...f, scenarios: [...f.scenarios, ...imported] } : f
+                ));
+              });
+              return;
+            }
           }
+          const imported = reIdScenarios(finalItems);
+          setFeatureGroups((prev) => prev.map((f) =>
+            f.id === featureId ? { ...f, scenarios: [...f.scenarios, ...imported] } : f
+          ));
+        };
+        if (configErrors.length > 0) {
+          confirm(
+            'Import Warnings',
+            `Transport config issues:\n${configErrors.join('\n')}\n\nImport anyway?`,
+            importScenarios,
+          );
+          return;
         }
-        const imported = reIdScenarios(finalItems);
-        setFeatureGroups((prev) => prev.map((f) =>
-          f.id === featureId ? { ...f, scenarios: [...f.scenarios, ...imported] } : f
-        ));
+        importScenarios();
       },
     );
   }, [featureGroups, setFeatureGroups, importWithVersionPrompt, confirm]);
@@ -275,7 +328,7 @@ export function useScenarioExportImport({
       }),
       'Invalid file: expected test(s) with name and method (HTTP tests also require url).',
       (finalItems) => {
-        const configErrors = finalItems.flatMap((t) => validateWsActionConfig(t).map((e) => `${t.name}: ${e}`));
+        const configErrors = collectTransportImportWarnings(finalItems);
         if (configErrors.length > 0) {
           confirm('Import Warnings', `Transport config issues:\n${configErrors.join('\n')}\n\nImport anyway?`, () => doImportTests(finalItems, featureId, scenarioId));
           return;

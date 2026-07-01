@@ -143,6 +143,7 @@ describe('buildEnvVarMap', () => {
     });
     const map = buildEnvVarMap(svc, 'env-local', 'grpc', 'local');
     expect(map.grpcHost).toBe('grpc.example.com:50051');
+    expect(map.grpcPort).toBe('50051');
   });
 
   it('omits baseUrl and host when env has no HTTP base URL', () => {

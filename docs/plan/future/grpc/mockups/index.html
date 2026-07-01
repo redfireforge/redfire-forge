@@ -59,7 +59,7 @@ body { overflow: auto; height: auto; min-height: 100vh; }
     <div style="margin-top:10px;display:flex;gap:12px;align-items:center">
       <a href="../grpc-studio-plan.md" class="plan-link">📋 View Implementation Plan (grpc-studio-plan.md)</a>
       <span style="color:var(--border)">|</span>
-      <span style="font-size:12px;color:var(--text-faint)">Covers Phases 1–12 · 6 mockup files</span>
+      <span style="font-size:12px;color:var(--text-faint)">Covers Phases 1–12 · 6 mockup files · shared <code style="font-family:var(--mono);font-size:11px">mockup-shared.js</code> (Phase 4J TLS modal)</span>
     </div>
   </div>
 
@@ -72,8 +72,9 @@ body { overflow: auto; height: auto; min-height: 100vh; }
         <tr><td><span class="status-pip pip-mvp"></span></td><td><strong>Phase 1</strong></td><td>Core Service Explorer & Unary Calls</td><td class="mockup-ref"><a href="01-main-studio.html" style="color:var(--primary)">01-main-studio.html</a></td><td>✅</td></tr>
         <tr><td><span class="status-pip pip-mvp"></span></td><td><strong>Phase 2</strong></td><td>Streaming (Server / Client / Bidirectional)</td><td class="mockup-ref"><a href="02-streaming.html" style="color:var(--primary)">02-streaming.html</a></td><td>✅</td></tr>
         <tr><td><span class="status-pip pip-mvp"></span></td><td><strong>Phase 3</strong></td><td>Proto Management & Schema Registry</td><td class="mockup-ref"><a href="03-proto-management.html" style="color:var(--primary)">03-proto-management.html</a></td><td>✅</td></tr>
-        <tr><td><span class="status-pip pip-mvp"></span></td><td><strong>Phase 4</strong></td><td>TLS, mTLS, Auth, Deadline, Compression, Health, K8s</td><td class="mockup-ref"><a href="04-auth-tls.html" style="color:var(--primary)">04-auth-tls.html</a></td><td>✅</td></tr>
-        <tr><td><span class="status-pip pip-mvp"></span></td><td><strong>Phase 5</strong></td><td>Collections, History & Snapshot Testing</td><td class="mockup-ref"><a href="05-collections-history.html" style="color:var(--primary)">05-collections-history.html</a></td><td>✅</td></tr>
+        <tr><td><span class="status-pip pip-mvp"></span></td><td><strong>Phase 4</strong></td><td>TLS, mTLS, Auth, Deadline, Compression, Health, K8s (logic)</td><td class="mockup-ref"><a href="04-auth-tls.html" style="color:var(--primary)">04-auth-tls.html</a></td><td>✅ logic</td></tr>
+        <tr><td><span class="status-pip pip-adv" style="background:var(--danger)"></span></td><td><strong>Phase 4J</strong></td><td>Protocol UI/UX parity — connection bar, TLS modal, auth shell (align with GQL/WS + mockups <a href="01-main-studio.html" style="color:var(--primary)">01</a> / <a href="04-auth-tls.html" style="color:var(--primary)">04</a>)</td><td class="mockup-ref"><a href="../grpc-studio-plan.md#phase-4j--protocol-uiux-parity-highest-priority" style="color:var(--primary)">grpc-studio-plan.md §4J</a></td><td>🔴 NEXT</td></tr>
+        <tr><td><span class="status-pip pip-mvp"></span></td><td><strong>Phase 5</strong></td><td>Collections, History & Snapshot Testing</td><td class="mockup-ref"><a href="05-collections-history.html" style="color:var(--primary)">05-collections-history.html</a></td><td>blocked 4J</td></tr>
         <tr><td><span class="status-pip pip-plan"></span></td><td><strong>Phase 6</strong></td><td>Workflow Integration (grpcUnary / grpcServerStream nodes)</td><td class="mockup-ref" style="color:var(--text-faint)">— (reuses Workflow Studio patterns)</td><td>—</td></tr>
         <tr><td><span class="status-pip pip-plan"></span></td><td><strong>Phase 7</strong></td><td>Tauri Native Transport (Rust tonic)</td><td class="mockup-ref" style="color:var(--text-faint)">— (UI same as Phase 1, transport switch in Phase 4)</td><td>—</td></tr>
         <tr><td><span class="status-pip pip-plan"></span></td><td><strong>Phase 8</strong></td><td>Test Runner Assertions (grpcField, grpcStatus)</td><td class="mockup-ref" style="color:var(--text-faint)">— (extends existing Harness UI)</td><td>—</td></tr>
@@ -128,11 +129,11 @@ body { overflow: auto; height: auto; min-height: 100vh; }
       <div class="card-info">
         <div class="card-phase">Phase 1 · Core</div>
         <div class="card-title">Main Studio — Unary Calls</div>
-        <div class="card-desc">Service explorer tree, type-aware proto form (scalar, enum, bool, Timestamp, repeated, nested message, oneof), JSON tab, metadata editor, response panel with body/headers/trailers/timing. In-flight cancellation button.</div>
+        <div class="card-desc">Service explorer tree, connection bar (TLS modal + Auth badge — Phase 4J), type-aware proto form, JSON/Metadata/<strong>Auth</strong> tabs (dual entry), response panel with body/headers/trailers/timing. Click TLS badge to open shared modal.</div>
         <div class="card-tags">
-          <span class="tag t-blue">Proto Form Builder</span>
-          <span class="tag t-green">Service Tree</span>
-          <span class="tag t-orange">Multiple Tabs</span>
+          <span class="tag t-blue">Connection Bar</span>
+          <span class="tag t-green">TLS Modal</span>
+          <span class="tag t-orange">Auth Tab</span>
           <span class="tag t-teal">Env Variables</span>
           <span class="tag t-blue">Response Timing</span>
         </div>
@@ -245,11 +246,11 @@ body { overflow: auto; height: auto; min-height: 100vh; }
       <div class="card-info">
         <div class="card-phase">Phase 4 · Security & Call Config</div>
         <div class="card-title">TLS, Auth & Call Settings</div>
-        <div class="card-desc">Full TLS config (disabled/TLS/mTLS), client cert upload, auth panel (None/Bearer/Basic/API Key/OAuth2/GCE). Call settings (deadline/timeout, compression, keepalive). gRPC health check panel. Kubernetes port-forwarding. Transport mode selector.</div>
+        <div class="card-desc">Connection Settings drawer (Phase 4J-C): TLS/mTLS tri-mode, auth type pills, call settings, compression, health, K8s port-forward, transport. TLS badge also opens shared modal (same as GraphQL/WebSocket). Links to mockup 01 for main studio context.</div>
         <div class="card-tags">
-          <span class="tag t-blue">mTLS</span>
-          <span class="tag t-orange">OAuth2</span>
-          <span class="tag t-green">GCE Auth</span>
+          <span class="tag t-blue">Settings Drawer</span>
+          <span class="tag t-green">TLS Modal</span>
+          <span class="tag t-orange">Auth Pills</span>
           <span class="tag t-teal">K8s Port-Forward</span>
           <span class="tag t-mauve">Compression</span>
           <span class="tag t-red">Health Check</span>

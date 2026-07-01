@@ -35,6 +35,7 @@ import { kafkaSecureLesson } from './protocols/kafka-secure';
 import { kafkaTlsLesson } from './protocols/kafka-tls';
 import { kafkaTestRunnerLesson } from './protocols/kafka-test-runner';
 import { graphqlLessons } from './protocols/graphql-lessons';
+import { grpcLessons } from './protocols/grpc-lessons';
 
 // ─── Domains ─────────────────────────────────────────────────────
 
@@ -42,15 +43,16 @@ export const protocolsDomain: DemoDomain = {
   id: 'protocols',
   name: 'Protocols',
   icon: '📡',
-  description: 'Master WebSocket, SSE, Kafka, and GraphQL real-time protocols.',
+  description: 'Master WebSocket, SSE, Kafka, GraphQL, and gRPC protocols.',
   available: true,
   categories: [
     { id: 'kafka',     label: 'Kafka',     icon: '📨' },
     { id: 'websocket', label: 'WebSocket', icon: '🔌' },
     { id: 'sse',       label: 'SSE',       icon: '📡' },
     { id: 'graphql',   label: 'GraphQL',   icon: '◈' },
+    { id: 'grpc',      label: 'gRPC',      icon: '⚡' },
   ],
-  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson, ...graphqlLessons],
+  lessons: [kafkaQuickStartLesson, kafkaPublishLesson, kafkaConsumeLesson, kafkaHeadersFiltersLesson, kafkaTemplatesLesson, kafkaTopicExplorerLesson, kafkaSchemaRegistryLesson, kafkaStreamModeLesson, kafkaWorkflowProduceLesson, kafkaWorkflowConsumeWaitLesson, kafkaSecureLesson, kafkaTlsLesson, kafkaTestRunnerLesson, wsMockServerLesson, wsBasicsLesson, wsConsoleLesson, wsTabsLesson, wsAuthTransportLesson, wsFilteringLesson, wsLoadTestingLesson, wsWorkflowBuilderLesson, sseStudioLesson, wsSocketIoLesson, wsStompLesson, wsGraphqlLesson, wsMockServerAdvancedLesson, wsWorkspaceLesson, wsReliabilityLesson, wsSessionRecordingLesson, wsPowerUserLesson, sseStudioAdvancedLesson, wsTlsLesson, wsTlsLocalLesson, wsTestRunnerLesson, ...graphqlLessons, ...grpcLessons],
 };
 
 export const apiDomain: DemoDomain = {

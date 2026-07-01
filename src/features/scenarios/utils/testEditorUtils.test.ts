@@ -88,6 +88,15 @@ describe('emptyTest', () => {
     expect(t.actionType).toBe('kafkaConsume');
     expect(t.method).toBe('KAFKA');
   });
+
+  it('returns grpcCall defaults', () => {
+    const t = emptyTest('grpcCall');
+    expect(t.actionType).toBe('grpcCall');
+    expect(t.method).toBe('GRPC');
+    expect(t.grpcCallAction).toBeDefined();
+    expect(t.grpcCallAction!.callType).toBe('unary');
+    expect(t.grpcCallAction!.target).toBe('{{grpcHost}}');
+  });
 });
 
 // ---------------------------------------------------------------------------

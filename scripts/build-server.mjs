@@ -11,7 +11,7 @@ await build({
   format: 'esm',
   target: 'node22',
   outfile: 'dist-server/index.mjs',
-  external: ['express', 'node-cron', 'kafkajs'],
+  external: ['express', 'node-cron', 'kafkajs', '@grpc/grpc-js', 'protobufjs', 'grpc-js-reflection-client', '@grpc/proto-loader', 'lodash'],
   minify: false,
   sourcemap: true,
   banner: {
