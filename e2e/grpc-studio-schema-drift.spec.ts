@@ -138,11 +138,12 @@ test.describe('gRPC Studio — schema drift UI (Phase 3I mocked reflect)', () =>
     await expect(page.locator(GRPC.STREAM_START_BTN)).toBeEnabled();
   });
 
-  test('warning drift blocks send; dismiss clears drift', async ({ page }) => {
+  test('warning drift allows send; dismiss clears drift', async ({ page }) => {
     await reflectSelectEchoWithBody(page, 'warning-draft', descriptorWithEmptyEchoRequest());
 
     await expect(page.locator(GRPC.SCHEMA_DRIFT_DISMISS_BTN)).toBeVisible();
-    await expect(page.locator(GRPC.SEND_BTN)).toBeDisabled();
+    // Phase 5H — warning drift is advisory; only blocking drift disables Send/Start.
+    await expect(page.locator(GRPC.SEND_BTN)).toBeEnabled();
 
     await page.locator(GRPC.SCHEMA_DRIFT_DISMISS_BTN).click();
     await expect(page.locator(GRPC.SCHEMA_DRIFT_BANNER)).toHaveCount(0);
