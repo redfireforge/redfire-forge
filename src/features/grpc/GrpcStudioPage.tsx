@@ -37,13 +37,20 @@ import {
   buildGrpcurlInvokeCommandFromSnapshot,
   resolveGrpcurlExportContextForTabRequest,
 } from './utils/grpcGrpcurl';
-import { resolveUnaryResultForSavedRequestComparison } from './utils/grpcResponseSnapshot';
-import { isGrpcReplayExecutable, resolveGrpcReplayBinding } from './utils/grpcReplayBinding';
+import {
+  useGrpcSavedRequestRunTracking,
+  useGrpcSelectedSavedRequest,
+  useGrpcStudioSaveSnapshot,
+} from './hooks/useGrpcStudioPageCollections';
 import type { GrpcSavedRequest } from '../../shared/grpc/grpcSavedRequest';
 import type { GrpcCallHistoryEntryV1 } from '../../shared/grpc/grpcPersistenceSchema';
 import { findGrpcMethod } from './utils/grpcExplorerUtils';
-import { validateGrpcTargetAddress } from '../../shared/grpc/targetValidation';
-import { normalizeGrpcTlsConfig } from '../../shared/grpc/grpcTlsPolicy';
+import { buildLegacyGrpcEnvVarMap as buildLegacyGrpcEnvVarMapImpl } from './utils/grpcStudioPageEnv';
+import {
+  buildGrpcTlsConfigTabPatch,
+  buildGrpcTlsModeTabPatch,
+  buildGrpcTlsStateRestoreTabPatch,
+} from './utils/grpcStudioTlsTabPatches';
 import { sanitizeGrpcErrorMessage } from '../../shared/grpc/grpcRedaction';
 import { isGrpcStreamLifecycleInFlight } from '../../shared/grpc/streamLifecycle';
 import { resolveGrpcTabConnection } from './utils/resolveGrpcTabConnection';
@@ -53,7 +60,6 @@ import {
   unmaskSecretField,
 } from './utils/grpcTabSecretVault';
 import type { GrpcAuthSecretFieldKey, GrpcTlsSecretFieldKey } from './utils/grpcSecretFieldUi';
-import { withoutTlsMaskFields } from './utils/grpcSecretFieldUi';
 import { previewGrpcAuthMerge } from './utils/grpcAuthPreview';
 import {
   descriptorHasHealthService,
@@ -74,25 +80,9 @@ export interface GrpcStudioPageProps {
   globalAuthProfiles?: GlobalAuthProfile[];
 }
 
-/** Legacy env map when Microservice/env selectors are unavailable. */
+/** @deprecated Import from `./utils/grpcStudioPageEnv` — re-exported for tests. */
 // eslint-disable-next-line react-refresh/only-export-components
-export function buildLegacyGrpcEnvVarMap(
-  resolvedBaseUrl?: string,
-  envName?: string,
-  svcName?: string,
-): Record<string, string> {
-  const map: Record<string, string> = {};
-  const candidate = resolvedBaseUrl?.trim();
-  if (candidate) {
-    const isHttpUrl = /^https?:\/\//i.test(candidate);
-    if (!isHttpUrl && validateGrpcTargetAddress(candidate).valid) {
-      map.grpcHost = candidate;
-    }
-  }
-  if (envName) map.envName = envName;
-  if (svcName) map.svcName = svcName;
-  return map;
-}
+export const buildLegacyGrpcEnvVarMap = buildLegacyGrpcEnvVarMapImpl;
 
 export function GrpcStudioPage({
   resolvedBaseUrl,
@@ -105,8 +95,13 @@ export function GrpcStudioPage({
     if (selectedSvc && selectedEnvId) {
       return buildEnvVarMap(selectedSvc, selectedEnvId, 'grpc', envName);
     }
-    return buildLegacyGrpcEnvVarMap(resolvedBaseUrl, envName, svcName);
+    return buildLegacyGrpcEnvVarMapImpl(resolvedBaseUrl, envName, svcName);
   }, [selectedSvc, selectedEnvId, resolvedBaseUrl, envName, svcName]);
+
+  const workspaceDefaults = useMemo(
+    () => buildLegacyGrpcEnvVarMap(resolvedBaseUrl, envName, svcName),
+    [resolvedBaseUrl, envName, svcName],
+  );
 
   const pageDefaults = useMemo(() => ({
     target: envVarMap.grpcHost ?? '',
@@ -122,6 +117,7 @@ export function GrpcStudioPage({
 
   const studio = useGrpcStudio({
     envVarMap,
+    workspaceDefaults,
     pageDefaults,
   });
 
@@ -131,6 +127,7 @@ export function GrpcStudioPage({
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
+  const [savedReplaySourceByTabId, setSavedReplaySourceByTabId] = useState<Record<string, { collectionId: string; savedId: string }>>({});
 
   const replayActions = useGrpcStudioReplayActions({
     studio,
@@ -146,80 +143,25 @@ export function GrpcStudioPage({
     pageDefaults,
   });
 
-  const captureSaveSnapshot = useCallback(() => {
-    const tab = studio.activeTab;
-    if (!tab.service || !tab.method) {
-      return { snapshot: null, errorMessage: undefined };
-    }
-    try {
-      return {
-        snapshot: studio.prepareExecuteSnapshot(
-          tab.id,
-          globalThis.crypto?.randomUUID?.() ?? `save-${Date.now()}`,
-        ),
-        errorMessage: undefined,
-        tabContext: {
-          connectionId: tab.connectionId,
-          rawTarget: tab.target,
-          rawBody: tab.body,
-          rawMetadata: tab.metadata,
-          rawAuth: tab.auth,
-          interpolationEnv: envVarMap,
-        },
-      };
-    } catch (error) {
-      return {
-        snapshot: null,
-        errorMessage: error instanceof Error ? error.message : 'Cannot prepare request snapshot',
-      };
-    }
-  }, [studio, envVarMap]);
+  const resolveSaveSnapshot = useGrpcStudioSaveSnapshot(studio, envVarMap);
 
-  const resolveSaveSnapshot = useCallback(() => captureSaveSnapshot(), [captureSaveSnapshot]);
-
-  const selectedSavedRequest = useMemo(() => {
-    if (!selectedSavedId) return null;
-    for (const collection of collections.collections) {
-      const saved = collection.savedRequests.find((entry) => entry.id === selectedSavedId);
-      if (saved) return saved;
-    }
-    return null;
-  }, [collections.collections, selectedSavedId]);
-
-  const lastUnaryResultForSelected = useMemo(
-    () => resolveUnaryResultForSavedRequestComparison(selectedSavedRequest, studio.activeTab),
-    [selectedSavedRequest, studio.activeTab],
+  const {
+    lastUnaryResultForSelected,
+    openInStudioStatusForSelected,
+    runLoadTestStatusForSelected,
+  } = useGrpcSelectedSavedRequest(
+    collections,
+    selectedSavedId,
+    studio,
+    envVarMap,
+    pageDefaults,
   );
 
-  const openInStudioStatusForSelected = useMemo(() => {
-    if (!selectedSavedRequest) {
-      return { executable: true, title: 'Open in Studio' };
-    }
-    try {
-      const binding = resolveGrpcReplayBinding({
-        saved: selectedSavedRequest,
-        tab: studio.activeTab,
-        requestId: 'preview',
-        envVarMap,
-        profiles: studio.profiles,
-        pageDefaults,
-        currentDescriptor: studio.activeTabDescriptor.descriptor,
-        tabDescriptorState: studio.activeTabDescriptor,
-      });
-      const executable = isGrpcReplayExecutable(binding.drift);
-      return {
-        executable,
-        title: executable
-          ? 'Open in Studio'
-          : (binding.drift.message || 'Open in Studio blocked'),
-      };
-    } catch (error) {
-      return {
-        executable: false,
-        title: error instanceof Error ? error.message : 'Open in Studio blocked',
-      };
-    }
-  }, [selectedSavedRequest, studio, envVarMap, pageDefaults]);
+  useGrpcSavedRequestRunTracking({
+    studio,
+    collections,
+    savedReplaySourceByTabId,
+  });
 
   const grpcurlForSaved = useCallback((saved: GrpcSavedRequest) => (
     buildGrpcurlInvokeCommandFromSavedRequest(
@@ -278,12 +220,13 @@ export function GrpcStudioPage({
   const activeTab = studio.activeTab;
   const tabInterpolationEnv = useMemo(
     () => mergeGrpcTabInterpolationEnv({
+      workspaceDefaults,
       activeEnvironment: envVarMap,
       profiles: studio.profiles,
       connectionId: activeTab.connectionId,
       tabOverrides: activeTab.envVarOverrides,
     }),
-    [envVarMap, studio.profiles, activeTab.connectionId, activeTab.envVarOverrides],
+    [workspaceDefaults, envVarMap, studio.profiles, activeTab.connectionId, activeTab.envVarOverrides],
   );
   const rawConnectionTarget = useMemo(
     () => resolveGrpcTabConnection(activeTab, studio.profiles, pageDefaults).target,
@@ -447,9 +390,13 @@ export function GrpcStudioPage({
             : rawConnectionTarget
         }
         envVarMap={envVarMap}
+        workspaceDefaults={workspaceDefaults}
         profiles={studio.profiles}
         connectionId={activeTab.connectionId}
         tabOverrides={activeTab.envVarOverrides}
+        body={activeTab.body}
+        metadata={activeTab.metadata}
+        auth={activeTab.auth}
         pageDefaults={pageDefaults}
       />
     </>
@@ -512,14 +459,31 @@ export function GrpcStudioPage({
             selectedSavedId={selectedSavedId}
             onSelectSaved={(saved) => setSelectedSavedId(saved.id)}
             grpcurlForSaved={grpcurlForSaved}
-            onOpenInStudio={(saved) => {
+            onOpenInStudio={(saved, collectionId) => {
               replayActions.clearLastActionError();
               replayActions.openSavedRequestInStudio(saved);
+              setSavedReplaySourceByTabId((prev) => ({
+                ...prev,
+                [studio.activeTab.id]: { collectionId, savedId: saved.id },
+              }));
+            }}
+            onRunLoadTest={(saved, collectionId) => {
+              replayActions.clearLastActionError();
+              const opened = replayActions.openSavedRequestForLoadTest(saved);
+              if (!opened) return;
+              advancedFeatures.setActiveFeatureTab('load_test');
+              setSavedReplaySourceByTabId((prev) => ({
+                ...prev,
+                [studio.activeTab.id]: { collectionId, savedId: saved.id },
+              }));
             }}
             onCopyGrpcurl={(command) => { void copyTextToClipboard(command); }}
             lastUnaryResult={lastUnaryResultForSelected}
+            activeTab={studio.activeTab}
             openInStudioDisabled={!openInStudioStatusForSelected.executable}
             openInStudioTitle={openInStudioStatusForSelected.title}
+            runLoadTestDisabled={!runLoadTestStatusForSelected.executable}
+            runLoadTestTitle={runLoadTestStatusForSelected.title}
             onSavedDeleted={(id) => {
               if (selectedSavedId === id) setSelectedSavedId(null);
             }}
@@ -637,33 +601,13 @@ export function GrpcStudioPage({
             openRequest={tlsModalOpenRequest}
             closeRequest={tlsModalCloseRequest}
             onTlsModeChange={(mode) => {
-              studio.updateTab(tab.id, {
-                tlsMode: mode,
-                ...(mode === 'disabled'
-                  ? {
-                      tlsConfig: undefined,
-                      maskedSecretFields: withoutTlsMaskFields(tab.maskedSecretFields),
-                    }
-                  : {}),
-              });
+              studio.updateTab(tab.id, buildGrpcTlsModeTabPatch({ tab, activeConnection }, mode));
             }}
             onTlsConfigChange={(patch) => {
-              const mode = tab.tlsMode ?? activeConnection.tlsMode;
-              studio.updateTab(tab.id, {
-                tlsConfig: normalizeGrpcTlsConfig(
-                  { ...tab.tlsConfig, ...patch },
-                  mode,
-                ),
-              });
+              studio.updateTab(tab.id, buildGrpcTlsConfigTabPatch({ tab, activeConnection }, patch));
             }}
             onTlsStateRestore={({ tlsMode, tlsConfig }) => {
-              studio.updateTab(tab.id, {
-                tlsMode,
-                tlsConfig,
-                ...(tlsMode === 'disabled'
-                  ? { maskedSecretFields: withoutTlsMaskFields(tab.maskedSecretFields) }
-                  : {}),
-              });
+              studio.updateTab(tab.id, buildGrpcTlsStateRestoreTabPatch(tab, { tlsMode, tlsConfig }));
             }}
             onUnmaskSecretField={handleUnmaskTlsSecretField}
             onClearSecretField={handleClearTlsSecretField}
@@ -694,24 +638,10 @@ export function GrpcStudioPage({
             onNavChange={setSettingsDrawerNav}
             onClose={() => setSettingsDrawerOpen(false)}
             onTlsModeChange={(mode) => {
-              studio.updateTab(tab.id, {
-                tlsMode: mode,
-                ...(mode === 'disabled'
-                  ? {
-                      tlsConfig: undefined,
-                      maskedSecretFields: withoutTlsMaskFields(tab.maskedSecretFields),
-                    }
-                  : {}),
-              });
+              studio.updateTab(tab.id, buildGrpcTlsModeTabPatch({ tab, activeConnection }, mode));
             }}
             onTlsConfigChange={(patch) => {
-              const mode = tab.tlsMode ?? activeConnection.tlsMode;
-              studio.updateTab(tab.id, {
-                tlsConfig: normalizeGrpcTlsConfig(
-                  { ...tab.tlsConfig, ...patch },
-                  mode,
-                ),
-              });
+              studio.updateTab(tab.id, buildGrpcTlsConfigTabPatch({ tab, activeConnection }, patch));
             }}
             onAuthChange={(auth) => studio.updateTab(tab.id, { auth })}
             onTimeoutMsChange={(timeoutMs) => studio.updateTab(tab.id, { timeoutMs })}
@@ -726,6 +656,10 @@ export function GrpcStudioPage({
             transportChangeBlocked={!canChangeGrpcTabTransportMode(tab)}
             onTransportModeChange={(mode) => studio.setTabTransportMode(tab.id, mode)}
             callType={tabCallTypes[tab.id]}
+            k8sPortForward={tab.k8sPortForward}
+            k8sAutomationScopeId={tab.id}
+            onK8sPortForwardChange={(session) => studio.updateTab(tab.id, { k8sPortForward: session })}
+            onK8sApplyTarget={(target) => studio.updateTab(tab.id, { target })}
           />
         );
       })()}
