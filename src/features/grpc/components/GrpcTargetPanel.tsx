@@ -1,11 +1,18 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { GrpcTlsMode } from '../../../shared/grpc/contracts';
+import type { GrpcAuthConfig, GrpcTlsMode } from '../../../shared/grpc/contracts';
 import {
   buildGrpcInterpolationTargetPreviewState,
   GRPC_INTERPOLATION_BANNER_STRIP_HINT,
   shouldShowGrpcInterpolationErrorBanner,
   type GrpcInterpolationPreviewViewMode,
 } from '../../../shared/grpc/grpcInterpolationPreviewModel';
+import {
+  resolveGrpcInterpolationAuthConfig,
+  resolveGrpcInterpolationJsonValue,
+  resolveGrpcInterpolationMetadata,
+} from '../../../shared/grpc/grpcInterpolationDeepResolver';
+import { sanitizeGrpcInterpolationDiagnosticMessage } from '../../../shared/grpc/grpcInterpolationDiagnostics';
+import { createGrpcInterpolationTemplateResolver } from '../../../shared/grpc/grpcInterpolationResolver';
 import { useGrpcTargetValidation } from '../hooks/useGrpcTargetValidation';
 import { GrpcInterpolationErrorBanner } from './GrpcInterpolationErrorBanner';
 import { GrpcInterpolationPreviewStrip } from './GrpcInterpolationPreviewStrip';
@@ -16,9 +23,13 @@ export interface GrpcTargetPanelProps {
   /** Page/profile default used when tab target is empty (tab → profile → page precedence). */
   fallbackTarget?: string;
   envVarMap: Record<string, string>;
+  workspaceDefaults?: Record<string, string>;
   profiles?: import('../utils/resolveGrpcTabConnection').GrpcConnectionProfile[];
   connectionId?: string;
   tabOverrides?: Record<string, string>;
+  body?: Record<string, unknown>;
+  metadata?: Record<string, string>;
+  auth?: GrpcAuthConfig;
   /** Page defaults for tab → profile → page target precedence (Phase 1A). */
   pageDefaults?: import('../utils/resolveGrpcTabConnection').GrpcTabConnectionPageDefaults;
   /** When false, validation strip is hidden (connection bar owns target input). */
@@ -33,9 +44,13 @@ export function GrpcTargetPanel({
   tlsMode = 'disabled',
   fallbackTarget = '',
   envVarMap,
+  workspaceDefaults,
   profiles = [],
   connectionId,
   tabOverrides,
+  body,
+  metadata,
+  auth,
   pageDefaults,
   showValidation = true,
 }: GrpcTargetPanelProps) {
@@ -45,6 +60,7 @@ export function GrpcTargetPanel({
     target,
     fallbackTarget,
     envVarMap,
+    workspaceDefaults,
     tlsMode,
     profiles,
     connectionId,
@@ -83,6 +99,32 @@ export function GrpcTargetPanel({
   const stripHintMessage = showErrorBanner
     ? GRPC_INTERPOLATION_BANNER_STRIP_HINT
     : validation.message;
+
+  const resolvedPayloadPreview = useMemo(() => {
+    if (viewMode !== 'resolved') {
+      return undefined;
+    }
+    try {
+      const resolveTemplate = createGrpcInterpolationTemplateResolver(validation.interpolationEnv);
+      const resolvedBody = resolveGrpcInterpolationJsonValue(body ?? {}, resolveTemplate);
+      const resolvedMetadata = resolveGrpcInterpolationMetadata(metadata ?? {}, resolveTemplate);
+      const resolvedAuth = resolveGrpcInterpolationAuthConfig(auth, resolveTemplate) ?? { type: 'none' };
+      const preview = JSON.stringify(
+        {
+          body: resolvedBody,
+          metadata: resolvedMetadata,
+          auth: resolvedAuth,
+        },
+        null,
+        2,
+      );
+      return sanitizeGrpcInterpolationDiagnosticMessage(preview, {
+        env: validation.interpolationEnv,
+      });
+    } catch {
+      return undefined;
+    }
+  }, [viewMode, validation.interpolationEnv, body, metadata, auth]);
 
   if (!showValidation) {
     return null;
@@ -134,6 +176,12 @@ export function GrpcTargetPanel({
           <p className="grpc-target-hint grpc-target-hint--secondary">
             Accepted formats: `host:port`, `[ipv6]:port`, `in-process:&lt;name&gt;`
           </p>
+        )}
+        {resolvedPayloadPreview && (
+          <div className="grpc-target-hint grpc-target-hint--secondary" data-testid="grpc-interpolation-payload-preview">
+            <strong>Resolved payload preview (body/metadata/auth)</strong>
+            <pre data-testid="grpc-interpolation-payload-preview-value">{resolvedPayloadPreview}</pre>
+          </div>
         )}
       </div>
     </div>

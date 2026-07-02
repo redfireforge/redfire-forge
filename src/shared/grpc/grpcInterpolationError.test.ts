@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { GRPC_INTERPOLATION_ERROR_CODES } from './grpcInterpolationConstants';
+import {
+  GRPC_INTERPOLATION_ERROR_CODES,
+  type GrpcInterpolationErrorCode,
+} from './grpcInterpolationConstants';
 import {
   GrpcInterpolationError,
   isGrpcInterpolationHarnessSerializationError,
@@ -45,6 +48,30 @@ describe('grpcInterpolationError (Phase 9E)', () => {
   it('maps grpcHost target validation plain Error to serialization', () => {
     expect(resolveGrpcInterpolationHarnessPreTransportCategory(
       new Error('Resolve grpcHost in Environment Manager before executing'),
+    )).toBe('serialization');
+  });
+
+  it('returns internal for unmapped GrpcInterpolationError codes', () => {
+    const error = new GrpcInterpolationError({
+      field: 'target',
+      code: 'grpc.interpolation.unmapped' as GrpcInterpolationErrorCode,
+      message: 'Unknown interpolation failure',
+    });
+    expect(resolveGrpcInterpolationHarnessPreTransportCategory(error)).toBe('internal');
+    expect(isGrpcInterpolationHarnessSerializationError(error)).toBe(false);
+  });
+
+  it('returns internal for unrelated non-interpolation failures', () => {
+    expect(resolveGrpcInterpolationHarnessPreTransportCategory(new Error('network timeout'))).toBe('internal');
+    expect(resolveGrpcInterpolationHarnessPreTransportCategory('plain failure')).toBe('internal');
+  });
+
+  it('maps circular reference and harness scenario messages to serialization', () => {
+    expect(resolveGrpcInterpolationHarnessPreTransportCategory(
+      new Error('Circular variable reference: a → b → a'),
+    )).toBe('serialization');
+    expect(resolveGrpcInterpolationHarnessPreTransportCategory(
+      new Error('invalid gRPC harness scenario: missing target'),
     )).toBe('serialization');
   });
 });

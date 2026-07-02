@@ -91,6 +91,21 @@ service DemoService { rpc Create(OrderRequest) returns (OrderRequest); }`,
     expect(decoded.order_id).toBe('9007199254740993');
   });
 
+  it('encodes safe numeric int64 literals as Long (OQ-8 fallback)', () => {
+    const root = parseProtoFiles([{
+      path: 'demo.proto',
+      content: `syntax = "proto3";
+package demo;
+message OrderRequest { int64 order_id = 1; }
+service DemoService { rpc Create(OrderRequest) returns (OrderRequest); }`,
+    }]);
+    const descriptor = normalizeRootToDescriptor(root, 'proto_files', 'int64-number-test');
+
+    const encoded = encodeProtoMessage(descriptor, 'demo.OrderRequest', { order_id: 42 });
+    const decoded = decodeProtoMessage(descriptor, 'demo.OrderRequest', encoded);
+    expect(decoded.order_id).toBe('42');
+  });
+
   it('rejects invalid int64 decimal strings at encode time', () => {
     const root = parseProtoFiles([{
       path: 'demo.proto',

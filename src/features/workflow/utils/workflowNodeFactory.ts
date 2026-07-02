@@ -40,6 +40,11 @@ import type {
   GrpcServerStreamNodeData,
   GrpcAssertNodeData,
 } from '../types/workflow';
+import type {
+  GrpcLoadTestNodeData,
+  GrpcMockAssertNodeData,
+  GrpcSchemaDiffNodeData,
+} from '../types/workflow/node-grpc-advanced';
 import { isHttpWorkflowNode } from './workflowVariableHints';
 import HttpStepNode from '../components/nodes/HttpStepNode';
 import ConditionNode from '../components/nodes/ConditionNode';
@@ -237,6 +242,9 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
     case 'grpcUnary':           return defaultGrpcUnaryNodeData();
     case 'grpcServerStream':    return defaultGrpcServerStreamNodeData();
     case 'grpcAssert':          return defaultGrpcAssertNodeData();
+    case 'grpcLoadTest':        return defaultGrpcLoadTestNodeData();
+    case 'grpcSchemaDiff':      return defaultGrpcSchemaDiffNodeData();
+    case 'grpcMockAssert':      return defaultGrpcMockAssertNodeData();
   }
 }
 
@@ -442,6 +450,37 @@ export function defaultGrpcAssertNodeData(): GrpcAssertNodeData {
     label: 'gRPC Assert',
     source: '',
     assertions: [],
+    onError: 'fail',
+  };
+}
+
+export function defaultGrpcLoadTestNodeData(): GrpcLoadTestNodeData {
+  return {
+    ...defaultGrpcUnaryNodeData(),
+    label: 'gRPC Load Test',
+    loadTest: { concurrency: 1, totalCalls: 10, warmupCalls: 0 },
+  };
+}
+
+export function defaultGrpcSchemaDiffNodeData(): GrpcSchemaDiffNodeData {
+  return {
+    label: 'gRPC Schema Diff',
+    leftDescriptorKey: '',
+    rightDescriptorKey: '',
+    failOnBreaking: true,
+    onError: 'fail',
+  };
+}
+
+export function defaultGrpcMockAssertNodeData(): GrpcMockAssertNodeData {
+  return {
+    label: 'gRPC Mock Assert',
+    listenTarget: '127.0.0.1:50061',
+    descriptorKey: '',
+    service: '',
+    method: '',
+    body: {},
+    expectedStatus: 0,
     onError: 'fail',
   };
 }

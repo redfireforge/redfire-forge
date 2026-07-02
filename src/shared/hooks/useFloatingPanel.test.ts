@@ -73,6 +73,50 @@ describe('useFloatingPanel', () => {
     document.documentElement.style.removeProperty('--sidebar-w');
   });
 
+  it('uses default sidebar width when CSS variable is empty', () => {
+    document.documentElement.style.setProperty('--sidebar-w', '');
+    const { result } = renderHook(() => useFloatingPanel());
+    expect(result.current.floatPos.x).toBeGreaterThanOrEqual(68);
+    document.documentElement.style.removeProperty('--sidebar-w');
+  });
+
+  it('computeWorkflowConsoleDemoFloatLayout accepts explicit viewport bounds', () => {
+    const layout = computeWorkflowConsoleDemoFloatLayout({ w: 1200, h: 800 });
+    expect(layout.w).toBeGreaterThanOrEqual(PANEL_LIMITS.MIN_FLOAT_W);
+    expect(layout.h).toBeGreaterThanOrEqual(PANEL_LIMITS.MIN_FLOAT_H);
+    expect(layout.x).toBeGreaterThanOrEqual(68);
+  });
+
+  it('uses parsed sidebar width from CSS variable when set', () => {
+    document.documentElement.style.setProperty('--sidebar-w', '200');
+    const { result } = renderHook(() => useFloatingPanel());
+    expect(result.current.floatPos.x).toBe(220);
+    document.documentElement.style.removeProperty('--sidebar-w');
+  });
+
+  it('computeWorkflowConsoleDemoFloatLayout uses SSR sidebar fallback without document', () => {
+    const doc = globalThis.document;
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: undefined });
+    try {
+      const layout = computeWorkflowConsoleDemoFloatLayout({ w: 1000, h: 800 });
+      expect(layout.x).toBe(68);
+    } finally {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: doc });
+    }
+  });
+
+  it('computeWorkflowConsoleDemoFloatLayout uses fallback viewport without window', () => {
+    const win = globalThis.window;
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: undefined });
+    try {
+      const layout = computeWorkflowConsoleDemoFloatLayout();
+      expect(layout.w).toBeGreaterThanOrEqual(PANEL_LIMITS.MIN_FLOAT_W);
+      expect(layout.h).toBeGreaterThanOrEqual(PANEL_LIMITS.MIN_FLOAT_H);
+    } finally {
+      Object.defineProperty(globalThis, 'window', { configurable: true, value: win });
+    }
+  });
+
   it('resizes docked panel and clamps within min/max limits', () => {
     const { result } = renderHook(() => useFloatingPanel({ defaultDockedHeight: 200 }));
 

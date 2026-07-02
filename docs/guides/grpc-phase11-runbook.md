@@ -141,6 +141,31 @@ Symptom: Markdown export missing metadata footer.
 - Schema diff UI list is capped for rendering safety; full detail is available in exports.
 - Advanced-feature workflow/harness promotion remains deferred beyond 11H.
 
+## Phase 11J closure (profiles, handoff, mock export, diff ack)
+
+- Load-test profiles: **Save / Load / Rename / Delete** in Advanced → Load test (`grpc-load-test-profiles` IDB store).
+- Collections: **Run load test** on saved unary requests opens Advanced with binding applied.
+- Mock server: **Copy rules JSON** uses `grpc_mock_rule_export` leak scan.
+- Schema diff: per-change **Acknowledge / Unacknowledge** with **Hide acknowledged** filter; acks cleared when baseline is cleared, re-captured, or a fresh baseline is captured for a descriptor key (including stale IDB rows after reload).
+- Gate: `npm run test:grpc:phase11j` (11I regression chained unless `GRPC_SKIP_REGRESSION=1`).
+
+## Phase 11K closure (RPC Statistics tab)
+
+- Fourth Advanced sub-tab: **RPC statistics** — session-scoped per-tab aggregator (in-memory; reset does not touch call history).
+- Events: unary/stream via `grpcStudioCallHistoryCapture` (`statsSource`); load-test attempts folded on run complete (non-warmup only, **batched** — one UI dispatch per tab).
+- Stream terminal latency uses `streamStartedAt` → `streamEndedAt` when transport reports `durationMs: 0`.
+- UI: summary cards (total calls, success rate, avg/p95 latency) + per-method table with status chips and latency bars.
+- Gate: `npm run test:grpc:phase11k` (11J regression chained unless `GRPC_SKIP_REGRESSION=1`).
+
+## Phase 11L closure (Mock rule visual builder)
+
+- Mock server panel sub-tabs: **Builder** (default) | **JSON** | **Runtime**.
+- `GrpcMockRuleBuilderPanel` — structured predicate rows (leaf kinds + AND/OR groups, max depth 2, NOT on leaves), per-rule response status/body, priority, enable, fallthrough.
+- Bi-directional sync via `rulesJson` + `patchMockRulesJson`; expression predicates and over-deep trees are read-only in Builder (edit in JSON).
+- Builder uses lenient `parseGrpcMockRuleSetJsonForBuilder`; strict `parseGrpcMockRuleSetJson` still blocks Start via `parseError`.
+- Security: builder field scan uses `GRPC_MOCK_FORBIDDEN_EXPRESSION_PATTERNS`; evaluator unchanged (11E).
+- Gate: `npm run test:grpc:phase11l` (11E regression chained unless `GRPC_SKIP_REGRESSION=1`).
+
 ## Sign-off references
 
 - Validation report: `docs/guides/grpc-phase11-validation-report.md`

@@ -8,6 +8,7 @@ import {
   type GrpcCancelCallResult,
   type GrpcDescribeRequest,
   type GrpcDescriptor,
+  type GrpcDescriptorLookupRequest,
   type GrpcErrorBody,
   type GrpcExportProtosetRequest,
   type GrpcExportProtosetResult,
@@ -170,6 +171,16 @@ export async function postGrpcExportProtoset(
   });
 }
 
+export async function postGrpcDescriptorLookup(
+  request: GrpcDescriptorLookupRequest,
+): Promise<GrpcSuccessEnvelope<GrpcDescriptor>> {
+  return dispatch('lookup_descriptor', '/api/grpc/descriptor/lookup', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(request),
+  });
+}
+
 export async function getGrpcStatus(
   request: GrpcStatusRequest,
 ): Promise<GrpcSuccessEnvelope<GrpcStatusResult>> {
@@ -215,4 +226,232 @@ export async function deleteGrpcCall(
   return dispatch('cancel', path, {
     method: 'DELETE',
   });
+}
+
+export interface GrpcK8sPortForwardApiConfig {
+  namespace: string;
+  targetType: 'service' | 'pod' | 'deployment';
+  name: string;
+  remotePort: number;
+  localPort: number;
+  context: string;
+}
+
+export interface GrpcK8sPortForwardApiState {
+  scopeId: string;
+  active: boolean;
+  pid?: number;
+  command?: string;
+  target?: string;
+  startedAt?: string;
+  lastError?: string;
+  config?: GrpcK8sPortForwardApiConfig;
+}
+
+export interface GrpcK8sPortForwardApiLogLine {
+  seq: number;
+  ts: string;
+  stream: 'stdout' | 'stderr' | 'system';
+  text: string;
+}
+
+export interface GrpcK8sPortForwardApiLogs {
+  scopeId: string;
+  lines: GrpcK8sPortForwardApiLogLine[];
+  latestSeq: number;
+}
+
+export interface GrpcK8sPortForwardApiLogClear {
+  scopeId: string;
+  latestSeq: number;
+}
+
+interface GrpcK8sPortForwardResponse {
+  ok: boolean;
+  data?: GrpcK8sPortForwardApiState;
+  error?: string;
+}
+
+interface GrpcK8sPortForwardLogsResponse {
+  ok: boolean;
+  data?: GrpcK8sPortForwardApiLogs;
+  error?: string;
+}
+
+interface GrpcK8sPortForwardLogClearResponse {
+  ok: boolean;
+  data?: GrpcK8sPortForwardApiLogClear;
+  error?: string;
+}
+
+async function requestGrpcK8sPortForward(
+  path: string,
+  method: 'GET' | 'POST',
+  body?: Record<string, unknown>,
+): Promise<GrpcK8sPortForwardApiState> {
+  const response = await httpFetch(
+    path,
+    method,
+    {
+      Accept: 'application/json',
+      ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+    },
+    method === 'POST' ? JSON.stringify(body ?? {}) : undefined,
+  );
+
+  if (response.error) {
+    throw new GrpcApiClientError('status', response.error, {
+      code: 'GRPC_NETWORK_ERROR',
+      retryable: true,
+    });
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(response.body);
+  } catch {
+    throw new GrpcApiClientError('status', 'gRPC K8s automation returned non-JSON response', {
+      code: 'GRPC_INVALID_ENVELOPE',
+      retryable: false,
+    });
+  }
+
+  const payload = parsed as GrpcK8sPortForwardResponse;
+  if (!payload || typeof payload !== 'object' || typeof payload.ok !== 'boolean') {
+    throw new GrpcApiClientError('status', 'gRPC K8s automation returned invalid response', {
+      code: 'GRPC_INVALID_ENVELOPE',
+      retryable: false,
+    });
+  }
+
+  if (!payload.ok || !payload.data) {
+    throw new GrpcApiClientError('status', payload.error ?? 'gRPC K8s automation request failed', {
+      code: 'GRPC_K8S_AUTOMATION_FAILED',
+      retryable: false,
+    });
+  }
+
+  return payload.data;
+}
+
+export async function getGrpcK8sPortForwardStatus(
+  scopeId: string,
+): Promise<GrpcK8sPortForwardApiState> {
+  const params = new URLSearchParams({ scopeId });
+  return requestGrpcK8sPortForward(`/api/grpc/k8s-port-forward/status?${params.toString()}`, 'GET');
+}
+
+export async function postGrpcK8sPortForwardStart(
+  scopeId: string,
+  config: GrpcK8sPortForwardApiConfig,
+): Promise<GrpcK8sPortForwardApiState> {
+  return requestGrpcK8sPortForward('/api/grpc/k8s-port-forward/start', 'POST', {
+    scopeId,
+    config,
+  });
+}
+
+export async function postGrpcK8sPortForwardStop(
+  scopeId: string,
+): Promise<GrpcK8sPortForwardApiState> {
+  return requestGrpcK8sPortForward('/api/grpc/k8s-port-forward/stop', 'POST', {
+    scopeId,
+  });
+}
+
+export async function getGrpcK8sPortForwardLogs(
+  scopeId: string,
+  afterSeq?: number,
+): Promise<GrpcK8sPortForwardApiLogs> {
+  const params = new URLSearchParams({ scopeId });
+  if (afterSeq != null && Number.isFinite(afterSeq)) {
+    params.set('afterSeq', String(afterSeq));
+  }
+  const response = await httpFetch(
+    `/api/grpc/k8s-port-forward/logs?${params.toString()}`,
+    'GET',
+    { Accept: 'application/json' },
+  );
+
+  if (response.error) {
+    throw new GrpcApiClientError('status', response.error, {
+      code: 'GRPC_NETWORK_ERROR',
+      retryable: true,
+    });
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(response.body);
+  } catch {
+    throw new GrpcApiClientError('status', 'gRPC K8s logs returned non-JSON response', {
+      code: 'GRPC_INVALID_ENVELOPE',
+      retryable: false,
+    });
+  }
+
+  const payload = parsed as GrpcK8sPortForwardLogsResponse;
+  if (!payload || typeof payload !== 'object' || typeof payload.ok !== 'boolean') {
+    throw new GrpcApiClientError('status', 'gRPC K8s logs returned invalid response', {
+      code: 'GRPC_INVALID_ENVELOPE',
+      retryable: false,
+    });
+  }
+
+  if (!payload.ok || !payload.data) {
+    throw new GrpcApiClientError('status', payload.error ?? 'gRPC K8s logs request failed', {
+      code: 'GRPC_K8S_AUTOMATION_FAILED',
+      retryable: false,
+    });
+  }
+
+  return payload.data;
+}
+
+export async function postGrpcK8sPortForwardClearLogs(
+  scopeId: string,
+): Promise<GrpcK8sPortForwardApiLogClear> {
+  const response = await httpFetch(
+    '/api/grpc/k8s-port-forward/logs/clear',
+    'POST',
+    {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    JSON.stringify({ scopeId }),
+  );
+
+  if (response.error) {
+    throw new GrpcApiClientError('status', response.error, {
+      code: 'GRPC_NETWORK_ERROR',
+      retryable: true,
+    });
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(response.body);
+  } catch {
+    throw new GrpcApiClientError('status', 'gRPC K8s log clear returned non-JSON response', {
+      code: 'GRPC_INVALID_ENVELOPE',
+      retryable: false,
+    });
+  }
+
+  const payload = parsed as GrpcK8sPortForwardLogClearResponse;
+  if (!payload || typeof payload !== 'object' || typeof payload.ok !== 'boolean') {
+    throw new GrpcApiClientError('status', 'gRPC K8s log clear returned invalid response', {
+      code: 'GRPC_INVALID_ENVELOPE',
+      retryable: false,
+    });
+  }
+
+  if (!payload.ok || !payload.data) {
+    throw new GrpcApiClientError('status', payload.error ?? 'gRPC K8s log clear failed', {
+      code: 'GRPC_K8S_AUTOMATION_FAILED',
+      retryable: false,
+    });
+  }
+
+  return payload.data;
 }

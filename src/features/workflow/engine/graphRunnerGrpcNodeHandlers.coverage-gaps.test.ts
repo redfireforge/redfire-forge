@@ -83,7 +83,9 @@ describe('graphRunnerGrpcNodeHandlers coverage gaps', () => {
 
   it('unary transport throw sets grpcMeta and does not traverse on fail', async () => {
     const passed = makePassedFlag();
+    const capturedGrpcDetails = new Map<string, import('../../../shared/types').CapturedGrpcNodeDetails>();
     const hCtx = makeHandlerContext({
+      capturedGrpcDetails,
       grpcOperations: {
         invokeUnary: vi.fn(async () => {
           throw new Error('transport exploded');
@@ -96,6 +98,10 @@ describe('graphRunnerGrpcNodeHandlers coverage gaps', () => {
     expect(passed.value).toBe(false);
     expect(hCtx.visitOutgoing).not.toHaveBeenCalled();
     expect(hCtx.results[0]?.errorMessage).toBe('transport exploded');
+    expect(capturedGrpcDetails.get('u-throw-fail')).toMatchObject({
+      target: FIXTURE_UNARY_CALL_REQUEST.target.address,
+      callType: 'unary',
+    });
   });
 
   it('server stream snapshot build failure does not traverse', async () => {
@@ -277,7 +283,9 @@ describe('graphRunnerGrpcNodeHandlers coverage gaps', () => {
 
   it('server stream transport throw builds grpcMeta and honors onError continue', async () => {
     const passed = makePassedFlag();
+    const capturedGrpcDetails = new Map<string, import('../../../shared/types').CapturedGrpcNodeDetails>();
     const hCtx = makeHandlerContext({
+      capturedGrpcDetails,
       grpcOperations: {
         invokeUnary: vi.fn(),
         collectServerStream: vi.fn(async () => {
@@ -294,6 +302,11 @@ describe('graphRunnerGrpcNodeHandlers coverage gaps', () => {
     );
     expect(passed.value).toBe(false);
     expect(hCtx.visitOutgoing).toHaveBeenCalledWith('s-throw-continue', 'main');
+    expect(capturedGrpcDetails.get('s-throw-continue')).toMatchObject({
+      target: FIXTURE_UNARY_CALL_REQUEST.target.address,
+      callType: 'server_streaming',
+      grpcStatusMessage: 'stream transport lost',
+    });
   });
 
   it('server stream cancelled stop reason fails collection', async () => {
@@ -340,7 +353,9 @@ describe('graphRunnerGrpcNodeHandlers coverage gaps', () => {
   it('unary executor throw hits transport catch path with grpcMeta', async () => {
     vi.mocked(executeGrpcWorkflowUnary).mockRejectedValueOnce(new Error('executor exploded'));
     const passed = makePassedFlag();
+    const capturedGrpcDetails = new Map<string, import('../../../shared/types').CapturedGrpcNodeDetails>();
     const hCtx = makeHandlerContext({
+      capturedGrpcDetails,
       grpcOperations: {
         invokeUnary: vi.fn(),
         collectServerStream: vi.fn(),
@@ -350,6 +365,11 @@ describe('graphRunnerGrpcNodeHandlers coverage gaps', () => {
     await handleGrpcUnaryNode('u-exec-throw', grpcUnaryNode('u-exec-throw'), hCtx, passed);
     expect(passed.value).toBe(false);
     expect(hCtx.results[0]?.errorMessage).toBe('executor exploded');
+    expect(capturedGrpcDetails.get('u-exec-throw')).toMatchObject({
+      target: FIXTURE_UNARY_CALL_REQUEST.target.address,
+      callType: 'unary',
+      grpcStatusMessage: 'executor exploded',
+    });
   });
 
   it('unary success omits bodyPreview when response body is empty', async () => {

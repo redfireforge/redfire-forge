@@ -10,7 +10,7 @@ These rules apply when creating or modifying **gRPC Studio** UI:
 
 **Design tokens:** Follow [`.cursor/rules/ui-design-system.mdc`](ui-design-system.mdc) — use `var(--bg)`, `var(--surface)`, `var(--border)`, `var(--text)`, `var(--text-muted)`, `var(--primary)`. Never hardcode hex/rgba for theme surfaces.
 
-**Phase 1 vs mockup gaps:** See [`docs/plan/future/grpc/grpc-studio-plan.md`](../../docs/plan/future/grpc/grpc-studio-plan.md) § Phase 1 vs mockup gap and **§ Phase 4J — Protocol UI/UX Parity** for TLS/Auth divergence remediation. See [`docs/guides/grpc-phase1-runbook.md`](../../docs/guides/grpc-phase1-runbook.md) § UI mockup parity.
+**Phase 1 vs mockup gaps:** Authoritative gap tables live in [`docs/guides/grpc-phase1-runbook.md`](../../docs/guides/grpc-phase1-runbook.md) and [`docs/guides/grpc-phase2-runbook.md`](../../docs/guides/grpc-phase2-runbook.md). Live status: [`docs/plan/future/grpc/grpc-studio-plan.md`](../../docs/plan/future/grpc/grpc-studio-plan.md) (dashboard only). Mockups: `docs/plan/future/grpc/mockups/`.
 
 **⚠️ Divergence rule (Phase 4J):** Do **not** add inline PEM editors or page-level TLS blocks. TLS must use **`GrpcTlsConfigModal`** via **`GrpcTlsPanel`** (tri-mode + secret masking — not shared `TlsConfigModal`). Connection bar must expose TLS + Auth badges per mockup `01`.
 
@@ -197,7 +197,7 @@ Form builder enhancements (oneof, WKT, maps) align with field types shown in **0
 
 Reference for connection bar completion and settings panels.
 
-> **Shipped vs mockup:** Phase 4 logic + **4J-A/B/C/D UI** — connection bar badges, TLS modal, auth pills, full settings drawer nav (incl. Compression, Health, K8s stub, Transport). See [`grpc-studio-plan.md`](../../docs/plan/future/grpc/grpc-studio-plan.md) § Phase 4J.
+> **Shipped vs mockup:** Phase 4 logic + **4J-A/B/C/D UI** — connection bar badges, TLS modal, auth pills, full settings drawer nav (incl. Compression, Health, K8s, Transport). See [`grpc-phase4-runbook.md`](../../docs/guides/grpc-phase4-runbook.md) and mockup `04-auth-tls.html`.
 
 | Mockup region | Expected behavior | 4J sub-phase |
 |---|---|---|

@@ -16,7 +16,7 @@ export type KafkaActionType = 'http' | 'kafkaProduce' | 'kafkaConsume';
  * Broader transport type union that includes both Kafka, WebSocket, and GraphQL transports.
  * Used on `RequestResult.transportType` where any transport may appear.
  */
-export type TransportType = KafkaActionType | 'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger' | 'graphqlQuery' | 'graphqlMutation' | 'graphqlSubscription' | 'graphqlIntrospect' | 'graphqlAssert' | 'grpcUnary' | 'grpcServerStream' | 'grpcAssert' | 'grpcCall';
+export type TransportType = KafkaActionType | 'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger' | 'graphqlQuery' | 'graphqlMutation' | 'graphqlSubscription' | 'graphqlIntrospect' | 'graphqlAssert' | 'grpcUnary' | 'grpcServerStream' | 'grpcAssert' | 'grpcLoadTest' | 'grpcSchemaDiff' | 'grpcMockAssert' | 'grpcCall';
 
 /**
  * Kafka message assertion target selector paths.

@@ -38,7 +38,8 @@ export class TraceCollector {
     const nodeType = node.type;
     const hasOwnTiming = nodeType === 'http' || nodeType === 'correlationWait' || nodeType === 'subWorkflow'
       || nodeType === 'wsConnect' || nodeType === 'wsSend' || nodeType === 'wsReceive'
-      || nodeType === 'grpcUnary' || nodeType === 'grpcServerStream' || nodeType === 'grpcAssert';
+      || nodeType === 'grpcUnary' || nodeType === 'grpcServerStream' || nodeType === 'grpcAssert'
+      || nodeType === 'grpcLoadTest' || nodeType === 'grpcSchemaDiff' || nodeType === 'grpcMockAssert';
     
     let durationMs: number | undefined;
     if (hasOwnTiming) {

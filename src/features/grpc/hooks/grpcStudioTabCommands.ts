@@ -371,6 +371,12 @@ export function createResolveTabConnectionHandler(
     if (!tab) {
       throw new Error(`Tab not found: ${tabId}`);
     }
-    return resolveTabConnectionWithEnv(tab, ctx.envVarMap, ctx.profiles, ctx.pageDefaults);
+    return resolveTabConnectionWithEnv(
+      tab,
+      ctx.envVarMap,
+      ctx.profiles,
+      ctx.pageDefaults,
+      ctx.workspaceDefaults,
+    );
   };
 }

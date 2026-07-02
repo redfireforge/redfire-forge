@@ -37,6 +37,8 @@ Three regression bugs identified during the Phase 6I re-evaluation were resolved
 | B12 | Transport-exception catch paths did not commit step results (stream throw; belt for custom ops) | `commitTransportFailureStepResult` in unary/stream catch blocks |
 | B13 | In-flight unary calls ignored workflow abort during `postGrpcCall` | `wrapUnaryInvokeWithAbort` cancels via `deleteGrpcCall` on abort signal |
 | B14 | Plan claimed nested `{{grpc.response.body.field}}` paths; Phase 6 publishes whole JSON only | Plan corrected; canonical paths are `steps.<nodeId>.grpc.*` and `grpc.<saveAs>.*` |
+| B15 | `grpcAssert` `grpcField` accepted malformed JSONPath at config time | Added config-time JSONPath syntax validation in `validateGrpcAssertNodeData` |
+| B16 | Transport-exception catch paths missed `capturedGrpcDetails` for unary/stream | Added `captureGrpcDetails(...)` in unary/stream catch paths |
 
 ---
 
@@ -84,11 +86,56 @@ None. (Three P1 candidates identified during 6I re-evaluation; all fixed before 
 
 | ID | Item | Decision |
 |----|------|----------|
-| P2-1 | `grpcAssert` does not validate `grpcField` JSONPath syntax at config time | Defer to Phase 7 — runtime failure with clear error message is acceptable |
-| P2-2 | `captureGrpcDetails` not called in transport-exception catch path | Defer — no step result exists at that point; diagnostic available via `grpcMeta`. Assert **fail** paths now capture via `finishGrpcAssertFailure` (B7) |
+| P2-1 | `grpcAssert` does not validate `grpcField` JSONPath syntax at config time | **Shipped in Phase 6 hardening** (B15) |
+| P2-2 | `captureGrpcDetails` not called in transport-exception catch path | **Shipped in Phase 6 hardening** (B16) |
 | P2-3 | SSE connection close without `grpc-end` event defaults to `stream_end` OK | Acceptable — mirrors server half-close; collector records `stream_end` when the body completes without an explicit terminal frame |
 
 ---
+
+## Adversarial Re-evaluation (2026-07-01)
+
+Extra hardening pass completed after closing deferred items B15/B16.
+
+### Scope
+
+- Added malformed `grpcAssert.assertions[].grpcField` matrix coverage (invalid + valid path corpus).
+- Re-ran focused validator tests.
+- Re-ran fast Phase 6 checkpoint and full `phase6i` chain.
+
+### Evidence commands
+
+- `npx vitest run src/features/workflow/utils/grpcWorkflowNodeValidation.test.ts --reporter=verbose`
+- `npm run test:grpc:fast -- 6i`
+- `GRPC_FORCE_TSC=1 npm run test:grpc:phase6i`
+
+### Result
+
+- ✅ Malformed-path matrix rejects invalid JSONPath-like syntax at config time.
+- ✅ Valid-path matrix remains accepted (no regression to existing supported forms).
+- ✅ Fast + full Phase 6 gates remain green.
+
+## Adversarial Re-evaluation #2 (2026-07-01)
+
+Second hardening pass completed to stress assertion-shape validators beyond `grpcField`.
+
+### Scope
+
+- Added `grpcTrailer` matrix coverage for blank-name and missing-operator rejection, plus accepted operator forms.
+- Added `grpcDuration` matrix coverage enforcing finite-number semantics for `min`/`max`.
+- Re-ran focused validator tests.
+- Re-ran fast Phase 6 checkpoint and full `phase6i` chain.
+
+### Evidence commands
+
+- `npx vitest run src/features/workflow/utils/grpcWorkflowNodeValidation.test.ts --reporter=verbose`
+- `npm run test:grpc:fast -- 6i`
+- `GRPC_FORCE_TSC=1 npm run test:grpc:phase6i`
+
+### Result
+
+- ✅ `grpcTrailer` assertions now have adversarial matrix lock for name/operator contract.
+- ✅ `grpcDuration` assertions now have adversarial matrix lock for finite `min`/`max` requirement.
+- ✅ Fast + full Phase 6 gates remain green after the additional matrix suite.
 
 ## Phase 7 entry criteria
 

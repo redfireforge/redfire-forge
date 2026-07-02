@@ -17,6 +17,8 @@ import {
   type GrpcOAuth2Credentials,
   type GrpcOAuth2TokenErrorCategory,
 } from '../../src/shared/grpc/grpcOAuth2Policy.js';
+import { OAuthTokenFetchPolicyError, validateOAuthTokenUrlWithDns } from './oauthTokenFetchPolicy.js';
+import { isGrpcOutboundDnsStrictEnabled } from './grpcOutboundDnsPolicy.js';
 
 export interface GrpcOAuth2FetchPort {
   fetch(url: string, init?: RequestInit): Promise<Response>;
@@ -45,9 +47,20 @@ export class GrpcOAuth2TokenService {
   private readonly cache = new Map<string, CachedGrpcOAuth2Token>();
   private readonly pending = new Map<string, Promise<string>>();
 
+  private readonly resolveHostname?: (hostname: string) => Promise<string[]>;
+
+  private readonly skipDnsResolution?: boolean;
+
   constructor(
     private readonly fetchPort: GrpcOAuth2FetchPort = defaultFetchPort,
-  ) {}
+    options: {
+      resolveHostname?: (hostname: string) => Promise<string[]>;
+      skipDnsResolution?: boolean;
+    } = {},
+  ) {
+    this.resolveHostname = options.resolveHostname;
+    this.skipDnsResolution = options.skipDnsResolution;
+  }
 
   clearCache(): void {
     this.cache.clear();
@@ -63,6 +76,22 @@ export class GrpcOAuth2TokenService {
       );
     }
 
+    let validatedTokenUrl: URL;
+    try {
+      validatedTokenUrl = await validateOAuthTokenUrlWithDns(normalized.tokenUrl, {
+        resolveHostname: this.resolveHostname,
+        skipDnsResolution: this.skipDnsResolution ?? !isGrpcOutboundDnsStrictEnabled(),
+      });
+    } catch (error) {
+      const detail = error instanceof OAuthTokenFetchPolicyError
+        ? sanitizeGrpcOAuth2ErrorText(error.message)
+        : undefined;
+      throw new GrpcOAuth2TokenError(
+        'endpoint_unreachable',
+        formatGrpcOAuth2TokenErrorMessage('endpoint_unreachable', detail),
+      );
+    }
+
     const cacheKey = buildGrpcOAuth2CacheKey(normalized);
     const cached = this.cache.get(cacheKey);
     if (cached && !this.isExpired(cached)) {
@@ -74,7 +103,7 @@ export class GrpcOAuth2TokenService {
       return inflight;
     }
 
-    const refreshPromise = this.refreshToken(normalized, cacheKey);
+    const refreshPromise = this.refreshToken(normalized, cacheKey, validatedTokenUrl.toString());
     this.pending.set(cacheKey, refreshPromise);
     try {
       return await refreshPromise;
@@ -97,6 +126,7 @@ export class GrpcOAuth2TokenService {
   private async refreshToken(
     oauth2: GrpcOAuth2Credentials,
     cacheKey: string,
+    tokenUrl: string,
   ): Promise<string> {
     const body = new URLSearchParams({
       grant_type: 'client_credentials',
@@ -109,11 +139,12 @@ export class GrpcOAuth2TokenService {
 
     let response: Response;
     try {
-      response = await this.fetchPort.fetch(oauth2.tokenUrl, {
+      response = await this.fetchPort.fetch(tokenUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: body.toString(),
         signal: AbortSignal.timeout(GRPC_OAUTH2_TOKEN_REQUEST_TIMEOUT_MS),
+        redirect: 'manual',
       });
     } catch (error) {
       if (
@@ -131,6 +162,13 @@ export class GrpcOAuth2TokenService {
       throw new GrpcOAuth2TokenError(
         'endpoint_unreachable',
         formatGrpcOAuth2TokenErrorMessage('endpoint_unreachable', detail),
+      );
+    }
+
+    if (response.status >= 300 && response.status < 400) {
+      throw new GrpcOAuth2TokenError(
+        'endpoint_unreachable',
+        formatGrpcOAuth2TokenErrorMessage('endpoint_unreachable', 'redirects are not allowed'),
       );
     }
 

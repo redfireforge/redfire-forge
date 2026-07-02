@@ -381,6 +381,26 @@ describe('Phase 11E-D - latency jitter determinism', () => {
     expect(slept).toEqual([15]);
     expect(result.latencyMs).toBe(15);
   });
+
+  it('commitLatencyPolicy updates latency for subsequent unary calls', async () => {
+    const manager = createGrpcMockRuntimeManager();
+    manager.start({
+      connectionId: 'conn-1',
+      ruleSet: makeRuleSet([
+        makeRule({ id: 'slow', response: { statusCode: 0, body: { ok: true }, latencyMs: 5 } }),
+      ]),
+      latencyPolicy: { defaultLatencyMs: 0, jitterMs: 0, seed: 1 },
+    });
+
+    manager.commitLatencyPolicy({ defaultLatencyMs: 40, jitterMs: 0, seed: 1 });
+
+    const slept: number[] = [];
+    await manager.executeUnaryCall(makeContext(), {
+      sleep: async (ms) => { slept.push(ms); },
+    });
+    expect(slept).toEqual([5]);
+    expect(manager.getState().latencyPolicy?.defaultLatencyMs).toBe(40);
+  });
 });
 
 describe('Phase 11E-E - stream message planning', () => {

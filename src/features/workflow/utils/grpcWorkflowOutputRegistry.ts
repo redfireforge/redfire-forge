@@ -12,6 +12,11 @@ export class GrpcWorkflowOutputNamespaceError extends Error {
   }
 }
 
+import type {
+  GrpcWorkflowLoadTestSummaryRef,
+  GrpcWorkflowSchemaDiffSummaryRef,
+} from '../types/workflow/node-grpc-advanced';
+
 function setJson(ctx: VariableContext, key: string, value: unknown): void {
   ctx.set(key, JSON.stringify(value ?? null));
 }
@@ -100,6 +105,44 @@ export class GrpcWorkflowOutputRegistry {
       if (result.trailers !== undefined) {
         setJson(ctx, `grpc.${alias}.trailers`, result.trailers);
       }
+    }
+  }
+
+  /** Phase 11N — publish load-test summary ref into workflow namespace. */
+  publishLoadTestSummary(
+    ctx: VariableContext,
+    nodeId: string,
+    saveAs: string | undefined,
+    summary: GrpcWorkflowLoadTestSummaryRef,
+  ): void {
+    if (saveAs) {
+      this.registerSaveAsAlias(saveAs, nodeId);
+    }
+    const scopedPrefix = `steps.${nodeId}.grpc`;
+    setJson(ctx, `${scopedPrefix}.loadTestSummary`, summary);
+    ctx.setForNode(nodeId, 'grpc.loadTestSummary', JSON.stringify(summary));
+    ctx.set('grpc.loadTestSummary', JSON.stringify(summary));
+    if (saveAs) {
+      setJson(ctx, `grpc.${saveAs.trim()}.loadTestSummary`, summary);
+    }
+  }
+
+  /** Phase 11N — publish schema-diff summary ref into workflow namespace. */
+  publishSchemaDiffSummary(
+    ctx: VariableContext,
+    nodeId: string,
+    saveAs: string | undefined,
+    summary: GrpcWorkflowSchemaDiffSummaryRef,
+  ): void {
+    if (saveAs) {
+      this.registerSaveAsAlias(saveAs, nodeId);
+    }
+    const scopedPrefix = `steps.${nodeId}.grpc`;
+    setJson(ctx, `${scopedPrefix}.schemaDiffSummary`, summary);
+    ctx.setForNode(nodeId, 'grpc.schemaDiffSummary', JSON.stringify(summary));
+    ctx.set('grpc.schemaDiffSummary', JSON.stringify(summary));
+    if (saveAs) {
+      setJson(ctx, `grpc.${saveAs.trim()}.schemaDiffSummary`, summary);
     }
   }
 }

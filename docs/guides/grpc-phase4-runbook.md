@@ -42,6 +42,7 @@ Persistence / export (never raw secrets)
 | TLS PEM | Tab vault only | Never in call history or export JSON |
 | Auth type | `none` | User selects bearer/basic/api_key/oauth2 per tab |
 | OAuth2 token fetch | **Server-side only** | Browser never calls `tokenUrl` directly |
+| Outbound DNS hardening | **Strict (enabled)** | `GRPC_OUTBOUND_DNS_STRICT=false` disables DNS address checks for controlled local/dev environments |
 | Auth vs metadata | Auth panel wins | `mergeGrpcExecuteMetadata` at execute |
 | Secret field UI | Masked after save | Write-only + Clear stored (4G) |
 | Spring hints | Dismissible, localStorage | Health in call composer + settings drawer; PERMISSION_DENIED on status **7 only** |
@@ -77,7 +78,8 @@ Complete at **1× speed** when validating connection bar, TLS modal, and setting
 2. Click **Auth** nav → auth pills (not native `<select>`); secret fields mask after save.
 3. Click **Call** nav (or click **deadline chip** in bar) → timeout/deadline editable; change value → send-bar timeout syncs.
 4. Click **Compression** nav → toggle + algorithm preview; **Health** nav → probe UI (requires reflected descriptor for live probe).
-5. **K8s** and **Transport** nav → stub panels render; Start/Native modes show deferred copy.
+5. **K8s** nav → editable port-forward form; **Start** applies `localhost:{port}` target and shows status banner (run `kubectl` manually).
+6. **Transport** nav → transport mode cards (Express / Tauri / gRPC-Web / Spring Servlet).
 6. Close drawer via footer **Close** or Escape (overlay click does not close — connection bar stays interactive).
 
 ### TLS badge vs drawer (fast path)
@@ -170,6 +172,12 @@ Validates TLS badge → modal, settings drawer nav (Compression, Health, Auth), 
 | **4J** | Connection bar, TLS modal, settings drawer, compression/health panels | `test:grpc:phase4j`; `grpcPhase4JAcceptance.test.ts`; component tests in gate script |
 
 ## Troubleshooting
+
+### Outbound URL policy toggle (ops)
+
+- `GRPC_OUTBOUND_DNS_STRICT=true` (default): enforce DNS-aware private/loopback checks for outbound proto and OAuth token URLs.
+- `GRPC_OUTBOUND_DNS_STRICT=false`: skip DNS resolution checks (URL syntax/protocol/auth/host policy still enforced).
+- Prefer `false` only for constrained local dev/test environments where DNS is intentionally synthetic.
 
 | Symptom | Likely cause | Fix |
 |---|---|---|

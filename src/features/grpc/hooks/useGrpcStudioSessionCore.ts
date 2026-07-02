@@ -35,13 +35,20 @@ import { isGrpcStreamLifecycleTerminal } from '../../../shared/grpc/streamLifecy
 
 export interface UseGrpcStudioSessionCoreOptions {
   envVarMap: Record<string, string>;
+  workspaceDefaults?: Record<string, string>;
   profiles: GrpcConnectionProfile[];
   pageDefaults: GrpcTabConnectionPageDefaults;
   fireCancelInFlight: (tabId: string, requestId: string) => void;
 }
 
 export function useGrpcStudioSessionCore(options: UseGrpcStudioSessionCoreOptions) {
-  const { envVarMap, profiles, pageDefaults, fireCancelInFlight } = options;
+  const {
+    envVarMap,
+    workspaceDefaults,
+    profiles,
+    pageDefaults,
+    fireCancelInFlight,
+  } = options;
 
   const descriptorLoadGenerationRef = useRef<Record<string, number>>({});
   const callGenerationRef = useRef<Record<string, number>>({});
@@ -186,6 +193,7 @@ export function useGrpcStudioSessionCore(options: UseGrpcStudioSessionCoreOption
           envVarMap,
           profiles,
           pageDefaults,
+          workspaceDefaults,
         );
         const previousFingerprint = tabConnectionFingerprintRef.current[tab.id];
         if (previousFingerprint === undefined) {
@@ -240,7 +248,7 @@ export function useGrpcStudioSessionCore(options: UseGrpcStudioSessionCoreOption
         tabDescriptors: nextDescriptors,
       });
     });
-  }, [commitSession, envVarMap, pageDefaults, profiles, fireCancelInFlight]);
+  }, [commitSession, envVarMap, workspaceDefaults, pageDefaults, profiles, fireCancelInFlight]);
 
   const updateTab = useCallback((
     tabId: string,
@@ -257,12 +265,13 @@ export function useGrpcStudioSessionCore(options: UseGrpcStudioSessionCoreOption
       const existingTab = prev.tabs.find((tab) => tab.id === tabId);
       const connectionChanged = patchTouchesConnection(safePatch)
         && existingTab
-        && tabConnectionResolutionFingerprint(existingTab, envVarMap, profiles, pageDefaults)
+        && tabConnectionResolutionFingerprint(existingTab, envVarMap, profiles, pageDefaults, workspaceDefaults)
           !== tabConnectionResolutionFingerprint(
             { ...existingTab, ...safePatch },
             envVarMap,
             profiles,
             pageDefaults,
+            workspaceDefaults,
           );
 
       let tabPatch = withTargetConnectionSessionReset(safePatch);
@@ -343,6 +352,7 @@ export function useGrpcStudioSessionCore(options: UseGrpcStudioSessionCoreOption
           envVarMap,
           profiles,
           pageDefaults,
+          workspaceDefaults,
         );
       }
 
@@ -405,7 +415,7 @@ export function useGrpcStudioSessionCore(options: UseGrpcStudioSessionCoreOption
         tabs: nextTabs,
       });
     });
-  }, [commitSession, envVarMap, pageDefaults, profiles, fireCancelInFlight]);
+  }, [commitSession, envVarMap, workspaceDefaults, pageDefaults, profiles, fireCancelInFlight]);
 
   return {
     session,

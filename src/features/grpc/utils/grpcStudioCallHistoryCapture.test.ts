@@ -20,6 +20,10 @@ import {
   captureGrpcCallHistoryFromStreamTerminal,
   GRPC_CALL_HISTORY_UPDATED_EVENT,
 } from './grpcStudioCallHistoryCapture';
+import {
+  clearGrpcRpcSessionStatsForTests,
+  getGrpcRpcSessionStats,
+} from '../../../shared/grpc/grpcRpcSessionStats';
 
 const TS = '2026-06-29T12:00:00.000Z';
 
@@ -43,6 +47,7 @@ beforeEach(() => {
   appendMock.mockClear();
   prepareMock.mockClear();
   prepareMock.mockImplementation((input: unknown) => input);
+  clearGrpcRpcSessionStatsForTests();
 });
 
 describe('grpcStudioCallHistoryCapture (Phase 5H)', () => {
@@ -73,6 +78,47 @@ describe('grpcStudioCallHistoryCapture (Phase 5H)', () => {
 
     await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
     expect(prepareMock).toHaveBeenCalled();
+  });
+
+  it('records rpc session stats alongside history capture', () => {
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: snapshot(),
+      result: {
+        callType: 'unary',
+        status: 0,
+        statusMessage: 'OK',
+        headers: {},
+        trailers: {},
+        durationMs: 42,
+      },
+    });
+
+    const stats = getGrpcRpcSessionStats('tab-1');
+    const row = stats.byMethodKey[`${FIXTURE_UNARY_CALL_REQUEST.service}/${FIXTURE_UNARY_CALL_REQUEST.method}`];
+    expect(row.calls).toBe(1);
+    expect(row.latencyMs.avg).toBe(42);
+  });
+
+  it('captureGrpcCallHistoryFromStreamTerminal records stream_terminal stats with timing', () => {
+    captureGrpcCallHistoryFromStreamTerminal({
+      lastExecuteSnapshot: { ...snapshot(), callType: 'server_streaming' },
+      streamStartedAt: '2026-07-01T00:00:00.000Z',
+      streamEndedAt: '2026-07-01T00:00:01.000Z',
+    }, {
+      result: {
+        callType: 'server_streaming',
+        status: 0,
+        statusMessage: 'OK',
+        headers: {},
+        trailers: {},
+        durationMs: 0,
+      },
+    });
+
+    const stats = getGrpcRpcSessionStats('tab-1');
+    const row = Object.values(stats.byMethodKey)[0];
+    expect(row.calls).toBe(1);
+    expect(row.latencyMs.avg).toBe(1000);
   });
 
   it('swallows append failures without throwing', async () => {

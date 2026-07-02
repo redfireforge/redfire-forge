@@ -253,13 +253,13 @@ export function validateGrpcAuthConfigContract(
 export function validateGrpcAuthForExecute(
   auth: GrpcAuthConfig | undefined,
 ): GrpcAuthValidationIssue[] {
-  const shapeIssues = validateGrpcAuthConfigContract(auth);
-  if (shapeIssues.length > 0) {
-    return shapeIssues;
-  }
-  if (!auth || auth.type === 'none' || auth.type === 'oauth2') {
+  if (!auth || auth.type === 'none') {
     return [];
   }
+  if (auth.type === 'oauth2') {
+    return validateGrpcAuthConfigContract(auth);
+  }
+
   const headerResult = buildAuthMetadataHeaders(auth);
   if (!headerResult.ok) {
     return [{

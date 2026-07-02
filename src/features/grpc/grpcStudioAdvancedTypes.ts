@@ -7,6 +7,7 @@ import type {
 import type { GrpcMockConfigSource } from '../../shared/grpc/grpcMockConfigResolution';
 import type { GrpcAdvancedFeatureSourceMetadata } from '../../shared/grpc/grpcAdvancedFeatureExport';
 import type { GrpcMockLatencyPolicy } from '../../shared/grpc/grpcMockLatencySimulation';
+import type { GrpcMockListenerStatus } from '../../shared/grpc/grpcMockListenerContracts';
 import type { GrpcLoadTestRunSummaryExport } from '../../shared/grpc/grpcLoadTestMetrics';
 import type {
   GrpcSchemaDiffReport,
@@ -17,6 +18,7 @@ export const GRPC_ADVANCED_FEATURE_TABS = [
   'load_test',
   'mock_server',
   'schema_diff',
+  'rpc_statistics',
 ] as const;
 
 export type GrpcAdvancedFeatureTab = (typeof GRPC_ADVANCED_FEATURE_TABS)[number];
@@ -47,6 +49,9 @@ export interface GrpcTabMockServerUiState {
   mockConfigOverride?: GrpcMockConfigSource;
   latencyPolicy?: GrpcMockLatencyPolicy;
   parseError?: string;
+  /** When true (default), Start also binds a dialable 127.0.0.1:port listener (web companion server). */
+  exposeNetworkEndpoint?: boolean;
+  listenerStatus?: GrpcMockListenerStatus;
 }
 
 export type GrpcSchemaDiffSeverityFilter = 'all' | GrpcSchemaDiffSeverity;
@@ -55,6 +60,7 @@ export interface GrpcTabSchemaDiffUiState {
   baselineDescriptor?: GrpcDescriptor;
   baselineCapturedAt?: string;
   severityFilter: GrpcSchemaDiffSeverityFilter;
+  hideAcknowledged: boolean;
   lastReport?: GrpcSchemaDiffReport;
 }
 
@@ -79,9 +85,11 @@ export function createInitialGrpcTabAdvancedFeaturesUiState(): GrpcTabAdvancedFe
     },
     mockServer: {
       rulesJson: GRPC_MOCK_WORKSPACE_DEFAULT_RULES_JSON,
+      exposeNetworkEndpoint: true,
     },
     schemaDiff: {
       severityFilter: 'all',
+      hideAcknowledged: false,
     },
   };
 }

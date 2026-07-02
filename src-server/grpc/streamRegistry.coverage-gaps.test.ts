@@ -12,6 +12,7 @@ import {
   emitGrpcStreamEvent,
   findActiveGrpcStreamByRequestId,
   findActiveGrpcStreamsByTabId,
+  finalizeGrpcStreamEntry,
   getGrpcStreamEntry,
   markGrpcStreamTerminal,
   replayBufferedGrpcStreamEvents,
@@ -314,5 +315,256 @@ describe('streamRegistry coverage gaps', () => {
     vi.advanceTimersByTime(60_000);
     expect(getGrpcStreamEntry('stream-finalize')).toBeUndefined();
     vi.useRealTimers();
+  });
+
+  it('cancelGrpcStreamEntry returns tab_mismatch for foreign tabs', () => {
+    tryRegisterGrpcStream({
+      streamId: 'stream-tab',
+      tabId: 'tab-a',
+      requestId: 'req-tab',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport: createMockTransport(),
+    });
+    expect(cancelGrpcStreamEntry('stream-tab', 'tab-b')).toBe('tab_mismatch');
+  });
+
+  it('cancelGrpcStreamEntry tolerates transport cancel failures', () => {
+    const transport = createMockTransport();
+    transport.cancel.mockImplementation(() => {
+      throw new Error('cancel failed');
+    });
+    tryRegisterGrpcStream({
+      streamId: 'stream-cancel-error',
+      tabId: 'tab-a',
+      requestId: 'req-cancel-error',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport,
+    });
+    expect(cancelGrpcStreamEntry('stream-cancel-error', 'tab-a')).toBe('cancelled');
+  });
+
+  it('detachGrpcStreamSseClient finalizes terminal streams when last client disconnects', () => {
+    tryRegisterGrpcStream({
+      streamId: 'stream-terminal-detach',
+      tabId: 'tab-a',
+      requestId: 'req-terminal-detach',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport: createMockTransport(),
+    });
+    markGrpcStreamTerminal('stream-terminal-detach', 'ended');
+    const res = createMockSseResponse();
+    attachGrpcStreamSseClient('stream-terminal-detach', res, vi.fn());
+    detachGrpcStreamSseClient('stream-terminal-detach', res);
+    expect(getGrpcStreamEntry('stream-terminal-detach')).toBeUndefined();
+  });
+
+  it('expireGrpcStreamAfterSseGrace cancels active streams after SSE disconnect', () => {
+    vi.useFakeTimers();
+    const transport = createMockTransport();
+    tryRegisterGrpcStream({
+      streamId: 'stream-expire',
+      tabId: 'tab-a',
+      requestId: 'req-expire',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport,
+    });
+    const res = createMockSseResponse();
+    attachGrpcStreamSseClient('stream-expire', res, vi.fn());
+    detachGrpcStreamSseClient('stream-expire', res);
+    vi.advanceTimersByTime(60_000);
+    expect(getGrpcStreamEntry('stream-expire')).toBeUndefined();
+    expect(transport.cancel).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('emitGrpcStreamEvent writes to attached SSE clients and heartbeat ticks while active', () => {
+    vi.useFakeTimers();
+    tryRegisterGrpcStream({
+      streamId: 'stream-sse',
+      tabId: 'tab-a',
+      requestId: 'req-sse',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport: createMockTransport(),
+    });
+    const res = createMockSseResponse();
+    const onEvent = vi.fn();
+    attachGrpcStreamSseClient('stream-sse', res, onEvent);
+    emitGrpcStreamEvent('stream-sse', { type: 'grpc-heartbeat' });
+    expect(res.write).toHaveBeenCalled();
+    vi.advanceTimersByTime(15_000);
+    expect(onEvent).toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+
+  it('detachGrpcStreamSseClient keeps stream alive while other SSE clients remain', () => {
+    tryRegisterGrpcStream({
+      streamId: 'stream-multi-sse',
+      tabId: 'tab-a',
+      requestId: 'req-multi-sse',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport: createMockTransport(),
+    });
+    const first = createMockSseResponse();
+    const second = createMockSseResponse();
+    attachGrpcStreamSseClient('stream-multi-sse', first, vi.fn());
+    attachGrpcStreamSseClient('stream-multi-sse', second, vi.fn());
+    detachGrpcStreamSseClient('stream-multi-sse', first);
+    expect(getGrpcStreamEntry('stream-multi-sse')?.sseClients.size).toBe(1);
+  });
+
+  it('re-registers request ids after terminal streams are removed from the registry', () => {
+    tryRegisterGrpcStream({
+      streamId: 'stream-stale',
+      tabId: 'tab-a',
+      requestId: 'req-stale',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport: createMockTransport(),
+    });
+    markGrpcStreamTerminal('stream-stale', 'ended');
+    finalizeGrpcStreamEntry('stream-stale');
+
+    const second = tryRegisterGrpcStream({
+      streamId: 'stream-stale-2',
+      tabId: 'tab-a',
+      requestId: 'req-stale',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport: createMockTransport(),
+    });
+    expect(second.ok).toBe(true);
+    expect(findActiveGrpcStreamByRequestId('req-stale')?.streamId).toBe('stream-stale-2');
+  });
+
+  it('cancelGrpcStreamEntry returns not_found for missing streams', () => {
+    expect(cancelGrpcStreamEntry('missing', 'tab-a')).toBe('not_found');
+  });
+
+  it('expireGrpcStreamAfterSseGrace ignores ended streams', () => {
+    tryRegisterGrpcStream({
+      streamId: 'stream-ended-expire',
+      tabId: 'tab-a',
+      requestId: 'req-ended-expire',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport: createMockTransport(),
+    });
+    markGrpcStreamTerminal('stream-ended-expire', 'ended');
+    expireGrpcStreamAfterSseGrace('stream-ended-expire');
+    expect(getGrpcStreamEntry('stream-ended-expire')?.status).toBe('ended');
+  });
+
+  it('scheduleFinalizeAfterTerminal is a no-op for missing streams', () => {
+    expect(() => scheduleFinalizeAfterTerminal('missing')).not.toThrow();
+  });
+
+  it('replayBufferedGrpcStreamEvents returns zero when nothing is newer than lastSequence', () => {
+    tryRegisterGrpcStream({
+      streamId: 'stream-replay-none',
+      tabId: 'tab-a',
+      requestId: 'req-replay-none',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport: createMockTransport(),
+    });
+    emitGrpcStreamEvent('stream-replay-none', { type: 'grpc-heartbeat' });
+    const entry = getGrpcStreamEntry('stream-replay-none')!;
+    const replayed = replayBufferedGrpcStreamEvents(
+      'stream-replay-none',
+      createMockSseResponse(),
+      entry.sequence,
+    );
+    expect(replayed).toBe(0);
+  });
+
+  it('cancelGrpcStreamEntry supports ended terminal status', () => {
+    const transport = createMockTransport();
+    tryRegisterGrpcStream({
+      streamId: 'stream-end-cancel',
+      tabId: 'tab-a',
+      requestId: 'req-end-cancel',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport,
+    });
+    expect(cancelGrpcStreamEntry('stream-end-cancel', 'tab-a', 'ended')).toBe('cancelled');
+    expect(getGrpcStreamEntry('stream-end-cancel')?.status).toBe('ended');
+  });
+
+  it('markGrpcStreamTerminal is a no-op for missing or inactive entries', () => {
+    markGrpcStreamTerminal('missing', 'ended');
+    tryRegisterGrpcStream({
+      streamId: 'stream-ended',
+      tabId: 'tab-a',
+      requestId: 'req-ended',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport: createMockTransport(),
+    });
+    markGrpcStreamTerminal('stream-ended', 'ended');
+    markGrpcStreamTerminal('stream-ended', 'cancelled');
+    expect(getGrpcStreamEntry('stream-ended')?.status).toBe('ended');
+  });
+
+  it('cancelActiveGrpcStreamsForTab tolerates transport cancel failures', () => {
+    const transport = createMockTransport();
+    transport.cancel.mockImplementation(() => {
+      throw new Error('cancel failed');
+    });
+    tryRegisterGrpcStream({
+      streamId: 'stream-tab-cancel-error',
+      tabId: 'tab-a',
+      requestId: 'req-tab-cancel-error',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport,
+    });
+    expect(cancelActiveGrpcStreamsForTab('tab-a')).toEqual(['stream-tab-cancel-error']);
+  });
+
+  it('expireGrpcStreamAfterSseGrace tolerates transport cancel failures', () => {
+    vi.useFakeTimers();
+    const transport = createMockTransport();
+    transport.cancel.mockImplementation(() => {
+      throw new Error('cancel failed');
+    });
+    tryRegisterGrpcStream({
+      streamId: 'stream-expire-error',
+      tabId: 'tab-a',
+      requestId: 'req-expire-error',
+      callType: 'server_streaming',
+      descriptorKey: 'desc-1',
+      requestTypeName: 'echo.StreamRequest',
+      transport,
+    });
+    const res = createMockSseResponse();
+    attachGrpcStreamSseClient('stream-expire-error', res, vi.fn());
+    detachGrpcStreamSseClient('stream-expire-error', res);
+    vi.advanceTimersByTime(60_000);
+    expect(getGrpcStreamEntry('stream-expire-error')).toBeUndefined();
+    vi.useRealTimers();
+  });
+
+  it('replayBufferedGrpcStreamEvents returns zero for missing streams', () => {
+    expect(replayBufferedGrpcStreamEvents('missing', createMockSseResponse(), 0)).toBe(0);
   });
 });

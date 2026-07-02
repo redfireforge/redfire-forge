@@ -10,6 +10,7 @@ import {
   mapGrpcErrorCodeToHttpStatus,
   type GrpcCallRequest,
   type GrpcDescribeRequest,
+  type GrpcDescriptorLookupRequest,
   type GrpcErrorEnvelope,
   type GrpcExportProtosetRequest,
   type GrpcOperation,
@@ -377,6 +378,12 @@ export function validateGrpcExportProtosetRequest(
     });
   }
   return issues;
+}
+
+export function validateGrpcDescriptorLookupRequest(
+  request: GrpcDescriptorLookupRequest,
+): GrpcRequestValidationIssue[] {
+  return validateGrpcExportProtosetRequest(request);
 }
 
 export function validateGrpcStatusAddress(address: string): GrpcRequestValidationIssue[] {

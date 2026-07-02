@@ -78,4 +78,39 @@ describe('grpcInterpolationPreviewModel (Phase 9G)', () => {
     expect(value).not.toContain('secret-host.example.com');
     expect(value).toContain(GRPC_REDACTED_PLACEHOLDER);
   });
+
+  it('hides toggle for empty draft targets', () => {
+    expect(shouldShowGrpcInterpolationPreviewToggle('  ', 'localhost:50051')).toBe(false);
+  });
+
+  it('shows toggle when draft differs from resolved literal', () => {
+    expect(shouldShowGrpcInterpolationPreviewToggle('localhost:50051', '127.0.0.1:50051')).toBe(true);
+  });
+
+  it('uses resolved fallback when normalized target is missing', () => {
+    expect(resolveGrpcInterpolationPreviewDisplayValue(
+      'resolved',
+      '{{grpcHost}}',
+      'localhost:50051',
+      undefined,
+    )).toBe('localhost:50051');
+  });
+
+  it('builds diagnostic from issue when diagnostic is omitted', () => {
+    const state = buildGrpcInterpolationTargetPreviewState({
+      draftTarget: '{{grpcHost}}',
+      resolvedTarget: '{{grpcHost}}',
+      viewMode: 'template',
+      ok: false,
+      issue: {
+        field: 'target',
+        code: GRPC_INTERPOLATION_ERROR_CODES.INVALID_SYNTAX,
+        message: 'Unclosed interpolation token',
+      },
+      env: { grpcHost: 'localhost:50051' },
+    });
+    expect(state.diagnostic?.code).toBe(GRPC_INTERPOLATION_ERROR_CODES.INVALID_SYNTAX);
+    expect(shouldShowGrpcInterpolationErrorBanner(state.diagnostic)).toBe(true);
+    expect(shouldShowGrpcInterpolationErrorBanner(undefined)).toBe(false);
+  });
 });

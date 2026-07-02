@@ -6,7 +6,8 @@ mod tests {
 
     use crate::grpc::call_registry::TryRegisterOutcome;
     use crate::grpc::lifecycle::{
-        cleanup_tab_resources, execute_grpc_tab_cleanup, shutdown_all, sweep_orphans,
+        cleanup_tab_resources, execute_grpc_tab_cleanup, execute_grpc_tab_heartbeat,
+        shutdown_all, sweep_orphans, ATTACHED_HEARTBEAT_STALE_MS,
         DEFAULT_ORPHAN_STREAM_TIMEOUT_MS, TERMINAL_STREAM_GRACE_MS,
     };
     use crate::grpc::state::GrpcState;
@@ -113,6 +114,45 @@ mod tests {
         let (cancelled, _) = sweep_orphans(&state);
         assert_eq!(cancelled, 1);
         assert_eq!(state.stream_registry.active_count(), 0);
+    }
+
+    #[test]
+    fn stale_attached_tab_without_heartbeat_is_cancelled() {
+        let state = make_state();
+        register_active_stream(&state, "stream-1", "tab-a", "req-stream");
+        state.record_tab_event_listener_attached("tab-a");
+        state.set_tab_heartbeat_at_for_test(
+            "tab-a",
+            Instant::now() - Duration::from_millis(ATTACHED_HEARTBEAT_STALE_MS + 1_000),
+        );
+
+        let (cancelled, _) = sweep_orphans(&state);
+        assert_eq!(cancelled, 1);
+        assert_eq!(state.stream_registry.active_count(), 0);
+    }
+
+    #[test]
+    fn heartbeat_refresh_prevents_stale_attached_cancellation() {
+        let state = make_state();
+        register_active_stream(&state, "stream-1", "tab-a", "req-stream");
+        state.record_tab_event_listener_attached("tab-a");
+        state.set_tab_heartbeat_at_for_test(
+            "tab-a",
+            Instant::now() - Duration::from_millis(ATTACHED_HEARTBEAT_STALE_MS + 1_000),
+        );
+
+        let heartbeat = execute_grpc_tab_heartbeat(
+            &state,
+            GrpcTauriTabCleanupRequest {
+                schema_version: GRPC_TAURI_SCHEMA_VERSION,
+                tab_id: "tab-a".to_string(),
+            },
+        );
+        assert_eq!(heartbeat.get("ok").and_then(|v| v.as_bool()), Some(true));
+
+        let (cancelled, _) = sweep_orphans(&state);
+        assert_eq!(cancelled, 0);
+        assert_eq!(state.stream_registry.active_count(), 1);
     }
 
     #[test]

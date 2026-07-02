@@ -45,13 +45,24 @@ vi.mock('../../../shared/utils/storage', () => ({
 }));
 
 import {
+  addGrpcSavedRequestToStore,
   createGrpcCollectionInStore,
+  deleteGrpcCollectionFromStore,
+  deleteGrpcSavedRequestFromStore,
+  duplicateGrpcCollectionInStore,
   duplicateGrpcSavedRequestInStore,
+  exportGrpcCollectionsStore,
+  importGrpcCollectionsStore,
+  incrementGrpcSavedRequestRunStatsInStore,
   loadGrpcCollectionsStoreFromPersistence,
   persistGrpcCollectionsStore,
   resetGrpcCollectionsPersistQueueForTests,
+  runGrpcCollectionMutation,
   updateGrpcCollectionInStore,
+  updateGrpcSavedRequestInStore,
 } from './grpcCollectionRepository';
+import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
+import { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
 
 const TS = '2026-06-29T12:00:00.000Z';
 
@@ -173,5 +184,138 @@ describe('grpcCollectionRepository coverage gaps', () => {
     const broken = { ...store, schemaVersion: 99 as typeof store.schemaVersion };
 
     await expect(persistGrpcCollectionsStore(broken)).rejects.toThrow(/invalid gRPC collections store/i);
+  });
+
+  function makeSaved(id: string, name: string) {
+    return createGrpcSavedRequestFromSnapshot(
+      {
+        tabId: 'tab-1',
+        requestId: 'req-1',
+        capturedAt: TS,
+        callType: 'unary',
+        target: FIXTURE_UNARY_CALL_REQUEST.target,
+        service: FIXTURE_UNARY_CALL_REQUEST.service,
+        method: FIXTURE_UNARY_CALL_REQUEST.method,
+        body: {},
+        metadata: {},
+        timeoutMs: 30_000,
+        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      },
+      { id, revisionId: `rev-${id}`, updatedAt: TS, name },
+    );
+  }
+
+  it('duplicates collections and saved requests in store', () => {
+    let store = createGrpcCollectionInStore(createEmptyGrpcCollectionsStore(TS), { name: 'Echo' }, TS);
+    const collectionId = store.collections[0].id;
+    const saved = makeSaved('saved-1', 'Echo call');
+    store = addGrpcSavedRequestToStore(store, collectionId, saved, TS);
+
+    store = duplicateGrpcCollectionInStore(store, collectionId, TS);
+    expect(store.collections).toHaveLength(2);
+    expect(store.collections[1].savedRequests[0].name).toBe('Echo call (copy)');
+
+    store = duplicateGrpcSavedRequestInStore(store, collectionId, 'saved-1', TS);
+    expect(store.collections[0].savedRequests).toHaveLength(2);
+  });
+
+  it('updates and deletes saved requests while clearing optional baseline', () => {
+    let store = createGrpcCollectionInStore(createEmptyGrpcCollectionsStore(TS), { name: 'Echo' }, TS);
+    const collectionId = store.collections[0].id;
+    const saved = {
+      ...makeSaved('saved-1', 'Echo call'),
+      responseBaseline: { status: 200, body: '{}' },
+    };
+    store = addGrpcSavedRequestToStore(store, collectionId, saved, TS);
+
+    store = updateGrpcSavedRequestInStore(store, collectionId, 'saved-1', {
+      name: 'Updated',
+      responseBaseline: undefined,
+    }, TS);
+    expect(store.collections[0].savedRequests[0].responseBaseline).toBeUndefined();
+
+    store = deleteGrpcSavedRequestFromStore(store, collectionId, 'saved-1', TS);
+    expect(store.collections[0].savedRequests).toHaveLength(0);
+  });
+
+  it('increments run stats for success and error outcomes', () => {
+    let store = createGrpcCollectionInStore(createEmptyGrpcCollectionsStore(TS), { name: 'Echo' }, TS);
+    const collectionId = store.collections[0].id;
+    store = addGrpcSavedRequestToStore(store, collectionId, makeSaved('saved-1', 'Echo call'), TS);
+
+    store = incrementGrpcSavedRequestRunStatsInStore(store, collectionId, 'saved-1', {
+      grpcStatus: 0,
+      durationMs: 12,
+      capturedAt: TS,
+    }, TS);
+    expect(store.collections[0].savedRequests[0].runStats?.successRuns).toBe(1);
+
+    store = incrementGrpcSavedRequestRunStatsInStore(store, collectionId, 'saved-1', {
+      grpcStatus: 13,
+      durationMs: 20,
+    }, TS);
+    expect(store.collections[0].savedRequests[0].runStats?.errorRuns).toBe(1);
+  });
+
+  it('throws when duplicate saved request ids are added', () => {
+    let store = createGrpcCollectionInStore(createEmptyGrpcCollectionsStore(TS), { name: 'Echo' }, TS);
+    const collectionId = store.collections[0].id;
+    const saved = makeSaved('saved-1', 'Echo call');
+    store = addGrpcSavedRequestToStore(store, collectionId, saved, TS);
+    expect(() => addGrpcSavedRequestToStore(store, collectionId, saved, TS))
+      .toThrow(/duplicate saved request id/i);
+  });
+
+  it('loads from IDB on web and syncs legacy localStorage when needed', async () => {
+    const migrated = createGrpcCollectionInStore(createEmptyGrpcCollectionsStore(TS), { name: 'Indexed' }, TS);
+    loadMock.mockResolvedValue(migrated);
+    readKeyMock.mockResolvedValue(JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: TS,
+      collections: migrated.collections,
+    }));
+    syncMock.mockResolvedValue(true);
+
+    const store = await loadGrpcCollectionsStoreFromPersistence();
+    expect(store.collections[0].name).toBe('Indexed');
+    expect(syncMock).toHaveBeenCalled();
+  });
+
+  it('throws when IDB is unavailable during web persist', async () => {
+    idbAvailableMock.mockReturnValue(false);
+    const store = createGrpcCollectionInStore(createEmptyGrpcCollectionsStore(TS), { name: 'Echo' }, TS);
+    await expect(persistGrpcCollectionsStore(store)).rejects.toThrow(/indexeddb not available/i);
+  });
+
+  it('exports, imports merge/replace payloads, and runs mutations', async () => {
+    const base = createGrpcCollectionInStore(createEmptyGrpcCollectionsStore(TS), { name: 'Echo' }, TS);
+    loadMock.mockResolvedValue(base);
+
+    const exported = await exportGrpcCollectionsStore();
+    expect(exported._exportMeta.source).toBe('RedfireForge/gRPC');
+
+    const importedCollection = createGrpcCollectionInStore(createEmptyGrpcCollectionsStore(TS), { name: 'Imported' }, TS);
+    await importGrpcCollectionsStore({
+      store: importedCollection,
+    }, 'merge');
+    expect(saveMock).toHaveBeenCalled();
+
+    await importGrpcCollectionsStore({
+      schemaVersion: 1,
+      updatedAt: TS,
+      collections: importedCollection.collections,
+    }, 'replace');
+    expect(saveMock).toHaveBeenCalled();
+
+    const { result } = await runGrpcCollectionMutation((current) => ({
+      store: deleteGrpcCollectionFromStore(current, current.collections[0].id, TS),
+      result: 'ok',
+    }));
+    expect(result).toBe('ok');
+  });
+
+  it('rejects invalid import payloads', async () => {
+    await expect(importGrpcCollectionsStore(null)).rejects.toThrow(/json object/i);
+    await expect(importGrpcCollectionsStore({ foo: 'bar' })).rejects.toThrow(/unrecognized/i);
   });
 });

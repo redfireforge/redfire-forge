@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { GrpcCallResult } from '../../../shared/grpc/contracts';
 import type { GrpcCollectionV1 } from '../../../shared/grpc/grpcPersistenceSchema';
 import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import { buildGrpcCollectionServiceMethodTree } from '../utils/grpcCollectionTree';
 import {
   formatGrpcCallTypeBadge,
@@ -15,12 +16,16 @@ export interface GrpcCollectionsPanelProps {
   selectedSavedId: string | null;
   onSelectSaved: (saved: GrpcSavedRequest, collectionId: string) => void;
   grpcurlForSaved: (saved: GrpcSavedRequest) => string;
-  onOpenInStudio: (saved: GrpcSavedRequest) => void;
+  onOpenInStudio: (saved: GrpcSavedRequest, collectionId: string) => void;
+  onRunLoadTest?: (saved: GrpcSavedRequest, collectionId: string) => void;
   onCopyGrpcurl: (command: string) => void;
   onSavedDeleted?: (savedId: string) => void;
   lastUnaryResult?: GrpcCallResult;
+  activeTab?: GrpcStudioTabState;
   openInStudioDisabled?: boolean;
   openInStudioTitle?: string;
+  runLoadTestDisabled?: boolean;
+  runLoadTestTitle?: string;
 }
 
 function matchesSearch(saved: GrpcSavedRequest, query: string): boolean {
@@ -40,14 +45,19 @@ export function GrpcCollectionsPanel({
   onSelectSaved,
   grpcurlForSaved,
   onOpenInStudio,
+  onRunLoadTest,
   onCopyGrpcurl,
   onSavedDeleted,
   lastUnaryResult,
+  activeTab,
   openInStudioDisabled = false,
   openInStudioTitle = 'Open in Studio',
+  runLoadTestDisabled = false,
+  runLoadTestTitle = 'Run load test',
 }: GrpcCollectionsPanelProps) {
   const [search, setSearch] = useState('');
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
+  const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!selectedSavedId) return;
@@ -89,6 +99,37 @@ export function GrpcCollectionsPanel({
       setExpandedCollections((prev) => new Set(prev).add(created.id));
     } catch {
       /* error surfaced via collections.lastMutationError */
+    }
+  };
+
+  const handleExportCollections = async () => {
+    try {
+      const exported = await collections.exportCollections();
+      const blob = new Blob([JSON.stringify(exported, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `redfire-grpc-collections-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      /* mutation error is surfaced via hook state */
+    }
+  };
+
+  const handleImportCollectionsFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text) as unknown;
+      const mode = window.confirm('Import mode: OK = Merge into existing collections, Cancel = Replace all collections.')
+        ? 'merge'
+        : 'replace';
+      await collections.importCollections(parsed, mode);
+    } catch {
+      /* mutation error is surfaced via hook state */
     }
   };
 
@@ -158,16 +199,44 @@ export function GrpcCollectionsPanel({
           <span className="grpc-collections-sidebar__title">
             Collections ({collections.collections.length})
           </span>
-          <button
-            type="button"
-            className="grpc-btn grpc-btn--ghost grpc-btn--xs"
-            data-testid="grpc-collections-new-btn"
-            onClick={() => { void handleNewCollection(); }}
-            aria-label="New collection"
-          >
-            +
-          </button>
+          <div className="grpc-collections-sidebar__actions">
+            <button
+              type="button"
+              className="grpc-btn grpc-btn--ghost grpc-btn--xs"
+              data-testid="grpc-collections-export-btn"
+              onClick={() => { void handleExportCollections(); }}
+            >
+              Export
+            </button>
+            <button
+              type="button"
+              className="grpc-btn grpc-btn--ghost grpc-btn--xs"
+              data-testid="grpc-collections-import-btn"
+              onClick={() => {
+                importInputRef.current?.click();
+              }}
+            >
+              Import
+            </button>
+            <button
+              type="button"
+              className="grpc-btn grpc-btn--ghost grpc-btn--xs"
+              data-testid="grpc-collections-new-btn"
+              onClick={() => { void handleNewCollection(); }}
+              aria-label="New collection"
+            >
+              +
+            </button>
+          </div>
         </div>
+        <input
+          ref={importInputRef}
+          type="file"
+          accept=".json,application/json"
+          data-testid="grpc-collections-import-input"
+          style={{ display: 'none' }}
+          onChange={(event) => { void handleImportCollectionsFile(event); }}
+        />
         <div className="grpc-collections-search">
           <input
             type="search"
@@ -193,8 +262,23 @@ export function GrpcCollectionsPanel({
         lastUnaryResult={lastUnaryResult}
         openInStudioDisabled={openInStudioDisabled}
         openInStudioTitle={openInStudioTitle}
-        onOpenInStudio={() => selectedSaved && onOpenInStudio(selectedSaved.saved)}
+        runLoadTestDisabled={runLoadTestDisabled}
+        runLoadTestTitle={runLoadTestTitle}
+        onOpenInStudio={() => selectedSaved && onOpenInStudio(selectedSaved.saved, selectedSaved.collectionId)}
+        onRunLoadTest={onRunLoadTest
+          ? () => selectedSaved && onRunLoadTest(selectedSaved.saved, selectedSaved.collectionId)
+          : undefined}
         onCopyGrpcurl={() => selectedSaved && onCopyGrpcurl(grpcurlForSaved(selectedSaved.saved))}
+        streamMessages={activeTab?.streamMessages}
+        streamLifecycle={activeTab?.streamLifecycle}
+        streamError={activeTab?.streamError}
+        streamComparisonEligible={Boolean(
+          selectedSaved
+          && activeTab
+          && activeTab.service === selectedSaved.saved.service
+          && activeTab.method === selectedSaved.saved.method
+          && (!selectedSaved.saved.descriptorKey || activeTab.descriptorKey === selectedSaved.saved.descriptorKey),
+        )}
         onDuplicate={() => {
           if (!selectedSaved) return;
           collections.clearLastMutationError();

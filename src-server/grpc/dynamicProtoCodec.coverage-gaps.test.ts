@@ -719,4 +719,154 @@ service DemoService { rpc Call(MixedRequest) returns (MixedRequest); }`,
       ttl: { seconds: '30', nanos: 0 },
     });
   });
+
+  it('normalizes wide integral map and repeated fields from decimal strings', () => {
+    const descriptor = normalizeRootToDescriptor(
+      parseProtoFiles([{
+        path: 'demo.proto',
+        content: `syntax = "proto3";
+package demo;
+message Payload {
+  map<string, int64> ids = 1;
+  repeated uint64 tokens = 2;
+}
+service DemoService { rpc Call(Payload) returns (Payload); }`,
+      }]),
+      'proto_files',
+      'wide-integral-normalize-gap',
+    );
+    clearDescriptorRootCache();
+    clearDynamicProtoCodecCache();
+
+    const encoded = encodeProtoMessage(descriptor, 'demo.Payload', {
+      ids: { alpha: '42' },
+      tokens: ['9007199254740993'],
+    });
+    expect(decodeProtoMessage(descriptor, 'demo.Payload', encoded)).toMatchObject({
+      ids: { alpha: '42' },
+      tokens: ['9007199254740993'],
+    });
+  });
+
+  it('throws when wide integral decimal strings are invalid', () => {
+    const descriptor = normalizeRootToDescriptor(
+      parseProtoFiles([{
+        path: 'demo.proto',
+        content: `syntax = "proto3";
+package demo;
+message Payload { uint64 token = 1; }
+service DemoService { rpc Call(Payload) returns (Payload); }`,
+      }]),
+      'proto_files',
+      'invalid-wide-integral-gap',
+    );
+    clearDescriptorRootCache();
+    clearDynamicProtoCodecCache();
+
+    expect(() => encodeProtoMessage(descriptor, 'demo.Payload', { token: 'not-a-number' }))
+      .toThrow(/Invalid (64-bit integer|request body)/i);
+  });
+
+  it('synthesizes google.protobuf.Int32Value in mixed WKT payloads', () => {
+    const descriptor = normalizeRootToDescriptor(
+      parseProtoFiles([{
+        path: 'demo.proto',
+        content: `syntax = "proto3";
+package demo;
+import "google/protobuf/wrappers.proto";
+message Payload { google.protobuf.Int32Value count = 1; }
+service DemoService { rpc Call(Payload) returns (Payload); }`,
+      }]),
+      'proto_files',
+      'int32-value-wkt-gap',
+    );
+    clearDescriptorRootCache();
+    clearDynamicProtoCodecCache();
+
+    const encoded = encodeProtoMessage(descriptor, 'demo.Payload', {
+      count: { value: 7 },
+    });
+    expect(decodeProtoMessage(descriptor, 'demo.Payload', encoded)).toMatchObject({
+      count: { value: 7 },
+    });
+  });
+
+  it('synthesizes cross-package message references with fully qualified proto types', () => {
+    const descriptor = normalizeRootToDescriptor(
+      parseProtoFiles([
+        {
+          path: 'other/label.proto',
+          content: `syntax = "proto3";
+package other;
+message Label { string value = 1; }`,
+        },
+        {
+          path: 'demo.proto',
+          content: `syntax = "proto3";
+package demo;
+import "other/label.proto";
+message Payload { other.Label label = 1; }
+service DemoService { rpc Call(Payload) returns (Payload); }`,
+        },
+      ], ['.']),
+      'proto_files',
+      'cross-package-message-line-gap',
+    );
+    clearDescriptorRootCache();
+    clearDynamicProtoCodecCache();
+
+    const encoded = encodeProtoMessage(descriptor, 'demo.Payload', {
+      label: { value: 'remote' },
+    });
+    expect(decodeProtoMessage(descriptor, 'demo.Payload', encoded)).toMatchObject({
+      label: { value: 'remote' },
+    });
+  });
+
+  it('normalizes repeated nested message bodies before encode', () => {
+    const descriptor = normalizeRootToDescriptor(
+      parseProtoFiles([{
+        path: 'demo.proto',
+        content: `syntax = "proto3";
+package demo;
+message Child { string value = 1; }
+message Parent { repeated Child children = 1; }
+service DemoService { rpc Call(Parent) returns (Parent); }`,
+      }]),
+      'proto_files',
+      'repeated-nested-normalize-gap',
+    );
+    clearDescriptorRootCache();
+    clearDynamicProtoCodecCache();
+
+    const encoded = encodeProtoMessage(descriptor, 'demo.Parent', {
+      children: [{ value: 'a' }, { value: 'b' }],
+    });
+    expect(decodeProtoMessage(descriptor, 'demo.Parent', encoded)).toMatchObject({
+      children: [{ value: 'a' }, { value: 'b' }],
+    });
+  });
+
+  it('wraps non-Error long parsing failures when coercing decimal strings', () => {
+    const descriptor = normalizeRootToDescriptor(
+      parseProtoFiles([{
+        path: 'demo.proto',
+        content: `syntax = "proto3";
+package demo;
+message Payload { int64 id = 1; }
+service DemoService { rpc Call(Payload) returns (Payload); }`,
+      }]),
+      'proto_files',
+      'long-parse-gap',
+    );
+    clearDescriptorRootCache();
+    clearDynamicProtoCodecCache();
+
+    const fromString = vi.spyOn(protobuf.util.Long, 'fromString').mockImplementation(() => {
+      throw 'bad-long';
+    });
+    expect(() => encodeProtoMessage(descriptor, 'demo.Payload', { id: '42' }))
+      .toThrow(/Invalid 64-bit integer "42": bad-long/i);
+    fromString.mockRestore();
+  });
 });

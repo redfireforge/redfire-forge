@@ -15,10 +15,14 @@ import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSav
 
 const loadMock = vi.fn();
 const mutateMock = vi.fn();
+const exportMock = vi.fn();
+const importMock = vi.fn();
 
 vi.mock('../data/grpcCollectionRepository', () => ({
   loadGrpcCollectionsStoreFromPersistence: (...args: unknown[]) => loadMock(...args),
   runGrpcCollectionMutation: (fn: (store: GrpcCollectionsStoreV1) => unknown) => mutateMock(fn),
+  exportGrpcCollectionsStore: (...args: unknown[]) => exportMock(...args),
+  importGrpcCollectionsStore: (...args: unknown[]) => importMock(...args),
   createGrpcCollectionInStore: (store: GrpcCollectionsStoreV1, input: { name: string }) => ({
     ...store,
     collections: [...store.collections, { id: 'col-new', name: input.name, savedRequests: [] }],
@@ -96,6 +100,7 @@ vi.mock('../data/grpcCollectionRepository', () => ({
       };
     }),
   }),
+  incrementGrpcSavedRequestRunStatsInStore: vi.fn((store: GrpcCollectionsStoreV1) => store),
 }));
 
 import { useGrpcCollections } from './useGrpcCollections';
@@ -120,8 +125,9 @@ function seedStore(): GrpcCollectionsStoreV1 {
     { id: 'saved-1', revisionId: 'rev-1', updatedAt: TS, name: 'Echo' },
   );
   return {
-    version: 1,
+    schemaVersion: 1,
     collections: [{ id: 'col-1', name: 'Alpha', savedRequests: [saved] }],
+    updatedAt: TS,
   };
 }
 
@@ -130,6 +136,17 @@ beforeEach(() => {
   loadMock.mockResolvedValue(seedStore());
   mutateMock.mockReset();
   mutateMock.mockImplementation(async (fn: (store: GrpcCollectionsStoreV1) => unknown) => fn(seedStore()));
+  exportMock.mockReset();
+  exportMock.mockResolvedValue({
+    _exportMeta: {
+      version: '1.0',
+      exportedAt: TS,
+      source: 'RedfireForge/gRPC',
+    },
+    store: seedStore(),
+  });
+  importMock.mockReset();
+  importMock.mockResolvedValue(createEmptyGrpcCollectionsStore());
 });
 
 describe('useGrpcCollections coverage gaps (Phase 5H)', () => {
@@ -268,5 +285,39 @@ describe('useGrpcCollections coverage gaps (Phase 5H)', () => {
       } catch { /* rethrows */ }
     });
     expect(result.current.lastMutationError).toBe('Collection update failed');
+  });
+
+  it('adds collection and records saved request runs', async () => {
+    const { result } = renderHook(() => useGrpcCollections());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      const created = await result.current.addCollection('Beta');
+      expect(created.name).toBe('Beta');
+    });
+
+    await act(async () => {
+      await result.current.recordSavedRequestRun('col-1', 'saved-1', {
+        grpcStatus: 0,
+        durationMs: 10,
+      });
+    });
+    expect(mutateMock).toHaveBeenCalled();
+  });
+
+  it('exports and imports collections through repository helpers', async () => {
+    const { result } = renderHook(() => useGrpcCollections());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    await act(async () => {
+      const exported = await result.current.exportCollections();
+      expect(exported.store.collections).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.importCollections({ store: createEmptyGrpcCollectionsStore() }, 'replace');
+    });
+    expect(exportMock).toHaveBeenCalled();
+    expect(importMock).toHaveBeenCalledWith({ store: createEmptyGrpcCollectionsStore() }, 'replace');
   });
 });

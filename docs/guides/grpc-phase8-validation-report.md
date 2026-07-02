@@ -90,13 +90,13 @@ None.
 
 | ID | Item | Decision |
 |----|------|----------|
-| P2-1 | CLI JUnit/JSON reporters not wired to harness redaction | Documented; use `reportGenerator` / `export.ts` paths |
+| P2-1 | CLI JUnit/JSON reporters not wired to harness redaction | ✅ Implemented: `cli/reporters.ts` now redacts via `redactGrpcHarnessRunnerArtifactsForExport` before JSON/JUnit generation |
 | P2-2 | Kafka publish envelope does not redact harness results | Explicitly out of 8H scope |
 | P2-3 | Local IDB test-run persistence stores unredacted results | By design — export paths are redacted |
 | P2-4 | Opaque API keys in benign header names without bearer/PEM shape | Heuristic limit; auth-aware redaction when config available |
 | P2-5 | E2E harness suite requires Docker echo fixture | Documented in runbook; optional merge gate |
-| P2-6 | Harness runner does not hydrate gRPC connection profiles from storage | Phase 8C deferred; snapshot builder supports `runtimeOverrides.profiles` when caller supplies them |
-| P2-7 | Feature-group/scenario JSON export bypasses harness redaction | Definition export is out of 8H scope; runner artifact paths redact |
+| P2-6 | Harness runner does not hydrate gRPC connection profiles from storage | ✅ Implemented: runner hydrates profile catalog from storage and passes `runtimeOverrides.profiles` into harness execution |
+| P2-7 | Feature-group/scenario JSON export bypasses harness redaction | ✅ Implemented: scenario/feature-group export applies gRPC definition redaction + leak-safety assertion before serialization |
 | P2-8 | Export surfaces omit `authByScenarioId` map | Heuristic redaction applies; auth-aware path available when caller passes map |
 
 ---

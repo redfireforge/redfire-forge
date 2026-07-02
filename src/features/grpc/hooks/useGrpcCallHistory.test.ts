@@ -64,14 +64,18 @@ describe('useGrpcCallHistory (Phase 5H)', () => {
     renderHook(() => useGrpcCallHistory());
     await waitFor(() => expect(loadMock).toHaveBeenCalledTimes(1));
 
-    window.dispatchEvent(new CustomEvent(GRPC_CALL_HISTORY_UPDATED_EVENT));
+    act(() => {
+      window.dispatchEvent(new CustomEvent(GRPC_CALL_HISTORY_UPDATED_EVENT));
+    });
     await waitFor(() => expect(loadMock).toHaveBeenCalledTimes(2));
   });
 
   it('clearAll delegates to recorder', async () => {
     const { result } = renderHook(() => useGrpcCallHistory());
     await waitFor(() => expect(result.current.loading).toBe(false));
-    await result.current.clearAll();
+    await act(async () => {
+      await result.current.clearAll();
+    });
     expect(clearMock).toHaveBeenCalledTimes(1);
   });
 

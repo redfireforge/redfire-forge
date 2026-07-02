@@ -30,7 +30,7 @@ Phase 10 (Browser Transport Modes, 10A–10I) is complete. The phase delivered f
 | 5 | Switching transport does not mutate in-flight call | `grpcPhase10iAcceptance.test.ts` | 10I-D lifecycle + stream binding | ✅ PASS |
 | 6 | Spring Servlet resolves package-qualified service paths | `grpcPhase10iAcceptance.test.ts` + `grpcGrpcSpringServletUnaryClient.test.ts` | 10I-E path resolver + 404 retry | ✅ PASS |
 
-Additional hardening: server streaming on browser-direct modes passes execute preflight but fails at `stream_start` with Phase 10H guidance (documented in runbook, transport panel hint, and 10I-A behavioral tests).
+Additional hardening: browser-direct server streaming is now active for grpc-web and spring-servlet via local browser stream sessions, while client/bidi streaming remains blocked by preflight and stream-start validation.
 
 ---
 
@@ -54,7 +54,7 @@ Additional hardening: server streaming on browser-direct modes passes execute pr
 
 | Limitation | Mitigation |
 |---|---|
-| Browser-direct server streaming deferred (Phase 10H) | Use Express Proxy or Tauri Native; transport panel shows deferred-stream hint; `startGrpcStream` returns Phase 10H guidance |
+| Browser-direct server streaming runs via local stream sessions | Message delivery is parsed from browser transport responses; cancellation and sequence dedupe are handled in `grpcStreamClient.ts` |
 | `client_streaming` / `bidi_streaming` blocked on browser-direct modes | Execute preflight rejects with Express/Tauri hint |
 | mTLS on browser-direct modes | Execute preflight rejects — use Express Proxy or Tauri Native |
 | gRPC-Web / Spring Servlet on Tauri desktop | Platform preflight rejects — use Express Proxy or Tauri Native |

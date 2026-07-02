@@ -8,6 +8,7 @@ import {
   invokeGrpcTabCleanupNative,
   invokeGrpcTabEventsAttachNative,
   invokeGrpcTabEventsDetachNative,
+  invokeGrpcTabHeartbeatNative,
 } from './grpcNativeTauriLifecycle';
 import { GRPC_TAURI_SCHEMA_VERSION } from './grpcTauriContracts';
 
@@ -83,5 +84,20 @@ describe('grpcNativeTauriLifecycle coverage gaps', () => {
       code: 'GRPC_TAURI_INVALID_REQUEST',
       retryable: false,
     });
+  });
+
+  it('swallows heartbeat invoke transport failures in best-effort mode', async () => {
+    invokeMock.mockRejectedValueOnce(new Error('ipc unavailable'));
+    await expect(invokeGrpcTabHeartbeatNative('tab-x')).resolves.toBeUndefined();
+  });
+
+  it('swallows heartbeat envelope failures in best-effort mode', async () => {
+    invokeMock.mockResolvedValueOnce({
+      ok: false,
+      op: 'tab_heartbeat',
+      error: { code: 'GRPC_TAURI_INVALID_REQUEST', message: 'tabId is required', retryable: false },
+      meta: { timestamp: 'now', schemaVersion: GRPC_TAURI_SCHEMA_VERSION },
+    });
+    await expect(invokeGrpcTabHeartbeatNative('tab-x')).resolves.toBeUndefined();
   });
 });

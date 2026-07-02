@@ -24,8 +24,9 @@ Operational gate and troubleshooting for **Browser Transport Modes** (Phase 10A�
 - **gRPC-Web** and **Spring Servlet** are **web build only** — on Tauri desktop, use Express Proxy or Tauri Native (`browserOnly: true` in the capability matrix).
 - `client_streaming` and `bidi_streaming` are **blocked** on `grpc-web` and `spring-servlet` at execute preflight.
 - `mTLS` is **blocked** on browser-direct modes at execute preflight (browser fetch cannot attach client certificates).
-- `unary` is live on all four modes. `server_streaming` on `grpc-web` / `spring-servlet` passes execute preflight but **stream start is deferred** (Phase 10H boundary) — use Express Proxy or Tauri Native until the browser stream bridge ships.
-- Matrix call-type rules are enforced at execute time by `assertGrpcTransportExecutePreflight`; stream start has an additional Phase 10H guard in `grpcStreamClient.ts`.
+- `unary` and `server_streaming` are live on all four modes.
+- `client_streaming` and `bidi_streaming` remain blocked on browser-direct modes (`grpc-web`, `spring-servlet`) by execute preflight and stream-start validation.
+- Matrix call-type rules are enforced at execute time by `assertGrpcTransportExecutePreflight`; browser-direct stream start in `grpcStreamClient.ts` routes `server_streaming` to a local browser stream session bridge.
 
 ### Transport mode router (10B)
 
@@ -57,7 +58,7 @@ Operational gate and troubleshooting for **Browser Transport Modes** (Phase 10A�
 - `canChangeGrpcTabTransportMode(tab)` — returns `false` during any in-flight lifecycle.
 - In-flight states: `connecting`, `calling`, `activeRequestId` set, `streaming` stream lifecycle, `activeStreamId` set.
 - Terminal/idle states allow transport changes: `idle`, `success`, `error`, `cancelled`.
-- **Transport panel** (`GrpcTransportPanel.tsx`) shows a deferred-stream hint when the selected method is `server_streaming`, clarifying that gRPC-Web / Spring Servlet pass preflight but fail at stream start until Express Proxy or Tauri Native is used.
+- **Transport panel** (`GrpcTransportPanel.tsx`) clarifies that `server_streaming` is supported on browser-direct modes, while `client_streaming` and `bidi_streaming` require Express Proxy or Tauri Native.
 
 ---
 
@@ -163,13 +164,11 @@ Operational gate and troubleshooting for **Browser Transport Modes** (Phase 10A�
 
 **Fix:** Switch to **Express Proxy** or **Tauri Native** transport for `client_streaming` or `bidi_streaming` calls. The transport selector will show a warning when an incompatible combination is selected.
 
-### Server streaming deferred on browser-direct transports
+### Browser-direct server streaming behavior
 
-**Symptom:** Execute/snapshot preparation succeeds for a server-streaming method on gRPC-Web or Spring Servlet, but starting the stream fails with a Phase 10H message.
+**Behavior:** For `grpc-web` and `spring-servlet`, `startGrpcStream` creates a browser-local stream session and emits stream events from the browser fetch response. The session supports cancellation and sequence dedupe in the existing stream event pipeline.
 
-**Root cause:** Browser-direct unary is implemented (10C/10D), but the browser stream session bridge is explicitly deferred. `grpcStreamClient.ts` rejects `stream_start` when the adapter has no `startStream`.
-
-**Fix:** Switch to **Express Proxy** (or **Tauri Native** on desktop) for server-streaming calls until a future phase enables browser-direct streaming.
+**Current limitation:** Browser-direct modes still do not support `client_streaming` or `bidi_streaming`; use Express Proxy or Tauri Native for those call types.
 
 ---
 
@@ -183,7 +182,7 @@ Operational gate and troubleshooting for **Browser Transport Modes** (Phase 10A�
 | CORS/proxy failures reported with actionable errors | ✅ | `classifyBrowserTransportFetchFailure` + `formatBrowserTransportFailureMessage` in `grpcBrowserTransportErrorMapper.ts` |
 | Switching transport does not mutate in-flight call | ✅ | `canChangeGrpcTabTransportMode` in `grpcStudioTypes.ts` |
 | Spring Servlet resolves package-qualified service paths | ✅ | `buildSpringServletMethodPath` + `resolveSpringServletPathCandidates` + `buildSpringServletMethodUrls` retry in `grpcGrpcSpringServletUnaryClient.ts` |
-| Server streaming on browser-direct modes fails at stream start (Phase 10H) | ✅ | `startGrpcStream` guard in `grpcStreamClient.ts` + deferred hint in `GrpcTransportPanel.tsx` |
+| Server streaming on browser-direct modes starts via local browser stream sessions | ✅ | `startBrowserDirectServerStream` + `openBrowserDirectStreamEvents` in `grpcStreamClient.ts` |
 
 ---
 

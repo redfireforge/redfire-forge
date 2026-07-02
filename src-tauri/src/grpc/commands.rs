@@ -3,6 +3,7 @@
 #[allow(unused_imports)]
 pub use crate::grpc::lifecycle::{
   grpc_tab_cleanup, grpc_tab_events_attach, grpc_tab_events_detach,
+  grpc_tab_heartbeat,
 };
 #[allow(unused_imports)]
 pub use crate::grpc::stream::{

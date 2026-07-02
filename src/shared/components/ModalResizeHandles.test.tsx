@@ -41,4 +41,15 @@ describe('ModalResizeHandles', () => {
     corner.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
     expect(onCorner).toHaveBeenCalledTimes(1);
   });
+
+  it('renders bottom edge handle and calls onBottomEdge when provided', () => {
+    const onBottomEdge = vi.fn();
+    const { container } = render(
+      <ModalResizeHandles onRightEdge={vi.fn()} onCorner={vi.fn()} onBottomEdge={onBottomEdge} />
+    );
+    const bottom = container.querySelector('.modal-resize-edge-bottom');
+    expect(bottom).toBeTruthy();
+    bottom!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    expect(onBottomEdge).toHaveBeenCalledTimes(1);
+  });
 });

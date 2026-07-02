@@ -11,6 +11,7 @@ import {
 const listenMock = vi.fn();
 const attachMock = vi.fn();
 const detachMock = vi.fn();
+const retainHeartbeatMock = vi.fn();
 
 vi.mock('@tauri-apps/api/event', () => ({
   listen: (...args: unknown[]) => listenMock(...args),
@@ -19,6 +20,7 @@ vi.mock('@tauri-apps/api/event', () => ({
 vi.mock('./grpcNativeTauriLifecycle', () => ({
   invokeGrpcTabEventsAttachNative: (...args: unknown[]) => attachMock(...args),
   invokeGrpcTabEventsDetachNative: (...args: unknown[]) => detachMock(...args),
+  retainGrpcTabHeartbeat: (...args: unknown[]) => retainHeartbeatMock(...args),
 }));
 
 function makeEvent(overrides: Partial<GrpcTauriEvent> = {}): GrpcTauriEvent {
@@ -52,8 +54,10 @@ describe('grpcTauriEventAdapter coverage gaps', () => {
     listenMock.mockReset();
     attachMock.mockReset();
     detachMock.mockReset();
+    retainHeartbeatMock.mockReset();
     attachMock.mockResolvedValue(undefined);
     detachMock.mockResolvedValue(undefined);
+    retainHeartbeatMock.mockReturnValue(vi.fn());
   });
 
   it('normalizeGrpcTauriEvent copies headers and trailers', () => {
@@ -90,6 +94,7 @@ describe('grpcTauriEventAdapter coverage gaps', () => {
 
     const handler = listenMock.mock.calls[0]?.[1] as ((payload: { payload: GrpcTauriEvent }) => void) | undefined;
     expect(handler).toBeTypeOf('function');
+    expect(retainHeartbeatMock).toHaveBeenCalledWith('tab-a');
 
     handler?.({ payload: makeEvent({ schemaVersion: 999, sequence: 1 }) });
     expect(onError).toHaveBeenCalledWith('Native gRPC event schema version mismatch');
@@ -115,6 +120,7 @@ describe('grpcTauriEventAdapter coverage gaps', () => {
 
     expect(unlisten).toHaveBeenCalled();
     expect(detachMock).not.toHaveBeenCalled();
+    expect(retainHeartbeatMock).not.toHaveBeenCalled();
   });
 
   it('listenGrpcTauriStreamEvents ignores cross-stream events', async () => {

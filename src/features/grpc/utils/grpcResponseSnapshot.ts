@@ -2,6 +2,8 @@
  * Phase 5I — Kreya-style response snapshot baseline capture and diff.
  */
 import type { GrpcCallResult } from '../../../shared/grpc/contracts';
+import type { GrpcStreamLogEntry } from '../../../shared/grpc/contracts';
+import type { GrpcErrorBody } from '../../../shared/grpc/contracts';
 import type { GrpcResponseSnapshotBaseline } from '../../../shared/grpc/grpcSavedRequest';
 
 export type { GrpcResponseSnapshotBaseline };
@@ -26,6 +28,68 @@ export function captureGrpcResponseSnapshotBaseline(result: GrpcCallResult): Grp
     grpcStatus: result.status,
     statusMessage: result.statusMessage,
     body: structuredClone(result.body ?? {}),
+  };
+}
+
+function normalizeStreamStatus(
+  streamLifecycle: string,
+  streamError?: GrpcErrorBody,
+): { grpcStatus: number; statusMessage?: string } {
+  const grpcStatusFromDetails = (
+    isPlainObject(streamError?.details)
+    && typeof streamError.details.grpcStatus === 'number'
+  )
+    ? streamError.details.grpcStatus
+    : undefined;
+  if (streamLifecycle === 'ended') {
+    return { grpcStatus: 0, statusMessage: 'OK' };
+  }
+  if (streamLifecycle === 'cancelled') {
+    return { grpcStatus: 1, statusMessage: 'CANCELLED' };
+  }
+  return {
+    grpcStatus: grpcStatusFromDetails ?? 2,
+    statusMessage: streamError?.message || 'Stream error',
+  };
+}
+
+function buildStreamMessagesBaselineBody(streamMessages: GrpcStreamLogEntry[]): Record<string, unknown> {
+  const inboundMessages = streamMessages
+    .filter((entry) => entry.direction === 'inbound')
+    .map((entry) => structuredClone(entry.data ?? {}));
+  return {
+    inboundMessages,
+  };
+}
+
+export function captureGrpcStreamResponseSnapshotBaseline(input: {
+  streamMessages: GrpcStreamLogEntry[];
+  streamLifecycle: string;
+  streamError?: GrpcErrorBody;
+}): GrpcResponseSnapshotBaseline {
+  const status = normalizeStreamStatus(input.streamLifecycle, input.streamError);
+  return {
+    capturedAt: new Date().toISOString(),
+    grpcStatus: status.grpcStatus,
+    statusMessage: status.statusMessage,
+    body: buildStreamMessagesBaselineBody(input.streamMessages),
+  };
+}
+
+export function createPseudoGrpcCallResultFromStreamSession(input: {
+  streamMessages: GrpcStreamLogEntry[];
+  streamLifecycle: string;
+  streamError?: GrpcErrorBody;
+}): GrpcCallResult {
+  const status = normalizeStreamStatus(input.streamLifecycle, input.streamError);
+  return {
+    callType: 'server_streaming',
+    status: status.grpcStatus,
+    statusMessage: status.statusMessage ?? '',
+    headers: {},
+    trailers: {},
+    durationMs: 0,
+    body: buildStreamMessagesBaselineBody(input.streamMessages),
   };
 }
 

@@ -17,6 +17,7 @@ import { GrpcAdvancedFeaturesShell } from './GrpcAdvancedFeaturesShell';
 import { GrpcLoadTestPanel } from './GrpcLoadTestPanel';
 import { GrpcMockServerPanel } from './GrpcMockServerPanel';
 import { GrpcSchemaDiffPanel } from './GrpcSchemaDiffPanel';
+import { GrpcRpcStatisticsPanel } from './GrpcRpcStatisticsPanel';
 
 function makeSummary() {
   return buildGrpcLoadTestRunSummaryExport({
@@ -73,12 +74,29 @@ function buildAdvancedMock(
     resolvedMockConfig: { source: 'workspace_default', ruleSet: { rules: [] }, tabId: 'tab-ui' },
     mockManagerState: undefined,
     activeTabLabel: 'Echo tab',
+    activeTabId: 'tab-ui',
     activeRpcLabel: 'echo.EchoService / Echo',
+    activeLoadTestCallType: 'unary',
+    loadTestProfiles: [],
+    loadTestProfilesLoading: false,
+    loadTestProfileError: undefined,
+    selectedLoadTestProfileId: '',
+    setSelectedLoadTestProfileId: vi.fn(),
+    saveLoadTestProfile: vi.fn().mockResolvedValue(undefined),
+    loadLoadTestProfile: vi.fn(),
+    renameLoadTestProfile: vi.fn().mockResolvedValue(undefined),
+    removeLoadTestProfile: vi.fn().mockResolvedValue(undefined),
+    schemaDiffAckChangeIds: new Set<string>(),
+    acknowledgeSchemaDiffChange: vi.fn().mockResolvedValue(undefined),
+    unacknowledgeSchemaDiffChange: vi.fn().mockResolvedValue(undefined),
+    isSchemaDiffChangeAcknowledged: vi.fn().mockReturnValue(false),
     setActiveFeatureTab: vi.fn(),
     patchLoadTestConfig: vi.fn(),
     patchMockRulesJson: vi.fn(),
     patchMockLatency: vi.fn(),
+    patchMockExposeNetwork: vi.fn(),
     setSchemaDiffSeverityFilter: vi.fn(),
+    setSchemaDiffHideAcknowledged: vi.fn(),
     startLoadTest: vi.fn(),
     cancelLoadTest: vi.fn(),
     resetLoadTestStatus: vi.fn(),
@@ -92,7 +110,23 @@ function buildAdvancedMock(
     exportLoadTestCsv: vi.fn(() => 'metric,value'),
     exportSchemaDiffJson: vi.fn(() => '{"changes":[]}'),
     exportSchemaDiffMarkdown: vi.fn(() => '# diff'),
+    exportMockRulesJson: vi.fn(() => '{"rules":[]}'),
+    advancedExportError: undefined,
+    clearAdvancedExportError: vi.fn(),
     resetMockRulesToDefault: vi.fn(),
+    rpcSessionStats: {
+      tabId: 'tab-ui',
+      windowStartedAt: '2026-07-01T00:00:00.000Z',
+      byMethodKey: {},
+    },
+    rpcSessionSummary: {
+      totalCalls: 0,
+      totalErrors: 0,
+      successRatePercent: 0,
+      avgLatencyMs: 0,
+      p95LatencyMs: 0,
+    },
+    resetRpcSessionStats: vi.fn(),
     ...patch,
   } as UseGrpcStudioAdvancedFeaturesReturn;
 }
@@ -288,7 +322,7 @@ describe('Grpc advanced panels coverage gaps', () => {
         enabled: true,
         priority: 1,
         predicate: { kind: 'method_equals', method: 'Echo' },
-        response: { status: 0 },
+        response: { statusCode: 0 },
       }],
     }, null, 2);
 
@@ -302,7 +336,6 @@ describe('Grpc advanced panels coverage gaps', () => {
           mockServer: {
             rulesJson,
             latencyPolicy: { defaultLatencyMs: 5, jitterMs: 1 },
-            parseError: 'bad json',
           },
           runtime: {
             ...createInitialGrpcTabAdvancedFeaturesUiState().runtime,
@@ -321,13 +354,16 @@ describe('Grpc advanced panels coverage gaps', () => {
       />,
     );
 
-    expect(screen.getByTestId('grpc-mock-parse-error')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-json'));
+    expect(screen.queryByTestId('grpc-mock-parse-error')).toBeNull();
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
     expect(screen.getByTestId('grpc-mock-rule-rule-1')).toBeTruthy();
     fireEvent.click(screen.getByTestId('grpc-mock-start-btn'));
     expect(startMockServer).toHaveBeenCalled();
 
     fireEvent.change(screen.getByTestId('grpc-mock-latency-default'), { target: { value: '12' } });
     fireEvent.change(screen.getByTestId('grpc-mock-latency-jitter'), { target: { value: '3' } });
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-json'));
     fireEvent.change(screen.getByTestId('grpc-mock-rules-json'), {
       target: { value: '{"rules":[]}' },
     });
@@ -351,9 +387,103 @@ describe('Grpc advanced panels coverage gaps', () => {
         })}
       />,
     );
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
     fireEvent.click(screen.getByTestId('grpc-mock-stop-btn'));
     expect(stopMockServer).toHaveBeenCalled();
     expect(screen.getByTestId('grpc-mock-generation').textContent).toContain('3');
+  });
+
+  it('GrpcMockServerPanel builder tab keeps UI when rules fail schema validation', () => {
+    const patchMockRulesJson = vi.fn();
+    render(
+      <GrpcMockServerPanel
+        advanced={buildAdvancedMock({
+          patchMockRulesJson,
+          mockServer: {
+            rulesJson: JSON.stringify({
+              rules: [{
+                id: 'incomplete',
+                name: 'Incomplete',
+                enabled: true,
+                priority: 1,
+                predicate: { kind: 'method_equals', method: '' },
+                response: { statusCode: 0 },
+              }],
+            }),
+            parseError: 'rules[0].predicate.method: method is required.',
+          },
+        })}
+      />,
+    );
+    expect(screen.getByTestId('grpc-mock-builder-panel')).toBeTruthy();
+    expect(screen.getByTestId('grpc-mock-builder-rule-incomplete')).toBeTruthy();
+    expect(screen.getByTestId('grpc-mock-builder-validation')).toBeTruthy();
+    expect(screen.getByTestId('grpc-mock-builder-start-blocked')).toBeTruthy();
+    expect((screen.getByTestId('grpc-mock-start-btn') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('GrpcMockServerPanel runtime tab lists rules from lenient parse when schema is invalid', () => {
+    render(
+      <GrpcMockServerPanel
+        advanced={buildAdvancedMock({
+          mockServer: {
+            rulesJson: JSON.stringify({
+              rules: [{
+                id: 'incomplete',
+                name: 'Incomplete',
+                enabled: true,
+                priority: 1,
+                predicate: { kind: 'method_equals', method: '' },
+                response: { statusCode: 0 },
+              }],
+            }),
+            parseError: 'rules[0].predicate.method: method is required.',
+          },
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
+    // Lenient parse lists structurally valid rules; enabled flag is not schema-derived.
+    expect(screen.getByText(/1 enabled \/ 1 total/i)).toBeTruthy();
+    expect(screen.getByTestId('grpc-mock-rule-incomplete')).toBeTruthy();
+  });
+
+  it('GrpcMockServerPanel builder tab adds rules via patchMockRulesJson', () => {
+    const patchMockRulesJson = vi.fn();
+    render(
+      <GrpcMockServerPanel
+        advanced={buildAdvancedMock({
+          patchMockRulesJson,
+          mockServer: { rulesJson: '{\n  "rules": []\n}' },
+        })}
+      />,
+    );
+    expect(screen.getByTestId('grpc-mock-builder-panel')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-add-rule'));
+    expect(patchMockRulesJson).toHaveBeenCalled();
+  });
+
+  it('GrpcMockServerPanel builder tab shows read-only expression predicates', () => {
+    render(
+      <GrpcMockServerPanel
+        advanced={buildAdvancedMock({
+          mockServer: {
+            rulesJson: JSON.stringify({
+              rules: [{
+                id: 'expr-1',
+                name: 'Expr rule',
+                enabled: true,
+                priority: 1,
+                predicate: { kind: 'expression', expression: 'method == "Echo"' },
+                response: { statusCode: 0 },
+              }],
+            }),
+          },
+        })}
+      />,
+    );
+    expect(screen.getByTestId('grpc-mock-builder-readonly-rule-expr-1')).toBeTruthy();
+    expect(screen.getByText(/Edit this predicate in the JSON tab/i)).toBeTruthy();
   });
 
   it('GrpcMockServerPanel handles invalid rules JSON fallback and non-finite latency input', async () => {
@@ -366,6 +496,7 @@ describe('Grpc advanced panels coverage gaps', () => {
         })}
       />,
     );
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
     expect(screen.getByText(/0 enabled \/ 0 total/i)).toBeTruthy();
 
     await userEvent.type(screen.getByTestId('grpc-mock-latency-jitter'), '2');
@@ -382,6 +513,7 @@ describe('Grpc advanced panels coverage gaps', () => {
         })}
       />,
     );
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
     fireEvent.change(screen.getByTestId('grpc-mock-latency-default'), { target: { value: 'abc' } });
     expect(patchMockLatency).toHaveBeenCalledWith({ defaultLatencyMs: undefined });
 
@@ -399,11 +531,12 @@ describe('Grpc advanced panels coverage gaps', () => {
         })}
       />,
     );
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
     fireEvent.change(screen.getByTestId('grpc-mock-latency-jitter'), { target: { value: 'abc' } });
     expect(patchMockLatency).toHaveBeenCalledWith({ jitterMs: undefined });
   });
 
-  it('GrpcMockServerPanel handles disabled rules and empty rule list hint', () => {
+  it('GrpcMockServerPanel handles disabled rules', () => {
     render(
       <GrpcMockServerPanel
         advanced={buildAdvancedMock({
@@ -415,15 +548,18 @@ describe('Grpc advanced panels coverage gaps', () => {
                 enabled: false,
                 priority: 1,
                 predicate: { kind: 'service_equals', service: 'echo.EchoService' },
-                response: { status: 0 },
+                response: { statusCode: 0 },
               }],
             }),
           },
         })}
       />,
     );
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
     expect(screen.getByTestId('grpc-mock-rule-rule-off').className).not.toMatch(/--on/);
+  });
 
+  it('GrpcMockServerPanel shows empty rule list hint on runtime tab', () => {
     render(
       <GrpcMockServerPanel
         advanced={buildAdvancedMock({
@@ -431,6 +567,7 @@ describe('Grpc advanced panels coverage gaps', () => {
         })}
       />,
     );
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
     expect(screen.getByText(/No rules configured/i)).toBeTruthy();
   });
 
@@ -576,5 +713,60 @@ describe('Grpc advanced panels coverage gaps', () => {
       />,
     );
     expect(screen.getByTestId('grpc-schema-diff-panel')).toBeTruthy();
+
+    rerender(
+      <GrpcAdvancedFeaturesShell
+        advanced={buildAdvancedMock({ activeFeatureTab: 'rpc_statistics' })}
+      />,
+    );
+    expect(screen.getByTestId('grpc-rpc-stats-panel')).toBeTruthy();
+  });
+
+  it('GrpcRpcStatisticsPanel renders summary, table rows, and reset control', async () => {
+    const resetRpcSessionStats = vi.fn();
+    render(
+      <GrpcRpcStatisticsPanel
+        advanced={buildAdvancedMock({
+          activeTabLabel: 'Echo tab',
+          activeRpcLabel: 'echo.EchoService / Echo',
+          resetRpcSessionStats,
+          rpcSessionSummary: {
+            totalCalls: 3,
+            totalErrors: 1,
+            successRatePercent: 66.7,
+            avgLatencyMs: 55,
+            p95LatencyMs: 90,
+          },
+          rpcSessionStats: {
+            tabId: 'tab-ui',
+            windowStartedAt: '2026-07-01T00:00:00.000Z',
+            byMethodKey: {
+              'echo.EchoService/Echo': {
+                service: 'echo.EchoService',
+                method: 'Echo',
+                callType: 'unary',
+                calls: 3,
+                errors: 1,
+                statusDistribution: { '0': 2, '14': 1 },
+                latencyMs: {
+                  min: 20,
+                  avg: 55,
+                  p50: 50,
+                  p95: 90,
+                  p99: 95,
+                  max: 100,
+                },
+              },
+            },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-rpc-stats-total-calls').textContent).toBe('3');
+    expect(screen.getByTestId('grpc-rpc-stats-table')).toBeTruthy();
+    expect(screen.getAllByTestId('grpc-rpc-stats-row')).toHaveLength(1);
+    await userEvent.click(screen.getByTestId('grpc-rpc-stats-reset-btn'));
+    expect(resetRpcSessionStats).toHaveBeenCalledTimes(1);
   });
 });

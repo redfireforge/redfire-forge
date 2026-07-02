@@ -70,6 +70,7 @@ export const GRPC_FORBIDDEN_SECRET_PERSIST_TARGETS = [
   'runner_artifacts',
   'grpc_load_test_export',
   'grpc_schema_diff_export',
+  'grpc_mock_rule_export',
 ] as const;
 
 export function isForbiddenGrpcSecretPersistTarget(key: string): boolean {

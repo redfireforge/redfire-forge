@@ -267,4 +267,19 @@ describe('useSplitPaneResize', () => {
       window.dispatchEvent(new MouseEvent('mouseup'));
     });
   });
+
+  it('uses End fallback width when the container is not measured', async () => {
+    const { result } = renderHook(() => useSplitPaneResize(baseOptions(null)));
+    await act(async () => {
+      await tick();
+    });
+    act(() => {
+      result.current.dividerProps.onKeyDown(keyEvent('Home'));
+    });
+    expect(result.current.width).toBe(100);
+    act(() => {
+      result.current.dividerProps.onKeyDown(keyEvent('End'));
+    });
+    expect(result.current.width).toBe(164);
+  });
 });

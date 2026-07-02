@@ -23,8 +23,8 @@ const lastResult = {
 };
 
 describe('GrpcResponseSnapshotPanel (Phase 5I)', () => {
-  it('renders nothing for streaming call types', () => {
-    const { container } = render(
+  it('renders stream baseline panel for streaming call types', () => {
+    render(
       <GrpcResponseSnapshotPanel
         callType="server_streaming"
         service="echo.EchoService"
@@ -33,7 +33,48 @@ describe('GrpcResponseSnapshotPanel (Phase 5I)', () => {
         onClearBaseline={vi.fn()}
       />,
     );
-    expect(container.firstChild).toBeNull();
+    expect(screen.getByTestId('grpc-response-snapshot-panel')).toBeTruthy();
+    expect(screen.getByTestId('grpc-snapshot-update-baseline')).toBeTruthy();
+  });
+
+  it('captures baseline from multi-message stream session', () => {
+    const onUpdateBaseline = vi.fn();
+    render(
+      <GrpcResponseSnapshotPanel
+        callType="bidi_streaming"
+        service="echo.EchoService"
+        method="BidiEcho"
+        streamComparisonEligible
+        streamLifecycle="ended"
+        streamMessages={[
+          { sequence: 1, timestamp: '2026-06-29T12:00:00.000Z', direction: 'inbound', data: { id: 1 } },
+          { sequence: 2, timestamp: '2026-06-29T12:00:01.000Z', direction: 'inbound', data: { id: 2 } },
+        ]}
+        onUpdateBaseline={onUpdateBaseline}
+        onClearBaseline={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('grpc-snapshot-update-baseline'));
+    expect(onUpdateBaseline).toHaveBeenCalledWith(expect.objectContaining({
+      grpcStatus: 0,
+      body: { inboundMessages: [{ id: 1 }, { id: 2 }] },
+    }));
+  });
+
+  it('shows stream-specific guidance when update baseline is disabled for stream calls', () => {
+    render(
+      <GrpcResponseSnapshotPanel
+        callType="server_streaming"
+        service="echo.EchoService"
+        method="ServerStream"
+        streamComparisonEligible={false}
+        streamLifecycle="streaming"
+        onUpdateBaseline={vi.fn()}
+        onClearBaseline={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('grpc-snapshot-update-baseline').getAttribute('title'))
+      .toBe('Run and finish a stream in Studio first');
   });
 
   it('shows no-baseline badge and update action', () => {

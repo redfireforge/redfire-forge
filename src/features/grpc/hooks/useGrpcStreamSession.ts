@@ -132,7 +132,13 @@ export function useGrpcStreamSession(options: UseGrpcStreamSessionOptions) {
   ) => {
     const tab = sessionRef.current.tabs.find((entry) => entry.id === tabId);
     if (!tab?.lastExecuteSnapshot) return;
-    captureGrpcCallHistoryFromStreamTerminal(tab, overrides);
+    captureGrpcCallHistoryFromStreamTerminal({
+      lastExecuteSnapshot: tab.lastExecuteSnapshot,
+      streamError: tab.streamError,
+      target: tab.target,
+      streamStartedAt: tab.streamStartedAt,
+      streamEndedAt: tab.streamEndedAt ?? new Date().toISOString(),
+    }, overrides);
   }, [sessionRef]);
 
   const applyStreamEvent = useCallback((
@@ -241,8 +247,17 @@ export function useGrpcStreamSession(options: UseGrpcStreamSessionOptions) {
         });
       });
       if (terminalSnapshot) {
+        const endedAt = new Date().toISOString();
+        const startedAt = currentTab?.streamStartedAt;
+        const streamDurationMs = startedAt
+          ? Math.max(0, new Date(endedAt).getTime() - new Date(startedAt).getTime())
+          : 0;
         captureGrpcCallHistoryFromStreamTerminal(
-          { lastExecuteSnapshot: terminalSnapshot },
+          {
+            lastExecuteSnapshot: terminalSnapshot,
+            streamStartedAt: startedAt,
+            streamEndedAt: endedAt,
+          },
           {
             error: streamError,
             result: typeof event.status === 'number' && event.status === 0
@@ -252,7 +267,7 @@ export function useGrpcStreamSession(options: UseGrpcStreamSessionOptions) {
                   statusMessage: event.statusMessage ?? 'OK',
                   headers: {},
                   trailers: {},
-                  durationMs: 0,
+                  durationMs: streamDurationMs,
                 }
               : undefined,
           },
@@ -284,8 +299,13 @@ export function useGrpcStreamSession(options: UseGrpcStreamSessionOptions) {
         }),
       }));
       if (errorSnapshot) {
+        const endedAt = new Date().toISOString();
         captureGrpcCallHistoryFromStreamTerminal(
-          { lastExecuteSnapshot: errorSnapshot },
+          {
+            lastExecuteSnapshot: errorSnapshot,
+            streamStartedAt: currentTab?.streamStartedAt,
+            streamEndedAt: endedAt,
+          },
           { error: streamError },
         );
       }

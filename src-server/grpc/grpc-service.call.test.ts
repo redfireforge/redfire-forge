@@ -23,6 +23,13 @@ describe('GrpcService call/cancel', () => {
   let mockClient: GrpcClientPort;
   let service: GrpcService;
 
+  function createOAuth2TokenService(fetch: (url: string, init?: RequestInit) => Promise<Response>) {
+    return new GrpcOAuth2TokenService(
+      { fetch },
+      { resolveHostname: async () => ['93.184.216.34'] },
+    );
+  }
+
   beforeEach(() => {
     clearGrpcCallRegistry();
     clearGrpcDescriptorStore();
@@ -159,11 +166,10 @@ describe('GrpcService call/cancel', () => {
     });
 
     it('merges oauth2 auth into unary metadata via server-side token acquisition (Phase 4D)', async () => {
-      const oauth2TokenService = new GrpcOAuth2TokenService({
-        fetch: vi.fn(async () => new Response(JSON.stringify({
+      const oauth2TokenService = createOAuth2TokenService(vi.fn(async () => new Response(JSON.stringify({
           access_token: 'oauth-access-token',
         }), { status: 200 })),
-      });
+      );
       const oauthService = new GrpcService(mockClient, descriptorLoader, oauth2TokenService);
 
       await oauthService.call({
@@ -189,11 +195,10 @@ describe('GrpcService call/cancel', () => {
     });
 
     it('returns validation error when oauth2 token acquisition fails (Phase 4D)', async () => {
-      const oauth2TokenService = new GrpcOAuth2TokenService({
-        fetch: vi.fn(async () => new Response(JSON.stringify({
+      const oauth2TokenService = createOAuth2TokenService(vi.fn(async () => new Response(JSON.stringify({
           error: 'invalid_client',
         }), { status: 401 })),
-      });
+      );
       const oauthService = new GrpcService(mockClient, descriptorLoader, oauth2TokenService);
 
       const envelope = await oauthService.call({
@@ -221,7 +226,7 @@ describe('GrpcService call/cancel', () => {
       const fetchSpy = vi.fn(async () => new Response(JSON.stringify({
         access_token: 'should-not-fetch',
       }), { status: 200 }));
-      const oauth2TokenService = new GrpcOAuth2TokenService({ fetch: fetchSpy });
+      const oauth2TokenService = createOAuth2TokenService(fetchSpy);
       const oauthService = new GrpcService(mockClient, descriptorLoader, oauth2TokenService);
 
       const envelope = await oauthService.call({
@@ -244,11 +249,10 @@ describe('GrpcService call/cancel', () => {
     });
 
     it('does not leave orphaned call registry entries when oauth2 token acquisition fails (Phase 4D)', async () => {
-      const oauth2TokenService = new GrpcOAuth2TokenService({
-        fetch: vi.fn(async () => new Response(JSON.stringify({
+      const oauth2TokenService = createOAuth2TokenService(vi.fn(async () => new Response(JSON.stringify({
           error: 'invalid_client',
         }), { status: 401 })),
-      });
+      );
       const oauthService = new GrpcService(mockClient, descriptorLoader, oauth2TokenService);
 
       const envelope = await oauthService.call({
@@ -273,7 +277,7 @@ describe('GrpcService call/cancel', () => {
       const retryService = new GrpcService(
         mockClient,
         descriptorLoader,
-        new GrpcOAuth2TokenService({ fetch: fetchOk }),
+        createOAuth2TokenService(fetchOk),
       );
       const retry = await retryService.call({
         ...FIXTURE_UNARY_CALL_REQUEST,
@@ -291,12 +295,11 @@ describe('GrpcService call/cancel', () => {
     });
 
     it('returns validation error when oauth2 token acquisition fails with invalid_scope (Phase 4D)', async () => {
-      const oauth2TokenService = new GrpcOAuth2TokenService({
-        fetch: vi.fn(async () => new Response(JSON.stringify({
+      const oauth2TokenService = createOAuth2TokenService(vi.fn(async () => new Response(JSON.stringify({
           error: 'invalid_scope',
           error_description: 'scope grpc.write not allowed',
         }), { status: 400 })),
-      });
+      );
       const oauthService = new GrpcService(mockClient, descriptorLoader, oauth2TokenService);
 
       const envelope = await oauthService.call({

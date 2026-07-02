@@ -6,7 +6,9 @@ import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
 import {
   computeLoadTestProgressPercent,
   filterGrpcSchemaDiffChangesForUi,
+  formatGrpcLoadTestCallTypeBadge,
   parseGrpcMockRuleSetJson,
+  parseGrpcMockRuleSetJsonForBuilder,
   presentGrpcAdvancedOperationStatus,
   summarizeMockRulePredicate,
 } from './grpcStudioAdvancedModel';
@@ -56,6 +58,32 @@ describe('grpcStudioAdvancedModel (Phase 11G)', () => {
     expect(percent).toBe(50);
   });
 
+  it('filterGrpcSchemaDiffChangesForUi hides acknowledged changes when requested', () => {
+    const changes = [
+      {
+        severity: 'breaking' as const,
+        entityType: 'field' as const,
+        entityPath: 'a',
+        changeType: 'removed' as const,
+        description: 'a removed',
+      },
+      {
+        severity: 'informational' as const,
+        entityType: 'field' as const,
+        entityPath: 'b',
+        changeType: 'added' as const,
+        description: 'b added',
+      },
+    ];
+    const result = filterGrpcSchemaDiffChangesForUi(changes, 'all', {
+      hideAcknowledged: true,
+      acknowledgedChangeIds: new Set(['field::a::removed']),
+      resolveChangeId: (change) => `${change.entityType}::${change.entityPath}::${change.changeType}`,
+    });
+    expect(result.visible).toHaveLength(1);
+    expect(result.visible[0]?.entityPath).toBe('b');
+  });
+
   it('filterGrpcSchemaDiffChangesForUi caps large lists', () => {
     const changes = Array.from({ length: GRPC_SCHEMA_DIFF_UI_LIST_CAP + 10 }, (_, index) => ({
       severity: 'informational' as const,
@@ -72,6 +100,22 @@ describe('grpcStudioAdvancedModel (Phase 11G)', () => {
 
   it('parseGrpcMockRuleSetJson rejects invalid JSON', () => {
     expect(parseGrpcMockRuleSetJson('{').ok).toBe(false);
+    expect(parseGrpcMockRuleSetJsonForBuilder('{').ok).toBe(false);
+  });
+
+  it('parseGrpcMockRuleSetJsonForBuilder accepts JSON that fails schema validation', () => {
+    const json = JSON.stringify({
+      rules: [{
+        id: 'r1',
+        name: 'Incomplete',
+        enabled: true,
+        priority: 1,
+        predicate: { kind: 'method_equals', method: '' },
+        response: { statusCode: 0 },
+      }],
+    });
+    expect(parseGrpcMockRuleSetJson(json).ok).toBe(false);
+    expect(parseGrpcMockRuleSetJsonForBuilder(json).ok).toBe(true);
   });
 
   it('summarizeMockRulePredicate formats method_equals', () => {
@@ -87,9 +131,25 @@ describe('grpcStudioAdvancedModel (Phase 11G)', () => {
 });
 
 describe('grpcStudioAdvancedCommands (Phase 11G)', () => {
-  it('validateLoadTestPreconditions rejects streaming call types', () => {
+  it('validateLoadTestPreconditions rejects client and bidi streaming call types', () => {
+    expect(validateLoadTestPreconditions('client_streaming', { concurrency: 2, totalCalls: 5 }))
+      .toMatch(/server-streaming/i);
+    expect(validateLoadTestPreconditions('bidi_streaming', { concurrency: 2, totalCalls: 5 }))
+      .toMatch(/server-streaming/i);
+  });
+
+  it('validateLoadTestPreconditions accepts server_streaming', () => {
     expect(validateLoadTestPreconditions('server_streaming', { concurrency: 2, totalCalls: 5 }))
-      .toMatch(/unary/i);
+      .toBeUndefined();
+    expect(validateLoadTestPreconditions('server_streaming', { concurrency: 2, totalCalls: 5 }, {
+      transportMode: 'spring-servlet',
+    })).toMatch(/Express proxy or native transport/i);
+  });
+
+  it('formatGrpcLoadTestCallTypeBadge labels unary and server stream', () => {
+    expect(formatGrpcLoadTestCallTypeBadge('unary')).toBe('Unary');
+    expect(formatGrpcLoadTestCallTypeBadge('server_streaming')).toBe('Server stream');
+    expect(formatGrpcLoadTestCallTypeBadge('bidi_streaming')).toBe('Unsupported');
   });
 
   it('validateLoadTestPreconditions rejects unresolved methods', () => {

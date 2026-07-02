@@ -31,6 +31,40 @@ Advanced integration path (implicit, no dedicated collection actions in 11H):
 2. User opens **Advanced** sub-nav → load test uses frozen `prepareExecuteSnapshot`.
 3. **Export** routes through Phase 11H safe prepare helpers before clipboard write.
 
+## Phase 11N — Cross-surface promotion
+
+| Source | Consumer | Module | Secret rule | Notes |
+|---|---|---|---|---|
+| Studio load-test profile | Harness fixture JSON | `prepareGrpcLoadTestProfileHarnessFixture` | Config only; no PEM/tokens | `kind: grpc_load_test_profile` |
+| Studio load-test run summary | Harness result bundle | `prepareGrpcHarnessResultReportExportWithAdvanced` | `prepareGrpcLoadTestRunSummaryExportSafe` | `advancedAttachments.loadTestSummary` |
+| Studio schema diff report | Harness result bundle | `prepareGrpcHarnessResultReportExportWithAdvanced` | `prepareGrpcSchemaDiffReportExportSafe` + Markdown | `advancedAttachments.schemaDiffReport` |
+| Workflow `grpcLoadTest` node | Downstream workflow vars | `GrpcWorkflowOutputRegistry.publishLoadTestSummary` | Summary ref only (counts/latency) | `steps.{nodeId}.grpc.loadTestSummary` |
+| Workflow `grpcSchemaDiff` node | Downstream workflow vars | `GrpcWorkflowOutputRegistry.publishSchemaDiffSummary` | Counts only in namespace | Fails step when `breaking > 0` |
+| Workflow `grpcMockAssert` node | Mock listener (11M) | `handleGrpcMockAssertNode` | Uses `listenTarget` + descriptor key | No secrets in node data |
+| Saved request baseline descriptor | Collections compare | `compareGrpcSavedRequestSchema` | Resolver loads descriptors at compare time | `buildSavedRequestSchemaCompareIntent` |
+| History entry descriptor | Drift diff on replay | `buildGrpcHistoryDescriptorDriftReport` | History rows already redacted at persist | `detectGrpcHistoryDescriptorDrift` |
+
+Workflow advanced node path:
+
+1. **Author** workflow with `grpcLoadTest` / `grpcSchemaDiff` / `grpcMockAssert` node data (Designer modals deferred).
+2. **Run** via `runGraph` with `buildGrpcNodeOperations()` (`resolveDescriptor` + `resolveLoadTestProfile` for production Quick Test).
+3. **Read** `grpc.loadTestSummary` / `grpc.schemaDiffSummary` or step-scoped `steps.{nodeId}.grpc.*` in downstream nodes.
+
+## Phase 11O — Server-streaming load testing
+
+| Source | Consumer | Module | Secret rule | Notes |
+|---|---|---|---|---|
+| Studio server-streaming RPC | Advanced load-test scheduler | `startGrpcStudioLoadTestRun` → `captureAndStartGrpcLoadTestStreamSchedulerRun` | Uses execute snapshot only; no PEM in config | Express proxy via `collectGrpcWorkflowServerStream` |
+| Load-test config | Stream collector cap | `resolveGrpcLoadTestStreamCollectConfig` | Config only | Default `maxMessages: 10`; UI field + profile JSON |
+| Scheduler report | Studio runtime status | `resolveLoadTestRunOperationTransition` | Counts only | Fails on partial failures / cancel via shared derive helpers |
+| Active tab transport | Stream load-test validation | `validateLoadTestPreconditions` | N/A | Blocks browser-direct (`grpc-web` / `spring-servlet`) for 11O v1 |
+
+Server-streaming load path:
+
+1. User selects a **server-streaming** method on the active tab.
+2. **Advanced → Load test** shows call-type badge + optional **Max messages / stream**.
+3. **Start** runs bounded concurrent stream collectors; **Stop** cooperatively cancels in-flight attempts.
+
 ## grpcurl flag mapping (Phase 5F/5G)
 
 | grpcurl flag | Studio field | Import | Export |

@@ -194,4 +194,23 @@ describe('grpcStudioTargetConnection', () => {
     disconnectTarget('tab-1');
     expect(updateTab).toHaveBeenCalledWith('tab-1', { targetConnection: { state: 'idle' } });
   });
+
+  it('toggle is a no-op when tab is missing', () => {
+    const connectTarget = vi.fn();
+    const disconnectTarget = vi.fn();
+    const core = makeCore({ tabs: [] });
+    const toggle = createToggleTargetConnectionHandler(core as never, connectTarget, disconnectTarget);
+    toggle('missing-tab');
+    expect(connectTarget).not.toHaveBeenCalled();
+    expect(disconnectTarget).not.toHaveBeenCalled();
+  });
+
+  it('toggle connects when tab has no targetConnection field', () => {
+    const connectTarget = vi.fn();
+    const disconnectTarget = vi.fn();
+    const core = makeCore({ tabs: [{ id: 'tab-1' }] });
+    const toggle = createToggleTargetConnectionHandler(core as never, connectTarget, disconnectTarget);
+    toggle('tab-1');
+    expect(connectTarget).toHaveBeenCalledWith('tab-1');
+  });
 });

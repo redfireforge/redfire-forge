@@ -2,10 +2,14 @@ import { useEffect, useMemo, useState } from 'react';
 import type { GrpcCallResult } from '../../../shared/grpc/contracts';
 import type { GrpcResponseSnapshotBaseline } from '../../../shared/grpc/grpcSavedRequest';
 import {
+  captureGrpcStreamResponseSnapshotBaseline,
+  createPseudoGrpcCallResultFromStreamSession,
   captureGrpcResponseSnapshotBaseline,
   compareGrpcResponseToBaseline,
   savedRequestMatchesUnaryResult,
 } from '../utils/grpcResponseSnapshot';
+import type { GrpcStreamLogEntry } from '../../../shared/grpc/contracts';
+import type { GrpcErrorBody } from '../../../shared/grpc/contracts';
 import { GrpcResponseSnapshotDiffModal } from './GrpcResponseSnapshotDiffModal';
 
 export interface GrpcResponseSnapshotPanelProps {
@@ -14,6 +18,10 @@ export interface GrpcResponseSnapshotPanelProps {
   method: string;
   baseline?: GrpcResponseSnapshotBaseline;
   lastResult?: GrpcCallResult;
+  streamMessages?: GrpcStreamLogEntry[];
+  streamLifecycle?: string;
+  streamError?: GrpcErrorBody;
+  streamComparisonEligible?: boolean;
   onUpdateBaseline: (baseline: GrpcResponseSnapshotBaseline) => void;
   onClearBaseline: () => void;
 }
@@ -30,10 +38,27 @@ export function GrpcResponseSnapshotPanel({
   method,
   baseline,
   lastResult,
+  streamMessages = [],
+  streamLifecycle,
+  streamError,
+  streamComparisonEligible = false,
   onUpdateBaseline,
   onClearBaseline,
 }: GrpcResponseSnapshotPanelProps) {
   const [diffOpen, setDiffOpen] = useState(false);
+
+  const isUnary = callType === 'unary';
+  const streamTerminal = streamLifecycle === 'ended'
+    || streamLifecycle === 'cancelled'
+    || streamLifecycle === 'error';
+  const canCompareStream = !isUnary && streamComparisonEligible && streamTerminal;
+  const streamPseudoResult = canCompareStream
+    ? createPseudoGrpcCallResultFromStreamSession({
+      streamMessages,
+      streamLifecycle: streamLifecycle ?? 'error',
+      streamError,
+    })
+    : undefined;
 
   const canCompare = savedRequestMatchesUnaryResult(
     { service, method, callType },
@@ -41,19 +66,27 @@ export function GrpcResponseSnapshotPanel({
   );
 
   const comparison = useMemo(
-    () => compareGrpcResponseToBaseline(canCompare ? lastResult : undefined, baseline),
-    [baseline, canCompare, lastResult],
+    () => compareGrpcResponseToBaseline(
+      isUnary
+        ? (canCompare ? lastResult : undefined)
+        : streamPseudoResult,
+      baseline,
+    ),
+    [baseline, canCompare, isUnary, lastResult, streamPseudoResult],
   );
 
   useEffect(() => {
     if (!baseline) setDiffOpen(false);
   }, [baseline]);
 
-  if (callType !== 'unary') {
-    return null;
-  }
-
-  const canUpdateBaseline = canCompare && lastResult?.status === 0;
+  const canUpdateBaseline = isUnary
+    ? canCompare && lastResult?.status === 0
+    : canCompareStream;
+  const updateBaselineTitle = canUpdateBaseline
+    ? 'Save active tab last response as baseline'
+    : isUnary
+      ? 'Run a successful unary call in Studio first'
+      : 'Run and finish a stream in Studio first';
 
   return (
     <>
@@ -91,11 +124,24 @@ export function GrpcResponseSnapshotPanel({
               className="grpc-btn grpc-btn--ghost grpc-btn--xs"
               data-testid="grpc-snapshot-update-baseline"
               disabled={!canUpdateBaseline}
-              title={canUpdateBaseline ? 'Save active tab last response as baseline' : 'Run a successful unary call in Studio first'}
+              title={updateBaselineTitle}
               onClick={() => {
-                if (!lastResult || lastResult.status !== 0) return;
+                if (isUnary) {
+                  if (!lastResult || lastResult.status !== 0) return;
+                  try {
+                    onUpdateBaseline(captureGrpcResponseSnapshotBaseline(lastResult));
+                  } catch {
+                    /* capture guarded by canUpdateBaseline */
+                  }
+                  return;
+                }
+                if (!canCompareStream) return;
                 try {
-                  onUpdateBaseline(captureGrpcResponseSnapshotBaseline(lastResult));
+                  onUpdateBaseline(captureGrpcStreamResponseSnapshotBaseline({
+                    streamMessages,
+                    streamLifecycle: streamLifecycle ?? 'error',
+                    streamError,
+                  }));
                 } catch {
                   /* capture guarded by canUpdateBaseline */
                 }
@@ -132,9 +178,14 @@ export function GrpcResponseSnapshotPanel({
               {comparison.statusMismatch ? ' (includes gRPC status)' : ''}.
             </p>
           )}
-          {baseline && !canCompare && (
+          {baseline && isUnary && !canCompare && (
             <p className="grpc-response-snapshot-panel__hint">
               Baseline recorded {formatSnapshotTime(baseline.capturedAt)} — open in Studio and run to compare.
+            </p>
+          )}
+          {baseline && !isUnary && !canCompareStream && (
+            <p className="grpc-response-snapshot-panel__hint">
+              Baseline recorded {formatSnapshotTime(baseline.capturedAt)} — run and finish a stream in Studio to compare messages.
             </p>
           )}
         </div>

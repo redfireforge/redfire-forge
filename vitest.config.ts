@@ -8,6 +8,7 @@ import {
   PRODUCT_TEST_EXCLUDE,
 } from './vitest.projectPatterns';
 import { demoHubRootImportsPlugin } from './vite/demoHubRootImports';
+import { createMonacoAwareLogger, monacoDevNoisePlugin } from './vite/monacoDevNoisePlugin';
 
 const productCoverageExclude = [
   ...PRODUCT_COVERAGE_EXCLUDE,
@@ -35,7 +36,7 @@ const sharedTestOptions = {
 };
 
 const sharedProjectConfig = {
-  plugins: [demoHubRootImportsPlugin()],
+  plugins: [demoHubRootImportsPlugin(), monacoDevNoisePlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
@@ -48,6 +49,8 @@ const sharedProjectConfig = {
 };
 
 export default defineConfig({
+  customLogger: createMonacoAwareLogger(),
+  ...sharedProjectConfig,
   test: {
     poolMatchGlobs: [
       ['src-server/**', 'forks'],

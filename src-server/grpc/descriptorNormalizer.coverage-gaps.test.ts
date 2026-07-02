@@ -127,4 +127,23 @@ service BadService { rpc Call(Present) returns (Present); }`,
     expect(() => normalizeRootToDescriptor(root, 'proto_files', 'missing-type'))
       .toThrow(/not found in descriptor/i);
   });
+
+  it('normalizes proto2 required fields and map key fallbacks', () => {
+    const proto2 = `syntax = "proto2";
+package legacy;
+message Legacy {
+  required string id = 1;
+  map<string, bytes> payloads = 2;
+}
+service LegacyService {
+  rpc Call(Legacy) returns (Legacy);
+}`;
+    const root = parseProtoFiles([{ path: 'legacy.proto', content: proto2 }]);
+    const descriptor = normalizeRootToDescriptor(root, 'proto_files', 'legacy-test');
+    const legacy = descriptor.messageTypes?.find((entry) => entry.typeName === 'legacy.Legacy');
+    const idField = legacy?.fields.find((field) => field.name === 'id');
+    const mapField = legacy?.fields.find((field) => field.isMap);
+    expect(idField?.label).toBe('required');
+    expect(mapField?.mapKeyType).toBe('string');
+  });
 });

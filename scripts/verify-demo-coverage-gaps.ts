@@ -3,7 +3,12 @@
  * Fail when any demo-hub source file (excl. __test-utils__) is below 90%
  * on statements, branches, functions, or lines.
  *
- * Run after: npm run test:demo:coverage
+ * PR / CI only:
+ *   bash scripts/run-demo-coverage-full.sh
+ *
+ * Day-to-day:
+ *   bash scripts/run-demo-coverage-scope.sh <path>
+ *   bash scripts/demo-coverage-status.sh
  */
 import { readFileSync } from 'node:fs';
 
@@ -23,7 +28,7 @@ try {
 } catch (err) {
   const message = err instanceof Error ? err.message : String(err);
   console.error(`❌ Could not read ${INPUT}:`, message);
-  console.error('   Run: npm run test:demo:coverage');
+  console.error('   Run: bash scripts/run-demo-coverage-full.sh');
   process.exit(1);
 }
 

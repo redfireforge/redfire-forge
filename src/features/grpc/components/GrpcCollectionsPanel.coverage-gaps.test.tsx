@@ -9,6 +9,7 @@ import {
 } from '../../../shared/grpc/contractFixtures';
 import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
 import type { GrpcCollectionV1 } from '../../../shared/grpc/grpcPersistenceSchema';
+import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import type { UseGrpcCollectionsResult } from '../hooks/useGrpcCollections';
 import { GrpcCollectionsPanel } from './GrpcCollectionsPanel';
 
@@ -49,7 +50,7 @@ function buildCollectionsMock(
   overrides: Partial<UseGrpcCollectionsResult> = {},
 ): UseGrpcCollectionsResult {
   return {
-    store: { version: 1, collections },
+    store: { schemaVersion: 1, collections, updatedAt: TS },
     collections,
     loading: false,
     clearLastMutationError: vi.fn(),
@@ -62,6 +63,16 @@ function buildCollectionsMock(
     updateSavedRequest: vi.fn().mockResolvedValue(undefined),
     deleteSavedRequest: vi.fn().mockResolvedValue(undefined),
     duplicateSavedRequest: vi.fn().mockResolvedValue(makeSaved('saved-copy', 'Echo call (copy)')),
+    recordSavedRequestRun: vi.fn().mockResolvedValue(undefined),
+    exportCollections: vi.fn().mockResolvedValue({
+      _exportMeta: {
+        version: '1.0',
+        exportedAt: TS,
+        source: 'RedfireForge/gRPC',
+      },
+      store: { schemaVersion: 1, collections, updatedAt: TS },
+    }),
+    importCollections: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -480,7 +491,82 @@ describe('GrpcCollectionsPanel coverage gaps (Phase 5H)', () => {
     );
 
     fireEvent.click(screen.getByTestId('grpc-saved-request-open-studio'));
-    expect(onOpenInStudio).toHaveBeenCalledWith(expect.objectContaining({ id: 'saved-1' }));
+    expect(onOpenInStudio).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'saved-1' }),
+      'col-1',
+    );
+  });
+
+  it('exports collections JSON from header action', async () => {
+    const collection = collectionWithSaved();
+    const exportCollections = vi.fn().mockResolvedValue({
+      _exportMeta: { version: '1.0', exportedAt: TS, source: 'RedfireForge/gRPC' },
+      store: { schemaVersion: 1, collections: [collection], updatedAt: TS },
+    });
+    const createObjectURL = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:test');
+    const revokeObjectURL = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => undefined);
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection], { exportCollections })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-collections-export-btn'));
+    await waitFor(() => expect(exportCollections).toHaveBeenCalled());
+    expect(createObjectURL).toHaveBeenCalled();
+    expect(anchorClick).toHaveBeenCalled();
+    expect(revokeObjectURL).toHaveBeenCalled();
+  });
+
+  it('imports collections JSON from hidden input', async () => {
+    const importCollections = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    const file = new File([JSON.stringify({ store: { schemaVersion: 1, collections: [], updatedAt: TS } })], 'collections.json', {
+      type: 'application/json',
+    });
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([], { importCollections })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByTestId('grpc-collections-import-input') as HTMLInputElement;
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(importCollections).toHaveBeenCalledWith(expect.any(Object), 'merge'));
+  });
+
+  it('skips import when the user cancels the confirm dialog', async () => {
+    const importCollections = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const file = new File(['{}'], 'collections.json', { type: 'application/json' });
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([], { importCollections })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-collections-import-input'), { target: { files: [file] } });
+    await waitFor(() => expect(importCollections).not.toHaveBeenCalled());
   });
 
   it('opens in studio and copies grpcurl from detail', () => {
@@ -506,5 +592,197 @@ describe('GrpcCollectionsPanel coverage gaps (Phase 5H)', () => {
 
     fireEvent.click(screen.getByTestId('grpc-saved-request-copy-grpcurl'));
     expect(onCopyGrpcurl).toHaveBeenCalled();
+  });
+
+  it('filters saved requests by search query and shows empty-state copy', () => {
+    const collection = collectionWithSaved();
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection])}
+        selectedSavedId="saved-1"
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('grpc-collection-saved-saved-1')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('grpc-collections-search'), { target: { value: 'no-match-xyz' } });
+    expect(screen.getByText(/No saved requests match your search/i)).toBeTruthy();
+  });
+
+  it('skips new collection when prompt is cancelled or blank', async () => {
+    const addCollection = vi.fn();
+    vi.spyOn(window, 'prompt').mockReturnValueOnce(null);
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([], { addCollection })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('grpc-collections-new-btn'));
+    expect(addCollection).not.toHaveBeenCalled();
+
+    vi.mocked(window.prompt).mockReturnValueOnce('   ');
+    fireEvent.click(screen.getByTestId('grpc-collections-new-btn'));
+    expect(addCollection).not.toHaveBeenCalled();
+  });
+
+  it('imports collections in replace mode and ignores export failures', async () => {
+    const importCollections = vi.fn().mockResolvedValue(undefined);
+    const exportCollections = vi.fn().mockRejectedValue(new Error('export failed'));
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    const file = new File(['{}'], 'collections.json', { type: 'application/json' });
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([], { importCollections, exportCollections })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-collections-import-input'), { target: { files: [file] } });
+    await waitFor(() => expect(importCollections).toHaveBeenCalledWith(expect.any(Object), 'replace'));
+
+    fireEvent.click(screen.getByTestId('grpc-collections-export-btn'));
+    await waitFor(() => expect(exportCollections).toHaveBeenCalled());
+  });
+
+  it('shows empty collections hint when store is empty', () => {
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([])}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/Create a collection/i)).toBeTruthy();
+  });
+
+  it('invokes onSavedDeleted after successful delete', async () => {
+    const collection = collectionWithSaved();
+    const deleteSavedRequest = vi.fn().mockResolvedValue(undefined);
+    const onSavedDeleted = vi.fn();
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection], { deleteSavedRequest })}
+        selectedSavedId="saved-1"
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+        onSavedDeleted={onSavedDeleted}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('grpc-saved-request-delete'));
+    await waitFor(() => expect(onSavedDeleted).toHaveBeenCalledWith('saved-1'));
+  });
+
+  it('creates a collection when prompt returns a valid name', async () => {
+    const addCollection = vi.fn().mockResolvedValue({ id: 'col-new', name: 'New', savedRequests: [] });
+    vi.spyOn(window, 'prompt').mockReturnValue('New Collection');
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([], { addCollection })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('grpc-collections-new-btn'));
+    await waitFor(() => expect(addCollection).toHaveBeenCalledWith('New Collection'));
+  });
+
+  it('ignores invalid import files and swallows JSON parse failures', async () => {
+    const importCollections = vi.fn().mockResolvedValue(undefined);
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([], { importCollections })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    const invalidJson = new File(['not-json'], 'collections.json', { type: 'application/json' });
+    fireEvent.change(screen.getByTestId('grpc-collections-import-input'), { target: { files: [invalidJson] } });
+    await waitFor(() => expect(importCollections).not.toHaveBeenCalled());
+  });
+
+  it('opens the hidden import input from the header button', () => {
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([])}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+    const input = screen.getByTestId('grpc-collections-import-input') as HTMLInputElement;
+    const clickSpy = vi.spyOn(input, 'click');
+    fireEvent.click(screen.getByTestId('grpc-collections-import-btn'));
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('invokes run load test callback from the detail panel', () => {
+    const collection = collectionWithSaved();
+    const onRunLoadTest = vi.fn();
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection])}
+        selectedSavedId="saved-1"
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+        onRunLoadTest={onRunLoadTest}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('grpc-saved-request-run-load-test'));
+    expect(onRunLoadTest).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'saved-1' }),
+      'col-1',
+    );
+  });
+
+  it('passes stream comparison eligibility when the active tab matches the saved request', () => {
+    const collection = collectionWithSaved();
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection])}
+        selectedSavedId="saved-1"
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+        activeTab={{
+          id: 'tab-1',
+          service: FIXTURE_UNARY_CALL_REQUEST.service,
+          method: FIXTURE_UNARY_CALL_REQUEST.method,
+          descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+          streamLifecycle: 'streaming',
+          streamMessages: [{ sequence: 1, body: { message: 'hi' } }],
+        } as GrpcStudioTabState}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-saved-request-detail')).toBeTruthy();
   });
 });

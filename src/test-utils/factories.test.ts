@@ -279,4 +279,51 @@ describe('factories', () => {
       expect(ts.name).toMatch(/Test Scenario \d+/);
     });
   });
+
+  describe('makeTrashItem defaults', () => {
+    it('uses default parentPath and feature group data shape', () => {
+      const item = makeTrashItem();
+      expect(item.parentPath).toBe('');
+      expect(item.data).toEqual({ id: 'fg-1', name: 'Test FG', scenarios: [] });
+    });
+  });
+
+  describe('makeWorkflowNode data override', () => {
+    it('preserves custom node data when provided', () => {
+      const node = makeWorkflowNode({
+        data: { label: 'Custom', method: 'POST', url: '/custom' },
+      });
+      expect(node.data).toEqual({ label: 'Custom', method: 'POST', url: '/custom' });
+    });
+  });
+
+  describe('makeWorkflow defaults', () => {
+    it('uses empty nodes and edges arrays when omitted', () => {
+      const wf = makeWorkflow();
+      expect(wf.nodes).toEqual([]);
+      expect(wf.edges).toEqual([]);
+      expect(wf.variables).toEqual({});
+    });
+  });
+
+  describe('makeWorkflowFolder partial overrides', () => {
+    it('uses default id when only name is overridden', () => {
+      const folder = makeWorkflowFolder({ name: 'Only Name' });
+      expect(folder.id).toBe('folder-1');
+      expect(folder.name).toBe('Only Name');
+    });
+
+    it('uses default order when only id is overridden', () => {
+      const folder = makeWorkflowFolder({ id: 'custom-id' });
+      expect(folder.id).toBe('custom-id');
+      expect(folder.order).toBe(0);
+    });
+  });
+
+  describe('makeFeatureGroup scenarios default branch', () => {
+    it('uses empty scenarios array when scenarios override is omitted', () => {
+      const fg = makeFeatureGroup({ name: 'Named Group' });
+      expect(fg.scenarios).toEqual([]);
+    });
+  });
 });

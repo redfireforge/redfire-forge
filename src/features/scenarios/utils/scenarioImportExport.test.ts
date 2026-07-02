@@ -48,13 +48,62 @@ describe('wrapExport', () => {
     expect(result._exportMeta.microservice).toBe('svc');
     expect(result._exportMeta.environment).toBe('dev');
     expect(result._exportMeta.exportedAt).toBeDefined();
-    expect(result.data).toBe(data);
+    expect(result.data).toEqual(data);
   });
 
   it('handles undefined optional fields', () => {
     const result = wrapExport([], 'tests', {});
     expect(result._exportMeta.microservice).toBeUndefined();
     expect(result._exportMeta.environment).toBeUndefined();
+  });
+
+  it('redacts grpc scenario auth, metadata, and tls fields in exported payload', () => {
+    const data = {
+      id: 'fg-1',
+      name: 'gRPC Export',
+      scenarios: [
+        {
+          id: 'sc-1',
+          name: 'Scenario 1',
+          kind: 'standard',
+          tests: [
+            {
+              id: 't-1',
+              name: 'gRPC test',
+              url: '/grpc',
+              method: 'GRPC',
+              headers: [],
+              body: '',
+              auth: { type: 'none' },
+              validation: { mode: 'none' },
+              actionType: 'grpcCall',
+              grpcCallAction: {
+                callType: 'unary',
+                target: 'localhost:50051',
+                descriptorKey: 'echo-v1',
+                service: 'echo.EchoService',
+                method: 'Echo',
+                body: { message: 'hello' },
+                metadata: {
+                  authorization: 'Bearer secret-token',
+                  'x-trace-id': 'trace-123',
+                },
+                auth: {
+                  type: 'bearer',
+                  bearerToken: 'secret-token',
+                },
+              },
+            },
+          ],
+        },
+      ],
+    };
+
+    const exported = wrapExport(data, 'feature-group', {});
+    const payload = JSON.stringify(exported.data);
+
+    expect(payload).toContain('[REDACTED]');
+    expect(payload).not.toContain('secret-token');
   });
 });
 

@@ -9,6 +9,7 @@ import { runSequential, runBatch, runPool, resetResultIdCounter, clearPrepCache,
 import { executeKafkaAction } from './kafkaExecution';
 import { executeWsAction } from './wsExecution';
 import { executeGrpcAction } from './grpcExecution';
+import { loadGrpcConnectionProfilesFromStorage } from './grpcConnectionProfileHydration';
 import { buildGrpcHarnessOperations } from '../shared/grpc/buildGrpcHarnessOperations';
 import { isWsActionType } from '../shared/types';
 import { isGrpcHarnessScenario, validateGrpcHarnessActionConfig } from '../shared/utils/grpcHarnessScenarioContracts';
@@ -177,6 +178,10 @@ export async function runTest(
   const mode = config.executionMode ?? 'batch';
   const getThinkTimeMs = createThinkTimeDelay(config.thinkTime);
   const harnessOps = buildGrpcHarnessOperations();
+  const hydratedGrpcProfiles = loadGrpcConnectionProfilesFromStorage();
+  const grpcRuntimeOverrides = hydratedGrpcProfiles.length > 0
+    ? { profiles: hydratedGrpcProfiles }
+    : undefined;
   const opts: RunOpts = {
     tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs,
     grpcHarnessEnv,
@@ -198,6 +203,7 @@ export async function runTest(
         return executeGrpcAction(scenario, harnessOps, {
           abortSignal,
           grpcHarnessEnv,
+          runtimeOverrides: grpcRuntimeOverrides,
         });
       }
       throw new Error(`Unknown non-HTTP action type: '${at}'`);

@@ -83,6 +83,25 @@ describe('useGrpcStudioReplayActions (Phase 5H)', () => {
     expect(onNavigate).toHaveBeenCalledWith('studio');
   });
 
+  it('openSavedRequestForLoadTest patches tab and navigates to advanced', () => {
+    const studio = makeStudio();
+    const onNavigate = vi.fn();
+    const { result } = renderHook(() => useGrpcStudioReplayActions({
+      studio: studio as never,
+      envVarMap: {},
+      profiles: [],
+      pageDefaults: { target: '', tlsMode: 'disabled' },
+      onNavigate,
+    }));
+
+    act(() => {
+      expect(result.current.openSavedRequestForLoadTest(makeSaved())).toBe(true);
+    });
+
+    expect(studio.updateTab).toHaveBeenCalled();
+    expect(onNavigate).toHaveBeenCalledWith('advanced');
+  });
+
   it('replayHistoryEntry patches tab from history snapshot and navigates to studio', () => {
     const studio = makeStudio();
     const onNavigate = vi.fn();

@@ -25,6 +25,16 @@ function longFromDecimalString(value: string, fieldType: string): protobuf.util.
   }
 }
 
+function coerceWideLongForEncode(value: unknown, fieldType: string): unknown {
+  if (typeof value === 'string') {
+    return longFromDecimalString(value, fieldType);
+  }
+  if (typeof value === 'number' && Number.isSafeInteger(value)) {
+    return longFromDecimalString(String(value), fieldType);
+  }
+  return value;
+}
+
 function normalizeBodyForEncode(type: protobuf.Type, body: Record<string, unknown>): Record<string, unknown> {
   const next: Record<string, unknown> = { ...body };
 
@@ -41,9 +51,7 @@ function normalizeBodyForEncode(type: protobuf.Type, body: Record<string, unknow
       }
       const mapNext: Record<string, unknown> = {};
       for (const [key, item] of Object.entries(raw as Record<string, unknown>)) {
-        mapNext[key] = typeof item === 'string'
-          ? longFromDecimalString(item, fieldType)
-          : item;
+        mapNext[key] = coerceWideLongForEncode(item, fieldType);
       }
       next[field.name] = mapNext;
       continue;
@@ -52,9 +60,7 @@ function normalizeBodyForEncode(type: protobuf.Type, body: Record<string, unknow
     if (field.repeated) {
       if (!Array.isArray(raw)) continue;
       if (WIDE_LONG_FIELD_TYPES.has(fieldType)) {
-        next[field.name] = raw.map((item) => typeof item === 'string'
-          ? longFromDecimalString(item, fieldType)
-          : item);
+        next[field.name] = raw.map((item) => coerceWideLongForEncode(item, fieldType));
       } else if (field.resolvedType instanceof protobuf.Type) {
         next[field.name] = raw.map((item) => (
           typeof item === 'object' && item && !Array.isArray(item)
@@ -72,8 +78,8 @@ function normalizeBodyForEncode(type: protobuf.Type, body: Record<string, unknow
       continue;
     }
 
-    if (WIDE_LONG_FIELD_TYPES.has(fieldType) && typeof raw === 'string') {
-      next[field.name] = longFromDecimalString(raw, fieldType);
+    if (WIDE_LONG_FIELD_TYPES.has(fieldType)) {
+      next[field.name] = coerceWideLongForEncode(raw, fieldType);
     }
   }
 

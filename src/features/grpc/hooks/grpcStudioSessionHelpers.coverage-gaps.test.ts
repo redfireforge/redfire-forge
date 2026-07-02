@@ -13,22 +13,32 @@ import {
   assertTabAuthExecuteReady,
   assertTabMetadataValid,
   assertTabTlsConfigValid,
+  bindTabInterpolationEnvForExecute,
   buildDescriptorLoadFailureUpdates,
   buildDescriptorLoadSuccessUpdates,
+  clearedDescriptorContextPatch,
   clearedMethodBindingPatch,
+  clearedSchemaDriftPatch,
   clearedStaleMethodSelectionPatch,
+  createGrpcTabInterpolationEnvSnapshot,
   createInitialSessionState,
   invalidateTabConnectionContext,
+  invalidateTabDescriptorConnectionContext,
+  patchShouldResetTargetConnectionSession,
+  patchTouchesConnection,
   pickFallbackActiveTabId,
+  prepareGrpcTabPatchForConsumer,
   releaseCompletedGrpcCall,
   rememberTabConnectionFingerprint,
+  resolveExpandedServiceIdsAfterReflect,
   resolveTabAbortRequestId,
   resolveTabConnectionWithEnv,
-  bindTabInterpolationEnvForExecute,
   assertTabConnectionCanonicalEnvValid,
   sanitizeDescriptorPatch,
   sanitizeTabPatch,
   tabConnectionResolutionFingerprint,
+  tabHasPendingUnaryCall,
+  withTargetConnectionSessionReset,
 } from './grpcStudioSessionHelpers';
 
 function makeTab(id: string, overrides: Partial<GrpcStudioTabState> = {}): GrpcStudioTabState {
@@ -150,6 +160,12 @@ describe('grpcStudioSessionHelpers coverage gaps', () => {
 
   it('pickFallbackActiveTabId returns empty string for empty tab list', () => {
     expect(pickFallbackActiveTabId([], 'missing')).toBe('');
+  });
+
+  it('pickFallbackActiveTabId prefers previous tab when closing a later tab', () => {
+    const tabs = [makeTab('t1'), makeTab('t2'), makeTab('t3')];
+    expect(pickFallbackActiveTabId(tabs, 't3')).toBe('t2');
+    expect(pickFallbackActiveTabId(tabs, 't1')).toBe('t2');
   });
 
   it('clearedMethodBindingPatch and clearedStaleMethodSelectionPatch reset binding fields', () => {
@@ -375,5 +391,122 @@ describe('grpcStudioSessionHelpers coverage gaps', () => {
     expect(callGenerationRef.current['t1']).toBe(1);
     expect(patch.lifecycle).toBe('idle');
     expect(patch.streamLifecycle).toBe('idle');
+  });
+
+  it('resolveExpandedServiceIdsAfterReflect expands all services on descriptor key change', () => {
+    const expanded = resolveExpandedServiceIdsAfterReflect('old-key', FIXTURE_DESCRIPTOR, ['stale.Service']);
+    expect(expanded).toEqual(FIXTURE_DESCRIPTOR.services.map((service) => service.fullName));
+  });
+
+  it('resolveExpandedServiceIdsAfterReflect filters stale expanded ids for same descriptor key', () => {
+    const serviceName = FIXTURE_DESCRIPTOR.services[0]!.fullName;
+    const expanded = resolveExpandedServiceIdsAfterReflect(
+      FIXTURE_DESCRIPTOR.key,
+      FIXTURE_DESCRIPTOR,
+      [serviceName, 'missing.Service'],
+    );
+    expect(expanded).toEqual([serviceName]);
+  });
+
+  it('patchTouchesConnection and patchShouldResetTargetConnectionSession detect transport edits', () => {
+    expect(patchTouchesConnection({ target: 'localhost:50052' })).toBe(true);
+    expect(patchTouchesConnection({ body: {} })).toBe(false);
+    expect(patchShouldResetTargetConnectionSession({ tlsConfig: { serverCaPem: 'pem' } })).toBe(true);
+    expect(withTargetConnectionSessionReset({ target: 'localhost:50052' })).toMatchObject({
+      targetConnection: { state: 'idle' },
+    });
+    expect(withTargetConnectionSessionReset({ targetConnection: { state: 'connected' } })).toEqual({
+      targetConnection: { state: 'connected' },
+    });
+  });
+
+  it('sanitizeDescriptorPatch clones descriptor, proto ingest, and source selection arrays', () => {
+    const descriptor = structuredClone(FIXTURE_DESCRIPTOR);
+    const patch = sanitizeDescriptorPatch({
+      descriptor,
+      protoIngest: { files: [{ path: 'a.proto', content: 'syntax = "proto3";' }] },
+      sourceSelection: { mode: 'auto', activeSource: 'reflection', autoPrecedence: ['reflection', 'protoset'] },
+    });
+    expect(patch.descriptor).not.toBe(descriptor);
+    expect(patch.protoIngest).toBeDefined();
+    expect(patch.sourceSelection?.autoPrecedence).toEqual(['reflection', 'protoset']);
+  });
+
+  it('sanitizeTabPatch clones k8s port-forward session and clears undefined tls config', () => {
+    const patch = sanitizeTabPatch({
+      tlsConfig: undefined,
+      k8sPortForward: {
+        active: true,
+        config: {
+          namespace: 'default',
+          targetType: 'service',
+          name: 'echo',
+          remotePort: 50051,
+          localPort: 50051,
+          context: '',
+        },
+      },
+    });
+    expect(patch.tlsConfig).toBeUndefined();
+    expect(patch.k8sPortForward?.config.name).toBe('echo');
+  });
+
+  it('prepareGrpcTabPatchForConsumer redacts auth secrets for export consumer', () => {
+    const patch = prepareGrpcTabPatchForConsumer({
+      auth: { type: 'bearer', bearerToken: 'super-secret-token-value' },
+    }, 'export');
+    expect(patch.auth).toBeDefined();
+    expect((patch.auth as { bearerToken?: string }).bearerToken).not.toBe('super-secret-token-value');
+  });
+
+  it('tabHasPendingUnaryCall detects in-flight lifecycle and ref entries', () => {
+    const ref = { current: { t1: 'req-1' } };
+    expect(tabHasPendingUnaryCall(makeTab('t1', { lifecycle: 'calling' }), 't1', ref)).toBe(true);
+    expect(tabHasPendingUnaryCall(makeTab('t1'), 't1', { current: {} })).toBe(false);
+  });
+
+  it('createGrpcTabInterpolationEnvSnapshot captures optional timestamp', () => {
+    const snapshot = createGrpcTabInterpolationEnvSnapshot(
+      makeTab('t1'),
+      { grpcHost: 'localhost:50051' },
+      [],
+      undefined,
+      '2026-07-01T00:00:00.000Z',
+    );
+    expect(snapshot.capturedAt).toBe('2026-07-01T00:00:00.000Z');
+  });
+
+  it('clearedDescriptorContextPatch and clearedSchemaDriftPatch reset descriptor context', () => {
+    expect(clearedDescriptorContextPatch()).toMatchObject({
+      descriptorKey: undefined,
+      lifecycle: 'idle',
+      streamLifecycle: 'idle',
+    });
+    expect(clearedSchemaDriftPatch()).toMatchObject({ driftState: 'none' });
+  });
+
+  it('buildDescriptorLoadFailureUpdates clears tab context when no descriptor is preserved', () => {
+    const session = createInitialSessionState();
+    const tabId = session.activeTabId;
+    const { tabPatch, descriptorPatch } = buildDescriptorLoadFailureUpdates(session, tabId, 'load failed');
+    expect(tabPatch).toMatchObject({ lifecycle: 'idle' });
+    expect(descriptorPatch.descriptor).toBeUndefined();
+  });
+
+  it('invalidateTabDescriptorConnectionContext bumps descriptor generation only', () => {
+    const ref = { current: {} as Record<string, number> };
+    expect(invalidateTabDescriptorConnectionContext('t1', ref)).toEqual({});
+    expect(ref.current['t1']).toBe(1);
+  });
+
+  it('bindTabInterpolationEnvForExecute returns env snapshot when canonical tokens are valid', () => {
+    const tab = makeTab('t1', { target: 'localhost:50051' });
+    const snapshot = bindTabInterpolationEnvForExecute(
+      tab,
+      {},
+      [],
+      { target: 'localhost:50051', tlsMode: 'disabled' },
+    );
+    expect(snapshot.env).toBeDefined();
   });
 });

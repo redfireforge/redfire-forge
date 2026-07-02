@@ -356,8 +356,15 @@ export function tabConnectionResolutionFingerprint(
   envVarMap: Record<string, string>,
   profiles: GrpcConnectionProfile[],
   pageDefaults: GrpcTabConnectionPageDefaults,
+  workspaceDefaults?: Record<string, string>,
 ): string {
-  const resolution = resolveTabConnectionWithEnv(tab, envVarMap, profiles, pageDefaults);
+  const resolution = resolveTabConnectionWithEnv(
+    tab,
+    envVarMap,
+    profiles,
+    pageDefaults,
+    workspaceDefaults,
+  );
   if (!resolution.targetValidation.valid) {
     return `invalid:${resolution.target}|${resolution.tlsMode}`;
   }
@@ -371,12 +378,14 @@ export function rememberTabConnectionFingerprint(
   envVarMap: Record<string, string>,
   profiles: GrpcConnectionProfile[],
   pageDefaults: GrpcTabConnectionPageDefaults,
+  workspaceDefaults?: Record<string, string>,
 ): void {
   fingerprintRef.current[tab.id] = tabConnectionResolutionFingerprint(
     tab,
     envVarMap,
     profiles,
     pageDefaults,
+    workspaceDefaults,
   );
 }
 
@@ -471,6 +480,12 @@ export function sanitizeTabPatch(patch: Partial<GrpcStudioTabState>): Partial<Gr
   }
   if (safePatch.streamMessages !== undefined) {
     safePatch.streamMessages = structuredClone(safePatch.streamMessages);
+  }
+  if (safePatch.k8sPortForward !== undefined) {
+    safePatch.k8sPortForward = {
+      active: safePatch.k8sPortForward.active,
+      config: structuredClone(safePatch.k8sPortForward.config),
+    };
   }
   return safePatch;
 }

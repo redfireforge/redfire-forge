@@ -18,10 +18,10 @@ export interface GrpcMockRuntimeRegistry {
   setActiveTab(tabId: string): void;
   getManager(tabId: string): GrpcMockRuntimeManager;
   hasManager(tabId: string): boolean;
-  remove(tabId: string): boolean;
+  remove(tabId: string, options?: { force?: boolean }): boolean;
   startTab(tabId: string, config: GrpcMockRuntimeStartConfig): GrpcMockRuntimeManager;
   startTabFromResolved(tabId: string, resolved: GrpcMockResolvedMockConfig): GrpcMockRuntimeManager;
-  stopTab(tabId: string): void;
+  stopTab(tabId: string, options?: { force?: boolean }): void;
   listTabIds(): string[];
 }
 
@@ -59,12 +59,12 @@ export function createGrpcMockRuntimeRegistry(): GrpcMockRuntimeRegistry {
       return managers.has(tabId);
     },
 
-    remove(tabId) {
+    remove(tabId, options) {
       const manager = managers.get(tabId);
       if (manager == null) {
         return false;
       }
-      manager.stop();
+      manager.stop({ force: options?.force });
       const removed = managers.delete(tabId);
       if (removed && activeTabId === tabId) {
         activeTabId = undefined;
@@ -86,12 +86,12 @@ export function createGrpcMockRuntimeRegistry(): GrpcMockRuntimeRegistry {
       });
     },
 
-    stopTab(tabId) {
+    stopTab(tabId, options) {
       const manager = managers.get(tabId);
       if (manager == null) {
         return;
       }
-      manager.stop();
+      manager.stop({ force: options?.force });
     },
 
     listTabIds() {

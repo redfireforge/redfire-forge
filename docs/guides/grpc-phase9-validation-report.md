@@ -79,11 +79,11 @@ None.
 
 | ID | Item | Decision |
 |----|------|----------|
-| P2-1 | Transitive env value expansion (`{{a}}` → value contains `{{b}}`) | By design: Phase 9B flat single-pass resolver; 9E cycle detection guards references without expanding |
-| P2-2 | Workspace env UI layer (`workspaceDefaults` merge) | Deferred to Environment Manager expansion |
-| P2-3 | Body/metadata resolved preview in Studio (beyond target strip) | 9G ships target-only preview; execute snapshot is source of truth |
+| P2-1 | Transitive env value expansion (`{{a}}` → value contains `{{b}}`) | ✅ Implemented: shared resolver now expands transitive token references recursively with cycle-safe guards |
+| P2-2 | Workspace env UI layer (`workspaceDefaults` merge) | ✅ Implemented: Studio target validation/connection resolution now merges `workspaceDefaults` below active env/profile/tab layers |
+| P2-3 | Body/metadata resolved preview in Studio (beyond target strip) | ✅ Implemented: target panel resolved mode now includes secret-safe body/metadata/auth preview |
 | P2-4 | Replay TLS validation parity with Studio | Pre-existing Phase 4H; replay inherits tab TLS material |
-| P2-5 | E2E interpolation tagged suite | Optional merge gate; unit gates cover resolver semantics |
+| P2-5 | E2E interpolation tagged suite | ✅ Implemented: dedicated interpolation-focused E2E suite added for Studio shell coverage |
 
 ---
 

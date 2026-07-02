@@ -210,4 +210,12 @@ describe('descriptorLoader coverage gaps', () => {
     const descriptor = await loader.loadFromDescribe(FIXTURE_DESCRIBE_REQUEST);
     expect(descriptor.services.length).toBeGreaterThan(0);
   });
+
+  it('rejects in-process reflection targets as unreachable', async () => {
+    const loader = new DescriptorLoader();
+    await expect(loader.loadFromReflection({
+      ...FIXTURE_REFLECT_REQUEST,
+      target: { address: 'in-process:my-server', tlsMode: 'disabled' },
+    })).rejects.toMatchObject({ code: 'unreachable' });
+  });
 });
