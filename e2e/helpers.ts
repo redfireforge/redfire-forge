@@ -2,7 +2,7 @@ import { expect, type Page } from '@playwright/test';
 import type { Workflow, WorkflowFolder } from '../src/features/workflow/types/workflow';
 
 /** Must stay in sync with DB_VERSION in src/shared/utils/idbOpen.ts */
-export const REDFIREFORGE_IDB_VERSION = 9;
+export const REDFIREFORGE_IDB_VERSION = 12;
 
 async function safeReload(page: Page): Promise<void> {
   try {
@@ -264,12 +264,9 @@ export function makeFolderForE2E(
 }
 
 export async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<string> {
-  return await page.evaluate((testRuns) => {
+  return await page.evaluate(({ testRuns, dbVersion }) => {
     return new Promise<string>((resolve) => {
-      // Must match DB_VERSION in src/shared/utils/idbOpen.ts exactly.
-      // Opening at a lower version than the app's current version causes an IDB error.
-      const DB_VERSION = 9;
-      const req = indexedDB.open('redfireforge', DB_VERSION);
+      const req = indexedDB.open('redfireforge', dbVersion);
       req.onupgradeneeded = () => {
         const db = req.result;
         if (!db.objectStoreNames.contains('testRuns')) {
@@ -284,7 +281,6 @@ export async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<s
         if (!db.objectStoreNames.contains('requests')) db.createObjectStore('requests');
         if (!db.objectStoreNames.contains('catalog')) db.createObjectStore('catalog');
         if (!db.objectStoreNames.contains('projects')) db.createObjectStore('projects');
-        // v6: GraphQL Studio Phase 3 stores
         if (!db.objectStoreNames.contains('graphql-history')) {
           const hs = db.createObjectStore('graphql-history', { keyPath: 'id' });
           hs.createIndex('connectionId', 'connectionId', { unique: false });
@@ -317,6 +313,40 @@ export async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<s
           as.createIndex('connectionId', 'connectionId', { unique: false });
           as.createIndex('snapshotId', 'snapshotId', { unique: false });
         }
+        if (!db.objectStoreNames.contains('environments')) db.createObjectStore('environments');
+        if (!db.objectStoreNames.contains('microservices')) db.createObjectStore('microservices');
+        if (!db.objectStoreNames.contains('globalAuthProfiles')) db.createObjectStore('globalAuthProfiles');
+        if (!db.objectStoreNames.contains('gqlStudioTabs')) db.createObjectStore('gqlStudioTabs');
+        if (!db.objectStoreNames.contains('gqlStudioEnvironments')) db.createObjectStore('gqlStudioEnvironments');
+        if (!db.objectStoreNames.contains('gqlConnectionProfiles')) db.createObjectStore('gqlConnectionProfiles');
+        if (!db.objectStoreNames.contains('gqlPageAuth')) db.createObjectStore('gqlPageAuth');
+        if (!db.objectStoreNames.contains('gqlSchemaCache')) db.createObjectStore('gqlSchemaCache');
+        if (!db.objectStoreNames.contains('runnerConfigs')) db.createObjectStore('runnerConfigs');
+        if (!db.objectStoreNames.contains('grpc-collections')) {
+          const grpcColStore = db.createObjectStore('grpc-collections', { keyPath: 'id' });
+          grpcColStore.createIndex('name', 'name', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('grpc-collection-items')) {
+          const grpcItemStore = db.createObjectStore('grpc-collection-items', { keyPath: 'id' });
+          grpcItemStore.createIndex('collectionId', 'collectionId', { unique: false });
+          grpcItemStore.createIndex('collectionId_sortOrder', ['collectionId', 'sortOrder'], { unique: false });
+        }
+        if (!db.objectStoreNames.contains('grpc-call-history')) {
+          const grpcHistStore = db.createObjectStore('grpc-call-history', { keyPath: 'id' });
+          grpcHistStore.createIndex('capturedAt', 'capturedAt', { unique: false });
+          grpcHistStore.createIndex('service', 'service', { unique: false });
+          grpcHistStore.createIndex('method', 'method', { unique: false });
+          grpcHistStore.createIndex('grpcStatus', 'grpcStatus', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('grpc-load-test-profiles')) {
+          const profileStore = db.createObjectStore('grpc-load-test-profiles', { keyPath: 'id' });
+          profileStore.createIndex('name', 'name', { unique: false });
+          profileStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+        }
+        if (!db.objectStoreNames.contains('grpc-schema-diff-acks')) {
+          const ackStore = db.createObjectStore('grpc-schema-diff-acks', { keyPath: 'id' });
+          ackStore.createIndex('baselineDescriptorKey', 'baselineDescriptorKey', { unique: false });
+        }
       };
       req.onsuccess = () => {
         const db = req.result;
@@ -327,7 +357,7 @@ export async function seedTestRunsViaIDB(page: Page, runs: unknown[]): Promise<s
       };
       req.onerror = () => resolve('idb-error');
     });
-  }, runs);
+  }, { testRuns: runs, dbVersion: REDFIREFORGE_IDB_VERSION });
 }
 
 /**
@@ -447,7 +477,7 @@ export async function readRedfireIDBStore<T = unknown>(
         };
         req.onerror = () => resolve(undefined);
       }),
-    { store: storeName, k: key, version: 6 },
+    { store: storeName, k: key, version: REDFIREFORGE_IDB_VERSION },
   );
 }
 
