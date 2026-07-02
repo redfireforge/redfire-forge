@@ -2,6 +2,7 @@
  * @vitest-environment node
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
+import * as rpcSessionStats from '../../../shared/grpc/grpcRpcSessionStats';
 import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
 
 const appendMock = vi.fn().mockResolvedValue(undefined);
@@ -43,6 +44,27 @@ beforeEach(() => {
 });
 
 describe('grpcStudioCallHistoryCapture coverage gaps', () => {
+  it('captureGrpcCallHistoryFromOutcome skips stats when statsSource is false', async () => {
+    const recordSpy = vi.spyOn(rpcSessionStats, 'recordGrpcRpcStatsEvent');
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: snapshot(),
+      result: { grpcStatus: 0, durationMs: 1, metadata: {}, body: {} },
+      statsSource: false,
+    });
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    expect(recordSpy).not.toHaveBeenCalled();
+    recordSpy.mockRestore();
+  });
+
+  it('captureGrpcCallHistoryFromOutcome ignores append failures', async () => {
+    appendMock.mockRejectedValueOnce(new Error('idb down'));
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: snapshot(),
+      result: { grpcStatus: 0, durationMs: 1, metadata: {}, body: {} },
+    });
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+  });
+
   it('captureGrpcCallHistoryFromStreamTerminal forwards explicit result override', async () => {
     captureGrpcCallHistoryFromStreamTerminal(
       { lastExecuteSnapshot: snapshot() },

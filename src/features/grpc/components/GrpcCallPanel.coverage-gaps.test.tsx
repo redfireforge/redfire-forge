@@ -142,6 +142,7 @@ describe('GrpcCallPanel coverage gaps', () => {
       body: { message: '' },
       lifecycle: 'calling',
     });
+    const onCancelUnary = vi.fn();
 
     render(
       <GrpcCallPanel
@@ -150,12 +151,37 @@ describe('GrpcCallPanel coverage gaps', () => {
         serviceFullName="echo.EchoService"
         targetValid
         onPatch={vi.fn()}
-        onCancelUnary={vi.fn()}
+        onCancelUnary={onCancelUnary}
       />,
     );
 
     fireEvent.click(screen.getByTestId('grpc-cancel-btn'));
-    expect(screen.getByTestId('grpc-cancel-btn')).toBeTruthy();
+    expect(onCancelUnary).toHaveBeenCalled();
+  });
+
+  it('invokes onSendUnary when send button is clicked', () => {
+    const echoMethod = FIXTURE_DESCRIPTOR.services[0]!.methods.find((m) => m.name === 'Echo')!;
+    const tab = createGrpcStudioTab({
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'hello' },
+      lifecycle: 'idle',
+    });
+    const onSendUnary = vi.fn();
+
+    render(
+      <GrpcCallPanel
+        tab={tab}
+        method={echoMethod}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+        onSendUnary={onSendUnary}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-send-btn'));
+    expect(onSendUnary).toHaveBeenCalled();
   });
 
   it('shows stream error, TLS hint, and clears stream log', () => {

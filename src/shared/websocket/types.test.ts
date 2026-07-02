@@ -1,14 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   createDefaultDraft,
+  createDefaultReconnectState,
+  createDefaultTlsConfig,
   createFrame,
   resetFrameIdCounter,
   formatBytes,
   formatUptime,
+  getCloseCodeLabel,
   hasCustomHeaders,
+  hasTlsOverrides,
   buildEffectiveUrl,
   profileToDraft,
   draftToProfileFields,
+  resolveBackoffMultiplier,
   WS_STUDIO_MODES,
   WS_LEFT_TABS,
   WS_RIGHT_TABS,
@@ -96,6 +101,54 @@ describe('createFrame', () => {
     const frame = createFrame('sent', 'text', 'x');
     const parsed = new Date(frame.timestamp);
     expect(parsed.getTime()).not.toBeNaN();
+  });
+
+  it('computes binary frame size from base64 when valid', () => {
+    const frame = createFrame('sent', 'binary', btoa('abc'));
+    expect(frame.size).toBe(3);
+  });
+
+  it('falls back to encoded byte length for invalid binary data', () => {
+    const frame = createFrame('sent', 'binary', 'not-valid-base64!!!');
+    expect(frame.size).toBeGreaterThan(0);
+  });
+});
+
+describe('TLS helpers', () => {
+  it('createDefaultTlsConfig rejects unauthorized by default', () => {
+    expect(createDefaultTlsConfig()).toEqual({ rejectUnauthorized: true });
+  });
+
+  it('hasTlsOverrides detects custom TLS fields', () => {
+    expect(hasTlsOverrides(undefined)).toBe(false);
+    expect(hasTlsOverrides({ rejectUnauthorized: true })).toBe(false);
+    expect(hasTlsOverrides({ rejectUnauthorized: false })).toBe(true);
+    expect(hasTlsOverrides({ caCert: 'ca' })).toBe(true);
+    expect(hasTlsOverrides({ clientCert: 'cert', clientKey: 'key' })).toBe(true);
+  });
+});
+
+describe('close code and reconnect helpers', () => {
+  it('getCloseCodeLabel returns preset label or fallback', () => {
+    expect(getCloseCodeLabel(1000)).toBe('Normal');
+    expect(getCloseCodeLabel(4999)).toBe('Code 4999');
+  });
+
+  it('resolveBackoffMultiplier defaults to 2', () => {
+    expect(resolveBackoffMultiplier(undefined)).toBe(2);
+    expect(resolveBackoffMultiplier(null)).toBe(2);
+    expect(resolveBackoffMultiplier(1.5)).toBe(1.5);
+  });
+
+  it('createDefaultReconnectState initializes inactive reconnect tracking', () => {
+    expect(createDefaultReconnectState(3)).toEqual({
+      active: false,
+      attempt: 0,
+      maxAttempts: 3,
+      nextRetryAt: null,
+      lastError: undefined,
+      lostAt: undefined,
+    });
   });
 });
 
@@ -251,6 +304,26 @@ describe('profileToDraft', () => {
     expect(draft.queryParams).toEqual([{ key: 'token', value: '123', enabled: true }]);
   });
 
+  it('copies auth when present on the profile', () => {
+    const profile: WsConnectionProfile = {
+      id: 'p1',
+      name: 'Auth profile',
+      url: 'wss://example.com',
+      headers: [],
+      queryParams: [],
+      subprotocols: '',
+      autoReconnect: false,
+      maxReconnectAttempts: 5,
+      reconnectIntervalMs: 3000,
+      maxMessages: 1000,
+      auth: { type: 'bearer', token: 'secret' } as WsConnectionProfile['auth'],
+      createdAt: '2025-01-01',
+      updatedAt: '2025-01-01',
+    };
+    const draft = profileToDraft(profile);
+    expect(draft.auth).toEqual({ type: 'bearer', token: 'secret' });
+  });
+
   it('deep copies arrays to avoid mutations', () => {
     const profile: WsConnectionProfile = {
       id: 'p1',
@@ -285,6 +358,17 @@ describe('draftToProfileFields', () => {
     expect(fields.subprotocols).toBe('json');
     expect(fields.headers).toEqual([{ key: 'X', value: 'Y', enabled: true }]);
     expect(fields.queryParams).toEqual([{ key: 'a', value: 'b', enabled: false }]);
+  });
+
+  it('includes auth when present on the draft', () => {
+    const draft: WsConnectionDraft = {
+      url: 'wss://test.com',
+      subprotocols: '',
+      headers: [],
+      queryParams: [],
+      auth: { type: 'apiKey', key: 'X-Api-Key', value: 'k' } as WsConnectionDraft['auth'],
+    };
+    expect(draftToProfileFields(draft).auth).toEqual(draft.auth);
   });
 
   it('deep copies arrays to avoid mutations', () => {

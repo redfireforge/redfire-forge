@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FIXTURE_UNARY_CALL_RESULT } from '../../../shared/grpc/contractFixtures';
 import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
@@ -84,9 +84,17 @@ describe('GrpcResponsePanel (Phase 1G)', () => {
 
   it('copies response body to clipboard', async () => {
     const writeText = vi.fn(async () => undefined);
-    Object.assign(navigator, {
-      clipboard: { writeText },
+    const originalClipboard = Object.getOwnPropertyDescriptor(globalThis.navigator, 'clipboard');
+    Object.defineProperty(globalThis.navigator, 'clipboard', {
+      configurable: true,
+      value: { writeText },
     });
+    const timeoutSpy = vi.spyOn(window, 'setTimeout').mockImplementation(((handler: TimerHandler) => {
+      if (typeof handler === 'function') {
+        handler();
+      }
+      return 0 as unknown as ReturnType<typeof setTimeout>;
+    }) as typeof setTimeout);
 
     render(
       <GrpcResponsePanel
@@ -95,8 +103,16 @@ describe('GrpcResponsePanel (Phase 1G)', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('grpc-response-copy'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('grpc-response-copy'));
+      await Promise.resolve();
+    });
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining('"message": "hello grpc"'));
+
+    timeoutSpy.mockRestore();
+    if (originalClipboard) {
+      Object.defineProperty(globalThis.navigator, 'clipboard', originalClipboard);
+    }
   });
 
   it('masks authorization headers in headers tab (Phase 4E)', () => {

@@ -8,6 +8,7 @@ import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
+  FIXTURE_UNARY_CALL_REQUEST,
   FIXTURE_UNARY_CALL_RESULT,
 } from '../../../shared/grpc/contractFixtures';
 import {
@@ -73,6 +74,7 @@ function makeRuntime(sessionRef: { current: ReturnType<typeof createInitialSessi
     envVarMap: {},
     profiles: [],
     pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    workspaceDefaults: { target: 'workspace:50051', tlsMode: 'disabled' },
     maxTabs: 8,
     updateTab,
     patchTabDescriptor: vi.fn(),
@@ -834,5 +836,219 @@ describe('grpcStudioUnaryCommands coverage gaps', () => {
     await createCancelUnaryCallHandler(makeRuntime(sessionRef), core)(tabId);
 
     expect(sessionRef.current.tabs[0]?.lifecycle).toBe('idle');
+  });
+
+  it('prepareExecuteSnapshot binds workspace defaults into interpolation env', () => {
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    session.tabs[0] = {
+      ...session.tabs[0]!,
+      target: '{{grpcHost}}',
+    };
+    const sessionRef = { current: session };
+    const ctx = {
+      ...makeRuntime(sessionRef),
+      envVarMap: { grpcHost: 'localhost:50051' },
+      workspaceDefaults: { grpcHost: 'workspace-host:50051' },
+    };
+    const core = makeCore(sessionRef);
+    const snapshot = createPrepareExecuteSnapshotHandler(ctx, core)(tabId, 'req-workspace');
+    expect(snapshot.target.address).toBe('localhost:50051');
+  });
+
+  it('executeUnaryCall passes express fallback reason from prior tab error', async () => {
+    const invokeSpy = vi.spyOn(transportFacade, 'invokeGrpcUnary').mockResolvedValue({
+      ok: true,
+      data: FIXTURE_UNARY_CALL_RESULT,
+    } as never);
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    session.tabs[0] = {
+      ...session.tabs[0]!,
+      transportMode: 'express',
+      lastError: {
+        code: GRPC_ERROR_CODES.CALL_FAILED,
+        category: 'call_failed',
+        message: 'Express proxy unavailable',
+        details: { fallbackReason: 'proxy_down', expressFallbackOffered: true },
+      },
+    };
+    const sessionRef = { current: session };
+    const core = makeCore(sessionRef);
+    const prepare = createPrepareExecuteSnapshotHandler(makeRuntime(sessionRef), core);
+    await createExecuteUnaryCallHandler(makeRuntime(sessionRef), core, prepare)(tabId);
+    expect(invokeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackReason: 'proxy_down' }),
+    );
+    invokeSpy.mockRestore();
+  });
+
+  it('executeUnaryCall surfaces transport dispatch readiness failures', async () => {
+    vi.spyOn(transportRouter, 'assertGrpcTransportDispatchReady').mockImplementation(() => {
+      throw new Error('Browser transport unavailable');
+    });
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    const sessionRef = { current: session };
+    const core = makeCore(sessionRef);
+    const prepare = createPrepareExecuteSnapshotHandler(makeRuntime(sessionRef), core);
+    await createExecuteUnaryCallHandler(makeRuntime(sessionRef), core, prepare)(tabId);
+    expect(sessionRef.current.tabs[0]?.lifecycle).toBe('error');
+    expect(sessionRef.current.tabs[0]?.lastError?.message).toMatch(/Browser transport unavailable/i);
+    vi.restoreAllMocks();
+  });
+
+  it('executeUnaryCall ignores prepare failures when call generation becomes stale', async () => {
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    const sessionRef = { current: session };
+    const core = makeCore(sessionRef);
+    const prepare = vi.fn(() => {
+      core.callGenerationRef.current[tabId] = 99;
+      throw new Error('prepare failed late');
+    });
+    await createExecuteUnaryCallHandler(makeRuntime(sessionRef), core, prepare)(tabId);
+    expect(sessionRef.current.tabs[0]?.lifecycle).toBe('calling');
+  });
+
+  it('executeUnaryCall rejects non-unary snapshots returned from prepare', async () => {
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    const sessionRef = { current: session };
+    const core = makeCore(sessionRef);
+    const prepare = vi.fn((_tabId: string, requestId: string) => ({
+      tabId,
+      requestId,
+      capturedAt: '2026-07-01T00:00:00.000Z',
+      callType: 'server_streaming' as const,
+      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: 'ServerStream',
+      body: {},
+      metadata: {},
+      timeoutMs: 30_000,
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      transportMode: 'express' as const,
+    }));
+    await createExecuteUnaryCallHandler(makeRuntime(sessionRef), core, prepare)(tabId);
+    expect(sessionRef.current.tabs[0]?.lifecycle).toBe('error');
+    expect(sessionRef.current.tabs[0]?.lastError?.code).toBe(GRPC_ERROR_CODES.INVALID_REQUEST);
+  });
+
+  it('executeUnaryCall maps generic thrown values to stream-style error bodies', async () => {
+    const invokeSpy = vi.spyOn(transportFacade, 'invokeGrpcUnary').mockRejectedValue('plain failure');
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    const sessionRef = { current: session };
+    const core = makeCore(sessionRef);
+    const prepare = createPrepareExecuteSnapshotHandler(makeRuntime(sessionRef), core);
+    await createExecuteUnaryCallHandler(makeRuntime(sessionRef), core, prepare)(tabId);
+    expect(sessionRef.current.tabs[0]?.lifecycle).toBe('error');
+    expect(sessionRef.current.tabs[0]?.lastError?.message).toBe('Unary call failed');
+    invokeSpy.mockRestore();
+  });
+
+  it('executeUnaryCall ignores late success when request id changed mid-flight', async () => {
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    const sessionRef = { current: session };
+    const core = makeCore(sessionRef);
+    const prepare = createPrepareExecuteSnapshotHandler(makeRuntime(sessionRef), core);
+    const invokeSpy = vi.spyOn(transportFacade, 'invokeGrpcUnary').mockImplementation(async () => {
+      core.inFlightCallRef.current[tabId] = 'other-request';
+      return { ok: true, data: FIXTURE_UNARY_CALL_RESULT } as never;
+    });
+    await createExecuteUnaryCallHandler(makeRuntime(sessionRef), core, prepare)(tabId);
+    expect(sessionRef.current.tabs[0]?.lifecycle).toBe('calling');
+    expect(sessionRef.current.tabs[0]?.lastResult).toBeUndefined();
+    invokeSpy.mockRestore();
+  });
+
+  it('executeUnaryCall maps tauri unreachable failures to express fallback bodies', async () => {
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    session.tabs[0] = { ...session.tabs[0]!, transportMode: 'tauri' };
+    const sessionRef = { current: session };
+    const ctx = makeRuntime(sessionRef);
+    const core = makeCore(sessionRef);
+    const prepare = vi.fn((_tabId: string, requestId: string) => ({
+      tabId,
+      requestId,
+      capturedAt: '2026-07-01T00:00:00.000Z',
+      callType: 'unary' as const,
+      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: FIXTURE_UNARY_CALL_REQUEST.method,
+      body: FIXTURE_UNARY_CALL_REQUEST.body,
+      metadata: FIXTURE_UNARY_CALL_REQUEST.metadata,
+      timeoutMs: FIXTURE_UNARY_CALL_REQUEST.timeoutMs,
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      transportMode: 'tauri' as const,
+    }));
+    const invokeSpy = vi.spyOn(transportFacade, 'invokeGrpcUnary').mockRejectedValue(
+      new GrpcApiClientError('call', 'Native channel unavailable', {
+        code: GRPC_ERROR_CODES.UNREACHABLE,
+        category: 'unreachable',
+      }),
+    );
+    await createExecuteUnaryCallHandler(ctx, core, prepare)(tabId);
+    invokeSpy.mockRestore();
+    expect(sessionRef.current.tabs[0]?.lifecycle).toBe('error');
+    expect(isGrpcExpressFallbackOffered(sessionRef.current.tabs[0]?.lastError)).toBe(true);
+  });
+
+  it('executeUnaryCall uses express fallback reason from lastError message when details omit it', async () => {
+    const invokeSpy = vi.spyOn(transportFacade, 'invokeGrpcUnary').mockResolvedValue({
+      ok: true,
+      data: FIXTURE_UNARY_CALL_RESULT,
+    } as never);
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    session.tabs[0] = {
+      ...session.tabs[0]!,
+      transportMode: 'express',
+      lastError: {
+        code: GRPC_ERROR_CODES.CALL_FAILED,
+        category: 'call_failed',
+        message: 'Proxy unavailable',
+        details: { expressFallbackOffered: true },
+      },
+    };
+    const sessionRef = { current: session };
+    const core = makeCore(sessionRef);
+    const prepare = createPrepareExecuteSnapshotHandler(makeRuntime(sessionRef), core);
+    await createExecuteUnaryCallHandler(makeRuntime(sessionRef), core, prepare)(tabId);
+    expect(invokeSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ fallbackReason: 'Proxy unavailable' }),
+    );
+    invokeSpy.mockRestore();
+  });
+
+  it('executeUnaryCall surfaces non-Error transport dispatch failures with default text', async () => {
+    vi.spyOn(transportRouter, 'assertGrpcTransportDispatchReady').mockImplementation(() => {
+      throw 'dispatch string failure';
+    });
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    const sessionRef = { current: session };
+    const core = makeCore(sessionRef);
+    const prepare = createPrepareExecuteSnapshotHandler(makeRuntime(sessionRef), core);
+    await createExecuteUnaryCallHandler(makeRuntime(sessionRef), core, prepare)(tabId);
+    expect(sessionRef.current.tabs[0]?.lastError?.message).toBe('Transport dispatch is not available');
+    vi.restoreAllMocks();
+  });
+
+  it('cancelUnaryCall leaves unrelated tabs unchanged in session commit', async () => {
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    const otherTab = createGrpcStudioTab({ id: 'tab-other', title: 'Other' });
+    session.tabs.push(otherTab);
+    session.tabs[0] = { ...session.tabs[0]!, lifecycle: 'calling', activeRequestId: 'req-cancel-other' };
+    const sessionRef = { current: session };
+    const core = makeCore(sessionRef);
+    core.inFlightCallRef.current[tabId] = 'req-cancel-other';
+    await createCancelUnaryCallHandler(makeRuntime(sessionRef), core)(tabId);
+    expect(sessionRef.current.tabs[0]?.lifecycle).toBe('cancelled');
+    expect(sessionRef.current.tabs[1]?.lifecycle).not.toBe('cancelled');
   });
 });

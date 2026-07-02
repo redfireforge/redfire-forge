@@ -17,6 +17,7 @@ import { initScheduler, stopScheduler } from './cron-scheduler.js';
 import { createCorrelationStore } from './correlation-store-factory.js';
 import { setCorrelationStore } from './correlation-handler.js';
 import { wsMockPool } from './websocket/websocket-mock-service.js';
+import { grpcMockServerPool } from './grpc/grpcMockServerPool.js';
 import { toErrorMessage } from '../src/shared/utils/helpers';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
@@ -101,6 +102,7 @@ async function stopServer() {
 
     // Stop all mock servers managed by the pool
     try { wsMockPool.stopAll(); } catch { /* ignore */ }
+    try { grpcMockServerPool.stopAll(); } catch { /* ignore */ }
 
     // Stop cleanup interval
     if (cleanupInterval) {

@@ -94,6 +94,19 @@ describe('grpcTargetConnection', () => {
     expect(session.errorMessage).toBe('network down');
   });
 
+  it('returns generic message when status probe throws a non-Error value', async () => {
+    vi.mocked(getGrpcStatus).mockRejectedValue('network down');
+
+    const session = await probeGrpcTargetConnection({
+      target: 'localhost:50051',
+      tlsMode: 'disabled',
+      targetValidation: { valid: true, normalized: 'localhost:50051', kind: 'host_port' },
+    } as never);
+
+    expect(session.state).toBe('error');
+    expect(session.errorMessage).toBe('Connection probe failed.');
+  });
+
   it('uses fallback validation message when reason is absent', async () => {
     const session = await probeGrpcTargetConnection({
       target: '',

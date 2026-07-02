@@ -231,6 +231,66 @@ export function findWideIntegralJsonViolations(
   return findWideIntegralJsonViolationsInObject(source, schema, messageIndex, '', strictStringLiterals);
 }
 
+/** Re-sync nested message bodies so wide integrals coerce consistently (OQ-8). */
+function normalizeNestedBodies(
+  body: Record<string, unknown>,
+  schema: GrpcMessageSchema,
+  messageIndex: Map<string, GrpcMessageSchema> | undefined,
+): Record<string, unknown> {
+  if (!messageIndex) return body;
+
+  const next = { ...body };
+  const { regular, oneofGroups } = groupMessageFields(schema.fields);
+
+  const walkField = (field: GrpcFieldSchema) => {
+    if (!Object.prototype.hasOwnProperty.call(next, field.name)) return;
+    const raw = next[field.name];
+    const nestedSchema = resolveNestedMessageSchema(field, messageIndex);
+
+    if (field.isMap && nestedSchema && raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const mapNext: Record<string, unknown> = {};
+      for (const [key, item] of Object.entries(raw as Record<string, unknown>)) {
+        mapNext[key] = item && typeof item === 'object' && !Array.isArray(item)
+          ? normalizeNestedBodies(
+            syncBodyWithSchema(item, nestedSchema),
+            nestedSchema,
+            messageIndex,
+          )
+          : item;
+      }
+      next[field.name] = mapNext;
+      return;
+    }
+
+    if (field.label === 'repeated' && nestedSchema && Array.isArray(raw)) {
+      next[field.name] = raw.map((item) => (
+        item && typeof item === 'object' && !Array.isArray(item)
+          ? normalizeNestedBodies(
+            syncBodyWithSchema(item, nestedSchema),
+            nestedSchema,
+            messageIndex,
+          )
+          : item
+      ));
+      return;
+    }
+
+    if (nestedSchema && raw && typeof raw === 'object' && !Array.isArray(raw)) {
+      const syncedChild = syncBodyWithSchema(raw, nestedSchema);
+      next[field.name] = normalizeNestedBodies(syncedChild, nestedSchema, messageIndex);
+    }
+  };
+
+  for (const field of regular) walkField(field);
+  for (const members of oneofGroups.values()) {
+    const activeName = resolveActiveOneofMember(members, next) ?? members[0]?.name;
+    const active = members.find((member) => member.name === activeName);
+    if (active) walkField(active);
+  }
+
+  return next;
+}
+
 export function applyJsonTextToSchema(
   text: string,
   schema: GrpcMessageSchema,
@@ -249,7 +309,11 @@ export function applyJsonTextToSchema(
 
   return {
     ok: true,
-    body: syncBodyWithSchema(parsed.body, schema),
+    body: normalizeNestedBodies(
+      syncBodyWithSchema(parsed.body, schema),
+      schema,
+      messageIndex,
+    ),
   };
 }
 

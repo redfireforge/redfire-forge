@@ -479,4 +479,802 @@ describe('GrpcProtoFormBuilder coverage gaps', () => {
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-counts-0'), { target: { value: '42' } });
     expect(onChange).toHaveBeenCalledWith({ counts: [42] });
   });
+
+  it('renders well-known scalar and JSON field types', () => {
+    const onChange = vi.fn();
+    const onValidityChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.WktRequest',
+          fields: [
+            { name: 'createdAt', number: 1, type: 'google.protobuf.Timestamp', label: 'optional' },
+            { name: 'ttl', number: 2, type: 'google.protobuf.Duration', label: 'optional' },
+            { name: 'flag', number: 3, type: 'google.protobuf.BoolValue', label: 'optional' },
+            { name: 'label', number: 4, type: 'google.protobuf.StringValue', label: 'optional' },
+            { name: 'count', number: 5, type: 'google.protobuf.Int32Value', label: 'optional' },
+            { name: 'bigId', number: 6, type: 'google.protobuf.Int64Value', label: 'optional' },
+            { name: 'payload', number: 7, type: 'google.protobuf.Any', label: 'optional' },
+            { name: 'meta', number: 8, type: 'google.protobuf.Struct', label: 'optional' },
+          ],
+        }}
+        body={{
+          createdAt: '2020-01-01T00:00:00.000Z',
+          ttl: '1s',
+          flag: { value: false },
+          label: { value: 'x' },
+          count: { value: 1 },
+          bigId: { value: '42' },
+          payload: { '@type': 'type.googleapis.com/demo.Payload' },
+          meta: { k: 1 },
+        }}
+        onChange={onChange}
+        onValidityChange={onValidityChange}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-proto-any-hint')).toBeTruthy();
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-flag'), { target: { value: 'true' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-label'), { target: { value: 'renamed' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-count'), { target: { value: '9' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-bigId'), { target: { value: 'not-a-number' } });
+    expect(onValidityChange).toHaveBeenCalledWith(false);
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it('adds and removes map entries including pending keys', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={MAP_SCHEMA}
+        body={{ labels: { env: 'dev' } }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByText('+ Add entry'));
+    expect(onChange).toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('Remove labels entry 1'));
+    expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('switches oneof members via radio buttons and edits active field', () => {
+    const onChange = vi.fn();
+
+    function OneofHarness() {
+      const [body, setBody] = useState<Record<string, unknown>>({ text: 'hello' });
+      return (
+        <GrpcProtoFormBuilder
+          schema={ONEOF_SCHEMA}
+          body={body}
+          onChange={(next) => {
+            setBody(next);
+            onChange(next);
+          }}
+        />
+      );
+    }
+
+    render(<OneofHarness />);
+    fireEvent.click(screen.getByTestId('grpc-proto-oneof-radio-payload-count'));
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-count'), { target: { value: '3' } });
+    expect(onChange).toHaveBeenCalledWith({ count: 3 });
+  });
+
+  it('validates wide integral scalar fields', () => {
+    const onChange = vi.fn();
+    const onValidityChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.WideIntegral',
+          fields: [
+            { name: 'orderId', number: 1, type: 'int64', label: 'optional' },
+            { name: 'token', number: 2, type: 'uint64', label: 'optional' },
+          ],
+        }}
+        body={{ orderId: '42', token: '99' }}
+        onChange={onChange}
+        onValidityChange={onValidityChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-token'), { target: { value: '-1' } });
+    expect(onValidityChange).toHaveBeenCalledWith(false);
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-orderId'), { target: { value: '100' } });
+    expect(onChange).toHaveBeenCalledWith({ orderId: '100', token: '99' });
+  });
+
+  it('reindexes map entry validation errors when removing rows', () => {
+    function MapHarness() {
+      const [body, setBody] = useState<Record<string, unknown>>({
+        counts: { a: '1', b: '2' },
+      });
+      return (
+        <GrpcProtoFormBuilder
+          schema={{
+            typeName: 'demo.Int64Map',
+            fields: [{
+              name: 'counts',
+              number: 1,
+              type: 'int64',
+              label: 'optional',
+              isMap: true,
+              mapKeyType: 'string',
+            }],
+          }}
+          body={body}
+          onChange={setBody}
+          onValidityChange={vi.fn()}
+        />
+      );
+    }
+
+    render(<MapHarness />);
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-counts-value-1'), { target: { value: 'bad' } });
+    fireEvent.click(screen.getByLabelText('Remove counts entry 1'));
+    expect(screen.queryByTestId('grpc-proto-field-input-counts-value-1')).toBeNull();
+  });
+
+  it('renders nested messages with schema index for wide-integral validation', () => {
+    const innerSchema: GrpcMessageSchema = {
+      typeName: 'demo.Payload',
+      fields: [{ name: 'token', number: 1, type: 'uint64', label: 'optional' }],
+    };
+    const onValidityChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.Outer',
+          fields: [{
+            name: 'payload',
+            number: 1,
+            type: 'message',
+            label: 'optional',
+            messageTypeName: 'demo.Payload',
+          }],
+        }}
+        body={{ payload: { token: '1' } }}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
+        messageTypes={[innerSchema]}
+      />,
+    );
+    fireEvent.change(
+      screen.getByTestId('grpc-proto-field-input-payload'),
+      { target: { value: '{\n  "token": 42\n}' } },
+    );
+    expect(onValidityChange).toHaveBeenCalledWith(true);
+    expect(screen.getByTestId('grpc-proto-field-input-payload-error').textContent).toMatch(/quoted decimal string/i);
+  });
+
+  it('renames map keys and keeps pending keys when key input is cleared', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={MAP_SCHEMA}
+        body={{ labels: { env: 'dev' } }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-labels-key-0'), { target: { value: 'stage' } });
+    expect(onChange).toHaveBeenCalledWith({ labels: { stage: 'dev' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-labels-key-0'), { target: { value: '' } });
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it('renders repeated bool items and float scalar fields', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.MixedScalars',
+          fields: [
+            { name: 'flags', number: 1, type: 'bool', label: 'repeated' },
+            { name: 'ratio', number: 2, type: 'double', label: 'optional' },
+          ],
+        }}
+        body={{ flags: [false], ratio: 1.5 }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-flags-0'), { target: { value: 'true' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-ratio'), { target: { value: '2.5' } });
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it('clears field-level validation errors after valid input', () => {
+    const onValidityChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.Numeric',
+          fields: [{ name: 'count', number: 1, type: 'int32', label: 'optional' }],
+        }}
+        body={{ count: 0 }}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-count'), { target: { value: 'bad' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-count'), { target: { value: '7' } });
+    expect(onValidityChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it('renders repeated nested messages when message types are provided', () => {
+    const payloadSchema: GrpcMessageSchema = {
+      typeName: 'demo.Payload',
+      fields: [{ name: 'id', number: 1, type: 'string', label: 'optional' }],
+    };
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.RepeatedNested',
+          fields: [{
+            name: 'items',
+            number: 1,
+            type: 'message',
+            label: 'repeated',
+            messageTypeName: 'demo.Payload',
+          }],
+        }}
+        body={{ items: [{ id: 'a' }] }}
+        onChange={onChange}
+        messageTypes={[payloadSchema]}
+      />,
+    );
+    fireEvent.change(
+      screen.getByTestId('grpc-proto-field-input-items-0'),
+      { target: { value: '{\n  "id": "updated"\n}' } },
+    );
+    expect(onChange).toHaveBeenCalledWith({ items: [{ id: 'updated' }] });
+  });
+
+  it('renders oneof repeated members with scoped field error keys', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.OneofRepeated',
+          fields: [
+            { name: 'tags', number: 1, type: 'string', label: 'repeated', isOneofMember: true, oneofName: 'pick' },
+            { name: 'count', number: 2, type: 'int32', label: 'optional', isOneofMember: true, oneofName: 'pick' },
+          ],
+        }}
+        body={{ tags: ['a'] }}
+        onChange={onChange}
+      />,
+    );
+    expect(screen.getByTestId('grpc-proto-field-input-pick.tags-0')).toBeTruthy();
+    fireEvent.click(screen.getByText('+ Add item'));
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it('preserves pending map keys when a new entry key is left blank', () => {
+    function MapHarness() {
+      const [body, setBody] = useState<Record<string, unknown>>({ labels: {} });
+      return (
+        <GrpcProtoFormBuilder
+          schema={MAP_SCHEMA}
+          body={body}
+          onChange={setBody}
+        />
+      );
+    }
+
+    render(<MapHarness />);
+    fireEvent.click(screen.getByText('+ Add entry'));
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-labels-key-0'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-labels-value-0'), { target: { value: 'pending' } });
+    expect(screen.getByTestId('grpc-proto-field-input-labels-value-0')).toBeTruthy();
+  });
+
+  it('renders enum badge labels and optional field notes on scalar rows', () => {
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.EnumNote',
+          fields: [{
+            name: 'mode',
+            number: 3,
+            type: 'enum',
+            label: 'optional',
+            enumTypeName: 'demo.Mode',
+            enumValues: [{ name: 'UNKNOWN', number: 0 }],
+          }],
+        }}
+        body={{ mode: 0 }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('grpc-proto-field-mode').textContent).toMatch(/enum/);
+    expect(screen.getByTestId('grpc-proto-field-mode').textContent).toMatch(/#3 optional/);
+  });
+
+  it('validates wide integral defaults on mount and clears repeated item errors', () => {
+    const onValidityChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.RepeatedOnly',
+          fields: [{ name: 'counts', number: 1, type: 'int32', label: 'repeated' }],
+        }}
+        body={{ counts: [1] }}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-counts-0'), { target: { value: 'bad' } });
+    expect(onValidityChange).toHaveBeenCalledWith(false);
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-counts-0'), { target: { value: '2' } });
+    expect(onValidityChange).toHaveBeenLastCalledWith(true);
+  });
+
+  it('omits blank map keys from persisted map bodies', () => {
+    function MapHarness() {
+      const [body, setBody] = useState< Record<string, unknown>>({ labels: {} });
+      return (
+        <GrpcProtoFormBuilder
+          schema={MAP_SCHEMA}
+          body={body}
+          onChange={setBody}
+        />
+      );
+    }
+
+    render(<MapHarness />);
+    fireEvent.click(screen.getByText('+ Add entry'));
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-labels-value-0'), { target: { value: 'only-value' } });
+    expect(screen.getByTestId('grpc-proto-field-input-labels-value-0')).toBeTruthy();
+  });
+
+  it('avoids duplicate field error state updates for repeated invalid edits', () => {
+    const onValidityChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.DuplicateErrors',
+          fields: [{ name: 'count', number: 1, type: 'int32', label: 'optional' }],
+        }}
+        body={{ count: 0 }}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
+      />,
+    );
+    const input = screen.getByTestId('grpc-proto-field-input-count');
+    fireEvent.change(input, { target: { value: 'bad' } });
+    fireEvent.change(input, { target: { value: 'worse' } });
+    expect(onValidityChange).toHaveBeenCalledWith(false);
+  });
+
+  it('flags invalid wide integral values on mount before editing', () => {
+    const onValidityChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.InvalidWide',
+          fields: [{ name: 'orderId', number: 1, type: 'int64', label: 'optional' }],
+        }}
+        body={{ orderId: 'not-a-number' }}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
+      />,
+    );
+    expect(onValidityChange).toHaveBeenCalledWith(false);
+  });
+
+  it('renders bytes placeholders and nested messages without a schema index', () => {
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.BytesNested',
+          fields: [
+            { name: 'payload', number: 1, type: 'bytes', label: 'optional' },
+            { name: 'child', number: 2, type: 'message', label: 'optional', messageTypeName: 'demo.Child' },
+          ],
+        }}
+        body={{ payload: '', child: {} }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect((screen.getByTestId('grpc-proto-field-input-payload') as HTMLInputElement).placeholder)
+      .toMatch(/base64/i);
+    expect(screen.getByTestId('grpc-proto-field-input-child')).toBeTruthy();
+  });
+
+  it('renders Any type picker from message types and writes @type on selection', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.AnyRequest',
+          fields: [
+            { name: 'payload', number: 1, type: 'google.protobuf.Any', label: 'optional' },
+          ],
+        }}
+        body={{ payload: {} }}
+        onChange={onChange}
+        messageTypes={[
+          { typeName: 'demo.OrderCreated', fields: [] },
+          { typeName: 'demo.OrderCancelled', fields: [] },
+        ]}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-proto-any-type-select-payload'), {
+      target: { value: 'demo.OrderCreated' },
+    });
+    expect(onChange).toHaveBeenCalledWith({
+      payload: {
+        '@type': 'type.googleapis.com/demo.OrderCreated',
+      },
+    });
+  });
+
+  it('shows custom Any type note when current @type is not in loaded schema list', () => {
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.AnyRequest',
+          fields: [
+            { name: 'payload', number: 1, type: 'google.protobuf.Any', label: 'optional' },
+          ],
+        }}
+        body={{
+          payload: {
+            '@type': 'type.googleapis.com/demo.ExternalMessage',
+            id: 'x',
+          },
+        }}
+        onChange={vi.fn()}
+        messageTypes={[
+          { typeName: 'demo.OrderCreated', fields: [] },
+        ]}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-proto-any-type-unsupported-payload').textContent)
+      .toMatch(/demo\.ExternalMessage/);
+  });
+
+  it('switches oneof members without clearing sibling errors when none exist', () => {
+    const onChange = vi.fn();
+    function OneofHarness() {
+      const [body, setBody] = useState<Record<string, unknown>>({ text: 'hello' });
+      return (
+        <GrpcProtoFormBuilder
+          schema={ONEOF_SCHEMA}
+          body={body}
+          onChange={(next) => {
+            setBody(next);
+            onChange(next);
+          }}
+        />
+      );
+    }
+    render(<OneofHarness />);
+    fireEvent.change(screen.getByTestId('grpc-proto-oneof-select-payload'), { target: { value: 'count' } });
+    expect(onChange).toHaveBeenCalledWith({ count: 0 });
+  });
+
+  it('keeps pending map storage keys when blank keys are edited', () => {
+    function MapHarness() {
+      const [body, setBody] = useState<Record<string, unknown>>({ labels: {} });
+      return (
+        <GrpcProtoFormBuilder
+          schema={MAP_SCHEMA}
+          body={body}
+          onChange={setBody}
+        />
+      );
+    }
+    render(<MapHarness />);
+    fireEvent.click(screen.getByText('+ Add entry'));
+    const keyInput = screen.getByTestId('grpc-proto-field-input-labels-key-0') as HTMLInputElement;
+    expect(keyInput.value).toBe('');
+    fireEvent.change(keyInput, { target: { value: '   ' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-labels-value-0'), { target: { value: 'v' } });
+    expect(screen.getByTestId('grpc-proto-field-input-labels-value-0')).toBeTruthy();
+  });
+
+  it('ignores unknown oneof select values', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={ONEOF_SCHEMA}
+        body={{ text: 'hello' }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-oneof-select-payload'), { target: { value: 'missing-member' } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('commits valid wide integral strings and clears them back to zero', () => {
+    const onChange = vi.fn();
+    function WideHarness() {
+      const [body, setBody] = useState<Record<string, unknown>>({ orderId: '' });
+      return (
+        <GrpcProtoFormBuilder
+          schema={{
+            typeName: 'demo.WideIntegralCommit',
+            fields: [{ name: 'orderId', number: 1, type: 'int64', label: 'optional' }],
+          }}
+          body={body}
+          onChange={(next) => {
+            setBody(next);
+            onChange(next);
+          }}
+        />
+      );
+    }
+    render(<WideHarness />);
+    const input = screen.getByTestId('grpc-proto-field-input-orderId');
+    fireEvent.change(input, { target: { value: '9007199254740993' } });
+    expect(onChange).toHaveBeenCalledWith({ orderId: '9007199254740993' });
+    fireEvent.change(input, { target: { value: '' } });
+    expect(onChange).toHaveBeenCalledWith({ orderId: '0' });
+  });
+
+  it('skips repeated row error bookkeeping when the same row stays invalid', () => {
+    const onValidityChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.RepeatedInvalid',
+          fields: [{ name: 'counts', number: 1, type: 'int32', label: 'repeated' }],
+        }}
+        body={{ counts: [0] }}
+        onChange={vi.fn()}
+        onValidityChange={onValidityChange}
+      />,
+    );
+    const input = screen.getByTestId('grpc-proto-field-input-counts-0');
+    fireEvent.change(input, { target: { value: 'bad' } });
+    fireEvent.change(input, { target: { value: 'still-bad' } });
+    expect(onValidityChange).toHaveBeenCalledWith(false);
+  });
+
+  it('renders float and bytes fields with valid edits', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.PrimitiveRequest',
+          fields: [
+            { name: 'ratio', number: 1, type: 'float', label: 'optional' },
+            { name: 'payload', number: 2, type: 'bytes', label: 'optional' },
+          ],
+        }}
+        body={{ ratio: 0, payload: '' }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-ratio'), { target: { value: '1.5' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-payload'), { target: { value: 'aGVsbG8=' } });
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it('renders double and unsigned integral fields', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.WideNumericRequest',
+          fields: [
+            { name: 'amount', number: 1, type: 'double', label: 'optional' },
+            { name: 'count', number: 2, type: 'uint32', label: 'optional' },
+            { name: 'tag', number: 3, type: 'fixed32', label: 'optional' },
+          ],
+        }}
+        body={{ amount: 0, count: 0, tag: 0 }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-amount'), { target: { value: '2.5' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-count'), { target: { value: '42' } });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-tag'), { target: { value: '7' } });
+    expect(onChange).toHaveBeenCalled();
+  });
+
+  it('defaults google.protobuf.Int32Value wrapper edits to zero for invalid numbers', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.WrapperRequest',
+          fields: [{ name: 'count', number: 1, type: 'google.protobuf.Int32Value', label: 'optional' }],
+        }}
+        body={{ count: { value: 1 } }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-count'), { target: { value: 'not-a-number' } });
+    expect(onChange).toHaveBeenCalledWith({ count: { value: 0 } });
+  });
+
+  it('writes slash-containing Any type selections without adding a second prefix', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.AnyRequest',
+          fields: [{ name: 'payload', number: 1, type: 'google.protobuf.Any', label: 'optional' }],
+        }}
+        body={{ payload: {} }}
+        onChange={onChange}
+        messageTypes={[
+          { typeName: 'custom.example.com/demo.ExternalMessage', fields: [] },
+        ]}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-any-type-select-payload'), {
+      target: { value: 'custom.example.com/demo.ExternalMessage' },
+    });
+    expect(onChange).toHaveBeenCalledWith({
+      payload: {
+        '@type': 'custom.example.com/demo.ExternalMessage',
+      },
+    });
+  });
+
+  it('ignores blank Any type selections', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.AnyRequest',
+          fields: [{ name: 'payload', number: 1, type: 'google.protobuf.Any', label: 'optional' }],
+        }}
+        body={{
+          payload: { '@type': 'type.googleapis.com/demo.OrderCreated' },
+        }}
+        onChange={onChange}
+        messageTypes={[
+          { typeName: 'demo.OrderCreated', fields: [] },
+          { typeName: 'demo.OrderCancelled', fields: [] },
+        ]}
+      />,
+    );
+    onChange.mockClear();
+    fireEvent.change(screen.getByTestId('grpc-proto-any-type-select-payload'), { target: { value: '' } });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('renders message map field badges', () => {
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.MessageMapRequest',
+          fields: [{
+            name: 'payloads',
+            number: 1,
+            type: 'message',
+            label: 'optional',
+            isMap: true,
+            mapKeyType: 'string',
+            messageTypeName: 'demo.Payload',
+          }],
+        }}
+        body={{ payloads: {} }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByText(/map<string, demo.Payload>/)).toBeTruthy();
+  });
+
+  it('updates google.protobuf.StringValue wrappers from scalar edits', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.StringWrapperRequest',
+          fields: [{ name: 'label', number: 1, type: 'google.protobuf.StringValue', label: 'optional' }],
+        }}
+        body={{ label: { value: 'hello' } }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-label'), { target: { value: 'updated' } });
+    expect(onChange).toHaveBeenCalledWith({ label: { value: 'updated' } });
+  });
+
+  it('parses Any bodies with slash-delimited and plain type URLs', () => {
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.AnyRequest',
+          fields: [{ name: 'payload', number: 1, type: 'google.protobuf.Any', label: 'optional' }],
+        }}
+        body={{ payload: { '@type': 'custom.example.com/demo.ExternalMessage', id: 'x' } }}
+        onChange={vi.fn()}
+        messageTypes={[{ typeName: 'demo.OtherMessage', fields: [] }]}
+      />,
+    );
+    expect(screen.getByTestId('grpc-proto-any-type-unsupported-payload').textContent)
+      .toMatch(/ExternalMessage/);
+  });
+
+  it('ignores Any payloads with non-string or empty @type values', () => {
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.AnyRequest',
+          fields: [{ name: 'payload', number: 1, type: 'google.protobuf.Any', label: 'optional' }],
+        }}
+        body={{ payload: { '@type': 123 } }}
+        onChange={vi.fn()}
+        messageTypes={[{ typeName: 'demo.Message', fields: [] }]}
+      />,
+    );
+    expect(screen.getByTestId('grpc-proto-any-type-select-payload')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-proto-any-type-unsupported-payload')).toBeNull();
+  });
+
+  it('renders plain Any type names without a type.googleapis.com prefix', () => {
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.AnyRequest',
+          fields: [{ name: 'payload', number: 1, type: 'google.protobuf.Any', label: 'optional' }],
+        }}
+        body={{ payload: { '@type': 'PlainMessageName' } }}
+        onChange={vi.fn()}
+        messageTypes={[{ typeName: 'demo.OtherMessage', fields: [] }]}
+      />,
+    );
+    expect(screen.getByTestId('grpc-proto-any-type-unsupported-payload').textContent)
+      .toMatch(/PlainMessageName/);
+  });
+
+  it('updates google.protobuf.BoolValue wrappers from select edits', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.BoolWrapperRequest',
+          fields: [{ name: 'enabled', number: 1, type: 'google.protobuf.BoolValue', label: 'optional' }],
+        }}
+        body={{ enabled: { value: false } }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-enabled'), { target: { value: 'true' } });
+    expect(onChange).toHaveBeenCalledWith({ enabled: { value: true } });
+  });
+
+  it('ignores Any payloads with whitespace-only @type values', () => {
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.AnyRequest',
+          fields: [{ name: 'payload', number: 1, type: 'google.protobuf.Any', label: 'optional' }],
+        }}
+        body={{ payload: { '@type': '   ' } }}
+        onChange={vi.fn()}
+        messageTypes={[{ typeName: 'demo.Message', fields: [] }]}
+      />,
+    );
+    expect(screen.queryByTestId('grpc-proto-any-type-unsupported-payload')).toBeNull();
+  });
+
+  it('renders generic map badges for scalar value types', () => {
+    render(
+      <GrpcProtoFormBuilder
+        schema={{
+          typeName: 'demo.ScalarMapRequest',
+          fields: [{
+            name: 'counts',
+            number: 1,
+            type: 'int32',
+            label: 'optional',
+            isMap: true,
+            mapKeyType: 'string',
+          }],
+        }}
+        body={{ counts: {} }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('grpc-proto-field-counts').textContent).toMatch(/map<string, int32>/);
+  });
 });

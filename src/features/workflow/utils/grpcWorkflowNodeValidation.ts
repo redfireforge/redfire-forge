@@ -13,7 +13,12 @@ import type {
   GrpcWorkflowBaseConfig,
   GrpcWorkflowNodeType,
 } from '../types/workflow/node-grpc';
-import { isGrpcWorkflowNodeType } from '../types/workflow/node-grpc';
+import { isGrpcWorkflowNodeType, isGrpcWorkflowNodeTypeIncludingAdvanced } from '../types/workflow/node-grpc';
+import {
+  validateGrpcLoadTestNodeData,
+  validateGrpcMockAssertNodeData,
+  validateGrpcSchemaDiffNodeData,
+} from './grpcWorkflowAdvancedNodeValidation';
 
 export const GRPC_WORKFLOW_VALIDATION_CODES = {
   MISSING_LABEL: 'grpc.workflow.missing_label',
@@ -395,6 +400,59 @@ function assertionKinds(assertion: GrpcWorkflowAssertion): string[] {
   return kinds;
 }
 
+function isValidGrpcAssertFieldPath(path: string): boolean {
+  const trimmed = path.trim();
+  if (!trimmed) return false;
+
+  // Accept "$" root and both "$.*"/"$[...]" prefixed forms, while preserving
+  // compatibility with legacy relative paths like "message".
+  let normalized = trimmed;
+  if (normalized === '$') return true;
+  if (normalized.startsWith('$.')) {
+    normalized = normalized.slice(2);
+  } else if (normalized.startsWith('$[')) {
+    normalized = normalized.slice(1);
+  } else if (normalized.startsWith('$')) {
+    return false;
+  }
+
+  if (!normalized) return false;
+  if (normalized.startsWith('.') || normalized.endsWith('.') || normalized.includes('..')) {
+    return false;
+  }
+
+  let i = 0;
+  let sawToken = false;
+  while (i < normalized.length) {
+    const ch = normalized[i];
+    if (ch === '.') {
+      if (!sawToken || i === normalized.length - 1) return false;
+      i += 1;
+      continue;
+    }
+    if (ch === '[') {
+      const end = normalized.indexOf(']', i + 1);
+      if (end === -1) return false;
+      const inner = normalized.slice(i + 1, end).trim();
+      if (!/^\d+$/.test(inner) && inner !== '*') return false;
+      sawToken = true;
+      i = end + 1;
+      continue;
+    }
+    if (ch === ']') return false;
+
+    let j = i;
+    while (j < normalized.length && normalized[j] !== '.' && normalized[j] !== '[' && normalized[j] !== ']') {
+      j += 1;
+    }
+    if (j === i) return false;
+    sawToken = true;
+    i = j;
+  }
+
+  return sawToken;
+}
+
 function validateAssertionShape(
   assertion: GrpcWorkflowAssertion,
   issues: GrpcWorkflowValidationIssue[],
@@ -442,6 +500,15 @@ function validateAssertionShape(
         field: `assertions[${index}].grpcField`,
         code: GRPC_WORKFLOW_VALIDATION_CODES.INVALID_ASSERTION,
         message: 'grpcField path is required',
+      });
+      return;
+    }
+    if (!isValidGrpcAssertFieldPath(field)) {
+      pushIssue(issues, {
+        nodeId,
+        field: `assertions[${index}].grpcField`,
+        code: GRPC_WORKFLOW_VALIDATION_CODES.INVALID_ASSERTION,
+        message: 'grpcField must be a valid JSONPath (e.g. $.message, messages[0].field, payload.items[0])',
       });
       return;
     }
@@ -592,7 +659,7 @@ export function validateGrpcWorkflowNodeData(
   data: unknown,
   nodeId?: string,
 ): GrpcWorkflowNodeValidationResult {
-  if (!isGrpcWorkflowNodeType(nodeType)) {
+  if (!isGrpcWorkflowNodeType(nodeType) && !isGrpcWorkflowNodeTypeIncludingAdvanced(nodeType)) {
     return {
       valid: false,
       issues: [{
@@ -610,6 +677,12 @@ export function validateGrpcWorkflowNodeData(
       return validateGrpcServerStreamNodeData(data as GrpcServerStreamNodeData, nodeId);
     case 'grpcAssert':
       return validateGrpcAssertNodeData(data as GrpcAssertNodeData, nodeId);
+    case 'grpcLoadTest':
+      return validateGrpcLoadTestNodeData(data as import('../types/workflow/node-grpc-advanced').GrpcLoadTestNodeData, nodeId);
+    case 'grpcSchemaDiff':
+      return validateGrpcSchemaDiffNodeData(data as import('../types/workflow/node-grpc-advanced').GrpcSchemaDiffNodeData, nodeId);
+    case 'grpcMockAssert':
+      return validateGrpcMockAssertNodeData(data as import('../types/workflow/node-grpc-advanced').GrpcMockAssertNodeData, nodeId);
     default:
       return { valid: true, issues: [] };
   }
@@ -621,6 +694,8 @@ export function defaultGrpcWorkflowTimeoutMs(): number {
 
 /** Modal/save guard — mirrors `hasGraphqlNodeConfigErrors` for Phase 6G config panels. */
 export function hasGrpcWorkflowNodeConfigErrors(nodeType: string, data: unknown): boolean {
-  if (!isGrpcWorkflowNodeType(nodeType)) return false;
+  if (!isGrpcWorkflowNodeType(nodeType) && !isGrpcWorkflowNodeTypeIncludingAdvanced(nodeType)) {
+    return false;
+  }
   return !validateGrpcWorkflowNodeData(nodeType, data).valid;
 }

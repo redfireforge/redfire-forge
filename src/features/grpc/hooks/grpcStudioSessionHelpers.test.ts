@@ -128,6 +128,22 @@ describe('grpcStudioSessionHelpers', () => {
     expect(patch).not.toHaveProperty('id');
   });
 
+  it('sanitizeTabPatch clones k8s port-forward session config', () => {
+    const config = {
+      namespace: 'default',
+      targetType: 'service' as const,
+      name: 'echo',
+      remotePort: 50051,
+      localPort: 50051,
+      context: '',
+    };
+    const patch = sanitizeTabPatch({
+      k8sPortForward: { config, active: true },
+    });
+    expect(patch.k8sPortForward?.config).not.toBe(config);
+    expect(patch.k8sPortForward).toEqual({ config, active: true });
+  });
+
   it('prepareGrpcTabPatchForConsumer redacts secrets for history export', () => {
     const patch = prepareGrpcTabPatchForConsumer({
       auth: { type: 'bearer', bearerToken: 'persist-me-not' },

@@ -37,6 +37,24 @@ pub(crate) async fn run_server_stream(
     request.set_timeout(timeout);
 
     let mut grpc = Grpc::new(channel);
+    let ready = tokio::select! {
+        result = grpc.ready() => result,
+        _ = cancel_token.cancelled() => {
+            ctx.emit_cancelled_end(&state);
+            return;
+        }
+    };
+    if let Err(error) = ready {
+        handle_stream_status(
+            &state,
+            &ctx,
+            Status::internal(error.to_string()),
+            HashMap::new(),
+            HashMap::new(),
+        );
+        return;
+    }
+
     let response = tokio::select! {
         result = grpc.server_streaming(request, path, BytesCodec) => result,
         _ = cancel_token.cancelled() => {
@@ -109,6 +127,24 @@ pub(crate) async fn run_client_stream(
     request.set_timeout(timeout);
 
     let mut grpc = Grpc::new(channel);
+    let ready = tokio::select! {
+        result = grpc.ready() => result,
+        _ = cancel_token.cancelled() => {
+            ctx.emit_cancelled_end(&state);
+            return;
+        }
+    };
+    if let Err(error) = ready {
+        handle_stream_status(
+            &state,
+            &ctx,
+            Status::internal(error.to_string()),
+            HashMap::new(),
+            HashMap::new(),
+        );
+        return;
+    }
+
     let response = tokio::select! {
         result = grpc.client_streaming(request, path, BytesCodec) => result,
         _ = cancel_token.cancelled() => {
@@ -159,6 +195,24 @@ pub(crate) async fn run_bidi_stream(
     request.set_timeout(timeout);
 
     let mut grpc = Grpc::new(channel);
+    let ready = tokio::select! {
+        result = grpc.ready() => result,
+        _ = cancel_token.cancelled() => {
+            ctx.emit_cancelled_end(&state);
+            return;
+        }
+    };
+    if let Err(error) = ready {
+        handle_stream_status(
+            &state,
+            &ctx,
+            Status::internal(error.to_string()),
+            HashMap::new(),
+            HashMap::new(),
+        );
+        return;
+    }
+
     let response = tokio::select! {
         result = grpc.streaming(request, path, BytesCodec) => result,
         _ = cancel_token.cancelled() => {

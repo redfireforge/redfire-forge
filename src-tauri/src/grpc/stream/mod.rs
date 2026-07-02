@@ -23,6 +23,7 @@ pub use end::execute_grpc_stream_end;
 pub use send::execute_grpc_stream_send;
 pub use start::execute_grpc_stream_start;
 
+#[allow(unused_imports)]
 pub(crate) use context::OUTBOUND_CHANNEL_CAPACITY;
 
 #[tauri::command]

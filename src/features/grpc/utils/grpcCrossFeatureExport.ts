@@ -77,6 +77,14 @@ export function prepareGrpcHarnessExecuteSnapshotExport(
 }
 
 export { prepareGrpcHarnessResultReportExport };
+export {
+  prepareGrpcHarnessResultReportExportWithAdvanced,
+  prepareGrpcLoadTestProfileHarnessFixture,
+} from '../../../shared/grpc/grpcHarnessAdvancedPromotion';
+export type {
+  GrpcHarnessResultReportExportWithAdvanced,
+  GrpcLoadTestHarnessProfileFixture,
+} from '../../../shared/grpc/grpcHarnessAdvancedPromotion';
 
 export function prepareGrpcExportBundle(input: {
   snapshot: GrpcTabExecuteSnapshot;

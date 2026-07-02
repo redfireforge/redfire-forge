@@ -1,5 +1,5 @@
 /**
- * Phase 6C/6D — production GrpcNodeOperations bridge for workflow runner.
+ * Phase 6C/6D/11N — production GrpcNodeOperations bridge for workflow runner.
  */
 import type { GrpcCallRequest, GrpcStreamStartRequest } from './contracts';
 import { invokeGrpcUnary, retainGrpcNativeTransport, selectGrpcTransport } from './grpcTransportFacade';
@@ -8,6 +8,8 @@ import type { GrpcNodeOperations } from '../../features/workflow/engine/graphRun
 import type { GrpcServerStreamCollectConfig } from '../../features/workflow/types/workflow/node-grpc';
 import { collectGrpcWorkflowServerStream } from '../../features/workflow/utils/grpcWorkflowStreamCollector';
 import type { GrpcUnaryInvokeResult } from '../../features/workflow/utils/grpcWorkflowUnaryExecutor';
+import { resolveGrpcWorkflowDescriptorByKey } from './grpcWorkflowDescriptorResolver';
+import { getGrpcLoadTestProfileById } from '../../features/grpc/data/grpcLoadTestProfileRepository';
 
 let workflowNativeTransportRetained = false;
 
@@ -48,6 +50,14 @@ export function buildGrpcNodeOperations(): GrpcNodeOperations {
       return collectGrpcWorkflowServerStream(request, tabId, collect, {
         abortSignal: options?.abortSignal,
       });
+    },
+    resolveDescriptor: resolveGrpcWorkflowDescriptorByKey,
+    resolveLoadTestProfile: async (profileId) => {
+      const profile = await getGrpcLoadTestProfileById(profileId);
+      if (!profile) {
+        throw new Error(`Load test profile not found: ${profileId}`);
+      }
+      return profile.config;
     },
   };
 }

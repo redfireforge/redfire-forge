@@ -110,4 +110,13 @@ echo "--- Step 6: Phase 6I regression subset ---"
 grpc_gate_run_regression "Phase phase6i" test:grpc:phase6i
 echo ""
 
+echo "--- Step 7: Native transport E2E (desktop CI opt-in) ---"
+if [[ "${E2E_TAURI_NATIVE_GRPC:-0}" == "1" ]]; then
+  npx playwright test e2e/grpc-studio-native-transport.spec.ts --reporter=list
+  echo "✓ Native desktop E2E passed"
+else
+  echo "Skipping native desktop E2E (set E2E_TAURI_NATIVE_GRPC=1 to enable)"
+fi
+echo ""
+
 echo "=== Phase 7I gate: PASSED ==="

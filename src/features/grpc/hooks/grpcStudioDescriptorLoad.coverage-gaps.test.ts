@@ -12,6 +12,7 @@ import * as downloadProtoset from '../utils/downloadProtoset';
 import * as resolveGrpcTabConnection from '../utils/resolveGrpcTabConnection';
 import * as secretVault from '../utils/grpcTabSecretVault';
 import { createInitialSessionState } from './grpcStudioSessionHelpers';
+import * as grpcStudioSessionHelpers from './grpcStudioSessionHelpers';
 import {
   createDescribeFromIngestHandler,
   createExportProtosetHandler,
@@ -318,6 +319,30 @@ describe('grpcStudioDescriptorLoad coverage gaps', () => {
     await createExportProtosetHandler(ctx)(tabId);
 
     expect(downloadProtoset.downloadProtosetFile).toHaveBeenCalledWith('YWJj', 'schema.pb');
+  });
+
+  it('exportProtoset uses timestamp fallback ids when crypto.randomUUID is unavailable', async () => {
+    const originalCrypto = globalThis.crypto;
+    Object.defineProperty(globalThis, 'crypto', { value: undefined, configurable: true });
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      descriptor: FIXTURE_DESCRIPTOR,
+    };
+    const exportSpy = vi.spyOn(grpcApiClient, 'postGrpcExportProtoset').mockResolvedValue({
+      ok: true,
+      op: 'export_protoset',
+      data: { protosetBase64: 'YWJj', fileName: 'schema.pb' },
+      meta: { requestId: 'req-export', timestamp: '2026-01-01T00:00:00.000Z' },
+    });
+
+    await createExportProtosetHandler(ctx)(tabId);
+
+    expect(exportSpy).toHaveBeenCalledWith(expect.objectContaining({
+      requestId: expect.stringMatching(/^req-export-/),
+    }));
+    Object.defineProperty(globalThis, 'crypto', { value: originalCrypto, configurable: true });
   });
 
   it('exportProtoset rethrows non-invalid descriptor errors', async () => {
@@ -749,5 +774,321 @@ describe('grpcStudioDescriptorLoad coverage gaps', () => {
       expect.objectContaining({ requestId: expect.stringMatching(/^req-reflect-/) }),
     );
     Object.defineProperty(globalThis, 'crypto', { value: originalCrypto, configurable: true });
+  });
+
+  it('reflectTab maps proxy/network failures to backend guidance', async () => {
+    vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockRejectedValue(
+      new GrpcApiClientError('reflect', 'Failed to fetch', { code: 'GRPC_NETWORK_ERROR' }),
+    );
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+
+    await createReflectTabHandler(ctx)(tabId);
+
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      loadState: 'error',
+      errorMessage: expect.stringMatching(/Express gRPC proxy/i),
+    }));
+  });
+
+  it('reflectTab maps generic fetch failures to backend guidance', async () => {
+    vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockRejectedValue(
+      new Error('Failed to fetch'),
+    );
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+
+    await createReflectTabHandler(ctx)(tabId);
+
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      errorMessage: expect.stringMatching(/Express gRPC proxy/i),
+    }));
+  });
+
+  it('describeFromIngest returns false when tab descriptor state is missing', async () => {
+    const ctx = makeRuntime();
+    const ok = await createDescribeFromIngestHandler(ctx)('missing-tab');
+    expect(ok).toBe(false);
+  });
+
+  it('reflectTab maps proxy guidance when the backend hint mentions the app HTTP proxy', async () => {
+    vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockRejectedValue(
+      new Error('Could not reach the app HTTP proxy'),
+    );
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+
+    await createReflectTabHandler(ctx)(tabId);
+
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      errorMessage: expect.stringMatching(/Express gRPC proxy/i),
+    }));
+  });
+
+  it('describeFromIngest accepts valid proto file drafts', async () => {
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      protoIngest: {
+        ...createDefaultProtoIngestState(),
+        source: 'proto_files',
+        protoFiles: [{ path: 'demo.proto', content: 'syntax = "proto3"; package demo;' }],
+      },
+    };
+    vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockResolvedValue({
+      descriptor: FIXTURE_DESCRIPTOR,
+      source: 'proto_files',
+    });
+
+    const ok = await createDescribeFromIngestHandler(ctx)(tabId);
+
+    expect(ok).toBe(true);
+  });
+
+  it('describeFromIngest rejects url_proto drafts without a url', async () => {
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      protoIngest: {
+        ...createDefaultProtoIngestState(),
+        source: 'url_proto',
+        url: '   ',
+      },
+    };
+
+    const ok = await createDescribeFromIngestHandler(ctx)(tabId);
+
+    expect(ok).toBe(false);
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      errorMessage: 'Enter an HTTPS URL to a .proto file before loading',
+    }));
+  });
+
+  it('describeFromIngest rejects blank bsr module references', async () => {
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      protoIngest: {
+        ...createDefaultProtoIngestState(),
+        source: 'bsr',
+        bsrModule: '   ',
+      },
+    };
+
+    const ok = await createDescribeFromIngestHandler(ctx)(tabId);
+
+    expect(ok).toBe(false);
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      errorMessage: 'Enter a BSR module reference (owner/repo) before loading',
+    }));
+  });
+
+  it('describeFromIngest rejects proto files with empty path or content', async () => {
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      protoIngest: {
+        ...createDefaultProtoIngestState(),
+        source: 'proto_files',
+        protoFiles: [{ path: 'demo.proto', content: '   ' }],
+      },
+    };
+
+    const ok = await createDescribeFromIngestHandler(ctx)(tabId);
+
+    expect(ok).toBe(false);
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      errorMessage: 'Each proto file requires a non-empty path and content',
+    }));
+  });
+
+  it('describeFromIngest propagates describe request build failures', async () => {
+    vi.spyOn(descriptorFallback, 'buildDescribeRequestForSource').mockReturnValue({ error: 'broken describe draft' });
+    vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockImplementation(async ({ describe }) => {
+      await describe('protoset');
+      return { descriptor: FIXTURE_DESCRIPTOR, source: 'protoset' };
+    });
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      protoIngest: {
+        ...createDefaultProtoIngestState(),
+        source: 'protoset',
+        protosetBase64: 'abc',
+      },
+    };
+
+    const ok = await createDescribeFromIngestHandler(ctx)(tabId);
+
+    expect(ok).toBe(false);
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      errorMessage: 'broken describe draft',
+    }));
+  });
+
+  it('reflectTab surfaces invalid-target errors from the reflect callback', async () => {
+    vi.spyOn(grpcStudioSessionHelpers, 'resolveTabConnectionWithEnv').mockReturnValue({
+      targetValidation: { valid: false, reason: 'Invalid target' },
+      tlsMode: 'disabled',
+    } as never);
+    vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockImplementation(async ({ reflect }) => {
+      await reflect();
+      return { descriptor: FIXTURE_DESCRIPTOR, source: 'reflection' };
+    });
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+
+    await createReflectTabHandler(ctx)(tabId);
+
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      loadState: 'error',
+      errorMessage: expect.stringMatching(/invalid/i),
+    }));
+  });
+
+  it('describeFromIngest fails when the tab disappears before network lookup', async () => {
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    const session = ctx.sessionRef.current;
+    const tabsCopy = [...session.tabs];
+    let tabReads = 0;
+    Object.defineProperty(session, 'tabs', {
+      configurable: true,
+      get() {
+        tabReads += 1;
+        return tabReads <= 2 ? tabsCopy : [];
+      },
+    });
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      protoIngest: {
+        ...createDefaultProtoIngestState(),
+        source: 'protoset',
+        protosetBase64: 'abc',
+      },
+    };
+
+    const ok = await createDescribeFromIngestHandler(ctx)(tabId);
+
+    expect(ok).toBe(false);
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      errorMessage: expect.stringMatching(/Tab not found/i),
+    }));
+  });
+
+  it('describeFromIngest fails when the tab disappears during network load', async () => {
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      protoIngest: {
+        ...createDefaultProtoIngestState(),
+        source: 'protoset',
+        protosetBase64: 'abc',
+      },
+    };
+    vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockImplementation(async () => {
+      ctx.sessionRef.current = {
+        ...ctx.sessionRef.current,
+        tabs: ctx.sessionRef.current.tabs.filter((tab) => tab.id !== tabId),
+      };
+      throw new Error('Tab not found: ' + tabId);
+    });
+
+    const ok = await createDescribeFromIngestHandler(ctx)(tabId);
+
+    expect(ok).toBe(false);
+  });
+
+  it('describeFromIngest loads descriptors from valid url_proto drafts', async () => {
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      protoIngest: {
+        ...createDefaultProtoIngestState(),
+        source: 'url_proto',
+        url: 'https://example.com/demo.proto',
+      },
+    };
+    vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockResolvedValue({
+      descriptor: FIXTURE_DESCRIPTOR,
+      source: 'url_proto',
+    });
+
+    const ok = await createDescribeFromIngestHandler(ctx)(tabId);
+
+    expect(ok).toBe(true);
+  });
+
+  it('patchTabProtoIngest clears in-flight loads when ingest changes during loading', () => {
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      loadState: 'loading',
+      protoIngest: createDefaultProtoIngestState(),
+    };
+
+    createPatchTabProtoIngestHandler(ctx)(tabId, { url: 'https://example.com/demo.proto' });
+
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      loadState: 'idle',
+      errorMessage: undefined,
+    }));
+  });
+
+  it('reflectTab maps backend-server guidance when error text mentions backend server running', async () => {
+    vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockRejectedValue(
+      new Error('Ensure backend server running on port 3001'),
+    );
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+
+    await createReflectTabHandler(ctx)(tabId);
+
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      errorMessage: expect.stringMatching(/Express gRPC proxy/i),
+    }));
+  });
+
+  it('patchTabProtoIngest clears error state when ingest draft changes', () => {
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      loadState: 'error',
+      errorMessage: 'previous failure',
+      protoIngest: createDefaultProtoIngestState(),
+    };
+
+    createPatchTabProtoIngestHandler(ctx)(tabId, { url: 'https://example.com/demo.proto' });
+
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      loadState: 'idle',
+      errorMessage: undefined,
+    }));
+  });
+
+  it('reflectTab aborts active streams before loading', async () => {
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabs[0] = {
+      ...ctx.sessionRef.current.tabs[0]!,
+      streamLifecycle: 'streaming',
+      activeStreamId: 'stream-1',
+    };
+
+    await createReflectTabHandler(ctx)(tabId);
+
+    expect(ctx.updateTab).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      streamLifecycle: 'idle',
+      activeStreamId: undefined,
+    }));
   });
 });

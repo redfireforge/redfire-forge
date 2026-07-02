@@ -22,7 +22,7 @@ Phase 4 introduces TLS/mTLS transport, per-call auth (Bearer, Basic, API key, OA
 | T6 | `-bin` metadata corruption | `metadataValidation.ts` base64 gate | `metadataValidation.test.ts`, `grpcPhase4Acceptance.test.ts` |
 | T7 | BSR token in export | `redactGrpcProtoIngestState` | `grpcRedaction.test.ts` |
 | T8 | SNI override in plaintext mode | `normalizeGrpcTlsConfig` strips override when disabled | `grpcTlsPolicy.test.ts`, `grpcPhase4Acceptance.test.ts` |
-| T9 | SSRF via URL/BSR fetch | Phase 3 server-side gateways (unchanged) | `protoFetchPolicy.test.ts` |
+| T9 | SSRF via URL/BSR fetch | Phase 3E proto gateway + Phase 4 OAuth token URL policy | `protoFetchPolicy.test.ts`, `oauthTokenFetchPolicy.test.ts` |
 | T10 | Secret rehydrated into UI after save | Write-only masked fields + Clear stored (4G) | `grpcSecretFieldUi.test.ts`, `grpcTabSecretVault.test.ts` |
 
 ## Defect triage summary
@@ -32,9 +32,9 @@ Phase 4 introduces TLS/mTLS transport, per-call auth (Bearer, Basic, API key, OA
 | P0 | 0 | — |
 | P1 | 0 | — |
 | P2 | 0 | — |
-| Deferred | — | E2E Playwright suite for TLS/auth UI (optional; not blocking Phase 5) |
+| Deferred | — | E2E Playwright suite for TLS/auth UI (optional; baseline in `e2e/grpc-studio-tls.spec.ts`) |
 | Shipped | 5F | grpcurl PEM/descriptor file-path import (`parseGrpcurlCommand`, `test:grpc:phase5fg`) |
-| Deferred | — | OAuth token URL SSRF hardening policy (future; server-side fetch only today) |
+| Shipped | 4 | OAuth token URL SSRF hardening (`oauthTokenFetchPolicy.ts`, redirect manual) |
 
 ## Data-leak surfaces audited (4E + 4H)
 

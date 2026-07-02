@@ -4,8 +4,9 @@
 import {
   protoPathFromFetchUrl,
   ProtoFetchPolicyError,
-  validateProtoFetchUrl,
+  validateProtoFetchUrlWithDns,
 } from './protoFetchPolicy.js';
+import { isGrpcOutboundDnsStrictEnabled } from './grpcOutboundDnsPolicy.js';
 
 export interface ProtoFetchResponse {
   content: string;
@@ -41,11 +42,17 @@ export async function fetchProtoFromUrl(
     allowHttpLocalhost?: boolean;
     timeoutMs?: number;
     ifNoneMatch?: string;
+    resolveHostname?: (hostname: string) => Promise<string[]>;
+    skipDnsResolution?: boolean;
   },
 ): Promise<ProtoFetchResponse> {
   let parsed: URL;
   try {
-    parsed = validateProtoFetchUrl(rawUrl, { allowHttpLocalhost: options?.allowHttpLocalhost });
+    parsed = await validateProtoFetchUrlWithDns(rawUrl, {
+      allowHttpLocalhost: options?.allowHttpLocalhost,
+      resolveHostname: options?.resolveHostname,
+      skipDnsResolution: options?.skipDnsResolution ?? !isGrpcOutboundDnsStrictEnabled(),
+    });
   } catch (error) {
     if (error instanceof ProtoFetchPolicyError) {
       throw new ProtoFetchGatewayError(error.message);

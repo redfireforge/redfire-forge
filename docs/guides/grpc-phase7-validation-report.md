@@ -61,12 +61,12 @@ None.
 
 None.
 
-### P2 (deferred)
+### P2 (deferred / closed)
 
 | ID | Item | Decision |
 |----|------|----------|
-| P2-1 | Hard `kill -9` renderer with active attach may leave streams until process exit | Documented in runbook; heartbeat deferred |
-| P2-2 | Native transport E2E only in desktop CI | `e2e/grpc-studio-native-transport.spec.ts` skipped by default |
+| P2-1 | Hard `kill -9` renderer with active attach may leave streams until process exit | ✅ Closed: renderer heartbeats every 15s; stale attached tabs are orphan-cancelled after 60s |
+| P2-2 | Native transport E2E only in desktop CI | ✅ Closed: explicit gate step + `test:e2e:grpc:native`; still skipped in default web Playwright by design |
 | P2-3 | Auth metadata not in channel pool fingerprint | By design — auth is per-call; TLS/cert changes evict |
 | P2-4 | Workflow `workflow:{nodeId}` tab IDs default to native on desktop | Studio per-tab Express does not apply; 7F out-of-scope |
 | P2-5 | Stream cancel/end error paths must pin transport binding until RPC completes | Fixed pass 4 — binding cleared in `finally` / after `await` |

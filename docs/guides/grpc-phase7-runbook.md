@@ -30,6 +30,7 @@ gRPC Studio (renderer)
 ```
 
 Per-tab routing: `tabId` + `requestId` on every unary/stream operation. Tab switch detaches event listeners; 60s grace before orphan cancel (parity with Express SSE).
+Renderer liveness heartbeat (`grpc_tab_heartbeat`) runs every 15s while native stream listeners are active; stale attached tabs are treated as detached-orphan candidates and cancelled by the same 60s supervisor timeout.
 
 ---
 
@@ -72,8 +73,8 @@ Expected: detach on tab switch starts 60s grace. Re-attach within 60s keeps stre
 
 1. Start Tauri app, open gRPC Studio, start a server stream on tab A.
 2. `kill -9` the renderer process (simulate hard crash).
-3. Restart app — native supervisor should have cancelled streams on process exit (`RunEvent::Exit`).
-4. **Known gap:** hard kill with attach count > 0 may leave streams until process exit; normal close paths are covered.
+3. Wait > 60s (or restart app) — orphan supervisor should cancel stale attached streams via heartbeat timeout.
+4. Verify new stream attempts on the same tab succeed (no leaked active stream ownership).
 
 ### Channel pool not reusing connections
 
@@ -97,6 +98,7 @@ Native integration tests in 7C/7D/7G gates auto-skip when Docker is down.
 
 ```bash
 E2E_TAURI_NATIVE_GRPC=1 npx playwright test e2e/grpc-studio-native-transport.spec.ts --reporter=list
+npm run test:e2e:grpc:native
 ```
 
 Requires a **real Tauri webview** (`isTauri()` true) — standard web Playwright leaves the Native card disabled and the spec will fail on `toBeEnabled()`. Skipped in default web E2E (`test:grpc:phase7i` does not require this).

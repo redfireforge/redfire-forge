@@ -138,6 +138,12 @@ export function isGrpcWorkflowNodeType(type: string | undefined): type is GrpcWo
   return GRPC_WORKFLOW_NODE_TYPES.includes(type as GrpcWorkflowNodeType);
 }
 
+export function isGrpcWorkflowNodeTypeIncludingAdvanced(type: string | undefined): boolean {
+  if (type == null) return false;
+  if (isGrpcWorkflowNodeType(type)) return true;
+  return type === 'grpcLoadTest' || type === 'grpcSchemaDiff' || type === 'grpcMockAssert';
+}
+
 export function isGrpcWorkflowCallNodeType(type: string | undefined): boolean {
   return type === 'grpcUnary' || type === 'grpcServerStream';
 }

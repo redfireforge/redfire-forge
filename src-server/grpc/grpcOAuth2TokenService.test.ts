@@ -3,6 +3,10 @@
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { GrpcOAuth2TokenError, GrpcOAuth2TokenService } from './grpcOAuth2TokenService.js';
+import {
+  configureGrpcOutboundDnsPolicy,
+  resetGrpcOutboundDnsPolicyForTests,
+} from './grpcOutboundDnsPolicy.js';
 
 function makeJwt(exp: number): string {
   const header = Buffer.from(JSON.stringify({ alg: 'none', typ: 'JWT' })).toString('base64url');
@@ -20,14 +24,22 @@ describe('GrpcOAuth2TokenService (Phase 4D)', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    resetGrpcOutboundDnsPolicyForTests();
   });
+
+  function createService(fetch: (url: string, init?: RequestInit) => Promise<Response>) {
+    return new GrpcOAuth2TokenService(
+      { fetch },
+      { resolveHostname: async () => ['93.184.216.34'] },
+    );
+  }
 
   it('acquires and caches access tokens', async () => {
     const fetch = vi.fn(async () => new Response(JSON.stringify({
       access_token: 'token-1',
       expires_in: 3600,
     }), { status: 200 }));
-    const service = new GrpcOAuth2TokenService({ fetch });
+    const service = createService(fetch);
 
     await expect(service.acquireToken(oauth2)).resolves.toBe('token-1');
     await expect(service.acquireToken(oauth2)).resolves.toBe('token-1');
@@ -47,7 +59,7 @@ describe('GrpcOAuth2TokenService (Phase 4D)', () => {
         access_token: 'token-2',
         expires_in: 3600,
       }), { status: 200 }));
-    const service = new GrpcOAuth2TokenService({ fetch });
+    const service = createService(fetch);
 
     await expect(service.acquireToken(oauth2)).resolves.toMatch(/^eyJ/);
     await vi.advanceTimersByTimeAsync(100_000);
@@ -61,7 +73,7 @@ describe('GrpcOAuth2TokenService (Phase 4D)', () => {
       error: 'invalid_client',
       error_description: 'bad credentials',
     }), { status: 401 }));
-    const service = new GrpcOAuth2TokenService({ fetch });
+    const service = createService(fetch);
 
     await expect(service.acquireToken(oauth2)).rejects.toSatisfy((error: unknown) => {
       expect(error).toBeInstanceOf(GrpcOAuth2TokenError);
@@ -78,7 +90,7 @@ describe('GrpcOAuth2TokenService (Phase 4D)', () => {
       error.name = 'TimeoutError';
       throw error;
     });
-    const service = new GrpcOAuth2TokenService({ fetch });
+    const service = createService(fetch);
 
     await expect(service.acquireToken(oauth2)).rejects.toMatchObject({
       category: 'timeout',
@@ -91,7 +103,7 @@ describe('GrpcOAuth2TokenService (Phase 4D)', () => {
       error.name = 'AbortError';
       throw error;
     });
-    const service = new GrpcOAuth2TokenService({ fetch });
+    const service = createService(fetch);
 
     await expect(service.acquireToken(oauth2)).rejects.toMatchObject({
       category: 'timeout',
@@ -103,11 +115,13 @@ describe('GrpcOAuth2TokenService (Phase 4D)', () => {
     const fetch = vi.fn(() => new Promise<Response>((resolve) => {
       resolveFetch = resolve;
     }));
-    const service = new GrpcOAuth2TokenService({ fetch });
+    const service = createService(fetch);
 
     const first = service.acquireToken(oauth2);
     const second = service.acquireToken(oauth2);
-    expect(fetch).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => {
+      expect(fetch).toHaveBeenCalledTimes(1);
+    });
 
     resolveFetch(new Response(JSON.stringify({
       access_token: 'shared-token',
@@ -122,7 +136,7 @@ describe('GrpcOAuth2TokenService (Phase 4D)', () => {
       access_token: 'token-string-exp',
       expires_in: '7200',
     }), { status: 200 }));
-    const service = new GrpcOAuth2TokenService({ fetch });
+    const service = createService(fetch);
 
     await expect(service.acquireToken(oauth2)).resolves.toBe('token-string-exp');
     await expect(service.acquireToken(oauth2)).resolves.toBe('token-string-exp');
@@ -135,10 +149,78 @@ describe('GrpcOAuth2TokenService (Phase 4D)', () => {
       access_token: makeJwt(pastExp),
       expires_in: 3600,
     }), { status: 200 }));
-    const service = new GrpcOAuth2TokenService({ fetch });
+    const service = createService(fetch);
 
     await expect(service.acquireToken(oauth2)).resolves.toMatch(/^eyJ/);
     await expect(service.acquireToken(oauth2)).resolves.toMatch(/^eyJ/);
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('blocks private-network OAuth token URLs before fetch', async () => {
+    const fetch = vi.fn();
+    const service = createService(fetch);
+
+    await expect(service.acquireToken({
+      ...oauth2,
+      tokenUrl: 'https://192.168.1.10/token',
+    })).rejects.toMatchObject({ category: 'endpoint_unreachable' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('blocks token fetch when DNS resolves to private addresses', async () => {
+    const fetch = vi.fn();
+    const service = new GrpcOAuth2TokenService(
+      { fetch },
+      { resolveHostname: async () => ['10.0.0.9'] },
+    );
+
+    await expect(service.acquireToken(oauth2)).rejects.toMatchObject({ category: 'endpoint_unreachable' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('blocks embedded-credentials OAuth token URLs before fetch', async () => {
+    const fetch = vi.fn();
+    const service = createService(fetch);
+
+    await expect(service.acquireToken({
+      ...oauth2,
+      tokenUrl: 'https://client:secret@auth.example.com/token',
+    })).rejects.toMatchObject({ category: 'endpoint_unreachable' });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects OAuth token endpoint redirects to prevent SSRF bypass', async () => {
+    const fetch = vi.fn(async () => new Response('', {
+      status: 302,
+      headers: { location: 'https://metadata.google.internal/token' },
+    }));
+    const service = createService(fetch);
+
+    await expect(service.acquireToken(oauth2)).rejects.toSatisfy((error: unknown) => {
+      expect(error).toBeInstanceOf(GrpcOAuth2TokenError);
+      const tokenError = error as GrpcOAuth2TokenError;
+      expect(tokenError.category).toBe('endpoint_unreachable');
+      expect(tokenError.message).toMatch(/redirects are not allowed/i);
+      return true;
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      oauth2.tokenUrl,
+      expect.objectContaining({ redirect: 'manual' }),
+    );
+  });
+
+  it('honors central DNS strictness toggle when resolver is omitted', async () => {
+    configureGrpcOutboundDnsPolicy({ strictDnsResolution: false });
+    const fetch = vi.fn(async () => new Response(JSON.stringify({
+      access_token: 'token-central-toggle',
+      expires_in: 3600,
+    }), { status: 200 }));
+    const service = new GrpcOAuth2TokenService({ fetch });
+
+    await expect(service.acquireToken({
+      ...oauth2,
+      tokenUrl: 'https://auth.example.invalid/token',
+    })).resolves.toBe('token-central-toggle');
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
@@ -152,7 +234,7 @@ describe('GrpcOAuth2TokenService (Phase 4D)', () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({
         error: 'invalid_client',
       }), { status: 401 }));
-    const service = new GrpcOAuth2TokenService({ fetch });
+    const service = createService(fetch);
 
     await expect(service.acquireToken(oauth2)).resolves.toMatch(/^eyJ/);
     await vi.advanceTimersByTimeAsync(100_000);

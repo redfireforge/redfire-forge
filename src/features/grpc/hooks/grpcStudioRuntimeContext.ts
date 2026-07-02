@@ -19,6 +19,7 @@ export interface GrpcStudioRuntimeContext {
   tabConnectionFingerprintRef: MutableRefObject<Record<string, string>>;
   fireCancelInFlight: (tabId: string, requestId: string) => void;
   envVarMap: Record<string, string>;
+  workspaceDefaults?: Record<string, string>;
   profiles: GrpcConnectionProfile[];
   pageDefaults: GrpcTabConnectionPageDefaults;
   maxTabs: number;

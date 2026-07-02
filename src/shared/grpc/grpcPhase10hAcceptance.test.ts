@@ -499,17 +499,16 @@ describe('Phase 10H-D — source-scan: adapter readiness and streaming boundary 
     expect(expressSection).toContain('startStream');
   });
 
-  it('grpcStreamClient.ts: guards grpc-web server streaming with Phase 10H boundary comment', () => {
+  it('grpcStreamClient.ts: routes grpc-web server streaming to browser-direct start handler', () => {
     const src = readSrc('shared/grpc/grpcStreamClient.ts');
     expect(src).toContain("'grpc-web'");
-    expect(src).toContain('Phase 10H');
+    expect(src).toContain('startBrowserDirectServerStream');
   });
 
-  it('grpcStreamClient.ts: guards spring-servlet server streaming with Phase 10H boundary comment', () => {
+  it('grpcStreamClient.ts: routes spring-servlet server streaming to browser-direct start handler', () => {
     const src = readSrc('shared/grpc/grpcStreamClient.ts');
     expect(src).toContain("'spring-servlet'");
-    // Phase 10H marker confirms server streaming for browser-direct modes is deferred
-    expect(src).toContain('Phase 10H');
+    expect(src).toContain('startBrowserDirectServerStream');
   });
 
   it('grpcWebTrailerNormalize.ts: normalizeGrpcWebUnaryResponse is exported', () => {

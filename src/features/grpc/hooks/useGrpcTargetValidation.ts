@@ -68,6 +68,7 @@ export interface UseGrpcTargetValidationOptions {
   target: string;
   fallbackTarget?: string;
   envVarMap: Record<string, string>;
+  workspaceDefaults?: Record<string, string>;
   tlsMode?: GrpcTlsMode;
   profiles?: GrpcConnectionProfile[];
   connectionId?: string;
@@ -98,6 +99,7 @@ export function useGrpcTargetValidation({
   target,
   fallbackTarget = '',
   envVarMap,
+  workspaceDefaults,
   tlsMode = 'disabled',
   profiles = [],
   connectionId,
@@ -125,12 +127,13 @@ export function useGrpcTargetValidation({
 
   const mergedEnv = useMemo(
     () => mergeGrpcTabInterpolationEnv({
+      workspaceDefaults,
       activeEnvironment: envVarMap,
       profiles,
       connectionId,
       tabOverrides,
     }),
-    [envVarMap, profiles, connectionId, tabOverrides],
+    [workspaceDefaults, envVarMap, profiles, connectionId, tabOverrides],
   );
 
   const resolveTemplate = useMemo(

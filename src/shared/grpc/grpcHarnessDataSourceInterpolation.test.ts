@@ -104,4 +104,19 @@ describe('grpcHarnessDataSourceInterpolation (Phase 8F)', () => {
     const resolved = interpolateGrpcHarnessCallAction(BASE_CONFIG, {}, false);
     expect(resolved).toBe(BASE_CONFIG);
   });
+
+  it('interpolates connectionId and omits body when undefined', () => {
+    const config: GrpcHarnessCallActionConfig = {
+      ...BASE_CONFIG,
+      connectionId: '{{connId}}',
+      body: undefined,
+      metadata: undefined,
+      sendMessages: undefined,
+      assertions: undefined,
+    };
+    const resolved = interpolateGrpcHarnessCallAction(config, { connId: 'conn-1' }, true);
+    expect(resolved?.connectionId).toBe('conn-1');
+    expect(resolved?.body).toBeUndefined();
+    expect(resolved?.metadata).toBeUndefined();
+  });
 });

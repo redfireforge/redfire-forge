@@ -9,7 +9,7 @@ import type {
 } from '../types/workflow/node-grpc';
 import {
   isGrpcWorkflowCallNodeType,
-  isGrpcWorkflowNodeType,
+  isGrpcWorkflowNodeTypeIncludingAdvanced,
 } from '../types/workflow/node-grpc';
 import {
   GRPC_WORKFLOW_RESERVED_SAVE_AS,
@@ -36,11 +36,15 @@ function isGraphTrackedSaveAsAlias(saveAs: string | undefined): saveAs is string
   return isValidGrpcWorkflowSaveAsAlias(trimmed);
 }
 
+function readGrpcNodeSaveAs(node: WorkflowNode): string | undefined {
+  if (!isGrpcWorkflowNodeTypeIncludingAdvanced(node.type)) return undefined;
+  return (node.data as { saveAs?: string }).saveAs;
+}
+
 function collectSaveAsAliases(nodes: WorkflowNode[]): Map<string, string[]> {
   const aliasToNodeIds = new Map<string, string[]>();
   for (const node of nodes) {
-    if (!isGrpcWorkflowCallNodeType(node.type)) continue;
-    const saveAs = (node.data as GrpcUnaryNodeData | GrpcServerStreamNodeData).saveAs;
+    const saveAs = readGrpcNodeSaveAs(node);
     if (!isGraphTrackedSaveAsAlias(saveAs)) continue;
     const trimmed = saveAs.trim();
     const existing = aliasToNodeIds.get(trimmed) ?? [];
@@ -73,7 +77,7 @@ function validateSaveAsUniqueness(
         nodeId,
         field: 'saveAs',
         code: GRPC_WORKFLOW_VALIDATION_CODES.DUPLICATE_SAVE_AS,
-        message: `saveAs alias "${alias}" is used by multiple gRPC call nodes`,
+        message: `saveAs alias "${alias}" is used by multiple gRPC nodes`,
       });
     }
   }
@@ -103,8 +107,7 @@ function validateSaveAsDoesNotShadowNodeIds(
 ): void {
   const nodeIds = new Set(nodes.map((node) => node.id));
   for (const node of nodes) {
-    if (!isGrpcWorkflowCallNodeType(node.type)) continue;
-    const saveAs = (node.data as GrpcUnaryNodeData | GrpcServerStreamNodeData).saveAs;
+    const saveAs = readGrpcNodeSaveAs(node);
     if (!isGraphTrackedSaveAsAlias(saveAs) || saveAs.trim() === node.id || !nodeIds.has(saveAs.trim())) continue;
     issues.push({
       nodeId: node.id,
@@ -159,7 +162,7 @@ export function validateGrpcWorkflowGraph(nodes: WorkflowNode[]): GrpcWorkflowGr
   const issues: GrpcWorkflowValidationIssue[] = [];
 
   for (const node of nodes) {
-    if (!isGrpcWorkflowNodeType(node.type)) continue;
+    if (!isGrpcWorkflowNodeTypeIncludingAdvanced(node.type)) continue;
     const nodeResult = validateGrpcWorkflowNodeData(node.type, node.data, node.id);
     if (!nodeResult.valid) {
       issues.push(...nodeResult.issues);
@@ -176,7 +179,7 @@ export function validateGrpcWorkflowGraph(nodes: WorkflowNode[]): GrpcWorkflowGr
 
 /** True when the workflow contains at least one gRPC node. */
 export function workflowGraphHasGrpcNodes(nodes: WorkflowNode[]): boolean {
-  return nodes.some((node) => isGrpcWorkflowNodeType(node.type));
+  return nodes.some((node) => isGrpcWorkflowNodeTypeIncludingAdvanced(node.type));
 }
 
 /** Workflow-level save/run guard — includes graph rules (saveAs, assert source, call-type). */

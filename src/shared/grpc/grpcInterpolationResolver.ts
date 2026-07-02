@@ -29,21 +29,60 @@ function buildResolvedValue(
   inspected: Extract<GrpcInterpolationInspectResult, { ok: true }>,
   env: GrpcInterpolationEnvMap,
 ): { value: string; unresolvedTokenNames: string[] } {
-  const unresolvedTokenNames: string[] = [];
+  const unresolvedTokenNames = new Set<string>();
+  const resolvedTokenMemo = new Map<string, string | undefined>();
+  const resolvingTokenNames = new Set<string>();
+
+  const resolveTokenValue = (name: string): string | undefined => {
+    if (resolvedTokenMemo.has(name)) {
+      return resolvedTokenMemo.get(name);
+    }
+    if (resolvingTokenNames.has(name)) {
+      unresolvedTokenNames.add(name);
+      return `{{${name}}}`;
+    }
+    const rawValue = env[name];
+    if (rawValue === undefined) {
+      unresolvedTokenNames.add(name);
+      return undefined;
+    }
+
+    resolvingTokenNames.add(name);
+    const inspectedTokenValue = inspectGrpcInterpolationTemplate(rawValue);
+    if (!inspectedTokenValue.ok || !inspectedTokenValue.hasToken) {
+      resolvingTokenNames.delete(name);
+      resolvedTokenMemo.set(name, rawValue);
+      return rawValue;
+    }
+
+    const expandedValue = inspectedTokenValue.segments
+      .map((segment) => {
+        if (segment.kind === 'literal') {
+          return segment.value;
+        }
+        const nested = resolveTokenValue(segment.name);
+        return nested === undefined ? segment.raw : nested;
+      })
+      .join('');
+
+    resolvingTokenNames.delete(name);
+    resolvedTokenMemo.set(name, expandedValue);
+    return expandedValue;
+  };
+
   const value = inspected.segments
     .map((segment) => {
       if (segment.kind === 'literal') {
         return segment.value;
       }
-      const resolved = env[segment.name];
+      const resolved = resolveTokenValue(segment.name);
       if (resolved === undefined) {
-        unresolvedTokenNames.push(segment.name);
         return segment.raw;
       }
       return resolved;
     })
     .join('');
-  return { value, unresolvedTokenNames };
+  return { value, unresolvedTokenNames: [...unresolvedTokenNames] };
 }
 
 /** Resolve a template string using Phase 9A grammar and a flat env map. */

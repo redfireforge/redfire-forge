@@ -13,7 +13,8 @@ import type { GraphRunCallbacks } from './graphRunnerInterfaces';
 import type { CorrelationWaitRunnerConfig, ExecutionTraceOptions, CapturedHttpRequest, CapturedHttpResponse, AssertionResult } from '../../../shared/types';
 import type { Semaphore } from '../../../shared/utils/semaphore';
 import type { KafkaSchemaConfig } from '../../../shared/kafka/kafkaClient';
-import type { GrpcCallRequest, GrpcStreamStartRequest } from '../../../shared/grpc/contracts';
+import type { GrpcCallRequest, GrpcDescriptor, GrpcStreamStartRequest } from '../../../shared/grpc/contracts';
+import type { GrpcLoadTestConfig } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
 import type { GrpcServerStreamCollectConfig } from '../types/workflow/node-grpc';
 import type { GrpcUnaryInvokeResult } from '../utils/grpcWorkflowUnaryExecutor';
 import type { GrpcWorkflowStreamCollectionResult } from '../utils/grpcWorkflowStreamCollector';
@@ -162,6 +163,10 @@ export interface GrpcNodeOperations {
     collect: GrpcServerStreamCollectConfig,
     options?: { abortSignal?: AbortSignal },
   ): Promise<GrpcWorkflowStreamCollectionResult>;
+  /** Phase 11N — resolve descriptor snapshots for grpcSchemaDiff nodes. */
+  resolveDescriptor?: (descriptorKey: string) => GrpcDescriptor | Promise<GrpcDescriptor>;
+  /** Phase 11N — resolve saved load-test profile config when node uses profileId. */
+  resolveLoadTestProfile?: (profileId: string) => GrpcLoadTestConfig | Promise<GrpcLoadTestConfig>;
 }
 
 // ────────────────────────────────────────────────────────

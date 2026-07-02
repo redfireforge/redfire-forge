@@ -8,10 +8,13 @@ import {
   extractProtoImportRefs,
   extractProtoImports,
   formatImportResolutionMessage,
+  normalizeProtoPath,
   normalizeResolvedProtoPath,
   ProtoImportResolutionError,
   resolveProtoImportPath,
   buildProtoFileMap,
+  buildProtoResolvePath,
+  extractUnresolvedImport,
 } from './protoImportResolver.js';
 
 describe('protoImportResolver coverage gaps', () => {
@@ -80,5 +83,45 @@ describe('protoImportResolver coverage gaps', () => {
   it('formatImportResolutionMessage omits fromFile when absent', () => {
     expect(formatImportResolutionMessage({ unresolvedImport: 'x.proto', searchedPaths: [] }))
       .toBe('Unresolved import "x.proto"');
+  });
+
+  it('formatImportResolutionMessage includes fromFile when present', () => {
+    expect(formatImportResolutionMessage({
+      unresolvedImport: 'x.proto',
+      fromFile: 'main.proto',
+      searchedPaths: [],
+    })).toBe('Unresolved import "x.proto" (required by main.proto)');
+  });
+
+  it('normalizeProtoPath normalizes slashes and whitespace', () => {
+    expect(normalizeProtoPath('  api\\\\nested//file.proto  ')).toBe('api/nested/file.proto');
+  });
+
+  it('buildProtoResolvePath delegates to resolveProtoImportPath', () => {
+    const map = buildProtoFileMap({
+      protoFiles: [{ path: 'shared/common.proto', content: 'syntax = "proto3";' }],
+    });
+    const resolve = buildProtoResolvePath(map, ['shared']);
+    expect(resolve('main.proto', 'shared/common.proto')).toBe('shared/common.proto');
+  });
+
+  it('extractUnresolvedImport returns undefined for unrelated errors', () => {
+    expect(extractUnresolvedImport('syntax error near line 1')).toBeUndefined();
+  });
+
+  it('classifyProtoParseFailure returns null for non-import errors', () => {
+    expect(classifyProtoParseFailure(new Error('unexpected token'), 'main.proto', [])).toBeNull();
+  });
+
+  it('assertProtoFileImportsResolvable throws for missing non-weak imports', () => {
+    const map = buildProtoFileMap({
+      protoFiles: [{ path: 'main.proto', content: 'syntax = "proto3";' }],
+    });
+    expect(() => assertProtoFileImportsResolvable(
+      'main.proto',
+      'syntax = "proto3"; import "missing.proto";',
+      map,
+      ['vendor'],
+    )).toThrow(ProtoImportResolutionError);
   });
 });

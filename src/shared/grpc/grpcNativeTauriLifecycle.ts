@@ -10,11 +10,11 @@ import {
 
 export class GrpcNativeTauriLifecycleError extends Error {
   readonly code: string;
-  readonly op: 'tab_cleanup' | 'tab_events_attach' | 'tab_events_detach';
+  readonly op: 'tab_cleanup' | 'tab_events_attach' | 'tab_events_detach' | 'tab_heartbeat';
   readonly retryable: boolean;
 
   constructor(
-    op: 'tab_cleanup' | 'tab_events_attach' | 'tab_events_detach',
+    op: 'tab_cleanup' | 'tab_events_attach' | 'tab_events_detach' | 'tab_heartbeat',
     message: string,
     options?: { code?: string; retryable?: boolean },
   ) {
@@ -27,7 +27,7 @@ export class GrpcNativeTauriLifecycleError extends Error {
 }
 
 function throwIfEnvelopeNotOk<T>(
-  op: 'tab_cleanup' | 'tab_events_attach' | 'tab_events_detach',
+  op: 'tab_cleanup' | 'tab_events_attach' | 'tab_events_detach' | 'tab_heartbeat',
   envelope: GrpcTauriEnvelope<T>,
 ): asserts envelope is Extract<GrpcTauriEnvelope<T>, { ok: true }> {
   if (!envelope.ok) {
@@ -67,13 +67,18 @@ export async function invokeGrpcTabCleanupNative(
 }
 
 async function invokeTabEventsSignal(
-  command: 'grpc_tab_events_attach' | 'grpc_tab_events_detach',
+  command: 'grpc_tab_events_attach' | 'grpc_tab_events_detach' | 'grpc_tab_heartbeat',
   tabId: string,
   options: { bestEffort?: boolean },
 ): Promise<void> {
   const { invoke } = await import('@tauri-apps/api/core');
   const request = toGrpcTauriTabCleanupRequest(tabId);
-  const op = command === 'grpc_tab_events_attach' ? 'tab_events_attach' : 'tab_events_detach';
+  const op =
+    command === 'grpc_tab_events_attach'
+      ? 'tab_events_attach'
+      : command === 'grpc_tab_events_detach'
+        ? 'tab_events_detach'
+        : 'tab_heartbeat';
 
   let envelope: GrpcTauriEnvelope<{ tabId: string; listenerCount: number }>;
   try {
@@ -106,4 +111,56 @@ export async function invokeGrpcTabEventsAttachNative(tabId: string): Promise<vo
 
 export async function invokeGrpcTabEventsDetachNative(tabId: string): Promise<void> {
   await invokeTabEventsSignal('grpc_tab_events_detach', tabId, { bestEffort: true });
+}
+
+export async function invokeGrpcTabHeartbeatNative(tabId: string): Promise<void> {
+  await invokeTabEventsSignal('grpc_tab_heartbeat', tabId, { bestEffort: true });
+}
+
+export const GRPC_TAB_HEARTBEAT_INTERVAL_MS = 15_000;
+
+type GrpcHeartbeatEntry = {
+  refs: number;
+  timer: ReturnType<typeof setInterval>;
+};
+
+const heartbeatByTab = new Map<string, GrpcHeartbeatEntry>();
+
+/**
+ * Starts (or joins) a shared per-tab heartbeat loop and returns a release function.
+ * Heartbeats are best-effort because tab-local cleanup should continue on renderer teardown.
+ */
+export function retainGrpcTabHeartbeat(tabId: string): () => void {
+  const existing = heartbeatByTab.get(tabId);
+  if (existing) {
+    existing.refs += 1;
+    return () => releaseGrpcTabHeartbeat(tabId);
+  }
+
+  void invokeGrpcTabHeartbeatNative(tabId);
+  const timer = setInterval(() => {
+    void invokeGrpcTabHeartbeatNative(tabId);
+  }, GRPC_TAB_HEARTBEAT_INTERVAL_MS);
+
+  heartbeatByTab.set(tabId, { refs: 1, timer });
+  return () => releaseGrpcTabHeartbeat(tabId);
+}
+
+function releaseGrpcTabHeartbeat(tabId: string): void {
+  const entry = heartbeatByTab.get(tabId);
+  if (!entry) {
+    return;
+  }
+  entry.refs -= 1;
+  if (entry.refs <= 0) {
+    clearInterval(entry.timer);
+    heartbeatByTab.delete(tabId);
+  }
+}
+
+export function resetGrpcTabHeartbeatForTests(): void {
+  for (const entry of heartbeatByTab.values()) {
+    clearInterval(entry.timer);
+  }
+  heartbeatByTab.clear();
 }

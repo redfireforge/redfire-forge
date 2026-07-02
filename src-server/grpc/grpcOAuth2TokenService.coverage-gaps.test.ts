@@ -9,8 +9,15 @@ describe('GrpcOAuth2TokenService coverage gaps', () => {
     vi.restoreAllMocks();
   });
 
+  function createService(fetch: (url: string, init?: RequestInit) => Promise<Response>) {
+    return new GrpcOAuth2TokenService(
+      { fetch },
+      { resolveHostname: async () => ['93.184.216.34'] },
+    );
+  }
+
   it('rejects oauth2 config missing required credentials', async () => {
-    const service = new GrpcOAuth2TokenService({ fetch: vi.fn() });
+    const service = createService(vi.fn());
     await expect(service.acquireToken({
       tokenUrl: 'https://auth.example.com/token',
       clientId: 'id',
@@ -19,9 +26,7 @@ describe('GrpcOAuth2TokenService coverage gaps', () => {
   });
 
   it('maps non-timeout fetch failures to endpoint_unreachable', async () => {
-    const service = new GrpcOAuth2TokenService({
-      fetch: vi.fn(async () => { throw new Error('ECONNREFUSED'); }),
-    });
+    const service = createService(vi.fn(async () => { throw new Error('ECONNREFUSED'); }));
     await expect(service.acquireToken({
       tokenUrl: 'https://auth.example.com/token',
       clientId: 'id',
@@ -29,10 +34,19 @@ describe('GrpcOAuth2TokenService coverage gaps', () => {
     })).rejects.toMatchObject({ category: 'endpoint_unreachable' });
   });
 
+  it('maps fetch timeouts to timeout category', async () => {
+    const timeoutError = new Error('timed out');
+    timeoutError.name = 'TimeoutError';
+    const service = createService(vi.fn(async () => { throw timeoutError; }));
+    await expect(service.acquireToken({
+      tokenUrl: 'https://auth.example.com/token',
+      clientId: 'id',
+      clientSecret: 'secret',
+    })).rejects.toMatchObject({ category: 'timeout' });
+  });
+
   it('rejects malformed JSON token responses', async () => {
-    const service = new GrpcOAuth2TokenService({
-      fetch: vi.fn(async () => new Response('not-json', { status: 200 })),
-    });
+    const service = createService(vi.fn(async () => new Response('not-json', { status: 200 })));
     await expect(service.acquireToken({
       tokenUrl: 'https://auth.example.com/token',
       clientId: 'id',
@@ -40,10 +54,17 @@ describe('GrpcOAuth2TokenService coverage gaps', () => {
     })).rejects.toMatchObject({ category: 'invalid_response' });
   });
 
+  it('rejects redirect responses from token endpoint', async () => {
+    const service = createService(vi.fn(async () => new Response('', { status: 302 })));
+    await expect(service.acquireToken({
+      tokenUrl: 'https://auth.example.com/token',
+      clientId: 'id',
+      clientSecret: 'secret',
+    })).rejects.toMatchObject({ category: 'endpoint_unreachable' });
+  });
+
   it('rejects JSON responses missing access_token', async () => {
-    const service = new GrpcOAuth2TokenService({
-      fetch: vi.fn(async () => new Response(JSON.stringify({ expires_in: 3600 }), { status: 200 })),
-    });
+    const service = createService(vi.fn(async () => new Response(JSON.stringify({ expires_in: 3600 }), { status: 200 })));
     await expect(service.acquireToken({
       tokenUrl: 'https://auth.example.com/token',
       clientId: 'id',
@@ -56,7 +77,7 @@ describe('GrpcOAuth2TokenService coverage gaps', () => {
       access_token: 'token-a',
       expires_in: 3600,
     }), { status: 200 }));
-    const service = new GrpcOAuth2TokenService({ fetch });
+    const service = createService(fetch);
     const oauth2 = {
       tokenUrl: 'https://auth.example.com/token',
       clientId: 'id',
@@ -75,7 +96,10 @@ describe('GrpcOAuth2TokenService coverage gaps', () => {
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ access_token: 'default-port-token', expires_in: 3600 }), { status: 200 }),
     );
-    const service = new GrpcOAuth2TokenService();
+    const service = new GrpcOAuth2TokenService(
+      undefined,
+      { resolveHostname: async () => ['93.184.216.34'] },
+    );
     await expect(service.acquireToken({
       tokenUrl: 'https://auth.example.com/token',
       clientId: 'id',

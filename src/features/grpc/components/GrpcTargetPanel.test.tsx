@@ -153,4 +153,46 @@ describe('GrpcTargetPanel (Phase 9G interpolation UX)', () => {
     expect(screen.getByTestId('grpc-interpolation-preview-template').getAttribute('aria-pressed')).toBe('true');
     expect(screen.getByTestId('grpc-interpolation-preview-value').textContent).toBe('{{otherHost}}');
   });
+
+  it('shows resolved body/metadata/auth preview in resolved mode', async () => {
+    const user = userEvent.setup();
+    render(
+      <GrpcTargetPanel
+        target="{{grpcHost}}"
+        envVarMap={{
+          grpcHost: 'localhost:50051',
+          greeting: 'hello',
+          envName: 'dev',
+          bearer: 'token-123',
+        }}
+        body={{ message: '{{greeting}}' }}
+        metadata={{ 'x-env': '{{envName}}' }}
+        auth={{ type: 'bearer', bearerToken: '{{bearer}}' }}
+      />,
+    );
+
+    await user.click(screen.getByTestId('grpc-interpolation-preview-resolved'));
+    const preview = screen.getByTestId('grpc-interpolation-payload-preview-value').textContent ?? '';
+    expect(preview).toMatch(/"message": "hello"/);
+    expect(preview).toMatch(/"x-env": "dev"/);
+    expect(preview).toMatch(/"bearerToken": "\[REDACTED\]"/);
+  });
+
+  it('redacts secret values from resolved body/metadata/auth preview', async () => {
+    const user = userEvent.setup();
+    render(
+      <GrpcTargetPanel
+        target="{{grpcHost}}"
+        envVarMap={{ grpcHost: 'localhost:50051', secretToken: 'secret-value' }}
+        body={{ token: '{{secretToken}}' }}
+        metadata={{ authorization: 'Bearer {{secretToken}}' }}
+        auth={{ type: 'bearer', bearerToken: '{{secretToken}}' }}
+      />,
+    );
+
+    await user.click(screen.getByTestId('grpc-interpolation-preview-resolved'));
+    const preview = screen.getByTestId('grpc-interpolation-payload-preview-value').textContent ?? '';
+    expect(preview).not.toContain('secret-value');
+    expect(preview).toContain('[REDACTED]');
+  });
 });

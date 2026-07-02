@@ -1,11 +1,15 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  GRPC_TAB_HEARTBEAT_INTERVAL_MS,
   invokeGrpcTabCleanupNative,
   invokeGrpcTabEventsAttachNative,
   invokeGrpcTabEventsDetachNative,
+  invokeGrpcTabHeartbeatNative,
+  resetGrpcTabHeartbeatForTests,
+  retainGrpcTabHeartbeat,
   toGrpcTauriTabCleanupRequest,
 } from './grpcNativeTauriLifecycle';
 import { GRPC_TAURI_SCHEMA_VERSION } from './grpcTauriContracts';
@@ -18,7 +22,13 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 describe('grpcNativeTauriLifecycle', () => {
   beforeEach(() => {
+    vi.useFakeTimers();
     invokeMock.mockReset();
+    resetGrpcTabHeartbeatForTests();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
   });
 
   it('toGrpcTauriTabCleanupRequest includes schema version', () => {
@@ -91,5 +101,44 @@ describe('grpcNativeTauriLifecycle', () => {
   it('invokeGrpcTabEventsDetachNative swallows invoke transport errors', async () => {
     invokeMock.mockRejectedValueOnce(new Error('ipc down'));
     await expect(invokeGrpcTabEventsDetachNative('tab-a')).resolves.toBeUndefined();
+  });
+
+  it('invokeGrpcTabHeartbeatNative sends heartbeat command in best-effort mode', async () => {
+    invokeMock.mockResolvedValueOnce({
+      ok: true,
+      op: 'tab_heartbeat',
+      data: { tabId: 'tab-a', listenerCount: 1 },
+      meta: { timestamp: 'now', schemaVersion: GRPC_TAURI_SCHEMA_VERSION },
+    });
+
+    await expect(invokeGrpcTabHeartbeatNative('tab-a')).resolves.toBeUndefined();
+    expect(invokeMock).toHaveBeenCalledWith('grpc_tab_heartbeat', {
+      request: toGrpcTauriTabCleanupRequest('tab-a'),
+    });
+  });
+
+  it('retainGrpcTabHeartbeat shares one interval per tab and releases on last dispose', async () => {
+    invokeMock.mockResolvedValue({
+      ok: true,
+      op: 'tab_heartbeat',
+      data: { tabId: 'tab-a', listenerCount: 1 },
+      meta: { timestamp: 'now', schemaVersion: GRPC_TAURI_SCHEMA_VERSION },
+    });
+
+    const releaseOne = retainGrpcTabHeartbeat('tab-a');
+    const releaseTwo = retainGrpcTabHeartbeat('tab-a');
+
+    await vi.advanceTimersByTimeAsync(GRPC_TAB_HEARTBEAT_INTERVAL_MS);
+    expect(invokeMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    const afterFirstTick = invokeMock.mock.calls.length;
+
+    releaseOne();
+    await vi.advanceTimersByTimeAsync(GRPC_TAB_HEARTBEAT_INTERVAL_MS);
+    expect(invokeMock.mock.calls.length).toBe(afterFirstTick + 1);
+    const afterSecondTick = invokeMock.mock.calls.length;
+
+    releaseTwo();
+    await vi.advanceTimersByTimeAsync(GRPC_TAB_HEARTBEAT_INTERVAL_MS * 2);
+    expect(invokeMock.mock.calls.length).toBe(afterSecondTick);
   });
 });

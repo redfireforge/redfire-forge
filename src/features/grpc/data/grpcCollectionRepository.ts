@@ -5,6 +5,7 @@ import {
   bumpGrpcSavedRequestRevision,
   createEmptyGrpcCollectionsStore,
   createGrpcSavedRequestIdentity,
+  GRPC_PERSISTENCE_SCHEMA_VERSION,
   prepareGrpcCollectionsStoreForPersist,
   validateGrpcCollectionsStore,
   type GrpcCollectionV1,
@@ -24,6 +25,19 @@ import {
 import { idbAvailable } from '../../../shared/utils/idbHelpers';
 
 let persistQueue: Promise<void> = Promise.resolve();
+
+export interface GrpcCollectionsExportData {
+  _exportMeta: {
+    version: '1.0';
+    exportedAt: string;
+    source: 'RedfireForge/gRPC';
+  };
+  store: GrpcCollectionsStoreV1;
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -297,6 +311,50 @@ export function deleteGrpcSavedRequestFromStore(
   return touchStore(next, now);
 }
 
+export function incrementGrpcSavedRequestRunStatsInStore(
+  store: GrpcCollectionsStoreV1,
+  collectionId: string,
+  savedRequestId: string,
+  input: {
+    grpcStatus?: number;
+    durationMs?: number;
+    capturedAt?: string;
+  },
+  now: string = nowIso(),
+): GrpcCollectionsStoreV1 {
+  const next = cloneStore(store);
+  const collection = findCollection(next, collectionId);
+  const index = collection.savedRequests.findIndex((saved) => saved.id === savedRequestId);
+  if (index < 0) throw new Error(`Saved request not found: ${savedRequestId}`);
+
+  const prior = collection.savedRequests[index];
+  const revision = bumpGrpcSavedRequestRevision(prior, now);
+  const previousStats = prior.runStats ?? {
+    totalRuns: 0,
+    successRuns: 0,
+    errorRuns: 0,
+  };
+  const grpcStatus = input.grpcStatus;
+  const success = typeof grpcStatus === 'number' ? grpcStatus === 0 : false;
+  const runStats = {
+    totalRuns: previousStats.totalRuns + 1,
+    successRuns: previousStats.successRuns + (success ? 1 : 0),
+    errorRuns: previousStats.errorRuns + (success ? 0 : 1),
+    lastRunAt: input.capturedAt ?? now,
+    lastGrpcStatus: grpcStatus,
+    lastDurationMs: input.durationMs,
+  };
+
+  collection.savedRequests[index] = {
+    ...prior,
+    revisionId: revision.revisionId,
+    updatedAt: revision.updatedAt,
+    runStats,
+  };
+  collection.updatedAt = now;
+  return touchStore(next, now);
+}
+
 export function duplicateGrpcSavedRequestInStore(
   store: GrpcCollectionsStoreV1,
   collectionId: string,
@@ -323,6 +381,83 @@ export async function persistGrpcCollectionsStore(
   store: GrpcCollectionsStoreV1,
 ): Promise<GrpcCollectionsStoreV1> {
   return enqueueGrpcCollectionsPersist(store);
+}
+
+function normalizeGrpcCollectionsImportPayload(raw: unknown): GrpcCollectionsStoreV1 {
+  if (!isPlainObject(raw)) {
+    throw new Error('Import payload must be a JSON object');
+  }
+  const exportStore = raw.store;
+  if (isPlainObject(exportStore)) {
+    return migrateGrpcCollectionsStore(exportStore);
+  }
+  if (Array.isArray(raw.collections) || raw.schemaVersion === GRPC_PERSISTENCE_SCHEMA_VERSION) {
+    return migrateGrpcCollectionsStore(raw);
+  }
+  throw new Error('Unrecognized gRPC collections import format');
+}
+
+function mergeGrpcCollectionsStores(
+  base: GrpcCollectionsStoreV1,
+  incoming: GrpcCollectionsStoreV1,
+): GrpcCollectionsStoreV1 {
+  const byCollectionId = new Map(base.collections.map((collection) => [
+    collection.id,
+    structuredClone(collection),
+  ]));
+
+  for (const importedCollection of incoming.collections) {
+    const existing = byCollectionId.get(importedCollection.id);
+    if (!existing) {
+      byCollectionId.set(importedCollection.id, structuredClone(importedCollection));
+      continue;
+    }
+    const bySavedId = new Map(existing.savedRequests.map((saved) => [saved.id, saved]));
+    for (const importedSaved of importedCollection.savedRequests) {
+      bySavedId.set(importedSaved.id, structuredClone(importedSaved));
+    }
+    byCollectionId.set(importedCollection.id, {
+      ...existing,
+      name: importedCollection.name,
+      defaultTarget: importedCollection.defaultTarget,
+      defaultDescriptorKey: importedCollection.defaultDescriptorKey,
+      updatedAt: importedCollection.updatedAt > existing.updatedAt
+        ? importedCollection.updatedAt
+        : existing.updatedAt,
+      savedRequests: Array.from(bySavedId.values()),
+    });
+  }
+
+  return prepareGrpcCollectionsStoreForPersistSafe({
+    schemaVersion: GRPC_PERSISTENCE_SCHEMA_VERSION,
+    collections: Array.from(byCollectionId.values()),
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export async function exportGrpcCollectionsStore(): Promise<GrpcCollectionsExportData> {
+  const store = await loadGrpcCollectionsStoreFromPersistence();
+  return {
+    _exportMeta: {
+      version: '1.0',
+      exportedAt: new Date().toISOString(),
+      source: 'RedfireForge/gRPC',
+    },
+    store,
+  };
+}
+
+export async function importGrpcCollectionsStore(
+  raw: unknown,
+  mode: 'merge' | 'replace' = 'merge',
+): Promise<GrpcCollectionsStoreV1> {
+  return withGrpcCollectionsPersistLock(async () => {
+    const incoming = normalizeGrpcCollectionsImportPayload(raw);
+    const next = mode === 'replace'
+      ? prepareGrpcCollectionsStoreForPersistSafe(incoming)
+      : mergeGrpcCollectionsStores(await loadGrpcCollectionsStoreFromPersistence(), incoming);
+    return saveGrpcCollectionsStoreToPersistence(next);
+  });
 }
 
 export async function runGrpcCollectionMutation<T>(

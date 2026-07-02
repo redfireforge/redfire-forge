@@ -93,6 +93,7 @@ describe('GrpcResponsePanel coverage gaps', () => {
   });
 
   it('marks copy failures when clipboard write rejects', async () => {
+    vi.useFakeTimers();
     Object.assign(navigator, {
       clipboard: {
         writeText: vi.fn().mockRejectedValue(new Error('denied')),
@@ -106,10 +107,17 @@ describe('GrpcResponsePanel coverage gaps', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('grpc-response-copy'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('grpc-response-copy'));
+      await Promise.resolve();
+    });
     await vi.waitFor(() => {
       expect(screen.getByTestId('grpc-response-copy').textContent).toMatch(/failed/i);
     });
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    vi.useRealTimers();
   });
 
   it('disables copy while panel disabled', () => {
@@ -125,6 +133,7 @@ describe('GrpcResponsePanel coverage gaps', () => {
   });
 
   it('shows copied state after a successful clipboard write', async () => {
+    vi.useFakeTimers();
     Object.assign(navigator, {
       clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
     });
@@ -136,10 +145,17 @@ describe('GrpcResponsePanel coverage gaps', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('grpc-response-copy'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('grpc-response-copy'));
+      await Promise.resolve();
+    });
     await vi.waitFor(() => {
       expect(screen.getByTestId('grpc-response-copy').textContent).toBe('Copied');
     });
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
+    vi.useRealTimers();
   });
 
   it('renders empty headers and trailers tables', () => {

@@ -31,6 +31,31 @@ describe('grpcInterpolationResolver (Phase 9B)', () => {
     expect(result.unresolvedTokenNames).toEqual(['missing']);
   });
 
+  it('expands transitive token references recursively', () => {
+    const transitiveEnv = {
+      grpcHost: '{{host}}:{{port}}',
+      host: 'localhost',
+      port: '{{grpcPort}}',
+      grpcPort: '50051',
+    };
+    const result = resolveGrpcInterpolationTemplate('{{grpcHost}}', transitiveEnv);
+    expect(result).toEqual({
+      value: 'localhost:50051',
+      state: 'literal',
+      unresolvedTokenNames: [],
+    });
+  });
+
+  it('reports unresolved nested tokens from transitive expansion', () => {
+    const result = resolveGrpcInterpolationTemplate('{{grpcHost}}', {
+      grpcHost: '{{host}}:{{port}}',
+      host: 'localhost',
+    });
+    expect(result.value).toBe('localhost:{{port}}');
+    expect(result.state).toBe('unresolved');
+    expect(result.unresolvedTokenNames).toEqual(['port']);
+  });
+
   it('preserves escaped literals without substitution', () => {
     const escaped = String.raw`\{{grpcHost}}`;
     expect(createGrpcInterpolationTemplateResolver(env)(escaped)).toBe(escaped);

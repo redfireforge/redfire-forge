@@ -109,7 +109,7 @@ Verify each `RequestResult` has `workflowNodeId` set correctly. All three gRPC n
 `capturedGrpcDetails` map is populated by the `captureGrpcDetails` internal function. This is called:
 - On unary/stream success and failure paths in `finalizeGrpcCallNode`.
 - On assert **pass** and fail paths in `handleGrpcAssertNode`.
-- Transport exception catch blocks set a minimal `grpcMeta` but do **not** call `captureGrpcDetails` (no step result to capture).
+- On unary/stream transport exception catch paths (captures minimal details for trace continuity even when transport throws before a full step payload).
 - Assert **fail** paths (including config errors) populate `capturedGrpcDetails` via `finishGrpcAssertFailure`.
 
 ---

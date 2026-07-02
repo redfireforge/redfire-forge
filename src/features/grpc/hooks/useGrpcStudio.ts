@@ -54,6 +54,7 @@ const EMPTY_GRPC_PROFILES: GrpcConnectionProfile[] = [];
 
 export interface UseGrpcStudioOptions {
   envVarMap?: Record<string, string>;
+  workspaceDefaults?: Record<string, string>;
   pageDefaults: GrpcTabConnectionPageDefaults;
   profiles?: GrpcConnectionProfile[];
   maxTabs?: number;
@@ -64,6 +65,7 @@ export interface UseGrpcStudioOptions {
 export function useGrpcStudio(options: UseGrpcStudioOptions) {
   const {
     envVarMap = EMPTY_ENV_VAR_MAP,
+    workspaceDefaults,
     pageDefaults,
     profiles = EMPTY_GRPC_PROFILES,
     maxTabs = GRPC_STUDIO_MAX_TABS,
@@ -76,6 +78,7 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
 
   const core = useGrpcStudioSessionCore({
     envVarMap,
+    workspaceDefaults,
     profiles,
     pageDefaults,
     fireCancelInFlight,
@@ -94,6 +97,7 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     tabConnectionFingerprintRef: core.tabConnectionFingerprintRef,
     fireCancelInFlight,
     envVarMap,
+    workspaceDefaults,
     profiles,
     pageDefaults,
     maxTabs,
@@ -114,6 +118,7 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     core.patchTabDescriptor,
     fireCancelInFlight,
     envVarMap,
+    workspaceDefaults,
     profiles,
     pageDefaults,
     maxTabs,

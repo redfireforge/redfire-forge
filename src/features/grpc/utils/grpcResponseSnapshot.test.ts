@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  captureGrpcStreamResponseSnapshotBaseline,
+  createPseudoGrpcCallResultFromStreamSession,
   captureGrpcResponseSnapshotBaseline,
   compareGrpcResponseToBaseline,
   diffGrpcResponseSnapshotBodies,
   resolveUnaryResultForSavedRequestComparison,
 } from './grpcResponseSnapshot';
+
+const TS = '2026-06-29T12:00:00.000Z';
 
 describe('grpcResponseSnapshot (Phase 5I)', () => {
   it('captureGrpcResponseSnapshotBaseline copies status and body', () => {
@@ -161,5 +165,37 @@ describe('grpcResponseSnapshot (Phase 5I)', () => {
     );
     expect(diffs.some((entry) => entry.path === 'user.name' && entry.change === 'changed')).toBe(true);
     expect(diffs.some((entry) => entry.path === 'tags[1]' && entry.change === 'added')).toBe(true);
+  });
+
+  it('captures stream baseline from inbound multi-message log', () => {
+    const baseline = captureGrpcStreamResponseSnapshotBaseline({
+      streamLifecycle: 'ended',
+      streamMessages: [
+        { sequence: 1, timestamp: TS, direction: 'inbound', data: { id: 1 } },
+        { sequence: 2, timestamp: TS, direction: 'outbound', data: { sent: true } },
+        { sequence: 3, timestamp: TS, direction: 'inbound', data: { id: 2 } },
+      ],
+    });
+    expect(baseline.grpcStatus).toBe(0);
+    expect(baseline.statusMessage).toBe('OK');
+    expect(baseline.body).toEqual({ inboundMessages: [{ id: 1 }, { id: 2 }] });
+  });
+
+  it('creates pseudo call result for stream comparison', () => {
+    const pseudo = createPseudoGrpcCallResultFromStreamSession({
+      streamLifecycle: 'error',
+      streamError: {
+        code: 'GRPC_CALL_FAILED',
+        category: 'call_failed',
+        message: 'boom',
+        details: { grpcStatus: 13 },
+      },
+      streamMessages: [
+        { sequence: 1, timestamp: TS, direction: 'inbound', data: { id: 1 } },
+      ],
+    });
+    expect(pseudo.status).toBe(13);
+    expect(pseudo.statusMessage).toBe('boom');
+    expect(pseudo.body).toEqual({ inboundMessages: [{ id: 1 }] });
   });
 });

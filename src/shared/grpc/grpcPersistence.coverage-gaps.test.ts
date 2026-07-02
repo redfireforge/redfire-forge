@@ -10,12 +10,13 @@ import {
 import {
   GRPC_PERSISTENCE_SCHEMA_VERSION,
   prepareGrpcCallHistoryStoreForPersist,
+  prepareGrpcCollectionsStoreForPersist,
   truncateGrpcHistoryBodySnapshot,
   validateGrpcCallHistoryStore,
   validateGrpcCollectionsStore,
   type GrpcCollectionV1,
 } from './grpcPersistenceSchema';
-import { prepareGrpcCallHistoryRecord } from './grpcRedaction';
+import { GRPC_REDACTED_PLACEHOLDER, prepareGrpcCallHistoryRecord } from './grpcRedaction';
 import type { GrpcSavedRequest } from './grpcSavedRequest';
 
 const TS = '2026-06-29T12:00:00.000Z';
@@ -568,5 +569,94 @@ describe('grpcPersistence coverage gaps (Phase 5A)', () => {
     expect(prepared.updatedAt).toBe(TS);
     expect(prepared.entries[0].bodyTruncated).toBe(true);
     expect(prepared.entries[0].record.snapshot.body).toEqual({ _truncated: '[TRUNCATED]' });
+  });
+
+  it('validateGrpcCallHistoryStore rejects invalid record capturedAt timestamps', () => {
+    const result = validateGrpcCallHistoryStore({
+      schemaVersion: GRPC_PERSISTENCE_SCHEMA_VERSION,
+      updatedAt: TS,
+      entries: [{
+        ...makeHistoryEntry('bad-captured-at'),
+        record: {
+          ...makeHistoryEntry('bad-captured-at').record,
+          capturedAt: 'not-a-date',
+        },
+      }],
+    });
+    expect(result.ok).toBe(false);
+    expect(result.issues.some((issue) => issue.path.includes('capturedAt'))).toBe(true);
+  });
+
+  it('prepareGrpcCollectionsStoreForPersist redacts collections and stamps updatedAt', () => {
+    const prepared = prepareGrpcCollectionsStoreForPersist({
+      schemaVersion: GRPC_PERSISTENCE_SCHEMA_VERSION,
+      updatedAt: '2020-01-01T00:00:00.000Z',
+      collections: [{
+        ...makeCollection(),
+        savedRequests: [{
+          ...makeSavedRequest(),
+          auth: { type: 'bearer', bearerToken: 'must-redact' },
+        }],
+      }],
+    }, TS);
+    expect(prepared.updatedAt).toBe(TS);
+    expect(prepared.collections[0]?.savedRequests[0]?.auth?.bearerToken).toBe(GRPC_REDACTED_PLACEHOLDER);
+  });
+
+  it('validateGrpcCollectionsStore rejects runStats, tlsMode, and duplicate ids', () => {
+    const baseStore = {
+      schemaVersion: GRPC_PERSISTENCE_SCHEMA_VERSION,
+      updatedAt: TS,
+      collections: [makeCollection()],
+    };
+    expect(validateGrpcCollectionsStore({
+      ...baseStore,
+      collections: [{
+        ...makeCollection(),
+        savedRequests: [{
+          ...makeSavedRequest(),
+          runStats: { totalRuns: -1, successRuns: 0, errorRuns: 0 },
+        }],
+      }],
+    }).ok).toBe(false);
+    expect(validateGrpcCollectionsStore({
+      ...baseStore,
+      collections: [{
+        ...makeCollection(),
+        savedRequests: [{
+          ...makeSavedRequest(),
+          runStats: {
+            totalRuns: 1,
+            successRuns: 1,
+            errorRuns: 0,
+            lastRunAt: 'bad-ts',
+            lastGrpcStatus: 'bad',
+            lastDurationMs: -5,
+          },
+        }],
+      }],
+    }).ok).toBe(false);
+    expect(validateGrpcCollectionsStore({
+      ...baseStore,
+      collections: [{
+        ...makeCollection(),
+        savedRequests: [{
+          ...makeSavedRequest(),
+          tlsMode: 'invalid',
+          updatedAt: 'not-iso',
+        }],
+      }],
+    }).ok).toBe(false);
+    expect(validateGrpcCollectionsStore({
+      ...baseStore,
+      collections: [makeCollection(), makeCollection()],
+    }).ok).toBe(false);
+    expect(validateGrpcCollectionsStore({
+      ...baseStore,
+      collections: [
+        makeCollection(),
+        { ...makeCollection(), id: 'col-2', savedRequests: [makeSavedRequest()] },
+      ],
+    }).ok).toBe(false);
   });
 });

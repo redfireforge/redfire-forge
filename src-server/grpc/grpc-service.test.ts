@@ -343,4 +343,35 @@ service Broken { rpc Ping(Empty) returns (Empty); }`,
       }
     });
   });
+
+  describe('lookupDescriptor', () => {
+    it('returns descriptor JSON when key exists in store', async () => {
+      const describeEnvelope = await service.describe({
+        source: 'proto_files',
+        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+      });
+      expect(describeEnvelope.ok).toBe(true);
+      if (!describeEnvelope.ok) return;
+
+      const envelope = await service.lookupDescriptor({
+        requestId: 'lookup-1',
+        descriptorKey: describeEnvelope.data.key,
+      });
+      expect(envelope.ok).toBe(true);
+      if (envelope.ok) {
+        expect(envelope.data.key).toBe(describeEnvelope.data.key);
+        expect(envelope.op).toBe('lookup_descriptor');
+      }
+    });
+
+    it('returns invalid_descriptor when key is missing', async () => {
+      const envelope = await service.lookupDescriptor({
+        descriptorKey: 'missing-key',
+      });
+      expect(envelope.ok).toBe(false);
+      if (!envelope.ok) {
+        expect(envelope.error.code).toBe(GRPC_ERROR_CODES.INVALID_DESCRIPTOR);
+      }
+    });
+  });
 });

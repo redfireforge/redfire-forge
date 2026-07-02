@@ -29,8 +29,14 @@ See also:
 | T6 | `-bin` metadata corrupted on round-trip | Existing `metadataValidation.ts` base64 gate | 1F (unchanged) |
 | T7 | BSR token persisted in export bundle | `redactGrpcProtoIngestState` | 4A contract, 4E wired ✅ |
 | T8 | TLS hostname override applied in plaintext mode | `normalizeGrpcTlsConfig` strips override when disabled | 4A contract |
-| T9 | SSRF via URL/BSR proto fetch | Server-side fetch gateways (Phase 3E) | 3E (unchanged) |
+| T9 | SSRF via URL/BSR proto fetch | Server-side fetch gateways (Phase 3E) | `protoFetchPolicy.test.ts` |
+| T9b | SSRF via OAuth token URL | `validateOAuthTokenUrl` + `redirect: manual` on server-side token fetch | `oauthTokenFetchPolicy.test.ts`, `grpcOAuth2TokenService.test.ts` |
 | T10 | Secret rehydrated into UI after save | Write-only secret fields + mask on edit (4G UI) | 4G |
+
+### Operational toggle
+
+- `GRPC_OUTBOUND_DNS_STRICT=true` (default): DNS-aware outbound validation stays enabled for proto and OAuth token fetches.
+- `GRPC_OUTBOUND_DNS_STRICT=false`: disables DNS address resolution checks for controlled environments, while keeping protocol/auth/host policy checks.
 
 ## Redaction consumers (must use shared helpers)
 

@@ -216,12 +216,26 @@ export const GRPC_LOAD_TEST_SAFETY_LIMITS = {
   maxWarmupCalls: 10_000,
 } as const;
 
+/** Phase 11O — server-streaming load-test caps (inherits unary concurrency limits). */
+export const GRPC_LOAD_TEST_STREAM_SAFETY_LIMITS = {
+  defaultMaxMessagesPerStream: 10,
+  minMaxMessagesPerStream: 1,
+  maxMaxMessagesPerStream: 10_000,
+  streamCancelTimeoutMs: 5_000,
+} as const;
+
+export const GRPC_LOAD_TEST_SUPPORTED_CALL_TYPES = ['unary', 'server_streaming'] as const;
+
+export type GrpcLoadTestSupportedCallType = (typeof GRPC_LOAD_TEST_SUPPORTED_CALL_TYPES)[number];
+
 export interface GrpcLoadTestConfig {
   concurrency: number;
   totalCalls?: number;
   durationMs?: number;
   rampUpMs?: number;
   warmupCalls?: number;
+  /** Phase 11O — per-stream message cap for server_streaming load tests. */
+  maxMessagesPerStream?: number;
 }
 
 export interface GrpcLoadTestConfigIssue {
@@ -232,6 +246,7 @@ export interface GrpcLoadTestConfigIssue {
     | 'durationMs'
     | 'rampUpMs'
     | 'warmupCalls'
+    | 'maxMessagesPerStream'
     | 'runId'
     | 'executeSnapshot';
   message: string;
@@ -263,11 +278,12 @@ export function validateGrpcLoadTestConfig(
 ): GrpcLoadTestConfigIssue[] {
   const issues: GrpcLoadTestConfigIssue[] = [];
 
-  if (callType !== 'unary') {
+  if (!GRPC_LOAD_TEST_SUPPORTED_CALL_TYPES.includes(callType as GrpcLoadTestSupportedCallType)) {
     issues.push({
       path: 'callType',
-      message: 'Phase 11A load testing supports unary calls only.',
+      message: 'Load testing supports unary and server_streaming calls only.',
     });
+    return issues;
   }
 
   if (!isPositiveInteger(config.concurrency)) {
@@ -372,6 +388,20 @@ export function validateGrpcLoadTestConfig(
     });
   }
 
+  if (config.maxMessagesPerStream != null) {
+    if (!isPositiveInteger(config.maxMessagesPerStream)) {
+      issues.push({
+        path: 'maxMessagesPerStream',
+        message: 'maxMessagesPerStream must be a positive integer.',
+      });
+    } else if (config.maxMessagesPerStream > GRPC_LOAD_TEST_STREAM_SAFETY_LIMITS.maxMaxMessagesPerStream) {
+      issues.push({
+        path: 'maxMessagesPerStream',
+        message: `maxMessagesPerStream exceeds max ${GRPC_LOAD_TEST_STREAM_SAFETY_LIMITS.maxMaxMessagesPerStream}.`,
+      });
+    }
+  }
+
   return issues;
 }
 
@@ -385,12 +415,15 @@ export function assertGrpcLoadTestConfig(
   }
 }
 
-export function assertGrpcLoadTestRunSnapshot(input: {
-  runId: string;
-  executeSnapshot: GrpcTabExecuteSnapshot;
-  config: GrpcLoadTestConfig;
-}): void {
-  assertGrpcLoadTestExecuteSnapshotInput(input);
+export function assertGrpcLoadTestRunSnapshot(
+  input: {
+    runId: string;
+    executeSnapshot: GrpcTabExecuteSnapshot;
+    config: GrpcLoadTestConfig;
+  },
+  options?: { allowedCallTypes?: readonly GrpcCallType[] },
+): void {
+  assertGrpcLoadTestExecuteSnapshotInput(input, options);
 }
 
 export interface GrpcLoadTestExecuteSnapshot {
@@ -437,17 +470,66 @@ export interface GrpcLoadTestRunReport {
   attempts: GrpcLoadTestExecutionAttempt[];
 }
 
-function assertGrpcLoadTestExecuteSnapshotInput(input: {
-  runId: string;
-  executeSnapshot: GrpcTabExecuteSnapshot;
-  config: GrpcLoadTestConfig;
-}): void {
+export type GrpcLoadTestOperationOutcome = 'completed' | 'failed' | 'cancelled';
+
+/** Shared pass/fail for workflow summary refs and Studio runtime transitions. */
+export function deriveGrpcLoadTestSummaryStatus(input: {
+  counts: GrpcLoadTestRunCounts;
+  stopReason: GrpcLoadTestStopReason;
+}): 'success' | 'failed' {
+  if (
+    input.counts.completed === 0
+    || input.counts.failed > 0
+    || input.stopReason === 'cancelled'
+  ) {
+    return 'failed';
+  }
+  return 'success';
+}
+
+/** Map scheduler report to Studio advanced-operation terminal status. */
+export function deriveGrpcLoadTestOperationOutcome(input: {
+  counts: GrpcLoadTestRunCounts;
+  stopReason: GrpcLoadTestStopReason;
+}): GrpcLoadTestOperationOutcome {
+  if (input.stopReason === 'cancelled') {
+    return 'cancelled';
+  }
+  if (input.counts.completed === 0 || input.counts.failed > 0) {
+    return 'failed';
+  }
+  return 'completed';
+}
+
+export function buildGrpcLoadTestRunFailureMessage(counts: GrpcLoadTestRunCounts): string {
+  if (counts.failed > 0) {
+    return `Load test finished with ${counts.failed} failed call(s)`;
+  }
+  return 'Load test produced no completed calls';
+}
+
+function assertGrpcLoadTestExecuteSnapshotInput(
+  input: {
+    runId: string;
+    executeSnapshot: GrpcTabExecuteSnapshot;
+    config: GrpcLoadTestConfig;
+  },
+  options?: { allowedCallTypes?: readonly GrpcCallType[] },
+): void {
   const issues: GrpcLoadTestConfigIssue[] = [];
+  const allowedCallTypes = options?.allowedCallTypes ?? ['unary'];
 
   if (!input.runId?.trim()) {
     issues.push({
       path: 'runId',
       message: 'runId is required.',
+    });
+  }
+
+  if (!allowedCallTypes.includes(input.executeSnapshot.callType)) {
+    issues.push({
+      path: 'callType',
+      message: `Load-test scheduler supports ${allowedCallTypes.join(' and ')} call types only.`,
     });
   }
 
@@ -472,7 +554,25 @@ export function captureGrpcLoadTestExecuteSnapshot(input: {
   resolvedEnvName?: string;
   capturedAt?: string;
 }): GrpcLoadTestExecuteSnapshot {
-  assertGrpcLoadTestExecuteSnapshotInput(input);
+  assertGrpcLoadTestExecuteSnapshotInput(input, { allowedCallTypes: ['unary'] });
+  return {
+    runId: input.runId,
+    capturedAt: input.capturedAt ?? new Date().toISOString(),
+    executeSnapshot: structuredClone(input.executeSnapshot),
+    config: structuredClone(input.config),
+    resolvedEnvName: input.resolvedEnvName,
+  };
+}
+
+/** Phase 11O — capture snapshot for server-streaming load tests. */
+export function captureGrpcLoadTestStreamExecuteSnapshot(input: {
+  runId: string;
+  executeSnapshot: GrpcTabExecuteSnapshot;
+  config: GrpcLoadTestConfig;
+  resolvedEnvName?: string;
+  capturedAt?: string;
+}): GrpcLoadTestExecuteSnapshot {
+  assertGrpcLoadTestExecuteSnapshotInput(input, { allowedCallTypes: ['server_streaming'] });
   return {
     runId: input.runId,
     capturedAt: input.capturedAt ?? new Date().toISOString(),

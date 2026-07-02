@@ -13,10 +13,9 @@ import {
 } from '../../../shared/grpc/contractFixtures';
 import { createGrpcInterpolationEnvSnapshotFromMap } from '../../../shared/grpc/grpcInterpolationEnvSnapshot';
 import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
-import {
-  openGrpcStreamEvents,
-  setGrpcStreamTransport,
-} from '../../../shared/grpc/grpcStreamClient';
+import * as grpcStreamClient from '../../../shared/grpc/grpcStreamClient';
+
+const { setGrpcStreamTransport } = grpcStreamClient;
 import { createGrpcSuccessEnvelope } from '../../../shared/grpc/contracts';
 import { useGrpcStudio } from './useGrpcStudio';
 import { PAGE_DEFAULTS, setupUseGrpcStudioHookTest } from './useGrpcStudio.testHelpers';
@@ -190,7 +189,7 @@ describe('useGrpcStudio stream (Phase 2G)', () => {
     });
 
     await waitFor(() => {
-      expect(openGrpcStreamEvents).toHaveBeenCalled();
+      expect(grpcStreamClient.openGrpcStreamEvents).toHaveBeenCalled();
     });
     dispose.mockClear();
 

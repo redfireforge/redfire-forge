@@ -120,6 +120,35 @@ test.describe('gRPC Studio — Phase 4J settings drawer (shell)', () => {
     await expect(page.locator('[data-testid="grpc-tls-body"]')).toBeVisible();
   });
 
+  test('settings drawer navigates to K8s port-forward panel', async ({ page }) => {
+    await gotoGrpcStudio(page);
+    await ensureValidTarget(page);
+    await page.locator('[data-testid="grpc-connection-settings-btn"]').click();
+    await page.locator('[data-testid="grpc-settings-nav-k8s"]').click();
+    await expect(page.locator('[data-testid="grpc-settings-panel-k8s"]')).toBeVisible();
+    await page.locator('[data-testid="grpc-k8s-name"]').fill('order-service');
+    await expect(page.locator('[data-testid="grpc-k8s-start-btn"]')).toBeEnabled();
+    await page.locator('[data-testid="grpc-k8s-start-btn"]').click();
+    await expect(page.locator('[data-testid="grpc-k8s-status"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-target-input"]')).toHaveValue('localhost:50051');
+  });
+
+  test('settings drawer navigates to Transport panel', async ({ page }) => {
+    await gotoGrpcStudio(page);
+    await ensureValidTarget(page);
+    await page.locator('[data-testid="grpc-connection-settings-btn"]').click();
+    await page.locator('[data-testid="grpc-settings-nav-transport"]').click();
+    await expect(page.locator('[data-testid="grpc-settings-panel-transport"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-transport-panel"]')).toBeVisible();
+  });
+
+  test('connection bar shows connect dot and toggle', async ({ page }) => {
+    await gotoGrpcStudio(page);
+    await ensureValidTarget(page);
+    await expect(page.locator('[data-testid="grpc-connection-status-dot"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-connection-toggle-btn"]')).toBeVisible();
+  });
+
   test('settings drawer navigates to Auth panel', async ({ page }) => {
     await gotoGrpcStudio(page);
     await ensureValidTarget(page);

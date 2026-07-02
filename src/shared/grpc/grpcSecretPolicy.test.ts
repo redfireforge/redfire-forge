@@ -29,6 +29,7 @@ describe('grpcSecretPolicy (Phase 4A)', () => {
     expect(GRPC_FORBIDDEN_SECRET_PERSIST_TARGETS).toContain('runner_artifacts');
     expect(GRPC_FORBIDDEN_SECRET_PERSIST_TARGETS).toContain('grpc_load_test_export');
     expect(GRPC_FORBIDDEN_SECRET_PERSIST_TARGETS).toContain('grpc_schema_diff_export');
+    expect(GRPC_FORBIDDEN_SECRET_PERSIST_TARGETS).toContain('grpc_mock_rule_export');
   });
 
   it('detects secret-bearing metadata header names', () => {

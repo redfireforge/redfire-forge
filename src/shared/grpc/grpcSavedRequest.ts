@@ -39,6 +39,15 @@ export interface GrpcResponseSnapshotBaseline {
   body: Record<string, unknown>;
 }
 
+export interface GrpcSavedRequestRunStats {
+  totalRuns: number;
+  successRuns: number;
+  errorRuns: number;
+  lastRunAt?: string;
+  lastGrpcStatus?: number;
+  lastDurationMs?: number;
+}
+
 export interface GrpcSavedRequest {
   id: string;
   /** Display label — defaults to `${service}/${method}` when omitted at create. */
@@ -63,6 +72,8 @@ export interface GrpcSavedRequest {
   notes?: string;
   /** Phase 5I — optional unary response baseline for snapshot diff. */
   responseBaseline?: GrpcResponseSnapshotBaseline;
+  /** Phase 5 deferred — aggregate run counters for saved request executions. */
+  runStats?: GrpcSavedRequestRunStats;
 }
 
 /** Default display name when user does not provide one at save time. */

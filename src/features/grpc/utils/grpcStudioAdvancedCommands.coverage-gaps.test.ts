@@ -10,11 +10,19 @@ import { startGrpcLoadTestSchedulerRun } from '../../../shared/grpc/grpcLoadTest
 import { invokeGrpcUnary } from '../../../shared/grpc/grpcTransportFacade';
 import {
   buildMockConfigSourceFromEditor,
+  buildLoadTestRunId,
   finalizeGrpcLoadTestRun,
   getGrpcStudioMockRuntimeRegistry,
+  isGrpcAdvancedOperationInFlight,
+  isGrpcStudioTabLive,
+  nextLoadTestRunGeneration,
+  resetAdvancedOpIfTerminal,
   resetAdvancedOpToIdle,
   resetGrpcStudioMockRuntimeRegistryForTests,
+  resolveFrozenLoadTestTransportMode,
   resolveGrpcStudioMockConfig,
+  resolveLoadTestRunOperationTransition,
+  shouldApplyLoadTestRunResult,
   startGrpcStudioLoadTestRun,
   transitionAdvancedOpToCancelled,
   transitionAdvancedOpToCompleted,
@@ -23,9 +31,15 @@ import {
   transitionAdvancedOpQuickComplete,
   validateLoadTestPreconditions,
 } from './grpcStudioAdvancedCommands';
+import { createInitialGrpcAdvancedOperationState, transitionGrpcAdvancedOperationState } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
 
 vi.mock('../../../shared/grpc/grpcTransportFacade', () => ({
   invokeGrpcUnary: vi.fn(),
+}));
+
+const collectGrpcWorkflowServerStreamMock = vi.fn();
+vi.mock('../../workflow/utils/grpcWorkflowStreamCollector', () => ({
+  collectGrpcWorkflowServerStream: (...args: unknown[]) => collectGrpcWorkflowServerStreamMock(...args),
 }));
 
 function makeExecuteSnapshot() {
@@ -49,6 +63,15 @@ describe('grpcStudioAdvancedCommands coverage gaps', () => {
   beforeEach(() => {
     resetGrpcStudioMockRuntimeRegistryForTests();
     vi.mocked(invokeGrpcUnary).mockReset();
+    collectGrpcWorkflowServerStreamMock.mockReset();
+    collectGrpcWorkflowServerStreamMock.mockResolvedValue({
+      messages: [{ seq: 1 }],
+      durationMs: 8,
+      grpcStatus: 0,
+      grpcStatusMessage: 'OK',
+      trailers: {},
+      stopReason: 'stream_end',
+    });
   });
 
   afterEach(() => {
@@ -68,6 +91,62 @@ describe('grpcStudioAdvancedCommands coverage gaps', () => {
     expect(
       validateLoadTestPreconditions('unary', { concurrency: 1, totalCalls: 1 }, { methodResolved: false }),
     ).toMatch(/not found/i);
+  });
+
+  it('validateLoadTestPreconditions rejects browser-direct transport for server_streaming load tests', () => {
+    expect(validateLoadTestPreconditions('server_streaming', { concurrency: 2, totalCalls: 5 }, {
+      transportMode: 'grpc-web',
+    })).toMatch(/Express proxy or native transport/i);
+    expect(validateLoadTestPreconditions('server_streaming', { concurrency: 2, totalCalls: 5 }, {
+      transportMode: 'spring-servlet',
+    })).toMatch(/Express proxy or native transport/i);
+    expect(validateLoadTestPreconditions('server_streaming', { concurrency: 2, totalCalls: 5 }, {
+      transportMode: 'express',
+    })).toBeUndefined();
+  });
+
+  it('resolveFrozenLoadTestTransportMode falls back to platform default', () => {
+    expect(resolveFrozenLoadTestTransportMode({ transportMode: 'native' })).toBe('native');
+    expect(resolveFrozenLoadTestTransportMode({})).toBe('express');
+  });
+
+  it('startGrpcStudioLoadTestRun rejects browser-direct transport at dispatch time', () => {
+    expect(() => startGrpcStudioLoadTestRun({
+      tabId: 'tab-adv',
+      executeSnapshot: {
+        ...makeExecuteSnapshot(),
+        callType: 'server_streaming',
+        transportMode: 'spring-servlet',
+      },
+      config: { concurrency: 1, totalCalls: 1 },
+    })).toThrow(/Express proxy or native transport/i);
+    expect(() => startGrpcStudioLoadTestRun({
+      tabId: 'tab-adv',
+      executeSnapshot: {
+        ...makeExecuteSnapshot(),
+        callType: 'server_streaming',
+        transportMode: 'grpc-web',
+      },
+      config: { concurrency: 1, totalCalls: 1 },
+    })).toThrow(/Express proxy or native transport/i);
+  });
+
+  it('startGrpcStudioLoadTestRun dispatches server_streaming through stream collector with frozen transport', async () => {
+    const run = startGrpcStudioLoadTestRun({
+      tabId: 'tab-adv',
+      executeSnapshot: {
+        ...makeExecuteSnapshot(),
+        callType: 'server_streaming',
+        transportMode: 'express',
+      },
+      config: { concurrency: 1, totalCalls: 1 },
+    });
+    const report = await run.completion;
+    expect(report.counts.succeeded).toBe(1);
+    expect(collectGrpcWorkflowServerStreamMock).toHaveBeenCalledTimes(1);
+    expect(collectGrpcWorkflowServerStreamMock.mock.calls[0]?.[3]).toEqual(
+      expect.objectContaining({ transportMode: 'express' }),
+    );
   });
 
   it('buildMockConfigSourceFromEditor clones rule set and optional latency policy', () => {
@@ -287,5 +366,130 @@ describe('grpcStudioAdvancedCommands coverage gaps', () => {
       },
     });
     expect(summary.stopReason).toBe('cancelled');
+  });
+
+  it('resolveLoadTestRunOperationTransition fails on partial load-test failures', () => {
+    const running = transitionAdvancedOpToRunning(createInitialGrpcAdvancedOperationState(), 'op-1');
+    const next = resolveLoadTestRunOperationTransition(running, {
+      stopReason: 'completed_total_calls',
+      counts: {
+        scheduled: 2,
+        completed: 2,
+        succeeded: 1,
+        failed: 1,
+        warmupScheduled: 0,
+        warmupCompleted: 0,
+        peakInFlight: 1,
+      },
+    });
+    expect(next.status).toBe('failed');
+    expect(next.error?.message).toMatch(/1 failed/);
+  });
+
+  it('covers advanced operation helpers and load-test run id generation', () => {
+    expect(buildLoadTestRunId('tab-x')).toContain('tab-x');
+    expect(nextLoadTestRunGeneration(undefined)).toBe(1);
+    expect(nextLoadTestRunGeneration(2)).toBe(3);
+    expect(shouldApplyLoadTestRunResult(1, 1)).toBe(true);
+    expect(shouldApplyLoadTestRunResult(1, 2)).toBe(false);
+    expect(isGrpcAdvancedOperationInFlight('running')).toBe(true);
+    expect(isGrpcStudioTabLive([{ id: 'tab-1' }], 'tab-1')).toBe(true);
+    expect(isGrpcStudioTabLive([{ id: 'tab-1' }], 'tab-2')).toBe(false);
+
+    const completed = transitionAdvancedOpQuickComplete(
+      transitionAdvancedOpToRunning(createInitialGrpcAdvancedOperationState(), 'op-quick'),
+    );
+    expect(completed.status).toBe('completed');
+    expect(resetAdvancedOpIfTerminal(completed).status).toBe('idle');
+    expect(resetAdvancedOpIfTerminal({ status: 'running', cancellationRequested: false, operationId: 'op' }).status).toBe('running');
+  });
+
+  it('resolveLoadTestRunOperationTransition completes when all attempts succeed', () => {
+    const running = transitionAdvancedOpToRunning(createInitialGrpcAdvancedOperationState(), 'op-success');
+    const next = resolveLoadTestRunOperationTransition(running, {
+      stopReason: 'completed_total_calls',
+      counts: {
+        scheduled: 2,
+        completed: 2,
+        succeeded: 2,
+        failed: 0,
+        warmupScheduled: 0,
+        warmupCompleted: 0,
+        peakInFlight: 1,
+      },
+    });
+    expect(next.status).toBe('completed');
+  });
+
+  it('resolveGrpcStudioMockConfig uses tab override when profile is absent', () => {
+    const resolved = resolveGrpcStudioMockConfig({
+      tabId: 'tab-override',
+      mockConfigOverride: { ruleSet: { rules: [] } },
+      workspaceDefault: { ruleSet: { rules: [] } },
+    });
+    expect(resolved.source).toBe('tab_override');
+  });
+
+  it('validateLoadTestPreconditions rejects client and bidi streaming call types', () => {
+    expect(validateLoadTestPreconditions('client_streaming', { concurrency: 1, totalCalls: 1 }))
+      .toMatch(/unary and server-streaming/i);
+    expect(validateLoadTestPreconditions('bidi_streaming', { concurrency: 1, totalCalls: 1 }))
+      .toMatch(/unary and server-streaming/i);
+  });
+
+  it('validateLoadTestPreconditions defaults server-streaming transport to platform mode', () => {
+    expect(validateLoadTestPreconditions('server_streaming', { concurrency: 1, totalCalls: 1 }))
+      .toBeUndefined();
+  });
+
+  it('isGrpcAdvancedOperationInFlight treats validating as in-flight', () => {
+    expect(isGrpcAdvancedOperationInFlight('validating')).toBe(true);
+  });
+
+  it('resolveLoadTestRunOperationTransition cancels when stop reason is cancelled', () => {
+    const running = transitionAdvancedOpToRunning(createInitialGrpcAdvancedOperationState(), 'op-cancel');
+    const next = resolveLoadTestRunOperationTransition(running, {
+      stopReason: 'cancelled',
+      counts: {
+        scheduled: 1,
+        completed: 0,
+        succeeded: 0,
+        failed: 0,
+        warmupScheduled: 0,
+        warmupCompleted: 0,
+        peakInFlight: 0,
+      },
+    });
+    expect(next.status).toBe('cancelled');
+  });
+
+  it('resolveGrpcStudioMockConfig omits profile branch when profile mock is null', () => {
+    const resolved = resolveGrpcStudioMockConfig({
+      tabId: 'tab-no-profile',
+      profileConnectionId: 'conn-1',
+      profileMockConfig: undefined,
+      workspaceDefault: { ruleSet: { rules: [{ id: 'r1', match: {}, response: {} }] } },
+    });
+    expect(resolved.source).toBe('workspace_default');
+  });
+
+  it('transitionAdvancedOp helpers cover non-idle and terminal edge paths', () => {
+    const running = { status: 'running' as const, cancellationRequested: false, operationId: 'op-run' };
+    expect(transitionAdvancedOpToCompleted(running).status).toBe('completed');
+    expect(transitionAdvancedOpToCancelled(running).status).toBe('cancelled');
+
+    const failed = transitionAdvancedOpToFailed(
+      { status: 'failed' as const, cancellationRequested: false, operationId: 'op-fail', error: { category: 'runtime', message: 'x' } },
+      'again',
+    );
+    expect(failed.status).toBe('failed');
+
+    const validatingOnly = transitionGrpcAdvancedOperationState(
+      createInitialGrpcAdvancedOperationState(),
+      'validating',
+      { operationId: 'op-v' },
+    );
+    expect(transitionAdvancedOpToCancelled(validatingOnly).status).toBe('cancelled');
+    expect(resetAdvancedOpToIdle({ status: 'running', cancellationRequested: false, operationId: 'op' }).status).toBe('idle');
   });
 });

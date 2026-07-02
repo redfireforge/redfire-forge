@@ -7,6 +7,7 @@ import { FIXTURE_SERVER_STREAM_START_REQUEST } from './contractFixtures';
 const invokeGrpcUnaryMock = vi.fn();
 const collectGrpcWorkflowServerStreamMock = vi.fn();
 const retainMock = vi.fn();
+const getGrpcLoadTestProfileByIdMock = vi.fn();
 
 vi.mock('./grpcTransportFacade', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./grpcTransportFacade')>();
@@ -23,6 +24,10 @@ vi.mock('../../features/workflow/utils/grpcWorkflowStreamCollector', () => ({
 
 vi.mock('../utils/platform', () => ({
   isTauri: vi.fn(() => false),
+}));
+
+vi.mock('../../features/grpc/data/grpcLoadTestProfileRepository', () => ({
+  getGrpcLoadTestProfileById: (...args: unknown[]) => getGrpcLoadTestProfileByIdMock(...args),
 }));
 
 import { isTauri } from '../utils/platform';
@@ -109,5 +114,27 @@ describe('buildGrpcNodeOperations coverage gaps', () => {
 
     expect(result.errorDetail).toBe('ignored-on-success');
     expect(result.headers).toEqual({ h: '1' });
+  });
+
+  it('resolveLoadTestProfile throws when profile is missing', async () => {
+    getGrpcLoadTestProfileByIdMock.mockResolvedValueOnce(undefined);
+    const { buildGrpcNodeOperations } = await import('./buildGrpcNodeOperations');
+    const ops = buildGrpcNodeOperations();
+    await expect(ops.resolveLoadTestProfile('missing-profile')).rejects.toThrow(/not found/i);
+  });
+
+  it('resolveLoadTestProfile returns profile config when found', async () => {
+    getGrpcLoadTestProfileByIdMock.mockResolvedValueOnce({
+      id: 'profile-1',
+      name: 'Smoke',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      config: { concurrency: 2, totalCalls: 10 },
+    });
+    const { buildGrpcNodeOperations } = await import('./buildGrpcNodeOperations');
+    const ops = buildGrpcNodeOperations();
+    await expect(ops.resolveLoadTestProfile('profile-1')).resolves.toEqual({
+      concurrency: 2,
+      totalCalls: 10,
+    });
   });
 });

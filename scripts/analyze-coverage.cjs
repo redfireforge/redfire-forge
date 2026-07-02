@@ -1,6 +1,10 @@
-// Analyze uncovered branches for a specific file
+// Legacy helper — prefer: npx tsx scripts/coverage-gap-lines.ts <file-substring>
 const fs = require('fs');
-const data = JSON.parse(fs.readFileSync('coverage/coverage-final.json', 'utf8'));
+const productPath = 'coverage/coverage-final.product.json';
+const data = JSON.parse(fs.readFileSync(
+  fs.existsSync(productPath) ? productPath : 'coverage/coverage-final.json',
+  'utf8',
+));
 const target = process.argv[2] || 'graphRunner.ts';
 
 for (const [file, info] of Object.entries(data)) {

@@ -14,6 +14,7 @@ import {
   type GrpcDescriptor,
   type GrpcExportProtosetRequest,
   type GrpcExportProtosetResult,
+  type GrpcDescriptorLookupRequest,
   type GrpcReflectRequest,
   type GrpcRouteEnvelope,
   type GrpcErrorCode,
@@ -23,6 +24,7 @@ import {
 import {
   createGrpcValidationErrorEnvelope,
   validateGrpcDescribeRequest,
+  validateGrpcDescriptorLookupRequest,
   validateGrpcExportProtosetRequest,
   validateGrpcReflectRequest,
   validateGrpcStatusRequest,
@@ -266,6 +268,38 @@ export class GrpcService {
         { requestId: request.requestId, durationMs: Date.now() - started },
       );
     }
+  }
+
+  async lookupDescriptor(
+    request: GrpcDescriptorLookupRequest,
+  ): Promise<GrpcRouteEnvelope<GrpcDescriptor>> {
+    const started = Date.now();
+    const issues = validateGrpcDescriptorLookupRequest(request);
+    if (issues.length > 0) {
+      return createGrpcValidationErrorEnvelope('lookup_descriptor', issues, {
+        requestId: request.requestId,
+        durationMs: Date.now() - started,
+      })!;
+    }
+
+    const descriptorKey = request.descriptorKey.trim();
+    const descriptor = getGrpcDescriptor(descriptorKey);
+    if (!descriptor) {
+      return createGrpcErrorEnvelope(
+        'lookup_descriptor',
+        {
+          code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR,
+          message: `Descriptor not found for key: ${descriptorKey}`,
+        },
+        { requestId: request.requestId, durationMs: Date.now() - started },
+      );
+    }
+
+    return createGrpcSuccessEnvelope(
+      'lookup_descriptor',
+      descriptor,
+      { requestId: request.requestId, durationMs: Date.now() - started },
+    );
   }
 
   async call(request: GrpcCallRequest, tabId?: string): Promise<GrpcRouteEnvelope<GrpcCallResult>> {

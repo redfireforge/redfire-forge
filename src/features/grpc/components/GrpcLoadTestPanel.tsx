@@ -1,6 +1,8 @@
+import { useEffect, useState } from 'react';
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../hooks/useGrpcStudioAdvancedFeatures';
 import {
   formatLoadTestProgressLabel,
+  formatGrpcLoadTestCallTypeBadge,
   presentGrpcAdvancedOperationStatus,
 } from '../utils/grpcStudioAdvancedModel';
 
@@ -19,6 +21,19 @@ function parseNonNegativeInt(value: string): number | undefined {
 }
 
 export function GrpcLoadTestPanel({ advanced }: GrpcLoadTestPanelProps) {
+  const [profileName, setProfileName] = useState('');
+
+  useEffect(() => {
+    if (!advanced.selectedLoadTestProfileId) {
+      setProfileName('');
+      return;
+    }
+    const selected = advanced.loadTestProfiles.find(
+      (profile) => profile.id === advanced.selectedLoadTestProfileId,
+    );
+    setProfileName(selected?.name ?? '');
+  }, [advanced.selectedLoadTestProfileId, advanced.loadTestProfiles]);
+
   const status = presentGrpcAdvancedOperationStatus(
     advanced.runtime.loadTest.status,
     advanced.runtime.loadTest.cancellationRequested,
@@ -28,6 +43,7 @@ export function GrpcLoadTestPanel({ advanced }: GrpcLoadTestPanelProps) {
   const live = advanced.loadTest.live;
   const canStart = !advanced.loadTestRunning;
   const canStop = advanced.loadTestRunning;
+  const callTypeBadge = formatGrpcLoadTestCallTypeBadge(advanced.activeLoadTestCallType);
 
   return (
     <section className="grpc-advanced-panel" data-testid="grpc-load-test-panel">
@@ -38,6 +54,17 @@ export function GrpcLoadTestPanel({ advanced }: GrpcLoadTestPanelProps) {
             Tab: {advanced.activeTabLabel}
             {advanced.activeRpcLabel ? ` · ${advanced.activeRpcLabel}` : ''}
           </p>
+          {advanced.activeLoadTestCallType && (
+            <p
+              className="grpc-advanced-card__subtitle"
+              data-testid="grpc-load-test-call-type-badge"
+            >
+              Call type: <span className="grpc-advanced-badge">{callTypeBadge}</span>
+              {advanced.activeLoadTestCallType === 'server_streaming' && (
+                <span className="grpc-advanced-hint"> — Express proxy transport; bounded message collection per stream.</span>
+              )}
+            </p>
+          )}
         </div>
         <div className="grpc-advanced-card__actions">
           {canStart && (
@@ -146,6 +173,25 @@ export function GrpcLoadTestPanel({ advanced }: GrpcLoadTestPanelProps) {
               }}
             />
           </label>
+          {advanced.activeLoadTestCallType === 'server_streaming' && (
+            <label className="grpc-advanced-field">
+              <span className="grpc-advanced-field__label">Max messages / stream</span>
+              <input
+                type="number"
+                min={1}
+                className="grpc-advanced-input"
+                data-testid="grpc-load-test-max-messages-per-stream"
+                value={config.maxMessagesPerStream ?? ''}
+                disabled={advanced.loadTestRunning}
+                placeholder="10"
+                onChange={(event) => {
+                  advanced.patchLoadTestConfig({
+                    maxMessagesPerStream: parsePositiveInt(event.target.value),
+                  });
+                }}
+              />
+            </label>
+          )}
         </div>
 
         {advanced.loadTestValidationError && (
@@ -153,6 +199,90 @@ export function GrpcLoadTestPanel({ advanced }: GrpcLoadTestPanelProps) {
             {advanced.loadTestValidationError}
           </p>
         )}
+
+        <div className="grpc-advanced-card grpc-advanced-card--nested" data-testid="grpc-load-test-profiles">
+          <div className="grpc-advanced-card__header">
+            <h3 className="grpc-advanced-card__title">Saved profiles</h3>
+          </div>
+          <div className="grpc-advanced-card__body">
+            <div className="grpc-advanced-form-grid grpc-advanced-form-grid--two">
+              <label className="grpc-advanced-field">
+                <span className="grpc-advanced-field__label">Profile</span>
+                <select
+                  className="grpc-advanced-select"
+                  data-testid="grpc-load-test-profile-select"
+                  value={advanced.selectedLoadTestProfileId}
+                  disabled={advanced.loadTestProfilesLoading || advanced.loadTestRunning}
+                  onChange={(event) => {
+                    advanced.setSelectedLoadTestProfileId(event.target.value);
+                  }}
+                >
+                  <option value="">Select a profile…</option>
+                  {(advanced.loadTestProfiles ?? []).map((profile) => (
+                    <option key={profile.id} value={profile.id}>{profile.name}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="grpc-advanced-field">
+                <span className="grpc-advanced-field__label">Profile name</span>
+                <input
+                  type="text"
+                  className="grpc-advanced-input"
+                  data-testid="grpc-load-test-profile-name"
+                  value={profileName}
+                  disabled={advanced.loadTestRunning}
+                  onChange={(event) => setProfileName(event.target.value)}
+                  placeholder="My load profile"
+                />
+              </label>
+            </div>
+            <div className="grpc-advanced-card__actions">
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                data-testid="grpc-load-test-profile-load"
+                disabled={!advanced.selectedLoadTestProfileId || advanced.loadTestRunning}
+                onClick={() => advanced.loadLoadTestProfile(advanced.selectedLoadTestProfileId)}
+              >
+                Load profile
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                data-testid="grpc-load-test-profile-save"
+                disabled={!profileName.trim() || advanced.loadTestRunning}
+                onClick={() => { void advanced.saveLoadTestProfile(profileName.trim()); }}
+              >
+                Save profile
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                data-testid="grpc-load-test-profile-rename"
+                disabled={!advanced.selectedLoadTestProfileId || !profileName.trim() || advanced.loadTestRunning}
+                onClick={() => {
+                  void advanced.renameLoadTestProfile(advanced.selectedLoadTestProfileId, profileName.trim());
+                }}
+              >
+                Rename
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                data-testid="grpc-load-test-profile-delete"
+                disabled={!advanced.selectedLoadTestProfileId || advanced.loadTestRunning}
+                onClick={() => { void advanced.removeLoadTestProfile(advanced.selectedLoadTestProfileId); }}
+              >
+                Delete
+              </button>
+            </div>
+            {advanced.loadTestProfileError && (
+              <p className="grpc-advanced-hint grpc-advanced-hint--error" data-testid="grpc-load-test-profile-error">
+                {advanced.loadTestProfileError}
+              </p>
+            )}
+          </div>
+        </div>
 
         {advanced.advancedExportError && (
           <p

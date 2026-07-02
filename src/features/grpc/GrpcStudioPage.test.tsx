@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, expect, it, beforeEach } from 'vitest';
+import { describe, expect, it, beforeEach, vi } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import {
@@ -18,6 +18,81 @@ import {
 import { createGrpcSuccessEnvelope } from '../../shared/grpc/contracts';
 import { GrpcStudioPage, buildLegacyGrpcEnvVarMap } from './GrpcStudioPage';
 import { resetGrpcTabCounterForTests } from './grpcStudioTypes';
+import type { UseGrpcCollectionsResult } from './hooks/useGrpcCollections';
+import type { UseGrpcCallHistoryResult } from './hooks/useGrpcCallHistory';
+
+const collectionsHookMock = vi.hoisted(() => ({
+  value: null as UseGrpcCollectionsResult | null,
+}));
+const historyHookMock = vi.hoisted(() => ({
+  value: null as UseGrpcCallHistoryResult | null,
+}));
+
+vi.mock('./hooks/useGrpcCollections', () => ({
+  useGrpcCollections: () => collectionsHookMock.value,
+}));
+
+vi.mock('./hooks/useGrpcCallHistory', () => ({
+  useGrpcCallHistory: () => historyHookMock.value,
+}));
+
+function createCollectionsHookMock(): UseGrpcCollectionsResult {
+  return {
+    store: { schemaVersion: 1, updatedAt: '2026-07-01T00:00:00.000Z', collections: [] },
+    collections: [],
+    loading: false,
+    clearLastMutationError: vi.fn(),
+    reload: vi.fn().mockResolvedValue(undefined),
+    addCollection: vi.fn().mockResolvedValue({
+      id: 'col-1',
+      name: 'Collection',
+      createdAt: '2026-07-01T00:00:00.000Z',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      savedRequests: [],
+    }),
+    renameCollection: vi.fn().mockResolvedValue(undefined),
+    deleteCollection: vi.fn().mockResolvedValue(undefined),
+    duplicateCollection: vi.fn().mockResolvedValue(undefined),
+    saveRequest: vi.fn().mockImplementation(async (_collectionId, saved) => saved),
+    updateSavedRequest: vi.fn().mockResolvedValue(undefined),
+    deleteSavedRequest: vi.fn().mockResolvedValue(undefined),
+    duplicateSavedRequest: vi.fn().mockImplementation(async () => {
+      throw new Error('No saved request selected');
+    }),
+    recordSavedRequestRun: vi.fn().mockResolvedValue(undefined),
+    exportCollections: vi.fn().mockResolvedValue({
+      _exportMeta: {
+        version: '1.0',
+        exportedAt: '2026-07-01T00:00:00.000Z',
+        source: 'RedfireForge/gRPC',
+      },
+      store: { schemaVersion: 1, updatedAt: '2026-07-01T00:00:00.000Z', collections: [] },
+    }),
+    importCollections: vi.fn().mockResolvedValue(undefined),
+  };
+}
+
+function createHistoryHookMock(): UseGrpcCallHistoryResult {
+  return {
+    entries: [],
+    filteredEntries: [],
+    filters: {},
+    filterOptions: {
+      services: [],
+      methods: [],
+      grpcStatuses: [],
+      hasOkEntries: false,
+      hasErrorEntries: false,
+    },
+    loading: false,
+    clearLastMutationError: vi.fn(),
+    setFilters: vi.fn(),
+    reload: vi.fn().mockResolvedValue(undefined),
+    deleteEntry: vi.fn().mockResolvedValue(undefined),
+    clearAll: vi.fn().mockResolvedValue(undefined),
+    clearFiltered: vi.fn().mockResolvedValue(undefined),
+  };
+}
 
 describe('GrpcStudioPage (Phase 1D + 1E)', () => {
   beforeEach(() => {
@@ -25,6 +100,8 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     setGrpcClientTransport(null);
     setGrpcStreamTransport(null);
     setGrpcStreamEventsOpener(null);
+    collectionsHookMock.value = createCollectionsHookMock();
+    historyHookMock.value = createHistoryHookMock();
   });
 
   it('renders studio shell with explorer', () => {

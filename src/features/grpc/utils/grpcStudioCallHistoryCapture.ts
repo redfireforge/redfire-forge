@@ -7,6 +7,7 @@ import { appendGrpcCallHistory } from '../data/grpcCallHistoryRecorder';
 import { prepareGrpcCallHistoryExport } from './grpcCrossFeatureExport';
 import type { GrpcCallHistoryTemplateContext } from '../../../shared/grpc/grpcReplayTemplateCompatibility';
 import { applyGrpcCallHistoryTemplateContext } from '../../../shared/grpc/grpcReplayTemplateCompatibility';
+import { captureGrpcRpcStatsFromOutcome } from './grpcStudioRpcStatsCapture';
 
 export const GRPC_CALL_HISTORY_UPDATED_EVENT = 'grpc-call-history-updated';
 
@@ -22,6 +23,8 @@ export function captureGrpcCallHistoryFromOutcome(input: {
   result?: GrpcCallResult;
   error?: GrpcErrorBody;
   templateContext?: GrpcCallHistoryTemplateContext;
+  statsSource?: 'unary' | 'stream_terminal' | false;
+  streamTiming?: { startedAt?: string; endedAt?: string };
 }): void {
   const { snapshot, filterTarget } = applyGrpcCallHistoryTemplateContext(
     input.snapshot,
@@ -42,6 +45,18 @@ export function captureGrpcCallHistoryFromOutcome(input: {
     .catch(() => {
       /* history is best-effort — never block calls */
     });
+  if (input.statsSource !== false) {
+    const streamTiming = input.streamTiming?.startedAt
+      ? input.streamTiming
+      : undefined;
+    captureGrpcRpcStatsFromOutcome({
+      snapshot,
+      result: input.result,
+      error: input.error,
+      source: input.statsSource ?? 'unary',
+      streamTiming,
+    });
+  }
 }
 
 /** Capture history when a stream reaches a terminal lifecycle. */
@@ -50,6 +65,8 @@ export function captureGrpcCallHistoryFromStreamTerminal(
     lastExecuteSnapshot?: GrpcTabExecuteSnapshot;
     streamError?: GrpcErrorBody;
     target?: string;
+    streamStartedAt?: string;
+    streamEndedAt?: string;
   },
   overrides?: {
     error?: GrpcErrorBody;
@@ -63,10 +80,15 @@ export function captureGrpcCallHistoryFromStreamTerminal(
         filterTarget: tab.lastExecuteSnapshot.target.address,
       }
     : undefined;
+  const streamTiming = tab.streamStartedAt
+    ? { startedAt: tab.streamStartedAt, endedAt: tab.streamEndedAt }
+    : undefined;
   captureGrpcCallHistoryFromOutcome({
     snapshot: tab.lastExecuteSnapshot,
     error: overrides?.error ?? tab.streamError,
     result: overrides?.result,
     templateContext,
+    statsSource: 'stream_terminal',
+    streamTiming,
   });
 }

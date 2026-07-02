@@ -457,6 +457,30 @@ describe('grpcInterpolationPersistGuard coverage gaps', () => {
     });
   });
 
+  it('sanitizeGrpcSavedRequestForTemplatePersist binds connectionId when target template is absent', () => {
+    const saved = makeSaved({ target: 'resolved:50051' });
+    const sanitized = sanitizeGrpcSavedRequestForTemplatePersist(saved, {
+      connectionId: 'conn-1',
+    });
+    expect(sanitized.connectionId).toBe('conn-1');
+    expect(sanitized.target).toBeUndefined();
+  });
+
+  it('sanitizeGrpcHarnessCallActionForTemplatePersist binds connectionId when target template is absent', () => {
+    const action: GrpcHarnessCallActionConfig = {
+      callType: 'unary',
+      target: 'resolved:50051',
+      descriptorKey: 'desc-1',
+      service: 'echo.EchoService',
+      method: 'Echo',
+    };
+    const sanitized = sanitizeGrpcHarnessCallActionForTemplatePersist(action, {
+      connectionId: 'conn-1',
+    });
+    expect(sanitized.connectionId).toBe('conn-1');
+    expect(sanitized.target).toBe('');
+  });
+
   it('buildGrpcHarnessCallActionDefinitionTemplateSource omits literal target without tokens', () => {
     const source = buildGrpcHarnessCallActionDefinitionTemplateSource({
       callType: 'unary',
@@ -473,7 +497,6 @@ describe('grpcInterpolationPersistGuard coverage gaps', () => {
   it('prepareGrpcHarnessCallActionDefinitionSnapshot clones action when no template fields exist', () => {
     const action: GrpcHarnessCallActionConfig = {
       callType: 'unary',
-      target: 'localhost:50051',
       descriptorKey: 'desc-1',
       service: 'echo.EchoService',
       method: 'Echo',

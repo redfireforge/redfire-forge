@@ -79,4 +79,29 @@ describe('GrpcWorkflowOutputRegistry', () => {
     expect(JSON.parse(ctx.get('grpc.response.body')!)).toEqual({ ok: true });
     expect(ctx.get('grpc.response.status')).toBe('0');
   });
+
+  it('publishes load-test and schema-diff summary refs (Phase 11N)', () => {
+    const ctx = new VariableContext({});
+    const registry = new GrpcWorkflowOutputRegistry();
+    registry.publishLoadTestSummary(ctx, 'lt-node', 'loadAlias', {
+      nodeId: 'lt-node',
+      status: 'success',
+      runId: 'run-1',
+      totalCalls: 2,
+      succeeded: 2,
+      failed: 0,
+    });
+    registry.publishSchemaDiffSummary(ctx, 'sd-node', 'diffAlias', {
+      nodeId: 'sd-node',
+      status: 'success',
+      breaking: 0,
+      warning: 1,
+      info: 0,
+      leftDescriptorKey: 'left',
+      rightDescriptorKey: 'right',
+    });
+    expect(JSON.parse(ctx.get('steps.lt-node.grpc.loadTestSummary')!).runId).toBe('run-1');
+    expect(JSON.parse(ctx.get('grpc.loadAlias.loadTestSummary')!).totalCalls).toBe(2);
+    expect(JSON.parse(ctx.get('grpc.diffAlias.schemaDiffSummary')!).breaking).toBe(0);
+  });
 });

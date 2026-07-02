@@ -5,6 +5,7 @@ import {
 } from './grpcTransportTabRouting';
 import {
   openGrpcStreamEvents,
+  resetBrowserDirectGrpcStreamsForTests,
   shouldAcceptGrpcStreamSequence,
   startGrpcStream,
 } from './grpcStreamClient';
@@ -46,6 +47,7 @@ describe('openGrpcStreamEvents', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
+    resetBrowserDirectGrpcStreamsForTests();
   });
 
   it('delivers parsed events and stops after grpc-end (no reconnect)', async () => {
@@ -174,6 +176,32 @@ describe('openGrpcStreamEvents', () => {
     dispose();
   });
 
+  it('openGrpcStreamEvents reports reconnecting before a follow-up attach', async () => {
+    fetchMock
+      .mockResolvedValueOnce(sseResponse([]))
+      .mockResolvedValueOnce(sseResponse([]));
+
+    vi.useFakeTimers();
+    const states: string[] = [];
+    const dispose = openGrpcStreamEvents('s1', 'tab-1', {
+      onEvent: () => undefined,
+      onStateChange: (state) => states.push(state),
+    });
+
+    await vi.waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    await vi.advanceTimersByTimeAsync(1_000);
+
+    await vi.waitFor(() => {
+      expect(states).toContain('reconnecting');
+      expect(fetchMock.mock.calls.length).toBeGreaterThan(1);
+    });
+    dispose();
+    vi.useRealTimers();
+  });
+
   it('drops SSE events with mismatched tabId, streamId, or requestId', async () => {
     const makeMessagePayload = (overrides: Record<string, unknown>) => JSON.stringify({
       type: 'grpc-message',
@@ -225,28 +253,50 @@ describe('startGrpcStream transport dispatch (Phase 10A)', () => {
     vi.unstubAllGlobals();
   });
 
-  it('rejects grpc-web stream_start with Phase 10H guidance when adapter has no startStream', async () => {
+  it('starts grpc-web server_streaming via browser-direct stream session', async () => {
     syncGrpcTabTransportMode('tab-grpc-web', 'grpc-web');
 
     await expect(startGrpcStream({
       callType: 'server_streaming',
-    } as never, 'tab-grpc-web')).rejects.toMatchObject({
-      message: expect.stringMatching(/Phase 10H/i),
+      descriptorKey: '',
+      requestId: 'req-grpc-web',
+      target: { address: 'example.com:443', tlsMode: 'system' },
+      service: 'pkg.Svc',
+      method: 'Watch',
+      body: {},
+      metadata: [],
+      auth: { type: 'none' },
+    } as never, 'tab-grpc-web')).resolves.toMatchObject({
+      ok: true,
+      op: 'stream_start',
+      data: {
+        requestId: 'req-grpc-web',
+        tabId: 'tab-grpc-web',
+      },
     });
-
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('rejects spring-servlet stream_start with Phase 10H guidance when adapter has no startStream', async () => {
+  it('starts spring-servlet server_streaming via browser-direct stream session', async () => {
     syncGrpcTabTransportMode('tab-servlet', 'spring-servlet');
 
     await expect(startGrpcStream({
       callType: 'server_streaming',
-    } as never, 'tab-servlet')).rejects.toMatchObject({
-      message: expect.stringMatching(/Phase 10H/i),
+      descriptorKey: '',
+      requestId: 'req-servlet',
+      target: { address: 'example.com:443', tlsMode: 'system' },
+      service: 'pkg.Svc',
+      method: 'Watch',
+      body: {},
+      metadata: [],
+      auth: { type: 'none' },
+    } as never, 'tab-servlet')).resolves.toMatchObject({
+      ok: true,
+      op: 'stream_start',
+      data: {
+        requestId: 'req-servlet',
+        tabId: 'tab-servlet',
+      },
     });
-
-    expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it('uses snapshot transportMode over tab registry for stream_start', async () => {

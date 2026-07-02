@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Scenario, TestConfig } from '../shared/types';
 import type { Workflow } from '../features/workflow/types/workflow';
 import { buildHeaders, buildUrl, runTest, proxyFetch } from './executor';
+import * as grpcConnectionProfileHydration from './grpcConnectionProfileHydration';
 import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '../test-utils/factories';
 
 const harnessMocks = vi.hoisted(() => ({
@@ -789,6 +790,49 @@ describe('runTest', () => {
     expect(results[0]?.transportType).toBe('grpcCall');
     expect(results[0]?.passed).toBe(true);
     expect(harnessMocks.invokeUnary).toHaveBeenCalled();
+  });
+
+  it('auto-hydrates grpc connection profiles for profile-only harness scenarios', async () => {
+    harnessMocks.invokeUnary.mockClear();
+    const loadSpy = vi
+      .spyOn(grpcConnectionProfileHydration, 'loadGrpcConnectionProfilesFromStorage')
+      .mockReturnValue([
+        {
+          id: 'profile-a',
+          name: 'Hydrated Profile',
+          target: 'hydrated-host:50052',
+          tlsMode: 'disabled',
+        },
+      ]);
+
+    const s = makeScenario({
+      id: 's1',
+      actionType: 'grpcCall',
+      method: 'GRPC',
+      grpcCallAction: {
+        callType: 'unary',
+        target: '',
+        connectionId: 'profile-a',
+        descriptorKey: 'echo-v1',
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'hello' },
+      },
+    });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const { results } = await runTest(config, [s], vi.fn());
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.passed).toBe(true);
+    expect(loadSpy).toHaveBeenCalledTimes(1);
+    expect(harnessMocks.invokeUnary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({ address: 'hydrated-host:50052' }),
+      }),
+      expect.any(String),
+    );
+
+    loadSpy.mockRestore();
   });
 
   it('records grpc harness results in load-profile mode without throwing', async () => {

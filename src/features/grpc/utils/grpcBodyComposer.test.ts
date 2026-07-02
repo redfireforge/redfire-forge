@@ -141,4 +141,67 @@ describe('grpcBodyComposer (Phase 1F)', () => {
     );
     expect(violation).toMatch(/inner\.id.*quoted decimal string/i);
   });
+
+  it('coerces nested int64 numbers to strings when enforcement is disabled (OQ-8)', () => {
+    const innerSchema = {
+      typeName: 'demo.Inner',
+      fields: [
+        { name: 'id', number: 1, type: 'int64' as const, label: 'optional' as const },
+      ],
+    };
+    const outerSchema = {
+      typeName: 'demo.Outer',
+      fields: [
+        {
+          name: 'inner',
+          number: 1,
+          type: 'message' as const,
+          label: 'optional' as const,
+          messageTypeName: 'demo.Inner',
+        },
+      ],
+    };
+    const synced = applyJsonTextToSchema(
+      '{ "inner": { "id": 42 } }',
+      outerSchema,
+      {
+        enforceWideIntegralStringLiterals: false,
+        messageTypes: [innerSchema, outerSchema],
+      },
+    );
+    expect(synced.ok).toBe(true);
+    if (synced.ok) {
+      expect(synced.body).toEqual({ inner: { id: '42' } });
+    }
+  });
+
+  it('rejects nested int64 numeric literals in strict JSON mode when messageTypes is provided', () => {
+    const innerSchema = {
+      typeName: 'demo.Inner',
+      fields: [
+        { name: 'id', number: 1, type: 'int64' as const, label: 'optional' as const },
+      ],
+    };
+    const outerSchema = {
+      typeName: 'demo.Outer',
+      fields: [
+        {
+          name: 'inner',
+          number: 1,
+          type: 'message' as const,
+          label: 'optional' as const,
+          messageTypeName: 'demo.Inner',
+        },
+      ],
+    };
+    const invalid = applyJsonTextToSchema(
+      '{ "inner": { "id": 42 } }',
+      outerSchema,
+      { messageTypes: [innerSchema, outerSchema] },
+    );
+    expect(invalid.ok).toBe(false);
+    if (!invalid.ok) {
+      expect(invalid.error).toMatch(/inner\.id.*quoted decimal string/i);
+    }
+  });
 });

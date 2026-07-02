@@ -11,6 +11,15 @@ const mutateMock = vi.fn();
 vi.mock('../data/grpcCollectionRepository', () => ({
   loadGrpcCollectionsStoreFromPersistence: (...args: unknown[]) => loadMock(...args),
   runGrpcCollectionMutation: (fn: (store: unknown) => unknown) => mutateMock(fn),
+  exportGrpcCollectionsStore: vi.fn().mockResolvedValue({
+    _exportMeta: {
+      version: '1.0',
+      exportedAt: '2026-07-01T00:00:00.000Z',
+      source: 'RedfireForge/gRPC',
+    },
+    store: createEmptyGrpcCollectionsStore(),
+  }),
+  importGrpcCollectionsStore: vi.fn().mockResolvedValue(createEmptyGrpcCollectionsStore()),
   createGrpcCollectionInStore: (store: ReturnType<typeof createEmptyGrpcCollectionsStore>, input: { name: string }) => ({
     ...store,
     collections: [...store.collections, { id: 'col-1', name: input.name, savedRequests: [] }],
@@ -22,6 +31,7 @@ vi.mock('../data/grpcCollectionRepository', () => ({
   updateGrpcSavedRequestInStore: vi.fn(),
   deleteGrpcSavedRequestFromStore: vi.fn(),
   duplicateGrpcSavedRequestInStore: vi.fn(),
+  incrementGrpcSavedRequestRunStatsInStore: vi.fn((store) => store),
 }));
 
 import { useGrpcCollections } from './useGrpcCollections';
