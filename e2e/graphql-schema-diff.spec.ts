@@ -226,27 +226,22 @@ async function seedTwoSnapshots(page: Page) {
 }
 
 /**
- * Open the diff modal via the Changelog tab by selecting snap-v2 as the
- * compare target for snap-v1 and clicking the diff button.
- * Returns after the modal is visible.
+ * Open the diff modal via the Changelog tab by selecting snap-v1, choosing snap-v2
+ * in the compare bar, and clicking View diff.
  */
 async function openDiffFromChangelog(page: Page) {
-  // The newer snapshot (V2) is listed first (most recent at top).
-  // We want to open diff for V1 comparing to V2.
-  // The first row = V2 (newer), second row = V1 (older).
-  // We select "Schema V2" in the compare-select of the V1 row, then click diff.
   const rows = page.locator('[data-testid="gql-changelog-row"]');
   await rows.first().waitFor({ state: 'visible', timeout: 8000 });
 
-  // Find the row for the older snapshot (V1) — it's the second row.
-  // Select V2 as the compare target in its dropdown.
-  const v1Row = rows.nth(1);
-  const compareSelect = v1Row.locator('[data-testid="gql-changelog-compare-select"]');
-  await compareSelect.selectOption({ value: 'snap-v2' });
+  // Newer snapshot (V2) is first; select older V1 row to compare against V2.
+  await rows.nth(1).click();
+  const compareBar = page.locator('[data-testid="gql-changelog-compare-bar"]');
+  await compareBar.waitFor({ state: 'visible', timeout: 8000 });
+
+  await page.locator('[data-testid="gql-changelog-compare-select"]').selectOption({ value: 'snap-v2' });
   await page.waitForTimeout(200);
 
-  // Click the diff button
-  await v1Row.locator('[data-testid="gql-changelog-diff-btn"]').click();
+  await page.locator('[data-testid="gql-changelog-diff-btn"]').click();
   await page.locator('[data-testid="gql-diff-modal"]').waitFor({ state: 'visible', timeout: 8000 });
 }
 
@@ -292,7 +287,7 @@ test.describe('GraphQL Studio — schema diff changelog panel', () => {
     expect(await rows.count()).toBe(2);
   });
 
-  test('compare-select dropdown is present on each changelog row', async ({ page }) => {
+  test('compare-select dropdown is present in the changelog compare bar', async ({ page }) => {
     await gotoGqlStudio(page);
     await seedTwoSnapshots(page);
     await fillEndpoint(page);
@@ -301,10 +296,11 @@ test.describe('GraphQL Studio — schema diff changelog panel', () => {
 
     const rows = page.locator('[data-testid="gql-changelog-row"]');
     await rows.first().waitFor({ state: 'visible', timeout: 6000 });
-    await expect(rows.first().locator('[data-testid="gql-changelog-compare-select"]')).toBeVisible();
+    await expect(page.locator('[data-testid="gql-changelog-compare-bar"]')).toBeVisible();
+    await expect(page.locator('[data-testid="gql-changelog-compare-select"]')).toBeVisible();
   });
 
-  test('diff button is present on each changelog row', async ({ page }) => {
+  test('diff button is present in the changelog compare bar', async ({ page }) => {
     await gotoGqlStudio(page);
     await seedTwoSnapshots(page);
     await fillEndpoint(page);
@@ -313,7 +309,7 @@ test.describe('GraphQL Studio — schema diff changelog panel', () => {
 
     const rows = page.locator('[data-testid="gql-changelog-row"]');
     await rows.first().waitFor({ state: 'visible', timeout: 6000 });
-    await expect(rows.first().locator('[data-testid="gql-changelog-diff-btn"]')).toBeVisible();
+    await expect(page.locator('[data-testid="gql-changelog-diff-btn"]')).toBeVisible();
   });
 });
 
@@ -389,6 +385,8 @@ test.describe('GraphQL Studio — diff modal exports', () => {
     await gotoSchemaTab(page);
     await gotoChangelogTab(page);
     await openDiffFromChangelog(page);
+    // Force anchor-based download so Playwright can observe the download event.
+    await page.evaluate(() => { delete (window as Record<string, unknown>).showSaveFilePicker; });
   });
 
   test('Export JSON button triggers a file download', async ({ page }) => {
@@ -605,8 +603,7 @@ test.describe('GraphQL Studio — diff modal acknowledge flow', () => {
     await gotoChangelogTab(page);
     const row = page.locator('[data-testid="gql-changelog-row"]').first();
     await row.waitFor({ state: 'visible', timeout: 6000 });
-    // Click diff without selecting compare target (snapshot vs current)
-    await row.locator('[data-testid="gql-changelog-diff-btn"]').click();
+    await page.locator('[data-testid="gql-changelog-diff-btn"]').click();
     await page.locator('[data-testid="gql-diff-modal"]').waitFor({ state: 'visible', timeout: 8000 });
 
     // Filter to Breaking to ensure we see BREAKING rows with Acknowledge buttons
@@ -621,7 +618,7 @@ test.describe('GraphQL Studio — diff modal acknowledge flow', () => {
     await gotoChangelogTab(page);
     const row = page.locator('[data-testid="gql-changelog-row"]').first();
     await row.waitFor({ state: 'visible', timeout: 6000 });
-    await row.locator('[data-testid="gql-changelog-diff-btn"]').click();
+    await page.locator('[data-testid="gql-changelog-diff-btn"]').click();
     await page.locator('[data-testid="gql-diff-modal"]').waitFor({ state: 'visible', timeout: 8000 });
 
     await page.locator('.gql-diff-filter--breaking').click();
@@ -638,7 +635,7 @@ test.describe('GraphQL Studio — diff modal acknowledge flow', () => {
     await gotoChangelogTab(page);
     const row = page.locator('[data-testid="gql-changelog-row"]').first();
     await row.waitFor({ state: 'visible', timeout: 6000 });
-    await row.locator('[data-testid="gql-changelog-diff-btn"]').click();
+    await page.locator('[data-testid="gql-changelog-diff-btn"]').click();
     await page.locator('[data-testid="gql-diff-modal"]').waitFor({ state: 'visible', timeout: 8000 });
 
     await page.locator('.gql-diff-filter--breaking').click();
