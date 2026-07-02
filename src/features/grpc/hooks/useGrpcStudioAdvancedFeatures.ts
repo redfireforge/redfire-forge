@@ -61,6 +61,7 @@ export interface UseGrpcStudioAdvancedFeaturesOptions {
   studio: StudioSlice;
   envName?: string;
   pageDefaults: GrpcTabConnectionPageDefaults;
+  enabled?: boolean;
 }
 
 function workspaceMockDefault(): GrpcMockConfigSource {
@@ -68,7 +69,7 @@ function workspaceMockDefault(): GrpcMockConfigSource {
 }
 
 export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeaturesOptions) {
-  const { studio, envName } = options;
+  const { studio, envName, enabled = true } = options;
   const [tabStateById, setTabStateById] = useState<Record<string, GrpcTabAdvancedFeaturesUiState>>({});
   const loadTestRunsRef = useRef<Map<string, GrpcLoadTestSchedulerRun>>(new Map());
   const loadTestPollsRef = useRef<Map<string, ReturnType<typeof setInterval>>>(new Map());
@@ -122,7 +123,7 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     loadLoadTestProfile,
     renameLoadTestProfile,
     removeLoadTestProfile,
-  } = useGrpcLoadTestProfilesState(activeTabId, activeState.loadTest.config, patchTabState);
+  } = useGrpcLoadTestProfilesState(activeTabId, activeState.loadTest.config, patchTabState, enabled);
 
   const {
     schemaDiffAckChangeIds,

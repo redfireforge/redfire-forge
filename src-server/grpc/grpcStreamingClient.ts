@@ -54,6 +54,10 @@ function recordToMetadata(metadata: Record<string, string>): grpc.Metadata {
   return grpcMetadata;
 }
 
+function isGrpcCancelledStatus(status: number | undefined): boolean {
+  return status === grpc.status.CANCELLED || status === 1;
+}
+
 type GrpcJsStreamCall =
   | grpc.ClientReadableStream<Buffer>
   | grpc.ClientWritableStream<Buffer>
@@ -87,6 +91,7 @@ export class GrpcJsStreamingClient {
     let responseTrailers: Record<string, string> = {};
     let grpcStatusCode = 0;
     let clientStreamResponse: Record<string, unknown> | undefined;
+    let clientWritesEnded = false;
 
     const finish = (fn: () => void) => {
       if (settled) return;
@@ -102,6 +107,9 @@ export class GrpcJsStreamingClient {
     const handleError = (error: grpc.ServiceError | Error) => {
       const serviceError = error as grpc.ServiceError;
       const status = typeof serviceError.code === 'number' ? serviceError.code : undefined;
+      if (params.callType === 'bidi_streaming' && clientWritesEnded && isGrpcCancelledStatus(status)) {
+        return;
+      }
       finish(() => callbacks.onError(
         serviceError.details ?? error.message,
         status,
@@ -210,9 +218,14 @@ export class GrpcJsStreamingClient {
       });
 
       bidiCall.on('end', () => {
+        const terminalStatus = params.callType === 'bidi_streaming'
+          && clientWritesEnded
+          && isGrpcCancelledStatus(grpcStatusCode)
+          ? 0
+          : grpcStatusCode;
         handleTerminal({
-          status: grpcStatusCode,
-          statusMessage: grpc.status[grpcStatusCode as grpc.status] ?? 'OK',
+          status: terminalStatus,
+          statusMessage: grpc.status[terminalStatus as grpc.status] ?? 'OK',
           headers: responseHeaders,
           trailers: responseTrailers,
         });
@@ -231,6 +244,7 @@ export class GrpcJsStreamingClient {
         if (params.callType === 'server_streaming') {
           throw new Error('Cannot end writes on a server-streaming RPC');
         }
+        clientWritesEnded = true;
         (call as grpc.ClientWritableStream<Buffer>).end();
       },
       cancel() {

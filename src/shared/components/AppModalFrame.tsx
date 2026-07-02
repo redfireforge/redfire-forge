@@ -10,6 +10,7 @@ interface AppModalFrameRenderState {
   toggleExpand: () => void;
   headerDragStyle: CSSProperties | undefined;
   onHeaderMouseDown: ((event: React.MouseEvent<HTMLDivElement>) => void) | undefined;
+  onHeaderPointerDown: ((event: React.PointerEvent<HTMLDivElement>) => void) | undefined;
   headerExpandButton: ReactNode;
   footerExpandButton: ReactNode;
   closeButton: ReactNode;
@@ -78,7 +79,18 @@ export default function AppModalFrame({
   minWidth,
   minHeight,
 }: Props) {
-  const { expanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({
+  const {
+    expanded,
+    toggleExpand,
+    expandClass,
+    overlayStyle,
+    dialogStyle,
+    headerDragStyle,
+    onHeaderMouseDown,
+    onHeaderPointerDown,
+    onRightEdge,
+    onCorner,
+  } = useModalFrame({
     open,
     initialExpanded,
     expandMode,
@@ -123,6 +135,7 @@ export default function AppModalFrame({
     toggleExpand,
     headerDragStyle: disableDrag ? undefined : headerDragStyle,
     onHeaderMouseDown: disableDrag ? undefined : onHeaderMouseDown,
+    onHeaderPointerDown: disableDrag ? undefined : onHeaderPointerDown,
     headerExpandButton,
     footerExpandButton,
     closeButton,
@@ -143,6 +156,7 @@ export default function AppModalFrame({
             className={headerClassName}
             style={disableDrag ? undefined : headerDragStyle}
             onMouseDown={disableDrag ? undefined : onHeaderMouseDown}
+            onPointerDown={disableDrag ? undefined : onHeaderPointerDown}
           >
             {titleContent}
             <div className={controlsClassName} style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>

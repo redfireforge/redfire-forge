@@ -266,6 +266,10 @@ export function canChangeGrpcTabTransportMode(tab: GrpcStudioTabState): boolean 
 export interface GrpcStudioTabState {
   id: string;
   title: string;
+  /** UX-1: per-tab Services sidebar collapse state. */
+  servicesCollapsed?: boolean;
+  /** UX-5: session latency samples for response footer stats (per-tab, in-memory). */
+  latencyHistoryMs?: number[];
   target: string;
   /** When unset, inherit from linked profile or page defaults. */
   tlsMode?: GrpcTlsMode;
@@ -358,6 +362,7 @@ export function createGrpcStudioTab(
   return {
     id,
     title: overrides.title ?? nextDefaultGrpcTabTitle(existingTabs),
+    servicesCollapsed: overrides.servicesCollapsed ?? false,
     target: overrides.target ?? '',
     tlsMode: overrides.tlsMode,
     tlsConfig: overrides.tlsConfig,
@@ -391,6 +396,8 @@ export function duplicateGrpcStudioTab(
   const copiedMessages = structuredClone(tab.streamMessages);
   return createGrpcStudioTab({
     title: `${tab.title} (copy)`,
+    servicesCollapsed: tab.servicesCollapsed ?? false,
+    latencyHistoryMs: tab.latencyHistoryMs ? [...tab.latencyHistoryMs] : undefined,
     target: tab.target,
     tlsMode: tab.tlsMode,
     tlsConfig: tab.tlsConfig ? structuredClone(tab.tlsConfig) : undefined,

@@ -1,6 +1,6 @@
 # gRPC Studio Concrete UX Spec
 
-> Last updated: 2026-07-01 — reflects Mockup A (07-unified-shell-desktop.html) after full review session.
+> Last updated: 2026-07-02 — reflects Mockup A (07-unified-shell-desktop.html) after full review session, current mock-backed Studio validation work, and resolved UX product defaults.
 
 ## Scope
 This document defines the target UX for the gRPC Studio page so it reaches visual and interaction parity with the GraphQL and WebSocket Studio shells. Design-only — does not require immediate production implementation.
@@ -162,17 +162,114 @@ Base sections are **identical** to GraphQL/WebSocket:
 7. Latency distribution is always visible at the bottom of the Response section without scrolling.
 8. On < 860px, stage tabs provide access to Request, Response, Metadata, and Auth panels.
 
-## Open Product Questions
-1. Should mode preference (Composer / Split / Response Focus) persist per tab, or globally?
-2. Should the response-focus auto-switch trigger after every unary success, or only on user opt-in?
-3. Should the mobile Send button stay floating or move into a sticky footer when the keyboard is open?
-4. Should the `=n` call count badge reset when switching tabs, or be global across all tabs?
+## Product Defaults (Resolved 2026-07-02)
+1. Mode preference (Composer / Split / Response Focus) persists **per tab**.
+2. Response-focus auto-switch triggers **only on explicit user opt-in** (no automatic switching on every unary success).
+3. Mobile send actions use a **sticky footer action bar** in a viewport-safe zone, including keyboard-safe bottom padding handling.
+4. The `=n` call count badge is **tab-local** and persists with that tab's session state; it does not aggregate globally across tabs.
 
 ---
 
 ## UX Implementation Phases
 
 These phases describe how to incrementally ship the Proposal A shell into production. They are separate from the product feature phases (1–13) in `grpc-studio-plan.md` — those shipped the gRPC engine and panels. These phases ship the **shell redesign** on top of that foundation.
+
+### Current Implementation Progress (2026-07-02)
+
+- UX-1: ✅ Complete (2026-07-02).
+  - Implemented: Services sidebar collapse/expand with 36px rail and per-tab collapse state.
+  - Implemented: Desktop-side request/response split at wide breakpoints (>=1280px) so both panes stay visible.
+  - Implemented: In Studio view, connection chrome now renders inside the workspace main column (compact shell flow).
+  - Implemented: Connection row chrome polish for badge/button alignment and tighter action spacing.
+  - 🔧 **2026-07-01 Fix**: Collapse button accessibility when sidebar is in 36px collapsed state — header layout adjusted to ensure buttons remain clickable and visible.
+
+- UX-2: ✅ Complete (2026-07-02).
+  - Implemented: Tab bar is rendered between sub-nav and connection row.
+  - Implemented: Per-tab call count `=n` badge increments on Send unary and Start stream actions.
+  - Implemented: Close action is constrained while unary/stream calls are in flight.
+  - Implemented: Tab method subtitle (Service/Method) and richer tab tooltip/accessibility labeling.
+  - Implemented: Auth badge opens connection settings directly to the Auth tab.
+  - Implemented: Per-tab Studio shell persistence restores target/auth/method/sidebar state across reloads.
+
+- UX-4: ✅ Complete (2026-07-01).
+  - Implemented: Response inspector top-level tabs for Response / Proto parity with GraphQL Studio.
+  - Implemented: Proto tab renders method schema summary (service RPC signature) and descriptor source label.
+  - Implemented: Proto tab includes Export Proto action downloading `.proto.txt` file with method signature.
+  - Implemented: Response status bar: status + code + duration + payload size with syntax highlighting.
+  - Implemented: Response sub-tabs: Body / Headers / Metadata / Trailers / Tracing / Timing (full parity).
+  - Implemented: Body sub-tab with syntax-highlighted JSON (blue keys, green strings, peach numbers, mauve booleans).
+  - Implemented: Body toolbar with Pretty Format button (compact ↔ indented JSON toggle) + Copy button + clipboard confirmation.
+  - Implemented: Headers sub-tab displays request/response metadata key-value table with entry count badge.
+  - Implemented: Trailers sub-tab displays gRPC trailers (grpc-status, grpc-message, custom trailers) in key-value table.
+  - Implemented: Metadata sub-tab displays response metadata entries from gRPC headers/trailers.
+  - Implemented: Tracing sub-tab displays resolver trace table with path / parent type / return type / duration breakdown.
+  - Implemented: Timing sub-tab displays per-phase bar chart (DNS, TLS handshake, request sent, TTFB, response received, total).
+  - Implemented: Header-level Raw toggle for response body rendering mode (structured JSON vs. raw stringified view).
+  - Implemented: Response status strip tracing chip when trace metadata is present.
+  - Implemented: Copy response action with clipboard feedback and error handling.
+
+- UX-5: ✅ Complete (2026-07-01).
+  - Implemented: Sticky latency distribution footer in response panel.
+  - Implemented: Min / Avg / p95 / Max stat chips with rounded values.
+  - Implemented: Fast / Moderate / Slow histogram bars color-coded (green ≤50ms / yellow 50–1000ms / red >1000ms).
+  - Implemented: Per-tab session history tracking with session count display.
+  - Implemented: Latency footer persists across tab switches and call sequences.
+
+- UX-3: ✅ Complete (2026-07-01).
+  - Implemented: Request composer Files tab with multi-file staging list (name, size).
+  - Implemented: Remove-per-file and Clear-all controls for staged files.
+  - Implemented: File-to-bytes-field mapping on Send unary / Start stream — files read as base64 and injected into corresponding bytes fields.
+  - Implemented: Async send handler to apply file data before request composition.
+  - 🧪 E2E test coverage: Playwright scenario validating Files upload / remove / clear flow and Proto export download with filename verification.
+
+- UX-6: ✅ Complete (2026-07-02).
+  - Implemented: Extracted `SharedTlsConfigPanel` component (Server Verification + CA Cert + Client Identity sections) in `src/shared/components/SharedTlsConfigPanel.tsx`.
+  - Implemented: Updated `TlsConfigModal` (WebSocket/GraphQL) to use `SharedTlsConfigPanel` — eliminates 150+ lines of duplicate body rendering code.
+  - Implemented: Created `SharedTlsMtlsModal` component with optional `headerSlot` for protocols needing mode selection (gRPC tri-mode selector).
+  - Implemented: Created `GrpcTlsMtlsModal` wrapper using gRPC-specific `GrpcTlsConfigBody` (tri-mode + secret field masking).
+  - Result: Shared components now used by WebSocket, GraphQL, and gRPC — TLS modal footer/styling remains protocol-specific, body sections unified.
+
+- Validation Infrastructure: ✅ Complete (2026-07-02).
+  - Implemented: Backend mock/test reflection resolution for active gRPC mock listeners.
+  - Implemented: Loopback gRPC client proxy bypass so local mock listeners are reachable in constrained environments.
+  - Implemented: Docker-free Playwright coverage for mock-backed unary, server-stream, client-stream, and bidi flows.
+  - Implemented: Grouped shell recovery coverage for live-backed reflection, connect/disconnect probe recovery, and post-reflection method reuse after listener loss.
+  - Implemented: Multi-tab live-backed isolation coverage proving sibling tabs keep independent unary results, stream logs, and target-level recovery paths.
+  - Implemented: Backend regressions for bidi terminal handling and SSE terminal replay/close timing.
+  - Result: Full mock-backed Studio validation now covers connection, reflection, method execution, and streaming lifecycle without Docker.
+
+- UX-7: ✅ Complete (2026-07-02).
+  - Implemented: Tablet breakpoint moved to `860px` so unary request/response panes render side-by-side from tablet widths upward.
+  - Implemented: Mobile breakpoint `<860px` now uses stage-tab navigation for Request / Response / Metadata / Auth.
+  - Implemented: Mobile stage switching reuses existing composer validation and Auth/Metadata flows instead of a separate mobile-only request state.
+  - Implemented: Sticky mobile action bar for Send / Start stream / Cancel actions in a viewport-safe zone.
+  - Implemented: Visible focus styling for mobile stage controls and action buttons.
+  - 🧪 Targeted coverage: shell tests for tablet split, mobile stacked layout, and mobile stage switching; component coverage for mobile action-bar handler wiring.
+
+- **Remaining Work**: 
+  - None for UX shell phases UX-1 through UX-7. Future additions are optional hardening/expansion items beyond the current implemented scope.
+
+- **Status Note (2026-07-02)**:
+  - Product-default decisions are now finalized for previously open UX behavior questions.
+  - Implementation and documentation are aligned: no outstanding required UX shell decisions remain.
+
+### Optional Hardening / Expansion Backlog (Post UX-1..UX-7)
+
+- Native transport parity (desktop/Tauri): 🔨 In progress (2026-07-02).
+  - Added native-gated E2E execution coverage for unary and server-stream lifecycle in `e2e/grpc-studio-native-transport.spec.ts`.
+  - Added runtime-availability guard so parity tests skip cleanly when native mode is disabled outside a Tauri webview.
+  - Current local run status with `E2E_TAURI_NATIVE_GRPC=1`: transport shell test passes; unary/stream parity tests skip when native mode is disabled in browser runtime.
+
+- grpcurl import/export parity hardening: 🔨 In progress (2026-07-02).
+  - Added shell coverage for descriptor-flag warning visibility and parsed-target application on import submit in `e2e/grpc-studio-collections-history.spec.ts`.
+  - Added live-backed saved-request export→import preview roundtrip coverage (copy grpcurl command, re-import into modal preview) in `e2e/grpc-studio-collections-history.spec.ts`.
+  - Local verification completed with targeted specs: `e2e/grpc-studio-collections-history.spec.ts` and grouped subset (`interpolation + collections-history + files-proto`).
+
+- Advanced load-test resilience hardening: 🔨 In progress (2026-07-02).
+  - Added scheduler-core resilience coverage in `src/shared/grpc/grpcLoadTestSchedulerCore.coverage-gaps.test.ts` for cancellation, pre-aborted upstream signal handling, and failure-continuation through total-call completion.
+  - Expanded profile persistence edge-case coverage in `src/features/grpc/data/grpcLoadTestProfileRepository.coverage-gaps.test.ts` for concurrent save queueing and blank-name rename rejection.
+  - Local focused validation passed across adjacent suites: scheduler core, stream scheduler, load-test metrics, and load-test profile repository coverage tests.
+
 
 ### Phase UX-1 — Compact Shell + 3-Column Layout
 **Goal:** Replace the current stacked layout with the unified 3-column desktop shell.

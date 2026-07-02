@@ -2,9 +2,23 @@
  * @vitest-environment node
  */
 import { describe, expect, it } from 'vitest';
-import { GrpcJsClient } from './grpcClient.js';
+import { ensureLocalGrpcBypassesProxyEnv, GrpcJsClient } from './grpcClient.js';
 
 describe('GrpcJsClient (Phase 1B)', () => {
+  it('ensures loopback hosts bypass proxy env vars', () => {
+    process.env.NO_PROXY = 'example.com';
+    process.env.no_proxy = 'internal.local';
+
+    ensureLocalGrpcBypassesProxyEnv();
+
+    expect(process.env.NO_PROXY).toContain('example.com');
+    expect(process.env.NO_PROXY).toContain('127.0.0.1');
+    expect(process.env.NO_PROXY).toContain('localhost');
+    expect(process.env.no_proxy).toContain('internal.local');
+    expect(process.env.no_proxy).toContain('127.0.0.1');
+    expect(process.env.no_proxy).toContain('::1');
+  });
+
   it('reports in-process targets as unreachable without dialing', async () => {
     const client = new GrpcJsClient();
     const result = await client.probeReachability({

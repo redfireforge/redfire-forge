@@ -97,6 +97,7 @@ function createHistoryHookMock(): UseGrpcCallHistoryResult {
 describe('GrpcStudioPage (Phase 1D + 1E)', () => {
   beforeEach(() => {
     resetGrpcTabCounterForTests();
+    window.localStorage.clear();
     setGrpcClientTransport(null);
     setGrpcStreamTransport(null);
     setGrpcStreamEventsOpener(null);
@@ -115,6 +116,18 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     expect(screen.getByTestId('grpc-service-explorer')).toBeTruthy();
     expect(screen.getByTestId('grpc-method-detail')).toBeTruthy();
     expect(screen.getByTestId('grpc-call-panel')).toBeTruthy();
+  });
+
+  it('toggles between compact and comfortable density modes', () => {
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    const page = screen.getByTestId('grpc-studio-page');
+
+    expect(page.className).toContain('grpc-studio--density-compact');
+    expect((screen.getByTestId('grpc-density-compact-btn') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(screen.getByTestId('grpc-density-comfortable-btn'));
+    expect(page.className).toContain('grpc-studio--density-comfortable');
+    expect((screen.getByTestId('grpc-density-comfortable-btn') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
   });
 
   it('accepts valid host:port target', () => {
@@ -321,11 +334,12 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     expect((screen.getByTestId('grpc-target-input') as HTMLInputElement).value).toBe('localhost:50051');
   });
 
-  it('focuses auth tab when connection bar auth badge is clicked (Phase 4J-A)', async () => {
+  it('opens settings drawer on auth tab when connection bar auth badge is clicked (Phase 4J-A)', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
     fireEvent.click(screen.getByTestId('grpc-auth-badge'));
     await waitFor(() => {
-      expect(screen.getByTestId('grpc-request-tab-auth').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
+      expect(screen.getByTestId('grpc-settings-nav-auth').className).toMatch(/active/);
     });
   });
 
@@ -432,16 +446,18 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     });
   });
 
-  it('closes settings drawer when auth badge focuses auth tab (Phase 4J-C)', async () => {
+  it('auth badge opens settings drawer to auth nav (replaces old close-and-focus, Phase 4J-C)', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    // Open drawer on TLS first
     fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
     await waitFor(() => {
       expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
     });
+    // Click auth badge — should stay open but switch to auth nav
     fireEvent.click(screen.getByTestId('grpc-auth-badge'));
     await waitFor(() => {
-      expect(screen.queryByTestId('grpc-connection-settings-drawer')).toBeNull();
-      expect(screen.getByTestId('grpc-request-tab-auth').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
+      expect(screen.getByTestId('grpc-settings-nav-auth').className).toMatch(/active/);
     });
   });
 
@@ -473,8 +489,10 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
 
   it('renders page-level connection chrome without inline TLS PEM (Phase 4J-B / 5H)', () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" envName="staging" />);
+    // Navigate to Collections view to see page-level connection chrome
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-collections'));
     const chrome = screen.getByTestId('grpc-connection-chrome');
-    expect(chrome.closest('.grpc-studio-page-connection-chrome')).toBeTruthy();
+    expect(chrome.classList.contains('grpc-studio-page-connection-chrome')).toBe(true);
     expect(chrome.querySelector('[data-testid="grpc-connection-bar"]')).toBeTruthy();
     expect(chrome.querySelector('[data-testid="grpc-tls-server-ca"]')).toBeNull();
     expect(screen.getByTestId('grpc-connection-env-badge').textContent).toBe('staging');

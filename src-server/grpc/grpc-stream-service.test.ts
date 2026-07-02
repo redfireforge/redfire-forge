@@ -459,7 +459,7 @@ describe('GrpcStreamService', () => {
     }));
   });
 
-  it('replays buffered events when attaching to a terminal stream', () => {
+  it('replays buffered events when attaching to a terminal stream', async () => {
     const start = service.startStream(FIXTURE_SERVER_STREAM_START_REQUEST, 'tab-1');
     expect(start.ok).toBe(true);
     if (!start.ok) return;
@@ -482,8 +482,10 @@ describe('GrpcStreamService', () => {
     expect(res.write).toHaveBeenCalledWith(
       expect.stringContaining('late-replay'),
     );
-    expect(res.end).toHaveBeenCalled();
-    expect(getGrpcStreamEntry(start.data.streamId)).toBeUndefined();
+    await vi.waitFor(() => {
+      expect(res.end).toHaveBeenCalled();
+      expect(getGrpcStreamEntry(start.data.streamId)).toBeUndefined();
+    });
   });
 
   it('finalizes registry when startStream transport throws synchronously', () => {

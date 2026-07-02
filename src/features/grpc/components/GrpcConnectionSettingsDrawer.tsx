@@ -185,7 +185,15 @@ export function GrpcConnectionSettingsDrawer({
 
   return createPortal(
     <AppModalFrame
-      title="Connection settings"
+      title={(
+        <div className="grpc-settings-title-block">
+          <span className="grpc-settings-drag-handle" aria-hidden="true" />
+          <div className="grpc-settings-title-copy">
+            <span className="grpc-settings-title-text">gRPC session settings</span>
+            <span className="grpc-settings-title-hint">Connection profile editor — drag header to move</span>
+          </div>
+        </div>
+      )}
       onClose={onClose}
       closeOnOverlayClick={false}
       overlayClassName="grpc-settings-overlay"
@@ -211,7 +219,7 @@ export function GrpcConnectionSettingsDrawer({
       )}
     >
       <div className="grpc-settings-layout" data-testid="grpc-connection-settings-drawer">
-        <nav className="grpc-settings-nav" aria-label="Connection settings" data-testid="grpc-settings-nav">
+        <nav className="grpc-settings-nav" aria-label="gRPC session settings" data-testid="grpc-settings-nav">
           <div className="grpc-settings-nav-section">Connection</div>
           {NAV_ITEMS.filter((item) => item.section === 'connection').map((item) => (
             <button

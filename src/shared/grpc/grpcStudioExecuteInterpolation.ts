@@ -24,6 +24,23 @@ export interface GrpcStudioExecuteInterpolatedFields {
   auth?: GrpcAuthConfig;
 }
 
+function normalizeGrpcExecuteAuthConfig(auth: GrpcAuthConfig | undefined): GrpcAuthConfig | undefined {
+  if (!auth || auth.type !== 'oauth2') {
+    return auth;
+  }
+
+  const hasTokenUrl = !!auth.oauth2?.tokenUrl?.trim();
+  const hasClientId = !!auth.oauth2?.clientId?.trim();
+  const hasClientSecret = !!auth.oauth2?.clientSecret?.trim();
+
+  // Incomplete OAuth2 config should not block unauthenticated calls.
+  if (!hasTokenUrl || !hasClientId || !hasClientSecret) {
+    return undefined;
+  }
+
+  return auth;
+}
+
 /** Post-resolve validation — mirrors harness/workflow snapshot builders (Phase 9H). */
 export function assertGrpcStudioExecuteFieldsReady(
   fields: GrpcStudioExecuteInterpolatedFields,
@@ -59,8 +76,9 @@ export function resolveGrpcStudioTabFieldsForExecute(
   }
   assertGrpcInterpolationMetadataNormalizeUnique(metadataResolved);
   const metadata = normalizeGrpcMetadata(metadataResolved);
-  const auth = resolveGrpcInterpolationAuthConfig(tab.auth, resolveTemplate);
-  assertGrpcInterpolationAuthTemplatesResolved(auth);
+  const resolvedAuth = resolveGrpcInterpolationAuthConfig(tab.auth, resolveTemplate);
+  assertGrpcInterpolationAuthTemplatesResolved(resolvedAuth);
+  const auth = normalizeGrpcExecuteAuthConfig(resolvedAuth);
   const fields = { body, metadata, auth };
   assertGrpcStudioExecuteFieldsReady(fields);
   return fields;

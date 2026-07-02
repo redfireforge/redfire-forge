@@ -32,6 +32,7 @@ import {
   putDescriptorCacheEntry,
 } from './descriptorCacheManager.js';
 import { fetchBsrDescriptorSet, BsrFetchGatewayError } from './bsrFetchGateway.js';
+import { grpcMockServerPool } from './grpcMockServerPool.js';
 import { fetchProtoFromUrl, ProtoFetchGatewayError } from './protoFetchGateway.js';
 import {
   grpcReflectionClient,
@@ -124,6 +125,12 @@ export class DescriptorLoader {
         'in-process targets are not dialable from the Node server (Phase 1C)',
         'unreachable',
       );
+    }
+
+    const mockDescriptor = grpcMockServerPool.resolveDescriptorForListenTarget(targetCheck.normalized);
+    if (mockDescriptor) {
+      setGrpcDescriptor(mockDescriptor);
+      return mockDescriptor;
     }
 
     const timeoutMs = request.timeoutMs ?? 5_000;

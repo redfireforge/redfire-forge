@@ -191,7 +191,7 @@ describe('GrpcStreamService coverage gaps', () => {
     expect(write).toHaveBeenCalled();
   });
 
-  it('attachStreamEvents finalizes terminal streams immediately', () => {
+  it('attachStreamEvents finalizes terminal streams after replay flush', async () => {
     const mockClient: GrpcStreamingClientFactory = {
       startStream: vi.fn(() => ({
         callType: 'server_streaming',
@@ -211,7 +211,9 @@ describe('GrpcStreamService coverage gaps', () => {
     getGrpcStreamEntry(start.data.streamId)!.status = 'ended';
     const res = createMockResponse();
     expect(service.attachStreamEvents(start.data.streamId, 'tab-1', res)).toBeNull();
-    expect(getGrpcStreamEntry(start.data.streamId)).toBeUndefined();
+    await vi.waitFor(() => {
+      expect(getGrpcStreamEntry(start.data.streamId)).toBeUndefined();
+    });
   });
 
   it('attachStreamEvents returns validation errors for missing tabId', () => {

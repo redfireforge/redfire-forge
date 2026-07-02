@@ -22,6 +22,35 @@ import {
   waitForUnarySuccess,
 } from './grpc-helpers';
 
+async function installClipboardCapture(page: import('@playwright/test').Page): Promise<void> {
+  await page.evaluate(() => {
+    const scope = window as unknown as { __e2eClipboard?: string };
+    scope.__e2eClipboard = '';
+    const mockClipboard = {
+      writeText: async (text: string) => {
+        scope.__e2eClipboard = text;
+      },
+      readText: async () => scope.__e2eClipboard ?? '',
+    };
+
+    try {
+      Object.defineProperty(navigator, 'clipboard', {
+        configurable: true,
+        value: mockClipboard,
+      });
+    } catch {
+      Object.assign(navigator as object, { clipboard: mockClipboard });
+    }
+  });
+}
+
+async function getCapturedClipboard(page: import('@playwright/test').Page): Promise<string> {
+  return page.evaluate(() => {
+    const scope = window as unknown as { __e2eClipboard?: string };
+    return scope.__e2eClipboard ?? '';
+  });
+}
+
 test.describe('gRPC Studio — collections/history shell (Phase 5I)', () => {
   test.beforeEach(async ({ page }) => {
     await gotoGrpcStudio(page);
@@ -56,6 +85,17 @@ test.describe('gRPC Studio — collections/history shell (Phase 5I)', () => {
     );
     await expect(page.locator('[data-testid="grpc-import-grpcurl-preview"]')).toContainText('echo.EchoService');
     await page.locator('[data-testid="grpc-import-grpcurl-cancel"]').click();
+  });
+
+  test('import grpcurl shows descriptor warnings and applies parsed target', async ({ page }) => {
+    await openImportGrpcurlModal(page);
+    await page.locator('[data-testid="grpc-import-grpcurl-textarea"]').fill(
+      'grpcurl -proto echo.proto -import-path ./proto -plaintext -d \'{"message":"phase5fg-shell"}\' 127.0.0.1:59999 echo.EchoService/Echo',
+    );
+    await expect(page.locator('[data-testid="grpc-import-grpcurl-warnings"]')).toContainText(/Descriptor flags/i);
+    await page.locator('[data-testid="grpc-import-grpcurl-submit"]').click();
+    await expect(page.locator('[data-testid="grpc-import-grpcurl-modal"]')).toHaveCount(0);
+    await expect(page.locator('[data-testid="grpc-target-input"]')).toHaveValue('127.0.0.1:59999');
   });
 
   test('history panel shows empty hint before any calls', async ({ page }) => {
@@ -120,6 +160,26 @@ test.describe('gRPC Studio — collections/history live (Phase 5I)', () => {
 
     await page.locator('[data-testid="grpc-snapshot-update-baseline"]').click();
     await expect(page.locator('[data-testid="grpc-snapshot-badge-match"]')).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('saved-request grpcurl export can be re-imported for parity preview', async ({ page }) => {
+    await fillEchoMessage(page, 'phase5fg-roundtrip');
+    await sendUnaryCall(page);
+    await waitForUnarySuccess(page);
+    await saveCurrentRequestToCollection(page, 'Phase 5FG Roundtrip');
+
+    await installClipboardCapture(page);
+    await page.locator('[data-testid="grpc-saved-request-copy-grpcurl"]').click();
+    const exported = await getCapturedClipboard(page);
+
+    expect(exported).toContain('grpcurl');
+    expect(exported).toContain('echo.EchoService/Echo');
+    expect(exported).toContain('localhost:50051');
+
+    await openImportGrpcurlModal(page);
+    await page.locator('[data-testid="grpc-import-grpcurl-textarea"]').fill(exported);
+    await expect(page.locator('[data-testid="grpc-import-grpcurl-preview"]')).toContainText('echo.EchoService');
+    await page.locator('[data-testid="grpc-import-grpcurl-cancel"]').click();
   });
 
   test('clearing snapshot baseline shows no-baseline badge', async ({ page }) => {

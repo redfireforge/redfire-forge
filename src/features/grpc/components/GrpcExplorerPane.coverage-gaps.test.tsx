@@ -103,4 +103,138 @@ describe('GrpcExplorerPane coverage gaps', () => {
     expect(chrome.querySelector('[data-testid="chrome-fixture"]')).toBeTruthy();
     expect(chrome.closest('.grpc-studio-main')).toBeTruthy();
   });
+
+  it('dismisses drift banner and toggles explorer collapse', () => {
+    const onDismissSchemaDrift = vi.fn();
+    const onTabPatch = vi.fn();
+
+    render(
+      <GrpcExplorerPane
+        tab={{ ...tab, servicesCollapsed: false }}
+        tabPanelId="grpc-tab-pane-test"
+        descriptorState={{
+          ...createEmptyTabDescriptorState(),
+          descriptor: FIXTURE_DESCRIPTOR,
+          driftState: 'warning',
+          driftMessage: 'Field type changed',
+        }}
+        canReflect
+        targetValid
+        onReflect={vi.fn()}
+        onManageSchemas={vi.fn()}
+        onSelectMethod={vi.fn()}
+        onToggleServiceExpanded={vi.fn()}
+        onTabPatch={onTabPatch}
+        onDismissSchemaDrift={onDismissSchemaDrift}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-schema-drift-dismiss-btn'));
+    expect(onDismissSchemaDrift).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('grpc-explorer-collapse-btn'));
+    expect(onTabPatch).toHaveBeenCalledWith({ servicesCollapsed: true });
+  });
+
+  it('blocks send when drift is blocking and forwards tlsValid to call panel', () => {
+    render(
+      <GrpcExplorerPane
+        tab={tab}
+        tabPanelId="grpc-tab-pane-test"
+        descriptorState={{
+          ...createEmptyTabDescriptorState(),
+          descriptor: FIXTURE_DESCRIPTOR,
+          driftState: 'blocking',
+          driftMessage: 'Method removed',
+          driftStaleMethod: FIXTURE_DESCRIPTOR.services[0]!.methods[0],
+        }}
+        canReflect
+        targetValid
+        tlsValid={false}
+        onReflect={vi.fn()}
+        onManageSchemas={vi.fn()}
+        onSelectMethod={vi.fn()}
+        onToggleServiceExpanded={vi.fn()}
+        onTabPatch={vi.fn()}
+      />,
+    );
+
+    expect((screen.getByTestId('grpc-send-btn') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByTestId('grpc-call-send-block-hint').textContent).toMatch(/TLS configuration/i);
+  });
+
+  it('defaults servicesCollapsed when tab omits the flag', () => {
+    const onTabPatch = vi.fn();
+    const tabWithoutCollapse = { ...createGrpcStudioTab(), service: 'echo.EchoService', method: 'Echo' };
+    delete (tabWithoutCollapse as { servicesCollapsed?: boolean }).servicesCollapsed;
+
+    render(
+      <GrpcExplorerPane
+        tab={tabWithoutCollapse}
+        tabPanelId="grpc-tab-pane-test"
+        descriptorState={{
+          ...createEmptyTabDescriptorState(),
+          descriptor: FIXTURE_DESCRIPTOR,
+        }}
+        canReflect
+        targetValid
+        onReflect={vi.fn()}
+        onManageSchemas={vi.fn()}
+        onSelectMethod={vi.fn()}
+        onToggleServiceExpanded={vi.fn()}
+        onTabPatch={onTabPatch}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-explorer-collapse-btn'));
+    expect(onTabPatch).toHaveBeenCalledWith({ servicesCollapsed: true });
+  });
+
+  it('honors servicesCollapsed=true and toggles back to expanded', () => {
+    const onTabPatch = vi.fn();
+
+    render(
+      <GrpcExplorerPane
+        tab={{ ...tab, servicesCollapsed: true }}
+        tabPanelId="grpc-tab-pane-test"
+        descriptorState={{
+          ...createEmptyTabDescriptorState(),
+          descriptor: FIXTURE_DESCRIPTOR,
+        }}
+        canReflect
+        targetValid
+        onReflect={vi.fn()}
+        onManageSchemas={vi.fn()}
+        onSelectMethod={vi.fn()}
+        onToggleServiceExpanded={vi.fn()}
+        onTabPatch={onTabPatch}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-explorer-collapse-btn'));
+    expect(onTabPatch).toHaveBeenCalledWith({ servicesCollapsed: false });
+  });
+
+  it('uses selected method when descriptor matches tab selection', () => {
+    render(
+      <GrpcExplorerPane
+        tab={tab}
+        tabPanelId="grpc-tab-pane-test"
+        descriptorState={{
+          ...createEmptyTabDescriptorState(),
+          descriptor: FIXTURE_DESCRIPTOR,
+        }}
+        canReflect
+        targetValid
+        onReflect={vi.fn()}
+        onManageSchemas={vi.fn()}
+        onSelectMethod={vi.fn()}
+        onToggleServiceExpanded={vi.fn()}
+        onTabPatch={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-proto-form')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-call-panel-empty')).toBeNull();
+  });
 });

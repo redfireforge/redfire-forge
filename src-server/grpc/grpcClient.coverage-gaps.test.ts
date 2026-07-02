@@ -121,4 +121,14 @@ describe('GrpcJsClient coverage gaps', () => {
     const result = await client.probeReachability({ address: '[::1]:50051', timeoutMs: 5_000 });
     expect(result.reachable).toBe(true);
   });
+
+  it('ensureLocalGrpcBypassesProxyEnv preserves existing NO_PROXY entries', async () => {
+    vi.resetModules();
+    process.env.NO_PROXY = 'example.com';
+    delete process.env.no_proxy;
+    await import('./grpcClient.js');
+    expect(process.env.NO_PROXY).toContain('example.com');
+    expect(process.env.NO_PROXY).toContain('127.0.0.1');
+    expect(process.env.no_proxy).toContain('localhost');
+  });
 });

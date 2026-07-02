@@ -302,4 +302,70 @@ describe('useGrpcStudio coverage gaps', () => {
     expect(result.current.maxTabs).toBe(GRPC_STUDIO_MAX_TABS);
     expect(result.current.canAddTab).toBe(true);
   });
+
+  it('restorePersistedSession replaces tabs, descriptors, and active tab id', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'persisted-tab-2',
+        tabs: [
+          {
+            id: 'persisted-tab-1',
+            title: 'First',
+            target: 'localhost:50051',
+            tlsMode: 'disabled',
+            metadata: {},
+            timeoutMs: 30_000,
+            requestMode: 'form',
+            body: { message: 'one' },
+            servicesCollapsed: false,
+          },
+          {
+            id: 'persisted-tab-2',
+            title: 'Second',
+            target: 'localhost:50052',
+            tlsMode: 'disabled',
+            metadata: {},
+            timeoutMs: 30_000,
+            requestMode: 'json',
+            body: { message: 'two' },
+            servicesCollapsed: true,
+          },
+        ],
+        tabDescriptors: {
+          'persisted-tab-1': {
+            sourceSelection: { kind: 'reflection', address: 'localhost:50051', tlsMode: 'disabled' },
+            expandedServiceIds: ['echo.EchoService'],
+          },
+        },
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.tabs.map((tab) => tab.id)).toEqual(['persisted-tab-1', 'persisted-tab-2']);
+    expect(result.current.activeTabId).toBe('persisted-tab-2');
+    expect(result.current.activeTab.title).toBe('Second');
+    expect(result.current.activeTab.target).toBe('localhost:50052');
+    expect(result.current.tabs[0]?.servicesCollapsed).toBe(false);
+    expect(result.current.tabs[1]?.servicesCollapsed).toBe(true);
+  });
+
+  it('restorePersistedSession ignores empty persisted tab lists', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+    const before = result.current.tabs.map((tab) => tab.id);
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'missing',
+        tabs: [],
+        tabDescriptors: {},
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.tabs.map((tab) => tab.id)).toEqual(before);
+  });
 });

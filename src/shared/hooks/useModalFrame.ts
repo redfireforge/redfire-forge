@@ -24,7 +24,13 @@ export function useModalFrame({
 }: UseModalFrameOptions = {}) {
   const { expanded, setExpanded, toggleExpand, expandClass } = useModalExpand(initialExpanded, expandMode);
   const dragEnabled = !expanded;
-  const { onDragStart, isDragged: rawDragged, overlayStyle: draggedOverlayStyle, modalStyle } = useModalDrag(open && dragEnabled);
+  const {
+    onDragStart,
+    onPointerDragStart,
+    isDragged: rawDragged,
+    overlayStyle: draggedOverlayStyle,
+    modalStyle,
+  } = useModalDrag(open && dragEnabled);
   const { resizeStyle, onRightEdge, onCorner, onBottomEdge, resetSize } = useModalResize(minWidth, minHeight);
 
   const isDragged = rawDragged && dragEnabled;
@@ -32,6 +38,7 @@ export function useModalFrame({
   const dialogStyle = isDragged ? { ...modalStyle, ...resizeStyle } : resizeStyle;
   const headerDragStyle: CSSProperties | undefined = dragEnabled ? { cursor: 'move' } : undefined;
   const onHeaderMouseDown = dragEnabled ? onDragStart : undefined;
+  const onHeaderPointerDown = dragEnabled ? onPointerDragStart : undefined;
 
   return {
     expanded,
@@ -43,6 +50,7 @@ export function useModalFrame({
     dialogStyle,
     headerDragStyle,
     onHeaderMouseDown,
+    onHeaderPointerDown,
     resizeStyle,
     onRightEdge,
     onCorner,
