@@ -45,7 +45,7 @@ describe('Phase 9F acceptance checklist', () => {
   it('Studio save path passes expanded tabContext template source', async () => {
     const source = await import('fs/promises').then((fs) =>
       fs.readFile(
-        new URL('../../features/grpc/GrpcStudioPage.tsx', import.meta.url),
+        new URL('../../features/grpc/hooks/useGrpcStudioPageCollections.ts', import.meta.url),
         'utf8',
       ),
     );

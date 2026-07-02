@@ -97,7 +97,7 @@ describe('Phase 9H acceptance checklist', () => {
   it('Studio save path preserves tab templates via tabContext (9F + 9H)', async () => {
     const source = await import('fs/promises').then((fs) =>
       fs.readFile(
-        new URL('../../features/grpc/GrpcStudioPage.tsx', import.meta.url),
+        new URL('../../features/grpc/hooks/useGrpcStudioPageCollections.ts', import.meta.url),
         'utf8',
       ),
     );
