@@ -25,6 +25,12 @@ afterEach(() => {
 });
 
 describe('idbOpen.openDB', () => {
+  it('DB_VERSION matches E2E REDFIREFORGE_IDB_VERSION re-export', async () => {
+    const { DB_VERSION } = await import('./idbOpen');
+    const { REDFIREFORGE_IDB_VERSION } = await import('../../../e2e/helpers');
+    expect(REDFIREFORGE_IDB_VERSION).toBe(DB_VERSION);
+  });
+
   it('opens database and exposes expected object stores', async () => {
     vi.resetModules();
     await import('fake-indexeddb/auto');

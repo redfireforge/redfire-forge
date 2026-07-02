@@ -6,13 +6,14 @@
 
 import { test, expect } from '@playwright/test';
 import { fillMonacoEditor, gotoGqlStudio, type Page } from './graphql-helpers';
+import { REDFIREFORGE_IDB_VERSION } from './helpers';
 
 const SAMPLE_QUERY = 'query GetHealth { health }';
 
 async function clearGraphqlCollections(page: Page) {
-  await page.evaluate(() =>
+  await page.evaluate((dbVersion) =>
     new Promise<void>((resolve, reject) => {
-      const req = indexedDB.open('redfireforge');
+      const req = indexedDB.open('redfireforge', dbVersion);
       req.onerror = () => reject(req.error);
       req.onsuccess = () => {
         const db = req.result;
@@ -25,7 +26,7 @@ async function clearGraphqlCollections(page: Page) {
         tx.onerror = () => reject(tx.error);
       };
     }),
-  );
+  REDFIREFORGE_IDB_VERSION);
 }
 
 test.describe.configure({ mode: 'serial', timeout: 60_000 });

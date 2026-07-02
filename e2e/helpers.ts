@@ -1,8 +1,10 @@
 import { expect, type Page } from '@playwright/test';
 import type { Workflow, WorkflowFolder } from '../src/features/workflow/types/workflow';
 
-/** Must stay in sync with DB_VERSION in src/shared/utils/idbOpen.ts */
-export const REDFIREFORGE_IDB_VERSION = 12;
+import { DB_VERSION } from '../src/shared/utils/idbOpen';
+
+/** Re-exported from app IDB module — single source of truth for E2E seeding */
+export const REDFIREFORGE_IDB_VERSION = DB_VERSION;
 
 async function safeReload(page: Page): Promise<void> {
   try {
