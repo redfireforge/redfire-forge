@@ -61,6 +61,7 @@ export type GrpcOperation =
   | 'reflect'
   | 'describe'
   | 'export_protoset'
+  | 'lookup_descriptor'
   | 'call'
   | 'cancel'
   | 'stream_start'
@@ -390,6 +391,15 @@ export interface GrpcExportProtosetResult {
   protosetBase64: string;
   fileName: string;
 }
+
+/** Request body for POST /api/grpc/descriptor/lookup (Phase 11N workflow schema diff). */
+export interface GrpcDescriptorLookupRequest {
+  requestId?: string;
+  descriptorKey: string;
+}
+
+/** Response body for POST /api/grpc/descriptor/lookup. */
+export type GrpcDescriptorLookupResult = GrpcDescriptor;
 
 export interface GrpcDescribeRequest {
   requestId?: string;

@@ -89,4 +89,36 @@ describe('GrpcJsClient coverage gaps', () => {
     expect(result.reachable).toBe(false);
     expect(result.errorMessage).toBe('Invalid host:port address');
   });
+
+  it('ignores late connect events after probe timeout settles', async () => {
+    vi.useFakeTimers();
+    const socket = new EventEmitter() as net.Socket & { destroy: ReturnType<typeof vi.fn> };
+    socket.destroy = vi.fn();
+    vi.spyOn(net, 'connect').mockImplementation(() => socket);
+
+    const client = new GrpcJsClient();
+    const probePromise = client.probeReachability({ address: '127.0.0.1:9', timeoutMs: 50 });
+    vi.advanceTimersByTime(50);
+    await expect(probePromise).resolves.toMatchObject({
+      reachable: false,
+      errorMessage: expect.stringMatching(/Timed out/i),
+    });
+
+    socket.emit('connect');
+    vi.useRealTimers();
+  });
+
+  it('parses bracketed IPv6 host:port targets during probe', async () => {
+    const socket = new EventEmitter() as net.Socket & { destroy: ReturnType<typeof vi.fn> };
+    socket.destroy = vi.fn();
+    vi.spyOn(net, 'connect').mockImplementation((options: net.NetConnectOpts) => {
+      expect(options).toMatchObject({ host: '::1', port: 50051 });
+      queueMicrotask(() => socket.emit('connect'));
+      return socket;
+    });
+
+    const client = new GrpcJsClient();
+    const result = await client.probeReachability({ address: '[::1]:50051', timeoutMs: 5_000 });
+    expect(result.reachable).toBe(true);
+  });
 });

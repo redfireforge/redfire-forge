@@ -76,9 +76,10 @@ describe('Phase 10C acceptance checklist', () => {
       expect(source).toContain('isGrpcTransportPlatformSupported');
     });
 
-    it('stream start fails closed for grpc-web with Phase 10H guidance', async () => {
+    it('stream start routes grpc-web server streaming to browser-direct handler', async () => {
       const source = await readFile(`${root}/shared/grpc/grpcStreamClient.ts`, 'utf8');
-      expect(source).toContain('Phase 10H');
+      expect(source).toContain('startBrowserDirectServerStream');
+      expect(source).toContain("request.callType === 'server_streaming'");
     });
   });
 

@@ -67,9 +67,10 @@ describe('Phase 10D acceptance checklist', () => {
       expect(source).not.toContain('grpc-web+proto');
     });
 
-    it('stream start fails closed for spring-servlet with Phase 10H guidance', async () => {
+    it('stream start routes spring-servlet server streaming to browser-direct handler', async () => {
       const source = await readFile(`${root}/shared/grpc/grpcStreamClient.ts`, 'utf8');
-      expect(source).toContain('Phase 10H');
+      expect(source).toContain('startBrowserDirectServerStream');
+      expect(source).toContain("request.callType === 'server_streaming'");
     });
   });
 

@@ -8,7 +8,7 @@
  */
 
 const DB_NAME = 'redfireforge';
-const DB_VERSION = 11; // v11: gRPC Studio Phase 5B/5D — collections + call history stores
+const DB_VERSION = 12; // v12: gRPC Studio Phase 11J — load-test profiles + schema diff acks
 const OPEN_TIMEOUT_MS = 10_000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
@@ -144,6 +144,16 @@ function openDBInternal(): Promise<IDBDatabase> {
         grpcHistStore.createIndex('service', 'service', { unique: false });
         grpcHistStore.createIndex('method', 'method', { unique: false });
         grpcHistStore.createIndex('grpcStatus', 'grpcStatus', { unique: false });
+      }
+      // v12: gRPC Studio Phase 11J — load-test profiles + schema diff acknowledgements
+      if (!db.objectStoreNames.contains('grpc-load-test-profiles')) {
+        const profileStore = db.createObjectStore('grpc-load-test-profiles', { keyPath: 'id' });
+        profileStore.createIndex('name', 'name', { unique: false });
+        profileStore.createIndex('updatedAt', 'updatedAt', { unique: false });
+      }
+      if (!db.objectStoreNames.contains('grpc-schema-diff-acks')) {
+        const ackStore = db.createObjectStore('grpc-schema-diff-acks', { keyPath: 'id' });
+        ackStore.createIndex('baselineDescriptorKey', 'baselineDescriptorKey', { unique: false });
       }
     };
     req.onblocked = () => {

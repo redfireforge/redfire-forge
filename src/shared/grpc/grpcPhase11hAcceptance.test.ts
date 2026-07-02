@@ -54,10 +54,11 @@ describe('Phase 11H acceptance checklist', () => {
     expect(matrix).toContain('prepareGrpcLoadTestRunSummaryExportSafe');
   });
 
-  it('replay actions land on studio sub-nav (implicit advanced integration path)', () => {
+  it('replay actions land on studio sub-nav; load-test handoff uses advanced sub-nav', () => {
     const replay = readSrc('src/features/grpc/hooks/useGrpcStudioReplayActions.ts');
     expect(replay).toContain("onNavigate('studio')");
-    expect(replay).not.toContain("onNavigate('advanced')");
+    expect(replay).toContain('openSavedRequestForLoadTest');
+    expect(replay).toContain("navigateTo: GrpcStudioPanelView = 'studio'");
   });
 
   it('grpcStudioAdvancedTypes stores lastExportSource on tab load-test state', () => {

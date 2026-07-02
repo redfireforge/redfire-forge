@@ -101,8 +101,10 @@ describe('grpcBodyComposer coverage gaps', () => {
 
   it('findWideIntegralJsonViolations rejects unsafe integer literals', () => {
     const violation = findWideIntegralJsonViolations(
-      { id: '9007199254740993' },
+      { id: Number.MAX_SAFE_INTEGER + 100 },
       INT64_SCHEMA,
+      undefined,
+      { strictStringLiterals: false },
     );
     expect(violation).toMatch(/safe integer range/i);
   });
@@ -168,10 +170,10 @@ describe('grpcBodyComposer coverage gaps', () => {
     };
 
     expect(findWideIntegralJsonViolations(
-      { payload: { token: '9007199254740993' } },
+      { payload: { token: 42 } },
       NESTED_SCHEMA,
       index,
-    )).toMatch(/token/);
+    )).toMatch(/token.*quoted decimal string/i);
 
     expect(findWideIntegralJsonViolations(
       { byKey: { a: { token: '-1' } } },
@@ -187,10 +189,10 @@ describe('grpcBodyComposer coverage gaps', () => {
     )).toMatch(/items\[0\]/);
 
     expect(findWideIntegralJsonViolations(
-      { nested: { token: '9007199254740993' } },
+      { nested: { token: 42 } },
       oneofSchema,
       index,
-    )).toMatch(/token/);
+    )).toMatch(/nested\.token.*quoted decimal string/i);
   });
 
   it('findWideIntegralJsonViolations validates google.protobuf.Int64Value wrappers', () => {
@@ -199,11 +201,15 @@ describe('grpcBodyComposer coverage gaps', () => {
       fields: [{ name: 'count', number: 1, type: 'google.protobuf.Int64Value', label: 'optional' }],
     };
     expect(findWideIntegralJsonViolations(
-      { count: { value: '9007199254740993' } },
+      { count: { value: 42 } },
       schema,
-    )).toMatch(/count\.value/);
+    )).toMatch(/count\.value.*quoted decimal string/i);
     expect(findWideIntegralJsonViolations({ count: 'not-an-object' }, schema)).toBeNull();
     expect(findWideIntegralJsonViolations({ count: { value: '42' } }, schema)).toBeNull();
+    expect(findWideIntegralJsonViolations(
+      { count: { value: '9007199254740993' } },
+      schema,
+    )).toBeNull();
   });
 
   it('applyJsonTextToSchema rejects wide integral violations and syncs valid bodies', () => {
@@ -294,5 +300,74 @@ describe('grpcBodyComposer coverage gaps', () => {
       repeatedSchema,
       index,
     )).toBeNull();
+  });
+
+  it('applyJsonTextToSchema normalizes nested map, repeated, message, and oneof bodies', () => {
+    const payloadSchema: GrpcMessageSchema = {
+      typeName: 'demo.Payload',
+      fields: [{ name: 'token', number: 1, type: 'int64', label: 'optional' }],
+    };
+    const outerSchema: GrpcMessageSchema = {
+      typeName: 'demo.Outer',
+      fields: [{ name: 'payload', number: 1, type: 'message', label: 'optional', messageTypeName: 'demo.Payload' }],
+    };
+    const mapSchema: GrpcMessageSchema = {
+      typeName: 'demo.MapOuter',
+      fields: [{
+        name: 'byKey',
+        number: 1,
+        type: 'message',
+        label: 'optional',
+        isMap: true,
+        mapKeyType: 'string',
+        messageTypeName: 'demo.Payload',
+      }],
+    };
+    const repeatedSchema: GrpcMessageSchema = {
+      typeName: 'demo.RepeatedOuter',
+      fields: [{
+        name: 'items',
+        number: 1,
+        type: 'message',
+        label: 'repeated',
+        messageTypeName: 'demo.Payload',
+      }],
+    };
+    const oneofSchema: GrpcMessageSchema = {
+      typeName: 'demo.OneofOuter',
+      fields: [
+        { name: 'nested', number: 1, type: 'message', label: 'optional', isOneofMember: true, oneofName: 'pick', messageTypeName: 'demo.Payload' },
+        { name: 'id', number: 2, type: 'int64', label: 'optional', isOneofMember: true, oneofName: 'pick' },
+      ],
+    };
+    const messageTypes = [payloadSchema, outerSchema, mapSchema, repeatedSchema, oneofSchema];
+
+    const nested = applyJsonTextToSchema('{"payload": {"token": "42"}}', outerSchema, { messageTypes });
+    expect(nested.ok).toBe(true);
+    if (nested.ok) expect(nested.body).toEqual({ payload: { token: '42' } });
+
+    const mapped = applyJsonTextToSchema('{"byKey": {"a": {"token": "7"}}}', mapSchema, { messageTypes });
+    expect(mapped.ok).toBe(true);
+    if (mapped.ok) expect(mapped.body).toEqual({ byKey: { a: { token: '7' } } });
+
+    const repeated = applyJsonTextToSchema('{"items": [{"token": "9"}]}', repeatedSchema, { messageTypes });
+    expect(repeated.ok).toBe(true);
+    if (repeated.ok) expect(repeated.body).toEqual({ items: [{ token: '9' }] });
+
+    const oneof = applyJsonTextToSchema('{"nested": {"token": "3"}}', oneofSchema, { messageTypes });
+    expect(oneof.ok).toBe(true);
+    if (oneof.ok) expect(oneof.body).toEqual({ nested: { token: '3' } });
+  });
+
+  it('applyJsonTextToSchema skips nested normalization when message types are omitted', () => {
+    const outerSchema: GrpcMessageSchema = {
+      typeName: 'demo.Outer',
+      fields: [{ name: 'payload', number: 1, type: 'message', label: 'optional', messageTypeName: 'demo.Payload' }],
+    };
+    const result = applyJsonTextToSchema('{"payload": {"token": 42}}', outerSchema);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.body).toEqual({ payload: { token: 42 } });
+    }
   });
 });

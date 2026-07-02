@@ -13,6 +13,7 @@ const STORES_EXCEPT_TEST_RUNS = [
   'gqlStudioTabs', 'gqlStudioEnvironments', 'gqlConnectionProfiles', 'gqlPageAuth', 'gqlSchemaCache',
   'runnerConfigs',
   'grpc-collections', 'grpc-collection-items', 'grpc-call-history',
+  'grpc-load-test-profiles', 'grpc-schema-diff-acks',
 ] as const;
 
 const ALL_STORES = ['testRuns', ...STORES_EXCEPT_TEST_RUNS] as const;

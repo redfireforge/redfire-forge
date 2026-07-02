@@ -1,6 +1,7 @@
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../hooks/useGrpcStudioAdvancedFeatures';
 import { GrpcLoadTestPanel } from './GrpcLoadTestPanel';
 import { GrpcMockServerPanel } from './GrpcMockServerPanel';
+import { GrpcRpcStatisticsPanel } from './GrpcRpcStatisticsPanel';
 import { GrpcSchemaDiffPanel } from './GrpcSchemaDiffPanel';
 import type { GrpcAdvancedFeatureTab } from '../grpcStudioAdvancedTypes';
 
@@ -12,6 +13,7 @@ const ADVANCED_TABS: Array<{ id: GrpcAdvancedFeatureTab; label: string }> = [
   { id: 'load_test', label: 'Load testing' },
   { id: 'mock_server', label: 'Mock server' },
   { id: 'schema_diff', label: 'Schema diff' },
+  { id: 'rpc_statistics', label: 'RPC statistics' },
 ];
 
 export function GrpcAdvancedFeaturesShell({ advanced }: GrpcAdvancedFeaturesShellProps) {
@@ -41,6 +43,9 @@ export function GrpcAdvancedFeaturesShell({ advanced }: GrpcAdvancedFeaturesShel
         )}
         {advanced.activeFeatureTab === 'schema_diff' && (
           <GrpcSchemaDiffPanel advanced={advanced} />
+        )}
+        {advanced.activeFeatureTab === 'rpc_statistics' && (
+          <GrpcRpcStatisticsPanel advanced={advanced} />
         )}
       </div>
     </div>

@@ -63,18 +63,26 @@ describe('grpcCrossFeatureExport (Phase 4H)', () => {
     expect(findings).toHaveLength(0);
   });
 
-  it('prepareGrpcExportBundle redacts saved request and snapshot', () => {
+  it('prepareGrpcExportBundle redacts saved request and snapshot without connectionId', () => {
+    const bundle = prepareGrpcExportBundle({
+      snapshot: RAW_SNAPSHOT,
+      identity: { id: 'sr-1', revisionId: 'rev-1', updatedAt: '2026-01-01T00:00:00.000Z' },
+    });
+    expect(bundle.savedRequest.auth?.bearerToken).toBe(GRPC_REDACTED_PLACEHOLDER);
+    expect(bundle.savedRequest.connectionId).toBeUndefined();
+    const findings = scanForbiddenGrpcPersistTargets({
+      grpc_export_bundle: bundle,
+    });
+    expect(findings).toHaveLength(0);
+  });
+
+  it('prepareGrpcExportBundle redacts saved request and snapshot with connectionId', () => {
     const bundle = prepareGrpcExportBundle({
       snapshot: RAW_SNAPSHOT,
       identity: { id: 'sr-1', revisionId: 'rev-1', updatedAt: '2026-01-01T00:00:00.000Z' },
       connectionId: 'profile-prod',
     });
-    expect(bundle.savedRequest.auth?.bearerToken).toBe(GRPC_REDACTED_PLACEHOLDER);
     expect(bundle.savedRequest.connectionId).toBe('profile-prod');
-    const findings = scanForbiddenGrpcPersistTargets({
-      grpc_export_bundle: bundle,
-    });
-    expect(findings).toHaveLength(0);
   });
 
   it('prepareGrpcExportBundle preserves template target from tabContext (Phase 9F)', () => {
@@ -100,6 +108,19 @@ describe('grpcCrossFeatureExport (Phase 4H)', () => {
       grpc_call_history_v1: record,
     });
     expect(findings).toHaveLength(0);
+  });
+
+  it('prepareGrpcCallHistoryExport accepts optional error alongside result', () => {
+    const record = prepareGrpcCallHistoryExport({
+      snapshot: RAW_SNAPSHOT,
+      result: FIXTURE_UNARY_CALL_RESULT,
+      error: {
+        code: 'GRPC_CALL_FAILED',
+        category: 'call_failed',
+        message: 'failed',
+      },
+    });
+    expect(record.error?.message).toBe('failed');
   });
 
   it('prepareGrpcCallHistoryExport preserves template target for replay (Phase 9F)', () => {

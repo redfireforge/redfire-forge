@@ -59,6 +59,44 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
     expect(screen.getByText('My Echo')).toBeTruthy();
     fireEvent.click(screen.getByTestId('grpc-saved-request-open-studio'));
     expect(onOpenInStudio).toHaveBeenCalled();
+    expect(screen.queryByTestId('grpc-saved-request-run-load-test')).toBeNull();
+  });
+
+  it('renders run load test action when handler is provided', () => {
+    const onRunLoadTest = vi.fn();
+    render(
+      <GrpcSavedRequestDetail
+        saved={makeSaved()}
+        grpcurlCommand="grpcurl -plaintext localhost:50051 echo.EchoService/Echo"
+        onOpenInStudio={vi.fn()}
+        onRunLoadTest={onRunLoadTest}
+        onCopyGrpcurl={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-saved-request-run-load-test'));
+    expect(onRunLoadTest).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables run load test when streaming saved request', () => {
+    render(
+      <GrpcSavedRequestDetail
+        saved={{ ...makeSaved(), callType: 'server_streaming' }}
+        grpcurlCommand="grpcurl -plaintext localhost:50051 echo.EchoService/ServerStream"
+        onOpenInStudio={vi.fn()}
+        onRunLoadTest={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        runLoadTestDisabled
+        runLoadTestTitle="Load tests support unary RPCs only"
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-saved-request-run-load-test')).toHaveProperty('disabled', true);
+    expect(screen.getByTitle('Load tests support unary RPCs only')).toBeTruthy();
   });
 
   it('renders response snapshot panel for unary saved requests when baseline handlers are provided', () => {
@@ -78,5 +116,34 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
 
     expect(screen.getByTestId('grpc-response-snapshot-panel')).toBeTruthy();
     expect(screen.getByTestId('grpc-snapshot-badge-none')).toBeTruthy();
+  });
+
+  it('shows disabled open-in-studio state and streaming snapshot panel', () => {
+    const saved = {
+      ...makeSaved(),
+      callType: 'server_streaming' as const,
+      runStats: { totalRuns: 2, successRuns: 1, errorRuns: 1, lastGrpcStatus: 13 },
+    };
+    render(
+      <GrpcSavedRequestDetail
+        saved={saved}
+        grpcurlCommand="grpcurl -plaintext localhost:50051 echo.EchoService/ServerStream"
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+        onUpdateResponseBaseline={vi.fn()}
+        onClearResponseBaseline={vi.fn()}
+        streamMessages={[]}
+        streamLifecycle="ended"
+        streamComparisonEligible
+        openInStudioDisabled
+        openInStudioTitle="Descriptor missing"
+      />,
+    );
+    expect(screen.getByTestId('grpc-saved-request-open-studio')).toHaveProperty('disabled', true);
+    expect(screen.getByTitle('Descriptor missing')).toBeTruthy();
+    expect(screen.getByTestId('grpc-response-snapshot-panel')).toBeTruthy();
+    expect(screen.getByText(/Last status: 13/)).toBeTruthy();
   });
 });

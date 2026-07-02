@@ -182,10 +182,11 @@ describe('GrpcTransportPanel (Phase 7F)', () => {
     expect(help.textContent).toMatch(/Express Proxy/);
     expect(help.textContent).toMatch(/gRPC-Web/);
     expect(help.textContent).toMatch(/Spring Servlet/);
-    expect(help.textContent).toMatch(/Server streaming is deferred/i);
+    expect(help.textContent).toMatch(/Unary and server-streaming calls/i);
+    expect(help.textContent).toMatch(/Client and bidi streaming/i);
   });
 
-  it('shows server streaming deferred hint when call type is server_streaming', () => {
+  it('shows server streaming support hint when call type is server_streaming', () => {
     render(
       <GrpcTransportPanel
         transportMode="grpc-web"
@@ -195,7 +196,8 @@ describe('GrpcTransportPanel (Phase 7F)', () => {
     );
 
     const hint = screen.getByTestId('grpc-transport-stream-deferred-hint');
-    expect(hint.textContent).toMatch(/stream start is deferred/i);
+    expect(hint.textContent).toMatch(/Server streaming is supported/i);
+    expect(hint.textContent).toMatch(/client or bidi streaming/i);
     expect(hint.textContent).toMatch(/Express Proxy/i);
   });
 

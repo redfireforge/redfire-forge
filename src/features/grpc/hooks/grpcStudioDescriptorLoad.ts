@@ -139,6 +139,7 @@ async function loadDescriptorWithNetwork(
     ctx.envVarMap,
     ctx.profiles,
     ctx.pageDefaults,
+    ctx.workspaceDefaults,
   );
   const descriptorState = ctx.sessionRef.current.tabDescriptors[tabId] ?? createEmptyTabDescriptorState();
   const selection = descriptorState.sourceSelection ?? createDefaultDescriptorSourceSelection();
@@ -223,7 +224,13 @@ export function createReflectTabHandler(ctx: GrpcStudioRuntimeContext): (tabId: 
     abortInFlightBeforeDescriptorLoad(ctx, tabId);
     const { isStale } = beginDescriptorLoadGeneration(ctx, tabId);
 
-    const resolution = resolveTabConnectionWithEnv(tab, ctx.envVarMap, ctx.profiles, ctx.pageDefaults);
+    const resolution = resolveTabConnectionWithEnv(
+      tab,
+      ctx.envVarMap,
+      ctx.profiles,
+      ctx.pageDefaults,
+      ctx.workspaceDefaults,
+    );
     const descriptorState = ctx.sessionRef.current.tabDescriptors[tabId] ?? createEmptyTabDescriptorState();
     const selection = descriptorState.sourceSelection ?? createDefaultDescriptorSourceSelection();
     const ingest = descriptorState.protoIngest ?? createDefaultProtoIngestState();

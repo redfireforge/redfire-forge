@@ -140,8 +140,8 @@ describe('GrpcResponseSnapshotPanel coverage gaps', () => {
     }));
   });
 
-  it('returns null for non-unary call types', () => {
-    const { container } = render(
+  it('renders snapshot panel for streaming call types with stream hint', () => {
+    render(
       <GrpcResponseSnapshotPanel
         callType="server_streaming"
         service="echo.EchoService"
@@ -150,6 +150,8 @@ describe('GrpcResponseSnapshotPanel coverage gaps', () => {
         onClearBaseline={vi.fn()}
       />,
     );
-    expect(container.firstChild).toBeNull();
+    expect(screen.getByTestId('grpc-response-snapshot-panel')).toBeTruthy();
+    expect(screen.getByTestId('grpc-snapshot-update-baseline')).toHaveProperty('disabled', true);
+    expect(screen.getByTitle(/finish a stream/i)).toBeTruthy();
   });
 });

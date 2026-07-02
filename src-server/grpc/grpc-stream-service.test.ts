@@ -85,6 +85,13 @@ describe('GrpcStreamService', () => {
   let service: GrpcStreamService;
   let mockClient: GrpcStreamingClientFactory;
 
+  function createOAuth2TokenService(fetch: (url: string, init?: RequestInit) => Promise<Response>) {
+    return new GrpcOAuth2TokenService(
+      { fetch },
+      { resolveHostname: async () => ['93.184.216.34'] },
+    );
+  }
+
   beforeEach(() => {
     clearGrpcStreamRegistry();
     clearGrpcDescriptorStore();
@@ -211,11 +218,10 @@ describe('GrpcStreamService', () => {
   });
 
   it('merges oauth2 auth into stream metadata via server-side token acquisition (Phase 4D)', async () => {
-    const oauth2TokenService = new GrpcOAuth2TokenService({
-      fetch: vi.fn(async () => new Response(JSON.stringify({
+    const oauth2TokenService = createOAuth2TokenService(vi.fn(async () => new Response(JSON.stringify({
         access_token: 'oauth-stream-token',
       }), { status: 200 })),
-    });
+    );
     const oauthStreamService = new GrpcStreamService(mockClient, oauth2TokenService);
     const envelope = await oauthStreamService.startStream({
       ...FIXTURE_SERVER_STREAM_START_REQUEST,
@@ -246,7 +252,7 @@ describe('GrpcStreamService', () => {
     const fetchSpy = vi.fn(async () => new Response(JSON.stringify({
       access_token: 'should-not-fetch',
     }), { status: 200 }));
-    const oauth2TokenService = new GrpcOAuth2TokenService({ fetch: fetchSpy });
+    const oauth2TokenService = createOAuth2TokenService(fetchSpy);
     const oauthStreamService = new GrpcStreamService(mockClient, oauth2TokenService);
     const envelope = await oauthStreamService.startStream({
       ...FIXTURE_SERVER_STREAM_START_REQUEST,

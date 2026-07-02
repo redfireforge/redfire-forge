@@ -99,4 +99,14 @@ describe('useGrpcTargetValidation', () => {
     expect(result.current.ok).toBe(true);
     expect(result.current.message).toMatch(/mTLS transport enabled/i);
   });
+
+  it('merges workspace defaults below active environment', () => {
+    const { result } = renderHook(() => useGrpcTargetValidation({
+      target: '{{grpcHost}}',
+      workspaceDefaults: { grpcHost: 'workspace:50051' },
+      envVarMap: { grpcHost: 'env:50051' },
+    }));
+    expect(result.current.ok).toBe(true);
+    expect(result.current.normalized).toBe('env:50051');
+  });
 });

@@ -63,7 +63,7 @@ async fn grpc_server_stream_emits_messages_and_end_against_docker_server() {
             timeout_ms: Some(5_000),
             descriptor: echo_descriptor_payload(),
         },
-        emitter,
+        emitter.clone(),
     )
     .await;
 
@@ -145,7 +145,7 @@ async fn grpc_stream_cancel_emits_cancelled_end_against_docker_server() {
             timeout_ms: Some(30_000),
             descriptor: echo_descriptor_payload(),
         },
-        emitter,
+        emitter.clone(),
     )
     .await;
 
@@ -214,7 +214,7 @@ async fn grpc_client_stream_aggregates_messages_and_end_against_docker_server() 
             timeout_ms: Some(5_000),
             descriptor: echo_descriptor_payload(),
         },
-        emitter,
+        emitter.clone(),
     )
     .await;
 
@@ -230,7 +230,7 @@ async fn grpc_client_stream_aggregates_messages_and_end_against_docker_server() 
                 tab_id: "tab-integration".to_string(),
                 body: serde_json::json!({ "message": message }),
             },
-            StreamEventEmitter::Test(mpsc::unbounded_channel().0),
+            emitter.clone(),
         )
         .await;
         assert_eq!(send_envelope["ok"], true, "send envelope: {send_envelope}");
@@ -311,7 +311,7 @@ async fn grpc_bidi_stream_echoes_messages_and_end_against_docker_server() {
             timeout_ms: Some(5_000),
             descriptor: echo_descriptor_payload(),
         },
-        emitter,
+        emitter.clone(),
     )
     .await;
 
@@ -326,7 +326,7 @@ async fn grpc_bidi_stream_echoes_messages_and_end_against_docker_server() {
             tab_id: "tab-integration".to_string(),
             body: serde_json::json!({ "message": "ping" }),
         },
-        StreamEventEmitter::Test(mpsc::unbounded_channel().0),
+        emitter.clone(),
     )
     .await;
     assert_eq!(send_envelope["ok"], true);

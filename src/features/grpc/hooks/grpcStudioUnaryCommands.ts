@@ -79,12 +79,14 @@ export function createPrepareExecuteSnapshotHandler(
       ctx.envVarMap,
       ctx.profiles,
       ctx.pageDefaults,
+      ctx.workspaceDefaults,
     );
     const resolution = resolveTabConnectionWithEnv(
       mergedTab,
       ctx.envVarMap,
       ctx.profiles,
       ctx.pageDefaults,
+      ctx.workspaceDefaults,
     );
     if (!resolution.targetValidation.valid) {
       throw new Error(resolution.targetValidation.reason);

@@ -444,6 +444,14 @@ async fn invoke_unary_bytes(
     request.set_timeout(timeout);
 
     let mut grpc = Grpc::new(channel);
+    let ready = tokio::select! {
+        result = grpc.ready() => result,
+        _ = cancel_token.cancelled() => return Err(UnaryInvokeError::Cancelled),
+    };
+    if let Err(error) = ready {
+        return Err(UnaryInvokeError::Transport(Status::internal(error.to_string())));
+    }
+
     let call = grpc.unary(request, path, BytesCodec);
 
     let response = tokio::select! {

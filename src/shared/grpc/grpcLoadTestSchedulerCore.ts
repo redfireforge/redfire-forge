@@ -20,6 +20,7 @@ import {
   type GrpcLoadTestRunReport,
   type GrpcLoadTestStopReason,
 } from './grpcAdvancedFeatureContracts';
+import type { GrpcCallType } from './contracts';
 
 export interface GrpcLoadTestAttemptContext {
   runId: string;
@@ -44,6 +45,8 @@ export interface GrpcLoadTestSchedulerParams {
   ) => Promise<GrpcLoadTestAttemptOutcome> | GrpcLoadTestAttemptOutcome;
   signal?: AbortSignal;
   nowMs?: () => number;
+  /** Defaults to unary-only validation for Phase 11B scheduler entrypoint. */
+  allowedCallTypes?: readonly GrpcCallType[];
 }
 
 export interface GrpcLoadTestSchedulerState {
@@ -92,7 +95,9 @@ export function startGrpcLoadTestSchedulerRun(
   params: GrpcLoadTestSchedulerParams,
 ): GrpcLoadTestSchedulerRun {
   const snapshot = structuredClone(params.snapshot);
-  assertGrpcLoadTestRunSnapshot(snapshot);
+  assertGrpcLoadTestRunSnapshot(snapshot, {
+    allowedCallTypes: params.allowedCallTypes ?? ['unary'],
+  });
 
   const nowMs = params.nowMs ?? (() => Date.now());
   const counts = createInitialCounts();

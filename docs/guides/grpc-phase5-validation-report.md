@@ -2,7 +2,7 @@
 
 Sign-off document for Phase 5 (Saved Requests, Collections & History) before Phase 6 workflow integration.
 
-**Date:** 2026-06-29  
+**Date:** 2026-07-01  
 **Scope:** Phase 5A–5I (persistence, replay, redaction, grpcurl interop, UI, snapshot baseline)  
 **Gate command:** `npm run test:grpc:phase5i`
 
@@ -30,8 +30,8 @@ Phase 5 delivers saved request collections, call history, grpcurl import/export 
 | P0 | 0 | — |
 | P1 | 0 | — |
 | P2 | 0 | — |
-| Deferred | — | Stream multi-message snapshot baselines; saved-request run stats counters |
-| Deferred | — | Collection JSON file export/import round-trip |
+| Shipped | 5I | Stream multi-message snapshot baselines; saved-request run stats counters |
+| Shipped | 5I | Collection JSON file export/import round-trip |
 
 ## Data safety surfaces (5E + 5H)
 

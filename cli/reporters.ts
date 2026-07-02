@@ -3,6 +3,7 @@ import type { Workflow } from '../src/features/workflow/types/workflow';
 import { formatFailureDetails } from '../src/shared/utils/helpers';
 import { percentile } from '../src/shared/utils/percentiles';
 import type { RunComparison } from '../src/features/results/utils/runBaselines';
+import { redactGrpcHarnessRunnerArtifactsForExport } from '../src/shared/grpc/grpcHarnessExport';
 
 // ── JSON report ─────────────────────────────────────────────
 
@@ -54,12 +55,13 @@ export function buildJsonReport(
   config: TestConfig,
   meta: { name?: string; env?: string },
 ): TestRun {
+  const exportSafeResults = redactGrpcHarnessRunnerArtifactsForExport(results);
   return {
     id: crypto.randomUUID(),
     timestamp: Date.now(),
     config,
     summary,
-    results,
+    results: exportSafeResults,
     envName: meta.env,
     projectName: meta.name,
   };
@@ -77,12 +79,13 @@ export function buildJunitXml(
   summary: TestSummary,
   suiteName: string,
 ): string {
+  const exportSafeResults = redactGrpcHarnessRunnerArtifactsForExport(results);
   const lines: string[] = [];
   lines.push('<?xml version="1.0" encoding="UTF-8"?>');
   lines.push(`<testsuites name="${escapeXml(suiteName)}" tests="${summary.totalRequests}" failures="${summary.failedRequests + summary.failedValidations}" time="${(summary.totalDurationMs / 1000).toFixed(3)}">`);
   lines.push(`  <testsuite name="${escapeXml(suiteName)}" tests="${summary.totalRequests}" failures="${summary.failedRequests + summary.failedValidations}" time="${(summary.totalDurationMs / 1000).toFixed(3)}">`);
 
-  for (const r of results) {
+  for (const r of exportSafeResults) {
     const className = r.featureGroupName || r.groupName || 'RedfireForge';
     const time = (r.responseTimeMs / 1000).toFixed(3);
     const rowSuffix = r.dataRowLabel ? ` [${escapeXml(r.dataRowLabel)}]` : '';

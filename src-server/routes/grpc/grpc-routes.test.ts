@@ -28,6 +28,10 @@ import { clearDescriptorCacheManager } from '../../grpc/descriptorCacheManager.j
 import { clearGrpcDescriptorStore, setGrpcDescriptor } from '../../grpc/descriptorStore.js';
 import { clearGrpcStreamRegistry } from '../../grpc/streamRegistry.js';
 import type { GrpcStreamingClientFactory } from '../../grpc/grpcStreamingClient.js';
+import type {
+  GrpcK8sPortForwardManager,
+  GrpcK8sPortForwardState,
+} from '../../grpc/grpcK8sPortForwardManager.js';
 
 function createMockService(): GrpcService {
   return {
@@ -48,6 +52,9 @@ function createMockService(): GrpcService {
       fileName: 'grpc-proto_files-deadbeef.pb',
     }, {
       requestId: 'req-export-001',
+    })),
+    lookupDescriptor: vi.fn(() => createGrpcSuccessEnvelope('lookup_descriptor', FIXTURE_DESCRIPTOR, {
+      requestId: 'req-lookup-001',
     })),
     call: vi.fn(async () => createGrpcSuccessEnvelope('call', FIXTURE_UNARY_CALL_RESULT, {
       requestId: FIXTURE_UNARY_CALL_REQUEST.requestId,
@@ -85,22 +92,66 @@ function createMockStreamService(): GrpcStreamServiceType {
   } as unknown as GrpcStreamServiceType;
 }
 
-function buildApp(service: GrpcService, streamService?: GrpcStreamServiceType) {
+function createMockK8sPortForwardManager(): GrpcK8sPortForwardManager {
+  return {
+    getStatus: vi.fn((_scopeId: string) => ({
+      scopeId: 'tab-1',
+      active: false,
+    } satisfies GrpcK8sPortForwardState)),
+    startPortForward: vi.fn(async (_scopeId: string) => ({
+      scopeId: 'tab-1',
+      active: true,
+      pid: 999,
+      target: 'localhost:50051',
+      command: 'kubectl port-forward -n default svc/echo 50051:50051',
+      config: {
+        namespace: 'default',
+        targetType: 'service',
+        name: 'echo',
+        remotePort: 50051,
+        localPort: 50051,
+        context: '',
+      },
+    } satisfies GrpcK8sPortForwardState)),
+    stopPortForward: vi.fn(async (_scopeId: string) => ({
+      scopeId: 'tab-1',
+      active: false,
+    } satisfies GrpcK8sPortForwardState)),
+    getLogs: vi.fn((_scopeId: string, _afterSeq?: number) => ({
+      scopeId: 'tab-1',
+      lines: [{ seq: 1, ts: '2026-07-01T00:00:00.000Z', stream: 'system', text: 'starting...' }],
+      latestSeq: 1,
+    })),
+    clearLogs: vi.fn((_scopeId: string) => ({
+      scopeId: 'tab-1',
+      latestSeq: 1,
+    })),
+    stopAll: vi.fn(async () => {}),
+  } as unknown as GrpcK8sPortForwardManager;
+}
+
+function buildApp(
+  service: GrpcService,
+  streamService?: GrpcStreamServiceType,
+  k8sPortForwardManager?: GrpcK8sPortForwardManager,
+) {
   const app = express();
   app.use(express.json());
-  app.use(createGrpcRouter({ service, streamService }));
+  app.use(createGrpcRouter({ service, streamService, k8sPortForwardManager }));
   return app;
 }
 
 describe('grpc-routes', () => {
   let mockService: GrpcService;
   let mockStreamService: GrpcStreamServiceType;
+  let mockK8sPortForwardManager: GrpcK8sPortForwardManager;
   let app: express.Express;
 
   beforeEach(() => {
     mockService = createMockService();
     mockStreamService = createMockStreamService();
-    app = buildApp(mockService, mockStreamService);
+    mockK8sPortForwardManager = createMockK8sPortForwardManager();
+    app = buildApp(mockService, mockStreamService, mockK8sPortForwardManager);
   });
 
   describe('GET /api/grpc/status', () => {
@@ -175,6 +226,19 @@ describe('grpc-routes', () => {
       expect(res.body.ok).toBe(true);
       expect(res.body.data.fileName).toContain('.pb');
       expect(mockService.exportProtoset).toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /api/grpc/descriptor/lookup', () => {
+    it('returns 200 with descriptor payload', async () => {
+      const res = await request(app)
+        .post('/api/grpc/descriptor/lookup')
+        .send({ descriptorKey: FIXTURE_DESCRIPTOR.key });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.data.key).toBe(FIXTURE_DESCRIPTOR.key);
+      expect(mockService.lookupDescriptor).toHaveBeenCalled();
     });
   });
 
@@ -402,6 +466,76 @@ describe('grpc-routes', () => {
       expect(res.body.error.code).toBe(GRPC_ERROR_CODES.INVALID_TARGET);
       expect(res.body.error.message).toContain('Target must be host:port or in-process:<name>');
       expect(mockInvoke).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('K8s port-forward automation routes', () => {
+    it('returns current status payload', async () => {
+      const res = await request(app)
+        .get('/api/grpc/k8s-port-forward/status')
+        .query({ scopeId: 'tab-1' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.data.scopeId).toBe('tab-1');
+      expect(mockK8sPortForwardManager.getStatus).toHaveBeenCalledWith('tab-1');
+    });
+
+    it('starts kubectl process for a scope', async () => {
+      const res = await request(app)
+        .post('/api/grpc/k8s-port-forward/start')
+        .send({
+          scopeId: 'tab-1',
+          config: {
+            namespace: 'default',
+            targetType: 'service',
+            name: 'echo',
+            remotePort: 50051,
+            localPort: 50051,
+            context: '',
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.data.active).toBe(true);
+      expect(mockK8sPortForwardManager.startPortForward).toHaveBeenCalledWith(
+        'tab-1',
+        expect.objectContaining({ name: 'echo' }),
+      );
+    });
+
+    it('returns logs payload for a scope', async () => {
+      const res = await request(app)
+        .get('/api/grpc/k8s-port-forward/logs')
+        .query({ scopeId: 'tab-1', afterSeq: '0' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.data.latestSeq).toBe(1);
+      expect(mockK8sPortForwardManager.getLogs).toHaveBeenCalledWith('tab-1', 0);
+    });
+
+    it('clears logs for a scope', async () => {
+      const res = await request(app)
+        .post('/api/grpc/k8s-port-forward/logs/clear')
+        .send({ scopeId: 'tab-1' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.data.latestSeq).toBe(1);
+      expect(mockK8sPortForwardManager.clearLogs).toHaveBeenCalledWith('tab-1');
+    });
+
+    it('stops kubectl process for a scope', async () => {
+      const res = await request(app)
+        .post('/api/grpc/k8s-port-forward/stop')
+        .send({ scopeId: 'tab-1' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.data.active).toBe(false);
+      expect(mockK8sPortForwardManager.stopPortForward).toHaveBeenCalledWith('tab-1');
     });
   });
 

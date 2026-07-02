@@ -284,4 +284,69 @@ describe('GrpcJsClient invokeUnary mocked coverage gaps', () => {
     });
     await expect(invokePromise).rejects.toThrow('bad-string');
   });
+
+  it('records timing breakdown when metadata arrives before the response', async () => {
+    const client = new GrpcJsClient();
+    const invokePromise = client.invokeUnary({
+      address: '127.0.0.1:50051',
+      service: 'echo.EchoService',
+      method: 'Echo',
+      requestBuffer: Buffer.from([]),
+      metadata: {},
+      timeoutMs: 5_000,
+      signal: new AbortController().signal,
+      decodeResponse: () => ({ ok: true }),
+    });
+
+    await waitForUnarySetup();
+    const call = latestUnaryCall();
+    call.emit('metadata', { getMap: () => ({}) });
+    latestUnaryCallback()(null, Buffer.from('ok'));
+
+    const result = await invokePromise;
+    expect(result.timingBreakdown?.dnsLookupMs).toBeGreaterThanOrEqual(0);
+    expect(result.timingBreakdown?.tcpConnectTlsMs).toBeGreaterThanOrEqual(0);
+    expect(result.timingBreakdown?.serverProcessingMs).toBeGreaterThanOrEqual(0);
+    expect(result.timingBreakdown?.responseDeserializationMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('continues invoke when DNS lookup fails', async () => {
+    const dns = await import('node:dns/promises');
+    vi.mocked(dns.default.lookup).mockRejectedValueOnce(new Error('ENOTFOUND'));
+
+    grpcMocks.autoUnaryResponse = { buffer: Buffer.from('ok') };
+    const client = new GrpcJsClient();
+    const result = await client.invokeUnary({
+      address: '127.0.0.1:50051',
+      service: 'echo.EchoService',
+      method: 'Echo',
+      requestBuffer: Buffer.from([]),
+      metadata: {},
+      timeoutMs: 5_000,
+      signal: new AbortController().signal,
+      decodeResponse: () => ({ ok: true }),
+    });
+    expect(result.body).toEqual({ ok: true });
+    expect(result.timingBreakdown?.dnsLookupMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('uses unknown grpc status defaults when service error omits code and details', async () => {
+    const client = new GrpcJsClient();
+    const invokePromise = client.invokeUnary({
+      address: '127.0.0.1:50051',
+      service: 'echo.EchoService',
+      method: 'Echo',
+      requestBuffer: Buffer.from([]),
+      metadata: {},
+      timeoutMs: 5_000,
+      signal: new AbortController().signal,
+      decodeResponse: () => ({}),
+    });
+    await waitForUnarySetup();
+    latestUnaryCallback()(new Error('rpc failed'));
+    await expect(invokePromise).rejects.toMatchObject({
+      grpcStatus: 2,
+      grpcDetails: 'rpc failed',
+    });
+  });
 });

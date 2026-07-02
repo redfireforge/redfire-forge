@@ -32,13 +32,13 @@ const TRANSPORT_MODES: Array<{
     id: 'grpc-web',
     icon: '🌍',
     label: 'gRPC-Web',
-    description: 'Unary live via grpc-web framing; server streaming use Express Proxy',
+    description: 'Unary + server streaming via grpc-web framing',
   },
   {
     id: 'spring-servlet',
     icon: '🌿',
     label: 'Spring Servlet',
-    description: 'Unary live via HTTP POST; server streaming use Express Proxy',
+    description: 'Unary + server streaming via HTTP/1.1 POST',
   },
 ];
 
@@ -102,8 +102,8 @@ export function GrpcTransportPanel({
               className="grpc-transport-stream-deferred-hint"
               data-testid="grpc-transport-stream-deferred-hint"
             >
-              Server streaming on gRPC-Web and Spring Servlet passes preflight but stream start is
-              deferred — use Express Proxy or Tauri Native.
+              Server streaming is supported on gRPC-Web and Spring Servlet. For client or bidi
+              streaming, use Express Proxy or Tauri Native.
             </p>
           )}
           <div className="grpc-transport-mode-row" role="list" aria-label="Transport mode">
@@ -163,14 +163,16 @@ export function GrpcTransportPanel({
             <p>
               <strong>gRPC-Web:</strong>
               {' '}
-              Unary calls via browser fetch and grpc-web framing. Server streaming is deferred in
-              Studio — switch to Express Proxy until the browser stream bridge ships.
+              Unary and server-streaming calls via browser fetch and grpc-web framing. Client and
+              bidi streaming are blocked in browser-direct mode.
             </p>
             <p>
               <strong>Spring Servlet:</strong>
               {' '}
-              Unary calls via HTTP/1.1 POST to /&lt;service&gt;/&lt;method&gt;. Server streaming
-              is deferred in Studio — use Express Proxy or Tauri Native.
+              Unary and server-streaming calls via HTTP/1.1 POST to
+              {' '}
+              /&lt;service&gt;/&lt;method&gt;. Client and bidi streaming require Express Proxy
+              or Tauri Native.
             </p>
           </div>
         </div>

@@ -218,6 +218,36 @@ function validateSavedRequest(
     }
   }
 
+  if (raw.runStats !== undefined) {
+    if (!isPlainObject(raw.runStats)) {
+      issues.push({ path: `${path}.runStats`, message: 'runStats must be an object' });
+    } else {
+      const stats = raw.runStats;
+      const requiredNumericFields = ['totalRuns', 'successRuns', 'errorRuns'] as const;
+      for (const field of requiredNumericFields) {
+        const value = stats[field];
+        if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
+          issues.push({ path: `${path}.runStats.${field}`, message: `${field} must be a non-negative number` });
+        }
+      }
+      if (stats.lastRunAt !== undefined && !isIsoTimestamp(stats.lastRunAt)) {
+        issues.push({ path: `${path}.runStats.lastRunAt`, message: 'lastRunAt must be ISO-8601' });
+      }
+      if (
+        stats.lastGrpcStatus !== undefined
+        && (typeof stats.lastGrpcStatus !== 'number' || !Number.isFinite(stats.lastGrpcStatus))
+      ) {
+        issues.push({ path: `${path}.runStats.lastGrpcStatus`, message: 'lastGrpcStatus must be a number' });
+      }
+      if (
+        stats.lastDurationMs !== undefined
+        && (typeof stats.lastDurationMs !== 'number' || !Number.isFinite(stats.lastDurationMs) || stats.lastDurationMs < 0)
+      ) {
+        issues.push({ path: `${path}.runStats.lastDurationMs`, message: 'lastDurationMs must be a non-negative number' });
+      }
+    }
+  }
+
   if (
     raw.tlsMode !== undefined
     && raw.tlsMode !== 'disabled'

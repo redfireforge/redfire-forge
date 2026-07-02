@@ -20,6 +20,8 @@ pub const DEFAULT_ORPHAN_STREAM_TIMEOUT_MS: u64 = 60_000;
 pub const TERMINAL_STREAM_GRACE_MS: u64 = 5_000;
 /// Background supervisor sweep interval.
 pub const ORPHAN_SWEEP_INTERVAL_MS: u64 = 5_000;
+/// Attached tabs without a renderer heartbeat beyond this timeout are treated as orphaned.
+pub const ATTACHED_HEARTBEAT_STALE_MS: u64 = DEFAULT_ORPHAN_STREAM_TIMEOUT_MS;
 
 #[derive(Serialize, Debug)]
 #[serde(rename_all = "camelCase")]
@@ -169,11 +171,64 @@ pub fn execute_grpc_tab_events_detach(
     )
 }
 
+pub fn execute_grpc_tab_heartbeat(
+    state: &GrpcState,
+    request: GrpcTauriTabCleanupRequest,
+) -> Value {
+    let started = Instant::now();
+    let op = "tab_heartbeat";
+
+    if let Err(code) = crate::grpc::types::validate_grpc_tauri_schema_version(request.schema_version)
+    {
+        return error_envelope(
+            op,
+            code,
+            "Renderer and native gRPC protocol versions do not match",
+            Some(started.elapsed().as_millis() as u64),
+            Some(false),
+            None,
+            None,
+        );
+    }
+
+    let tab_id = request.tab_id.trim();
+    if tab_id.is_empty() {
+        return error_envelope(
+            op,
+            GRPC_TAURI_INVALID_REQUEST,
+            "tabId is required",
+            Some(started.elapsed().as_millis() as u64),
+            Some(false),
+            None,
+            None,
+        );
+    }
+
+    state.record_tab_event_listener_heartbeat(tab_id);
+    success_envelope(
+        op,
+        GrpcTauriTabEventsAck {
+            tab_id: tab_id.to_string(),
+            listener_count: state.tab_event_listener_count(tab_id),
+        },
+        Some(started.elapsed().as_millis() as u64),
+    )
+}
+
 pub fn sweep_orphans(state: &GrpcState) -> (u32, u32) {
-    let detached = state.detached_tabs_snapshot();
+    let orphan_grace = Duration::from_millis(DEFAULT_ORPHAN_STREAM_TIMEOUT_MS);
+    let stale_attached =
+        state.stale_attached_tabs_snapshot(Duration::from_millis(ATTACHED_HEARTBEAT_STALE_MS));
+    let mut detached = state.detached_tabs_snapshot();
+    let stale_as_detached_at = Instant::now() - orphan_grace;
+    for tab_id in stale_attached {
+        state.clear_tab_listener_tracking(&tab_id);
+        detached.push((tab_id, stale_as_detached_at));
+    }
+
     let (cancelled, purged) = state.stream_registry.sweep_orphans(
         &detached,
-        Duration::from_millis(DEFAULT_ORPHAN_STREAM_TIMEOUT_MS),
+        orphan_grace,
         Duration::from_millis(TERMINAL_STREAM_GRACE_MS),
     );
     let _ = state.call_registry.purge_inactive();
@@ -184,6 +239,7 @@ pub fn sweep_orphans(state: &GrpcState) -> (u32, u32) {
         .filter(|tab_id| !state.tab_has_active_streams(tab_id))
         .collect();
     state.clear_detached_tab_markers(&cleared_detached);
+    state.clear_heartbeat_markers(&cleared_detached);
 
     (cancelled, purged)
 }
@@ -238,4 +294,12 @@ pub async fn grpc_tab_events_detach(
     request: GrpcTauriTabCleanupRequest,
 ) -> Result<Value, String> {
     Ok(execute_grpc_tab_events_detach(&state, request))
+}
+
+#[tauri::command]
+pub async fn grpc_tab_heartbeat(
+    state: State<'_, GrpcState>,
+    request: GrpcTauriTabCleanupRequest,
+) -> Result<Value, String> {
+    Ok(execute_grpc_tab_heartbeat(&state, request))
 }

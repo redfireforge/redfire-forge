@@ -1,16 +1,25 @@
 import type { GrpcTabExecuteSnapshot, GrpcCallType, GrpcDescriptor } from '../../../shared/grpc/contracts';
+import type { GrpcStudioTransportMode } from '../../../shared/grpc/grpcWebTransportContracts';
+import { defaultGrpcStudioTransportModeForPlatform } from '../../../shared/grpc/grpcWebTransportContracts';
 import {
   captureGrpcLoadTestExecuteSnapshot,
   transitionGrpcAdvancedOperationState,
   createInitialGrpcAdvancedOperationState,
   validateGrpcLoadTestConfig,
+  deriveGrpcLoadTestOperationOutcome,
+  buildGrpcLoadTestRunFailureMessage,
   type GrpcLoadTestConfig,
   type GrpcAdvancedOperationState,
 } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
 import { startGrpcLoadTestSchedulerRun, type GrpcLoadTestSchedulerRun } from '../../../shared/grpc/grpcLoadTestSchedulerCore';
-import { buildGrpcLoadTestRunSummaryExport } from '../../../shared/grpc/grpcLoadTestMetrics';
+import { captureAndStartGrpcLoadTestStreamSchedulerRun } from '../../../shared/grpc/grpcLoadTestStreamScheduler';
+import {
+  buildGrpcLoadTestRunSummaryExport,
+  type GrpcLoadTestRunSummaryExport,
+} from '../../../shared/grpc/grpcLoadTestMetrics';
 import { invokeGrpcUnary } from '../../../shared/grpc/grpcTransportFacade';
-import { snapshotToUnaryCallRequest } from '../grpcStudioTypes';
+import { snapshotToUnaryCallRequest, snapshotToStreamStartRequest } from '../grpcStudioTypes';
+import { collectGrpcWorkflowServerStream } from '../../workflow/utils/grpcWorkflowStreamCollector';
 import { computeGrpcSchemaDiff } from '../../../shared/grpc/grpcSchemaDiffEngine';
 import type { GrpcSchemaDiffReport } from '../../../shared/grpc/grpcSchemaDiffContracts';
 import {
@@ -25,13 +34,31 @@ import {
   type GrpcMockRuntimeRegistry,
 } from '../../../shared/grpc/grpcMockRuntimeRegistry';
 
+export function resolveFrozenLoadTestTransportMode(
+  executeSnapshot: Pick<GrpcTabExecuteSnapshot, 'transportMode'>,
+): GrpcStudioTransportMode {
+  return executeSnapshot.transportMode ?? defaultGrpcStudioTransportModeForPlatform();
+}
+
 export function validateLoadTestPreconditions(
   callType: GrpcCallType | undefined,
   config: GrpcLoadTestConfig,
-  options?: { methodResolved?: boolean },
+  options?: { methodResolved?: boolean; transportMode?: GrpcStudioTransportMode },
 ): string | undefined {
   if (options?.methodResolved === false) {
     return 'Selected method was not found in the loaded descriptor.';
+  }
+  if (callType === 'client_streaming' || callType === 'bidi_streaming') {
+    return 'Load testing supports unary and server-streaming RPCs only.';
+  }
+  const effectiveTransportMode = callType === 'server_streaming'
+    ? (options?.transportMode ?? defaultGrpcStudioTransportModeForPlatform())
+    : options?.transportMode;
+  if (
+    callType === 'server_streaming'
+    && (effectiveTransportMode === 'grpc-web' || effectiveTransportMode === 'spring-servlet')
+  ) {
+    return 'Server-streaming load tests require Express proxy or native transport.';
   }
   const issues = validateGrpcLoadTestConfig(callType ?? 'unary', config);
   return issues[0]?.message;
@@ -92,6 +119,35 @@ export interface StartGrpcLoadTestRunParams {
 }
 
 export function startGrpcStudioLoadTestRun(params: StartGrpcLoadTestRunParams): GrpcLoadTestSchedulerRun {
+  if (params.executeSnapshot.callType === 'server_streaming') {
+    const frozenTransportMode = resolveFrozenLoadTestTransportMode(params.executeSnapshot);
+    const preconditionError = validateLoadTestPreconditions('server_streaming', params.config, {
+      transportMode: frozenTransportMode,
+    });
+    if (preconditionError) {
+      throw new Error(preconditionError);
+    }
+    return captureAndStartGrpcLoadTestStreamSchedulerRun({
+      runId: buildLoadTestRunId(params.tabId),
+      executeSnapshot: params.executeSnapshot,
+      config: params.config,
+      resolvedEnvName: params.resolvedEnvName,
+      collectServerStream: (request, tabId, collect, options) => collectGrpcWorkflowServerStream(
+        request,
+        tabId,
+        collect,
+        {
+          abortSignal: options?.abortSignal,
+          transportMode: frozenTransportMode,
+        },
+      ),
+      buildStreamStartRequest: (executeSnapshot, attemptNumber) => snapshotToStreamStartRequest({
+        ...executeSnapshot,
+        requestId: `${executeSnapshot.requestId}-lt-${attemptNumber}`,
+      }),
+    });
+  }
+
   const snapshot = captureGrpcLoadTestExecuteSnapshot({
     runId: buildLoadTestRunId(params.tabId),
     executeSnapshot: params.executeSnapshot,
@@ -136,6 +192,20 @@ export async function finalizeGrpcLoadTestRun(
 ): Promise<ReturnType<typeof buildGrpcLoadTestRunSummaryExport>> {
   const report = await run.completion;
   return buildGrpcLoadTestRunSummaryExport({ snapshot: run.snapshot, report });
+}
+
+export function resolveLoadTestRunOperationTransition(
+  state: GrpcAdvancedOperationState,
+  summary: Pick<GrpcLoadTestRunSummaryExport, 'counts' | 'stopReason'>,
+): GrpcAdvancedOperationState {
+  const outcome = deriveGrpcLoadTestOperationOutcome(summary);
+  if (outcome === 'cancelled') {
+    return transitionAdvancedOpToCancelled(state);
+  }
+  if (outcome === 'failed') {
+    return transitionAdvancedOpToFailed(state, buildGrpcLoadTestRunFailureMessage(summary.counts));
+  }
+  return transitionAdvancedOpToCompleted(state);
 }
 
 export function computeGrpcStudioSchemaDiffReport(input: {

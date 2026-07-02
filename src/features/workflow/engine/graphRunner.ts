@@ -43,6 +43,9 @@ import {
   handleGrpcUnaryNode,
   handleGrpcServerStreamNode,
   handleGrpcAssertNode,
+  handleGrpcLoadTestNode,
+  handleGrpcSchemaDiffNode,
+  handleGrpcMockAssertNode,
   type NodeHandlerContext,
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
@@ -62,7 +65,8 @@ function resolveNodeTraceState(
   passedFlag: { value: boolean },
   results: RequestResult[],
 ): 'pass' | 'fail' {
-  if (nodeType === 'grpcUnary' || nodeType === 'grpcServerStream' || nodeType === 'grpcAssert') {
+  if (nodeType === 'grpcUnary' || nodeType === 'grpcServerStream' || nodeType === 'grpcAssert'
+    || nodeType === 'grpcLoadTest' || nodeType === 'grpcSchemaDiff' || nodeType === 'grpcMockAssert') {
     const nodeResults = results.filter((r) => r.workflowNodeId === nodeId);
     const lastResult = nodeResults[nodeResults.length - 1];
     if (lastResult) return lastResult.passed ? 'pass' : 'fail';
@@ -337,6 +341,12 @@ export async function runGraph(
         await handleGrpcServerStreamNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'grpcAssert') {
         await handleGrpcAssertNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcLoadTest') {
+        await handleGrpcLoadTestNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcSchemaDiff') {
+        await handleGrpcSchemaDiffNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcMockAssert') {
+        await handleGrpcMockAssertNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'end') {
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       }
@@ -545,6 +555,16 @@ export async function runGraph(
             ...(lastResult ? { responseTimeMs: lastResult.responseTimeMs } : {}),
             ...(!lastResult?.passed && lastResult?.errorMessage ? { error: lastResult.errorMessage } : {}),
           };
+        } else if (
+          node.type === 'grpcLoadTest' || node.type === 'grpcSchemaDiff' || node.type === 'grpcMockAssert'
+        ) {
+          const grpcResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastResult = grpcResults[grpcResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(lastResult ? { responseTimeMs: lastResult.responseTimeMs } : {}),
+            ...(!lastResult?.passed && lastResult?.errorMessage ? { error: lastResult.errorMessage } : {}),
+          };
         }
       } else {
         // Minimal: only capture error info for failed nodes
@@ -565,7 +585,8 @@ export async function runGraph(
             || node.type === 'graphqlSubscription' || node.type === 'graphqlIntrospect'
             || node.type === 'graphqlAssert'
             || node.type === 'grpcUnary' || node.type === 'grpcServerStream'
-            || node.type === 'grpcAssert') {
+            || node.type === 'grpcAssert'
+            || node.type === 'grpcLoadTest' || node.type === 'grpcSchemaDiff' || node.type === 'grpcMockAssert') {
             const transportResults = results.filter(r => r.workflowNodeId === nodeId);
             const lastResult = transportResults[transportResults.length - 1];
             if (lastResult && !lastResult.passed && lastResult.errorMessage) {

@@ -11,33 +11,49 @@ import {
 import { GrpcResponseSnapshotPanel } from './GrpcResponseSnapshotPanel';
 import type { GrpcResponseSnapshotBaseline } from '../../../shared/grpc/grpcSavedRequest';
 import type { GrpcCallResult } from '../../../shared/grpc/contracts';
+import type { GrpcStreamLogEntry } from '../../../shared/grpc/contracts';
+import type { GrpcErrorBody } from '../../../shared/grpc/contracts';
 
 export interface GrpcSavedRequestDetailProps {
   saved: GrpcSavedRequest | null;
   grpcurlCommand: string;
   lastUnaryResult?: GrpcCallResult;
   onOpenInStudio: () => void;
+  onRunLoadTest?: () => void;
   onCopyGrpcurl: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
   onUpdateResponseBaseline?: (baseline: GrpcResponseSnapshotBaseline) => void;
   onClearResponseBaseline?: () => void;
+  streamMessages?: GrpcStreamLogEntry[];
+  streamLifecycle?: string;
+  streamError?: GrpcErrorBody;
+  streamComparisonEligible?: boolean;
   openInStudioDisabled?: boolean;
   openInStudioTitle?: string;
+  runLoadTestDisabled?: boolean;
+  runLoadTestTitle?: string;
 }
 
 export function GrpcSavedRequestDetail({
   saved,
   grpcurlCommand,
   onOpenInStudio,
+  onRunLoadTest,
   onCopyGrpcurl,
   onDuplicate,
   onDelete,
   onUpdateResponseBaseline,
   onClearResponseBaseline,
   lastUnaryResult,
+  streamMessages,
+  streamLifecycle,
+  streamError,
+  streamComparisonEligible,
   openInStudioDisabled = false,
   openInStudioTitle = 'Open in Studio',
+  runLoadTestDisabled = false,
+  runLoadTestTitle = 'Run load test',
 }: GrpcSavedRequestDetailProps) {
   if (!saved) {
     return (
@@ -82,6 +98,18 @@ export function GrpcSavedRequestDetail({
           >
             Open in Studio
           </button>
+          {onRunLoadTest && (
+            <button
+              type="button"
+              className="grpc-btn grpc-btn--ghost grpc-btn--sm"
+              data-testid="grpc-saved-request-run-load-test"
+              onClick={onRunLoadTest}
+              disabled={runLoadTestDisabled}
+              title={runLoadTestTitle}
+            >
+              Run load test
+            </button>
+          )}
         </div>
       </header>
       <div className="grpc-saved-request-detail__body">
@@ -101,6 +129,19 @@ export function GrpcSavedRequestDetail({
           <div className="grpc-info-card__header">Metadata</div>
           <pre className="grpc-info-card__pre">{serializeGrpcPreviewJson(preview.metadata)}</pre>
         </div>
+        <div className="grpc-info-card" data-testid="grpc-saved-request-run-stats">
+          <div className="grpc-info-card__header">Run stats</div>
+          <div className="grpc-saved-request-run-stats">
+            <span>Total: {saved.runStats?.totalRuns ?? 0}</span>
+            <span>Success: {saved.runStats?.successRuns ?? 0}</span>
+            <span>Errors: {saved.runStats?.errorRuns ?? 0}</span>
+            <span>
+              Last status: {typeof saved.runStats?.lastGrpcStatus === 'number'
+                ? String(saved.runStats.lastGrpcStatus)
+                : '—'}
+            </span>
+          </div>
+        </div>
         {onUpdateResponseBaseline && onClearResponseBaseline && (
           <GrpcResponseSnapshotPanel
             callType={preview.callType}
@@ -108,6 +149,10 @@ export function GrpcSavedRequestDetail({
             method={preview.method}
             baseline={saved.responseBaseline}
             lastResult={lastUnaryResult}
+            streamMessages={streamMessages}
+            streamLifecycle={streamLifecycle}
+            streamError={streamError}
+            streamComparisonEligible={streamComparisonEligible}
             onUpdateBaseline={onUpdateResponseBaseline}
             onClearBaseline={onClearResponseBaseline}
           />

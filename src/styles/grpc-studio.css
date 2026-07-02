@@ -1062,10 +1062,90 @@ body:has(.grpc-settings-overlay) .grpc-connection-settings-btn {
   gap: 8px;
 }
 
-.grpc-k8s-deferred {
+.grpc-k8s-command {
   margin: 8px 0 0;
   font-size: 0.72rem;
   color: var(--text-muted);
+  line-height: 1.45;
+  word-break: break-all;
+}
+
+.grpc-k8s-command-label {
+  font-weight: 500;
+}
+
+.grpc-k8s-status {
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.grpc-k8s-status-local {
+  color: color-mix(in srgb, var(--primary) 70%, var(--text));
+}
+
+.grpc-k8s-log-view {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface) 88%, #000 12%);
+}
+
+.grpc-k8s-log-title {
+  flex: 1;
+}
+
+.grpc-k8s-log-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.grpc-k8s-log-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.grpc-k8s-log-actions .btn {
+  padding: 4px 8px;
+  font-size: 0.68rem;
+}
+
+.grpc-k8s-log-lines {
+  max-height: 170px;
+  overflow: auto;
+  padding: 8px 10px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.7rem;
+}
+
+.grpc-k8s-log-line {
+  white-space: pre-wrap;
+  line-height: 1.35;
+}
+
+.grpc-k8s-log-empty {
+  color: var(--text-muted);
+  font-style: italic;
+  line-height: 1.4;
+}
+
+.grpc-k8s-log-line--stderr {
+  color: #f3a3a3;
+}
+
+.grpc-k8s-log-line--system {
+  color: color-mix(in srgb, var(--primary) 65%, var(--text-muted));
 }
 
 .grpc-transport-mode-row {
@@ -1547,7 +1627,8 @@ body:has(.grpc-settings-overlay) .grpc-connection-settings-btn {
   padding: 12px;
   background: var(--bg);
   border-left: 1px solid var(--border);
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .grpc-studio-connection-chrome {
@@ -2080,7 +2161,7 @@ body:has(.grpc-settings-overlay) .grpc-connection-settings-btn {
   overflow: hidden;
   background: var(--surface);
   flex: 1 1 0;
-  min-height: 320px;
+  min-height: 0;
   min-width: 0;
 }
 
@@ -2187,15 +2268,17 @@ body:has(.grpc-settings-overlay) .grpc-connection-settings-btn {
   display: flex;
   flex-direction: column;
   flex: 1 1 0;
-  min-height: 240px;
-  overflow: hidden;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 .grpc-call-request-pane {
   display: flex;
   flex-direction: column;
-  flex: 1 1 48%;
-  min-height: 200px;
+  flex: 0 0 auto;
+  min-height: 160px;
+  max-height: min(48vh, 420px);
   border-bottom: 4px solid var(--border);
   overflow: hidden;
 }
@@ -2391,8 +2474,8 @@ body:has(.grpc-settings-overlay) .grpc-connection-settings-btn {
 .grpc-response-panel {
   display: flex;
   flex-direction: column;
-  flex: 1 1 52%;
-  min-height: 160px;
+  flex: 0 0 auto;
+  min-height: 220px;
   background: var(--bg);
   overflow: hidden;
 }
@@ -3007,11 +3090,18 @@ body:has(.grpc-settings-overlay) .grpc-connection-settings-btn {
   letter-spacing: 0.02em;
 }
 
+.grpc-call-split--streaming {
+  flex-direction: row;
+  overflow: hidden;
+}
+
 .grpc-call-split--streaming .grpc-call-request-pane {
   flex: 0 0 42%;
   min-width: 280px;
   min-height: 200px;
   max-height: none;
+  border-bottom: none;
+  border-right: 4px solid var(--border);
 }
 
 .grpc-stream-panel {
@@ -3052,6 +3142,7 @@ body:has(.grpc-settings-overlay) .grpc-connection-settings-btn {
   display: flex;
   align-items: center;
   gap: 10px;
+  flex-shrink: 0;
   flex-wrap: wrap;
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
@@ -4360,6 +4451,12 @@ body:has(.grpc-settings-overlay) .grpc-connection-settings-btn {
   color: var(--text-muted);
 }
 
+.grpc-collections-sidebar__actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .grpc-collections-search {
   padding: 8px 12px;
   border-bottom: 1px solid var(--border);
@@ -4529,6 +4626,16 @@ body:has(.grpc-settings-overlay) .grpc-connection-settings-btn {
   word-break: break-word;
   background: var(--bg);
   color: var(--text-muted);
+}
+
+.grpc-saved-request-run-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px 12px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--bg);
 }
 
 .grpc-history-filters {
@@ -5408,5 +5515,414 @@ body:has(.grpc-settings-overlay) .grpc-connection-settings-btn {
   .grpc-advanced-metrics-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.grpc-rpc-stats-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.grpc-rpc-stats-metric {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px 14px;
+}
+
+.grpc-rpc-stats-metric--ok .grpc-rpc-stats-metric__value {
+  color: var(--success, #4ade80);
+}
+
+.grpc-rpc-stats-metric--err .grpc-rpc-stats-metric__value {
+  color: var(--danger, #f87171);
+}
+
+.grpc-rpc-stats-metric__label {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.grpc-rpc-stats-metric__value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-family: var(--mono, ui-monospace, monospace);
+  color: var(--text);
+}
+
+.grpc-rpc-stats-metric__unit {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  margin-left: 3px;
+}
+
+.grpc-rpc-stats-metric__sub {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  opacity: 0.8;
+  margin-top: 2px;
+}
+
+.grpc-rpc-stats-empty {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.grpc-rpc-stats-table-wrap {
+  overflow-x: auto;
+}
+
+.grpc-rpc-stats-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.grpc-rpc-stats-table th {
+  font-size: 0.62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.grpc-rpc-stats-table td {
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.75rem;
+}
+
+.grpc-rpc-stats-table td:not(:first-child) {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.68rem;
+}
+
+.grpc-rpc-stats-table__method {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.68rem;
+}
+
+.grpc-rpc-stats-table__ok {
+  color: var(--success, #4ade80);
+}
+
+.grpc-rpc-stats-table__err {
+  color: var(--danger, #f87171);
+}
+
+.grpc-rpc-stats-latency-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--primary);
+  display: inline-block;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.grpc-rpc-stats-status-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.grpc-rpc-stats-status-chip {
+  font-size: 0.62rem;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.grpc-rpc-stats-status-chip--ok {
+  color: var(--success, #4ade80);
+  border-color: color-mix(in srgb, var(--success, #4ade80) 35%, var(--border));
+}
+
+.grpc-rpc-stats-status-chip--err {
+  color: var(--danger, #f87171);
+  border-color: color-mix(in srgb, var(--danger, #f87171) 35%, var(--border));
+}
+
+@media (max-width: 900px) {
+  .grpc-rpc-stats-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .grpc-rpc-stats-metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Phase 11L — mock rule visual builder */
+.grpc-mock-authoring-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 0 12px 10px;
+  border-bottom: 1px solid var(--border);
+}
+
+.grpc-mock-authoring-tab {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.grpc-mock-authoring-tab:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.grpc-mock-authoring-tab--active {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.grpc-mock-builder-panel {
+  padding: 12px;
+}
+
+.grpc-mock-builder-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 10px;
+}
+
+.grpc-mock-builder-rules {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.grpc-mock-builder-rule {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.grpc-mock-builder-rule--on {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--border));
+}
+
+.grpc-mock-builder-rule__header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.grpc-mock-builder-rule__body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 12px;
+}
+
+.grpc-mock-builder-section__title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.grpc-mock-builder-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.grpc-mock-builder-field--inline {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.grpc-mock-builder-field--stacked {
+  grid-column: 1 / -1;
+}
+
+.grpc-mock-builder-field__label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.grpc-mock-builder-input,
+.grpc-mock-builder-textarea {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 5px;
+  padding: 6px 10px;
+  font-size: 0.76rem;
+  min-width: 0;
+}
+
+.grpc-mock-builder-input--narrow {
+  width: 88px;
+}
+
+.grpc-mock-builder-textarea {
+  width: 100%;
+  font-family: var(--mono, ui-monospace, monospace);
+  resize: vertical;
+}
+
+.grpc-mock-builder-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.grpc-mock-builder-predicate-leaf,
+.grpc-mock-builder-group,
+.grpc-mock-builder-predicate-block {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.grpc-mock-builder-group {
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  background: color-mix(in srgb, var(--bg) 70%, var(--surface));
+}
+
+.grpc-mock-builder-group__header,
+.grpc-mock-builder-group__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.grpc-mock-builder-group__children {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.grpc-mock-builder-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.grpc-mock-builder-badge {
+  align-self: flex-start;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+}
+
+.grpc-mock-builder-readonly__expr {
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 0.72rem;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.grpc-mock-builder-hint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+}
+
+.grpc-mock-builder-hint--error {
+  color: var(--danger, #f87171);
+}
+
+@media (max-width: 900px) {
+  .grpc-mock-builder-rule__body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.grpc-mock-network-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+.grpc-mock-listen-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-right: 8px;
+}
+
+.grpc-mock-listener-log {
+  margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  padding: 8px 10px;
+}
+
+.grpc-mock-listener-log__title {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.grpc-mock-listener-log__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 160px;
+  overflow: auto;
+  font-size: 0.7rem;
+  color: var(--text);
+}
+
+.grpc-mock-listener-log__event {
+  color: var(--primary);
+  margin-right: 6px;
+}
+
+.grpc-mock-listener-log__rpc,
+.grpc-mock-listener-log__rule {
+  color: var(--text-muted);
+  margin-right: 6px;
 }
 

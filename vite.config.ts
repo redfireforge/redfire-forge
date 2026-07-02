@@ -6,6 +6,7 @@ import { resolve, join } from 'path'
 import { isLoopbackUrl, preferLocalhostHostname, resolveLoopbackUrl } from './src/shared/utils/loopbackUrl'
 import { demoHubRootImportsPlugin } from './vite/demoHubRootImports'
 import { demoLiveGuardPlugin } from './vite/demoLiveGuardPlugin'
+import { createMonacoAwareLogger, monacoDevNoisePlugin } from './vite/monacoDevNoisePlugin'
 
 const PROXY_RETRY_CODES = new Set([
   'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET',
@@ -257,7 +258,8 @@ const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [demoHubRootImportsPlugin(), react(), proxyPlugin(), demoLiveGuardPlugin(), docsPlugin()],
+  plugins: [demoHubRootImportsPlugin(), monacoDevNoisePlugin(), react(), proxyPlugin(), demoLiveGuardPlugin(), docsPlugin()],
+  customLogger: createMonacoAwareLogger(),
   resolve: {
     alias: {
       '@redfireforge/demo-hub': resolve(__dirname, 'packages/demo-hub/src'),

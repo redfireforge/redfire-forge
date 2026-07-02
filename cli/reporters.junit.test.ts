@@ -19,6 +19,39 @@ describe('buildJunitXml', () => {
     expect(xml).toContain('</testsuites>');
   });
 
+  it('redacts grpc harness diagnostics in JUnit XML output', () => {
+    const results = [makeResult({
+      passed: false,
+      method: 'GRPC',
+      transportType: 'grpcCall',
+      httpStatus: 0,
+      errorMessage: 'Bearer abc123',
+      grpcResultMeta: {
+        service: 'echo.EchoService',
+        method: 'Echo',
+        target: 'localhost:50051',
+        grpcStatus: 2,
+        grpcStatusMessage: 'Bearer abc123',
+        harnessResult: {
+          scenarioId: 'scenario-1',
+          status: 'error',
+          callType: 'unary',
+          grpcStatus: 2,
+          durationMs: 12,
+          attemptCount: 1,
+          assertionResults: [],
+          errorDetail: 'Bearer abc123',
+        },
+      },
+    })];
+
+    const summary = makeSummary({ failedRequests: 1, successfulRequests: 0 });
+    const xml = buildJunitXml(results, summary, 'Suite');
+
+    expect(xml).toContain('[REDACTED]');
+    expect(xml).not.toContain('abc123');
+  });
+
   it('includes correct test counts in testsuite', () => {
     const results = [
       makeResult({ passed: true }),

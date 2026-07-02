@@ -1,6 +1,7 @@
 import type { GrpcAdvancedOperationStatus } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
 import type { GrpcLoadTestRunCounts } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
 import type { GrpcLoadTestConfig } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
+import type { GrpcCallType } from '../../../shared/grpc/contracts';
 import type { GrpcSchemaDiffChange, GrpcSchemaDiffSeverity } from '../../../shared/grpc/grpcSchemaDiffContracts';
 import type { GrpcMockRuleSet } from '../../../shared/grpc/grpcMockRuleContracts';
 import { validateGrpcMockRuleSet } from '../../../shared/grpc/grpcMockRuleContracts';
@@ -66,14 +67,36 @@ export function formatLoadTestProgressLabel(
   return `${counts.completed} calls`;
 }
 
+export function formatGrpcLoadTestCallTypeBadge(callType: GrpcCallType | undefined): string {
+  switch (callType) {
+    case 'server_streaming':
+      return 'Server stream';
+    case 'unary':
+      return 'Unary';
+    default:
+      return 'Unsupported';
+  }
+}
+
 export function filterGrpcSchemaDiffChangesForUi(
   changes: GrpcSchemaDiffChange[],
   filter: GrpcSchemaDiffSeverityFilter,
-  cap: number = GRPC_SCHEMA_DIFF_UI_LIST_CAP,
+  options?: {
+    cap?: number;
+    acknowledgedChangeIds?: ReadonlySet<string>;
+    hideAcknowledged?: boolean;
+    resolveChangeId?: (change: GrpcSchemaDiffChange) => string;
+  },
 ): { visible: GrpcSchemaDiffChange[]; total: number; truncated: boolean } {
-  const filtered = filter === 'all'
+  const cap = options?.cap ?? GRPC_SCHEMA_DIFF_UI_LIST_CAP;
+  let filtered = filter === 'all'
     ? changes
     : changes.filter((change) => change.severity === filter);
+  if (options?.hideAcknowledged && options.acknowledgedChangeIds && options.resolveChangeId) {
+    filtered = filtered.filter(
+      (change) => !options.acknowledgedChangeIds!.has(options.resolveChangeId!(change)),
+    );
+  }
   const truncated = filtered.length > cap;
   return {
     visible: truncated ? filtered.slice(0, cap) : filtered,
@@ -112,6 +135,27 @@ export function schemaDiffChangeLineClass(changeType: string): string {
 export type GrpcMockRuleSetParseResult =
   | { ok: true; ruleSet: GrpcMockRuleSet }
   | { ok: false; error: string };
+
+/** Lenient JSON parse for the visual builder — schema validation is shown separately. */
+export function parseGrpcMockRuleSetJsonForBuilder(json: string): GrpcMockRuleSetParseResult {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : 'Invalid JSON',
+    };
+  }
+  if (parsed == null || typeof parsed !== 'object' || !('rules' in parsed)) {
+    return { ok: false, error: 'Expected object with a rules array' };
+  }
+  const ruleSet = parsed as GrpcMockRuleSet;
+  if (!Array.isArray(ruleSet.rules)) {
+    return { ok: false, error: 'Expected object with a rules array' };
+  }
+  return { ok: true, ruleSet: structuredClone(ruleSet) };
+}
 
 export function parseGrpcMockRuleSetJson(json: string): GrpcMockRuleSetParseResult {
   let parsed: unknown;

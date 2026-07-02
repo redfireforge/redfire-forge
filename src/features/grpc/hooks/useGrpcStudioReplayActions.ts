@@ -49,6 +49,7 @@ export function useGrpcStudioReplayActions(options: UseGrpcStudioReplayActionsOp
   const applyBindingToActiveTab = useCallback((
     saved: GrpcSavedRequest,
     bodyOverride?: Record<string, unknown>,
+    navigateTo: GrpcStudioPanelView = 'studio',
   ) => {
     const tab = studio.activeTab;
     abortActiveTabCallsBeforePatch(tab.id);
@@ -71,16 +72,29 @@ export function useGrpcStudioReplayActions(options: UseGrpcStudioReplayActionsOp
       saved.service,
       saved.method,
     ));
-    onNavigate('studio');
+    onNavigate(navigateTo);
     return binding;
   }, [studio, envVarMap, profiles, pageDefaults, onNavigate, abortActiveTabCallsBeforePatch]);
 
-  const openSavedRequestInStudio = useCallback((saved: GrpcSavedRequest) => {
+  const openSavedRequestInStudio = useCallback((saved: GrpcSavedRequest): boolean => {
     try {
       setLastActionError(undefined);
       applyBindingToActiveTab(saved);
+      return true;
     } catch (error) {
       setLastActionError(replayActionErrorMessage(error));
+      return false;
+    }
+  }, [applyBindingToActiveTab]);
+
+  const openSavedRequestForLoadTest = useCallback((saved: GrpcSavedRequest): boolean => {
+    try {
+      setLastActionError(undefined);
+      applyBindingToActiveTab(saved, undefined, 'advanced');
+      return true;
+    } catch (error) {
+      setLastActionError(replayActionErrorMessage(error));
+      return false;
     }
   }, [applyBindingToActiveTab]);
 
@@ -143,6 +157,7 @@ export function useGrpcStudioReplayActions(options: UseGrpcStudioReplayActionsOp
 
   return {
     openSavedRequestInStudio,
+    openSavedRequestForLoadTest,
     replayHistoryEntry,
     applyGrpcurlImport,
     applyBindingToActiveTab,

@@ -173,29 +173,55 @@ describe('Phase 10I-A — preflight enforcement: blocked call types on browser-d
     expect(isGrpcTransportCallTypeSupported('spring-servlet', 'client_streaming')).toBe(false);
   });
 
-  it('server_streaming passes execute preflight but stream_start fails with Phase 10H guidance on grpc-web', async () => {
+  it('server_streaming passes execute preflight and stream_start succeeds on grpc-web', async () => {
     resetGrpcTabTransportRoutingForTests();
     syncGrpcTabTransportMode('tab-10i-grpc-web', 'grpc-web');
     expect(() =>
       assertGrpcTransportExecutePreflight({ transportMode: 'grpc-web', callType: 'server_streaming' }),
     ).not.toThrow();
-    await expect(
-      startGrpcStream({ callType: 'server_streaming' } as never, 'tab-10i-grpc-web'),
-    ).rejects.toMatchObject({
-      message: expect.stringMatching(/Phase 10H/i),
+    await expect(startGrpcStream({
+      callType: 'server_streaming',
+      descriptorKey: '',
+      requestId: 'req-10i-grpc-web',
+      target: { address: 'example.com:443', tlsMode: 'system' },
+      service: 'pkg.Svc',
+      method: 'Watch',
+      body: {},
+      metadata: [],
+      auth: { type: 'none' },
+    } as never, 'tab-10i-grpc-web')).resolves.toMatchObject({
+      ok: true,
+      op: 'stream_start',
+      data: {
+        requestId: 'req-10i-grpc-web',
+        tabId: 'tab-10i-grpc-web',
+      },
     });
   });
 
-  it('server_streaming passes execute preflight but stream_start fails with Phase 10H guidance on spring-servlet', async () => {
+  it('server_streaming passes execute preflight and stream_start succeeds on spring-servlet', async () => {
     resetGrpcTabTransportRoutingForTests();
     syncGrpcTabTransportMode('tab-10i-servlet', 'spring-servlet');
     expect(() =>
       assertGrpcTransportExecutePreflight({ transportMode: 'spring-servlet', callType: 'server_streaming' }),
     ).not.toThrow();
-    await expect(
-      startGrpcStream({ callType: 'server_streaming' } as never, 'tab-10i-servlet'),
-    ).rejects.toMatchObject({
-      message: expect.stringMatching(/Phase 10H/i),
+    await expect(startGrpcStream({
+      callType: 'server_streaming',
+      descriptorKey: '',
+      requestId: 'req-10i-servlet',
+      target: { address: 'example.com:443', tlsMode: 'system' },
+      service: 'pkg.Svc',
+      method: 'Watch',
+      body: {},
+      metadata: [],
+      auth: { type: 'none' },
+    } as never, 'tab-10i-servlet')).resolves.toMatchObject({
+      ok: true,
+      op: 'stream_start',
+      data: {
+        requestId: 'req-10i-servlet',
+        tabId: 'tab-10i-servlet',
+      },
     });
   });
 });
@@ -609,11 +635,10 @@ describe('Phase 10I-F — acceptance checklist traceability: all Phase 10 test f
     expect(src).toContain('export function normalizeGrpcWebUnaryResponse');
   });
 
-  it('grpcStreamClient.ts guards browser-direct server streaming at stream_start (Phase 10H)', () => {
+  it('grpcStreamClient.ts routes browser-direct server streaming through local start handler', () => {
     const src = readSrc('shared/grpc/grpcStreamClient.ts');
-    expect(src).toContain('Phase 10H');
-    expect(src).toMatch(/!adapter\.startStream/);
-    expect(src).toContain('suggestExpressProxy');
+    expect(src).toContain('startBrowserDirectServerStream');
+    expect(src).toMatch(/request\.callType === 'server_streaming'/);
   });
 
   it('grpcWebTransportContracts.ts exports assertBrowserDirectTransportTlsSupported', () => {

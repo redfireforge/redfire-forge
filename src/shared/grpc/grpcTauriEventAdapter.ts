@@ -15,6 +15,7 @@ import { shouldAcceptGrpcStreamSequence } from './grpcStreamClient';
 import {
   invokeGrpcTabEventsAttachNative,
   invokeGrpcTabEventsDetachNative,
+  retainGrpcTabHeartbeat,
 } from './grpcNativeTauriLifecycle';
 
 export type GrpcTauriEventListener = (event: GrpcStreamEvent) => void;
@@ -141,9 +142,11 @@ export async function listenGrpcTauriStreamEvents(
     void unlisten();
     throw error;
   }
+  const releaseHeartbeat = retainGrpcTabHeartbeat(options.tabId);
 
   return {
     dispose: () => {
+      releaseHeartbeat();
       void invokeGrpcTabEventsDetachNative(options.tabId);
       void unlisten();
     },

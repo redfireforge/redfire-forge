@@ -5,6 +5,7 @@ import {
   schemaDiffChangeLineClass,
   schemaDiffSeverityBadgeClass,
 } from '../utils/grpcStudioAdvancedModel';
+import { grpcSchemaDiffChangeId } from '../utils/grpcSchemaDiffAck';
 
 export interface GrpcSchemaDiffPanelProps {
   advanced: UseGrpcStudioAdvancedFeaturesReturn;
@@ -17,7 +18,11 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
   );
   const report = advanced.schemaDiff.lastReport;
   const filtered = report
-    ? filterGrpcSchemaDiffChangesForUi(report.changes, advanced.schemaDiff.severityFilter)
+    ? filterGrpcSchemaDiffChangesForUi(report.changes, advanced.schemaDiff.severityFilter, {
+      hideAcknowledged: advanced.schemaDiff.hideAcknowledged ?? false,
+      acknowledgedChangeIds: advanced.schemaDiffAckChangeIds ?? new Set<string>(),
+      resolveChangeId: grpcSchemaDiffChangeId,
+    })
     : undefined;
 
   return (
@@ -77,6 +82,15 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
               <option value="non_breaking">Non-breaking</option>
               <option value="informational">Informational</option>
             </select>
+          </label>
+          <label className="grpc-advanced-field grpc-advanced-field--inline">
+            <span className="grpc-advanced-field__label">Hide acknowledged</span>
+            <input
+              type="checkbox"
+              data-testid="grpc-schema-diff-hide-acknowledged"
+              checked={advanced.schemaDiff.hideAcknowledged ?? false}
+              onChange={(event) => advanced.setSchemaDiffHideAcknowledged(event.target.checked)}
+            />
           </label>
         </div>
 
@@ -166,19 +180,38 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
                   </p>
                 )}
                 <div className="grpc-advanced-diff-list" data-testid="grpc-schema-diff-change-list">
-                  {filtered.visible.map((change) => (
+                  {filtered.visible.map((change) => {
+                    const changeId = grpcSchemaDiffChangeId(change);
+                    const acknowledged = advanced.isSchemaDiffChangeAcknowledged?.(change) ?? false;
+                    return (
                     <div
                       key={`${change.entityPath}:${change.changeType}:${change.description}`}
-                      className={`grpc-advanced-diff-line ${schemaDiffChangeLineClass(change.changeType)}`}
+                      className={`grpc-advanced-diff-line ${schemaDiffChangeLineClass(change.changeType)}${acknowledged ? ' grpc-advanced-diff-line--acked' : ''}`}
                       data-testid="grpc-schema-diff-change-row"
+                      data-change-id={changeId}
                     >
                       <span className="grpc-advanced-diff-path">{change.entityPath}</span>
                       <span className="grpc-advanced-diff-desc">{change.description}</span>
                       <span className={`grpc-advanced-diff-badge ${schemaDiffSeverityBadgeClass(change.severity)}`}>
                         {change.severity.replace(/_/g, ' ')}
                       </span>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        data-testid="grpc-schema-diff-ack-btn"
+                        onClick={() => {
+                          if (acknowledged) {
+                            void advanced.unacknowledgeSchemaDiffChange(change);
+                          } else {
+                            void advanced.acknowledgeSchemaDiffChange(change);
+                          }
+                        }}
+                      >
+                        {acknowledged ? 'Unacknowledge' : 'Acknowledge'}
+                      </button>
                     </div>
-                  ))}
+                    );
+                  })}
                   {filtered.visible.length === 0 && (
                     <p className="grpc-advanced-hint">No changes match the selected filter.</p>
                   )}

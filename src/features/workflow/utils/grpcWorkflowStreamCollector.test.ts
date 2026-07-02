@@ -53,6 +53,33 @@ describe('collectGrpcWorkflowServerStream', () => {
     expect(cancelStream).toHaveBeenCalledWith('stream-1', 'workflow:node-1');
   });
 
+  it('forwards frozen transportMode to startStream (Phase 11O)', async () => {
+    const cancelStream = vi.fn(async () => undefined);
+    const startStream = vi.fn(async () => ({
+      ok: true as const,
+      op: 'stream_start' as const,
+      data: { streamId: 'stream-1', requestId: 'req-stream' },
+    }));
+    const fetchEvents = vi.fn(async () => ({
+      ok: true,
+      body: sseBody([
+        { event: 'grpc-message', data: JSON.stringify({ type: 'grpc-message', data: { n: 1 } }) },
+      ]),
+    } as Response));
+
+    await collectGrpcWorkflowServerStream(
+      request,
+      'tab-stream-lt',
+      { maxMessages: 5 },
+      {
+        transportMode: 'express',
+        deps: { startStream, cancelStream, fetchEvents },
+      },
+    );
+
+    expect(startStream).toHaveBeenCalledWith(request, 'tab-stream-lt', { transportMode: 'express' });
+  });
+
   it('stops on untilExpression', async () => {
     const cancelStream = vi.fn(async () => undefined);
     const startStream = vi.fn(async () => ({

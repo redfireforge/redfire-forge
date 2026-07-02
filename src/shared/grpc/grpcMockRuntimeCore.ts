@@ -78,8 +78,9 @@ export interface GrpcMockRuntimeState {
 export interface GrpcMockRuntimeManager {
   getState(): GrpcMockRuntimeState;
   start(config: GrpcMockRuntimeStartConfig, options?: { nowIso?: string }): void;
-  stop(options?: { nowIso?: string }): void;
+  stop(options?: { nowIso?: string; force?: boolean }): void;
   commitRuleSet(ruleSet: GrpcMockRuleSet, options?: { nowIso?: string }): GrpcMockCommittedRuleSet;
+  commitLatencyPolicy(policy: GrpcMockLatencyPolicy, options?: { nowIso?: string }): void;
   beginCall(context: GrpcMockEvaluationContext, options?: { nowIso?: string }): GrpcMockCallSession;
   evaluateSession(session: GrpcMockCallSession): GrpcMockRuleEvaluationResult;
   endCall(callId: string): void;
@@ -209,8 +210,11 @@ export function createGrpcMockRuntimeManager(): GrpcMockRuntimeManager {
       if (operation.status !== 'running') {
         return;
       }
-      if (inFlight.size > 0) {
+      if (inFlight.size > 0 && !options?.force) {
         throw new GrpcMockRuntimeInFlightError(inFlight.size);
+      }
+      if (options?.force) {
+        inFlight.clear();
       }
 
       const nowIso = options?.nowIso ?? new Date().toISOString();
@@ -230,6 +234,12 @@ export function createGrpcMockRuntimeManager(): GrpcMockRuntimeManager {
       generation += 1;
       committed = cloneCommittedRuleSet(ruleSet, generation, nowIso);
       return structuredClone(committed);
+    },
+
+    commitLatencyPolicy(policy, _options) {
+      requireRunning();
+      assertGrpcMockLatencyPolicy(policy);
+      latencyPolicy = structuredClone(policy);
     },
 
     beginCall(context, options) {

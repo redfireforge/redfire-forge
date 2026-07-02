@@ -9,10 +9,16 @@ import {
 import type { LogLine } from '../../../src/shared/types/server-api.js';
 import { grpcService, type GrpcService } from '../../grpc/grpc-service.js';
 import { grpcStreamService, type GrpcStreamService } from '../../grpc/grpc-stream-service.js';
+import {
+  grpcK8sPortForwardManager,
+  type GrpcK8sPortForwardManager,
+  type GrpcK8sPortForwardConfig,
+} from '../../grpc/grpcK8sPortForwardManager.js';
 
 interface CreateGrpcRouterOptions {
   service?: GrpcService;
   streamService?: GrpcStreamService;
+  k8sPortForwardManager?: GrpcK8sPortForwardManager;
   onLog?: (line: LogLine) => void;
 }
 
@@ -48,6 +54,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
   const router = Router();
   const service = options.service ?? grpcService;
   const streamService = options.streamService ?? grpcStreamService;
+  const k8sPortForwardManager = options.k8sPortForwardManager ?? grpcK8sPortForwardManager;
 
   const log = (text: string) => {
     if (!options.onLog) return;
@@ -90,6 +97,13 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     if (!requireBodyObject(req, res, 'export_protoset')) return;
     log(`export-protoset → ${req.body.descriptorKey ?? '(no key)'}`);
     const envelope = await service.exportProtoset(req.body);
+    return sendGrpcEnvelope(res, envelope);
+  });
+
+  router.post('/api/grpc/descriptor/lookup', async (req: Request, res: Response) => {
+    if (!requireBodyObject(req, res, 'lookup_descriptor')) return;
+    log(`descriptor-lookup → ${req.body.descriptorKey ?? '(no key)'}`);
+    const envelope = await service.lookupDescriptor(req.body);
     return sendGrpcEnvelope(res, envelope);
   });
 
@@ -152,6 +166,68 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     log(`stream/cancel → ${streamId}`);
     const envelope = streamService.cancelStream(streamId, tabId);
     return sendGrpcEnvelope(res, envelope);
+  });
+
+  router.get('/api/grpc/k8s-port-forward/status', (req: Request, res: Response) => {
+    const scopeId = toStringQuery(req.query.scopeId) ?? '';
+    try {
+      const data = k8sPortForwardManager.getStatus(scopeId);
+      return res.status(200).json({ ok: true, data });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to read K8s port-forward status';
+      return res.status(400).json({ ok: false, error: message });
+    }
+  });
+
+  router.get('/api/grpc/k8s-port-forward/logs', (req: Request, res: Response) => {
+    const scopeId = toStringQuery(req.query.scopeId) ?? '';
+    const afterSeq = toIntQuery(req.query.afterSeq);
+    try {
+      const data = k8sPortForwardManager.getLogs(scopeId, afterSeq);
+      return res.status(200).json({ ok: true, data });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to read K8s port-forward logs';
+      return res.status(400).json({ ok: false, error: message });
+    }
+  });
+
+  router.post('/api/grpc/k8s-port-forward/logs/clear', (req: Request, res: Response) => {
+    if (!requireBodyObject(req, res, 'cancel')) return;
+    const scopeId = typeof req.body.scopeId === 'string' ? req.body.scopeId : '';
+    try {
+      const data = k8sPortForwardManager.clearLogs(scopeId);
+      return res.status(200).json({ ok: true, data });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to clear K8s port-forward logs';
+      return res.status(400).json({ ok: false, error: message });
+    }
+  });
+
+  router.post('/api/grpc/k8s-port-forward/start', async (req: Request, res: Response) => {
+    if (!requireBodyObject(req, res, 'call')) return;
+    const scopeId = typeof req.body.scopeId === 'string' ? req.body.scopeId : '';
+    const config = (req.body.config ?? {}) as Partial<GrpcK8sPortForwardConfig>;
+    log(`k8s/start → ${scopeId || '(no scope)'}`);
+    try {
+      const data = await k8sPortForwardManager.startPortForward(scopeId, config);
+      return res.status(200).json({ ok: true, data });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to start kubectl port-forward';
+      return res.status(400).json({ ok: false, error: message });
+    }
+  });
+
+  router.post('/api/grpc/k8s-port-forward/stop', async (req: Request, res: Response) => {
+    if (!requireBodyObject(req, res, 'cancel')) return;
+    const scopeId = typeof req.body.scopeId === 'string' ? req.body.scopeId : '';
+    log(`k8s/stop → ${scopeId || '(no scope)'}`);
+    try {
+      const data = await k8sPortForwardManager.stopPortForward(scopeId);
+      return res.status(200).json({ ok: true, data });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to stop kubectl port-forward';
+      return res.status(400).json({ ok: false, error: message });
+    }
   });
 
   return router;

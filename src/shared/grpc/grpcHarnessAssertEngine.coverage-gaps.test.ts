@@ -167,4 +167,52 @@ describe('grpcHarnessAssertEngine coverage gaps', () => {
     expect(detailed.assertionResults[0]?.passed).toBe(true);
     expect(detailed.assertionResults[1]?.passed).toBe(false);
   });
+
+  it('builds grpcStatus and grpcTrailer assertion names', () => {
+    expect(buildGrpcHarnessAssertionName({ grpcStatus: 0 }, 0)).toBe('grpcStatus');
+    expect(buildGrpcHarnessAssertionName({ grpcTrailer: 'X-Trace', equals: '1' }, 0))
+      .toBe('grpcTrailer:x-trace');
+  });
+
+  it('evaluates grpcField exists and object contains branches', () => {
+    expect(evaluateGrpcHarnessAssertions(unary, [{
+      grpcField: '$.missing',
+      exists: false,
+    }]).passed).toBe(true);
+    expect(evaluateGrpcHarnessAssertions(unary, [{
+      grpcField: '$.message',
+      exists: true,
+    }]).passed).toBe(true);
+    expect(evaluateGrpcHarnessAssertions({
+      ...unary,
+      body: { message: { inner: 'hello' } },
+    }, [{
+      grpcField: '$.message',
+      contains: 'hello',
+    }]).passed).toBe(true);
+    expect(evaluateGrpcHarnessAssertions({
+      ...unary,
+      body: { count: 42 },
+    }, [{
+      grpcField: '$.count',
+      contains: '4',
+    }]).passed).toBe(true);
+    expect(evaluateGrpcHarnessAssertions(unary, [{
+      grpcField: '$.message',
+    }]).passed).toBe(false);
+    expect(evaluateGrpcHarnessAssertions({
+      ...unary,
+      body: { tags: ['alpha', 'beta'] },
+    }, [{
+      grpcField: '$.tags',
+      contains: 'beta',
+    }]).passed).toBe(true);
+    expect(evaluateGrpcHarnessAssertions({
+      ...unary,
+      body: {},
+    }, [{
+      grpcField: '$.missing',
+      contains: 'anything',
+    }]).passed).toBe(false);
+  });
 });

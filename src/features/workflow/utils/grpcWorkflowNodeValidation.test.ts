@@ -172,6 +172,158 @@ describe('grpcWorkflowNodeValidation (Phase 6A)', () => {
     expect(noTrailerOp.valid).toBe(false);
   });
 
+  it('validateGrpcAssertNodeData validates grpcField JSONPath syntax at config time', () => {
+    const invalid = validateGrpcAssertNodeData({
+      label: 'Assert',
+      source: 'grpc-1',
+      assertions: [{ grpcField: '$.messages[foo]', equals: 'x' }],
+    });
+    expect(invalid.valid).toBe(false);
+    expect(invalid.issues.some((i) => i.message.includes('valid JSONPath'))).toBe(true);
+
+    const valid = validateGrpcAssertNodeData({
+      label: 'Assert',
+      source: 'grpc-1',
+      assertions: [{ grpcField: 'messages[0].message', equals: 'hello' }],
+    });
+    expect(valid.valid).toBe(true);
+  });
+
+  it('validateGrpcAssertNodeData adversarial grpcField matrix rejects malformed paths', () => {
+    const malformedFields = [
+      '$.',
+      '$..message',
+      '$message',
+      '$.messages[foo]',
+      '$.messages[]',
+      '$.messages[1',
+      '$.messages]1[',
+      '$.messages[*][foo]',
+      '.message',
+      'message.',
+      'message..text',
+      'messages[1a]',
+      'messages[-1]',
+      'messages[1][*x]',
+      'messages[1]]',
+      'messages[[1]]',
+      'messages[1].',
+    ];
+
+    for (const grpcField of malformedFields) {
+      const result = validateGrpcAssertNodeData({
+        label: 'Assert',
+        source: 'grpc-1',
+        assertions: [{ grpcField, equals: 'x' }],
+      });
+      expect(result.valid).toBe(false);
+      expect(
+        result.issues.some(
+          (issue) => issue.field === 'assertions[0].grpcField' && issue.message.includes('valid JSONPath'),
+        ),
+      ).toBe(true);
+    }
+
+    const acceptedFields = [
+      '$',
+      '$.message',
+      '$[0]',
+      '$[0].message',
+      '$.messages[0]',
+      '$.messages[*]',
+      'message',
+      'messages[0].text',
+      'payload.items[1].name',
+    ];
+
+    for (const grpcField of acceptedFields) {
+      const result = validateGrpcAssertNodeData({
+        label: 'Assert',
+        source: 'grpc-1',
+        assertions: [{ grpcField, exists: true }],
+      });
+      expect(result.valid).toBe(true);
+    }
+  });
+
+  it('validateGrpcAssertNodeData adversarial grpcTrailer matrix enforces name/operator contract', () => {
+    const invalidTrailerAssertions = [
+      { grpcTrailer: '' },
+      { grpcTrailer: '   ' },
+      { grpcTrailer: 'grpc-status-details-bin' },
+    ];
+
+    for (const assertion of invalidTrailerAssertions) {
+      const result = validateGrpcAssertNodeData({
+        label: 'Assert',
+        source: 'grpc-1',
+        assertions: [assertion as unknown as { grpcTrailer: string; equals?: string; exists?: boolean }],
+      });
+      expect(result.valid).toBe(false);
+      expect(
+        result.issues.some(
+          (issue) => issue.field?.startsWith('assertions[0].grpcTrailer') || issue.message.includes('grpcTrailer assertion requires'),
+        ),
+      ).toBe(true);
+    }
+
+    const acceptedTrailerAssertions = [
+      { grpcTrailer: 'grpc-status-details-bin', exists: true },
+      { grpcTrailer: 'grpc-message', equals: 'ok' },
+      { grpcTrailer: '  x-trace-id  ', exists: false },
+    ];
+
+    for (const assertion of acceptedTrailerAssertions) {
+      const result = validateGrpcAssertNodeData({
+        label: 'Assert',
+        source: 'grpc-1',
+        assertions: [assertion],
+      });
+      expect(result.valid).toBe(true);
+    }
+  });
+
+  it('validateGrpcAssertNodeData adversarial grpcDuration matrix requires finite min/max', () => {
+    const invalidDurationAssertions = [
+      { grpcDuration: {} },
+      { grpcDuration: { min: Number.NaN } },
+      { grpcDuration: { max: Number.NaN } },
+      { grpcDuration: { min: Number.POSITIVE_INFINITY } },
+      { grpcDuration: { max: Number.NEGATIVE_INFINITY } },
+      { grpcDuration: { min: '10' } },
+      { grpcDuration: { max: '25' } },
+    ];
+
+    for (const assertion of invalidDurationAssertions) {
+      const result = validateGrpcAssertNodeData({
+        label: 'Assert',
+        source: 'grpc-1',
+        assertions: [assertion as unknown as { grpcDuration: { min?: number; max?: number } }],
+      });
+      expect(result.valid).toBe(false);
+      expect(
+        result.issues.some(
+          (issue) => issue.field === 'assertions[0].grpcDuration' && issue.message.includes('requires min and/or max'),
+        ),
+      ).toBe(true);
+    }
+
+    const acceptedDurationAssertions = [
+      { grpcDuration: { min: 0 } },
+      { grpcDuration: { max: 1500 } },
+      { grpcDuration: { min: -1, max: 25 } },
+    ];
+
+    for (const assertion of acceptedDurationAssertions) {
+      const result = validateGrpcAssertNodeData({
+        label: 'Assert',
+        source: 'grpc-1',
+        assertions: [assertion],
+      });
+      expect(result.valid).toBe(true);
+    }
+  });
+
   it('validateGrpcUnaryNodeData rejects reserved saveAs aliases', () => {
     const result = validateGrpcUnaryNodeData(validUnary({ saveAs: 'response' }));
     expect(result.valid).toBe(false);
@@ -428,5 +580,31 @@ describe('validateGrpcWorkflowGraph (Phase 6A)', () => {
       }],
     });
     expect(summary).toBe('[n1] Target address is required');
+  });
+
+  it('validates advanced gRPC nodes and tracks saveAs collisions (Phase 11N)', () => {
+    const nodes: WorkflowNode[] = [
+      makeNode('lt-1', 'grpcLoadTest', {
+        label: 'Load',
+        target: 'localhost:50051',
+        descriptorKey: 'dk',
+        service: 'echo.EchoService',
+        method: 'Echo',
+        callType: 'unary',
+        body: {},
+        loadTest: { concurrency: 1, totalCalls: 1 },
+        saveAs: 'loadAlias',
+      }),
+      makeNode('sd-1', 'grpcSchemaDiff', {
+        label: 'Diff',
+        leftDescriptorKey: 'left',
+        rightDescriptorKey: 'right',
+        saveAs: 'loadAlias',
+      }),
+    ];
+    const result = validateGrpcWorkflowGraph(nodes);
+    expect(result.valid).toBe(false);
+    expect(result.issues.some((i) => i.code === GRPC_WORKFLOW_VALIDATION_CODES.DUPLICATE_SAVE_AS)).toBe(true);
+    expect(workflowGraphHasGrpcNodes(nodes)).toBe(true);
   });
 });

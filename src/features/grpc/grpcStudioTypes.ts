@@ -1,6 +1,7 @@
 /**
  * gRPC Studio — client-side tab state and lifecycle (Phase 1A).
  */
+import type { GrpcK8sPortForwardSession } from './utils/grpcK8sPortForward';
 import {
   GRPC_DEFAULT_CALL_TIMEOUT_MS,
   normalizeGrpcMetadata,
@@ -307,6 +308,8 @@ export interface GrpcStudioTabState {
   transportMode?: GrpcStudioTransportMode;
   /** Phase 1 — Connect/Disconnect probe session (not a persistent gRPC channel). */
   targetConnection?: GrpcTargetConnectionSession;
+  /** Phase 4J-D — K8s port-forward workflow state (manual kubectl; target apply on Start). */
+  k8sPortForward?: GrpcK8sPortForwardSession;
   /** Phase 2 — layout gallery when no method selected (does not override proto callType). */
   layoutPreviewCallType?: GrpcCallType;
 }
@@ -410,6 +413,12 @@ export function duplicateGrpcStudioTab(
       : undefined,
     transportMode: tab.transportMode,
     layoutPreviewCallType: tab.layoutPreviewCallType,
+    k8sPortForward: tab.k8sPortForward
+      ? {
+        config: structuredClone(tab.k8sPortForward.config),
+        active: false,
+      }
+      : undefined,
     ...clearedGrpcStreamSessionPatch(),
     streamMessages: copiedMessages,
   }, existingTabs);

@@ -90,4 +90,13 @@ export { handleWsConnectNode, handleWsSendNode, handleWsReceiveNode, handleWsTri
 export { handleGraphqlQueryNode, handleGraphqlSubscriptionNode, handleGraphqlIntrospectNode, handleGraphqlAssertNode } from './graphRunnerGraphqlNodeHandlers';
 
 // ── gRPC nodes ────────────────────────────────────────────────────────────────
-export { handleGrpcUnaryNode, handleGrpcServerStreamNode, handleGrpcAssertNode } from './graphRunnerGrpcNodeHandlers';
+export {
+  handleGrpcUnaryNode,
+  handleGrpcServerStreamNode,
+  handleGrpcAssertNode,
+} from './graphRunnerGrpcNodeHandlers';
+export {
+  handleGrpcLoadTestNode,
+  handleGrpcSchemaDiffNode,
+  handleGrpcMockAssertNode,
+} from './graphRunnerGrpcAdvancedNodeHandlers';

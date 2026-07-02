@@ -2,7 +2,12 @@
  * @vitest-environment node
  */
 import { describe, expect, it } from 'vitest';
-import { ProtoFetchPolicyError, protoPathFromFetchUrl, validateProtoFetchUrl } from './protoFetchPolicy.js';
+import {
+  ProtoFetchPolicyError,
+  protoPathFromFetchUrl,
+  validateProtoFetchUrl,
+  validateProtoFetchUrlWithDns,
+} from './protoFetchPolicy.js';
 
 describe('protoFetchPolicy', () => {
   it('accepts https URLs', () => {
@@ -36,5 +41,11 @@ describe('protoFetchPolicy', () => {
   it('blocks metadata endpoints', () => {
     expect(() => validateProtoFetchUrl('https://metadata.google.internal/echo.proto'))
       .toThrow(/blocked/i);
+  });
+
+  it('blocks DNS-resolved private addresses for proto fetches', async () => {
+    await expect(validateProtoFetchUrlWithDns('https://schemas.example.com/echo.proto', {
+      resolveHostname: async () => ['172.20.1.1'],
+    })).rejects.toThrow(ProtoFetchPolicyError);
   });
 });

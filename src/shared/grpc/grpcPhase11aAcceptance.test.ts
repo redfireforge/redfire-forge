@@ -303,12 +303,21 @@ describe('Phase 11A-D - load-test validation boundaries', () => {
     expect(issues).toEqual([]);
   });
 
-  it('rejects non-unary call types for Phase 11A', () => {
+  it('rejects client_streaming and bidi_streaming call types', () => {
     const issues = validateGrpcLoadTestConfig('bidi_streaming', {
       concurrency: 4,
       totalCalls: 100,
     });
     expect(issues.some((issue) => issue.path === 'callType')).toBe(true);
+  });
+
+  it('accepts server_streaming configs (Phase 11O)', () => {
+    const issues = validateGrpcLoadTestConfig('server_streaming', {
+      concurrency: 4,
+      totalCalls: 100,
+      maxMessagesPerStream: 10,
+    });
+    expect(issues).toEqual([]);
   });
 
   it('rejects missing totalCalls and durationMs', () => {

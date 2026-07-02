@@ -88,4 +88,10 @@ describe('buildGrpcNodeOperations', () => {
       details: { grpcStatus: 3 },
     });
   });
+
+  it('exposes Phase 11N resolveDescriptor and resolveLoadTestProfile', () => {
+    const ops = buildGrpcNodeOperations();
+    expect(typeof ops.resolveDescriptor).toBe('function');
+    expect(typeof ops.resolveLoadTestProfile).toBe('function');
+  });
 });

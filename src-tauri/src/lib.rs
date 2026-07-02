@@ -111,6 +111,7 @@ pub fn run() {
       grpc::lifecycle::grpc_tab_cleanup,
       grpc::lifecycle::grpc_tab_events_attach,
       grpc::lifecycle::grpc_tab_events_detach,
+      grpc::lifecycle::grpc_tab_heartbeat,
     ]);
 
   #[cfg(debug_assertions)]

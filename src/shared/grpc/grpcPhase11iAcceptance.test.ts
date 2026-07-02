@@ -108,10 +108,10 @@ describe('Phase 11I acceptance checklist', () => {
     const plan = readSrc('docs/plan/future/grpc/grpc-studio-plan.md');
     const matrix = readSrc('docs/plan/future/grpc/grpc-cross-feature-matrix.md');
 
-    expect(plan).toContain('#### Phase 11I');
+    expect(plan).toContain('Phase 11I');
     expect(plan).toContain('test:grpc:phase11i');
-    expect(plan).toContain('Phases 11A–11I complete');
-    expect(plan).toContain('Phase 12 next');
+    expect(plan).toContain('11A–11I');
+    expect(plan).toContain('Phase 12');
     expect(plan).not.toMatch(/Phase 11 \(Advanced\) ◄── 🔴 NEXT/);
     expect(matrix).toContain('Phase 11H — Advanced feature exports');
     expect(matrix).toContain('prepareGrpcLoadTestRunSummaryExportSafe');

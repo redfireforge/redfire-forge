@@ -29,7 +29,7 @@ import { resolveGrpcInterpolationHarnessPreTransportCategory } from '../shared/g
 export interface ExecuteGrpcActionOptions {
   abortSignal?: AbortSignal;
   grpcHarnessEnv?: Record<string, string>;
-  /** Connection profiles / TLS material for snapshot build (caller-supplied; runner hydration deferred). */
+  /** Connection profiles / TLS material for snapshot build (caller-supplied runtime hydration). */
   runtimeOverrides?: GrpcHarnessRuntimeOverrides;
 }
 

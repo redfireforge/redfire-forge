@@ -5,6 +5,7 @@ import type {
   GrpcStreamEvent,
   GrpcStreamStartRequest,
 } from '../../../shared/grpc/contracts';
+import type { GrpcStudioTransportMode } from '../../../shared/grpc/grpcWebTransportContracts';
 import { parseGrpcSseStream, parseGrpcStreamEventJson } from '../../../shared/grpc/grpcStreamSseParser';
 import {
   cancelGrpcStream,
@@ -244,12 +245,15 @@ export async function collectGrpcWorkflowServerStream(
   options?: {
     abortSignal?: AbortSignal;
     deps?: GrpcWorkflowStreamCollectorDeps;
+    /** Phase 10B/11O — frozen snapshot transport overrides tab registry. */
+    transportMode?: GrpcStudioTransportMode;
   },
 ): Promise<GrpcWorkflowStreamCollectionResult> {
   const startStream = options?.deps?.startStream ?? startGrpcStream;
   const cancelStream = options?.deps?.cancelStream ?? cancelGrpcStream;
   const openStreamEvents = options?.deps?.openStreamEvents ?? openGrpcStreamEvents;
   const fetchEvents = options?.deps?.fetchEvents;
+  const transportMode = options?.transportMode;
 
   const startedAt = performance.now();
   const messages: Record<string, unknown>[] = [];
@@ -310,7 +314,7 @@ export async function collectGrpcWorkflowServerStream(
   }
 
   try {
-    const startEnvelope = await startStream(request, tabId);
+    const startEnvelope = await startStream(request, tabId, { transportMode });
     streamId = startEnvelope.data.streamId;
     const resolveAbortReason = () => abortReason;
 

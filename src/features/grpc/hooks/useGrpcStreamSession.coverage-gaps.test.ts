@@ -956,7 +956,7 @@ describe('useGrpcStreamSession coverage gaps', () => {
     });
 
     expect(callHistoryCapture.captureGrpcCallHistoryFromStreamTerminal).toHaveBeenCalledWith(
-      { lastExecuteSnapshot: snapshot },
+      expect.objectContaining({ lastExecuteSnapshot: snapshot }),
       expect.objectContaining({
         result: expect.objectContaining({ status: 0, callType: 'server_streaming' }),
       }),
@@ -993,7 +993,7 @@ describe('useGrpcStreamSession coverage gaps', () => {
     });
 
     expect(callHistoryCapture.captureGrpcCallHistoryFromStreamTerminal).toHaveBeenCalledWith(
-      { lastExecuteSnapshot: snapshot },
+      expect.objectContaining({ lastExecuteSnapshot: snapshot }),
       expect.objectContaining({
         error: expect.objectContaining({ message: 'INTERNAL' }),
       }),
@@ -1312,7 +1312,7 @@ describe('useGrpcStreamSession coverage gaps', () => {
     });
 
     expect(callHistoryCapture.captureGrpcCallHistoryFromStreamTerminal).toHaveBeenCalledWith(
-      { lastExecuteSnapshot: snapshot },
+      expect.objectContaining({ lastExecuteSnapshot: snapshot }),
       expect.objectContaining({
         error: expect.objectContaining({ message: 'INTERNAL' }),
       }),
@@ -1740,7 +1740,7 @@ describe('useGrpcStreamSession coverage gaps', () => {
     });
 
     expect(callHistoryCapture.captureGrpcCallHistoryFromStreamTerminal).toHaveBeenCalledWith(
-      { lastExecuteSnapshot: snapshot },
+      expect.objectContaining({ lastExecuteSnapshot: snapshot }),
       expect.objectContaining({
         result: expect.objectContaining({ status: 0, callType: 'server_streaming' }),
       }),
@@ -1887,6 +1887,52 @@ describe('useGrpcStreamSession coverage gaps', () => {
     expect(updateTab).toHaveBeenCalledWith(tabId, {
       streamPendingBodies: [{ message: 'queued' }],
     });
+  });
+
+  it('removePendingStreamMessage removes a queued body by index', () => {
+    const harness = makeHarness();
+    const { tabId, sessionRef, updateTab } = harness;
+    sessionRef.current.tabs[0] = {
+      ...sessionRef.current.tabs[0]!,
+      streamPendingBodies: [{ message: 'a' }, { message: 'b' }],
+    };
+
+    act(() => {
+      harness.hook.result.current.removePendingStreamMessage(tabId, 0);
+    });
+
+    expect(updateTab).toHaveBeenCalledWith(tabId, {
+      streamPendingBodies: [{ message: 'b' }],
+    });
+  });
+
+  it('removePendingStreamMessage no-ops when tab is missing', () => {
+    const harness = makeHarness();
+    const { updateTab } = harness;
+    harness.sessionRef.current.tabs = [];
+
+    act(() => {
+      harness.hook.result.current.removePendingStreamMessage('missing', 0);
+    });
+
+    expect(updateTab).not.toHaveBeenCalled();
+  });
+
+  it('sendAllPendingStreamMessages no-ops when queue is empty', async () => {
+    const harness = makeHarness();
+    const { tabId, sessionRef } = harness;
+    sessionRef.current.tabs[0] = {
+      ...sessionRef.current.tabs[0]!,
+      streamLifecycle: 'streaming',
+      activeStreamId: 'stream-1',
+      streamPendingBodies: [],
+    };
+
+    await act(async () => {
+      await harness.hook.result.current.sendAllPendingStreamMessages(tabId);
+    });
+
+    expect(grpcStreamClient.sendGrpcStreamMessage).not.toHaveBeenCalled();
   });
 
   it('sendAllPendingStreamMessages drains queue in order', async () => {

@@ -63,16 +63,16 @@ if ! grep -q 'Troubleshooting: Spring Servlet' "$ROOT/docs/guides/grpc-phase10-r
   echo 'Missing Troubleshooting: Spring Servlet section in grpc-phase10-runbook.md' >&2
   exit 1
 fi
-if ! grep -q 'Server streaming deferred on browser-direct transports' "$ROOT/docs/guides/grpc-phase10-runbook.md"; then
-  echo 'Missing server streaming deferred section in grpc-phase10-runbook.md' >&2
+if ! grep -Eq 'Server streaming deferred on browser-direct transports|Browser-direct server streaming behavior' "$ROOT/docs/guides/grpc-phase10-runbook.md"; then
+  echo 'Missing browser-direct server streaming section in grpc-phase10-runbook.md' >&2
   exit 1
 fi
 if ! grep -q 'Phase 10I acceptance checklist' "$ROOT/src/shared/grpc/grpcPhase10iAcceptance.test.ts"; then
   echo 'Missing Phase 10I acceptance checklist in grpcPhase10iAcceptance' >&2
   exit 1
 fi
-if ! grep -q 'server_streaming passes execute preflight but stream_start fails' "$ROOT/src/shared/grpc/grpcPhase10iAcceptance.test.ts"; then
-  echo 'Missing Phase 10H stream boundary behavioral tests in grpcPhase10iAcceptance' >&2
+if ! grep -Eq 'server_streaming passes execute preflight but stream_start fails|server_streaming passes execute preflight and stream_start succeeds' "$ROOT/src/shared/grpc/grpcPhase10iAcceptance.test.ts"; then
+  echo 'Missing Phase 10I browser-direct server_streaming behavioral tests in grpcPhase10iAcceptance' >&2
   exit 1
 fi
 if ! grep -q 'grpc-transport-stream-deferred-hint' "$ROOT/src/features/grpc/components/GrpcTransportPanel.tsx"; then

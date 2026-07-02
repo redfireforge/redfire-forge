@@ -15,6 +15,7 @@ import type { GrpcTlsValidationIssue } from '../../../shared/grpc/grpcTlsPolicy'
 import { validateGrpcTlsConfigContract } from '../../../shared/grpc/grpcTlsPolicy';
 import type { GrpcAuthPreviewResult } from '../utils/grpcAuthPreview';
 import type { GrpcStudioTransportMode } from '../grpcStudioTypes';
+import type { GrpcK8sPortForwardSession } from '../utils/grpcK8sPortForward';
 import type {
   GrpcAuthSecretFieldKey,
   GrpcMaskedSecretFields,
@@ -88,6 +89,10 @@ export interface GrpcConnectionSettingsDrawerProps {
   transportChangeBlocked?: boolean;
   /** Phase 10G — call type of the current method; used to disable incompatible modes. */
   callType?: GrpcCallType;
+  k8sPortForward?: GrpcK8sPortForwardSession;
+  k8sAutomationScopeId?: string;
+  onK8sPortForwardChange?: (session: GrpcK8sPortForwardSession) => void;
+  onK8sApplyTarget?: (target: string) => void;
 }
 
 export function GrpcConnectionSettingsDrawer({
@@ -123,6 +128,10 @@ export function GrpcConnectionSettingsDrawer({
   onTransportModeChange,
   transportChangeBlocked = false,
   callType,
+  k8sPortForward,
+  k8sAutomationScopeId,
+  onK8sPortForwardChange,
+  onK8sApplyTarget,
 }: GrpcConnectionSettingsDrawerProps) {
   const [testResult, setTestResult] = useState<string | null>(null);
 
@@ -331,7 +340,13 @@ export function GrpcConnectionSettingsDrawer({
 
           {activeNav === 'k8s' && (
             <div className="grpc-settings-panel" data-testid="grpc-settings-panel-k8s">
-              <GrpcK8sPortForwardPanel />
+              <GrpcK8sPortForwardPanel
+                session={k8sPortForward}
+                disabled={disabled}
+                automationScopeId={k8sAutomationScopeId}
+                onSessionChange={onK8sPortForwardChange}
+                onApplyTarget={onK8sApplyTarget}
+              />
             </div>
           )}
 

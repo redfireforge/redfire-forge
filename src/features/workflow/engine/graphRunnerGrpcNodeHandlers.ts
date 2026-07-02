@@ -293,6 +293,14 @@ export async function handleGrpcUnaryNode(
     const msg = toErrorMessage(err);
     const durationMs = Math.round(performance.now() - t0);
     commitTransportFailureStepResult(hCtx, snapshot, 'unary', durationMs, msg);
+    captureGrpcDetails(nodeId, hCtx, {
+      target,
+      service: snapshot.execute.service,
+      method: snapshot.execute.method,
+      callType: 'unary',
+      durationMs,
+      grpcStatusMessage: msg,
+    });
     hCtx.results.push(buildGrpcResult(nodeId, label, 'grpcUnary', target, durationMs, false, {
       service: snapshot.execute.service,
       method: snapshot.execute.method,
@@ -388,6 +396,14 @@ export async function handleGrpcServerStreamNode(
     const msg = toErrorMessage(err);
     const durationMs = Math.round(performance.now() - t0);
     commitTransportFailureStepResult(hCtx, snapshot, 'server_streaming', durationMs, msg);
+    captureGrpcDetails(nodeId, hCtx, {
+      target,
+      service: snapshot.execute.service,
+      method: snapshot.execute.method,
+      callType: 'server_streaming',
+      durationMs,
+      grpcStatusMessage: msg,
+    });
     hCtx.results.push(buildGrpcResult(nodeId, label, 'grpcServerStream', target, durationMs, false, {
       service: snapshot.execute.service,
       method: snapshot.execute.method,

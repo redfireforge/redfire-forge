@@ -11,11 +11,26 @@ import {
   deleteGrpcSavedRequestFromStore,
   duplicateGrpcCollectionInStore,
   duplicateGrpcSavedRequestInStore,
+  exportGrpcCollectionsStore,
+  importGrpcCollectionsStore,
+  incrementGrpcSavedRequestRunStatsInStore,
   loadGrpcCollectionsStoreFromPersistence,
   runGrpcCollectionMutation,
   updateGrpcCollectionInStore,
   updateGrpcSavedRequestInStore,
+  type GrpcCollectionsExportData,
 } from '../data/grpcCollectionRepository';
+import {
+  buildGrpcSavedRequestSchemaCompareIntent,
+  compareGrpcSavedRequestSchema,
+  buildGrpcHistoryDescriptorDriftReport,
+  detectGrpcHistoryDescriptorDrift,
+  type GrpcDescriptorResolver,
+  type GrpcHistoryDescriptorDriftIntent,
+  type GrpcSavedRequestSchemaCompareIntent,
+} from '../utils/grpcCollectionSchemaDiffActions';
+import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
+import type { GrpcSchemaDiffReport } from '../../../shared/grpc/grpcSchemaDiffContracts';
 import { createEmptyGrpcCollectionsStore } from '../../../shared/grpc/grpcPersistenceSchema';
 
 export interface UseGrpcCollectionsResult {
@@ -37,6 +52,31 @@ export interface UseGrpcCollectionsResult {
   ) => Promise<void>;
   deleteSavedRequest: (collectionId: string, savedRequestId: string) => Promise<void>;
   duplicateSavedRequest: (collectionId: string, savedRequestId: string) => Promise<GrpcSavedRequest>;
+  recordSavedRequestRun: (
+    collectionId: string,
+    savedRequestId: string,
+    input: { grpcStatus?: number; durationMs?: number; capturedAt?: string },
+  ) => Promise<void>;
+  exportCollections: () => Promise<GrpcCollectionsExportData>;
+  importCollections: (raw: unknown, mode?: 'merge' | 'replace') => Promise<void>;
+  buildSavedRequestSchemaCompareIntent: (
+    saved: GrpcSavedRequest,
+    currentDescriptorKey: string,
+  ) => GrpcSavedRequestSchemaCompareIntent;
+  compareSavedRequestSchema: (
+    saved: GrpcSavedRequest,
+    currentDescriptorKey: string,
+    resolveDescriptor: GrpcDescriptorResolver,
+  ) => Promise<GrpcSchemaDiffReport>;
+  detectHistoryDescriptorDrift: (
+    entry: GrpcCallHistoryEntryV1,
+    currentDescriptorKey: string,
+  ) => GrpcHistoryDescriptorDriftIntent | undefined;
+  buildHistoryDescriptorDriftReport: (
+    entry: GrpcCallHistoryEntryV1,
+    currentDescriptorKey: string,
+    resolveDescriptor: GrpcDescriptorResolver,
+  ) => Promise<GrpcSchemaDiffReport | undefined>;
 }
 
 function mutationErrorMessage(error: unknown): string {
@@ -157,6 +197,49 @@ export function useGrpcCollections(): UseGrpcCollectionsResult {
     return result;
   }), [runWithMutationError]);
 
+  const recordSavedRequestRun = useCallback(async (
+    collectionId: string,
+    savedRequestId: string,
+    input: { grpcStatus?: number; durationMs?: number; capturedAt?: string },
+  ) => runWithMutationError(async () => {
+    const { store: next } = await runGrpcCollectionMutation((current) => ({
+      store: incrementGrpcSavedRequestRunStatsInStore(current, collectionId, savedRequestId, input),
+      result: undefined,
+    }));
+    setStore(next);
+  }), [runWithMutationError]);
+
+  const exportCollections = useCallback(async () => runWithMutationError(async () => {
+    return exportGrpcCollectionsStore();
+  }), [runWithMutationError]);
+
+  const importCollections = useCallback(async (raw: unknown, mode: 'merge' | 'replace' = 'merge') => runWithMutationError(async () => {
+    const next = await importGrpcCollectionsStore(raw, mode);
+    setStore(next);
+  }), [runWithMutationError]);
+
+  const buildSavedRequestSchemaCompareIntent = useCallback((
+    saved: GrpcSavedRequest,
+    currentDescriptorKey: string,
+  ) => buildGrpcSavedRequestSchemaCompareIntent(saved, currentDescriptorKey), []);
+
+  const compareSavedRequestSchema = useCallback(async (
+    saved: GrpcSavedRequest,
+    currentDescriptorKey: string,
+    resolveDescriptor: GrpcDescriptorResolver,
+  ) => compareGrpcSavedRequestSchema({ saved, currentDescriptorKey, resolveDescriptor }), []);
+
+  const detectHistoryDescriptorDrift = useCallback((
+    entry: GrpcCallHistoryEntryV1,
+    currentDescriptorKey: string,
+  ) => detectGrpcHistoryDescriptorDrift(entry, currentDescriptorKey), []);
+
+  const buildHistoryDescriptorDriftReport = useCallback(async (
+    entry: GrpcCallHistoryEntryV1,
+    currentDescriptorKey: string,
+    resolveDescriptor: GrpcDescriptorResolver,
+  ) => buildGrpcHistoryDescriptorDriftReport({ entry, currentDescriptorKey, resolveDescriptor }), []);
+
   return {
     store,
     collections: store.collections,
@@ -172,5 +255,12 @@ export function useGrpcCollections(): UseGrpcCollectionsResult {
     updateSavedRequest,
     deleteSavedRequest,
     duplicateSavedRequest,
+    recordSavedRequestRun,
+    exportCollections,
+    importCollections,
+    buildSavedRequestSchemaCompareIntent,
+    compareSavedRequestSchema,
+    detectHistoryDescriptorDrift,
+    buildHistoryDescriptorDriftReport,
   };
 }
