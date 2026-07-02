@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GrpcFieldSchema, GrpcMessageSchema } from '../../../shared/grpc/contracts';
 import { buildGrpcMessageSchemaIndex } from '../utils/grpcBodyComposer';
 import {
@@ -33,6 +33,8 @@ export function GrpcProtoFormBuilder({
   );
   const { regular, oneofGroups } = groupMessageFields(schema.fields);
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
+  const bodyRef = useRef(body);
+  bodyRef.current = body;
 
   useEffect(() => {
     setFieldErrors({});
@@ -55,11 +57,21 @@ export function GrpcProtoFormBuilder({
     onValidityChange?.(Object.keys(fieldErrors).length === 0);
   }, [fieldErrors, onValidityChange, schema.typeName]);
 
-  const updateField = (field: GrpcFieldSchema, raw: unknown) => {
-    onChange(setGrpcBodyField(body, field.name, coerceGrpcFieldValue(field, raw)));
-  };
+  const updateField = useCallback((field: GrpcFieldSchema, raw: unknown) => {
+    const next = setGrpcBodyField(
+      bodyRef.current,
+      field.name,
+      coerceGrpcFieldValue(field, raw),
+    );
+    bodyRef.current = next;
+    onChange(next);
+  }, [onChange]);
 
-  const updateOneofMember = (members: GrpcFieldSchema[], member: GrpcFieldSchema, raw: unknown) => {
+  const updateOneofMember = useCallback((
+    members: GrpcFieldSchema[],
+    member: GrpcFieldSchema,
+    raw: unknown,
+  ) => {
     setFieldErrors((previous) => {
       let changed = false;
       const next = { ...previous };
@@ -71,13 +83,15 @@ export function GrpcProtoFormBuilder({
       }
       return changed ? next : previous;
     });
-    onChange(setGrpcOneofMember(
-      body,
+    const next = setGrpcOneofMember(
+      bodyRef.current,
       members,
       member.name,
       coerceGrpcFieldValue(member, raw),
-    ));
-  };
+    );
+    bodyRef.current = next;
+    onChange(next);
+  }, [onChange]);
 
   if (regular.length === 0 && oneofGroups.size === 0) {
     return (

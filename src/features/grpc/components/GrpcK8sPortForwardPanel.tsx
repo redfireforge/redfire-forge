@@ -95,18 +95,19 @@ export function GrpcK8sPortForwardPanel({
     configRef.current = normalized;
     setConfig(normalized);
 
+    setActive(true);
+    activeRef.current = true;
+    persistSession(normalized, true);
+    onApplyTargetRef.current?.(buildK8sLocalTarget(normalized));
+
     if (automationEnabled) {
       setAutomationBusy(true);
       void postGrpcK8sPortForwardStart(automationScopeIdTrimmed, normalized)
         .then((serverState) => {
-          setActive(true);
-          activeRef.current = true;
           setAutomationPid(serverState.pid ?? null);
           setAutomationBacked(Boolean(serverState.active));
           setAutomationLogs([]);
           setAutomationLogSeq(0);
-          persistSession(normalized, true);
-          onApplyTargetRef.current?.(buildK8sLocalTarget(normalized));
         })
         .catch((error) => {
           // Fallback keeps prior manual workflow available if kubectl automation is unavailable.
@@ -114,21 +115,12 @@ export function GrpcK8sPortForwardPanel({
           setAutomationError(`${message}. Running in manual mode.`);
           setAutomationPid(null);
           setAutomationBacked(false);
-          setActive(true);
-          activeRef.current = true;
-          persistSession(normalized, true);
-          onApplyTargetRef.current?.(buildK8sLocalTarget(normalized));
         })
         .finally(() => {
           setAutomationBusy(false);
         });
       return;
     }
-
-    setActive(true);
-    activeRef.current = true;
-    persistSession(normalized, true);
-    onApplyTargetRef.current?.(buildK8sLocalTarget(normalized));
   };
 
   const handleStop = () => {

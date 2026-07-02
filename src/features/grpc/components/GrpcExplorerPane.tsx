@@ -1,5 +1,4 @@
 import { useMemo, type ReactNode } from 'react';
-import { isGrpcStreamLifecycleInFlight } from '../../../shared/grpc/streamLifecycle';
 import type { GrpcStudioTabState, GrpcTabDescriptorState } from '../grpcStudioTypes';
 import { isGrpcLifecycleInFlight } from '../grpcStudioTypes';
 import { findGrpcMethod } from '../utils/grpcExplorerUtils';
@@ -93,8 +92,8 @@ export function GrpcExplorerPane({
   ), [descriptorState.driftStaleMethod, descriptorState.driftState, selectedMethod]);
 
   const executeBlocked = isGrpcExecuteBlockedByDrift(descriptorState.driftState);
-  const callPanelDisabled = isGrpcLifecycleInFlight(tab.lifecycle)
-    || isGrpcStreamLifecycleInFlight(tab.streamLifecycle);
+  // Keep the composer editable during client/bidi streams so users can send messages mid-flight.
+  const callPanelDisabled = isGrpcLifecycleInFlight(tab.lifecycle);
 
   return (
     <div
