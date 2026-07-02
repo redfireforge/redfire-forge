@@ -2,7 +2,7 @@
 
 > **Branch:** `feature/grpc-phase` (merges to `develop`)  
 > **Status:** Phases **1–11O product complete** ✅ · **Phase 12** in progress (12A–12B ✅, **12C** next; GRPC-1 shipped) · **Phase 13** pending  
-> **Last updated:** 2026-07-01 (plan slim-down — removed shipped slice specs, mockup gap tables, and bug-audit history)  
+> **Last updated:** 2026-07-02 (added concrete UX concept spec + proposal mockups 07–09)  
 > **Doc policy:** This file is a **short status + forward backlog** only. Shipped sub-phase specs, mockup parity tables, re-evaluation passes, and bug-fix history live in **git history** and **per-phase runbooks** — **do not append audit logs here**.
 
 | Detail lives in | Path |
@@ -10,6 +10,7 @@
 | Phase runbooks (1–11) | `docs/guides/grpc-phase*-runbook.md` |
 | Cross-feature matrix | [`grpc-cross-feature-matrix.md`](grpc-cross-feature-matrix.md) |
 | UI mockups + parity | `docs/plan/future/grpc/mockups/` · [`grpc-studio-ui.mdc`](../../../.cursor/rules/grpc-studio-ui.mdc) |
+| Concrete UX concept spec | [`grpc-ux-spec-concrete.md`](grpc-ux-spec-concrete.md) |
 | Phase 1/2 mockup gap tables | [`grpc-phase1-runbook.md`](../../guides/grpc-phase1-runbook.md) · [`grpc-phase2-runbook.md`](../../guides/grpc-phase2-runbook.md) |
 | Phase 11 validation report | [`grpc-phase11-validation-report.md`](../../guides/grpc-phase11-validation-report.md) |
 | Demo lesson authoring | [`.cursor/rules/demo-player-lessons.mdc`](../../../.cursor/rules/demo-player-lessons.mdc) |
