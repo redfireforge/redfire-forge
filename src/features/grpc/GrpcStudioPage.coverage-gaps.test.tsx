@@ -16,6 +16,7 @@ import { createGrpcSuccessEnvelope } from '../../shared/grpc/contracts';
 import * as grpcStreamClient from '../../shared/grpc/grpcStreamClient';
 import { setGrpcStreamTransport } from '../../shared/grpc/grpcStreamClient';
 import { GrpcStudioPage, buildLegacyGrpcEnvVarMap } from './GrpcStudioPage';
+import { clearGrpcStudioPersistence } from './hooks/useGrpcStudioPersistence';
 import { resetGrpcTabCounterForTests } from './grpcStudioTypes';
 import { resetGrpcTabSecretVaultForTests } from './utils/grpcTabSecretVault';
 
@@ -25,6 +26,7 @@ describe('GrpcStudioPage coverage gaps', () => {
   beforeEach(() => {
     resetGrpcTabCounterForTests();
     resetGrpcTabSecretVaultForTests();
+    clearGrpcStudioPersistence();
     setGrpcClientTransport(null);
     setGrpcStreamTransport(null);
     vi.restoreAllMocks();
@@ -603,11 +605,37 @@ describe('GrpcStudioPage coverage gaps', () => {
     });
   });
 
-  it('focuses auth tab when auth badge is clicked', async () => {
+  it('opens settings drawer auth nav when auth badge is clicked', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
     fireEvent.click(screen.getByTestId('grpc-auth-badge'));
     await waitFor(() => {
-      expect(screen.getByTestId('grpc-request-tab-auth').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
+      expect(screen.getByTestId('grpc-settings-nav-auth').className).toMatch(/active/);
+    });
+  });
+
+  it('restores persisted studio session from localStorage on mount', async () => {
+    localStorage.setItem('grpc-studio-session-v1', JSON.stringify({
+      version: 1,
+      activeTabId: 'persisted-tab',
+      tabs: [{
+        id: 'persisted-tab',
+        title: 'Persisted Target',
+        target: 'localhost:50051',
+        tlsMode: 'disabled',
+        metadata: {},
+        timeoutMs: 30_000,
+        requestMode: 'form',
+        body: {},
+        servicesCollapsed: false,
+      }],
+      tabDescriptors: {},
+      timestamp: Date.now(),
+    }));
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    await waitFor(() => {
+      expect((screen.getByTestId('grpc-target-input') as HTMLInputElement).value).toBe('localhost:50051');
     });
   });
 

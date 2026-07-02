@@ -43,6 +43,17 @@ describe('grpcLoadTestProfileRepository coverage gaps', () => {
     expect(await listGrpcLoadTestProfiles()).toHaveLength(1);
   });
 
+  it('serializes concurrent saves through persist queue without dropping profiles', async () => {
+    await Promise.all([
+      saveGrpcLoadTestProfile({ name: 'Concurrent A', config: { concurrency: 1, totalCalls: 5 } }),
+      saveGrpcLoadTestProfile({ name: 'Concurrent B', config: { concurrency: 2, totalCalls: 10 } }),
+    ]);
+
+    const profiles = await listGrpcLoadTestProfiles();
+    expect(profiles).toHaveLength(2);
+    expect(profiles.map((profile) => profile.name)).toEqual(['Concurrent A', 'Concurrent B']);
+  });
+
   it('rejects rename when profile is missing', async () => {
     await expect(renameGrpcLoadTestProfile('missing-id', 'New')).rejects.toThrow(/not found/i);
   });
@@ -51,6 +62,11 @@ describe('grpcLoadTestProfileRepository coverage gaps', () => {
     await saveGrpcLoadTestProfile({ name: 'Alpha', config: { concurrency: 1, totalCalls: 1 } });
     const beta = await saveGrpcLoadTestProfile({ name: 'Beta', config: { concurrency: 2, totalCalls: 2 } });
     await expect(renameGrpcLoadTestProfile(beta.id, 'alpha')).rejects.toThrow(/already exists/i);
+  });
+
+  it('rejects rename to blank name after trimming', async () => {
+    const saved = await saveGrpcLoadTestProfile({ name: 'Needs Name', config: { concurrency: 1, totalCalls: 1 } });
+    await expect(renameGrpcLoadTestProfile(saved.id, '   ')).rejects.toThrow(/name is required/i);
   });
 
   it('rejects empty profile name on save', async () => {

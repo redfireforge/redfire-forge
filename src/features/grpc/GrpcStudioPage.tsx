@@ -25,6 +25,7 @@ import {
 import { createDefaultProtoIngestState, isGrpcLifecycleInFlight, canChangeGrpcTabTransportMode, resolveGrpcStudioTabTransportMode } from './grpcStudioTypes';
 import { useGrpcStudio } from './hooks/useGrpcStudio';
 import { useGrpcTls } from './hooks/useGrpcTls';
+import { useGrpcStudioPersistence } from './hooks/useGrpcStudioPersistence';
 import { useGrpcCollections } from './hooks/useGrpcCollections';
 import { useGrpcCallHistory } from './hooks/useGrpcCallHistory';
 import { useGrpcStudioAdvancedFeatures } from './hooks/useGrpcStudioAdvancedFeatures';
@@ -80,6 +81,9 @@ export interface GrpcStudioPageProps {
   globalAuthProfiles?: GlobalAuthProfile[];
 }
 
+type GrpcStudioDensityMode = 'compact' | 'comfortable';
+const GRPC_STUDIO_DENSITY_STORAGE_KEY = 'grpc-studio-density-mode';
+
 /** @deprecated Import from `./utils/grpcStudioPageEnv` — re-exported for tests. */
 // eslint-disable-next-line react-refresh/only-export-components
 export const buildLegacyGrpcEnvVarMap = buildLegacyGrpcEnvVarMapImpl;
@@ -91,6 +95,23 @@ export function GrpcStudioPage({
   selectedSvc,
   selectedEnvId,
 }: GrpcStudioPageProps) {
+  const [densityMode, setDensityMode] = useState<GrpcStudioDensityMode>(() => {
+    try {
+      const stored = window.localStorage.getItem(GRPC_STUDIO_DENSITY_STORAGE_KEY);
+      return stored === 'comfortable' ? 'comfortable' : 'compact';
+    } catch {
+      return 'compact';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(GRPC_STUDIO_DENSITY_STORAGE_KEY, densityMode);
+    } catch {
+      /* persistence best-effort */
+    }
+  }, [densityMode]);
+
   const envVarMap = useMemo(() => {
     if (selectedSvc && selectedEnvId) {
       return buildEnvVarMap(selectedSvc, selectedEnvId, 'grpc', envName);
@@ -121,9 +142,21 @@ export function GrpcStudioPage({
     pageDefaults,
   });
 
+  // Wire up session state persistence (saves to localStorage on change, restores on mount)
+  const hasRestoredSessionRef = useRef(false);
+  useGrpcStudioPersistence({ tabs: studio.tabs, activeTabId: studio.activeTabId, tabDescriptors: studio.tabDescriptors }, (persisted) => {
+    if (hasRestoredSessionRef.current) return; // Only restore once per mount
+    hasRestoredSessionRef.current = true;
+    studio.restorePersistedSession(persisted);
+  });
+
   const collections = useGrpcCollections();
   const callHistory = useGrpcCallHistory();
   const [panelView, setPanelView] = useState<GrpcStudioPanelView>('studio');
+  const [tabCallCounts, setTabCallCounts] = useState<Record<string, number>>(() => Object.fromEntries(
+    studio.tabs.map((tab) => [tab.id, 0]),
+  ));
+  const tabIdsRef = useRef(studio.tabs.map((tab) => tab.id).join('|'));
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
@@ -141,6 +174,7 @@ export function GrpcStudioPage({
     studio,
     envName,
     pageDefaults,
+    enabled: panelView === 'advanced',
   });
 
   const resolveSaveSnapshot = useGrpcStudioSaveSnapshot(studio, envVarMap);
@@ -193,7 +227,7 @@ export function GrpcStudioPage({
   const [protoModalInitialTab, setProtoModalInitialTab] = useState<ProtoModalTab | undefined>(undefined);
   const [exportProtosetBusy, setExportProtosetBusy] = useState(false);
   const [exportError, setExportError] = useState<string | undefined>();
-  const [authTabFocusRequest, setAuthTabFocusRequest] = useState(0);
+  const [authTabFocusRequest] = useState(0);
   const [tlsModalOpenRequest, setTlsModalOpenRequest] = useState(0);
   const [tlsModalCloseRequest, setTlsModalCloseRequest] = useState(0);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
@@ -285,9 +319,8 @@ export function GrpcStudioPage({
   }, []);
 
   const handleFocusAuthTab = useCallback(() => {
-    setSettingsDrawerOpen(false);
-    setAuthTabFocusRequest((count) => count + 1);
-  }, []);
+    openSettingsDrawer('auth');
+  }, [openSettingsDrawer]);
 
   const handleTlsBadgeClick = useCallback(() => {
     setSettingsDrawerOpen(false);
@@ -359,6 +392,35 @@ export function GrpcStudioPage({
     return map;
   }, [studio.tabs, studio.tabDescriptors]);
 
+  useEffect(() => {
+    const tabIds = studio.tabs.map((tab) => tab.id).join('|');
+    if (tabIdsRef.current === tabIds) {
+      return;
+    }
+    tabIdsRef.current = tabIds;
+    setTabCallCounts((prior) => {
+      const next: Record<string, number> = {};
+      for (const tab of studio.tabs) {
+        next[tab.id] = prior[tab.id] ?? 0;
+      }
+      return next;
+    });
+  }, [studio.tabs]);
+
+  const incrementTabCallCount = useCallback((tabId: string) => {
+    setTabCallCounts((prior) => ({
+      ...prior,
+      [tabId]: (prior[tabId] ?? 0) + 1,
+    }));
+  }, []);
+
+  const reflectionLoadedCount = useMemo(() => {
+    const descriptor = studio.activeTabDescriptor.descriptor;
+    if (!descriptor?.services) return 0;
+    // Count total methods across all services
+    return descriptor.services.reduce((sum, service) => sum + (service.methods?.length ?? 0), 0);
+  }, [studio.activeTabDescriptor.descriptor]);
+
   const studioConnectionChrome = (
     <>
       <GrpcConnectionBar
@@ -371,6 +433,7 @@ export function GrpcStudioPage({
         targetConnection={activeTab.targetConnection}
         envName={envName}
         disabled={connectionEditingDisabled}
+        reflectionLoadedCount={reflectionLoadedCount}
         onTargetChange={(value) => studio.updateTab(activeTab.id, { target: value })}
         onConnectionToggle={() => studio.toggleTargetConnection(activeTab.id)}
         onTlsBadgeClick={handleTlsBadgeClick}
@@ -403,30 +466,53 @@ export function GrpcStudioPage({
   );
 
   return (
-    <div className="grpc-studio" data-testid="grpc-studio-page">
-      <header className="grpc-studio-header">
-        <div className="grpc-studio-header__title-group">
-          <h1 className="grpc-studio-title">gRPC Studio</h1>
-          <p className="grpc-studio-subtitle">Reflect services, compose requests, and invoke unary or streaming RPCs</p>
+    <div
+      className={`grpc-studio grpc-studio--density-${densityMode}`}
+      data-testid="grpc-studio-page"
+    >
+      <header className="grpc-studio-header grpc-studio-header--with-subnav">
+        <div className="grpc-studio-header__left" data-testid="grpc-studio-header-left">
+          <GrpcStudioSubNav
+            activeView={panelView}
+            historyCount={callHistory.entries.length}
+            onSelect={setPanelView}
+          />
         </div>
-        <ProtocolEndpointPreview
-          draftUrl={endpointPreviewDraft}
-          envVarMap={tabInterpolationEnv}
-          protocolRowStatus={endpointProtocolStatus}
-          computePreview={computeGrpcStudioTargetPreview}
-          testId="grpc-endpoint-preview"
-        />
+        <div className="grpc-studio-header__right" data-testid="grpc-studio-header-right">
+          <ProtocolEndpointPreview
+            draftUrl={endpointPreviewDraft}
+            envVarMap={tabInterpolationEnv}
+            protocolRowStatus={endpointProtocolStatus}
+            computePreview={computeGrpcStudioTargetPreview}
+            testId="grpc-endpoint-preview"
+          />
+          <div
+            className="grpc-density-toggle"
+            role="group"
+            aria-label="Response layout density"
+            data-testid="grpc-density-toggle"
+          >
+            <button
+              type="button"
+              className={`grpc-density-toggle__btn${densityMode === 'compact' ? ' grpc-density-toggle__btn--active' : ''}`}
+              onClick={() => setDensityMode('compact')}
+              data-testid="grpc-density-compact-btn"
+              aria-pressed={densityMode === 'compact'}
+            >
+              Compact
+            </button>
+            <button
+              type="button"
+              className={`grpc-density-toggle__btn${densityMode === 'comfortable' ? ' grpc-density-toggle__btn--active' : ''}`}
+              onClick={() => setDensityMode('comfortable')}
+              data-testid="grpc-density-comfortable-btn"
+              aria-pressed={densityMode === 'comfortable'}
+            >
+              Comfortable
+            </button>
+          </div>
+        </div>
       </header>
-
-      <GrpcStudioSubNav
-        activeView={panelView}
-        historyCount={callHistory.entries.length}
-        onSelect={setPanelView}
-      />
-
-      <div className="grpc-studio-page-connection-chrome" data-testid="grpc-connection-chrome">
-        {studioConnectionChrome}
-      </div>
 
       {panelView === 'studio' && (
         <GrpcTabBar
@@ -435,12 +521,19 @@ export function GrpcStudioPage({
           canAddTab={studio.canAddTab}
           maxTabs={studio.maxTabs}
           tabCallTypes={tabCallTypes}
+          tabCallCounts={tabCallCounts}
           onSelect={studio.selectTab}
           onAdd={studio.addTab}
           onClose={studio.closeTab}
           onDuplicate={studio.duplicateTab}
           onRename={studio.renameTab}
         />
+      )}
+
+      {panelView !== 'studio' && (
+        <div className="grpc-studio-page-connection-chrome" data-testid="grpc-connection-chrome">
+          {studioConnectionChrome}
+        </div>
       )}
 
       <div className="grpc-studio-body">
@@ -514,6 +607,7 @@ export function GrpcStudioPage({
               <GrpcExplorerPane
                 tab={tab}
                 tabPanelId={`grpc-tab-pane-${tab.id}`}
+                connectionChrome={studioConnectionChrome}
                 descriptorState={studio.activeTabDescriptor}
                 canReflect={canReflect}
                 targetValid={activeConnection.targetValidation.valid}
@@ -541,9 +635,15 @@ export function GrpcStudioPage({
                 onTabPatch={(patch) => studio.updateTab(tab.id, patch)}
                 onUnmaskAuthSecretField={handleUnmaskAuthSecretField}
                 onClearAuthSecretField={handleClearAuthSecretField}
-                onSendUnary={(overrides) => { void studio.executeUnaryCall(tab.id, overrides); }}
+                onSendUnary={(overrides) => {
+                  incrementTabCallCount(tab.id);
+                  void studio.executeUnaryCall(tab.id, overrides);
+                }}
                 onCancelUnary={() => { void studio.cancelUnaryCall(tab.id); }}
-                onStartStream={(overrides) => { void studio.startStreamCall(tab.id, overrides); }}
+                onStartStream={(overrides) => {
+                  incrementTabCallCount(tab.id);
+                  void studio.startStreamCall(tab.id, overrides);
+                }}
                 onCancelStream={() => { void studio.cancelStreamCall(tab.id); }}
                 onSendStreamMessage={(overrides) => { void studio.sendStreamMessageCall(tab.id, overrides); }}
                 onEnqueueStreamMessage={(overrides) => {

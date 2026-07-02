@@ -178,10 +178,69 @@ export function useGrpcStudioSessionCore(options: UseGrpcStudioSessionCoreOption
   }, [commitSession, fireCancelInFlight]);
 
   useEffect(() => {
+    const hasDeferredInvalidations = tabs.some((tab) => deferredConnectionInvalidationRef.current[tab.id]);
+    if (!hasDeferredInvalidations) {
+      return;
+    }
     applyDeferredConnectionInvalidations();
-  }, [tabTransportSignature, applyDeferredConnectionInvalidations]);
+  }, [tabs, tabTransportSignature, applyDeferredConnectionInvalidations]);
 
   useEffect(() => {
+    const currentTabs = sessionRef.current.tabs;
+    let requiresStateInvalidation = false;
+
+    for (const tab of currentTabs) {
+      const fingerprint = tabConnectionResolutionFingerprint(
+        tab,
+        envVarMap,
+        profiles,
+        pageDefaults,
+        workspaceDefaults,
+      );
+      const previousFingerprint = tabConnectionFingerprintRef.current[tab.id];
+      if (previousFingerprint === undefined || previousFingerprint === fingerprint) {
+        continue;
+      }
+      const inFlight = tabHasPendingUnaryCall(tab, tab.id, inFlightCallRef)
+        || tabHasActiveStream(tab)
+        || tab.activeStreamId;
+      if (!inFlight) {
+        requiresStateInvalidation = true;
+        break;
+      }
+    }
+
+    if (!requiresStateInvalidation) {
+      for (const tab of currentTabs) {
+        const fingerprint = tabConnectionResolutionFingerprint(
+          tab,
+          envVarMap,
+          profiles,
+          pageDefaults,
+          workspaceDefaults,
+        );
+        const previousFingerprint = tabConnectionFingerprintRef.current[tab.id];
+        if (previousFingerprint === undefined) {
+          tabConnectionFingerprintRef.current[tab.id] = fingerprint;
+          continue;
+        }
+        if (previousFingerprint === fingerprint) {
+          continue;
+        }
+
+        tabConnectionFingerprintRef.current[tab.id] = fingerprint;
+
+        if (
+          tabHasPendingUnaryCall(tab, tab.id, inFlightCallRef)
+          || tabHasActiveStream(tab)
+          || tab.activeStreamId
+        ) {
+          deferredConnectionInvalidationRef.current[tab.id] = true;
+        }
+      }
+      return;
+    }
+
     setSession((prev) => {
       let dirty = false;
       let nextTabs = prev.tabs;

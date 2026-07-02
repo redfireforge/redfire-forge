@@ -4,12 +4,12 @@ import type { GrpcAuthPreviewResult } from '../utils/grpcAuthPreview';
 import type { GrpcAuthSecretFieldKey, GrpcMaskedSecretFields } from '../utils/grpcSecretFieldUi';
 import { GrpcSecretField } from './GrpcSecretField';
 
-const AUTH_TYPES: Array<{ value: GrpcAuthType; label: string }> = [
-  { value: 'none', label: 'None' },
-  { value: 'bearer', label: 'Bearer' },
-  { value: 'basic', label: 'Basic' },
-  { value: 'api_key', label: 'API Key' },
-  { value: 'oauth2', label: 'OAuth2' },
+const AUTH_TYPES: Array<{ value: GrpcAuthType; label: string; subtitle: string; icon: string }> = [
+  { value: 'none', label: 'None', subtitle: 'No credentials', icon: '∅' },
+  { value: 'bearer', label: 'Bearer', subtitle: 'Authorization header', icon: '◉' },
+  { value: 'basic', label: 'Basic', subtitle: 'User and password', icon: '▣' },
+  { value: 'api_key', label: 'API Key', subtitle: 'Custom header key', icon: '◇' },
+  { value: 'oauth2', label: 'OAuth2', subtitle: 'Client credentials flow', icon: '◎' },
 ];
 
 export interface GrpcAuthPanelProps {
@@ -76,7 +76,11 @@ export function GrpcAuthPanel({
                 disabled={disabled}
                 onClick={() => handleTypeChange(option.value)}
               >
-                {option.label}
+                <span className="grpc-auth-type-pill__icon" aria-hidden="true">{option.icon}</span>
+                <span className="grpc-auth-type-pill__text">
+                  <span className="grpc-auth-type-pill__label">{option.label}</span>
+                  <span className="grpc-auth-type-pill__subtitle">{option.subtitle}</span>
+                </span>
               </button>
             ))}
           </div>

@@ -349,4 +349,44 @@ describe('GrpcJsClient invokeUnary mocked coverage gaps', () => {
       grpcDetails: 'rpc failed',
     });
   });
+
+  it('rejects successful unary callbacks when abort already fired', async () => {
+    const client = new GrpcJsClient();
+    const controller = new AbortController();
+    const invokePromise = client.invokeUnary({
+      address: '127.0.0.1:50051',
+      service: 'echo.EchoService',
+      method: 'Echo',
+      requestBuffer: Buffer.from([]),
+      metadata: {},
+      timeoutMs: 5_000,
+      signal: controller.signal,
+      decodeResponse: () => ({}),
+    });
+
+    await waitForUnarySetup();
+    controller.abort();
+    latestUnaryCallback()(null, Buffer.from('ignored'));
+    await expect(invokePromise).rejects.toThrow(/cancelled/i);
+  });
+
+  it('skips dns timing when host:port parsing fails during invokeUnary', async () => {
+    vi.spyOn(await import('../../src/shared/grpc/targetValidation.js'), 'validateResolvedGrpcTargetAddress')
+      .mockReturnValueOnce({ valid: true, kind: 'host_port', normalized: 'not-a-valid-host-port' });
+
+    const client = new GrpcJsClient();
+    grpcMocks.autoUnaryResponse = { buffer: Buffer.from('ok') };
+    const result = await client.invokeUnary({
+      address: '127.0.0.1:50051',
+      service: 'echo.EchoService',
+      method: 'Echo',
+      requestBuffer: Buffer.from([]),
+      metadata: {},
+      timeoutMs: 5_000,
+      signal: new AbortController().signal,
+      decodeResponse: () => ({ ok: true }),
+    });
+    expect(result.body).toEqual({ ok: true });
+    expect(result.timingBreakdown?.dnsLookupMs).toBeUndefined();
+  });
 });

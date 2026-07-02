@@ -26,6 +26,27 @@ describe('grpcStudioExecuteInterpolation coverage gaps', () => {
     })).toThrow();
   });
 
+    it('resolveGrpcStudioTabFieldsForExecute falls back to no auth for incomplete oauth2', () => {
+      const resolved = resolveGrpcStudioTabFieldsForExecute(
+        {
+          body: { message: 'plain' },
+          metadata: {},
+          auth: {
+            type: 'oauth2',
+            oauth2: {
+              tokenUrl: '',
+              clientId: '',
+              clientSecret: '',
+              scope: '',
+            },
+          },
+        },
+        {},
+      );
+
+      expect(resolved.auth).toBeUndefined();
+    });
+
   it('assertGrpcStudioExecuteFieldsReady throws on invalid auth configuration', () => {
     expect(() => assertGrpcStudioExecuteFieldsReady({
       body: {},

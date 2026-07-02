@@ -489,8 +489,12 @@ export class GrpcStreamService {
     replayBufferedGrpcStreamEvents(streamId, res, lastSequence ?? 0);
 
     if (ownership.entry.status !== 'active') {
-      closeGrpcStreamSseResponse(res);
-      finalizeGrpcStreamEntry(streamId);
+      res.flush?.();
+      const closeTimer = setTimeout(() => {
+        closeGrpcStreamSseResponse(res);
+        finalizeGrpcStreamEntry(streamId);
+      }, 0);
+      closeTimer.unref?.();
       return null;
     }
 

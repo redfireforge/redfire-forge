@@ -146,4 +146,65 @@ service LegacyService {
     expect(idField?.label).toBe('required');
     expect(mapField?.mapKeyType).toBe('string');
   });
+
+  it('maps well-known timestamp fields during normalization', () => {
+    const wktProto = `syntax = "proto3";
+package wkt;
+import "google/protobuf/timestamp.proto";
+message Event {
+  google.protobuf.Timestamp at = 1;
+}
+service EventService { rpc Publish(Event) returns (Event); }`;
+    const root = parseProtoFiles([{ path: 'event.proto', content: wktProto }]);
+    const descriptor = normalizeRootToDescriptor(root, 'proto_files', 'wkt-test');
+    const event = descriptor.messageTypes?.find((entry) => entry.typeName === 'wkt.Event');
+    expect(event?.fields.find((field) => field.name === 'at')?.type).toBe('google.protobuf.Timestamp');
+  });
+
+  it('falls back to string for unknown field types and map key types', () => {
+    const root = parseProtoFiles([{
+      path: 'legacy.proto',
+      content: `syntax = "proto2";
+package legacy;
+message Legacy {
+  required string id = 1;
+  map<string, bytes> payloads = 2;
+}
+service LegacyService { rpc Call(Legacy) returns (Legacy); }`,
+    }]);
+    const legacyType = root.lookupType('legacy.Legacy');
+    const unknownField = legacyType.fieldsArray.find((field) => field.name === 'id')!;
+    Object.defineProperty(unknownField, 'type', { value: 'customtype', configurable: true });
+    const mapField = legacyType.fieldsArray.find((field) => field.name === 'payloads')!;
+    Object.defineProperty(mapField, 'keyType', { value: 'customkey', configurable: true });
+
+    const descriptor = normalizeRootToDescriptor(root, 'proto_files', 'fallback-test');
+    const legacy = descriptor.messageTypes?.find((entry) => entry.typeName === 'legacy.Legacy');
+    expect(legacy?.fields.find((field) => field.name === 'id')?.type).toBe('string');
+    expect(legacy?.fields.find((field) => field.isMap)?.mapKeyType).toBe('string');
+  });
+
+  it('collects enum types from nested namespaces with doc comments', () => {
+    const enumProto = `syntax = "proto3";
+package metrics;
+/** Priority doc */
+enum Priority { LOW = 10; HIGH = 1; }
+message Sample { Priority level = 1; }
+service MetricsService { rpc Observe(Sample) returns (Sample); }`;
+    const root = parseProtoFiles([{ path: 'metrics.proto', content: enumProto }]);
+    const descriptor = normalizeRootToDescriptor(root, 'proto_files', 'enum-test');
+    expect(descriptor.enumTypes?.some((entry) => entry.typeName === 'metrics.Priority')).toBe(true);
+    expect(descriptor.enumTypes?.[0]?.docComment).toBeTruthy();
+    expect(descriptor.enumTypes?.[0]?.values[0]?.number).toBe(1);
+  });
+
+  it('mergeProtobufRoots skips unnamed file descriptors during merge', () => {
+    const rootA = parseProtoFiles([{ path: 'demo.proto', content: RICH_PROTO }]);
+    const rootB = parseProtoFiles([{ path: 'nested.proto', content: NESTED_PROTO }]);
+    vi.spyOn(rootB, 'toDescriptor').mockReturnValue({
+      file: [{ name: '', package: 'skip.me', syntax: 'proto3', messageType: [] }],
+    });
+    const merged = mergeProtobufRoots([rootA, rootB]);
+    expect(merged.lookupService('demo.DemoService')).toBeTruthy();
+  });
 });

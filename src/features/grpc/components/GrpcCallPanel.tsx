@@ -44,7 +44,8 @@ import {
 } from '../utils/grpcStreamLogExport';
 import { isGrpcLifecycleInFlight } from '../grpcStudioTypes';
 
-export type GrpcComposerTab = 'form' | 'json' | 'metadata' | 'auth';
+export type GrpcComposerTab = 'form' | 'json' | 'metadata' | 'auth' | 'files';
+type GrpcMobileStage = 'request' | 'response' | 'metadata' | 'auth';
 
 export interface GrpcCallPanelProps {
   tab: GrpcStudioTabState;
@@ -111,6 +112,7 @@ export function GrpcCallPanel({
   const [composerTab, setComposerTab] = useState<GrpcComposerTab>(() =>
     tab.requestMode === 'json' ? 'json' : 'form',
   );
+  const [mobileStage, setMobileStage] = useState<GrpcMobileStage>('request');
   const [jsonDraft, setJsonDraft] = useState(() => serializeGrpcBodyJson(tab.body));
   const [jsonError, setJsonError] = useState<string | null>(null);
   const [formValid, setFormValid] = useState(true);
@@ -118,6 +120,7 @@ export function GrpcCallPanel({
   const [metadataEditorValid, setMetadataEditorValid] = useState(true);
   const [metadataSwitchError, setMetadataSwitchError] = useState<string | null>(null);
   const [pendingSendInFlight, setPendingSendInFlight] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState<Array<{ id: string; name: string; size: number; file: File }>>([]);
 
   const hasMethod = !!method && !!serviceFullName;
   const methodIdentity = hasMethod ? `${serviceFullName}/${method!.name}` : '';
@@ -140,6 +143,7 @@ export function GrpcCallPanel({
     [tab.auth, tab.metadata],
   );
   const authReady = authPreview.ok;
+  const allowSendWithoutOAuth2 = tab.auth?.type === 'oauth2' && !authReady;
   const metadataReady = composerTab === 'metadata'
     ? metadataEditorValid
     : persistedMetadataValidation.valid;
@@ -158,8 +162,25 @@ export function GrpcCallPanel({
   }, [composerTab, messageTypes, method, tab.body, tab.requestMode]);
 
   const prevMethodIdentityRef = useRef('');
+  const lastPrimaryComposerTabRef = useRef<Exclude<GrpcComposerTab, 'metadata' | 'auth'>>(
+    tab.requestMode === 'json' ? 'json' : 'form',
+  );
   const tabRef = useRef(tab);
   tabRef.current = tab;
+
+  useEffect(() => {
+    if (composerTab === 'metadata') {
+      setMobileStage('metadata');
+      return;
+    }
+    if (composerTab === 'auth') {
+      setMobileStage('auth');
+      return;
+    }
+
+    lastPrimaryComposerTabRef.current = composerTab;
+    setMobileStage((current) => (current === 'response' ? current : 'request'));
+  }, [composerTab]);
 
   useEffect(() => {
     if (!methodIdentity) {
@@ -249,6 +270,28 @@ export function GrpcCallPanel({
     setComposerTab(nextTab);
   }, [composerTab, formValid, jsonDraft, messageTypes, metadataEditorValid, method, onPatch, tab.body, tab.requestMode]);
 
+  const switchMobileStage = useCallback((nextStage: GrpcMobileStage) => {
+    if (nextStage === 'response') {
+      setMobileStage('response');
+      return;
+    }
+    if (nextStage === 'metadata') {
+      switchComposerTab('metadata');
+      return;
+    }
+    if (nextStage === 'auth') {
+      switchComposerTab('auth');
+      return;
+    }
+
+    if (composerTab === 'metadata' || composerTab === 'auth') {
+      switchComposerTab(lastPrimaryComposerTabRef.current);
+      return;
+    }
+
+    setMobileStage('request');
+  }, [composerTab, switchComposerTab]);
+
   useEffect(() => {
     if (authTabFocusRequest && authTabFocusRequest > 0) {
       switchComposerTab('auth');
@@ -274,6 +317,47 @@ export function GrpcCallPanel({
     onPatch({ timeoutMs: Math.round(parsed) });
   };
 
+  const handleFilesPicked = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    setUploadedFiles((prior) => ([
+      ...prior,
+      ...files.map((file, index) => ({
+        id: `${file.name}-${file.size}-${Date.now()}-${index}`,
+        name: file.name,
+        size: file.size,
+        file,
+      })),
+    ]));
+  };
+
+  const handleRemoveUploadedFile = (fileId: string) => {
+    setUploadedFiles((prior) => prior.filter((file) => file.id !== fileId));
+  };
+
+  const handleClearUploadedFiles = () => {
+    setUploadedFiles([]);
+  };
+
+  const applyFileDataToBody = useCallback(async (): Promise<Record<string, unknown> | null> => {
+    if (uploadedFiles.length === 0) return null;
+    const bodyWithFiles = { ...tab.body };
+    const bytesFields = uploadedFiles.filter((f) => f.file.type.includes('octet-stream') || /\.(bin|pb|proto)$/.test(f.name));
+    if (bytesFields.length === 0) return null;
+    for (let i = 0; i < bytesFields.length && i < 1; i++) {
+      const fileData = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve((e.target?.result as string) ?? '');
+        reader.readAsDataURL(bytesFields[i]!.file);
+      });
+      const base64 = fileData.split(',')[1] ?? '';
+      const firstBytesFieldKey = Object.keys(bodyWithFiles).find((key) => typeof bodyWithFiles[key] === 'string' && bodyWithFiles[key] === '');
+      if (firstBytesFieldKey) {
+        bodyWithFiles[firstBytesFieldKey] = base64;
+      }
+    }
+    return bodyWithFiles;
+  }, [tab.body, uploadedFiles]);
+
   const resolveBodyOverrides = useCallback((): GrpcExecuteOverrides | undefined => {
     if (!method) return undefined;
     const needsJsonResolve = composerTab === 'json' || tab.requestMode === 'json';
@@ -293,10 +377,15 @@ export function GrpcCallPanel({
     return { body: parsed.body };
   }, [composerTab, jsonDraft, messageTypes, method, onPatch, tab.body, tab.requestMode]);
 
-  const handlePrimaryAction = useCallback(() => {
-    const overrides = resolveBodyOverrides();
+  const handlePrimaryAction = useCallback(async () => {
+    let overrides = resolveBodyOverrides();
     if (overrides === undefined && method && (composerTab === 'json' || tab.requestMode === 'json')) {
       return;
+    }
+
+    const bodyWithFiles = await applyFileDataToBody();
+    if (bodyWithFiles) {
+      overrides = { ...overrides, body: bodyWithFiles };
     }
 
     if (unaryReady) {
@@ -312,6 +401,7 @@ export function GrpcCallPanel({
       }
     }
   }, [
+    applyFileDataToBody,
     composerTab,
     method,
     onCancelStream,
@@ -379,12 +469,19 @@ export function GrpcCallPanel({
   const composerJsonReady = tab.requestMode === 'json'
     ? (composerTab === 'json' ? !jsonError : offTabJsonValidation.ok)
     : composerTab !== 'json' || !jsonError;
-  const validationReady = composerFormReady && composerJsonReady && metadataReady && authReady && tlsValid;
+  const validationReady = composerFormReady
+    && composerJsonReady
+    && metadataReady
+    && (authReady || allowSendWithoutOAuth2)
+    && tlsValid;
 
   const sendBlockHint = useMemo(() => {
     if (!hasMethod) return null;
     if (!tlsValid) {
       return 'Fix TLS configuration in the connection panel before sending.';
+    }
+    if (allowSendWithoutOAuth2) {
+      return 'OAuth2 is incomplete. Send will run without OAuth2 until token URL, client ID, and client secret are set.';
     }
     if (!authReady) {
       return authPreview.issues[0]?.message
@@ -408,6 +505,7 @@ export function GrpcCallPanel({
     authPreview.errorMessage,
     authPreview.issues,
     authReady,
+    allowSendWithoutOAuth2,
     composerFormReady,
     composerJsonReady,
     formError,
@@ -562,6 +660,10 @@ export function GrpcCallPanel({
         lifecycle={tab.lifecycle}
         lastResult={tab.lastResult}
         lastError={tab.lastError}
+        latencyHistoryMs={tab.latencyHistoryMs}
+        method={method}
+        serviceFullName={serviceFullName}
+        descriptorSourceLabel={descriptorSource ? formatDescriptorSourceLabel(descriptorSource) : undefined}
         targetAddress={targetAddress}
         auth={tab.auth}
         disabled={disabled}
@@ -572,12 +674,14 @@ export function GrpcCallPanel({
 
   return (
     <section className="grpc-call-panel" data-testid="grpc-call-panel">
-      <GrpcCallTypeSelectorRow
-        activeCallType={layoutCallType}
-        lockedCallType={method?.callType}
-        disabled={disabled || streamActive}
-        onSelectCallType={(callType) => onPatch({ layoutPreviewCallType: callType })}
-      />
+      {!hasMethod && (
+        <GrpcCallTypeSelectorRow
+          activeCallType={layoutCallType}
+          lockedCallType={method?.callType}
+          disabled={disabled || streamActive}
+          onSelectCallType={(callType) => onPatch({ layoutPreviewCallType: callType })}
+        />
+      )}
       <div className="grpc-call-send-bar" data-testid="grpc-call-send-bar">
         <div className="grpc-call-method-info">
           {hasMethod ? (
@@ -616,41 +720,43 @@ export function GrpcCallPanel({
           />
           <span className="grpc-call-timeout-unit">ms</span>
         </label>
-        {unaryReady && (
-          <button
-            type="button"
-            className="grpc-call-send-btn"
-            data-testid="grpc-send-btn"
-            disabled={primaryDisabled}
-            aria-label="Send unary call"
-            onClick={handlePrimaryAction}
-          >
-            {primaryLabel}
-          </button>
-        )}
-        {streamReady && (
-          <button
-            type="button"
-            className="grpc-call-send-btn"
-            data-testid={streamActive ? 'grpc-stream-cancel-btn' : 'grpc-stream-start-btn'}
-            disabled={primaryDisabled}
-            aria-label={streamActive ? 'Cancel stream' : 'Start stream'}
-            onClick={handlePrimaryAction}
-          >
-            {primaryLabel}
-          </button>
-        )}
-        {isUnaryInFlight && (
-          <button
-            type="button"
-            className="grpc-call-cancel-btn"
-            data-testid="grpc-cancel-btn"
-            aria-label="Cancel unary call"
-            onClick={() => onCancelUnary?.()}
-          >
-            Cancel
-          </button>
-        )}
+        <div className="grpc-call-inline-actions" data-testid="grpc-call-inline-actions">
+          {unaryReady && (
+            <button
+              type="button"
+              className="grpc-call-send-btn"
+              data-testid="grpc-send-btn"
+              disabled={primaryDisabled}
+              aria-label="Send unary call"
+              onClick={handlePrimaryAction}
+            >
+              {primaryLabel}
+            </button>
+          )}
+          {streamReady && (
+            <button
+              type="button"
+              className="grpc-call-send-btn"
+              data-testid={streamActive ? 'grpc-stream-cancel-btn' : 'grpc-stream-start-btn'}
+              disabled={primaryDisabled}
+              aria-label={streamActive ? 'Cancel stream' : 'Start stream'}
+              onClick={handlePrimaryAction}
+            >
+              {primaryLabel}
+            </button>
+          )}
+          {isUnaryInFlight && (
+            <button
+              type="button"
+              className="grpc-call-cancel-btn"
+              data-testid="grpc-cancel-btn"
+              aria-label="Cancel unary call"
+              onClick={() => onCancelUnary?.()}
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </div>
       {sendBlockHint && (
         <p className="grpc-call-send-block-hint" data-testid="grpc-call-send-block-hint" role="alert">
@@ -658,8 +764,52 @@ export function GrpcCallPanel({
         </p>
       )}
 
-      <div className={`grpc-call-split${isStreamingLayout ? ' grpc-call-split--streaming' : ''}${layoutCallType === 'client_streaming' ? ' grpc-call-split--client-streaming' : ''}`}>
-        <div className="grpc-call-request-pane">
+      <div className="grpc-mobile-stage-tabs" data-testid="grpc-mobile-stage-tabs" role="tablist" aria-label="Mobile grpc panel stages">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileStage === 'request'}
+          className={`grpc-mobile-stage-tab${mobileStage === 'request' ? ' grpc-mobile-stage-tab--active' : ''}`}
+          data-testid="grpc-mobile-stage-request"
+          onClick={() => switchMobileStage('request')}
+        >
+          Request
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileStage === 'response'}
+          className={`grpc-mobile-stage-tab${mobileStage === 'response' ? ' grpc-mobile-stage-tab--active' : ''}`}
+          data-testid="grpc-mobile-stage-response"
+          onClick={() => switchMobileStage('response')}
+        >
+          Response
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileStage === 'metadata'}
+          className={`grpc-mobile-stage-tab${mobileStage === 'metadata' ? ' grpc-mobile-stage-tab--active' : ''}`}
+          data-testid="grpc-mobile-stage-metadata"
+          disabled={!hasMethod}
+          onClick={() => switchMobileStage('metadata')}
+        >
+          Metadata
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobileStage === 'auth'}
+          className={`grpc-mobile-stage-tab${mobileStage === 'auth' ? ' grpc-mobile-stage-tab--active' : ''}`}
+          data-testid="grpc-mobile-stage-auth"
+          onClick={() => switchMobileStage('auth')}
+        >
+          Auth
+        </button>
+      </div>
+
+      <div className={`grpc-call-split grpc-call-split--stage-${mobileStage}${isStreamingLayout ? ' grpc-call-split--streaming' : ''}${layoutCallType === 'client_streaming' ? ' grpc-call-split--client-streaming' : ''}`}>
+        <div className="grpc-call-request-pane" data-testid="grpc-request-pane">
           <div className="grpc-call-panel-tabs" role="group" aria-label="Request composer">
             <button
               type="button"
@@ -701,6 +851,16 @@ export function GrpcCallPanel({
             >
               Auth
             </button>
+            <button
+              type="button"
+              aria-pressed={composerTab === 'files'}
+              className={`grpc-call-panel-tab${composerTab === 'files' ? ' grpc-call-panel-tab--active' : ''}`}
+              data-testid="grpc-request-tab-files"
+              disabled={!hasMethod}
+              onClick={() => switchComposerTab('files')}
+            >
+              Files
+            </button>
           </div>
 
           <div className="grpc-call-panel-body">
@@ -730,6 +890,59 @@ export function GrpcCallPanel({
                 onUnmaskSecretField={onUnmaskAuthSecretField}
                 onClearSecretField={onClearAuthSecretField}
               />
+            )}
+
+            {hasMethod && composerTab === 'files' && (
+              <div className="grpc-call-files-panel" data-testid="grpc-request-files-panel">
+                <p className="grpc-call-files-hint">
+                  Attach payload files for bytes-oriented fields. Uploaded files are staged per tab.
+                </p>
+                <label className="grpc-call-files-picker">
+                  <span>Choose files</span>
+                  <input
+                    type="file"
+                    multiple
+                    data-testid="grpc-request-files-input"
+                    onChange={handleFilesPicked}
+                  />
+                </label>
+                {uploadedFiles.length > 0 ? (
+                  <>
+                    <div className="grpc-call-files-toolbar">
+                      <span className="grpc-call-files-count" data-testid="grpc-request-files-count">
+                        {uploadedFiles.length} selected
+                      </span>
+                      <button
+                        type="button"
+                        className="grpc-call-files-clear-btn"
+                        data-testid="grpc-request-files-clear"
+                        onClick={handleClearUploadedFiles}
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                    <ul className="grpc-call-files-list" data-testid="grpc-request-files-list">
+                      {uploadedFiles.map((file, index) => (
+                        <li key={file.id} className="grpc-call-files-list-item">
+                          <span>{file.name} ({file.size} B)</span>
+                          <button
+                            type="button"
+                            className="grpc-call-files-remove-btn"
+                            data-testid={`grpc-request-files-remove-${index}`}
+                            onClick={() => handleRemoveUploadedFile(file.id)}
+                          >
+                            Remove
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="grpc-call-panel-empty" data-testid="grpc-request-files-empty">
+                    No files selected.
+                  </p>
+                )}
+              </div>
             )}
 
             {hasMethod && composerTab === 'form' && (
@@ -803,7 +1016,33 @@ export function GrpcCallPanel({
           </div>
         </div>
 
-        {renderResponsePane()}
+        <div className="grpc-call-response-shell" data-testid="grpc-response-shell">
+          {renderResponsePane()}
+        </div>
+      </div>
+
+      <div className="grpc-call-mobile-action-bar" data-testid="grpc-call-mobile-action-bar">
+        {(unaryReady || streamReady) && (
+          <button
+            type="button"
+            className="grpc-call-mobile-primary-btn"
+            data-testid="grpc-mobile-primary-action"
+            disabled={primaryDisabled}
+            onClick={handlePrimaryAction}
+          >
+            {primaryLabel}
+          </button>
+        )}
+        {isUnaryInFlight && (
+          <button
+            type="button"
+            className="grpc-call-mobile-secondary-btn"
+            data-testid="grpc-mobile-cancel-action"
+            onClick={() => onCancelUnary?.()}
+          >
+            Cancel
+          </button>
+        )}
       </div>
     </section>
   );

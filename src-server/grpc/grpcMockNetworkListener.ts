@@ -469,56 +469,68 @@ export class GrpcMockNetworkListener {
     method: GrpcMethodInfo,
   ): grpc.UntypedHandleCall {
     return (stream) => {
-      void this.handleBidiStreamCall(
-        descriptor,
-        serviceFullName,
-        method,
-        stream as grpc.ServerDuplexStream<Buffer, Buffer>,
-      );
+      const bidiStream = stream as grpc.ServerDuplexStream<Buffer, Buffer>;
+      let closed = false;
+      let processing = Promise.resolve();
+
+      const fail = (error: unknown) => {
+        if (closed) return;
+        closed = true;
+        const detail = error instanceof Error ? error.message : String(error);
+        this.lastError = detail;
+        this.pushLog('error', { service: serviceFullName, method: method.name, detail });
+        bidiStream.destroy(grpcServiceError(grpc.status.INTERNAL, detail));
+      };
+
+      bidiStream.on('data', (chunk: Buffer) => {
+        processing = processing.then(async () => {
+          if (closed) return;
+          const requestBody = decodeProtoMessage(descriptor, method.requestTypeName, chunk);
+          const result = await this.manager.executeUnaryCall({
+            service: serviceFullName,
+            method: method.name,
+            callType: 'bidi_streaming',
+            metadata: metadataToRecord(bidiStream.metadata),
+            requestBody,
+          });
+          const statusCode = result.evaluation.response.statusCode ?? 0;
+          this.pushLog('rpc-bidi-stream', {
+            service: serviceFullName,
+            method: method.name,
+            ruleName: result.evaluation.ruleName,
+            statusCode,
+            generation: result.generation,
+          });
+          if (statusCode !== 0 && result.evaluation.response.body === undefined) {
+            closed = true;
+            bidiStream.destroy(grpcServiceError(statusCode, result.evaluation.response.message ?? ''));
+            return;
+          }
+          const encoded = encodeProtoMessage(
+            descriptor,
+            method.responseTypeName,
+            (result.evaluation.response.body ?? {}) as Record<string, unknown>,
+          );
+          bidiStream.write(encoded);
+        }).catch(fail);
+      });
+
+      bidiStream.on('end', () => {
+        void processing.then(() => {
+          if (closed) return;
+          closed = true;
+          bidiStream.end();
+        }).catch(fail);
+      });
+
+      bidiStream.on('error', (error) => {
+        fail(error);
+      });
     };
   }
+}
 
-  private async handleBidiStreamCall(
-    descriptor: GrpcDescriptor,
-    serviceFullName: string,
-    method: GrpcMethodInfo,
-    stream: grpc.ServerDuplexStream<Buffer, Buffer>,
-  ): Promise<void> {
-    try {
-      for await (const chunk of stream) {
-        const requestBody = decodeProtoMessage(descriptor, method.requestTypeName, chunk);
-        const result = await this.manager.executeUnaryCall({
-          service: serviceFullName,
-          method: method.name,
-          callType: 'bidi_streaming',
-          metadata: metadataToRecord(stream.metadata),
-          requestBody,
-        });
-        const statusCode = result.evaluation.response.statusCode ?? 0;
-        this.pushLog('rpc-bidi-stream', {
-          service: serviceFullName,
-          method: method.name,
-          ruleName: result.evaluation.ruleName,
-          statusCode,
-          generation: result.generation,
-        });
-        if (statusCode !== 0 && result.evaluation.response.body === undefined) {
-          stream.destroy(grpcServiceError(statusCode, result.evaluation.response.message ?? ''));
-          return;
-        }
-        const encoded = encodeProtoMessage(
-          descriptor,
-          method.responseTypeName,
-          (result.evaluation.response.body ?? {}) as Record<string, unknown>,
-        );
-        stream.write(encoded);
-      }
-      stream.end();
-    } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      this.lastError = detail;
-      this.pushLog('error', { service: serviceFullName, method: method.name, detail });
-      stream.destroy(grpcServiceError(grpc.status.INTERNAL, detail));
-    }
-  }
+/** @internal Exported for coverage tests only. */
+export function grpcMockGrpcStatusCodeFromRuleForTests(statusCode: number | undefined): grpc.status {
+  return grpcStatusCodeFromRule(statusCode);
 }

@@ -127,6 +127,38 @@ describe('GrpcCallPanel auth/TLS/hints (Phase 4)', () => {
     expect(screen.getByTestId('grpc-call-send-block-hint').textContent).toMatch(/Bearer token/i);
   });
 
+  it('keeps send enabled when oauth2 config is incomplete and falls back to no auth', () => {
+    const tab = createGrpcStudioTab({
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'hello' },
+      metadata: {},
+      descriptorKey: FIXTURE_DESCRIPTOR.key,
+      auth: {
+        type: 'oauth2',
+        oauth2: {
+          tokenUrl: '',
+          clientId: '',
+          clientSecret: '',
+          scope: '',
+        },
+      },
+    });
+
+    render(
+      <GrpcCallPanel
+        tab={tab}
+        method={method}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+      />,
+    );
+
+    expect((screen.getByTestId('grpc-send-btn') as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByTestId('grpc-call-send-block-hint').textContent).toMatch(/without OAuth2/i);
+  });
+
   it('shows send block hint for invalid persisted metadata from auth tab (Phase 4C)', () => {
     const tab = createGrpcStudioTab({
       service: 'echo.EchoService',

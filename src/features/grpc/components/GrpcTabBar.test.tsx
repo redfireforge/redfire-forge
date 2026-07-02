@@ -84,6 +84,44 @@ describe('GrpcTabBar', () => {
     expect(screen.getByTestId('grpc-tab-call-type-pill-a')).toBeTruthy();
   });
 
+  it('shows tab call count badge when calls have been executed', () => {
+    render(
+      <GrpcTabBar
+        tabs={[makeTab('a'), makeTab('b')]}
+        activeTabId="a"
+        canAddTab
+        tabCallCounts={{ a: 3 }}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+        onClose={vi.fn()}
+        onDuplicate={vi.fn()}
+        onRename={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('grpc-tab-call-count-a').textContent).toContain('=3');
+    expect(screen.queryByTestId('grpc-tab-call-count-b')).toBeNull();
+  });
+
+  it('renders method subtitle and descriptive tab title when method is selected', () => {
+    render(
+      <GrpcTabBar
+        tabs={[makeTab('a', { service: 'echo.v1.EchoService', method: 'Echo' })]}
+        activeTabId="a"
+        canAddTab
+        tabCallCounts={{ a: 2 }}
+        onSelect={vi.fn()}
+        onAdd={vi.fn()}
+        onClose={vi.fn()}
+        onDuplicate={vi.fn()}
+        onRename={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('grpc-tab-method-a').textContent).toBe('EchoService/Echo');
+    const tab = screen.getByTestId('a');
+    expect(tab.getAttribute('title')).toContain('EchoService/Echo');
+    expect(tab.getAttribute('title')).toContain('Calls: 2');
+  });
+
   it('supports inline rename via double-click and Enter', () => {
     const onRename = vi.fn();
     render(
@@ -125,5 +163,6 @@ describe('GrpcTabBar', () => {
     expect(screen.getByTestId('a').className).toContain('grpc-tab--in-flight');
     expect(screen.getByTestId('grpc-add-tab')).toHaveProperty('disabled', true);
     expect(screen.getByTestId('grpc-tab-duplicate-a')).toHaveProperty('disabled', true);
+    expect(screen.getByTestId('grpc-tab-close-a')).toHaveProperty('disabled', true);
   });
 });

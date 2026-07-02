@@ -108,12 +108,14 @@ export function GrpcExplorerPane({
         errorMessage={descriptorState.errorMessage}
         selectedService={tab.service}
         selectedMethod={tab.method}
+        collapsed={tab.servicesCollapsed ?? false}
         expandedServiceIds={descriptorState.expandedServiceIds}
         canReflect={canReflect}
         onReflect={onReflect}
         onManageSchemas={onManageSchemas}
         onSelectMethod={onSelectMethod}
         onToggleServiceExpanded={onToggleServiceExpanded}
+        onToggleCollapsed={() => onTabPatch({ servicesCollapsed: !(tab.servicesCollapsed ?? false) })}
       />
       <div className="grpc-studio-main">
         {connectionChrome && (

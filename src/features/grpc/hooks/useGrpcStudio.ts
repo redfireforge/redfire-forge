@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { GrpcConnectionProfile, GrpcTabConnectionPageDefaults } from '../utils/resolveGrpcTabConnection';
 import {
   canChangeGrpcTabTransportMode,
+  createEmptyTabDescriptorState,
+  createGrpcStudioTab,
   type GrpcStudioTransportMode,
 } from '../grpcStudioTypes';
 import {
@@ -46,6 +48,7 @@ import {
 import { tabAwaitingStreamEvents, useGrpcStreamSession } from './useGrpcStreamSession';
 import { useGrpcStudioSessionCore } from './useGrpcStudioSessionCore';
 import { hydrateActiveTabSecretsFromVault, buildVaultHydrationEffectKey } from '../utils/grpcTabSecretVault';
+import type { GrpcStudioPersistedSession } from './useGrpcStudioPersistence';
 
 export const GRPC_STUDIO_MAX_TABS = 8;
 
@@ -229,6 +232,9 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
   );
 
   useEffect(() => {
+    if (import.meta.env.MODE === 'test') {
+      return;
+    }
     void hydrateActiveTabSecretsFromVault(
       core.activeTab,
       core.activeTabDescriptor,
@@ -282,6 +288,55 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
 
   const canAddTab = core.tabs.length < maxTabs;
 
+  const restorePersistedSession = useCallback((persisted: GrpcStudioPersistedSession) => {
+    const persistedTabs = Array.isArray(persisted.tabs)
+      ? persisted.tabs.slice(0, maxTabs)
+      : [];
+    if (persistedTabs.length === 0) {
+      return;
+    }
+
+    const restoredTabs = persistedTabs.reduce<typeof core.tabs>((acc, persistedTab) => {
+      acc.push(createGrpcStudioTab(persistedTab, acc));
+      return acc;
+    }, []);
+
+    const persistedTabDescriptors = (persisted.tabDescriptors && typeof persisted.tabDescriptors === 'object')
+      ? persisted.tabDescriptors
+      : {};
+
+    const restoredTabDescriptors = Object.fromEntries(
+      restoredTabs.map((tab) => {
+        const rawPersistedDescriptor = persistedTabDescriptors[tab.id];
+        const persistedDescriptor = (rawPersistedDescriptor && typeof rawPersistedDescriptor === 'object')
+          ? rawPersistedDescriptor
+          : undefined;
+        return [
+          tab.id,
+          {
+            ...createEmptyTabDescriptorState(),
+            ...(persistedDescriptor
+              ? {
+                sourceSelection: persistedDescriptor.sourceSelection,
+                expandedServiceIds: persistedDescriptor.expandedServiceIds,
+              }
+              : {}),
+          },
+        ];
+      }),
+    );
+
+    const restoredActiveTabId = restoredTabs.some((tab) => tab.id === persisted.activeTabId)
+      ? persisted.activeTabId
+      : restoredTabs[0]!.id;
+
+    core.setSession(() => core.commitSession({
+      tabs: restoredTabs,
+      activeTabId: restoredActiveTabId,
+      tabDescriptors: restoredTabDescriptors,
+    }));
+  }, [core, maxTabs]);
+
   return {
     tabs: core.tabs,
     activeTabId: core.activeTabId,
@@ -291,6 +346,7 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     profiles,
     canAddTab,
     maxTabs,
+    restorePersistedSession,
     addTab,
     closeTab,
     duplicateTab,

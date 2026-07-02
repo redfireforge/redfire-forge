@@ -190,4 +190,29 @@ describe('GrpcServiceExplorer (Phase 1E)', () => {
     fireEvent.click(screen.getByTestId('grpc-method-echo-echoservice-echo'));
     expect(onSelectMethod).toHaveBeenCalledWith('echo.EchoService', 'Echo');
   });
+
+  it('renders collapsed rail and invokes onToggleCollapsed', () => {
+    const onToggleCollapsed = vi.fn();
+    render(
+      <GrpcServiceExplorer
+        loadState="loaded"
+        descriptor={FIXTURE_DESCRIPTOR}
+        selectedService="echo.EchoService"
+        selectedMethod="Echo"
+        collapsed
+        expandedServiceIds={['echo.EchoService']}
+        canReflect
+        onReflect={vi.fn()}
+        onManageSchemas={vi.fn()}
+        onSelectMethod={vi.fn()}
+        onToggleServiceExpanded={vi.fn()}
+        onToggleCollapsed={onToggleCollapsed}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-explorer-rail')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-explorer-search')).toBeNull();
+    fireEvent.click(screen.getByTestId('grpc-explorer-collapse-btn'));
+    expect(onToggleCollapsed).toHaveBeenCalledTimes(1);
+  });
 });

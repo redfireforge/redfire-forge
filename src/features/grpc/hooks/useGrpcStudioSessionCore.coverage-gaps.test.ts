@@ -873,6 +873,164 @@ describe('useGrpcStudioSessionCore coverage gaps', () => {
     expect(scheduleTabSecretsVaultSync).not.toHaveBeenCalled();
   });
 
+  it('bumps target probe generation when connecting probe settles without explicit patch', async () => {
+    const { result } = renderHook(() => useGrpcStudioSessionCore({
+      envVarMap: {},
+      profiles: [],
+      pageDefaults: PAGE_DEFAULTS,
+      fireCancelInFlight: vi.fn(),
+    }));
+
+    const tabId = result.current.activeTab.id;
+    act(() => {
+      result.current.updateTab(tabId, {
+        targetConnection: { state: 'connecting' },
+      });
+      result.current.updateTab(tabId, {
+        target: 'localhost:9090',
+      });
+    });
+
+    expect(result.current.tabs.find((tab) => tab.id === tabId)?.targetConnection?.state).toBe('idle');
+  });
+
+  it('bumps target probe generation for in-flight connection changes during connecting probe', async () => {
+    const { result } = renderHook(() => useGrpcStudioSessionCore({
+      envVarMap: {},
+      profiles: [],
+      pageDefaults: PAGE_DEFAULTS,
+      fireCancelInFlight: vi.fn(),
+    }));
+
+    const tabId = result.current.activeTab.id;
+    act(() => {
+      result.current.updateTab(tabId, {
+        lifecycle: 'calling',
+        activeRequestId: 'req-in-flight',
+        targetConnection: { state: 'connecting' },
+        target: 'localhost:50051',
+      });
+      result.current.patchTabDescriptor(tabId, {
+        loadState: 'loaded',
+        descriptor: FIXTURE_DESCRIPTOR,
+      });
+    });
+
+    act(() => {
+      result.current.updateTab(tabId, { target: 'localhost:9090' });
+    });
+
+    expect(result.current.tabs.find((tab) => tab.id === tabId)?.target).toBe('localhost:9090');
+    expect(result.current.getTabDescriptor(tabId).loadState).toBe('loaded');
+  });
+
+  it('defers invalidation while activeStreamId remains set on a non-streaming tab', async () => {
+    const { result, rerender } = renderHook(
+      ({ envVarMap }: { envVarMap: Record<string, string> }) => useGrpcStudioSessionCore({
+        envVarMap,
+        profiles: [{ id: 'p1', name: 'Env profile', target: '{{grpcHost}}', tlsMode: 'disabled' }],
+        pageDefaults: PAGE_DEFAULTS,
+        fireCancelInFlight: vi.fn(),
+      }),
+      { initialProps: { envVarMap: { grpcHost: 'localhost:50051' } } },
+    );
+
+    const tabId = result.current.activeTab.id;
+    act(() => {
+      result.current.updateTab(tabId, {
+        connectionId: 'p1',
+        target: '',
+        streamLifecycle: 'idle',
+        activeStreamId: 'stream-stale',
+      });
+      result.current.patchTabDescriptor(tabId, {
+        loadState: 'loaded',
+        descriptor: FIXTURE_DESCRIPTOR,
+      });
+    });
+
+    rerender({ envVarMap: { grpcHost: 'remote.example.com:50051' } });
+    expect(result.current.getTabDescriptor(tabId).loadState).toBe('loaded');
+
+    act(() => {
+      result.current.updateTab(tabId, { activeStreamId: undefined });
+    });
+
+    await waitFor(() => {
+      expect(result.current.getTabDescriptor(tabId).loadState).toBe('idle');
+    });
+  });
+
+  it('uses workspaceDefaults when resolving connection fingerprints', async () => {
+    const { result, rerender } = renderHook(
+      ({ workspaceDefaults }: { workspaceDefaults: Record<string, string> }) => useGrpcStudioSessionCore({
+        envVarMap: {},
+        profiles: [{ id: 'p1', name: 'Workspace profile', target: '{{grpcHost}}', tlsMode: 'disabled' }],
+        pageDefaults: PAGE_DEFAULTS,
+        workspaceDefaults,
+        fireCancelInFlight: vi.fn(),
+      }),
+      { initialProps: { workspaceDefaults: { grpcHost: 'localhost:50051' } } },
+    );
+
+    const tabId = result.current.activeTab.id;
+    act(() => {
+      result.current.updateTab(tabId, { connectionId: 'p1', target: '' });
+      result.current.patchTabDescriptor(tabId, { loadState: 'loaded' });
+    });
+
+    rerender({ workspaceDefaults: { grpcHost: 'workspace.example.com:50051' } });
+
+    await waitFor(() => {
+      expect(result.current.getTabDescriptor(tabId).loadState).toBe('idle');
+    });
+  });
+
+  it('keeps warning drift without message when analysis returns empty message', async () => {
+    vi.mocked(analyzeWarningDriftWithBaseline).mockReturnValue({
+      state: 'warning',
+      message: '',
+      issues: [{ kind: 'field_removed', message: 'Still drifting' }],
+      suggestedRebinds: [],
+    });
+    const { result, tabId } = (() => {
+      const hook = renderHook(() => useGrpcStudioSessionCore({
+        envVarMap: {},
+        profiles: [],
+        pageDefaults: PAGE_DEFAULTS,
+        fireCancelInFlight: vi.fn(),
+      }));
+      const tabId = hook.result.current.activeTab.id;
+      const echoMethod = FIXTURE_DESCRIPTOR.services[0]!.methods[0]!;
+      act(() => {
+        hook.result.current.updateTab(tabId, {
+          service: 'echo.EchoService',
+          method: echoMethod.name,
+          body: { message: 'hello' },
+        });
+        hook.result.current.patchTabDescriptor(tabId, {
+          loadState: 'loaded',
+          descriptor: FIXTURE_DESCRIPTOR,
+          driftState: 'warning',
+          driftBaselineRequestSchema: echoMethod.requestSchema,
+          driftMessage: 'Initial drift',
+        });
+      });
+      return { result: hook.result, tabId };
+    })();
+
+    act(() => {
+      result.current.updateTab(tabId, { body: { message: 'updated' } });
+    });
+
+    await waitFor(() => {
+      const descriptor = result.current.getTabDescriptor(tabId);
+      expect(descriptor.driftState).toBe('warning');
+      expect(descriptor.driftMessage).toBeUndefined();
+      expect(descriptor.driftIssues).toHaveLength(1);
+    });
+  });
+
   describe('schema drift branches', () => {
     function setupDriftTab() {
       const { result } = renderHook(() => useGrpcStudioSessionCore({

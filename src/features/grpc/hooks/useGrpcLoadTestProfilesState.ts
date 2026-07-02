@@ -20,13 +20,18 @@ export function useGrpcLoadTestProfilesState(
     tabId: string,
     patch: Partial<GrpcTabAdvancedFeaturesUiState> | ((prev: GrpcTabAdvancedFeaturesUiState) => GrpcTabAdvancedFeaturesUiState),
   ) => void,
+  enabled = true,
 ) {
   const [loadTestProfiles, setLoadTestProfiles] = useState<GrpcLoadTestProfile[]>([]);
-  const [loadTestProfilesLoading, setLoadTestProfilesLoading] = useState(true);
+  const [loadTestProfilesLoading, setLoadTestProfilesLoading] = useState(enabled);
   const [loadTestProfileError, setLoadTestProfileError] = useState<string | undefined>();
   const [selectedLoadTestProfileId, setSelectedLoadTestProfileId] = useState<string>('');
 
   const refreshLoadTestProfiles = useCallback(async () => {
+    if (!enabled) {
+      setLoadTestProfilesLoading(false);
+      return;
+    }
     setLoadTestProfilesLoading(true);
     try {
       const profiles = await listGrpcLoadTestProfiles();
@@ -40,11 +45,15 @@ export function useGrpcLoadTestProfilesState(
     } finally {
       setLoadTestProfilesLoading(false);
     }
-  }, []);
+  }, [enabled]);
 
   useEffect(() => {
+    if (!enabled) {
+      setLoadTestProfilesLoading(false);
+      return;
+    }
     void refreshLoadTestProfiles();
-  }, [refreshLoadTestProfiles]);
+  }, [enabled, refreshLoadTestProfiles]);
 
   const saveLoadTestProfile = useCallback(async (name: string) => {
     setLoadTestProfileError(undefined);

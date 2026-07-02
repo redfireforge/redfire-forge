@@ -71,54 +71,57 @@ export function GrpcTlsConfigModal({
       minHeight={360}
       footer={
         <>
-          {onTestConnection && (
+          <div className="grpc-tls-modal-footer-group grpc-tls-modal-footer-group--left">
+            {onTestConnection && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm grpc-tls-test-btn"
+                onClick={onTestConnection}
+                disabled={disabled}
+                data-testid="grpc-tls-test"
+              >
+                Test TLS Connection
+              </button>
+            )}
+            {onResetDefaults && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm grpc-tls-reset-btn"
+                onClick={onResetDefaults}
+                disabled={disabled}
+                data-testid="grpc-tls-reset"
+              >
+                Reset to Defaults
+              </button>
+            )}
+          </div>
+          <div className="grpc-tls-modal-footer-group grpc-tls-modal-footer-group--right">
             <button
               type="button"
-              className="btn btn-ghost btn-sm grpc-tls-test-btn"
-              onClick={onTestConnection}
-              disabled={disabled}
-              data-testid="grpc-tls-test"
+              className="btn"
+              onClick={onCancel}
+              data-testid="grpc-tls-cancel"
             >
-              Test TLS Connection
+              Cancel
             </button>
-          )}
-          {onResetDefaults && (
             <button
               type="button"
-              className="btn btn-ghost btn-sm grpc-tls-reset-btn"
-              onClick={onResetDefaults}
-              disabled={disabled}
-              data-testid="grpc-tls-reset"
+              className="btn btn-primary"
+              onClick={onSave}
+              disabled={!dirty}
+              data-testid="grpc-tls-save"
             >
-              Reset to Defaults
+              Save
             </button>
-          )}
-          <span className="grpc-tls-modal-footer-spacer" aria-hidden="true" />
-          <button
-            type="button"
-            className="btn"
-            onClick={onCancel}
-            data-testid="grpc-tls-cancel"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={onSave}
-            disabled={!dirty}
-            data-testid="grpc-tls-save"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={onClose}
-            data-testid="grpc-tls-close"
-          >
-            Close
-          </button>
+            <button
+              type="button"
+              className="btn"
+              onClick={onClose}
+              data-testid="grpc-tls-close"
+            >
+              Close
+            </button>
+          </div>
         </>
       }
     >

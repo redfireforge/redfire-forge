@@ -23,6 +23,7 @@ interface PoolEntry {
   tabId: string;
   port: number;
   listener: GrpcMockNetworkListener;
+  descriptor: GrpcDescriptor;
 }
 
 export class GrpcMockServerPool {
@@ -104,7 +105,12 @@ export class GrpcMockServerPool {
         port,
       });
 
-      this.entries.set(tabId, { tabId, port: status.port ?? port, listener });
+      this.entries.set(tabId, {
+        tabId,
+        port: status.port ?? port,
+        listener,
+        descriptor,
+      });
       return { status };
     } catch (error) {
       if (listener != null) {
@@ -170,6 +176,21 @@ export class GrpcMockServerPool {
       return [];
     }
     return entry.listener.getLogs(since);
+  }
+
+  resolveDescriptorForListenTarget(listenTarget: string): GrpcDescriptor | undefined {
+    const normalizedTarget = listenTarget.trim();
+    if (!normalizedTarget) {
+      return undefined;
+    }
+
+    for (const entry of this.entries.values()) {
+      if (entry.listener.getStatus().listenTarget === normalizedTarget) {
+        return entry.descriptor;
+      }
+    }
+
+    return undefined;
   }
 
   stopAll(): void {

@@ -5,9 +5,17 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FIXTURE_UNARY_CALL_RESULT } from '../../../shared/grpc/contractFixtures';
+import type { GrpcMethodInfo } from '../../../shared/grpc/contracts';
 import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
 import { GrpcResponsePanel } from './GrpcResponsePanel';
 import { resetGrpcStudioHintsForTests } from '../hooks/useGrpcStudioHints';
+
+const FIXTURE_METHOD = {
+  name: 'Echo',
+  callType: 'unary',
+  requestTypeName: 'EchoRequest',
+  responseTypeName: 'EchoReply',
+} as unknown as GrpcMethodInfo;
 
 describe('GrpcResponsePanel (Phase 1G)', () => {
   beforeEach(() => {
@@ -40,8 +48,57 @@ describe('GrpcResponsePanel (Phase 1G)', () => {
 
     expect(screen.getByTestId('grpc-response-status').textContent).toContain('OK · 0');
     expect(screen.getByTestId('grpc-response-duration').textContent).toBe('87ms');
+    expect(screen.getByTestId('grpc-response-size').textContent).toContain('B');
     expect(screen.getByTestId('grpc-response-target').textContent).toContain('localhost:50051');
     expect(screen.getByTestId('grpc-response-body').textContent).toContain('"message": "hello grpc"');
+  });
+
+  it('shows top-level Response and Proto tabs with proto summary content', () => {
+    const createObjectURL = vi.fn(() => 'blob:proto-summary');
+    const revokeObjectURL = vi.fn();
+    const anchorClick = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    Object.defineProperty(URL, 'createObjectURL', { value: createObjectURL, configurable: true });
+    Object.defineProperty(URL, 'revokeObjectURL', { value: revokeObjectURL, configurable: true });
+
+    render(
+      <GrpcResponsePanel
+        lifecycle="success"
+        lastResult={FIXTURE_UNARY_CALL_RESULT}
+        serviceFullName="echo.v1.EchoService"
+        method={FIXTURE_METHOD}
+        descriptorSourceLabel="Server reflection"
+      />, 
+    );
+
+    expect(screen.getByTestId('grpc-response-top-tab-response')).toBeTruthy();
+    expect(screen.getByTestId('grpc-response-top-tab-proto')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('grpc-response-top-tab-proto'));
+    expect(screen.getByTestId('grpc-response-proto-panel')).toBeTruthy();
+    expect(screen.getByTestId('grpc-response-proto-code').textContent).toContain('rpc Echo (EchoRequest) returns (EchoReply)');
+
+    fireEvent.click(screen.getByTestId('grpc-response-proto-export'));
+    expect(createObjectURL).toHaveBeenCalledTimes(1);
+    expect(anchorClick).toHaveBeenCalledTimes(1);
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+
+    anchorClick.mockRestore();
+  });
+
+  it('renders tracing chip and latency distribution footer when history exists', () => {
+    render(
+      <GrpcResponsePanel
+        lifecycle="success"
+        lastResult={{
+          ...FIXTURE_UNARY_CALL_RESULT,
+          headers: { 'x-request-id': 'req-123' },
+        }}
+        latencyHistoryMs={[12, 45, 120, 980, 1300]}
+      />, 
+    );
+
+    expect(screen.getByTestId('grpc-response-tracing-chip').textContent).toContain('Tracing');
+    expect(screen.getByTestId('grpc-response-latency-footer')).toBeTruthy();
+    expect(screen.getByTestId('grpc-response-latency-history').textContent).toContain('5 requests');
   });
 
   it('shows headers tab with count badge', () => {

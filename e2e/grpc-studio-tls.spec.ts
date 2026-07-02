@@ -160,10 +160,11 @@ test.describe('gRPC Studio — Phase 4J settings drawer (shell)', () => {
 });
 
 test.describe('gRPC Studio — Phase 4J auth entry (shell)', () => {
-  test('auth badge focuses Auth request tab', async ({ page }) => {
+  test('auth badge opens settings drawer on Auth panel', async ({ page }) => {
     await gotoGrpcStudio(page);
     await ensureValidTarget(page);
     await page.locator('[data-testid="grpc-auth-badge"]').click();
-    await expect(page.locator('[data-testid="grpc-request-tab-auth"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="grpc-connection-settings-drawer"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-settings-panel-auth"]')).toBeVisible();
   });
 });
