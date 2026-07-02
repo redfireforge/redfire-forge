@@ -44,7 +44,7 @@ describe('GrpcMethodDetailPanel coverage gaps', () => {
     );
 
     expect(screen.getByTestId('grpc-method-detail-heading').textContent).toMatch(/Echo/);
-    expect(screen.getByTestId('grpc-method-unary-ready')).toBeTruthy();
+    expect(screen.getByTestId('grpc-method-call-type').className).toContain('grpc-method-detail-badge--ready');
   });
 
   it('falls back to staleMethod when descriptor is present but method is missing', () => {
@@ -58,7 +58,7 @@ describe('GrpcMethodDetailPanel coverage gaps', () => {
       />,
     );
     expect(screen.getByTestId('grpc-method-detail-heading').textContent).toMatch(/Echo/);
-    expect(screen.getByTestId('grpc-method-unary-ready')).toBeTruthy();
+    expect(screen.getByTestId('grpc-method-call-type').className).toContain('grpc-method-detail-badge--ready');
   });
 
   it('renders no ready hint for unsupported call types', () => {
@@ -83,7 +83,7 @@ describe('GrpcMethodDetailPanel coverage gaps', () => {
       />,
     );
 
-    expect(screen.queryByTestId('grpc-method-unary-ready')).toBeNull();
     expect(screen.queryByTestId('grpc-method-streaming-ready')).toBeNull();
+    expect(screen.getByTestId('grpc-method-call-type').className).not.toContain('--ready');
   });
 });
