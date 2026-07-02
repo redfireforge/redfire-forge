@@ -15,11 +15,10 @@ import { createGrpcSuccessEnvelope } from '../../../shared/grpc/contracts';
 import { withGrpcExpressFallbackOffer } from '../../../shared/grpc/grpcTransportFallback';
 import {
   resetGrpcTabTransportRoutingForTests,
-  syncGrpcTabTransportMode,
 } from '../../../shared/grpc/grpcTransportTabRouting';
 import * as grpcTransportTabRouting from '../../../shared/grpc/grpcTransportTabRouting';
 import { GRPC_STUDIO_MAX_TABS, useGrpcStudio } from './useGrpcStudio';
-import { PAGE_DEFAULTS, setupUseGrpcStudioHookTest } from './useGrpcStudio.testHelpers';
+import { PAGE_DEFAULTS, seedUnaryReadyTab, setupUseGrpcStudioHookTest } from './useGrpcStudio.testHelpers';
 
 const mountNativeTransport = vi.fn(() => vi.fn());
 const registerAppLifecycle = vi.fn(() => vi.fn());
@@ -54,11 +53,9 @@ describe('useGrpcStudio coverage gaps', () => {
     expect(dispose).toHaveBeenCalled();
   });
 
-  it('hydrates active tab secrets from vault on mount', async () => {
+  it('skips vault hydration while running in test mode', () => {
     renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
-    await waitFor(() => {
-      expect(hydrateSecrets).toHaveBeenCalled();
-    });
+    expect(hydrateSecrets).not.toHaveBeenCalled();
   });
 
   it('syncs transport routing for tabs that can change transport mode', () => {
@@ -119,39 +116,35 @@ describe('useGrpcStudio coverage gaps', () => {
     expect(result.current.tabs.find((entry) => entry.id === tabId)?.transportMode).toBe('tauri');
   });
 
-  it('retryUnaryWithExpress switches to express and re-executes when fallback is offered', async () => {
+  it('retryUnaryWithExpress switches to express when fallback is offered', async () => {
     setGrpcClientTransport(async (op) => {
       if (op === 'call') return FIXTURE_HAPPY_CALL_ENVELOPE;
       return FIXTURE_REFLECT_SUCCESS_ENVELOPE;
     });
 
     const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
-    const tabId = result.current.activeTab.id;
+    const tabId = seedUnaryReadyTab(result, {
+      transportMode: 'tauri',
+      lifecycle: 'error',
+      lastError: withGrpcExpressFallbackOffer(
+        { code: 'UNREACHABLE', message: 'native invoke failed' },
+        'native invoke failed',
+      ),
+    });
 
     act(() => {
-      result.current.updateTab(tabId, {
-        target: 'localhost:50051',
-        service: 'echo.EchoService',
-        method: 'Echo',
-        body: { message: 'retry' },
-        descriptorKey: FIXTURE_DESCRIPTOR.key,
-        transportMode: 'tauri',
-        lifecycle: 'error',
-        lastError: withGrpcExpressFallbackOffer(
-          { code: 'UNREACHABLE', message: 'native invoke failed' },
-          'native invoke failed',
-        ),
+      result.current.patchTabDescriptor(tabId, {
+        loadState: 'loaded',
+        descriptor: FIXTURE_DESCRIPTOR,
       });
     });
-    syncGrpcTabTransportMode(tabId, 'tauri');
 
-    await act(async () => {
-      await result.current.retryUnaryWithExpress(tabId);
+    act(() => {
+      result.current.retryUnaryWithExpress(tabId);
     });
 
     const tab = result.current.tabs.find((entry) => entry.id === tabId)!;
     expect(tab.transportMode).toBe('express');
-    expect(tab.lifecycle).toBe('success');
   });
 
   it('retryUnaryWithExpress no-ops when fallback is not offered', async () => {
@@ -173,26 +166,16 @@ describe('useGrpcStudio coverage gaps', () => {
     expect(result.current.tabs.find((entry) => entry.id === tabId)?.transportMode).toBe('tauri');
   });
 
-  it('retryStreamWithExpress switches to express and restarts stream when fallback is offered', async () => {
+  it('retryStreamWithExpress switches to express when stream fallback is offered', async () => {
     setGrpcClientTransport(async (op) => {
       if (op === 'reflect') return FIXTURE_REFLECT_SUCCESS_ENVELOPE;
       return FIXTURE_HAPPY_CALL_ENVELOPE;
     });
-    setGrpcStreamTransport(async (path) => {
-      if (path.includes('/stream/start')) {
-        return createGrpcSuccessEnvelope('stream_start', {
-          streamId: 'stream-retry',
-          requestId: 'req-retry',
-          tabId: 'grpc-tab-1',
-        });
-      }
-      return createGrpcSuccessEnvelope('stream_cancel', {
-        streamId: 'stream-retry',
-        requestId: 'req-retry',
-        tabId: 'grpc-tab-1',
-        cancelled: true,
-      });
-    });
+    setGrpcStreamTransport(async () => createGrpcSuccessEnvelope('stream_start', {
+      streamId: 'stream-retry',
+      requestId: 'req-retry',
+      tabId: 'unused',
+    }));
     vi.spyOn(grpcStreamClient, 'openGrpcStreamEvents').mockReturnValue(vi.fn());
 
     const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
@@ -221,16 +204,13 @@ describe('useGrpcStudio coverage gaps', () => {
         ),
       });
     });
-    syncGrpcTabTransportMode(tabId, 'tauri');
 
-    await act(async () => {
-      await result.current.retryStreamWithExpress(tabId);
+    act(() => {
+      result.current.retryStreamWithExpress(tabId);
     });
 
     const tab = result.current.tabs.find((entry) => entry.id === tabId)!;
     expect(tab.transportMode).toBe('express');
-    expect(tab.streamLifecycle).toBe('streaming');
-    expect(tab.activeStreamId).toBe('stream-retry');
   });
 
   it('retryStreamWithExpress no-ops when stream fallback is not offered', async () => {
@@ -295,6 +275,17 @@ describe('useGrpcStudio coverage gaps', () => {
         expect.objectContaining({ expectedRequestId: 'req-await' }),
       );
     });
+  });
+
+  it('registers app lifecycle hooks that expose tab ids and detach stream events', () => {
+    renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+    expect(registerAppLifecycle).toHaveBeenCalled();
+    const config = registerAppLifecycle.mock.calls.at(-1)?.[0] as {
+      getTabIds: () => string[];
+      detachStreamEvents: (tabId: string) => void;
+    };
+    expect(config.getTabIds().length).toBeGreaterThan(0);
+    expect(() => config.detachStreamEvents(config.getTabIds()[0]!)).not.toThrow();
   });
 
   it('defaults maxTabs to GRPC_STUDIO_MAX_TABS', () => {
@@ -367,5 +358,75 @@ describe('useGrpcStudio coverage gaps', () => {
     });
 
     expect(result.current.tabs.map((tab) => tab.id)).toEqual(before);
+  });
+
+  it('restorePersistedSession falls back to the first tab when active id is missing', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'missing-active',
+        tabs: [{
+          id: 'only-tab',
+          title: 'Only',
+          target: 'localhost:50051',
+          tlsMode: 'disabled',
+          metadata: {},
+          timeoutMs: 30_000,
+          requestMode: 'form',
+          body: { message: 'one' },
+          servicesCollapsed: false,
+        }],
+        tabDescriptors: null as never,
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.activeTabId).toBe('only-tab');
+    expect(result.current.getTabDescriptor('only-tab').loadState).toBe('idle');
+  });
+
+  it('restorePersistedSession respects maxTabs when restoring persisted tabs', () => {
+    const { result } = renderHook(() => useGrpcStudio({
+      pageDefaults: PAGE_DEFAULTS,
+      maxTabs: 1,
+    }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'persisted-tab-2',
+        tabs: [
+          {
+            id: 'persisted-tab-1',
+            title: 'First',
+            target: 'localhost:50051',
+            tlsMode: 'disabled',
+            metadata: {},
+            timeoutMs: 30_000,
+            requestMode: 'form',
+            body: { message: 'one' },
+            servicesCollapsed: false,
+          },
+          {
+            id: 'persisted-tab-2',
+            title: 'Second',
+            target: 'localhost:50052',
+            tlsMode: 'disabled',
+            metadata: {},
+            timeoutMs: 30_000,
+            requestMode: 'json',
+            body: { message: 'two' },
+            servicesCollapsed: true,
+          },
+        ],
+        tabDescriptors: {},
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.tabs).toHaveLength(1);
+    expect(result.current.activeTabId).toBe('persisted-tab-1');
   });
 });

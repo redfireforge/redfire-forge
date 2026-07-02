@@ -51,7 +51,7 @@ describe('GrpcMethodDetailPanel (Phase 1E)', () => {
 
     expect(screen.getByTestId('grpc-method-detail-service').textContent).toBe('echo.EchoService');
     expect(screen.getByTestId('grpc-method-detail-heading').textContent).toMatch(/EchoService \/ Echo/);
-    expect(screen.getByTestId('grpc-method-unary-ready')).toBeTruthy();
+    expect(screen.getByTestId('grpc-method-call-type').className).toContain('grpc-method-detail-badge--ready');
   });
 
   it('renders stale method snapshot when provided for blocking drift', () => {
