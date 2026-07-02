@@ -35,6 +35,87 @@ function coerceWideLongForEncode(value: unknown, fieldType: string): unknown {
   return value;
 }
 
+function protobufCamelToSnake(name: string): string {
+  return name.replace(/([A-Z])/g, '_$1').toLowerCase();
+}
+
+/** Map schema/snake_case JSON bodies onto protobufjs field names (reflection roots use camelCase). */
+function alignBodyToProtobufFieldNames(
+  type: protobuf.Type,
+  body: Record<string, unknown>,
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...body };
+
+  for (const field of type.fieldsArray) {
+    const protoName = field.name;
+    const schemaName = protobufCamelToSnake(protoName);
+    if (schemaName !== protoName && next[schemaName] !== undefined && next[protoName] === undefined) {
+      next[protoName] = next[schemaName];
+      delete next[schemaName];
+    }
+
+    const value = next[protoName];
+    if (value === undefined || value === null) continue;
+
+    if (field.resolvedType instanceof protobuf.Type) {
+      if (field.repeated && Array.isArray(value)) {
+        next[protoName] = value.map((item) => (
+          typeof item === 'object' && item && !Array.isArray(item)
+            ? alignBodyToProtobufFieldNames(field.resolvedType as protobuf.Type, item as Record<string, unknown>)
+            : item
+        ));
+      } else if (!field.repeated && !field.map && typeof value === 'object' && !Array.isArray(value)) {
+        next[protoName] = alignBodyToProtobufFieldNames(
+          field.resolvedType as protobuf.Type,
+          value as Record<string, unknown>,
+        );
+      }
+    }
+  }
+
+  return next;
+}
+
+/** Normalize decoded protobufjs objects back to schema/snake_case field names. */
+function alignDecodedBodyToSchemaNames(
+  type: protobuf.Type,
+  body: Record<string, unknown>,
+): Record<string, unknown> {
+  const next: Record<string, unknown> = { ...body };
+
+  for (const field of type.fieldsArray) {
+    const protoName = field.name;
+    const schemaName = protobufCamelToSnake(protoName);
+    const hasProto = Object.prototype.hasOwnProperty.call(next, protoName);
+    const hasSchema = Object.prototype.hasOwnProperty.call(next, schemaName);
+    if (!hasProto && !hasSchema) continue;
+
+    let value = hasProto ? next[protoName] : next[schemaName];
+
+    if (field.resolvedType instanceof protobuf.Type) {
+      if (field.repeated && Array.isArray(value)) {
+        value = value.map((item) => (
+          typeof item === 'object' && item && !Array.isArray(item)
+            ? alignDecodedBodyToSchemaNames(field.resolvedType as protobuf.Type, item as Record<string, unknown>)
+            : item
+        ));
+      } else if (!field.repeated && !field.map && typeof value === 'object' && value && !Array.isArray(value)) {
+        value = alignDecodedBodyToSchemaNames(
+          field.resolvedType as protobuf.Type,
+          value as Record<string, unknown>,
+        );
+      }
+    }
+
+    next[schemaName] = value;
+    if (schemaName !== protoName) {
+      delete next[protoName];
+    }
+  }
+
+  return next;
+}
+
 function normalizeBodyForEncode(type: protobuf.Type, body: Record<string, unknown>): Record<string, unknown> {
   const next: Record<string, unknown> = { ...body };
 
@@ -340,7 +421,8 @@ export function encodeProtoMessage(
 ): Buffer {
   const root = getRoot(descriptor);
   const Type = lookupMessageType(root, typeName);
-  const normalizedBody = normalizeBodyForEncode(Type, body);
+  const alignedBody = alignBodyToProtobufFieldNames(Type, body);
+  const normalizedBody = normalizeBodyForEncode(Type, alignedBody);
   const err = Type.verify(normalizedBody);
   if (err) {
     throw new Error(`Invalid request body for ${typeName}: ${err}`);
@@ -357,10 +439,11 @@ export function decodeProtoMessage(
   const root = getRoot(descriptor);
   const Type = lookupMessageType(root, typeName);
   const decoded = Type.decode(buffer);
-  return Type.toObject(decoded, {
+  const object = Type.toObject(decoded, {
     longs: String,
     enums: String,
     bytes: String,
     defaults: true,
   }) as Record<string, unknown>;
+  return alignDecodedBodyToSchemaNames(Type, object);
 }

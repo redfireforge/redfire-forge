@@ -343,4 +343,34 @@ describe('GrpcProtoFormBuilder (Phase 1F)', () => {
     fireEvent.change(textarea, { target: { value: '{ "id": 9007199254740993 }' } });
     expect(screen.getByTestId('grpc-proto-field-input-inner-error')).toBeTruthy();
   });
+
+  it('accumulates rapid sequential field edits without stale body closure', () => {
+    const streamSchema = FIXTURE_DESCRIPTOR.services[0]!.methods.find(
+      (method) => method.name === 'ServerStream',
+    )!.requestSchema;
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoFormBuilder
+        schema={streamSchema}
+        body={{ message: '', repeat_count: 0, interval_ms: 0 }}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-message'), {
+      target: { value: 'e2e-ss' },
+    });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-repeat_count'), {
+      target: { value: '3' },
+    });
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-interval_ms'), {
+      target: { value: '0' },
+    });
+
+    expect(onChange).toHaveBeenLastCalledWith({
+      message: 'e2e-ss',
+      repeat_count: 3,
+      interval_ms: 0,
+    });
+  });
 });
