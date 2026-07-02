@@ -27,7 +27,7 @@ describe('Phase 11J acceptance checklist', () => {
 
   it('checklist-2: IDB v12 stores and forbidden mock export target are registered', () => {
     const idb = readSrc('src/shared/utils/idbOpen.ts');
-    expect(idb).toContain('const DB_VERSION = 12');
+    expect(idb).toContain('export const DB_VERSION = 12');
     expect(idb).toContain('grpc-load-test-profiles');
     expect(idb).toContain('grpc-schema-diff-acks');
     expect(GRPC_FORBIDDEN_SECRET_PERSIST_TARGETS).toContain('grpc_mock_rule_export');

@@ -7,8 +7,9 @@
  * DevTools holding a lock), we reject so callers can fall back to localStorage.
  */
 
-const DB_NAME = 'redfireforge';
-const DB_VERSION = 12; // v12: gRPC Studio Phase 11J — load-test profiles + schema diff acks
+export const DB_NAME = 'redfireforge';
+/** Bump when adding object stores; E2E imports this via e2e/helpers.ts */
+export const DB_VERSION = 12; // v12: gRPC Studio Phase 11J — load-test profiles + schema diff acks
 const OPEN_TIMEOUT_MS = 10_000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;

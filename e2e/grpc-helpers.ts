@@ -3,7 +3,7 @@
  */
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { slugifyGrpcExplorerId } from '../src/features/grpc/utils/grpcExplorerUtils';
-import { seedAppData } from './helpers';
+import { REDFIREFORGE_IDB_VERSION, seedAppData } from './helpers';
 
 export const GRPC_HEALTH = 'http://localhost:50052/health';
 export const GRPC_TARGET = 'localhost:50051';
@@ -342,7 +342,7 @@ export async function seedGrpcUnarySavedRequestShell(
   const savedId = options?.savedId ?? 'e2e-sr-snapshot-shell';
   const savedName = options?.savedName ?? 'E2E Shell Snapshot';
 
-  await page.evaluate(async ({ collectionId: colId, savedId: srId, savedName: srName }) => {
+  await page.evaluate(async ({ collectionId: colId, savedId: srId, savedName: srName, dbVersion }) => {
     const TS = new Date().toISOString();
     const colRow = {
       id: colId,
@@ -372,7 +372,7 @@ export async function seedGrpcUnarySavedRequestShell(
     };
 
     await new Promise<void>((resolve, reject) => {
-      const req = indexedDB.open('redfireforge');
+      const req = indexedDB.open('redfireforge', dbVersion);
       req.onerror = () => reject(req.error ?? new Error('Failed to open IndexedDB'));
       req.onsuccess = () => {
         const db = req.result;
@@ -392,7 +392,7 @@ export async function seedGrpcUnarySavedRequestShell(
         tx.onerror = () => reject(tx.error ?? new Error('Failed to seed gRPC collections'));
       };
     });
-  }, { collectionId, savedId, savedName });
+  }, { collectionId, savedId, savedName, dbVersion: REDFIREFORGE_IDB_VERSION });
 
   return { collectionId, savedId };
 }

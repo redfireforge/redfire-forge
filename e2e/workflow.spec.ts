@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { confirmFolderPickerModal, seedAppData } from './helpers';
+import { confirmFolderPickerModal, REDFIREFORGE_IDB_VERSION, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeSampleWorkflow(): Workflow {
@@ -130,11 +130,11 @@ test.describe('Workflow Designer', () => {
     await saveBtn.click({ force: true });
 
     // Verify workflow was persisted (may be in IndexedDB or localStorage)
-    const stored = await page.evaluate(async () => {
+    const stored = await page.evaluate(async (dbVersion) => {
       // Try IndexedDB first (v5+), fall back to localStorage
       try {
         const db = await new Promise<IDBDatabase>((resolve, reject) => {
-          const req = indexedDB.open('redfireforge');
+          const req = indexedDB.open('redfireforge', dbVersion);
           req.onsuccess = () => resolve(req.result);
           req.onerror = () => reject(req.error);
         });
@@ -151,7 +151,7 @@ test.describe('Workflow Designer', () => {
         db.close();
       } catch { /* fallback */ }
       return localStorage.getItem('workflows');
-    });
+    }, REDFIREFORGE_IDB_VERSION);
     expect(stored).toBeTruthy();
     const parsed = JSON.parse(stored!);
     expect(parsed.length).toBeGreaterThan(0);

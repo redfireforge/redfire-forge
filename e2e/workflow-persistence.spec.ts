@@ -1,5 +1,5 @@
 import { test, expect, type Page, type BrowserContext } from '@playwright/test';
-import { gotoAppTab, reloadAppTab, waitForWorkflowReady } from './helpers';
+import { gotoAppTab, REDFIREFORGE_IDB_VERSION, reloadAppTab, waitForWorkflowReady } from './helpers';
 
 // Persistence assertions depend on ordered localStorage/IndexedDB transitions.
 test.describe.configure({ mode: 'serial' });
@@ -111,12 +111,12 @@ async function setupPersistenceTest(page: Page, context: BrowserContext): Promis
 }
 
 function getWorkflowFromStorage(page: Page) {
-  return page.evaluate(async () => {
+  return page.evaluate(async (dbVersion) => {
     // Try IndexedDB first (v5+), fall back to localStorage
     let raw: string | null = null;
     try {
       const db = await new Promise<IDBDatabase>((resolve, reject) => {
-        const req = indexedDB.open('redfireforge');
+        const req = indexedDB.open('redfireforge', dbVersion);
         req.onsuccess = () => resolve(req.result);
         req.onerror = () => reject(req.error);
       });
@@ -142,7 +142,7 @@ function getWorkflowFromStorage(page: Page) {
       nodeLabels: (wf.nodes as { data?: { label?: string } }[]).map(n => n.data?.label ?? '(no label)'),
       serviceCount: (wf.services as unknown[] ?? []).length,
     };
-  });
+  }, REDFIREFORGE_IDB_VERSION);
 }
 
 test.describe('Workflow persistence across hard refresh', () => {
