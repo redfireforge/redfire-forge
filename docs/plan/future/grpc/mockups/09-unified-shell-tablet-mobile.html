@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gRPC Studio UX Proposal C - Tablet and Mobile Layout</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+.page-note {
+  margin: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-muted);
+  padding: 10px 12px;
+  font-size: 12px;
+}
+
+.top-strip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.top-strip input {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--mono);
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  padding: 6px 10px;
+}
+
+.mobile-shell {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  overflow: hidden;
+}
+
+.method-compact {
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.method-compact .name {
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.method-compact .meta {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.stage-tabs {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.stage-tab {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 11px;
+  padding: 6px 8px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.stage-tab.active {
+  border-color: var(--primary);
+  background: var(--primary-dim);
+  color: var(--text);
+}
+
+.stage-panel {
+  display: none;
+  min-height: 0;
+  overflow: auto;
+  padding: 10px;
+  background: var(--bg);
+}
+
+.stage-panel.active {
+  display: block;
+}
+
+.field {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.field label {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.field input,
+.field textarea {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--text);
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.field textarea {
+  min-height: 180px;
+  resize: vertical;
+  font-family: var(--mono);
+}
+
+.response-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  border: 1px solid rgba(166,227,161,0.3);
+  background: rgba(166,227,161,0.1);
+  color: var(--success);
+  font-size: 11px;
+  margin-bottom: 10px;
+}
+
+.response-block pre {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: var(--mono);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.fab-send {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  border: 1px solid var(--primary);
+  border-radius: 999px;
+  padding: 10px 14px;
+  background: var(--primary);
+  color: #101320;
+  font-weight: 700;
+  font-size: 12px;
+  box-shadow: var(--shadow);
+}
+
+@media (min-width: 860px) {
+  .mobile-shell {
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .stage-tabs {
+    display: none;
+  }
+
+  .panes-tablet {
+    display: grid;
+    grid-template-columns: minmax(0, 48%) minmax(0, 52%);
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .panes-tablet .stage-panel {
+    display: block;
+    border-right: 1px solid var(--border);
+  }
+
+  .panes-tablet .stage-panel:last-child {
+    border-right: none;
+  }
+
+  #tab-meta,
+  #tab-auth {
+    display: none !important;
+  }
+}
+</style>
+</head>
+<body>
+<div class="app-header">
+  <a class="app-logo" href="index.html">🔥 <span>RedfireForge</span></a>
+  <div class="nav-pills">
+    <button class="nav-pill">API</button>
+    <button class="nav-pill">Workflow</button>
+    <button class="nav-pill">Harness</button>
+    <button class="nav-pill active">Protocols</button>
+  </div>
+  <div class="header-right">
+    <div class="env-badge">staging</div>
+    <div style="font-size:12px;color:var(--text-muted)">UX proposal C</div>
+  </div>
+</div>
+
+<div class="proto-nav">
+  <button class="proto-tab">Kafka</button>
+  <button class="proto-tab">WebSocket</button>
+  <button class="proto-tab">GraphQL</button>
+  <button class="proto-tab">SSE</button>
+  <button class="proto-tab active"><span class="dot"></span> gRPC</button>
+</div>
+
+<div class="top-strip">
+  <input value="localhost:50051" aria-label="target">
+  <button class="btn btn-ghost btn-sm">TLS</button>
+  <button class="btn btn-ghost btn-sm">Auth</button>
+</div>
+
+<div class="page-note">
+  Mobile and tablet proposal: use stage tabs on narrow screens and two-pane request/response on wider tablets.
+</div>
+
+<div class="mobile-shell">
+  <div class="method-compact">
+    <div>
+      <div class="name">EchoService / Echo <span class="method-badge badge-u">U</span></div>
+      <div class="meta">Unary RPC · echo.EchoRequest -> echo.EchoResponse</div>
+    </div>
+    <span style="font-size:11px;color:var(--text-faint)">30s</span>
+  </div>
+
+  <div class="stage-tabs">
+    <button class="stage-tab active" data-tab="request" onclick="switchTab(this)">Request</button>
+    <button class="stage-tab" data-tab="response" onclick="switchTab(this)">Response</button>
+    <button class="stage-tab" data-tab="meta" onclick="switchTab(this)">Metadata</button>
+    <button class="stage-tab" data-tab="auth" onclick="switchTab(this)">Auth</button>
+  </div>
+
+  <div class="panes-tablet">
+    <section id="tab-request" class="stage-panel active">
+      <div class="field">
+        <label>message</label>
+        <textarea>{
+  "message": "Hello from gRPC Studio"
+}</textarea>
+      </div>
+    </section>
+
+    <section id="tab-response" class="stage-panel">
+      <span class="response-status">OK · 0 · 37ms</span>
+      <div class="response-block">
+<pre>{
+  "message": "Hello from gRPC Studio"
+}</pre>
+      </div>
+    </section>
+
+    <section id="tab-meta" class="stage-panel">
+      <div class="field">
+        <label>x-correlation-id</label>
+        <input value="demo-201">
+      </div>
+      <div class="field">
+        <label>x-trace</label>
+        <input value="trace-991">
+      </div>
+    </section>
+
+    <section id="tab-auth" class="stage-panel">
+      <div class="field">
+        <label>Type</label>
+        <input value="Bearer token">
+      </div>
+      <div class="field">
+        <label>Token</label>
+        <input value="{{accessToken}}">
+      </div>
+    </section>
+  </div>
+</div>
+
+<button class="fab-send">Send Unary</button>
+
+<script>
+function switchTab(button) {
+  const key = button.getAttribute('data-tab');
+  document.querySelectorAll('.stage-tab').forEach((tab) => tab.classList.remove('active'));
+  button.classList.add('active');
+
+  document.querySelectorAll('.stage-panel').forEach((panel) => panel.classList.remove('active'));
+  const panel = document.getElementById('tab-' + key);
+  if (panel) panel.classList.add('active');
+}
+</script>
+</body>
+</html>

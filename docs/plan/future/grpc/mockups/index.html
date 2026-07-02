@@ -59,7 +59,7 @@ body { overflow: auto; height: auto; min-height: 100vh; }
     <div style="margin-top:10px;display:flex;gap:12px;align-items:center">
       <a href="../grpc-studio-plan.md" class="plan-link">📋 View Implementation Plan (grpc-studio-plan.md)</a>
       <span style="color:var(--border)">|</span>
-      <span style="font-size:12px;color:var(--text-faint)">Covers Phases 1–12 · 6 mockup files · shared <code style="font-family:var(--mono);font-size:11px">mockup-shared.js</code> (Phase 4J TLS modal)</span>
+      <span style="font-size:12px;color:var(--text-faint)">Covers Phases 1–12 + UX proposals · 9 mockup files · shared <code style="font-family:var(--mono);font-size:11px">mockup-shared.js</code> (Phase 4J TLS modal)</span>
     </div>
   </div>
 
@@ -74,6 +74,7 @@ body { overflow: auto; height: auto; min-height: 100vh; }
         <tr><td><span class="status-pip pip-mvp"></span></td><td><strong>Phase 3</strong></td><td>Proto Management & Schema Registry</td><td class="mockup-ref"><a href="03-proto-management.html" style="color:var(--primary)">03-proto-management.html</a></td><td>✅</td></tr>
         <tr><td><span class="status-pip pip-mvp"></span></td><td><strong>Phase 4</strong></td><td>TLS, mTLS, Auth, Deadline, Compression, Health, K8s (logic)</td><td class="mockup-ref"><a href="04-auth-tls.html" style="color:var(--primary)">04-auth-tls.html</a></td><td>✅ logic</td></tr>
         <tr><td><span class="status-pip pip-adv" style="background:var(--danger)"></span></td><td><strong>Phase 4J</strong></td><td>Protocol UI/UX parity — connection bar, TLS modal, auth shell (align with GQL/WS + mockups <a href="01-main-studio.html" style="color:var(--primary)">01</a> / <a href="04-auth-tls.html" style="color:var(--primary)">04</a>)</td><td class="mockup-ref"><a href="../grpc-studio-plan.md#phase-4j--protocol-uiux-parity-highest-priority" style="color:var(--primary)">grpc-studio-plan.md §4J</a></td><td>🔴 NEXT</td></tr>
+        <tr><td><span class="status-pip pip-adv"></span></td><td><strong>UX A/B/C</strong></td><td>Concrete shell proposals for compact layout, response focus mode, and tablet/mobile behavior</td><td class="mockup-ref"><a href="07-unified-shell-desktop.html" style="color:var(--primary)">07</a> · <a href="08-unified-shell-response-focus.html" style="color:var(--primary)">08</a> · <a href="09-unified-shell-tablet-mobile.html" style="color:var(--primary)">09</a></td><td>✅ review</td></tr>
         <tr><td><span class="status-pip pip-mvp"></span></td><td><strong>Phase 5</strong></td><td>Collections, History & Snapshot Testing</td><td class="mockup-ref"><a href="05-collections-history.html" style="color:var(--primary)">05-collections-history.html</a></td><td>blocked 4J</td></tr>
         <tr><td><span class="status-pip pip-plan"></span></td><td><strong>Phase 6</strong></td><td>Workflow Integration (grpcUnary / grpcServerStream nodes)</td><td class="mockup-ref" style="color:var(--text-faint)">— (reuses Workflow Studio patterns)</td><td>—</td></tr>
         <tr><td><span class="status-pip pip-plan"></span></td><td><strong>Phase 7</strong></td><td>Tauri Native Transport (Rust tonic)</td><td class="mockup-ref" style="color:var(--text-faint)">— (UI same as Phase 1, transport switch in Phase 4)</td><td>—</td></tr>
@@ -342,6 +343,96 @@ body { overflow: auto; height: auto; min-height: 100vh; }
         </div>
       </div>
       <div class="card-open">Open Mockup → <span>06-advanced-features.html</span></div>
+    </a>
+
+    <!-- 07 Unified Shell Desktop -->
+    <a href="07-unified-shell-desktop.html" class="mockup-card">
+      <div class="card-preview">
+        <div style="width:100%;height:100%;padding:8px;display:grid;grid-template-columns:48px 1fr 1fr;gap:4px;opacity:0.8">
+          <div style="background:var(--surface);border-radius:3px;padding:4px;display:flex;flex-direction:column;gap:3px">
+            <div style="height:4px;background:var(--primary);border-radius:2px;opacity:0.8"></div>
+            <div style="height:4px;background:var(--border);border-radius:2px"></div>
+            <div style="height:4px;background:var(--border);border-radius:2px"></div>
+          </div>
+          <div style="background:var(--bg);border-radius:3px;padding:4px;display:flex;flex-direction:column;gap:3px">
+            <div style="height:5px;background:var(--surface);border-radius:2px"></div>
+            <div style="height:4px;background:var(--border);border-radius:2px;width:80%"></div>
+            <div style="height:4px;background:var(--border);border-radius:2px;width:60%"></div>
+          </div>
+          <div style="background:var(--bg);border-radius:3px;padding:4px;display:flex;flex-direction:column;gap:3px">
+            <div style="height:5px;background:var(--surface);border-radius:2px"></div>
+            <div style="height:4px;background:var(--success);border-radius:2px;width:70%;opacity:0.6"></div>
+            <div style="height:4px;background:var(--border);border-radius:2px;width:90%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-info">
+        <div class="card-phase">UX Proposal A</div>
+        <div class="card-title">Unified Desktop Shell</div>
+        <div class="card-desc">Three-column shell with compact top chrome: Services, Request Composer, and always-visible Response Inspector.</div>
+        <div class="card-tags">
+          <span class="tag t-blue">Unified Shell</span>
+          <span class="tag t-green">Always-Visible Response</span>
+          <span class="tag t-teal">Compact Top Stack</span>
+        </div>
+      </div>
+      <div class="card-open">Open Mockup → <span>07-unified-shell-desktop.html</span></div>
+    </a>
+
+    <!-- 08 Response Focus -->
+    <a href="08-unified-shell-response-focus.html" class="mockup-card">
+      <div class="card-preview">
+        <div style="width:100%;height:100%;padding:8px;display:flex;flex-direction:column;gap:4px;opacity:0.8">
+          <div style="height:14px;background:var(--surface);border-radius:3px"></div>
+          <div style="height:10px;background:var(--surface2);border-radius:3px"></div>
+          <div style="height:20%;background:var(--surface);border-radius:3px"></div>
+          <div style="flex:1;background:var(--bg);border-radius:3px;padding:4px;display:flex;flex-direction:column;gap:3px">
+            <div style="height:5px;background:var(--success);border-radius:2px;width:35%;opacity:0.6"></div>
+            <div style="height:4px;background:var(--border);border-radius:2px;width:95%"></div>
+            <div style="height:4px;background:var(--border);border-radius:2px;width:80%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-info">
+        <div class="card-phase">UX Proposal B</div>
+        <div class="card-title">Response Focus Mode</div>
+        <div class="card-desc">Adds Composer, Split, and Response Focus modes so users can keep request context while maximizing response visibility after Send.</div>
+        <div class="card-tags">
+          <span class="tag t-green">Response Focus</span>
+          <span class="tag t-orange">Mode Strip</span>
+          <span class="tag t-blue">Sticky Status</span>
+        </div>
+      </div>
+      <div class="card-open">Open Mockup → <span>08-unified-shell-response-focus.html</span></div>
+    </a>
+
+    <!-- 09 Tablet Mobile -->
+    <a href="09-unified-shell-tablet-mobile.html" class="mockup-card">
+      <div class="card-preview">
+        <div style="width:100%;height:100%;padding:8px;display:flex;gap:6px;opacity:0.8">
+          <div style="width:42%;background:var(--bg);border-radius:3px;padding:4px;display:flex;flex-direction:column;gap:3px">
+            <div style="height:4px;background:var(--surface);border-radius:2px"></div>
+            <div style="height:3px;background:var(--primary);border-radius:2px;opacity:0.7"></div>
+            <div style="height:20px;background:var(--surface);border-radius:2px"></div>
+          </div>
+          <div style="flex:1;background:var(--bg);border-radius:3px;padding:4px;display:flex;flex-direction:column;gap:3px">
+            <div style="height:4px;background:var(--success);border-radius:2px;width:55%;opacity:0.7"></div>
+            <div style="height:3px;background:var(--border);border-radius:2px;width:88%"></div>
+            <div style="height:3px;background:var(--border);border-radius:2px;width:72%"></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-info">
+        <div class="card-phase">UX Proposal C</div>
+        <div class="card-title">Tablet and Mobile Adaptation</div>
+        <div class="card-desc">Stage-tab mobile navigation with a floating send action; tablet shifts to request/response side-by-side without changing mental model.</div>
+        <div class="card-tags">
+          <span class="tag t-mauve">Responsive</span>
+          <span class="tag t-teal">Stage Tabs</span>
+          <span class="tag t-green">Tablet Split</span>
+        </div>
+      </div>
+      <div class="card-open">Open Mockup → <span>09-unified-shell-tablet-mobile.html</span></div>
     </a>
 
   </div>
