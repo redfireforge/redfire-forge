@@ -68,6 +68,25 @@ describe('dynamicProtoCodec', () => {
     expect(decoded.interval_ms).toBe(0);
   });
 
+  it('maps snake_case JSON bodies onto camelCase reflection protobuf roots', () => {
+    const snakeRoot = parseProtoFiles([{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }]);
+    const descriptor = normalizeRootToDescriptor(snakeRoot, 'reflection', 'reflect-camel-test');
+    const camelProto = FIXTURE_ECHO_PROTO
+      .replace('repeat_count', 'repeatCount')
+      .replace('interval_ms', 'intervalMs');
+    const camelRoot = parseProtoFiles([{ path: 'echo.proto', content: camelProto }]);
+    setDescriptorRootCache(descriptor.key, camelRoot);
+
+    const encoded = encodeProtoMessage(descriptor, 'echo.StreamRequest', {
+      message: 'e2e-ss',
+      repeat_count: 3,
+      interval_ms: 0,
+    });
+    const decoded = decodeProtoMessage(descriptor, 'echo.StreamRequest', encoded);
+    expect(decoded.repeat_count).toBe(3);
+    expect(decoded.interval_ms).toBe(0);
+  });
+
   it('throws when type is missing from descriptor', () => {
     expect(() => encodeProtoMessage(
       FIXTURE_DESCRIPTOR,

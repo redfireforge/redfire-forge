@@ -54,6 +54,35 @@ describe('GrpcExplorerPane coverage gaps', () => {
     expect(screen.getByTestId('grpc-call-panel')).toBeTruthy();
   });
 
+  it('keeps the call panel enabled while a stream is active', () => {
+    render(
+      <GrpcExplorerPane
+        tab={{
+          ...tab,
+          method: 'ClientStream',
+          streamLifecycle: 'streaming',
+          activeStreamId: 'stream-active',
+        }}
+        tabPanelId="grpc-tab-pane-test"
+        descriptorState={{
+          ...createEmptyTabDescriptorState(),
+          descriptor: FIXTURE_DESCRIPTOR,
+        }}
+        canReflect
+        targetValid
+        targetAddress="localhost:50051"
+        onReflect={vi.fn()}
+        onManageSchemas={vi.fn()}
+        onSelectMethod={vi.fn()}
+        onToggleServiceExpanded={vi.fn()}
+        onTabPatch={vi.fn()}
+      />,
+    );
+
+    expect((screen.getByTestId('grpc-proto-field-input-message') as HTMLInputElement).disabled).toBe(false);
+    expect((screen.getByTestId('grpc-stream-send-now-btn') as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it('renders connectionChrome at top of main column', () => {
     render(
       <GrpcExplorerPane

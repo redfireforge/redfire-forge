@@ -90,6 +90,13 @@ export async function setGrpcTarget(page: Page, target = GRPC_TARGET): Promise<v
 export async function setGrpcCallTimeout(page: Page, timeoutMs: number): Promise<void> {
   const input = page.locator('[data-testid="grpc-call-timeout-input"]');
   await input.fill(String(timeoutMs));
+  await expect(input).toHaveValue(String(timeoutMs));
+}
+
+export async function fillProtoField(page: Page, fieldName: string, value: string): Promise<void> {
+  const input = page.locator(`[data-testid="grpc-proto-field-input-${fieldName}"]`);
+  await input.fill(value);
+  await expect(input).toHaveValue(value);
 }
 
 export async function reflectGrpcServices(page: Page): Promise<void> {
@@ -132,14 +139,30 @@ export async function fillStreamRequest(
   page: Page,
   fields: { message?: string; repeat_count?: number; interval_ms?: number },
 ): Promise<void> {
+  const hasStreamNumericFields = fields.repeat_count !== undefined || fields.interval_ms !== undefined;
+  if (!hasStreamNumericFields) {
+    if (fields.message !== undefined) {
+      await fillProtoField(page, 'message', fields.message);
+    }
+    return;
+  }
+
+  const body: Record<string, unknown> = {};
+  if (fields.message !== undefined) body.message = fields.message;
+  if (fields.repeat_count !== undefined) body.repeat_count = fields.repeat_count;
+  if (fields.interval_ms !== undefined) body.interval_ms = fields.interval_ms;
+
+  await page.locator('[data-testid="grpc-request-tab-json"]').click();
+  const jsonEditor = page.locator('[data-testid="grpc-request-json"]');
+  const jsonText = JSON.stringify(body, null, 2);
+  await jsonEditor.fill(jsonText);
+  await expect(jsonEditor).toHaveValue(jsonText);
+  await page.locator('[data-testid="grpc-request-tab-form"]').click();
   if (fields.message !== undefined) {
-    await page.locator('[data-testid="grpc-proto-field-input-message"]').fill(fields.message);
+    await expect(page.locator('[data-testid="grpc-proto-field-input-message"]')).toHaveValue(fields.message);
   }
   if (fields.repeat_count !== undefined) {
-    await page.locator('[data-testid="grpc-proto-field-input-repeat_count"]').fill(String(fields.repeat_count));
-  }
-  if (fields.interval_ms !== undefined) {
-    await page.locator('[data-testid="grpc-proto-field-input-interval_ms"]').fill(String(fields.interval_ms));
+    await expect(page.locator('[data-testid="grpc-proto-field-input-repeat_count"]')).toHaveValue(String(fields.repeat_count));
   }
 }
 
@@ -173,7 +196,12 @@ export async function sendAllPendingStreamMessages(page: Page): Promise<void> {
   await btn.evaluate((node) => (node as HTMLButtonElement).click());
 }
 
+export async function waitForStreamStreaming(page: Page): Promise<void> {
+  await expect(page.locator('[data-testid="grpc-stream-status-badge"]')).toContainText('Streaming', { timeout: 30_000 });
+}
+
 export async function sendStreamMessage(page: Page): Promise<void> {
+  await waitForStreamStreaming(page);
   const sendNow = page.locator('[data-testid="grpc-stream-compose-panel"] [data-testid="grpc-stream-send-now-btn"]');
   if (await sendNow.count()) {
     await expect(sendNow).toBeEnabled({ timeout: 10_000 });
@@ -209,7 +237,7 @@ export async function cancelGrpcStream(page: Page): Promise<void> {
 }
 
 export async function fillEchoMessage(page: Page, message: string): Promise<void> {
-  await page.locator('[data-testid="grpc-proto-field-input-message"]').fill(message);
+  await fillProtoField(page, 'message', message);
 }
 
 export async function sendUnaryCall(page: Page): Promise<void> {

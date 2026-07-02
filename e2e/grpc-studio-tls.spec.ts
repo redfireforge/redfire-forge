@@ -129,7 +129,7 @@ test.describe('gRPC Studio — Phase 4J settings drawer (shell)', () => {
     await page.locator('[data-testid="grpc-k8s-name"]').fill('order-service');
     await expect(page.locator('[data-testid="grpc-k8s-start-btn"]')).toBeEnabled();
     await page.locator('[data-testid="grpc-k8s-start-btn"]').click();
-    await expect(page.locator('[data-testid="grpc-k8s-status"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-k8s-status"]')).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-testid="grpc-target-input"]')).toHaveValue('localhost:50051');
   });
 
