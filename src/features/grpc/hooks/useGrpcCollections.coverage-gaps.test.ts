@@ -314,10 +314,11 @@ describe('useGrpcCollections coverage gaps (Phase 5H)', () => {
       expect(exported.store.collections).toHaveLength(1);
     });
 
+    const emptyStore = createEmptyGrpcCollectionsStore();
     await act(async () => {
-      await result.current.importCollections({ store: createEmptyGrpcCollectionsStore() }, 'replace');
+      await result.current.importCollections({ store: emptyStore }, 'replace');
     });
     expect(exportMock).toHaveBeenCalled();
-    expect(importMock).toHaveBeenCalledWith({ store: createEmptyGrpcCollectionsStore() }, 'replace');
+    expect(importMock).toHaveBeenCalledWith({ store: emptyStore }, 'replace');
   });
 });
