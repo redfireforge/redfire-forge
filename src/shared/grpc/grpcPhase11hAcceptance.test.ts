@@ -29,13 +29,15 @@ describe('Phase 11H acceptance checklist', () => {
   });
 
   it('useGrpcStudioAdvancedFeatures wires safe export serializers', () => {
-    const src = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
-    expect(src).toContain('buildGrpcAdvancedFeatureSourceMetadata');
-    expect(src).toContain('serializeGrpcLoadTestRunSummaryExportSafeJson');
-    expect(src).toContain('serializeGrpcLoadTestRunSummaryExportSafeCsv');
-    expect(src).toContain('serializeGrpcSchemaDiffReportExportSafeJson');
-    expect(src).toContain('serializeGrpcSchemaDiffReportExportSafeMarkdown');
-    expect(src).toContain('lastExportSource');
+    const advanced = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
+    const exportCallbacks = readSrc('src/features/grpc/hooks/useGrpcAdvancedExportCallbacks.ts');
+    expect(advanced).toContain('useGrpcAdvancedExportCallbacks');
+    expect(advanced).toContain('buildGrpcAdvancedFeatureSourceMetadata');
+    expect(advanced).toContain('lastExportSource');
+    expect(exportCallbacks).toContain('serializeGrpcLoadTestRunSummaryExportSafeJson');
+    expect(exportCallbacks).toContain('serializeGrpcLoadTestRunSummaryExportSafeCsv');
+    expect(exportCallbacks).toContain('serializeGrpcSchemaDiffReportExportSafeJson');
+    expect(exportCallbacks).toContain('serializeGrpcSchemaDiffReportExportSafeMarkdown');
   });
 
   it('GrpcLoadTestPanel and GrpcSchemaDiffPanel copy via advanced export helpers', () => {
