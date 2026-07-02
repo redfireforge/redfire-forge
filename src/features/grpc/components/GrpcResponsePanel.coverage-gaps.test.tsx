@@ -27,6 +27,43 @@ describe('GrpcResponsePanel coverage gaps', () => {
     expect(screen.getByTestId('grpc-response-timing')).toBeTruthy();
   });
 
+  it('renders metadata and tracing tabs', () => {
+    render(
+      <GrpcResponsePanel
+        lifecycle="success"
+        lastResult={{
+          ...FIXTURE_UNARY_CALL_RESULT,
+          headers: {
+            'x-request-id': 'req-1',
+          },
+          trailers: {
+            'x-trace-id': 'trace-1',
+          },
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-response-tab-metadata'));
+    expect(screen.getByTestId('grpc-response-metadata')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('grpc-response-tab-tracing'));
+    expect(screen.getByTestId('grpc-response-tracing')).toBeTruthy();
+  });
+
+  it('toggles raw response body mode', () => {
+    render(
+      <GrpcResponsePanel
+        lifecycle="success"
+        lastResult={FIXTURE_UNARY_CALL_RESULT}
+      />,
+    );
+
+    const rawToggle = screen.getByTestId('grpc-response-raw-toggle');
+    expect(rawToggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(rawToggle);
+    expect(rawToggle.getAttribute('aria-pressed')).toBe('true');
+  });
+
   it('resets copy status after successful clipboard write', async () => {
     vi.useFakeTimers();
     Object.assign(navigator, {

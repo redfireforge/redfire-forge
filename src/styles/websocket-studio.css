@@ -3481,13 +3481,48 @@
 
 .ws-tls-modal-footer {
   display: flex;
+  flex-wrap: nowrap;
   align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
   padding: 12px 18px;
   border-top: 1px solid var(--border);
   background: color-mix(in srgb, var(--border) 8%, var(--bg-elevated, var(--surface)));
   flex-shrink: 0;
+}
+
+.tls-modal-footer-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.tls-modal-footer-group--left {
+  flex: 1 1 auto;
+}
+
+.tls-modal-footer-group--right {
+  flex: 0 0 auto;
+}
+
+.ws-tls-modal-footer .btn {
+  white-space: nowrap;
+}
+
+@media (max-width: 680px) {
+  .ws-tls-modal-footer {
+    gap: 8px;
+  }
+
+  .tls-modal-footer-group {
+    gap: 6px;
+  }
+
+  .ws-tls-modal-footer .btn {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
 }
 
 /* Mode badge in header */

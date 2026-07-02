@@ -54,7 +54,7 @@ export function GrpcMethodDetailPanel({
   const serviceLabel = selectedService ? serviceExplorerShortName(selectedService) : '';
 
   return (
-    <section className="grpc-method-detail" data-testid="grpc-method-detail">
+    <section className="grpc-method-detail grpc-method-detail--compact" data-testid="grpc-method-detail">
       <header className="grpc-method-detail-header">
         <div className="grpc-method-detail-primary">
           <h3 className="grpc-method-detail-title" data-testid="grpc-method-detail-heading">
@@ -95,11 +95,7 @@ export function GrpcMethodDetailPanel({
         <p className="grpc-method-detail-doc">{method.docComment}</p>
       )}
 
-      {unaryReady ? (
-        <p className="grpc-method-detail-hint grpc-method-detail-hint--ready" data-testid="grpc-method-unary-ready">
-          Unary-ready — request body seeded for Phase 1F composer.
-        </p>
-      ) : streamReady ? (
+      {streamReady ? (
         <p className="grpc-method-detail-hint grpc-method-detail-hint--ready" data-testid="grpc-method-streaming-ready">
           Streaming-ready — compose the request, then Start Stream (Send message / End stream for client and bidi).
         </p>

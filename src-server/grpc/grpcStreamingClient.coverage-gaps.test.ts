@@ -235,6 +235,30 @@ describe('GrpcJsStreamingClient mocked coverage gaps', () => {
     });
   });
 
+  it('ignores bidi cancelled error after client half-close and resolves terminal success', async () => {
+    const client = new GrpcJsStreamingClient();
+    const onTerminal = vi.fn();
+    const onError = vi.fn();
+    const handle = client.startStream(
+      { ...baseParams, callType: 'bidi_streaming' },
+      { onInboundMessage: vi.fn(), onTerminal, onError },
+    );
+
+    const bidiCall = mockCalls.at(-1) as EventEmitter & {
+      emit: (event: string, ...args: unknown[]) => boolean;
+    };
+
+    handle.endWrites();
+    bidiCall.emit('status', { code: 1, metadata: { getMap: () => ({}) } });
+    bidiCall.emit('error', Object.assign(new Error('Call cancelled'), { code: 1, details: 'Call cancelled' }));
+    bidiCall.emit('end');
+
+    await vi.waitFor(() => {
+      expect(onTerminal).toHaveBeenCalledWith(expect.objectContaining({ status: 0, statusMessage: 'OK' }));
+    });
+    expect(onError).not.toHaveBeenCalled();
+  });
+
   it('delegates through GrpcJsStreamingClientAdapter', () => {
     const adapter = new GrpcJsStreamingClientAdapter();
     const handle = adapter.startStream({ ...baseParams, callType: 'server_streaming' }, callbacks);

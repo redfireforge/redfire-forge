@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it, vi } from 'vitest';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, act } from '@testing-library/react';
 import { FIXTURE_DESCRIPTOR, FIXTURE_MULTI_SERVICE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
 import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
 import { createGrpcStudioTab } from '../grpcStudioTypes';
@@ -12,7 +12,7 @@ import { ECHO_METHOD, StatefulGrpcCallPanel } from './GrpcCallPanel.testHelpers'
 describe('GrpcCallPanel (Phase 1F)', () => {
   const method = ECHO_METHOD;
 
-  it('renders form tab and enables send when target is valid', () => {
+  it('renders form tab and enables send when target is valid', async () => {
     const onPatch = vi.fn();
     const onSendUnary = vi.fn();
     const tab = createGrpcStudioTab({
@@ -40,7 +40,10 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     expect(screen.getByTestId('grpc-response-panel')).toBeTruthy();
     const sendBtn = screen.getByTestId('grpc-send-btn') as HTMLButtonElement;
     expect(sendBtn.disabled).toBe(false);
-    fireEvent.click(sendBtn);
+    await act(async () => {
+      fireEvent.click(sendBtn);
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
     expect(onSendUnary).toHaveBeenCalled();
   });
 
@@ -206,7 +209,7 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     expect((screen.getByTestId('grpc-proto-field-input-message') as HTMLInputElement).value).toBe('from-json');
   });
 
-  it('passes JSON draft body overrides when sending from JSON tab', () => {
+  it('passes JSON draft body overrides when sending from JSON tab', async () => {
     const onSendUnary = vi.fn();
     const onPatch = vi.fn();
     const tab = createGrpcStudioTab({
@@ -232,7 +235,10 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     fireEvent.change(screen.getByTestId('grpc-request-json'), {
       target: { value: '{ "message": "fresh-json" }' },
     });
-    fireEvent.click(screen.getByTestId('grpc-send-btn'));
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('grpc-send-btn'));
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
 
     expect(onSendUnary).toHaveBeenCalledWith({ body: { message: 'fresh-json' } });
     expect(onPatch).toHaveBeenCalledWith({ body: { message: 'fresh-json' }, requestMode: 'json' });

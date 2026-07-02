@@ -3,6 +3,8 @@
  */
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { slugifyGrpcExplorerId } from '../src/features/grpc/utils/grpcExplorerUtils';
+import { FIXTURE_ECHO_DESCRIPTOR_PAYLOAD } from '../src/shared/grpc/contractFixtures';
+import type { GrpcMockRuleSet } from '../src/shared/grpc/grpcMockRuleContracts';
 import { REDFIREFORGE_IDB_VERSION, seedAppData } from './helpers';
 
 export const GRPC_HEALTH = 'http://localhost:50052/health';
@@ -50,6 +52,50 @@ export async function isBackendHealthy(request: APIRequestContext): Promise<bool
   } catch {
     return false;
   }
+}
+
+export async function startGrpcMockListener(
+  request: APIRequestContext,
+  options: {
+    tabId: string;
+    connectionId?: string;
+    responseMessage?: string;
+    ruleSet?: GrpcMockRuleSet;
+  },
+): Promise<{ listenTarget: string }> {
+  const response = await request.post('http://localhost:3001/api/grpc/mock/start', {
+    data: {
+      tabId: options.tabId,
+      connectionId: options.connectionId ?? `conn-${options.tabId}`,
+      descriptorKey: FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.descriptorKey,
+      protosetBase64: FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.protosetBase64,
+      contentSha256: FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.contentSha256,
+      ruleSet: options.ruleSet ?? {
+        rules: [{
+          id: 'echo-e2e',
+          name: 'Echo e2e rule',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: { statusCode: 0, body: { message: options.responseMessage ?? 'mock-e2e-response' } },
+        }],
+      },
+    },
+  });
+
+  expect(response.ok()).toBeTruthy();
+  const body = (await response.json()) as {
+    data?: { status?: { listenTarget?: string } };
+  };
+  const listenTarget = body.data?.status?.listenTarget;
+  expect(listenTarget).toBeTruthy();
+  return { listenTarget: listenTarget! };
+}
+
+export async function stopGrpcMockListener(request: APIRequestContext, tabId: string): Promise<void> {
+  await request.post('http://localhost:3001/api/grpc/mock/stop', {
+    data: { tabId },
+  });
 }
 
 export async function isGrpcLiveInfraReady(request: APIRequestContext): Promise<boolean> {

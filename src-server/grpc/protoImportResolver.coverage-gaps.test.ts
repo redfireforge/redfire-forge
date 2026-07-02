@@ -124,4 +124,15 @@ describe('protoImportResolver coverage gaps', () => {
       ['vendor'],
     )).toThrow(ProtoImportResolutionError);
   });
+
+  it('normalizeResolvedProtoPath ignores parent hops when stack is empty', () => {
+    expect(normalizeResolvedProtoPath('../orphan.proto')).toBe('orphan.proto');
+  });
+
+  it('resolveProtoImportPath resolves via blank import root using target path only', () => {
+    const map = buildProtoFileMap({
+      protoFiles: [{ path: 'shared/common.proto', content: 'syntax = "proto3";' }],
+    });
+    expect(resolveProtoImportPath('main.proto', 'shared/common.proto', map, ['   '])).toBe('shared/common.proto');
+  });
 });

@@ -612,3 +612,8 @@ export function GrpcMockRuleBuilderPanel({ advanced }: GrpcMockRuleBuilderPanelP
     </div>
   );
 }
+
+/** @internal Exported for coverage tests only (updated panel). */
+export function GrpcMockPredicateEditorForTests(props: PredicateEditorProps) {
+  return <PredicateEditor {...props} />;
+}

@@ -19,12 +19,14 @@ export interface GrpcServiceExplorerProps {
   errorMessage?: string;
   selectedService?: string;
   selectedMethod?: string;
+  collapsed?: boolean;
   expandedServiceIds: string[];
   canReflect: boolean;
   onReflect: () => void;
   onManageSchemas: () => void;
   onSelectMethod: (serviceFullName: string, methodName: string) => void;
   onToggleServiceExpanded: (serviceFullName: string) => void;
+  onToggleCollapsed?: () => void;
 }
 
 export function GrpcServiceExplorer({
@@ -33,12 +35,14 @@ export function GrpcServiceExplorer({
   errorMessage,
   selectedService,
   selectedMethod,
+  collapsed = false,
   expandedServiceIds,
   canReflect,
   onReflect,
   onManageSchemas,
   onSelectMethod,
   onToggleServiceExpanded,
+  onToggleCollapsed,
 }: GrpcServiceExplorerProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const previousDescriptorKeyRef = useRef<string | undefined>(undefined);
@@ -66,6 +70,13 @@ export function GrpcServiceExplorer({
     [descriptor],
   );
 
+  const activeMethodBadge = useMemo(() => {
+    if (!descriptor || !selectedService || !selectedMethod) return undefined;
+    const service = descriptor.services.find((entry) => entry.fullName === selectedService);
+    const method = service?.methods.find((entry) => entry.name === selectedMethod);
+    return method ? formatGrpcCallTypeBadge(method.callType) : undefined;
+  }, [descriptor, selectedMethod, selectedService]);
+
   const handleSearchChange = (event: ChangeEvent<HTMLInputElement>) => {
     setSearchQuery(event.target.value);
   };
@@ -78,7 +89,7 @@ export function GrpcServiceExplorer({
   );
 
   return (
-    <aside className="grpc-service-explorer" data-testid="grpc-service-explorer">
+    <aside className={`grpc-service-explorer${collapsed ? ' grpc-service-explorer--collapsed' : ''}`} data-testid="grpc-service-explorer">
       <header className="grpc-service-explorer-header">
         <h3 className="grpc-service-explorer-title">Services</h3>
         <div className="grpc-explorer-header-actions">
@@ -104,10 +115,33 @@ export function GrpcServiceExplorer({
           >
             {reflecting ? '…' : '⟳'}
           </button>
+          <button
+            type="button"
+            className="grpc-explorer-collapse-btn"
+            data-testid="grpc-explorer-collapse-btn"
+            onClick={() => onToggleCollapsed?.()}
+            aria-label={collapsed ? 'Show services sidebar' : 'Hide services sidebar'}
+            title={collapsed ? 'Expand services' : 'Collapse services'}
+          >
+            {collapsed ? '›' : '‹'}
+          </button>
         </div>
       </header>
 
-      {descriptor && (
+      {collapsed && (
+        <div className="grpc-service-explorer-rail" data-testid="grpc-explorer-rail">
+          {activeMethodBadge ? (
+            <span className="grpc-method-badge grpc-service-explorer-rail__badge">{activeMethodBadge}</span>
+          ) : (
+            <span className="grpc-service-explorer-rail__dot" aria-hidden="true">•</span>
+          )}
+          <span className="grpc-service-explorer-rail__label">
+            {selectedMethod ?? 'No method'}
+          </span>
+        </div>
+      )}
+
+      {descriptor && !collapsed && (
         <div className="grpc-explorer-search-row">
           <span className="grpc-explorer-search-icon" aria-hidden="true">⌕</span>
           <input
@@ -121,7 +155,8 @@ export function GrpcServiceExplorer({
         </div>
       )}
 
-      <div className="grpc-explorer-body">
+      {!collapsed && (
+        <div className="grpc-explorer-body">
         {loadState === 'idle' && !descriptor && (
           <div className="grpc-explorer-empty-card" data-testid="grpc-explorer-idle">
             <p className="grpc-explorer-empty-title">No services loaded</p>
@@ -225,9 +260,10 @@ export function GrpcServiceExplorer({
             )}
           </div>
         )}
-      </div>
+        </div>
+      )}
 
-      {descriptor && (
+      {descriptor && !collapsed && (
         <footer className="grpc-explorer-footer" data-testid="grpc-explorer-footer">
           <div className="grpc-explorer-info-row">
             <span>Source:</span>

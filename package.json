@@ -145,7 +145,7 @@
     "test:grpc:phase12a": "bash scripts/test-grpc-phase12a.sh",
     "test:grpc:phase12b": "bash scripts/test-grpc-phase12b.sh",
     "test:grpc:phase9": "bash scripts/test-grpc-phase9.sh",
-    "test:e2e:grpc": "E2E_GRPC_SERVER=1 playwright test e2e/grpc-studio-shell.spec.ts e2e/grpc-studio-tls.spec.ts e2e/grpc-test-server.spec.ts e2e/grpc-studio-unary.spec.ts e2e/grpc-studio-server-stream.spec.ts e2e/grpc-studio-client-stream.spec.ts e2e/grpc-studio-bidi-stream.spec.ts e2e/grpc-studio-manage-schemas.spec.ts e2e/grpc-studio-schema-drift.spec.ts --reporter=list",
+    "test:e2e:grpc": "E2E_GRPC_SERVER=1 playwright test e2e/grpc-studio-shell.spec.ts e2e/grpc-studio-tls.spec.ts e2e/grpc-test-server.spec.ts e2e/grpc-studio-unary.spec.ts e2e/grpc-studio-server-stream.spec.ts e2e/grpc-studio-client-stream.spec.ts e2e/grpc-studio-bidi-stream.spec.ts e2e/grpc-studio-manage-schemas.spec.ts e2e/grpc-studio-schema-drift.spec.ts e2e/grpc-studio-mock-unary.spec.ts e2e/grpc-studio-mock-streams.spec.ts e2e/grpc-studio-interpolation.spec.ts e2e/grpc-studio-collections-history.spec.ts e2e/grpc-files-proto.spec.ts --reporter=list",
     "test:e2e:demo": "playwright test --project=demo-stepthrough --reporter=html",
     "test:e2e:demo:gql1": "playwright test --project=demo-gql1 e2e/demo-gql-first-query.spec.ts --reporter=html --workers=1",
     "test:e2e:demo:gql2": "playwright test --project=demo-gql2 e2e/demo-gql-variables.spec.ts --reporter=html --workers=1",

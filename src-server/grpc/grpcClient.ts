@@ -5,6 +5,32 @@ import type { GrpcCallTimingBreakdown, GrpcTlsConfig, GrpcTlsMode } from '../../
 import { validateResolvedGrpcTargetAddress } from '../../src/shared/grpc/targetValidation.js';
 import { buildGrpcChannelCredentials } from './grpcChannelCredentials.js';
 
+const LOOPBACK_NO_PROXY_TOKENS = ['127.0.0.1', 'localhost', '::1'];
+
+export function ensureLocalGrpcBypassesProxyEnv(): void {
+  for (const envKey of ['NO_PROXY', 'no_proxy'] as const) {
+    const current = process.env[envKey]
+      ?.split(',')
+      .map((token) => token.trim())
+      .filter(Boolean)
+      ?? [];
+
+    let changed = false;
+    for (const token of LOOPBACK_NO_PROXY_TOKENS) {
+      if (!current.includes(token)) {
+        current.push(token);
+        changed = true;
+      }
+    }
+
+    if (changed || !process.env[envKey]) {
+      process.env[envKey] = current.join(',');
+    }
+  }
+}
+
+ensureLocalGrpcBypassesProxyEnv();
+
 export interface GrpcReachabilityParams {
   address: string;
   timeoutMs: number;

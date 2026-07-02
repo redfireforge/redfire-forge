@@ -5,12 +5,19 @@ import type { GrpcCallType } from '../../../shared/grpc/contracts';
 import { isGrpcStreamLifecycleInFlight } from '../../../shared/grpc/streamLifecycle';
 import { formatGrpcCallTypeBadge } from '../utils/grpcExplorerUtils';
 
+function tabMethodSubtitle(tab: GrpcStudioTabState): string | null {
+  if (!tab.service || !tab.method) return null;
+  const shortService = tab.service.split('.').at(-1) ?? tab.service;
+  return `${shortService}/${tab.method}`;
+}
+
 export interface GrpcTabBarProps {
   tabs: GrpcStudioTabState[];
   activeTabId: string;
   canAddTab: boolean;
   maxTabs?: number;
   tabCallTypes?: Record<string, GrpcCallType | undefined>;
+  tabCallCounts?: Record<string, number | undefined>;
   onSelect: (tabId: string) => void;
   onAdd: () => void;
   onClose: (tabId: string) => void;
@@ -24,6 +31,7 @@ export function GrpcTabBar({
   canAddTab,
   maxTabs,
   tabCallTypes = {},
+  tabCallCounts = {},
   onSelect,
   onAdd,
   onClose,
@@ -71,6 +79,15 @@ export function GrpcTabBar({
             const inFlight = isGrpcLifecycleInFlight(tab.lifecycle)
               || isGrpcStreamLifecycleInFlight(tab.streamLifecycle);
             const callType = tabCallTypes[tab.id];
+            const callCount = tabCallCounts[tab.id] ?? 0;
+            const closeDisabled = tabs.length <= 1 || inFlight;
+            const methodSubtitle = tabMethodSubtitle(tab);
+            const tabTitle = [
+              tab.title,
+              methodSubtitle,
+              inFlight ? 'Call in progress' : null,
+              callCount > 0 ? `Calls: ${callCount}` : null,
+            ].filter(Boolean).join(' · ');
             return (
               <div
                 key={tab.id}
@@ -80,6 +97,8 @@ export function GrpcTabBar({
                 tabIndex={isActive ? 0 : -1}
                 className={`grpc-tab${isActive ? ' grpc-tab--active' : ''}${inFlight ? ' grpc-tab--in-flight' : ''}`}
                 data-testid={tab.id}
+                title={tabTitle}
+                aria-label={tabTitle}
                 onClick={() => onSelect(tab.id)}
                 onDoubleClick={() => startEditing(tab.id, tab.title)}
                 onKeyDown={(event) => {
@@ -102,7 +121,14 @@ export function GrpcTabBar({
                   />
                 ) : (
                   <>
-                    <span className="grpc-tab-label">{tab.title}</span>
+                    <span className="grpc-tab-labels">
+                      <span className="grpc-tab-label">{tab.title}</span>
+                      {methodSubtitle && (
+                        <span className="grpc-tab-method-subtitle" data-testid={`grpc-tab-method-${tab.id}`}>
+                          {methodSubtitle}
+                        </span>
+                      )}
+                    </span>
                     {callType && tab.service && tab.method && (
                       <span
                         className="grpc-tab-call-type-pill"
@@ -110,6 +136,15 @@ export function GrpcTabBar({
                         title={callType}
                       >
                         {formatGrpcCallTypeBadge(callType)}
+                      </span>
+                    )}
+                    {callCount > 0 && (
+                      <span
+                        className="grpc-tab-call-count-badge"
+                        data-testid={`grpc-tab-call-count-${tab.id}`}
+                        title={`${callCount} call${callCount === 1 ? '' : 's'} in this tab`}
+                      >
+                        ={callCount}
                       </span>
                     )}
                     {inFlight && (
@@ -133,7 +168,8 @@ export function GrpcTabBar({
                   aria-label={`Close ${tab.title}`}
                   data-testid={`grpc-tab-close-${tab.id}`}
                   onClick={(event) => handleCloseClick(event, tab.id)}
-                  disabled={tabs.length <= 1}
+                  disabled={closeDisabled}
+                  title={inFlight ? 'Cannot close tab while a call is in progress' : undefined}
                 >
                   ×
                 </button>

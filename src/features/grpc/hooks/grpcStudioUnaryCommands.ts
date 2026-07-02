@@ -296,11 +296,17 @@ export function createExecuteUnaryCallHandler(
       }
       delete core.inFlightCallRef.current[tabId];
 
+      const latencyHistoryMs = [
+        ...(core.sessionRef.current.tabs.find((entry) => entry.id === tabId)?.latencyHistoryMs ?? []),
+        envelope.data.durationMs,
+      ].slice(-200);
+
       ctx.updateTab(tabId, {
         lifecycle: 'success',
         activeRequestId: undefined,
         lastResult: envelope.data,
         lastError: undefined,
+        latencyHistoryMs,
       });
 
       captureGrpcCallHistoryFromOutcome({

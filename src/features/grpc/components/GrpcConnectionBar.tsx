@@ -19,6 +19,8 @@ export interface GrpcConnectionBarProps {
   targetConnection?: GrpcTargetConnectionSession;
   envName?: string | null;
   disabled?: boolean;
+  /** Number of methods loaded via reflection (0 if not loaded). */
+  reflectionLoadedCount?: number;
   onTargetChange: (value: string) => void;
   /** Phase 1 — Connect/Disconnect target probe toggle. */
   onConnectionToggle?: () => void;
@@ -46,6 +48,7 @@ export function GrpcConnectionBar({
   targetConnection,
   envName,
   disabled = false,
+  reflectionLoadedCount = 0,
   onTargetChange,
   onConnectionToggle,
   onTlsBadgeClick,
@@ -138,6 +141,17 @@ export function GrpcConnectionBar({
       >
         ⏱ {deadlineLabel}
       </button>
+
+      {reflectionLoadedCount > 0 && (
+        <span
+          className="grpc-connection-reflection-badge"
+          data-testid="grpc-connection-reflection-badge"
+          title={`Schema loaded: ${reflectionLoadedCount} method${reflectionLoadedCount === 1 ? '' : 's'}`}
+        >
+          <span aria-hidden="true">●</span>
+          {reflectionLoadedCount}
+        </span>
+      )}
 
       {envName && (
         <span className="grpc-connection-env-badge" data-testid="grpc-connection-env-badge" title="Active environment">
