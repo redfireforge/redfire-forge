@@ -28,6 +28,11 @@ import {
   gqlVariablesLessonSetup,
 } from './graphql-lesson-helpers';
 import { stubGqlStudioShell, stubMonacoEditor } from './__test-utils__/graphql-test-fixtures';
+import * as gqlCore from './graphql-lesson-helpers/core';
+
+function stubLesson2HistoryExecutionGuards(): void {
+  vi.spyOn(gqlCore, 'ensureExecutedWithBob').mockResolvedValue(undefined);
+}
 
 const STEP_IDS = [
   'gql2-intro',
@@ -514,6 +519,7 @@ describe('gql-variables lesson', () => {
   });
 
   it('step gql2-history-compare-mark toggles compare and marks Alice and Bob', async () => {
+    stubLesson2HistoryExecutionGuards();
     document.body.innerHTML = `
       <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
       <div data-testid="gql-history-panel"><div data-testid="gql-history-entry"></div></div>
@@ -551,6 +557,7 @@ describe('gql-variables lesson', () => {
   });
 
   it('step gql2-history-compare preAction marks slots but does not open panel', async () => {
+    stubLesson2HistoryExecutionGuards();
     document.body.innerHTML = `
       <button data-testid="gql-history-compare-toggle" class="gql-history-compare-toggle--active"></button>
       <div data-testid="gql-history-compare-bar"></div>
@@ -564,6 +571,7 @@ describe('gql-variables lesson', () => {
   });
 
   it('step gql2-history-compare action opens compare panel', async () => {
+    stubLesson2HistoryExecutionGuards();
     document.body.innerHTML = `
       <button data-testid="gql-activity-history" class="gql-activity-tab--active"></button>
       <div data-testid="gql-history-panel"><div data-testid="gql-history-entry"></div></div>

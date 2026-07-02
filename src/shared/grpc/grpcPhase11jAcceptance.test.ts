@@ -72,12 +72,15 @@ describe('Phase 11J acceptance checklist', () => {
   });
 
   it('checklist-7: baseline capture clears acknowledgements for new and prior baseline keys', () => {
-    const hook = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
-    expect(hook).toContain('baselineKeysToClear');
-    expect(hook).toContain('newBaselineKey');
-    expect(hook).toContain('updateExisting ? selectedLoadTestProfileId : undefined');
-    expect(hook).toContain('refreshSchemaDiffAcks(newBaselineKey)');
-    expect(hook).toContain('lastSummary: undefined');
-    expect(hook).toContain('schemaDiffAckRefreshGenRef');
+    const schemaDiff = readSrc('src/features/grpc/hooks/useGrpcAdvancedSchemaDiffSession.ts');
+    const profiles = readSrc('src/features/grpc/hooks/useGrpcLoadTestProfilesState.ts');
+    const advanced = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
+    expect(schemaDiff).toContain('baselineKeysToClear');
+    expect(schemaDiff).toContain('newBaselineKey');
+    expect(schemaDiff).toContain('refreshSchemaDiffAcks(newBaselineKey)');
+    expect(schemaDiff).toContain('schemaDiffAckRefreshGenRef');
+    expect(profiles).toContain('updateExisting ? selectedLoadTestProfileId : undefined');
+    expect(profiles).toContain('lastSummary: undefined');
+    expect(advanced).toContain('useGrpcAdvancedSchemaDiffSession');
   });
 });

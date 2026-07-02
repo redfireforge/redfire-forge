@@ -93,11 +93,13 @@ describe('Phase 11I acceptance checklist', () => {
     expect(GRPC_FORBIDDEN_SECRET_PERSIST_TARGETS).toContain('grpc_load_test_export');
     expect(GRPC_FORBIDDEN_SECRET_PERSIST_TARGETS).toContain('grpc_schema_diff_export');
 
-    const hook = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
-    expect(hook).toContain('serializeGrpcLoadTestRunSummaryExportSafeJson');
-    expect(hook).toContain('serializeGrpcLoadTestRunSummaryExportSafeCsv');
-    expect(hook).toContain('serializeGrpcSchemaDiffReportExportSafeJson');
-    expect(hook).toContain('serializeGrpcSchemaDiffReportExportSafeMarkdown');
+    const advanced = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
+    const exportCallbacks = readSrc('src/features/grpc/hooks/useGrpcAdvancedExportCallbacks.ts');
+    expect(advanced).toContain('useGrpcAdvancedExportCallbacks');
+    expect(exportCallbacks).toContain('serializeGrpcLoadTestRunSummaryExportSafeJson');
+    expect(exportCallbacks).toContain('serializeGrpcLoadTestRunSummaryExportSafeCsv');
+    expect(exportCallbacks).toContain('serializeGrpcSchemaDiffReportExportSafeJson');
+    expect(exportCallbacks).toContain('serializeGrpcSchemaDiffReportExportSafeMarkdown');
 
     const exportSafety = readSrc('src/shared/grpc/grpcAdvancedFeatureExport.ts');
     expect(exportSafety).toContain('hardenedSourceMetadata');
