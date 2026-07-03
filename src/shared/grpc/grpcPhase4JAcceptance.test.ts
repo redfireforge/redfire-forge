@@ -42,13 +42,13 @@ describe('Phase 4J acceptance checklist (4J-E traceability)', () => {
     expect(merged['x-custom']).toBe('1');
   });
 
-  it('GrpcAuthPanel uses type pills — not native select (4J-B)', () => {
+  it('GrpcAuthPanel uses auth type dropdown aligned with GraphQL (4J-B)', () => {
     const source = readFileSync(
       join(ROOT, 'src/features/grpc/components/GrpcAuthPanel.tsx'),
       'utf8',
     );
-    expect(source).toContain('grpc-auth-type-pill');
-    expect(source).not.toMatch(/<select[\s\S]*auth/i);
+    expect(source).toContain('grpc-auth-type-select');
+    expect(source).toContain('grpc-auth-no-auth-hint');
   });
 
   it('GrpcStudioPage wires headless TLS modal host — not inline PEM in explorer (4J-B)', () => {

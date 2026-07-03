@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../hooks/useGrpcStudioAdvancedFeatures';
 import {
   filterGrpcSchemaDiffChangesForUi,
@@ -11,7 +12,13 @@ export interface GrpcSchemaDiffPanelProps {
   advanced: UseGrpcStudioAdvancedFeaturesReturn;
 }
 
+const SCHEMA_DIFF_VIRTUALIZATION_THRESHOLD = 120;
+const SCHEMA_DIFF_VIRTUAL_ROW_HEIGHT = 34;
+const SCHEMA_DIFF_VIRTUAL_VIEWPORT_HEIGHT = 320;
+const SCHEMA_DIFF_VIRTUAL_OVERSCAN_ROWS = 8;
+
 export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
+  const [virtualScrollTop, setVirtualScrollTop] = useState(0);
   const status = presentGrpcAdvancedOperationStatus(
     advanced.runtime.schemaDiff.status,
     advanced.runtime.schemaDiff.cancellationRequested,
@@ -24,6 +31,40 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
       resolveChangeId: grpcSchemaDiffChangeId,
     })
     : undefined;
+
+  const virtual = useMemo(() => {
+    const count = filtered?.visible.length ?? 0;
+    if (count <= SCHEMA_DIFF_VIRTUALIZATION_THRESHOLD) {
+      return {
+        enabled: false as const,
+        startIndex: 0,
+        endIndex: count,
+        topPadding: 0,
+        bottomPadding: 0,
+      };
+    }
+
+    const visibleRows = Math.max(1, Math.ceil(SCHEMA_DIFF_VIRTUAL_VIEWPORT_HEIGHT / SCHEMA_DIFF_VIRTUAL_ROW_HEIGHT));
+    const maxFirstVisible = Math.max(0, count - 1);
+    const firstVisible = Math.min(
+      maxFirstVisible,
+      Math.floor(virtualScrollTop / SCHEMA_DIFF_VIRTUAL_ROW_HEIGHT),
+    );
+    const startIndex = Math.max(0, firstVisible - SCHEMA_DIFF_VIRTUAL_OVERSCAN_ROWS);
+    const endIndex = Math.min(count, firstVisible + visibleRows + SCHEMA_DIFF_VIRTUAL_OVERSCAN_ROWS);
+    const topPadding = startIndex * SCHEMA_DIFF_VIRTUAL_ROW_HEIGHT;
+    const bottomPadding = Math.max(0, (count - endIndex) * SCHEMA_DIFF_VIRTUAL_ROW_HEIGHT);
+
+    return {
+      enabled: true as const,
+      startIndex,
+      endIndex,
+      topPadding,
+      bottomPadding,
+    };
+  }, [filtered?.visible.length, virtualScrollTop]);
+
+  const changesForRender = filtered?.visible.slice(virtual.startIndex, virtual.endIndex) ?? [];
 
   return (
     <section className="grpc-advanced-panel" data-testid="grpc-schema-diff-panel">
@@ -110,6 +151,8 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
         <div
           className={`grpc-advanced-status grpc-advanced-status--${status.variant}`}
           data-testid="grpc-schema-diff-status"
+          role="status"
+          aria-live="polite"
         >
           Status: {status.label}
           {advanced.runtime.schemaDiff.error?.message && (
@@ -174,21 +217,44 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
 
             {filtered && (
               <>
+                <p className="visually-hidden" id="grpc-schema-diff-change-list-summary" data-testid="grpc-schema-diff-a11y-summary">
+                  Schema diff contains {filtered.total} changes; {filtered.visible.length} visible after filtering.
+                </p>
                 {filtered.truncated && (
                   <p className="grpc-advanced-hint" data-testid="grpc-schema-diff-truncated">
                     Showing first {filtered.visible.length} of {filtered.total} changes.
                   </p>
                 )}
-                <div className="grpc-advanced-diff-list" data-testid="grpc-schema-diff-change-list">
-                  {filtered.visible.map((change) => {
+                <div
+                  className={`grpc-advanced-diff-list${virtual.enabled ? ' grpc-advanced-diff-list--virtual' : ''}`}
+                  data-testid="grpc-schema-diff-change-list"
+                  role="list"
+                  aria-label="Schema diff changes"
+                  aria-describedby="grpc-schema-diff-change-list-summary"
+                  onScroll={(event) => {
+                    if (virtual.enabled) {
+                      setVirtualScrollTop((event.currentTarget as HTMLDivElement).scrollTop);
+                    }
+                  }}
+                >
+                  {virtual.enabled && (
+                    <div
+                      className="grpc-advanced-diff-virtual-spacer"
+                      style={{ height: virtual.topPadding }}
+                      aria-hidden="true"
+                    />
+                  )}
+                  {changesForRender.map((change, index) => {
                     const changeId = grpcSchemaDiffChangeId(change);
                     const acknowledged = advanced.isSchemaDiffChangeAcknowledged?.(change) ?? false;
                     return (
                     <div
-                      key={`${change.entityPath}:${change.changeType}:${change.description}`}
+                      key={`${changeId}:${virtual.startIndex + index}`}
                       className={`grpc-advanced-diff-line ${schemaDiffChangeLineClass(change.changeType)}${acknowledged ? ' grpc-advanced-diff-line--acked' : ''}`}
                       data-testid="grpc-schema-diff-change-row"
                       data-change-id={changeId}
+                      role="listitem"
+                      tabIndex={0}
                     >
                       <span className="grpc-advanced-diff-path">{change.entityPath}</span>
                       <span className="grpc-advanced-diff-desc">{change.description}</span>
@@ -212,6 +278,13 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
                     </div>
                     );
                   })}
+                  {virtual.enabled && (
+                    <div
+                      className="grpc-advanced-diff-virtual-spacer"
+                      style={{ height: virtual.bottomPadding }}
+                      aria-hidden="true"
+                    />
+                  )}
                   {filtered.visible.length === 0 && (
                     <p className="grpc-advanced-hint">No changes match the selected filter.</p>
                   )}

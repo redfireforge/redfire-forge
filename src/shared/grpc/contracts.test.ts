@@ -62,6 +62,15 @@ describe('grpc contracts (Phase 1A)', () => {
     expect(envelope.error.code).toBe('GRPC_REFLECTION_FAILED');
   });
 
+  it('preserves explicit error categories when creating error envelopes', () => {
+    const envelope = createGrpcErrorEnvelope('call', {
+      code: GRPC_ERROR_CODES.CALL_FAILED,
+      category: 'unreachable',
+      message: 'override',
+    });
+    expect(envelope.error.category).toBe('unreachable');
+  });
+
   it('maps error codes to HTTP status', () => {
     expect(
       mapGrpcErrorCodeToHttpStatus({
@@ -224,6 +233,20 @@ describe('grpc contracts (Phase 1A)', () => {
   it('infers categories for unknown codes', () => {
     expect(grpcErrorCategoryForCode('GRPC_INVALID_FOO')).toBe('validation');
     expect(grpcErrorCategoryForCode('GRPC_SOMETHING_NOT_FOUND')).toBe('not_found');
+    expect(grpcErrorCategoryForCode('GRPC_CACHE_STALE_UNKNOWN')).toBe('cache_stale');
+    expect(grpcErrorCategoryForCode('WHATEVER')).toBe('call_failed');
+  });
+
+  it('maps unknown error codes to HTTP 500 by default', () => {
+    expect(mapGrpcErrorCodeToHttpStatus({
+      code: 'GRPC_UNKNOWN_CUSTOM',
+      category: 'call_failed',
+      message: 'unknown',
+    })).toBe(500);
+  });
+
+  it('normalizes undefined metadata to an empty object', () => {
+    expect(normalizeGrpcMetadata(undefined)).toEqual({});
   });
 
   it('accepts Phase 1 unary call requests only', () => {

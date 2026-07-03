@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package connectrpc.eliza.v1;
+
+option go_package = "grpc-test-server/eliza";
+
+message SayRequest {
+  string sentence = 1;
+}
+
+message SayResponse {
+  string sentence = 1;
+}
+
+message IntroduceRequest {
+  string sentence = 1;
+}
+
+message IntroduceResponse {
+  string sentence = 1;
+}
+
+message ConverseRequest {
+  string sentence = 1;
+}
+
+message ConverseResponse {
+  string sentence = 1;
+}
+
+service ElizaService {
+  rpc Say (SayRequest) returns (SayResponse);
+  rpc Introduce (IntroduceRequest) returns (stream IntroduceResponse);
+  rpc Converse (stream ConverseRequest) returns (stream ConverseResponse);
+}

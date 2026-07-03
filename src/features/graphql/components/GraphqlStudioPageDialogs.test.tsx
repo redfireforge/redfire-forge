@@ -17,6 +17,7 @@ vi.mock('./GraphqlComplexityGateModal', () => ({
   }) => (
     <div data-testid="gql-complexity-gate-stub">
       <button type="button" data-testid="gate-send" onClick={() => onSendAnyway(false)}>Send</button>
+      <button type="button" data-testid="gate-send-remember" onClick={() => onSendAnyway(true)}>Send Remember</button>
       <button type="button" data-testid="gate-cancel" onClick={onCancel}>Cancel</button>
     </div>
   ),
@@ -26,11 +27,19 @@ vi.mock('./GqlDedupBanner', () => ({
   GqlDedupBanner: ({
     visible,
     onWait,
+    onCancelOriginal,
+    onSendAnyway,
   }: {
     visible: boolean;
     onWait: () => void;
+    onCancelOriginal: () => void;
+    onSendAnyway: () => void;
   }) => (visible ? (
-    <button type="button" data-testid="gql-dedup-stub" onClick={onWait}>Wait</button>
+    <div data-testid="gql-dedup-stub">
+      <button type="button" data-testid="dedup-wait" onClick={onWait}>Wait</button>
+      <button type="button" data-testid="dedup-cancel" onClick={onCancelOriginal}>Cancel Original</button>
+      <button type="button" data-testid="dedup-send" onClick={onSendAnyway}>Send Anyway</button>
+    </div>
   ) : null),
 }));
 
@@ -148,8 +157,12 @@ describe('GraphqlStudioPageDialogs', () => {
         })}
       />,
     );
-    fireEvent.click(screen.getByTestId('gql-dedup-stub'));
+    fireEvent.click(screen.getByTestId('dedup-wait'));
     expect(resolveDedupChoice).toHaveBeenCalledWith('wait');
+    fireEvent.click(screen.getByTestId('dedup-cancel'));
+    expect(resolveDedupChoice).toHaveBeenCalledWith('cancel');
+    fireEvent.click(screen.getByTestId('dedup-send'));
+    expect(resolveDedupChoice).toHaveBeenCalledWith('sendAnyway');
   });
 
   it('hides dedup banner when duplicate is on a different tab', () => {
@@ -163,5 +176,68 @@ describe('GraphqlStudioPageDialogs', () => {
       />,
     );
     expect(screen.queryByTestId('gql-dedup-stub')).not.toBeInTheDocument();
+  });
+
+  it('complexity gate onCancel clears pending state', () => {
+    const setComplexityGatePending = vi.fn();
+    const pendingRef = { current: vi.fn() as (() => void) | null };
+    render(
+      <GraphqlStudioPageDialogs
+        {...makeProps({
+          complexityGatePending: true,
+          complexityResult: { score: 2000, level: 'danger', shouldBlock: true, threshold: 1000, fieldBreakdown: [] },
+          pendingExecuteAfterGateRef: pendingRef,
+          setComplexityGatePending,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('gate-cancel'));
+    expect(setComplexityGatePending).toHaveBeenCalledWith(false);
+    expect(pendingRef.current).toBeNull();
+  });
+
+  it('complexity gate onSendAnyway with rememberSession=true sets bypass ref', () => {
+    const sessionBypassRef = { current: false };
+    const skipRef = { current: false };
+    const setComplexityGatePending = vi.fn();
+    const setComplexityWarningPending = vi.fn();
+    const executeFn = vi.fn();
+    const pendingRef = { current: executeFn as (() => void) | null };
+    render(
+      <GraphqlStudioPageDialogs
+        {...makeProps({
+          complexityGatePending: true,
+          complexityResult: { score: 2000, level: 'danger', shouldBlock: true, threshold: 1000, fieldBreakdown: [] },
+          pendingExecuteAfterGateRef: pendingRef,
+          sessionBypassComplexityGateRef: sessionBypassRef,
+          skipComplexityGateRef: skipRef,
+          setComplexityGatePending,
+          setComplexityWarningPending,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('gate-send-remember'));
+    expect(sessionBypassRef.current).toBe(true);
+    expect(skipRef.current).toBe(true);
+    expect(executeFn).toHaveBeenCalledOnce();
+  });
+
+  it('onSendAnyway is a no-op when pendingExecuteAfterGateRef is null', () => {
+    const setComplexityGatePending = vi.fn();
+    const setComplexityWarningPending = vi.fn();
+    render(
+      <GraphqlStudioPageDialogs
+        {...makeProps({
+          complexityGatePending: true,
+          complexityResult: { score: 2000, level: 'danger', shouldBlock: true, threshold: 1000, fieldBreakdown: [] },
+          pendingExecuteAfterGateRef: { current: null },
+          setComplexityGatePending,
+          setComplexityWarningPending,
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('gate-send'));
+    expect(setComplexityGatePending).toHaveBeenCalledWith(false);
+    expect(setComplexityWarningPending).not.toHaveBeenCalled();
   });
 });

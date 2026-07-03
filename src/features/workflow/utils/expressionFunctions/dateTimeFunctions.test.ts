@@ -41,6 +41,11 @@ describe('dateTimeFunctions', () => {
     expect(fn('$formatDate')('2024-03-05T00:00:00.000Z')).toBe('2024-03-05');
   });
 
+  it('$formatDate accepts numeric timestamp input', () => {
+    const ts = Date.parse('2024-03-05T08:09:10.000Z');
+    expect(fn('$formatDate')(ts, 'YYYY/MM/DD HH:mm:ss')).toBe('2024/03/05 08:09:10');
+  });
+
   it('$formatDate applies custom tokens', () => {
     expect(fn('$formatDate')('2024-03-05T08:09:10.000Z', 'YYYY/MM/DD HH:mm:ss')).toBe('2024/03/05 08:09:10');
   });
@@ -61,9 +66,21 @@ describe('dateTimeFunctions', () => {
     expect(fn('$diffMs')('2024-01-16', '2024-01-15')).toBe(86400000);
   });
 
+  it('$diffMs handles numeric timestamps', () => {
+    const d1 = Date.parse('2024-01-16T00:00:00.000Z');
+    const d2 = Date.parse('2024-01-15T00:00:00.000Z');
+    expect(fn('$diffMs')(d1, d2)).toBe(86400000);
+  });
+
   it('$addDays shifts local date', () => {
     const out = fn('$addDays')('2024-01-15T00:00:00.000Z', 7);
     expect(out).toContain('2024-01-22');
+  });
+
+  it('$addDays accepts numeric timestamp input', () => {
+    const ts = Date.parse('2024-01-15T00:00:00.000Z');
+    const out = fn('$addDays')(ts, 1);
+    expect(out).toContain('2024-01-16');
   });
 
   it('$addDays catches errors', () => {
@@ -76,6 +93,12 @@ describe('dateTimeFunctions', () => {
   it('$addHours shifts time', () => {
     const out = fn('$addHours')('2024-01-15T10:00:00.000Z', 3);
     expect(out).toContain('13:00:00');
+  });
+
+  it('$addHours accepts numeric timestamp input', () => {
+    const ts = Date.parse('2024-01-15T10:00:00.000Z');
+    const out = fn('$addHours')(ts, 2);
+    expect(out).toContain('12:00:00');
   });
 
   it('$addHours catches errors', () => {

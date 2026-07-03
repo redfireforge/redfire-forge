@@ -6,6 +6,7 @@ import type { Microservice } from '../types';
 import {
   buildGrpcHarnessEnvFromRunnerContext,
   createGrpcHarnessSnapshotBuildContext,
+  mergeGrpcHarnessRuntimeContext,
   resolveGrpcHarnessEnv,
   resolveGrpcHarnessPageDefaultTarget,
 } from './grpcHarnessRuntimeContext';
@@ -163,5 +164,18 @@ describe('grpcHarnessRuntimeContext (Phase 8C)', () => {
         profileVariables: { apiHost: '{{grpcHost}}' },
       },
     )).toThrow(/Circular variable reference/);
+  });
+
+  it('buildGrpcHarnessEnvFromRunnerContext returns empty map when svcId not found in microservices', () => {
+    expect(buildGrpcHarnessEnvFromRunnerContext(
+      [{ id: 'other-svc', name: 'Other', baseUrls: {} }],
+      'orders',
+      'env-local',
+    )).toEqual({});
+  });
+
+  it('mergeGrpcHarnessRuntimeContext delegates to createGrpcHarnessSnapshotBuildContext', () => {
+    const ctx = mergeGrpcHarnessRuntimeContext({ grpcHost: 'localhost:50051' });
+    expect(ctx.resolveTemplate('{{grpcHost}}')).toBe('localhost:50051');
   });
 });

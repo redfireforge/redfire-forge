@@ -88,4 +88,42 @@ describe('GrpcSchemaDiffPanel coverage gaps', () => {
     expect(screen.queryByTestId('grpc-schema-diff-clear-baseline')).toBeNull();
     expect(screen.getByTestId('grpc-schema-diff-export-error').textContent).toMatch(/overflow/i);
   });
+
+  it('handles virtualized list scroll updates for large reports', () => {
+    const candidate = structuredClone(FIXTURE_DESCRIPTOR);
+    candidate.services[0]!.methods[0]!.name = 'EchoRenamedVirtualized';
+    const report = computeGrpcStudioSchemaDiffReport({
+      baseline: FIXTURE_DESCRIPTOR,
+      candidate,
+    });
+    const baseChange = report.changes[0]!;
+    const manyChanges = Array.from({ length: 130 }, (_, index) => ({
+      ...baseChange,
+      entityPath: `${baseChange.entityPath}.${index}`,
+    }));
+
+    render(
+      <GrpcSchemaDiffPanel
+        advanced={buildAdvancedMock({
+          schemaDiff: {
+            severityFilter: 'all',
+            hideAcknowledged: false,
+            lastReport: {
+              ...report,
+              changes: manyChanges,
+              summary: {
+                ...report.summary,
+                total: manyChanges.length,
+              },
+            },
+          },
+        })}
+      />,
+    );
+
+    const list = screen.getByTestId('grpc-schema-diff-change-list');
+    expect(list.className).toContain('grpc-advanced-diff-list--virtual');
+    fireEvent.scroll(list, { target: { scrollTop: 180 } });
+    expect(screen.getAllByTestId('grpc-schema-diff-change-row').length).toBeGreaterThan(0);
+  });
 });

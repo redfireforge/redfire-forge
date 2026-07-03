@@ -155,7 +155,7 @@ test.describe('gRPC Studio — Phase 4J settings drawer (shell)', () => {
     await page.locator('[data-testid="grpc-connection-settings-btn"]').click();
     await page.locator('[data-testid="grpc-settings-nav-auth"]').click();
     await expect(page.locator('[data-testid="grpc-settings-panel-auth"]')).toBeVisible();
-    await expect(page.locator('[data-testid="grpc-auth-type-pills"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toBeVisible();
   });
 });
 

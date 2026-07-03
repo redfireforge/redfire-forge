@@ -7,11 +7,11 @@ import { validateGrpcDemoLesson, getGrpcLessonRosterEntry } from './grpc-lesson-
 import { grpcFirstCallLesson } from './grpc-first-call';
 
 describe('grpc-first-call lesson', () => {
-  it('registers GRPC-1 metadata and 8 steps', () => {
+  it('registers GRPC-1 metadata and 10 steps', () => {
     expect(grpcFirstCallLesson.id).toBe('grpc-first-call');
     expect(grpcFirstCallLesson.category).toBe('grpc');
     expect(grpcFirstCallLesson.grpc.rosterNumber).toBe(1);
-    expect(grpcFirstCallLesson.steps).toHaveLength(8);
+    expect(grpcFirstCallLesson.steps).toHaveLength(10);
     expect(grpcFirstCallLesson.dockerEndpoints?.some((u) => u.includes('50052'))).toBe(true);
     expect(grpcFirstCallLesson.dockerEndpoints?.some((u) => u.includes('3001'))).toBe(true);
     expect(grpcFirstCallLesson.gateLabel).toBe('🐳 Local setup required');
@@ -22,10 +22,23 @@ describe('grpc-first-call lesson', () => {
     expect(result.ok, result.issues.map((i) => `${i.path}: ${i.message}`).join('\n')).toBe(true);
   });
 
-  it('final step verifies history list', () => {
+  it('final step highlights Send Unary and verifies response body', () => {
     const last = grpcFirstCallLesson.steps.at(-1)!;
-    expect(last.id).toBe('grpc1-history');
-    expect(last.verify).toContain('grpc-history-list');
+    expect(last.id).toBe('grpc1-replay');
+    expect(last.verify).toContain('grpc-response-body');
+    expect(last.highlight).toContain('grpc-send-btn');
+  });
+
+  it('grpc1-history-tab step highlights Call History', () => {
+    const historyTabStep = grpcFirstCallLesson.steps.find((s) => s.id === 'grpc1-history-tab')!;
+    expect(historyTabStep.highlight).toContain('grpc-sub-nav-history');
+    expect(historyTabStep.verify).toContain('grpc-history-panel');
+  });
+
+  it('grpc1-history step highlights Replay and transitions to Send Unary', () => {
+    const historyStep = grpcFirstCallLesson.steps.find((s) => s.id === 'grpc1-history')!;
+    expect(historyStep.highlight).toContain('grpc-history-replay-btn');
+    expect(historyStep.verify).toContain('grpc-send-btn');
   });
 
   it('declares allowedTabs so history sub-nav does not auto-exit live demo', () => {

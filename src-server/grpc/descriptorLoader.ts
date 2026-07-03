@@ -27,7 +27,7 @@ import { setGrpcDescriptor } from './descriptorStore.js';
 import {
   buildBsrDescriptorSourceRef,
   buildDescribeCacheLookup,
-  buildProtoFilesSourceRef,
+  buildProtoFilesSourceRefFromDescribeRequest,
   findDescriptorCacheEntry,
   putDescriptorCacheEntry,
 } from './descriptorCacheManager.js';
@@ -247,7 +247,7 @@ export class DescriptorLoader {
 
       const root = parseDescribeRequestSource(request);
       const sourceRef = request.source === 'proto_files'
-        ? buildProtoFilesSourceRef(request.protoFiles ?? [], request.importPaths ?? [])
+        ? buildProtoFilesSourceRefFromDescribeRequest(request)
         : shortContentHash(request.protosetBase64?.trim() ?? '');
       return finalizeDescriptorFromRoot(root, request.source, sourceRef);
     } catch (error) {

@@ -19,13 +19,16 @@ import {
 import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
 import type { GrpcTabProtoIngestState } from '../grpcStudioTypes';
 import type { GrpcTabConnectionResolution } from './resolveGrpcTabConnection';
+import { ensureProtoRootsDraft } from './grpcProtoIngestUtils';
 
 export function buildDescriptorSourceAvailability(
   resolution: GrpcTabConnectionResolution,
   ingest: GrpcTabProtoIngestState,
 ): GrpcDescriptorSourceAvailability {
-  const protoFilesReady = ingest.protoFiles.length > 0
-    && ingest.protoFiles.every((file) => file.path?.trim() && file.content?.trim());
+  const protoFiles = ensureProtoRootsDraft(ingest.protoRoots)
+    .flatMap((root) => root.files);
+  const protoFilesReady = protoFiles.length > 0
+    && protoFiles.every((file) => file.path?.trim() && file.content?.trim());
 
   return {
     reflection: resolution.targetValidation.valid,
@@ -61,10 +64,17 @@ export function buildDescribeRequestForSource(
   requestId: string,
 ): GrpcDescribeRequest | { error: string } {
   if (source === 'proto_files') {
-    if (ingest.protoFiles.length === 0) {
+    const sourceProtoRoots = ensureProtoRootsDraft(ingest.protoRoots)
+      .filter((root) => root.files.length > 0);
+    const sourceProtoFiles = sourceProtoRoots.flatMap((root) => root.files.map((file) => ({
+      path: `${root.mountPath.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')}/${file.path.trim().replace(/\\/g, '/').replace(/^\/+/, '')}`,
+      content: file.content,
+    })));
+
+    if (sourceProtoFiles.length === 0) {
       return { error: 'Add at least one .proto file before loading' };
     }
-    const invalidProtoFile = ingest.protoFiles.find(
+    const invalidProtoFile = sourceProtoFiles.find(
       (file) => !file.path?.trim() || !file.content?.trim(),
     );
     if (invalidProtoFile) {
@@ -73,7 +83,7 @@ export function buildDescribeRequestForSource(
     return {
       requestId,
       source,
-      protoFiles: ingest.protoFiles.map(({ path, content }) => ({ path, content })),
+      protoRoots: sourceProtoRoots,
       importPaths: ingest.importPaths.length > 0 ? ingest.importPaths : undefined,
     };
   }

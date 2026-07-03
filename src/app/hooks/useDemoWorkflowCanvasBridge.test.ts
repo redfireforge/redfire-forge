@@ -51,6 +51,29 @@ describe('useDemoWorkflowCanvasBridge', () => {
     expect(handleUpdateNode).toHaveBeenCalledWith('m2', { label: 'Delete User' });
   });
 
+  it('returns false when no node matches id', () => {
+    renderHook(() => useDemoWorkflowCanvasBridge([], vi.fn()));
+    expect(patchDemoWorkflowNodeDataById('missing', { label: 'x' })).toBe(false);
+  });
+
+  it('uses latest handleUpdateNode after rerender', () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const nodes = [
+      { id: 'q1', type: 'graphqlQuery', position: { x: 0, y: 0 }, data: { label: 'Q' } },
+    ] as never[];
+
+    const { rerender } = renderHook(
+      ({ onUpdate }) => useDemoWorkflowCanvasBridge(nodes, onUpdate),
+      { initialProps: { onUpdate: first } },
+    );
+
+    rerender({ onUpdate: second });
+    expect(patchDemoWorkflowNodeDataByType('graphqlQuery', { endpoint: 'http://localhost' })).toBe(true);
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledWith('q1', { endpoint: 'http://localhost' });
+  });
+
   it('patchDemoWorkflowNodeDataById is false when bridge absent', () => {
     expect(patchDemoWorkflowNodeDataById('m1', {})).toBe(false);
   });

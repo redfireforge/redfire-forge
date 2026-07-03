@@ -133,7 +133,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -166,7 +166,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -217,7 +217,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
 
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -248,7 +248,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -261,10 +261,14 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
 
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
-        protoFiles: [
-          { path: 'echo.proto', content: FIXTURE_ECHO_PROTO },
-          { path: 'extra.proto', content: 'syntax = "proto3"; message Extra {}' },
-        ],
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [
+            { path: 'echo.proto', content: FIXTURE_ECHO_PROTO },
+            { path: 'extra.proto', content: 'syntax = "proto3"; message Extra {}' },
+          ],
+        }],
       });
     });
 
@@ -397,7 +401,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
       result.current.updateTab(tabId, { target: 'localhost:50051' });
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -420,6 +424,66 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     expect(descriptorState.lastKnownGoodDescriptor?.key).toBe(FIXTURE_DESCRIPTOR.key);
     expect(result.current.tabs[0]!.service).toBe('echo.EchoService');
     expect(result.current.tabs[0]!.method).toBe('Echo');
+  });
+
+  it('describeFromIngest does not fall back to reflection when proto files load fails', async () => {
+    const transport = vi.fn(async (op) => {
+      if (op === 'describe') {
+        return {
+          ok: false as const,
+          op: 'describe' as const,
+          error: {
+            code: 'GRPC_IMPORT_RESOLUTION_FAILED',
+            message: 'Unresolved import "common.proto" (required by root/service.proto)',
+            retryable: false,
+          },
+        };
+      }
+      if (op === 'reflect') {
+        return FIXTURE_REFLECT_SUCCESS_ENVELOPE;
+      }
+      throw new Error(`unexpected op ${op}`);
+    });
+    setGrpcClientTransport(transport);
+
+    const { result } = renderHook(() => useGrpcStudio({
+      pageDefaults: PAGE_DEFAULTS,
+    }));
+
+    const tabId = result.current.activeTab.id;
+
+    act(() => {
+      result.current.updateTab(tabId, { target: 'localhost:50051' });
+      result.current.patchTabProtoIngest(tabId, {
+        source: 'proto_files',
+        protoRoots: [{
+          id: 'root-1',
+          mountPath: 'root',
+          files: [{
+            path: 'service.proto',
+            content: 'syntax = "proto3"; import "common.proto"; package demo; service Demo { rpc Ping (PingReq) returns (PingRes); } message PingReq {} message PingRes {}',
+          }],
+        }],
+      });
+    });
+
+    await act(async () => {
+      const loaded = await result.current.describeFromIngest(tabId);
+      expect(loaded).toBe(false);
+    });
+
+    expect(result.current.getTabDescriptor(tabId).loadState).toBe('error');
+    expect(result.current.getTabDescriptor(tabId).errorMessage).toMatch(/unresolved import/i);
+    expect(transport).toHaveBeenCalledWith(
+      'describe',
+      '/api/grpc/describe',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    expect(transport).not.toHaveBeenCalledWith(
+      'reflect',
+      '/api/grpc/reflect',
+      expect.anything(),
+    );
   });
 
   it('describeFromIngest ignores stale responses when superseded by reflect', async () => {
@@ -449,7 +513,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
       result.current.updateTab(tabId, { target: 'localhost:50051' });
     });
@@ -486,7 +550,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'empty.proto', content: '   ' }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'empty.proto', content: '   ' }] }],
       });
     });
 
@@ -528,7 +592,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
       result.current.updateTab(tabId, { target: 'localhost:50051' });
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 

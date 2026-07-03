@@ -43,14 +43,19 @@ export function triggerRunnerWorkflowRun(): boolean {
   return true;
 }
 
+function getPollingAttempts(timeoutMs: number, intervalMs: number): number {
+  const interval = Math.max(1, intervalMs);
+  return Math.max(1, Math.ceil(timeoutMs / interval));
+}
+
 /** Poll until Workflow Runner demo bridge is mounted (max ~8s). */
 export async function waitForRunnerBridge(
   ctx: DemoSeedDelayContext,
   timeoutMs = 8000,
   intervalMs = 100,
 ): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  const attempts = getPollingAttempts(timeoutMs, intervalMs);
+  for (let i = 0; i < attempts; i++) {
     if (getDemoBridgeWindow().__wfRunnerSelectAndRun) return true;
     await ctx.delay(intervalMs);
   }
@@ -77,8 +82,8 @@ export async function waitForResultsExplorerBridge(
   timeoutMs = 8000,
   intervalMs = 100,
 ): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  const attempts = getPollingAttempts(timeoutMs, intervalMs);
+  for (let i = 0; i < attempts; i++) {
     if (getDemoBridgeWindow().__reExplorerFitView) return true;
     await ctx.delay(intervalMs);
   }
@@ -99,8 +104,8 @@ export async function waitForWorkflowBridge(
   timeoutMs = 8000,
   intervalMs = 100,
 ): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  const attempts = getPollingAttempts(timeoutMs, intervalMs);
+  for (let i = 0; i < attempts; i++) {
     if (getDemoBridgeWindow().__wfInsertWorkflow) return true;
     await ctx.delay(intervalMs);
   }
@@ -113,8 +118,8 @@ async function waitForWorkflowInStore(
   timeoutMs = 3000,
   intervalMs = 50,
 ): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  const attempts = getPollingAttempts(timeoutMs, intervalMs);
+  for (let i = 0; i < attempts; i++) {
     if (getWorkflowByName(name)) return true;
     await ctx.delay(intervalMs);
   }
@@ -127,8 +132,8 @@ export async function waitForWorkflowsLoaded(
   timeoutMs = 10000,
   intervalMs = 50,
 ): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  const attempts = getPollingAttempts(timeoutMs, intervalMs);
+  for (let i = 0; i < attempts; i++) {
     if (getDemoBridgeWindow().__wfWorkflowsLoaded) return true;
     await ctx.delay(intervalMs);
   }

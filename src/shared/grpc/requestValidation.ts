@@ -320,21 +320,48 @@ export function validateGrpcDescribeRequest(
   }
 
   if (request.source === 'proto_files') {
-    if (!request.protoFiles?.length) {
+    const hasProtoRoots = Boolean(request.protoRoots?.length);
+    if (!hasProtoRoots) {
       issues.push({
-        field: 'protoFiles',
+        field: 'protoRoots',
         code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR,
-        message: 'protoFiles is required when source is proto_files',
+        message: 'protoRoots is required when source is proto_files',
       });
-    } else {
-      request.protoFiles.forEach((file, index) => {
-        if (!file.path?.trim() || !file.content?.trim()) {
+    }
+
+    if (hasProtoRoots) {
+      request.protoRoots?.forEach((root, rootIndex) => {
+        if (!root.id?.trim()) {
           issues.push({
-            field: `protoFiles[${index}]`,
+            field: `protoRoots[${rootIndex}].id`,
             code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR,
-            message: 'each proto file requires non-empty path and content',
+            message: 'each proto root requires a non-empty id',
           });
         }
+        if (!root.mountPath?.trim()) {
+          issues.push({
+            field: `protoRoots[${rootIndex}].mountPath`,
+            code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR,
+            message: 'each proto root requires a non-empty mountPath',
+          });
+        }
+        if (!root.files?.length) {
+          issues.push({
+            field: `protoRoots[${rootIndex}].files`,
+            code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR,
+            message: 'each proto root requires at least one file',
+          });
+          return;
+        }
+        root.files.forEach((file, fileIndex) => {
+          if (!file.path?.trim() || !file.content?.trim()) {
+            issues.push({
+              field: `protoRoots[${rootIndex}].files[${fileIndex}]`,
+              code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR,
+              message: 'each proto file requires non-empty path and content',
+            });
+          }
+        });
       });
     }
   } else if (request.source === 'protoset') {

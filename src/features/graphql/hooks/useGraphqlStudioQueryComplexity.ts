@@ -20,10 +20,8 @@ export function useGraphqlStudioQueryComplexity(
   const [complexityWarningPending, setComplexityWarningPending] = useState(false);
   const prevComplexityQueryRef = useRef('');
   useEffect(() => {
-    if (query !== prevComplexityQueryRef.current) {
-      prevComplexityQueryRef.current = query;
-      setComplexityWarningPending(false);
-    }
+    prevComplexityQueryRef.current = query;
+    setComplexityWarningPending(false);
   }, [query]);
 
   return { complexityResult, complexityWarningPending, setComplexityWarningPending };

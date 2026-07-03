@@ -22,10 +22,86 @@ function latencyBarWidth(avgMs: number, maxAvgMs: number): number {
   return Math.max(4, Math.round((avgMs / maxAvgMs) * 72));
 }
 
+function buildExportTimestamp(): string {
+  return new Date().toISOString().replace(/[:.]/g, '-');
+}
+
+function downloadTextFile(content: string, filename: string, contentType: string): void {
+  const blob = new Blob([content], { type: contentType });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement('a');
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+function buildRpcStatsCsv(rows: ReturnType<typeof listGrpcRpcMethodRows>): string {
+  const header = [
+    'service',
+    'method',
+    'calls',
+    'ok',
+    'errors',
+    'latency_min_ms',
+    'latency_avg_ms',
+    'latency_p95_ms',
+    'latency_max_ms',
+    'status_distribution',
+  ];
+  const body = rows.map((row) => {
+    const statusDistribution = Object.entries(row.statusDistribution)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([status, count]) => `${status}:${count}`)
+      .join('|');
+    return [
+      row.service,
+      row.method,
+      String(row.calls),
+      String(row.calls - row.errors),
+      String(row.errors),
+      String(Math.round(row.latencyMs.min)),
+      String(Math.round(row.latencyMs.avg)),
+      String(Math.round(row.latencyMs.p95)),
+      String(Math.round(row.latencyMs.max)),
+      statusDistribution,
+    ];
+  });
+  return [header, ...body].map((columns) => columns.join(',')).join('\n');
+}
+
 export function GrpcRpcStatisticsPanel({ advanced }: GrpcRpcStatisticsPanelProps) {
   const rows = listGrpcRpcMethodRows(advanced.rpcSessionStats);
   const summary = advanced.rpcSessionSummary;
   const maxAvgLatency = rows.reduce((max, row) => Math.max(max, row.latencyMs.avg), 0);
+
+  const exportRpcStatsJson = () => {
+    const payload = {
+      kind: 'grpc_rpc_session_stats',
+      exportedAt: new Date().toISOString(),
+      tab: {
+        id: advanced.activeTabId,
+        label: advanced.activeTabLabel,
+        rpc: advanced.activeRpcLabel ?? null,
+      },
+      summary,
+      rows,
+    };
+    downloadTextFile(
+      JSON.stringify(payload, null, 2),
+      `redfire-grpc-rpc-stats-${buildExportTimestamp()}.json`,
+      'application/json',
+    );
+  };
+
+  const exportRpcStatsCsv = () => {
+    const csv = buildRpcStatsCsv(rows);
+    downloadTextFile(
+      csv,
+      `redfire-grpc-rpc-stats-${buildExportTimestamp()}.csv`,
+      'text/csv;charset=utf-8',
+    );
+  };
 
   return (
     <section className="grpc-advanced-panel" data-testid="grpc-rpc-stats-panel">
@@ -38,6 +114,24 @@ export function GrpcRpcStatisticsPanel({ advanced }: GrpcRpcStatisticsPanelProps
           </p>
         </div>
         <div className="grpc-advanced-card__actions">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            data-testid="grpc-rpc-stats-export-json-btn"
+            onClick={exportRpcStatsJson}
+            disabled={summary.totalCalls === 0}
+          >
+            Export JSON
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            data-testid="grpc-rpc-stats-export-csv-btn"
+            onClick={exportRpcStatsCsv}
+            disabled={summary.totalCalls === 0}
+          >
+            Export CSV
+          </button>
           <button
             type="button"
             className="btn btn-ghost btn-sm"

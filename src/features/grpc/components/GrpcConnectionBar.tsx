@@ -166,8 +166,8 @@ export function GrpcConnectionBar({
           data-testid="grpc-connection-settings-btn"
           disabled={disabled}
           onClick={() => onSettingsClick()}
-          aria-label="Connection settings"
-          title="Connection settings"
+          aria-label="Session settings"
+          title="Session settings"
         >
           ⚙
         </button>

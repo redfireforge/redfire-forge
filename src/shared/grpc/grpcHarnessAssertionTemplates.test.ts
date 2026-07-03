@@ -67,4 +67,31 @@ describe('grpcHarnessAssertionTemplates', () => {
       map,
     )).toEqual([{ grpcField: '$.message', equals: 'hello' }]);
   });
+
+  it('leaves grpcTrailer unchanged when equals is missing', () => {
+    const trailer = { grpcTrailer: 'x-trace' };
+    expect(mapGrpcHarnessAssertionTemplateStrings(trailer, map)).toBe(trailer);
+  });
+
+  it('leaves grpcNumericField unchanged when value is numeric', () => {
+    const numeric = { grpcNumericField: '$.durationMs', operator: '>=', value: 10 };
+    expect(mapGrpcHarnessAssertionTemplateStrings(numeric, map)).toBe(numeric);
+  });
+
+  it('keeps grpcField and grpcStreamField when equals/contains are non-string', () => {
+    expect(mapGrpcHarnessAssertionTemplateStrings(
+      { grpcField: '$.count', equals: 1 as unknown as string },
+      map,
+    )).toEqual({ grpcField: '$.count', equals: 1 });
+
+    expect(mapGrpcHarnessAssertionTemplateStrings(
+      { grpcStreamField: '$.items', index: 0 },
+      map,
+    )).toEqual({ grpcStreamField: '$.items', index: 0 });
+  });
+
+  it('returns undefined or empty arrays as-is for bulk mapper', () => {
+    expect(mapGrpcHarnessAssertionsTemplateStrings(undefined, map)).toBeUndefined();
+    expect(mapGrpcHarnessAssertionsTemplateStrings([], map)).toEqual([]);
+  });
 });

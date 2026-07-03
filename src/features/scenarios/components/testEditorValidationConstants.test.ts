@@ -7,6 +7,7 @@ import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import {
   ARRAY_CONTAINS_MODE_OPTIONS,
+  CalendarIcon,
   ComparisonSelect,
   DATE_OP_OPTIONS,
   FIELD_OP_OPTIONS,
@@ -86,5 +87,12 @@ describe('ComparisonSelect', () => {
       }),
     );
     expect(screen.getByRole('combobox')).toHaveClass('custom-op-select');
+  });
+});
+
+describe('CalendarIcon', () => {
+  it('renders an svg element', () => {
+    const { container } = render(createElement(CalendarIcon, { 'data-testid': 'cal-icon' }));
+    expect(container.querySelector('svg')).toBeTruthy();
   });
 });

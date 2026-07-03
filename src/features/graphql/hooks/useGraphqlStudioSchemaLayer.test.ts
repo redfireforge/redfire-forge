@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useGraphqlStudioSchemaLayer } from './useGraphqlStudioSchemaLayer';
 import { useGraphqlSchema } from './useGraphqlSchema';
+import { useGraphqlMockServer } from './useGraphqlMockServer';
 import { loadCachedGraphqlSchemaSdl } from '../utils/graphqlSchemaCache';
 
 const introspectMock = vi.fn();
@@ -45,6 +46,7 @@ vi.mock('../utils/monacoGraphqlSetup', () => ({
 }));
 
 const mockUseGraphqlSchema = vi.mocked(useGraphqlSchema);
+const mockUseGraphqlMockServer = vi.mocked(useGraphqlMockServer);
 const mockLoadCached = vi.mocked(loadCachedGraphqlSchemaSdl);
 
 function baseInput(overrides: Record<string, unknown> = {}) {
@@ -182,5 +184,116 @@ describe('useGraphqlStudioSchemaLayer', () => {
     });
     const { result: idleResult } = renderHook(() => useGraphqlStudioSchemaLayer(baseInput()));
     expect(idleResult.current.connectionBarSchemaStatus).toBe('none');
+  });
+
+  it('fires onIntrospectComplete only when introspection finishes for same endpoint', () => {
+    const onIntrospectComplete = vi.fn();
+    mockUseGraphqlSchema
+      .mockReturnValueOnce({
+        status: 'idle',
+        schemaInfo: null,
+        rawIntrospection: null,
+        errorMessage: null,
+        introspecting: false,
+        introspect: introspectMock,
+        pollErrorMessage: null,
+      })
+      .mockReturnValueOnce({
+        status: 'loading',
+        schemaInfo: null,
+        rawIntrospection: null,
+        errorMessage: null,
+        introspecting: true,
+        introspect: introspectMock,
+        pollErrorMessage: null,
+      })
+      .mockReturnValueOnce({
+        status: 'loaded',
+        schemaInfo: { sdl: 'type Query { done: Boolean }' } as never,
+        rawIntrospection: { __schema: { types: [] } },
+        errorMessage: null,
+        introspecting: false,
+        introspect: introspectMock,
+        pollErrorMessage: null,
+      });
+
+    const { rerender } = renderHook(
+      (props) => useGraphqlStudioSchemaLayer(props),
+      { initialProps: baseInput({ onIntrospectComplete }) },
+    );
+    rerender(baseInput({ onIntrospectComplete }));
+    rerender(baseInput({ onIntrospectComplete }));
+
+    expect(onIntrospectComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('skips cached lookup when only mock endpoints are available', () => {
+    mockUseGraphqlSchema.mockReturnValue({
+      status: 'idle',
+      schemaInfo: null,
+      rawIntrospection: null,
+      errorMessage: null,
+      introspecting: false,
+      introspect: introspectMock,
+      pollErrorMessage: null,
+    });
+
+    renderHook(() => useGraphqlStudioSchemaLayer(baseInput({
+      tabSchemaConnectionId: null,
+      pageDefaultEndpointResolved: 'http://localhost:4010/api/graphql/mock',
+      resolvedTabEndpointForSchema: 'http://localhost:4010/api/graphql/mock?tab=1',
+      historyConnectionId: null,
+    })));
+
+    expect(mockLoadCached).not.toHaveBeenCalled();
+  });
+
+  it('uses last live SDL for mock endpoint when current schema SDL is empty', () => {
+    mockUseGraphqlSchema
+      .mockReturnValueOnce({
+        status: 'loaded',
+        schemaInfo: { sdl: 'type Query { liveValue: String }' } as never,
+        rawIntrospection: null,
+        errorMessage: null,
+        introspecting: false,
+        introspect: introspectMock,
+        pollErrorMessage: null,
+      })
+      .mockReturnValueOnce({
+        status: 'loaded',
+        schemaInfo: { sdl: '   ' } as never,
+        rawIntrospection: null,
+        errorMessage: null,
+        introspecting: false,
+        introspect: introspectMock,
+        pollErrorMessage: null,
+      });
+
+    const { rerender } = renderHook(
+      (props) => useGraphqlStudioSchemaLayer(props),
+      {
+        initialProps: baseInput({
+          resolvedTabEndpointForSchema: 'http://localhost:4010/graphql',
+        }),
+      },
+    );
+
+    rerender(baseInput({
+      resolvedTabEndpointForSchema: 'http://localhost:4010/api/graphql/mock',
+    }));
+
+    const lastCall = mockUseGraphqlMockServer.mock.calls.at(-1);
+    expect(lastCall?.[1]).toBe('type Query { liveValue: String }');
+  });
+
+  it('computes invalid item ids when collection trees are present', () => {
+    const { result } = renderHook(() => useGraphqlStudioSchemaLayer(baseInput({
+      collectionTrees: [{
+        collection: { id: 'col-1', name: 'C1', createdAt: '', updatedAt: '' },
+        folders: [],
+        items: [],
+      }],
+    })));
+    expect(result.current.invalidItemIds).toBeInstanceOf(Set);
   });
 });

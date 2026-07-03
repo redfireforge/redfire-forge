@@ -59,6 +59,10 @@ describe('grpcTauriErrorMapping', () => {
     ).toBe(GRPC_ERROR_CODES.INVALID_DESCRIPTOR);
   });
 
+  it('falls back to CALL_FAILED for unknown tauri codes', () => {
+    expect(mapTauriErrorCodeToExpress('unknown-code')).toBe(GRPC_ERROR_CODES.CALL_FAILED);
+  });
+
   it('toGrpcApiClientErrorFromDescriptorPrepare maps export failures to INVALID_REQUEST', () => {
     const mapped = toGrpcApiClientErrorFromDescriptorPrepare('stream_start', new Error('network down'));
     expect(mapped).toBeInstanceOf(GrpcApiClientError);
@@ -74,6 +78,14 @@ describe('grpcTauriErrorMapping', () => {
     expect(mapped.code).toBe(GRPC_ERROR_CODES.INVALID_DESCRIPTOR);
   });
 
+  it('toGrpcApiClientErrorFromDescriptorPrepare passes through existing client errors', () => {
+    const original = new GrpcApiClientError('call', 'already wrapped', {
+      code: GRPC_ERROR_CODES.CALL_FAILED,
+      retryable: true,
+    });
+    expect(toGrpcApiClientErrorFromDescriptorPrepare('call', original)).toBe(original);
+  });
+
   it('wraps native transport errors as GrpcApiClientError', () => {
     const native = new GrpcNativeTauriTransportError('cancel', 'tabId does not match the registered call', {
       code: GRPC_TAURI_ERROR_CODES.INVALID_REQUEST,
@@ -81,6 +93,15 @@ describe('grpcTauriErrorMapping', () => {
     const mapped = toGrpcApiClientErrorFromNative('cancel', native);
     expect(mapped.code).toBe(GRPC_ERROR_CODES.INVALID_REQUEST);
     expect(mapped.op).toBe('cancel');
+  });
+
+  it('wraps native transport fallback codes as CALL_FAILED', () => {
+    const mapped = toGrpcApiClientErrorFromNative('call', {
+      message: 'boom',
+      code: 'not-mapped',
+      retryable: false,
+    });
+    expect(mapped.code).toBe(GRPC_ERROR_CODES.CALL_FAILED);
   });
 
   it('maps non-zero unary results to GrpcApiClientError with grpcStatus in details', () => {
@@ -94,5 +115,15 @@ describe('grpcTauriErrorMapping', () => {
     expect(mapped.details?.grpcStatus).toBe(14);
     expect(mapped.details?.trailers).toEqual({ 'grpc-status-details-bin': 'abc' });
     expect(mapped.retryable).toBe(false);
+  });
+
+  it('uses statusMessage as grpcDetails when unary errorDetail is missing', () => {
+    const mapped = toGrpcApiClientErrorFromUnaryResult({
+      status: 13,
+      statusMessage: 'INTERNAL',
+      trailers: {},
+    });
+    expect(mapped).toBeInstanceOf(GrpcApiClientError);
+    expect(mapped.details?.grpcStatus).toBe(13);
   });
 });

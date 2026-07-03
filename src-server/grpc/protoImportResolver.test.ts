@@ -58,6 +58,28 @@ describe('protoImportResolver', () => {
     expect(resolved).toBe('shared/common.proto');
   });
 
+  it('resolveProtoImportPath falls back to unique basename when dropped files are flattened', () => {
+    const map = buildProtoFileMap({
+      protoFiles: [
+        { path: 'service.proto', content: 'syntax = "proto3"; import "shared/common.proto";' },
+        { path: 'common.proto', content: 'syntax = "proto3"; package common;' },
+      ],
+    });
+    const resolved = resolveProtoImportPath('service.proto', 'shared/common.proto', map, []);
+    expect(resolved).toBe('common.proto');
+  });
+
+  it('resolveProtoImportPath keeps failing on ambiguous basename fallback', () => {
+    const map = buildProtoFileMap({
+      protoFiles: [
+        { path: 'shared/common.proto', content: 'syntax = "proto3"; package a;' },
+        { path: 'vendor/common.proto', content: 'syntax = "proto3"; package b;' },
+      ],
+    });
+    const resolved = resolveProtoImportPath('api/service.proto', 'acme/common.proto', map, []);
+    expect(resolved).toBeNull();
+  });
+
   it('normalizeResolvedProtoPath collapses parent-directory segments', () => {
     expect(normalizeResolvedProtoPath('api/../common/types.proto')).toBe('common/types.proto');
   });

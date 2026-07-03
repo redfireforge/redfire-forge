@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import '@testing-library/jest-dom/vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { GraphqlCollectionRunnerPanel } from './GraphqlCollectionRunnerPanel';
 import type { GraphqlCollectionRunnerPanelProps } from './GraphqlCollectionRunnerPanel';
@@ -159,14 +159,16 @@ describe('GraphqlCollectionRunnerPanel', () => {
 
     render(<GraphqlCollectionRunnerPanel {...makeDefaultProps({ runner, collectionName: 'My Collection' })} />);
     fireEvent.click(screen.getByTestId('gql-runner-export'));
-    expect(saveJsonFile).toHaveBeenCalledWith(
-      expect.objectContaining({
-        collection: 'My Collection',
-        summary: { passed: 1, failed: 0, skipped: 0 },
-        events: runner.state.events,
-      }),
-      expect.stringMatching(/^runner-results-my-collection-\d+\.json$/),
-    );
+    await waitFor(() => {
+      expect(saveJsonFile).toHaveBeenCalledWith(
+        expect.objectContaining({
+          collection: 'My Collection',
+          summary: { passed: 1, failed: 0, skipped: 0 },
+          events: runner.state.events,
+        }),
+        expect.stringMatching(/^runner-results-my-collection-\d+\.json$/),
+      );
+    });
   });
 
   // ── Close button ─────────────────────────────────────────────────────────────

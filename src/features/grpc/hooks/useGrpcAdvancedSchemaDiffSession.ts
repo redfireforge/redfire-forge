@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { GrpcDescriptor } from '../../../shared/grpc/contracts';
 import type { GrpcSchemaDiffChange } from '../../../shared/grpc/grpcSchemaDiffContracts';
+import type { GrpcSchemaDiffReport } from '../../../shared/grpc/grpcSchemaDiffContracts';
 import type { GrpcSchemaDiffSeverityFilter, GrpcTabAdvancedFeaturesUiState } from '../grpcStudioAdvancedTypes';
 import {
   computeGrpcStudioSchemaDiffReport,
@@ -211,6 +212,27 @@ export function useGrpcAdvancedSchemaDiffSession(
     }
   }, [activeTabId, getTabState, patchTabState]);
 
+  const applySchemaDiffComparison = useCallback((input: {
+    baselineDescriptor: GrpcDescriptor;
+    report: GrpcSchemaDiffReport;
+    baselineCapturedAt?: string;
+  }) => {
+    patchTabState(activeTabId, (prev) => ({
+      ...prev,
+      schemaDiff: {
+        ...prev.schemaDiff,
+        baselineDescriptor: structuredClone(input.baselineDescriptor) as GrpcDescriptor,
+        baselineCapturedAt: input.baselineCapturedAt ?? new Date().toISOString(),
+        lastReport: input.report,
+      },
+      runtime: {
+        ...prev.runtime,
+        schemaDiff: transitionAdvancedOpQuickComplete(prev.runtime.schemaDiff),
+      },
+    }));
+    void refreshSchemaDiffAcks(input.baselineDescriptor.key);
+  }, [activeTabId, patchTabState, refreshSchemaDiffAcks]);
+
   return {
     schemaDiffAckChangeIds,
     setSchemaDiffSeverityFilter,
@@ -221,5 +243,6 @@ export function useGrpcAdvancedSchemaDiffSession(
     captureSchemaBaseline,
     runSchemaDiff,
     clearSchemaBaseline,
+    applySchemaDiffComparison,
   };
 }

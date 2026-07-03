@@ -3,7 +3,6 @@
  *
  * Integration: dialable mock listener + grpc-js client unary hit.
  */
-import * as grpc from '@grpc/grpc-js';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FIXTURE_DESCRIPTOR } from '../../src/shared/grpc/contractFixtures.js';
 import { DescriptorLoader } from './descriptorLoader.js';
@@ -12,6 +11,7 @@ import { clearGrpcDescriptorStore, setGrpcDescriptor } from './descriptorStore.j
 import { grpcMockServerPool, GrpcMockServerPool, resetGrpcMockServerPoolForTests } from './grpcMockServerPool.js';
 import { resetServerGrpcMockRuntimeRegistryForTests } from './grpcMockServerRuntimeBridge.js';
 import { grpcJsClient } from './grpcClient.js';
+import { grpc } from './grpcJsLoader.js';
 import { GrpcJsStreamingClient } from './grpcStreamingClient.js';
 
 describe('GrpcMockServerPool integration', () => {

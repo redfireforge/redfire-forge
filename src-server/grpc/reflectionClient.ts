@@ -1,4 +1,4 @@
-import * as grpc from '@grpc/grpc-js';
+import { grpc } from './grpcJsLoader.js';
 import { GrpcReflection } from 'grpc-js-reflection-client';
 import protobuf from 'protobufjs';
 import type { GrpcTlsConfig, GrpcTlsMode } from '../../src/shared/grpc/contracts.js';

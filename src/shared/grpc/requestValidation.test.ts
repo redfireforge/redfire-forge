@@ -125,7 +125,7 @@ describe('requestValidation (Phase 1A)', () => {
     expect(validateGrpcDescribeRequest(FIXTURE_DESCRIBE_REQUEST)).toEqual([]);
     expect(validateGrpcDescribeRequest(FIXTURE_DESCRIBE_PROTOSET_REQUEST)).toEqual([]);
     expect(validateGrpcDescribeRequest({ requestId: 'x', source: 'proto_files' })).toEqual([
-      expect.objectContaining({ field: 'protoFiles', code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR }),
+      expect.objectContaining({ field: 'protoRoots', code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR }),
     ]);
     expect(validateGrpcDescribeRequest({ requestId: 'x', source: 'protoset' })).toEqual([
       expect.objectContaining({
@@ -222,10 +222,10 @@ describe('requestValidation (Phase 1A)', () => {
       validateGrpcDescribeRequest({
         requestId: 'x',
         source: 'proto_files',
-        protoFiles: [{ path: '', content: '' }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: '', content: '' }] }],
       }),
     ).toEqual([
-      expect.objectContaining({ field: 'protoFiles[0]', code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR }),
+      expect.objectContaining({ field: 'protoRoots[0].files[0]', code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR }),
     ]);
   });
 
