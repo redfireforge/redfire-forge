@@ -19,6 +19,7 @@ export interface GrpcSavedRequestDetailProps {
   grpcurlCommand: string;
   lastUnaryResult?: GrpcCallResult;
   onOpenInStudio: () => void;
+  onCompareSchema?: () => void;
   onRunLoadTest?: () => void;
   onCopyGrpcurl: () => void;
   onDuplicate: () => void;
@@ -31,6 +32,8 @@ export interface GrpcSavedRequestDetailProps {
   streamComparisonEligible?: boolean;
   openInStudioDisabled?: boolean;
   openInStudioTitle?: string;
+  compareSchemaDisabled?: boolean;
+  compareSchemaTitle?: string;
   runLoadTestDisabled?: boolean;
   runLoadTestTitle?: string;
 }
@@ -39,6 +42,7 @@ export function GrpcSavedRequestDetail({
   saved,
   grpcurlCommand,
   onOpenInStudio,
+  onCompareSchema,
   onRunLoadTest,
   onCopyGrpcurl,
   onDuplicate,
@@ -52,6 +56,8 @@ export function GrpcSavedRequestDetail({
   streamComparisonEligible,
   openInStudioDisabled = false,
   openInStudioTitle = 'Open in Studio',
+  compareSchemaDisabled = false,
+  compareSchemaTitle = 'Compare schema',
   runLoadTestDisabled = false,
   runLoadTestTitle = 'Run load test',
 }: GrpcSavedRequestDetailProps) {
@@ -98,6 +104,18 @@ export function GrpcSavedRequestDetail({
           >
             Open in Studio
           </button>
+          {onCompareSchema && (
+            <button
+              type="button"
+              className="grpc-btn grpc-btn--ghost grpc-btn--sm"
+              data-testid="grpc-saved-request-compare-schema"
+              onClick={onCompareSchema}
+              disabled={compareSchemaDisabled}
+              title={compareSchemaTitle}
+            >
+              Compare schema
+            </button>
+          )}
           {onRunLoadTest && (
             <button
               type="button"

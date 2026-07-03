@@ -3,6 +3,7 @@ import {
   GRPC_ERROR_CODES,
   type GrpcDescriptor,
   type GrpcDescriptorSource,
+  type GrpcDescriptorSourceSelection,
 } from '../../../shared/grpc/contracts';
 import { createDefaultDescriptorSourceSelection } from '../../../shared/grpc/descriptorSourcePolicy';
 import {
@@ -128,6 +129,7 @@ async function loadDescriptorWithNetwork(
   tabId: string,
   ingest: GrpcTabProtoIngestState,
   initialSource: GrpcDescriptorSource,
+  selectionOverride?: GrpcDescriptorSourceSelection,
 ): Promise<{ descriptor: GrpcDescriptor; source: GrpcDescriptorSource }> {
   const tab = ctx.sessionRef.current.tabs.find((entry) => entry.id === tabId);
   if (!tab) {
@@ -142,7 +144,9 @@ async function loadDescriptorWithNetwork(
     ctx.workspaceDefaults,
   );
   const descriptorState = ctx.sessionRef.current.tabDescriptors[tabId] ?? createEmptyTabDescriptorState();
-  const selection = descriptorState.sourceSelection ?? createDefaultDescriptorSourceSelection();
+  const selection = selectionOverride
+    ?? descriptorState.sourceSelection
+    ?? createDefaultDescriptorSourceSelection();
   const availability = buildDescriptorSourceAvailability(resolution, ingest);
   if (resolution.targetValidation.valid) {
     assertTabTlsConfigValid(resolution, tab.tlsConfig);
@@ -295,7 +299,16 @@ export function createDescribeFromIngestHandler(
     });
 
     try {
-      const { descriptor, source } = await loadDescriptorWithNetwork(ctx, tabId, ingest, ingest.source);
+      const { descriptor, source } = await loadDescriptorWithNetwork(
+        ctx,
+        tabId,
+        ingest,
+        ingest.source,
+        {
+          mode: 'manual',
+          activeSource: ingest.source,
+        },
+      );
       if (isStale()) return false;
 
       applyDescriptorLoadSuccess(ctx, tabId, descriptor, source);

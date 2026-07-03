@@ -3,6 +3,8 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  computeCanonicalProtoPath,
+  detectProtoRootCollisions,
   formatProtoFileSize,
   readProtoFilesFromFileList,
   readProtosetBase64FromFile,
@@ -44,5 +46,92 @@ describe('grpcProtoIngestUtils coverage gaps', () => {
 
     const empty = new File([], 'schema.pb', { type: 'application/octet-stream' });
     await expect(readProtosetBase64FromFile(empty)).rejects.toThrow(/empty/i);
+  });
+
+  it('computeCanonicalProtoPath normalizes mount and file paths', () => {
+    expect(computeCanonicalProtoPath('shared', 'common.proto')).toBe('shared/common.proto');
+    expect(computeCanonicalProtoPath('vendor/acme', 'types/user.proto')).toBe('vendor/acme/types/user.proto');
+    expect(computeCanonicalProtoPath('', 'root.proto')).toBe('root.proto');
+  });
+
+  it('computeCanonicalProtoPath handles whitespace and slashes', () => {
+    expect(computeCanonicalProtoPath('  shared/  ', '  /common.proto  ')).toBe('shared/common.proto');
+    expect(computeCanonicalProtoPath('root/', '/echo.proto')).toBe('root/echo.proto');
+  });
+
+  it('detectProtoRootCollisions finds basename collisions in different roots', () => {
+    const roots = [
+      {
+        id: 'r1',
+        mountPath: 'shared',
+        files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+      },
+      {
+        id: 'r2',
+        mountPath: 'api',
+        files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+      },
+    ];
+    const diagnostics = detectProtoRootCollisions(roots);
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        type: 'basename_collision',
+        message: expect.stringContaining('common.proto'),
+      }),
+    );
+  });
+
+  it('detectProtoRootCollisions finds canonical path collisions', () => {
+    const roots = [
+      {
+        id: 'r1',
+        mountPath: 'shared',
+        files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+      },
+      {
+        id: 'r2',
+        mountPath: 'shared',
+        files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+      },
+    ];
+    const diagnostics = detectProtoRootCollisions(roots);
+    expect(diagnostics).toContainEqual(
+      expect.objectContaining({
+        type: 'path_collision',
+        message: expect.stringContaining('shared/common.proto'),
+      }),
+    );
+  });
+
+  it('detectProtoRootCollisions does not warn on same basename in same root', () => {
+    const roots = [
+      {
+        id: 'r1',
+        mountPath: 'shared',
+        files: [
+          { path: 'common.proto', content: 'syntax = "proto3";' },
+          { path: 'types/common.proto', content: 'syntax = "proto3";' },
+        ],
+      },
+    ];
+    const diagnostics = detectProtoRootCollisions(roots);
+    expect(diagnostics.filter((d) => d.type === 'basename_collision')).toHaveLength(0);
+  });
+
+  it('detectProtoRootCollisions returns empty list for clean roots', () => {
+    const roots = [
+      {
+        id: 'r1',
+        mountPath: 'shared',
+        files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+      },
+      {
+        id: 'r2',
+        mountPath: 'api',
+        files: [{ path: 'service.proto', content: 'syntax = "proto3";' }],
+      },
+    ];
+    const diagnostics = detectProtoRootCollisions(roots);
+    expect(diagnostics).toHaveLength(0);
   });
 });

@@ -206,6 +206,29 @@ describe('GrpcCollectionsPanel coverage gaps (Phase 5H)', () => {
     await waitFor(() => expect(onSavedDeleted).toHaveBeenCalledWith('saved-1'));
   });
 
+  it('wires compare schema action from detail panel', async () => {
+    const collection = collectionWithSaved();
+    const onCompareSchema = vi.fn();
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection])}
+        selectedSavedId="saved-1"
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCompareSchema={onCompareSchema}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-saved-request-compare-schema'));
+    await waitFor(() => expect(onCompareSchema).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'saved-1' }),
+      'col-1',
+    ));
+  });
+
   it('ignores empty collection name from prompt', async () => {
     const addCollection = vi.fn();
     vi.spyOn(window, 'prompt').mockReturnValue('   ');

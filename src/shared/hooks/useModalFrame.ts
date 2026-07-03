@@ -28,13 +28,14 @@ export function useModalFrame({
     onDragStart,
     onPointerDragStart,
     isDragged: rawDragged,
+    isDragging,
     overlayStyle: draggedOverlayStyle,
     modalStyle,
   } = useModalDrag(open && dragEnabled);
   const { resizeStyle, onRightEdge, onCorner, onBottomEdge, resetSize } = useModalResize(minWidth, minHeight);
 
   const isDragged = rawDragged && dragEnabled;
-  const overlayStyle = isDragged ? draggedOverlayStyle : undefined;
+  const overlayStyle = isDragging ? draggedOverlayStyle : undefined;
   const dialogStyle = isDragged ? { ...modalStyle, ...resizeStyle } : resizeStyle;
   const headerDragStyle: CSSProperties | undefined = dragEnabled ? { cursor: 'move' } : undefined;
   const onHeaderMouseDown = dragEnabled ? onDragStart : undefined;

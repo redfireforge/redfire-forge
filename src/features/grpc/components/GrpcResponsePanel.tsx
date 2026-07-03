@@ -20,7 +20,7 @@ import {
   grpcTimingBarWidthPercent,
   resolveGrpcTimingBarDenominatorMs,
 } from '../utils/grpcTimingBreakdown';
-import { redactGrpcCallResultForDisplay, redactGrpcErrorBody } from '../../../shared/grpc/grpcRedaction';
+import { redactGrpcErrorBody, redactGrpcMetadataForDisplay } from '../../../shared/grpc/grpcRedaction';
 import { useGrpcStudioHints } from '../hooks/useGrpcStudioHints';
 import { shouldShowPermissionDeniedHint } from '../utils/grpcSpringHints';
 import { GrpcSpringHintCard } from './GrpcSpringHintCard';
@@ -110,10 +110,14 @@ export function GrpcResponsePanel({
     [lastResult?.durationMs, timingRows],
   );
 
-  const displayResult = useMemo(
-    () => (lastResult ? redactGrpcCallResultForDisplay(lastResult) : undefined),
-    [lastResult],
-  );
+  const displayResult = useMemo(() => {
+    if (!lastResult) return undefined;
+    return {
+      ...lastResult,
+      headers: redactGrpcMetadataForDisplay(lastResult.headers, { maskNonSecret: false }),
+      trailers: redactGrpcMetadataForDisplay(lastResult.trailers, { maskNonSecret: false }),
+    };
+  }, [lastResult]);
 
   const metadataEntries = useMemo(() => {
     if (!displayResult) return [] as Array<{ key: string; value: string }>;

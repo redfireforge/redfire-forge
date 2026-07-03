@@ -172,6 +172,47 @@ describe('descriptorSourceFallback coverage gaps', () => {
     });
   });
 
+  it('buildDescribeRequestForSource emits protoRoots when root model is present', () => {
+    const ingest = {
+      ...createDefaultProtoIngestState(),
+      protoRoots: [
+        {
+          id: 'shared-root',
+          mountPath: 'shared',
+          files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+        },
+      ],
+    };
+    expect(buildDescribeRequestForSource('proto_files', ingest, 'req-pf-roots')).toMatchObject({
+      requestId: 'req-pf-roots',
+      source: 'proto_files',
+      protoRoots: [
+        expect.objectContaining({ mountPath: 'shared' }),
+      ],
+    });
+  });
+
+  it('buildDescribeRequestForSource prefers protoRoots over protoFiles when both exist', () => {
+    const ingest = {
+      ...createDefaultProtoIngestState(),
+      protoRoots: [
+        {
+          id: 'shared-root',
+          mountPath: 'shared',
+          files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+        },
+      ],
+      // Intentionally invalid to prove protoFiles are ignored when protoRoots are present.
+      protoFiles: [{ path: '', content: '   ', sizeBytes: 1 }],
+    };
+    expect(buildDescribeRequestForSource('proto_files', ingest, 'req-pf-roots-priority')).toEqual({
+      requestId: 'req-pf-roots-priority',
+      source: 'proto_files',
+      protoRoots: ingest.protoRoots,
+      importPaths: undefined,
+    });
+  });
+
   it('buildDescriptorSourceAvailability marks url and bsr when configured', () => {
     const ingest = {
       ...createDefaultProtoIngestState(),

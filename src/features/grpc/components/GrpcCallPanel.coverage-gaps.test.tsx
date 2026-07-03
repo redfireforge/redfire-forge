@@ -94,7 +94,7 @@ describe('GrpcCallPanel coverage gaps', () => {
         authTabFocusRequest={1}
       />,
     );
-    expect(screen.getByTestId('grpc-auth-type-pills')).toBeTruthy();
+    expect(screen.getByTestId('grpc-auth-type-select')).toBeTruthy();
   });
 
   it('shows health hint for health check method on multi-service descriptor', () => {
@@ -133,7 +133,7 @@ describe('GrpcCallPanel coverage gaps', () => {
     );
     expect(screen.getByTestId('grpc-call-panel-empty')).toBeTruthy();
     fireEvent.click(screen.getByTestId('grpc-request-tab-auth'));
-    expect(screen.getByTestId('grpc-auth-type-pills')).toBeTruthy();
+    expect(screen.getByTestId('grpc-auth-type-select')).toBeTruthy();
   });
 
   it('renders files tab and supports remove and clear actions', () => {

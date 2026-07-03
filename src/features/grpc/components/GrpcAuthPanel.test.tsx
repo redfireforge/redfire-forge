@@ -15,7 +15,7 @@ const emptyPreview: GrpcAuthPreviewResult = {
 };
 
 describe('GrpcAuthPanel (Phase 4C)', () => {
-  it('switches auth type via pills (Phase 4J-B)', async () => {
+  it('switches auth type via dropdown (GraphQL-style)', async () => {
     const user = userEvent.setup();
     const onChange = vi.fn();
     render(
@@ -25,12 +25,13 @@ describe('GrpcAuthPanel (Phase 4C)', () => {
         onChange={onChange}
       />,
     );
-    expect(screen.getByTestId('grpc-auth-type-pills')).toBeTruthy();
-    await user.click(screen.getByTestId('grpc-auth-type-pill-bearer'));
+    expect(screen.getByTestId('grpc-auth-type-select')).toBeTruthy();
+    expect(screen.getByTestId('grpc-auth-no-auth-hint')).toBeTruthy();
+    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'bearer');
     expect(onChange).toHaveBeenCalledWith({ type: 'bearer' });
   });
 
-  it('shows active pill for configured auth type (Phase 4J-B)', () => {
+  it('shows bearer fields when bearer is selected', () => {
     render(
       <GrpcAuthPanel
         auth={{ type: 'bearer', bearerToken: 'tok' }}
@@ -38,11 +39,23 @@ describe('GrpcAuthPanel (Phase 4C)', () => {
         onChange={vi.fn()}
       />,
     );
-    expect(screen.getByTestId('grpc-auth-type-pill-bearer').className).toContain('active');
+    expect((screen.getByTestId('grpc-auth-type-select') as HTMLSelectElement).value).toBe('bearer');
     expect(screen.getByTestId('grpc-auth-bearer-token')).toBeTruthy();
   });
 
-  it('shows oauth2 server-side notice when configured (Phase 4D)', () => {
+  it('shows page default banner when requested', () => {
+    render(
+      <GrpcAuthPanel
+        auth={undefined}
+        preview={emptyPreview}
+        showPageDefaultBanner
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('grpc-auth-page-scope-banner').textContent).toMatch(/page default/i);
+  });
+
+  it('shows oauth2 info box when configured (Phase 4D)', () => {
     const preview: GrpcAuthPreviewResult = {
       ok: true,
       issues: [],

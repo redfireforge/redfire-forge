@@ -107,6 +107,13 @@ describe('useGrpcStudioPersistence coverage gaps', () => {
               [tab.id]: {
                 ...createEmptyTabDescriptorState(),
                 expandedServiceIds: ['echo.EchoService'],
+                protoIngest: {
+                  source: 'bsr',
+                  protoFiles: [],
+                  importPaths: [],
+                  bsrModule: 'buf.build/connectrpc/eliza',
+                  bsrVersion: 'main',
+                },
               },
             },
           },
@@ -123,6 +130,8 @@ describe('useGrpcStudioPersistence coverage gaps', () => {
     expect(saved.version).toBe(1);
     expect(saved.tabs[0]?.title).toBe('Persist me');
     expect(saved.tabDescriptors[tab.id]?.expandedServiceIds).toEqual(['echo.EchoService']);
+    expect(saved.tabDescriptors[tab.id]?.protoIngest?.source).toBe('bsr');
+    expect(saved.tabDescriptors[tab.id]?.protoIngest?.bsrModule).toBe('buf.build/connectrpc/eliza');
 
     rerender({
       session: {
@@ -167,5 +176,26 @@ describe('useGrpcStudioPersistence coverage gaps', () => {
 
     setItemSpy.mockRestore();
     removeItemSpy.mockRestore();
+  });
+
+  it('flushes session immediately on beforeunload/pagehide', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    const tab = createGrpcStudioTab({ id: 'flush-tab', title: 'Flush now' });
+
+    renderHook(() => useGrpcStudioPersistence({
+      tabs: [tab],
+      activeTabId: tab.id,
+      tabDescriptors: { [tab.id]: createEmptyTabDescriptorState() },
+    }, vi.fn()));
+
+    // Immediate flush path should not require debounce timer.
+    window.dispatchEvent(new Event('beforeunload'));
+    window.dispatchEvent(new Event('pagehide'));
+
+    expect(setItemSpy).toHaveBeenCalled();
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}') as GrpcStudioPersistedSession;
+    expect(saved.tabs[0]?.id).toBe('flush-tab');
+
+    setItemSpy.mockRestore();
   });
 });
