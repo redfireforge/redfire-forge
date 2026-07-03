@@ -54,6 +54,7 @@ import {
 } from './utils/grpcStudioTlsTabPatches';
 import { sanitizeGrpcErrorMessage } from '../../shared/grpc/grpcRedaction';
 import { isGrpcStreamLifecycleInFlight } from '../../shared/grpc/streamLifecycle';
+import { postGrpcDescriptorLookup } from '../../shared/grpc/grpcApiClient';
 import { resolveGrpcTabConnection } from './utils/resolveGrpcTabConnection';
 import {
   clearTabAuthSecretField,
@@ -183,6 +184,7 @@ export function GrpcStudioPage({
     lastUnaryResultForSelected,
     openInStudioStatusForSelected,
     runLoadTestStatusForSelected,
+    compareSchemaStatusForSelected,
   } = useGrpcSelectedSavedRequest(
     collections,
     selectedSavedId,
@@ -190,6 +192,94 @@ export function GrpcStudioPage({
     envVarMap,
     pageDefaults,
   );
+
+  const activeDescriptorKey = (studio.activeTabDescriptor.descriptor?.key ?? studio.activeTab.descriptorKey ?? '').trim();
+
+  const compareSavedRequestSchemaInAdvanced = useCallback(async (saved: GrpcSavedRequest) => {
+    if (!activeDescriptorKey) {
+      return;
+    }
+    const descriptorCache = new Map<string, Promise<import('../../shared/grpc/contracts').GrpcDescriptor>>();
+    const resolveDescriptor = (descriptorKey: string) => {
+      const key = descriptorKey.trim();
+      if (!key) {
+        return Promise.reject(new Error('Descriptor key is required'));
+      }
+      const cached = descriptorCache.get(key);
+      if (cached) {
+        return cached;
+      }
+      const pending = postGrpcDescriptorLookup({
+        requestId: `lookup-${Date.now()}-${key}`,
+        descriptorKey: key,
+      }).then((envelope) => envelope.data);
+      descriptorCache.set(key, pending);
+      return pending;
+    };
+
+    try {
+      const intent = collections.buildSavedRequestSchemaCompareIntent(saved, activeDescriptorKey);
+      if (!intent.keysDiffer) {
+        return;
+      }
+      const report = await collections.compareSavedRequestSchema(saved, activeDescriptorKey, resolveDescriptor);
+      const baselineDescriptor = await resolveDescriptor(intent.baselineDescriptorKey);
+      advancedFeatures.applySchemaDiffComparison({
+        baselineDescriptor,
+        report,
+        baselineCapturedAt: saved.updatedAt,
+      });
+      setPanelView('advanced');
+      advancedFeatures.setActiveFeatureTab('schema_diff');
+    } catch {
+      /* replay error banner remains source-of-truth for action failures */
+    }
+  }, [activeDescriptorKey, advancedFeatures, collections]);
+
+  const openHistorySchemaDiff = useCallback(async (entry: GrpcCallHistoryEntryV1) => {
+    if (!activeDescriptorKey) {
+      return;
+    }
+    const driftIntent = collections.detectHistoryDescriptorDrift(entry, activeDescriptorKey);
+    if (!driftIntent) {
+      return;
+    }
+
+    const descriptorCache = new Map<string, Promise<import('../../shared/grpc/contracts').GrpcDescriptor>>();
+    const resolveDescriptor = (descriptorKey: string) => {
+      const key = descriptorKey.trim();
+      if (!key) {
+        return Promise.reject(new Error('Descriptor key is required'));
+      }
+      const cached = descriptorCache.get(key);
+      if (cached) {
+        return cached;
+      }
+      const pending = postGrpcDescriptorLookup({
+        requestId: `lookup-${Date.now()}-${key}`,
+        descriptorKey: key,
+      }).then((envelope) => envelope.data);
+      descriptorCache.set(key, pending);
+      return pending;
+    };
+
+    try {
+      const report = await collections.buildHistoryDescriptorDriftReport(entry, activeDescriptorKey, resolveDescriptor);
+      if (!report) {
+        return;
+      }
+      const baselineDescriptor = await resolveDescriptor(driftIntent.baselineDescriptorKey);
+      advancedFeatures.applySchemaDiffComparison({
+        baselineDescriptor,
+        report,
+        baselineCapturedAt: entry.capturedAt,
+      });
+      setPanelView('advanced');
+      advancedFeatures.setActiveFeatureTab('schema_diff');
+    } catch {
+      /* replay error banner remains source-of-truth for action failures */
+    }
+  }, [activeDescriptorKey, advancedFeatures, collections]);
 
   useGrpcSavedRequestRunTracking({
     studio,
@@ -560,6 +650,16 @@ export function GrpcStudioPage({
                 [studio.activeTab.id]: { collectionId, savedId: saved.id },
               }));
             }}
+            onCompareSchema={(saved, collectionId) => {
+              replayActions.clearLastActionError();
+              const opened = replayActions.openSavedRequestInStudio(saved);
+              if (!opened) return;
+              void compareSavedRequestSchemaInAdvanced(saved);
+              setSavedReplaySourceByTabId((prev) => ({
+                ...prev,
+                [studio.activeTab.id]: { collectionId, savedId: saved.id },
+              }));
+            }}
             onRunLoadTest={(saved, collectionId) => {
               replayActions.clearLastActionError();
               const opened = replayActions.openSavedRequestForLoadTest(saved);
@@ -575,6 +675,8 @@ export function GrpcStudioPage({
             activeTab={studio.activeTab}
             openInStudioDisabled={!openInStudioStatusForSelected.executable}
             openInStudioTitle={openInStudioStatusForSelected.title}
+            compareSchemaDisabled={!compareSchemaStatusForSelected.executable}
+            compareSchemaTitle={compareSchemaStatusForSelected.title}
             runLoadTestDisabled={!runLoadTestStatusForSelected.executable}
             runLoadTestTitle={runLoadTestStatusForSelected.title}
             onSavedDeleted={(id) => {
@@ -592,6 +694,12 @@ export function GrpcStudioPage({
             onReplay={(entry) => {
               replayActions.clearLastActionError();
               replayActions.replayHistoryEntry(entry);
+            }}
+            onOpenDiff={(entry) => {
+              replayActions.clearLastActionError();
+              const replayed = replayActions.replayHistoryEntry(entry);
+              if (!replayed) return;
+              void openHistorySchemaDiff(entry);
             }}
             onCopyGrpcurl={(command) => { void copyTextToClipboard(command); }}
             grpcurlForEntry={grpcurlForHistoryEntry}
@@ -789,15 +897,14 @@ export function GrpcStudioPage({
         onSelectMethod={(serviceFullName, methodName) => {
           studio.selectMethod(studio.activeTab.id, serviceFullName, methodName);
         }}
-        onOpenMethodInTab={(serviceFullName, methodName) => {
+        onOpenMethodInTab={(serviceFullName, methodName, requestBody) => {
           studio.selectMethod(studio.activeTab.id, serviceFullName, methodName);
+          studio.updateTab(studio.activeTab.id, { body: requestBody });
           setProtoModalOpen(false);
           setProtoModalInitialTab(undefined);
         }}
         onLoad={() => {
-          void studio.describeFromIngest(studio.activeTab.id).then((loaded) => {
-            if (loaded) setProtoModalOpen(false);
-          });
+          void studio.describeFromIngest(studio.activeTab.id);
         }}
         onExportProtoset={studio.activeTabDescriptor.descriptor
           ? async () => {

@@ -17,6 +17,7 @@ export interface GrpcHistoryPanelProps {
   pageDefaults: GrpcTabConnectionPageDefaults;
   profiles: GrpcConnectionProfile[];
   onReplay: (entry: GrpcCallHistoryEntryV1) => void;
+  onOpenDiff?: (entry: GrpcCallHistoryEntryV1) => void;
   onCopyGrpcurl: (command: string) => void;
   grpcurlForEntry: (entry: GrpcCallHistoryEntryV1) => string;
 }
@@ -102,6 +103,7 @@ export function GrpcHistoryPanel({
   pageDefaults,
   profiles,
   onReplay,
+  onOpenDiff,
   onCopyGrpcurl,
   grpcurlForEntry,
 }: GrpcHistoryPanelProps) {
@@ -147,6 +149,43 @@ export function GrpcHistoryPanel({
       };
     }
   }, [selectedEntry, studio, envVarMap, profiles, pageDefaults]);
+
+  const openDiffStatus = useMemo(() => {
+    if (!selectedEntry) {
+      return { executable: false, title: 'Select a history entry' };
+    }
+    if (!onOpenDiff) {
+      return { executable: false, title: 'Schema diff action unavailable' };
+    }
+    const currentDescriptorKey = (
+      studio.activeTabDescriptor.descriptor?.key
+      ?? studio.activeTab.descriptorKey
+      ?? ''
+    ).trim();
+    if (!currentDescriptorKey) {
+      return {
+        executable: false,
+        title: 'Load a descriptor on the active tab before opening schema diff',
+      };
+    }
+    const baselineDescriptorKey = selectedEntry.descriptorKey.trim();
+    if (!baselineDescriptorKey) {
+      return {
+        executable: false,
+        title: 'History entry is missing a descriptor key',
+      };
+    }
+    if (baselineDescriptorKey === currentDescriptorKey) {
+      return {
+        executable: false,
+        title: 'History entry already matches the active descriptor',
+      };
+    }
+    return {
+      executable: true,
+      title: 'Open descriptor diff in Advanced features',
+    };
+  }, [onOpenDiff, selectedEntry, studio.activeTab.descriptorKey, studio.activeTabDescriptor.descriptor?.key]);
 
   const previewEntry = selectedEntry
     ? previewGrpcCallHistoryEntryForUi(selectedEntry)
@@ -349,6 +388,18 @@ export function GrpcHistoryPanel({
                 >
                   Replay
                 </button>
+                {onOpenDiff && (
+                  <button
+                    type="button"
+                    className="grpc-btn grpc-btn--ghost grpc-btn--sm"
+                    data-testid="grpc-history-open-diff-btn"
+                    disabled={!openDiffStatus.executable}
+                    title={openDiffStatus.title}
+                    onClick={() => selectedEntry && onOpenDiff(selectedEntry)}
+                  >
+                    Open diff
+                  </button>
+                )}
               </div>
             </header>
             <div className="grpc-history-detail__body">

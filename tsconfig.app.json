@@ -28,6 +28,7 @@
       "@redfireforge/demo-hub/*": ["packages/demo-hub/src/*"],
       "@shared/*": ["src/shared/*"],
       "@graphql/*": ["src/features/graphql/*"],
+      "@grpc/*": ["src/features/grpc/*"],
       "@workflow/*": ["src/features/workflow/*"]
     }
   },

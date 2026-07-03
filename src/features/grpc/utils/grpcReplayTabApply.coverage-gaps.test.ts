@@ -40,6 +40,7 @@ describe('grpcReplayTabApply coverage gaps', () => {
       source: 'protoset',
       protosetFileName: 'echo.pb',
       importPaths: ['shared'],
+      protoRoots: [],
       protoFiles: [],
     });
   });
@@ -55,6 +56,16 @@ describe('grpcReplayTabApply coverage gaps', () => {
     expect(merged?.protoFiles).toEqual([
       { path: 'echo/echo.proto', content: 'syntax = "proto3";', sizeBytes: 10 },
       { path: 'echo/other.proto', content: '' },
+    ]);
+    expect(merged?.protoRoots).toEqual([
+      {
+        id: 'root-default',
+        mountPath: 'root',
+        files: [
+          { path: 'echo/echo.proto', content: 'syntax = "proto3";', sizeBytes: 10 },
+          { path: 'echo/other.proto', content: '' },
+        ],
+      },
     ]);
   });
 

@@ -341,7 +341,7 @@ describe('GrpcStudioPage Phase 5H coverage gaps', () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
     fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
     fireEvent.click(screen.getByTestId('grpc-settings-nav-auth'));
-    fireEvent.click(screen.getByTestId('grpc-auth-type-pill-bearer'));
+    fireEvent.change(screen.getByTestId('grpc-auth-type-select'), { target: { value: 'bearer' } });
     fireEvent.change(screen.getByTestId('grpc-auth-bearer-token'), { target: { value: 'secret-token' } });
     expect((screen.getByTestId('grpc-auth-bearer-token') as HTMLInputElement).value).toBe('secret-token');
   });
