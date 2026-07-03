@@ -12,6 +12,9 @@ Format follows Keep a Changelog and Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- **gRPC Phase 13A/13B SLO baselines + CI promotion** — fixture-backed baseline harness and CI gate promotion for describe/control-plane + data-plane reliability checks; reusable `grpc:phase13b:ci` orchestration script (`scripts/grpc-phase13b-ci.sh`) spins docker fixture + API server, executes strict gate, and publishes baseline artifacts for CI diagnostics.
+- **gRPC Demo lesson expansion (phase 12 continuation)** — new schema discovery and streaming lesson tracks, demo storage cleanup helpers, and new sample assets under `examples/grpc/` and `public/grpc-samples/` to support end-to-end lesson walkthroughs.
+- **gRPC Proto Ingest V2 closure** — `/api/grpc/describe` now emits legacy deprecation headers for flat `protoFiles`-only payloads, tracks usage telemetry across `protoRoots` vs legacy payloads (`GET /api/grpc/describe/usage`), and includes route/integration regression coverage for protoRoots + migration guardrails.
 - **gRPC Phase 11F — schema diff engine** — descriptor-to-descriptor comparator with Buf-style severity classification (`breaking` / `non_breaking` / `informational`); `computeGrpcSchemaDiff`, JSON/Markdown export serializers; 40 acceptance tests; `npm run test:grpc:phase11f` gate script.
 - **gRPC Phase 11G — advanced feature UI** — Advanced sub-nav with Load Testing, Mock Server, and Schema Diff panels; tab-scoped operation state, progress/cancel, result export; `useGrpcStudioAdvancedFeatures` hook; `npm run test:grpc:phase11g` gate script.
 - **gRPC Phase 11H — advanced export safety** — `grpcAdvancedFeatureExport` safe prepare helpers with source metadata stamping and attempt/description sanitization; leak-scan targets `grpc_load_test_export` / `grpc_schema_diff_export`; wired through advanced-features hook clipboard exports; cross-feature matrix updated; `npm run test:grpc:phase11h` gate script.
@@ -63,6 +66,8 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Shared selector modules (`gql`, `ws`, etc.) extracted from monolithic `selectors.ts`.
 
 ### Changed
+- gRPC CI now includes a dedicated fixture-backed Phase 13B reliability gate (`grpc-phase13b-slo`) wired into `.github/workflows/ci.yml`, with baseline artifact upload on every run.
+- gRPC local/CI readiness probes explicitly bypass host proxy interception (`curl --noproxy '*'`) to prevent false 504 failures against localhost fixture health checks.
 - GraphQL demo workspace mutators (`prepareDemoWorkspace`, `closeDemoWorkspace`, etc.) no-op when `VITE_ENABLE_DEMO_HUB=false`.
 - GraphQL Studio page and App shell refactored to stay under 900-line monolith limit.
 - Demo Player prerequisite gate supports multi-endpoint Docker checks and GraphQL tab-budget gating.
@@ -71,6 +76,7 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Unit test coverage raised to >90% on every source file (statements, branches, functions, lines).
 
 ### Fixed
+- gRPC Phase 13B local gate flake where localhost health/readiness checks could return proxy-generated 504 despite healthy fixture containers.
 - **gRPC Studio Phase 3 hardening** — reflection always re-fetches (drift-safe); URL proto revalidates via `If-None-Match`; BSR compares digest on reload; block `https://` loopback in SSRF policy; preserve `lastKnownGoodDescriptor` when reflect resolves invalid target; fix Manage Schemas modal Escape during load; add URL/BSR `describeFromIngest` hook tests and loopback SSRF E2E.
 - **gRPC streaming SSE late-attach race:** fast server streams finalized before the browser connected SSE — registry now buffers events and replays on attach; terminal entries retained until grace elapses.
 - **gRPC stream compose panel:** log virtualizer could overlap Send/End controls — flex clipping and z-index fix in `grpc-studio.css`.
