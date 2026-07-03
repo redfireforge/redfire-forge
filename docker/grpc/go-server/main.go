@@ -13,7 +13,9 @@ import (
 	"strings"
 	"time"
 
+	pbApi "grpc-test-server/api"
 	pb "grpc-test-server/echo"
+	pbEliza "grpc-test-server/eliza"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -23,6 +25,112 @@ import (
 
 type echoServer struct {
 	pb.UnimplementedEchoServiceServer
+}
+
+type elizaServer struct {
+	pbEliza.UnimplementedElizaServiceServer
+}
+
+func (s *elizaServer) Say(ctx context.Context, req *pbEliza.SayRequest) (*pbEliza.SayResponse, error) {
+	select {
+	case <-ctx.Done():
+		return nil, status.Error(codes.Canceled, "call cancelled")
+	default:
+	}
+
+	text := strings.TrimSpace(req.GetSentence())
+	if text == "" {
+		text = "hello"
+	}
+
+	return &pbEliza.SayResponse{Sentence: text}, nil
+}
+
+func (s *elizaServer) Introduce(req *pbEliza.IntroduceRequest, stream pbEliza.ElizaService_IntroduceServer) error {
+	base := strings.TrimSpace(req.GetSentence())
+	if base == "" {
+		base = "Hi, I am Eliza"
+	}
+
+	parts := []string{
+		base,
+		"I can reflect your statements",
+		"Try Converse for a bidirectional exchange",
+	}
+
+	for _, part := range parts {
+		if err := stream.Context().Err(); err != nil {
+			return err
+		}
+		if err := stream.Send(&pbEliza.IntroduceResponse{Sentence: part}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *elizaServer) Converse(stream pbEliza.ElizaService_ConverseServer) error {
+	for {
+		req, err := stream.Recv()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+
+		text := strings.TrimSpace(req.GetSentence())
+		if text == "" {
+			text = "..."
+		}
+
+		if err := stream.Send(&pbEliza.ConverseResponse{Sentence: text}); err != nil {
+			return err
+		}
+	}
+}
+
+func handleApiLookup(ctx context.Context, req *pbApi.LookupRequest) (*pbApi.LookupResponse, error) {
+	select {
+	case <-ctx.Done():
+		return nil, status.Error(codes.Canceled, "call cancelled")
+	default:
+	}
+
+	ref := req.GetRef()
+	resolvedID := strings.TrimSpace(ref.GetId())
+	if resolvedID == "" {
+		resolvedID = "unknown"
+	}
+
+	return &pbApi.LookupResponse{
+		Status:     "ok",
+		ResolvedId: resolvedID,
+	}, nil
+}
+
+func apiUnknownServiceHandler(_ any, stream grpc.ServerStream) error {
+	transport := grpc.ServerTransportStreamFromContext(stream.Context())
+	if transport == nil || transport.Method() != "/api.ApiService/Lookup" {
+		return status.Error(codes.Unimplemented, "unknown service/method")
+	}
+
+	var req pbApi.LookupRequest
+	if err := stream.RecvMsg(&req); err != nil && err != io.EOF {
+		return err
+	}
+
+	resp, err := handleApiLookup(stream.Context(), &req)
+	if err != nil {
+		return err
+	}
+
+	if err := stream.SendMsg(resp); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (s *echoServer) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoResponse, error) {
@@ -141,11 +249,12 @@ func main() {
 		log.Fatalf("listen failed: %v", err)
 	}
 
-	s := grpc.NewServer()
+	s := grpc.NewServer(grpc.UnknownServiceHandler(apiUnknownServiceHandler))
 	pb.RegisterEchoServiceServer(s, &echoServer{})
+	pbEliza.RegisterElizaServiceServer(s, &elizaServer{})
 	reflection.Register(s)
 
-	log.Printf("gRPC echo server listening on :%s (reflection enabled, 4 RPCs)", grpcPort)
+	log.Printf("gRPC test server listening on :%s (reflection enabled: EchoService, ElizaService; grpcurl compatibility: api.ApiService/Lookup)", grpcPort)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("serve failed: %v", err)
 	}

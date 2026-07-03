@@ -28,6 +28,8 @@ import { clearDescriptorCacheManager } from '../../grpc/descriptorCacheManager.j
 import { clearGrpcDescriptorStore, setGrpcDescriptor } from '../../grpc/descriptorStore.js';
 import { clearGrpcStreamRegistry } from '../../grpc/streamRegistry.js';
 import type { GrpcStreamingClientFactory } from '../../grpc/grpcStreamingClient.js';
+import { resetGrpcDescribeUsageTelemetry } from '../../grpc/grpcDescribeUsageTelemetry.js';
+import { resetGrpcRoutePerformanceTelemetry } from '../../grpc/grpcRoutePerformanceTelemetry.js';
 import type {
   GrpcK8sPortForwardManager,
   GrpcK8sPortForwardState,
@@ -148,6 +150,8 @@ describe('grpc-routes', () => {
   let app: express.Express;
 
   beforeEach(() => {
+    resetGrpcDescribeUsageTelemetry();
+    resetGrpcRoutePerformanceTelemetry();
     mockService = createMockService();
     mockStreamService = createMockStreamService();
     mockK8sPortForwardManager = createMockK8sPortForwardManager();
@@ -213,6 +217,101 @@ describe('grpc-routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.ok).toBe(true);
       expect(res.body.data.key).toBeDefined();
+    });
+
+    it('passes protoRoots payload through to service.describe', async () => {
+      const payload = {
+        source: 'proto_files',
+        protoRoots: [
+          {
+            id: 'shared-root',
+            mountPath: 'shared',
+            files: [{ path: 'common.proto', content: 'syntax = "proto3"; package common;' }],
+          },
+          {
+            id: 'api-root',
+            mountPath: 'api',
+            files: [{
+              path: 'service.proto',
+              content: 'syntax = "proto3"; package api; import "common.proto"; message Empty {} service Api { rpc Ping(Empty) returns (Empty); }',
+            }],
+          },
+        ],
+      } as const;
+
+      const res = await request(app)
+        .post('/api/grpc/describe')
+        .send(payload);
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(mockService.describe).toHaveBeenCalledWith(expect.objectContaining({
+        source: 'proto_files',
+        protoRoots: payload.protoRoots,
+      }));
+    });
+
+    it('adds deprecation headers for legacy protoFiles-only payloads', async () => {
+      const res = await request(app)
+        .post('/api/grpc/describe')
+        .send({
+          source: 'proto_files',
+          protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";' }],
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.headers.warning).toContain('deprecated');
+      expect(res.headers['x-redfireforge-protofiles-deprecated']).toBe('true');
+    });
+
+    it('tracks describe usage across protoRoots, legacy protoFiles, and protoset requests', async () => {
+      await request(app)
+        .post('/api/grpc/describe')
+        .send({
+          source: 'proto_files',
+          protoRoots: [{
+            id: 'root-1',
+            mountPath: 'shared',
+            files: [{ path: 'common.proto', content: 'syntax = "proto3"; package common;' }],
+          }],
+        });
+
+      await request(app)
+        .post('/api/grpc/describe')
+        .send({
+          source: 'proto_files',
+          protoFiles: [{ path: 'legacy.proto', content: 'syntax = "proto3";' }],
+        });
+
+      await request(app)
+        .post('/api/grpc/describe')
+        .send({
+          source: 'protoset',
+          protosetBase64: 'cHJvdG8=',
+        });
+
+      await request(app)
+        .get('/api/grpc/k8s-port-forward/status')
+        .query({ scopeId: 'phase13b-test' });
+
+      const usage = await request(app).get('/api/grpc/describe/usage');
+      expect(usage.status).toBe(200);
+      expect(usage.body.ok).toBe(true);
+      expect(usage.body.data.total).toBe(3);
+      expect(usage.body.data.protoRoots).toBe(1);
+      expect(usage.body.data.protoFilesLegacy).toBe(1);
+      expect(usage.body.data.protoset).toBe(1);
+
+      const perf = await request(app).get('/api/grpc/perf/snapshot');
+      expect(perf.status).toBe(200);
+      expect(perf.body.ok).toBe(true);
+      expect(perf.body.data.routes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ routeId: 'describe', count: 3 }),
+          expect.objectContaining({ routeId: 'describe_usage', count: 1 }),
+          expect.objectContaining({ routeId: 'k8s_status', count: 1 }),
+        ]),
+      );
     });
   });
 
@@ -356,6 +455,41 @@ describe('grpc-routes', () => {
         'Echo',
         'ServerStream',
       ]);
+      expect(res.body.data.key).toMatch(/^proto_files:/);
+    });
+
+    it('describe returns real descriptor from protoRoots payload via GrpcService', async () => {
+      const commonProto = `syntax = "proto3";
+package common;
+message Shared { string id = 1; }`;
+      const apiProto = `syntax = "proto3";
+package api;
+import "common.proto";
+message Request { common.Shared ref = 1; }
+message Response { string ok = 1; }
+service ApiService { rpc Call(Request) returns (Response); }`;
+
+      const res = await request(app)
+        .post('/api/grpc/describe')
+        .send({
+          source: 'proto_files',
+          protoRoots: [
+            {
+              id: 'shared-root',
+              mountPath: 'shared',
+              files: [{ path: 'common.proto', content: commonProto }],
+            },
+            {
+              id: 'api-root',
+              mountPath: 'api',
+              files: [{ path: 'service.proto', content: apiProto }],
+            },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(res.body.data.services[0]?.fullName).toBe('api.ApiService');
       expect(res.body.data.key).toMatch(/^proto_files:/);
     });
 
