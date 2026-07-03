@@ -117,10 +117,9 @@ Updated files:
 
 ## Current Migration Guardrails
 
-- gRPC describe payloads should migrate from flat `protoFiles` to `protoRoots`.
-- During the current release window, server compatibility remains enabled for legacy `protoFiles` payloads.
-- Legacy flat payloads now emit HTTP warning/deprecation headers on `POST /api/grpc/describe`.
-- Track adoption before removing legacy parsing via `GET /api/grpc/describe/usage` telemetry snapshot.
+- gRPC describe payloads use `protoRoots` for proto file ingest.
+- `/api/grpc/describe` enforces proto roots contract validation for `source=proto_files`.
+- `GET /api/grpc/describe/usage` telemetry tracks source-level usage for regression visibility.
 
 ## Current CI Guardrails
 

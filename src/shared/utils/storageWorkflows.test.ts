@@ -157,6 +157,12 @@ describe('storageWorkflows — browser (IDB primary)', () => {
       localStorage.setItem(WORKFLOWS_KEY, JSON.stringify([]));
       expect(await loadWorkflows()).toEqual([]);
       expect(idbMigrateWorkflows).not.toHaveBeenCalled();
+      expect(localStorage.getItem(WORKFLOWS_KEY)).toBeNull();
+    });
+
+    it('returns empty array when localStorage workflows JSON is not an array', async () => {
+      localStorage.setItem(WORKFLOWS_KEY, JSON.stringify({ not: 'array' }));
+      expect(await loadWorkflows()).toEqual([]);
     });
 
     it('returns empty array when IDB load throws', async () => {
@@ -209,6 +215,12 @@ describe('storageWorkflows — browser (IDB primary)', () => {
       localStorage.setItem(WORKFLOW_FOLDERS_KEY, JSON.stringify([]));
       expect(await loadWorkflowFolders()).toEqual([]);
       expect(idbMigrateWorkflowFolders).not.toHaveBeenCalled();
+      expect(localStorage.getItem(WORKFLOW_FOLDERS_KEY)).toBeNull();
+    });
+
+    it('returns empty array when localStorage folders JSON is not an array', async () => {
+      localStorage.setItem(WORKFLOW_FOLDERS_KEY, JSON.stringify({ not: 'array' }));
+      expect(await loadWorkflowFolders()).toEqual([]);
     });
 
     it('returns empty array when IDB load throws', async () => {
@@ -365,9 +377,18 @@ describe('storageWorkflows — tauri backend', () => {
     expect(await loadWorkflowFolders()).toEqual([]);
   });
 
+  it('loadWorkflowFolders returns empty array when null', async () => {
+    expect(await loadWorkflowFolders()).toEqual([]);
+  });
+
   it('saveWorkflowFolders writes JSON via tauriStore', async () => {
     const folders = [makeFolder('f1', 'Saved')];
     await saveWorkflowFolders(folders);
     expect(JSON.parse(tauriStoreMap.get(WORKFLOW_FOLDERS_KEY)!)).toEqual(folders);
+  });
+
+  it('saveWorkflowFolders surfaces tauriStore write errors', async () => {
+    tauriSetItem.mockRejectedValueOnce(new Error('write fail'));
+    await expect(saveWorkflowFolders([makeFolder('f1', 'Saved')])).rejects.toThrow('write fail');
   });
 });

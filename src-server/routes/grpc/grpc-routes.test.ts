@@ -211,7 +211,7 @@ describe('grpc-routes', () => {
         .post('/api/grpc/describe')
         .send({
           source: 'proto_files',
-          protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";' }],
+          protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: 'syntax = "proto3";' }] }],
         });
 
       expect(res.status).toBe(200);
@@ -251,20 +251,7 @@ describe('grpc-routes', () => {
       }));
     });
 
-    it('adds deprecation headers for legacy protoFiles-only payloads', async () => {
-      const res = await request(app)
-        .post('/api/grpc/describe')
-        .send({
-          source: 'proto_files',
-          protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";' }],
-        });
-
-      expect(res.status).toBe(200);
-      expect(res.headers.warning).toContain('deprecated');
-      expect(res.headers['x-redfireforge-protofiles-deprecated']).toBe('true');
-    });
-
-    it('tracks describe usage across protoRoots, legacy protoFiles, and protoset requests', async () => {
+    it('tracks describe usage across protoRoots and protoset requests', async () => {
       await request(app)
         .post('/api/grpc/describe')
         .send({
@@ -274,13 +261,6 @@ describe('grpc-routes', () => {
             mountPath: 'shared',
             files: [{ path: 'common.proto', content: 'syntax = "proto3"; package common;' }],
           }],
-        });
-
-      await request(app)
-        .post('/api/grpc/describe')
-        .send({
-          source: 'proto_files',
-          protoFiles: [{ path: 'legacy.proto', content: 'syntax = "proto3";' }],
         });
 
       await request(app)
@@ -297,9 +277,8 @@ describe('grpc-routes', () => {
       const usage = await request(app).get('/api/grpc/describe/usage');
       expect(usage.status).toBe(200);
       expect(usage.body.ok).toBe(true);
-      expect(usage.body.data.total).toBe(3);
+      expect(usage.body.data.total).toBe(2);
       expect(usage.body.data.protoRoots).toBe(1);
-      expect(usage.body.data.protoFilesLegacy).toBe(1);
       expect(usage.body.data.protoset).toBe(1);
 
       const perf = await request(app).get('/api/grpc/perf/snapshot');
@@ -307,7 +286,7 @@ describe('grpc-routes', () => {
       expect(perf.body.ok).toBe(true);
       expect(perf.body.data.routes).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({ routeId: 'describe', count: 3 }),
+          expect.objectContaining({ routeId: 'describe', count: 2 }),
           expect.objectContaining({ routeId: 'describe_usage', count: 1 }),
           expect.objectContaining({ routeId: 'k8s_status', count: 1 }),
         ]),
@@ -498,9 +477,13 @@ service ApiService { rpc Call(Request) returns (Response); }`;
         .post('/api/grpc/describe')
         .send({
           source: 'proto_files',
-          protoFiles: [{
-            path: 'messages.proto',
-            content: 'syntax = "proto3"; message OnlyMessage { string id = 1; }',
+          protoRoots: [{
+            id: 'root-default',
+            mountPath: 'root',
+            files: [{
+              path: 'messages.proto',
+              content: 'syntax = "proto3"; message OnlyMessage { string id = 1; }',
+            }],
           }],
         });
 

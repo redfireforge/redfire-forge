@@ -217,6 +217,12 @@ describe('idbWorkflows', () => {
         Object.defineProperty(globalThis, 'indexedDB', { value: orig, configurable: true });
       }
     });
+
+    it('returns null when openDB rejects for folders', async () => {
+      const mod = await import('./idbOpen');
+      vi.mocked(mod.openDB).mockRejectedValueOnce(new Error('open failed'));
+      expect(await idbLoadWorkflowFolders()).toBeNull();
+    });
   });
 
   describe('idbSaveWorkflowFolders', () => {
@@ -273,6 +279,11 @@ describe('idbWorkflows', () => {
     it('returns false when localStorage contains empty array', async () => {
       localStorage.setItem('rf-workflow-folders', '[]');
 
+      expect(await idbMigrateWorkflowFolders('rf-workflow-folders')).toBe(false);
+    });
+
+    it('returns false when localStorage contains a non-array folder payload', async () => {
+      localStorage.setItem('rf-workflow-folders', '{"not":"array"}');
       expect(await idbMigrateWorkflowFolders('rf-workflow-folders')).toBe(false);
     });
 

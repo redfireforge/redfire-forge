@@ -407,9 +407,7 @@ export type GrpcDescriptorLookupResult = GrpcDescriptor;
 export interface GrpcDescribeRequest {
   requestId?: string;
   source: 'proto_files' | 'protoset' | 'bsr' | 'url_proto';
-  /** Legacy proto ingest payload (flat file list). */
-  protoFiles?: GrpcProtoFileInput[];
-  /** Phase A V2 proto ingest payload (files grouped by virtual root). */
+  /** Proto ingest payload grouped by virtual root. */
   protoRoots?: GrpcProtoRootInput[];
   protosetBase64?: string;
   importPaths?: string[];

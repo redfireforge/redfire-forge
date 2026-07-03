@@ -5,12 +5,29 @@ import { describe, expect, it } from 'vitest';
 import {
   computeCanonicalProtoPath,
   detectProtoRootCollisions,
+  ensureProtoRootsDraft,
   formatProtoFileSize,
+  mergeProtoFileDrafts,
+  normalizeImportRoot,
+  normalizeUploadedProtoPath,
   readProtoFilesFromFileList,
   readProtosetBase64FromFile,
 } from './grpcProtoIngestUtils';
 
 describe('grpcProtoIngestUtils coverage gaps', () => {
+  it('normalizes uploaded proto paths from webkitRelativePath and file names', () => {
+    const withRelative = { name: 'echo.proto', webkitRelativePath: ' nested\\echo.proto ' } as File;
+    expect(normalizeUploadedProtoPath(withRelative)).toBe('nested/echo.proto');
+    const plain = new File(['x'], ' plain.proto ');
+    expect(normalizeUploadedProtoPath(plain)).toBe('plain.proto');
+  });
+
+  it('normalizes import roots and ensures a default root draft', () => {
+    expect(normalizeImportRoot(' root\\nested// ')).toBe('root/nested');
+    expect(ensureProtoRootsDraft(undefined)).toHaveLength(1);
+    expect(ensureProtoRootsDraft([{ id: 'x', mountPath: 'm', files: [] }])).toHaveLength(1);
+  });
+
   it('formats file sizes across byte, kilobyte, and megabyte ranges', () => {
     expect(formatProtoFileSize(512)).toBe('512 B');
     expect(formatProtoFileSize(2048)).toBe('2.0 KB');
@@ -25,6 +42,18 @@ describe('grpcProtoIngestUtils coverage gaps', () => {
       content: 'syntax = "proto3";',
       sizeBytes: file.size,
     }]);
+  });
+
+  it('merges proto drafts by path and keeps sorted order', () => {
+    const merged = mergeProtoFileDrafts(
+      [{ path: 'b.proto', content: 'old', sizeBytes: 1 }],
+      [
+        { path: 'a.proto', content: 'new-a', sizeBytes: 2 },
+        { path: 'b.proto', content: 'new-b', sizeBytes: 3 },
+      ],
+    );
+    expect(merged.map((entry) => entry.path)).toEqual(['a.proto', 'b.proto']);
+    expect(merged[1]?.content).toBe('new-b');
   });
 
   it('rejects empty proto file selections', async () => {

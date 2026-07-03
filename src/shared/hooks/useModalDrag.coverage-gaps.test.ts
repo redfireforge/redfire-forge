@@ -60,6 +60,20 @@ describe('useModalDrag coverage gaps', () => {
     document.body.removeChild(anchor);
   });
 
+  it('skips anchor positioning when anchor selector does not resolve', () => {
+    const modalRef = { current: document.createElement('div') };
+    document.body.appendChild(modalRef.current);
+
+    const { result } = renderHook(() => useModalDrag(true, {
+      modalRef,
+      anchor: { selector: '[data-testid="missing-anchor"]' },
+    }));
+
+    expect(result.current.isDragged).toBe(false);
+    expect(result.current.modalStyle).toBeUndefined();
+    document.body.removeChild(modalRef.current);
+  });
+
   it('ignores pointer cancel events after pointer drag starts', () => {
     const { result } = renderHook(() => useModalDrag(true));
     const header = document.createElement('div');
@@ -119,5 +133,122 @@ describe('useModalDrag coverage gaps', () => {
 
     document.body.removeChild(anchor);
     document.body.removeChild(modalRef.current);
+  });
+
+  it('keeps anchored style when anchor selector changes but computed position is identical', () => {
+    const anchorA = document.createElement('div');
+    anchorA.setAttribute('data-testid', 'stable-anchor-a');
+    document.body.appendChild(anchorA);
+    vi.spyOn(anchorA, 'getBoundingClientRect').mockReturnValue({
+      left: 20, top: 30, width: 280, height: 160,
+      right: 300, bottom: 190, x: 20, y: 30, toJSON: () => {},
+    });
+
+    const anchorB = document.createElement('div');
+    anchorB.setAttribute('data-testid', 'stable-anchor-b');
+    document.body.appendChild(anchorB);
+    vi.spyOn(anchorB, 'getBoundingClientRect').mockReturnValue({
+      left: 20, top: 30, width: 280, height: 160,
+      right: 300, bottom: 190, x: 20, y: 30, toJSON: () => {},
+    });
+
+    const modalRef = { current: document.createElement('div') };
+    document.body.appendChild(modalRef.current);
+    vi.spyOn(modalRef.current, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, width: 120, height: 90,
+      right: 120, bottom: 90, x: 0, y: 0, toJSON: () => {},
+    });
+
+    const { result, rerender } = renderHook(
+      ({ selector }) => useModalDrag(true, {
+        modalRef,
+        anchor: { selector, hAlign: 'center', vAlign: 'top' },
+      }),
+      { initialProps: { selector: '[data-testid="stable-anchor-a"]' } },
+    );
+
+    const firstStyle = result.current.modalStyle;
+    rerender({ selector: '[data-testid="stable-anchor-b"]' });
+    expect(result.current.modalStyle).toEqual(firstStyle);
+
+    document.body.removeChild(anchorA);
+    document.body.removeChild(anchorB);
+    document.body.removeChild(modalRef.current);
+  });
+
+  it('uses default anchor alignment and padding when not provided', () => {
+    const anchor = document.createElement('div');
+    anchor.setAttribute('data-testid', 'default-anchor');
+    document.body.appendChild(anchor);
+    vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue({
+      left: 40, top: 50, width: 260, height: 180,
+      right: 300, bottom: 230, x: 40, y: 50, toJSON: () => {},
+    });
+
+    const modalRef = { current: document.createElement('div') };
+    document.body.appendChild(modalRef.current);
+    vi.spyOn(modalRef.current, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, width: 100, height: 80,
+      right: 100, bottom: 80, x: 0, y: 0, toJSON: () => {},
+    });
+
+    const { result } = renderHook(() => useModalDrag(true, {
+      modalRef,
+      anchor: { selector: '[data-testid="default-anchor"]' },
+    }));
+
+    expect(result.current.modalStyle?.left).toBe(120);
+    expect(result.current.modalStyle?.top).toBe(50);
+
+    document.body.removeChild(anchor);
+    document.body.removeChild(modalRef.current);
+  });
+
+  it('guards mouse-move updates when drag state has already been cleared', () => {
+    const added = new Map<string, EventListener>();
+    const addSpy = vi.spyOn(window, 'addEventListener').mockImplementation((type, listener) => {
+      if (typeof listener === 'function') {
+        added.set(type, listener as EventListener);
+      }
+    });
+    const removeSpy = vi.spyOn(window, 'removeEventListener').mockImplementation(() => {});
+
+    const { result } = renderHook(() => useModalDrag(true));
+    const header = document.createElement('div');
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.appendChild(header);
+    document.body.appendChild(dialog);
+
+    vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, width: 300, height: 200,
+      right: 300, bottom: 200, x: 0, y: 0, toJSON: () => {},
+    });
+
+    const down = new MouseEvent('mousedown', { clientX: 10, clientY: 10, bubbles: true });
+    Object.defineProperty(down, 'target', { value: header });
+    Object.defineProperty(down, 'currentTarget', { value: header });
+    Object.defineProperty(down, 'preventDefault', { value: vi.fn() });
+
+    act(() => {
+      result.current.onDragStart(down as unknown as React.MouseEvent);
+    });
+
+    const move = added.get('mousemove');
+    const up = added.get('mouseup');
+    expect(move).toBeTypeOf('function');
+    expect(up).toBeTypeOf('function');
+
+    act(() => {
+      up?.(new MouseEvent('mouseup'));
+      move?.(new MouseEvent('mousemove', { clientX: 20, clientY: 20 }));
+    });
+
+    expect(result.current.isDragging).toBe(false);
+    expect(removeSpy).toHaveBeenCalled();
+
+    document.body.removeChild(dialog);
+    addSpy.mockRestore();
+    removeSpy.mockRestore();
   });
 });

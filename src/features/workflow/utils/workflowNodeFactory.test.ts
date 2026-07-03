@@ -17,6 +17,12 @@ import {
   defaultGraphqlSubscriptionNodeData,
   defaultGraphqlIntrospectNodeData,
   defaultGraphqlAssertNodeData,
+  defaultGrpcUnaryNodeData,
+  defaultGrpcServerStreamNodeData,
+  defaultGrpcAssertNodeData,
+  defaultGrpcLoadTestNodeData,
+  defaultGrpcSchemaDiffNodeData,
+  defaultGrpcMockAssertNodeData,
   type WorkflowRFNode,
 } from './workflowNodeFactory';
 import type {
@@ -51,6 +57,9 @@ import type {
   GraphqlSubscriptionNodeData,
   GraphqlIntrospectNodeData,
   GraphqlAssertNodeData,
+  GrpcUnaryNodeData,
+  GrpcServerStreamNodeData,
+  GrpcAssertNodeData,
   WorkflowNodeType,
   WorkflowNodeData,
 } from '../types/workflow';
@@ -172,6 +181,68 @@ describe('workflowNodeFactory', () => {
       expect(d.sourceVariable).toBe('');
       expect(d.assertions).toEqual([]);
       expect(d.failBehavior).toBe('error');
+    });
+  });
+
+  describe('gRPC advanced defaults', () => {
+    it('defaultGrpcUnaryNodeData has unary defaults', () => {
+      const d = defaultGrpcUnaryNodeData();
+      expect(d.label).toBe('gRPC Unary');
+      expect(d.callType).toBe('unary');
+      expect(d.target).toBe('');
+      expect(d.timeoutMs).toBe(30000);
+      expect(d.onError).toBe('fail');
+    });
+
+    it('defaultGrpcServerStreamNodeData has stream defaults', () => {
+      const d = defaultGrpcServerStreamNodeData();
+      expect(d.label).toBe('gRPC Server Stream');
+      expect(d.callType).toBe('server_streaming');
+      expect(d.collect).toEqual({ maxMessages: 10 });
+      expect(d.timeoutMs).toBe(30000);
+      expect(d.onError).toBe('fail');
+    });
+
+    it('defaultGrpcAssertNodeData has assert defaults', () => {
+      const d = defaultGrpcAssertNodeData();
+      expect(d.label).toBe('gRPC Assert');
+      expect(d.source).toBe('');
+      expect(d.assertions).toEqual([]);
+      expect(d.onError).toBe('fail');
+    });
+
+    it('defaultGrpcLoadTestNodeData has load test defaults', () => {
+      const d = defaultGrpcLoadTestNodeData();
+      expect(d.label).toBe('gRPC Load Test');
+      expect(d.callType).toBe('unary');
+      expect(d.loadTest).toEqual({ concurrency: 1, totalCalls: 10, warmupCalls: 0 });
+    });
+
+    it('defaultGrpcSchemaDiffNodeData has schema diff defaults', () => {
+      const d = defaultGrpcSchemaDiffNodeData();
+      expect(d.label).toBe('gRPC Schema Diff');
+      expect(d.failOnBreaking).toBe(true);
+      expect(d.onError).toBe('fail');
+    });
+
+    it('defaultGrpcMockAssertNodeData has mock assert defaults', () => {
+      const d = defaultGrpcMockAssertNodeData();
+      expect(d.label).toBe('gRPC Mock Assert');
+      expect(d.listenTarget).toBe('127.0.0.1:50061');
+      expect(d.expectedStatus).toBe(0);
+      expect(d.onError).toBe('fail');
+    });
+
+    it('defaultNodeData supports grpc advanced node types', () => {
+      expect((defaultNodeData('grpcLoadTest') as { label: string }).label).toBe('gRPC Load Test');
+      expect((defaultNodeData('grpcSchemaDiff') as { label: string }).label).toBe('gRPC Schema Diff');
+      expect((defaultNodeData('grpcMockAssert') as { label: string }).label).toBe('gRPC Mock Assert');
+    });
+
+    it('defaultNodeData supports grpc base node types', () => {
+      expect((defaultNodeData('grpcUnary') as GrpcUnaryNodeData).label).toBe('gRPC Unary');
+      expect((defaultNodeData('grpcServerStream') as GrpcServerStreamNodeData).label).toBe('gRPC Server Stream');
+      expect((defaultNodeData('grpcAssert') as GrpcAssertNodeData).label).toBe('gRPC Assert');
     });
   });
 

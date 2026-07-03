@@ -1,5 +1,7 @@
+import type { GrpcObservabilityRouteId } from './grpcObservabilityTaxonomy.js';
+
 interface GrpcRoutePerformanceStats {
-  routeId: string;
+  routeId: GrpcObservabilityRouteId;
   count: number;
   errors: number;
   avgMs: number;
@@ -26,9 +28,9 @@ interface RouteTelemetryBucket {
   lastUpdatedAt: number | null;
 }
 
-const routeBuckets = new Map<string, RouteTelemetryBucket>();
+const routeBuckets = new Map<GrpcObservabilityRouteId, RouteTelemetryBucket>();
 
-function getOrCreateBucket(routeId: string): RouteTelemetryBucket {
+function getOrCreateBucket(routeId: GrpcObservabilityRouteId): RouteTelemetryBucket {
   const existing = routeBuckets.get(routeId);
   if (existing) {
     return existing;
@@ -55,7 +57,7 @@ function percentile(sortedValues: number[], p: number): number {
   return sortedValues[safeIndex] ?? 0;
 }
 
-function summarizeRoute(routeId: string, bucket: RouteTelemetryBucket): GrpcRoutePerformanceStats {
+function summarizeRoute(routeId: GrpcObservabilityRouteId, bucket: RouteTelemetryBucket): GrpcRoutePerformanceStats {
   const count = bucket.durationsMs.length;
   const sorted = [...bucket.durationsMs].sort((a, b) => a - b);
   const sum = bucket.durationsMs.reduce((acc, value) => acc + value, 0);
@@ -74,7 +76,7 @@ function summarizeRoute(routeId: string, bucket: RouteTelemetryBucket): GrpcRout
 }
 
 export function recordGrpcRoutePerformance(input: {
-  routeId: string;
+  routeId: GrpcObservabilityRouteId;
   durationMs: number;
   statusCode: number;
 }): void {

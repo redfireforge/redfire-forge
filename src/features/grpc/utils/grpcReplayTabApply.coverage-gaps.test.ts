@@ -41,7 +41,6 @@ describe('grpcReplayTabApply coverage gaps', () => {
       protosetFileName: 'echo.pb',
       importPaths: ['shared'],
       protoRoots: [],
-      protoFiles: [],
     });
   });
 
@@ -49,14 +48,14 @@ describe('grpcReplayTabApply coverage gaps', () => {
     const merged = mergeGrpcurlDescriptorIntoProtoIngest(
       {
         ...createDefaultProtoIngestState(),
-        protoFiles: [{ path: 'echo/echo.proto', content: 'syntax = "proto3";', sizeBytes: 10 }],
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [{ path: 'echo/echo.proto', content: 'syntax = "proto3";', sizeBytes: 10 }],
+        }],
       },
       { protoPaths: ['echo/echo.proto', 'echo/other.proto'], importPaths: ['./proto'] },
     );
-    expect(merged?.protoFiles).toEqual([
-      { path: 'echo/echo.proto', content: 'syntax = "proto3";', sizeBytes: 10 },
-      { path: 'echo/other.proto', content: '' },
-    ]);
     expect(merged?.protoRoots).toEqual([
       {
         id: 'root-default',
@@ -150,6 +149,22 @@ describe('grpcReplayTabApply coverage gaps', () => {
     expect(patch.driftIssues).toBeUndefined();
     expect(patch.suggestedRebinds).toBeUndefined();
     expect(patch.driftStaleMethod?.name).toBe('Echo');
+  });
+
+  it('buildDriftDescriptorPatchFromAnalysis omits driftMessage when empty string is provided', () => {
+    const patch = buildDriftDescriptorPatchFromAnalysis(
+      {
+        state: 'warning',
+        message: '',
+        issues: [],
+        suggestedRebinds: [],
+      },
+      FIXTURE_DESCRIPTOR,
+      FIXTURE_UNARY_CALL_REQUEST.service,
+      FIXTURE_UNARY_CALL_REQUEST.method,
+    );
+
+    expect(patch.driftMessage).toBeUndefined();
   });
 
   it('grpcurlImportToTabStatePatch exports tls-only grpcurl context', () => {

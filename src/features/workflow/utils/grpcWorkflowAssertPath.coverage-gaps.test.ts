@@ -46,6 +46,16 @@ describe('grpcWorkflowAssertPath coverage gaps', () => {
     expect(resolveGrpcAssertFieldValue('messages[0].n', result)).toBe(1);
   });
 
+  it('resolves indexed stream messages when path continues with $.-style suffix', () => {
+    const result: GrpcWorkflowStepResult = {
+      nodeId: 's1',
+      callType: 'server_streaming',
+      status: 'success',
+      messages: [{ nested: { n: 1 } }, { nested: { n: 2 } }],
+    };
+    expect(resolveGrpcAssertFieldValue('messages[1].nested.n', result)).toBe(2);
+  });
+
   it('handles empty messages array for stream results', () => {
     const result: GrpcWorkflowStepResult = {
       nodeId: 's1',
@@ -63,6 +73,16 @@ describe('grpcWorkflowAssertPath coverage gaps', () => {
       status: 'success',
     };
     expect(resolveGrpcAssertFieldValue('message', result)).toBeUndefined();
+  });
+
+  it('resolves unary body fields with $. prefix', () => {
+    const result: GrpcWorkflowStepResult = {
+      nodeId: 'u2',
+      callType: 'unary',
+      status: 'success',
+      body: { nested: { value: 7 } },
+    };
+    expect(resolveGrpcAssertFieldValue('$.nested.value', result)).toBe(7);
   });
 
   it('resolves stream fields when messages is undefined', () => {

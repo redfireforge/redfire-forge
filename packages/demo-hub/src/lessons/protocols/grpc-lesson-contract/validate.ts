@@ -25,6 +25,10 @@ function collectGrpcSelectorStrings(): Set<string> {
 }
 
 const GRPC_SELECTOR_VALUES = collectGrpcSelectorStrings();
+const GRPC_DYNAMIC_SELECTOR_PATTERNS = [
+  /^\[data-testid="grpc-service-[a-z0-9-]+"\]$/,
+  /^\[data-testid="grpc-method-[a-z0-9-]+"\]$/,
+];
 
 const LESSON_ID_PATTERN = /^grpc-[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const STEP_ID_PATTERN = /^grpc\d+-[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -44,7 +48,7 @@ function isGrpcDemoLesson(lesson: DemoLesson): lesson is GrpcDemoLesson {
 function selectorUsesGrpcNamespace(value: string | undefined, path: string, issues: GrpcLessonValidationIssue[]): void {
   if (!value) return;
   if (!value.includes('data-testid=')) return;
-  if (!GRPC_SELECTOR_VALUES.has(value)) {
+  if (!GRPC_SELECTOR_VALUES.has(value) && !GRPC_DYNAMIC_SELECTOR_PATTERNS.some((pattern) => pattern.test(value))) {
     issues.push(
       issue(
         path,
@@ -204,7 +208,7 @@ function validateRosterFixtureEndpoints(
   }
 }
 
-/** Validate the canonical 16-lesson roster (metadata contract). */
+/** Validate the canonical 17-lesson roster (metadata contract). */
 export function validateGrpcLessonRoster(): GrpcLessonValidationResult {
   const issues: GrpcLessonValidationIssue[] = [];
   try {
@@ -218,8 +222,8 @@ export function validateGrpcLessonRoster(): GrpcLessonValidationResult {
   const ids = new Set<string>();
   const numbers = new Set<number>();
 
-  if (GRPC_LESSON_ROSTER.length !== 16) {
-    issues.push(issue('roster', `Expected 16 roster entries, got ${GRPC_LESSON_ROSTER.length}`));
+  if (GRPC_LESSON_ROSTER.length !== 17) {
+    issues.push(issue('roster', `Expected 17 roster entries, got ${GRPC_LESSON_ROSTER.length}`));
   }
 
   for (const entry of GRPC_LESSON_ROSTER) {
@@ -235,8 +239,8 @@ export function validateGrpcLessonRoster(): GrpcLessonValidationResult {
     }
     numbers.add(entry.number);
 
-    if (entry.number < 1 || entry.number > 16) {
-      issues.push(issue(`${prefix}.number`, 'number must be 1–16'));
+    if (entry.number < 1 || entry.number > 17) {
+      issues.push(issue(`${prefix}.number`, 'number must be 1–17'));
     }
     const expectedIndex = entry.number - 1;
     const actualIndex = GRPC_LESSON_ROSTER.indexOf(entry);
@@ -275,7 +279,7 @@ export function validateGrpcLessonRoster(): GrpcLessonValidationResult {
     validateRosterFixtureEndpoints(entry, issues);
   }
 
-  for (let n = 1; n <= 16; n += 1) {
+  for (let n = 1; n <= 17; n += 1) {
     if (!numbers.has(n)) {
       issues.push(issue('roster', `Missing roster entry for GRPC-${n}`));
     }

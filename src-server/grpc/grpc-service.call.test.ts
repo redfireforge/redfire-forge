@@ -2,7 +2,6 @@
  * @vitest-environment node
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as grpc from '@grpc/grpc-js';
 import { GRPC_ERROR_CODES } from '../../src/shared/grpc/contracts.js';
 import {
   FIXTURE_DESCRIPTOR,
@@ -18,6 +17,10 @@ import { GrpcService } from '../grpc/grpc-service.js';
 import type { GrpcClientPort } from '../grpc/grpcClient.js';
 import { GrpcOAuth2TokenService } from './grpcOAuth2TokenService.js';
 import { createMockGrpcClientPort } from './grpc-service.testHelpers.js';
+
+const GRPC_STATUS_CANCELLED = 1;
+const GRPC_STATUS_DEADLINE_EXCEEDED = 4;
+const GRPC_STATUS_UNAVAILABLE = 14;
 
 describe('GrpcService call/cancel', () => {
   let mockClient: GrpcClientPort;
@@ -94,7 +97,7 @@ describe('GrpcService call/cancel', () => {
 
     it('classifies gRPC DEADLINE_EXCEEDED as call_failed not TLS (Phase 4F)', async () => {
       const deadlineError = Object.assign(new Error('Deadline Exceeded'), {
-        grpcStatus: grpc.status.DEADLINE_EXCEEDED,
+        grpcStatus: GRPC_STATUS_DEADLINE_EXCEEDED,
         grpcDetails: 'Deadline Exceeded',
       });
       mockClient.invokeUnary = vi.fn(async () => {
@@ -114,7 +117,7 @@ describe('GrpcService call/cancel', () => {
 
     it('classifies gRPC UNAVAILABLE connect failures as unreachable on unary call (Phase 4F)', async () => {
       const connectError = Object.assign(new Error('14 UNAVAILABLE'), {
-        grpcStatus: grpc.status.UNAVAILABLE,
+        grpcStatus: GRPC_STATUS_UNAVAILABLE,
         grpcDetails: 'failed to connect to all addresses',
       });
       mockClient.invokeUnary = vi.fn(async () => {
@@ -509,7 +512,7 @@ describe('GrpcService call/cancel', () => {
     it('marks registry cancelled when server returns gRPC CANCELLED status', async () => {
       mockClient.invokeUnary = vi.fn(async () => {
         const err = new Error('Cancelled') as Error & { grpcStatus: number; grpcDetails: string };
-        err.grpcStatus = grpc.status.CANCELLED;
+        err.grpcStatus = GRPC_STATUS_CANCELLED;
         err.grpcDetails = 'Cancelled';
         throw err;
       });

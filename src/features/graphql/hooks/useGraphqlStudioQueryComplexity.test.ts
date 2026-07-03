@@ -29,6 +29,13 @@ describe('useGraphqlStudioQueryComplexity', () => {
     expect(result.current.complexityResult).toBeNull();
   });
 
+  it('returns null when schema status is loaded but schema info is missing', () => {
+    const { result } = renderHook(() =>
+      useGraphqlStudioQueryComplexity('loaded', null, 'query { hello }', undefined),
+    );
+    expect(result.current.complexityResult).toBeNull();
+  });
+
   it('computes complexity when schema is loaded and query is non-empty', () => {
     const { result } = renderHook(() =>
       useGraphqlStudioQueryComplexity('loaded', loadedSchema as never, 'query { hello }', undefined),
@@ -47,5 +54,17 @@ describe('useGraphqlStudioQueryComplexity', () => {
 
     rerender({ query: 'query { b }' });
     expect(result.current.complexityWarningPending).toBe(false);
+  });
+
+  it('keeps complexityWarningPending when query stays unchanged', () => {
+    const { result, rerender } = renderHook(
+      ({ query }) => useGraphqlStudioQueryComplexity('loaded', loadedSchema as never, query, undefined),
+      { initialProps: { query: 'query { same }' } },
+    );
+
+    act(() => { result.current.setComplexityWarningPending(true); });
+    rerender({ query: 'query { same }' });
+
+    expect(result.current.complexityWarningPending).toBe(true);
   });
 });

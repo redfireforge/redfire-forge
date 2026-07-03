@@ -391,4 +391,42 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
     });
     expect(withoutBaseline.current.schemaDiffAckChangeIds.size).toBe(0);
   });
+
+  it('applySchemaDiffComparison patches state and refreshes acknowledgements by baseline key', async () => {
+    const getTabState = vi.fn(() => makeTabState());
+    const patchTabState = vi.fn();
+    getAcksMock.mockResolvedValueOnce([{ changeId: 'applied-change' } as never]);
+
+    const { result } = renderHook(() => useGrpcAdvancedSchemaDiffSession(
+      makeStudio(),
+      'tab-1',
+      getTabState,
+      patchTabState,
+    ));
+
+    const candidate = structuredClone(FIXTURE_DESCRIPTOR);
+    candidate.services[0]!.methods[0]!.name = 'EchoRenamedViaApply';
+    const report = {
+      changes: [SAMPLE_CHANGE],
+      summary: {
+        total: 1,
+        breaking: 1,
+        nonBreaking: 0,
+        informational: 0,
+      },
+    } as const;
+
+    act(() => {
+      result.current.applySchemaDiffComparison({
+        baselineDescriptor: candidate,
+        report,
+      });
+    });
+
+    invokePatchUpdaters(patchTabState);
+    expect(patchTabState).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(getAcksMock).toHaveBeenCalledWith(candidate.key);
+    });
+  });
 });

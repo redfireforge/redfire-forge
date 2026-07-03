@@ -76,7 +76,7 @@ describe('protoDescriptorParser', () => {
   it('produces equivalent signatures for proto_files and protoset sources', () => {
     const protoRoot = parseDescribeRequestSource({
       source: 'proto_files',
-      protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
     });
     const protosetBase64 = encodeRootAsProtosetBase64(protoRoot);
     const protosetRoot = parseDescribeRequestSource({

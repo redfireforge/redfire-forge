@@ -136,19 +136,27 @@ message Shared { string id = 1; string extra = 2; }`;
     ];
     const withVendor = await loader.loadFromDescribe({
       source: 'proto_files',
-      protoFiles: [
-        ...baseFiles,
-        { path: 'vendor/pkg/types.proto', content: vendorTypes },
-      ],
+      protoRoots: [{
+        id: 'root-default',
+        mountPath: 'root',
+        files: [
+          ...baseFiles,
+          { path: 'vendor/pkg/types.proto', content: vendorTypes },
+        ],
+      }],
       importPaths: ['vendor'],
     });
     clearGrpcDescriptorStore();
     const withOther = await loader.loadFromDescribe({
       source: 'proto_files',
-      protoFiles: [
-        ...baseFiles,
-        { path: 'other/pkg/types.proto', content: otherTypes },
-      ],
+      protoRoots: [{
+        id: 'root-default',
+        mountPath: 'root',
+        files: [
+          ...baseFiles,
+          { path: 'other/pkg/types.proto', content: otherTypes },
+        ],
+      }],
       importPaths: ['other'],
     });
     expect(withOther.key).not.toBe(withVendor.key);
@@ -249,9 +257,13 @@ message Shared { string id = 1; string extra = 2; }`;
     try {
       await loader.loadFromDescribe({
         source: 'proto_files',
-        protoFiles: [{
-          path: 'messages.proto',
-          content: 'syntax = "proto3"; message OnlyMessage { string id = 1; }',
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [{
+            path: 'messages.proto',
+            content: 'syntax = "proto3"; message OnlyMessage { string id = 1; }',
+          }],
         }],
       });
     } catch (error) {

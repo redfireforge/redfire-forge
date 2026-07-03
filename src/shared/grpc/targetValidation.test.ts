@@ -3,6 +3,7 @@ import {
   validateGrpcTargetAddress,
   validateResolvedGrpcTargetAddress,
   isValidGrpcTargetAddress,
+  grpcTargetValidationMessage,
   withGrpcTargetValidationMessage,
 } from './targetValidation';
 import { GRPC_INTERPOLATION_ERROR_CODES } from './grpcInterpolationConstants';
@@ -73,5 +74,9 @@ describe('targetValidation (Phase 1A + 9D)', () => {
 
   it('trims surrounding whitespace before validation', () => {
     expect(validateGrpcTargetAddress('  localhost:50051  ').valid).toBe(true);
+  });
+
+  it('grpcTargetValidationMessage returns empty string for valid result', () => {
+    expect(grpcTargetValidationMessage({ valid: true })).toBe('');
   });
 });

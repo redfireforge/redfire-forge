@@ -16,14 +16,13 @@ import {
 } from '../../grpc/grpcK8sPortForwardManager.js';
 import {
   getGrpcDescribeUsageTelemetrySnapshot,
-  isLegacyProtoFilesOnlyDescribeRequest,
   recordGrpcDescribeUsage,
-  shouldLogLegacyProtoFilesDeprecation,
 } from '../../grpc/grpcDescribeUsageTelemetry.js';
 import {
   getGrpcRoutePerformanceSnapshot,
   recordGrpcRoutePerformance,
 } from '../../grpc/grpcRoutePerformanceTelemetry.js';
+import { GRPC_ROUTE_IDS } from '../../grpc/grpcObservabilityTaxonomy.js';
 
 interface CreateGrpcRouterOptions {
   service?: GrpcService;
@@ -93,7 +92,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     });
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'status',
+      routeId: GRPC_ROUTE_IDS.STATUS,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -107,7 +106,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     const envelope = await service.reflect(req.body);
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'reflect',
+      routeId: GRPC_ROUTE_IDS.REFLECT,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -118,18 +117,11 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'describe')) return;
     recordGrpcDescribeUsage(req.body);
-    if (isLegacyProtoFilesOnlyDescribeRequest(req.body)) {
-      res.setHeader('Warning', '299 redfire-forge "Legacy protoFiles-only payloads are deprecated; migrate to protoRoots."');
-      res.setHeader('X-RedfireForge-ProtoFiles-Deprecated', 'true');
-      if (shouldLogLegacyProtoFilesDeprecation()) {
-        log('describe → received legacy protoFiles-only payload (deprecated; migrate to protoRoots)');
-      }
-    }
     log(`describe → ${req.body.source ?? '(no source)'}`);
     const envelope = await service.describe(req.body);
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'describe',
+      routeId: GRPC_ROUTE_IDS.DESCRIBE,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -143,7 +135,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       data: getGrpcDescribeUsageTelemetrySnapshot(),
     });
     recordGrpcRoutePerformance({
-      routeId: 'describe_usage',
+      routeId: GRPC_ROUTE_IDS.DESCRIBE_USAGE,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -157,7 +149,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       data: getGrpcRoutePerformanceSnapshot(),
     });
     recordGrpcRoutePerformance({
-      routeId: 'perf_snapshot',
+      routeId: GRPC_ROUTE_IDS.PERF_SNAPSHOT,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -171,7 +163,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     const envelope = await service.exportProtoset(req.body);
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'export_protoset',
+      routeId: GRPC_ROUTE_IDS.EXPORT_PROTOSET,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -185,7 +177,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     const envelope = await service.lookupDescriptor(req.body);
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'lookup_descriptor',
+      routeId: GRPC_ROUTE_IDS.LOOKUP_DESCRIPTOR,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -200,7 +192,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     const envelope = await service.call(req.body, tabId);
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'call',
+      routeId: GRPC_ROUTE_IDS.CALL,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -215,7 +207,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     const envelope = service.cancel(requestId, tabId);
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'cancel',
+      routeId: GRPC_ROUTE_IDS.CANCEL,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -230,7 +222,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     const envelope = await Promise.resolve(streamService.startStream(req.body, tabId));
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'stream_start',
+      routeId: GRPC_ROUTE_IDS.STREAM_START,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -247,14 +239,14 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     if (errorEnvelope) {
       const response = sendGrpcEnvelope(res, errorEnvelope);
       recordGrpcRoutePerformance({
-        routeId: 'stream_events',
+        routeId: GRPC_ROUTE_IDS.STREAM_EVENTS,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });
       return response;
     }
     recordGrpcRoutePerformance({
-      routeId: 'stream_events',
+      routeId: GRPC_ROUTE_IDS.STREAM_EVENTS,
       durationMs: elapsedMs(startedAt),
       statusCode: 200,
     });
@@ -270,7 +262,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     const envelope = streamService.sendStreamMessage(streamId, tabId, req.body);
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'stream_send',
+      routeId: GRPC_ROUTE_IDS.STREAM_SEND,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -285,7 +277,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     const envelope = streamService.endStream(streamId, tabId);
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'stream_end',
+      routeId: GRPC_ROUTE_IDS.STREAM_END,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -300,7 +292,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
     const envelope = streamService.cancelStream(streamId, tabId);
     const response = sendGrpcEnvelope(res, envelope);
     recordGrpcRoutePerformance({
-      routeId: 'stream_cancel',
+      routeId: GRPC_ROUTE_IDS.STREAM_CANCEL,
       durationMs: elapsedMs(startedAt),
       statusCode: response.statusCode,
     });
@@ -314,7 +306,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       const data = k8sPortForwardManager.getStatus(scopeId);
       const response = res.status(200).json({ ok: true, data });
       recordGrpcRoutePerformance({
-        routeId: 'k8s_status',
+        routeId: GRPC_ROUTE_IDS.K8S_STATUS,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });
@@ -323,7 +315,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       const message = error instanceof Error ? error.message : 'Failed to read K8s port-forward status';
       const response = res.status(400).json({ ok: false, error: message });
       recordGrpcRoutePerformance({
-        routeId: 'k8s_status',
+        routeId: GRPC_ROUTE_IDS.K8S_STATUS,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });
@@ -339,7 +331,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       const data = k8sPortForwardManager.getLogs(scopeId, afterSeq);
       const response = res.status(200).json({ ok: true, data });
       recordGrpcRoutePerformance({
-        routeId: 'k8s_logs',
+        routeId: GRPC_ROUTE_IDS.K8S_LOGS,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });
@@ -348,7 +340,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       const message = error instanceof Error ? error.message : 'Failed to read K8s port-forward logs';
       const response = res.status(400).json({ ok: false, error: message });
       recordGrpcRoutePerformance({
-        routeId: 'k8s_logs',
+        routeId: GRPC_ROUTE_IDS.K8S_LOGS,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });
@@ -364,7 +356,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       const data = k8sPortForwardManager.clearLogs(scopeId);
       const response = res.status(200).json({ ok: true, data });
       recordGrpcRoutePerformance({
-        routeId: 'k8s_logs_clear',
+        routeId: GRPC_ROUTE_IDS.K8S_LOGS_CLEAR,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });
@@ -373,7 +365,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       const message = error instanceof Error ? error.message : 'Failed to clear K8s port-forward logs';
       const response = res.status(400).json({ ok: false, error: message });
       recordGrpcRoutePerformance({
-        routeId: 'k8s_logs_clear',
+        routeId: GRPC_ROUTE_IDS.K8S_LOGS_CLEAR,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });
@@ -391,7 +383,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       const data = await k8sPortForwardManager.startPortForward(scopeId, config);
       const response = res.status(200).json({ ok: true, data });
       recordGrpcRoutePerformance({
-        routeId: 'k8s_start',
+        routeId: GRPC_ROUTE_IDS.K8S_START,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });
@@ -400,7 +392,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       const message = error instanceof Error ? error.message : 'Failed to start kubectl port-forward';
       const response = res.status(400).json({ ok: false, error: message });
       recordGrpcRoutePerformance({
-        routeId: 'k8s_start',
+        routeId: GRPC_ROUTE_IDS.K8S_START,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });
@@ -417,7 +409,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       const data = await k8sPortForwardManager.stopPortForward(scopeId);
       const response = res.status(200).json({ ok: true, data });
       recordGrpcRoutePerformance({
-        routeId: 'k8s_stop',
+        routeId: GRPC_ROUTE_IDS.K8S_STOP,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });
@@ -426,7 +418,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       const message = error instanceof Error ? error.message : 'Failed to stop kubectl port-forward';
       const response = res.status(400).json({ ok: false, error: message });
       recordGrpcRoutePerformance({
-        routeId: 'k8s_stop',
+        routeId: GRPC_ROUTE_IDS.K8S_STOP,
         durationMs: elapsedMs(startedAt),
         statusCode: response.statusCode,
       });

@@ -43,55 +43,57 @@ const grpcMocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('@grpc/grpc-js', () => ({
-  status: {
-    OK: 0,
-    CANCELLED: 1,
-    UNKNOWN: 2,
-    INVALID_ARGUMENT: 3,
-    INTERNAL: 13,
-    UNAVAILABLE: 14,
-    0: 'OK',
-    1: 'CANCELLED',
-    2: 'UNKNOWN',
-    3: 'INVALID_ARGUMENT',
-    13: 'INTERNAL',
-    14: 'UNAVAILABLE',
-  },
-  Metadata: vi.fn(function Metadata(this: { map: Record<string, unknown> }) {
-    this.map = {};
-    this.getMap = () => this.map;
-  }),
-  ServerCredentials: {
-    createInsecure: vi.fn(() => ({})),
-  },
-  Server: vi.fn(function MockServer(this: {
-    addService: ReturnType<typeof vi.fn>;
-    bindAsync: ReturnType<typeof vi.fn>;
-    tryShutdown: ReturnType<typeof vi.fn>;
-    forceShutdown: ReturnType<typeof vi.fn>;
-  }) {
-    this.addService = vi.fn((_def, impl) => {
-      grpcMocks.capturedImplementations.push(impl);
-    });
-    this.bindAsync = vi.fn((_addr, _creds, cb: (error: Error | null, port?: number) => void) => {
-      queueMicrotask(() => {
-        const error = grpcMocks.bindError.get();
-        if (error) {
-          cb(error);
-          return;
-        }
-        cb(null, grpcMocks.boundPort.get());
+vi.mock('./grpcJsLoader.js', () => ({
+  grpc: {
+    status: {
+      OK: 0,
+      CANCELLED: 1,
+      UNKNOWN: 2,
+      INVALID_ARGUMENT: 3,
+      INTERNAL: 13,
+      UNAVAILABLE: 14,
+      0: 'OK',
+      1: 'CANCELLED',
+      2: 'UNKNOWN',
+      3: 'INVALID_ARGUMENT',
+      13: 'INTERNAL',
+      14: 'UNAVAILABLE',
+    },
+    Metadata: vi.fn(function Metadata(this: { map: Record<string, unknown> }) {
+      this.map = {};
+      this.getMap = () => this.map;
+    }),
+    ServerCredentials: {
+      createInsecure: vi.fn(() => ({})),
+    },
+    Server: vi.fn(function MockServer(this: {
+      addService: ReturnType<typeof vi.fn>;
+      bindAsync: ReturnType<typeof vi.fn>;
+      tryShutdown: ReturnType<typeof vi.fn>;
+      forceShutdown: ReturnType<typeof vi.fn>;
+    }) {
+      this.addService = vi.fn((_def, impl) => {
+        grpcMocks.capturedImplementations.push(impl);
       });
-    });
-    this.tryShutdown = vi.fn((cb: () => void) => {
-      grpcMocks.tryShutdownCallback.set(cb);
-      if (grpcMocks.tryShutdownCallback.get) {
-        queueMicrotask(() => grpcMocks.tryShutdownCallback.get?.());
-      }
-    });
-    this.forceShutdown = vi.fn();
-  }),
+      this.bindAsync = vi.fn((_addr, _creds, cb: (error: Error | null, port?: number) => void) => {
+        queueMicrotask(() => {
+          const error = grpcMocks.bindError.get();
+          if (error) {
+            cb(error);
+            return;
+          }
+          cb(null, grpcMocks.boundPort.get());
+        });
+      });
+      this.tryShutdown = vi.fn((cb: () => void) => {
+        grpcMocks.tryShutdownCallback.set(cb);
+        if (grpcMocks.tryShutdownCallback.get) {
+          queueMicrotask(() => grpcMocks.tryShutdownCallback.get?.());
+        }
+      });
+      this.forceShutdown = vi.fn();
+    }),
+  },
 }));
 
 import {
@@ -281,8 +283,8 @@ describe('grpcMockNetworkListener coverage gaps', () => {
     vi.useFakeTimers();
     grpcMocks.tryShutdownCallback.set(null);
     const { listener } = await startListener();
-    const grpcModule = await import('@grpc/grpc-js');
-    const serverInstance = vi.mocked(grpcModule.Server).mock.results.at(-1)?.value as {
+    const { grpc } = await import('./grpcJsLoader.js');
+    const serverInstance = vi.mocked(grpc.Server).mock.results.at(-1)?.value as {
       forceShutdown: ReturnType<typeof vi.fn>;
     };
 
@@ -541,14 +543,15 @@ describe('grpcMockNetworkListener coverage gaps', () => {
       connectionId: 'conn-1',
       descriptor: FIXTURE_DESCRIPTOR,
     });
-    expect(status.port).toBe(50061);
+    expect(status.port).toBeGreaterThanOrEqual(GRPC_MOCK_LISTENER_PORT_MIN);
+    expect(status.port).toBeLessThanOrEqual(GRPC_MOCK_LISTENER_PORT_MAX);
     await listener.stop();
   });
 
   it('exposes identity serialize and deserialize hooks on registered methods', async () => {
     const { listener } = await startListener();
-    const grpcModule = await import('@grpc/grpc-js');
-    const serverInstance = vi.mocked(grpcModule.Server).mock.results.at(-1)?.value as {
+    const { grpc } = await import('./grpcJsLoader.js');
+    const serverInstance = vi.mocked(grpc.Server).mock.results.at(-1)?.value as {
       addService: ReturnType<typeof vi.fn>;
     };
     const serviceDef = serverInstance.addService.mock.calls[0]?.[0] as Record<string, {
@@ -664,8 +667,8 @@ describe('grpcMockNetworkListener coverage gaps', () => {
 
   it('invokes deserialize hooks registered on service methods', async () => {
     const { listener } = await startListener();
-    const grpcModule = await import('@grpc/grpc-js');
-    const serverInstance = vi.mocked(grpcModule.Server).mock.results.at(-1)?.value as {
+    const { grpc } = await import('./grpcJsLoader.js');
+    const serverInstance = vi.mocked(grpc.Server).mock.results.at(-1)?.value as {
       addService: ReturnType<typeof vi.fn>;
     };
     const echoMethod = serverInstance.addService.mock.calls[0]?.[0]?.Echo as {
@@ -738,11 +741,11 @@ describe('grpcMockNetworkListener coverage gaps', () => {
   });
 
   it('maps grpc status codes from mock rules', async () => {
-    const grpcModule = await import('@grpc/grpc-js');
-    expect(grpcMockGrpcStatusCodeFromRuleForTests(undefined)).toBe(grpcModule.status.OK);
-    expect(grpcMockGrpcStatusCodeFromRuleForTests(0)).toBe(grpcModule.status.OK);
-    expect(grpcMockGrpcStatusCodeFromRuleForTests(14)).toBe(grpcModule.status.UNAVAILABLE);
-    expect(grpcMockGrpcStatusCodeFromRuleForTests(9999)).toBe(grpcModule.status.UNKNOWN);
+    const { grpc } = await import('./grpcJsLoader.js');
+    expect(grpcMockGrpcStatusCodeFromRuleForTests(undefined)).toBe(grpc.status.OK);
+    expect(grpcMockGrpcStatusCodeFromRuleForTests(0)).toBe(grpc.status.OK);
+    expect(grpcMockGrpcStatusCodeFromRuleForTests(14)).toBe(grpc.status.UNAVAILABLE);
+    expect(grpcMockGrpcStatusCodeFromRuleForTests(9999)).toBe(grpc.status.UNKNOWN);
   });
 
   it('returns grpc OK when mock rule omits statusCode', async () => {
@@ -806,8 +809,8 @@ describe('grpcMockNetworkListener coverage gaps', () => {
 
   it('ignores duplicate stop settlement callbacks', async () => {
     const { listener } = await startListener();
-    const grpcModule = await import('@grpc/grpc-js');
-    const serverInstance = vi.mocked(grpcModule.Server).mock.results.at(-1)?.value as {
+    const { grpc } = await import('./grpcJsLoader.js');
+    const serverInstance = vi.mocked(grpc.Server).mock.results.at(-1)?.value as {
       tryShutdown: ReturnType<typeof vi.fn>;
     };
     serverInstance.tryShutdown.mockImplementation((cb: () => void) => {
@@ -819,8 +822,8 @@ describe('grpcMockNetworkListener coverage gaps', () => {
   });
 
   it('uses requested port when bindAsync omits boundPort', async () => {
-    const grpcModule = await import('@grpc/grpc-js');
-    vi.mocked(grpcModule.Server).mockImplementationOnce(function MockServer(this: {
+    const { grpc } = await import('./grpcJsLoader.js');
+    vi.mocked(grpc.Server).mockImplementationOnce(function MockServer(this: {
       addService: ReturnType<typeof vi.fn>;
       bindAsync: ReturnType<typeof vi.fn>;
       tryShutdown: ReturnType<typeof vi.fn>;

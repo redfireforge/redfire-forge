@@ -256,10 +256,16 @@ async function bootstrapDescriptorForDataPlane(baseUrl, timeoutMs) {
     timeoutMs,
     body: {
       source: 'proto_files',
-      protoFiles: [
+      protoRoots: [
         {
-          path: 'echo.proto',
-          content: FIXTURE_ECHO_PROTO,
+          id: 'root-default',
+          mountPath: 'root',
+          files: [
+            {
+              path: 'echo.proto',
+              content: FIXTURE_ECHO_PROTO,
+            },
+          ],
         },
       ],
     },

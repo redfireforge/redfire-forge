@@ -143,6 +143,10 @@ describe('expressionEvaluator', () => {
       expect(formatExpressionResult(true)).toBe('true');
     });
 
+    it('returns string for bigint', () => {
+      expect(formatExpressionResult(123n)).toBe('123');
+    });
+
     it('returns JSON for object', () => {
       expect(formatExpressionResult({ a: 1 })).toBe('{"a":1}');
     });
@@ -263,6 +267,13 @@ describe('expressionEvaluator', () => {
       expect(r.value).toBe('TEST');
     });
 
+    it('handles identifier with bracket notation path', () => {
+      const r = evaluateExpression('$upper(items[0].name)', {
+        resolveVariable: (name) => name === 'items[0].name' ? 'alice' : undefined,
+      });
+      expect(r.value).toBe('ALICE');
+    });
+
     it('handles nested parens properly', () => {
       const r = evaluateExpression('$concat($upper("a"), $lower("B"), $trim("  c  "))');
       expect(r.value).toBe('Abc');
@@ -278,6 +289,18 @@ describe('expressionEvaluator', () => {
       // Empty expression after trimming
       const r = evaluateExpression('');
       expect(r.value).toBe('');
+    });
+
+    it('treats malformed lambda param list as non-lambda expression', () => {
+      const r = evaluateExpression('($upper) => $upper("x")');
+      expect(r.error).toBeUndefined();
+      expect(r.value).toBe('');
+    });
+
+    it('reports unmatched parentheses for incomplete lambda parameter list', () => {
+      const r = evaluateExpression('(a, b => $add(a, b)');
+      expect(r.value).toBeNull();
+      expect(r.error).toContain('Unmatched parentheses');
     });
   });
 

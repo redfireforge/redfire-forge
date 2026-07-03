@@ -15,6 +15,7 @@ import {
   GRPC_CALL_HISTORY_UPDATED_EVENT,
 } from './grpcStudioCallHistoryCapture';
 import {
+  GRPC_DEMO_CALL_HISTORY_TARGETS,
   dispatchGrpcCallHistoryReload,
   purgeGrpcDemoCallHistory,
 } from './grpcDemoCallHistoryCleanup';
@@ -63,10 +64,32 @@ describe('purgeGrpcDemoCallHistory', () => {
     window.removeEventListener(GRPC_CALL_HISTORY_UPDATED_EVENT, listener);
   });
 
+  it('exports both loopback demo targets', () => {
+    expect(GRPC_DEMO_CALL_HISTORY_TARGETS).toEqual([
+      'localhost:50051',
+      '127.0.0.1:50051',
+    ]);
+  });
+
   it('dispatches reload without deleting when no demo rows exist', async () => {
     loadMock.mockResolvedValue([
       { id: 'b', target: 'api.prod.example:443', service: 'other.Service', method: 'Ping' },
     ]);
+
+    const listener = vi.fn();
+    window.addEventListener(GRPC_CALL_HISTORY_UPDATED_EVENT, listener);
+
+    const removed = await purgeGrpcDemoCallHistory();
+
+    expect(removed).toBe(0);
+    expect(clearFilteredMock).not.toHaveBeenCalled();
+    expect(listener).toHaveBeenCalled();
+
+    window.removeEventListener(GRPC_CALL_HISTORY_UPDATED_EVENT, listener);
+  });
+
+  it('dispatches reload without deleting when history is empty', async () => {
+    loadMock.mockResolvedValue([]);
 
     const listener = vi.fn();
     window.addEventListener(GRPC_CALL_HISTORY_UPDATED_EVENT, listener);

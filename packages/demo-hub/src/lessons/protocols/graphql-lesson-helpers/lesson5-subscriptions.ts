@@ -77,6 +77,11 @@ function subscriptionLogText(): string {
   return document.querySelector(GQL.SUBSCRIPTION_MSG_LIST)?.textContent ?? '';
 }
 
+function getPollingAttempts(timeoutMs: number, intervalMs: number): number {
+  const interval = Math.max(1, intervalMs);
+  return Math.max(1, Math.ceil(timeoutMs / interval));
+}
+
 /** Parse createOrder.id from the response body JSON text. */
 export function parseCreatedOrderIdFromResponse(): string | null {
   const text = responseBodyText();
@@ -148,8 +153,8 @@ async function clickExecuteAndWait(ctx: DemoActionContext): Promise<void> {
 }
 
 async function waitForSubscriptionComplete(ctx: DemoActionContext, minRows = 3): Promise<void> {
-  const deadline = Date.now() + 20000;
-  while (Date.now() < deadline) {
+  const attempts = getPollingAttempts(20000, 300);
+  for (let i = 0; i < attempts; i++) {
     const rows = subscriptionRowCount();
     const text = subscriptionLogText();
     if (rows >= minRows && text.includes('COMPLETE')) return;
@@ -159,8 +164,8 @@ async function waitForSubscriptionComplete(ctx: DemoActionContext, minRows = 3):
 
 /** Wait until the stream is live and the Pause control is visible. */
 async function waitForSubscriptionLive(ctx: DemoActionContext, timeoutMs = 8000): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  const attempts = getPollingAttempts(timeoutMs, 100);
+  for (let i = 0; i < attempts; i++) {
     if (document.querySelector(GQL.SUBSCRIPTION_PAUSE_BTN)) return true;
     const state = document.querySelector(GQL.SUB_STATE);
     if (state?.textContent?.includes('Live')) return true;
@@ -207,8 +212,8 @@ async function configureSubscriptionBearerAuth(ctx: DemoActionContext): Promise<
 }
 
 async function waitForResolvedAuthPreview(ctx: DemoActionContext): Promise<void> {
-  const deadline = Date.now() + 8000;
-  while (Date.now() < deadline) {
+  const attempts = getPollingAttempts(8000, 200);
+  for (let i = 0; i < attempts; i++) {
     const preview = document.querySelector(GQL.AUTH_PREVIEW);
     if (preview?.textContent?.includes(LESSON6_AUTH_TOKEN_VALUE)) return;
     await ctx.delay(200);
@@ -425,8 +430,8 @@ async function waitForAssertionBadgeCount(
   minBadges: number,
   timeoutMs = 20000,
 ): Promise<void> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  const attempts = getPollingAttempts(timeoutMs, 200);
+  for (let i = 0; i < attempts; i++) {
     if (document.querySelectorAll(GQL.ASSERTION_BADGE).length >= minBadges) return;
     await ctx.delay(200);
   }

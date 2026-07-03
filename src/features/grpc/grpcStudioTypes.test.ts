@@ -141,13 +141,13 @@ describe('grpcStudioTypes (Phase 1A + 2A stream state)', () => {
       loadState: 'loaded' as const,
       protoIngest: {
         ...createDefaultProtoIngestState(),
-        protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";' }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: 'syntax = "proto3";' }] }],
       },
     };
     const reset = createTabDescriptorStateAfterConnectionInvalidation(prior);
     expect(reset.loadState).toBe('idle');
     expect(reset.descriptor).toBeUndefined();
-    expect(reset.protoIngest?.protoFiles[0]?.path).toBe('echo.proto');
+    expect(reset.protoIngest?.protoRoots[0]?.files[0]?.path).toBe('echo.proto');
     expect(reset.protoIngest).not.toBe(prior.protoIngest);
   });
 

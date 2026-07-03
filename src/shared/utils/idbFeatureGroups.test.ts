@@ -119,6 +119,22 @@ describe('idbFeatureGroups', () => {
 
       expect(result).toBeNull();
     });
+
+    it('returns null when openDB rejects', async () => {
+      const mod = await import('./idbOpen');
+      vi.mocked(mod.openDB).mockRejectedValueOnce(new Error('open failed'));
+      expect(await idbLoadFeatureGroups()).toBeNull();
+    });
+
+    it('returns null when indexedDB is undefined', async () => {
+      const orig = globalThis.indexedDB;
+      Object.defineProperty(globalThis, 'indexedDB', { value: undefined, configurable: true });
+      try {
+        expect(await idbLoadFeatureGroups()).toBeNull();
+      } finally {
+        Object.defineProperty(globalThis, 'indexedDB', { value: orig, configurable: true });
+      }
+    });
   });
 
   describe('idbSaveFeatureGroups', () => {
@@ -136,6 +152,16 @@ describe('idbFeatureGroups', () => {
       mockPutShouldError = true;
 
       await expect(idbSaveFeatureGroups(fgs)).rejects.toThrow();
+    });
+
+    it('throws when indexedDB is undefined', async () => {
+      const orig = globalThis.indexedDB;
+      Object.defineProperty(globalThis, 'indexedDB', { value: undefined, configurable: true });
+      try {
+        await expect(idbSaveFeatureGroups([createMockFeatureGroup()])).rejects.toThrow('IndexedDB not available');
+      } finally {
+        Object.defineProperty(globalThis, 'indexedDB', { value: orig, configurable: true });
+      }
     });
   });
 
@@ -181,6 +207,17 @@ describe('idbFeatureGroups', () => {
       const result = await idbMigrateFeatureGroups('rf-feature-groups');
 
       expect(result).toBe(false);
+    });
+
+    it('returns false when indexedDB is undefined', async () => {
+      localStorage.setItem('rf-feature-groups', JSON.stringify([createMockFeatureGroup()]));
+      const orig = globalThis.indexedDB;
+      Object.defineProperty(globalThis, 'indexedDB', { value: undefined, configurable: true });
+      try {
+        expect(await idbMigrateFeatureGroups('rf-feature-groups')).toBe(false);
+      } finally {
+        Object.defineProperty(globalThis, 'indexedDB', { value: orig, configurable: true });
+      }
     });
   });
 });
