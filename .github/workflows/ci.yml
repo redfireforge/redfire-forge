@@ -59,6 +59,67 @@ jobs:
       - run: npm ci
       - run: npx tsc -b --noEmit
 
+  grpc-phase13a-slo:
+    name: gRPC Phase 13A SLO Gate
+    runs-on: ubuntu-latest
+    needs: typecheck
+    if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Start API server
+        run: npm run server > /tmp/redfire-grpc-server.log 2>&1 & echo $! > /tmp/redfire-grpc-server.pid
+      - name: Wait for gRPC usage route
+        run: |
+          for i in {1..40}; do
+            if curl -sSf http://127.0.0.1:3001/api/grpc/describe/usage > /dev/null; then
+              echo "gRPC route ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to become ready"
+          cat /tmp/redfire-grpc-server.log || true
+          exit 1
+      - name: Run Phase 13A SLO gate
+        run: npm run grpc:phase13a:gate -- --require-live --base-url=http://127.0.0.1:3001
+      - name: Upload baseline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13a-baseline
+          path: artifacts/grpc-phase13a-baseline.json
+      - name: Stop API server
+        if: always()
+        run: |
+          if [ -f /tmp/redfire-grpc-server.pid ]; then
+            kill "$(cat /tmp/redfire-grpc-server.pid)" || true
+          fi
+
+  grpc-phase13b-slo:
+    name: gRPC Phase 13B Probe Gate
+    runs-on: ubuntu-latest
+    needs: [typecheck, grpc-phase13a-slo]
+    if: github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run Phase 13B fixture-backed gate
+        run: npm run grpc:phase13b:ci
+      - name: Upload baseline artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13b-baseline
+          path: artifacts/grpc-phase13b-baseline.ci.json
+
   lint:
     name: ESLint
     runs-on: ubuntu-latest
