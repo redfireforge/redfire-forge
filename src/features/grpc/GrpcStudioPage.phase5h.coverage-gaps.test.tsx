@@ -119,6 +119,55 @@ function buildCollectionsHook(
       collection.savedRequests = collection.savedRequests.filter((entry) => entry.id !== savedId);
     }),
     duplicateSavedRequest: vi.fn().mockResolvedValue(saved),
+    buildSavedRequestSchemaCompareIntent: vi.fn((request, currentDescriptorKey: string) => {
+      const baselineDescriptorKey = request.descriptorKey ?? '';
+      return {
+        savedRequestId: request.id,
+        baselineDescriptorKey,
+        currentDescriptorKey,
+        keysDiffer: Boolean(baselineDescriptorKey && currentDescriptorKey && baselineDescriptorKey !== currentDescriptorKey),
+      };
+    }),
+    compareSavedRequestSchema: vi.fn(async (_savedRequest, activeDescriptorKey, resolveDescriptor) => {
+      await resolveDescriptor(activeDescriptorKey);
+      await resolveDescriptor(activeDescriptorKey);
+      return {
+        leftDescriptorKey: activeDescriptorKey,
+        rightDescriptorKey: activeDescriptorKey,
+        generatedAt: TS,
+        summary: {
+          breaking: 0,
+          nonBreaking: 0,
+          informational: 0,
+        },
+        changes: [],
+      };
+    }),
+    detectHistoryDescriptorDrift: vi.fn((entry, currentDescriptorKey: string) => {
+      const baselineDescriptorKey = entry.record.snapshot.descriptorKey ?? '';
+      if (!baselineDescriptorKey || baselineDescriptorKey === currentDescriptorKey) {
+        return null;
+      }
+      return {
+        baselineDescriptorKey,
+        currentDescriptorKey,
+      };
+    }),
+    buildHistoryDescriptorDriftReport: vi.fn(async (_entry, activeDescriptorKey, resolveDescriptor) => {
+      await resolveDescriptor(activeDescriptorKey);
+      await resolveDescriptor(activeDescriptorKey);
+      return {
+        leftDescriptorKey: activeDescriptorKey,
+        rightDescriptorKey: activeDescriptorKey,
+        generatedAt: TS,
+        summary: {
+          breaking: 0,
+          nonBreaking: 0,
+          informational: 0,
+        },
+        changes: [],
+      };
+    }),
     ...overrides,
   };
 }
@@ -163,6 +212,43 @@ describe('GrpcStudioPage Phase 5H coverage gaps', () => {
     expect(screen.getByTestId('grpc-history-panel')).toBeTruthy();
     expect(screen.getByTestId('grpc-sub-nav-history-badge').textContent).toBe('1');
     expect(screen.queryByTestId('grpc-tab-bar')).toBeNull();
+  });
+
+  it('defaults to compact density when localStorage read fails', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('storage unavailable');
+    });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    expect((screen.getByTestId('grpc-density-compact-btn') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
+
+    getItemSpy.mockRestore();
+  });
+
+  it('restores comfortable density mode from localStorage', () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockReturnValue('comfortable');
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    expect((screen.getByTestId('grpc-density-comfortable-btn') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
+
+    getItemSpy.mockRestore();
+  });
+
+  it('persists density changes best-effort when localStorage write fails', async () => {
+    const getItemSpy = vi.spyOn(Storage.prototype, 'getItem').mockReturnValue('comfortable');
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('write blocked');
+    });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-density-compact-btn'));
+
+    await waitFor(() => {
+      expect((screen.getByTestId('grpc-density-compact-btn') as HTMLButtonElement).getAttribute('aria-pressed')).toBe('true');
+    });
+
+    getItemSpy.mockRestore();
+    setItemSpy.mockRestore();
   });
 
   it('opens a saved request in studio from collections', async () => {
@@ -323,6 +409,16 @@ describe('GrpcStudioPage Phase 5H coverage gaps', () => {
     });
   });
 
+  it('toggles target connection from connection bar', async () => {
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.change(screen.getByTestId('grpc-target-input'), { target: { value: 'localhost:50051' } });
+    fireEvent.click(screen.getByTestId('grpc-connection-toggle-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-connection-status-dot').getAttribute('aria-label')).toMatch(/Connection status:/i);
+    });
+  });
+
   it('deletes selected saved request from collections detail panel', async () => {
     const deleteSavedRequest = vi.fn().mockResolvedValue(undefined);
     collectionsHook.value = buildCollectionsHook(makeSaved('saved-1'), { deleteSavedRequest });
@@ -345,4 +441,182 @@ describe('GrpcStudioPage Phase 5H coverage gaps', () => {
     fireEvent.change(screen.getByTestId('grpc-auth-bearer-token'), { target: { value: 'secret-token' } });
     expect((screen.getByTestId('grpc-auth-bearer-token') as HTMLInputElement).value).toBe('secret-token');
   });
+
+  it('returns early when compare schema is triggered without active descriptor key', async () => {
+    const compareSavedRequestSchema = vi.fn();
+    collectionsHook.value = buildCollectionsHook(makeSaved('saved-1'), { compareSavedRequestSchema });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-collections'));
+    expandCollectionAndSelect('saved-1');
+    fireEvent.click(screen.getByTestId('grpc-saved-request-compare-schema'));
+
+    await waitFor(() => {
+      expect(compareSavedRequestSchema).not.toHaveBeenCalled();
+      expect(screen.getByTestId('grpc-collections-panel')).toBeTruthy();
+    });
+  });
+
+  it('opens advanced schema diff from saved request compare action', async () => {
+    const saved = { ...makeSaved('saved-compare') };
+    saved.descriptorKey = 'baseline-descriptor';
+
+    const compareSavedRequestSchema = vi.fn(async (_savedRequest, activeDescriptorKey: string, resolveDescriptor: (key: string) => Promise<unknown>) => {
+      await resolveDescriptor(activeDescriptorKey);
+      await resolveDescriptor(activeDescriptorKey);
+      return {
+        leftDescriptorKey: 'baseline-descriptor',
+        rightDescriptorKey: activeDescriptorKey,
+        generatedAt: TS,
+        summary: {
+          breaking: 0,
+          nonBreaking: 1,
+          informational: 0,
+        },
+        changes: [],
+      };
+    });
+
+    collectionsHook.value = buildCollectionsHook(saved, { compareSavedRequestSchema });
+    setGrpcClientTransport(async (op) => {
+      if (op === 'reflect') {
+        return { ...FIXTURE_REFLECT_SUCCESS_ENVELOPE, data: FIXTURE_DESCRIPTOR };
+      }
+      if (op === 'lookup_descriptor') {
+        return { ...FIXTURE_REFLECT_SUCCESS_ENVELOPE, op: 'lookup_descriptor', data: FIXTURE_DESCRIPTOR };
+      }
+      return FIXTURE_REFLECT_SUCCESS_ENVELOPE;
+    });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-reflect-btn'));
+    await waitFor(() => expect(screen.getByTestId('grpc-explorer-tree')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-collections'));
+    expandCollectionAndSelect('saved-compare');
+    fireEvent.click(screen.getByTestId('grpc-saved-request-compare-schema'));
+
+    await waitFor(() => {
+      expect(compareSavedRequestSchema).toHaveBeenCalled();
+      expect(screen.getByTestId('grpc-sub-nav-advanced').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-schema-diff-panel')).toBeTruthy();
+    });
+  });
+
+  it('opens advanced load-test panel from saved request action', async () => {
+    setGrpcClientTransport(async (op) => {
+      if (op === 'reflect') {
+        return { ...FIXTURE_REFLECT_SUCCESS_ENVELOPE, data: FIXTURE_DESCRIPTOR };
+      }
+      return FIXTURE_REFLECT_SUCCESS_ENVELOPE;
+    });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-reflect-btn'));
+    await waitFor(() => expect(screen.getByTestId('grpc-explorer-tree')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-collections'));
+    expandCollectionAndSelect('saved-1');
+    fireEvent.click(screen.getByTestId('grpc-saved-request-run-load-test'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-sub-nav-advanced').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-load-test-panel')).toBeTruthy();
+    });
+  });
+
+  it('opens advanced schema diff from history open-diff action', async () => {
+    const entry = historyEntry('hist-diff');
+    (entry as { descriptorKey: string }).descriptorKey = 'baseline-history-descriptor';
+    entry.record.snapshot.descriptorKey = 'baseline-history-descriptor';
+    historyHook.value = buildHistoryHook([entry]);
+
+    setGrpcClientTransport(async (op) => {
+      if (op === 'reflect') {
+        return { ...FIXTURE_REFLECT_SUCCESS_ENVELOPE, data: FIXTURE_DESCRIPTOR };
+      }
+      if (op === 'lookup_descriptor') {
+        return { ...FIXTURE_REFLECT_SUCCESS_ENVELOPE, op: 'lookup_descriptor', data: FIXTURE_DESCRIPTOR };
+      }
+      return FIXTURE_REFLECT_SUCCESS_ENVELOPE;
+    });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-reflect-btn'));
+    await waitFor(() => expect(screen.getByTestId('grpc-explorer-tree')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-history'));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-hist-diff'));
+    const openDiffButton = screen.getByTestId('grpc-history-open-diff-btn') as HTMLButtonElement;
+    expect(openDiffButton.disabled).toBe(false);
+    fireEvent.click(openDiffButton);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-sub-nav-advanced').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-schema-diff-panel')).toBeTruthy();
+    });
+  });
+
+  it('keeps history view when history schema diff report is unavailable', async () => {
+    const entry = historyEntry('hist-no-report');
+    (entry as { descriptorKey: string }).descriptorKey = 'baseline-history-descriptor';
+    entry.record.snapshot.descriptorKey = 'baseline-history-descriptor';
+    historyHook.value = buildHistoryHook([entry]);
+    collectionsHook.value = buildCollectionsHook(makeSaved('saved-1'), {
+      buildHistoryDescriptorDriftReport: vi.fn(async () => null),
+    });
+
+    setGrpcClientTransport(async (op) => {
+      if (op === 'reflect') {
+        return { ...FIXTURE_REFLECT_SUCCESS_ENVELOPE, data: FIXTURE_DESCRIPTOR };
+      }
+      if (op === 'lookup_descriptor') {
+        return { ...FIXTURE_REFLECT_SUCCESS_ENVELOPE, op: 'lookup_descriptor', data: FIXTURE_DESCRIPTOR };
+      }
+      return FIXTURE_REFLECT_SUCCESS_ENVELOPE;
+    });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-reflect-btn'));
+    await waitFor(() => expect(screen.getByTestId('grpc-explorer-tree')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-history'));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-hist-no-report'));
+    fireEvent.click(screen.getByTestId('grpc-history-open-diff-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-sub-nav-studio').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-call-method-name').textContent).toMatch(/Echo/i);
+      expect(screen.getByTestId('grpc-sub-nav-advanced').className).not.toMatch(/active/);
+      expect(screen.queryByTestId('grpc-schema-diff-panel')).toBeNull();
+    });
+  });
+
+  it('sends stream message immediately and removes queued message', async () => {
+    setGrpcClientTransport(async (op) => {
+      if (op === 'reflect') {
+        return { ...FIXTURE_REFLECT_SUCCESS_ENVELOPE, data: FIXTURE_DESCRIPTOR };
+      }
+      return FIXTURE_REFLECT_SUCCESS_ENVELOPE;
+    });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-reflect-btn'));
+    await waitFor(() => expect(screen.getByTestId('grpc-explorer-tree')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('grpc-method-echo-echoservice-clientstream'));
+    await waitFor(() => expect(screen.getByTestId('grpc-stream-start-btn')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('grpc-stream-start-btn'));
+    await waitFor(() => expect(screen.getByTestId('grpc-stream-add-queue-btn')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('grpc-stream-add-queue-btn'));
+    await waitFor(() => expect(screen.getByTestId('grpc-stream-pending-remove-0')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('grpc-stream-send-now-btn'));
+    fireEvent.click(screen.getByTestId('grpc-stream-pending-remove-0'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('grpc-stream-pending-item-0')).toBeNull();
+    });
+  });
+
 });
