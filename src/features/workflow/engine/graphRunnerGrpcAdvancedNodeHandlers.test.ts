@@ -222,4 +222,253 @@ describe('graphRunnerGrpcAdvancedNodeHandlers', () => {
     );
     expect(passed.value).toBe(false);
   });
+
+  it('handleGrpcLoadTestNode fails when profile config is missing', async () => {
+    const { hCtx, passed, results } = makeHandlerContext();
+
+    await handleGrpcLoadTestNode(
+      'lt-missing-profile',
+      makeNode('lt-missing-profile', 'grpcLoadTest', {
+        label: 'lt',
+        target: 'localhost:50051',
+        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        callType: 'unary',
+        body: {},
+      }),
+      hCtx as never,
+      passed,
+    );
+
+    expect(passed.value).toBe(false);
+    expect(results[0]?.errorMessage).toContain('Either inline loadTest config or profileId is required');
+  });
+
+  it('handleGrpcLoadTestNode fails when profile resolver is missing', async () => {
+    const { hCtx, passed, results } = makeHandlerContext({
+      grpcOperations: {
+        invokeUnary: vi.fn(),
+        collectServerStream: vi.fn(),
+      },
+    });
+
+    await handleGrpcLoadTestNode(
+      'lt-no-resolver',
+      makeNode('lt-no-resolver', 'grpcLoadTest', {
+        label: 'lt',
+        target: 'localhost:50051',
+        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        callType: 'unary',
+        body: {},
+        profileId: 'profile-1',
+      }),
+      hCtx as never,
+      passed,
+    );
+
+    expect(passed.value).toBe(false);
+    expect(results[0]?.errorMessage).toContain('resolveLoadTestProfile is not configured');
+  });
+
+  it('handleGrpcLoadTestNode fails when profile id is unknown', async () => {
+    const { hCtx, passed, results } = makeHandlerContext({
+      grpcOperations: {
+        invokeUnary: vi.fn(),
+        collectServerStream: vi.fn(),
+        resolveLoadTestProfile: vi.fn(async () => null),
+      },
+    });
+
+    await handleGrpcLoadTestNode(
+      'lt-profile-missing',
+      makeNode('lt-profile-missing', 'grpcLoadTest', {
+        label: 'lt',
+        target: 'localhost:50051',
+        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        callType: 'unary',
+        body: {},
+        profileId: 'missing',
+      }),
+      hCtx as never,
+      passed,
+    );
+
+    expect(passed.value).toBe(false);
+    expect(results[0]?.errorMessage).toContain('Load test profile not found: missing');
+  });
+
+  it('handleGrpcLoadTestNode traverses outgoing edges when onError=continue', async () => {
+    const { hCtx, passed } = makeHandlerContext({
+      grpcOperations: {
+        invokeUnary: vi.fn(async () => ({
+          status: 13,
+          statusMessage: 'INTERNAL',
+          headers: {},
+          trailers: {},
+          body: {},
+          durationMs: 2,
+        })),
+        collectServerStream: vi.fn(),
+      },
+    });
+
+    await handleGrpcLoadTestNode(
+      'lt-continue',
+      makeNode('lt-continue', 'grpcLoadTest', {
+        label: 'lt',
+        target: 'localhost:50051',
+        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        callType: 'unary',
+        body: {},
+        onError: 'continue',
+        loadTest: { concurrency: 1, totalCalls: 1, warmupCalls: 0 },
+      }),
+      hCtx as never,
+      passed,
+    );
+
+    expect(passed.value).toBe(false);
+    expect(hCtx.visitOutgoing).toHaveBeenCalled();
+  });
+
+  it('handleGrpcSchemaDiffNode fails when grpc operations are missing', async () => {
+    const { hCtx, passed } = makeHandlerContext({ grpcOperations: undefined });
+
+    await handleGrpcSchemaDiffNode(
+      'sd-no-ops',
+      makeNode('sd-no-ops', 'grpcSchemaDiff', {
+        label: 'sd',
+        leftDescriptorKey: FIXTURE_DESCRIPTOR_KEY,
+        rightDescriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      }),
+      hCtx as never,
+      passed,
+    );
+
+    expect(passed.value).toBe(false);
+  });
+
+  it('handleGrpcSchemaDiffNode records failure when summary registry is missing', async () => {
+    const { hCtx, passed, results } = makeHandlerContext({
+      grpcOutputRegistry: undefined,
+    });
+
+    await handleGrpcSchemaDiffNode(
+      'sd-no-registry',
+      makeNode('sd-no-registry', 'grpcSchemaDiff', {
+        label: 'sd',
+        leftDescriptorKey: FIXTURE_DESCRIPTOR_KEY,
+        rightDescriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      }),
+      hCtx as never,
+      passed,
+    );
+
+    expect(passed.value).toBe(false);
+    expect(results[0]?.errorMessage).toContain('GrpcWorkflowOutputRegistry is required');
+  });
+
+  it('handleGrpcMockAssertNode fails on status mismatch', async () => {
+    const { hCtx, passed, results } = makeHandlerContext({
+      grpcOperations: {
+        invokeUnary: vi.fn(async () => ({
+          status: 0,
+          statusMessage: 'OK',
+          headers: {},
+          trailers: {},
+          body: { message: 'ok' },
+          durationMs: 2,
+        })),
+        collectServerStream: vi.fn(),
+        resolveDescriptor: vi.fn(async () => FIXTURE_DESCRIPTOR),
+      },
+    });
+
+    await handleGrpcMockAssertNode(
+      'ma-status-mismatch',
+      makeNode('ma-status-mismatch', 'grpcMockAssert', {
+        label: 'ma',
+        listenTarget: '127.0.0.1:50061',
+        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        expectedStatus: 7,
+      }),
+      hCtx as never,
+      passed,
+    );
+
+    expect(passed.value).toBe(false);
+    expect(results[0]?.errorMessage).toContain('Expected gRPC status 7, got 0');
+  });
+
+  it('handleGrpcMockAssertNode evaluates expected body path and passes on match', async () => {
+    const { hCtx, passed, results } = makeHandlerContext({
+      grpcOperations: {
+        invokeUnary: vi.fn(async () => ({
+          status: 0,
+          statusMessage: 'OK',
+          headers: {},
+          trailers: {},
+          body: { payload: { value: 'ok' } },
+          durationMs: undefined,
+        })),
+        collectServerStream: vi.fn(),
+        resolveDescriptor: vi.fn(async () => FIXTURE_DESCRIPTOR),
+      },
+    });
+
+    await handleGrpcMockAssertNode(
+      'ma-body-match',
+      makeNode('ma-body-match', 'grpcMockAssert', {
+        label: 'ma',
+        listenTarget: '127.0.0.1:50061',
+        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        expectedBodyPath: 'payload.value',
+        expectedBodyValue: 'ok',
+      }),
+      hCtx as never,
+      passed,
+    );
+
+    expect(passed.value).toBe(true);
+    expect(results[0]?.passed).toBe(true);
+  });
+
+  it('handleGrpcMockAssertNode handles invoke errors', async () => {
+    const { hCtx, passed, results } = makeHandlerContext({
+      grpcOperations: {
+        invokeUnary: vi.fn(async () => {
+          throw new Error('boom');
+        }),
+        collectServerStream: vi.fn(),
+        resolveDescriptor: vi.fn(async () => FIXTURE_DESCRIPTOR),
+      },
+    });
+
+    await handleGrpcMockAssertNode(
+      'ma-throw',
+      makeNode('ma-throw', 'grpcMockAssert', {
+        label: 'ma',
+        listenTarget: '127.0.0.1:50061',
+        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+        service: 'echo.EchoService',
+        method: 'Echo',
+      }),
+      hCtx as never,
+      passed,
+    );
+
+    expect(passed.value).toBe(false);
+    expect(results[0]?.errorMessage).toContain('boom');
+  });
 });
