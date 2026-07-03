@@ -20,6 +20,10 @@ import {
   createToggleServiceExpandedHandler,
 } from './grpcStudioTabCommands';
 import type { GrpcStudioRuntimeContext } from './grpcStudioRuntimeContext';
+import {
+  GRPC_DEFAULT_CALL_TIMEOUT_MS,
+  GRPC_DEFAULT_STREAM_CALL_TIMEOUT_MS,
+} from '../../../shared/grpc/contracts';
 
 vi.mock('../utils/grpcTabSecretVault', () => ({
   clearTabSessionVaultSecrets: vi.fn().mockResolvedValue(undefined),
@@ -302,6 +306,53 @@ describe('grpcStudioTabCommands coverage gaps', () => {
     createSelectMethodHandler(ctx, core)(tabId, 'echo.EchoService', 'ServerStream');
     expect(dispose).toHaveBeenCalled();
     expect(ctx.updateTab).toHaveBeenCalled();
+  });
+
+  it('selectMethod bumps timeout to stream default when choosing a streaming method from base default', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      descriptor: FIXTURE_DESCRIPTOR,
+    };
+    ctx.sessionRef.current.tabs = [{
+      ...createGrpcStudioTab({
+        id: tabId,
+        timeoutMs: GRPC_DEFAULT_CALL_TIMEOUT_MS,
+      }),
+    }];
+
+    createSelectMethodHandler(ctx, core)(tabId, 'echo.EchoService', 'ServerStream');
+    expect(ctx.updateTab).toHaveBeenCalledWith(
+      tabId,
+      expect.objectContaining({ timeoutMs: GRPC_DEFAULT_STREAM_CALL_TIMEOUT_MS }),
+      expect.any(Object),
+    );
+  });
+
+  it('selectMethod preserves custom timeout when choosing a streaming method', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    const tabId = ctx.sessionRef.current.activeTabId;
+    const customTimeoutMs = 45_000;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      descriptor: FIXTURE_DESCRIPTOR,
+    };
+    ctx.sessionRef.current.tabs = [{
+      ...createGrpcStudioTab({
+        id: tabId,
+        timeoutMs: customTimeoutMs,
+      }),
+    }];
+
+    createSelectMethodHandler(ctx, core)(tabId, 'echo.EchoService', 'ServerStream');
+    expect(ctx.updateTab).toHaveBeenCalledWith(
+      tabId,
+      expect.objectContaining({ timeoutMs: customTimeoutMs }),
+      expect.any(Object),
+    );
   });
 
   it('pruneSchemaDriftBody no-ops when method cannot be resolved', () => {

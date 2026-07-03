@@ -25,7 +25,11 @@ describe('GrpcProtoManageModal coverage gaps', () => {
         {...baseProps}
         ingest={{
           ...createDefaultProtoIngestState(),
-          protoFiles: [{ path: 'old.proto', content: 'syntax = "proto3";', sizeBytes: 10 }],
+          protoRoots: [{
+            id: 'root-default',
+            mountPath: 'root',
+            files: [{ path: 'old.proto', content: 'syntax = "proto3";', sizeBytes: 10 }],
+          }],
           importPaths: ['shared'],
         }}
         onIngestChange={onIngestChange}
@@ -39,18 +43,14 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     fireEvent.keyDown(zone, { key: 'Enter' });
 
     fireEvent.click(screen.getByLabelText('Remove old.proto'));
-    expect(onIngestChange).toHaveBeenCalledWith({ protoFiles: [] });
-
-    fireEvent.click(screen.getByLabelText('Remove import root shared'));
-    expect(onIngestChange).toHaveBeenCalledWith({ importPaths: [] });
+    expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'proto_files',
+      protoRoots: [expect.objectContaining({ files: [] })],
+    }));
   });
 
-  it('adds import path via Enter key and renders BSR/version/token inputs', () => {
+  it('renders BSR/version/token inputs', () => {
     render(<GrpcProtoManageModal {...baseProps} />);
-    const input = screen.getByTestId('grpc-proto-import-path-input');
-    fireEvent.change(input, { target: { value: 'vendor' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(baseProps.onIngestChange).toHaveBeenCalledWith({ importPaths: ['vendor'] });
 
     fireEvent.click(screen.getByTestId('grpc-proto-tab-bsr'));
     fireEvent.change(screen.getByTestId('grpc-proto-bsr-version-input'), { target: { value: 'v1' } });
@@ -139,15 +139,12 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     expect(screen.getByTestId('grpc-proto-load-error').textContent).toContain('Descriptor failed');
   });
 
-  it('uploads proto files and skips duplicate import paths', async () => {
+  it('uploads proto files into selected root', async () => {
     const onIngestChange = vi.fn();
     render(
       <GrpcProtoManageModal
         {...baseProps}
-        ingest={{
-          ...createDefaultProtoIngestState(),
-          importPaths: ['shared'],
-        }}
+        ingest={createDefaultProtoIngestState()}
         onIngestChange={onIngestChange}
       />,
     );
@@ -160,11 +157,6 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     await vi.waitFor(() => {
       expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({ source: 'proto_files' }));
     });
-
-    const importInput = screen.getByTestId('grpc-proto-import-path-input');
-    fireEvent.change(importInput, { target: { value: 'shared' } });
-    fireEvent.click(screen.getByTestId('grpc-proto-import-path-add'));
-    expect(onIngestChange).not.toHaveBeenCalledWith({ importPaths: ['shared', 'shared'] });
   });
 
   it('updates BSR module field and enables load for BSR source', () => {
@@ -264,7 +256,7 @@ describe('GrpcProtoManageModal coverage gaps', () => {
 
     fireEvent.click(screen.getByTestId('grpc-proto-tab-schema-browser'));
     expect(screen.getByTestId('grpc-schema-browser')).toBeTruthy();
-    expect(screen.getByText(/Browse loaded services/i)).toBeTruthy();
+    expect(screen.getByText(/Browse services, methods, messages, and enums/i)).toBeTruthy();
   });
 
   it('does not close when clicking inside the modal body', () => {
@@ -326,10 +318,8 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     expect(screen.getByTestId('grpc-proto-load-btn')).toHaveProperty('disabled', false);
   });
 
-  it('ignores empty import paths and drop events without files', () => {
+  it('ignores drop events without files', () => {
     render(<GrpcProtoManageModal {...baseProps} />);
-    fireEvent.click(screen.getByTestId('grpc-proto-import-path-add'));
-    expect(baseProps.onIngestChange).not.toHaveBeenCalledWith({ importPaths: [''] });
 
     fireEvent.drop(screen.getByTestId('grpc-proto-upload-zone'), {
       preventDefault: vi.fn(),

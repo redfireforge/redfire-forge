@@ -135,6 +135,7 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     captureSchemaBaseline,
     runSchemaDiff,
     clearSchemaBaseline,
+    applySchemaDiffComparison,
   } = useGrpcAdvancedSchemaDiffSession(studio, activeTabId, getTabState, patchTabState);
 
   useEffect(() => {
@@ -772,6 +773,7 @@ export function useGrpcStudioAdvancedFeatures(options: UseGrpcStudioAdvancedFeat
     captureSchemaBaseline,
     runSchemaDiff,
     clearSchemaBaseline,
+    applySchemaDiffComparison,
     exportLoadTestJson,
     exportLoadTestCsv,
     exportSchemaDiffJson,

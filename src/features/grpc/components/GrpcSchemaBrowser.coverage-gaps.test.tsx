@@ -50,6 +50,20 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
     expect(screen.getByTestId('grpc-schema-service-methods-table').textContent).toContain('Echo');
   });
 
+  it('navigates to message detail when service request type link is clicked', () => {
+    render(
+      <GrpcSchemaBrowser
+        descriptor={FIXTURE_DESCRIPTOR}
+        targetAddress="localhost:50051"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-schema-tree-node-service--echo-echoservice'));
+    fireEvent.click(screen.getAllByTestId('grpc-schema-service-type-link-echo-echorequest')[0]!);
+
+    expect(screen.getByTestId('grpc-schema-message-detail').textContent).toContain('echo.EchoRequest');
+  });
+
   it('calls onSelectMethod and onExportProtoset handlers', () => {
     const onSelectMethod = vi.fn();
     const onExportProtoset = vi.fn(async () => undefined);
@@ -116,6 +130,64 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
     await vi.waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalled();
     });
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining("-d '"));
+    expect(navigator.clipboard.writeText).toHaveBeenCalledWith(expect.stringContaining('"message":"hello"'));
+  });
+
+  it('shows first-time install guidance after copying grpcurl command', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+    sessionStorage.removeItem('grpc-schema-copy-grpcurl-hint-seen');
+
+    render(
+      <GrpcSchemaBrowser
+        descriptor={FIXTURE_DESCRIPTOR}
+        targetAddress="localhost:50051"
+        selectedService="echo.EchoService"
+        selectedMethod="Echo"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--echo'));
+    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+
+    await vi.waitFor(() => {
+      expect(screen.getByTestId('grpc-schema-copy-feedback').textContent)
+        .toContain('go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest');
+    });
+    expect(screen.getByTestId('grpc-schema-copy-install-options').textContent)
+      .toContain('macOS (Homebrew):');
+    expect(screen.getByTestId('grpc-schema-copy-install-options').textContent)
+      .toContain('Windows (winget):');
+  });
+
+  it('switches between minimal and full grpcurl payload modes', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <GrpcSchemaBrowser
+        descriptor={FIXTURE_DESCRIPTOR}
+        targetAddress="localhost:50051"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--serverstream'));
+
+    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalled();
+    });
+    expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('"message":"hello"'));
+    expect(writeText).not.toHaveBeenLastCalledWith(expect.stringContaining('"repeatCount":1'));
+
+    fireEvent.click(screen.getByTestId('grpc-schema-copy-mode-full'));
+    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await vi.waitFor(() => {
+      expect(writeText).toHaveBeenCalledTimes(2);
+    });
+    expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('"repeat_count":1'));
+    expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('"interval_ms":1'));
   });
 
   it('opens method in tab when handler provided', () => {
@@ -129,7 +201,38 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
     );
     fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--echo'));
     fireEvent.click(screen.getByTestId('grpc-schema-open-tab-btn'));
-    expect(onOpenInTab).toHaveBeenCalledWith('echo.EchoService', 'Echo');
+    expect(onOpenInTab).toHaveBeenCalledWith('echo.EchoService', 'Echo', { message: 'hello' }, 'minimal');
+  });
+
+  it('uses selected minimal/full mode for open in tab payload', () => {
+    const onOpenInTab = vi.fn();
+    render(
+      <GrpcSchemaBrowser
+        descriptor={FIXTURE_DESCRIPTOR}
+        targetAddress="localhost:50051"
+        onOpenInTab={onOpenInTab}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--serverstream'));
+    fireEvent.click(screen.getByTestId('grpc-schema-open-tab-btn'));
+    expect(onOpenInTab).toHaveBeenNthCalledWith(
+      1,
+      'echo.EchoService',
+      'ServerStream',
+      { message: 'hello' },
+      'minimal',
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-schema-copy-mode-full'));
+    fireEvent.click(screen.getByTestId('grpc-schema-open-tab-btn'));
+    expect(onOpenInTab).toHaveBeenNthCalledWith(
+      2,
+      'echo.EchoService',
+      'ServerStream',
+      { interval_ms: 1, message: 'hello', repeat_count: 1 },
+      'full',
+    );
   });
 
   it('skips copy grpcurl when target address is missing', async () => {
@@ -174,6 +277,36 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
 
     fireEvent.click(screen.getByTestId('grpc-schema-tree-node-message--echo-mappayload'));
     expect(screen.getByTestId('grpc-schema-field-table').textContent).toMatch(/map<string, int32>/);
+  });
+
+  it('navigates to referenced message when field type link is clicked', () => {
+    const descriptorWithLinkedType: GrpcDescriptor = {
+      ...FIXTURE_DESCRIPTOR,
+      messageTypes: [{
+        typeName: 'echo.RichPayload',
+        fields: [{
+          name: 'labels',
+          number: 1,
+          type: 'message',
+          label: 'optional',
+          isMap: true,
+          mapKeyType: 'string',
+          messageTypeName: 'echo.EchoRequest',
+        }],
+      }],
+    };
+
+    render(
+      <GrpcSchemaBrowser
+        descriptor={descriptorWithLinkedType}
+        targetAddress="localhost:50051"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-schema-tree-node-message--echo-richpayload'));
+    fireEvent.click(screen.getByTestId('grpc-schema-field-type-link-echo-echorequest'));
+
+    expect(screen.getByTestId('grpc-schema-message-detail').textContent).toContain('echo.EchoRequest');
   });
 
   it('shows export busy label on export protoset button', () => {

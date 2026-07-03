@@ -100,6 +100,8 @@ describe('GrpcRpcStatisticsPanel coverage gaps', () => {
     expect(screen.getByTestId('grpc-rpc-stats-empty')).toBeTruthy();
     expect(screen.getByTestId('grpc-rpc-stats-avg-latency').textContent).toBe('0ms');
     expect((screen.getByTestId('grpc-rpc-stats-reset-btn') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('grpc-rpc-stats-export-json-btn') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('grpc-rpc-stats-export-csv-btn') as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/Tab: Echo tab$/)).toBeTruthy();
   });
 
@@ -243,5 +245,66 @@ describe('GrpcRpcStatisticsPanel coverage gaps', () => {
     expect(Number.parseInt(bar.style.width, 10)).toBeGreaterThanOrEqual(4);
     fireEvent.click(screen.getByTestId('grpc-rpc-stats-reset-btn'));
     expect(resetRpcSessionStats).toHaveBeenCalledTimes(1);
+  });
+
+  it('exports JSON and CSV files when session has rows', () => {
+    const createObjectURL = vi.fn(() => 'blob:grpc-rpc-stats');
+    const revokeObjectURL = vi.fn();
+    const anchorClick = vi.fn();
+    const originalCreateElement = document.createElement.bind(document);
+    const createElementSpy = vi.spyOn(document, 'createElement')
+      .mockImplementation((tagName: string) => {
+        if (tagName.toLowerCase() === 'a') {
+          return {
+            click: anchorClick,
+            href: '',
+            download: '',
+          } as unknown as HTMLAnchorElement;
+        }
+        return originalCreateElement(tagName);
+      });
+    vi.stubGlobal('URL', {
+      createObjectURL,
+      revokeObjectURL,
+    });
+
+    render(
+      <GrpcRpcStatisticsPanel
+        advanced={buildAdvancedMock({
+          rpcSessionSummary: {
+            totalCalls: 3,
+            totalErrors: 1,
+            successRatePercent: 66.7,
+            avgLatencyMs: 24,
+            p95LatencyMs: 40,
+          },
+          rpcSessionStats: {
+            tabId: 'tab-ui',
+            windowStartedAt: '2026-07-01T00:00:00.000Z',
+            byMethodKey: {
+              'svc/Method': {
+                service: 'svc',
+                method: 'Method',
+                callType: 'unary',
+                calls: 3,
+                errors: 1,
+                statusDistribution: { '0': 2, '13': 1 },
+                latencyMs: { min: 12, avg: 24, p50: 22, p95: 40, p99: 40, max: 40 },
+              },
+            },
+          },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-rpc-stats-export-json-btn'));
+    fireEvent.click(screen.getByTestId('grpc-rpc-stats-export-csv-btn'));
+
+    expect(anchorClick).toHaveBeenCalledTimes(2);
+    expect(createObjectURL).toHaveBeenCalledTimes(2);
+    expect(revokeObjectURL).toHaveBeenCalledTimes(2);
+
+    createElementSpy.mockRestore();
+    vi.unstubAllGlobals();
   });
 });

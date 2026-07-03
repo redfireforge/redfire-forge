@@ -19,14 +19,18 @@ const SAMPLE_ARGS: Record<string, unknown[]> = {
   SPRING_HINT_DISMISS: ['hint-1'],
   SECRET_FIELD_STORED_HINT: ['grpc-secret'],
   SECRET_FIELD_CLEAR: ['grpc-secret'],
-  AUTH_TYPE_PILL: ['bearer'],
+  AUTH_TYPE_SELECT: ['bearer'],
   SCHEMA_DRIFT_REBIND: ['demo.Echo', 'SayHello'],
   PROTO_FIELD_INPUT: ['message'],
+  PROTO_FILE_REMOVE_AT: [2],
+  REQUEST_FILES_REMOVE_AT: [1],
   RESPONSE_TIMING_ROW: ['dns'],
+  SCHEMA_TREE_NODE: ['echo.EchoService', 'Echo'],
   STREAM_PENDING_ITEM: [0],
   STREAM_PENDING_REMOVE: [1],
   CALL_TYPE_TAB: ['unary'],
   TAB_CALL_TYPE_PILL: ['tab-1'],
+  TAB_CALL_COUNT_BADGE: ['tab-1'],
   SERVICE: ['demo.EchoService'],
   METHOD: ['demo.EchoService', 'SayHello'],
   COLLECTION_GROUP: ['col-1'],
@@ -49,5 +53,16 @@ describe('grpc selectors coverage gaps', () => {
     expect(GRPC.SERVICE('demo.Echo.Service')).toBe('[data-testid="grpc-service-demo-echo-service"]');
     expect(GRPC.METHOD('demo.Echo.Service', 'Say.Hello')).toBe('[data-testid="grpc-method-demo-echo-service-say-hello"]');
     expect(GRPC.SCHEMA_DRIFT_REBIND('demo.Echo', 'SayHello')).toBe('[data-testid="grpc-schema-drift-rebind-demo-Echo-SayHello"]');
+    expect(GRPC.SCHEMA_TREE_NODE('demo.Echo', 'SayHello')).toBe(
+      '[data-testid="grpc-schema-tree-node-demo-echo--sayhello"]',
+    );
+  });
+
+  it('exposes static selector constants as non-empty strings', () => {
+    for (const [key, value] of Object.entries(GRPC)) {
+      if (typeof value === 'function') continue;
+      expect(typeof value, key).toBe('string');
+      expect(value.length, key).toBeGreaterThan(0);
+    }
   });
 });

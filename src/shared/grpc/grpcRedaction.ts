@@ -106,8 +106,10 @@ export function redactGrpcProtoIngestState<T extends { bsrToken?: string }>(
 
 export function redactGrpcMetadataForDisplay(
   metadata: Record<string, string> | undefined,
+  options?: { maskNonSecret?: boolean },
 ): Record<string, string> {
   if (!metadata) return {};
+  const maskNonSecret = options?.maskNonSecret ?? true;
   const redacted: Record<string, string> = {};
   for (const [key, value] of Object.entries(metadata)) {
     const lower = key.toLowerCase();
@@ -118,7 +120,7 @@ export function redactGrpcMetadataForDisplay(
     } else if (isGrpcSecretMetadataKey(key)) {
       redacted[key] = GRPC_REDACTED_PLACEHOLDER;
     } else {
-      redacted[key] = maskGrpcDisplayValue(value);
+      redacted[key] = maskNonSecret ? maskGrpcDisplayValue(value) : value;
     }
   }
   return redacted;

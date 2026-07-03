@@ -16,6 +16,7 @@ import {
   type GrpcErrorBody,
   type GrpcMessageSchema,
   type GrpcMethodInfo,
+  type GrpcProtoRootInput,
   type GrpcStreamLogEntry,
   type GrpcStreamStartRequest,
   type GrpcStreamingCallType,
@@ -70,6 +71,8 @@ export type GrpcDescriptorLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 export interface GrpcTabProtoIngestState {
   source: 'proto_files' | 'protoset' | 'url_proto' | 'bsr';
   protoFiles: Array<{ path: string; content: string; sizeBytes?: number }>;
+  /** Phase B V2 ingest draft — grouped by virtual root. */
+  protoRoots?: GrpcProtoRootInput[];
   importPaths: string[];
   protosetBase64?: string;
   protosetFileName?: string;

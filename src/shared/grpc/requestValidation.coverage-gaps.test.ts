@@ -129,6 +129,39 @@ describe('requestValidation coverage gaps', () => {
     ]);
   });
 
+  it('accepts protoRoots for proto_files describe requests', () => {
+    expect(validateGrpcDescribeRequest({
+      requestId: 'x',
+      source: 'proto_files',
+      protoRoots: [
+        {
+          id: 'root-shared',
+          mountPath: 'shared',
+          files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+        },
+      ],
+    })).toEqual([]);
+  });
+
+  it('validates protoRoots structure when source is proto_files', () => {
+    const issues = validateGrpcDescribeRequest({
+      requestId: 'x',
+      source: 'proto_files',
+      protoRoots: [
+        {
+          id: ' ',
+          mountPath: ' ',
+          files: [{ path: 'bad.proto', content: '' }],
+        },
+      ],
+    });
+    expect(issues.map((issue) => issue.field)).toEqual(expect.arrayContaining([
+      'protoRoots[0].id',
+      'protoRoots[0].mountPath',
+      'protoRoots[0].files[0]',
+    ]));
+  });
+
   it('requires descriptorKey for protoset export requests', () => {
     expect(validateGrpcExportProtosetRequest({ descriptorKey: '' })).toEqual([
       expect.objectContaining({

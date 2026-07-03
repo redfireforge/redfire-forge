@@ -319,6 +319,7 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
               ? {
                 sourceSelection: persistedDescriptor.sourceSelection,
                 expandedServiceIds: persistedDescriptor.expandedServiceIds,
+                protoIngest: persistedDescriptor.protoIngest,
               }
               : {}),
           },

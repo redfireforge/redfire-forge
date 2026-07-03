@@ -13,6 +13,8 @@ describe('useModalFrame', () => {
     expect(result.current.expanded).toBe(false);
     expect(result.current.headerDragStyle).toEqual({ cursor: 'move' });
     expect(typeof result.current.onHeaderMouseDown).toBe('function');
+    expect(result.current.overlayStyle).toBeUndefined();
+    expect(result.current.dialogStyle).toBeUndefined();
   });
 
   it('disables header drag bindings when expanded', () => {
@@ -73,5 +75,52 @@ describe('useModalFrame', () => {
     expect(result.current.dialogStyle?.top).toBeUndefined();
 
     document.body.removeChild(dialog);
+  });
+
+  it('exposes pointer drag bindings when collapsed and clears overlay after mouseup', () => {
+    const { result } = renderHook(() => useModalFrame());
+    expect(typeof result.current.onHeaderPointerDown).toBe('function');
+
+    const header = document.createElement('div');
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.appendChild(header);
+    document.body.appendChild(dialog);
+
+    vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue({
+      left: 40, top: 40, width: 500, height: 400,
+      right: 540, bottom: 440, x: 40, y: 40, toJSON: () => ({}),
+    } as DOMRect);
+
+    const mousedown = new MouseEvent('mousedown', { clientX: 60, clientY: 60, bubbles: true });
+    Object.defineProperty(mousedown, 'target', { value: header });
+    Object.defineProperty(mousedown, 'currentTarget', { value: header });
+    Object.defineProperty(mousedown, 'preventDefault', { value: vi.fn() });
+
+    act(() => {
+      result.current.onHeaderMouseDown?.(mousedown as unknown as ReactMouseEvent);
+    });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 90, clientY: 90 }));
+    });
+
+    expect(result.current.overlayStyle?.pointerEvents).toBe('none');
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+
+    expect(result.current.overlayStyle).toBeUndefined();
+    document.body.removeChild(dialog);
+  });
+
+  it('clears pointer drag bindings when expanded', () => {
+    const { result } = renderHook(() => useModalFrame());
+
+    act(() => {
+      result.current.setExpanded(true);
+    });
+
+    expect(result.current.onHeaderPointerDown).toBeUndefined();
   });
 });
