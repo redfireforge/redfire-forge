@@ -43,7 +43,8 @@ const sharedProjectConfig = {
       '@redfireforge/demo-hub': path.resolve(__dirname, './packages/demo-hub/src'),
       '@shared': path.resolve(__dirname, './src/shared'),
       '@graphql': path.resolve(__dirname, './src/features/graphql'),
-    '@workflow': path.resolve(__dirname, './src/features/workflow'),
+      '@grpc': path.resolve(__dirname, './src/features/grpc'),
+      '@workflow': path.resolve(__dirname, './src/features/workflow'),
     },
   },
 };

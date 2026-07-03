@@ -302,6 +302,7 @@ export function GrpcConnectionSettingsDrawer({
                     auth={auth}
                     preview={authPreview}
                     disabled={disabled}
+                    showPageDefaultBanner
                     maskedSecretFields={pruneAuthMaskForConfig(auth, maskedSecretFields)?.auth}
                     onChange={onAuthChange}
                     onUnmaskSecretField={onUnmaskAuthSecretField}

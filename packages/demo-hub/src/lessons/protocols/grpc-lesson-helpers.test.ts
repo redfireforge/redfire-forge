@@ -5,6 +5,8 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { GRPC } from '@shared/selectors';
 import { makeCtx, makeVisible } from './ws-test-utils';
 import {
+  clearGrpcSchemaDriftQuiet,
+  closeExtraGrpcTabsQuiet,
   GRPC_DEMO_MESSAGE,
   GRPC_DEMO_TARGET,
   GRPC_ECHO_METHOD_SEL,
@@ -13,6 +15,8 @@ import {
   ensureGrpcTarget,
   ensureUnaryExecuted,
   grpcLessonSession,
+  openFirstGrpcHistoryEntry,
+  rebindGrpcMethodQuiet,
   resetGrpcLessonSessionFlags,
 } from './grpc-lesson-helpers';
 import {
@@ -134,5 +138,200 @@ describe('grpc-lesson-helpers', () => {
     await ensureUnaryExecuted(ctx);
     expect(document.querySelector(GRPC.RESPONSE_BODY)?.textContent).toContain(GRPC_DEMO_MESSAGE);
     expect(grpcLessonSession.executed).toBe(true);
+  });
+
+  it('openFirstGrpcHistoryEntry opens history and selects the first row', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-history" aria-selected="false"></button>
+      <div data-testid="grpc-response-status">OK</div>
+      <pre data-testid="grpc-response-body">{"message":"${GRPC_DEMO_MESSAGE}"}</pre>
+    `;
+    setGrpcLessonRunFlag('targetSet', true);
+    setGrpcLessonRunFlag('reflected', true);
+    setGrpcLessonRunFlag('methodSelected', true);
+    setGrpcLessonRunFlag('messageFilled', true);
+    setGrpcLessonRunFlag('executed', true);
+
+    const ctx = makeCtx();
+    vi.mocked(ctx.click).mockImplementation(async (sel) => {
+      if (sel === GRPC.SUB_NAV_HISTORY) {
+        document.body.insertAdjacentHTML(
+          'beforeend',
+          `
+            <div data-testid="grpc-history-panel">
+              <div data-testid="grpc-history-list">
+                <button data-testid="grpc-history-entry-demo-1"></button>
+              </div>
+              <div data-testid="grpc-history-detail"></div>
+            </div>
+          `,
+        );
+      }
+      if (sel === GRPC.HISTORY_ENTRY_ROW) {
+        const replay = document.createElement('button');
+        replay.setAttribute('data-testid', 'grpc-history-replay-btn');
+        document.body.append(replay);
+      }
+    });
+
+    await openFirstGrpcHistoryEntry(ctx);
+    expect(ctx.click).toHaveBeenCalledWith(GRPC.SUB_NAV_HISTORY);
+    expect(ctx.click).toHaveBeenCalledWith(GRPC.HISTORY_ENTRY_ROW);
+    expect(document.querySelector(GRPC.HISTORY_REPLAY_BTN)).toBeTruthy();
+  });
+
+  it('clearGrpcSchemaDriftQuiet clicks prune and dismiss for warning drift', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>
+      <div data-testid="grpc-schema-drift-banner">
+        <button data-testid="grpc-schema-drift-prune-btn">Prune</button>
+        <button data-testid="grpc-schema-drift-dismiss-btn">Dismiss</button>
+      </div>
+    `;
+
+    document.querySelector('[data-testid="grpc-schema-drift-prune-btn"]')
+      ?.addEventListener('click', () => {
+        document.querySelector('[data-testid="grpc-schema-drift-prune-btn"]')?.remove();
+      });
+    document.querySelector('[data-testid="grpc-schema-drift-dismiss-btn"]')
+      ?.addEventListener('click', () => {
+        document.querySelector('[data-testid="grpc-schema-drift-banner"]')?.remove();
+      });
+
+    const ctx = makeCtx();
+    await clearGrpcSchemaDriftQuiet(ctx);
+    expect(document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)).toBeNull();
+  });
+
+  it('clearGrpcSchemaDriftQuiet falls back to rebind on blocking drift', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>
+      <div data-testid="grpc-schema-drift-banner">
+        <button data-testid="grpc-schema-drift-rebind-echo-EchoService-BidiStream">Rebind</button>
+      </div>
+    `;
+
+    document.querySelector('[data-testid="grpc-schema-drift-rebind-echo-EchoService-BidiStream"]')
+      ?.addEventListener('click', () => {
+        document.querySelector('[data-testid="grpc-schema-drift-banner"]')?.remove();
+      });
+
+    const ctx = makeCtx();
+    await clearGrpcSchemaDriftQuiet(ctx);
+    expect(document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)).toBeNull();
+  });
+
+  it('clearGrpcSchemaDriftQuiet falls back to echo method selection when rebind is absent', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>
+      <button data-testid="grpc-method-echo-echoservice-echo">Echo</button>
+      <div data-testid="grpc-schema-drift-banner"></div>
+    `;
+
+    document.querySelector('[data-testid="grpc-method-echo-echoservice-echo"]')
+      ?.addEventListener('click', () => {
+        document.querySelector('[data-testid="grpc-schema-drift-banner"]')?.remove();
+      });
+
+    const ctx = makeCtx();
+    await clearGrpcSchemaDriftQuiet(ctx);
+    expect(document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)).toBeNull();
+  });
+
+  it('clearGrpcSchemaDriftQuiet falls back to first available method when echo is unavailable', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>
+      <button data-testid="grpc-method-connectrpc-eliza-v1-elizaservice-say">Say</button>
+      <div data-testid="grpc-schema-drift-banner"></div>
+    `;
+
+    document.querySelector('[data-testid="grpc-method-connectrpc-eliza-v1-elizaservice-say"]')
+      ?.addEventListener('click', () => {
+        document.querySelector('[data-testid="grpc-schema-drift-banner"]')?.remove();
+      });
+
+    const ctx = makeCtx();
+    await clearGrpcSchemaDriftQuiet(ctx);
+    expect(document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)).toBeNull();
+  });
+
+  it('clearGrpcSchemaDriftQuiet handles banner re-render after first dismiss', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>
+      <button data-testid="grpc-method-echo-echoservice-echo">Echo</button>
+      <div data-testid="grpc-schema-drift-banner">
+        <button data-testid="grpc-schema-drift-dismiss-btn">Dismiss</button>
+      </div>
+    `;
+
+    let dismissClicks = 0;
+    document.querySelector('[data-testid="grpc-schema-drift-dismiss-btn"]')
+      ?.addEventListener('click', () => {
+        dismissClicks += 1;
+        document.querySelector('[data-testid="grpc-schema-drift-banner"]')?.remove();
+        if (dismissClicks === 1) {
+          const banner = document.createElement('div');
+          banner.setAttribute('data-testid', 'grpc-schema-drift-banner');
+          document.body.appendChild(banner);
+        }
+      });
+
+    document.querySelector('[data-testid="grpc-method-echo-echoservice-echo"]')
+      ?.addEventListener('click', () => {
+        document.querySelector('[data-testid="grpc-schema-drift-banner"]')?.remove();
+      });
+
+    const ctx = makeCtx();
+    await clearGrpcSchemaDriftQuiet(ctx);
+    expect(document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)).toBeNull();
+    expect(dismissClicks).toBeGreaterThanOrEqual(1);
+  });
+
+  it('rebindGrpcMethodQuiet selects first available method when echo is unavailable', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>
+      <button data-testid="grpc-method-connectrpc-eliza-v1-elizaservice-say">Say</button>
+    `;
+
+    const sayBtn = document.querySelector('[data-testid="grpc-method-connectrpc-eliza-v1-elizaservice-say"]') as HTMLButtonElement;
+    const clickSpy = vi.spyOn(sayBtn, 'click');
+
+    const ctx = makeCtx();
+    await rebindGrpcMethodQuiet(ctx);
+    expect(clickSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('closeExtraGrpcTabsQuiet preserves active tab and closes others', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>
+      <div data-testid="grpc-tab-bar">
+        <div role="tab" data-testid="grpc-tab-1" aria-selected="false">
+          <button data-testid="grpc-tab-close-grpc-tab-1"></button>
+        </div>
+        <div role="tab" data-testid="grpc-tab-2" aria-selected="false">
+          <button data-testid="grpc-tab-close-grpc-tab-2"></button>
+        </div>
+        <div role="tab" data-testid="grpc-tab-3" aria-selected="true">
+          <button data-testid="grpc-tab-close-grpc-tab-3"></button>
+        </div>
+      </div>
+    `;
+
+    const closed: string[] = [];
+    document.querySelectorAll<HTMLButtonElement>('[data-testid^="grpc-tab-close-"]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        closed.push(btn.getAttribute('data-testid') ?? '');
+        btn.closest('[role="tab"]')?.remove();
+      });
+    });
+
+    const ctx = makeCtx();
+    await closeExtraGrpcTabsQuiet(ctx);
+
+    expect(closed).toContain('grpc-tab-close-grpc-tab-1');
+    expect(closed).toContain('grpc-tab-close-grpc-tab-2');
+    expect(closed).not.toContain('grpc-tab-close-grpc-tab-3');
+    expect(document.querySelectorAll('[role="tab"]')).toHaveLength(1);
+    expect(document.querySelector('[role="tab"]')?.getAttribute('data-testid')).toBe('grpc-tab-3');
   });
 });

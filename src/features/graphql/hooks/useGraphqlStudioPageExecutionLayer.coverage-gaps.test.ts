@@ -271,4 +271,21 @@ describe('useGraphqlStudioPageExecutionLayer — coverage gaps', () => {
     );
     expect(result.current.responsePaneState.executing).toBe(true);
   });
+
+  it('uses safe fallbacks when active tab is unavailable', () => {
+    const sparseTabsLayer = {
+      ...tabsLayer,
+      activeTabId: null,
+      activeTab: undefined,
+      selectedOperation: undefined,
+    };
+
+    const { result } = renderHook(() =>
+      useGraphqlStudioPageExecutionLayer(foundation as never, sparseTabsLayer as never, undefined),
+    );
+
+    expect(result.current.queryValidationErrorCount).toBe(0);
+    expect(result.current.varsError).toBeNull();
+    expect(result.current.assertionResultMap).toBeInstanceOf(Map);
+  });
 });

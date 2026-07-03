@@ -47,6 +47,23 @@ import { isGrpcLifecycleInFlight } from '../grpcStudioTypes';
 export type GrpcComposerTab = 'form' | 'json' | 'metadata' | 'auth' | 'files';
 type GrpcMobileStage = 'request' | 'response' | 'metadata' | 'auth';
 
+function parsePersistedComposerTab(raw: string | null): GrpcComposerTab | null {
+  if (raw === 'form' || raw === 'json' || raw === 'metadata' || raw === 'auth' || raw === 'files') {
+    return raw;
+  }
+  return null;
+}
+
+function resolveInitialComposerTab(tab: GrpcStudioTabState): GrpcComposerTab {
+  try {
+    const persisted = parsePersistedComposerTab(sessionStorage.getItem(`grpc-composer-tab:${tab.id}`));
+    if (persisted) return persisted;
+  } catch {
+    // sessionStorage can be unavailable in some test/runtime environments.
+  }
+  return tab.requestMode === 'json' ? 'json' : 'form';
+}
+
 export interface GrpcCallPanelProps {
   tab: GrpcStudioTabState;
   method?: GrpcMethodInfo;
@@ -109,9 +126,7 @@ export function GrpcCallPanel({
   authTabFocusRequest,
 }: GrpcCallPanelProps) {
   const { isDismissed, dismiss } = useGrpcStudioHints();
-  const [composerTab, setComposerTab] = useState<GrpcComposerTab>(() =>
-    tab.requestMode === 'json' ? 'json' : 'form',
-  );
+  const [composerTab, setComposerTab] = useState<GrpcComposerTab>(() => resolveInitialComposerTab(tab));
   const [mobileStage, setMobileStage] = useState<GrpcMobileStage>('request');
   const [jsonDraft, setJsonDraft] = useState(() => serializeGrpcBodyJson(tab.body));
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -144,6 +159,15 @@ export function GrpcCallPanel({
   );
   const authReady = authPreview.ok;
   const allowSendWithoutOAuth2 = tab.auth?.type === 'oauth2' && !authReady;
+  const hasTypedOAuth2Input = Boolean(
+    tab.auth?.type === 'oauth2'
+      && (
+        tab.auth.oauth2?.tokenUrl?.trim()
+        || tab.auth.oauth2?.clientId?.trim()
+        || tab.auth.oauth2?.clientSecret?.trim()
+        || tab.auth.oauth2?.scope?.trim()
+      ),
+  );
   const metadataReady = composerTab === 'metadata'
     ? metadataEditorValid
     : persistedMetadataValidation.valid;
@@ -167,6 +191,26 @@ export function GrpcCallPanel({
   );
   const tabRef = useRef(tab);
   tabRef.current = tab;
+  const prevTabIdRef = useRef(tab.id);
+
+  useEffect(() => {
+    try {
+      sessionStorage.setItem(`grpc-composer-tab:${tab.id}`, composerTab);
+    } catch {
+      // Best effort only.
+    }
+  }, [composerTab, tab.id]);
+
+  useEffect(() => {
+    if (prevTabIdRef.current === tab.id) return;
+    prevTabIdRef.current = tab.id;
+    const restored = resolveInitialComposerTab(tab);
+    setComposerTab(restored);
+    setJsonDraft(serializeGrpcBodyJson(tab.body));
+    setJsonError(null);
+    setFormError(null);
+    setMetadataSwitchError(null);
+  }, [tab, tab.id, tab.body, tab.requestMode]);
 
   useEffect(() => {
     if (composerTab === 'metadata') {
@@ -480,7 +524,7 @@ export function GrpcCallPanel({
     if (!tlsValid) {
       return 'Fix TLS configuration in the connection panel before sending.';
     }
-    if (allowSendWithoutOAuth2) {
+    if (allowSendWithoutOAuth2 && hasTypedOAuth2Input) {
       return 'OAuth2 is incomplete. Send will run without OAuth2 until token URL, client ID, and client secret are set.';
     }
     if (!authReady) {
@@ -505,6 +549,7 @@ export function GrpcCallPanel({
     authPreview.errorMessage,
     authPreview.issues,
     authReady,
+    hasTypedOAuth2Input,
     allowSendWithoutOAuth2,
     composerFormReady,
     composerJsonReady,

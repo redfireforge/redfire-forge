@@ -2,5 +2,5 @@
 export const GRPC1_LESSON = {
   id: 'grpc-first-call',
   name: 'Your First gRPC Call',
-  steps: 8,
+  steps: 10,
 } as const;

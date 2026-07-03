@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   isValidIdentifier,
   isValidJson,
+  normalizeVariablesJsonForValidation,
   isValidVariablesJsonTemplate,
   hasInvalidVariablesJson,
   hasInvalidExtractionRules,
@@ -37,6 +38,10 @@ describe('graphqlPanelHelpers', () => {
   });
 
   describe('isValidJson / hasInvalidVariablesJson', () => {
+    it('normalizes template placeholders to null for syntax validation', () => {
+      expect(normalizeVariablesJsonForValidation('{"id": {{user.id}}}')).toBe('{"id": null}');
+    });
+
     it('treats empty and {} as valid', () => {
       expect(hasInvalidVariablesJson('')).toBe(false);
       expect(hasInvalidVariablesJson('{}')).toBe(false);
@@ -63,6 +68,12 @@ describe('graphqlPanelHelpers', () => {
       expect(hasInvalidVariablesJson('   {}   ')).toBe(false);
       expect(hasInvalidVariablesJson('  {broken ')).toBe(true);
     });
+
+    it('countVariablesTabConfigured returns 1 for arrays and invalid payloads', () => {
+      expect(countVariablesTabConfigured('[1,2,3]')).toBe(1);
+      expect(countVariablesTabConfigured('{broken')).toBe(1);
+      expect(countVariablesTabConfigured('null')).toBe(1);
+    });
   });
 
   describe('rule/output validation helpers', () => {
@@ -74,6 +85,11 @@ describe('graphqlPanelHelpers', () => {
     it('ignores empty binding names and flags invalid output names', () => {
       expect(hasInvalidOutputBindings([{ variableName: '' }])).toBe(false);
       expect(hasInvalidOutputBindings([{ variableName: '123bad' }])).toBe(true);
+    });
+
+    it('treats undefined extraction and output arrays as valid', () => {
+      expect(hasInvalidExtractionRules(undefined)).toBe(false);
+      expect(hasInvalidOutputBindings(undefined)).toBe(false);
     });
   });
 
@@ -136,6 +152,13 @@ describe('graphqlPanelHelpers', () => {
         query: '',
         timeoutMs: 30000,
       })).toBe(0);
+
+      expect(countOperationTabConfigured({
+        endpoint: 'http://localhost:4010/graphql',
+        query: '',
+        timeoutMs: 1000,
+        skipTlsVerify: false,
+      })).toBe(2);
     });
 
     it('counts variables JSON keys and ignores empty object', () => {
@@ -167,6 +190,16 @@ describe('graphqlPanelHelpers', () => {
       const errors = computeSubscriptionTabErrors(validBase);
       expect(hasSubscriptionConfigErrors(errors)).toBe(false);
     });
+
+    it('flags invalid extraction and output bindings on subscription tab', () => {
+      const errors = computeSubscriptionTabErrors({
+        ...validBase,
+        extractionRules: [{ variableName: 'bad-name', jsonPath: '$.id' }],
+        outputBindings: [{ field: 'data', variableName: '1bad', enabled: true }],
+      });
+      expect(errors.extraction).toBe(true);
+      expect(errors.output).toBe(true);
+    });
   });
 
   describe('computeIntrospectTabErrors', () => {
@@ -177,6 +210,14 @@ describe('graphqlPanelHelpers', () => {
     it('hasIntrospectConfigErrors returns false for valid introspect config', () => {
       const errors = computeIntrospectTabErrors({ endpoint: 'http://x/graphql', outputBindings: [] });
       expect(hasIntrospectConfigErrors(errors)).toBe(false);
+    });
+
+    it('flags invalid introspect output bindings', () => {
+      const errors = computeIntrospectTabErrors({
+        endpoint: 'http://x/graphql',
+        outputBindings: [{ field: 'schema', variableName: 'bad-name', enabled: true }],
+      });
+      expect(errors.output).toBe(true);
     });
   });
 
@@ -199,6 +240,11 @@ describe('graphqlPanelHelpers', () => {
         assertions: [{ id: 'a1', jsonPath: '$.id', operator: 'equals', expectedValue: '1' }],
       });
       expect(hasAssertConfigErrors(errors)).toBe(false);
+    });
+
+    it('treats undefined assertion arrays as valid when source is set', () => {
+      const errors = computeAssertTabErrors({ sourceVariable: 'responseData', assertions: undefined });
+      expect(errors.assertions).toBe(false);
     });
   });
 

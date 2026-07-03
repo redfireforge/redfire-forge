@@ -175,6 +175,11 @@ describe('idbProjects', () => {
       expect(await idbMigrateProjects('rf-projects')).toBe(false);
     });
 
+    it('returns false when localStorage contains an empty array payload', async () => {
+      localStorage.setItem('rf-projects', '[]');
+      expect(await idbMigrateProjects('rf-projects')).toBe(false);
+    });
+
     it('returns false when indexedDB is undefined', async () => {
       localStorage.setItem('rf-projects', JSON.stringify([createMockProject()]));
       const orig = globalThis.indexedDB;

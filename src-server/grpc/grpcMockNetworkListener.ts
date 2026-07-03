@@ -1,7 +1,7 @@
 /**
  * Phase 11M — dialable gRPC mock listener using @grpc/grpc-js + embedded rule snapshot.
  */
-import * as grpc from '@grpc/grpc-js';
+import { grpc } from './grpcJsLoader.js';
 import net from 'node:net';
 import type { GrpcCallType, GrpcDescriptor, GrpcMethodInfo } from '../../src/shared/grpc/contracts.js';
 import type { GrpcMockRuntimeManager } from '../../src/shared/grpc/grpcMockRuntimeCore.js';

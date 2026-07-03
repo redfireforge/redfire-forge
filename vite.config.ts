@@ -265,6 +265,7 @@ export default defineConfig({
       '@redfireforge/demo-hub': resolve(__dirname, 'packages/demo-hub/src'),
       '@shared': resolve(__dirname, 'src/shared'),
       '@graphql': resolve(__dirname, 'src/features/graphql'),
+      '@grpc': resolve(__dirname, 'src/features/grpc'),
       '@workflow': resolve(__dirname, 'src/features/workflow'),
     },
   },

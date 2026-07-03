@@ -625,7 +625,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
     }
 
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await page.locator('[data-testid="grpc-auth-type-pill-bearer"]').click();
+    await page.locator('[data-testid="grpc-auth-type-select"]').selectOption('bearer');
     await page.locator('[data-testid="grpc-auth-bearer-token"]').fill('tab-one-token');
     await expect(page.locator('[data-testid="grpc-auth-badge"]')).toContainText('Auth: Bearer');
 
@@ -638,12 +638,12 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
 
     await expect(page.locator('[data-testid="grpc-auth-badge"]')).toContainText('Auth: None');
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await expect(page.locator('[data-testid="grpc-auth-type-pill-none"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveValue('none');
 
     await page.locator(`[data-testid="${firstTabId}"]`).click();
     await expect(page.locator('[data-testid="grpc-auth-badge"]')).toContainText('Auth: Bearer');
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await expect(page.locator('[data-testid="grpc-auth-type-pill-bearer"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveValue('bearer');
     await expect(page.locator('[data-testid="grpc-auth-bearer-token"]')).toHaveValue('tab-one-token');
   });
 
@@ -651,7 +651,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
     await gotoFreshGrpcStudio(page);
 
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await page.locator('[data-testid="grpc-auth-type-pill-bearer"]').click();
+    await page.locator('[data-testid="grpc-auth-type-select"]').selectOption('bearer');
     await page.locator('[data-testid="grpc-auth-bearer-token"]').fill('reload-token');
     await expect(page.locator('[data-testid="grpc-auth-badge"]')).toContainText('Auth: Bearer');
 
@@ -672,7 +672,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
     await expect(page.locator('[data-testid="grpc-auth-badge"]')).toContainText('Auth: Bearer');
 
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await expect(page.locator('[data-testid="grpc-auth-type-pill-bearer"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveValue('bearer');
     await expect(page.locator('[data-testid="grpc-auth-bearer-token"]')).toHaveValue('reload-token');
   });
 
@@ -686,7 +686,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
     }
 
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await page.locator('[data-testid="grpc-auth-type-pill-bearer"]').click();
+    await page.locator('[data-testid="grpc-auth-type-select"]').selectOption('bearer');
     await page.locator('[data-testid="grpc-auth-bearer-token"]').fill('source-token');
 
     await page.locator(`[data-testid="grpc-tab-duplicate-${firstTabId}"]`).click();
@@ -697,7 +697,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
     }
 
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await expect(page.locator('[data-testid="grpc-auth-type-pill-bearer"]')).toHaveClass(/active/);
+    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toHaveValue('bearer');
     await expect(page.locator('[data-testid="grpc-auth-bearer-token"]')).toHaveValue('source-token');
 
     await page.locator('[data-testid="grpc-auth-bearer-token"]').fill('duplicate-token');
@@ -718,7 +718,7 @@ test.describe('gRPC Studio — navigation (Phase 1H shell)', () => {
 
     await targetInput.fill('source.example.com:50051');
     await page.locator('[data-testid="grpc-request-tab-auth"]').click();
-    await page.locator('[data-testid="grpc-auth-type-pill-bearer"]').click();
+    await page.locator('[data-testid="grpc-auth-type-select"]').selectOption('bearer');
     await page.locator('[data-testid="grpc-auth-bearer-token"]').fill('source-token');
 
     await page.locator(`[data-testid="grpc-tab-duplicate-${firstTabId}"]`).click();

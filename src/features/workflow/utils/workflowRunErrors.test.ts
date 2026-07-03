@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { summarizeRequestFailure, formatHttpNodeRunDetail, buildQuickTestFailureReport, filterQuickTestVariableSnapshot } from './workflowRunErrors';
+import { summarizeRequestFailure, formatHttpNodeRunDetail, buildQuickTestFailureReport, filterQuickTestVariableSnapshot, isExecutableWorkflowNodeType } from './workflowRunErrors';
 import { RequestResult } from '../../../shared/types';
 
 function baseResult(over: Partial<RequestResult> = {}): RequestResult {
@@ -239,5 +239,54 @@ describe('buildQuickTestFailureReport', () => {
       null,
     );
     expect(report.hints.some((h) => h.includes('Console panel'))).toBe(true);
+  });
+
+  it('falls back to final default summary when no result and no step errors', () => {
+    const report = buildQuickTestFailureReport(undefined, [], null);
+    expect(report.summary).toBe('One or more workflow steps failed.');
+    expect(report.hints.some((h) => h.includes('Console panel'))).toBe(true);
+  });
+
+  it('uses failedStep error last-line as summary when no failedResult', () => {
+    const report = buildQuickTestFailureReport(
+      undefined,
+      [{ nodeId: 'n1', label: 'HTTP', state: 'fail', error: 'line1\nline2\nActual error here' }],
+      null,
+    );
+    expect(report.summary).toBe('Actual error here');
+  });
+
+  it('adds gqlLatency hint when variableSnapshot has empty gqlLatency', () => {
+    const report = buildQuickTestFailureReport(
+      undefined,
+      [{ nodeId: 'a', label: 'Assert', state: 'fail', error: 'Expected gqlLatency to be set' }],
+      { gqlLatency: '   ' },
+    );
+    expect(report.hints.some((h) => h.includes('gqlLatency'))).toBe(true);
+  });
+});
+
+describe('isExecutableWorkflowNodeType', () => {
+  it('returns false for structural node types', () => {
+    expect(isExecutableWorkflowNodeType('start')).toBe(false);
+    expect(isExecutableWorkflowNodeType('end')).toBe(false);
+    expect(isExecutableWorkflowNodeType('webhook')).toBe(false);
+    expect(isExecutableWorkflowNodeType('schedule')).toBe(false);
+  });
+
+  it('returns true for executable node types', () => {
+    expect(isExecutableWorkflowNodeType('http')).toBe(true);
+    expect(isExecutableWorkflowNodeType('grpc')).toBe(true);
+  });
+
+  it('returns false for undefined or empty type', () => {
+    expect(isExecutableWorkflowNodeType(undefined)).toBe(false);
+    expect(isExecutableWorkflowNodeType('')).toBe(false);
+  });
+});
+
+describe('filterQuickTestVariableSnapshot null handling', () => {
+  it('returns null for null snapshot', () => {
+    expect(filterQuickTestVariableSnapshot(null, new Set(), {})).toBeNull();
   });
 });

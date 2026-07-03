@@ -14,20 +14,20 @@ import { migrateGrpcLessonProgress, isGrpcLessonProgressCompatible, assertGrpcLe
 import { GRPC_LESSON_SCHEMA_VERSION } from './types';
 
 describe('validateGrpcLessonRoster', () => {
-  it('validates all 15 canonical roster entries', () => {
+  it('validates all 17 canonical roster entries', () => {
     const result = validateGrpcLessonRoster();
     expect(result.ok, result.issues.map((i) => `${i.path}: ${i.message}`).join('\n')).toBe(true);
-    expect(GRPC_LESSON_ROSTER).toHaveLength(15);
+    expect(GRPC_LESSON_ROSTER).toHaveLength(17);
   });
 
-  it('has unique ids and sequential numbers 1–15', () => {
+  it('has unique ids and sequential numbers 1–17', () => {
     const ids = GRPC_LESSON_ROSTER.map((e) => e.id);
     const numbers = GRPC_LESSON_ROSTER.map((e) => e.number);
-    expect(new Set(ids).size).toBe(15);
-    expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
+    expect(new Set(ids).size).toBe(17);
+    expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17]);
   });
 
-  it('matches the published GRPC-1…15 lesson id roster from the plan', () => {
+  it('matches the published GRPC-1–17 lesson id roster from the plan', () => {
     expect(GRPC_LESSON_ROSTER.map((e) => e.id)).toEqual([
       'grpc-first-call',
       'grpc-server-reflection',
@@ -44,6 +44,8 @@ describe('validateGrpcLessonRoster', () => {
       'grpc-mock-server',
       'grpc-schema-diff',
       'grpc-spring-boot',
+      'grpc-schema-discovery',
+      'grpc-streaming',
     ]);
   });
 
@@ -64,6 +66,8 @@ describe('validateGrpcLessonRoster', () => {
       { title: 'Mocking gRPC APIs', phases: [11], keyConcept: 'Rule-based mock responses' },
       { title: 'Proto Schema Diff in CI', phases: [11], keyConcept: 'Breaking-change detection' },
       { title: 'Spring Boot 4.1 + Spring gRPC', phases: [1, 4, 10], keyConcept: 'Netty vs Servlet transport behavior' },
+      { title: 'Schema Discovery: Reflection & Proto Import', phases: [1, 3], keyConcept: 'Descriptor sources, Schema Browser' },
+      { title: 'Streaming RPCs: All Four Patterns', phases: [1, 2], keyConcept: 'Server, client, and bidi streaming' },
     ];
     expect(GRPC_LESSON_ROSTER.map((e) => e.title)).toEqual(planRows.map((r) => r.title));
     expect(GRPC_LESSON_ROSTER.map((e) => e.keyConcept)).toEqual(planRows.map((r) => r.keyConcept));

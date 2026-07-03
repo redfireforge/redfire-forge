@@ -2,7 +2,6 @@
  * @vitest-environment node
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import * as grpc from '@grpc/grpc-js';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIBE_REQUEST,
@@ -23,6 +22,29 @@ import { setDescriptorRootCache, clearDescriptorRootCache } from './descriptorRo
 import { descriptorLoader } from './descriptorLoader.js';
 import { GrpcOAuth2TokenService } from './grpcOAuth2TokenService.js';
 import { getGrpcCallEntry } from './callRegistry.js';
+
+class TestGrpcMetadata {
+  private values: Record<string, string> = {};
+
+  set(key: string, value: string): void {
+    this.values[key] = value;
+  }
+
+  getMap(): Record<string, string> {
+    return { ...this.values };
+  }
+}
+
+const grpc = {
+  Metadata: TestGrpcMetadata,
+  status: {
+    CANCELLED: 1,
+    PERMISSION_DENIED: 7,
+    DEADLINE_EXCEEDED: 4,
+    INTERNAL: 13,
+    UNAVAILABLE: 14,
+  },
+} as const;
 
 describe('GrpcService coverage gaps', () => {
   beforeEach(() => {
@@ -153,7 +175,7 @@ describe('exportProtoset happy path uses encodeRootAsProtosetBase64', () => {
     const service = new GrpcService(createMockGrpcClientPort(), loader as never);
     const envelope = await service.describe({
       source: 'proto_files',
-      protoFiles: [{ path: 'a.proto', content: 'syntax = "proto3";' }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'a.proto', content: 'syntax = "proto3";' }] }],
     });
     expect(envelope.ok).toBe(false);
     if (!envelope.ok) {
@@ -189,7 +211,11 @@ describe('exportProtoset happy path uses encodeRootAsProtosetBase64', () => {
     const service = new GrpcService(createMockGrpcClientPort(), loader as never);
     const describeEnvelope = await service.describe({
       source: 'proto_files',
-      protoFiles: [{ path: 'a.proto', content: 'syntax = "proto3"; message X { string id = 1; } service S { rpc F(X) returns (X); }' }],
+      protoRoots: [{
+        id: 'root-default',
+        mountPath: 'root',
+        files: [{ path: 'a.proto', content: 'syntax = "proto3"; message X { string id = 1; } service S { rpc F(X) returns (X); }' }],
+      }],
     });
     const reflectEnvelope = await service.reflect({
       target: { address: 'localhost:50051' },
@@ -351,7 +377,11 @@ describe('GrpcService call/cancel (picked test files only)', () => {
       });
       const describeEnvelope = await service.describe({
         source: 'proto_files',
-        protoFiles: [{ path: 'a.proto', content: 'syntax = "proto3"; message X { string id = 1; } service S { rpc F(X) returns (X); }' }],
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [{ path: 'a.proto', content: 'syntax = "proto3"; message X { string id = 1; } service S { rpc F(X) returns (X); }' }],
+        }],
       });
       expect(reflectEnvelope.ok).toBe(false);
       expect(describeEnvelope.ok).toBe(false);
@@ -459,7 +489,7 @@ describe('GrpcService status/reflect/describe/auth coverage gaps', () => {
     const describeEnvelope = await service.describe({
       requestId: 'req-describe-ok',
       source: 'proto_files',
-      protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";' }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: 'syntax = "proto3";' }] }],
     });
     expect(reflectEnvelope.ok).toBe(true);
     expect(describeEnvelope.ok).toBe(true);
@@ -564,7 +594,7 @@ describe('GrpcService status/reflect/describe/auth coverage gaps', () => {
     const describeEnvelope = await service.describe({
       requestId: 'req-invalid-target-describe',
       source: 'proto_files',
-      protoFiles: [{ path: 'a.proto', content: 'syntax = "proto3";' }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'a.proto', content: 'syntax = "proto3";' }] }],
     });
     expect(reflectEnvelope.ok).toBe(false);
     expect(describeEnvelope.ok).toBe(false);
@@ -680,7 +710,8 @@ describe('GrpcService status/reflect/describe/auth coverage gaps', () => {
 
     const describeEnvelope = await service.describe({
       requestId: 'req-describe-invalid',
-      protoFiles: [],
+      source: 'proto_files',
+      protoRoots: [],
     });
     expect(describeEnvelope.ok).toBe(false);
 

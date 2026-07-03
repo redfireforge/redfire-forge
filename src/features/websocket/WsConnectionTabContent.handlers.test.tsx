@@ -5,7 +5,7 @@
  * via the default Events pane (showAuxPanels=false).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { WsConnectionTabContent, type WsConnectionTabContentProps } from './WsConnectionTabContent';
 import * as hookModule from './useWebSocketStudio';
 import type { UseWebSocketStudioReturn } from './useWebSocketStudio';
@@ -84,15 +84,17 @@ afterEach(() => {
 });
 
 describe('WsConnectionTabContent — handler coverage', () => {
-  it('toggles load test and schema visibility via message log callbacks', () => {
+  it('toggles load test and schema visibility via message log callbacks', async () => {
     render(<WsConnectionTabContent {...makeProps()} />);
     fireEvent.click(screen.getByTestId('mock-toggle-load-test'));
     fireEvent.click(screen.getByTestId('mock-toggle-load-test'));
     fireEvent.click(screen.getByTestId('mock-toggle-schema'));
-    expect(screen.getByTestId('mock-message-log')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-message-log')).toBeTruthy();
+    });
   });
 
-  it('forwards mock port changes to onMockPortChange', () => {
+  it('forwards mock port changes to onMockPortChange', async () => {
     const onMockPortChange = vi.fn();
     render(
       <WsConnectionTabContent
@@ -102,10 +104,12 @@ describe('WsConnectionTabContent — handler coverage', () => {
     const input = screen.getByTestId('mock-port-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '9999' } });
     fireEvent.blur(input);
-    expect(onMockPortChange).toHaveBeenCalledWith('test-tab', 9999);
+    await waitFor(() => {
+      expect(onMockPortChange).toHaveBeenCalledWith('test-tab', 9999);
+    });
   });
 
-  it('loads profile draft without applying studio settings when profile is missing', () => {
+  it('loads profile draft without applying studio settings when profile is missing', async () => {
     const loadProfileAsDraft = vi.fn().mockReturnValue(createDefaultDraft());
     mockProfiles = makeProfilesReturn({
       profiles: [],
@@ -117,11 +121,13 @@ describe('WsConnectionTabContent — handler coverage', () => {
       />,
     );
     fireEvent.click(screen.getByTestId('ghost-load-btn'));
-    expect(loadProfileAsDraft).toHaveBeenCalledWith('ghost-id');
-    expect(mockStudio.setProtocolMode).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(loadProfileAsDraft).toHaveBeenCalledWith('ghost-id');
+      expect(mockStudio.setProtocolMode).not.toHaveBeenCalled();
+    });
   });
 
-  it('disables relocated headers editor while connection is closing', () => {
+  it('disables relocated headers editor while connection is closing', async () => {
     mockStudio = makeStudioReturn({
       connection: { state: 'closing', url: 'ws://x', error: null },
     });
@@ -132,10 +138,12 @@ describe('WsConnectionTabContent — handler coverage', () => {
       />,
     );
     const addBtn = screen.getByTestId('headers-add-btn') as HTMLButtonElement;
-    expect(addBtn.disabled).toBe(true);
+    await waitFor(() => {
+      expect(addBtn.disabled).toBe(true);
+    });
   });
 
-  it('disables relocated headers editor while reconnect is active', () => {
+  it('disables relocated headers editor while reconnect is active', async () => {
     mockStudio = makeStudioReturn({
       reconnectState: {
         active: true,
@@ -152,10 +160,12 @@ describe('WsConnectionTabContent — handler coverage', () => {
       />,
     );
     const addBtn = screen.getByTestId('headers-add-btn') as HTMLButtonElement;
-    expect(addBtn.disabled).toBe(true);
+    await waitFor(() => {
+      expect(addBtn.disabled).toBe(true);
+    });
   });
 
-  it('renders console panel for the console right tab', () => {
+  it('renders console panel for the console right tab', async () => {
     render(
       <WsConnectionTabContent
         {...makeProps({
@@ -165,7 +175,9 @@ describe('WsConnectionTabContent — handler coverage', () => {
         })}
       />,
     );
-    expect(screen.getByTestId('ws-studio-console-pane')).toBeTruthy();
-    expect(screen.getByTestId('ws-console')).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByTestId('ws-studio-console-pane')).toBeTruthy();
+      expect(screen.getByTestId('ws-console')).toBeTruthy();
+    });
   });
 });

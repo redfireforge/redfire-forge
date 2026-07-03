@@ -49,6 +49,12 @@ describe('grpcStudioTlsTabPatches coverage gaps', () => {
     expect(patch.maskedSecretFields).toBeUndefined();
   });
 
+  it('buildGrpcTlsModeTabPatch keeps tls config intact for non-disabled modes', () => {
+    const tab = createGrpcStudioTab({ tlsConfig: { serverCaPem: 'ca' } });
+    const patch = buildGrpcTlsModeTabPatch({ tab, activeConnection }, 'tls');
+    expect(patch.tlsConfig).toBeUndefined();
+  });
+
   it('buildGrpcTlsConfigTabPatch falls back to activeConnection tlsMode when tab mode is unset', () => {
     const tab = createGrpcStudioTab({ tlsMode: undefined, tlsConfig: { serverCaPem: 'ca' } });
     const patch = buildGrpcTlsConfigTabPatch(
@@ -82,5 +88,14 @@ describe('grpcStudioTlsTabPatches coverage gaps', () => {
     expect(patch.tlsMode).toBe('mtls');
     expect(patch.tlsConfig).toEqual({ serverName: 'secure.local' });
     expect(patch.maskedSecretFields).toBeUndefined();
+  });
+
+  it('buildGrpcTlsConfigTabPatch prefers explicit tab tls mode over active connection mode', () => {
+    const tab = createGrpcStudioTab({ tlsMode: 'disabled', tlsConfig: { serverCaPem: 'ca' } });
+    const patch = buildGrpcTlsConfigTabPatch(
+      { tab, activeConnection },
+      { serverNameOverride: 'grpc.local' },
+    );
+    expect(patch.tlsConfig?.serverCaPem).toBe('ca');
   });
 });

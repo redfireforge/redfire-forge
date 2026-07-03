@@ -89,6 +89,11 @@ describe('kafkaConnectionPresets', () => {
       const custom = getPresetsByCategory('custom');
       expect(custom).toEqual([]);
     });
+
+    it('returns plaintext and tls presets by category', () => {
+      expect(getPresetsByCategory('plaintext').every((p) => p.category === 'plaintext')).toBe(true);
+      expect(getPresetsByCategory('tls').every((p) => p.category === 'tls')).toBe(true);
+    });
   });
 
   describe('applyPreset', () => {
@@ -115,6 +120,14 @@ describe('kafkaConnectionPresets', () => {
 
       expect(config.createdAt).toBeGreaterThanOrEqual(before);
       expect(config.createdAt).toBeLessThanOrEqual(after);
+    });
+
+    it('clones brokers, auth, and tls objects rather than reusing references', () => {
+      const preset = getPresetById('local-plaintext')!;
+      const config = applyPreset(preset, 1);
+      expect(config.brokers).not.toBe(preset.config.brokers);
+      expect(config.auth).not.toBe(preset.config.auth);
+      expect(config.tls).not.toBe(preset.config.tls);
     });
   });
 
@@ -146,6 +159,10 @@ describe('kafkaConnectionPresets', () => {
 
     it('returns true for strict TLS', () => {
       expect(presetRequiresTlsCert(getPresetById('local-tls-strict')!)).toBe(true);
+    });
+
+    it('returns false when tls is disabled regardless of rejectUnauthorized default', () => {
+      expect(presetRequiresTlsCert(getPresetById('local-plaintext')!)).toBe(false);
     });
   });
 });

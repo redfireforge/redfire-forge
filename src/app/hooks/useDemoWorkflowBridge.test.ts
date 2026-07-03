@@ -104,6 +104,13 @@ describe('useDemoWorkflowBridge', () => {
     expect(fn('Missing')).toBe(false);
   });
 
+  it('__wfSelectByName returns false when select callback is not provided', () => {
+    const wf = { id: 'wf-1', name: 'Demo WF' } as import('../../features/workflow/types/workflow').Workflow;
+    renderHook(() => useDemoWorkflowBridge([wf], vi.fn()));
+    const fn = (window as unknown as Record<string, (name: string) => boolean>).__wfSelectByName;
+    expect(fn('Demo WF')).toBe(false);
+  });
+
   it('__wfRunnerSelectByName delegates to selectRunnerByName when provided', () => {
     const selectRunner = vi.fn((name: string) => name === 'GraphQL Latency Demo');
     renderHook(() => useDemoWorkflowBridge([], vi.fn(), undefined, undefined, false, undefined, selectRunner));
@@ -111,6 +118,12 @@ describe('useDemoWorkflowBridge', () => {
     expect(fn('GraphQL Latency Demo')).toBe(true);
     expect(selectRunner).toHaveBeenCalledWith('GraphQL Latency Demo');
     expect(fn('Missing')).toBe(false);
+  });
+
+  it('__wfRunnerSelectByName returns false when runner selector is not provided', () => {
+    renderHook(() => useDemoWorkflowBridge([], vi.fn()));
+    const fn = (window as unknown as Record<string, (name: string) => boolean>).__wfRunnerSelectByName;
+    expect(fn('Any')).toBe(false);
   });
 
   it('__wfGetWorkflowByName sees workflows updated on the same mount (ref, not stale closure)', () => {
@@ -159,6 +172,22 @@ describe('useDemoWorkflowBridge', () => {
     expect(update).toHaveBeenCalledWith('wf-1', { variables: { graphqlUrl: 'http://localhost:4010/graphql' } });
     expect(sync).toHaveBeenCalledWith('GraphQL Latency Demo', { variables: { graphqlUrl: 'http://localhost:4010/graphql' } });
     expect(patch('Missing', { variables: {} })).toBe(false);
+  });
+
+  it('__wfPatchWorkflowByName still succeeds when sync bridge is absent', () => {
+    const wf = {
+      id: 'wf-1',
+      name: 'GraphQL Latency Demo',
+      nodes: [],
+      edges: [],
+      variables: {},
+    } as import('../../features/workflow/types/workflow').Workflow;
+    const update = vi.fn();
+    delete (window as unknown as Record<string, unknown>).__wfSyncLiveWorkflowFromPatch;
+    renderHook(() => useDemoWorkflowBridge([wf], vi.fn(), undefined, undefined, true, update));
+    const patch = (window as unknown as Record<string, (name: string, p: object) => boolean>).__wfPatchWorkflowByName;
+    expect(patch('GraphQL Latency Demo', { variables: { graphqlUrl: 'http://localhost:4010/graphql' } })).toBe(true);
+    expect(update).toHaveBeenCalledWith('wf-1', { variables: { graphqlUrl: 'http://localhost:4010/graphql' } });
   });
 
   it('does not expose __wfPatchWorkflowByName when update is not provided', () => {

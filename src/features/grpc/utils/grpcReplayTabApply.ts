@@ -19,6 +19,9 @@ import { findGrpcMethod } from './grpcExplorerUtils';
 import type { GrpcGrpcurlDescriptorFlags, GrpcGrpcurlExportContext, GrpcGrpcurlImportSuccess } from './grpcGrpcurlTypes';
 import { grpcGrpcurlImportToTabPatch } from './grpcGrpcurlCore';
 
+const DEFAULT_REPLAY_PROTO_ROOT_ID = 'root-default';
+const DEFAULT_REPLAY_PROTO_ROOT_MOUNT = 'root';
+
 export function mergeGrpcurlDescriptorIntoProtoIngest(
   existing: GrpcTabProtoIngestState | undefined,
   flags: GrpcGrpcurlDescriptorFlags | undefined,
@@ -40,22 +43,39 @@ export function mergeGrpcurlDescriptorIntoProtoIngest(
       importPaths: hasImportPaths
         ? [...new Set([...base.importPaths, ...flags.importPaths!])]
         : base.importPaths,
-      protoFiles: [],
+      protoRoots: [],
     };
   }
 
+  const baseRoots = base.protoRoots.length > 0
+    ? base.protoRoots
+    : [{ id: DEFAULT_REPLAY_PROTO_ROOT_ID, mountPath: DEFAULT_REPLAY_PROTO_ROOT_MOUNT, files: [] }];
+  const primaryRoot = baseRoots[0]!;
+
   const mergedProtoPaths = [...new Set([
-    ...base.protoFiles.map((file) => file.path),
+    ...primaryRoot.files.map((file) => file.path),
     ...(flags.protoPaths ?? []),
   ])];
 
   return {
     source: 'proto_files',
     importPaths: [...new Set([...base.importPaths, ...(flags.importPaths ?? [])])],
-    protoFiles: mergedProtoPaths.map((path) => {
-      const existingFile = base.protoFiles.find((file) => file.path === path);
-      return existingFile ?? { path, content: '' };
-    }),
+    protoRoots: [
+      {
+        id: primaryRoot.id,
+        mountPath: primaryRoot.mountPath,
+        files: mergedProtoPaths.map((path) => {
+          const existingFile = primaryRoot.files.find((file) => file.path === path);
+          return existingFile
+            ? {
+              path: existingFile.path,
+              content: existingFile.content,
+              sizeBytes: existingFile.sizeBytes,
+            }
+            : { path, content: '' };
+        }),
+      },
+    ],
   };
 }
 

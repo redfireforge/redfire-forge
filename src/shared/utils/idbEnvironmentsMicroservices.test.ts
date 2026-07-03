@@ -49,4 +49,18 @@ describe('idbEnvironmentsMicroservices', () => {
     expect(await idbMigrateEnvironments('missing')).toBe(false);
     expect(await idbMigrateMicroservices('missing')).toBe(false);
   });
+
+  it('returns false when environment or microservice payload JSON is invalid', async () => {
+    localStorage.setItem('bad-envs', 'not-json');
+    localStorage.setItem('bad-svcs', 'not-json');
+    expect(await idbMigrateEnvironments('bad-envs')).toBe(false);
+    expect(await idbMigrateMicroservices('bad-svcs')).toBe(false);
+  });
+
+  it('returns false for empty arrays during migration', async () => {
+    localStorage.setItem('empty-envs', '[]');
+    localStorage.setItem('empty-svcs', '[]');
+    expect(await idbMigrateEnvironments('empty-envs')).toBe(false);
+    expect(await idbMigrateMicroservices('empty-svcs')).toBe(false);
+  });
 });

@@ -23,6 +23,11 @@ function makeCtx(overrides: Partial<GraphqlBatchResponseContext> = {}): GraphqlB
 }
 
 describe('batchResponseContextUtils', () => {
+  it('formats singular sequential fallback transport summary', () => {
+    const ctx = makeCtx({ batchUnsupported: true, upstreamRequestCount: 1 });
+    expect(batchTransportSummary(ctx)).toContain('1 upstream HTTP POST · sequential fallback');
+  });
+
   it('formats operation slot and pill labels', () => {
     const ctx = makeCtx({ batchIndex: 1 });
     expect(batchOperationSlotLabel(ctx)).toBe('Operation 2 of 2');
@@ -89,5 +94,24 @@ describe('batchResponseContextUtils', () => {
       }],
     };
     expect(batchResultTransportSummary(fallback)).toContain('2 upstream HTTP POSTs');
+  });
+
+  it('returns null modal transport summary for empty non-fallback results', () => {
+    const result: GraphqlBatchResult = {
+      batchUnsupported: false,
+      results: [],
+    };
+    expect(batchResultTransportSummary(result)).toBeNull();
+  });
+
+  it('derives singular fallback modal transport summary without batch context', () => {
+    const fallback: GraphqlBatchResult = {
+      batchUnsupported: true,
+      results: [{
+        index: 0,
+        response: { data: null, httpStatus: 200, httpHeaders: {}, latencyMs: 4, timestamp: 1 },
+      }],
+    };
+    expect(batchResultTransportSummary(fallback)).toContain('1 upstream HTTP POST · sequential fallback');
   });
 });

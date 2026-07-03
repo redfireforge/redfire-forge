@@ -65,7 +65,7 @@ describe('GrpcConnectionSettingsDrawer (Phase 4J-C/D)', () => {
       />,
     );
     expect(screen.getByTestId('grpc-settings-panel-auth')).toBeTruthy();
-    expect(screen.getByTestId('grpc-auth-type-pills')).toBeTruthy();
+    expect(screen.getByTestId('grpc-auth-type-select')).toBeTruthy();
   });
 
   it('shows call settings panel when activeNav is call', () => {

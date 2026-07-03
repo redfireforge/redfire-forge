@@ -31,7 +31,7 @@ describe('grpc lesson roster helpers', () => {
 
   it('assertRosterSchemaVersion passes for current roster', () => {
     expect(() => assertRosterSchemaVersion()).not.toThrow();
-    expect(GRPC_LESSON_ROSTER.length).toBe(15);
+    expect(GRPC_LESSON_ROSTER.length).toBe(17);
   });
 });
 

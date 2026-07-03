@@ -29,6 +29,16 @@ const saved: GrpcSavedRequest = {
 };
 
 describe('grpcCollectionSchemaDiffActions', () => {
+  it('builds compare intent when both descriptor keys are blank after trim', () => {
+    const intent = buildGrpcSavedRequestSchemaCompareIntent(
+      { ...saved, descriptorKey: '   ' },
+      '   ',
+    );
+    expect(intent.baselineDescriptorKey).toBe('');
+    expect(intent.currentDescriptorKey).toBe('');
+    expect(intent.keysDiffer).toBe(false);
+  });
+
   it('builds compare intent when descriptor keys differ', () => {
     const intent = buildGrpcSavedRequestSchemaCompareIntent(saved, FIXTURE_MULTI_SERVICE_DESCRIPTOR_KEY);
     expect(intent.keysDiffer).toBe(true);
@@ -88,5 +98,21 @@ describe('grpcCollectionSchemaDiffActions', () => {
       resolveDescriptor: async () => FIXTURE_DESCRIPTOR,
     });
     expect(noReport).toBeUndefined();
+  });
+
+  it('returns undefined only when baseline history descriptor key is blank', () => {
+    const entry = {
+      id: 'hist-2',
+      callType: 'unary' as const,
+      target: 'localhost:50051',
+      service: 'echo.EchoService',
+      method: 'Echo',
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      capturedAt: '2026-07-01T00:00:00.000Z',
+      bodyTruncated: false,
+      record: { body: {}, metadata: {} },
+    };
+    expect(detectGrpcHistoryDescriptorDrift(entry, '   ')).toBeDefined();
+    expect(detectGrpcHistoryDescriptorDrift({ ...entry, descriptorKey: '   ' }, '   ')).toBeUndefined();
   });
 });

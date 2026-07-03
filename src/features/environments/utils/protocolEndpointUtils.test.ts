@@ -427,5 +427,87 @@ describe('protocolEndpointUtils', () => {
   it('getResolvedDisplayValue default protocol returns empty string', () => {
     expect(getResolvedDisplayValue(makeSvc(), 'unknown' as never, 'e1', 'local')).toBe('');
   });
+
+  it('listDeployedEnvRows includes customEnvs that are in baseUrls as isAdditional', () => {
+    const svc = makeSvc({
+      baseUrls: { e1: 'https://api.example.com', c1: 'https://custom.example.com' },
+      customEnvs: [{ id: 'c1', name: 'custom-env' }],
+    });
+    const rows = listDeployedEnvRows(svc, [{ id: 'e1', name: 'prod' }]);
+    expect(rows).toHaveLength(2);
+    const custom = rows.find((r) => r.envId === 'c1');
+    expect(custom?.isAdditional).toBe(true);
+    expect(custom?.name).toBe('custom-env');
+  });
+
+  it('getExplicitBaseUrl returns empty string when envId not in baseUrls for http', () => {
+    const svc = makeSvc({ baseUrls: {} });
+    expect(getExplicitBaseUrl(svc, 'http', 'missing')).toBe('');
+  });
+
+  it('getRowStatus returns empty for http when envId has no baseUrl', () => {
+    const svc = makeSvc({ baseUrls: {} });
+    expect(getRowStatus(svc, 'http', 'missing')).toBe('empty');
+  });
+
+  it('getRowStatus returns empty for sse/graphql when no explicit endpoint and no HTTP fallback', () => {
+    const svc = makeSvc({ baseUrls: {} });
+    expect(getRowStatus(svc, 'sse', 'e1')).toBe('empty');
+    expect(getRowStatus(svc, 'graphql', 'e1')).toBe('empty');
+  });
+
+  it('getResolvedDisplayValue covers sse and graphql branches', () => {
+    const svc = makeSvc({
+      baseUrls: { e1: 'https://api.example.com' },
+      protocolEndpoints: {
+        sse: { e1: { baseUrl: 'https://events.example.com' } },
+        graphql: { e1: { baseUrl: 'https://gql.example.com', path: '/graphql' } },
+        grpc: { e1: { baseUrl: 'grpc.example.com:50051' } },
+      },
+    });
+    expect(getResolvedDisplayValue(svc, 'sse', 'e1', 'prod')).toBe('https://events.example.com');
+    expect(getResolvedDisplayValue(svc, 'graphql', 'e1', 'prod')).toBe('https://gql.example.com/graphql');
+    expect(getResolvedDisplayValue(svc, 'grpc', 'e1', 'prod')).toBe('grpc.example.com:50051');
+  });
+
+  it('validateProtocolValue returns null for empty string across protocols', () => {
+    for (const protocol of ['http', 'websocket', 'sse', 'graphql', 'grpc'] as const) {
+      expect(validateProtocolValue(protocol, '   ')).toBeNull();
+    }
+  });
+
+  it('validateProtocolValue returns null for valid http URL', () => {
+    expect(validateProtocolValue('http', 'http://api.example.com')).toBeNull();
+  });
+
+  it('validateProtocolValue rejects sse and graphql without https scheme', () => {
+    expect(validateProtocolValue('sse', 'ftp://bad')).toContain('https');
+    expect(validateProtocolValue('graphql', 'ftp://bad')).toContain('https');
+  });
+
+  it('validateProtocolValue rejects grpc with empty host before colon', () => {
+    expect(validateProtocolValue('grpc', ':50051')).toContain('host:port');
+  });
+
+  it('patchProtocolEndpoints preserves existing path and tls from current entry when not in patch', () => {
+    const svc = makeSvc({
+      protocolEndpoints: {
+        grpc: { e1: { baseUrl: 'grpc.example.com:50051', tls: true } },
+        graphql: { e1: { baseUrl: 'https://gql', path: '/v1' } },
+      },
+    });
+    // Patch only baseUrl — tls should be preserved
+    const grpcPatched = patchProtocolEndpoints(svc, 'grpc', 'e1', { baseUrl: 'grpc.new.com:50051' });
+    expect(grpcPatched?.grpc?.e1?.tls).toBe(true);
+
+    // Patch only baseUrl — path should be preserved
+    const gqlPatched = patchProtocolEndpoints(svc, 'graphql', 'e1', { baseUrl: 'https://gql2' });
+    expect(gqlPatched?.graphql?.e1?.path).toBe('/v1');
+  });
+
+  it('stripEnvFromProtocolEndpoints returns undefined when svc has no protocolEndpoints', () => {
+    const svc = makeSvc({ protocolEndpoints: undefined });
+    expect(stripEnvFromProtocolEndpoints(svc, 'e1')).toBeUndefined();
+  });
 });
 

@@ -36,4 +36,21 @@ describe('useDemoGqlBatchDetectionBridge', () => {
     expect(resetGqlDemoBatchDetectionLive()).toBe(true);
     expect(spy).toHaveBeenCalled();
   });
+
+  it('resetGqlDemoBatchDetectionLive returns false when bridge is absent', () => {
+    delete (window as unknown as Record<string, unknown>).__demoResetGqlBatchDetection;
+    expect(resetGqlDemoBatchDetectionLive()).toBe(false);
+  });
+
+  it('cleans up reset bridge on unmount', () => {
+    const { unmount } = renderHook(() =>
+      useDemoGqlBatchDetectionBridge({
+        handleAdvSettingsChange: vi.fn(),
+        setBatchUnsupportedToast: vi.fn(),
+      }),
+    );
+    expect((window as unknown as Record<string, unknown>).__demoResetGqlBatchDetection).toBeTypeOf('function');
+    unmount();
+    expect((window as unknown as Record<string, unknown>).__demoResetGqlBatchDetection).toBeUndefined();
+  });
 });

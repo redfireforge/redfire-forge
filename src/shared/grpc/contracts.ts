@@ -98,6 +98,9 @@ export type GrpcDescriptorSelectionMode = 'auto' | 'manual';
 /** Default unary call timeout (ms). */
 export const GRPC_DEFAULT_CALL_TIMEOUT_MS = 30_000;
 
+/** Default streaming call timeout (ms). */
+export const GRPC_DEFAULT_STREAM_CALL_TIMEOUT_MS = 120_000;
+
 /** Default reachability / reflection probe timeout (ms). */
 export const GRPC_DEFAULT_PROBE_TIMEOUT_MS = 5_000;
 
@@ -404,7 +407,8 @@ export type GrpcDescriptorLookupResult = GrpcDescriptor;
 export interface GrpcDescribeRequest {
   requestId?: string;
   source: 'proto_files' | 'protoset' | 'bsr' | 'url_proto';
-  protoFiles?: Array<{ path: string; content: string }>;
+  /** Proto ingest payload grouped by virtual root. */
+  protoRoots?: GrpcProtoRootInput[];
   protosetBase64?: string;
   importPaths?: string[];
   /** BSR module reference (Phase 3E fetch — contract frozen in 3A). */
@@ -415,6 +419,18 @@ export interface GrpcDescribeRequest {
   bsrToken?: string;
   /** HTTPS URL to a `.proto` file (Phase 3E fetch — contract frozen in 3A). */
   url?: string;
+}
+
+export interface GrpcProtoFileInput {
+  path: string;
+  content: string;
+  sizeBytes?: number;
+}
+
+export interface GrpcProtoRootInput {
+  id: string;
+  mountPath: string;
+  files: GrpcProtoFileInput[];
 }
 
 export interface GrpcCancelCallResult {

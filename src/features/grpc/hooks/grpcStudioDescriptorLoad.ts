@@ -3,6 +3,7 @@ import {
   GRPC_ERROR_CODES,
   type GrpcDescriptor,
   type GrpcDescriptorSource,
+  type GrpcDescriptorSourceSelection,
 } from '../../../shared/grpc/contracts';
 import { createDefaultDescriptorSourceSelection } from '../../../shared/grpc/descriptorSourcePolicy';
 import {
@@ -40,6 +41,9 @@ import {
   abortTabActiveStream,
   tabHasActiveStream,
 } from './grpcStreamSessionHelpers';
+import {
+  ensureProtoRootsDraft,
+} from '../utils/grpcProtoIngestUtils';
 
 function formatDescriptorLoadErrorMessage(error: unknown, fallback: string): string {
   const message = error instanceof GrpcApiClientError
@@ -128,6 +132,7 @@ async function loadDescriptorWithNetwork(
   tabId: string,
   ingest: GrpcTabProtoIngestState,
   initialSource: GrpcDescriptorSource,
+  selectionOverride?: GrpcDescriptorSourceSelection,
 ): Promise<{ descriptor: GrpcDescriptor; source: GrpcDescriptorSource }> {
   const tab = ctx.sessionRef.current.tabs.find((entry) => entry.id === tabId);
   if (!tab) {
@@ -142,7 +147,9 @@ async function loadDescriptorWithNetwork(
     ctx.workspaceDefaults,
   );
   const descriptorState = ctx.sessionRef.current.tabDescriptors[tabId] ?? createEmptyTabDescriptorState();
-  const selection = descriptorState.sourceSelection ?? createDefaultDescriptorSourceSelection();
+  const selection = selectionOverride
+    ?? descriptorState.sourceSelection
+    ?? createDefaultDescriptorSourceSelection();
   const availability = buildDescriptorSourceAvailability(resolution, ingest);
   if (resolution.targetValidation.valid) {
     assertTabTlsConfigValid(resolution, tab.tlsConfig);
@@ -183,10 +190,12 @@ async function loadDescriptorWithNetwork(
 
 function validateProtoIngestBeforeLoad(ingest: GrpcTabProtoIngestState): string | null {
   if (ingest.source === 'proto_files') {
-    if (ingest.protoFiles.length === 0) {
+    const protoFiles = ensureProtoRootsDraft(ingest.protoRoots)
+      .flatMap((root) => root.files);
+    if (protoFiles.length === 0) {
       return 'Add at least one .proto file before loading';
     }
-    const invalidProtoFile = ingest.protoFiles.find(
+    const invalidProtoFile = protoFiles.find(
       (file) => !file.path?.trim() || !file.content?.trim(),
     );
     if (invalidProtoFile) {
@@ -295,7 +304,16 @@ export function createDescribeFromIngestHandler(
     });
 
     try {
-      const { descriptor, source } = await loadDescriptorWithNetwork(ctx, tabId, ingest, ingest.source);
+      const { descriptor, source } = await loadDescriptorWithNetwork(
+        ctx,
+        tabId,
+        ingest,
+        ingest.source,
+        {
+          mode: 'manual',
+          activeSource: ingest.source,
+        },
+      );
       if (isStale()) return false;
 
       applyDescriptorLoadSuccess(ctx, tabId, descriptor, source);
@@ -337,6 +355,20 @@ export function createPatchTabProtoIngestHandler(
     const current = ctx.sessionRef.current.tabDescriptors[tabId] ?? createEmptyTabDescriptorState();
     const base = current.protoIngest ?? createDefaultProtoIngestState();
     const merged = { ...base, ...patch };
+    const shouldNormalizeProtoDraft = merged.source === 'proto_files'
+      || merged.protoRoots.length > 0;
+    if (shouldNormalizeProtoDraft) {
+      const normalizedRoots = ensureProtoRootsDraft(merged.protoRoots)
+        .map((root) => ({
+          ...root,
+          files: root.files.map((file) => ({
+            path: file.path,
+            content: file.content,
+            sizeBytes: file.sizeBytes,
+          })),
+        }));
+      merged.protoRoots = normalizedRoots;
+    }
     const invalidatesInFlightLoad = current.loadState === 'loading';
     if (invalidatesInFlightLoad) {
       ctx.descriptorLoadGenerationRef.current[tabId] = (ctx.descriptorLoadGenerationRef.current[tabId] ?? 0) + 1;

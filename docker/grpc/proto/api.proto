@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package api;
+
+option go_package = "grpc-test-server/api";
+
+message SharedRef {
+  string id = 1;
+  string source = 2;
+}
+
+message LookupRequest {
+  SharedRef ref = 1;
+}
+
+message LookupResponse {
+  string status = 1;
+  string resolved_id = 2;
+}
+
+service ApiService {
+  rpc Lookup (LookupRequest) returns (LookupResponse);
+}

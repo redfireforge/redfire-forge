@@ -214,7 +214,13 @@ describe('grpcReplayTabApply (Phase 5H)', () => {
     });
     expect(merged?.source).toBe('proto_files');
     expect(merged?.importPaths).toEqual(['./proto']);
-    expect(merged?.protoFiles).toEqual([{ path: 'echo/echo.proto', content: '' }]);
+    expect(merged?.protoRoots).toEqual([
+      {
+        id: 'root-default',
+        mountPath: 'root',
+        files: [{ path: 'echo/echo.proto', content: '' }],
+      },
+    ]);
   });
 
   it('grpcurlImportDescriptorStatePatch updates proto ingest from import flags', () => {

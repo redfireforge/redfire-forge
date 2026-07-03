@@ -37,7 +37,7 @@ export function GrpcStreamComposePanel({
     <div className="grpc-stream-compose" data-testid="grpc-stream-compose-panel">
       <div className="grpc-stream-compose-hint">
         {callType === 'client_streaming'
-          ? 'Compose a request body, add to the queue, send now when the stream is open, or Send all from the pending panel.'
+          ? 'Compose a request body, add to the queue, send a message when the stream is open, or Send all from the pending panel.'
           : 'Send outbound messages; inbound echoes appear in the log. End stream when done.'}
       </div>
       {callType === 'client_streaming' && pendingCount > 0 && (
@@ -67,7 +67,7 @@ export function GrpcStreamComposePanel({
             onClick={onSendMessage}
             aria-label="Send message now"
           >
-            Send now
+            Send message
           </button>
         )}
         {callType !== 'client_streaming' && (

@@ -329,6 +329,13 @@ describe('useGrpcStudio coverage gaps', () => {
           'persisted-tab-1': {
             sourceSelection: { kind: 'reflection', address: 'localhost:50051', tlsMode: 'disabled' },
             expandedServiceIds: ['echo.EchoService'],
+            protoIngest: {
+              source: 'bsr',
+              protoRoots: [],
+              importPaths: [],
+              bsrModule: 'buf.build/connectrpc/eliza',
+              bsrVersion: 'main',
+            },
           },
         },
         timestamp: Date.now(),
@@ -341,6 +348,8 @@ describe('useGrpcStudio coverage gaps', () => {
     expect(result.current.activeTab.target).toBe('localhost:50052');
     expect(result.current.tabs[0]?.servicesCollapsed).toBe(false);
     expect(result.current.tabs[1]?.servicesCollapsed).toBe(true);
+    expect(result.current.getTabDescriptor('persisted-tab-1').protoIngest?.source).toBe('bsr');
+    expect(result.current.getTabDescriptor('persisted-tab-1').protoIngest?.bsrModule).toBe('buf.build/connectrpc/eliza');
   });
 
   it('restorePersistedSession ignores empty persisted tab lists', () => {

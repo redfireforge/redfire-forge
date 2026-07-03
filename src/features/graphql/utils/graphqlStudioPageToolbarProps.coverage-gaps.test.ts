@@ -181,4 +181,44 @@ describe('buildGraphqlStudioPageToolbarProps — coverage gaps', () => {
     expect(baseInput.modals.deleteProfile).toHaveBeenCalledWith('p1');
     expect(baseInput.modals.clearConnectionIdsForProfile).toHaveBeenCalledWith('p1');
   });
+
+  it('inline callbacks invoke modal and batch setters correctly', () => {
+    const setEnvModalOpen = vi.fn();
+    const setProfileModalOpen = vi.fn();
+    const setAdvSettingsOpen = vi.fn();
+    const saveProfile = vi.fn();
+
+    const input = {
+      ...baseInput,
+      modals: {
+        ...baseInput.modals,
+        setEnvModalOpen,
+        setProfileModalOpen,
+        saveProfile,
+      },
+      batch: {
+        ...baseInput.batch,
+        setAdvSettingsOpen,
+      },
+    };
+    const sections = buildGraphqlStudioPageToolbarProps(input);
+
+    sections.connectionBar.onEnvBadgeClick?.();
+    expect(setEnvModalOpen).toHaveBeenCalledWith(true);
+
+    sections.connectionBar.onProfileBadgeClick?.();
+    expect(setProfileModalOpen).toHaveBeenCalledWith(true);
+
+    sections.connectionBar.onAdvancedSettingsClick?.();
+    expect(setAdvSettingsOpen).toHaveBeenCalledWith(expect.any(Function));
+
+    sections.dialogs.connectionModals.onProfileModalClose?.();
+    expect(setProfileModalOpen).toHaveBeenCalledWith(false);
+
+    sections.dialogs.connectionModals.onEnvModalClose?.();
+    expect(setEnvModalOpen).toHaveBeenCalledWith(false);
+
+    sections.dialogs.connectionModals.onSaveProfile?.('My Profile');
+    expect(saveProfile).toHaveBeenCalledWith('My Profile', 'http://localhost/graphql', null);
+  });
 });

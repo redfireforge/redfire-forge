@@ -128,6 +128,8 @@ describe('GrpcCallPanel auth/TLS/hints (Phase 4)', () => {
   });
 
   it('keeps send enabled when oauth2 config is incomplete and falls back to no auth', () => {
+    // tokenUrl is set but clientId/clientSecret are missing — hasTypedOAuth2Input = true so
+    // the panel shows the "without OAuth2" fallback hint instead of blocking send.
     const tab = createGrpcStudioTab({
       service: 'echo.EchoService',
       method: 'Echo',
@@ -137,7 +139,7 @@ describe('GrpcCallPanel auth/TLS/hints (Phase 4)', () => {
       auth: {
         type: 'oauth2',
         oauth2: {
-          tokenUrl: '',
+          tokenUrl: 'https://auth.example.com/token',
           clientId: '',
           clientSecret: '',
           scope: '',

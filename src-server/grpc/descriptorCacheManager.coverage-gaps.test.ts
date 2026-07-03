@@ -6,6 +6,7 @@ import { FIXTURE_DESCRIPTOR } from '../../src/shared/grpc/contractFixtures.js';
 import {
   buildDescribeCacheLookup,
   buildProtoFilesSourceRef,
+  buildProtoFilesSourceRefFromDescribeRequest,
   clearDescriptorCacheManager,
   findDescriptorCacheEntry,
   getDescriptorCacheEntry,
@@ -183,5 +184,52 @@ describe('descriptorCacheManager coverage gaps', () => {
       { path: 'a.proto', content: 'syntax = "proto3";' },
       { path: 'b.proto', content: 'syntax = "proto3";' },
     ], ['shared', 'vendor']));
+  });
+
+  it('buildProtoFilesSourceRefFromDescribeRequest canonicalizes protoRoots payloads', () => {
+    const fromRootsA = buildProtoFilesSourceRefFromDescribeRequest({
+      protoRoots: [
+        {
+          id: 'r2',
+          mountPath: 'api',
+          files: [{ path: 'service.proto', content: 'syntax = "proto3";' }],
+        },
+        {
+          id: 'r1',
+          mountPath: 'shared',
+          files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+        },
+      ],
+    });
+    const fromRootsB = buildProtoFilesSourceRefFromDescribeRequest({
+      protoRoots: [
+        {
+          id: 'r1',
+          mountPath: 'shared',
+          files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+        },
+        {
+          id: 'r2',
+          mountPath: 'api',
+          files: [{ path: 'service.proto', content: 'syntax = "proto3";' }],
+        },
+      ],
+    });
+    expect(fromRootsA).toBe(fromRootsB);
+  });
+
+  it('buildDescribeCacheLookup hashes protoRoots payload for proto_files source', () => {
+    const lookup = buildDescribeCacheLookup({
+      source: 'proto_files',
+      protoRoots: [
+        {
+          id: 'root-shared',
+          mountPath: 'shared',
+          files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+        },
+      ],
+    });
+    expect(lookup).toEqual({ source: 'proto_files', sourceRef: expect.any(String) });
+    expect(lookup?.sourceRef).toHaveLength(16);
   });
 });

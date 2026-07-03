@@ -200,6 +200,12 @@ describe('storageCatalog — browser (IDB primary)', () => {
       expect(await loadCatalogEntries()).toEqual([]);
     });
 
+    it('returns empty array when localStorage catalog JSON is invalid during migration fallback', async () => {
+      catalogStore.throwOnLoadEntries = true;
+      localStorage.setItem(CATALOG_KEY, '{bad-json');
+      expect(await loadCatalogEntries()).toEqual([]);
+    });
+
     it('prefers IDB over localStorage', async () => {
       catalogStore.entries = [makeEntry('idb', 'From IDB')];
       localStorage.setItem(CATALOG_KEY, JSON.stringify([makeEntry('ls', 'From LS')]));
@@ -243,6 +249,11 @@ describe('storageCatalog — browser (IDB primary)', () => {
 
     it('returns null when IDB load throws', async () => {
       catalogStore.throwOnLoadRawSpec = true;
+      expect(await loadCatalogRawSpec('c1', 'v1')).toBeNull();
+    });
+
+    it('returns null when localStorage raw spec key exists but is empty string', async () => {
+      localStorage.setItem(`${CATALOG_SPEC_PREFIX}c1-v1`, '');
       expect(await loadCatalogRawSpec('c1', 'v1')).toBeNull();
     });
   });
@@ -307,6 +318,12 @@ describe('storageCatalog — browser (IDB primary)', () => {
       catalogStore.throwOnLoadEndpointValues = true;
       expect(await loadCatalogEndpointValues('c1')).toEqual({});
     });
+
+    it('returns empty object when legacy endpoint values JSON is invalid', async () => {
+      catalogStore.throwOnLoadEndpointValues = true;
+      localStorage.setItem(`${CATALOG_EP_VALUES_PREFIX}c1`, '{bad-json');
+      expect(await loadCatalogEndpointValues('c1')).toEqual({});
+    });
   });
 
   describe('removeCatalogEndpointValues', () => {
@@ -317,6 +334,15 @@ describe('storageCatalog — browser (IDB primary)', () => {
       expect(await loadCatalogEndpointValues('c1')).toEqual({});
       expect(localStorage.getItem(`${CATALOG_EP_VALUES_PREFIX}c1`)).toBeNull();
       expect(idbRemoveCatalogEndpointValues).toHaveBeenCalledWith('c1');
+    });
+  });
+
+  describe('migrateCatalogKeysToIdb', () => {
+    it('skips entry migration when localStorage catalog key is absent', async () => {
+      await migrateCatalogKeysToIdb();
+      expect(idbMigrateCatalogEntries).not.toHaveBeenCalled();
+      expect(idbMigrateCatalogRawSpecs).toHaveBeenCalled();
+      expect(idbMigrateCatalogEndpointValues).toHaveBeenCalled();
     });
   });
 

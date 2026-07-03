@@ -183,6 +183,38 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     expect(screen.queryByTestId('grpc-proto-form')).toBeNull();
   });
 
+  it('restores Auth composer tab on remount for the same tab id', () => {
+    sessionStorage.clear();
+    const onPatch = vi.fn();
+    const tab = createGrpcStudioTab({
+      service: undefined,
+      method: undefined,
+      metadata: {},
+      requestMode: 'form',
+    });
+
+    const { unmount } = render(
+      <GrpcCallPanel
+        tab={tab}
+        onPatch={onPatch}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-request-tab-auth'));
+    expect(screen.getByTestId('grpc-auth-panel')).toBeTruthy();
+
+    unmount();
+
+    render(
+      <GrpcCallPanel
+        tab={tab}
+        onPatch={onPatch}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-auth-panel')).toBeTruthy();
+  });
+
   it('round-trips JSON edits into form fields', () => {
     const tab = createGrpcStudioTab({
       service: 'echo.EchoService',

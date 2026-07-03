@@ -55,7 +55,7 @@ describe('useGrpcStudio reflect/describe (Phase 1D/3)', () => {
       result.current.updateTab(tabId, { target: 'not-a-target' });
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -531,7 +531,7 @@ describe('useGrpcStudio reflect/describe (Phase 1D/3)', () => {
       result.current.updateTab(tabId, { target: 'localhost:50051' });
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -544,7 +544,7 @@ describe('useGrpcStudio reflect/describe (Phase 1D/3)', () => {
     expect(descriptorState.sourceSelection.activeSource).toBe('proto_files');
   });
 
-  it('describeFromIngest falls back to reflection in auto mode when protoset describe fails', async () => {
+  it('describeFromIngest does not fall back to reflection when protoset describe fails', async () => {
     setGrpcClientTransport(async (op) => {
       if (op === 'describe') {
         return {
@@ -578,12 +578,12 @@ describe('useGrpcStudio reflect/describe (Phase 1D/3)', () => {
 
     await act(async () => {
       const loaded = await result.current.describeFromIngest(tabId);
-      expect(loaded).toBe(true);
+      expect(loaded).toBe(false);
     });
 
     const descriptorState = result.current.getTabDescriptor(tabId);
-    expect(descriptorState.loadState).toBe('loaded');
-    expect(descriptorState.sourceSelection.activeSource).toBe('reflection');
+    expect(descriptorState.loadState).toBe('error');
+    expect(descriptorState.sourceSelection.activeSource).not.toBe('reflection');
   });
 
 });
