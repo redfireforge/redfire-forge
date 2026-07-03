@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
 import { GrpcSchemaBrowser } from './GrpcSchemaBrowser';
@@ -36,7 +36,11 @@ describe('GrpcSchemaBrowser', () => {
     );
 
     fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
-    expect(writeText).toHaveBeenCalledWith('grpcurl -plaintext localhost:50051 echo.EchoService/Echo');
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith(
+        'grpcurl -plaintext -d \'{"message":"hello"}\' localhost:50051 echo.EchoService/Echo',
+      );
+    });
   });
 
   it('calls onOpenInTab when open in tab is clicked', () => {
@@ -52,7 +56,7 @@ describe('GrpcSchemaBrowser', () => {
     );
 
     fireEvent.click(screen.getByTestId('grpc-schema-open-tab-btn'));
-    expect(onOpenInTab).toHaveBeenCalledWith('echo.EchoService', 'Echo');
+    expect(onOpenInTab).toHaveBeenCalledWith('echo.EchoService', 'Echo', { message: 'hello' }, 'minimal');
   });
 
   it('filters nodes via search input', () => {

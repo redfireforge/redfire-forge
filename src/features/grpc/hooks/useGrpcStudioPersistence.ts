@@ -39,6 +39,7 @@ type PersistableDescriptorState = Pick<
   GrpcTabDescriptorState,
   | 'sourceSelection'
   | 'expandedServiceIds'
+  | 'protoIngest'
 >;
 
 interface GrpcStudioPersistedSession {
@@ -81,6 +82,7 @@ function extractPersistableSession(session: GrpcStudioSessionState): GrpcStudioP
         {
           sourceSelection: desc.sourceSelection,
           expandedServiceIds: desc.expandedServiceIds,
+          protoIngest: desc.protoIngest,
         },
       ]),
     ),
@@ -165,6 +167,19 @@ export function useGrpcStudioPersistence(
     const timer = setTimeout(saveSession, 500); // Save 500ms after last change
     return () => clearTimeout(timer);
   }, [session, saveSession]);
+
+  // Hard refresh can occur before the debounce timer fires. Flush immediately on unload.
+  useEffect(() => {
+    const flush = () => {
+      saveSession();
+    };
+    window.addEventListener('beforeunload', flush);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      window.removeEventListener('beforeunload', flush);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [saveSession]);
 }
 
 export type { GrpcStudioPersistedSession };

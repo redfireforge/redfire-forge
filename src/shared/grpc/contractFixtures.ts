@@ -293,10 +293,16 @@ export const FIXTURE_REFLECT_REQUEST: GrpcReflectRequest = {
 export const FIXTURE_DESCRIBE_REQUEST: GrpcDescribeRequest = {
   requestId: 'req-describe-001',
   source: 'proto_files',
-  protoFiles: [
+  protoRoots: [
     {
-      path: 'echo.proto',
-      content: FIXTURE_ECHO_PROTO,
+      id: 'root-default',
+      mountPath: 'root',
+      files: [
+        {
+          path: 'echo.proto',
+          content: FIXTURE_ECHO_PROTO,
+        },
+      ],
     },
   ],
 };

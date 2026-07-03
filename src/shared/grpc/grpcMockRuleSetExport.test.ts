@@ -34,9 +34,22 @@ describe('grpcMockRuleSetExport (Phase 11J)', () => {
     expect(leaks).toHaveLength(0);
   });
 
+  it('includes stable export metadata fields', () => {
+    const safe = prepareGrpcMockRuleSetExportSafe({ rules: [] });
+    expect(safe.schemaVersion).toBe(1);
+    expect(safe.exportedFrom).toBe('grpc_studio_advanced');
+    expect(typeof safe.exportedAt).toBe('string');
+  });
+
   it('serializes pretty JSON for clipboard export', () => {
     const json = serializeGrpcMockRuleSetExportSafeJson({ rules: [] });
     expect(json).toContain('"schemaVersion": 1');
     expect(json).toContain('"rules": []');
+  });
+
+  it('returns a cloned rule set rather than the original object reference', () => {
+    const ruleSet = makeRuleSetWithSecret();
+    const safe = prepareGrpcMockRuleSetExportSafe(ruleSet);
+    expect(safe.ruleSet).not.toBe(ruleSet);
   });
 });

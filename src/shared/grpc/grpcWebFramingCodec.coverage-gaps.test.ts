@@ -3,9 +3,12 @@
  */
 import { describe, expect, it } from 'vitest';
 import {
+  concatGrpcWebFrames,
   decodeGrpcWebFrames,
   decodeGrpcWebResponseBody,
   decodeGrpcWebTextBody,
+  encodeGrpcWebFrame,
+  encodeGrpcWebRequestBody,
   encodeGrpcWebDataFrame,
   encodeGrpcWebTextBody,
   encodeGrpcWebTrailerFrame,
@@ -33,6 +36,11 @@ describe('grpcWebFramingCodec coverage gaps', () => {
     expect(() => decodeGrpcWebFrames(new Uint8Array([0, 0, 0]))).toThrow(/Incomplete gRPC-Web frame header/);
   });
 
+  it('decodeGrpcWebFrames rejects incomplete frame payload', () => {
+    const broken = encodeGrpcWebFrame(0, new Uint8Array([1, 2, 3])).slice(0, 6);
+    expect(() => decodeGrpcWebFrames(broken)).toThrow(/Incomplete gRPC-Web frame payload/);
+  });
+
   it('decodeGrpcWebTextBody returns empty buffer for blank text', () => {
     expect(decodeGrpcWebTextBody('')).toEqual(new Uint8Array(0));
     expect(decodeGrpcWebTextBody('  \n  ')).toEqual(new Uint8Array(0));
@@ -51,10 +59,33 @@ describe('grpcWebFramingCodec coverage gaps', () => {
     expect(Array.from(frames[0]!.payload)).toEqual(Array.from(payload));
   });
 
+  it('concatGrpcWebFrames merges multiple frames in order', () => {
+    const a = encodeGrpcWebDataFrame(new Uint8Array([1]));
+    const b = encodeGrpcWebDataFrame(new Uint8Array([2, 3]));
+    const merged = concatGrpcWebFrames([a, b]);
+    const frames = decodeGrpcWebFrames(merged);
+    expect(frames).toHaveLength(2);
+    expect(Array.from(frames[0]!.payload)).toEqual([1]);
+    expect(Array.from(frames[1]!.payload)).toEqual([2, 3]);
+  });
+
+  it('encodeGrpcWebRequestBody returns text body for grpc-web-text content type', () => {
+    const encoded = encodeGrpcWebRequestBody(new Uint8Array([0x01, 0x02]), GRPC_WEB_CONTENT_TYPES.TEXT);
+    expect(typeof encoded.body).toBe('string');
+    expect(encoded.contentType).toBe(GRPC_WEB_CONTENT_TYPES.TEXT);
+  });
+
+  it('encodeGrpcWebRequestBody returns binary body for grpc-web binary content type', () => {
+    const encoded = encodeGrpcWebRequestBody(new Uint8Array([0x01, 0x02]), GRPC_WEB_CONTENT_TYPES.BINARY);
+    expect(encoded.body).toBeInstanceOf(ArrayBuffer);
+    expect(encoded.contentType).toBe(GRPC_WEB_CONTENT_TYPES.BINARY);
+  });
+
   it('isGrpcWebTextContentType matches grpc-web-text case-insensitively', () => {
     expect(isGrpcWebTextContentType(GRPC_WEB_CONTENT_TYPES.TEXT)).toBe(true);
     expect(isGrpcWebTextContentType('application/GRPC-WEB-TEXT+PROTO')).toBe(true);
     expect(isGrpcWebTextContentType(GRPC_WEB_CONTENT_TYPES.BINARY)).toBe(false);
+    expect(isGrpcWebTextContentType('application/json')).toBe(false);
   });
 
   it('resetGrpcWebFramingCodecForTests is a no-op symmetry hook', () => {

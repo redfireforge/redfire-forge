@@ -82,9 +82,10 @@ export const GRPC = {
   RESPONSE_TLS_HINT: '[data-testid="grpc-response-tls-hint"]',
   STREAM_RESPONSE_HINTS: '[data-testid="grpc-stream-response-hints"]',
   AUTH_PANEL: '[data-testid="grpc-auth-panel"]',
-  AUTH_TYPE: '[data-testid="grpc-auth-type"]',
-  AUTH_TYPE_PILLS: '[data-testid="grpc-auth-type-pills"]',
-  AUTH_TYPE_PILL: (type: string) => `[data-testid="grpc-auth-type-pill-${type}"]`,
+  AUTH_TYPE: '[data-testid="grpc-auth-type-select"]',
+  AUTH_TYPE_SELECT: '[data-testid="grpc-auth-type-select"]',
+  AUTH_NO_AUTH_HINT: '[data-testid="grpc-auth-no-auth-hint"]',
+  AUTH_PAGE_SCOPE_BANNER: '[data-testid="grpc-auth-page-scope-banner"]',
   AUTH_CONFLICTS: '[data-testid="grpc-auth-conflicts"]',
   AUTH_PREVIEW: '[data-testid="grpc-auth-preview"]',
   AUTH_ISSUES: '[data-testid="grpc-auth-issues"]',
@@ -107,8 +108,8 @@ export const GRPC = {
   PROTO_MANAGE_MODAL: '[data-testid="grpc-proto-manage-modal"]',
   PROTO_UPLOAD_ZONE: '[data-testid="grpc-proto-upload-zone"]',
   PROTO_FILE_LIST: '[data-testid="grpc-proto-file-list"]',
-  PROTO_IMPORT_PATH_INPUT: '[data-testid="grpc-proto-import-path-input"]',
-  PROTO_IMPORT_PATH_ADD: '[data-testid="grpc-proto-import-path-add"]',
+  PROTO_FILE_CLEAR_ALL: '[data-testid="grpc-proto-file-clear-all"]',
+  PROTO_FILE_REMOVE_AT: (index: number) => `[data-testid="grpc-proto-file-remove-${index}"]`,
   PROTO_LOAD_BTN: '[data-testid="grpc-proto-load-btn"]',
   PROTO_LOAD_ERROR: '[data-testid="grpc-proto-load-error"]',
   PROTO_CANCEL_BTN: '[data-testid="grpc-proto-cancel-btn"]',
@@ -117,10 +118,26 @@ export const GRPC = {
   PROTO_TAB_URL: '[data-testid="grpc-proto-tab-url"]',
   PROTO_TAB_BSR: '[data-testid="grpc-proto-tab-bsr"]',
   PROTO_TAB_SCHEMA_BROWSER: '[data-testid="grpc-proto-tab-schema-browser"]',
+  PROTO_ROOT_MANAGER: '[data-testid="grpc-proto-root-manager"]',
+  PROTO_ROOT_ADD_INPUT: '[data-testid="grpc-proto-root-add-input"]',
+  PROTO_ROOT_ADD_BTN: '[data-testid="grpc-proto-root-add-btn"]',
+  PROTO_ROOT_LIST: '[data-testid="grpc-proto-root-list"]',
+  PROTO_SELECTED_ROOT: '[data-testid="grpc-proto-selected-root"]',
+  PROTO_CANONICAL_PREVIEW: '[data-testid="grpc-proto-canonical-preview"]',
+  PROTO_COLLISION_WARNINGS: '[data-testid="grpc-proto-collision-warnings"]',
+  PROTO_CANONICAL_LIST: '[data-testid="grpc-proto-canonical-list"]',
   SCHEMA_BROWSER: '[data-testid="grpc-schema-browser"]',
   SCHEMA_BROWSER_SEARCH: '[data-testid="grpc-schema-browser-search"]',
   SCHEMA_BROWSER_TREE: '[data-testid="grpc-schema-browser-tree"]',
   SCHEMA_BROWSER_DETAIL: '[data-testid="grpc-schema-browser-detail"]',
+  SCHEMA_TREE_NODE: (...parts: string[]) =>
+    `[data-testid="grpc-schema-tree-node-${parts
+      .map((part) =>
+        part
+          .replace(/[^a-zA-Z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '')
+          .toLowerCase())
+      .join('--')}"]`,
   SCHEMA_COPY_GRPCURL_BTN: '[data-testid="grpc-schema-copy-grpcurl-btn"]',
   SCHEMA_OPEN_TAB_BTN: '[data-testid="grpc-schema-open-tab-btn"]',
   SCHEMA_METHOD_SIGNATURE: '[data-testid="grpc-schema-method-signature"]',
@@ -287,6 +304,8 @@ export const GRPC = {
   HISTORY_CLEAR_FILTERED: '[data-testid="grpc-history-clear-filtered"]',
   HISTORY_CLEAR_ALL: '[data-testid="grpc-history-clear-all"]',
   HISTORY_LIST: '[data-testid="grpc-history-list"]',
+  /** First (or any) persisted call row — entry id is dynamic. */
+  HISTORY_ENTRY_ROW: '[data-testid^="grpc-history-entry-"]',
   HISTORY_ENTRY: (entryId: string) => `[data-testid="grpc-history-entry-${entryId}"]`,
   HISTORY_DETAIL: '[data-testid="grpc-history-detail"]',
   HISTORY_REPLAY_BTN: '[data-testid="grpc-history-replay-btn"]',
@@ -362,6 +381,8 @@ export const GRPC = {
   RPC_STATS_TABLE: '[data-testid="grpc-rpc-stats-table"]',
   RPC_STATS_RESET: '[data-testid="grpc-rpc-stats-reset-btn"]',
   RPC_STATS_EMPTY: '[data-testid="grpc-rpc-stats-empty"]',
+    RPC_STATS_EXPORT_JSON_BTN: '[data-testid="grpc-rpc-stats-export-json-btn"]',
+    RPC_STATS_EXPORT_CSV_BTN: '[data-testid="grpc-rpc-stats-export-csv-btn"]',
   RPC_STATS_TOTAL_CALLS: '[data-testid="grpc-rpc-stats-total-calls"]',
   RPC_STATS_ROW: '[data-testid="grpc-rpc-stats-row"]',
 } as const;

@@ -105,6 +105,26 @@ export function resolveProtoImportPath(
     }
   }
 
+  // Drag/drop from some file managers may flatten paths to bare filenames.
+  // As a last resort, allow a unique basename match (e.g. import "shared/common.proto"
+  // resolves to uploaded file "common.proto"). If multiple files share that basename,
+  // keep failing to avoid non-deterministic resolution.
+  const basename = normalizedTarget.includes('/')
+    ? normalizedTarget.slice(normalizedTarget.lastIndexOf('/') + 1)
+    : normalizedTarget;
+  let basenameMatch: string | null = null;
+  for (const path of fileMap.keys()) {
+    if (path === basename || path.endsWith(`/${basename}`)) {
+      if (basenameMatch && basenameMatch !== path) {
+        return null;
+      }
+      basenameMatch = path;
+    }
+  }
+  if (basenameMatch) {
+    return basenameMatch;
+  }
+
   return null;
 }
 

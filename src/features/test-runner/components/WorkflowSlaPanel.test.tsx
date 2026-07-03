@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import WorkflowSlaPanel from './WorkflowSlaPanel';
 import type { SlaTarget } from '../../../shared/types';
@@ -108,7 +108,9 @@ describe('WorkflowSlaPanel', () => {
     render(<WorkflowSlaPanel initialTargets={[makeTarget('a')]} onSave={onSave} />);
     fireEvent.click(screen.getByRole('button', { name: /SLA Targets/ }));
 
-    await expect(lastEditorProps!.onSave()).rejects.toThrow('boom');
+    await act(async () => {
+      await expect(lastEditorProps!.onSave()).rejects.toThrow('boom');
+    });
     await waitFor(() => expect(screen.getByTestId('editor-saving')).toHaveTextContent('false'));
   });
 

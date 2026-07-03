@@ -118,6 +118,16 @@ describe('exportJson', () => {
     expect(JSON.stringify(saved)).not.toContain(secret);
     expect(JSON.stringify(saved)).toContain('Bearer [REDACTED]');
   });
+
+  it('builds a results filename even when env and service are absent', () => {
+    const run = {
+      id: '2', envName: undefined, svcName: undefined, timestamp: Date.now(),
+      results: [], totalRequests: 0, passedRequests: 0, failedRequests: 0,
+      avgResponseTime: 0, scenarios: [], config: {} as TestRun['config'],
+    };
+    exportJson(run as TestRun);
+    expect(fileSaver.saveJsonFile).toHaveBeenCalledWith(expect.anything(), expect.stringContaining('test-results'));
+  });
 });
 
 describe('exportCsv', () => {
@@ -198,6 +208,18 @@ describe('exportCsv', () => {
     const cols = (csv.split('\n')[1] ?? '').split(',');
     const validationCol = cols[7]; // shifted by 2: Data Row ID + Data Row Label
     expect(validationCol).toBe('none');
+  });
+
+  it('exports empty optional failure fields as blank CSV columns', () => {
+    const result = {
+      scenarioName: 'blank-optional', url: 'http://x', method: 'GET',
+      httpStatus: 400, responseTimeMs: 1,
+      passed: false, timestamp: Date.now(), errorMessage: undefined,
+      failureDetails: [{ path: undefined, expected: undefined, actual: undefined }],
+    };
+    exportCsv([result as RequestResult]);
+    const csv: string = vi.mocked(fileSaver.saveCsvFile).mock.calls.at(-1)![0];
+    expect(csv).toContain('blank-optional');
   });
 
   it('redacts gRPC harness secrets in CSV export', () => {

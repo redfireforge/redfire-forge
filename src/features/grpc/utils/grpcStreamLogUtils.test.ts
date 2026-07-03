@@ -68,6 +68,22 @@ describe('grpcStreamLogUtils', () => {
     });
   });
 
+  it('grpcStreamEventToLogEntry rejects grpc-message events without direction or data independently', () => {
+    expect(grpcStreamEventToLogEntry({
+      type: 'grpc-message',
+      sequence: 4,
+      timestamp: '2026-01-01T00:00:00.000Z',
+      direction: 'inbound',
+    })).toBeNull();
+
+    expect(grpcStreamEventToLogEntry({
+      type: 'grpc-message',
+      sequence: 5,
+      timestamp: '2026-01-01T00:00:00.000Z',
+      data: { message: 'missing direction' },
+    })).toBeNull();
+  });
+
   it('countGrpcStreamDirections tallies inbound and outbound rows', () => {
     const counts = countGrpcStreamDirections([
       { sequence: 1, timestamp: 't', direction: 'inbound', data: {} },
@@ -75,5 +91,13 @@ describe('grpcStreamLogUtils', () => {
       { sequence: 3, timestamp: 't', direction: 'inbound', data: {} },
     ]);
     expect(counts).toEqual({ inbound: 2, outbound: 1 });
+  });
+
+  it('countGrpcStreamDirections treats non-inbound rows as outbound', () => {
+    const counts = countGrpcStreamDirections([
+      { sequence: 1, timestamp: 't', direction: 'outbound', data: {} },
+      { sequence: 2, timestamp: 't', direction: 'outbound', data: {} },
+    ]);
+    expect(counts).toEqual({ inbound: 0, outbound: 2 });
   });
 });

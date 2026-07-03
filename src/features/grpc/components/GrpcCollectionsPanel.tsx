@@ -17,6 +17,7 @@ export interface GrpcCollectionsPanelProps {
   onSelectSaved: (saved: GrpcSavedRequest, collectionId: string) => void;
   grpcurlForSaved: (saved: GrpcSavedRequest) => string;
   onOpenInStudio: (saved: GrpcSavedRequest, collectionId: string) => void;
+  onCompareSchema?: (saved: GrpcSavedRequest, collectionId: string) => void;
   onRunLoadTest?: (saved: GrpcSavedRequest, collectionId: string) => void;
   onCopyGrpcurl: (command: string) => void;
   onSavedDeleted?: (savedId: string) => void;
@@ -24,6 +25,8 @@ export interface GrpcCollectionsPanelProps {
   activeTab?: GrpcStudioTabState;
   openInStudioDisabled?: boolean;
   openInStudioTitle?: string;
+  compareSchemaDisabled?: boolean;
+  compareSchemaTitle?: string;
   runLoadTestDisabled?: boolean;
   runLoadTestTitle?: string;
 }
@@ -45,6 +48,7 @@ export function GrpcCollectionsPanel({
   onSelectSaved,
   grpcurlForSaved,
   onOpenInStudio,
+  onCompareSchema,
   onRunLoadTest,
   onCopyGrpcurl,
   onSavedDeleted,
@@ -52,6 +56,8 @@ export function GrpcCollectionsPanel({
   activeTab,
   openInStudioDisabled = false,
   openInStudioTitle = 'Open in Studio',
+  compareSchemaDisabled = false,
+  compareSchemaTitle = 'Compare schema',
   runLoadTestDisabled = false,
   runLoadTestTitle = 'Run load test',
 }: GrpcCollectionsPanelProps) {
@@ -262,9 +268,14 @@ export function GrpcCollectionsPanel({
         lastUnaryResult={lastUnaryResult}
         openInStudioDisabled={openInStudioDisabled}
         openInStudioTitle={openInStudioTitle}
+        compareSchemaDisabled={compareSchemaDisabled}
+        compareSchemaTitle={compareSchemaTitle}
         runLoadTestDisabled={runLoadTestDisabled}
         runLoadTestTitle={runLoadTestTitle}
         onOpenInStudio={() => selectedSaved && onOpenInStudio(selectedSaved.saved, selectedSaved.collectionId)}
+        onCompareSchema={onCompareSchema
+          ? () => selectedSaved && onCompareSchema(selectedSaved.saved, selectedSaved.collectionId)
+          : undefined}
         onRunLoadTest={onRunLoadTest
           ? () => selectedSaved && onRunLoadTest(selectedSaved.saved, selectedSaved.collectionId)
           : undefined}

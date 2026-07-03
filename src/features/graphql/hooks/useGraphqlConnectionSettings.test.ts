@@ -67,6 +67,10 @@ import { readKey, writeKey } from '../../../shared/utils/storage';
 import { loadAuth, loadTlsCerts, saveTlsCerts } from '../utils/tabPersistence';
 import { GQL_PAGE_AUTH_RELOAD_EVENT, loadDemoSession } from '../utils/gqlDemoWorkspace';
 
+async function flushHookEffects(): Promise<void> {
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+}
+
 describe('useGraphqlConnectionSettings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -111,16 +115,18 @@ describe('useGraphqlConnectionSettings', () => {
     expect(result.current.historyConnectionId).toBeNull();
   });
 
-  it('handleSkipTlsVerifyChange updates state and persists', () => {
+  it('handleSkipTlsVerifyChange updates state and persists', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     expect(result.current.skipTlsVerify).toBe(false);
     act(() => result.current.handleSkipTlsVerifyChange(true));
     expect(result.current.skipTlsVerify).toBe(true);
     expect(writeKey).toHaveBeenCalledWith('gql_tls_skip_v1', 'true');
   });
 
-  it('handlePollingChange updates state and persists', () => {
+  it('handlePollingChange updates state and persists', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     expect(result.current.pollingEnabled).toBe(false);
     act(() => result.current.handlePollingChange(true, 60));
     expect(result.current.pollingEnabled).toBe(true);
@@ -131,8 +137,9 @@ describe('useGraphqlConnectionSettings', () => {
     );
   });
 
-  it('handlePollingChange clamps interval to 10–3600 seconds (Phase 6F)', () => {
+  it('handlePollingChange clamps interval to 10–3600 seconds (Phase 6F)', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     act(() => result.current.handlePollingChange(true, 5));
     expect(result.current.pollingIntervalSeconds).toBe(10);
     expect(writeKey).toHaveBeenCalledWith(
@@ -141,26 +148,30 @@ describe('useGraphqlConnectionSettings', () => {
     );
   });
 
-  it('pollingIntervalMs returns 0 when polling disabled', () => {
+  it('pollingIntervalMs returns 0 when polling disabled', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     expect(result.current.pollingIntervalMs).toBe(0);
   });
 
-  it('pollingIntervalMs returns ms value when polling enabled', () => {
+  it('pollingIntervalMs returns ms value when polling enabled', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     act(() => result.current.handlePollingChange(true, 30));
     expect(result.current.pollingIntervalMs).toBe(30000);
   });
 
-  it('handleAuthChange updates auth state', () => {
+  it('handleAuthChange updates auth state', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     expect(result.current.auth).toBeNull();
     act(() => result.current.handleAuthChange({ type: 'bearer', token: 'mytoken' }));
     expect(result.current.auth).toEqual({ type: 'bearer', token: 'mytoken' });
   });
 
-  it('handleTlsCertsChange updates CA, client cert, and key', () => {
+  it('handleTlsCertsChange updates CA, client cert, and key', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     act(() => result.current.handleTlsCertsChange({
       caCert: '-----BEGIN CERTIFICATE-----\nCA\n-----END CERTIFICATE-----',
       clientCert: '-----BEGIN CERTIFICATE-----\nCLIENT\n-----END CERTIFICATE-----',
@@ -172,8 +183,9 @@ describe('useGraphqlConnectionSettings', () => {
     expect(saveTlsCerts).toHaveBeenCalled();
   });
 
-  it('handleTlsCertsChange clears cert fields when empty strings passed', () => {
+  it('handleTlsCertsChange clears cert fields when empty strings passed', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     act(() => result.current.handleTlsCertsChange({ caCert: 'ca-pem' }));
     act(() => result.current.handleTlsCertsChange({ caCert: '' }));
     expect(result.current.tlsCaCert).toBeUndefined();
@@ -244,53 +256,61 @@ describe('useGraphqlConnectionSettings', () => {
     expect(result.current.historyConnectionId).toBeNull();
   });
 
-  it('profileModalOpen starts as false', () => {
+  it('profileModalOpen starts as false', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     expect(result.current.profileModalOpen).toBe(false);
   });
 
-  it('setProfileModalOpen updates profileModalOpen', () => {
+  it('setProfileModalOpen updates profileModalOpen', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     act(() => result.current.setProfileModalOpen(true));
     expect(result.current.profileModalOpen).toBe(true);
   });
 
-  it('envModalOpen starts as false', () => {
+  it('envModalOpen starts as false', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     expect(result.current.envModalOpen).toBe(false);
   });
 
-  it('setEnvModalOpen updates envModalOpen', () => {
+  it('setEnvModalOpen updates envModalOpen', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     act(() => result.current.setEnvModalOpen(true));
     expect(result.current.envModalOpen).toBe(true);
   });
 
-  it('returns recentEndpoints, pushRecentEndpoint, removeRecentEndpoint from hook', () => {
+  it('returns recentEndpoints, pushRecentEndpoint, removeRecentEndpoint from hook', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     expect(result.current.recentEndpoints).toEqual([]);
     expect(typeof result.current.pushRecentEndpoint).toBe('function');
     expect(typeof result.current.removeRecentEndpoint).toBe('function');
   });
 
-  it('returns profiles from useGraphqlConnectionProfiles', () => {
+  it('returns profiles from useGraphqlConnectionProfiles', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     expect(result.current.profiles).toEqual([]);
     expect(typeof result.current.saveProfile).toBe('function');
     expect(typeof result.current.deleteProfile).toBe('function');
   });
 
-  it('returns environments from useGraphqlEnvironments', () => {
+  it('returns environments from useGraphqlEnvironments', async () => {
     const { result } = renderHook(() => useGraphqlConnectionSettings());
+    await flushHookEffects();
     expect(result.current.environments).toEqual([]);
     expect(result.current.activeEnvironment).toBeNull();
     expect(typeof result.current.createEnvironment).toBe('function');
   });
 
-  it('prevBaseUrlRef is mutable', () => {
+  it('prevBaseUrlRef is mutable', async () => {
     const { result } = renderHook(() =>
       useGraphqlConnectionSettings('https://initial.com'),
     );
+    await flushHookEffects();
     expect(result.current.prevBaseUrlRef).toBeDefined();
     expect(result.current.prevBaseUrlRef.current).toBe('https://initial.com');
   });

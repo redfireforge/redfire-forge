@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package api;
+
+import "common.proto";
+
+message LookupRequest {
+  common.SharedRef ref = 1;
+}
+
+message LookupResponse {
+  string status = 1;
+  string resolved_id = 2;
+}
+
+service ApiService {
+  rpc Lookup(LookupRequest) returns (LookupResponse);
+}

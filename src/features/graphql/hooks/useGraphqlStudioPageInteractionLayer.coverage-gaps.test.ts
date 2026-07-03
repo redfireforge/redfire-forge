@@ -11,8 +11,12 @@ const handleStopSubscription = vi.fn();
 const handleExportSubscription = vi.fn();
 const handleExecute = vi.fn();
 
+let capturedOnItemExecuted: ((id: string) => void) | undefined;
 vi.mock('./useGraphqlCollectionRun', () => ({
-  useGraphqlCollectionRun: vi.fn(() => ({ handleRunCollection })),
+  useGraphqlCollectionRun: vi.fn((args: { onItemExecuted?: (id: string) => void }) => {
+    capturedOnItemExecuted = args.onItemExecuted;
+    return { handleRunCollection };
+  }),
 }));
 
 vi.mock('./useGqlItemLoaders', () => ({
@@ -120,5 +124,25 @@ describe('useGraphqlStudioPageInteractionLayer — coverage gaps', () => {
       ),
     );
     expect(result.current.itemLoaders.handleLoadHistoryItem).toBeDefined();
+  });
+
+  it('onItemExecuted callback invokes collections.markItemExecuted', async () => {
+    const markItemExecuted = vi.fn().mockResolvedValue(undefined);
+    const foundationWithMock = {
+      ...foundation,
+      collections: { ...foundation.collections, markItemExecuted },
+    };
+    capturedOnItemExecuted = undefined;
+    renderHook(() =>
+      useGraphqlStudioPageInteractionLayer(
+        foundationWithMock as never,
+        tabsLayer as never,
+        executionLayer as never,
+        [],
+      ),
+    );
+    expect(capturedOnItemExecuted).toBeDefined();
+    capturedOnItemExecuted?.('item-1');
+    await vi.waitFor(() => expect(markItemExecuted).toHaveBeenCalledWith('item-1'));
   });
 });

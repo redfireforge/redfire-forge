@@ -1,4 +1,4 @@
-import * as grpc from '@grpc/grpc-js';
+import { grpc } from './grpcJsLoader.js';
 import type { GrpcStreamingCallType, GrpcTlsConfig, GrpcTlsMode } from '../../src/shared/grpc/contracts.js';
 import { validateResolvedGrpcTargetAddress } from '../../src/shared/grpc/targetValidation.js';
 import { buildGrpcChannelCredentials } from './grpcChannelCredentials.js';

@@ -59,6 +59,253 @@ jobs:
       - run: npm ci
       - run: npx tsc -b --noEmit
 
+  grpc-phase13a-slo:
+    name: gRPC Phase 13A SLO Gate
+    runs-on: ubuntu-latest
+    needs: typecheck
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Start API server
+        run: npm run server > /tmp/redfire-grpc-server.log 2>&1 & echo $! > /tmp/redfire-grpc-server.pid
+      - name: Wait for gRPC usage route
+        run: |
+          for i in {1..40}; do
+            if curl --noproxy '*' -sSf http://127.0.0.1:3001/api/grpc/describe/usage > /dev/null; then
+              echo "gRPC route ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to become ready"
+          cat /tmp/redfire-grpc-server.log || true
+          exit 1
+      - name: Run Phase 13A SLO gate
+        run: npm run grpc:phase13a:gate -- --require-live --base-url=http://127.0.0.1:3001
+      - name: Upload baseline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13a-baseline
+          path: artifacts/grpc-phase13a-baseline.json
+      - name: Stop API server
+        if: always()
+        run: |
+          if [ -f /tmp/redfire-grpc-server.pid ]; then
+            kill "$(cat /tmp/redfire-grpc-server.pid)" || true
+          fi
+
+  grpc-phase13b-slo:
+    name: gRPC Phase 13B Probe Gate
+    runs-on: ubuntu-latest
+    needs: [typecheck, grpc-phase13a-slo]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run Phase 13B fixture-backed gate
+        run: npm run grpc:phase13b:ci
+      - name: Upload baseline artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13b-baseline
+          path: artifacts/grpc-phase13b-baseline.ci.json
+
+  grpc-phase13c-drills:
+    name: gRPC Phase 13C Failure Drills
+    runs-on: ubuntu-latest
+    needs: [typecheck, grpc-phase13b-slo]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Start API server
+        run: npm run server > /tmp/redfire-grpc-phase13c-server.log 2>&1 & echo $! > /tmp/redfire-grpc-phase13c-server.pid
+      - name: Wait for gRPC usage route
+        run: |
+          for i in {1..40}; do
+            if curl --noproxy '*' -sSf http://127.0.0.1:3001/api/grpc/describe/usage > /dev/null; then
+              echo "gRPC route ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to become ready"
+          cat /tmp/redfire-grpc-phase13c-server.log || true
+          exit 1
+      - name: Run Phase 13C failure drills
+        run: npm run grpc:phase13c:gate -- --base-url=http://127.0.0.1:3001
+      - name: Upload drill artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13c-drills
+          path: artifacts/grpc-phase13c-drills.json
+      - name: Stop API server
+        if: always()
+        run: |
+          if [ -f /tmp/redfire-grpc-phase13c-server.pid ]; then
+            kill "$(cat /tmp/redfire-grpc-phase13c-server.pid)" || true
+          fi
+
+  grpc-phase13d-recovery:
+    name: gRPC Phase 13D Recovery Drills
+    runs-on: ubuntu-latest
+    needs: [typecheck, grpc-phase13c-drills]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Start API server
+        run: npm run server > /tmp/redfire-grpc-phase13d-server.log 2>&1 & echo $! > /tmp/redfire-grpc-phase13d-server.pid
+      - name: Wait for gRPC usage route
+        run: |
+          for i in {1..40}; do
+            if curl --noproxy '*' -sSf http://127.0.0.1:3001/api/grpc/describe/usage > /dev/null; then
+              echo "gRPC route ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to become ready"
+          cat /tmp/redfire-grpc-phase13d-server.log || true
+          exit 1
+      - name: Run Phase 13D recovery drills
+        run: npm run grpc:phase13d:gate -- --base-url=http://127.0.0.1:3001
+      - name: Upload recovery drill artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13d-recovery
+          path: artifacts/grpc-phase13d-recovery.json
+      - name: Stop API server
+        if: always()
+        run: |
+          if [ -f /tmp/redfire-grpc-phase13d-server.pid ]; then
+            kill "$(cat /tmp/redfire-grpc-phase13d-server.pid)" || true
+          fi
+
+  grpc-phase13e-a11y:
+    name: gRPC Phase 13E Accessibility and Virtualization Gate
+    runs-on: ubuntu-latest
+    needs: [typecheck, grpc-phase13d-recovery]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run Phase 13E a11y + virtualization gate
+        run: npm run grpc:phase13e:gate
+      - name: Upload a11y artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13e-a11y
+          path: artifacts/grpc-phase13e-a11y.json
+
+  grpc-phase13f-observability:
+    name: gRPC Phase 13F Observability and Redaction Audit Gate
+    runs-on: ubuntu-latest
+    needs: [typecheck, grpc-phase13e-a11y]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run Phase 13F observability + redaction gate
+        run: npm run grpc:phase13f:gate
+      - name: Upload observability audit artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13f-observability
+          path: artifacts/grpc-phase13f-observability.json
+
+  grpc-phase13h-rollback:
+    name: gRPC Phase 13H Operational Rollback Drill Gate
+    runs-on: ubuntu-latest
+    needs: [typecheck, grpc-phase13f-observability]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Start API server
+        run: npm run server > /tmp/redfire-grpc-phase13h-server.log 2>&1 & echo $! > /tmp/redfire-grpc-phase13h-server.pid
+      - name: Wait for gRPC usage route
+        run: |
+          for i in {1..40}; do
+            if curl --noproxy '*' -sSf http://127.0.0.1:3001/api/grpc/describe/usage > /dev/null; then
+              echo "gRPC route ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server failed to become ready"
+          cat /tmp/redfire-grpc-phase13h-server.log || true
+          exit 1
+      - name: Run Phase 13H rollback drill gate
+        run: npm run grpc:phase13h:gate -- --base-url=http://127.0.0.1:3001
+      - name: Upload rollback drill artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13h-rollback
+          path: artifacts/grpc-phase13h-rollback-drill.json
+      - name: Stop API server
+        if: always()
+        run: |
+          if [ -f /tmp/redfire-grpc-phase13h-server.pid ]; then
+            kill "$(cat /tmp/redfire-grpc-phase13h-server.pid)" || true
+          fi
+
+  grpc-phase13i-ga-signoff:
+    name: gRPC Phase 13I Final GA Sign-off
+    runs-on: ubuntu-latest
+    needs: [typecheck, grpc-phase13h-rollback]
+    if: github.event_name == 'pull_request' || github.ref == 'refs/heads/develop' || startsWith(github.ref, 'refs/heads/release/') || startsWith(github.ref, 'refs/heads/feature/') || startsWith(github.ref, 'refs/heads/hotfix/')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Run Phase 13I final GA sign-off gate
+        run: npm run grpc:phase13i:gate
+      - name: Upload GA sign-off artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: grpc-phase13i-ga-signoff
+          path: artifacts/grpc-phase13i-ga-signoff.json
+
   lint:
     name: ESLint
     runs-on: ubuntu-latest

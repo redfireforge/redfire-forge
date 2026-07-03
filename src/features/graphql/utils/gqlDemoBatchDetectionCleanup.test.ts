@@ -48,6 +48,12 @@ describe('gqlDemoBatchDetectionCleanup', () => {
     expect(writeKey).not.toHaveBeenCalled();
   });
 
+  it('purgeGqlDemoBatchDetectionFlags skips when batch flag is explicitly false', async () => {
+    vi.mocked(readKey).mockResolvedValue(JSON.stringify({ apq: true, batch: false }));
+    expect(await purgeGqlDemoBatchDetectionFlags()).toBe(0);
+    expect(writeKey).not.toHaveBeenCalled();
+  });
+
   it('purgeGqlDemoBatchDetectionFlags skips missing keys', async () => {
     vi.mocked(readKey).mockResolvedValue(null);
     expect(await purgeGqlDemoBatchDetectionFlags()).toBe(0);

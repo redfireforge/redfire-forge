@@ -1,4 +1,4 @@
-import * as grpc from '@grpc/grpc-js';
+import { grpc } from './grpcJsLoader.js';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import type { GrpcCallTimingBreakdown, GrpcTlsConfig, GrpcTlsMode } from '../../src/shared/grpc/contracts.js';

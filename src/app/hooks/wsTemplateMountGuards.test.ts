@@ -15,6 +15,10 @@ describe('formatStorageError', () => {
   it('stringifies non-Error values', () => {
     expect(formatStorageError('plain')).toBe('plain');
   });
+
+  it('stringifies object-like unknown values', () => {
+    expect(formatStorageError({ code: 1 })).toBe('[object Object]');
+  });
 });
 
 describe('applyLoadedTemplates', () => {
@@ -78,5 +82,11 @@ describe('applyPersistError', () => {
     const setError = vi.fn();
     applyPersistError(false, 'write fail', setError);
     expect(setError).not.toHaveBeenCalled();
+  });
+
+  it('formats non-Error persist failures when mounted', () => {
+    const setError = vi.fn();
+    applyPersistError(true, { reason: 'write fail' }, setError);
+    expect(setError).toHaveBeenCalledWith('[object Object]');
   });
 });

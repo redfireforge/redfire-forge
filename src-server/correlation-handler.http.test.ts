@@ -12,6 +12,7 @@ import {
   getUnmatchedWebhooks,
   createCorrelationRouter,
   notifyResume,
+  runResumeQueueCleanup,
   type ServerPausedEntry,
 } from './correlation-handler.js';
 import { InMemoryServerStore } from './correlation-store-memory.js';
@@ -267,14 +268,21 @@ describe('correlation-handler — HTTP routes', () => {
   });
 
   describe('GET /api/correlations/:id/wait', () => {
-    it('uses default wait window when timeoutMs query is empty', async () => {
+    it('uses configured default wait window when timeoutMs query is empty', async () => {
+      const express = await import('express');
+      const supertest = await import('supertest');
+      const localApp = express.default();
+      localApp.use(express.default.json());
+      localApp.use(createCorrelationRouter({ defaultWaitMs: 1200, minWaitMs: 1000, maxWaitMs: 120000 }));
+      const localRequest = supertest.default(localApp);
+
       const start = Date.now();
-      const res = await request.get('/api/correlations/empty-timeout-qs/wait?timeoutMs=');
+      const res = await localRequest.get('/api/correlations/empty-timeout-qs/wait?timeoutMs=');
       const elapsed = Date.now() - start;
       expect(res.body.timedOut).toBe(true);
-      expect(elapsed).toBeGreaterThanOrEqual(29_000);
-      expect(elapsed).toBeLessThan(45_000);
-    }, 50_000);
+      expect(elapsed).toBeGreaterThanOrEqual(900);
+      expect(elapsed).toBeLessThan(5000);
+    }, 10000);
 
     it('returns timedOut=true when no resume occurs within the wait window', async () => {
       const res = await request.get('/api/correlations/never/wait?timeoutMs=1000');
@@ -516,8 +524,7 @@ describe('correlation-handler — resume queue TTL (real clock)', () => {
         workflowId: 'w-ttl',
         ts: staleTs,
       });
-
-      await new Promise<void>(r => setTimeout(r, 65_000));
+      runResumeQueueCleanup();
 
       const res = await http.get('/api/correlations/queue-real-ttl/wait').query({ timeoutMs: 1500 });
       expect(res.status).toBe(200);

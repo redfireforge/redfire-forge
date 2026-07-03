@@ -101,6 +101,7 @@ function renderPanel(
     descriptorKey: FIXTURE_DESCRIPTOR_KEY,
   });
   const onReplay = vi.fn();
+  const onOpenDiff = vi.fn();
   const onCopyGrpcurl = vi.fn();
   const grpcurlForEntry = vi.fn(() => 'grpcurl localhost:50051 echo.EchoService/Echo');
 
@@ -121,13 +122,14 @@ function renderPanel(
       pageDefaults={{ target: 'localhost:50051', tlsMode: 'disabled' }}
       profiles={[]}
       onReplay={onReplay}
+      onOpenDiff={onOpenDiff}
       onCopyGrpcurl={onCopyGrpcurl}
       grpcurlForEntry={grpcurlForEntry}
       {...panelOverrides}
     />,
   );
 
-  return { onReplay, onCopyGrpcurl, grpcurlForEntry };
+  return { onReplay, onOpenDiff, onCopyGrpcurl, grpcurlForEntry };
 }
 
 describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
@@ -170,12 +172,12 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
   });
 
   it('renders status variants and selects entry for detail', async () => {
-    const ok = historyEntry('ok-1');
+    const ok = { ...historyEntry('ok-1'), descriptorKey: 'desc-prior' };
     const warn = historyEntry('warn-1', { grpcStatus: 16 });
     const err = historyEntry('err-1', { error: true });
     const badTime = historyEntry('bad-time', { capturedAt: 'not-a-date' });
 
-    const { onReplay, onCopyGrpcurl } = renderPanel(buildHistoryMock({
+    const { onReplay, onOpenDiff, onCopyGrpcurl } = renderPanel(buildHistoryMock({
       filteredEntries: [ok, warn, err, badTime],
       filterOptions: {
         services: [ok.service],
@@ -197,6 +199,9 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
 
     fireEvent.click(screen.getByTestId('grpc-history-replay-btn'));
     expect(onReplay).toHaveBeenCalledWith(ok);
+
+    fireEvent.click(screen.getByTestId('grpc-history-open-diff-btn'));
+    expect(onOpenDiff).toHaveBeenCalledWith(ok);
 
     fireEvent.click(screen.getByTestId('grpc-history-copy-grpcurl'));
     expect(onCopyGrpcurl).toHaveBeenCalledWith('grpcurl localhost:50051 echo.EchoService/Echo');
@@ -273,8 +278,10 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
 
     fireEvent.click(screen.getByTestId('grpc-history-entry-blocked-1'));
     const replayBtn = screen.getByTestId('grpc-history-replay-btn') as HTMLButtonElement;
+    const diffBtn = screen.getByTestId('grpc-history-open-diff-btn') as HTMLButtonElement;
     expect(replayBtn.disabled).toBe(true);
     expect(replayBtn.title).toMatch(/schema|available/i);
+    expect(diffBtn.disabled).toBe(true);
   });
 
   it('surfaces replay preview errors from resolver', () => {

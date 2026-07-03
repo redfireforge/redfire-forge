@@ -20,6 +20,10 @@ const SDL = `
 `;
 
 describe('changelogPanelUtils', () => {
+  it('countTypesFromSdl ignores text without schema type declarations', () => {
+    expect(countTypesFromSdl('directive @x on FIELD\n# comment only')).toBe(0);
+  });
+
   it('countTypesFromSdl returns zero for empty SDL', () => {
     expect(countTypesFromSdl('')).toBe(0);
     expect(countTypesFromSdl('  \n  ')).toBe(0);
@@ -34,6 +38,10 @@ describe('changelogPanelUtils', () => {
     expect(resolveSnapshotTypesCount(SDL, 0)).toBe(3);
   });
 
+  it('formatSnapshotDayHeader returns Invalid Date for invalid day strings', () => {
+    expect(formatSnapshotDayHeader('not-a-real-day')).toBe('Invalid Date');
+  });
+
   it('buildDefaultSnapshotLabel includes date and time', () => {
     const label = buildDefaultSnapshotLabel(Date.UTC(2026, 5, 22, 16, 31));
     expect(label).toMatch(/^Snapshot · /);
@@ -44,6 +52,19 @@ describe('changelogPanelUtils', () => {
     expect(isGenericSnapshotLabel('Snapshot')).toBe(true);
     expect(isGenericSnapshotLabel('Snapshot · Jun 22, 2026 4:31 PM')).toBe(true);
     expect(isGenericSnapshotLabel('Prior release (demo)')).toBe(false);
+    expect(isGenericSnapshotLabel(undefined)).toBe(true);
+  });
+
+  it('snapshotDisplayTitle returns the custom label when not generic', () => {
+    const snap = {
+      id: '2',
+      label: 'Release Candidate',
+      capturedAt: Date.UTC(2026, 5, 22, 16, 31),
+      typesCount: 2,
+      sdl: SDL,
+      connectionId: 'c1',
+    } satisfies GraphqlSchemaSnapshot;
+    expect(snapshotDisplayTitle(snap)).toBe('Release Candidate');
   });
 
   it('snapshotDisplayTitle uses time for generic labels', () => {
@@ -116,6 +137,14 @@ describe('changelogPanelUtils', () => {
       { id: '1', label: 'v1.0', capturedAt: Date.now(), typesCount: 1, sdl: SDL, connectionId: 'c1' },
     ] satisfies GraphqlSchemaSnapshot[];
     expect(filterSnapshotsByQuery(snaps, '   ')).toHaveLength(1);
+  });
+
+  it('filterSnapshotsByQuery matches formatted date strings', () => {
+    const ts = Date.UTC(2026, 5, 22, 16, 31);
+    const snaps = [
+      { id: '1', label: 'alpha', capturedAt: ts, typesCount: 1, sdl: SDL, connectionId: 'c1' },
+    ] satisfies GraphqlSchemaSnapshot[];
+    expect(filterSnapshotsByQuery(snaps, '2026')).toHaveLength(1);
   });
 
   it('groupSnapshotsByDay merges same-day snapshots into one bucket', () => {

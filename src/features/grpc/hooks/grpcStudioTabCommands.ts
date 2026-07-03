@@ -43,6 +43,10 @@ import {
   syncGrpcStudioTabTransport,
 } from '../utils/grpcStudioTransportSync';
 import { resolveGrpcStudioTabTransportMode } from '../grpcStudioTypes';
+import {
+  GRPC_DEFAULT_CALL_TIMEOUT_MS,
+  GRPC_DEFAULT_STREAM_CALL_TIMEOUT_MS,
+} from '../../../shared/grpc/contracts';
 
 type SessionCore = Pick<
   GrpcStudioSessionCore,
@@ -276,6 +280,10 @@ export function createSelectMethodHandler(
 
     const hasDrift = descriptorState.driftState && descriptorState.driftState !== 'none';
     const currentTab = core.sessionRef.current.tabs.find((entry) => entry.id === tabId);
+    const nextTimeoutMs = method.callType !== 'unary'
+      && (currentTab?.timeoutMs ?? GRPC_DEFAULT_CALL_TIMEOUT_MS) === GRPC_DEFAULT_CALL_TIMEOUT_MS
+      ? GRPC_DEFAULT_STREAM_CALL_TIMEOUT_MS
+      : currentTab?.timeoutMs;
     if (currentTab) {
       abortTabCallsBeforeMethodChange(ctx, core, tabId, currentTab);
     }
@@ -287,6 +295,7 @@ export function createSelectMethodHandler(
       body: hasDrift
         ? rebindGrpcBodyToMethod(currentTab?.body ?? {}, method)
         : buildDefaultGrpcBody(method.requestSchema),
+      timeoutMs: nextTimeoutMs,
       requestMode: 'form',
       lifecycle: 'idle',
       activeRequestId: undefined,

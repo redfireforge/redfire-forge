@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import type { GrpcAuthConfig } from './contracts';
 import {
   assertGrpcHarnessAuthTemplatesResolved,
+  assertGrpcHarnessAssertionsTemplatesResolved,
   assertGrpcHarnessMetadataNormalizeUnique,
   resolveGrpcHarnessAuthConfig,
   resolveGrpcHarnessCollectConfig,
@@ -25,6 +26,11 @@ describe('grpcHarnessTemplateResolver coverage gaps', () => {
   it('returns empty sendMessages when input is missing or empty', () => {
     expect(resolveGrpcHarnessSendMessages(undefined, resolve)).toEqual([]);
     expect(resolveGrpcHarnessSendMessages([], resolve)).toEqual([]);
+  });
+
+  it('assertGrpcHarnessAssertionsTemplatesResolved returns for undefined or empty assertions', () => {
+    expect(() => assertGrpcHarnessAssertionsTemplatesResolved(undefined)).not.toThrow();
+    expect(() => assertGrpcHarnessAssertionsTemplatesResolved([])).not.toThrow();
   });
 
   it('passes through collect config fields', () => {

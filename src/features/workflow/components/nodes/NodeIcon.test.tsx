@@ -97,6 +97,12 @@ describe('NodeIcon', () => {
     expect(badge?.classList.contains('my-custom')).toBe(true);
   });
 
+  it('renders without a custom className by leaving only the base classes', () => {
+    const { container } = render(<NodeIcon type="http" />);
+    const badge = container.querySelector('.wf-node-icon-badge');
+    expect(badge?.className).toContain('wf-node-icon-badge--action');
+  });
+
   it('each type has unique SVG content', () => {
     const htmls = new Set<string>();
     for (const type of ALL_TYPES) {

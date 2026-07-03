@@ -13,6 +13,7 @@ dist-cli
 dist-server
 dist-ssr
 build-artifacts/
+artifacts/
 *.local
 
 # Editor directories and files

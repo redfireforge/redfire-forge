@@ -61,7 +61,7 @@ describe('grpcStudioSessionHelpers', () => {
     const selection = { mode: 'auto' as const, autoPrecedence: ['reflection' as const] };
     const protoIngest = {
       source: 'proto_files' as const,
-      protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";' }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: 'syntax = "proto3";' }] }],
       importPaths: ['shared'],
     };
     const patch = sanitizeDescriptorPatch({
@@ -77,7 +77,7 @@ describe('grpcStudioSessionHelpers', () => {
     expect(patch.sourceFingerprint).not.toBe(fingerprint);
     expect(patch.sourceSelection?.autoPrecedence).not.toBe(selection.autoPrecedence);
     expect(patch.protoIngest).not.toBe(protoIngest);
-    expect(patch.protoIngest?.protoFiles).not.toBe(protoIngest.protoFiles);
+    expect(patch.protoIngest?.protoRoots).not.toBe(protoIngest.protoRoots);
   });
 
   it('pickFallbackActiveTabId prefers left neighbor', () => {

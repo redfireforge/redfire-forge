@@ -7,6 +7,7 @@ import { descriptorServiceSignatures } from './descriptorNormalizer.js';
 import { clearProtoFileDescriptorPool } from './protoFileDescriptorPool.js';
 import {
   encodeRootAsProtosetBase64,
+  normalizeDescribeProtoFilesInput,
   parseDescribeRequestSource,
   parseProtoFiles,
   parseProtosetBase64,
@@ -24,6 +25,28 @@ describe('protoDescriptorParser', () => {
     expect(root.lookupService('echo.EchoService')?.name).toBe('EchoService');
   });
 
+  it('normalizes protoRoots into canonical protoFiles + importPaths', () => {
+    const normalized = normalizeDescribeProtoFilesInput({
+      protoRoots: [
+        {
+          id: 'shared-root',
+          mountPath: 'shared',
+          files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+        },
+        {
+          id: 'api-root',
+          mountPath: 'api',
+          files: [{ path: 'service.proto', content: 'syntax = "proto3";' }],
+        },
+      ],
+    });
+    expect(normalized.protoFiles.map((file) => file.path).sort()).toEqual([
+      'api/service.proto',
+      'shared/common.proto',
+    ]);
+    expect(normalized.importPaths).toEqual(['shared', 'api']);
+  });
+
   it('round-trips protoset base64', () => {
     const root = parseProtoFiles([{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }]);
     const protosetBase64 = encodeRootAsProtosetBase64(root);
@@ -31,10 +54,29 @@ describe('protoDescriptorParser', () => {
     expect(decoded.lookupService('echo.EchoService')?.name).toBe('EchoService');
   });
 
+  it('accepts protoset payloads with whitespace and wrapped lines', () => {
+    const root = parseProtoFiles([{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }]);
+    const protosetBase64 = encodeRootAsProtosetBase64(root);
+    const wrapped = `${protosetBase64.slice(0, 30)}\n${protosetBase64.slice(30, 80)}\n${protosetBase64.slice(80)}`;
+    const decoded = parseProtosetBase64(wrapped);
+    expect(decoded.lookupService('echo.EchoService')?.name).toBe('EchoService');
+  });
+
+  it('accepts protoset payloads with data-uri prefix and base64url alphabet', () => {
+    const root = parseProtoFiles([{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }]);
+    const protosetBase64 = encodeRootAsProtosetBase64(root)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/g, '');
+    const payload = `data:application/octet-stream;base64,${protosetBase64}`;
+    const decoded = parseProtosetBase64(payload);
+    expect(decoded.lookupService('echo.EchoService')?.name).toBe('EchoService');
+  });
+
   it('produces equivalent signatures for proto_files and protoset sources', () => {
     const protoRoot = parseDescribeRequestSource({
       source: 'proto_files',
-      protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
     });
     const protosetBase64 = encodeRootAsProtosetBase64(protoRoot);
     const protosetRoot = parseDescribeRequestSource({
@@ -46,6 +88,35 @@ describe('protoDescriptorParser', () => {
     expect(descriptorServiceSignatures(protoDescriptor)).toBe(
       descriptorServiceSignatures(protosetDescriptor),
     );
+  });
+
+  it('parses proto_files source from protoRoots input', () => {
+    const commonProto = `syntax = "proto3";
+package common;
+message Shared { string id = 1; }`;
+    const apiProto = `syntax = "proto3";
+package api;
+import "common.proto";
+message Request { common.Shared ref = 1; }
+message Response { string ok = 1; }
+service ApiService { rpc Call(Request) returns (Response); }`;
+
+    const root = parseDescribeRequestSource({
+      source: 'proto_files',
+      protoRoots: [
+        {
+          id: 'shared-root',
+          mountPath: 'shared',
+          files: [{ path: 'common.proto', content: commonProto }],
+        },
+        {
+          id: 'api-root',
+          mountPath: 'api',
+          files: [{ path: 'service.proto', content: apiProto }],
+        },
+      ],
+    });
+    expect(root.lookupService('api.ApiService')?.name).toBe('ApiService');
   });
 
   it('throws for invalid protoset base64', () => {
@@ -99,6 +170,25 @@ service ApiService { rpc Call(Request) returns (Response); }`;
     );
     expect(root.lookupService('api.ApiService')?.name).toBe('ApiService');
     expect(root.lookupType('common.Shared')?.name).toBe('Shared');
+  });
+
+  it('resolves nested import targets when drag/drop flattens uploaded file paths', () => {
+    const commonProto = `syntax = "proto3";
+package common;
+message Shared { string id = 1; }`;
+    const apiProto = `syntax = "proto3";
+package api;
+import "shared/common.proto";
+message Request { common.Shared ref = 1; }
+message Response { string ok = 1; }
+service ApiService { rpc Call(Request) returns (Response); }`;
+
+    const root = parseProtoFiles([
+      { path: 'service.proto', content: apiProto },
+      { path: 'common.proto', content: commonProto },
+    ]);
+    expect(root.lookupService('api.ApiService')?.name).toBe('ApiService');
+    expect(root.lookupType('api.Request')?.fieldsArray[0]?.resolvedType?.fullName).toBe('.common.Shared');
   });
 
   it('resolves parent-directory relative imports across uploaded files', () => {

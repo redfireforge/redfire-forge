@@ -38,4 +38,24 @@ describe('useDemoWorkflowRunBridge', () => {
     unmount();
     expect((window as unknown as Record<string, unknown>).__wfResetRunState).toBeUndefined();
   });
+
+  it('uses latest callbacks after rerender', () => {
+    const resetV1 = vi.fn();
+    const clearV1 = vi.fn();
+    const resetV2 = vi.fn();
+    const clearV2 = vi.fn();
+
+    const { rerender } = renderHook(
+      ({ reset, clear }) => useDemoWorkflowRunBridge(reset, clear),
+      { initialProps: { reset: resetV1, clear: clearV1 } },
+    );
+
+    rerender({ reset: resetV2, clear: clearV2 });
+    expect(resetDemoWorkflowRunState()).toBe(true);
+
+    expect(resetV1).not.toHaveBeenCalled();
+    expect(clearV1).not.toHaveBeenCalled();
+    expect(resetV2).toHaveBeenCalledTimes(1);
+    expect(clearV2).toHaveBeenCalledTimes(1);
+  });
 });

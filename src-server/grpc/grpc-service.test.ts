@@ -220,7 +220,11 @@ describe('GrpcService', () => {
     it('returns describe_failed for malformed proto content', async () => {
       const envelope = await service.describe({
         source: 'proto_files',
-        protoFiles: [{ path: 'broken.proto', content: 'this is not valid proto' }],
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [{ path: 'broken.proto', content: 'this is not valid proto' }],
+        }],
       });
       expect(envelope.ok).toBe(false);
       if (!envelope.ok) {
@@ -231,28 +235,36 @@ describe('GrpcService', () => {
     it('returns describe_failed when user proto path collides with bundled WKT path', async () => {
       const envelope = await service.describe({
         source: 'proto_files',
-        protoFiles: [{
-          path: 'google/protobuf/timestamp.proto',
-          content: 'syntax = "proto3"; package google.protobuf; message Timestamp { int64 seconds = 1; }',
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [{
+            path: 'google/protobuf/timestamp.proto',
+            content: 'syntax = "proto3"; package google.protobuf; message Timestamp { int64 seconds = 1; }',
+          }],
         }],
       });
       expect(envelope.ok).toBe(false);
       if (!envelope.ok) {
         expect(envelope.error.code).toBe(GRPC_ERROR_CODES.DESCRIBE_FAILED);
-        expect(envelope.error.message).toMatch(/Duplicate proto file path/i);
+        expect(envelope.error.message).toMatch(/duplicate name|timestamp\.proto/i);
       }
     });
 
     it('returns import_resolution_failed for unresolved proto imports', async () => {
       const envelope = await service.describe({
         source: 'proto_files',
-        protoFiles: [{
-          path: 'broken.proto',
-          content: `syntax = "proto3";
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [{
+            path: 'broken.proto',
+            content: `syntax = "proto3";
 package broken;
 import "missing/vendor.proto";
 message Empty {}
 service Broken { rpc Ping(Empty) returns (Empty); }`,
+          }],
         }],
       });
       expect(envelope.ok).toBe(false);
@@ -265,9 +277,13 @@ service Broken { rpc Ping(Empty) returns (Empty); }`,
     it('returns invalid_descriptor when proto source has no services', async () => {
       const envelope = await service.describe({
         source: 'proto_files',
-        protoFiles: [{
-          path: 'messages.proto',
-          content: 'syntax = "proto3"; message OnlyMessage { string id = 1; }',
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [{
+            path: 'messages.proto',
+            content: 'syntax = "proto3"; message OnlyMessage { string id = 1; }',
+          }],
         }],
       });
       expect(envelope.ok).toBe(false);
@@ -293,7 +309,11 @@ service Broken { rpc Ping(Empty) returns (Empty); }`,
     it('returns protoset bytes when descriptor root is cached', async () => {
       const describeEnvelope = await service.describe({
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        }],
       });
       expect(describeEnvelope.ok).toBe(true);
       if (!describeEnvelope.ok) return;
@@ -322,7 +342,11 @@ service Broken { rpc Ping(Empty) returns (Empty); }`,
     it('exports protoset after describe cache hit restores root cache', async () => {
       const describeRequest = {
         source: 'proto_files' as const,
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        }],
       };
       const first = await service.describe(describeRequest);
       expect(first.ok).toBe(true);
@@ -348,7 +372,11 @@ service Broken { rpc Ping(Empty) returns (Empty); }`,
     it('returns descriptor JSON when key exists in store', async () => {
       const describeEnvelope = await service.describe({
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        }],
       });
       expect(describeEnvelope.ok).toBe(true);
       if (!describeEnvelope.ok) return;

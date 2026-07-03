@@ -80,6 +80,24 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
     expect(onRunLoadTest).toHaveBeenCalledTimes(1);
   });
 
+  it('renders compare schema action when handler is provided', () => {
+    const onCompareSchema = vi.fn();
+    render(
+      <GrpcSavedRequestDetail
+        saved={makeSaved()}
+        grpcurlCommand="grpcurl -plaintext localhost:50051 echo.EchoService/Echo"
+        onOpenInStudio={vi.fn()}
+        onCompareSchema={onCompareSchema}
+        onCopyGrpcurl={vi.fn()}
+        onDuplicate={vi.fn()}
+        onDelete={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-saved-request-compare-schema'));
+    expect(onCompareSchema).toHaveBeenCalledTimes(1);
+  });
+
   it('disables run load test when streaming saved request', () => {
     render(
       <GrpcSavedRequestDetail
@@ -139,10 +157,15 @@ describe('GrpcSavedRequestDetail (Phase 5H)', () => {
         streamComparisonEligible
         openInStudioDisabled
         openInStudioTitle="Descriptor missing"
+        onCompareSchema={vi.fn()}
+        compareSchemaDisabled
+        compareSchemaTitle="Saved request already uses the active descriptor"
       />,
     );
     expect(screen.getByTestId('grpc-saved-request-open-studio')).toHaveProperty('disabled', true);
     expect(screen.getByTitle('Descriptor missing')).toBeTruthy();
+    expect(screen.getByTestId('grpc-saved-request-compare-schema')).toHaveProperty('disabled', true);
+    expect(screen.getByTitle('Saved request already uses the active descriptor')).toBeTruthy();
     expect(screen.getByTestId('grpc-response-snapshot-panel')).toBeTruthy();
     expect(screen.getByText(/Last status: 13/)).toBeTruthy();
   });

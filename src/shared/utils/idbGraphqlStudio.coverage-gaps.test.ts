@@ -131,6 +131,13 @@ describe('idbGraphqlStudio — coverage gaps', () => {
     expect(loaded?.activeId).toBe('t1');
   });
 
+  it('idbMigrateTabsFromLocalStorage uses an empty active id when none is stored', async () => {
+    localStorage.setItem('gql_tabs_v1', JSON.stringify([{ id: 't1', name: 'Tab' }]));
+    expect(await idbMigrateTabsFromLocalStorage('gql_tabs_v1', 'gql_tabs_v1_active')).toBe(true);
+    const loaded = await idbLoadTabsPersisted();
+    expect(loaded?.activeId).toBe('');
+  });
+
   it('idbClearPageAuthRaw returns early when idb unavailable', async () => {
     vi.resetModules();
     vi.doMock('./idbHelpers', async (importOriginal) => {
@@ -224,11 +231,33 @@ describe('idbGraphqlStudio — coverage gaps', () => {
     expect(await idbMigrateStudioEnvironmentsFromLocalStorage('gql_environments_v1')).toBe(false);
   });
 
+  it('idbMigrateConnectionProfilesFromLocalStorage rejects non-array payloads', async () => {
+    localStorage.setItem('gql_profiles_v1', JSON.stringify({ not: 'array' }));
+    const { idbMigrateConnectionProfilesFromLocalStorage } = await import('./idbGraphqlStudio');
+    expect(await idbMigrateConnectionProfilesFromLocalStorage('gql_profiles_v1')).toBe(false);
+  });
+
   it('isValidTabsPersistedBlob guards tabs blob shape', async () => {
     const { isValidTabsPersistedBlob } = await import('./idbGraphqlStudio');
     expect(isValidTabsPersistedBlob(null)).toBe(false);
     expect(isValidTabsPersistedBlob({ tabs: [] })).toBe(true);
     expect(isValidTabsPersistedBlob({ tabs: 'nope' })).toBe(false);
+  });
+
+  it('idbGetSchemaCacheRaw returns null when the stored value is not a string', async () => {
+    vi.resetModules();
+    vi.doMock('./idbHelpers', async (importOriginal) => {
+      const actual = await importOriginal<typeof import('./idbHelpers')>();
+      return {
+        ...actual,
+        getObjectStore: vi.fn(async () => ({ get: vi.fn(() => ({})) })),
+        wrap: vi.fn(async () => ({ not: 'a string' })),
+      };
+    });
+    const mod = await import('./idbGraphqlStudio');
+    expect(await mod.idbGetSchemaCacheRaw('object-value')).toBeNull();
+    vi.doUnmock('./idbHelpers');
+    vi.resetModules();
   });
 
   it('purgeGraphqlStudioLocalStorageDuplicates skips LS key when IDB lacks data', async () => {
@@ -243,6 +272,21 @@ describe('idbGraphqlStudio — coverage gaps', () => {
     const removed = await purgeGraphqlStudioLocalStorageDuplicates(keys);
     expect(removed).toBe(0);
     expect(localStorage.getItem('gql_auth_v1')).not.toBeNull();
+  });
+
+  it('purgeGraphqlStudioLocalStorageDuplicates removes active tab key when tabs already exist in IDB', async () => {
+    await idbSaveTabsPersisted([{ id: 't1', name: 'Tab' }], 't1');
+    localStorage.setItem('gql_tabs_v1_active', 't1');
+    const keys = {
+      tabsKey: 'gql_tabs_v1',
+      tabsActiveKey: 'gql_tabs_v1_active',
+      authKey: 'gql_auth_v1',
+      environmentsKey: 'gql_environments_v1',
+      profilesKey: 'gql_profiles_v1',
+    };
+    const removed = await purgeGraphqlStudioLocalStorageDuplicates(keys);
+    expect(removed).toBe(1);
+    expect(localStorage.getItem('gql_tabs_v1_active')).toBeNull();
   });
 });
 

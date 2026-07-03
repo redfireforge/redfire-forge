@@ -112,3 +112,18 @@ Updated files:
 - Tag created (`vX.Y.Z`)
 - Build artifacts produced
 - `master` back-merged to `develop`
+
+---
+
+## Current Migration Guardrails
+
+- gRPC describe payloads use `protoRoots` for proto file ingest.
+- `/api/grpc/describe` enforces proto roots contract validation for `source=proto_files`.
+- `GET /api/grpc/describe/usage` telemetry tracks source-level usage for regression visibility.
+
+## Current CI Guardrails
+
+- Phase 13B fixture-backed reliability gate is promoted in CI via `.github/workflows/ci.yml` job `grpc-phase13b-slo`.
+- Canonical local/CI orchestration command: `npm run grpc:phase13b:ci`.
+- The orchestration script enforces proxy bypass for localhost health/readiness probes (`curl --noproxy '*'`) to avoid false 504 failures from host proxy interception.
+- CI run should upload `artifacts/grpc-phase13b-baseline.ci.json` for baseline diagnostics.

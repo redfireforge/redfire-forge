@@ -162,8 +162,8 @@ describe('grpcStudioDescriptorLoad coverage gaps', () => {
     const ctx = makeRuntime();
     const tabId = ctx.sessionRef.current.activeTabId;
     const cases = [
-      { ...createDefaultProtoIngestState(), source: 'proto_files' as const, protoFiles: [] },
-      { ...createDefaultProtoIngestState(), source: 'proto_files' as const, protoFiles: [{ path: '', content: 'syntax = "proto3";' }] },
+      { ...createDefaultProtoIngestState(), source: 'proto_files' as const, protoRoots: [{ id: 'root-default', mountPath: 'root', files: [] }] },
+      { ...createDefaultProtoIngestState(), source: 'proto_files' as const, protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: '', content: 'syntax = "proto3";' }] }] },
       { ...createDefaultProtoIngestState(), source: 'protoset' as const, protosetBase64: '   ' },
       { ...createDefaultProtoIngestState(), source: 'bsr' as const, bsrModule: '  ' },
     ];
@@ -833,7 +833,7 @@ describe('grpcStudioDescriptorLoad coverage gaps', () => {
       protoIngest: {
         ...createDefaultProtoIngestState(),
         source: 'proto_files',
-        protoFiles: [{ path: 'demo.proto', content: 'syntax = "proto3"; package demo;' }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'demo.proto', content: 'syntax = "proto3"; package demo;' }] }],
       },
     };
     vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockResolvedValue({
@@ -894,7 +894,7 @@ describe('grpcStudioDescriptorLoad coverage gaps', () => {
       protoIngest: {
         ...createDefaultProtoIngestState(),
         source: 'proto_files',
-        protoFiles: [{ path: 'demo.proto', content: '   ' }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'demo.proto', content: '   ' }] }],
       },
     };
 

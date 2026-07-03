@@ -79,12 +79,47 @@ export function useGrpcSelectedSavedRequest(
     return openInStudioStatusForSelected;
   }, [selectedSavedRequest, openInStudioStatusForSelected]);
 
+  const compareSchemaStatusForSelected = useMemo(() => {
+    if (!selectedSavedRequest) {
+      return { executable: false, title: 'Select a saved request' };
+    }
+    const currentDescriptorKey = (
+      studio.activeTabDescriptor.descriptor?.key
+      ?? studio.activeTab.descriptorKey
+      ?? ''
+    ).trim();
+    if (!currentDescriptorKey) {
+      return {
+        executable: false,
+        title: 'Load a descriptor on the active tab before comparing schemas',
+      };
+    }
+    const intent = collections.buildSavedRequestSchemaCompareIntent(selectedSavedRequest, currentDescriptorKey);
+    if (!intent.baselineDescriptorKey) {
+      return {
+        executable: false,
+        title: 'Saved request is missing a descriptor key',
+      };
+    }
+    if (!intent.keysDiffer) {
+      return {
+        executable: false,
+        title: 'Saved request already uses the active descriptor',
+      };
+    }
+    return {
+      executable: true,
+      title: 'Compare saved request descriptor with the active descriptor',
+    };
+  }, [collections, selectedSavedRequest, studio.activeTab.descriptorKey, studio.activeTabDescriptor.descriptor?.key]);
+
   return {
     selectedSavedRequest,
     selectedSavedContext,
     lastUnaryResultForSelected,
     openInStudioStatusForSelected,
     runLoadTestStatusForSelected,
+    compareSchemaStatusForSelected,
   };
 }
 

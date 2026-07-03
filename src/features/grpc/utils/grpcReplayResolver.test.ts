@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { createGrpcStudioTab } from '../grpcStudioTypes';
 import { GRPC_REDACTED_PLACEHOLDER } from '../../../shared/grpc/grpcRedaction';
 import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
-import { resolveGrpcSavedRequestReplay } from './grpcReplayResolver';
+import { buildReplayTabState, resolveGrpcSavedRequestReplay } from './grpcReplayResolver';
 
 const VALID_PEM = `-----BEGIN CERTIFICATE-----
 TEST-CA
@@ -523,6 +523,75 @@ describe('grpcReplayResolver (Phase 4H)', () => {
 
     expect(snapshot.target.address).toBe('localhost:50051');
     expect(snapshot.target.tlsMode).toBe('disabled');
+  });
+
+  it('buildReplayTabState falls back to tab target/connection/tls when saved has no explicit target', () => {
+    const tab = createGrpcStudioTab({
+      descriptorKey: 'desc-1',
+      target: 'tab.example.com:443',
+      connectionId: 'profile-from-tab',
+      tlsMode: 'tls',
+      auth: { type: 'none' },
+    });
+    const saved = createGrpcSavedRequestFromSnapshot(
+      {
+        tabId: tab.id,
+        requestId: 'req-1',
+        capturedAt: '2026-01-01T00:00:00.000Z',
+        callType: 'unary',
+        target: { address: 'localhost:50051', tlsMode: 'disabled' },
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: {},
+        metadata: {},
+        timeoutMs: 30000,
+        descriptorKey: 'desc-1',
+      },
+      { id: 'sr-fallback', revisionId: 'rev-fallback', updatedAt: '2026-01-01T00:00:00.000Z' },
+    );
+
+    saved.target = undefined;
+    saved.connectionId = undefined;
+    saved.tlsMode = undefined;
+
+    const replay = buildReplayTabState(tab, saved);
+    expect(replay.target).toBe('tab.example.com:443');
+    expect(replay.connectionId).toBe('profile-from-tab');
+    expect(replay.tlsMode).toBe('tls');
+  });
+
+  it('throws when replay target resolution is invalid after interpolation', () => {
+    const tab = createGrpcStudioTab({
+      descriptorKey: 'desc-1',
+      tlsMode: 'disabled',
+      auth: { type: 'none' },
+    });
+    const saved = createGrpcSavedRequestFromSnapshot(
+      {
+        tabId: tab.id,
+        requestId: 'req-1',
+        capturedAt: '2026-01-01T00:00:00.000Z',
+        callType: 'unary',
+        target: { address: '{{missingHost}}', tlsMode: 'disabled' },
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: {},
+        metadata: {},
+        timeoutMs: 30000,
+        descriptorKey: 'desc-1',
+      },
+      { id: 'sr-invalid-target', revisionId: 'rev-invalid-target', updatedAt: '2026-01-01T00:00:00.000Z' },
+    );
+    saved.target = '{{missingHost}}';
+
+    expect(() => resolveGrpcSavedRequestReplay({
+      saved,
+      tab,
+      requestId: 'replay-invalid-target',
+      envVarMap: {},
+      profiles: [],
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    })).toThrow('Resolve {{missingHost}} before connecting');
   });
 
   it('rejects cyclic env variables at replay bind time (Phase 9E)', () => {

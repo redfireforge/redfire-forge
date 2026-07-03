@@ -25,7 +25,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    await user.click(screen.getByTestId('grpc-auth-type-pill-none'));
+    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'none');
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 
@@ -39,7 +39,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    await user.click(screen.getByTestId('grpc-auth-type-pill-basic'));
+    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'basic');
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -225,7 +225,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    await user.click(screen.getByTestId('grpc-auth-type-pill-bearer'));
+    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'bearer');
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -312,7 +312,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    await user.click(screen.getByTestId('grpc-auth-type-pill-none'));
+    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'none');
     expect(onChange).toHaveBeenCalledWith(undefined);
   });
 
@@ -325,7 +325,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
         onChange={vi.fn()}
       />,
     );
-    expect((screen.getByTestId('grpc-auth-type-pill-bearer') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('grpc-auth-type-select') as HTMLSelectElement).disabled).toBe(true);
     expect((screen.getByTestId('grpc-auth-api-key-name') as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByTestId('grpc-auth-api-key-value') as HTMLInputElement).disabled).toBe(true);
   });
@@ -340,7 +340,7 @@ describe('GrpcAuthPanel coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    await user.click(screen.getByTestId('grpc-auth-type-pill-bearer'));
+    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'bearer');
     expect(onChange).toHaveBeenCalledWith({ type: 'bearer' });
   });
 
@@ -415,9 +415,9 @@ describe('GrpcAuthPanel coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    await user.click(screen.getByTestId('grpc-auth-type-pill-api_key'));
-    expect(onChange).toHaveBeenCalledWith({ type: 'api_key' });
-    await user.click(screen.getByTestId('grpc-auth-type-pill-basic'));
+    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'api_key');
+    expect(onChange).toHaveBeenCalledWith({ type: 'api_key', apiKeyName: 'x-api-key', apiKeyValue: undefined });
+    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'basic');
     expect(onChange).toHaveBeenCalledWith({ type: 'basic' });
   });
 
@@ -431,7 +431,10 @@ describe('GrpcAuthPanel coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    await user.click(screen.getByTestId('grpc-auth-type-pill-oauth2'));
-    expect(onChange).toHaveBeenCalledWith({ type: 'oauth2' });
+    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'oauth2');
+    expect(onChange).toHaveBeenCalledWith({
+      type: 'oauth2',
+      oauth2: { tokenUrl: '', clientId: '', clientSecret: '' },
+    });
   });
 });

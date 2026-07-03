@@ -251,9 +251,37 @@ describe('GrpcStudioPage coverage gaps', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('grpc-proto-manage-modal')).toBeNull();
     });
+
+    fireEvent.click(screen.getByTestId('grpc-request-tab-json'));
+    expect((screen.getByTestId('grpc-request-json') as HTMLTextAreaElement).value).toContain('"message": "hello"');
   });
 
-  it('loads descriptor from proto modal and closes on success', async () => {
+  it('applies streaming timeout default when schema browser opens a streaming method in tab', async () => {
+    setGrpcClientTransport(async (op) => {
+      if (op === 'reflect') {
+        return { ...FIXTURE_REFLECT_SUCCESS_ENVELOPE, data: FIXTURE_DESCRIPTOR };
+      }
+      return FIXTURE_REFLECT_SUCCESS_ENVELOPE;
+    });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-reflect-btn'));
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-explorer-tree')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId('grpc-manage-schemas-btn-footer'));
+    expect(screen.getByTestId('grpc-schema-browser')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--serverstream'));
+    fireEvent.click(screen.getByTestId('grpc-schema-open-tab-btn'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('grpc-proto-manage-modal')).toBeNull();
+    });
+
+    expect((screen.getByTestId('grpc-call-timeout-input') as HTMLInputElement).value).toBe('120000');
+  });
+
+  it('loads descriptor from proto modal and keeps modal open for schema browser review', async () => {
     setGrpcClientTransport(async (op) => {
       if (op === 'describe') {
         return { ...FIXTURE_REFLECT_SUCCESS_ENVELOPE, data: FIXTURE_DESCRIPTOR };
@@ -274,8 +302,14 @@ describe('GrpcStudioPage coverage gaps', () => {
       expect((screen.getByTestId('grpc-proto-load-btn') as HTMLButtonElement).disabled).toBe(false);
     });
     fireEvent.click(screen.getByTestId('grpc-proto-load-btn'));
+
     await waitFor(() => {
-      expect(screen.queryByTestId('grpc-proto-manage-modal')).toBeNull();
+      expect(screen.getByTestId('grpc-proto-manage-modal')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-schema-browser'));
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-schema-browser')).toBeTruthy();
     });
   });
 
@@ -683,7 +717,7 @@ describe('GrpcStudioPage coverage gaps', () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
     fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
     fireEvent.click(screen.getByTestId('grpc-settings-nav-auth'));
-    fireEvent.click(screen.getByTestId('grpc-auth-type-pill-bearer'));
+    fireEvent.change(screen.getByTestId('grpc-auth-type-select'), { target: { value: 'bearer' } });
     fireEvent.change(screen.getByTestId('grpc-auth-bearer-token'), { target: { value: 'studio-token' } });
     fireEvent.click(screen.getByTestId('grpc-settings-nav-call'));
     fireEvent.change(screen.getByTestId('grpc-call-settings-timeout'), { target: { value: '15000' } });

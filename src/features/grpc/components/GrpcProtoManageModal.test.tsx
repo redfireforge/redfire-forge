@@ -22,6 +22,20 @@ describe('GrpcProtoManageModal', () => {
     expect(screen.getByTestId('grpc-proto-manage-modal')).toBeTruthy();
     expect(screen.getByTestId('grpc-proto-upload-zone')).toBeTruthy();
     expect(screen.getByTestId('grpc-proto-load-btn')).toHaveProperty('disabled', true);
+    expect(screen.getByTestId('grpc-proto-tab-hint-proto_files')).toBeTruthy();
+  });
+
+  it('renders draggable header with grip', () => {
+    render(<GrpcProtoManageModal {...baseProps} />);
+    const header = screen.getByTestId('grpc-proto-modal-header');
+    expect(header.className).toContain('grpc-proto-modal-header--draggable');
+    expect(header.querySelector('.grpc-proto-modal-drag-grip')).toBeTruthy();
+  });
+
+  it('shows contextual tab hint when switching tabs', () => {
+    render(<GrpcProtoManageModal {...baseProps} />);
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-url'));
+    expect(screen.getByTestId('grpc-proto-tab-hint-url_proto')).toBeTruthy();
   });
 
   it('switches to protoset tab', () => {
@@ -29,6 +43,47 @@ describe('GrpcProtoManageModal', () => {
     fireEvent.click(screen.getByTestId('grpc-proto-tab-protoset'));
     expect(baseProps.onIngestChange).toHaveBeenCalledWith({ source: 'protoset' });
     expect(screen.getByTestId('grpc-proto-protoset-zone')).toBeTruthy();
+  });
+
+  it('shows protoset summary when a file is staged', () => {
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          source: 'protoset',
+          protosetFileName: 'echo.protoset',
+          protosetBase64: 'cHJvdG8=',
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-proto-protoset-summary')).toBeTruthy();
+    expect(screen.getByTestId('grpc-proto-protoset-status').textContent).toContain('Ready to load');
+    expect(screen.getByTestId('grpc-proto-protoset-meta').textContent).toContain('Binary size');
+  });
+
+  it('clears staged protoset selection from summary action', () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        onIngestChange={onIngestChange}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          source: 'protoset',
+          protosetFileName: 'echo.protoset',
+          protosetBase64: 'cHJvdG8=',
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-protoset-clear'));
+    expect(onIngestChange).toHaveBeenCalledWith({
+      source: 'protoset',
+      protosetBase64: undefined,
+      protosetFileName: undefined,
+    });
   });
 
   it('switches to URL tab', () => {
@@ -97,7 +152,7 @@ describe('GrpcProtoManageModal', () => {
         {...baseProps}
         ingest={{
           ...createDefaultProtoIngestState(),
-          protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 20 }],
+          protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 20 }] }],
         }}
       />,
     );
@@ -158,13 +213,27 @@ describe('GrpcProtoManageModal', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 
-  it('adds import path on Add click', () => {
-    render(<GrpcProtoManageModal {...baseProps} />);
-    fireEvent.change(screen.getByTestId('grpc-proto-import-path-input'), {
-      target: { value: 'shared' },
-    });
-    fireEvent.click(screen.getByTestId('grpc-proto-import-path-add'));
-    expect(baseProps.onIngestChange).toHaveBeenCalledWith({ importPaths: ['shared'] });
+  it('removes a root from the root list', () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        onIngestChange={onIngestChange}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            { id: 'r1', mountPath: 'shared', files: [] },
+            { id: 'r2', mountPath: 'api', files: [] },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-root-remove-r2'));
+    expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'proto_files',
+      protoRoots: [expect.objectContaining({ id: 'r1' })],
+    }));
   });
 
   it('merges newly uploaded proto files with existing draft', async () => {
@@ -174,7 +243,7 @@ describe('GrpcProtoManageModal', () => {
         {...baseProps}
         ingest={{
           ...createDefaultProtoIngestState(),
-          protoFiles: [{ path: 'existing.proto', content: 'syntax = "proto3";', sizeBytes: 20 }],
+          protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'existing.proto', content: 'syntax = "proto3";', sizeBytes: 20 }] }],
         }}
         onIngestChange={onIngestChange}
       />,
@@ -185,12 +254,15 @@ describe('GrpcProtoManageModal', () => {
     Object.defineProperty(input, 'files', { value: [file] });
     fireEvent.change(input);
 
+    let uploadPayload: { protoRoots?: Array<{ files: Array<{ path: string }> }> } | undefined;
     await vi.waitFor(() => {
-      expect(onIngestChange).toHaveBeenCalled();
+      uploadPayload = onIngestChange.mock.calls
+        .map((call) => call[0])
+        .find((payload) => payload?.source === 'proto_files' && payload?.protoRoots?.[0]?.files?.length === 2);
+      expect(uploadPayload).toBeTruthy();
     });
 
-    const lastCall = onIngestChange.mock.calls.at(-1)?.[0];
-    expect(lastCall?.protoFiles?.map((entry: { path: string }) => entry.path).sort()).toEqual([
+    expect(uploadPayload?.protoRoots?.[0]?.files.map((entry: { path: string }) => entry.path).sort()).toEqual([
       'existing.proto',
       'new.proto',
     ]);
@@ -205,5 +277,181 @@ describe('GrpcProtoManageModal', () => {
       />,
     );
     expect(screen.getByTestId('grpc-proto-load-error').textContent).toMatch(/missing\/vendor\.proto/);
+  });
+
+  it('renders root manager and selected root hint', () => {
+    render(<GrpcProtoManageModal {...baseProps} />);
+    expect(screen.getByTestId('grpc-proto-files-layout')).toBeTruthy();
+    expect(screen.getByTestId('grpc-proto-root-manager')).toBeTruthy();
+    expect(screen.getByTestId('grpc-proto-root-list')).toBeTruthy();
+    expect(screen.getByTestId('grpc-proto-selected-root').textContent).toContain('root');
+  });
+
+  it('adds a new virtual root', () => {
+    render(<GrpcProtoManageModal {...baseProps} />);
+    fireEvent.change(screen.getByTestId('grpc-proto-root-add-input'), {
+      target: { value: 'shared' },
+    });
+    fireEvent.click(screen.getByTestId('grpc-proto-root-add-btn'));
+    expect(baseProps.onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'proto_files',
+      protoRoots: expect.arrayContaining([
+        expect.objectContaining({ mountPath: 'shared' }),
+      ]),
+    }));
+  });
+
+  it('selects a root from the root list and updates selected root hint', () => {
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            { id: 'r1', mountPath: 'shared', files: [] },
+            { id: 'r2', mountPath: 'api', files: [] },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-root-item-r2'));
+    expect(screen.getByTestId('grpc-proto-selected-root').textContent).toContain('api');
+  });
+
+  it('removes a single uploaded file from selected root', () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        onIngestChange={onIngestChange}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            {
+              id: 'root-default',
+              mountPath: 'root',
+              files: [
+                { path: 'old.proto', content: 'syntax = "proto3";' },
+                { path: 'new.proto', content: 'syntax = "proto3";' },
+              ],
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-file-remove-0'));
+    expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'proto_files',
+      protoRoots: [
+        expect.objectContaining({
+          id: 'root-default',
+          files: [expect.objectContaining({ path: 'new.proto' })],
+        }),
+      ],
+    }));
+  });
+
+  it('clears all uploaded files from selected root', () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        onIngestChange={onIngestChange}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            {
+              id: 'root-default',
+              mountPath: 'root',
+              files: [{ path: 'old.proto', content: 'syntax = "proto3";' }],
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-file-clear-all'));
+    expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'proto_files',
+      protoRoots: [
+        expect.objectContaining({
+          id: 'root-default',
+          files: [],
+        }),
+      ],
+    }));
+  });
+
+  it('shows canonical path preview panel', () => {
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            {
+              id: 'shared-root',
+              mountPath: 'shared',
+              files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+            },
+          ],
+        }}
+      />,
+    );
+    expect(screen.getByTestId('grpc-proto-canonical-preview')).toBeTruthy();
+    const list = screen.getByTestId('grpc-proto-canonical-list');
+    expect(list.textContent).toContain('shared/common.proto');
+  });
+
+  it('displays collision diagnostics for basename conflicts', () => {
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            {
+              id: 'r1',
+              mountPath: 'shared',
+              files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+            },
+            {
+              id: 'r2',
+              mountPath: 'api',
+              files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+            },
+          ],
+        }}
+      />,
+    );
+    const warnings = screen.getByTestId('grpc-proto-collision-warnings');
+    expect(warnings.textContent).toContain('appears in multiple roots');
+  });
+
+  it('displays collision diagnostics for path conflicts', () => {
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            {
+              id: 'r1',
+              mountPath: 'shared',
+              files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+            },
+            {
+              id: 'r2',
+              mountPath: 'shared',
+              files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
+            },
+          ],
+        }}
+      />,
+    );
+    const warnings = screen.getByTestId('grpc-proto-collision-warnings');
+    expect(warnings.textContent).toContain('duplicated');
   });
 });

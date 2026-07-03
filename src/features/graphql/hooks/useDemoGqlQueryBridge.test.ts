@@ -25,4 +25,22 @@ describe('useDemoGqlQueryBridge', () => {
     unmount();
     expect((window as unknown as Record<string, unknown>).__demoSetGqlQuery).toBeUndefined();
   });
+
+  it('uses latest setGqlQuery callback after rerender', () => {
+    const setV1 = vi.fn();
+    const setV2 = vi.fn();
+    const { rerender } = renderHook(
+      ({ setGqlQuery }) => useDemoGqlQueryBridge({ setGqlQuery }),
+      { initialProps: { setGqlQuery: setV1 } },
+    );
+
+    rerender({ setGqlQuery: setV2 });
+    const bridge = (window as unknown as Record<string, unknown>).__demoSetGqlQuery as
+      | ((query: string) => void)
+      | undefined;
+    bridge?.('query { users { id } }');
+
+    expect(setV1).not.toHaveBeenCalled();
+    expect(setV2).toHaveBeenCalledWith('query { users { id } }');
+  });
 });
