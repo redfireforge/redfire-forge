@@ -22,7 +22,7 @@ export async function prepareGrpc1DockerLesson(
   await page.waitForSelector('[data-testid="grpc-studio-page"]', { timeout: 180_000 });
 }
 
-/** Play through all GRPC-1 steps (last step uses finishDemoStep — never runNextStep on 8/8). */
+/** Play through all GRPC-1 steps (last step uses finishDemoStep — never runNextStep on final step). */
 export async function walkFullGrpc1Lesson(page: Page): Promise<void> {
   for (let i = 0; i < GRPC1_LESSON.steps - 2; i++) {
     await runNextStep(page, DEMO_ACTION_TIMEOUT);

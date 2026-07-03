@@ -4,6 +4,7 @@
 import { describe, it, expect } from 'vitest';
 import { GRPC } from '@shared/selectors';
 import { grpcFirstCallLesson } from '../../grpc-first-call';
+import { grpcSchemaDiscoveryLesson } from '../../grpc-schema-discovery';
 import { getGrpcStepCheckpointsForLesson } from './stepCheckpoints';
 
 function extractTestId(selector: string): string | null {
@@ -51,13 +52,35 @@ describe('grpc lesson step checkpoints', () => {
       'grpc1-reflect': extractTestId(GRPC.EXPLORER_TREE),
       'grpc1-select-method': extractTestId(GRPC.PROTO_FORM),
       'grpc1-send': extractTestId(GRPC.RESPONSE_BODY),
-      'grpc1-history': extractTestId(GRPC.HISTORY_LIST),
+      'grpc1-history': extractTestId(GRPC.HISTORY_REPLAY_BTN),
     };
     const checkpointByStep = Object.fromEntries(
       getGrpcStepCheckpointsForLesson('grpc-first-call').map((c) => [c.stepId, c]),
     );
     for (const [stepId, testId] of Object.entries(expected)) {
       expect(checkpointByStep[stepId]?.verifySelector).toBe(testId);
+    }
+  });
+
+  it('maps GRPC-16 checkpoint step ids to lesson steps', () => {
+    const lessonStepIds = new Set(grpcSchemaDiscoveryLesson.steps.map((s) => s.id));
+    const checkpoints = getGrpcStepCheckpointsForLesson('grpc-schema-discovery');
+    expect(checkpoints.length).toBeGreaterThan(0);
+    for (const checkpoint of checkpoints) {
+      expect(lessonStepIds.has(checkpoint.stepId)).toBe(true);
+    }
+  });
+
+  it('aligns GRPC-16 verifySelector values with step verify selectors', () => {
+    const stepsById = Object.fromEntries(
+      grpcSchemaDiscoveryLesson.steps.map((s) => [s.id, s]),
+    );
+    for (const checkpoint of getGrpcStepCheckpointsForLesson('grpc-schema-discovery')) {
+      if (!checkpoint.verifySelector) continue;
+      const step = stepsById[checkpoint.stepId];
+      expect(step?.verify).toBeTruthy();
+      const expected = extractTestId(step.verify!);
+      expect(checkpoint.verifySelector).toBe(expected);
     }
   });
 });

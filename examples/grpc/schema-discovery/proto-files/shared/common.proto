@@ -1,0 +1,8 @@
+syntax = "proto3";
+
+package common;
+
+message SharedRef {
+  string id = 1;
+  string source = 2;
+}
