@@ -29,14 +29,19 @@ function schemaExplorerShowsQueryType(): boolean {
   return !!document.querySelector(GQL.SCHEMA_TYPE_QUERY);
 }
 
+function getPollingAttempts(timeoutMs: number, intervalMs: number): number {
+  const interval = Math.max(1, intervalMs);
+  return Math.max(1, Math.ceil(timeoutMs / interval));
+}
+
 /** Poll until the schema badge appears (Tauri IDB cache can lag behind preAction). */
 export async function waitForSchemaCached(
   ctx: DemoActionContext,
   timeoutMs: number,
   signal?: AbortSignal,
 ): Promise<boolean> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+  const attempts = getPollingAttempts(timeoutMs, 100);
+  for (let i = 0; i < attempts; i++) {
     if (signal?.aborted) return false;
     if (document.querySelector(GQL.SCHEMA_BADGE_OK)) return true;
     await ctx.delay(100);

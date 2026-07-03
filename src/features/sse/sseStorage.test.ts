@@ -62,6 +62,24 @@ describe('sseStorage', () => {
     expect(loaded!.auth).toBeUndefined();
   });
 
+  it('preserves explicit boolean false and valid string url values', async () => {
+    store.set(
+      SSE_CONFIG_KEY,
+      JSON.stringify({ url: 'https://example.com/sse', autoReconnect: false, maxRetries: 2 }),
+    );
+    const loaded = await loadSseConfig();
+    expect(loaded!.url).toBe('https://example.com/sse');
+    expect(loaded!.autoReconnect).toBe(false);
+  });
+
+  it('returns null when readKey rejects', async () => {
+    store.clear();
+    const mod = await import('../../shared/utils/storage');
+    const readSpy = vi.spyOn(mod, 'readKey').mockRejectedValueOnce(new Error('disk fail'));
+    await expect(loadSseConfig()).resolves.toBeNull();
+    readSpy.mockRestore();
+  });
+
   it('sanitizes partial header entries', async () => {
     store.set(
       SSE_CONFIG_KEY,

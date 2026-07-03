@@ -157,4 +157,22 @@ describe('useGqlActiveTabConnection', () => {
     expect(result.current.resolvedTabTls.clientCert).toBe('page-client');
     expect(result.current.resolvedTabTls.clientKey).toBe('page-key');
   });
+
+  it('returns null activeTabConnection and falls back to page values when activeTab is undefined', () => {
+    const { result } = renderHook(() => useGqlActiveTabConnection({
+      activeTab: undefined,
+      profiles,
+      endpoint: 'https://page.example/graphql',
+      auth: { type: 'bearer', token: 'page-token' } as GraphqlAuth,
+      skipTlsVerify: true,
+      pollingEnabled: true,
+      pollingIntervalSeconds: 15,
+    }));
+
+    expect(result.current.activeTabConnection).toBeNull();
+    expect(result.current.resolvedTabAuth).toEqual({ type: 'bearer', token: 'page-token' });
+    expect(result.current.resolvedTabSkipTlsVerify).toBe(true);
+    expect(result.current.resolvedTabPollingEnabled).toBe(true);
+    expect(result.current.resolvedTabPollingIntervalMs).toBe(15000);
+  });
 });

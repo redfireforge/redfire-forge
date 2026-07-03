@@ -21,23 +21,36 @@ describe('ServerStatusIndicator', () => {
     vi.useFakeTimers();
     fetchQueue = [];
     global.fetch = vi.fn(() => {
-      const next = fetchQueue.shift() ?? 'throw';
-      if (next === 'throw') return Promise.reject(new Error('down'));
-      if (next === 'bad') return Promise.resolve({ ok: false, json: () => Promise.resolve({}) } as Response);
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(okData) } as Response);
+      return new Promise<Response>((resolve, reject) => {
+        setTimeout(() => {
+          const next = fetchQueue.shift() ?? 'throw';
+          if (next === 'throw') {
+            reject(new Error('down'));
+            return;
+          }
+          if (next === 'bad') {
+            resolve({ ok: false, json: () => Promise.resolve({}) } as Response);
+            return;
+          }
+          resolve({ ok: true, json: () => Promise.resolve(okData) } as Response);
+        }, 0);
+      });
     }) as unknown as typeof fetch;
   });
 
   afterEach(() => {
-    vi.runOnlyPendingTimers();
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  it('shows checking state on first render', () => {
+  it('shows checking state on first render', async () => {
     fetchQueue = ['ok'];
     render(<ServerStatusIndicator />);
     expect(screen.getByText('⟳ Checking...')).toBeTruthy();
+    await flush(0);
   });
 
   it('shows online state with port after a successful check', async () => {

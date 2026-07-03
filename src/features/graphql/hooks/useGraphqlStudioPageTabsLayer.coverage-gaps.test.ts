@@ -4,6 +4,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 import { useGraphqlStudioPageTabsLayer } from './useGraphqlStudioPageTabsLayer';
+import { useGqlStudioTabs } from './useGqlStudioTabs';
+import { useGqlActiveTabConnection } from './useGqlActiveTabConnection';
 
 const activeTab = {
   id: 'tab-1',
@@ -156,5 +158,51 @@ describe('useGraphqlStudioPageTabsLayer — coverage gaps', () => {
     }));
     expect(result.current.defaultAuthProfileId).toBeNull();
     expect(result.current.resolvedAuthPreview).toBeDefined();
+  });
+
+  it('invokes tab wiring callbacks and uses history fallback endpoint', () => {
+    vi.mocked(useGqlStudioTabs).mockReturnValueOnce({
+      ...tabsBundle,
+      activeTab: undefined,
+      activeTabId: 'missing-tab',
+      resolvedTabEndpoint: '',
+      hasResolvedProfileLink: false,
+    });
+    vi.mocked(useGqlActiveTabConnection).mockReturnValueOnce({
+      activeTabConnection: null,
+      resolvedTabAuth: null,
+      resolvedTabSkipTlsVerify: false,
+      resolvedTabTls: { caCert: '', clientCert: '', clientKey: '' },
+      resolvedTabPollingEnabled: false,
+      resolvedTabPollingIntervalSeconds: 30,
+      resolvedTabPollingIntervalMs: 30_000,
+    });
+
+    const localFoundation = {
+      ...foundation,
+      connection: {
+        ...foundation.connection,
+        historyConnectionId: 'history://fallback/graphql',
+      },
+    };
+
+    const { result } = renderHook(() => useGraphqlStudioPageTabsLayer(localFoundation as never, {
+      globalAuthProfiles: undefined,
+      selectedSvc: undefined,
+      selectedEnvId: undefined,
+    }));
+
+    const firstCall = vi.mocked(useGqlStudioTabs).mock.calls[0]?.[0] as {
+      onClearFileEntries: () => void;
+      onResetSubscription: () => void;
+    };
+    firstCall.onClearFileEntries();
+    firstCall.onResetSubscription();
+
+    expect(localFoundation.uiState.setFileEntries).toHaveBeenCalledWith([]);
+    expect(localFoundation.subscription.reset).toHaveBeenCalledTimes(1);
+    expect(result.current.linkedProfileName).toBeNull();
+    expect(result.current.defaultAuthProfileId).toBeNull();
+    expect(result.current.tabSchemaConnectionId).toBe('history://fallback/graphql');
   });
 });

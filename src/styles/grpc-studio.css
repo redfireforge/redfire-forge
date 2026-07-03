@@ -7163,6 +7163,17 @@
   margin-top: 12px;
 }
 
+.grpc-advanced-diff-list--virtual {
+  max-height: 320px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.grpc-advanced-diff-virtual-spacer {
+  width: 100%;
+  flex: 0 0 auto;
+}
+
 .grpc-advanced-diff-line {
   display: flex;
   align-items: flex-start;

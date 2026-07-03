@@ -44,12 +44,16 @@ export function mergeGrpcurlDescriptorIntoProtoIngest(
         ? [...new Set([...base.importPaths, ...flags.importPaths!])]
         : base.importPaths,
       protoRoots: [],
-      protoFiles: [],
     };
   }
 
+  const baseRoots = base.protoRoots.length > 0
+    ? base.protoRoots
+    : [{ id: DEFAULT_REPLAY_PROTO_ROOT_ID, mountPath: DEFAULT_REPLAY_PROTO_ROOT_MOUNT, files: [] }];
+  const primaryRoot = baseRoots[0]!;
+
   const mergedProtoPaths = [...new Set([
-    ...base.protoFiles.map((file) => file.path),
+    ...primaryRoot.files.map((file) => file.path),
     ...(flags.protoPaths ?? []),
   ])];
 
@@ -58,10 +62,10 @@ export function mergeGrpcurlDescriptorIntoProtoIngest(
     importPaths: [...new Set([...base.importPaths, ...(flags.importPaths ?? [])])],
     protoRoots: [
       {
-        id: DEFAULT_REPLAY_PROTO_ROOT_ID,
-        mountPath: DEFAULT_REPLAY_PROTO_ROOT_MOUNT,
+        id: primaryRoot.id,
+        mountPath: primaryRoot.mountPath,
         files: mergedProtoPaths.map((path) => {
-          const existingFile = base.protoFiles.find((file) => file.path === path);
+          const existingFile = primaryRoot.files.find((file) => file.path === path);
           return existingFile
             ? {
               path: existingFile.path,
@@ -72,10 +76,6 @@ export function mergeGrpcurlDescriptorIntoProtoIngest(
         }),
       },
     ],
-    protoFiles: mergedProtoPaths.map((path) => {
-      const existingFile = base.protoFiles.find((file) => file.path === path);
-      return existingFile ?? { path, content: '' };
-    }),
   };
 }
 

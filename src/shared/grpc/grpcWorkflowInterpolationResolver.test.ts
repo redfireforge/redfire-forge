@@ -41,4 +41,17 @@ describe('createGrpcWorkflowInterpolationResolver', () => {
     expect(resolved).not.toContain('{{$uuid}}');
     expect(resolved.length).toBeGreaterThan(10);
   });
+
+  it('falls back to VariableContext when template uses key not in flatEnv', () => {
+    const ctx = new VariableContext();
+    ctx.set('ctxKey', 'ctx-value');
+    const resolve = createGrpcWorkflowInterpolationResolver(ctx, { flatKey: 'flat-value' });
+    expect(resolve('{{ctxKey}}')).toBe('ctx-value');
+  });
+
+  it('returns template unchanged when no tokens present', () => {
+    const ctx = new VariableContext();
+    const resolve = createGrpcWorkflowInterpolationResolver(ctx, { grpcHost: 'localhost:50051' });
+    expect(resolve('literal-no-tokens')).toBe('literal-no-tokens');
+  });
 });

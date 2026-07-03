@@ -9,7 +9,9 @@ const GRPC_FIRST_CALL_CHECKPOINTS: readonly GrpcLessonStepCheckpoint[] = [
   { stepId: 'grpc1-select-method', setsFlags: { methodSelected: true }, verifySelector: 'grpc-proto-form' },
   { stepId: 'grpc1-fill-message', setsFlags: { messageFilled: true } },
   { stepId: 'grpc1-send', setsFlags: { executed: true }, verifySelector: 'grpc-response-body' },
-  { stepId: 'grpc1-history', setsFlags: { executed: true }, verifySelector: 'grpc-history-replay-btn' },
+  { stepId: 'grpc1-history-tab', setsFlags: { executed: true }, verifySelector: 'grpc-history-panel' },
+  { stepId: 'grpc1-history', setsFlags: { executed: true }, verifySelector: 'grpc-send-btn' },
+  { stepId: 'grpc1-replay', setsFlags: { executed: true }, verifySelector: 'grpc-response-body' },
 ] as const;
 
 const GRPC_SCHEMA_DISCOVERY_CHECKPOINTS: readonly GrpcLessonStepCheckpoint[] = [
@@ -22,16 +24,16 @@ const GRPC_SCHEMA_DISCOVERY_CHECKPOINTS: readonly GrpcLessonStepCheckpoint[] = [
 ] as const;
 
 const GRPC_STREAMING_CHECKPOINTS: readonly GrpcLessonStepCheckpoint[] = [
-  { stepId: 'grpc3-server-select', setsFlags: { methodSelected: true }, verifySelector: 'grpc-call-type-selector' },
-  { stepId: 'grpc3-server-fill', setsFlags: { methodSelected: true }, verifySelector: 'grpc-stream-log-list' },
-  { stepId: 'grpc3-server-status', setsFlags: { reflected: true }, verifySelector: 'grpc-stream-status-bar' },
-  { stepId: 'grpc3-client-select', setsFlags: { methodSelected: true }, verifySelector: 'grpc-stream-add-queue-btn' },
-  { stepId: 'grpc3-client-queue', setsFlags: { messageFilled: true }, verifySelector: 'grpc-stream-pending-panel' },
-  { stepId: 'grpc3-client-send', setsFlags: { executed: true }, verifySelector: 'grpc-stream-log-list' },
-  { stepId: 'grpc3-bidi-select', setsFlags: { methodSelected: true }, verifySelector: 'grpc-stream-start-btn' },
-  { stepId: 'grpc3-bidi-exchange', setsFlags: { executed: true }, verifySelector: 'grpc-stream-log-list' },
-  { stepId: 'grpc3-cancel', setsFlags: { executed: true }, verifySelector: 'grpc-stream-status-bar' },
-  { stepId: 'grpc3-export', setsFlags: { executed: true }, verifySelector: 'grpc-stream-export-log-btn' },
+  { stepId: 'grpc17-server-select', setsFlags: { methodSelected: true }, verifySelector: 'grpc-call-type-selector' },
+  { stepId: 'grpc17-server-fill', setsFlags: { methodSelected: true }, verifySelector: 'grpc-stream-message-log' },
+  { stepId: 'grpc17-server-status', setsFlags: { reflected: true }, verifySelector: 'grpc-stream-status-bar' },
+  { stepId: 'grpc17-client-select', setsFlags: { methodSelected: true }, verifySelector: 'grpc-stream-add-queue-btn' },
+  { stepId: 'grpc17-client-queue', setsFlags: { messageFilled: true }, verifySelector: 'grpc-stream-pending-panel' },
+  { stepId: 'grpc17-client-send', setsFlags: { executed: true }, verifySelector: 'grpc-stream-status-bar' },
+  { stepId: 'grpc17-bidi-select', setsFlags: { methodSelected: true }, verifySelector: 'grpc-stream-start-btn' },
+  { stepId: 'grpc17-bidi-exchange', setsFlags: { executed: true }, verifySelector: 'grpc-stream-message-log' },
+  { stepId: 'grpc17-cancel', setsFlags: { executed: true }, verifySelector: 'grpc-stream-status-bar' },
+  { stepId: 'grpc17-export', setsFlags: { executed: true }, verifySelector: 'grpc-stream-export-log-btn' },
 ] as const;
 
 const CHECKPOINTS_BY_LESSON: Readonly<Record<string, readonly GrpcLessonStepCheckpoint[]>> = {

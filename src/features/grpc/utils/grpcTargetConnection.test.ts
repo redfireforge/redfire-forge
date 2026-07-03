@@ -17,6 +17,7 @@ describe('grpcTargetConnection', () => {
     expect(resolveGrpcTargetProbeTimeoutMs(undefined)).toBe(5_000);
     expect(resolveGrpcTargetProbeTimeoutMs(0)).toBe(5_000);
     expect(resolveGrpcTargetProbeTimeoutMs(-1)).toBe(5_000);
+    expect(resolveGrpcTargetProbeTimeoutMs(Number.NaN)).toBe(5_000);
   });
 
   it('returns idle reset session', () => {
@@ -79,6 +80,15 @@ describe('grpcTargetConnection', () => {
 
     expect(session.state).toBe('error');
     expect(session.errorMessage).toBe('Target is unreachable.');
+  });
+
+  it('preserves an explicit empty-string invalid target reason', async () => {
+    const session = await probeGrpcTargetConnection({
+      target: '',
+      tlsMode: 'disabled',
+      targetValidation: { valid: false, reason: '' },
+    } as never);
+    expect(session.errorMessage).toBe('');
   });
 
   it('returns error when status probe throws', async () => {

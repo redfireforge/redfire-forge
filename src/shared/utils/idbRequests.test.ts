@@ -175,6 +175,11 @@ describe('idbRequests', () => {
       expect(await idbMigrateRequests('rf-requests')).toBe(false);
     });
 
+    it('returns true when localStorage contains an empty object payload', async () => {
+      localStorage.setItem('rf-requests', JSON.stringify({}));
+      expect(await idbMigrateRequests('rf-requests')).toBe(true);
+    });
+
     it('returns false when indexedDB is undefined', async () => {
       localStorage.setItem('rf-requests', JSON.stringify(createMockRequestsData()));
       const orig = globalThis.indexedDB;

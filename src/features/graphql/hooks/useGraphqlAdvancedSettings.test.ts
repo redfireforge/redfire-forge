@@ -332,7 +332,7 @@ describe('useGraphqlAdvancedSettings', () => {
         ({ connId, apqInfo }) => useGraphqlAdvancedSettings(connId, apqInfo),
         { initialProps: { connId: 'conn4' as string | null, apqInfo: null as { unsupported?: boolean } | null } },
       );
-      await flushPromises();
+      await act(async () => { await flushPromises(); });
       act(() => { result.current.handleAdvSettingsChange({ apqEnabled: true }); });
       rerender({ connId: 'conn4', apqInfo: { unsupported: true } });
       await act(async () => { await flushPromises(); });

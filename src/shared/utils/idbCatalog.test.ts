@@ -227,6 +227,11 @@ describe('idbCatalog', () => {
         expect(await idbLoadCatalogRawSpec(entryId, versionId)).toBeNull();
       });
 
+      it('returns null when stored raw spec payload is falsy', async () => {
+        mockStore.set(specKey, '');
+        expect(await idbLoadCatalogRawSpec(entryId, versionId)).toBeNull();
+      });
+
       it('returns null on IDB error', async () => {
         mockGetShouldError = true;
 
@@ -348,6 +353,11 @@ describe('idbCatalog', () => {
         expect(await idbMigrateCatalogRawSpecs(prefix)).toBe(0);
       });
 
+      it('skips matching keys whose localStorage payload is empty', async () => {
+        localStorage.setItem(`${prefix}entry-1-v1`, '');
+        expect(await idbMigrateCatalogRawSpecs(prefix)).toBe(0);
+      });
+
       it('returns 0 when indexedDB is undefined', async () => {
         localStorage.setItem(`${prefix}entry-1-v1`, rawSpec);
         const orig = globalThis.indexedDB;
@@ -381,6 +391,11 @@ describe('idbCatalog', () => {
       });
 
       it('returns null when not found', async () => {
+        expect(await idbLoadCatalogEndpointValues(entryId)).toBeNull();
+      });
+
+      it('returns null when stored endpoint payload is falsy', async () => {
+        mockStore.set(epKey, '');
         expect(await idbLoadCatalogEndpointValues(entryId)).toBeNull();
       });
 
@@ -459,6 +474,11 @@ describe('idbCatalog', () => {
       });
 
       it('returns 0 when no matching keys exist', async () => {
+        expect(await idbMigrateCatalogEndpointValues(prefix)).toBe(0);
+      });
+
+      it('skips matching endpoint keys whose payload is empty', async () => {
+        localStorage.setItem(`${prefix}${entryId}`, '');
         expect(await idbMigrateCatalogEndpointValues(prefix)).toBe(0);
       });
 

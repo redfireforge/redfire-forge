@@ -320,25 +320,12 @@ export function validateGrpcDescribeRequest(
   }
 
   if (request.source === 'proto_files') {
-    const hasProtoFiles = Boolean(request.protoFiles?.length);
     const hasProtoRoots = Boolean(request.protoRoots?.length);
-    if (!hasProtoFiles && !hasProtoRoots) {
+    if (!hasProtoRoots) {
       issues.push({
-        field: 'protoFiles',
+        field: 'protoRoots',
         code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR,
-        message: 'protoFiles or protoRoots is required when source is proto_files',
-      });
-    }
-
-    if (hasProtoFiles && request.protoFiles) {
-      request.protoFiles.forEach((file, index) => {
-        if (!file.path?.trim() || !file.content?.trim()) {
-          issues.push({
-            field: `protoFiles[${index}]`,
-            code: GRPC_ERROR_CODES.INVALID_DESCRIPTOR,
-            message: 'each proto file requires non-empty path and content',
-          });
-        }
+        message: 'protoRoots is required when source is proto_files',
       });
     }
 

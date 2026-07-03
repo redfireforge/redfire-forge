@@ -181,6 +181,22 @@ describe('GrpcMockServerPanel (Phase 11G)', () => {
 });
 
 describe('GrpcSchemaDiffPanel (Phase 11G)', () => {
+  function makeSingleChangeReport() {
+    return {
+      leftDescriptorKey: 'base',
+      rightDescriptorKey: 'cand',
+      generatedAt: '2026-06-30T00:00:00.000Z',
+      summary: { breaking: 1, nonBreaking: 0, informational: 0 },
+      changes: [{
+        severity: 'breaking' as const,
+        entityType: 'method' as const,
+        entityPath: 'echo.EchoService/Echo',
+        changeType: 'removed' as const,
+        description: 'RPC removed',
+      }],
+    };
+  }
+
   it('captures baseline and compares', async () => {
     const captureSchemaBaseline = vi.fn();
     const runSchemaDiff = vi.fn();
@@ -195,23 +211,208 @@ describe('GrpcSchemaDiffPanel (Phase 11G)', () => {
     render(<GrpcSchemaDiffPanel advanced={makeAdvancedStub({
       schemaDiff: {
         severityFilter: 'all',
-        lastReport: {
-          leftDescriptorKey: 'base',
-          rightDescriptorKey: 'cand',
-          generatedAt: '2026-06-30T00:00:00.000Z',
-          summary: { breaking: 1, nonBreaking: 0, informational: 0 },
-          changes: [{
-            severity: 'breaking',
-            entityType: 'method',
-            entityPath: 'echo.EchoService/Echo',
-            changeType: 'removed',
-            description: 'RPC removed',
-          }],
-        },
+        lastReport: makeSingleChangeReport(),
       },
     })} />);
     expect(screen.getByTestId('grpc-schema-diff-results')).toBeTruthy();
     expect(screen.getByTestId('grpc-schema-diff-change-list')).toBeTruthy();
+  });
+
+  it('exposes accessibility metadata for schema diff list', () => {
+    render(<GrpcSchemaDiffPanel advanced={makeAdvancedStub({
+      schemaDiff: {
+        severityFilter: 'all',
+        lastReport: makeSingleChangeReport(),
+      },
+    })} />);
+
+    const list = screen.getByTestId('grpc-schema-diff-change-list');
+    expect(list.getAttribute('role')).toBe('list');
+    expect(screen.getByTestId('grpc-schema-diff-a11y-summary')).toBeTruthy();
+    const row = screen.getByTestId('grpc-schema-diff-change-row');
+    expect(row.getAttribute('role')).toBe('listitem');
+  });
+
+  it('shows status error detail and export error hint', () => {
+    render(<GrpcSchemaDiffPanel advanced={makeAdvancedStub({
+      runtime: {
+        loadTest: { status: 'idle' },
+        mockServer: { status: 'idle' },
+        schemaDiff: {
+          status: 'failed',
+          error: { code: 'GRPC_INVALID_DESCRIPTOR', message: 'Descriptor invalid' },
+        },
+      },
+      advancedExportError: 'Unable to export diff report',
+      schemaDiff: {
+        severityFilter: 'all',
+        lastReport: makeSingleChangeReport(),
+      },
+    })} />);
+
+    expect(screen.getByTestId('grpc-schema-diff-status').textContent).toContain('Descriptor invalid');
+    expect(screen.getByTestId('grpc-schema-diff-export-error').textContent).toContain('Unable to export diff report');
+  });
+
+  it('shows clear-baseline action when baseline exists and clears it', async () => {
+    const clearSchemaBaseline = vi.fn();
+    render(<GrpcSchemaDiffPanel advanced={makeAdvancedStub({
+      clearSchemaBaseline,
+      schemaDiff: {
+        baselineDescriptor: { key: 'base-key', source: 'proto_files' },
+        baselineCapturedAt: '2026-06-30T00:00:00.000Z',
+        severityFilter: 'all',
+        lastReport: makeSingleChangeReport(),
+      },
+    })} />);
+
+    await userEvent.click(screen.getByTestId('grpc-schema-diff-clear-baseline'));
+    expect(clearSchemaBaseline).toHaveBeenCalledTimes(1);
+  });
+
+  it('updates schema-diff filters from controls', async () => {
+    const setSchemaDiffSeverityFilter = vi.fn();
+    const setSchemaDiffHideAcknowledged = vi.fn();
+    render(<GrpcSchemaDiffPanel advanced={makeAdvancedStub({
+      setSchemaDiffSeverityFilter,
+      setSchemaDiffHideAcknowledged,
+      schemaDiff: {
+        severityFilter: 'all',
+        hideAcknowledged: false,
+        lastReport: makeSingleChangeReport(),
+      },
+    })} />);
+
+    await userEvent.selectOptions(screen.getByTestId('grpc-schema-diff-severity-filter'), 'breaking');
+    expect(setSchemaDiffSeverityFilter).toHaveBeenCalledWith('breaking');
+
+    await userEvent.click(screen.getByTestId('grpc-schema-diff-hide-acknowledged'));
+    expect(setSchemaDiffHideAcknowledged).toHaveBeenCalledWith(true);
+  });
+
+  it('acknowledges and unacknowledges schema-diff changes', async () => {
+    const acknowledgeSchemaDiffChange = vi.fn().mockResolvedValue(undefined);
+    const unacknowledgeSchemaDiffChange = vi.fn().mockResolvedValue(undefined);
+    const report = makeSingleChangeReport();
+
+    const { rerender } = render(<GrpcSchemaDiffPanel advanced={makeAdvancedStub({
+      acknowledgeSchemaDiffChange,
+      unacknowledgeSchemaDiffChange,
+      isSchemaDiffChangeAcknowledged: vi.fn().mockReturnValue(false),
+      schemaDiff: {
+        severityFilter: 'all',
+        lastReport: report,
+      },
+    })} />);
+
+    await userEvent.click(screen.getByTestId('grpc-schema-diff-ack-btn'));
+    expect(acknowledgeSchemaDiffChange).toHaveBeenCalledWith(report.changes[0]);
+
+    rerender(<GrpcSchemaDiffPanel advanced={makeAdvancedStub({
+      acknowledgeSchemaDiffChange,
+      unacknowledgeSchemaDiffChange,
+      isSchemaDiffChangeAcknowledged: vi.fn().mockReturnValue(true),
+      schemaDiff: {
+        severityFilter: 'all',
+        lastReport: report,
+      },
+    })} />);
+
+    expect(screen.getByTestId('grpc-schema-diff-ack-btn').textContent).toContain('Unacknowledge');
+    await userEvent.click(screen.getByTestId('grpc-schema-diff-ack-btn'));
+    expect(unacknowledgeSchemaDiffChange).toHaveBeenCalledWith(report.changes[0]);
+  });
+
+  it('hides acknowledged changes and shows empty-state message', () => {
+    const report = makeSingleChangeReport();
+    render(<GrpcSchemaDiffPanel advanced={makeAdvancedStub({
+      schemaDiffAckChangeIds: new Set(['method::echo.EchoService/Echo::removed']),
+      schemaDiff: {
+        severityFilter: 'all',
+        hideAcknowledged: true,
+        lastReport: report,
+      },
+    })} />);
+
+    expect(screen.queryByTestId('grpc-schema-diff-change-row')).toBeNull();
+    expect(screen.getByText('No changes match the selected filter.')).toBeTruthy();
+  });
+
+  it('virtualizes very large schema diff lists', () => {
+    const manyChanges = Array.from({ length: 220 }, (_, index) => ({
+      severity: 'informational' as const,
+      entityType: 'field' as const,
+      entityPath: `echo.EchoService/field_${index}`,
+      changeType: 'modified' as const,
+      description: `Field ${index} changed`,
+    }));
+
+    render(<GrpcSchemaDiffPanel advanced={makeAdvancedStub({
+      schemaDiff: {
+        severityFilter: 'all',
+        lastReport: {
+          leftDescriptorKey: 'base',
+          rightDescriptorKey: 'cand',
+          generatedAt: '2026-06-30T00:00:00.000Z',
+          summary: { breaking: 0, nonBreaking: 0, informational: manyChanges.length },
+          changes: manyChanges,
+        },
+      },
+    })} />);
+
+    const list = screen.getByTestId('grpc-schema-diff-change-list');
+    expect(list.className).toContain('grpc-advanced-diff-list--virtual');
+    const renderedRows = screen.getAllByTestId('grpc-schema-diff-change-row');
+    expect(renderedRows.length).toBeLessThan(manyChanges.length);
+    expect(renderedRows.length).toBeGreaterThan(0);
+  });
+
+  it('keeps rows visible when virtualized list shrinks', async () => {
+    const manyChanges = Array.from({ length: 220 }, (_, index) => ({
+      severity: 'informational' as const,
+      entityType: 'field' as const,
+      entityPath: `echo.EchoService/field_${index}`,
+      changeType: 'modified' as const,
+      description: `Field ${index} changed`,
+    }));
+    const fewChanges = Array.from({ length: 8 }, (_, index) => ({
+      severity: 'informational' as const,
+      entityType: 'field' as const,
+      entityPath: `echo.EchoService/next_${index}`,
+      changeType: 'modified' as const,
+      description: `Next field ${index}`,
+    }));
+
+    const initial = makeAdvancedStub({
+      schemaDiff: {
+        severityFilter: 'all',
+        lastReport: {
+          leftDescriptorKey: 'base',
+          rightDescriptorKey: 'cand',
+          generatedAt: '2026-06-30T00:00:00.000Z',
+          summary: { breaking: 0, nonBreaking: 0, informational: manyChanges.length },
+          changes: manyChanges,
+        },
+      },
+    });
+    const { rerender } = render(<GrpcSchemaDiffPanel advanced={initial} />);
+
+    const shrunk = makeAdvancedStub({
+      schemaDiff: {
+        severityFilter: 'all',
+        lastReport: {
+          leftDescriptorKey: 'base',
+          rightDescriptorKey: 'cand',
+          generatedAt: '2026-06-30T00:00:01.000Z',
+          summary: { breaking: 0, nonBreaking: 0, informational: fewChanges.length },
+          changes: fewChanges,
+        },
+      },
+    });
+    rerender(<GrpcSchemaDiffPanel advanced={shrunk} />);
+
+    const renderedRows = screen.getAllByTestId('grpc-schema-diff-change-row');
+    expect(renderedRows.length).toBeGreaterThan(0);
   });
 });
 

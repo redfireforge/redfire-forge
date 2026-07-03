@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import { WebSocketMessageDetail } from './WebSocketMessageDetail';
 import { buildHexDump, tokenizeJson, isValidJson, prettyJson } from './wsMessageUtils';
 import type { WsFrame } from '../../shared/websocket/types';
@@ -411,11 +411,13 @@ describe('WebSocketMessageDetail — additional coverage', () => {
   it('resize handle triggers resize on mousedown + mousemove', () => {
     render(<WebSocketMessageDetail {...defaultProps()} />);
     const handle = screen.getByTestId('detail-resize');
-    fireEvent.mouseDown(handle, { clientY: 500 });
-    const moveEvent = new MouseEvent('mousemove', { clientY: 400 });
-    document.dispatchEvent(moveEvent);
-    const upEvent = new MouseEvent('mouseup');
-    document.dispatchEvent(upEvent);
+    act(() => {
+      fireEvent.mouseDown(handle, { clientY: 500 });
+      const moveEvent = new MouseEvent('mousemove', { clientY: 400 });
+      document.dispatchEvent(moveEvent);
+      const upEvent = new MouseEvent('mouseup');
+      document.dispatchEvent(upEvent);
+    });
     expect(screen.getByTestId('detail-panel')).toBeTruthy();
   });
 });

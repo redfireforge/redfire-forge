@@ -8,6 +8,15 @@ export interface GrpcProtoFileDraft {
   sizeBytes: number;
 }
 
+export interface GrpcProtoRootDraft {
+  id: string;
+  mountPath: string;
+  files: Array<{ path: string; content: string; sizeBytes?: number }>;
+}
+
+export const DEFAULT_PROTO_ROOT_ID = 'root-default';
+export const DEFAULT_PROTO_ROOT_MOUNT = 'root';
+
 export function normalizeUploadedProtoPath(file: File): string {
   const relative = (file as File & { webkitRelativePath?: string }).webkitRelativePath?.trim();
   const raw = relative || file.name;
@@ -153,4 +162,13 @@ export function detectProtoRootCollisions(
   }
 
   return diagnostics;
+}
+
+export function ensureProtoRootsDraft(
+  protoRoots: GrpcProtoRootDraft[] | undefined,
+): GrpcProtoRootDraft[] {
+  if (protoRoots?.length) {
+    return protoRoots;
+  }
+  return [{ id: DEFAULT_PROTO_ROOT_ID, mountPath: DEFAULT_PROTO_ROOT_MOUNT, files: [] }];
 }

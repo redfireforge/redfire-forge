@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 import {
   idbLoadTestRuns,
@@ -16,6 +16,7 @@ import {
   idbPruneToMax,
   idbMigrateFromLocalStorage,
 } from './idbTestRuns';
+import * as idbOpenModule from './idbOpen';
 import type { TestRun } from '../types';
 
 function makeRun(id: string, timestamp: number): TestRun {
@@ -110,6 +111,14 @@ describe('idbTestRuns', () => {
       const lite = await idbLoadTestRunsLite();
       expect(lite.map(r => r.id)).toEqual(['with', 'sans']);
     });
+
+    it('leaves runs with an empty compressedTrace unchanged', async () => {
+      await idbSaveTestRun({ ...makeRun('empty-trace', 1000), compressedTrace: '' } as TestRun);
+      const lite = await idbLoadTestRunsLite();
+      expect(lite[0].id).toBe('empty-trace');
+      expect(lite[0].compressedTrace).toBe('');
+      expect(lite[0].hasTrace).toBeUndefined();
+    });
   });
 
   describe('idbLoadTrace', () => {
@@ -164,6 +173,23 @@ describe('idbTestRuns', () => {
       await idbSaveTestRunsBulk([]);
       const loaded = await idbLoadTestRuns();
       expect(loaded).toHaveLength(0);
+    });
+
+    it('rejects when the bulk transaction errors', async () => {
+      const transaction = {
+        objectStore: () => ({ clear: vi.fn(), put: vi.fn() }),
+        error: new Error('txn fail'),
+        oncomplete: null as null | (() => void),
+        onerror: null as null | (() => void),
+      };
+      vi.spyOn(idbOpenModule, 'openDB').mockResolvedValueOnce({
+        transaction: () => transaction,
+      } as unknown as IDBDatabase);
+
+      const pending = idbSaveTestRunsBulk([makeRun('r1', 1000)]);
+      await Promise.resolve();
+      transaction.onerror?.();
+      await expect(pending).rejects.toThrow('txn fail');
     });
   });
 
@@ -295,6 +321,14 @@ describe('idbTestRuns', () => {
 
     it('returns false when parsed value is not an array', async () => {
       localStorage.setItem(LS_KEY, JSON.stringify({ not: 'array' }));
+      const migrated = await idbMigrateFromLocalStorage(LS_KEY);
+      expect(migrated).toBe(false);
+      expect(localStorage.getItem(LS_KEY)).not.toBeNull();
+    });
+
+    it('returns false when bulk save throws during migration', async () => {
+      localStorage.setItem(LS_KEY, JSON.stringify([makeRun('r1', 1000)]));
+      vi.spyOn(idbOpenModule, 'openDB').mockRejectedValueOnce(new Error('open fail'));
       const migrated = await idbMigrateFromLocalStorage(LS_KEY);
       expect(migrated).toBe(false);
       expect(localStorage.getItem(LS_KEY)).not.toBeNull();

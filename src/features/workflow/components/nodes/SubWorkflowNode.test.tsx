@@ -98,6 +98,14 @@ describe('SubWorkflowNode', () => {
     expect(container.querySelector('.wf-subworkflow-warning')).toBeNull();
   });
 
+  it('shows dynamic workflow expression when workflowId contains template syntax', () => {
+    const { container } = render(<SubWorkflowNode {...makeProps({ workflowId: '{{childWorkflowId}}' })} />);
+    const dynamic = container.querySelector('.wf-subworkflow-dynamic');
+    expect(dynamic).toBeTruthy();
+    expect(dynamic?.textContent).toContain('{{childWorkflowId}}');
+    expect(container.querySelector('.wf-subworkflow-open-btn')).toBeNull();
+  });
+
   it('falls back to workflowId when workflowName is missing', () => {
     const { container } = render(<SubWorkflowNode {...makeProps({
       workflowId: 'child-uuid-123',
@@ -181,6 +189,13 @@ describe('SubWorkflowNode', () => {
     const { container } = render(<SubWorkflowNode {...makeProps({ workflowId: 'child-uuid' })} />);
     const preview = container.querySelector('.wf-subworkflow-preview');
     expect(preview?.textContent).toContain('7 edges');
+    expect(container.querySelector('.wf-subworkflow-preview-status')).toBeNull();
+  });
+
+  it('suppresses preview badge when lastRunStatus is idle', () => {
+    mockGetWorkflowPreview.mockReturnValue({ nodeCount: 2, edgeCount: 2, lastRunStatus: 'idle' });
+    const { container } = render(<SubWorkflowNode {...makeProps({ workflowId: 'child-uuid' })} />);
+    expect(container.querySelector('.wf-subworkflow-preview')).toBeTruthy();
     expect(container.querySelector('.wf-subworkflow-preview-status')).toBeNull();
   });
 

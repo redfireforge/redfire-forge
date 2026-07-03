@@ -35,50 +35,52 @@ const grpcMocks = vi.hoisted(() => {
   };
 });
 
-vi.mock('@grpc/grpc-js', () => ({
-  credentials: {
-    createInsecure: vi.fn(() => ({})),
+vi.mock('./grpcJsLoader.js', () => ({
+  grpc: {
+    credentials: {
+      createInsecure: vi.fn(() => ({})),
+    },
+    status: { OK: 0, UNKNOWN: 2 },
+    Metadata: vi.fn(function Metadata(this: { map: Record<string, string> }) {
+      this.map = {};
+      this.set = (key: string, value: string) => {
+        this.map[key] = value;
+      };
+      this.getMap = () => this.map;
+    }),
+    Client: vi.fn(function MockGrpcClient(this: unknown) {
+      Object.assign(this as object, {
+        makeUnaryRequest: vi.fn((
+          _path: string,
+          ser: (value: Buffer) => Buffer,
+          des: (value: Buffer) => Buffer,
+          buf: Buffer,
+          _meta: unknown,
+          _opts: unknown,
+          callback: (error: Error | null, response?: Buffer) => void,
+        ) => {
+          ser(buf);
+          grpcMocks.pendingUnaryCallbacks.push(callback);
+          const call = new EventEmitter() as EventEmitter & { cancel: ReturnType<typeof vi.fn> };
+          call.cancel = vi.fn();
+          grpcMocks.pendingUnaryCalls.push(call);
+          if (grpcMocks.autoUnaryResponse) {
+            const response = grpcMocks.autoUnaryResponse;
+            grpcMocks.autoUnaryResponse = null;
+            queueMicrotask(() => {
+              if (response.error) {
+                callback(response.error);
+                return;
+              }
+              callback(null, des(response.buffer));
+            });
+          }
+          return call;
+        }),
+        close: grpcMocks.mockClose,
+      });
+    }),
   },
-  status: { OK: 0, UNKNOWN: 2 },
-  Metadata: vi.fn(function Metadata(this: { map: Record<string, string> }) {
-    this.map = {};
-    this.set = (key: string, value: string) => {
-      this.map[key] = value;
-    };
-    this.getMap = () => this.map;
-  }),
-  Client: vi.fn(function MockGrpcClient(this: unknown) {
-    Object.assign(this as object, {
-      makeUnaryRequest: vi.fn((
-        _path: string,
-        ser: (value: Buffer) => Buffer,
-        des: (value: Buffer) => Buffer,
-        buf: Buffer,
-        _meta: unknown,
-        _opts: unknown,
-        callback: (error: Error | null, response?: Buffer) => void,
-      ) => {
-        ser(buf);
-        grpcMocks.pendingUnaryCallbacks.push(callback);
-        const call = new EventEmitter() as EventEmitter & { cancel: ReturnType<typeof vi.fn> };
-        call.cancel = vi.fn();
-        grpcMocks.pendingUnaryCalls.push(call);
-        if (grpcMocks.autoUnaryResponse) {
-          const response = grpcMocks.autoUnaryResponse;
-          grpcMocks.autoUnaryResponse = null;
-          queueMicrotask(() => {
-            if (response.error) {
-              callback(response.error);
-              return;
-            }
-            callback(null, des(response.buffer));
-          });
-        }
-        return call;
-      }),
-      close: grpcMocks.mockClose,
-    });
-  }),
 }));
 
 import { GrpcJsClient } from './grpcClient.js';

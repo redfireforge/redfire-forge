@@ -8,6 +8,8 @@ import {
   executeGrpcHealthProbe,
   findGrpcHealthService,
   formatGrpcHealthStatusLabel,
+  GRPC_HEALTH_CHECK_METHOD,
+  GRPC_HEALTH_WATCH_METHOD,
 } from './grpcHealthProbe';
 
 vi.mock('../../../shared/grpc/grpcApiClient', () => ({
@@ -32,6 +34,21 @@ const baseResolution = {
 };
 
 describe('grpcHealthProbe coverage gaps', () => {
+  it('descriptorHasHealthService is false without Check method and true with it', () => {
+    const withoutCheck = {
+      ...FIXTURE_MULTI_SERVICE_DESCRIPTOR,
+      services: FIXTURE_MULTI_SERVICE_DESCRIPTOR.services.map((svc) => (
+        svc.fullName === 'health.v1.Health'
+          ? { ...svc, methods: svc.methods.filter((m) => m.name !== GRPC_HEALTH_CHECK_METHOD) }
+          : svc
+      )),
+    };
+    expect(descriptorHasHealthService(withoutCheck)).toBe(false);
+    expect(descriptorHasHealthService(FIXTURE_MULTI_SERVICE_DESCRIPTOR)).toBe(true);
+    expect(descriptorHasHealthWatch(FIXTURE_MULTI_SERVICE_DESCRIPTOR)).toBe(true);
+    expect(GRPC_HEALTH_WATCH_METHOD).toBe('Watch');
+  });
+
   beforeEach(() => {
     vi.mocked(postGrpcCall).mockReset();
   });
@@ -120,6 +137,24 @@ describe('grpcHealthProbe coverage gaps', () => {
     }
   });
 
+  it('executeGrpcHealthProbe rejects invalid metadata entries', async () => {
+    const result = await executeGrpcHealthProbe({
+      tabId: 'tab-1',
+      descriptorKey: 'key',
+      resolution: baseResolution,
+      tlsConfig: undefined,
+      metadata: { ' bad key ': 'value' },
+      auth: undefined,
+      compression: undefined,
+      timeoutMs: 5000,
+      serviceName: '',
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.error).toMatch(/metadata/i);
+    }
+  });
+
   it('executeGrpcHealthProbe maps GrpcApiClientError and generic failures', async () => {
     vi.mocked(postGrpcCall).mockRejectedValueOnce(new (await import('../../../shared/grpc/grpcApiClient')).GrpcApiClientError('call', 'probe failed'));
     const apiError = await executeGrpcHealthProbe({
@@ -183,6 +218,24 @@ describe('grpcHealthProbe coverage gaps', () => {
       expect.objectContaining({ auth: { type: 'bearer', bearerToken: 'health-token' } }),
       'tab-1',
     );
+  });
+
+  it('executeGrpcHealthProbe uses generic invalid target fallback when reason is absent', async () => {
+    const result = await executeGrpcHealthProbe({
+      tabId: 'tab-1',
+      descriptorKey: 'key',
+      resolution: {
+        ...baseResolution,
+        targetValidation: { valid: false },
+      },
+      tlsConfig: undefined,
+      metadata: {},
+      auth: undefined,
+      compression: undefined,
+      timeoutMs: 5000,
+      serviceName: '',
+    });
+    expect(result).toEqual({ ok: false, error: 'Invalid target address.' });
   });
 
   it('descriptorHasHealthWatch is true when Watch method exists', () => {

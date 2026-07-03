@@ -163,7 +163,7 @@ describe('descriptorSourceFallback coverage gaps', () => {
   it('buildDescribeRequestForSource returns proto_files request with import paths', () => {
     const ingest = {
       ...createDefaultProtoIngestState(),
-      protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 12 }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 12 }] }],
       importPaths: ['vendor/protos'],
     };
     expect(buildDescribeRequestForSource('proto_files', ingest, 'req-pf')).toMatchObject({
@@ -192,7 +192,7 @@ describe('descriptorSourceFallback coverage gaps', () => {
     });
   });
 
-  it('buildDescribeRequestForSource prefers protoRoots over protoFiles when both exist', () => {
+  it('buildDescribeRequestForSource uses protoRoots input directly', () => {
     const ingest = {
       ...createDefaultProtoIngestState(),
       protoRoots: [
@@ -202,8 +202,6 @@ describe('descriptorSourceFallback coverage gaps', () => {
           files: [{ path: 'common.proto', content: 'syntax = "proto3";' }],
         },
       ],
-      // Intentionally invalid to prove protoFiles are ignored when protoRoots are present.
-      protoFiles: [{ path: '', content: '   ', sizeBytes: 1 }],
     };
     expect(buildDescribeRequestForSource('proto_files', ingest, 'req-pf-roots-priority')).toEqual({
       requestId: 'req-pf-roots-priority',
@@ -250,7 +248,7 @@ describe('descriptorSourceFallback coverage gaps', () => {
   it('buildDescribeRequestForSource validates proto file with empty content', () => {
     const ingest = {
       ...createDefaultProtoIngestState(),
-      protoFiles: [{ path: 'echo.proto', content: '   ', sizeBytes: 1 }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: '   ', sizeBytes: 1 }] }],
     };
     expect(buildDescribeRequestForSource('proto_files', ingest, 'req-invalid')).toEqual({
       error: 'Each proto file requires a non-empty path and content',
@@ -260,12 +258,13 @@ describe('descriptorSourceFallback coverage gaps', () => {
   it('buildDescribeRequestForSource returns proto_files without importPaths when unset', () => {
     const ingest = {
       ...createDefaultProtoIngestState(),
-      protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 12 }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 12 }] }],
     };
     expect(buildDescribeRequestForSource('proto_files', ingest, 'req-pf-min')).toEqual({
       requestId: 'req-pf-min',
       source: 'proto_files',
-      protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";' }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 12 }] }],
+      importPaths: undefined,
     });
   });
 
@@ -394,11 +393,11 @@ describe('descriptorSourceFallback coverage gaps', () => {
   it('buildDescriptorSourceAvailability requires non-empty proto path and content', () => {
     expect(buildDescriptorSourceAvailability(resolution, {
       ...createDefaultProtoIngestState(),
-      protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 12 }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 12 }] }],
     }).proto_files).toBe(true);
     expect(buildDescriptorSourceAvailability(resolution, {
       ...createDefaultProtoIngestState(),
-      protoFiles: [{ path: ' ', content: 'syntax = "proto3";', sizeBytes: 12 }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: ' ', content: 'syntax = "proto3";', sizeBytes: 12 }] }],
     }).proto_files).toBe(false);
   });
 });

@@ -33,7 +33,7 @@ export interface DescriptorCacheLookup {
 }
 
 function canonicalProtoFilesHash(
-  protoFiles: NonNullable<GrpcDescribeRequest['protoFiles']>,
+  protoFiles: Array<{ path: string; content: string }>,
   importPaths: string[] = [],
 ): string {
   const canonicalFiles = protoFiles
@@ -51,14 +51,14 @@ function canonicalProtoFilesHash(
 
 /** Canonical proto_files sourceRef — includes importPaths because they affect resolution. */
 export function buildProtoFilesSourceRef(
-  protoFiles: NonNullable<GrpcDescribeRequest['protoFiles']>,
+  protoFiles: Array<{ path: string; content: string }>,
   importPaths: string[] = [],
 ): string {
   return canonicalProtoFilesHash(protoFiles, importPaths);
 }
 
 export function buildProtoFilesSourceRefFromDescribeRequest(
-  request: Pick<GrpcDescribeRequest, 'protoFiles' | 'protoRoots' | 'importPaths'>,
+  request: Pick<GrpcDescribeRequest, 'protoRoots' | 'importPaths'>,
 ): string {
   const normalized = normalizeDescribeProtoFilesInput(request);
   return canonicalProtoFilesHash(normalized.protoFiles, normalized.importPaths);

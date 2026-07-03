@@ -26,7 +26,7 @@ describe('useGrpcStudio target/descriptor cache (Phase 1D/3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
         importPaths: ['shared'],
       });
       result.current.updateTab(tabId, { target: 'localhost:50051' });
@@ -37,7 +37,7 @@ describe('useGrpcStudio target/descriptor cache (Phase 1D/3)', () => {
     });
 
     const ingest = result.current.getTabDescriptor(tabId).protoIngest;
-    expect(ingest?.protoFiles[0]?.path).toBe('echo.proto');
+    expect(ingest?.protoRoots[0]?.files[0]?.path).toBe('echo.proto');
     expect(ingest?.importPaths).toEqual(['shared']);
     expect(result.current.getTabDescriptor(tabId).loadState).toBe('idle');
   });

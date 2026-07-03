@@ -1,8 +1,8 @@
 # gRPC Studio — Living Plan
 
 > **Branch:** `feature/grpc-phase` (merges to `develop`)  
-> **Status:** Phases **1–11O product complete** ✅ · **Proto Ingest v2** A–C ✅ / **D** pending · **Unified Shell UX** (mockups 07–09) not started · **Phase 13** in progress (13A ✅, 13B instrumentation partial, 13G skeleton ✅) · **Phase 12** demo track in progress (**3/14 shipped**)  
-> **Last updated:** 2026-07-03 (status refresh — Phase 13B route telemetry + baseline snapshot integration)  
+> **Status:** Phases **1–11O product complete** ✅ · **Proto Files ingest (root-based)** complete ✅ · **Unified Shell UX** (mockups 07–09) not started · **Phase 13** in progress (13A ✅, 13B baseline+CI ✅, 13C matrix expanded ✅, 13D matrix expanded ✅, 13E gate ✅, 13F gate ✅, 13G CI gating ✅, 13H initial gate ✅) · **Phase 12** demo track in progress (**3/14 shipped**)  
+> **Last updated:** 2026-07-03 (status refresh — 13H operational runbook + rollback drill gate landed)  
 > **Doc policy:** This file is a **short status + forward backlog** only. Shipped sub-phase specs, mockup parity tables, re-evaluation passes, and bug-fix history live in **git history** and **per-phase runbooks** — **do not append audit logs here**.
 
 | Detail lives in | Path |
@@ -80,10 +80,10 @@ A **single index** for gRPC Studio **product engineering** — what shipped, whe
 | **11A–11I** — Advanced core | Load test, mock, schema diff panels | ✅ | [`grpc-phase11-runbook.md`](../../guides/grpc-phase11-runbook.md) · `npm run test:grpc:phase11i` |
 | **11J–11O** — Extensions | Profiles, RPC stats, mock listener, cross-surface, stream load | ✅ | `test:grpc:phase11j` … `test:grpc:phase11o` |
 | **1–11O** — Product sign-off | Studio + advanced closure | ✅ | § [Deferrals](#deferred--not-implemented-product) below |
-| **Proto Ingest v2 D** | Deprecate flat-only ingest path | 🔲 Pending | § [Proto Ingest v2](#universal-proto-files-ingest-v2-per-virtual-root) |
+| **Proto Files ingest** | Root-based ingest cleanup | ✅ | § [Universal Proto Files Ingest (Per Virtual Root)](#universal-proto-files-ingest-per-virtual-root) |
 | **UX-1–UX-7** — Unified shell | Mockups 07–09 → production UI | 🔲 Not started | [`grpc-ux-spec-concrete.md`](grpc-ux-spec-concrete.md) |
 | **12** — Demo Lessons | 14 lessons, 4 tracks (**3/14 shipped**) | 🔨 **12C** in progress | `npm run test:grpc:phase12a` · [`grpc-demo-lessons.md`](grpc-demo-lessons.md) |
-| **13** — GA Hardening | SLOs, a11y, release gates | 🔨 13A done, 13B partial, 13G skeleton | `grpc:phase13a:baseline` / `grpc:phase13a:gate` |
+| **13** — GA Hardening | SLOs, a11y, release gates | 🔨 13A/13B/13E/13F/13G complete, 13C/13D expanded, 13H initial gate landed | `grpc:phase13a:baseline` / `grpc:phase13b:ci` / `grpc:phase13c:gate` / `grpc:phase13d:gate` / `grpc:phase13e:gate` / `grpc:phase13f:gate` / `grpc:phase13h:gate` |
 
 **MVP** = Phases **1–5 + 9** (+ **4J** for UI parity).
 
@@ -145,21 +145,21 @@ Full contracts, acceptance checklists, and troubleshooting: [`grpc-phase11-runbo
 |---|---|---|
 | Harness auto-hydrate gRPC connection profiles | ✅ Shipped | `src/engine/grpcConnectionProfileHydration.ts`, `executor.ts` → `runtimeOverrides.profiles` |
 | `workspaceDefaults` interpolation layer (Studio / workflow / harness) | ✅ Shipped | `grpcInterpolationPrecedence.ts`, `GrpcStudioPage.tsx`, phase 9 validation report |
-| Proto Ingest v2 phases A–C | ✅ Shipped | `GrpcProtoManageModal.tsx`, `protoDescriptorParser.ts`, `grpcDescribeUsageTelemetry.ts` |
+| Root-based proto ingest rollout | ✅ Shipped | `GrpcProtoManageModal.tsx`, `protoDescriptorParser.ts`, `grpcDescribeUsageTelemetry.ts` |
 | Mock network listener (web companion server) | ✅ Shipped (11M) | `grpcMockNetworkListener.ts`, `grpcMockServerPool.ts`, integration test |
 | Advanced workflow node **engines** (`grpcLoadTest`, `grpcSchemaDiff`, `grpcMockAssert`) | ✅ Shipped (11N) | `graphRunnerGrpcAdvancedNodeHandlers.ts` |
 | Collections “Run load test” handoff | ✅ Shipped (11J) | `GrpcSavedRequestDetail.tsx`, `openSavedRequestForLoadTest` |
 | Collections **Compare schema** / History **Open diff** actions | ✅ Shipped | `GrpcSavedRequestDetail.tsx`, `GrpcHistoryPanel.tsx`, `GrpcStudioPage.tsx` |
+| RPC Statistics **Export JSON/CSV** actions | ✅ Shipped | `GrpcRpcStatisticsPanel.tsx` |
 
 ### Remaining product backlog (excluding demo lessons)
 
 | Item | Verdict | Owner / notes |
 |---|---|---|
-| **Phase 13** — GA hardening (SLOs, drills, a11y, CI gates) | **Not started** | § Phase 13 — blocks GA release |
+| **Phase 13** — GA hardening (SLOs, drills, a11y, CI gates) | **In progress** | 13A/13B/13E/13F/13G complete; 13H initial runbook/gate landed |
 | **Unified Shell UX** (mockups 07–09) | **Not started** | [`grpc-ux-spec-concrete.md`](grpc-ux-spec-concrete.md) UX-1…UX-7 — design-only today; current UI follows mockups 01–06 |
-| Proto Ingest v2 **Phase D** — deprecate flat-only ingest | **Deferred** | Server legacy path kept; remove flat-only UI assumptions after telemetry window |
+| Proto Files ingest cleanup — deprecate flat-only ingest | **Completed** | UI/load paths are root-based ingest |
 | Schema diff list **virtualization** (>500 rows; cap exists today) | **Deferred** | Phase **13E** — `GRPC_SCHEMA_DIFF_UI_LIST_CAP = 500`; exports stay full payload |
-| RPC Statistics **Export JSON** (mockup 06) | **Deferred** | Optional polish; Reset session shipped (`GrpcRpcStatisticsPanel.tsx`) |
 | Workflow Designer **palette + config modals** for all gRPC node types | **Deferred** | Phase **13** — no `*Grpc*NodeConfig*.tsx`; engines + validation exist; workflows use JSON/import |
 | Tauri native `tonic` mock network listener | **Deferred** | Desktop uses web companion server; no `src-tauri/src/grpc/mock_server.rs` |
 | E2E `grpc-studio-mock-listener.spec.ts` | **Deferred** | Optional; `grpc-studio-mock-unary.spec.ts` / `grpc-studio-mock-streams.spec.ts` exist |
@@ -246,15 +246,15 @@ Registry: `packages/demo-hub/src/lessons/protocols/grpc-lessons.ts` · Contract:
 
 **Selector gaps for Phase 12H:** Before authoring lessons, the following `data-testid` values that exist in the DOM must be added to `src/shared/selectors/grpc.ts`: `LOAD_TEST_EXPORT_JSON`, `LOAD_TEST_EXPORT_CSV`, `SCHEMA_DIFF_EXPORT_JSON`, `SCHEMA_DIFF_EXPORT_MARKDOWN`, `TLS_TEST_RESULT`, `RETRY_EXPRESS_BTN`, `STREAM_RETRY_EXPRESS_BTN`, `METADATA_ADD_BTN`, `PROTO_FIELD_REPEATED_ADD`, `PROTO_FIELD_MAP_ADD`. See [`grpc-demo-lessons.md`](grpc-demo-lessons.md) § Selector Reference for the full list.
 
-### Universal Proto Files Ingest v2 (Per Virtual Root)
+### Universal Proto Files Ingest (Per Virtual Root)
 
-> **Status:** ✅ **Phases A–C complete** (2026-07-02) · 🔲 **Phase D** pending.
+> **Status:** ✅ **Phases A–D complete**.
 
-Remaining Phase D:
+Phase D outcome:
 
-1. Remove flat-only UI assumptions where safe.
-2. Keep server-side legacy parsing for one release window.
-3. Publish deprecation note after usage telemetry confirms v2 adoption (`GET /api/grpc/describe/usage`).
+1. UI/load paths are root-first for proto ingest.
+2. Server contract for `source=proto_files` is protoRoots-only.
+3. Source-level usage telemetry remains available via `GET /api/grpc/describe/usage`.
 
 Primary implementation surface:
 
@@ -267,7 +267,7 @@ Primary implementation surface:
 
 ## Phase 13 — Production Hardening & GA Readiness
 
-> **Goal:** SLOs, reliability drills, accessibility, observability, release gates. **Not started.**
+> **Goal:** SLOs, reliability drills, accessibility, observability, release gates. **In progress (13A/13B/13E/13F/13G complete, 13H initial gate landed).**
 
 | Sub-phase | Scope |
 |---|---|
@@ -289,13 +289,13 @@ Primary implementation surface:
 
 ```
 Phase 1 ─┬─► 2 (Streaming) ─► 6 (Workflow) ─► 8 (Harness)
-         ├─► 3 (Proto) ─► 10 (gRPC-Web) ✅ ─► Proto Ingest v2 A–C ✅
+         ├─► 3 (Proto) ─► 10 (gRPC-Web) ✅ ─► Root-based proto ingest ✅
          ├─► 4 (TLS) ─► 4J ─► 5 (Collections) ✅
          ├─► 7 (Tauri) ✅
          ├─► 9 (Env) ✅
          └─► 11A–11I ✅ ─► 11J–11O ✅
          │
-         ├─► Proto Ingest v2 D ◄── pending
+         ├─► Proto Files ingest cleanup ✅
          ├─► Unified Shell UX (07–09) ◄── not started
          └─► Phase 13 (GA) ◄── after product polish + demo track
 Phase 12 (Demo) ◄── IN PROGRESS — excluded from product backlog table
@@ -370,10 +370,10 @@ All resolved or accepted — details in runbooks.
 
 ---
 
-## Proto Ingest v2 — condensed status
+## Proto Files Ingest — condensed status
 
 - **A–C shipped** (contracts, parser normalization, root-aware modal, default switch).
-- **D pending** (legacy flat-only compatibility cleanup after telemetry window).
+- **D completed** (UI/load paths are root-based; server contract is protoRoots-only).
 - Detailed execution evidence intentionally removed from this plan; use runbooks and git history for implementation-level audit trails.
 
 ---
@@ -395,13 +395,21 @@ Progress snapshot (2026-07-03):
 - [x] Runtime Phase 13B gate validation pass captured (`artifacts/grpc-phase13b-gate.validation.json`) after stream probe `tabId` fix
 - [x] Additional review round completed (pass-path + expected fail-path behavior validated; harness log prefix normalized)
 - [x] Phase 13B CI promotion (fixture-backed gate wired in `.github/workflows/ci.yml` via `npm run grpc:phase13b:ci`)
+- [x] Phase 13C failure drill harness (`scripts/grpc-phase13c-drills.mjs`) + CI drill gate skeleton (`grpc-phase13c-drills`) with expanded deterministic matrix
+- [x] Phase 13D recovery drill harness (`scripts/grpc-phase13d-recovery.mjs`) + CI recovery gate skeleton (`grpc-phase13d-recovery`) with expanded recovery matrix
+- [x] Phase 13E initial a11y + virtualization gate (`grpc:phase13e:gate`) with schema-diff panel virtualization and accessibility semantics
+- [x] Phase 13F initial observability taxonomy + redaction audit gate (`grpc:phase13f:gate`) with CI job wiring
+- [x] Phase 13G deep-review fix: phase gate jobs now run on `pull_request` events (not branch-ref-only)
+- [x] Phase 13H initial operational runbook + rollback drill gate (`grpc:phase13h:gate`) with CI job wiring
+- [x] Phase 13I final GA sign-off gate (`grpc:phase13i:gate`) + CI promotion (`grpc-phase13i-ga-signoff`) with consolidated artifact (`artifacts/grpc-phase13i-ga-signoff.json`)
 - [ ] Remaining items below
 
-### Priority 1 — Phase 13 foundation (release blocker)
+### Priority 1 — Phase 13 continuation (release blocker)
 
-1. **13A SLO definitions + measurement harness**
-2. **13B Performance instrumentation + baseline captures**
-3. **13G CI release gate skeleton** (wire thresholds as TODOs if needed)
+1. **13C Failure-mode matrix + drills** (initial deterministic matrix + gate skeleton landed)
+2. **13D Recovery + graceful degradation paths** (expanded recovery drill matrix + CI gate skeleton landed)
+3. **13E Accessibility + schema-diff virtualization** (gate + coverage expansion complete)
+4. **13I Final GA sign-off** (gate + CI automation complete)
 
 Exit criteria:
 
@@ -427,22 +435,18 @@ Exit criteria:
 
 Reference: [`grpc-ux-spec-concrete.md`](grpc-ux-spec-concrete.md)
 
-### Priority 3 — Proto Ingest v2 Phase D cleanup
+### Priority 3 — Proto Files ingest cleanup
 
-1. Remove flat-only assumptions from UI state paths still carrying compatibility mirrors.
-2. Retain server fallback for one release window only.
-3. Add deprecation/migration note tied to usage telemetry evidence.
+Status: ✅ Complete
 
-Exit criteria:
-
-- UI no longer depends on flat-only fallback for normal flows.
-- Telemetry report attached to release checklist before removing server compatibility.
+1. UI/load paths now normalize proto ingest drafts to virtual roots.
+2. Server-side describe validation requires proto roots for proto file ingest.
+3. Ingest/runbook status reflects single-model proto roots behavior.
 
 ### Priority 4 — Quick wins (small, high-leverage)
 
-1. Collections panel buttons: **Compare schema** / history **Open diff** wiring.
-2. RPC Statistics **Export JSON** action.
-3. Workflow designer first-pass gRPC advanced node config modal shells.
+1. Workflow designer first-pass gRPC advanced node config modal shells.
+2. E2E `grpc-studio-mock-listener.spec.ts` for listener lifecycle smoke coverage.
 
 Exit criteria:
 
@@ -450,7 +454,7 @@ Exit criteria:
 
 ### Recommended execution order
 
-`13A → 13B → 13G → UX-1..UX-3 → Proto D → quick wins`
+`13E (expand a11y coverage) → 13F → UX-1..UX-3 → Proto D → quick wins`
 
 ### Required validation for this non-demo wave
 
@@ -469,12 +473,12 @@ Exit criteria:
 - [x] Advanced: load test, mock server, schema diff, RPC stats, network listener, cross-surface nodes, server-streaming load
 - [x] Phase 11I hardening gate — `npm run test:grpc:phase11i`
 
-**Universal Proto Files Ingest v2:**
+**Universal Proto Files Ingest:**
 
-- [x] Phase A: Non-breaking server support (V2 contracts, validation, normalization, cache, loader)
+- [x] Root-based ingest contracts, validation, normalization, cache, and loader support
 - [x] Phase B: Root-aware UI + collision diagnostics
-- [x] Phase C: Default switch (emit protoRoots by default; keep protoFiles compatibility)
-- [ ] Phase D: Flat-only cleanup + deprecation docs (after telemetry window)
+- [x] Default switch to root-based proto ingest
+- [x] Phase D: Flat-only cleanup + deprecation docs
 
 **Unified Shell UX (mockups 07–09):**
 
@@ -485,9 +489,18 @@ Exit criteria:
 - [x] 12A lesson contract + 12B runtime engine
 - [ ] 12C–12I + 11 remaining lesson wrappers
 
-**Phase 13 (pending):**
+**Phase 13 (in progress):**
 
-- [ ] SLO/reliability/a11y/release gates before GA
+- [x] 13A SLO baseline harness
+- [x] 13B performance baselines + fixture-backed CI gate
+- [x] 13G CI promotion for baseline gate
+- [x] 13C initial failure-drill harness and CI gate skeleton
+- [x] 13D recovery-drill harness with expanded matrix and CI gate skeleton
+- [x] 13E initial accessibility/virtualization gate and implementation slice
+- [x] 13F initial observability taxonomy and redaction audit gate
+- [x] 13H initial operational runbook and rollback drill gate
+- [x] 13E coverage expansion before GA
+- [x] 13I final GA sign-off
 
 ---
 

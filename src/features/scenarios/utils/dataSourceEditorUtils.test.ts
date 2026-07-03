@@ -41,6 +41,23 @@ describe('mergeRowDetailSave', () => {
     expect(result.columns).toHaveLength(1);
     expect(result.rows[0].values.c1).toBe('Updated');
   });
+
+  it('treats undefined newColumns like a plain row update', () => {
+    const updatedRow = { id: 'r2', values: { c1: 'Delta' }, enabled: true, label: '' };
+    const result = mergeRowDetailSave(baseDt, updatedRow, undefined);
+    expect(result.columns).toHaveLength(1);
+    expect(result.rows[1].values.c1).toBe('Delta');
+  });
+
+  it('adds blank values for multiple new columns on non-target rows', () => {
+    const updatedRow = { id: 'r1', values: { c1: 'Alice', c2: 'A', c3: 'B' }, enabled: true, label: '' };
+    const newCols = [
+      { id: 'c2', name: 'Status', type: 'validate' as const },
+      { id: 'c3', name: 'Header', type: 'header' as const },
+    ];
+    const result = mergeRowDetailSave(baseDt, updatedRow, newCols);
+    expect(result.rows[1].values).toMatchObject({ c2: '', c3: '' });
+  });
 });
 
 describe('formatErrorBody', () => {

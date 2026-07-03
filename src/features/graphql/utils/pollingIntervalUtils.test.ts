@@ -17,4 +17,9 @@ describe('clampPollingIntervalSeconds', () => {
   it('returns minimum for non-finite values', () => {
     expect(clampPollingIntervalSeconds(Number.NaN)).toBe(10);
   });
+
+  it('treats negative infinity and exact in-range integers correctly', () => {
+    expect(clampPollingIntervalSeconds(Number.NEGATIVE_INFINITY)).toBe(10);
+    expect(clampPollingIntervalSeconds(120)).toBe(120);
+  });
 });
