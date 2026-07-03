@@ -35,6 +35,7 @@ const MIGRATED_REL_PATHS = new Set([
   'protocols/ws-test-runner.ts',
   'protocols/ws-workflow-builder.ts',
   'protocols/grpc-lesson-helpers.ts',
+  'grpc-demo-storage-cleanup.ts',
 ]);
 
 const RAW_WF_BRIDGE_PATTERN = /(?:\(window as unknown[^)]*\)|\bwin)\.__wf[A-Z]/;

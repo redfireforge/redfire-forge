@@ -54,6 +54,19 @@ export async function runGqlDemoStorageHygiene(): Promise<void> {
   }
 }
 
+export async function runGrpcDemoStorageHygiene(): Promise<void> {
+  try {
+    const { purgeGrpcDemoEphemeralStorage } = await import('./lessons/grpc-demo-storage-cleanup');
+    const result = await purgeGrpcDemoEphemeralStorage();
+    console.info(
+      `[DemoHub] gRPC storage hygiene: ${result.historyEntriesRemoved} call history entries removed, `
+      + `${result.sessionKeysRemoved} session keys removed`,
+    );
+  } catch (e) {
+    console.warn('[DemoHub] gRPC storage hygiene failed:', e);
+  }
+}
+
 export async function closeGraphqlDemoWorkspaceQuiet(lessonId: string): Promise<void> {
   const { closeGqlDemoWorkspaceQuiet } = await import(
     './lessons/protocols/graphql-lesson-helpers/gql-demo-tab'

@@ -41,3 +41,9 @@ export const GRPC_EXPRESS_ONLY_COMMAND = 'npm run server';
 
 /** Tabs a unary/grpc studio lesson may visit without triggering auto-exit. */
 export const GRPC_STUDIO_LESSON_ALLOWED_TABS = ['grpc-studio', 'demo-hub'] as const;
+
+export {
+  purgeGrpcDemoCallHistory,
+  GRPC_DEMO_CALL_HISTORY_TARGETS,
+  dispatchGrpcCallHistoryReload,
+} from '@grpc/utils/grpcDemoCallHistoryCleanup';

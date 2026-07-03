@@ -53,6 +53,7 @@ import {
   isElementVisible,
   restoreStateFromProgress,
   runGqlDemoStorageHygiene,
+  runGrpcDemoStorageHygiene,
   runGqlStudioLessonTeardown,
   waitForElement,
 } from './useDemoHubHelpers';
@@ -69,6 +70,245 @@ export interface UseDemoHubOptions {
 
 export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const progress = useDemoProgress();
+  type StudioIsolationKind = 'grpc' | 'websocket';
+  type StudioIsolationSession = {
+    kind: StudioIsolationKind;
+    previousActiveTabTestId: string | null;
+    demoTabTestId: string | null;
+  };
+  const studioIsolationRef = useRef<StudioIsolationSession | null>(null);
+
+  const pause = useCallback((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)), []);
+
+  const waitForStudioTabChrome = useCallback(async (
+    kind: StudioIsolationKind,
+    timeoutMs = 3500,
+  ): Promise<{ tabBar: HTMLElement; addBtn: HTMLButtonElement } | null> => {
+    const tabBarSel = kind === 'grpc' ? '[data-testid="grpc-tab-bar"]' : '[data-testid="conn-tab-bar"]';
+    const addBtnSel = kind === 'grpc' ? '[data-testid="grpc-add-tab"]' : '[data-testid="conn-tab-add"]';
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const tabBar = document.querySelector<HTMLElement>(tabBarSel);
+      const addBtn = document.querySelector<HTMLButtonElement>(addBtnSel);
+      if (tabBar && addBtn && !addBtn.disabled) {
+        return { tabBar, addBtn };
+      }
+      await pause(80);
+    }
+    return null;
+  }, [pause]);
+
+  const setTextInputValue = useCallback((input: HTMLInputElement, value: string) => {
+    const nativeSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    if (nativeSetter) {
+      nativeSetter.call(input, value);
+    } else {
+      input.value = value;
+    }
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  }, []);
+
+  const renameStudioActiveTabToDemo = useCallback(async (kind: StudioIsolationKind): Promise<void> => {
+    const tabBarSel = kind === 'grpc' ? '[data-testid="grpc-tab-bar"]' : '[data-testid="conn-tab-bar"]';
+    const renameInputSel = kind === 'grpc' ? '.grpc-tab-rename-input' : '[data-testid^="conn-tab-rename-"]';
+    const activeTab = document.querySelector<HTMLElement>(`${tabBarSel} [role="tab"][aria-selected="true"]`);
+    if (!activeTab) return;
+
+    const dblClickEvent = new MouseEvent('dblclick', { bubbles: true, cancelable: true, detail: 2 });
+    activeTab.dispatchEvent(dblClickEvent);
+
+    let renameInput: HTMLInputElement | null = null;
+    const start = Date.now();
+    while (Date.now() - start < 1200) {
+      const candidate = document.querySelector<HTMLInputElement>(renameInputSel);
+      if (candidate) {
+        renameInput = candidate;
+        break;
+      }
+      await pause(50);
+    }
+    if (!renameInput) return;
+
+    setTextInputValue(renameInput, 'demo');
+    renameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    renameInput.blur();
+    await pause(80);
+  }, [pause, setTextInputValue]);
+
+  const findDemoTabByLabel = useCallback((kind: StudioIsolationKind): HTMLElement | null => {
+    const tabBarSel = kind === 'grpc' ? '[data-testid="grpc-tab-bar"]' : '[data-testid="conn-tab-bar"]';
+    const labelSel = kind === 'grpc' ? '.grpc-tab-label' : '.ws-conn-tab-label';
+    const tabs = Array.from(document.querySelectorAll<HTMLElement>(`${tabBarSel} [role="tab"]`));
+    return tabs.find((tab) => {
+      const label = tab.querySelector<HTMLElement>(labelSel)?.textContent?.trim().toLowerCase();
+      return label === 'demo';
+    }) ?? null;
+  }, []);
+
+  const findDemoTabsByLabel = useCallback((kind: StudioIsolationKind, tabBar?: HTMLElement): HTMLElement[] => {
+    const tabBarSel = kind === 'grpc' ? '[data-testid="grpc-tab-bar"]' : '[data-testid="conn-tab-bar"]';
+    const labelSel = kind === 'grpc' ? '.grpc-tab-label' : '.ws-conn-tab-label';
+    const root = tabBar ?? document.querySelector<HTMLElement>(tabBarSel);
+    if (!root) return [];
+    const tabs = Array.from(root.querySelectorAll<HTMLElement>('[role="tab"]'));
+    return tabs.filter((tab) => {
+      const label = tab.querySelector<HTMLElement>(labelSel)?.textContent?.trim().toLowerCase();
+      return label === 'demo';
+    });
+  }, []);
+
+  const closeStudioDemoTabsByLabel = useCallback(async (kind: StudioIsolationKind): Promise<void> => {
+    const closeClass = kind === 'grpc' ? '.grpc-tab-action--close' : '.ws-conn-tab-close';
+    // Loop because closing a tab mutates the tab bar DOM.
+    while (true) {
+      const demoTab = findDemoTabByLabel(kind);
+      if (!demoTab) break;
+      const closeBtn = demoTab.querySelector<HTMLButtonElement>(closeClass);
+      if (!closeBtn || closeBtn.disabled) break;
+      closeBtn.click();
+      await pause(120);
+    }
+  }, [findDemoTabByLabel, pause]);
+
+  const resolveStudioIsolationKind = useCallback((lesson: DemoLesson): StudioIsolationKind | null => {
+    if (lesson.category === 'grpc') return 'grpc';
+    if (lesson.category === 'websocket') return 'websocket';
+    return null;
+  }, []);
+
+  const openIsolatedStudioDemoTabSession = useCallback(async (lesson: DemoLesson): Promise<void> => {
+    const kind = resolveStudioIsolationKind(lesson);
+    if (!kind) return;
+
+    const chrome = await waitForStudioTabChrome(kind);
+    if (!chrome) return;
+    const { tabBar, addBtn } = chrome;
+
+    const prevActive = tabBar.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+    const previousActiveTabTestId = prevActive?.getAttribute('data-testid') ?? null;
+
+    // Reuse existing demo tab to avoid rapid Tab1 <-> demo transitions.
+    const existingDemoTabs = findDemoTabsByLabel(kind, tabBar);
+    if (existingDemoTabs.length > 0) {
+      const keepTab = existingDemoTabs.find((tab) => tab.getAttribute('aria-selected') === 'true') ?? existingDemoTabs[0]!;
+      const keepTabId = keepTab.getAttribute('data-testid') ?? null;
+
+      // Remove duplicate demo tabs (if any) while preserving one stable demo tab.
+      const closeClass = kind === 'grpc' ? '.grpc-tab-action--close' : '.ws-conn-tab-close';
+      for (const tab of existingDemoTabs) {
+        if (tab === keepTab) continue;
+        const closeBtn = tab.querySelector<HTMLButtonElement>(closeClass);
+        if (closeBtn && !closeBtn.disabled) {
+          closeBtn.click();
+          await pause(120);
+        }
+      }
+
+      if (keepTab.getAttribute('aria-selected') !== 'true') {
+        keepTab.click();
+        await pause(100);
+      }
+
+      studioIsolationRef.current = {
+        kind,
+        previousActiveTabTestId,
+        demoTabTestId: keepTabId,
+      };
+      return;
+    }
+
+    addBtn.click();
+    const start = Date.now();
+    let nextActive: HTMLElement | null = null;
+    while (Date.now() - start < 1500) {
+      nextActive = tabBar.querySelector<HTMLElement>('[role="tab"][aria-selected="true"]');
+      if (nextActive && nextActive.getAttribute('data-testid') !== previousActiveTabTestId) {
+        break;
+      }
+      await pause(60);
+    }
+
+    const demoTabTestId = nextActive?.getAttribute('data-testid') ?? null;
+
+    await renameStudioActiveTabToDemo(kind);
+
+    studioIsolationRef.current = { kind, previousActiveTabTestId, demoTabTestId };
+  }, [findDemoTabsByLabel, pause, renameStudioActiveTabToDemo, resolveStudioIsolationKind, waitForStudioTabChrome]);
+
+  const closeIsolatedStudioDemoTabSession = useCallback(async (
+    options?: { restorePreviousTab?: boolean },
+  ): Promise<void> => {
+    const session = studioIsolationRef.current;
+    if (!session) return;
+    const restorePreviousTab = options?.restorePreviousTab ?? true;
+
+    const closeSelector = (() => {
+      if (!session.demoTabTestId) return null;
+      if (session.kind === 'grpc') {
+        return `[data-testid="grpc-tab-close-${session.demoTabTestId}"]`;
+      }
+      const wsTabId = session.demoTabTestId.replace(/^conn-tab-/, '');
+      return `[data-testid="conn-tab-close-${wsTabId}"]`;
+    })();
+
+    let didCloseDemoTab = false;
+    if (closeSelector) {
+      const closeBtn = document.querySelector<HTMLButtonElement>(closeSelector);
+      if (closeBtn && !closeBtn.disabled) {
+        closeBtn.click();
+        didCloseDemoTab = true;
+        await pause(120);
+      }
+    }
+
+    if (!didCloseDemoTab) {
+      const demoTab = findDemoTabByLabel(session.kind);
+      const fallbackCloseBtn = demoTab?.querySelector<HTMLButtonElement>(
+        session.kind === 'grpc' ? '.grpc-tab-action--close' : '.ws-conn-tab-close',
+      );
+      if (fallbackCloseBtn && !fallbackCloseBtn.disabled) {
+        fallbackCloseBtn.click();
+        await pause(120);
+      }
+    }
+
+    // Safety net: remove any extra demo-labeled tabs left behind by interrupted sessions.
+    await closeStudioDemoTabsByLabel(session.kind);
+
+    if (restorePreviousTab && session.previousActiveTabTestId) {
+      const prevTab = document.querySelector<HTMLElement>(`[data-testid="${session.previousActiveTabTestId}"]`);
+      if (prevTab && prevTab.getAttribute('aria-selected') !== 'true') {
+        prevTab.click();
+        await pause(100);
+      }
+    }
+
+    studioIsolationRef.current = null;
+  }, [closeStudioDemoTabsByLabel, findDemoTabByLabel, pause]);
+
+  /**
+   * Reuse the existing demo tab if it's still alive, otherwise do a full
+   * close-orphans + create cycle.  This prevents the Tab 1 flash that would
+   * otherwise appear during restartDemo / replay-at-end.
+   */
+  const ensureActiveDemoTabOrCreate = useCallback(async (lesson: DemoLesson): Promise<void> => {
+    const kind = resolveStudioIsolationKind(lesson);
+    if (!kind) return;
+    const session = studioIsolationRef.current;
+    if (session?.kind === kind && session.demoTabTestId) {
+      const existingTab = document.querySelector<HTMLElement>(`[data-testid="${session.demoTabTestId}"]`);
+      if (existingTab) {
+        if (existingTab.getAttribute('aria-selected') !== 'true') {
+          existingTab.click();
+          await pause(80);
+        }
+        return; // demo tab still alive — reuse it, no close/create flash
+      }
+    }
+    await openIsolatedStudioDemoTabSession(lesson);
+  }, [resolveStudioIsolationKind, openIsolatedStudioDemoTabSession, pause]);
+
   const shouldResumeLiveRef = useRef(
     (() => {
       if (!consumeLiveDemoResumeOnce()) return false;
@@ -257,25 +497,26 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   buildQuietContextRef.current = buildQuietContext;
 
   /** Run lesson cleanup when leaving live mode via hub chrome (close/back). */
-  const runLiveLessonCleanup = useCallback((lesson: DemoLesson | null | undefined) => {
-    if (!lesson) return Promise.resolve();
-    if (isWorkflowDesignerLesson(lesson)) {
-      expandAppSidebar();
+  const runLiveLessonCleanup = useCallback(async (lesson: DemoLesson | null | undefined) => {
+    if (!lesson) return;
+    try {
+      if (isWorkflowDesignerLesson(lesson)) {
+        expandAppSidebar();
+      }
+      const ctx = buildQuietContext();
+      if (isGraphqlStudioLesson(lesson)) {
+        await runGqlStudioLessonTeardown(lesson, ctx);
+      } else if (isGrpcStudioLesson(lesson)) {
+        await runGrpcStudioLessonTeardown(lesson, ctx);
+      } else if (lesson.cleanup) {
+        await lesson.cleanup(ctx).catch((e) => {
+          console.warn('[DemoHub] Lesson cleanup failed:', e);
+        });
+      }
+    } finally {
+      await closeIsolatedStudioDemoTabSession();
     }
-    const ctx = buildQuietContext();
-    if (isGraphqlStudioLesson(lesson)) {
-      return runGqlStudioLessonTeardown(lesson, ctx);
-    }
-    if (isGrpcStudioLesson(lesson)) {
-      return runGrpcStudioLessonTeardown(lesson, ctx);
-    }
-    if (lesson.cleanup) {
-      return lesson.cleanup(ctx).catch((e) => {
-        console.warn('[DemoHub] Lesson cleanup failed:', e);
-      });
-    }
-    return Promise.resolve();
-  }, [buildQuietContext]);
+  }, [buildQuietContext, closeIsolatedStudioDemoTabSession]);
 
   /** Jump directly to the domain selector from any view — used by the
    *  "Learning Hub" breadcrumb so it always lands on the root, not the
@@ -546,6 +787,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   const runLiveDemoSetup = useCallback(async (lesson: DemoLesson, gen: number): Promise<boolean> => {
     suppressLiveTabExitRef.current = true;
     try {
+      await closeIsolatedStudioDemoTabSession({ restorePreviousTab: false });
       if (lesson.initialTab) navigateToTab(lesson.initialTab);
       if (isWorkflowDesignerLesson(lesson)) {
         expandAppSidebar();
@@ -555,12 +797,14 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         await runGqlDemoStorageHygiene();
       }
       if (isGrpcStudioLesson(lesson)) {
+        await runGrpcDemoStorageHygiene();
         try {
           runGrpcStudioLessonSetup(lesson);
         } catch (e) {
           console.warn('[DemoHub] gRPC lesson runtime setup failed:', e);
         }
       }
+      await openIsolatedStudioDemoTabSession(lesson);
       if (lesson.setup) {
         const ctx = buildQuietContext();
         try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
@@ -569,7 +813,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     } finally {
       suppressLiveTabExitRef.current = false;
     }
-  }, [navigateToTab, buildQuietContext]);
+  }, [navigateToTab, buildQuietContext, closeIsolatedStudioDemoTabSession, openIsolatedStudioDemoTabSession]);
 
   const resumeInterruptedLiveDemo = useCallback(async () => {
     const lesson = state.selectedLesson;
@@ -694,23 +938,25 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
           }
           /* v8 ignore next */
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
-          // Navigate back to the lesson's starting tab (same as restartDemo does).
+          // Navigate to the lesson's starting tab (same as restartDemo does).
           if (replayLesson.initialTab) ctx.navigateToTab(replayLesson.initialTab);
           if (isWorkflowDesignerLesson(replayLesson)) {
             expandAppSidebar();
           }
-          await new Promise(r => setTimeout(r, 350));
+          await new Promise(r => setTimeout(r, 120));
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           if (isGraphqlStudioLesson(replayLesson)) {
             await runGqlDemoStorageHygiene();
           }
           if (isGrpcStudioLesson(replayLesson)) {
+            await runGrpcDemoStorageHygiene();
             try {
               runGrpcStudioLessonSetup(replayLesson);
             } catch (e) {
               console.warn('[DemoHub] gRPC lesson runtime setup failed:', e);
             }
           }
+          await ensureActiveDemoTabOrCreate(replayLesson);
           if (replayLesson.setup) {
             try { await replayLesson.setup(ctx); } catch (e) { console.warn('[DemoHub] Lesson setup failed:', e); }
           }
@@ -732,7 +978,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     } else if (state.selectedLesson && isGrpcStudioLesson(state.selectedLesson)) {
       resumeGrpcStudioLessonRun();
     }
-  }, [buildQuietContext, executeCurrentStep, progress, pauseAutoPlay, state.selectedLesson, state.stepIndex]);
+  }, [buildQuietContext, ensureActiveDemoTabOrCreate, executeCurrentStep, progress, pauseAutoPlay, state.selectedLesson, state.stepIndex]);
 
   // Stable progress callbacks — useCallback([update]) where update is useCallback([])
   // so these never change reference across renders. Destructured here to keep
@@ -810,17 +1056,21 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       if (isWorkflowDesignerLesson(lesson)) {
         expandAppSidebar();
       }
-      await new Promise(r => setTimeout(r, 350));
+      // Reuse the demo tab rather than closing and recreating — avoids the brief
+      // Tab 1 flash that would otherwise appear between close and create.
+      await new Promise(r => setTimeout(r, 120));
       if (isGraphqlStudioLesson(lesson)) {
         await runGqlDemoStorageHygiene();
       }
       if (isGrpcStudioLesson(lesson)) {
+        await runGrpcDemoStorageHygiene();
         try {
           runGrpcStudioLessonSetup(lesson);
         } catch (e) {
           console.warn('[DemoHub] gRPC lesson runtime setup failed:', e);
         }
       }
+      await ensureActiveDemoTabOrCreate(lesson);
       if (lesson.setup) {
         try { await lesson.setup(ctx); } catch (e) { console.warn('[DemoHub] setup failed:', e); }
       }
@@ -833,7 +1083,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       await executeCurrentStep(lesson.steps[0], state.speed, { stepIndex: 0 });
       progress.setLessonStep(lesson.id, 0);
     }
-  }, [state.selectedLesson, state.speed, navigateToTab, buildQuietContext, executeCurrentStep, progress]);
+  }, [state.selectedLesson, state.speed, navigateToTab, buildQuietContext, ensureActiveDemoTabOrCreate, executeCurrentStep, progress]);
 
   // Exit live mode → immediately return to concept view, then run cleanup in background.
   // Cleanup is intentionally deferred so the concept page renders without delay —
@@ -860,6 +1110,10 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     progress.setLastView('concept');
     setStepPhase('done');
 
+    // Yield to let React flush the concept overlay before interacting with the
+    // studio DOM — this ensures the demo tab close is invisible to the user.
+    await pause(60);
+
     // Run lesson cleanup after the view change so the UI is never blank.
     // Cleanup only manipulates hidden tab DOM (WS Studio, Kafka Studio, etc.)
     // so it is safe to run while the user is viewing the concept page.
@@ -881,6 +1135,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
       }
     }
 
+    await closeIsolatedStudioDemoTabSession();
+
     try {
       const gqlSession = await loadDemoSession();
       if (gqlSession) {
@@ -891,7 +1147,7 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
     } catch (e) {
       console.warn('[DemoHub] GQL workspace force cleanup failed:', e);
     }
-  }, [state.selectedLesson, buildQuietContext, progress]);
+  }, [state.selectedLesson, buildQuietContext, closeIsolatedStudioDemoTabSession, progress, pause]);
 
   return {
     state,
