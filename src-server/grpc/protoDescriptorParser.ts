@@ -18,12 +18,12 @@ export type { ProtoFileInput };
 export { ProtoImportResolutionError } from './protoImportResolver.js';
 
 export function normalizeDescribeProtoFilesInput(
-  request: Pick<GrpcDescribeRequest, 'protoFiles' | 'protoRoots' | 'importPaths'>,
+  request: Pick<GrpcDescribeRequest, 'protoRoots' | 'importPaths'>,
 ): { protoFiles: GrpcProtoFileInput[]; importPaths: string[] } {
   const hasRoots = Boolean(request.protoRoots?.length);
   if (!hasRoots) {
     return {
-      protoFiles: request.protoFiles ?? [],
+      protoFiles: [],
       importPaths: request.importPaths ?? [],
     };
   }

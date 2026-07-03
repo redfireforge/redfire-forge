@@ -20,16 +20,15 @@ describe('protoDescriptorParser coverage gaps', () => {
     clearProtoFileDescriptorPool();
   });
 
-  it('normalizeDescribeProtoFilesInput returns legacy protoFiles when no roots', () => {
+  it('normalizeDescribeProtoFilesInput returns empty protoFiles when no roots', () => {
     const normalized = normalizeDescribeProtoFilesInput({
-      protoFiles: [{ path: 'a.proto', content: 'syntax = "proto3";' }],
       importPaths: ['vendor'],
     });
-    expect(normalized.protoFiles).toHaveLength(1);
+    expect(normalized.protoFiles).toHaveLength(0);
     expect(normalized.importPaths).toEqual(['vendor']);
   });
 
-  it('normalizeDescribeProtoFilesInput defaults missing protoFiles and importPaths', () => {
+  it('normalizeDescribeProtoFilesInput defaults missing roots and importPaths', () => {
     const normalized = normalizeDescribeProtoFilesInput({});
     expect(normalized.protoFiles).toEqual([]);
     expect(normalized.importPaths).toEqual([]);
@@ -38,6 +37,7 @@ describe('protoDescriptorParser coverage gaps', () => {
   it('normalizeDescribeProtoFilesInput flattens protoRoots with mount paths and import paths', () => {
     const normalized = normalizeDescribeProtoFilesInput({
       protoRoots: [{
+        id: 'root-api',
         mountPath: '/api/v1/',
         files: [{ path: '\\service.proto', content: 'syntax = "proto3";' }],
       }],
@@ -49,6 +49,7 @@ describe('protoDescriptorParser coverage gaps', () => {
   it('normalizeDescribeProtoFilesInput supports empty mount paths', () => {
     const normalized = normalizeDescribeProtoFilesInput({
       protoRoots: [{
+        id: 'root-default',
         mountPath: '///',
         files: [{ path: '/root.proto', content: 'syntax = "proto3";' }],
       }],
@@ -58,7 +59,7 @@ describe('protoDescriptorParser coverage gaps', () => {
 
   it('normalizeDescribeProtoFilesInput keeps explicit importPaths over root mount paths', () => {
     const normalized = normalizeDescribeProtoFilesInput({
-      protoRoots: [{ mountPath: 'api', files: [{ path: 'a.proto', content: 'x' }] }],
+      protoRoots: [{ id: 'root-api', mountPath: 'api', files: [{ path: 'a.proto', content: 'x' }] }],
       importPaths: ['custom'],
     });
     expect(normalized.importPaths).toEqual(['custom']);
@@ -229,7 +230,11 @@ describe('protoDescriptorParser coverage gaps', () => {
   it('parseDescribeRequestSource accepts proto_files with omitted optional fields', () => {
     expect(() => parseDescribeRequestSource({
       source: 'proto_files',
-      protoFiles: [{ path: 'x.proto', content: 'syntax = "proto3"; message X { string id = 1; } service S { rpc F(X) returns (X); }' }],
+      protoRoots: [{
+        id: 'root-default',
+        mountPath: 'root',
+        files: [{ path: 'x.proto', content: 'syntax = "proto3"; message X { string id = 1; } service S { rpc F(X) returns (X); }' }],
+      }],
     })).not.toThrow();
   });
 });

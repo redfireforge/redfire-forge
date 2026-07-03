@@ -36,6 +36,7 @@ vi.mock('./idbOpen', () => {
 });
 
 import {
+  idbLoadGlobalAuthProfiles,
   idbSaveGlobalAuthProfiles,
   idbMigrateGlobalAuthProfiles,
 } from './idbGlobalAuthProfiles';
@@ -61,5 +62,14 @@ describe('idbGlobalAuthProfiles', () => {
     const profiles = [{ id: 'a2', name: 'API Key', type: 'apikey', apiKey: 'k', apiKeyHeader: 'X-Api-Key' }];
     await idbSaveGlobalAuthProfiles(profiles);
     expect(mockPutCalls).toEqual([profiles]);
+  });
+
+  it('returns false when no auth profiles are present in localStorage to migrate', async () => {
+    const migrated = await idbMigrateGlobalAuthProfiles(GLOBAL_AUTH_KEY);
+    expect(migrated).toBe(false);
+  });
+
+  it('load function is exposed from the blob store', () => {
+    expect(typeof idbLoadGlobalAuthProfiles).toBe('function');
   });
 });

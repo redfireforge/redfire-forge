@@ -45,19 +45,48 @@ vi.mock('./GraphqlQueryBuilder', () => ({
   },
 }));
 vi.mock('./GqlBottomPanel', () => ({
-  GqlBottomPanel: () => <div data-testid="gql-bottom-panel-mock">Bottom</div>,
+  GqlBottomPanel: ({ onTabChange, activeTab, defaultVarsValue }: { onTabChange?: (tab: string) => void; activeTab?: string; defaultVarsValue?: string }) => {
+    const g = globalThis as {
+      __gqlBottomOnTabChange?: typeof onTabChange;
+      __gqlBottomActiveTab?: string;
+      __gqlBottomDefaultVars?: string;
+    };
+    g.__gqlBottomOnTabChange = onTabChange;
+    g.__gqlBottomActiveTab = activeTab;
+    g.__gqlBottomDefaultVars = defaultVarsValue;
+    return (
+      <button type="button" data-testid="gql-bottom-panel-mock" onClick={() => onTabChange?.('headers')}>
+        Bottom
+      </button>
+    );
+  },
 }));
 vi.mock('./GqlRightPane', () => ({
-  GqlRightPane: () => <div data-testid="gql-right-pane-mock">Right</div>,
+  GqlRightPane: (props: unknown) => {
+    const g = globalThis as { __gqlRightPaneProps?: unknown };
+    g.__gqlRightPaneProps = props;
+    return <div data-testid="gql-right-pane-mock">Right</div>;
+  },
 }));
 vi.mock('./GraphqlSubscriptionAssertionPanel', () => ({
-  GraphqlSubscriptionAssertionPanel: () => null,
+  GraphqlSubscriptionAssertionPanel: ({ assertions }: { assertions: unknown[] }) => (
+    <div data-testid="gql-subscription-assertion-panel-mock">{String(assertions.length)}</div>
+  ),
 }));
 vi.mock('./GqlComplexityWarningBanner', () => ({
   GqlComplexityWarningBanner: () => null,
 }));
 vi.mock('./GraphqlCollectionRunnerPanel', () => ({
-  GraphqlCollectionRunnerPanel: () => <div data-testid="gql-runner-panel-mock">Runner</div>,
+  GraphqlCollectionRunnerPanel: ({ onClose, items, collectionName }: { onClose?: () => void; items?: unknown[]; collectionName?: string }) => {
+    const g = globalThis as { __gqlRunnerItems?: unknown[]; __gqlRunnerCollectionName?: string };
+    g.__gqlRunnerItems = items;
+    g.__gqlRunnerCollectionName = collectionName;
+    return (
+      <button type="button" data-testid="gql-runner-panel-mock" onClick={() => onClose?.()}>
+        Runner
+      </button>
+    );
+  },
 }));
 
 const activeTab: GqlStudioTab = {
@@ -185,9 +214,11 @@ describe('GraphqlStudioSplitWorkspace', () => {
   });
 
   it('shows collection runner panel when bottom tab is runner', () => {
+    const onSetBottomTab = vi.fn();
     render(
       <GraphqlStudioSplitWorkspace
         {...baseProps}
+        onSetBottomTab={onSetBottomTab}
         bottomTab="runner"
         runnerCollectionId="col-1"
         collections={{
@@ -202,7 +233,117 @@ describe('GraphqlStudioSplitWorkspace', () => {
       />,
     );
     expect(screen.getByTestId('gql-runner-panel-mock')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('gql-runner-panel-mock'));
+    expect(onSetBottomTab).toHaveBeenCalledWith('variables');
     expect(screen.queryByTestId('gql-bottom-panel-mock')).toBeNull();
+  });
+
+  it('renders editor affordances and calls bottom panel tab-change bridge', () => {
+    const onPrettify = vi.fn();
+    const onSetBottomTab = vi.fn();
+    render(
+      <GraphqlStudioSplitWorkspace
+        {...baseProps}
+        onPrettify={onPrettify}
+        onSetBottomTab={onSetBottomTab}
+        insertToast="Inserted field"
+        prettifyError
+        activeTab={{ ...activeTab, operationType: 'subscription', subscriptionAssertions: [] }}
+      />,
+    );
+
+    const prettifyButton = screen.getByTestId('gql-prettify-btn');
+    expect(prettifyButton).toHaveClass('gql-prettify-btn--error');
+    expect(prettifyButton).toHaveAttribute('title', 'Cannot format — fix syntax errors first');
+    fireEvent.click(prettifyButton);
+    expect(onPrettify).toHaveBeenCalledTimes(1);
+
+    expect(screen.getByTestId('gql-insert-toast')).toHaveTextContent('Inserted field');
+    expect(screen.getByTestId('gql-subscription-assertion-panel-mock')).toHaveTextContent('0');
+
+    fireEvent.click(screen.getByTestId('gql-bottom-panel-mock'));
+    expect(onSetBottomTab).toHaveBeenCalledWith('headers');
+  });
+
+  it('passes subscription right-pane payload and tab-auth panel props', () => {
+    type RightPaneProps = {
+      activeOperationType?: string | null;
+      subscriptionLog?: { operationName: string } | null;
+    };
+    const g = globalThis as {
+      __gqlRightPaneProps?: RightPaneProps;
+    };
+
+    render(
+      <GraphqlStudioSplitWorkspace
+        {...baseProps}
+        usesPageDefaultAuth={false}
+        onResetAuthToInherit={vi.fn()}
+        selectedOperation={undefined}
+        activeTab={{ ...activeTab, operationType: 'subscription', label: 'Tab Label', responseSubTab: 'headers' }}
+        subscription={{
+          state: 'connected' as const,
+          messages: [],
+          stats: { messageCount: 0, bytesReceived: 0, errorCount: 0 },
+          connectedSince: 0,
+          isPaused: false,
+          pausedBufferCount: 0,
+          subscribe: vi.fn(),
+          disconnect: vi.fn(),
+          pause: vi.fn(),
+          resume: vi.fn(),
+          clear: vi.fn(),
+          reset: vi.fn(),
+          transport: 'sse',
+          errorMessage: null,
+          reconnectAttempt: 0,
+        }}
+      />,
+    );
+
+    expect(g.__gqlRightPaneProps?.activeOperationType).toBe('subscription');
+    expect(g.__gqlRightPaneProps?.subscriptionLog?.operationName).toBe('Tab Label');
+  });
+
+  it('covers builder title/schema and fallback pane values', () => {
+    type RightPaneProps = { activeOperationType?: string | null };
+    const g = globalThis as {
+      __gqlRightPaneProps?: RightPaneProps;
+      __gqlRunnerItems?: unknown[];
+      __gqlRunnerCollectionName?: string;
+      __gqlBottomActiveTab?: string;
+      __gqlBottomDefaultVars?: string;
+    };
+
+    const { rerender } = render(
+      <GraphqlStudioSplitWorkspace
+        {...baseProps}
+        schemaInfo={{ sdl: 'type Query { ok: Boolean }' } as never}
+      />,
+    );
+    expect(screen.getByTestId('gql-mode-builder')).not.toHaveAttribute('title');
+
+    rerender(
+      <GraphqlStudioSplitWorkspace
+        {...baseProps}
+        bottomTab="runner"
+        runnerCollectionId="missing-runner"
+      />,
+    );
+    expect(g.__gqlRunnerItems).toEqual([]);
+    expect(g.__gqlRunnerCollectionName).toBe('Collection');
+
+    rerender(
+      <GraphqlStudioSplitWorkspace
+        {...baseProps}
+        bottomTab="runner"
+        runnerCollectionId={null}
+        activeTab={{ ...activeTab, variables: undefined, operationType: undefined }}
+      />,
+    );
+    expect(g.__gqlBottomActiveTab).toBe('variables');
+    expect(g.__gqlBottomDefaultVars).toContain('{');
+    expect(g.__gqlRightPaneProps?.activeOperationType).toBeNull();
   });
 
   it('persists builder state per tab via onStateChange callback', () => {

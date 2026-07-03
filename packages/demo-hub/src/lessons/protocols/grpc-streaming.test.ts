@@ -128,32 +128,32 @@ describe('grpc-streaming step checkpoints', () => {
   it('all required step IDs are registered', () => {
     const checkpoints = getGrpcStepCheckpointsForLesson('grpc-streaming');
     const ids = checkpoints.map((c) => c.stepId);
-    expect(ids).toContain('grpc3-server-select');
-    expect(ids).toContain('grpc3-server-fill');
-    expect(ids).toContain('grpc3-server-status');
-    expect(ids).toContain('grpc3-client-select');
-    expect(ids).toContain('grpc3-client-queue');
-    expect(ids).toContain('grpc3-client-send');
-    expect(ids).toContain('grpc3-bidi-select');
-    expect(ids).toContain('grpc3-bidi-exchange');
-    expect(ids).toContain('grpc3-cancel');
-    expect(ids).toContain('grpc3-export');
+    expect(ids).toContain('grpc17-server-select');
+    expect(ids).toContain('grpc17-server-fill');
+    expect(ids).toContain('grpc17-server-status');
+    expect(ids).toContain('grpc17-client-select');
+    expect(ids).toContain('grpc17-client-queue');
+    expect(ids).toContain('grpc17-client-send');
+    expect(ids).toContain('grpc17-bidi-select');
+    expect(ids).toContain('grpc17-bidi-exchange');
+    expect(ids).toContain('grpc17-cancel');
+    expect(ids).toContain('grpc17-export');
   });
 
   it('server-select checkpoint sets methodSelected flag', () => {
-    const cp = getGrpcStepCheckpoint('grpc-streaming', 'grpc3-server-select');
+    const cp = getGrpcStepCheckpoint('grpc-streaming', 'grpc17-server-select');
     expect(cp?.setsFlags?.methodSelected).toBe(true);
     expect(cp?.verifySelector).toBe('grpc-call-type-selector');
   });
 
   it('client-send checkpoint sets executed flag', () => {
-    const cp = getGrpcStepCheckpoint('grpc-streaming', 'grpc3-client-send');
+    const cp = getGrpcStepCheckpoint('grpc-streaming', 'grpc17-client-send');
     expect(cp?.setsFlags?.executed).toBe(true);
-    expect(cp?.verifySelector).toBe('grpc-stream-log-list');
+    expect(cp?.verifySelector).toBe('grpc-stream-status-bar');
   });
 
   it('export checkpoint verifies export button', () => {
-    const cp = getGrpcStepCheckpoint('grpc-streaming', 'grpc3-export');
+    const cp = getGrpcStepCheckpoint('grpc-streaming', 'grpc17-export');
     expect(cp?.verifySelector).toBe('grpc-stream-export-log-btn');
   });
 });
@@ -188,17 +188,17 @@ describe('grpcStreamingLesson wrapper', () => {
   it('step IDs match expected sequence', () => {
     const ids = grpcStreamingLesson.steps.map((s) => s.id);
     expect(ids).toEqual([
-      'grpc3-intro',
-      'grpc3-server-select',
-      'grpc3-server-fill',
-      'grpc3-server-status',
-      'grpc3-client-select',
-      'grpc3-client-queue',
-      'grpc3-client-send',
-      'grpc3-bidi-select',
-      'grpc3-bidi-exchange',
-      'grpc3-cancel',
-      'grpc3-export',
+      'grpc17-intro',
+      'grpc17-server-select',
+      'grpc17-server-fill',
+      'grpc17-server-status',
+      'grpc17-client-select',
+      'grpc17-client-queue',
+      'grpc17-client-send',
+      'grpc17-bidi-select',
+      'grpc17-bidi-exchange',
+      'grpc17-cancel',
+      'grpc17-export',
     ]);
   });
 
@@ -216,17 +216,17 @@ describe('grpcStreamingLesson wrapper', () => {
   });
 
   it('server-select step highlights the ServerStream method', () => {
-    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc3-server-select')!;
+    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-server-select')!;
     expect(step.highlight).toBe(GRPC_SERVER_STREAM_SEL);
   });
 
   it('client-queue step highlights the pending panel', () => {
-    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc3-client-queue')!;
+    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-client-queue')!;
     expect(step.highlight).toBe(GRPC.STREAM_PENDING_PANEL);
   });
 
   it('cancel step highlights cancel button', () => {
-    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc3-cancel')!;
+    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-cancel')!;
     expect(step.highlight).toBe(GRPC.STREAM_CANCEL_BTN);
   });
 

@@ -19,14 +19,14 @@ import {
 import { GrpcApiClientError } from '../../../shared/grpc/grpcApiClient';
 import type { GrpcTabProtoIngestState } from '../grpcStudioTypes';
 import type { GrpcTabConnectionResolution } from './resolveGrpcTabConnection';
+import { ensureProtoRootsDraft } from './grpcProtoIngestUtils';
 
 export function buildDescriptorSourceAvailability(
   resolution: GrpcTabConnectionResolution,
   ingest: GrpcTabProtoIngestState,
 ): GrpcDescriptorSourceAvailability {
-  const protoFiles = ingest.protoRoots?.length
-    ? ingest.protoRoots.flatMap((root) => root.files)
-    : ingest.protoFiles;
+  const protoFiles = ensureProtoRootsDraft(ingest.protoRoots)
+    .flatMap((root) => root.files);
   const protoFilesReady = protoFiles.length > 0
     && protoFiles.every((file) => file.path?.trim() && file.content?.trim());
 
@@ -64,15 +64,12 @@ export function buildDescribeRequestForSource(
   requestId: string,
 ): GrpcDescribeRequest | { error: string } {
   if (source === 'proto_files') {
-    const sourceProtoRoots = ingest.protoRoots?.length
-      ? ingest.protoRoots.filter((root) => root.files.length > 0)
-      : undefined;
-    const sourceProtoFiles = sourceProtoRoots
-      ? sourceProtoRoots.flatMap((root) => root.files.map((file) => ({
-        path: `${root.mountPath.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')}/${file.path.trim().replace(/\\/g, '/').replace(/^\/+/, '')}`,
-        content: file.content,
-      })))
-      : ingest.protoFiles;
+    const sourceProtoRoots = ensureProtoRootsDraft(ingest.protoRoots)
+      .filter((root) => root.files.length > 0);
+    const sourceProtoFiles = sourceProtoRoots.flatMap((root) => root.files.map((file) => ({
+      path: `${root.mountPath.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')}/${file.path.trim().replace(/\\/g, '/').replace(/^\/+/, '')}`,
+      content: file.content,
+    })));
 
     if (sourceProtoFiles.length === 0) {
       return { error: 'Add at least one .proto file before loading' };
@@ -86,9 +83,7 @@ export function buildDescribeRequestForSource(
     return {
       requestId,
       source,
-      ...(sourceProtoRoots
-        ? { protoRoots: sourceProtoRoots }
-        : { protoFiles: sourceProtoFiles.map(({ path, content }) => ({ path, content })) }),
+      protoRoots: sourceProtoRoots,
       importPaths: ingest.importPaths.length > 0 ? ingest.importPaths : undefined,
     };
   }

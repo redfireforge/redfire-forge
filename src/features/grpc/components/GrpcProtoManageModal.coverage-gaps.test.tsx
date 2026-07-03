@@ -340,4 +340,206 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     render(<GrpcProtoManageModal {...baseProps} loadState="loading" />);
     expect(screen.getByTestId('grpc-proto-cancel-btn')).toHaveProperty('disabled', true);
   });
+
+  it('adds a virtual root when pressing Enter in the root input', async () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={createDefaultProtoIngestState()}
+        onIngestChange={onIngestChange}
+      />,
+    );
+
+    const input = screen.getByTestId('grpc-proto-root-add-input');
+    fireEvent.change(input, { target: { value: 'vendor/acme' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await vi.waitFor(() => {
+      expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
+        source: 'proto_files',
+        protoRoots: expect.arrayContaining([
+          expect.objectContaining({ mountPath: 'vendor/acme' }),
+        ]),
+      }));
+    });
+  });
+
+  it('shows protoset fallback label when file name is unavailable', () => {
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          source: 'protoset',
+          protosetBase64: 'YWJjZA==',
+          protosetFileName: '',
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-protoset'));
+    expect(screen.getByTestId('grpc-proto-protoset-name').textContent).toContain('Selected protoset');
+  });
+
+  it('propagates url proto input changes from blank state', () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{ ...createDefaultProtoIngestState(), source: 'url_proto', url: '' }}
+        onIngestChange={onIngestChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-url'));
+    fireEvent.change(screen.getByTestId('grpc-proto-url-input'), {
+      target: { value: 'https://schemas.example.test/v2/echo.proto' },
+    });
+    expect(onIngestChange).toHaveBeenCalledWith({
+      source: 'url_proto',
+      url: 'https://schemas.example.test/v2/echo.proto',
+    });
+  });
+
+  it('ignores empty file selections for proto and protoset inputs', () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={createDefaultProtoIngestState()}
+        onIngestChange={onIngestChange}
+      />,
+    );
+
+    const protoInput = document.querySelector('input[type="file"][accept=".proto"]') as HTMLInputElement;
+    Object.defineProperty(protoInput, 'files', { value: [] });
+    const beforeProtoChange = onIngestChange.mock.calls.length;
+    fireEvent.change(protoInput);
+    expect(onIngestChange.mock.calls.length).toBe(beforeProtoChange);
+
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-protoset'));
+    const protosetInput = document.querySelector('input[type="file"][accept=".pb,.protoset"]') as HTMLInputElement;
+    Object.defineProperty(protosetInput, 'files', { value: [] });
+    const beforeProtosetChange = onIngestChange.mock.calls.length;
+    fireEvent.change(protosetInput);
+    expect(onIngestChange.mock.calls.length).toBe(beforeProtosetChange);
+  });
+
+  it('handles multi-root updates and no-op root add flows', async () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            { id: 'r1', mountPath: 'shared', files: [{ path: 'a.proto', content: 'syntax = "proto3";' }] },
+            { id: 'r2', mountPath: 'vendor', files: [{ path: 'b.proto', content: 'syntax = "proto3";' }] },
+          ],
+        }}
+        onIngestChange={onIngestChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-root-item-r2'));
+    fireEvent.click(screen.getByTestId('grpc-proto-file-clear-all'));
+    expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'proto_files',
+      protoRoots: expect.arrayContaining([
+        expect.objectContaining({ id: 'r1', files: expect.arrayContaining([expect.objectContaining({ path: 'a.proto' })]) }),
+        expect.objectContaining({ id: 'r2', files: [] }),
+      ]),
+    }));
+
+    const rootInput = screen.getByTestId('grpc-proto-root-add-input');
+    fireEvent.change(rootInput, { target: { value: '   ' } });
+    fireEvent.keyDown(rootInput, { key: 'Enter' });
+
+    fireEvent.change(rootInput, { target: { value: 'shared' } });
+    fireEvent.keyDown(rootInput, { key: 'Enter' });
+
+    await vi.waitFor(() => {
+      expect(onIngestChange.mock.calls.filter((call) => call[0]?.protoRoots).length).toBeGreaterThan(0);
+    });
+  });
+
+  it('shows zero-byte protoset estimate for whitespace base64', () => {
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          source: 'protoset',
+          protosetBase64: '   \n\t  ',
+          protosetFileName: 'empty.pb',
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-protoset'));
+    expect(screen.getByTestId('grpc-proto-protoset-empty').textContent).toMatch(/No protoset selected/i);
+  });
+
+  it('drops proto files into the selected root while keeping sibling roots unchanged', async () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            { id: 'r1', mountPath: 'shared', files: [{ path: 'a.proto', content: 'syntax = "proto3";' }] },
+            { id: 'r2', mountPath: 'vendor', files: [] },
+          ],
+        }}
+        onIngestChange={onIngestChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-root-item-r2'));
+    const dropped = new File(['syntax = "proto3"; message Added {}'], 'added.proto', { type: 'text/plain' });
+    fireEvent.drop(screen.getByTestId('grpc-proto-upload-zone'), {
+      preventDefault: vi.fn(),
+      dataTransfer: { files: [dropped] },
+    });
+
+    await vi.waitFor(() => {
+      expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
+        source: 'proto_files',
+        protoRoots: expect.arrayContaining([
+          expect.objectContaining({ id: 'r1', files: expect.arrayContaining([expect.objectContaining({ path: 'a.proto' })]) }),
+          expect.objectContaining({ id: 'r2' }),
+        ]),
+      }));
+    });
+  });
+
+  it('removes only files from the selected root in multi-root mode', () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            { id: 'r1', mountPath: 'shared', files: [{ path: 'keep.proto', content: 'syntax = "proto3";' }] },
+            { id: 'r2', mountPath: 'vendor', files: [{ path: 'remove.proto', content: 'syntax = "proto3";' }] },
+          ],
+        }}
+        onIngestChange={onIngestChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-root-item-r2'));
+    fireEvent.click(screen.getByLabelText('Remove remove.proto'));
+
+    expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'proto_files',
+      protoRoots: expect.arrayContaining([
+        expect.objectContaining({ id: 'r1', files: expect.arrayContaining([expect.objectContaining({ path: 'keep.proto' })]) }),
+        expect.objectContaining({ id: 'r2', files: [] }),
+      ]),
+    }));
+  });
 });

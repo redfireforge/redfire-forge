@@ -214,8 +214,8 @@ describe('useWebSocketTemplates', () => {
     await act(async () => {});
 
     // Kick off save (which is pending)
-    void act(async () => {
-      await result.current.saveTemplate('X', 'y', 'text');
+    await act(async () => {
+      void result.current.saveTemplate('X', 'y', 'text');
     });
 
     // Unmount before the save resolves
@@ -328,8 +328,8 @@ describe('useWebSocketTemplates', () => {
     await act(async () => {});
     if (!result.current) return;
 
-    void act(async () => {
-      await result.current.saveTemplate('T', 'b', 'text');
+    await act(async () => {
+      void result.current.saveTemplate('T', 'b', 'text');
     });
     unmount();
 

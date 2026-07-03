@@ -5,7 +5,10 @@ import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 import { GRPC } from '@shared/selectors';
 import {
   computeCanonicalProtoPath,
+  DEFAULT_PROTO_ROOT_ID,
+  DEFAULT_PROTO_ROOT_MOUNT,
   detectProtoRootCollisions,
+  ensureProtoRootsDraft,
   formatProtoFileSize,
   mergeProtoFileDrafts,
   normalizeImportRoot,
@@ -63,39 +66,10 @@ const GRPC_PROTO_MODAL_ANCHOR = {
   padding: { top: 4, left: 6, right: 8 },
 };
 
-const DEFAULT_PROTO_ROOT_ID = 'root-default';
-const DEFAULT_PROTO_ROOT_MOUNT = 'root';
-
 type ProtoRootDraft = GrpcProtoRootInput;
 
 function ensureProtoRoots(ingest: GrpcTabProtoIngestState): ProtoRootDraft[] {
-  if (ingest.protoRoots?.length) {
-    return ingest.protoRoots;
-  }
-  return [{
-    id: DEFAULT_PROTO_ROOT_ID,
-    mountPath: DEFAULT_PROTO_ROOT_MOUNT,
-    files: ingest.protoFiles.map((file) => ({
-      path: file.path,
-      content: file.content,
-      sizeBytes: file.sizeBytes,
-    })),
-  }];
-}
-
-function flattenProtoRoots(roots: ProtoRootDraft[]): Array<{ path: string; content: string; sizeBytes?: number }> {
-  return roots.flatMap((root) => {
-    const mount = normalizeImportRoot(root.mountPath);
-    return root.files.map((file) => {
-      const relative = file.path.trim().replace(/\\/g, '/').replace(/^\/+/, '');
-      const path = mount ? `${mount}/${relative}` : relative;
-      return {
-        path,
-        content: file.content,
-        sizeBytes: file.sizeBytes,
-      };
-    });
-  });
+  return ensureProtoRootsDraft(ingest.protoRoots);
 }
 
 function estimateBase64DecodedBytes(base64: string): number {
@@ -202,7 +176,6 @@ export function GrpcProtoManageModal({
     onIngestChange({
       source: 'proto_files',
       protoRoots: nextRoots,
-      protoFiles: flattenProtoRoots(nextRoots),
     });
   }, [onIngestChange]);
 
@@ -334,7 +307,7 @@ export function GrpcProtoManageModal({
 
   const canLoad = activeTab !== 'schema_browser' && (
     activeTab === 'proto_files'
-      ? (ingest.protoRoots?.some((root) => root.files.length > 0) ?? ingest.protoFiles.length > 0)
+      ? ingest.protoRoots.some((root) => root.files.length > 0)
       : activeTab === 'protoset'
         ? Boolean(ingest.protosetBase64?.trim())
         : activeTab === 'url_proto'

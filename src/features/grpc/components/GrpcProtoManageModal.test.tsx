@@ -152,7 +152,7 @@ describe('GrpcProtoManageModal', () => {
         {...baseProps}
         ingest={{
           ...createDefaultProtoIngestState(),
-          protoFiles: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 20 }],
+          protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: 'syntax = "proto3";', sizeBytes: 20 }] }],
         }}
       />,
     );
@@ -243,7 +243,7 @@ describe('GrpcProtoManageModal', () => {
         {...baseProps}
         ingest={{
           ...createDefaultProtoIngestState(),
-          protoFiles: [{ path: 'existing.proto', content: 'syntax = "proto3";', sizeBytes: 20 }],
+          protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'existing.proto', content: 'syntax = "proto3";', sizeBytes: 20 }] }],
         }}
         onIngestChange={onIngestChange}
       />,
@@ -254,14 +254,17 @@ describe('GrpcProtoManageModal', () => {
     Object.defineProperty(input, 'files', { value: [file] });
     fireEvent.change(input);
 
+    let uploadPayload: { protoRoots?: Array<{ files: Array<{ path: string }> }> } | undefined;
     await vi.waitFor(() => {
-      expect(onIngestChange).toHaveBeenCalled();
+      uploadPayload = onIngestChange.mock.calls
+        .map((call) => call[0])
+        .find((payload) => payload?.source === 'proto_files' && payload?.protoRoots?.[0]?.files?.length === 2);
+      expect(uploadPayload).toBeTruthy();
     });
 
-    const lastCall = onIngestChange.mock.calls.at(-1)?.[0];
-    expect(lastCall?.protoFiles?.map((entry: { path: string }) => entry.path).sort()).toEqual([
-      'root/existing.proto',
-      'root/new.proto',
+    expect(uploadPayload?.protoRoots?.[0]?.files.map((entry: { path: string }) => entry.path).sort()).toEqual([
+      'existing.proto',
+      'new.proto',
     ]);
   });
 

@@ -24,4 +24,22 @@ describe('useDemoGqlTlsBridge', () => {
     unmount();
     expect((window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings).toBeUndefined();
   });
+
+  it('uses latest applyTlsSettings callback after rerender', () => {
+    const applyV1 = vi.fn();
+    const applyV2 = vi.fn();
+    const { rerender } = renderHook(
+      ({ applyTlsSettings }) => useDemoGqlTlsBridge({ applyTlsSettings }),
+      { initialProps: { applyTlsSettings: applyV1 } },
+    );
+
+    rerender({ applyTlsSettings: applyV2 });
+    const bridge = (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings as
+      | ((patch: { skipTlsVerify?: boolean }) => void)
+      | undefined;
+    bridge?.({ skipTlsVerify: true });
+
+    expect(applyV1).not.toHaveBeenCalled();
+    expect(applyV2).toHaveBeenCalledWith({ skipTlsVerify: true });
+  });
 });

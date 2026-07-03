@@ -92,4 +92,65 @@ describe('grpcWorkflowOutputRegistry coverage gaps', () => {
     expect(ctx.get('steps.minimal.grpc.body')).toBeUndefined();
     expect(ctx.get('grpc.response.body')).toBeUndefined();
   });
+
+  it('defaults grpcStatus to 0 and serializes null payloads', () => {
+    const ctx = new VariableContext({});
+    const registry = new GrpcWorkflowOutputRegistry();
+
+    registry.publishCallNodeOutput(ctx, snapshot('null-body', 'n'), {
+      nodeId: 'null-body',
+      callType: 'unary',
+      status: 'success',
+      body: null,
+    });
+
+    expect(ctx.get('steps.null-body.grpc.status')).toBe('0');
+    expect(ctx.get('grpc.n.status')).toBe('0');
+    expect(ctx.get('steps.null-body.grpc.body')).toBe('null');
+    expect(ctx.get('grpc.response.body')).toBe('null');
+    expect(ctx.get('grpc.n.body')).toBe('null');
+  });
+
+  it('does not write saveAs body alias when body is undefined', () => {
+    const ctx = new VariableContext({});
+    const registry = new GrpcWorkflowOutputRegistry();
+
+    registry.publishCallNodeOutput(ctx, snapshot('alias-no-body', 'aliasOnly'), {
+      nodeId: 'alias-no-body',
+      callType: 'unary',
+      status: 'success',
+      grpcStatus: 0,
+    });
+
+    expect(ctx.get('grpc.aliasOnly.status')).toBe('0');
+    expect(ctx.get('grpc.aliasOnly.body')).toBeUndefined();
+  });
+
+  it('publishes summaries without saveAs alias when saveAs is undefined', () => {
+    const ctx = new VariableContext({});
+    const registry = new GrpcWorkflowOutputRegistry();
+
+    registry.publishLoadTestSummary(ctx, 'lt-no-alias', undefined, {
+      nodeId: 'lt-no-alias',
+      status: 'success',
+      runId: 'run-x',
+      totalCalls: 1,
+      succeeded: 1,
+      failed: 0,
+    });
+    registry.publishSchemaDiffSummary(ctx, 'sd-no-alias', undefined, {
+      nodeId: 'sd-no-alias',
+      status: 'success',
+      breaking: 0,
+      warning: 0,
+      info: 1,
+      leftDescriptorKey: 'left',
+      rightDescriptorKey: 'right',
+    });
+
+    expect(JSON.parse(ctx.get('steps.lt-no-alias.grpc.loadTestSummary')!).runId).toBe('run-x');
+    expect(ctx.get('grpc.undefined.loadTestSummary')).toBeUndefined();
+    expect(JSON.parse(ctx.get('steps.sd-no-alias.grpc.schemaDiffSummary')!).info).toBe(1);
+    expect(ctx.get('grpc.undefined.schemaDiffSummary')).toBeUndefined();
+  });
 });

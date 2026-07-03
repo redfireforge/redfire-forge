@@ -1,18 +1,18 @@
 /**
- * Lesson GRPC-3: Streaming RPCs — All Four Patterns
+ * Lesson GRPC-17: Streaming RPCs — All Four Patterns
  *
  * Covers all four gRPC streaming call types using echo.EchoService:
- *   grpc3-intro          — call-type badges + overview
- *   grpc3-server-select  — select ServerStream method
- *   grpc3-server-fill    — fill StreamRequest fields + start stream
- *   grpc3-server-status  — inspect message log + FINISHED status
- *   grpc3-client-select  — select ClientStream method
- *   grpc3-client-queue   — queue 3 pending messages
- *   grpc3-client-send    — start stream, send all, end
- *   grpc3-bidi-select    — select BidiStream method
- *   grpc3-bidi-exchange  — start bidi stream + interactive exchange
- *   grpc3-cancel         — cancel stream mid-flight
- *   grpc3-export         — export stream log as JSON
+ *   grpc17-intro          — call-type badges + overview
+ *   grpc17-server-select  — select ServerStream method
+ *   grpc17-server-fill    — fill StreamRequest fields + start stream
+ *   grpc17-server-status  — inspect message log + FINISHED status
+ *   grpc17-client-select  — select ClientStream method
+ *   grpc17-client-queue   — queue 3 pending messages
+ *   grpc17-client-send    — start stream, send all, end
+ *   grpc17-bidi-select    — select BidiStream method
+ *   grpc17-bidi-exchange  — start bidi stream + interactive exchange
+ *   grpc17-cancel         — cancel stream mid-flight
+ *   grpc17-export         — export stream log as JSON
  */
 import { GRPC } from '@shared/selectors';
 import {
@@ -41,7 +41,7 @@ import {
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 
-const GRPC3_ROSTER = getGrpcLessonRosterEntry('grpc-streaming')!;
+const GRPC17_ROSTER = getGrpcLessonRosterEntry('grpc-streaming')!;
 
 async function waitForStreamStatusText(
   ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['action']>>[0],
@@ -60,7 +60,7 @@ async function waitForStreamStatusText(
 }
 
 export const grpcStreamingLesson: GrpcDemoLesson = {
-  ...buildGrpcLessonShellFromRoster(GRPC3_ROSTER),
+  ...buildGrpcLessonShellFromRoster(GRPC17_ROSTER),
   domainId: 'protocols',
   category: 'grpc',
   description:
@@ -69,7 +69,7 @@ export const grpcStreamingLesson: GrpcDemoLesson = {
   setup: grpcFirstCallSetup,
   cleanup: grpcFirstCallCleanup,
 
-  grpc: buildGrpcContractMetaFromRoster(GRPC3_ROSTER),
+  grpc: buildGrpcContractMetaFromRoster(GRPC17_ROSTER),
 
   concept: {
     title: 'gRPC Streaming: Four Patterns',
@@ -293,7 +293,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 1 — Intro: call type overview
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-intro',
+      id: 'grpc17-intro',
       title: 'Four Streaming Patterns',
       description:
         '**gRPC Studio** supports all four call types. Look at the call-type selector row — badges show **U** (unary), **SS** (server streaming), **CS** (client streaming), and **BD** (bidi streaming). ' +
@@ -313,7 +313,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 2 — Server streaming: select method
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-server-select',
+      id: 'grpc17-server-select',
       title: 'Server Streaming: Select ServerStream',
       description:
         'Expand **echo.EchoService** and click **ServerStream** — badge **SS**. ' +
@@ -337,7 +337,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 3 — Server streaming: fill form and start
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-server-fill',
+      id: 'grpc17-server-fill',
       title: 'Server Streaming: Fill and Start',
       description:
         `Set **message** to \`${GRPC_STREAM_MESSAGE}\`, **repeat_count** to \`${GRPC_STREAM_REPEAT_COUNT}\`, and **interval_ms** to \`${GRPC_STREAM_INTERVAL_MS}\` in the request form. ` +
@@ -369,7 +369,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 4 — Server streaming: read status
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-server-status',
+      id: 'grpc17-server-status',
       title: 'Server Streaming: Status Transitions',
       description:
         'Look at the **stream status bar** — it shows OPEN while messages are arriving, then transitions to **FINISHED** once the server closes its side. ' +
@@ -401,7 +401,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 5 — Client streaming: select method
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-client-select',
+      id: 'grpc17-client-select',
       title: 'Client Streaming: Select ClientStream',
       description:
         'Click **ClientStream** — badge **CS** — in the Service Explorer. ' +
@@ -425,7 +425,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 6 — Client streaming: queue messages
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-client-queue',
+      id: 'grpc17-client-queue',
       title: 'Client Streaming: Queue Three Messages',
       description:
         'Compose three messages in the form and click **+ Add to queue** after each:\n\n' +
@@ -451,7 +451,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 7 — Client streaming: start, send all, end
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-client-send',
+      id: 'grpc17-client-send',
       title: 'Client Streaming: Start, Send All, End',
       description:
         'Three actions complete the client streaming lifecycle:\n\n' +
@@ -513,7 +513,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 8 — Bidi streaming: select method
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-bidi-select',
+      id: 'grpc17-bidi-select',
       title: 'Bidirectional: Select BidiStream',
       description:
         'Click **BidiStream** — badge **BD** — in the Service Explorer. ' +
@@ -538,7 +538,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 9 — Bidi streaming: interactive exchange
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-bidi-exchange',
+      id: 'grpc17-bidi-exchange',
       title: 'Bidirectional: Interactive Exchange',
       description:
         'Click **Start** to open the bidi stream. Then send two messages:\n\n' +
@@ -563,7 +563,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 10 — Cancel mid-stream
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-cancel',
+      id: 'grpc17-cancel',
       title: 'Cancel Mid-Stream',
       description:
         'While the bidi stream is still open, click the **Cancel** button. ' +
@@ -596,7 +596,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // Step 11 — Export log
     // -------------------------------------------------------------------------
     {
-      id: 'grpc3-export',
+      id: 'grpc17-export',
       title: 'Export the Stream Log',
       description:
         'Click **Export log** in the message log toolbar. ' +

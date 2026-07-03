@@ -52,7 +52,9 @@ describe('grpc lesson step checkpoints', () => {
       'grpc1-reflect': extractTestId(GRPC.EXPLORER_TREE),
       'grpc1-select-method': extractTestId(GRPC.PROTO_FORM),
       'grpc1-send': extractTestId(GRPC.RESPONSE_BODY),
-      'grpc1-history': extractTestId(GRPC.HISTORY_REPLAY_BTN),
+      'grpc1-history-tab': extractTestId(GRPC.HISTORY_PANEL),
+      'grpc1-history': extractTestId(GRPC.SEND_BTN),
+      'grpc1-replay': extractTestId(GRPC.RESPONSE_BODY),
     };
     const checkpointByStep = Object.fromEntries(
       getGrpcStepCheckpointsForLesson('grpc-first-call').map((c) => [c.stepId, c]),

@@ -98,7 +98,7 @@ describe('requestValidation coverage gaps', () => {
         message: expect.stringContaining('unsupported describe source'),
       }),
     ]);
-    expect(issues.some((issue) => issue.field === 'protoFiles')).toBe(false);
+    expect(issues.some((issue) => issue.field === 'protoRoots')).toBe(false);
   });
 
   it('requires bsrModule when describe source is bsr', () => {
@@ -123,9 +123,9 @@ describe('requestValidation coverage gaps', () => {
     expect(validateGrpcDescribeRequest({
       requestId: 'x',
       source: 'proto_files',
-      protoFiles: [{ path: 'echo.proto', content: '' }],
+      protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: '' }] }],
     })).toEqual([
-      expect.objectContaining({ field: 'protoFiles[0]' }),
+      expect.objectContaining({ field: 'protoRoots[0].files[0]' }),
     ]);
   });
 

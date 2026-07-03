@@ -51,6 +51,7 @@ import {
 } from './utils/resolveGrpcTabConnection';
 import type { GrpcMaskedSecretFields } from './utils/grpcSecretFieldUi';
 import { validateResolvedGrpcTargetAddress, withGrpcTargetValidationMessage } from '../../shared/grpc/targetValidation';
+import { DEFAULT_PROTO_ROOT_ID, DEFAULT_PROTO_ROOT_MOUNT } from './utils/grpcProtoIngestUtils';
 
 export type GrpcRequestLifecycle =
   | 'idle'
@@ -70,9 +71,7 @@ export type GrpcDescriptorLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 /** Tab-scoped proto / protoset ingest draft (Phase 3B). */
 export interface GrpcTabProtoIngestState {
   source: 'proto_files' | 'protoset' | 'url_proto' | 'bsr';
-  protoFiles: Array<{ path: string; content: string; sizeBytes?: number }>;
-  /** Phase B V2 ingest draft — grouped by virtual root. */
-  protoRoots?: GrpcProtoRootInput[];
+  protoRoots: GrpcProtoRootInput[];
   importPaths: string[];
   protosetBase64?: string;
   protosetFileName?: string;
@@ -113,7 +112,7 @@ export interface GrpcTabDescriptorState {
 export function createDefaultProtoIngestState(): GrpcTabProtoIngestState {
   return {
     source: 'proto_files',
-    protoFiles: [],
+    protoRoots: [{ id: DEFAULT_PROTO_ROOT_ID, mountPath: DEFAULT_PROTO_ROOT_MOUNT, files: [] }],
     importPaths: [],
   };
 }

@@ -20,4 +20,10 @@ describe('makeHeaderId', () => {
       expect(typeof makeHeaderId()).toBe('string');
     }
   });
+
+  it('produces monotonically increasing numeric suffixes', () => {
+    const a = Number(makeHeaderId().replace('gql-hdr-', ''));
+    const b = Number(makeHeaderId().replace('gql-hdr-', ''));
+    expect(b).toBeGreaterThan(a);
+  });
 });

@@ -9,10 +9,31 @@ vi.mock('./GraphqlBatchResults', () => ({
   GraphqlBatchResults: () => <div data-testid="batch-results" />,
 }));
 vi.mock('./GqlPageToasts', () => ({
-  GqlPageToasts: () => <div data-testid="page-toasts" />,
+  GqlPageToasts: ({
+    onSaveSnapshot,
+    onDismissSchemaDiff,
+    onDismissApq,
+    onDismissBatch,
+  }: {
+    onSaveSnapshot: () => void;
+    onDismissSchemaDiff: () => void;
+    onDismissApq: () => void;
+    onDismissBatch: () => void;
+  }) => (
+    <div data-testid="page-toasts">
+      <button data-testid="save-snapshot-btn" type="button" onClick={onSaveSnapshot}>Save Snapshot</button>
+      <button data-testid="dismiss-schema-diff-btn" type="button" onClick={onDismissSchemaDiff}>Dismiss Diff</button>
+      <button data-testid="dismiss-apq-btn" type="button" onClick={onDismissApq}>Dismiss APQ</button>
+      <button data-testid="dismiss-batch-btn" type="button" onClick={onDismissBatch}>Dismiss Batch</button>
+    </div>
+  ),
 }));
 vi.mock('./GraphqlSchemaDiff', () => ({
-  GraphqlSchemaDiff: () => <div data-testid="schema-diff" />,
+  GraphqlSchemaDiff: ({ onClose }: { onClose: () => void }) => (
+    <div data-testid="schema-diff">
+      <button type="button" data-testid="close-diff-btn" onClick={onClose}>Close</button>
+    </div>
+  ),
 }));
 vi.mock('./GraphqlCollections', () => ({
   SaveToCollectionModal: (props: {
@@ -90,5 +111,71 @@ describe('GraphqlStudioPageOverlays — coverage gaps', () => {
     await waitFor(() => expect(onSaveToCollection).toHaveBeenCalled());
     expect(setSaveToColItem).toHaveBeenCalledWith(null);
     expect(setActivityTab).toHaveBeenCalledWith('collections');
+  });
+
+  it('save-to-collection cancel button closes modal', () => {
+    const setSaveToColItem = vi.fn();
+    const { getByText } = render(
+      <GraphqlStudioPageOverlays
+        {...baseProps}
+        setSaveToColItem={setSaveToColItem}
+        saveToColItem={{
+          id: 'h2',
+          connectionId: 'c1',
+          operation: { id: 'op2', query: 'query { x }', variables: '{}', operationType: 'query' },
+          response: '{}',
+          timestamp: 1,
+          latencyMs: 1,
+          status: 'success',
+        }}
+      />,
+    );
+    fireEvent.click(getByText('cancel'));
+    expect(setSaveToColItem).toHaveBeenCalledWith(null);
+  });
+
+  it('renders schema diff when diffModal is set and exposes onClose callback', () => {
+    const setDiffModal = vi.fn();
+    const { getByTestId } = render(
+      <GraphqlStudioPageOverlays
+        {...baseProps}
+        setDiffModal={setDiffModal}
+        diffModal={{
+          result: { changes: [] },
+          oldSdl: 'type Query { old: String }',
+          newSdl: 'type Query { new: String }',
+          oldLabel: 'old',
+          newLabel: 'new',
+          snapshotId: 'snap-1',
+        }}
+      />,
+    );
+    expect(getByTestId('schema-diff')).toBeTruthy();
+    fireEvent.click(getByTestId('close-diff-btn'));
+    expect(setDiffModal).toHaveBeenCalledWith(null);
+  });
+
+  it('GqlPageToasts callbacks invoke the correct setters', () => {
+    const setRightView = vi.fn();
+    const setSchemaDiffToast = vi.fn();
+    const setApqUnsupportedToast = vi.fn();
+    const setBatchUnsupportedToast = vi.fn();
+    const { getByTestId } = render(
+      <GraphqlStudioPageOverlays
+        {...baseProps}
+        setRightView={setRightView}
+        setSchemaDiffToast={setSchemaDiffToast}
+        setApqUnsupportedToast={setApqUnsupportedToast}
+        setBatchUnsupportedToast={setBatchUnsupportedToast}
+      />,
+    );
+    fireEvent.click(getByTestId('save-snapshot-btn'));
+    expect(setRightView).toHaveBeenCalledWith('schema');
+    fireEvent.click(getByTestId('dismiss-schema-diff-btn'));
+    expect(setSchemaDiffToast).toHaveBeenCalledWith(false);
+    fireEvent.click(getByTestId('dismiss-apq-btn'));
+    expect(setApqUnsupportedToast).toHaveBeenCalledWith(false);
+    fireEvent.click(getByTestId('dismiss-batch-btn'));
+    expect(setBatchUnsupportedToast).toHaveBeenCalledWith(false);
   });
 });

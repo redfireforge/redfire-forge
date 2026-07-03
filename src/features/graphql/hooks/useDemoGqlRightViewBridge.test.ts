@@ -23,4 +23,20 @@ describe('useDemoGqlRightViewBridge', () => {
     unmount();
     expect(w.__demoSetGqlRightView).toBeUndefined();
   });
+
+  it('uses latest setRightView callback after rerender', () => {
+    const setV1 = vi.fn();
+    const setV2 = vi.fn();
+    const { rerender } = renderHook(
+      ({ setRightView }) => useDemoGqlRightViewBridge({ setRightView }),
+      { initialProps: { setRightView: setV1 } },
+    );
+
+    rerender({ setRightView: setV2 });
+    const w = window as unknown as { __demoSetGqlRightView?: (view: 'response' | 'schema') => void };
+    w.__demoSetGqlRightView?.('response');
+
+    expect(setV1).not.toHaveBeenCalled();
+    expect(setV2).toHaveBeenCalledWith('response');
+  });
 });

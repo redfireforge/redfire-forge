@@ -215,4 +215,50 @@ describe('buildScenarioFromRow', () => {
     );
     expect(scenario!.validation.expectedFields).toBeUndefined();
   });
+
+  it('uses empty string fallback for optional body and empty expectedFields in metadata', () => {
+    const { meta, columns } = buildTemplateMetaAndSample(makeOpts({
+      test: makeScenario({
+        body: '',
+        validation: {
+          mode: 'none',
+          expectedFields: undefined,
+        },
+      }),
+    }));
+    expect(meta.body).toBe('');
+    expect(columns.some(c => c.startsWith('validate:'))).toBe(false);
+  });
+
+  it('falls back to raw segment when decodeURIComponent throws for path variable sample', () => {
+    const { sampleRow } = buildTemplateMetaAndSample(makeOpts({
+      test: makeScenario({
+        url: 'https://api.example.com/v1/users/%E0%A4%A?page=1',
+      }),
+    }));
+    expect(sampleRow['path:userId']).toBe('%E0%A4%A');
+  });
+
+  it('sets expectedJson only for full validation mode with expectedJson metadata', () => {
+    const { scenario } = buildScenarioFromRow(
+      { name: 'Full mode row', url: 'https://example.com' },
+      {
+        columns: ['name', 'url', 'param:missing'],
+        meta: {
+          version: 1,
+          method: 'POST',
+          urlPattern: '',
+          headers: [],
+          body: '',
+          auth: { type: 'none' },
+          validationMode: 'full',
+          expectedJson: { ok: true },
+          pathVariables: [],
+        },
+      },
+    );
+    expect(scenario!.validation.mode).toBe('full');
+    expect(scenario!.validation.expectedJson).toEqual({ ok: true });
+    expect(scenario!.url).toBe('https://example.com?missing=');
+  });
 });

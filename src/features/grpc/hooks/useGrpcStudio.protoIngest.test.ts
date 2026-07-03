@@ -133,7 +133,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -166,7 +166,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -217,7 +217,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
 
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -248,7 +248,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -261,10 +261,14 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
 
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
-        protoFiles: [
-          { path: 'echo.proto', content: FIXTURE_ECHO_PROTO },
-          { path: 'extra.proto', content: 'syntax = "proto3"; message Extra {}' },
-        ],
+        protoRoots: [{
+          id: 'root-default',
+          mountPath: 'root',
+          files: [
+            { path: 'echo.proto', content: FIXTURE_ECHO_PROTO },
+            { path: 'extra.proto', content: 'syntax = "proto3"; message Extra {}' },
+          ],
+        }],
       });
     });
 
@@ -397,7 +401,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
       result.current.updateTab(tabId, { target: 'localhost:50051' });
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 
@@ -456,14 +460,9 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
           id: 'root-1',
           mountPath: 'root',
           files: [{
-            id: 'file-1',
             path: 'service.proto',
             content: 'syntax = "proto3"; import "common.proto"; package demo; service Demo { rpc Ping (PingReq) returns (PingRes); } message PingReq {} message PingRes {}',
           }],
-        }],
-        protoFiles: [{
-          path: 'root/service.proto',
-          content: 'syntax = "proto3"; import "common.proto"; package demo; service Demo { rpc Ping (PingReq) returns (PingRes); } message PingReq {} message PingRes {}',
         }],
       });
     });
@@ -514,7 +513,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
       result.current.updateTab(tabId, { target: 'localhost:50051' });
     });
@@ -551,7 +550,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
     act(() => {
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'empty.proto', content: '   ' }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'empty.proto', content: '   ' }] }],
       });
     });
 
@@ -593,7 +592,7 @@ describe('useGrpcStudio proto ingest (Phase 3)', () => {
       result.current.updateTab(tabId, { target: 'localhost:50051' });
       result.current.patchTabProtoIngest(tabId, {
         source: 'proto_files',
-        protoFiles: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }],
+        protoRoots: [{ id: 'root-default', mountPath: 'root', files: [{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }] }],
       });
     });
 

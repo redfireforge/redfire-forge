@@ -7,72 +7,74 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mockClose = vi.fn();
 const mockCalls: EventEmitter[] = [];
 
-vi.mock('@grpc/grpc-js', () => ({
-  credentials: {
-    createInsecure: vi.fn(() => ({})),
+vi.mock('./grpcJsLoader.js', () => ({
+  grpc: {
+    credentials: {
+      createInsecure: vi.fn(() => ({})),
+    },
+    status: { OK: 0, UNKNOWN: 2 },
+    Metadata: vi.fn(function Metadata(this: { map: Record<string, string> }) {
+      this.map = {};
+      this.set = (key: string, value: string) => {
+        this.map[key] = value;
+      };
+      this.getMap = () => this.map;
+    }),
+    Client: vi.fn(function MockGrpcClient(this: unknown) {
+      Object.assign(this as object, {
+        makeServerStreamRequest: vi.fn((_path: string, ser: (value: Buffer) => Buffer, des: (value: Buffer) => Buffer, buf: Buffer, _meta: unknown, _opts: unknown) => {
+          ser(buf);
+          const call = new EventEmitter() as EventEmitter & { cancel: ReturnType<typeof vi.fn> };
+          call.cancel = vi.fn();
+          mockCalls.push(call);
+          queueMicrotask(() => {
+            call.emit('metadata', { getMap: () => ({ 'x-bin': Buffer.from('meta') }) });
+            call.emit('data', des(Buffer.from('payload')));
+            call.emit('status', { code: 0, metadata: { getMap: () => ({}) } });
+            call.emit('end');
+          });
+          return call;
+        }),
+        makeClientStreamRequest: vi.fn((_path: string, ser: (value: Buffer) => Buffer, des: (value: Buffer) => Buffer, _meta: unknown, _opts: unknown, callback: (error: Error | null, response: Buffer) => void) => {
+          const call = new EventEmitter() as EventEmitter & {
+            write: ReturnType<typeof vi.fn>;
+            end: ReturnType<typeof vi.fn>;
+            cancel: ReturnType<typeof vi.fn>;
+          };
+          call.write = vi.fn((chunk: Buffer) => ser(chunk));
+          call.end = vi.fn(() => {
+            queueMicrotask(() => callback(null, des(Buffer.from('response'))));
+          });
+          call.cancel = vi.fn();
+          mockCalls.push(call);
+          queueMicrotask(() => {
+            call.emit('metadata', { getMap: () => ({}) });
+            call.emit('status', { code: 0, metadata: { getMap: () => ({}) } });
+          });
+          return call;
+        }),
+        makeBidiStreamRequest: vi.fn((_path: string, ser: (value: Buffer) => Buffer, des: (value: Buffer) => Buffer) => {
+          const call = new EventEmitter() as EventEmitter & {
+            write: ReturnType<typeof vi.fn>;
+            end: ReturnType<typeof vi.fn>;
+            cancel: ReturnType<typeof vi.fn>;
+          };
+          call.write = vi.fn((chunk: Buffer) => ser(chunk));
+          call.end = vi.fn();
+          call.cancel = vi.fn();
+          mockCalls.push(call);
+          queueMicrotask(() => {
+            call.emit('metadata', { getMap: () => ({}) });
+            call.emit('data', des(Buffer.from('chunk')));
+            call.emit('status', { code: 0, metadata: { getMap: () => ({}) } });
+            call.emit('end');
+          });
+          return call;
+        }),
+        close: mockClose,
+      });
+    }),
   },
-  status: { OK: 0, UNKNOWN: 2 },
-  Metadata: vi.fn(function Metadata(this: { map: Record<string, string> }) {
-    this.map = {};
-    this.set = (key: string, value: string) => {
-      this.map[key] = value;
-    };
-    this.getMap = () => this.map;
-  }),
-  Client: vi.fn(function MockGrpcClient(this: unknown) {
-    Object.assign(this as object, {
-      makeServerStreamRequest: vi.fn((_path: string, ser: (value: Buffer) => Buffer, des: (value: Buffer) => Buffer, buf: Buffer, _meta: unknown, _opts: unknown) => {
-        ser(buf);
-        const call = new EventEmitter() as EventEmitter & { cancel: ReturnType<typeof vi.fn> };
-        call.cancel = vi.fn();
-        mockCalls.push(call);
-        queueMicrotask(() => {
-          call.emit('metadata', { getMap: () => ({ 'x-bin': Buffer.from('meta') }) });
-          call.emit('data', des(Buffer.from('payload')));
-          call.emit('status', { code: 0, metadata: { getMap: () => ({}) } });
-          call.emit('end');
-        });
-        return call;
-      }),
-      makeClientStreamRequest: vi.fn((_path: string, ser: (value: Buffer) => Buffer, des: (value: Buffer) => Buffer, _meta: unknown, _opts: unknown, callback: (error: Error | null, response: Buffer) => void) => {
-        const call = new EventEmitter() as EventEmitter & {
-          write: ReturnType<typeof vi.fn>;
-          end: ReturnType<typeof vi.fn>;
-          cancel: ReturnType<typeof vi.fn>;
-        };
-        call.write = vi.fn((chunk: Buffer) => ser(chunk));
-        call.end = vi.fn(() => {
-          queueMicrotask(() => callback(null, des(Buffer.from('response'))));
-        });
-        call.cancel = vi.fn();
-        mockCalls.push(call);
-        queueMicrotask(() => {
-          call.emit('metadata', { getMap: () => ({}) });
-          call.emit('status', { code: 0, metadata: { getMap: () => ({}) } });
-        });
-        return call;
-      }),
-      makeBidiStreamRequest: vi.fn((_path: string, ser: (value: Buffer) => Buffer, des: (value: Buffer) => Buffer) => {
-        const call = new EventEmitter() as EventEmitter & {
-          write: ReturnType<typeof vi.fn>;
-          end: ReturnType<typeof vi.fn>;
-          cancel: ReturnType<typeof vi.fn>;
-        };
-        call.write = vi.fn((chunk: Buffer) => ser(chunk));
-        call.end = vi.fn();
-        call.cancel = vi.fn();
-        mockCalls.push(call);
-        queueMicrotask(() => {
-          call.emit('metadata', { getMap: () => ({}) });
-          call.emit('data', des(Buffer.from('chunk')));
-          call.emit('status', { code: 0, metadata: { getMap: () => ({}) } });
-          call.emit('end');
-        });
-        return call;
-      }),
-      close: mockClose,
-    });
-  }),
 }));
 
 import { GrpcJsStreamingClient, GrpcJsStreamingClientAdapter } from './grpcStreamingClient.js';

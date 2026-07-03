@@ -109,7 +109,7 @@ describe('useGrpcStudioPersistence coverage gaps', () => {
                 expandedServiceIds: ['echo.EchoService'],
                 protoIngest: {
                   source: 'bsr',
-                  protoFiles: [],
+                  protoRoots: [],
                   importPaths: [],
                   bsrModule: 'buf.build/connectrpc/eliza',
                   bsrVersion: 'main',

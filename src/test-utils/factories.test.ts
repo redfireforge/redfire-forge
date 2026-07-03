@@ -254,6 +254,43 @@ describe('factories', () => {
       expect(folder.name).toBe('Custom Folder');
       expect(folder.order).toBe(3);
     });
+
+    it('allows undefined folder fields from explicit overrides', () => {
+      const folder = makeWorkflowFolder({
+        id: undefined,
+        name: undefined,
+        order: undefined,
+      });
+      expect(folder.id).toBeUndefined();
+      expect(folder.name).toBeUndefined();
+      expect(folder.order).toBeUndefined();
+    });
+  });
+
+  describe('nullish override branches', () => {
+    it('allows explicit undefined overrides while exercising nullish fallback expressions', () => {
+      const scenario = makeTestScenario({ name: undefined });
+      expect(scenario.name).toBeUndefined();
+
+      const group = makeFeatureGroup({ name: undefined, scenarios: undefined });
+      expect(group.name).toBeUndefined();
+      expect(group.scenarios).toBeUndefined();
+
+      const workflow = makeWorkflow({ name: undefined, nodes: undefined, edges: undefined, variables: undefined });
+      expect(workflow.name).toBeUndefined();
+      expect(workflow.nodes).toBeUndefined();
+      expect(workflow.edges).toBeUndefined();
+      expect(workflow.variables).toBeUndefined();
+
+      const node = makeWorkflowNode({ type: undefined, position: undefined, data: undefined });
+      expect(node.type).toBeUndefined();
+      expect(node.position).toBeUndefined();
+      expect(node.data).toBeUndefined();
+
+      const edge = makeWorkflowEdge({ source: undefined, target: undefined });
+      expect(edge.source).toBeUndefined();
+      expect(edge.target).toBeUndefined();
+    });
   });
 
   describe('makeWorkflowNode default branches', () => {

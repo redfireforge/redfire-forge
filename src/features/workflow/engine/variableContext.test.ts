@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { WorkflowNode } from '../types/workflow';
+import { EXPRESSION_FUNCTION_MAP } from '../utils/expressionFunctions';
 import { VariableContext, parseNodeScopedInner } from './variableContext';
 
 describe('parseNodeScopedInner', () => {
@@ -436,5 +437,81 @@ describe('VariableContext node-scoped refs', () => {
     ctx.set('name', 'Alice');
     const result = ctx.resolve('{{$upper(name)}}');
     expect(result).toBe('ALICE');
+  });
+
+  it('delete returns true for existing extracted var and false for missing', () => {
+    const ctx = new VariableContext();
+    ctx.set('temp', 'x');
+    expect(ctx.delete('temp')).toBe(true);
+    expect(ctx.delete('temp')).toBe(false);
+  });
+
+  it('snapshot filters internal webhook vars across all layers', () => {
+    const ctx = new VariableContext({ __webhookMethod: 'POST', manualVisible: 'm' }, { __webhookPath: '/hook', envVisible: 'e' });
+    ctx.set('__webhookPayload', '{"ok":true}');
+    ctx.set('extractedVisible', 'x');
+    ctx.setForNode('n1', '__webhookInput', 'hidden-node');
+    ctx.setForNode('n1', 'visibleNodeVar', 'shown-node');
+
+    const snap = ctx.snapshot();
+    expect(snap.envVisible).toBe('e');
+    expect(snap.manualVisible).toBe('m');
+    expect(snap.extractedVisible).toBe('x');
+    expect(Object.keys(snap)).not.toContain('__webhookMethod');
+    expect(Object.keys(snap)).not.toContain('__webhookPath');
+    expect(Object.keys(snap)).not.toContain('__webhookPayload');
+    expect(Object.keys(snap).some((k) => k.includes('__webhookInput'))).toBe(false);
+  });
+
+  it('expression function fallback returns literal when evaluator throws parse error', () => {
+    const ctx = new VariableContext();
+    const result = ctx.resolve('{{$upper("a"))}}');
+    expect(result).toBe('{{$upper("a"))}}');
+  });
+
+  it('expression function returns stringified object fallback when JSON.stringify throws', () => {
+    const key = '$__circularForCoverage';
+    EXPRESSION_FUNCTION_MAP.set(key, {
+      name: key,
+      description: 'coverage helper',
+      signature: `${key}(): object`,
+      category: 'misc',
+      evaluate: () => {
+        const x: { self?: unknown } = {};
+        x.self = x;
+        return x;
+      },
+      examples: [],
+    });
+
+    try {
+      const ctx = new VariableContext();
+      const result = ctx.resolve(`{{${key}()}}`);
+      expect(result).toContain('[object Object]');
+    } finally {
+      EXPRESSION_FUNCTION_MAP.delete(key);
+    }
+  });
+
+  it('expression function returns literal when custom evaluator throws', () => {
+    const key = '$__throwForCoverage';
+    EXPRESSION_FUNCTION_MAP.set(key, {
+      name: key,
+      description: 'coverage helper',
+      signature: `${key}(): string`,
+      category: 'misc',
+      evaluate: () => {
+        throw new Error('boom');
+      },
+      examples: [],
+    });
+
+    try {
+      const ctx = new VariableContext();
+      const result = ctx.resolve(`{{${key}()}}`);
+      expect(result).toBe(`{{${key}()}}`);
+    } finally {
+      EXPRESSION_FUNCTION_MAP.delete(key);
+    }
   });
 });

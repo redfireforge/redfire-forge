@@ -3,7 +3,12 @@ import type { GrpcStudioTabState } from '../grpcStudioTypes';
 import {
   abortTabActiveStream,
   buildStreamEventErrorBody,
+  bumpStreamGeneration,
+  canCancelStreamCall,
   detachStreamEventsForTab,
+  detachStreamEventsWhenSwitchingActiveTab,
+  isStreamNotFoundSseError,
+  streamTerminalLifecycleFromGrpcEnd,
   streamErrorFromCaught,
   tabAwaitingStreamEvents,
 } from './grpcStreamSessionHelpers';
@@ -73,6 +78,36 @@ describe('grpcStreamSessionHelpers coverage gaps', () => {
     detachStreamEventsForTab(streamDisposeRef, 'tab-1');
     expect(dispose).toHaveBeenCalledTimes(1);
     expect(streamDisposeRef.current['tab-1']).toBeUndefined();
+  });
+
+  it('tabAwaitingStreamEvents is false for active stream ids in non-waiting states', () => {
+    expect(tabAwaitingStreamEvents(makeTab({ activeStreamId: 's-1', streamLifecycle: 'starting' }))).toBe(false);
+    expect(tabAwaitingStreamEvents(makeTab({ activeStreamId: 's-1', streamLifecycle: 'cancelled' }))).toBe(false);
+  });
+
+  it('bumpStreamGeneration increments an existing generation counter', () => {
+    const ref = { current: { 'tab-1': 5 } as Record<string, number> };
+    bumpStreamGeneration(ref, 'tab-1');
+    expect(ref.current['tab-1']).toBe(6);
+  });
+
+  it('canCancelStreamCall returns false for terminal lifecycle even with active stream id', () => {
+    expect(canCancelStreamCall(makeTab({ streamLifecycle: 'error', activeStreamId: 's-1' }))).toBe(false);
+  });
+
+  it('detachStreamEventsWhenSwitchingActiveTab ignores missing previous ids', () => {
+    const dispose = vi.fn();
+    const ref = { current: { other: dispose } as Record<string, () => void> };
+    detachStreamEventsWhenSwitchingActiveTab(ref, 'missing');
+    expect(dispose).not.toHaveBeenCalled();
+  });
+
+  it('streamTerminalLifecycleFromGrpcEnd maps unknown status codes to error', () => {
+    expect(streamTerminalLifecycleFromGrpcEnd(42)).toBe('error');
+  });
+
+  it('isStreamNotFoundSseError matches request-not-found phrasing', () => {
+    expect(isStreamNotFoundSseError('REQUEST_NOT_FOUND from SSE bridge')).toBe(true);
   });
 
   it('abortTabActiveStream clears transport binding when stream is in-flight without stream id', () => {

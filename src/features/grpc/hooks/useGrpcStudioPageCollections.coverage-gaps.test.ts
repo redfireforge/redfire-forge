@@ -93,6 +93,13 @@ function makeCollections(saved = makeSavedRequest()): UseGrpcCollectionsResult {
       savedRequests: [saved],
     }],
     recordSavedRequestRun: vi.fn().mockResolvedValue(undefined),
+    buildSavedRequestSchemaCompareIntent: vi.fn((s, currentKey) => ({
+      kind: 'saved_request_schema_compare' as const,
+      savedRequestId: s.id,
+      baselineDescriptorKey: s.descriptorKey,
+      currentDescriptorKey: currentKey,
+      keysDiffer: s.descriptorKey !== currentKey,
+    })),
   } as unknown as UseGrpcCollectionsResult;
 }
 

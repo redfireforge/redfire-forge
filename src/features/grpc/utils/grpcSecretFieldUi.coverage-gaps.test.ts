@@ -37,6 +37,10 @@ describe('grpcSecretFieldUi coverage gaps', () => {
     expect(authFieldHasStoredValue({ type: 'bearer', bearerToken: GRPC_REDACTED_PLACEHOLDER }, 'bearerToken')).toBe(false);
   });
 
+  it('authFieldHasStoredValue returns false for unknown secret field key', () => {
+    expect(authFieldHasStoredValue({ type: 'bearer', bearerToken: 'tok' }, 'unknown' as never)).toBe(false);
+  });
+
   it('buildMaskedFieldsFromVaultHydration returns empty object when no values', () => {
     expect(buildMaskedFieldsFromVaultHydration({ tlsValues: {}, authValues: {} })).toEqual({});
   });
@@ -103,6 +107,13 @@ describe('grpcSecretFieldUi coverage gaps', () => {
     });
   });
 
+  it('buildMaskedFieldsFromVaultHydration marks basic/api key auth fields', () => {
+    expect(buildMaskedFieldsFromVaultHydration({
+      tlsValues: {},
+      authValues: { basicPassword: 'pw', apiKeyValue: 'value' },
+    })).toEqual({ auth: { basicPassword: true, apiKeyValue: true } });
+  });
+
   it('mergeMaskedSecretFields merges auth scopes', () => {
     expect(mergeMaskedSecretFields(
       { auth: { bearerToken: true } },
@@ -132,6 +143,24 @@ describe('grpcSecretFieldUi coverage gaps', () => {
       type: 'oauth2',
       oauth2: { tokenUrl: 'u', clientId: 'id', clientSecret: '' },
     });
+  });
+
+  it('clearMaskedTlsField returns undefined for missing config', () => {
+    expect(clearMaskedTlsField(undefined, 'serverCaPem')).toBeUndefined();
+  });
+
+  it('clearMaskedAuthField returns original value for undefined or none auth', () => {
+    expect(clearMaskedAuthField(undefined, 'bearerToken')).toBeUndefined();
+    const noneAuth = { type: 'none' as const };
+    expect(clearMaskedAuthField(noneAuth, 'bearerToken')).toBe(noneAuth);
+  });
+
+  it('pruneAuthMaskForConfig returns undefined when masked is missing', () => {
+    expect(pruneAuthMaskForConfig({ type: 'bearer', bearerToken: 'tok' }, undefined)).toBeUndefined();
+  });
+
+  it('pruneAuthMaskForConfig returns undefined when no tls/auth masks remain', () => {
+    expect(pruneAuthMaskForConfig({ type: 'bearer', bearerToken: 'tok' }, { auth: {} })).toBeUndefined();
   });
 
   it('unmaskSecretField keeps remaining masked fields in scope', () => {

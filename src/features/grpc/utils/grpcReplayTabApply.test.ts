@@ -221,7 +221,6 @@ describe('grpcReplayTabApply (Phase 5H)', () => {
         files: [{ path: 'echo/echo.proto', content: '' }],
       },
     ]);
-    expect(merged?.protoFiles).toEqual([{ path: 'echo/echo.proto', content: '' }]);
   });
 
   it('grpcurlImportDescriptorStatePatch updates proto ingest from import flags', () => {

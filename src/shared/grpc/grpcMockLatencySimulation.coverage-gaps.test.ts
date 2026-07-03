@@ -12,6 +12,10 @@ import {
 } from './grpcMockLatencySimulation';
 
 describe('grpcMockLatencySimulation coverage gaps', () => {
+  it('validateGrpcMockLatencyPolicy returns empty issues for undefined policy', () => {
+    expect(validateGrpcMockLatencyPolicy(undefined)).toEqual([]);
+  });
+
   it('GrpcMockLatencyPolicyValidationError falls back when issues array is empty', () => {
     const error = new GrpcMockLatencyPolicyValidationError([]);
     expect(error.message).toBe('Invalid mock latency policy');
@@ -60,6 +64,11 @@ describe('grpcMockLatencySimulation coverage gaps', () => {
     expect(drawGrpcMockJitterMs({ jitterMs: 100 }, 0)).toBe(0);
   });
 
+  it('drawGrpcMockJitterMs returns zero when jitter cap is zero or negative', () => {
+    expect(drawGrpcMockJitterMs({ jitterMs: 0, seed: 123 }, 0)).toBe(0);
+    expect(drawGrpcMockJitterMs({ jitterMs: -1, seed: 123 }, 0)).toBe(0);
+  });
+
   it('resolveGrpcMockLatencyMs combines base latency and deterministic jitter', () => {
     const latency = resolveGrpcMockLatencyMs({
       responseLatencyMs: 10,
@@ -68,5 +77,14 @@ describe('grpcMockLatencySimulation coverage gaps', () => {
     });
     expect(latency).toBeGreaterThanOrEqual(10);
     expect(latency).toBeLessThanOrEqual(30);
+  });
+
+  it('resolveGrpcMockLatencyMs clamps negative totals to zero', () => {
+    const latency = resolveGrpcMockLatencyMs({
+      responseLatencyMs: -10,
+      policy: { jitterMs: 0, seed: 1 },
+      callSequence: 0,
+    });
+    expect(latency).toBe(0);
   });
 });

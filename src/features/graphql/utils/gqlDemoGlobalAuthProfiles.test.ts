@@ -42,4 +42,13 @@ describe('gqlDemoGlobalAuthProfiles', () => {
     expect(removed).toBe(0);
     expect(saveGlobalAuthProfiles).not.toHaveBeenCalled();
   });
+  
+  it('accepts an explicit empty spec list and removes nothing', async () => {
+    vi.mocked(loadGlobalAuthProfiles).mockResolvedValue([
+      { id: GQL6_DEMO_GLOBAL_AUTH_PROFILE_ID, name: GQL6_DEMO_GLOBAL_AUTH_PROFILE_NAME, auth: { type: 'bearer', token: 'a' } },
+    ]);
+    const removed = await purgeGqlDemoGlobalAuthProfilesFromStorage([]);
+    expect(removed).toBe(0);
+    expect(saveGlobalAuthProfiles).not.toHaveBeenCalled();
+  });
 });

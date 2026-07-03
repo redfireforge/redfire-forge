@@ -4,10 +4,8 @@
 import { describe, expect, it, beforeEach } from 'vitest';
 import {
   getGrpcDescribeUsageTelemetrySnapshot,
-  isLegacyProtoFilesOnlyDescribeRequest,
   recordGrpcDescribeUsage,
   resetGrpcDescribeUsageTelemetry,
-  shouldLogLegacyProtoFilesDeprecation,
 } from './grpcDescribeUsageTelemetry.js';
 
 describe('grpcDescribeUsageTelemetry', () => {
@@ -28,25 +26,14 @@ describe('grpcDescribeUsageTelemetry', () => {
     expect(snap.lastUpdatedAt).toEqual(expect.any(Number));
   });
 
-  it('tracks proto_files roots, legacy files, and combined ingest', () => {
+  it('tracks proto_files roots ingest', () => {
     recordGrpcDescribeUsage({
       source: 'proto_files',
-      protoFiles: [{ path: 'legacy.proto', content: 'syntax = "proto3";' }],
-    });
-    recordGrpcDescribeUsage({
-      source: 'proto_files',
-      protoRoots: [{ mountPath: 'api', files: [{ path: 'service.proto', content: 'syntax = "proto3";' }] }],
-    });
-    recordGrpcDescribeUsage({
-      source: 'proto_files',
-      protoFiles: [{ path: 'legacy.proto', content: 'syntax = "proto3";' }],
-      protoRoots: [{ mountPath: 'api', files: [{ path: 'service.proto', content: 'syntax = "proto3";' }] }],
+      protoRoots: [{ id: 'root-1', mountPath: 'api', files: [{ path: 'service.proto', content: 'syntax = "proto3";' }] }],
     });
 
     const snap = getGrpcDescribeUsageTelemetrySnapshot();
-    expect(snap.protoFilesLegacy).toBe(2);
-    expect(snap.protoRoots).toBe(2);
-    expect(snap.protoRootsAndProtoFiles).toBe(1);
+    expect(snap.protoRoots).toBe(1);
   });
 
   it('ignores unknown describe sources in the telemetry switch', () => {
@@ -54,21 +41,10 @@ describe('grpcDescribeUsageTelemetry', () => {
     expect(getGrpcDescribeUsageTelemetrySnapshot().total).toBe(1);
   });
 
-  it('detects legacy-only proto_files describe requests', () => {
-    expect(isLegacyProtoFilesOnlyDescribeRequest({
-      source: 'proto_files',
-      protoFiles: [{ path: 'a.proto', content: 'syntax = "proto3";' }],
-    })).toBe(true);
-    expect(isLegacyProtoFilesOnlyDescribeRequest({
-      source: 'proto_files',
-      protoRoots: [{ mountPath: 'api', files: [{ path: 'a.proto', content: 'syntax = "proto3";' }] }],
-    })).toBe(false);
-  });
-
-  it('logs legacy deprecation only once until reset', () => {
-    expect(shouldLogLegacyProtoFilesDeprecation()).toBe(true);
-    expect(shouldLogLegacyProtoFilesDeprecation()).toBe(false);
-    resetGrpcDescribeUsageTelemetry();
-    expect(shouldLogLegacyProtoFilesDeprecation()).toBe(true);
+  it('ignores proto_files requests that do not provide roots', () => {
+    recordGrpcDescribeUsage({ source: 'proto_files' });
+    const snap = getGrpcDescribeUsageTelemetrySnapshot();
+    expect(snap.total).toBe(1);
+    expect(snap.protoRoots).toBe(0);
   });
 });
