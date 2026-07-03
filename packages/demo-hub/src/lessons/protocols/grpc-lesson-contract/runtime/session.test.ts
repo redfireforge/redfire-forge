@@ -27,6 +27,13 @@ describe('grpc lesson runtime session', () => {
     expect(getGrpcLessonRun()?.runId).toBe(run.runId);
   });
 
+  it('begins GRPC-16 with consolidated schema discovery snapshot', () => {
+    const run = beginGrpcLessonRun('grpc-schema-discovery');
+    expect(run.status).toBe('running');
+    expect(run.snapshot.lessonId).toBe('grpc-schema-discovery');
+    expect(run.snapshot.descriptorSource).toBe('reflection');
+  });
+
   it('rejects begin when an active run already exists', () => {
     beginGrpcLessonRun('grpc-first-call');
     expect(() => beginGrpcLessonRun('grpc-first-call')).toThrow(/Invalid gRPC lesson transition/);
