@@ -5,7 +5,6 @@ import {
   GQL_DEMO_SVC_NAME,
   GQL_STUDIO_DEMO_ENV_NAME,
 } from '@redfireforge/demo-hub/lessons/env-manager-lesson-helpers';
-import { purgeGqlDemoLessonEnvironmentsFromStorage } from '@redfireforge/demo-hub/lessons/gql-demo-app-environment-cleanup';
 
 interface DemoAppEnvironmentCleanupBridgeDeps {
   selectedEnvId: string;
@@ -30,6 +29,9 @@ export function useDemoAppEnvironmentCleanupBridge(
     const w = window as unknown as Record<string, unknown>;
 
     w.__demoPurgeGqlLessonEnvironments = async () => {
+      const { purgeGqlDemoLessonEnvironmentsFromStorage } = await import(
+        '@redfireforge/demo-hub/lessons/gql-demo-app-environment-cleanup'
+      );
       const result = await purgeGqlDemoLessonEnvironmentsFromStorage();
       const {
         selectedEnvId,
