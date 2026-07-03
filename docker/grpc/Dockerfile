@@ -4,7 +4,7 @@ RUN apk add --no-cache protobuf-dev protoc
 
 WORKDIR /src
 
-COPY proto/echo.proto ./proto/echo.proto
+COPY proto/*.proto ./proto/
 COPY go-server/go.mod go-server/go.sum* ./go-server/
 
 WORKDIR /src/go-server
@@ -16,11 +16,19 @@ RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.35.2 && \
 
 ENV PATH="/go/bin:${PATH}"
 
-RUN mkdir -p echo && \
+RUN mkdir -p echo api eliza && \
     protoc --proto_path=/src/proto \
       --go_out=echo --go_opt=paths=source_relative \
       --go-grpc_out=echo --go-grpc_opt=paths=source_relative \
-      /src/proto/echo.proto
+            /src/proto/echo.proto && \
+        protoc --proto_path=/src/proto \
+            --go_out=api --go_opt=paths=source_relative \
+            --go-grpc_out=api --go-grpc_opt=paths=source_relative \
+            /src/proto/api.proto && \
+        protoc --proto_path=/src/proto \
+            --go_out=eliza --go_opt=paths=source_relative \
+            --go-grpc_out=eliza --go-grpc_opt=paths=source_relative \
+            /src/proto/eliza.proto
 
 COPY go-server/main.go ./
 

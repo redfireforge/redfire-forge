@@ -1,7 +1,7 @@
 /**
  * Phase 4F — @grpc/grpc-js channel credentials from normalized GrpcTarget TLS fields.
  */
-import * as grpc from '@grpc/grpc-js';
+import { grpc } from './grpcJsLoader.js';
 import tls from 'node:tls';
 import {
   defaultGrpcTlsMode,

@@ -15,6 +15,7 @@ import { clearDescriptorRootCache, deleteDescriptorRootCache } from './descripto
 import { deleteGrpcDescriptor } from './descriptorStore.js';
 import { validateProtoFetchUrl } from './protoFetchPolicy.js';
 import { shortContentHash } from './descriptorKey.js';
+import { normalizeDescribeProtoFilesInput } from './protoDescriptorParser.js';
 
 export interface DescriptorCacheEntry {
   descriptor: GrpcDescriptor;
@@ -56,19 +57,29 @@ export function buildProtoFilesSourceRef(
   return canonicalProtoFilesHash(protoFiles, importPaths);
 }
 
+export function buildProtoFilesSourceRefFromDescribeRequest(
+  request: Pick<GrpcDescribeRequest, 'protoFiles' | 'protoRoots' | 'importPaths'>,
+): string {
+  const normalized = normalizeDescribeProtoFilesInput(request);
+  return canonicalProtoFilesHash(normalized.protoFiles, normalized.importPaths);
+}
+
 /** Canonical cache lookup key for describe requests — must match descriptor `sourceRef` on store. */
 export function buildDescribeCacheLookup(
   request: GrpcDescribeRequest,
 ): DescriptorCacheLookup | null {
   switch (request.source) {
     case 'proto_files':
+      {
+        const normalized = normalizeDescribeProtoFilesInput(request);
       return {
         source: 'proto_files',
         sourceRef: canonicalProtoFilesHash(
-          request.protoFiles ?? [],
-          request.importPaths ?? [],
+          normalized.protoFiles,
+          normalized.importPaths,
         ),
       };
+      }
     case 'protoset':
       return {
         source: 'protoset',

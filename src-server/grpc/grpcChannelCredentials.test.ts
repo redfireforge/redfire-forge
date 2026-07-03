@@ -3,9 +3,20 @@
  * Phase 4F — channel credentials factory tests.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import * as grpc from '@grpc/grpc-js';
 import tls from 'node:tls';
 import { buildGrpcChannelCredentials } from './grpcChannelCredentials.js';
+
+const createInsecure = vi.fn(() => ({}));
+const createSsl = vi.fn(() => ({}));
+
+vi.mock('./grpcJsLoader.js', () => ({
+  grpc: {
+    credentials: {
+      createInsecure: (...args: unknown[]) => createInsecure(...args),
+      createSsl: (...args: unknown[]) => createSsl(...args),
+    },
+  },
+}));
 
 const VALID_CERT = `-----BEGIN CERTIFICATE-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
@@ -17,18 +28,18 @@ MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQC
 
 describe('grpcChannelCredentials (Phase 4F)', () => {
   beforeEach(() => {
-    vi.spyOn(grpc.credentials, 'createInsecure').mockReturnValue({} as grpc.ChannelCredentials);
-    vi.spyOn(grpc.credentials, 'createSsl').mockReturnValue({} as grpc.ChannelCredentials);
+    createInsecure.mockClear();
+    createSsl.mockClear();
   });
 
   afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it('uses insecure credentials when tlsMode is disabled', () => {
     buildGrpcChannelCredentials({ tlsMode: 'disabled' });
-    expect(grpc.credentials.createInsecure).toHaveBeenCalled();
-    expect(grpc.credentials.createSsl).not.toHaveBeenCalled();
+    expect(createInsecure).toHaveBeenCalled();
+    expect(createSsl).not.toHaveBeenCalled();
   });
 
   it('uses SSL credentials for tls mode with optional CA', () => {
@@ -36,7 +47,7 @@ describe('grpcChannelCredentials (Phase 4F)', () => {
       tlsMode: 'tls',
       tlsConfig: { serverCaPem: VALID_CERT, serverNameOverride: 'grpc.local' },
     });
-    expect(grpc.credentials.createSsl).toHaveBeenCalledWith(
+    expect(createSsl).toHaveBeenCalledWith(
       expect.any(Buffer),
       null,
       null,
@@ -53,7 +64,7 @@ describe('grpcChannelCredentials (Phase 4F)', () => {
         clientKeyPem: VALID_KEY,
       },
     });
-    expect(grpc.credentials.createSsl).toHaveBeenCalledWith(
+    expect(createSsl).toHaveBeenCalledWith(
       expect.any(Buffer),
       expect.any(Buffer),
       expect.any(Buffer),
@@ -63,13 +74,13 @@ describe('grpcChannelCredentials (Phase 4F)', () => {
 
   it('passes null root certs when serverCaPem is absent or whitespace', () => {
     buildGrpcChannelCredentials({ tlsMode: 'tls' });
-    expect(grpc.credentials.createSsl).toHaveBeenCalledWith(null, null, null, undefined);
+    expect(createSsl).toHaveBeenCalledWith(null, null, null, undefined);
 
     buildGrpcChannelCredentials({
       tlsMode: 'tls',
       tlsConfig: { serverCaPem: '   ' },
     });
-    expect(grpc.credentials.createSsl).toHaveBeenLastCalledWith(null, null, null, undefined);
+    expect(createSsl).toHaveBeenLastCalledWith(null, null, null, undefined);
   });
 
   it('omits client cert/key buffers for mtls when PEM fields are blank', () => {
@@ -80,7 +91,7 @@ describe('grpcChannelCredentials (Phase 4F)', () => {
         clientKeyPem: '',
       },
     });
-    expect(grpc.credentials.createSsl).toHaveBeenCalledWith(null, null, null, undefined);
+    expect(createSsl).toHaveBeenCalledWith(null, null, null, undefined);
   });
 
   it('wires serverNameOverride into checkServerIdentity for tls mode', () => {
@@ -92,7 +103,7 @@ describe('grpcChannelCredentials (Phase 4F)', () => {
         serverNameOverride: 'grpc.override.local',
       },
     });
-    const verifyOptions = vi.mocked(grpc.credentials.createSsl).mock.calls.at(-1)?.[3] as {
+    const verifyOptions = createSsl.mock.calls.at(-1)?.[3] as {
       checkServerIdentity?: (host: string, cert: tls.PeerCertificate) => Error | undefined;
     };
     expect(verifyOptions?.checkServerIdentity).toEqual(expect.any(Function));
@@ -104,6 +115,35 @@ describe('grpcChannelCredentials (Phase 4F)', () => {
 
   it('defaults to insecure credentials when tlsMode is omitted', () => {
     buildGrpcChannelCredentials({});
-    expect(grpc.credentials.createInsecure).toHaveBeenCalled();
+    expect(createInsecure).toHaveBeenCalled();
+  });
+
+  it('uses tls mode without serverName override', () => {
+    buildGrpcChannelCredentials({
+      tlsMode: 'tls',
+      tlsConfig: { serverCaPem: VALID_CERT },
+    });
+    expect(createSsl).toHaveBeenCalledWith(
+      expect.any(Buffer),
+      null,
+      null,
+      undefined,
+    );
+  });
+
+  it('includes only client cert buffer when mtls key is blank', () => {
+    buildGrpcChannelCredentials({
+      tlsMode: 'mtls',
+      tlsConfig: {
+        clientCertPem: VALID_CERT,
+        clientKeyPem: '   ',
+      },
+    });
+    expect(createSsl).toHaveBeenCalledWith(
+      null,
+      null,
+      expect.any(Buffer),
+      undefined,
+    );
   });
 });
