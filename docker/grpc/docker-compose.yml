@@ -5,7 +5,7 @@
 #   curl http://localhost:50052/health
 #
 # gRPC:
-#   localhost:50051 — echo.EchoService/Echo (unary)
+#   localhost:50051 — echo.EchoService/* + api.ApiService/Lookup
 #   Slow-call hook: message "@sleep:8000" delays 8s (for cancel E2E)
 services:
   grpc-test-server:

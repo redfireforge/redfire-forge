@@ -1,5 +1,5 @@
 import protobuf from 'protobufjs';
-import type { GrpcDescribeRequest } from '../../src/shared/grpc/contracts.js';
+import type { GrpcDescribeRequest, GrpcProtoFileInput } from '../../src/shared/grpc/contracts.js';
 import {
   buildProtoFileMap,
   type ProtoFileInput,
@@ -16,6 +16,38 @@ import {
 export type { ProtoFileInput };
 
 export { ProtoImportResolutionError } from './protoImportResolver.js';
+
+export function normalizeDescribeProtoFilesInput(
+  request: Pick<GrpcDescribeRequest, 'protoFiles' | 'protoRoots' | 'importPaths'>,
+): { protoFiles: GrpcProtoFileInput[]; importPaths: string[] } {
+  const hasRoots = Boolean(request.protoRoots?.length);
+  if (!hasRoots) {
+    return {
+      protoFiles: request.protoFiles ?? [],
+      importPaths: request.importPaths ?? [],
+    };
+  }
+
+  const protoFiles: GrpcProtoFileInput[] = [];
+  for (const root of request.protoRoots ?? []) {
+    const mountPath = root.mountPath.trim().replace(/\\/g, '/').replace(/\/+$/g, '').replace(/^\/+/, '');
+    for (const file of root.files ?? []) {
+      const rawPath = file.path.trim().replace(/\\/g, '/').replace(/^\/+/, '');
+      const path = mountPath ? `${mountPath}/${rawPath}` : rawPath;
+      protoFiles.push({
+        path,
+        content: file.content,
+        sizeBytes: file.sizeBytes,
+      });
+    }
+  }
+
+  const importPaths = request.importPaths?.length
+    ? request.importPaths
+    : (request.protoRoots ?? []).map((root) => root.mountPath);
+
+  return { protoFiles, importPaths };
+}
 
 export function parseProtoFiles(
   protoFiles: ProtoFileInput[],
@@ -39,9 +71,10 @@ export function parseProtoFiles(
 }
 
 export function parseProtosetBase64(protosetBase64: string): protobuf.Root {
+  const normalizedBase64 = normalizeProtosetBase64Input(protosetBase64);
   let buffer: Buffer;
   try {
-    buffer = Buffer.from(protosetBase64.trim(), 'base64');
+    buffer = Buffer.from(normalizedBase64, 'base64');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     throw new Error(`Invalid protosetBase64: ${message}`);
@@ -71,11 +104,39 @@ export function parseProtosetBase64(protosetBase64: string): protobuf.Root {
   }
 }
 
+function normalizeProtosetBase64Input(input: string): string {
+  // Accept plain base64, data-URI payloads, base64url alphabet, and whitespace/newline wrapped payloads.
+  const trimmed = input.trim();
+  const dataUriPrefix = 'base64,';
+  const base64Payload = trimmed.toLowerCase().includes(dataUriPrefix)
+    ? trimmed.slice(trimmed.toLowerCase().lastIndexOf(dataUriPrefix) + dataUriPrefix.length)
+    : trimmed;
+
+  const compact = base64Payload
+    .replace(/\s+/g, '')
+    .replace(/-/g, '+')
+    .replace(/_/g, '/')
+    // Some intermediates accidentally map '+' to spaces.
+    .replace(/ /g, '+');
+
+  if (!compact) {
+    return compact;
+  }
+
+  const remainder = compact.length % 4;
+  if (remainder === 0) {
+    return compact;
+  }
+
+  return compact.padEnd(compact.length + (4 - remainder), '=');
+}
+
 export function parseDescribeRequestSource(request: GrpcDescribeRequest): protobuf.Root {
   if (request.source === 'proto_files') {
+    const normalized = normalizeDescribeProtoFilesInput(request);
     return parseProtoFiles(
-      request.protoFiles ?? [],
-      request.importPaths ?? [],
+      normalized.protoFiles,
+      normalized.importPaths,
     );
   }
   if (request.source === 'protoset') {

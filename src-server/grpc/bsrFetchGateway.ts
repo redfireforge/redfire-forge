@@ -1,6 +1,8 @@
 /**
  * Phase 3E — Buf Schema Registry (BSR) descriptor fetch gateway.
  */
+import { createRequire } from 'node:module';
+
 export interface BsrModuleReference {
   owner: string;
   repo: string;
@@ -32,9 +34,108 @@ export class BsrFetchGatewayError extends Error {
   }
 }
 
+let cachedNodeDispatcher: unknown | null = null;
+let triedNodeDispatcher = false;
+
+function resolveNodeDispatcher(): unknown | null {
+  if (triedNodeDispatcher) {
+    return cachedNodeDispatcher;
+  }
+  triedNodeDispatcher = true;
+
+  const proxy = process.env.HTTPS_PROXY
+    || process.env.https_proxy
+    || process.env.HTTP_PROXY
+    || process.env.http_proxy;
+
+  if (!proxy?.trim()) {
+    cachedNodeDispatcher = null;
+    return null;
+  }
+
+  try {
+    const require = createRequire(import.meta.url);
+    const undici = require('undici') as {
+      EnvHttpProxyAgent?: new () => unknown;
+      ProxyAgent?: new (url: string) => unknown;
+    };
+
+    if (undici.EnvHttpProxyAgent) {
+      cachedNodeDispatcher = new undici.EnvHttpProxyAgent();
+      return cachedNodeDispatcher;
+    }
+
+    if (undici.ProxyAgent) {
+      cachedNodeDispatcher = new undici.ProxyAgent(proxy);
+      return cachedNodeDispatcher;
+    }
+  } catch {
+    // Fall back to default fetch when undici dispatcher is unavailable.
+  }
+
+  cachedNodeDispatcher = null;
+  return null;
+}
+
 const defaultFetchPort: BsrFetchPort = {
-  fetch: (url, init) => globalThis.fetch(url, init),
+  fetch: (url, init) => {
+    const dispatcher = resolveNodeDispatcher();
+    if (!dispatcher) {
+      return globalThis.fetch(url, init);
+    }
+    return globalThis.fetch(url, {
+      ...init,
+      dispatcher,
+    } as RequestInit);
+  },
 };
+
+function formatErrorChain(error: unknown): string {
+  const parts: string[] = [];
+  let current: unknown = error;
+  const seen = new Set<unknown>();
+
+  while (current && !seen.has(current)) {
+    seen.add(current);
+    if (current instanceof Error) {
+      const code = (current as NodeJS.ErrnoException).code;
+      const msg = code ? `${current.message} [${code}]` : current.message;
+      if (msg.trim()) {
+        parts.push(msg.trim());
+      }
+      current = current.cause;
+      continue;
+    }
+
+    const fallback = String(current).trim();
+    if (fallback) {
+      parts.push(fallback);
+    }
+    break;
+  }
+
+  return parts.length ? parts.join(' -> ') : 'Unknown network error';
+}
+
+function bsrNetworkHint(errorText: string): string | null {
+  const upper = errorText.toUpperCase();
+  if (upper.includes('ENOTFOUND')) {
+    return 'DNS lookup failed for buf.build. Check network/DNS settings.';
+  }
+  if (upper.includes('ECONNREFUSED') || upper.includes('EHOSTUNREACH') || upper.includes('ENETUNREACH')) {
+    return 'Network path to buf.build was refused/unreachable.';
+  }
+  if (upper.includes('ETIMEDOUT') || upper.includes('UND_ERR_CONNECT_TIMEOUT')) {
+    return 'Connection to buf.build timed out.';
+  }
+  if (upper.includes('SELF_SIGNED_CERT') || upper.includes('CERT_') || upper.includes('TLS')) {
+    return 'TLS certificate validation failed when connecting to buf.build.';
+  }
+  if (upper.includes('PROXY')) {
+    return 'Proxy configuration blocked the request to buf.build.';
+  }
+  return null;
+}
 
 export function parseBsrModuleReference(rawModule: string): BsrModuleReference {
   const trimmed = rawModule.trim().replace(/^buf\.build\//, '');
@@ -53,7 +154,7 @@ export function parseBsrModuleReference(rawModule: string): BsrModuleReference {
 
 export function buildBsrDescriptorUrl(module: BsrModuleReference, version: string): string {
   const ref = encodeURIComponent(version);
-  return `https://buf.build/api/v1/modules/${module.owner}/${module.repo}/descriptor?ref=${ref}`;
+  return `https://buf.build/${module.owner}/${module.repo}/descriptor/${ref}`;
 }
 
 export async function fetchBsrDescriptorSet(
@@ -95,6 +196,13 @@ export async function fetchBsrDescriptorSet(
       throw new BsrFetchGatewayError(`BSR returned empty descriptor for ${module.fullName}`);
     }
 
+    if (contentType.includes('text/html')) {
+      throw new BsrFetchGatewayError(
+        `BSR returned HTML instead of descriptor bytes for ${module.fullName}@${version}. `
+        + 'This typically indicates an invalid endpoint or network/proxy content rewrite.',
+      );
+    }
+
     let protosetBase64: string;
     if (contentType.includes('application/json')) {
       const json = JSON.parse(buffer.toString('utf8')) as { protosetBase64?: string; descriptorBase64?: string };
@@ -125,8 +233,11 @@ export async function fetchBsrDescriptorSet(
     if (error instanceof Error && error.name === 'AbortError') {
       throw new BsrFetchGatewayError(`BSR fetch timed out after ${timeoutMs}ms`);
     }
-    const message = error instanceof Error ? error.message : String(error);
-    throw new BsrFetchGatewayError(`BSR fetch failed: ${message}`);
+    const chain = formatErrorChain(error);
+    const hint = bsrNetworkHint(chain);
+    throw new BsrFetchGatewayError(
+      `BSR fetch failed for ${module.fullName}@${version}: ${chain}${hint ? ` (${hint})` : ''}`,
+    );
   } finally {
     clearTimeout(timer);
   }

@@ -75,7 +75,18 @@ describe('bsrFetchGateway coverage gaps', () => {
       { owner: 'acme', repo: 'echo', fullName: 'buf.build/acme/echo' },
       'v1.2.0',
     );
-    expect(url).toContain('/acme/echo/descriptor?ref=v1.2.0');
+    expect(url).toContain('/acme/echo/descriptor/v1.2.0');
+  });
+
+  it('rejects HTML responses to avoid decoding rewritten portal pages as protosets', async () => {
+    await expect(fetchBsrDescriptorSet({ module: 'acme/echo' }, {
+      fetchPort: {
+        fetch: vi.fn(async () => new Response('<!doctype html><html></html>', {
+          status: 200,
+          headers: { 'content-type': 'text/html; charset=UTF-8' },
+        })),
+      },
+    })).rejects.toThrow(/returned HTML instead of descriptor bytes/i);
   });
 
   it('accepts descriptorBase64 alias in JSON responses', async () => {
@@ -99,7 +110,15 @@ describe('bsrFetchGateway coverage gaps', () => {
 
     await expect(fetchBsrDescriptorSet({ module: 'acme/echo' }, {
       fetchPort: { fetch: vi.fn(async () => { throw 'network down'; }) },
-    })).rejects.toThrow(/BSR fetch failed: network down/);
+    })).rejects.toThrow(/BSR fetch failed for buf\.build\/acme\/echo@main: network down/);
+  });
+
+  it('includes nested network cause details when fetch throws generic TypeError', async () => {
+    const lowLevel = Object.assign(new Error('getaddrinfo ENOTFOUND buf.build'), { code: 'ENOTFOUND' });
+    const wrapped = new TypeError('fetch failed', { cause: lowLevel });
+    await expect(fetchBsrDescriptorSet({ module: 'acme/echo' }, {
+      fetchPort: { fetch: vi.fn(async () => { throw wrapped; }) },
+    })).rejects.toThrow(/ENOTFOUND/);
   });
 
   it('uses the default global fetch port when fetchPort is omitted', async () => {

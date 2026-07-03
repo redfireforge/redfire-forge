@@ -17,7 +17,7 @@ describe('bsrFetchGateway', () => {
 
   it('builds descriptor URL with encoded ref', () => {
     const url = buildBsrDescriptorUrl({ owner: 'acme', repo: 'echo', fullName: 'buf.build/acme/echo' }, 'main');
-    expect(url).toContain('/acme/echo/descriptor?ref=main');
+    expect(url).toContain('/acme/echo/descriptor/main');
   });
 
   it('fetches binary protoset responses', async () => {

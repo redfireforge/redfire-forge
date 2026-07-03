@@ -14,6 +14,16 @@ import {
   type GrpcK8sPortForwardManager,
   type GrpcK8sPortForwardConfig,
 } from '../../grpc/grpcK8sPortForwardManager.js';
+import {
+  getGrpcDescribeUsageTelemetrySnapshot,
+  isLegacyProtoFilesOnlyDescribeRequest,
+  recordGrpcDescribeUsage,
+  shouldLogLegacyProtoFilesDeprecation,
+} from '../../grpc/grpcDescribeUsageTelemetry.js';
+import {
+  getGrpcRoutePerformanceSnapshot,
+  recordGrpcRoutePerformance,
+} from '../../grpc/grpcRoutePerformanceTelemetry.js';
 
 interface CreateGrpcRouterOptions {
   service?: GrpcService;
@@ -50,6 +60,10 @@ function toIntQuery(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+function elapsedMs(startedAt: bigint): number {
+  return Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+}
+
 export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router {
   const router = Router();
   const service = options.service ?? grpcService;
@@ -66,6 +80,7 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
   };
 
   router.get('/api/grpc/status', async (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     const address = toStringQuery(req.query.address);
     const tlsMode = toStringQuery(req.query.tlsMode) as 'disabled' | 'tls' | 'mtls' | undefined;
     const timeoutMs = toIntQuery(req.query.timeoutMs);
@@ -76,157 +91,346 @@ export function createGrpcRouter(options: CreateGrpcRouterOptions = {}): Router 
       tlsMode,
       timeoutMs,
     });
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'status',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.post('/api/grpc/reflect', async (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'reflect')) return;
     log(`reflect → ${req.body.target?.address ?? '(no target)'}`);
     const envelope = await service.reflect(req.body);
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'reflect',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.post('/api/grpc/describe', async (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'describe')) return;
+    recordGrpcDescribeUsage(req.body);
+    if (isLegacyProtoFilesOnlyDescribeRequest(req.body)) {
+      res.setHeader('Warning', '299 redfire-forge "Legacy protoFiles-only payloads are deprecated; migrate to protoRoots."');
+      res.setHeader('X-RedfireForge-ProtoFiles-Deprecated', 'true');
+      if (shouldLogLegacyProtoFilesDeprecation()) {
+        log('describe → received legacy protoFiles-only payload (deprecated; migrate to protoRoots)');
+      }
+    }
     log(`describe → ${req.body.source ?? '(no source)'}`);
     const envelope = await service.describe(req.body);
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'describe',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
+  });
+
+  router.get('/api/grpc/describe/usage', (_req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
+    const response = res.status(200).json({
+      ok: true,
+      data: getGrpcDescribeUsageTelemetrySnapshot(),
+    });
+    recordGrpcRoutePerformance({
+      routeId: 'describe_usage',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
+  });
+
+  router.get('/api/grpc/perf/snapshot', (_req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
+    const response = res.status(200).json({
+      ok: true,
+      data: getGrpcRoutePerformanceSnapshot(),
+    });
+    recordGrpcRoutePerformance({
+      routeId: 'perf_snapshot',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.post('/api/grpc/export-protoset', async (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'export_protoset')) return;
     log(`export-protoset → ${req.body.descriptorKey ?? '(no key)'}`);
     const envelope = await service.exportProtoset(req.body);
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'export_protoset',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.post('/api/grpc/descriptor/lookup', async (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'lookup_descriptor')) return;
     log(`descriptor-lookup → ${req.body.descriptorKey ?? '(no key)'}`);
     const envelope = await service.lookupDescriptor(req.body);
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'lookup_descriptor',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.post('/api/grpc/call', async (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'call')) return;
     const tabId = toStringQuery(req.query.tabId);
     log(`call → ${req.body.service ?? '?'}.${req.body.method ?? '?'} (${req.body.requestId ?? 'no-id'})`);
     const envelope = await service.call(req.body, tabId);
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'call',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.delete('/api/grpc/call/:requestId', (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     const requestId = req.params.requestId;
     const tabId = toStringQuery(req.query.tabId);
     log(`cancel → ${requestId}`);
     const envelope = service.cancel(requestId, tabId);
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'cancel',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.post('/api/grpc/stream/start', async (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'stream_start')) return;
     const tabId = toStringQuery(req.query.tabId);
     log(`stream/start → ${req.body.service ?? '?'}.${req.body.method ?? '?'} (${req.body.requestId ?? 'no-id'})`);
     const envelope = await Promise.resolve(streamService.startStream(req.body, tabId));
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'stream_start',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.get('/api/grpc/stream/:streamId/events', (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     const streamId = req.params.streamId;
     const tabId = toStringQuery(req.query.tabId);
     const lastSequence = toIntQuery(req.query.lastSequence);
     log(`stream/events → ${streamId}`);
     const errorEnvelope = streamService.attachStreamEvents(streamId, tabId, res, lastSequence);
     if (errorEnvelope) {
-      return sendGrpcEnvelope(res, errorEnvelope);
+      const response = sendGrpcEnvelope(res, errorEnvelope);
+      recordGrpcRoutePerformance({
+        routeId: 'stream_events',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     }
+    recordGrpcRoutePerformance({
+      routeId: 'stream_events',
+      durationMs: elapsedMs(startedAt),
+      statusCode: 200,
+    });
     return undefined;
   });
 
   router.post('/api/grpc/stream/:streamId/send', (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'stream_send')) return;
     const streamId = req.params.streamId;
     const tabId = toStringQuery(req.query.tabId);
     log(`stream/send → ${streamId}`);
     const envelope = streamService.sendStreamMessage(streamId, tabId, req.body);
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'stream_send',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.post('/api/grpc/stream/:streamId/end', (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     const streamId = req.params.streamId;
     const tabId = toStringQuery(req.query.tabId);
     log(`stream/end → ${streamId}`);
     const envelope = streamService.endStream(streamId, tabId);
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'stream_end',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.delete('/api/grpc/stream/:streamId', (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     const streamId = req.params.streamId;
     const tabId = toStringQuery(req.query.tabId);
     log(`stream/cancel → ${streamId}`);
     const envelope = streamService.cancelStream(streamId, tabId);
-    return sendGrpcEnvelope(res, envelope);
+    const response = sendGrpcEnvelope(res, envelope);
+    recordGrpcRoutePerformance({
+      routeId: 'stream_cancel',
+      durationMs: elapsedMs(startedAt),
+      statusCode: response.statusCode,
+    });
+    return response;
   });
 
   router.get('/api/grpc/k8s-port-forward/status', (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     const scopeId = toStringQuery(req.query.scopeId) ?? '';
     try {
       const data = k8sPortForwardManager.getStatus(scopeId);
-      return res.status(200).json({ ok: true, data });
+      const response = res.status(200).json({ ok: true, data });
+      recordGrpcRoutePerformance({
+        routeId: 'k8s_status',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to read K8s port-forward status';
-      return res.status(400).json({ ok: false, error: message });
+      const response = res.status(400).json({ ok: false, error: message });
+      recordGrpcRoutePerformance({
+        routeId: 'k8s_status',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     }
   });
 
   router.get('/api/grpc/k8s-port-forward/logs', (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     const scopeId = toStringQuery(req.query.scopeId) ?? '';
     const afterSeq = toIntQuery(req.query.afterSeq);
     try {
       const data = k8sPortForwardManager.getLogs(scopeId, afterSeq);
-      return res.status(200).json({ ok: true, data });
+      const response = res.status(200).json({ ok: true, data });
+      recordGrpcRoutePerformance({
+        routeId: 'k8s_logs',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to read K8s port-forward logs';
-      return res.status(400).json({ ok: false, error: message });
+      const response = res.status(400).json({ ok: false, error: message });
+      recordGrpcRoutePerformance({
+        routeId: 'k8s_logs',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     }
   });
 
   router.post('/api/grpc/k8s-port-forward/logs/clear', (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'cancel')) return;
     const scopeId = typeof req.body.scopeId === 'string' ? req.body.scopeId : '';
     try {
       const data = k8sPortForwardManager.clearLogs(scopeId);
-      return res.status(200).json({ ok: true, data });
+      const response = res.status(200).json({ ok: true, data });
+      recordGrpcRoutePerformance({
+        routeId: 'k8s_logs_clear',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to clear K8s port-forward logs';
-      return res.status(400).json({ ok: false, error: message });
+      const response = res.status(400).json({ ok: false, error: message });
+      recordGrpcRoutePerformance({
+        routeId: 'k8s_logs_clear',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     }
   });
 
   router.post('/api/grpc/k8s-port-forward/start', async (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'call')) return;
     const scopeId = typeof req.body.scopeId === 'string' ? req.body.scopeId : '';
     const config = (req.body.config ?? {}) as Partial<GrpcK8sPortForwardConfig>;
     log(`k8s/start → ${scopeId || '(no scope)'}`);
     try {
       const data = await k8sPortForwardManager.startPortForward(scopeId, config);
-      return res.status(200).json({ ok: true, data });
+      const response = res.status(200).json({ ok: true, data });
+      recordGrpcRoutePerformance({
+        routeId: 'k8s_start',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to start kubectl port-forward';
-      return res.status(400).json({ ok: false, error: message });
+      const response = res.status(400).json({ ok: false, error: message });
+      recordGrpcRoutePerformance({
+        routeId: 'k8s_start',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     }
   });
 
   router.post('/api/grpc/k8s-port-forward/stop', async (req: Request, res: Response) => {
+    const startedAt = process.hrtime.bigint();
     if (!requireBodyObject(req, res, 'cancel')) return;
     const scopeId = typeof req.body.scopeId === 'string' ? req.body.scopeId : '';
     log(`k8s/stop → ${scopeId || '(no scope)'}`);
     try {
       const data = await k8sPortForwardManager.stopPortForward(scopeId);
-      return res.status(200).json({ ok: true, data });
+      const response = res.status(200).json({ ok: true, data });
+      recordGrpcRoutePerformance({
+        routeId: 'k8s_stop',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to stop kubectl port-forward';
-      return res.status(400).json({ ok: false, error: message });
+      const response = res.status(400).json({ ok: false, error: message });
+      recordGrpcRoutePerformance({
+        routeId: 'k8s_stop',
+        durationMs: elapsedMs(startedAt),
+        statusCode: response.statusCode,
+      });
+      return response;
     }
   });
 

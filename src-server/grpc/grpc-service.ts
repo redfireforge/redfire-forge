@@ -1,4 +1,4 @@
-import * as grpc from '@grpc/grpc-js';
+import { grpc } from './grpcJsLoader.js';
 import {
   GRPC_DEFAULT_CALL_TIMEOUT_MS,
   GRPC_DEFAULT_PROBE_TIMEOUT_MS,
