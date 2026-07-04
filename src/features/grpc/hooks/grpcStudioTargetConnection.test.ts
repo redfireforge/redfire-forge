@@ -28,14 +28,42 @@ vi.mock('./grpcStudioTabCommands', () => ({
 
 function makeCore(overrides: Partial<{
   tabs: Array<{ id: string; targetConnection?: { state: string }; timeoutMs?: number }>;
+  tabDescriptors: Record<string, { loadState?: string; descriptor?: unknown }>;
   updateTab: ReturnType<typeof vi.fn>;
 }> = {}) {
   const tabs = overrides.tabs ?? [{ id: 'tab-1', timeoutMs: 5000 }];
+  const tabDescriptors = overrides.tabDescriptors ?? {};
   const updateTab = overrides.updateTab ?? vi.fn();
   return {
-    sessionRef: { current: { tabs } },
+    sessionRef: { current: { tabs, tabDescriptors } },
     updateTab,
   };
+}
+
+function makeRuntimeCtx(overrides: Partial<GrpcStudioRuntimeContext> = {}): GrpcStudioRuntimeContext {
+  return {
+    patchTabDescriptor: vi.fn(),
+    updateTab: vi.fn(),
+    sessionRef: { current: { tabs: [], activeTabId: '', tabDescriptors: {} } as never },
+    tabsRef: { current: [] },
+    setSession: vi.fn(),
+    commitSession: (next) => next,
+    descriptorLoadGenerationRef: { current: {} },
+    callGenerationRef: { current: {} },
+    streamGenerationRef: { current: {} },
+    streamDisposeRef: { current: {} },
+    inFlightCallRef: { current: {} },
+    tabConnectionFingerprintRef: { current: {} },
+    fireCancelInFlight: vi.fn(),
+    envVarMap: {},
+    workspaceDefaults: {},
+    profiles: [],
+    globalAuthProfiles: [],
+    defaultAuthProfileId: null,
+    pageDefaults: { target: '', tlsMode: 'disabled' },
+    maxTabs: 8,
+    ...overrides,
+  } as GrpcStudioRuntimeContext;
 }
 
 describe('grpcStudioTargetConnection', () => {
@@ -55,7 +83,7 @@ describe('grpcStudioTargetConnection', () => {
       tabs: [{ id: 'tab-1', timeoutMs: 120_000, targetConnection: { state: 'connecting' } }],
       updateTab,
     });
-    const runtimeCtx = {} as GrpcStudioRuntimeContext;
+    const runtimeCtx = makeRuntimeCtx();
     const connectTarget = createConnectTargetHandler(runtimeCtx, core as never);
 
     const connectPromise = connectTarget('tab-1');
@@ -87,7 +115,7 @@ describe('grpcStudioTargetConnection', () => {
 
     const updateTab = vi.fn();
     const core = makeCore({ updateTab });
-    const runtimeCtx = {} as GrpcStudioRuntimeContext;
+    const runtimeCtx = makeRuntimeCtx();
     const connectTarget = createConnectTargetHandler(runtimeCtx, core as never);
     const disconnectTarget = createDisconnectTargetHandler(core as never);
 
@@ -133,7 +161,8 @@ describe('grpcStudioTargetConnection', () => {
 
     const updateTab = vi.fn();
     const core = makeCore({ updateTab });
-    const connectTarget = createConnectTargetHandler({} as GrpcStudioRuntimeContext, core as never);
+    const runtimeCtx = makeRuntimeCtx();
+    const connectTarget = createConnectTargetHandler(runtimeCtx, core as never);
 
     await connectTarget('tab-1');
 
@@ -146,7 +175,7 @@ describe('grpcStudioTargetConnection', () => {
   it('no-ops connect when tab is missing', async () => {
     const updateTab = vi.fn();
     const core = makeCore({ tabs: [], updateTab });
-    const connectTarget = createConnectTargetHandler({} as GrpcStudioRuntimeContext, core as never);
+    const connectTarget = createConnectTargetHandler(makeRuntimeCtx(), core as never);
     await connectTarget('missing');
     expect(probeGrpcTargetConnection).not.toHaveBeenCalled();
     expect(updateTab).not.toHaveBeenCalled();
@@ -180,10 +209,39 @@ describe('grpcStudioTargetConnection', () => {
     });
     const updateTab = vi.fn();
     const core = makeCore({ updateTab });
-    const connectTarget = createConnectTargetHandler({} as GrpcStudioRuntimeContext, core as never);
+    const connectTarget = createConnectTargetHandler(makeRuntimeCtx(), core as never);
     await connectTarget('tab-1');
     expect(updateTab).toHaveBeenCalledWith('tab-1', {
       targetConnection: expect.objectContaining({ state: 'error', errorMessage: 'refused' }),
+    });
+  });
+
+  it('clears stale descriptor load error when connection succeeds and no descriptor is loaded', async () => {
+    probeGrpcTargetConnection.mockResolvedValue({
+      state: 'connected',
+      latencyMs: 5,
+      checkedAt: '2026-07-01T00:00:00.000Z',
+    });
+
+    const patchTabDescriptor = vi.fn();
+    const runtimeCtx = makeRuntimeCtx({ patchTabDescriptor });
+    const updateTab = vi.fn();
+    const core = makeCore({
+      updateTab,
+      tabDescriptors: {
+        'tab-1': { loadState: 'error' },
+      },
+    });
+    const connectTarget = createConnectTargetHandler(runtimeCtx, core as never);
+
+    await connectTarget('tab-1');
+
+    expect(patchTabDescriptor).toHaveBeenCalledWith('tab-1', {
+      loadState: 'idle',
+      errorMessage: undefined,
+    });
+    expect(updateTab).toHaveBeenCalledWith('tab-1', {
+      targetConnection: expect.objectContaining({ state: 'connected' }),
     });
   });
 
