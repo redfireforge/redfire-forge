@@ -36,6 +36,9 @@ coverage/
 cov-*/
 coverage-*/
 
+# Java fixture build outputs
+docker/grpc/spring-boot/target/
+
 # jscpd duplication reports
 jscpd-report/
 
