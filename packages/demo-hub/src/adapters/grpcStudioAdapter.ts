@@ -20,6 +20,10 @@ export const GRPC_DEMO_PREREQUISITE_ENDPOINTS = [
 
 /** Setup commands shown in the lesson prerequisite gate. */
 export const GRPC_DEMO_DOCKER_COMMAND = [
+  '# One command — Docker echo + Express proxy + Vite',
+  'npm run dev:grpc',
+  '',
+  '# — or start each dependency yourself —',
   '# Terminal 1 — gRPC echo server (Docker)',
   'cd docker/grpc && docker compose up -d',
   '',

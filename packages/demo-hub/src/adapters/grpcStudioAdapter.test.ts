@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
+  GRPC_DEMO_DOCKER_COMMAND,
   GRPC_DEMO_HEALTH_URL,
   GRPC_DEMO_PREREQUISITE_ENDPOINTS,
   GRPC_DEMO_TARGET,
@@ -21,6 +22,12 @@ describe('grpcStudioAdapter', () => {
     expect(GRPC_DEMO_PREREQUISITE_ENDPOINTS[0]).toBe(GRPC_DEMO_HEALTH_URL);
     expect(GRPC_DEMO_PREREQUISITE_ENDPOINTS[1]).toBe(GRPC_EXPRESS_HEALTH_URL);
     expect(GRPC_EXPRESS_ONLY_COMMAND).toBe('npm run server');
+  });
+
+  it('surfaces the one-command dev script alongside the manual steps', () => {
+    expect(GRPC_DEMO_DOCKER_COMMAND).toContain('npm run dev:grpc');
+    expect(GRPC_DEMO_DOCKER_COMMAND).toContain('docker compose up -d');
+    expect(GRPC_DEMO_DOCKER_COMMAND).toContain('npm run server');
   });
 
   it('documents spring lesson setup with express proxy', () => {
