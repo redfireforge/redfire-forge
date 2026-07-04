@@ -28,7 +28,7 @@ vi.mock('./grpcStudioTabCommands', () => ({
 
 function makeCore(overrides: Partial<{
   tabs: Array<{ id: string; targetConnection?: { state: string }; timeoutMs?: number }>;
-  tabDescriptors: Record<string, { loadState?: string; descriptor?: unknown }>;
+  tabDescriptors: Record<string, { loadState?: string; descriptor?: unknown; errorMessage?: string }>;
   updateTab: ReturnType<typeof vi.fn>;
 }> = {}) {
   const tabs = overrides.tabs ?? [{ id: 'tab-1', timeoutMs: 5000 }];
@@ -229,7 +229,10 @@ describe('grpcStudioTargetConnection', () => {
     const core = makeCore({
       updateTab,
       tabDescriptors: {
-        'tab-1': { loadState: 'error' },
+        'tab-1': {
+          loadState: 'error',
+          errorMessage: 'Could not reach the Express gRPC proxy (port 3001). Start it in a second terminal: npm run server',
+        },
       },
     });
     const connectTarget = createConnectTargetHandler(runtimeCtx, core as never);
@@ -243,6 +246,63 @@ describe('grpcStudioTargetConnection', () => {
     expect(updateTab).toHaveBeenCalledWith('tab-1', {
       targetConnection: expect.objectContaining({ state: 'connected' }),
     });
+  });
+
+  it('clears stale proxy error and preserves loaded state when descriptor is present', async () => {
+    probeGrpcTargetConnection.mockResolvedValue({
+      state: 'connected',
+      latencyMs: 5,
+      checkedAt: '2026-07-01T00:00:00.000Z',
+    });
+
+    const patchTabDescriptor = vi.fn();
+    const runtimeCtx = makeRuntimeCtx({ patchTabDescriptor });
+    const updateTab = vi.fn();
+    const core = makeCore({
+      updateTab,
+      tabDescriptors: {
+        'tab-1': {
+          loadState: 'error',
+          descriptor: { key: 'cached' },
+          errorMessage: 'Could not reach the app HTTP proxy',
+        },
+      },
+    });
+    const connectTarget = createConnectTargetHandler(runtimeCtx, core as never);
+
+    await connectTarget('tab-1');
+
+    expect(patchTabDescriptor).toHaveBeenCalledWith('tab-1', {
+      loadState: 'loaded',
+      errorMessage: undefined,
+    });
+    expect(updateTab).toHaveBeenCalledWith('tab-1', {
+      targetConnection: expect.objectContaining({ state: 'connected' }),
+    });
+  });
+
+  it('does not clear non-proxy descriptor errors on connect success', async () => {
+    probeGrpcTargetConnection.mockResolvedValue({
+      state: 'connected',
+      latencyMs: 5,
+      checkedAt: '2026-07-01T00:00:00.000Z',
+    });
+
+    const patchTabDescriptor = vi.fn();
+    const runtimeCtx = makeRuntimeCtx({ patchTabDescriptor });
+    const core = makeCore({
+      tabDescriptors: {
+        'tab-1': {
+          loadState: 'error',
+          errorMessage: 'Invalid protobuf schema',
+        },
+      },
+    });
+    const connectTarget = createConnectTargetHandler(runtimeCtx, core as never);
+
+    await connectTarget('tab-1');
+
+    expect(patchTabDescriptor).not.toHaveBeenCalled();
   });
 
   it('disconnectTarget resets connection to idle', () => {
