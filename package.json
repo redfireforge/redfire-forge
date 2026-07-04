@@ -11,6 +11,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:grpc": "bash scripts/dev-grpc.sh",
     "dev:prod-slim": "VITE_ENABLE_DEMO_HUB=false vite",
     "build": "npm run build:prod",
     "build:prod": "tsc -b && VITE_ENABLE_DEMO_HUB=false vite build --mode production",

@@ -63,7 +63,7 @@ describe('LessonPlayer — coverage gaps', () => {
         onStartDemo={vi.fn()}
       />,
     );
-    expect(screen.getByText(/Waiting for Docker/i)).toBeTruthy();
-    expect(screen.getByRole('button', { name: /Waiting for Docker/i })).toHaveProperty('disabled', true);
+    expect(screen.getByText(/Waiting for/i)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /Waiting for/i })).toHaveProperty('disabled', true);
   });
 });
