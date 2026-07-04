@@ -312,4 +312,68 @@ describe('PrerequisiteGate', () => {
     await act(() => vi.advanceTimersByTimeAsync(6000));
     expect(mockCheck.mock.calls.length).toBe(callCountAfterUnmount);
   });
+
+  it('renders a per-service breakdown with derived labels for multi-endpoint gates', async () => {
+    // Docker echo (50052) down, Express proxy (3001) up
+    mockCheck.mockImplementation(async (url: string) => url.includes('3001'));
+    render(
+      <PrerequisiteGate
+        endpoints={['http://localhost:50052/health', 'http://localhost:3001/health']}
+        dockerCommand="npm run dev:grpc"
+        onServerReady={vi.fn()}
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(100));
+
+    const rows = screen.getAllByTestId('prereq-service');
+    expect(rows).toHaveLength(2);
+    expect(rows[0].textContent).toContain('Docker echo');
+    expect(rows[0].textContent).toContain('localhost:50052');
+    expect(rows[0].textContent).toContain('not detected');
+    expect(rows[0].className).toContain('prereq-service--down');
+    expect(rows[1].textContent).toContain('Express proxy');
+    expect(rows[1].className).toContain('prereq-service--up');
+  });
+
+  it('reports unreachable service labels via onProbeStatusChange', async () => {
+    mockCheck.mockImplementation(async (url: string) => url.includes('3001'));
+    const onProbeStatusChange = vi.fn();
+    render(
+      <PrerequisiteGate
+        endpoints={['http://localhost:50052/health', 'http://localhost:3001/health']}
+        dockerCommand="npm run dev:grpc"
+        onServerReady={vi.fn()}
+        onProbeStatusChange={onProbeStatusChange}
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(onProbeStatusChange).toHaveBeenCalledWith(['Docker echo']);
+
+    mockCheck.mockResolvedValue(true);
+    await act(() => vi.advanceTimersByTimeAsync(3100));
+    expect(onProbeStatusChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it('prefers explicit endpointLabels over derived names', async () => {
+    mockCheck.mockResolvedValue(false);
+    render(
+      <PrerequisiteGate
+        endpoints={['http://localhost:9001/health', 'http://localhost:9002/health']}
+        endpointLabels={['Primary', 'Replica']}
+        dockerCommand="docker compose up"
+        onServerReady={vi.fn()}
+      />,
+    );
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    const rows = screen.getAllByTestId('prereq-service');
+    expect(rows[0].textContent).toContain('Primary');
+    expect(rows[1].textContent).toContain('Replica');
+  });
+
+  it('omits the per-service breakdown for single-endpoint gates', async () => {
+    mockCheck.mockResolvedValue(false);
+    render(<PrerequisiteGate {...DEFAULT_PROPS} />);
+    await act(() => vi.advanceTimersByTimeAsync(100));
+    expect(screen.queryByTestId('prereq-service-list')).toBeNull();
+  });
 });
