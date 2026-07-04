@@ -3,7 +3,8 @@ import type { GrpcTlsConfig, GrpcTlsMode } from '../../../shared/grpc/contracts'
 import type { GrpcTlsValidationIssue } from '../../../shared/grpc/grpcTlsPolicy';
 import { validateGrpcTlsConfigContract } from '../../../shared/grpc/grpcTlsPolicy';
 import type { GrpcMaskedSecretFields, GrpcTlsSecretFieldKey } from '../utils/grpcSecretFieldUi';
-import { GrpcTlsConfigModal } from './GrpcTlsConfigModal';
+import { TlsConfigModal } from '../../../shared/components/TlsConfigModal';
+import { GrpcTlsConfigBody } from './GrpcTlsConfigBody';
 
 type TlsSnapshot = {
   tlsMode: GrpcTlsMode;
@@ -145,24 +146,32 @@ export function GrpcTlsPanel({
 
   return (
     <div className="grpc-tls-panel-host" data-testid="grpc-tls-panel">
-      <GrpcTlsConfigModal
+      <TlsConfigModal
         open={open}
-        tlsMode={mode}
-        tlsConfig={tlsConfig}
-        issues={issues}
-        maskedSecretFields={maskedSecretFields}
+        values={{ skipVerify: false }}
+        onChange={() => { /* handled via bodySlot */ }}
         dirty={dirty}
         disabled={disabled}
-        testResult={testResult}
-        onTlsModeChange={handleTlsModeChange}
-        onTlsConfigChange={handleTlsConfigChange}
-        onUnmaskSecretField={onUnmaskSecretField}
-        onClearSecretField={onClearSecretField}
+        testIdPrefix="grpc-tls"
         onSave={handleSave}
         onCancel={handleCancel}
         onClose={handleClose}
         onTestConnection={handleTestConnection}
         onResetDefaults={handleResetDefaults}
+        bodySlot={
+          <GrpcTlsConfigBody
+            tlsMode={mode}
+            tlsConfig={tlsConfig}
+            issues={issues}
+            maskedSecretFields={maskedSecretFields}
+            disabled={disabled}
+            testResult={testResult}
+            onTlsModeChange={handleTlsModeChange}
+            onTlsConfigChange={handleTlsConfigChange}
+            onUnmaskSecretField={onUnmaskSecretField}
+            onClearSecretField={onClearSecretField}
+          />
+        }
       />
     </div>
   );

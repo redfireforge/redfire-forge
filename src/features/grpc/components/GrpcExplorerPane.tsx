@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GrpcStudioTabState, GrpcTabDescriptorState } from '../grpcStudioTypes';
 import { isGrpcLifecycleInFlight } from '../grpcStudioTypes';
 import { findGrpcMethod } from '../utils/grpcExplorerUtils';
@@ -38,6 +39,8 @@ export interface GrpcExplorerPaneProps {
   onDismissSchemaDrift?: () => void;
   onPruneSchemaDriftBody?: () => void;
   onRebindSchemaDriftMethod?: (serviceFullName: string, methodName: string) => void;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  defaultAuthProfileId?: string | null;
   /** Increment to focus the Auth composer tab (Phase 4J-A connection bar). */
   authTabFocusRequest?: number;
   /** Connection bar + validation + TLS block — rendered at top of main column (mockup 01). */
@@ -78,6 +81,8 @@ export function GrpcExplorerPane({
   onDismissSchemaDrift,
   onPruneSchemaDriftBody,
   onRebindSchemaDriftMethod,
+  globalAuthProfiles = [],
+  defaultAuthProfileId = null,
   authTabFocusRequest,
   connectionChrome,
 }: GrpcExplorerPaneProps) {
@@ -151,6 +156,8 @@ export function GrpcExplorerPane({
           executeBlocked={executeBlocked}
           descriptorLoading={descriptorState.loadState === 'loading'}
           authTabFocusRequest={authTabFocusRequest}
+          globalAuthProfiles={globalAuthProfiles}
+          defaultAuthProfileId={defaultAuthProfileId}
           onPatch={onTabPatch}
           onUnmaskAuthSecretField={onUnmaskAuthSecretField}
           onClearAuthSecretField={onClearAuthSecretField}

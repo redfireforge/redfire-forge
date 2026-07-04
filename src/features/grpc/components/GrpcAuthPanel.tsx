@@ -1,22 +1,18 @@
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GrpcAuthConfig, GrpcAuthType } from '../../../shared/grpc/contracts';
 import { isGrpcSecretMetadataKey } from '../../../shared/grpc/grpcSecretPolicy';
 import type { GrpcAuthPreviewResult } from '../utils/grpcAuthPreview';
 import type { GrpcAuthSecretFieldKey, GrpcMaskedSecretFields } from '../utils/grpcSecretFieldUi';
+import { getGrpcCompatibleGlobalAuthProfiles } from '../utils/grpcAuthProfileResolve';
 import { GrpcSecretField } from './GrpcSecretField';
-
-const AUTH_TYPE_OPTIONS: Array<{ value: GrpcAuthType | 'none'; label: string }> = [
-  { value: 'none', label: 'No Auth' },
-  { value: 'bearer', label: 'Bearer Token' },
-  { value: 'basic', label: 'Basic Auth' },
-  { value: 'api_key', label: 'API Key' },
-  { value: 'oauth2', label: 'OAuth 2.0 (Client Credentials)' },
-];
 
 export interface GrpcAuthPanelProps {
   auth: GrpcAuthConfig | undefined;
   preview: GrpcAuthPreviewResult;
   maskedSecretFields?: GrpcMaskedSecretFields['auth'];
   disabled?: boolean;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  defaultAuthProfileId?: string | null;
   /** When true, shows the page-default scope banner (connection settings). */
   showPageDefaultBanner?: boolean;
   onChange: (auth: GrpcAuthConfig | undefined) => void;
@@ -28,6 +24,22 @@ function resolveAuthType(auth: GrpcAuthConfig | undefined): GrpcAuthType | 'none
   return auth?.type ?? 'none';
 }
 
+function buildAuthTypeOptions(hasProfiles: boolean): Array<{ value: GrpcAuthType | 'none'; label: string }> {
+  const options: Array<{ value: GrpcAuthType | 'none'; label: string }> = [
+    { value: 'none', label: 'No Auth' },
+  ];
+  if (hasProfiles) {
+    options.push({ value: 'inherit', label: 'Inherit from Auth Profile' });
+  }
+  options.push(
+    { value: 'bearer', label: 'Bearer Token' },
+    { value: 'basic', label: 'Basic Auth' },
+    { value: 'api_key', label: 'API Key' },
+    { value: 'oauth2', label: 'OAuth 2.0 (Client Credentials)' },
+  );
+  return options;
+}
+
 function maskConflictValue(key: string, value: string): string {
   return isGrpcSecretMetadataKey(key) && value.trim() ? '••••••' : value;
 }
@@ -37,17 +49,28 @@ export function GrpcAuthPanel({
   preview,
   maskedSecretFields,
   disabled = false,
+  globalAuthProfiles = [],
+  defaultAuthProfileId = null,
   showPageDefaultBanner = false,
   onChange,
   onUnmaskSecretField,
   onClearSecretField,
 }: GrpcAuthPanelProps) {
   const authType = resolveAuthType(auth);
+  const compatibleProfiles = getGrpcCompatibleGlobalAuthProfiles(globalAuthProfiles);
+  const authTypeOptions = buildAuthTypeOptions(compatibleProfiles.length > 0 || !!defaultAuthProfileId);
 
   const handleTypeChange = (nextType: GrpcAuthType | 'none') => {
     if (nextType === authType) return;
     if (nextType === 'none') {
       onChange(undefined);
+      return;
+    }
+    if (nextType === 'inherit') {
+      onChange({
+        type: 'inherit',
+        globalProfileId: auth?.globalProfileId ?? defaultAuthProfileId ?? compatibleProfiles[0]?.id,
+      });
       return;
     }
     if (nextType === 'api_key') {
@@ -97,7 +120,7 @@ export function GrpcAuthPanel({
             data-testid="grpc-auth-type-select"
             onChange={(event) => handleTypeChange(event.target.value as GrpcAuthType | 'none')}
           >
-            {AUTH_TYPE_OPTIONS.map((option) => (
+            {authTypeOptions.map((option) => (
               <option key={option.value} value={option.value}>
                 {option.label}
               </option>
@@ -112,6 +135,38 @@ export function GrpcAuthPanel({
           No authentication headers will be sent.
           Select a type above to add credentials.
         </div>
+      )}
+
+      {authType === 'inherit' && (
+        <>
+          <div className="grpc-auth-form-row">
+            <label className="grpc-auth-form-label" htmlFor="grpc-auth-profile-select">
+              Auth profile
+            </label>
+            <div className="grpc-auth-form-ctrl">
+              <select
+                id="grpc-auth-profile-select"
+                className="grpc-auth-select"
+                value={auth?.globalProfileId ?? defaultAuthProfileId ?? ''}
+                disabled={disabled}
+                data-testid="grpc-auth-profile-select"
+                onChange={(event) => onChange({
+                  type: 'inherit',
+                  globalProfileId: event.target.value || undefined,
+                })}
+              >
+                <option value="">— Select a profile —</option>
+                {compatibleProfiles.map((profile) => (
+                  <option key={profile.id} value={profile.id}>{profile.name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+          <div className="grpc-auth-info-box" data-testid="grpc-auth-inherit-notice" role="status">
+            Inherited auth is resolved from Environment Manager at execute time.
+            Use the <strong>Metadata</strong> tab for custom gRPC headers.
+          </div>
+        </>
       )}
 
       {authType === 'bearer' && (

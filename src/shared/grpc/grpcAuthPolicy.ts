@@ -53,6 +53,8 @@ export function buildAuthMetadataHeaders(
   }
 
   switch (auth.type) {
+    case 'inherit':
+      return { ok: false, error: 'Inherited auth profile must be resolved before execute', field: 'auth.globalProfileId' };
     case 'bearer': {
       const token = auth.bearerToken?.trim();
       if (!token) {
@@ -225,6 +227,11 @@ export function validateGrpcAuthConfigContract(
   };
 
   switch (auth.type) {
+    case 'inherit':
+      if (!auth.globalProfileId?.trim()) {
+        push('auth.globalProfileId', 'Select an auth profile to inherit credentials.');
+      }
+      break;
     case 'bearer':
       if (!auth.bearerToken?.trim()) push('auth.bearerToken', 'Bearer token is required');
       break;

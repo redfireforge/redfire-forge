@@ -61,7 +61,6 @@ export const GRPC = {
   CALL_SETTINGS_PANEL: '[data-testid="grpc-call-settings-panel"]',
   CALL_SETTINGS_TIMEOUT: '[data-testid="grpc-call-settings-timeout"]',
   CALL_SETTINGS_PREVIEW: '[data-testid="grpc-call-settings-preview"]',
-  CONNECTION_ENV_BADGE: '[data-testid="grpc-connection-env-badge"]',
   PROTO_ONEOF: (oneofName: string) => `[data-testid="grpc-proto-oneof-${oneofName}"]`,
   PROTO_ONEOF_RADIO: (oneofName: string, member: string) =>
     `[data-testid="grpc-proto-oneof-radio-${oneofName}-${member}"]`,

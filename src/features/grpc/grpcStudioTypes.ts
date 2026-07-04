@@ -302,6 +302,10 @@ export interface GrpcStudioTabState {
   body: Record<string, unknown>;
   metadata: Record<string, string>;
   timeoutMs: number;
+  /** Max inbound message size in MB (default 4). Passed as grpc.max_receive_message_length channel option. */
+  maxResponseSizeMb?: number;
+  /** Keepalive send interval in seconds (default 30). Passed as grpc.keepalive_time_ms channel option. */
+  keepaliveIntervalSec?: number;
   /** Phase 4J-D — per-call compression via grpc-encoding metadata. */
   compression?: GrpcCompressionConfig;
   requestMode: GrpcRequestMode;
@@ -390,6 +394,8 @@ export function createGrpcStudioTab(
     body: overrides.body ?? {},
     metadata: overrides.metadata ?? {},
     timeoutMs: overrides.timeoutMs ?? GRPC_DEFAULT_CALL_TIMEOUT_MS,
+    maxResponseSizeMb: overrides.maxResponseSizeMb ?? 4,
+    keepaliveIntervalSec: overrides.keepaliveIntervalSec ?? 30,
     compression: overrides.compression,
     requestMode: overrides.requestMode ?? 'form',
     lifecycle: overrides.lifecycle ?? 'idle',

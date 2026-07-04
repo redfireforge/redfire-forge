@@ -1,8 +1,8 @@
 # gRPC Studio — Living Plan
 
 > **Branch:** `feature/grpc-phase` (merges to `develop`)  
-> **Status:** Phases **1–11O product complete** ✅ · **Proto Files ingest (root-based)** complete ✅ · **Unified Shell UX** (mockups 07–09) UX-1..UX-7 delivered ✅ · **Phase 13** complete (13A–13I ✅, sustainment rerun ✅) · **Phase 12** demo track in progress (**3/14 shipped**)  
-> **Last updated:** 2026-07-03 (native mock listener parity hardening remains closed; Unified Shell UX status synchronized to UX-1..UX-7 complete with focused validation green; Environment Manager `workspaceDefaults` editor UI shipped with persisted state + gRPC workspace-default override wiring; Docker fixture expansion delivered: TLS/mTLS + Envoy grpc-web + Spring Boot + schema-v2 `CreateComplexEcho`; Phase 13 sustainment rerun passed end-to-end and GA hardening is complete)  
+> **Status:** Phases **1–11O product complete** ✅ · **Proto Files ingest (root-based)** complete ✅ · **Unified Shell UX** (mockups 07–09) UX-1..UX-7 delivered ✅ · **Phase 13** complete (13A–13I ✅, sustainment rerun ✅) · **Phase 12** demo track in progress (**4/15 shipped**)  
+> **Last updated:** 2026-07-04 (K8s port-forward tab now uses shorter one-line row hints so the left workflow column stays visually compact and aligned in the modal)
 > **Doc policy:** This file is a **short status + forward backlog** only. Shipped sub-phase specs, mockup parity tables, re-evaluation passes, and bug-fix history live in **git history** and **per-phase runbooks** — **do not append audit logs here**.
 
 | Detail lives in | Path |
@@ -82,7 +82,7 @@ A **single index** for gRPC Studio **product engineering** — what shipped, whe
 | **1–11O** — Product sign-off | Studio + advanced closure | ✅ | § [Deferrals](#deferred--not-implemented-product) below |
 | **Proto Files ingest** | Root-based ingest cleanup | ✅ | § [Universal Proto Files Ingest (Per Virtual Root)](#universal-proto-files-ingest-per-virtual-root) |
 | **UX-1–UX-7** — Unified shell | Mockups 07–09 → production UI | ✅ UX-1..UX-7 shipped (selector-stable) | [`grpc-ux-spec-concrete.md`](grpc-ux-spec-concrete.md) |
-| **12** — Demo Lessons | 14 lessons, 4 tracks (**3/14 shipped**) | 🔨 **12C** in progress | `npm run test:grpc:phase12a` · [`grpc-demo-lessons.md`](grpc-demo-lessons.md) |
+| **12** — Demo Lessons | 15 lessons, 4 tracks (**4/15 shipped**) | 🔨 **12C** in progress | `npm run test:grpc:phase12a` · [`grpc-demo-lessons.md`](grpc-demo-lessons.md) |
 | **13** — GA Hardening | SLOs, a11y, release gates | ✅ 13A–13I complete, sustainment rerun passed | `grpc:phase13a:baseline` / `grpc:phase13b:ci` / `grpc:phase13c:gate` / `grpc:phase13d:gate` / `grpc:phase13e:gate` / `grpc:phase13f:gate` / `grpc:phase13h:gate` / `grpc:phase13i:gate` |
 
 **MVP** = Phases **1–5 + 9** (+ **4J** for UI parity).
@@ -97,7 +97,7 @@ A **single index** for gRPC Studio **product engineering** — what shipped, whe
 | **2** | SSE stream relay, stream registry, message log, all call types |
 | **3** | Proto/protoset/BSR/URL ingest, import resolver, schema browser, drift |
 | **4** | TLS tri-mode, auth, secret vault, redaction |
-| **4J** | UI shell parity: connection bar, TLS modal, auth pills, settings drawer |
+| **4J** | UI shell parity: connection bar target/TLS/auth/deadline chrome, right-edge action rail (import/save/connect), TLS modal, auth pills, settings drawer with transparent GraphQL-style backdrop, compact Call settings stack, GraphQL-style two-tone settings rows, far-right session gear |
 | **5** | IDB collections/history, grpcurl import/export |
 | **6** | Workflow nodes (`grpcUnary`, streams, assert), output namespace |
 | **7** | Tauri `tonic` channel pool, native unary/stream |
@@ -527,7 +527,7 @@ Acceptance commands:
 
 > **Goal:** 14 guided Demo Hub lessons across four learning tracks. Full lesson spec: [`grpc-demo-lessons.md`](grpc-demo-lessons.md).
 
-### Lesson roster (14)
+### Lesson roster (15)
 
 Grouped by learning track. Lessons within a track build on each other; tracks can be started independently after Track 1.
 
@@ -564,10 +564,11 @@ Grouped by learning track. Lessons within a track build on each other; tracks ca
 | 12 | `grpc-mock-server` | Mocking gRPC APIs: Rules & Network Listener | L1 | 🔲 Planned |
 | 13 | `grpc-schema-diff` | Proto Schema Diff & Breaking Change Detection | L2 | 🔲 Planned |
 | 14 | `grpc-workflow` | gRPC in Workflows: Nodes, Assertions & Chaining | L1, L9 | 🔲 Planned |
+| 15 | `grpc-tauri-desktop` | Tauri Desktop: Native Transport, Diagnostics & Mock Listener | L1, L6, L12 | 🔲 Planned 🖥️ Desktop only |
 
 Registry: `packages/demo-hub/src/lessons/protocols/grpc-lessons.ts` · Contract: `grpc-lesson-contract/` · Full spec: [`grpc-demo-lessons.md`](grpc-demo-lessons.md)
 
-**Roster ID migration:** The contract's `roster.ts` still registers the old 15-lesson IDs (GRPC-1…GRPC-15). Before Phase 12H, migrate to the new 14-lesson IDs. Old IDs 2+3 → `grpc-schema-discovery`, 6+7+8 → `grpc-streaming`, 9+10 → `grpc-env-collections`. Three new IDs: `grpc-transport-modes`, `grpc-proto-form`, `grpc-grpcurl`. See [`grpc-demo-lessons.md`](grpc-demo-lessons.md) § Roster ID Migration Plan for the full mapping.
+**Roster ID migration:** The contract's `roster.ts` still registers the old 15-lesson IDs (GRPC-1…GRPC-15). Before Phase 12H, migrate to the new 15-lesson IDs. Old IDs 2+3 → `grpc-schema-discovery`, 6+7+8 → `grpc-streaming`, 9+10 → `grpc-env-collections`. New IDs: `grpc-transport-modes`, `grpc-proto-form`, `grpc-grpcurl`, `grpc-tauri-desktop`. See [`grpc-demo-lessons.md`](grpc-demo-lessons.md) § Roster ID Migration Plan for the full mapping.
 
 ### Sub-phases
 
@@ -857,7 +858,7 @@ Execution order: `P1 -> P2 -> P3` (`P0` complete).
 **Phase 12 (in progress — demo track):**
 
 - [x] 12A lesson contract + 12B runtime engine
-- [ ] 12C–12I + 11 remaining lesson wrappers
+- [ ] 12C–12I + 10 remaining lesson wrappers (L5–L15; L15 is `desktopOnly: true`)
 
 **Phase 13 (complete):**
 

@@ -17,7 +17,6 @@ export interface GrpcConnectionBarProps {
   auth: GrpcAuthConfig | undefined;
   timeoutMs: number;
   targetConnection?: GrpcTargetConnectionSession;
-  envName?: string | null;
   disabled?: boolean;
   /** Number of methods loaded via reflection (0 if not loaded). */
   reflectionLoadedCount?: number;
@@ -46,7 +45,6 @@ export function GrpcConnectionBar({
   auth,
   timeoutMs,
   targetConnection,
-  envName,
   disabled = false,
   reflectionLoadedCount = 0,
   onTargetChange,
@@ -153,40 +151,6 @@ export function GrpcConnectionBar({
         </span>
       )}
 
-      {envName && (
-        <span className="grpc-connection-env-badge" data-testid="grpc-connection-env-badge" title="Active environment">
-          {envName}
-        </span>
-      )}
-
-      {onSettingsClick && (
-        <button
-          type="button"
-          className="grpc-connection-settings-btn"
-          data-testid="grpc-connection-settings-btn"
-          disabled={disabled}
-          onClick={() => onSettingsClick()}
-          aria-label="Session settings"
-          title="Session settings"
-        >
-          ⚙
-        </button>
-      )}
-
-      {onConnectionToggle && (
-        <button
-          type="button"
-          className={`grpc-btn grpc-btn--sm${connectionConnected ? ' grpc-btn--primary' : ' grpc-btn--ghost'}`}
-          data-testid="grpc-connection-toggle-btn"
-          disabled={disabled || targetInvalid || !tlsValid}
-          onClick={() => onConnectionToggle()}
-          aria-label={connectionToggleLabel}
-          title={connectionToggleLabel}
-        >
-          {connectionToggleLabel}
-        </button>
-      )}
-
       <div className="grpc-connection-bar__actions">
         {onImportGrpcurlClick && (
           <button
@@ -208,6 +172,35 @@ export function GrpcConnectionBar({
             onClick={() => onSaveRequestClick()}
           >
             Save request
+          </button>
+        )}
+        {onConnectionToggle && (
+          <button
+            type="button"
+            className={`grpc-btn grpc-btn--sm${connectionConnected ? ' grpc-btn--primary' : ' grpc-btn--ghost'}`}
+            data-testid="grpc-connection-toggle-btn"
+            disabled={disabled || targetInvalid || !tlsValid}
+            onClick={() => onConnectionToggle()}
+            aria-label={connectionToggleLabel}
+            title={connectionToggleLabel}
+          >
+            {connectionToggleLabel}
+          </button>
+        )}
+        {onSettingsClick && (
+          <button
+            type="button"
+            className="grpc-connection-settings-btn"
+            data-testid="grpc-connection-settings-btn"
+            disabled={disabled}
+            onClick={() => onSettingsClick()}
+            aria-label="Session settings"
+            title="Session settings"
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
           </button>
         )}
       </div>

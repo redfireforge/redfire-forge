@@ -9,6 +9,8 @@ interface UseModalFrameOptions {
   expandMode?: ExpandMode;
   minWidth?: number;
   minHeight?: number;
+  constrainDragToViewport?: boolean;
+  dragViewportPadding?: number;
 }
 
 /**
@@ -21,6 +23,8 @@ export function useModalFrame({
   expandMode = 'expanded',
   minWidth,
   minHeight,
+  constrainDragToViewport = false,
+  dragViewportPadding = 8,
 }: UseModalFrameOptions = {}) {
   const { expanded, setExpanded, toggleExpand, expandClass } = useModalExpand(initialExpanded, expandMode);
   const dragEnabled = !expanded;
@@ -31,7 +35,10 @@ export function useModalFrame({
     isDragging,
     overlayStyle: draggedOverlayStyle,
     modalStyle,
-  } = useModalDrag(open && dragEnabled);
+  } = useModalDrag(open && dragEnabled, {
+    constrainToViewport: constrainDragToViewport,
+    viewportPadding: dragViewportPadding,
+  });
   const { resizeStyle, onRightEdge, onCorner, onBottomEdge, resetSize } = useModalResize(minWidth, minHeight);
 
   const isDragged = rawDragged && dragEnabled;
