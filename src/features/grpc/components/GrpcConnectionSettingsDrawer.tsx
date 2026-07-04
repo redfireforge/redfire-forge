@@ -1,7 +1,7 @@
 /**
  * Connection Settings drawer (Phase 4J-C/D) — mockup 04 left nav + panels.
  */
-import { useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type {
   GrpcCallResult,
@@ -96,7 +96,16 @@ export function GrpcConnectionSettingsDrawer({
   onK8sPortForwardChange,
   onK8sApplyTarget,
 }: GrpcConnectionSettingsDrawerProps) {
+  const [openInstance, setOpenInstance] = useState(0);
+  const wasOpenRef = useRef(open);
   const activeNavItem = NAV_ITEMS.find((item) => item.id === activeNav);
+
+  useEffect(() => {
+    if (open && !wasOpenRef.current) {
+      setOpenInstance((value) => value + 1);
+    }
+    wasOpenRef.current = open;
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -114,6 +123,7 @@ export function GrpcConnectionSettingsDrawer({
 
   return createPortal(
     <AppModalFrame
+      key={`grpc-settings-frame-${openInstance}`}
       title={(
         <div className="grpc-settings-title-block">
           <div className="grpc-settings-title-copy">
