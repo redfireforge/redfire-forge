@@ -16,6 +16,14 @@ type SessionCore = ReturnType<typeof useGrpcStudioSessionCore>;
 
 export { resetGrpcTargetProbeGenerationForTests } from '../utils/grpcTargetProbeGeneration';
 
+function isStaleProxyDescriptorError(message?: string): boolean {
+  if (!message) return false;
+  const lower = message.toLowerCase();
+  return lower.includes('express grpc proxy')
+    || lower.includes('port 3001')
+    || lower.includes('app http proxy');
+}
+
 export function createConnectTargetHandler(
   runtimeCtx: GrpcStudioRuntimeContext,
   core: SessionCore,
@@ -41,11 +49,12 @@ export function createConnectTargetHandler(
 
     if (session.state === 'connected') {
       const descriptorState = core.sessionRef.current.tabDescriptors[tabId];
-      const hasLoadedDescriptor = Boolean(descriptorState?.descriptor);
       const isDescriptorLoadError = descriptorState?.loadState === 'error';
-      if (!hasLoadedDescriptor && isDescriptorLoadError) {
+      const shouldClearStaleProxyError = isDescriptorLoadError
+        && isStaleProxyDescriptorError(descriptorState?.errorMessage);
+      if (shouldClearStaleProxyError) {
         runtimeCtx.patchTabDescriptor(tabId, {
-          loadState: 'idle',
+          loadState: descriptorState?.descriptor ? 'loaded' : 'idle',
           errorMessage: undefined,
         });
       }
