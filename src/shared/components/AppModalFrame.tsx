@@ -42,6 +42,8 @@ interface Props extends UseModalFrameOptions {
   footerContent?: (state: AppModalFrameRenderState) => ReactNode;
   disableDrag?: boolean;
   showResizeHandles?: boolean;
+  constrainDragToViewport?: boolean;
+  dragViewportPadding?: number;
 }
 
 function joinClasses(...classes: Array<string | undefined>) {
@@ -74,6 +76,8 @@ export default function AppModalFrame({
   footerContent,
   disableDrag = false,
   showResizeHandles = true,
+  constrainDragToViewport = false,
+  dragViewportPadding = 8,
   initialExpanded,
   expandMode,
   minWidth,
@@ -90,12 +94,15 @@ export default function AppModalFrame({
     onHeaderPointerDown,
     onRightEdge,
     onCorner,
+    onBottomEdge,
   } = useModalFrame({
     open,
     initialExpanded,
     expandMode,
     minWidth,
     minHeight,
+    constrainDragToViewport,
+    dragViewportPadding,
   });
 
   if (!open) return null;
@@ -177,7 +184,7 @@ export default function AppModalFrame({
           </div>
         ) : null}
 
-        {showResizeHandles ? <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} /> : null}
+        {showResizeHandles ? <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} /> : null}
       </div>
     </div>
   );

@@ -11,7 +11,11 @@ const studioState = {
   replayOpenInStudio: false,
   replayOpenLoadTest: false,
   replayHistory: false,
+  lastActionError: '',
   compareIntent: { baselineDescriptorKey: '', currentDescriptorKey: '', keysDiffer: true },
+  historyDriftIntent: { baselineDescriptorKey: '', currentDescriptorKey: '', keysDiffer: true } as null | { baselineDescriptorKey: string; currentDescriptorKey: string; keysDiffer: boolean },
+  compareResolveKey: undefined as string | undefined,
+  historyResolveKey: undefined as string | undefined,
 };
 
 const spies = {
@@ -101,7 +105,7 @@ vi.mock('./components/GrpcExplorerPane', () => ({
 }));
 
 vi.mock('./components/GrpcConnectionSettingsDrawer', () => ({
-  GrpcConnectionSettingsDrawer: (props: { onK8sPortForwardChange?: (session: { active: boolean; config: { namespace: string; name: string; targetType: string; remotePort: number; localPort: number } }) => void; onK8sApplyTarget?: (target: string) => void }) => React.createElement('div', { 'data-testid': 'mock-settings-drawer' }, [
+  GrpcConnectionSettingsDrawer: (props: { onK8sPortForwardChange?: (session: { active: boolean; config: { namespace: string; name: string; targetType: string; remotePort: number; localPort: number } }) => void; onK8sApplyTarget?: (target: string) => void; onMaxResponseSizeMbChange?: (value: number) => void; onKeepaliveIntervalSecChange?: (value: number) => void }) => React.createElement('div', { 'data-testid': 'mock-settings-drawer' }, [
     React.createElement('button', {
       key: 'k8s-pf',
       'data-testid': 'mock-k8s-port-forward',
@@ -112,6 +116,16 @@ vi.mock('./components/GrpcConnectionSettingsDrawer', () => ({
       'data-testid': 'mock-k8s-apply-target',
       onClick: () => props.onK8sApplyTarget?.('127.0.0.1:50051'),
     }, 'k8s-target'),
+    React.createElement('button', {
+      key: 'max-response',
+      'data-testid': 'mock-max-response',
+      onClick: () => props.onMaxResponseSizeMbChange?.(32),
+    }, 'max-response'),
+    React.createElement('button', {
+      key: 'keepalive',
+      'data-testid': 'mock-keepalive',
+      onClick: () => props.onKeepaliveIntervalSecChange?.(15),
+    }, 'keepalive'),
   ]),
 }));
 
@@ -128,9 +142,19 @@ vi.mock('./hooks/useGrpcCollections', () => ({
   useGrpcCollections: () => ({
     collections: [],
     buildSavedRequestSchemaCompareIntent: vi.fn(() => studioState.compareIntent),
-    compareSavedRequestSchema: vi.fn(async () => ({ generatedAt: '', changes: [], summary: { breaking: 0, nonBreaking: 0, informational: 0 } })),
-    detectHistoryDescriptorDrift: vi.fn(() => ({ baselineDescriptorKey: 'baseline-descriptor', currentDescriptorKey: studioState.activeDescriptorKey || 'current-descriptor' })),
-    buildHistoryDescriptorDriftReport: vi.fn(async () => ({ generatedAt: '', changes: [], summary: { breaking: 0, nonBreaking: 0, informational: 0 } })),
+    compareSavedRequestSchema: vi.fn(async (_saved: unknown, _activeDescriptorKey: string, resolveDescriptor: (key: string) => Promise<unknown>) => {
+      if (studioState.compareResolveKey !== undefined) {
+        await resolveDescriptor(studioState.compareResolveKey);
+      }
+      return { generatedAt: '', changes: [], summary: { breaking: 0, nonBreaking: 0, informational: 0 } };
+    }),
+    detectHistoryDescriptorDrift: vi.fn(() => studioState.historyDriftIntent),
+    buildHistoryDescriptorDriftReport: vi.fn(async (_entry: unknown, _activeDescriptorKey: string, resolveDescriptor: (key: string) => Promise<unknown>) => {
+      if (studioState.historyResolveKey !== undefined) {
+        await resolveDescriptor(studioState.historyResolveKey);
+      }
+      return { generatedAt: '', changes: [], summary: { breaking: 0, nonBreaking: 0, informational: 0 } };
+    }),
   }),
 }));
 
@@ -145,7 +169,7 @@ vi.mock('./hooks/useGrpcStudioAdvancedFeatures', () => ({
 
 vi.mock('./hooks/useGrpcStudioReplayActions', () => ({
   useGrpcStudioReplayActions: () => ({
-    lastActionError: '',
+    lastActionError: studioState.lastActionError,
     clearLastActionError: vi.fn(),
     openSavedRequestInStudio: vi.fn(() => studioState.replayOpenInStudio),
     openSavedRequestForLoadTest: vi.fn(() => studioState.replayOpenLoadTest),
@@ -219,7 +243,11 @@ describe('GrpcStudioPage callback branch coverage', () => {
     studioState.replayOpenInStudio = false;
     studioState.replayOpenLoadTest = false;
     studioState.replayHistory = false;
+    studioState.lastActionError = '';
     studioState.compareIntent = { baselineDescriptorKey: '', currentDescriptorKey: '', keysDiffer: true };
+    studioState.historyDriftIntent = { baselineDescriptorKey: 'baseline-descriptor', currentDescriptorKey: 'current-descriptor', keysDiffer: true };
+    studioState.compareResolveKey = undefined;
+    studioState.historyResolveKey = undefined;
     Object.values(spies).forEach((spy) => spy.mockReset());
   });
 
@@ -252,6 +280,7 @@ describe('GrpcStudioPage callback branch coverage', () => {
 
   it('covers compare keysDiffer false branch with active descriptor', () => {
     studioState.activeDescriptorKey = 'current-descriptor';
+    studioState.replayOpenInStudio = true;
     studioState.compareIntent = { baselineDescriptorKey: 'current-descriptor', currentDescriptorKey: 'current-descriptor', keysDiffer: false };
 
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
@@ -259,5 +288,57 @@ describe('GrpcStudioPage callback branch coverage', () => {
     fireEvent.click(screen.getByTestId('mock-compare-schema'));
 
     expect(spies.applySchemaDiffComparison).not.toHaveBeenCalled();
+  });
+
+  it('covers compare-schema early returns for missing active descriptor and blank descriptor lookup keys', () => {
+    studioState.replayOpenInStudio = true;
+
+    const { rerender } = render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('mock-nav-collections'));
+    fireEvent.click(screen.getByTestId('mock-compare-schema'));
+    expect(spies.applySchemaDiffComparison).not.toHaveBeenCalled();
+
+    studioState.activeDescriptorKey = 'current-descriptor';
+    studioState.compareResolveKey = '';
+    rerender(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('mock-nav-collections'));
+    fireEvent.click(screen.getByTestId('mock-compare-schema'));
+    expect(spies.applySchemaDiffComparison).not.toHaveBeenCalled();
+  });
+
+  it('covers history diff early returns for missing descriptor, null drift intent, and blank descriptor lookup keys', () => {
+    studioState.replayHistory = true;
+
+    const { rerender } = render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('mock-nav-history'));
+    fireEvent.click(screen.getByTestId('mock-open-diff'));
+    expect(spies.applySchemaDiffComparison).not.toHaveBeenCalled();
+
+    studioState.activeDescriptorKey = 'current-descriptor';
+    studioState.historyDriftIntent = null;
+    rerender(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('mock-nav-history'));
+    fireEvent.click(screen.getByTestId('mock-open-diff'));
+    expect(spies.applySchemaDiffComparison).not.toHaveBeenCalled();
+
+    studioState.historyDriftIntent = { baselineDescriptorKey: '', currentDescriptorKey: 'current-descriptor', keysDiffer: true };
+    studioState.historyResolveKey = '';
+    rerender(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('mock-nav-history'));
+    fireEvent.click(screen.getByTestId('mock-open-diff'));
+    expect(spies.applySchemaDiffComparison).not.toHaveBeenCalled();
+  });
+
+  it('renders replay action errors and wires advanced drawer size callbacks', () => {
+    studioState.lastActionError = 'Replay action failed';
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+
+    expect(screen.getByTestId('grpc-replay-action-error').textContent).toContain('Replay action failed');
+    fireEvent.click(screen.getByTestId('mock-max-response'));
+    fireEvent.click(screen.getByTestId('mock-keepalive'));
+
+    expect(spies.updateTab).toHaveBeenCalledWith('grpc-tab-1', { maxResponseSizeMb: 32 });
+    expect(spies.updateTab).toHaveBeenCalledWith('grpc-tab-1', { keepaliveIntervalSec: 15 });
   });
 });

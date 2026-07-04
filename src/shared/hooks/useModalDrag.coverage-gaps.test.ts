@@ -204,6 +204,114 @@ describe('useModalDrag coverage gaps', () => {
     document.body.removeChild(modalRef.current);
   });
 
+  it('supports right and bottom anchor alignment with padding offsets', () => {
+    const anchor = document.createElement('div');
+    anchor.setAttribute('data-testid', 'edge-anchor');
+    document.body.appendChild(anchor);
+    vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 200, width: 300, height: 220,
+      right: 400, bottom: 420, x: 100, y: 200, toJSON: () => {},
+    });
+
+    const modalRef = { current: document.createElement('div') };
+    document.body.appendChild(modalRef.current);
+    vi.spyOn(modalRef.current, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, width: 120, height: 80,
+      right: 120, bottom: 80, x: 0, y: 0, toJSON: () => {},
+    });
+
+    const { result } = renderHook(() => useModalDrag(true, {
+      modalRef,
+      anchor: {
+        selector: '[data-testid="edge-anchor"]',
+        hAlign: 'right',
+        vAlign: 'bottom',
+        padding: { right: 10, bottom: 12 },
+      },
+    }));
+
+    expect(result.current.modalStyle?.left).toBe(270);
+    expect(result.current.modalStyle?.top).toBe(328);
+
+    document.body.removeChild(anchor);
+    document.body.removeChild(modalRef.current);
+  });
+
+  it('ignores drag starts from a text node inside a button control', () => {
+    const { result } = renderHook(() => useModalDrag(true));
+    const header = document.createElement('div');
+    const button = document.createElement('button');
+    const label = document.createTextNode('Drag blocked');
+    button.appendChild(label);
+    header.appendChild(button);
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.appendChild(header);
+    document.body.appendChild(dialog);
+
+    const mouseDown = new MouseEvent('mousedown', { clientX: 10, clientY: 10, bubbles: true });
+    const preventDefault = vi.fn();
+    Object.defineProperty(mouseDown, 'target', { value: label });
+    Object.defineProperty(mouseDown, 'currentTarget', { value: header });
+    Object.defineProperty(mouseDown, 'preventDefault', { value: preventDefault });
+
+    act(() => {
+      result.current.onDragStart(mouseDown as unknown as React.MouseEvent);
+    });
+
+    expect(preventDefault).not.toHaveBeenCalled();
+    expect(result.current.isDragging).toBe(false);
+    expect(result.current.modalStyle).toBeUndefined();
+
+    document.body.removeChild(dialog);
+  });
+
+  it('clamps drag position to the viewport when constrained', () => {
+    const { result } = renderHook(() => useModalDrag(true, {
+      constrainToViewport: true,
+      viewportPadding: 12,
+    }));
+
+    const header = document.createElement('div');
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.appendChild(header);
+    document.body.appendChild(dialog);
+
+    vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue({
+      left: 50, top: 40, width: 200, height: 150,
+      right: 250, bottom: 190, x: 50, y: 40, toJSON: () => {},
+    });
+
+    const innerWidth = window.innerWidth;
+    const innerHeight = window.innerHeight;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 260 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 230 });
+
+    const mouseDown = new MouseEvent('mousedown', { clientX: 60, clientY: 50, bubbles: true });
+    Object.defineProperty(mouseDown, 'target', { value: header });
+    Object.defineProperty(mouseDown, 'currentTarget', { value: header });
+    Object.defineProperty(mouseDown, 'preventDefault', { value: vi.fn() });
+
+    act(() => {
+      result.current.onDragStart(mouseDown as unknown as React.MouseEvent);
+    });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 500, clientY: 500 }));
+    });
+
+    expect(result.current.modalStyle?.left).toBe(48);
+    expect(result.current.modalStyle?.top).toBe(68);
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: innerWidth });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: innerHeight });
+    document.body.removeChild(dialog);
+  });
+
   it('guards mouse-move updates when drag state has already been cleared', () => {
     const added = new Map<string, EventListener>();
     const addSpy = vi.spyOn(window, 'addEventListener').mockImplementation((type, listener) => {

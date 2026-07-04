@@ -1,8 +1,8 @@
 # gRPC Studio — Demo Lesson Plan
 
-> **Last updated:** 2026-07-02 (re-evaluated against codebase; Spring Boot extracted to dedicated lesson)
-> **Status:** Spec complete — authoring starts at Phase 12H
-> **Lessons:** 14 total — 3 shipped (L1–L3 wrappers exist), 11 planned
+> **Last updated:** 2026-07-04 (L4 shipped; all Docker fixtures done via Phase 12D; workflow node config modals complete; native diagnostics tab added; selector corrections; L15 Tauri Desktop lesson added)
+> **Status:** Authoring in progress — 4/15 shipped (L1–L4)
+> **Lessons:** 15 total — 4 shipped (L1–L4 wrappers exist), 11 planned
 > **Reference:** [`grpc-studio-plan.md`](grpc-studio-plan.md) Phase 12 · [`demo-player-lessons.mdc`](../../../../.cursor/rules/demo-player-lessons.mdc)
 
 ---
@@ -21,8 +21,9 @@ This plan groups features by **learning goal**, not by implementation phase:
 | `grpc-metadata` alone too thin | Metadata + Auth combined (natural pairing) |
 | Proto form builder never shown | Dedicated lesson on schema-driven editing |
 | No transport-mode lesson | Full lesson: proxy vs gRPC-Web vs Spring Servlet |
-| Spring Boot buried at #15 | Dedicated lesson (L14) covering `net.devh`, reflection, health, servlet vs Netty |
+| Spring Boot buried at #15 | Dedicated lesson (L7) covering `net.devh`, reflection, health, servlet vs Netty |
 | Schema diff standalone | Schema diff in its own lesson and referenced in workflow lesson |
+| Tauri-only features invisible in web | Dedicated lesson (L15) gated with `desktopOnly: true` — disabled in web, active in desktop app |
 
 ### Quality bar
 
@@ -30,7 +31,7 @@ Each lesson must demonstrate a **single powerful capability** a developer will u
 
 ### Roster ID migration note
 
-The lesson contract in `grpc-lesson-contract/roster.ts` currently registers the old 15-lesson IDs (`grpc-server-reflection`, `grpc-proto-import`, etc.) with shipped wrappers for L1–L3. Before Phase 12H authoring, the roster must be updated to the new 13-lesson IDs below. The three shipped wrappers (`grpc-first-call`, `grpc-server-reflection`, `grpc-proto-import`) will be **consolidated** into the new lesson shells — `grpc-first-call` stays, the other two become `grpc-schema-discovery` (L2) with content from both old wrappers.
+The lesson contract in `grpc-lesson-contract/roster.ts` currently registers the old 15-lesson IDs (`grpc-server-reflection`, `grpc-proto-import`, etc.) with shipped wrappers for L1–L4. Before Phase 12H authoring completes, the roster must be updated to the new 14-lesson IDs below. The four shipped wrappers (`grpc-first-call`, `grpc-schema-discovery`, `grpc-streaming`, `grpc-metadata-auth`) will remain; old IDs 2+3 have already been consolidated into `grpc-schema-discovery` (L2), and old streaming IDs 6+7+8 into `grpc-streaming` (L3).
 
 ---
 
@@ -41,7 +42,7 @@ The lesson contract in `grpc-lesson-contract/roster.ts` currently registers the 
 | **Foundation** | 1–3 | First call, schema, streaming |
 | **Configuration** | 4–7 | Auth, TLS, transport, Spring Boot |
 | **Productivity** | 8–10 | Proto form, environments, collections |
-| **Advanced** | 11–14 | Load test, mock, schema diff, workflow |
+| **Advanced** | 11–15 | Load test, mock, schema diff, workflow, Tauri desktop |
 
 ---
 
@@ -49,20 +50,21 @@ The lesson contract in `grpc-lesson-contract/roster.ts` currently registers the 
 
 | # | ID | Title | Track | Duration | Status |
 |---|---|---|---|---|---|
-| 1 | `grpc-first-call` | Your First gRPC Call | Foundation | ~4 min | ✅ Shipped |
-| 2 | `grpc-schema-discovery` | Schema Discovery: Reflection & Proto Import | Foundation | ~5 min | ✅ Shipped |
+| 1 | `grpc-first-call` | Your First gRPC Call | Foundation | ~5 min | ✅ Shipped |
+| 2 | `grpc-schema-discovery` | Schema Discovery: Reflection & Proto Import | Foundation | ~8 min | ✅ Shipped |
 | 3 | `grpc-streaming` | Streaming RPCs: All Four Patterns | Foundation | ~7 min | ✅ Shipped |
-| 4 | `grpc-metadata-auth` | Request Metadata & Authentication | Configuration | ~5 min | 🔲 Planned |
+| 4 | `grpc-metadata-auth` | Request Metadata & Authentication | Configuration | ~5 min | ✅ Shipped |
 | 5 | `grpc-tls-mtls` | TLS, mTLS & Certificate Configuration | Configuration | ~5 min | 🔲 Planned |
-| 6 | `grpc-transport-modes` | Transport Modes: Express, gRPC-Web & Spring Servlet | Configuration | ~5 min | 🔲 Planned |
+| 6 | `grpc-transport-modes` | Transport Modes: Express, gRPC-Web & Spring Servlet | Configuration | ~6 min | 🔲 Planned |
 | 7 | `grpc-spring-boot` | Spring Boot & Spring gRPC Integration | Configuration | ~6 min | 🔲 Planned |
 | 8 | `grpc-proto-form` | Proto Form Builder: Schema-Driven Request Editing | Productivity | ~5 min | 🔲 Planned |
 | 9 | `grpc-env-collections` | Environments, Collections & History | Productivity | ~6 min | 🔲 Planned |
 | 10 | `grpc-grpcurl` | grpcurl Interop, Replay & Sharing | Productivity | ~4 min | 🔲 Planned |
 | 11 | `grpc-load-testing` | Load Testing: Concurrent Calls & Metrics | Advanced | ~6 min | 🔲 Planned |
-| 12 | `grpc-mock-server` | Mocking gRPC APIs: Rules & Network Listener | Advanced | ~7 min | 🔲 Planned |
+| 12 | `grpc-mock-server` | Mocking gRPC APIs: Rules & Network Listener | Advanced | ~8 min | 🔲 Planned |
 | 13 | `grpc-schema-diff` | Proto Schema Diff & Breaking Change Detection | Advanced | ~5 min | 🔲 Planned |
 | 14 | `grpc-workflow` | gRPC in Workflows: Nodes, Assertions & Chaining | Advanced | ~7 min | 🔲 Planned |
+| 15 | `grpc-tauri-desktop` | Tauri Desktop: Native Transport, Diagnostics & Mock Listener | Advanced | ~6 min | 🔲 Planned 🖥️ Desktop only |
 
 ---
 
@@ -80,16 +82,18 @@ The lesson contract in `grpc-lesson-contract/roster.ts` currently registers the 
 - `EchoResponse { message: string }`
 - `StreamRequest { message: string, repeat_count: int32, interval_ms: int32 }`
 
-The following services must be **added** to the Docker fixture before authoring the indicated lessons:
+The following services were required to be added to the Docker fixture for the indicated lessons — all are now available as of **Phase 12D**:
 
 | Port | Service | Needed for | Notes |
 |---|---|---|---|
-| `:50443` | TLS echo server (CA-signed cert) | L5 | `docker/grpc/tls/` cert dir needed |
-| `:50444` | mTLS echo server (client cert validation) | L5 | — |
-| `:50055` | Envoy sidecar with gRPC-Web transcoding for `:50051` | L6 | envoy proxy config file needed |
-| `:9090` / `:8080` | Spring Boot gRPC server (Netty/Servlet) | L7 | separate compose profile |
-| Schema v2 variant | Echo server with a modified proto (field removed) | L13 | second compose profile or `/admin/swap` endpoint |
-| `CreateComplexEcho` method | Echo server with nested/repeated/map/oneof/WKT fields | L8 | add method to `echo.proto` |
+| `:50443` | TLS echo server (CA-signed cert) | L5 | ✅ Done — `docker/grpc/certs/` cert material in place |
+| `:50444` | mTLS echo server (client cert validation) | L5 | ✅ Done |
+| `:50055` | Envoy sidecar with gRPC-Web transcoding for `:50051` | L6 | ✅ Done — envoy proxy config in `docker/grpc/` |
+| `:9090` / `:8080` | Spring Boot gRPC server (Netty/Servlet) | L7 | ✅ Done — `docker compose --profile spring` |
+| Schema v2 variant | Echo server with a modified proto (field removed) | L13 | ✅ Done — `schema-v2` compose profile available |
+| `CreateComplexEcho` method | Echo server with nested/repeated/map/oneof/WKT fields | L8 | ✅ Done — added to `echo.proto` |
+
+All Docker fixtures for lessons L5–L8 and L13 are now available. Phase 12D delivered all fixture expansions.
 
 Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert material goes in `docker/grpc/certs/`.
 
@@ -99,7 +103,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 1 — Your First gRPC Call
 
-> **ID:** `grpc-first-call` | **Track:** Foundation | **Duration:** ~4 min | **Status:** ✅ Shipped
+> **ID:** `grpc-first-call` | **Track:** Foundation | **Duration:** ~5 min | **Status:** ✅ Shipped
 > **Wrapper:** `packages/demo-hub/src/lessons/protocols/grpc-first-call.ts`
 > **Helpers:** `packages/demo-hub/src/lessons/protocols/grpc-lesson-helpers.ts`
 
@@ -124,7 +128,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 **Concept panel (shipped):** The lesson concept card contains an SVG architecture diagram illustrating the 5-step flow: Set target → Reflect → Open Echo → Send call → Inspect + History.
 
-**Steps (8):**
+**Steps (10):**
 
 1. **Intro: gRPC Studio** — Orient the learner to the three main areas: connection bar (`GRPC.CONNECTION_BAR`), Service Explorer, and the request/response workspace. Step id: `grpc1-intro`. The lesson also calls `navigateToGrpcStudio` and `closeGrpcSettingsDrawerQuiet` here.
 
@@ -140,9 +144,13 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 7. **Read the response** — The implementation highlights `GRPC.RESPONSE_PANEL` and directs the learner to inspect visually — it does **not** programmatically click individual tabs. Point out: status **OK** (`GRPC.RESPONSE_STATUS`), duration (`GRPC.RESPONSE_DURATION`), response size (`GRPC.RESPONSE_SIZE`), echoed body in the **Body** tab (`GRPC.RESPONSE_TAB_BODY`). Instruct learner to click **Trailers** (`GRPC.RESPONSE_TAB_TRAILERS`) to see `grpc-status: 0`. Briefly note the other tabs: **Headers** (`GRPC.RESPONSE_TAB_HEADERS`), **Metadata**, **Timing**, **Tracing**, and the **Proto** top-tab (`GRPC.RESPONSE_TOP_TAB_PROTO`). Step id: `grpc1-response`.
 
-8. **History** — Click **History** sub-nav (`GRPC.SUB_NAV_HISTORY`). Wait for `GRPC.HISTORY_PANEL`, then `GRPC.HISTORY_LIST`. Show the auto-logged row (target, service, method, status). Explain replay (`GRPC.HISTORY_REPLAY_BTN`) and grpcurl copy (`GRPC.HISTORY_COPY_GRPCURL`). Step id: `grpc1-history`. **Verify:** `GRPC.HISTORY_LIST`.
+8. **Click Call History sub-nav** — Spotlight `GRPC.SUB_NAV_HISTORY` with a 1200ms hold so the viewer can locate the tab, then click it to open the History panel. Added as a dedicated step (split from the original step 8) so the tab navigation moment is clearly visible rather than being buried in a longer action sequence. Step id: `grpc1-history-tab`. **Verify:** `GRPC.HISTORY_PANEL`.
 
-**Verify (lesson-level):** `GRPC.HISTORY_LIST` has at least one row. The `grpc1-send` step verifies `GRPC.RESPONSE_BODY`.
+9. **Replay from History** — Click the `echo.EchoService/Echo` row to expand it, then spotlight `GRPC.HISTORY_REPLAY_BTN` with a 1200ms hold so the viewer can read the button label, then click **Replay** to restore the request in the Call Panel. Step id: `grpc1-history`. **Verify:** `GRPC.SEND_BTN`.
+
+10. **Send after replay** — Spotlight `GRPC.SEND_BTN` with a 1400ms hold (longer than normal so the viewer is ready), then click **Send Unary** to execute the replayed request. The response body reappears confirming the replay round-trip. Step id: `grpc1-replay`. **Verify:** `GRPC.RESPONSE_BODY`.
+
+**Verify (lesson-level):** `GRPC.RESPONSE_BODY` is present after steps 6 and 10. `GRPC.HISTORY_PANEL` renders in step 8.
 
 **Implementation notes:**
 - **Session run flags:** The helpers use `grpcLessonSession` flags (`targetSet`, `reflected`, `methodSelected`, `messageFilled`, `executed`) tracked via `setGrpcLessonRunFlag` / `getGrpcLessonRunFlags`. Each `preAction` checks these flags so steps are idempotent — re-entering a step won't re-execute side effects if the flag is already set.
@@ -160,7 +168,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 2 — Schema Discovery: Reflection & Proto Import
 
-> **ID:** `grpc-schema-discovery` | **Track:** Foundation | **Duration:** ~5 min | **Status:** 🔨 Shipped (roster entry #16)
+> **ID:** `grpc-schema-discovery` | **Track:** Foundation | **Duration:** ~8 min | **Status:** 🔨 Shipped (roster entry #16)
 > **Wrapper:** `packages/demo-hub/src/lessons/protocols/grpc-schema-discovery.ts`
 > **Helpers:** `packages/demo-hub/src/lessons/protocols/grpc-lesson-helpers.ts`
 > **Consolidates:** old GRPC-2 (`grpc-server-reflection`) + GRPC-3 (`grpc-proto-import`) — both old wrappers remain live until Phase 12H roster migration
@@ -194,7 +202,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 - **URL:** `http://localhost:5173/grpc-samples/url/echo.proto` (works in local dev because server-side proto fetch allows `http://localhost`)
 - **BSR:** `buf.build/connectrpc/eliza` @ `main` (requires internet / public module availability)
 
-**Steps (12):**
+**Steps (17):**
 
 1. **Intro: Descriptor sources** — `grpc16-intro`. Orient to the Service Explorer in its "no descriptor" state. Explain why five sources exist — reflection is convenient in dev/staging but production environments often disable it. Highlight `GRPC.CONNECTION_BAR`.
 
@@ -206,29 +214,39 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 5. **Open Manage Schemas** — `grpc16-manage-open`. Click `GRPC.MANAGE_SCHEMAS_BTN` to open the Manage Schemas modal (`GRPC.PROTO_MANAGE_MODAL`). Show the five tabs: **Proto Files** (`GRPC.PROTO_TAB_PROTO_FILES`), **Protoset** (`GRPC.PROTO_TAB_PROTOSET`), **URL** (`GRPC.PROTO_TAB_URL`), **BSR** (`GRPC.PROTO_TAB_BSR`), **Schema Browser** (`GRPC.PROTO_TAB_SCHEMA_BROWSER`). Note: there is no separate Reflection tab — reflection is triggered by the **Reflect** button in the main explorer. **Verify:** `GRPC.PROTO_MANAGE_MODAL`.
 
-6. **Quick orientation: source tabs** — `grpc16-tabs`. Switch across the four file-based tabs and show one concrete example per tab:
+6. **Proto Files: Root-aware ingest** — `grpc16-proto-roots`. Navigate to the **Proto Files** tab and highlight `GRPC.PROTO_ROOT_MANAGER`. Explain the `protoRoots` model: uploaded files belong to a named virtual root; each file is normalized to a canonical path `<mountPath>/<file>`. The **Canonical paths** preview panel (`GRPC.PROTO_CANONICAL_PREVIEW`) shows resolved paths live. Collision warnings appear if two roots produce ambiguous basenames. This step is orientation only — the actual upload happens in step 8. **Verify:** `GRPC.PROTO_CANONICAL_PREVIEW`.
+
+7. **Quick orientation: source tabs** — `grpc16-tabs`. Switch across the four file-based tabs and show one concrete example per tab:
    Proto Files → `examples/grpc/schema-discovery/proto-files/api/service.proto` + `examples/grpc/schema-discovery/proto-files/shared/common.proto`
    Protoset (`GRPC.PROTO_PROTOSET_ZONE`) → `examples/grpc/schema-discovery/protoset/echo.protoset`
    URL (`GRPC.PROTO_URL_INPUT`) → `http://localhost:5173/grpc-samples/url/echo.proto`
    BSR (`GRPC.PROTO_BSR_MODULE_INPUT`) → `buf.build/connectrpc/eliza` + version `main`
    Explain use cases: Proto Files for local repos, Protoset for CI bundles, URL for hosted descriptors, BSR for module-based contract distribution. Note that the BSR example depends on internet access. This is an orientation pass; the next three steps are a full Proto Files walkthrough. **Verify:** `GRPC.PROTO_UPLOAD_ZONE`.
 
-7. **Proto Files: upload two files** — `grpc16-proto-files`. Stay on **Proto Files** and add both files into `GRPC.PROTO_UPLOAD_ZONE`:
+8. **Proto Files: upload two files** — `grpc16-proto-files`. Stay on **Proto Files** and add both files into `GRPC.PROTO_UPLOAD_ZONE`:
    1) `examples/grpc/schema-discovery/proto-files/shared/common.proto`
    2) `examples/grpc/schema-discovery/proto-files/api/service.proto`
    Use drag-and-drop or click-to-browse with multi-select. Confirm both filenames appear in the file list. **Verify:** `GRPC.PROTO_UPLOAD_ZONE`.
 
-8. **Proto Files: select root + review canonical paths** — `grpc16-select-root`. Click a root from the left virtual root list and confirm the right panel switches to that root. Review `GRPC.PROTO_CANONICAL_PREVIEW` to validate normalized paths before loading. **Verify:** `GRPC.PROTO_CANONICAL_PREVIEW`.
+9. **Proto Files: select root + review canonical paths** — `grpc16-select-root`. Click a root from the left virtual root list and confirm the right panel switches to that root. Review `GRPC.PROTO_CANONICAL_PREVIEW` to validate normalized paths before loading. **Verify:** `GRPC.PROTO_CANONICAL_PREVIEW`.
 
-9. **Proto Files: load schema** — `grpc16-proto-load`. Click `GRPC.PROTO_LOAD_BTN` to parse uploaded files + import roots into an active descriptor source. Expected: no error, and Schema Browser can navigate the loaded service. If load fails, correct file set/import roots and retry. **Verify:** `GRPC.PROTO_LOAD_BTN`.
+10. **Proto Files: load schema** — `grpc16-proto-load`. Click `GRPC.PROTO_LOAD_BTN` to parse uploaded files + import roots into an active descriptor source. Expected: no error, and Schema Browser can navigate the loaded service. If load fails, correct file set/import roots and retry. **Verify:** `GRPC.PROTO_LOAD_BTN`.
 
-10. **Use loaded schema in Schema Browser** — `grpc16-schema-browser`. Switch to the **Schema Browser** tab (`GRPC.PROTO_TAB_SCHEMA_BROWSER`). Wait for `GRPC.SCHEMA_BROWSER` and `GRPC.SCHEMA_BROWSER_TREE`. If Proto Files load succeeded, browse the loaded Echo service. For the automated lesson path, reflected Echo remains as fallback so the tree is deterministic. Use search (`GRPC.SCHEMA_BROWSER_SEARCH`) to locate `Echo`. Expand `echo.EchoService` → `Echo` to show the `message: string` field in the detail panel (`GRPC.SCHEMA_BROWSER_DETAIL`). **Verify:** `GRPC.SCHEMA_BROWSER`.
+11. **Use loaded schema in Schema Browser** — `grpc16-schema-browser`. Switch to the **Schema Browser** tab (`GRPC.PROTO_TAB_SCHEMA_BROWSER`). Wait for `GRPC.SCHEMA_BROWSER` and `GRPC.SCHEMA_BROWSER_TREE`. If Proto Files load succeeded, browse the loaded `api.ApiService`. For the automated lesson path, reflected Echo remains as fallback so the tree is deterministic. Use search (`GRPC.SCHEMA_BROWSER_SEARCH`) to locate "Lookup". Expand and select the node to show the `LookupRequest`/`LookupResponse` signature in the detail panel. **Verify:** `GRPC.SCHEMA_BROWSER`.
 
-11. **Copy grpcurl and Open in tab** — `grpc16-open-method`. With the Echo node selected in Schema Browser, click **Copy grpcurl** (`GRPC.SCHEMA_COPY_GRPCURL_BTN`). Note: grpcurl copy lives in the Schema Browser, not on the Service Explorer tree. Then click **Open in tab** (`GRPC.SCHEMA_OPEN_TAB_BTN`) to bind Echo into the call panel. The modal closes and the call panel opens with Echo pre-selected and the schema-driven form ready. The concrete sample pack is for the four ingest tabs; the scripted verify path still uses reflected Echo. **Verify:** `GRPC.PROTO_FORM`.
+12. **Copy grpcurl** — `grpc16-copy-grpcurl`. With the selected method node active in Schema Browser, click **Copy as grpcurl** (`GRPC.SCHEMA_COPY_GRPCURL_BTN`) to copy a ready-to-run terminal command. Separated from step 13 so viewers can see the copy action clearly before the modal closes. **Verify:** `GRPC.SCHEMA_COPY_GRPCURL_BTN`.
 
-12. **Schema drift awareness** — `grpc16-drift`. Close the modal and return to the main Studio view. Explain schema drift: when a running server's reflection changes after Studio has already cached descriptors, Studio surfaces a `GRPC.SCHEMA_DRIFT_BANNER` showing which services are affected. The banner offers per-service rebind (`GRPC.SCHEMA_DRIFT_REBIND(service, method)`) and a **Dismiss** button (`GRPC.SCHEMA_DRIFT_DISMISS_BTN`). ⚠️ **Deferred:** Active drift simulation requires a second Docker compose profile with a modified proto — this fixture does not exist yet. This step is informational only (banner is shown conceptually; no programmatic drift trigger). **Highlight:** `GRPC.PROTO_FORM`.
+13. **Open in tab and execute unary** — `grpc16-open-method`. Click **Open in tab** (`GRPC.SCHEMA_OPEN_TAB_BTN`). The modal closes and the call panel opens with the method pre-selected. Execute a unary call (JSON body `{"ref":{"id":"A-100"}}` or reflected Echo fallback) and confirm a response arrives. **Verify:** `GRPC.RESPONSE_BODY`.
 
-**Verify (lesson-level):** `GRPC.PROTO_FORM` is present after step 9; `GRPC.SCHEMA_BROWSER` renders in step 7.
+14. **Protoset: upload descriptor bundle** — `grpc16-protoset`. Return to **Manage Schemas** → **Protoset** tab. Drop the sample `.protoset` file (`examples/grpc/schema-discovery/protoset/echo.protoset`) onto `GRPC.PROTO_PROTOSET_ZONE`. Click **Load** and verify the source chip switches to `protoset` on success. This is a real descriptor load — the step only advances after the source chip confirms success. **Verify:** `GRPC.PROTO_PROTOSET_ZONE`.
+
+15. **URL: load descriptor from remote proto** — `grpc16-url`. Switch to the **URL** tab (`GRPC.PROTO_TAB_URL`). Fill `http://localhost:5173/grpc-samples/url/echo.proto` into `GRPC.PROTO_URL_INPUT`. Click **Load** to run a real remote descriptor fetch. Depending on fixture/network policy, the load may succeed or return a guarded fetch error. **Verify:** `GRPC.PROTO_URL_INPUT`.
+
+16. **BSR: load descriptor from registry module** — `grpc16-bsr`. Switch to the **BSR** tab (`GRPC.PROTO_TAB_BSR`). Fill module `buf.build/connectrpc/eliza` and version `main`. Click **Load** to perform a real BSR network fetch. If blocked by network, inspect the error banner. **Verify:** `GRPC.PROTO_BSR_MODULE_INPUT`.
+
+17. **Schema drift awareness** — `grpc16-drift`. Close the modal and return to the main Studio view. Explain schema drift: when a running server's reflection changes after Studio has already cached descriptors, Studio surfaces a `GRPC.SCHEMA_DRIFT_BANNER` showing which services are affected. The banner offers per-service rebind (`GRPC.SCHEMA_DRIFT_REBIND(service, method)`) and a **Dismiss** button (`GRPC.SCHEMA_DRIFT_DISMISS_BTN`). ⚠️ **Deferred:** Active drift simulation requires a second Docker compose profile with a modified proto — this fixture does not exist yet. This step is informational only (banner is shown conceptually; no programmatic drift trigger). **Highlight:** `GRPC.SERVICE_EXPLORER`.
+
+**Verify (lesson-level):** `GRPC.RESPONSE_BODY` is present after step 13. `GRPC.SCHEMA_BROWSER` renders in step 11.
 
 **Implementation notes:**
 - **Local helpers:** `ensureManageModalOpen` and `ensureManageModalClosed` are defined locally in the wrapper (same pattern as `grpc-proto-import.ts`) — not exported from the shared helpers file.
@@ -315,15 +333,17 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 4 — Request Metadata & Authentication
 
-> **ID:** `grpc-metadata-auth` | **Track:** Configuration | **Duration:** ~5 min | **Status:** 🔲 Planned
+> **ID:** `grpc-metadata-auth` | **Track:** Configuration | **Duration:** ~5 min | **Status:** ✅ Shipped
+> **Wrapper:** `packages/demo-hub/src/lessons/protocols/grpc-metadata-auth.ts`
+> **Helpers:** `packages/demo-hub/src/lessons/protocols/grpc-lesson-helpers.ts`
 
-**Description:** Add custom request metadata headers, configure bearer token auth, try basic auth and API key modes, understand how RedfireForge detects conflicts between manual metadata and structured auth, and use environment variables in metadata values.
+**Description:** Add custom request metadata headers, configure bearer token auth, try basic auth, API key, and inherited auth-profile modes, understand how RedfireForge detects conflicts between manual metadata and structured auth, and use environment variables in metadata values.
 
 **Prerequisites:** Lesson 1 (`grpc-first-call`).
 
 **Learning objectives:**
 - Add and edit gRPC request metadata (key-value pairs sent as HTTP/2 headers)
-- Configure bearer, basic, and API key auth without editing raw metadata
+- Configure bearer, basic, API key, and inherited auth-profile modes without editing raw metadata
 - Understand that auth config takes precedence over manual `authorization` metadata
 - Preview how metadata is resolved when environment variables are used in values
 
@@ -336,32 +356,32 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 **Steps (9):**
 
-1. **Intro: Connection Settings drawer** — Click the **gear icon** (`GRPC.CONNECTION_SETTINGS_BTN`) to open the Connection Settings drawer (`GRPC.SETTINGS_DRAWER`). The drawer has seven panels across three groups:
-   - **Connection:** TLS / mTLS (`GRPC.SETTINGS_NAV_ITEM('tls')`), Authentication (`GRPC.SETTINGS_NAV_ITEM('auth')`)
-   - **Call config:** Call settings (`GRPC.SETTINGS_NAV_ITEM('call')`), Compression (`GRPC.SETTINGS_NAV_ITEM('compression')`)
-   - **Advanced:** Health check (`GRPC.SETTINGS_NAV_ITEM('health')`), K8s port-forward (`GRPC.SETTINGS_NAV_ITEM('k8s')`), Transport (`GRPC.SETTINGS_NAV_ITEM('transport')`)
+1. **Intro: split settings surfaces** — Click the **gear icon** (`GRPC.CONNECTION_SETTINGS_BTN`) to open the Connection Settings drawer (`GRPC.SETTINGS_DRAWER`). The drawer now covers **TLS / mTLS**, **Call settings**, **Compression**, **Health check**, **K8s port-forward**, and **Transport**. Then click the **Auth** request-composer tab (`GRPC.REQUEST_TAB_AUTH`) or the connection-bar **Auth** badge (`GRPC.AUTH_BADGE`) to open the dedicated bottom Auth panel (`GRPC.AUTH_PANEL`).
 
 2. **Metadata editor** — In the Call Panel, click the **Metadata** tab (`GRPC.REQUEST_TAB_METADATA`). Add a custom key-value: `x-request-id: lesson-4-demo`. This goes as an HTTP/2 header alongside the RPC.
 
 3. **Send with metadata** — Click **Send** (`GRPC.SEND_BTN`). Inspect the response — verify the call succeeded. (If the echo server reflects request metadata, it can appear in the response body.)
 
-4. **Bearer auth** — In Settings → **Authentication** (`GRPC.SETTINGS_NAV_ITEM('auth')`), select the **Bearer** pill (`GRPC.AUTH_TYPE_PILL('bearer')`). Fill a demo token value. Close the drawer and click **Send** again.
+4. **Bearer auth** — In the bottom **Auth** tab (`GRPC.REQUEST_TAB_AUTH`), choose **Bearer Token** from the auth-type dropdown (`GRPC.AUTH_TYPE_SELECT`). Fill a demo token value and click **Send** again.
 
-5. **Basic auth** — Switch to the **Basic** pill. Fill username `demo` and password `secret`.
+5. **Basic auth** — Switch the auth-type dropdown to **Basic Auth**. Fill username `demo` and password `secret`.
 
-6. **API Key auth** — Switch to the **API Key** pill. Fill key name `x-api-key` and value `my-key-123`. Note the custom metadata header that will be added.
+6. **API Key auth** — Switch the auth-type dropdown to **API Key**. Fill key name `x-api-key` and value `my-key-123`. Note the custom metadata header that will be added.
 
-7. **Conflict detection** — While API Key auth is active, manually add `x-api-key` in the Metadata tab with a different value. Show the **conflict indicator** (`GRPC.AUTH_CONFLICTS`) that warns the auth panel owns this key. Show the auth preview (`GRPC.AUTH_PREVIEW`) that displays the merged metadata output.
+7. **Inherit from Auth Profile** — If the active microservice/environment has a linked auth profile, switch the auth-type dropdown to **Inherit from Auth Profile** and review the profile selector (`grpc-auth-profile-select`). Explain that RedfireForge resolves the concrete auth mode at execute time, while custom non-auth headers still belong in the Metadata tab.
 
-8. **OAuth2** — Switch to the **OAuth2** pill (`GRPC.AUTH_TYPE_PILL('oauth2')`). Fill token URL, client ID, and client secret fields. Explain that the server side fetches the token before each call — the raw credentials are held in the session secret vault.
+8. **Conflict detection** — While API Key auth is active, manually add `x-api-key` in the Metadata tab with a different value. Show the **conflict indicator** (`GRPC.AUTH_CONFLICTS`) that warns the auth panel owns this key. Show the auth preview (`GRPC.AUTH_PREVIEW`) that displays the merged metadata output.
 
-9. **Env-var in metadata** — Add `x-env-token: {{authToken}}` in the Metadata editor. Show the interpolation preview strip (`GRPC.INTERPOLATION_PREVIEW_STRIP`) resolving the variable from the active environment. If the variable is unresolved, the `GRPC.INTERPOLATION_ERROR_BANNER` appears with the missing token path (`GRPC.INTERPOLATION_ERROR_TOKEN_PATH`).
+9. **OAuth2** — Switch the auth-type dropdown to **OAuth 2.0 (Client Credentials)**. Fill token URL, client ID, and client secret fields. Explain that the server side fetches the token before each call — the raw credentials are held in the session secret vault.
+
+10. **Env-var in metadata** — Add `x-env-token: {{authToken}}` in the Metadata editor. Show the interpolation preview strip (`GRPC.INTERPOLATION_PREVIEW_STRIP`) resolving the variable from the active environment. If the variable is unresolved, the `GRPC.INTERPOLATION_ERROR_BANNER` appears with the missing token path (`GRPC.INTERPOLATION_ERROR_TOKEN_PATH`).
 
 **Verify:** `GRPC.AUTH_TYPE_PILL('bearer')` has active state; `GRPC.AUTH_CONFLICTS` appears when a conflicting metadata key is added.
 
 **Implementation notes:**
-- Selectors to use: `GRPC.CONNECTION_SETTINGS_BTN`, `GRPC.SETTINGS_NAV_ITEM('auth')`, `GRPC.SETTINGS_PANEL('auth')`, `GRPC.AUTH_PANEL`, `GRPC.AUTH_TYPE_PILLS`, `GRPC.AUTH_TYPE_PILL(type)`, `GRPC.AUTH_CONFLICTS`, `GRPC.AUTH_PREVIEW`, `GRPC.REQUEST_TAB_METADATA`, `GRPC.METADATA_EDITOR`, `GRPC.INTERPOLATION_PREVIEW_STRIP`
-- `grpc-metadata-add-btn` (KeyValueEditor add row) is not exported in `GRPC.*` — add `GRPC.METADATA_ADD_BTN` to `src/shared/selectors/grpc.ts` before authoring
+- Selectors used: `GRPC.CONNECTION_SETTINGS_BTN`, `GRPC.SETTINGS_DRAWER`, `GRPC.AUTH_PANEL`, `GRPC.AUTH_TYPE_SELECT`, `GRPC.AUTH_BADGE`, `GRPC.REQUEST_TAB_AUTH`, `GRPC.AUTH_CONFLICTS`, `GRPC.AUTH_PREVIEW`, `GRPC.REQUEST_TAB_METADATA`, `GRPC.METADATA_EDITOR`, `GRPC.METADATA_ADD_BTN`, `GRPC.INTERPOLATION_PREVIEW_STRIP`, `GRPC.INTERPOLATION_ERROR_BANNER`, `GRPC.INTERPOLATION_ERROR_TOKEN_PATH`
+- `GRPC.METADATA_ADD_BTN` (`grpc-metadata-add-btn`) is already in `src/shared/selectors/grpc.ts` ✅
+- `AUTH_TYPE_PILLS` / `AUTH_TYPE_PILL(type)` do **not** exist in selectors — use `GRPC.AUTH_TYPE_SELECT` (a `<select>` dropdown) to change auth type
 - Also available: `GRPC.AUTH_ISSUES` for validation issues on auth config, `GRPC.AUTH_PREVIEW` for the merged metadata preview
 
 ---
@@ -371,7 +391,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 ## Lesson 5 — TLS, mTLS & Certificate Configuration
 
 > **ID:** `grpc-tls-mtls` | **Track:** Configuration | **Duration:** ~5 min | **Status:** 🔲 Planned
-> **Docker requirement:** TLS and mTLS echo servers on `:50443` / `:50444` must be added to the fixture
+> **Docker fixture:** TLS echo server (`:50443`) and mTLS echo server (`:50444`) available in `docker/grpc/` — Phase 12D ✅
 
 **Description:** Connect to a TLS-protected gRPC server, paste a CA certificate to validate server identity, configure mutual TLS with a client certificate and private key, and run the TLS connection test to verify the handshake before executing a call.
 
@@ -418,7 +438,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 - PEM input is via `GrpcSecretField` (paste, not file-picker) — there are no "Upload" buttons for certs
 - TLS test (`GRPC.TLS_MODAL_TEST`) performs local credential validation, not a live handshake probe
 - TLS test result shown in `grpc-tls-test-result` — add `GRPC.TLS_TEST_RESULT` to selectors
-- Docker TLS servers (`:50443`, `:50444`) and cert material in `docker/grpc/certs/` must be created before this lesson can be authored
+- Docker TLS servers (`:50443`, `:50444`) and cert material in `docker/grpc/certs/` are available — Phase 12D ✅
 
 ---
 
@@ -426,8 +446,8 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 6 — Transport Modes: Express, gRPC-Web & the Browser Proxy Model
 
-> **ID:** `grpc-transport-modes` | **Track:** Configuration | **Duration:** ~5 min | **Status:** 🔲 Planned
-> **Docker requirement:** Envoy sidecar on `:50055` must be added to the fixture
+> **ID:** `grpc-transport-modes` | **Track:** Configuration | **Duration:** ~6 min | **Status:** 🔲 Planned
+> **Docker fixture:** Envoy sidecar on `:50055` available in `docker/grpc/` — Phase 12D ✅
 
 **Description:** Understand why gRPC requires a proxy in browsers and how RedfireForge's transport modes serve different deployment scenarios. Switch between Express proxy, gRPC-Web browser-direct, and Spring Servlet. Observe the Express fallback retry when browser-direct fails. Spring Boot-specific configuration is covered in depth in Lesson 7.
 
@@ -465,7 +485,9 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 7. **Per-tab transport** — Open a second Studio tab. Set it to gRPC-Web while tab 1 stays on Express Proxy. Transport is per-tab — changing one tab does not affect another session.
 
-**Verify:** `GRPC.TRANSPORT_MODE('grpc-web')` is active; `grpc-retry-express-btn` appears when gRPC-Web call fails against a non-gRPC-Web server.
+8. **Tauri Native (desktop only)** — On desktop (Tauri app), **Tauri Native** (`GRPC.TRANSPORT_MODE('tauri-native')`) is active rather than grayed out. Switch to it and send the Echo call — the request routes through a direct Rust `tonic` channel with no Node.js proxy hop. Switch back to Express Proxy before continuing. **Full walkthrough** — channel diagnostics, streaming via native stack, and Mock Network Listener — is in **Lesson 15 (Tauri Desktop)**. `preAction` must guard with `isTauri()` and skip this step on web.
+
+**Verify:** `GRPC.TRANSPORT_MODE('grpc-web')` is active in step 3; `grpc-retry-express-btn` appears when gRPC-Web call fails against a non-gRPC-Web server.
 
 **Implementation notes:**
 - Retry button: `grpc-retry-express-btn` in `GrpcResponsePanel` (unary); `grpc-stream-retry-express-btn` in `GrpcCallPanel` (streaming) — add `GRPC.RETRY_EXPRESS_BTN` and `GRPC.STREAM_RETRY_EXPRESS_BTN` to `src/shared/selectors/grpc.ts`
@@ -479,7 +501,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 ## Lesson 7 — Spring Boot & Spring gRPC Integration
 
 > **ID:** `grpc-spring-boot` | **Track:** Configuration | **Duration:** ~6 min | **Status:** 🔲 Planned
-> **Docker requirement:** Spring Boot gRPC server on `:9090` (Netty) and `:8080` (Servlet) must be added to the fixture
+> **Docker fixture:** Spring Boot gRPC servers on `:9090` (Netty) and `:8080` (Servlet) available in `docker/grpc/` — Phase 12D ✅
 
 **Description:** Connect RedfireForge to a Spring Boot gRPC server using both the Express proxy and the Spring Servlet transport. Enable server reflection via `application.yml`, explore services, call the gRPC Health Check, understand the Spring hint card, and authenticate calls through a Spring Security gRPC interceptor.
 
@@ -540,7 +562,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 ## Lesson 8 — Proto Form Builder: Schema-Driven Request Editing
 
 > **ID:** `grpc-proto-form` | **Track:** Productivity | **Duration:** ~5 min | **Status:** 🔲 Planned
-> **Docker requirement:** `CreateComplexEcho` method with nested/repeated/map/oneof/WKT fields must be added to `echo.proto`
+> **Docker fixture:** `CreateComplexEcho` method with nested/repeated/map/oneof/WKT fields available in `echo.proto` — Phase 12D ✅
 
 **Description:** Use the Proto Form Builder to compose complex nested messages without writing JSON by hand. Explore scalar fields, repeated arrays, map entries, oneof groups, and the `google.protobuf.Timestamp` well-known type. Sync between form mode and JSON mode.
 
@@ -586,7 +608,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 **Verify:** `GRPC.PROTO_FORM` renders with nested and repeated controls; `GRPC.REQUEST_TAB_FORM` and `GRPC.REQUEST_TAB_JSON` switch correctly.
 
 **Implementation notes:**
-- `CreateComplexEcho` method must be added to `docker/grpc/proto/echo.proto` and the Docker image rebuilt — this is the primary blocker for this lesson
+- `CreateComplexEcho` method is available in `docker/grpc/proto/echo.proto` — Phase 12D ✅. The Docker image will need to be rebuilt locally before authoring.
 - There is **no "Generate Default"** button — do not include a step for it
 - Repeated/map add buttons use CSS classes (no `data-testid`) — add `data-testid` attributes to `GrpcProtoRepeatedMapRows.tsx` before authoring: `grpc-proto-repeated-add` and `grpc-proto-map-add`
 - Selectors to add: `GRPC.PROTO_FIELD_REPEATED_ADD`, `GRPC.PROTO_FIELD_MAP_ADD` (after adding testids above)
@@ -724,7 +746,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 **Steps (11):**
 
-1. **Intro: Advanced sub-nav** — Navigate to **Advanced** (`GRPC.SUB_NAV_ADVANCED`). Show the advanced shell (`GRPC.ADVANCED_SHELL`) with its nav bar (`GRPC.ADVANCED_NAV`) and four tabs: **Load testing** (`GRPC.ADVANCED_TAB('load_test')`), **Mock server** (`GRPC.ADVANCED_TAB('mock_server')`), **Schema diff** (`GRPC.ADVANCED_TAB('schema_diff')`), **RPC statistics** (`GRPC.ADVANCED_TAB('rpc_stats')`).
+1. **Intro: Advanced sub-nav** — Navigate to **Advanced** (`GRPC.SUB_NAV_ADVANCED`). Show the advanced shell (`GRPC.ADVANCED_SHELL`) with its nav bar (`GRPC.ADVANCED_NAV`) and five tabs: **Load testing** (`GRPC.ADVANCED_TAB('load_test')`), **Mock server** (`GRPC.ADVANCED_TAB('mock_server')`), **Schema diff** (`GRPC.ADVANCED_TAB('schema_diff')`), **RPC statistics** (`GRPC.ADVANCED_TAB('rpc_stats')`), and **Native Diagnostics** (`GRPC.ADVANCED_TAB('native_diagnostics')`) — desktop only, grayed out in web. This lesson focuses on Load testing.
 
 2. **Configure load test** — Open the **Load testing** panel. Select `echo.EchoService / Echo`. Set: Concurrency = 5, Total requests = 20. Note: the field is **"Total requests"** not "Iterations". Also note the optional Duration and ramp-up fields.
 
@@ -761,7 +783,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 12 — Mocking gRPC APIs: Rules & Network Listener
 
-> **ID:** `grpc-mock-server` | **Track:** Advanced | **Duration:** ~7 min | **Status:** 🔲 Planned
+> **ID:** `grpc-mock-server` | **Track:** Advanced | **Duration:** ~8 min | **Status:** 🔲 Planned
 
 **Description:** Build mock rules for a gRPC service using the visual rule builder — define predicates on request body paths and metadata, configure response bodies and status codes, simulate global latency, and start the in-process mock runtime. Verify that the correct rules fire from a second Studio tab.
 
@@ -807,7 +829,9 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 11. **Test fallback** — Remove the metadata header. Send `message = anything-else`. The body-path-exists rule fires with INTERNAL status.
 
-12. **Stop and export** — Click **Stop mock runtime** (`GRPC.MOCK_STOP`). Switch to the **JSON** tab (`GRPC.MOCK_TAB_JSON`) to view the raw JSON rule set (`GRPC.MOCK_RULES_JSON`). Click **Export JSON** (`GRPC.MOCK_EXPORT_JSON`). Show the exported rule set. Mention the **network listener** toggle (`GRPC.MOCK_EXPOSE_NETWORK`) available on desktop (Tauri) at the bottom of the Runtime tab — a real port-bound gRPC server for external clients. The listen target is shown in `GRPC.MOCK_LISTEN_TARGET` with a copy button (`GRPC.MOCK_COPY_LISTEN_TARGET`).
+12. **Stop and export** — Click **Stop mock runtime** (`GRPC.MOCK_STOP`). Switch to the **JSON** tab (`GRPC.MOCK_TAB_JSON`) to view the raw JSON rule set (`GRPC.MOCK_RULES_JSON`). Click **Export JSON** (`GRPC.MOCK_EXPORT_JSON`). Show the exported rule set — it can be committed to source control and imported on another machine.
+
+13. **Network Listener (desktop / Tauri only)** — On the Tauri desktop app, a **Network Listener** toggle (`GRPC.MOCK_EXPOSE_NETWORK`) appears at the bottom of the Runtime tab. Enabling it binds a real TCP port — external gRPC clients connect directly to the mock without going through Studio. The listen address appears in `GRPC.MOCK_LISTEN_TARGET`. This step is narration-only in web mode — spotlight the toggle and copy button, explain the concept, but do not click. **Full interactive walkthrough** including external grpcurl calls, hot-swap behaviour, and the listener log is in **Lesson 15 (Tauri Desktop)**.
 
 **Verify:** `GRPC.MOCK_STATUS` shows Running; response body matches mock rule config; different rules fire based on predicate.
 
@@ -816,8 +840,10 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 - Latency is **global** (on the runtime tab), **not per-rule** — remove any per-rule latency step
 - No **"Commit"** step needed — rules hot-swap as you add/remove them
 - Mock panel has three sub-tabs: Builder (`GRPC.MOCK_TAB_BUILDER`), JSON (`GRPC.MOCK_TAB_JSON`), Runtime (`GRPC.MOCK_TAB_RUNTIME`)
+- **Step 13 (Network Listener)** is narration-only in web — spotlight `GRPC.MOCK_EXPOSE_NETWORK` and `GRPC.MOCK_LISTEN_TARGET` without clicking; guard `action()` with `if (isTauri()) { ... }` and fall through with a descriptive delay for web viewers
 - Network listener selectors (desktop only): `GRPC.MOCK_EXPOSE_NETWORK`, `GRPC.MOCK_LISTEN_TARGET`, `GRPC.MOCK_COPY_LISTEN_TARGET`, `GRPC.MOCK_LISTENER_GENERATION`, `GRPC.MOCK_LISTENER_LOG`
 - Selectors: `GRPC.ADVANCED_TAB('mock_server')`, `GRPC.MOCK_SERVER_PANEL`, `GRPC.MOCK_TAB_BUILDER`, `GRPC.MOCK_TAB_JSON`, `GRPC.MOCK_TAB_RUNTIME`, `GRPC.MOCK_BUILDER_PANEL`, `GRPC.MOCK_BUILDER_ADD_RULE`, `GRPC.MOCK_BUILDER_RULE`, `GRPC.MOCK_START`, `GRPC.MOCK_STOP`, `GRPC.MOCK_STATUS`, `GRPC.MOCK_EXPORT_JSON`, `GRPC.MOCK_RULES_JSON`
+- Estimated minutes: ~8 min (13 steps)
 
 ---
 
@@ -826,7 +852,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 ## Lesson 13 — Proto Schema Diff & Breaking Change Detection
 
 > **ID:** `grpc-schema-diff` | **Track:** Advanced | **Duration:** ~5 min | **Status:** 🔲 Planned
-> **Docker requirement:** A modified proto variant (field removed) must be available via a second compose profile
+> **Docker fixture:** Schema v2 compose profile available in `docker/grpc/` — Phase 12D ✅
 
 **Description:** Capture a proto schema baseline, introduce a breaking change (field removal), run a comparison, interpret the three severity levels, export the diff report, and acknowledge the diff.
 
@@ -877,7 +903,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 - "Run Diff" button is labelled **"Compare"** — selector is `GRPC.SCHEMA_DIFF_COMPARE` which maps to `grpc-schema-diff-compare-btn` data-testid
 - Severity names are `breaking`, `non_breaking`, `informational` — not `info`/`warning`/`breaking`
 - Export is **copy to clipboard** (not a file download)
-- The v2 docker compose profile or `/admin/swap` endpoint must be built before this lesson can be authored
+- The v2 docker compose profile is available in `docker/grpc/` — Phase 12D ✅. Start with `docker compose --profile schema-v2 up` to get the modified echo server.
 - `GRPC.SCHEMA_DIFF_BREAKING_COUNT` is not a dedicated selector — read the count from `GRPC.SCHEMA_DIFF_CHANGE_LIST` row filter results
 - Selectors: `GRPC.ADVANCED_TAB('schema_diff')`, `GRPC.SCHEMA_DIFF_PANEL`, `GRPC.SCHEMA_DIFF_CAPTURE_BASELINE`, `GRPC.SCHEMA_DIFF_COMPARE`, `GRPC.SCHEMA_DIFF_STATUS`, `GRPC.SCHEMA_DIFF_RESULTS`, `GRPC.SCHEMA_DIFF_CHANGE_LIST`, `GRPC.SCHEMA_DIFF_HIDE_ACKNOWLEDGED`, `GRPC.SCHEMA_DIFF_ACK_BTN`
 - **Not in `GRPC.*` selectors** (data-testid only): `grpc-schema-diff-export-json`, `grpc-schema-diff-export-markdown`, `grpc-schema-diff-export-error` — add to selectors file before authoring
@@ -889,7 +915,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 ## Lesson 14 — gRPC in Workflows: Nodes, Assertions & Chaining
 
 > **ID:** `grpc-workflow` | **Track:** Advanced | **Duration:** ~7 min | **Status:** 🔲 Planned
-> **Dependency:** Workflow Designer gRPC node config modals are deferred to Phase 13. This lesson may use a pre-seeded workflow JSON loaded via adapter until the modals are ready.
+> **Dependency:** Workflow Designer gRPC node palette and config modals are **complete** — `GrpcUnaryConfig.tsx`, `GrpcServerStreamConfig.tsx`, `GrpcAssertConfig.tsx`, `GrpcLoadTestConfig.tsx`, `GrpcSchemaDiffConfig.tsx`, `GrpcMockAssertConfig.tsx` all shipped. No pre-seeded workflow fallback needed.
 
 **Description:** Add a gRPC unary node to a workflow, configure its request body, add an assertion node to verify the response field, chain a second gRPC call that uses the first call's output, and run the workflow in Quick Test to see step-level pass/fail results.
 
@@ -914,7 +940,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 1. **Intro: Workflows** — Navigate to the Workflow Designer. Show an empty canvas. Explain that workflows chain protocol calls with assertions and data mapping.
 
-2. **Add gRPC unary node** — Open the node palette → **gRPC Unary**. Drag onto the canvas. Note: if the node config modal is not yet available (Phase 13 dependency), use a pre-seeded workflow JSON imported via the adapter.
+2. **Add gRPC unary node** — Open the node palette → **gRPC Unary**. Drag onto the canvas. The node config modal opens automatically. Configure it in the next steps.
 
 3. **Configure node: connection** — In the config panel, set target `{{grpcHost}}` (active environment). Select service `echo.EchoService`, method `Echo`.
 
@@ -939,12 +965,86 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 **Verify:** Quick Test pass turns gRPC node steps green; assertion failure turns step red; response body from the first gRPC node is visible in the detail panel.
 
 **Implementation notes:**
-- Workflow Designer gRPC node config modals (palette/config UI) are listed as deferred in Phase 13 — this lesson may need to be authored as a read-only walkthrough of a pre-built workflow until the modals are ready
+- Workflow Designer gRPC node config modals (palette/config UI) are **shipped** — `GrpcUnaryConfig.tsx`, `GrpcServerStreamConfig.tsx`, `GrpcAssertConfig.tsx`, `GrpcLoadTestConfig.tsx`, `GrpcSchemaDiffConfig.tsx`, `GrpcMockAssertConfig.tsx` all available; pre-seeded workflow fallback is no longer needed
 - `WF.QUICK_TEST_BTN` exists in `src/shared/selectors/wf.ts` — verify the selector before authoring
 - `WF.NODE_PALETTE_GRPC_UNARY`, `WF.GRPC_NODE_CONFIG_MODAL`, and `GRPC.WORKFLOW_RESULTS_GRPC_DETAIL` **do not yet exist** in the selectors files — add them as part of Phase 13 / 12H authoring
 - The gRPC output namespace (`steps.{nodeId}.grpc.*`) is defined in `src/shared/grpc/buildGrpcNodeOperations.ts`
 - Workflow gRPC node types available: `grpcUnary` (L14), `grpcServerStream` (with collect config: `maxMessages`, `untilExpression`, `maxDurationMs`), `grpcAssert` (assertion types: `grpcStatus`, `grpcField`, `grpcTrailer`, `grpcDuration`, `grpcStreamLength`)
-- Advanced workflow nodes also exist (`grpcLoadTest`, `grpcMockAssert`, `grpcSchemaDiff`) but their palette/config modals are deferred to Phase 13
+- Advanced workflow nodes also exist (`grpcLoadTest`, `grpcMockAssert`, `grpcSchemaDiff`) — their palette/config modals are **shipped** (`GrpcLoadTestConfig.tsx`, `GrpcMockAssertConfig.tsx`, `GrpcSchemaDiffConfig.tsx`)
+
+---
+
+---
+
+## Lesson 15 — Tauri Desktop: Native Transport, Diagnostics & Mock Listener
+
+> **ID:** `grpc-tauri-desktop` | **Track:** Advanced | **Duration:** ~6 min | **Status:** 🔲 Planned
+> **Platform gate:** `desktopOnly: true` — disabled in web app, active in Tauri desktop app
+> **Fixture flag:** `fixtures: { requiresTauri: true, requireGoEcho: true }`
+> **Wrapper:** `packages/demo-hub/src/lessons/protocols/grpc-tauri-desktop.ts`
+
+**Description:** Unlock the features that only exist on the RedfireForge desktop app. Switch to native Rust `tonic` transport for a proxy-free gRPC channel, read live channel diagnostics, run a streaming call via the native stack, and expose the Mock Network Listener so external clients — terminal, microservices, CI — can call the mock over a real TCP port.
+
+**Prerequisites:** Lessons 1 (`grpc-first-call`), 6 (`grpc-transport-modes`), 12 (`grpc-mock-server`).
+
+**Learning objectives:**
+- Switch to Tauri Native transport and understand why it differs from Express Proxy
+- Interpret channel pool stats, call counters, and stream lifecycle data in the Native Diagnostics panel
+- Run a server-streaming call through the native `tonic` stack and observe stream counters update
+- Enable the Mock Network Listener and send a real gRPC call to it from outside Studio
+- Understand hot-swap rule behaviour and the listener generation counter
+
+**Key concepts:**
+| Term | Definition |
+|---|---|
+| Tauri Native transport | Rust `tonic` gRPC channel managed by the Tauri backend. No Node.js Express proxy — the call goes directly from Rust to the target server. |
+| Channel pool | A pool of reusable `tonic` channels keyed by target + TLS config. Stats visible in the Native Diagnostics panel. |
+| Native Diagnostics | A read-only Advanced tab showing channel pool, active call/stream counts, listener tracking, and last error taxonomy. |
+| Mock Network Listener | Desktop-only mode: a Rust `tonic` gRPC server bound to a real TCP port. External clients connect directly — no Studio tab or proxy involved. |
+| Listener generation | A counter that increments each time the mock rule set hot-swaps into the running listener without a restart. |
+
+**Desktop-only gating — authoring rules:**
+- Set `desktopOnly: true` on the `DemoLesson` wrapper
+- Set `fixtures: { requiresTauri: true, requireGoEcho: true }` on the roster entry
+- Every `preAction` must guard with `if (!isTauri()) return` to skip interactive steps silently when tested in non-Tauri E2E
+- E2E coverage: the lesson has no automated E2E spec (Tauri binary not available in CI) — manual walkthrough on the desktop app is the verification path (checklist items 1 and 3)
+
+**Steps (10):**
+
+1. **Intro: Desktop-only features** — Highlight the Settings drawer Transport panel. In the desktop app, **Tauri Native** is a selectable option, not grayed out. Explain the difference: Express Proxy routes through the Node.js `@grpc/grpc-js` layer on port 3001; Tauri Native routes through a Rust `tonic` channel pool — no JavaScript in the critical path. Step id: `grpc15-intro`. **Highlight:** `GRPC.CONNECTION_SETTINGS_BTN`.
+
+2. **Switch to Tauri Native** — Open Settings → Transport → select **Tauri Native** (`GRPC.TRANSPORT_MODE('tauri-native')`). Close the drawer. A native transport indicator appears in the connection bar. Step id: `grpc15-native-mode`. **Verify:** `GRPC.TRANSPORT_MODE('tauri-native')` has active state.
+
+3. **Send a unary call natively** — Click **Send** on an Echo unary call. Observe `GRPC.RESPONSE_DURATION` — native calls typically show lower latency than the Express proxy path because they skip the Node.js relay hop. The response body and status are identical. Step id: `grpc15-native-call`. **Verify:** `GRPC.RESPONSE_BODY`.
+
+4. **Open Native Diagnostics** — Navigate to **Advanced** → **Native Diagnostics** (`GRPC.ADVANCED_TAB('native_diagnostics')`). The panel shows a snapshot of the channel pool: active channels, call registry counter (calls completed this session), and last transport mode used. Step id: `grpc15-diagnostics`. **Highlight:** `GRPC.ADVANCED_TAB('native_diagnostics')`.
+
+5. **Refresh snapshot** — Click **Refresh** in the diagnostics panel. The snapshot timestamp updates. Click **Copy JSON** — the full diagnostic payload goes to clipboard, useful for bug reports and support tickets. Step id: `grpc15-diag-refresh`.
+
+6. **Streaming in native mode** — Select `echo.EchoService / ServerStream`. Fill `repeat_count: 5`. Click **Start** (`GRPC.STREAM_START_BTN`). Five messages arrive via the native `tonic` stream relay. Return to Native Diagnostics → Refresh — the stream registry counter reflects the completed stream. Step id: `grpc15-native-stream`. **Verify:** `GRPC.STREAM_STATUS_BAR` shows FINISHED.
+
+7. **Set up mock rules** — Navigate to **Advanced → Mock Server → Builder** tab. Add a rule: body path equals `message` → value `ping` → response `{"message":"pong"}`, status OK. Start the mock runtime (`GRPC.MOCK_START`). Step id: `grpc15-mock-setup`. **Verify:** `GRPC.MOCK_STATUS` shows Running.
+
+8. **Enable the Network Listener** — In the **Runtime** tab, enable the **Network Listener** toggle (`GRPC.MOCK_EXPOSE_NETWORK`). A Rust gRPC server binds to a local port. `GRPC.MOCK_LISTEN_TARGET` shows the address (e.g. `127.0.0.1:50099`). Click `GRPC.MOCK_COPY_LISTEN_TARGET` to copy. Step id: `grpc15-listener-enable`. **Verify:** `GRPC.MOCK_LISTEN_TARGET` is visible.
+
+9. **Call the listener externally** — (Narration + action step.) Paste the listen target into this grpcurl command and run it in a terminal:
+   ```
+   grpcurl -plaintext -d '{"message":"ping"}' 127.0.0.1:50099 echo.EchoService/Echo
+   ```
+   Studio receives the call, matches the body-path rule, and returns `{"message":"pong"}`. Show the **Listener log** (`GRPC.MOCK_LISTENER_LOG`) — the request appears with matched rule name and latency. Step id: `grpc15-external-call`.
+
+10. **Hot-swap a rule** — Back in the **Builder** tab, add a second rule: body path equals `message` → value `hello` → response `{"message":"world"}`. The listener log shows `GRPC.MOCK_LISTENER_GENERATION` increment — rule hot-swapped without restart. Run grpcurl with `"message":"hello"` — new rule fires. Stop the listener and reset transport to Express Proxy. Step id: `grpc15-hot-swap`.
+
+**Verify (lesson-level):** `GRPC.TRANSPORT_MODE('tauri-native')` active in step 2; `GRPC.MOCK_LISTEN_TARGET` visible in step 8; stream registry counter updates in step 6.
+
+**Implementation notes:**
+- Set `desktopOnly: true` on the `DemoLesson` wrapper — `isLessonDesktopOnlyBlocked()` in `lessonPlatform.ts` blocks this lesson on web automatically
+- `fixtures: { requiresTauri: true, requireGoEcho: true }` — `requiresTauri` is a new field added to `GrpcLessonFixtureRequirements` in `grpc-lesson-contract/types.ts`
+- Every `preAction` must call `if (!isTauri()) return` as the first guard so the lesson is safe to run in E2E shims and non-desktop test runners
+- Step 9 (external grpcurl call) is a narration-heavy step — the `action()` should spotlight `GRPC.MOCK_LISTENER_LOG` and `GRPC.MOCK_LISTEN_TARGET`, show a ripple on the copy button, then pause for 2500ms to give the viewer time to read the grpcurl snippet
+- **No automated E2E spec** — the lesson is marked `desktopOnly: true`. Manual walkthrough on the desktop build is the verification path (done checklist items 1 and 3)
+- When the lesson ends (cleanup), always: stop mock runtime if running, disable network listener, reset transport to Express Proxy
+- Selectors: `GRPC.CONNECTION_SETTINGS_BTN`, `GRPC.TRANSPORT_MODE('tauri-native')`, `GRPC.ADVANCED_TAB('native_diagnostics')`, `GRPC.STREAM_START_BTN`, `GRPC.STREAM_STATUS_BAR`, `GRPC.MOCK_START`, `GRPC.MOCK_STOP`, `GRPC.MOCK_STATUS`, `GRPC.MOCK_EXPOSE_NETWORK`, `GRPC.MOCK_LISTEN_TARGET`, `GRPC.MOCK_COPY_LISTEN_TARGET`, `GRPC.MOCK_LISTENER_GENERATION`, `GRPC.MOCK_LISTENER_LOG`, `GRPC.RESPONSE_BODY`, `GRPC.RESPONSE_DURATION`
 
 ---
 
@@ -956,7 +1056,8 @@ The following shipped features are **intentionally not given dedicated lessons**
 
 | Feature | Where referenced | Rationale |
 |---|---|---|
-| **RPC Statistics** (`GRPC.ADVANCED_TAB('rpc_stats')`) | L11 step 1 intro (mentioned as 4th advanced tab) | Statistics accumulate automatically from regular usage — no "teaching step" needed. Covered by showing `GRPC.RPC_STATS_PANEL`, `GRPC.RPC_STATS_TABLE`, `GRPC.RPC_STATS_RESET` in the L11 intro. |
+| **RPC Statistics** (`GRPC.ADVANCED_TAB('rpc_stats')`) | L11 step 1 intro (mentioned as 5th advanced tab) | Statistics accumulate automatically from regular usage — no "teaching step" needed. Covered by showing `GRPC.RPC_STATS_PANEL`, `GRPC.RPC_STATS_TABLE`, `GRPC.RPC_STATS_RESET` in the L11 intro. Export actions: `GRPC.RPC_STATS_EXPORT_JSON_BTN`, `GRPC.RPC_STATS_EXPORT_CSV_BTN`. |
+| **Native Diagnostics** (`GRPC.ADVANCED_TAB('native_diagnostics')`) | L11 step 1 (intro mention) + **L15 steps 4–5** (dedicated) | Desktop-only panel. L11 step 1 briefly names it as the 5th Advanced tab; L15 (Tauri Desktop) is the dedicated lesson that walks through refresh, copy JSON, and stream counter behaviour. |
 | **Response Snapshot Baseline** (`GRPC.RESPONSE_SNAPSHOT_PANEL`) | L9 step 10 (sidebar note after History replay) | Snapshots are a secondary feature used in CI / harness scenarios. Note the `SNAPSHOT_UPDATE_BASELINE`, `SNAPSHOT_VIEW_DIFF`, `SNAPSHOT_BADGE_*` selectors for Phase 12H if a step is added. |
 | **K8s Port-Forward** (`GRPC.K8S_PANEL`) | L4 step 1 (listed in Settings drawer tour) | Requires actual K8s cluster — cannot be demonstrated in Docker-only lessons. |
 | **Call Settings / Timeout** (`GRPC.CALL_SETTINGS_PANEL`) | L4 step 1 (listed in Settings drawer tour) | Simple config — `GRPC.CALL_SETTINGS_TIMEOUT` and `GRPC.CALL_SETTINGS_PREVIEW` shown during drawer walkthrough. |
@@ -996,6 +1097,7 @@ The lesson contract in `grpc-lesson-contract/roster.ts` currently registers the 
 | — | _(new)_ | 6 | `grpc-transport-modes` | New lesson |
 | — | _(new)_ | 8 | `grpc-proto-form` | New lesson |
 | — | _(new)_ | 10 | `grpc-grpcurl` | New lesson |
+| — | _(new)_ | 15 | `grpc-tauri-desktop` | New lesson — desktop-only |
 
 ---
 
@@ -1029,11 +1131,13 @@ Lesson 1 (grpc-first-call)
  │    └─► 9 (env-collections)
  │         └─► 11 (load-testing)
  │         └─► 14 (workflow)
- ├─► 5 (tls-mtls) — needs TLS/mTLS docker fixture
- ├─► 6 (transport-modes) — needs envoy sidecar docker fixture
- │    └─► 7 (spring-boot) — needs Spring Boot docker fixture
+ ├─► 5 (tls-mtls)
+ ├─► 6 (transport-modes)
+ │    └─► 7 (spring-boot)
+ │    └─► 15 (tauri-desktop) — requires L6 + L12; desktopOnly
  ├─► 10 (grpcurl)
  └─► 12 (mock-server)
+      └─► 15 (tauri-desktop) — requires L6 + L12; desktopOnly
 ```
 
 Lessons 11–14 can be taken independently after completing at least Lessons 1 and 9. Lessons 5, 6, and 7 have Docker build requirements and can only be authored after those services exist.
@@ -1051,15 +1155,14 @@ Lessons 11–14 can be taken independently after completing at least Lessons 1 a
 | `GRPC.STREAM_RETRY_EXPRESS_BTN` | L6 | `GrpcCallPanel.tsx` — `grpc-stream-retry-express-btn` already in DOM |
 | `GRPC.PROTO_FIELD_REPEATED_ADD` | L8 | `GrpcProtoRepeatedMapRows.tsx` — add `data-testid="grpc-proto-repeated-add"` (CSS class exists, no testid) |
 | `GRPC.PROTO_FIELD_MAP_ADD` | L8 | `GrpcProtoRepeatedMapRows.tsx` — add `data-testid="grpc-proto-map-add"` (CSS class exists, no testid) |
-| `GRPC.METADATA_ADD_BTN` | L4 | KeyValueEditor in `GrpcMetadataEditor` — add `data-testid="grpc-metadata-add-btn"` |
 | `GRPC.LOAD_TEST_EXPORT_JSON` | L11 | `GrpcLoadTestPanel.tsx` — `grpc-load-test-export-json` already in DOM |
 | `GRPC.LOAD_TEST_EXPORT_CSV` | L11 | `GrpcLoadTestPanel.tsx` — `grpc-load-test-export-csv` already in DOM |
 | `GRPC.LOAD_TEST_EXPORT_ERROR` | L11 | `GrpcLoadTestPanel.tsx` — `grpc-load-test-export-error` already in DOM |
 | `GRPC.SCHEMA_DIFF_EXPORT_JSON` | L13 | `GrpcSchemaDiffPanel.tsx` — `grpc-schema-diff-export-json` already in DOM |
 | `GRPC.SCHEMA_DIFF_EXPORT_MARKDOWN` | L13 | `GrpcSchemaDiffPanel.tsx` — `grpc-schema-diff-export-markdown` already in DOM |
 | `GRPC.SCHEMA_DIFF_EXPORT_ERROR` | L13 | `GrpcSchemaDiffPanel.tsx` — `grpc-schema-diff-export-error` already in DOM |
-| `WF.NODE_PALETTE_GRPC_UNARY` | L14 | Workflow node palette — Phase 13 work |
-| `WF.GRPC_NODE_CONFIG_MODAL` | L14 | Workflow node config modal — Phase 13 work |
+| `WF.NODE_PALETTE_GRPC_UNARY` | L14 | Workflow node palette — verify exists after Phase 13 palette work |
+| `WF.GRPC_NODE_CONFIG_MODAL` | L14 | Workflow node config modal — verify exists after Phase 13 modal work |
 
 ### Already in `GRPC.*` (no action needed — corrected from original review)
 
@@ -1077,6 +1180,9 @@ Lessons 11–14 can be taken independently after completing at least Lessons 1 a
 | `GRPC.MOCK_RULES_JSON` | ✅ Exists |
 | `GRPC.PROTO_EXPORT_PROTOSET` | ✅ Exists |
 | `GRPC.PROTO_TAB_PROTO_FILES` | ✅ Exists |
+| `GRPC.METADATA_ADD_BTN` | ✅ Exists — maps to `grpc-metadata-add-btn` (was listed as missing; confirmed present) |
+| `GRPC.RPC_STATS_EXPORT_JSON_BTN` | ✅ Exists — maps to `grpc-rpc-stats-export-json-btn` (added in post-GA P1 quick win) |
+| `GRPC.RPC_STATS_EXPORT_CSV_BTN` | ✅ Exists — maps to `grpc-rpc-stats-export-csv-btn` (added in post-GA P1 quick win) |
 
 ### Incorrect names in the original plan (corrected in this file)
 

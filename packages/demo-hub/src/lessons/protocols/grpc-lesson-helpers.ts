@@ -880,11 +880,17 @@ export async function runClientStreamSendLifecycle(ctx: DemoActionContext): Prom
 export async function startAndExchangeBidiStream(ctx: DemoActionContext): Promise<void> {
   await ensureStreamingMethodSelected(ctx, 'BidiStream');
 
-  // Start the stream if not already active.
+  // Start the stream — spotlight the button so the viewer knows what opens the bidi channel.
   const startBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN);
   if (startBtn && !startBtn.disabled) {
-    await ctx.click(GRPC.STREAM_START_BTN);
-    await ctx.delay(200);
+    const removeStartRing = showSpotlightRing(startBtn);
+    try {
+      await ctx.delay(900);
+      await ctx.click(GRPC.STREAM_START_BTN);
+    } finally {
+      removeStartRing();
+    }
+    await ctx.delay(400);
   }
 
   // Wait for stream to be active (Start btn transitions to Cancel btn).
@@ -894,27 +900,46 @@ export async function startAndExchangeBidiStream(ctx: DemoActionContext): Promis
     // Stream may already be open on retry.
   }
 
-  // Send first message.
-  const messageInput = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
-  if (messageInput) {
-    await ctx.fill(GRPC.PROTO_FIELD_INPUT('message'), 'bidi-hello');
-    await ctx.delay(120);
-  }
-  const sendBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_SEND_MESSAGE_BTN);
-  if (sendBtn && !sendBtn.disabled) {
-    await ctx.click(GRPC.STREAM_SEND_MESSAGE_BTN);
-    await ctx.delay(220);
-  }
+  // Helper: spotlight message input, fill, spotlight send button, click, then
+  // briefly spotlight the log so viewers see the ↑/↓ entries land.
+  const sendBidiMessage = async (text: string): Promise<void> => {
+    const messageInput = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
+    if (messageInput) {
+      const removeInputRing = showSpotlightRing(messageInput);
+      try {
+        await ctx.delay(600);
+        await ctx.fill(GRPC.PROTO_FIELD_INPUT('message'), text);
+        await ctx.delay(400);
+      } finally {
+        removeInputRing();
+      }
+    }
+    const sendBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_SEND_MESSAGE_BTN);
+    if (sendBtn && !sendBtn.disabled) {
+      const removeSendRing = showSpotlightRing(sendBtn);
+      try {
+        await ctx.delay(500);
+        await ctx.click(GRPC.STREAM_SEND_MESSAGE_BTN);
+      } finally {
+        removeSendRing();
+      }
+      // Spotlight the message log so the viewer can see the ↑ send + ↓ echo.
+      const logEl = document.querySelector<HTMLElement>(GRPC.STREAM_MESSAGE_LOG);
+      if (logEl) {
+        const removeLogRing = showSpotlightRing(logEl);
+        try {
+          await ctx.delay(600);
+        } finally {
+          removeLogRing();
+        }
+      } else {
+        await ctx.delay(500);
+      }
+    }
+  };
 
-  // Send second message.
-  if (messageInput) {
-    await ctx.fill(GRPC.PROTO_FIELD_INPUT('message'), 'bidi-world');
-    await ctx.delay(120);
-  }
-  if (sendBtn && !sendBtn.disabled) {
-    await ctx.click(GRPC.STREAM_SEND_MESSAGE_BTN);
-    await ctx.delay(180);
-  }
+  await sendBidiMessage('bidi-hello');
+  await sendBidiMessage('bidi-world');
 
   try {
     await ctx.waitFor(GRPC.STREAM_LOG_LIST, 5_000);

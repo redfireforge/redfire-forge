@@ -12,6 +12,7 @@ export interface GrpcTlsBadgePresentation {
 
 const AUTH_TYPE_LABELS: Record<NonNullable<GrpcAuthConfig['type']>, string> = {
   none: 'None',
+  inherit: 'Inherit',
   bearer: 'Bearer',
   basic: 'Basic',
   api_key: 'API Key',

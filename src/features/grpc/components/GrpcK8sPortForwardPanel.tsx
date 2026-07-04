@@ -21,6 +21,20 @@ import {
   type GrpcK8sTargetType,
 } from '../utils/grpcK8sPortForward';
 
+function getK8sWorkflowStatusLabel(
+  ready: boolean,
+  active: boolean,
+  automationBusy: boolean,
+  automationBacked: boolean,
+  automationError: string | null,
+) {
+  if (automationBusy) return 'Syncing';
+  if (automationError) return 'Needs attention';
+  if (active || automationBacked) return 'Forwarding';
+  if (ready) return 'Ready';
+  return 'Incomplete';
+}
+
 export interface GrpcK8sPortForwardPanelProps {
   session?: GrpcK8sPortForwardSession;
   disabled?: boolean;
@@ -75,6 +89,15 @@ export function GrpcK8sPortForwardPanel({
   const shouldSyncAutomationStatus = automationEnabled && automationBacked;
   const shouldPollAutomationLogs = automationEnabled && automationBacked;
   const fieldsDisabled = disabled || active || automationBusy;
+  const workflowStatus = getK8sWorkflowStatusLabel(ready, active, automationBusy, automationBacked, automationError);
+  const workflowStatusClass = automationError
+    ? 'grpc-k8s-status-chip grpc-k8s-status-chip--danger'
+    : active || automationBacked
+      ? 'grpc-k8s-status-chip grpc-k8s-status-chip--success'
+      : ready
+        ? 'grpc-k8s-status-chip grpc-k8s-status-chip--ready'
+        : 'grpc-k8s-status-chip grpc-k8s-status-chip--warning';
+  const commandReady = Boolean(kubectlCommand);
 
   const persistSession = (nextConfig: GrpcK8sPortForwardConfig, nextActive: boolean) => {
     onSessionChangeRef.current?.({ config: nextConfig, active: nextActive });
@@ -263,250 +286,293 @@ export function GrpcK8sPortForwardPanel({
 
   return (
     <div className="grpc-k8s-panel" data-testid="grpc-k8s-panel">
-      <div className="grpc-settings-card">
-        <div className="grpc-settings-card-header">
-          <h3 className="grpc-settings-card-title">Kubernetes Port-Forwarding</h3>
-          <span className="grpc-settings-card-chip">Warthog-inspired</span>
+      <div className="grpc-settings-section">
+        <div className="grpc-k8s-hero">
+          <div>
+            <p className="grpc-settings-intro grpc-k8s-hint">
+              Configure a local kubectl tunnel so this tab can target cluster services without changing your saved request.
+            </p>
+            <p className="grpc-k8s-hero-subtitle">
+              Start a port-forward once, then reuse the generated local target in this session.
+            </p>
+          </div>
+          <div className={workflowStatusClass} data-testid="grpc-k8s-status-chip">
+            <span className="grpc-k8s-status-chip__label">Status</span>
+            <span className="grpc-k8s-status-chip__value">{workflowStatus}</span>
+          </div>
         </div>
-        <div className="grpc-settings-card-body">
-          <p className="grpc-k8s-hint">
-            Run
-            {' '}
-            <code className="grpc-inline-code">kubectl port-forward</code>
-            {' '}
-            in your terminal, then click
-            {' '}
-            <strong>Start Port-Forward</strong>
-            {' '}
-            to point gRPC Studio at the local forwarded port.
-          </p>
 
-          <div className="grpc-k8s-form-grid">
-            <div className="grpc-tls-form-row">
-              <label className="grpc-tls-form-label" htmlFor="grpc-k8s-namespace">
-                Namespace
-              </label>
-              <div className="grpc-tls-form-ctrl">
-                <input
-                  id="grpc-k8s-namespace"
-                  type="text"
-                  className="grpc-tls-text-input"
-                  data-testid="grpc-k8s-namespace"
-                  value={config.namespace}
-                  disabled={fieldsDisabled}
-                  onChange={(event) => updateConfig({ namespace: event.target.value })}
-                />
-              </div>
+        <div className="grpc-settings-card">
+          <div className="grpc-settings-card-body grpc-k8s-workflow-body">
+            <div className="grpc-k8s-panel-note">
+              Run <code className="grpc-inline-code">kubectl port-forward</code> in your terminal, then click{' '}
+              <strong>Start Port-Forward</strong> to point gRPC Studio at the local forwarded port.
             </div>
-            <div className="grpc-tls-form-row">
-              <label className="grpc-tls-form-label" htmlFor="grpc-k8s-target-type">
-                Target type
-              </label>
-              <div className="grpc-tls-form-ctrl">
-                <select
-                  id="grpc-k8s-target-type"
-                  className="grpc-compression-select"
-                  data-testid="grpc-k8s-target-type"
-                  value={config.targetType}
-                  disabled={fieldsDisabled}
-                  onChange={(event) => updateConfig({
-                    targetType: event.target.value as GrpcK8sTargetType,
-                  })}
-                >
-                  <option value="service">service</option>
-                  <option value="pod">pod</option>
-                  <option value="deployment">deployment</option>
-                </select>
-              </div>
-            </div>
-            <div className="grpc-tls-form-row">
-              <label className="grpc-tls-form-label" htmlFor="grpc-k8s-name">
-                Name
-              </label>
-              <div className="grpc-tls-form-ctrl">
-                <input
-                  id="grpc-k8s-name"
-                  type="text"
-                  className="grpc-tls-text-input"
-                  data-testid="grpc-k8s-name"
-                  placeholder="service/pod name"
-                  value={config.name}
-                  disabled={fieldsDisabled}
-                  onChange={(event) => updateConfig({ name: event.target.value })}
-                />
-              </div>
-            </div>
-            <div className="grpc-tls-form-row">
-              <label className="grpc-tls-form-label" htmlFor="grpc-k8s-remote-port">
-                Remote port
-              </label>
-              <div className="grpc-tls-form-ctrl">
-                <input
-                  id="grpc-k8s-remote-port"
-                  type="number"
-                  className="grpc-tls-text-input"
-                  data-testid="grpc-k8s-remote-port"
-                  min={1}
-                  max={65535}
-                  value={config.remotePort}
-                  disabled={fieldsDisabled}
-                  onChange={(event) => {
-                    const remotePort = normalizeGrpcK8sPortNumber(event.target.value);
-                    if (remotePort != null) {
-                      updateConfig({ remotePort });
-                    }
-                  }}
-                />
-              </div>
-            </div>
-          </div>
 
-          <div className="grpc-tls-form-row">
-            <label className="grpc-tls-form-label" htmlFor="grpc-k8s-local-port">
-              Local port
-            </label>
-            <div className="grpc-tls-form-ctrl">
-              <input
-                id="grpc-k8s-local-port"
-                type="number"
-                className="grpc-tls-text-input"
-                data-testid="grpc-k8s-local-port"
-                min={1}
-                max={65535}
-                value={config.localPort}
-                disabled={fieldsDisabled}
-                onChange={(event) => {
-                  const localPort = normalizeGrpcK8sPortNumber(event.target.value);
-                  if (localPort != null) {
-                    updateConfig({ localPort });
-                  }
-                }}
-              />
-            </div>
-          </div>
+            <div className="grpc-k8s-sections">
+              <section className="grpc-k8s-section">
+                <div className="grpc-k8s-section-title">Target</div>
+                <div className="grpc-settings-form-card grpc-k8s-form-grid">
+                  <div className="grpc-settings-form-row">
+                    <div className="grpc-settings-form-row__label-col">
+                      <label className="grpc-settings-form-row__label" htmlFor="grpc-k8s-namespace">
+                        Namespace
+                      </label>
+                      <span className="grpc-settings-form-row__label-hint">Namespace to forward from.</span>
+                    </div>
+                    <div className="grpc-settings-form-row__ctrl">
+                      <input
+                        id="grpc-k8s-namespace"
+                        type="text"
+                        className="grpc-settings-input"
+                        data-testid="grpc-k8s-namespace"
+                        value={config.namespace}
+                        disabled={fieldsDisabled}
+                        onChange={(event) => updateConfig({ namespace: event.target.value })}
+                      />
+                    </div>
+                  </div>
 
-          <div className="grpc-tls-form-row">
-            <label className="grpc-tls-form-label" htmlFor="grpc-k8s-context">
-              Context (kubeconfig)
-            </label>
-            <div className="grpc-tls-form-ctrl">
-              <input
-                id="grpc-k8s-context"
-                type="text"
-                className="grpc-tls-text-input"
-                data-testid="grpc-k8s-context"
-                placeholder="Optional — e.g. minikube"
-                value={config.context}
-                disabled={fieldsDisabled}
-                onChange={(event) => updateConfig({ context: event.target.value })}
-              />
-            </div>
-          </div>
+                  <div className="grpc-settings-form-row">
+                    <div className="grpc-settings-form-row__label-col">
+                      <label className="grpc-settings-form-row__label" htmlFor="grpc-k8s-target-type">
+                        Target type
+                      </label>
+                      <span className="grpc-settings-form-row__label-hint">Cluster resource to tunnel.</span>
+                    </div>
+                    <div className="grpc-settings-form-row__ctrl">
+                      <select
+                        id="grpc-k8s-target-type"
+                        className="grpc-compression-select grpc-settings-select"
+                        data-testid="grpc-k8s-target-type"
+                        value={config.targetType}
+                        disabled={fieldsDisabled}
+                        onChange={(event) => updateConfig({ targetType: event.target.value as GrpcK8sTargetType })}
+                      >
+                        <option value="service">service</option>
+                        <option value="pod">pod</option>
+                        <option value="deployment">deployment</option>
+                      </select>
+                    </div>
+                  </div>
 
-          <div className="grpc-k8s-actions">
-            <button
-              type="button"
-              className="btn btn-primary"
-              data-testid="grpc-k8s-start-btn"
-              disabled={disabled || !ready || active || automationBusy}
-              onClick={handleStart}
-            >
-              {automationBusy ? 'Working...' : 'Start Port-Forward'}
-            </button>
-            <button
-              type="button"
-              className="btn"
-              data-testid="grpc-k8s-stop-btn"
-              disabled={!active || automationBusy}
-              onClick={handleStop}
-            >
-              Stop
-            </button>
-          </div>
+                  <div className="grpc-settings-form-row">
+                    <div className="grpc-settings-form-row__label-col">
+                      <label className="grpc-settings-form-row__label" htmlFor="grpc-k8s-name">
+                        Name
+                      </label>
+                      <span className="grpc-settings-form-row__label-hint">Service, pod, or deployment name.</span>
+                    </div>
+                    <div className="grpc-settings-form-row__ctrl">
+                      <input
+                        id="grpc-k8s-name"
+                        type="text"
+                        className="grpc-settings-input"
+                        data-testid="grpc-k8s-name"
+                        placeholder="service/pod name"
+                        value={config.name}
+                        disabled={fieldsDisabled}
+                        onChange={(event) => updateConfig({ name: event.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
 
-          {automationError && (
-            <p className="grpc-auth-warning" data-testid="grpc-k8s-automation-error">
-              {automationError}
-            </p>
-          )}
+              <section className="grpc-k8s-section grpc-k8s-section--command">
+                <div className="grpc-k8s-section-title">Command</div>
+                <div className="grpc-k8s-command-card">
+                  <div className="grpc-k8s-command-bar">
+                    <div className="grpc-k8s-command-summary">
+                      <span className="grpc-k8s-command-summary__label">Local target</span>
+                      <span className="grpc-k8s-command-summary__value">localhost:{config.localPort}</span>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn btn-sm"
+                      data-testid="grpc-k8s-copy-command-btn"
+                      disabled={!commandReady}
+                      onClick={async () => {
+                        if (!kubectlCommand) return;
+                        await navigator.clipboard.writeText(kubectlCommand);
+                      }}
+                    >
+                      Copy command
+                    </button>
+                  </div>
+                  {kubectlCommand && (
+                    <p className="grpc-k8s-command grpc-k8s-command--inline" data-testid="grpc-k8s-command">
+                      <span className="grpc-k8s-command-label">kubectl:</span>{' '}
+                      <code className="grpc-inline-code">{kubectlCommand}</code>
+                    </p>
+                  )}
+                  {automationBacked && automationPid != null && (
+                    <p className="grpc-k8s-command grpc-k8s-command--state" data-testid="grpc-k8s-automation-state">
+                      kubectl process running (PID: {automationPid})
+                    </p>
+                  )}
+                </div>
+              </section>
 
-          {kubectlCommand && (
-            <p className="grpc-k8s-command" data-testid="grpc-k8s-command">
-              <span className="grpc-k8s-command-label">kubectl:</span>
-              {' '}
-              <code className="grpc-inline-code">{kubectlCommand}</code>
-            </p>
-          )}
-
-          {automationBacked && automationPid != null && (
-            <p className="grpc-k8s-command" data-testid="grpc-k8s-automation-state">
-              kubectl process running (PID:
-              {' '}
-              {automationPid}
-              )
-            </p>
-          )}
-
-          {automationEnabled && (
-            <div className="grpc-k8s-log-view" data-testid="grpc-k8s-log-view">
-              <div className="grpc-k8s-log-header">
-                <div className="grpc-k8s-log-title">kubectl logs</div>
-                <div className="grpc-k8s-log-actions">
+              <section className="grpc-k8s-section grpc-k8s-section--actions">
+                <div className="grpc-k8s-section-title">Actions</div>
+                <div className="grpc-settings-action-row grpc-k8s-actions">
                   <button
                     type="button"
-                    className="btn"
-                    data-testid="grpc-k8s-log-autoscroll-btn"
-                    onClick={() => setAutoScrollPaused((value) => !value)}
+                    className="btn btn-primary"
+                    data-testid="grpc-k8s-start-btn"
+                    disabled={disabled || !ready || active || automationBusy}
+                    onClick={handleStart}
                   >
-                    {autoScrollPaused ? 'Resume Auto-Scroll' : 'Pause Auto-Scroll'}
+                    {automationBusy ? 'Working...' : 'Start Port-Forward'}
                   </button>
                   <button
                     type="button"
                     className="btn"
-                    data-testid="grpc-k8s-log-clear-btn"
-                    disabled={logActionBusy || automationLogs.length === 0}
-                    onClick={handleClearLogs}
+                    data-testid="grpc-k8s-stop-btn"
+                    disabled={!active || automationBusy}
+                    onClick={handleStop}
                   >
-                    {logActionBusy ? 'Clearing...' : 'Clear Logs'}
+                    Stop
                   </button>
                 </div>
-              </div>
-              <div
-                ref={logLinesRef}
-                className="grpc-k8s-log-lines"
-                data-testid="grpc-k8s-log-lines"
-              >
-                {automationLogs.length === 0 ? (
-                  <div className="grpc-k8s-log-empty" data-testid="grpc-k8s-log-empty">
-                    No log lines yet. Start port-forwarding to stream kubectl output.
-                  </div>
-                ) : (
-                  automationLogs.map((line) => (
-                    <div
-                      key={line.seq}
-                      className={`grpc-k8s-log-line grpc-k8s-log-line--${line.stream}`}
-                    >
-                      [{line.stream}] {line.text}
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
+              </section>
 
-          {active && ready && (
-            <div className="grpc-k8s-status" data-testid="grpc-k8s-status">
-              Forwarding:
-              {' '}
-              <span className="grpc-k8s-status-local">localhost:{config.localPort}</span>
-              {' → '}
-              {config.namespace.trim() || 'default'}
-              /
-              {config.name.trim()}
-              :
-              {config.remotePort}
+              <section className="grpc-k8s-section grpc-k8s-section--ports">
+                <div className="grpc-k8s-section-title">Ports</div>
+                <div className="grpc-settings-form-card grpc-k8s-form-grid">
+                  <div className="grpc-settings-form-row">
+                    <div className="grpc-settings-form-row__label-col">
+                      <label className="grpc-settings-form-row__label" htmlFor="grpc-k8s-remote-port">
+                        Remote port
+                      </label>
+                      <span className="grpc-settings-form-row__label-hint">Cluster-exposed port.</span>
+                    </div>
+                    <div className="grpc-settings-form-row__ctrl">
+                      <input
+                        id="grpc-k8s-remote-port"
+                        type="number"
+                        className="grpc-settings-input"
+                        data-testid="grpc-k8s-remote-port"
+                        min={1}
+                        max={65535}
+                        value={config.remotePort}
+                        disabled={fieldsDisabled}
+                        onChange={(event) => {
+                          const remotePort = normalizeGrpcK8sPortNumber(event.target.value);
+                          if (remotePort != null) updateConfig({ remotePort });
+                        }}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grpc-settings-form-row">
+                    <div className="grpc-settings-form-row__label-col">
+                      <label className="grpc-settings-form-row__label" htmlFor="grpc-k8s-local-port">
+                        Local port
+                      </label>
+                      <span className="grpc-settings-form-row__label-hint">Local port for gRPC Studio.</span>
+                    </div>
+                    <div className="grpc-settings-form-row__ctrl">
+                      <input
+                        id="grpc-k8s-local-port"
+                        type="number"
+                        className="grpc-settings-input"
+                        data-testid="grpc-k8s-local-port"
+                        min={1}
+                        max={65535}
+                        value={config.localPort}
+                        disabled={fieldsDisabled}
+                        onChange={(event) => {
+                          const localPort = normalizeGrpcK8sPortNumber(event.target.value);
+                          if (localPort != null) updateConfig({ localPort });
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="grpc-k8s-section grpc-k8s-section--context">
+                <div className="grpc-k8s-section-title">Context</div>
+                <div className="grpc-settings-form-card grpc-k8s-form-grid grpc-k8s-form-grid--single">
+                  <div className="grpc-settings-form-row">
+                    <div className="grpc-settings-form-row__label-col">
+                      <label className="grpc-settings-form-row__label" htmlFor="grpc-k8s-context">
+                        Context (kubeconfig)
+                      </label>
+                      <span className="grpc-settings-form-row__label-hint">Optional kubeconfig context.</span>
+                    </div>
+                    <div className="grpc-settings-form-row__ctrl">
+                      <input
+                        id="grpc-k8s-context"
+                        type="text"
+                        className="grpc-settings-input"
+                        data-testid="grpc-k8s-context"
+                        placeholder="Optional — e.g. minikube"
+                        value={config.context}
+                        disabled={fieldsDisabled}
+                        onChange={(event) => updateConfig({ context: event.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </section>
             </div>
-          )}
+
+            {automationError && (
+              <p className="grpc-settings-note grpc-settings-note--danger grpc-auth-warning" data-testid="grpc-k8s-automation-error">
+                {automationError}
+              </p>
+            )}
+
+            {automationEnabled && (
+              <div className="grpc-k8s-log-view" data-testid="grpc-k8s-log-view">
+                <div className="grpc-k8s-log-header">
+                  <div className="grpc-k8s-log-title">kubectl logs</div>
+                  <div className="grpc-k8s-log-actions">
+                    <button
+                      type="button"
+                      className="btn"
+                      data-testid="grpc-k8s-log-autoscroll-btn"
+                      onClick={() => setAutoScrollPaused((value) => !value)}
+                    >
+                      {autoScrollPaused ? 'Resume Auto-Scroll' : 'Pause Auto-Scroll'}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      data-testid="grpc-k8s-log-clear-btn"
+                      disabled={logActionBusy || automationLogs.length === 0}
+                      onClick={handleClearLogs}
+                    >
+                      {logActionBusy ? 'Clearing...' : 'Clear Logs'}
+                    </button>
+                  </div>
+                </div>
+                <div ref={logLinesRef} className="grpc-k8s-log-lines" data-testid="grpc-k8s-log-lines">
+                  {automationLogs.length === 0 ? (
+                    <div className="grpc-k8s-log-empty" data-testid="grpc-k8s-log-empty">
+                      No log lines yet. Start port-forwarding to stream kubectl output.
+                    </div>
+                  ) : (
+                    automationLogs.map((line) => (
+                      <div key={line.seq} className={`grpc-k8s-log-line grpc-k8s-log-line--${line.stream}`}>
+                        [{line.stream}] {line.text}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {active && ready && (
+              <div className="grpc-k8s-status" data-testid="grpc-k8s-status">
+                Forwarding: <span className="grpc-k8s-status-local">localhost:{config.localPort}</span> {' → '}
+                {config.namespace.trim() || 'default'}/{config.name.trim()}:{config.remotePort}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

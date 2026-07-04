@@ -91,7 +91,7 @@ describe('useModalDrag', () => {
     expect(result.current.modalStyle?.left).toBe(120); // 100 + (170 - 150)
     expect(result.current.modalStyle?.top).toBe(220); // 200 + (240 - 220)
     expect(result.current.overlayStyle).toBeDefined();
-    expect(result.current.overlayStyle?.pointerEvents).toBe('none');
+    expect(result.current.overlayStyle?.background).toBe('transparent');
 
     // Simulate mouse up
     act(() => {

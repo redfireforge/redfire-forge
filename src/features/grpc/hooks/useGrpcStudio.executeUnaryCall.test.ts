@@ -297,6 +297,51 @@ describe('useGrpcStudio executeUnaryCall (Phase 1G)', () => {
     expect(result.current.tabs.find((entry) => entry.id === tabId)!.lifecycle).toBe('success');
   });
 
+  it('executeUnaryCall resolves inherit auth from a global auth profile', async () => {
+    let capturedPayload: { auth?: { type?: string; bearerToken?: string }; metadata?: Record<string, string> } | undefined;
+    setGrpcClientTransport(async (op, _path, init) => {
+      if (op === 'call') {
+        capturedPayload = JSON.parse(String(init.body)) as {
+          auth?: { type?: string; bearerToken?: string };
+          metadata?: Record<string, string>;
+        };
+        return FIXTURE_HAPPY_CALL_ENVELOPE;
+      }
+      return FIXTURE_REFLECT_SUCCESS_ENVELOPE;
+    });
+
+    const { result } = renderHook(() => useGrpcStudio({
+      pageDefaults: PAGE_DEFAULTS,
+      defaultAuthProfileId: 'prof-1',
+      globalAuthProfiles: [
+        { id: 'prof-1', name: 'Bearer Profile', auth: { type: 'bearer', token: 'profile-token' } },
+      ],
+    }));
+    const tabId = result.current.activeTab.id;
+    act(() => {
+      result.current.updateTab(tabId, {
+        target: 'localhost:50051',
+        descriptorKey: FIXTURE_DESCRIPTOR.key,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'hello' },
+        metadata: { 'x-trace': 'abc' },
+        auth: { type: 'inherit', globalProfileId: 'prof-1' },
+      });
+    });
+
+    await act(async () => {
+      await result.current.executeUnaryCall(tabId);
+    });
+
+    expect(capturedPayload?.auth).toEqual({ type: 'bearer', bearerToken: 'profile-token' });
+    expect(capturedPayload?.metadata).toEqual({
+      authorization: 'Bearer profile-token',
+      'x-trace': 'abc',
+    });
+    expect(result.current.tabs.find((entry) => entry.id === tabId)!.lifecycle).toBe('success');
+  });
+
   it('cancelUnaryCall does not overwrite a tab that already completed successfully', async () => {
     setGrpcClientTransport(async (op) => {
       if (op === 'call') return FIXTURE_HAPPY_CALL_ENVELOPE;
