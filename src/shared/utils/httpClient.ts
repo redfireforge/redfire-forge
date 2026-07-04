@@ -250,14 +250,17 @@ export async function proxyFetch(
       const tDone = performance.now();
       const responseHeaders: Record<string, string> = {};
       response.headers.forEach((v, k) => { responseHeaders[k] = v; });
+      const trimmedBody = responseBody.trim();
+      const looksLikeApiEnvelope = trimmedBody.startsWith('{')
+        && trimmedBody.includes('"ok"')
+        && trimmedBody.includes('"op"');
       // Treat gateway / server-not-running responses as network errors so the
       // caller classifies them as KAFKA_NETWORK_ERROR (retryable) rather than
       // KAFKA_INVALID_ENVELOPE (configuration error).
       const networkError =
-        response.status === 0 ||
-        response.status === 502 ||
-        response.status === 503 ||
-        response.status === 504
+        response.status === 0
+          || ((response.status === 502 || response.status === 503 || response.status === 504)
+            && !looksLikeApiEnvelope)
           ? `Server returned ${response.status} ${response.statusText || 'error'} — is the backend server running?`
           : undefined;
       return {
