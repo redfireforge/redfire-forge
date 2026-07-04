@@ -38,6 +38,19 @@ export function createConnectTargetHandler(
     if (!isGrpcTargetProbeGenerationCurrent(tabId, generation)) {
       return;
     }
+
+    if (session.state === 'connected') {
+      const descriptorState = core.sessionRef.current.tabDescriptors[tabId];
+      const hasLoadedDescriptor = Boolean(descriptorState?.descriptor);
+      const isDescriptorLoadError = descriptorState?.loadState === 'error';
+      if (!hasLoadedDescriptor && isDescriptorLoadError) {
+        runtimeCtx.patchTabDescriptor(tabId, {
+          loadState: 'idle',
+          errorMessage: undefined,
+        });
+      }
+    }
+
     core.updateTab(tabId, { targetConnection: session });
   };
 }
