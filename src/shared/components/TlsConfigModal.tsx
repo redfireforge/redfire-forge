@@ -5,6 +5,12 @@
  * Callers normalise their own TLS state to `TlsValues` and pass a single
  * `onChange` callback.  Body CSS comes from the `ws-tls-*` ruleset in
  * `websocket-studio.css`; footer actions use global `btn` classes.
+ *
+ * Optional gRPC-specific props allow the same component to be reused for
+ * gRPC without duplicating the modal chrome:
+ * - `headerSlot` — tri-mode selector (Plaintext / TLS / mTLS)
+ * - `bodySlot` — replaces the default SharedTlsConfigPanel (for secret masking)
+ * - `onTestConnection` / `onResetDefaults` — extra footer buttons, left-aligned
  */
 
 import type { ReactNode } from 'react';
@@ -37,6 +43,26 @@ export interface TlsConfigModalProps {
    */
   proxyNotice?: ReactNode;
   /**
+   * Optional header rendered above the body sections.
+   * Used by gRPC to render the tri-mode selector (Plaintext / TLS / mTLS).
+   */
+  headerSlot?: ReactNode;
+  /**
+   * When provided, replaces the default SharedTlsConfigPanel body.
+   * Used by gRPC to inject GrpcTlsConfigBody (tri-mode + secret masking).
+   */
+  bodySlot?: ReactNode;
+  /**
+   * Optional footer action shown left-aligned.
+   * Provided by gRPC to run local TLS validation.
+   */
+  onTestConnection?: () => void;
+  /**
+   * Optional footer action shown left-aligned.
+   * Provided by gRPC to reset mode to Plaintext.
+   */
+  onResetDefaults?: () => void;
+  /**
    * Prefix used for both `data-testid` attributes and `id`/`htmlFor`
    * attributes inside the modal.
    * - WebSocket: `'tls'`  → `tls-body`, `tls-ca-cert`, …
@@ -60,6 +86,10 @@ export function TlsConfigModal({
   dirty,
   disabled = false,
   proxyNotice,
+  headerSlot,
+  bodySlot,
+  onTestConnection,
+  onResetDefaults,
   testIdPrefix = 'tls',
 }: TlsConfigModalProps) {
   if (!open) return null;
@@ -87,7 +117,31 @@ export function TlsConfigModal({
       minHeight={320}
       footer={
         <>
-          <div className="tls-modal-footer-group tls-modal-footer-group--left" aria-hidden="true" />
+          <div className="tls-modal-footer-group tls-modal-footer-group--left">
+            {onTestConnection && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={onTestConnection}
+                disabled={disabled}
+                data-testid={`${p}-test`}
+              >
+                Test TLS Connection
+              </button>
+            )}
+            {onResetDefaults && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm"
+                onClick={onResetDefaults}
+                disabled={disabled}
+                data-testid={`${p}-reset`}
+              >
+                Reset to Defaults
+              </button>
+            )}
+            {!onTestConnection && !onResetDefaults && <span aria-hidden="true" />}
+          </div>
           <div className="tls-modal-footer-group tls-modal-footer-group--right">
             <button
               type="button"
@@ -118,14 +172,18 @@ export function TlsConfigModal({
         </>
       }
     >
-      <div data-testid={`${p}-body`}>
-        <SharedTlsConfigPanel
-          values={values}
-          onChange={onChange}
-          disabled={disabled}
-          testIdPrefix={p}
-          noticeSlot={proxyNotice}
-        />
+      {/* bodySlot replaces the default panel (used by gRPC for secret masking); no wrapper testId in that case since bodySlot owns its own */}
+      <div {...(bodySlot ? {} : { 'data-testid': `${p}-body` })}>
+        {bodySlot ?? (
+          <SharedTlsConfigPanel
+            values={values}
+            onChange={onChange}
+            disabled={disabled}
+            testIdPrefix={p}
+            headerSlot={headerSlot}
+            noticeSlot={proxyNotice}
+          />
+        )}
       </div>
     </AppModalFrame>,
     document.body,

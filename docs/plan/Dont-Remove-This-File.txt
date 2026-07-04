@@ -257,14 +257,14 @@ Pleaes thoroughly re-evaluate Phase 6D and if there is any missing or bug plan, 
 
 --------- GRPC 
 
-Based on grpc-studio-plan.md file. Please thorughly re-evaluate Phase 6I plan if you find any missing or bug, please update md file. And then implement this plan. After implementation is done, please thoroughly re-evalaute what you implemented and if you find any bug, please fix it. Repeate this review process until there is no bug or issue. 
+Based on grpc-studio-plan.md file. Please thorughly re-evaluate Phase 11O plan if you find any missing or bug, please update md file. And then implement this plan. After implementation is done, please thoroughly re-evalaute what you implemented and if you find any bug, please fix it. Repeate this review process until there is no bug or issue. DON'T RUN FULL PATH BATCH.
 
 
 
-Please thoroughly evaluate Phase 6Iand if we have any issue or bug or discrepancy, please fix them. Repeat re-evaulation until there is no issue or bug. 
+Please thoroughly evaluate Phase 11O and if we have any issue or bug or discrepancy, please fix them. Repeat re-evaulation until there is no issue or bug.  DON'T RUN FULL PATH BATCH.
 
 
-One more deep re-evaluateion please for Phase 12B
+One more deep re-evaluateion please for Phase 11O. DON'T RUN FULL PATH BATCH.
 
 
 
@@ -282,8 +282,8 @@ And let me know what is your implemenation plan for this phase 2?
 
 
 
-Phase 6 — Workflow Integration
-6A -> 6B -> 6C -> 6D -> 6E -> 6F -> 6G -> 6H -> 6I
+Recommended implementation order (from plan)
+11J → 11K (parallel OK) → 11L → 11M → 11N → 11O (optional)
 
 
 mplementation order I’d follow
@@ -294,3 +294,40 @@ Assert + namespace (6E + 6F) — before UI, so Results Explorer reads final shap
 UI + mixed-protocol E2E (6G + 6H) — then 6I gate.
 
 One more deep re-evaluateion please for Phase (6G + 6H)
+
+
+DON"T RUN FULL PATH BATCH. Please find top 10 lowest code coverage files which has less than 90% code coverages if it has. And fix them. At the end show another top 10 lowest code coverage files if you have. 
+
+Finding the bottom five product-coverage files and fixing them using the scoped workflow (no full gate).
+
+
+This is defered lists in Phase 8. Can you implement them? After then, thorughly re-evaluate your implemenation and Repeat re-evaulation until there is no issue or bug.  
+
+Is there any code coverage issue file with 10 file as max if you have? If yes, please fix them. Don't run full path batch. 
+
+
+
+
+DON"T RUN FULL PATH BATCH. Is there any code coverage issue file? If yes, please fix them.
+
+
+---- Unit Test Direction ---------
+As I mentioned, you should run one clean full coverage snapshot now, freeze that as the baseline, and then implement tests in chunked batches against that list without re-running full coverage between small fixes.
+Once you get full coverage snapshot, you should extract the list of files that are below 90% coverage and then implement tests for those files in small batches. After you fix all of small batches, you can run full coverage report again to see if you have any files below 90% coverage. 
+
+
+If you keep runining code coverage report after fixing small batch, not only takes long time but also token comsumption issue.
+
+
+----- Code Quality -----
+code coverage is very important. We already have strick directions for it. On the other hand, code quality is also important. 
+It should be maintanable and minimize duplcated codes. If we have, we should extract them and make common codes like template. 
+From this code quality perspective, can you do research and improve code quality for our entire code base? Make sure nothing should be broken. 
+
+
+
+----- Demo Highlight and Pausing Time -----
+Here is demo guide for this project.
+Highlight meansing is not flash in some part, but draw box so user can see the part based on important part in demo step description. If it has multiple parts highlighted, it should have small pause in each highlight so user can identify or digest its contents in UI. 
+Second, for acting, preparing, etc, pausing time should be not long or not short. It should be relavent. But reading time should be enough given to user to read its contents. 
+If you think we need to more steps to satisfy this guidedance, please add them. 

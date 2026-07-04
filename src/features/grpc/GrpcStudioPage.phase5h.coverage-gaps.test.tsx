@@ -393,13 +393,11 @@ describe('GrpcStudioPage Phase 5H coverage gaps', () => {
 
   it('updates TLS config from settings drawer and TLS modal restore', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
-    fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
-    fireEvent.click(screen.getByTestId('grpc-settings-nav-tls'));
+    fireEvent.click(screen.getByTestId('grpc-tls-badge'));
+    await waitFor(() => expect(screen.getByTestId('grpc-tls-body')).toBeTruthy());
     fireEvent.click(screen.getByTestId('grpc-tls-mode-tls'));
     fireEvent.change(screen.getByTestId('grpc-tls-server-name'), { target: { value: 'grpc.example.com' } });
 
-    fireEvent.click(screen.getByTestId('grpc-tls-badge'));
-    await waitFor(() => expect(screen.getByTestId('grpc-tls-body')).toBeTruthy());
     fireEvent.change(screen.getByTestId('grpc-tls-server-name'), { target: { value: 'override.example.com' } });
     fireEvent.click(screen.getByTestId('grpc-tls-reset'));
     fireEvent.click(screen.getByTestId('grpc-tls-close'));
@@ -433,10 +431,9 @@ describe('GrpcStudioPage Phase 5H coverage gaps', () => {
     });
   });
 
-  it('updates auth secret fields from settings drawer', async () => {
+  it('updates auth secret fields from the bottom auth tab', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
-    fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
-    fireEvent.click(screen.getByTestId('grpc-settings-nav-auth'));
+    fireEvent.click(screen.getByTestId('grpc-auth-badge'));
     fireEvent.change(screen.getByTestId('grpc-auth-type-select'), { target: { value: 'bearer' } });
     fireEvent.change(screen.getByTestId('grpc-auth-bearer-token'), { target: { value: 'secret-token' } });
     expect((screen.getByTestId('grpc-auth-bearer-token') as HTMLInputElement).value).toBe('secret-token');

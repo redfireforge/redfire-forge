@@ -71,6 +71,8 @@ describe('GrpcK8sPortForwardPanel', () => {
       />,
     );
     expect(screen.getByTestId('grpc-k8s-panel')).toBeTruthy();
+    expect(screen.getByTestId('grpc-k8s-status-chip').textContent).toMatch(/Ready/i);
+    expect(screen.getByTestId('grpc-k8s-copy-command-btn')).toBeTruthy();
     expect(screen.getByTestId('grpc-k8s-command').textContent).toMatch(/kubectl port-forward/);
     expect(screen.getByTestId('grpc-k8s-start-btn')).toBeTruthy();
   });

@@ -334,12 +334,13 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     expect((screen.getByTestId('grpc-target-input') as HTMLInputElement).value).toBe('localhost:50051');
   });
 
-  it('opens settings drawer on auth tab when connection bar auth badge is clicked (Phase 4J-A)', async () => {
+  it('focuses bottom auth tab when connection bar auth badge is clicked (Phase 4J-A)', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
     fireEvent.click(screen.getByTestId('grpc-auth-badge'));
     await waitFor(() => {
-      expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
-      expect(screen.getByTestId('grpc-settings-nav-auth').className).toMatch(/active/);
+      expect(screen.queryByTestId('grpc-connection-settings-drawer')).toBeNull();
+      expect(screen.getByTestId('grpc-request-tab-auth').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-auth-panel')).toBeTruthy();
     });
   });
 
@@ -377,7 +378,7 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
     await waitFor(() => {
       expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
-      expect(screen.getByTestId('grpc-settings-panel-tls')).toBeTruthy();
+      expect(screen.getByTestId('grpc-settings-panel-call')).toBeTruthy();
     });
   });
 
@@ -426,7 +427,7 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
     await waitFor(() => {
       expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
-      expect(screen.getAllByTestId('grpc-tls-body')).toHaveLength(1);
+      expect(screen.queryByTestId('grpc-tls-body')).toBeNull();
     });
   });
 
@@ -446,18 +447,17 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     });
   });
 
-  it('auth badge opens settings drawer to auth nav (replaces old close-and-focus, Phase 4J-C)', async () => {
+  it('auth badge closes settings drawer and focuses auth tab (Phase 4J-C)', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
-    // Open drawer on TLS first
     fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
     await waitFor(() => {
       expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
     });
-    // Click auth badge — should stay open but switch to auth nav
     fireEvent.click(screen.getByTestId('grpc-auth-badge'));
     await waitFor(() => {
-      expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
-      expect(screen.getByTestId('grpc-settings-nav-auth').className).toMatch(/active/);
+      expect(screen.queryByTestId('grpc-connection-settings-drawer')).toBeNull();
+      expect(screen.getByTestId('grpc-request-tab-auth').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-auth-panel')).toBeTruthy();
     });
   });
 
@@ -495,7 +495,6 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     expect(chrome.classList.contains('grpc-studio-page-connection-chrome')).toBe(true);
     expect(chrome.querySelector('[data-testid="grpc-connection-bar"]')).toBeTruthy();
     expect(chrome.querySelector('[data-testid="grpc-tls-server-ca"]')).toBeNull();
-    expect(screen.getByTestId('grpc-connection-env-badge').textContent).toBe('staging');
   });
 
   it('keeps Save Request and Import grpcurl on Collections view (Phase 5H)', () => {

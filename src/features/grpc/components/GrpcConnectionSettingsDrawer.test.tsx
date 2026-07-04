@@ -3,24 +3,11 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { GrpcConnectionSettingsDrawer } from './GrpcConnectionSettingsDrawer';
-
-const emptyPreview = {
-  ok: true,
-  issues: [],
-  conflicts: [],
-  previewEntries: [],
-};
 
 const defaultProps = {
   open: true,
-  activeNav: 'tls' as const,
-  tlsMode: 'disabled' as const,
-  tlsConfig: undefined,
-  tlsIssues: [],
-  auth: undefined,
-  authPreview: emptyPreview,
+  activeNav: 'call' as const,
   timeoutMs: 30_000,
   compression: undefined,
   healthAvailable: false,
@@ -28,9 +15,6 @@ const defaultProps = {
   healthProbeReady: true,
   onNavChange: vi.fn(),
   onClose: vi.fn(),
-  onTlsModeChange: vi.fn(),
-  onTlsConfigChange: vi.fn(),
-  onAuthChange: vi.fn(),
   onTimeoutMsChange: vi.fn(),
   onCompressionChange: vi.fn(),
   onHealthCheck: vi.fn(),
@@ -38,14 +22,14 @@ const defaultProps = {
 };
 
 describe('GrpcConnectionSettingsDrawer (Phase 4J-C/D)', () => {
-  it('renders drawer with TLS panel by default', () => {
+  it('renders drawer with call settings panel by default', () => {
     render(<GrpcConnectionSettingsDrawer {...defaultProps} />);
     expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
-    expect(screen.getByTestId('grpc-settings-panel-tls')).toBeTruthy();
-    expect(screen.getByTestId('grpc-tls-body')).toBeTruthy();
+    expect(screen.getByTestId('grpc-settings-panel-call')).toBeTruthy();
+    expect(screen.getByTestId('grpc-call-settings-timeout')).toBeTruthy();
   });
 
-  it('switches to auth panel', () => {
+  it('switches to call settings panel', () => {
     const onNavChange = vi.fn();
     render(
       <GrpcConnectionSettingsDrawer
@@ -53,19 +37,8 @@ describe('GrpcConnectionSettingsDrawer (Phase 4J-C/D)', () => {
         onNavChange={onNavChange}
       />,
     );
-    fireEvent.click(screen.getByTestId('grpc-settings-nav-auth'));
-    expect(onNavChange).toHaveBeenCalledWith('auth');
-  });
-
-  it('shows auth panel when activeNav is auth', () => {
-    render(
-      <GrpcConnectionSettingsDrawer
-        {...defaultProps}
-        activeNav="auth"
-      />,
-    );
-    expect(screen.getByTestId('grpc-settings-panel-auth')).toBeTruthy();
-    expect(screen.getByTestId('grpc-auth-type-select')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('grpc-settings-nav-call'));
+    expect(onNavChange).toHaveBeenCalledWith('call');
   });
 
   it('shows call settings panel when activeNav is call', () => {
@@ -166,17 +139,45 @@ describe('GrpcConnectionSettingsDrawer (Phase 4J-C/D)', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('calls onTlsModeChange from TLS panel', async () => {
-    const user = userEvent.setup();
-    const onTlsModeChange = vi.fn();
-    render(
-      <GrpcConnectionSettingsDrawer
-        {...defaultProps}
-        onTlsModeChange={onTlsModeChange}
-      />,
-    );
-    await user.click(screen.getByTestId('grpc-tls-mode-tls'));
-    expect(onTlsModeChange).toHaveBeenCalledWith('tls');
+  it('moves the dialog when dragging the header', () => {
+    render(<GrpcConnectionSettingsDrawer {...defaultProps} />);
+
+    const header = document.querySelector('.grpc-settings-drawer-header') as HTMLElement;
+    const dialog = document.querySelector('.grpc-settings-drawer-modal') as HTMLElement;
+    expect(header).toBeTruthy();
+    expect(dialog).toBeTruthy();
+
+    fireEvent.mouseDown(header, { clientX: 120, clientY: 80 });
+    fireEvent.mouseMove(window, { clientX: 200, clientY: 150 });
+    fireEvent.mouseUp(window);
+
+    expect(dialog.style.position).toBe('fixed');
+    expect(dialog.style.left).toBe('80px');
+    expect(dialog.style.top).toBe('70px');
+  });
+
+  it('moves the dialog when dragging via pointer events', () => {
+    render(<GrpcConnectionSettingsDrawer {...defaultProps} />);
+
+    const header = document.querySelector('.grpc-settings-drawer-header') as HTMLElement;
+    const dialog = document.querySelector('.grpc-settings-drawer-modal') as HTMLElement;
+    expect(header).toBeTruthy();
+    expect(dialog).toBeTruthy();
+
+    fireEvent.pointerDown(header, { pointerId: 7, pointerType: 'mouse', button: 0, clientX: 140, clientY: 96 });
+    fireEvent.pointerMove(window, { pointerId: 7, pointerType: 'mouse', clientX: 230, clientY: 170 });
+    fireEvent.pointerUp(window, { pointerId: 7, pointerType: 'mouse' });
+
+    expect(dialog.style.position).toBe('fixed');
+    expect(dialog.style.left).toBe('90px');
+    expect(dialog.style.top).toBe('74px');
+  });
+
+  it('calls onTlsModeChange from TLS modal (not drawer) — placeholder', () => {
+    // TLS is now only accessible via the connection bar badge → TlsConfigModal (shared with GraphQL).
+    // The settings drawer no longer contains a TLS panel.
+    render(<GrpcConnectionSettingsDrawer {...defaultProps} />);
+    expect(screen.queryByTestId('grpc-tls-mode-tls')).toBeNull();
   });
 
   it('does not close on overlay click (passthrough for connection bar badges)', () => {

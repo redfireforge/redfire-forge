@@ -34,6 +34,7 @@ import {
   grpcFirstCallSetup,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
+import { showSpotlightRing } from '../../demoRipple';
 
 const GRPC4_ROSTER = getGrpcLessonRosterEntry('grpc-metadata-auth')!;
 
@@ -48,10 +49,26 @@ const DEMO_OAUTH2_CLIENT_ID = 'client-id-demo';
 const DEMO_ENV_METADATA_KEY = 'x-env-token';
 const DEMO_ENV_METADATA_VALUE = '{{authToken}}';
 
+type LessonCtx = Parameters<NonNullable<GrpcDemoLesson['steps'][number]['action']>>[0];
+type PreCtx = Parameters<NonNullable<GrpcDemoLesson['steps'][number]['preAction']>>[0];
+
+/**
+ * Spotlight an element with a sustained ring for `holdMs`, then remove the ring.
+ * Use this to draw the viewer's eye to a specific UI element before or after interacting with it.
+ */
+async function spotlightAndPause(ctx: LessonCtx | PreCtx, selector: string, holdMs = 700): Promise<void> {
+  const el = document.querySelector<HTMLElement>(selector);
+  if (!el) return;
+  const removeRing = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    removeRing();
+  }
+}
+
 /** Open the Connection Settings drawer quietly if not already open. */
-async function openSettingsDrawerQuiet(
-  ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['preAction']>>[0],
-): Promise<void> {
+async function openSettingsDrawerQuiet(ctx: LessonCtx | PreCtx): Promise<void> {
   if (document.querySelector(GRPC.SETTINGS_DRAWER)) return;
   const btn = document.querySelector<HTMLButtonElement>(GRPC.CONNECTION_SETTINGS_BTN);
   if (btn && !btn.disabled) {
@@ -65,9 +82,7 @@ async function openSettingsDrawerQuiet(
 }
 
 /** Navigate to the auth settings panel, opening the drawer if needed. */
-async function openAuthSettingsPanelQuiet(
-  ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['preAction']>>[0],
-): Promise<void> {
+async function openAuthSettingsPanelQuiet(ctx: LessonCtx | PreCtx): Promise<void> {
   await openSettingsDrawerQuiet(ctx);
   const authNav = document.querySelector<HTMLElement>(GRPC.SETTINGS_NAV_ITEM('auth'));
   if (authNav) {
@@ -82,10 +97,7 @@ async function openAuthSettingsPanelQuiet(
 }
 
 /** Select auth type using the AUTH_TYPE_SELECT dropdown. */
-async function selectAuthType(
-  ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['action']>>[0],
-  type: 'none' | 'bearer' | 'basic' | 'apikey' | 'oauth2',
-): Promise<void> {
+async function selectAuthType(ctx: LessonCtx | PreCtx, type: 'none' | 'bearer' | 'basic' | 'apikey' | 'oauth2'): Promise<void> {
   await openAuthSettingsPanelQuiet(ctx);
   const authSelect = document.querySelector<HTMLSelectElement>(GRPC.AUTH_TYPE_SELECT);
   if (authSelect && authSelect.value !== type) {
@@ -95,9 +107,7 @@ async function selectAuthType(
 }
 
 /** Reset auth back to 'none' for preAction guards that need a clean slate. */
-async function resetAuthToNoneQuiet(
-  ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['preAction']>>[0],
-): Promise<void> {
+async function resetAuthToNoneQuiet(ctx: PreCtx): Promise<void> {
   await openAuthSettingsPanelQuiet(ctx);
   const authSelect = document.querySelector<HTMLSelectElement>(GRPC.AUTH_TYPE_SELECT);
   if (authSelect && authSelect.value !== 'none') {
@@ -111,11 +121,7 @@ async function resetAuthToNoneQuiet(
  * Add a key-value row to the metadata editor.
  * Clicks METADATA_ADD_BTN, then fills the last empty key/value inputs in the editor.
  */
-async function addMetadataRowQuiet(
-  ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['action']>>[0],
-  key: string,
-  value: string,
-): Promise<void> {
+async function addMetadataRowQuiet(ctx: LessonCtx | PreCtx, key: string, value: string): Promise<void> {
   const addBtn = document.querySelector<HTMLButtonElement>(GRPC.METADATA_ADD_BTN);
   if (addBtn && !addBtn.disabled) {
     addBtn.click();
@@ -150,11 +156,7 @@ async function addMetadataRowQuiet(
 }
 
 /** Try to fill a labelled field within a panel by its data-testid pattern. */
-async function tryFillAuthField(
-  ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['action']>>[0],
-  testIdSubstring: string,
-  value: string,
-): Promise<void> {
+async function tryFillAuthField(ctx: LessonCtx | PreCtx, testIdSubstring: string, value: string): Promise<void> {
   try {
     const input = document.querySelector<HTMLInputElement>(`[data-testid*="${testIdSubstring}"]`);
     if (input && !input.disabled) {
@@ -169,10 +171,30 @@ async function tryFillAuthField(
   }
 }
 
+/**
+ * Navigate to an auth nav item with a spotlight ring so the viewer can read the
+ * panel label before it activates.
+ */
+async function spotlightAndClickAuthNav(ctx: LessonCtx, navItem: string): Promise<void> {
+  const navEl = document.querySelector<HTMLElement>(GRPC.SETTINGS_NAV_ITEM(navItem));
+  if (navEl) {
+    const removeRing = showSpotlightRing(navEl);
+    try {
+      await ctx.delay(600);
+      navEl.click();
+      try {
+        await ctx.waitFor(GRPC.SETTINGS_PANEL(navItem), 3_000);
+      } catch {
+        // Best-effort.
+      }
+    } finally {
+      removeRing();
+    }
+  }
+}
+
 /** Ensure Studio sub-nav is on the main Studio surface and Echo is selected. */
-async function ensureEchoReady(
-  ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['preAction']>>[0],
-): Promise<void> {
+async function ensureEchoReady(ctx: PreCtx): Promise<void> {
   await navigateToGrpcStudio(ctx);
   await closeGrpcSettingsDrawerQuiet(ctx);
   await ensureGrpcStudioSubNavQuiet(ctx);
@@ -395,11 +417,12 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
       id: 'grpc18-intro',
       title: 'Connection Settings Drawer',
       description:
-        'Click the **gear icon** in the connection bar to open the **Connection Settings drawer**. ' +
+        'Click the **gear icon ⚙** in the connection bar to open the **Connection Settings drawer**. ' +
         'The drawer has **seven panels** across three groups:\n\n' +
         '- **Connection:** TLS / mTLS · Authentication\n' +
         '- **Call config:** Call settings · Compression\n' +
         '- **Advanced:** Health check · K8s port-forward · Transport\n\n' +
+        'Watch as the demo tours each panel so you can see what settings are available. ' +
         'This lesson focuses on **Authentication** (Bearer, Basic, API Key, OAuth2) and ' +
         'the **Metadata tab** in the Call Panel. Auth settings apply per-tab — changing them ' +
         'on one gRPC tab does not affect others.',
@@ -422,17 +445,27 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
             // Best-effort — drawer may already be present.
           }
         }
-        await ctx.delay(1_000);
-        // Tour each nav section so viewers can read the labels.
+        await ctx.delay(800);
+
+        // Tour each nav section: spotlight the item so viewers can read the label,
+        // then click to reveal its panel, then hold on the panel content.
         for (const navItem of ['tls', 'auth', 'call', 'compression', 'health']) {
           const navEl = document.querySelector<HTMLElement>(GRPC.SETTINGS_NAV_ITEM(navItem));
           if (navEl) {
-            navEl.click();
-            await ctx.delay(500);
+            const removeRing = showSpotlightRing(navEl);
+            try {
+              await ctx.delay(700);   // viewer reads the label
+              navEl.click();
+              await ctx.delay(500);   // panel content appears
+            } finally {
+              removeRing();
+            }
+            await ctx.delay(150);    // brief gap before next item
           }
         }
-        await ctx.delay(600);
-        // Close the drawer after the tour.
+        await ctx.delay(400);
+
+        // Close the drawer so viewer sees the clean connection bar.
         const closeBtn = document.querySelector<HTMLElement>(GRPC.SETTINGS_CLOSE);
         if (closeBtn) {
           closeBtn.click();
@@ -454,7 +487,9 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
         `Click **+ Add row** and fill in the new entry:\n- **Key:** \`x-request-id\`\n- **Value:** \`${DEMO_REQUEST_ID}\`\n\n` +
         'This header will appear in the **request metadata** the echo server receives. ' +
         'Use `x-request-id` for distributed tracing, `x-feature` for flag passing, or any custom header your server reads.',
-      highlight: GRPC.METADATA_EDITOR,
+      // REQUEST_TAB_METADATA is always visible in the call panel during reading —
+      // better than METADATA_EDITOR which only renders once the tab is active.
+      highlight: GRPC.REQUEST_TAB_METADATA,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureEchoReady(ctx);
@@ -463,14 +498,21 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
-        // Navigate to Metadata tab.
+        // Spotlight the Metadata tab so the viewer knows where to look before it activates.
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 600);
         await ctx.waitFor(GRPC.REQUEST_TAB_METADATA, 8_000);
         await ctx.click(GRPC.REQUEST_TAB_METADATA);
         await ctx.waitFor(GRPC.METADATA_EDITOR, 5_000);
-        await ctx.delay(600);
+        await ctx.delay(500);
+
+        // Spotlight the + Add row button before clicking it.
+        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 600);
+
         // Add the x-request-id row.
         await addMetadataRowQuiet(ctx, 'x-request-id', DEMO_REQUEST_ID);
-        await ctx.delay(800);
+
+        // Hold on the filled editor so the viewer can confirm the entry was added.
+        await spotlightAndPause(ctx, GRPC.METADATA_EDITOR, 800);
       },
       verify: GRPC.METADATA_EDITOR,
     },
@@ -484,10 +526,10 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
       description:
         'Click **Send**. The Echo call now carries `x-request-id: lesson-4-demo` as an HTTP/2 header ' +
         'alongside the request body. The echo server returns OK — the call succeeds with your metadata attached.\n\n' +
-        'Notice: the response **Body**, **Headers**, and **Trailers** tabs still show the standard echo response. ' +
+        'Notice: the response **Body**, **Headers**, and **Trailers** tabs show the standard echo response. ' +
         'The `x-request-id` header traveled to the server as initial metadata — not reflected in the echo body ' +
         'unless the server is configured to echo headers back. This is the typical gRPC pattern: ' +
-        'metadata is for infrastructure concerns (auth, tracing, routing), not business payload.',
+        'metadata handles infrastructure concerns (auth, tracing, routing), while the business payload stays in the message body.',
       highlight: GRPC.SEND_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
@@ -502,7 +544,8 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
       },
       action: async (ctx) => {
         await ensureUnaryExecuted(ctx);
-        await ctx.delay(1_000);
+        // Spotlight the response body so the viewer sees the successful result.
+        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 900);
       },
       verify: GRPC.RESPONSE_BODY,
     },
@@ -517,47 +560,53 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
         'Open **Settings → Authentication**. Select **Bearer** as the auth type. ' +
         `Fill in a demo token: \`${DEMO_BEARER_TOKEN.slice(0, 30)}…\`\n\n` +
         'RedfireForge stores the token in the **session vault** — it is never written to localStorage ' +
-        'or included in collection/History exports. The **Auth preview** bar at the bottom of the panel ' +
+        'or included in collection / History exports. The **Auth preview** bar at the bottom of the panel ' +
         'shows the exact header that will be sent: `authorization: bearer <token>`.\n\n' +
         'With Bearer selected, click **Send** — the `authorization` header is automatically forwarded ' +
-        'by the Express proxy to the echo server. Most gRPC services validate it via a server-side interceptor.',
-      highlight: GRPC.AUTH_PANEL,
+        'by the proxy to the echo server. Most gRPC services validate it via a server-side interceptor.',
+      // CONNECTION_SETTINGS_BTN is always visible in the connection bar during reading.
+      // AUTH_PANEL is only visible once the drawer is open, so it would show no spotlight.
+      highlight: GRPC.CONNECTION_SETTINGS_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureEchoReady(ctx);
       },
       action: async (ctx) => {
+        // Spotlight the settings gear so the viewer knows which button to watch.
+        await spotlightAndPause(ctx, GRPC.CONNECTION_SETTINGS_BTN, 600);
         await openSettingsDrawerQuiet(ctx);
-        await ctx.delay(600);
-        // Navigate to auth panel.
-        const authNav = document.querySelector<HTMLElement>(GRPC.SETTINGS_NAV_ITEM('auth'));
-        if (authNav) {
-          authNav.click();
-          try {
-            await ctx.waitFor(GRPC.SETTINGS_PANEL('auth'), 3_000);
-          } catch {
-            // Best-effort.
-          }
-        }
         await ctx.delay(500);
-        // Select Bearer auth type.
+
+        // Spotlight the Authentication nav item, then click it.
+        await spotlightAndClickAuthNav(ctx, 'auth');
+        await ctx.delay(400);
+
+        // Spotlight the auth type dropdown before changing it.
+        await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 500);
         await selectAuthType(ctx, 'bearer');
-        await ctx.delay(600);
-        // Fill the bearer token field (best-effort — testid pattern varies by implementation).
+        await ctx.delay(500);
+
+        // Fill the bearer token field.
         await tryFillAuthField(ctx, 'bearer-token', DEMO_BEARER_TOKEN);
-        // Verify auth preview appears.
+
+        // Spotlight the auth preview to confirm the header was generated.
         try {
           await ctx.waitFor(GRPC.AUTH_PREVIEW, 3_000);
+          await spotlightAndPause(ctx, GRPC.AUTH_PREVIEW, 800);
         } catch {
           // Preview may not render until token is filled.
+          await ctx.delay(500);
         }
-        await ctx.delay(1_000);
-        // Close drawer so viewer sees the Auth badge in the connection bar.
+
+        // Close the drawer so the viewer sees the Auth badge in the connection bar.
         const closeBtn = document.querySelector<HTMLElement>(GRPC.SETTINGS_CLOSE);
         if (closeBtn) {
           closeBtn.click();
-          await ctx.delay(600);
+          await ctx.delay(500);
         }
+
+        // Spotlight the auth badge as confirmation that Bearer is now active.
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
       },
       verify: GRPC.AUTH_BADGE,
     },
@@ -575,36 +624,50 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
         'Use Basic auth for services that accept HTTP Basic credentials — typically internal ' +
         'APIs or legacy gRPC services that read the `authorization` header directly. ' +
         'Note: Basic auth transmits credentials on every call; prefer Bearer or OAuth2 for production.',
-      highlight: GRPC.AUTH_PANEL,
+      // AUTH_BADGE is visible in the connection bar after the previous step set Bearer.
+      // This draws attention to the badge before the viewer opens the drawer to change it.
+      highlight: GRPC.AUTH_BADGE,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureEchoReady(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
+        // Spotlight the auth badge first to show Bearer is active, then open settings.
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 500);
         await openSettingsDrawerQuiet(ctx);
-        await ctx.delay(500);
-        const authNav = document.querySelector<HTMLElement>(GRPC.SETTINGS_NAV_ITEM('auth'));
-        if (authNav) {
-          authNav.click();
-          try {
-            await ctx.waitFor(GRPC.SETTINGS_PANEL('auth'), 3_000);
-          } catch {
-            // Best-effort.
-          }
-        }
         await ctx.delay(400);
-        // Switch to Basic.
+
+        // Spotlight the Authentication nav item, then click it.
+        await spotlightAndClickAuthNav(ctx, 'auth');
+        await ctx.delay(400);
+
+        // Spotlight auth type dropdown before switching.
+        await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 500);
         await selectAuthType(ctx, 'basic');
-        await ctx.delay(600);
+        await ctx.delay(500);
+
+        // Fill username then password with a brief pause on each field.
         await tryFillAuthField(ctx, 'basic-username', DEMO_BASIC_USERNAME);
+        await ctx.delay(300);
         await tryFillAuthField(ctx, 'basic-password', DEMO_BASIC_PASSWORD);
-        await ctx.delay(1_000);
+
+        // Hold on the auth preview strip to show the base64-encoded header.
+        try {
+          await ctx.waitFor(GRPC.AUTH_PREVIEW, 2_000);
+          await spotlightAndPause(ctx, GRPC.AUTH_PREVIEW, 800);
+        } catch {
+          await ctx.delay(700);
+        }
+
         const closeBtn = document.querySelector<HTMLElement>(GRPC.SETTINGS_CLOSE);
         if (closeBtn) {
           closeBtn.click();
-          await ctx.delay(600);
+          await ctx.delay(500);
         }
+
+        // Spotlight the auth badge so the viewer sees it now shows Basic.
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
       },
       verify: GRPC.AUTH_BADGE,
     },
@@ -619,46 +682,48 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
         'Switch the auth type to **API Key**. ' +
         `Set the header name to \`${DEMO_API_KEY_NAME}\` and value to \`${DEMO_API_KEY_VALUE}\`.\n\n` +
         'Unlike Bearer, API Key auth lets you **choose the header name** — useful for services that ' +
-        'read `x-api-key`, `x-auth-token`, or any custom key. The key is added as a standard metadata header, ' +
-        'so the server reads it the same way it would read any other gRPC request metadata.\n\n' +
+        'read `x-api-key`, `x-auth-token`, or any custom key. The key is sent as a standard metadata header, ' +
+        'so the server reads it the same way it reads any other gRPC request metadata.\n\n' +
         'The **Auth preview** shows: `x-api-key: my-key-123`. In the next step you will see what happens ' +
         'when you also add this key manually in the Metadata tab.',
-      highlight: GRPC.AUTH_PANEL,
+      highlight: GRPC.AUTH_BADGE,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureEchoReady(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 500);
         await openSettingsDrawerQuiet(ctx);
-        await ctx.delay(500);
-        const authNav = document.querySelector<HTMLElement>(GRPC.SETTINGS_NAV_ITEM('auth'));
-        if (authNav) {
-          authNav.click();
-          try {
-            await ctx.waitFor(GRPC.SETTINGS_PANEL('auth'), 3_000);
-          } catch {
-            // Best-effort.
-          }
-        }
         await ctx.delay(400);
-        // Switch to API Key.
+
+        await spotlightAndClickAuthNav(ctx, 'auth');
+        await ctx.delay(400);
+
+        await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 500);
         await selectAuthType(ctx, 'apikey');
-        await ctx.delay(600);
+        await ctx.delay(500);
+
+        // Fill header name and value with a pause on each so the viewer can read them.
         await tryFillAuthField(ctx, 'apikey-header', DEMO_API_KEY_NAME);
+        await ctx.delay(300);
         await tryFillAuthField(ctx, 'apikey-value', DEMO_API_KEY_VALUE);
-        // Show auth preview.
+
+        // Spotlight auth preview.
         try {
           await ctx.waitFor(GRPC.AUTH_PREVIEW, 3_000);
-          await ctx.delay(800);
+          await spotlightAndPause(ctx, GRPC.AUTH_PREVIEW, 800);
         } catch {
           await ctx.delay(600);
         }
+
         const closeBtn = document.querySelector<HTMLElement>(GRPC.SETTINGS_CLOSE);
         if (closeBtn) {
           closeBtn.click();
-          await ctx.delay(600);
+          await ctx.delay(500);
         }
+
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
       },
       verify: GRPC.AUTH_BADGE,
     },
@@ -670,14 +735,17 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
       id: 'grpc18-conflict',
       title: 'Auth Conflict Detection',
       description:
-        'The Auth panel is set to **API Key** with `x-api-key`. ' +
+        'The Auth panel is set to **API Key** with header `x-api-key`. ' +
         `Now click the **Metadata** tab and add another row with the same key: \`${DEMO_API_KEY_NAME}\` and a **different** value.\n\n` +
-        'Studio immediately shows a **conflict indicator** — the Auth panel owns `x-api-key`, so a duplicate ' +
-        'manual entry would produce two headers with conflicting values. The conflict warning prevents ' +
+        'Studio immediately shows a **conflict warning** — the Auth panel owns `x-api-key`, so a duplicate ' +
+        'manual entry would produce two headers with conflicting values. The warning prevents ' +
         'subtle bugs where the wrong key silently overrides the structured auth config.\n\n' +
         'The **Auth preview** still shows the authoritative value from the Auth panel. ' +
-        'Remove the conflicting metadata row or switch auth type to `none` to resolve the conflict.',
-      highlight: GRPC.AUTH_CONFLICTS,
+        'Remove the conflicting metadata row or switch auth type to `none` to resolve it.',
+      // REQUEST_TAB_METADATA is always visible and is what the viewer needs to click.
+      // AUTH_CONFLICTS only exists once the conflict is triggered, so using it here
+      // would leave the spotlight invisible during reading.
+      highlight: GRPC.REQUEST_TAB_METADATA,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureEchoReady(ctx);
@@ -697,18 +765,24 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
         }
       },
       action: async (ctx) => {
-        // Navigate to Metadata tab.
+        // Spotlight the Metadata tab before clicking so the viewer knows where to look.
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 600);
         await ctx.waitFor(GRPC.REQUEST_TAB_METADATA, 8_000);
         await ctx.click(GRPC.REQUEST_TAB_METADATA);
         await ctx.waitFor(GRPC.METADATA_EDITOR, 5_000);
-        await ctx.delay(600);
+        await ctx.delay(500);
+
+        // Spotlight the + Add row button before clicking.
+        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 500);
+
         // Add a conflicting x-api-key row.
         await addMetadataRowQuiet(ctx, DEMO_API_KEY_NAME, 'conflicting-value');
-        await ctx.delay(800);
-        // Spotlight the conflict warning if it appears.
+        await ctx.delay(600);
+
+        // Spotlight the conflict warning as the key outcome of this step.
         try {
           await ctx.waitFor(GRPC.AUTH_CONFLICTS, 4_000);
-          await ctx.delay(1_200);
+          await spotlightAndPause(ctx, GRPC.AUTH_CONFLICTS, 1_200);
         } catch {
           // Conflict indicator may appear asynchronously; continue the lesson.
           await ctx.delay(800);
@@ -731,38 +805,41 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
         'RedfireForge fetches the token **server-side** before each gRPC call — the raw credentials ' +
         'never reach the browser. The access token is stored in the session secret vault and ' +
         'injected as `authorization: bearer <token>` automatically.\n\n' +
-        '**Why server-side?** If the token URL is fetched from the browser, the client secret would ' +
-        'appear in network devtools. Routing through the Express proxy keeps secrets server-only.',
-      highlight: GRPC.AUTH_PANEL,
+        '**Why server-side?** If the token URL were fetched directly from the browser, the client secret ' +
+        'would appear in network devtools. Routing through the proxy keeps secrets server-only.',
+      // AUTH_BADGE is visible after step 6 set API Key — draws the viewer's eye to
+      // the current auth state before the step changes it to OAuth2.
+      highlight: GRPC.AUTH_BADGE,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureEchoReady(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 500);
         await openSettingsDrawerQuiet(ctx);
-        await ctx.delay(500);
-        const authNav = document.querySelector<HTMLElement>(GRPC.SETTINGS_NAV_ITEM('auth'));
-        if (authNav) {
-          authNav.click();
-          try {
-            await ctx.waitFor(GRPC.SETTINGS_PANEL('auth'), 3_000);
-          } catch {
-            // Best-effort.
-          }
-        }
         await ctx.delay(400);
-        // Switch to OAuth2.
+
+        await spotlightAndClickAuthNav(ctx, 'auth');
+        await ctx.delay(400);
+
+        await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 500);
         await selectAuthType(ctx, 'oauth2');
-        await ctx.delay(600);
+        await ctx.delay(500);
+
+        // Fill token URL and client ID with a pause on each field.
         await tryFillAuthField(ctx, 'oauth2-token-url', DEMO_OAUTH2_TOKEN_URL);
+        await ctx.delay(400);
         await tryFillAuthField(ctx, 'oauth2-client-id', DEMO_OAUTH2_CLIENT_ID);
-        await ctx.delay(1_200);
+        await ctx.delay(900);
+
         const closeBtn = document.querySelector<HTMLElement>(GRPC.SETTINGS_CLOSE);
         if (closeBtn) {
           closeBtn.click();
-          await ctx.delay(600);
+          await ctx.delay(500);
         }
+
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
       },
       verify: GRPC.AUTH_BADGE,
     },
@@ -784,7 +861,10 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
         '`local`, `staging`, and `production` environments and the metadata values update automatically ' +
         'without editing the call. Use `{{grpcHost}}` in the target, `{{authToken}}` in metadata, ' +
         'and `{{userId}}` in the request body for fully environment-driven gRPC calls.',
-      highlight: GRPC.INTERPOLATION_PREVIEW_STRIP,
+      // CALL_PANEL is always visible on the studio surface during reading.
+      // INTERPOLATION_PREVIEW_STRIP only renders after the {{}} row is added,
+      // so spotlighting it during reading would produce no visible ring.
+      highlight: GRPC.CALL_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureEchoReady(ctx);
@@ -794,19 +874,27 @@ RedfireForge's **Connection Settings drawer** centralises all per-session config
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
-        // Navigate to Metadata tab.
+        // Spotlight the Metadata tab before clicking.
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 600);
         await ctx.waitFor(GRPC.REQUEST_TAB_METADATA, 8_000);
         await ctx.click(GRPC.REQUEST_TAB_METADATA);
         await ctx.waitFor(GRPC.METADATA_EDITOR, 5_000);
-        await ctx.delay(600);
+        await ctx.delay(500);
+
+        // Spotlight the + Add row button before clicking.
+        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 500);
+
         // Add {{authToken}} metadata row.
         await addMetadataRowQuiet(ctx, DEMO_ENV_METADATA_KEY, DEMO_ENV_METADATA_VALUE);
-        await ctx.delay(800);
-        // Show interpolation preview or error banner.
+        await ctx.delay(700);
+
+        // Spotlight the interpolation preview strip or error banner — whichever appears.
         const hasPreview = document.querySelector(GRPC.INTERPOLATION_PREVIEW_STRIP);
         const hasErrorBanner = document.querySelector(GRPC.INTERPOLATION_ERROR_BANNER);
-        if (hasPreview || hasErrorBanner) {
-          await ctx.delay(1_200);
+        if (hasPreview) {
+          await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_STRIP, 1_200);
+        } else if (hasErrorBanner) {
+          await spotlightAndPause(ctx, GRPC.INTERPOLATION_ERROR_BANNER, 1_200);
         } else {
           await ctx.delay(600);
         }

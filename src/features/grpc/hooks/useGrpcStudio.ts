@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GrpcConnectionProfile, GrpcTabConnectionPageDefaults } from '../utils/resolveGrpcTabConnection';
 import {
   canChangeGrpcTabTransportMode,
@@ -55,12 +56,15 @@ export const GRPC_STUDIO_MAX_TABS = 8;
 
 const EMPTY_ENV_VAR_MAP: Record<string, string> = {};
 const EMPTY_GRPC_PROFILES: GrpcConnectionProfile[] = [];
+const EMPTY_GLOBAL_AUTH_PROFILES: GlobalAuthProfile[] = [];
 
 export interface UseGrpcStudioOptions {
   envVarMap?: Record<string, string>;
   workspaceDefaults?: Record<string, string>;
   pageDefaults: GrpcTabConnectionPageDefaults;
   profiles?: GrpcConnectionProfile[];
+  globalAuthProfiles?: GlobalAuthProfile[];
+  defaultAuthProfileId?: string | null;
   maxTabs?: number;
   /** Phase 1G wires DELETE /api/grpc/call/:requestId; 1D invokes on tab close / cancel. */
   onCancelInFlight?: (tabId: string, requestId: string) => void;
@@ -72,6 +76,8 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     workspaceDefaults,
     pageDefaults,
     profiles = EMPTY_GRPC_PROFILES,
+    globalAuthProfiles = EMPTY_GLOBAL_AUTH_PROFILES,
+    defaultAuthProfileId = null,
     maxTabs = GRPC_STUDIO_MAX_TABS,
     onCancelInFlight,
   } = options;
@@ -103,6 +109,8 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     envVarMap,
     workspaceDefaults,
     profiles,
+    globalAuthProfiles,
+    defaultAuthProfileId,
     pageDefaults,
     maxTabs,
     updateTab: core.updateTab,
@@ -124,6 +132,8 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     envVarMap,
     workspaceDefaults,
     profiles,
+    globalAuthProfiles,
+    defaultAuthProfileId,
     pageDefaults,
     maxTabs,
   ]);
