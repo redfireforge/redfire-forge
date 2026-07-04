@@ -35,6 +35,7 @@ import {
   extractTabIdFromGrpcStreamPath,
   shouldUseNativeGrpcTransportForTab,
 } from './grpcTransportTabRouting';
+import { toGrpcTauriAuthConfig } from './grpcTauriAuthMapper';
 
 export type GrpcNativeStreamOp = 'stream_start' | 'stream_send' | 'stream_end' | 'stream_cancel';
 
@@ -92,7 +93,7 @@ export function toGrpcTauriStreamStartRequest(
     method: request.method,
     body: request.body,
     metadata: request.metadata,
-    auth: request.auth,
+    auth: toGrpcTauriAuthConfig(request.auth),
     timeoutMs: request.timeoutMs,
     descriptor,
   };

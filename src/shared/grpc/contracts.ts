@@ -19,7 +19,7 @@ export type GrpcDescriptorSource =
 
 export type GrpcTlsMode = 'disabled' | 'tls' | 'mtls';
 
-export type GrpcAuthType = 'none' | 'bearer' | 'basic' | 'api_key' | 'oauth2';
+export type GrpcAuthType = 'none' | 'inherit' | 'bearer' | 'basic' | 'api_key' | 'oauth2';
 
 /** Phase 4A — persisted TLS material storage key (browser localStorage / Tauri FS). */
 export const GRPC_TLS_STORAGE_KEY = 'grpc_tls_certs_v1';
@@ -153,6 +153,8 @@ export interface GrpcTlsConfig {
 
 export interface GrpcAuthConfig {
   type: GrpcAuthType;
+  /** When type is `inherit`, references a GlobalAuthProfile id from Environment Manager. */
+  globalProfileId?: string;
   bearerToken?: string;
   basicUsername?: string;
   basicPassword?: string;

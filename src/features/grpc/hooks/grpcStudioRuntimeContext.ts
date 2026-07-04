@@ -1,4 +1,5 @@
 import type { Dispatch, MutableRefObject, RefObject, SetStateAction } from 'react';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GrpcStudioTabState, GrpcTabDescriptorState } from '../grpcStudioTypes';
 import type {
   GrpcConnectionProfile,
@@ -21,6 +22,8 @@ export interface GrpcStudioRuntimeContext {
   envVarMap: Record<string, string>;
   workspaceDefaults?: Record<string, string>;
   profiles: GrpcConnectionProfile[];
+  globalAuthProfiles: GlobalAuthProfile[];
+  defaultAuthProfileId: string | null;
   pageDefaults: GrpcTabConnectionPageDefaults;
   maxTabs: number;
   updateTab: (

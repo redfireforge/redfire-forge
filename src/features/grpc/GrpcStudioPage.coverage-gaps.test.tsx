@@ -22,6 +22,11 @@ import { resetGrpcTabSecretVaultForTests } from './utils/grpcTabSecretVault';
 
 describe('GrpcStudioPage coverage gaps', () => {
   const grpcStudioTabs = () => within(screen.getByTestId('grpc-tab-bar'));
+  const clickByTestId = async (testId: string) => {
+    await act(async () => {
+      fireEvent.click(screen.getByTestId(testId));
+    });
+  };
 
   beforeEach(() => {
     resetGrpcTabCounterForTests();
@@ -41,11 +46,15 @@ describe('GrpcStudioPage coverage gaps', () => {
     });
 
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
-    fireEvent.click(screen.getByTestId('grpc-manage-schemas-btn'));
-    expect(screen.getByTestId('grpc-proto-manage-modal')).toBeTruthy();
+    await clickByTestId('grpc-manage-schemas-btn');
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-proto-manage-modal')).toBeTruthy();
+    });
 
-    fireEvent.click(screen.getByTestId('grpc-proto-cancel-btn'));
-    expect(screen.queryByTestId('grpc-proto-manage-modal')).toBeNull();
+    await clickByTestId('grpc-proto-cancel-btn');
+    await waitFor(() => {
+      expect(screen.queryByTestId('grpc-proto-manage-modal')).toBeNull();
+    });
   });
 
   it('shows export protoset error in manage schemas modal', async () => {
@@ -95,15 +104,11 @@ describe('GrpcStudioPage coverage gaps', () => {
     });
   });
 
-  it('patches TLS config from settings drawer and TLS modal', async () => {
+  it('patches TLS config via TLS modal (drawer no longer has TLS panel)', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
-    fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
-    fireEvent.click(screen.getByTestId('grpc-settings-nav-tls'));
-    fireEvent.click(screen.getByTestId('grpc-tls-mode-tls'));
-    fireEvent.change(screen.getByTestId('grpc-tls-server-name'), { target: { value: 'drawer.example.com' } });
-
     fireEvent.click(screen.getByTestId('grpc-tls-badge'));
     await waitFor(() => expect(screen.getByTestId('grpc-tls-body')).toBeTruthy());
+    fireEvent.click(screen.getByTestId('grpc-tls-mode-tls'));
     fireEvent.change(screen.getByTestId('grpc-tls-server-name'), { target: { value: 'modal.example.com' } });
     fireEvent.click(screen.getByTestId('grpc-tls-mode-disabled'));
     fireEvent.click(screen.getByTestId('grpc-tls-close'));
@@ -177,8 +182,10 @@ describe('GrpcStudioPage coverage gaps', () => {
 
   it('opens call settings nav from deadline badge', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
-    fireEvent.click(screen.getByTestId('grpc-deadline-badge'));
-    expect(screen.getByTestId('grpc-settings-panel-call')).toBeTruthy();
+    await clickByTestId('grpc-deadline-badge');
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-settings-panel-call')).toBeTruthy();
+    });
   });
 
   it('reflects health service and runs health check from settings drawer', async () => {
@@ -385,16 +392,16 @@ describe('GrpcStudioPage coverage gaps', () => {
     });
   });
 
-  it('updates compression and disables TLS from settings drawer', async () => {
+  it('updates compression from settings drawer', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
-    fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
-    fireEvent.click(screen.getByTestId('grpc-settings-nav-compression'));
-    fireEvent.click(screen.getByTestId('grpc-compression-enabled'));
-    fireEvent.click(screen.getByTestId('grpc-settings-nav-tls'));
-    fireEvent.click(screen.getByTestId('grpc-tls-mode-disabled'));
+    await clickByTestId('grpc-connection-settings-btn');
+    await clickByTestId('grpc-settings-nav-compression');
     await waitFor(() => {
-      expect(screen.getByTestId('grpc-tls-mode-disabled').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-settings-panel-compression')).toBeTruthy();
+      expect(screen.getByTestId('grpc-compression-panel')).toBeTruthy();
     });
+    await clickByTestId('grpc-compression-enabled');
+    expect(screen.getByTestId('grpc-compression-enabled')).toBeTruthy();
   });
 
   it('duplicates active tab from tab bar', async () => {
@@ -515,10 +522,10 @@ describe('GrpcStudioPage coverage gaps', () => {
     fireEvent.click(screen.getByTestId('grpc-stream-clear-log'));
   });
 
-  it('shows health panel guidance before services are reflected', () => {
+  it('shows health panel guidance before services are reflected', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
-    fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
-    fireEvent.click(screen.getByTestId('grpc-settings-nav-health'));
+    await clickByTestId('grpc-connection-settings-btn');
+    await clickByTestId('grpc-settings-nav-health');
     expect(screen.getByTestId('grpc-health-unavailable').textContent).toMatch(/Reflect services first/i);
     expect((screen.getByTestId('grpc-health-check-btn') as HTMLButtonElement).disabled).toBe(true);
   });
@@ -639,12 +646,13 @@ describe('GrpcStudioPage coverage gaps', () => {
     });
   });
 
-  it('opens settings drawer auth nav when auth badge is clicked', async () => {
+  it('focuses bottom auth tab when auth badge is clicked', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
     fireEvent.click(screen.getByTestId('grpc-auth-badge'));
     await waitFor(() => {
-      expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
-      expect(screen.getByTestId('grpc-settings-nav-auth').className).toMatch(/active/);
+      expect(screen.queryByTestId('grpc-connection-settings-drawer')).toBeNull();
+      expect(screen.getByTestId('grpc-request-tab-auth').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-auth-panel')).toBeTruthy();
     });
   });
 
@@ -713,15 +721,15 @@ describe('GrpcStudioPage coverage gaps', () => {
     });
   });
 
-  it('updates auth and timeout from settings drawer', async () => {
+  it('updates auth from the bottom tab and timeout from the settings drawer', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
-    fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
-    fireEvent.click(screen.getByTestId('grpc-settings-nav-auth'));
+    fireEvent.click(screen.getByTestId('grpc-auth-badge'));
     fireEvent.change(screen.getByTestId('grpc-auth-type-select'), { target: { value: 'bearer' } });
     fireEvent.change(screen.getByTestId('grpc-auth-bearer-token'), { target: { value: 'studio-token' } });
-    fireEvent.click(screen.getByTestId('grpc-settings-nav-call'));
+    fireEvent.click(screen.getByTestId('grpc-deadline-badge'));
     fireEvent.change(screen.getByTestId('grpc-call-settings-timeout'), { target: { value: '15000' } });
     await waitFor(() => {
+      expect(screen.getByTestId('grpc-auth-badge').textContent).toMatch(/Bearer/);
       expect((screen.getByTestId('grpc-deadline-badge') as HTMLElement).textContent).toMatch(/15/);
     });
   });

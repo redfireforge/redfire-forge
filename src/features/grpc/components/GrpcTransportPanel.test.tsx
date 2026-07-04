@@ -174,16 +174,19 @@ describe('GrpcTransportPanel (Phase 7F)', () => {
     expect(tauri.className).toMatch(/disabled/);
   });
 
-  it('renders transport help section', () => {
+  it('renders compact transport table rows', () => {
     render(<GrpcTransportPanel transportMode="express" />);
 
-    const help = screen.getByTestId('grpc-transport-help');
-    expect(help).toBeTruthy();
-    expect(help.textContent).toMatch(/Express Proxy/);
-    expect(help.textContent).toMatch(/gRPC-Web/);
-    expect(help.textContent).toMatch(/Spring Servlet/);
-    expect(help.textContent).toMatch(/Unary and server-streaming calls/i);
-    expect(help.textContent).toMatch(/Client and bidi streaming/i);
+    expect(screen.getByTestId('grpc-transport-mode-express').textContent).toMatch(/Express Proxy/);
+    expect(screen.getByTestId('grpc-transport-mode-express').textContent).toMatch(/Web \+ Desktop \(Phase 1\)/);
+    expect(screen.getByTestId('grpc-transport-mode-tauri').textContent).toMatch(/Tauri Native \(tonic\)/);
+    expect(screen.getByTestId('grpc-transport-mode-grpc-web').textContent).toMatch(/gRPC-Web/);
+    expect(screen.getByTestId('grpc-transport-mode-spring-servlet').textContent).toMatch(/Spring Servlet/);
+    expect(screen.getByTestId('grpc-transport-mode-express').textContent).toMatch(/All calls go through the local Node\.js server/i);
+    expect(screen.getByTestId('grpc-transport-mode-tauri').textContent).toMatch(/Uses Rust tonic directly/i);
+    expect(screen.getByTestId('grpc-transport-mode-grpc-web').textContent).toMatch(/Unary and server-streaming calls via browser fetch/i);
+    expect(screen.getByTestId('grpc-transport-mode-spring-servlet').textContent).toMatch(/Client and bidi streaming require Express Proxy/i);
+    expect(screen.queryByTestId('grpc-transport-help')).toBeNull();
   });
 
   it('shows server streaming support hint when call type is server_streaming', () => {
