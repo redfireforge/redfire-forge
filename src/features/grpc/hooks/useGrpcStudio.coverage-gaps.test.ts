@@ -396,6 +396,33 @@ describe('useGrpcStudio coverage gaps', () => {
     expect(result.current.getTabDescriptor('only-tab').loadState).toBe('idle');
   });
 
+  it('restorePersistedSession resets loopback tabs from stale TLS to plaintext default', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'loopback-tab',
+        tabs: [{
+          id: 'loopback-tab',
+          title: 'Loopback',
+          target: 'localhost:50051',
+          tlsMode: 'tls',
+          metadata: {},
+          timeoutMs: 30_000,
+          requestMode: 'form',
+          body: {},
+          servicesCollapsed: false,
+        }],
+        tabDescriptors: {},
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.activeTab.tlsMode).toBeUndefined();
+    expect(result.current.resolveTabConnection('loopback-tab').tlsMode).toBe('disabled');
+  });
+
   it('restorePersistedSession respects maxTabs when restoring persisted tabs', () => {
     const { result } = renderHook(() => useGrpcStudio({
       pageDefaults: PAGE_DEFAULTS,
