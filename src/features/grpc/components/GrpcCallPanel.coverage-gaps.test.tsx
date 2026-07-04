@@ -13,6 +13,13 @@ const CLIENT_STREAM = FIXTURE_DESCRIPTOR.services[0]!.methods.find((m) => m.name
 const BIDI_STREAM = FIXTURE_DESCRIPTOR.services[0]!.methods.find((m) => m.name === 'BidiStream')!;
 const ECHO_METHOD = FIXTURE_DESCRIPTOR.services[0]!.methods.find((m) => m.name === 'Echo')!;
 
+async function clickByTestIdAsync(testId: string): Promise<void> {
+  await act(async () => {
+    fireEvent.click(screen.getByTestId(testId));
+    await Promise.resolve();
+  });
+}
+
 describe('GrpcCallPanel coverage gaps', () => {
   it('renders streaming panel for server streaming methods', () => {
     const tab = createGrpcStudioTab({
@@ -462,7 +469,7 @@ describe('GrpcCallPanel coverage gaps', () => {
     expect(screen.getByTestId('grpc-call-type-tab-unary')).toHaveProperty('disabled', true);
   });
 
-  it('invokes stream compose callbacks for client streaming', () => {
+  it('invokes stream compose callbacks for client streaming', async () => {
     const onEndStream = vi.fn();
     const onEnqueueStreamMessage = vi.fn();
     const onSendAllPendingStreamMessages = vi.fn();
@@ -487,9 +494,9 @@ describe('GrpcCallPanel coverage gaps', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('grpc-stream-add-queue-btn'));
-    fireEvent.click(screen.getByTestId('grpc-stream-send-all-btn'));
-    fireEvent.click(screen.getByTestId('grpc-stream-pending-end-btn'));
+    await clickByTestIdAsync('grpc-stream-add-queue-btn');
+    await clickByTestIdAsync('grpc-stream-send-all-btn');
+    await clickByTestIdAsync('grpc-stream-pending-end-btn');
     expect(onEnqueueStreamMessage).toHaveBeenCalled();
     expect(onSendAllPendingStreamMessages).toHaveBeenCalled();
     expect(onEndStream).toHaveBeenCalled();

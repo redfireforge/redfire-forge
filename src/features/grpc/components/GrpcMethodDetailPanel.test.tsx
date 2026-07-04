@@ -51,7 +51,10 @@ describe('GrpcMethodDetailPanel (Phase 1E)', () => {
 
     expect(screen.getByTestId('grpc-method-detail-service').textContent).toBe('echo.EchoService');
     expect(screen.getByTestId('grpc-method-detail-heading').textContent).toMatch(/EchoService \/ Echo/);
+    expect(screen.getByTestId('grpc-call-method-name').textContent).toMatch(/EchoService \/ Echo/);
+    expect(screen.getByTestId('grpc-method-detail-field-count').textContent).toBe('1 request field');
     expect(screen.getByTestId('grpc-method-call-type').className).toContain('grpc-method-detail-badge--ready');
+    expect(screen.getByTestId('grpc-method-unary-ready').textContent).toBe('Ready to send');
   });
 
   it('renders stale method snapshot when provided for blocking drift', () => {
@@ -77,7 +80,7 @@ describe('GrpcMethodDetailPanel (Phase 1E)', () => {
       />,
     );
 
-    expect(screen.getByTestId('grpc-method-streaming-ready')).toBeTruthy();
+    expect(screen.getByTestId('grpc-method-streaming-ready').textContent).toBe('Streaming-ready');
     expect(screen.queryByTestId('grpc-method-unary-ready')).toBeNull();
   });
 });

@@ -46,6 +46,14 @@ pub enum CancelOutcome {
     TabMismatch,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct CallRegistryStats {
+    pub total: usize,
+    pub active: usize,
+    pub completed: usize,
+    pub cancelled: usize,
+}
+
 impl CallRegistry {
     pub fn new() -> Self {
         Self {
@@ -137,6 +145,27 @@ impl CallRegistry {
         map.values()
             .filter(|entry| entry.status == CallRegistryStatus::Active)
             .count()
+    }
+
+    /// Aggregate status counters for native diagnostics snapshots.
+    pub fn stats(&self) -> CallRegistryStats {
+        let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut active = 0usize;
+        let mut completed = 0usize;
+        let mut cancelled = 0usize;
+        for entry in map.values() {
+            match entry.status {
+                CallRegistryStatus::Active => active += 1,
+                CallRegistryStatus::Completed => completed += 1,
+                CallRegistryStatus::Cancelled => cancelled += 1,
+            }
+        }
+        CallRegistryStats {
+            total: map.len(),
+            active,
+            completed,
+            cancelled,
+        }
     }
 
     pub fn cancel_all_for_tab(&self, tab_id: &str) -> u32 {

@@ -1,5 +1,5 @@
 /** Lesson Player — sidebar navigation + right-panel content view */
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { DemoLesson } from './types';
 import ConceptSlide from './ConceptSlide';
 import PrerequisiteGate from './components/PrerequisiteGate';
@@ -20,15 +20,27 @@ type SelectedPanel = 'concept' | 'notes' | number;
 export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps) {
   const { getNote, hasNote, saveNote } = useLessonNotesContext();
   const [dockerGateCleared, setDockerGateCleared] = useState(false);
+  const [downServiceLabels, setDownServiceLabels] = useState<string[]>([]);
   const [tabGateCleared, setTabGateCleared] = useState(false);
   const [selected, setSelected] = useState<SelectedPanel>('concept');
 
-  const dockerEndpoints = lesson.dockerEndpoints?.length
-    ? lesson.dockerEndpoints
-    : lesson.dockerEndpoint
-      ? [lesson.dockerEndpoint]
-      : [];
+  const dockerEndpoints = useMemo(
+    () => (lesson.dockerEndpoints?.length
+      ? lesson.dockerEndpoints
+      : lesson.dockerEndpoint
+        ? [lesson.dockerEndpoint]
+        : []),
+    [lesson.dockerEndpoints, lesson.dockerEndpoint],
+  );
   const needsDockerGate = dockerEndpoints.length > 0;
+
+  const handleProbeStatus = useCallback((down: string[]) => {
+    setDownServiceLabels((prev) => (
+      prev.length === down.length && prev.every((v, i) => v === down[i]) ? prev : down
+    ));
+  }, []);
+  const handleServerReady = useCallback(() => setDockerGateCleared(true), []);
+  const handleTabCapacityReady = useCallback(() => setTabGateCleared(true), []);
   const tabBudget = lesson.tabBudget ?? 1;
   const needsTabGate = isGraphqlStudioLesson(lesson) && tabBudget > 1;
   const desktopBlocked = isLessonDesktopOnlyBlocked(lesson);
@@ -40,6 +52,10 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
   const selectedStep = typeof selected === 'number' ? lesson.steps[selected] : null;
   const isFirstStep  = selected === 0;
   const isLastStep   = typeof selected === 'number' && selected === lesson.steps.length - 1;
+
+  const waitingLabel = downServiceLabels.length > 0
+    ? `⏳ Waiting for ${downServiceLabels.join(' + ')}…`
+    : '⏳ Waiting for local services…';
 
   const startBtn = (
     <button
@@ -57,7 +73,7 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
       {desktopBlocked
         ? 'Desktop app required'
         : needsDockerGate && !dockerGateCleared
-          ? '⏳ Waiting for Docker…'
+          ? waitingLabel
           : 'Start Demo →'}
     </button>
   );
@@ -140,11 +156,13 @@ export default function LessonPlayer({ lesson, onStartDemo }: LessonPlayerProps)
         {selected === 'concept' && needsDockerGate && !desktopBlocked && (
           <PrerequisiteGate
             endpoints={dockerEndpoints}
+            endpointLabels={lesson.dockerEndpointLabels}
             dockerCommand={lesson.dockerCommand ?? `docker compose -f docker/websocket/socketio/docker-compose.yml up`}
             gateLabel={lesson.gateLabel}
-            onServerReady={() => setDockerGateCleared(true)}
+            onServerReady={handleServerReady}
+            onProbeStatusChange={handleProbeStatus}
             tabBudget={needsTabGate ? tabBudget : undefined}
-            onTabCapacityReady={needsTabGate ? () => setTabGateCleared(true) : undefined}
+            onTabCapacityReady={needsTabGate ? handleTabCapacityReady : undefined}
           />
         )}
 

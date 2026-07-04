@@ -637,7 +637,7 @@ describe('LessonPlayer', () => {
         onStartDemo={onStart}
       />,
     );
-    const startBtn = screen.getByText(/Waiting for Docker/);
+    const startBtn = screen.getByText(/Waiting for/);
     expect(startBtn).toBeTruthy();
     expect((startBtn as HTMLButtonElement).disabled).toBe(true);
     fireEvent.click(startBtn);
@@ -771,7 +771,7 @@ describe('LessonPlayer', () => {
     );
 
     await act(async () => { await vi.advanceTimersByTimeAsync(100); });
-    expect(screen.getByText(/Waiting for Docker/)).toBeTruthy();
+    expect(screen.getByText(/Waiting for/)).toBeTruthy();
 
     await act(async () => { await vi.advanceTimersByTimeAsync(3100); });
     const startBtn = screen.getByText('Start Demo →');

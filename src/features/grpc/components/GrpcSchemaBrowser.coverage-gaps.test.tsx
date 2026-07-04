@@ -22,6 +22,13 @@ const DESCRIPTOR_WITH_ENUM: GrpcDescriptor = {
   ],
 };
 
+async function clickByTestIdAsync(testId: string): Promise<void> {
+  await act(async () => {
+    fireEvent.click(screen.getByTestId(testId));
+    await Promise.resolve();
+  });
+}
+
 describe('GrpcSchemaBrowser coverage gaps', () => {
   it('renders enum detail with doc comments', () => {
     render(
@@ -126,7 +133,7 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
     );
 
     fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--echo'));
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
     await vi.waitFor(() => {
       expect(navigator.clipboard.writeText).toHaveBeenCalled();
     });
@@ -149,7 +156,7 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
     );
 
     fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--echo'));
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
 
     await vi.waitFor(() => {
       expect(screen.getByTestId('grpc-schema-copy-feedback').textContent)
@@ -174,15 +181,15 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
 
     fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--serverstream'));
 
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalled();
     });
     expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('"message":"hello"'));
     expect(writeText).not.toHaveBeenLastCalledWith(expect.stringContaining('"repeatCount":1'));
 
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-mode-full'));
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await clickByTestIdAsync('grpc-schema-copy-mode-full');
+    await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledTimes(2);
     });
@@ -204,7 +211,7 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
     expect(onOpenInTab).toHaveBeenCalledWith('echo.EchoService', 'Echo', { message: 'hello' }, 'minimal');
   });
 
-  it('uses selected minimal/full mode for open in tab payload', () => {
+  it('uses selected minimal/full mode for open in tab payload', async () => {
     const onOpenInTab = vi.fn();
     render(
       <GrpcSchemaBrowser
@@ -224,7 +231,7 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
       'minimal',
     );
 
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-mode-full'));
+    await clickByTestIdAsync('grpc-schema-copy-mode-full');
     fireEvent.click(screen.getByTestId('grpc-schema-open-tab-btn'));
     expect(onOpenInTab).toHaveBeenNthCalledWith(
       2,
@@ -248,7 +255,7 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
     );
 
     fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--echo'));
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
     expect(writeText).not.toHaveBeenCalled();
   });
 
@@ -444,14 +451,14 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
 
       fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-complexservice--complex'));
 
-      fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+      await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
       await vi.waitFor(() => {
         expect(writeText).toHaveBeenCalled();
       });
       expect(writeText).toHaveBeenLastCalledWith(expect.stringContaining('"id":"A-100"'));
 
-      fireEvent.click(screen.getByTestId('grpc-schema-copy-mode-full'));
-      fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+      await clickByTestIdAsync('grpc-schema-copy-mode-full');
+      await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
       await vi.waitFor(() => {
         expect(writeText).toHaveBeenCalledTimes(2);
       });
@@ -499,7 +506,7 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
       );
 
       fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--echo'));
-      fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+      await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
 
       await vi.waitFor(() => {
         expect(screen.getByTestId('grpc-schema-copy-feedback').textContent).toContain('Copy failed');
@@ -523,9 +530,9 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
       );
 
       fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--echo'));
-      fireEvent.click(screen.getByTestId('grpc-schema-copy-mode-full'));
+      await clickByTestIdAsync('grpc-schema-copy-mode-full');
       fireEvent.click(screen.getByTestId('grpc-schema-copy-mode-minimal'));
-      fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+      await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
 
       await vi.waitFor(() => {
         expect(screen.getByTestId('grpc-schema-copy-feedback').textContent).toContain('Copied');
@@ -724,7 +731,7 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalledWith(expect.stringContaining('-protoset'));
     });
@@ -877,7 +884,7 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
     );
 
     fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-echoservice--echo'));
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
 
     await vi.waitFor(() => {
       expect(screen.getByTestId('grpc-schema-copy-feedback').textContent).toContain('Copied');
@@ -909,7 +916,7 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
       />,
     );
 
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
     await vi.waitFor(() => {
       expect(screen.getByTestId('grpc-schema-copy-feedback').textContent).toContain('Copied');
     });
@@ -990,8 +997,8 @@ describe('GrpcSchemaBrowser coverage gaps', () => {
     );
 
     fireEvent.click(screen.getByTestId('grpc-schema-tree-node-method--echo-recursiveservice--echorecursive'));
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-mode-full'));
-    fireEvent.click(screen.getByTestId('grpc-schema-copy-grpcurl-btn'));
+    await clickByTestIdAsync('grpc-schema-copy-mode-full');
+    await clickByTestIdAsync('grpc-schema-copy-grpcurl-btn');
 
     await vi.waitFor(() => {
       expect(writeText).toHaveBeenCalled();

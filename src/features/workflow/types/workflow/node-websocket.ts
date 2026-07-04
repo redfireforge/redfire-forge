@@ -38,6 +38,11 @@ import type {
   GrpcServerStreamNodeData,
   GrpcUnaryNodeData,
 } from './node-grpc';
+import type {
+  GrpcLoadTestNodeData,
+  GrpcMockAssertNodeData,
+  GrpcSchemaDiffNodeData,
+} from './node-grpc-advanced';
 
 export interface WsConnectOutputBinding {
   field: 'protocol' | 'extensions' | 'latencyMs';
@@ -122,5 +127,5 @@ export interface WsTriggerNodeData {
 
 export type WorkflowNodeType = 'http' | 'condition' | 'delay' | 'start' | 'fork' | 'join' | 'end' | 'webhook' | 'schedule' | 'switch' | 'loop' | 'setVariable' | 'aggregate' | 'errorHandler' | 'logDebug' | 'waitForCondition' | 'subWorkflow' | 'script' | 'correlationWait' | 'kafkaProduce' | 'kafkaConsume' | 'kafkaTrigger' | 'kafkaWait' | 'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger' | 'graphqlQuery' | 'graphqlMutation' | 'graphqlSubscription' | 'graphqlIntrospect' | 'graphqlAssert' | 'grpcUnary' | 'grpcServerStream' | 'grpcAssert' | 'grpcLoadTest' | 'grpcSchemaDiff' | 'grpcMockAssert';
 
-export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | SwitchNodeData | LoopNodeData | SetVariableNodeData | AggregateNodeData | ErrorHandlerNodeData | LogDebugNodeData | WaitForConditionNodeData | SubWorkflowNodeData | ScriptNodeData | CorrelationWaitNodeData | KafkaProduceNodeData | KafkaConsumeNodeData | KafkaTriggerNodeData | KafkaWaitNodeData | WsConnectNodeData | WsSendNodeData | WsReceiveNodeData | WsTriggerNodeData | GraphqlQueryNodeData | GraphqlSubscriptionNodeData | GraphqlIntrospectNodeData | GraphqlAssertNodeData | GrpcUnaryNodeData | GrpcServerStreamNodeData | GrpcAssertNodeData;
+export type WorkflowNodeData = HttpNodeData | ConditionNodeData | DelayNodeData | StartNodeData | ForkNodeData | JoinNodeData | EndNodeData | WebhookTriggerNodeData | ScheduleTriggerNodeData | SwitchNodeData | LoopNodeData | SetVariableNodeData | AggregateNodeData | ErrorHandlerNodeData | LogDebugNodeData | WaitForConditionNodeData | SubWorkflowNodeData | ScriptNodeData | CorrelationWaitNodeData | KafkaProduceNodeData | KafkaConsumeNodeData | KafkaTriggerNodeData | KafkaWaitNodeData | WsConnectNodeData | WsSendNodeData | WsReceiveNodeData | WsTriggerNodeData | GraphqlQueryNodeData | GraphqlSubscriptionNodeData | GraphqlIntrospectNodeData | GraphqlAssertNodeData | GrpcUnaryNodeData | GrpcServerStreamNodeData | GrpcAssertNodeData | GrpcLoadTestNodeData | GrpcSchemaDiffNodeData | GrpcMockAssertNodeData;
 

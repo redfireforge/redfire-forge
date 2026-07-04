@@ -19,11 +19,10 @@ export const GRPC_ADVANCED_FEATURE_TABS = [
   'mock_server',
   'schema_diff',
   'rpc_statistics',
+  'native_diagnostics',
 ] as const;
 
 export type GrpcAdvancedFeatureTab = (typeof GRPC_ADVANCED_FEATURE_TABS)[number];
-
-export const GRPC_SCHEMA_DIFF_UI_LIST_CAP = 500;
 
 export const GRPC_MOCK_WORKSPACE_DEFAULT_RULES_JSON = '{\n  "rules": []\n}';
 

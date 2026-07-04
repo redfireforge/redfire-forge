@@ -54,12 +54,11 @@ function mountExplorerWithStreamingMethods(): void {
   `;
 }
 
-function mountCallTypeSelector(activeCallType = 'server_streaming'): void {
+function mountServerStreamLayoutActive(): void {
   document.body.insertAdjacentHTML(
     'beforeend',
-    `<div data-testid="grpc-call-type-selector">
-      <button data-testid="grpc-call-type-tab-${activeCallType}" aria-selected="true"></button>
-    </div>`,
+    `<div data-testid="grpc-call-method-name">EchoService / <strong>ServerStream</strong></div>
+     <button data-testid="grpc-stream-start-btn"></button>`,
   );
 }
 
@@ -143,7 +142,7 @@ describe('grpc-streaming step checkpoints', () => {
   it('server-select checkpoint sets methodSelected flag', () => {
     const cp = getGrpcStepCheckpoint('grpc-streaming', 'grpc17-server-select');
     expect(cp?.setsFlags?.methodSelected).toBe(true);
-    expect(cp?.verifySelector).toBe('grpc-call-type-selector');
+    expect(cp?.verifySelector).toBe('grpc-stream-start-btn');
   });
 
   it('client-send checkpoint sets executed flag', () => {
@@ -215,14 +214,46 @@ describe('grpcStreamingLesson wrapper', () => {
     expect(body).toContain('Unary');
   });
 
+  it('intro step highlights the call-type selector row', () => {
+    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-intro')!;
+    expect(step.highlight).toBe(GRPC.CALL_TYPE_SELECTOR);
+    expect(step.verify).toBe(GRPC.CALL_TYPE_SELECTOR);
+  });
+
   it('server-select step highlights the ServerStream method', () => {
     const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-server-select')!;
     expect(step.highlight).toBe(GRPC_SERVER_STREAM_SEL);
+    expect(step.verify).toBe(GRPC.STREAM_START_BTN);
+  });
+
+  it('server-status step uses UI badge label Ended (not FINISHED)', () => {
+    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-server-status')!;
+    expect(step.title).toContain('Ended');
+    expect(step.description).toContain('**Ended**');
+    expect(step.description).toContain('**Streaming**');
+    expect(step.description).not.toContain('FINISHED');
+  });
+
+  it('server-fill step highlights the message log (payoff after start)', () => {
+    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-server-fill')!;
+    expect(step.highlight).toBe(GRPC.STREAM_MESSAGE_LOG);
+    expect(step.verify).toBe(GRPC.STREAM_MESSAGE_LOG);
+  });
+
+  it('client-send step highlights the pending panel', () => {
+    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-client-send')!;
+    expect(step.highlight).toBe(GRPC.STREAM_PENDING_PANEL);
   });
 
   it('client-queue step highlights the pending panel', () => {
     const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-client-queue')!;
     expect(step.highlight).toBe(GRPC.STREAM_PENDING_PANEL);
+  });
+
+  it('bidi-exchange step highlights the message log', () => {
+    const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-bidi-exchange')!;
+    expect(step.highlight).toBe(GRPC.STREAM_MESSAGE_LOG);
+    expect(step.verify).toBe(GRPC.STREAM_MESSAGE_LOG);
   });
 
   it('cancel step highlights cancel button', () => {
@@ -365,8 +396,8 @@ describe('ensureStreamingMethodSelected', () => {
     expect(ctx.click).toHaveBeenCalledWith(GRPC_BIDI_STREAM_SEL);
   });
 
-  it('skips click when correct call type tab is already active', async () => {
-    mountCallTypeSelector('server_streaming');
+  it('skips click when ServerStream layout is already active', async () => {
+    mountServerStreamLayoutActive();
     const ctx = makeCtx();
     await ensureStreamingMethodSelected(ctx, 'ServerStream');
     expect(ctx.click).not.toHaveBeenCalledWith(GRPC_SERVER_STREAM_SEL);

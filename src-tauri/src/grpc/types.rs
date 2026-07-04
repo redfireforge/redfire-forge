@@ -238,6 +238,65 @@ pub struct GrpcTauriTabCleanupRequest {
     pub tab_id: String,
 }
 
+/// Input for the `grpc_native_diagnostics` Tauri command (Phase P2-A).
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriNativeDiagnosticsRequest {
+    pub schema_version: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tab_id: Option<String>,
+}
+
+/// Input for `grpc_mock_listener_start` Tauri command.
+#[allow(dead_code)]
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriMockListenerStartRequest {
+    pub schema_version: u32,
+    pub tab_id: String,
+    pub connection_id: String,
+    pub descriptor_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub protoset_base64: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content_sha256: Option<String>,
+    pub rule_set: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latency_policy: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+}
+
+/// Input for `grpc_mock_listener_commit` Tauri command.
+#[allow(dead_code)]
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriMockListenerCommitRequest {
+    pub schema_version: u32,
+    pub tab_id: String,
+    pub rule_set: serde_json::Value,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latency_policy: Option<serde_json::Value>,
+}
+
+/// Input for `grpc_mock_listener_stop` and `grpc_mock_listener_status` commands.
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriMockListenerTabRequest {
+    pub schema_version: u32,
+    pub tab_id: String,
+}
+
+/// Input for `grpc_mock_listener_log` command.
+#[derive(Deserialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriMockListenerLogRequest {
+    pub schema_version: u32,
+    pub tab_id: String,
+    #[serde(default)]
+    pub since: i64,
+}
+
 // ─── Envelope / result types ──────────────────────────────────────────────────
 
 /// Metadata included in every command response envelope.
@@ -403,4 +462,122 @@ pub struct GrpcTauriTabCleanupResult {
     pub tab_id: String,
     pub cancelled_streams: u32,
     pub released_channels: u32,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriChannelPoolSnapshot {
+    pub size: usize,
+    pub capacity: usize,
+    pub hit_count_total: u64,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriCallRegistrySnapshot {
+    pub total: usize,
+    pub active: usize,
+    pub completed: usize,
+    pub cancelled: usize,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriStreamRegistrySnapshot {
+    pub total: usize,
+    pub active: usize,
+    pub ended: usize,
+    pub cancelled: usize,
+    pub error: usize,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriListenerSnapshot {
+    pub attached_tabs: usize,
+    pub detached_tabs: usize,
+    pub stale_attached_tabs: usize,
+    pub total_listener_count: u32,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriDiagnosticsTaxonomy {
+    pub state: String,
+    pub active_issue_codes: Vec<String>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriNativeDiagnosticsResult {
+    pub transport_used: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tab_id: Option<String>,
+    pub channel_pool: GrpcTauriChannelPoolSnapshot,
+    pub calls: GrpcTauriCallRegistrySnapshot,
+    pub streams: GrpcTauriStreamRegistrySnapshot,
+    pub listeners: GrpcTauriListenerSnapshot,
+    pub taxonomy: GrpcTauriDiagnosticsTaxonomy,
+}
+
+/// Mock listener runtime status mirrored from `grpcMockListenerContracts.ts`.
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriMockListenerStatus {
+    pub running: bool,
+    pub tab_id: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub listen_target: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+    pub generation: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub connection_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub descriptor_key: Option<String>,
+    pub in_flight_count: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub last_error: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub started_at: Option<String>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriMockListenerStartResult {
+    pub status: GrpcTauriMockListenerStatus,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriMockListenerCommitResult {
+    pub generation: u32,
+    pub committed_at: String,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriMockListenerLogEntry {
+    pub id: u64,
+    pub ts: String,
+    pub event: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub service: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub rule_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub status_code: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub generation: Option<u32>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detail: Option<String>,
+}
+
+#[derive(Serialize, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct GrpcTauriMockListenerLogsResult {
+    pub entries: Vec<GrpcTauriMockListenerLogEntry>,
+    pub next_cursor: u64,
 }

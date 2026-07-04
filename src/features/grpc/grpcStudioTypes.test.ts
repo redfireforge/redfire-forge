@@ -14,6 +14,7 @@ import {
   isGrpcLifecycleTerminal,
   nextDefaultGrpcTabTitle,
   nextGrpcTabId,
+  normalizeProtoIngestState,
   resetGrpcTabCounterForTests,
   snapshotToStreamStartRequest,
   snapshotToUnaryCallRequest,
@@ -133,6 +134,17 @@ describe('grpcStudioTypes (Phase 1A + 2A stream state)', () => {
     const state = createEmptyTabDescriptorState();
     expect(state.sourceSelection.mode).toBe('auto');
     expect(state.driftState).toBe('none');
+  });
+
+  it('normalizeProtoIngestState fills missing protoRoots from legacy persisted drafts', () => {
+    const normalized = normalizeProtoIngestState({
+      source: 'protoset',
+      importPaths: ['shared'],
+    } as ReturnType<typeof createDefaultProtoIngestState>);
+    expect(normalized.protoRoots).toEqual([
+      { id: 'root-default', mountPath: 'root', files: [] },
+    ]);
+    expect(normalized.importPaths).toEqual(['shared']);
   });
 
   it('createTabDescriptorStateAfterConnectionInvalidation preserves proto ingest draft', () => {

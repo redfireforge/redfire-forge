@@ -13,6 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { GraphqlMockConfig, GraphqlSchemaInfo, MockResolver } from '../../../shared/types/graphql';
 import type { UseGraphqlMockServerResult } from '../hooks/useGraphqlMockServer';
 import type { MockSchemaSource } from '../hooks/useGraphqlMockServer';
+import { parseJsonOrRaw } from '../../../shared/utils/helpers';
 
 // ─── ResolversTab ─────────────────────────────────────────────────────────────
 
@@ -176,7 +177,7 @@ export function FieldResolverRow({ typeName, field, resolver, mockServer }: Fiel
       // Don't persist empty fixed values — random mode produces better output than
       // an undefined/empty scalar, and the empty string is not a valid user intent.
       if (!fv.trim()) return;
-      r = { type: 'fixed', value: parseValue(fv) };
+      r = { type: 'fixed', value: parseJsonOrRaw(fv) };
     } else if (m === 'script') {
       // Don't persist empty scripts — random mode is better than an empty script body.
       if (!sc.trim()) return;
@@ -249,7 +250,3 @@ export function FieldResolverRow({ typeName, field, resolver, mockServer }: Fiel
 }
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
-
-function parseValue(v: string): unknown {
-  try { return JSON.parse(v); } catch { return v; }
-}

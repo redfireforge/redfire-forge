@@ -1,0 +1,66 @@
+{
+  "rules": [
+    {
+      "id": "tenant-acme",
+      "name": "Metadata tenant override",
+      "enabled": true,
+      "priority": 300,
+      "predicate": {
+        "kind": "metadata_equals",
+        "key": "x-tenant",
+        "value": "acme"
+      },
+      "response": {
+        "message": "mock-tenant-acme"
+      }
+    },
+    {
+      "id": "order-123",
+      "name": "Body path order_id override",
+      "enabled": true,
+      "priority": 200,
+      "predicate": {
+        "kind": "body_path_equals",
+        "path": "attributes.order_id",
+        "value": "123"
+      },
+      "response": {
+        "message": "mock-order-123"
+      }
+    },
+    {
+      "id": "server-stream",
+      "name": "Server stream canned responses",
+      "enabled": true,
+      "priority": 120,
+      "predicate": {
+        "kind": "method_equals",
+        "method": "ServerStream"
+      },
+      "response": {
+        "messages": [
+          "mock-stream-1",
+          "mock-stream-2"
+        ],
+        "interMessageDelayMs": 5
+      }
+    },
+    {
+      "id": "echo-default",
+      "name": "Method fallback for echo",
+      "enabled": true,
+      "priority": 100,
+      "predicate": {
+        "kind": "method_equals",
+        "method": "Echo"
+      },
+      "response": {
+        "message": "mock-echo-default"
+      }
+    }
+  ],
+  "defaultResponse": {
+    "statusCode": 12,
+    "message": "No matching mock rule"
+  }
+}

@@ -76,4 +76,20 @@ describe('useHarnessEnvironmentCascade', () => {
     const { result } = renderHook(() => useHarnessEnvironmentCascade(envs, services, 'dev'));
     expect(result.current.filteredMicroservices).toHaveLength(1);
   });
+
+  it('excludes microservice when selected env matches neither baseUrls nor customEnvs', () => {
+    const services = [
+      svc({ id: 'a', baseUrls: { qa: 'http://qa' }, customEnvs: [{ id: 'staging', name: 'Staging' }] }),
+    ];
+    const { result } = renderHook(() => useHarnessEnvironmentCascade(envs, services, 'prod'));
+    expect(result.current.filteredMicroservices).toHaveLength(0);
+  });
+
+  it('uses (customEnvs ?? []) fallback in filter when customEnvs is undefined and baseUrls miss', () => {
+    const services = [
+      { id: 's-no-envs', name: 'NoEnvs', baseUrls: { qa: 'http://qa' } } as unknown as Microservice,
+    ];
+    const { result } = renderHook(() => useHarnessEnvironmentCascade(envs, services, 'prod'));
+    expect(result.current.filteredMicroservices).toHaveLength(0);
+  });
 });

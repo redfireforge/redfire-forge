@@ -64,6 +64,15 @@ pub enum StreamControlOutcome {
     ClientWritesEnded,
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct StreamRegistryStats {
+    pub total: usize,
+    pub active: usize,
+    pub ended: usize,
+    pub cancelled: usize,
+    pub error: usize,
+}
+
 impl StreamRegistry {
     pub fn new() -> Self {
         Self::default()
@@ -298,6 +307,32 @@ impl StreamRegistry {
     #[allow(dead_code)]
     pub fn total_count(&self) -> usize {
         self.inner.lock().unwrap_or_else(|e| e.into_inner()).len()
+    }
+
+    /// Aggregate status counters for native diagnostics snapshots.
+    pub fn stats(&self) -> StreamRegistryStats {
+        let map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let mut active = 0usize;
+        let mut ended = 0usize;
+        let mut cancelled = 0usize;
+        let mut error = 0usize;
+
+        for entry in map.values() {
+            match entry.lock().unwrap().status {
+                StreamRegistryStatus::Active => active += 1,
+                StreamRegistryStatus::Ended => ended += 1,
+                StreamRegistryStatus::Cancelled => cancelled += 1,
+                StreamRegistryStatus::Error => error += 1,
+            }
+        }
+
+        StreamRegistryStats {
+            total: map.len(),
+            active,
+            ended,
+            cancelled,
+            error,
+        }
     }
 
     pub fn list_stream_ids(&self) -> Vec<String> {

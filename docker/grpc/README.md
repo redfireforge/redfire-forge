@@ -1,33 +1,69 @@
-# gRPC Test Server (Phase 1H + Phase 2H Sprint 1)
+# gRPC Fixture Stack (Phase 12D)
 
-Minimal Go echo server with **server reflection** and **all four call types** for gRPC Studio E2E and manual testing.
+Expanded local fixture stack for gRPC Studio and Demo Hub validation:
+
+- Plaintext Go fixture (`:50051`)
+- TLS fixture (`:50443`)
+- mTLS fixture (`:50444`)
+- Envoy grpc-web proxy fixture (`:50055`)
+- Spring Boot fixture (`:9090` gRPC, `:8080` actuator/HTTP)
+- Go mock servicer profile (`:50061` gRPC, `:50062` health/rules)
+
+The stack supports reflection plus all four call types, and includes schema-v2 style payload coverage via `CreateComplexEcho`.
 
 ## Quick start
 
 ```bash
 cd docker/grpc
 docker compose up -d --build
-curl http://localhost:50052/health
+./probe-fixtures.sh
 ```
 
-Expected health response:
+Enable the Go mock servicer profile:
 
-```json
-{"status":"ok","service":"grpc-test-server"}
+```bash
+cd docker/grpc
+docker compose --profile mock-servicer up -d --build
+./probe-fixtures.sh --with-go-mock
+```
+
+Run the full P1-B acceptance sequence in one command from repo root:
+
+```bash
+npm run grpc:p1b:acceptance
+```
+
+Health probes are also available individually:
+
+```bash
+curl http://localhost:50052/health
+curl http://localhost:50453/health
+curl http://localhost:50454/health
+curl http://localhost:8080/actuator/health
 ```
 
 ## Endpoints
 
 | Port | Protocol | Purpose |
 |---|---|---|
-| 50051 | gRPC (HTTP/2) | Reflection exposes `echo.EchoService` and `connectrpc.eliza.v1.ElizaService`; direct grpcurl compatibility includes `api.ApiService/Lookup` |
-| 50052 | HTTP | Health check |
+| 50051 | gRPC (HTTP/2, plaintext) | Core Go fixture service with reflection |
+| 50052 | HTTP | Core fixture health check |
+| 50443 | gRPC (HTTP/2, TLS) | TLS fixture (server-auth TLS) |
+| 50453 | HTTP | TLS fixture health check |
+| 50444 | gRPC (HTTP/2, mTLS) | mTLS fixture (client cert required) |
+| 50454 | HTTP | mTLS fixture health check |
+| 50055 | Envoy grpc-web proxy | Browser-direct grpc-web proxy to `grpc-test-server:50051` |
+| 9090 | gRPC (HTTP/2, plaintext) | Spring Boot fixture gRPC service |
+| 8080 | HTTP | Spring Boot actuator/health |
+| 50061 | gRPC (HTTP/2, plaintext) | Go mock servicer (rule-driven response fixture) |
+| 50062 | HTTP | Go mock servicer health + rule inspection |
 
 ## RPC behaviour
 
 | RPC | Type | Behaviour |
 |---|---|---|
 | `Echo` | Unary | Response `message` equals request `message`. `@sleep:8000` delays ~8s (cancel E2E). |
+| `CreateComplexEcho` | Unary | Echoes complex payload fields (`labels`, `attributes`) and returns `request_id` + `received_unix_ms`. |
 | `ServerStream` | Server streaming | Emits `repeat_count` messages (default 1), optional `interval_ms` between messages. |
 | `ClientStream` | Client streaming | Aggregates client messages (comma-separated) into one response on client EOF. |
 | `BidiStream` | Bidirectional | Echoes each client message as a server message. |
@@ -47,6 +83,8 @@ Expected health response:
 ## Proto
 
 See `proto/echo.proto` — mirrored in `FIXTURE_ECHO_PROTO` / `FIXTURE_DESCRIPTOR` in `src/shared/grpc/contractFixtures.ts`.
+
+Schema-v2 fixture additions are provided in the same proto surface through `CreateComplexEcho` + complex request/response messages.
 
 The schema-discovery sample service is defined in `proto/api.proto` (`api.ApiService/Lookup`).
 It is intentionally handled via unknown-service routing so reflection-based explorer lists remain focused on `echo.EchoService`.
@@ -71,6 +109,14 @@ protoc --proto_path=../proto \
 1. Terminal A: `npm run server` (Express `:3001`)
 2. Terminal B: `npm run dev` (Vite `:5173`)
 3. Open **Protocols → gRPC**, set target `localhost:50051`, click **Reflect**, select a method.
+
+Suggested target matrix for manual transport checks:
+
+- Express/tauri plaintext: `localhost:50051`
+- Express/tauri TLS: `localhost:50443` (`ca.crt`)
+- Express/tauri mTLS: `localhost:50444` (`ca.crt` + `client.crt` + `client.key`)
+- Browser direct grpc-web via Envoy: `localhost:50055`
+- Spring fixture: `localhost:9090` (gRPC) and `localhost:8080` (actuator)
 
 Quick grpcurl check for schema-discovery method:
 
@@ -99,6 +145,42 @@ echo.EchoService
 ```
 
 Streaming RPCs appear in the explorer with SS/CS/BD badges; full execution UI (stream log, compose panel) ships in Phase 2 — see [`docs/guides/grpc-phase2-runbook.md`](../../docs/guides/grpc-phase2-runbook.md).
+
+## TLS/mTLS certs
+
+Fixture certs are checked into `docker/grpc/certs/`:
+
+- `ca.crt` — local fixture CA certificate
+- `server.crt` / `server.key` — server cert for TLS + mTLS fixture targets
+- `client.crt` / `client.key` — client cert for mTLS probes
+
+To rotate certs locally, run:
+
+```bash
+./certs/generate.sh
+```
+
+Do not reuse these certs outside local fixture development.
+
+## Fixture probe script
+
+`./probe-fixtures.sh` validates all fixture endpoints:
+
+1. Health probes (Go plaintext/TLS/mTLS + Spring actuator)
+2. Plaintext unary probe (`:50051`)
+3. TLS unary probe (`:50443`)
+4. mTLS unary probe (`:50444`)
+5. Envoy grpc-web upstream reachability probe (`:50055`)
+6. Spring gRPC schema-v2 probe (`CreateComplexEcho` on `:9090`)
+
+`./probe-fixtures.sh --with-go-mock` adds Go mock servicer checks:
+
+1. Mock servicer health and rule import (`:50062`)
+2. Metadata predicate match (`x-tenant: acme`)
+3. Body-path predicate match (`attributes.order_id == "123"`)
+4. Server stream canned response sequence
+
+Mock rule source: `go-mock-server/config/rules.json`.
 
 ## E2E
 

@@ -435,8 +435,9 @@ export class GrpcStreamService {
       );
     }
 
+    // Bidi may open with an immediate first message; client streaming uses Send message / Send all.
     if (
-      (request.callType === 'client_streaming' || request.callType === 'bidi_streaming')
+      request.callType === 'bidi_streaming'
       && hasNonEmptyInitialBody(request.body)
     ) {
       try {

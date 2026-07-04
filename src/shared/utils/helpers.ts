@@ -29,6 +29,21 @@ export function tryParseJson(text: string): unknown | undefined {
   catch { return undefined; }
 }
 
+/**
+ * Parse a JSON string as an array, or return the fallback (default `[]`).
+ * Works safely with values that are already arrays.
+ */
+export function tryParseJsonArray<T = unknown>(v: unknown, fallback: T[] = []): T[] {
+  if (Array.isArray(v)) return v as T[];
+  if (typeof v !== 'string') return fallback;
+  try {
+    const parsed = JSON.parse(v);
+    return Array.isArray(parsed) ? (parsed as T[]) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 /** Check if a string is valid JSON. */
 export function isValidJson(text: string): boolean {
   try { JSON.parse(text); return true; }

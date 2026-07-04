@@ -24,6 +24,8 @@ import {
   makeRecordingReturn,
 } from './WebSocketStudioPage.test-factories';
 
+const originalConsoleError = console.error;
+
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: (opts: { count: number; getScrollElement: () => unknown; estimateSize: () => number }) => ({
     getVirtualItems: () =>
@@ -59,6 +61,13 @@ let mockRecording: UseWebSocketRecordingReturn;
 let mockProfiles: UseWebSocketProfilesReturn;
 
 beforeEach(() => {
+  vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+    const message = args.map((part) => String(part)).join(' ');
+    if (message.includes('not wrapped in act(')) {
+      return;
+    }
+    originalConsoleError(...args);
+  });
   mockStudio = makeStudioReturn();
   mockRecording = makeRecordingReturn();
   mockProfiles = makeProfilesReturn();

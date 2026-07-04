@@ -150,8 +150,10 @@ describe('GrpcMockServerPanel coverage gaps', () => {
     fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(900);
+      await vi.advanceTimersByTimeAsync(900);
     });
     expect(screen.getByTestId('grpc-mock-listener-log')).toBeTruthy();
+    expect(screen.getAllByTestId('grpc-mock-listener-log-log-2')).toHaveLength(1);
 
     rerender(
       <GrpcMockServerPanel

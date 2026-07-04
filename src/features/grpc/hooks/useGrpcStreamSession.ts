@@ -214,7 +214,9 @@ export function useGrpcStreamSession(options: UseGrpcStreamSessionOptions) {
       const terminalSnapshot = currentTab?.lastExecuteSnapshot;
       setSession((prev) => {
         const tab = prev.tabs.find((entry) => entry.id === tabId);
-        if (!tab) return prev;
+        if (!tab || isGrpcStreamLifecycleTerminal(tab.streamLifecycle)) {
+          return prev;
+        }
         let messages = tab.streamMessages;
         let lastSequence = tab.lastSequence;
         if (event.data) {
@@ -280,25 +282,34 @@ export function useGrpcStreamSession(options: UseGrpcStreamSessionOptions) {
       detachStreamEventsForTab(streamDisposeRef, tabId);
       releaseStreamTransportBinding(tabId);
       bumpStreamGeneration(streamGenerationRef, tabId);
-      const streamError = buildStreamEventErrorBody(
-        event.statusMessage ?? 'Stream error',
-        event.status,
-      );
+      const terminalLifecycle = event.status === 1 ? 'cancelled' : 'error';
+      const streamError = terminalLifecycle === 'error'
+        ? buildStreamEventErrorBody(
+            event.statusMessage ?? 'Stream error',
+            event.status,
+          )
+        : undefined;
       const errorSnapshot = currentTab?.lastExecuteSnapshot;
-      setSession((prev) => commitSession({
-        ...prev,
-        tabs: prev.tabs.map((entry) => {
-          if (entry.id !== tabId) return entry;
-          return {
-            ...entry,
-            streamLifecycle: 'error',
-            streamEndedAt: new Date().toISOString(),
-            streamError,
-            activeStreamId: undefined,
-          };
-        }),
-      }));
-      if (errorSnapshot) {
+      setSession((prev) => {
+        const tab = prev.tabs.find((entry) => entry.id === tabId);
+        if (!tab || isGrpcStreamLifecycleTerminal(tab.streamLifecycle)) {
+          return prev;
+        }
+        return commitSession({
+          ...prev,
+          tabs: prev.tabs.map((entry) => {
+            if (entry.id !== tabId) return entry;
+            return {
+              ...entry,
+              streamLifecycle: terminalLifecycle,
+              streamEndedAt: new Date().toISOString(),
+              streamError,
+              activeStreamId: undefined,
+            };
+          }),
+        });
+      });
+      if (errorSnapshot && terminalLifecycle === 'error' && streamError) {
         const endedAt = new Date().toISOString();
         captureGrpcCallHistoryFromStreamTerminal(
           {
@@ -365,17 +376,30 @@ export function useGrpcStreamSession(options: UseGrpcStreamSessionOptions) {
         }
         bumpStreamGeneration(streamGenerationRef, tabId);
         const streamError = buildStreamEventErrorBody(message);
-        updateTab(tabId, {
-          streamLifecycle: 'error',
-          streamEndedAt: new Date().toISOString(),
-          streamError,
-          activeStreamId: undefined,
+        setSession((prev) => {
+          const tab = prev.tabs.find((entry) => entry.id === tabId);
+          if (!tab || isGrpcStreamLifecycleTerminal(tab.streamLifecycle)) {
+            return prev;
+          }
+          return commitSession({
+            ...prev,
+            tabs: prev.tabs.map((entry) => {
+              if (entry.id !== tabId) return entry;
+              return {
+                ...entry,
+                streamLifecycle: 'error',
+                streamEndedAt: new Date().toISOString(),
+                streamError,
+                activeStreamId: undefined,
+              };
+            }),
+          });
         });
         captureStreamHistory(tabId, { error: streamError });
       },
     });
     streamDisposeRef.current[tabId] = dispose;
-  }, [applyStreamEvent, captureStreamHistory, sessionRef, streamDisposeRef, streamGenerationRef, updateTab]);
+  }, [applyStreamEvent, captureStreamHistory, commitSession, sessionRef, setSession, streamDisposeRef, streamGenerationRef, updateTab]);
 
   const startStreamCall = useCallback(async (
     tabId: string,
@@ -501,14 +525,16 @@ export function useGrpcStreamSession(options: UseGrpcStreamSessionOptions) {
     }
 
     const streamId = tab.activeStreamId;
-    bumpStreamGeneration(streamGenerationRef, tabId);
-    detachStreamEventsForTab(streamDisposeRef, tabId);
 
+    // Mark cancelled before tearing down SSE so late connection-drop errors cannot win.
     updateTab(tabId, {
       streamLifecycle: 'cancelled',
       streamEndedAt: new Date().toISOString(),
       activeStreamId: undefined,
+      streamError: undefined,
     });
+    bumpStreamGeneration(streamGenerationRef, tabId);
+    detachStreamEventsForTab(streamDisposeRef, tabId);
 
     if (streamId) {
       try {

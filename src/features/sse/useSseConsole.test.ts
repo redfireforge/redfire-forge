@@ -124,4 +124,30 @@ describe('useSseConsole', () => {
     rerender(params(snap({ state: 'connecting', reconnectAttempt: 1, retryMs: 2000 })));
     expect(result.current.entries).toHaveLength(countAfterFirst);
   });
+
+  it('builds handshake when config.headers is undefined (?? [] fallback)', () => {
+    const cfg: SseConnectionConfig = {
+      url: 'http://localhost:9000/stream',
+      autoReconnect: true,
+      maxRetries: 10,
+      headers: undefined,
+    };
+    const { result, rerender } = renderHook((p: UseSseConsoleParams) => useSseConsole(p), {
+      initialProps: params(snap({ state: 'idle' }), { config: cfg }),
+    });
+    rerender(params(snap({ state: 'connecting' }), { config: cfg }));
+    rerender(params(snap({ state: 'connected', lastEventId: '9' }), { config: cfg }));
+    const handshake = result.current.entries.find((e) => e.category === 'handshake');
+    expect(handshake?.detail).toContain('Last-Event-ID: 9');
+  });
+
+  it('does not record reconnect when attempt changes from 1 to 0', () => {
+    const { result, rerender } = renderHook((p: UseSseConsoleParams) => useSseConsole(p), {
+      initialProps: params(snap({ state: 'connected', reconnectAttempt: 1, retryMs: 2000 })),
+    });
+    const before = result.current.entries.length;
+    // Keep state unchanged so only reconnectAttempt logic is under test.
+    rerender(params(snap({ state: 'connected', reconnectAttempt: 0, retryMs: 2000 })));
+    expect(result.current.entries).toHaveLength(before);
+  });
 });

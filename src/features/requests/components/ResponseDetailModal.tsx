@@ -1,9 +1,10 @@
-import { useState, useMemo, useCallback, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import type { RequestResult } from '../../../shared/types';
+import { useJsonTreeCollapseState, useMatchCountChange } from '../../../shared/hooks/useJsonTreeCollapseState';
 import WaterfallBar from '../../test-runner/components/WaterfallBar';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
 import JsonTreeViewer from '../../../shared/components/JsonTreeViewer';
-import JsonPreview, { buildJTree, type JNode } from './JsonTreePreview';
+import JsonPreview, { buildJTreeFromBody, collectJTreePaths } from './JsonTreePreview';
 import ResponseBodySearchBar from './ResponseBodySearchBar';
 import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
 import { formatTransportStatus, getTransportMethodLabel, getTransportFamily } from '../../results/utils/transportStatus';
@@ -24,38 +25,21 @@ export default function ResponseDetailModal({ result, onClose }: ResponseDetailM
     goPrev: goPrevSearchMatch,
     clear: clearResponseSearch,
   } = useSearchMatchNavigation(searchMatchCount);
-  const [collapsedSet, setCollapsedSet] = useState<Set<string>>(new Set());
-
-  const handleTreeToggle = useCallback((path: string) => {
-    setCollapsedSet(prev => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path); else next.add(path);
-      return next;
-    });
-  }, []);
+  const { collapsedSet, handleTreeToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
 
   const responseTree = useMemo(() => {
-    if (!result?.responseBody) return null;
-    try { return buildJTree(JSON.parse(result.responseBody), ''); } catch { return null; }
+    return buildJTreeFromBody(result?.responseBody);
   }, [result?.responseBody]);
 
   const allTreePaths = useMemo(() => {
     if (!responseTree) return new Set<string>();
-    const paths = new Set<string>();
-    (function walk(node: JNode, p: string) {
-      if (node.children?.length) { paths.add(p); node.children.forEach((c) => walk(c, `${p}/${c.key}`)); }
-    })(responseTree, '');
-    return paths;
+    return new Set<string>(['', ...collectJTreePaths(responseTree, '')]);
   }, [responseTree]);
 
-  const handleCollapseAll = useCallback(() => setCollapsedSet(new Set(allTreePaths)), [allTreePaths]);
-  const handleExpandAll = useCallback(() => setCollapsedSet(new Set()), []);
+  const handleCollapseAll = () => collapseAll(allTreePaths);
   const searchMatchIdxRef = useRef(searchMatchIdx);
   searchMatchIdxRef.current = searchMatchIdx;
-  const handleMatchCountChange = useCallback((count: number) => {
-    setSearchMatchCount(count);
-    if (searchMatchIdxRef.current >= count) setSearchMatchIdx(Math.max(0, count - 1));
-  }, [setSearchMatchIdx]);
+  const handleMatchCountChange = useMatchCountChange(setSearchMatchCount, setSearchMatchIdx, searchMatchIdxRef);
 
   if (!result) return null;
 
