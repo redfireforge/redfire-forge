@@ -6,6 +6,8 @@ export interface GrpcStreamPendingQueuePanelProps {
   clientWritesEnded: boolean;
   sendAllInFlight?: boolean;
   disabled?: boolean;
+  canCompose?: boolean;
+  onAddToQueue?: () => void;
   onRemoveAtIndex: (index: number) => void;
   onSendAll: () => void | Promise<void>;
   onEndStream: () => void;
@@ -17,19 +19,26 @@ export function GrpcStreamPendingQueuePanel({
   clientWritesEnded,
   sendAllInFlight = false,
   disabled = false,
+  canCompose = true,
+  onAddToQueue,
   onRemoveAtIndex,
   onSendAll,
   onEndStream,
 }: GrpcStreamPendingQueuePanelProps) {
   const canSendAll = streamActive && !clientWritesEnded && !disabled && !sendAllInFlight && pendingBodies.length > 0;
   const canEnd = streamActive && !clientWritesEnded && !disabled;
+  const canQueue = !disabled && !sendAllInFlight && canCompose && Boolean(onAddToQueue);
 
   return (
     <aside className="grpc-stream-pending-panel" data-testid="grpc-stream-pending-panel">
       <div className="grpc-stream-pending-panel__header">
         <span className="grpc-stream-pending-panel__title">Pending messages</span>
         {pendingBodies.length > 0 && (
-          <span className="grpc-stream-pending-panel__chip" data-testid="grpc-stream-pending-chip">
+          <span
+            className="grpc-stream-pending-panel__chip"
+            data-testid="grpc-stream-pending-chip"
+            data-grpc-pending-count={pendingBodies.length}
+          >
             {pendingBodies.length} queued
           </span>
         )}
@@ -37,7 +46,7 @@ export function GrpcStreamPendingQueuePanel({
       <div className="grpc-stream-pending-panel__list" data-testid="grpc-stream-pending-list">
         {pendingBodies.length === 0 && (
           <p className="grpc-stream-pending-panel__empty" data-testid="grpc-stream-pending-empty">
-            Queue is empty — compose a body and click Add to queue.
+            Compose a body in the form, then click <strong>Add to queue</strong> below.
           </p>
         )}
         {pendingBodies.map((body, index) => (
@@ -64,26 +73,40 @@ export function GrpcStreamPendingQueuePanel({
         ))}
       </div>
       <div className="grpc-stream-pending-panel__footer">
-        <button
-          type="button"
-          className="grpc-stream-pending-send-all-btn"
-          data-testid="grpc-stream-send-all-btn"
-          disabled={!canSendAll}
-          onClick={onSendAll}
-          aria-label={`Send all ${pendingBodies.length} pending messages`}
-        >
-          ▶ Send all ({pendingBodies.length})
-        </button>
-        <button
-          type="button"
-          className="grpc-stream-end-btn"
-          data-testid="grpc-stream-pending-end-btn"
-          disabled={!canEnd}
-          onClick={onEndStream}
-          aria-label="End stream"
-        >
-          End stream
-        </button>
+        {onAddToQueue && (
+          <button
+            type="button"
+            className="grpc-stream-pending-add-btn"
+            data-testid="grpc-stream-add-queue-btn"
+            disabled={!canQueue}
+            onClick={onAddToQueue}
+            aria-label="Add message to pending queue"
+          >
+            + Add to queue
+          </button>
+        )}
+        <div className="grpc-stream-pending-panel__stream-actions">
+          <button
+            type="button"
+            className="grpc-stream-pending-send-all-btn"
+            data-testid="grpc-stream-send-all-btn"
+            disabled={!canSendAll}
+            onClick={onSendAll}
+            aria-label={`Send all ${pendingBodies.length} pending messages`}
+          >
+            ▶ Send all ({pendingBodies.length})
+          </button>
+          <button
+            type="button"
+            className="grpc-stream-pending-end-btn"
+            data-testid="grpc-stream-pending-end-btn"
+            disabled={!canEnd}
+            onClick={onEndStream}
+            aria-label="End stream"
+          >
+            End stream
+          </button>
+        </div>
       </div>
     </aside>
   );

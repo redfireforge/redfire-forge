@@ -220,11 +220,6 @@ export function GrpcSchemaDiffPanel({ advanced }: GrpcSchemaDiffPanelProps) {
                 <p className="visually-hidden" id="grpc-schema-diff-change-list-summary" data-testid="grpc-schema-diff-a11y-summary">
                   Schema diff contains {filtered.total} changes; {filtered.visible.length} visible after filtering.
                 </p>
-                {filtered.truncated && (
-                  <p className="grpc-advanced-hint" data-testid="grpc-schema-diff-truncated">
-                    Showing first {filtered.visible.length} of {filtered.total} changes.
-                  </p>
-                )}
                 <div
                   className={`grpc-advanced-diff-list${virtual.enabled ? ' grpc-advanced-diff-list--virtual' : ''}`}
                   data-testid="grpc-schema-diff-change-list"

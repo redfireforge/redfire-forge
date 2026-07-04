@@ -24,7 +24,7 @@ const GRPC_SCHEMA_DISCOVERY_CHECKPOINTS: readonly GrpcLessonStepCheckpoint[] = [
 ] as const;
 
 const GRPC_STREAMING_CHECKPOINTS: readonly GrpcLessonStepCheckpoint[] = [
-  { stepId: 'grpc17-server-select', setsFlags: { methodSelected: true }, verifySelector: 'grpc-call-type-selector' },
+  { stepId: 'grpc17-server-select', setsFlags: { methodSelected: true }, verifySelector: 'grpc-stream-start-btn' },
   { stepId: 'grpc17-server-fill', setsFlags: { methodSelected: true }, verifySelector: 'grpc-stream-message-log' },
   { stepId: 'grpc17-server-status', setsFlags: { reflected: true }, verifySelector: 'grpc-stream-status-bar' },
   { stepId: 'grpc17-client-select', setsFlags: { methodSelected: true }, verifySelector: 'grpc-stream-add-queue-btn' },

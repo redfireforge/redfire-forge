@@ -10,6 +10,11 @@ const DEFAULT_BASE_URL = 'http://127.0.0.1:3001';
 const DEFAULT_TIMEOUT_MS = 3500;
 const DEFAULT_OUT_PATH = 'artifacts/grpc-phase13d-recovery.json';
 
+function parseIntegerArg(value) {
+  if (!/^[+-]?\d+$/.test(value)) return Number.NaN;
+  return Number.parseInt(value, 10);
+}
+
 function parseArgs(argv) {
   const args = {
     baseUrl: DEFAULT_BASE_URL,
@@ -21,7 +26,9 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const raw = argv[index];
     if (!raw.startsWith('--')) continue;
-    const [flag, inlineValue] = raw.split('=');
+    const equalsIndex = raw.indexOf('=');
+    const flag = equalsIndex >= 0 ? raw.slice(0, equalsIndex) : raw;
+    const inlineValue = equalsIndex >= 0 ? raw.slice(equalsIndex + 1) : undefined;
     const nextValue = argv[index + 1];
     const hasSeparateValue = inlineValue == null && nextValue != null && !nextValue.startsWith('--');
     const value = inlineValue ?? (hasSeparateValue ? nextValue : '');
@@ -32,7 +39,7 @@ function parseArgs(argv) {
         if (value) args.baseUrl = value;
         break;
       case '--timeout-ms':
-        args.timeoutMs = Number.parseInt(value, 10);
+        args.timeoutMs = parseIntegerArg(value);
         break;
       case '--out':
         if (value) args.outPath = value;

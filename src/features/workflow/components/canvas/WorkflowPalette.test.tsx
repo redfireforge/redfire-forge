@@ -116,6 +116,16 @@ describe('WorkflowPalette', () => {
     expect(screen.getByText('Manual Start')).toBeTruthy();
   });
 
+  it('renders gRPC blocks and adds each gRPC non-advanced node type', () => {
+    const { onAddNode } = setup();
+    fireEvent.click(screen.getByText('gRPC Unary'));
+    fireEvent.click(screen.getByText('gRPC Server Stream'));
+    fireEvent.click(screen.getByText('gRPC Assert'));
+    expect(onAddNode).toHaveBeenNthCalledWith(1, 'grpcUnary');
+    expect(onAddNode).toHaveBeenNthCalledWith(2, 'grpcServerStream');
+    expect(onAddNode).toHaveBeenNthCalledWith(3, 'grpcAssert');
+  });
+
   it('switches to requests tab and adds from a request', () => {
     const { onAddFromRequest } = setup();
     fireEvent.click(screen.getByText('Requests'));

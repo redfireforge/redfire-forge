@@ -639,8 +639,9 @@ describe('Grpc advanced panels coverage gaps', () => {
     expect(screen.getByText(/No changes match the selected filter/i)).toBeTruthy();
   });
 
-  it('GrpcSchemaDiffPanel shows truncated diff banner for large reports', () => {
-    const changes = Array.from({ length: 501 }, (_, index) => ({
+  it('GrpcSchemaDiffPanel keeps full large diff list available for virtualization', () => {
+    const totalChanges = 501;
+    const changes = Array.from({ length: totalChanges }, (_, index) => ({
       severity: 'informational' as const,
       entityType: 'field' as const,
       entityPath: `msg.f${index}`,
@@ -656,14 +657,15 @@ describe('Grpc advanced panels coverage gaps', () => {
               leftDescriptorKey: 'left',
               rightDescriptorKey: 'right',
               generatedAt: '2026-07-01T00:00:00.000Z',
-              summary: { breaking: 0, nonBreaking: 0, informational: 501 },
+              summary: { breaking: 0, nonBreaking: 0, informational: totalChanges },
               changes,
             },
           },
         })}
       />,
     );
-    expect(screen.getByTestId('grpc-schema-diff-truncated')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-schema-diff-truncated')).toBeNull();
+    expect(screen.getByTestId('grpc-schema-diff-a11y-summary').textContent).toContain(`Schema diff contains ${totalChanges} changes`);
   });
 
   it('GrpcSchemaDiffPanel skips clipboard copy when export helpers return empty', async () => {
@@ -720,6 +722,13 @@ describe('Grpc advanced panels coverage gaps', () => {
       />,
     );
     expect(screen.getByTestId('grpc-rpc-stats-panel')).toBeTruthy();
+
+    rerender(
+      <GrpcAdvancedFeaturesShell
+        advanced={buildAdvancedMock({ activeFeatureTab: 'native_diagnostics' })}
+      />,
+    );
+    expect(screen.getByTestId('grpc-native-diagnostics-panel')).toBeTruthy();
   });
 
   it('GrpcRpcStatisticsPanel renders summary, table rows, and reset control', async () => {

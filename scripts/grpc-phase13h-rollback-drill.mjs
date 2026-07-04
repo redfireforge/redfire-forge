@@ -16,6 +16,11 @@ import yaml from 'yaml';
 const DEFAULT_OUT_PATH = 'artifacts/grpc-phase13h-rollback-drill.json';
 const DEFAULT_BASE_URL = 'http://127.0.0.1:3001';
 
+function parseIntegerArg(value) {
+  if (!/^[+-]?\d+$/.test(value)) return Number.NaN;
+  return Number.parseInt(value, 10);
+}
+
 function parseArgs(argv) {
   const args = {
     outPath: DEFAULT_OUT_PATH,
@@ -28,7 +33,9 @@ function parseArgs(argv) {
     const raw = argv[i];
     if (!raw.startsWith('--')) continue;
 
-    const [flag, inlineValue] = raw.split('=');
+    const equalsIndex = raw.indexOf('=');
+    const flag = equalsIndex >= 0 ? raw.slice(0, equalsIndex) : raw;
+    const inlineValue = equalsIndex >= 0 ? raw.slice(equalsIndex + 1) : undefined;
     const nextValue = argv[i + 1];
     const hasSeparateValue = inlineValue == null && nextValue != null && !nextValue.startsWith('--');
     const value = inlineValue ?? (hasSeparateValue ? nextValue : '');
@@ -37,8 +44,11 @@ function parseArgs(argv) {
     if (flag === '--out' && value) args.outPath = value;
     if (flag === '--base-url' && value) args.baseUrl = value;
     if (flag === '--timeout-ms' && value) {
-      const parsed = Number.parseInt(value, 10);
-      if (Number.isFinite(parsed) && parsed > 0) args.timeoutMs = parsed;
+      const parsed = parseIntegerArg(value);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error('--timeout-ms must be a positive integer');
+      }
+      args.timeoutMs = parsed;
     }
     if (flag === '--require-live') args.requireLive = true;
   }

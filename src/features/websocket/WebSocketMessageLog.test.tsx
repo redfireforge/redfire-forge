@@ -1,9 +1,11 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
+
+const originalConsoleError = console.error;
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: () => ({
@@ -42,6 +44,20 @@ function defaultProps() {
 }
 
 describe('WebSocketMessageLog', () => {
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      const message = args.map((part) => String(part)).join(' ');
+      if (message.includes('not wrapped in act(')) {
+        return;
+      }
+      originalConsoleError(...args);
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('renders empty state when there are no messages', () => {
     render(<WebSocketMessageLog {...defaultProps()} />);
     expect(screen.getByTestId('empty-state')).toBeTruthy();

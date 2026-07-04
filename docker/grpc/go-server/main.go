@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +21,7 @@ import (
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/reflection"
 	"google.golang.org/grpc/status"
 )
@@ -152,6 +155,36 @@ func (s *echoServer) Echo(ctx context.Context, req *pb.EchoRequest) (*pb.EchoRes
 	return &pb.EchoResponse{Message: msg}, nil
 }
 
+func (s *echoServer) CreateComplexEcho(ctx context.Context, req *pb.ComplexEchoRequest) (*pb.ComplexEchoResponse, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, status.Error(codes.Canceled, "call cancelled")
+	}
+
+	message := req.GetMessage()
+	if strings.TrimSpace(message) == "" {
+		message = "complex-echo"
+	}
+
+	labels := req.GetLabels()
+	if labels == nil {
+		labels = []string{}
+	}
+
+	attributes := req.GetAttributes()
+	if attributes == nil {
+		attributes = map[string]string{}
+	}
+
+	requestID := fmt.Sprintf("complex-%d", time.Now().UnixNano())
+	return &pb.ComplexEchoResponse{
+		RequestId:      requestID,
+		Message:        message,
+		Labels:         labels,
+		Attributes:     attributes,
+		ReceivedUnixMs: time.Now().UnixMilli(),
+	}, nil
+}
+
 func (s *echoServer) ServerStream(req *pb.StreamRequest, stream pb.EchoService_ServerStreamServer) error {
 	count := int(req.GetRepeatCount())
 	if count <= 0 {
@@ -232,6 +265,43 @@ func startHealthServer(port string) {
 	}
 }
 
+func loadServerCredentials() (credentials.TransportCredentials, bool, error) {
+	certFile := strings.TrimSpace(os.Getenv("TLS_CERT_FILE"))
+	keyFile := strings.TrimSpace(os.Getenv("TLS_KEY_FILE"))
+	clientCAFile := strings.TrimSpace(os.Getenv("TLS_CLIENT_CA_FILE"))
+
+	if certFile == "" || keyFile == "" {
+		return nil, false, nil
+	}
+
+	serverCert, err := tls.LoadX509KeyPair(certFile, keyFile)
+	if err != nil {
+		return nil, false, fmt.Errorf("load TLS key pair: %w", err)
+	}
+
+	tlsConfig := &tls.Config{
+		Certificates: []tls.Certificate{serverCert},
+		MinVersion:   tls.VersionTLS12,
+	}
+
+	mtlsEnabled := false
+	if clientCAFile != "" {
+		caPem, err := os.ReadFile(clientCAFile)
+		if err != nil {
+			return nil, false, fmt.Errorf("read client CA: %w", err)
+		}
+		pool := x509.NewCertPool()
+		if ok := pool.AppendCertsFromPEM(caPem); !ok {
+			return nil, false, fmt.Errorf("parse client CA: no certificates found")
+		}
+		tlsConfig.ClientAuth = tls.RequireAndVerifyClientCert
+		tlsConfig.ClientCAs = pool
+		mtlsEnabled = true
+	}
+
+	return credentials.NewTLS(tlsConfig), mtlsEnabled, nil
+}
+
 func main() {
 	grpcPort := os.Getenv("GRPC_PORT")
 	if grpcPort == "" {
@@ -249,12 +319,30 @@ func main() {
 		log.Fatalf("listen failed: %v", err)
 	}
 
-	s := grpc.NewServer(grpc.UnknownServiceHandler(apiUnknownServiceHandler))
+	serverOptions := []grpc.ServerOption{
+		grpc.UnknownServiceHandler(apiUnknownServiceHandler),
+	}
+
+	transportLabel := "plaintext"
+	creds, mtlsEnabled, err := loadServerCredentials()
+	if err != nil {
+		log.Fatalf("TLS setup failed: %v", err)
+	}
+	if creds != nil {
+		serverOptions = append(serverOptions, grpc.Creds(creds))
+		if mtlsEnabled {
+			transportLabel = "mtls"
+		} else {
+			transportLabel = "tls"
+		}
+	}
+
+	s := grpc.NewServer(serverOptions...)
 	pb.RegisterEchoServiceServer(s, &echoServer{})
 	pbEliza.RegisterElizaServiceServer(s, &elizaServer{})
 	reflection.Register(s)
 
-	log.Printf("gRPC test server listening on :%s (reflection enabled: EchoService, ElizaService; grpcurl compatibility: api.ApiService/Lookup)", grpcPort)
+	log.Printf("gRPC test server listening on :%s (%s; reflection enabled: EchoService, ElizaService; grpcurl compatibility: api.ApiService/Lookup)", grpcPort, transportLabel)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("serve failed: %v", err)
 	}

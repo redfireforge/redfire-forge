@@ -79,6 +79,7 @@ export default function App() {
     featureGroups, setFeatureGroups,
     appGlobalAuthProfiles, setAppGlobalAuthProfiles,
     sharedDataSources, setSharedDataSources,
+    workspaceDefaults, setWorkspaceDefaults,
     selectedEnvId, setSelectedEnvId,
     selectedSvcId, setSelectedSvcId,
     moveScenario, moveTest,
@@ -587,6 +588,8 @@ export default function App() {
               setEnvironments={setEnvironments}
               microservices={microservices}
               setMicroservices={setMicroservices}
+              workspaceDefaults={workspaceDefaults}
+              setWorkspaceDefaults={setWorkspaceDefaults}
               appGlobalAuthProfiles={appGlobalAuthProfiles}
               featureGroups={featureGroups}
               selectedEnvId={selectedEnvId}
@@ -671,6 +674,7 @@ export default function App() {
                 svcName={selectedSvc?.name}
                 selectedSvc={selectedSvc}
                 selectedEnvId={selectedEnvId}
+                workspaceDefaultsOverride={workspaceDefaults}
                 globalAuthProfiles={appGlobalAuthProfiles}
               />
             </div>
