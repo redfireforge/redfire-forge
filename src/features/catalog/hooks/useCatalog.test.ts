@@ -274,19 +274,29 @@ describe('useCatalog', () => {
     expect(result.current.selectedEntry?.currentVersionId).toBe('v2');
   });
 
-  it('removeVersion leaves other entries unchanged', async () => {
-    const entry1 = makeEntry({
-      id: 'e1',
-      versions: [
-        { id: 'v1', version: '1', importedAt: 1, specHash: 'h', specSize: 1 },
-        { id: 'v2', version: '2', importedAt: 2, specHash: 'h', specSize: 1 },
-      ],
+  it('removeVersion of the last remaining version resets currentVersionId to empty string', async () => {
+    // newVersions = [] → newVersions[0]?.id = undefined → ?? '' fallback
+    const entry = makeEntry({
+      currentVersionId: 'v1',
+      versions: [{ id: 'v1', version: '1', importedAt: 1, specHash: 'h', specSize: 1 }],
     });
-    const entry2 = makeEntry({ id: 'e2', name: 'Other API' });
-    const { result } = await setup([entry1, entry2]);
-    await act(async () => { await result.current.removeVersion('e1', 'v2'); });
-    const untouched = result.current.entries.find((e) => e.id === 'e2');
-    expect(untouched?.versions).toHaveLength(1);
-    expect(untouched?.currentVersionId).toBe('v1');
+    const { result } = await setup([entry]);
+    await act(async () => { await result.current.removeVersion('e1', 'v1'); });
+    expect(result.current.entries[0]?.versions).toHaveLength(0);
+    expect(result.current.entries[0]?.currentVersionId).toBe('');
+  });
+
+  it('addVersionToEntry prunes old raw specs when versions exceed MAX (10)', async () => {
+    const existingVersions = Array.from({ length: 10 }, (_, i) => ({
+      id: `v${i + 1}`, version: `${i + 1}.0`, importedAt: i, specHash: 'h', specSize: 1,
+    }));
+    const entry = makeEntry({ currentVersionId: 'v10', versions: existingVersions });
+    const { result } = await setup([entry]);
+    const parsed = makeParsed('vNew');
+    storage.saveCatalogRawSpec.mockResolvedValue(undefined);
+    storage.removeCatalogRawSpec.mockResolvedValue(undefined);
+    await act(async () => { await result.current.addVersionToEntry('e1', parsed); });
+    // allVersions = [vNew, v1, v2 ... v10] → 11 total → toPrune = [v10]
+    expect(storage.removeCatalogRawSpec).toHaveBeenCalledWith('e1', 'v10');
   });
 });

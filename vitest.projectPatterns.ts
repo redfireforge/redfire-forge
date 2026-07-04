@@ -44,6 +44,11 @@ export const PRODUCT_COVERAGE_EXCLUDE = [
   '**/*.test.{ts,tsx}',
   '**/*.config.{ts,js}',
   'src/shared/types/index.ts',
+  // App and server entry points — not unit-testable
+  'src/app/main.tsx',
+  'src-server/index.ts',
+  // Test factory / helper files
+  'src/features/websocket/__tests__/websocket.test.factories.ts',
   // Entire demo hub — product coverage gate (Phase 1 + Phase 3 shell + Phase 7 package)
   '**/packages/demo-hub/**',
   '**/src/app/demo/**',

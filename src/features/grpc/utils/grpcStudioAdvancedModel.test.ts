@@ -27,7 +27,6 @@ import {
   transitionAdvancedOpToRunning,
   validateLoadTestPreconditions,
 } from './grpcStudioAdvancedCommands';
-import { GRPC_SCHEMA_DIFF_UI_LIST_CAP } from '../grpcStudioAdvancedTypes';
 
 const ROOT = fileURLToPath(new URL('../../../..', import.meta.url));
 
@@ -84,8 +83,9 @@ describe('grpcStudioAdvancedModel (Phase 11G)', () => {
     expect(result.visible[0]?.entityPath).toBe('b');
   });
 
-  it('filterGrpcSchemaDiffChangesForUi caps large lists', () => {
-    const changes = Array.from({ length: GRPC_SCHEMA_DIFF_UI_LIST_CAP + 10 }, (_, index) => ({
+  it('filterGrpcSchemaDiffChangesForUi keeps full large lists for virtual rendering', () => {
+    const totalChanges = 750;
+    const changes = Array.from({ length: totalChanges }, (_, index) => ({
       severity: 'informational' as const,
       entityType: 'field' as const,
       entityPath: `msg.f${index}`,
@@ -93,9 +93,9 @@ describe('grpcStudioAdvancedModel (Phase 11G)', () => {
       description: `change ${index}`,
     }));
     const result = filterGrpcSchemaDiffChangesForUi(changes, 'all');
-    expect(result.visible).toHaveLength(GRPC_SCHEMA_DIFF_UI_LIST_CAP);
-    expect(result.truncated).toBe(true);
-    expect(result.total).toBe(GRPC_SCHEMA_DIFF_UI_LIST_CAP + 10);
+    expect(result.visible).toHaveLength(totalChanges);
+    expect(result.truncated).toBe(false);
+    expect(result.total).toBe(totalChanges);
   });
 
   it('parseGrpcMockRuleSetJson rejects invalid JSON', () => {

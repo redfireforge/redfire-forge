@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect, useCallback } from 'react';
 import type { Workflow, CorrelationWaitNodeData } from '../../workflow/types/workflow';
 import type { CorrelationWaitRunnerConfig } from '../../../shared/types';
+import { getByPath, setByPath } from '../../../shared/utils/jsonPath';
 
 interface PausedCorrelation {
   correlationId: string;
@@ -99,31 +100,6 @@ const MODE_OPTIONS: { value: CorrelationWaitRunnerConfig['mode']; label: string;
   { value: 'synthetic-inject', label: 'Synthetic Inject (Delayed)', hint: 'Resume with mock payload after configurable delay' },
   { value: 'wait-for-real', label: 'Wait for Real Webhook', hint: 'Actually wait for external callbacks (not recommended for load tests)' },
 ];
-
-/** Get a nested value from an object using dot-notation path */
-function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
-  const keys = path.split('.');
-  let current: unknown = obj;
-  for (const key of keys) {
-    if (current === null || current === undefined || typeof current !== 'object') return undefined;
-    current = (current as Record<string, unknown>)[key];
-  }
-  return current;
-}
-
-/** Set a nested value in an object using dot-notation path */
-function setNestedValue(obj: Record<string, unknown>, path: string, value: unknown): void {
-  const keys = path.split('.');
-  let current = obj;
-  for (let i = 0; i < keys.length - 1; i++) {
-    const key = keys[i];
-    if (!(key in current) || typeof current[key] !== 'object') {
-      current[key] = {};
-    }
-    current = current[key] as Record<string, unknown>;
-  }
-  current[keys[keys.length - 1]] = value;
-}
 
 /** Build a default mock payload based on the CorrelationWait node's extract variables */
 function buildDefaultMockPayload(data: CorrelationWaitNodeData): Record<string, unknown> {
@@ -507,7 +483,7 @@ export default function CorrelationWaitConfigPanel({ workflow, config, onChange,
                     <div className="wf-runner-payload-fields">
                       {dynamicFields.map(ev => {
                         const fieldPath = ev.jsonPath.replace(/^\$\.?/, '');
-                        const fieldValue = getNestedValue(currentPayload, fieldPath) ?? '';
+                        const fieldValue = getByPath(currentPayload, fieldPath) ?? '';
                         
                         return (
                           <div key={ev.name} className="wf-runner-payload-field">
@@ -517,7 +493,7 @@ export default function CorrelationWaitConfigPanel({ workflow, config, onChange,
                               value={String(fieldValue)}
                               onChange={(e) => {
                                 const newPayload = { ...currentPayload };
-                                setNestedValue(newPayload, fieldPath, e.target.value);
+                                setByPath(newPayload, fieldPath, e.target.value);
                                 handleMockPayloadChange(node.id, JSON.stringify(newPayload));
                               }}
                               disabled={disabled}

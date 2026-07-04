@@ -1,12 +1,13 @@
-# gRPC Test Server — echo + server reflection (Phase 1H)
+# gRPC Fixture Stack — plaintext + TLS/mTLS + Envoy grpc-web + Spring Boot fixture.
 #
 # Usage:
-#   docker compose up -d
-#   curl http://localhost:50052/health
+#   docker compose up -d --build
+#   ./probe-fixtures.sh
 #
-# gRPC:
-#   localhost:50051 — echo.EchoService/* + api.ApiService/Lookup
-#   Slow-call hook: message "@sleep:8000" delays 8s (for cancel E2E)
+# Ports:
+#   50051 (plaintext), 50443 (TLS), 50444 (mTLS), 50055 (Envoy grpc-web),
+#   9090 (Spring gRPC), 8080 (Spring HTTP/actuator),
+#   50061 (Go mock servicer gRPC), 50062 (Go mock servicer health/rules)
 services:
   grpc-test-server:
     build: .
@@ -23,4 +24,105 @@ services:
       timeout: 5s
       retries: 12
       start_period: 8s
+    restart: unless-stopped
+
+  grpc-test-server-tls:
+    build: .
+    container_name: grpc-test-server-tls
+    depends_on:
+      grpc-test-server:
+        condition: service_started
+    ports:
+      - "50443:50443"
+      - "50453:50453"
+    environment:
+      - GRPC_PORT=50443
+      - HEALTH_PORT=50453
+      - TLS_CERT_FILE=/app/certs/server.crt
+      - TLS_KEY_FILE=/app/certs/server.key
+    volumes:
+      - ./certs:/app/certs:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:50453/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 8s
+    restart: unless-stopped
+
+  grpc-test-server-mtls:
+    build: .
+    container_name: grpc-test-server-mtls
+    depends_on:
+      grpc-test-server:
+        condition: service_started
+    ports:
+      - "50444:50444"
+      - "50454:50454"
+    environment:
+      - GRPC_PORT=50444
+      - HEALTH_PORT=50454
+      - TLS_CERT_FILE=/app/certs/server.crt
+      - TLS_KEY_FILE=/app/certs/server.key
+      - TLS_CLIENT_CA_FILE=/app/certs/ca.crt
+    volumes:
+      - ./certs:/app/certs:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:50454/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 8s
+    restart: unless-stopped
+
+  envoy-grpc-web:
+    image: envoyproxy/envoy:v1.30-latest
+    container_name: grpc-envoy-web
+    depends_on:
+      grpc-test-server:
+        condition: service_healthy
+    ports:
+      - "50055:50055"
+    volumes:
+      - ./envoy/envoy.yaml:/etc/envoy/envoy.yaml:ro
+    command: ["envoy", "-c", "/etc/envoy/envoy.yaml", "-l", "info"]
+    restart: unless-stopped
+
+  spring-boot-fixture:
+    build:
+      context: ./spring-boot
+    container_name: grpc-spring-boot-fixture
+    ports:
+      - "9090:9090"
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    restart: unless-stopped
+
+  grpc-go-mock-servicer:
+    build:
+      context: .
+      dockerfile: Dockerfile.mock
+    container_name: grpc-go-mock-servicer
+    profiles:
+      - mock-servicer
+    ports:
+      - "50061:50061"
+      - "50062:50062"
+    environment:
+      - MOCK_GRPC_PORT=50061
+      - MOCK_HEALTH_PORT=50062
+      - MOCK_RULE_SET_FILE=/app/config/rules.json
+      - MOCK_DESCRIPTOR_SET_FILE=/app/config/echo.protoset
+      - MOCK_DESCRIPTOR_SERVICE=echo.EchoService
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:50062/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
     restart: unless-stopped

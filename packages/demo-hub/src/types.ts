@@ -69,6 +69,8 @@ export interface DemoLesson {
   dockerEndpoint?: string;
   /** When multiple containers must be up (e.g. TLS + mTLS), all probes must succeed. */
   dockerEndpoints?: string[];
+  /** Optional friendly names parallel to `dockerEndpoints` — overrides the port-derived labels in the gate. */
+  dockerEndpointLabels?: string[];
   /** docker compose command the user must run to start the required container. */
   dockerCommand?: string;
   /** Optional PrerequisiteGate title (default: 🐳 Docker Required). */

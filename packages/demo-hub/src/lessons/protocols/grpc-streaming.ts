@@ -5,7 +5,7 @@
  *   grpc17-intro          — call-type badges + overview
  *   grpc17-server-select  — select ServerStream method
  *   grpc17-server-fill    — fill StreamRequest fields + start stream
- *   grpc17-server-status  — inspect message log + FINISHED status
+ *   grpc17-server-status  — inspect message log + Ended status
  *   grpc17-client-select  — select ClientStream method
  *   grpc17-client-queue   — queue 3 pending messages
  *   grpc17-client-send    — start stream, send all, end
@@ -37,6 +37,7 @@ import {
   fillServerStreamRequest,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
+  runClientStreamSendLifecycle,
   startAndExchangeBidiStream,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
@@ -64,7 +65,7 @@ export const grpcStreamingLesson: GrpcDemoLesson = {
   domainId: 'protocols',
   category: 'grpc',
   description:
-    'Walk through all four gRPC streaming patterns using echo.EchoService: server streaming (live feed), client streaming (batch upload), and bidirectional streaming (interactive exchange). Understand the message log, pending queue, stream controls, and cancel/export.',
+    'Walk through the three gRPC streaming patterns (server, client, bidirectional) using echo.EchoService, plus stream controls and cancel/export. Unary is introduced for context — live-demoed in the first gRPC lesson.',
 
   setup: grpcFirstCallSetup,
   cleanup: grpcFirstCallCleanup,
@@ -73,7 +74,7 @@ export const grpcStreamingLesson: GrpcDemoLesson = {
 
   concept: {
     title: 'gRPC Streaming: Four Patterns',
-    body: `gRPC supports four call types beyond simple unary request-response. Each pattern is suited to a different data flow:
+    body: `gRPC supports four call types. Three use streaming; unary is the simple request–response pattern:
 
 | Badge | Pattern | Data flow | Use case |
 |---|---|---|---|
@@ -82,16 +83,16 @@ export const grpcStreamingLesson: GrpcDemoLesson = {
 | **CS** | Client streaming | N requests → 1 response | Batch uploads, aggregation |
 | **BD** | Bidirectional | N requests ↔ N responses | Chat, real-time collaboration |
 
-All four patterns are available on **echo.EchoService** in the local Docker fixture on \`${GRPC_DEMO_TARGET}\`.
+All four are available on **echo.EchoService** in the local Docker fixture on \`${GRPC_DEMO_TARGET}\`. This lesson live-demos **SS**, **CS**, and **BD** only.
 
 **What you will do in this lesson:**
 1. **Server streaming** — fill \`message\` and \`repeat_count: ${GRPC_STREAM_REPEAT_COUNT}\`, start the stream, and watch ${GRPC_STREAM_REPEAT_COUNT} messages arrive in the log.
 2. **Client streaming** — queue ${3} messages in the pending panel, start the stream, flush with Send all, and end.
 3. **Bidirectional** — start a bidi stream, send two messages, and read the server echoes interleaved in the log.
-4. **Cancel** — stop the bidi stream mid-flight and observe the CANCELLED lifecycle.
+4. **Cancel** — stop the bidi stream mid-flight and observe the **Cancelled** badge.
 5. **Export** — download the stream session as a JSON transcript.
 
-The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → FINISHED / CANCELLED. The **message log** (↓ = inbound from server, ↑ = outbound from client) records every message in both directions.
+The **stream status bar** shows lifecycle transitions: **Streaming** → **Ending…** → **Ended** (or **Cancelled**). The **message log** (↓ = inbound from server, ↑ = outbound from client) records every message in both directions.
 
 **Quick troubleshooting checks:**
 - If no methods appear, run **Reflect** and reselect \`echo.EchoService\`.
@@ -126,7 +127,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       {
         term: 'Stream status',
         definition:
-          'Lifecycle badge: OPEN (stream active), HALF-CLOSED (client ended, server still sending), FINISHED (both sides closed), CANCELLED (stopped mid-flight), ERROR (transport failure).',
+          'Lifecycle badge in the status bar: Streaming (messages flowing), Ending… (client half-closed, waiting for server), Ended (both sides closed), Cancelled (stopped mid-flight), Error (transport failure).',
       },
     ],
     diagram: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 460" style="display:block;width:100%;height:auto;font-family:system-ui,sans-serif">
@@ -193,7 +194,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
   <text x="191" y="207" font-size="7.5" fill="#4ade80">↓ stream-demo (4/5)</text>
   <text x="191" y="220" font-size="7.5" fill="#4ade80">↓ stream-demo (5/5)</text>
   <rect x="183" y="232" width="137" height="18" rx="3" fill="#052e16" stroke="#22c55e" stroke-width="0.8"/>
-  <text x="251" y="244" text-anchor="middle" font-size="7.5" fill="#4ade80">FINISHED · 5 inbound</text>
+  <text x="251" y="244" text-anchor="middle" font-size="7.5" fill="#4ade80">Ended · 5 inbound</text>
 
   <!-- Panel: Client Streaming -->
   <rect x="338" y="38" width="153" height="238" rx="5" fill="#0f172a" stroke="#f59e0b" stroke-width="1.2"/>
@@ -219,7 +220,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
   <rect x="420" y="214" width="55" height="14" rx="3" fill="#1e293b" stroke="#334155"/>
   <text x="447" y="223" text-anchor="middle" font-size="7" fill="#94a3b8">End stream</text>
   <rect x="346" y="232" width="137" height="18" rx="3" fill="#1e293b" stroke="#334155"/>
-  <text x="414" y="244" text-anchor="middle" font-size="7.5" fill="#94a3b8">FINISHED · 3 outbound</text>
+  <text x="414" y="244" text-anchor="middle" font-size="7.5" fill="#94a3b8">Ended · 3 outbound</text>
 
   <!-- Panel: Bidirectional -->
   <rect x="501" y="38" width="186" height="238" rx="5" fill="#0f172a" stroke="#c084fc" stroke-width="1.2"/>
@@ -244,10 +245,10 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
   <text x="517" y="180" font-size="7.5" fill="#4ade80">↓ bidi-hello</text>
   <text x="517" y="192" font-size="7.5" fill="#c084fc">↑ bidi-world</text>
   <text x="517" y="204" font-size="7.5" fill="#4ade80">↓ bidi-world</text>
-  <text x="517" y="216" font-size="7.5" fill="#f87171">× CANCELLED</text>
+  <text x="517" y="216" font-size="7.5" fill="#f87171">× Cancelled</text>
   <text x="517" y="228" font-size="7" fill="#475569">↑ client  ↓ server</text>
   <rect x="509" y="254" width="168" height="18" rx="3" fill="#1f1736" stroke="#c084fc" stroke-width="0.8"/>
-  <text x="593" y="266" text-anchor="middle" font-size="7.5" fill="#d8b4fe">CANCELLED · Export log ↓</text>
+  <text x="593" y="266" text-anchor="middle" font-size="7.5" fill="#d8b4fe">Cancelled · Export log ↓</text>
 
   <!-- Step legend -->
   <text x="350" y="310" text-anchor="middle" font-size="11" fill="#a8b8cc">Lesson flow</text>
@@ -296,17 +297,25 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       id: 'grpc17-intro',
       title: 'Four Streaming Patterns',
       description:
-        '**gRPC Studio** supports all four call types. Look at the call-type selector row — badges show **U** (unary), **SS** (server streaming), **CS** (client streaming), and **BD** (bidi streaming). ' +
-        'This lesson uses **echo.EchoService** on `localhost:50051` which exposes all four methods. ' +
-        'We\'ll walk through server, client, and bidi streaming in this order — each has a distinct message flow and lifecycle.',
-      highlight: GRPC.CONNECTION_BAR,
+        'The call-type selector shows the four gRPC patterns side by side:\n\n' +
+        '- **U** — unary: one request, one response (like HTTP)\n' +
+        '- **SS** — server streaming: one request triggers a live feed of responses\n' +
+        '- **CS** — client streaming: you send multiple messages; server responds once at the end\n' +
+        '- **BD** — bidirectional: both sides stream messages concurrently over one HTTP/2 connection\n\n' +
+        'gRPC defines **four call types** total; **three are streaming** (**SS**, **CS**, **BD**). ' +
+        'This lesson live-demos those three on **echo.EchoService** at `localhost:50051`. ' +
+        'Unary (**U**) appears in the selector for context — see the first gRPC lesson for a unary walkthrough.',
+      highlight: GRPC.CALL_TYPE_SELECTOR,
       pauseAfter: true,
       preAction: async (ctx) => {
         await navigateToGrpcStudio(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
         await ensureGrpcStudioSubNavQuiet(ctx);
         await ensureGrpcReflected(ctx);
+        await ctx.waitFor(GRPC.CALL_TYPE_SELECTOR, 8_000);
+        await ctx.delay(600);
       },
+      verify: GRPC.CALL_TYPE_SELECTOR,
     },
 
     // -------------------------------------------------------------------------
@@ -316,9 +325,10 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       id: 'grpc17-server-select',
       title: 'Server Streaming: Select ServerStream',
       description:
-        'Expand **echo.EchoService** and click **ServerStream** — badge **SS**. ' +
-        'The call panel switches to the streaming layout. ' +
-        'Notice the **call-type selector** row — it shows the method\'s streaming category and locks in the correct panel UI.',
+        'Expand **echo.EchoService** in the Services panel and click **ServerStream** — badge **SS**. ' +
+        'Once a method is selected, the call-type selector row from step 1 disappears — the streaming mode is now fixed by the schema. ' +
+        'The panel switches to the **server streaming layout**: a **Start stream** button appears along with the message log area. ' +
+        'The header reads **Server streaming RPC · echo.StreamRequest → echo.EchoResponse**.',
       highlight: GRPC_SERVER_STREAM_SEL,
       pauseAfter: true,
       preAction: async (ctx) => {
@@ -327,10 +337,10 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       },
       action: async (ctx) => {
         await ensureStreamingMethodSelected(ctx, 'ServerStream');
-        await ctx.waitFor(GRPC.CALL_TYPE_SELECTOR, 8_000);
-        await ctx.delay(220);
+        await ctx.waitFor(GRPC.STREAM_START_BTN, 8_000);
+        await ctx.delay(600);
       },
-      verify: GRPC.CALL_TYPE_SELECTOR,
+      verify: GRPC.STREAM_START_BTN,
     },
 
     // -------------------------------------------------------------------------
@@ -340,17 +350,18 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       id: 'grpc17-server-fill',
       title: 'Server Streaming: Fill and Start',
       description:
-        `Set **message** to \`${GRPC_STREAM_MESSAGE}\`, **repeat_count** to \`${GRPC_STREAM_REPEAT_COUNT}\`, and **interval_ms** to \`${GRPC_STREAM_INTERVAL_MS}\` in the request form. ` +
-        'Then click **Start** — the server will push five echoed messages back, one every ~300 ms. ' +
-        'Watch them arrive one by one in the **message log** with ↓ direction arrows.',
-      highlight: GRPC.PROTO_FIELD_INPUT_MESSAGE,
+        `Fill the request form: set **message** to \`${GRPC_STREAM_MESSAGE}\`, **repeat_count** to \`${GRPC_STREAM_REPEAT_COUNT}\`, and **interval_ms** to \`${GRPC_STREAM_INTERVAL_MS}\`. ` +
+        `Then click **Start stream**. The server pushes **${GRPC_STREAM_REPEAT_COUNT} echo messages** back, one every ${GRPC_STREAM_INTERVAL_MS} ms. ` +
+        'Watch them land **one by one** in the message log — each row shows **↓** (server → client), the payload, and a sequence number. ' +
+        'The ↓/↑ direction legend in the log toolbar tells you which side sent each message.',
+      highlight: GRPC.STREAM_MESSAGE_LOG,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStreamingMethodSelected(ctx, 'ServerStream');
       },
       action: async (ctx) => {
         await fillServerStreamRequest(ctx);
-        await ctx.delay(160);
+        await ctx.delay(600);
         const startBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN);
         if (startBtn && !startBtn.disabled) {
           await ctx.click(GRPC.STREAM_START_BTN);
@@ -360,7 +371,8 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
         } catch {
           // Stream log may render asynchronously; proceed anyway.
         }
-        await ctx.delay(220);
+        // Wait long enough to see all 5 messages arrive (5 × 300ms = 1.5s + buffer).
+        await ctx.delay(2_000);
       },
       verify: GRPC.STREAM_MESSAGE_LOG,
     },
@@ -370,29 +382,33 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
     // -------------------------------------------------------------------------
     {
       id: 'grpc17-server-status',
-      title: 'Server Streaming: Status Transitions',
+      title: 'Server Streaming: Ended Status',
       description:
-        'Look at the **stream status bar** — it shows OPEN while messages are arriving, then transitions to **FINISHED** once the server closes its side. ' +
-        'The inbound message count chips update in real time. ' +
-        'For server streaming the client never sends additional messages — the server drives the sequence entirely.',
+        'Look at the **stream status bar** above the message log. ' +
+        'While messages were arriving the badge showed **Streaming**; now that the server has sent all ' +
+        `${GRPC_STREAM_REPEAT_COUNT} messages and closed its side it reads **Ended**. ` +
+        'The **↓ inbound count chip** shows the total received. ' +
+        'This is the defining trait of server streaming: the client sends nothing after the initial request — ' +
+        'data flows strictly one-way, server → client, until the server decides it is done.',
       highlight: GRPC.STREAM_STATUS_BAR,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStreamingMethodSelected(ctx, 'ServerStream');
-        // If server stream hasn't been started yet, start it now.
+        // If the stream has not been started yet, start it and wait for Ended.
         if (!document.querySelector(GRPC.STREAM_LOG_LIST)) {
           await fillServerStreamRequest(ctx);
           const startBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN);
           if (startBtn && !startBtn.disabled) {
             await ctx.click(GRPC.STREAM_START_BTN);
-            await ctx.delay(240);
           }
         }
+        // Wait for the stream to reach a terminal state so the action highlights a stable badge.
+        await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 5_000);
       },
       action: async (ctx) => {
         await ctx.waitFor(GRPC.STREAM_STATUS_BAR, 5_000);
         await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 3_000);
-        await ctx.delay(180);
+        await ctx.delay(1_200);
       },
       verify: GRPC.STREAM_STATUS_BAR,
     },
@@ -405,8 +421,9 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       title: 'Client Streaming: Select ClientStream',
       description:
         'Click **ClientStream** — badge **CS** — in the Service Explorer. ' +
-        'The call panel now shows a **pending queue panel** on the right side. ' +
-        'In client streaming you compose messages locally and stage them before sending. The server waits for the client to signal end-of-stream before responding.',
+        'The call panel switches to the **client streaming layout**: a **Pending messages** panel on the left with **+ Add to queue**, **Send all**, and **End stream** controls grouped together. ' +
+        'Client streaming is the inverse of server streaming — you send multiple messages; the server accumulates them and replies **once** when you signal end-of-stream. ' +
+        'The pending queue lets you stage messages locally before the stream even opens.',
       highlight: GRPC_CLIENT_STREAM_SEL,
       pauseAfter: true,
       preAction: async (ctx) => {
@@ -416,7 +433,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       action: async (ctx) => {
         await ensureStreamingMethodSelected(ctx, 'ClientStream');
         await ctx.waitFor(GRPC.STREAM_ADD_QUEUE_BTN, 8_000);
-        await ctx.delay(180);
+        await ctx.delay(600);
       },
       verify: GRPC.STREAM_ADD_QUEUE_BTN,
     },
@@ -428,12 +445,14 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       id: 'grpc17-client-queue',
       title: 'Client Streaming: Queue Three Messages',
       description:
-        'Compose three messages in the form and click **+ Add to queue** after each:\n\n' +
+        'Type each value in the **message** field, then click **+ Add to queue** at the bottom of the **Pending messages** panel:\n\n' +
         '1. `client-msg-1` → Add to queue\n' +
         '2. `client-msg-2` → Add to queue\n' +
         '3. `client-msg-3` → Add to queue\n\n' +
-        'Messages appear in the **Pending messages** panel with index and preview. ' +
-        'You can remove any item before sending. The pending queue lets you prepare a batch before opening the stream.',
+        'The **3 queued** badge in the panel header updates as items are staged. ' +
+        'All three entries appear in the **Pending messages** panel with an index and payload preview. ' +
+        'You can remove any item before opening the stream. ' +
+        'The queue keeps your messages staged until you are ready to flush them.',
       highlight: GRPC.STREAM_PENDING_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
@@ -442,7 +461,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       action: async (ctx) => {
         await ensureClientStreamQueued(ctx);
         await ctx.waitFor(GRPC.STREAM_PENDING_PANEL, 5_000);
-        await ctx.delay(160);
+        await ctx.delay(800);
       },
       verify: GRPC.STREAM_PENDING_PANEL,
     },
@@ -454,12 +473,14 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       id: 'grpc17-client-send',
       title: 'Client Streaming: Start, Send All, End',
       description:
-        'Three actions complete the client streaming lifecycle:\n\n' +
-        '1. Click **Start** to open the HTTP/2 stream to the server.\n' +
-        '2. Click **▶ Send all** in the pending panel to flush the three staged messages through the open channel.\n' +
-        '3. Click **End stream** to signal that the client is done writing. The server processes the batch and returns one aggregated echo response.\n\n' +
-        'The message log shows the three outbound messages (↑) and one inbound echo (↓).',
-      highlight: GRPC.STREAM_START_BTN,
+        'Three controls drive the full client stream lifecycle. Watch the spotlight ' +
+        'step through each one **in order** — it pauses on each control so you can ' +
+        'follow along:\n\n' +
+        '1. **Start stream** — opens the HTTP/2 channel; the server waits for your messages.\n' +
+        '2. **▶ Send all** — flushes all 3 staged messages at once. Watch three **↑** entries appear in the log.\n' +
+        '3. **End stream** — signals half-close (client is done writing). The server returns one aggregated echo and both sides close.\n\n' +
+        'The status bar walks through **Streaming → Ending… → Ended**. The log ends with 3 outbound (↑) and 1 inbound (↓).',
+      highlight: GRPC.STREAM_PENDING_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStreamingMethodSelected(ctx, 'ClientStream');
@@ -467,44 +488,19 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
         if (!document.querySelector(GRPC.STREAM_PENDING_ITEM(0))) {
           await ensureClientStreamQueued(ctx);
         }
-        // If stream is already active (cancel button present), close it first.
+        // If a stream is already active (cancel button present), close it first.
         const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_CANCEL_BTN);
         if (cancelBtn && !cancelBtn.disabled) {
           cancelBtn.click();
-          await ctx.delay(180);
+          await ctx.delay(300);
         }
       },
       action: async (ctx) => {
-        // 1. Start the stream.
-        const startBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN);
-        if (startBtn && !startBtn.disabled) {
-          await ctx.click(GRPC.STREAM_START_BTN);
-          await ctx.delay(180);
-        }
-        // 2. Send all queued messages.
-        try {
-          await ctx.waitFor(GRPC.STREAM_SEND_ALL_BTN, 3_000);
-          const sendAll = document.querySelector<HTMLButtonElement>(GRPC.STREAM_SEND_ALL_BTN);
-          if (sendAll && !sendAll.disabled) {
-            await ctx.click(GRPC.STREAM_SEND_ALL_BTN);
-            await ctx.delay(180);
-          }
-        } catch {
-          // Send all may be unavailable if stream is already ended.
-        }
-        // 3. End the stream (signal client half-close).
-        try {
-          await ctx.waitFor(GRPC.STREAM_PENDING_END_BTN, 2_000);
-          const endBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_PENDING_END_BTN);
-          if (endBtn && !endBtn.disabled) {
-            await ctx.click(GRPC.STREAM_PENDING_END_BTN);
-            await ctx.delay(160);
-          }
-        } catch {
-          // End button may not be present if stream already finished.
-        }
+        // Sequential spotlight: Start stream → Send all → End stream. Each control
+        // lights up and holds so a viewer can follow before it activates.
+        await runClientStreamSendLifecycle(ctx);
         await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 2_600);
-        await ctx.delay(160);
+        await ctx.delay(1_000);
       },
       verify: GRPC.STREAM_STATUS_BAR,
     },
@@ -517,9 +513,9 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       title: 'Bidirectional: Select BidiStream',
       description:
         'Click **BidiStream** — badge **BD** — in the Service Explorer. ' +
-        'The call panel shows a compose area where you can type messages and a live message log. ' +
-        'In bidirectional streaming both sides can send messages at any time on the same HTTP/2 stream — ' +
-        'the server echoes back each message immediately.',
+        'The call panel shows a **message compose area** (type + Send message) alongside the live message log. ' +
+        'Bidirectional streaming is the most powerful pattern: **both client and server stream messages independently** over the same persistent HTTP/2 connection. ' +
+        'This enables real-time chat, live collaboration feeds, and request-response ping-pong — without opening a new connection for each exchange.',
       highlight: GRPC_BIDI_STREAM_SEL,
       pauseAfter: true,
       preAction: async (ctx) => {
@@ -529,7 +525,7 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       action: async (ctx) => {
         await ensureStreamingMethodSelected(ctx, 'BidiStream');
         await ctx.waitFor(GRPC.STREAM_START_BTN, 8_000);
-        await ctx.delay(160);
+        await ctx.delay(600);
       },
       verify: GRPC.STREAM_START_BTN,
     },
@@ -541,20 +537,22 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       id: 'grpc17-bidi-exchange',
       title: 'Bidirectional: Interactive Exchange',
       description:
-        'Click **Start** to open the bidi stream. Then send two messages:\n\n' +
-        '1. Type `bidi-hello` → click **Send message** — the server echoes it back immediately.\n' +
-        '2. Type `bidi-world` → click **Send message** — server echoes again.\n\n' +
-        'Watch the interleaved ↑ (outbound) and ↓ (inbound) arrows in the **message log**. ' +
-        'Both sides are communicating over the same persistent HTTP/2 stream — no new connections.',
+        'Click **Start stream** to open the bidi channel. Compose each message in the **Form Input** field on the left, then click **↑ Send message** in the action bar directly below the form:\n\n' +
+        '1. Type `bidi-hello` → **↑ Send message** — the server echoes it back as a **↓** entry immediately.\n' +
+        '2. Type `bidi-world` → **↑ Send message** — another echo arrives.\n\n' +
+        'When finished gracefully, click **End stream** (same bar). Use **Cancel stream** in the top send bar only to abort mid-flight.\n\n' +
+        'Watch the **message log**: ↑ rows are your sends, ↓ rows are the server echoes, interleaved in real time. ' +
+        'This is the ping-pong pattern — both sides talking over one persistent HTTP/2 stream.',
       highlight: GRPC.STREAM_MESSAGE_LOG,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStreamingMethodSelected(ctx, 'BidiStream');
-        // If stream is already active, it may still be open from a previous run — ok.
+        // If stream is already active from a prior run, that's fine — exchange will add to log.
       },
       action: async (ctx) => {
         await startAndExchangeBidiStream(ctx);
-        await ctx.delay(140);
+        // Pause so the viewer can read the interleaved ↑/↓ log.
+        await ctx.delay(1_200);
       },
       verify: GRPC.STREAM_MESSAGE_LOG,
     },
@@ -566,15 +564,15 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       id: 'grpc17-cancel',
       title: 'Cancel Mid-Stream',
       description:
-        'While the bidi stream is still open, click the **Cancel** button. ' +
-        'The stream status transitions to **CANCELLED**. ' +
-        'gRPC cancellation sends an HTTP/2 RST_STREAM frame to the server — it immediately stops processing further messages. ' +
-        'Cancellation is safe and commonly used to abort long-running or stale streams.',
+        'The bidi stream is still open. Click **Cancel** — gRPC sends an HTTP/2 **RST_STREAM** frame that immediately tells the server to stop. ' +
+        'The status badge transitions to **Cancelled**. ' +
+        'This is safe and instant: unlike closing a TCP socket, RST_STREAM is protocol-level — the server handles it cleanly and releases resources right away. ' +
+        'Use Cancel any time you need to abort a long-running or stale stream.',
       highlight: GRPC.STREAM_CANCEL_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStreamingMethodSelected(ctx, 'BidiStream');
-        // Ensure bidi stream is open so the Cancel button is present.
+        // Ensure the bidi stream is open so the Cancel button is available.
         const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_CANCEL_BTN);
         if (!cancelBtn) {
           await startAndExchangeBidiStream(ctx);
@@ -587,7 +585,8 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
         }
         await ctx.waitFor(GRPC.STREAM_STATUS_BAR, 3_000);
         await waitForStreamStatusText(ctx, /(cancelled|canceled)/i, 2_400);
-        await ctx.delay(160);
+        // Hold on Cancelled so the viewer reads the badge.
+        await ctx.delay(1_000);
       },
       verify: GRPC.STREAM_STATUS_BAR,
     },
@@ -600,19 +599,20 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
       title: 'Export the Stream Log',
       description:
         'Click **Export log** in the message log toolbar. ' +
-        'RedfireForge downloads a JSON transcript of the stream session including direction, payload, and timestamps for every message. ' +
-        'This is useful for debugging, regression testing, or sharing stream behavior with teammates without live access to the server.',
+        'RedfireForge downloads a structured JSON file — an array of entries each containing **direction** (inbound/outbound), **payload**, and **timestamp**. ' +
+        'The transcript covers the entire session: every ↑ send, every ↓ echo, and the final Cancelled status. ' +
+        'Use it for regression tests, sharing stream behavior without live server access, or feeding raw payloads into other tools.',
       highlight: GRPC.STREAM_EXPORT_LOG_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStreamingMethodSelected(ctx, 'BidiStream');
-        // Ensure the message log has content.
+        // Ensure the message log has content to export.
         if (!document.querySelector(GRPC.STREAM_LOG_LIST)) {
           await startAndExchangeBidiStream(ctx);
           const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_CANCEL_BTN);
           if (cancelBtn && !cancelBtn.disabled) {
             cancelBtn.click();
-            await ctx.delay(160);
+            await ctx.delay(300);
           }
         }
       },
@@ -622,7 +622,8 @@ The **stream status bar** shows lifecycle transitions: OPEN → HALF-CLOSED → 
         if (exportBtn && !exportBtn.disabled) {
           await ctx.click(GRPC.STREAM_EXPORT_LOG_BTN);
         }
-        await ctx.delay(160);
+        // Pause so the viewer sees the download initiate.
+        await ctx.delay(800);
       },
       verify: GRPC.STREAM_EXPORT_LOG_BTN,
     },

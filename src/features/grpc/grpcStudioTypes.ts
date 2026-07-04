@@ -51,7 +51,7 @@ import {
 } from './utils/resolveGrpcTabConnection';
 import type { GrpcMaskedSecretFields } from './utils/grpcSecretFieldUi';
 import { validateResolvedGrpcTargetAddress, withGrpcTargetValidationMessage } from '../../shared/grpc/targetValidation';
-import { DEFAULT_PROTO_ROOT_ID, DEFAULT_PROTO_ROOT_MOUNT } from './utils/grpcProtoIngestUtils';
+import { DEFAULT_PROTO_ROOT_ID, DEFAULT_PROTO_ROOT_MOUNT, ensureProtoRootsDraft } from './utils/grpcProtoIngestUtils';
 
 export type GrpcRequestLifecycle =
   | 'idle'
@@ -114,6 +114,20 @@ export function createDefaultProtoIngestState(): GrpcTabProtoIngestState {
     source: 'proto_files',
     protoRoots: [{ id: DEFAULT_PROTO_ROOT_ID, mountPath: DEFAULT_PROTO_ROOT_MOUNT, files: [] }],
     importPaths: [],
+  };
+}
+
+/** Merge persisted or partial ingest drafts with defaults (legacy sessions may omit protoRoots). */
+export function normalizeProtoIngestState(
+  raw: GrpcTabProtoIngestState | undefined,
+): GrpcTabProtoIngestState {
+  const defaults = createDefaultProtoIngestState();
+  if (!raw) return defaults;
+  return {
+    ...defaults,
+    ...raw,
+    protoRoots: ensureProtoRootsDraft(raw.protoRoots),
+    importPaths: raw.importPaths ?? defaults.importPaths,
   };
 }
 

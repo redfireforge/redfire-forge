@@ -66,6 +66,8 @@ const h = vi.hoisted(() => {
       setAppGlobalAuthProfiles: fn(),
       sharedDataSources: [] as unknown[],
       setSharedDataSources: fn(),
+      workspaceDefaults: {} as Record<string, string>,
+      setWorkspaceDefaults: fn(),
       selectedEnvId: 'env-1',
       setSelectedEnvId: fn(),
       selectedSvcId: 'svc-1',

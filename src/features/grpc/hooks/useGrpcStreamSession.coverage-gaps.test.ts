@@ -302,6 +302,118 @@ describe('useGrpcStreamSession coverage gaps', () => {
 
     expect(grpcStreamClient.cancelGrpcStream).toHaveBeenCalledWith('stream-1', tabId);
     expect(sessionRef.current.tabs[0]?.streamLifecycle).toBe('cancelled');
+    expect(sessionRef.current.tabs[0]?.streamError).toBeUndefined();
+  });
+
+  it('cancelStreamCall keeps cancelled when SSE onError fires after cancel', async () => {
+    let streamHandlers: { onError?: (message: string) => void } = {};
+    vi.mocked(grpcStreamClient.openGrpcStreamEvents).mockImplementation((_streamId, _tabId, handlers) => {
+      streamHandlers = handlers;
+      return vi.fn();
+    });
+
+    const harness = makeHarness();
+    const { tabId, sessionRef } = harness;
+    sessionRef.current.tabs[0] = {
+      ...sessionRef.current.tabs[0]!,
+      streamLifecycle: 'streaming',
+      activeStreamId: 'stream-1',
+    };
+
+    await act(async () => {
+      await harness.hook.result.current.cancelStreamCall(tabId);
+    });
+
+    act(() => {
+      streamHandlers.onError?.('connection dropped');
+    });
+
+    expect(sessionRef.current.tabs[0]?.streamLifecycle).toBe('cancelled');
+    expect(sessionRef.current.tabs[0]?.streamError).toBeUndefined();
+  });
+
+  it('maps grpc-error status 1 to cancelled lifecycle', () => {
+    const { hook, tabId, sessionRef, streamDisposeRef, streamGenerationRef } = makeHarness();
+    sessionRef.current.tabs[0] = {
+      ...sessionRef.current.tabs[0]!,
+      streamLifecycle: 'streaming',
+      streamMessages: [],
+      lastSequence: 0,
+      activeStreamId: 'stream-1',
+    };
+    streamDisposeRef.current[tabId] = vi.fn();
+    streamGenerationRef.current[tabId] = 1;
+
+    act(() => {
+      hook.result.current.applyStreamEvent(tabId, {
+        type: 'grpc-error',
+        streamId: 'stream-1',
+        requestId: 'req-1',
+        tabId,
+        sequence: 2,
+        timestamp: '2026-01-01T00:00:01.000Z',
+        status: 1,
+        statusMessage: 'Cancelled',
+      } as GrpcStreamEvent, () => false);
+    });
+
+    expect(sessionRef.current.tabs[0]?.streamLifecycle).toBe('cancelled');
+    expect(sessionRef.current.tabs[0]?.streamError).toBeUndefined();
+  });
+
+  it('ignores grpc-error after tab already cancelled', () => {
+    const { hook, tabId, sessionRef } = makeHarness();
+    sessionRef.current.tabs[0] = {
+      ...sessionRef.current.tabs[0]!,
+      streamLifecycle: 'cancelled',
+      activeStreamId: undefined,
+      streamError: undefined,
+    };
+
+    act(() => {
+      hook.result.current.applyStreamEvent(tabId, {
+        type: 'grpc-error',
+        streamId: 'stream-1',
+        requestId: 'req-1',
+        tabId,
+        sequence: 2,
+        timestamp: '2026-01-01T00:00:01.000Z',
+        statusMessage: 'connection dropped',
+      } as GrpcStreamEvent, () => false);
+    });
+
+    expect(sessionRef.current.tabs[0]?.streamLifecycle).toBe('cancelled');
+    expect(sessionRef.current.tabs[0]?.streamError).toBeUndefined();
+  });
+
+  it('ignores grpc-end after tab already cancelled', () => {
+    const { hook, tabId, sessionRef, streamDisposeRef, streamGenerationRef } = makeHarness();
+    sessionRef.current.tabs[0] = {
+      ...sessionRef.current.tabs[0]!,
+      streamLifecycle: 'cancelled',
+      streamMessages: [],
+      lastSequence: 0,
+      activeStreamId: undefined,
+      streamError: undefined,
+    };
+    streamDisposeRef.current[tabId] = vi.fn();
+    streamGenerationRef.current[tabId] = 1;
+
+    act(() => {
+      hook.result.current.applyStreamEvent(tabId, {
+        type: 'grpc-end',
+        streamId: 'stream-1',
+        requestId: 'req-1',
+        tabId,
+        sequence: 2,
+        timestamp: '2026-01-01T00:00:01.000Z',
+        status: 14,
+        statusMessage: 'connection dropped',
+      } as GrpcStreamEvent, () => false);
+    });
+
+    expect(sessionRef.current.tabs[0]?.streamLifecycle).toBe('cancelled');
+    expect(sessionRef.current.tabs[0]?.streamError).toBeUndefined();
   });
 
   it('marks stream error when sendStreamMessage fails', async () => {

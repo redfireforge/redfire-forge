@@ -6,7 +6,6 @@ import type { GrpcSchemaDiffChange, GrpcSchemaDiffSeverity } from '../../../shar
 import type { GrpcMockRuleSet } from '../../../shared/grpc/grpcMockRuleContracts';
 import { validateGrpcMockRuleSet } from '../../../shared/grpc/grpcMockRuleContracts';
 import {
-  GRPC_SCHEMA_DIFF_UI_LIST_CAP,
   type GrpcSchemaDiffSeverityFilter,
 } from '../grpcStudioAdvancedTypes';
 
@@ -82,13 +81,11 @@ export function filterGrpcSchemaDiffChangesForUi(
   changes: GrpcSchemaDiffChange[],
   filter: GrpcSchemaDiffSeverityFilter,
   options?: {
-    cap?: number;
     acknowledgedChangeIds?: ReadonlySet<string>;
     hideAcknowledged?: boolean;
     resolveChangeId?: (change: GrpcSchemaDiffChange) => string;
   },
 ): { visible: GrpcSchemaDiffChange[]; total: number; truncated: boolean } {
-  const cap = options?.cap ?? GRPC_SCHEMA_DIFF_UI_LIST_CAP;
   let filtered = filter === 'all'
     ? changes
     : changes.filter((change) => change.severity === filter);
@@ -97,11 +94,10 @@ export function filterGrpcSchemaDiffChangesForUi(
       (change) => !options.acknowledgedChangeIds!.has(options.resolveChangeId!(change)),
     );
   }
-  const truncated = filtered.length > cap;
   return {
-    visible: truncated ? filtered.slice(0, cap) : filtered,
+    visible: filtered,
     total: filtered.length,
-    truncated,
+    truncated: false,
   };
 }
 

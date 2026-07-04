@@ -42,6 +42,19 @@ const ROUTES = [
   },
 ];
 
+function parseIntegerArg(value) {
+  if (!/^[+-]?\d+$/.test(value)) return Number.NaN;
+  return Number.parseInt(value, 10);
+}
+
+function parseNumberArg(value) {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!/^[-+]?(?:\d+\.?\d*|\.\d+)(?:[eE][-+]?\d+)?$/.test(trimmed)) {
+    return Number.NaN;
+  }
+  return Number(trimmed);
+}
+
 function parseArgs(argv) {
   const args = {
     baseUrl: DEFAULT_BASE_URL,
@@ -60,7 +73,9 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const raw = argv[index];
     if (!raw.startsWith('--')) continue;
-    const [flag, inlineValue] = raw.split('=');
+    const equalsIndex = raw.indexOf('=');
+    const flag = equalsIndex >= 0 ? raw.slice(0, equalsIndex) : raw;
+    const inlineValue = equalsIndex >= 0 ? raw.slice(equalsIndex + 1) : undefined;
     const nextValue = argv[index + 1];
     const hasSeparateValue = inlineValue == null && nextValue != null && !nextValue.startsWith('--');
     const value = inlineValue ?? (hasSeparateValue ? nextValue : '');
@@ -72,28 +87,28 @@ function parseArgs(argv) {
         if (value) args.baseUrl = value;
         break;
       case '--samples':
-        args.samples = Number.parseInt(value, 10);
+        args.samples = parseIntegerArg(value);
         break;
       case '--timeout-ms':
-        args.timeoutMs = Number.parseInt(value, 10);
+        args.timeoutMs = parseIntegerArg(value);
         break;
       case '--out':
         if (value) args.outPath = value;
         break;
       case '--max-p95-ms':
-        args.maxP95Ms = Number.parseFloat(value);
+        args.maxP95Ms = parseNumberArg(value);
         break;
       case '--max-avg-ms':
-        args.maxAvgMs = Number.parseFloat(value);
+        args.maxAvgMs = parseNumberArg(value);
         break;
       case '--max-error-rate':
-        args.maxErrorRate = Number.parseFloat(value);
+        args.maxErrorRate = parseNumberArg(value);
         break;
       case '--probe-grpc-target':
         if (value) args.probeGrpcTarget = value;
         break;
       case '--probe-samples':
-        args.probeSamples = Number.parseInt(value, 10);
+        args.probeSamples = parseIntegerArg(value);
         break;
       case '--require-data-plane':
         args.requireDataPlane = true;
@@ -114,6 +129,15 @@ function parseArgs(argv) {
   }
   if (!Number.isFinite(args.probeSamples) || args.probeSamples <= 0) {
     throw new Error('--probe-samples must be a positive integer');
+  }
+  if (args.maxP95Ms != null && (!Number.isFinite(args.maxP95Ms) || args.maxP95Ms <= 0)) {
+    throw new Error('--max-p95-ms must be a positive number');
+  }
+  if (args.maxAvgMs != null && (!Number.isFinite(args.maxAvgMs) || args.maxAvgMs <= 0)) {
+    throw new Error('--max-avg-ms must be a positive number');
+  }
+  if (args.maxErrorRate != null && (!Number.isFinite(args.maxErrorRate) || args.maxErrorRate < 0 || args.maxErrorRate > 1)) {
+    throw new Error('--max-error-rate must be a number between 0 and 1');
   }
 
   return args;

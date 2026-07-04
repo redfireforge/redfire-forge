@@ -171,6 +171,26 @@ describe('GrpcStreamService coverage gaps', () => {
     });
   });
 
+  it('does not write initial payload for client streaming on start (use Send message / Send all)', () => {
+    const write = vi.fn();
+    const mockClient: GrpcStreamingClientFactory = {
+      startStream: vi.fn(() => ({
+        callType: 'client_streaming',
+        write,
+        endWrites: vi.fn(),
+        cancel: vi.fn(),
+      })),
+    };
+    const service = new GrpcStreamService(mockClient);
+    const start = service.startStream({
+      ...FIXTURE_CLIENT_STREAM_START_REQUEST,
+      requestId: 'req-client-no-initial',
+      body: { message: 'seed' },
+    }, 'tab-1');
+    expect(start.ok).toBe(true);
+    expect(write).not.toHaveBeenCalled();
+  });
+
   it('writes initial bidi payload during start when body is provided', () => {
     const write = vi.fn();
     const mockClient: GrpcStreamingClientFactory = {
@@ -365,11 +385,12 @@ describe('GrpcStreamService coverage gaps', () => {
     }
   });
 
-  it('startStream returns write errors for initial client-stream payloads', () => {
+  it('startStream ignores compose body for client streaming (no initial write)', () => {
+    const write = vi.fn(() => { throw new Error('initial write failed'); });
     const mockClient: GrpcStreamingClientFactory = {
       startStream: vi.fn(() => ({
         callType: 'client_streaming',
-        write: vi.fn(() => { throw new Error('initial write failed'); }),
+        write,
         endWrites: vi.fn(),
         cancel: vi.fn(),
       })),
@@ -380,7 +401,8 @@ describe('GrpcStreamService coverage gaps', () => {
       requestId: 'req-initial-write-fail',
       body: { message: 'seed' },
     }, 'tab-1');
-    expect(start.ok).toBe(false);
+    expect(start.ok).toBe(true);
+    expect(write).not.toHaveBeenCalled();
   });
 
   it('startStream rejects duplicate active requestIds', () => {

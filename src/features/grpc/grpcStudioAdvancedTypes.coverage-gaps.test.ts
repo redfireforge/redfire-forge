@@ -4,13 +4,11 @@ import {
   DEFAULT_GRPC_LOAD_TEST_CONFIG,
   GRPC_ADVANCED_FEATURE_TABS,
   GRPC_MOCK_WORKSPACE_DEFAULT_RULES_JSON,
-  GRPC_SCHEMA_DIFF_UI_LIST_CAP,
 } from './grpcStudioAdvancedTypes';
 
 describe('grpcStudioAdvancedTypes coverage gaps', () => {
   it('exports advanced feature tab constants and defaults', () => {
-    expect(GRPC_ADVANCED_FEATURE_TABS).toEqual(['load_test', 'mock_server', 'schema_diff', 'rpc_statistics']);
-    expect(GRPC_SCHEMA_DIFF_UI_LIST_CAP).toBeGreaterThan(0);
+    expect(GRPC_ADVANCED_FEATURE_TABS).toEqual(['load_test', 'mock_server', 'schema_diff', 'rpc_statistics', 'native_diagnostics']);
     expect(GRPC_MOCK_WORKSPACE_DEFAULT_RULES_JSON).toContain('"rules"');
     expect(DEFAULT_GRPC_LOAD_TEST_CONFIG.concurrency).toBeGreaterThan(0);
   });

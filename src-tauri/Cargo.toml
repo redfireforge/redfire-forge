@@ -29,6 +29,7 @@ clap = { version = "4", features = ["derive"] }
 reqwest = { version = "0.13", features = ["json", "gzip", "brotli", "rustls", "multipart"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
+tokio-stream = "0.1"
 rand = "0.9"
 regex = "1"
 jsonschema = "0.27"
@@ -44,7 +45,11 @@ rustls-native-certs = "0.8"
 base64 = "0.22"
 bytes = "1"
 http = "1"
+hyper = { version = "1", features = ["http2", "server"] }
+hyper-util = { version = "0.1", features = ["server", "http2", "tokio"] }
+http-body-util = "0.1"
 tonic = { version = "0.12", features = ["tls", "transport"] }
+tonic-health = "0.12"
 prost = "0.13"
 prost-reflect = { version = "0.14", features = ["serde"] }
 prost-types = "0.13"
