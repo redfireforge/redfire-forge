@@ -58,6 +58,18 @@ const EMPTY_ENV_VAR_MAP: Record<string, string> = {};
 const EMPTY_GRPC_PROFILES: GrpcConnectionProfile[] = [];
 const EMPTY_GLOBAL_AUTH_PROFILES: GlobalAuthProfile[] = [];
 
+function isLoopbackTargetAddress(rawTarget: string | undefined): boolean {
+  const value = rawTarget?.trim().toLowerCase();
+  if (!value) return false;
+  const withoutScheme = value.replace(/^[a-z]+:\/\//, '');
+  if (withoutScheme.startsWith('[')) {
+    const endIndex = withoutScheme.indexOf(']');
+    return endIndex > 0 && withoutScheme.slice(1, endIndex) === '::1';
+  }
+  const host = withoutScheme.split(':')[0] ?? '';
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+}
+
 export interface UseGrpcStudioOptions {
   envVarMap?: Record<string, string>;
   workspaceDefaults?: Record<string, string>;
@@ -308,7 +320,17 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     }
 
     const restoredTabs = persistedTabs.reduce<typeof core.tabs>((acc, persistedTab) => {
-      acc.push(createGrpcStudioTab(persistedTab, acc));
+      const shouldResetToPlaintext = !persistedTab.connectionId
+        && persistedTab.tlsMode === 'tls'
+        && isLoopbackTargetAddress(persistedTab.target);
+      const normalizedPersistedTab = shouldResetToPlaintext
+        ? {
+          ...persistedTab,
+          tlsMode: undefined,
+          tlsConfig: undefined,
+        }
+        : persistedTab;
+      acc.push(createGrpcStudioTab(normalizedPersistedTab, acc));
       return acc;
     }, []);
 
