@@ -21,7 +21,7 @@ import { grpcMockServerPool } from './grpc/grpcMockServerPool.js';
 import { toErrorMessage } from '../src/shared/utils/helpers';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
-const HOST = process.env.HOST || '127.0.0.1'; // Localhost only by default
+const HOST = process.env.HOST || 'localhost'; // Localhost by default (IPv4/IPv6-friendly)
 
 let server: ReturnType<typeof app.listen> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
