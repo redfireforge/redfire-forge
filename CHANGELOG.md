@@ -12,6 +12,9 @@ Format follows Keep a Changelog and Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- **Code quality refactoring — shared hooks and helpers** — extracted `useJsonTreeCollapseState` and `useMatchCountChange` hooks; added `tryParseJsonArray<T>()` to shared helpers; extracted `grpcComposerTabState.ts` from `GrpcCallPanel`; extracted `buildJTreeFromBody` and `collectJTreePaths` into `JsonTreePreview` exports; canonical JSON helper `toCanonicalJsonString` in `ResponseVersionPanel`; `WorkflowRunner` split-test setup helper `workflowRunnerSplitTestSetup.ts`. Five components wired to `useJsonTreeCollapseState`, five expression function IIFE array-parse patterns replaced, duplicate JSON-parse/import patterns consolidated across Requests, Scenarios, and GraphQL areas.
+
+### Added
 - **gRPC Phase 13A/13B SLO baselines + CI promotion** — fixture-backed baseline harness and CI gate promotion for describe/control-plane + data-plane reliability checks; reusable `grpc:phase13b:ci` orchestration script (`scripts/grpc-phase13b-ci.sh`) spins docker fixture + API server, executes strict gate, and publishes baseline artifacts for CI diagnostics.
 - **gRPC Demo lesson expansion (phase 12 continuation)** — new schema discovery and streaming lesson tracks, demo storage cleanup helpers, and new sample assets under `examples/grpc/` and `public/grpc-samples/` to support end-to-end lesson walkthroughs.
 - **gRPC Proto ingest contract cleanup** — `/api/grpc/describe` now accepts proto ingest input through `protoRoots` only, and route/integration regression coverage is aligned to root-based ingest across Studio, shared validation, and server paths.
