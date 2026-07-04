@@ -4,6 +4,7 @@ import {
   canChangeGrpcTabTransportMode,
   createEmptyTabDescriptorState,
   createGrpcStudioTab,
+  normalizeProtoIngestState,
   type GrpcStudioTransportMode,
 } from '../grpcStudioTypes';
 import {
@@ -319,7 +320,9 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
               ? {
                 sourceSelection: persistedDescriptor.sourceSelection,
                 expandedServiceIds: persistedDescriptor.expandedServiceIds,
-                protoIngest: persistedDescriptor.protoIngest,
+                protoIngest: persistedDescriptor.protoIngest
+                  ? normalizeProtoIngestState(persistedDescriptor.protoIngest)
+                  : undefined,
               }
               : {}),
           },

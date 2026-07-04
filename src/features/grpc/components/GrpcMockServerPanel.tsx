@@ -19,6 +19,22 @@ export interface GrpcMockServerPanelProps {
   advanced: UseGrpcStudioAdvancedFeaturesReturn;
 }
 
+function mergeListenerLogs(
+  previous: GrpcMockListenerLogEntry[],
+  incoming: GrpcMockListenerLogEntry[],
+): GrpcMockListenerLogEntry[] {
+  if (incoming.length === 0) {
+    return previous;
+  }
+
+  const merged = [...previous, ...incoming].slice(-160);
+  const dedupedById = new Map<string, GrpcMockListenerLogEntry>();
+  for (const entry of merged) {
+    dedupedById.set(String(entry.id), entry);
+  }
+  return Array.from(dedupedById.values()).slice(-80);
+}
+
 export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
   const [authoringTab, setAuthoringTab] = useState<GrpcMockAuthoringTab>('builder');
   const [listenerLogs, setListenerLogs] = useState<GrpcMockListenerLogEntry[]>([]);
@@ -46,7 +62,7 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
         const result = await fetchGrpcMockNetworkListenerLogs(tabId, logCursorRef.current);
         if (cancelled || result.entries.length === 0) return;
         logCursorRef.current = result.nextCursor;
-        setListenerLogs((prev) => [...prev, ...result.entries].slice(-80));
+        setListenerLogs((prev) => mergeListenerLogs(prev, result.entries));
       } catch {
         // companion server may be offline during tests
       }

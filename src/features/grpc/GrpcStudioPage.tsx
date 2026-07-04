@@ -22,7 +22,7 @@ import {
   GrpcConnectionSettingsDrawer,
   type GrpcConnectionSettingsNav,
 } from './components/GrpcConnectionSettingsDrawer';
-import { createDefaultProtoIngestState, isGrpcLifecycleInFlight, canChangeGrpcTabTransportMode, resolveGrpcStudioTabTransportMode } from './grpcStudioTypes';
+import { createDefaultProtoIngestState, isGrpcLifecycleInFlight, canChangeGrpcTabTransportMode, normalizeProtoIngestState, resolveGrpcStudioTabTransportMode } from './grpcStudioTypes';
 import { useGrpcStudio } from './hooks/useGrpcStudio';
 import { useGrpcTls } from './hooks/useGrpcTls';
 import { useGrpcStudioPersistence } from './hooks/useGrpcStudioPersistence';
@@ -79,6 +79,7 @@ export interface GrpcStudioPageProps {
   svcName?: string;
   selectedSvc?: Microservice;
   selectedEnvId?: string;
+  workspaceDefaultsOverride?: Record<string, string>;
   globalAuthProfiles?: GlobalAuthProfile[];
 }
 
@@ -95,6 +96,7 @@ export function GrpcStudioPage({
   svcName,
   selectedSvc,
   selectedEnvId,
+  workspaceDefaultsOverride,
 }: GrpcStudioPageProps) {
   const [densityMode, setDensityMode] = useState<GrpcStudioDensityMode>(() => {
     try {
@@ -120,10 +122,11 @@ export function GrpcStudioPage({
     return buildLegacyGrpcEnvVarMapImpl(resolvedBaseUrl, envName, svcName);
   }, [selectedSvc, selectedEnvId, resolvedBaseUrl, envName, svcName]);
 
-  const workspaceDefaults = useMemo(
-    () => buildLegacyGrpcEnvVarMap(resolvedBaseUrl, envName, svcName),
-    [resolvedBaseUrl, envName, svcName],
-  );
+  const workspaceDefaults = useMemo(() => {
+    const legacyDefaults = buildLegacyGrpcEnvVarMap(resolvedBaseUrl, envName, svcName);
+    if (!workspaceDefaultsOverride) return legacyDefaults;
+    return { ...legacyDefaults, ...workspaceDefaultsOverride };
+  }, [resolvedBaseUrl, envName, svcName, workspaceDefaultsOverride]);
 
   const pageDefaults = useMemo(() => ({
     target: envVarMap.grpcHost ?? '',
@@ -338,7 +341,7 @@ export function GrpcStudioPage({
     previousActiveTabIdRef.current = studio.activeTabId;
   }, [studio.activeTabId]);
 
-  const activeProtoIngest = studio.activeTabDescriptor.protoIngest ?? createDefaultProtoIngestState();
+  const activeProtoIngest = normalizeProtoIngestState(studio.activeTabDescriptor.protoIngest);
 
   const activeConnection = studio.resolveTabConnection(studio.activeTab.id);
   const activeTab = studio.activeTab;

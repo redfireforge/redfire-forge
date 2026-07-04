@@ -6,6 +6,7 @@ import {
   loadFeatureGroups, saveFeatureGroups,
   loadGlobalAuthProfiles, saveGlobalAuthProfiles,
   loadSharedDataSources, saveSharedDataSources,
+  loadWorkspaceDefaults, saveWorkspaceDefaults,
   loadSelectedEnvId, saveSelectedEnvId,
   loadSelectedSvcId, saveSelectedSvcId,
   migrateToFlat,
@@ -32,6 +33,8 @@ export interface UseProjectsReturn {
   setAppGlobalAuthProfiles: React.Dispatch<React.SetStateAction<GlobalAuthProfile[]>>;
   sharedDataSources: SharedDataSource[];
   setSharedDataSources: React.Dispatch<React.SetStateAction<SharedDataSource[]>>;
+  workspaceDefaults: Record<string, string>;
+  setWorkspaceDefaults: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 
   selectedEnvId: string;
   setSelectedEnvId: (id: string) => void;
@@ -54,6 +57,7 @@ export function useProjects(): UseProjectsReturn {
   const [featureGroups, setFeatureGroups] = useState<FeatureGroup[]>([]);
   const [appGlobalAuthProfiles, setAppGlobalAuthProfiles] = useState<GlobalAuthProfile[]>([]);
   const [sharedDataSources, setSharedDataSources] = useState<SharedDataSource[]>([]);
+  const [workspaceDefaults, setWorkspaceDefaults] = useState<Record<string, string>>({});
   const [selectedEnvId, _setSelectedEnvId] = useState(() => localStorage.getItem('perf-test-v3-selected-env') ?? '');
   const [selectedSvcId, _setSelectedSvcId] = useState(() => localStorage.getItem('perf-test-v3-selected-svc') ?? '');
 
@@ -75,12 +79,13 @@ export function useProjects(): UseProjectsReturn {
       // Migrate any per-FG sharedDataSources to top-level (one-time, idempotent)
       await migratePerFgSharedDataSourcesToTopLevel();
 
-      const [envs, svcs, fgs, auth, sharedDs, selEnv, selSvc, maxR, usage, savedTheme, runs, purgedCount] = await Promise.all([
+      const [envs, svcs, fgs, auth, sharedDs, workspaceDef, selEnv, selSvc, maxR, usage, savedTheme, runs, purgedCount] = await Promise.all([
         loadEnvironments(),
         loadMicroservices(),
         loadFeatureGroups(),
         loadGlobalAuthProfiles(),
         loadSharedDataSources(),
+        loadWorkspaceDefaults(),
         loadSelectedEnvId(),
         loadSelectedSvcId(),
         getMaxRuns(),
@@ -96,6 +101,7 @@ export function useProjects(): UseProjectsReturn {
       setFeatureGroups(normalizeGroupActionTypes(fgs));
       setAppGlobalAuthProfiles(auth);
       setSharedDataSources(sharedDs);
+      setWorkspaceDefaults(workspaceDef);
       _setSelectedEnvId(selEnv);
       _setSelectedSvcId(selSvc);
       setInitialMaxRuns(maxR);
@@ -119,6 +125,7 @@ export function useProjects(): UseProjectsReturn {
   useEffect(() => { if (!loading) void saveFeatureGroups(featureGroups); }, [featureGroups, loading]);
   useEffect(() => { if (!loading) void saveGlobalAuthProfiles(appGlobalAuthProfiles); }, [appGlobalAuthProfiles, loading]);
   useEffect(() => { if (!loading) void saveSharedDataSources(sharedDataSources); }, [sharedDataSources, loading]);
+  useEffect(() => { if (!loading) void saveWorkspaceDefaults(workspaceDefaults); }, [workspaceDefaults, loading]);
   useEffect(() => { if (!loading) void saveSelectedEnvId(selectedEnvId); }, [selectedEnvId, loading]);
   useEffect(() => { if (!loading) void saveSelectedSvcId(selectedSvcId); }, [selectedSvcId, loading]);
 
@@ -172,6 +179,7 @@ export function useProjects(): UseProjectsReturn {
     featureGroups, setFeatureGroups,
     appGlobalAuthProfiles, setAppGlobalAuthProfiles,
     sharedDataSources, setSharedDataSources,
+    workspaceDefaults, setWorkspaceDefaults,
     selectedEnvId, setSelectedEnvId,
     selectedSvcId, setSelectedSvcId,
     moveScenario, moveTest,

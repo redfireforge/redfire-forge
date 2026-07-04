@@ -15,7 +15,9 @@ function parseArgs(argv) {
   for (let index = 0; index < argv.length; index += 1) {
     const raw = argv[index];
     if (!raw.startsWith('--')) continue;
-    const [flag, inlineValue] = raw.split('=');
+    const equalsIndex = raw.indexOf('=');
+    const flag = equalsIndex >= 0 ? raw.slice(0, equalsIndex) : raw;
+    const inlineValue = equalsIndex >= 0 ? raw.slice(equalsIndex + 1) : undefined;
     const nextValue = argv[index + 1];
     const hasSeparateValue = inlineValue == null && nextValue != null && !nextValue.startsWith('--');
     const value = inlineValue ?? (hasSeparateValue ? nextValue : '');

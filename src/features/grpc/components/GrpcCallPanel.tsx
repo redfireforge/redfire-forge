@@ -10,12 +10,10 @@ import {
 } from '../utils/grpcBodyComposer';
 import {
   formatDescriptorSourceLabel,
-  formatGrpcCallTypeLabel,
   isStreamReadyMethod,
   isStreamingLayoutCallType,
   isUnaryReadyMethod,
   resolveGrpcStudioLayoutCallType,
-  serviceExplorerShortName,
 } from '../utils/grpcExplorerUtils';
 import { countGrpcStreamDirections } from '../utils/grpcStreamLogUtils';
 import { validateGrpcMetadataEntries, metadataEntriesFromRecord } from '../utils/grpcMetadataEditor';
@@ -33,7 +31,7 @@ import { GrpcCallTypeSelectorRow } from './GrpcCallTypeSelectorRow';
 import { GrpcJsonCodeToolbar } from './GrpcJsonCodeToolbar';
 import { GrpcHighlightedJsonTextarea } from './GrpcHighlightedJsonTextarea';
 import { GrpcResponsePanel } from './GrpcResponsePanel';
-import { GrpcStreamComposePanel } from './GrpcStreamComposePanel';
+import { GrpcStreamRequestActionBar } from './GrpcStreamRequestActionBar';
 import { GrpcStreamMessageLog } from './GrpcStreamMessageLog';
 import { GrpcStreamPendingQueuePanel } from './GrpcStreamPendingQueuePanel';
 import { GrpcStreamStatusBar } from './GrpcStreamStatusBar';
@@ -627,7 +625,6 @@ export function GrpcCallPanel({
   const renderResponsePane = () => {
     if (isStreamingLayout) {
       const isClientStreaming = layoutCallType === 'client_streaming';
-      const streamMethod = method?.callType ?? layoutCallType;
       return (
         <div
           className={`grpc-stream-panel${isClientStreaming ? ' grpc-stream-panel--client' : ''}${layoutCallType === 'bidi_streaming' ? ' grpc-stream-panel--bidi' : ''}`}
@@ -641,6 +638,8 @@ export function GrpcCallPanel({
                 clientWritesEnded={tab.streamLifecycle === 'ending'}
                 sendAllInFlight={pendingSendInFlight}
                 disabled={disabled}
+                canCompose={validationReady}
+                onAddToQueue={handleEnqueueStreamMessage}
                 onRemoveAtIndex={(index) => onRemovePendingStreamMessage?.(index)}
                 onSendAll={handleSendAllPendingStreamMessages}
                 onEndStream={() => onEndStream?.()}
@@ -682,18 +681,6 @@ export function GrpcCallPanel({
                   Layout preview — select a matching method in the explorer to start a stream.
                 </p>
               )}
-              <GrpcStreamComposePanel
-                callType={streamMethod as 'client_streaming' | 'bidi_streaming' | 'server_streaming'}
-                pendingCount={tab.streamPendingBodies.length}
-                streamActive={tab.streamLifecycle === 'streaming'}
-                clientWritesEnded={tab.streamLifecycle === 'ending'}
-                disabled={disabled || !hasMethod}
-                canCompose={validationReady}
-                sendAllInFlight={pendingSendInFlight}
-                onAddToQueue={isClientStreaming ? handleEnqueueStreamMessage : undefined}
-                onSendMessage={handleSendStreamMessage}
-                onEndStream={() => onEndStream?.()}
-              />
             </div>
           </div>
         </div>
@@ -727,80 +714,70 @@ export function GrpcCallPanel({
           onSelectCallType={(callType) => onPatch({ layoutPreviewCallType: callType })}
         />
       )}
-      <div className="grpc-call-send-bar" data-testid="grpc-call-send-bar">
-        <div className="grpc-call-method-info">
-          {hasMethod ? (
-            <>
-              <div className="grpc-call-method-name" data-testid="grpc-call-method-name">
-                {serviceExplorerShortName(serviceFullName!)} / <strong>{method!.name}</strong>
-              </div>
-              <div className="grpc-call-method-type">
-                {formatGrpcCallTypeLabel(method!.callType)} RPC
-                <span className="grpc-call-method-type-sep"> · </span>
-                <span className="grpc-call-method-types">
-                  {method!.requestTypeName} → {method!.responseTypeName}
-                </span>
-              </div>
-            </>
-          ) : (
-            <div className="grpc-call-method-empty">Select a method to compose a request.</div>
-          )}
-        </div>
+      <div
+        className={`grpc-call-send-bar${hasMethod ? '' : ' grpc-call-send-bar--placeholder'}`}
+        data-testid="grpc-call-send-bar"
+      >
+        {!hasMethod && (
+          <div className="grpc-call-method-empty">Select a method to compose a request.</div>
+        )}
         {descriptorSource && (
           <span className="grpc-call-source" data-testid="grpc-call-source">
             {formatDescriptorSourceLabel(descriptorSource)}
           </span>
         )}
-        <label className="grpc-call-timeout">
-          <span>Timeout</span>
-          <input
-            type="number"
-            min={1}
-            step={1000}
-            className="grpc-call-timeout-input"
-            data-testid="grpc-call-timeout-input"
-            value={tab.timeoutMs}
-            disabled={disabled || !hasMethod}
-            onChange={(event) => handleTimeoutChange(event.target.value)}
-          />
-          <span className="grpc-call-timeout-unit">ms</span>
-        </label>
-        <div className="grpc-call-inline-actions" data-testid="grpc-call-inline-actions">
-          {unaryReady && (
-            <button
-              type="button"
-              className="grpc-call-send-btn"
-              data-testid="grpc-send-btn"
-              disabled={primaryDisabled}
-              aria-label="Send unary call"
-              onClick={handlePrimaryAction}
-            >
-              {primaryLabel}
-            </button>
-          )}
-          {streamReady && (
-            <button
-              type="button"
-              className="grpc-call-send-btn"
-              data-testid={streamActive ? 'grpc-stream-cancel-btn' : 'grpc-stream-start-btn'}
-              disabled={primaryDisabled}
-              aria-label={streamActive ? 'Cancel stream' : 'Start stream'}
-              onClick={handlePrimaryAction}
-            >
-              {primaryLabel}
-            </button>
-          )}
-          {isUnaryInFlight && (
-            <button
-              type="button"
-              className="grpc-call-cancel-btn"
-              data-testid="grpc-cancel-btn"
-              aria-label="Cancel unary call"
-              onClick={() => onCancelUnary?.()}
-            >
-              Cancel
-            </button>
-          )}
+        <div className="grpc-call-send-bar-controls">
+          <label className="grpc-call-timeout">
+            <span>Timeout</span>
+            <input
+              type="number"
+              min={1}
+              step={1000}
+              className="grpc-call-timeout-input"
+              data-testid="grpc-call-timeout-input"
+              value={tab.timeoutMs}
+              disabled={disabled || !hasMethod}
+              onChange={(event) => handleTimeoutChange(event.target.value)}
+            />
+            <span className="grpc-call-timeout-unit">ms</span>
+          </label>
+          <div className="grpc-call-inline-actions" data-testid="grpc-call-inline-actions">
+            {unaryReady && (
+              <button
+                type="button"
+                className="grpc-call-send-btn"
+                data-testid="grpc-send-btn"
+                disabled={primaryDisabled}
+                aria-label="Send unary call"
+                onClick={handlePrimaryAction}
+              >
+                {primaryLabel}
+              </button>
+            )}
+            {streamReady && (
+              <button
+                type="button"
+                className="grpc-call-send-btn"
+                data-testid={streamActive ? 'grpc-stream-cancel-btn' : 'grpc-stream-start-btn'}
+                disabled={primaryDisabled}
+                aria-label={streamActive ? 'Cancel stream' : 'Start stream'}
+                onClick={handlePrimaryAction}
+              >
+                {primaryLabel}
+              </button>
+            )}
+            {isUnaryInFlight && (
+              <button
+                type="button"
+                className="grpc-call-cancel-btn"
+                data-testid="grpc-cancel-btn"
+                aria-label="Cancel unary call"
+                onClick={() => onCancelUnary?.()}
+              >
+                Cancel
+              </button>
+            )}
+          </div>
         </div>
       </div>
       {sendBlockHint && (
@@ -1059,6 +1036,21 @@ export function GrpcCallPanel({
               </>
             )}
           </div>
+
+          {isStreamingLayout
+            && hasMethod
+            && (layoutCallType === 'client_streaming' || layoutCallType === 'bidi_streaming') && (
+            <GrpcStreamRequestActionBar
+              callType={layoutCallType}
+              streamActive={tab.streamLifecycle === 'streaming'}
+              clientWritesEnded={tab.streamLifecycle === 'ending'}
+              disabled={disabled}
+              canCompose={validationReady}
+              sendAllInFlight={pendingSendInFlight}
+              onSendMessage={handleSendStreamMessage}
+              onEndStream={() => onEndStream?.()}
+            />
+          )}
         </div>
 
         <div className="grpc-call-response-shell" data-testid="grpc-response-shell">

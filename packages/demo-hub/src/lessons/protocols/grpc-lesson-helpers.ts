@@ -713,17 +713,16 @@ export async function ensureStreamingMethodSelected(
 
   const methodSel = GRPC.METHOD(GRPC_ECHO_SERVICE, methodName);
 
-  // Check if the correct method is already active by inspecting the call type tab.
-  const callTypeMap: Record<string, string> = {
-    ServerStream: 'server_streaming',
-    ClientStream: 'client_streaming',
-    BidiStream: 'bidi_streaming',
+  const layoutMarkerByMethod: Record<typeof methodName, string> = {
+    ServerStream: GRPC.STREAM_START_BTN,
+    ClientStream: GRPC.STREAM_ADD_QUEUE_BTN,
+    BidiStream: GRPC.STREAM_START_BTN,
   };
-  const expectedCallType = callTypeMap[methodName];
-  const activeTab = document.querySelector(
-    `${GRPC.CALL_TYPE_TAB(expectedCallType)}[aria-selected="true"], ${GRPC.CALL_TYPE_TAB(expectedCallType)}.active`,
-  );
-  if (activeTab) return;
+  const layoutMarker = layoutMarkerByMethod[methodName];
+  const methodHeader = document.querySelector(GRPC.CALL_METHOD_NAME);
+  if (methodHeader?.textContent?.includes(methodName) && document.querySelector(layoutMarker)) {
+    return;
+  }
 
   // Expand the service node if the method button isn't visible.
   if (!document.querySelector(methodSel)) {
@@ -736,7 +735,7 @@ export async function ensureStreamingMethodSelected(
 
   await ctx.waitFor(methodSel, 10_000);
   await ctx.click(methodSel);
-  await ctx.waitFor(GRPC.CALL_TYPE_SELECTOR, 8_000);
+  await ctx.waitFor(layoutMarker, 8_000);
   await ctx.delay(180);
 }
 

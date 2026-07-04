@@ -12,6 +12,7 @@ export const FLAT_ENVS_KEY = 'perf-test-v3-environments';
 export const FLAT_SVCS_KEY = 'perf-test-v3-microservices';
 export const FLAT_FGS_KEY = 'perf-test-v3-feature-groups';
 export const FLAT_SHARED_DS_KEY = 'perf-test-v3-shared-data-sources';
+export const FLAT_WORKSPACE_DEFAULTS_KEY = 'perf-test-v3-workspace-defaults';
 export const FLAT_SEL_ENV_KEY = 'perf-test-v3-selected-env';
 export const FLAT_SEL_SVC_KEY = 'perf-test-v3-selected-svc';
 export const FLAT_MIGRATED_KEY = 'perf-test-v3-migrated';

@@ -213,6 +213,13 @@ export interface GrpcTauriTabCleanupRequest {
   tabId: string;
 }
 
+/** Input payload for the `grpc_native_diagnostics` Tauri command (Post-GA P2-A). */
+export interface GrpcTauriNativeDiagnosticsRequest {
+  schemaVersion: GrpcTauriSchemaVersion;
+  /** Optional active tab context for diagnostics correlation. */
+  tabId?: string;
+}
+
 // ─── Envelope / result types ──────────────────────────────────────────────────
 
 /** Metadata included in every command response envelope. */
@@ -370,4 +377,48 @@ export interface GrpcTauriTabCleanupResult {
   tabId: string;
   cancelledStreams: number;
   releasedChannels: number;
+}
+
+export interface GrpcTauriChannelPoolSnapshot {
+  size: number;
+  capacity: number;
+  hitCountTotal: number;
+}
+
+export interface GrpcTauriCallRegistrySnapshot {
+  total: number;
+  active: number;
+  completed: number;
+  cancelled: number;
+}
+
+export interface GrpcTauriStreamRegistrySnapshot {
+  total: number;
+  active: number;
+  ended: number;
+  cancelled: number;
+  error: number;
+}
+
+export interface GrpcTauriListenerSnapshot {
+  attachedTabs: number;
+  detachedTabs: number;
+  staleAttachedTabs: number;
+  totalListenerCount: number;
+}
+
+export interface GrpcTauriDiagnosticsTaxonomy {
+  state: 'healthy' | 'degraded';
+  activeIssueCodes: string[];
+}
+
+/** Result of `grpc_native_diagnostics`. */
+export interface GrpcTauriNativeDiagnosticsResult {
+  transportUsed: 'tauri';
+  tabId?: string;
+  channelPool: GrpcTauriChannelPoolSnapshot;
+  calls: GrpcTauriCallRegistrySnapshot;
+  streams: GrpcTauriStreamRegistrySnapshot;
+  listeners: GrpcTauriListenerSnapshot;
+  taxonomy: GrpcTauriDiagnosticsTaxonomy;
 }

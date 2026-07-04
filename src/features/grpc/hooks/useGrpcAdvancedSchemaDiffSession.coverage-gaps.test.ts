@@ -105,7 +105,7 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
     expect(result.current.schemaDiffAckChangeIds.size).toBe(0);
   });
 
-  it('patches severity and hide-acknowledged filters', () => {
+  it('patches severity and hide-acknowledged filters', async () => {
     const patchTabState = vi.fn();
     const getTabState = vi.fn(() => makeTabState());
 
@@ -115,6 +115,10 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
       getTabState,
       patchTabState,
     ));
+
+    await waitFor(() => {
+      expect(result.current.schemaDiffAckChangeIds.size).toBe(0);
+    });
 
     act(() => {
       result.current.setSchemaDiffSeverityFilter('breaking');
@@ -246,7 +250,7 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
     });
   });
 
-  it('runSchemaDiff validates prerequisites and stores reports', () => {
+  it('runSchemaDiff validates prerequisites and stores reports', async () => {
     const patchTabState = vi.fn();
     const getTabState = vi.fn(() => makeTabState({
       schemaDiff: { severityFilter: 'all', hideAcknowledged: false },
@@ -258,6 +262,9 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
       getTabState,
       patchTabState,
     ));
+    await waitFor(() => {
+      expect(missingBaseline.current.schemaDiffAckChangeIds.size).toBe(0);
+    });
     act(() => {
       missingBaseline.current.runSchemaDiff();
     });
@@ -276,6 +283,9 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
       getTabState,
       patchTabState,
     ));
+    await waitFor(() => {
+      expect(missingCandidate.current.schemaDiffAckChangeIds.size).toBe(0);
+    });
     act(() => {
       missingCandidate.current.runSchemaDiff();
     });
@@ -287,6 +297,9 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
       getTabState,
       patchTabState,
     ));
+    await waitFor(() => {
+      expect(result.current.schemaDiffAckChangeIds.size).toBe(0);
+    });
     act(() => {
       result.current.runSchemaDiff();
     });
@@ -340,7 +353,7 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
     });
   });
 
-  it('captureSchemaBaseline skips prior baseline cleanup when no prior baseline exists', () => {
+  it('captureSchemaBaseline skips prior baseline cleanup when no prior baseline exists', async () => {
     const getTabState = vi.fn(() => makeTabState({
       schemaDiff: { severityFilter: 'all', hideAcknowledged: false },
     }));
@@ -352,11 +365,18 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
       patchTabState,
     ));
 
-    act(() => {
+    await waitFor(() => {
+      expect(result.current.schemaDiffAckChangeIds.size).toBe(0);
+    });
+
+    await act(async () => {
       result.current.captureSchemaBaseline();
+      await Promise.resolve();
     });
     invokePatchUpdaters(patchTabState);
-    expect(deleteBaselineAcksMock).toHaveBeenCalledWith(FIXTURE_DESCRIPTOR_KEY);
+    await waitFor(() => {
+      expect(deleteBaselineAcksMock).toHaveBeenCalledWith(FIXTURE_DESCRIPTOR_KEY);
+    });
     expect(deleteBaselineAcksMock).not.toHaveBeenCalledWith('prior-key');
   });
 

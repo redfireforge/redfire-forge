@@ -49,6 +49,9 @@ export default function WorkflowCommandPalette({ open, onClose, actions }: Props
     { id: 'console', group: 'Navigate', icon: '▸_', title: 'Toggle Console', description: 'Show or hide console panel', shortcut: '⌘J', action: actions.onToggleConsole },
     // Add node
     { id: 'add-http', group: 'Add Node', icon: '↗', title: 'Add HTTP Request', description: 'Add an HTTP step to the canvas', action: () => actions.onAddNode('http') },
+    { id: 'add-grpc-unary', group: 'Add Node', icon: '◉', title: 'Add gRPC Unary', description: 'Add a unary gRPC call step', action: () => actions.onAddNode('grpcUnary') },
+    { id: 'add-grpc-stream', group: 'Add Node', icon: '≈', title: 'Add gRPC Server Stream', description: 'Add a server-streaming gRPC call step', action: () => actions.onAddNode('grpcServerStream') },
+    { id: 'add-grpc-assert', group: 'Add Node', icon: '✓', title: 'Add gRPC Assert', description: 'Add gRPC assertion checks against upstream results', action: () => actions.onAddNode('grpcAssert') },
     { id: 'add-condition', group: 'Add Node', icon: '◇', title: 'Add Condition', description: 'Add if/else branching', action: () => actions.onAddNode('condition') },
     { id: 'add-delay', group: 'Add Node', icon: '◴', title: 'Add Delay', description: 'Add a pause between steps', action: () => actions.onAddNode('delay') },
     { id: 'add-loop', group: 'Add Node', icon: '↻', title: 'Add Loop', description: 'Add repeat / for-each / while', action: () => actions.onAddNode('loop') },

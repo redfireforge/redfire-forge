@@ -1,12 +1,19 @@
 /**
  * @vitest-environment jsdom
  */
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultProtoIngestState } from '../grpcStudioTypes';
 import { FIXTURE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
 import * as ingestUtils from '../utils/grpcProtoIngestUtils';
 import { GrpcProtoManageModal } from './GrpcProtoManageModal';
+
+async function fireInAct(callback: () => void): Promise<void> {
+  await act(async () => {
+    callback();
+    await Promise.resolve();
+  });
+}
 
 describe('GrpcProtoManageModal coverage gaps', () => {
   const baseProps = {
@@ -17,6 +24,19 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     onIngestChange: vi.fn(),
     onLoad: vi.fn(),
   };
+
+  it('renders safely when closed with legacy ingest missing protoRoots', () => {
+    expect(() => render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        open={false}
+        ingest={{
+          source: 'proto_files',
+          importPaths: [],
+        } as ReturnType<typeof createDefaultProtoIngestState>}
+      />,
+    )).not.toThrow();
+  });
 
   it('supports drag/drop upload, keyboard activation, and file removal', async () => {
     const onIngestChange = vi.fn();
@@ -78,7 +98,9 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     const badFile = new File(['x'], 'schema.bin', { type: 'application/octet-stream' });
     const input = document.querySelector('input[type="file"][accept=".pb,.protoset"]') as HTMLInputElement;
     Object.defineProperty(input, 'files', { value: [badFile] });
-    fireEvent.change(input);
+    await fireInAct(() => {
+      fireEvent.change(input);
+    });
 
     await vi.waitFor(() => {
       expect(screen.getByTestId('grpc-proto-upload-error').textContent).toMatch(/\.pb or \.protoset/i);
@@ -152,7 +174,9 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     const protoFile = new File(['syntax = "proto3";'], 'echo.proto', { type: 'text/plain' });
     const input = document.querySelector('input[type="file"][accept=".proto"]') as HTMLInputElement;
     Object.defineProperty(input, 'files', { value: [protoFile] });
-    fireEvent.change(input);
+    await fireInAct(() => {
+      fireEvent.change(input);
+    });
 
     await vi.waitFor(() => {
       expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({ source: 'proto_files' }));
@@ -197,7 +221,9 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     const validFile = new File(['abc'], 'schema.pb', { type: 'application/octet-stream' });
     const input = document.querySelector('input[type="file"][accept=".pb,.protoset"]') as HTMLInputElement;
     Object.defineProperty(input, 'files', { value: [validFile] });
-    fireEvent.change(input);
+    await fireInAct(() => {
+      fireEvent.change(input);
+    });
 
     await vi.waitFor(() => {
       expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
@@ -232,9 +258,11 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     );
 
     const validFile = new File(['abc'], 'schema.pb', { type: 'application/octet-stream' });
-    fireEvent.drop(screen.getByTestId('grpc-proto-protoset-zone'), {
-      preventDefault: vi.fn(),
-      dataTransfer: { files: [validFile] },
+    await fireInAct(() => {
+      fireEvent.drop(screen.getByTestId('grpc-proto-protoset-zone'), {
+        preventDefault: vi.fn(),
+        dataTransfer: { files: [validFile] },
+      });
     });
 
     await vi.waitFor(() => {
@@ -273,7 +301,9 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     const protoFile = new File(['bad'], 'broken.proto', { type: 'text/plain' });
     const input = document.querySelector('input[type="file"][accept=".proto"]') as HTMLInputElement;
     Object.defineProperty(input, 'files', { value: [protoFile] });
-    fireEvent.change(input);
+    await fireInAct(() => {
+      fireEvent.change(input);
+    });
 
     await vi.waitFor(() => {
       expect(screen.getByTestId('grpc-proto-upload-error').textContent).toMatch(/Failed to read proto files/i);
@@ -293,7 +323,9 @@ describe('GrpcProtoManageModal coverage gaps', () => {
     const validFile = new File(['abc'], 'schema.pb', { type: 'application/octet-stream' });
     const input = document.querySelector('input[type="file"][accept=".pb,.protoset"]') as HTMLInputElement;
     Object.defineProperty(input, 'files', { value: [validFile] });
-    fireEvent.change(input);
+    await fireInAct(() => {
+      fireEvent.change(input);
+    });
 
     await vi.waitFor(() => {
       expect(screen.getByTestId('grpc-proto-upload-error').textContent).toMatch(/corrupt protoset/i);
