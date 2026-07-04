@@ -13,6 +13,7 @@ import { useSplitterDrag } from '../../../../shared/hooks/useSplitterDrag';
 import { prettyJson, isValidJson } from '../../../../shared/utils/helpers';
 import { SearchMatchBar } from '../../../../shared/components/SearchMatchBar';
 import { useSearchMatchNavigation } from '../../../../shared/hooks/useSearchMatchNavigation';
+import { useJsonTreeCollapseState } from '../../../../shared/hooks/useJsonTreeCollapseState';
 
 const collectAllPaths = collectJTreePaths;
 
@@ -32,7 +33,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
   const [viewMode, setViewMode] = useState<'text' | 'tree'>(() => (isValidJson(initialValue) ? 'tree' : 'text'));
   const [searchTerm, setSearchTermState] = useState('');
   const [searchMatchCount, setSearchMatchCount] = useState(0);
-  const [collapsedSet, setCollapsedSet] = useState<Set<string>>(() => new Set());
+  const { collapsedSet, handleTreeToggle: handleToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
   const debouncedSearch = useDebounce(searchTerm, 200);
 
   const isPretty = draft.includes('\n');
@@ -50,15 +51,7 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
   }, [draft, viewMode]);
 
   const allPaths = useMemo(() => (jTree ? collectAllPaths(jTree, '') : []), [jTree]);
-  const handleExpandAll = useCallback(() => setCollapsedSet(new Set()), []);
-  const handleCollapseAll = useCallback(() => setCollapsedSet(new Set(allPaths)), [allPaths]);
-  const handleToggle = useCallback((path: string) => {
-    setCollapsedSet(prev => {
-      const next = new Set(prev);
-      if (next.has(path)) { next.delete(path); } else { next.add(path); }
-      return next;
-    });
-  }, []);
+  const handleCollapseAll = useCallback(() => collapseAll(new Set(allPaths)), [allPaths, collapseAll]);
 
   const handleTreeMatchCountChange = useCallback((count: number) => {
     setSearchMatchCount(count);

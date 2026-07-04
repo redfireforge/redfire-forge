@@ -219,4 +219,46 @@ describe('useSharedDataSourceHandlers', () => {
     expect(next[0].scenarios[0].tests).toHaveLength(0);
     expect(next[1].scenarios[0].tests).toHaveLength(1);
   });
+
+  it('returns undefined currentEditingDraft when editingTest is set but draft is null', () => {
+    // !draft branch (right side of || operator)
+    const { hook } = setup({
+      editingTest: { featureId: 'fg-1', scenarioId: 'sc-1', testId: 't-1' },
+      draft: null,
+    });
+    expect(hook.result.current.currentEditingDraft).toBeUndefined();
+  });
+
+  it('uses auth from fetchConfig when provided (true branch of auth || default)', () => {
+    const setFeatureGroups = vi.fn();
+    const setDraft = vi.fn();
+    const { hook } = setup({ setFeatureGroups, setDraft });
+    const sharedDs = {
+      id: 'sds-4',
+      name: 'WithAuth',
+      fetchConfig: {
+        url: '/secure',
+        method: 'POST',
+        headers: [],
+        auth: { type: 'bearer', token: 'tok' },
+      },
+    } as unknown as SharedDataSource;
+    act(() => hook.result.current.handleCreateTestFromSharedDs(sharedDs, 'fg-1', 'sc-1', 'Auth Test'));
+    const draft = setDraft.mock.calls[0][0] as typeof import('../../../shared/types').Scenario;
+    expect((draft as Record<string, unknown>).auth).toEqual({ type: 'bearer', token: 'tok' });
+  });
+
+  it('skips non-matching scenario when creating test (sc.id !== targetScenarioId true branch)', () => {
+    const setFeatureGroups = vi.fn();
+    const { hook } = setup({ setFeatureGroups });
+    const sharedDs = { id: 'sds-5', name: 'Shared' } as unknown as SharedDataSource;
+    act(() => hook.result.current.handleCreateTestFromSharedDs(sharedDs, 'fg-1', 'sc-2', 'Only sc-2'));
+    const updater = setFeatureGroups.mock.calls[0][0] as (prev: FeatureGroup[]) => FeatureGroup[];
+    // fg-1 has sc-1, target is sc-2 → sc-1 should be unchanged
+    const next = updater([
+      makeFg({ id: 'fg-1', scenarios: [{ id: 'sc-1', name: 'A', tests: [] }, { id: 'sc-2', name: 'B', tests: [] }] }),
+    ]);
+    expect(next[0].scenarios[0].tests).toHaveLength(0); // sc-1 unchanged
+    expect(next[0].scenarios[1].tests).toHaveLength(1); // sc-2 got the new test
+  });
 });

@@ -92,10 +92,18 @@ describe('useWorkbenchActions', () => {
     expect(hook.result.current.subColForEdit).toBeNull();
   });
 
-  it('returns null subColForEdit when collection exists but has no folders array', () => {
-    const col = { id: 'c1', name: 'C', requests: [] } as unknown as RequestCollection;
-    const { hook } = setup([col]);
-    act(() => hook.result.current.handleEditSubCollection('c1', 'f1'));
+  it('returns null subColForEdit when collection cannot be found in collections list', () => {
+    // editingSubCol set but no matching collection → col is undefined → false branch of `col ?`
+    const { hook } = setup([]); // no collections
+    act(() => hook.result.current.handleEditSubCollection('nonexistent-col', 'f1'));
     expect(hook.result.current.subColForEdit).toBeNull();
+  });
+
+  it('handleWbNewCollection with no arguments uses undefined defaults', () => {
+    const { hook } = setup();
+    act(() => hook.result.current.handleWbNewCollection());
+    expect(hook.result.current.showWbCollectionModal).toBe(true);
+    expect(hook.result.current.newColMode).toBeUndefined();
+    expect(hook.result.current.newColGroupId).toBeUndefined();
   });
 });

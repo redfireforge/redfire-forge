@@ -40,16 +40,73 @@ export function formatOp(op: ComparisonOperator): string {
   return ({ '=': '=', '!=': '≠', '>': '>', '>=': '≥', '<': '<', '<=': '≤' })[op] ?? op;
 }
 
+function buildFailure(path: string, expected: string, actual: string): FailureDetail[] {
+  return [{ path, expected, actual }];
+}
+
+function stringifyAssertionValue(value: unknown): string {
+  if (value === undefined) return 'undefined';
+  return typeof value === 'string' ? value : JSON.stringify(value);
+}
+
+function getSerializedContextBody(ctx: AssertionContext): string {
+  return ctx.rawBody ?? (typeof ctx.responseBody === 'string' ? ctx.responseBody : JSON.stringify(ctx.responseBody));
+}
+
+function resolveKafkaContextField(name: string, ctx: AssertionContext): unknown {
+  switch (name) {
+    case 'body':
+      return getSerializedContextBody(ctx);
+    case 'key':
+      return ctx.kafkaContext?.key;
+    case 'partition':
+      return ctx.kafkaContext?.partition;
+    case 'offset':
+      return ctx.kafkaContext?.offset;
+    case 'topic':
+      return ctx.kafkaContext?.topic;
+    default:
+      if (name.startsWith('header.')) {
+        return findHeader(ctx.responseHeaders, name.slice('header.'.length));
+      }
+      return undefined;
+  }
+}
+
+function resolveWsContextField(name: string, ctx: AssertionContext): unknown {
+  switch (name) {
+    case 'body':
+      return getSerializedContextBody(ctx);
+    case 'type':
+      return ctx.wsContext?.frameType;
+    case 'protocol':
+      return ctx.wsContext?.protocol;
+    case 'connectionId':
+      return ctx.wsContext?.connectionId;
+    case 'latencyMs':
+      return ctx.wsContext?.latencyMs;
+    case 'size':
+      return ctx.wsContext?.messageSize;
+    case 'url':
+      return ctx.wsContext?.url;
+    default:
+      if (name.startsWith('header.')) {
+        return findHeader(ctx.responseHeaders, name.slice('header.'.length));
+      }
+      return undefined;
+  }
+}
+
 export function handleStatus(a: Extract<Assertion, { type: 'status' }>, ctx: AssertionContext): FailureDetail[] {
   if (!matchesStatusPattern(ctx.httpStatus, a.expected)) {
-    return [{ path: '(status)', expected: a.expected, actual: String(ctx.httpStatus) }];
+    return buildFailure('(status)', a.expected, String(ctx.httpStatus));
   }
   return [];
 }
 
 export function handleResponseTime(a: Extract<Assertion, { type: 'responseTime' }>, ctx: AssertionContext): FailureDetail[] {
   if (ctx.responseTimeMs > a.maxMs) {
-    return [{ path: '(responseTime)', expected: `≤ ${a.maxMs}ms`, actual: `${ctx.responseTimeMs}ms` }];
+    return buildFailure('(responseTime)', `≤ ${a.maxMs}ms`, `${ctx.responseTimeMs}ms`);
   }
   return [];
 }
@@ -58,21 +115,25 @@ export function handleHeader(a: Extract<Assertion, { type: 'header' }>, ctx: Ass
   const headerVal = findHeader(ctx.responseHeaders, a.name);
   const opResult = evaluateHeaderOp(headerVal, a.operator, a.value);
   if (!opResult.pass) {
-    return [{ path: `(header:${a.name})`, expected: opResult.expected, actual: opResult.actual }];
+    return buildFailure(`(header:${a.name})`, opResult.expected, opResult.actual);
   }
   return [];
 }
 
 export function handleRegex(a: Extract<Assertion, { type: 'regex' }>, ctx: AssertionContext): FailureDetail[] {
   const val = getByPath(ctx.responseBody, a.jsonPath);
-  const str = val === undefined ? 'undefined' : typeof val === 'string' ? val : JSON.stringify(val);
+  const str = stringifyAssertionValue(val);
   try {
     const re = new RegExp(a.pattern);
     if (!re.test(str)) {
-      return [{ path: `(regex:${a.jsonPath})`, expected: `matches /${a.pattern}/`, actual: str.length > 200 ? str.slice(0, 200) + '…' : str }];
+      return buildFailure(
+        `(regex:${a.jsonPath})`,
+        `matches /${a.pattern}/`,
+        str.length > 200 ? str.slice(0, 200) + '…' : str,
+      );
     }
   } catch {
-    return [{ path: `(regex:${a.jsonPath})`, expected: `valid regex /${a.pattern}/`, actual: 'invalid regex pattern' }];
+    return buildFailure(`(regex:${a.jsonPath})`, `valid regex /${a.pattern}/`, 'invalid regex pattern');
   }
   return [];
 }
@@ -80,10 +141,14 @@ export function handleRegex(a: Extract<Assertion, { type: 'regex' }>, ctx: Asser
 export function handleArrayLength(a: Extract<Assertion, { type: 'arrayLength' }>, ctx: AssertionContext): FailureDetail[] {
   const arr = getByPath(ctx.responseBody, a.jsonPath);
   if (!Array.isArray(arr)) {
-    return [{ path: `(arrayLength:${a.jsonPath})`, expected: `array with length ${formatOp(a.operator)} ${a.value}`, actual: arr === undefined ? 'undefined' : `not an array (${typeof arr})` }];
+    return buildFailure(
+      `(arrayLength:${a.jsonPath})`,
+      `array with length ${formatOp(a.operator)} ${a.value}`,
+      arr === undefined ? 'undefined' : `not an array (${typeof arr})`,
+    );
   }
   if (!compare(arr.length, a.operator, a.value)) {
-    return [{ path: `(arrayLength:${a.jsonPath})`, expected: `length ${formatOp(a.operator)} ${a.value}`, actual: `length ${arr.length}` }];
+    return buildFailure(`(arrayLength:${a.jsonPath})`, `length ${formatOp(a.operator)} ${a.value}`, `length ${arr.length}`);
   }
   return [];
 }
@@ -92,13 +157,13 @@ export function handleNumeric(a: Extract<Assertion, { type: 'numeric' }>, ctx: A
   const raw = getByPath(ctx.responseBody, a.jsonPath);
   const num = typeof raw === 'number' ? raw : Number(raw);
   if (raw === undefined) {
-    return [{ path: `(numeric:${a.jsonPath})`, expected: `numeric value ${formatOp(a.operator)} ${a.value}`, actual: 'undefined' }];
+    return buildFailure(`(numeric:${a.jsonPath})`, `numeric value ${formatOp(a.operator)} ${a.value}`, 'undefined');
   }
   if (isNaN(num)) {
-    return [{ path: `(numeric:${a.jsonPath})`, expected: `numeric value ${formatOp(a.operator)} ${a.value}`, actual: `not a number: ${JSON.stringify(raw)}` }];
+    return buildFailure(`(numeric:${a.jsonPath})`, `numeric value ${formatOp(a.operator)} ${a.value}`, `not a number: ${JSON.stringify(raw)}`);
   }
   if (!compare(num, a.operator, a.value)) {
-    return [{ path: `(numeric:${a.jsonPath})`, expected: `${formatOp(a.operator)} ${a.value}`, actual: String(num) }];
+    return buildFailure(`(numeric:${a.jsonPath})`, `${formatOp(a.operator)} ${a.value}`, String(num));
   }
   return [];
 }
@@ -107,15 +172,15 @@ export function handleDate(a: Extract<Assertion, { type: 'date' }>, ctx: Asserti
   const rawDate = getByPath(ctx.responseBody, a.jsonPath);
   const dayStr = toDayString(rawDate);
   if (rawDate === undefined) {
-    return [{ path: `(date:${a.jsonPath})`, expected: `date ${formatOp(a.operator)} ${resolveDate(a.reference)}`, actual: 'undefined' }];
+    return buildFailure(`(date:${a.jsonPath})`, `date ${formatOp(a.operator)} ${resolveDate(a.reference)}`, 'undefined');
   }
   if (dayStr === null) {
-    return [{ path: `(date:${a.jsonPath})`, expected: `date ${formatOp(a.operator)} ${resolveDate(a.reference)}`, actual: `not a date: ${JSON.stringify(rawDate)}` }];
+    return buildFailure(`(date:${a.jsonPath})`, `date ${formatOp(a.operator)} ${resolveDate(a.reference)}`, `not a date: ${JSON.stringify(rawDate)}`);
   }
   const refStr = resolveDate(a.reference);
   const cmp = dayStr.localeCompare(refStr);
   if (!compare(cmp, a.operator, 0)) {
-    return [{ path: `(date:${a.jsonPath})`, expected: `${formatOp(a.operator)} ${refStr}`, actual: dayStr }];
+    return buildFailure(`(date:${a.jsonPath})`, `${formatOp(a.operator)} ${refStr}`, dayStr);
   }
   return [];
 }
@@ -123,20 +188,20 @@ export function handleDate(a: Extract<Assertion, { type: 'date' }>, ctx: Asserti
 export function handleDatePrecise(a: Extract<Assertion, { type: 'datePrecise' }>, ctx: AssertionContext): FailureDetail[] {
   const rawDp = getByPath(ctx.responseBody, a.jsonPath);
   if (rawDp === undefined) {
-    return [{ path: `(datePrecise:${a.jsonPath})`, expected: `date ${formatOp(a.operator)} ${a.reference} (${a.precision})`, actual: 'undefined' }];
+    return buildFailure(`(datePrecise:${a.jsonPath})`, `date ${formatOp(a.operator)} ${a.reference} (${a.precision})`, 'undefined');
   }
   const actualDate = new Date(String(rawDp));
   const refDate = new Date(a.reference);
   if (isNaN(actualDate.getTime())) {
-    return [{ path: `(datePrecise:${a.jsonPath})`, expected: `valid date`, actual: `invalid date: ${String(rawDp)}` }];
+    return buildFailure(`(datePrecise:${a.jsonPath})`, 'valid date', `invalid date: ${String(rawDp)}`);
   }
   if (isNaN(refDate.getTime())) {
-    return [{ path: `(datePrecise:${a.jsonPath})`, expected: `valid reference date`, actual: `invalid reference: ${a.reference}` }];
+    return buildFailure(`(datePrecise:${a.jsonPath})`, 'valid reference date', `invalid reference: ${a.reference}`);
   }
   const truncActual = truncateToUnit(actualDate, a.precision);
   const truncRef = truncateToUnit(refDate, a.precision);
   if (!compare(truncActual, a.operator, truncRef)) {
-    return [{ path: `(datePrecise:${a.jsonPath})`, expected: `date ${formatOp(a.operator)} ${a.reference} (precision: ${a.precision})`, actual: String(rawDp) }];
+    return buildFailure(`(datePrecise:${a.jsonPath})`, `date ${formatOp(a.operator)} ${a.reference} (precision: ${a.precision})`, String(rawDp));
   }
   return [];
 }
@@ -144,11 +209,11 @@ export function handleDatePrecise(a: Extract<Assertion, { type: 'datePrecise' }>
 export function handleTypeCheck(a: Extract<Assertion, { type: 'typeCheck' }>, ctx: AssertionContext): FailureDetail[] {
   const tcVal = getByPath(ctx.responseBody, a.jsonPath);
   if (tcVal === undefined) {
-    return [{ path: `(typeCheck:${a.jsonPath})`, expected: `type ${a.expectedType}`, actual: 'path not found' }];
+    return buildFailure(`(typeCheck:${a.jsonPath})`, `type ${a.expectedType}`, 'path not found');
   }
   const actualType = getJsonTypeName(tcVal);
   if (actualType !== a.expectedType) {
-    return [{ path: `(typeCheck:${a.jsonPath})`, expected: `type ${a.expectedType}`, actual: `type ${actualType}` }];
+    return buildFailure(`(typeCheck:${a.jsonPath})`, `type ${a.expectedType}`, `type ${actualType}`);
   }
   return [];
 }
@@ -157,7 +222,11 @@ export function handleExistence(a: Extract<Assertion, { type: 'existence' }>, ct
   const exVal = getByPath(ctx.responseBody, a.jsonPath);
   const found = exVal !== undefined;
   if (found !== a.expectExists) {
-    return [{ path: `(existence:${a.jsonPath})`, expected: a.expectExists ? 'field exists' : 'field does not exist', actual: found ? 'field exists' : 'field not found' }];
+    return buildFailure(
+      `(existence:${a.jsonPath})`,
+      a.expectExists ? 'field exists' : 'field does not exist',
+      found ? 'field exists' : 'field not found',
+    );
   }
   return [];
 }
@@ -287,57 +356,36 @@ export function handleBodySize(a: Extract<Assertion, { type: 'bodySize' }>, ctx:
   const threshold = a.value;
   if (!compare(actualSize, a.operator, threshold)) {
     const unitLabel = a.unit === 'bytes' ? 'B' : a.unit.toUpperCase();
-    return [{ path: '(bodySize)', expected: `body size ${formatOp(a.operator)} ${threshold} ${unitLabel}`, actual: `${Math.round(actualSize * 100) / 100} ${unitLabel}` }];
+    return buildFailure('(bodySize)', `body size ${formatOp(a.operator)} ${threshold} ${unitLabel}`, `${Math.round(actualSize * 100) / 100} ${unitLabel}`);
   }
   return [];
 }
 
 export function handleKafkaField(a: Extract<Assertion, { type: 'kafkaField' }>, ctx: AssertionContext): FailureDetail[] {
-  let kafkaFieldVal: string | undefined;
   const kTarget = a.target;
-  if (kTarget === 'kafka.body') {
-    kafkaFieldVal = ctx.rawBody ?? (typeof ctx.responseBody === 'string' ? ctx.responseBody : JSON.stringify(ctx.responseBody));
-  } else if (kTarget === 'kafka.key') {
-    kafkaFieldVal = ctx.kafkaContext?.key;
-  } else if (kTarget === 'kafka.partition') {
-    kafkaFieldVal = ctx.kafkaContext?.partition !== undefined ? String(ctx.kafkaContext.partition) : undefined;
-  } else if (kTarget === 'kafka.offset') {
-    kafkaFieldVal = ctx.kafkaContext?.offset !== undefined ? String(ctx.kafkaContext.offset) : undefined;
-  } else if (kTarget.startsWith('kafka.header.')) {
-    kafkaFieldVal = findHeader(ctx.responseHeaders, kTarget.slice('kafka.header.'.length));
-  }
+  const kafkaRaw = resolveKafkaContextField(kTarget.slice('kafka.'.length), ctx);
+  const kafkaFieldVal = kafkaRaw === undefined ? undefined : typeof kafkaRaw === 'string' ? kafkaRaw : String(kafkaRaw);
   const kOpResult = evaluateHeaderOp(kafkaFieldVal, a.operator, a.value);
   if (!kOpResult.pass) {
-    return [{ path: `(kafkaField:${kTarget})`, expected: kOpResult.expected, actual: kOpResult.actual }];
+    return buildFailure(`(kafkaField:${kTarget})`, kOpResult.expected, kOpResult.actual);
   }
   return [];
 }
 
 export function handleWsField(a: Extract<Assertion, { type: 'wsField' }>, ctx: AssertionContext): FailureDetail[] {
-  let wsFieldVal: string | undefined;
   const wTarget = a.target;
-  if (wTarget === 'ws.body') {
-    wsFieldVal = ctx.rawBody ?? (typeof ctx.responseBody === 'string' ? ctx.responseBody : JSON.stringify(ctx.responseBody));
-  } else if (wTarget === 'ws.type') {
-    wsFieldVal = ctx.wsContext?.frameType;
-  } else if (wTarget === 'ws.protocol') {
-    wsFieldVal = ctx.wsContext?.protocol;
-  } else if (wTarget === 'ws.connectionId') {
-    wsFieldVal = ctx.wsContext?.connectionId;
-  } else if (wTarget === 'ws.size') {
-    wsFieldVal = ctx.wsContext?.messageSize !== undefined ? String(ctx.wsContext.messageSize) : undefined;
-  } else if (wTarget === 'ws.latencyMs') {
-    wsFieldVal = ctx.wsContext?.latencyMs !== undefined ? String(ctx.wsContext.latencyMs) : undefined;
-  } else if (wTarget.startsWith('ws.header.')) {
-    wsFieldVal = findHeader(ctx.responseHeaders, wTarget.slice('ws.header.'.length));
-  } else if (wTarget.startsWith('ws.$.')) {
+  let wsFieldVal: string | undefined;
+  if (wTarget.startsWith('ws.$.')) {
     const jsonPathExpr = '$.' + wTarget.slice('ws.$.'.length);
     const jpVal = getByPath(ctx.responseBody, jsonPathExpr);
-    wsFieldVal = jpVal === undefined ? undefined : typeof jpVal === 'string' ? jpVal : JSON.stringify(jpVal);
+    wsFieldVal = jpVal === undefined ? undefined : stringifyAssertionValue(jpVal);
+  } else {
+    const wsRaw = resolveWsContextField(wTarget.slice('ws.'.length), ctx);
+    wsFieldVal = wsRaw === undefined ? undefined : typeof wsRaw === 'string' ? wsRaw : String(wsRaw);
   }
   const wsOpResult = evaluateHeaderOp(wsFieldVal, a.operator, a.value);
   if (!wsOpResult.pass) {
-    return [{ path: `(wsField:${wTarget})`, expected: wsOpResult.expected, actual: wsOpResult.actual }];
+    return buildFailure(`(wsField:${wTarget})`, wsOpResult.expected, wsOpResult.actual);
   }
   return [];
 }
@@ -377,28 +425,10 @@ function resolveVariable(name: string, ctx: AssertionContext): unknown {
     return getByPath(ctx.responseBody, name);
   }
   if (name.startsWith('kafka.')) {
-    const kafkaPath = name.slice('kafka.'.length);
-    if (kafkaPath === 'body') return ctx.rawBody ?? ctx.responseBody;
-    if (kafkaPath === 'key') return ctx.kafkaContext?.key;
-    if (kafkaPath === 'partition') return ctx.kafkaContext?.partition;
-    if (kafkaPath === 'offset') return ctx.kafkaContext?.offset;
-    if (kafkaPath === 'topic') return ctx.kafkaContext?.topic;
-    if (kafkaPath.startsWith('header.')) {
-      return findHeader(ctx.responseHeaders, kafkaPath.slice('header.'.length));
-    }
+    return resolveKafkaContextField(name.slice('kafka.'.length), ctx);
   }
   if (name.startsWith('ws.')) {
-    const wsPath = name.slice('ws.'.length);
-    if (wsPath === 'body') return ctx.rawBody ?? ctx.responseBody;
-    if (wsPath === 'type') return ctx.wsContext?.frameType;
-    if (wsPath === 'protocol') return ctx.wsContext?.protocol;
-    if (wsPath === 'connectionId') return ctx.wsContext?.connectionId;
-    if (wsPath === 'latencyMs') return ctx.wsContext?.latencyMs;
-    if (wsPath === 'size') return ctx.wsContext?.messageSize;
-    if (wsPath === 'url') return ctx.wsContext?.url;
-    if (wsPath.startsWith('header.')) {
-      return findHeader(ctx.responseHeaders, wsPath.slice('header.'.length));
-    }
+    return resolveWsContextField(name.slice('ws.'.length), ctx);
   }
   return undefined;
 }

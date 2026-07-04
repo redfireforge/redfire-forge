@@ -16,6 +16,13 @@ vi.mock('@tauri-apps/api/core', () => ({
 }));
 
 describe('grpcNativeTauriDiagnostics', () => {
+  it('uses default error code and retryable=false when options are omitted', () => {
+    const err = new GrpcNativeTauriDiagnosticsError('x');
+    expect(err.code).toBe('GRPC_TAURI_INVOKE_ERROR');
+    expect(err.retryable).toBe(false);
+    expect(err.op).toBe('native_diagnostics');
+  });
+
   it('builds request with schema version and optional tab id', () => {
     expect(toGrpcTauriNativeDiagnosticsRequest()).toEqual({
       schemaVersion: GRPC_TAURI_SCHEMA_VERSION,
@@ -67,6 +74,20 @@ describe('grpcNativeTauriDiagnostics', () => {
     });
   });
 
+  it('treats envelope retryable as false when the field is undefined', async () => {
+    invokeMock.mockResolvedValueOnce({
+      ok: false,
+      op: 'native_diagnostics',
+      error: { code: 'GRPC_TAURI_INVALID_REQUEST', message: 'tabId invalid' },
+      meta: { timestamp: 'now', schemaVersion: GRPC_TAURI_SCHEMA_VERSION },
+    });
+
+    await expect(invokeGrpcNativeDiagnosticsNative('tab-a')).rejects.toMatchObject({
+      retryable: false,
+      code: 'GRPC_TAURI_INVALID_REQUEST',
+    });
+  });
+
   it('throws retryable invoke error when Tauri invoke rejects', async () => {
     invokeMock.mockRejectedValueOnce(new Error('ipc down'));
 
@@ -75,6 +96,16 @@ describe('grpcNativeTauriDiagnostics', () => {
     await expect(rejection).rejects.toMatchObject({
       retryable: true,
       code: 'GRPC_TAURI_INVOKE_ERROR',
+    });
+  });
+
+  it('stringifies non-Error rejection values in invoke catch branch', async () => {
+    invokeMock.mockRejectedValueOnce(12345);
+
+    await expect(invokeGrpcNativeDiagnosticsNative('tab-a')).rejects.toMatchObject({
+      code: 'GRPC_TAURI_INVOKE_ERROR',
+      retryable: true,
+      message: '12345',
     });
   });
 });

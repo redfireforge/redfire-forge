@@ -37,6 +37,7 @@ import {
   fillServerStreamRequest,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
+  runClientStreamSendLifecycle,
   startAndExchangeBidiStream,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
@@ -472,7 +473,9 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       id: 'grpc17-client-send',
       title: 'Client Streaming: Start, Send All, End',
       description:
-        'Three actions drive the full client stream lifecycle — watch the **Pending messages** panel:\n\n' +
+        'Three controls drive the full client stream lifecycle. Watch the spotlight ' +
+        'step through each one **in order** — it pauses on each control so you can ' +
+        'follow along:\n\n' +
         '1. **Start stream** — opens the HTTP/2 channel; the server waits for your messages.\n' +
         '2. **▶ Send all** — flushes all 3 staged messages at once. Watch three **↑** entries appear in the log.\n' +
         '3. **End stream** — signals half-close (client is done writing). The server returns one aggregated echo and both sides close.\n\n' +
@@ -493,34 +496,9 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         }
       },
       action: async (ctx) => {
-        // 1. Start the stream.
-        const startBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN);
-        if (startBtn && !startBtn.disabled) {
-          await ctx.click(GRPC.STREAM_START_BTN);
-          await ctx.delay(600);
-        }
-        // 2. Send all queued messages.
-        try {
-          await ctx.waitFor(GRPC.STREAM_SEND_ALL_BTN, 3_000);
-          const sendAll = document.querySelector<HTMLButtonElement>(GRPC.STREAM_SEND_ALL_BTN);
-          if (sendAll && !sendAll.disabled) {
-            await ctx.click(GRPC.STREAM_SEND_ALL_BTN);
-            await ctx.delay(800);
-          }
-        } catch {
-          // Send all may be unavailable if stream already ended.
-        }
-        // 3. End the stream (signal client half-close).
-        try {
-          await ctx.waitFor(GRPC.STREAM_PENDING_END_BTN, 2_000);
-          const endBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_PENDING_END_BTN);
-          if (endBtn && !endBtn.disabled) {
-            await ctx.click(GRPC.STREAM_PENDING_END_BTN);
-            await ctx.delay(600);
-          }
-        } catch {
-          // End button may not be present if stream already finished.
-        }
+        // Sequential spotlight: Start stream → Send all → End stream. Each control
+        // lights up and holds so a viewer can follow before it activates.
+        await runClientStreamSendLifecycle(ctx);
         await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 2_600);
         await ctx.delay(1_000);
       },

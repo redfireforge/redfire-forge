@@ -4,6 +4,7 @@
 import type { WorkflowNode, LoopNodeData } from '../types/workflow';
 import type { NodeHandlerContext } from './graphRunnerNodeHandlerContext';
 import { evaluateCondition, collectReachableFromEdges } from './graphRunnerHelpers';
+import { tryParseJsonArray } from '../../../shared/utils/helpers';
 
 export async function handleLoopNode(
   nodeId: string,
@@ -38,8 +39,7 @@ export async function handleLoopNode(
     }
     if (items.length === 0) {
       const raw = hCtx.ctx.resolve(data.sourceExpression ?? '');
-      try { items = JSON.parse(raw); } catch { items = []; }
-      if (!Array.isArray(items)) items = [];
+      items = tryParseJsonArray(raw);
     }
   }
 

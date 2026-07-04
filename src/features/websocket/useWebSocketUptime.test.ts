@@ -108,6 +108,13 @@ describe('useWebSocketUptime', () => {
     expect(result.current.uptime).toBe(0);
   });
 
+  it('stopUptimeTimer is a no-op when called without a running timer', () => {
+    const { result } = renderHook(() => useWebSocketUptime());
+    // uptimeTimerRef is null — false branch of `if (uptimeTimerRef.current !== null)`
+    act(() => { result.current.stopUptimeTimer(); });
+    expect(result.current.uptime).toBeNull();
+  });
+
   afterEach(() => {
     vi.useRealTimers();
   });

@@ -23,24 +23,51 @@ vi.mock('../../workflow/components/modals/WorkflowEditorModalFrame', () => ({
 }));
 
 vi.mock('./JsonTreePreview', () => ({
-  default: (props: Record<string, unknown>) => {
-    // Call onMatchCountChange to cover that callback
-    if (typeof props.onMatchCountChange === 'function') {
-      (props.onMatchCountChange as (n: number) => void)(0);
-    }
-    return (
-      <div data-testid="json-preview">
-        {typeof props.onToggle === 'function' && (
-          <button data-testid="tree-toggle" onClick={() => (props.onToggle as (path: string) => void)('$.key')} />
-        )}
-      </div>
-    );
-  },
+  default: (props: Record<string, unknown>) => (
+    <div data-testid="json-preview">
+      {typeof props.onMatchCountChange === 'function' && (
+        <button data-testid="match-count-trigger" onClick={() => (props.onMatchCountChange as (n: number) => void)(0)} />
+      )}
+      {typeof props.onToggle === 'function' && (
+        <button data-testid="tree-toggle" onClick={() => (props.onToggle as (path: string) => void)('$.key')} />
+      )}
+    </div>
+  ),
   buildJTree: (data: unknown, _prefix: string) => {
     if (data && typeof data === 'object') {
       return { key: '', value: data, children: Object.keys(data as Record<string, unknown>).map(k => ({ key: k, value: (data as Record<string, unknown>)[k], children: [] })) };
     }
     return null;
+  },
+  buildJTreeFromBody: (body?: string | null) => {
+    if (!body) return null;
+    try {
+      const parsed = JSON.parse(body);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          key: '',
+          value: parsed,
+          children: Object.keys(parsed as Record<string, unknown>).map((k) => ({
+            key: k,
+            value: (parsed as Record<string, unknown>)[k],
+            children: [],
+          })),
+        };
+      }
+    } catch {
+      // ignored in mock
+    }
+    return null;
+  },
+  collectJTreePaths: (node: { key: string; children?: { key: string; children?: unknown[] }[] }, prefix: string) => {
+    const paths: string[] = [];
+    if (node.children) {
+      for (const child of node.children) {
+        const p = `${prefix}/${child.key}`;
+        paths.push(p);
+      }
+    }
+    return paths;
   },
 }));
 
