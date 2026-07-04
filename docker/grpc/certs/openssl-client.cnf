@@ -1,0 +1,16 @@
+[ req ]
+default_bits       = 2048
+distinguished_name = req_distinguished_name
+prompt             = no
+req_extensions     = req_ext
+
+[ req_distinguished_name ]
+C  = US
+ST = CA
+L  = Local
+O  = RedfireForge
+OU = gRPC Fixtures
+CN = grpc-fixture-client
+
+[ req_ext ]
+extendedKeyUsage = clientAuth

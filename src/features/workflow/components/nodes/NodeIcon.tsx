@@ -322,6 +322,36 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
       </>
     ),
   },
+  grpcUnary: {
+    category: 'integration',
+    svg: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12h8" />
+        <path d="M13 9l3 3-3 3" />
+      </>
+    ),
+  },
+  grpcServerStream: {
+    category: 'integration',
+    svg: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M7 10h10" />
+        <path d="M7 14h8" />
+        <path d="M15 8l2 2-2 2" />
+      </>
+    ),
+  },
+  grpcAssert: {
+    category: 'logic',
+    svg: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M8 12l2.5 2.5L16 9" />
+      </>
+    ),
+  },
 };
 
 export function NodeIcon({ type, className }: NodeIconProps) {

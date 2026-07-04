@@ -12,6 +12,11 @@ import yaml from 'yaml';
 const DEFAULT_OUT_PATH = 'artifacts/grpc-phase13i-ga-signoff.json';
 const DEFAULT_MAX_ARTIFACT_AGE_DAYS = 14;
 
+function parseIntegerArg(value) {
+  if (!/^[+-]?\d+$/.test(value)) return Number.NaN;
+  return Number.parseInt(value, 10);
+}
+
 function parseArgs(argv) {
   const args = {
     outPath: DEFAULT_OUT_PATH,
@@ -22,7 +27,9 @@ function parseArgs(argv) {
     const raw = argv[i];
     if (!raw.startsWith('--')) continue;
 
-    const [flag, inlineValue] = raw.split('=');
+    const equalsIndex = raw.indexOf('=');
+    const flag = equalsIndex >= 0 ? raw.slice(0, equalsIndex) : raw;
+    const inlineValue = equalsIndex >= 0 ? raw.slice(equalsIndex + 1) : undefined;
     const nextValue = argv[i + 1];
     const hasSeparateValue = inlineValue == null && nextValue != null && !nextValue.startsWith('--');
     const value = inlineValue ?? (hasSeparateValue ? nextValue : '');
@@ -30,8 +37,11 @@ function parseArgs(argv) {
 
     if (flag === '--out' && value) args.outPath = value;
     if (flag === '--max-artifact-age-days' && value) {
-      const parsed = Number.parseInt(value, 10);
-      if (Number.isFinite(parsed) && parsed > 0) args.maxArtifactAgeDays = parsed;
+      const parsed = parseIntegerArg(value);
+      if (!Number.isFinite(parsed) || parsed <= 0) {
+        throw new Error('--max-artifact-age-days must be a positive integer');
+      }
+      args.maxArtifactAgeDays = parsed;
     }
   }
 
@@ -111,12 +121,18 @@ async function evaluateArtifact(checks, options) {
     passed: payload?.totals?.passed ?? null,
   });
 
-  addCheck(checks, `${id}_artifact_fresh`, Number.isFinite(ageDays) && ageDays <= maxArtifactAgeDays, `${label} artifact is recent`, {
+  addCheck(
+    checks,
+    `${id}_artifact_fresh`,
+    Number.isFinite(ageDays) && ageDays >= 0 && ageDays <= maxArtifactAgeDays,
+    `${label} artifact is recent`,
+    {
     selectedArtifact,
     capturedAt,
     ageDays: Number.isFinite(ageDays) ? Math.round(ageDays * 100) / 100 : null,
     maxArtifactAgeDays,
-  });
+    },
+  );
 }
 
 async function evaluateCiChain(checks) {
@@ -190,6 +206,7 @@ async function evaluateNpmScripts(checks) {
   const requiredScripts = [
     'grpc:phase13a:gate',
     'grpc:phase13b:gate',
+    'grpc:transport:parity',
     'grpc:phase13c:gate',
     'grpc:phase13d:gate',
     'grpc:phase13e:gate',
@@ -216,6 +233,14 @@ async function main() {
   await evaluateCiChain(checks);
 
   const artifactTargets = [
+    {
+      id: 'transport_parity',
+      label: 'Transport parity matrix automation',
+      candidates: [
+        'artifacts/grpc-transport-parity-matrix.ci.json',
+        'artifacts/grpc-transport-parity-matrix.json',
+      ],
+    },
     {
       id: 'phase13c',
       label: 'Phase 13C failure drills',

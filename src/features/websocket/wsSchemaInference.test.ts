@@ -189,5 +189,31 @@ describe('wsSchemaInference', () => {
       expect(schema.properties.data.type).toBe('array');
       expect(schema.properties.data.items.type).toBe('object');
     });
+
+    it('handles merging array schemas where all samples have empty arrays (itemNodes empty → no items key)', () => {
+      // All arrays empty → itemNodes = [] → false branch of `itemNodes.length > 0`
+      const frames = [
+        makeFrame('{"data": []}', 'received'),
+        makeFrame('{"data": []}', 'received'),
+      ];
+      const result = inferSchemaFromMessages(frames, 'received');
+      const schema = JSON.parse(result!);
+      expect(schema.properties.data.type).toBe('array');
+      expect(schema.properties.data.items).toBeUndefined();
+    });
+
+    it('infers optional properties (keys not present in all samples are excluded from required)', () => {
+      // Two object samples with different keys → commonKeys only includes shared keys
+      const frames = [
+        makeFrame('{"a": 1, "b": 2}', 'received'),
+        makeFrame('{"a": 3}', 'received'),
+      ];
+      const result = inferSchemaFromMessages(frames, 'received');
+      const schema = JSON.parse(result!);
+      expect(schema.required).toContain('a');
+      expect(schema.required).not.toContain('b');
+      // 'b' should still appear as a property (from first sample)
+      expect(schema.properties.b).toBeDefined();
+    });
   });
 });

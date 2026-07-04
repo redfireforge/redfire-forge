@@ -307,7 +307,7 @@ export function GrpcProtoManageModal({
 
   const canLoad = activeTab !== 'schema_browser' && (
     activeTab === 'proto_files'
-      ? ingest.protoRoots.some((root) => root.files.length > 0)
+      ? protoRoots.some((root) => root.files.length > 0)
       : activeTab === 'protoset'
         ? Boolean(ingest.protosetBase64?.trim())
         : activeTab === 'url_proto'

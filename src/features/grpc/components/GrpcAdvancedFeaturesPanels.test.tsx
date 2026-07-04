@@ -422,5 +422,8 @@ describe('GrpcAdvancedFeaturesShell (Phase 11G)', () => {
     render(<GrpcAdvancedFeaturesShell advanced={makeAdvancedStub({ setActiveFeatureTab })} />);
     await userEvent.click(screen.getByTestId('grpc-advanced-tab-mock_server'));
     expect(setActiveFeatureTab).toHaveBeenCalledWith('mock_server');
+
+    await userEvent.click(screen.getByTestId('grpc-advanced-tab-native_diagnostics'));
+    expect(setActiveFeatureTab).toHaveBeenCalledWith('native_diagnostics');
   });
 });

@@ -139,7 +139,7 @@ vi.mock('./idbWorkflows', () => ({
   idbMigrateWorkflowFolders: (key: string) => workflowsIdb.idbMigrateWorkflowFolders(key),
 }));
 
-import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, getStorageDiagnostics, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, saveRunnerConfig, writeKey, loadWorkflowFolders, saveWorkflowFolders, onStorageFull, } from './storage';
+import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, getStorageDiagnostics, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, saveRunnerConfig, writeKey, loadWorkflowFolders, saveWorkflowFolders, onStorageFull, saveWorkspaceDefaults, loadWorkspaceDefaults, } from './storage';
 import { SharedDataSource, TestRun } from '../types';
 import { idbSaveTestRun, idbLoadTestRuns, idbGetRunsInfo, idbLoadTestRunsLite, idbLoadTrace, } from './idbTestRuns';
 
@@ -681,6 +681,49 @@ describe('storage — feature groups / shared DS branches', () => {
     const loaded = await loadSharedDataSources();
     expect(loaded[0].id).toBe('fb');
   });
+
+  it('saveSharedDataSources falls back to JSON when IDB save throws', async () => {
+    const sds: SharedDataSource[] = [
+      {
+        id: 'save-fallback',
+        name: 'Fallback',
+        dataSource: { id: 'd', columns: [], rows: [], source: { type: 'inline' } },
+        updatedAt: 10,
+      },
+    ];
+    sharedIdb.idbSaveSharedDataSources.mockRejectedValueOnce(new Error('idb save fail'));
+    await saveSharedDataSources(sds);
+    expect(localStorage.getItem('perf-test-v3-shared-data-sources')).toContain('save-fallback');
+  });
+});
+
+describe('storage — workspace defaults branches', () => {
+  it('save/load workspace defaults handles mixed scalar/object/null values', async () => {
+    await saveWorkspaceDefaults({ envA: 'dev' });
+    localStorage.setItem(
+      'perf-test-v3-workspace-defaults',
+      JSON.stringify({
+        envA: 'dev',
+        nilVal: null,
+        numVal: 42,
+        objVal: { nested: true },
+      }),
+    );
+
+    const loaded = await loadWorkspaceDefaults();
+    expect(loaded.envA).toBe('dev');
+    expect(loaded.nilVal).toBe('');
+    expect(loaded.numVal).toBe('42');
+    expect(loaded.objVal).toContain('nested');
+  });
+
+  it('loadWorkspaceDefaults returns empty object for invalid payloads', async () => {
+    localStorage.setItem('perf-test-v3-workspace-defaults', '["bad"]');
+    await expect(loadWorkspaceDefaults()).resolves.toEqual({});
+
+    localStorage.setItem('perf-test-v3-workspace-defaults', '{bad-json');
+    await expect(loadWorkspaceDefaults()).resolves.toEqual({});
+  });
 });
 
 describe('storage — preview sample sessionStorage errors', () => {
@@ -895,6 +938,20 @@ describe('storage — loadRunnerConfig legacy migration', () => {
     expect(attempts).toBe(2);
   });
 
+  it('saveRunnerConfig Tauri warns when retry still fails with quota', async () => {
+    isTauriMock.mockReturnValue(true);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    tauriSetItem.mockRejectedValue(new DOMException('quota', 'QuotaExceededError'));
+    try {
+      await saveRunnerConfig({ iterations: 1, concurrency: 1 }, 'tauri-hard-fail');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Runner config save failed for "perf-test-runner-config:tauri-hard-fail"'),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
   it('loadRunnerConfig migrates legacy localStorage into IDB on browser path', async () => {
     isTauriMock.mockReturnValue(false);
     localStorage.setItem('perf-test-runner-config:legacy-ctx', JSON.stringify({ iterations: 9 }));
@@ -907,6 +964,20 @@ describe('storage — loadRunnerConfig legacy migration', () => {
     const { idbLoadRunnerConfig } = await import('./idbRunnerConfig');
     vi.mocked(idbLoadRunnerConfig).mockRejectedValueOnce(new Error('idb down'));
     await expect(loadRunnerConfig('broken')).resolves.toBeNull();
+  });
+
+  it('loadRunnerConfig handles legacy localStorage read errors', async () => {
+    isTauriMock.mockReturnValue(false);
+    const { idbLoadRunnerConfig } = await import('./idbRunnerConfig');
+    vi.mocked(idbLoadRunnerConfig).mockResolvedValueOnce(null);
+    const getSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked read');
+    });
+    try {
+      await expect(loadRunnerConfig('legacy-read-fail')).resolves.toBeNull();
+    } finally {
+      getSpy.mockRestore();
+    }
   });
 });
 

@@ -9,6 +9,7 @@ import SidebarContextMenu from './SidebarContextMenu';
 import { useToast } from '../../../shared/hooks/useToast';
 import { useRequestsSidebarSearch } from '../hooks/useRequestsSidebarSearch';
 import { useRequestsSidebarDnD } from '../hooks/useRequestsSidebarDnD';
+import { tryParseJson } from '../../../shared/utils/helpers';
 
 interface Props {
   collections: RequestCollection[];
@@ -84,6 +85,23 @@ function slugify(name: string): string {
 
 function buildExportPayload(type: string, data: unknown) {
   return { type, version: '1.0', exportedAt: new Date().toISOString(), data };
+}
+
+type RequestsImportPayload = {
+  type?: string;
+  data?: Record<string, unknown>;
+};
+
+function parseImportPayload(content: string): RequestsImportPayload | null {
+  const parsed = tryParseJson(content);
+  if (!parsed || typeof parsed !== 'object') return null;
+  return parsed as RequestsImportPayload;
+}
+
+async function pickAndParseImportPayload(): Promise<{ payload: RequestsImportPayload | null; cancelled: boolean }> {
+  const content = await pickImportFile();
+  if (!content) return { payload: null, cancelled: true };
+  return { payload: parseImportPayload(content), cancelled: false };
 }
 
 async function pickImportFile(): Promise<string | null> {
@@ -334,12 +352,15 @@ export default function RequestsSidebar({
 
   const handleImportToCollection = async (colId?: string, targetGroupId?: string) => {
     setContextMenu(null);
-    const content = await pickImportFile();
-    if (!content) return;
+    const { payload: json, cancelled } = await pickAndParseImportPayload();
+    if (cancelled) return;
+    if (!json) {
+      toast.show('error', 'Invalid JSON file', 'Please select a valid export file.');
+      return;
+    }
     try {
-      const json = JSON.parse(content);
       if (json.type === 'requests-collection' && json.data) {
-        const incoming = json.data as RequestCollection;
+        const incoming = json.data as unknown as RequestCollection;
         if (!incoming.name || !incoming.requests) {
           toast.show('error', 'Invalid collection format', 'Missing required fields.'); return;
         }
@@ -354,7 +375,7 @@ export default function RequestsSidebar({
         };
         onImportCollection(imported);
       } else if (json.type === 'requests-folder' && json.data && colId) {
-        const incoming = json.data as RequestFolder;
+        const incoming = json.data as unknown as RequestFolder;
         if (!incoming.name || !incoming.requests) {
           toast.show('error', 'Invalid folder format', 'Missing required fields.'); return;
         }
@@ -367,9 +388,13 @@ export default function RequestsSidebar({
         });
         onImportFolder(colId, imported);
       } else if (json.type === 'requests-group' && json.data?.group) {
-        importGroupData(json.data.group, json.data.children ?? [], targetGroupId);
+        importGroupData(
+          json.data.group as unknown as RequestCollection,
+          (json.data.children ?? []) as unknown as RequestCollection[],
+          targetGroupId,
+        );
       } else if (json.type === 'requests-all' && json.data?.collections) {
-        const incoming = json.data.collections as RequestCollection[];
+        const incoming = json.data.collections as unknown as RequestCollection[];
         const idMap = new Map<string, string>();
         for (const inc of incoming) {
           idMap.set(inc.id, uuidv4());
@@ -430,12 +455,15 @@ export default function RequestsSidebar({
 
   const handleImportToFolder = async (colId: string, parentFolderId: string) => {
     setContextMenu(null);
-    const content = await pickImportFile();
-    if (!content) return;
+    const { payload: json, cancelled } = await pickAndParseImportPayload();
+    if (cancelled) return;
+    if (!json) {
+      toast.show('error', 'Invalid JSON file', 'Please select a valid export file.');
+      return;
+    }
     try {
-      const json = JSON.parse(content);
       if (json.type === 'requests-folder' && json.data) {
-        const incoming = json.data as RequestFolder;
+        const incoming = json.data as unknown as RequestFolder;
         if (!incoming.name || !incoming.requests) {
           toast.show('error', 'Invalid folder format', 'Missing required fields.'); return;
         }

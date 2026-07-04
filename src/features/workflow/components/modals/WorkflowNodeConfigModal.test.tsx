@@ -629,6 +629,117 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByText('Source')).toBeTruthy();
   });
 
+  it('renders GrpcUnaryConfig for grpcUnary node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcUnary', {
+      label: 'gRPC Unary',
+      target: '127.0.0.1:50051',
+      descriptorKey: 'desc-key',
+      service: 'demo.EchoService',
+      method: 'Echo',
+      callType: 'unary',
+      body: {},
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-unary-config')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('127.0.0.1:50051'), { target: { value: '127.0.0.1:50052' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ target: '127.0.0.1:50052' }));
+  });
+
+  it('renders GrpcServerStreamConfig for grpcServerStream node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcServerStream', {
+      label: 'gRPC Server Stream',
+      target: '127.0.0.1:50051',
+      descriptorKey: 'desc-key',
+      service: 'demo.EchoService',
+      method: 'StreamEcho',
+      callType: 'server_streaming',
+      body: {},
+      collect: { maxMessages: 10 },
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-server-stream-config')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('10'), { target: { value: '25' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith(
+      'node-1',
+      expect.objectContaining({ collect: expect.objectContaining({ maxMessages: 25 }) }),
+    );
+  });
+
+  it('renders GrpcAssertConfig for grpcAssert node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcAssert', {
+      label: 'gRPC Assert',
+      source: 'grpc.call.result',
+      assertions: [{ grpcStatus: 0 }],
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-assert-config')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('grpc.call.result'), { target: { value: 'grpc.call.alias' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ source: 'grpc.call.alias' }));
+  });
+
+  it('renders GrpcLoadTestConfig for grpcLoadTest node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcLoadTest', {
+      label: 'gRPC Load Test',
+      target: '127.0.0.1:50051',
+      descriptorKey: 'desc-key',
+      service: 'demo.EchoService',
+      method: 'Echo',
+      body: {},
+      loadTest: { concurrency: 1, totalCalls: 10, warmupCalls: 0 },
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-load-test-config')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('127.0.0.1:50051'), { target: { value: '127.0.0.1:50061' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ target: '127.0.0.1:50061' }));
+  });
+
+  it('renders GrpcSchemaDiffConfig for grpcSchemaDiff node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcSchemaDiff', {
+      label: 'gRPC Schema Diff',
+      leftDescriptorKey: 'left-v1',
+      rightDescriptorKey: 'right-v2',
+      failOnBreaking: true,
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-schema-diff-config')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ failOnBreaking: false }));
+  });
+
+  it('renders GrpcMockAssertConfig for grpcMockAssert node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcMockAssert', {
+      label: 'gRPC Mock Assert',
+      listenTarget: '127.0.0.1:50061',
+      descriptorKey: 'desc-key',
+      service: 'demo.EchoService',
+      method: 'Echo',
+      body: {},
+      expectedStatus: 0,
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-mock-assert-config')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('127.0.0.1:50061'), { target: { value: '127.0.0.1:50062' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ listenTarget: '127.0.0.1:50062' }));
+  });
+
   // ── Draft / base URL / HTTP callbacks ──
 
   it('uses Step Config in title when HTTP label is empty', () => {

@@ -11,6 +11,7 @@
  */
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { checkEndpoint } from '../utils/checkEndpoint';
+import { deriveEndpointHostPort, deriveEndpointLabel } from '../utils/endpointLabel';
 import {
   countUserTabsInStorage,
   MAX_TABS,
@@ -22,12 +23,16 @@ interface PrerequisiteGateProps {
   endpoint?: string;
   /** All endpoints that must be reachable. When set, every probe must succeed. */
   endpoints?: string[];
+  /** Optional friendly names parallel to `endpoints` (e.g. ["Docker echo", "Express proxy"]). */
+  endpointLabels?: string[];
   /** Human-readable docker compose command to display */
   dockerCommand: string;
   /** Optional gate title (default: Docker Required). */
   gateLabel?: string;
   /** Called once when the server first becomes reachable — parent uses this to enable Start Demo */
   onServerReady: () => void;
+  /** Fires after every probe with the friendly names of services still unreachable (empty when all up). */
+  onProbeStatusChange?: (downLabels: string[]) => void;
   /** GraphQL Studio tab slots this lesson reserves (§11.0). Omit when not a studio lesson. */
   tabBudget?: number;
   /** Called once when the user has closed enough tabs for this lesson. */
@@ -40,9 +45,11 @@ type TabCapacityState = 'idle' | 'checking' | 'ok' | 'blocked';
 export default function PrerequisiteGate({
   endpoint,
   endpoints,
+  endpointLabels,
   dockerCommand,
   gateLabel = '🐳 Docker Required',
   onServerReady,
+  onProbeStatusChange,
   tabBudget,
   onTabCapacityReady,
 }: PrerequisiteGateProps) {
@@ -50,7 +57,12 @@ export default function PrerequisiteGate({
     () => (endpoints?.length ? endpoints : endpoint ? [endpoint] : []),
     [endpoints, endpoint],
   );
+  const probeLabels = useMemo(
+    () => probeEndpoints.map((url, i) => endpointLabels?.[i] ?? deriveEndpointLabel(url)),
+    [probeEndpoints, endpointLabels],
+  );
   const [probeState, setProbeState] = useState<ProbeState>('idle');
+  const [serviceStates, setServiceStates] = useState<ProbeState[]>([]);
   const [tabCapacityState, setTabCapacityState] = useState<TabCapacityState>('idle');
   const [tabsToClose, setTabsToClose] = useState(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -59,6 +71,7 @@ export default function PrerequisiteGate({
   const tabNotifiedRef = useRef(false);
   const budget = tabBudget ?? 1;
   const needsTabGate = budget > 0 && Boolean(onTabCapacityReady);
+  const showServiceBreakdown = probeEndpoints.length > 1;
 
   const checkTabCapacity = useCallback(async () => {
     if (!needsTabGate || !mountedRef.current) return;
@@ -86,12 +99,16 @@ export default function PrerequisiteGate({
     );
     const ok = results.every(Boolean);
     if (!mountedRef.current) return;
+    setServiceStates(results.map((up) => (up ? 'up' : 'down')));
     setProbeState(ok ? 'up' : 'down');
+    onProbeStatusChange?.(
+      probeLabels.filter((_, i) => !results[i]),
+    );
     if (ok && !notifiedRef.current) {
       notifiedRef.current = true;
       onServerReady();
     }
-  }, [probeEndpoints, onServerReady]);
+  }, [probeEndpoints, probeLabels, onServerReady, onProbeStatusChange]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -138,6 +155,32 @@ export default function PrerequisiteGate({
         <span className="prereq-status-icon" aria-hidden="true">{statusIcon}</span>
         <span className="prereq-status-label">{statusLabel}</span>
       </div>
+
+      {showServiceBreakdown && (
+        <ul className="prereq-service-list" data-testid="prereq-service-list">
+          {probeEndpoints.map((url, i) => {
+            const state = serviceStates[i] ?? 'checking';
+            const icon = state === 'up' ? '✓' : state === 'down' ? '✗' : '⏳';
+            const stateLabel = state === 'up'
+              ? 'reachable'
+              : state === 'down'
+                ? 'not detected'
+                : 'checking…';
+            return (
+              <li
+                key={url}
+                className={`prereq-service prereq-service--${state}`}
+                data-testid="prereq-service"
+              >
+                <span className="prereq-service-icon" aria-hidden="true">{icon}</span>
+                <span className="prereq-service-name">{probeLabels[i]}</span>
+                <span className="prereq-service-host">{deriveEndpointHostPort(url)}</span>
+                <span className="prereq-service-state">{stateLabel}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
 
       <div className="prereq-instruction">
         <p className="prereq-instruction-title">Run this command in a terminal:</p>

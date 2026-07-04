@@ -112,6 +112,12 @@ pub fn run() {
       grpc::lifecycle::grpc_tab_events_attach,
       grpc::lifecycle::grpc_tab_events_detach,
       grpc::lifecycle::grpc_tab_heartbeat,
+      grpc::diagnostics::grpc_native_diagnostics,
+      grpc::mock_server::grpc_mock_listener_start,
+      grpc::mock_server::grpc_mock_listener_stop,
+      grpc::mock_server::grpc_mock_listener_status,
+      grpc::mock_server::grpc_mock_listener_commit,
+      grpc::mock_server::grpc_mock_listener_log,
     ]);
 
   #[cfg(debug_assertions)]
@@ -137,6 +143,7 @@ pub fn run() {
       if let tauri::WindowEvent::Destroyed = event {
         let state = window.state::<GrpcState>();
         lifecycle::shutdown_all(&state);
+        let _ = grpc::mock_server::shutdown_all_mock_listeners();
       }
     })
     .build(tauri::generate_context!())
@@ -145,6 +152,7 @@ pub fn run() {
       if let tauri::RunEvent::Exit = event {
         let state = app_handle.state::<GrpcState>();
         lifecycle::shutdown_all(&state);
+        let _ = grpc::mock_server::shutdown_all_mock_listeners();
       }
     });
 }

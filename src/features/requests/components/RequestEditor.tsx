@@ -24,11 +24,11 @@ import { PathParamsEditor } from './PathParamsEditor';
 import type { PathParamEntry } from './PathParamsEditor';
 import { resolvePathParamUrl } from '../utils/pathParamResolver';
 import RequestAuthEditor from './RequestAuthEditor';
-import JsonPreview, { buildJTree } from './JsonTreePreview';
-import type { JNode } from './JsonTreePreview';
+import JsonPreview, { buildJTreeFromBody, collectJTreePaths } from './JsonTreePreview';
 import ConsoleLog from './ConsoleLog';
 import MultiEnvResultRow from './MultiEnvResultRow';
 import { ResponseHistoryDropdown } from './ResponseHistoryDropdown';
+import { useJsonTreeCollapseState, useMatchCountChange } from '../../../shared/hooks/useJsonTreeCollapseState';
 
 import { createSnapshot, restoreFromVersion, deleteVersion, renameVersion } from '../utils/requestDefinitionVersioning';
 import RequestDefinitionVersionPanel from './RequestDefinitionVersionPanel';
@@ -99,14 +99,7 @@ export default function RequestEditor({
     goPrev: goPrevSearchMatch,
     clear: clearResponseSearch,
   } = useSearchMatchNavigation(searchMatchCount);
-  const [collapsedSet, setCollapsedSet] = useState<Set<string>>(new Set());
-  const handleTreeToggle = useCallback((path: string) => {
-    setCollapsedSet(prev => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path); else next.add(path);
-      return next;
-    });
-  }, []);
+  const { collapsedSet, handleTreeToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
 
   const {
     response, setResponse,
@@ -130,25 +123,16 @@ export default function RequestEditor({
   }, [request.id, setResponseSearch]);
 
   const responseTree = useMemo(() => {
-    if (!response?.body) return null;
-    try { return buildJTree(JSON.parse(response.body), ''); } catch { return null; }
+    return buildJTreeFromBody(response?.body);
   }, [response?.body]);
   const allTreePaths = useMemo(() => {
     if (!responseTree) return new Set<string>();
-    const paths = new Set<string>();
-    (function walk(node: JNode, p: string) {
-      if (node.children?.length) { paths.add(p); node.children.forEach((c) => walk(c, `${p}/${c.key}`)); }
-    })(responseTree, '');
-    return paths;
+    return new Set<string>(['', ...collectJTreePaths(responseTree, '')]);
   }, [responseTree]);
-  const handleCollapseAll = useCallback(() => setCollapsedSet(new Set(allTreePaths)), [allTreePaths]);
-  const handleExpandAll = useCallback(() => setCollapsedSet(new Set()), []);
+  const handleCollapseAll = () => collapseAll(allTreePaths);
   const searchMatchIdxRef = useRef(searchMatchIdx);
   searchMatchIdxRef.current = searchMatchIdx;
-  const handleMatchCountChange = useCallback((count: number) => {
-    setSearchMatchCount(count);
-    if (searchMatchIdxRef.current >= count) setSearchMatchIdx(Math.max(0, count - 1));
-  }, [setSearchMatchIdx]);
+  const handleMatchCountChange = useMatchCountChange(setSearchMatchCount, setSearchMatchIdx, searchMatchIdxRef);
 
   const queryParams = useMemo(() => {
     if (request.savedQueryParams && request.savedQueryParams.length > 0) {

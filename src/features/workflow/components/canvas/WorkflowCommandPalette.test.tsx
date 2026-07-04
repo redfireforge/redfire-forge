@@ -189,6 +189,9 @@ describe('WorkflowCommandPalette', () => {
   });
 
   it.each([
+    ['Add gRPC Unary', 'grpcUnary'],
+    ['Add gRPC Server Stream', 'grpcServerStream'],
+    ['Add gRPC Assert', 'grpcAssert'],
     ['Add Condition', 'condition'],
     ['Add Delay', 'delay'],
     ['Add Loop', 'loop'],

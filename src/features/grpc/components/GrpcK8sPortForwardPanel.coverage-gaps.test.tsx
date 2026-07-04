@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GrpcK8sPortForwardPanel } from './GrpcK8sPortForwardPanel';
 import { DEFAULT_GRPC_K8S_PORT_FORWARD_CONFIG } from '../utils/grpcK8sPortForward';
@@ -452,7 +452,9 @@ describe('GrpcK8sPortForwardPanel coverage gaps', () => {
     fireEvent.click(screen.getByTestId('grpc-k8s-start-btn'));
     await waitFor(() => expect(grpcK8sApiMocks.start).toHaveBeenCalled());
     const initialCalls = grpcK8sApiMocks.getLogs.mock.calls.length;
-    await new Promise((resolve) => { setTimeout(resolve, 4100); });
+    await act(async () => {
+      await new Promise((resolve) => { setTimeout(resolve, 4100); });
+    });
     expect(grpcK8sApiMocks.getLogs.mock.calls.length).toBeGreaterThan(initialCalls);
   }, 10_000);
 

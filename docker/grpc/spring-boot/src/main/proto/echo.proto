@@ -1,0 +1,41 @@
+syntax = "proto3";
+
+package echo;
+
+option java_multiple_files = true;
+
+message EchoRequest {
+  string message = 1;
+}
+
+message EchoResponse {
+  string message = 1;
+}
+
+message StreamRequest {
+  string message = 1;
+  int32 repeat_count = 2;
+  int32 interval_ms = 3;
+}
+
+message ComplexEchoRequest {
+  string message = 1;
+  repeated string labels = 2;
+  map<string, string> attributes = 3;
+}
+
+message ComplexEchoResponse {
+  string request_id = 1;
+  string message = 2;
+  repeated string labels = 3;
+  map<string, string> attributes = 4;
+  int64 received_unix_ms = 5;
+}
+
+service EchoService {
+  rpc Echo (EchoRequest) returns (EchoResponse);
+  rpc CreateComplexEcho (ComplexEchoRequest) returns (ComplexEchoResponse);
+  rpc ServerStream (StreamRequest) returns (stream EchoResponse);
+  rpc ClientStream (stream EchoRequest) returns (EchoResponse);
+  rpc BidiStream (stream EchoRequest) returns (stream EchoResponse);
+}

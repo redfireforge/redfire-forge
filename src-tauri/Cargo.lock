@@ -4841,6 +4841,9 @@ dependencies = [
  "hdrhistogram",
  "hex",
  "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "jsonschema",
  "log",
  "prost",
@@ -4866,9 +4869,11 @@ dependencies = [
  "tauri-plugin-mcp-bridge",
  "tauri-plugin-shell",
  "tokio",
+ "tokio-stream",
  "tokio-tungstenite 0.28.0",
  "tokio-util",
  "tonic",
+ "tonic-health",
  "uuid",
 ]
 
@@ -6805,6 +6810,19 @@ dependencies = [
  "tower-layer",
  "tower-service",
  "tracing",
+]
+
+[[package]]
+name = "tonic-health"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1eaf34ddb812120f5c601162d5429933c9b527d901ab0e7f930d3147e33a09b2"
+dependencies = [
+ "async-stream",
+ "prost",
+ "tokio",
+ "tokio-stream",
+ "tonic",
 ]
 
 [[package]]

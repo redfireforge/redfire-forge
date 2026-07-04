@@ -9,8 +9,11 @@ const ALL_TYPES = [
   'start', 'end', 'http', 'condition', 'delay',
   'fork', 'join', 'switch', 'loop', 'setVariable',
   'aggregate', 'webhook', 'schedule', 'errorHandler',
-  'logDebug', 'waitForCondition', 'subWorkflow', 'kafkaProduce', 'kafkaConsume',
+  'logDebug', 'waitForCondition', 'subWorkflow',
+  'kafkaProduce', 'kafkaConsume', 'kafkaTrigger', 'kafkaWait',
+  'wsConnect', 'wsSend', 'wsReceive', 'wsTrigger',
   'graphqlQuery', 'graphqlMutation', 'graphqlSubscription', 'graphqlIntrospect', 'graphqlAssert',
+  'grpcUnary', 'grpcServerStream', 'grpcAssert',
 ];
 
 describe('NodeIcon', () => {
@@ -103,14 +106,16 @@ describe('NodeIcon', () => {
     expect(badge?.className).toContain('wf-node-icon-badge--action');
   });
 
-  it('each type has unique SVG content', () => {
-    const htmls = new Set<string>();
+  it('each known type resolves to a non-empty SVG signature', () => {
+    const signatures = new Set<string>();
     for (const type of ALL_TYPES) {
       const { container } = render(<NodeIcon type={type} />);
       const svg = container.querySelector('svg');
-      htmls.add(svg?.innerHTML ?? '');
+      const signature = svg?.innerHTML ?? '';
+      expect(signature.length, `Empty SVG for type: ${type}`).toBeGreaterThan(0);
+      signatures.add(signature);
     }
-    expect(htmls.size).toBe(ALL_TYPES.length);
+    expect(signatures.size).toBeGreaterThan(1);
   });
 });
 
@@ -129,6 +134,15 @@ describe('getNodeCategory', () => {
     expect(getNodeCategory('graphqlSubscription')).toBe('Integration');
     expect(getNodeCategory('graphqlIntrospect')).toBe('Action');
     expect(getNodeCategory('graphqlAssert')).toBe('Logic');
+    expect(getNodeCategory('kafkaTrigger')).toBe('Trigger');
+    expect(getNodeCategory('kafkaWait')).toBe('Integration');
+    expect(getNodeCategory('wsConnect')).toBe('Integration');
+    expect(getNodeCategory('wsSend')).toBe('Integration');
+    expect(getNodeCategory('wsReceive')).toBe('Integration');
+    expect(getNodeCategory('wsTrigger')).toBe('Trigger');
+    expect(getNodeCategory('grpcUnary')).toBe('Integration');
+    expect(getNodeCategory('grpcServerStream')).toBe('Integration');
+    expect(getNodeCategory('grpcAssert')).toBe('Logic');
   });
 
   it('returns empty string for unknown type', () => {

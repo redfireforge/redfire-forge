@@ -220,6 +220,29 @@ impl GrpcState {
             .unwrap_or(0)
     }
 
+    pub fn attached_tab_count(&self) -> usize {
+        self.tab_event_listeners
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .len()
+    }
+
+    pub fn detached_tab_count(&self) -> usize {
+        self.tab_listener_detached_at
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .len()
+    }
+
+    pub fn total_listener_count(&self) -> u32 {
+        self.tab_event_listeners
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .copied()
+            .sum()
+    }
+
     #[cfg(test)]
     pub fn set_tab_detached_at_for_test(&self, tab_id: &str, detached_at: Instant) {
         let mut detached = self
