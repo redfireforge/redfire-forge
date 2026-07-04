@@ -83,15 +83,27 @@ describe('checkEndpoint', () => {
     const promise = checkEndpoint('http://localhost:4100/health');
     await vi.advanceTimersByTimeAsync(100);
     expect(await promise).toBe(true);
-    expect(spy).toHaveBeenCalledWith('http://127.0.0.1:4100/health', expect.any(Object));
+    expect(spy).toHaveBeenCalledWith('http://localhost:4100/health', expect.any(Object));
   });
 
-  it('rewrites localhost to 127.0.0.1 for WS health fallback', async () => {
+  it('uses localhost for WS health fallback before trying IPv4 loopback', async () => {
     const spy = mockFetch(true);
     const promise = checkEndpoint('ws://localhost:3100/socket.io/?EIO=4');
     await vi.advanceTimersByTimeAsync(100);
     expect(await promise).toBe(true);
-    expect(spy).toHaveBeenCalledWith('http://127.0.0.1:3100/health', expect.any(Object));
+    expect(spy).toHaveBeenCalledWith('http://localhost:3100/health', expect.any(Object));
+  });
+
+  it('falls back to 127.0.0.1 when localhost probe fails', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockRejectedValueOnce(new Error('localhost unreachable'))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    const promise = checkEndpoint('http://localhost:3001/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(spy).toHaveBeenNthCalledWith(1, 'http://localhost:3001/health', expect.any(Object));
+    expect(spy).toHaveBeenNthCalledWith(2, 'http://127.0.0.1:3001/health', expect.any(Object));
   });
 
   it('settle guard prevents double-resolve when both timeout and open fire', async () => {
