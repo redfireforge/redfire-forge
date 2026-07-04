@@ -51,6 +51,7 @@ import {
   buildStreamEventErrorBody,
   tabHasActiveStream,
 } from './grpcStreamSessionHelpers';
+import { resolveEffectiveGrpcAuth } from '../utils/grpcAuthProfileResolve';
 
 type SessionCore = Pick<
   GrpcStudioSessionCore,
@@ -110,8 +111,19 @@ export function createPrepareExecuteSnapshotHandler(
       callType,
       tlsMode: resolution.tlsMode ?? mergedTab.tlsMode,
     });
+    const resolvedAuthState = resolveEffectiveGrpcAuth(
+      mergedTab.auth,
+      ctx.globalAuthProfiles,
+      ctx.defaultAuthProfileId,
+    );
+    if (resolvedAuthState.issue) {
+      throw new Error(resolvedAuthState.issue);
+    }
     const resolvedFields = resolveGrpcStudioTabFieldsForExecute(
-      mergedTab,
+      {
+        ...mergedTab,
+        auth: resolvedAuthState.auth,
+      },
       interpolationEnv.env,
     );
     const executeTab = {

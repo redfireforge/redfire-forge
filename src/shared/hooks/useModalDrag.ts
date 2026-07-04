@@ -18,6 +18,10 @@ export interface UseModalDragOptions {
   /** Optional region to place the modal when it opens (studio workspace, panel, etc.). */
   anchor?: ModalDragAnchor;
   modalRef?: RefObject<HTMLElement | null>;
+  /** Keep dragged modal fully visible in viewport. */
+  constrainToViewport?: boolean;
+  /** Margin from viewport edges while constrained. */
+  viewportPadding?: number;
 }
 
 function computeAnchoredPosition(
@@ -65,15 +69,37 @@ function computeAnchoredPosition(
 export function useModalDrag(open: boolean, options?: UseModalDragOptions) {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
   const [isDragging, setIsDragging] = useState(false);
-  const dragState = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const dragState = useRef<{
+    startX: number;
+    startY: number;
+    origX: number;
+    origY: number;
+    modalW: number;
+    modalH: number;
+  } | null>(null);
+  // Lock the modal's rendered dimensions when drag first starts so that the
+  // transition to `position: fixed` (which changes the CSS containing block)
+  // cannot cause a layout-driven size change while the modal is being moved.
+  const lockedSizeRef = useRef<{ w: number; h: number } | null>(null);
+  const constrainToViewport = options?.constrainToViewport ?? false;
+  const viewportPadding = options?.viewportPadding ?? 8;
 
   const updateDragPosition = useCallback((clientX: number, clientY: number) => {
     if (!dragState.current) return;
-    setPosition({
-      x: dragState.current.origX + (clientX - dragState.current.startX),
-      y: dragState.current.origY + (clientY - dragState.current.startY),
-    });
-  }, []);
+    const rawX = dragState.current.origX + (clientX - dragState.current.startX);
+    const rawY = dragState.current.origY + (clientY - dragState.current.startY);
+
+    if (!constrainToViewport) {
+      setPosition({ x: rawX, y: rawY });
+      return;
+    }
+
+    const maxX = Math.max(viewportPadding, window.innerWidth - dragState.current.modalW - viewportPadding);
+    const maxY = Math.max(viewportPadding, window.innerHeight - dragState.current.modalH - viewportPadding);
+    const x = Math.min(Math.max(rawX, viewportPadding), maxX);
+    const y = Math.min(Math.max(rawY, viewportPadding), maxY);
+    setPosition({ x, y });
+  }, [constrainToViewport, viewportPadding]);
 
   const finishMouseDrag = useCallback((
     handleMove: (ev: MouseEvent) => void,
@@ -101,14 +127,31 @@ export function useModalDrag(open: boolean, options?: UseModalDragOptions) {
     clientX: number,
     clientY: number,
   ) => {
-    if ((e.target as HTMLElement).closest('button, input, select, textarea')) return;
+    const targetElement = e.target instanceof Element
+      ? e.target
+      : e.target instanceof Node
+        ? e.target.parentElement
+        : null;
+    if (targetElement?.closest('button, input, select, textarea')) return;
     e.preventDefault();
     const modal = (e.currentTarget as HTMLElement).closest('[role="dialog"]') as HTMLElement;
     if (!modal) return;
     const rect = modal.getBoundingClientRect();
     const origX = position?.x ?? rect.left;
     const origY = position?.y ?? rect.top;
-    dragState.current = { startX: clientX, startY: clientY, origX, origY };
+    // Capture dimensions once on the very first drag so subsequent renders
+    // with `position: fixed` always have an explicit width/height to hold.
+    if (!lockedSizeRef.current) {
+      lockedSizeRef.current = { w: rect.width, h: rect.height };
+    }
+    dragState.current = {
+      startX: clientX,
+      startY: clientY,
+      origX,
+      origY,
+      modalW: lockedSizeRef.current.w,
+      modalH: lockedSizeRef.current.h,
+    };
     setIsDragging(true);
 
     const handleMove = (ev: MouseEvent) => updateDragPosition(ev.clientX, ev.clientY);
@@ -140,6 +183,7 @@ export function useModalDrag(open: boolean, options?: UseModalDragOptions) {
     if (!open) {
       setPosition(null);
       setIsDragging(false);
+      lockedSizeRef.current = null;
     }
   }, [open]);
 
@@ -189,8 +233,20 @@ export function useModalDrag(open: boolean, options?: UseModalDragOptions) {
     ? { background: 'transparent', backdropFilter: 'none', pointerEvents: 'none' }
     : undefined;
 
+  const lockedW = lockedSizeRef.current?.w;
   const modalStyle: React.CSSProperties | undefined = position
-    ? { position: 'fixed', left: position.x, top: position.y, margin: 0, pointerEvents: 'auto' }
+    ? {
+        position: 'fixed',
+        left: position.x,
+        top: position.y,
+        margin: 0,
+        pointerEvents: 'auto',
+        // Explicitly lock the width that was captured at drag-start.
+        // Without this, switching from flex-item to position:fixed changes
+        // the CSS containing block, which can cause the browser to
+        // recalculate width/max-width and visually shrink the modal.
+        ...(lockedW !== undefined ? { width: lockedW, maxWidth: 'none' } : {}),
+      }
     : undefined;
 
   return { onDragStart, onPointerDragStart, isDragged, isDragging, overlayStyle, modalStyle };

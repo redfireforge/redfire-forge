@@ -62,7 +62,7 @@ import {
   unmaskSecretField,
 } from './utils/grpcTabSecretVault';
 import type { GrpcAuthSecretFieldKey, GrpcTlsSecretFieldKey } from './utils/grpcSecretFieldUi';
-import { previewGrpcAuthMerge } from './utils/grpcAuthPreview';
+import { resolveEffectiveGrpcAuth } from './utils/grpcAuthProfileResolve';
 import {
   descriptorHasHealthService,
   descriptorHasHealthWatch,
@@ -97,6 +97,7 @@ export function GrpcStudioPage({
   selectedSvc,
   selectedEnvId,
   workspaceDefaultsOverride,
+  globalAuthProfiles = [],
 }: GrpcStudioPageProps) {
   const [densityMode, setDensityMode] = useState<GrpcStudioDensityMode>(() => {
     try {
@@ -140,10 +141,14 @@ export function GrpcStudioPage({
     return undefined;
   }, [selectedSvc, selectedEnvId]);
 
+  const defaultAuthProfileId = selectedSvc?.authProfileIds?.[selectedEnvId ?? ''] ?? null;
+
   const studio = useGrpcStudio({
     envVarMap,
     workspaceDefaults,
     pageDefaults,
+    globalAuthProfiles,
+    defaultAuthProfileId,
   });
 
   // Wire up session state persistence (saves to localStorage on change, restores on mount)
@@ -320,11 +325,11 @@ export function GrpcStudioPage({
   const [protoModalInitialTab, setProtoModalInitialTab] = useState<ProtoModalTab | undefined>(undefined);
   const [exportProtosetBusy, setExportProtosetBusy] = useState(false);
   const [exportError, setExportError] = useState<string | undefined>();
-  const [authTabFocusRequest] = useState(0);
+  const [authTabFocusRequest, setAuthTabFocusRequest] = useState(0);
   const [tlsModalOpenRequest, setTlsModalOpenRequest] = useState(0);
   const [tlsModalCloseRequest, setTlsModalCloseRequest] = useState(0);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
-  const [settingsDrawerNav, setSettingsDrawerNav] = useState<GrpcConnectionSettingsNav>('tls');
+  const [settingsDrawerNav, setSettingsDrawerNav] = useState<GrpcConnectionSettingsNav>('call');
   const previousActiveTabIdRef = useRef(studio.activeTabId);
 
   useEffect(() => {
@@ -399,12 +404,12 @@ export function GrpcStudioPage({
     });
   }, [activeTab, studio]);
 
-  const authPreview = useMemo(
-    () => previewGrpcAuthMerge(activeTab.metadata, activeTab.auth),
-    [activeTab.auth, activeTab.metadata],
+  const resolvedActiveAuthState = useMemo(
+    () => resolveEffectiveGrpcAuth(activeTab.auth, globalAuthProfiles, defaultAuthProfileId),
+    [activeTab.auth, defaultAuthProfileId, globalAuthProfiles],
   );
 
-  const openSettingsDrawer = useCallback((nav: GrpcConnectionSettingsNav = 'tls') => {
+  const openSettingsDrawer = useCallback((nav: GrpcConnectionSettingsNav = 'call') => {
     setProtoModalOpen(false);
     setTlsModalCloseRequest((count) => count + 1);
     setSettingsDrawerNav(nav);
@@ -412,8 +417,9 @@ export function GrpcStudioPage({
   }, []);
 
   const handleFocusAuthTab = useCallback(() => {
-    openSettingsDrawer('auth');
-  }, [openSettingsDrawer]);
+    setSettingsDrawerOpen(false);
+    setAuthTabFocusRequest((count) => count + 1);
+  }, []);
 
   const handleTlsBadgeClick = useCallback(() => {
     setSettingsDrawerOpen(false);
@@ -425,7 +431,7 @@ export function GrpcStudioPage({
   }, [openSettingsDrawer]);
 
   const handleSettingsClick = useCallback(() => {
-    openSettingsDrawer('tls');
+    openSettingsDrawer('call');
   }, [openSettingsDrawer]);
 
   const healthAvailable = descriptorHasHealthService(studio.activeTabDescriptor.descriptor);
@@ -455,12 +461,12 @@ export function GrpcStudioPage({
       resolution: activeConnection,
       tlsConfig: tab.tlsConfig,
       metadata: tab.metadata,
-      auth: tab.auth,
+      auth: resolveEffectiveGrpcAuth(tab.auth, globalAuthProfiles, defaultAuthProfileId).auth,
       compression: tab.compression,
       timeoutMs: tab.timeoutMs,
       serviceName,
     });
-  }, [studio.activeTab, studio.activeTabDescriptor.descriptor?.key, activeConnection, tlsState, healthAvailable]);
+  }, [studio.activeTab, studio.activeTabDescriptor.descriptor?.key, activeConnection, tlsState, healthAvailable, globalAuthProfiles, defaultAuthProfileId]);
 
   const handleHealthWatch = useCallback((serviceName: string) => {
     if (!healthWatchAvailable || !canReflect) return;
@@ -521,10 +527,9 @@ export function GrpcStudioPage({
         targetInvalid={!activeConnection.targetValidation.valid}
         tlsMode={resolvedTlsMode}
         tlsValid={tlsState.valid}
-        auth={activeTab.auth}
+        auth={resolvedActiveAuthState.auth}
         timeoutMs={activeTab.timeoutMs}
         targetConnection={activeTab.targetConnection}
-        envName={envName}
         disabled={connectionEditingDisabled}
         reflectionLoadedCount={reflectionLoadedCount}
         onTargetChange={(value) => studio.updateTab(activeTab.id, { target: value })}
@@ -774,6 +779,8 @@ export function GrpcStudioPage({
                   studio.rebindSchemaDriftMethod(tab.id, serviceFullName, methodName);
                 }}
                 authTabFocusRequest={authTabFocusRequest}
+                globalAuthProfiles={globalAuthProfiles}
+                defaultAuthProfileId={defaultAuthProfileId}
               />
             </div>
           );
@@ -833,36 +840,23 @@ export function GrpcStudioPage({
             key={`settings-drawer-${tab.id}`}
             open={settingsDrawerOpen}
             activeNav={settingsDrawerNav}
-            tlsMode={tab.tlsMode ?? activeConnection.tlsMode}
-            tlsConfig={tab.tlsConfig}
-            tlsIssues={tlsState.issues}
-            auth={tab.auth}
-            authPreview={authPreview}
             timeoutMs={tab.timeoutMs}
+            maxResponseSizeMb={tab.maxResponseSizeMb ?? 4}
+            keepaliveIntervalSec={tab.keepaliveIntervalSec ?? 30}
             compression={tab.compression}
             healthAvailable={healthAvailable}
             healthWatchAvailable={healthWatchAvailable}
             healthProbeReady={canReflect}
             healthBusy={connectionEditingDisabled}
-            maskedSecretFields={tab.maskedSecretFields}
             disabled={connectionEditingDisabled}
             onNavChange={setSettingsDrawerNav}
             onClose={() => setSettingsDrawerOpen(false)}
-            onTlsModeChange={(mode) => {
-              studio.updateTab(tab.id, buildGrpcTlsModeTabPatch({ tab, activeConnection }, mode));
-            }}
-            onTlsConfigChange={(patch) => {
-              studio.updateTab(tab.id, buildGrpcTlsConfigTabPatch({ tab, activeConnection }, patch));
-            }}
-            onAuthChange={(auth) => studio.updateTab(tab.id, { auth })}
             onTimeoutMsChange={(timeoutMs) => studio.updateTab(tab.id, { timeoutMs })}
+            onMaxResponseSizeMbChange={(maxResponseSizeMb) => studio.updateTab(tab.id, { maxResponseSizeMb })}
+            onKeepaliveIntervalSecChange={(keepaliveIntervalSec) => studio.updateTab(tab.id, { keepaliveIntervalSec })}
             onCompressionChange={(compression) => studio.updateTab(tab.id, { compression })}
             onHealthCheck={handleHealthCheck}
             onHealthWatch={handleHealthWatch}
-            onUnmaskTlsSecretField={handleUnmaskTlsSecretField}
-            onClearTlsSecretField={handleClearTlsSecretField}
-            onUnmaskAuthSecretField={handleUnmaskAuthSecretField}
-            onClearAuthSecretField={handleClearAuthSecretField}
             transportMode={resolveGrpcStudioTabTransportMode(tab)}
             transportChangeBlocked={!canChangeGrpcTabTransportMode(tab)}
             onTransportModeChange={(mode) => studio.setTabTransportMode(tab.id, mode)}

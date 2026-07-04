@@ -132,7 +132,7 @@ export function mergeTlsConfigWithVaultValues(
 }
 
 export function extractAuthVaultValues(auth: GrpcAuthConfig | undefined): Record<string, string> {
-  if (!auth || auth.type === 'none') return {};
+  if (!auth || auth.type === 'none' || auth.type === 'inherit') return {};
   switch (auth.type) {
     case 'bearer':
       return auth.bearerToken?.trim() ? { bearerToken: auth.bearerToken } : {};
@@ -155,7 +155,7 @@ export function mergeAuthConfigWithVaultValues(
   auth: GrpcAuthConfig | undefined,
   vaultValues: Record<string, string> | undefined,
 ): GrpcAuthConfig | undefined {
-  if (!auth || auth.type === 'none') return auth;
+  if (!auth || auth.type === 'none' || auth.type === 'inherit') return auth;
   if (!vaultValues || Object.keys(vaultValues).length === 0) return auth;
 
   switch (auth.type) {

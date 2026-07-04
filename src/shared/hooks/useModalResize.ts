@@ -26,8 +26,13 @@ export function useModalResize(minWidth = 320, minHeight = 200) {
     (e: React.MouseEvent, edge: ResizeEdge) => {
       e.preventDefault();
       e.stopPropagation();
-      const modal = (e.currentTarget as HTMLElement).parentElement as HTMLElement;
-      if (!modal) return;
+      const handle = e.currentTarget as HTMLElement;
+      // First try to find closest dialog element (AppModalFrame structure)
+      // Fall back to parentElement for test compatibility
+      const modal = (handle.closest('[role="dialog"]') || handle.parentElement) as HTMLElement | null;
+      if (!modal) {
+        return;
+      }
       const rect = modal.getBoundingClientRect();
       stateRef.current = {
         startX: e.clientX,

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GrpcMessageSchema, GrpcMethodInfo } from '../../../shared/grpc/contracts';
 import { redactGrpcErrorBody } from '../../../shared/grpc/grpcRedaction';
 import { isGrpcExpressFallbackOffered } from '../../../shared/grpc/grpcTransportFallback';
@@ -23,7 +24,7 @@ import {
   type GrpcComposerTab,
 } from '../utils/grpcComposerTabState';
 import { validateGrpcMetadataEntries, metadataEntriesFromRecord } from '../utils/grpcMetadataEditor';
-import { previewGrpcAuthMerge } from '../utils/grpcAuthPreview';
+import { buildGrpcAuthPreviewWithProfiles } from '../utils/grpcAuthProfileResolve';
 import type { GrpcAuthSecretFieldKey } from '../utils/grpcSecretFieldUi';
 import { pruneAuthMaskForConfig } from '../utils/grpcSecretFieldUi';
 import { GrpcSpringHintCard } from './GrpcSpringHintCard';
@@ -80,6 +81,8 @@ export interface GrpcCallPanelProps {
   onRetryStreamWithExpress?: () => void;
   onUnmaskAuthSecretField?: (field: GrpcAuthSecretFieldKey) => void;
   onClearAuthSecretField?: (field: GrpcAuthSecretFieldKey) => void;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  defaultAuthProfileId?: string | null;
   /** Increment from connection bar to focus Auth tab (Phase 4J-A). */
   authTabFocusRequest?: number;
 }
@@ -111,6 +114,8 @@ export function GrpcCallPanel({
   onRetryStreamWithExpress,
   onUnmaskAuthSecretField,
   onClearAuthSecretField,
+  globalAuthProfiles = [],
+  defaultAuthProfileId = null,
   authTabFocusRequest,
 }: GrpcCallPanelProps) {
   const { isDismissed, dismiss } = useGrpcStudioHints();
@@ -141,19 +146,21 @@ export function GrpcCallPanel({
     () => validateGrpcMetadataEntries(metadataEntriesFromRecord(tab.metadata)),
     [tab.metadata],
   );
-  const authPreview = useMemo(
-    () => previewGrpcAuthMerge(tab.metadata, tab.auth),
-    [tab.auth, tab.metadata],
+  const authState = useMemo(
+    () => buildGrpcAuthPreviewWithProfiles(tab.metadata, tab.auth, globalAuthProfiles, defaultAuthProfileId),
+    [defaultAuthProfileId, globalAuthProfiles, tab.auth, tab.metadata],
   );
+  const effectiveAuth = authState.resolvedAuth;
+  const authPreview = authState.preview;
   const authReady = authPreview.ok;
-  const allowSendWithoutOAuth2 = tab.auth?.type === 'oauth2' && !authReady;
+  const allowSendWithoutOAuth2 = effectiveAuth?.type === 'oauth2' && !authReady;
   const hasTypedOAuth2Input = Boolean(
-    tab.auth?.type === 'oauth2'
+    effectiveAuth?.type === 'oauth2'
       && (
-        tab.auth.oauth2?.tokenUrl?.trim()
-        || tab.auth.oauth2?.clientId?.trim()
-        || tab.auth.oauth2?.clientSecret?.trim()
-        || tab.auth.oauth2?.scope?.trim()
+        effectiveAuth.oauth2?.tokenUrl?.trim()
+        || effectiveAuth.oauth2?.clientId?.trim()
+        || effectiveAuth.oauth2?.clientSecret?.trim()
+        || effectiveAuth.oauth2?.scope?.trim()
       ),
   );
   const metadataReady = composerTab === 'metadata'
@@ -683,7 +690,7 @@ export function GrpcCallPanel({
         serviceFullName={serviceFullName}
         descriptorSourceLabel={descriptorSource ? formatDescriptorSourceLabel(descriptorSource) : undefined}
         targetAddress={targetAddress}
-        auth={tab.auth}
+        auth={effectiveAuth}
         disabled={disabled}
         onRetryWithExpress={onRetryUnaryWithExpress}
       />
@@ -891,6 +898,8 @@ export function GrpcCallPanel({
                 preview={authPreview}
                 maskedSecretFields={tab.maskedSecretFields?.auth}
                 disabled={disabled}
+                globalAuthProfiles={globalAuthProfiles}
+                defaultAuthProfileId={defaultAuthProfileId}
                 onChange={(auth) => onPatch({
                   auth,
                   maskedSecretFields: pruneAuthMaskForConfig(auth, tab.maskedSecretFields),

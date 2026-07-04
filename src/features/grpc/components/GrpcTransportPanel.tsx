@@ -13,6 +13,7 @@ const TRANSPORT_MODES: Array<{
   icon: string;
   label: string;
   description: string;
+  detail: string;
   desktopOnly?: boolean;
 }> = [
   {
@@ -20,12 +21,14 @@ const TRANSPORT_MODES: Array<{
     icon: '🌐',
     label: 'Express Proxy',
     description: 'Web + Desktop (Phase 1)',
+    detail: 'All calls go through the local Node.js server which uses @grpc/grpc-js to make real HTTP/2 gRPC calls. Works on both web and desktop.',
   },
   {
     id: 'tauri',
     icon: '🦀',
     label: 'Tauri Native (tonic)',
     description: 'Desktop only — true HTTP/2 via Rust',
+    detail: 'Uses Rust tonic directly — true HTTP/2, lower overhead, better streaming. Desktop (Tauri) only.',
     desktopOnly: true,
   },
   {
@@ -33,12 +36,14 @@ const TRANSPORT_MODES: Array<{
     icon: '🌍',
     label: 'gRPC-Web',
     description: 'Unary + server streaming via grpc-web framing',
+    detail: 'Unary and server-streaming calls via browser fetch and grpc-web framing. Client and bidi streaming are blocked in browser-direct mode.',
   },
   {
     id: 'spring-servlet',
     icon: '🌿',
     label: 'Spring Servlet',
     description: 'Unary + server streaming via HTTP/1.1 POST',
+    detail: 'Unary and server-streaming calls via HTTP/1.1 POST to /<service>/<method>. Client and bidi streaming require Express Proxy or Tauri Native.',
   },
 ];
 
@@ -88,18 +93,15 @@ export function GrpcTransportPanel({
   return (
     <div className="grpc-transport-panel" data-testid="grpc-transport-panel">
       <div className="grpc-settings-card">
-        <div className="grpc-settings-card-header">
-          <h3 className="grpc-settings-card-title">Transport Mode</h3>
-        </div>
         <div className="grpc-settings-card-body">
           {transportChangeBlocked && (
-            <p className="grpc-transport-locked-hint" data-testid="grpc-transport-locked-hint">
+            <p className="grpc-settings-note grpc-transport-locked-hint" data-testid="grpc-transport-locked-hint">
               Transport is locked while a call or stream is in flight.
             </p>
           )}
           {callType === 'server_streaming' && (
             <p
-              className="grpc-transport-stream-deferred-hint"
+              className="grpc-settings-note grpc-transport-stream-deferred-hint"
               data-testid="grpc-transport-stream-deferred-hint"
             >
               Server streaming is supported on gRPC-Web and Spring Servlet. For client or bidi
@@ -134,8 +136,13 @@ export function GrpcTransportPanel({
                   }}
                 >
                   <span className="grpc-transport-mode-icon" aria-hidden="true">{mode.icon}</span>
-                  <span className="grpc-transport-mode-label">{mode.label}</span>
-                  <span className="grpc-transport-mode-desc">{mode.description}</span>
+                  <span className="grpc-transport-mode-copy">
+                    <span className="grpc-transport-mode-line">
+                      <span className="grpc-transport-mode-label">{mode.label}</span>
+                      <span className="grpc-transport-mode-desc">{mode.description}</span>
+                    </span>
+                    <span className="grpc-transport-mode-detail">{mode.detail}</span>
+                  </span>
                   {disabledReason !== null && (
                     <span
                       className="grpc-transport-mode-reason"
@@ -149,32 +156,6 @@ export function GrpcTransportPanel({
             })}
           </div>
 
-          <div className="grpc-transport-help" data-testid="grpc-transport-help">
-            <p>
-              <strong>Express Proxy:</strong>
-              {' '}
-              All calls go through the local Node.js server which uses @grpc/grpc-js to make real HTTP/2 gRPC calls. Works on both web and desktop.
-            </p>
-            <p>
-              <strong>Tauri Native:</strong>
-              {' '}
-              Uses Rust tonic directly — true HTTP/2, lower overhead, better streaming. Desktop (Tauri) only.
-            </p>
-            <p>
-              <strong>gRPC-Web:</strong>
-              {' '}
-              Unary and server-streaming calls via browser fetch and grpc-web framing. Client and
-              bidi streaming are blocked in browser-direct mode.
-            </p>
-            <p>
-              <strong>Spring Servlet:</strong>
-              {' '}
-              Unary and server-streaming calls via HTTP/1.1 POST to
-              {' '}
-              /&lt;service&gt;/&lt;method&gt;. Client and bidi streaming require Express Proxy
-              or Tauri Native.
-            </p>
-          </div>
         </div>
       </div>
     </div>

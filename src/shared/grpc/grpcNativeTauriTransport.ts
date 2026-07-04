@@ -11,6 +11,7 @@ import {
   type GrpcTauriUnaryResult,
 } from './grpcTauriContracts';
 import type { GrpcCallRequest, GrpcCancelCallResult } from './contracts';
+import { toGrpcTauriAuthConfig } from './grpcTauriAuthMapper';
 
 export class GrpcNativeTauriTransportError extends Error {
   readonly code: string;
@@ -56,7 +57,7 @@ export function toGrpcTauriUnaryRequest(
     method: request.method,
     body: request.body,
     metadata: request.metadata,
-    auth: request.auth,
+    auth: toGrpcTauriAuthConfig(request.auth),
     timeoutMs: request.timeoutMs,
     descriptor,
   };

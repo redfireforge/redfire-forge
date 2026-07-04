@@ -1,11 +1,13 @@
 /**
  * Shared TLS configuration form body (Phase 4J-C).
- * Used by GrpcTlsConfigModal and GrpcConnectionSettingsDrawer.
+ * Uses the same ws-tls-* CSS classes as SharedTlsConfigPanel / GraphQL so
+ * both protocols share identical visual layout.
  */
+import type { ChangeEvent } from 'react';
 import type { GrpcTlsConfig, GrpcTlsMode } from '../../../shared/grpc/contracts';
 import type { GrpcTlsValidationIssue } from '../../../shared/grpc/grpcTlsPolicy';
 import type { GrpcMaskedSecretFields, GrpcTlsSecretFieldKey } from '../utils/grpcSecretFieldUi';
-import { GrpcSecretField } from './GrpcSecretField';
+import { GRPC_SECRET_STORED_LABEL } from '../utils/grpcSecretFieldUi';
 
 const TLS_MODE_OPTIONS: Array<{ value: GrpcTlsMode; label: string; hint: string; icon: string }> = [
   { value: 'disabled', label: 'Plaintext', hint: 'No TLS — HTTP/2 cleartext', icon: '🔓' },
@@ -28,19 +30,83 @@ export interface GrpcTlsConfigBodyProps {
   onResetDefaults?: () => void;
 }
 
+interface PemFieldProps {
+  id: string;
+  label: string;
+  testId: string;
+  value: string;
+  masked: boolean;
+  disabled: boolean;
+  placeholder: string;
+  fieldIssue?: string;
+  onChange: (value: string) => void;
+  onUnmask: () => void;
+  onClearStored?: () => void;
+}
+
+function PemField({
+  id, label, testId, value, masked, disabled, placeholder, fieldIssue,
+  onChange, onUnmask, onClearStored,
+}: PemFieldProps) {
+  const hasStoredValue = masked && value.trim().length > 0;
+  const displayValue = masked ? '' : value;
+  const isSet = hasStoredValue || !!value.trim();
+
+  const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
+    if (masked) onUnmask();
+    onChange(e.target.value);
+  };
+
+  return (
+    <div className="ws-tls-field">
+      <div className="ws-tls-field-header">
+        <label className="ws-tls-field-label" htmlFor={id}>{label}</label>
+        {isSet && <span className="ws-tls-field-set-badge">Set</span>}
+      </div>
+      <textarea
+        id={id}
+        className="ws-tls-textarea"
+        data-testid={testId}
+        value={displayValue}
+        disabled={disabled}
+        spellCheck={false}
+        rows={5}
+        placeholder={hasStoredValue ? undefined : placeholder}
+        aria-describedby={hasStoredValue ? `${testId}-stored-hint` : undefined}
+        onChange={handleChange}
+      />
+      {hasStoredValue && onClearStored && (
+        <>
+          <p
+            id={`${testId}-stored-hint`}
+            className="grpc-secret-field-stored-hint"
+            data-testid={`${testId}-stored-hint`}
+            role="status"
+          >
+            {GRPC_SECRET_STORED_LABEL} — enter a new value to replace, or use Clear stored to remove.
+          </p>
+          <button
+            type="button"
+            className="grpc-secret-field-clear-btn"
+            data-testid={`${testId}-clear`}
+            disabled={disabled}
+            onClick={onClearStored}
+          >
+            Clear stored
+          </button>
+        </>
+      )}
+      {fieldIssue && <p className="grpc-tls-field-error" role="alert">{fieldIssue}</p>}
+    </div>
+  );
+}
+
 export function GrpcTlsConfigBody({
-  tlsMode,
-  tlsConfig,
-  issues,
-  maskedSecretFields,
-  disabled = false,
-  testResult,
-  onTlsModeChange,
-  onTlsConfigChange,
-  onUnmaskSecretField,
-  onClearSecretField,
-  onTestConnection,
-  onResetDefaults,
+  tlsMode, tlsConfig, issues, maskedSecretFields,
+  disabled = false, testResult,
+  onTlsModeChange, onTlsConfigChange,
+  onUnmaskSecretField, onClearSecretField,
+  onTestConnection, onResetDefaults,
 }: GrpcTlsConfigBodyProps) {
   const config = tlsConfig ?? {};
   const showTlsFields = tlsMode === 'tls' || tlsMode === 'mtls';
@@ -48,7 +114,8 @@ export function GrpcTlsConfigBody({
 
   return (
     <div data-testid="grpc-tls-body">
-      <div className="grpc-tls-modal-mode-section">
+
+      <div className="ws-tls-section">
         <div className="ws-tls-section-header">
           <span className="ws-tls-section-title">TLS mode</span>
         </div>
@@ -73,72 +140,81 @@ export function GrpcTlsConfigBody({
 
       {showTlsFields && (
         <>
-          <GrpcSecretField
-            id="grpc-tls-server-ca"
-            label="Server CA (optional)"
-            testId="grpc-tls-server-ca"
-            value={config.serverCaPem ?? ''}
-            masked={!!maskedSecretFields?.serverCaPem}
-            disabled={disabled}
-            multiline
-            placeholder="-----BEGIN CERTIFICATE-----"
-            onChange={(value) => onTlsConfigChange({ serverCaPem: value || undefined })}
-            onUnmask={() => onUnmaskSecretField?.('serverCaPem')}
-            onClearStored={() => onClearSecretField?.('serverCaPem')}
-          />
-          {issuesByField.get('tlsConfig.serverCaPem') && (
-            <p className="grpc-tls-field-error" role="alert">
-              {issuesByField.get('tlsConfig.serverCaPem')}
+          <div className="ws-tls-section">
+            <div className="ws-tls-section-header">
+              <span className="ws-tls-section-title">CA Certificate</span>
+              <span className="ws-tls-section-tag">Optional</span>
+            </div>
+            <p className="ws-tls-section-desc">
+              Provide a custom Certificate Authority to trust — required when your server uses a private
+              or self-signed CA. Also needed for mTLS when the server cert is not publicly trusted.
             </p>
-          )}
+            <PemField
+              id="grpc-tls-server-ca"
+              label="Server CA (PEM)"
+              testId="grpc-tls-server-ca"
+              value={config.serverCaPem ?? ''}
+              masked={!!maskedSecretFields?.serverCaPem}
+              disabled={disabled}
+              placeholder="-----BEGIN CERTIFICATE-----"
+              fieldIssue={issuesByField.get('tlsConfig.serverCaPem')}
+              onChange={(v) => onTlsConfigChange({ serverCaPem: v || undefined })}
+              onUnmask={() => onUnmaskSecretField?.('serverCaPem')}
+              onClearStored={() => onClearSecretField?.('serverCaPem')}
+            />
+          </div>
 
           {tlsMode === 'mtls' && (
-            <>
-              <GrpcSecretField
+            <div className="ws-tls-section ws-tls-section--mtls">
+              <div className="ws-tls-section-header">
+                <span className="ws-tls-section-title">Client Identity</span>
+                <span className="ws-tls-section-tag ws-tls-section-tag--mtls">mTLS</span>
+              </div>
+              <p className="ws-tls-section-desc">
+                Mutual TLS — the server requires you to present a certificate proving your identity.
+                Both fields below are required. If the server uses a private CA, also fill in the
+                CA Certificate above.
+              </p>
+              <PemField
                 id="grpc-tls-client-cert"
-                label="Client certificate"
+                label="Client Certificate (PEM)"
                 testId="grpc-tls-client-cert"
                 value={config.clientCertPem ?? ''}
                 masked={!!maskedSecretFields?.clientCertPem}
                 disabled={disabled}
-                multiline
                 placeholder="-----BEGIN CERTIFICATE-----"
-                onChange={(value) => onTlsConfigChange({ clientCertPem: value || undefined })}
+                fieldIssue={issuesByField.get('tlsConfig.clientCertPem')}
+                onChange={(v) => onTlsConfigChange({ clientCertPem: v || undefined })}
                 onUnmask={() => onUnmaskSecretField?.('clientCertPem')}
                 onClearStored={() => onClearSecretField?.('clientCertPem')}
               />
-              {issuesByField.get('tlsConfig.clientCertPem') && (
-                <p className="grpc-tls-field-error" role="alert">
-                  {issuesByField.get('tlsConfig.clientCertPem')}
-                </p>
-              )}
-
-              <GrpcSecretField
+              <PemField
                 id="grpc-tls-client-key"
-                label="Client private key"
+                label="Client Private Key (PEM)"
                 testId="grpc-tls-client-key"
                 value={config.clientKeyPem ?? ''}
                 masked={!!maskedSecretFields?.clientKeyPem}
                 disabled={disabled}
-                multiline
                 placeholder="-----BEGIN PRIVATE KEY-----"
-                onChange={(value) => onTlsConfigChange({ clientKeyPem: value || undefined })}
+                fieldIssue={issuesByField.get('tlsConfig.clientKeyPem')}
+                onChange={(v) => onTlsConfigChange({ clientKeyPem: v || undefined })}
                 onUnmask={() => onUnmaskSecretField?.('clientKeyPem')}
                 onClearStored={() => onClearSecretField?.('clientKeyPem')}
               />
-              {issuesByField.get('tlsConfig.clientKeyPem') && (
-                <p className="grpc-tls-field-error" role="alert">
-                  {issuesByField.get('tlsConfig.clientKeyPem')}
-                </p>
-              )}
-            </>
+            </div>
           )}
 
-          <div className="grpc-tls-form-row">
-            <label className="grpc-tls-form-label" htmlFor="grpc-tls-server-name">
-              Server name override
-            </label>
-            <div className="grpc-tls-form-ctrl">
+          <div className="ws-tls-section">
+            <div className="ws-tls-section-header">
+              <span className="ws-tls-section-title">Server Name Override</span>
+              <span className="ws-tls-section-tag">Optional</span>
+            </div>
+            <div className="ws-tls-field">
+              <div className="ws-tls-field-header">
+                <label className="ws-tls-field-label" htmlFor="grpc-tls-server-name">
+                  SNI hostname
+                </label>
+              </div>
               <input
                 id="grpc-tls-server-name"
                 className="grpc-tls-text-input"
@@ -148,9 +224,7 @@ export function GrpcTlsConfigBody({
                 disabled={disabled}
                 placeholder="grpc.example.com"
                 spellCheck={false}
-                onChange={(event) => onTlsConfigChange({
-                  serverNameOverride: event.target.value || undefined,
-                })}
+                onChange={(e) => onTlsConfigChange({ serverNameOverride: e.target.value || undefined })}
               />
             </div>
           </div>
