@@ -52,6 +52,34 @@
   color: var(--text-muted);
 }
 
+.em-workspace-defaults-note {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.em-workspace-default-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) minmax(220px, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.em-workspace-default-key {
+  font-size: 0.78rem;
+  color: var(--primary);
+  word-break: break-all;
+}
+
+.em-workspace-default-value {
+  min-width: 0;
+  width: 100%;
+  font-size: 0.82rem;
+}
+
 /* ── Project bar ── */
 .env-project-bar {
   display: flex;

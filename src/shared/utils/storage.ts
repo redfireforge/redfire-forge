@@ -52,6 +52,7 @@ import {
   FLAT_SVCS_KEY,
   FLAT_FGS_KEY,
   FLAT_SHARED_DS_KEY,
+  FLAT_WORKSPACE_DEFAULTS_KEY,
   FLAT_SEL_ENV_KEY,
   FLAT_SEL_SVC_KEY,
 } from './storageKeys';
@@ -621,6 +622,40 @@ export async function loadSharedDataSources(): Promise<SharedDataSource[]> {
     return loadJsonKey<SharedDataSource>(FLAT_SHARED_DS_KEY);
   } catch {
     return loadJsonKey<SharedDataSource>(FLAT_SHARED_DS_KEY);
+  }
+}
+
+// ---------- Workspace Defaults ----------
+
+export async function saveWorkspaceDefaults(defaults: Record<string, string>): Promise<void> {
+  await writeKey(FLAT_WORKSPACE_DEFAULTS_KEY, JSON.stringify(defaults));
+}
+
+export async function loadWorkspaceDefaults(): Promise<Record<string, string>> {
+  try {
+    const raw = await readKey(FLAT_WORKSPACE_DEFAULTS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const map: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value === 'string') {
+        map[key] = value;
+      } else if (value == null) {
+        map[key] = '';
+      } else if (typeof value === 'object') {
+        try {
+          map[key] = JSON.stringify(value);
+        } catch {
+          map[key] = String(value);
+        }
+      } else {
+        map[key] = String(value);
+      }
+    }
+    return map;
+  } catch {
+    return {};
   }
 }
 

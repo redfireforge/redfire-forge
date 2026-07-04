@@ -11,6 +11,7 @@ SAMPLES="${GRPC_PHASE13_SAMPLES:-15}"
 PROBE_SAMPLES="${GRPC_PHASE13_PROBE_SAMPLES:-3}"
 TIMEOUT_MS="${GRPC_PHASE13_TIMEOUT_MS:-3500}"
 OUT_PATH="${GRPC_PHASE13_OUT_PATH:-artifacts/grpc-phase13b-baseline.ci.json}"
+PARITY_OUT_PATH="${GRPC_TRANSPORT_PARITY_OUT_PATH:-artifacts/grpc-transport-parity-matrix.ci.json}"
 MAX_P95_MS="${GRPC_PHASE13_MAX_P95_MS:-450}"
 MAX_AVG_MS="${GRPC_PHASE13_MAX_AVG_MS:-250}"
 MAX_ERROR_RATE="${GRPC_PHASE13_MAX_ERROR_RATE:-0.05}"
@@ -80,7 +81,7 @@ for i in {1..40}; do
 done
 
 echo "[grpc-phase13b-ci] Running fixture-backed Phase 13B gate"
-npm run grpc:phase13b:gate -- \
+node scripts/grpc-phase13-baseline.mjs \
   --base-url="$BASE_URL" \
   --samples="$SAMPLES" \
   --timeout-ms="$TIMEOUT_MS" \
@@ -94,3 +95,8 @@ npm run grpc:phase13b:gate -- \
   --require-data-plane
 
 echo "[grpc-phase13b-ci] Gate passed. Artifact: $OUT_PATH"
+
+echo "[grpc-phase13b-ci] Running transport parity matrix automation"
+npm run grpc:transport:parity -- --out="$PARITY_OUT_PATH"
+
+echo "[grpc-phase13b-ci] Transport parity artifact: $PARITY_OUT_PATH"

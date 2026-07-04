@@ -33,6 +33,7 @@ const mockedSvcUpdated = vi.mocked(logMicroserviceUpdated);
 interface HarnessProps {
   environments?: Environment[];
   microservices?: Microservice[];
+  workspaceDefaults?: Record<string, string>;
   appGlobalAuthProfiles?: GlobalAuthProfile[];
   featureGroups?: FeatureGroup[];
   selectedEnvId?: string;
@@ -43,6 +44,7 @@ interface HarnessProps {
 function Harness(props: HarnessProps) {
   const [environments, setEnvironments] = useState<Environment[]>(props.environments ?? []);
   const [microservices, setMicroservices] = useState<Microservice[]>(props.microservices ?? []);
+  const [workspaceDefaults, setWorkspaceDefaults] = useState<Record<string, string>>(props.workspaceDefaults ?? {});
   const [selectedEnvId, setSelectedEnvId] = useState<string>(props.selectedEnvId ?? '');
   const [selectedSvcId, setSelectedSvcId] = useState<string>(props.selectedSvcId ?? '');
   return (
@@ -51,6 +53,8 @@ function Harness(props: HarnessProps) {
       setEnvironments={setEnvironments}
       microservices={microservices}
       setMicroservices={setMicroservices}
+      workspaceDefaults={workspaceDefaults}
+      setWorkspaceDefaults={setWorkspaceDefaults}
       appGlobalAuthProfiles={props.appGlobalAuthProfiles ?? []}
       featureGroups={props.featureGroups ?? []}
       selectedEnvId={selectedEnvId}
@@ -88,6 +92,26 @@ describe('EnvironmentManager', () => {
     render(<Harness />);
     expect(screen.getByText('No environments defined.')).toBeInTheDocument();
     expect(screen.getByText('No microservices defined.')).toBeInTheDocument();
+    expect(screen.getByText('No workspace defaults configured.')).toBeInTheDocument();
+  });
+
+  it('adds, edits, and deletes workspace defaults', () => {
+    render(<Harness workspaceDefaults={{ region: 'us-east-1' }} />);
+    expect(screen.getByDisplayValue('us-east-1')).toBeInTheDocument();
+
+    const keyInput = screen.getByTestId('em-ws-default-key-input');
+    const valueInput = screen.getByTestId('em-ws-default-value-input');
+    fireEvent.change(keyInput, { target: { value: 'grpcHost' } });
+    fireEvent.change(valueInput, { target: { value: 'workspace.example.com:50051' } });
+    fireEvent.click(screen.getByTestId('em-ws-default-save-btn'));
+
+    expect(screen.getByTestId('em-ws-default-row-grpcHost')).toBeInTheDocument();
+    const grpcValue = screen.getByTestId('em-ws-default-row-value-grpcHost');
+    fireEvent.change(grpcValue, { target: { value: 'localhost:50051' } });
+    expect(screen.getByDisplayValue('localhost:50051')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('em-ws-default-delete-region'));
+    expect(screen.queryByTestId('em-ws-default-row-region')).not.toBeInTheDocument();
   });
 
   // ── Add environment ──

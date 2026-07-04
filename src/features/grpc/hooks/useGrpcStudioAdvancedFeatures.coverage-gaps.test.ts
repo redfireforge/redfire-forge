@@ -1242,13 +1242,13 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
     });
 
     act(() => {
-      result.current.setActiveFeatureTab('mock');
+      result.current.setActiveFeatureTab('mock_server');
     });
-    expect(result.current.activeFeatureTab).toBe('mock');
+    expect(result.current.activeFeatureTab).toBe('mock_server');
 
     const loneTab = studio.tabs.slice(0, 1);
     rerender({ tabs: loneTab });
-    expect(result.current.activeFeatureTab).toBe('mock');
+    expect(result.current.activeFeatureTab).toBe('mock_server');
   });
 
   it('fails load test after snapshot capture when transport preconditions fail', async () => {

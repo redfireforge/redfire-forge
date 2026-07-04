@@ -70,6 +70,12 @@ import GraphqlQueryConfigPanel from '../../../graphql/components/GraphqlQueryCon
 import GraphqlSubscriptionConfigPanel from '../../../graphql/components/GraphqlSubscriptionConfigPanel';
 import GraphqlIntrospectConfigPanel from '../../../graphql/components/GraphqlIntrospectConfigPanel';
 import GraphqlAssertConfigPanel from '../../../graphql/components/GraphqlAssertConfigPanel';
+import GrpcLoadTestConfig from '../configs/GrpcLoadTestConfig';
+import GrpcSchemaDiffConfig from '../configs/GrpcSchemaDiffConfig';
+import GrpcMockAssertConfig from '../configs/GrpcMockAssertConfig';
+import GrpcUnaryConfig from '../configs/GrpcUnaryConfig';
+import GrpcServerStreamConfig from '../configs/GrpcServerStreamConfig';
+import GrpcAssertConfig from '../configs/GrpcAssertConfig';
 import {
   hasGraphqlNodeConfigErrors,
   isGraphqlWorkflowNodeType,
@@ -82,6 +88,16 @@ import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
 import type { Environment, Scenario } from '../../../../shared/types';
+import type {
+  GrpcAssertNodeData,
+  GrpcServerStreamNodeData,
+  GrpcUnaryNodeData,
+} from '../../types/workflow/node-grpc';
+import type {
+  GrpcLoadTestNodeData,
+  GrpcMockAssertNodeData,
+  GrpcSchemaDiffNodeData,
+} from '../../types/workflow/node-grpc-advanced';
 
 type ConfigPanelTab = 'config' | 'input' | 'output' | 'logs';
 
@@ -93,6 +109,10 @@ const NODE_TYPE_LABELS: Record<string, string> = {
   graphqlQuery: 'GraphQL Query', graphqlMutation: 'GraphQL Mutation',
   graphqlSubscription: 'GraphQL Subscription', graphqlIntrospect: 'GraphQL Introspect',
   graphqlAssert: 'GraphQL Assert',
+  grpcUnary: 'gRPC Unary', grpcServerStream: 'gRPC Server Stream',
+  grpcAssert: 'gRPC Assert',
+  grpcLoadTest: 'gRPC Load Test', grpcSchemaDiff: 'gRPC Schema Diff',
+  grpcMockAssert: 'gRPC Mock Assert',
   condition: 'Condition', delay: 'Delay', start: 'Start',
   webhook: 'Webhook', schedule: 'Schedule', switch: 'Switch',
   loop: 'Loop', setVariable: 'Set Variable', aggregate: 'Aggregate',
@@ -623,6 +643,48 @@ export default function WorkflowNodeConfigModal({
                 onRequestVariableInsert={requestVariableInsert}
                 variableHints={variableInsertHints}
                 runtimeVariables={runtimeVariables}
+              />
+            )}
+
+            {draftNode.type === 'grpcUnary' && (
+              <GrpcUnaryConfig
+                data={draftNode.data as GrpcUnaryNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'grpcServerStream' && (
+              <GrpcServerStreamConfig
+                data={draftNode.data as GrpcServerStreamNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'grpcAssert' && (
+              <GrpcAssertConfig
+                data={draftNode.data as GrpcAssertNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'grpcLoadTest' && (
+              <GrpcLoadTestConfig
+                data={draftNode.data as GrpcLoadTestNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'grpcSchemaDiff' && (
+              <GrpcSchemaDiffConfig
+                data={draftNode.data as GrpcSchemaDiffNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'grpcMockAssert' && (
+              <GrpcMockAssertConfig
+                data={draftNode.data as GrpcMockAssertNodeData}
+                onChange={(data) => updateDraft(data)}
               />
             )}
 

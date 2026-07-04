@@ -4,4 +4,5 @@ export * from './workflow/node-kafka';
 export * from './workflow/node-websocket';
 export * from './workflow/node-graphql';
 export * from './workflow/node-grpc';
+export * from './workflow/node-grpc-advanced';
 export * from './workflow/model-core';

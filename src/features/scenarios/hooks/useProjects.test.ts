@@ -16,6 +16,8 @@ const m = {
   saveGlobalAuthProfiles: vi.fn(),
   loadSharedDataSources: vi.fn(),
   saveSharedDataSources: vi.fn(),
+  loadWorkspaceDefaults: vi.fn(),
+  saveWorkspaceDefaults: vi.fn(),
   loadSelectedEnvId: vi.fn(),
   saveSelectedEnvId: vi.fn(),
   loadSelectedSvcId: vi.fn(),
@@ -45,6 +47,8 @@ vi.mock('../../../shared/utils/storage', () => ({
   saveGlobalAuthProfiles: (...a: unknown[]) => m.saveGlobalAuthProfiles(...a),
   loadSharedDataSources: (...a: unknown[]) => m.loadSharedDataSources(...a),
   saveSharedDataSources: (...a: unknown[]) => m.saveSharedDataSources(...a),
+  loadWorkspaceDefaults: (...a: unknown[]) => m.loadWorkspaceDefaults(...a),
+  saveWorkspaceDefaults: (...a: unknown[]) => m.saveWorkspaceDefaults(...a),
   loadSelectedEnvId: (...a: unknown[]) => m.loadSelectedEnvId(...a),
   saveSelectedEnvId: (...a: unknown[]) => m.saveSelectedEnvId(...a),
   loadSelectedSvcId: (...a: unknown[]) => m.loadSelectedSvcId(...a),
@@ -90,6 +94,7 @@ describe('useProjects', () => {
     m.loadFeatureGroups.mockResolvedValue([fg('fg1')]);
     m.loadGlobalAuthProfiles.mockResolvedValue([{ id: 'g1' } as GlobalAuthProfile]);
     m.loadSharedDataSources.mockResolvedValue([{ id: 's1' } as SharedDataSource]);
+    m.loadWorkspaceDefaults.mockResolvedValue({ grpcHost: 'workspace:50051' });
     m.loadSelectedEnvId.mockResolvedValue('e1');
     m.loadSelectedSvcId.mockResolvedValue('m1');
     m.getMaxRuns.mockResolvedValue(99);
@@ -101,6 +106,7 @@ describe('useProjects', () => {
     m.saveFeatureGroups.mockResolvedValue(undefined);
     m.saveGlobalAuthProfiles.mockResolvedValue(undefined);
     m.saveSharedDataSources.mockResolvedValue(undefined);
+    m.saveWorkspaceDefaults.mockResolvedValue(undefined);
     m.saveSelectedEnvId.mockResolvedValue(undefined);
     m.saveSelectedSvcId.mockResolvedValue(undefined);
     mPurge.mockResolvedValue(0);
@@ -115,6 +121,7 @@ describe('useProjects', () => {
     expect(result.current.featureGroups).toEqual([fg('fg1')]);
     expect(result.current.appGlobalAuthProfiles).toEqual([{ id: 'g1' }]);
     expect(result.current.sharedDataSources).toEqual([{ id: 's1' }]);
+    expect(result.current.workspaceDefaults).toEqual({ grpcHost: 'workspace:50051' });
     expect(result.current.selectedEnvId).toBe('e1');
     expect(result.current.selectedSvcId).toBe('m1');
     expect(result.current.initialMaxRuns).toBe(99);
@@ -162,6 +169,13 @@ describe('useProjects', () => {
     m.saveEnvironments.mockClear();
     act(() => result.current.setEnvironments([{ id: 'e2' } as Environment]));
     await waitFor(() => expect(m.saveEnvironments).toHaveBeenCalledWith([{ id: 'e2' }]));
+  });
+
+  it('persists workspaceDefaults changes', async () => {
+    const { result } = await setupLoaded();
+    m.saveWorkspaceDefaults.mockClear();
+    act(() => result.current.setWorkspaceDefaults({ grpcHost: 'new-host:50051' }));
+    await waitFor(() => expect(m.saveWorkspaceDefaults).toHaveBeenCalledWith({ grpcHost: 'new-host:50051' }));
   });
 
   it('persists selected env/svc changes', async () => {
