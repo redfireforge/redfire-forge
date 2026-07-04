@@ -122,3 +122,24 @@ export function getGrpcRoutePerformanceSnapshot(): GrpcRoutePerformanceSnapshot 
 export function resetGrpcRoutePerformanceTelemetry(): void {
   routeBuckets.clear();
 }
+
+// Test hook to seed internal buckets for edge-case coverage.
+export function __seedGrpcRoutePerformanceBucketForTests(input: {
+  routeId: GrpcObservabilityRouteId;
+  durationsMs: number[];
+  errors?: number;
+  lastStatusCode?: number | null;
+  lastUpdatedAt?: number | null;
+}): void {
+  routeBuckets.set(input.routeId, {
+    durationsMs: [...input.durationsMs],
+    errors: input.errors ?? 0,
+    lastStatusCode: input.lastStatusCode ?? null,
+    lastUpdatedAt: input.lastUpdatedAt ?? null,
+  });
+}
+
+// Test hook for percentile edge-case branch coverage.
+export function __percentileGrpcRoutePerformanceForTests(values: number[], p: number): number {
+  return percentile(values, p);
+}

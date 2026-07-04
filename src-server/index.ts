@@ -148,8 +148,5 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-// Start the server
-startServer().catch((error) => {
-  console.error('❌ Fatal error:', error);
-  process.exit(1);
-});
+// Start the server (errors are handled inside startServer)
+void startServer();

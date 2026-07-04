@@ -40,6 +40,42 @@ function sortArraysDeep(val: any): any {
   return out;
 }
 
+function toCanonicalJsonString(raw: string, excludedPaths: string[]): string {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const canon = (v: any): any => {
+    if (v === null || v === undefined || typeof v !== 'object') return v;
+    if (Array.isArray(v)) return v.map(canon);
+    const o: Record<string, unknown> = {};
+    for (const k of Object.keys(v).sort()) o[k] = canon(v[k]);
+    return o;
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const strip = (obj: any): any => {
+    if (!excludedPaths.length || !obj || typeof obj !== 'object') return obj;
+    const clone = Array.isArray(obj) ? [...obj] : { ...obj };
+    for (const p of excludedPaths) {
+      const segs = p.replace(/^\$\.?/, '').split('.').filter(Boolean);
+      if (!segs.length) continue;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let cur: any = clone;
+      for (let i = 0; i < segs.length - 1; i++) {
+        if (cur && typeof cur === 'object' && !Array.isArray(cur)) cur[segs[i]] = { ...cur[segs[i]] };
+        cur = cur?.[segs[i]];
+        if (!cur || typeof cur !== 'object') break;
+      }
+      if (cur && typeof cur === 'object') delete cur[segs[segs.length - 1]];
+    }
+    return clone;
+  };
+
+  try {
+    return JSON.stringify(canon(strip(JSON.parse(raw))));
+  } catch {
+    return raw.trim();
+  }
+}
+
 export default function ResponseVersionPanel({ versions, currentJson, currentValidation, excludedPaths = [], onSaveVersion, onRestore, onDeleteVersion, onRenameVersion }: Props) {
   const [unorderedArrays, setUnorderedArrays] = useState(false);
   const [diffTab, setDiffTab] = useState<'response' | 'rules'>('response');
@@ -122,46 +158,16 @@ export default function ResponseVersionPanel({ versions, currentJson, currentVal
   /** Check ALL versions for a duplicate (not just latest). Returns matching version label or null. */
   const duplicateOfLabel = useMemo(() => {
     if (sorted.length === 0 || !currentJson.trim()) return null;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const canon = (v: any): any => {
-      if (v === null || v === undefined || typeof v !== 'object') return v;
-      if (Array.isArray(v)) return v.map(canon);
-      const o: Record<string, unknown> = {};
-      for (const k of Object.keys(v).sort()) o[k] = canon(v[k]);
-      return o;
-    };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const strip = (obj: any): any => {
-      if (!excludedPaths.length || !obj || typeof obj !== 'object') return obj;
-      const clone = Array.isArray(obj) ? [...obj] : { ...obj };
-      for (const p of excludedPaths) {
-        const segs = p.replace(/^\$\.?/, '').split('.').filter(Boolean);
-        if (!segs.length) continue;
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let cur: any = clone;
-        for (let i = 0; i < segs.length - 1; i++) {
-          if (cur && typeof cur === 'object' && !Array.isArray(cur)) cur[segs[i]] = { ...cur[segs[i]] };
-          cur = cur?.[segs[i]];
-          if (!cur || typeof cur !== 'object') break;
-        }
-        if (cur && typeof cur === 'object') delete cur[segs[segs.length - 1]];
-      }
-      return clone;
-    };
 
     const sortFields = (f: { jsonPath: string; expectedValue: string }[]) =>
       [...f].sort((a, b) => a.jsonPath.localeCompare(b.jsonPath));
     const sortPaths = (p: string[]) => [...p].sort();
 
-    let currentCanon: string;
-    try { currentCanon = JSON.stringify(canon(strip(JSON.parse(currentJson)))); }
-    catch { currentCanon = currentJson.trim(); }
+    const currentCanon = toCanonicalJsonString(currentJson, excludedPaths);
 
     for (let i = 0; i < sorted.length; i++) {
       const ver = sorted[i];
-      let verCanon: string;
-      try { verCanon = JSON.stringify(canon(strip(JSON.parse(ver.json)))); }
-      catch { verCanon = ver.json; }
+      const verCanon = toCanonicalJsonString(ver.json, excludedPaths);
 
       if (currentCanon !== verCanon) continue;
 

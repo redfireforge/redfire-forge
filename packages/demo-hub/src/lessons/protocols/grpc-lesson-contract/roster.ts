@@ -283,6 +283,20 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     allowedTabs: STUDIO_TABS,
     estimatedMinutes: 7,
   },
+  {
+    number: 18,
+    id: 'grpc-metadata-auth',
+    title: 'Request Metadata & Authentication',
+    keyConcept: 'Metadata headers, bearer/basic/API key/OAuth2 auth, conflict detection',
+    phaseDependencies: [1],
+    fixtures: GO_ECHO_FIXTURE,
+    implementationStatus: 'shipped',
+    introducedInSchemaVersion: 1,
+    ...GO_ECHO_DOCKER,
+    initialTab: 'grpc-studio',
+    allowedTabs: STUDIO_TABS,
+    estimatedMinutes: 5,
+  },
 ] as const;
 
 export const GRPC_LESSON_ROSTER_BY_ID: Readonly<Record<string, GrpcLessonRosterEntry>> =

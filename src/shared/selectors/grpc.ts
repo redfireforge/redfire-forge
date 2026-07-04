@@ -183,6 +183,7 @@ export const GRPC = {
   PROTO_FIELD_INPUT_MESSAGE: '[data-testid="grpc-proto-field-input-message"]',
   PROTO_FIELD_INPUT: (fieldName: string) => `[data-testid="grpc-proto-field-input-${fieldName}"]`,
   METADATA_EDITOR: '[data-testid="grpc-metadata-editor"]',
+  METADATA_ADD_BTN: '[data-testid="grpc-metadata-add-btn"]',
   METADATA_VALIDATION_ERROR: '[data-testid="grpc-metadata-validation-error"]',
   RESPONSE_PANEL_PLACEHOLDER: '[data-testid="grpc-response-panel-placeholder"]',
   RESPONSE_PANEL: '[data-testid="grpc-response-panel"]',

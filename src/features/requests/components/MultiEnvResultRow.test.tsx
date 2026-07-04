@@ -23,6 +23,7 @@ vi.mock('./JsonTreePreview', () => ({
       </div>
     );
   },
+  buildJTreeFromBody: () => null,
 }));
 
 describe('MultiEnvResultRow', () => {

@@ -16,6 +16,12 @@ import {
   resolveGrpcStudioLayoutCallType,
 } from '../utils/grpcExplorerUtils';
 import { countGrpcStreamDirections } from '../utils/grpcStreamLogUtils';
+import {
+  isGrpcJsonMode,
+  persistComposerTab,
+  resolveInitialComposerTab,
+  type GrpcComposerTab,
+} from '../utils/grpcComposerTabState';
 import { validateGrpcMetadataEntries, metadataEntriesFromRecord } from '../utils/grpcMetadataEditor';
 import { previewGrpcAuthMerge } from '../utils/grpcAuthPreview';
 import type { GrpcAuthSecretFieldKey } from '../utils/grpcSecretFieldUi';
@@ -42,25 +48,9 @@ import {
 } from '../utils/grpcStreamLogExport';
 import { isGrpcLifecycleInFlight } from '../grpcStudioTypes';
 
-export type GrpcComposerTab = 'form' | 'json' | 'metadata' | 'auth' | 'files';
+export type { GrpcComposerTab } from '../utils/grpcComposerTabState';
+
 type GrpcMobileStage = 'request' | 'response' | 'metadata' | 'auth';
-
-function parsePersistedComposerTab(raw: string | null): GrpcComposerTab | null {
-  if (raw === 'form' || raw === 'json' || raw === 'metadata' || raw === 'auth' || raw === 'files') {
-    return raw;
-  }
-  return null;
-}
-
-function resolveInitialComposerTab(tab: GrpcStudioTabState): GrpcComposerTab {
-  try {
-    const persisted = parsePersistedComposerTab(sessionStorage.getItem(`grpc-composer-tab:${tab.id}`));
-    if (persisted) return persisted;
-  } catch {
-    // sessionStorage can be unavailable in some test/runtime environments.
-  }
-  return tab.requestMode === 'json' ? 'json' : 'form';
-}
 
 export interface GrpcCallPanelProps {
   tab: GrpcStudioTabState;
@@ -192,11 +182,7 @@ export function GrpcCallPanel({
   const prevTabIdRef = useRef(tab.id);
 
   useEffect(() => {
-    try {
-      sessionStorage.setItem(`grpc-composer-tab:${tab.id}`, composerTab);
-    } catch {
-      // Best effort only.
-    }
+    persistComposerTab(tab.id, composerTab);
   }, [composerTab, tab.id]);
 
   useEffect(() => {
@@ -402,7 +388,7 @@ export function GrpcCallPanel({
 
   const resolveBodyOverrides = useCallback((): GrpcExecuteOverrides | undefined => {
     if (!method) return undefined;
-    const needsJsonResolve = composerTab === 'json' || tab.requestMode === 'json';
+    const needsJsonResolve = isGrpcJsonMode(composerTab, tab.requestMode);
     if (!needsJsonResolve) return undefined;
 
     const draft = composerTab === 'json' ? jsonDraft : serializeGrpcBodyJson(tab.body);
@@ -421,7 +407,7 @@ export function GrpcCallPanel({
 
   const handlePrimaryAction = useCallback(async () => {
     let overrides = resolveBodyOverrides();
-    if (overrides === undefined && method && (composerTab === 'json' || tab.requestMode === 'json')) {
+    if (overrides === undefined && method && isGrpcJsonMode(composerTab, tab.requestMode)) {
       return;
     }
 
@@ -458,7 +444,7 @@ export function GrpcCallPanel({
 
   const handleSendStreamMessage = useCallback(() => {
     const overrides = resolveBodyOverrides();
-    if (overrides === undefined && method && (composerTab === 'json' || tab.requestMode === 'json')) {
+    if (overrides === undefined && method && isGrpcJsonMode(composerTab, tab.requestMode)) {
       return;
     }
     onSendStreamMessage?.(overrides);
@@ -466,7 +452,7 @@ export function GrpcCallPanel({
 
   const handleEnqueueStreamMessage = useCallback(() => {
     const overrides = resolveBodyOverrides();
-    if (overrides === undefined && method && (composerTab === 'json' || tab.requestMode === 'json')) {
+    if (overrides === undefined && method && isGrpcJsonMode(composerTab, tab.requestMode)) {
       return;
     }
     onEnqueueStreamMessage?.(overrides);

@@ -4,6 +4,7 @@ import { useDebounce } from '../../../../shared/hooks/useDebounce';
 import { escapeRegExp } from '../../../../shared/utils/helpers';
 import { SearchMatchBar } from '../../../../shared/components/SearchMatchBar';
 import { useSearchMatchNavigation } from '../../../../shared/hooks/useSearchMatchNavigation';
+import { useJsonTreeCollapseState } from '../../../../shared/hooks/useJsonTreeCollapseState';
 
 /** Best-effort pretty-format for JSON-like text that may be truncated / invalid. */
 function prettyFormatRawJson(raw: string): string {
@@ -112,7 +113,7 @@ interface Props {
 export default function WorkflowResponseBody({ body, subtitle }: Props) {
   const [searchTerm, setSearchTermState] = useState('');
   const [searchMatchCount, setSearchMatchCount] = useState(0);
-  const [collapsedSet, setCollapsedSet] = useState<Set<string>>(() => new Set());
+  const { collapsedSet, handleTreeToggle: handleToggle, handleCollapseAll: collapseAll, handleExpandAll } = useJsonTreeCollapseState();
   const rawFallbackRef = useRef<HTMLPreElement>(null);
   const debouncedSearch = useDebounce(searchTerm, 200);
 
@@ -213,18 +214,8 @@ export default function WorkflowResponseBody({ body, subtitle }: Props) {
     marks[0]?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   }, [searchMatchIdx, metaMatchCount, debouncedSearch]);
 
-  const handleToggle = useCallback((path: string) => {
-    setCollapsedSet(prev => {
-      const next = new Set(prev);
-      if (next.has(path)) next.delete(path);
-      else next.add(path);
-      return next;
-    });
-  }, []);
-
   const allPaths = useMemo(() => (jTree ? collectAllPaths(jTree, '') : []), [jTree]);
-  const handleCollapseAll = useCallback(() => setCollapsedSet(new Set(allPaths)), [allPaths]);
-  const handleExpandAll = useCallback(() => setCollapsedSet(new Set()), []);
+  const handleCollapseAll = useCallback(() => collapseAll(new Set(allPaths)), [allPaths, collapseAll]);
 
   // Active index within meta matches (for highlight)
   const metaActiveIdx = searchMatchIdx < metaMatchCount ? searchMatchIdx : undefined;

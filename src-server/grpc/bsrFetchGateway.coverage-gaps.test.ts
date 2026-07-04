@@ -121,6 +121,120 @@ describe('bsrFetchGateway coverage gaps', () => {
     })).rejects.toThrow(/ENOTFOUND/);
   });
 
+  it('adds timeout network hint when error chain contains ETIMEDOUT', async () => {
+    await expect(fetchBsrDescriptorSet({ module: 'acme/echo' }, {
+      fetchPort: { fetch: vi.fn(async () => { throw new Error('socket ETIMEDOUT'); }) },
+    })).rejects.toThrow(/Connection to buf\.build timed out/i);
+  });
+
+  it('adds TLS network hint when error chain contains certificate failures', async () => {
+    await expect(fetchBsrDescriptorSet({ module: 'acme/echo' }, {
+      fetchPort: { fetch: vi.fn(async () => { throw new Error('SELF_SIGNED_CERT_IN_CHAIN'); }) },
+    })).rejects.toThrow(/TLS certificate validation failed/i);
+  });
+
+  it('adds proxy network hint when error chain contains PROXY', async () => {
+    await expect(fetchBsrDescriptorSet({ module: 'acme/echo' }, {
+      fetchPort: { fetch: vi.fn(async () => { throw new Error('PROXY CONNECT FAILED'); }) },
+    })).rejects.toThrow(/Proxy configuration blocked the request to buf\.build/i);
+  });
+
+  it('adds unreachable network hint for ECONNREFUSED-style errors', async () => {
+    await expect(fetchBsrDescriptorSet({ module: 'acme/echo' }, {
+      fetchPort: { fetch: vi.fn(async () => { throw new Error('ECONNREFUSED 127.0.0.1:443'); }) },
+    })).rejects.toThrow(/Network path to buf\.build was refused\/unreachable/i);
+  });
+
+  it('default fetch path omits dispatcher when no proxy env is configured', async () => {
+    const prevHttps = process.env.HTTPS_PROXY;
+    const prevHttp = process.env.HTTP_PROXY;
+    const prevHttpsLower = process.env.https_proxy;
+    const prevHttpLower = process.env.http_proxy;
+    delete process.env.HTTPS_PROXY;
+    delete process.env.HTTP_PROXY;
+    delete process.env.https_proxy;
+    delete process.env.http_proxy;
+    vi.resetModules();
+    try {
+      const payload = Buffer.from('plain');
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(payload, { status: 200, headers: { 'content-type': 'application/octet-stream' } }),
+      );
+      const mod = await import('./bsrFetchGateway.js');
+      await mod.fetchBsrDescriptorSet({ module: 'acme/echo' });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      fetchSpy.mockRestore();
+    } finally {
+      process.env.HTTPS_PROXY = prevHttps;
+      process.env.HTTP_PROXY = prevHttp;
+      process.env.https_proxy = prevHttpsLower;
+      process.env.http_proxy = prevHttpLower;
+      vi.doUnmock('node:module');
+      vi.resetModules();
+    }
+  });
+
+  it('default fetch path uses undici ProxyAgent when proxy env is configured', async () => {
+    const prevHttps = process.env.HTTPS_PROXY;
+    const prevHttpsLower = process.env.https_proxy;
+    process.env.HTTPS_PROXY = 'http://proxy.local:8080';
+    delete process.env.https_proxy;
+    vi.resetModules();
+    vi.doMock('node:module', () => ({
+      createRequire: () => () => ({
+        ProxyAgent: class {
+          constructor(public proxyUrl: string) {}
+        },
+      }),
+    }));
+
+    try {
+      const payload = Buffer.from('with-proxy');
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(payload, { status: 200, headers: { 'content-type': 'application/octet-stream' } }),
+      );
+      const mod = await import('./bsrFetchGateway.js');
+      await mod.fetchBsrDescriptorSet({ module: 'acme/echo' });
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit & { dispatcher?: { proxyUrl?: string } };
+      expect(init?.dispatcher).toBeTruthy();
+      fetchSpy.mockRestore();
+    } finally {
+      process.env.HTTPS_PROXY = prevHttps;
+      process.env.https_proxy = prevHttpsLower;
+      vi.doUnmock('node:module');
+      vi.resetModules();
+    }
+  });
+
+  it('falls back to regular fetch when proxy env is set but undici cannot be required', async () => {
+    const prevHttps = process.env.HTTPS_PROXY;
+    const prevHttpsLower = process.env.https_proxy;
+    process.env.HTTPS_PROXY = 'http://proxy.local:8080';
+    delete process.env.https_proxy;
+    vi.resetModules();
+    vi.doMock('node:module', () => ({
+      createRequire: () => () => {
+        throw new Error('undici missing');
+      },
+    }));
+
+    try {
+      const payload = Buffer.from('fallback');
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(payload, { status: 200, headers: { 'content-type': 'application/octet-stream' } }),
+      );
+      const mod = await import('./bsrFetchGateway.js');
+      await mod.fetchBsrDescriptorSet({ module: 'acme/echo' });
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      fetchSpy.mockRestore();
+    } finally {
+      process.env.HTTPS_PROXY = prevHttps;
+      process.env.https_proxy = prevHttpsLower;
+      vi.doUnmock('node:module');
+      vi.resetModules();
+    }
+  });
+
   it('uses the default global fetch port when fetchPort is omitted', async () => {
     const payload = Buffer.from('binary-protoset');
     const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(

@@ -9,7 +9,7 @@ import {
   DataMapperModal,
   createValidationAdapter,
 } from '../../../shared/components/data-mapper';
-import { prettyJson, toErrorMessage } from '../../../shared/utils/helpers';
+import { prettyJson, toErrorMessage, tryParseJson } from '../../../shared/utils/helpers';
 import type { ValidationAdapterOutput } from '../../../shared/components/data-mapper';
 
 interface DataSourceRowDetailModalProps {
@@ -21,6 +21,12 @@ interface DataSourceRowDetailModalProps {
   onClose: () => void;
   /** Auth-aware fetch function provided by parent. */
   onFetchRow?: (url: string, method: string, headers: Record<string, string>, body?: string) => Promise<HttpResponse>;
+}
+
+function normalizeExpectedFieldValue(raw: string): string {
+  if (!raw.startsWith('"') || !raw.endsWith('"')) return raw;
+  const parsed = tryParseJson(raw);
+  return typeof parsed === 'string' ? parsed : raw;
 }
 
 export default function DataSourceRowDetailModal({
@@ -126,8 +132,8 @@ export default function DataSourceRowDetailModal({
           setSampleJson(pretty);
 
           // Auto-select fields: dynamic patterns expand from response, fixed patterns use existing columns only
-          try {
-            const parsed = JSON.parse(result.body);
+          const parsed = tryParseJson(result.body);
+          if (parsed !== undefined) {
             const autoFields: ExpectedField[] = [];
             const dynamicPatterns = dataTable.validationContract ?? [];
 
@@ -154,7 +160,7 @@ export default function DataSourceRowDetailModal({
             }
 
             if (autoFields.length > 0) setExpectedFields(autoFields);
-          } catch { /* not JSON */ }
+          }
         }
       }
     } catch (err) {
@@ -170,8 +176,8 @@ export default function DataSourceRowDetailModal({
     if (!pendingFetchBody) return;
     // Update the response JSON but keep existing field selections, updating their values
     setSampleJson(pendingFetchBody);
-    try {
-      const parsed = JSON.parse(pendingFetchBody);
+    const parsed = tryParseJson(pendingFetchBody);
+    if (parsed !== undefined) {
       setExpectedFields(prev => prev.map(f => {
         const value = getValueAtJsonPath(parsed, f.jsonPath);
         if (value !== undefined) {
@@ -179,7 +185,7 @@ export default function DataSourceRowDetailModal({
         }
         return f;
       }));
-    } catch { /* not JSON */ }
+    }
     setPendingFetchBody(null);
   }, [pendingFetchBody]);
 
@@ -214,10 +220,7 @@ export default function DataSourceRowDetailModal({
       const existingCol = validateColumns.find(c => c.mapping === field.jsonPath);
       if (existingCol) {
         // Update existing column value
-        let val = field.expectedValue;
-        if (val.startsWith('"') && val.endsWith('"')) {
-          try { val = JSON.parse(val); } catch { /* keep as-is */ }
-        }
+        const val = normalizeExpectedFieldValue(field.expectedValue);
         updatedValues[existingCol.id] = val;
       } else {
         // Only create a new column if this field's pattern is dynamic
@@ -235,10 +238,7 @@ export default function DataSourceRowDetailModal({
           type: 'validate',
           mapping: field.jsonPath,
         });
-        let val = field.expectedValue;
-        if (val.startsWith('"') && val.endsWith('"')) {
-          try { val = JSON.parse(val); } catch { /* keep as-is */ }
-        }
+        const val = normalizeExpectedFieldValue(field.expectedValue);
         updatedValues[colId] = val;
       }
     }

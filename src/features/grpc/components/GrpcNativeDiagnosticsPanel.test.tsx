@@ -143,4 +143,70 @@ describe('GrpcNativeDiagnosticsPanel', () => {
       expect(screen.getByTestId('grpc-native-diagnostics-error').textContent).toContain('ipc down');
     });
   });
+
+  it('falls back to generic message for non-Error refresh failures', async () => {
+    invokeDiagnostics.mockRejectedValueOnce('non-error-failure');
+
+    render(<GrpcNativeDiagnosticsPanel advanced={makeAdvancedStub()} />);
+    fireEvent.click(screen.getByTestId('grpc-native-diagnostics-refresh'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-native-diagnostics-error').textContent).toContain(
+        'Failed to load native diagnostics snapshot',
+      );
+    });
+  });
+
+  it('shows copy error when clipboard write fails', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('clipboard denied'));
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    invokeDiagnostics.mockResolvedValueOnce({
+      transportUsed: 'tauri',
+      tabId: 'tab-a',
+      channelPool: { size: 1, capacity: 32, hitCountTotal: 0 },
+      calls: { total: 1, active: 0, completed: 1, cancelled: 0 },
+      streams: { total: 1, active: 0, ended: 1, cancelled: 0, error: 0 },
+      listeners: { attachedTabs: 1, detachedTabs: 0, staleAttachedTabs: 0, totalListenerCount: 1 },
+      taxonomy: { state: 'healthy', activeIssueCodes: [] },
+    });
+
+    render(<GrpcNativeDiagnosticsPanel advanced={makeAdvancedStub()} />);
+    fireEvent.click(screen.getByTestId('grpc-native-diagnostics-refresh'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-native-diagnostics-json')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId('grpc-native-diagnostics-copy'));
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-native-diagnostics-error').textContent).toContain('Clipboard copy failed');
+    });
+  });
+
+  it('does not fail when clipboard API is unavailable', async () => {
+    Object.assign(navigator, { clipboard: undefined });
+
+    invokeDiagnostics.mockResolvedValueOnce({
+      transportUsed: 'tauri',
+      tabId: 'tab-a',
+      channelPool: { size: 1, capacity: 32, hitCountTotal: 0 },
+      calls: { total: 1, active: 0, completed: 1, cancelled: 0 },
+      streams: { total: 1, active: 0, ended: 1, cancelled: 0, error: 0 },
+      listeners: { attachedTabs: 1, detachedTabs: 0, staleAttachedTabs: 0, totalListenerCount: 1 },
+      taxonomy: { state: 'healthy', activeIssueCodes: [] },
+    });
+
+    render(<GrpcNativeDiagnosticsPanel advanced={makeAdvancedStub()} />);
+    fireEvent.click(screen.getByTestId('grpc-native-diagnostics-refresh'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-native-diagnostics-json')).toBeTruthy();
+    });
+
+    fireEvent.click(screen.getByTestId('grpc-native-diagnostics-copy'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('grpc-native-diagnostics-error')).toBeNull();
+    });
+  });
 });
