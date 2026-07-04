@@ -805,6 +805,20 @@ describe('grpcStudioDescriptorLoad coverage gaps', () => {
     }));
   });
 
+  it('reflectTab maps TLS handshake mismatch to actionable tls guidance', async () => {
+    vi.mocked(descriptorFallback.loadDescriptorWithAutoFallback).mockRejectedValue(
+      new Error('Error: 14 UNAVAILABLE: No connection established. Last error: Error: 8D0DDEB100000000:error:0A00010B:SSL routines:tls_validate_record_header:wrong version number'),
+    );
+    const ctx = makeRuntime();
+    const tabId = ctx.sessionRef.current.activeTabId;
+
+    await createReflectTabHandler(ctx)(tabId);
+
+    expect(ctx.patchTabDescriptor).toHaveBeenCalledWith(tabId, expect.objectContaining({
+      errorMessage: expect.stringMatching(/TLS handshake failed/i),
+    }));
+  });
+
   it('describeFromIngest returns false when tab descriptor state is missing', async () => {
     const ctx = makeRuntime();
     const ok = await createDescribeFromIngestHandler(ctx)('missing-tab');
