@@ -1,7 +1,7 @@
 /**
  * Connection Settings drawer (Phase 4J-C/D) — mockup 04 left nav + panels.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import type {
   GrpcCallResult,
@@ -65,6 +65,8 @@ export interface GrpcConnectionSettingsDrawerProps {
   k8sAutomationScopeId?: string;
   onK8sPortForwardChange?: (session: GrpcK8sPortForwardSession) => void;
   onK8sApplyTarget?: (target: string) => void;
+  /** Incremented by parent whenever settings are opened to reset modal placement. */
+  openRequest?: number;
 }
 
 export function GrpcConnectionSettingsDrawer({
@@ -95,17 +97,9 @@ export function GrpcConnectionSettingsDrawer({
   k8sAutomationScopeId,
   onK8sPortForwardChange,
   onK8sApplyTarget,
+  openRequest = 0,
 }: GrpcConnectionSettingsDrawerProps) {
-  const [openInstance, setOpenInstance] = useState(0);
-  const wasOpenRef = useRef(open);
   const activeNavItem = NAV_ITEMS.find((item) => item.id === activeNav);
-
-  useEffect(() => {
-    if (open && !wasOpenRef.current) {
-      setOpenInstance((value) => value + 1);
-    }
-    wasOpenRef.current = open;
-  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -123,7 +117,7 @@ export function GrpcConnectionSettingsDrawer({
 
   return createPortal(
     <AppModalFrame
-      key={`grpc-settings-frame-${openInstance}`}
+      key={`grpc-settings-frame-${openRequest}`}
       title={(
         <div className="grpc-settings-title-block">
           <div className="grpc-settings-title-copy">
