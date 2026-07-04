@@ -60,6 +60,13 @@ function formatDescriptorLoadErrorMessage(error: unknown, fallback: string): str
   ) {
     return 'Could not reach the Express gRPC proxy (port 3001). Start it in a second terminal: npm run server';
   }
+  if (
+    lower.includes('ssl routines')
+    || lower.includes('wrong version number')
+    || lower.includes('first record does not look like a tls handshake')
+  ) {
+    return 'TLS handshake failed for this target. If the server is plaintext, set TLS mode to Plaintext (🔓) and reflect again.';
+  }
   return message;
 }
 
