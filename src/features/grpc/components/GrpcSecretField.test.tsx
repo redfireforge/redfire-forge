@@ -87,4 +87,68 @@ describe('GrpcSecretField (Phase 4G)', () => {
     expect(container.querySelector('.grpc-auth-form-ctrl')).toBeTruthy();
     expect(container.querySelector('.grpc-tls-form-row')).toBeNull();
   });
+
+  it('renders multiline textarea placeholders and omits stored aria wiring when value is not stored', () => {
+    render(
+      <GrpcSecretField
+        id="pem"
+        label="Client key"
+        testId="grpc-secret"
+        value=""
+        masked={false}
+        multiline
+        placeholder="Paste PEM"
+        onChange={vi.fn()}
+        onUnmask={vi.fn()}
+      />,
+    );
+
+    const textarea = screen.getByTestId('grpc-secret') as HTMLTextAreaElement;
+    expect(textarea.placeholder).toBe('Paste PEM');
+    expect(textarea.getAttribute('aria-describedby')).toBeNull();
+    expect(screen.queryByTestId('grpc-secret-stored-hint')).toBeNull();
+  });
+
+  it('keeps stored hint for multiline masked values without rendering clear action when no handler exists', () => {
+    render(
+      <GrpcSecretField
+        id="pem"
+        label="Client key"
+        testId="grpc-secret"
+        value="stored-secret"
+        masked
+        multiline
+        onChange={vi.fn()}
+        onUnmask={vi.fn()}
+      />,
+    );
+
+    const textarea = screen.getByTestId('grpc-secret') as HTMLTextAreaElement;
+    expect(textarea.placeholder).toBe('');
+    expect(textarea.getAttribute('aria-describedby')).toBe('pem-stored-hint');
+    expect(screen.getByTestId('grpc-secret-stored-hint')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-secret-clear')).toBeNull();
+  });
+
+  it('does not call onUnmask when editing an already unmasked field', async () => {
+    const user = userEvent.setup();
+    const onUnmask = vi.fn();
+    const onChange = vi.fn();
+
+    render(
+      <GrpcSecretField
+        id="plain"
+        label="Token"
+        testId="grpc-secret"
+        value=""
+        masked={false}
+        onChange={onChange}
+        onUnmask={onUnmask}
+      />,
+    );
+
+    await user.type(screen.getByTestId('grpc-secret'), 'abc');
+    expect(onUnmask).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalled();
+  });
 });

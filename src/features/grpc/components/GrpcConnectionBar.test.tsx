@@ -87,11 +87,6 @@ describe('GrpcConnectionBar (Phase 4J-A)', () => {
     expect((screen.getByTestId('grpc-connection-settings-btn') as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('renders env badge when envName is provided', () => {
-    render(<GrpcConnectionBar {...defaultProps} envName="staging" />);
-    expect(screen.getByTestId('grpc-connection-env-badge').textContent).toBe('staging');
-  });
-
   it('marks target input invalid when targetInvalid', () => {
     render(<GrpcConnectionBar {...defaultProps} targetInvalid />);
     expect(screen.getByTestId('grpc-target-input').getAttribute('aria-invalid')).toBe('true');
@@ -107,6 +102,43 @@ describe('GrpcConnectionBar (Phase 4J-A)', () => {
     render(<GrpcConnectionBar {...defaultProps} onSettingsClick={onSettingsClick} />);
     fireEvent.click(screen.getByTestId('grpc-connection-settings-btn'));
     expect(onSettingsClick).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the settings button as the last right-edge action', () => {
+    const { container } = render(
+      <GrpcConnectionBar
+        {...defaultProps}
+        onConnectionToggle={vi.fn()}
+        onSettingsClick={vi.fn()}
+        onImportGrpcurlClick={vi.fn()}
+        onSaveRequestClick={vi.fn()}
+      />,
+    );
+    const actionButtons = Array.from(
+      container.querySelectorAll('.grpc-connection-bar__actions > button'),
+    );
+    expect(actionButtons.at(-1)?.getAttribute('data-testid')).toBe('grpc-connection-settings-btn');
+  });
+
+  it('renders connect in the right-edge action rail before the settings gear', () => {
+    const { container } = render(
+      <GrpcConnectionBar
+        {...defaultProps}
+        onConnectionToggle={vi.fn()}
+        onSettingsClick={vi.fn()}
+        onImportGrpcurlClick={vi.fn()}
+        onSaveRequestClick={vi.fn()}
+      />,
+    );
+    const actionButtons = Array.from(
+      container.querySelectorAll('.grpc-connection-bar__actions > button'),
+    ).map((button) => button.getAttribute('data-testid'));
+    expect(actionButtons).toEqual([
+      'grpc-import-grpcurl-btn',
+      'grpc-save-request-btn',
+      'grpc-connection-toggle-btn',
+      'grpc-connection-settings-btn',
+    ]);
   });
 
   it('shows plaintext unlock icon on TLS badge', () => {

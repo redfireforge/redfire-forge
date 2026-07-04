@@ -55,6 +55,24 @@ describe('GrpcAuthPanel (Phase 4C)', () => {
     expect(screen.getByTestId('grpc-auth-page-scope-banner').textContent).toMatch(/page default/i);
   });
 
+  it('offers inherit from auth profile when compatible profiles exist', async () => {
+    const user = userEvent.setup();
+    const onChange = vi.fn();
+    render(
+      <GrpcAuthPanel
+        auth={undefined}
+        preview={emptyPreview}
+        globalAuthProfiles={[
+          { id: 'prof-1', name: 'Demo Bearer', auth: { type: 'bearer', token: 'secret-token' } },
+        ]}
+        defaultAuthProfileId="prof-1"
+        onChange={onChange}
+      />,
+    );
+    await user.selectOptions(screen.getByTestId('grpc-auth-type-select'), 'inherit');
+    expect(onChange).toHaveBeenCalledWith({ type: 'inherit', globalProfileId: 'prof-1' });
+  });
+
   it('shows oauth2 info box when configured (Phase 4D)', () => {
     const preview: GrpcAuthPreviewResult = {
       ok: true,
