@@ -77,7 +77,11 @@ describe('useGrpcStreamSession transport fallback (Phase 7F)', () => {
         sessionRef.current = next;
         return next;
       },
-      setSession: vi.fn(),
+      setSession: vi.fn((updater) => {
+        if (typeof updater === 'function') {
+          updater(sessionRef.current);
+        }
+      }),
       updateTab,
       prepareExecuteSnapshot,
     }));

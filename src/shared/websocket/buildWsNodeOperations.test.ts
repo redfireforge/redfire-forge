@@ -534,5 +534,51 @@ describe('buildWsNodeOperations', () => {
         matchCriteria: { jsonPathMatch: 'status', jsonPathValue: 'ready' },
       })).rejects.toThrow('timed out');
     });
+
+    it('matches jsonPath value when the path value is a non-string (uses JSON.stringify)', async () => {
+      // value is a number: 42 → strVal = '42' → compare to jsonPathValue '42'
+      mockDispatch.mockResolvedValueOnce(envelope({
+        messages: [{ data: '{"code":42}', type: 'text', timestamp: 1000 }],
+        cursor: 'c1',
+      }));
+
+      const ops = buildWsNodeOperations();
+      const msg = await ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 1000,
+        matchCriteria: { jsonPathMatch: 'code', jsonPathValue: '42' },
+      });
+      expect(msg.data).toBe('{"code":42}');
+    });
+  });
+
+  describe('connect — coverage gaps', () => {
+    it('does not register user label when connectionId is undefined', async () => {
+      mockDispatch
+        .mockResolvedValueOnce(envelope({ connectionId: 'proxy-x' }))
+        .mockResolvedValueOnce(envelope({ messages: [{ data: 'hi', timestamp: 1000 }], cursor: 'c1' }));
+
+      const ops = buildWsNodeOperations();
+      // No connectionId — registry should only have proxy-x → proxy-x
+      await ops.connect({ url: 'ws://test' }); // params.connectionId is undefined → false branch
+      const msg = await ops.waitForMessage({ connectionId: 'proxy-x', timeoutMs: 1000 });
+      expect(msg.data).toBe('hi');
+    });
+  });
+
+  describe('waitForMessage — cursor update', () => {
+    it('does not update cursor when data.cursor is falsy', async () => {
+      mockDispatch
+        .mockResolvedValueOnce(envelope({ messages: [], cursor: '' })) // falsy cursor
+        .mockResolvedValueOnce(envelope({ messages: [{ data: 'found', timestamp: 1000 }], cursor: 'c1' }));
+
+      const ops = buildWsNodeOperations();
+      const msg = await ops.waitForMessage({
+        connectionId: 'c1',
+        timeoutMs: 1000,
+        sinceCursor: 'initial',
+      });
+      expect(msg.data).toBe('found');
+    });
   });
 });

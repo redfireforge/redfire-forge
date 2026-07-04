@@ -11,6 +11,7 @@ import {
 } from '../utils/dataSourceImport';
 import { parseExcelToScenarios } from '../utils/csvTemplateExcel';
 import { createEmptyColumn } from '../utils/dataSourceUtils';
+import { tryParseJson } from '../../../shared/utils/helpers';
 
 interface UseDataSourceImportOptions {
   draft: Scenario;
@@ -38,7 +39,8 @@ export function useDataSourceImport({ draft, dataSource: dt, onDraftChange }: Us
         if (file.name.endsWith('.json')) {
           try {
             const text = await file.text();
-            const json = JSON.parse(text);
+            const json = tryParseJson(text);
+            if (json === undefined) throw new Error('Invalid JSON import file');
             const { columns: newCols, rows: newRows } = parseJsonImport(json, dt.columns);
             onDraftChange({
               ...draft,

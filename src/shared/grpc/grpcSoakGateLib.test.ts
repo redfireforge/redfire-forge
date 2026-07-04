@@ -2,10 +2,48 @@ import { describe, expect, it } from 'vitest';
 import {
   computeGrowthMb,
   evaluateSoakChecks,
+  percentile,
   summarizeLatencies,
 } from './grpcSoakGateLib.mjs';
 
 describe('grpcSoakGateLib', () => {
+  it('summarizeLatencies handles empty samples', () => {
+    const summary = summarizeLatencies([]);
+
+    expect(summary).toEqual({
+      count: 0,
+      avgMs: 0,
+      minMs: 0,
+      maxMs: 0,
+      p95Ms: 0,
+    });
+  });
+
+  it('summarizeLatencies handles a single sample', () => {
+    const summary = summarizeLatencies([42]);
+
+    expect(summary.count).toBe(1);
+    expect(summary.avgMs).toBe(42);
+    expect(summary.minMs).toBe(42);
+    expect(summary.maxMs).toBe(42);
+    expect(summary.p95Ms).toBe(42);
+  });
+
+  it('percentile handles empty, single, and out-of-range inputs', () => {
+    expect(percentile([], 95)).toBe(0);
+    expect(percentile([7], 95)).toBe(7);
+    expect(percentile([10, 20, 30], -10)).toBe(10);
+    expect(percentile([10, 20, 30], 1000)).toBe(30);
+  });
+
+  it('summarizeLatencies falls back for sparse sample values', () => {
+    const summary = summarizeLatencies([undefined as unknown as number]);
+
+    expect(summary.count).toBe(1);
+    expect(summary.minMs).toBe(0);
+    expect(summary.maxMs).toBe(0);
+  });
+
   it('summarizeLatencies returns expected avg and p95', () => {
     const summary = summarizeLatencies([100, 150, 200, 250, 300]);
 

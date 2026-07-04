@@ -114,6 +114,58 @@ describe('EnvironmentManager', () => {
     expect(screen.queryByTestId('em-ws-default-row-region')).not.toBeInTheDocument();
   });
 
+  it('saves workspace default via Enter from key/value inputs and ignores Enter when key is blank', () => {
+    render(<Harness />);
+    const keyInput = screen.getByTestId('em-ws-default-key-input');
+    const valueInput = screen.getByTestId('em-ws-default-value-input');
+
+    // Guard branch: Enter with blank key should not save.
+    fireEvent.keyDown(valueInput, { key: 'Enter' });
+    expect(screen.queryByTestId('em-ws-default-row-grpcHost')).not.toBeInTheDocument();
+
+    // Positive branch on key input Enter.
+    fireEvent.change(keyInput, { target: { value: 'grpcHost' } });
+    fireEvent.change(valueInput, { target: { value: 'localhost:50051' } });
+    fireEvent.keyDown(keyInput, { key: 'Enter' });
+    expect(screen.getByTestId('em-ws-default-row-grpcHost')).toBeInTheDocument();
+
+    // Positive branch on value input Enter.
+    fireEvent.change(valueInput, { target: { value: 'localhost:50052' } });
+    fireEvent.keyDown(valueInput, { key: 'Enter' });
+    expect(screen.getByDisplayValue('localhost:50052')).toBeInTheDocument();
+  });
+
+  it('workspace default key/value keydown ignores non-Enter keys', () => {
+    render(<Harness />);
+    const keyInput = screen.getByTestId('em-ws-default-key-input');
+    const valueInput = screen.getByTestId('em-ws-default-value-input');
+
+    fireEvent.change(keyInput, { target: { value: 'grpcHost' } });
+    fireEvent.change(valueInput, { target: { value: 'localhost:50051' } });
+    fireEvent.keyDown(keyInput, { key: 'Escape' });
+    fireEvent.keyDown(valueInput, { key: 'Escape' });
+
+    expect(screen.queryByTestId('em-ws-default-row-grpcHost')).not.toBeInTheDocument();
+  });
+
+  it('saveWorkspaceDefault guard returns early when key is blank (no row added)', () => {
+    render(<Harness />);
+    const keyInput = screen.getByTestId('em-ws-default-key-input');
+    const valueInput = screen.getByTestId('em-ws-default-value-input');
+    const saveBtn = screen.getByTestId('em-ws-default-save-btn');
+
+    fireEvent.change(keyInput, { target: { value: '   ' } });
+    fireEvent.change(valueInput, { target: { value: 'will-not-save' } });
+
+    // Force-click path to execute onClick handler and cover early-return guard.
+    (saveBtn as HTMLButtonElement).disabled = false;
+    fireEvent.click(saveBtn);
+
+    expect(keyInput).toHaveValue('   ');
+    expect(valueInput).toHaveValue('will-not-save');
+    expect(screen.getByText('No workspace defaults configured.')).toBeInTheDocument();
+  });
+
   // ── Add environment ──
   it('adds an environment via the Add button and disables Add when empty', () => {
     render(<Harness />);
@@ -797,6 +849,28 @@ describe('EnvironmentManager', () => {
     fireEvent.click(screen.getByRole('tab', { name: /WebSocket/i }));
     expect(screen.getByRole('tab', { name: /WebSocket/i })).toHaveAttribute('aria-selected', 'true');
     fireEvent.click(screen.getByTestId('em-remove-protocol-websocket'));
+    expect(screen.getByRole('tab', { name: /HTTP/i })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('removing the last active protocol falls back activeProtocol to HTTP', () => {
+    render(
+      <Harness
+        environments={[env('e1', 't01')]}
+        microservices={[svc({ id: 'svc-1', name: 'solo-proto', baseUrls: { e1: 'https://api' }, enabledProtocols: ['websocket'] })]}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    expect(screen.getByRole('tab', { name: /WebSocket/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('em-remove-protocol-websocket'));
+
+    // No tabs remain until a protocol is added back.
+    expect(screen.queryByRole('tab', { name: /WebSocket/i })).not.toBeInTheDocument();
+
+    // Add HTTP back; fallback active protocol should resolve to HTTP.
+    fireEvent.click(screen.getByTestId('em-add-protocol-btn'));
+    fireEvent.click(screen.getByTestId('em-add-protocol-item-http'));
     expect(screen.getByRole('tab', { name: /HTTP/i })).toHaveAttribute('aria-selected', 'true');
   });
 

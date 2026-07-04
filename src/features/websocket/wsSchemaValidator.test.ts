@@ -277,4 +277,46 @@ describe('wsSchemaValidator', () => {
       }
     });
   });
+
+  describe('coverage-gap branches', () => {
+    it('isSchemaJsonValid rejects JSON null', () => {
+      const result = isSchemaJsonValid('null');
+      expect(result.valid).toBe(false);
+      expect(result.error).toBe('Schema must be a JSON object');
+    });
+
+    it('validateMessage skips schema when cached validator is null (compile failed earlier)', () => {
+      // Force a null cached validator for schema id 'bad-cached'
+      compileSchema('bad-cached', '{not valid json}');
+      const schema = makeSchema({ id: 'bad-cached', schema: '{not valid json}' });
+      // validate → finds null in cache → `!cachedValidate` true → continues (skips)
+      const results = validateMessage('{"name": "Alice"}', 'received', [schema]);
+      expect(results).toEqual([]);
+    });
+
+    it('validateMessage error path has empty instancePath → uses "/" fallback', () => {
+      // Required field missing at root level → instancePath = '' → path = '/'
+      const schema = makeSchema({
+        schema: JSON.stringify({ type: 'object', required: ['name'] }),
+      });
+      const results = validateMessage('{}', 'received', [schema]);
+      expect(results[0].valid).toBe(false);
+      const rootErr = results[0].errors.find((e) => e.path === '/');
+      expect(rootErr).toBeDefined();
+    });
+
+    it('directionMatches returns false when direction does not match frame direction', () => {
+      const schema = makeSchema({ direction: 'sent' });
+      // direction is 'received' but schema is 'sent' → no match → skipped
+      const results = validateMessage('{"name": "Alice"}', 'received', [schema]);
+      expect(results).toHaveLength(0);
+    });
+
+    it('validateMessage validates when direction is "received" and schema is "received"', () => {
+      const schema = makeSchema({ direction: 'received' });
+      const results = validateMessage('{"name": "Alice"}', 'received', [schema]);
+      expect(results).toHaveLength(1);
+      expect(results[0].valid).toBe(true);
+    });
+  });
 });

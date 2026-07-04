@@ -446,4 +446,51 @@ describe('websocket-routes', () => {
       );
     });
   });
+
+  describe('coverage-gap branches', () => {
+    it('mapErrorStatus returns 500 for unrecognised error codes', async () => {
+      mockService.disconnect.mockReturnValue(
+        createWsErrorEnvelope('disconnect', {
+          code: 'WS_SOMETHING_ELSE' as never,
+          message: 'Unknown error',
+        }),
+      );
+      const res = await request(app)
+        .post('/api/ws/disconnect')
+        .send({ connectionId: 'x' });
+      expect(res.status).toBe(500);
+    });
+
+    it('requireBodyObject returns error when body is a string literal (non-object JSON)', async () => {
+      // Sending a JSON string — typeof req.body is 'string', not 'object'
+      const res = await request(app)
+        .post('/api/ws/connect')
+        .set('Content-Type', 'application/json')
+        .send('"hello"');
+      expect(res.status).toBe(400);
+    });
+
+    it('toIntQuery returns undefined for non-string query param types', async () => {
+      // When sinceCursor is an array (e.g. ?sinceCursor=1&sinceCursor=2),
+      // express parses it as an array — toIntQuery returns undefined
+      const res = await request(app)
+        .get('/api/ws/messages?connectionId=c1&sinceCursor=1&sinceCursor=2');
+      expect(res.status).toBe(200);
+      expect(mockService.getMessages).toHaveBeenCalledWith(
+        expect.objectContaining({ sinceCursor: undefined }),
+      );
+    });
+
+    it('GET /api/ws/status returns 400 when connectionId is missing', async () => {
+      const res = await request(app).get('/api/ws/status');
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('WS_INVALID_REQUEST');
+    });
+
+    it('GET /api/ws/status returns status for valid connectionId', async () => {
+      const res = await request(app).get('/api/ws/status?connectionId=c1');
+      expect(res.status).toBe(200);
+      expect(mockService.getStatus).toHaveBeenCalledWith({ connectionId: 'c1' });
+    });
+  });
 });

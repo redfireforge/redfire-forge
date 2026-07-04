@@ -15,9 +15,11 @@ import {
   ensureGrpcTarget,
   ensureUnaryExecuted,
   grpcLessonSession,
+  highlightAndClickStreamControl,
   openFirstGrpcHistoryEntry,
   rebindGrpcMethodQuiet,
   resetGrpcLessonSessionFlags,
+  runClientStreamSendLifecycle,
 } from './grpc-lesson-helpers';
 import {
   __resetGrpcLessonRunForTests,
@@ -333,5 +335,82 @@ describe('grpc-lesson-helpers', () => {
     expect(closed).not.toContain('grpc-tab-close-grpc-tab-3');
     expect(document.querySelectorAll('[role="tab"]')).toHaveLength(1);
     expect(document.querySelector('[role="tab"]')?.getAttribute('data-testid')).toBe('grpc-tab-3');
+  });
+
+  describe('client-stream sequential highlight', () => {
+    it('highlightAndClickStreamControl rings the control, clicks it, then removes the ring', async () => {
+      document.body.innerHTML = '<button data-testid="grpc-stream-start-btn"></button>';
+      const ctx = makeCtx();
+      let ringVisibleAtClick = false;
+      vi.mocked(ctx.click).mockImplementation(async () => {
+        ringVisibleAtClick = document.querySelectorAll('.demo-spotlight-ring').length === 1;
+      });
+
+      const clicked = await highlightAndClickStreamControl(ctx, GRPC.STREAM_START_BTN, {
+        holdMs: 5,
+        afterClickMs: 7,
+      });
+
+      expect(clicked).toBe(true);
+      expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_START_BTN);
+      // The ring is present at click time (viewer sees it) and gone afterwards.
+      expect(ringVisibleAtClick).toBe(true);
+      expect(document.querySelectorAll('.demo-spotlight-ring')).toHaveLength(0);
+      expect(ctx.delay).toHaveBeenCalledWith(5);
+      expect(ctx.delay).toHaveBeenCalledWith(7);
+    });
+
+    it('highlightAndClickStreamControl skips a disabled control without clicking', async () => {
+      document.body.innerHTML = '<button data-testid="grpc-stream-send-all-btn" disabled></button>';
+      const ctx = makeCtx();
+
+      const clicked = await highlightAndClickStreamControl(ctx, GRPC.STREAM_SEND_ALL_BTN);
+
+      expect(clicked).toBe(false);
+      expect(ctx.click).not.toHaveBeenCalled();
+      expect(document.querySelectorAll('.demo-spotlight-ring')).toHaveLength(0);
+    });
+
+    it('highlightAndClickStreamControl returns false when the control is missing', async () => {
+      const ctx = makeCtx();
+
+      const clicked = await highlightAndClickStreamControl(ctx, GRPC.STREAM_PENDING_END_BTN);
+
+      expect(clicked).toBe(false);
+      expect(ctx.click).not.toHaveBeenCalled();
+    });
+
+    it('runClientStreamSendLifecycle walks start → send all → end in order', async () => {
+      document.body.innerHTML = `
+        <button data-testid="grpc-stream-start-btn"></button>
+        <button data-testid="grpc-stream-send-all-btn"></button>
+        <button data-testid="grpc-stream-pending-end-btn"></button>
+      `;
+      const ctx = makeCtx();
+      const clickOrder: string[] = [];
+      vi.mocked(ctx.click).mockImplementation(async (sel) => { clickOrder.push(sel); });
+
+      await runClientStreamSendLifecycle(ctx);
+
+      expect(clickOrder).toEqual([
+        GRPC.STREAM_START_BTN,
+        GRPC.STREAM_SEND_ALL_BTN,
+        GRPC.STREAM_PENDING_END_BTN,
+      ]);
+      // No leaked rings once the lifecycle completes.
+      expect(document.querySelectorAll('.demo-spotlight-ring')).toHaveLength(0);
+    });
+
+    it('runClientStreamSendLifecycle tolerates a stream that only exposes Start', async () => {
+      document.body.innerHTML = '<button data-testid="grpc-stream-start-btn"></button>';
+      const ctx = makeCtx();
+      vi.mocked(ctx.waitFor).mockRejectedValue(new Error('control missing'));
+      const clickOrder: string[] = [];
+      vi.mocked(ctx.click).mockImplementation(async (sel) => { clickOrder.push(sel); });
+
+      await expect(runClientStreamSendLifecycle(ctx)).resolves.toBeUndefined();
+
+      expect(clickOrder).toEqual([GRPC.STREAM_START_BTN]);
+    });
   });
 });

@@ -15,6 +15,7 @@ import {
   setGrpcLessonRunFlag,
 } from './grpc-lesson-contract/runtime';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
+import { showSpotlightRing } from '../../demoRipple';
 
 export {
   GRPC_DEMO_TARGET,
@@ -802,6 +803,74 @@ export async function ensureClientStreamQueued(ctx: DemoActionContext): Promise<
 
   await ctx.waitFor(GRPC.STREAM_PENDING_ITEM(0), 5_000);
   await ctx.delay(120);
+}
+
+/**
+ * Draw a sustained spotlight ring on a stream control, hold so the viewer's
+ * eye lands on it, click it (with the normal click ripple), then hold on the
+ * outcome before moving on. Reuses the demo spotlight ring visual so it reads
+ * as "the spotlight moved to this control".
+ *
+ * No-op returning `false` when the target is missing or disabled — callers can
+ * chain several controls to walk a lifecycle (Start → Send all → End) without
+ * worrying about controls that are not yet (or no longer) available.
+ */
+export async function highlightAndClickStreamControl(
+  ctx: DemoActionContext,
+  selector: string,
+  opts: { holdMs?: number; afterClickMs?: number } = {},
+): Promise<boolean> {
+  const { holdMs = 1_000, afterClickMs = 900 } = opts;
+  const el = document.querySelector<HTMLButtonElement>(selector);
+  if (!el || el.disabled) return false;
+
+  const removeRing = showSpotlightRing(el);
+  try {
+    // Let the viewer's eye land on the highlighted control before it activates.
+    await ctx.delay(holdMs);
+    await ctx.click(selector);
+  } finally {
+    removeRing();
+  }
+  // Hold on the result of the click (log entries, status transition).
+  await ctx.delay(afterClickMs);
+  return true;
+}
+
+/**
+ * Walk the full client-stream lifecycle with a sequential spotlight:
+ * Start stream → Send all → End stream. Each control is highlighted, held so
+ * the viewer can follow, clicked, then held again on the outcome. Tolerant of
+ * controls that are unavailable (e.g. a stream that already finished).
+ */
+export async function runClientStreamSendLifecycle(ctx: DemoActionContext): Promise<void> {
+  // 1. Start stream — opens the HTTP/2 channel; the server waits for messages.
+  await highlightAndClickStreamControl(ctx, GRPC.STREAM_START_BTN, {
+    holdMs: 1_100,
+    afterClickMs: 900,
+  });
+
+  // 2. Send all — flush the 3 staged messages; watch three ↑ entries appear.
+  try {
+    await ctx.waitFor(GRPC.STREAM_SEND_ALL_BTN, 3_000);
+  } catch {
+    // Send all may be unavailable if the stream already ended.
+  }
+  await highlightAndClickStreamControl(ctx, GRPC.STREAM_SEND_ALL_BTN, {
+    holdMs: 1_100,
+    afterClickMs: 1_200,
+  });
+
+  // 3. End stream — signal client half-close; server returns the aggregated echo.
+  try {
+    await ctx.waitFor(GRPC.STREAM_PENDING_END_BTN, 2_000);
+  } catch {
+    // End button may be absent if the stream already finished.
+  }
+  await highlightAndClickStreamControl(ctx, GRPC.STREAM_PENDING_END_BTN, {
+    holdMs: 1_100,
+    afterClickMs: 900,
+  });
 }
 
 /**

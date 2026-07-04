@@ -131,4 +131,23 @@ describe('useSlaManagement', () => {
     await result.current.handleSaveSlaTargets([] as never);
     expect(mockSave).not.toHaveBeenCalled();
   });
+
+  it('does not save when selectedRun is null', async () => {
+    const { result } = renderHook(() => useSlaManagement(null, '', []));
+    await result.current.handleSaveSlaTargets([] as never);
+    expect(mockSave).not.toHaveBeenCalled();
+  });
+
+  it('does not update runSlaStatuses after unmount (cancelled=true)', async () => {
+    let resolveCompute!: (v: unknown) => void;
+    mockResolve.mockResolvedValue({ targets: [], scope: null });
+    mockCompute.mockImplementation(() => new Promise((r) => { resolveCompute = r; }));
+    const run = makeRun();
+    const { result, unmount } = renderHook(() => useSlaManagement(run, run.id, [run]));
+    unmount();
+    await waitFor(() => {});
+    resolveCompute?.('pass');
+    // Should not crash; runSlaStatuses stays empty
+    expect(result.current.runSlaStatuses.size).toBe(0);
+  });
 });
