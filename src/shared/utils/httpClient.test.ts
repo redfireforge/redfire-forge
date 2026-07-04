@@ -412,6 +412,21 @@ describe('httpFetch', () => {
       expect(result.error).toMatch(/Server returned 503/);
     });
 
+    it('preserves gateway response body when it is a valid API envelope', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: new Headers(),
+        text: () => Promise.resolve('{"ok":false,"op":"reflect","error":{"code":"GRPC_UNREACHABLE","message":"Could not reach localhost:50052"}}'),
+      } as unknown as Response);
+
+      const result = await httpFetch('/api/grpc/reflect', 'POST', { 'Content-Type': 'application/json' }, '{}');
+      expect(result.status).toBe(503);
+      expect(result.error).toBeUndefined();
+      expect(result.body).toContain('"op":"reflect"');
+      expect(result.body).toContain('"code":"GRPC_UNREACHABLE"');
+    });
+
     it('maps gateway error 504 to networkError string', async () => {
       vi.mocked(globalThis.fetch).mockResolvedValueOnce({
         status: 504,
