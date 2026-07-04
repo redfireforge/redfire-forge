@@ -330,6 +330,7 @@ export function GrpcStudioPage({
   const [tlsModalCloseRequest, setTlsModalCloseRequest] = useState(0);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
   const [settingsDrawerNav, setSettingsDrawerNav] = useState<GrpcConnectionSettingsNav>('call');
+  const [settingsDrawerOpenRequest, setSettingsDrawerOpenRequest] = useState(0);
   const previousActiveTabIdRef = useRef(studio.activeTabId);
 
   useEffect(() => {
@@ -413,6 +414,7 @@ export function GrpcStudioPage({
     setProtoModalOpen(false);
     setTlsModalCloseRequest((count) => count + 1);
     setSettingsDrawerNav(nav);
+    setSettingsDrawerOpenRequest((count) => count + 1);
     setSettingsDrawerOpen(true);
   }, []);
 
@@ -865,6 +867,7 @@ export function GrpcStudioPage({
             k8sAutomationScopeId={tab.id}
             onK8sPortForwardChange={(session) => studio.updateTab(tab.id, { k8sPortForward: session })}
             onK8sApplyTarget={(target) => studio.updateTab(tab.id, { target })}
+            openRequest={settingsDrawerOpenRequest}
           />
         );
       })()}
