@@ -141,10 +141,11 @@ describe('GrpcTlsConfigBody (Phase 4J-C)', () => {
         issues={[
           { field: 'tlsConfig', code: 'GRPC_INVALID_REQUEST', message: 'TLS configuration requires tls or mtls mode' },
         ]}
-        testResult="TLS validation passed locally"
+        testResult={{ ok: true, message: 'TLS validation passed locally' }}
       />,
     );
     expect(screen.getByTestId('grpc-tls-issues').textContent).toMatch(/requires tls or mtls/i);
+    expect(screen.getByTestId('grpc-tls-test-result').className).toMatch(/grpc-tls-test-result--ok/);
     expect(screen.getByTestId('grpc-tls-test-result').textContent).toMatch(/passed locally/i);
   });
 

@@ -9,11 +9,20 @@ const helperSpies = vi.hoisted(() => ({
   navigateToGrpcStudio: vi.fn(async () => {}),
   closeGrpcSettingsDrawerQuiet: vi.fn(async () => {}),
   ensureGrpcStudioSubNavQuiet: vi.fn(async () => {}),
-  ensureGrpcReflected: vi.fn(async () => {}),
+  guardGrpcReflectedQuiet: vi.fn(async () => {}),
+  guardServerStreamFormQuiet: vi.fn(async () => {}),
+  guardServerStreamExecutedQuiet: vi.fn(async () => {}),
+  guardClientStreamSelectedQuiet: vi.fn(async () => {}),
+  guardClientStreamQueuedQuiet: vi.fn(async () => {}),
+  guardBidiStreamSelectedQuiet: vi.fn(async () => {}),
+  guardBidiStreamActiveQuiet: vi.fn(async () => {}),
+  seedBidiStreamLogQuiet: vi.fn(async () => {}),
+  cancelActiveStreamQuiet: vi.fn(async () => {}),
   ensureStreamingMethodSelected: vi.fn(async () => {}),
   fillServerStreamRequest: vi.fn(async () => {}),
-  ensureClientStreamQueued: vi.fn(async () => {}),
+  runClientStreamSendLifecycle: vi.fn(async () => {}),
   startAndExchangeBidiStream: vi.fn(async () => {}),
+  spotlightAndPause: vi.fn(async () => {}),
 }));
 
 vi.mock('../env-manager-lesson-helpers', () => ({
@@ -26,11 +35,20 @@ vi.mock('./grpc-lesson-helpers', async () => {
     ...actual,
     closeGrpcSettingsDrawerQuiet: helperSpies.closeGrpcSettingsDrawerQuiet,
     ensureGrpcStudioSubNavQuiet: helperSpies.ensureGrpcStudioSubNavQuiet,
-    ensureGrpcReflected: helperSpies.ensureGrpcReflected,
+    guardGrpcReflectedQuiet: helperSpies.guardGrpcReflectedQuiet,
+    guardServerStreamFormQuiet: helperSpies.guardServerStreamFormQuiet,
+    guardServerStreamExecutedQuiet: helperSpies.guardServerStreamExecutedQuiet,
+    guardClientStreamSelectedQuiet: helperSpies.guardClientStreamSelectedQuiet,
+    guardClientStreamQueuedQuiet: helperSpies.guardClientStreamQueuedQuiet,
+    guardBidiStreamSelectedQuiet: helperSpies.guardBidiStreamSelectedQuiet,
+    guardBidiStreamActiveQuiet: helperSpies.guardBidiStreamActiveQuiet,
+    seedBidiStreamLogQuiet: helperSpies.seedBidiStreamLogQuiet,
+    cancelActiveStreamQuiet: helperSpies.cancelActiveStreamQuiet,
     ensureStreamingMethodSelected: helperSpies.ensureStreamingMethodSelected,
     fillServerStreamRequest: helperSpies.fillServerStreamRequest,
-    ensureClientStreamQueued: helperSpies.ensureClientStreamQueued,
+    runClientStreamSendLifecycle: helperSpies.runClientStreamSendLifecycle,
     startAndExchangeBidiStream: helperSpies.startAndExchangeBidiStream,
+    spotlightAndPause: helperSpies.spotlightAndPause,
   };
 });
 
@@ -57,6 +75,7 @@ describe('grpc-streaming coverage gaps', () => {
     `;
 
     await getStep('grpc17-intro').preAction?.(ctx);
+    await getStep('grpc17-intro').action?.(ctx);
     await getStep('grpc17-server-select').preAction?.(ctx);
     await getStep('grpc17-server-select').action?.(ctx);
     await getStep('grpc17-client-select').preAction?.(ctx);
@@ -65,12 +84,13 @@ describe('grpc-streaming coverage gaps', () => {
     await getStep('grpc17-client-queue').action?.(ctx);
 
     expect(helperSpies.navigateToGrpcStudio).toHaveBeenCalled();
-    expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalledTimes(3);
+    expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalled();
     expect(helperSpies.ensureGrpcStudioSubNavQuiet).toHaveBeenCalled();
-    expect(helperSpies.ensureGrpcReflected).toHaveBeenCalledTimes(3);
+    expect(helperSpies.guardGrpcReflectedQuiet).toHaveBeenCalled();
     expect(helperSpies.ensureStreamingMethodSelected).toHaveBeenCalledWith(ctx, 'ServerStream');
     expect(helperSpies.ensureStreamingMethodSelected).toHaveBeenCalledWith(ctx, 'ClientStream');
-    expect(helperSpies.ensureClientStreamQueued).toHaveBeenCalledWith(ctx);
+    expect(helperSpies.guardClientStreamSelectedQuiet).toHaveBeenCalledWith(ctx);
+    expect(helperSpies.spotlightAndPause).toHaveBeenCalled();
   });
 
   it('server-fill starts the stream when start button is enabled and tolerates missing log list', async () => {
@@ -82,7 +102,7 @@ describe('grpc-streaming coverage gaps', () => {
     vi.mocked(ctx.waitFor).mockRejectedValueOnce(new Error('log missing'));
     await expect(getStep('grpc17-server-fill').action?.(ctx)).resolves.toBeUndefined();
 
-    expect(helperSpies.ensureStreamingMethodSelected).toHaveBeenCalledWith(ctx, 'ServerStream');
+    expect(helperSpies.guardServerStreamFormQuiet).toHaveBeenCalledWith(ctx);
     expect(helperSpies.fillServerStreamRequest).toHaveBeenCalledWith(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_START_BTN);
   });
@@ -95,63 +115,50 @@ describe('grpc-streaming coverage gaps', () => {
     expect(ctx.click).not.toHaveBeenCalledWith(GRPC.STREAM_START_BTN);
   });
 
-  it('server-status preAction starts stream only when log list is absent', async () => {
+  it('server-status preAction delegates to guardServerStreamExecutedQuiet', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = '<button data-testid="grpc-stream-start-btn"></button><div data-testid="grpc-stream-status-bar"></div><span data-testid="grpc-stream-status-badge">finished</span>';
+    document.body.innerHTML = '<div data-testid="grpc-stream-status-bar"></div><span data-testid="grpc-stream-status-badge">finished</span>';
 
     await getStep('grpc17-server-status').preAction?.(ctx);
     await getStep('grpc17-server-status').action?.(ctx);
 
-    expect(helperSpies.fillServerStreamRequest).toHaveBeenCalledWith(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_START_BTN);
-
-    vi.mocked(ctx.click).mockClear();
-    vi.mocked(helperSpies.fillServerStreamRequest).mockClear();
-    document.body.innerHTML = '<div data-testid="grpc-stream-log-list"></div><div data-testid="grpc-stream-status-bar"></div><span data-testid="grpc-stream-status-badge">complete</span>';
-    await getStep('grpc17-server-status').preAction?.(ctx);
-    expect(helperSpies.fillServerStreamRequest).not.toHaveBeenCalled();
-    expect(ctx.click).not.toHaveBeenCalledWith(GRPC.STREAM_START_BTN);
+    expect(helperSpies.guardServerStreamExecutedQuiet).toHaveBeenCalledWith(ctx);
+    expect(helperSpies.spotlightAndPause).toHaveBeenCalled();
   });
 
-  it('client-send preAction queues pending messages and closes an active stream', async () => {
+  it('client-send preAction queues pending messages and cancels an active stream', async () => {
     const ctx = makeCtx();
-    const cancelClick = vi.fn();
-    document.body.innerHTML = '<button data-testid="grpc-stream-cancel-btn"></button>';
-    document.querySelector<HTMLElement>(GRPC.STREAM_CANCEL_BTN)?.addEventListener('click', cancelClick);
 
     await getStep('grpc17-client-send').preAction?.(ctx);
 
-    expect(helperSpies.ensureStreamingMethodSelected).toHaveBeenCalledWith(ctx, 'ClientStream');
-    expect(helperSpies.ensureClientStreamQueued).toHaveBeenCalledWith(ctx);
-    expect(cancelClick).toHaveBeenCalled();
+    expect(helperSpies.guardClientStreamQueuedQuiet).toHaveBeenCalledWith(ctx);
+    expect(helperSpies.cancelActiveStreamQuiet).toHaveBeenCalledWith(ctx);
   });
 
-  it('client-send action runs start, send-all, and end branches when controls are available', async () => {
+  it('client-send action runs lifecycle helper and spotlights status', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
-      <button data-testid="grpc-stream-start-btn"></button>
-      <button data-testid="grpc-stream-send-all-btn"></button>
-      <button data-testid="grpc-stream-pending-end-btn"></button>
       <span data-testid="grpc-stream-status-badge">finished</span>
     `;
 
     await getStep('grpc17-client-send').action?.(ctx);
 
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_START_BTN);
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_SEND_ALL_BTN);
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_PENDING_END_BTN);
+    expect(helperSpies.runClientStreamSendLifecycle).toHaveBeenCalledWith(ctx);
+    expect(helperSpies.spotlightAndPause).toHaveBeenCalled();
   });
 
-  it('client-send action tolerates missing send-all and end buttons', async () => {
+  it('client-queue action spotlights existing pending items without re-queueing', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = '<button data-testid="grpc-stream-start-btn"></button><span data-testid="grpc-stream-status-badge">ended</span>';
-    vi.mocked(ctx.waitFor)
-      .mockResolvedValueOnce(undefined)
-      .mockRejectedValueOnce(new Error('no send all'))
-      .mockRejectedValueOnce(new Error('no end'));
+    document.body.innerHTML = `
+      <div data-testid="grpc-stream-pending-panel">
+        <div data-testid="grpc-stream-pending-item-0">msg</div>
+      </div>
+    `;
 
-    await expect(getStep('grpc17-client-send').action?.(ctx)).resolves.toBeUndefined();
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_START_BTN);
+    await getStep('grpc17-client-queue').action?.(ctx);
+
+    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(helperSpies.spotlightAndPause).toHaveBeenCalled();
   });
 
   it('executes bidi select and exchange callbacks', async () => {
@@ -164,22 +171,20 @@ describe('grpc-streaming coverage gaps', () => {
     await getStep('grpc17-bidi-exchange').action?.(ctx);
 
     expect(helperSpies.ensureStreamingMethodSelected).toHaveBeenCalledWith(ctx, 'BidiStream');
+    expect(helperSpies.guardBidiStreamSelectedQuiet).toHaveBeenCalledWith(ctx);
     expect(helperSpies.startAndExchangeBidiStream).toHaveBeenCalledTimes(1);
   });
 
-  it('cancel step starts exchange when needed and clicks cancel when enabled', async () => {
+  it('cancel step uses guardBidiStreamActiveQuiet and clicks cancel when enabled', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = '<button data-testid="grpc-stream-cancel-btn"></button><div data-testid="grpc-stream-status-bar"></div><span data-testid="grpc-stream-status-badge">cancelled</span>';
 
     await getStep('grpc17-cancel').preAction?.(ctx);
     await getStep('grpc17-cancel').action?.(ctx);
 
+    expect(helperSpies.guardBidiStreamActiveQuiet).toHaveBeenCalledWith(ctx);
     expect(helperSpies.startAndExchangeBidiStream).not.toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_CANCEL_BTN);
-
-    document.body.innerHTML = '<div data-testid="grpc-stream-status-bar"></div><span data-testid="grpc-stream-status-badge">canceled</span>';
-    await getStep('grpc17-cancel').preAction?.(ctx);
-    expect(helperSpies.startAndExchangeBidiStream).toHaveBeenCalledWith(ctx);
   });
 
   it('cancel step tolerates status wait timing out', async () => {
@@ -205,29 +210,18 @@ describe('grpc-streaming coverage gaps', () => {
     await getStep('grpc17-export').preAction?.(ctx);
     await getStep('grpc17-export').action?.(ctx);
 
-    expect(helperSpies.startAndExchangeBidiStream).toHaveBeenCalledWith(ctx);
+    expect(helperSpies.seedBidiStreamLogQuiet).toHaveBeenCalledWith(ctx);
+    expect(helperSpies.cancelActiveStreamQuiet).toHaveBeenCalledWith(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_EXPORT_LOG_BTN);
   });
 
-  it('export preAction skips cancel when stream log exists without cancel control', async () => {
+  it('export preAction skips seeding when stream log exists', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = '<div data-testid="grpc-stream-log-list"></div><button data-testid="grpc-stream-export-log-btn"></button>';
 
     await getStep('grpc17-export').preAction?.(ctx);
 
-    expect(helperSpies.ensureStreamingMethodSelected).toHaveBeenCalledWith(ctx, 'BidiStream');
-    expect(helperSpies.startAndExchangeBidiStream).not.toHaveBeenCalled();
-  });
-
-  it('export preAction clicks cancel after seeding a stream log when cancel control is present', async () => {
-    const ctx = makeCtx();
-    const cancelClick = vi.fn();
-    document.body.innerHTML = '<button data-testid="grpc-stream-cancel-btn"></button><button data-testid="grpc-stream-export-log-btn"></button>';
-    document.querySelector<HTMLElement>(GRPC.STREAM_CANCEL_BTN)?.addEventListener('click', cancelClick);
-
-    await getStep('grpc17-export').preAction?.(ctx);
-
-    expect(helperSpies.startAndExchangeBidiStream).toHaveBeenCalledWith(ctx);
-    expect(cancelClick).toHaveBeenCalled();
+    expect(helperSpies.guardBidiStreamSelectedQuiet).toHaveBeenCalledWith(ctx);
+    expect(helperSpies.seedBidiStreamLogQuiet).not.toHaveBeenCalled();
   });
 });

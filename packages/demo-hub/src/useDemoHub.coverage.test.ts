@@ -60,7 +60,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.view).toBe('live');
@@ -82,7 +82,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     // Should not throw — just silently skip
@@ -100,7 +100,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -117,7 +117,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -138,7 +138,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     // div.value doesn't exist, so it's ignored
@@ -158,7 +158,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -180,7 +180,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(textarea.value).toBe('quiet-ta-val');
@@ -202,7 +202,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     div.remove();
@@ -219,7 +219,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -244,7 +244,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     div.remove();
@@ -268,7 +268,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     div.remove();
@@ -292,7 +292,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     div.remove();
@@ -306,12 +306,12 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.restartDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -325,12 +325,12 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.restartDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -343,12 +343,12 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.restartDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -372,7 +372,7 @@ describe('useDemoHub (branch coverage)', () => {
     // Start live demo at step 0 and let it complete
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -387,7 +387,7 @@ describe('useDemoHub (branch coverage)', () => {
 
     // Advance timers: breathing pause (1500ms) + step 1 execution + effect re-fire
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(8000);
     });
 
     expect(result.current.state.isPlaying).toBe(false);
@@ -425,7 +425,7 @@ describe('useDemoHub (branch coverage)', () => {
     // Advance enough for: breathing pause (1500ms) + polling (200ms×N) + step 0
     // completion (4000ms - 600ms already elapsed = 3400ms) + step 1 + settle
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(20000);
+      await vi.advanceTimersByTimeAsync(10000);
     });
 
     // After polling loop exits and auto-play advances, we should be past step 0
@@ -449,7 +449,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -470,7 +470,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     div.remove();
@@ -491,7 +491,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -512,14 +512,14 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
     // nextStep at step 0 → goes to step 1 (line 346)
     await act(async () => {
       const p = result.current.nextStep();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(1);
@@ -538,12 +538,12 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(1);
@@ -561,13 +561,13 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     navigateToTab.mockClear();
     await act(async () => {
       const p = result.current.restartDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     // restartDemo should have called navigateToTab with the initialTab
@@ -589,7 +589,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     // Start auto-play (sets a pending timer in autoPlayRef)
@@ -598,7 +598,7 @@ describe('useDemoHub (branch coverage)', () => {
     // restartDemo while auto-play is pending — should clear the timer (line 441)
     await act(async () => {
       const p = result.current.restartDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(0);
@@ -632,7 +632,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     // Start auto-play — effect schedules a breathing pause (1500ms)
@@ -663,7 +663,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     // Start auto-play (sets a pending timer in autoPlayRef)
@@ -672,7 +672,7 @@ describe('useDemoHub (branch coverage)', () => {
     // exitLiveDemo while auto-play is pending — should clear the timer (line 463)
     await act(async () => {
       const p = result.current.exitLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.view).not.toBe('live');
@@ -697,13 +697,13 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     // Jump to last step
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(1);
@@ -769,7 +769,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(12000);
+      await vi.advanceTimersByTimeAsync(6000);
       await p;
     });
     expect(waited).toBe(true); // waited completes after timeout
@@ -888,7 +888,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
 
@@ -919,7 +919,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     div.remove();
@@ -949,7 +949,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(clickSpy).toHaveBeenCalled();
@@ -982,7 +982,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(select.value).toBe('b');
@@ -1003,7 +1003,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
@@ -1068,7 +1068,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.stepPhase).toBe('done');
@@ -1086,7 +1086,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(warnSpy).toHaveBeenCalledWith('[DemoHub] preAction failed:', expect.any(Error));
@@ -1105,7 +1105,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(warnSpy).toHaveBeenCalledWith('[DemoHub] action failed:', expect.any(Error));
@@ -1167,7 +1167,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(textarea.value).toBe('hello-ta');
@@ -1194,7 +1194,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(select.value).toBe('b');
@@ -1230,7 +1230,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     vi.restoreAllMocks();
@@ -1246,12 +1246,12 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     navigateToTab.mockClear();
@@ -1308,7 +1308,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(clickSpy).toHaveBeenCalled();
@@ -1329,7 +1329,7 @@ describe('useDemoHub (branch coverage)', () => {
     });
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.closeHub());
@@ -1404,7 +1404,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.goBack());
@@ -1426,7 +1426,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.goBack());
@@ -1466,7 +1466,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     vi.restoreAllMocks();
@@ -1484,7 +1484,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.stepPhase).toBe('done');
@@ -1508,7 +1508,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(infoSpy).toHaveBeenCalledWith(expect.stringContaining('[DemoHub] GQL storage hygiene:'));
@@ -1528,7 +1528,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
@@ -1552,7 +1552,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.goBack());
@@ -1575,7 +1575,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.goBack());
@@ -1624,7 +1624,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.stepPhase).toBe('done');
@@ -1644,7 +1644,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.goBack());
@@ -1689,7 +1689,7 @@ describe('useDemoHub (branch coverage)', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.closeHub());

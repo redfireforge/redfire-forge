@@ -48,6 +48,50 @@ describe('GrpcCallPanel auth/TLS/hints (Phase 4)', () => {
     expect(screen.getByTestId('grpc-auth-panel')).toBeTruthy();
   });
 
+  it('allows switching away from auth when authTabFocusRequest does not increment', () => {
+    const tab = createGrpcStudioTab({
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'hello' },
+      metadata: {},
+      descriptorKey: FIXTURE_DESCRIPTOR.key,
+      auth: {
+        type: 'api_key',
+        apiKey: { key: 'x-api-key', value: 'my-key-123', addTo: 'metadata' },
+      },
+    });
+
+    const { rerender } = render(
+      <GrpcCallPanel
+        tab={tab}
+        method={method}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+        authTabFocusRequest={1}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-request-tab-auth').className).toMatch(/active/);
+
+    fireEvent.click(screen.getByTestId('grpc-request-tab-metadata'));
+
+    expect(screen.getByTestId('grpc-request-tab-metadata').className).toMatch(/active/);
+
+    rerender(
+      <GrpcCallPanel
+        tab={tab}
+        method={method}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+        authTabFocusRequest={1}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-request-tab-metadata').className).toMatch(/active/);
+  });
+
   it('focuses auth tab from connection bar even when metadata tab has validation errors (Phase 4J-A)', () => {
     const tab = createGrpcStudioTab({
       service: 'echo.EchoService',

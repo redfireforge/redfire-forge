@@ -178,24 +178,19 @@ describe('GrpcStreamService', () => {
     });
   });
 
-  it('auth panel overrides conflicting authorization metadata on stream start (Phase 4A)', async () => {
+  it('returns validation error when auth conflicts with manual authorization metadata on stream start (Phase 4A)', async () => {
     const envelope = service.startStream({
       ...FIXTURE_SERVER_STREAM_START_REQUEST,
       requestId: 'req-auth-precedence',
       metadata: { authorization: 'Bearer manual-token' },
       auth: { type: 'bearer', bearerToken: 'panel-token' },
     }, 'tab-1');
-    expect(envelope.ok).toBe(true);
-    await vi.waitFor(() => {
-      expect(mockClient.startStream).toHaveBeenCalledWith(
-        expect.objectContaining({
-          metadata: expect.objectContaining({
-            authorization: 'Bearer panel-token',
-          }),
-        }),
-        expect.any(Object),
-      );
-    });
+    expect(envelope.ok).toBe(false);
+    if (!envelope.ok) {
+      expect(envelope.error.code).toBe(GRPC_ERROR_CODES.INVALID_REQUEST);
+      expect(envelope.error.message).toMatch(/auth metadata conflicts/i);
+    }
+    expect(mockClient.startStream).not.toHaveBeenCalled();
   });
 
   it('merges api key auth into stream metadata via shared auth policy (Phase 4A)', async () => {

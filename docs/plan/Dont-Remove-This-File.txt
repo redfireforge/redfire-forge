@@ -330,4 +330,6 @@ From this code quality perspective, can you do research and improve code quality
 Here is demo guide for this project.
 Highlight meansing is not flash in some part, but draw box so user can see the part based on important part in demo step description. If it has multiple parts highlighted, it should have small pause in each highlight so user can identify or digest its contents in UI. 
 Second, for acting, preparing, etc, pausing time should be not long or not short. It should be relavent. But reading time should be enough given to user to read its contents. 
-If you think we need to more steps to satisfy this guidedance, please add them. 
+Based on this guidedance, can you thoroughly evaluate the following lesson and if you find any missing or issue, please update it. And then implement it. And then thoroughly re-evaluate your implementation. 
+
+Lesson 5. TLS, mTLS & Certificate Configuration

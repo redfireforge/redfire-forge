@@ -11,6 +11,7 @@ interface UseFloatingPanelOptions {
   defaultDockedHeight?: number;
   floatWidthRatio?: number;
   floatHeightRatio?: number;
+  minFloatLeft?: number;
 }
 
 function getViewportBounds() {
@@ -49,13 +50,21 @@ export function useFloatingPanel(opts: UseFloatingPanelOptions = {}) {
     defaultDockedHeight = 200,
     floatWidthRatio = 0.45,
     floatHeightRatio = 0.6,
+    minFloatLeft,
   } = opts;
+
+  const resolveMinLeft = useCallback(() => {
+    if (typeof minFloatLeft === 'number') {
+      return Math.max(0, Math.floor(minFloatLeft));
+    }
+    return getSidebarMinLeft();
+  }, [minFloatLeft]);
 
   const [dockedHeight, setDockedHeight] = useState(defaultDockedHeight);
 
   const [floatPos, setFloatPos] = useState(() => {
     const { w, h } = getViewportBounds();
-    const minLeft = getSidebarMinLeft();
+    const minLeft = resolveMinLeft();
     return {
       x: Math.max(minLeft, Math.round(w * 0.15)),
       y: Math.round(h * 0.1),
@@ -121,7 +130,7 @@ export function useFloatingPanel(opts: UseFloatingPanelOptions = {}) {
       const dx = e.clientX - floatDragRef.current.startX;
       const dy = e.clientY - floatDragRef.current.startY;
       const { w, h } = getViewportBounds();
-      const minLeft = getSidebarMinLeft();
+      const minLeft = resolveMinLeft();
       const maxX = Math.max(minLeft, w - floatSize.w);
       const maxY = Math.max(0, h - floatSize.h);
       setFloatPos({
@@ -138,7 +147,7 @@ export function useFloatingPanel(opts: UseFloatingPanelOptions = {}) {
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', onUp);
     return () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
-  }, [endMouseSession, floatSize.h, floatSize.w]);
+  }, [endMouseSession, floatSize.h, floatSize.w, resolveMinLeft]);
 
   // Floating resize (bottom-right corner)
   const floatResizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number } | null>(null);

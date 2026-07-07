@@ -998,7 +998,7 @@ describe('useKafkaState – schedulePoll cancellation (lines 316-325)', () => {
     unmount();
 
     // Give any in-flight microtasks a chance to resolve
-    await act(async () => { await new Promise(r => setTimeout(r, 50)); });
+    await act(async () => { await Promise.resolve(); });
 
     // dispatchKafkaOperation should not have been called any more after unmount
     const callCountAfterUnmount = mocks.dispatchKafkaOperation.mock.calls.length;
@@ -1049,7 +1049,7 @@ describe('useKafkaState – race-boundary: poll suppression during connect/disco
       // refreshConnectionStatus is not directly exposed, but we can verify via
       // the status dispatch count: if the guard works, no new 'status' calls happen
       // during the connect in-flight window. Allow microtasks to flush.
-      await new Promise(r => setTimeout(r, 20));
+      await Promise.resolve();
     });
 
     // No new 'status' calls should have been made by the poll timer while connect is in-flight
@@ -1108,7 +1108,7 @@ describe('useKafkaState – race-boundary: poll suppression during connect/disco
 
     // Allow any pending poll timers to fire — they should be suppressed
     await act(async () => {
-      await new Promise(r => setTimeout(r, 20));
+      await Promise.resolve();
     });
 
     // No new status calls during disconnect in-flight

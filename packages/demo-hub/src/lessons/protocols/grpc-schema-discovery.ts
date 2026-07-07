@@ -37,10 +37,14 @@ import {
   ensureGrpcReflected,
   ensureGrpcStudioSubNavQuiet,
   ensureGrpcTarget,
+  fillGrpcRequestJsonBody,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
+  guardGrpcReflectedQuiet,
+  guardGrpcTargetQuiet,
   openFreshGrpcTabQuietWithOptions,
   rebindGrpcMethodQuiet,
+  spotlightAndPause,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 
@@ -54,6 +58,8 @@ const SAMPLE_PROTOSET_BASE64 = 'CsYDCgplY2hvLnByb3RvEgRlY2hvIh4KC0VjaG9SZXF1ZXN0
 const SAMPLE_URL_PROTO = 'http://localhost:5173/grpc-samples/url/echo.proto';
 const SAMPLE_BSR_MODULE = 'buf.build/connectrpc/eliza';
 const SAMPLE_BSR_VERSION = 'main';
+const ELIZA_SERVICE_SEL = '[data-testid="grpc-service-connectrpc-eliza-v1-elizaservice"]';
+const LOOKUP_REQUEST_JSON = '{"ref":{"id":"A-100"}}';
 
 const SAMPLE_COMMON_PROTO_CONTENT = `syntax = "proto3";
 
@@ -97,6 +103,140 @@ async function ensureManageModalOpen(
   await ctx.click(GRPC.MANAGE_SCHEMAS_BTN);
   await ctx.waitFor(GRPC.PROTO_MANAGE_MODAL, 10_000);
   await ctx.delay(350);
+}
+
+/** Quiet open for preAction guards — no viewer ripple. */
+async function ensureManageModalOpenQuiet(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  if (document.querySelector(GRPC.PROTO_MANAGE_MODAL)) return;
+  const manageBtn = document.querySelector<HTMLButtonElement>(GRPC.MANAGE_SCHEMAS_BTN);
+  if (!manageBtn || manageBtn.disabled) return;
+  manageBtn.click();
+  try {
+    await ctx.waitFor(GRPC.PROTO_MANAGE_MODAL, 5_000);
+  } catch {
+    return;
+  }
+  await ctx.delay(200);
+}
+
+async function ensureProtoFilesTabQuiet(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  await ensureManageModalOpenQuiet(ctx);
+  const tab = document.querySelector<HTMLElement>(GRPC.PROTO_TAB_PROTO_FILES);
+  if (tab && tab.getAttribute('aria-selected') !== 'true') {
+    tab.click();
+    await ctx.delay(200);
+  }
+}
+
+async function selectSchemaBrowserMethodQuiet(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  await ensureManageModalOpenQuiet(ctx);
+  const schemaTab = document.querySelector<HTMLElement>(GRPC.PROTO_TAB_SCHEMA_BROWSER);
+  if (schemaTab && schemaTab.getAttribute('aria-selected') !== 'true') {
+    schemaTab.click();
+    await ctx.delay(250);
+  }
+  try {
+    await ctx.waitFor(GRPC.SCHEMA_BROWSER, 5_000);
+  } catch {
+    return;
+  }
+  await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Lookup');
+  try {
+    await ctx.waitFor(LOOKUP_SCHEMA_NODE_SEL, 4_000);
+    document.querySelector<HTMLElement>(LOOKUP_SCHEMA_NODE_SEL)?.click();
+  } catch {
+    await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Echo');
+    try {
+      await ctx.waitFor(ECHO_SCHEMA_NODE_SEL, 3_000);
+      document.querySelector<HTMLElement>(ECHO_SCHEMA_NODE_SEL)?.click();
+    } catch {
+      // Best-effort — action step will retry visibly.
+    }
+  }
+  await ctx.delay(200);
+}
+
+function isLookupCallPanelReady(): boolean {
+  const methodLabel = document.querySelector(GRPC.CALL_METHOD_NAME)?.textContent ?? '';
+  return Boolean(document.querySelector(GRPC.CALL_PANEL))
+    && (methodLabel.includes('Lookup') || methodLabel.includes('Echo'));
+}
+
+function isLookupResponseReady(): boolean {
+  const text = document.querySelector<HTMLElement>(GRPC.RESPONSE_BODY)?.textContent ?? '';
+  return text.includes('A-100') || text.includes('resolved');
+}
+
+/** Quietly bind Schema Browser method into the call panel (preAction guard). */
+async function openSchemaMethodInCallPanelQuiet(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  if (isLookupCallPanelReady()) {
+    await ensureManageModalClosed(ctx);
+    return;
+  }
+
+  await selectSchemaBrowserMethodQuiet(ctx);
+  const openBtn = document.querySelector<HTMLButtonElement>(GRPC.SCHEMA_OPEN_TAB_BTN);
+  if (openBtn) {
+    openBtn.click();
+    await ctx.delay(250);
+  }
+  if (document.querySelector(GRPC.PROTO_MANAGE_MODAL)) {
+    await ensureManageModalClosed(ctx);
+  }
+  try {
+    await ctx.waitFor(GRPC.CALL_PANEL, 4_000);
+  } catch {
+    await ensureEchoMethodSelected(ctx);
+  }
+}
+
+async function ensureLookupCallReadyQuiet(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  await openSchemaMethodInCallPanelQuiet(ctx);
+  await fillGrpcRequestJsonBody(ctx, LOOKUP_REQUEST_JSON);
+}
+
+/** Re-run reflection after a failed protoset/url/bsr ingest so the explorer is usable again. */
+async function recoverGrpcReflectionQuiet(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  await ensureManageModalClosed(ctx);
+
+  const hasHealthyExplorer = () =>
+    Boolean(document.querySelector(GRPC.EXPLORER_TREE))
+    && !document.querySelector(GRPC.EXPLORER_ERROR);
+
+  if (hasHealthyExplorer()) return;
+
+  const reflectBtn = document.querySelector<HTMLButtonElement>(GRPC.REFLECT_BTN);
+  if (reflectBtn && !reflectBtn.disabled) {
+    reflectBtn.click();
+    try {
+      await ctx.waitFor(GRPC.EXPLORER_TREE, 6_000);
+    } catch {
+      await ctx.delay(300);
+    }
+  }
+
+  if (!hasHealthyExplorer()) {
+    await rebindGrpcMethodQuiet(ctx);
+  }
+}
+
+async function grpcSchemaDiscoverySetup(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['setup']>>[0],
+): Promise<void> {
+  await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+  await ensureManageModalClosed(ctx);
 }
 
 async function ensureManageModalClosed(
@@ -219,9 +359,9 @@ async function injectProtoFilesIntoManageSchemas(
   try {
     // Stage the upload so users can visually follow each file being added.
     dispatchDropForFiles([files[0]]);
-    await ctx.delay(1_450);
+    await ctx.delay(1_200);
     dispatchDropForFiles([files[1]]);
-    await ctx.delay(1_850);
+    await ctx.delay(1_400);
     if (document.querySelector(GRPC.PROTO_FILE_LIST)) {
       return true;
     }
@@ -364,7 +504,7 @@ export const grpcSchemaDiscoveryLesson: GrpcDemoLesson = {
   description:
     'Learn the five descriptor sources in gRPC Studio — server reflection, Proto file upload, Protoset bundle, URL descriptor, and BSR — then use Schema Browser to explore types, copy a grpcurl command, and open a method in the call panel.',
 
-  setup: grpcFirstCallSetup,
+  setup: grpcSchemaDiscoverySetup,
   cleanup: grpcFirstCallCleanup,
 
   grpc: buildGrpcContractMetaFromRoster(GRPCD_ROSTER),
@@ -595,6 +735,12 @@ Notes on runtime behavior:
         await ensureGrpcStudioSubNavQuiet(ctx);
         await ensureManageModalClosed(ctx);
       },
+      action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 850);
+        await spotlightAndPause(ctx, GRPC.MANAGE_SCHEMAS_BTN, 800);
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
+        await spotlightAndPause(ctx, GRPC.CALL_PANEL, 850);
+      },
     },
 
     {
@@ -602,7 +748,7 @@ Notes on runtime behavior:
       title: 'Set Target',
       description:
         `Set the gRPC target to \`${GRPC_DEMO_TARGET}\`. ` +
-        'The green **Target OK** badge confirms the address is valid — a required first step before reflection.',
+        'Watch the field fill, then pause on the green **Target OK** badge so the address is validated before reflection.',
       highlight: GRPC.TARGET_INPUT,
       pauseAfter: true,
       preAction: async (ctx) => {
@@ -612,7 +758,8 @@ Notes on runtime behavior:
       },
       action: async (ctx) => {
         await ensureGrpcTarget(ctx);
-        await ctx.delay(700);
+        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 800);
+        await spotlightAndPause(ctx, GRPC.TARGET_STATUS_OK, 900);
       },
       verify: GRPC.TARGET_STATUS_OK,
     },
@@ -626,13 +773,15 @@ Notes on runtime behavior:
       highlight: GRPC.REFLECT_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureGrpcTarget(ctx);
+        await guardGrpcTargetQuiet(ctx);
         await clearGrpcSchemaDriftQuiet(ctx);
         await ensureManageModalClosed(ctx);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 750);
         await ensureGrpcReflected(ctx);
-        await ctx.delay(900);
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 850);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, 900);
       },
       verify: GRPC.EXPLORER_TREE,
     },
@@ -647,17 +796,21 @@ Notes on runtime behavior:
       highlight: GRPC.EXPLORER_SOURCE,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureGrpcReflected(ctx);
+        await guardGrpcReflectedQuiet(ctx);
         await ensureManageModalClosed(ctx);
       },
       action: async (ctx) => {
         await ctx.waitFor(GRPC.EXPLORER_SOURCE, 10_000);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_FOOTER, 750);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 850);
         await ctx.waitFor(GRPC.EXPLORER_SEARCH, 10_000);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_SEARCH, 750);
         await ctx.fill(GRPC.EXPLORER_SEARCH, 'Echo');
         await ctx.waitFor(GRPC.EXPLORER_TREE, 5_000);
-        await ctx.delay(600);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, 800);
         await ctx.fill(GRPC.EXPLORER_SEARCH, '');
-        await ctx.delay(600);
+        await ctx.delay(500);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, 750);
       },
       verify: GRPC.EXPLORER_SOURCE,
     },
@@ -673,12 +826,18 @@ Notes on runtime behavior:
       highlight: GRPC.MANAGE_SCHEMAS_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureGrpcTarget(ctx);
+        await guardGrpcReflectedQuiet(ctx);
         await ensureManageModalClosed(ctx);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.MANAGE_SCHEMAS_BTN, 800);
         await ensureManageModalOpen(ctx);
-        await ctx.delay(700);
+        await spotlightAndPause(ctx, GRPC.PROTO_MANAGE_MODAL, 850);
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTO_FILES, 750);
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTOSET, 700);
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_URL, 700);
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_BSR, 700);
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_SCHEMA_BROWSER, 800);
       },
       verify: GRPC.PROTO_MANAGE_MODAL,
     },
@@ -694,14 +853,16 @@ Notes on runtime behavior:
       highlight: GRPC.PROTO_ROOT_MANAGER,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureManageModalOpen(ctx);
-        await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
-        await ctx.waitFor(GRPC.PROTO_ROOT_MANAGER, 10_000);
+        await ensureProtoFilesTabQuiet(ctx);
+        await ctx.waitFor(GRPC.PROTO_ROOT_MANAGER, 5_000).catch(() => undefined);
       },
       action: async (ctx) => {
+        await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
+        await ctx.waitFor(GRPC.PROTO_ROOT_MANAGER, 10_000);
+        await spotlightAndPause(ctx, GRPC.PROTO_ROOT_MANAGER, 800);
+        await spotlightAndPause(ctx, GRPC.PROTO_ROOT_LIST, 850);
         await ctx.waitFor(GRPC.PROTO_CANONICAL_PREVIEW, 10_000);
-        await ctx.waitFor(GRPC.PROTO_ROOT_LIST, 10_000);
-        await ctx.delay(900);
+        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 900);
       },
       verify: GRPC.PROTO_CANONICAL_PREVIEW,
     },
@@ -722,21 +883,21 @@ Notes on runtime behavior:
       pauseAfter: true,
       preAction: async (ctx) => {
         await clearGrpcSchemaDriftQuiet(ctx);
-        await ensureManageModalOpen(ctx);
+        await ensureManageModalOpenQuiet(ctx);
       },
       action: async (ctx) => {
         await ctx.click(GRPC.PROTO_TAB_PROTOSET);
         await ctx.waitFor(GRPC.PROTO_PROTOSET_ZONE, 10_000);
-        await ctx.delay(500);
+        await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, 800);
         await ctx.click(GRPC.PROTO_TAB_URL);
         await ctx.waitFor(GRPC.PROTO_URL_INPUT, 10_000);
-        await ctx.delay(500);
+        await spotlightAndPause(ctx, GRPC.PROTO_URL_INPUT, 800);
         await ctx.click(GRPC.PROTO_TAB_BSR);
         await ctx.waitFor(GRPC.PROTO_BSR_MODULE_INPUT, 10_000);
-        await ctx.delay(500);
+        await spotlightAndPause(ctx, GRPC.PROTO_BSR_MODULE_INPUT, 800);
         await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
         await ctx.waitFor(GRPC.PROTO_UPLOAD_ZONE, 10_000);
-        await ctx.delay(700);
+        await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, 850);
       },
       verify: GRPC.PROTO_UPLOAD_ZONE,
     },
@@ -748,26 +909,27 @@ Notes on runtime behavior:
         'Stay on **Proto Files** and keep the **shared** virtual root selected. Then add the two sample files to the drop zone in sequence:\n\n' +
         `1. \`${SAMPLE_PROTO_SHARED}\`\n` +
         `2. \`${SAMPLE_PROTO_SERVICE}\`\n\n` +
-        'The demo intentionally stages the two drops with a short pause so viewers can follow each addition. ' +
+        'The demo stages each drop with a short pause so viewers can follow each addition. ' +
         'After upload, both filenames should appear in the selected root file list and in the canonical preview panel.',
       highlight: GRPC.PROTO_UPLOAD_ZONE,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureManageModalOpen(ctx);
-        await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
-        await ctx.waitFor(GRPC.PROTO_UPLOAD_ZONE, 10_000);
+        await ensureProtoFilesTabQuiet(ctx);
+        await ctx.waitFor(GRPC.PROTO_UPLOAD_ZONE, 5_000).catch(() => undefined);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, 800);
         const uploaded = await injectProtoFilesIntoManageSchemas(ctx);
         if (!uploaded) {
           await ctx.waitFor(GRPC.PROTO_UPLOAD_ZONE, 10_000);
-          await ctx.delay(900);
+          await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, 850);
           return;
         }
         await ctx.waitFor(GRPC.PROTO_FILE_LIST, 10_000);
-        await ctx.delay(600);
+        await spotlightAndPause(ctx, GRPC.PROTO_FILE_LIST, 850);
+        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 900);
       },
-      verify: GRPC.PROTO_UPLOAD_ZONE,
+      verify: GRPC.PROTO_FILE_LIST,
     },
 
     {
@@ -780,12 +942,11 @@ Notes on runtime behavior:
       highlight: GRPC.PROTO_ROOT_LIST,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureManageModalOpen(ctx);
-        await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
-        await ctx.waitFor(GRPC.PROTO_ROOT_LIST, 10_000);
+        await ensureProtoFilesTabQuiet(ctx);
+        await ctx.waitFor(GRPC.PROTO_ROOT_LIST, 5_000).catch(() => undefined);
       },
       action: async (ctx) => {
-        await ctx.waitFor(GRPC.PROTO_ROOT_LIST, 10_000);
+        await spotlightAndPause(ctx, GRPC.PROTO_ROOT_LIST, 800);
         const modal = document.querySelector<HTMLElement>(GRPC.PROTO_MANAGE_MODAL);
         const sharedRoot = modal
           ? Array.from(modal.querySelectorAll<HTMLElement>('[data-testid^="grpc-proto-root-item-"]'))
@@ -793,10 +954,11 @@ Notes on runtime behavior:
           : null;
         if (sharedRoot) {
           sharedRoot.click();
-          await ctx.delay(300);
+          await ctx.delay(400);
         }
+        await spotlightAndPause(ctx, GRPC.PROTO_SELECTED_ROOT, 750);
         await ctx.waitFor(GRPC.PROTO_CANONICAL_PREVIEW, 10_000);
-        await ctx.delay(700);
+        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 900);
       },
       verify: GRPC.PROTO_CANONICAL_PREVIEW,
     },
@@ -813,18 +975,17 @@ Notes on runtime behavior:
       highlight: GRPC.PROTO_LOAD_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureManageModalOpen(ctx);
-        await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
-        await ctx.waitFor(GRPC.PROTO_LOAD_BTN, 10_000);
+        await ensureProtoFilesTabQuiet(ctx);
+        await ctx.waitFor(GRPC.PROTO_LOAD_BTN, 5_000).catch(() => undefined);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, 800);
         const hasFiles = (document.querySelector(GRPC.PROTO_FILE_LIST)?.children.length ?? 0) > 0;
         if (hasFiles) {
           await ctx.click(GRPC.PROTO_LOAD_BTN);
-          await ctx.delay(900);
-          return;
+          await ctx.delay(700);
+          await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 850);
         }
-        await ctx.delay(900);
       },
       verify: GRPC.PROTO_LOAD_BTN,
     },
@@ -842,30 +1003,34 @@ Notes on runtime behavior:
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureManageModalClosed(ctx);
-        await ensureGrpcReflected(ctx);
-        await ensureManageModalOpen(ctx);
+        await guardGrpcReflectedQuiet(ctx);
+        await ensureManageModalOpenQuiet(ctx);
       },
       action: async (ctx) => {
         await ctx.click(GRPC.PROTO_TAB_SCHEMA_BROWSER);
         await ctx.waitFor(GRPC.SCHEMA_BROWSER, 10_000);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER, 800);
         await ctx.waitFor(GRPC.SCHEMA_BROWSER_TREE, 10_000);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_SEARCH, 750);
         await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Lookup');
         try {
           await ctx.waitFor(LOOKUP_SCHEMA_NODE_SEL, 8_000);
+          await spotlightAndPause(ctx, LOOKUP_SCHEMA_NODE_SEL, 800);
           await ctx.click(LOOKUP_SCHEMA_NODE_SEL);
-          await ctx.delay(600);
+          await ctx.delay(500);
         } catch {
           try {
-            // Fallback for environments still using reflected Echo descriptors.
             await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Echo');
             await ctx.waitFor(ECHO_SCHEMA_NODE_SEL, 4_000);
+            await spotlightAndPause(ctx, ECHO_SCHEMA_NODE_SEL, 800);
             await ctx.click(ECHO_SCHEMA_NODE_SEL);
-            await ctx.delay(600);
+            await ctx.delay(500);
           } catch {
             // Schema Browser node selection is best-effort; lesson stays navigable if slow to render.
           }
         }
-        await ctx.delay(800);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_DETAIL, 900);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_METHOD_SIGNATURE, 850);
       },
       verify: GRPC.SCHEMA_BROWSER,
     },
@@ -879,28 +1044,17 @@ Notes on runtime behavior:
       highlight: GRPC.SCHEMA_COPY_GRPCURL_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureManageModalOpen(ctx);
-        await ctx.click(GRPC.PROTO_TAB_SCHEMA_BROWSER);
-        await ctx.waitFor(GRPC.SCHEMA_BROWSER, 10_000);
-        await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Lookup');
-        try {
-          await ctx.waitFor(LOOKUP_SCHEMA_NODE_SEL, 8_000);
-          await ctx.click(LOOKUP_SCHEMA_NODE_SEL);
-        } catch {
-          try {
-            await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Echo');
-            await ctx.waitFor(ECHO_SCHEMA_NODE_SEL, 4_000);
-            await ctx.click(ECHO_SCHEMA_NODE_SEL);
-          } catch {
-            // best-effort node selection before showing the action buttons
-          }
-        }
+        await selectSchemaBrowserMethodQuiet(ctx);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_DETAIL, 750);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_METHOD_SIGNATURE, 800);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_COPY_GRPCURL_BTN, 900);
         const copyBtn = document.querySelector<HTMLElement>(GRPC.SCHEMA_COPY_GRPCURL_BTN);
-        if (!copyBtn) return;
-        copyBtn.click();
-        await ctx.delay(600);
+        if (copyBtn) {
+          copyBtn.click();
+          await ctx.delay(600);
+        }
       },
       verify: GRPC.SCHEMA_COPY_GRPCURL_BTN,
     },
@@ -909,57 +1063,51 @@ Notes on runtime behavior:
       id: 'grpc16-open-method',
       title: 'Open in Tab and Execute Unary',
       description:
-        'Then click **Open in tab** to bind the method into the call panel. The modal closes and the schema-driven request form appears. ' +
-        'Finally, execute one unary call: send `Lookup` with `{"ref":{"id":"A-100"}}` and confirm a response arrives in the response panel. ' +
-        'If the loaded sample is unavailable, the lesson falls back to reflected Echo.',
+        'Click **Open in tab** to bind the method into the call panel. The modal closes and the **Form Input** composer appears. ' +
+        `Fill the request with \`${LOOKUP_REQUEST_JSON}\` (or Echo fallback), send the unary call, then pause on **OK** status and the response body.`,
       highlight: GRPC.SCHEMA_OPEN_TAB_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureManageModalOpen(ctx);
-        await ctx.click(GRPC.PROTO_TAB_SCHEMA_BROWSER);
-        await ctx.waitFor(GRPC.SCHEMA_BROWSER, 10_000);
-        await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Lookup');
-        try {
-          await ctx.waitFor(LOOKUP_SCHEMA_NODE_SEL, 8_000);
-          await ctx.click(LOOKUP_SCHEMA_NODE_SEL);
-        } catch {
-          try {
-            await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Echo');
-            await ctx.waitFor(ECHO_SCHEMA_NODE_SEL, 4_000);
-            await ctx.click(ECHO_SCHEMA_NODE_SEL);
-          } catch {
-            // best-effort node selection before showing the action buttons
-          }
-        }
+        await ensureManageModalClosed(ctx);
+        await ensureLookupCallReadyQuiet(ctx);
       },
       action: async (ctx) => {
-        let openedFromSchema = false;
-        try {
-          await ctx.waitFor(GRPC.SCHEMA_OPEN_TAB_BTN, 5_000);
-          await ctx.delay(1_200);
+        if (document.querySelector(GRPC.PROTO_MANAGE_MODAL) && document.querySelector(GRPC.SCHEMA_OPEN_TAB_BTN)) {
+          await spotlightAndPause(ctx, GRPC.SCHEMA_OPEN_TAB_BTN, 700);
           await ctx.click(GRPC.SCHEMA_OPEN_TAB_BTN);
-          openedFromSchema = true;
-        } catch {
           await ensureManageModalClosed(ctx);
+          try {
+            await ctx.waitFor(GRPC.CALL_PANEL, 4_000);
+          } catch {
+            await ctx.delay(300);
+          }
+        } else if (!isLookupCallPanelReady()) {
           await ensureEchoMethodSelected(ctx);
         }
-        if (openedFromSchema && document.querySelector(GRPC.PROTO_MANAGE_MODAL)) {
-          await ensureManageModalClosed(ctx);
+
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 650);
+        if (document.querySelector(GRPC.REQUEST_JSON)) {
+          await spotlightAndPause(ctx, GRPC.REQUEST_JSON, 750);
+        } else {
+          await spotlightAndPause(ctx, GRPC.PROTO_FORM, 750);
         }
-        await ctx.waitFor(GRPC.PROTO_FORM, 10_000);
-        await ctx.click(GRPC.REQUEST_TAB_JSON);
-        await ctx.delay(250);
-        const jsonEditor = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
-        if (jsonEditor) {
-          jsonEditor.focus();
-          jsonEditor.value = '{"ref":{"id":"A-100"}}';
-          jsonEditor.dispatchEvent(new Event('input', { bubbles: true }));
-          jsonEditor.dispatchEvent(new Event('change', { bubbles: true }));
+
+        if (!document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON)?.value.includes('A-100')) {
+          await fillGrpcRequestJsonBody(ctx, LOOKUP_REQUEST_JSON);
         }
-        await ctx.delay(250);
-        await ctx.click(GRPC.SEND_BTN);
-        await ctx.waitFor(GRPC.RESPONSE_BODY, 10_000);
-        await ctx.delay(900);
+
+        await spotlightAndPause(ctx, GRPC.SEND_BTN, 700);
+        if (!isLookupResponseReady()) {
+          await ctx.click(GRPC.SEND_BTN);
+          try {
+            await ctx.waitFor(GRPC.RESPONSE_BODY, 8_000);
+          } catch {
+            await ctx.waitFor(GRPC.RESPONSE_STATUS, 10_000);
+          }
+        }
+        await ctx.delay(400);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 700);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 850);
       },
       verify: GRPC.RESPONSE_BODY,
     },
@@ -976,34 +1124,28 @@ Notes on runtime behavior:
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureManageModalClosed(ctx);
-        // Open a fresh tab with no bound method so source switching cannot
-        // produce a drift banner for a method that no longer exists.
         await openFreshGrpcTabQuietWithOptions(ctx, { forceFresh: true });
         await clearGrpcSchemaDriftQuiet(ctx);
-        await ensureManageModalOpen(ctx);
+        await ensureManageModalOpenQuiet(ctx);
       },
       action: async (ctx) => {
         await ctx.click(GRPC.PROTO_TAB_PROTOSET);
         await ctx.waitFor(GRPC.PROTO_PROTOSET_ZONE, 10_000);
+        await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, 850);
         const uploaded = await injectProtosetIntoManageSchemas(ctx);
         if (!uploaded) {
-          await ctx.delay(900);
+          await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, 800);
           return;
         }
+        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, 800);
         const loadBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_LOAD_BTN);
-        if (!loadBtn || loadBtn.disabled) {
-          await ctx.delay(900);
-          return;
-        }
+        if (!loadBtn || loadBtn.disabled) return;
 
         loadBtn.click();
         const loaded = await waitForManageSchemasLoadSuccess(ctx, 'protoset');
-        if (!loaded) {
-          return;
+        if (loaded) {
+          await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 850);
         }
-
-        // Keep this step stable in-place after successful load.
-        await ctx.delay(500);
       },
       verify: GRPC.PROTO_PROTOSET_ZONE,
     },
@@ -1021,17 +1163,19 @@ Notes on runtime behavior:
         await ensureManageModalClosed(ctx);
         await clearGrpcSchemaDriftQuiet(ctx);
         await rebindGrpcMethodQuiet(ctx);
-        await ensureManageModalOpen(ctx);
+        await ensureManageModalOpenQuiet(ctx);
       },
       action: async (ctx) => {
         await ctx.click(GRPC.PROTO_TAB_URL);
         await ctx.waitFor(GRPC.PROTO_URL_INPUT, 10_000);
+        await spotlightAndPause(ctx, GRPC.PROTO_URL_INPUT, 800);
         await ctx.fill(GRPC.PROTO_URL_INPUT, SAMPLE_URL_PROTO);
-        await ctx.delay(250);
+        await ctx.delay(400);
+        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, 800);
         const loadBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_LOAD_BTN);
         if (loadBtn && !loadBtn.disabled) {
           loadBtn.click();
-          await ctx.delay(900);
+          await ctx.delay(800);
         }
       },
       verify: GRPC.PROTO_URL_INPUT,
@@ -1043,38 +1187,49 @@ Notes on runtime behavior:
       description:
         'Switch to the **BSR** tab and fill the module + version fields. ' +
         `Use module \`${SAMPLE_BSR_MODULE}\` at version \`${SAMPLE_BSR_VERSION}\`, then click **Load**. ` +
-        'This step performs a real BSR fetch. If network/registry access is blocked, stay on this tab and inspect the error banner.',
+        'The companion server fetches the descriptor from Buf Schema Registry — direct when you are online, ' +
+        'or via your configured proxy when on a corporate network. If the proxy is unreachable, it retries ' +
+        'direct automatically. After **Load**, the source badge should update to **bsr** and `ElizaService` ' +
+        'appears in the Service Explorer.',
       highlight: GRPC.PROTO_TAB_BSR,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureManageModalClosed(ctx);
-        // Open a fresh tab with no bound method so source switching cannot
-        // produce a drift banner for a method that no longer exists.
-        await openFreshGrpcTabQuietWithOptions(ctx, { forceFresh: true });
         await clearGrpcSchemaDriftQuiet(ctx);
-        await ensureManageModalOpen(ctx);
+        await ensureManageModalOpenQuiet(ctx);
       },
       action: async (ctx) => {
         await ctx.click(GRPC.PROTO_TAB_BSR);
-        await ctx.waitFor(GRPC.PROTO_BSR_MODULE_INPUT, 10_000);
+        await ctx.waitFor(GRPC.PROTO_BSR_MODULE_INPUT, 6_000);
+        await spotlightAndPause(ctx, GRPC.PROTO_BSR_MODULE_INPUT, 750);
         await ctx.fill(GRPC.PROTO_BSR_MODULE_INPUT, SAMPLE_BSR_MODULE);
+        await ctx.delay(300);
+        await spotlightAndPause(ctx, GRPC.PROTO_BSR_VERSION_INPUT, 650);
         await ctx.fill(GRPC.PROTO_BSR_VERSION_INPUT, SAMPLE_BSR_VERSION);
+        await ctx.delay(300);
+        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, 700);
 
         const loadBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_LOAD_BTN);
-        if (!loadBtn || loadBtn.disabled) {
-          return;
-        }
+        if (!loadBtn || loadBtn.disabled) return;
 
         loadBtn.click();
-        const loaded = await waitForManageSchemasLoadSuccess(ctx, 'bsr');
+        const loaded = await waitForManageSchemasLoadSuccess(ctx, 'bsr', 12_000);
         if (!loaded) {
+          if (document.querySelector(GRPC.PROTO_LOAD_ERROR)) {
+            await spotlightAndPause(ctx, GRPC.PROTO_LOAD_ERROR, 900);
+          }
           return;
         }
 
-        // Keep this step stable in-place after successful load.
-        await ctx.delay(500);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 900);
+        if (document.querySelector(ELIZA_SERVICE_SEL)) {
+          await spotlightAndPause(ctx, ELIZA_SERVICE_SEL, 850);
+        }
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 850);
+        await ensureManageModalClosed(ctx);
+        await ctx.delay(400);
       },
-      verify: GRPC.PROTO_BSR_MODULE_INPUT,
+      verify: GRPC.EXPLORER_SOURCE,
     },
 
     {
@@ -1082,7 +1237,7 @@ Notes on runtime behavior:
       title: 'Understanding Schema Drift',
       description:
         '**Schema drift** happens when the running server changes its reflection output after Studio has already cached its descriptors. ' +
-        'When present, Studio surfaces `GRPC.SCHEMA_DRIFT_BANNER` directly under the connection row in the **main workspace pane** (above method details/call panel). ' +
+        'When present, Studio surfaces a drift banner directly under the connection row in the **main workspace pane** (above method details/call panel). ' +
         'If you do not currently see it, that means no drift is active in this fixture state. ' +
         'The banner offers two options:\n' +
         '- **Rebind** a specific service to pull the updated descriptor.\n' +
@@ -1091,12 +1246,19 @@ Notes on runtime behavior:
       highlight: GRPC.SERVICE_EXPLORER,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureManageModalClosed(ctx);
+        await recoverGrpcReflectionQuiet(ctx);
         await clearGrpcSchemaDriftQuiet(ctx);
       },
       action: async (ctx) => {
-        await ctx.waitFor(GRPC.SERVICE_EXPLORER, 10_000);
-        await ctx.delay(900);
+        await ctx.waitFor(GRPC.SERVICE_EXPLORER, 6_000);
+        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 750);
+        const driftBanner = document.querySelector(GRPC.SCHEMA_DRIFT_BANNER);
+        if (driftBanner) {
+          await spotlightAndPause(ctx, GRPC.SCHEMA_DRIFT_BANNER, 900);
+          await spotlightAndPause(ctx, GRPC.SCHEMA_DRIFT_REBINDS, 800);
+        }
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 850);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 800);
       },
       verify: GRPC.SERVICE_EXPLORER,
     },

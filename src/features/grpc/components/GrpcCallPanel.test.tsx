@@ -3,6 +3,12 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen, act } from '@testing-library/react';
+
+vi.mock('../../../config/features', () => ({
+  DEMO_HUB_ENABLED: true,
+  GRPC_PROTO_HYBRID_EDITOR_ENABLED: false,
+}));
+
 import { FIXTURE_DESCRIPTOR, FIXTURE_MULTI_SERVICE_DESCRIPTOR } from '../../../shared/grpc/contractFixtures';
 import { GRPC_ERROR_CODES } from '../../../shared/grpc/contracts';
 import { createGrpcStudioTab } from '../grpcStudioTypes';
@@ -307,7 +313,7 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     expect(onSendUnary).not.toHaveBeenCalled();
   });
 
-  it('blocks switching away from JSON tab when JSON is invalid', () => {
+  it('allows switching away from JSON tab when JSON is invalid', () => {
     const onPatch = vi.fn();
     const tab = createGrpcStudioTab({
       service: 'echo.EchoService',
@@ -332,9 +338,8 @@ describe('GrpcCallPanel (Phase 1F)', () => {
 
     fireEvent.click(screen.getByTestId('grpc-request-tab-form'));
 
-    expect(screen.getByTestId('grpc-request-json-error')).toBeTruthy();
-    expect(screen.getByTestId('grpc-request-json')).toBeTruthy();
-    expect(screen.queryByTestId('grpc-proto-form')).toBeNull();
+    expect(screen.getByTestId('grpc-proto-form')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-request-json')).toBeNull();
     expect(onPatch).not.toHaveBeenCalledWith(expect.objectContaining({ requestMode: 'form' }));
   });
 
@@ -414,7 +419,7 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     expect((screen.getByTestId('grpc-send-btn') as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('blocks switching away from metadata tab when validation fails', () => {
+  it('allows switching away from metadata tab even when validation fails', () => {
     const tab = createGrpcStudioTab({
       service: 'echo.EchoService',
       method: 'Echo',
@@ -438,9 +443,8 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     });
     fireEvent.click(screen.getByTestId('grpc-request-tab-form'));
 
-    expect(screen.getByTestId('grpc-request-metadata-error')).toBeTruthy();
-    expect(screen.getByTestId('grpc-metadata-editor')).toBeTruthy();
-    expect(screen.queryByTestId('grpc-proto-form')).toBeNull();
+    expect(screen.getByTestId('grpc-proto-form')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-metadata-editor')).toBeNull();
   });
 
   it('shows metadata validation error for invalid -bin value', () => {
@@ -465,7 +469,7 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     expect(screen.getByTestId('grpc-metadata-validation-error')).toBeTruthy();
   });
 
-  it('blocks switching away from form tab when nested JSON is invalid', () => {
+  it('allows switching away from form tab when nested JSON is invalid', () => {
     const onPatch = vi.fn();
     const nestedMethod = {
       ...method,
@@ -504,12 +508,11 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     });
     fireEvent.click(screen.getByTestId('grpc-request-tab-json'));
 
-    expect(screen.getByTestId('grpc-proto-form')).toBeTruthy();
-    expect(screen.getByTestId('grpc-request-form-error')).toBeTruthy();
-    expect(screen.queryByTestId('grpc-request-json')).toBeNull();
+    expect(screen.getByTestId('grpc-request-json')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-proto-form')).toBeNull();
   });
 
-  it('blocks switching away from form tab to metadata when nested JSON is invalid', () => {
+  it('allows switching from form tab to metadata when nested JSON is invalid', () => {
     const onPatch = vi.fn();
     const nestedMethod = {
       ...method,
@@ -548,9 +551,8 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     });
     fireEvent.click(screen.getByTestId('grpc-request-tab-metadata'));
 
-    expect(screen.getByTestId('grpc-proto-form')).toBeTruthy();
-    expect(screen.getByTestId('grpc-request-form-error')).toBeTruthy();
-    expect(screen.queryByTestId('grpc-metadata-editor')).toBeNull();
+    expect(screen.getByTestId('grpc-metadata-editor')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-proto-form')).toBeNull();
   });
 
   it('clears stale nested form validation after bound method changes', () => {
@@ -592,7 +594,7 @@ describe('GrpcCallPanel (Phase 1F)', () => {
       target: { value: '{ invalid' },
     });
     fireEvent.click(screen.getByTestId('grpc-request-tab-json'));
-    expect(screen.getByTestId('grpc-request-form-error')).toBeTruthy();
+    expect(screen.getByTestId('grpc-request-json')).toBeTruthy();
 
     rerender(
       <GrpcCallPanel
@@ -633,7 +635,7 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     expect(onPatch).toHaveBeenCalledWith({ timeoutMs: 45000 });
   });
 
-  it('blocks switching away from JSON tab to metadata when JSON is invalid', () => {
+  it('allows switching from JSON tab to metadata when JSON is invalid', () => {
     const onPatch = vi.fn();
     const tab = createGrpcStudioTab({
       service: 'echo.EchoService',
@@ -658,8 +660,8 @@ describe('GrpcCallPanel (Phase 1F)', () => {
     });
     fireEvent.click(screen.getByTestId('grpc-request-tab-metadata'));
 
-    expect(screen.getByTestId('grpc-request-json-error')).toBeTruthy();
-    expect(screen.queryByTestId('grpc-metadata-editor')).toBeNull();
+    expect(screen.getByTestId('grpc-metadata-editor')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-request-json')).toBeNull();
   });
 
   it('resets composer to form when bound method changes', () => {

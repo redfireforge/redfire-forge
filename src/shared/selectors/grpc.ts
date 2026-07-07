@@ -58,12 +58,18 @@ export const GRPC = {
   K8S_LOG_AUTOSCROLL_BTN: '[data-testid="grpc-k8s-log-autoscroll-btn"]',
   TRANSPORT_PANEL: '[data-testid="grpc-transport-panel"]',
   TRANSPORT_MODE: (mode: string) => `[data-testid="grpc-transport-mode-${mode}"]`,
+  TRANSPORT_MODE_REASON: (mode: string) => `[data-testid="grpc-transport-mode-reason-${mode}"]`,
+  TRANSPORT_LOCKED_HINT: '[data-testid="grpc-transport-locked-hint"]',
   CALL_SETTINGS_PANEL: '[data-testid="grpc-call-settings-panel"]',
   CALL_SETTINGS_TIMEOUT: '[data-testid="grpc-call-settings-timeout"]',
   CALL_SETTINGS_PREVIEW: '[data-testid="grpc-call-settings-preview"]',
   PROTO_ONEOF: (oneofName: string) => `[data-testid="grpc-proto-oneof-${oneofName}"]`,
   PROTO_ONEOF_RADIO: (oneofName: string, member: string) =>
     `[data-testid="grpc-proto-oneof-radio-${oneofName}-${member}"]`,
+  PROTO_ONEOF_RADIO_PAYMENT_METHOD_CARD:
+    '[data-testid="grpc-proto-oneof-radio-payment_method-card"]',
+  PROTO_ONEOF_RADIO_PAYMENT_METHOD_INVOICE:
+    '[data-testid="grpc-proto-oneof-radio-payment_method-invoice"]',
   PROTO_ANY_HINT: '[data-testid="grpc-proto-any-hint"]',
   TLS_PANEL: '[data-testid="grpc-tls-panel"]',
   TLS_MODAL_BODY: '[data-testid="grpc-tls-body"]',
@@ -74,6 +80,11 @@ export const GRPC = {
   TLS_MODAL_RESET: '[data-testid="grpc-tls-reset"]',
   TLS_MODE: (mode: string) => `[data-testid="grpc-tls-mode-${mode}"]`,
   TLS_ISSUES: '[data-testid="grpc-tls-issues"]',
+  TLS_TEST_RESULT: '[data-testid="grpc-tls-test-result"]',
+  TLS_SERVER_NAME: '[data-testid="grpc-tls-server-name"]',
+  TLS_SERVER_CA: '[data-testid="grpc-tls-server-ca"]',
+  TLS_CLIENT_CERT: '[data-testid="grpc-tls-client-cert"]',
+  TLS_CLIENT_KEY: '[data-testid="grpc-tls-client-key"]',
   SPRING_HINT: (hintId: string) => `[data-testid="grpc-spring-hint-${hintId}"]`,
   SPRING_HINT_DISMISS: (hintId: string) => `[data-testid="grpc-spring-hint-dismiss-${hintId}"]`,
   SECRET_FIELD_STORED_HINT: (testId: string) => `[data-testid="${testId}-stored-hint"]`,
@@ -154,6 +165,7 @@ export const GRPC = {
   PROTO_BSR_TOKEN_INPUT: '[data-testid="grpc-proto-bsr-token-input"]',
   PROTO_PROTOSET_ZONE: '[data-testid="grpc-proto-protoset-zone"]',
   CALL_PANEL: '[data-testid="grpc-call-panel"]',
+  REQUEST_PANE: '[data-testid="grpc-request-pane"]',
   CALL_METHOD_NAME: '[data-testid="grpc-call-method-name"]',
   CALL_SEND_BAR: '[data-testid="grpc-call-send-bar"]',
   SEND_BTN: '[data-testid="grpc-send-btn"]',
@@ -161,6 +173,46 @@ export const GRPC = {
   CANCEL_BTN: '[data-testid="grpc-cancel-btn"]',
   CALL_TIMEOUT_INPUT: '[data-testid="grpc-call-timeout-input"]',
   REQUEST_TAB_FORM: '[data-testid="grpc-request-tab-form"]',
+  REQUEST_FORM_SCROLL: '[data-testid="grpc-request-form-scroll"]',
+  /** Hybrid unary composer — JSON on the Form Input tab. */
+  REQUEST_JSON_COMPACT: '[data-testid="grpc-request-json-compact"]',
+  /** Hybrid — Open Full Form Editor button (send bar). */
+  OPEN_FULL_FORM_EDITOR_BTN: '[data-testid="grpc-open-full-form-editor-btn"]',
+  /** Hybrid — Open Full Form Editor button (Form Input strip, inline). */
+  OPEN_FULL_FORM_EDITOR_BTN_INLINE: '[data-testid="grpc-open-full-form-editor-btn-inline"]',
+  /** Full Form Editor modal root (dialog className). */
+  HYBRID_MODAL: '.grpc-hybrid-modal',
+  /** Full Form Editor modal — Form View tab button. */
+  HYBRID_TAB_FORM_VIEW: '[data-testid="grpc-hybrid-tab-option-a"]',
+  /** Full Form Editor modal — Focus View tab button. */
+  HYBRID_TAB_FOCUS_VIEW: '[data-testid="grpc-hybrid-tab-option-b"]',
+  /** Full Form Editor modal — JSON View tab button. */
+  HYBRID_TAB_JSON_VIEW: '[data-testid="grpc-hybrid-tab-option-c"]',
+  /** Full Form Editor modal — Apply to Request button. */
+  HYBRID_APPLY_BTN: '[data-testid="grpc-hybrid-apply-btn"]',
+  /** Full Form Editor modal — Discard button. */
+  HYBRID_DISCARD_BTN: '[data-testid="grpc-hybrid-discard-btn"]',
+  /** Full Form Editor modal — close-confirm overlay. */
+  HYBRID_CLOSE_CONFIRM: '[data-testid="grpc-hybrid-close-confirm"]',
+  /** Full Form Editor modal — navigator panel (Focus View). */
+  HYBRID_NAVIGATOR: '[data-testid="grpc-hybrid-navigator"]',
+  HYBRID_NAVIGATOR_LIST: '[data-testid="grpc-hybrid-navigator-list"]',
+  HYBRID_NAVIGATOR_SEARCH: '[data-testid="grpc-hybrid-navigator-search"]',
+  HYBRID_NAV_ITEM_FIELD: (fieldName: string) => `[data-testid="grpc-hybrid-nav-item-field-${fieldName}"]`,
+  HYBRID_NAV_ITEM_FIELD_DEADLINE: '[data-testid="grpc-hybrid-nav-item-field-deadline"]',
+  HYBRID_NAV_ITEM_ONEOF: (oneofName: string) => `[data-testid="grpc-hybrid-nav-item-oneof-${oneofName}"]`,
+  /** Full Form Editor modal — focus detail editor panel (Focus View). */
+  HYBRID_FOCUS_EDITOR: '[data-testid="grpc-hybrid-focus-editor"]',
+  /** Full Form Editor modal — Form View panel (Option A). */
+  HYBRID_FORM_VIEW: '[data-testid="grpc-hybrid-form-view"]',
+  /** Full Form Editor modal — Focus View panel (Option B). */
+  HYBRID_FOCUS_VIEW: '[data-testid="grpc-hybrid-option-b-view"]',
+  /** Full Form Editor modal — JSON View panel (Option C). */
+  HYBRID_JSON_VIEW: '[data-testid="grpc-hybrid-json-view"]',
+  /** Full Form Editor modal — JSON editor textarea (JSON View). */
+  HYBRID_JSON_EDITOR: '[data-testid="grpc-hybrid-json-editor"]',
+  /** Full Form Editor modal — complexity insight chips (Form View). */
+  HYBRID_INSIGHT_CHIPS: '[data-testid="grpc-hybrid-option-a-insights"]',
   REQUEST_TAB_JSON: '[data-testid="grpc-request-tab-json"]',
   REQUEST_TAB_METADATA: '[data-testid="grpc-request-tab-metadata"]',
   REQUEST_TAB_AUTH: '[data-testid="grpc-request-tab-auth"]',
@@ -178,9 +230,25 @@ export const GRPC = {
   REQUEST_JSON_COPY_BTN: '[data-testid="grpc-request-json-copy-btn"]',
   REQUEST_JSON_ERROR: '[data-testid="grpc-request-json-error"]',
   PROTO_FORM: '[data-testid="grpc-proto-form"]',
+  PROTO_GUIDED_CARD_CORE: '[data-testid="grpc-proto-guided-card-core"]',
+  PROTO_GUIDED_CARD_MAPS: '[data-testid="grpc-proto-guided-card-maps"]',
+  PROTO_GUIDED_CARD_REPEATED: '[data-testid="grpc-proto-guided-card-repeated"]',
+  PROTO_GUIDED_CARD_ONEOF: (oneofName: string) => `[data-testid="grpc-proto-guided-card-oneof-${oneofName}"]`,
   /** Echo lesson / unary demos — scalar `message` field on EchoRequest. */
   PROTO_FIELD_INPUT_MESSAGE: '[data-testid="grpc-proto-field-input-message"]',
   PROTO_FIELD_INPUT: (fieldName: string) => `[data-testid="grpc-proto-field-input-${fieldName}"]`,
+  PROTO_FIELD: (fieldName: string) => `[data-testid="grpc-proto-field-${fieldName}"]`,
+  PROTO_FIELD_REPEATED_ADD: (fieldName: string) => `[data-testid="grpc-proto-repeated-add-${fieldName}"]`,
+  /** Draft input for repeated string fields — type here, then click + Add item or press Enter. */
+  PROTO_FIELD_REPEATED_TOKEN_INPUT: (fieldName: string) =>
+    `[data-testid="grpc-proto-repeated-token-input-${fieldName}"]`,
+  PROTO_FIELD_MAP_ADD: (fieldName: string) => `[data-testid="grpc-proto-map-add-${fieldName}"]`,
+  PROTO_FIELD_INPUT_INDEXED: (fieldName: string, index: number) =>
+    `[data-testid="grpc-proto-field-input-${fieldName}-${index}"]`,
+  PROTO_FIELD_MAP_KEY: (fieldName: string, index: number) =>
+    `[data-testid="grpc-proto-field-input-${fieldName}-key-${index}"]`,
+  PROTO_FIELD_MAP_VALUE: (fieldName: string, index: number) =>
+    `[data-testid="grpc-proto-field-input-${fieldName}-value-${index}"]`,
   METADATA_EDITOR: '[data-testid="grpc-metadata-editor"]',
   METADATA_ADD_BTN: '[data-testid="grpc-metadata-add-btn"]',
   METADATA_VALIDATION_ERROR: '[data-testid="grpc-metadata-validation-error"]',
@@ -199,6 +267,10 @@ export const GRPC = {
   RESPONSE_CANCELLED: '[data-testid="grpc-response-cancelled"]',
   RESPONSE_ERROR_SUMMARY: '[data-testid="grpc-response-error-summary"]',
   RESPONSE_ERROR_PANEL: '[data-testid="grpc-response-error-panel"]',
+  RESPONSE_ERROR_MESSAGE: '[data-testid="grpc-response-error-message"]',
+  RESPONSE_BROWSER_TRANSPORT_HINT: '[data-testid="grpc-response-browser-transport-hint"]',
+  RETRY_EXPRESS_BTN: '[data-testid="grpc-retry-express-btn"]',
+  STREAM_RETRY_EXPRESS_BTN: '[data-testid="grpc-stream-retry-express-btn"]',
   RESPONSE_TAB_BODY: '[data-testid="grpc-response-tab-body"]',
   RESPONSE_TAB_HEADERS: '[data-testid="grpc-response-tab-headers"]',
   RESPONSE_TAB_TRAILERS: '[data-testid="grpc-response-tab-trailers"]',
@@ -282,6 +354,11 @@ export const GRPC = {
   SUB_NAV_COLLECTIONS: '[data-testid="grpc-sub-nav-collections"]',
   SUB_NAV_HISTORY: '[data-testid="grpc-sub-nav-history"]',
   SUB_NAV_HISTORY_BADGE: '[data-testid="grpc-sub-nav-history-badge"]',
+  CONSOLE_LAUNCHER: '[data-testid="grpc-console-launcher"]',
+  CONSOLE_LAUNCHER_COUNT: '[data-testid="grpc-console-launcher-count"]',
+  CONSOLE_MODAL: '[data-testid="grpc-console-modal"]',
+  CONSOLE_MODAL_CLOSE: '[data-testid="grpc-console-modal-close"]',
+  CONSOLE_MODAL_CLEAR: '[data-testid="grpc-console-modal-clear"]',
   SAVE_REQUEST_BTN: '[data-testid="grpc-save-request-btn"]',
   IMPORT_GRPCURL_BTN: '[data-testid="grpc-import-grpcurl-btn"]',
   COLLECTIONS_PANEL: '[data-testid="grpc-collections-panel"]',
@@ -292,6 +369,7 @@ export const GRPC = {
   COLLECTIONS_IMPORT_INPUT: '[data-testid="grpc-collections-import-input"]',
   COLLECTIONS_TREE: '[data-testid="grpc-collections-tree"]',
   COLLECTION_GROUP: (collectionId: string) => `[data-testid="grpc-collection-group-${collectionId}"]`,
+  COLLECTION_GROUP_RENAME: (collectionId: string) => `[data-testid="grpc-collection-group-rename-${collectionId}"]`,
   COLLECTION_SAVED_REQUEST: (savedId: string) => `[data-testid="grpc-collection-saved-${savedId}"]`,
   SAVED_REQUEST_DETAIL: '[data-testid="grpc-saved-request-detail"]',
   SAVED_REQUEST_OPEN_STUDIO: '[data-testid="grpc-saved-request-open-studio"]',
@@ -311,6 +389,14 @@ export const GRPC = {
   HISTORY_DETAIL: '[data-testid="grpc-history-detail"]',
   HISTORY_REPLAY_BTN: '[data-testid="grpc-history-replay-btn"]',
   HISTORY_COPY_GRPCURL: '[data-testid="grpc-history-copy-grpcurl"]',
+  CONSOLE_PANEL: '[data-testid="grpc-console-panel"]',
+  CONSOLE_SEARCH: '[data-testid="grpc-console-search"]',
+  CONSOLE_FILTER_STATUS: '[data-testid="grpc-console-filter-status"]',
+  CONSOLE_LIST: '[data-testid="grpc-console-list"]',
+  CONSOLE_ENTRY_ROW: '[data-testid^="grpc-console-entry-"]',
+  CONSOLE_DETAIL: '[data-testid="grpc-console-detail"]',
+  CONSOLE_REPLAY_BTN: '[data-testid="grpc-console-replay-btn"]',
+  CONSOLE_COPY_GRPCURL: '[data-testid="grpc-console-copy-grpcurl"]',
   SAVE_REQUEST_MODAL: '[data-testid="grpc-save-request-modal"]',
   SAVE_REQUEST_NAME: '[data-testid="grpc-save-request-name"]',
   SAVE_REQUEST_COLLECTION: '[data-testid="grpc-save-request-collection"]',

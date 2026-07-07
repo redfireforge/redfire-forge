@@ -147,6 +147,7 @@ describe('GrpcK8sPortForwardPanel coverage gaps', () => {
   });
 
   it('continues polling automation status while the session stays active', async () => {
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
     grpcK8sApiMocks.getStatus.mockResolvedValue({
       scopeId: 'tab-1',
       active: true,
@@ -163,7 +164,12 @@ describe('GrpcK8sPortForwardPanel coverage gaps', () => {
     await waitFor(() => expect(grpcK8sApiMocks.getStatus.mock.calls.length).toBeGreaterThan(0));
 
     const initialCalls = grpcK8sApiMocks.getStatus.mock.calls.length;
-    await new Promise((resolve) => { setTimeout(resolve, 5100); });
+    const intervalCallbacks = setIntervalSpy.mock.calls
+      .map(([cb]) => cb)
+      .filter((cb): cb is () => void => typeof cb === 'function');
+    await act(async () => {
+      intervalCallbacks.forEach((cb) => cb());
+    });
     expect(grpcK8sApiMocks.getStatus.mock.calls.length).toBeGreaterThan(initialCalls);
   }, 10_000);
 
@@ -433,6 +439,7 @@ describe('GrpcK8sPortForwardPanel coverage gaps', () => {
   });
 
   it('polls logs on the slower interval while automation is backed but inactive', async () => {
+    const setIntervalSpy = vi.spyOn(globalThis, 'setInterval');
     grpcK8sApiMocks.getLogs.mockImplementation(async (_scopeId: string, afterSeq = 0) => ({
       scopeId: 'tab-1',
       lines: [{
@@ -452,8 +459,11 @@ describe('GrpcK8sPortForwardPanel coverage gaps', () => {
     fireEvent.click(screen.getByTestId('grpc-k8s-start-btn'));
     await waitFor(() => expect(grpcK8sApiMocks.start).toHaveBeenCalled());
     const initialCalls = grpcK8sApiMocks.getLogs.mock.calls.length;
+    const intervalCallbacks = setIntervalSpy.mock.calls
+      .map(([cb]) => cb)
+      .filter((cb): cb is () => void => typeof cb === 'function');
     await act(async () => {
-      await new Promise((resolve) => { setTimeout(resolve, 4100); });
+      intervalCallbacks.forEach((cb) => cb());
     });
     expect(grpcK8sApiMocks.getLogs.mock.calls.length).toBeGreaterThan(initialCalls);
   }, 10_000);

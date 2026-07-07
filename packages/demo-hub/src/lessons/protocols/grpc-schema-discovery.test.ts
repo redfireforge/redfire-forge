@@ -63,7 +63,7 @@ describe('grpc-schema-discovery lesson', () => {
     const urlStep = grpcSchemaDiscoveryLesson.steps.find((s) => s.id === 'grpc16-url')!;
     const bsrStep = grpcSchemaDiscoveryLesson.steps.find((s) => s.id === 'grpc16-bsr')!;
     expect(urlStep.verify).toContain('grpc-proto-url-input');
-    expect(bsrStep.verify).toContain('grpc-proto-bsr-module-input');
+    expect(bsrStep.verify).toContain('grpc-explorer-source');
   });
 
   it('schema-browser step verifies schema browser is rendered', () => {

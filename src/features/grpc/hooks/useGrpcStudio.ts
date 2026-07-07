@@ -58,6 +58,18 @@ const EMPTY_ENV_VAR_MAP: Record<string, string> = {};
 const EMPTY_GRPC_PROFILES: GrpcConnectionProfile[] = [];
 const EMPTY_GLOBAL_AUTH_PROFILES: GlobalAuthProfile[] = [];
 
+function isLoopbackTargetAddress(rawTarget: string | undefined): boolean {
+  const value = rawTarget?.trim().toLowerCase();
+  if (!value) return false;
+  const withoutScheme = value.replace(/^[a-z]+:\/\//, '');
+  if (withoutScheme.startsWith('[')) {
+    const endIndex = withoutScheme.indexOf(']');
+    return endIndex > 0 && withoutScheme.slice(1, endIndex) === '::1';
+  }
+  const host = withoutScheme.split(':')[0] ?? '';
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1';
+}
+
 export interface UseGrpcStudioOptions {
   envVarMap?: Record<string, string>;
   workspaceDefaults?: Record<string, string>;
@@ -281,7 +293,11 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
       lifecycle: 'idle',
     });
     syncGrpcStudioTabTransport({ ...tab, transportMode: 'express' });
-    void executeUnaryCall(tabId);
+    // core.updateTab schedules a React state update — sessionRef.current is not
+    // guaranteed to reflect 'express' synchronously (batching). Pass the mode as
+    // an explicit override so the retried call itself always dispatches via
+    // Express regardless of when the state update commits.
+    void executeUnaryCall(tabId, { transportMode: 'express' });
   }, [core, executeUnaryCall]);
 
   const retryStreamWithExpress = useCallback((tabId: string) => {
@@ -294,7 +310,8 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
       streamError: undefined,
     });
     syncGrpcStudioTabTransport({ ...tab, transportMode: 'express' });
-    void startStreamCall(tabId);
+    // Same React-batching hazard as retryUnaryWithExpress — force the mode via override.
+    void startStreamCall(tabId, { transportMode: 'express' });
   }, [core, startStreamCall]);
 
   const canAddTab = core.tabs.length < maxTabs;
@@ -308,7 +325,17 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     }
 
     const restoredTabs = persistedTabs.reduce<typeof core.tabs>((acc, persistedTab) => {
-      acc.push(createGrpcStudioTab(persistedTab, acc));
+      const shouldResetToPlaintext = !persistedTab.connectionId
+        && persistedTab.tlsMode === 'tls'
+        && isLoopbackTargetAddress(persistedTab.target);
+      const normalizedPersistedTab = shouldResetToPlaintext
+        ? {
+          ...persistedTab,
+          tlsMode: undefined,
+          tlsConfig: undefined,
+        }
+        : persistedTab;
+      acc.push(createGrpcStudioTab(normalizedPersistedTab, acc));
       return acc;
     }, []);
 

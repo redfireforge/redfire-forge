@@ -23,7 +23,29 @@ export const EM = {
   ADD_PROTOCOL_BTN:     '[data-testid="em-add-protocol-btn"]',
   /** Derived-variables panel on a protocol tab (protocol key suffix). */
   DERIVED_VARS_GQL:     '[data-testid="derived-vars-graphql"]',
+  /** Workspace Defaults (Interpolation) section — bottom of the Environment Manager page. */
+  WS_DEFAULT_KEY_INPUT:   '[data-testid="em-ws-default-key-input"]',
+  WS_DEFAULT_VALUE_INPUT: '[data-testid="em-ws-default-value-input"]',
+  WS_DEFAULT_SAVE_BTN:    '[data-testid="em-ws-default-save-btn"]',
 } as const;
+
+/**
+ * Selector for an existing Workspace Default row by key.
+ * Usage: `emWsDefaultRowSel('requestId')` → `'[data-testid="em-ws-default-row-requestId"]'`
+ */
+export function emWsDefaultRowSel(key: string): string {
+  return `[data-testid="em-ws-default-row-${key}"]`;
+}
+
+/** Inline value input for an existing Workspace Default row. */
+export function emWsDefaultRowValueSel(key: string): string {
+  return `[data-testid="em-ws-default-row-value-${key}"]`;
+}
+
+/** Delete button for an existing Workspace Default row. */
+export function emWsDefaultDeleteSel(key: string): string {
+  return `[data-testid="em-ws-default-delete-${key}"]`;
+}
 
 /**
  * Selector for a specific protocol item inside the "+ Add protocol" dropdown menu.

@@ -1,4 +1,7 @@
-import { describe, it, expect } from 'vitest';
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
   GRPC_DEMO_DOCKER_COMMAND,
   GRPC_DEMO_HEALTH_URL,
@@ -8,7 +11,14 @@ import {
   GRPC_EXPRESS_ONLY_COMMAND,
   GRPC_SPRING_DOCKER_COMMAND,
   GRPC_STUDIO_LESSON_ALLOWED_TABS,
+  patchGrpcActiveTabExportContext,
+  resetGrpcActiveTabRuntimeState,
 } from './grpcStudioAdapter';
+
+afterEach(() => {
+  delete (window as unknown as { __demoPatchGrpcActiveTab?: unknown }).__demoPatchGrpcActiveTab;
+  delete (window as unknown as { __demoResetGrpcActiveTab?: unknown }).__demoResetGrpcActiveTab;
+});
 
 describe('grpcStudioAdapter', () => {
   it('exports echo lesson target and health probes', () => {
@@ -37,5 +47,36 @@ describe('grpcStudioAdapter', () => {
 
   it('defines allowed studio lesson tabs', () => {
     expect(GRPC_STUDIO_LESSON_ALLOWED_TABS).toEqual(['grpc-studio', 'demo-hub']);
+  });
+
+  it('patchGrpcActiveTabExportContext forwards patch through demo bridge', () => {
+    const bridge = vi.fn().mockReturnValue(true);
+    (window as unknown as { __demoPatchGrpcActiveTab?: (patch: unknown) => boolean }).__demoPatchGrpcActiveTab = bridge;
+
+    const result = patchGrpcActiveTabExportContext({
+      tlsFilePaths: { caCertPath: '/tmp/ca.crt' },
+    });
+
+    expect(result).toBe(true);
+    expect(bridge).toHaveBeenCalledWith({
+      grpcurlExportContext: {
+        tlsFilePaths: { caCertPath: '/tmp/ca.crt' },
+      },
+    });
+  });
+
+  it('resetGrpcActiveTabRuntimeState calls reset bridge when present', () => {
+    const bridge = vi.fn().mockReturnValue(true);
+    (window as unknown as { __demoResetGrpcActiveTab?: () => boolean }).__demoResetGrpcActiveTab = bridge;
+
+    const result = resetGrpcActiveTabRuntimeState();
+
+    expect(result).toBe(true);
+    expect(bridge).toHaveBeenCalledTimes(1);
+  });
+
+  it('bridge helpers return false when bridge is unavailable', () => {
+    expect(resetGrpcActiveTabRuntimeState()).toBe(false);
+    expect(patchGrpcActiveTabExportContext({})).toBe(false);
   });
 });

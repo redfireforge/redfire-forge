@@ -27,6 +27,7 @@ function historyEntry(
     error?: boolean;
     bodyTruncated?: boolean;
     capturedAt?: string;
+    auth?: Record<string, unknown>;
   } = {},
 ) {
   return prepareGrpcCallHistoryEntryForPersist({
@@ -41,6 +42,7 @@ function historyEntry(
       method: FIXTURE_UNARY_CALL_REQUEST.method,
       body: { message: 'hello' },
       metadata: {},
+      auth: patch.auth as never,
       timeoutMs: 30_000,
       descriptorKey: FIXTURE_DESCRIPTOR_KEY,
     },
@@ -195,7 +197,10 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
 
     fireEvent.click(screen.getByTestId('grpc-history-entry-ok-1'));
     expect(screen.getByTestId('grpc-history-detail').textContent).toMatch(/echo\.EchoService\/Echo/);
-    expect(screen.getByText(/grpcurl command/i)).toBeTruthy();
+    expect(screen.getByTestId('grpc-history-detail-nav-grpcurl').textContent).toMatch(/grpcurl command/i);
+
+    fireEvent.click(screen.getByTestId('grpc-history-detail-nav-grpcurl'));
+    expect(screen.getByTestId('grpc-history-detail-content').textContent).toMatch(/grpcurl localhost:50051/);
 
     fireEvent.click(screen.getByTestId('grpc-history-replay-btn'));
     expect(onReplay).toHaveBeenCalledWith(ok);
@@ -212,6 +217,84 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
     renderPanel(buildHistoryMock({ filteredEntries: [truncated] }));
     fireEvent.click(screen.getByTestId('grpc-history-entry-trunc-1'));
     expect(screen.getByText(/truncated when this entry was captured/i)).toBeTruthy();
+  });
+
+  it('renders execution context summary with auth and metadata keys', () => {
+    const entry = historyEntry('ctx-1', {
+      auth: { type: 'basic', basicUsername: 'demo', basicPassword: '[REDACTED]' },
+    });
+    const withMetadata = {
+      ...entry,
+      record: {
+        ...entry.record,
+        snapshot: {
+          ...entry.record.snapshot,
+          transportMode: 'grpc-web',
+          metadata: {
+            authorization: '[REDACTED]',
+            'x-request-id': 'lesson-4-demo',
+          },
+        },
+      },
+    };
+    renderPanel(buildHistoryMock({ filteredEntries: [withMetadata] }));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-ctx-1'));
+
+    const context = screen.getByTestId('grpc-history-execution-context').textContent ?? '';
+    expect(context).toMatch(/"transportMode":\s*"grpc-web"/);
+    expect(context).toMatch(/"auth":\s*"Basic \(demo\)"/);
+    expect(context).toMatch(/"metadataCount":\s*2/);
+    expect(context).toMatch(/authorization/);
+    expect(context).toMatch(/x-request-id/);
+  });
+
+  it('renders execution context with compression and effective metadata keys', () => {
+    const entry = historyEntry('gzip-1', {});
+    const withCompression = {
+      ...entry,
+      record: {
+        ...entry.record,
+        snapshot: {
+          ...entry.record.snapshot,
+          transportMode: 'express',
+          compression: { enabled: true, algorithm: 'gzip' },
+          metadata: {},
+        },
+      },
+    };
+    renderPanel(buildHistoryMock({ filteredEntries: [withCompression] }));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-gzip-1'));
+
+    const context = screen.getByTestId('grpc-history-execution-context').textContent ?? '';
+    expect(context).toMatch(/"compression":\s*"gzip"/);
+    expect(context).toMatch(/grpc-encoding/);
+    expect(context).toMatch(/grpc-accept-encoding/);
+    expect(context).toMatch(/"metadataCount":\s*2/);
+  });
+
+  it('renders rich outcome summary for successful calls', () => {
+    const ok = historyEntry('ok-outcome', { grpcStatus: 0 });
+    renderPanel(buildHistoryMock({ filteredEntries: [ok] }));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-ok-outcome'));
+    fireEvent.click(screen.getByTestId('grpc-history-detail-nav-outcome'));
+
+    const outcome = screen.getByTestId('grpc-history-outcome').textContent ?? '';
+    expect(outcome).toMatch(/"outcome":\s*"ok"/);
+    expect(outcome).toMatch(/"grpcStatus":\s*0/);
+    expect(outcome).toMatch(/"durationMs":\s*12/);
+  });
+
+  it('renders rich outcome summary for error calls', () => {
+    const err = historyEntry('err-outcome', { error: true });
+    renderPanel(buildHistoryMock({ filteredEntries: [err] }));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-err-outcome'));
+    fireEvent.click(screen.getByTestId('grpc-history-detail-nav-outcome'));
+
+    const outcome = screen.getByTestId('grpc-history-outcome').textContent ?? '';
+    expect(outcome).toMatch(/"outcome":\s*"error"/);
+    expect(outcome).toMatch(/"code":\s*"call_failed"/);
+    expect(outcome).toMatch(/"category":\s*"call_failed"/);
+    expect(outcome).toMatch(/Transport failed/);
   });
 
   it('wires filter controls and clear actions', () => {
@@ -254,7 +337,7 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
     expect(clearAll).toHaveBeenCalled();
   });
 
-  it('disables replay when drift blocks execution', () => {
+  it('keeps replay enabled when drift blocks execution but still disables schema diff', () => {
     const entry = historyEntry('blocked-1');
     renderPanel(buildHistoryMock({ filteredEntries: [entry] }), {
       studio: {
@@ -279,8 +362,8 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
     fireEvent.click(screen.getByTestId('grpc-history-entry-blocked-1'));
     const replayBtn = screen.getByTestId('grpc-history-replay-btn') as HTMLButtonElement;
     const diffBtn = screen.getByTestId('grpc-history-open-diff-btn') as HTMLButtonElement;
-    expect(replayBtn.disabled).toBe(true);
-    expect(replayBtn.title).toMatch(/schema|available/i);
+    expect(replayBtn.disabled).toBe(false);
+    expect(replayBtn.title).toMatch(/execution may stay blocked|schema drift|method missing/i);
     expect(diffBtn.disabled).toBe(true);
   });
 
@@ -298,6 +381,22 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
     expect(replayBtn.title).toBe('Replay preview failed');
 
     vi.restoreAllMocks();
+  });
+
+  it('keeps replay enabled when no descriptor is loaded on active tab', () => {
+    const entry = historyEntry('no-desc-1');
+    renderPanel(buildHistoryMock({ filteredEntries: [entry] }), {
+      studio: {
+        activeTab: createGrpcStudioTab({ descriptorKey: FIXTURE_DESCRIPTOR_KEY }),
+        activeTabDescriptor: createEmptyTabDescriptorState(),
+        profiles: [],
+      },
+    });
+
+    fireEvent.click(screen.getByTestId('grpc-history-entry-no-desc-1'));
+    const replayBtn = screen.getByTestId('grpc-history-replay-btn') as HTMLButtonElement;
+    expect(replayBtn.disabled).toBe(false);
+    expect(replayBtn.title).toMatch(/execution may stay blocked|schema/i);
   });
 
   it('clears selection when filtered entry disappears', async () => {
@@ -344,6 +443,51 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
       expect(screen.getByTestId('grpc-history-detail-empty')).toBeTruthy();
       expect(screen.getByText(/Call history is empty/i)).toBeTruthy();
     });
+  });
+
+  it('formats auth summaries across auth types in execution context', () => {
+    const entries = [
+      historyEntry('auth-none', { auth: { type: 'none' } }),
+      historyEntry('auth-bearer', { auth: { type: 'bearer', bearerToken: 'token' } }),
+      historyEntry('auth-api', { auth: { type: 'api_key', apiKeyName: 'x-api-key', apiKeyValue: 'v' } }),
+      historyEntry('auth-oauth2', { auth: { type: 'oauth2', oauth2: { clientId: 'demo-client' } } }),
+      historyEntry('auth-inherit', { auth: { type: 'inherit', globalProfileId: 'profile-a' } }),
+    ];
+
+    renderPanel(buildHistoryMock({ filteredEntries: entries }));
+
+    fireEvent.click(screen.getByTestId('grpc-history-entry-auth-none'));
+    expect(screen.getByTestId('grpc-history-execution-context').textContent).toMatch(/"auth":\s*"None"/);
+
+    fireEvent.click(screen.getByTestId('grpc-history-entry-auth-bearer'));
+    expect(screen.getByTestId('grpc-history-execution-context').textContent).toMatch(/Bearer token/);
+
+    fireEvent.click(screen.getByTestId('grpc-history-entry-auth-api'));
+    expect(screen.getByTestId('grpc-history-execution-context').textContent).toMatch(/API Key \(x-api-key\)/);
+
+    fireEvent.click(screen.getByTestId('grpc-history-entry-auth-oauth2'));
+    expect(screen.getByTestId('grpc-history-execution-context').textContent).toMatch(/OAuth2 \(demo-client\)/);
+
+    fireEvent.click(screen.getByTestId('grpc-history-entry-auth-inherit'));
+    expect(screen.getByTestId('grpc-history-execution-context').textContent).toMatch(/Inherited \(profile-a\)/);
+  });
+
+  it('treats grpcStatus-only filters as active and shows filtered empty state', () => {
+    const entry = historyEntry('status-hidden');
+    renderPanel(buildHistoryMock({
+      entries: [entry],
+      filteredEntries: [],
+      filters: { grpcStatus: 16 },
+      filterOptions: {
+        services: [entry.service],
+        methods: [entry.method],
+        grpcStatuses: [0, 16],
+        hasOkEntries: true,
+        hasErrorEntries: true,
+      },
+    }));
+
+    expect(screen.getByTestId('grpc-history-list-empty-filtered')).toBeTruthy();
   });
 
   afterEach(() => {

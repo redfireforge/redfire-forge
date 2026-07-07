@@ -112,7 +112,10 @@ describe('GrpcProtoFormBuilder (Phase 1F)', () => {
     render(<StatefulRepeatedForm />);
 
     expect(screen.getByTestId('grpc-proto-field-input-tags-0')).toBeTruthy();
-    fireEvent.click(screen.getByText('+ Add item'));
+    fireEvent.change(screen.getByTestId('grpc-proto-repeated-token-input-tags'), {
+      target: { value: 'beta' },
+    });
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-add-tags'));
 
     expect(screen.getByTestId('grpc-proto-field-input-tags-1')).toBeTruthy();
     expect(onValidityChange).toHaveBeenLastCalledWith(true);

@@ -93,6 +93,14 @@ public class EchoFixtureGrpcService extends EchoServiceGrpc.EchoServiceImplBase 
   }
 
   @Override
+  public void secureEcho(EchoRequest request, StreamObserver<EchoResponse> responseObserver) {
+    // Auth enforcement happens in BearerAuthServerInterceptor before this method runs —
+    // reaching here means the bearer token already validated.
+    responseObserver.onNext(EchoResponse.newBuilder().setMessage(request.getMessage()).build());
+    responseObserver.onCompleted();
+  }
+
+  @Override
   public StreamObserver<EchoRequest> bidiStream(StreamObserver<EchoResponse> responseObserver) {
     return new StreamObserver<>() {
       @Override

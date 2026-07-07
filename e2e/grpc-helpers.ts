@@ -1,6 +1,7 @@
 /**
  * gRPC Studio E2E helpers (Phase 1H).
  */
+import { createConnection } from 'node:net';
 import { expect, type APIRequestContext, type Page } from '@playwright/test';
 import { slugifyGrpcExplorerId } from '../src/features/grpc/utils/grpcExplorerUtils';
 import { FIXTURE_ECHO_DESCRIPTOR_PAYLOAD } from '../src/shared/grpc/contractFixtures';
@@ -10,6 +11,8 @@ import { REDFIREFORGE_IDB_VERSION, seedAppData } from './helpers';
 export const GRPC_HEALTH = 'http://localhost:50052/health';
 export const GRPC_TARGET = 'localhost:50051';
 export const BACKEND_HEALTH = 'http://localhost:3001/health';
+/** Envoy gRPC-Web sidecar (Phase 12D) — has no HTTP health endpoint, only a raw listener. */
+export const GRPC_ENVOY_TARGET = 'localhost:50055';
 
 export const GRPC_STUDIO_URL = '/?tab=grpc-studio';
 
@@ -104,6 +107,29 @@ export async function isGrpcLiveInfraReady(request: APIRequestContext): Promise<
     isBackendHealthy(request),
   ]);
   return grpc && backend;
+}
+
+/** Raw TCP connect check — Envoy's grpc-web listener has no HTTP health endpoint. */
+export async function isGrpcEnvoySidecarUp(host = 'localhost', port = 50055): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = createConnection({ host, port, timeout: 3_000 });
+    const done = (result: boolean) => {
+      socket.destroy();
+      resolve(result);
+    };
+    socket.once('connect', () => done(true));
+    socket.once('timeout', () => done(false));
+    socket.once('error', () => done(false));
+  });
+}
+
+/** GRPC-19 Transport Modes lesson needs the Go echo server, Express proxy, AND the Envoy sidecar. */
+export async function isGrpcTransportModesInfraReady(request: APIRequestContext): Promise<boolean> {
+  const [base, envoy] = await Promise.all([
+    isGrpcLiveInfraReady(request),
+    isGrpcEnvoySidecarUp(),
+  ]);
+  return base && envoy;
 }
 
 /** Silence log-stream proxy noise when backend is down. */

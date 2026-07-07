@@ -11,6 +11,12 @@ const helperSpies = vi.hoisted(() => ({
   ensureGrpcTarget: vi.fn(async () => {}),
   ensureGrpcReflected: vi.fn(async () => {}),
   ensureEchoMethodSelected: vi.fn(async () => {}),
+  fillGrpcEchoMessage: vi.fn(async () => {}),
+  guardEchoMethodQuiet: vi.fn(async () => {}),
+  guardGrpcReflectedQuiet: vi.fn(async () => {}),
+  guardGrpcTargetQuiet: vi.fn(async () => {}),
+  guardUnaryExecutedQuiet: vi.fn(async () => {}),
+  ensureGrpcRequestFormTabQuiet: vi.fn(async () => {}),
   ensureUnaryExecuted: vi.fn(async () => {}),
   openFirstGrpcHistoryEntry: vi.fn(async () => {}),
   openGrpcHistoryPanelQuiet: vi.fn(async () => {}),
@@ -28,6 +34,12 @@ vi.mock('./grpc-lesson-helpers', async () => {
     ensureGrpcTarget: helperSpies.ensureGrpcTarget,
     ensureGrpcReflected: helperSpies.ensureGrpcReflected,
     ensureEchoMethodSelected: helperSpies.ensureEchoMethodSelected,
+    fillGrpcEchoMessage: helperSpies.fillGrpcEchoMessage,
+    guardEchoMethodQuiet: helperSpies.guardEchoMethodQuiet,
+    guardGrpcReflectedQuiet: helperSpies.guardGrpcReflectedQuiet,
+    guardGrpcTargetQuiet: helperSpies.guardGrpcTargetQuiet,
+    guardUnaryExecutedQuiet: helperSpies.guardUnaryExecutedQuiet,
+    ensureGrpcRequestFormTabQuiet: helperSpies.ensureGrpcRequestFormTabQuiet,
     ensureUnaryExecuted: helperSpies.ensureUnaryExecuted,
     openFirstGrpcHistoryEntry: helperSpies.openFirstGrpcHistoryEntry,
     openGrpcHistoryPanelQuiet: helperSpies.openGrpcHistoryPanelQuiet,
@@ -63,24 +75,30 @@ describe('grpc-first-call coverage gaps', () => {
 
     expect(helperSpies.navigateToGrpcStudio).toHaveBeenCalledTimes(2);
     expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalledTimes(2);
-    expect(helperSpies.ensureGrpcTarget).toHaveBeenCalledTimes(2);
-    expect(helperSpies.ensureGrpcReflected).toHaveBeenCalledTimes(2);
-    expect(helperSpies.ensureEchoMethodSelected).toHaveBeenCalledTimes(2);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.PROTO_FIELD_INPUT_MESSAGE, 10_000);
-    expect(ctx.fill).toHaveBeenCalledWith(GRPC.PROTO_FIELD_INPUT_MESSAGE, 'Hello from gRPC Studio');
+    expect(helperSpies.ensureGrpcTarget).toHaveBeenCalledTimes(1);
+    expect(helperSpies.guardGrpcTargetQuiet).toHaveBeenCalledTimes(1);
+    expect(helperSpies.ensureGrpcReflected).toHaveBeenCalledTimes(1);
+    expect(helperSpies.guardGrpcReflectedQuiet).toHaveBeenCalledTimes(1);
+    expect(helperSpies.ensureEchoMethodSelected).toHaveBeenCalledTimes(1);
+    expect(helperSpies.guardEchoMethodQuiet).toHaveBeenCalledTimes(1);
+    expect(helperSpies.fillGrpcEchoMessage).toHaveBeenCalledWith(ctx, 'Hello from gRPC Studio');
   });
 
-  it('fills message in send preAction only when request field is empty', async () => {
+  it('fills message in send preAction only when request field is empty or mismatched', async () => {
     const ctx = makeCtx();
-    document.body.innerHTML = '<input data-testid="grpc-proto-field-input-message" value="" />';
+    document.body.innerHTML = '<textarea data-testid="grpc-request-json"></textarea>';
 
     await getStep('grpc1-send').preAction?.(ctx);
-    expect(ctx.fill).toHaveBeenCalledWith(GRPC.PROTO_FIELD_INPUT_MESSAGE, 'Hello from gRPC Studio');
+    expect(helperSpies.guardEchoMethodQuiet).toHaveBeenCalled();
+    expect(helperSpies.fillGrpcEchoMessage).toHaveBeenCalled();
 
-    vi.mocked(ctx.fill).mockClear();
-    document.body.innerHTML = '<input data-testid="grpc-proto-field-input-message" value="already-set" />';
+    vi.mocked(helperSpies.fillGrpcEchoMessage).mockClear();
+    document.body.innerHTML = `
+      <div data-testid="grpc-request-json-compact"></div>
+      <textarea data-testid="grpc-request-json">${JSON.stringify({ message: 'Hello from gRPC Studio' }, null, 2)}</textarea>
+    `;
     await getStep('grpc1-send').preAction?.(ctx);
-    expect(ctx.fill).not.toHaveBeenCalled();
+    expect(helperSpies.fillGrpcEchoMessage).not.toHaveBeenCalled();
   });
 
   it('executes send and response steps', async () => {
@@ -90,8 +108,8 @@ describe('grpc-first-call coverage gaps', () => {
     await getStep('grpc1-response').preAction?.(ctx);
     await getStep('grpc1-response').action?.(ctx);
 
-    expect(helperSpies.ensureUnaryExecuted).toHaveBeenCalledTimes(2);
-    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.RESPONSE_BODY, 10_000);
+    expect(helperSpies.guardUnaryExecutedQuiet).toHaveBeenCalled();
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.RESPONSE_BODY, 8_000);
   });
 
   it('opens history tab only when not already selected', async () => {
@@ -105,7 +123,7 @@ describe('grpc-first-call coverage gaps', () => {
 
     await getStep('grpc1-history-tab').preAction?.(ctx);
     await getStep('grpc1-history-tab').action?.(ctx);
-    expect(helperSpies.ensureUnaryExecuted).toHaveBeenCalled();
+    expect(helperSpies.guardUnaryExecutedQuiet).toHaveBeenCalled();
     expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalled();
     expect(clickSpy).toHaveBeenCalled();
 
@@ -157,9 +175,9 @@ describe('grpc-first-call coverage gaps', () => {
     await getStep('grpc1-replay').preAction?.(ctx);
     await getStep('grpc1-replay').action?.(ctx);
 
-    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.SEND_BTN, 8_000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.SEND_BTN, 5_000);
     expect(sendClick).toHaveBeenCalled();
-    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.RESPONSE_STATUS, 10_000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.RESPONSE_STATUS, 8_000);
     expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.RESPONSE_BODY, 5_000);
   });
 

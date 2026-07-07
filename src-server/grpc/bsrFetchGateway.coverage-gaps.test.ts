@@ -2,11 +2,15 @@
  * @vitest-environment node
  */
 import { describe, expect, it, vi } from 'vitest';
+import { FIXTURE_ECHO_PROTO } from '../../src/shared/grpc/contractFixtures.js';
+import { encodeRootAsProtosetBase64, parseProtoFiles } from './protoDescriptorParser.js';
 import {
   BsrFetchGatewayError,
   buildBsrDescriptorUrl,
+  buildBsrDescriptorUrlLegacy,
   fetchBsrDescriptorSet,
   parseBsrModuleReference,
+  shouldBypassProxyForUrl,
 } from './bsrFetchGateway.js';
 
 describe('bsrFetchGateway coverage gaps', () => {
@@ -76,6 +80,44 @@ describe('bsrFetchGateway coverage gaps', () => {
       'v1.2.0',
     );
     expect(url).toContain('/acme/echo/descriptor/v1.2.0');
+  });
+
+  it('buildBsrDescriptorUrlLegacy uses api/v1 modules path', () => {
+    const url = buildBsrDescriptorUrlLegacy(
+      { owner: 'acme', repo: 'echo', fullName: 'buf.build/acme/echo' },
+      'main',
+    );
+    expect(url).toContain('/api/v1/modules/acme/echo/descriptor?ref=main');
+  });
+
+  it('shouldBypassProxyForUrl honors NO_PROXY host entries', () => {
+    const prev = process.env.NO_PROXY;
+    process.env.NO_PROXY = 'buf.build,localhost';
+    expect(shouldBypassProxyForUrl('https://buf.build/connectrpc/eliza/descriptor/main')).toBe(true);
+    expect(shouldBypassProxyForUrl('https://example.com/data')).toBe(false);
+    process.env.NO_PROXY = prev;
+  });
+
+  it('retries legacy BSR URL when canonical descriptor URL returns 404', async () => {
+    const root = parseProtoFiles([{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }]);
+    const protosetBase64 = encodeRootAsProtosetBase64(root);
+    const bytes = Buffer.from(protosetBase64, 'base64');
+    const fetchPort = {
+      fetch: vi.fn(async (url: string) => {
+        if (url.includes('/api/v1/modules/')) {
+          return new Response(bytes, {
+            status: 200,
+            headers: { 'content-type': 'application/octet-stream', etag: '"legacy"' },
+          });
+        }
+        return new Response('missing', { status: 404 });
+      }),
+    };
+
+    const result = await fetchBsrDescriptorSet({ module: 'acme/echo', version: 'main' }, { fetchPort });
+    expect(fetchPort.fetch).toHaveBeenCalledTimes(2);
+    expect(result.protosetBase64).toBe(protosetBase64);
+    expect(result.digest).toBe('legacy');
   });
 
   it('rejects HTML responses to avoid decoding rewritten portal pages as protosets', async () => {
@@ -202,6 +244,44 @@ describe('bsrFetchGateway coverage gaps', () => {
       process.env.HTTPS_PROXY = prevHttps;
       process.env.https_proxy = prevHttpsLower;
       vi.doUnmock('node:module');
+      vi.resetModules();
+    }
+  });
+
+  it('retries BSR fetch without proxy when corporate proxy DNS fails', async () => {
+    const prevHttps = process.env.HTTPS_PROXY;
+    const prevHttpsLower = process.env.https_proxy;
+    process.env.HTTPS_PROXY = 'http://naproxy.gm.com:80';
+    delete process.env.https_proxy;
+    vi.resetModules();
+
+    const payload = Buffer.from('eliza-protoset-bytes');
+    let callCount = 0;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      callCount += 1;
+      if ((init as { dispatcher?: unknown } | undefined)?.dispatcher) {
+        const cause = Object.assign(new Error('getaddrinfo ENOTFOUND naproxy.gm.com'), { code: 'ENOTFOUND' });
+        throw new TypeError('fetch failed', { cause });
+      }
+      return new Response(payload, {
+        status: 200,
+        headers: { 'content-type': 'application/octet-stream', etag: '"digest-eliza"' },
+      });
+    });
+
+    try {
+      const mod = await import('./bsrFetchGateway.js');
+      const result = await mod.fetchBsrDescriptorSet({
+        module: 'buf.build/connectrpc/eliza',
+        version: 'main',
+      });
+      expect(callCount).toBe(2);
+      expect(result.protosetBase64).toBe(payload.toString('base64'));
+      expect(result.module.fullName).toBe('buf.build/connectrpc/eliza');
+    } finally {
+      fetchSpy.mockRestore();
+      process.env.HTTPS_PROXY = prevHttps;
+      process.env.https_proxy = prevHttpsLower;
       vi.resetModules();
     }
   });

@@ -15,12 +15,19 @@ import { GrpcApiClientError, setGrpcClientTransport } from '../../shared/grpc/gr
 import { createGrpcSuccessEnvelope } from '../../shared/grpc/contracts';
 import * as grpcStreamClient from '../../shared/grpc/grpcStreamClient';
 import { setGrpcStreamTransport } from '../../shared/grpc/grpcStreamClient';
+
+const downloadProtosetFileMock = vi.hoisted(() => vi.fn());
+vi.mock('./utils/downloadProtoset', () => ({
+  downloadProtosetFile: (...args: unknown[]) => downloadProtosetFileMock(...args),
+}));
+
 import { GrpcStudioPage, buildLegacyGrpcEnvVarMap } from './GrpcStudioPage';
 import { clearGrpcStudioPersistence } from './hooks/useGrpcStudioPersistence';
 import { resetGrpcTabCounterForTests } from './grpcStudioTypes';
 import { resetGrpcTabSecretVaultForTests } from './utils/grpcTabSecretVault';
 
 describe('GrpcStudioPage coverage gaps', () => {
+  const originalConsoleError = console.error;
   const grpcStudioTabs = () => within(screen.getByTestId('grpc-tab-bar'));
   const clickByTestId = async (testId: string) => {
     await act(async () => {
@@ -29,12 +36,23 @@ describe('GrpcStudioPage coverage gaps', () => {
   };
 
   beforeEach(() => {
+    vi.restoreAllMocks();
+    downloadProtosetFileMock.mockReset();
     resetGrpcTabCounterForTests();
     resetGrpcTabSecretVaultForTests();
     clearGrpcStudioPersistence();
     setGrpcClientTransport(null);
     setGrpcStreamTransport(null);
-    vi.restoreAllMocks();
+    vi.spyOn(console, 'error').mockImplementation((...args: Parameters<typeof console.error>) => {
+      const message = args.map((part) => String(part)).join(' ');
+      if (
+        message.includes('not wrapped in act(')
+        || message.includes('Not implemented: navigation to another Document')
+      ) {
+        return;
+      }
+      originalConsoleError(...args);
+    });
   });
 
   it('opens manage schemas modal and loads descriptor from ingest', async () => {

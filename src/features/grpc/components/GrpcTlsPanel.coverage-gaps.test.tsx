@@ -106,6 +106,7 @@ describe('GrpcTlsPanel coverage gaps', () => {
   it('shows plaintext success on test connection in disabled mode', () => {
     openModal({ ...baseProps, tlsMode: 'disabled' });
     fireEvent.click(screen.getByTestId('grpc-tls-test'));
+    expect(screen.getByTestId('grpc-tls-test-result').className).toMatch(/grpc-tls-test-result--ok/);
     expect(screen.getByTestId('grpc-tls-test-result').textContent).toMatch(/Plaintext mode/i);
   });
 
@@ -116,6 +117,7 @@ describe('GrpcTlsPanel coverage gaps', () => {
       tlsConfig: { serverCaPem: VALID_CERT },
     });
     fireEvent.click(screen.getByTestId('grpc-tls-test'));
+    expect(screen.getByTestId('grpc-tls-test-result').className).toMatch(/grpc-tls-test-result--ok/);
     expect(screen.getByTestId('grpc-tls-test-result').textContent).toMatch(/passed local validation/i);
   });
 

@@ -19,6 +19,7 @@ import {
   normalizeGrpcMetadata,
 } from './contracts';
 import { getGrpcAuthMetadataKeys, buildAuthMetadataHeaders } from './grpcAuthPolicy';
+import { prepareGrpcExecuteRequestMetadata } from './grpcAuthPolicy';
 import { sanitizeGrpcOAuth2ErrorText } from './grpcOAuth2Policy';
 import {
   type GrpcRedactionConsumer,
@@ -163,6 +164,39 @@ export function redactGrpcMetadataForExport(
   return redacted;
 }
 
+/**
+ * Call-history path — redact every metadata value that is either owned by the
+ * active Auth config or whose *key name* looks like a secret (api-key, token,
+ * password, authorization, ...). Persisted history must never carry raw secret
+ * material — the leak-scan safety net (`assertNoGrpcSecretLeakage`) rejects the
+ * whole write if it does. Copied grpcurl commands and Replay still resolve real
+ * values at use time from live, in-session sources only (runtime capture cache,
+ * the active tab's own metadata, sibling history entries, or Environment
+ * variables) — never from this persisted, redacted record.
+ */
+export function redactGrpcMetadataForHistory(
+  metadata: Record<string, string> | undefined,
+  auth?: GrpcAuthConfig,
+): Record<string, string> {
+  const authOwnedKeys = new Set(getGrpcAuthMetadataKeys(auth).map((key) => key.toLowerCase()));
+
+  if (!metadata) {
+    if (authOwnedKeys.size === 0) return {};
+    const redacted: Record<string, string> = {};
+    for (const key of authOwnedKeys) {
+      redacted[key] = GRPC_REDACTED_PLACEHOLDER;
+    }
+    return normalizeGrpcMetadata(redacted);
+  }
+
+  const redacted: Record<string, string> = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    const shouldRedact = authOwnedKeys.has(key.toLowerCase()) || isGrpcSecretMetadataKey(key);
+    redacted[key] = shouldRedact ? GRPC_REDACTED_PLACEHOLDER : value;
+  }
+  return normalizeGrpcMetadata(redacted);
+}
+
 export function redactAuthorizationHeader(value: string): string {
   const trimmed = value.trim();
   if (/^bearer /i.test(trimmed)) {
@@ -233,6 +267,26 @@ export function redactGrpcExecuteSnapshotForExport(
   };
 }
 
+export function redactGrpcExecuteSnapshotForHistory(
+  snapshot: GrpcTabExecuteSnapshot,
+): GrpcTabExecuteSnapshot {
+  return {
+    ...snapshot,
+    metadata: redactGrpcMetadataForHistory(snapshot.metadata, snapshot.auth),
+    auth: redactGrpcAuthConfig(snapshot.auth),
+    target: {
+      ...snapshot.target,
+      tlsConfig: redactGrpcTlsConfig(snapshot.target.tlsConfig),
+    },
+    interpolationEnv: snapshot.interpolationEnv
+      ? {
+          ...snapshot.interpolationEnv,
+          env: {},
+        }
+      : undefined,
+  };
+}
+
 /** Phase 4E — surfaces that carry tab runtime fields subject to consumer redaction. */
 export interface GrpcRedactableStudioPayload {
   tlsConfig?: GrpcTlsConfig;
@@ -268,11 +322,14 @@ export function redactGrpcStudioPayloadForConsumer(
   consumer: GrpcRedactionConsumer,
 ): GrpcRedactableStudioPayload {
   const needsExportRedaction = consumer !== 'toast_messages';
+  const needsHistoryReadableMetadata = consumer === 'call_history';
   const redacted: GrpcRedactableStudioPayload = { ...payload };
 
   if (payload.metadata !== undefined) {
     redacted.metadata = needsExportRedaction
-      ? redactGrpcMetadataForExport(payload.metadata, payload.auth)
+      ? (needsHistoryReadableMetadata
+          ? redactGrpcMetadataForHistory(payload.metadata, payload.auth)
+          : redactGrpcMetadataForExport(payload.metadata, payload.auth))
       : redactGrpcMetadataForDisplay(payload.metadata);
   }
 
@@ -285,12 +342,20 @@ export function redactGrpcStudioPayloadForConsumer(
   }
 
   if (payload.lastExecuteSnapshot !== undefined) {
-    redacted.lastExecuteSnapshot = redactGrpcExecuteSnapshotForExport(payload.lastExecuteSnapshot);
+    redacted.lastExecuteSnapshot = needsHistoryReadableMetadata
+      ? redactGrpcExecuteSnapshotForHistory(payload.lastExecuteSnapshot)
+      : redactGrpcExecuteSnapshotForExport(payload.lastExecuteSnapshot);
   }
 
   if (payload.lastResult !== undefined) {
     redacted.lastResult = needsExportRedaction
-      ? redactGrpcCallResultForExport(payload.lastResult, payload.auth)
+      ? (needsHistoryReadableMetadata
+          ? {
+              ...payload.lastResult,
+              headers: redactGrpcMetadataForHistory(payload.lastResult.headers, payload.auth),
+              trailers: redactGrpcMetadataForHistory(payload.lastResult.trailers, payload.auth),
+            }
+          : redactGrpcCallResultForExport(payload.lastResult, payload.auth))
       : redactGrpcCallResultForDisplay(payload.lastResult);
   }
 
@@ -318,12 +383,30 @@ export function prepareGrpcCallHistoryRecord(input: {
   result?: GrpcCallResult;
   error?: GrpcErrorBody;
 }): GrpcCallHistoryRecord {
+  const effectiveSnapshotMetadata = (() => {
+    try {
+      return prepareGrpcExecuteRequestMetadata(
+        input.snapshot.metadata,
+        input.snapshot.auth,
+      ) ?? {};
+    } catch {
+      // Legacy rows may carry conflict shapes from older versions; preserve the
+      // original metadata rather than dropping the record in preview/history.
+      return input.snapshot.metadata;
+    }
+  })();
+
+  const historySnapshot: GrpcTabExecuteSnapshot = {
+    ...input.snapshot,
+    metadata: normalizeGrpcMetadata(effectiveSnapshotMetadata),
+  };
+
   const payload = redactGrpcStudioPayloadForConsumer(
     {
-      lastExecuteSnapshot: input.snapshot,
+      lastExecuteSnapshot: historySnapshot,
       lastResult: input.result,
       lastError: input.error,
-      auth: input.snapshot.auth,
+      auth: historySnapshot.auth,
     },
     'call_history',
   );

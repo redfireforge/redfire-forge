@@ -8,6 +8,7 @@ Expanded local fixture stack for gRPC Studio and Demo Hub validation:
 - Envoy grpc-web proxy fixture (`:50055`)
 - Spring Boot fixture (`:9090` gRPC, `:8080` actuator/HTTP)
 - Go mock servicer profile (`:50061` gRPC, `:50062` health/rules)
+- OAuth2 mock token endpoint (`:50560`)
 
 The stack supports reflection plus all four call types, and includes schema-v2 style payload coverage via `CreateComplexEcho`.
 
@@ -39,6 +40,7 @@ Health probes are also available individually:
 curl http://localhost:50052/health
 curl http://localhost:50453/health
 curl http://localhost:50454/health
+curl http://localhost:50560/health
 curl http://localhost:8080/actuator/health
 ```
 
@@ -57,6 +59,7 @@ curl http://localhost:8080/actuator/health
 | 8080 | HTTP | Spring Boot actuator/health |
 | 50061 | gRPC (HTTP/2, plaintext) | Go mock servicer (rule-driven response fixture) |
 | 50062 | HTTP | Go mock servicer health + rule inspection |
+| 50560 | HTTP | OAuth2 mock token endpoint (`/oauth2/token`) for demo lessons |
 
 ## RPC behaviour
 
@@ -128,6 +131,20 @@ Expected response includes:
 
 ```json
 {"status":"ok","resolvedId":"A-100"}
+```
+
+Quick OAuth2 token endpoint check:
+
+```bash
+curl -s -X POST http://localhost:50560/oauth2/token \
+  -H 'content-type: application/x-www-form-urlencoded' \
+  -d 'grant_type=client_credentials&client_id=client-id-demo&client_secret=client-secret-demo&scope=read%20write'
+```
+
+Expected response includes:
+
+```json
+{"access_token":"rf-demo-client-id-demo-token","token_type":"Bearer","expires_in":3600,"scope":"read write"}
 ```
 
 Quick grpcurl checks for ElizaService (BSR lesson parity):

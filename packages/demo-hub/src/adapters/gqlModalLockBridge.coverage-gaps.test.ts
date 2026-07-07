@@ -5,10 +5,12 @@ import { describe, it, expect } from 'vitest';
 import {
   getEnvIntroStepIndex,
   getProfileIntroStepIndex,
+  GQL_MODAL_LOCK_OPEN,
   openGqlProfileModal,
   readGqlModalLockState,
   resolveGqlModalLockForLessonStep,
   resolveGqlModalLockForStep,
+  syncGqlModalLock,
 } from './gqlModalLockBridge';
 import { GQL } from '@shared/selectors';
 
@@ -53,6 +55,30 @@ describe('gqlModalLockBridge — coverage gaps', () => {
   it('readGqlModalLockState falls back to open when bridge unset', () => {
     delete (window as unknown as Record<string, unknown>).__demoGqlModalLockState;
     expect(readGqlModalLockState()).toEqual({ envAllowed: true, profileAllowed: true });
+  });
+
+  it('readGqlModalLockState returns bridge lock when present', () => {
+    (window as unknown as Record<string, unknown>).__demoGqlModalLockState = {
+      envAllowed: false,
+      profileAllowed: false,
+    };
+    expect(readGqlModalLockState()).toEqual({ envAllowed: false, profileAllowed: false });
+    delete (window as unknown as Record<string, unknown>).__demoGqlModalLockState;
+  });
+
+  it('syncGqlModalLock normalizes payload and invokes bridge callback', () => {
+    let received: unknown = null;
+    (window as unknown as Record<string, unknown>).__demoSetGqlModalLock = (lock: unknown) => {
+      received = lock;
+    };
+
+    syncGqlModalLock({ envAllowed: false, profileAllowed: false });
+
+    expect((window as unknown as Record<string, unknown>).__demoGqlModalLockState).toEqual(GQL_MODAL_LOCK_OPEN);
+    expect(received).toEqual(GQL_MODAL_LOCK_OPEN);
+
+    delete (window as unknown as Record<string, unknown>).__demoSetGqlModalLock;
+    delete (window as unknown as Record<string, unknown>).__demoGqlModalLockState;
   });
 
   it('openGqlProfileModal returns false when bridge missing', () => {

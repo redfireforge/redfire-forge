@@ -44,7 +44,15 @@ echo "[probe] HTTP health checks"
 curl -fsS http://localhost:50052/health >/dev/null
 curl -fsS http://localhost:50453/health >/dev/null
 curl -fsS http://localhost:50454/health >/dev/null
+curl -fsS http://localhost:50560/health >/dev/null
 curl -fsS http://localhost:8080/actuator/health >/dev/null
+
+echo "[probe] OAuth2 mock token endpoint :50560"
+oauth_response="$(curl -fsS -X POST http://localhost:50560/oauth2/token \
+  -H 'content-type: application/x-www-form-urlencoded' \
+  -d 'grant_type=client_credentials&client_id=probe-client&client_secret=probe-secret&scope=read%20write')"
+assert_contains "$oauth_response" '"access_token"' "oauth token response"
+assert_contains "$oauth_response" '"token_type":"Bearer"' "oauth bearer token type"
 
 echo "[probe] plaintext gRPC fixture :50051"
 grpcurl -plaintext -d '{"message":"probe-plaintext"}' \

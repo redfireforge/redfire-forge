@@ -16,8 +16,10 @@ vi.mock('./grpcCrossFeatureExport', () => ({
 }));
 
 import {
+  clearAllRuntimeGrpcHistoryMetadata,
   captureGrpcCallHistoryFromOutcome,
   captureGrpcCallHistoryFromStreamTerminal,
+  getRuntimeGrpcHistoryMetadata,
 } from './grpcStudioCallHistoryCapture';
 
 const TS = '2026-06-29T12:00:00.000Z';
@@ -95,6 +97,70 @@ describe('grpcStudioCallHistoryCapture coverage gaps', () => {
     });
 
     await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    globalThis.window = originalWindow;
+  });
+
+  it('does not store runtime metadata when append result has no entry id', async () => {
+    appendMock.mockResolvedValueOnce(undefined);
+
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: {
+        ...snapshot(),
+        metadata: {
+          'x-test': '1',
+        },
+      },
+      result: { grpcStatus: 0, durationMs: 1, metadata: {}, body: {} },
+    });
+
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    expect(getRuntimeGrpcHistoryMetadata('missing-id')).toBeUndefined();
+  });
+
+  it('returns a defensive clone of runtime metadata', async () => {
+    appendMock.mockResolvedValueOnce({ id: 'entry-1' });
+
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: {
+        ...snapshot(),
+        metadata: {
+          'x-token': 'abc',
+        },
+      },
+      result: { grpcStatus: 0, durationMs: 1, metadata: {}, body: {} },
+    });
+
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    const first = getRuntimeGrpcHistoryMetadata('entry-1');
+    expect(first).toEqual({ 'x-token': 'abc' });
+    if (first) first['x-token'] = 'mutated';
+    expect(getRuntimeGrpcHistoryMetadata('entry-1')).toEqual({ 'x-token': 'abc' });
+  });
+
+  it('clearAllRuntimeGrpcHistoryMetadata swallows sessionStorage remove failures', async () => {
+    appendMock.mockResolvedValueOnce({ id: 'entry-2' });
+
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: {
+        ...snapshot(),
+        metadata: { 'x-request-id': 'abc-123' },
+      },
+      result: { grpcStatus: 0, durationMs: 1, metadata: {}, body: {} },
+    });
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+
+    const originalWindow = globalThis.window;
+    const removeItem = vi.fn(() => {
+      throw new Error('no-storage');
+    });
+    (globalThis as unknown as { window: { sessionStorage: { removeItem: (key: string) => void } } }).window = {
+      sessionStorage: {
+        removeItem,
+      },
+    };
+
+    expect(() => clearAllRuntimeGrpcHistoryMetadata()).not.toThrow();
+    expect(removeItem).toHaveBeenCalledWith('grpc-runtime-history-metadata');
     globalThis.window = originalWindow;
   });
 });
