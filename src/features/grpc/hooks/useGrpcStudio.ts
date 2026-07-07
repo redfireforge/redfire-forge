@@ -241,11 +241,11 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
   }, [core.tabsRef, core.streamDisposeRef]);
 
   useEffect(() => {
-    const tab = core.session.tabs.find((entry) => entry.id === core.activeTabId);
+    const tab = core.tabsRef.current.find((entry) => entry.id === core.activeTab.id);
     if (tab && tabAwaitingStreamEvents(tab)) {
-      attachStreamEventsForTab(core.activeTabId);
+      attachStreamEventsForTab(core.activeTab.id);
     }
-  }, [core.activeTabId, attachStreamEventsForTab, core.session.tabs]);
+  }, [core.activeTab, attachStreamEventsForTab, core.tabsRef]);
 
   const hydratedVaultOwnersRef = useRef(new Set<string>());
 
@@ -267,12 +267,12 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
   }, [vaultHydrationKey, core.activeTab, core.activeTabDescriptor, core.updateTab]);
 
   useEffect(() => {
-    for (const tab of core.tabs) {
+    for (const tab of core.tabsRef.current) {
       if (canChangeGrpcTabTransportMode(tab)) {
         syncGrpcStudioTabTransport(tab);
       }
     }
-  }, [core.tabs]);
+  }, [core.tabsRef]);
 
   const setTabTransportMode = useCallback((tabId: string, mode: GrpcStudioTransportMode) => {
     const tab = core.sessionRef.current.tabs.find((entry) => entry.id === tabId);
