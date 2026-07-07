@@ -1,8 +1,8 @@
 # gRPC Studio — Demo Lesson Plan
 
-> **Last updated:** 2026-07-04 (L4 shipped; all Docker fixtures done via Phase 12D; workflow node config modals complete; native diagnostics tab added; selector corrections; L15 Tauri Desktop lesson added)
-> **Status:** Authoring in progress — 4/15 shipped (L1–L4)
-> **Lessons:** 15 total — 4 shipped (L1–L4 wrappers exist), 11 planned
+> **Last updated:** 2026-07-05 (L6 Transport Modes shipped as roster #19; L5 TLS/mTLS previously shipped; all Docker fixtures done via Phase 12D; workflow node config modals complete; native diagnostics tab added; selector corrections; L15 Tauri Desktop lesson added)
+> **Status:** Authoring in progress — 6/15 shipped (L1–L6)
+> **Lessons:** 15 total — 6 shipped (L1–L6 wrappers exist), 9 planned
 > **Reference:** [`grpc-studio-plan.md`](grpc-studio-plan.md) Phase 12 · [`demo-player-lessons.mdc`](../../../../.cursor/rules/demo-player-lessons.mdc)
 
 ---
@@ -54,10 +54,10 @@ The lesson contract in `grpc-lesson-contract/roster.ts` currently registers the 
 | 2 | `grpc-schema-discovery` | Schema Discovery: Reflection & Proto Import | Foundation | ~8 min | ✅ Shipped |
 | 3 | `grpc-streaming` | Streaming RPCs: All Four Patterns | Foundation | ~7 min | ✅ Shipped |
 | 4 | `grpc-metadata-auth` | Request Metadata & Authentication | Configuration | ~5 min | ✅ Shipped |
-| 5 | `grpc-tls-mtls` | TLS, mTLS & Certificate Configuration | Configuration | ~5 min | 🔲 Planned |
-| 6 | `grpc-transport-modes` | Transport Modes: Express, gRPC-Web & Spring Servlet | Configuration | ~6 min | 🔲 Planned |
-| 7 | `grpc-spring-boot` | Spring Boot & Spring gRPC Integration | Configuration | ~6 min | 🔲 Planned |
-| 8 | `grpc-proto-form` | Proto Form Builder: Schema-Driven Request Editing | Productivity | ~5 min | 🔲 Planned |
+| 5 | `grpc-tls` | TLS, mTLS & Certificate Configuration | Configuration | ~5 min | ✅ Shipped |
+| 6 | `grpc-transport-modes` | Transport Modes: Express, gRPC-Web & Spring Servlet | Configuration | ~6 min | ✅ Shipped |
+| 7 | `grpc-spring-boot` | Spring Boot & Spring gRPC Integration | Configuration | ~6 min | ✅ Shipped |
+| 8 | `grpc-proto-form` | Proto Form Builder: Schema-Driven Request Editing | Productivity | ~5 min | ✅ Shipped |
 | 9 | `grpc-env-collections` | Environments, Collections & History | Productivity | ~6 min | 🔲 Planned |
 | 10 | `grpc-grpcurl` | grpcurl Interop, Replay & Sharing | Productivity | ~4 min | 🔲 Planned |
 | 11 | `grpc-load-testing` | Load Testing: Concurrent Calls & Metrics | Advanced | ~6 min | 🔲 Planned |
@@ -390,18 +390,21 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 5 — TLS, mTLS & Certificate Configuration
 
-> **ID:** `grpc-tls-mtls` | **Track:** Configuration | **Duration:** ~5 min | **Status:** 🔲 Planned
+> **ID:** `grpc-tls` | **Track:** Configuration | **Duration:** ~5 min | **Status:** ✅ Shipped
+> **Wrapper:** `packages/demo-hub/src/lessons/protocols/grpc-tls.ts`
+> **Helpers:** `packages/demo-hub/src/lessons/protocols/grpc-lesson-helpers.ts` + lesson-local TLS modal helpers
 > **Docker fixture:** TLS echo server (`:50443`) and mTLS echo server (`:50444`) available in `docker/grpc/` — Phase 12D ✅
 
-**Description:** Connect to a TLS-protected gRPC server, paste a CA certificate to validate server identity, configure mutual TLS with a client certificate and private key, and run the TLS connection test to verify the handshake before executing a call.
+**Description:** Connect to a TLS-protected gRPC server, paste a CA certificate to validate server identity, configure mutual TLS with a client certificate and private key, run the local TLS validation test, send calls over both the TLS and mTLS channels, and learn how PEM material is kept in an in-session secret vault.
 
 **Prerequisites:** Lesson 1 (`grpc-first-call`).
 
 **Learning objectives:**
 - Understand the three TLS modes: Plaintext, TLS, mTLS
 - Paste PEM-encoded CA cert, client cert, and private key into the secret fields
-- Use the server name override field for CN/SAN hostname mismatches
-- Run the TLS connection test to verify a secure connection before sending a call
+- Use the server name override (SNI) field for CN/SAN hostname mismatches
+- Run the local TLS validation test before sending a call
+- Send unary calls over both TLS and mTLS channels
 
 **Key concepts:**
 | Term | Definition |
@@ -409,90 +412,100 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 | TLS (Transport Layer Security) | Encrypts the gRPC channel. Requires the server's certificate to be trusted by the client's CA. |
 | Mutual TLS (mTLS) | Both client and server present certificates — the server verifies the client's identity in addition to the usual server-side TLS. |
 | CA Certificate | The Certificate Authority cert used to validate the server's identity. |
-| Server name override | Used when the server certificate CN/SAN does not match the target hostname (e.g. `localhost` vs `127.0.0.1`). |
+| Server name override (SNI) | Used when the server certificate CN/SAN does not match the target hostname (e.g. `localhost` vs `127.0.0.1`). |
 | Secret vault | PEM content is held in an in-session secret vault — never written to localStorage or included in collection/history exports. |
 
-**Steps (9):**
+**UI access — TLS lives behind the connection-bar badge, NOT the settings drawer.** The **TLS badge** (`GRPC.TLS_BADGE`) in the connection bar opens the **TLS / mTLS Configuration** modal (`GRPC.TLS_MODAL_BODY`). The gear/session-settings drawer has no TLS tab. The modal renders `GrpcTlsConfigBody` inside the shared `TlsConfigModal` (`testIdPrefix="grpc-tls"`).
 
-1. **Intro: TLS panel** — Click **gear icon** → navigate to **TLS / mTLS** (`GRPC.SETTINGS_NAV_ITEM('tls')`). Show the three mode buttons. Note the labels: **Plaintext** (no encryption), **TLS**, **mTLS**.
+**Steps (8):**
 
-2. **Observe plaintext failure** — Change target to `localhost:50443` (TLS-only server). Click **Send**. The call fails with a TLS handshake error — the server requires encryption but the mode is still Plaintext.
+1. **TLS badge & channel modes** — Spotlight `GRPC.TLS_BADGE`, open the modal, and spotlight each of the three mode buttons in turn (`GRPC.TLS_MODE('disabled'|'tls'|'mtls')`). Explain that Auth (credentials) and TLS (channel encryption) are independent. Close the modal. Step id: `grpc5-intro`.
 
-3. **Switch to TLS mode** — Click the **TLS** button (`GRPC.TLS_MODE('tls')`). New fields appear: CA certificate and server name override.
+2. **Plaintext Reflect fails on a TLS server** — Set target `localhost:50443`. **Changing the target clears the service tree** — click **Reflect** (not Send). With Plaintext still active, reflection fails; spotlight the error in the Services panel (`GRPC.EXPLORER_ERROR`). Step id: `grpc5-plaintext-fail`. **Verify:** `GRPC.SERVICE_EXPLORER`.
 
-4. **Paste CA cert** — Paste the contents of `docker/grpc/certs/ca.pem` into the CA Certificate secret field (`GRPC.TLS_PANEL`). The field is masked and stored in the session vault.
+3. **Configure TLS: CA cert & test** — Open modal, click **TLS** (`GRPC.TLS_MODE('tls')`), paste the fixture `ca.crt` into `grpc-tls-server-ca`, spotlight the **Set** badge, click **Test TLS Connection** (`GRPC.TLS_MODAL_TEST`) and spotlight the result (`GRPC.TLS_TEST_RESULT`), then **Save** (`GRPC.TLS_MODAL_SAVE`). Badge flips to 🔒 TLS. Step id: `grpc5-configure-tls`. **Verify:** `GRPC.TLS_BADGE`.
 
-5. **Test TLS connection** — Click **Test TLS Connection** (`GRPC.TLS_MODAL_TEST`). A local validation check runs; `grpc-tls-test-result` shows the result. The TLS badge (`GRPC.TLS_BADGE`) in the connection bar updates.
+4. **Reflect + Send over TLS** — With TLS enabled on `:50443`, click **Reflect**, select **Echo**, then **Send**; call returns OK. Spotlight `GRPC.RESPONSE_BODY` then the badge. Step id: `grpc5-send-tls`. **Verify:** `GRPC.RESPONSE_BODY`.
 
-6. **Send over TLS** — Close the drawer. Click **Send** on a unary Echo. The call succeeds. Show the TLS badge active in the connection bar.
+5. **Server name override (SNI)** — Open modal, type `localhost` into the SNI hostname field (`grpc-tls-server-name`), spotlight the filled value, **Save**. Step id: `grpc5-server-name`. **Verify:** `GRPC.TLS_BADGE`.
 
-7. **Server name override** — Change target to `127.0.0.1:50443` (IP — cert CN is `localhost`). The TLS test fails with an x509 hostname mismatch. Add `localhost` to the **Server Name Override** field. Test again — succeeds.
+6. **Configure mTLS** — Set target `localhost:50444`, open modal, click **mTLS** (`GRPC.TLS_MODE('mtls')`). Spotlight and fill the new **Client Certificate** (`grpc-tls-client-cert`) and **Client Private Key** (`grpc-tls-client-key`) fields (CA carried over). **Save** → badge flips to 🛡 mTLS. Step id: `grpc5-configure-mtls`. **Verify:** `GRPC.TLS_BADGE`.
 
-8. **mTLS** — Switch to **mTLS** mode (`GRPC.TLS_MODE('mtls')`). Two additional secret fields appear: Client Certificate and Client Key. Paste `client.pem` and `client-key.pem` from the fixture certs directory. Run the TLS test — both certificates are validated.
+7. **Reflect + Send over mTLS** — With mTLS enabled on `:50444`, click **Reflect**, select **Echo**, then **Send**; server validates the client cert and returns OK. Spotlight `GRPC.RESPONSE_PANEL` then the badge. Step id: `grpc5-send-mtls`. **Verify:** `GRPC.RESPONSE_PANEL`.
 
-9. **Secret vault reminder** — Point out the lock icon on cert fields: the PEM content stays in the in-session vault and is stripped from all collection exports, history records, and grpcurl output.
+8. **Secret vault & cleanup** — Reopen modal, spotlight the **Set** badges (`.ws-tls-field-set-badge`) and a **Clear stored** control, explain the vault guarantees, then **Reset to Defaults** (`GRPC.TLS_MODAL_RESET`) back to Plaintext and restore target to `localhost:50051`. Step id: `grpc5-secret-vault`. **Verify:** `GRPC.CONNECTION_BAR`.
 
-**Verify:** `GRPC.TLS_BADGE` is active in connection bar; Echo call returns OK over TLS.
+**Verify (lesson-level):** TLS badge reflects the active mode after steps 3/6; Echo returns OK over TLS (step 4) and mTLS (step 7); channel is reset to Plaintext at cleanup.
 
 **Implementation notes:**
-- PEM input is via `GrpcSecretField` (paste, not file-picker) — there are no "Upload" buttons for certs
-- TLS test (`GRPC.TLS_MODAL_TEST`) performs local credential validation, not a live handshake probe
-- TLS test result shown in `grpc-tls-test-result` — add `GRPC.TLS_TEST_RESULT` to selectors
-- Docker TLS servers (`:50443`, `:50444`) and cert material in `docker/grpc/certs/` are available — Phase 12D ✅
+- **Access path:** TLS badge (`GRPC.TLS_BADGE`) opens the modal via `openRequest` increment on the headless `GrpcTlsPanel`. The settings drawer does **not** host TLS.
+- **Target change clears reflection:** `updateTab` with a new target invalidates the descriptor cache and method binding — each TLS/mTLS target requires a fresh **Reflect** + method selection before Send.
+- **preAction is badge-driven, not modal-driven:** helpers read the connection-bar badge label (`currentTlsBadgeMode()`) to decide whether reconfiguration is needed, so the "Preparing" phase never flashes the modal during normal sequential playback. The modal is only opened (quietly) on rapid-Next / restart recovery.
+- PEM input is via masked `PemField` textareas (paste, not file-picker) — no "Upload" buttons. A **Set** badge marks vault-stored fields; **Clear stored** wipes them.
+- **Save is disabled unless the modal is dirty** (`disabled={!dirty}`). Reset-to-defaults marks dirty, re-enabling Save.
+- TLS test (`GRPC.TLS_MODAL_TEST`) performs local PEM/credential validation (`grpc-tls-test-result` = `GRPC.TLS_TEST_RESULT`), not a live handshake probe.
+- Fixture PEM material is embedded in the wrapper (`DEMO_CA_CERT`, `DEMO_CLIENT_CERT`, `DEMO_CLIENT_KEY`) from `docker/grpc/certs/` — Phase 12D ✅
+- Highlights use `showSpotlightRing` (a persistent box, not a flash); multi-element steps spotlight one element at a time with a digest pause.
 
 ---
 
 ---
 
-## Lesson 6 — Transport Modes: Express, gRPC-Web & the Browser Proxy Model
+## Lesson 6 — Transport Modes: Express, gRPC-Web & Spring Servlet
 
-> **ID:** `grpc-transport-modes` | **Track:** Configuration | **Duration:** ~6 min | **Status:** 🔲 Planned
-> **Docker fixture:** Envoy sidecar on `:50055` available in `docker/grpc/` — Phase 12D ✅
+> **ID:** `grpc-transport-modes` | **Roster #:** 19 | **Track:** Configuration | **Duration:** ~6 min | **Status:** ✅ Shipped (GRPC-19)
+> **Docker fixture:** Go echo server on `:50051` + Envoy gRPC-Web sidecar on `:50055` — Phase 12D ✅
 
-**Description:** Understand why gRPC requires a proxy in browsers and how RedfireForge's transport modes serve different deployment scenarios. Switch between Express proxy, gRPC-Web browser-direct, and Spring Servlet. Observe the Express fallback retry when browser-direct fails. Spring Boot-specific configuration is covered in depth in Lesson 7.
+**Description:** Understand why gRPC requires a proxy in browsers and how RedfireForge's transport modes serve different deployment scenarios. Switch between Express proxy, gRPC-Web browser-direct, and Spring Servlet. Observe the Express fallback retry when browser-direct fails. Confirm transport is configured per-tab. Spring Boot-specific configuration is covered in depth in Lesson 15 (Spring Boot).
 
 **Prerequisites:** Lesson 1 (`grpc-first-call`).
 
 **Learning objectives:**
 - Explain why browsers cannot call gRPC services directly without a proxy or grpc-web adapter
-- Switch to gRPC-Web browser-direct mode for envoy-fronted services
+- Switch to gRPC-Web browser-direct mode for Envoy-fronted services
 - Recognise the retry-with-Express offer when browser-direct transport fails
-- Enable gzip compression on a per-tab basis
-- Understand that transport is per-tab and independent across Studio sessions
+- Enable gzip compression and read the live header preview
+- Understand that transport is per-tab and independent across Studio tabs
+- Identify the fourth mode, Tauri Native, and why it is desktop-only
 
 **Key concepts:**
 | Term | Definition |
 |---|---|
-| Express proxy | Default transport: RedfireForge's Node server acts as a gRPC proxy via `@grpc/grpc-js`. Works with all servers. |
-| gRPC-Web | A browser-compatible subset of gRPC using HTTP/1.1 or HTTP/2 with a special framing codec. Requires server-side or proxy (e.g. envoy) support. |
-| Spring Servlet | HTTP/1.1 POST transport wrapping gRPC payloads — compatible with Spring Boot servlet mode. Full Spring Boot walkthrough in Lesson 7. |
-| Tauri Native | Desktop-only transport: uses Rust `tonic` for a direct native gRPC channel. Not available in the web app. |
-| Express retry | When browser-direct fails (server lacks gRPC-Web support), a **Retry with Express Proxy** button appears in the response panel. |
+| Express proxy | Default transport: RedfireForge's Node server acts as a gRPC proxy via `@grpc/grpc-js`. Works with all servers and call types, on web and desktop. |
+| gRPC-Web | A browser-compatible subset of gRPC using `fetch` with grpc-web framing. Requires server-side or proxy (e.g. Envoy) support. Unary + server streaming only. |
+| Spring Servlet | HTTP/1.1 POST transport (`/<service>/<method>`) — compatible with Spring Boot servlet mode. Unary + server streaming only. Full Spring Boot walkthrough in Lesson 15. |
+| Tauri Native | Desktop-only transport: uses Rust `tonic` for a direct native gRPC channel, no Node.js hop. Grayed out with a "Desktop only" reason label in the web app. |
+| Express retry | When browser-direct fails (server lacks gRPC-Web/Servlet support), a **Retry with Express Proxy** button appears in the response panel and switches the tab's transport permanently. |
+| Reflection routing | `Reflect` always dispatches through the Express backend regardless of the tab's selected transport — only the actual RPC **call** uses the tab's chosen mode. |
 
-**Steps (7):**
+**Steps (8):**
 
-1. **Intro: Transport panel** — Open Settings drawer → **Transport** (`GRPC.SETTINGS_NAV_ITEM('transport')`). Show all four mode options: **Express Proxy**, **gRPC-Web**, **Spring Servlet**, **Tauri Native** (desktop only, grayed out in web). Explain the browser limitation: raw HTTP/2 gRPC is blocked by browsers, requiring a proxy or grpc-web adapter.
+1. **`grpc19-intro`** — Open Settings drawer → **Transport** (`GRPC.SETTINGS_NAV_ITEM('transport')`). Spotlight each of the four mode cards in turn — **Express Proxy**, **Tauri Native** (grayed out on web), **gRPC-Web**, **Spring Servlet** — with a short digest pause on each, landing back on Express before closing. Explain the browser limitation: raw HTTP/2 gRPC is blocked by `fetch`/XHR, requiring a proxy or grpc-web adapter.
 
-2. **Express proxy (default)** — Confirm **Express Proxy** is selected (`GRPC.TRANSPORT_MODE('express')`). Send an Echo call to `localhost:50051`. Succeeds. This is the universally safe default.
+2. **`grpc19-express-baseline`** — With **Express Proxy** active (the default), send an Echo call to `localhost:50051`. Succeeds — this is the control case kept in mind for the rest of the lesson.
 
-3. **Switch to gRPC-Web** — Select **gRPC-Web** (`GRPC.TRANSPORT_MODE('grpc-web')`). Change target to `localhost:50055` (envoy sidecar). Send Echo. The call goes directly from the browser — no Node proxy hop.
+3. **`grpc19-grpc-web-live`** — Switch to **gRPC-Web**, change target to `localhost:50055` (Envoy sidecar). Changing target clears the service tree, so **Reflect** runs again (always via Express) before Echo can be selected. Send — the call succeeds fully browser-direct, no Node hop.
 
-4. **gRPC-Web fallback** — Switch target back to `localhost:50051` (raw gRPC, no gRPC-Web support). Send Echo with gRPC-Web mode. The call fails. A **Retry with Express Proxy** button (`grpc-retry-express-btn`) appears in the response panel. Click it — call retries and succeeds via Express.
+4. **`grpc19-grpc-web-fallback`** — Still in gRPC-Web mode, switch target back to `localhost:50051` (raw gRPC, no grpc-web support). Reflect succeeds (Express-routed) but **Send** fails — the browser transport hint (`GRPC.RESPONSE_BROWSER_TRANSPORT_HINT`) explains why. Spotlight and click **Retry with Express Proxy** (`GRPC.RETRY_EXPRESS_BTN`) — the tab switches transport and the same call now succeeds.
 
-5. **Spring Servlet — brief introduction** — Select **Spring Servlet** (`GRPC.TRANSPORT_MODE('spring-servlet')`). Explain in one sentence: this is for Spring Boot servers running in servlet mode on `:8080`. Full configuration and a live Spring Boot walkthrough are in **Lesson 7**.
+5. **`grpc19-spring-servlet-intro`** — Select **Spring Servlet**. One-sentence introduction: HTTP/1.1 POST to `/<service>/<method>`, matching Spring Boot servlet mode. Full walkthrough deferred to **Lesson 15**.
 
-6. **Compression** — Open Settings → **Compression** (`GRPC.SETTINGS_NAV_ITEM('compression')`). Enable and select **gzip** (`GRPC.COMPRESSION_ALGORITHM`). Send a call. Response headers show `grpc-encoding: gzip`.
+6. **`grpc19-compression`** — Back on Express Proxy, open Settings → **Compression** (`GRPC.SETTINGS_NAV_ITEM('compression')`). Enable and select **gzip** (`GRPC.COMPRESSION_ALGORITHM`). Spotlight the live **Effective headers** preview (`GRPC.COMPRESSION_PREVIEW`) showing `grpc-encoding: gzip`, then send a call to confirm it still succeeds.
 
-7. **Per-tab transport** — Open a second Studio tab. Set it to gRPC-Web while tab 1 stays on Express Proxy. Transport is per-tab — changing one tab does not affect another session.
+7. **`grpc19-per-tab`** — Confirm tab 1 is Express Proxy. Add a second tab (`GRPC.ADD_TAB`), switch **only** the new tab to gRPC-Web, then switch back to tab 1 and reopen Transport — it still reads Express Proxy, unaffected. Close the extra tab to tidy up.
 
-8. **Tauri Native (desktop only)** — On desktop (Tauri app), **Tauri Native** (`GRPC.TRANSPORT_MODE('tauri-native')`) is active rather than grayed out. Switch to it and send the Echo call — the request routes through a direct Rust `tonic` channel with no Node.js proxy hop. Switch back to Express Proxy before continuing. **Full walkthrough** — channel diagnostics, streaming via native stack, and Mock Network Listener — is in **Lesson 15 (Tauri Desktop)**. `preAction` must guard with `isTauri()` and skip this step on web.
+8. **`grpc19-tauri-native`** — Open Transport again and spotlight the **Tauri Native** card. On web it is disabled with a `GRPC.TRANSPORT_MODE_REASON('tauri')` "Desktop only" label; on desktop (Tauri) it is selectable like any other mode. Full interactive walkthrough (channel diagnostics, native streaming, Mock Network Listener) is **Lesson 15 (Tauri Desktop)**.
 
-**Verify:** `GRPC.TRANSPORT_MODE('grpc-web')` is active in step 3; `grpc-retry-express-btn` appears when gRPC-Web call fails against a non-gRPC-Web server.
+**Verify:** `GRPC.RESPONSE_BODY` after each successful send (steps 2, 3, 6); `GRPC.RESPONSE_PANEL` shows the failure + retry flow in step 4; `GRPC.TAB_BAR` confirms per-tab isolation in step 7.
 
 **Implementation notes:**
-- Retry button: `grpc-retry-express-btn` in `GrpcResponsePanel` (unary); `grpc-stream-retry-express-btn` in `GrpcCallPanel` (streaming) — add `GRPC.RETRY_EXPRESS_BTN` and `GRPC.STREAM_RETRY_EXPRESS_BTN` to `src/shared/selectors/grpc.ts`
-- Envoy sidecar compose config needed for step 3; Spring Boot Docker fixture lives in Lesson 7
-- Spring Servlet step (5) is intentionally brief — it just introduces the concept and directs learners to L7
+- Roster entry added as **#19** (not renumbered into the historical 1–18 sequence) — step IDs use the `grpc19-` prefix per lesson-contract convention (`grpc\d+-...`).
+- Retry button: `grpc-retry-express-btn` in `GrpcResponsePanel` (unary); `grpc-stream-retry-express-btn` in `GrpcCallPanel` (streaming) — both already exist; added `GRPC.RETRY_EXPRESS_BTN`, `GRPC.STREAM_RETRY_EXPRESS_BTN`, `GRPC.RESPONSE_ERROR_MESSAGE`, `GRPC.RESPONSE_BROWSER_TRANSPORT_HINT`, `GRPC.TRANSPORT_MODE_REASON`, `GRPC.TRANSPORT_LOCKED_HINT` to `src/shared/selectors/grpc.ts`.
+- `Reflect` is Express-routed regardless of transport mode — step 3/4 rely on this so re-reflecting after a target change always succeeds even while gRPC-Web is selected.
+- Clicking **Retry with Express Proxy** permanently switches the tab's transport mode to Express — step 5's `preAction` explicitly restores Express before introducing Spring Servlet.
+- Compression is demonstrated over Express Proxy (not gRPC-Web) for reliability — compression negotiation is guaranteed end-to-end at the HTTP/2 gRPC layer there.
+- Step 8 does not attempt a live Tauri call in a web-only lesson run — it spotlights the disabled/enabled state and defers the full demo to Lesson 15, matching the Spring Servlet brief-intro pattern in step 5.
+- Shared spotlight/target/settings-drawer helpers (`spotlightAndPause`, `spotlightElementAndPause`, `setGrpcTargetQuiet`, `openGrpcSettingsDrawerQuiet`) were extracted from `grpc-tls.ts` / `grpc-metadata-auth.ts` duplicates into `grpc-lesson-helpers.ts` as part of this lesson's implementation, and both lessons now import the shared versions.
 
 ---
 
@@ -561,8 +574,8 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 8 — Proto Form Builder: Schema-Driven Request Editing
 
-> **ID:** `grpc-proto-form` | **Track:** Productivity | **Duration:** ~5 min | **Status:** 🔲 Planned
-> **Docker fixture:** `CreateComplexEcho` method with nested/repeated/map/oneof/WKT fields available in `echo.proto` — Phase 12D ✅
+> **ID:** `grpc-proto-form` | **Track:** Productivity | **Duration:** ~5 min | **Status:** ✅ Shipped
+> **Docker fixture:** `CreateComplexEcho` on the Go echo fixture (`docker/grpc/proto/echo.proto` + `go-server/main.go`) with nested/repeated/map/oneof/WKT fields — same `GO_ECHO_FIXTURE` as Lessons 1–4, no separate rebuild required.
 
 **Description:** Use the Proto Form Builder to compose complex nested messages without writing JSON by hand. Explore scalar fields, repeated arrays, map entries, oneof groups, and the `google.protobuf.Timestamp` well-known type. Sync between form mode and JSON mode.
 
@@ -587,32 +600,35 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 1. **Intro: Form vs JSON** — Show the two request-body tabs: **Form** (`GRPC.REQUEST_TAB_FORM`) and **JSON** (`GRPC.REQUEST_TAB_JSON`). Explain that Form is driven by the loaded proto schema — only possible with typed RPC tools.
 
-2. **Select complex method** — Select `echo.EchoService / CreateComplexEcho` from the Service Explorer. The form renders all field types defined in the proto.
+2. **Select complex method** — Select `echo.EchoService / CreateComplexEcho` from the Service Explorer. The form renders one row per top-level field: `message` (string), `labels` (repeated string), `attributes` (map<string, string>), `shipping_address` (nested message), `deadline` (`google.protobuf.Timestamp`), and the `payment_method` oneof (`card` / `invoice`).
 
-3. **Scalar fields** — Fill string, int32, bool, and enum fields. Notice type labels beside each input.
+3. **Scalar field** — Fill the `message` string field. Notice the `#1 optional` note and `string` type badge beside the input — this fixture's only top-level scalar is a string; other RedfireForge schemas render the same badge/note convention for int32, bool, and enum fields.
 
-4. **Nested message** — Expand a nested `Address` message field. Sub-fields render inline. Fill street, city, and country. Switch to the JSON tab to see the nested object representation.
+4. **Nested message (JSON sub-editor)** — Locate the `shipping_address` row. Nested `message`-type fields render as a small **inline JSON textarea**, not expanded sub-fields — this keeps the form compact for arbitrarily deep schemas. Type a JSON object with `street`, `city`, and `country` directly into the textarea. Switch to the JSON tab to confirm the same nested object appears under `shipping_address`.
 
-5. **Repeated field** — Click **+ Add item** on a `repeated string tags` field. Add three entries. Remove the second via the trash icon. Switch to JSON — verify a two-element array.
+5. **Repeated field** — Click **+ Add item** (`GRPC.PROTO_FIELD_REPEATED_ADD('labels')`) on the `labels` row three times, filling each new text input. Remove the second entry via its `×` button. Switch to JSON — verify a two-element `labels` array.
 
-6. **Map field** — Add two entries to a `map<string, string> labels` field: `env: prod` and `region: us-east`. Switch to JSON — verify the object shape.
+6. **Map field** — Click **+ Add entry** (`GRPC.PROTO_FIELD_MAP_ADD('attributes')`) on the `attributes` row twice: `env` → `prod` and `region` → `us-east`. Switch to JSON — verify the `attributes` object shape.
 
-7. **Oneof group** — Show a `oneof payment_method` group (e.g. `card` or `invoice`). Select **Card** — card sub-fields appear. Switch to **Invoice** — card fields clear, invoice fields appear.
+7. **Oneof group** — Show the `payment_method` oneof (`GRPC.PROTO_ONEOF('payment_method')`) with **card** / **invoice** radio pills. Select **card** — a JSON sub-editor for `CardPayment` appears; type `card_number`/`expiry`. Switch to **invoice** — the card sub-editor is replaced by an `InvoicePayment` sub-editor (`invoice_number`/`due_date`); the two members are mutually exclusive, exactly like a native proto oneof.
 
-8. **Timestamp WKT** — Expand a `google.protobuf.Timestamp deadline` field. A datetime picker renders instead of raw `seconds`/`nanos` JSON. Pick a date/time. Switch to JSON to verify the encoded value.
+8. **Timestamp WKT** — Locate the `deadline` field. `google.protobuf.Timestamp` renders as a **plain text input** pre-filled with the current instant as an RFC3339/ISO8601 string (not a `seconds`/`nanos` JSON object, and not a native date picker) — point out the placeholder hint and edit the value. Switch to JSON to confirm the same ISO string appears verbatim under `deadline`.
 
-9. **Edit in JSON then return** — Switch to the JSON tab. Manually edit a field value. Switch back to Form — the field reflects the updated value. The two views stay in sync.
+9. **Edit in JSON then return** — Switch to the JSON tab. Manually edit the `message` value in the raw JSON. Switch back to Form — the `message` field reflects the updated value. The two views stay in sync in both directions.
 
-10. **Send and verify** — Click **Send**. The server should accept and echo back the complex message, confirming the proto encoding was correct.
+10. **Send and verify** — Click **Send**. The server echoes back `request_id`, `message`, `labels`, `attributes`, `shipping_address`, `deadline`, and the active `payment_method` member, confirming the proto encoding for every field type was correct.
 
 **Verify:** `GRPC.PROTO_FORM` renders with nested and repeated controls; `GRPC.REQUEST_TAB_FORM` and `GRPC.REQUEST_TAB_JSON` switch correctly.
 
-**Implementation notes:**
-- `CreateComplexEcho` method is available in `docker/grpc/proto/echo.proto` — Phase 12D ✅. The Docker image will need to be rebuilt locally before authoring.
+**Implementation notes (updated after live verification):**
+- `CreateComplexEcho` ships on the **Go echo fixture** (`docker/grpc/proto/echo.proto` + `docker/grpc/go-server/main.go`), not a separate rebuild — confirmed live via `grpcurl describe echo.ComplexEchoRequest` against the running `grpc-test-server` container. Uses the standard `GO_ECHO_FIXTURE` / `GO_ECHO_DOCKER` roster fixture, same as Lessons 1–4.
+- Field names in the actual fixture: `message` (string), `labels` (repeated string — **not** `tags`), `attributes` (map<string,string> — **not** `labels`), `shipping_address` (nested `ShippingAddress` message), `deadline` (`google.protobuf.Timestamp`), `payment_method` oneof with `card` (`CardPayment`) / `invoice` (`InvoicePayment`) members.
+- There is **no top-level int32/bool/enum scalar** on `ComplexEchoRequest` — step 3 above was corrected to only cover the `message` string field.
+- **Nested messages and oneof message members do not render as expanded inline sub-fields.** `GrpcProtoNestedMessageFieldRow` and the oneof's active message member both delegate to `GrpcProtoJsonObjectEditor` — a `<textarea>` JSON sub-editor. This applies to `shipping_address`, `card`, and `invoice`. Steps 4 and 7 above were corrected accordingly.
+- **Timestamp WKT does not render a datetime picker.** `GrpcProtoWktScalarFieldRow` renders a plain `<input type="text">` with placeholder `RFC3339 / ISO8601`, defaulting to `new Date().toISOString()`. Step 8 above was corrected accordingly.
 - There is **no "Generate Default"** button — do not include a step for it
-- Repeated/map add buttons use CSS classes (no `data-testid`) — add `data-testid` attributes to `GrpcProtoRepeatedMapRows.tsx` before authoring: `grpc-proto-repeated-add` and `grpc-proto-map-add`
-- Selectors to add: `GRPC.PROTO_FIELD_REPEATED_ADD`, `GRPC.PROTO_FIELD_MAP_ADD` (after adding testids above)
-- Existing: `GRPC.REQUEST_TAB_FORM`, `GRPC.REQUEST_TAB_JSON`, `GRPC.PROTO_ONEOF(oneofName)`, `GRPC.PROTO_ONEOF_RADIO(oneofName, member)`
+- All required `data-testid` attributes already exist in the codebase — no component changes were needed: `grpc-proto-repeated-add-${fieldName}` (`GRPC.PROTO_FIELD_REPEATED_ADD`), `grpc-proto-map-add-${fieldName}` (`GRPC.PROTO_FIELD_MAP_ADD`), `grpc-proto-field-input-${fieldName}-${index}` (`GRPC.PROTO_FIELD_INPUT_INDEXED`), `grpc-proto-field-input-${fieldName}-key-${index}` / `-value-${index}` (`GRPC.PROTO_FIELD_MAP_KEY` / `MAP_VALUE`).
+- Existing: `GRPC.REQUEST_TAB_FORM`, `GRPC.REQUEST_TAB_JSON`, `GRPC.PROTO_FORM`, `GRPC.PROTO_FIELD(fieldName)`, `GRPC.PROTO_FIELD_INPUT(fieldName)`, `GRPC.PROTO_ONEOF(oneofName)`, `GRPC.PROTO_ONEOF_RADIO(oneofName, member)`
 
 ---
 
@@ -1083,7 +1099,7 @@ The lesson contract in `grpc-lesson-contract/roster.ts` currently registers the 
 | 2 | `grpc-server-reflection` | 2 | `grpc-schema-discovery` | Merge into L2 |
 | 3 | `grpc-proto-import` | 2 | `grpc-schema-discovery` | Merge into L2 |
 | 4 | `grpc-metadata` | 4 | `grpc-metadata-auth` | Rename + expand with auth |
-| 5 | `grpc-tls` | 5 | `grpc-tls-mtls` | Rename |
+| 5 | `grpc-tls` | 5 | `grpc-tls` | Keep (✅ shipped — TLS, mTLS & Certificate Configuration) |
 | 6 | `grpc-server-streaming` | 3 | `grpc-streaming` | Merge all streaming into L3 |
 | 7 | `grpc-client-streaming` | 3 | `grpc-streaming` | Merge all streaming into L3 |
 | 8 | `grpc-bidi-streaming` | 3 | `grpc-streaming` | Merge all streaming into L3 |
@@ -1094,7 +1110,7 @@ The lesson contract in `grpc-lesson-contract/roster.ts` currently registers the 
 | 13 | `grpc-mock-server` | 12 | `grpc-mock-server` | Renumber |
 | 14 | `grpc-schema-diff` | 13 | `grpc-schema-diff` | Renumber |
 | 15 | `grpc-spring-boot` | 7 | `grpc-spring-boot` | Renumber |
-| — | _(new)_ | 6 | `grpc-transport-modes` | New lesson |
+| — | _(new)_ | 6 | `grpc-transport-modes` | New lesson (✅ shipped — actual roster #19) |
 | — | _(new)_ | 8 | `grpc-proto-form` | New lesson |
 | — | _(new)_ | 10 | `grpc-grpcurl` | New lesson |
 | — | _(new)_ | 15 | `grpc-tauri-desktop` | New lesson — desktop-only |

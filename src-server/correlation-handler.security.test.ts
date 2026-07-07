@@ -300,7 +300,7 @@ describe('notifyResume', () => {
 
     // Wait long enough for the HTTP request to be fully received and the
     // resolver to be parked in resumeWaiters (even under coverage overhead).
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 180));
 
     notifyResume('notify-test', {
       executionId: 'exec-notify',
@@ -359,7 +359,7 @@ describe('resume queue cleanup behavior', () => {
       .get('/api/correlations/dup-settle/wait')
       .query({ timeoutMs: 5000 });
 
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 40));
 
     notifyResume('dup-settle', {
       executionId: 'exec-dup-1',

@@ -42,7 +42,7 @@ describe('grpcExplorerUtils coverage gaps', () => {
     expect(isStreamingLayoutCallType('unary')).toBe(false);
     expect(isStreamingLayoutCallType('bidi_streaming')).toBe(true);
     expect(resolveGrpcStudioLayoutCallType({}, unary)).toBe('unary');
-    expect(resolveGrpcStudioLayoutCallType({ layoutPreviewCallType: 'server_streaming' }, undefined)).toBe('server_streaming');
+    expect(resolveGrpcStudioLayoutCallType({ layoutPreviewCallType: 'server_streaming' }, undefined)).toBe('unary');
   });
 
   it('covers default branches for unknown call types and sources', () => {

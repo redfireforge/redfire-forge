@@ -7,7 +7,7 @@ import { createPortal } from 'react-dom';
 import type { GrpcTlsConfig, GrpcTlsMode } from '../../../shared/grpc/contracts';
 import type { GrpcTlsValidationIssue } from '../../../shared/grpc/grpcTlsPolicy';
 import type { GrpcMaskedSecretFields, GrpcTlsSecretFieldKey } from '../utils/grpcSecretFieldUi';
-import { GrpcTlsConfigBody } from './GrpcTlsConfigBody';
+import { GrpcTlsConfigBody, type GrpcTlsTestResult } from './GrpcTlsConfigBody';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
 
 export interface GrpcTlsMtlsModalProps {
@@ -18,7 +18,7 @@ export interface GrpcTlsMtlsModalProps {
   maskedSecretFields?: GrpcMaskedSecretFields['tls'];
   dirty: boolean;
   disabled?: boolean;
-  testResult?: string | null;
+  testResult?: GrpcTlsTestResult | null;
   onTlsModeChange: (mode: GrpcTlsMode) => void;
   onTlsConfigChange: (patch: Partial<GrpcTlsConfig>) => void;
   onUnmaskSecretField?: (field: GrpcTlsSecretFieldKey) => void;

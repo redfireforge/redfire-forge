@@ -51,6 +51,122 @@ service EchoService {
 }
 `;
 
+export const FIXTURE_COMPLEX_ECHO_PROTO = `syntax = "proto3";
+
+package echo;
+
+import "google/protobuf/timestamp.proto";
+
+message ComplexEchoRequest {
+  string message = 1;
+  repeated string labels = 2;
+  map<string, string> attributes = 3;
+  ShippingAddress shipping_address = 4;
+  google.protobuf.Timestamp deadline = 5;
+  repeated LineItem line_items = 6;
+  repeated EventWindow windows = 7;
+  oneof payment_method {
+    CardPayment card = 8;
+    InvoicePayment invoice = 9;
+  }
+  map<string, NestedFlag> experiment_flags = 10;
+}
+
+message ShippingAddress {
+  string street = 1;
+  string city = 2;
+  string country = 3;
+  string postal_code = 4;
+}
+
+message LineItem {
+  string sku = 1;
+  int32 quantity = 2;
+  map<string, string> dimensions = 3;
+}
+
+message EventWindow {
+  google.protobuf.Timestamp start = 1;
+  google.protobuf.Timestamp end = 2;
+}
+
+message CardPayment {
+  string token = 1;
+  string holder_name = 2;
+}
+
+message InvoicePayment {
+  string invoice_id = 1;
+  string cost_center = 2;
+}
+
+message NestedFlag {
+  bool enabled = 1;
+  string source = 2;
+}
+
+message ComplexEchoResponse {
+  string message = 1;
+  string request_id = 2;
+}
+
+service EchoService {
+  rpc CreateComplexEcho(ComplexEchoRequest) returns (ComplexEchoResponse);
+}
+`;
+
+export const FIXTURE_COMPLEX_ECHO_REQUEST_BODY = {
+  message: 'Complex echo demo',
+  labels: ['alpha', 'gamma'],
+  attributes: {
+    env: 'prod',
+    region: 'us-east',
+  },
+  shipping_address: {
+    street: '500 Market St',
+    city: 'San Francisco',
+    country: 'USA',
+    postal_code: '94105',
+  },
+  deadline: '2026-07-06T11:03:26.487Z',
+  line_items: [
+    {
+      sku: 'SKU-001',
+      quantity: 2,
+      dimensions: {
+        width_cm: '10',
+        height_cm: '25',
+      },
+    },
+    {
+      sku: 'SKU-002',
+      quantity: 1,
+      dimensions: {
+        width_cm: '15',
+        height_cm: '35',
+      },
+    },
+  ],
+  windows: [
+    {
+      start: '2026-07-06T11:03:26.487Z',
+      end: '2026-07-06T12:03:26.487Z',
+    },
+  ],
+  payment_method: {
+    invoice: {
+      invoice_id: 'INV-10029',
+      cost_center: 'ops-platform',
+    },
+  },
+  experiment_flags: {
+    checkout_v2: {
+      enabled: true,
+      source: 'growth-lab',
+    },
+  },
+};
+
 const ECHO_REQUEST_SCHEMA = {
   typeName: 'echo.EchoRequest',
   fields: [{ name: 'message', number: 1, type: 'string' as const, label: 'optional' as const }],

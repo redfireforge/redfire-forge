@@ -293,7 +293,11 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
       lifecycle: 'idle',
     });
     syncGrpcStudioTabTransport({ ...tab, transportMode: 'express' });
-    void executeUnaryCall(tabId);
+    // core.updateTab schedules a React state update — sessionRef.current is not
+    // guaranteed to reflect 'express' synchronously (batching). Pass the mode as
+    // an explicit override so the retried call itself always dispatches via
+    // Express regardless of when the state update commits.
+    void executeUnaryCall(tabId, { transportMode: 'express' });
   }, [core, executeUnaryCall]);
 
   const retryStreamWithExpress = useCallback((tabId: string) => {
@@ -306,7 +310,8 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
       streamError: undefined,
     });
     syncGrpcStudioTabTransport({ ...tab, transportMode: 'express' });
-    void startStreamCall(tabId);
+    // Same React-batching hazard as retryUnaryWithExpress — force the mode via override.
+    void startStreamCall(tabId, { transportMode: 'express' });
   }, [core, startStreamCall]);
 
   const canAddTab = core.tabs.length < maxTabs;

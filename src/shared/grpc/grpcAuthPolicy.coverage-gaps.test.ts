@@ -229,16 +229,42 @@ describe('grpcAuthPolicy coverage gaps', () => {
     })).toEqual([]);
   });
 
-  it('mergeGrpcExecuteMetadata records manual/auth conflicts', () => {
+  it('mergeGrpcExecuteMetadata blocks when manual/auth conflicts are present', () => {
     const merged = mergeGrpcExecuteMetadata(
       { authorization: 'Bearer manual' },
       { type: 'bearer', bearerToken: 'server-token' },
     );
-    expect(merged.ok).toBe(true);
-    if (merged.ok) {
-      expect(merged.conflicts).toHaveLength(1);
-      expect(merged.metadata.authorization).toBe('Bearer server-token');
+    expect(merged.ok).toBe(false);
+    if (!merged.ok) {
+      expect(merged.field).toBe('auth');
+      expect(merged.error).toMatch(/authorization/i);
     }
+  });
+
+  it('mergeGrpcExecuteMetadata returns error when auth conflicts with manual metadata', () => {
+    const merged = mergeGrpcExecuteMetadata(
+      { authorization: 'Bearer manual' },
+      { type: 'bearer', bearerToken: 'server-token' },
+    );
+    expect(merged).toEqual({
+      ok: false,
+      error: 'Auth metadata conflicts with manual metadata for key(s): authorization',
+      field: 'auth',
+    });
+  });
+
+  it('prepareGrpcExecuteRequestMetadata throws for oauth2 authorization conflict', () => {
+    expect(() => prepareGrpcExecuteRequestMetadata(
+      { authorization: 'Bearer manual' },
+      {
+        type: 'oauth2',
+        oauth2: {
+          tokenUrl: 'https://auth.example.com/token',
+          clientId: 'id',
+          clientSecret: 'sec',
+        },
+      },
+    )).toThrow('Auth metadata conflicts with manual metadata for key(s): authorization');
   });
 
   it('buildAuthMetadataHeaders rejects unsupported auth type in switch default', () => {
@@ -284,6 +310,20 @@ describe('grpcAuthPolicy coverage gaps', () => {
       apiKeyName: 'X-Api-Key',
       apiKeyValue: 'secret',
     })).toEqual(['x-api-key']);
+  });
+
+  it('supports legacy nested apiKey shape when building execute metadata', () => {
+    const legacyAuth = {
+      type: 'api_key',
+      apiKey: { key: 'X-Api-Key', value: 'legacy-secret' },
+    } as unknown as Parameters<typeof buildAuthMetadataHeaders>[0];
+    const merged = mergeGrpcExecuteMetadata({ 'x-trace': '1' }, legacyAuth);
+    expect(merged.ok).toBe(true);
+    if (merged.ok) {
+      expect(merged.metadata['x-api-key']).toBe('legacy-secret');
+      expect(merged.metadata['x-trace']).toBe('1');
+    }
+    expect(validateGrpcAuthConfigContract(legacyAuth)).toEqual([]);
   });
 
   it('builds basic auth with empty password and merges bearer metadata without manual conflicts', () => {

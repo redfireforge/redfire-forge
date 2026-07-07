@@ -7,7 +7,8 @@
 # Ports:
 #   50051 (plaintext), 50443 (TLS), 50444 (mTLS), 50055 (Envoy grpc-web),
 #   9090 (Spring gRPC), 8080 (Spring HTTP/actuator),
-#   50061 (Go mock servicer gRPC), 50062 (Go mock servicer health/rules)
+#   50061 (Go mock servicer gRPC), 50062 (Go mock servicer health/rules),
+#   50560 (OAuth2 mock token endpoint)
 services:
   grpc-test-server:
     build: .
@@ -92,6 +93,8 @@ services:
     build:
       context: ./spring-boot
     container_name: grpc-spring-boot-fixture
+    profiles:
+      - spring
     ports:
       - "9090:9090"
       - "8080:8080"
@@ -125,4 +128,21 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+    restart: unless-stopped
+
+  grpc-oauth2-mock:
+    image: node:20-alpine
+    container_name: grpc-oauth2-mock
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    ports:
+      - "50560:50560"
+    volumes:
+      - ./oauth-mock:/app:ro
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:50560/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 5s
     restart: unless-stopped

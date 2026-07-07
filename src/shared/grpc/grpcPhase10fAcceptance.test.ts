@@ -657,28 +657,20 @@ describe('Phase 10F — cross-mode metadata/auth/tls parity', () => {
   // ── Auth precedence (Phase 4) before transport header emission ───────────────
 
   describe('auth precedence before transport', () => {
-    it('prepareGrpcCallMetadata: auth wins over conflicting manual authorization', () => {
-      const merged = prepareGrpcCallMetadata(
+    it('prepareGrpcCallMetadata: conflicting manual authorization blocks execute', () => {
+      expect(() => prepareGrpcCallMetadata(
         { authorization: 'Bearer manual-override' },
         { type: 'bearer', bearerToken: 'injected-token' },
         undefined,
-      );
-      expect(merged?.authorization).toBe('Bearer injected-token');
-
-      const { headers } = buildBrowserTransportUserMetadataHeaders(merged, GRPC_WEB_RESERVED_HEADERS);
-      expect(headers.authorization).toBe('Bearer injected-token');
+      )).toThrow(/authorization/i);
     });
 
-    it('prepareGrpcCallMetadata: api_key auth wins over conflicting manual key', () => {
-      const merged = prepareGrpcCallMetadata(
+    it('prepareGrpcCallMetadata: conflicting manual api_key blocks execute', () => {
+      expect(() => prepareGrpcCallMetadata(
         { 'x-api-key': 'manual-key' },
         { type: 'api_key', apiKeyName: 'x-api-key', apiKeyValue: 'injected-key' },
         undefined,
-      );
-      expect(merged?.['x-api-key']).toBe('injected-key');
-
-      const { headers } = buildBrowserTransportUserMetadataHeaders(merged, SPRING_SERVLET_RESERVED_HEADERS);
-      expect(headers['x-api-key']).toBe('injected-key');
+      )).toThrow(/x-api-key/i);
     });
   });
 

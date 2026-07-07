@@ -195,7 +195,10 @@ describe('grpcRedaction coverage gaps', () => {
         service: FIXTURE_UNARY_CALL_REQUEST.service,
         method: FIXTURE_UNARY_CALL_REQUEST.method,
         body: { message: 'hi' },
-        metadata: { authorization: 'Bearer abcdefghijklmnop' },
+        metadata: {
+          authorization: 'Bearer abcdefghijklmnop',
+          'x-request-id': 'request-1234567890',
+        },
         timeoutMs: 30_000,
         descriptorKey: 'desc-1',
         auth: { type: 'bearer', bearerToken: 'secret' },
@@ -204,13 +207,40 @@ describe('grpcRedaction coverage gaps', () => {
         callType: 'unary',
         status: 0,
         statusMessage: 'OK',
-        headers: { authorization: 'Bearer abcdefghijklmnop' },
+        headers: {
+          authorization: 'Bearer abcdefghijklmnop',
+          'x-request-id': 'request-1234567890',
+        },
         trailers: {},
         body: {},
         durationMs: 1,
       },
     });
     expect(record.snapshot.metadata.authorization).toBe(GRPC_REDACTED_PLACEHOLDER);
+    expect(record.snapshot.metadata['x-request-id']).toBe('request-1234567890');
     expect(record.result?.headers?.authorization).toBe(GRPC_REDACTED_PLACEHOLDER);
+    expect(record.result?.headers?.['x-request-id']).toBe('request-1234567890');
+  });
+
+  it('prepareGrpcCallHistoryRecord includes auth-derived api key metadata as redacted', () => {
+    const record = prepareGrpcCallHistoryRecord({
+      snapshot: {
+        tabId: 'tab-1',
+        requestId: 'req-api-key-1',
+        capturedAt: '2026-07-05T13:00:00.000Z',
+        callType: 'unary',
+        target: FIXTURE_UNARY_CALL_REQUEST.target,
+        service: FIXTURE_UNARY_CALL_REQUEST.service,
+        method: FIXTURE_UNARY_CALL_REQUEST.method,
+        body: { message: 'hi' },
+        metadata: { 'x-request-id': 'request-abc-123' },
+        timeoutMs: 30_000,
+        descriptorKey: 'desc-1',
+        auth: { type: 'api_key', apiKeyName: 'x-api-key', apiKeyValue: 'my-key-123' },
+      },
+    });
+
+    expect(record.snapshot.metadata['x-request-id']).toBe('request-abc-123');
+    expect(record.snapshot.metadata['x-api-key']).toBe(GRPC_REDACTED_PLACEHOLDER);
   });
 });

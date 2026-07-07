@@ -39,6 +39,41 @@ function protobufCamelToSnake(name: string): string {
   return name.replace(/([A-Z])/g, '_$1').toLowerCase();
 }
 
+const TIMESTAMP_TYPE_FULL_NAME = '.google.protobuf.Timestamp';
+
+function isTimestampType(type: protobuf.Type): boolean {
+  return type.fullName === TIMESTAMP_TYPE_FULL_NAME;
+}
+
+/**
+ * The Proto Form Builder renders `google.protobuf.Timestamp` as a plain RFC3339/ISO8601
+ * string input (see `GrpcProtoWktRows.tsx`). The dynamically-synthesized WKT stub is a
+ * plain `{ seconds, nanos }` message, so an ISO string must be converted before
+ * `Type.verify`/`Type.fromObject` — otherwise protobufjs rejects it with
+ * "<field>.object expected". Objects already in `{ seconds, nanos }` shape pass through
+ * unchanged for backward compatibility with callers that build the wire shape directly.
+ */
+function timestampInputToWireObject(raw: unknown): unknown {
+  if (typeof raw !== 'string') return raw;
+  const ms = Date.parse(raw);
+  if (Number.isNaN(ms)) {
+    throw new Error(`Invalid RFC3339/ISO8601 timestamp: "${raw}"`);
+  }
+  const seconds = Math.floor(ms / 1000);
+  const nanos = Math.round((ms - seconds * 1000) * 1e6);
+  return { seconds: String(seconds), nanos };
+}
+
+/** Reverse of {@link timestampInputToWireObject} — used when decoding a response body. */
+function timestampWireObjectToIso(value: unknown): unknown {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return value;
+  const record = value as Record<string, unknown>;
+  const seconds = Number(record.seconds ?? 0);
+  const nanos = Number(record.nanos ?? 0);
+  if (Number.isNaN(seconds) || Number.isNaN(nanos)) return value;
+  return new Date(seconds * 1000 + nanos / 1e6).toISOString();
+}
+
 /** Map schema/snake_case JSON bodies onto protobufjs field names (reflection roots use camelCase). */
 function alignBodyToProtobufFieldNames(
   type: protobuf.Type,
@@ -93,17 +128,29 @@ function alignDecodedBodyToSchemaNames(
     let value = hasProto ? next[protoName] : next[schemaName];
 
     if (field.resolvedType instanceof protobuf.Type) {
-      if (field.repeated && Array.isArray(value)) {
+      const isTimestampField = isTimestampType(field.resolvedType);
+      if (field.map && typeof value === 'object' && value && !Array.isArray(value)) {
+        if (isTimestampField) {
+          value = Object.fromEntries(
+            Object.entries(value as Record<string, unknown>)
+              .map(([key, item]) => [key, timestampWireObjectToIso(item)]),
+          );
+        }
+      } else if (field.repeated && Array.isArray(value)) {
         value = value.map((item) => (
-          typeof item === 'object' && item && !Array.isArray(item)
-            ? alignDecodedBodyToSchemaNames(field.resolvedType as protobuf.Type, item as Record<string, unknown>)
-            : item
+          isTimestampField
+            ? timestampWireObjectToIso(item)
+            : (typeof item === 'object' && item && !Array.isArray(item)
+              ? alignDecodedBodyToSchemaNames(field.resolvedType as protobuf.Type, item as Record<string, unknown>)
+              : item)
         ));
       } else if (!field.repeated && !field.map && typeof value === 'object' && value && !Array.isArray(value)) {
-        value = alignDecodedBodyToSchemaNames(
-          field.resolvedType as protobuf.Type,
-          value as Record<string, unknown>,
-        );
+        value = isTimestampField
+          ? timestampWireObjectToIso(value)
+          : alignDecodedBodyToSchemaNames(
+            field.resolvedType as protobuf.Type,
+            value as Record<string, unknown>,
+          );
       }
     }
 
@@ -126,10 +173,23 @@ function normalizeBodyForEncode(type: protobuf.Type, body: Record<string, unknow
 
     const fieldType = String(field.type);
 
+    const isTimestampField = field.resolvedType instanceof protobuf.Type
+      && isTimestampType(field.resolvedType);
+
     if (field.map) {
-      if (typeof raw !== 'object' || Array.isArray(raw) || !WIDE_LONG_FIELD_TYPES.has(fieldType)) {
+      if (typeof raw !== 'object' || Array.isArray(raw)) continue;
+      if (isTimestampField) {
+        const mapNext: Record<string, unknown> = {};
+        for (const [key, item] of Object.entries(raw as Record<string, unknown>)) {
+          mapNext[key] = normalizeBodyForEncode(
+            field.resolvedType as protobuf.Type,
+            timestampInputToWireObject(item) as Record<string, unknown>,
+          );
+        }
+        next[field.name] = mapNext;
         continue;
       }
+      if (!WIDE_LONG_FIELD_TYPES.has(fieldType)) continue;
       const mapNext: Record<string, unknown> = {};
       for (const [key, item] of Object.entries(raw as Record<string, unknown>)) {
         mapNext[key] = coerceWideLongForEncode(item, fieldType);
@@ -142,6 +202,11 @@ function normalizeBodyForEncode(type: protobuf.Type, body: Record<string, unknow
       if (!Array.isArray(raw)) continue;
       if (WIDE_LONG_FIELD_TYPES.has(fieldType)) {
         next[field.name] = raw.map((item) => coerceWideLongForEncode(item, fieldType));
+      } else if (isTimestampField) {
+        next[field.name] = raw.map((item) => normalizeBodyForEncode(
+          field.resolvedType as protobuf.Type,
+          timestampInputToWireObject(item) as Record<string, unknown>,
+        ));
       } else if (field.resolvedType instanceof protobuf.Type) {
         next[field.name] = raw.map((item) => (
           typeof item === 'object' && item && !Array.isArray(item)
@@ -153,7 +218,12 @@ function normalizeBodyForEncode(type: protobuf.Type, body: Record<string, unknow
     }
 
     if (field.resolvedType instanceof protobuf.Type) {
-      if (typeof raw === 'object' && raw && !Array.isArray(raw)) {
+      if (isTimestampField) {
+        next[field.name] = normalizeBodyForEncode(
+          field.resolvedType,
+          timestampInputToWireObject(raw) as Record<string, unknown>,
+        );
+      } else if (typeof raw === 'object' && raw && !Array.isArray(raw)) {
         next[field.name] = normalizeBodyForEncode(field.resolvedType, raw as Record<string, unknown>);
       }
       continue;

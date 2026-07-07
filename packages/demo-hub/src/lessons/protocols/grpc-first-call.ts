@@ -12,16 +12,37 @@ import {
   closeGrpcSettingsDrawerQuiet,
   ensureEchoMethodSelected,
   ensureGrpcReflected,
+  ensureGrpcRequestFormTabQuiet,
   ensureGrpcTarget,
   ensureUnaryExecuted,
+  fillGrpcEchoMessage,
+  grpcEchoComposerFieldSelector,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
+  guardEchoMethodQuiet,
+  guardGrpcReflectedQuiet,
+  guardGrpcTargetQuiet,
+  guardUnaryExecutedQuiet,
+  isGrpcHybridComposerActive,
   openFirstGrpcHistoryEntry,
   openGrpcHistoryPanelQuiet,
+  spotlightAndPause,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 
 const GRPC1_ROSTER = getGrpcLessonRosterEntry('grpc-first-call')!;
+const GRPC_ECHO_METHOD_SEL = GRPC.METHOD('echo.EchoService', 'Echo');
+
+async function spotlightEchoComposer(ctx: Parameters<typeof spotlightAndPause>[0]): Promise<void> {
+  await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 750);
+  if (isGrpcHybridComposerActive()) {
+    await spotlightAndPause(ctx, GRPC.REQUEST_JSON_COMPACT, 800);
+    await spotlightAndPause(ctx, GRPC.REQUEST_JSON, 900);
+  } else {
+    await spotlightAndPause(ctx, GRPC.PROTO_FORM, 750);
+    await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT_MESSAGE, 900);
+  }
+}
 
 export const grpcFirstCallLesson: GrpcDemoLesson = {
   ...buildGrpcLessonShellFromRoster(GRPC1_ROSTER),
@@ -30,7 +51,7 @@ export const grpcFirstCallLesson: GrpcDemoLesson = {
   description:
     'Set a gRPC target, discover RPCs with reflection, execute a unary Echo call, inspect response metadata, and confirm the invocation in History.',
 
-  setup: grpcFirstCallSetup,
+  setup: (ctx) => grpcFirstCallSetup(ctx, { resetSchemaDrafts: false }),
   cleanup: grpcFirstCallCleanup,
 
   grpc: buildGrpcContractMetaFromRoster(GRPC1_ROSTER),
@@ -42,7 +63,7 @@ export const grpcFirstCallLesson: GrpcDemoLesson = {
 **What you will do in this lesson:**
 1. **Target** — set the server address (\`${GRPC_DEMO_TARGET}\`) in the connection bar and confirm target validation.
 2. **Reflect** — pull descriptors via **gRPC reflection** so Service Explorer can list services and methods without local .proto files.
-3. **Select + Fill** — open **echo.EchoService / Echo** (unary) and populate the request field.
+3. **Select + Fill** — open **echo.EchoService / Echo** (unary) and populate the request on the **Form Input** tab.
 4. **Invoke + Inspect** — send the call, then read status, timing, body, and where to look for headers/trailers.
 5. **History** — verify the invocation is persisted for replay and troubleshooting.
 
@@ -62,6 +83,11 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
         term: 'Service / Method',
         definition:
           'gRPC organizes RPCs as methods on services (e.g. echo.EchoService.Echo). The explorer tree mirrors that hierarchy.',
+      },
+      {
+        term: 'Form Input',
+        definition:
+          'The schema-driven request composer on the call panel. Unary methods may show compact JSON or typed proto fields depending on your workspace mode.',
       },
       {
         term: 'History',
@@ -173,13 +199,17 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       id: 'grpc1-intro',
       title: 'gRPC Studio',
       description:
-        'Welcome to **gRPC Studio**. Focus on three areas: the **connection row**, **Service Explorer**, and the **request/response workspace**. ' +
-        'This lesson uses a unary RPC — the fastest path to understanding end-to-end gRPC flow.',
+        'Welcome to **gRPC Studio**. This lesson walks three regions: the **connection row** (target + Reflect + Send), the **Service Explorer** on the left, and the **call workspace** on the right where **Form Input** and the response live.',
       highlight: GRPC.CONNECTION_BAR,
       pauseAfter: true,
       preAction: async (ctx) => {
         await navigateToGrpcStudio(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
+      },
+      action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 850);
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
+        await spotlightAndPause(ctx, GRPC.CALL_PANEL, 900);
       },
     },
 
@@ -187,8 +217,8 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       id: 'grpc1-target',
       title: 'Set the Server Target',
       description:
-        `Type \`${GRPC_DEMO_TARGET}\` into the **target** field. ` +
-        'Watch for the green **target OK** badge before moving on.',
+        `Type \`${GRPC_DEMO_TARGET}\` into the **target** field in the connection row. ` +
+        'Watch the field fill, then pause on the green **Target OK** badge so the address is validated before moving on.',
       highlight: GRPC.TARGET_INPUT,
       pauseAfter: true,
       preAction: async (ctx) => {
@@ -197,7 +227,8 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       },
       action: async (ctx) => {
         await ensureGrpcTarget(ctx);
-        await ctx.delay(800);
+        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 800);
+        await spotlightAndPause(ctx, GRPC.TARGET_STATUS_OK, 900);
       },
       verify: GRPC.TARGET_STATUS_OK,
     },
@@ -207,15 +238,18 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       title: 'Discover Services with Reflection',
       description:
         'Click **Reflect** to query the server\'s reflection API. RedfireForge downloads every service and method descriptor and populates the **Service Explorer** tree. ' +
-        'You should see **echo.EchoService** with unary **Echo** and streaming methods. If nothing appears, check prerequisites and run Reflect again.',
+        'You should see **echo.EchoService** with unary **Echo** and the streaming methods listed beneath it.',
       highlight: GRPC.REFLECT_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureGrpcTarget(ctx);
+        await guardGrpcTargetQuiet(ctx);
       },
       action: async (ctx) => {
         await ensureGrpcReflected(ctx);
-        await ctx.delay(1000);
+        await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 750);
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
+        await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, 850);
+        await spotlightAndPause(ctx, GRPC_ECHO_METHOD_SEL, 900);
       },
       verify: GRPC.EXPLORER_TREE,
     },
@@ -225,34 +259,37 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       title: 'Select the Echo Method',
       description:
         'Expand **echo.EchoService** if needed, then click **Echo** — a **Unary** RPC (badge **U**). ' +
-        'The call panel opens a schema-driven form. The **message** field is what the server will echo back.',
-      highlight: GRPC.SERVICE_EXPLORER,
+        'The **Form Input** tab opens the request composer for this method. Watch the method name, the **Form Input** tab, then the editable **message** field (typed row or compact JSON).',
+      highlight: GRPC_ECHO_METHOD_SEL,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureGrpcReflected(ctx);
+        await guardGrpcReflectedQuiet(ctx);
       },
       action: async (ctx) => {
         await ensureEchoMethodSelected(ctx);
-        await ctx.delay(800);
+        await spotlightAndPause(ctx, GRPC_ECHO_METHOD_SEL, 750);
+        await spotlightAndPause(ctx, GRPC.CALL_METHOD_NAME, 800);
+        await spotlightEchoComposer(ctx);
       },
-      verify: GRPC.PROTO_FORM,
+      verify: GRPC.REQUEST_FORM_SCROLL,
     },
 
     {
       id: 'grpc1-fill-message',
       title: 'Fill the Request Message',
       description:
-        `Enter \`${GRPC_DEMO_MESSAGE}\` in the **message** field. ` +
-        'Form mode is fastest for first calls; JSON mode is available later for raw payload editing.',
-      highlight: GRPC.PROTO_FIELD_INPUT_MESSAGE,
+        `Enter \`${GRPC_DEMO_MESSAGE}\` in the **message** field on **Form Input**. ` +
+        'Hybrid mode shows compact JSON (`"message": "..."`); classic mode shows a typed proto row. Both stay schema-synced with the JSON tab.',
+      highlight: GRPC.REQUEST_FORM_SCROLL,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureEchoMethodSelected(ctx);
+        await guardEchoMethodQuiet(ctx);
       },
       action: async (ctx) => {
-        await ctx.waitFor(GRPC.PROTO_FIELD_INPUT_MESSAGE, 10_000);
-        await ctx.fill(GRPC.PROTO_FIELD_INPUT_MESSAGE, GRPC_DEMO_MESSAGE);
-        await ctx.delay(600);
+        await ensureGrpcRequestFormTabQuiet(ctx);
+        await spotlightEchoComposer(ctx);
+        await fillGrpcEchoMessage(ctx, GRPC_DEMO_MESSAGE);
+        await spotlightAndPause(ctx, grpcEchoComposerFieldSelector(), 900);
       },
     },
 
@@ -261,20 +298,28 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       title: 'Send the Unary Call',
       description:
         'Click **Send** to invoke **echo.EchoService/Echo**. RedfireForge routes the call through the Express proxy (browser mode) to the Docker server. ' +
-        'You should see **OK** status, duration, and the echoed JSON body.',
+        'Pause on **Send**, then shift to **OK** status and the echoed JSON body when the response arrives.',
       highlight: GRPC.SEND_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureEchoMethodSelected(ctx);
-        const field = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT_MESSAGE);
+        await guardEchoMethodQuiet(ctx);
+        const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(
+          grpcEchoComposerFieldSelector(),
+        );
+        const expected = isGrpcHybridComposerActive()
+          ? JSON.stringify({ message: GRPC_DEMO_MESSAGE }, null, 2).trim()
+          : GRPC_DEMO_MESSAGE;
         if (!field?.value.trim()) {
-          await ctx.fill(GRPC.PROTO_FIELD_INPUT_MESSAGE, GRPC_DEMO_MESSAGE);
-          await ctx.delay(400);
+          await fillGrpcEchoMessage(ctx, GRPC_DEMO_MESSAGE);
+        } else if (field.value.trim() !== expected) {
+          await fillGrpcEchoMessage(ctx, GRPC_DEMO_MESSAGE);
         }
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.SEND_BTN, 800);
         await ensureUnaryExecuted(ctx);
-        await ctx.delay(1000);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 800);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 950);
       },
       verify: GRPC.RESPONSE_BODY,
     },
@@ -284,15 +329,22 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       title: 'Read the Response',
       description:
         `The response body should contain your message echoed back: \`"${GRPC_DEMO_MESSAGE}"\`. ` +
-        'Check the status line for **OK** and duration. Then inspect **Headers** and **Trailers** for transport and gRPC terminal metadata.',
+        'Check the status line for **OK** and duration. Then open **Headers** and **Trailers** so you know where transport metadata lives.',
       highlight: GRPC.RESPONSE_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureUnaryExecuted(ctx);
+        await guardUnaryExecutedQuiet(ctx);
       },
       action: async (ctx) => {
-        await ctx.waitFor(GRPC.RESPONSE_BODY, 10_000);
-        await ctx.delay(1000);
+        await ctx.waitFor(GRPC.RESPONSE_BODY, 8_000);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_HEADER, 750);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 850);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_DURATION, 750);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 950);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_TAB_HEADERS, 700);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_HEADERS, 800);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_TAB_TRAILERS, 700);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_TRAILERS, 800);
       },
     },
 
@@ -300,23 +352,24 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       id: 'grpc1-history-tab',
       title: 'Open Call History',
       description:
-        'Focus on the **Call History** sub-nav first. Pause on the highlighted tab so viewers can clearly see where replay actions begin, then click it to open History.',
+        'Switch to the **Call History** sub-nav. Pause on the tab label, click it, then pause on the history list so viewers see where replay begins.',
       highlight: GRPC.SUB_NAV_HISTORY,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureUnaryExecuted(ctx);
+        await guardUnaryExecutedQuiet(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
-        await ctx.waitFor(GRPC.SUB_NAV_HISTORY, 10_000);
-        await ctx.delay(1_200);
+        await ctx.waitFor(GRPC.SUB_NAV_HISTORY, 8_000);
+        await spotlightAndPause(ctx, GRPC.SUB_NAV_HISTORY, 800);
         const historyBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_HISTORY);
         if (historyBtn && historyBtn.getAttribute('aria-selected') !== 'true') {
           historyBtn.click();
-          await ctx.delay(300);
+          await ctx.delay(400);
         }
         await ctx.waitFor(GRPC.HISTORY_PANEL, 5_000);
-        await ctx.delay(500);
+        await spotlightAndPause(ctx, GRPC.HISTORY_PANEL, 850);
+        await spotlightAndPause(ctx, GRPC.HISTORY_LIST, 800);
       },
       verify: GRPC.HISTORY_PANEL,
     },
@@ -325,7 +378,7 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       id: 'grpc1-history',
       title: 'Replay from History',
       description:
-        'Click the **echo.EchoService/Echo** row in the History list. Then pause on the highlighted **Replay** button so viewers can see it clearly, and click **Replay** to restore the request in Studio.',
+        'Click the latest **echo.EchoService/Echo** row in the History list. Pause on **Replay**, then click it to restore the saved request back into Studio.',
       highlight: GRPC.HISTORY_REPLAY_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
@@ -335,14 +388,16 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       },
       action: async (ctx) => {
         await openFirstGrpcHistoryEntry(ctx, { ensureExecuted: false });
-        // Hold on Replay before clicking so viewers can see this action.
-        await ctx.waitFor(GRPC.HISTORY_REPLAY_BTN, 10_000);
-        await ctx.delay(1_200);
+        await ctx.waitFor(GRPC.HISTORY_REPLAY_BTN, 8_000);
+        await spotlightAndPause(ctx, GRPC.HISTORY_ENTRY_ROW, 800);
+        await spotlightAndPause(ctx, GRPC.HISTORY_DETAIL, 750);
+        await spotlightAndPause(ctx, GRPC.HISTORY_REPLAY_BTN, 900);
         const replayBtn = document.querySelector<HTMLButtonElement>(GRPC.HISTORY_REPLAY_BTN);
         if (replayBtn && !replayBtn.disabled) {
           replayBtn.click();
-          await ctx.delay(350);
+          await ctx.delay(500);
         }
+        await spotlightAndPause(ctx, GRPC.SEND_BTN, 800);
       },
       verify: GRPC.SEND_BTN,
     },
@@ -351,31 +406,27 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       id: 'grpc1-replay',
       title: 'Send Unary After Replay',
       description:
-        'Now stay on Studio and focus only on **Send Unary**. ' +
-        'Pause on the highlighted button so viewers can clearly see this final action, then click it to execute the replayed request. ' +
-        'Watch for a fresh response body after **Send Unary** is clicked.',
+        'Back on Studio, pause on **Send Unary**, click it, then pause on the fresh **OK** status and echoed body so the replay result is easy to read.',
       highlight: GRPC.SEND_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        // Step 8 should already have executed Replay; just ensure Send is visible here.
         try {
-          await ctx.waitFor(GRPC.SEND_BTN, 8_000);
+          await ctx.waitFor(GRPC.SEND_BTN, 5_000);
         } catch {
-          // Keep lesson stable even when local replay transitions are delayed.
+          // Keep lesson stable when replay transitions are delayed.
         }
       },
       action: async (ctx) => {
-        // Hold on Send Unary so viewer can clearly see the final action.
         try {
-          await ctx.waitFor(GRPC.SEND_BTN, 8_000);
-          await ctx.delay(1_400);
+          await ctx.waitFor(GRPC.SEND_BTN, 5_000);
+          await spotlightAndPause(ctx, GRPC.SEND_BTN, 900);
           const sendBtn = document.querySelector<HTMLButtonElement>(GRPC.SEND_BTN);
           if (sendBtn && !sendBtn.disabled) {
             sendBtn.click();
-            await ctx.waitFor(GRPC.RESPONSE_STATUS, 10_000);
+            await ctx.waitFor(GRPC.RESPONSE_STATUS, 8_000);
             await ctx.waitFor(GRPC.RESPONSE_BODY, 5_000);
-            // Pause so viewer can clearly read the echoed response.
-            await ctx.delay(1_200);
+            await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 800);
+            await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 950);
           }
         } catch {
           // Replay or send unavailable in some local runs — keep lesson stable.

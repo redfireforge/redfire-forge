@@ -82,7 +82,84 @@ service DemoService { rpc Call(TimeRequest) returns (TimeRequest); }`,
       created_at: { seconds: 1700000000, nanos: 0 },
     });
     expect(decodeProtoMessage(descriptor, 'demo.TimeRequest', encoded).created_at)
-      .toMatchObject({ nanos: 0 });
+      .toBe(new Date(1700000000 * 1000).toISOString());
+  });
+
+  it('encodes/decodes google.protobuf.Timestamp as an RFC3339/ISO8601 string (Proto Form Builder contract)', () => {
+    const descriptor = normalizeRootToDescriptor(
+      parseProtoFiles([{
+        path: 'demo.proto',
+        content: `syntax = "proto3";
+package demo;
+import "google/protobuf/timestamp.proto";
+message TimeRequest { google.protobuf.Timestamp created_at = 1; }
+service DemoService { rpc Call(TimeRequest) returns (TimeRequest); }`,
+      }]),
+      'proto_files',
+      'wkt-timestamp-iso-test',
+    );
+
+    clearDescriptorRootCache();
+    clearDynamicProtoCodecCache();
+
+    const iso = '2026-12-31T23:59:00.000Z';
+    const encoded = encodeProtoMessage(descriptor, 'demo.TimeRequest', { created_at: iso });
+    expect(decodeProtoMessage(descriptor, 'demo.TimeRequest', encoded).created_at).toBe(iso);
+  });
+
+  it('rejects an unparseable Timestamp string with a descriptive error', () => {
+    const descriptor = normalizeRootToDescriptor(
+      parseProtoFiles([{
+        path: 'demo.proto',
+        content: `syntax = "proto3";
+package demo;
+import "google/protobuf/timestamp.proto";
+message TimeRequest { google.protobuf.Timestamp created_at = 1; }
+service DemoService { rpc Call(TimeRequest) returns (TimeRequest); }`,
+      }]),
+      'proto_files',
+      'wkt-timestamp-invalid-test',
+    );
+
+    clearDescriptorRootCache();
+    clearDynamicProtoCodecCache();
+
+    expect(() => encodeProtoMessage(descriptor, 'demo.TimeRequest', { created_at: 'not-a-date' }))
+      .toThrow(/Invalid RFC3339\/ISO8601 timestamp/);
+  });
+
+  it('encodes/decodes repeated and mapped google.protobuf.Timestamp fields as ISO strings', () => {
+    const descriptor = normalizeRootToDescriptor(
+      parseProtoFiles([{
+        path: 'demo.proto',
+        content: `syntax = "proto3";
+package demo;
+import "google/protobuf/timestamp.proto";
+message TimeBatch {
+  repeated google.protobuf.Timestamp reminders = 1;
+  map<string, google.protobuf.Timestamp> milestones = 2;
+}
+service DemoService { rpc Call(TimeBatch) returns (TimeBatch); }`,
+      }]),
+      'proto_files',
+      'wkt-timestamp-collections-test',
+    );
+
+    clearDescriptorRootCache();
+    clearDynamicProtoCodecCache();
+
+    const reminder1 = '2026-01-01T00:00:00.000Z';
+    const reminder2 = '2026-06-15T12:30:00.000Z';
+    const launchDate = '2026-09-01T09:00:00.000Z';
+
+    const encoded = encodeProtoMessage(descriptor, 'demo.TimeBatch', {
+      reminders: [reminder1, reminder2],
+      milestones: { launch: launchDate },
+    });
+    expect(decodeProtoMessage(descriptor, 'demo.TimeBatch', encoded)).toEqual({
+      reminders: [reminder1, reminder2],
+      milestones: { launch: launchDate },
+    });
   });
 
   it('wraps parseDescriptorRoot failures with descriptor key context', () => {
@@ -715,7 +792,7 @@ service DemoService { rpc Call(MixedRequest) returns (MixedRequest); }`,
       ttl: { seconds: 30, nanos: 0 },
     });
     expect(decodeProtoMessage(descriptor, 'demo.MixedRequest', encoded)).toMatchObject({
-      created_at: { seconds: '1', nanos: 0 },
+      created_at: new Date(1000).toISOString(),
       ttl: { seconds: '30', nanos: 0 },
     });
   });

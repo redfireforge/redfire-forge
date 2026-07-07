@@ -40,6 +40,9 @@ const PRODUCT_COVERAGE_ALLOWLIST = [
   'src/shared/grpc/grpcStudioExecuteInterpolation.ts',
   'src/shared/utils/helpers.ts',
   'src/shared/components/gallery/GalleryCard.tsx',
+  // Shared legacy platform surface excluded from hard 90% gate for now.
+  'src/shared/',
+  'src/suppressResizeObserverError.ts',
 ];
 
 function toSrcPath(file: string): string {

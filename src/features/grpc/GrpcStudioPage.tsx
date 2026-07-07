@@ -15,6 +15,7 @@ import { GrpcTlsPanel } from './components/GrpcTlsPanel';
 import { GrpcStudioSubNav } from './components/GrpcStudioSubNav';
 import { GrpcCollectionsPanel } from './components/GrpcCollectionsPanel';
 import { GrpcHistoryPanel } from './components/GrpcHistoryPanel';
+import { GrpcConsoleModal, type GrpcConsoleWireEvent } from './components/GrpcConsoleModal';
 import { GrpcAdvancedFeaturesShell } from './components/GrpcAdvancedFeaturesShell';
 import { GrpcSaveRequestModal } from './components/GrpcSaveRequestModal';
 import { GrpcGrpcurlImportModal } from './components/GrpcGrpcurlImportModal';
@@ -38,6 +39,7 @@ import {
   buildGrpcurlInvokeCommandFromSnapshot,
   resolveGrpcurlExportContextForTabRequest,
 } from './utils/grpcGrpcurl';
+import { resolveGrpcHistoryEntryReplay } from './utils/grpcReplayBinding';
 import {
   useGrpcSavedRequestRunTracking,
   useGrpcSelectedSavedRequest,
@@ -53,14 +55,20 @@ import {
   buildGrpcTlsStateRestoreTabPatch,
 } from './utils/grpcStudioTlsTabPatches';
 import { sanitizeGrpcErrorMessage } from '../../shared/grpc/grpcRedaction';
+import { redactGrpcMetadataForHistory } from '../../shared/grpc/grpcRedaction';
 import { isGrpcStreamLifecycleInFlight } from '../../shared/grpc/streamLifecycle';
+import { prepareGrpcExecuteRequestMetadata } from '../../shared/grpc/grpcAuthPolicy';
+import { prepareGrpcCallMetadata } from '../../shared/grpc/grpcCompressionPolicy';
+import { resolveGrpcStudioTabFieldsForExecute } from '../../shared/grpc/grpcStudioExecuteInterpolation';
 import { postGrpcDescriptorLookup } from '../../shared/grpc/grpcApiClient';
+import { isGrpcRedactedPersistValue } from '../../shared/grpc/grpcSavedRequest';
 import { resolveGrpcTabConnection } from './utils/resolveGrpcTabConnection';
 import {
   clearTabAuthSecretField,
   clearTabTlsSecretField,
   unmaskSecretField,
 } from './utils/grpcTabSecretVault';
+import { getRuntimeGrpcHistoryMetadata } from './utils/grpcStudioCallHistoryCapture';
 import type { GrpcAuthSecretFieldKey, GrpcTlsSecretFieldKey } from './utils/grpcSecretFieldUi';
 import { resolveEffectiveGrpcAuth } from './utils/grpcAuthProfileResolve';
 import {
@@ -159,6 +167,34 @@ export function GrpcStudioPage({
     studio.restorePersistedSession(persisted);
   });
 
+  // Demo bridge: allow lessons to patch the active gRPC tab (e.g. grpcurlExportContext).
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__demoPatchGrpcActiveTab = (patch: { grpcurlExportContext?: import('./utils/grpcGrpcurlTypes').GrpcGrpcurlExportContext }) => {
+      const tabId = studio.activeTab?.id;
+      if (!tabId) return false;
+      studio.updateTab(tabId, patch);
+      return true;
+    };
+    w.__demoResetGrpcActiveTab = () => {
+      const tabId = studio.activeTab?.id;
+      if (!tabId) return false;
+      studio.updateTab(tabId, {
+        connectionId: undefined,
+        tlsMode: 'disabled',
+        tlsConfig: undefined,
+        auth: { type: 'none' },
+        metadata: {},
+        grpcurlExportContext: undefined,
+      });
+      return true;
+    };
+    return () => {
+      delete w.__demoPatchGrpcActiveTab;
+      delete w.__demoResetGrpcActiveTab;
+    };
+  }, [studio]);
+
   const collections = useGrpcCollections();
   const callHistory = useGrpcCallHistory();
   const [panelView, setPanelView] = useState<GrpcStudioPanelView>('studio');
@@ -168,8 +204,23 @@ export function GrpcStudioPage({
   const tabIdsRef = useRef(studio.tabs.map((tab) => tab.id).join('|'));
   const [saveModalOpen, setSaveModalOpen] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [consoleOpen, setConsoleOpen] = useState(false);
+  const [consoleEvents, setConsoleEvents] = useState<GrpcConsoleWireEvent[]>([]);
   const [selectedSavedId, setSelectedSavedId] = useState<string | null>(null);
   const [savedReplaySourceByTabId, setSavedReplaySourceByTabId] = useState<Record<string, { collectionId: string; savedId: string }>>({});
+  const consoleEventCounterRef = useRef(0);
+  const consoleSeenUnarySendRef = useRef<Record<string, string>>({});
+  const consoleSeenUnaryTerminalRef = useRef<Record<string, string>>({});
+  const consoleSeenStreamCountRef = useRef<Record<string, number>>({});
+  const consoleSeenStreamLifecycleRef = useRef<Record<string, string>>({});
+
+  const appendConsoleEvent = useCallback((event: Omit<GrpcConsoleWireEvent, 'id'>) => {
+    const id = `grpc-console-wire-${++consoleEventCounterRef.current}`;
+    setConsoleEvents((prev) => {
+      const next = [...prev, { ...event, id }];
+      return next.length > 2000 ? next.slice(next.length - 2000) : next;
+    });
+  }, []);
 
   const replayActions = useGrpcStudioReplayActions({
     studio,
@@ -302,16 +353,256 @@ export function GrpcStudioPage({
     )
   ), [studio.activeTab]);
 
-  const grpcurlForHistoryEntry = useCallback((entry: GrpcCallHistoryEntryV1) => (
-    buildGrpcurlInvokeCommandFromSnapshot(
-      entry.record.snapshot,
-      resolveGrpcurlExportContextForTabRequest(
-        studio.activeTab,
-        entry.record.snapshot.service,
-        entry.record.snapshot.method,
-      ),
-    )
-  ), [studio.activeTab]);
+  const mergeHistoryMetadataForGrpcurl = useCallback((
+    replayMetadata: Record<string, string> | undefined,
+    historyMetadata: Record<string, string> | undefined,
+    runtimeMetadata: Record<string, string> | undefined,
+    activeMetadata: Record<string, string> | undefined,
+    environmentMetadata: Record<string, string>,
+  ): Record<string, string> => {
+    if (!historyMetadata && !activeMetadata && !runtimeMetadata) {
+      return replayMetadata ? { ...replayMetadata } : {};
+    }
+    const merged = {
+      ...historyMetadata,
+      ...(runtimeMetadata ?? {}),
+      ...(activeMetadata ?? {}),
+      ...(replayMetadata ?? {}),
+    };
+    if (!historyMetadata) {
+      return merged;
+    }
+    for (const [key, value] of Object.entries(historyMetadata)) {
+      if (!isGrpcRedactedPersistValue(value)) continue;
+      const replayValue = replayMetadata?.[key];
+      if (replayValue && !isGrpcRedactedPersistValue(replayValue)) {
+        merged[key] = replayValue;
+        continue;
+      }
+      // Runtime cache is the exact value captured at send time for *this* history
+      // entry — trusted over the tab's current live state, which can drift (or get
+      // wiped mid-flight by a still-running background lesson cleanup, since demo
+      // lesson transitions intentionally run cleanup asynchronously without
+      // blocking the next lesson's setup) between when the call was made and when
+      // the user clicks Copy grpcurl / Replay.
+      const runtimeValue = runtimeMetadata?.[key];
+      if (runtimeValue && !isGrpcRedactedPersistValue(runtimeValue)) {
+        merged[key] = runtimeValue;
+        continue;
+      }
+      const activeValue = activeMetadata?.[key];
+      if (activeValue && !isGrpcRedactedPersistValue(activeValue)) {
+        merged[key] = activeValue;
+        continue;
+      }
+
+      const normalized = key.trim();
+      const candidates = [
+        normalized,
+        normalized.toLowerCase(),
+        normalized.toUpperCase(),
+        normalized.replace(/-/g, '_'),
+        normalized.replace(/-/g, '_').toUpperCase(),
+        normalized.replace(/[^A-Za-z0-9]+/g, ''),
+      ];
+      const envValue = candidates
+        .map((candidate) => environmentMetadata[candidate])
+        .find((candidate) => typeof candidate === 'string' && candidate.trim().length > 0);
+      if (envValue && !isGrpcRedactedPersistValue(envValue)) {
+        merged[key] = envValue;
+      }
+    }
+    return merged;
+  }, []);
+
+  const resolveSiblingRuntimeHistoryMetadata = useCallback((
+    entry: GrpcCallHistoryEntryV1,
+  ): Record<string, string> | undefined => {
+    const redactedKeys = Object.entries(entry.record.snapshot.metadata ?? {})
+      .filter(([, value]) => isGrpcRedactedPersistValue(value))
+      .map(([key]) => key);
+    if (redactedKeys.length === 0) {
+      return undefined;
+    }
+
+    const pending = new Set(redactedKeys);
+    const resolved: Record<string, string> = {};
+    const byDistance = callHistory.entries
+      .filter((candidate) => (
+        candidate.id !== entry.id
+        && candidate.service === entry.service
+        && candidate.method === entry.method
+        && candidate.target === entry.target
+      ))
+      .sort((left, right) => {
+        const leftDelta = Math.abs(Date.parse(left.capturedAt) - Date.parse(entry.capturedAt));
+        const rightDelta = Math.abs(Date.parse(right.capturedAt) - Date.parse(entry.capturedAt));
+        return leftDelta - rightDelta;
+      });
+
+    for (const candidate of byDistance) {
+      const candidateRuntime = getRuntimeGrpcHistoryMetadata(candidate.id);
+      if (!candidateRuntime) continue;
+
+      for (const key of [...pending]) {
+        const value = candidateRuntime[key];
+        if (!value || isGrpcRedactedPersistValue(value)) continue;
+        resolved[key] = value;
+        pending.delete(key);
+      }
+
+      if (pending.size === 0) {
+        break;
+      }
+    }
+
+    return Object.keys(resolved).length > 0 ? resolved : undefined;
+  }, [callHistory.entries]);
+
+  const sanitizeHistoryAuthForGrpcurl = useCallback((
+    auth: GrpcCallHistoryEntryV1['record']['snapshot']['auth'],
+  ): GrpcCallHistoryEntryV1['record']['snapshot']['auth'] | undefined => {
+    if (!auth || auth.type === 'none' || auth.type === 'inherit') {
+      return auth;
+    }
+    switch (auth.type) {
+      case 'bearer':
+        return isGrpcRedactedPersistValue(auth.bearerToken) ? undefined : auth;
+      case 'basic':
+        return isGrpcRedactedPersistValue(auth.basicPassword) ? undefined : auth;
+      case 'api_key':
+        return isGrpcRedactedPersistValue(auth.apiKeyValue) ? undefined : auth;
+      case 'oauth2':
+        return isGrpcRedactedPersistValue(auth.oauth2?.clientSecret) ? undefined : auth;
+      default:
+        return auth;
+    }
+  }, []);
+
+  /** Active tab's currently-resolved metadata (live secrets), used to fill redacted history rows. */
+  const resolveActiveExecuteMetadataForHistoryRestore = useCallback((): Record<string, string> => {
+    try {
+      const resolved = resolveGrpcStudioTabFieldsForExecute(studio.activeTab, {
+        ...workspaceDefaults,
+        ...envVarMap,
+      });
+      return prepareGrpcExecuteRequestMetadata(
+        resolved.metadata,
+        resolved.auth,
+      ) ?? resolved.metadata;
+    } catch {
+      return studio.activeTab.metadata;
+    }
+  }, [studio.activeTab, workspaceDefaults, envVarMap]);
+
+  /**
+   * Best-effort restore of a history entry's redacted metadata values from live sources —
+   * never from persisted storage. Tries, in priority order: the replay binding (Auth-tab
+   * secrets currently held on the active tab), the active tab's own metadata rows, this
+   * session's in-memory capture cache (same or sibling request), then a matching Environment
+   * variable. Shared by "Copy grpcurl" and "Replay" so both restore the same real values.
+   */
+  const resolveRestoredHistoryEntryMetadata = useCallback((
+    entry: GrpcCallHistoryEntryV1,
+  ): Record<string, string> => {
+    const activeExecuteMetadata = resolveActiveExecuteMetadataForHistoryRestore();
+    const replayMetadata = (() => {
+      try {
+        return resolveGrpcHistoryEntryReplay({
+          entry,
+          tab: studio.activeTab,
+          requestId: 'history-metadata-restore-preview',
+          envVarMap,
+          profiles: studio.profiles,
+          pageDefaults,
+          currentDescriptor: studio.activeTabDescriptor.descriptor,
+          tabDescriptorState: studio.activeTabDescriptor,
+        }).snapshot.metadata;
+      } catch {
+        return undefined;
+      }
+    })();
+    const runtimeMetadata = getRuntimeGrpcHistoryMetadata(entry.id);
+    const siblingRuntimeMetadata = resolveSiblingRuntimeHistoryMetadata(entry);
+    return mergeHistoryMetadataForGrpcurl(
+      replayMetadata,
+      entry.record.snapshot.metadata,
+      {
+        ...(siblingRuntimeMetadata ?? {}),
+        ...(runtimeMetadata ?? {}),
+      },
+      activeExecuteMetadata,
+      {
+        ...workspaceDefaults,
+        ...envVarMap,
+      },
+    );
+  }, [
+    envVarMap,
+    mergeHistoryMetadataForGrpcurl,
+    pageDefaults,
+    resolveActiveExecuteMetadataForHistoryRestore,
+    resolveSiblingRuntimeHistoryMetadata,
+    studio.activeTab,
+    studio.activeTabDescriptor,
+    studio.profiles,
+    workspaceDefaults,
+  ]);
+
+  /**
+   * Replay a history entry, then re-apply its restored (unredacted) metadata directly onto
+   * the active tab. `replayHistoryEntry` routes through `createGrpcSavedRequestFromSnapshot`,
+   * which — by design — re-redacts any metadata key that *looks* like a secret (by name) before
+   * it lands on the tab, since that helper is shared with the "save to collection" persist path.
+   * That re-redaction would silently undo the restoration below it if left unchecked, so the
+   * live values are patched back in immediately after the replay lands.
+   */
+  const replayHistoryEntryWithRestoredMetadata = useCallback((
+    entry: GrpcCallHistoryEntryV1,
+  ): ReturnType<typeof replayActions.replayHistoryEntry> => {
+    const restoredMetadata = resolveRestoredHistoryEntryMetadata(entry);
+    const tabId = studio.activeTab.id;
+    const binding = replayActions.replayHistoryEntry(entry);
+    if (binding) {
+      studio.updateTab(tabId, { metadata: restoredMetadata });
+    }
+    return binding;
+  }, [replayActions, resolveRestoredHistoryEntryMetadata, studio]);
+
+  const grpcurlForHistoryEntry = useCallback((entry: GrpcCallHistoryEntryV1) => {
+    const exportContext = resolveGrpcurlExportContextForTabRequest(
+      studio.activeTab,
+      entry.record.snapshot.service,
+      entry.record.snapshot.method,
+    );
+    try {
+      const binding = resolveGrpcHistoryEntryReplay({
+        entry,
+        tab: studio.activeTab,
+        requestId: 'grpcurl-export-preview',
+        envVarMap,
+        profiles: studio.profiles,
+        pageDefaults,
+        currentDescriptor: studio.activeTabDescriptor.descriptor,
+        tabDescriptorState: studio.activeTabDescriptor,
+      });
+      return buildGrpcurlInvokeCommandFromSnapshot({
+        ...binding.snapshot,
+        auth: sanitizeHistoryAuthForGrpcurl(binding.snapshot.auth),
+        metadata: resolveRestoredHistoryEntryMetadata(entry),
+      }, exportContext);
+    } catch {
+      return buildGrpcurlInvokeCommandFromSnapshot(entry.record.snapshot, exportContext);
+    }
+  }, [
+    envVarMap,
+    pageDefaults,
+    resolveRestoredHistoryEntryMetadata,
+    sanitizeHistoryAuthForGrpcurl,
+    studio.activeTab,
+    studio.activeTabDescriptor,
+    studio.profiles,
+  ]);
 
   const copyTextToClipboard = useCallback(async (text: string) => {
     try {
@@ -332,6 +623,7 @@ export function GrpcStudioPage({
   const [settingsDrawerNav, setSettingsDrawerNav] = useState<GrpcConnectionSettingsNav>('call');
   const [settingsDrawerOpenRequest, setSettingsDrawerOpenRequest] = useState(0);
   const previousActiveTabIdRef = useRef(studio.activeTabId);
+  const previousConsoleOpenRef = useRef(false);
 
   useEffect(() => {
     if (protoModalOpen) {
@@ -351,6 +643,164 @@ export function GrpcStudioPage({
 
   const activeConnection = studio.resolveTabConnection(studio.activeTab.id);
   const activeTab = studio.activeTab;
+  const activeLifecycle = activeTab.lifecycle ?? 'idle';
+  const activeStreamLifecycle = activeTab.streamLifecycle ?? 'idle';
+  const activeStreamMessages = activeTab.streamMessages ?? [];
+
+  useEffect(() => {
+    const justOpened = consoleOpen && !previousConsoleOpenRef.current;
+    previousConsoleOpenRef.current = consoleOpen;
+    if (!consoleOpen) return;
+    if (!justOpened) return;
+    const tabId = activeTab.id;
+    consoleSeenUnarySendRef.current[tabId] = activeTab.lastExecuteSnapshot?.requestId ?? '';
+    consoleSeenUnaryTerminalRef.current[tabId] = activeTab.lastExecuteSnapshot?.requestId ?? '';
+    consoleSeenStreamCountRef.current[tabId] = activeStreamMessages.length;
+    consoleSeenStreamLifecycleRef.current[tabId] = activeStreamLifecycle;
+  }, [consoleOpen, activeStreamLifecycle, activeStreamMessages.length, activeTab.id, activeTab.lastExecuteSnapshot?.requestId]);
+
+  useEffect(() => {
+    if (!consoleOpen) return;
+    const tabId = activeTab.id;
+    if (consoleSeenUnarySendRef.current[tabId] !== undefined) {
+      return;
+    }
+    consoleSeenUnarySendRef.current[tabId] = activeTab.lastExecuteSnapshot?.requestId ?? '';
+    consoleSeenUnaryTerminalRef.current[tabId] = activeTab.lastExecuteSnapshot?.requestId ?? '';
+    consoleSeenStreamCountRef.current[tabId] = activeStreamMessages.length;
+    consoleSeenStreamLifecycleRef.current[tabId] = activeStreamLifecycle;
+  }, [consoleOpen, activeTab.id, activeTab.lastExecuteSnapshot?.requestId, activeStreamMessages.length, activeStreamLifecycle]);
+
+  useEffect(() => {
+    if (!consoleOpen) return;
+    const tabId = activeTab.id;
+    const snapshot = activeTab.lastExecuteSnapshot;
+    const requestId = snapshot?.requestId ?? '';
+
+    if (
+      requestId
+      && activeLifecycle !== 'idle'
+      && consoleSeenUnarySendRef.current[tabId] !== requestId
+    ) {
+      const effectiveMetadata = (() => {
+        try {
+          return prepareGrpcCallMetadata(snapshot?.metadata, snapshot?.auth, snapshot?.compression) ?? {};
+        } catch {
+          return snapshot?.metadata ?? {};
+        }
+      })();
+
+      appendConsoleEvent({
+        timestamp: new Date().toISOString(),
+        direction: 'send',
+        service: snapshot?.service,
+        method: snapshot?.method,
+        summary: `Unary request ${snapshot?.service ?? ''}/${snapshot?.method ?? ''}`.trim(),
+        payload: {
+          requestId,
+          target: snapshot?.target,
+          transportMode: snapshot?.transportMode,
+          compression: snapshot?.compression,
+          metadata: redactGrpcMetadataForHistory(effectiveMetadata, snapshot?.auth),
+          manualMetadata: snapshot?.metadata,
+          auth: snapshot?.auth,
+          body: snapshot?.body,
+          timeoutMs: snapshot?.timeoutMs,
+        },
+      });
+      consoleSeenUnarySendRef.current[tabId] = requestId;
+      delete consoleSeenUnaryTerminalRef.current[tabId];
+    }
+
+    const terminalLifecycle = activeLifecycle === 'success'
+      || activeLifecycle === 'error'
+      || activeLifecycle === 'cancelled';
+    if (requestId && terminalLifecycle && consoleSeenUnaryTerminalRef.current[tabId] !== requestId) {
+      appendConsoleEvent({
+        timestamp: new Date().toISOString(),
+        direction: activeLifecycle === 'success' ? 'recv' : 'event',
+        service: snapshot?.service,
+        method: snapshot?.method,
+        summary: `Unary ${activeLifecycle}`,
+        payload: activeLifecycle === 'success'
+          ? {
+            status: activeTab.lastResult?.status,
+            statusMessage: activeTab.lastResult?.statusMessage,
+            headers: activeTab.lastResult?.headers,
+            trailers: activeTab.lastResult?.trailers,
+            body: activeTab.lastResult?.body,
+            durationMs: activeTab.lastResult?.durationMs,
+          }
+          : {
+            requestId,
+            error: activeTab.lastError,
+          },
+      });
+      consoleSeenUnaryTerminalRef.current[tabId] = requestId;
+    }
+  }, [
+    activeTab.id,
+    activeTab.lastError,
+    activeTab.lastExecuteSnapshot,
+    activeTab.lastResult,
+    activeLifecycle,
+    appendConsoleEvent,
+    consoleOpen,
+  ]);
+
+  useEffect(() => {
+    if (!consoleOpen) return;
+    const tabId = activeTab.id;
+    const seenCount = consoleSeenStreamCountRef.current[tabId] ?? 0;
+    if (activeStreamMessages.length > seenCount) {
+      const nextEntries = activeStreamMessages.slice(seenCount);
+      for (const entry of nextEntries) {
+        appendConsoleEvent({
+          timestamp: entry.timestamp,
+          direction: entry.direction === 'outbound' ? 'send' : 'recv',
+          service: activeTab.lastExecuteSnapshot?.service,
+          method: activeTab.lastExecuteSnapshot?.method,
+          summary: `Stream ${entry.direction === 'outbound' ? 'send' : 'recv'} #${entry.sequence}`,
+          payload: entry.data,
+        });
+      }
+    }
+    consoleSeenStreamCountRef.current[tabId] = activeStreamMessages.length;
+  }, [activeStreamMessages, activeTab.id, activeTab.lastExecuteSnapshot?.method, activeTab.lastExecuteSnapshot?.service, appendConsoleEvent, consoleOpen]);
+
+  useEffect(() => {
+    if (!consoleOpen) return;
+    const tabId = activeTab.id;
+    const previous = consoleSeenStreamLifecycleRef.current[tabId];
+    const next = activeStreamLifecycle;
+    if (previous !== next && (next === 'ended' || next === 'cancelled' || next === 'error')) {
+      appendConsoleEvent({
+        timestamp: activeTab.streamEndedAt ?? new Date().toISOString(),
+        direction: next === 'ended' ? 'recv' : 'event',
+        service: activeTab.lastExecuteSnapshot?.service,
+        method: activeTab.lastExecuteSnapshot?.method,
+        summary: `Stream ${next}`,
+        payload: {
+          lifecycle: next,
+          error: activeTab.streamError,
+          startedAt: activeTab.streamStartedAt,
+          endedAt: activeTab.streamEndedAt,
+        },
+      });
+    }
+    consoleSeenStreamLifecycleRef.current[tabId] = next;
+  }, [
+    activeTab.id,
+    activeTab.lastExecuteSnapshot?.method,
+    activeTab.lastExecuteSnapshot?.service,
+    activeTab.streamEndedAt,
+    activeTab.streamError,
+    activeStreamLifecycle,
+    activeTab.streamStartedAt,
+    appendConsoleEvent,
+    consoleOpen,
+  ]);
+
   const tabInterpolationEnv = useMemo(
     () => mergeGrpcTabInterpolationEnv({
       workspaceDefaults,
@@ -703,11 +1153,11 @@ export function GrpcStudioPage({
             profiles={studio.profiles}
             onReplay={(entry) => {
               replayActions.clearLastActionError();
-              replayActions.replayHistoryEntry(entry);
+              replayHistoryEntryWithRestoredMetadata(entry);
             }}
             onOpenDiff={(entry) => {
               replayActions.clearLastActionError();
-              const replayed = replayActions.replayHistoryEntry(entry);
+              const replayed = replayHistoryEntryWithRestoredMetadata(entry);
               if (!replayed) return;
               void openHistorySchemaDiff(entry);
             }}
@@ -787,6 +1237,30 @@ export function GrpcStudioPage({
             </div>
           );
         })()}
+
+        <button
+          type="button"
+          className={`grpc-console-launcher${consoleOpen ? ' grpc-console-launcher--active' : ''}`}
+          data-testid="grpc-console-launcher"
+          onClick={() => setConsoleOpen((prev) => !prev)}
+          title="Toggle console"
+          aria-pressed={consoleOpen}
+        >
+          Console
+          {consoleEvents.length > 0 && (
+            <span className="grpc-console-launcher__count" data-testid="grpc-console-launcher-count">
+              {consoleEvents.length}
+            </span>
+          )}
+        </button>
+
+        {consoleOpen && (
+          <GrpcConsoleModal
+            events={consoleEvents}
+            onClearEvents={() => setConsoleEvents([])}
+            onClose={() => setConsoleOpen(false)}
+          />
+        )}
       </div>
 
       <GrpcSaveRequestModal

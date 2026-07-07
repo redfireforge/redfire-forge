@@ -106,6 +106,16 @@ describe('checkEndpoint', () => {
     expect(spy).toHaveBeenNthCalledWith(2, 'http://127.0.0.1:3001/health', expect.any(Object));
   });
 
+  it('uses Express Spring health proxy for actuator checks when available', async () => {
+    const spy = vi.spyOn(globalThis, 'fetch')
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    const promise = checkEndpoint('http://localhost:8080/actuator/health');
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await promise).toBe(true);
+    expect(spy).toHaveBeenCalledWith('http://localhost:3001/health/spring', expect.any(Object));
+  });
+
   it('settle guard prevents double-resolve when both timeout and open fire', async () => {
     mockFetchReject();
 

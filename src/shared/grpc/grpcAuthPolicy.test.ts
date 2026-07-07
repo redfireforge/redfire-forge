@@ -56,18 +56,42 @@ describe('grpcAuthPolicy (Phase 4A)', () => {
     }
   });
 
-  it('auth panel overrides conflicting manual authorization metadata', () => {
+  it('records auth/manual conflicts when manual authorization differs', () => {
     const merged = mergeGrpcExecuteMetadata(
       { Authorization: 'Bearer manual-token', 'x-trace': '1' },
       { type: 'bearer', bearerToken: 'panel-token' },
     );
-    expect(merged.ok).toBe(true);
-    if (merged.ok) {
-      expect(merged.metadata.authorization).toBe('Bearer panel-token');
-      expect(merged.metadata['x-trace']).toBe('1');
-      expect(merged.conflicts).toHaveLength(1);
-      expect(merged.conflicts[0]?.key).toBe('authorization');
+    expect(merged.ok).toBe(false);
+    if (!merged.ok) {
+      expect(merged.field).toBe('auth');
+      expect(merged.error).toMatch(/authorization/i);
     }
+  });
+
+  it('blocks execute metadata merge when auth conflicts with manual metadata', () => {
+    const merged = mergeGrpcExecuteMetadata(
+      { authorization: 'Bearer manual-token' },
+      { type: 'bearer', bearerToken: 'panel-token' },
+    );
+    expect(merged.ok).toBe(false);
+    if (!merged.ok) {
+      expect(merged.field).toBe('auth');
+      expect(merged.error).toMatch(/authorization/i);
+    }
+  });
+
+  it('blocks oauth2 execute passthrough metadata when manual authorization is present', () => {
+    expect(() => prepareGrpcExecuteRequestMetadata(
+      { authorization: 'Bearer manual-token' },
+      {
+        type: 'oauth2',
+        oauth2: {
+          tokenUrl: 'https://auth.example.com/token',
+          clientId: 'client',
+          clientSecret: 'secret',
+        },
+      },
+    )).toThrow(/authorization/i);
   });
 
   it('validates required auth fields for each auth type', () => {

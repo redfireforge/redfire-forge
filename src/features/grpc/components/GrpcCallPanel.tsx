@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { GRPC_PROTO_HYBRID_EDITOR_ENABLED } from '../../../config/features';
 import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GrpcMessageSchema, GrpcMethodInfo } from '../../../shared/grpc/contracts';
 import { redactGrpcErrorBody } from '../../../shared/grpc/grpcRedaction';
@@ -34,9 +35,10 @@ import { formatGrpcBrowserTransportFailureHint, formatGrpcTlsFailureHint } from 
 import { GrpcAuthPanel } from './GrpcAuthPanel';
 import { GrpcMetadataEditor } from './GrpcMetadataEditor';
 import { GrpcProtoFormBuilder } from './GrpcProtoFormBuilder';
-import { GrpcCallTypeSelectorRow } from './GrpcCallTypeSelectorRow';
+import { buildHybridNavigatorPaths } from './GrpcProtoHybridNavigator';
 import { GrpcJsonCodeToolbar } from './GrpcJsonCodeToolbar';
 import { GrpcHighlightedJsonTextarea } from './GrpcHighlightedJsonTextarea';
+import { GrpcProtoHybridEditorModal } from './GrpcProtoHybridEditorModal';
 import { GrpcResponsePanel } from './GrpcResponsePanel';
 import { GrpcStreamRequestActionBar } from './GrpcStreamRequestActionBar';
 import { GrpcStreamMessageLog } from './GrpcStreamMessageLog';
@@ -48,10 +50,40 @@ import {
   downloadGrpcStreamLogExport,
 } from '../utils/grpcStreamLogExport';
 import { isGrpcLifecycleInFlight } from '../grpcStudioTypes';
+import {
+  createGrpcProtoHybridInitialState,
+  isGrpcProtoHybridEnabledForMethod,
+  reduceGrpcProtoHybridState,
+  type GrpcProtoHybridEvent,
+} from '../utils/grpcProtoHybridState';
+import { emitGrpcHybridTelemetry, type GrpcHybridSchemaComplexityBucket } from '../utils/grpcHybridTelemetry';
+import { hasGrpcProtoHybridApplyBlockingState } from '../utils/grpcProtoHybridValidation';
 
 export type { GrpcComposerTab } from '../utils/grpcComposerTabState';
 
 type GrpcMobileStage = 'request' | 'response' | 'metadata' | 'auth';
+
+function stringifyUnknown(value: unknown): string {
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function hashTabId(tabId: string): string {
+  let hash = 0;
+  for (let i = 0; i < tabId.length; i += 1) {
+    hash = (hash * 31 + tabId.charCodeAt(i)) >>> 0;
+  }
+  return hash.toString(16);
+}
+
+function schemaComplexityBucket(fieldCount: number): GrpcHybridSchemaComplexityBucket {
+  if (fieldCount <= 20) return 'small';
+  if (fieldCount <= 80) return 'medium';
+  return 'large';
+}
 
 export interface GrpcCallPanelProps {
   tab: GrpcStudioTabState;
@@ -129,9 +161,25 @@ export function GrpcCallPanel({
   const [metadataSwitchError, setMetadataSwitchError] = useState<string | null>(null);
   const [pendingSendInFlight, setPendingSendInFlight] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ id: string; name: string; size: number; file: File }>>([]);
+  const [hybridState, setHybridState] = useState(() => createGrpcProtoHybridInitialState(tab.id, tab.body));
+  const [hybridCloseConfirmVisible, setHybridCloseConfirmVisible] = useState(false);
 
   const hasMethod = !!method && !!serviceFullName;
+  const hybridEditorEnabled = GRPC_PROTO_HYBRID_EDITOR_ENABLED && isGrpcProtoHybridEnabledForMethod(method);
+  const hybridTelemetryPayload = useMemo(() => {
+    const methodIdentifier = hasMethod ? `${serviceFullName}/${method!.name}` : 'unknown';
+    const fieldCount = method?.requestSchema?.fields?.length ?? 0;
+    return {
+      tabIdHash: hashTabId(tab.id),
+      methodIdentifier,
+      schemaComplexity: schemaComplexityBucket(fieldCount),
+    };
+  }, [hasMethod, method, serviceFullName, tab.id]);
   const methodIdentity = hasMethod ? `${serviceFullName}/${method!.name}` : '';
+  const hybridNavigatorPaths = useMemo(
+    () => (method ? buildHybridNavigatorPaths(method.requestSchema) : []),
+    [method],
+  );
   const layoutCallType = resolveGrpcStudioLayoutCallType(tab, method);
   const isStreamingLayout = isStreamingLayoutCallType(layoutCallType);
   const unaryReady = method ? isUnaryReadyMethod(method) : false;
@@ -187,6 +235,9 @@ export function GrpcCallPanel({
   const tabRef = useRef(tab);
   tabRef.current = tab;
   const prevTabIdRef = useRef(tab.id);
+  const lastAuthTabFocusRequestRef = useRef<number | null>(null);
+  const lastHybridWarningCountRef = useRef<number | null>(null);
+  const lastSendBlockHintRef = useRef<string | null>(null);
 
   useEffect(() => {
     persistComposerTab(tab.id, composerTab);
@@ -201,7 +252,153 @@ export function GrpcCallPanel({
     setJsonError(null);
     setFormError(null);
     setMetadataSwitchError(null);
+    setHybridState(createGrpcProtoHybridInitialState(tab.id, tab.body));
   }, [tab, tab.id, tab.body, tab.requestMode]);
+
+  useEffect(() => {
+    if (!hybridEditorEnabled) {
+      setHybridState(createGrpcProtoHybridInitialState(tab.id, tab.body));
+      setHybridCloseConfirmVisible(false);
+      return;
+    }
+    setHybridState((previous) => {
+      const tabChanged = previous.tabId !== tab.id;
+      const requestChanged = stringifyUnknown(previous.requestDraft) !== stringifyUnknown(tab.body);
+      if (!tabChanged && (!requestChanged || previous.modal.isOpen)) {
+        return previous;
+      }
+      return createGrpcProtoHybridInitialState(tab.id, tab.body);
+    });
+  }, [hybridEditorEnabled, tab.body, tab.id]);
+
+  useEffect(() => {
+    if (!hybridState.modal.isOpen) {
+      setHybridCloseConfirmVisible(false);
+    }
+  }, [hybridState.modal.isOpen]);
+
+  useEffect(() => {
+    if (!hybridEditorEnabled) return;
+    if (stringifyUnknown(hybridState.requestDraft) === stringifyUnknown(tab.body)) return;
+    onPatch({
+      body: hybridState.requestDraft as Record<string, unknown>,
+      requestMode: 'json',
+    });
+  }, [hybridEditorEnabled, hybridState.requestDraft, onPatch, tab.body]);
+
+  const applyHybridEvent = useCallback((event: GrpcProtoHybridEvent) => {
+    setHybridState((previous) => reduceGrpcProtoHybridState(previous, event));
+  }, []);
+
+  useEffect(() => {
+    if (!hybridEditorEnabled || !method) return;
+    if (hybridNavigatorPaths.length === 0) return;
+    const selectedPath = hybridState.navigator.selectedPath;
+    if (selectedPath && hybridNavigatorPaths.includes(selectedPath)) return;
+    applyHybridEvent({ type: 'NAVIGATOR_SELECT_PATH', path: hybridNavigatorPaths[0]! });
+  }, [
+    applyHybridEvent,
+    hybridEditorEnabled,
+    hybridNavigatorPaths,
+    hybridState.navigator.selectedPath,
+    method,
+  ]);
+
+  const applyHybridEventWithHooks = useCallback((event: GrpcProtoHybridEvent) => {
+    if (event.type === 'FULL_FORM_OPEN' && !hybridState.modal.isOpen) {
+      emitGrpcHybridTelemetry('grpc_editor_modal_opened', hybridTelemetryPayload);
+    }
+    if (
+      event.type === 'FULL_FORM_APPLY'
+      && hybridState.modal.isOpen
+      && hybridState.modal.workingDraft !== null
+      && !hasGrpcProtoHybridApplyBlockingState(hybridState.validation.summary, hybridState.modal.jsonError)
+    ) {
+      // Keep the compact JSON composer in sync with the applied modal draft.
+      setJsonDraft(serializeGrpcBodyJson((hybridState.modal.workingDraft ?? {}) as Record<string, unknown>));
+      setJsonError(null);
+      emitGrpcHybridTelemetry('grpc_editor_modal_applied', hybridTelemetryPayload);
+    }
+    if (event.type === 'FULL_FORM_DISCARD' && hybridState.modal.isOpen) {
+      emitGrpcHybridTelemetry('grpc_editor_modal_discarded', hybridTelemetryPayload);
+    }
+    if (event.type === 'NAVIGATOR_SELECT_PATH' && event.path !== hybridState.navigator.selectedPath) {
+      emitGrpcHybridTelemetry('grpc_editor_selected_path_changed', hybridTelemetryPayload);
+    }
+
+    let restorePath: string | null = null;
+    if (event.type === 'FULL_FORM_APPLY' || event.type === 'FULL_FORM_DISCARD' || event.type === 'FULL_FORM_CLOSE') {
+      restorePath = hybridState.modal.openContext?.selectedPath ?? null;
+    }
+
+    applyHybridEvent(event);
+
+    if (restorePath) {
+      applyHybridEvent({ type: 'NAVIGATOR_SELECT_PATH', path: restorePath });
+    }
+  }, [
+    applyHybridEvent,
+    hybridState.modal.isOpen,
+    hybridState.modal.jsonError,
+    hybridState.modal.openContext?.selectedPath,
+    hybridState.modal.workingDraft,
+    hybridState.validation.summary,
+    hybridTelemetryPayload,
+  ]);
+
+  const requestHybridClose = useCallback(() => {
+    if (!hybridState.modal.isOpen) return;
+    if (hybridState.modal.dirty) {
+      setHybridCloseConfirmVisible(true);
+      emitGrpcHybridTelemetry('grpc_editor_modal_close_prompted', hybridTelemetryPayload);
+      return;
+    }
+    applyHybridEventWithHooks({ type: 'FULL_FORM_CLOSE' });
+  }, [applyHybridEventWithHooks, hybridState.modal.dirty, hybridState.modal.isOpen, hybridTelemetryPayload]);
+
+  const handleHybridCloseKeepEditing = useCallback(() => {
+    setHybridCloseConfirmVisible(false);
+    emitGrpcHybridTelemetry('grpc_editor_modal_close_cancelled', hybridTelemetryPayload);
+  }, [hybridTelemetryPayload]);
+
+  const handleHybridCloseDiscard = useCallback(() => {
+    setHybridCloseConfirmVisible(false);
+    applyHybridEventWithHooks({ type: 'FULL_FORM_DISCARD' });
+  }, [applyHybridEventWithHooks]);
+
+  const handleHybridNavigatorSelectPath = useCallback((path: string) => {
+    applyHybridEventWithHooks({ type: 'NAVIGATOR_SELECT_PATH', path });
+  }, [applyHybridEventWithHooks]);
+
+  const handleOpenHybridWorkspace = useCallback(() => {
+    if (method) {
+      const parsed = applyJsonTextToSchema(jsonDraft, method.requestSchema, { messageTypes });
+      if (parsed.ok) {
+        applyHybridEvent({ type: 'FOCUS_EDIT_PATCH', nextDraft: parsed.body });
+        onPatch({ body: parsed.body, requestMode: 'json' });
+        setJsonError(null);
+      } else {
+        setJsonError(parsed.error);
+      }
+    }
+
+    applyHybridEventWithHooks({
+      type: 'FULL_FORM_OPEN',
+      openContext: {
+        selectedPath: hybridState.navigator.selectedPath,
+        navigatorScrollTop: 0,
+        focusPaneScrollTop: 0,
+      },
+    });
+  }, [
+    applyHybridEvent,
+    applyHybridEventWithHooks,
+    hybridState.navigator.selectedPath,
+    jsonDraft,
+    messageTypes,
+    method,
+    onPatch,
+  ]);
 
   useEffect(() => {
     if (composerTab === 'metadata') {
@@ -227,7 +424,6 @@ export function GrpcCallPanel({
       return;
     }
 
-    const methodChanged = prevMethodIdentityRef.current !== '';
     prevMethodIdentityRef.current = methodIdentity;
     const activeTab = tabRef.current;
 
@@ -237,17 +433,27 @@ export function GrpcCallPanel({
     setFormValid(true);
     setMetadataEditorValid(true);
     setMetadataSwitchError(null);
-    setComposerTab(
-      methodChanged ? 'form' : (activeTab.requestMode === 'json' ? 'json' : 'form'),
-    );
-  }, [methodIdentity]);
+    if (hybridEditorEnabled) {
+      setComposerTab('form');
+    } else {
+      setComposerTab(
+        activeTab.requestMode === 'json' ? 'json' : 'form',
+      );
+    }
+  }, [hybridEditorEnabled, methodIdentity]);
 
   useEffect(() => {
-    if (composerTab === 'json' && tab.requestMode === 'form') {
+    if ((composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form')) && tab.requestMode === 'form') {
       setJsonDraft(serializeGrpcBodyJson(tab.body));
       setJsonError(null);
     }
-  }, [tab.body, tab.requestMode, composerTab]);
+  }, [hybridEditorEnabled, tab.body, tab.requestMode, composerTab]);
+
+  useEffect(() => {
+    if (!hybridEditorEnabled) return;
+    if (composerTab !== 'json') return;
+    setComposerTab('form');
+  }, [composerTab, hybridEditorEnabled]);
 
   useEffect(() => {
     if (formValid) {
@@ -273,23 +479,30 @@ export function GrpcCallPanel({
 
     if (composerTab === 'form' && nextTab !== 'form' && !formValid) {
       setFormError('Fix nested message JSON errors before switching tabs');
-      return;
     }
 
     if (composerTab === 'metadata' && nextTab !== 'metadata' && !metadataEditorValid) {
       setMetadataSwitchError('Fix metadata validation errors before switching tabs');
-      return;
     }
 
-    if (composerTab === 'json' && nextTab !== 'json' && method) {
+    const formActsAsJson = hybridEditorEnabled && composerTab === 'form';
+    if (composerTab === 'json' && !hybridEditorEnabled && nextTab !== 'json' && method) {
       const parsed = applyJsonTextToSchema(jsonDraft, method.requestSchema, { messageTypes });
       if (!parsed.ok) {
         setJsonError(parsed.error);
-        return;
+      } else {
+        onPatch({ body: parsed.body, requestMode: nextTab === 'form' ? 'form' : tab.requestMode });
+        setJsonError(null);
       }
-      onPatch({ body: parsed.body, requestMode: nextTab === 'form' ? 'form' : tab.requestMode });
-      setJsonError(null);
-    } else if (nextTab === 'json') {
+    } else if (formActsAsJson && nextTab !== 'json' && nextTab !== 'form' && method) {
+      const parsed = applyJsonTextToSchema(jsonDraft, method.requestSchema, { messageTypes });
+      if (!parsed.ok) {
+        setJsonError(parsed.error);
+      } else {
+        onPatch({ body: parsed.body, requestMode: 'json' });
+        setJsonError(null);
+      }
+    } else if (nextTab === 'json' && !hybridEditorEnabled) {
       setJsonDraft(serializeGrpcBodyJson(tab.body));
       setJsonError(null);
       setFormError(null);
@@ -297,13 +510,17 @@ export function GrpcCallPanel({
     } else if (nextTab === 'form') {
       setFormError(null);
       setMetadataSwitchError(null);
-      onPatch({ requestMode: 'form' });
+      if (hybridEditorEnabled) {
+        onPatch({ requestMode: 'json' });
+      } else {
+        onPatch({ requestMode: 'form' });
+      }
     } else if (nextTab === 'metadata') {
       setMetadataSwitchError(null);
     }
 
     setComposerTab(nextTab);
-  }, [composerTab, formValid, jsonDraft, messageTypes, metadataEditorValid, method, onPatch, tab.body, tab.requestMode]);
+  }, [composerTab, formValid, hybridEditorEnabled, jsonDraft, messageTypes, metadataEditorValid, method, onPatch, tab.body, tab.requestMode]);
 
   const switchMobileStage = useCallback((nextStage: GrpcMobileStage) => {
     if (nextStage === 'response') {
@@ -328,9 +545,15 @@ export function GrpcCallPanel({
   }, [composerTab, switchComposerTab]);
 
   useEffect(() => {
-    if (authTabFocusRequest && authTabFocusRequest > 0) {
+    const currentRequest = authTabFocusRequest ?? 0;
+    const previousRequest = lastAuthTabFocusRequestRef.current;
+    const shouldFocusAuth = previousRequest === null
+      ? currentRequest > 0
+      : currentRequest > previousRequest;
+    if (shouldFocusAuth) {
       switchComposerTab('auth');
     }
+    lastAuthTabFocusRequestRef.current = currentRequest;
   }, [authTabFocusRequest, switchComposerTab]);
 
   const handleJsonChange = (text: string) => {
@@ -395,12 +618,13 @@ export function GrpcCallPanel({
 
   const resolveBodyOverrides = useCallback((): GrpcExecuteOverrides | undefined => {
     if (!method) return undefined;
-    const needsJsonResolve = isGrpcJsonMode(composerTab, tab.requestMode);
+    const isJsonSurface = composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form');
+    const needsJsonResolve = isGrpcJsonMode(composerTab, tab.requestMode) || isJsonSurface;
     if (!needsJsonResolve) return undefined;
 
-    const draft = composerTab === 'json' ? jsonDraft : serializeGrpcBodyJson(tab.body);
+    const draft = isJsonSurface ? jsonDraft : serializeGrpcBodyJson(tab.body);
     const parsed = applyJsonTextToSchema(draft, method.requestSchema, {
-      enforceWideIntegralStringLiterals: composerTab === 'json',
+      enforceWideIntegralStringLiterals: isJsonSurface,
       messageTypes,
     });
     if (!parsed.ok) {
@@ -410,11 +634,12 @@ export function GrpcCallPanel({
     setJsonError(null);
     onPatch({ body: parsed.body, requestMode: 'json' });
     return { body: parsed.body };
-  }, [composerTab, jsonDraft, messageTypes, method, onPatch, tab.body, tab.requestMode]);
+  }, [composerTab, hybridEditorEnabled, jsonDraft, messageTypes, method, onPatch, tab.body, tab.requestMode]);
 
   const handlePrimaryAction = useCallback(async () => {
+    const isJsonSurface = composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form');
     let overrides = resolveBodyOverrides();
-    if (overrides === undefined && method && isGrpcJsonMode(composerTab, tab.requestMode)) {
+    if (overrides === undefined && method && (isGrpcJsonMode(composerTab, tab.requestMode) || isJsonSurface)) {
       return;
     }
 
@@ -447,23 +672,26 @@ export function GrpcCallPanel({
     streamReady,
     tab.requestMode,
     unaryReady,
+    hybridEditorEnabled,
   ]);
 
   const handleSendStreamMessage = useCallback(() => {
+    const isJsonSurface = composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form');
     const overrides = resolveBodyOverrides();
-    if (overrides === undefined && method && isGrpcJsonMode(composerTab, tab.requestMode)) {
+    if (overrides === undefined && method && (isGrpcJsonMode(composerTab, tab.requestMode) || isJsonSurface)) {
       return;
     }
     onSendStreamMessage?.(overrides);
-  }, [composerTab, method, onSendStreamMessage, resolveBodyOverrides, tab.requestMode]);
+  }, [composerTab, hybridEditorEnabled, method, onSendStreamMessage, resolveBodyOverrides, tab.requestMode]);
 
   const handleEnqueueStreamMessage = useCallback(() => {
+    const isJsonSurface = composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form');
     const overrides = resolveBodyOverrides();
-    if (overrides === undefined && method && isGrpcJsonMode(composerTab, tab.requestMode)) {
+    if (overrides === undefined && method && (isGrpcJsonMode(composerTab, tab.requestMode) || isJsonSurface)) {
       return;
     }
     onEnqueueStreamMessage?.(overrides);
-  }, [composerTab, method, onEnqueueStreamMessage, resolveBodyOverrides, tab.requestMode]);
+  }, [composerTab, hybridEditorEnabled, method, onEnqueueStreamMessage, resolveBodyOverrides, tab.requestMode]);
 
   const handleSendAllPendingStreamMessages = useCallback(async () => {
     if (pendingSendInFlight || !onSendAllPendingStreamMessages) return;
@@ -500,10 +728,11 @@ export function GrpcCallPanel({
   ]);
 
   const isUnaryInFlight = isGrpcLifecycleInFlight(tab.lifecycle);
-  const composerFormReady = composerTab !== 'form' || formValid;
+  const jsonSurfaceActive = composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form');
+  const composerFormReady = composerTab !== 'form' || hybridEditorEnabled || formValid;
   const composerJsonReady = tab.requestMode === 'json'
-    ? (composerTab === 'json' ? !jsonError : offTabJsonValidation.ok)
-    : composerTab !== 'json' || !jsonError;
+    ? (jsonSurfaceActive ? !jsonError : offTabJsonValidation.ok)
+    : !jsonSurfaceActive || !jsonError;
   const validationReady = composerFormReady
     && composerJsonReady
     && metadataReady
@@ -512,6 +741,9 @@ export function GrpcCallPanel({
 
   const sendBlockHint = useMemo(() => {
     if (!hasMethod) return null;
+    if (!targetValid) {
+      return 'Set a valid target endpoint before sending.';
+    }
     if (!tlsValid) {
       return 'Fix TLS configuration in the connection panel before sending.';
     }
@@ -550,8 +782,43 @@ export function GrpcCallPanel({
     metadataReady,
     offTabJsonValidation.error,
     persistedMetadataValidation.message,
+    targetValid,
     tlsValid,
   ]);
+
+  useEffect(() => {
+    if (!hybridEditorEnabled || !hasMethod) {
+      lastHybridWarningCountRef.current = null;
+      return;
+    }
+    const warningCount = hybridState.validation.summary.warnings;
+    if (lastHybridWarningCountRef.current === warningCount) return;
+    lastHybridWarningCountRef.current = warningCount;
+    emitGrpcHybridTelemetry('grpc_editor_validation_warning_count', hybridTelemetryPayload, {
+      warningCount,
+    });
+  }, [
+    hasMethod,
+    hybridEditorEnabled,
+    hybridState.validation.summary.warnings,
+    hybridTelemetryPayload,
+  ]);
+
+  useEffect(() => {
+    if (!hybridEditorEnabled || !hasMethod) {
+      lastSendBlockHintRef.current = null;
+      return;
+    }
+    if (!sendBlockHint) {
+      lastSendBlockHintRef.current = null;
+      return;
+    }
+    if (lastSendBlockHintRef.current === sendBlockHint) return;
+    lastSendBlockHintRef.current = sendBlockHint;
+    emitGrpcHybridTelemetry('grpc_editor_send_blocked_error', hybridTelemetryPayload, {
+      reason: sendBlockHint,
+    });
+  }, [hasMethod, hybridEditorEnabled, hybridTelemetryPayload, sendBlockHint]);
 
   const canSendUnary = hasMethod
     && unaryReady
@@ -699,14 +966,6 @@ export function GrpcCallPanel({
 
   return (
     <section className="grpc-call-panel" data-testid="grpc-call-panel">
-      {!hasMethod && (
-        <GrpcCallTypeSelectorRow
-          activeCallType={layoutCallType}
-          lockedCallType={method?.callType}
-          disabled={disabled || streamActive}
-          onSelectCallType={(callType) => onPatch({ layoutPreviewCallType: callType })}
-        />
-      )}
       <div
         className={`grpc-call-send-bar${hasMethod ? '' : ' grpc-call-send-bar--placeholder'}`}
         data-testid="grpc-call-send-bar"
@@ -735,6 +994,17 @@ export function GrpcCallPanel({
             <span className="grpc-call-timeout-unit">ms</span>
           </label>
           <div className="grpc-call-inline-actions" data-testid="grpc-call-inline-actions">
+            {hybridEditorEnabled && hasMethod && (
+              <button
+                type="button"
+                className="grpc-call-full-form-btn"
+                data-testid="grpc-open-full-form-editor-btn"
+                disabled={disabled}
+                onClick={handleOpenHybridWorkspace}
+              >
+                Open Full Form Editor
+              </button>
+            )}
             {unaryReady && (
               <button
                 type="button"
@@ -806,7 +1076,6 @@ export function GrpcCallPanel({
           aria-selected={mobileStage === 'metadata'}
           className={`grpc-mobile-stage-tab${mobileStage === 'metadata' ? ' grpc-mobile-stage-tab--active' : ''}`}
           data-testid="grpc-mobile-stage-metadata"
-          disabled={!hasMethod}
           onClick={() => switchMobileStage('metadata')}
         >
           Metadata
@@ -831,27 +1100,26 @@ export function GrpcCallPanel({
               aria-pressed={composerTab === 'form'}
               className={`grpc-call-panel-tab${composerTab === 'form' ? ' grpc-call-panel-tab--active' : ''}`}
               data-testid="grpc-request-tab-form"
-              disabled={!hasMethod}
               onClick={() => switchComposerTab('form')}
             >
               Form Input
             </button>
-            <button
-              type="button"
-              aria-pressed={composerTab === 'json'}
-              className={`grpc-call-panel-tab${composerTab === 'json' ? ' grpc-call-panel-tab--active' : ''}`}
-              data-testid="grpc-request-tab-json"
-              disabled={!hasMethod}
-              onClick={() => switchComposerTab('json')}
-            >
-              JSON
-            </button>
+            {!hybridEditorEnabled && (
+              <button
+                type="button"
+                aria-pressed={composerTab === 'json'}
+                className={`grpc-call-panel-tab${composerTab === 'json' ? ' grpc-call-panel-tab--active' : ''}`}
+                data-testid="grpc-request-tab-json"
+                onClick={() => switchComposerTab('json')}
+              >
+                JSON
+              </button>
+            )}
             <button
               type="button"
               aria-pressed={composerTab === 'metadata'}
               className={`grpc-call-panel-tab${composerTab === 'metadata' ? ' grpc-call-panel-tab--active' : ''}`}
               data-testid="grpc-request-tab-metadata"
-              disabled={!hasMethod}
               onClick={() => switchComposerTab('metadata')}
             >
               Metadata
@@ -861,7 +1129,6 @@ export function GrpcCallPanel({
               aria-pressed={composerTab === 'auth'}
               className={`grpc-call-panel-tab${composerTab === 'auth' ? ' grpc-call-panel-tab--active' : ''}`}
               data-testid="grpc-request-tab-auth"
-              disabled={disabled}
               onClick={() => switchComposerTab('auth')}
             >
               Auth
@@ -871,7 +1138,6 @@ export function GrpcCallPanel({
               aria-pressed={composerTab === 'files'}
               className={`grpc-call-panel-tab${composerTab === 'files' ? ' grpc-call-panel-tab--active' : ''}`}
               data-testid="grpc-request-tab-files"
-              disabled={!hasMethod}
               onClick={() => switchComposerTab('files')}
             >
               Files
@@ -969,19 +1235,64 @@ export function GrpcCallPanel({
                     {formError}
                   </p>
                 )}
-                <GrpcProtoFormBuilder
-                  key={methodIdentity}
-                  schema={method!.requestSchema}
-                  messageTypes={messageTypes}
-                  body={tab.body}
-                  disabled={disabled}
-                  onValidityChange={setFormValid}
-                  onChange={(body) => onPatch({ body, requestMode: 'form' })}
-                />
+                {hybridEditorEnabled ? (
+                  <div className="grpc-call-json-editor grpc-hybrid-json-compact" data-testid="grpc-request-json-compact">
+                    <div className="grpc-call-json-editor-header">
+                      <span className="grpc-call-json-editor-hint">
+                        JSON-first composer. Open Full Form Editor for guided field editing.
+                      </span>
+                      <div className="grpc-call-json-editor-actions">
+                        <button
+                          type="button"
+                          className="grpc-call-full-form-btn"
+                          data-testid="grpc-open-full-form-editor-btn-inline"
+                          disabled={disabled}
+                          onClick={handleOpenHybridWorkspace}
+                        >
+                          Open Full Form Editor
+                        </button>
+                        <GrpcJsonCodeToolbar
+                          copyText={jsonDraft}
+                          onPrettyFormat={() => {
+                            if (!method) return;
+                            try {
+                              handleJsonChange(JSON.stringify(JSON.parse(jsonDraft), null, 2));
+                            } catch {
+                              // Keep draft when invalid JSON.
+                            }
+                          }}
+                          prettyDisabled={!!jsonError}
+                          testIdPrefix="grpc-request-json-hybrid"
+                        />
+                      </div>
+                    </div>
+                    <GrpcHighlightedJsonTextarea
+                      value={jsonDraft}
+                      disabled={disabled}
+                      onChange={handleJsonChange}
+                      testId="grpc-request-json"
+                    />
+                    {jsonError && (
+                      <p className="grpc-call-json-error" data-testid="grpc-request-json-error" role="alert">
+                        {jsonError}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <GrpcProtoFormBuilder
+                    key={methodIdentity}
+                    schema={method!.requestSchema}
+                    messageTypes={messageTypes}
+                    body={tab.body}
+                    disabled={disabled}
+                    onValidityChange={setFormValid}
+                    onChange={(body) => onPatch({ body, requestMode: 'form' })}
+                  />
+                )}
               </div>
             )}
 
-            {hasMethod && composerTab === 'json' && (
+            {hasMethod && !hybridEditorEnabled && composerTab === 'json' && (
               <div className="grpc-call-json-editor">
                 <div className="grpc-call-json-editor-header">
                   <span className="grpc-call-json-editor-hint">
@@ -1076,6 +1387,23 @@ export function GrpcCallPanel({
           </button>
         )}
       </div>
+
+      {hybridEditorEnabled && method && (
+        <GrpcProtoHybridEditorModal
+          open={hybridState.modal.isOpen}
+          method={method}
+          messageTypes={messageTypes}
+          modalState={hybridState.modal}
+          closeConfirmVisible={hybridCloseConfirmVisible}
+          disabled={disabled}
+          selectedPath={hybridState.navigator.selectedPath}
+          onSelectPath={handleHybridNavigatorSelectPath}
+          onEvent={applyHybridEventWithHooks}
+          onClose={requestHybridClose}
+          onConfirmCloseDiscard={handleHybridCloseDiscard}
+          onCancelCloseDiscard={handleHybridCloseKeepEditing}
+        />
+      )}
     </section>
   );
 }

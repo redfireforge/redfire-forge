@@ -16,7 +16,7 @@ export type GrpcLessonProductPhase = 1 | 2 | 3 | 4 | 5 | 6 | 8 | 9 | 10 | 11;
 export interface GrpcLessonFixtureRequirements {
   /** Go echo server on :50051 with :50052 health (docker/grpc). */
   requireGoEcho?: boolean;
-  /** Spring Boot gRPC server on :9090 (Phase 12 lesson 15). */
+  /** Spring Boot gRPC server on :9090 (Netty) and :8080 (servlet/actuator) — GRPC-15. */
   requireSpringBoot?: boolean;
   /** Express webhook server on :3001 for /api/grpc proxy (browser mode). */
   requireExpressProxy?: boolean;

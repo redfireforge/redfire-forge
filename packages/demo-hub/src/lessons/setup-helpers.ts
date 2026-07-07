@@ -50,15 +50,11 @@ export async function startMockServer(ctx: DemoActionContext) {
     const btn = firstVisibleEl<HTMLButtonElement>(WS.MOCK_START_BTN);
     if (btn && !btn.disabled) btn.click();
     // Wait up to 5s for the Stop button (server listening confirmation)
-    const started = await new Promise<boolean>(resolve => {
-      const deadline = Date.now() + 5000;
-      const poll = () => {
-        if (firstVisibleEl(WS.MOCK_STOP_BTN)) return resolve(true);
-        if (Date.now() >= deadline) return resolve(false);
-        setTimeout(poll, 100);
-      };
-      poll();
-    });
+    let started = false;
+    for (let i = 0; i < 50; i++) {
+      if (firstVisibleEl(WS.MOCK_STOP_BTN)) { started = true; break; }
+      await ctx.delay(100);
+    }
     if (started) return;
     await ctx.delay(500);
   }
@@ -402,11 +398,10 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
     connectBtn.click();
     // Wait for Disconnect button to become ENABLED (not just exist) —
     // the button is always in the DOM but disabled until connected.
-    const dcStart = Date.now();
-    while (Date.now() - dcStart < 8000) {
+    for (let i = 0; i < 40; i++) {
       const dcBtn = document.querySelector<HTMLButtonElement>(KAFKA.DISCONNECT_BTN);
       if (dcBtn && !dcBtn.disabled) break;
-      await new Promise(r => setTimeout(r, 200));
+      await ctx.delay(200);
     }
     await ctx.delay(600);
   }
