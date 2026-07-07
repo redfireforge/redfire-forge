@@ -28,6 +28,11 @@ const GRPC_SELECTOR_VALUES = collectGrpcSelectorStrings();
 const GRPC_DYNAMIC_SELECTOR_PATTERNS = [
   /^\[data-testid="grpc-service-[a-z0-9-]+"\]$/,
   /^\[data-testid="grpc-method-[a-z0-9-]+"\]$/,
+  // Proto Form Builder per-field selectors (GRPC.PROTO_FIELD / PROTO_FIELD_INPUT / PROTO_ONEOF) —
+  // field/oneof names come straight from the proto schema (snake_case), e.g. "shipping_address".
+  /^\[data-testid="grpc-proto-field-input-[a-z0-9_]+"\]$/,
+  /^\[data-testid="grpc-proto-field-[a-z0-9_]+"\]$/,
+  /^\[data-testid="grpc-proto-oneof-[a-z0-9_]+"\]$/,
 ];
 
 const LESSON_ID_PATTERN = /^grpc-[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -201,9 +206,11 @@ function validateRosterFixtureEndpoints(
       );
     }
   }
-  if (entry.fixtures.requireSpringBoot && hasDockerPrereqs && !endpoints.includes('9090')) {
+  if (entry.fixtures.requireSpringBoot && hasDockerPrereqs && !endpoints.includes('8080')) {
     issues.push(
-      issue(`${prefix}.dockerEndpoints`, 'requireSpringBoot needs :9090 health in dockerEndpoints'),
+      // Actuator on :8080 is the only reliable HTTP health probe for the Spring
+      // Boot fixture — :9090 speaks plaintext gRPC/HTTP2, not a pingable HTTP health check.
+      issue(`${prefix}.dockerEndpoints`, 'requireSpringBoot needs :8080 (actuator) health in dockerEndpoints'),
     );
   }
 }

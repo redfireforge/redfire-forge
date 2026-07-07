@@ -81,8 +81,7 @@ async function ensureDiffOpen(ctx: DemoActionContext): Promise<void> {
   // The message list is virtualised — after a search clear or tab switch, not all
   // rows may be in the DOM immediately. Polling here avoids the fragile
   // index-out-of-bounds case where rows[5] is undefined.
-  const rowStart = Date.now();
-  while (Date.now() - rowStart < 3000) {
+  for (let _i = 0; _i < 30; _i++) {
     if (document.querySelectorAll(WS.MESSAGE_ROW).length >= 6) break;
     await ctx.delay(100);
   }
@@ -385,8 +384,7 @@ These tools turn raw WebSocket traffic into **actionable intelligence**.`,
         // rows[5] = sent greeting "Hello again!"
         // Wait for the virtualizer to render at least 6 rows — without this the
         // querySelectorAll may return fewer items and rows[5] would be undefined.
-        const rowStart = Date.now();
-        while (Date.now() - rowStart < 3000) {
+        for (let _i = 0; _i < 30; _i++) {
           if (document.querySelectorAll(WS.MESSAGE_ROW).length >= 6) break;
           await ctx.delay(100);
         }

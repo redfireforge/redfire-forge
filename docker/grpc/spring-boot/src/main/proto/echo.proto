@@ -38,4 +38,6 @@ service EchoService {
   rpc ServerStream (StreamRequest) returns (stream EchoResponse);
   rpc ClientStream (stream EchoRequest) returns (EchoResponse);
   rpc BidiStream (stream EchoRequest) returns (stream EchoResponse);
+  // Requires `authorization: Bearer demo-secret-token` — enforced by BearerAuthServerInterceptor.
+  rpc SecureEcho (EchoRequest) returns (EchoResponse);
 }

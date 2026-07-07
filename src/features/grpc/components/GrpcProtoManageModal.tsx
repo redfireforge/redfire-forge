@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type DragEv
 import type { GrpcDescriptor, GrpcProtoRootInput } from '../../../shared/grpc/contracts';
 import type { GrpcDescriptorLoadState, GrpcTabProtoIngestState } from '../grpcStudioTypes';
 import { useModalDrag } from '../../../shared/hooks/useModalDrag';
+import { useModalResize } from '../../../shared/hooks/useModalResize';
 import { GRPC } from '@shared/selectors';
 import {
   computeCanonicalProtoPath,
@@ -82,6 +83,13 @@ function estimateBase64DecodedBytes(base64: string): number {
   return Math.max(0, Math.floor((compact.length * 3) / 4) - padding);
 }
 
+function cloneIngestState(ingest: GrpcTabProtoIngestState): GrpcTabProtoIngestState {
+  if (typeof structuredClone === 'function') {
+    return structuredClone(ingest);
+  }
+  return JSON.parse(JSON.stringify(ingest)) as GrpcTabProtoIngestState;
+}
+
 function ModalDragGrip() {
   return (
     <span className="grpc-proto-modal-drag-grip" aria-hidden="true" title="Drag to move">
@@ -124,18 +132,43 @@ export function GrpcProtoManageModal({
   const protosetInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
   const wasOpenRef = useRef(false);
+  const ingestSnapshotRef = useRef<GrpcTabProtoIngestState | null>(null);
   const { onDragStart, isDragged, overlayStyle, modalStyle } = useModalDrag(open, {
     modalRef,
     anchor: GRPC_PROTO_MODAL_ANCHOR,
   });
+  const { resizeStyle, onCorner, resetSize } = useModalResize(760, 500);
+
+  const combinedModalStyle = resizeStyle
+    ? {
+        ...(modalStyle ?? {}),
+        ...resizeStyle,
+      }
+    : modalStyle;
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
       setActiveTab(initialTab ?? ingest.source);
       setUploadError(undefined);
+      ingestSnapshotRef.current = cloneIngestState(ingest);
+    }
+    if (!open) {
+      ingestSnapshotRef.current = null;
+      resetSize();
     }
     wasOpenRef.current = open;
-  }, [open, initialTab, ingest.source]);
+  }, [open, initialTab, ingest, resetSize]);
+
+  const handleCancel = useCallback(() => {
+    if (ingestSnapshotRef.current) {
+      onIngestChange(ingestSnapshotRef.current);
+    }
+    onClose();
+  }, [onClose, onIngestChange]);
+
+  const handleSave = useCallback(() => {
+    onClose();
+  }, [onClose]);
 
   const protoRoots = ensureProtoRoots(ingest);
   const selectedRoot = protoRoots.find((root) => root.id === selectedRootId) ?? protoRoots[0];
@@ -157,12 +190,12 @@ export function GrpcProtoManageModal({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && loadState !== 'loading') {
         event.preventDefault();
-        onClose();
+        handleCancel();
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open, onClose, loadState]);
+  }, [open, handleCancel, loadState]);
 
   const switchTab = useCallback((tab: ProtoModalTab) => {
     setActiveTab(tab);
@@ -326,13 +359,13 @@ export function GrpcProtoManageModal({
       style={overlayStyle}
       onMouseDown={(event) => {
         if (loading || isDragged) return;
-        if (event.target === event.currentTarget) onClose();
+        if (event.target === event.currentTarget) handleCancel();
       }}
     >
       <div
         ref={modalRef}
         className={`grpc-proto-modal${isDragged ? ' grpc-proto-modal--dragged' : ''}`}
-        style={modalStyle}
+        style={combinedModalStyle}
         role="dialog"
         aria-modal="true"
         aria-label="Manage schemas"
@@ -822,11 +855,22 @@ export function GrpcProtoManageModal({
             type="button"
             className="grpc-proto-modal-cancel"
             data-testid="grpc-proto-cancel-btn"
-            onClick={onClose}
+            onClick={handleCancel}
             disabled={loading}
           >
             Cancel
           </button>
+          {!isSchemaBrowser && (
+            <button
+              type="button"
+              className="grpc-proto-modal-save"
+              data-testid="grpc-proto-save-btn"
+              onClick={handleSave}
+              disabled={loading}
+            >
+              Save
+            </button>
+          )}
           {!isSchemaBrowser && (
             <button
               type="button"
@@ -840,6 +884,12 @@ export function GrpcProtoManageModal({
             </button>
           )}
         </footer>
+
+        <div
+          className="modal-resize-corner"
+          onMouseDown={onCorner}
+          aria-hidden="true"
+        />
       </div>
     </div>
   );

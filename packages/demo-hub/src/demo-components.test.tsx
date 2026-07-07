@@ -246,6 +246,14 @@ describe('renderMarkdown', () => {
     expect(html).toBeTruthy();
   });
 
+  it('escapes angle brackets in inline code', () => {
+    expect(renderMarkdown('Path `/<service>/<method>`')).toContain('&lt;service&gt;/&lt;method&gt;');
+  });
+
+  it('escapes angle brackets in plain text', () => {
+    expect(renderMarkdown('POST to /<service>/<method>')).toContain('&lt;service&gt;/&lt;method&gt;');
+  });
+
   it('handles table cells with formatting', () => {
     const md = '| **Name** | `code` |\n| --- | --- |\n| x | y |';
     const html = renderMarkdown(md);
@@ -1613,9 +1621,9 @@ describe('LiveDemo', () => {
 
   it('drag handle starts drag on mousedown and moves panel', () => {
     const { container } = render(<LiveDemo {...liveProps} />);
-    const header = container.querySelector('.demo-live-panel-header--draggable') as HTMLElement;
+    const handle = container.querySelector('.demo-live-drag-handle') as HTMLElement;
     const panel = container.querySelector('.demo-live-panel') as HTMLElement;
-    expect(header).toBeTruthy();
+    expect(handle).toBeTruthy();
     expect(panel).toBeTruthy();
 
     const startTop = panel.style.top;
@@ -1626,7 +1634,7 @@ describe('LiveDemo', () => {
       right: 700, bottom: 640, x: 300, y: 200, toJSON: () => ({}),
     });
 
-    fireEvent.mouseDown(header, { clientX: 100, clientY: 100 });
+    fireEvent.mouseDown(handle, { clientX: 100, clientY: 100 });
     fireEvent(window, new MouseEvent('mousemove', { clientX: 150, clientY: 120 }));
     fireEvent(window, new MouseEvent('mouseup'));
 

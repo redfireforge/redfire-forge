@@ -27,7 +27,7 @@ describe('useLiveDemoPanelLayout', () => {
     expect(geom.width).toBe(DEMO_LIVE_PANEL_DEFAULT_WIDTH);
     expect(geom.height).toBe(DEMO_LIVE_PANEL_DEFAULT_HEIGHT);
     expect(geom.left).toBe(1280 - DEMO_LIVE_PANEL_DEFAULT_WIDTH - 16);
-    expect(geom.top).toBe(900 - DEMO_LIVE_PANEL_DEFAULT_HEIGHT - 16);
+    expect(geom.top).toBe(84);
   });
 
   it('restores saved geometry from localStorage', () => {

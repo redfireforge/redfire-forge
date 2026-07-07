@@ -126,6 +126,38 @@ describe('webhook-server', { timeout: 30_000 }, () => {
     });
   });
 
+  describe('GET /health/spring', () => {
+    it('returns ok when Spring actuator reports UP', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: 'UP' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const res = await request(app).get('/health/spring');
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(res.body.source).toBe('spring-actuator');
+      expect(fetchSpy).toHaveBeenCalledWith(
+        'http://127.0.0.1:8080/actuator/health',
+        expect.any(Object),
+      );
+    });
+
+    it('returns down when Spring actuator is unreachable', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
+
+      const res = await request(app).get('/health/spring');
+
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(res.body.source).toBe('spring-actuator');
+      expect(String(res.body.reason)).toContain('ECONNREFUSED');
+    });
+  });
+
   describe('GET /api/executions', () => {
     it('returns execution history', async () => {
       const mockExecutions = [{ id: 'exec-1', workflowId: 'wf-1', status: 'success' }];
@@ -680,20 +712,37 @@ describe('GET /api/sse-test', () => {
     await new Promise<void>((resolve, reject) => {
       const server = app.listen(0, '127.0.0.1', () => {
         const addr = server.address() as import('net').AddressInfo;
+        let settled = false;
+        const closeAll = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(fallbackTimer);
+          req.destroy();
+          server.close(() => resolve());
+        };
         const req = http.get({
           hostname: '127.0.0.1',
           port: addr.port,
-          path: '/api/sse-test',
+          path: '/api/sse-test?intervalMs=40',
           headers: { 'Last-Event-ID': '5' },
         }, (res) => {
-          res.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
-          res.on('error', reject);
+          res.on('data', (chunk: Buffer) => {
+            const text = chunk.toString();
+            chunks.push(text);
+            if (chunks.join('').includes('event: status')) {
+              closeAll();
+            }
+          });
+          res.on('error', (err) => {
+            if (settled && (err as NodeJS.ErrnoException).code === 'ECONNRESET') return;
+            reject(err);
+          });
         });
-        req.on('error', reject);
-        setTimeout(() => {
-          req.destroy();
-          server.close(() => resolve());
-        }, 3200);
+        req.on('error', (err) => {
+          if (settled && (err as NodeJS.ErrnoException).code === 'ECONNRESET') return;
+          reject(err);
+        });
+        const fallbackTimer = setTimeout(closeAll, 450);
       });
       server.on('error', reject);
     });
@@ -708,15 +757,32 @@ describe('GET /api/sse-test', () => {
     await new Promise<void>((resolve, reject) => {
       const server = app.listen(0, '127.0.0.1', () => {
         const addr = server.address() as import('net').AddressInfo;
-        const req = http.get(`http://127.0.0.1:${addr.port}/api/sse-test`, (res) => {
-          res.on('data', (chunk: Buffer) => chunks.push(chunk.toString()));
-          res.on('error', reject);
-        });
-        req.on('error', reject);
-        setTimeout(() => {
+        let settled = false;
+        const closeAll = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(fallbackTimer);
           req.destroy();
           server.close(() => resolve());
-        }, 2500);
+        };
+        const req = http.get(`http://127.0.0.1:${addr.port}/api/sse-test?intervalMs=40`, (res) => {
+          res.on('data', (chunk: Buffer) => {
+            const text = chunk.toString();
+            chunks.push(text);
+            if (chunks.join('').includes('Event #2')) {
+              closeAll();
+            }
+          });
+          res.on('error', (err) => {
+            if (settled && (err as NodeJS.ErrnoException).code === 'ECONNRESET') return;
+            reject(err);
+          });
+        });
+        req.on('error', (err) => {
+          if (settled && (err as NodeJS.ErrnoException).code === 'ECONNRESET') return;
+          reject(err);
+        });
+        const fallbackTimer = setTimeout(closeAll, 300);
       });
       server.on('error', reject);
     });

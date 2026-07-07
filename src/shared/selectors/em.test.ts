@@ -2,7 +2,14 @@
  * @vitest-environment jsdom
  */
 import { describe, expect, it } from 'vitest';
-import { EM, emAddProtocolItemSel, emRemoveProtocolSel } from './em';
+import {
+  EM,
+  emAddProtocolItemSel,
+  emRemoveProtocolSel,
+  emWsDefaultDeleteSel,
+  emWsDefaultRowSel,
+  emWsDefaultRowValueSel,
+} from './em';
 
 describe('shared selectors em', () => {
   it('exposes stable selector constants for environment manager', () => {
@@ -19,5 +26,11 @@ describe('shared selectors em', () => {
   it('builds remove protocol selector for a given protocol key', () => {
     expect(emRemoveProtocolSel('http')).toBe('[data-testid="em-remove-protocol-http"]');
     expect(emRemoveProtocolSel('grpc')).toBe('[data-testid="em-remove-protocol-grpc"]');
+  });
+
+  it('builds workspace default selectors for a given key', () => {
+    expect(emWsDefaultRowSel('requestId')).toBe('[data-testid="em-ws-default-row-requestId"]');
+    expect(emWsDefaultRowValueSel('requestId')).toBe('[data-testid="em-ws-default-row-value-requestId"]');
+    expect(emWsDefaultDeleteSel('requestId')).toBe('[data-testid="em-ws-default-delete-requestId"]');
   });
 });

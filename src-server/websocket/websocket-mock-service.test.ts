@@ -58,7 +58,7 @@ describe('WebSocketMockService', () => {
   afterEach(async () => {
     wssCtorMode.mode = 'normal';
     service?.destroy();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('starts and reports running status', async () => {
@@ -82,14 +82,14 @@ describe('WebSocketMockService', () => {
     await service.start({ port, rules: [], fallback: 'echo' });
 
     const client = await connectClient(port);
-    await waitMs(50);
+    await waitMs(5);
 
     const status = service.getStatus();
     expect(status.clientCount).toBe(1);
     expect(status.clients).toHaveLength(1);
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('echoes messages in echo fallback mode', async () => {
@@ -103,7 +103,7 @@ describe('WebSocketMockService', () => {
     expect(response).toBe('hello');
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('matches rules and sends static response', async () => {
@@ -137,11 +137,11 @@ describe('WebSocketMockService', () => {
     let received = false;
     client.on('message', () => { received = true; });
     client.send('hello');
-    await waitMs(100);
+    await waitMs(15);
     expect(received).toBe(false);
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('broadcasts to all connected clients', async () => {
@@ -150,7 +150,7 @@ describe('WebSocketMockService', () => {
 
     const c1 = await connectClient(port);
     const c2 = await connectClient(port);
-    await waitMs(50);
+    await waitMs(5);
 
     const p1 = waitForMessage(c1);
     const p2 = waitForMessage(c2);
@@ -162,7 +162,7 @@ describe('WebSocketMockService', () => {
 
     c1.close();
     c2.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('tracks activity in log', async () => {
@@ -170,12 +170,12 @@ describe('WebSocketMockService', () => {
     await service.start({ port, rules: [], fallback: 'echo' });
 
     const client = await connectClient(port);
-    await waitMs(50);
+    await waitMs(5);
 
     const msgPromise = waitForMessage(client);
     client.send('test');
     await msgPromise;
-    await waitMs(50);
+    await waitMs(5);
 
     const logs = service.getLogs();
     expect(logs.some((l) => l.event === 'server-start')).toBe(true);
@@ -184,7 +184,7 @@ describe('WebSocketMockService', () => {
     expect(logs.some((l) => l.event === 'response-out')).toBe(true);
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('getLogs with sinceCursor returns only new entries', async () => {
@@ -195,14 +195,14 @@ describe('WebSocketMockService', () => {
     const cursor = allLogs[allLogs.length - 1]?.id ?? 0;
 
     const client = await connectClient(port);
-    await waitMs(50);
+    await waitMs(5);
 
     const newLogs = service.getLogs(cursor);
     expect(newLogs.length).toBeGreaterThan(0);
     expect(newLogs.every((l) => l.id > cursor)).toBe(true);
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('stops all clients on stop with code 1001', async () => {
@@ -247,7 +247,7 @@ describe('WebSocketMockService', () => {
     const rules: WsMockRule[] = [
       makeRule({
         match: { type: 'any', pattern: '' },
-        response: { type: 'static', data: 'delayed', delay: 100 },
+        response: { type: 'static', data: 'delayed', delay: 20 },
       }),
     ];
     await service.start({ port, rules, fallback: 'ignore' });
@@ -258,10 +258,10 @@ describe('WebSocketMockService', () => {
     client.send('test');
     await msgPromise;
     const elapsed = Date.now() - start;
-    expect(elapsed).toBeGreaterThanOrEqual(80);
+    expect(elapsed).toBeGreaterThanOrEqual(15);
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('updateRules changes rules at runtime', async () => {
@@ -273,7 +273,7 @@ describe('WebSocketMockService', () => {
     client.on('message', () => { received = true; });
 
     client.send('test');
-    await waitMs(50);
+    await waitMs(5);
     expect(received).toBe(false);
 
     service.updateRules([makeRule({ match: { type: 'any', pattern: '' }, response: { type: 'echo' } })]);
@@ -284,7 +284,7 @@ describe('WebSocketMockService', () => {
     expect(resp).toBe('test2');
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('rejects start with port in use', async () => {
@@ -330,11 +330,11 @@ describe('WebSocketMockService', () => {
     let received = false;
     client.on('message', () => { received = true; });
     client.send('test');
-    await waitMs(100);
+    await waitMs(15);
     expect(received).toBe(false);
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('static response with null data sends nothing', async () => {
@@ -351,11 +351,11 @@ describe('WebSocketMockService', () => {
     let received = false;
     client.on('message', () => { received = true; });
     client.send('test');
-    await waitMs(100);
+    await waitMs(15);
     expect(received).toBe(false);
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('close response uses valid custom close codes', async () => {
@@ -403,18 +403,18 @@ describe('WebSocketMockService', () => {
     const rules: WsMockRule[] = [
       makeRule({
         match: { type: 'any', pattern: '' },
-        response: { type: 'static', data: 'delayed', delay: 5000 },
+        response: { type: 'static', data: 'delayed', delay: 200 },
       }),
     ];
     await service.start({ port, rules, fallback: 'ignore' });
 
     const client = await connectClient(port);
     client.send('test');
-    await waitMs(50);
+    await waitMs(5);
 
     // Destroy before delay fires — should not throw
     service.destroy();
-    await waitMs(50);
+    await waitMs(5);
 
     // Client should be disconnected
     expect(client.readyState).not.toBe(WebSocket.OPEN);
@@ -461,11 +461,11 @@ describe('WebSocketMockService', () => {
     let received = false;
     client.on('message', () => { received = true; });
     client.send('hello2');
-    await waitMs(100);
+    await waitMs(15);
     expect(received).toBe(false);
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('truncates long message data in logs', async () => {
@@ -477,7 +477,7 @@ describe('WebSocketMockService', () => {
     const msgPromise = waitForMessage(client);
     client.send(longMsg);
     await msgPromise;
-    await waitMs(50);
+    await waitMs(5);
 
     const logs = service.getLogs();
     const msgIn = logs.find((l) => l.event === 'message-in');
@@ -486,7 +486,7 @@ describe('WebSocketMockService', () => {
     expect(msgIn!.data!.endsWith('\u2026')).toBe(true);
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('triggers server-side ws error handler', async () => {
@@ -494,15 +494,15 @@ describe('WebSocketMockService', () => {
     const errPort = port + 50;
     await service.start({ port: errPort, rules: [], fallback: 'echo' });
     const client = await connectClient(errPort);
-    await waitMs(30);
+    await waitMs(5);
     const internal = service as unknown as { clients: Map<string, { ws: WebSocket }> };
     const serverWs = [...internal.clients.values()][0]?.ws;
     expect(serverWs).toBeDefined();
     serverWs!.emit('error', new Error('server ws error'));
-    await waitMs(30);
+    await waitMs(5);
     expect(service.getLogs().some((l) => l.event === 'error' && l.data === 'server ws error')).toBe(true);
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('trims log buffer when exceeding MAX_LOG_ENTRIES', async () => {
@@ -511,12 +511,12 @@ describe('WebSocketMockService', () => {
     const client = await connectClient(port);
     for (let i = 0; i < 210; i += 1) {
       client.send(`msg-${i}`);
-      await waitMs(1);
+      await waitMs(0);
     }
-    await waitMs(100);
+    await waitMs(20);
     expect(service.getLogs().length).toBeLessThanOrEqual(200);
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('handles binary client messages as utf-8 strings', async () => {
@@ -532,7 +532,7 @@ describe('WebSocketMockService', () => {
     client.send(Buffer.from('binary-data'));
     expect(await msgPromise).toBe('ok');
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('ignores messages when fallback is ignore and no rule matches', async () => {
@@ -543,13 +543,13 @@ describe('WebSocketMockService', () => {
     let received = false;
     client.on('message', () => { received = true; });
     client.send('unmatched-message');
-    await waitMs(80);
+    await waitMs(15);
     expect(received).toBe(false);
     expect(service.getLogs().some((l) => l.event === 'message-in' && l.data === 'unmatched-message')).toBe(true);
     expect(service.getLogs().some((l) => l.event === 'response-out')).toBe(false);
 
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('broadcast skips closed clients and omits log when nothing sent', async () => {
@@ -569,7 +569,7 @@ describe('WebSocketMockService', () => {
     expect(await msgPromise).toBe('broadcast-msg');
     expect(service.getLogs().some((l) => l.event === 'response-out' && l.data?.includes('broadcast-msg'))).toBe(true);
     client.close();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('rejects start when WebSocketServer constructor throws synchronously', async () => {
@@ -602,7 +602,7 @@ describe('WebSocketMockService', () => {
     service = new WebSocketMockService();
     await service.start({
       port,
-      rules: [makeRule({ response: { type: 'static', data: 'delayed', delay: 200 } })],
+      rules: [makeRule({ response: { type: 'static', data: 'delayed', delay: 40 } })],
       fallback: 'ignore',
     });
     const client = await connectClient(port);
@@ -610,10 +610,10 @@ describe('WebSocketMockService', () => {
     client.on('message', () => { received = true; });
     client.send('trigger');
     client.close();
-    await waitMs(250);
+    await waitMs(60);
     expect(received).toBe(false);
     expect(service.getLogs().some((l) => l.event === 'response-out')).toBe(false);
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('logs unknown remote address when socket has no remoteAddress', async () => {
@@ -643,7 +643,7 @@ describe('WebSocketMockService', () => {
     await service.start({ port, rules: [], fallback: 'ignore' });
     const client = await connectClient(port);
     client.close();
-    await waitMs(50);
+    await waitMs(5);
     expect(service.broadcast('after-close')).toBe(0);
   });
 });
@@ -653,7 +653,7 @@ describe('WebSocketMockPool', () => {
 
   afterEach(async () => {
     pool.stopAll();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('getOrCreate creates a new service for an unknown port', () => {
@@ -684,10 +684,10 @@ describe('WebSocketMockPool', () => {
     pool = new WebSocketMockPool();
     const svc = pool.getOrCreate(19404);
     await svc.start({ port: 19404, rules: [], fallback: 'echo' });
-    await waitMs(30);
+    await waitMs(5);
     pool.release(19404);
     expect(pool.get(19404)).toBeUndefined();
-    await waitMs(50);
+    await waitMs(5);
   });
 
   it('release is a no-op for unknown port', () => {
@@ -701,10 +701,10 @@ describe('WebSocketMockPool', () => {
     const svc2 = pool.getOrCreate(19407);
     await svc1.start({ port: 19406, rules: [], fallback: 'echo' });
     await svc2.start({ port: 19407, rules: [], fallback: 'echo' });
-    await waitMs(30);
+    await waitMs(5);
     pool.stopAll();
     expect(pool.get(19406)).toBeUndefined();
     expect(pool.get(19407)).toBeUndefined();
-    await waitMs(50);
+    await waitMs(5);
   });
 });

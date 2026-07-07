@@ -58,6 +58,53 @@ app.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// Spring fixture health proxy used by Demo Hub prerequisite checks.
+app.get('/health/spring', async (_req: Request, res: Response) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch('http://127.0.0.1:8080/actuator/health', {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+
+    if (!response.ok) {
+      return res.status(503).json({
+        status: 'down',
+        source: 'spring-actuator',
+        reason: `http_${response.status}`,
+      });
+    }
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+
+    const springStatus = (payload && typeof payload === 'object' && 'status' in payload)
+      ? String((payload as { status?: unknown }).status)
+      : 'UP';
+    const up = springStatus.toUpperCase() === 'UP';
+
+    return res.status(up ? 200 : 503).json({
+      status: up ? 'ok' : 'down',
+      source: 'spring-actuator',
+      springStatus,
+      payload,
+    });
+  } catch (error) {
+    return res.status(503).json({
+      status: 'down',
+      source: 'spring-actuator',
+      reason: toErrorMessage(error),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+});
+
 // API: Get execution history
 app.get('/api/executions', async (req: Request, res: Response) => {
   try {
@@ -309,12 +356,17 @@ app.get('/api/sse-test', (req: Request, res: Response) => {
   counter++;
   res.write(`id: ${counter}\nevent: message\ndata: ${JSON.stringify({ type: 'greeting', text: 'Hello from SSE test server', counter })}\n\n`);
 
-  // Then send events every 1 second
+  const requestedIntervalMs = Number.parseInt(String(req.query.intervalMs ?? ''), 10);
+  const intervalMs = Number.isFinite(requestedIntervalMs)
+    ? Math.min(1000, Math.max(20, requestedIntervalMs))
+    : 1000;
+
+  // Then send events periodically (defaults to 1 second for manual testing)
   const interval = setInterval(() => {
     counter++;
     const eventType = counter % 3 === 0 ? 'status' : counter % 3 === 1 ? 'message' : 'update';
     res.write(`id: ${counter}\nevent: ${eventType}\ndata: ${JSON.stringify({ type: eventType, text: `Event #${counter}`, counter, ts: Date.now() })}\n\n`);
-  }, 1000);
+  }, intervalMs);
 
   req.on('close', () => {
     clearInterval(interval);

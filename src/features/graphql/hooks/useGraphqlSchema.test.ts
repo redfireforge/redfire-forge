@@ -685,7 +685,7 @@ describe('useGraphqlSchema — polling', () => {
       document.dispatchEvent(new Event('visibilitychange'));
 
       // Small delay for async processing
-      await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(60); });
 
       // Should have immediately polled on visibility change
       expect(mockGqlFetch).toHaveBeenCalled();
@@ -708,7 +708,7 @@ describe('useGraphqlSchema — polling', () => {
       Object.defineProperty(document, 'hidden', { value: true, configurable: true });
       document.dispatchEvent(new Event('visibilitychange'));
 
-      await act(async () => { await new Promise((r) => setTimeout(r, 50)); });
+      await act(async () => { await vi.advanceTimersByTimeAsync(60); });
 
       // Should NOT have polled (document is hidden)
       expect(mockGqlFetch).not.toHaveBeenCalled();
@@ -743,7 +743,7 @@ describe('useGraphqlSchema — polling', () => {
       await act(async () => { vi.advanceTimersByTime(600); });
 
       // Wait a bit to ensure poll completed
-      await new Promise((r) => setTimeout(r, 100));
+      await vi.advanceTimersByTimeAsync(120);
 
       expect(onSchemaChanged).not.toHaveBeenCalled();
     } finally {

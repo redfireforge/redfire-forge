@@ -15,6 +15,7 @@ export interface GrpcProtoOneofGroupRowProps {
   oneofName: string;
   members: GrpcFieldSchema[];
   body: Record<string, unknown>;
+  displayMode?: 'standalone' | 'embedded';
   disabled?: boolean;
   messageIndex?: Map<string, GrpcMessageSchema>;
   onSelectMember: (member: GrpcFieldSchema, raw: unknown) => void;

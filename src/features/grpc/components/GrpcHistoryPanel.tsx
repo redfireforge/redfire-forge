@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
+import type { ReactNode } from 'react';
 import type { GrpcCallHistoryEntryV1 } from '../../../shared/grpc/grpcPersistenceSchema';
+import { grpcErrorCategoryForCode } from '../../../shared/grpc/contracts';
 import {
   previewGrpcCallHistoryEntryForUi,
   serializeGrpcPreviewJson,
 } from '../../../shared/grpc/grpcSafePreview';
-import { isGrpcReplayExecutable } from '../utils/grpcReplayBinding';
 import { resolveGrpcHistoryEntryReplay } from '../utils/grpcReplayBinding';
 import type { UseGrpcCallHistoryResult } from '../hooks/useGrpcCallHistory';
 import type { UseGrpcStudioReturn } from '../hooks/useGrpcStudio';
 import type { GrpcTabConnectionPageDefaults, GrpcConnectionProfile } from '../utils/resolveGrpcTabConnection';
+import { prepareGrpcCallMetadata } from '../../../shared/grpc/grpcCompressionPolicy';
+import { redactGrpcMetadataForHistory } from '../../../shared/grpc/grpcRedaction';
 
 export interface GrpcHistoryPanelProps {
   history: UseGrpcCallHistoryResult;
@@ -41,6 +44,83 @@ function hasActiveHistoryFilters(filters: UseGrpcCallHistoryResult['filters']): 
     || Boolean(filters.service)
     || Boolean(filters.outcome)
     || filters.grpcStatus !== undefined;
+}
+
+function formatGrpcHistoryAuthSummary(entry: GrpcCallHistoryEntryV1): string {
+  const auth = entry.record.snapshot.auth;
+  if (!auth || auth.type === 'none') {
+    return 'None';
+  }
+  if (auth.type === 'bearer') {
+    return 'Bearer token';
+  }
+  if (auth.type === 'basic') {
+    const user = auth.basicUsername?.trim();
+    return user ? `Basic (${user})` : 'Basic';
+  }
+  if (auth.type === 'api_key') {
+    const key = auth.apiKeyName?.trim();
+    return key ? `API Key (${key})` : 'API Key';
+  }
+  if (auth.type === 'oauth2') {
+    const clientId = auth.oauth2?.clientId?.trim();
+    return clientId ? `OAuth2 (${clientId})` : 'OAuth2';
+  }
+  if (auth.type === 'inherit') {
+    const profile = auth.globalProfileId?.trim();
+    return profile ? `Inherited (${profile})` : 'Inherited';
+  }
+  return 'Configured';
+}
+
+function formatGrpcHistoryTransportMode(entry: GrpcCallHistoryEntryV1): string {
+  return entry.record.snapshot.transportMode ?? 'unknown';
+}
+
+function formatGrpcHistoryCompressionSummary(entry: GrpcCallHistoryEntryV1): string {
+  const config = entry.record.snapshot.compression;
+  if (!config?.enabled) return 'None (identity)';
+  return config.algorithm;
+}
+
+function resolveGrpcHistoryEffectiveMetadata(entry: GrpcCallHistoryEntryV1): Record<string, string> {
+  const snapshot = entry.record.snapshot;
+  try {
+    return prepareGrpcCallMetadata(snapshot.metadata, snapshot.auth, snapshot.compression) ?? {};
+  } catch {
+    return snapshot.metadata ?? {};
+  }
+}
+
+function buildGrpcHistoryOutcomeSummary(entry: GrpcCallHistoryEntryV1): Record<string, unknown> {
+  if (entry.record.error) {
+    return {
+      outcome: 'error',
+      code: entry.record.error.code,
+      category: entry.record.error.category ?? grpcErrorCategoryForCode(entry.record.error.code),
+      message: entry.record.error.message,
+      retryable: entry.record.error.retryable ?? false,
+      details: entry.record.error.details,
+    };
+  }
+
+  return {
+    outcome: 'ok',
+    grpcStatus: entry.record.result?.status ?? entry.grpcStatus,
+    statusMessage: entry.record.result?.statusMessage,
+    durationMs: entry.record.result?.durationMs ?? entry.durationMs,
+    headers: entry.record.result?.headers ? Object.keys(entry.record.result.headers).length : 0,
+    trailers: entry.record.result?.trailers ? Object.keys(entry.record.result.trailers).length : 0,
+  };
+}
+
+type GrpcHistoryDetailSectionId = 'execution-context' | 'outcome' | 'snapshot' | 'metadata' | 'grpcurl';
+
+interface GrpcHistoryDetailSection {
+  id: GrpcHistoryDetailSectionId;
+  title: string;
+  content: ReactNode;
+  tone?: 'success' | 'error';
 }
 
 type GrpcHistoryEmptyIconVariant = 'clock' | 'filter' | 'inspect';
@@ -108,6 +188,7 @@ export function GrpcHistoryPanel({
   grpcurlForEntry,
 }: GrpcHistoryPanelProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [activeSectionId, setActiveSectionId] = useState<GrpcHistoryDetailSectionId>('execution-context');
 
   useEffect(() => {
     if (selectedId && !history.filteredEntries.some((entry) => entry.id === selectedId)) {
@@ -119,6 +200,10 @@ export function GrpcHistoryPanel({
     () => history.filteredEntries.find((entry) => entry.id === selectedId) ?? null,
     [history.filteredEntries, selectedId],
   );
+
+  useEffect(() => {
+    setActiveSectionId('execution-context');
+  }, [selectedId]);
 
   const replayStatus = useMemo(() => {
     if (!selectedEntry) {
@@ -135,12 +220,12 @@ export function GrpcHistoryPanel({
         currentDescriptor: studio.activeTabDescriptor.descriptor,
         tabDescriptorState: studio.activeTabDescriptor,
       });
-      const executable = isGrpcReplayExecutable(binding.drift);
+      const executable = true;
       return {
         executable,
-        title: executable
-          ? 'Replay into active Studio tab'
-          : (binding.drift.message || 'Replay blocked'),
+        title: binding.drift.state === 'blocking'
+          ? `Replay into active Studio tab (execution may stay blocked: ${binding.drift.message || 'schema drift'})`
+          : 'Replay into active Studio tab',
       };
     } catch (error) {
       return {
@@ -190,6 +275,75 @@ export function GrpcHistoryPanel({
   const previewEntry = selectedEntry
     ? previewGrpcCallHistoryEntryForUi(selectedEntry)
     : null;
+
+  const detailSections = useMemo<GrpcHistoryDetailSection[]>(() => {
+    if (!previewEntry) return [];
+    const effectiveMetadata = resolveGrpcHistoryEffectiveMetadata(previewEntry);
+    const effectiveMetadataKeys = Object.keys(effectiveMetadata).sort();
+    return [
+      {
+        id: 'execution-context',
+        title: 'Execution context',
+        content: (
+          <pre
+            className="grpc-info-card__pre"
+            data-testid="grpc-history-execution-context"
+          >
+            {serializeGrpcPreviewJson({
+              transportMode: formatGrpcHistoryTransportMode(previewEntry),
+              auth: formatGrpcHistoryAuthSummary(previewEntry),
+              compression: formatGrpcHistoryCompressionSummary(previewEntry),
+              metadataKeys: effectiveMetadataKeys,
+              metadataCount: effectiveMetadataKeys.length,
+            })}
+          </pre>
+        ),
+      },
+      {
+        id: 'outcome',
+        title: 'Outcome',
+        tone: previewEntry.record.error ? 'error' : 'success',
+        content: (
+          <pre
+            className="grpc-info-card__pre"
+            data-testid="grpc-history-outcome"
+          >
+            {serializeGrpcPreviewJson(buildGrpcHistoryOutcomeSummary(previewEntry))}
+          </pre>
+        ),
+      },
+      {
+        id: 'snapshot',
+        title: 'Snapshot',
+        content: (
+          <pre className="grpc-info-card__pre">{serializeGrpcPreviewJson(previewEntry.record.snapshot.body)}</pre>
+        ),
+      },
+      {
+        id: 'metadata',
+        title: 'Metadata',
+        content: (
+          <pre className="grpc-info-card__pre">
+            {serializeGrpcPreviewJson(
+              redactGrpcMetadataForHistory(
+                effectiveMetadata,
+                previewEntry.record.snapshot.auth,
+              ),
+            )}
+          </pre>
+        ),
+      },
+      {
+        id: 'grpcurl',
+        title: 'grpcurl command',
+        content: (
+          <pre className="grpc-grpcurl-box">{selectedEntry ? grpcurlForEntry(selectedEntry) : ''}</pre>
+        ),
+      },
+    ];
+  }, [previewEntry, selectedEntry, grpcurlForEntry]);
+
+  const activeSection = detailSections.find((section) => section.id === activeSectionId) ?? detailSections[0] ?? null;
 
   const filtersActive = hasActiveHistoryFilters(history.filters);
   const listEmpty = !history.loading && history.filteredEntries.length === 0;
@@ -408,17 +562,30 @@ export function GrpcHistoryPanel({
                   Request body was truncated when this entry was captured.
                 </p>
               )}
-              <div className="grpc-info-card">
-                <div className="grpc-info-card__header">Snapshot</div>
-                <pre className="grpc-info-card__pre">{serializeGrpcPreviewJson(previewEntry.record.snapshot.body)}</pre>
-              </div>
-              <div className="grpc-info-card">
-                <div className="grpc-info-card__header">Metadata</div>
-                <pre className="grpc-info-card__pre">{serializeGrpcPreviewJson(previewEntry.record.snapshot.metadata)}</pre>
-              </div>
-              <div className="grpc-info-card">
-                <div className="grpc-info-card__header">grpcurl command</div>
-                <pre className="grpc-grpcurl-box">{selectedEntry ? grpcurlForEntry(selectedEntry) : ''}</pre>
+              <div className="grpc-history-detail-split" data-testid="grpc-history-detail-split">
+                <nav className="grpc-history-detail-nav" aria-label="History detail sections">
+                  {detailSections.map((section) => (
+                    <button
+                      key={section.id}
+                      type="button"
+                      className={`grpc-history-detail-nav__item${activeSection?.id === section.id ? ' grpc-history-detail-nav__item--active' : ''}${section.tone ? ` grpc-history-detail-nav__item--${section.tone}` : ''}`}
+                      data-testid={`grpc-history-detail-nav-${section.id}`}
+                      onClick={() => setActiveSectionId(section.id)}
+                    >
+                      {section.title}
+                    </button>
+                  ))}
+                </nav>
+                <section className="grpc-history-detail-content" data-testid="grpc-history-detail-content">
+                  {activeSection && (
+                    <div
+                      className={`grpc-info-card grpc-history-detail-content__card${activeSection.tone ? ` grpc-history-detail-content__card--${activeSection.tone}` : ''}`}
+                    >
+                      <div className="grpc-info-card__header">{activeSection.title}</div>
+                      {activeSection.content}
+                    </div>
+                  )}
+                </section>
               </div>
             </div>
           </>

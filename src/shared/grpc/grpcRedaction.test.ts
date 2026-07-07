@@ -157,6 +157,74 @@ describe('grpcRedaction (Phase 4A)', () => {
     expect(redacted.metadata.authorization).toBe(GRPC_REDACTED_PLACEHOLDER);
   });
 
+  it('redacts secret-looking metadata keys (by name, not just auth ownership) for call-history snapshots', () => {
+    // Persisted history must never carry raw secrets — the leak-scan safety net
+    // (assertNoGrpcSecretLeakage) rejects the whole write if a secret-looking key
+    // (api-key, token, authorization, ...) holds a raw value, regardless of whether
+    // that key is "owned" by the active Auth config. Real values for Copy grpcurl /
+    // Replay are restored from live, in-session sources only — see
+    // GrpcStudioPage.phase5h.coverage-gaps.test.tsx for that restoration path.
+    const history = prepareGrpcCallHistoryRecord({
+      snapshot: {
+        tabId: 'tab-1',
+        requestId: 'req-1',
+        capturedAt: '2026-01-01T00:00:00.000Z',
+        callType: 'unary',
+        target: { address: 'localhost:50051', tlsMode: 'disabled' },
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: {},
+        metadata: {
+          authorization: 'Bearer live-secret-token',
+          'x-api-key': 'my-key-123',
+          'x-env-token': 'rf-demo-auth-token-lesson4',
+          'x-request-id': 'lesson-4-demo',
+        },
+        timeoutMs: 5000,
+        descriptorKey: 'desc-1',
+        auth: { type: 'none' },
+      },
+    });
+    expect(history.snapshot.metadata.authorization).toBe(GRPC_REDACTED_PLACEHOLDER);
+    expect(history.snapshot.metadata['x-api-key']).toBe(GRPC_REDACTED_PLACEHOLDER);
+    expect(history.snapshot.metadata['x-env-token']).toBe(GRPC_REDACTED_PLACEHOLDER);
+    expect(history.snapshot.metadata['x-request-id']).toBe('lesson-4-demo');
+  });
+
+  it('full pipeline: history entry snapshot never leaks raw secret-looking metadata to grpcurl export', async () => {
+    const { buildGrpcurlInvokeCommandFromSnapshot } = await import('../../features/grpc/utils/grpcGrpcurlExport');
+    const history = prepareGrpcCallHistoryRecord({
+      snapshot: {
+        tabId: 'tab-1',
+        requestId: 'req-1',
+        capturedAt: '2026-01-01T00:00:00.000Z',
+        callType: 'unary',
+        target: { address: 'localhost:50055', tlsMode: 'disabled' },
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'Hello from gRPC Studio' },
+        metadata: {
+          'x-api-key': 'my-key-123',
+          'x-env-token': 'rf-demo-auth-token-lesson4',
+          'x-request-id': 'lesson-4-demo',
+        },
+        timeoutMs: 120000,
+        descriptorKey: 'desc-1',
+        auth: { type: 'none' },
+      },
+    });
+
+    // buildGrpcurlInvokeCommandFromSnapshot operating directly on the *persisted*
+    // snapshot (no live restoration) must only ever see the redacted placeholder —
+    // the real "Copy grpcurl" UI path restores live values via
+    // GrpcStudioPage.grpcurlForHistoryEntry (see phase5h coverage-gaps tests).
+    const command = buildGrpcurlInvokeCommandFromSnapshot(history.snapshot);
+
+    expect(command).toContain("x-request-id: lesson-4-demo");
+    expect(command).not.toContain('my-key-123');
+    expect(command).not.toContain('rf-demo-auth-token-lesson4');
+  });
+
   it('redacts oauth2-derived authorization metadata for export (Phase 4D)', () => {
     const redacted = redactGrpcCallRequestForExport({
       ...FIXTURE_UNARY_CALL_REQUEST,

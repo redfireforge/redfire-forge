@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
 import { resolveNestedMessageSchema } from '../../utils/grpcBodyComposer';
 import {
   coerceGrpcFieldValue,
@@ -21,14 +21,49 @@ export function GrpcProtoRepeatedFieldRow({
   fieldErrorKey,
 }: GrpcProtoFieldRowProps) {
   const items = Array.isArray(value) ? value : [];
+  const isMessageType = field.type === 'message';
+  const isRepeatedString = !isMessageType && field.type === 'string';
   const scalarField = { ...field, label: 'optional' as const };
   const nestedSchema = resolveNestedMessageSchema(field, messageIndex);
   const [itemErrors, setItemErrors] = useState<Record<number, boolean>>({});
+  const [tokenDraft, setTokenDraft] = useState('');
+  const tokenInputRef = useRef<HTMLInputElement | null>(null);
+  // collapsed: Set of item indices that are collapsed (default: all collapsed for message types)
+  const [collapsed, setCollapsed] = useState<Set<number>>(() =>
+    isMessageType ? new Set(items.map((_, i) => i)) : new Set<number>(),
+  );
+
+  // Keep collapsed set in sync when items are added/removed
+  useEffect(() => {
+    if (!isMessageType) return;
+    setCollapsed((prev) => {
+      const next = new Set<number>();
+      for (let i = 0; i < items.length; i++) {
+        if (prev.has(i)) next.add(i);
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length, isMessageType]);
 
   useEffect(() => {
     onFieldError?.(Object.values(itemErrors).some(Boolean));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- report when item error map changes
   }, [itemErrors]);
+
+  const allCollapsed = isMessageType && items.length > 0 && collapsed.size === items.length;
+  const allExpanded = isMessageType && items.length > 0 && collapsed.size === 0;
+
+  const toggleItem = (index: number) => {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(index)) { next.delete(index); } else { next.add(index); }
+      return next;
+    });
+  };
+
+  const expandAll = () => setCollapsed(new Set());
+  const collapseAll = () => setCollapsed(new Set(items.map((_, i) => i)));
 
   const updateItem = (index: number, nextValue: unknown) => {
     const next = [...items];
@@ -50,7 +85,54 @@ export function GrpcProtoRepeatedFieldRow({
   };
 
   const addItem = () => {
+    const newIndex = items.length;
     onChange([...items, defaultValueForGrpcField(scalarField)]);
+    // Auto-expand the newly added item
+    if (isMessageType) {
+      setCollapsed((prev) => {
+        const next = new Set(prev);
+        next.delete(newIndex);
+        return next;
+      });
+    }
+  };
+
+  const splitTokenValues = (raw: string): string[] => raw
+    .split(/[\n,]+/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+
+  const addTokenValues = (raw: string): boolean => {
+    const nextValues = splitTokenValues(raw);
+    if (nextValues.length === 0) {
+      return false;
+    }
+    onChange([...items, ...nextValues]);
+    return true;
+  };
+
+  const commitTokenDraft = () => {
+    if (addTokenValues(tokenDraft)) {
+      setTokenDraft('');
+    }
+  };
+
+  const handleTokenKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter' || event.key === ',') {
+      event.preventDefault();
+      commitTokenDraft();
+    }
+  };
+
+  const handleTokenPaste = (event: ClipboardEvent<HTMLInputElement>) => {
+    const pasted = event.clipboardData.getData('text');
+    if (!/[\n,]/.test(pasted)) {
+      return;
+    }
+    event.preventDefault();
+    if (addTokenValues(pasted)) {
+      setTokenDraft('');
+    }
   };
 
   const reportItemError = (index: number, hasError: boolean) => {
@@ -66,6 +148,17 @@ export function GrpcProtoRepeatedFieldRow({
     });
   };
 
+  // Build a short preview string for collapsed message items
+  const getPreview = (item: unknown): string => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return '{}';
+    const keys = Object.keys(item as Record<string, unknown>);
+    if (keys.length === 0) return '{}';
+    const first = keys[0];
+    const firstVal = (item as Record<string, unknown>)[first];
+    const preview = typeof firstVal === 'string' ? `"${firstVal}"` : String(firstVal);
+    return keys.length === 1 ? `{ ${first}: ${preview} }` : `{ ${first}: ${preview}, +${keys.length - 1} }`;
+  };
+
   return (
     <div className="grpc-proto-field-row grpc-proto-field-row--repeated" data-testid={`grpc-proto-field-${field.name}`}>
       <div className="grpc-proto-field-header">
@@ -75,51 +168,169 @@ export function GrpcProtoRepeatedFieldRow({
             {fieldTypeBadgeLabel(field)}
           </span>
         </div>
-        <span className="grpc-proto-field-note">{fieldNoteLabel(field)}</span>
-      </div>
-      <div className="grpc-proto-repeated-list">
-        {items.map((item, index) => (
-          <div className="grpc-proto-repeated-item" key={`${field.name}-${index}`}>
-            {field.type === 'message' ? (
-              <GrpcProtoJsonObjectEditor
-                testId={`grpc-proto-field-input-${fieldErrorKey ?? field.name}-${index}`}
-                value={item}
-                disabled={disabled}
-                messageSchema={nestedSchema}
-                messageIndex={messageIndex}
-                onChange={(nextValue) => updateItem(index, nextValue)}
-                onErrorChange={(hasError) => reportItemError(index, hasError)}
-                rows={3}
-              />
-            ) : (
-              <GrpcProtoScalarFieldControl
-                field={scalarField}
-                value={item}
-                disabled={disabled}
-                onChange={(nextValue) => updateItem(index, nextValue)}
-                onFieldError={(hasError) => reportItemError(index, hasError)}
-                inputTestId={`grpc-proto-field-input-${fieldErrorKey ?? field.name}-${index}`}
-              />
-            )}
+        <div className="grpc-proto-repeated-header-actions">
+          {!isRepeatedString && (
             <button
               type="button"
-              className="grpc-proto-repeated-remove"
+              className="grpc-proto-repeated-add-inline"
+              data-testid={`grpc-proto-repeated-add-${fieldErrorKey ?? field.name}`}
               disabled={disabled}
-              aria-label={`Remove ${field.name} item ${index + 1}`}
-              onClick={() => removeItem(index)}
+              onClick={addItem}
             >
-              ×
+              + Add item
             </button>
-          </div>
-        ))}
-        <button
-          type="button"
-          className="grpc-proto-repeated-add"
-          disabled={disabled}
-          onClick={addItem}
-        >
-          + Add item
-        </button>
+          )}
+          {isMessageType && items.length > 0 && (
+            <>
+              {!allExpanded && (
+                <button
+                  type="button"
+                  className="grpc-proto-repeated-toggle-all"
+                  data-testid={`grpc-proto-repeated-expand-all-${field.name}`}
+                  onClick={expandAll}
+                >
+                  Expand all
+                </button>
+              )}
+              {!allCollapsed && (
+                <button
+                  type="button"
+                  className="grpc-proto-repeated-toggle-all"
+                  data-testid={`grpc-proto-repeated-collapse-all-${field.name}`}
+                  onClick={collapseAll}
+                >
+                  Collapse all
+                </button>
+              )}
+            </>
+          )}
+          <span className="grpc-proto-field-note">{fieldNoteLabel(field)}</span>
+        </div>
+      </div>
+      <div className={`grpc-proto-repeated-list${isRepeatedString ? ' grpc-proto-repeated-list--tokens' : ''}`}>
+        {isRepeatedString && (
+          <>
+            {items.map((item, index) => (
+              <div
+                className="grpc-proto-token"
+                data-testid={`grpc-proto-field-input-${fieldErrorKey ?? field.name}-${index}`}
+                key={`${field.name}-${index}`}
+              >
+                <span className="grpc-proto-token-text">{String(item ?? '') || '(empty)'}</span>
+                <button
+                  type="button"
+                  className="grpc-proto-token-remove"
+                  disabled={disabled}
+                  aria-label={`Remove ${field.name} item ${index + 1}`}
+                  onClick={() => removeItem(index)}
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+            <div className="grpc-proto-token-input-wrap">
+              <input
+                ref={tokenInputRef}
+                className="grpc-proto-token-input"
+                data-testid={`grpc-proto-repeated-token-input-${fieldErrorKey ?? field.name}`}
+                placeholder={`Enter ${field.name}...`}
+                value={tokenDraft}
+                disabled={disabled}
+                onChange={(event) => setTokenDraft(event.target.value)}
+                onKeyDown={handleTokenKeyDown}
+                onPaste={handleTokenPaste}
+                onBlur={commitTokenDraft}
+              />
+              <button
+                type="button"
+                className="grpc-proto-token-add"
+                data-testid={`grpc-proto-repeated-add-${fieldErrorKey ?? field.name}`}
+                disabled={disabled}
+                onClick={() => {
+                  if (tokenDraft.trim().length > 0) {
+                    commitTokenDraft();
+                    return;
+                  }
+                  tokenInputRef.current?.focus();
+                }}
+              >
+                + Add item
+              </button>
+            </div>
+          </>
+        )}
+        {!isRepeatedString && items.map((item, index) => {
+          const isCollapsed = isMessageType && collapsed.has(index);
+          return (
+            <div
+              className={`grpc-proto-repeated-item${isMessageType ? ' grpc-proto-repeated-item--message' : ''}${isCollapsed ? ' grpc-proto-repeated-item--collapsed' : ''}`}
+              key={`${field.name}-${index}`}
+            >
+              {isMessageType && (
+                <div className="grpc-proto-repeated-item-header">
+                  <button
+                    type="button"
+                    className="grpc-proto-repeated-item-toggle"
+                    aria-expanded={!isCollapsed}
+                    data-testid={`grpc-proto-repeated-toggle-${field.name}-${index}`}
+                    onClick={() => toggleItem(index)}
+                  >
+                    <span className="grpc-proto-repeated-item-chevron">{isCollapsed ? '▶' : '▼'}</span>
+                    <span className="grpc-proto-repeated-item-label">Item {index + 1}</span>
+                    {isCollapsed && (
+                      <span className="grpc-proto-repeated-item-preview">{getPreview(item)}</span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    className="grpc-proto-repeated-remove"
+                    disabled={disabled}
+                    aria-label={`Remove ${field.name} item ${index + 1}`}
+                    onClick={() => removeItem(index)}
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+              {!isCollapsed && (
+                <div className="grpc-proto-repeated-item-body">
+                  {field.type === 'message' ? (
+                    <GrpcProtoJsonObjectEditor
+                      testId={`grpc-proto-field-input-${fieldErrorKey ?? field.name}-${index}`}
+                      value={item}
+                      disabled={disabled}
+                      messageSchema={nestedSchema}
+                      messageIndex={messageIndex}
+                      onChange={(nextValue) => updateItem(index, nextValue)}
+                      onErrorChange={(hasError) => reportItemError(index, hasError)}
+                      rows={3}
+                    />
+                  ) : (
+                    <GrpcProtoScalarFieldControl
+                      field={scalarField}
+                      value={item}
+                      disabled={disabled}
+                      onChange={(nextValue) => updateItem(index, nextValue)}
+                      onFieldError={(hasError) => reportItemError(index, hasError)}
+                      inputTestId={`grpc-proto-field-input-${fieldErrorKey ?? field.name}-${index}`}
+                    />
+                  )}
+                </div>
+              )}
+              {!isMessageType && (
+                <button
+                  type="button"
+                  className="grpc-proto-repeated-remove"
+                  disabled={disabled}
+                  aria-label={`Remove ${field.name} item ${index + 1}`}
+                  onClick={() => removeItem(index)}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -216,7 +427,18 @@ export function GrpcProtoMapFieldRow({
             {fieldTypeBadgeLabel(field)}
           </span>
         </div>
-        <span className="grpc-proto-field-note">{fieldNoteLabel(field)}</span>
+        <div className="grpc-proto-map-header-actions">
+          <button
+            type="button"
+            className="grpc-proto-map-add-inline"
+            data-testid={`grpc-proto-map-add-${field.name}`}
+            disabled={disabled}
+            onClick={addEntry}
+          >
+            + Add entry
+          </button>
+          <span className="grpc-proto-field-note">{fieldNoteLabel(field)}</span>
+        </div>
       </div>
       <div className="grpc-proto-map-list">
         {entries.map(([entryKey, entryValue], index) => (
@@ -249,14 +471,6 @@ export function GrpcProtoMapFieldRow({
             </button>
           </div>
         ))}
-        <button
-          type="button"
-          className="grpc-proto-repeated-add"
-          disabled={disabled}
-          onClick={addEntry}
-        >
-          + Add entry
-        </button>
       </div>
     </div>
   );

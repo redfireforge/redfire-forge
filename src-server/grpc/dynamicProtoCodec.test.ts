@@ -283,7 +283,8 @@ service DemoService { rpc Call(TimeRequest) returns (TimeRequest); }`,
       created_at: { seconds: 1700000000, nanos: 0 },
     });
     const decoded = decodeProtoMessage(descriptor, 'demo.TimeRequest', encoded);
-    expect(decoded.created_at).toMatchObject({ nanos: 0 });
-    expect(Number(decoded.created_at.seconds)).toBe(1700000000);
+    // Timestamp decodes as an RFC3339/ISO8601 string to match the Proto Form Builder's
+    // plain-text-input contract (see `GrpcProtoWktRows.tsx`).
+    expect(decoded.created_at).toBe(new Date(1700000000 * 1000).toISOString());
   });
 });

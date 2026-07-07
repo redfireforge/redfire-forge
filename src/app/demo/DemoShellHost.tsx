@@ -11,6 +11,7 @@ import LessonNotesPanel from '@redfireforge/demo-hub/LessonNotesPanel';
 import { useDemoShortcuts } from '../hooks/useDemoShortcuts';
 import { useDemoSidebarBridge } from '../hooks/useDemoSidebarBridge';
 import { useDemoGlobalAuthBridge } from '../hooks/useDemoGlobalAuthBridge';
+import { useDemoWorkspaceDefaultsBridge } from '../hooks/useDemoWorkspaceDefaultsBridge';
 import { useDemoAppEnvironmentCleanupBridge } from '../hooks/useDemoAppEnvironmentCleanupBridge';
 import AppLiveDemoOverlay from '../components/AppLiveDemoOverlay';
 import '../../styles/demo-player.css';
@@ -22,6 +23,7 @@ export interface DemoShellHostProps {
   setActiveTab: (tab: Tab) => void;
   setSidebarCollapsed: Dispatch<SetStateAction<boolean>>;
   setAppGlobalAuthProfiles: Dispatch<SetStateAction<GlobalAuthProfile[]>>;
+  setWorkspaceDefaults: Dispatch<SetStateAction<Record<string, string>>>;
   selectedEnvId: string;
   selectedSvcId: string;
   setEnvironments: Dispatch<SetStateAction<Environment[]>>;
@@ -37,6 +39,7 @@ export function DemoShellHost({
   setActiveTab,
   setSidebarCollapsed,
   setAppGlobalAuthProfiles,
+  setWorkspaceDefaults,
   selectedEnvId,
   selectedSvcId,
   setEnvironments,
@@ -50,6 +53,7 @@ export function DemoShellHost({
   useDemoShortcuts(demoHub, activeTab, setActiveTab, demoHub.suppressLiveTabExitRef);
   useDemoSidebarBridge(setSidebarCollapsed);
   useDemoGlobalAuthBridge(setAppGlobalAuthProfiles);
+  useDemoWorkspaceDefaultsBridge(setWorkspaceDefaults);
   useDemoAppEnvironmentCleanupBridge({
     selectedEnvId,
     selectedSvcId,

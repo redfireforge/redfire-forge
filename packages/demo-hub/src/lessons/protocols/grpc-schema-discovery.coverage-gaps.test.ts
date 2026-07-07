@@ -13,6 +13,8 @@ const helperSpies = vi.hoisted(() => ({
   ensureGrpcReflected: vi.fn(async () => {}),
   ensureGrpcStudioSubNavQuiet: vi.fn(async () => {}),
   ensureGrpcTarget: vi.fn(async () => {}),
+  guardGrpcReflectedQuiet: vi.fn(async () => {}),
+  guardGrpcTargetQuiet: vi.fn(async () => {}),
   openFreshGrpcTabQuietWithOptions: vi.fn(async () => {}),
   rebindGrpcMethodQuiet: vi.fn(async () => {}),
 }));
@@ -31,6 +33,8 @@ vi.mock('./grpc-lesson-helpers', async () => {
     ensureGrpcReflected: helperSpies.ensureGrpcReflected,
     ensureGrpcStudioSubNavQuiet: helperSpies.ensureGrpcStudioSubNavQuiet,
     ensureGrpcTarget: helperSpies.ensureGrpcTarget,
+    guardGrpcReflectedQuiet: helperSpies.guardGrpcReflectedQuiet,
+    guardGrpcTargetQuiet: helperSpies.guardGrpcTargetQuiet,
     openFreshGrpcTabQuietWithOptions: helperSpies.openFreshGrpcTabQuietWithOptions,
     rebindGrpcMethodQuiet: helperSpies.rebindGrpcMethodQuiet,
   };
@@ -76,6 +80,7 @@ function mountManageModalDom() {
         <button data-testid="grpc-proto-root-item-shared"><span>shared</span></button>
       </div>
       <div data-testid="grpc-proto-canonical-preview"></div>
+      <div data-testid="grpc-proto-selected-root"></div>
       <div data-testid="grpc-proto-upload-zone"></div>
       <div data-testid="grpc-proto-file-list"></div>
       <button data-testid="grpc-proto-load-btn"></button>
@@ -88,6 +93,8 @@ function mountManageModalDom() {
       <input data-testid="grpc-proto-bsr-version-input" />
       <div data-testid="grpc-schema-browser"></div>
       <div data-testid="grpc-schema-browser-tree"></div>
+      <div data-testid="grpc-schema-browser-detail"></div>
+      <div data-testid="grpc-schema-method-signature"></div>
       <input data-testid="grpc-schema-browser-search" />
       <button data-testid="grpc-schema-copy-grpcurl-btn"></button>
       <button data-testid="grpc-schema-open-tab-btn"></button>
@@ -95,10 +102,13 @@ function mountManageModalDom() {
       <div data-testid="grpc-method-echo-echoservice-echo"></div>
     </div>
     <div data-testid="grpc-explorer-tree"></div>
+    <div data-testid="grpc-explorer-footer"></div>
     <div data-testid="grpc-explorer-source">protoset</div>
     <input data-testid="grpc-explorer-search" />
     <div data-testid="grpc-service-explorer"></div>
+    <div data-testid="grpc-call-panel"></div>
     <div data-testid="grpc-proto-form"></div>
+    <button data-testid="grpc-request-tab-form" aria-pressed="true"></button>
     <button data-testid="grpc-request-tab-json"></button>
     <textarea data-testid="grpc-request-json"></textarea>
     <button data-testid="grpc-send-btn"></button>
@@ -130,10 +140,11 @@ describe('grpc-schema-discovery coverage gaps', () => {
     expect(helperSpies.navigateToGrpcStudio).toHaveBeenCalledTimes(2);
     expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalledTimes(2);
     expect(helperSpies.ensureGrpcStudioSubNavQuiet).toHaveBeenCalled();
-    expect(helperSpies.ensureManageModalClosed).toBeUndefined();
-    expect(helperSpies.ensureGrpcTarget).toHaveBeenCalledTimes(2);
+    expect(helperSpies.ensureGrpcTarget).toHaveBeenCalledTimes(1);
+    expect(helperSpies.guardGrpcTargetQuiet).toHaveBeenCalled();
     expect(helperSpies.clearGrpcSchemaDriftQuiet).toHaveBeenCalled();
-    expect(helperSpies.ensureGrpcReflected).toHaveBeenCalledTimes(2);
+    expect(helperSpies.guardGrpcReflectedQuiet).toHaveBeenCalled();
+    expect(helperSpies.ensureGrpcReflected).toHaveBeenCalledTimes(1);
     expect(ctx.fill).toHaveBeenCalledWith(GRPC.EXPLORER_SEARCH, 'Echo');
     expect(ctx.fill).toHaveBeenCalledWith(GRPC.EXPLORER_SEARCH, '');
   });
@@ -148,7 +159,7 @@ describe('grpc-schema-discovery coverage gaps', () => {
     await getStep('grpc16-tabs').preAction?.(ctx);
     await getStep('grpc16-tabs').action?.(ctx);
 
-    expect(helperSpies.ensureGrpcTarget).toHaveBeenCalled();
+    expect(helperSpies.guardGrpcReflectedQuiet).toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_PROTOSET);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_URL);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_BSR);
@@ -188,9 +199,9 @@ describe('grpc-schema-discovery coverage gaps', () => {
     await getStep('grpc16-proto-load').preAction?.(ctx);
     await getStep('grpc16-proto-load').action?.(ctx);
 
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_PROTO_FILES);
     expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.PROTO_UPLOAD_ZONE, 10_000);
     expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.PROTO_CANONICAL_PREVIEW, 10_000);
+    expect(document.querySelector(GRPC.PROTO_FILE_LIST)).not.toBeNull();
   });
 
   it('executes proto-files root creation branch when shared root is missing', async () => {
@@ -221,8 +232,9 @@ describe('grpc-schema-discovery coverage gaps', () => {
 
     expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_SCHEMA_BROWSER);
     expect(ctx.fill).toHaveBeenCalledWith(GRPC.SCHEMA_BROWSER_SEARCH, 'Lookup');
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.REQUEST_TAB_JSON);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.SEND_BTN);
+    const jsonEditor = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
+    expect(jsonEditor?.value).toBe('{"ref":{"id":"A-100"}}');
   });
 
   it('executes protoset, url, bsr, and drift callbacks', async () => {
@@ -251,7 +263,7 @@ describe('grpc-schema-discovery coverage gaps', () => {
     expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_BSR);
     expect(ctx.fill).toHaveBeenCalledWith(GRPC.PROTO_URL_INPUT, 'http://localhost:5173/grpc-samples/url/echo.proto');
     expect(ctx.fill).toHaveBeenCalledWith(GRPC.PROTO_BSR_MODULE_INPUT, 'buf.build/connectrpc/eliza');
-    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.SERVICE_EXPLORER, 10_000);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.SERVICE_EXPLORER, 6_000);
   });
 
   it('returns early from protoset load when manage schema load reports an error', async () => {

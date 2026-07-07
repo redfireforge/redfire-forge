@@ -4,7 +4,7 @@ import type { GrpcTlsValidationIssue } from '../../../shared/grpc/grpcTlsPolicy'
 import { validateGrpcTlsConfigContract } from '../../../shared/grpc/grpcTlsPolicy';
 import type { GrpcMaskedSecretFields, GrpcTlsSecretFieldKey } from '../utils/grpcSecretFieldUi';
 import { TlsConfigModal } from '../../../shared/components/TlsConfigModal';
-import { GrpcTlsConfigBody } from './GrpcTlsConfigBody';
+import { GrpcTlsConfigBody, type GrpcTlsTestResult } from './GrpcTlsConfigBody';
 
 type TlsSnapshot = {
   tlsMode: GrpcTlsMode;
@@ -50,7 +50,7 @@ export function GrpcTlsPanel({
   const mode = tlsMode ?? 'disabled';
   const [open, setOpen] = useState(false);
   const [dirty, setDirty] = useState(false);
-  const [testResult, setTestResult] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<GrpcTlsTestResult | null>(null);
   const snapshotRef = useRef<TlsSnapshot | null>(null);
   const prevOpenRequestRef = useRef<number | null>(null);
   const prevCloseRequestRef = useRef<number | null>(null);
@@ -128,14 +128,18 @@ export function GrpcTlsPanel({
   const handleTestConnection = useCallback(() => {
     const validationIssues = validateGrpcTlsConfigContract(mode, tlsConfig);
     if (validationIssues.length === 0) {
-      setTestResult(
-        mode === 'disabled'
+      setTestResult({
+        ok: true,
+        message: mode === 'disabled'
           ? 'Plaintext mode — no TLS handshake required.'
           : 'TLS configuration passed local validation.',
-      );
+      });
       return;
     }
-    setTestResult(validationIssues.map((issue) => issue.message).join(' '));
+    setTestResult({
+      ok: false,
+      message: validationIssues.map((issue) => issue.message).join(' '),
+    });
   }, [mode, tlsConfig]);
 
   const handleResetDefaults = useCallback(() => {

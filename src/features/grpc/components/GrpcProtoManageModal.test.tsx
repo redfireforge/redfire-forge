@@ -159,6 +159,53 @@ describe('GrpcProtoManageModal', () => {
     expect(screen.getByTestId('grpc-proto-load-btn')).toHaveProperty('disabled', false);
   });
 
+  it('renders Save button for editable tabs', () => {
+    render(<GrpcProtoManageModal {...baseProps} />);
+    expect(screen.getByTestId('grpc-proto-save-btn')).toBeTruthy();
+  });
+
+  it('rolls back ingest changes on Cancel', () => {
+    const onIngestChange = vi.fn();
+    const onClose = vi.fn();
+    const ingest = createDefaultProtoIngestState();
+
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={ingest}
+        onIngestChange={onIngestChange}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-url'));
+    fireEvent.click(screen.getByTestId('grpc-proto-cancel-btn'));
+
+    expect(onIngestChange).toHaveBeenCalledWith({ source: 'url_proto' });
+    expect(onIngestChange).toHaveBeenCalledWith(ingest);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('keeps ingest changes on Save', () => {
+    const onIngestChange = vi.fn();
+    const onClose = vi.fn();
+
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        onIngestChange={onIngestChange}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-url'));
+    fireEvent.click(screen.getByTestId('grpc-proto-save-btn'));
+
+    expect(onIngestChange).toHaveBeenCalledWith({ source: 'url_proto' });
+    expect(onIngestChange).not.toHaveBeenCalledWith(createDefaultProtoIngestState());
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('closes on Escape', () => {
     render(<GrpcProtoManageModal {...baseProps} />);
     fireEvent.keyDown(window, { key: 'Escape' });

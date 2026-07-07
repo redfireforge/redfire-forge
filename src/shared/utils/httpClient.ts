@@ -39,6 +39,16 @@ export type HttpTransportFn = (
   body?: string,
 ) => Promise<HttpResponse>;
 
+const COMPANION_SERVER_BASE = 'http://localhost:3001';
+
+/** Tauri has no Vite /api proxy — resolve companion-server routes to :3001. */
+export function resolveCompanionServerUrl(url: string): string {
+  if (url.startsWith('/api/') || url === '/health' || url.startsWith('/health?')) {
+    return `${COMPANION_SERVER_BASE}${url}`;
+  }
+  return url;
+}
+
 let _transportOverride: HttpTransportFn | null = null;
 
 /**
@@ -159,7 +169,7 @@ export async function httpFetch(
     return nodeFetch(url, method, headers, body, signal);
   }
   if (isTauri()) {
-    return tauriFetch(url, method, headers, body, signal);
+    return tauriFetch(resolveCompanionServerUrl(url), method, headers, body, signal);
   }
   return proxyFetch(url, method, headers, body, signal);
 }

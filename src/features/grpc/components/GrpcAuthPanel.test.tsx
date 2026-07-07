@@ -100,8 +100,8 @@ describe('GrpcAuthPanel (Phase 4C)', () => {
 
   it('shows conflict banner when auth overrides manual metadata', () => {
     const preview: GrpcAuthPreviewResult = {
-      ok: true,
-      issues: [],
+      ok: false,
+      issues: [{ field: 'auth', code: 'GRPC_INVALID_REQUEST', message: 'Auth metadata conflicts with manual metadata for key(s): authorization' }],
       conflicts: [{ key: 'authorization', manualValue: 'Bearer old', authValue: 'Bearer new' }],
       previewEntries: [{ key: 'authorization', value: '••••••' }],
     };
@@ -114,6 +114,7 @@ describe('GrpcAuthPanel (Phase 4C)', () => {
     );
     expect(screen.getByTestId('grpc-auth-conflicts').textContent).toMatch(/authorization/i);
     expect(screen.getByTestId('grpc-auth-conflicts').textContent).toMatch(/••••••/);
+    expect(screen.getByTestId('grpc-auth-conflicts').textContent).toMatch(/send is blocked/i);
     expect(screen.getByTestId('grpc-auth-preview')).toBeTruthy();
   });
 

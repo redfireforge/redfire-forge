@@ -180,6 +180,48 @@ describe('grpcStudioUnaryCommands transport fallback (Phase 7F)', () => {
     });
   });
 
+  it('uses the transportMode override over stale tab state when retrying via Express (GRPC-19 regression)', async () => {
+    // Reproduces the real "Retry with Express Proxy" click path: core.updateTab schedules a
+    // React state update (batched, not synchronous), so the tab's own transportMode field can
+    // still read the OLD browser-direct mode at the instant the retried call is prepared. The
+    // explicit override must win so the retried call actually dispatches via Express.
+    const session = createInitialSessionState();
+    const tabId = session.activeTabId;
+    session.tabs[0] = createGrpcStudioTab({
+      id: tabId,
+      target: 'localhost:50051',
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'hello' },
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      // Stale — simulates the tab patch not having committed yet when retry re-fires the call.
+      transportMode: 'grpc-web',
+    });
+    session.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      descriptor: FIXTURE_DESCRIPTOR,
+      loadState: 'loaded',
+    };
+    syncGrpcTabTransportMode(tabId, 'grpc-web');
+    const sessionRef = { current: session };
+    const ctx = makeRuntime(sessionRef);
+    const core = makeCore(sessionRef);
+    const prepare = createPrepareExecuteSnapshotHandler(ctx, core);
+    vi.mocked(transportFacade.invokeGrpcUnary).mockResolvedValue({
+      ok: true,
+      op: 'call',
+      data: FIXTURE_UNARY_CALL_RESULT,
+      meta: { requestId: 'req-1', timestamp: '2026-01-01T00:00:00.000Z' },
+    });
+
+    await createExecuteUnaryCallHandler(ctx, core, prepare)(tabId, { transportMode: 'express' });
+
+    expect(transportFacade.invokeGrpcUnary).toHaveBeenCalledWith(
+      expect.objectContaining({ transportMode: 'express' }),
+    );
+    expect(sessionRef.current.tabs[0]?.lifecycle).toBe('success');
+  });
+
   it('offers Express fallback when spring-servlet browser transport fails with protocol_mismatch (Phase 10E)', async () => {
     const session = createInitialSessionState();
     const tabId = session.activeTabId;

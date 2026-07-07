@@ -13,6 +13,7 @@ import {
   purgeGqlDemoGlobalAuthProfiles,
   upsertGlobalAuthProfile,
   upsertGqlEnvironment,
+  upsertWorkspaceDefaults,
 } from './environmentAdapter';
 import { purgeGqlDemoGlobalAuthProfilesFromStorage } from '@graphql/utils/gqlDemoGlobalAuthProfiles';
 
@@ -23,6 +24,7 @@ describe('environmentAdapter', () => {
     delete (window as unknown as Record<string, unknown>).__demoUpsertGqlEnv;
     delete (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings;
     delete (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName;
+    delete (window as unknown as Record<string, unknown>).__demoUpsertWorkspaceDefaults;
     vi.clearAllMocks();
   });
 
@@ -68,6 +70,17 @@ describe('environmentAdapter', () => {
     (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName = spy;
     deleteGqlEnvironmentByName('Demo');
     expect(spy).toHaveBeenCalledWith('Demo');
+  });
+
+  it('upsertWorkspaceDefaults returns false when bridge missing', () => {
+    expect(upsertWorkspaceDefaults({ authToken: 'token-demo-123' })).toBe(false);
+  });
+
+  it('upsertWorkspaceDefaults applies patch via bridge', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoUpsertWorkspaceDefaults = spy;
+    expect(upsertWorkspaceDefaults({ authToken: 'token-demo-123' })).toBe(true);
+    expect(spy).toHaveBeenCalledWith({ authToken: 'token-demo-123' });
   });
 
   it('purgeGqlDemoGlobalAuthProfiles purges storage and syncs bridge state', async () => {

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useDemoHub } from './useDemoHub';
 import type { DemoDomain, DemoLesson } from './types';
@@ -38,9 +38,19 @@ function makeLesson(overrides: Partial<DemoLesson> = {}): DemoLesson {
 describe('useDemoHub', () => {
   const navigateToTab = vi.fn();
 
+  async function flushDemoTimers(ms = 12000): Promise<void> {
+    await vi.advanceTimersByTimeAsync(ms);
+  }
+
   beforeEach(() => {
+    vi.useFakeTimers();
     vi.clearAllMocks();
     localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.clearAllTimers();
+    vi.useRealTimers();
   });
 
   it('initializes with domains view', () => {
@@ -129,7 +139,9 @@ describe('useDemoHub', () => {
     const lesson = makeLesson({ initialTab: 'scenarios' });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
-      await result.current.startLiveDemo();
+      const startPromise = result.current.startLiveDemo();
+      await flushDemoTimers();
+      await startPromise;
     });
     expect(result.current.state.view).toBe('live');
     expect(result.current.state.stepIndex).toBe(0);
@@ -148,10 +160,14 @@ describe('useDemoHub', () => {
     const lesson = makeLesson({ initialTab: 'scenarios' });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
-      await result.current.startLiveDemo();
+      const startPromise = result.current.startLiveDemo();
+      await flushDemoTimers();
+      await startPromise;
     });
     await act(async () => {
-      await result.current.exitLiveDemo();
+      const exitPromise = result.current.exitLiveDemo();
+      await flushDemoTimers(3000);
+      await exitPromise;
     });
     expect(result.current.state.view).toBe('concept');
     expect(result.current.state.isPlaying).toBe(false);
@@ -170,7 +186,9 @@ describe('useDemoHub', () => {
     const lesson = makeLesson({ initialTab: 'websocket-studio' });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
-      await result.current.startLiveDemo();
+      const startPromise = result.current.startLiveDemo();
+      await flushDemoTimers();
+      await startPromise;
     });
     expect(navigateToTab).toHaveBeenCalledWith('websocket-studio');
   });
@@ -181,10 +199,14 @@ describe('useDemoHub', () => {
     const lesson = makeLesson({ cleanup });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
-      await result.current.startLiveDemo();
+      const startPromise = result.current.startLiveDemo();
+      await flushDemoTimers();
+      await startPromise;
     });
     await act(async () => {
-      await result.current.exitLiveDemo();
+      const exitPromise = result.current.exitLiveDemo();
+      await flushDemoTimers(3000);
+      await exitPromise;
     });
     expect(cleanup).toHaveBeenCalled();
   });

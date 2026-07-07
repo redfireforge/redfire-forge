@@ -79,12 +79,9 @@ describe('mockScriptRunner', () => {
     expect(() => runMockScript('return require("fs")', BASIC_CTX)).toThrow();
   });
 
-  it('times out after 10s for infinite loop', async () => {
-    // We can't easily wait 10s in tests so just verify the timeout option is wired
-    // by checking that a very short script with while(true) throws DOMException / timeout error
-    // Note: vm.runInContext with timeout triggers a Script execution timed out error
-    expect(() => runMockScript('while(true) {}', BASIC_CTX)).toThrow();
-  }, 15_000);
+  it('times out quickly for infinite loops when timeout override is provided', () => {
+    expect(() => runMockScript('while(true) {}', BASIC_CTX, { timeoutMs: 25 })).toThrow();
+  });
 
   it('returns undefined for a script with no return', () => {
     const result = runMockScript('const x = 5;', BASIC_CTX);

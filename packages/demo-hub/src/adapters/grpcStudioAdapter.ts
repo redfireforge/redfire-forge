@@ -51,3 +51,27 @@ export {
   GRPC_DEMO_CALL_HISTORY_TARGETS,
   dispatchGrpcCallHistoryReload,
 } from '@grpc/utils/grpcDemoCallHistoryCleanup';
+
+import { getDemoBridgeWindow } from './bridgeWindow';
+import type { GrpcGrpcurlExportContext } from '@grpc/utils/grpcGrpcurlTypes';
+
+/**
+ * Patch the active gRPC Studio tab's grpcurlExportContext.
+ * Used by TLS lessons to set file paths so the exported grpcurl command
+ * includes --cacert / --cert / --key flags.
+ */
+export function patchGrpcActiveTabExportContext(ctx: GrpcGrpcurlExportContext): boolean {
+  const bridge = getDemoBridgeWindow().__demoPatchGrpcActiveTab;
+  if (!bridge) return false;
+  return bridge({ grpcurlExportContext: ctx });
+}
+
+/**
+ * Reset active gRPC tab runtime state used by demos:
+ * unlink profile, force plaintext, clear auth and metadata.
+ */
+export function resetGrpcActiveTabRuntimeState(): boolean {
+  const bridge = getDemoBridgeWindow().__demoResetGrpcActiveTab;
+  if (!bridge) return false;
+  return bridge();
+}

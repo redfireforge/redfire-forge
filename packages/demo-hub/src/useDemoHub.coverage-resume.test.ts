@@ -58,7 +58,7 @@ describe('useDemoHub — consumeLiveDemoResumeOnce mock', () => {
     const { useDemoHub } = await import('./useDemoHub');
     const { result, unmount } = renderHook(() => useDemoHub({ navigateToTab }));
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(100);
     });
     expect(demoSession.consumeLiveDemoResumeOnce).toHaveBeenCalled();
     expect(result.current.state.view).not.toBe('live');
@@ -85,7 +85,7 @@ describe('useDemoHub — consumeLiveDemoResumeOnce mock', () => {
     const { act } = await import('@testing-library/react');
     const { result } = renderDemoHub(navigateToTab);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(8000);
     });
     expect(result.current.state.view).toBe('live');
     expect(result.current.state.selectedLesson?.id).toBe('gql-first-query');
@@ -110,7 +110,7 @@ describe('useDemoHub — consumeLiveDemoResumeOnce mock', () => {
     const { act } = await import('@testing-library/react');
     const { result } = renderDemoHub(navigateToTab);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(8000);
     });
     expect(result.current.state.view).toBe('live');
     expect(result.current.state.isPlaying).toBe(false);

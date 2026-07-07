@@ -19,6 +19,15 @@ export interface GrpcAuthPreviewResult {
   errorMessage?: string;
 }
 
+function conflictIssue(conflicts: GrpcAuthMetadataConflict[]): GrpcAuthValidationIssue {
+  const keys = conflicts.map((entry) => entry.key).join(', ');
+  return {
+    field: 'auth',
+    code: 'GRPC_INVALID_REQUEST',
+    message: `Auth metadata conflicts with manual metadata for key(s): ${keys}`,
+  };
+}
+
 function maskPreviewValue(key: string, value: string): string {
   if (isGrpcSecretMetadataKey(key)) {
     return value.trim() ? '••••••' : '';
@@ -50,8 +59,10 @@ export function previewGrpcAuthMerge(
         value: maskPreviewValue(key, value),
       }));
     return {
-      ok: issues.length === 0,
-      issues,
+      ok: issues.length === 0 && preview.conflicts.length === 0,
+      issues: preview.conflicts.length > 0
+        ? [...issues, conflictIssue(preview.conflicts)]
+        : issues,
       conflicts: preview.conflicts,
       previewEntries,
     };
