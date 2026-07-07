@@ -168,7 +168,7 @@ export default function LiveDemo({
 
       {/* Floating narration panel */}
       <div
-        className="demo-live-panel"
+        className="demo-live-panel demo-live-panel--clickthrough"
         ref={panelRef}
         style={panelStyle}
         data-testid="demo-live-panel"
@@ -192,8 +192,15 @@ export default function LiveDemo({
           aria-hidden="true"
           data-testid="demo-live-resize-right"
         />
-        <div className="demo-live-panel-header demo-live-panel-header--draggable" onMouseDown={onDragMouseDown}>
-          <span className="demo-live-drag-handle" aria-hidden="true">⠿</span>
+        <div className="demo-live-panel-header demo-live-panel-header--draggable">
+          <span
+            className="demo-live-drag-handle"
+            onMouseDown={onDragMouseDown}
+            title="Drag panel"
+            aria-hidden="true"
+          >
+            ⠿
+          </span>
           <span className="demo-live-lesson-name">{lesson.name}</span>
           <span className="demo-live-step-counter">
             {stepIndex + 1} / {totalSteps}

@@ -1,9 +1,9 @@
 /**
- * Demo — GRPC Phase 12A lessons 2/3: smoke validation
+ * Demo — GRPC Phase 12A consolidated lessons: smoke validation
  *
  * Covers:
- * - GRPC-2 Service Discovery with Reflection
- * - GRPC-3 Importing Proto Files
+ * - GRPC-16 Schema Discovery: Reflection & Proto Import
+ * - GRPC-17 Streaming RPCs: All Four Patterns
  *
  * Live walkthrough tests auto-skip when Docker gRPC + Express backend are unavailable.
  */
@@ -18,10 +18,16 @@ import {
 } from './demo-player-helpers';
 import { isGrpcLiveInfraReady, silenceLogStream } from './grpc-helpers';
 
-const GRPC2_LESSON_NAME = 'Service Discovery with Reflection';
-const GRPC3_LESSON_NAME = 'Importing Proto Files';
-const LESSON_STEPS = 8;
+const GRPC16_LESSON_NAME = 'Schema Discovery: Reflection & Proto Import';
+const GRPC17_LESSON_NAME = 'Streaming RPCs: All Four Patterns';
 const DEMO_ACTION_TIMEOUT = 180_000;
+
+function parseStepCounter(counter: string): { current: number; total: number } {
+  const match = counter.match(/(\d+)\s*\/\s*(\d+)/);
+  const current = Number(match?.[1] ?? NaN);
+  const total = Number(match?.[2] ?? NaN);
+  return { current, total };
+}
 
 test.describe.configure({ retries: 0 });
 
@@ -44,73 +50,67 @@ test.beforeEach(async ({ page }) => {
   await mockGrpcHealthProbe(page);
 });
 
-test.describe('GRPC-2 — lesson shell', () => {
-  test('concept slide starts and exposes 8-step flow', async ({ page }) => {
-    await launchGrpcLesson(page, GRPC2_LESSON_NAME);
+test.describe('GRPC-16 — lesson shell', () => {
+  test('concept slide starts and exposes the lesson flow', async ({ page }) => {
+    await launchGrpcLesson(page, GRPC16_LESSON_NAME);
     const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/1\s*[/]\s*8/);
-    expect(title).toMatch(/Reflection Workflow/i);
-    await takeNamedScreenshot(page, 'grpc2-lesson-start');
+    const parsed = parseStepCounter(counter);
+    expect(parsed.current).toBe(1);
+    expect(parsed.total).toBeGreaterThan(1);
+    expect(title).toMatch(/Descriptor Sources Overview/i);
+    await takeNamedScreenshot(page, 'grpc16-lesson-start');
   });
 });
 
-test.describe('GRPC-3 — lesson shell', () => {
-  test('concept slide starts and exposes 8-step flow', async ({ page }) => {
-    await launchGrpcLesson(page, GRPC3_LESSON_NAME);
+test.describe('GRPC-17 — lesson shell', () => {
+  test('concept slide starts and exposes the lesson flow', async ({ page }) => {
+    await launchGrpcLesson(page, GRPC17_LESSON_NAME);
     const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/1\s*[/]\s*8/);
-    expect(title).toMatch(/Proto Import/i);
-    await takeNamedScreenshot(page, 'grpc3-lesson-start');
+    const parsed = parseStepCounter(counter);
+    expect(parsed.current).toBe(1);
+    expect(parsed.total).toBeGreaterThan(1);
+    expect(title).toMatch(/Four Streaming Patterns/i);
+    await takeNamedScreenshot(page, 'grpc17-lesson-start');
   });
 });
 
-test.describe('GRPC-2/3 — full lesson walkthrough (Docker)', () => {
-  test('GRPC-2 completes all 8 steps with reflected call form visible', async ({ page, request }) => {
+test.describe('GRPC-16/17 — full lesson walkthrough (Docker)', () => {
+  test('GRPC-16 completes all steps and returns to the studio shell', async ({ page, request }) => {
     const ready = await isGrpcLiveInfraReady(request);
     test.skip(!ready, 'gRPC Docker (:50051) or Express backend (:3001) not running');
 
     test.setTimeout(900_000);
-    await launchGrpcLesson(page, GRPC2_LESSON_NAME);
-    await playThroughLesson(page, LESSON_STEPS, DEMO_ACTION_TIMEOUT);
+    await launchGrpcLesson(page, GRPC16_LESSON_NAME);
+    const start = await getStepInfo(page);
+    const parsedStart = parseStepCounter(start.counter);
+    expect(parsedStart.total).toBeGreaterThan(1);
+    await playThroughLesson(page, parsedStart.total, DEMO_ACTION_TIMEOUT);
 
     const { counter, title } = await getStepInfo(page);
-    expect(counter).toMatch(/8\s*[/]\s*8/);
-    expect(title).toMatch(/Reflection Complete/i);
-    await expect(page.locator('[data-testid="grpc-proto-form"]')).toBeVisible({ timeout: 15_000 });
+    expect(counter).toMatch(new RegExp(`${parsedStart.total}\\s*[/]\\s*${parsedStart.total}`));
+    expect(title).toMatch(/Understanding Schema Drift/i);
 
     await exitLesson(page);
-    await takeNamedScreenshot(page, 'grpc2-lesson-complete');
+    await takeNamedScreenshot(page, 'grpc16-lesson-complete');
   });
 
-  test('GRPC-3 reaches schema-browser flow and finishes on callable form', async ({ page, request }) => {
+  test('GRPC-17 completes all steps with callable form visible', async ({ page, request }) => {
     const ready = await isGrpcLiveInfraReady(request);
     test.skip(!ready, 'gRPC Docker (:50051) or Express backend (:3001) not running');
 
     test.setTimeout(900_000);
-    await launchGrpcLesson(page, GRPC3_LESSON_NAME);
-
-    // Run until step 7/8 explicitly to assert schema-browser phase before final completion.
-    for (let i = 0; i < LESSON_STEPS - 2; i += 1) {
-      await finishDemoStep(page, DEMO_ACTION_TIMEOUT);
-      await page.locator('[aria-label="Next step"]').click();
-    }
-
-    const atStep7 = await getStepInfo(page);
-    expect(atStep7.counter).toMatch(/7\s*[/]\s*8/);
-    expect(atStep7.title).toMatch(/Open Echo into Call Panel/i);
-    await expect(page.locator('[data-testid="grpc-proto-form"]')).toBeVisible({ timeout: 15_000 });
-
-    // Finish step 8/8.
-    await finishDemoStep(page, DEMO_ACTION_TIMEOUT);
-    await page.locator('[aria-label="Next step"]').click();
-    await finishDemoStep(page, DEMO_ACTION_TIMEOUT);
+    await launchGrpcLesson(page, GRPC17_LESSON_NAME);
+    const start = await getStepInfo(page);
+    const parsedStart = parseStepCounter(start.counter);
+    expect(parsedStart.total).toBeGreaterThan(1);
+    await playThroughLesson(page, parsedStart.total, DEMO_ACTION_TIMEOUT);
 
     const done = await getStepInfo(page);
-    expect(done.counter).toMatch(/8\s*[/]\s*8/);
-    expect(done.title).toMatch(/Proto Import Workflow Complete/i);
+    expect(done.counter).toMatch(new RegExp(`${parsedStart.total}\\s*[/]\\s*${parsedStart.total}`));
+    expect(done.title).toMatch(/Export the Stream Log/i);
     await expect(page.locator('[data-testid="grpc-proto-form"]')).toBeVisible({ timeout: 15_000 });
 
     await exitLesson(page);
-    await takeNamedScreenshot(page, 'grpc3-lesson-complete');
+    await takeNamedScreenshot(page, 'grpc17-lesson-complete');
   });
 });

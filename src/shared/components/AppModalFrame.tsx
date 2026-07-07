@@ -76,6 +76,7 @@ export default function AppModalFrame({
   footerContent,
   disableDrag = false,
   showResizeHandles = true,
+  dragAnchor,
   constrainDragToViewport = false,
   dragViewportPadding = 8,
   initialExpanded,
@@ -92,6 +93,7 @@ export default function AppModalFrame({
     headerDragStyle,
     onHeaderMouseDown,
     onHeaderPointerDown,
+    dialogRef,
     onRightEdge,
     onCorner,
     onBottomEdge,
@@ -101,6 +103,7 @@ export default function AppModalFrame({
     expandMode,
     minWidth,
     minHeight,
+    dragAnchor,
     constrainDragToViewport,
     dragViewportPadding,
   });
@@ -151,6 +154,7 @@ export default function AppModalFrame({
   return (
     <div className={joinClasses('modal-overlay', overlayClassName, expandClass)} role="presentation" onClick={handleOverlayClick} style={overlayStyle}>
       <div
+        ref={dialogRef}
         className={joinClasses('modal', dialogClassName, expandClass)}
         role="dialog"
         aria-modal="true"

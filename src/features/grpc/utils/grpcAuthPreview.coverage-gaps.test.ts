@@ -74,7 +74,7 @@ describe('grpcAuthPreview coverage gaps', () => {
     expect(keys).toEqual([...keys].sort((a, b) => a.localeCompare(b)));
   });
 
-  it('returns oauth2 preview entries and conflicts when configuration is valid', () => {
+  it('returns oauth2 preview entries and blocks when a manual/auth conflict is present', () => {
     const preview = previewGrpcAuthMerge(
       { 'z-custom': '1', authorization: 'Bearer manual' },
       {
@@ -92,7 +92,8 @@ describe('grpcAuthPreview coverage gaps', () => {
       [...preview.previewEntries.map((entry) => entry.key)].sort((a, b) => a.localeCompare(b)),
     );
     expect(preview.conflicts).toHaveLength(1);
-    expect(preview.ok).toBe(true);
+    expect(preview.ok).toBe(false);
+    expect(preview.issues.some((issue) => /conflicts with manual metadata/i.test(issue.message))).toBe(true);
   });
 
   it('surfaces validation issues when oauth2 config is absent', () => {
@@ -168,7 +169,7 @@ describe('grpcAuthPreview coverage gaps', () => {
   it('shows masked authorization values for secret metadata keys', () => {
     const preview = previewGrpcAuthMerge(
       { authorization: 'Bearer visible-token-value' },
-      { type: 'bearer', bearerToken: 'tok' },
+      { type: 'none' },
     );
     expect(preview.previewEntries.find((entry) => entry.key === 'authorization')?.value).toBe('••••••');
   });

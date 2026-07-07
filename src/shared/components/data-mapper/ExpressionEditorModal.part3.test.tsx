@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import ExpressionEditorModal from './ExpressionEditorModal';
 import {
   loadExpressionSnippets,
@@ -360,7 +360,7 @@ describe('ExpressionEditorModal – branch coverage extras', () => {
   it('step result keyDown with Enter opens detail modal', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await waitFor(() => expect(document.querySelectorAll('.dm-expr-step-header').length).toBeGreaterThan(0));
     const headers = document.querySelectorAll('.dm-expr-step-header');
     if (headers.length > 0) {
       fireEvent.click(headers[headers.length - 1]);
@@ -375,7 +375,7 @@ describe('ExpressionEditorModal – branch coverage extras', () => {
   it('closing detail modal resets detailStep to null', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await waitFor(() => expect(document.querySelectorAll('.dm-expr-step-header').length).toBeGreaterThan(0));
     const headers = document.querySelectorAll('.dm-expr-step-header');
     if (headers.length > 0) {
       fireEvent.click(headers[headers.length - 1]);
@@ -395,7 +395,7 @@ describe('ExpressionEditorModal – branch coverage extras', () => {
   it('Expand All / Collapse All toggles all steps', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$concat($upper($.name), " test")' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await waitFor(() => expect(document.querySelectorAll('.dm-expr-step-header').length).toBeGreaterThan(0));
     const expandAllBtn = screen.queryByLabelText('Expand all');
     if (expandAllBtn) {
       fireEvent.click(expandAllBtn);

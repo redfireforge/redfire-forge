@@ -50,7 +50,7 @@ describe('grpc lesson step checkpoints', () => {
     const expected = {
       'grpc1-target': extractTestId(GRPC.TARGET_STATUS_OK),
       'grpc1-reflect': extractTestId(GRPC.EXPLORER_TREE),
-      'grpc1-select-method': extractTestId(GRPC.PROTO_FORM),
+      'grpc1-select-method': extractTestId(GRPC.REQUEST_FORM_SCROLL),
       'grpc1-send': extractTestId(GRPC.RESPONSE_BODY),
       'grpc1-history-tab': extractTestId(GRPC.HISTORY_PANEL),
       'grpc1-history': extractTestId(GRPC.SEND_BTN),

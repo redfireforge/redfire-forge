@@ -6,6 +6,7 @@ export function GrpcProtoOneofGroupRow({
   oneofName,
   members,
   body,
+  displayMode = 'standalone',
   disabled,
   messageIndex,
   onSelectMember,
@@ -24,18 +25,13 @@ export function GrpcProtoOneofGroupRow({
     return null;
   }
 
-  return (
-    <div
-      className="grpc-proto-field-row grpc-proto-field-row--oneof"
-      data-testid={`grpc-proto-oneof-${oneofName}`}
-    >
-      <div className="grpc-proto-field-header">
-        <div className="grpc-proto-field-name">
-          {oneofName}
-          <span className="grpc-proto-type-badge grpc-proto-type-badge--oneof">oneof</span>
-        </div>
-      </div>
+  const controls = (
+    <>
       <div className="grpc-proto-oneof-controls">
+        <div className="grpc-proto-oneof-meta">
+          <span className="grpc-proto-oneof-meta-label">Choose active branch</span>
+          <span className="grpc-proto-oneof-meta-value">{activeMember.name}</span>
+        </div>
         <div className="grpc-proto-oneof-radio-row" role="radiogroup" aria-label={`${oneofName} oneof`}>
           {members.map((member) => (
             <button
@@ -82,6 +78,29 @@ export function GrpcProtoOneofGroupRow({
         onFieldError={(hasError) => onFieldError(activeMember.name, hasError)}
         fieldErrorKey={`${oneofName}.${activeMember.name}`}
       />
+    </>
+  );
+
+  if (displayMode === 'embedded') {
+    return (
+      <div className="grpc-proto-oneof-embedded" data-testid={`grpc-proto-oneof-${oneofName}`}>
+        {controls}
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="grpc-proto-field-row grpc-proto-field-row--oneof"
+      data-testid={`grpc-proto-oneof-${oneofName}`}
+    >
+      <div className="grpc-proto-field-header">
+        <div className="grpc-proto-field-name">
+          {oneofName}
+          <span className="grpc-proto-type-badge grpc-proto-type-badge--oneof">oneof</span>
+        </div>
+      </div>
+      {controls}
     </div>
   );
 }

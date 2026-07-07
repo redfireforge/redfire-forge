@@ -23,34 +23,47 @@ import {
 } from './grpc-lesson-contract';
 import {
   GRPC_DEMO_TARGET,
+  GRPC_ECHO_SERVICE_SEL,
   GRPC_STREAM_MESSAGE,
   GRPC_STREAM_REPEAT_COUNT,
   GRPC_STREAM_INTERVAL_MS,
   GRPC_SERVER_STREAM_SEL,
   GRPC_CLIENT_STREAM_SEL,
   GRPC_BIDI_STREAM_SEL,
+  cancelActiveStreamQuiet,
   closeGrpcSettingsDrawerQuiet,
-  ensureClientStreamQueued,
-  ensureGrpcReflected,
   ensureGrpcStudioSubNavQuiet,
   ensureStreamingMethodSelected,
   fillServerStreamRequest,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
+  guardBidiStreamActiveQuiet,
+  guardBidiStreamSelectedQuiet,
+  guardClientStreamQueuedQuiet,
+  guardClientStreamSelectedQuiet,
+  guardGrpcReflectedQuiet,
+  guardServerStreamExecutedQuiet,
+  guardServerStreamFormQuiet,
   runClientStreamSendLifecycle,
+  seedBidiStreamLogQuiet,
+  spotlightAndPause,
   startAndExchangeBidiStream,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 
 const GRPC17_ROSTER = getGrpcLessonRosterEntry('grpc-streaming')!;
 
+const CLIENT_STREAM_QUEUE_MESSAGES = ['client-msg-1', 'client-msg-2', 'client-msg-3'] as const;
+
+const CALL_TYPE_TABS = ['unary', 'server_streaming', 'client_streaming', 'bidi_streaming'] as const;
+
 async function waitForStreamStatusText(
   ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['action']>>[0],
   expected: RegExp,
   timeoutMs = 3_000,
 ): Promise<boolean> {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
+  const maxIter = Math.ceil(timeoutMs / 200);
+  for (let i = 0; i < maxIter; i++) {
     const statusText = document.querySelector<HTMLElement>(GRPC.STREAM_STATUS_BADGE)?.textContent ?? '';
     if (expected.test(statusText)) {
       return true;
@@ -58,6 +71,27 @@ async function waitForStreamStatusText(
     await ctx.delay(200);
   }
   return false;
+}
+
+async function spotlightCallTypeBadges(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['action']>>[0],
+): Promise<void> {
+  await spotlightAndPause(ctx, GRPC.CALL_TYPE_SELECTOR, 850);
+  for (const tab of CALL_TYPE_TABS) {
+    const tabSel = GRPC.CALL_TYPE_TAB(tab);
+    if (document.querySelector(tabSel)) {
+      await spotlightAndPause(ctx, tabSel, 650);
+    }
+  }
+}
+
+async function spotlightServerStreamComposer(
+  ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['action']>>[0],
+): Promise<void> {
+  await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 700);
+  await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('message'), 750);
+  await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('repeat_count'), 700);
+  await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('interval_ms'), 700);
 }
 
 export const grpcStreamingLesson: GrpcDemoLesson = {
@@ -311,9 +345,14 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         await navigateToGrpcStudio(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
         await ensureGrpcStudioSubNavQuiet(ctx);
-        await ensureGrpcReflected(ctx);
-        await ctx.waitFor(GRPC.CALL_TYPE_SELECTOR, 8_000);
-        await ctx.delay(600);
+        await guardGrpcReflectedQuiet(ctx);
+      },
+      action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 800);
+        await spotlightCallTypeBadges(ctx);
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
+        await spotlightAndPause(ctx, GRPC_ECHO_SERVICE_SEL, 750);
+        await spotlightAndPause(ctx, GRPC.STREAM_PANEL, 850);
       },
       verify: GRPC.CALL_TYPE_SELECTOR,
     },
@@ -332,13 +371,18 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       highlight: GRPC_SERVER_STREAM_SEL,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureGrpcReflected(ctx);
+        await guardGrpcReflectedQuiet(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 800);
+        await spotlightAndPause(ctx, GRPC_ECHO_SERVICE_SEL, 750);
+        await spotlightAndPause(ctx, GRPC_SERVER_STREAM_SEL, 850);
         await ensureStreamingMethodSelected(ctx, 'ServerStream');
-        await ctx.waitFor(GRPC.STREAM_START_BTN, 8_000);
-        await ctx.delay(600);
+        await spotlightAndPause(ctx, GRPC.CALL_METHOD_NAME, 750);
+        await spotlightAndPause(ctx, GRPC.METHOD_CALL_TYPE, 700);
+        await spotlightAndPause(ctx, GRPC.STREAM_PANEL, 800);
+        await spotlightAndPause(ctx, GRPC.STREAM_START_BTN, 900);
       },
       verify: GRPC.STREAM_START_BTN,
     },
@@ -357,22 +401,27 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       highlight: GRPC.STREAM_MESSAGE_LOG,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStreamingMethodSelected(ctx, 'ServerStream');
+        await guardServerStreamFormQuiet(ctx);
       },
       action: async (ctx) => {
+        await spotlightServerStreamComposer(ctx);
         await fillServerStreamRequest(ctx);
-        await ctx.delay(600);
+        await ctx.delay(500);
+        await spotlightAndPause(ctx, GRPC.STREAM_START_BTN, 850);
         const startBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN);
         if (startBtn && !startBtn.disabled) {
           await ctx.click(GRPC.STREAM_START_BTN);
         }
+        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 900);
         try {
           await ctx.waitFor(GRPC.STREAM_LOG_LIST, 4_000);
         } catch {
           // Stream log may render asynchronously; proceed anyway.
         }
-        // Wait long enough to see all 5 messages arrive (5 × 300ms = 1.5s + buffer).
-        await ctx.delay(2_000);
+        if (document.querySelector(GRPC.STREAM_DIRECTION_LEGEND)) {
+          await spotlightAndPause(ctx, GRPC.STREAM_DIRECTION_LEGEND, 750);
+        }
+        await spotlightAndPause(ctx, GRPC.STREAM_LOG_LIST, 1_500);
       },
       verify: GRPC.STREAM_MESSAGE_LOG,
     },
@@ -393,22 +442,18 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       highlight: GRPC.STREAM_STATUS_BAR,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStreamingMethodSelected(ctx, 'ServerStream');
-        // If the stream has not been started yet, start it and wait for Ended.
-        if (!document.querySelector(GRPC.STREAM_LOG_LIST)) {
-          await fillServerStreamRequest(ctx);
-          const startBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN);
-          if (startBtn && !startBtn.disabled) {
-            await ctx.click(GRPC.STREAM_START_BTN);
-          }
-        }
-        // Wait for the stream to reach a terminal state so the action highlights a stable badge.
+        await guardServerStreamExecutedQuiet(ctx);
         await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 5_000);
       },
       action: async (ctx) => {
-        await ctx.waitFor(GRPC.STREAM_STATUS_BAR, 5_000);
-        await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 3_000);
-        await ctx.delay(1_200);
+        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BAR, 850);
+        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BADGE, 900);
+        if (document.querySelector(GRPC.STREAM_INBOUND_COUNT)) {
+          await spotlightAndPause(ctx, GRPC.STREAM_INBOUND_COUNT, 800);
+        }
+        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 850);
+        await spotlightAndPause(ctx, GRPC.STREAM_LOG_LIST, 950);
+        await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 2_000);
       },
       verify: GRPC.STREAM_STATUS_BAR,
     },
@@ -427,13 +472,16 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       highlight: GRPC_CLIENT_STREAM_SEL,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureGrpcReflected(ctx);
+        await guardGrpcReflectedQuiet(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 800);
+        await spotlightAndPause(ctx, GRPC_CLIENT_STREAM_SEL, 850);
         await ensureStreamingMethodSelected(ctx, 'ClientStream');
-        await ctx.waitFor(GRPC.STREAM_ADD_QUEUE_BTN, 8_000);
-        await ctx.delay(600);
+        await spotlightAndPause(ctx, GRPC.CALL_METHOD_NAME, 750);
+        await spotlightAndPause(ctx, GRPC.STREAM_PENDING_PANEL, 850);
+        await spotlightAndPause(ctx, GRPC.STREAM_ADD_QUEUE_BTN, 900);
       },
       verify: GRPC.STREAM_ADD_QUEUE_BTN,
     },
@@ -456,12 +504,33 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       highlight: GRPC.STREAM_PENDING_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStreamingMethodSelected(ctx, 'ClientStream');
+        await guardClientStreamSelectedQuiet(ctx);
       },
       action: async (ctx) => {
-        await ensureClientStreamQueued(ctx);
-        await ctx.waitFor(GRPC.STREAM_PENDING_PANEL, 5_000);
-        await ctx.delay(800);
+        if (document.querySelector(GRPC.STREAM_PENDING_ITEM(0))) {
+          await spotlightAndPause(ctx, GRPC.STREAM_PENDING_PANEL, 850);
+          await spotlightAndPause(ctx, GRPC.STREAM_PENDING_LIST, 800);
+          if (document.querySelector(GRPC.STREAM_PENDING_CHIP)) {
+            await spotlightAndPause(ctx, GRPC.STREAM_PENDING_CHIP, 750);
+          }
+          return;
+        }
+
+        await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('message'), 750);
+        await spotlightAndPause(ctx, GRPC.STREAM_ADD_QUEUE_BTN, 800);
+
+        for (const msg of CLIENT_STREAM_QUEUE_MESSAGES) {
+          await ctx.fill(GRPC.PROTO_FIELD_INPUT('message'), msg);
+          await ctx.delay(450);
+          await ctx.click(GRPC.STREAM_ADD_QUEUE_BTN);
+          await ctx.delay(500);
+        }
+
+        await spotlightAndPause(ctx, GRPC.STREAM_PENDING_PANEL, 850);
+        await spotlightAndPause(ctx, GRPC.STREAM_PENDING_LIST, 800);
+        if (document.querySelector(GRPC.STREAM_PENDING_CHIP)) {
+          await spotlightAndPause(ctx, GRPC.STREAM_PENDING_CHIP, 800);
+        }
       },
       verify: GRPC.STREAM_PENDING_PANEL,
     },
@@ -483,24 +552,16 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       highlight: GRPC.STREAM_PENDING_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStreamingMethodSelected(ctx, 'ClientStream');
-        // Ensure messages are queued before the step action runs.
-        if (!document.querySelector(GRPC.STREAM_PENDING_ITEM(0))) {
-          await ensureClientStreamQueued(ctx);
-        }
-        // If a stream is already active (cancel button present), close it first.
-        const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_CANCEL_BTN);
-        if (cancelBtn && !cancelBtn.disabled) {
-          cancelBtn.click();
-          await ctx.delay(300);
-        }
+        await guardClientStreamQueuedQuiet(ctx);
+        await cancelActiveStreamQuiet(ctx);
       },
       action: async (ctx) => {
-        // Sequential spotlight: Start stream → Send all → End stream. Each control
-        // lights up and holds so a viewer can follow before it activates.
+        await spotlightAndPause(ctx, GRPC.STREAM_PENDING_PANEL, 800);
         await runClientStreamSendLifecycle(ctx);
+        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 850);
+        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BAR, 850);
+        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BADGE, 900);
         await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 2_600);
-        await ctx.delay(1_000);
       },
       verify: GRPC.STREAM_STATUS_BAR,
     },
@@ -519,13 +580,18 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       highlight: GRPC_BIDI_STREAM_SEL,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureGrpcReflected(ctx);
+        await guardGrpcReflectedQuiet(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 800);
+        await spotlightAndPause(ctx, GRPC_BIDI_STREAM_SEL, 850);
         await ensureStreamingMethodSelected(ctx, 'BidiStream');
-        await ctx.waitFor(GRPC.STREAM_START_BTN, 8_000);
-        await ctx.delay(600);
+        await spotlightAndPause(ctx, GRPC.CALL_METHOD_NAME, 750);
+        await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('message'), 750);
+        await spotlightAndPause(ctx, GRPC.STREAM_SEND_MESSAGE_BTN, 800);
+        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 850);
+        await spotlightAndPause(ctx, GRPC.STREAM_START_BTN, 900);
       },
       verify: GRPC.STREAM_START_BTN,
     },
@@ -546,13 +612,15 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       highlight: GRPC.STREAM_MESSAGE_LOG,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStreamingMethodSelected(ctx, 'BidiStream');
-        // If stream is already active from a prior run, that's fine — exchange will add to log.
+        await guardBidiStreamSelectedQuiet(ctx);
       },
       action: async (ctx) => {
         await startAndExchangeBidiStream(ctx);
-        // Pause so the viewer can read the interleaved ↑/↓ log.
-        await ctx.delay(1_200);
+        if (document.querySelector(GRPC.STREAM_DIRECTION_LEGEND)) {
+          await spotlightAndPause(ctx, GRPC.STREAM_DIRECTION_LEGEND, 750);
+        }
+        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 900);
+        await spotlightAndPause(ctx, GRPC.STREAM_LOG_LIST, 1_000);
       },
       verify: GRPC.STREAM_MESSAGE_LOG,
     },
@@ -571,22 +639,17 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       highlight: GRPC.STREAM_CANCEL_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStreamingMethodSelected(ctx, 'BidiStream');
-        // Ensure the bidi stream is open so the Cancel button is available.
-        const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_CANCEL_BTN);
-        if (!cancelBtn) {
-          await startAndExchangeBidiStream(ctx);
-        }
+        await guardBidiStreamActiveQuiet(ctx);
       },
       action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPC.STREAM_CANCEL_BTN, 900);
         const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_CANCEL_BTN);
         if (cancelBtn && !cancelBtn.disabled) {
           await ctx.click(GRPC.STREAM_CANCEL_BTN);
         }
-        await ctx.waitFor(GRPC.STREAM_STATUS_BAR, 3_000);
+        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BAR, 850);
+        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BADGE, 950);
         await waitForStreamStatusText(ctx, /(cancelled|canceled)/i, 2_400);
-        // Hold on Cancelled so the viewer reads the badge.
-        await ctx.delay(1_000);
       },
       verify: GRPC.STREAM_STATUS_BAR,
     },
@@ -605,24 +668,20 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
       highlight: GRPC.STREAM_EXPORT_LOG_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStreamingMethodSelected(ctx, 'BidiStream');
-        // Ensure the message log has content to export.
+        await guardBidiStreamSelectedQuiet(ctx);
         if (!document.querySelector(GRPC.STREAM_LOG_LIST)) {
-          await startAndExchangeBidiStream(ctx);
-          const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_CANCEL_BTN);
-          if (cancelBtn && !cancelBtn.disabled) {
-            cancelBtn.click();
-            await ctx.delay(300);
-          }
+          await seedBidiStreamLogQuiet(ctx);
+          await cancelActiveStreamQuiet(ctx);
         }
       },
       action: async (ctx) => {
-        await ctx.waitFor(GRPC.STREAM_EXPORT_LOG_BTN, 8_000);
+        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 800);
+        await spotlightAndPause(ctx, GRPC.STREAM_LOG_LIST, 850);
+        await spotlightAndPause(ctx, GRPC.STREAM_EXPORT_LOG_BTN, 900);
         const exportBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_EXPORT_LOG_BTN);
         if (exportBtn && !exportBtn.disabled) {
           await ctx.click(GRPC.STREAM_EXPORT_LOG_BTN);
         }
-        // Pause so the viewer sees the download initiate.
         await ctx.delay(800);
       },
       verify: GRPC.STREAM_EXPORT_LOG_BTN,

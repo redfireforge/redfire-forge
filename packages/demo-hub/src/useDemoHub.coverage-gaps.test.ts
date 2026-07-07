@@ -58,7 +58,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     window.dispatchEvent(new Event('pagehide'));
@@ -81,7 +81,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
       await p;
     });
     expect(readingSync).toHaveBeenCalled();
@@ -102,7 +102,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
       await p;
     });
     expect(warnSpy).toHaveBeenCalledWith('[DemoHub] readingSync failed:', expect.any(Error));
@@ -128,7 +128,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
       await p;
     });
     expect(result.current.stepPhase).toBe('done');
@@ -146,7 +146,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     });
     const { result } = renderDemoHub(navigateToTab);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(result.current.state.view).toBe('live');
     expect(result.current.state.selectedLesson?.id).toBe(gqlFirstQueryLesson.id);
@@ -164,7 +164,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     });
     const { result } = renderDemoHub(navigateToTab);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(result.current.state.isPlaying).toBe(true);
   });
@@ -201,7 +201,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
@@ -228,17 +228,17 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(cleanup).toHaveBeenCalled();
     expect(setup).toHaveBeenCalled();
@@ -262,17 +262,17 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(expandSpy).toHaveBeenCalled();
     expandSpy.mockRestore();
@@ -287,17 +287,17 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(warnSpy).toHaveBeenCalledWith('[DemoHub] Lesson cleanup failed:', expect.any(Error));
     expect(warnSpy).toHaveBeenCalledWith('[DemoHub] Lesson setup failed:', expect.any(Error));
@@ -311,19 +311,19 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     setup.mockClear();
     act(() => result.current.toggleAutoPlay());
     act(() => result.current.toggleAutoPlay());
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(setup).not.toHaveBeenCalled();
   });
@@ -368,17 +368,17 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.restartDemo();
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
       await p;
     });
     expect(cleanup).toHaveBeenCalled();
@@ -397,12 +397,12 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
     });
     expect(result.current.state.stepIndex).toBeGreaterThanOrEqual(1);
   });
@@ -427,7 +427,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
       await p;
     });
     expect(result.current.stepPhase).toBe('done');
@@ -453,7 +453,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
       await p;
     });
     expect(highlightEl.scrollIntoView).toHaveBeenCalled();
@@ -486,7 +486,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     });
     const { result } = renderDemoHub(navigateToTab);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(result.current.state.isPlaying).toBe(false);
     expect(result.current.stepPhase).toBe('done');
@@ -499,19 +499,19 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     setup.mockClear();
     act(() => result.current.toggleAutoPlay());
     unmount();
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(setup).not.toHaveBeenCalled();
   });
@@ -523,17 +523,17 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(navigateToTab).toHaveBeenCalledWith('workflow-runner');
   });
@@ -550,7 +550,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
@@ -560,7 +560,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.toggleAutoPlay());
     expect(result.current.state.isPlaying).toBe(false);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
     });
     expect(result.current.state.stepIndex).toBe(0);
   });
@@ -584,7 +584,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
       await p;
     });
     expect(result.current.stepPhase).toBe('done');
@@ -611,7 +611,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
       await p;
     });
     expect(result.current.stepPhase).toBe('done');
@@ -629,7 +629,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     });
     const { result } = renderDemoHub(navigateToTab);
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(30000);
+      await vi.advanceTimersByTimeAsync(26000);
     });
     expect(result.current.state.view).toBe('live');
     expect(result.current.state.stepIndex).toBe(1);
@@ -650,17 +650,17 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(hygieneSpy).toHaveBeenCalled();
     hygieneSpy.mockRestore();
@@ -675,7 +675,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.goToDomains());
@@ -699,7 +699,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
@@ -725,7 +725,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
       await p;
     });
     expect(warnSpy).toHaveBeenCalledWith('[DemoHub] preAction failed:', expect.any(Error));
@@ -747,7 +747,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
       await p;
     });
     expect(warnSpy).toHaveBeenCalledWith('[DemoHub] action failed:', expect.any(Error));
@@ -761,7 +761,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.goBack());
@@ -793,7 +793,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
       await p;
     });
     expect(result.current.stepPhase).toBe('done');
@@ -846,7 +846,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     });
     await act(async () => {
       const p = result.current.nextStep();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(1);
@@ -860,17 +860,17 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(setup).toHaveBeenCalled();
     expect(result.current.state.stepIndex).toBe(0);
@@ -884,7 +884,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
@@ -896,7 +896,7 @@ describe('useDemoHub — additional coverage gaps', () => {
 
   it('startLiveDemo aborts when generation changes during setup', async () => {
     const setup = vi.fn().mockImplementation(async () => {
-      await new Promise((r) => setTimeout(r, 2000));
+      await vi.advanceTimersByTimeAsync(2000);
     });
     const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ setup });
@@ -905,7 +905,7 @@ describe('useDemoHub — additional coverage gaps', () => {
       void result.current.startLiveDemo();
       await vi.advanceTimersByTimeAsync(100);
       act(() => result.current.goToDomains());
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
     });
     expect(result.current.state.view).not.toBe('live');
   });
@@ -932,19 +932,19 @@ describe('useDemoHub — additional coverage gaps', () => {
 
   it('restartDemo skips step execution when generation changes during setup', async () => {
     const setup = vi.fn().mockImplementation(async () => {
-      await new Promise((r) => setTimeout(r, 2000));
+      await vi.advanceTimersByTimeAsync(2000);
     });
     const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ setup });
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       void result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
     });
     await act(async () => {
       void result.current.restartDemo();
       act(() => result.current.goToDomains());
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(result.current.state.view).not.toBe('live');
   });
@@ -958,7 +958,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
@@ -979,13 +979,13 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.isPlaying).toBe(false);
@@ -1002,7 +1002,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
@@ -1018,7 +1018,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.goBack());
@@ -1028,7 +1028,7 @@ describe('useDemoHub — additional coverage gaps', () => {
 
   it('runLiveDemoSetup returns false when generation changes mid-setup', async () => {
     const setup = vi.fn().mockImplementation(async () => {
-      await new Promise((r) => setTimeout(r, 500));
+      await vi.advanceTimersByTimeAsync(500);
     });
     const { result } = renderDemoHub(navigateToTab);
     const lesson = makeLesson({ setup });
@@ -1101,13 +1101,17 @@ describe('useDemoHub — additional coverage gaps', () => {
     vi.spyOn(adaptersMod, 'purgeOrphanDemoTabs').mockResolvedValue(undefined);
     const { result } = renderDemoHub(navigateToTab);
     act(() => result.current.selectLesson(gqlFirstQueryLesson));
+    // gqlFirstQueryLesson.steps[0] has pauseAfter:true → calcReadingTime returns ~34s.
+    // Advance 40s of fake time so the reading pause fires within advanceTimersByTimeAsync.
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(35000);
       await p;
     });
     await act(async () => {
-      await result.current.exitLiveDemo();
+      const p = result.current.exitLiveDemo();
+      await vi.advanceTimersByTimeAsync(2000);
+      await p;
     });
     expect(closeSpy).toHaveBeenCalledWith('gql-first-query');
     closeSpy.mockRestore();
@@ -1121,7 +1125,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(makeLesson()));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
@@ -1151,13 +1155,13 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     syncSpy.mockClear();
     await act(async () => {
       const p = result.current.goToStep(11);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(syncSpy).toHaveBeenCalled();
@@ -1172,12 +1176,12 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.restartDemo();
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
       await p;
     });
     expect(expandSpy).toHaveBeenCalled();
@@ -1193,7 +1197,7 @@ describe('useDemoHub — additional coverage gaps', () => {
         description: 'Short.',
         pauseAfter: 0,
         preAction: async () => {
-          await new Promise((r) => setTimeout(r, 5000));
+          await vi.advanceTimersByTimeAsync(5000);
         },
       }],
     });
@@ -1202,7 +1206,7 @@ describe('useDemoHub — additional coverage gaps', () => {
       void result.current.startLiveDemo();
       await vi.advanceTimersByTimeAsync(100);
       act(() => result.current.goToDomains());
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
     });
     expect(result.current.state.view).not.toBe('live');
   });
@@ -1216,7 +1220,7 @@ describe('useDemoHub — additional coverage gaps', () => {
           title: 'S1',
           description: 'A'.repeat(500),
           action: async () => {
-            await new Promise((r) => setTimeout(r, 5000));
+            await vi.advanceTimersByTimeAsync(5000);
           },
         },
         { id: 's2', title: 'S2', description: 'Next' },
@@ -1231,7 +1235,7 @@ describe('useDemoHub — additional coverage gaps', () => {
       void result.current.nextStep();
       await vi.advanceTimersByTimeAsync(100);
       void result.current.goToStep(0);
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(9000);
     });
     expect(result.current.state.stepIndex).toBe(0);
   });
@@ -1243,7 +1247,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.goBack());
@@ -1259,7 +1263,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.goBack());
@@ -1295,7 +1299,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
@@ -1312,7 +1316,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.closeHub());
@@ -1330,7 +1334,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(warnSpy).toHaveBeenCalledWith('[DemoHub] Lesson setup failed:', expect.any(Error));
@@ -1357,13 +1361,13 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     syncSpy.mockClear();
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(syncSpy).toHaveBeenCalled();
@@ -1379,7 +1383,7 @@ describe('useDemoHub — additional coverage gaps', () => {
         description: 'Short.',
         pauseAfter: 0,
         preAction: async () => {
-          await new Promise((r) => setTimeout(r, 2000));
+          await vi.advanceTimersByTimeAsync(2000);
         },
       }],
     });
@@ -1402,7 +1406,7 @@ describe('useDemoHub — additional coverage gaps', () => {
         description: 'Short.',
         pauseAfter: 0,
         action: async () => {
-          await new Promise((r) => setTimeout(r, 100));
+          await vi.advanceTimersByTimeAsync(100);
         },
       }],
     });
@@ -1462,7 +1466,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     });
     await act(async () => {
       const p = result.current.nextStep();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     expect(result.current.state.stepIndex).toBe(1);
@@ -1509,9 +1513,11 @@ describe('useDemoHub — additional coverage gaps', () => {
     });
     const { result } = renderDemoHub(navigateToTab);
     act(() => result.current.selectLesson(gqlFirstQueryLesson));
+    // gqlFirstQueryLesson.steps[0] has pauseAfter:true → calcReadingTime returns ~34s.
+    // Advance 40s of fake time so the reading pause fires within advanceTimersByTimeAsync.
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(35000);
       await p;
     });
     act(() => {
@@ -1525,7 +1531,9 @@ describe('useDemoHub — additional coverage gaps', () => {
       });
     });
     await act(async () => {
-      await result.current.exitLiveDemo();
+      const p = result.current.exitLiveDemo();
+      await vi.advanceTimersByTimeAsync(2000);
+      await p;
     });
     expect(teardownSpy).toHaveBeenCalled();
     teardownSpy.mockRestore();
@@ -1543,7 +1551,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
@@ -1564,7 +1572,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
@@ -1635,12 +1643,12 @@ describe('useDemoHub — additional coverage gaps', () => {
     act(() => result.current.selectLesson(lesson));
     await act(async () => {
       const p = result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     await act(async () => {
       const p = result.current.goToStep(1);
-      await vi.advanceTimersByTimeAsync(8000);
+      await vi.advanceTimersByTimeAsync(7000);
       await p;
     });
     act(() => result.current.toggleAutoPlay());
@@ -1648,7 +1656,7 @@ describe('useDemoHub — additional coverage gaps', () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(60);
       act(() => result.current.exitLiveDemo());
-      await vi.advanceTimersByTimeAsync(15000);
+      await vi.advanceTimersByTimeAsync(13000);
     });
     expect(hygieneSpy).not.toHaveBeenCalled();
     hygieneSpy.mockRestore();

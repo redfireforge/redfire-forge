@@ -5,7 +5,7 @@ export const DEMO_LIVE_PANEL_DEFAULT_WIDTH = 400;
 export const DEMO_LIVE_PANEL_DEFAULT_HEIGHT = 440;
 export const DEMO_LIVE_PANEL_MIN_WIDTH = 300;
 export const DEMO_LIVE_PANEL_MIN_HEIGHT = 260;
-export const DEMO_LIVE_PANEL_STORAGE_KEY = 'redfire-demo-live-panel-geometry-v1';
+export const DEMO_LIVE_PANEL_STORAGE_KEY = 'redfire-demo-live-panel-geometry-v2';
 
 export interface LiveDemoPanelGeometry {
   top: number;
@@ -48,7 +48,7 @@ export function createDefaultLiveDemoPanelGeometry(
     width,
     height,
     left: viewportWidth - width - 16,
-    top: viewportHeight - height - 16,
+    top: 84,
   };
 }
 

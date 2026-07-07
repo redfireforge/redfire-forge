@@ -27,6 +27,9 @@ export interface GrpcGrpcurlExportOptions {
   serverNameOverride?: string;
   tlsFilePaths?: GrpcGrpcurlTlsFilePaths;
   descriptorFlags?: GrpcGrpcurlDescriptorFlags;
+  includeSecretMetadata?: boolean;
+  includeRedactedSecretMetadata?: boolean;
+  includeRedactedSecretMetadataHints?: boolean;
 }
 
 export interface GrpcGrpcurlImportSuccess {

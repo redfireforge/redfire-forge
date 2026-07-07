@@ -57,11 +57,31 @@ function looksLikeSecretMetadataValue(value: string): boolean {
 /** Omit auth/secret metadata from grpcurl CLI export (Phase 4H — never embed tokens). */
 export function filterMetadataForGrpcurlExport(
   metadata: Record<string, string> | undefined,
+  options?: {
+    includeSecretMetadata?: boolean;
+    includeRedactedSecretMetadata?: boolean;
+    includeRedactedSecretMetadataHints?: boolean;
+  },
 ): Record<string, string> {
   if (!metadata) return {};
+  const includeSecretMetadata = options?.includeSecretMetadata ?? false;
+  const includeRedactedSecretMetadata = options?.includeRedactedSecretMetadata ?? false;
+  const includeRedactedSecretMetadataHints = options?.includeRedactedSecretMetadataHints ?? false;
   const safe: Record<string, string> = {};
+  const toSecretHint = (key: string): string => {
+    const normalized = key.toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    return `<SET_${normalized || 'SECRET_VALUE'}>`;
+  };
   for (const [key, value] of Object.entries(metadata)) {
+    const isRedactedPlaceholder = isGrpcRedactedPersistValue(value);
     if (isGrpcSecretMetadataKey(key) || looksLikeSecretMetadataValue(value)) {
+      if (includeRedactedSecretMetadata && isRedactedPlaceholder) {
+        safe[key] = value;
+      } else if (includeRedactedSecretMetadataHints && isRedactedPlaceholder) {
+        safe[key] = toSecretHint(key);
+      } else if (includeSecretMetadata && !isRedactedPlaceholder) {
+        safe[key] = value;
+      }
       continue;
     }
     safe[key] = value;
@@ -135,7 +155,11 @@ export function buildGrpcurlInvokeCommand(options: GrpcGrpcurlExportOptions): st
   if (options.serverNameOverride?.trim()) {
     parts.push('-authority', shellQuote(options.serverNameOverride.trim()));
   }
-  const exportMetadata = normalizeGrpcMetadata(filterMetadataForGrpcurlExport(options.metadata));
+  const exportMetadata = normalizeGrpcMetadata(filterMetadataForGrpcurlExport(options.metadata, {
+    includeSecretMetadata: options.includeSecretMetadata,
+    includeRedactedSecretMetadata: options.includeRedactedSecretMetadata,
+    includeRedactedSecretMetadataHints: options.includeRedactedSecretMetadataHints,
+  }));
   for (const [key, value] of Object.entries(exportMetadata).sort(([a], [b]) => a.localeCompare(b))) {
     parts.push('-H', shellQuote(`${key}: ${value}`));
   }

@@ -26,6 +26,12 @@ import {
 } from '../../../shared/grpc/grpcStreamClient';
 import { createGrpcSuccessEnvelope } from '../../../shared/grpc/contracts';
 import { resetGrpcTabCounterForTests } from '../grpcStudioTypes';
+
+const downloadProtosetFileMock = vi.hoisted(() => vi.fn());
+vi.mock('../utils/downloadProtoset', () => ({
+  downloadProtosetFile: (...args: unknown[]) => downloadProtosetFileMock(...args),
+}));
+
 import { GRPC_STUDIO_MAX_TABS, useGrpcStudio } from './useGrpcStudio';
 import * as grpcStudioSessionHelpers from './grpcStudioSessionHelpers';
 
@@ -33,6 +39,8 @@ const PAGE_DEFAULTS = { target: 'localhost:50051', tlsMode: 'disabled' as const 
 
 describe('useGrpcStudio (Phase 1D)', () => {
   beforeEach(() => {
+    vi.restoreAllMocks();
+    downloadProtosetFileMock.mockReset();
     resetGrpcTabCounterForTests();
     setGrpcClientTransport(null);
   });

@@ -14,7 +14,10 @@ import {
   filterGrpcCallHistoryEntries,
   type GrpcCallHistoryFilters,
 } from '../utils/grpcHistoryFilters';
-import { GRPC_CALL_HISTORY_UPDATED_EVENT } from '../utils/grpcStudioCallHistoryCapture';
+import {
+  clearAllRuntimeGrpcHistoryMetadata,
+  GRPC_CALL_HISTORY_UPDATED_EVENT,
+} from '../utils/grpcStudioCallHistoryCapture';
 
 export interface UseGrpcCallHistoryResult {
   entries: GrpcCallHistoryEntryV1[];
@@ -96,6 +99,7 @@ export function useGrpcCallHistory(): UseGrpcCallHistoryResult {
 
   const clearAll = useCallback(async () => runWithMutationError(async () => {
     await clearGrpcCallHistory();
+    clearAllRuntimeGrpcHistoryMetadata();
     await reload();
   }), [reload, runWithMutationError]);
 

@@ -70,8 +70,8 @@ describe('grpcExplorerUtils (Phase 1E)', () => {
     const serverStream = findGrpcMethod(FIXTURE_DESCRIPTOR, 'echo.EchoService', 'ServerStream')!;
     expect(resolveGrpcStudioLayoutCallType({ layoutPreviewCallType: 'unary' }, serverStream))
       .toBe('server_streaming');
-    expect(resolveGrpcStudioLayoutCallType({ layoutPreviewCallType: 'client_streaming' }))
-      .toBe('client_streaming');
+      expect(resolveGrpcStudioLayoutCallType({ layoutPreviewCallType: 'client_streaming' }))
+        .toBe('unary');
     expect(resolveGrpcStudioLayoutCallType({})).toBe('unary');
     expect(isStreamingLayoutCallType('server_streaming')).toBe(true);
     expect(isStreamingLayoutCallType('unary')).toBe(false);

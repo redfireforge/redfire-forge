@@ -6,6 +6,54 @@ import { renderHook, act } from '@testing-library/react';
 import { useModalDrag } from './useModalDrag';
 
 describe('useModalDrag coverage gaps', () => {
+  it('ignores non-primary mouse pointer drags', () => {
+    const { result } = renderHook(() => useModalDrag(true));
+    const header = document.createElement('div');
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.appendChild(header);
+    document.body.appendChild(dialog);
+
+    const pointerDown = new PointerEvent('pointerdown', {
+      pointerType: 'mouse',
+      button: 1,
+      clientX: 10,
+      clientY: 10,
+      bubbles: true,
+    });
+    Object.defineProperty(pointerDown, 'target', { value: header });
+    Object.defineProperty(pointerDown, 'currentTarget', { value: header });
+
+    act(() => {
+      result.current.onPointerDragStart(pointerDown as unknown as React.PointerEvent);
+    });
+
+    expect(result.current.isDragging).toBe(false);
+    expect(result.current.isDragged).toBe(false);
+    document.body.removeChild(dialog);
+  });
+
+  it('does not start drag when current target is not inside a dialog', () => {
+    const { result } = renderHook(() => useModalDrag(true));
+    const header = document.createElement('div');
+    document.body.appendChild(header);
+
+    const mouseDown = new MouseEvent('mousedown', { clientX: 20, clientY: 20, bubbles: true });
+    const preventDefault = vi.fn();
+    Object.defineProperty(mouseDown, 'target', { value: header });
+    Object.defineProperty(mouseDown, 'currentTarget', { value: header });
+    Object.defineProperty(mouseDown, 'preventDefault', { value: preventDefault });
+
+    act(() => {
+      result.current.onDragStart(mouseDown as unknown as React.MouseEvent);
+    });
+
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(result.current.isDragging).toBe(false);
+    expect(result.current.modalStyle).toBeUndefined();
+    document.body.removeChild(header);
+  });
+
   it('reuses an existing drag position as the next drag origin', () => {
     const { result } = renderHook(() => useModalDrag(true));
     const header = document.createElement('div');
@@ -199,6 +247,7 @@ describe('useModalDrag coverage gaps', () => {
 
     expect(result.current.modalStyle?.left).toBe(120);
     expect(result.current.modalStyle?.top).toBe(50);
+    expect(result.current.modalStyle).not.toHaveProperty('width');
 
     document.body.removeChild(anchor);
     document.body.removeChild(modalRef.current);

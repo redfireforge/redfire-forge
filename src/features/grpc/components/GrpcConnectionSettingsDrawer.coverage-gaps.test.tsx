@@ -78,4 +78,52 @@ describe('GrpcConnectionSettingsDrawer coverage gaps', () => {
     rerender(<GrpcConnectionSettingsDrawer {...defaultProps} open />);
     expect(screen.getByTestId('grpc-connection-settings-drawer')).toBeTruthy();
   });
+
+  it('resets dragged position when reopened', () => {
+    const { rerender } = render(<GrpcConnectionSettingsDrawer {...defaultProps} />);
+
+    const header = document.querySelector('.grpc-settings-drawer-header') as HTMLElement;
+    const dialog = document.querySelector('.grpc-settings-drawer-modal') as HTMLElement;
+    expect(header).toBeTruthy();
+    expect(dialog).toBeTruthy();
+
+    fireEvent.mouseDown(header, { clientX: 120, clientY: 80 });
+    fireEvent.mouseMove(window, { clientX: 220, clientY: 180 });
+    fireEvent.mouseUp(window);
+
+    expect(dialog.style.position).toBe('fixed');
+    expect(dialog.style.left).toBe('100px');
+    expect(dialog.style.top).toBe('100px');
+
+    rerender(<GrpcConnectionSettingsDrawer {...defaultProps} open={false} />);
+    rerender(<GrpcConnectionSettingsDrawer {...defaultProps} open />);
+
+    const reopenedDialog = document.querySelector('.grpc-settings-drawer-modal') as HTMLElement;
+    expect(reopenedDialog.style.position).toBe('');
+    expect(reopenedDialog.style.left).toBe('');
+    expect(reopenedDialog.style.top).toBe('');
+  });
+
+  it('resets dragged position when openRequest increments while open', () => {
+    const { rerender } = render(<GrpcConnectionSettingsDrawer {...defaultProps} openRequest={1} />);
+
+    const header = document.querySelector('.grpc-settings-drawer-header') as HTMLElement;
+    const dialog = document.querySelector('.grpc-settings-drawer-modal') as HTMLElement;
+    expect(header).toBeTruthy();
+    expect(dialog).toBeTruthy();
+
+    fireEvent.mouseDown(header, { clientX: 100, clientY: 80 });
+    fireEvent.mouseMove(window, { clientX: 220, clientY: 190 });
+    fireEvent.mouseUp(window);
+
+    expect(dialog.style.position).toBe('fixed');
+    expect(dialog.style.left).toBe('120px');
+    expect(dialog.style.top).toBe('110px');
+
+    rerender(<GrpcConnectionSettingsDrawer {...defaultProps} openRequest={2} />);
+    const resetDialog = document.querySelector('.grpc-settings-drawer-modal') as HTMLElement;
+    expect(resetDialog.style.position).toBe('');
+    expect(resetDialog.style.left).toBe('');
+    expect(resetDialog.style.top).toBe('');
+  });
 });

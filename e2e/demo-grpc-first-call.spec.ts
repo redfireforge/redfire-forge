@@ -13,7 +13,6 @@ import { test, expect } from '@playwright/test';
 import {
   launchGrpcLesson,
   advanceSteps,
-  restartLesson,
   completeCurrentStepAction,
   exitLesson,
   getStepInfo,
@@ -69,7 +68,6 @@ test.describe('GRPC-1 — target field', () => {
   test('studio shows localhost:50051 with target OK badge after target step', async ({ page }) => {
     test.setTimeout(240_000);
     await launchGrpcLesson(page, LESSON_NAME);
-    await restartLesson(page);
 
     await advanceSteps(page, 1, DEMO_ACTION_TIMEOUT);
     await completeCurrentStepAction(page, DEMO_ACTION_TIMEOUT);

@@ -526,9 +526,7 @@ describe('ws-test-runner lesson', () => {
     document.body.appendChild(configForm);
 
     const ctx = makeCtx();
-    (ctx.delay as ReturnType<typeof vi.fn>).mockImplementation(async (ms: number) => {
-      await new Promise((r) => setTimeout(r, Math.min(ms, 5)));
-    });
+    (ctx.delay as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
     await wsTestRunnerLesson.steps[3].action!(ctx);
     expect(document.querySelector('.completion-section')).toBeNull();
     document.body.removeChild(configForm);
@@ -566,7 +564,7 @@ describe('ws-test-runner lesson', () => {
     });
     const ctx = makeCtx();
     const setupPromise = wsTestRunnerLesson.setup!(ctx);
-    await vi.advanceTimersByTimeAsync(2100);
+    await vi.advanceTimersByTimeAsync(2050);
     await setupPromise;
     vi.useRealTimers();
     expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow-runner');

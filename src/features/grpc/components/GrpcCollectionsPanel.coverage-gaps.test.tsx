@@ -764,6 +764,74 @@ describe('GrpcCollectionsPanel coverage gaps (Phase 5H)', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
+  it('renames a collection from the header rename button', async () => {
+    const collection = collectionWithSaved();
+    const renameCollection = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(window, 'prompt').mockReturnValue('Renamed collection');
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection], { renameCollection })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-collection-group-rename-col-1'));
+    await waitFor(() => expect(renameCollection).toHaveBeenCalledWith('col-1', 'Renamed collection'));
+  });
+
+  it('ignores rename when prompt is cancelled, blank, or unchanged', async () => {
+    const collection = collectionWithSaved();
+    const renameCollection = vi.fn().mockResolvedValue(undefined);
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection], { renameCollection })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    vi.spyOn(window, 'prompt').mockReturnValueOnce(null);
+    fireEvent.click(screen.getByTestId('grpc-collection-group-rename-col-1'));
+    expect(renameCollection).not.toHaveBeenCalled();
+
+    vi.mocked(window.prompt).mockReturnValueOnce('   ');
+    fireEvent.click(screen.getByTestId('grpc-collection-group-rename-col-1'));
+    expect(renameCollection).not.toHaveBeenCalled();
+
+    vi.mocked(window.prompt).mockReturnValueOnce(collection.name);
+    fireEvent.click(screen.getByTestId('grpc-collection-group-rename-col-1'));
+    expect(renameCollection).not.toHaveBeenCalled();
+  });
+
+  it('swallows renameCollection errors from the header button', async () => {
+    const collection = collectionWithSaved();
+    const renameCollection = vi.fn().mockRejectedValue(new Error('rename failed'));
+    vi.spyOn(window, 'prompt').mockReturnValue('Renamed collection');
+
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection], { renameCollection, lastMutationError: 'rename failed' })}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-collection-group-rename-col-1'));
+    await waitFor(() => expect(renameCollection).toHaveBeenCalled());
+  });
+
   it('invokes run load test callback from the detail panel', () => {
     const collection = collectionWithSaved();
     const onRunLoadTest = vi.fn();

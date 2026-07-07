@@ -108,6 +108,16 @@ export function GrpcCollectionsPanel({
     }
   };
 
+  const handleRenameCollection = async (collection: GrpcCollectionV1) => {
+    const name = window.prompt('Rename collection', collection.name);
+    if (!name?.trim() || name.trim() === collection.name) return;
+    try {
+      await collections.renameCollection(collection.id, name.trim());
+    } catch {
+      /* error surfaced via collections.lastMutationError */
+    }
+  };
+
   const handleExportCollections = async () => {
     try {
       const exported = await collections.exportCollections();
@@ -152,15 +162,27 @@ export function GrpcCollectionsPanel({
 
     return (
       <div key={collection.id} className="grpc-collection-group" data-testid={`grpc-collection-group-${collection.id}`}>
-        <button
-          type="button"
-          className="grpc-collection-group__header"
-          onClick={() => toggleCollection(collection.id)}
-        >
-          <span className="grpc-collection-group__icon" aria-hidden="true">{expanded ? '▾' : '▸'}</span>
-          <span className="grpc-collection-group__name">{collection.name}</span>
+        <div className="grpc-collection-group__header-row">
+          <button
+            type="button"
+            className="grpc-collection-group__header"
+            onClick={() => toggleCollection(collection.id)}
+          >
+            <span className="grpc-collection-group__icon" aria-hidden="true">{expanded ? '▾' : '▸'}</span>
+            <span className="grpc-collection-group__name">{collection.name}</span>
+          </button>
           <span className="grpc-collection-group__count">{visibleCount}</span>
-        </button>
+          <button
+            type="button"
+            className="grpc-collection-group__rename-btn"
+            data-testid={`grpc-collection-group-rename-${collection.id}`}
+            aria-label={`Rename ${collection.name}`}
+            title="Rename collection"
+            onClick={() => { void handleRenameCollection(collection); }}
+          >
+            ✎
+          </button>
+        </div>
         {expanded && (
           <div className="grpc-collection-group__body">
             {tree.services.map((serviceNode) => (

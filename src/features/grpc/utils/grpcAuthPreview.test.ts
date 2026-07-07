@@ -7,11 +7,10 @@ describe('grpcAuthPreview (Phase 4C)', () => {
       { authorization: 'Bearer manual', 'x-trace': '1' },
       { type: 'bearer', bearerToken: 'server-token' },
     );
-    expect(preview.ok).toBe(true);
-    expect(preview.conflicts).toHaveLength(1);
-    expect(preview.conflicts[0]?.key).toBe('authorization');
-    expect(preview.previewEntries.find((entry) => entry.key === 'authorization')?.value).toBe('••••••');
-    expect(preview.previewEntries.find((entry) => entry.key === 'x-trace')?.value).toBe('1');
+    expect(preview.ok).toBe(false);
+    expect(preview.conflicts).toHaveLength(0);
+    expect(preview.errorMessage).toMatch(/auth metadata conflicts/i);
+    expect(preview.previewEntries).toHaveLength(0);
   });
 
   it('previews oauth2 as server-acquired authorization when shape is valid (Phase 4D)', () => {
@@ -39,5 +38,14 @@ describe('grpcAuthPreview (Phase 4C)', () => {
     const preview = previewGrpcAuthMerge({}, { type: 'bearer', bearerToken: '' });
     expect(preview.ok).toBe(false);
     expect(isGrpcAuthExecuteReady({ type: 'bearer', bearerToken: '' })).toBe(false);
+  });
+
+  it('marks preview as not ready when auth conflicts with manual metadata', () => {
+    const preview = previewGrpcAuthMerge(
+      { authorization: 'Bearer manual' },
+      { type: 'bearer', bearerToken: 'panel-token' },
+    );
+    expect(preview.ok).toBe(false);
+    expect(preview.errorMessage).toMatch(/auth metadata conflicts/i);
   });
 });

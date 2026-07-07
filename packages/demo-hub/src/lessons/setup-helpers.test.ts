@@ -107,9 +107,11 @@ describe('setup-helpers', () => {
 
   it('stopMockServer clicks btn when present and not disabled', async () => {
     // stopMockServer is gated behind _demoStartedMock.
-    // To set it true: call startMockServer with start btn visible and stop btn NOT yet
-    // visible. After 150ms (during the polling loop) make stop btn visible so
-    // startMockServer resolves quickly → _demoStartedMock=true.
+    // We need startMockServer to set _demoStartedMock=true:
+    //   1. Stop btn must NOT be visible during ctx.delay(400) — that would trigger the
+    //      "already running → _demoStartedMock=false" early return.
+    //   2. Stop btn must become visible during the first ctx.delay(100) poll iteration
+    //      so the loop resolves to started=true → _demoStartedMock=true.
     const startBtn = document.createElement('button');
     startBtn.setAttribute('data-testid', 'mock-start-btn');
     document.body.appendChild(startBtn);
@@ -118,14 +120,18 @@ describe('setup-helpers', () => {
     const stopBtn = document.createElement('button');
     stopBtn.setAttribute('data-testid', 'mock-stop-btn');
     document.body.appendChild(stopBtn);
-    // Initially NOT visible so startMockServer doesn't short-circuit to "already running"
+    // Initially NOT visible — avoids the "already running" early return
 
-    // Make the stop button visible after 150ms so the polling loop in startMockServer
-    // finds it → resolves successfully → _demoStartedMock = true
-    const timer = setTimeout(() => makeVisible(stopBtn), 150);
+    // ctx.delay calls in order inside startMockServer:
+    //   1st call → ctx.delay(400): keep stop btn invisible (return instantly)
+    //   2nd call → ctx.delay(100) first poll: reveal stop btn so polling succeeds
+    vi.mocked(ctx.delay)
+      .mockResolvedValueOnce(undefined)               // delay(400): no-op
+      .mockImplementationOnce(async () => { makeVisible(stopBtn); }) // delay(100) poll #1
+      .mockResolvedValue(undefined);                  // all subsequent: instant
 
     await startMockServer(ctx);
-    clearTimeout(timer);
+    vi.mocked(ctx.delay).mockResolvedValue(undefined);
 
     // Now _demoStartedMock is true; stopMockServer should click the stop button
     const clickSpy = vi.spyOn(stopBtn, 'click');

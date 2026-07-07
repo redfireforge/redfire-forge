@@ -65,6 +65,7 @@ import { DEMO_HUB_ENABLED } from '../config/features';
 import { demoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
 import { shouldExitLiveDemoForTabChange } from './demo/liveDemoTabGuard';
 import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
+import { useDemoWorkspaceDefaultsBridge } from './hooks/useDemoWorkspaceDefaultsBridge';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
 
 const DemoShellHost = lazy(() =>
@@ -85,6 +86,7 @@ export default function App() {
     moveScenario, moveTest,
     initialTheme, initialTestRuns,
   } = useProjects();
+  useDemoWorkspaceDefaultsBridge(setWorkspaceDefaults);
 
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
 
@@ -411,6 +413,7 @@ export default function App() {
             setActiveTab={setActiveTab}
             setSidebarCollapsed={setSidebarCollapsed}
             setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
+            setWorkspaceDefaults={setWorkspaceDefaults}
             selectedEnvId={selectedEnvId}
             selectedSvcId={selectedSvcId}
             setEnvironments={setEnvironments}

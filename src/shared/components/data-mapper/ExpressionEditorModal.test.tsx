@@ -39,6 +39,7 @@ const snippetMocks = makeSnippetMockImplementations({
 });
 
 beforeEach(() => {
+  vi.useFakeTimers();
   resetMonacoTestState();
   snippetMocks.reset();
 });
@@ -46,6 +47,7 @@ beforeEach(() => {
 afterEach(async () => {
   // Flush any pending async state updates (e.g. loadExpressionSnippets) to avoid act() warnings
   await act(async () => {});
+  vi.useRealTimers();
 });
 
 describe('ExpressionEditorModal', () => {
@@ -192,7 +194,8 @@ describe('ExpressionEditorModal', () => {
     fireEvent.change(screen.getByLabelText('Snippet name'), { target: { value: 'Upper Name' } });
     await act(async () => { fireEvent.click(screen.getByText('Save')); });
     expect(saveExpressionSnippetMock).toHaveBeenCalledWith('Upper Name', '$upper($.name)');
-    expect(await screen.findByText('Upper Name')).toBeTruthy();
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+    expect(screen.getByText('Upper Name')).toBeTruthy();
 
     fireEvent.change(screen.getByTestId('monaco-editor'), { target: { value: '$lower($.name)' } });
     fireEvent.click(screen.getByText('Use'));
@@ -368,21 +371,21 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     const btn = screen.getByText('Step Debug');
     fireEvent.click(btn);
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(screen.getByLabelText('Step-through debugger')).toBeTruthy();
   });
 
   it('shows step counter', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(screen.getByText(/Step \d+ \/ \d+/)).toBeTruthy();
   });
 
   it('has prev/next buttons', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(screen.getByLabelText('Previous step')).toBeTruthy();
     expect(screen.getByLabelText('Next step')).toBeTruthy();
   });
@@ -390,14 +393,14 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
   it('shows Final Result step', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(screen.getByText('Final Result')).toBeTruthy();
   });
 
   it('shows Path Resolution step for path expressions', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$.name' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(screen.getByText('Path Resolution')).toBeTruthy();
   });
 
@@ -405,7 +408,7 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
     renderModal({ mapping: { ...baseMapping, expression: '$.name' } });
     const btn = screen.getByText('Step Debug');
     fireEvent.click(btn);
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     expect(screen.getByLabelText('Step-through debugger')).toBeTruthy();
 
     fireEvent.click(btn);
@@ -432,7 +435,7 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
   it('navigates steps with prev/next buttons', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$concat($.name, " test")' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     const counter = screen.getByText(/Step \d+ \/ \d+/);
     expect(counter).toBeTruthy();
     const prevBtn = screen.getByLabelText('Previous step');
@@ -445,7 +448,7 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
   it('allows clicking a step header to expand it', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     const headers = document.querySelectorAll('.dm-expr-step-header');
     if (headers.length > 0) {
       expect(document.querySelectorAll('.dm-expr-step-result')).toHaveLength(0);
@@ -457,7 +460,7 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
   it('allows keyboard (Enter) to expand a step', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     const headers = document.querySelectorAll('.dm-expr-step-header');
     if (headers.length > 0) {
       fireEvent.keyDown(headers[0], { key: 'Enter' });
@@ -468,7 +471,7 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
   it('allows keyboard (Space) to expand a step', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     const headers = document.querySelectorAll('.dm-expr-step-header');
     if (headers.length > 0) {
       fireEvent.keyDown(headers[0], { key: ' ' });
@@ -479,7 +482,7 @@ describe('ExpressionEditorModal – Step-Through Debugger', () => {
   it('clicking expanded result opens the detail popup', async () => {
     renderModal({ mapping: { ...baseMapping, expression: '$upper($.name)' } });
     fireEvent.click(screen.getByText('Step Debug'));
-    await act(async () => { await new Promise((r) => setTimeout(r, 300)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(300); });
     const headers = document.querySelectorAll('.dm-expr-step-header');
     if (headers.length > 0) {
       await act(async () => { fireEvent.click(headers[headers.length - 1]); });

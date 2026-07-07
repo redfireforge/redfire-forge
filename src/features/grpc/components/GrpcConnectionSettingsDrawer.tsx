@@ -65,6 +65,8 @@ export interface GrpcConnectionSettingsDrawerProps {
   k8sAutomationScopeId?: string;
   onK8sPortForwardChange?: (session: GrpcK8sPortForwardSession) => void;
   onK8sApplyTarget?: (target: string) => void;
+  /** Incremented by parent whenever settings are opened to reset modal placement. */
+  openRequest?: number;
 }
 
 export function GrpcConnectionSettingsDrawer({
@@ -95,6 +97,7 @@ export function GrpcConnectionSettingsDrawer({
   k8sAutomationScopeId,
   onK8sPortForwardChange,
   onK8sApplyTarget,
+  openRequest = 0,
 }: GrpcConnectionSettingsDrawerProps) {
   const activeNavItem = NAV_ITEMS.find((item) => item.id === activeNav);
 
@@ -114,6 +117,7 @@ export function GrpcConnectionSettingsDrawer({
 
   return createPortal(
     <AppModalFrame
+      key={`grpc-settings-frame-${openRequest}`}
       title={(
         <div className="grpc-settings-title-block">
           <div className="grpc-settings-title-copy">
@@ -133,6 +137,14 @@ export function GrpcConnectionSettingsDrawer({
       showExpandButton={false}
       showResizeHandles={false}
       disableDrag={false}
+      dragAnchor={{
+        selector: '[data-testid="grpc-target-input"]',
+        hAlign: 'right',
+        vAlign: 'top',
+        padding: {
+          right: -210,
+        },
+      }}
       constrainDragToViewport
       dragViewportPadding={8}
       closeButtonKind="none"

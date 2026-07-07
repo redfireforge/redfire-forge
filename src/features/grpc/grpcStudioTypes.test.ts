@@ -571,7 +571,7 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
     });
   });
 
-  it('auth metadata overrides conflicting manual authorization on execute', () => {
+  it('throws on execute when auth conflicts with manual authorization metadata', () => {
     const tab = createGrpcStudioTab({
       descriptorKey: 'desc-1',
       service: 'echo.EchoService',
@@ -583,8 +583,22 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A
       address: 'localhost:50051',
       tlsMode: 'disabled',
     }, 'unary');
-    const request = snapshotToUnaryCallRequest(snapshot);
-    expect(request.metadata?.authorization).toBe('Bearer panel-token');
+    expect(() => snapshotToUnaryCallRequest(snapshot)).toThrow(/auth metadata conflicts/i);
+  });
+
+  it('throws on execute when auth conflicts with manual metadata', () => {
+    const tab = createGrpcStudioTab({
+      descriptorKey: 'desc-1',
+      service: 'echo.EchoService',
+      method: 'Echo',
+      auth: { type: 'bearer', bearerToken: 'panel-token' },
+      metadata: { authorization: 'Bearer manual-token' },
+    });
+    const snapshot = captureGrpcTabExecuteSnapshot(tab, 'req-auth-strict', {
+      address: 'localhost:50051',
+      tlsMode: 'disabled',
+    }, 'unary');
+    expect(() => snapshotToUnaryCallRequest(snapshot)).toThrow(/auth metadata conflicts/i);
   });
 
   it('converts oauth2 execute snapshot without client-side metadata merge (Phase 4D)', () => {

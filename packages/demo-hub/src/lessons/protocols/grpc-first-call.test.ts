@@ -29,6 +29,11 @@ describe('grpc-first-call lesson', () => {
     expect(last.highlight).toContain('grpc-send-btn');
   });
 
+  it('select-method step verifies Form Input scroll region', () => {
+    const selectStep = grpcFirstCallLesson.steps.find((s) => s.id === 'grpc1-select-method')!;
+    expect(selectStep.verify).toContain('grpc-request-form-scroll');
+  });
+
   it('grpc1-history-tab step highlights Call History', () => {
     const historyTabStep = grpcFirstCallLesson.steps.find((s) => s.id === 'grpc1-history-tab')!;
     expect(historyTabStep.highlight).toContain('grpc-sub-nav-history');

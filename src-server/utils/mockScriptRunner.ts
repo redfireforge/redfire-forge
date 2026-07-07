@@ -40,6 +40,10 @@ export interface MockScriptContext {
 
 const SCRIPT_TIMEOUT_MS = 10_000;
 
+export interface RunMockScriptOptions {
+  timeoutMs?: number;
+}
+
 /**
  * Run a user-supplied mock script in a sandboxed Node.js vm context.
  *
@@ -53,7 +57,11 @@ const SCRIPT_TIMEOUT_MS = 10_000;
  * @returns the value returned by the script
  * @throws if the script throws, times out, or produces a syntax error
  */
-export function runMockScript(script: string, context: MockScriptContext): unknown {
+export function runMockScript(
+  script: string,
+  context: MockScriptContext,
+  options: RunMockScriptOptions = {},
+): unknown {
   // Wrap the script body in an IIFE so `return` works at top level
   const wrapped = `(function(field, typeName, args, log) { ${script} })(field, typeName, args, log)`;
 
@@ -79,7 +87,7 @@ export function runMockScript(script: string, context: MockScriptContext): unkno
   });
 
   return vm.runInContext(wrapped, sandbox, {
-    timeout: SCRIPT_TIMEOUT_MS,
+    timeout: options.timeoutMs ?? SCRIPT_TIMEOUT_MS,
     filename: 'mock-script.js',
   });
 }

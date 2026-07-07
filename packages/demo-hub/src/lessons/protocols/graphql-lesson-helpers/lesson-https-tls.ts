@@ -722,8 +722,8 @@ async function ensureTlsHealthQuery(ctx: DemoActionContext): Promise<void> {
 
 /** Poll until GraphQL Studio mounts the env bridge (lazy Suspense on first paint). */
 async function waitForGqlEnvBridge(ctx: DemoActionContext, timeoutMs = 8000): Promise<boolean> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+  const maxIter = Math.ceil(timeoutMs / 100);
+  for (let i = 0; i < maxIter; i++) {
     if (getDemoBridgeWindow().__demoUpsertGqlEnv) return true;
     await ctx.delay(100);
   }
