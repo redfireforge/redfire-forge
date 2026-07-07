@@ -19,6 +19,7 @@ const helperSpies = vi.hoisted(() => ({
   ensureUnaryExecuted: vi.fn(async () => {}),
   grpcFirstCallSetup: vi.fn(async () => {}),
   grpcFirstCallCleanup: vi.fn(async () => {}),
+  upsertWorkspaceDefaults: vi.fn(() => true),
 }));
 
 vi.mock('../env-manager-lesson-helpers', () => ({
@@ -37,6 +38,14 @@ vi.mock('./grpc-lesson-helpers', async () => {
     ensureUnaryExecuted: helperSpies.ensureUnaryExecuted,
     grpcFirstCallSetup: helperSpies.grpcFirstCallSetup,
     grpcFirstCallCleanup: helperSpies.grpcFirstCallCleanup,
+  };
+});
+
+vi.mock('../../adapters', async () => {
+  const actual = await vi.importActual<typeof import('../../adapters')>('../../adapters');
+  return {
+    ...actual,
+    upsertWorkspaceDefaults: helperSpies.upsertWorkspaceDefaults,
   };
 });
 
@@ -75,6 +84,40 @@ describe('grpc-metadata-auth coverage gaps', () => {
   it('has category grpc and domainId protocols', () => {
     expect(grpcMetadataAuthLesson.category).toBe('grpc');
     expect(grpcMetadataAuthLesson.domainId).toBe('protocols');
+  });
+
+  it('cleanup runs base cleanup and clears lesson authToken seed', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div data-testid="grpc-connection-bar"></div>
+      <div data-testid="grpc-auth-badge">Auth: Bearer</div>
+      <button data-testid="grpc-request-tab-auth" aria-pressed="false"></button>
+      <button data-testid="grpc-request-tab-form"></button>
+      <button data-testid="grpc-request-tab-metadata"></button>
+      <div data-testid="grpc-auth-panel">
+        <select data-testid="grpc-auth-type-select">
+          <option value="none">None</option>
+          <option value="bearer" selected>Bearer</option>
+        </select>
+      </div>
+      <div data-testid="grpc-metadata-editor">
+        <div class="ws-connect-kv-row">
+          <input class="ws-connect-kv-key" value="x-request-id" />
+          <input class="ws-connect-kv-value" value="lesson-4-demo" />
+          <button class="ws-connect-kv-remove-btn">x</button>
+        </div>
+      </div>
+    `;
+
+    for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>('button.ws-connect-kv-remove-btn'))) {
+      btn.addEventListener('click', (event) => {
+        (event.currentTarget as HTMLElement).closest('.ws-connect-kv-row')?.remove();
+      });
+    }
+
+    await grpcMetadataAuthLesson.cleanup?.(ctx);
+    expect(helperSpies.grpcFirstCallCleanup).toHaveBeenCalled();
+    expect(helperSpies.upsertWorkspaceDefaults).toHaveBeenCalledWith({ authToken: '' });
   });
 
   it('has a concept with key terms', () => {
@@ -122,14 +165,18 @@ describe('grpc-metadata-auth coverage gaps', () => {
     expect(clickSpy).not.toHaveBeenCalled();
   });
 
-  it('intro action calls ctx.click on connection settings btn when drawer absent', async () => {
+  it('intro action triggers native click on connection settings btn when drawer absent', async () => {
     const ctx = makeCtx();
+    const nativeClickSpy = vi.fn();
     document.body.innerHTML = `
       <button data-testid="grpc-connection-settings-btn"></button>
       <div data-testid="grpc-connection-bar"></div>
+      <div data-testid="grpc-auth-badge"></div>
     `;
+    document.querySelector<HTMLElement>(GRPC.CONNECTION_SETTINGS_BTN)?.addEventListener('click', nativeClickSpy);
     await getStep('grpc18-intro').action?.(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(GRPC.CONNECTION_SETTINGS_BTN);
+    // openSettingsDrawerQuiet uses native btn.click() when the drawer is absent.
+    expect(nativeClickSpy).toHaveBeenCalled();
   });
 
   // ---------------------------------------------------------------------------
@@ -148,6 +195,34 @@ describe('grpc-metadata-auth coverage gaps', () => {
     `;
     await getStep('grpc18-metadata-add').preAction?.(ctx);
     expect(helperSpies.ensureEchoMethodSelected).toHaveBeenCalled();
+  });
+
+  it('metadata-add preAction clears stale x-api-key metadata rows', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="grpc-request-tab-metadata"></button>
+      <div data-testid="grpc-metadata-editor">
+        <div class="ws-connect-kv-row" data-row="api-key">
+          <input class="ws-connect-kv-key" value="x-api-key" />
+          <input class="ws-connect-kv-value" value="stale" />
+          <button class="ws-connect-kv-remove-btn">x</button>
+        </div>
+        <div class="ws-connect-kv-row" data-row="trace">
+          <input class="ws-connect-kv-key" value="x-request-id" />
+          <input class="ws-connect-kv-value" value="old" />
+          <button class="ws-connect-kv-remove-btn">x</button>
+        </div>
+      </div>
+    `;
+
+    for (const btn of Array.from(document.querySelectorAll<HTMLButtonElement>('button.ws-connect-kv-remove-btn'))) {
+      btn.addEventListener('click', (event) => {
+        (event.currentTarget as HTMLElement).closest('.ws-connect-kv-row')?.remove();
+      });
+    }
+
+    await getStep('grpc18-metadata-add').preAction?.(ctx);
+    expect(document.querySelector('.ws-connect-kv-row')).toBeNull();
   });
 
   it('metadata-add action clicks Metadata tab and adds a row', async () => {
@@ -262,24 +337,22 @@ describe('grpc-metadata-auth coverage gaps', () => {
   // ---------------------------------------------------------------------------
   // Step 6: grpc18-api-key-auth
   // ---------------------------------------------------------------------------
-  it('api-key-auth action selects apikey auth type', async () => {
+  it('api-key-auth action selects api_key auth type', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <button data-testid="grpc-connection-settings-btn"></button>
-      <div data-testid="grpc-connection-settings-drawer"></div>
-      <button data-testid="grpc-settings-nav-auth"></button>
-      <div data-testid="grpc-settings-panel-auth">
+      <button data-testid="grpc-request-tab-auth" aria-pressed="false"></button>
+      <div data-testid="grpc-auth-panel">
         <select data-testid="grpc-auth-type-select">
           <option value="none" selected>None</option>
-          <option value="apikey">API Key</option>
+          <option value="api_key">API Key</option>
         </select>
       </div>
       <div data-testid="grpc-auth-preview"></div>
       <div data-testid="grpc-auth-badge"></div>
-      <button data-testid="grpc-settings-close"></button>
     `;
     await getStep('grpc18-api-key-auth').action?.(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(GRPC.AUTH_TYPE_SELECT, 'apikey');
+    expect(ctx.selectOption).toHaveBeenCalledWith(GRPC.AUTH_TYPE_SELECT, 'api_key');
   });
 
   it('api-key-auth action tolerates missing auth preview', async () => {
@@ -287,16 +360,14 @@ describe('grpc-metadata-auth coverage gaps', () => {
     vi.mocked(ctx.waitFor).mockRejectedValueOnce(new Error('timeout'));
     document.body.innerHTML = `
       <button data-testid="grpc-connection-settings-btn"></button>
-      <div data-testid="grpc-connection-settings-drawer"></div>
-      <button data-testid="grpc-settings-nav-auth"></button>
-      <div data-testid="grpc-settings-panel-auth">
+      <button data-testid="grpc-request-tab-auth" aria-pressed="false"></button>
+      <div data-testid="grpc-auth-panel">
         <select data-testid="grpc-auth-type-select">
           <option value="none" selected>None</option>
-          <option value="apikey">API Key</option>
+          <option value="api_key">API Key</option>
         </select>
       </div>
       <div data-testid="grpc-auth-badge"></div>
-      <button data-testid="grpc-settings-close"></button>
     `;
     await expect(getStep('grpc18-api-key-auth').action?.(ctx)).resolves.toBeUndefined();
   });
@@ -375,6 +446,7 @@ describe('grpc-metadata-auth coverage gaps', () => {
     await getStep('grpc18-env-var').preAction?.(ctx);
     expect(helperSpies.ensureEchoMethodSelected).toHaveBeenCalled();
     expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalled();
+    expect(helperSpies.upsertWorkspaceDefaults).toHaveBeenCalledWith({ authToken: 'rf-demo-auth-token-lesson4' });
   });
 
   it('env-var action adds {{authToken}} metadata row', async () => {

@@ -12,7 +12,7 @@ describe('grpcAuthResolve (Phase 4D)', () => {
     } as unknown as GrpcOAuth2TokenService;
 
     const metadata = await resolveGrpcExecuteAuthMetadata(
-      { 'x-trace': '1', authorization: 'Bearer manual' },
+      { 'x-trace': '1' },
       {
         type: 'oauth2',
         oauth2: {

@@ -1190,6 +1190,25 @@
   overflow: hidden;
 }
 
+.demo-live-panel--clickthrough {
+  pointer-events: none;
+}
+
+.demo-live-panel--clickthrough .demo-live-resize-handle,
+.demo-live-panel--clickthrough .demo-live-overview-btn,
+.demo-live-panel--clickthrough .demo-live-notes-btn-wrap,
+.demo-live-panel--clickthrough .demo-live-drag-handle,
+.demo-live-panel--clickthrough .demo-live-panel-body,
+.demo-live-panel--clickthrough .demo-live-phase-badge.skippable,
+.demo-live-panel--clickthrough .demo-live-panel-controls,
+.demo-live-panel--clickthrough .demo-live-btn {
+  pointer-events: auto;
+}
+
+.demo-live-panel--clickthrough .demo-live-panel-header {
+  pointer-events: none;
+}
+
 .demo-live-resize-handle {
   position: absolute;
   z-index: 3;
@@ -1265,7 +1284,12 @@
   opacity: 0.5;
   letter-spacing: -1px;
   flex-shrink: 0;
-  pointer-events: none;
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.demo-live-drag-handle:active {
+  cursor: grabbing;
 }
 
 .demo-live-lesson-name {

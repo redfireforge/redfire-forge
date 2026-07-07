@@ -61,7 +61,7 @@ import {
 /** Step pipeline timing — tuned for snappy Preparing/Acting badges without skipping UI feedback. */
 const DEMO_PRE_SETTLE_MS = 60;
 const DEMO_SPOTLIGHT_SETTLE_MS = 250;
-const DEMO_POST_ACTION_SETTLE_MS = 350;
+const DEMO_POST_ACTION_SETTLE_MS = 70;
 const DEMO_VERIFY_ABSORB_MS = 500;
 
 export interface UseDemoHubOptions {

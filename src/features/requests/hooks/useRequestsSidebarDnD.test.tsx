@@ -32,7 +32,7 @@ describe('useRequestsSidebarDnD', () => {
     act(() => result.current.handleReqDragStart(e, 'c1', 'r1'));
     expect(result.current.dragItem).toEqual({ kind: 'request', reqId: 'r1', colId: 'c1' });
 
-    result.current.autoExpandTimerRef.current = setTimeout(() => {}, 9999);
+    result.current.autoExpandTimerRef.current = 1 as unknown as ReturnType<typeof setTimeout>;
 
     act(() => result.current.handleDragEnd());
 

@@ -9,6 +9,7 @@ import {
   GRPC_EXPRESS_HEALTH_URL,
   GRPC_STUDIO_LESSON_ALLOWED_TABS as GRPC_STUDIO_LESSON_ALLOWED_TABS_VALUES,
   purgeGrpcDemoCallHistory,
+  resetGrpcActiveTabRuntimeState,
 } from '../../adapters';
 import {
   getGrpcLessonRunFlags,
@@ -217,11 +218,8 @@ export async function ensureGrpcReflected(ctx: DemoActionContext): Promise<void>
 export async function ensureEchoMethodSelected(ctx: DemoActionContext): Promise<void> {
   await ensureGrpcReflected(ctx);
 
-  if (
-    grpcLessonSession.methodSelected
-    && document.querySelector(GRPC.PROTO_FORM)
-    && document.querySelector(GRPC_ECHO_METHOD_SEL)
-  ) {
+  if (grpcLessonSession.methodSelected && isGrpcEchoComposerReady()) {
+    await ensureGrpcRequestFormTabQuiet(ctx);
     return;
   }
 
@@ -230,14 +228,16 @@ export async function ensureEchoMethodSelected(ctx: DemoActionContext): Promise<
     const serviceBtn = document.querySelector<HTMLElement>(GRPC_ECHO_SERVICE_SEL);
     if (serviceBtn) {
       await ctx.click(GRPC_ECHO_SERVICE_SEL);
-      await ctx.delay(500);
+      await ctx.delay(400);
     }
   }
 
   await ctx.waitFor(GRPC_ECHO_METHOD_SEL, 10_000);
   await ctx.click(GRPC_ECHO_METHOD_SEL);
-  await ctx.waitFor(GRPC.PROTO_FORM, 10_000);
-  await ctx.delay(600);
+  await ctx.waitFor(GRPC.REQUEST_FORM_SCROLL, 10_000);
+  await ensureGrpcRequestFormTabQuiet(ctx);
+  await ctx.waitFor(grpcEchoComposerFieldSelector(), 10_000);
+  await ctx.delay(400);
   setGrpcLessonRunFlag('methodSelected', true);
 }
 
@@ -246,23 +246,159 @@ export async function ensureEchoMessageFilled(
   message = GRPC_DEMO_MESSAGE,
 ): Promise<void> {
   await ensureEchoMethodSelected(ctx);
-
-  const field = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT_MESSAGE);
-  if (grpcLessonSession.messageFilled && field?.value === message) {
+  const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(grpcEchoComposerFieldSelector());
+  const expected = isGrpcHybridComposerActive() ? echoMessageJsonBody(message) : message;
+  if (grpcLessonSession.messageFilled && field?.value.trim() === expected.trim()) {
     return;
   }
-
-  await ctx.waitFor(GRPC.PROTO_FIELD_INPUT_MESSAGE, 10_000);
-  await ctx.fill(GRPC.PROTO_FIELD_INPUT_MESSAGE, message);
-  await ctx.delay(500);
-  setGrpcLessonRunFlag('messageFilled', true);
+  await fillGrpcEchoMessage(ctx, message);
 }
 
-function setInputValueAndDispatch(input: HTMLInputElement, value: string): void {
-  const descriptor = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+function setInputValueAndDispatch(input: HTMLInputElement | HTMLTextAreaElement, value: string): void {
+  const descriptor = Object.getOwnPropertyDescriptor(
+    input instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype,
+    'value',
+  );
   descriptor?.set?.call(input, value);
   input.dispatchEvent(new Event('input', { bubbles: true }));
   input.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+/** Unary hybrid mode — Form Input tab shows compact JSON instead of proto rows. */
+export function isGrpcHybridComposerActive(): boolean {
+  return Boolean(document.querySelector(GRPC.REQUEST_JSON_COMPACT));
+}
+
+export function grpcEchoComposerFieldSelector(): string {
+  return isGrpcHybridComposerActive() ? GRPC.REQUEST_JSON : GRPC.PROTO_FIELD_INPUT_MESSAGE;
+}
+
+export function isGrpcEchoComposerReady(): boolean {
+  const methodLabel = document.querySelector(GRPC.CALL_METHOD_NAME)?.textContent ?? '';
+  if (!methodLabel.includes(GRPC_ECHO_METHOD)) return false;
+  return Boolean(
+    document.querySelector(GRPC.PROTO_FIELD_INPUT_MESSAGE)
+      || document.querySelector(GRPC.REQUEST_JSON),
+  );
+}
+
+export async function ensureGrpcRequestFormTabQuiet(ctx: DemoActionContext): Promise<void> {
+  const formTab = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_FORM);
+  if (formTab && formTab.getAttribute('aria-pressed') !== 'true') {
+    formTab.click();
+    await ctx.delay(150);
+  }
+}
+
+function echoMessageJsonBody(message: string): string {
+  return JSON.stringify({ message }, null, 2);
+}
+
+export async function fillGrpcEchoMessage(
+  ctx: DemoActionContext,
+  message = GRPC_DEMO_MESSAGE,
+): Promise<void> {
+  await ensureGrpcRequestFormTabQuiet(ctx);
+  if (isGrpcHybridComposerActive()) {
+    const json = echoMessageJsonBody(message);
+    const textarea = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
+    if (textarea?.value.trim() === json.trim()) {
+      setGrpcLessonRunFlag('messageFilled', true);
+      return;
+    }
+    if (textarea) {
+      setInputValueAndDispatch(textarea, json);
+    } else {
+      await ctx.waitFor(GRPC.REQUEST_JSON, 8_000);
+      await ctx.fill(GRPC.REQUEST_JSON, json);
+    }
+  } else {
+    await ctx.waitFor(GRPC.PROTO_FIELD_INPUT_MESSAGE, 10_000);
+    const field = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT_MESSAGE);
+    if (field?.value === message) {
+      setGrpcLessonRunFlag('messageFilled', true);
+      return;
+    }
+    await ctx.fill(GRPC.PROTO_FIELD_INPUT_MESSAGE, message);
+    if (field && field.value !== message) {
+      setInputValueAndDispatch(field, message);
+    }
+  }
+  await ctx.delay(400);
+  setGrpcLessonRunFlag('messageFilled', true);
+}
+
+/** Fill the request JSON editor (Form Input → JSON tab) for arbitrary message bodies. */
+export async function fillGrpcRequestJsonBody(ctx: DemoActionContext, jsonBody: string): Promise<void> {
+  await ensureGrpcRequestFormTabQuiet(ctx);
+  const jsonTab = document.querySelector<HTMLElement>(GRPC.REQUEST_TAB_JSON);
+  if (jsonTab && jsonTab.getAttribute('aria-selected') !== 'true' && jsonTab.getAttribute('aria-pressed') !== 'true') {
+    jsonTab.click();
+    await ctx.delay(300);
+  }
+  const jsonEditor = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
+  const normalized = jsonBody.trim();
+  if (jsonEditor?.value.trim() === normalized) return;
+  if (jsonEditor) {
+    setInputValueAndDispatch(jsonEditor, jsonBody);
+  } else {
+    await ctx.waitFor(GRPC.REQUEST_JSON, 8_000);
+    await ctx.fill(GRPC.REQUEST_JSON, jsonBody);
+  }
+  await ctx.delay(400);
+}
+
+/** Spotlight the active request composer (hybrid JSON or classic proto form). */
+export async function spotlightGrpcRequestComposer(ctx: DemoActionContext): Promise<void> {
+  await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 750);
+  if (isGrpcHybridComposerActive()) {
+    await spotlightAndPause(ctx, GRPC.REQUEST_JSON_COMPACT, 800);
+    await spotlightAndPause(ctx, GRPC.REQUEST_JSON, 900);
+  } else {
+    await spotlightAndPause(ctx, GRPC.PROTO_FORM, 750);
+    await spotlightAndPause(ctx, GRPC.PROTO_GUIDED_CARD_CORE, 750);
+  }
+}
+
+export async function guardGrpcTargetQuiet(ctx: DemoActionContext): Promise<void> {
+  const input = document.querySelector<HTMLInputElement>(GRPC.TARGET_INPUT);
+  if (input?.value.trim() === GRPC_DEMO_TARGET && document.querySelector(GRPC.TARGET_STATUS_OK)) {
+    setGrpcLessonRunFlag('targetSet', true);
+    return;
+  }
+  await setGrpcTargetQuiet(ctx, GRPC_DEMO_TARGET);
+  try {
+    await ctx.waitFor(GRPC.TARGET_STATUS_OK, 4_000);
+  } catch {
+    // Target validation may lag — action step will retry visibly.
+  }
+  setGrpcLessonRunFlag('targetSet', true);
+}
+
+export async function guardGrpcReflectedQuiet(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(GRPC.EXPLORER_TREE) || document.querySelector(GRPC.EXPLORER_SOURCE)) {
+    setGrpcLessonRunFlag('reflected', true);
+    return;
+  }
+  await ensureGrpcReflected(ctx);
+}
+
+export async function guardEchoMethodQuiet(ctx: DemoActionContext): Promise<void> {
+  if (isGrpcEchoComposerReady()) {
+    await ensureGrpcRequestFormTabQuiet(ctx);
+    setGrpcLessonRunFlag('methodSelected', true);
+    return;
+  }
+  await ensureEchoMethodSelected(ctx);
+}
+
+export async function guardUnaryExecutedQuiet(ctx: DemoActionContext): Promise<void> {
+  const body = document.querySelector<HTMLElement>(GRPC.RESPONSE_BODY);
+  if (body?.textContent?.includes(GRPC_DEMO_MESSAGE)) {
+    setGrpcLessonRunFlag('executed', true);
+    return;
+  }
+  await ensureUnaryExecuted(ctx);
 }
 
 /**
@@ -631,20 +767,32 @@ export async function ensureUnaryExecuted(
   ctx: DemoActionContext,
   message = GRPC_DEMO_MESSAGE,
 ): Promise<void> {
-  await ensureEchoMessageFilled(ctx, message);
-
-  if (grpcLessonSession.executed && document.querySelector(GRPC.RESPONSE_BODY)) {
-    const body = document.querySelector(GRPC.RESPONSE_BODY);
-    if (body?.textContent?.includes(message)) return;
+  const responseBody = document.querySelector<HTMLElement>(GRPC.RESPONSE_BODY);
+  if (responseBody?.textContent?.includes(message)) {
+    setGrpcLessonRunFlag('executed', true);
+    return;
   }
+
+  await ensureEchoMessageFilled(ctx, message);
 
   const sendBtn = document.querySelector<HTMLButtonElement>(GRPC.SEND_BTN);
   if (sendBtn && !sendBtn.disabled) {
     await ctx.click(GRPC.SEND_BTN);
   }
-  await ctx.waitFor(GRPC.RESPONSE_STATUS, 30_000);
-  await ctx.waitFor(GRPC.RESPONSE_BODY, 10_000);
-  await ctx.delay(800);
+
+  try {
+    await ctx.waitFor(GRPC.RESPONSE_STATUS, 8_000);
+  } catch {
+    await ctx.waitFor(GRPC.RESPONSE_STATUS, 12_000);
+  }
+
+  try {
+    await ctx.waitFor(GRPC.RESPONSE_BODY, 5_000);
+  } catch {
+    await ctx.waitFor(GRPC.RESPONSE_BODY, 8_000);
+  }
+
+  await ctx.delay(400);
   setGrpcLessonRunFlag('executed', true);
 }
 
@@ -948,6 +1096,197 @@ export async function startAndExchangeBidiStream(ctx: DemoActionContext): Promis
   }
 }
 
+function isServerStreamFormFilled(): boolean {
+  const message = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
+  const repeat = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('repeat_count'));
+  const interval = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('interval_ms'));
+  return (
+    message?.value === GRPC_STREAM_MESSAGE
+    && repeat?.value === String(GRPC_STREAM_REPEAT_COUNT)
+    && interval?.value === String(GRPC_STREAM_INTERVAL_MS)
+  );
+}
+
+/** Select a streaming method without visible click ripples — for fast preAction guards. */
+export async function ensureStreamingMethodSelectedQuiet(
+  ctx: DemoActionContext,
+  methodName: 'ServerStream' | 'ClientStream' | 'BidiStream',
+): Promise<void> {
+  const methodSel = GRPC.METHOD(GRPC_ECHO_SERVICE, methodName);
+  const layoutMarkerByMethod: Record<typeof methodName, string> = {
+    ServerStream: GRPC.STREAM_START_BTN,
+    ClientStream: GRPC.STREAM_ADD_QUEUE_BTN,
+    BidiStream: GRPC.STREAM_START_BTN,
+  };
+  const layoutMarker = layoutMarkerByMethod[methodName];
+  const methodHeader = document.querySelector(GRPC.CALL_METHOD_NAME);
+  if (methodHeader?.textContent?.includes(methodName) && document.querySelector(layoutMarker)) {
+    return;
+  }
+
+  if (!document.querySelector(methodSel)) {
+    document.querySelector<HTMLElement>(GRPC_ECHO_SERVICE_SEL)?.click();
+    await ctx.delay(100);
+  }
+
+  document.querySelector<HTMLElement>(methodSel)?.click();
+  try {
+    await ctx.waitFor(layoutMarker, 4_000);
+  } catch {
+    await ctx.delay(150);
+  }
+}
+
+/** Fill StreamRequest fields without visible fill ripples — idempotent. */
+export async function fillServerStreamRequestQuiet(
+  ctx: DemoActionContext,
+  opts: { message?: string; repeatCount?: number; intervalMs?: number } = {},
+): Promise<void> {
+  const {
+    message = GRPC_STREAM_MESSAGE,
+    repeatCount = GRPC_STREAM_REPEAT_COUNT,
+    intervalMs = GRPC_STREAM_INTERVAL_MS,
+  } = opts;
+
+  const msgEl = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
+  if (msgEl && msgEl.value !== message) {
+    setInputValueAndDispatch(msgEl, message);
+  }
+
+  const repeatEl = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('repeat_count'));
+  if (repeatEl && repeatEl.value !== String(repeatCount)) {
+    setInputValueAndDispatch(repeatEl, String(repeatCount));
+  }
+
+  const intervalEl = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('interval_ms'));
+  if (intervalEl && intervalEl.value !== String(intervalMs)) {
+    setInputValueAndDispatch(intervalEl, String(intervalMs));
+  }
+
+  await ctx.delay(80);
+}
+
+export async function guardServerStreamSelectedQuiet(ctx: DemoActionContext): Promise<void> {
+  await guardGrpcReflectedQuiet(ctx);
+  await closeGrpcSettingsDrawerQuiet(ctx);
+  const methodHeader = document.querySelector(GRPC.CALL_METHOD_NAME);
+  if (methodHeader?.textContent?.includes('ServerStream') && document.querySelector(GRPC.STREAM_START_BTN)) {
+    return;
+  }
+  await ensureStreamingMethodSelectedQuiet(ctx, 'ServerStream');
+}
+
+export async function guardServerStreamFormQuiet(ctx: DemoActionContext): Promise<void> {
+  await guardServerStreamSelectedQuiet(ctx);
+  if (isServerStreamFormFilled()) return;
+  await fillServerStreamRequestQuiet(ctx);
+}
+
+/** Quietly start server stream and wait for log entries when the visible step was skipped. */
+export async function guardServerStreamExecutedQuiet(ctx: DemoActionContext): Promise<void> {
+  await guardServerStreamFormQuiet(ctx);
+  if (document.querySelector(GRPC.STREAM_LOG_LIST)) {
+    const statusText = document.querySelector(GRPC.STREAM_STATUS_BADGE)?.textContent ?? '';
+    if (/(finished|ended|complete|streaming)/i.test(statusText)) {
+      return;
+    }
+  }
+  const startBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN);
+  if (startBtn && !startBtn.disabled) {
+    startBtn.click();
+    try {
+      await ctx.waitFor(GRPC.STREAM_LOG_LIST, 6_000);
+    } catch {
+      // Log may render asynchronously.
+    }
+    await ctx.delay(1_600);
+  }
+}
+
+export async function guardClientStreamSelectedQuiet(ctx: DemoActionContext): Promise<void> {
+  await guardGrpcReflectedQuiet(ctx);
+  await closeGrpcSettingsDrawerQuiet(ctx);
+  const methodHeader = document.querySelector(GRPC.CALL_METHOD_NAME);
+  if (methodHeader?.textContent?.includes('ClientStream') && document.querySelector(GRPC.STREAM_ADD_QUEUE_BTN)) {
+    return;
+  }
+  await ensureStreamingMethodSelectedQuiet(ctx, 'ClientStream');
+}
+
+export async function guardClientStreamQueuedQuiet(ctx: DemoActionContext): Promise<void> {
+  await guardClientStreamSelectedQuiet(ctx);
+  if (document.querySelector(GRPC.STREAM_PENDING_ITEM(0))) return;
+
+  for (const msg of CLIENT_STREAM_QUEUE_MESSAGES) {
+    const messageInput = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
+    if (messageInput) {
+      setInputValueAndDispatch(messageInput, msg);
+    }
+    document.querySelector<HTMLButtonElement>(GRPC.STREAM_ADD_QUEUE_BTN)?.click();
+    await ctx.delay(100);
+  }
+}
+
+export async function cancelActiveStreamQuiet(ctx: DemoActionContext): Promise<void> {
+  const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_CANCEL_BTN);
+  if (cancelBtn && !cancelBtn.disabled) {
+    cancelBtn.click();
+    await ctx.delay(200);
+  }
+}
+
+export async function guardBidiStreamSelectedQuiet(ctx: DemoActionContext): Promise<void> {
+  await guardGrpcReflectedQuiet(ctx);
+  await closeGrpcSettingsDrawerQuiet(ctx);
+  const methodHeader = document.querySelector(GRPC.CALL_METHOD_NAME);
+  if (methodHeader?.textContent?.includes('BidiStream') && document.querySelector(GRPC.STREAM_START_BTN)) {
+    return;
+  }
+  await ensureStreamingMethodSelectedQuiet(ctx, 'BidiStream');
+}
+
+export async function guardBidiStreamActiveQuiet(ctx: DemoActionContext): Promise<void> {
+  await guardBidiStreamSelectedQuiet(ctx);
+  if (document.querySelector(GRPC.STREAM_CANCEL_BTN)) return;
+
+  document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN)?.click();
+  try {
+    await ctx.waitFor(GRPC.STREAM_CANCEL_BTN, 4_000);
+  } catch {
+    await ctx.delay(150);
+  }
+}
+
+/** Seed bidi log entries without visible ripples — for export/cancel preAction recovery. */
+export async function seedBidiStreamLogQuiet(ctx: DemoActionContext): Promise<void> {
+  await guardBidiStreamSelectedQuiet(ctx);
+  if (document.querySelector(GRPC.STREAM_LOG_LIST)) return;
+
+  if (!document.querySelector(GRPC.STREAM_CANCEL_BTN)) {
+    document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN)?.click();
+    try {
+      await ctx.waitFor(GRPC.STREAM_CANCEL_BTN, 4_000);
+    } catch {
+      await ctx.delay(150);
+    }
+  }
+
+  for (const text of ['bidi-hello', 'bidi-world']) {
+    const messageInput = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
+    if (messageInput) {
+      setInputValueAndDispatch(messageInput, text);
+    }
+    document.querySelector<HTMLButtonElement>(GRPC.STREAM_SEND_MESSAGE_BTN)?.click();
+    await ctx.delay(120);
+  }
+
+  try {
+    await ctx.waitFor(GRPC.STREAM_LOG_LIST, 4_000);
+  } catch {
+    // Log may populate asynchronously.
+  }
+}
+
 /**
  * Close all non-active gRPC tabs and keep the currently active one.
  * This is safer for demo isolation sessions where the active tab is the
@@ -983,9 +1322,13 @@ export async function closeExtraGrpcTabsQuiet(ctx: DemoActionContext): Promise<v
   }
 }
 
-export async function grpcFirstCallSetup(ctx: DemoActionContext): Promise<void> {
+export async function grpcFirstCallSetup(
+  ctx: DemoActionContext,
+  options?: { resetSchemaDrafts?: boolean },
+): Promise<void> {
   resetGrpcLessonSessionFlags();
   await navigateToGrpcStudio(ctx);
+  resetGrpcActiveTabRuntimeState();
   await closeGrpcSettingsDrawerQuiet(ctx);
   await ensureGrpcStudioSubNavQuiet(ctx);
   await normalizeGrpcDemoTabsQuiet(ctx);
@@ -995,7 +1338,9 @@ export async function grpcFirstCallSetup(ctx: DemoActionContext): Promise<void> 
   } catch {
     // Best-effort hygiene only.
   }
-  await resetGrpcManageSchemasDraftsQuiet(ctx);
+  if (options?.resetSchemaDrafts !== false) {
+    await resetGrpcManageSchemasDraftsQuiet(ctx);
+  }
   await clearGrpcSchemaDriftQuiet(ctx);
   // Always start with auth = none and TLS = plaintext regardless of previous session state.
   await resetGrpcConnectionSettingsQuiet(ctx);
@@ -1014,4 +1359,82 @@ export async function grpcFirstCallCleanup(ctx: DemoActionContext): Promise<void
   } catch {
     // Best-effort — do not block demo teardown on storage drift.
   }
+}
+
+// ---------------------------------------------------------------------------
+// Shared spotlight + target helpers (GRPC-5+ lessons)
+// ---------------------------------------------------------------------------
+
+/**
+ * Draw a persistent spotlight box around the element matching `selector`, hold
+ * for `holdMs` so the viewer can digest the target, then remove it.
+ */
+export async function spotlightAndPause(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs = 700,
+): Promise<void> {
+  const el = document.querySelector<HTMLElement>(selector);
+  if (!el) return;
+  await spotlightElementAndPause(ctx, el, holdMs);
+}
+
+/** Same as {@link spotlightAndPause} but takes a resolved element directly. */
+export async function spotlightElementAndPause(
+  ctx: DemoActionContext,
+  el: HTMLElement,
+  holdMs = 700,
+): Promise<void> {
+  const removeRing = showSpotlightRing(el);
+  try {
+    await ctx.delay(holdMs);
+  } finally {
+    removeRing();
+  }
+}
+
+/** Quietly set the connection target without viewer ripple (preAction / guards). */
+export async function setGrpcTargetQuiet(ctx: DemoActionContext, target: string): Promise<void> {
+  await ensureGrpcStudioSubNavQuiet(ctx);
+  await closeGrpcSettingsDrawerQuiet(ctx);
+  const input = document.querySelector<HTMLInputElement>(GRPC.TARGET_INPUT);
+  if (!input) return;
+  if (input.value.trim() === target.trim()) return;
+  setInputValueAndDispatch(input, target);
+  await ctx.delay(250);
+  if (target.trim() === GRPC_DEMO_TARGET) {
+    setGrpcLessonRunFlag('targetSet', true);
+  }
+}
+
+/** Open connection settings drawer on a nav tab without viewer ripple. */
+export async function openGrpcSettingsDrawerQuiet(
+  ctx: DemoActionContext,
+  nav?: 'call' | 'compression' | 'health' | 'k8s' | 'transport' | 'tls' | 'auth',
+): Promise<void> {
+  const settingsBtn = document.querySelector<HTMLButtonElement>(GRPC.CONNECTION_SETTINGS_BTN);
+  if (!settingsBtn || settingsBtn.disabled) return;
+
+  if (!document.querySelector(GRPC.SETTINGS_DRAWER)) {
+    settingsBtn.click();
+    try {
+      await ctx.waitFor(GRPC.SETTINGS_DRAWER, 5_000);
+    } catch {
+      return;
+    }
+    await ctx.delay(300);
+  }
+
+  if (!nav) return;
+
+  const navSel = GRPC.SETTINGS_NAV_ITEM(nav);
+  if (!document.querySelector(navSel)) return;
+  const navBtn = document.querySelector<HTMLElement>(navSel);
+  navBtn?.click();
+  try {
+    await ctx.waitFor(GRPC.SETTINGS_PANEL(nav), 3_000);
+  } catch {
+    // Panel may be unavailable when settings are locked.
+  }
+  await ctx.delay(250);
 }

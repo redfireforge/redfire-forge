@@ -162,10 +162,11 @@ export function mockUiDisabled(): boolean {
 }
 
 export async function waitForMockUiEnabled(ctx: DemoActionContext, timeout = 8000): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeout) {
+  const pollMs = 150;
+  const iters = Math.max(1, Math.ceil(timeout / pollMs));
+  for (let i = 0; i < iters; i++) {
     if (mockUiEnabled()) return;
-    await ctx.delay(150);
+    await ctx.delay(pollMs);
   }
 }
 
@@ -192,10 +193,11 @@ function dispatchMockToggleOff(): void {
 }
 
 export async function waitForMockUiDisabled(ctx: DemoActionContext, timeout = 8000): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeout) {
+  const pollMs = 150;
+  const iters = Math.max(1, Math.ceil(timeout / pollMs));
+  for (let i = 0; i < iters; i++) {
     if (mockUiDisabled()) return;
-    await ctx.delay(150);
+    await ctx.delay(pollMs);
   }
 }
 
@@ -270,13 +272,14 @@ export async function ensureResponseTabSelected(ctx: DemoActionContext): Promise
 }
 
 export async function waitForLiveHealthOk(ctx: DemoActionContext, timeoutMs = 15_000): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+  const pollMs = 100;
+  const iters = Math.max(1, Math.ceil(timeoutMs / pollMs));
+  for (let i = 0; i < iters; i++) {
     if (responseShowsLiveHealthOk()) {
       await ctx.delay(400);
       return;
     }
-    await ctx.delay(100);
+    await ctx.delay(pollMs);
   }
 }
 
@@ -285,13 +288,14 @@ export async function waitForLesson13LatencyAtLeast(
   minMs: number,
   timeoutMs = 3_000,
 ): Promise<void> {
-  const start = Date.now();
-  while (Date.now() - start < timeoutMs) {
+  const pollMs = 100;
+  const iters = Math.max(1, Math.ceil(timeoutMs / pollMs));
+  for (let i = 0; i < iters; i++) {
     if (responseLatencyMs() >= minMs) {
       await ctx.delay(400);
       return;
     }
-    await ctx.delay(100);
+    await ctx.delay(pollMs);
   }
   await ctx.delay(400);
 }

@@ -30,6 +30,37 @@ describe('grpcGrpcurl coverage gaps', () => {
     })).toEqual({ 'x-trace': '1' });
   });
 
+  it('filterMetadataForGrpcurlExport can include real secret metadata but never redacted placeholders', () => {
+    expect(filterMetadataForGrpcurlExport({
+      'x-api-key': 'live-secret',
+      'x-trace': '1',
+    }, {
+      includeSecretMetadata: true,
+    })).toEqual({
+      'x-api-key': 'live-secret',
+      'x-trace': '1',
+    });
+
+    expect(filterMetadataForGrpcurlExport({
+      'x-api-key': '[REDACTED]',
+      'x-trace': '1',
+    }, {
+      includeSecretMetadata: true,
+    })).toEqual({ 'x-trace': '1' });
+
+    expect(filterMetadataForGrpcurlExport({
+      'x-api-key': '[REDACTED]',
+      'x-env-token': '[REDACTED]',
+      'x-trace': '1',
+    }, {
+      includeRedactedSecretMetadataHints: true,
+    })).toEqual({
+      'x-api-key': '<SET_X_API_KEY>',
+      'x-env-token': '<SET_X_ENV_TOKEN>',
+      'x-trace': '1',
+    });
+  });
+
   it('buildGrpcurlInvokeCommand includes plaintext, authority, headers, and body', () => {
     const command = buildGrpcurlInvokeCommand({
       targetAddress: 'localhost:50051',

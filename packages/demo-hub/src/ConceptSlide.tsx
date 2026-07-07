@@ -89,7 +89,7 @@ export function renderMarkdown(text: string): string {
         const tbody = `<tbody>${rows.map(row => `<tr>${row.map(cell => `<td>${inlineFormat(cell)}</td>`).join('')}</tr>`).join('')}</tbody>`;
         const table = `<table class="demo-concept-table">${thead}${tbody}</table>`;
         const lead = leadingLines.length
-          ? `<p>${inlineFormat(leadingLines.join('<br/>'))}</p>`
+          ? `<p>${inlineFormat(leadingLines.join('\0BR\0')).replace(/\0BR\0/g, '<br/>')}</p>`
           : '';
         return lead + table;
       }
@@ -112,7 +112,7 @@ export function renderMarkdown(text: string): string {
           .join('');
         return `<ol>${items}</ol>`;
       }
-      return `<p>${inlineFormat(paragraph.replace(/\n/g, '<br/>'))}</p>`;
+      return `<p>${inlineFormat(paragraph.replace(/\n/g, '\0BR\0')).replace(/\0BR\0/g, '<br/>')}</p>`;
     })
     .join('');
 
@@ -121,7 +121,20 @@ export function renderMarkdown(text: string): string {
 }
 
 function inlineFormat(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-    .replace(/`(.+?)`/g, '<code>$1</code>');
+  const codeSpans: string[] = [];
+  let formatted = text.replace(/`(.+?)`/g, (_match, code: string) => {
+    const index = codeSpans.length;
+    const escaped = code
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    codeSpans.push(`<code>${escaped}</code>`);
+    return `\0CODE${index}\0`;
+  });
+  formatted = formatted
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  formatted = formatted.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  return formatted.replace(/\0CODE(\d+)\0/g, (_match, index: string) => codeSpans[Number(index)]);
 }

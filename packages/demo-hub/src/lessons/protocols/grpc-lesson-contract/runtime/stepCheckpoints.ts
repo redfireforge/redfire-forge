@@ -6,7 +6,7 @@ import type { GrpcLessonStepCheckpoint } from './types';
 const GRPC_FIRST_CALL_CHECKPOINTS: readonly GrpcLessonStepCheckpoint[] = [
   { stepId: 'grpc1-target', setsFlags: { targetSet: true }, verifySelector: 'grpc-target-status-ok' },
   { stepId: 'grpc1-reflect', setsFlags: { reflected: true }, verifySelector: 'grpc-explorer-tree' },
-  { stepId: 'grpc1-select-method', setsFlags: { methodSelected: true }, verifySelector: 'grpc-proto-form' },
+  { stepId: 'grpc1-select-method', setsFlags: { methodSelected: true }, verifySelector: 'grpc-request-form-scroll' },
   { stepId: 'grpc1-fill-message', setsFlags: { messageFilled: true } },
   { stepId: 'grpc1-send', setsFlags: { executed: true }, verifySelector: 'grpc-response-body' },
   { stepId: 'grpc1-history-tab', setsFlags: { executed: true }, verifySelector: 'grpc-history-panel' },

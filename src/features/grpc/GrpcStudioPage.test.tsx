@@ -95,7 +95,10 @@ function createHistoryHookMock(): UseGrpcCallHistoryResult {
 }
 
 describe('GrpcStudioPage (Phase 1D + 1E)', () => {
+  const originalConsoleError = console.error;
+
   beforeEach(() => {
+    vi.restoreAllMocks();
     resetGrpcTabCounterForTests();
     window.localStorage.clear();
     setGrpcClientTransport(null);
@@ -103,6 +106,13 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     setGrpcStreamEventsOpener(null);
     collectionsHookMock.value = createCollectionsHookMock();
     historyHookMock.value = createHistoryHookMock();
+    vi.spyOn(console, 'error').mockImplementation((...args: Parameters<typeof console.error>) => {
+      const message = args.map((part) => String(part)).join(' ');
+      if (message.includes('Not implemented: navigation to another Document')) {
+        return;
+      }
+      originalConsoleError(...args);
+    });
   });
 
   it('renders studio shell with explorer', () => {

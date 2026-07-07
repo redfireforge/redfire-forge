@@ -152,6 +152,7 @@ describe('GrpcProtoFormBuilder coverage gaps', () => {
         onChange={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-expand-all-items'));
     const editor = screen.getByTestId('grpc-proto-field-input-items-0') as HTMLTextAreaElement;
     fireEvent.change(editor, { target: { value: 'not-json' } });
     expect(screen.getByTestId('grpc-proto-field-input-items-0-error')).toBeTruthy();
@@ -184,7 +185,8 @@ describe('GrpcProtoFormBuilder coverage gaps', () => {
       />,
     );
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-payload'), { target: { value: 'abc' } });
-    fireEvent.click(screen.getByText('+ Add item'));
+    fireEvent.change(screen.getByTestId('grpc-proto-repeated-token-input-tags'), { target: { value: 'b' } });
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-add-tags'));
     expect(onChange).toHaveBeenCalled();
   });
 
@@ -245,6 +247,7 @@ describe('GrpcProtoFormBuilder coverage gaps', () => {
         onChange={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-expand-all-items'));
     const editor = screen.getByTestId('grpc-proto-field-input-items-0') as HTMLTextAreaElement;
     fireEvent.change(editor, { target: { value: '[1, 2, 3]' } });
     expect(screen.getByTestId('grpc-proto-field-input-items-0-error').textContent).toMatch(/JSON object/i);
@@ -342,7 +345,8 @@ describe('GrpcProtoFormBuilder coverage gaps', () => {
     }
 
     render(<NonArrayHarness />);
-    fireEvent.click(screen.getByText('+ Add item'));
+    fireEvent.change(screen.getByTestId('grpc-proto-repeated-token-input-tags'), { target: { value: 'first' } });
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-add-tags'));
     expect(screen.getByTestId('grpc-proto-field-input-tags-0')).toBeTruthy();
   });
 
@@ -459,6 +463,7 @@ describe('GrpcProtoFormBuilder coverage gaps', () => {
         onChange={vi.fn()}
       />,
     );
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-expand-all-items'));
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-items-0'), { target: { value: '{' } });
     expect(screen.getByTestId('grpc-proto-field-input-items-0-error').textContent).toMatch(/Invalid JSON/i);
     JSON.parse = originalParse;
@@ -722,6 +727,7 @@ describe('GrpcProtoFormBuilder coverage gaps', () => {
         messageTypes={[payloadSchema]}
       />,
     );
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-expand-all-items'));
     fireEvent.change(
       screen.getByTestId('grpc-proto-field-input-items-0'),
       { target: { value: '{\n  "id": "updated"\n}' } },
@@ -745,7 +751,8 @@ describe('GrpcProtoFormBuilder coverage gaps', () => {
       />,
     );
     expect(screen.getByTestId('grpc-proto-field-input-pick.tags-0')).toBeTruthy();
-    fireEvent.click(screen.getByText('+ Add item'));
+    fireEvent.change(screen.getByTestId('grpc-proto-repeated-token-input-pick.tags'), { target: { value: 'b' } });
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-add-pick.tags'));
     expect(onChange).toHaveBeenCalled();
   });
 
@@ -1276,5 +1283,50 @@ describe('GrpcProtoFormBuilder coverage gaps', () => {
       />,
     );
     expect(screen.getByTestId('grpc-proto-field-counts').textContent).toMatch(/map<string, int32>/);
+  });
+
+  it('renders guided-cards presentation with core/map/repeated/oneof sections', () => {
+    render(
+      <GrpcProtoFormBuilder
+        presentation="guided-cards"
+        schema={{
+          typeName: 'demo.Guided',
+          fields: [
+            { name: 'message', number: 1, type: 'string', label: 'optional' },
+            { name: 'labels', number: 2, type: 'string', label: 'optional', isMap: true, mapKeyType: 'string' },
+            { name: 'tags', number: 3, type: 'string', label: 'repeated' },
+            { name: 'text', number: 4, type: 'string', label: 'optional', isOneofMember: true, oneofName: 'payload' },
+            { name: 'count', number: 5, type: 'int32', label: 'optional', isOneofMember: true, oneofName: 'payload' },
+          ],
+        }}
+        body={{ message: 'hello', labels: { env: 'dev' }, tags: ['a'], text: 'selected' }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-proto-guided-rail').textContent).toContain('Core Message');
+    expect(screen.getByTestId('grpc-proto-guided-card-core')).toBeTruthy();
+    expect(screen.getByTestId('grpc-proto-guided-card-maps')).toBeTruthy();
+    expect(screen.getByTestId('grpc-proto-guided-card-repeated')).toBeTruthy();
+    expect(screen.getByTestId('grpc-proto-guided-card-oneof-payload')).toBeTruthy();
+  });
+
+  it('uses plural map title in guided-cards when multiple map fields exist', () => {
+    render(
+      <GrpcProtoFormBuilder
+        presentation="guided-cards"
+        schema={{
+          typeName: 'demo.GuidedMaps',
+          fields: [
+            { name: 'labels', number: 1, type: 'string', label: 'optional', isMap: true, mapKeyType: 'string' },
+            { name: 'attrs', number: 2, type: 'int32', label: 'optional', isMap: true, mapKeyType: 'string' },
+          ],
+        }}
+        body={{ labels: {}, attrs: {} }}
+        onChange={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-proto-guided-rail').textContent).toContain('Attributes Map');
   });
 });

@@ -19,6 +19,7 @@ const grpcMocks = vi.hoisted(() => {
   let bindError: Error | null = null;
   let boundPort = 50061;
   let tryShutdownCallback: (() => void) | null = null;
+  let autoTryShutdown = true;
 
   return {
     capturedImplementations,
@@ -34,11 +35,16 @@ const grpcMocks = vi.hoisted(() => {
       get: () => tryShutdownCallback,
       set: (value: (() => void) | null) => { tryShutdownCallback = value; },
     },
+    autoTryShutdown: {
+      get: () => autoTryShutdown,
+      set: (value: boolean) => { autoTryShutdown = value; },
+    },
     reset() {
       capturedImplementations.length = 0;
       bindError = null;
       boundPort = 50061;
       tryShutdownCallback = null;
+      autoTryShutdown = true;
     },
   };
 });
@@ -87,8 +93,11 @@ vi.mock('./grpcJsLoader.js', () => ({
       });
       this.tryShutdown = vi.fn((cb: () => void) => {
         grpcMocks.tryShutdownCallback.set(cb);
-        if (grpcMocks.tryShutdownCallback.get) {
-          queueMicrotask(() => grpcMocks.tryShutdownCallback.get?.());
+        if (grpcMocks.autoTryShutdown.get()) {
+          const shutdownCallback = grpcMocks.tryShutdownCallback.get();
+          if (shutdownCallback) {
+            queueMicrotask(shutdownCallback);
+          }
         }
       });
       this.forceShutdown = vi.fn();
@@ -281,7 +290,7 @@ describe('grpcMockNetworkListener coverage gaps', () => {
 
   it('forceShutdowns when tryShutdown does not finish within timeout', async () => {
     vi.useFakeTimers();
-    grpcMocks.tryShutdownCallback.set(null);
+    grpcMocks.autoTryShutdown.set(false);
     const { listener } = await startListener();
     const { grpc } = await import('./grpcJsLoader.js');
     const serverInstance = vi.mocked(grpc.Server).mock.results.at(-1)?.value as {

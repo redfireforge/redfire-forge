@@ -176,13 +176,26 @@ func (s *echoServer) CreateComplexEcho(ctx context.Context, req *pb.ComplexEchoR
 	}
 
 	requestID := fmt.Sprintf("complex-%d", time.Now().UnixNano())
-	return &pb.ComplexEchoResponse{
-		RequestId:      requestID,
-		Message:        message,
-		Labels:         labels,
-		Attributes:     attributes,
-		ReceivedUnixMs: time.Now().UnixMilli(),
-	}, nil
+	resp := &pb.ComplexEchoResponse{
+		RequestId:       requestID,
+		Message:         message,
+		Labels:          labels,
+		Attributes:      attributes,
+		ReceivedUnixMs:  time.Now().UnixMilli(),
+		ShippingAddress: req.GetShippingAddress(),
+		Deadline:        req.GetDeadline(),
+	}
+
+	// The request/response oneof wrapper types are distinct generated types even
+	// though the members mirror each other 1:1 — re-wrap rather than assign directly.
+	switch member := req.GetPaymentMethod().(type) {
+	case *pb.ComplexEchoRequest_Card:
+		resp.PaymentMethod = &pb.ComplexEchoResponse_Card{Card: member.Card}
+	case *pb.ComplexEchoRequest_Invoice:
+		resp.PaymentMethod = &pb.ComplexEchoResponse_Invoice{Invoice: member.Invoice}
+	}
+
+	return resp, nil
 }
 
 func (s *echoServer) ServerStream(req *pb.StreamRequest, stream pb.EchoService_ServerStreamServer) error {

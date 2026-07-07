@@ -83,6 +83,51 @@ describe('GrpcCallPanel coverage gaps', () => {
     expect(document.querySelector('.grpc-stream-panel--bidi')).toBeTruthy();
   });
 
+  it('renders non-hybrid form composer when hybrid workspace is unavailable', () => {
+    const tab = createGrpcStudioTab({
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'hello' },
+      requestMode: 'form',
+    });
+
+    render(
+      <GrpcCallPanel
+        tab={tab}
+        method={ECHO_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+      />,
+    );
+
+    expect(screen.queryByTestId('grpc-open-full-form-editor-btn-inline')).toBeNull();
+    expect(screen.getByTestId('grpc-proto-field-input-message')).toBeTruthy();
+  });
+
+  it('switches to JSON composer and surfaces parse validation errors', () => {
+    const tab = createGrpcStudioTab({
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'hello' },
+      requestMode: 'form',
+    });
+
+    render(
+      <GrpcCallPanel
+        tab={tab}
+        method={ECHO_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-request-tab-json'));
+    fireEvent.change(screen.getByTestId('grpc-request-json'), { target: { value: '[]' } });
+    expect(screen.getByTestId('grpc-request-json-error').textContent).toMatch(/JSON object/i);
+  });
+
   it('focuses auth tab when authTabFocusRequest increments', () => {
     const tab = createGrpcStudioTab({ metadata: {}, body: {} });
     const { rerender } = render(
@@ -427,34 +472,9 @@ describe('GrpcCallPanel coverage gaps', () => {
     expect(onUnmaskAuthSecretField).toHaveBeenCalledWith('bearerToken');
   });
 
-  it('previews streaming layout without a selected method', () => {
-    const onPatch = vi.fn();
+  it('shows unary response shell by default when no method is selected', () => {
     const tab = createGrpcStudioTab({
-      layoutPreviewCallType: 'client_streaming',
       body: {},
-    });
-
-    render(
-      <GrpcCallPanel
-        tab={tab}
-        targetValid
-        onPatch={onPatch}
-      />,
-    );
-
-    expect(screen.getByTestId('grpc-call-type-selector')).toBeTruthy();
-    expect(screen.getByTestId('grpc-stream-panel')).toBeTruthy();
-    expect(screen.getByTestId('grpc-stream-pending-panel')).toBeTruthy();
-    expect(screen.getByTestId('grpc-stream-layout-preview-hint')).toBeTruthy();
-    fireEvent.click(screen.getByTestId('grpc-call-type-tab-server_streaming'));
-    expect(onPatch).toHaveBeenCalledWith({ layoutPreviewCallType: 'server_streaming' });
-  });
-
-  it('disables call type selector while a stream is active', () => {
-    const tab = createGrpcStudioTab({
-      layoutPreviewCallType: 'server_streaming',
-      body: {},
-      streamLifecycle: 'streaming',
     });
 
     render(
@@ -465,8 +485,9 @@ describe('GrpcCallPanel coverage gaps', () => {
       />,
     );
 
-    expect(screen.getByTestId('grpc-call-type-tab-server_streaming')).toHaveProperty('disabled', true);
-    expect(screen.getByTestId('grpc-call-type-tab-unary')).toHaveProperty('disabled', true);
+    expect(screen.queryByTestId('grpc-call-type-selector')).toBeNull();
+    expect(screen.queryByTestId('grpc-stream-panel')).toBeNull();
+    expect(screen.getByTestId('grpc-response-panel')).toBeTruthy();
   });
 
   it('invokes stream compose callbacks for client streaming', async () => {

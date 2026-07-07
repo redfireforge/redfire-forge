@@ -113,15 +113,15 @@ describe('Phase 4 acceptance checklist (4I traceability)', () => {
       .not.toEqual(formatGrpcTransportFailureMessage({ tlsFailure: 'unknown_ca' }));
   });
 
-  it('resolves Authorization conflicts with auth panel winning', () => {
+  it('blocks Authorization conflicts between manual metadata and auth panel', () => {
     const merged = mergeGrpcExecuteMetadata(
       { authorization: 'Bearer manual-metadata-token' },
       { type: 'bearer', bearerToken: 'panel-token-value' },
     );
-    expect(merged.ok).toBe(true);
-    if (!merged.ok) return;
-    expect(merged.metadata.authorization).toBe('Bearer panel-token-value');
-    expect(merged.conflicts).toHaveLength(1);
+    expect(merged.ok).toBe(false);
+    if (merged.ok) return;
+    expect(merged.field).toBe('auth');
+    expect(merged.error).toMatch(/authorization/i);
   });
 
   it('accepts valid -bin base64 metadata through execute validation without corruption', () => {
@@ -226,15 +226,15 @@ describe('Phase 4 threat-model spot checks (4I)', () => {
     expect(sanitized).toContain(GRPC_REDACTED_PEM_PLACEHOLDER);
   });
 
-  it('T4 — auth panel wins over manual Authorization on unary fixture metadata shape', () => {
+  it('T4 — auth panel conflicts with manual Authorization on unary fixture metadata shape', () => {
     const merged = mergeGrpcExecuteMetadata(
       { ...FIXTURE_UNARY_CALL_REQUEST.metadata, authorization: 'Bearer manual-token' },
       { type: 'bearer', bearerToken: 'panel-token-value' },
     );
-    expect(merged.ok).toBe(true);
-    if (!merged.ok) return;
-    expect(merged.metadata.authorization).toBe('Bearer panel-token-value');
-    expect(merged.metadata['x-request-id']).toBe('demo-1');
+    expect(merged.ok).toBe(false);
+    if (merged.ok) return;
+    expect(merged.field).toBe('auth');
+    expect(merged.error).toMatch(/authorization/i);
   });
 
   it('T5 — mTLS validation issues are actionable strings', () => {

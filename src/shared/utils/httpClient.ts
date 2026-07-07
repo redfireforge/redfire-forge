@@ -39,6 +39,16 @@ export type HttpTransportFn = (
   body?: string,
 ) => Promise<HttpResponse>;
 
+const COMPANION_SERVER_BASE = 'http://localhost:3001';
+
+/** Tauri has no Vite /api proxy — resolve companion-server routes to :3001. */
+export function resolveCompanionServerUrl(url: string): string {
+  if (url.startsWith('/api/') || url === '/health' || url.startsWith('/health?')) {
+    return `${COMPANION_SERVER_BASE}${url}`;
+  }
+  return url;
+}
+
 let _transportOverride: HttpTransportFn | null = null;
 
 /**
@@ -159,7 +169,7 @@ export async function httpFetch(
     return nodeFetch(url, method, headers, body, signal);
   }
   if (isTauri()) {
-    return tauriFetch(url, method, headers, body, signal);
+    return tauriFetch(resolveCompanionServerUrl(url), method, headers, body, signal);
   }
   return proxyFetch(url, method, headers, body, signal);
 }
@@ -250,14 +260,17 @@ export async function proxyFetch(
       const tDone = performance.now();
       const responseHeaders: Record<string, string> = {};
       response.headers.forEach((v, k) => { responseHeaders[k] = v; });
+      const trimmedBody = responseBody.trim();
+      const looksLikeApiEnvelope = trimmedBody.startsWith('{')
+        && trimmedBody.includes('"ok"')
+        && trimmedBody.includes('"op"');
       // Treat gateway / server-not-running responses as network errors so the
       // caller classifies them as KAFKA_NETWORK_ERROR (retryable) rather than
       // KAFKA_INVALID_ENVELOPE (configuration error).
       const networkError =
-        response.status === 0 ||
-        response.status === 502 ||
-        response.status === 503 ||
-        response.status === 504
+        response.status === 0
+          || ((response.status === 502 || response.status === 503 || response.status === 504)
+            && !looksLikeApiEnvelope)
           ? `Server returned ${response.status} ${response.statusText || 'error'} — is the backend server running?`
           : undefined;
       return {

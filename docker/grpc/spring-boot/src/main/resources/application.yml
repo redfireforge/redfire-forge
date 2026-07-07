@@ -4,6 +4,12 @@ server:
 grpc:
   server:
     port: 9090
+    # net.devh's grpc-server-spring-boot-starter auto-registers both the standard
+    # grpc.health.v1.Health service and grpc.reflection.v1alpha.ServerReflection
+    # whenever io.grpc:grpc-services is on the classpath — already pulled in
+    # transitively here, so no reflection.enabled flag or extra dependency is needed.
+    # (Declaring io.grpc:grpc-services explicitly re-pins grpc-core to a version
+    # that mismatches the starter's bundled grpc-netty-shaded and breaks startup.)
 
 management:
   endpoints:

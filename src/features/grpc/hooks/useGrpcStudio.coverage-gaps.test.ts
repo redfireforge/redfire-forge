@@ -139,8 +139,8 @@ describe('useGrpcStudio coverage gaps', () => {
       });
     });
 
-    act(() => {
-      result.current.retryUnaryWithExpress(tabId);
+    await act(async () => {
+      await result.current.retryUnaryWithExpress(tabId);
     });
 
     const tab = result.current.tabs.find((entry) => entry.id === tabId)!;
@@ -205,8 +205,8 @@ describe('useGrpcStudio coverage gaps', () => {
       });
     });
 
-    act(() => {
-      result.current.retryStreamWithExpress(tabId);
+    await act(async () => {
+      await result.current.retryStreamWithExpress(tabId);
     });
 
     const tab = result.current.tabs.find((entry) => entry.id === tabId)!;
@@ -394,6 +394,33 @@ describe('useGrpcStudio coverage gaps', () => {
 
     expect(result.current.activeTabId).toBe('only-tab');
     expect(result.current.getTabDescriptor('only-tab').loadState).toBe('idle');
+  });
+
+  it('restorePersistedSession resets loopback tabs from stale TLS to plaintext default', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'loopback-tab',
+        tabs: [{
+          id: 'loopback-tab',
+          title: 'Loopback',
+          target: 'localhost:50051',
+          tlsMode: 'tls',
+          metadata: {},
+          timeoutMs: 30_000,
+          requestMode: 'form',
+          body: {},
+          servicesCollapsed: false,
+        }],
+        tabDescriptors: {},
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.activeTab.tlsMode).toBeUndefined();
+    expect(result.current.resolveTabConnection('loopback-tab').tlsMode).toBe('disabled');
   });
 
   it('restorePersistedSession respects maxTabs when restoring persisted tabs', () => {

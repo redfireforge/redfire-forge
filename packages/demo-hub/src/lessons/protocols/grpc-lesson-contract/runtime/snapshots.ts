@@ -62,10 +62,28 @@ export function buildGrpcStreamingScenarioSnapshot(): GrpcLessonScenarioSnapshot
   });
 }
 
+/** GRPC-4 — request metadata & authentication lesson (headers, auth types, conflict detection). */
+export function buildGrpcMetadataAuthScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-metadata-auth',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: GRPC_DEMO_TARGET,
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'Hello from gRPC Studio' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC1_FIXTURE_FINGERPRINT,
+  });
+}
+
 const SNAPSHOT_BUILDERS: Readonly<Record<string, () => GrpcLessonScenarioSnapshot>> = {
   'grpc-first-call': buildGrpcFirstCallScenarioSnapshot,
   'grpc-schema-discovery': buildGrpcSchemaDiscoveryScenarioSnapshot,
   'grpc-streaming': buildGrpcStreamingScenarioSnapshot,
+  'grpc-metadata-auth': buildGrpcMetadataAuthScenarioSnapshot,
 };
 
 /** Build the frozen scenario snapshot for a shipped lesson id. */

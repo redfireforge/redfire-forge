@@ -101,12 +101,13 @@ describe('GrpcTlsConfigBody coverage gaps', () => {
         {...baseProps}
         tlsMode="tls"
         issues={[{ field: 'tlsConfig', code: 'GRPC_INVALID_REQUEST', message: 'TLS issue' }]}
-        testResult="TLS configuration passed local validation."
+        testResult={{ ok: true, message: 'TLS configuration passed local validation.' }}
         onTlsModeChange={onTlsModeChange}
         onTestConnection={onTestConnection}
         onResetDefaults={onResetDefaults}
       />,
     );
+    expect(screen.getByTestId('grpc-tls-test-result').className).toMatch(/grpc-tls-test-result--ok/);
     expect(screen.getByTestId('grpc-tls-test-result').textContent).toMatch(/passed local validation/i);
     expect(screen.getByTestId('grpc-tls-issues').textContent).toMatch(/TLS issue/);
     fireEvent.click(screen.getByTestId('grpc-tls-test'));

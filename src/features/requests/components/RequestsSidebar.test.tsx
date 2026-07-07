@@ -654,7 +654,7 @@ describe('RequestsSidebar', () => {
       fireEvent.dragOver(colGroup, { dataTransfer: { dropEffect: '' } });
       // drop with active timer to clear it
       h.drag.dragItemRef.current = { kind: 'request', colId: 'other', reqId: 'r9' };
-      h.drag.autoExpandTimerRef.current = setTimeout(() => {}, 1000);
+      h.drag.autoExpandTimerRef.current = 1 as unknown as ReturnType<typeof setTimeout>;
       fireEvent.drop(colGroup, { dataTransfer: {} });
       // same-col drop returns early
       h.drag.dragItemRef.current = { kind: 'request', colId: 'c1', reqId: 'r1' };

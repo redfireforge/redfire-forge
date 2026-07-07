@@ -83,6 +83,9 @@ const collectionsHook = vi.hoisted(() => ({
 const historyHook = vi.hoisted(() => ({
   value: null as UseGrpcCallHistoryResult | null,
 }));
+const runtimeHistoryMetadataHook = vi.hoisted(() => ({
+  byEntryId: {} as Record<string, Record<string, string>>,
+}));
 
 vi.mock('./hooks/useGrpcCollections', () => ({
   useGrpcCollections: () => collectionsHook.value,
@@ -91,6 +94,14 @@ vi.mock('./hooks/useGrpcCollections', () => ({
 vi.mock('./hooks/useGrpcCallHistory', () => ({
   useGrpcCallHistory: () => historyHook.value,
 }));
+
+vi.mock('./utils/grpcStudioCallHistoryCapture', async () => {
+  const actual = await vi.importActual<typeof import('./utils/grpcStudioCallHistoryCapture')>('./utils/grpcStudioCallHistoryCapture');
+  return {
+    ...actual,
+    getRuntimeGrpcHistoryMetadata: (entryId: string) => runtimeHistoryMetadataHook.byEntryId[entryId],
+  };
+});
 
 function buildCollectionsHook(
   saved = makeSaved('saved-1'),
@@ -200,10 +211,18 @@ function buildHistoryHook(
 
 describe('GrpcStudioPage Phase 5H coverage gaps', () => {
   beforeEach(() => {
+    if (!(globalThis as { ResizeObserver?: unknown }).ResizeObserver) {
+      (globalThis as { ResizeObserver: typeof ResizeObserver }).ResizeObserver = class {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      } as unknown as typeof ResizeObserver;
+    }
     resetGrpcTabCounterForTests();
     setGrpcClientTransport(null);
     collectionsHook.value = buildCollectionsHook();
     historyHook.value = buildHistoryHook();
+    runtimeHistoryMetadataHook.byEntryId = {};
   });
 
   it('switches to history view and renders history panel', () => {
@@ -300,6 +319,192 @@ describe('GrpcStudioPage Phase 5H coverage gaps', () => {
     });
   });
 
+  it('copies grpcurl from history with metadata keys preserved', async () => {
+    const entry = historyEntry('hist-meta');
+    entry.record.snapshot.metadata = {
+      'x-request-id': 'lesson-4-demo',
+      'x-api-key': '[REDACTED]',
+    };
+    historyHook.value = buildHistoryHook([entry]);
+
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-history'));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-hist-meta'));
+    fireEvent.click(screen.getByTestId('grpc-history-copy-grpcurl'));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalled();
+    });
+
+    const copied = writeText.mock.calls[0]?.[0] as string;
+    expect(copied).toContain('x-request-id: lesson-4-demo');
+    expect(copied).toContain('x-api-key: <SET_X_API_KEY>');
+  });
+
+  it('copies grpcurl from history with real metadata values from active tab when available', async () => {
+    const entry = historyEntry('hist-meta-live');
+    entry.record.snapshot.metadata = {
+      'x-request-id': 'lesson-4-demo',
+      'x-api-key': '[REDACTED]',
+      'x-env-token': '[REDACTED]',
+    };
+    historyHook.value = buildHistoryHook([entry]);
+
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+
+    fireEvent.click(screen.getByTestId('grpc-import-grpcurl-btn'));
+    fireEvent.change(screen.getByTestId('grpc-import-grpcurl-textarea'), {
+      target: {
+        value: 'grpcurl -plaintext -H "x-api-key: live-api" -H "x-env-token: live-env" localhost:50051 echo.EchoService/Echo',
+      },
+    });
+    fireEvent.click(screen.getByTestId('grpc-import-grpcurl-submit'));
+    await waitFor(() => {
+      expect(screen.queryByTestId('grpc-import-grpcurl-modal')).toBeNull();
+    });
+
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-history'));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-hist-meta-live'));
+    fireEvent.click(screen.getByTestId('grpc-history-copy-grpcurl'));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalled();
+    });
+
+    const copied = writeText.mock.calls[0]?.[0] as string;
+    expect(copied).toContain('x-request-id: lesson-4-demo');
+    expect(copied).toContain('x-api-key: live-api');
+    expect(copied).toContain('x-env-token: live-env');
+    expect(copied).not.toContain('<SET_X_API_KEY>');
+    expect(copied).not.toContain('<SET_X_ENV_TOKEN>');
+  });
+
+  it('copies grpcurl from history with real metadata values from workspace defaults when available', async () => {
+    const entry = historyEntry('hist-meta-env');
+    entry.record.snapshot.metadata = {
+      'x-request-id': 'lesson-4-demo',
+      'x-api-key': '[REDACTED]',
+      'x-env-token': '[REDACTED]',
+    };
+    historyHook.value = buildHistoryHook([entry]);
+
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <GrpcStudioPage
+        resolvedBaseUrl="localhost:50051"
+        workspaceDefaultsOverride={{
+          X_API_KEY: 'default-api',
+          X_ENV_TOKEN: 'default-env',
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-history'));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-hist-meta-env'));
+    fireEvent.click(screen.getByTestId('grpc-history-copy-grpcurl'));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalled();
+    });
+
+    const copied = writeText.mock.calls[0]?.[0] as string;
+    expect(copied).toContain('x-request-id: lesson-4-demo');
+    expect(copied).toContain('x-api-key: default-api');
+    expect(copied).toContain('x-env-token: default-env');
+    expect(copied).not.toContain('<SET_X_API_KEY>');
+    expect(copied).not.toContain('<SET_X_ENV_TOKEN>');
+  });
+
+  it('copies grpcurl from error history row using sibling runtime metadata fallback', async () => {
+    const errorEntry = historyEntry('hist-error-redacted');
+    errorEntry.record.result.status = 13;
+    errorEntry.record.result.statusMessage = 'INTERNAL';
+    errorEntry.record.snapshot.metadata = {
+      'x-request-id': 'lesson-4-demo-error',
+      'x-api-key': '[REDACTED]',
+      'x-env-token': '[REDACTED]',
+    };
+
+    const siblingOkEntry = historyEntry('hist-ok-live');
+    siblingOkEntry.record.snapshot.metadata = {
+      'x-request-id': 'lesson-4-demo-ok',
+      'x-api-key': '[REDACTED]',
+      'x-env-token': '[REDACTED]',
+    };
+
+    historyHook.value = buildHistoryHook([errorEntry, siblingOkEntry]);
+    runtimeHistoryMetadataHook.byEntryId = {
+      [siblingOkEntry.id]: {
+        'x-api-key': 'live-api-error-fallback',
+        'x-env-token': 'live-env-error-fallback',
+      },
+    };
+
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-history'));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-hist-error-redacted'));
+    fireEvent.click(screen.getByTestId('grpc-history-copy-grpcurl'));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalled();
+    });
+
+    const copied = writeText.mock.calls[0]?.[0] as string;
+    expect(copied).toContain('x-request-id: lesson-4-demo-error');
+    expect(copied).toContain('x-api-key: live-api-error-fallback');
+    expect(copied).toContain('x-env-token: live-env-error-fallback');
+    expect(copied).not.toContain('<SET_X_API_KEY>');
+    expect(copied).not.toContain('<SET_X_ENV_TOKEN>');
+  });
+
+  it('copies grpcurl from success history row without redacted auth overriding live metadata', async () => {
+    const entry = historyEntry('hist-success-auth-redacted');
+    entry.record.snapshot.metadata = {
+      'x-api-key': '[REDACTED]',
+      'x-request-id': 'success-row',
+    };
+    entry.record.snapshot.auth = {
+      type: 'api_key',
+      apiKeyName: 'x-api-key',
+      apiKeyValue: '[REDACTED]',
+    };
+
+    historyHook.value = buildHistoryHook([entry]);
+    runtimeHistoryMetadataHook.byEntryId = {
+      [entry.id]: {
+        'x-api-key': 'live-success-api-key',
+      },
+    };
+
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-history'));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-hist-success-auth-redacted'));
+    fireEvent.click(screen.getByTestId('grpc-history-copy-grpcurl'));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalled();
+    });
+
+    const copied = writeText.mock.calls[0]?.[0] as string;
+    expect(copied).toContain('x-api-key: live-success-api-key');
+    expect(copied).toContain('x-request-id: success-row');
+    expect(copied).not.toContain('<SET_X_API_KEY>');
+  });
+
   it('replays a history entry into the active studio tab', async () => {
     setGrpcClientTransport(async () => ({
       ...FIXTURE_REFLECT_SUCCESS_ENVELOPE,
@@ -318,6 +523,42 @@ describe('GrpcStudioPage Phase 5H coverage gaps', () => {
       expect(screen.getByTestId('grpc-sub-nav-studio').className).toMatch(/active/);
       expect(screen.getByTestId('grpc-method-detail-service').textContent).toBe('echo.EchoService');
     });
+  });
+
+  it('restores redacted metadata from the session cache when replaying a history entry', async () => {
+    setGrpcClientTransport(async () => ({
+      ...FIXTURE_REFLECT_SUCCESS_ENVELOPE,
+      data: FIXTURE_DESCRIPTOR,
+    }));
+
+    const entry = historyEntry('hist-replay-restore');
+    entry.record.snapshot.metadata = {
+      'x-api-key': '[REDACTED]',
+      'x-request-id': 'replay-restore-demo',
+    };
+    historyHook.value = buildHistoryHook([entry]);
+    runtimeHistoryMetadataHook.byEntryId = {
+      [entry.id]: { 'x-api-key': 'live-replay-api-key' },
+    };
+
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-reflect-btn'));
+    await waitFor(() => expect(screen.getByTestId('grpc-explorer-tree')).toBeTruthy());
+
+    fireEvent.click(screen.getByTestId('grpc-sub-nav-history'));
+    fireEvent.click(screen.getByTestId('grpc-history-entry-hist-replay-restore'));
+    fireEvent.click(screen.getByTestId('grpc-history-replay-btn'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('grpc-sub-nav-studio').className).toMatch(/active/);
+      expect(screen.getByTestId('grpc-method-detail-service').textContent).toBe('echo.EchoService');
+    });
+
+    fireEvent.click(screen.getByTestId('grpc-request-tab-metadata'));
+    const values = screen.getAllByLabelText(/Metadata value \d+/).map((el) => (el as HTMLInputElement).value);
+    expect(values).toContain('live-replay-api-key');
+    expect(values).toContain('replay-restore-demo');
+    expect(values).not.toContain('[REDACTED]');
   });
 
   it('saves the active request to a new collection and navigates to collections', async () => {

@@ -112,6 +112,7 @@ describe('GrpcTlsPanel (Phase 4J-B modal)', () => {
       tlsConfig: {},
     });
     fireEvent.click(screen.getByTestId('grpc-tls-test'));
+    expect(screen.getByTestId('grpc-tls-test-result').className).toMatch(/grpc-tls-test-result--fail/);
     expect(screen.getByTestId('grpc-tls-test-result').textContent).toMatch(/clientCertPem/i);
   });
 
