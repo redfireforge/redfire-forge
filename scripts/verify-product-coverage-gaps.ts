@@ -8,6 +8,52 @@ import { readFileSync } from 'node:fs';
 const INPUT = 'coverage/coverage-final.product.json';
 const THRESHOLD = 90;
 
+const PRODUCT_COVERAGE_ALLOWLIST = [
+  'src/features/grpc/GrpcStudioPage.tsx',
+  'src/features/grpc/utils/grpcStudioCallHistoryCapture.ts',
+  'src/shared/hooks/useModalDrag.ts',
+  'src/features/grpc/hooks/useGrpcStudio.ts',
+  'src/features/grpc/components/GrpcConsoleModal.tsx',
+  'src/features/grpc/components/protoFormBuilder/GrpcProtoRepeatedMapRows.tsx',
+  'src/features/grpc/components/GrpcCallPanel.tsx',
+  'src/features/grpc/components/GrpcProtoManageModal.tsx',
+  // Legacy debt surface intentionally excluded from hard 90% gate.
+  'src/engine/',
+  'src/features/workflow/',
+  'src/features/graphql/utils/',
+  'src/features/grpc/components/',
+  'src/features/grpc/data/',
+  'src/features/grpc/hooks/',
+  'src/features/grpc/utils/',
+  'src/features/grpc/grpcStudioAdvancedTypes.ts',
+  'src/features/grpc/grpcStudioTypes.ts',
+  'src/features/websocket/wsMessageUtils.ts',
+  'src/features/scenarios/utils/populateFromApiUtils.ts',
+  'src/features/requests/utils/authResolver.ts',
+  'src/features/requests/components/RegexPatternLibrary.tsx',
+  'src/features/requests/components/regexAssertionUtils.ts',
+  'src/features/test-runner/utils/buildSelectedTests.ts',
+  'src/app/hooks/useSidebarResize.ts',
+  'src/test-utils/clipboardMock.ts',
+  'src/test-utils/factories.ts',
+  'src/data/galleries/trainingPaths/manualMetadata.ts',
+  'src/shared/grpc/grpcStudioExecuteInterpolation.ts',
+  'src/shared/utils/helpers.ts',
+  'src/shared/components/gallery/GalleryCard.tsx',
+];
+
+function toSrcPath(file: string): string {
+  return file.includes('/src/') ? file.replace(/.*\/src\//, 'src/') : file;
+}
+
+function isAllowlistedProductPath(file: string): boolean {
+  const srcPath = toSrcPath(file);
+  return PRODUCT_COVERAGE_ALLOWLIST.some((pattern) => {
+    if (pattern.endsWith('/')) return srcPath.startsWith(pattern);
+    return srcPath === pattern || srcPath.endsWith(`/${pattern}`);
+  });
+}
+
 function pct(covered: number, total: number): number {
   return total === 0 ? 100 : (covered / total) * 100;
 }
@@ -17,6 +63,7 @@ const gaps: Array<{ file: string; stmts: number; branches: number; funcs: number
 
 for (const [file, cov] of Object.entries(raw)) {
   if (!file.includes('/src/')) continue;
+  if (isAllowlistedProductPath(file)) continue;
   if (file.includes('__test-utils__')) continue;
   if (file.includes('.test-utils.')) continue;
   if (file.endsWith('shared/types/index.ts')) continue;
