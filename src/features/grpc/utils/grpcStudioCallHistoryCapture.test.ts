@@ -16,8 +16,11 @@ vi.mock('./grpcCrossFeatureExport', () => ({
 }));
 
 import {
+  clearRuntimeGrpcHistoryMetadataForTests,
+  clearAllRuntimeGrpcHistoryMetadata,
   captureGrpcCallHistoryFromOutcome,
   captureGrpcCallHistoryFromStreamTerminal,
+  getRuntimeGrpcHistoryMetadata,
   GRPC_CALL_HISTORY_UPDATED_EVENT,
 } from './grpcStudioCallHistoryCapture';
 import {
@@ -47,6 +50,8 @@ beforeEach(() => {
   appendMock.mockClear();
   prepareMock.mockClear();
   prepareMock.mockImplementation((input: unknown) => input);
+  appendMock.mockResolvedValue({ id: 'history-1' });
+  clearRuntimeGrpcHistoryMetadataForTests();
   clearGrpcRpcSessionStatsForTests();
 });
 
@@ -164,5 +169,77 @@ describe('grpcStudioCallHistoryCapture (Phase 5H)', () => {
     expect(prepareMock).toHaveBeenCalledWith(expect.objectContaining({
       error: expect.objectContaining({ message: 'explicit terminal error' }),
     }));
+  });
+
+  it('stores runtime request metadata for exact grpcurl history export', async () => {
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: {
+        ...snapshot(),
+        metadata: {
+          'x-env-token': '{{authToken}}',
+        },
+        auth: {
+          type: 'api_key',
+          apiKeyName: 'x-api-key',
+          apiKeyValue: 'my-key-123',
+        },
+        interpolationEnv: {
+          env: { authToken: 'rf-demo-auth-token-lesson4' },
+          appliedAt: TS,
+        },
+      },
+    });
+
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    const runtimeMetadata = getRuntimeGrpcHistoryMetadata('history-1');
+    expect(runtimeMetadata).toEqual({
+      'x-api-key': 'my-key-123',
+      'x-env-token': '{{authToken}}',
+    });
+  });
+
+  it('stores compression headers in runtime metadata when gzip is enabled', async () => {
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: {
+        ...snapshot(),
+        compression: { enabled: true, algorithm: 'gzip' },
+      },
+    });
+
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    expect(getRuntimeGrpcHistoryMetadata('history-1')).toEqual({
+      'grpc-encoding': 'gzip',
+      'grpc-accept-encoding': 'gzip,identity',
+    });
+  });
+
+  it('ignores redacted runtime metadata values and keeps cache empty', async () => {
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: {
+        ...snapshot(),
+        metadata: {
+          authorization: '[REDACTED]'
+        },
+      },
+    });
+
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    expect(getRuntimeGrpcHistoryMetadata('history-1')).toBeUndefined();
+  });
+
+  it('clears runtime metadata cache and session storage', async () => {
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: {
+        ...snapshot(),
+        metadata: { 'x-request-id': 'abc-123' },
+      },
+    });
+
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    expect(getRuntimeGrpcHistoryMetadata('history-1')).toEqual({ 'x-request-id': 'abc-123' });
+
+    clearAllRuntimeGrpcHistoryMetadata();
+    expect(getRuntimeGrpcHistoryMetadata('history-1')).toBeUndefined();
+    expect(window.sessionStorage.getItem('grpc-runtime-history-metadata')).toBeNull();
   });
 });

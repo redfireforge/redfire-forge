@@ -139,8 +139,8 @@ describe('useGrpcStudio coverage gaps', () => {
       });
     });
 
-    act(() => {
-      result.current.retryUnaryWithExpress(tabId);
+    await act(async () => {
+      await result.current.retryUnaryWithExpress(tabId);
     });
 
     const tab = result.current.tabs.find((entry) => entry.id === tabId)!;
@@ -205,8 +205,8 @@ describe('useGrpcStudio coverage gaps', () => {
       });
     });
 
-    act(() => {
-      result.current.retryStreamWithExpress(tabId);
+    await act(async () => {
+      await result.current.retryStreamWithExpress(tabId);
     });
 
     const tab = result.current.tabs.find((entry) => entry.id === tabId)!;

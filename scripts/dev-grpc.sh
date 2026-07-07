@@ -19,6 +19,7 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
 ECHO_HEALTH="http://127.0.0.1:50052/health"
+OAUTH_HEALTH="http://127.0.0.1:50560/health"
 EXPRESS_HEALTH="http://127.0.0.1:3001/health"
 SERVER_LOG="/tmp/redfire-dev-grpc-server.log"
 EXPRESS_PID=""
@@ -53,13 +54,14 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-# 1. Docker echo fixture ──────────────────────────────────────────
-if probe "$ECHO_HEALTH"; then
-  echo "[dev:grpc] Docker echo fixture already healthy on :50052"
+# 1. Docker gRPC fixture stack (echo + OAuth2 mock) ──────────────
+if probe "$ECHO_HEALTH" && probe "$OAUTH_HEALTH"; then
+  echo "[dev:grpc] Docker fixtures already healthy on :50052 and :50560"
 else
-  echo "[dev:grpc] Starting Docker echo fixture (docker/grpc)…"
+  echo "[dev:grpc] Starting Docker gRPC fixtures (docker/grpc)…"
   (cd docker/grpc && docker compose up -d)
   wait_for "$ECHO_HEALTH" "Docker echo (:50052)" 60
+  wait_for "$OAUTH_HEALTH" "OAuth2 mock (:50560)" 60
 fi
 
 # 2. Express gRPC proxy ───────────────────────────────────────────

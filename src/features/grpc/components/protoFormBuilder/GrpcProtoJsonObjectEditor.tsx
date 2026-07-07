@@ -67,6 +67,8 @@ export function GrpcProtoJsonObjectEditor({
     }
   };
 
+  const autoRows = Math.max(rows ?? 4, draft.split('\n').length + 1);
+
   return (
     <>
       <textarea
@@ -77,7 +79,7 @@ export function GrpcProtoJsonObjectEditor({
         onChange={(event) => handleChange(event.target.value)}
         disabled={disabled}
         spellCheck={false}
-        rows={rows}
+        rows={autoRows}
       />
       {error && (
         <p className="grpc-proto-nested-error" data-testid={`${testId}-error`} role="alert">

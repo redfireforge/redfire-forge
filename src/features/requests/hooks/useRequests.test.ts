@@ -18,7 +18,12 @@ import { useRequests } from './useRequests';
 async function setup(initial?: Partial<RequestsData>) {
   mockInitial = { environments: [], collections: [], ...initial };
   const hook = renderHook(() => useRequests());
-  await waitFor(() => expect(hook.result.current.loaded).toBe(true));
+  await act(async () => {
+    await Promise.resolve();
+  });
+  if (!hook.result.current.loaded) {
+    await waitFor(() => expect(hook.result.current.loaded).toBe(true));
+  }
   return hook;
 }
 

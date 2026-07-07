@@ -64,7 +64,7 @@ export type GrpcRequestLifecycle =
 export type GrpcRequestMode = 'form' | 'json';
 
 /** Optional body/metadata overrides applied at Send click (avoids React batching stale tab state). */
-export type GrpcExecuteOverrides = Partial<Pick<GrpcStudioTabState, 'body' | 'metadata' | 'timeoutMs'>>;
+export type GrpcExecuteOverrides = Partial<Pick<GrpcStudioTabState, 'body' | 'metadata' | 'timeoutMs' | 'transportMode'>>;
 
 export type GrpcDescriptorLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 
@@ -334,8 +334,6 @@ export interface GrpcStudioTabState {
   targetConnection?: GrpcTargetConnectionSession;
   /** Phase 4J-D — K8s port-forward workflow state (manual kubectl; target apply on Start). */
   k8sPortForward?: GrpcK8sPortForwardSession;
-  /** Phase 2 — layout gallery when no method selected (does not override proto callType). */
-  layoutPreviewCallType?: GrpcCallType;
 }
 
 let _grpcTabCounter = 0;
@@ -405,7 +403,6 @@ export function createGrpcStudioTab(
     lastExecuteSnapshot: overrides.lastExecuteSnapshot,
     auth: overrides.auth,
     transportMode: overrides.transportMode ?? defaultGrpcStudioTransportModeForPlatform(),
-    layoutPreviewCallType: overrides.layoutPreviewCallType ?? 'unary',
     ...clearedGrpcStreamSessionPatch(),
     ...overrides,
   };
@@ -441,7 +438,6 @@ export function duplicateGrpcStudioTab(
       ? structuredClone(tab.grpcurlExportContext)
       : undefined,
     transportMode: tab.transportMode,
-    layoutPreviewCallType: tab.layoutPreviewCallType,
     k8sPortForward: tab.k8sPortForward
       ? {
         config: structuredClone(tab.k8sPortForward.config),

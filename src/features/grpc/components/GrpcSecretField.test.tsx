@@ -151,4 +151,28 @@ describe('GrpcSecretField (Phase 4G)', () => {
     expect(onUnmask).not.toHaveBeenCalled();
     expect(onChange).toHaveBeenCalled();
   });
+
+  it('toggles between hidden and visible input types', async () => {
+    const user = userEvent.setup();
+    render(
+      <GrpcSecretField
+        id="plain"
+        label="Token"
+        testId="grpc-secret"
+        value="abc"
+        masked={false}
+        onChange={vi.fn()}
+        onUnmask={vi.fn()}
+      />,
+    );
+
+    const input = screen.getByTestId('grpc-secret') as HTMLInputElement;
+    expect(input.type).toBe('password');
+
+    await user.click(screen.getByTestId('grpc-secret-toggle-visibility'));
+    expect((screen.getByTestId('grpc-secret') as HTMLInputElement).type).toBe('text');
+
+    await user.click(screen.getByTestId('grpc-secret-toggle-visibility'));
+    expect((screen.getByTestId('grpc-secret') as HTMLInputElement).type).toBe('password');
+  });
 });

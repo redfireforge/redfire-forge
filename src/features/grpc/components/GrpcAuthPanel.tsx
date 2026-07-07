@@ -355,18 +355,21 @@ export function GrpcAuthPanel({
 
       {preview.conflicts.length > 0 && (
         <div className="grpc-auth-conflicts" data-testid="grpc-auth-conflicts" role="alert">
-          <p className="grpc-auth-conflicts-title">Auth overrides manual metadata</p>
+          <p className="grpc-auth-conflicts-title">Resolve auth/manual metadata conflicts before sending</p>
           <ul>
             {preview.conflicts.map((conflict) => (
               <li key={conflict.key}>
                 <code>{conflict.key}</code>
                 {' — manual '}
                 <code>{maskConflictValue(conflict.key, conflict.manualValue)}</code>
-                {' replaced by auth '}
+                {' conflicts with auth '}
                 <code>••••••</code>
               </li>
             ))}
           </ul>
+          <p className="grpc-auth-conflicts-help">
+            Remove or rename the duplicate key in the Metadata tab. Send is blocked until conflicts are resolved.
+          </p>
         </div>
       )}
 

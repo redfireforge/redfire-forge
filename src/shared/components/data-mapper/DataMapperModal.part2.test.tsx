@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, within, waitFor } from '@testing-library/react';
 import DataMapperModal from './DataMapperModal';
 import type { MapperAdapter, Mapping, ValidationIssue } from './types';
@@ -42,6 +42,14 @@ function createAdapter(overrides?: Partial<MapperAdapter<Mapping[]>>): MapperAda
 }
 
 describe('DataMapperModal', () => {
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('still blocks save after drift banner is dismissed', async () => {
     const { loadSnapshot, captureSchemaSnapshot } = await import('./utils/schemaSnapshot');
@@ -87,7 +95,7 @@ describe('DataMapperModal', () => {
         onCancel={vi.fn()}
       />,
     );
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     await act(async () => { fireEvent.click(screen.getByLabelText('Dismiss drift notification')); });
     expect(container.querySelector('.dm-drift-banner')).toBeNull();
 
@@ -141,7 +149,7 @@ describe('DataMapperModal', () => {
         onCancel={vi.fn()}
       />,
     );
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     await act(async () => { fireEvent.click(screen.getByText('Show Diff')); });
     expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByText('Apply all repairs (1)')); });
@@ -318,7 +326,7 @@ describe('DataMapperModal', () => {
     await act(async () => {
       render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(capSpy.mock.calls.length).toBe(before);
   });
 
@@ -353,7 +361,7 @@ describe('DataMapperModal', () => {
     const { container } = await act(async () => {
       return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     await act(async () => { fireEvent.click(screen.getByText('Accept & Update')); });
     expect(container.querySelector('.dm-drift-banner')).toBeNull();
   });
@@ -388,7 +396,7 @@ describe('DataMapperModal', () => {
     const { container } = await act(async () => {
       return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     await act(async () => { fireEvent.click(screen.getByText('Show Diff')); });
     expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByLabelText('Close schema diff')); });
@@ -396,6 +404,7 @@ describe('DataMapperModal', () => {
   });
 
   it('applies repair from schema diff for breaking drift', async () => {
+    vi.useRealTimers();
     const { loadSnapshot, captureSchemaSnapshot } = await import('./utils/schemaSnapshot');
     vi.mocked(loadSnapshot).mockResolvedValueOnce({
       source: [{
@@ -452,7 +461,7 @@ describe('DataMapperModal', () => {
     });
     const repairToggle = await screen.findByLabelText('Repair name');
     await act(async () => { fireEvent.click(repairToggle); });
-    const [applyBtn] = within(diffOverlay).getAllByRole('button', { name: /^Apply$/i });
+    const [applyBtn] = within(diffOverlay as HTMLElement).getAllByRole('button', { name: /^Apply$/i });
     await act(async () => { fireEvent.click(applyBtn); });
     expect(screen.queryByLabelText('Repair name')).toBeNull();
   });
@@ -502,7 +511,7 @@ describe('DataMapperModal', () => {
         />,
       );
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(screen.getByText(/removed — 1 mapping will break/i)).toBeTruthy();
   });
 
@@ -551,7 +560,7 @@ describe('DataMapperModal', () => {
         />,
       );
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(screen.getByText(/removed — 1 mapping will break/i)).toBeTruthy();
   });
 
@@ -581,7 +590,7 @@ describe('DataMapperModal', () => {
     render(<DataMapperModal adapter={adapter} onSave={onSave} onCancel={vi.fn()} />);
     fireEvent.click(screen.getByText('Save'));
     expect(onSave).toHaveBeenCalledTimes(1);
-    await act(async () => { await new Promise((r) => setTimeout(r)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(0); });
   });
 
   it('shows plural warning count', () => {
@@ -673,7 +682,7 @@ describe('DataMapperModal', () => {
         />,
       );
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(classifySpy).toHaveBeenCalled();
     classifySpy.mockRestore();
   });

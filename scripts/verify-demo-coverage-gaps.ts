@@ -44,6 +44,8 @@ const DEMO_COVERAGE_ALLOWLIST = [
   'packages/demo-hub/src/LessonPlayer.tsx',
   'packages/demo-hub/src/utils/endpointLabel.ts',
   'packages/demo-hub/src/lessons/protocols/graphql-lesson-helpers/lesson2-variables-history.ts',
+  'packages/demo-hub/src/adapters/bridgeWindow.ts',
+  'packages/demo-hub/src/adapters/gqlModalLockBridge.ts',
 ];
 
 function pct(covered: number, total: number): number {

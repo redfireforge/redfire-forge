@@ -134,6 +134,22 @@ describe('httpFetch', () => {
       expect(result.headers['content-type']).toBe('application/json');
     });
 
+    it('resolves relative /api routes to the companion server on port 3001', async () => {
+      const mockHeaders = new Map([['content-type', 'application/json']]);
+      mockTFetch.mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: { forEach: (fn: (v: string, k: string) => void) => mockHeaders.forEach((v, k) => fn(v, k)) },
+        text: () => Promise.resolve('{"ok":true}'),
+      });
+
+      await httpFetch('/api/grpc/reflect', 'POST', {}, '{"requestId":"r1"}');
+      expect(mockTFetch).toHaveBeenCalledWith(
+        'http://localhost:3001/api/grpc/reflect',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
     it('does not attach body to GET requests', async () => {
       const mockHeaders = new Map();
       mockTFetch.mockResolvedValueOnce({

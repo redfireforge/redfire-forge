@@ -180,7 +180,7 @@ describe('WebSocketProxyService', () => {
       service.send({ connectionId: connId, data: 'ping' });
 
       // Wait for echo response
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 60));
 
       const msgEnv = service.getMessages({ connectionId: connId });
       expect(msgEnv.ok).toBe(true);
@@ -198,14 +198,14 @@ describe('WebSocketProxyService', () => {
 
       const connId = connEnv.data.connectionId;
       service.send({ connectionId: connId, data: 'msg1' });
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 60));
 
       const firstPoll = service.getMessages({ connectionId: connId });
       if (!firstPoll.ok) return;
       const cursor = firstPoll.data.cursor;
 
       service.send({ connectionId: connId, data: 'msg2' });
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 60));
 
       const secondPoll = service.getMessages({ connectionId: connId, sinceCursor: cursor });
       expect(secondPoll.ok).toBe(true);
@@ -294,7 +294,7 @@ describe('WebSocketProxyService', () => {
         cappedService.send({ connectionId: connId, data: `msg-${i}` });
       }
 
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 120));
 
       const msgEnv = cappedService.getMessages({ connectionId: connId });
       expect(msgEnv.ok).toBe(true);
@@ -472,7 +472,7 @@ describe('WebSocketProxyService', () => {
       const connId = connEnv.data.connectionId;
       service.send({ connectionId: connId, data: 'msg1' });
       service.send({ connectionId: connId, data: 'msg2' });
-      await new Promise((r) => setTimeout(r, 100));
+      await new Promise((r) => setTimeout(r, 60));
 
       const statusEnv = service.getStatus({ connectionId: connId });
       if (statusEnv.ok) {
@@ -521,7 +521,7 @@ describe('WebSocketProxyService', () => {
         type: 'binary',
       });
 
-      await new Promise((r) => setTimeout(r, 200));
+      await new Promise((r) => setTimeout(r, 120));
 
       const msgEnv = service.getMessages({ connectionId: connId });
       expect(msgEnv.ok).toBe(true);
@@ -585,7 +585,7 @@ describe('WebSocketProxyService', () => {
       const connEnv = await service.connect({ url: `ws://localhost:${TEST_PORT}` });
       if (!connEnv.ok) return;
       service.disconnect({ connectionId: connEnv.data.connectionId });
-      await new Promise(r => setTimeout(r, 100));
+      await new Promise(r => setTimeout(r, 60));
       const env = service.ping({ connectionId: connEnv.data.connectionId });
       expect(env.ok).toBe(false);
     });
@@ -611,7 +611,7 @@ describe('WebSocketProxyService', () => {
       // Send two messages and wait
       service.send({ connectionId: cid, data: 'msg1', type: 'text' });
       service.send({ connectionId: cid, data: 'msg2', type: 'text' });
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 120));
 
       // Get all messages
       const allEnv = service.getMessages({ connectionId: cid });
@@ -620,7 +620,7 @@ describe('WebSocketProxyService', () => {
 
       // Send third message
       service.send({ connectionId: cid, data: 'msg3', type: 'text' });
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 120));
 
       // Get only messages after cursor
       const newEnv = service.getMessages({ connectionId: cid, sinceCursor: cursor });
@@ -639,7 +639,7 @@ describe('WebSocketProxyService', () => {
 
       // Close all server connections
       wss!.clients.forEach((ws) => ws.close(1000, 'normal'));
-      await new Promise(r => setTimeout(r, 200));
+      await new Promise(r => setTimeout(r, 120));
 
       const status = service.getStatus({ connectionId: cid });
       expect(status.ok).toBe(true);
@@ -661,7 +661,7 @@ describe('WebSocketProxyService', () => {
       for (let i = 0; i < 10; i++) {
         smallService.send({ connectionId: cid, data: `msg${i}`, type: 'text' });
       }
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 300));
 
       const msgs = smallService.getMessages({ connectionId: cid });
       if (msgs.ok) {

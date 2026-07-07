@@ -2,7 +2,10 @@
  * @vitest-environment node
  */
 import { describe, expect, it, beforeEach } from 'vitest';
-import { FIXTURE_ECHO_PROTO } from '../../src/shared/grpc/contractFixtures.js';
+import {
+  FIXTURE_COMPLEX_ECHO_PROTO,
+  FIXTURE_ECHO_PROTO,
+} from '../../src/shared/grpc/contractFixtures.js';
 import { descriptorServiceSignatures } from './descriptorNormalizer.js';
 import { clearProtoFileDescriptorPool } from './protoFileDescriptorPool.js';
 import {
@@ -23,6 +26,17 @@ describe('protoDescriptorParser', () => {
   it('parses proto_files source', () => {
     const root = parseProtoFiles([{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }]);
     expect(root.lookupService('echo.EchoService')?.name).toBe('EchoService');
+  });
+
+  it('parses complex proto fixture for hybrid Form Input validation scenarios', () => {
+    const root = parseProtoFiles([{ path: 'complex_echo.proto', content: FIXTURE_COMPLEX_ECHO_PROTO }]);
+    const complexRequest = root.lookupType('echo.ComplexEchoRequest');
+    expect(root.lookupService('echo.EchoService')?.name).toBe('EchoService');
+    expect(complexRequest?.fields.labels?.repeated).toBe(true);
+    expect(complexRequest?.fields.attributes?.map).toBe(true);
+    expect(complexRequest?.fields.card?.partOf?.name).toBe('payment_method');
+    expect(complexRequest?.fields.invoice?.partOf?.name).toBe('payment_method');
+    expect(complexRequest?.fields.line_items?.repeated).toBe(true);
   });
 
   it('normalizes protoRoots into canonical protoFiles + importPaths', () => {

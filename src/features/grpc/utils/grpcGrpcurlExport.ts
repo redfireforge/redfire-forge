@@ -3,6 +3,7 @@
  */
 import type { GrpcTabExecuteSnapshot } from '../../../shared/grpc/contracts';
 import { normalizeGrpcMetadata } from '../../../shared/grpc/contracts';
+import { prepareGrpcExecuteRequestMetadata } from '../../../shared/grpc/grpcAuthPolicy';
 import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
 import { buildGrpcurlInvokeCommand } from './grpcGrpcurlCore';
 import type {
@@ -36,16 +37,26 @@ export function buildGrpcurlInvokeCommandFromSnapshot(
   snapshot: GrpcTabExecuteSnapshot,
   context?: GrpcGrpcurlExportContext,
 ): string {
+  let effectiveMetadata: Record<string, string> | undefined = snapshot.metadata;
+  try {
+    effectiveMetadata = prepareGrpcExecuteRequestMetadata(snapshot.metadata, snapshot.auth) ?? snapshot.metadata;
+  } catch {
+    effectiveMetadata = snapshot.metadata;
+  }
+
   return buildGrpcurlInvokeCommand({
     targetAddress: snapshot.target.address,
     serviceFullName: snapshot.service,
     methodName: snapshot.method,
     tlsMode: snapshot.target.tlsMode ?? 'disabled',
     body: snapshot.body,
-    metadata: snapshot.metadata,
+    metadata: effectiveMetadata,
     serverNameOverride: snapshot.target.tlsConfig?.serverNameOverride,
     tlsFilePaths: context?.tlsFilePaths,
     descriptorFlags: context?.descriptorFlags,
+    includeSecretMetadata: true,
+    includeRedactedSecretMetadata: false,
+    includeRedactedSecretMetadataHints: true,
   });
 }
 

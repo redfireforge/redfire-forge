@@ -168,6 +168,50 @@ describe('grpcGrpcurlExport coverage gaps', () => {
     expect(command).toContain('x-trace');
   });
 
+  it('buildGrpcurlInvokeCommandFromSnapshot includes real auth metadata and keeps redacted keys as hints', () => {
+    const command = buildGrpcurlInvokeCommandFromSnapshot({
+      tabId: 'tab-1',
+      requestId: 'req-1',
+      capturedAt: '2026-06-29T12:00:00.000Z',
+      callType: 'unary',
+      target: {
+        address: 'localhost:50051',
+        tlsMode: 'disabled',
+      },
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'snap' },
+      metadata: { 'x-trace': '1' },
+      auth: { type: 'api_key', apiKeyName: 'x-api-key', apiKeyValue: 'secret-live' },
+      timeoutMs: 30_000,
+      descriptorKey: 'desc-1',
+    });
+    expect(command).toContain('-plaintext');
+    expect(command).toContain('x-api-key: secret-live');
+    expect(command).toContain('x-trace: 1');
+
+    const redactedCommand = buildGrpcurlInvokeCommandFromSnapshot({
+      tabId: 'tab-1',
+      requestId: 'req-2',
+      capturedAt: '2026-06-29T12:00:00.000Z',
+      callType: 'unary',
+      target: {
+        address: 'localhost:50051',
+        tlsMode: 'disabled',
+      },
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'snap' },
+      metadata: { 'x-trace': '1' },
+      auth: { type: 'api_key', apiKeyName: 'x-api-key', apiKeyValue: '[REDACTED]' },
+      timeoutMs: 30_000,
+      descriptorKey: 'desc-1',
+    });
+    expect(redactedCommand).not.toContain('x-api-key: [REDACTED]');
+    expect(redactedCommand).toContain('x-api-key: <SET_X_API_KEY>');
+    expect(redactedCommand).toContain('x-trace: 1');
+  });
+
   it('resolveGrpcurlExportContextForTabRequest matches active tab service/method only', () => {
     const context = {
       tlsFilePaths: { caCertPath: './ca.pem' },

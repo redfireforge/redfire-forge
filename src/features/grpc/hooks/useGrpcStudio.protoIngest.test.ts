@@ -12,12 +12,32 @@ import {
 } from '../../../shared/grpc/contractFixtures';
 import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
 import { createGrpcSuccessEnvelope } from '../../../shared/grpc/contracts';
+
+const downloadProtosetFileMock = vi.hoisted(() => vi.fn());
+vi.mock('../utils/downloadProtoset', () => ({
+  downloadProtosetFile: (...args: unknown[]) => downloadProtosetFileMock(...args),
+}));
+
 import { useGrpcStudio } from './useGrpcStudio';
 import { PAGE_DEFAULTS, setupUseGrpcStudioHookTest } from './useGrpcStudio.testHelpers';
 
 beforeEach(() => setupUseGrpcStudioHookTest());
 
 describe('useGrpcStudio proto ingest (Phase 3)', () => {
+  const originalConsoleError = console.error;
+
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    downloadProtosetFileMock.mockReset();
+    vi.spyOn(console, 'error').mockImplementation((...args: Parameters<typeof console.error>) => {
+      const message = args.map((part) => String(part)).join(' ');
+      if (message.includes('Not implemented: navigation to another Document')) {
+        return;
+      }
+      originalConsoleError(...args);
+    });
+  });
+
   it('exportProtoset calls export API for loaded descriptor', async () => {
     const transport = vi.fn(async (op) => {
       if (op === 'export_protoset') {

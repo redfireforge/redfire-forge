@@ -123,12 +123,12 @@ export function isStreamingLayoutCallType(callType: GrpcCallType): boolean {
   return callType !== 'unary';
 }
 
-/** UI layout call type — method wins; otherwise tab layout preview (Phase 2 mockup 02). */
+/** UI layout call type — method wins; defaults to unary when no method is selected. */
 export function resolveGrpcStudioLayoutCallType(
-  tab: { layoutPreviewCallType?: GrpcCallType },
+  _tab: unknown,
   method?: Pick<GrpcMethodInfo, 'callType'>,
 ): GrpcCallType {
-  return method?.callType ?? tab.layoutPreviewCallType ?? 'unary';
+  return method?.callType ?? 'unary';
 }
 
 export function isExecutableMethod(method: GrpcMethodInfo): boolean {

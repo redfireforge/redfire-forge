@@ -299,25 +299,31 @@ describe('grpcWorkflowStreamCollector coverage gaps', () => {
     expect(result.stopReason).toBe('stream_end');
   });
 
-  it('uses default fetchEvents transport when deps omit fetch override', async () => {
+  it('uses openStreamEvents transport when deps omit fetch override', async () => {
     const cancelStream = vi.fn(async () => undefined);
     const startStream = vi.fn(async () => ({
       ok: true as const,
       op: 'stream_start' as const,
       data: { streamId: 'stream-default-fetch' },
     }));
-    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('default fetch failed'));
+    const openStreamEvents = vi.fn((_streamId: string, _tabId: string, handlers: {
+      onEvent: (event: unknown) => void;
+      onStateChange: (state: 'open' | 'closed') => void;
+    }) => {
+      handlers.onEvent({ type: 'grpc-end', status: 0, statusMessage: 'OK' });
+      handlers.onStateChange('closed');
+      return () => undefined;
+    });
 
     const result = await collectGrpcWorkflowServerStream(
       request,
       'workflow:node-default-fetch',
       {},
-      { deps: { startStream, cancelStream } },
+      { deps: { startStream, cancelStream, openStreamEvents } },
     );
 
-    expect(fetchSpy).toHaveBeenCalled();
-    expect(result.stopReason).toBe('transport_error');
-    fetchSpy.mockRestore();
+    expect(openStreamEvents).toHaveBeenCalled();
+    expect(result.stopReason).toBe('stream_end');
   });
 
   it('breaks the SSE loop when controller aborts between frames', async () => {

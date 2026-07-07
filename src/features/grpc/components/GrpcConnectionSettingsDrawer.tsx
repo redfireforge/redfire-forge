@@ -137,6 +137,14 @@ export function GrpcConnectionSettingsDrawer({
       showExpandButton={false}
       showResizeHandles={false}
       disableDrag={false}
+      dragAnchor={{
+        selector: '[data-testid="grpc-target-input"]',
+        hAlign: 'right',
+        vAlign: 'top',
+        padding: {
+          right: -210,
+        },
+      }}
       constrainDragToViewport
       dragViewportPadding={8}
       closeButtonKind="none"

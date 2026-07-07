@@ -151,21 +151,20 @@ describe('GrpcService call/cancel', () => {
       );
     });
 
-    it('auth panel overrides conflicting authorization metadata on unary call (Phase 4A)', async () => {
-      await service.call({
+    it('returns validation error when auth conflicts with manual authorization metadata on unary call (Phase 4A)', async () => {
+      const envelope = await service.call({
         ...FIXTURE_UNARY_CALL_REQUEST,
         requestId: 'req-auth-precedence-unary',
         metadata: { authorization: 'Bearer manual-token' },
         auth: { type: 'bearer', bearerToken: 'panel-token' },
       }, 'tab-1');
 
-      expect(mockClient.invokeUnary).toHaveBeenCalledWith(
-        expect.objectContaining({
-          metadata: expect.objectContaining({
-            authorization: 'Bearer panel-token',
-          }),
-        }),
-      );
+      expect(envelope.ok).toBe(false);
+      if (!envelope.ok) {
+        expect(envelope.error.code).toBe(GRPC_ERROR_CODES.INVALID_REQUEST);
+        expect(envelope.error.message).toMatch(/auth metadata conflicts/i);
+      }
+      expect(mockClient.invokeUnary).not.toHaveBeenCalled();
     });
 
     it('merges oauth2 auth into unary metadata via server-side token acquisition (Phase 4D)', async () => {

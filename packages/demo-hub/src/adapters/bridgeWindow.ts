@@ -2,9 +2,12 @@
 
 import type { GlobalAuthProfile } from '@shared/types';
 import type { GqlTlsSettings } from '@shared/types/gqlTls';
+import type { GrpcGrpcurlExportContext } from '@grpc/utils/grpcGrpcurlTypes';
 
 export type DemoBridgeWindow = Window &
   typeof globalThis & {
+    __demoPatchGrpcActiveTab?: (patch: { grpcurlExportContext?: GrpcGrpcurlExportContext }) => boolean;
+    __demoResetGrpcActiveTab?: () => boolean;
     __demoCollapseAppSidebar?: () => void;
     __demoExpandAppSidebar?: () => void;
     __demoUpsertGlobalAuthProfile?: (profile: GlobalAuthProfile) => void;
@@ -17,6 +20,8 @@ export type DemoBridgeWindow = Window &
     __demoSetGqlModalLock?: (lock: { envAllowed: boolean; profileAllowed: boolean }) => void;
     __demoOpenGqlProfileModal?: () => boolean;
     __demoDeleteGqlEnvByName?: (name: string) => void;
+    __demoUpsertWorkspaceDefaults?: (patch: Record<string, string>) => void;
+    __demoRemoveWorkspaceDefaults?: (keys: string[]) => void;
     __demoResetGqlBatchDetection?: () => boolean;
     __wfDeleteByName?: (name: string) => void;
     /** Fit the Results Explorer replay canvas to all nodes (demo lessons). */

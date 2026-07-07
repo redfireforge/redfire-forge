@@ -15,6 +15,13 @@ const STRING_FIELD: GrpcFieldSchema = {
   label: 'repeated',
 };
 
+const INT_FIELD: GrpcFieldSchema = {
+  name: 'counts',
+  number: 11,
+  type: 'int32',
+  label: 'repeated',
+};
+
 const MAP_FIELD: GrpcFieldSchema = {
   name: 'labels',
   number: 2,
@@ -56,7 +63,10 @@ describe('GrpcProtoRepeatedMapRows coverage gaps', () => {
 
     render(<RepeatedHarness />);
     expect(screen.queryByTestId('grpc-proto-field-input-pick.tags-0')).toBeNull();
-    fireEvent.click(screen.getByText('+ Add item'));
+    fireEvent.change(screen.getByTestId('grpc-proto-repeated-token-input-pick.tags'), {
+      target: { value: 'alpha' },
+    });
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-add-pick.tags'));
     expect(screen.getByTestId('grpc-proto-field-input-pick.tags-0')).toBeTruthy();
     expect(onFieldError).toHaveBeenCalledWith(false);
   });
@@ -75,6 +85,8 @@ describe('GrpcProtoRepeatedMapRows coverage gaps', () => {
       />,
     );
 
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-expand-all-items'));
+
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-items-0'), {
       target: { value: 'not-json' },
     });
@@ -87,10 +99,10 @@ describe('GrpcProtoRepeatedMapRows coverage gaps', () => {
 
   it('reindexes repeated item errors when removing an earlier row', () => {
     function RepeatedHarness() {
-      const [value, setValue] = useState<unknown>(['a', 'b']);
+      const [value, setValue] = useState<unknown>([1, 2]);
       return (
         <GrpcProtoRepeatedFieldRow
-          field={STRING_FIELD}
+          field={INT_FIELD}
           value={value}
           onChange={setValue}
           onFieldError={vi.fn()}
@@ -99,17 +111,17 @@ describe('GrpcProtoRepeatedMapRows coverage gaps', () => {
     }
 
     render(<RepeatedHarness />);
-    fireEvent.change(screen.getByTestId('grpc-proto-field-input-tags-1'), { target: { value: 'bad' } });
-    fireEvent.click(screen.getByLabelText('Remove tags item 1'));
-    expect(screen.queryByTestId('grpc-proto-field-input-tags-1')).toBeNull();
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-counts-1'), { target: { value: 'bad' } });
+    fireEvent.click(screen.getByLabelText('Remove counts item 1'));
+    expect(screen.queryByTestId('grpc-proto-field-input-counts-1')).toBeNull();
   });
 
   it('drops repeated row errors when removing the invalid row itself', () => {
     function RepeatedHarness() {
-      const [value, setValue] = useState<unknown>(['only']);
+      const [value, setValue] = useState<unknown>([1]);
       return (
         <GrpcProtoRepeatedFieldRow
-          field={STRING_FIELD}
+          field={INT_FIELD}
           value={value}
           onChange={setValue}
         />
@@ -117,9 +129,9 @@ describe('GrpcProtoRepeatedMapRows coverage gaps', () => {
     }
 
     render(<RepeatedHarness />);
-    fireEvent.change(screen.getByTestId('grpc-proto-field-input-tags-0'), { target: { value: '' } });
-    fireEvent.click(screen.getByLabelText('Remove tags item 1'));
-    expect(screen.queryByTestId('grpc-proto-field-input-tags-0')).toBeNull();
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-counts-0'), { target: { value: 'bad' } });
+    fireEvent.click(screen.getByLabelText('Remove counts item 1'));
+    expect(screen.queryByTestId('grpc-proto-field-input-counts-0')).toBeNull();
   });
 
   it('coerces non-object map values to empty maps', () => {
@@ -217,5 +229,44 @@ describe('GrpcProtoRepeatedMapRows coverage gaps', () => {
 
     fireEvent.click(screen.getByLabelText('Remove labels entry 2'));
     expect(onChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('commits repeated string draft on blur and keeps draft when empty', () => {
+    function RepeatedHarness() {
+      const [value, setValue] = useState<unknown>([]);
+      return (
+        <GrpcProtoRepeatedFieldRow
+          field={STRING_FIELD}
+          value={value}
+          onChange={setValue}
+        />
+      );
+    }
+
+    render(<RepeatedHarness />);
+    const tokenInput = screen.getByTestId('grpc-proto-repeated-token-input-tags');
+    fireEvent.change(tokenInput, { target: { value: 'blur-item' } });
+    fireEvent.blur(tokenInput);
+    expect(screen.getByTestId('grpc-proto-field-input-tags-0')).toBeTruthy();
+
+    fireEvent.change(tokenInput, { target: { value: '   ' } });
+    fireEvent.blur(tokenInput);
+    expect(screen.queryByTestId('grpc-proto-field-input-tags-1')).toBeNull();
+  });
+
+  it('focuses repeated token input when add is clicked with empty draft', () => {
+    render(
+      <GrpcProtoRepeatedFieldRow
+        field={STRING_FIELD}
+        value={[]}
+        onChange={vi.fn()}
+      />,
+    );
+
+    const tokenInput = screen.getByTestId('grpc-proto-repeated-token-input-tags') as HTMLInputElement;
+    const focusSpy = vi.spyOn(tokenInput, 'focus');
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-add-tags'));
+    expect(focusSpy).toHaveBeenCalled();
+    focusSpy.mockRestore();
   });
 });

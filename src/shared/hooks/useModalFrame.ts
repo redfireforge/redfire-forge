@@ -1,5 +1,5 @@
-import type { CSSProperties } from 'react';
-import { useModalDrag } from './useModalDrag';
+import { useEffect, useRef, type CSSProperties } from 'react';
+import { useModalDrag, type ModalDragAnchor } from './useModalDrag';
 import { useModalExpand, type ExpandMode } from './useModalExpand';
 import { useModalResize } from './useModalResize';
 
@@ -11,6 +11,7 @@ interface UseModalFrameOptions {
   minHeight?: number;
   constrainDragToViewport?: boolean;
   dragViewportPadding?: number;
+  dragAnchor?: ModalDragAnchor;
 }
 
 /**
@@ -25,9 +26,11 @@ export function useModalFrame({
   minHeight,
   constrainDragToViewport = false,
   dragViewportPadding = 8,
+  dragAnchor,
 }: UseModalFrameOptions = {}) {
   const { expanded, setExpanded, toggleExpand, expandClass } = useModalExpand(initialExpanded, expandMode);
   const dragEnabled = !expanded;
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const {
     onDragStart,
     onPointerDragStart,
@@ -36,10 +39,18 @@ export function useModalFrame({
     overlayStyle: draggedOverlayStyle,
     modalStyle,
   } = useModalDrag(open && dragEnabled, {
+    anchor: dragAnchor,
+    modalRef: dialogRef,
     constrainToViewport: constrainDragToViewport,
     viewportPadding: dragViewportPadding,
   });
   const { resizeStyle, onRightEdge, onCorner, onBottomEdge, resetSize } = useModalResize(minWidth, minHeight);
+
+  useEffect(() => {
+    if (!open) {
+      resetSize();
+    }
+  }, [open, resetSize]);
 
   const isDragged = rawDragged && dragEnabled;
   const overlayStyle = isDragging ? draggedOverlayStyle : undefined;
@@ -59,6 +70,7 @@ export function useModalFrame({
     headerDragStyle,
     onHeaderMouseDown,
     onHeaderPointerDown,
+    dialogRef,
     resizeStyle,
     onRightEdge,
     onCorner,

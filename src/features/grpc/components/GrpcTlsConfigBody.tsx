@@ -15,13 +15,18 @@ const TLS_MODE_OPTIONS: Array<{ value: GrpcTlsMode; label: string; hint: string;
   { value: 'mtls', label: 'mTLS', hint: 'Mutual TLS — client cert + key required', icon: '🛡' },
 ];
 
+export type GrpcTlsTestResult = {
+  message: string;
+  ok: boolean;
+};
+
 export interface GrpcTlsConfigBodyProps {
   tlsMode: GrpcTlsMode;
   tlsConfig: GrpcTlsConfig | undefined;
   issues: GrpcTlsValidationIssue[];
   maskedSecretFields?: GrpcMaskedSecretFields['tls'];
   disabled?: boolean;
-  testResult?: string | null;
+  testResult?: GrpcTlsTestResult | null;
   onTlsModeChange: (mode: GrpcTlsMode) => void;
   onTlsConfigChange: (patch: Partial<GrpcTlsConfig>) => void;
   onUnmaskSecretField?: (field: GrpcTlsSecretFieldKey) => void;
@@ -240,8 +245,12 @@ export function GrpcTlsConfigBody({
       )}
 
       {testResult && (
-        <p className="grpc-tls-test-result" data-testid="grpc-tls-test-result" role="status">
-          {testResult}
+        <p
+          className={`grpc-tls-test-result grpc-tls-test-result--${testResult.ok ? 'ok' : 'fail'}`}
+          data-testid="grpc-tls-test-result"
+          role="status"
+        >
+          {testResult.message}
         </p>
       )}
 

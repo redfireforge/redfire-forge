@@ -51,6 +51,20 @@ export function deleteGqlEnvironmentByName(name: string): void {
   getDemoBridgeWindow().__demoDeleteGqlEnvByName?.(name);
 }
 
+export function upsertWorkspaceDefaults(patch: Record<string, string>): boolean {
+  const bridge = getDemoBridgeWindow().__demoUpsertWorkspaceDefaults;
+  if (!bridge) return false;
+  bridge(patch);
+  return true;
+}
+
+export function removeWorkspaceDefaults(keys: string[]): boolean {
+  const bridge = getDemoBridgeWindow().__demoRemoveWorkspaceDefaults;
+  if (!bridge) return false;
+  bridge(keys);
+  return true;
+}
+
 /**
  * Clear cached "batch unsupported" for the demo server — live Studio state when mounted,
  * plus persisted per-connection detection keys in storage.

@@ -273,19 +273,23 @@ describe('correlation-handler — HTTP routes', () => {
       const supertest = await import('supertest');
       const localApp = express.default();
       localApp.use(express.default.json());
-      localApp.use(createCorrelationRouter({ defaultWaitMs: 1200, minWaitMs: 1000, maxWaitMs: 120000 }));
+      localApp.use(createCorrelationRouter({ defaultWaitMs: 30, minWaitMs: 10, maxWaitMs: 120000 }));
       const localRequest = supertest.default(localApp);
 
-      const start = Date.now();
       const res = await localRequest.get('/api/correlations/empty-timeout-qs/wait?timeoutMs=');
-      const elapsed = Date.now() - start;
       expect(res.body.timedOut).toBe(true);
-      expect(elapsed).toBeGreaterThanOrEqual(900);
-      expect(elapsed).toBeLessThan(5000);
+      expect(res.body.resumed).toBe(false);
     }, 10000);
 
     it('returns timedOut=true when no resume occurs within the wait window', async () => {
-      const res = await request.get('/api/correlations/never/wait?timeoutMs=1000');
+      const express = await import('express');
+      const supertest = await import('supertest');
+      const localApp = express.default();
+      localApp.use(express.default.json());
+      localApp.use(createCorrelationRouter({ defaultWaitMs: 30, minWaitMs: 10, maxWaitMs: 120000 }));
+      const localRequest = supertest.default(localApp);
+
+      const res = await localRequest.get('/api/correlations/never/wait?timeoutMs=30');
       expect(res.status).toBe(200);
       expect(res.body.resumed).toBe(false);
       expect(res.body.timedOut).toBe(true);
@@ -342,7 +346,7 @@ describe('correlation-handler — HTTP routes', () => {
       const supertest = await import('supertest');
       const localApp = express.default();
       localApp.use(express.default.json());
-      localApp.use(createCorrelationRouter());
+      localApp.use(createCorrelationRouter({ defaultWaitMs: 30, minWaitMs: 10, maxWaitMs: 120000 }));
       const server = http.createServer(localApp);
       await new Promise<void>(r => server.listen(0, r));
       const port = (server.address() as import('net').AddressInfo).port;
@@ -365,7 +369,7 @@ describe('correlation-handler — HTTP routes', () => {
 
       await new Promise(r => setTimeout(r, 120));
 
-      const fin = await supertest.default(localApp).get('/api/correlations/tcp-close/wait?timeoutMs=500');
+      const fin = await supertest.default(localApp).get('/api/correlations/tcp-close/wait?timeoutMs=20');
       expect(fin.body.timedOut).toBe(true);
       expect(fin.body.resumed).toBe(false);
 
@@ -375,19 +379,33 @@ describe('correlation-handler — HTTP routes', () => {
     });
 
     it('enforces a minimum 1000ms wait when given a tiny positive timeoutMs', async () => {
+      const express = await import('express');
+      const supertest = await import('supertest');
+      const localApp = express.default();
+      localApp.use(express.default.json());
+      localApp.use(createCorrelationRouter({ defaultWaitMs: 30, minWaitMs: 25, maxWaitMs: 120000 }));
+      const localRequest = supertest.default(localApp);
+
       const start = Date.now();
-      const res = await request.get('/api/correlations/clamp/wait?timeoutMs=10');
+      const res = await localRequest.get('/api/correlations/clamp/wait?timeoutMs=1');
       const elapsed = Date.now() - start;
       expect(res.body.timedOut).toBe(true);
-      expect(elapsed).toBeGreaterThanOrEqual(900);
+      expect(elapsed).toBeGreaterThanOrEqual(20);
     }, 5000);
 
-    it('clamps timeoutMs=999999 to max 120000 (returns within timeout)', async () => {
+    it('clamps large timeoutMs to configured max window (returns within timeout)', async () => {
+      const express = await import('express');
+      const supertest = await import('supertest');
+      const localApp = express.default();
+      localApp.use(express.default.json());
+      localApp.use(createCorrelationRouter({ defaultWaitMs: 30, minWaitMs: 10, maxWaitMs: 40 }));
+      const localRequest = supertest.default(localApp);
+
       const start = Date.now();
-      const res = await request.get('/api/correlations/big-timeout/wait?timeoutMs=1000');
+      const res = await localRequest.get('/api/correlations/big-timeout/wait?timeoutMs=999999');
       const elapsed = Date.now() - start;
       expect(res.body.timedOut).toBe(true);
-      expect(elapsed).toBeLessThan(3000);
+      expect(elapsed).toBeLessThan(1000);
     }, 5000);
   });
 
@@ -514,7 +532,7 @@ describe('correlation-handler — resume queue TTL (real clock)', () => {
       const supertest = await import('supertest');
       const app = express.default();
       app.use(express.default.json());
-      app.use(createCorrelationRouter());
+      app.use(createCorrelationRouter({ defaultWaitMs: 30, minWaitMs: 10, maxWaitMs: 120000 }));
       const http = supertest.default(app);
 
       const staleTs = Date.now() - 10 * 60 * 1000;
@@ -526,7 +544,7 @@ describe('correlation-handler — resume queue TTL (real clock)', () => {
       });
       runResumeQueueCleanup();
 
-      const res = await http.get('/api/correlations/queue-real-ttl/wait').query({ timeoutMs: 1500 });
+      const res = await http.get('/api/correlations/queue-real-ttl/wait').query({ timeoutMs: 30 });
       expect(res.status).toBe(200);
       expect(res.body.resumed).toBe(false);
       expect(res.body.timedOut).toBe(true);

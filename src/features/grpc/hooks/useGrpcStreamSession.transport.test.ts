@@ -179,6 +179,29 @@ describe('useGrpcStreamSession transport fallback (Phase 7F)', () => {
     expect(isGrpcExpressFallbackOffered(sessionRef.current.tabs[0]?.streamError)).toBe(true);
   });
 
+  it('forwards a transportMode override straight to prepareExecuteSnapshot (GRPC-19 regression)', async () => {
+    // retryStreamWithExpress passes { transportMode: 'express' } as an override rather than
+    // relying on the tab's own (possibly not-yet-committed) transportMode field — mirrors the
+    // unary retry fix. Verify startStreamCall actually threads the override through.
+    const { hook, tabId, prepareExecuteSnapshot } = makeHarness('grpc-web');
+    vi.mocked(grpcStreamClient.startGrpcStream).mockResolvedValue({
+      ok: true,
+      op: 'stream_start',
+      data: { streamId: 'stream-1', requestId: 'req-1' },
+      meta: { requestId: 'req-1', timestamp: '2026-01-01T00:00:00.000Z' },
+    });
+
+    await act(async () => {
+      await hook.result.current.startStreamCall(tabId, { transportMode: 'express' });
+    });
+
+    expect(prepareExecuteSnapshot).toHaveBeenCalledWith(
+      tabId,
+      expect.any(String),
+      expect.objectContaining({ transportMode: 'express' }),
+    );
+  });
+
   it('does not offer Express fallback for browser server_status stream failures (Phase 10E)', async () => {
     const { hook, tabId, sessionRef } = makeHarness('grpc-web');
     vi.mocked(grpcStreamClient.startGrpcStream).mockRejectedValue(

@@ -1,0 +1,29 @@
+syntax = "proto3";
+
+// Non-standard package/service name (`health.v1.Health` instead of the
+// canonical `grpc.health.v1.Health`) so RedfireForge's own reflection
+// filtering — which hides infra services under the `grpc.health.` prefix —
+// does not also hide this fixture's health service from the Service
+// Explorer. Mirrors the naming RedfireForge's Health Check panel expects
+// (see src/features/grpc/utils/grpcHealthProbe.ts).
+package health.v1;
+
+option java_multiple_files = true;
+
+message HealthCheckRequest {
+  string service = 1;
+}
+
+message HealthCheckResponse {
+  enum ServingStatus {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  ServingStatus status = 1;
+}
+
+service Health {
+  rpc Check (HealthCheckRequest) returns (HealthCheckResponse);
+  rpc Watch (HealthCheckRequest) returns (stream HealthCheckResponse);
+}

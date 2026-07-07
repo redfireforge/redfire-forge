@@ -24,6 +24,15 @@ export interface GrpcAuthValidationIssue {
   message: string;
 }
 
+function isGrpcAuthConflictStrict(auth: GrpcAuthConfig | undefined): boolean {
+  return Boolean(auth && auth.type !== 'none');
+}
+
+function formatAuthMetadataConflictError(conflicts: GrpcAuthMetadataConflict[]): string {
+  const keys = conflicts.map((entry) => entry.key).join(', ');
+  return `Auth metadata conflicts with manual metadata for key(s): ${keys}`;
+}
+
 export type GrpcMetadataMergeResult =
   | {
       ok: true;
@@ -43,6 +52,29 @@ function encodeBasicAuth(username: string, password: string): string {
     return globalThis.btoa(raw);
   }
   return Buffer.from(raw, 'utf8').toString('base64');
+}
+
+type LegacyGrpcApiKeyShape = {
+  apiKey?: {
+    key?: string;
+    name?: string;
+    value?: string;
+  };
+};
+
+function resolveGrpcApiKeyName(auth: GrpcAuthConfig): string | undefined {
+  const direct = auth.apiKeyName?.trim();
+  if (direct) return direct;
+  const legacy = (auth as GrpcAuthConfig & LegacyGrpcApiKeyShape).apiKey;
+  const legacyName = legacy?.key?.trim() || legacy?.name?.trim();
+  return legacyName || undefined;
+}
+
+function resolveGrpcApiKeyValue(auth: GrpcAuthConfig): string {
+  const direct = auth.apiKeyValue;
+  if (direct !== undefined) return direct;
+  const legacy = (auth as GrpcAuthConfig & LegacyGrpcApiKeyShape).apiKey;
+  return legacy?.value ?? '';
 }
 
 export function buildAuthMetadataHeaders(
@@ -82,8 +114,8 @@ export function buildAuthMetadataHeaders(
       };
     }
     case 'api_key': {
-      const name = auth.apiKeyName?.trim().toLowerCase();
-      const value = auth.apiKeyValue ?? '';
+      const name = resolveGrpcApiKeyName(auth)?.toLowerCase();
+      const value = resolveGrpcApiKeyValue(auth);
       if (!name) {
         return { ok: false, error: 'API key header name is required', field: 'auth.apiKeyName' };
       }
@@ -178,6 +210,9 @@ export function prepareGrpcExecuteRequestMetadata(
 ): Record<string, string> | undefined {
   if (auth?.type === 'oauth2') {
     const normalized = normalizeGrpcMetadata(manualMetadata);
+    if (isGrpcAuthConflictStrict(auth) && normalized.authorization !== undefined) {
+      throw new Error('Auth metadata conflicts with manual metadata for key(s): authorization');
+    }
     return Object.keys(normalized).length > 0 ? normalized : undefined;
   }
   const merged = mergeGrpcExecuteMetadata(manualMetadata, auth);
@@ -206,6 +241,14 @@ export function mergeGrpcExecuteMetadata(
       conflicts.push({ key, manualValue, authValue });
     }
     metadata[key] = authValue;
+  }
+
+  if (isGrpcAuthConflictStrict(auth) && conflicts.length > 0) {
+    return {
+      ok: false,
+      error: formatAuthMetadataConflictError(conflicts),
+      field: 'auth',
+    };
   }
 
   return {
@@ -239,8 +282,8 @@ export function validateGrpcAuthConfigContract(
       if (!auth.basicUsername?.trim()) push('auth.basicUsername', 'Basic auth username is required');
       break;
     case 'api_key':
-      if (!auth.apiKeyName?.trim()) push('auth.apiKeyName', 'API key header name is required');
-      if (!auth.apiKeyValue?.trim()) push('auth.apiKeyValue', 'API key value is required');
+      if (!resolveGrpcApiKeyName(auth)?.trim()) push('auth.apiKeyName', 'API key header name is required');
+      if (!resolveGrpcApiKeyValue(auth)?.trim()) push('auth.apiKeyValue', 'API key value is required');
       break;
     case 'oauth2':
       if (!auth.oauth2?.tokenUrl?.trim()) push('auth.oauth2.tokenUrl', 'OAuth2 token URL is required');

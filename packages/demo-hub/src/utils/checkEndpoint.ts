@@ -25,6 +25,17 @@ function loopbackProbeCandidates(url: string): string[] {
   return [url];
 }
 
+function isSpringActuatorHealthUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    const host = parsed.hostname.toLowerCase();
+    const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
+    return isLoopback && parsed.port === '8080' && parsed.pathname === '/actuator/health';
+  } catch {
+    return false;
+  }
+}
+
 /** Try an HTTP GET health check. Resolves true on any 2xx response. */
 async function checkHttp(url: string, timeoutMs: number): Promise<boolean> {
   const candidates = loopbackProbeCandidates(url);
@@ -88,6 +99,12 @@ function wsToHttpHealth(wsUrl: string): string {
  */
 export async function checkEndpoint(url: string, timeoutMs = 3000): Promise<boolean> {
   if (url.startsWith('http')) {
+    // Some environments block direct browser probes to Spring's actuator on :8080.
+    // Use the local Express server as a same-origin proxy health check first.
+    if (isSpringActuatorHealthUrl(url)) {
+      const proxied = await checkHttp('http://localhost:3001/health/spring', timeoutMs);
+      if (proxied) return true;
+    }
     return checkHttp(url, timeoutMs);
   }
 

@@ -18,11 +18,20 @@ describe('buildGrpcLessonShellFromRoster', () => {
   });
 
   it('maps express-only roster rows without docker tag', () => {
-    const tls = getGrpcLessonRosterEntry('grpc-tls')!;
-    const shell = buildGrpcLessonShellFromRoster(tls);
+    // grpc-mock-server is an express-proxy-only lesson (no Docker echo fixture).
+    const mock = getGrpcLessonRosterEntry('grpc-mock-server')!;
+    const shell = buildGrpcLessonShellFromRoster(mock);
     expect(shell.tag).toBeUndefined();
     expect(shell.dockerEndpoints?.some((u) => u.includes('3001'))).toBe(true);
     expect(shell.dockerCommand).toBe('npm run server');
+  });
+
+  it('maps go-echo docker rows with docker tag for grpc-tls', () => {
+    const tls = getGrpcLessonRosterEntry('grpc-tls')!;
+    const shell = buildGrpcLessonShellFromRoster(tls);
+    expect(shell.tag).toBe('🐳 Docker');
+    expect(shell.dockerEndpoints?.some((u) => u.includes('3001'))).toBe(true);
+    expect(shell.gateLabel).toBe('🐳 Local setup required');
   });
 
   it('buildGrpcContractMetaFromRoster copies roster grpc metadata for shipped lessons', () => {
