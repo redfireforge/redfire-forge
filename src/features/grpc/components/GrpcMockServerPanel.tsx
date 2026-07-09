@@ -84,8 +84,8 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
 
   return (
     <section className="grpc-advanced-panel" data-testid="grpc-mock-server-panel">
-      <header className="grpc-advanced-card__header">
-        <div>
+      <header className="grpc-advanced-card__header grpc-mock-header">
+        <div className="grpc-mock-header__content">
           <h2 className="grpc-advanced-card__title">Mock server runtime</h2>
           <p className="grpc-advanced-card__subtitle">
             Rule evaluator for tab {advanced.activeTabLabel}
@@ -93,6 +93,41 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
               ? ' — optional dialable endpoint for external clients and GRPC-13.'
               : ' — network listener requires the web companion server (npm run server).'}
           </p>
+
+          <div className="grpc-mock-header__meta" aria-label="Mock runtime context">
+            <span className="grpc-mock-header__meta-chip">
+              Tab: {advanced.activeTabLabel}
+            </span>
+            <span
+              className={`grpc-mock-header__meta-chip${networkSupported
+                ? ' grpc-mock-header__meta-chip--ok'
+                : ' grpc-mock-header__meta-chip--warn'}`}
+            >
+              {networkSupported ? 'Listener available' : 'Listener unavailable'}
+            </span>
+          </div>
+
+          <div className="grpc-mock-summary-row" aria-label="Mock runtime summary">
+            <div className={`grpc-mock-summary-card grpc-mock-summary-card--${status.variant}`}>
+              <span className="grpc-mock-summary-card__label">Runtime</span>
+              <span className="grpc-mock-summary-card__value">{status.label}</span>
+            </div>
+            <div className="grpc-mock-summary-card">
+              <span className="grpc-mock-summary-card__label">Rules</span>
+              <span className="grpc-mock-summary-card__value">
+                {enabledCount}/{ruleSet.rules.length} enabled
+              </span>
+            </div>
+            <div className="grpc-mock-summary-card">
+              <span className="grpc-mock-summary-card__label">Endpoint mode</span>
+              <span className="grpc-mock-summary-card__value">
+                {networkSupported
+                  ? (exposeNetwork ? 'External + internal' : 'Internal only')
+                  : 'Companion required'}
+              </span>
+            </div>
+          </div>
+
           {networkSupported && (
             <label className="grpc-mock-network-toggle">
               <input
@@ -106,7 +141,7 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
             </label>
           )}
         </div>
-        <div className="grpc-advanced-card__actions">
+        <div className="grpc-advanced-card__actions grpc-mock-header__actions">
           {listenerStatus?.listenTarget && (
             <div className="grpc-mock-listen-chip-row">
               <span className="grpc-advanced-chip" data-testid="grpc-mock-listen-target">
@@ -131,30 +166,34 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
               )}
             </div>
           )}
-          {!advanced.mockRunning ? (
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              data-testid="grpc-mock-start-btn"
-              onClick={advanced.startMockServer}
-              disabled={Boolean(advanced.mockServer.parseError)}
-            >
-              Start mock runtime
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-danger btn-sm"
-              data-testid="grpc-mock-stop-btn"
-              onClick={advanced.stopMockServer}
-            >
-              Stop
-            </button>
-          )}
+
+          <div className="grpc-mock-header__primary-actions">
+            {!advanced.mockRunning ? (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                data-testid="grpc-mock-start-btn"
+                onClick={advanced.startMockServer}
+                disabled={Boolean(advanced.mockServer.parseError)}
+              >
+                Start mock runtime
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-danger btn-sm"
+                data-testid="grpc-mock-stop-btn"
+                onClick={advanced.stopMockServer}
+              >
+                Stop
+              </button>
+            )}
+          </div>
         </div>
       </header>
 
       <div className="grpc-mock-authoring-tabs" role="tablist" aria-label="Mock authoring mode">
+        <span className="grpc-mock-authoring-tabs__label">Authoring</span>
         <button
           type="button"
           role="tab"
@@ -259,6 +298,10 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
               )}
             </div>
 
+            <p className="grpc-advanced-hint grpc-mock-runtime-hint">
+              Configure default latency and jitter to simulate service behavior before applying per-rule overrides.
+            </p>
+
             <div className="grpc-advanced-form-grid grpc-advanced-form-grid--two">
               <label className="grpc-advanced-field">
                 <span className="grpc-advanced-field__label">Default latency (ms)</span>
@@ -321,6 +364,12 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
                   ))}
                 </ul>
               </div>
+            )}
+
+            {networkSupported && advanced.mockRunning && listenerLogs.length === 0 && (
+              <p className="grpc-advanced-hint grpc-mock-runtime-hint">
+                Listener activity will appear here once external clients connect.
+              </p>
             )}
           </div>
 

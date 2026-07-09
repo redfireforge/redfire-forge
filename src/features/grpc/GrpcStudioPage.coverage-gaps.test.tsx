@@ -277,8 +277,8 @@ describe('GrpcStudioPage coverage gaps', () => {
       expect(screen.queryByTestId('grpc-proto-manage-modal')).toBeNull();
     });
 
-    fireEvent.click(screen.getByTestId('grpc-request-tab-json'));
-    expect((screen.getByTestId('grpc-request-json') as HTMLTextAreaElement).value).toContain('"message": "hello"');
+    fireEvent.click(screen.getByTestId('grpc-request-tab-form'));
+    expect((screen.getByTestId('grpc-proto-field-input-message') as HTMLInputElement).value).toBe('hello');
   });
 
   it('applies streaming timeout default when schema browser opens a streaming method in tab', async () => {

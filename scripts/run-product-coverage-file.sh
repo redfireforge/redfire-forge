@@ -45,6 +45,21 @@ do
   fi
 done
 
+shopt -s nullglob
+for extra in "$DIR/$STEM."*.test.ts "$DIR/$STEM."*.test.tsx "$DIR/$STEM"*.test.ts "$DIR/$STEM"*.test.tsx; do
+  [[ -f "$extra" ]] || continue
+  case "$extra" in
+    "$DIR/$STEM.test.ts"|"$DIR/$STEM.test.tsx"|"$DIR/$STEM.coverage-gaps.test.ts"|"$DIR/$STEM.coverage-gaps.test.tsx") continue ;;
+  esac
+  local_seen=0
+  for existing in "${TESTS[@]}"; do
+    [[ "$existing" == "$extra" ]] && local_seen=1 && break
+  done
+  [[ "$local_seen" -eq 1 ]] && continue
+  TESTS+=("$extra")
+done
+shopt -u nullglob
+
 if [[ ${#TESTS[@]} -eq 0 ]]; then
   echo "❌ No co-located tests found for $FILE" >&2
   echo "   Looked for: $DIR/$STEM.{test,coverage-gaps.test}.{ts,tsx}" >&2

@@ -89,7 +89,7 @@ describe('GrpcMockServerPanel coverage gaps', () => {
     expect(screen.getByTestId('grpc-mock-listener-log-log-1')).toBeTruthy();
   });
 
-  it('shows JSON tab parse and export errors', () => {
+  it('shows JSON editor parse and export errors', () => {
     render(
       <GrpcMockServerPanel
         advanced={buildAdvancedMock({

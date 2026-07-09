@@ -83,8 +83,7 @@ async function ensureStudioNav(ctx: DemoActionContext): Promise<void> {
 async function selectComplexMethodQuiet(ctx: DemoActionContext): Promise<void> {
   await guardGrpcReflectedQuiet(ctx);
   if (
-    document.querySelector(GRPC.CALL_METHOD_NAME)?.textContent?.includes(GRPC_COMPLEX_METHOD) &&
-    document.querySelector(GRPC.REQUEST_FORM_SCROLL)
+    document.querySelector(GRPC.CALL_METHOD_NAME)?.textContent?.includes(GRPC_COMPLEX_METHOD)
   ) {
     return;
   }

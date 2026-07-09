@@ -8,6 +8,7 @@ export type DemoBridgeWindow = Window &
   typeof globalThis & {
     __demoPatchGrpcActiveTab?: (patch: { grpcurlExportContext?: GrpcGrpcurlExportContext }) => boolean;
     __demoResetGrpcActiveTab?: () => boolean;
+    __demoGetGrpcActiveDescriptorKey?: () => string | null;
     __demoCollapseAppSidebar?: () => void;
     __demoExpandAppSidebar?: () => void;
     __demoUpsertGlobalAuthProfile?: (profile: GlobalAuthProfile) => void;
@@ -49,6 +50,7 @@ export type DemoBridgeWindow = Window &
     ) => boolean;
     __wfWorkflowsLoaded?: boolean;
     __wfOpenNodeConfig?: (nodeId: string) => void;
+    __wfFitView?: () => boolean;
     __wfDeselectAll?: () => void;
     __wfSetConsoleFloatLayout?: () => void;
     __wfConnect?: (

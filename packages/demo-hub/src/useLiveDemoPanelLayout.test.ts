@@ -147,4 +147,72 @@ describe('useLiveDemoPanelLayout', () => {
     expect(result.current.panelStyle.height).toBe(470);
     expect(result.current.panelStyle.top).toBe(370);
   });
+
+  it('resizes taller when dragging the bottom edge', () => {
+    const { result } = renderHook(() => useLiveDemoPanelLayout());
+    const panel = document.createElement('div');
+    Object.defineProperty(result.current.panelRef, 'current', { value: panel, writable: true });
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+      top: 400,
+      left: 800,
+      width: 400,
+      height: 440,
+      right: 1200,
+      bottom: 840,
+      x: 800,
+      y: 400,
+      toJSON: () => ({}),
+    });
+
+    act(() => {
+      result.current.onResizeMouseDown('bottom')({
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+        clientX: 900,
+        clientY: 840,
+      } as unknown as React.MouseEvent);
+    });
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 900, clientY: 870 }));
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+
+    expect(result.current.panelStyle.height).toBe(470);
+    expect(result.current.panelStyle.top).toBe(400);
+  });
+
+  it('resizes wider and taller when dragging the corner', () => {
+    const { result } = renderHook(() => useLiveDemoPanelLayout());
+    const panel = document.createElement('div');
+    Object.defineProperty(result.current.panelRef, 'current', { value: panel, writable: true });
+    vi.spyOn(panel, 'getBoundingClientRect').mockReturnValue({
+      top: 400,
+      left: 800,
+      width: 400,
+      height: 440,
+      right: 1200,
+      bottom: 840,
+      x: 800,
+      y: 400,
+      toJSON: () => ({}),
+    });
+
+    act(() => {
+      result.current.onResizeMouseDown('corner')({
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+        clientX: 1200,
+        clientY: 840,
+      } as unknown as React.MouseEvent);
+    });
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 1230, clientY: 870 }));
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+
+    expect(result.current.panelStyle.width).toBe(430);
+    expect(result.current.panelStyle.height).toBe(470);
+  });
 });

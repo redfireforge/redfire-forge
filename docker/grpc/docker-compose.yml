@@ -6,7 +6,7 @@
 #
 # Ports:
 #   50051 (plaintext), 50443 (TLS), 50444 (mTLS), 50055 (Envoy grpc-web),
-#   9090 (Spring gRPC), 8080 (Spring HTTP/actuator),
+#   9090 (Spring gRPC), 8081 (Spring HTTP/actuator),
 #   50061 (Go mock servicer gRPC), 50062 (Go mock servicer health/rules),
 #   50560 (OAuth2 mock token endpoint)
 services:
@@ -97,9 +97,9 @@ services:
       - spring
     ports:
       - "9090:9090"
-      - "8080:8080"
+      - "8081:8081"
     healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/actuator/health"]
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/actuator/health"]
       interval: 5s
       timeout: 5s
       retries: 20

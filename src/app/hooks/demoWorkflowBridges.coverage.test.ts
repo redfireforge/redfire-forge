@@ -30,6 +30,7 @@ describe('demo workflow bridges coverage', () => {
     delete w.__wfPatchNodeDataById;
     delete w.__wfSyncLiveWorkflowFromPatch;
     delete w.__wfResetRunState;
+    delete w.__wfQuickTest;
     delete w.__wfCloseConfigModal;
   });
 
@@ -152,11 +153,16 @@ describe('demo workflow bridges coverage', () => {
   it('covers run/config modal bridge helpers', () => {
     const reset = vi.fn();
     const clear = vi.fn();
-    renderHook(() => useDemoWorkflowRunBridge(reset, clear));
+    const quickTest = vi.fn();
+    renderHook(() => useDemoWorkflowRunBridge(reset, clear, quickTest));
 
     expect(resetDemoWorkflowRunState()).toBe(true);
     expect(reset).toHaveBeenCalledTimes(1);
     expect(clear).toHaveBeenCalledTimes(1);
+
+    const quickBridge = (window as unknown as Record<string, () => void>).__wfQuickTest;
+    quickBridge();
+    expect(quickTest).toHaveBeenCalledTimes(1);
 
     delete (window as unknown as Record<string, unknown>).__wfResetRunState;
     expect(resetDemoWorkflowRunState()).toBe(false);

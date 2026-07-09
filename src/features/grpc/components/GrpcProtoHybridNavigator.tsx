@@ -22,13 +22,6 @@ function entryId(path: string): string {
   return path.replace(/[^a-zA-Z0-9_-]/g, '-');
 }
 
-export function buildHybridNavigatorPaths(schema: GrpcMessageSchema): string[] {
-  const { regular, oneofGroups } = groupMessageFields(schema.fields);
-  const regularPaths = regular.map((field) => `field:${field.name}`);
-  const oneofPaths = [...oneofGroups.keys()].map((groupName) => `oneof:${groupName}`);
-  return [...regularPaths, ...oneofPaths];
-}
-
 export const GrpcProtoHybridNavigator = memo(function GrpcProtoHybridNavigatorImpl({
   schema,
   selectedPath,

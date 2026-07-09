@@ -54,7 +54,12 @@ export function renderMarkdown(text: string): string {
     return `__CODEBLOCK_${codeBlocks.length - 1}__`;
   });
 
-  const rendered = withPlaceholders
+  // Some lesson copy was authored with literal "\\n" sequences in prose.
+  // Normalize those into real line breaks after fenced code extraction so
+  // code samples preserve their original escaped content.
+  const normalizedText = withPlaceholders.replace(/\\n/g, '\n');
+
+  const rendered = normalizedText
     .split('\n\n')
     .map(paragraph => {
       // If this paragraph is just a code block placeholder, pass it through unchanged

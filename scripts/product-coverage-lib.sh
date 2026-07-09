@@ -11,12 +11,12 @@ product_coverage_batch_for_path() {
   case "$path" in
     src/shared/*) echo shared ;;
     src/features/*) echo features ;;
-    src/app/*|src/data/*|src/engine/*|src/config/*) echo app ;;
+    src/app/*|src/data/*|src/engine/*|src/config/*|src/*) echo app ;;
     src-server/*|cli/*) echo server ;;
     *)
       echo "Cannot infer coverage batch for: $path" >&2
       echo "Expected prefix: src/shared, src/features, src/app, src/data," >&2
-      echo "src/engine, src/config, src-server, or cli" >&2
+      echo "src/engine, src/config, src/*, src-server, or cli" >&2
       return 1
       ;;
   esac
@@ -28,7 +28,7 @@ product_coverage_batch_default_paths() {
   case "$batch" in
     shared) echo "src/shared" ;;
     features) echo "src/features" ;;
-    app) echo "src/app src/data src/engine src/config" ;;
+    app) echo "src/app src/data src/engine src/config src/test-utils src/suppressResizeObserverError.test.ts" ;;
     server) echo "src-server cli" ;;
     *)
       echo "Unknown batch: $batch — use shared, features, app, or server" >&2

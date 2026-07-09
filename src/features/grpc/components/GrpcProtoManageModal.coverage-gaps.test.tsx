@@ -574,4 +574,144 @@ describe('GrpcProtoManageModal coverage gaps', () => {
       ]),
     }));
   });
+
+  it('restores ingest snapshot when escape closes the modal', () => {
+    const onIngestChange = vi.fn();
+    const onClose = vi.fn();
+    const ingest = createDefaultProtoIngestState();
+
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={ingest}
+        onIngestChange={onIngestChange}
+        onClose={onClose}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-bsr'));
+    fireEvent.change(screen.getByTestId('grpc-proto-bsr-module-input'), {
+      target: { value: 'buf.build/acme/echo' },
+    });
+    fireEvent.keyDown(window, { key: 'Escape' });
+
+    expect(onIngestChange).toHaveBeenCalledWith(ingest);
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('clones ingest snapshot without structuredClone when unavailable', () => {
+    const originalStructuredClone = globalThis.structuredClone;
+    Object.defineProperty(globalThis, 'structuredClone', {
+      configurable: true,
+      value: undefined,
+    });
+
+    try {
+      expect(() => render(
+        <GrpcProtoManageModal
+          {...baseProps}
+          ingest={{
+            ...createDefaultProtoIngestState(),
+            bsrModule: 'acme/echo',
+          }}
+        />,
+      )).not.toThrow();
+    } finally {
+      Object.defineProperty(globalThis, 'structuredClone', {
+        configurable: true,
+        value: originalStructuredClone,
+      });
+    }
+  });
+
+  it('resets selected root id when proto roots are temporarily empty', () => {
+    const ensureSpy = vi.spyOn(ingestUtils, 'ensureProtoRootsDraft').mockReturnValue([]);
+
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={createDefaultProtoIngestState()}
+      />,
+    );
+
+    ensureSpy.mockRestore();
+  });
+
+  it('switches back to proto files tab from another source tab', () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{ ...createDefaultProtoIngestState(), source: 'bsr' }}
+        onIngestChange={onIngestChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-bsr'));
+    fireEvent.click(screen.getByTestId('grpc-proto-tab-proto-files'));
+    expect(onIngestChange).toHaveBeenCalledWith({ source: 'proto_files' });
+    expect(screen.getByTestId('grpc-proto-upload-zone')).toBeTruthy();
+  });
+
+  it('shows protoset binary size for padded base64 payloads', () => {
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          source: 'protoset',
+          protosetFileName: 'padded.pb',
+          protosetBase64: 'YWI=',
+        }}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-proto-protoset-meta').textContent).toMatch(/Binary size/i);
+  });
+
+  it('shows collision warnings for duplicate basenames in the selected root', () => {
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [
+            {
+              id: 'r1',
+              mountPath: 'shared',
+              files: [{ path: 'echo.proto', content: 'syntax = "proto3";' }],
+            },
+            {
+              id: 'r2',
+              mountPath: 'vendor',
+              files: [{ path: 'echo.proto', content: 'syntax = "proto3";' }],
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-root-item-r1'));
+    expect(screen.getByTestId('grpc-proto-collision-warnings')).toBeTruthy();
+  });
+
+  it('recreates the default root after removing the last virtual root', () => {
+    const onIngestChange = vi.fn();
+    render(
+      <GrpcProtoManageModal
+        {...baseProps}
+        ingest={{
+          ...createDefaultProtoIngestState(),
+          protoRoots: [{ id: 'only-root', mountPath: 'vendor', files: [] }],
+        }}
+        onIngestChange={onIngestChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-root-remove-only-root'));
+    expect(onIngestChange).toHaveBeenCalledWith(expect.objectContaining({
+      source: 'proto_files',
+      protoRoots: [expect.objectContaining({ mountPath: 'root' })],
+    }));
+  });
 });

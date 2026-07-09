@@ -17,6 +17,8 @@ import { RemoteCorrelationStore } from '../engine/remoteCorrelationStore';
 import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOperations';
 import { buildWsNodeOperations } from '../../../shared/websocket/buildWsNodeOperations';
 import { buildGrpcNodeOperations } from '../../../shared/grpc/buildGrpcNodeOperations';
+import { loadGrpcConnectionProfilesFromStorage } from '../../../engine/grpcConnectionProfileHydration';
+import { loadGlobalAuthProfiles } from '../../../shared/utils/storage';
 import { stripTrailingSlash } from '../utils/workflowHostResolve';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
 import { buildQuickTestFailureReport, filterQuickTestVariableSnapshot, isExecutableWorkflowNodeType } from '../utils/workflowRunErrors';
@@ -284,12 +286,20 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
       if (bu) envLayer.baseUrl = stripTrailingSlash(bu);
     }
 
-    runGraph(
+    void (async () => {
+      const grpcWorkflowExecutionRuntime = workflowGraphHasGrpcNodes(wfNodes)
+        ? {
+            profiles: loadGrpcConnectionProfilesFromStorage(),
+            globalAuthProfiles: await loadGlobalAuthProfiles(),
+          }
+        : undefined;
+
+      await runGraph(
       wfNodes,
       wfEdges,
       liveWorkflowVariables,
       callbacks,
-      abortRef.current.signal,
+      abortRef.current!.signal,
       envLayer,
       resolveHttpBaseUrlForGraph,
       resolveHttpAuthForGraph,
@@ -318,7 +328,9 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
       buildKafkaNodeOperations(),
       buildWsNodeOperations(),
       buildGrpcNodeOperations(),
-    ).catch(() => {
+      grpcWorkflowExecutionRuntime,
+    );
+    })().catch(() => {
       // If the user already stopped the run, don't override with 'fail'
       if (abortRef.current?.signal.aborted) return;
       setIsRunning(false);

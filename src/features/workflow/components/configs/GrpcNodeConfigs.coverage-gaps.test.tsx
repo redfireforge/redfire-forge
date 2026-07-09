@@ -3,7 +3,7 @@
  */
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, fireEvent, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import GrpcAssertConfig from './GrpcAssertConfig';
 import GrpcLoadTestConfig from './GrpcLoadTestConfig';
@@ -12,8 +12,53 @@ import GrpcUnaryConfig from './GrpcUnaryConfig';
 import GrpcServerStreamConfig from './GrpcServerStreamConfig';
 import GrpcSchemaDiffConfig from './GrpcSchemaDiffConfig';
 
+vi.mock('../../hooks/useGrpcWorkflowTargetReflection', () => ({
+  useGrpcWorkflowTargetReflection: () => ({
+    descriptor: null,
+    services: [],
+    status: 'idle',
+    errorMessage: undefined,
+    reflectNow: vi.fn(),
+  }),
+}));
+
+vi.mock('../../../../engine/grpcConnectionProfileHydration', () => ({
+  loadGrpcConnectionProfilesFromStorage: () => [],
+}));
+
+vi.mock('../../../../shared/grpc/targetValidation', () => ({
+  validateResolvedGrpcTargetAddress: () => ({ valid: true }),
+}));
+
+vi.mock('../../utils/grpcWorkflowReflection', () => ({
+  buildGrpcWorkflowReflectionPatch: () => ({}),
+  listGrpcWorkflowMethods: () => [],
+}));
+
+vi.mock('./GrpcWorkflowConnectionSecurityFields', () => ({
+  default: () => null,
+}));
+
 function getTextareas(container: HTMLElement): HTMLTextAreaElement[] {
   return Array.from(container.querySelectorAll('textarea')) as HTMLTextAreaElement[];
+}
+
+function textareaByLabel(container: HTMLElement, labelText: string): HTMLTextAreaElement {
+  const label = Array.from(container.querySelectorAll('label')).find((l) => l.textContent?.trim() === labelText);
+  const control = label?.parentElement?.querySelector('textarea');
+  if (!control) {
+    throw new Error(`Could not find textarea for label "${labelText}"`);
+  }
+  return control as HTMLTextAreaElement;
+}
+
+function rowControl<T extends HTMLElement>(container: HTMLElement, labelText: string, selector: string): T {
+  const label = Array.from(container.querySelectorAll('label')).find((l) => l.textContent?.trim() === labelText);
+  const control = label?.parentElement?.querySelector(selector);
+  if (!control) {
+    throw new Error(`Could not find ${selector} for label "${labelText}"`);
+  }
+  return control as T;
 }
 
 describe('Grpc node config coverage gaps', () => {
@@ -80,72 +125,71 @@ describe('Grpc node config coverage gaps', () => {
       loadTest: { concurrency: 1, totalCalls: 10 },
     } as any;
     const { container, rerender } = render(<GrpcLoadTestConfig data={data} onChange={onChange} />);
+    const prefix = 'grpc-load-test-config';
 
-    const inputs = Array.from(container.querySelectorAll('input')) as HTMLInputElement[];
-    fireEvent.change(inputs[0], { target: { value: 'load-2' } });
+    fireEvent.change(container.querySelector('.wf-config-body > .wf-config-field--row input')!, { target: { value: 'load-2' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ label: 'load-2' }));
 
-    fireEvent.change(inputs[1], { target: { value: 'localhost:50052' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-target`), { target: { value: 'localhost:50052' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ target: 'localhost:50052' }));
 
-    fireEvent.change(inputs[2], { target: { value: 'descriptor.v2' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-descriptor-key`), { target: { value: 'descriptor.v2' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ descriptorKey: 'descriptor.v2' }));
 
-    fireEvent.change(inputs[3], { target: { value: 'pkg.OtherSvc' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-service`), { target: { value: 'pkg.OtherSvc' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ service: 'pkg.OtherSvc' }));
 
-    fireEvent.change(inputs[4], { target: { value: 'Execute' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-method`), { target: { value: 'Execute' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ method: 'Execute' }));
 
-    fireEvent.change(inputs[5], { target: { value: '' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Profile ID', 'input'), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ profileId: undefined }));
 
-    fireEvent.change(inputs[5], { target: { value: 'p2' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Profile ID', 'input'), { target: { value: 'p2' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ profileId: 'p2' }));
 
-    fireEvent.change(inputs[6], { target: { value: '' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Timeout (ms)', 'input'), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: undefined }));
 
-    fireEvent.change(inputs[6], { target: { value: '9000' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Timeout (ms)', 'input'), { target: { value: '9000' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 9000 }));
 
-    fireEvent.change(container.querySelector('select')!, { target: { value: 'continue' } });
+    fireEvent.change(rowControl<HTMLSelectElement>(container, 'On Error', 'select'), { target: { value: 'continue' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onError: 'continue' }));
 
-    fireEvent.change(inputs[7], { target: { value: '' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Save As', 'input'), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ saveAs: undefined }));
 
-    fireEvent.change(inputs[7], { target: { value: 'lt.summary' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Save As', 'input'), { target: { value: 'lt.summary' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ saveAs: 'lt.summary' }));
 
-    const textareas = getTextareas(container);
-    fireEvent.change(textareas[0], { target: { value: '{"name":"alpha"}' } });
+    const bodyTextarea = textareaByLabel(container, 'Request Body (JSON object)');
+    const loadTestTextarea = textareaByLabel(container, 'Load Test Config (JSON object)');
+    fireEvent.change(bodyTextarea, { target: { value: '{"name":"alpha"}' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ body: { name: 'alpha' } }));
 
-    fireEvent.change(textareas[1], { target: { value: '{"concurrency":2,"totalCalls":20}' } });
+    fireEvent.change(loadTestTextarea, { target: { value: '{"concurrency":2,"totalCalls":20}' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ loadTest: { concurrency: 2, totalCalls: 20 } }));
 
     const callsBeforeInvalid = onChange.mock.calls.length;
-    fireEvent.change(textareas[0], { target: { value: '[1,2,3]' } });
-    fireEvent.change(textareas[1], { target: { value: 'invalid-json' } });
+    fireEvent.change(bodyTextarea, { target: { value: '[1,2,3]' } });
+    fireEvent.change(loadTestTextarea, { target: { value: 'invalid-json' } });
     expect(onChange.mock.calls.length).toBe(callsBeforeInvalid);
 
-    // Cover useEffect sync branches.
     rerender(<GrpcLoadTestConfig data={{ ...data, body: { id: 2 }, loadTest: { concurrency: 3 } }} onChange={onChange} />);
-    expect(textareas[0]).toHaveValue(JSON.stringify({ id: 2 }, null, 2));
-    expect(textareas[1]).toHaveValue(JSON.stringify({ concurrency: 3 }, null, 2));
+    expect(bodyTextarea).toHaveValue(JSON.stringify({ id: 2 }, null, 2));
+    expect(loadTestTextarea).toHaveValue(JSON.stringify({ concurrency: 3 }, null, 2));
 
-    // Cover default/nullish render branches.
     rerender(
       <GrpcLoadTestConfig
         data={{ ...data, profileId: undefined, timeoutMs: undefined, onError: undefined, saveAs: undefined, body: undefined, loadTest: undefined }}
         onChange={onChange}
       />,
     );
-    expect(container.querySelector('select')).toHaveValue('fail');
-    expect(inputs[5]).toHaveValue('');
-    expect(inputs[6]).toHaveValue(null);
-    expect(inputs[7]).toHaveValue('');
+    expect(rowControl<HTMLSelectElement>(container, 'On Error', 'select')).toHaveValue('fail');
+    expect(rowControl<HTMLInputElement>(container, 'Profile ID', 'input')).toHaveValue('');
+    expect(rowControl<HTMLInputElement>(container, 'Timeout (ms)', 'input')).toHaveValue(null);
+    expect(rowControl<HTMLInputElement>(container, 'Save As', 'input')).toHaveValue('');
   });
 
   it('GrpcMockAssertConfig handles JSON object fields and expectedBodyValue branches', () => {
@@ -284,59 +328,58 @@ describe('Grpc node config coverage gaps', () => {
       metadata: { b: 2 },
     } as any;
     const { container, rerender } = render(<GrpcUnaryConfig data={data} onChange={onChange} />);
+    const prefix = 'grpc-unary-config';
 
-    const inputs = Array.from(container.querySelectorAll('input')) as HTMLInputElement[];
-    fireEvent.change(inputs[0], { target: { value: 'unary-2' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-label`), { target: { value: 'unary-2' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ label: 'unary-2' }));
 
-    fireEvent.change(inputs[1], { target: { value: 'localhost:50052' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-target`), { target: { value: 'localhost:50052' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ target: 'localhost:50052' }));
 
-    fireEvent.change(inputs[2], { target: { value: 'dk.v2' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-descriptor-key`), { target: { value: 'dk.v2' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ descriptorKey: 'dk.v2' }));
 
-    fireEvent.change(inputs[3], { target: { value: 'pkg.NewSvc' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-service`), { target: { value: 'pkg.NewSvc' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ service: 'pkg.NewSvc' }));
 
-    fireEvent.change(inputs[4], { target: { value: 'Unary2' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-method`), { target: { value: 'Unary2' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ method: 'Unary2' }));
 
-    fireEvent.change(inputs[5], { target: { value: '' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-timeout`), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: undefined }));
 
-    fireEvent.change(inputs[5], { target: { value: '7000' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-timeout`), { target: { value: '7000' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 7000 }));
 
-    fireEvent.change(inputs[6], { target: { value: '' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-save-as`), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ saveAs: undefined }));
 
-    fireEvent.change(inputs[6], { target: { value: 'u.alias' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-save-as`), { target: { value: 'u.alias' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ saveAs: 'u.alias' }));
 
-    fireEvent.change(container.querySelector('select')!, { target: { value: 'continue' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-on-error`), { target: { value: 'continue' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onError: 'continue' }));
 
-    const textareas = getTextareas(container);
-    fireEvent.change(textareas[0], { target: { value: '{"v":1}' } });
-    fireEvent.change(textareas[1], { target: { value: '{"m":2}' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-body`), { target: { value: '{"v":1}' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-metadata`), { target: { value: '{"m":2}' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ body: { v: 1 } }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ metadata: { m: 2 } }));
 
     const callsBeforeInvalid = onChange.mock.calls.length;
-    fireEvent.change(textareas[0], { target: { value: '[1]' } });
-    fireEvent.change(textareas[1], { target: { value: 'bad-json' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-body`), { target: { value: '[1]' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-metadata`), { target: { value: 'bad-json' } });
     expect(onChange.mock.calls.length).toBe(callsBeforeInvalid);
 
-    // Cover nullish render branches.
     rerender(
       <GrpcUnaryConfig
         data={{ ...data, timeoutMs: undefined, onError: undefined, saveAs: undefined, body: undefined, metadata: undefined }}
         onChange={onChange}
       />,
     );
-    expect(container.querySelector('select')).toHaveValue('fail');
-    expect(inputs[5]).toHaveValue(null);
-    expect(inputs[6]).toHaveValue('');
+    expect(screen.getByTestId(`${prefix}-on-error`)).toHaveValue('fail');
+    expect(screen.getByTestId(`${prefix}-timeout`)).toHaveValue(null);
+    expect(screen.getByTestId(`${prefix}-save-as`)).toHaveValue('');
+    expect(container).toBeTruthy();
   });
 
   it('GrpcServerStreamConfig updates collect fields and guards invalid JSON', () => {
@@ -356,68 +399,68 @@ describe('Grpc node config coverage gaps', () => {
     } as any;
 
     const { container, rerender } = render(<GrpcServerStreamConfig data={data} onChange={onChange} />);
-    const inputs = Array.from(container.querySelectorAll('input')) as HTMLInputElement[];
+    const prefix = 'grpc-server-stream-config';
 
-    fireEvent.change(inputs[0], { target: { value: 'stream-2' } });
+    fireEvent.change(container.querySelector('.wf-config-body > .wf-config-field--row input')!, { target: { value: 'stream-2' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ label: 'stream-2' }));
 
-    fireEvent.change(inputs[1], { target: { value: 'localhost:50053' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-target`), { target: { value: 'localhost:50053' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ target: 'localhost:50053' }));
 
-    fireEvent.change(inputs[2], { target: { value: 'dk.v2' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-descriptor-key`), { target: { value: 'dk.v2' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ descriptorKey: 'dk.v2' }));
 
-    fireEvent.change(inputs[3], { target: { value: 'pkg.StreamSvc' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-service`), { target: { value: 'pkg.StreamSvc' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ service: 'pkg.StreamSvc' }));
 
-    fireEvent.change(inputs[4], { target: { value: 'ServerStream2' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-method`), { target: { value: 'ServerStream2' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ method: 'ServerStream2' }));
 
-    fireEvent.change(inputs[5], { target: { value: '' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Timeout (ms)', 'input'), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: undefined }));
 
-    fireEvent.change(inputs[5], { target: { value: '6000' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Timeout (ms)', 'input'), { target: { value: '6000' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 6000 }));
 
-    fireEvent.change(inputs[6], { target: { value: '' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Collect Max Messages', 'input'), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ collect: expect.objectContaining({ maxMessages: undefined }) }));
 
-    fireEvent.change(inputs[6], { target: { value: '25' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Collect Max Messages', 'input'), { target: { value: '25' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ collect: expect.objectContaining({ maxMessages: 25 }) }));
 
-    fireEvent.change(inputs[7], { target: { value: '' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Collect Max Duration (ms)', 'input'), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ collect: expect.objectContaining({ maxDurationMs: undefined }) }));
 
-    fireEvent.change(inputs[7], { target: { value: '9000' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Collect Max Duration (ms)', 'input'), { target: { value: '9000' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ collect: expect.objectContaining({ maxDurationMs: 9000 }) }));
 
-    fireEvent.change(inputs[8], { target: { value: '' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Collect Until Expression', 'input'), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ collect: expect.objectContaining({ untilExpression: undefined }) }));
 
-    fireEvent.change(inputs[8], { target: { value: '{{grpc.stream.count}} >= 7' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Collect Until Expression', 'input'), { target: { value: '{{grpc.stream.count}} >= 7' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ collect: expect.objectContaining({ untilExpression: '{{grpc.stream.count}} >= 7' }) }));
 
-    fireEvent.change(container.querySelector('select')!, { target: { value: 'continue' } });
+    fireEvent.change(rowControl<HTMLSelectElement>(container, 'On Error', 'select'), { target: { value: 'continue' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onError: 'continue' }));
 
-    fireEvent.change(inputs[9], { target: { value: '' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Save As', 'input'), { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ saveAs: undefined }));
 
-    fireEvent.change(inputs[9], { target: { value: 'stream.alias' } });
+    fireEvent.change(rowControl<HTMLInputElement>(container, 'Save As', 'input'), { target: { value: 'stream.alias' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ saveAs: 'stream.alias' }));
 
-    const textareas = getTextareas(container);
-    fireEvent.change(textareas[0], { target: { value: '{"a":1}' } });
-    fireEvent.change(textareas[1], { target: { value: '{"b":2}' } });
+    const bodyTextarea = textareaByLabel(container, 'Request Body (JSON object)');
+    const metadataTextarea = textareaByLabel(container, 'Metadata (JSON object)');
+    fireEvent.change(bodyTextarea, { target: { value: '{"a":1}' } });
+    fireEvent.change(metadataTextarea, { target: { value: '{"b":2}' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ body: { a: 1 } }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ metadata: { b: 2 } }));
 
     const callsBeforeInvalid = onChange.mock.calls.length;
-    fireEvent.change(textareas[0], { target: { value: '[1,2]' } });
-    fireEvent.change(textareas[1], { target: { value: 'oops' } });
+    fireEvent.change(bodyTextarea, { target: { value: '[1,2]' } });
+    fireEvent.change(metadataTextarea, { target: { value: 'oops' } });
     expect(onChange.mock.calls.length).toBe(callsBeforeInvalid);
 
-    // Cover default/nullish render branches.
     rerender(
       <GrpcServerStreamConfig
         data={{
@@ -432,12 +475,12 @@ describe('Grpc node config coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    expect(container.querySelector('select')).toHaveValue('fail');
-    expect(inputs[5]).toHaveValue(null);
-    expect(inputs[6]).toHaveValue(null);
-    expect(inputs[7]).toHaveValue(null);
-    expect(inputs[8]).toHaveValue('');
-    expect(inputs[9]).toHaveValue('');
+    expect(rowControl<HTMLSelectElement>(container, 'On Error', 'select')).toHaveValue('fail');
+    expect(rowControl<HTMLInputElement>(container, 'Timeout (ms)', 'input')).toHaveValue(null);
+    expect(rowControl<HTMLInputElement>(container, 'Collect Max Messages', 'input')).toHaveValue(null);
+    expect(rowControl<HTMLInputElement>(container, 'Collect Max Duration (ms)', 'input')).toHaveValue(null);
+    expect(rowControl<HTMLInputElement>(container, 'Collect Until Expression', 'input')).toHaveValue('');
+    expect(rowControl<HTMLInputElement>(container, 'Save As', 'input')).toHaveValue('');
   });
 
   it('GrpcSchemaDiffConfig handles checkbox default branch and optional fields', () => {

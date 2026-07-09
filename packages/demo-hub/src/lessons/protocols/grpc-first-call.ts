@@ -279,7 +279,7 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       title: 'Fill the Request Message',
       description:
         `Enter \`${GRPC_DEMO_MESSAGE}\` in the **message** field on **Form Input**. ` +
-        'Hybrid mode shows compact JSON (`"message": "..."`); classic mode shows a typed proto row. Both stay schema-synced with the JSON tab.',
+        'In **Compact** density, Form Input may show compact JSON (`"message": "..."`); in **Comfortable** density, it shows typed fields. Both stay schema-synced.',
       highlight: GRPC.REQUEST_FORM_SCROLL,
       pauseAfter: true,
       preAction: async (ctx) => {

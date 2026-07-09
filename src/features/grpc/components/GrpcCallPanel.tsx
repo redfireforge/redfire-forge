@@ -19,7 +19,6 @@ import {
 } from '../utils/grpcExplorerUtils';
 import { countGrpcStreamDirections } from '../utils/grpcStreamLogUtils';
 import {
-  isGrpcJsonMode,
   persistComposerTab,
   resolveInitialComposerTab,
   type GrpcComposerTab,
@@ -35,7 +34,7 @@ import { formatGrpcBrowserTransportFailureHint, formatGrpcTlsFailureHint } from 
 import { GrpcAuthPanel } from './GrpcAuthPanel';
 import { GrpcMetadataEditor } from './GrpcMetadataEditor';
 import { GrpcProtoFormBuilder } from './GrpcProtoFormBuilder';
-import { buildHybridNavigatorPaths } from './GrpcProtoHybridNavigator';
+import { buildHybridNavigatorPaths } from './grpcProtoHybridNavigatorPaths';
 import { GrpcJsonCodeToolbar } from './GrpcJsonCodeToolbar';
 import { GrpcHighlightedJsonTextarea } from './GrpcHighlightedJsonTextarea';
 import { GrpcProtoHybridEditorModal } from './GrpcProtoHybridEditorModal';
@@ -151,7 +150,9 @@ export function GrpcCallPanel({
   authTabFocusRequest,
 }: GrpcCallPanelProps) {
   const { isDismissed, dismiss } = useGrpcStudioHints();
-  const [composerTab, setComposerTab] = useState<GrpcComposerTab>(() => resolveInitialComposerTab(tab));
+  const [composerTab, setComposerTab] = useState<GrpcComposerTab>(() => {
+    return resolveInitialComposerTab(tab);
+  });
   const [mobileStage, setMobileStage] = useState<GrpcMobileStage>('request');
   const [jsonDraft, setJsonDraft] = useState(() => serializeGrpcBodyJson(tab.body));
   const [jsonError, setJsonError] = useState<string | null>(null);
@@ -165,7 +166,8 @@ export function GrpcCallPanel({
   const [hybridCloseConfirmVisible, setHybridCloseConfirmVisible] = useState(false);
 
   const hasMethod = !!method && !!serviceFullName;
-  const hybridEditorEnabled = GRPC_PROTO_HYBRID_EDITOR_ENABLED && isGrpcProtoHybridEnabledForMethod(method);
+  const hybridComposerTabsEnabled = GRPC_PROTO_HYBRID_EDITOR_ENABLED;
+  const hybridEditorEnabled = hybridComposerTabsEnabled && isGrpcProtoHybridEnabledForMethod(method);
   const hybridTelemetryPayload = useMemo(() => {
     const methodIdentifier = hasMethod ? `${serviceFullName}/${method!.name}` : 'unknown';
     const fieldCount = method?.requestSchema?.fields?.length ?? 0;
@@ -216,7 +218,7 @@ export function GrpcCallPanel({
     : persistedMetadataValidation.valid;
 
   const offTabJsonValidation = useMemo(() => {
-    if (!method || tab.requestMode !== 'json' || composerTab === 'json') {
+    if (!method || tab.requestMode !== 'json') {
       return { ok: true as const, error: null as string | null };
     }
     const parsed = applyJsonTextToSchema(serializeGrpcBodyJson(tab.body), method.requestSchema, {
@@ -226,11 +228,11 @@ export function GrpcCallPanel({
     return parsed.ok
       ? { ok: true as const, error: null }
       : { ok: false as const, error: parsed.error };
-  }, [composerTab, messageTypes, method, tab.body, tab.requestMode]);
+  }, [messageTypes, method, tab.body, tab.requestMode]);
 
   const prevMethodIdentityRef = useRef('');
   const lastPrimaryComposerTabRef = useRef<Exclude<GrpcComposerTab, 'metadata' | 'auth'>>(
-    tab.requestMode === 'json' ? 'json' : 'form',
+    'form',
   );
   const tabRef = useRef(tab);
   tabRef.current = tab;
@@ -246,14 +248,13 @@ export function GrpcCallPanel({
   useEffect(() => {
     if (prevTabIdRef.current === tab.id) return;
     prevTabIdRef.current = tab.id;
-    const restored = resolveInitialComposerTab(tab);
-    setComposerTab(restored);
+    setComposerTab(resolveInitialComposerTab(tab));
     setJsonDraft(serializeGrpcBodyJson(tab.body));
     setJsonError(null);
     setFormError(null);
     setMetadataSwitchError(null);
     setHybridState(createGrpcProtoHybridInitialState(tab.id, tab.body));
-  }, [tab, tab.id, tab.body, tab.requestMode]);
+  }, [hybridComposerTabsEnabled, tab, tab.id, tab.body, tab.requestMode]);
 
   useEffect(() => {
     if (!hybridEditorEnabled) {
@@ -342,6 +343,7 @@ export function GrpcCallPanel({
     hybridState.modal.jsonError,
     hybridState.modal.openContext?.selectedPath,
     hybridState.modal.workingDraft,
+    hybridState.navigator.selectedPath,
     hybridState.validation.summary,
     hybridTelemetryPayload,
   ]);
@@ -433,27 +435,15 @@ export function GrpcCallPanel({
     setFormValid(true);
     setMetadataEditorValid(true);
     setMetadataSwitchError(null);
-    if (hybridEditorEnabled) {
-      setComposerTab('form');
-    } else {
-      setComposerTab(
-        activeTab.requestMode === 'json' ? 'json' : 'form',
-      );
-    }
+    setComposerTab('form');
   }, [hybridEditorEnabled, methodIdentity]);
 
   useEffect(() => {
-    if ((composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form')) && tab.requestMode === 'form') {
+    if (composerTab === 'form' && tab.requestMode === 'form') {
       setJsonDraft(serializeGrpcBodyJson(tab.body));
       setJsonError(null);
     }
-  }, [hybridEditorEnabled, tab.body, tab.requestMode, composerTab]);
-
-  useEffect(() => {
-    if (!hybridEditorEnabled) return;
-    if (composerTab !== 'json') return;
-    setComposerTab('form');
-  }, [composerTab, hybridEditorEnabled]);
+  }, [tab.body, tab.requestMode, composerTab]);
 
   useEffect(() => {
     if (formValid) {
@@ -485,16 +475,7 @@ export function GrpcCallPanel({
       setMetadataSwitchError('Fix metadata validation errors before switching tabs');
     }
 
-    const formActsAsJson = hybridEditorEnabled && composerTab === 'form';
-    if (composerTab === 'json' && !hybridEditorEnabled && nextTab !== 'json' && method) {
-      const parsed = applyJsonTextToSchema(jsonDraft, method.requestSchema, { messageTypes });
-      if (!parsed.ok) {
-        setJsonError(parsed.error);
-      } else {
-        onPatch({ body: parsed.body, requestMode: nextTab === 'form' ? 'form' : tab.requestMode });
-        setJsonError(null);
-      }
-    } else if (formActsAsJson && nextTab !== 'json' && nextTab !== 'form' && method) {
+    if (composerTab === 'form' && nextTab !== 'form' && method) {
       const parsed = applyJsonTextToSchema(jsonDraft, method.requestSchema, { messageTypes });
       if (!parsed.ok) {
         setJsonError(parsed.error);
@@ -502,25 +483,16 @@ export function GrpcCallPanel({
         onPatch({ body: parsed.body, requestMode: 'json' });
         setJsonError(null);
       }
-    } else if (nextTab === 'json' && !hybridEditorEnabled) {
-      setJsonDraft(serializeGrpcBodyJson(tab.body));
-      setJsonError(null);
-      setFormError(null);
-      onPatch({ requestMode: 'json' });
     } else if (nextTab === 'form') {
       setFormError(null);
       setMetadataSwitchError(null);
-      if (hybridEditorEnabled) {
-        onPatch({ requestMode: 'json' });
-      } else {
-        onPatch({ requestMode: 'form' });
-      }
+      onPatch({ requestMode: 'json' });
     } else if (nextTab === 'metadata') {
       setMetadataSwitchError(null);
     }
 
     setComposerTab(nextTab);
-  }, [composerTab, formValid, hybridEditorEnabled, jsonDraft, messageTypes, metadataEditorValid, method, onPatch, tab.body, tab.requestMode]);
+  }, [composerTab, formValid, jsonDraft, messageTypes, metadataEditorValid, method, onPatch]);
 
   const switchMobileStage = useCallback((nextStage: GrpcMobileStage) => {
     if (nextStage === 'response') {
@@ -618,8 +590,8 @@ export function GrpcCallPanel({
 
   const resolveBodyOverrides = useCallback((): GrpcExecuteOverrides | undefined => {
     if (!method) return undefined;
-    const isJsonSurface = composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form');
-    const needsJsonResolve = isGrpcJsonMode(composerTab, tab.requestMode) || isJsonSurface;
+    const isJsonSurface = composerTab === 'form';
+    const needsJsonResolve = tab.requestMode === 'json' || isJsonSurface;
     if (!needsJsonResolve) return undefined;
 
     const draft = isJsonSurface ? jsonDraft : serializeGrpcBodyJson(tab.body);
@@ -634,12 +606,12 @@ export function GrpcCallPanel({
     setJsonError(null);
     onPatch({ body: parsed.body, requestMode: 'json' });
     return { body: parsed.body };
-  }, [composerTab, hybridEditorEnabled, jsonDraft, messageTypes, method, onPatch, tab.body, tab.requestMode]);
+  }, [composerTab, jsonDraft, messageTypes, method, onPatch, tab.body, tab.requestMode]);
 
   const handlePrimaryAction = useCallback(async () => {
-    const isJsonSurface = composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form');
+    const isJsonSurface = composerTab === 'form';
     let overrides = resolveBodyOverrides();
-    if (overrides === undefined && method && (isGrpcJsonMode(composerTab, tab.requestMode) || isJsonSurface)) {
+    if (overrides === undefined && method && (tab.requestMode === 'json' || isJsonSurface)) {
       return;
     }
 
@@ -672,26 +644,25 @@ export function GrpcCallPanel({
     streamReady,
     tab.requestMode,
     unaryReady,
-    hybridEditorEnabled,
   ]);
 
   const handleSendStreamMessage = useCallback(() => {
-    const isJsonSurface = composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form');
+    const isJsonSurface = composerTab === 'form';
     const overrides = resolveBodyOverrides();
-    if (overrides === undefined && method && (isGrpcJsonMode(composerTab, tab.requestMode) || isJsonSurface)) {
+    if (overrides === undefined && method && (tab.requestMode === 'json' || isJsonSurface)) {
       return;
     }
     onSendStreamMessage?.(overrides);
-  }, [composerTab, hybridEditorEnabled, method, onSendStreamMessage, resolveBodyOverrides, tab.requestMode]);
+  }, [composerTab, method, onSendStreamMessage, resolveBodyOverrides, tab.requestMode]);
 
   const handleEnqueueStreamMessage = useCallback(() => {
-    const isJsonSurface = composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form');
+    const isJsonSurface = composerTab === 'form';
     const overrides = resolveBodyOverrides();
-    if (overrides === undefined && method && (isGrpcJsonMode(composerTab, tab.requestMode) || isJsonSurface)) {
+    if (overrides === undefined && method && (tab.requestMode === 'json' || isJsonSurface)) {
       return;
     }
     onEnqueueStreamMessage?.(overrides);
-  }, [composerTab, hybridEditorEnabled, method, onEnqueueStreamMessage, resolveBodyOverrides, tab.requestMode]);
+  }, [composerTab, method, onEnqueueStreamMessage, resolveBodyOverrides, tab.requestMode]);
 
   const handleSendAllPendingStreamMessages = useCallback(async () => {
     if (pendingSendInFlight || !onSendAllPendingStreamMessages) return;
@@ -728,7 +699,7 @@ export function GrpcCallPanel({
   ]);
 
   const isUnaryInFlight = isGrpcLifecycleInFlight(tab.lifecycle);
-  const jsonSurfaceActive = composerTab === 'json' || (hybridEditorEnabled && composerTab === 'form');
+  const jsonSurfaceActive = composerTab === 'form';
   const composerFormReady = composerTab !== 'form' || hybridEditorEnabled || formValid;
   const composerJsonReady = tab.requestMode === 'json'
     ? (jsonSurfaceActive ? !jsonError : offTabJsonValidation.ok)
@@ -1104,17 +1075,6 @@ export function GrpcCallPanel({
             >
               Form Input
             </button>
-            {!hybridEditorEnabled && (
-              <button
-                type="button"
-                aria-pressed={composerTab === 'json'}
-                className={`grpc-call-panel-tab${composerTab === 'json' ? ' grpc-call-panel-tab--active' : ''}`}
-                data-testid="grpc-request-tab-json"
-                onClick={() => switchComposerTab('json')}
-              >
-                JSON
-              </button>
-            )}
             <button
               type="button"
               aria-pressed={composerTab === 'metadata'}
@@ -1288,40 +1248,6 @@ export function GrpcCallPanel({
                     onValidityChange={setFormValid}
                     onChange={(body) => onPatch({ body, requestMode: 'form' })}
                   />
-                )}
-              </div>
-            )}
-
-            {hasMethod && !hybridEditorEnabled && composerTab === 'json' && (
-              <div className="grpc-call-json-editor">
-                <div className="grpc-call-json-editor-header">
-                  <span className="grpc-call-json-editor-hint">
-                    Live JSON — edits sync back to form. Use quoted strings for int64/uint64 fields.
-                  </span>
-                  <GrpcJsonCodeToolbar
-                    copyText={jsonDraft}
-                    onPrettyFormat={() => {
-                      if (!method) return;
-                      try {
-                        handleJsonChange(JSON.stringify(JSON.parse(jsonDraft), null, 2));
-                      } catch {
-                        // Keep draft when invalid JSON.
-                      }
-                    }}
-                    prettyDisabled={!!jsonError}
-                    testIdPrefix="grpc-request-json"
-                  />
-                </div>
-                <GrpcHighlightedJsonTextarea
-                  value={jsonDraft}
-                  disabled={disabled}
-                  testId="grpc-request-json"
-                  onChange={handleJsonChange}
-                />
-                {jsonError && (
-                  <p className="grpc-call-json-error" data-testid="grpc-request-json-error" role="alert">
-                    {jsonError}
-                  </p>
                 )}
               </div>
             )}

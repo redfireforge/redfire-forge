@@ -71,42 +71,43 @@ function LeafPredicateEditor({
 }) {
   return (
     <div className="grpc-mock-builder-predicate-leaf" data-testid={`grpc-mock-builder-leaf-${leaf.nodeId}`}>
-      <label className="grpc-mock-builder-field grpc-mock-builder-field--inline">
-        <span className="grpc-mock-builder-field__label">Predicate</span>
-        <select
-          className="grpc-mock-builder-input"
-          data-testid={`grpc-mock-builder-leaf-kind-${leaf.nodeId}`}
-          value={leaf.kind}
-          disabled={disabled}
-          onChange={(event) => {
-            const kind = event.target.value as GrpcMockBuilderPredicateLeafKind;
-            onChange({
-              ...leaf,
-              kind,
-              method: undefined,
-              service: undefined,
-              key: undefined,
-              value: undefined,
-              path: undefined,
-            });
-          }}
-        >
-          {PREDICATE_KIND_OPTIONS.map((option) => (
-            <option key={option.value} value={option.value}>{option.label}</option>
-          ))}
-        </select>
-      </label>
-
-      <label className="grpc-mock-builder-check">
-        <input
-          type="checkbox"
-          data-testid={`grpc-mock-builder-leaf-not-${leaf.nodeId}`}
-          checked={leaf.negated}
-          disabled={disabled}
-          onChange={(event) => onChange({ ...leaf, negated: event.target.checked })}
-        />
-        <span>Not</span>
-      </label>
+      <div className="grpc-mock-builder-predicate-row">
+        <label className="grpc-mock-builder-field grpc-mock-builder-field--inline">
+          <span className="grpc-mock-builder-field__label">Predicate</span>
+          <select
+            className="grpc-mock-builder-input"
+            data-testid={`grpc-mock-builder-leaf-kind-${leaf.nodeId}`}
+            value={leaf.kind}
+            disabled={disabled}
+            onChange={(event) => {
+              const kind = event.target.value as GrpcMockBuilderPredicateLeafKind;
+              onChange({
+                ...leaf,
+                kind,
+                method: undefined,
+                service: undefined,
+                key: undefined,
+                value: undefined,
+                path: undefined,
+              });
+            }}
+          >
+            {PREDICATE_KIND_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+        </label>
+        <label className="grpc-mock-builder-check grpc-mock-builder-check--not">
+          <input
+            type="checkbox"
+            data-testid={`grpc-mock-builder-leaf-not-${leaf.nodeId}`}
+            checked={leaf.negated}
+            disabled={disabled}
+            onChange={(event) => onChange({ ...leaf, negated: event.target.checked })}
+          />
+          <span>Not</span>
+        </label>
+      </div>
 
       {leaf.kind === 'method_equals' && (
         <label className="grpc-mock-builder-field">
@@ -198,7 +199,7 @@ function PredicateEditor({
         <div className="grpc-mock-builder-readonly" data-testid={`grpc-mock-builder-readonly-${node.nodeId}`}>
           <span className="grpc-mock-builder-badge">Expression</span>
           <code className="grpc-mock-builder-readonly__expr">{node.expression}</code>
-          <p className="grpc-mock-builder-hint">Edit this predicate in the JSON tab.</p>
+          <p className="grpc-mock-builder-hint">Edit this predicate in the JSON editor.</p>
         </div>
       );
     }
@@ -223,9 +224,9 @@ function PredicateEditor({
               } as never,
               response: {},
             })
-            : 'Complex predicate — edit in JSON tab.'}
+            : 'Complex predicate — edit in JSON editor.'}
         </code>
-        <p className="grpc-mock-builder-hint">Edit this predicate in the JSON tab.</p>
+        <p className="grpc-mock-builder-hint">Edit this predicate in the JSON editor.</p>
       </div>
     );
   }
@@ -552,9 +553,9 @@ export function GrpcMockRuleBuilderPanel({ advanced }: GrpcMockRuleBuilderPanelP
                         })
                         : rule.predicate.type === 'expression'
                           ? rule.predicate.expression
-                          : 'Complex predicate — edit in JSON tab.'}
+                          : 'Complex predicate — edit in JSON editor.'}
                     </code>
-                    <p className="grpc-mock-builder-hint">Edit this predicate in the JSON tab.</p>
+                    <p className="grpc-mock-builder-hint">Edit this predicate in the JSON editor.</p>
                   </div>
                 ) : (
                   <PredicateEditor

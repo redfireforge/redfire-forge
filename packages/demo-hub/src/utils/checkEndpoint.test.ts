@@ -110,7 +110,7 @@ describe('checkEndpoint', () => {
     const spy = vi.spyOn(globalThis, 'fetch')
       .mockResolvedValueOnce(new Response(null, { status: 200 }));
 
-    const promise = checkEndpoint('http://localhost:8080/actuator/health');
+    const promise = checkEndpoint('http://localhost:8081/actuator/health');
     await vi.advanceTimersByTimeAsync(100);
     expect(await promise).toBe(true);
     expect(spy).toHaveBeenCalledWith('http://localhost:3001/health/spring', expect.any(Object));

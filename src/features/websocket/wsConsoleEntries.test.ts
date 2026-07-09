@@ -13,7 +13,9 @@ import {
   buildHelpEntry,
   buildProtocolEntry,
   buildReconnectEntry,
+  buildSseClosedEntry,
   buildSseConnectingEntry,
+  buildSseErrorEntry,
   buildSseHandshakeEntry,
   buildSseReconnectEntry,
   consoleEntriesToText,
@@ -80,6 +82,13 @@ describe('splitUrlForRequestLine', () => {
   it('defaults path to / when absent', () => {
     expect(splitUrlForRequestLine('wss://example.com')).toEqual({
       host: 'example.com',
+      path: '/',
+    });
+  });
+
+  it('defaults path to / when pathname is empty', () => {
+    expect(splitUrlForRequestLine('ws://localhost:8765#')).toEqual({
+      host: 'localhost:8765',
       path: '/',
     });
   });
@@ -168,6 +177,11 @@ describe('WS entry builders', () => {
     expect(e.detail).toBe('* matched');
   });
 
+  it('omits protocol detail when no reason is provided', () => {
+    const e = buildProtocolEntry({ protocol: 'json', confidence: 'low', reason: '' });
+    expect(e.detail).toBeUndefined();
+  });
+
   it('builds a control entry', () => {
     const e = buildControlEntry(18);
     expect(e.category).toBe('control');
@@ -201,6 +215,16 @@ describe('SSE entry builders', () => {
     expect(buildSseConnectingEntry('http://h/s').message).toContain('http://h/s');
     const r = buildSseReconnectEntry({ attempt: 1, retryMs: 3000 });
     expect(r.message).toBe('Reconnecting in 3000ms (attempt 1)');
+  });
+
+  it('builds SSE closed and error lifecycle entries', () => {
+    expect(buildSseClosedEntry()).toMatchObject({
+      level: 'info',
+      category: 'lifecycle',
+      message: 'Stream closed',
+    });
+    expect(buildSseErrorEntry('upstream reset').message).toBe('Stream error: upstream reset');
+    expect(buildSseErrorEntry().message).toBe('Stream error');
   });
 });
 
@@ -291,6 +315,19 @@ describe('parseRawConsoleLines', () => {
       id: '1', level: 'info', direction: 'info', category: 'system', message: 'm', detail: 'raw text', timestamp: '',
     };
     expect(parseRawConsoleLines(entry)[1]).toEqual({ glyph: '', text: 'raw text', kind: 'plain' });
+  });
+
+  it('classifies command-echo detail lines with the $ glyph', () => {
+    const entry: WsConsoleEntry = {
+      id: '1',
+      level: 'info',
+      direction: 'command',
+      category: 'command',
+      message: '/ping',
+      detail: '$ /ping',
+      timestamp: '',
+    };
+    expect(parseRawConsoleLines(entry)[1]).toEqual({ glyph: '$', text: '/ping', kind: 'cmd' });
   });
 });
 

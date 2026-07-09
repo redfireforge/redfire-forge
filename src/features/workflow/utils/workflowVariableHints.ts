@@ -99,6 +99,7 @@ const NON_HTTP_TYPES = new Set([
   'kafkaProduce', 'kafkaConsume', 'kafkaTrigger', 'kafkaWait',
   'wsConnect', 'wsSend', 'wsReceive', 'wsTrigger',
   'graphqlQuery', 'graphqlMutation', 'graphqlSubscription', 'graphqlIntrospect', 'graphqlAssert',
+  'grpcUnary', 'grpcServerStream', 'grpcAssert', 'grpcLoadTest', 'grpcSchemaDiff', 'grpcMockAssert',
 ]);
 
 /** True if this canvas node is an HTTP step (React Flow may omit `type` in edge cases). */

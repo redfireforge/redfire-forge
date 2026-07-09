@@ -16,7 +16,9 @@ import {
   grpcurlImportToTabStatePatch,
   mergeGrpcurlDescriptorIntoProtoIngest,
   savedRequestToTabPatch,
+  shouldAutoReflectAfterGrpcurlImport,
 } from './grpcReplayTabApply';
+import { buildDescriptorMissingDrift } from './grpcReplayBinding';
 
 const TS = '2026-06-29T12:00:00.000Z';
 
@@ -244,5 +246,38 @@ describe('grpcReplayTabApply (Phase 5H)', () => {
     expect(patch?.protoIngest?.source).toBe('protoset');
     expect(patch?.protoIngest?.protosetFileName).toBe('echo.protoset');
     expect(patch?.protoIngest?.importPaths).toEqual(['./proto']);
+  });
+
+  it('shouldAutoReflectAfterGrpcurlImport is true for descriptor-missing plain imports', () => {
+    const importResult = {
+      ok: true as const,
+      targetAddress: 'localhost:50051',
+      serviceFullName: 'echo.EchoService',
+      methodName: 'Echo',
+      tlsMode: 'plaintext' as const,
+      metadata: {},
+      body: { message: 'hello' },
+      warnings: [],
+      unsupportedFlags: [],
+    };
+    const drift = buildDescriptorMissingDrift('echo.EchoService', 'Echo');
+    expect(shouldAutoReflectAfterGrpcurlImport(drift, importResult)).toBe(true);
+  });
+
+  it('shouldAutoReflectAfterGrpcurlImport is false when import carries proto flags', () => {
+    const importResult = {
+      ok: true as const,
+      targetAddress: 'localhost:50051',
+      serviceFullName: 'echo.EchoService',
+      methodName: 'Echo',
+      tlsMode: 'plaintext' as const,
+      descriptorFlags: { protoPaths: ['echo.proto'], importPaths: ['./proto'] },
+      metadata: {},
+      body: { message: 'hello' },
+      warnings: [],
+      unsupportedFlags: [],
+    };
+    const drift = buildDescriptorMissingDrift('echo.EchoService', 'Echo');
+    expect(shouldAutoReflectAfterGrpcurlImport(drift, importResult)).toBe(false);
   });
 });

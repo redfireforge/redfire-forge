@@ -33,6 +33,16 @@ const GRPC_DYNAMIC_SELECTOR_PATTERNS = [
   /^\[data-testid="grpc-proto-field-input-[a-z0-9_]+"\]$/,
   /^\[data-testid="grpc-proto-field-[a-z0-9_]+"\]$/,
   /^\[data-testid="grpc-proto-oneof-[a-z0-9_]+"\]$/,
+  // Transport mode cards (GRPC.TRANSPORT_MODE(mode)) — mode is one of express/grpc-web/spring-servlet/tauri.
+  /^\[data-testid="grpc-transport-mode-[a-z0-9-]+"\]$/,
+  // Transport mode reason tooltips (GRPC.TRANSPORT_MODE_REASON(mode)).
+  /^\[data-testid="grpc-transport-mode-reason-[a-z0-9-]+"\]$/,
+  // Settings nav items (GRPC.SETTINGS_NAV_ITEM(nav)).
+  /^\[data-testid="grpc-settings-nav-[a-z0-9-]+"\]$/,
+  // Advanced feature tabs (GRPC.ADVANCED_TAB(tab)) — tab names use underscores, e.g. load_test.
+  /^\[data-testid="grpc-advanced-tab-[a-z0-9_]+"\]$/,
+  // Settings panels (GRPC.SETTINGS_PANEL(nav)).
+  /^\[data-testid="grpc-settings-panel-[a-z0-9-]+"\]$/,
 ];
 
 const LESSON_ID_PATTERN = /^grpc-[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -206,11 +216,11 @@ function validateRosterFixtureEndpoints(
       );
     }
   }
-  if (entry.fixtures.requireSpringBoot && hasDockerPrereqs && !endpoints.includes('8080')) {
+  if (entry.fixtures.requireSpringBoot && hasDockerPrereqs && !endpoints.includes('8081')) {
     issues.push(
-      // Actuator on :8080 is the only reliable HTTP health probe for the Spring
+      // Actuator on :8081 is the only reliable HTTP health probe for the Spring
       // Boot fixture — :9090 speaks plaintext gRPC/HTTP2, not a pingable HTTP health check.
-      issue(`${prefix}.dockerEndpoints`, 'requireSpringBoot needs :8080 (actuator) health in dockerEndpoints'),
+      issue(`${prefix}.dockerEndpoints`, 'requireSpringBoot needs :8081 (actuator) health in dockerEndpoints'),
     );
   }
 }

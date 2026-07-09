@@ -6,7 +6,7 @@ Expanded local fixture stack for gRPC Studio and Demo Hub validation:
 - TLS fixture (`:50443`)
 - mTLS fixture (`:50444`)
 - Envoy grpc-web proxy fixture (`:50055`)
-- Spring Boot fixture (`:9090` gRPC, `:8080` actuator/HTTP)
+- Spring Boot fixture (`:9090` gRPC, `:8081` actuator/HTTP)
 - Go mock servicer profile (`:50061` gRPC, `:50062` health/rules)
 - OAuth2 mock token endpoint (`:50560`)
 
@@ -41,7 +41,7 @@ curl http://localhost:50052/health
 curl http://localhost:50453/health
 curl http://localhost:50454/health
 curl http://localhost:50560/health
-curl http://localhost:8080/actuator/health
+curl http://localhost:8081/actuator/health
 ```
 
 ## Endpoints
@@ -56,7 +56,7 @@ curl http://localhost:8080/actuator/health
 | 50454 | HTTP | mTLS fixture health check |
 | 50055 | Envoy grpc-web proxy | Browser-direct grpc-web proxy to `grpc-test-server:50051` |
 | 9090 | gRPC (HTTP/2, plaintext) | Spring Boot fixture gRPC service |
-| 8080 | HTTP | Spring Boot actuator/health |
+| 8081 | HTTP | Spring Boot actuator/health |
 | 50061 | gRPC (HTTP/2, plaintext) | Go mock servicer (rule-driven response fixture) |
 | 50062 | HTTP | Go mock servicer health + rule inspection |
 | 50560 | HTTP | OAuth2 mock token endpoint (`/oauth2/token`) for demo lessons |
@@ -119,7 +119,7 @@ Suggested target matrix for manual transport checks:
 - Express/tauri TLS: `localhost:50443` (`ca.crt`)
 - Express/tauri mTLS: `localhost:50444` (`ca.crt` + `client.crt` + `client.key`)
 - Browser direct grpc-web via Envoy: `localhost:50055`
-- Spring fixture: `localhost:9090` (gRPC) and `localhost:8080` (actuator)
+- Spring fixture: `localhost:9090` (gRPC) and `localhost:8081` (actuator)
 
 Quick grpcurl check for schema-discovery method:
 

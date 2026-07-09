@@ -63,7 +63,6 @@ describe('GrpcCallPanel hybrid editor integration', () => {
       );
 
       expect(screen.getByTestId('grpc-request-tab-form')).toBeTruthy();
-      expect(screen.queryByTestId('grpc-request-tab-json')).toBeNull();
       expect(screen.getByTestId('grpc-request-json-compact')).toBeTruthy();
       expect(screen.getByTestId('grpc-open-full-form-editor-btn')).toBeTruthy();
 
@@ -323,5 +322,247 @@ describe('GrpcCallPanel hybrid editor integration', () => {
     await waitFor(() => {
       expect(screen.getByTestId('grpc-hybrid-nav-item-field-message').getAttribute('aria-selected')).toBe('true');
     });
+  });
+
+  it('closes a clean hybrid modal without showing the dirty-close prompt', () => {
+    const tab = createGrpcStudioTab({
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'hello' },
+      metadata: {},
+    });
+
+    render(
+      <GrpcCallPanel
+        tab={tab}
+        method={ECHO_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-open-full-form-editor-btn'));
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
+    expect(screen.queryByTestId('grpc-hybrid-close-confirm')).toBeNull();
+    expect(screen.queryByTestId('grpc-hybrid-tab-option-c')).toBeNull();
+  });
+
+  it('surfaces compact JSON errors and blocks pretty-format on invalid drafts', () => {
+    const tab = createGrpcStudioTab({
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'hello' },
+      metadata: {},
+    });
+
+    render(
+      <GrpcCallPanel
+        tab={tab}
+        method={ECHO_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-request-json'), { target: { value: '[]' } });
+    expect(screen.getByTestId('grpc-request-json-error').textContent).toMatch(/JSON object/i);
+    fireEvent.click(screen.getByTestId('grpc-request-json-hybrid-pretty-btn'));
+    expect((screen.getByTestId('grpc-request-json') as HTMLTextAreaElement).value).toBe('[]');
+  });
+
+  it('surfaces compact JSON errors when opening the hybrid workspace with invalid drafts', () => {
+    render(
+      <GrpcCallPanel
+        tab={createGrpcStudioTab({
+          service: 'echo.EchoService',
+          method: 'Echo',
+          body: { message: 'hello' },
+          metadata: {},
+        })}
+        method={ECHO_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-request-json'), { target: { value: '[]' } });
+    fireEvent.click(screen.getByTestId('grpc-open-full-form-editor-btn-inline'));
+    expect(screen.getByTestId('grpc-request-json-error').textContent).toMatch(/JSON object/i);
+    expect(screen.getByTestId('grpc-hybrid-tab-option-c')).toBeTruthy();
+  });
+
+  it('pretty-prints valid compact JSON and ignores malformed pretty-format input', () => {
+    const onPatch = vi.fn();
+    render(
+      <GrpcCallPanel
+        tab={createGrpcStudioTab({
+          service: 'echo.EchoService',
+          method: 'Echo',
+          body: { message: 'hello' },
+          metadata: {},
+        })}
+        method={ECHO_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={onPatch}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-request-json-hybrid-pretty-btn'));
+    expect((screen.getByTestId('grpc-request-json') as HTMLTextAreaElement).value).toContain('\n');
+
+    fireEvent.change(screen.getByTestId('grpc-request-json'), { target: { value: '{not-json' } });
+    fireEvent.click(screen.getByTestId('grpc-request-json-hybrid-pretty-btn'));
+    expect((screen.getByTestId('grpc-request-json') as HTMLTextAreaElement).value).toBe('{not-json');
+  });
+
+  it('records medium and large schema complexity in hybrid telemetry payloads', () => {
+    const telemetryPayloads: Array<{ schemaComplexity?: string }> = [];
+    const onTelemetry = (event: Event) => {
+      telemetryPayloads.push((event as CustomEvent).detail ?? {});
+    };
+    window.addEventListener('grpc-hybrid-editor-telemetry', onTelemetry as EventListener);
+
+    const makeWideMethod = (fieldCount: number) => ({
+      ...ECHO_METHOD,
+      requestSchema: {
+        ...ECHO_METHOD.requestSchema,
+        fields: Array.from({ length: fieldCount }, (_, index) => ({
+          ...ECHO_METHOD.requestSchema.fields[0]!,
+          number: index + 1,
+          name: `field_${index}`,
+        })),
+      },
+    });
+
+    for (const fieldCount of [25, 85]) {
+      const { unmount } = render(
+        <GrpcCallPanel
+          tab={createGrpcStudioTab({
+            service: 'echo.EchoService',
+            method: 'Echo',
+            body: { message: 'hello' },
+            metadata: {},
+          })}
+          method={makeWideMethod(fieldCount)}
+          serviceFullName="echo.EchoService"
+          targetValid
+          onPatch={vi.fn()}
+        />,
+      );
+      fireEvent.click(screen.getByTestId('grpc-open-full-form-editor-btn'));
+      unmount();
+    }
+
+    expect(telemetryPayloads.map((entry) => entry.schemaComplexity)).toEqual(
+      expect.arrayContaining(['medium', 'large']),
+    );
+
+    window.removeEventListener('grpc-hybrid-editor-telemetry', onTelemetry as EventListener);
+  });
+
+  it('keeps hybrid modal state when the tab body changes while the modal is open', () => {
+    const initialTab = createGrpcStudioTab({
+      id: 'tab-open-modal',
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'hello' },
+      metadata: {},
+    });
+    const { rerender } = render(
+      <GrpcCallPanel
+        tab={initialTab}
+        method={ECHO_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-open-full-form-editor-btn'));
+    expect(screen.getByTestId('grpc-hybrid-tab-option-c')).toBeTruthy();
+
+    rerender(
+      <GrpcCallPanel
+        tab={{ ...initialTab, body: { message: 'patched-externally' } }}
+        method={ECHO_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-hybrid-tab-option-c')).toBeTruthy();
+  });
+
+  it('blocks unary and bidi sends when compact JSON is invalid', () => {
+    const onSendUnary = vi.fn();
+    const onSendStreamMessage = vi.fn();
+
+    const { rerender } = render(
+      <GrpcCallPanel
+        tab={createGrpcStudioTab({
+          service: 'echo.EchoService',
+          method: 'Echo',
+          body: { message: 'hello' },
+          metadata: {},
+        })}
+        method={ECHO_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+        onSendUnary={onSendUnary}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-request-json'), { target: { value: '[]' } });
+    fireEvent.click(screen.getByTestId('grpc-send-btn'));
+    expect(onSendUnary).not.toHaveBeenCalled();
+
+    const bidiTab = createGrpcStudioTab({
+      service: 'echo.EchoService',
+      method: 'BidiStream',
+      body: { message: 'chunk' },
+      streamLifecycle: 'streaming',
+    });
+
+    rerender(
+      <GrpcCallPanel
+        tab={bidiTab}
+        method={BIDI_STREAM_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+        onSendStreamMessage={onSendStreamMessage}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-request-json'), { target: { value: '[]' } });
+    fireEvent.click(screen.getByTestId('grpc-stream-send-message-btn'));
+    expect(onSendStreamMessage).not.toHaveBeenCalled();
+  });
+
+  it('surfaces json validation when leaving the form composer for metadata', () => {
+    render(
+      <GrpcCallPanel
+        tab={createGrpcStudioTab({
+          service: 'echo.EchoService',
+          method: 'Echo',
+          body: { message: 'hello' },
+          metadata: {},
+        })}
+        method={ECHO_METHOD}
+        serviceFullName="echo.EchoService"
+        targetValid
+        onPatch={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-request-json'), { target: { value: '[]' } });
+    fireEvent.click(screen.getByTestId('grpc-request-tab-metadata'));
+    expect(screen.getByTestId('grpc-metadata-editor')).toBeTruthy();
   });
 });

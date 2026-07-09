@@ -44,7 +44,7 @@ const DemoLiveNarration = memo(function DemoLiveNarration({
   return (
     <div className="demo-live-panel-body">
       <h4 className="demo-live-step-title">{title}</h4>
-      <p className="demo-live-step-desc" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
+      <div className="demo-live-step-desc" dangerouslySetInnerHTML={{ __html: descriptionHtml }} />
       {diagram && (
         <div
           className="demo-step-diagram demo-step-diagram--live"
@@ -192,6 +192,19 @@ export default function LiveDemo({
           aria-hidden="true"
           data-testid="demo-live-resize-right"
         />
+        <div
+          className="demo-live-resize-handle demo-live-resize-handle--bottom"
+          onMouseDown={onResizeMouseDown('bottom')}
+          aria-hidden="true"
+          data-testid="demo-live-resize-bottom"
+        />
+        <div
+          className="demo-live-resize-handle demo-live-resize-handle--corner"
+          onMouseDown={onResizeMouseDown('corner')}
+          title="Resize panel"
+          aria-label="Resize panel"
+          data-testid="demo-live-resize-corner"
+        />
         <div className="demo-live-panel-header demo-live-panel-header--draggable">
           <span
             className="demo-live-drag-handle"
@@ -300,9 +313,14 @@ export default function LiveDemo({
             </button>
           )}
           <button
+            type="button"
             className="demo-live-btn demo-live-exit-btn"
-            onClick={onExit}
+            onClick={(e) => {
+              e.stopPropagation();
+              onExit();
+            }}
             title="Close (Esc)"
+            aria-label="Exit demo"
           >
             ✕
           </button>

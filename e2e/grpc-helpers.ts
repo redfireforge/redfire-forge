@@ -224,17 +224,19 @@ export async function fillStreamRequest(
   if (fields.repeat_count !== undefined) body.repeat_count = fields.repeat_count;
   if (fields.interval_ms !== undefined) body.interval_ms = fields.interval_ms;
 
-  await page.locator('[data-testid="grpc-request-tab-json"]').click();
-  const jsonEditor = page.locator('[data-testid="grpc-request-json"]');
-  const jsonText = JSON.stringify(body, null, 2);
-  await jsonEditor.fill(jsonText);
-  await expect(jsonEditor).toHaveValue(jsonText);
   await page.locator('[data-testid="grpc-request-tab-form"]').click();
   if (fields.message !== undefined) {
     await expect(page.locator('[data-testid="grpc-proto-field-input-message"]')).toHaveValue(fields.message);
   }
   if (fields.repeat_count !== undefined) {
+    await fillProtoField(page, 'repeat_count', String(fields.repeat_count));
+  }
+  if (fields.repeat_count !== undefined) {
     await expect(page.locator('[data-testid="grpc-proto-field-input-repeat_count"]')).toHaveValue(String(fields.repeat_count));
+  }
+  if (fields.interval_ms !== undefined) {
+    await fillProtoField(page, 'interval_ms', String(fields.interval_ms));
+    await expect(page.locator('[data-testid="grpc-proto-field-input-interval_ms"]')).toHaveValue(String(fields.interval_ms));
   }
 }
 

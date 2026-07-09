@@ -643,6 +643,7 @@ describe('WorkflowNodeConfigModal', () => {
     });
     render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
     expect(screen.getByTestId('grpc-unary-config')).toBeInTheDocument();
+    expect(screen.queryByTestId('http-config')).not.toBeInTheDocument();
     fireEvent.change(screen.getByDisplayValue('127.0.0.1:50051'), { target: { value: '127.0.0.1:50052' } });
     fireEvent.click(screen.getByText('Save'));
     expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ target: '127.0.0.1:50052' }));

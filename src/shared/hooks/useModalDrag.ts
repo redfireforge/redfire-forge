@@ -26,8 +26,17 @@ export interface UseModalDragOptions {
   viewportPadding?: number;
 }
 
+type ResolvedModalDragAnchor = {
+  selector: string;
+  hAlign: 'left' | 'center' | 'right';
+  vAlign: 'top' | 'center' | 'bottom';
+  xTarget: 'box' | 'input-text-end';
+  xTextFallback?: string;
+  padding: Record<'top' | 'right' | 'bottom' | 'left', number>;
+};
+
 function computeAnchoredPosition(
-  anchor: ModalDragAnchor,
+  anchor: ResolvedModalDragAnchor,
   anchorEl: Element,
   modalEl: HTMLElement,
 ): { x: number; y: number } {
@@ -64,14 +73,9 @@ function computeAnchoredPosition(
   };
 
   const modalRect = modalEl.getBoundingClientRect();
-  const pad = {
-    top: anchor.padding?.top ?? 0,
-    right: anchor.padding?.right ?? 0,
-    bottom: anchor.padding?.bottom ?? 0,
-    left: anchor.padding?.left ?? 0,
-  };
-  const hAlign = anchor.hAlign ?? 'center';
-  const vAlign = anchor.vAlign ?? 'top';
+  const pad = anchor.padding;
+  const hAlign = anchor.hAlign;
+  const vAlign = anchor.vAlign;
 
   let x: number;
   if (hAlign === 'left') {
@@ -235,7 +239,7 @@ export function useModalDrag(open: boolean, options?: UseModalDragOptions) {
     const anchorEl = document.querySelector(anchorSelector);
     const modalEl = options?.modalRef?.current;
     if (!anchorEl || !modalEl) return;
-    const anchor: ModalDragAnchor = {
+    const anchor: ResolvedModalDragAnchor = {
       selector: anchorSelector,
       hAlign: anchorHAlign,
       vAlign: anchorVAlign,
@@ -305,6 +309,10 @@ export function useModalDrag(open: boolean, options?: UseModalDragOptions) {
         position: 'fixed',
         left: position.x,
         top: position.y,
+        // Base modal classes often center with translate(-50%, -50%).
+        // Clear that once we switch to drag coordinates, otherwise
+        // viewport clamping is applied to the wrong visual position.
+        transform: 'none',
         margin: 0,
         pointerEvents: 'auto',
         // Explicitly lock the width that was captured at drag-start.

@@ -49,6 +49,7 @@ function makeStudio() {
     selectMethod: vi.fn(),
     abortTabInFlightCalls: vi.fn(),
     patchTabDescriptor: vi.fn(),
+    reflectTab: vi.fn().mockResolvedValue(undefined),
   };
 }
 
@@ -191,6 +192,36 @@ describe('useGrpcStudioReplayActions (Phase 5H)', () => {
     );
     expect(onNavigate).toHaveBeenCalledWith('studio');
     expect(studio.selectMethod).not.toHaveBeenCalled();
+    expect(studio.reflectTab).not.toHaveBeenCalled();
+  });
+
+  it('applyGrpcurlImport auto-reflects when no descriptor is loaded and import has no proto flags', () => {
+    const studio = makeStudio();
+    studio.activeTabDescriptor = createEmptyTabDescriptorState();
+    const onNavigate = vi.fn();
+    const { result } = renderHook(() => useGrpcStudioReplayActions({
+      studio: studio as never,
+      envVarMap: {},
+      profiles: [],
+      pageDefaults: { target: '', tlsMode: 'disabled' },
+      onNavigate,
+    }));
+
+    act(() => {
+      result.current.applyGrpcurlImport({
+        ok: true,
+        targetAddress: 'localhost:50051',
+        serviceFullName: 'echo.EchoService',
+        methodName: 'Echo',
+        tlsMode: 'plaintext',
+        metadata: {},
+        body: { message: 'imported' },
+        warnings: [],
+        unsupportedFlags: [],
+      });
+    });
+
+    expect(studio.reflectTab).toHaveBeenCalledWith(studio.activeTab.id);
   });
 
   it('applyGrpcurlImport preserves tls/descriptor hints and proto ingest draft', () => {

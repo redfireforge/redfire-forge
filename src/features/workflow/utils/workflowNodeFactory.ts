@@ -78,6 +78,9 @@ import GraphqlMutationNode from '../components/nodes/GraphqlMutationNode';
 import GraphqlSubscriptionNode from '../components/nodes/GraphqlSubscriptionNode';
 import GraphqlIntrospectNode from '../components/nodes/GraphqlIntrospectNode';
 import GraphqlAssertNode from '../components/nodes/GraphqlAssertNode';
+import GrpcUnaryNode from '../components/nodes/GrpcUnaryNode';
+import GrpcServerStreamNode from '../components/nodes/GrpcServerStreamNode';
+import GrpcAssertNode from '../components/nodes/GrpcAssertNode';
 
 export type WorkflowRFNode = Node<WorkflowNodeData, WorkflowNodeType>;
 export type WorkflowRFEdge = Edge;
@@ -115,6 +118,9 @@ export const nodeTypes = {
   graphqlSubscription: GraphqlSubscriptionNode,
   graphqlIntrospect: GraphqlIntrospectNode,
   graphqlAssert: GraphqlAssertNode,
+  grpcUnary: GrpcUnaryNode,
+  grpcServerStream: GrpcServerStreamNode,
+  grpcAssert: GrpcAssertNode,
 };
 
 export function makeEmptyScenario(): Scenario {

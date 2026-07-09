@@ -45,7 +45,7 @@ curl -fsS http://localhost:50052/health >/dev/null
 curl -fsS http://localhost:50453/health >/dev/null
 curl -fsS http://localhost:50454/health >/dev/null
 curl -fsS http://localhost:50560/health >/dev/null
-curl -fsS http://localhost:8080/actuator/health >/dev/null
+curl -fsS http://localhost:8081/actuator/health >/dev/null
 
 echo "[probe] OAuth2 mock token endpoint :50560"
 oauth_response="$(curl -fsS -X POST http://localhost:50560/oauth2/token \

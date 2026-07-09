@@ -67,7 +67,6 @@ test.describe('gRPC Selector Guard — Unified Shell UX', () => {
     await gotoFresh(page);
 
     await expect(page.locator(GRPC.REQUEST_TAB_FORM)).toBeVisible();
-    await expect(page.locator(GRPC.REQUEST_TAB_JSON)).toBeVisible();
     await expect(page.locator(GRPC.REQUEST_TAB_METADATA)).toBeVisible();
     await expect(page.locator(GRPC.REQUEST_TAB_AUTH)).toBeVisible();
     await expect(page.locator(GRPC.REQUEST_TAB_FILES)).toBeVisible();

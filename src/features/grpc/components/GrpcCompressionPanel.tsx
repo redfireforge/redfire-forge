@@ -122,9 +122,7 @@ export function GrpcCompressionPanel({
                 <div className="grpc-settings-form-row__ctrl" data-testid="grpc-compression-preview">
                   {encoding ? (
                     <code className="grpc-settings-code-block grpc-compression-preview-block">
-                      grpc-encoding: {encoding}
-                      {'\n'}
-                      grpc-accept-encoding: {acceptEncoding}
+                      {`grpc-encoding: ${encoding}\ngrpc-accept-encoding: ${acceptEncoding}`}
                     </code>
                   ) : (
                     <code className="grpc-settings-code-block grpc-call-settings-preview-value">Compression disabled — no grpc-encoding header</code>

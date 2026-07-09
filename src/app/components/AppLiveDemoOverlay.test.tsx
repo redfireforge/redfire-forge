@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import AppLiveDemoOverlay from './AppLiveDemoOverlay';
@@ -42,7 +42,7 @@ function makeDemoHub(overrides: Record<string, unknown> = {}) {
 describe('AppLiveDemoOverlay', () => {
   it('renders nothing when not in live view', () => {
     const { container } = render(
-      <AppLiveDemoOverlay demoHub={makeDemoHub({ state: { view: 'domains' } })} setActiveTab={vi.fn()} />,
+      <AppLiveDemoOverlay demoHub={makeDemoHub({ state: { view: 'domains' } })} navigateToTab={vi.fn()} />,
     );
     expect(container.firstChild).toBeNull();
   });
@@ -51,49 +51,46 @@ describe('AppLiveDemoOverlay', () => {
     const { container } = render(
       <AppLiveDemoOverlay
         demoHub={makeDemoHub({ state: { view: 'live', selectedLesson: null, stepIndex: 0, isPlaying: false } })}
-        setActiveTab={vi.fn()}
+        navigateToTab={vi.fn()}
       />,
     );
     expect(container.firstChild).toBeNull();
   });
 
   it('renders LiveDemo when in live view with a lesson', () => {
-    render(<AppLiveDemoOverlay demoHub={makeDemoHub()} setActiveTab={vi.fn()} />);
+    render(<AppLiveDemoOverlay demoHub={makeDemoHub()} navigateToTab={vi.fn()} />);
     expect(screen.getByTestId('live-demo')).toHaveAttribute('data-lesson', 'gql-first-query');
   });
 
-  it('onExit calls exitLiveDemo then setActiveTab demo-hub', async () => {
-    const setActiveTab = vi.fn();
+  it('onExit navigates to demo-hub immediately then exitLiveDemo', async () => {
+    const navigateToTab = vi.fn();
     const exitLiveDemo = vi.fn(async () => {});
     render(
       <AppLiveDemoOverlay
         demoHub={makeDemoHub({ exitLiveDemo })}
-        setActiveTab={setActiveTab}
+        navigateToTab={navigateToTab}
       />,
     );
     await userEvent.click(screen.getByTestId('trigger-exit'));
-    await waitFor(() => {
-      expect(exitLiveDemo).toHaveBeenCalledTimes(1);
-      expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
-    });
+    expect(navigateToTab).toHaveBeenCalledWith('demo-hub');
+    expect(exitLiveDemo).toHaveBeenCalledTimes(1);
+    expect(navigateToTab.mock.invocationCallOrder[0]).toBeLessThan(exitLiveDemo.mock.invocationCallOrder[0]);
   });
 
-  it('onComplete calls confirmLessonComplete, exitLiveDemo, then setActiveTab demo-hub', async () => {
-    const setActiveTab = vi.fn();
+  it('onComplete calls confirmLessonComplete, navigates to demo-hub, then exitLiveDemo', async () => {
+    const navigateToTab = vi.fn();
     const exitLiveDemo = vi.fn(async () => {});
     const confirmLessonComplete = vi.fn();
     render(
       <AppLiveDemoOverlay
         demoHub={makeDemoHub({ exitLiveDemo, confirmLessonComplete })}
-        setActiveTab={setActiveTab}
+        navigateToTab={navigateToTab}
       />,
     );
     await userEvent.click(screen.getByTestId('trigger-complete'));
     expect(confirmLessonComplete).toHaveBeenCalledTimes(1);
-    await waitFor(() => {
-      expect(exitLiveDemo).toHaveBeenCalledTimes(1);
-      expect(setActiveTab).toHaveBeenCalledWith('demo-hub');
-    });
+    expect(navigateToTab).toHaveBeenCalledWith('demo-hub');
+    expect(exitLiveDemo).toHaveBeenCalledTimes(1);
   });
 
   it('passes lesson playback props to LiveDemo', () => {
@@ -101,7 +98,7 @@ describe('AppLiveDemoOverlay', () => {
       state: { view: 'live', selectedLesson: { id: 'gql-vars' }, stepIndex: 2, isPlaying: true },
       stepPhase: 'action',
     });
-    render(<AppLiveDemoOverlay demoHub={demoHub} setActiveTab={vi.fn()} />);
+    render(<AppLiveDemoOverlay demoHub={demoHub} navigateToTab={vi.fn()} />);
     expect(capturedProps.lesson).toEqual({ id: 'gql-vars' });
     expect(capturedProps.stepIndex).toBe(2);
     expect(capturedProps.isPlaying).toBe(true);

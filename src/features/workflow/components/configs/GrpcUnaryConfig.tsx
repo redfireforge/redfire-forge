@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react';
+import type { GlobalAuthProfile } from '../../../../shared/types';
 import type { GrpcUnaryNodeData } from '../../types/workflow/node-grpc';
+import GrpcWorkflowCallTargetFields from './GrpcWorkflowCallTargetFields';
+import GrpcWorkflowConnectionSecurityFields from './GrpcWorkflowConnectionSecurityFields';
 
 export default function GrpcUnaryConfig({
   data,
   onChange,
+  globalAuthProfiles = [],
+  defaultAuthProfileId = null,
 }: {
   data: GrpcUnaryNodeData;
   onChange: (d: GrpcUnaryNodeData) => void;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  defaultAuthProfileId?: string | null;
 }) {
   const [bodyText, setBodyText] = useState(() => JSON.stringify(data.body ?? {}, null, 2));
   const [metadataText, setMetadataText] = useState(() => JSON.stringify(data.metadata ?? {}, null, 2));
@@ -36,28 +43,29 @@ export default function GrpcUnaryConfig({
     <div className="wf-config-body" data-testid="grpc-unary-config">
       <div className="wf-config-field--row">
         <label>Label</label>
-        <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
+        <input data-testid="grpc-unary-config-label" value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
-      <div className="wf-config-field--row">
-        <label>Target</label>
-        <input value={data.target} onChange={(e) => update({ target: e.target.value })} placeholder="127.0.0.1:50051" />
-      </div>
-      <div className="wf-config-field--row">
-        <label>Descriptor Key</label>
-        <input value={data.descriptorKey} onChange={(e) => update({ descriptorKey: e.target.value })} />
-      </div>
-      <div className="wf-config-field--row">
-        <label>Service</label>
-        <input value={data.service} onChange={(e) => update({ service: e.target.value })} placeholder="package.Service" />
-      </div>
-      <div className="wf-config-field--row">
-        <label>Method</label>
-        <input value={data.method} onChange={(e) => update({ method: e.target.value })} placeholder="MethodName" />
-      </div>
+
+      <GrpcWorkflowCallTargetFields
+        data={data}
+        onChange={onChange}
+        callType="unary"
+        testIdPrefix="grpc-unary-config"
+      />
+
+      <GrpcWorkflowConnectionSecurityFields
+        data={data}
+        onChange={onChange}
+        testIdPrefix="grpc-unary-config"
+        globalAuthProfiles={globalAuthProfiles}
+        defaultAuthProfileId={defaultAuthProfileId}
+      />
+
       <div className="wf-config-field--row">
         <label>Timeout (ms)</label>
         <input
           type="number"
+          data-testid="grpc-unary-config-timeout"
           value={data.timeoutMs ?? ''}
           onChange={(e) => update({ timeoutMs: e.target.value === '' ? undefined : Number(e.target.value) })}
           placeholder="30000"
@@ -65,19 +73,20 @@ export default function GrpcUnaryConfig({
       </div>
       <div className="wf-config-field--row">
         <label>On Error</label>
-        <select value={data.onError ?? 'fail'} onChange={(e) => update({ onError: e.target.value as 'fail' | 'continue' })}>
+        <select data-testid="grpc-unary-config-on-error" value={data.onError ?? 'fail'} onChange={(e) => update({ onError: e.target.value as 'fail' | 'continue' })}>
           <option value="fail">Fail workflow</option>
           <option value="continue">Continue workflow</option>
         </select>
       </div>
       <div className="wf-config-field--row">
         <label>Save As</label>
-        <input value={data.saveAs ?? ''} onChange={(e) => update({ saveAs: e.target.value || undefined })} placeholder="Optional alias" />
+        <input data-testid="grpc-unary-config-save-as" value={data.saveAs ?? ''} onChange={(e) => update({ saveAs: e.target.value || undefined })} placeholder="Optional alias" />
       </div>
       <div className="wf-config-field">
         <label>Request Body (JSON object)</label>
         <textarea
           className="wf-config-textarea"
+          data-testid="grpc-unary-config-body"
           rows={4}
           value={bodyText}
           onChange={(e) => {
@@ -92,6 +101,7 @@ export default function GrpcUnaryConfig({
         <label>Metadata (JSON object)</label>
         <textarea
           className="wf-config-textarea"
+          data-testid="grpc-unary-config-metadata"
           rows={3}
           value={metadataText}
           onChange={(e) => {

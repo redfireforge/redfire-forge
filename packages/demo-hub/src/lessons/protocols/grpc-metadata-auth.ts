@@ -756,7 +756,7 @@ RedfireForge's **gRPC session settings** panel (gear icon ⚙ in the connection 
       highlight: GRPC.REQUEST_TAB_METADATA,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureEchoReadyFast(ctx);
+        await ensureAuthReadyFast(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
 
         // Reset auth only when it is clearly not in None mode.
@@ -1080,9 +1080,6 @@ RedfireForge's **gRPC session settings** panel (gear icon ⚙ in the connection 
       highlight: GRPC.REQUEST_TAB_METADATA,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureEchoReadyFast(ctx);
-        await closeGrpcSettingsDrawerQuiet(ctx);
-
         // Skip preAction setup if API Key auth is already configured.
         const apiKeyAlreadyConfigured = isAuthStepAlreadyConfigured('api_key', [
           { testId: 'grpc-auth-api-key-name', value: DEMO_API_KEY_NAME },
@@ -1091,6 +1088,9 @@ RedfireForge's **gRPC session settings** panel (gear icon ⚙ in the connection 
         if (apiKeyAlreadyConfigured) {
           return;
         }
+
+        await ensureAuthReadyFast(ctx);
+        await closeGrpcSettingsDrawerQuiet(ctx);
 
         // Ensure API Key auth is active.
         await openAuthTabQuiet(ctx);
@@ -1101,15 +1101,15 @@ RedfireForge's **gRPC session settings** panel (gear icon ⚙ in the connection 
         const formTabBtn = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_FORM);
         if (formTabBtn && !formTabBtn.disabled) {
           formTabBtn.click();
-          await ctx.delay(100);
+          await ctx.delay(40);
         }
       },
       action: async (ctx) => {
         // Start from Auth and spotlight the API key value that owns x-api-key.
         await openAuthTabQuiet(ctx);
         await waitForIfMissing(ctx, '[data-testid="grpc-auth-api-key-value"]', 3_000);
-        await spotlightAuthField(ctx, 'grpc-auth-api-key-name', 320);
-        await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 360);
+        await spotlightAuthField(ctx, 'grpc-auth-api-key-name', 90);
+        await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 90);
 
         const authApiKeyValueInput = document.querySelector<HTMLInputElement>('[data-testid="grpc-auth-api-key-value"]');
         const authApiKeyValue = authApiKeyValueInput?.value.trim() ?? '';
@@ -1125,12 +1125,12 @@ RedfireForge's **gRPC session settings** panel (gear icon ⚙ in the connection 
           const formTabBtn = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_FORM);
           if (formTabBtn && !formTabBtn.disabled) {
             formTabBtn.click();
-            await ctx.delay(120);
+            await ctx.delay(40);
           }
         }
 
         // Spotlight the Metadata tab before clicking so the viewer knows where to look.
-        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 380);
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 70);
         await waitForIfMissing(ctx, GRPC.REQUEST_TAB_METADATA, 8_000);
         const metadataTabBtn = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_METADATA);
         if (metadataTabBtn && !metadataTabBtn.disabled) {
@@ -1138,40 +1138,40 @@ RedfireForge's **gRPC session settings** panel (gear icon ⚙ in the connection 
         }
         await waitForIfMissing(ctx, GRPC.METADATA_EDITOR, 5_000);
         await ctx.waitFor(GRPC.METADATA_EDITOR, 5_000);
-        await ctx.delay(260);
+        await ctx.delay(20);
 
         // Spotlight the + Add row button before clicking.
-        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 320);
+        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 60);
 
         // Force a fresh x-api-key row so the conflict is deterministic and visible.
         await removeMetadataRowsByKey(ctx, DEMO_API_KEY_NAME);
-        await ctx.delay(80);
+        await ctx.delay(10);
         await addMetadataRowQuiet(ctx, DEMO_API_KEY_NAME, conflictingMetadataValue);
-        await spotlightMetadataRowKeyValue(ctx, DEMO_API_KEY_NAME, 360);
+        await spotlightMetadataRowKeyValue(ctx, DEMO_API_KEY_NAME, 70);
         // Hold briefly on Metadata after configuration before moving to Auth.
-        await ctx.delay(220);
+        await ctx.delay(15);
 
         // Switch to Auth so the conflict warning is actually visible and highlight it.
         await ctx.click(GRPC.AUTH_BADGE);
         await waitForIfMissing(ctx, GRPC.AUTH_PANEL, 3_000);
-        await ctx.delay(120);
+        await ctx.delay(15);
 
         // Spotlight the conflict warning as the key outcome of this step.
         try {
           await ctx.waitFor(GRPC.AUTH_CONFLICTS, 4_000);
-          await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 360);
-          await spotlightAndPause(ctx, GRPC.AUTH_CONFLICTS, 900);
+          await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 90);
+          await spotlightAndPause(ctx, GRPC.AUTH_CONFLICTS, 120);
           // Also highlight the call-level block hint so viewers see conflict detection
           // both inside Auth and in the global send block strip.
           try {
             await ctx.waitFor(GRPC.SEND_BLOCK_HINT, 1_500);
-            await spotlightAndPause(ctx, GRPC.SEND_BLOCK_HINT, 800);
+            await spotlightAndPause(ctx, GRPC.SEND_BLOCK_HINT, 120);
           } catch {
             // Optional visual strip can be hidden in compact/mocked layouts.
           }
         } catch {
           // Conflict indicator may appear asynchronously; continue the lesson.
-          await ctx.delay(420);
+          await ctx.delay(60);
         }
       },
       verify: GRPC.AUTH_CONFLICTS,
@@ -1255,7 +1255,8 @@ RedfireForge's **gRPC session settings** panel (gear icon ⚙ in the connection 
         'This pattern lets you drive metadata values from environment configs: switch between ' +
         '`local`, `staging`, and `production` environments and the metadata values update automatically ' +
         'without editing the call. Use `{{grpcHost}}` in the target, `{{authToken}}` in metadata, ' +
-        'and `{{userId}}` in the request body for fully environment-driven gRPC calls.',
+        'and `{{userId}}` in the request body for fully environment-driven gRPC calls. ' +
+        'Then click **Send Unary** and confirm the **Response Body** renders successfully.',
       // METADATA_EDITOR is always visible once metadata tab is active.
       highlight: GRPC.METADATA_EDITOR,
       pauseAfter: true,
@@ -1265,6 +1266,24 @@ RedfireForge's **gRPC session settings** panel (gear icon ⚙ in the connection 
         await resetAuthToNoneQuiet(ctx);
         // Seed interpolation env for deterministic lesson playback.
         upsertWorkspaceDefaults({ authToken: DEMO_ENV_AUTH_TOKEN });
+
+        // Ensure a message is filled so Send is enabled when the step fires.
+        const field = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT_MESSAGE);
+        if (field && !field.value.trim()) {
+          await ctx.fill(GRPC.PROTO_FIELD_INPUT_MESSAGE, GRPC_DEMO_MESSAGE);
+          // Fallback: force native input/change in case synthetic fill is dropped.
+          if (!field.value.trim()) {
+            const valueSetter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+            if (valueSetter) {
+              valueSetter.call(field, GRPC_DEMO_MESSAGE);
+            } else {
+              field.value = GRPC_DEMO_MESSAGE;
+            }
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+            field.dispatchEvent(new Event('change', { bubbles: true }));
+          }
+          await ctx.delay(300);
+        }
       },
       action: async (ctx) => {
         // Spotlight the Metadata tab before clicking.
@@ -1314,25 +1333,21 @@ RedfireForge's **gRPC session settings** panel (gear icon ⚙ in the connection 
           await ctx.delay(600);
         }
 
-        // Send the request to show the actual resolved header in the response.
+        // Send Unary and focus Response Body as the user-visible result for this final step.
         await ctx.delay(300);
         const sendBtn = document.querySelector<HTMLButtonElement>(GRPC.SEND_BTN);
         if (sendBtn && !sendBtn.disabled) {
           await spotlightAndPause(ctx, GRPC.SEND_BTN, 600);
           await ctx.click(GRPC.SEND_BTN);
-          await ctx.waitFor(GRPC.RESPONSE_PANEL, 8_000);
-          await ctx.delay(500);
-
-          // Highlight response headers to show the resolved authToken value was sent.
-          const headerTab = document.querySelector<HTMLButtonElement>(GRPC.RESPONSE_TAB_HEADERS);
-          if (headerTab && !headerTab.disabled) {
-            await spotlightAndPause(ctx, GRPC.RESPONSE_TAB_HEADERS, 600);
-            await ctx.click(GRPC.RESPONSE_TAB_HEADERS);
-            await ctx.delay(500);
-          }
+        } else {
+          await ensureUnaryExecuted(ctx);
         }
+
+        await ctx.waitFor(GRPC.RESPONSE_PANEL, 8_000);
+        await ctx.waitFor(GRPC.RESPONSE_BODY, 8_000);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 900);
       },
-      verify: GRPC.METADATA_EDITOR,
+      verify: GRPC.RESPONSE_BODY,
     },
   ],
 };

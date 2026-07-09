@@ -2,8 +2,11 @@
  * Phase 6C / 9C — workflow runtime context for gRPC snapshot building.
  */
 import type { GrpcTlsConfig } from '../../../shared/grpc/contracts';
+import type { GlobalAuthProfile } from '../../../shared/types';
+import { loadGrpcConnectionProfilesFromStorage } from '../../../engine/grpcConnectionProfileHydration';
 import type { GrpcConnectionProfile, GrpcTabConnectionPageDefaults } from '../../grpc/utils/resolveGrpcTabConnection';
 import type { VariableContext } from '../engine/variableContext';
+import type { GrpcUnaryNodeData, GrpcServerStreamNodeData } from '../types/workflow/node-grpc';
 import type { GrpcWorkflowSnapshotBuildContext } from './grpcWorkflowSnapshotBuilder';
 import {
   buildGrpcStudioInterpolationEnvLayers,
@@ -39,6 +42,28 @@ export interface GrpcWorkflowRuntimeOverrides {
   workspaceDefaults?: Record<string, string>;
   profileVariables?: Record<string, string>;
   tabOverrides?: Record<string, string>;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  defaultAuthProfileId?: string | null;
+}
+
+/** Runtime bundle injected into Quick Test / graph runner for gRPC workflow nodes. */
+export interface GrpcWorkflowExecutionRuntime {
+  profiles: GrpcConnectionProfile[];
+  globalAuthProfiles: GlobalAuthProfile[];
+  defaultAuthProfileId?: string | null;
+}
+
+export function createGrpcWorkflowNodeSnapshotContext(
+  ctx: VariableContext,
+  nodeData: Pick<GrpcUnaryNodeData | GrpcServerStreamNodeData, 'tlsConfig'>,
+  executionRuntime?: GrpcWorkflowExecutionRuntime,
+): GrpcWorkflowSnapshotRuntimeContext {
+  return createGrpcWorkflowSnapshotBuildContext(ctx, {
+    profiles: executionRuntime?.profiles ?? loadGrpcConnectionProfilesFromStorage(),
+    tlsConfig: nodeData.tlsConfig,
+    globalAuthProfiles: executionRuntime?.globalAuthProfiles,
+    defaultAuthProfileId: executionRuntime?.defaultAuthProfileId,
+  });
 }
 
 export function createGrpcWorkflowSnapshotBuildContext(
@@ -68,6 +93,8 @@ export function createGrpcWorkflowSnapshotBuildContext(
     interpolationEnv,
     activeEnvironment: { ...envSnapshot },
     variableContext: ctx,
+    globalAuthProfiles: overrides?.globalAuthProfiles,
+    defaultAuthProfileId: overrides?.defaultAuthProfileId,
   };
 }
 
