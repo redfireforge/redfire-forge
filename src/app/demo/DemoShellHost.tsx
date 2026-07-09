@@ -20,7 +20,6 @@ import '../../styles/demo-hub.css';
 export interface DemoShellHostProps {
   navigateToTab: (tab: string) => void;
   activeTab: Tab;
-  setActiveTab: (tab: Tab) => void;
   setSidebarCollapsed: Dispatch<SetStateAction<boolean>>;
   setAppGlobalAuthProfiles: Dispatch<SetStateAction<GlobalAuthProfile[]>>;
   setWorkspaceDefaults: Dispatch<SetStateAction<Record<string, string>>>;
@@ -36,7 +35,6 @@ export interface DemoShellHostProps {
 export function DemoShellHost({
   navigateToTab,
   activeTab,
-  setActiveTab,
   setSidebarCollapsed,
   setAppGlobalAuthProfiles,
   setWorkspaceDefaults,
@@ -50,7 +48,7 @@ export function DemoShellHost({
   const demoHub = useDemoHub({ navigateToTab });
   const [mountEl, setMountEl] = useState<HTMLElement | null>(null);
 
-  useDemoShortcuts(demoHub, activeTab, setActiveTab, demoHub.suppressLiveTabExitRef);
+  useDemoShortcuts(demoHub, activeTab, navigateToTab, demoHub.suppressLiveTabExitRef);
   useDemoSidebarBridge(setSidebarCollapsed);
   useDemoGlobalAuthBridge(setAppGlobalAuthProfiles);
   useDemoWorkspaceDefaultsBridge(setWorkspaceDefaults);
@@ -114,7 +112,7 @@ export function DemoShellHost({
         <DemoHub hub={demoHub} />,
         mountEl,
       )}
-      <AppLiveDemoOverlay demoHub={demoHub} setActiveTab={setActiveTab} />
+      <AppLiveDemoOverlay demoHub={demoHub} navigateToTab={navigateToTab} />
       <LessonNotesPanel />
     </LessonNotesProvider>
   );

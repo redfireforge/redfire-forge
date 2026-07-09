@@ -348,4 +348,44 @@ describe('grpcProtoHybridState (Phase 0 foundation)', () => {
     expect(refreshed.validation.computedAt).toBe(777);
     expect(sendAttempt).toBe(refreshed);
   });
+
+  it('ignores focus patch and full-form open while modal is already open', () => {
+    const opened = reduceGrpcProtoHybridState(
+      createGrpcProtoHybridInitialState('tab-1', { nested: { value: 1 } }),
+      {
+        type: 'FULL_FORM_OPEN',
+        openContext: {
+          selectedPath: 'nested',
+          navigatorScrollTop: 0,
+          focusPaneScrollTop: 0,
+        },
+      },
+    );
+    const reopen = reduceGrpcProtoHybridState(opened, {
+      type: 'FULL_FORM_OPEN',
+      openContext: {
+        selectedPath: null,
+        navigatorScrollTop: 0,
+        focusPaneScrollTop: 0,
+      },
+    });
+    expect(reopen).toBe(opened);
+
+    const patched = reduceGrpcProtoHybridState(opened, {
+      type: 'FOCUS_EDIT_PATCH',
+      nextDraft: { nested: { value: 2 } },
+    });
+    expect(patched).toBe(opened);
+  });
+
+  it('ignores discard and close when modal is not open', () => {
+    const initial = createGrpcProtoHybridInitialState('tab-1', { value: 1 });
+    expect(reduceGrpcProtoHybridState(initial, { type: 'FULL_FORM_DISCARD' })).toBe(initial);
+    expect(reduceGrpcProtoHybridState(initial, { type: 'FULL_FORM_CLOSE' })).toBe(initial);
+  });
+
+  it('returns state unchanged for unknown reducer events', () => {
+    const initial = createGrpcProtoHybridInitialState('tab-1', { items: [1, { a: 2 }] });
+    expect(reduceGrpcProtoHybridState(initial, { type: 'UNKNOWN_EVENT' } as never)).toBe(initial);
+  });
 });

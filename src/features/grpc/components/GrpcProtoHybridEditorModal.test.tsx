@@ -43,7 +43,7 @@ function makeModalState(overrides: Partial<GrpcProtoHybridModalState> = {}): Grp
 }
 
 describe('GrpcProtoHybridEditorModal', () => {
-  it('switches between Form and JSON tabs', () => {
+  it('switches between Form and JSON views', () => {
     const onEvent = vi.fn();
     render(
       <GrpcProtoHybridEditorModal
@@ -59,7 +59,7 @@ describe('GrpcProtoHybridEditorModal', () => {
     expect(onEvent).toHaveBeenCalledWith({ type: 'MODAL_VIEW_SWITCH', view: 'optionC' });
   });
 
-  it('shows parse error and disables apply when JSON tab has parser error', () => {
+  it('shows parse error and disables apply when JSON view has parser error', () => {
     const onEvent = vi.fn();
     render(
       <GrpcProtoHybridEditorModal

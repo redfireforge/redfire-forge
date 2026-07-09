@@ -43,6 +43,7 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
     setWorkflowErrorConfig,
     persistWorkflow,
     nodes,
+    globalAuthProfiles,
   } = vm;
 
   return (
@@ -90,6 +91,7 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
           nodeRunStatus={configModalNodeId ? nodeStatuses[configModalNodeId] : undefined}
           workflows={configModalWorkflows}
           allNodes={nodes.map(n => ({ id: n.id, type: n.type, position: n.position, data: n.data } as import('../types/workflow').WorkflowNode))}
+          globalAuthProfiles={globalAuthProfiles}
         />
       )}
 

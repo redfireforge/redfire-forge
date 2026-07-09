@@ -1240,6 +1240,64 @@
   cursor: ew-resize;
 }
 
+.demo-live-resize-handle--bottom {
+  bottom: 0;
+  left: 10px;
+  right: 22px;
+  height: 8px;
+  cursor: ns-resize;
+}
+
+.demo-live-resize-handle--corner {
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+  cursor: nwse-resize;
+  z-index: 4;
+  background:
+    linear-gradient(
+      -45deg,
+      transparent 0%,
+      transparent 30%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 45%, transparent) 30%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 45%, transparent) 36%,
+      transparent 36%,
+      transparent 50%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 45%, transparent) 50%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 45%, transparent) 56%,
+      transparent 56%,
+      transparent 70%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 45%, transparent) 70%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 45%, transparent) 76%,
+      transparent 76%
+    );
+  border-bottom-right-radius: 14px;
+  opacity: 0.7;
+  transition: opacity 0.15s;
+}
+
+.demo-live-resize-handle--corner:hover {
+  opacity: 1;
+  background: color-mix(in srgb, var(--primary, #3b82f6) 12%, transparent),
+    linear-gradient(
+      -45deg,
+      transparent 0%,
+      transparent 30%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 55%, transparent) 30%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 55%, transparent) 36%,
+      transparent 36%,
+      transparent 50%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 55%, transparent) 50%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 55%, transparent) 56%,
+      transparent 56%,
+      transparent 70%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 55%, transparent) 70%,
+      color-mix(in srgb, var(--text-muted, #a8b8cc) 55%, transparent) 76%,
+      transparent 76%
+    );
+}
+
 .demo-live-resize-handle:hover {
   background: color-mix(in srgb, var(--primary, #3b82f6) 18%, transparent);
 }
@@ -1254,6 +1312,10 @@
 
 .demo-live-resize-handle--right:hover {
   border-right: 2px solid color-mix(in srgb, var(--primary, #3b82f6) 55%, transparent);
+}
+
+.demo-live-resize-handle--bottom:hover {
+  border-bottom: 2px solid color-mix(in srgb, var(--primary, #3b82f6) 55%, transparent);
 }
 
 @keyframes demo-slide-up {
@@ -1354,7 +1416,7 @@
 }
 
 .demo-live-step-title {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
   margin: 0 0 6px;
   color: var(--text, #f1f5f9);

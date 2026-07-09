@@ -1,13 +1,9 @@
 import type { GrpcStudioTabState } from '../grpcStudioTypes';
 
-export type GrpcComposerTab = 'form' | 'json' | 'metadata' | 'auth' | 'files';
-
-export function isGrpcJsonMode(composerTab: GrpcComposerTab, requestMode: 'form' | 'json'): boolean {
-  return composerTab === 'json' || requestMode === 'json';
-}
+export type GrpcComposerTab = 'form' | 'metadata' | 'auth' | 'files';
 
 function parsePersistedComposerTab(raw: string | null): GrpcComposerTab | null {
-  if (raw === 'form' || raw === 'json' || raw === 'metadata' || raw === 'auth' || raw === 'files') {
+  if (raw === 'form' || raw === 'metadata' || raw === 'auth' || raw === 'files') {
     return raw;
   }
   return null;
@@ -24,7 +20,7 @@ export function resolveInitialComposerTab(tab: GrpcStudioTabState): GrpcComposer
   } catch {
     // sessionStorage can be unavailable in some test/runtime environments.
   }
-  return tab.requestMode === 'json' ? 'json' : 'form';
+  return 'form';
 }
 
 export function persistComposerTab(tabId: string, composerTab: GrpcComposerTab): void {

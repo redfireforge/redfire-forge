@@ -1,4 +1,4 @@
-/** Live demo floating panel — drag + edge resize (top, left, right) with persistence. */
+/** Live demo floating panel — drag + edge resize (top, left, right, bottom, corner) with persistence. */
 import { useCallback, useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type RefObject } from 'react';
 
 export const DEMO_LIVE_PANEL_DEFAULT_WIDTH = 400;
@@ -14,7 +14,7 @@ export interface LiveDemoPanelGeometry {
   height: number;
 }
 
-type ResizeEdge = 'top' | 'left' | 'right';
+type ResizeEdge = 'top' | 'left' | 'right' | 'bottom' | 'corner';
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -167,6 +167,11 @@ export function useLiveDemoPanelLayout(): {
       } else if (edge === 'left') {
         width = startRect.width - dx;
         left = startRect.right - width;
+      } else if (edge === 'bottom') {
+        height = startRect.height + dy;
+      } else if (edge === 'corner') {
+        width = startRect.width + dx;
+        height = startRect.height + dy;
       } else {
         height = startRect.height - dy;
         top = startRect.bottom - height;

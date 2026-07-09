@@ -16,13 +16,21 @@ import type { GrpcResultMeta, RequestResult, FailureDetail } from '../../../shar
 import { toErrorMessage, truncate } from '../../../shared/utils/helpers';
 import { nextResultId } from '../../../engine/requestExecution';
 import { buildGrpcWorkflowExecuteSnapshot } from '../utils/grpcWorkflowSnapshotBuilder';
-import { createGrpcWorkflowSnapshotBuildContext } from '../utils/grpcWorkflowRuntimeContext';
+import { createGrpcWorkflowNodeSnapshotContext } from '../utils/grpcWorkflowRuntimeContext';
 import { publishGrpcWorkflowStepOutput } from '../utils/grpcWorkflowStepOutput';
 import { executeGrpcWorkflowUnary, wrapUnaryInvokeWithAbort } from '../utils/grpcWorkflowUnaryExecutor';
 import { grpcWorkflowSnapshotToStreamStartRequest } from '../utils/grpcWorkflowTransportAdapter';
 import type { GrpcWorkflowStreamStopReason } from '../utils/grpcWorkflowStreamCollector';
 import { evaluateGrpcWorkflowAssertions } from '../utils/grpcWorkflowAssertEngine';
 import { buildGrpcNodeStatusMeta, formatGrpcNodeRunDetail } from '../utils/grpcWorkflowOutputAdapter';
+import {
+  logGrpcAssertUpstream,
+  logGrpcAssertionResults,
+  logGrpcCallResponse,
+  logGrpcRequestBody,
+  logGrpcRequestMetadata,
+  logGrpcSaveAs,
+} from './graphRunnerGrpcLogHelpers';
 
 const MAX_BODY_PREVIEW = 512;
 
@@ -257,7 +265,7 @@ export async function handleGrpcUnaryNode(
         requestId: `wf-${nodeId}-${Date.now()}`,
         data,
       },
-      createGrpcWorkflowSnapshotBuildContext(hCtx.ctx),
+      createGrpcWorkflowNodeSnapshotContext(hCtx.ctx, data, hCtx.grpcWorkflowExecutionRuntime),
     );
   } catch (err) {
     const msg = toErrorMessage(err);
@@ -269,6 +277,8 @@ export async function handleGrpcUnaryNode(
 
   const target = snapshot.execute.target.address;
   hCtx.log({ prefix: '→', text: `[${label}] UNARY ${snapshot.execute.service}/${snapshot.execute.method} → ${target}` });
+  logGrpcRequestMetadata(label, hCtx.log, snapshot.execute.metadata, snapshot.execute.auth);
+  logGrpcRequestBody(label, hCtx.log, snapshot.execute.body);
 
   const t0 = performance.now();
   try {
@@ -340,7 +350,7 @@ export async function handleGrpcServerStreamNode(
         requestId: `wf-${nodeId}-${Date.now()}`,
         data,
       },
-      createGrpcWorkflowSnapshotBuildContext(hCtx.ctx),
+      createGrpcWorkflowNodeSnapshotContext(hCtx.ctx, data, hCtx.grpcWorkflowExecutionRuntime),
     );
   } catch (err) {
     const msg = toErrorMessage(err);
@@ -356,6 +366,8 @@ export async function handleGrpcServerStreamNode(
     prefix: '→',
     text: `[${label}] SERVER_STREAM ${snapshot.execute.service}/${snapshot.execute.method} → ${target}`,
   });
+  logGrpcRequestMetadata(label, hCtx.log, snapshot.execute.metadata, snapshot.execute.auth);
+  logGrpcRequestBody(label, hCtx.log, snapshot.execute.body);
 
   const t0 = performance.now();
   try {
@@ -485,6 +497,8 @@ async function finalizeGrpcCallNode(
       true,
       grpcMeta,
     ));
+    logGrpcCallResponse(label, hCtx.log, stepResult, { attempts: meta.attempts });
+    logGrpcSaveAs(label, hCtx.log, snapshot.saveAs);
     hCtx.log({ prefix: '✓', text: `[${label}] gRPC succeeded — ${meta.durationMs}ms` });
     hCtx.callbacks.onNodeStateChange(nodeId, {
       state: 'pass',
@@ -584,17 +598,20 @@ export async function handleGrpcAssertNode(
     return;
   }
 
-  const outcome = evaluateGrpcWorkflowAssertions(upstream, data.assertions ?? []);
+  logGrpcAssertUpstream(label, hCtx.log, upstream);
+
+  const assertions = data.assertions ?? [];
+  const outcome = evaluateGrpcWorkflowAssertions(upstream, assertions);
   const durationMs = Math.round(performance.now() - t0);
 
   if (!outcome.passed) {
     const errMsg = outcome.failures.join('\n');
+    logGrpcAssertionResults(label, hCtx.log, assertions, false, outcome.failures);
     await finishGrpcAssertFailure(nodeId, label, hCtx, passed, onError, errMsg, durationMs, source, outcome.failures, upstream);
-    for (const failure of outcome.failures) {
-      hCtx.log({ prefix: '!', text: `[${label}]   ✗ ${failure}` });
-    }
     return;
   }
+
+  logGrpcAssertionResults(label, hCtx.log, assertions, true, []);
 
   hCtx.results.push(buildGrpcResult(nodeId, label, 'grpcAssert', source, durationMs, true, {
     service: '',

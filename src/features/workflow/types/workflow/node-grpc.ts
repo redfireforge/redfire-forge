@@ -4,7 +4,7 @@
  * Execution handlers, config panels, and palette entries ship in Phase 6C–6G.
  * Types and validators are frozen here for graph-time validation and Phase 6B snapshot builder.
  */
-import type { GrpcAuthConfig, GrpcTlsMode } from '../../../../shared/grpc/contracts';
+import type { GrpcAuthConfig, GrpcTlsConfig, GrpcTlsMode } from '../../../../shared/grpc/contracts';
 
 export type GrpcWorkflowOnErrorPolicy = 'fail' | 'continue';
 
@@ -23,6 +23,8 @@ export interface GrpcWorkflowBaseConfig {
   connectionId?: string;
   /** Transport TLS mode; defaults to `disabled` when omitted. */
   tlsMode?: GrpcTlsMode;
+  /** PEM material for TLS/mTLS — same shape as gRPC Studio connection settings. */
+  tlsConfig?: GrpcTlsConfig;
   descriptorKey: string;
   service: string;
   method: string;

@@ -458,4 +458,123 @@ describe('GrpcStudioPage branch coverage gaps', () => {
       expect(screen.getByTestId('grpc-saved-request-detail').className).toMatch(/empty/);
     });
   });
+
+  it('toggles the wire console launcher and shows the event badge count', () => {
+    render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+
+    const launcher = screen.getByTestId('grpc-console-launcher');
+    expect(launcher.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(launcher);
+    expect(launcher.getAttribute('aria-pressed')).toBe('true');
+    expect(screen.getByTestId('grpc-console-modal')).toBeTruthy();
+
+    fireEvent.click(launcher);
+    expect(launcher.getAttribute('aria-pressed')).toBe('false');
+    expect(screen.queryByTestId('grpc-console-modal')).toBeNull();
+  });
+
+  it('mirrors unary send and terminal events into the wire console', () => {
+    const snapshot = {
+      tabId: 'tab-1',
+      requestId: 'req-console-unary',
+      capturedAt: TS,
+      callType: 'unary' as const,
+      target: { address: FIXTURE_TARGET.address, tlsMode: 'disabled' as const },
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: FIXTURE_UNARY_CALL_REQUEST.method,
+      body: { message: 'hello' },
+      metadata: {},
+      timeoutMs: 30_000,
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+    };
+
+    const { rerender } = render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-console-launcher'));
+
+    studioHook.wrap = (hook) => ({
+      ...hook,
+      activeTab: {
+        ...hook.activeTab,
+        lifecycle: 'in_flight',
+        lastExecuteSnapshot: snapshot,
+      },
+    });
+    rerender(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+
+    studioHook.wrap = (hook) => ({
+      ...hook,
+      activeTab: {
+        ...hook.activeTab,
+        lifecycle: 'success',
+        lastExecuteSnapshot: snapshot,
+        lastResult: {
+          status: 0,
+          statusMessage: 'OK',
+          headers: {},
+          trailers: {},
+          body: { message: 'hello' },
+          durationMs: 12,
+        },
+      },
+    });
+    rerender(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+
+    expect(screen.getByTestId('grpc-console-launcher-count').textContent).toBe('2');
+    expect(screen.getByTestId('grpc-console-wire-live-feed')).toBeTruthy();
+  });
+
+  it('mirrors stream messages and terminal lifecycle into the wire console', () => {
+    const streamSnapshot = {
+      tabId: 'tab-1',
+      requestId: 'req-console-stream',
+      capturedAt: TS,
+      callType: 'server_streaming' as const,
+      target: { address: FIXTURE_TARGET.address, tlsMode: 'disabled' as const },
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: 'ServerStream',
+      body: { message: 'hello' },
+      metadata: {},
+      timeoutMs: 30_000,
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+    };
+
+    const { rerender } = render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+    fireEvent.click(screen.getByTestId('grpc-console-launcher'));
+
+    studioHook.wrap = (hook) => ({
+      ...hook,
+      activeTab: {
+        ...hook.activeTab,
+        streamLifecycle: 'streaming',
+        streamMessages: [{
+          direction: 'inbound' as const,
+          sequence: 1,
+          timestamp: TS,
+          data: { message: 'chunk' },
+        }],
+        lastExecuteSnapshot: streamSnapshot,
+      },
+    });
+    rerender(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+
+    studioHook.wrap = (hook) => ({
+      ...hook,
+      activeTab: {
+        ...hook.activeTab,
+        streamLifecycle: 'ended',
+        streamEndedAt: TS,
+        streamStartedAt: TS,
+        streamMessages: [{
+          direction: 'inbound' as const,
+          sequence: 1,
+          timestamp: TS,
+          data: { message: 'chunk' },
+        }],
+        lastExecuteSnapshot: streamSnapshot,
+      },
+    });
+    rerender(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
+
+    expect(Number(screen.getByTestId('grpc-console-launcher-count').textContent)).toBeGreaterThanOrEqual(2);
+  });
 });

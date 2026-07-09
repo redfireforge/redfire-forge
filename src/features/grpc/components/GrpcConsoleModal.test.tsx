@@ -176,4 +176,102 @@ describe('GrpcConsoleModal', () => {
     fireEvent.change(getByTestId('grpc-console-search'), { target: { value: 'does-not-exist' } });
     expect(getByTestId('grpc-console-wire-detail-empty').textContent).toContain('Select an event');
   });
+
+  it('uses singular event label and keeps pinned selection when list updates', () => {
+    const onClearEvents = vi.fn();
+    const { getByTestId, queryByTestId, rerender } = render(
+      <GrpcConsoleModal
+        events={makeEvents()}
+        onClearEvents={onClearEvents}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(getByTestId('grpc-console-modal').textContent).toContain('1 event');
+    expect(getByTestId('grpc-console-modal').textContent).not.toContain('1 events');
+
+    fireEvent.click(getByTestId('grpc-console-wire-row-evt-1'));
+    rerender(
+      <GrpcConsoleModal
+        events={makeMultiEvents()}
+        onClearEvents={onClearEvents}
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(getByTestId('grpc-console-wire-detail').textContent).toContain('Unary request');
+    expect(queryByTestId('grpc-console-wire-live-feed')).toBeNull();
+  });
+
+  it('keeps pinned row selected when sort order changes', () => {
+    const { getByTestId } = render(
+      <GrpcConsoleModal
+        events={makeMultiEvents()}
+        onClearEvents={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(getByTestId('grpc-console-wire-row-evt-2'));
+    expect(getByTestId('grpc-console-wire-detail').textContent).toContain('Unary response');
+
+    fireEvent.change(getByTestId('grpc-console-sort-order'), { target: { value: 'asc' } });
+    expect(getByTestId('grpc-console-wire-detail').textContent).toContain('Unary response');
+    expect(getByTestId('grpc-console-wire-row-evt-2').className).toContain('grpc-console-wire-row--active');
+  });
+
+  it('positions the floating modal near the launcher on first mount', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+
+    const { getByTestId } = render(
+      <GrpcConsoleModal
+        events={makeEvents()}
+        onClearEvents={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const modal = getByTestId('grpc-console-modal');
+    expect(modal.style.left).not.toBe('');
+    expect(modal.style.top).not.toBe('');
+    expect(Number.parseFloat(modal.style.left)).toBeGreaterThan(0);
+    expect(Number.parseFloat(modal.style.top)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('ignores circular payload values while searching', () => {
+    const circular: Record<string, unknown> = { marker: 'circular-marker' };
+    circular.self = circular;
+
+    const onClearEvents = vi.fn();
+    const { getByTestId, queryByTestId, rerender } = render(
+      <GrpcConsoleModal
+        events={makeEvents()}
+        onClearEvents={onClearEvents}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(getByTestId('grpc-console-wire-row-evt-1'));
+    rerender(
+      <GrpcConsoleModal
+        events={[
+          ...makeEvents(),
+          {
+            id: 'evt-circular',
+            timestamp: '2026-07-05T12:00:05.000Z',
+            direction: 'event',
+            summary: 'Circular payload event',
+            payload: circular,
+          },
+        ]}
+        onClearEvents={onClearEvents}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(getByTestId('grpc-console-search'), { target: { value: 'Unary' } });
+    expect(getByTestId('grpc-console-wire-row-evt-1')).toBeTruthy();
+    expect(queryByTestId('grpc-console-wire-row-evt-circular')).toBeNull();
+  });
 });

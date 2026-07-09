@@ -296,6 +296,8 @@ export interface NodeHandlerContext {
   grpcStepResultStore?: import('../utils/grpcWorkflowStepResultStore').GrpcWorkflowStepResultStore;
   /** Collision-safe output namespace publisher (Phase 6F). */
   grpcOutputRegistry?: import('../utils/grpcWorkflowOutputRegistry').GrpcWorkflowOutputRegistry;
+  /** Hydrated gRPC profiles + global auth for workflow Quick Test execution. */
+  grpcWorkflowExecutionRuntime?: import('../utils/grpcWorkflowRuntimeContext').GrpcWorkflowExecutionRuntime;
 }
 
 /**

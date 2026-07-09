@@ -98,6 +98,84 @@ describe('bsrFetchGateway coverage gaps', () => {
     process.env.NO_PROXY = prev;
   });
 
+  it('shouldBypassProxyForUrl supports wildcard and dotted NO_PROXY entries', () => {
+    const prev = process.env.NO_PROXY;
+    process.env.NO_PROXY = '*.internal.example,.corp.local,*';
+    expect(shouldBypassProxyForUrl('https://api.internal.example/x')).toBe(true);
+    expect(shouldBypassProxyForUrl('https://host.corp.local/x')).toBe(true);
+    expect(shouldBypassProxyForUrl('https://anything.example/x')).toBe(true);
+    expect(shouldBypassProxyForUrl('not-a-url')).toBe(false);
+    process.env.NO_PROXY = prev;
+  });
+
+  it('retries direct fetch when proxy tunnel response is not HTTP 200', async () => {
+    const prevHttps = process.env.HTTPS_PROXY;
+    process.env.HTTPS_PROXY = 'http://proxy.local:8080';
+    vi.resetModules();
+    vi.doMock('node:module', () => ({
+      createRequire: () => () => ({
+        ProxyAgent: class {
+          constructor(public proxyUrl: string) {}
+        },
+      }),
+    }));
+
+    const payload = Buffer.from('direct-after-tunnel-fail');
+    let callCount = 0;
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      callCount += 1;
+      if ((init as { dispatcher?: unknown } | undefined)?.dispatcher) {
+        throw new Error('Proxy response (403) !== 200 when HTTP Tunneling');
+      }
+      return new Response(payload, {
+        status: 200,
+        headers: { 'content-type': 'application/octet-stream' },
+      });
+    });
+
+    try {
+      const mod = await import('./bsrFetchGateway.js');
+      const result = await mod.fetchBsrDescriptorSet({ module: 'acme/echo' });
+      expect(callCount).toBe(2);
+      expect(result.protosetBase64).toBe(payload.toString('base64'));
+    } finally {
+      fetchSpy.mockRestore();
+      process.env.HTTPS_PROXY = prevHttps;
+      vi.doUnmock('node:module');
+      vi.resetModules();
+    }
+  });
+
+  it('rethrows non-proxy fetch errors from default fetch port', async () => {
+    const prevHttps = process.env.HTTPS_PROXY;
+    process.env.HTTPS_PROXY = 'http://proxy.local:8080';
+    vi.resetModules();
+    vi.doMock('node:module', () => ({
+      createRequire: () => () => ({
+        ProxyAgent: class {
+          constructor(public proxyUrl: string) {}
+        },
+      }),
+    }));
+
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async (_url, init) => {
+      if ((init as { dispatcher?: unknown } | undefined)?.dispatcher) {
+        throw new Error('unexpected application failure');
+      }
+      throw new Error('should not reach direct fetch');
+    });
+
+    try {
+      const mod = await import('./bsrFetchGateway.js');
+      await expect(mod.fetchBsrDescriptorSet({ module: 'acme/echo' })).rejects.toThrow(/unexpected application failure/);
+    } finally {
+      fetchSpy.mockRestore();
+      process.env.HTTPS_PROXY = prevHttps;
+      vi.doUnmock('node:module');
+      vi.resetModules();
+    }
+  });
+
   it('retries legacy BSR URL when canonical descriptor URL returns 404', async () => {
     const root = parseProtoFiles([{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }]);
     const protosetBase64 = encodeRootAsProtosetBase64(root);
@@ -216,6 +294,39 @@ describe('bsrFetchGateway coverage gaps', () => {
     }
   });
 
+  it('default fetch path prefers EnvHttpProxyAgent when undici exposes it', async () => {
+    const prevHttps = process.env.HTTPS_PROXY;
+    const prevHttpsLower = process.env.https_proxy;
+    process.env.HTTPS_PROXY = 'http://proxy.local:8080';
+    delete process.env.https_proxy;
+    vi.resetModules();
+    vi.doMock('node:module', () => ({
+      createRequire: () => () => ({
+        EnvHttpProxyAgent: class {},
+        ProxyAgent: class {
+          constructor(public proxyUrl: string) {}
+        },
+      }),
+    }));
+
+    try {
+      const payload = Buffer.from('env-proxy');
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(payload, { status: 200, headers: { 'content-type': 'application/octet-stream' } }),
+      );
+      const mod = await import('./bsrFetchGateway.js');
+      await mod.fetchBsrDescriptorSet({ module: 'acme/echo' });
+      const init = fetchSpy.mock.calls[0]?.[1] as RequestInit & { dispatcher?: unknown };
+      expect(init?.dispatcher).toBeTruthy();
+      fetchSpy.mockRestore();
+    } finally {
+      process.env.HTTPS_PROXY = prevHttps;
+      process.env.https_proxy = prevHttpsLower;
+      vi.doUnmock('node:module');
+      vi.resetModules();
+    }
+  });
+
   it('default fetch path uses undici ProxyAgent when proxy env is configured', async () => {
     const prevHttps = process.env.HTTPS_PROXY;
     const prevHttpsLower = process.env.https_proxy;
@@ -327,6 +438,36 @@ describe('bsrFetchGateway coverage gaps', () => {
     expect(result.protosetBase64).toBe(payload.toString('base64'));
     expect(fetchSpy).toHaveBeenCalled();
     fetchSpy.mockRestore();
+  });
+
+  it('reuses cached node dispatcher on subsequent default fetches', async () => {
+    const prevHttps = process.env.HTTPS_PROXY;
+    process.env.HTTPS_PROXY = 'http://proxy.local:8080';
+    delete process.env.https_proxy;
+    vi.resetModules();
+    vi.doMock('node:module', () => ({
+      createRequire: () => () => ({
+        EnvHttpProxyAgent: class {},
+      }),
+    }));
+
+    const payload = Buffer.from('cached-dispatcher');
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementation(async () => new Response(
+      payload,
+      { status: 200, headers: { 'content-type': 'application/octet-stream' } },
+    ));
+
+    try {
+      const mod = await import('./bsrFetchGateway.js');
+      await mod.fetchBsrDescriptorSet({ module: 'acme/echo' });
+      await mod.fetchBsrDescriptorSet({ module: 'acme/other' });
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+    } finally {
+      fetchSpy.mockRestore();
+      process.env.HTTPS_PROXY = prevHttps;
+      vi.doUnmock('node:module');
+      vi.resetModules();
+    }
   });
 
   it('fires the default timeout timer when BSR fetch hangs', async () => {

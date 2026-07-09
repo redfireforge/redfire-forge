@@ -141,6 +141,19 @@ export function analyzeGrpcurlImportSchemaDrift(
   });
 }
 
+/** True when import should trigger server reflection (plain grpcurl, no -proto/-protoset). */
+export function shouldAutoReflectAfterGrpcurlImport(
+  importDrift: GrpcSchemaDriftAnalysis,
+  importResult: GrpcGrpcurlImportSuccess,
+): boolean {
+  if (importResult.descriptorFlags) return false;
+  return importDrift.state === 'blocking'
+    && importDrift.issues.some(
+      (issue) => issue.kind === 'method_missing'
+        && issue.message === 'No descriptor loaded on the active tab',
+    );
+}
+
 export function buildDriftDescriptorPatchFromAnalysis(
   drift: GrpcSchemaDriftAnalysis,
   currentDescriptor: GrpcDescriptor | undefined,

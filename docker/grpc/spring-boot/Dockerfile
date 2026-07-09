@@ -11,6 +11,6 @@ FROM eclipse-temurin:17-jre
 WORKDIR /app
 COPY --from=build /workspace/target/grpc-spring-boot-fixture-0.0.1-SNAPSHOT.jar /app/app.jar
 
-EXPOSE 8080 9090
+EXPOSE 8081 9090
 
 ENTRYPOINT ["java", "-jar", "/app/app.jar"]

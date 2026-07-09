@@ -6,7 +6,7 @@ describe('deriveEndpointLabel', () => {
     expect(deriveEndpointLabel('http://localhost:50052/health')).toBe('Docker echo');
     expect(deriveEndpointLabel('http://localhost:3001/health')).toBe('Express proxy');
     expect(deriveEndpointLabel('http://localhost:4010/health')).toBe('GraphQL server');
-    expect(deriveEndpointLabel('http://localhost:8080/actuator/health')).toBe('Spring Boot fixture');
+    expect(deriveEndpointLabel('http://localhost:8081/actuator/health')).toBe('Spring Boot fixture');
   });
 
   it('falls back to host:port for unknown ports', () => {

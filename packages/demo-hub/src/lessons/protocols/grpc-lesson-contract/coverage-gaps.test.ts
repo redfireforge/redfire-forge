@@ -31,7 +31,7 @@ describe('grpc lesson roster helpers', () => {
 
   it('assertRosterSchemaVersion passes for current roster', () => {
     expect(() => assertRosterSchemaVersion()).not.toThrow();
-    expect(GRPC_LESSON_ROSTER.length).toBe(21);
+    expect(GRPC_LESSON_ROSTER.length).toBe(23);
   });
 });
 
@@ -131,9 +131,9 @@ describe('validateGrpcLessonRoster fixture probes', () => {
   it('spring lesson documents docker + express proxy', () => {
     const spring = getGrpcLessonRosterEntry('grpc-spring-boot')!;
     // The Netty gRPC port (:9090) has no plain-HTTP health endpoint to probe directly —
-    // the Actuator endpoint on :8080 backs the same Spring Boot JVM, so it is the
+    // the Actuator endpoint on :8081 backs the same Spring Boot JVM, so it is the
     // reliable HTTP readiness probe for the whole fixture (including :9090).
-    expect(spring.dockerEndpoints?.some((u) => u.includes('8080'))).toBe(true);
+    expect(spring.dockerEndpoints?.some((u) => u.includes('8081'))).toBe(true);
     expect(spring.dockerCommand).toContain('npm run server');
     expect(spring.dockerCommand).toContain('--profile spring');
   });

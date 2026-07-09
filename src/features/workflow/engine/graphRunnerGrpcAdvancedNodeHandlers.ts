@@ -20,7 +20,7 @@ import { toErrorMessage } from '../../../shared/utils/helpers';
 import { nextResultId } from '../../../engine/requestExecution';
 import type { FailureDetail, RequestResult } from '../../../shared/types';
 import { buildGrpcWorkflowExecuteSnapshot } from '../utils/grpcWorkflowSnapshotBuilder';
-import { createGrpcWorkflowSnapshotBuildContext } from '../utils/grpcWorkflowRuntimeContext';
+import { createGrpcWorkflowNodeSnapshotContext } from '../utils/grpcWorkflowRuntimeContext';
 import type {
   GrpcLoadTestNodeData,
   GrpcMockAssertNodeData,
@@ -190,7 +190,7 @@ export async function handleGrpcLoadTestNode(
   try {
     snapshot = buildGrpcWorkflowExecuteSnapshot(
       { nodeId, requestId: `wf-load-${nodeId}-${Date.now()}`, data },
-      createGrpcWorkflowSnapshotBuildContext(hCtx.ctx),
+      createGrpcWorkflowNodeSnapshotContext(hCtx.ctx, data, hCtx.grpcWorkflowExecutionRuntime),
     );
   } catch (err) {
     const msg = toErrorMessage(err);

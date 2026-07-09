@@ -23,6 +23,10 @@ const spies = {
   toggleTargetConnection: vi.fn(),
   sendStreamMessageCall: vi.fn(),
   removePendingStreamMessage: vi.fn(),
+  enqueueStreamMessage: vi.fn(),
+  sendAllPendingStreamMessages: vi.fn(),
+  endStreamCall: vi.fn(),
+  clearStreamLog: vi.fn(),
   retryUnaryWithExpress: vi.fn(),
   retryStreamWithExpress: vi.fn(),
   updateTab: vi.fn(),
@@ -95,9 +99,12 @@ vi.mock('./components/GrpcHistoryPanel', () => ({
 vi.mock('./components/GrpcAdvancedFeaturesShell', () => ({ GrpcAdvancedFeaturesShell: () => React.createElement('div', { 'data-testid': 'mock-advanced-shell' }) }));
 
 vi.mock('./components/GrpcExplorerPane', () => ({
-  GrpcExplorerPane: (props: { connectionChrome: React.ReactNode; onSendStreamMessage?: (overrides?: { body?: Record<string, unknown> }) => void; onRemovePendingStreamMessage?: (index: number) => void; onRetryUnaryWithExpress?: () => void; onRetryStreamWithExpress?: () => void }) => React.createElement('div', { 'data-testid': 'mock-explorer-pane' }, [
+  GrpcExplorerPane: (props: { connectionChrome: React.ReactNode; onSendStreamMessage?: (overrides?: { body?: Record<string, unknown> }) => void; onEnqueueStreamMessage?: (overrides?: { body?: Record<string, unknown> }) => void; onRemovePendingStreamMessage?: (index: number) => void; onSendAllPendingStreamMessages?: () => void | Promise<void>; onEndStream?: () => void; onRetryUnaryWithExpress?: () => void; onRetryStreamWithExpress?: () => void }) => React.createElement('div', { 'data-testid': 'mock-explorer-pane' }, [
     React.createElement('div', { key: 'chrome' }, props.connectionChrome),
     React.createElement('button', { key: 'send', 'data-testid': 'mock-send-stream', onClick: () => props.onSendStreamMessage?.({ body: { a: 1 } }) }, 'send-stream'),
+    React.createElement('button', { key: 'enqueue', 'data-testid': 'mock-enqueue-stream', onClick: () => props.onEnqueueStreamMessage?.({ body: { queued: true } }) }, 'enqueue'),
+    React.createElement('button', { key: 'send-all', 'data-testid': 'mock-send-all-stream', onClick: () => { void props.onSendAllPendingStreamMessages?.(); } }, 'send-all'),
+    React.createElement('button', { key: 'end', 'data-testid': 'mock-end-stream', onClick: () => props.onEndStream?.() }, 'end'),
     React.createElement('button', { key: 'remove', 'data-testid': 'mock-remove-pending', onClick: () => props.onRemovePendingStreamMessage?.(0) }, 'remove'),
     React.createElement('button', { key: 'retry-u', 'data-testid': 'mock-retry-unary', onClick: () => props.onRetryUnaryWithExpress?.() }, 'retry-unary'),
     React.createElement('button', { key: 'retry-s', 'data-testid': 'mock-retry-stream', onClick: () => props.onRetryStreamWithExpress?.() }, 'retry-stream'),
@@ -220,11 +227,11 @@ vi.mock('./hooks/useGrpcStudio', () => ({
     startStreamCall: vi.fn(),
     cancelStreamCall: vi.fn(),
     sendStreamMessageCall: spies.sendStreamMessageCall,
-    enqueueStreamMessage: vi.fn(),
+    enqueueStreamMessage: spies.enqueueStreamMessage,
     removePendingStreamMessage: spies.removePendingStreamMessage,
-    sendAllPendingStreamMessages: vi.fn(),
-    endStreamCall: vi.fn(),
-    clearStreamLog: vi.fn(),
+    sendAllPendingStreamMessages: spies.sendAllPendingStreamMessages,
+    endStreamCall: spies.endStreamCall,
+    clearStreamLog: spies.clearStreamLog,
     retryUnaryWithExpress: spies.retryUnaryWithExpress,
     retryStreamWithExpress: spies.retryStreamWithExpress,
     dismissSchemaDrift: vi.fn(),
@@ -256,6 +263,9 @@ describe('GrpcStudioPage callback branch coverage', () => {
 
     fireEvent.click(screen.getByTestId('mock-toggle-connection'));
     fireEvent.click(screen.getByTestId('mock-send-stream'));
+    fireEvent.click(screen.getByTestId('mock-enqueue-stream'));
+    fireEvent.click(screen.getByTestId('mock-send-all-stream'));
+    fireEvent.click(screen.getByTestId('mock-end-stream'));
     fireEvent.click(screen.getByTestId('mock-remove-pending'));
     fireEvent.click(screen.getByTestId('mock-retry-unary'));
     fireEvent.click(screen.getByTestId('mock-retry-stream'));
@@ -271,6 +281,9 @@ describe('GrpcStudioPage callback branch coverage', () => {
 
     expect(spies.toggleTargetConnection).toHaveBeenCalled();
     expect(spies.sendStreamMessageCall).toHaveBeenCalled();
+    expect(spies.enqueueStreamMessage).toHaveBeenCalled();
+    expect(spies.sendAllPendingStreamMessages).toHaveBeenCalled();
+    expect(spies.endStreamCall).toHaveBeenCalled();
     expect(spies.removePendingStreamMessage).toHaveBeenCalledWith('grpc-tab-1', 0);
     expect(spies.retryUnaryWithExpress).toHaveBeenCalledWith('grpc-tab-1');
     expect(spies.retryStreamWithExpress).toHaveBeenCalledWith('grpc-tab-1');

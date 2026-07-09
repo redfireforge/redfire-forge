@@ -99,6 +99,22 @@ describe('useDemoHub', () => {
     expect(result.current.state.selectedLesson?.id).toBe('test-lesson');
   });
 
+  it('refreshes selectedLesson when the registry returns a newer lesson object for the same id', async () => {
+    const clonedLesson = {
+      ...gqlFirstQueryLesson,
+      description: 'Stale in-memory copy',
+    };
+
+    const { result } = renderHook(() => useDemoHub({ navigateToTab }));
+    act(() => { result.current.selectLesson(clonedLesson); });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(result.current.state.selectedLesson).toBe(gqlFirstQueryLesson);
+  });
+
   it('goBack from lessons goes to domains', () => {
     const { result } = renderHook(() => useDemoHub({ navigateToTab }));
     const domain = {

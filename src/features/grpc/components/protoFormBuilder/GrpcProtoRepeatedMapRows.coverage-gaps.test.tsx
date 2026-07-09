@@ -269,4 +269,83 @@ describe('GrpcProtoRepeatedMapRows coverage gaps', () => {
     expect(focusSpy).toHaveBeenCalled();
     focusSpy.mockRestore();
   });
+
+  it('commits repeated string tokens from comma key and multiline paste', () => {
+    function RepeatedHarness() {
+      const [value, setValue] = useState<unknown>([]);
+      return (
+        <GrpcProtoRepeatedFieldRow
+          field={STRING_FIELD}
+          value={value}
+          onChange={setValue}
+        />
+      );
+    }
+
+    render(<RepeatedHarness />);
+    const tokenInput = screen.getByTestId('grpc-proto-repeated-token-input-tags');
+    fireEvent.change(tokenInput, { target: { value: 'alpha' } });
+    fireEvent.keyDown(tokenInput, { key: ',' });
+    expect(screen.getByTestId('grpc-proto-field-input-tags-0').textContent).toContain('alpha');
+
+    fireEvent.paste(tokenInput, {
+      clipboardData: {
+        getData: () => 'beta\ngamma',
+      },
+    });
+    expect(screen.getByTestId('grpc-proto-field-input-tags-1').textContent).toContain('beta');
+    expect(screen.getByTestId('grpc-proto-field-input-tags-2').textContent).toContain('gamma');
+  });
+
+  it('removes repeated string tokens and renders empty token text', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoRepeatedFieldRow
+        field={STRING_FIELD}
+        value={['', 'filled']}
+        onChange={onChange}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-proto-field-input-tags-0').textContent).toContain('(empty)');
+    fireEvent.click(screen.getByLabelText('Remove tags item 1'));
+    expect(onChange).toHaveBeenCalledWith(['filled']);
+  });
+
+  it('toggles repeated message items and shows collapsed previews', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoRepeatedFieldRow
+        field={REPEATED_MESSAGE_FIELD}
+        value={[{ id: 'one', extra: 2 }, { note: 42, second: true }]}
+        messageIndex={new Map([['demo.Payload', PAYLOAD_SCHEMA]])}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-expand-all-items'));
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-toggle-items-0'));
+    expect(screen.getByTestId('grpc-proto-repeated-toggle-items-0').textContent).toContain('▶');
+    expect(screen.getByTestId('grpc-proto-repeated-toggle-items-0').textContent).toContain('+1');
+
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-collapse-all-items'));
+    fireEvent.click(screen.getByTestId('grpc-proto-repeated-toggle-items-1'));
+    expect(screen.getByTestId('grpc-proto-repeated-toggle-items-1').textContent).toContain('▼');
+  });
+
+  it('updates repeated scalar rows through scalar controls', () => {
+    const onChange = vi.fn();
+    render(
+      <GrpcProtoRepeatedFieldRow
+        field={INT_FIELD}
+        value={[1]}
+        onChange={onChange}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-proto-field-input-counts-0'), { target: { value: '9' } });
+    expect(onChange).toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('Remove counts item 1'));
+    expect(onChange).toHaveBeenLastCalledWith([]);
+  });
 });

@@ -65,7 +65,7 @@ test.describe('gRPC Studio — Go mock servicer (localhost:50061)', () => {
       methodTestId: CREATE_COMPLEX_ECHO_METHOD_TESTID,
     });
 
-    await page.locator('[data-testid="grpc-request-tab-json"]').click();
+    await page.locator('[data-testid="grpc-request-tab-form"]').click();
     await page.locator('[data-testid="grpc-request-json"]').fill(JSON.stringify({
       message: 'ui-body-path-probe',
       attributes: {

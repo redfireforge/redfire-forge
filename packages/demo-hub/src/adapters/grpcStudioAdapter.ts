@@ -47,6 +47,13 @@ export const GRPC_EXPRESS_ONLY_COMMAND = 'npm run server';
 export const GRPC_STUDIO_LESSON_ALLOWED_TABS = ['grpc-studio', 'demo-hub'] as const;
 
 export {
+  GRPC_SPRING_FIXTURE_HTTP_PORT,
+  GRPC_SPRING_FIXTURE_NETTY_PORT,
+  GRPC_SPRING_FIXTURE_SERVLET_TARGET,
+  GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_URL,
+} from '@shared/grpc/grpcSpringFixturePorts';
+
+export {
   purgeGrpcDemoCallHistory,
   GRPC_DEMO_CALL_HISTORY_TARGETS,
   dispatchGrpcCallHistoryReload,
@@ -54,6 +61,29 @@ export {
 
 import { getDemoBridgeWindow } from './bridgeWindow';
 import type { GrpcGrpcurlExportContext } from '@grpc/utils/grpcGrpcurlTypes';
+
+const GRPC_ACTIVE_DESCRIPTOR_KEY_STORAGE = 'rfg-demo-grpc-active-descriptor-key';
+
+function storeGrpcActiveDescriptorKey(key: string | null): void {
+  try {
+    if (key) {
+      sessionStorage.setItem(GRPC_ACTIVE_DESCRIPTOR_KEY_STORAGE, key);
+    } else {
+      sessionStorage.removeItem(GRPC_ACTIVE_DESCRIPTOR_KEY_STORAGE);
+    }
+  } catch {
+    // Session storage may be unavailable in some browser or test contexts.
+  }
+}
+
+function loadStoredGrpcActiveDescriptorKey(): string | null {
+  try {
+    const value = sessionStorage.getItem(GRPC_ACTIVE_DESCRIPTOR_KEY_STORAGE);
+    return value && value.trim() ? value.trim() : null;
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Patch the active gRPC Studio tab's grpcurlExportContext.
@@ -74,4 +104,56 @@ export function resetGrpcActiveTabRuntimeState(): boolean {
   const bridge = getDemoBridgeWindow().__demoResetGrpcActiveTab;
   if (!bridge) return false;
   return bridge();
+}
+
+/** Read the current reflected/imported descriptor key from the active gRPC Studio tab. */
+export function getGrpcActiveDescriptorKey(): string | null {
+  const bridge = getDemoBridgeWindow().__demoGetGrpcActiveDescriptorKey;
+  if (bridge) {
+    const key = bridge();
+    if (key && key.trim()) {
+      storeGrpcActiveDescriptorKey(key.trim());
+      return key.trim();
+    }
+  }
+  return loadStoredGrpcActiveDescriptorKey();
+}
+
+/** Capture and persist the active descriptor key for lessons that switch tabs. */
+export function captureGrpcActiveDescriptorKey(): string | null {
+  const bridge = getDemoBridgeWindow().__demoGetGrpcActiveDescriptorKey;
+  if (!bridge) return loadStoredGrpcActiveDescriptorKey();
+  const key = bridge();
+  const normalized = key && key.trim() ? key.trim() : null;
+  storeGrpcActiveDescriptorKey(normalized);
+  return normalized;
+}
+
+/**
+ * Inject a pre-seeded schema diff report into the active gRPC tab.
+ * Used by the schema-diff lesson to simulate a breaking-change diff
+ * without requiring a real v2 server.
+ * The bridge uses the active tab's current descriptor as the baseline.
+ */
+export function patchGrpcSchemaDiffReport(input: {
+  report: {
+    leftDescriptorKey: string;
+    rightDescriptorKey: string;
+    generatedAt: string;
+    summary: { breaking: number; nonBreaking: number; informational: number };
+    changes: Array<{
+      severity: 'breaking' | 'non_breaking' | 'informational';
+      entityType: 'service' | 'method' | 'message' | 'field' | 'enum' | 'enum_value';
+      entityPath: string;
+      changeType: 'added' | 'removed' | 'modified' | 'renamed' | 'doc_comment_changed';
+      description: string;
+      caveat?: string;
+    }>;
+  };
+  baselineCapturedAt?: string;
+}): boolean {
+  const w = getDemoBridgeWindow() as unknown as Record<string, unknown>;
+  const bridge = w.__demoPatchGrpcSchemaDiffReport;
+  if (typeof bridge !== 'function') return false;
+  return bridge(input) as boolean;
 }

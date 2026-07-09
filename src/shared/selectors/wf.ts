@@ -20,6 +20,7 @@ export const WF = {
   // Sidebar
   SIDEBAR:             '.wf-sidebar',
   SIDEBAR_NEW_BTN:     'button[title="New workflow"]',
+  FIT_VIEW_BTN:        '.wf-designer button[title="Fit view"]',
   NEW_BLANK_ITEM:      '.wf-new-dropdown-item:first-child',
   CREATE_INPUT:        '.req-confirm-input',
   CREATE_OK:           '.req-confirm-ok',
@@ -36,6 +37,23 @@ export const WF = {
   NODE_WS_CONNECT:     '.react-flow__node-wsConnect',
   NODE_WS_SEND:        '.react-flow__node-wsSend',
   NODE_WS_RECEIVE:     '.react-flow__node-wsReceive',
+  // gRPC workflow palette blocks
+  PAL_GRPC_UNARY:      '.wf-palette-block-grpcUnary',
+  PAL_GRPC_ASSERT:     '.wf-palette-block-grpcAssert',
+  PAL_GRPC_SERVER_STREAM: '.wf-palette-block-grpcServerStream',
+  // gRPC workflow canvas nodes
+  NODE_GRPC_UNARY:     '.react-flow__node-grpcUnary',
+  NODE_GRPC_ASSERT:    '.react-flow__node-grpcAssert',
+  // gRPC workflow config modal fields
+  GRPC_UNARY_CONFIG:       '[data-testid="grpc-unary-config"]',
+  GRPC_UNARY_CFG_TARGET:   '[data-testid="grpc-unary-config-target"]',
+  GRPC_UNARY_CFG_SERVICE:  '[data-testid="grpc-unary-config-service"]',
+  GRPC_UNARY_CFG_METHOD:   '[data-testid="grpc-unary-config-method"]',
+  GRPC_UNARY_CFG_BODY:     '[data-testid="grpc-unary-config-body"]',
+  GRPC_UNARY_CFG_SAVE_AS:  '[data-testid="grpc-unary-config-save-as"]',
+  GRPC_ASSERT_CONFIG:      '[data-testid="grpc-assert-config"]',
+  GRPC_ASSERT_CFG_SOURCE:  '[data-testid="grpc-assert-config-source"]',
+  GRPC_ASSERT_CFG_ASSERTIONS: '[data-testid="grpc-assert-config-assertions"]',
   // GraphQL workflow palette blocks (Phase 4)
   PAL_GQL_QUERY:       '.wf-palette-block-graphqlQuery',
   PAL_GQL_MUTATION:    '.wf-palette-block-graphqlMutation',

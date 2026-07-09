@@ -52,7 +52,7 @@ A **single index** for gRPC Studio **product engineering** — what shipped, whe
 ## Design decisions (frozen)
 
 1. **Descriptor source priority:** Reflection → Proto Files → Protoset → BSR → URL. Never silently switch on transient reflection failure.
-2. **Form-first input** with JSON tab sync.
+2. **Form-first input** with JSON view sync.
 3. **Transport:** Web = Express `@grpc/grpc-js` + SSE streams; Desktop = Rust `tonic` (Phase 7); gRPC-Web / Spring Servlet (Phase 10).
 4. **Streaming first-class** — live message log, directional attribution.
 5. **Metadata** — shared `KeyValueEditor`; reserved keys labeled.
@@ -577,7 +577,7 @@ Registry: `packages/demo-hub/src/lessons/protocols/grpc-lessons.ts` · Contract:
 | **12A** | Lesson contract, roster, validators, versioning | ✅ Shipped — `npm run test:grpc:phase12a` |
 | **12B** | Runtime engine, snapshots, Demo Hub wiring | ✅ Shipped — `npm run test:grpc:phase12b` |
 | **12C** | Progress persistence + isolation | 🔨 In progress (tab lifecycle + cleanup hardening landed; persistence parity follow-up pending) |
-| **12D** | Fixture health checks + readiness gating + Docker fixture additions (TLS `:50443`/`:50444`, Envoy `:50055`, Spring Boot `:9090`/`:8080`, `CreateComplexEcho`, schema v2) | ✅ Shipped |
+| **12D** | Fixture health checks + readiness gating + Docker fixture additions (TLS `:50443`/`:50444`, Envoy `:50055`, Spring Boot `:9090`/`:8081`, `CreateComplexEcho`, schema v2) | ✅ Shipped |
 | **12E** | Lesson UX flows + remediation | 🔲 Pending |
 | **12F** | Lock/unlock dependency enforcement | 🔲 Pending |
 | **12G** | Telemetry + redacted export | 🔲 Pending |
@@ -673,7 +673,7 @@ Phase 12 (Demo) ◄── IN PROGRESS — excluded from product backlog table
 | Profile | Target | Notes |
 |---|---|---|
 | Spring Boot (Netty, local) | `localhost:9090` | Default Spring gRPC port |
-| Spring Boot (Servlet) | `localhost:8080` | Phase 10 transport |
+| Spring Boot (Servlet) | `localhost:8081` | Phase 10 transport |
 | net.devh starter | `localhost:9090` | Community starter |
 
 Reflection: try v1, fall back to v1alpha. Actuator health supports named services (4J-D).
@@ -828,7 +828,7 @@ Execution order: `P1 -> P2 -> P3` (`P0` complete).
 - [x] Add TLS fixture endpoint at `localhost:50443` (server-auth TLS)
 - [x] Add mTLS fixture endpoint at `localhost:50444` (client cert required)
 - [x] Add Envoy grpc-web fixture endpoint at `localhost:50055` routing to `grpc-test-server:50051`
-- [x] Add Spring fixture endpoints at `localhost:9090` (gRPC) and `localhost:8080` (actuator/http)
+- [x] Add Spring fixture endpoints at `localhost:9090` (gRPC) and `localhost:8081` (actuator/http)
 - [x] Add schema v2 surface with `CreateComplexEcho` fixture method for lesson/probe use
 - [x] Add/refresh fixture probe script and README runbook commands for all five targets
 - [x] Validate compose config and fixture startup/probe flow (`docker compose config`, `docker compose up --build`, `./probe-fixtures.sh`)

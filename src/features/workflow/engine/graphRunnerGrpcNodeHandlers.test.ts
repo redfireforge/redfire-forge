@@ -65,6 +65,44 @@ describe('handleGrpcUnaryNode', () => {
     expect(hCtx.ctx.get('grpc.response.status')).toBe('0');
   });
 
+  it('logs request metadata, body, gRPC status, and response on unary success', async () => {
+    const passed = makePassedFlag();
+    const lines: Array<{ prefix: string; text: string }> = [];
+    const hCtx = makeHandlerContext({
+      log: (line) => lines.push(line),
+      grpcOperations: {
+        invokeUnary: vi.fn(async () => ({
+          status: 0,
+          statusMessage: 'OK',
+          headers: {},
+          trailers: {},
+          body: { message: 'hello' },
+          durationMs: 8,
+        })),
+        collectServerStream: vi.fn(),
+      },
+    });
+
+    await handleGrpcUnaryNode(
+      'u-log',
+      grpcUnaryNode('u-log', {
+        saveAs: 'echoReply',
+        metadata: { 'x-demo-run-id': 'workflow-demo' },
+        auth: { type: 'bearer', bearerToken: 'demo-workflow-token' },
+      }),
+      hCtx,
+      passed,
+    );
+    const text = lines.map((l) => l.text).join('\n');
+    expect(text).toContain('x-demo-run-id: workflow-demo');
+    expect(text).toContain('authorization:');
+    expect(text).not.toContain('demo-workflow-token');
+    expect(text).toContain('Request:');
+    expect(text).toContain('gRPC 0 OK');
+    expect(text).toContain('Response:');
+    expect(text).toContain('saveAs=echoReply');
+  });
+
   it('Phase 6G: unary success sets grpcMeta on onNodeStateChange', async () => {
     const passed = makePassedFlag();
     const states: Record<string, import('../types/workflow/model-core').NodeRunStatus> = {};

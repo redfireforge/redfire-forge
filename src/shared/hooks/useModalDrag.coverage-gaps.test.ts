@@ -1,11 +1,15 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useModalDrag } from './useModalDrag';
 
 describe('useModalDrag coverage gaps', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('ignores non-primary mouse pointer drags', () => {
     const { result } = renderHook(() => useModalDrag(true));
     const header = document.createElement('div');
@@ -407,5 +411,251 @@ describe('useModalDrag coverage gaps', () => {
     document.body.removeChild(dialog);
     addSpy.mockRestore();
     removeSpy.mockRestore();
+  });
+
+  it('anchors to input text end and handles missing canvas context fallback', () => {
+    const input = document.createElement('input');
+    input.setAttribute('data-testid', 'input-anchor');
+    input.value = 'abc';
+    document.body.appendChild(input);
+    vi.spyOn(input, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 200, width: 300, height: 40,
+      right: 400, bottom: 240, x: 100, y: 200, toJSON: () => {},
+    });
+
+    const modalRef = { current: document.createElement('div') };
+    document.body.appendChild(modalRef.current);
+    vi.spyOn(modalRef.current, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, width: 120, height: 80,
+      right: 120, bottom: 80, x: 0, y: 0, toJSON: () => {},
+    });
+
+    const getComputedStyleSpy = vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      fontStyle: 'normal',
+      fontVariant: 'normal',
+      fontWeight: '400',
+      fontSize: '16px',
+      fontFamily: 'sans-serif',
+      paddingLeft: '8',
+      borderLeftWidth: '2',
+    } as CSSStyleDeclaration);
+
+    // First run: valid context, so text-end math path is used.
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
+      if (tagName === 'canvas') {
+        return {
+          getContext: () => ({
+            font: '',
+            measureText: () => ({ width: 30 }),
+          }),
+        } as unknown as HTMLCanvasElement;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    }) as typeof document.createElement);
+
+    const { result, unmount } = renderHook(() => useModalDrag(true, {
+      modalRef,
+      anchor: {
+        selector: '[data-testid="input-anchor"]',
+        xTarget: 'input-text-end',
+        hAlign: 'right',
+      },
+    }));
+
+    // right = left(100) + border(2) + pad(8) + text(30) = 140
+    // x = right - modalWidth(120) = 20
+    expect(result.current.modalStyle?.left).toBe(20);
+
+    // Second run: missing 2d context should fall back to rect right (400).
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
+      if (tagName === 'canvas') {
+        return { getContext: () => null } as unknown as HTMLCanvasElement;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    }) as typeof document.createElement);
+
+    unmount();
+    const { result: fallbackResult } = renderHook(() => useModalDrag(true, {
+      modalRef,
+      anchor: {
+        selector: '[data-testid="input-anchor"]',
+        xTarget: 'input-text-end',
+        hAlign: 'right',
+      },
+    }));
+
+    // x = rect.right(400) - modalWidth(120)
+    expect(fallbackResult.current.modalStyle?.left).toBe(280);
+
+    getComputedStyleSpy.mockRestore();
+    document.body.removeChild(input);
+    document.body.removeChild(modalRef.current);
+  });
+
+  it('re-applies anchor position through RAF, ResizeObserver, and window resize', () => {
+    const anchor = document.createElement('div');
+    anchor.setAttribute('data-testid', 'reapply-anchor');
+    document.body.appendChild(anchor);
+    vi.spyOn(anchor, 'getBoundingClientRect').mockReturnValue({
+      left: 50, top: 50, width: 200, height: 100,
+      right: 250, bottom: 150, x: 50, y: 50, toJSON: () => {},
+    });
+
+    const modalRef = { current: document.createElement('div') };
+    document.body.appendChild(modalRef.current);
+    vi.spyOn(modalRef.current, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, width: 100, height: 60,
+      right: 100, bottom: 60, x: 0, y: 0, toJSON: () => {},
+    });
+
+    const rafCallbacks: FrameRequestCallback[] = [];
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb: FrameRequestCallback) => {
+      rafCallbacks.push(cb);
+      return rafCallbacks.length;
+    });
+
+    let resizeObserverCallback: ResizeObserverCallback | null = null;
+    class ResizeObserverMock {
+      constructor(cb: ResizeObserverCallback) {
+        resizeObserverCallback = cb;
+      }
+
+      observe() {}
+      disconnect() {}
+    }
+    (globalThis as { ResizeObserver?: typeof ResizeObserver }).ResizeObserver = ResizeObserverMock as unknown as typeof ResizeObserver;
+
+    const { result } = renderHook(() => useModalDrag(true, {
+      modalRef,
+      anchor: { selector: '[data-testid="reapply-anchor"]' },
+    }));
+
+    expect(result.current.modalStyle?.left).toBe(100);
+
+    // Shift anchor and trigger RAF callback.
+    (anchor.getBoundingClientRect as unknown as ReturnType<typeof vi.fn>).mockReturnValue({
+      left: 60, top: 70, width: 200, height: 100,
+      right: 260, bottom: 170, x: 60, y: 70, toJSON: () => {},
+    });
+    act(() => {
+      rafCallbacks.at(-1)?.(performance.now());
+    });
+    expect(result.current.modalStyle?.left).toBe(110);
+
+    // Trigger ResizeObserver callback path.
+    act(() => {
+      resizeObserverCallback?.([], {} as ResizeObserver);
+    });
+    expect(result.current.modalStyle?.left).toBe(110);
+
+    // Trigger window resize callback path.
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+    expect(result.current.modalStyle?.left).toBe(110);
+
+    document.body.removeChild(anchor);
+    document.body.removeChild(modalRef.current);
+  });
+
+  it('uses xTextFallback when input value is blank and falls back when both are blank', () => {
+    const input = document.createElement('input');
+    input.setAttribute('data-testid', 'fallback-input-anchor');
+    input.value = '';
+    document.body.appendChild(input);
+    vi.spyOn(input, 'getBoundingClientRect').mockReturnValue({
+      left: 100, top: 0, width: 300, height: 40,
+      right: 400, bottom: 40, x: 100, y: 0, toJSON: () => {},
+    });
+
+    const modalRef = { current: document.createElement('div') };
+    document.body.appendChild(modalRef.current);
+    vi.spyOn(modalRef.current, 'getBoundingClientRect').mockReturnValue({
+      left: 0, top: 0, width: 100, height: 60,
+      right: 100, bottom: 60, x: 0, y: 0, toJSON: () => {},
+    });
+
+    vi.spyOn(window, 'getComputedStyle').mockReturnValue({
+      fontStyle: 'normal',
+      fontVariant: 'normal',
+      fontWeight: '400',
+      fontSize: '16px',
+      fontFamily: 'sans-serif',
+      paddingLeft: '',
+      borderLeftWidth: '',
+    } as CSSStyleDeclaration);
+    vi.spyOn(document, 'createElement').mockImplementation(((tagName: string) => {
+      if (tagName === 'canvas') {
+        return {
+          getContext: () => ({
+            font: '',
+            measureText: () => ({ width: 20 }),
+          }),
+        } as unknown as HTMLCanvasElement;
+      }
+      return Document.prototype.createElement.call(document, tagName);
+    }) as typeof document.createElement);
+
+    const { result, unmount } = renderHook(() => useModalDrag(true, {
+      modalRef,
+      anchor: {
+        selector: '[data-testid="fallback-input-anchor"]',
+        xTarget: 'input-text-end',
+        xTextFallback: 'abc',
+        hAlign: 'right',
+      },
+    }));
+
+    // right = left(100) + border(0) + pad(0) + text(20) = 120
+    expect(result.current.modalStyle?.left).toBe(20);
+
+    // When both value and fallback are blank, branch returns rect.right.
+    unmount();
+    const { result: emptyResult } = renderHook(() => useModalDrag(true, {
+      modalRef,
+      anchor: {
+        selector: '[data-testid="fallback-input-anchor"]',
+        xTarget: 'input-text-end',
+        xTextFallback: '   ',
+        hAlign: 'right',
+      },
+    }));
+    expect(emptyResult.current.modalStyle?.left).toBe(300);
+
+    document.body.removeChild(input);
+    document.body.removeChild(modalRef.current);
+  });
+
+  it('handles non-element node targets by resolving parent element', () => {
+    const { result } = renderHook(() => useModalDrag(true));
+    const header = document.createElement('div');
+    const dialog = document.createElement('div');
+    dialog.setAttribute('role', 'dialog');
+    dialog.appendChild(header);
+    const textNode = document.createTextNode('drag me');
+    header.appendChild(textNode);
+    document.body.appendChild(dialog);
+
+    vi.spyOn(dialog, 'getBoundingClientRect').mockReturnValue({
+      left: 40, top: 50, width: 220, height: 140,
+      right: 260, bottom: 190, x: 40, y: 50, toJSON: () => {},
+    });
+
+    const mouseDown = new MouseEvent('mousedown', { clientX: 60, clientY: 70, bubbles: true });
+    Object.defineProperty(mouseDown, 'target', { value: textNode });
+    Object.defineProperty(mouseDown, 'currentTarget', { value: header });
+    Object.defineProperty(mouseDown, 'preventDefault', { value: vi.fn() });
+
+    act(() => {
+      result.current.onDragStart(mouseDown as unknown as React.MouseEvent);
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 70, clientY: 90 }));
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+
+    expect(result.current.isDragged).toBe(true);
+    expect(result.current.modalStyle?.left).toBe(50);
+    expect(result.current.modalStyle?.top).toBe(70);
+
+    document.body.removeChild(dialog);
   });
 });

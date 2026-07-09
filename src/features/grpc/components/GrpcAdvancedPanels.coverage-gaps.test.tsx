@@ -483,7 +483,7 @@ describe('Grpc advanced panels coverage gaps', () => {
       />,
     );
     expect(screen.getByTestId('grpc-mock-builder-readonly-rule-expr-1')).toBeTruthy();
-    expect(screen.getByText(/Edit this predicate in the JSON tab/i)).toBeTruthy();
+    expect(screen.getByText(/Edit this predicate in the JSON editor/i)).toBeTruthy();
   });
 
   it('GrpcMockServerPanel handles invalid rules JSON fallback and non-finite latency input', async () => {

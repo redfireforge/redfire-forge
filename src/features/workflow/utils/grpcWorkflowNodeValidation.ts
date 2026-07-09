@@ -72,13 +72,13 @@ export const GRPC_WORKFLOW_NODE_CONTRACT_MATRIX: Record<
   grpcUnary: {
     required: ['label', 'target', 'descriptorKey', 'service', 'method', 'callType', 'body'],
     optional: [
-      'connectionId', 'tlsMode', 'metadata', 'auth', 'timeoutMs', 'retry', 'onError', 'saveAs',
+      'connectionId', 'tlsMode', 'tlsConfig', 'metadata', 'auth', 'timeoutMs', 'retry', 'onError', 'saveAs',
     ],
   },
   grpcServerStream: {
     required: ['label', 'target', 'descriptorKey', 'service', 'method', 'callType', 'body', 'collect'],
     optional: [
-      'connectionId', 'tlsMode', 'metadata', 'auth', 'timeoutMs', 'retry', 'onError', 'saveAs',
+      'connectionId', 'tlsMode', 'tlsConfig', 'metadata', 'auth', 'timeoutMs', 'retry', 'onError', 'saveAs',
     ],
   },
   grpcAssert: {

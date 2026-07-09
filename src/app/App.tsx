@@ -410,7 +410,6 @@ export default function App() {
           <DemoShellHost
             navigateToTab={navigateToTab}
             activeTab={activeTab}
-            setActiveTab={setActiveTab}
             setSidebarCollapsed={setSidebarCollapsed}
             setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
             setWorkspaceDefaults={setWorkspaceDefaults}

@@ -408,6 +408,8 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
         speed: state.speed,
         savedAt: Date.now(),
       });
+    } else {
+      clearDemoLiveSession();
     }
   }, [state.view, state.selectedLesson, state.stepIndex, state.isPlaying, state.speed]);
 
@@ -447,6 +449,11 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
 
   // Derived: hub overlay visible when not in live mode
   const hubVisible = hubOpen && state.view !== 'live';
+  const currentLessonRef = state.selectedLesson
+    ? findLessonById(state.selectedLesson.id)
+    : null;
+  const resolvedSelectedLesson = currentLessonRef?.lesson ?? state.selectedLesson;
+  const resolvedSelectedDomain = currentLessonRef?.domain ?? state.selectedDomain;
 
   // ─── Navigation ────────────────────────────────────────────────
   const openHub = useCallback(() => {
@@ -1089,26 +1096,29 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   // Cleanup is intentionally deferred so the concept page renders without delay —
   // the user should never see a blank body while cleanup operations complete.
   const exitLiveDemo = useCallback(async () => {
-    await syncDemoLiveGuard(false);
-    profilesIntroducedInSessionRef.current = false;
-    envIntroducedInSessionRef.current = false;
-    syncGqlModalLock(GQL_MODAL_LOCK_OPEN);
-
     const liveSession = readDemoLiveSession();
     const lesson =
       state.selectedLesson
       ?? (liveSession ? findLessonById(liveSession.lessonId)?.lesson ?? null : null);
 
+    // Stop the live overlay and step pipeline synchronously — never await before this.
+    profilesIntroducedInSessionRef.current = false;
+    envIntroducedInSessionRef.current = false;
+    syncGqlModalLock(GQL_MODAL_LOCK_OPEN);
     clearDemoLiveSession();
     closeWorkflowConfigModal();
-    if (autoPlayRef.current) clearTimeout(autoPlayRef.current);
-    autoPlayGenRef.current++; // invalidate any already-running auto-play callback
-    abortRef.current?.abort(); // stop any running step pipeline
-
-    // Show concept view immediately — cleanup runs silently in the background.
+    if (autoPlayRef.current) {
+      clearTimeout(autoPlayRef.current);
+      autoPlayRef.current = null;
+    }
+    autoPlayGenRef.current++;
+    abortRef.current?.abort();
+    skipReadingRef.current?.();
+    skipReadingRef.current = null;
     setState(prev => ({ ...prev, view: 'concept', isPlaying: false }));
     progress.setLastView('concept');
     setStepPhase('done');
+    void syncDemoLiveGuard(false);
 
     // Yield to let React flush the concept overlay before interacting with the
     // studio DOM — this ensures the demo tab close is invisible to the user.
@@ -1150,7 +1160,11 @@ export function useDemoHub({ navigateToTab }: UseDemoHubOptions) {
   }, [state.selectedLesson, buildQuietContext, closeIsolatedStudioDemoTabSession, progress, pause]);
 
   return {
-    state,
+    state: {
+      ...state,
+      selectedDomain: resolvedSelectedDomain,
+      selectedLesson: resolvedSelectedLesson,
+    },
     hubOpen,
     hubVisible,
     stepPhase,

@@ -87,7 +87,7 @@ import NodeConfigLogsTab from '../configs/NodeConfigLogsTab';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
-import type { Environment, Scenario } from '../../../../shared/types';
+import type { Environment, Scenario, GlobalAuthProfile } from '../../../../shared/types';
 import type {
   GrpcAssertNodeData,
   GrpcServerStreamNodeData,
@@ -159,6 +159,8 @@ interface Props {
   runtimeVariables?: Record<string, string>;
   /** All nodes in the workflow — used to discover upstream connection IDs. */
   allNodes?: WorkflowNode[];
+  /** Global auth profiles from Environment Manager — used by gRPC workflow node auth panel. */
+  globalAuthProfiles?: GlobalAuthProfile[];
 }
 
 export default function WorkflowNodeConfigModal({
@@ -172,6 +174,7 @@ export default function WorkflowNodeConfigModal({
   workflows = [],
   runtimeVariables,
   allNodes = [],
+  globalAuthProfiles = [],
 }: Props) {
   const [httpTab, setHttpTab] = useState<HttpTab>('url');
   const [panelTab, setPanelTab] = useState<ConfigPanelTab>('config');
@@ -650,6 +653,7 @@ export default function WorkflowNodeConfigModal({
               <GrpcUnaryConfig
                 data={draftNode.data as GrpcUnaryNodeData}
                 onChange={(data) => updateDraft(data)}
+                globalAuthProfiles={globalAuthProfiles}
               />
             )}
 
@@ -657,6 +661,7 @@ export default function WorkflowNodeConfigModal({
               <GrpcServerStreamConfig
                 data={draftNode.data as GrpcServerStreamNodeData}
                 onChange={(data) => updateDraft(data)}
+                globalAuthProfiles={globalAuthProfiles}
               />
             )}
 
@@ -671,6 +676,7 @@ export default function WorkflowNodeConfigModal({
               <GrpcLoadTestConfig
                 data={draftNode.data as GrpcLoadTestNodeData}
                 onChange={(data) => updateDraft(data)}
+                globalAuthProfiles={globalAuthProfiles}
               />
             )}
 

@@ -109,7 +109,6 @@ function mountManageModalDom() {
     <div data-testid="grpc-call-panel"></div>
     <div data-testid="grpc-proto-form"></div>
     <button data-testid="grpc-request-tab-form" aria-pressed="true"></button>
-    <button data-testid="grpc-request-tab-json"></button>
     <textarea data-testid="grpc-request-json"></textarea>
     <button data-testid="grpc-send-btn"></button>
     <div data-testid="grpc-response-body"></div>

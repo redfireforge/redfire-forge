@@ -423,6 +423,73 @@ describe('useGrpcStudio coverage gaps', () => {
     expect(result.current.resolveTabConnection('loopback-tab').tlsMode).toBe('disabled');
   });
 
+  it('restorePersistedSession resets 127.0.0.1 loopback tabs from stale TLS to plaintext', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'ipv4-tab',
+        tabs: [{
+          id: 'ipv4-tab',
+          title: 'IPv4 loopback',
+          target: '127.0.0.1:50051',
+          tlsMode: 'tls',
+          metadata: {},
+          timeoutMs: 30_000,
+          requestMode: 'form',
+          body: {},
+          servicesCollapsed: false,
+        }],
+        tabDescriptors: {},
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.activeTab.tlsMode).toBeUndefined();
+  });
+
+  it('restorePersistedSession resets bracketed IPv6 loopback tabs from stale TLS to plaintext', () => {
+    const { result } = renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+
+    act(() => {
+      result.current.restorePersistedSession({
+        version: 1,
+        activeTabId: 'ipv6-tab',
+        tabs: [{
+          id: 'ipv6-tab',
+          title: 'IPv6 loopback',
+          target: '[::1]:50051',
+          tlsMode: 'tls',
+          metadata: {},
+          timeoutMs: 30_000,
+          requestMode: 'form',
+          body: {},
+          servicesCollapsed: false,
+        }],
+        tabDescriptors: {},
+        timestamp: Date.now(),
+      });
+    });
+
+    expect(result.current.activeTab.tlsMode).toBeUndefined();
+    expect(result.current.resolveTabConnection('ipv6-tab').tlsMode).toBe('disabled');
+  });
+
+  it('hydrates vault secrets outside test mode', async () => {
+    const previousMode = import.meta.env.MODE;
+    import.meta.env.MODE = 'development';
+
+    try {
+      renderHook(() => useGrpcStudio({ pageDefaults: PAGE_DEFAULTS }));
+      await waitFor(() => {
+        expect(hydrateSecrets).toHaveBeenCalled();
+      });
+    } finally {
+      import.meta.env.MODE = previousMode;
+    }
+  });
+
   it('restorePersistedSession respects maxTabs when restoring persisted tabs', () => {
     const { result } = renderHook(() => useGrpcStudio({
       pageDefaults: PAGE_DEFAULTS,

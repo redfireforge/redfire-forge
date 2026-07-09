@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { parseGrpcurlCommand } from '../utils/grpcGrpcurl';
 import type { GrpcGrpcurlImportSuccess } from '../utils/grpcGrpcurlTypes';
 import { serializeGrpcPreviewJson } from '../../../shared/grpc/grpcSafePreview';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 
 export interface GrpcGrpcurlImportModalProps {
   open: boolean;
@@ -12,12 +13,27 @@ export interface GrpcGrpcurlImportModalProps {
 export function GrpcGrpcurlImportModal({ open, onClose, onImport }: GrpcGrpcurlImportModalProps) {
   const [command, setCommand] = useState('');
   const [parseError, setParseError] = useState<string | undefined>();
+  const modalRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const { onDragStart, modalStyle } = useModalDrag(open, { modalRef, constrainToViewport: true });
+
+  const syncTextareaHeight = useCallback(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, []);
 
   useEffect(() => {
     if (!open) return;
     setCommand('');
     setParseError(undefined);
   }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    syncTextareaHeight();
+  }, [command, open, syncTextareaHeight]);
 
   const parsed = useMemo(() => {
     if (!command.trim()) return undefined;
@@ -61,19 +77,20 @@ export function GrpcGrpcurlImportModal({ open, onClose, onImport }: GrpcGrpcurlI
   const warnings = parsed?.ok ? parsed.value.warnings : [];
 
   return (
-    <div className="grpc-import-grpcurl-modal" data-testid="grpc-import-grpcurl-modal" role="dialog" aria-label="Import grpcurl command">
-      <header className="grpc-import-grpcurl-modal__header">
+    <div className="grpc-import-grpcurl-modal" data-testid="grpc-import-grpcurl-modal" role="dialog" aria-label="Import grpcurl command" ref={modalRef} style={modalStyle}>
+      <header className="grpc-import-grpcurl-modal__header" onMouseDown={onDragStart}>
         <h2 className="grpc-import-grpcurl-modal__title">Import grpcurl command</h2>
       </header>
       <div className="grpc-import-grpcurl-modal__body">
         <label className="grpc-form-row grpc-form-row--stacked">
           <span className="grpc-form-row__label">Command</span>
           <textarea
+            ref={textareaRef}
             className="grpc-import-grpcurl-modal__textarea"
             data-testid="grpc-import-grpcurl-textarea"
             value={command}
             onChange={(event) => setCommand(event.target.value)}
-            rows={6}
+            rows={5}
             spellCheck={false}
             placeholder="grpcurl -plaintext localhost:50051 echo.EchoService/Echo"
           />
@@ -83,7 +100,10 @@ export function GrpcGrpcurlImportModal({ open, onClose, onImport }: GrpcGrpcurlI
         )}
         {parsed?.ok && (
           <>
-            <pre className="grpc-import-grpcurl-modal__preview" data-testid="grpc-import-grpcurl-preview">{preview}</pre>
+            <div className="grpc-form-row grpc-form-row--stacked grpc-import-grpcurl-modal__preview-section">
+              <span className="grpc-form-row__label">Parsed preview</span>
+              <pre className="grpc-import-grpcurl-modal__preview" data-testid="grpc-import-grpcurl-preview">{preview}</pre>
+            </div>
             {warnings.length > 0 && (
               <ul className="grpc-import-grpcurl-modal__warnings" data-testid="grpc-import-grpcurl-warnings">
                 {warnings.map((warning) => (

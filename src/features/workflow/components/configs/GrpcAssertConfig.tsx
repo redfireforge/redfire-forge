@@ -31,11 +31,12 @@ export default function GrpcAssertConfig({
     <div className="wf-config-body" data-testid="grpc-assert-config">
       <div className="wf-config-field--row">
         <label>Label</label>
-        <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
+        <input data-testid="grpc-assert-config-label" value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
       <div className="wf-config-field--row">
         <label>Source</label>
         <input
+          data-testid="grpc-assert-config-source"
           value={data.source}
           onChange={(e) => update({ source: e.target.value })}
           placeholder="Upstream gRPC node id or saveAs alias"
@@ -43,7 +44,7 @@ export default function GrpcAssertConfig({
       </div>
       <div className="wf-config-field--row">
         <label>On Error</label>
-        <select value={data.onError ?? 'fail'} onChange={(e) => update({ onError: e.target.value as 'fail' | 'continue' })}>
+        <select data-testid="grpc-assert-config-on-error" value={data.onError ?? 'fail'} onChange={(e) => update({ onError: e.target.value as 'fail' | 'continue' })}>
           <option value="fail">Fail workflow</option>
           <option value="continue">Continue workflow</option>
         </select>
@@ -52,6 +53,7 @@ export default function GrpcAssertConfig({
         <label>Assertions (JSON array)</label>
         <textarea
           className="wf-config-textarea"
+          data-testid="grpc-assert-config-assertions"
           rows={7}
           value={assertionsText}
           onChange={(e) => {

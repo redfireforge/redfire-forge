@@ -16,7 +16,7 @@ const WELL_KNOWN_PORT_LABELS: Record<string, string> = {
   '4010': 'GraphQL server',
   '4444': 'GraphQL server (TLS)',
   '4446': 'GraphQL server (mTLS)',
-  '8080': 'Spring Boot fixture',
+  '8081': 'Spring Boot fixture',
   '8085': 'Schema Registry',
 };
 

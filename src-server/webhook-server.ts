@@ -21,6 +21,7 @@ import type { WebhookTriggerNodeData } from '../src/features/workflow/types/work
 import type { LogLine } from '../src/shared/types/server-api';
 import { generateExecutionId } from '../src/features/test-runner/utils/serverFormatters';
 import { toErrorMessage } from '../src/shared/utils/helpers';
+import { GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL } from '../src/shared/grpc/grpcSpringFixturePorts';
 
 const app = express();
 
@@ -63,7 +64,7 @@ app.get('/health/spring', async (_req: Request, res: Response) => {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 2500);
   try {
-    const response = await fetch('http://127.0.0.1:8080/actuator/health', {
+    const response = await fetch(GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL, {
       signal: controller.signal,
       headers: { Accept: 'application/json' },
     });

@@ -34,7 +34,7 @@ run_batch() {
 
 run_batch shared src/shared
 run_batch features src/features
-run_batch app src/app src/data src/engine src/config
+run_batch app src/app src/data src/engine src/config src/test-utils src/suppressResizeObserverError.test.ts
 run_batch server src-server cli
 
 npx tsx scripts/merge-product-coverage-batches.ts

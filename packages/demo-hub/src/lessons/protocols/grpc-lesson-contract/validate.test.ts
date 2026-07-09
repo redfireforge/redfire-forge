@@ -14,20 +14,20 @@ import { migrateGrpcLessonProgress, isGrpcLessonProgressCompatible, assertGrpcLe
 import { GRPC_LESSON_SCHEMA_VERSION } from './types';
 
 describe('validateGrpcLessonRoster', () => {
-  it('validates all 21 canonical roster entries', () => {
+  it('validates all 23 canonical roster entries', () => {
     const result = validateGrpcLessonRoster();
     expect(result.ok, result.issues.map((i) => `${i.path}: ${i.message}`).join('\n')).toBe(true);
-    expect(GRPC_LESSON_ROSTER).toHaveLength(21);
+    expect(GRPC_LESSON_ROSTER).toHaveLength(23);
   });
 
-  it('has unique ids and sequential numbers 1–21', () => {
+  it('has unique ids and sequential numbers 1–23', () => {
     const ids = GRPC_LESSON_ROSTER.map((e) => e.id);
     const numbers = GRPC_LESSON_ROSTER.map((e) => e.number);
-    expect(new Set(ids).size).toBe(21);
-    expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]);
+    expect(new Set(ids).size).toBe(23);
+    expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]);
   });
 
-  it('matches the published GRPC-1–21 lesson id roster from the plan', () => {
+  it('matches the published GRPC-1–23 lesson id roster from the plan', () => {
     expect(GRPC_LESSON_ROSTER.map((e) => e.id)).toEqual([
       'grpc-first-call',
       'grpc-server-reflection',
@@ -50,6 +50,8 @@ describe('validateGrpcLessonRoster', () => {
       'grpc-transport-modes',
       'grpc-proto-form',
       'grpc-env-collections',
+      'grpc-grpcurl',
+      'grpc-tauri-desktop',
     ]);
   });
 
@@ -65,10 +67,10 @@ describe('validateGrpcLessonRoster', () => {
       { title: 'Bidirectional Streaming', phases: [2], keyConcept: 'Full duplex' },
       { title: 'Saving & Organizing Requests', phases: [5], keyConcept: 'Collections tree' },
       { title: 'Environments & Variables', phases: [9], keyConcept: '{{grpcHost}}' },
-      { title: 'gRPC in Workflows', phases: [6], keyConcept: 'Workflow node' },
-      { title: 'Load Testing with gRPC Studio', phases: [11], keyConcept: 'ghz-style metrics' },
-      { title: 'Mocking gRPC APIs', phases: [11], keyConcept: 'Rule-based mock responses' },
-      { title: 'Proto Schema Diff in CI', phases: [11], keyConcept: 'Breaking-change detection' },
+      { title: 'gRPC in Workflows: Nodes, Assertions & Chaining', phases: [6], keyConcept: 'Workflow node' },
+      { title: 'Load Testing: Concurrent Calls & Metrics', phases: [11], keyConcept: 'ghz-style metrics' },
+      { title: 'Mocking gRPC APIs: Rules & Network Listener', phases: [11], keyConcept: 'Rule-based mock responses' },
+      { title: 'Proto Schema Diff & Breaking Change Detection', phases: [11], keyConcept: 'Breaking-change detection' },
       { title: 'Spring Boot & Spring gRPC Integration', phases: [1, 4, 10], keyConcept: 'Netty vs Servlet transport behavior' },
       { title: 'Schema Discovery: Reflection & Proto Import', phases: [1, 3], keyConcept: 'Descriptor sources, Schema Browser' },
       { title: 'Streaming RPCs: All Four Patterns', phases: [1, 2], keyConcept: 'Server, client, and bidi streaming' },
@@ -76,6 +78,8 @@ describe('validateGrpcLessonRoster', () => {
       { title: 'Transport Modes: Express, gRPC-Web & Spring Servlet', phases: [1, 10], keyConcept: 'Browser proxy model, gRPC-Web/Spring Servlet browser-direct transports, Express retry fallback, per-tab config' },
       { title: 'Full Form Editor: Guided Complex Request Editing', phases: [1, 3], keyConcept: 'Open Full Form Editor modal; Form View / Focus View / JSON View; scalar/nested/repeated/map/oneof/WKT; Apply to Request' },
       { title: 'Environments, Collections & History', phases: [5, 9], keyConcept: '{{grpcHost}} target interpolation, Workspace Defaults variables, Collections tree, History replay' },
+      { title: 'grpcurl Interop, Replay & Sharing', phases: [5, 9], keyConcept: 'Import grpcurl command, Studio field mapping, Copy grpcurl from History, secret filtering' },
+      { title: 'Tauri Desktop: Native Transport, Diagnostics & Mock Listener', phases: [12], keyConcept: 'Tauri native tonic transport, channel pool diagnostics, mock network listener' },
     ];
     expect(GRPC_LESSON_ROSTER.map((e) => e.title)).toEqual(planRows.map((r) => r.title));
     expect(GRPC_LESSON_ROSTER.map((e) => e.keyConcept)).toEqual(planRows.map((r) => r.keyConcept));

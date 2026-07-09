@@ -2,6 +2,7 @@
 import type { DemoActionContext } from '../../types';
 import { GRPC } from '@shared/selectors';
 import {
+  captureGrpcActiveDescriptorKey,
   GRPC_DEMO_DOCKER_COMMAND,
   GRPC_DEMO_HEALTH_URL,
   GRPC_DEMO_PREREQUISITE_ENDPOINTS,
@@ -119,58 +120,33 @@ export async function ensureGrpcTarget(ctx: DemoActionContext): Promise<void> {
 }
 
 /**
- * Quietly reset auth → none and TLS → plaintext (disabled).
- * Called during lesson setup and cleanup so leftover session config
+ * Quietly reset auth → none.
+ * Called during lesson setup and cleanup so leftover auth config
  * (e.g. OAuth2 from a previous lesson) does not bleed into a new lesson.
- * Opens and closes the settings drawer invisibly — no viewer ripple.
+ * Auth is in the call-panel Auth tab — the settings drawer is not opened.
+ * TLS is managed per-lesson via the TLS badge modal.
  */
 export async function resetGrpcConnectionSettingsQuiet(ctx: DemoActionContext): Promise<void> {
-  const settingsBtn = document.querySelector<HTMLButtonElement>(GRPC.CONNECTION_SETTINGS_BTN);
-  if (!settingsBtn || settingsBtn.disabled) return;
+  // Close the settings drawer if it happens to be open (auth and TLS have moved
+  // out of the settings drawer — no need to open it just to reset them).
+  await closeGrpcSettingsDrawerQuiet(ctx);
 
-  // Only open the drawer if it is not already open.
-  if (!document.querySelector(GRPC.SETTINGS_DRAWER)) {
-    await ctx.click(GRPC.CONNECTION_SETTINGS_BTN);
+  // Reset auth → none via the call-panel Auth tab (auth moved out of settings drawer).
+  const authBadgeText = document.querySelector<HTMLElement>(GRPC.AUTH_BADGE)?.textContent ?? '';
+  if (!/\bnone\b/i.test(authBadgeText)) {
     try {
-      await ctx.waitFor(GRPC.SETTINGS_DRAWER, 5_000);
-    } catch {
-      return;
-    }
-  }
-
-  try {
-    // Reset auth → none.
-    const authNavSel = GRPC.SETTINGS_NAV_ITEM('auth');
-    if (document.querySelector(authNavSel)) {
-      await ctx.click(authNavSel);
-      await ctx.waitFor(GRPC.SETTINGS_PANEL('auth'), 3_000);
+      const authTabBtn = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_AUTH);
+      if (authTabBtn && !authTabBtn.disabled && authTabBtn.getAttribute('aria-pressed') !== 'true') {
+        authTabBtn.click();
+        await ctx.delay(150);
+      }
       const authSelect = document.querySelector<HTMLSelectElement>(GRPC.AUTH_TYPE_SELECT);
-      if (authSelect && !authSelect.disabled && authSelect.value !== 'none') {
+      if (authSelect && authSelect.value !== 'none') {
         await ctx.selectOption(GRPC.AUTH_TYPE_SELECT, 'none');
-        await ctx.delay(300);
+        await ctx.delay(200);
       }
-    }
-
-    // Reset TLS → plaintext (disabled).
-    const tlsNavSel = GRPC.SETTINGS_NAV_ITEM('tls');
-    const tlsDisabledSel = GRPC.TLS_MODE('disabled');
-    if (document.querySelector(tlsNavSel)) {
-      await ctx.click(tlsNavSel);
-      await ctx.waitFor(GRPC.SETTINGS_PANEL('tls'), 3_000);
-      const tlsDisabledBtn = document.querySelector<HTMLButtonElement>(tlsDisabledSel);
-      const isTlsDisabledActive = tlsDisabledBtn?.className.includes('active') ?? false;
-      if (tlsDisabledBtn && !tlsDisabledBtn.disabled && !isTlsDisabledActive) {
-        await ctx.click(tlsDisabledSel);
-        await ctx.delay(300);
-      }
-    }
-  } catch {
-    // Best-effort hygiene — do not block lesson progression on settings UI drift.
-  } finally {
-    const closeBtn = document.querySelector<HTMLElement>(GRPC.SETTINGS_CLOSE);
-    if (closeBtn) {
-      closeBtn.click();
-      await ctx.delay(300);
+    } catch {
+      // Best-effort — do not block lesson progression on auth UI drift.
     }
   }
 }
@@ -210,6 +186,7 @@ export async function ensureGrpcReflected(ctx: DemoActionContext): Promise<void>
   }
 
   if (hasExplorerReflectionData()) {
+    captureGrpcActiveDescriptorKey();
     await ctx.delay(500);
     setGrpcLessonRunFlag('reflected', true);
   }
@@ -328,14 +305,9 @@ export async function fillGrpcEchoMessage(
   setGrpcLessonRunFlag('messageFilled', true);
 }
 
-/** Fill the request JSON editor (Form Input → JSON tab) for arbitrary message bodies. */
+/** Fill the request JSON editor (always inside the Form Input tab in hybrid mode). */
 export async function fillGrpcRequestJsonBody(ctx: DemoActionContext, jsonBody: string): Promise<void> {
   await ensureGrpcRequestFormTabQuiet(ctx);
-  const jsonTab = document.querySelector<HTMLElement>(GRPC.REQUEST_TAB_JSON);
-  if (jsonTab && jsonTab.getAttribute('aria-selected') !== 'true' && jsonTab.getAttribute('aria-pressed') !== 'true') {
-    jsonTab.click();
-    await ctx.delay(300);
-  }
   const jsonEditor = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
   const normalized = jsonBody.trim();
   if (jsonEditor?.value.trim() === normalized) return;
@@ -404,13 +376,6 @@ export async function guardUnaryExecutedQuiet(ctx: DemoActionContext): Promise<v
 /**
  * Best-effort cleanup for persisted Manage Schemas drafts.
  * Clears staged proto/protoset/url/bsr inputs so lessons start from a deterministic baseline.
- */
-export async function resetGrpcManageSchemasDraftsQuiet(ctx: DemoActionContext): Promise<void> {
-  await ensureGrpcStudioSubNavQuiet(ctx);
-  const cleanupCurrentActiveTabDrafts = async (): Promise<void> => {
-    const manageBtn = document.querySelector<HTMLButtonElement>(GRPC.MANAGE_SCHEMAS_BTN);
-    if (!manageBtn || manageBtn.disabled) return;
-
     const openModal = async (): Promise<boolean> => {
       if (document.querySelector(GRPC.PROTO_MANAGE_MODAL)) return true;
       manageBtn.click();
@@ -1322,6 +1287,27 @@ export async function closeExtraGrpcTabsQuiet(ctx: DemoActionContext): Promise<v
   }
 }
 
+/**
+ * Close the Manage Schemas modal if open, discarding any unsaved drafts.
+ * Used by lesson setup/cleanup to ensure a clean descriptor state between lessons.
+ */
+export async function resetGrpcManageSchemasDraftsQuiet(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(GRPC.PROTO_MANAGE_MODAL)) return;
+  const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_CANCEL_BTN);
+  if (cancelBtn && !cancelBtn.disabled) {
+    cancelBtn.click();
+    await ctx.delay(200);
+  }
+  // If the modal is still visible after cancel, dismiss it by clicking outside.
+  if (document.querySelector(GRPC.PROTO_MANAGE_MODAL)) {
+    const overlay = document.querySelector<HTMLElement>('[data-testid="grpc-modal-overlay"]');
+    if (overlay) {
+      overlay.click();
+      await ctx.delay(150);
+    }
+  }
+}
+
 export async function grpcFirstCallSetup(
   ctx: DemoActionContext,
   options?: { resetSchemaDrafts?: boolean },
@@ -1342,13 +1328,16 @@ export async function grpcFirstCallSetup(
     await resetGrpcManageSchemasDraftsQuiet(ctx);
   }
   await clearGrpcSchemaDriftQuiet(ctx);
-  // Always start with auth = none and TLS = plaintext regardless of previous session state.
+  // Always start with auth = none regardless of previous session state.
   await resetGrpcConnectionSettingsQuiet(ctx);
 }
 
 export async function grpcFirstCallCleanup(ctx: DemoActionContext): Promise<void> {
   resetGrpcLessonSessionFlags();
   await normalizeGrpcDemoTabsQuiet(ctx);
+  // Reset composer to Form Input so the next lesson starts in a stable
+  // request-editor state even when the previous lesson used JSON request mode.
+  await ensureGrpcRequestFormTabQuiet(ctx);
   await resetGrpcManageSchemasDraftsQuiet(ctx);
   await clearGrpcSchemaDriftQuiet(ctx);
   await resetGrpcConnectionSettingsQuiet(ctx);

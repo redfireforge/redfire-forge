@@ -7,6 +7,7 @@
  *
  * Returns true as soon as either probe succeeds, false if both time out or error.
  */
+import { GRPC_SPRING_FIXTURE_HTTP_PORT } from '@shared/grpc/grpcSpringFixturePorts';
 function loopbackProbeCandidates(url: string): string[] {
   try {
     const parsed = new URL(url);
@@ -30,7 +31,7 @@ function isSpringActuatorHealthUrl(url: string): boolean {
     const parsed = new URL(url);
     const host = parsed.hostname.toLowerCase();
     const isLoopback = host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]';
-    return isLoopback && parsed.port === '8080' && parsed.pathname === '/actuator/health';
+    return isLoopback && parsed.port === String(GRPC_SPRING_FIXTURE_HTTP_PORT) && parsed.pathname === '/actuator/health';
   } catch {
     return false;
   }
@@ -99,7 +100,7 @@ function wsToHttpHealth(wsUrl: string): string {
  */
 export async function checkEndpoint(url: string, timeoutMs = 3000): Promise<boolean> {
   if (url.startsWith('http')) {
-    // Some environments block direct browser probes to Spring's actuator on :8080.
+    // Some environments block direct browser probes to Spring's actuator on :8081.
     // Use the local Express server as a same-origin proxy health check first.
     if (isSpringActuatorHealthUrl(url)) {
       const proxied = await checkHttp('http://localhost:3001/health/spring', timeoutMs);

@@ -79,11 +79,29 @@ export function buildGrpcMetadataAuthScenarioSnapshot(): GrpcLessonScenarioSnaps
   });
 }
 
+/** GRPC-11 — workflow integration lesson (grpcUnary + grpcAssert chaining). */
+export function buildGrpcWorkflowIntegrationScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-workflow-integration',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: 'localhost:50051',
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'workflow-test' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC1_FIXTURE_FINGERPRINT,
+  });
+}
+
 const SNAPSHOT_BUILDERS: Readonly<Record<string, () => GrpcLessonScenarioSnapshot>> = {
   'grpc-first-call': buildGrpcFirstCallScenarioSnapshot,
   'grpc-schema-discovery': buildGrpcSchemaDiscoveryScenarioSnapshot,
   'grpc-streaming': buildGrpcStreamingScenarioSnapshot,
   'grpc-metadata-auth': buildGrpcMetadataAuthScenarioSnapshot,
+  'grpc-workflow-integration': buildGrpcWorkflowIntegrationScenarioSnapshot,
 };
 
 /** Build the frozen scenario snapshot for a shipped lesson id. */

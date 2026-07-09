@@ -18,6 +18,7 @@ import {
   grpcurlImportDescriptorStatePatch,
   grpcurlImportToTabStatePatch,
   savedRequestToTabPatch,
+  shouldAutoReflectAfterGrpcurlImport,
 } from '../utils/grpcReplayTabApply';
 
 export type GrpcStudioPanelView = 'studio' | 'collections' | 'history' | 'advanced';
@@ -150,6 +151,10 @@ export function useGrpcStudioReplayActions(options: UseGrpcStudioReplayActionsOp
         ...descriptorPatch,
       });
       onNavigate('studio');
+
+      if (shouldAutoReflectAfterGrpcurlImport(importDrift, importResult)) {
+        void studio.reflectTab(tab.id);
+      }
     } catch (error) {
       setLastActionError(replayActionErrorMessage(error));
     }

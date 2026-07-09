@@ -144,10 +144,11 @@ export function WorkflowDesignerFlowCanvas({
     }
   }, [selected, previewWorkflow, setViewport, fitView]);
 
-  // Expose demo-player bridge helpers so lesson actions can clear node selection and open
-  // node config without relying on synthetic mouse events (which ReactFlow ignores).
+  // Expose demo-player bridge helpers so lesson actions can manipulate the canvas
+  // without relying on synthetic mouse events (which ReactFlow ignores).
   //   window.__wfDeselectAll()         — clears .selected on every node
   //   window.__wfOpenNodeConfig(id)    — opens config modal for a node by id
+  //   window.__wfFitView()             — fits the canvas viewport to current nodes
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__wfDeselectAll = () => {
       _setNodes((ns) => ns.map((n) => (n.selected ? { ...n, selected: false } : n)));
@@ -167,6 +168,16 @@ export function WorkflowDesignerFlowCanvas({
       delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
     };
   }, [_setNodes, openNodeConfig]);
+
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__wfFitView = () => {
+      fitView({ padding: 0.2, maxZoom: 1.5, duration: 300, includeHiddenNodes: true });
+      return true;
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__wfFitView;
+    };
+  }, [fitView]);
 
   // When a node config modal is open, clear the ReactFlow-level `selected` flag so the
   // node's highlight ring does not bleed into its configuration panel view.

@@ -1,12 +1,19 @@
 import { useEffect, useState } from 'react';
+import type { GlobalAuthProfile } from '../../../../shared/types';
 import type { GrpcLoadTestNodeData } from '../../types/workflow/node-grpc-advanced';
+import GrpcWorkflowCallTargetFields from './GrpcWorkflowCallTargetFields';
+import GrpcWorkflowConnectionSecurityFields from './GrpcWorkflowConnectionSecurityFields';
 
 export default function GrpcLoadTestConfig({
   data,
   onChange,
+  globalAuthProfiles = [],
+  defaultAuthProfileId = null,
 }: {
   data: GrpcLoadTestNodeData;
   onChange: (d: GrpcLoadTestNodeData) => void;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  defaultAuthProfileId?: string | null;
 }) {
   const [bodyText, setBodyText] = useState(() => JSON.stringify(data.body ?? {}, null, 2));
   const [loadTestText, setLoadTestText] = useState(() => JSON.stringify(data.loadTest ?? {}, null, 2));
@@ -50,33 +57,20 @@ export default function GrpcLoadTestConfig({
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
 
-      <div className="wf-config-field--row">
-        <label>Target</label>
-        <input
-          value={data.target}
-          onChange={(e) => update({ target: e.target.value })}
-          placeholder="127.0.0.1:50051 or {{grpcHost}}"
-        />
-      </div>
+      <GrpcWorkflowCallTargetFields
+        data={data}
+        onChange={onChange}
+        callType="unary"
+        testIdPrefix="grpc-load-test-config"
+      />
 
-      <div className="wf-config-field--row">
-        <label>Descriptor Key</label>
-        <input
-          value={data.descriptorKey}
-          onChange={(e) => update({ descriptorKey: e.target.value })}
-          placeholder="descriptor key"
-        />
-      </div>
-
-      <div className="wf-config-field--row">
-        <label>Service</label>
-        <input value={data.service} onChange={(e) => update({ service: e.target.value })} placeholder="package.Service" />
-      </div>
-
-      <div className="wf-config-field--row">
-        <label>Method</label>
-        <input value={data.method} onChange={(e) => update({ method: e.target.value })} placeholder="MethodName" />
-      </div>
+      <GrpcWorkflowConnectionSecurityFields
+        data={data}
+        onChange={onChange}
+        testIdPrefix="grpc-load-test-config"
+        globalAuthProfiles={globalAuthProfiles}
+        defaultAuthProfileId={defaultAuthProfileId}
+      />
 
       <div className="wf-config-field--row">
         <label>Profile ID</label>
