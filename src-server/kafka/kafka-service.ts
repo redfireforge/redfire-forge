@@ -38,6 +38,7 @@ import {
   DEFAULT_CLEANUP_TIMEOUT_MS,
   isAuthError,
   isTimeoutError,
+  requireKafkaPlainObject,
   resolveConnectTimeout,
   resolveRequestTimeout,
   toKafkaMessage,
@@ -293,7 +294,7 @@ export class KafkaService {
   }
 
   async produce(request: KafkaProduceRequest): Promise<KafkaRouteEnvelope<KafkaProduceResult>> {
-    const bodyErr = KafkaService.requirePlainObject('produce', request, 'KAFKA_INVALID_PRODUCE');
+    const bodyErr = requireKafkaPlainObject('produce', request, 'KAFKA_INVALID_PRODUCE');
     if (bodyErr) return bodyErr;
 
     const connResult = this.requireReadyConnection('produce', request.clusterId);
@@ -303,7 +304,7 @@ export class KafkaService {
   }
 
   async consumeOnce(request: KafkaConsumeOnceRequest): Promise<KafkaRouteEnvelope<KafkaConsumeResult>> {
-    const bodyErr = KafkaService.requirePlainObject('consume-once', request, 'KAFKA_INVALID_CONSUME_ONCE');
+    const bodyErr = requireKafkaPlainObject('consume-once', request, 'KAFKA_INVALID_CONSUME_ONCE');
     if (bodyErr) return bodyErr;
 
     const connResult = this.requireReadyConnection('consume-once', request.clusterId);
@@ -313,7 +314,7 @@ export class KafkaService {
   }
 
   async subscribe(request: KafkaSubscribeRequest): Promise<KafkaRouteEnvelope<KafkaSubscribeResult>> {
-    const bodyErr = KafkaService.requirePlainObject('subscribe', request, 'KAFKA_INVALID_SUBSCRIBE');
+    const bodyErr = requireKafkaPlainObject('subscribe', request, 'KAFKA_INVALID_SUBSCRIBE');
     if (bodyErr) return bodyErr;
 
     const connResult = this.requireReadyConnection('subscribe', request.clusterId);
@@ -423,22 +424,6 @@ export class KafkaService {
         durationMs: Date.now() - startTs,
       });
     }
-  }
-
-  /**
-   * Guards that `body` is a non-null, non-array plain object.
-   * Returns an error envelope when the check fails, or `null` when valid.
-   * Used by produce, consumeOnce, and subscribe to eliminate repeated inline guards.
-   */
-  private static requirePlainObject(
-    op: KafkaOperation,
-    body: unknown,
-    code: string,
-  ): KafkaRouteEnvelope<never> | null {
-    if (!body || typeof body !== 'object' || Array.isArray(body)) {
-      return createKafkaErrorEnvelope(op, { code, message: 'request body must be an object' });
-    }
-    return null;
   }
 
   /**

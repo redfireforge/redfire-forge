@@ -4,6 +4,7 @@
 import http from 'node:http';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
+import { GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL } from '../src/shared/grpc/grpcSpringFixturePorts.js';
 import { app } from './webhook-server.js';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
@@ -141,7 +142,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.body.status).toBe('ok');
       expect(res.body.source).toBe('spring-actuator');
       expect(fetchSpy).toHaveBeenCalledWith(
-        'http://127.0.0.1:8080/actuator/health',
+        GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL,
         expect.any(Object),
       );
     });

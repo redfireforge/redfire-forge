@@ -189,9 +189,14 @@ export function GrpcStudioPage({
       });
       return true;
     };
+    w.__demoGetGrpcActiveDescriptorKey = () => {
+      const key = (studio.activeTabDescriptor.descriptor?.key ?? studio.activeTab?.descriptorKey ?? '').trim();
+      return key || null;
+    };
     return () => {
       delete w.__demoPatchGrpcActiveTab;
       delete w.__demoResetGrpcActiveTab;
+      delete w.__demoGetGrpcActiveDescriptorKey;
     };
   }, [studio]);
 
@@ -236,6 +241,27 @@ export function GrpcStudioPage({
     pageDefaults,
     enabled: panelView === 'advanced',
   });
+
+  // Demo bridge: allow lessons to inject a pre-seeded schema diff report (for schema-diff lesson).
+  useEffect(() => {
+    const w = window as unknown as Record<string, unknown>;
+    w.__demoPatchGrpcSchemaDiffReport = (input: {
+      report: import('../../shared/grpc/grpcSchemaDiffContracts').GrpcSchemaDiffReport;
+      baselineCapturedAt?: string;
+    }) => {
+      const descriptor = studio.activeTabDescriptor.descriptor;
+      if (!descriptor) return false;
+      advancedFeatures.applySchemaDiffComparison({
+        baselineDescriptor: descriptor,
+        report: input.report,
+        baselineCapturedAt: input.baselineCapturedAt,
+      });
+      return true;
+    };
+    return () => {
+      delete w.__demoPatchGrpcSchemaDiffReport;
+    };
+  }, [studio, advancedFeatures]);
 
   const resolveSaveSnapshot = useGrpcStudioSaveSnapshot(studio, envVarMap);
 
@@ -645,7 +671,10 @@ export function GrpcStudioPage({
   const activeTab = studio.activeTab;
   const activeLifecycle = activeTab.lifecycle ?? 'idle';
   const activeStreamLifecycle = activeTab.streamLifecycle ?? 'idle';
-  const activeStreamMessages = activeTab.streamMessages ?? [];
+  const activeStreamMessages = useMemo(
+    () => activeTab.streamMessages ?? [],
+    [activeTab.streamMessages],
+  );
 
   useEffect(() => {
     const justOpened = consoleOpen && !previousConsoleOpenRef.current;

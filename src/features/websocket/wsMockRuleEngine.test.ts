@@ -73,6 +73,18 @@ describe('evaluateMatch', () => {
     expect(evaluateMatch({ type: 'jsonpath', pattern: '$.a' }, '{"a":null}')).toBe(false);
   });
 
+  it('jsonpath returns false when traversing through a primitive', () => {
+    expect(evaluateMatch({ type: 'jsonpath', pattern: '$.a.b' }, '{"a":"text"}')).toBe(false);
+  });
+
+  it('jsonpath returns false for value equality when the resolved value is null', () => {
+    expect(evaluateMatch({ type: 'jsonpath', pattern: '$.a=x' }, '{"a":null}')).toBe(false);
+  });
+
+  it('jsonpath returns false when an intermediate segment is missing', () => {
+    expect(evaluateMatch({ type: 'jsonpath', pattern: '$.missing.child' }, '{"other":1}')).toBe(false);
+  });
+
   it('unknown match type returns false', () => {
     expect(evaluateMatch({ type: 'unknown' as WsMockMatch['type'], pattern: '' }, 'hello')).toBe(false);
   });

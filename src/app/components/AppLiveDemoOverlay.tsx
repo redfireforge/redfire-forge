@@ -1,17 +1,21 @@
 /** Live Demo overlay rendered above the active tab during demo lessons. */
 import LiveDemo from '@redfireforge/demo-hub/LiveDemo';
 import type { useDemoHub } from '@redfireforge/demo-hub/useDemoHub';
-import type { Tab } from '../utils/appTabUtils';
 
 type DemoHub = ReturnType<typeof useDemoHub>;
 
 interface AppLiveDemoOverlayProps {
   demoHub: DemoHub;
-  setActiveTab: (tab: Tab) => void;
+  navigateToTab: (tab: string) => void;
 }
 
-export default function AppLiveDemoOverlay({ demoHub, setActiveTab }: AppLiveDemoOverlayProps) {
+export default function AppLiveDemoOverlay({ demoHub, navigateToTab }: AppLiveDemoOverlayProps) {
   if (demoHub.state.view !== 'live' || !demoHub.state.selectedLesson) return null;
+
+  const exitToConcept = () => {
+    navigateToTab('demo-hub');
+    void demoHub.exitLiveDemo();
+  };
 
   return (
     <LiveDemo
@@ -23,10 +27,10 @@ export default function AppLiveDemoOverlay({ demoHub, setActiveTab }: AppLiveDem
       onTogglePlay={demoHub.toggleAutoPlay}
       onSkipReading={demoHub.skipReading}
       onRestart={demoHub.restartDemo}
-      onExit={() => { void demoHub.exitLiveDemo().then(() => setActiveTab('demo-hub')); }}
+      onExit={exitToConcept}
       onComplete={() => {
         demoHub.confirmLessonComplete();
-        void demoHub.exitLiveDemo().then(() => setActiveTab('demo-hub'));
+        exitToConcept();
       }}
     />
   );

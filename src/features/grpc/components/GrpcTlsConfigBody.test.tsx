@@ -32,6 +32,12 @@ describe('GrpcTlsConfigBody (Phase 4J-C)', () => {
     expect(screen.queryByTestId('grpc-tls-server-ca')).toBeNull();
   });
 
+  it('hides mode picker cards when hideModePicker is set', () => {
+    render(<GrpcTlsConfigBody {...baseProps} tlsMode="mtls" hideModePicker />);
+    expect(screen.queryByTestId('grpc-tls-mode-mtls')).toBeNull();
+    expect(screen.getByTestId('grpc-tls-server-ca')).toBeTruthy();
+  });
+
   it('calls onTlsModeChange when a mode button is clicked', async () => {
     const user = userEvent.setup();
     const onTlsModeChange = vi.fn();

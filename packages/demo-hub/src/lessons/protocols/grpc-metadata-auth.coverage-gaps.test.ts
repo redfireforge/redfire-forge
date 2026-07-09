@@ -404,6 +404,58 @@ describe('grpc-metadata-auth coverage gaps', () => {
     await expect(getStep('grpc18-conflict').action?.(ctx)).resolves.toBeUndefined();
   });
 
+  it('conflict step preAction keeps fast path when auth badge exists', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div data-testid="grpc-connection-bar"></div>
+      <button data-testid="grpc-request-tab-auth" aria-pressed="true"></button>
+      <div data-testid="grpc-auth-badge">Auth: API Key</div>
+      <div data-testid="grpc-auth-panel">
+        <select data-testid="grpc-auth-type-select">
+          <option value="api_key" selected>API Key</option>
+        </select>
+        <input data-testid="grpc-auth-api-key-name" value="x-api-key" />
+        <input data-testid="grpc-auth-api-key-value" value="my-key-123" />
+      </div>
+      <button data-testid="grpc-request-tab-form"></button>
+    `;
+
+    await getStep('grpc18-conflict').preAction?.(ctx);
+    expect(helperSpies.ensureEchoMethodSelected).not.toHaveBeenCalled();
+  });
+
+  it('conflict step action keeps delay budget under 1.2s', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button data-testid="grpc-request-tab-auth" aria-pressed="true"></button>
+      <button data-testid="grpc-request-tab-form"></button>
+      <button data-testid="grpc-request-tab-metadata"></button>
+      <button data-testid="grpc-auth-badge"></button>
+      <div data-testid="grpc-auth-panel">
+        <input data-testid="grpc-auth-api-key-name" value="x-api-key" />
+        <input data-testid="grpc-auth-api-key-value" value="my-key-123" />
+      </div>
+      <div data-testid="grpc-metadata-editor">
+        <button data-testid="grpc-metadata-add-btn"></button>
+        <div class="ws-connect-kv-row">
+          <input class="ws-connect-kv-key" value="" />
+          <input class="ws-connect-kv-value" value="" />
+          <button class="ws-connect-kv-remove-btn">x</button>
+        </div>
+      </div>
+      <div data-testid="grpc-auth-conflicts"></div>
+      <div data-testid="grpc-call-send-block-hint"></div>
+    `;
+
+    await getStep('grpc18-conflict').action?.(ctx);
+
+    const totalDelayMs = vi
+      .mocked(ctx.delay)
+      .mock.calls
+      .reduce((sum, [ms]) => sum + (typeof ms === 'number' ? ms : 0), 0);
+    expect(totalDelayMs).toBeLessThan(1200);
+  });
+
   // ---------------------------------------------------------------------------
   // Step 8: grpc18-oauth2
   // ---------------------------------------------------------------------------

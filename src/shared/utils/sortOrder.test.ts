@@ -39,4 +39,22 @@ describe('sortOrder helpers', () => {
       { isPinned: false, sortOrder: 1 },
     )).toBeLessThan(0);
   });
+
+  it('compareByPinnedThenSortOrder falls back to sortOrder when pin state matches', () => {
+    expect(compareByPinnedThenSortOrder(
+      { isPinned: false, sortOrder: 4 },
+      { isPinned: false, sortOrder: 9 },
+    )).toBeLessThan(0);
+
+    // Undefined pin state is treated as unpinned.
+    expect(compareByPinnedThenSortOrder(
+      { sortOrder: 10 },
+      { isPinned: false, sortOrder: 3 },
+    )).toBeGreaterThan(0);
+
+    expect(compareByPinnedThenSortOrder(
+      { isPinned: false, sortOrder: 1 },
+      { isPinned: true, sortOrder: 99 },
+    )).toBeGreaterThan(0);
+  });
 });

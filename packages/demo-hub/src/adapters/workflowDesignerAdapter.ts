@@ -147,6 +147,10 @@ export function openWorkflowNodeConfig(nodeId: string): boolean {
   return true;
 }
 
+export function fitWorkflowCanvasView(): boolean {
+  return getDemoBridgeWindow().__wfFitView?.() ?? false;
+}
+
 export function deselectAllWorkflowNodes(): void {
   getDemoBridgeWindow().__wfDeselectAll?.();
 }

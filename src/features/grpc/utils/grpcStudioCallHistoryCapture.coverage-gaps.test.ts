@@ -1,7 +1,8 @@
 /**
- * @vitest-environment node
+ * @vitest-environment jsdom
  */
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
+import * as grpcCompressionPolicy from '../../../shared/grpc/grpcCompressionPolicy';
 import * as rpcSessionStats from '../../../shared/grpc/grpcRpcSessionStats';
 import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
 
@@ -43,9 +44,71 @@ function snapshot() {
 beforeEach(() => {
   appendMock.mockClear();
   appendMock.mockResolvedValue(undefined);
+  clearAllRuntimeGrpcHistoryMetadata();
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 describe('grpcStudioCallHistoryCapture coverage gaps', () => {
+  it('rehydrates runtime metadata from sessionStorage and strips redacted rows', async () => {
+    vi.resetModules();
+    window.sessionStorage.setItem('grpc-runtime-history-metadata', JSON.stringify([
+      ['entry-a', { 'x-token': 'keep' }],
+      ['entry-b', { authorization: '[REDACTED]' }],
+    ]));
+    const mod = await import('./grpcStudioCallHistoryCapture');
+    expect(mod.getRuntimeGrpcHistoryMetadata('entry-a')).toEqual({ 'x-token': 'keep' });
+    expect(mod.getRuntimeGrpcHistoryMetadata('entry-b')).toBeUndefined();
+    mod.clearRuntimeGrpcHistoryMetadataForTests();
+    vi.resetModules();
+  });
+
+  it('treats invalid sessionStorage payload as an empty cache', async () => {
+    vi.resetModules();
+    window.sessionStorage.setItem('grpc-runtime-history-metadata', 'not-json');
+    const mod = await import('./grpcStudioCallHistoryCapture');
+    expect(mod.getRuntimeGrpcHistoryMetadata('missing')).toBeUndefined();
+    mod.clearRuntimeGrpcHistoryMetadataForTests();
+    vi.resetModules();
+  });
+
+  it('falls back to snapshot metadata when prepareGrpcCallMetadata throws', async () => {
+    appendMock.mockResolvedValueOnce({ id: 'entry-fallback' });
+    vi.spyOn(grpcCompressionPolicy, 'prepareGrpcCallMetadata').mockImplementation(() => {
+      throw new Error('prep failed');
+    });
+
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: {
+        ...snapshot(),
+        metadata: { 'x-fallback': '1' },
+      },
+      result: { grpcStatus: 0, durationMs: 1, metadata: {}, body: {} },
+    });
+
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    expect(getRuntimeGrpcHistoryMetadata('entry-fallback')).toEqual({ 'x-fallback': '1' });
+  });
+
+  it('evicts oldest runtime metadata when cache exceeds max entries', async () => {
+    for (let i = 0; i < 201; i += 1) {
+      appendMock.mockResolvedValueOnce({ id: `entry-${i}` });
+      captureGrpcCallHistoryFromOutcome({
+        snapshot: {
+          ...snapshot(),
+          metadata: { 'x-seq': String(i) },
+        },
+        result: { grpcStatus: 0, durationMs: 1, metadata: {}, body: {} },
+      });
+    }
+
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(201));
+    expect(getRuntimeGrpcHistoryMetadata('entry-0')).toBeUndefined();
+    expect(getRuntimeGrpcHistoryMetadata('entry-200')).toEqual({ 'x-seq': '200' });
+  });
+
   it('captureGrpcCallHistoryFromOutcome skips stats when statsSource is false', async () => {
     const recordSpy = vi.spyOn(rpcSessionStats, 'recordGrpcRpcStatsEvent');
     captureGrpcCallHistoryFromOutcome({
@@ -83,6 +146,18 @@ describe('grpcStudioCallHistoryCapture coverage gaps', () => {
     await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
     expect(appendMock.mock.calls[0]?.[0]).toMatchObject({
       result: expect.objectContaining({ body: { message: 'done' } }),
+    });
+  });
+
+  it('captureGrpcCallHistoryFromStreamTerminal applies template context when target is set', async () => {
+    captureGrpcCallHistoryFromStreamTerminal({
+      lastExecuteSnapshot: snapshot(),
+      target: 'localhost:50051',
+    });
+
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    expect(appendMock.mock.calls[0]?.[0]).toMatchObject({
+      filterTarget: FIXTURE_UNARY_CALL_REQUEST.target.address,
     });
   });
 
@@ -135,6 +210,31 @@ describe('grpcStudioCallHistoryCapture coverage gaps', () => {
     expect(first).toEqual({ 'x-token': 'abc' });
     if (first) first['x-token'] = 'mutated';
     expect(getRuntimeGrpcHistoryMetadata('entry-1')).toEqual({ 'x-token': 'abc' });
+  });
+
+  it('skips sessionStorage persistence when window is unavailable', async () => {
+    appendMock.mockResolvedValueOnce({ id: 'entry-ssr' });
+    const originalWindow = globalThis.window;
+    // @ts-expect-error — simulate non-browser runtime
+    delete globalThis.window;
+
+    captureGrpcCallHistoryFromOutcome({
+      snapshot: {
+        ...snapshot(),
+        metadata: { 'x-request-id': 'ssr' },
+      },
+      result: { grpcStatus: 0, durationMs: 1, metadata: {}, body: {} },
+    });
+
+    await vi.waitFor(() => expect(appendMock).toHaveBeenCalledTimes(1));
+    globalThis.window = originalWindow;
+  });
+
+  it('clearAllRuntimeGrpcHistoryMetadata no-ops when sessionStorage is unavailable', () => {
+    const originalWindow = globalThis.window;
+    (globalThis as unknown as { window: Record<string, never> }).window = {};
+    expect(() => clearAllRuntimeGrpcHistoryMetadata()).not.toThrow();
+    globalThis.window = originalWindow;
   });
 
   it('clearAllRuntimeGrpcHistoryMetadata swallows sessionStorage remove failures', async () => {

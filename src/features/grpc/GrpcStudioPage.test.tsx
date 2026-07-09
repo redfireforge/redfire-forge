@@ -272,7 +272,7 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     });
   });
 
-  it('edits request body via form and preserves value in JSON tab', async () => {
+  it('edits request body via form and preserves value in Form Input', async () => {
     setGrpcClientTransport(async () => ({
       ...FIXTURE_REFLECT_SUCCESS_ENVELOPE,
       data: FIXTURE_MULTI_SERVICE_DESCRIPTOR,
@@ -295,10 +295,10 @@ describe('GrpcStudioPage (Phase 1D + 1E)', () => {
     const input = screen.getByTestId('grpc-proto-field-input-message') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'phase-1f' } });
 
-    fireEvent.click(screen.getByTestId('grpc-request-tab-json'));
+    fireEvent.click(screen.getByTestId('grpc-request-tab-form'));
 
     await waitFor(() => {
-      expect((screen.getByTestId('grpc-request-json') as HTMLTextAreaElement).value).toContain('phase-1f');
+      expect((screen.getByTestId('grpc-proto-field-input-message') as HTMLInputElement).value).toBe('phase-1f');
     });
   });
 

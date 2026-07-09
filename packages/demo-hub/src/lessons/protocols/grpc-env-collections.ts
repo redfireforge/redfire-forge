@@ -5,7 +5,7 @@
  * add custom variables for metadata and body, save calls to a named collection,
  * replay from History with one click, and export/import the collection as JSON.
  *
- *   grpc21-intro-env           — Workspace Defaults: grpcHost, requestId, userId already seeded
+ *   grpc21-intro-env           — Workspace Defaults: add grpcHost, requestId, userId live in UI
  *   grpc21-grpchost-target     — Type {{grpcHost}} in target; preview strip resolves the address
  *   grpc21-env-switch          — Change grpcHost → staging address; strip updates in real time
  *   grpc21-metadata-var        — Add x-request-id: {{requestId}} in Metadata tab
@@ -18,7 +18,7 @@
  *   grpc21-export-import       — Export collection JSON; show Import button
  */
 import { GRPC } from '@shared/selectors';
-import { EM, emWsDefaultRowSel } from '@shared/selectors/em';
+import { EM, emWsDefaultRowSel, emWsDefaultRowValueSel } from '@shared/selectors/em';
 import {
   buildGrpcLessonShellFromRoster,
   buildGrpcContractMetaFromRoster,
@@ -289,8 +289,6 @@ export const grpcEnvCollectionsLesson: GrpcDemoLesson = {
 
   setup: async (ctx) => {
     await grpcFirstCallSetup(ctx);
-    // Seed workspace defaults so step 1 can navigate straight to EM and show them.
-    seedWorkspaceDefaults();
     // Ensure the Echo method is reflected and selected so later steps can execute immediately.
     await ensureEchoMethodSelected(ctx);
   },
@@ -314,13 +312,12 @@ export const grpcEnvCollectionsLesson: GrpcDemoLesson = {
       description:
         'RedfireForge supports **template variables** in the target address, metadata, and request body. ' +
         'Variables like `{{grpcHost}}`, `{{requestId}}`, and `{{userId}}` are defined in the **Workspace Defaults ' +
-        '(Interpolation)** section of the Environment Manager. This lesson has pre-seeded three variables: ' +
-        '`grpcHost` (the gRPC server address), `requestId` (for request tracing), and `userId` (a body field). ' +
-        'Open **Environments** and scroll to the Workspace Defaults section to see them.',
+        '(Interpolation)** section of the Environment Manager. In this step, we will populate three variables ' +
+        'live in the UI: `grpcHost` (the gRPC server address), `requestId` (for request tracing), and `userId` ' +
+        '(a body field). Open **Environments** and scroll to Workspace Defaults to watch each value being added.',
       highlight: EM.MANAGER,
       pauseAfter: true,
       preAction: async (ctx) => {
-        seedWorkspaceDefaults();
         await navigateToEnvironmentManager(ctx);
       },
       action: async (ctx) => {
@@ -335,11 +332,48 @@ export const grpcEnvCollectionsLesson: GrpcDemoLesson = {
           await ctx.delay(600);
           await spotlightAndPause(ctx, '.env-section--ws-defaults', 1_000);
         }
+
+        const setWorkspaceDefaultVisible = async (key: string, value: string): Promise<void> => {
+          const existingRow = document.querySelector<HTMLElement>(emWsDefaultRowSel(key));
+          if (existingRow) {
+            existingRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await ctx.delay(250);
+            await spotlightAndPause(ctx, emWsDefaultRowSel(key), 700);
+            const valueInputSel = emWsDefaultRowValueSel(key);
+            const valueInput = document.querySelector<HTMLInputElement>(valueInputSel);
+            if (valueInput) {
+              await spotlightAndPause(ctx, valueInputSel, 450);
+              await ctx.fill(valueInputSel, value);
+              valueInput.dispatchEvent(new Event('change', { bubbles: true }));
+              valueInput.blur();
+              await ctx.delay(250);
+            }
+            return;
+          }
+
+          await spotlightAndPause(ctx, EM.WS_DEFAULT_KEY_INPUT, 450);
+          await ctx.fill(EM.WS_DEFAULT_KEY_INPUT, key);
+          await spotlightAndPause(ctx, EM.WS_DEFAULT_VALUE_INPUT, 450);
+          await ctx.fill(EM.WS_DEFAULT_VALUE_INPUT, value);
+          await spotlightAndPause(ctx, EM.WS_DEFAULT_SAVE_BTN, 350);
+          await ctx.click(EM.WS_DEFAULT_SAVE_BTN);
+          await ctx.delay(300);
+        };
+
+        await setWorkspaceDefaultVisible('grpcHost', LOCAL_GRPC_HOST);
+        await setWorkspaceDefaultVisible('requestId', DEMO_REQUEST_ID);
+        await setWorkspaceDefaultVisible('userId', DEMO_USER_ID);
+
         // Spotlight each variable row so the viewer can identify them.
         await spotlightAndPause(ctx, emWsDefaultRowSel('grpcHost'), 900);
         await ctx.delay(300);
         await spotlightAndPause(ctx, emWsDefaultRowSel('requestId'), 800);
         await ctx.delay(300);
+        const userIdRow = document.querySelector<HTMLElement>(emWsDefaultRowSel('userId'));
+        if (userIdRow) {
+          userIdRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          await ctx.delay(400);
+        }
         await spotlightAndPause(ctx, emWsDefaultRowSel('userId'), 800);
       },
     },
@@ -501,7 +535,7 @@ export const grpcEnvCollectionsLesson: GrpcDemoLesson = {
       id: 'grpc21-body-var',
       title: 'Template Variable in the Request Body',
       description:
-        'Switch to the **JSON** tab and add `"userId": "{{userId}}"` alongside your `message`. The ' +
+        'In the **Form Input** tab, add `"userId": "{{userId}}"` alongside your `message`. The ' +
         'placeholder `{{userId}}` will be resolved to `' + DEMO_USER_ID + '` when the call is sent. ' +
         'Click the **Resolved** toggle on the Interpolation Preview Strip to see the fully substituted ' +
         'body, metadata, and target in one preview — exactly what the server will receive.',
@@ -509,17 +543,17 @@ export const grpcEnvCollectionsLesson: GrpcDemoLesson = {
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureMetadataRowQuiet(ctx);
-        // Switch to JSON tab silently.
-        const jsonTab = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_JSON);
-        if (jsonTab && jsonTab.getAttribute('aria-pressed') !== 'true') {
-          jsonTab.click();
+        // Ensure Form Input tab is active (JSON is now inline inside Form Input).
+        const formTab = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_FORM);
+        if (formTab && formTab.getAttribute('aria-pressed') !== 'true') {
+          formTab.click();
           await ctx.delay(300);
         }
       },
       action: async (ctx) => {
-        // Show JSON tab with current body.
-        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_JSON, 600);
-        await ctx.click(GRPC.REQUEST_TAB_JSON);
+        // Spotlight the Form Input tab so the viewer knows where to look.
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 600);
+        await ctx.click(GRPC.REQUEST_TAB_FORM);
         try {
           await ctx.waitFor(GRPC.REQUEST_JSON, 3_000);
         } catch {

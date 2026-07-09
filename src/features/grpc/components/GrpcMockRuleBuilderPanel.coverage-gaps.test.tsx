@@ -320,7 +320,7 @@ describe('GrpcMockRuleBuilderPanel coverage gaps', () => {
 
     expect(screen.getByTestId('grpc-mock-builder-readonly-rule-expr')).toBeTruthy();
     expect(screen.getByTestId('grpc-mock-builder-readonly-rule-deep')).toBeTruthy();
-    expect(screen.getAllByText(/Edit this predicate in the JSON tab/i).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Edit this predicate in the JSON editor/i).length).toBeGreaterThan(0);
   });
 
   it('edits multiple rules without cross-contamination and covers optional leaf defaults', () => {

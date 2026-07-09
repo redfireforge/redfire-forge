@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Servlet-mode (HTTP/1.1) bridge for {@code echo.EchoService/Echo} on the Spring MVC
- * port (:8080) — the target RedfireForge's "Spring Servlet" transport mode calls
+ * port (:8081) — the target RedfireForge's "Spring Servlet" transport mode calls
  * directly from the browser, with no gRPC/Netty channel involved.
  *
  * <p>Wire format matches gRPC-Web framing (5-byte frame header: 1 flag byte + 4-byte

@@ -15,7 +15,7 @@ It consolidates:
 | Phase 0.5 Hybrid Modal Wiring + Telemetry | ✅ Completed | 2026-07-06 | Full-form modal integration, dirty-close confirm, modal lifecycle telemetry |
 | Phase 1 Option B Core | ✅ Completed | 2026-07-06 | Navigator + Focus editor composer, selected-path telemetry, read-only lock while modal open |
 | Phase 2 Option A Modal Integration | ✅ Completed | 2026-07-06 | Transactional apply gating, modal open-context capture, post-close context restore |
-| Phase 2.5 Option C Modal Tab Integration | ✅ Completed | 2026-07-06 | Modal JSON tab sync + parse-error blocking + user-text preservation |
+| Phase 2.5 Option C Modal Tab Integration | ✅ Completed | 2026-07-06 | Modal JSON view sync + parse-error blocking + user-text preservation |
 | Phase 3 Hardening | ✅ Completed | 2026-07-06 | Telemetry contract completion, navigator accessibility/keyboard/filter pass, regression verification |
 | Phase 4 Gradual Rollout | 🔨 In Progress | 2026-07-06 | Staged feature-flag rollout, mockup-parity refinements, complex-form demo sample |
 
@@ -467,7 +467,7 @@ Status: Completed on 2026-07-06.
 
 #### Phase 2.5 Detailed Contract (Refined)
 Phase 2.5 is complete only when all of the following are true:
-1. Option C JSON tab is available inside the Full Form modal and uses the same modal working draft as Option A.
+1. Option C JSON view is available inside the Full Form modal and uses the same modal working draft as Option A.
 2. Option C valid JSON edits update Option A working draft immediately (A/C bidirectional sync).
 3. Option A control edits update Option C JSON representation on shared working draft updates.
 4. JSON parse errors are shown inline and block Apply without mutating canonical request.
@@ -522,7 +522,7 @@ Verification evidence:
 Phase 4 parity work completed in this pass:
 1. Option A: added in-modal complexity insight chips (oneof/map/repeated counts) for faster orientation.
 2. Option B: navigator item detail now surfaces map/repeated semantics in addition to field type.
-3. Option C: JSON tab now includes a visual assist sidecar summarizing oneof active branch, map entry counts, and repeated item counts.
+3. Option C: JSON view now includes a visual assist sidecar summarizing oneof active branch, map entry counts, and repeated item counts.
 4. Added complex Form Input demo payload artifacts:
   - `examples/grpc/complex-form-input/complex-echo.proto`
   - `examples/grpc/complex-form-input/complex-echo.request.json`
@@ -601,7 +601,7 @@ Each event includes:
 ## 22. Acceptance Criteria
 - Option B is default and production-usable
 - Full Form Editor modal is stable and consistent
-- Option C JSON tab is available in modal and synchronized with Option A
+- Option C JSON view is available in modal and synchronized with Option A
 - Apply/discard semantics match this contract
 - Payload parity across editors is verified
 - Validation parity across editors is verified

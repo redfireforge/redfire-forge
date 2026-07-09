@@ -44,6 +44,8 @@ import {
   resolveGrpcWorkflowMetadata,
   type GrpcWorkflowTemplateResolver,
 } from './grpcWorkflowTemplateResolver';
+import { resolveEffectiveGrpcAuth } from '../../grpc/utils/grpcAuthProfileResolve';
+import type { GlobalAuthProfile } from '../../../shared/types';
 
 export interface GrpcWorkflowSnapshotBuildInput {
   nodeId: string;
@@ -62,6 +64,8 @@ export interface GrpcWorkflowSnapshotBuildContext {
   /** Phase 9C — workflow VariableContext snapshot before node profile merge. */
   activeEnvironment?: Record<string, string>;
   variableContext?: import('../engine/variableContext').VariableContext;
+  globalAuthProfiles?: GlobalAuthProfile[];
+  defaultAuthProfileId?: string | null;
 }
 
 function workflowTabId(nodeId: string): string {
@@ -209,7 +213,19 @@ export function buildGrpcWorkflowExecuteSnapshot(
   const metadata = normalizeGrpcMetadata(metadataResolved);
   validateResolvedMetadata(metadata);
 
-  const auth = resolveGrpcWorkflowAuthConfig(data.auth, resolveTemplate);
+  let authSource = data.auth;
+  if (data.auth?.type === 'inherit') {
+    const resolved = resolveEffectiveGrpcAuth(
+      data.auth,
+      context.globalAuthProfiles ?? [],
+      context.defaultAuthProfileId ?? null,
+    );
+    if (resolved.issue) {
+      throw new Error(resolved.issue);
+    }
+    authSource = resolved.auth;
+  }
+  const auth = resolveGrpcWorkflowAuthConfig(authSource, resolveTemplate);
   assertGrpcWorkflowAuthTemplatesResolved(auth);
   validateResolvedAuth(auth);
 

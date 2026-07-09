@@ -2,20 +2,20 @@
  * Lesson GRPC-15: Spring Boot & Spring gRPC Integration
  *
  * One Spring Boot fixture, one JVM, two doors in: a Netty gRPC server on `:9090`
- * (the `net.devh` starter, real HTTP/2) and an HTTP/1.1 servlet bridge on `:8080`
+ * (the `net.devh` starter, real HTTP/2) and an HTTP/1.1 servlet bridge on `:8081`
  * (RedfireForge's "Spring Servlet" transport). Covers reflection working out of the
  * box (no `application.yml` flag needed), the standard gRPC Health Check protocol
  * exposed under a Studio-friendly name, a bearer-token-gated RPC that mirrors a
  * Spring Security interceptor, and target-field environment-variable interpolation.
  *
- *   grpc15-intro                — One JVM, two transports: Netty :9090 vs Servlet :8080
+ *   grpc15-intro                — One JVM, two transports: Netty :9090 vs Servlet :8081
  *   grpc15-connect-netty        — Express Proxy → :9090 → Reflect (works out of the box)
  *   grpc15-execute-echo         — Select Echo, send, response via Express Proxy
  *   grpc15-health-check         — Settings → Health, Spring hint, Check (unary) → SERVING
  *   grpc15-health-watch         — Watch (stream) → periodic beats every 3s → Cancel
  *   grpc15-secure-echo-denied   — SecureEcho without auth → UNAUTHENTICATED
  *   grpc15-bearer-auth          — Auth tab → Bearer → demo-secret-token → SecureEcho succeeds
- *   grpc15-spring-servlet       — Switch to Spring Servlet, target :8080, resend Echo
+ *   grpc15-spring-servlet       — Switch to Spring Servlet, target :8081, resend Echo
  *   grpc15-target-interpolation — {{grpcHost}} in the target field, live preview
  *   grpc15-proto-stubs          — Manage Schemas → Schema Browser mirrors the Java service
  */
@@ -26,7 +26,7 @@ import {
   getGrpcLessonRosterEntry,
   type GrpcDemoLesson,
 } from './grpc-lesson-contract';
-import { upsertWorkspaceDefaults } from '../../adapters';
+import { upsertWorkspaceDefaults, GRPC_SPRING_FIXTURE_SERVLET_TARGET } from '../../adapters';
 import {
   GRPC_DEMO_MESSAGE,
   GRPC_ECHO_SERVICE,
@@ -50,7 +50,7 @@ const GRPC15_ROSTER = getGrpcLessonRosterEntry('grpc-spring-boot')!;
 
 /** One Spring Boot JVM, two ports — `net.devh` Netty gRPC and an HTTP/1.1 servlet bridge. */
 const GRPC_SPRING_NETTY_TARGET = 'localhost:9090';
-const GRPC_SPRING_SERVLET_TARGET = 'localhost:8080';
+const GRPC_SPRING_SERVLET_TARGET = GRPC_SPRING_FIXTURE_SERVLET_TARGET;
 
 const GRPC_SECURE_ECHO_METHOD = 'SecureEcho';
 const GRPC_SECURE_ECHO_SEL = GRPC.METHOD(GRPC_ECHO_SERVICE, GRPC_SECURE_ECHO_METHOD);
@@ -263,7 +263,7 @@ export const grpcSpringBootLesson: GrpcDemoLesson = {
   category: 'grpc',
   description:
     'Connect gRPC Studio to a real Spring Boot server two different ways: the standard Netty gRPC port ' +
-    '(`net.devh`, `:9090`) over Express Proxy, and the same JVM\'s HTTP/1.1 servlet bridge (`:8080`) over ' +
+    '(`net.devh`, `:9090`) over Express Proxy, and the same JVM\'s HTTP/1.1 servlet bridge (`:8081`) over ' +
     'the Spring Servlet transport. Along the way: reflection that works with zero `application.yml` config, ' +
     'the standard gRPC Health Check protocol, a bearer-token-gated RPC mirroring a Spring Security ' +
     'interceptor, and environment-variable interpolation in the target field.',
@@ -288,7 +288,7 @@ export const grpcSpringBootLesson: GrpcDemoLesson = {
 | Port | Stack | RedfireForge transport | Call types |
 |---|---|---|---|
 | \`:9090\` | \`net.devh\` gRPC starter (Netty, real HTTP/2) | 🌐 Express Proxy | Unary, streaming — everything |
-| \`:8080\` | Spring MVC servlet bridge (HTTP/1.1, same JVM) | 🌿 Spring Servlet | Unary only (this fixture) |
+| \`:8081\` | Spring MVC servlet bridge (HTTP/1.1, same JVM) | 🌿 Spring Servlet | Unary only (this fixture) |
 
 **Reflection works out of the box.** The \`net.devh\` starter auto-registers both \`grpc.reflection.v1alpha.ServerReflection\` and the standard \`grpc.health.v1.Health\` service the moment \`grpc-services\` is on the classpath — no \`application.yml\` flag required. This fixture also ships a **second**, differently-named health service, \`health.v1.Health\`, because gRPC Studio's own Health Check panel looks for that exact name rather than the gRPC-standard one.
 
@@ -299,7 +299,7 @@ export const grpcSpringBootLesson: GrpcDemoLesson = {
 2. **Send** a plain Echo call — the control case.
 3. **Probe health** — unary Check, then a live Watch stream every 3 seconds.
 4. **Hit the auth gate** — call \`SecureEcho\` without a token (denied), then with one (accepted).
-5. **Switch transports** — same JVM, same Echo method, now over Spring Servlet on \`:8080\`.
+5. **Switch transports** — same JVM, same Echo method, now over Spring Servlet on \`:8081\`.
 6. **Interpolate** the target with \`{{grpcHost}}\` and watch the live preview resolve it.
 7. **Browse the schema** — the same message/enum types the Java code defines.`,
     keyTerms: [
@@ -370,7 +370,7 @@ export const grpcSpringBootLesson: GrpcDemoLesson = {
   <text x="425" y="146" text-anchor="middle" font-size="7.5" fill="#86efac">reflection (auto)</text>
 
   <rect x="510" y="78" width="146" height="76" rx="6" fill="#1a0533" stroke="#a855f7" stroke-width="1"/>
-  <text x="583" y="96" text-anchor="middle" font-size="9" fill="#d8b4fe">Servlet bridge :8080</text>
+  <text x="583" y="96" text-anchor="middle" font-size="9" fill="#d8b4fe">Servlet bridge :8081</text>
   <text x="583" y="112" text-anchor="middle" font-size="7.5" fill="#e9d5ff">MVC controller</text>
   <text x="583" y="126" text-anchor="middle" font-size="7.5" fill="#e9d5ff">Echo only</text>
   <text x="583" y="140" text-anchor="middle" font-size="7.5" fill="#e9d5ff">gRPC-Web framing</text>
@@ -400,7 +400,7 @@ export const grpcSpringBootLesson: GrpcDemoLesson = {
       description:
         'This fixture runs a **single** Spring Boot process exposing the same `echo.EchoService` on two ports:\n\n' +
         '- `localhost:9090` — a real Netty gRPC server from the `net.devh` starter (HTTP/2)\n' +
-        '- `localhost:8080` — an HTTP/1.1 servlet bridge for the same service, reached via the **Spring Servlet** ' +
+        '- `localhost:8081` — an HTTP/1.1 servlet bridge for the same service, reached via the **Spring Servlet** ' +
         'transport\n\n' +
         'The **connection bar** below is where you switch between them — just a target address and a transport ' +
         'mode, exactly like any other gRPC Studio tab. The rest of this lesson walks both doors, plus the health ' +
@@ -426,12 +426,15 @@ export const grpcSpringBootLesson: GrpcDemoLesson = {
       title: 'Reflection Works Out of the Box',
       description:
         'With the target already set to `localhost:9090` and **Express Proxy** active, click **Reflect**.\n\n' +
+        'Watch the **connection bar** for the Netty target, then **Session settings → Transport** to confirm ' +
+        '**Express Proxy** is selected — RedfireForge\'s local Node.js relay is how the browser reaches real HTTP/2 ' +
+        'gRPC on `:9090`.\n\n' +
         'No `application.yml` change was needed — the `net.devh` gRPC starter auto-registers ' +
         '`grpc.reflection.v1alpha.ServerReflection` (and the standard `grpc.health.v1.Health` service) the moment ' +
         'the `grpc-services` artifact is on the classpath. The Service Explorer populates with **four** services: ' +
         '`echo.EchoService`, this fixture\'s custom `health.v1.Health`, the standard `grpc.health.v1.Health`, and ' +
         'the reflection service itself.',
-      highlight: GRPC.SERVICE_EXPLORER,
+      highlight: GRPC.CONNECTION_BAR,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
@@ -440,19 +443,52 @@ export const grpcSpringBootLesson: GrpcDemoLesson = {
         await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 700);
-        await ctx.delay(200);
+        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 800);
+        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 1_000);
 
-        await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 700);
+        // Make Express Proxy readable — the narration calls it out before Reflect.
+        await spotlightAndPause(ctx, GRPC.CONNECTION_SETTINGS_BTN, 800);
+        await ctx.click(GRPC.CONNECTION_SETTINGS_BTN);
+        try {
+          await ctx.waitFor(GRPC.SETTINGS_DRAWER, 5_000);
+        } catch {
+          await ctx.delay(400);
+        }
+        await ctx.delay(600);
+
+        await spotlightAndPause(ctx, GRPC.SETTINGS_NAV_ITEM('transport'), 800);
+        await ctx.click(GRPC.SETTINGS_NAV_ITEM('transport'));
+        try {
+          await ctx.waitFor(GRPC.SETTINGS_PANEL('transport'), 3_000);
+        } catch {
+          await ctx.delay(400);
+        }
+        await ctx.delay(500);
+
+        if (!isTransportModeActive('express')) {
+          await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('express'), 900);
+          await ctx.click(GRPC.TRANSPORT_MODE('express'));
+          await ctx.delay(450);
+        }
+        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('express'), 1_200);
+        if (document.querySelector(GRPC.TRANSPORT_MODE_REASON('express'))) {
+          await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE_REASON('express'), 900);
+        }
+
+        await spotlightAndPause(ctx, GRPC.SETTINGS_CLOSE, 600);
+        await ctx.click(GRPC.SETTINGS_CLOSE);
+        await ctx.delay(700);
+
+        await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 800);
         if (!document.querySelector(GRPC.EXPLORER_TREE)) {
           await ctx.click(GRPC.REFLECT_BTN);
           try {
             await ctx.waitFor(`${GRPC.EXPLORER_TREE}, ${GRPC.EXPLORER_ERROR}`, 12_000);
           } catch {
-            await ctx.delay(1_500);
+            await ctx.delay(400);
           }
         }
-        await ctx.delay(500);
+        await ctx.delay(600);
 
         await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 1_100);
 
@@ -728,14 +764,14 @@ export const grpcSpringBootLesson: GrpcDemoLesson = {
     },
 
     // -------------------------------------------------------------------------
-    // Step 8 — Spring Servlet transport on :8080
+    // Step 8 — Spring Servlet transport on :8081
     // -------------------------------------------------------------------------
     {
       id: 'grpc15-spring-servlet',
-      title: 'Same JVM, Second Door: Spring Servlet on :8080',
+      title: 'Same JVM, Second Door: Spring Servlet on :8081',
       description:
         'Open **Session settings → Transport** and switch to **Spring Servlet**. Change the target to ' +
-        '`localhost:8080` — the same JVM\'s servlet port. No new **Reflect** is needed: the method schema stays ' +
+        '`localhost:8081` — the same JVM\'s servlet port. No new **Reflect** is needed: the method schema stays ' +
         'loaded from the earlier reflect against `:9090`.\n\n' +
         'Re-select **Echo** (this fixture\'s HTTP bridge only implements that one method) and click **Send**. The ' +
         'browser now POSTs gRPC-Web-framed bytes directly to `/echo.EchoService/Echo` over plain HTTP/1.1 — no ' +

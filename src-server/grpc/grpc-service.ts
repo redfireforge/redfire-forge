@@ -17,7 +17,6 @@ import {
   type GrpcDescriptorLookupRequest,
   type GrpcReflectRequest,
   type GrpcRouteEnvelope,
-  type GrpcErrorCode,
   type GrpcStatusRequest,
   type GrpcStatusResult,
 } from '../../src/shared/grpc/contracts.js';
@@ -34,8 +33,6 @@ import { createSanitizedGrpcErrorEnvelope } from '../../src/shared/grpc/grpcReda
 import { createGrpcTransportErrorEnvelope } from './grpcTransportEnvelope.js';
 import {
   mapGrpcAuthResolveErrorForEnvelope,
-  resolveGrpcExecuteAuthMetadata,
-  resolveGrpcExecuteAuthMetadataSync,
 } from './grpcAuthResolve.js';
 import {
   grpcOAuth2TokenService,
@@ -56,41 +53,10 @@ import { encodeRootAsProtosetBase64 } from './protoDescriptorParser.js';
 import { decodeProtoMessage, encodeProtoMessage } from './dynamicProtoCodec.js';
 import { DescriptorLoader, DescriptorLoaderError, descriptorLoader } from './descriptorLoader.js';
 import { grpcJsClient, type GrpcClientPort } from './grpcClient.js';
-
-function mapDescriptorLoaderErrorCode(
-  error: DescriptorLoaderError,
-  op: 'reflect' | 'describe',
-): GrpcErrorCode {
-  switch (error.code) {
-    case 'unreachable':
-      return GRPC_ERROR_CODES.UNREACHABLE;
-    case 'invalid_target':
-      return GRPC_ERROR_CODES.INVALID_TARGET;
-    case 'invalid_descriptor':
-      return GRPC_ERROR_CODES.INVALID_DESCRIPTOR;
-    case 'describe_failed':
-      return GRPC_ERROR_CODES.DESCRIBE_FAILED;
-    case 'import_resolution_failed':
-      return GRPC_ERROR_CODES.IMPORT_RESOLUTION_FAILED;
-    case 'reflection_failed':
-      return GRPC_ERROR_CODES.REFLECTION_FAILED;
-    default:
-      return op === 'reflect'
-        ? GRPC_ERROR_CODES.REFLECTION_FAILED
-        : GRPC_ERROR_CODES.DESCRIBE_FAILED;
-  }
-}
-
-async function appendAuthMetadata(
-  metadata: Record<string, string>,
-  auth: GrpcCallRequest['auth'],
-  oauth2TokenService: GrpcOAuth2TokenService,
-): Promise<Record<string, string>> {
-  if (auth?.type === 'oauth2') {
-    return resolveGrpcExecuteAuthMetadata(metadata, auth, oauth2TokenService);
-  }
-  return resolveGrpcExecuteAuthMetadataSync(metadata, auth);
-}
+import {
+  appendAuthMetadata,
+  mapDescriptorLoaderErrorCode,
+} from './grpcServiceHelpers.js';
 
 export class GrpcService {
   constructor(

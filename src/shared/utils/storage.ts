@@ -523,6 +523,7 @@ const featureGroupsStorage = createDualModeArrayStorage<FeatureGroup>({
   idbLoad: idbLoadFeatureGroups,
   idbSave: idbSaveFeatureGroups,
   idbMigrate: idbMigrateFeatureGroups,
+  fallbackToLocalStorageOnIdbSaveError: true,
 });
 
 export async function saveFeatureGroups(fgs: FeatureGroup[]): Promise<void> {

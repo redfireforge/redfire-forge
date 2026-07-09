@@ -10,13 +10,13 @@ export const GRPC_LESSON_SCHEMA_VERSION = 1;
 export type GrpcLessonImplementationStatus = 'shipped' | 'planned';
 
 /** Product phase gates referenced by roster `phaseDependencies`. */
-export type GrpcLessonProductPhase = 1 | 2 | 3 | 4 | 5 | 6 | 8 | 9 | 10 | 11;
+export type GrpcLessonProductPhase = 1 | 2 | 3 | 4 | 5 | 6 | 8 | 9 | 10 | 11 | 12;
 
 /** Docker / proxy fixtures a lesson requires at runtime. */
 export interface GrpcLessonFixtureRequirements {
   /** Go echo server on :50051 with :50052 health (docker/grpc). */
   requireGoEcho?: boolean;
-  /** Spring Boot gRPC server on :9090 (Netty) and :8080 (servlet/actuator) — GRPC-15. */
+  /** Spring Boot gRPC server on :9090 (Netty) and :8081 (servlet/actuator) — GRPC-15. */
   requireSpringBoot?: boolean;
   /** Express webhook server on :3001 for /api/grpc proxy (browser mode). */
   requireExpressProxy?: boolean;

@@ -118,6 +118,8 @@ export async function runGraph(
   wsOperations?: import('./graphRunnerNodeHandlerContext').WsNodeOperations,
   /** gRPC client operations for grpcUnary/grpcServerStream nodes. When omitted, gRPC nodes will fail. */
   grpcOperations?: import('./graphRunnerNodeHandlerContext').GrpcNodeOperations,
+  /** Hydrated gRPC connection profiles + global auth for workflow node snapshots. */
+  grpcWorkflowExecutionRuntime?: import('../utils/grpcWorkflowRuntimeContext').GrpcWorkflowExecutionRuntime,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -269,6 +271,7 @@ export async function runGraph(
       capturedGrpcDetails,
       grpcStepResultStore,
       grpcOutputRegistry,
+      grpcWorkflowExecutionRuntime,
     };
 
     // Phase 7e: Record node execution start

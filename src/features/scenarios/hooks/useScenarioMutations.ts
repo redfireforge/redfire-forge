@@ -11,6 +11,7 @@ import {
   logTestAdded, logTestRemoved, logTestCopied, logFgRenamed,
   logTestRenamed,
 } from '../utils/structureChangeLog';
+import { saveFeatureGroups } from '../../../shared/utils/storage';
 import type { TestEditorInputMode, TestEditorTab } from '../components/TestEditorModal';
 
 export interface ConfirmDialog {
@@ -309,7 +310,7 @@ export function useScenarioMutations({
     setActiveTab(defaultTab);
   };
 
-  const saveTest = () => {
+  const saveTest = async () => {
     if (!editingTest || !draft.name.trim()) return;
     const isNonHttp = isWsActionType(draft.actionType) || draft.actionType === 'kafkaProduce' || draft.actionType === 'kafkaConsume';
     if (!isNonHttp && !draft.url.trim()) return;
@@ -349,7 +350,7 @@ export function useScenarioMutations({
       }
     }
 
-    setFeatureGroups((prev) => prev.map((fg) => {
+    const updatedFeatureGroups = featureGroups.map((fg) => {
       if (fg.id !== featureId) return fg;
       const sc = fg.scenarios.find(s => s.id === scenarioId);
       let updated = {
@@ -369,7 +370,17 @@ export function useScenarioMutations({
         }
       }
       return updated;
-    }));
+    });
+
+    setFeatureGroups(updatedFeatureGroups);
+
+    // Persist immediately so a fast reload after clicking Save cannot restore stale state.
+    try {
+      await saveFeatureGroups(updatedFeatureGroups);
+    } catch (err) {
+      console.error('[ScenarioMutations] Failed to persist feature groups during saveTest', err);
+    }
+
     setEditingTest(null);
   };
 

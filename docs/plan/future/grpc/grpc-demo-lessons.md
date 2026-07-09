@@ -1,8 +1,8 @@
 # gRPC Studio — Demo Lesson Plan
 
-> **Last updated:** 2026-07-05 (L6 Transport Modes shipped as roster #19; L5 TLS/mTLS previously shipped; all Docker fixtures done via Phase 12D; workflow node config modals complete; native diagnostics tab added; selector corrections; L15 Tauri Desktop lesson added)
-> **Status:** Authoring in progress — 6/15 shipped (L1–L6)
-> **Lessons:** 15 total — 6 shipped (L1–L6 wrappers exist), 9 planned
+> **Last updated:** 2026-07-08 (L15 Tauri Desktop shipped; 10-step desktop-only lesson; NATIVE_DIAGNOSTICS selectors added; roster now 23 entries; all 15/15 shipped)
+> **Status:** All 15 lessons shipped — 15/15 (L1–L15)
+> **Lessons:** 15 total — 15 shipped (L1–L15 wrappers exist), 0 planned
 > **Reference:** [`grpc-studio-plan.md`](grpc-studio-plan.md) Phase 12 · [`demo-player-lessons.mdc`](../../../../.cursor/rules/demo-player-lessons.mdc)
 
 ---
@@ -58,13 +58,13 @@ The lesson contract in `grpc-lesson-contract/roster.ts` currently registers the 
 | 6 | `grpc-transport-modes` | Transport Modes: Express, gRPC-Web & Spring Servlet | Configuration | ~6 min | ✅ Shipped |
 | 7 | `grpc-spring-boot` | Spring Boot & Spring gRPC Integration | Configuration | ~6 min | ✅ Shipped |
 | 8 | `grpc-proto-form` | Proto Form Builder: Schema-Driven Request Editing | Productivity | ~5 min | ✅ Shipped |
-| 9 | `grpc-env-collections` | Environments, Collections & History | Productivity | ~6 min | 🔲 Planned |
-| 10 | `grpc-grpcurl` | grpcurl Interop, Replay & Sharing | Productivity | ~4 min | 🔲 Planned |
-| 11 | `grpc-load-testing` | Load Testing: Concurrent Calls & Metrics | Advanced | ~6 min | 🔲 Planned |
-| 12 | `grpc-mock-server` | Mocking gRPC APIs: Rules & Network Listener | Advanced | ~8 min | 🔲 Planned |
-| 13 | `grpc-schema-diff` | Proto Schema Diff & Breaking Change Detection | Advanced | ~5 min | 🔲 Planned |
-| 14 | `grpc-workflow` | gRPC in Workflows: Nodes, Assertions & Chaining | Advanced | ~7 min | 🔲 Planned |
-| 15 | `grpc-tauri-desktop` | Tauri Desktop: Native Transport, Diagnostics & Mock Listener | Advanced | ~6 min | 🔲 Planned 🖥️ Desktop only |
+| 9 | `grpc-env-collections` | Environments, Collections & History | Productivity | ~6 min | ✅ Shipped |
+| 10 | `grpc-grpcurl` | grpcurl Interop, Replay & Sharing | Productivity | ~4 min | ✅ Shipped |
+| 11 | `grpc-load-testing` | Load Testing: Concurrent Calls & Metrics | Advanced | ~5 min | ✅ Shipped |
+| 12 | `grpc-mock-server` | Mocking gRPC APIs: Rules & Network Listener | Advanced | ~7 min | ✅ Shipped |
+| 13 | `grpc-schema-diff` | Proto Schema Diff & Breaking Change Detection | Advanced | ~5 min | ✅ Shipped |
+| 14 | `grpc-workflow-integration` | gRPC in Workflows: Nodes, Assertions & Chaining | Advanced | ~7 min | ✅ Shipped |
+| 15 | `grpc-tauri-desktop` | Tauri Desktop: Native Transport, Diagnostics & Mock Listener | Advanced | ~6 min | ✅ Shipped 🖥️ Desktop only |
 
 ---
 
@@ -89,7 +89,7 @@ The following services were required to be added to the Docker fixture for the i
 | `:50443` | TLS echo server (CA-signed cert) | L5 | ✅ Done — `docker/grpc/certs/` cert material in place |
 | `:50444` | mTLS echo server (client cert validation) | L5 | ✅ Done |
 | `:50055` | Envoy sidecar with gRPC-Web transcoding for `:50051` | L6 | ✅ Done — envoy proxy config in `docker/grpc/` |
-| `:9090` / `:8080` | Spring Boot gRPC server (Netty/Servlet) | L7 | ✅ Done — `docker compose --profile spring` |
+| `:9090` / `:8081` | Spring Boot gRPC server (Netty/Servlet) | L7 | ✅ Done — `docker compose --profile spring` |
 | Schema v2 variant | Echo server with a modified proto (field removed) | L13 | ✅ Done — `schema-v2` compose profile available |
 | `CreateComplexEcho` method | Echo server with nested/repeated/map/oneof/WKT fields | L8 | ✅ Done — added to `echo.proto` |
 
@@ -514,7 +514,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 ## Lesson 7 — Spring Boot & Spring gRPC Integration
 
 > **ID:** `grpc-spring-boot` | **Track:** Configuration | **Duration:** ~6 min | **Status:** 🔲 Planned
-> **Docker fixture:** Spring Boot gRPC servers on `:9090` (Netty) and `:8080` (Servlet) available in `docker/grpc/` — Phase 12D ✅
+> **Docker fixture:** Spring Boot gRPC servers on `:9090` (Netty) and `:8081` (Servlet) available in `docker/grpc/` — Phase 12D ✅
 
 **Description:** Connect RedfireForge to a Spring Boot gRPC server using both the Express proxy and the Spring Servlet transport. Enable server reflection via `application.yml`, explore services, call the gRPC Health Check, understand the Spring hint card, and authenticate calls through a Spring Security gRPC interceptor.
 
@@ -522,7 +522,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 **Learning objectives:**
 - Connect to a Spring Boot gRPC server using Express proxy on the Netty port (`:9090`)
-- Switch to Spring Servlet transport for servlet-mode Spring Boot servers (`:8080`)
+- Switch to Spring Servlet transport for servlet-mode Spring Boot servers (`:8081`)
 - Enable gRPC server reflection in Spring Boot with `grpc.server.reflection.enabled=true`
 - Use the Health Check panel with `grpc.health.v1.Health` and interpret the Spring hint card
 - Authenticate calls through a Spring Security interceptor using bearer token auth
@@ -538,7 +538,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 **Steps (10):**
 
-1. **Intro: Spring Boot gRPC servers** — Show two Spring Boot server configurations side by side in the Docker fixture: `localhost:9090` (Netty, `net.devh` starter) and `localhost:8080` (servlet, `spring-grpc`). Explain when each is used.
+1. **Intro: Spring Boot gRPC servers** — Show two Spring Boot server configurations side by side in the Docker fixture: `localhost:9090` (Netty, `net.devh` starter) and `localhost:8081` (servlet, `spring-grpc`). Explain when each is used.
 
 2. **Connect to Spring Boot Netty** — Set target to `localhost:9090`. Use **Express Proxy** transport (the standard gRPC proxy mode). Click **Reflect**. The Service Explorer populates with Spring-defined services.
 
@@ -546,7 +546,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 4. **Execute a Spring service call** — Select a Spring service method (e.g. `com.example.HelloService / SayHello`). Fill the request body and click **Send**. The response arrives via the Express proxy.
 
-5. **Spring Servlet transport** — Open Settings → Transport. Switch to **Spring Servlet** (`GRPC.TRANSPORT_MODE('spring-servlet')`). Change target to `localhost:8080`. Re-reflect and send the same call. Explain the difference: gRPC payload wrapped in HTTP/1.1 POST, compatible with servlet containers.
+5. **Spring Servlet transport** — Open Settings → Transport. Switch to **Spring Servlet** (`GRPC.TRANSPORT_MODE('spring-servlet')`). Change target to `localhost:8081`. Re-reflect and send the same call. Explain the difference: gRPC payload wrapped in HTTP/1.1 POST, compatible with servlet containers.
 
 6. **Health Check** — Select `grpc.health.v1.Health / Check` from the Service Explorer (if the Spring server exposes it). A **Spring hint card** (`GRPC.SPRING_HINT('spring_health_actuator')`) appears, guiding usage of the `service` field and `ServingStatus` enum. Fill `service: ""` (global check) and send. Show the `SERVING` response.
 
@@ -563,7 +563,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 **Implementation notes:**
 - Docker fixture needs two Spring Boot compose services:
   - `spring-grpc-netty`: `net.devh` starter with reflection enabled, port `:9090`
-  - `spring-grpc-servlet`: `spring-grpc` starter or `net.devh` with servlet mode, port `:8080`
+  - `spring-grpc-servlet`: `spring-grpc` starter or `net.devh` with servlet mode, port `:8081`
 - Both services should expose at least one domain service + `grpc.health.v1.Health`
 - Spring hint trigger: `spring_health_actuator` fires when the selected method is `grpc.health.v1.Health/Check` or `Health/Watch`
 - Selectors to use: `GRPC.TRANSPORT_MODE('spring-servlet')`, `GRPC.SETTINGS_NAV_ITEM('transport')`, `GRPC.SPRING_HINT('spring_health_actuator')`, `GRPC.SPRING_HINT_DISMISS('spring_health_actuator')`, `GRPC.HEALTH_PANEL`, `GRPC.HEALTH_CHECK_BTN`, `GRPC.HEALTH_WATCH_BTN`, `GRPC.HEALTH_RESULT`, `GRPC.AUTH_TYPE_PILL('bearer')`
@@ -598,13 +598,13 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 **Steps (10):**
 
-1. **Intro: Form vs JSON** — Show the two request-body tabs: **Form** (`GRPC.REQUEST_TAB_FORM`) and **JSON** (`GRPC.REQUEST_TAB_JSON`). Explain that Form is driven by the loaded proto schema — only possible with typed RPC tools.
+1. **Intro: Form + JSON workflow** — Show the request-body **Form** tab (`GRPC.REQUEST_TAB_FORM`) and the inline JSON strip (`GRPC.REQUEST_JSON_COMPACT`). Explain that Form is driven by the loaded proto schema — only possible with typed RPC tools.
 
 2. **Select complex method** — Select `echo.EchoService / CreateComplexEcho` from the Service Explorer. The form renders one row per top-level field: `message` (string), `labels` (repeated string), `attributes` (map<string, string>), `shipping_address` (nested message), `deadline` (`google.protobuf.Timestamp`), and the `payment_method` oneof (`card` / `invoice`).
 
 3. **Scalar field** — Fill the `message` string field. Notice the `#1 optional` note and `string` type badge beside the input — this fixture's only top-level scalar is a string; other RedfireForge schemas render the same badge/note convention for int32, bool, and enum fields.
 
-4. **Nested message (JSON sub-editor)** — Locate the `shipping_address` row. Nested `message`-type fields render as a small **inline JSON textarea**, not expanded sub-fields — this keeps the form compact for arbitrarily deep schemas. Type a JSON object with `street`, `city`, and `country` directly into the textarea. Switch to the JSON tab to confirm the same nested object appears under `shipping_address`.
+4. **Nested message (JSON sub-editor)** — Locate the `shipping_address` row. Nested `message`-type fields render as a small **inline JSON textarea**, not expanded sub-fields — this keeps the form compact for arbitrarily deep schemas. Type a JSON object with `street`, `city`, and `country` directly into the textarea. Confirm the same nested object appears in the request JSON editor (`GRPC.REQUEST_JSON_COMPACT`).
 
 5. **Repeated field** — Click **+ Add item** (`GRPC.PROTO_FIELD_REPEATED_ADD('labels')`) on the `labels` row three times, filling each new text input. Remove the second entry via its `×` button. Switch to JSON — verify a two-element `labels` array.
 
@@ -614,11 +614,11 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 8. **Timestamp WKT** — Locate the `deadline` field. `google.protobuf.Timestamp` renders as a **plain text input** pre-filled with the current instant as an RFC3339/ISO8601 string (not a `seconds`/`nanos` JSON object, and not a native date picker) — point out the placeholder hint and edit the value. Switch to JSON to confirm the same ISO string appears verbatim under `deadline`.
 
-9. **Edit in JSON then return** — Switch to the JSON tab. Manually edit the `message` value in the raw JSON. Switch back to Form — the `message` field reflects the updated value. The two views stay in sync in both directions.
+9. **Edit in JSON then return** — Edit the `message` value in the request JSON editor (`GRPC.REQUEST_JSON_COMPACT`). Keep the Form tab active and verify the `message` field reflects the updated value. The form and JSON representations stay in sync in both directions.
 
 10. **Send and verify** — Click **Send**. The server echoes back `request_id`, `message`, `labels`, `attributes`, `shipping_address`, `deadline`, and the active `payment_method` member, confirming the proto encoding for every field type was correct.
 
-**Verify:** `GRPC.PROTO_FORM` renders with nested and repeated controls; `GRPC.REQUEST_TAB_FORM` and `GRPC.REQUEST_TAB_JSON` switch correctly.
+**Verify:** `GRPC.PROTO_FORM` renders with nested and repeated controls; `GRPC.REQUEST_TAB_FORM` is active and `GRPC.REQUEST_JSON_COMPACT` mirrors edits.
 
 **Implementation notes (updated after live verification):**
 - `CreateComplexEcho` ships on the **Go echo fixture** (`docker/grpc/proto/echo.proto` + `docker/grpc/go-server/main.go`), not a separate rebuild — confirmed live via `grpcurl describe echo.ComplexEchoRequest` against the running `grpc-test-server` container. Uses the standard `GO_ECHO_FIXTURE` / `GO_ECHO_DOCKER` roster fixture, same as Lessons 1–4.
@@ -628,7 +628,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 - **Timestamp WKT does not render a datetime picker.** `GrpcProtoWktScalarFieldRow` renders a plain `<input type="text">` with placeholder `RFC3339 / ISO8601`, defaulting to `new Date().toISOString()`. Step 8 above was corrected accordingly.
 - There is **no "Generate Default"** button — do not include a step for it
 - All required `data-testid` attributes already exist in the codebase — no component changes were needed: `grpc-proto-repeated-add-${fieldName}` (`GRPC.PROTO_FIELD_REPEATED_ADD`), `grpc-proto-map-add-${fieldName}` (`GRPC.PROTO_FIELD_MAP_ADD`), `grpc-proto-field-input-${fieldName}-${index}` (`GRPC.PROTO_FIELD_INPUT_INDEXED`), `grpc-proto-field-input-${fieldName}-key-${index}` / `-value-${index}` (`GRPC.PROTO_FIELD_MAP_KEY` / `MAP_VALUE`).
-- Existing: `GRPC.REQUEST_TAB_FORM`, `GRPC.REQUEST_TAB_JSON`, `GRPC.PROTO_FORM`, `GRPC.PROTO_FIELD(fieldName)`, `GRPC.PROTO_FIELD_INPUT(fieldName)`, `GRPC.PROTO_ONEOF(oneofName)`, `GRPC.PROTO_ONEOF_RADIO(oneofName, member)`
+- Existing: `GRPC.REQUEST_TAB_FORM`, `GRPC.REQUEST_JSON_COMPACT`, `GRPC.PROTO_FORM`, `GRPC.PROTO_FIELD(fieldName)`, `GRPC.PROTO_FIELD_INPUT(fieldName)`, `GRPC.PROTO_ONEOF(oneofName)`, `GRPC.PROTO_ONEOF_RADIO(oneofName, member)`
 
 ---
 
@@ -636,7 +636,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 9 — Environments, Collections & History
 
-> **ID:** `grpc-env-collections` | **Track:** Productivity | **Duration:** ~6 min | **Status:** 🔲 Planned
+> **ID:** `grpc-env-collections` | **Track:** Productivity | **Duration:** ~6 min | **Status:** ✅ Shipped
 
 **Description:** Use `{{grpcHost}}` to drive the target address from the active environment, add custom variables for metadata and body values, save calls to a named collection folder, and replay from History with one click.
 
@@ -689,7 +689,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 10 — grpcurl Interop, Replay & Sharing
 
-> **ID:** `grpc-grpcurl` | **Track:** Productivity | **Duration:** ~4 min | **Status:** 🔲 Planned
+> **ID:** `grpc-grpcurl` | **Track:** Productivity | **Duration:** ~4 min | **Status:** ✅ Shipped
 
 **Description:** Import a grpcurl command directly into gRPC Studio, execute the call, then export it back as a grpcurl command for sharing with teammates. Understand what gets filtered from exports (auth tokens, PEM paths).
 
@@ -699,14 +699,14 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 - Import a grpcurl command and have Studio populate target, method, metadata, and body automatically
 - Understand the grpcurl ↔ Studio field mapping
 - Export a call as grpcurl for terminal reproduction
-- Know which values are intentionally omitted from exports (token values, PEM certificate content)
+- Know that exported grpcurl commands include all headers exactly as sent (including auth tokens)
 
 **Key concepts:**
 | Term | Definition |
 |---|---|
 | grpcurl | A popular CLI tool for gRPC. RedfireForge can import and export to/from grpcurl syntax. |
 | Import mapping | `-d` → body, `-H` → metadata, `-plaintext` → Plaintext TLS mode, `-cert/-key` → TLS file paths (not PEM content). |
-| Export filtering | Auth token values are replaced with `# secret omitted`. PEM files appear as paths, never as embedded content. |
+| Copy grpcurl export | The exported command preserves all headers exactly as sent, including auth token values. The command is immediately runnable — replace the token with a placeholder before sharing publicly. |
 
 **Steps (8):**
 
@@ -722,11 +722,11 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 6. **Export as grpcurl** — Open History → click **Copy grpcurl** (`GRPC.HISTORY_COPY_GRPCURL`) on the entry. The command preview opens.
 
-7. **Secret filtering** — Point out that the `authorization` header value is replaced with a comment: `# secret omitted`. Explain: sharing commands with embedded tokens is a security risk.
+7. **Exported command** — Show the copied grpcurl command with all headers intact, including the bearer token. The command is immediately runnable. Note: replace the token value with a placeholder before sharing publicly.
 
 8. **Proto path export** — Switch descriptor source to **Proto File** and export grpcurl. The output includes `-proto echo.proto` with the import path — no PEM content, only file paths.
 
-**Verify:** `GRPC.IMPORT_GRPCURL_MODAL` opens; Studio fields populate after import; exported command does not contain raw token values.
+**Verify:** `GRPC.IMPORT_GRPCURL_MODAL` opens; Studio fields populate after import; exported command contains all headers including auth tokens exactly as sent.
 
 **Implementation notes:**
 - Import trigger is the **"Import grpcurl"** button (`GRPC.IMPORT_GRPCURL_BTN`) on the connection bar — not an Import dropdown
@@ -739,7 +739,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 11 — Load Testing: Concurrent Calls & Metrics
 
-> **ID:** `grpc-load-testing` | **Track:** Advanced | **Duration:** ~6 min | **Status:** 🔲 Planned
+> **ID:** `grpc-load-testing` | **Track:** Advanced | **Duration:** ~5 min | **Status:** ✅ Shipped
 
 **Description:** Run a concurrent load test against a unary gRPC method, read the latency percentiles and throughput metrics, configure a load-test profile, export results, and explore server-streaming load testing with message-count caps.
 
@@ -799,7 +799,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 12 — Mocking gRPC APIs: Rules & Network Listener
 
-> **ID:** `grpc-mock-server` | **Track:** Advanced | **Duration:** ~8 min | **Status:** 🔲 Planned
+> **ID:** `grpc-mock-server` | **Track:** Advanced | **Duration:** ~7 min | **Status:** ✅ Shipped
 
 **Description:** Build mock rules for a gRPC service using the visual rule builder — define predicates on request body paths and metadata, configure response bodies and status codes, simulate global latency, and start the in-process mock runtime. Verify that the correct rules fire from a second Studio tab.
 
@@ -867,7 +867,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 13 — Proto Schema Diff & Breaking Change Detection
 
-> **ID:** `grpc-schema-diff` | **Track:** Advanced | **Duration:** ~5 min | **Status:** 🔲 Planned
+> **ID:** `grpc-schema-diff` | **Track:** Advanced | **Duration:** ~5 min | **Status:** ✅ Shipped
 > **Docker fixture:** Schema v2 compose profile available in `docker/grpc/` — Phase 12D ✅
 
 **Description:** Capture a proto schema baseline, introduce a breaking change (field removal), run a comparison, interpret the three severity levels, export the diff report, and acknowledge the diff.
@@ -930,7 +930,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 14 — gRPC in Workflows: Nodes, Assertions & Chaining
 
-> **ID:** `grpc-workflow` | **Track:** Advanced | **Duration:** ~7 min | **Status:** 🔲 Planned
+> **ID:** `grpc-workflow-integration` | **Track:** Advanced | **Duration:** ~7 min | **Status:** ✅ Shipped
 > **Dependency:** Workflow Designer gRPC node palette and config modals are **complete** — `GrpcUnaryConfig.tsx`, `GrpcServerStreamConfig.tsx`, `GrpcAssertConfig.tsx`, `GrpcLoadTestConfig.tsx`, `GrpcSchemaDiffConfig.tsx`, `GrpcMockAssertConfig.tsx` all shipped. No pre-seeded workflow fallback needed.
 
 **Description:** Add a gRPC unary node to a workflow, configure its request body, add an assertion node to verify the response field, chain a second gRPC call that uses the first call's output, and run the workflow in Quick Test to see step-level pass/fail results.
@@ -994,7 +994,7 @@ Proto files live at `docker/grpc/proto/`, not `docker/grpc/fixtures/`. CA cert m
 
 ## Lesson 15 — Tauri Desktop: Native Transport, Diagnostics & Mock Listener
 
-> **ID:** `grpc-tauri-desktop` | **Track:** Advanced | **Duration:** ~6 min | **Status:** 🔲 Planned
+> **ID:** `grpc-tauri-desktop` | **Track:** Advanced | **Duration:** ~6 min | **Status:** ✅ Shipped 🖥️ Desktop only
 > **Platform gate:** `desktopOnly: true` — disabled in web app, active in Tauri desktop app
 > **Fixture flag:** `fixtures: { requiresTauri: true, requireGoEcho: true }`
 > **Wrapper:** `packages/demo-hub/src/lessons/protocols/grpc-tauri-desktop.ts`
@@ -1217,7 +1217,7 @@ Lessons 11–14 can be taken independently after completing at least Lessons 1 a
 | `GRPC.TLS_CHIP` | `GRPC.TLS_BADGE` | — |
 | `GRPC.PROTO_MANAGE_BTN` | `GRPC.MANAGE_SCHEMAS_BTN` | — |
 | `GRPC.PROTO_FORM_FORM_TAB` | `GRPC.REQUEST_TAB_FORM` | — |
-| `GRPC.PROTO_FORM_JSON_TAB` | `GRPC.REQUEST_TAB_JSON` | — |
+| `GRPC.PROTO_FORM_JSON_TAB` | `GRPC.REQUEST_JSON_COMPACT` | Updated for hybrid composer |
 | `GRPC.LOAD_TEST_METRICS_PANEL` | `GRPC.LOAD_TEST_RESULTS` | — |
 | `GRPC.LOAD_TEST_SAVE_PROFILE_BTN` | `GRPC.LOAD_TEST_PROFILE_SAVE` | — |
 | `GRPC.SCHEMA_DIFF_CAPTURE_BTN` | `GRPC.SCHEMA_DIFF_CAPTURE_BASELINE` | — |

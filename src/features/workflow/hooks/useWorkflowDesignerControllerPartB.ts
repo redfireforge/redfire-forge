@@ -163,7 +163,7 @@ export function useWorkflowDesignerControllerPartB(
     a.workflowVariablesRef,
     handleUpdateNode,
   );
-  useDemoWorkflowRunBridge(handleResetRunStatus, clearConsole);
+  useDemoWorkflowRunBridge(handleResetRunStatus, clearConsole, handleQuickTest);
 
   const effectiveQuickTestBaseUrl = useMemo(() => {
     if (selectedNode && isHttpWorkflowNode(selectedNode)) {

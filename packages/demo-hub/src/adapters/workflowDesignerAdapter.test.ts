@@ -8,6 +8,7 @@ import {
   connectWorkflowNodes,
   deleteWorkflowByName,
   deselectAllWorkflowNodes,
+  fitWorkflowCanvasView,
   getWorkflowByName,
   insertWorkflow,
   openWorkflowNodeConfig,
@@ -28,6 +29,7 @@ describe('workflowDesignerAdapter', () => {
     delete w.__wfDeleteByName;
     delete w.__wfInsertWorkflow;
     delete w.__wfGetWorkflowByName;
+    delete w.__wfFitView;
     delete w.__wfOpenNodeConfig;
     delete w.__wfConnect;
     delete w.__wfRemoveEdge;
@@ -63,6 +65,14 @@ describe('workflowDesignerAdapter', () => {
     setWorkflowConsoleFloatLayout();
     expect(deselectSpy).toHaveBeenCalled();
     expect(layoutSpy).toHaveBeenCalled();
+  });
+
+  it('fitWorkflowCanvasView delegates to bridge and returns false when unavailable', () => {
+    expect(fitWorkflowCanvasView()).toBe(false);
+    const fitSpy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfFitView = fitSpy;
+    expect(fitWorkflowCanvasView()).toBe(true);
+    expect(fitSpy).toHaveBeenCalled();
   });
 
   it('connectWorkflowNodes returns false when bridge missing', () => {

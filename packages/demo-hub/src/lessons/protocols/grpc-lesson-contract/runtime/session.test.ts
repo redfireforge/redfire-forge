@@ -34,6 +34,14 @@ describe('grpc lesson runtime session', () => {
     expect(run.snapshot.descriptorSource).toBe('reflection');
   });
 
+  it('begins GRPC-11 workflow integration with registered snapshot', () => {
+    const run = beginGrpcLessonRun('grpc-workflow-integration');
+    expect(run.status).toBe('running');
+    expect(run.snapshot.lessonId).toBe('grpc-workflow-integration');
+    expect(run.snapshot.callType).toBe('unary');
+    expect(run.snapshot.requestPayload).toMatchObject({ message: 'workflow-test' });
+  });
+
   it('rejects begin when an active run already exists', () => {
     beginGrpcLessonRun('grpc-first-call');
     expect(() => beginGrpcLessonRun('grpc-first-call')).toThrow(/Invalid gRPC lesson transition/);

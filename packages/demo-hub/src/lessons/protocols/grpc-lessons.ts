@@ -9,6 +9,12 @@ import { grpcTransportModesLesson } from './grpc-transport-modes';
 import { grpcSpringBootLesson } from './grpc-spring-boot';
 import { grpcProtoFormLesson } from './grpc-proto-form';
 import { grpcEnvCollectionsLesson } from './grpc-env-collections';
+import { grpcGrpcurlLesson } from './grpc-grpcurl';
+import { grpcLoadTestingLesson } from './grpc-load-testing';
+import { grpcMockServerLesson } from './grpc-mock-server';
+import { grpcSchemaDiffLesson } from './grpc-schema-diff';
+import { grpcWorkflowIntegrationLesson } from './grpc-workflow-integration';
+import { grpcTauriDesktopLesson } from './grpc-tauri-desktop';
 
 export { grpcFirstCallLesson };
 export { grpcSchemaDiscoveryLesson };
@@ -19,6 +25,12 @@ export { grpcTransportModesLesson };
 export { grpcSpringBootLesson };
 export { grpcProtoFormLesson };
 export { grpcEnvCollectionsLesson };
+export { grpcGrpcurlLesson };
+export { grpcLoadTestingLesson };
+export { grpcMockServerLesson };
+export { grpcSchemaDiffLesson };
+export { grpcWorkflowIntegrationLesson };
+export { grpcTauriDesktopLesson };
 
 export const grpcLessons = [
   grpcFirstCallLesson,          // GRPC-1
@@ -30,6 +42,12 @@ export const grpcLessons = [
   grpcSpringBootLesson,         // GRPC-15 (Spring Boot & Spring gRPC Integration)
   grpcProtoFormLesson,          // GRPC-20 (Proto Form Builder: Schema-Driven Request Editing)
   grpcEnvCollectionsLesson,     // GRPC-21 (Environments, Collections & History)
+  grpcGrpcurlLesson,            // GRPC-22 (grpcurl Interop, Replay & Sharing)
+  grpcLoadTestingLesson,        // GRPC-12 (Load Testing: Concurrent Calls & Metrics)
+  grpcMockServerLesson,         // GRPC-13 (Mocking gRPC APIs: Rules & Network Listener)
+  grpcSchemaDiffLesson,         // GRPC-14 (Proto Schema Diff & Breaking Change Detection)
+  grpcWorkflowIntegrationLesson, // GRPC-11 (gRPC in Workflows: Nodes, Assertions & Chaining)
+  grpcTauriDesktopLesson,        // GRPC-23 (Tauri Desktop: Native Transport, Diagnostics & Mock Listener)
 ] as const;
 
 export function shippedGrpcLessonCount(): number {

@@ -23,18 +23,22 @@ import {
   type GrpcDemoLesson,
 } from './grpc-lesson-contract';
 import {
-  GRPC_DEMO_MESSAGE,
   GRPC_DEMO_TARGET,
   GRPC_ECHO_METHOD_SEL,
   GRPC_ECHO_SERVICE_SEL,
   closeGrpcSettingsDrawerQuiet,
   ensureEchoMethodSelected,
+  ensureGrpcRequestFormTabQuiet,
   ensureGrpcStudioSubNavQuiet,
   ensureGrpcTarget,
+  fillGrpcEchoMessage,
+  grpcEchoComposerFieldSelector,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
+  isGrpcEchoComposerReady,
   spotlightAndPause,
   spotlightElementAndPause,
+  spotlightGrpcRequestComposer,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import { scrollDemoTargetIntoView } from '../../demoSpotlightUtils';
@@ -151,9 +155,10 @@ function currentTlsBadgeMode(): 'disabled' | 'tls' | 'mtls' | 'unknown' {
   const badge = document.querySelector<HTMLElement>(GRPC.TLS_BADGE);
   const text = (badge?.textContent ?? '').toLowerCase();
   if (!text) return 'unknown';
-  if (text.includes('mtls')) return 'mtls';
+  // Order matters: badge copy often includes "TLS mode: Plaintext".
+  if (text.includes('plaintext') || text.includes('disabled')) return 'disabled';
+  if (text.includes('mtls') || text.includes('mutual tls')) return 'mtls';
   if (text.includes('tls')) return 'tls';
-  if (text.includes('plaintext')) return 'disabled';
   return 'unknown';
 }
 
@@ -325,102 +330,56 @@ async function ensureMtlsConfiguredQuiet(ctx: LessonCtx | PreCtx): Promise<void>
   await saveOrCloseTlsModalQuiet(ctx);
 }
 
-/** Ensure the message field has demo content (React-safe). */
-async function ensureMessageFilledQuiet(ctx: LessonCtx | PreCtx): Promise<void> {
-  const field = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT_MESSAGE);
-  if (!field || field.value.trim()) return;
-  field.focus();
-  const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-  if (nativeSet?.set) {
-    nativeSet.set.call(field, GRPC_DEMO_MESSAGE);
-  } else {
-    field.value = GRPC_DEMO_MESSAGE;
-  }
-  field.dispatchEvent(new Event('input', { bubbles: true }));
-  await ctx.delay(150);
-}
 
 /**
- * Reflect and select Echo on the **current** target.
- * Caller must set the target and TLS mode first — changing the target clears
- * the descriptor cache and method binding in gRPC Studio.
+ * Visible reflect + Echo selection for send steps (with spotlight pacing).
+ * Skips network reflect / method re-bind when `preAction` already prepared state —
+ * avoids a duplicate TLS reflect round-trip and hybrid-mode PROTO_FORM waits.
  */
-async function reflectAndSelectEchoQuiet(ctx: LessonCtx | PreCtx): Promise<void> {
-  const hasTree = Boolean(document.querySelector(GRPC.EXPLORER_TREE));
-  if (!hasTree) {
-    const reflectBtn = document.querySelector<HTMLButtonElement>(GRPC.REFLECT_BTN);
-    if (reflectBtn && !reflectBtn.disabled) {
-      reflectBtn.click();
-    }
+async function reflectAndSelectEchoVisible(ctx: LessonCtx): Promise<void> {
+  const treeReady = Boolean(document.querySelector(GRPC.EXPLORER_TREE));
+  const composerReady = isGrpcEchoComposerReady();
+
+  await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 700);
+
+  if (!treeReady) {
+    await ctx.click(GRPC.REFLECT_BTN);
     try {
       await ctx.waitFor(GRPC.EXPLORER_TREE, 12_000);
     } catch {
-      // Best-effort — infra may be down in test stubs.
+      await ctx.delay(400);
     }
-    await ctx.delay(400);
+    await ctx.delay(500);
   }
 
-  if (!document.querySelector(GRPC.PROTO_FORM)) {
-    const serviceBtn = document.querySelector<HTMLElement>(GRPC_ECHO_SERVICE_SEL);
-    if (serviceBtn) {
-      serviceBtn.click();
-      await ctx.delay(350);
-    }
-    const methodBtn = document.querySelector<HTMLElement>(GRPC_ECHO_METHOD_SEL);
-    if (methodBtn) {
-      methodBtn.click();
-      try {
-        await ctx.waitFor(GRPC.PROTO_FORM, 8_000);
-      } catch {
-        await ctx.delay(400);
-      }
-    }
-  }
-}
-
-/** Visible reflect + Echo selection for send steps (with spotlight pacing). */
-async function reflectAndSelectEchoVisible(ctx: LessonCtx): Promise<void> {
-  await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 700);
-  await ctx.click(GRPC.REFLECT_BTN);
-  try {
-    await ctx.waitFor(GRPC.EXPLORER_TREE, 12_000);
-  } catch {
-    await ctx.delay(1_500);
-  }
-  await ctx.delay(500);
   await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, 600);
 
-  if (!document.querySelector(GRPC.PROTO_FORM)) {
-    if (document.querySelector(GRPC_ECHO_SERVICE_SEL)) {
+  if (!composerReady) {
+    if (document.querySelector(GRPC_ECHO_SERVICE_SEL) && !document.querySelector(GRPC_ECHO_METHOD_SEL)) {
       await spotlightAndPause(ctx, GRPC_ECHO_SERVICE_SEL, 600);
       await ctx.click(GRPC_ECHO_SERVICE_SEL);
       await ctx.delay(400);
     }
-    await spotlightAndPause(ctx, GRPC_ECHO_METHOD_SEL, 600);
-    await ctx.click(GRPC_ECHO_METHOD_SEL);
-    try {
-      await ctx.waitFor(GRPC.PROTO_FORM, 8_000);
-    } catch {
-      await ctx.delay(400);
+    if (document.querySelector(GRPC_ECHO_METHOD_SEL)) {
+      await spotlightAndPause(ctx, GRPC_ECHO_METHOD_SEL, 600);
+      await ctx.click(GRPC_ECHO_METHOD_SEL);
+      try {
+        await ctx.waitFor(GRPC.REQUEST_FORM_SCROLL, 8_000);
+        await ctx.waitFor(grpcEchoComposerFieldSelector(), 8_000);
+      } catch {
+        await ctx.delay(400);
+      }
+    }
+    await ensureGrpcRequestFormTabQuiet(ctx);
+  } else {
+    await ensureGrpcRequestFormTabQuiet(ctx);
+    if (document.querySelector(GRPC_ECHO_METHOD_SEL)) {
+      await spotlightAndPause(ctx, GRPC_ECHO_METHOD_SEL, 600);
     }
   }
-  await ensureMessageFilledQuiet(ctx);
-}
 
-/** Quietly prepare TLS target + config + reflection + Echo for send steps. */
-async function ensureTlsEchoReadyQuiet(ctx: LessonCtx | PreCtx): Promise<void> {
-  await fillTargetQuiet(ctx, GRPC_TLS_TARGET);
-  await ensureTlsConfiguredQuiet(ctx);
-  await reflectAndSelectEchoQuiet(ctx);
-  await ensureMessageFilledQuiet(ctx);
-}
-
-/** Quietly prepare mTLS target + config + reflection + Echo for send steps. */
-async function ensureMtlsEchoReadyQuiet(ctx: LessonCtx | PreCtx): Promise<void> {
-  await fillTargetQuiet(ctx, GRPC_MTLS_TARGET);
-  await ensureMtlsConfiguredQuiet(ctx);
-  await reflectAndSelectEchoQuiet(ctx);
-  await ensureMessageFilledQuiet(ctx);
+  await spotlightGrpcRequestComposer(ctx);
+  await fillGrpcEchoMessage(ctx);
 }
 
 /** Minimal nav guard: navigate to gRPC Studio, close overlays, ensure studio sub-nav. */
@@ -714,9 +673,9 @@ export const grpcTlsLesson: GrpcDemoLesson = {
         'Changing the gRPC target to `localhost:50443` **clears** the service tree — Studio must **Reflect** again on the new server before any call.\n\n' +
         'With **Plaintext** still active, click **Reflect**. The TLS-only fixture at `:50443` rejects the cleartext handshake, ' +
         'and the error appears in the **Services** panel (e.g. _14 UNAVAILABLE: No connection established_).\n\n' +
-        'This is the failure you hit the first time you point gRPC Studio at a TLS-enforced server without configuring the channel. ' +
+        'This is the failure you hit the first time you point gRPC Studio at a TLS-enforced server without configuring the channel.\n' +
         'The fix: switch the TLS badge to **TLS** mode and provide a CA cert (next step).',
-      highlight: GRPC.REFLECT_BTN,
+      highlight: GRPC.TARGET_INPUT,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
@@ -724,9 +683,12 @@ export const grpcTlsLesson: GrpcDemoLesson = {
         await fillTargetQuiet(ctx, GRPC_TLS_TARGET);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 700);
+        // Guard against stale TLS state so this step always demonstrates
+        // plaintext handshake failure exactly as described.
+        await resetTlsToPlaintextQuiet(ctx);
         await ctx.fill(GRPC.TARGET_INPUT, GRPC_TLS_TARGET);
-        await ctx.delay(400);
+        await ctx.delay(220);
+        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 700);
 
         await spotlightAndPause(ctx, GRPC.TLS_BADGE, 600);
 
@@ -828,14 +790,15 @@ export const grpcTlsLesson: GrpcDemoLesson = {
       description:
         'TLS is configured. Because the target changed to `:50443`, the service tree was cleared — click **Reflect** again ' +
         'to discover `echo.EchoService` over the encrypted channel, then select **Echo**.\n\n' +
-        'With the method loaded, clicking **Send** routes the call through TLS to `localhost:50443`. ' +
+        'With the method loaded, confirm **Form Input** holds your Echo message, then click **Send** — the call routes through TLS to `localhost:50443`. ' +
         'The call returns **OK** with the echoed body.\n\n' +
         'The **TLS badge** stays lit 🔒 **TLS** in the connection bar. TLS settings are per-tab.',
-      highlight: GRPC.REFLECT_BTN,
+      highlight: GRPC.REQUEST_FORM_SCROLL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
-        await ensureTlsEchoReadyQuiet(ctx);
+        await fillTargetQuiet(ctx, GRPC_TLS_TARGET);
+        await ensureTlsConfiguredQuiet(ctx);
       },
       action: async (ctx) => {
         await reflectAndSelectEchoVisible(ctx);
@@ -1001,15 +964,16 @@ export const grpcTlsLesson: GrpcDemoLesson = {
       title: 'Reflect, Select Echo & Send Over mTLS',
       description:
         'With mTLS configured on `localhost:50444`, click **Reflect** to load the service tree over the mutual-auth channel, ' +
-        'select **Echo**, then **Send**.\n\n' +
+        'select **Echo**, confirm **Form Input**, then **Send**.\n\n' +
         'The server validates the client certificate before returning **OK** with the echoed body. ' +
         'Without a valid client cert, Reflect or Send would fail during the handshake.\n\n' +
         'The connection-bar badge stays 🛡 **mTLS** for this tab.',
-      highlight: GRPC.REFLECT_BTN,
+      highlight: GRPC.REQUEST_FORM_SCROLL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
-        await ensureMtlsEchoReadyQuiet(ctx);
+        await fillTargetQuiet(ctx, GRPC_MTLS_TARGET);
+        await ensureMtlsConfiguredQuiet(ctx);
       },
       action: async (ctx) => {
         await reflectAndSelectEchoVisible(ctx);

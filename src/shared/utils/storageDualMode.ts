@@ -7,6 +7,7 @@ export interface DualModeArrayStorageConfig<T> {
   idbSave: (data: T[]) => Promise<void>;
   idbMigrate: (lsKey: string) => Promise<boolean>;
   swallowWriteErrors?: boolean;
+  fallbackToLocalStorageOnIdbSaveError?: boolean;
 }
 
 async function writeJson(key: string, data: unknown, swallowWriteErrors: boolean): Promise<void> {
@@ -30,7 +31,14 @@ export function createDualModeArrayStorage<T>(config: DualModeArrayStorageConfig
   load(): Promise<T[]>;
   save(data: T[]): Promise<void>;
 } {
-  const { key, idbLoad, idbSave, idbMigrate, swallowWriteErrors = false } = config;
+  const {
+    key,
+    idbLoad,
+    idbSave,
+    idbMigrate,
+    swallowWriteErrors = false,
+    fallbackToLocalStorageOnIdbSaveError = false,
+  } = config;
 
   return {
     async load(): Promise<T[]> {
@@ -73,8 +81,10 @@ export function createDualModeArrayStorage<T>(config: DualModeArrayStorageConfig
         await idbSave(data);
         removeLegacyLocalStorageKey(key);
       } catch (err) {
-        // Never fall back to localStorage on web — large blobs belong in IDB only.
         console.error(`[Storage] IndexedDB save failed for "${key}"`, err);
+        if (fallbackToLocalStorageOnIdbSaveError) {
+          await writeJson(key, data, swallowWriteErrors);
+        }
       }
     },
   };

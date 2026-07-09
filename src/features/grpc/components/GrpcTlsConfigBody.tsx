@@ -33,6 +33,8 @@ export interface GrpcTlsConfigBodyProps {
   onClearSecretField?: (field: GrpcTlsSecretFieldKey) => void;
   onTestConnection?: () => void;
   onResetDefaults?: () => void;
+  /** Workflow config uses a compact TLS mode dropdown — hide duplicate mode cards. */
+  hideModePicker?: boolean;
 }
 
 interface PemFieldProps {
@@ -108,7 +110,7 @@ function PemField({
 
 export function GrpcTlsConfigBody({
   tlsMode, tlsConfig, issues, maskedSecretFields,
-  disabled = false, testResult,
+  disabled = false, testResult, hideModePicker = false,
   onTlsModeChange, onTlsConfigChange,
   onUnmaskSecretField, onClearSecretField,
   onTestConnection, onResetDefaults,
@@ -120,6 +122,7 @@ export function GrpcTlsConfigBody({
   return (
     <div data-testid="grpc-tls-body">
 
+      {!hideModePicker && (
       <div className="ws-tls-section">
         <div className="ws-tls-section-header">
           <span className="ws-tls-section-title">TLS mode</span>
@@ -142,6 +145,7 @@ export function GrpcTlsConfigBody({
           ))}
         </div>
       </div>
+      )}
 
       {showTlsFields && (
         <>

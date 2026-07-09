@@ -11,6 +11,7 @@ import DemoHubHeader from './DemoHubHeader';
 import LessonPlayer from './LessonPlayer';
 import LessonList from './LessonList';
 import LiveDemo from './LiveDemo';
+import { grpcWorkflowIntegrationLesson } from './lessons/protocols/grpc-workflow-integration';
 import { LessonNotesProvider } from './LessonNotesContext';
 import type { ConceptContent, DemoDomain, DemoLesson, DemoProgress } from './types';
 
@@ -1260,6 +1261,39 @@ describe('LiveDemo', () => {
     expect(screen.getByText('Do step 1')).toBeTruthy();
   });
 
+  it('renders escaped newline sequences as formatted line breaks', () => {
+    render(
+      <LiveDemo
+        {...liveProps}
+        lesson={{
+          ...makeLesson(),
+          steps: [
+            { id: 's1', title: 'Step 1', description: 'Line one\\n\\nLine two' },
+            { id: 's2', title: 'Step 2', description: 'Done' },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByText('Line one')).toBeTruthy();
+    expect(screen.getByText('Line two')).toBeTruthy();
+    expect(screen.queryByText('Line one\\n\\nLine two')).toBeNull();
+  });
+
+  it('renders the real grpc workflow lesson step without literal newline escape text', () => {
+    render(
+      <LiveDemo
+        {...liveProps}
+        lesson={grpcWorkflowIntegrationLesson}
+        stepIndex={2}
+      />,
+    );
+
+    expect(screen.getByText('Add a gRPC Unary Node')).toBeTruthy();
+    expect(screen.getByText(/What the node does at runtime:/)).toBeTruthy();
+    expect(screen.queryByText(/\\n\\n/)).toBeNull();
+  });
+
   it('renders step counter', () => {
     render(<LiveDemo {...liveProps} />);
     expect(screen.getByText('1 / 2')).toBeTruthy();
@@ -1655,11 +1689,13 @@ describe('LiveDemo', () => {
     expect(panel.style.left).toBe(startLeft);
   });
 
-  it('renders resize handles for top, left, and right edges', () => {
+  it('renders resize handles for all edges and corner grip', () => {
     render(<LiveDemo {...liveProps} />);
     expect(screen.getByTestId('demo-live-resize-top')).toBeTruthy();
     expect(screen.getByTestId('demo-live-resize-left')).toBeTruthy();
     expect(screen.getByTestId('demo-live-resize-right')).toBeTruthy();
+    expect(screen.getByTestId('demo-live-resize-bottom')).toBeTruthy();
+    expect(screen.getByTestId('demo-live-resize-corner')).toBeTruthy();
   });
 
   it('renders step description with markdown', () => {

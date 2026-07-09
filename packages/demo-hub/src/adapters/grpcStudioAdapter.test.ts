@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import {
+  captureGrpcActiveDescriptorKey,
   GRPC_DEMO_DOCKER_COMMAND,
   GRPC_DEMO_HEALTH_URL,
   GRPC_DEMO_PREREQUISITE_ENDPOINTS,
@@ -11,11 +12,14 @@ import {
   GRPC_EXPRESS_ONLY_COMMAND,
   GRPC_SPRING_DOCKER_COMMAND,
   GRPC_STUDIO_LESSON_ALLOWED_TABS,
+  getGrpcActiveDescriptorKey,
   patchGrpcActiveTabExportContext,
   resetGrpcActiveTabRuntimeState,
 } from './grpcStudioAdapter';
 
 afterEach(() => {
+  sessionStorage.clear();
+  delete (window as unknown as { __demoGetGrpcActiveDescriptorKey?: unknown }).__demoGetGrpcActiveDescriptorKey;
   delete (window as unknown as { __demoPatchGrpcActiveTab?: unknown }).__demoPatchGrpcActiveTab;
   delete (window as unknown as { __demoResetGrpcActiveTab?: unknown }).__demoResetGrpcActiveTab;
 });
@@ -75,8 +79,27 @@ describe('grpcStudioAdapter', () => {
     expect(bridge).toHaveBeenCalledTimes(1);
   });
 
+  it('getGrpcActiveDescriptorKey reads the descriptor key bridge when present', () => {
+    const bridge = vi.fn().mockReturnValue('descriptor-live');
+    (window as unknown as { __demoGetGrpcActiveDescriptorKey?: () => string | null }).__demoGetGrpcActiveDescriptorKey = bridge;
+
+    expect(getGrpcActiveDescriptorKey()).toBe('descriptor-live');
+    expect(bridge).toHaveBeenCalledTimes(1);
+  });
+
+  it('captureGrpcActiveDescriptorKey persists the last live descriptor key', () => {
+    const bridge = vi.fn().mockReturnValue('descriptor-live');
+    (window as unknown as { __demoGetGrpcActiveDescriptorKey?: () => string | null }).__demoGetGrpcActiveDescriptorKey = bridge;
+
+    expect(captureGrpcActiveDescriptorKey()).toBe('descriptor-live');
+
+    delete (window as unknown as { __demoGetGrpcActiveDescriptorKey?: unknown }).__demoGetGrpcActiveDescriptorKey;
+    expect(getGrpcActiveDescriptorKey()).toBe('descriptor-live');
+  });
+
   it('bridge helpers return false when bridge is unavailable', () => {
     expect(resetGrpcActiveTabRuntimeState()).toBe(false);
     expect(patchGrpcActiveTabExportContext({})).toBe(false);
+    expect(getGrpcActiveDescriptorKey()).toBeNull();
   });
 });
