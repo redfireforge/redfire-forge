@@ -30,10 +30,11 @@ describe('Phase 11H acceptance checklist', () => {
 
   it('useGrpcStudioAdvancedFeatures wires safe export serializers', () => {
     const advanced = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
+    const loadTestActions = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedLoadTestActions.ts');
     const exportCallbacks = readSrc('src/features/grpc/hooks/useGrpcAdvancedExportCallbacks.ts');
     expect(advanced).toContain('useGrpcAdvancedExportCallbacks');
-    expect(advanced).toContain('buildGrpcAdvancedFeatureSourceMetadata');
-    expect(advanced).toContain('lastExportSource');
+    expect(loadTestActions).toContain('buildGrpcAdvancedFeatureSourceMetadata');
+    expect(`${advanced}\n${loadTestActions}`).toContain('lastExportSource');
     expect(exportCallbacks).toContain('serializeGrpcLoadTestRunSummaryExportSafeJson');
     expect(exportCallbacks).toContain('serializeGrpcLoadTestRunSummaryExportSafeCsv');
     expect(exportCallbacks).toContain('serializeGrpcSchemaDiffReportExportSafeJson');
@@ -41,8 +42,8 @@ describe('Phase 11H acceptance checklist', () => {
   });
 
   it('GrpcLoadTestPanel and GrpcSchemaDiffPanel copy via advanced export helpers', () => {
-    const loadPanel = readSrc('src/features/grpc/components/GrpcLoadTestPanel.tsx');
-    const diffPanel = readSrc('src/features/grpc/components/GrpcSchemaDiffPanel.tsx');
+    const loadPanel = readSrc('src/features/grpc/components/grpcLoadTestPanel/GrpcLoadTestResultsSection.tsx');
+    const diffPanel = readSrc('src/features/grpc/components/grpcSchemaDiffPanel/GrpcSchemaDiffPanel.tsx');
     expect(loadPanel).toContain('advanced.exportLoadTestJson');
     expect(loadPanel).toContain('advanced.exportLoadTestCsv');
     expect(diffPanel).toContain('advanced.exportSchemaDiffJson');
@@ -90,7 +91,7 @@ describe('Phase 11H acceptance checklist', () => {
   });
 
   it('load test async handler guards generation before clearing polls or export refs', () => {
-    const src = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
+    const src = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedLoadTestActions.ts');
     const finalizeIndex = src.indexOf('await finalizeGrpcLoadTestRun(run)');
     const successGuardIndex = src.indexOf(
       'if (!shouldApplyLoadTestRunResult(loadTestGenerationRef.current.get(tabId), runGeneration))',

@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import 'fake-indexeddb/auto';
 
 vi.mock('../../../shared/utils/platform', () => ({
@@ -12,6 +12,7 @@ import * as platform from '../../../shared/utils/platform';
 import * as storage from '../../../shared/utils/storage';
 import {
   deleteGrpcLoadTestProfile,
+  getGrpcLoadTestProfileById,
   listGrpcLoadTestProfiles,
   renameGrpcLoadTestProfile,
   resetGrpcLoadTestProfilesPersistQueueForTests,
@@ -26,6 +27,11 @@ describe('grpcLoadTestProfileRepository coverage gaps', () => {
     for (const profile of profiles) {
       await deleteGrpcLoadTestProfile(profile.id);
     }
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.mocked(platform.isTauri).mockReturnValue(false);
   });
 
   it('updates an existing profile when save includes id', async () => {
@@ -149,6 +155,35 @@ describe('grpcLoadTestProfileRepository coverage gaps', () => {
     expect(profiles).toEqual([]);
   });
 
+  it('normalizes invalid optional request-rate/template fields from legacy rows', async () => {
+    vi.spyOn(storage, 'readKey').mockResolvedValue(JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      profiles: [
+        {
+          id: 'legacy-normalized',
+          name: 'Legacy Normalized',
+          updatedAt: '2026-07-01T00:00:00.000Z',
+          config: {
+            concurrency: 1,
+            totalCalls: 1,
+            methodOverrideService: 123,
+            methodOverrideMethod: true,
+            requestRateRps: 'bad-value',
+            requestTemplateJson: 42,
+          },
+        },
+      ],
+    }));
+
+    const profiles = await listGrpcLoadTestProfiles();
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0]?.config.methodOverrideService).toBeUndefined();
+    expect(profiles[0]?.config.methodOverrideMethod).toBeUndefined();
+    expect(profiles[0]?.config.requestRateRps).toBeUndefined();
+    expect(profiles[0]?.config.requestTemplateJson).toBeUndefined();
+  });
+
   it('normalizes non-object and non-array legacy stores to empty profiles', async () => {
     vi.spyOn(storage, 'readKey').mockResolvedValueOnce('null');
     expect(await listGrpcLoadTestProfiles()).toEqual([]);
@@ -179,5 +214,116 @@ describe('grpcLoadTestProfileRepository coverage gaps', () => {
       name: 'No IDB',
       config: { concurrency: 1, totalCalls: 1 },
     })).rejects.toThrow(/IndexedDB not available/i);
+  });
+
+  it('returns profile by id and undefined for blank id', async () => {
+    const saved = await saveGrpcLoadTestProfile({
+      name: 'Lookup',
+      config: { concurrency: 2, totalCalls: 10 },
+    });
+    expect(await getGrpcLoadTestProfileById(saved.id)).toMatchObject({ name: 'Lookup' });
+    expect(await getGrpcLoadTestProfileById('')).toBeUndefined();
+    expect(await getGrpcLoadTestProfileById('   ')).toBeUndefined();
+    expect(await getGrpcLoadTestProfileById('missing-id')).toBeUndefined();
+  });
+
+  it('rejects duplicate name when saving a new profile', async () => {
+    await saveGrpcLoadTestProfile({ name: 'Alpha', config: { concurrency: 1, totalCalls: 1 } });
+    await expect(saveGrpcLoadTestProfile({
+      name: 'alpha',
+      config: { concurrency: 2, totalCalls: 2 },
+    })).rejects.toThrow(/already exists/i);
+  });
+
+  it('deletes a profile by id', async () => {
+    const saved = await saveGrpcLoadTestProfile({
+      name: 'Disposable',
+      config: { concurrency: 1, totalCalls: 1 },
+    });
+    await deleteGrpcLoadTestProfile(saved.id);
+    expect(await listGrpcLoadTestProfiles()).toEqual([]);
+    expect(await getGrpcLoadTestProfileById(saved.id)).toBeUndefined();
+  });
+
+  it('loads profiles directly from IDB when store is already populated', async () => {
+    const saved = await saveGrpcLoadTestProfile({
+      name: 'Persisted',
+      config: { concurrency: 3, totalCalls: 30 },
+    });
+    const readSpy = vi.spyOn(storage, 'readKey');
+
+    const profiles = await listGrpcLoadTestProfiles();
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0]?.id).toBe(saved.id);
+    expect(readSpy).not.toHaveBeenCalled();
+  });
+
+  it('returns empty store when loadStore throws during IDB open', async () => {
+    const idbOpen = await import('../../../shared/utils/idbOpen');
+    vi.spyOn(idbOpen, 'openDB').mockRejectedValue(new Error('idb open failed'));
+    const profiles = await listGrpcLoadTestProfiles();
+    expect(profiles).toEqual([]);
+  });
+
+  it('rejects save when config fails validation', async () => {
+    await expect(saveGrpcLoadTestProfile({
+      name: 'Invalid config',
+      config: { concurrency: 0, totalCalls: 1 },
+    })).rejects.toThrow(/concurrency must be a positive integer/i);
+  });
+
+  it('strips negative integer requestRateRps from legacy profile rows', async () => {
+    vi.spyOn(storage, 'readKey').mockResolvedValue(JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      profiles: [{
+        id: 'legacy-negative-rate',
+        name: 'Negative rate',
+        updatedAt: '2026-07-01T00:00:00.000Z',
+        config: {
+          concurrency: 1,
+          totalCalls: 1,
+          requestRateRps: -5,
+        },
+      }],
+    }));
+
+    const profiles = await listGrpcLoadTestProfiles();
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0]?.config.requestRateRps).toBeUndefined();
+  });
+
+  it('propagates Tauri save errors from writeKey', async () => {
+    vi.mocked(platform.isTauri).mockReturnValue(true);
+    vi.spyOn(storage, 'readKey').mockResolvedValue(JSON.stringify({
+      schemaVersion: 1,
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      profiles: [],
+    }));
+    vi.spyOn(storage, 'writeKey').mockRejectedValue(new Error('disk full'));
+
+    await expect(saveGrpcLoadTestProfile({
+      name: 'Desktop fail',
+      config: { concurrency: 1, totalCalls: 1 },
+    })).rejects.toThrow(/disk full/i);
+  });
+
+  it('ignores legacy key cleanup failures after IDB migration', async () => {
+    const legacyStore = {
+      schemaVersion: 1,
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      profiles: [{
+        id: 'legacy-cleanup',
+        name: 'Legacy cleanup',
+        updatedAt: '2026-07-01T00:00:00.000Z',
+        config: { concurrency: 2, totalCalls: 5 },
+      }],
+    };
+    vi.spyOn(storage, 'readKey').mockResolvedValue(JSON.stringify(legacyStore));
+    vi.spyOn(storage, 'removeKey').mockRejectedValue(new Error('cleanup failed'));
+
+    const profiles = await listGrpcLoadTestProfiles();
+    expect(profiles).toHaveLength(1);
+    expect(profiles[0]?.name).toBe('Legacy cleanup');
   });
 });

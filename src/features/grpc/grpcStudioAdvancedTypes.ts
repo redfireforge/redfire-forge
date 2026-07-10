@@ -34,6 +34,18 @@ export const DEFAULT_GRPC_LOAD_TEST_CONFIG: GrpcLoadTestConfig = {
 export interface GrpcTabLoadTestLiveProgress {
   counts: GrpcLoadTestRunCounts;
   progressPercent?: number;
+  metrics?: {
+    measuredAttempts: number;
+    measuredAttemptsPerSecond: number;
+    successRatePercent: number;
+    errorRatePercent: number;
+    p50Ms: number;
+  };
+}
+
+export interface GrpcTabLoadTestRunHistoryEntry {
+  summary: GrpcLoadTestRunSummaryExport;
+  source?: GrpcAdvancedFeatureSourceMetadata;
 }
 
 export interface GrpcTabLoadTestUiState {
@@ -41,6 +53,8 @@ export interface GrpcTabLoadTestUiState {
   lastSummary?: GrpcLoadTestRunSummaryExport;
   lastExportSource?: GrpcAdvancedFeatureSourceMetadata;
   live?: GrpcTabLoadTestLiveProgress;
+  runHistory?: GrpcTabLoadTestRunHistoryEntry[];
+  selectedRunId?: string;
 }
 
 export interface GrpcTabMockServerUiState {

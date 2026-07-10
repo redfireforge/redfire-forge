@@ -2,17 +2,19 @@
  * Lesson GRPC-12: Load Testing: Concurrent Calls & Metrics
  *
  * Teaches learners to configure and run a concurrent load test, read p50/p95/p99
- * latency percentiles and throughput (RPS), save a reusable load profile, and
- * extend the test to a server-streaming method with a per-stream message cap.
+ * latency percentiles and throughput (RPS), explore the results visualizations,
+ * run a second test to see the run-to-run compare, save a reusable load profile,
+ * and extend the test to a server-streaming method with a per-stream message cap.
  *
- *   grpc12-intro       — Navigate to Advanced sub-nav; tour the 5 panel tabs
- *   grpc12-panel-tour  — Load Testing panel: header shows active RPC; config fields
- *   grpc12-configure   — Set Concurrency=5, Total requests=20; highlight Start
- *   grpc12-start       — Click Start; live progress bar and completed/succeeded/failed counters
- *   grpc12-results     — Results panel: Throughput / p50/p95/p99 / Error rate
- *   grpc12-export      — Copy JSON & Copy CSV; what's in the export
- *   grpc12-profile     — Save "Echo Baseline"; load it back from the dropdown
- *   grpc12-streaming   — Switch to ServerStream; Max messages/stream field appears; run
+ *   grpc12-intro        — Navigate to Advanced sub-nav; tour the 5 panel tabs
+ *   grpc12-panel-tour   — Load Testing panel: all config fields (including new rate + template)
+ *   grpc12-configure    — Set Concurrency=5, Total=50, highlight Request Rate field
+ *   grpc12-start        — Click Start; live progress bar and counters
+ *   grpc12-results      — Run strip + metrics + status breakdown + histogram + throughput timeline
+ *   grpc12-export       — Copy & Download JSON/CSV; run history selector
+ *   grpc12-compare      — Run a second test; tour the run-to-run compare section
+ *   grpc12-profile      — Save "Echo Baseline"; load it back from the dropdown
+ *   grpc12-streaming    — Switch to ServerStream; Max messages/stream; run
  */
 import { GRPC } from '@shared/selectors';
 import {
@@ -165,14 +167,13 @@ const steps: DemoStep[] = [
     highlight: GRPC.SUB_NAV_ADVANCED,
     preAction: async (ctx) => {
       await grpcFirstCallSetup(ctx);
-      // Ensure Echo is reflected and body filled so the load test has an active RPC.
       await ensureGrpcReflected(ctx);
       await ensureEchoMessageFilled(ctx, LOAD_TEST_BODY_MESSAGE);
       await clearGrpcSchemaDriftQuiet(ctx);
       await closeGrpcSettingsDrawerQuiet(ctx);
     },
     action: async (ctx) => {
-      // Show the Studio sub-nav first so the viewer sees context.
+      // Show the Studio sub-nav so the viewer sees current context.
       await spotlightAndPause(ctx, GRPC.SUB_NAV_STUDIO, 700);
       await ctx.delay(300);
 
@@ -181,25 +182,22 @@ const steps: DemoStep[] = [
       await ctx.click(GRPC.SUB_NAV_ADVANCED);
       await ctx.delay(700);
 
-      // Wait for the Advanced shell to render.
       try {
         await ctx.waitFor(GRPC.ADVANCED_SHELL, 5_000);
       } catch {
-        // If it takes longer, continue — the shell renders fast.
+        // Shell renders fast — continue.
       }
       await ctx.delay(300);
 
-      // Spotlight the Advanced nav bar.
+      // Tour the Advanced nav tabs so the viewer reads each name.
       await spotlightAndPause(ctx, GRPC.ADVANCED_NAV, 800);
-
-      // Spotlight each tab so the viewer reads the names.
       await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('load_test'), 700);
       await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('mock_server'), 700);
       await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('schema_diff'), 700);
       await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('rpc_stats'), 700);
       await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('native_diagnostics'), 700);
 
-      // Click Load testing to land on it.
+      // Land on Load testing.
       await ctx.click(GRPC.ADVANCED_TAB('load_test'));
       await ctx.delay(500);
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_PANEL, 900);
@@ -208,7 +206,7 @@ const steps: DemoStep[] = [
   },
 
   // =========================================================================
-  // Step 2 — Load Testing panel tour
+  // Step 2 — Load Testing panel full field tour
   // =========================================================================
   {
     id: 'grpc12-panel-tour',
@@ -216,64 +214,88 @@ const steps: DemoStep[] = [
     pauseAfter: true,
     description:
       'The **Load Testing** panel header shows the **active Studio tab** and the **RPC method** ' +
-      'that will be exercised — right now it shows the Echo method you selected earlier. ' +
-      'The configuration grid has five fields:\n\n' +
+      'bound to this run — right now it is the Echo unary method. At the top, **Method under test** lets you ' +
+      'override the active tab method for load testing only. The configuration grid has seven fields:\n\n' +
       '- **Concurrency** — parallel in-flight gRPC calls\n' +
-      '- **Total requests** — how many calls to run in total\n' +
-      '- **Duration (ms)** — optional wall-clock cap\n' +
-      '- **Ramp-up (ms)** — time to gradually reach full concurrency\n' +
-      '- **Warm-up calls** — excluded from metrics to let the server JIT\n\n' +
-      'Below the config is the **Saved profiles** card — save and restore any combination for repeatable benchmarks.',
+      '- **Total requests** — stop after this many completed calls\n' +
+      '- **Duration (s)** — optional wall-clock cap in seconds\n' +
+      '- **Ramp-up (s)** — gradually reach full concurrency over this many seconds\n' +
+      '- **Request rate (RPS)** — cap throughput; `0` means unlimited\n' +
+      '- **Warm-up calls** — excluded from metrics to let the server JIT warm up\n' +
+      '- **Request body template** — JSON template for unary calls; supports ' +
+      '`{{runId}}` interpolation so each iteration sends a unique payload\n\n' +
+      'Below the config is the **Saved profiles** card for named, reusable benchmark presets.',
     highlight: GRPC.LOAD_TEST_PANEL,
     preAction: async (ctx) => {
       await navigateToLoadTestPanelQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight the panel header (shows active tab + RPC label).
+      // Panel header — active tab + RPC label.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_CALL_TYPE_BADGE, 900);
 
-      // Highlight the config grid fields one at a time.
+      // New: Method under test selector.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_METHOD_SELECT, 1_000);
+      await ctx.delay(200);
+
+      // Config fields one by one.
       await spotlightAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 700);
       await spotlightAndPause(ctx, '[data-testid="grpc-load-test-total-calls"]', 700);
       await spotlightAndPause(ctx, '[data-testid="grpc-load-test-duration"]', 700);
       await spotlightAndPause(ctx, '[data-testid="grpc-load-test-ramp-up"]', 700);
-      await ctx.delay(300);
 
-      // Spotlight the Saved profiles card.
+      // New: Request Rate field — pause longer so viewer notices the new control.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_REQUEST_RATE, 1_000);
+      await ctx.delay(200);
+
+      // New: Request body template (only visible for unary methods).
+      const templateEl = document.querySelector(GRPC.LOAD_TEST_REQUEST_TEMPLATE);
+      if (templateEl) {
+        await spotlightAndPause(ctx, GRPC.LOAD_TEST_REQUEST_TEMPLATE, 1_000);
+        await ctx.delay(200);
+      }
+
+      // Profiles card.
       await spotlightAndPause(ctx, '[data-testid="grpc-load-test-profiles"]', 900);
     },
     verify: GRPC.LOAD_TEST_PANEL,
   },
 
   // =========================================================================
-  // Step 3 — Configure: Concurrency=5, Total requests=20
+  // Step 3 — Configure: Concurrency=5, Total requests=50
   // =========================================================================
   {
     id: 'grpc12-configure',
     title: 'Configure the Load Run',
     pauseAfter: true,
     description:
-      'Set the load parameters. **Concurrency = 5** means five gRPC calls run at the same time; ' +
-      '**Total requests = 20** means the runner stops after 20 calls complete (across all workers).\n\n' +
-      'With Concurrency 5 and Total requests 20, the runner fires 4 batches — each viewer will ' +
-      'see real parallelism even on a local machine. Leave Duration and Ramp-up empty for now.\n\n' +
-      'The **Start load test** button activates once the method is bound and at least Concurrency is set.',
+      'Set **Concurrency = 5** (five parallel calls) and **Total requests = 50** ' +
+      '(stop after 50 completed calls). With 50 calls the charts will have enough data points ' +
+      'to show meaningful buckets in the latency histogram and bars in the throughput timeline.\n\n' +
+      'Leave **Request rate** empty (unlimited) for now — the scheduler runs as fast as the ' +
+      'server responds. Setting a rate like `10` would cap throughput to 10 RPS regardless of ' +
+      'concurrency, useful for controlled soak tests.\n\n' +
+      'The **Request body template** is left blank so the runner uses the body from the active ' +
+      'Studio tab. You can fill it with `{"message":"hello {{runId}}"}` to vary the payload per call.',
     highlight: GRPC.LOAD_TEST_START,
     preAction: async (ctx) => {
       await navigateToLoadTestPanelQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight then fill Concurrency.
+      // Fill Concurrency.
       await spotlightAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 800);
       setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 5);
       await ctx.delay(600);
 
-      // Spotlight then fill Total requests.
+      // Fill Total requests.
       await spotlightAndPause(ctx, '[data-testid="grpc-load-test-total-calls"]', 800);
-      setNumberInputValue('[data-testid="grpc-load-test-total-calls"]', 20);
+      setNumberInputValue('[data-testid="grpc-load-test-total-calls"]', 50);
       await ctx.delay(600);
 
-      // Spotlight the Start button.
+      // Spotlight Request Rate — highlight that it is intentionally empty (unlimited).
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_REQUEST_RATE, 900);
+      await ctx.delay(300);
+
+      // Spotlight Start button — viewer is ready.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_START, 1_000);
     },
     verify: GRPC.LOAD_TEST_START,
@@ -287,18 +309,18 @@ const steps: DemoStep[] = [
     title: 'Start — Live Progress',
     pauseAfter: true,
     description:
-      'Click **Start load test**. While the test runs, the panel switches to a live view:\n\n' +
-      '- A **progress bar** fills as calls complete\n' +
+      'Click **Start load test**. While the test runs:\n\n' +
+      '- A **progress bar** fills as calls complete (Completed / 50)\n' +
       '- **Completed / Succeeded / Failed** counters update in real time\n' +
-      '- The **Status** line shows "Running…" and you can click **Stop** to abort early\n\n' +
-      'With Concurrency 5 over a local Go server, all 20 calls finish in under a second — ' +
-      'the counters tick fast. Watch the progress bar reach 100% before results appear.',
+      '- **Live KPI cards** show Throughput (RPS), Success %, p50 latency, and Error % as the run progresses\n' +
+      '- **Status** shows "Running" — click **Stop** any time to abort early\n\n' +
+      'With Concurrency 5 against a local server, all 50 calls typically finish in under a second. ' +
+      'Watch the progress bar hit 100% then the full results panel slides in.',
     highlight: GRPC.LOAD_TEST_STATUS,
     preAction: async (ctx) => {
-      // Ensure configured and not already running.
       await navigateToLoadTestPanelQuiet(ctx);
       setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 5);
-      setNumberInputValue('[data-testid="grpc-load-test-total-calls"]', 20);
+      setNumberInputValue('[data-testid="grpc-load-test-total-calls"]', 50);
     },
     action: async (ctx) => {
       // Spotlight then click Start.
@@ -309,15 +331,17 @@ const steps: DemoStep[] = [
       // Spotlight the status indicator.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_STATUS, 700);
 
-      // Show live counters if they appear.
+      // Show live counters if they appear before completion.
       try {
         await ctx.waitFor(GRPC.LOAD_TEST_LIVE_COMPLETED, 3_000);
         await spotlightAndPause(ctx, GRPC.LOAD_TEST_LIVE_COMPLETED, 900);
+        await spotlightAndPause(ctx, GRPC.LOAD_TEST_LIVE_THROUGHPUT, 800);
+        await spotlightAndPause(ctx, GRPC.LOAD_TEST_LIVE_P50, 800);
       } catch {
-        // Test may complete before live counters render — that's OK.
+        // Fast local server — test may complete before live counters render.
       }
 
-      // Wait for the test to complete (results panel appears).
+      // Wait for results to appear.
       await waitForLoadTestComplete(ctx, 20_000);
       await ctx.delay(400);
 
@@ -328,88 +352,197 @@ const steps: DemoStep[] = [
   },
 
   // =========================================================================
-  // Step 5 — Read the metrics
+  // Step 5 — Full results panel: run strip + metrics + charts
   // =========================================================================
   {
     id: 'grpc12-results',
-    title: 'Reading the Metrics',
+    title: 'Reading the Results',
     pauseAfter: true,
     description:
-      'After the run, the **Results** panel shows a metrics grid:\n\n' +
-      '- **Throughput** — measured attempts per second (RPS)\n' +
-      '- **p50 latency** — median call time; 50% of calls finished faster\n' +
-      '- **p95 / p99 latency** — the "slow tail" — if p99 is much higher than p50, ' +
-      'some calls hit server GC pauses or connection setup overhead\n' +
-      '- **Error rate** — percentage of calls that returned a non-OK gRPC status\n\n' +
-      'In production SLO monitoring, **p95** and **p99** are the standard thresholds. ' +
-      'A low p50 with a high p99 is the signature of intermittent timeouts or retries.',
+      'After the run the **Results** panel shows four sections:\n\n' +
+      '**Run strip** — run ID, wall-clock duration, stop reason (Total Calls / Duration / Manual), ' +
+      'and completion time. Use the run ID to correlate with server-side traces.\n\n' +
+      '**Metrics grid** — Throughput (RPS), p50 latency (median), p95/p99 (tail latency), and ' +
+      'Error rate. A high p99 relative to p50 is the signature of intermittent GC pauses or retries.\n\n' +
+      '**Status breakdown** — bar chart of gRPC status codes; all-OK means a single `0` bar.\n\n' +
+      '**Latency histogram** — 8-bucket distribution of call durations; useful for spotting bimodal ' +
+      'distributions (fast path vs slow path).\n\n' +
+      '**Throughput over time** — per-second bar chart of successful vs failed attempts; ' +
+      'a ramp at the start reveals warm-up behavior.',
     highlight: GRPC.LOAD_TEST_RESULTS,
     preAction: async (ctx) => {
       await ensureLoadTestResultsQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight the full results card.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_RESULTS, 900);
+      // Spotlight the run strip — run ID + timing context.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_RUN_STRIP, 1_000);
+      await ctx.delay(300);
 
-      // Spotlight the metrics grid.
+      // Spotlight the summary metrics grid.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_SUMMARY_METRICS, 1_000);
 
-      // Spotlight individual metrics: Throughput, p50, p95/p99, Error rate.
+      // Walk individual metric cards.
       const metricsGrid = document.querySelector(GRPC.LOAD_TEST_SUMMARY_METRICS);
       if (metricsGrid) {
         const metricEls = metricsGrid.querySelectorAll<HTMLElement>('.grpc-advanced-metric');
         if (metricEls[0]) await spotlightElementAndPause(ctx, metricEls[0], 900);  // Throughput
         await ctx.delay(200);
-        if (metricEls[1]) await spotlightElementAndPause(ctx, metricEls[1], 800);  // p50 latency
+        if (metricEls[1]) await spotlightElementAndPause(ctx, metricEls[1], 800);  // p50
         await ctx.delay(200);
-        if (metricEls[2]) await spotlightElementAndPause(ctx, metricEls[2], 900);  // p95/p99 latency
+        if (metricEls[2]) await spotlightElementAndPause(ctx, metricEls[2], 900);  // p95/p99
         await ctx.delay(200);
         if (metricEls[3]) await spotlightElementAndPause(ctx, metricEls[3], 800);  // Error rate
       }
+
+      // Percentile legend.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_PERCENTILE_LEGEND, 800);
+      await ctx.delay(300);
+
+      // Status breakdown chart.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_STATUS_BREAKDOWN, 1_000);
+      await ctx.delay(300);
+
+      // Latency histogram.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_LATENCY_HISTOGRAM, 1_000);
+      await ctx.delay(300);
+
+      // Throughput over time.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_THROUGHPUT_TIMELINE, 1_000);
     },
     verify: GRPC.LOAD_TEST_SUMMARY_METRICS,
   },
 
   // =========================================================================
-  // Step 6 — Export JSON / CSV
+  // Step 6 — Export: Copy & Download, run history selector
   // =========================================================================
   {
     id: 'grpc12-export',
     title: 'Exporting Results',
     pauseAfter: true,
     description:
-      'Click **Copy JSON** to copy the full results to your clipboard. The exported object includes:\n\n' +
-      '- `sourceMetadata` — method, target endpoint, transport, and descriptor key\n' +
-      '- `config` — the exact concurrency / total-requests settings used\n' +
-      '- `metrics` — throughput, latency percentiles (p50/p95/p99/max), status distribution\n\n' +
-      '**Copy CSV** produces a spreadsheet-friendly row of the same metrics — paste it directly ' +
-      'into Google Sheets or Excel to build a latency trend chart across runs.\n\n' +
-      'Both formats include a `runAt` timestamp so you can track performance over time.',
+      'The Results card header has four export actions:\n\n' +
+      '- **Copy JSON** — copies the full run summary to clipboard (includes `sourceMetadata`, ' +
+      '`config`, and `metrics` with status distribution and latency percentiles)\n' +
+      '- **Download JSON** — saves the same payload as a named `.json` file ' +
+      '(`<runId>.json`) — useful for archiving benchmarks in CI\n' +
+      '- **Copy CSV** — single spreadsheet row for pasting into Google Sheets / Excel\n' +
+      '- **Download CSV** — saves as a `.csv` file for automation pipelines\n\n' +
+      'The **run history selector** at the left of the header lets you switch between all runs ' +
+      'recorded in this session — results are persisted across page reloads so you can ' +
+      'compare morning vs afternoon benchmarks.',
     highlight: GRPC.LOAD_TEST_EXPORT_JSON,
     preAction: async (ctx) => {
       await ensureLoadTestResultsQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight the Results card header actions.
+      // Spotlight the Results card header area.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_RESULTS, 800);
+      await ctx.delay(300);
 
-      // Spotlight and click Copy JSON.
+      // Run history selector.
+      const historySelect = document.querySelector(GRPC.LOAD_TEST_RUN_HISTORY_SELECT);
+      if (historySelect) {
+        await spotlightAndPause(ctx, GRPC.LOAD_TEST_RUN_HISTORY_SELECT, 900);
+        await ctx.delay(300);
+      }
+
+      // Copy JSON.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_EXPORT_JSON, 900);
       await ctx.click(GRPC.LOAD_TEST_EXPORT_JSON);
       await ctx.delay(600);
 
-      // Spotlight Copy CSV.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_EXPORT_CSV, 800);
+      // Download JSON — spotlight but don't click (would trigger file download in demo).
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_DOWNLOAD_JSON, 900);
       await ctx.delay(400);
 
-      // Return spotlight to the results panel to reinforce context.
+      // Copy CSV.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_EXPORT_CSV, 800);
+      await ctx.delay(300);
+
+      // Download CSV.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_DOWNLOAD_CSV, 800);
+      await ctx.delay(400);
+
+      // Return to metrics to reinforce context.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_SUMMARY_METRICS, 700);
     },
     verify: GRPC.LOAD_TEST_EXPORT_JSON,
   },
 
   // =========================================================================
-  // Step 7 — Save and load a profile
+  // Step 7 — Run a second test; tour the run-to-run compare
+  // =========================================================================
+  {
+    id: 'grpc12-compare',
+    title: 'Run-to-Run Compare',
+    pauseAfter: true,
+    description:
+      'Run a **second test** at higher concurrency (10) to produce a different result. ' +
+      'Once two runs exist, the Results panel adds a **Run-to-run compare** section:\n\n' +
+      '- **Baseline selector** — pick which previous run to compare against\n' +
+      '- **Delta cards** — colour-coded Throughput Δ, p50 Δ, p95 Δ, Error rate Δ ' +
+      '(green = improved, red = regressed)\n' +
+      '- **Metric detail table** — side-by-side baseline / current / delta for every ' +
+      'percentile, success rate, and attempt count\n' +
+      '- **Status composition diff** — per-status-code count and percentage change\n\n' +
+      'This is the same workflow engineers use to gate a deployment: run the baseline ' +
+      'on the old version, deploy, run again, check the compare.',
+    highlight: GRPC.LOAD_TEST_RUN_COMPARE,
+    preAction: async (ctx) => {
+      // Ensure at least one finished run exists before we run the second.
+      await ensureLoadTestResultsQuiet(ctx);
+      await navigateToLoadTestPanelQuiet(ctx);
+    },
+    action: async (ctx) => {
+      // Set higher concurrency so the second run has visibly different numbers.
+      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 800);
+      setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 10);
+      await ctx.delay(500);
+
+      // Start.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_START, 800);
+      await ctx.click(GRPC.LOAD_TEST_START);
+      await ctx.delay(400);
+
+      // Brief status spotlight while running.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_STATUS, 700);
+
+      // Wait for completion.
+      await waitForLoadTestComplete(ctx, 20_000);
+      await ctx.delay(600);
+
+      // Spotlight the compare section — appears once 2+ runs exist.
+      await spotlightAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE, 1_200);
+      await ctx.delay(300);
+
+      // Spotlight the baseline selector.
+      const compareSelect = document.querySelector(GRPC.LOAD_TEST_RUN_COMPARE_SELECT);
+      if (compareSelect) {
+        await spotlightAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE_SELECT, 900);
+        await ctx.delay(300);
+      }
+
+      // Spotlight the delta cards (quick Δ grid inside the compare section).
+      const compareSection = document.querySelector(GRPC.LOAD_TEST_RUN_COMPARE);
+      if (compareSection) {
+        const deltaGrid = compareSection.querySelector<HTMLElement>('.grpc-load-test-compare-grid');
+        if (deltaGrid) {
+          await spotlightElementAndPause(ctx, deltaGrid, 1_000);
+          await ctx.delay(300);
+        }
+      }
+
+      // Spotlight the detail metric table.
+      const detailsEl = document.querySelector(GRPC.LOAD_TEST_RUN_COMPARE_DETAILS);
+      if (detailsEl) {
+        await spotlightAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE_DETAILS, 1_000);
+      }
+    },
+    verify: GRPC.LOAD_TEST_RUN_COMPARE,
+  },
+
+  // =========================================================================
+  // Step 8 — Save and load a profile
   // =========================================================================
   {
     id: 'grpc12-profile',
@@ -417,12 +550,11 @@ const steps: DemoStep[] = [
     pauseAfter: true,
     description:
       'Name this configuration **Echo Baseline** and click **Save profile**. The profile ' +
-      'appears in the **Profile** dropdown — select it any time to restore all settings ' +
-      '(Concurrency, Total requests, Duration, Ramp-up, Warm-up) in a single click.\n\n' +
-      'Try increasing Concurrency to **10** after loading the profile to run a ' +
-      'higher-concurrency comparison — you\'ll see throughput scale and p99 latency shift.\n\n' +
-      'Profiles are stored locally and survive page reloads, so you can build a library ' +
-      'of named benchmark configurations for different services and environments.',
+      'appears in the **Profile** dropdown — select it any time to restore Concurrency, ' +
+      'Total requests, Duration, Ramp-up, Request rate, and Warm-up in a single click.\n\n' +
+      'Profiles are stored locally and survive page reloads, so you can maintain a library ' +
+      'of named benchmark configurations — "Smoke Test", "Soak 1h", "Rate-limited 50 RPS" — ' +
+      'for different services and environments.',
     highlight: GRPC.LOAD_TEST_PROFILE_SAVE,
     preAction: async (ctx) => {
       await navigateToLoadTestPanelQuiet(ctx);
@@ -431,17 +563,17 @@ const steps: DemoStep[] = [
       // Spotlight the Saved profiles card.
       await spotlightAndPause(ctx, '[data-testid="grpc-load-test-profiles"]', 800);
 
-      // Spotlight and fill the Profile name field.
+      // Fill the Profile name field.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_PROFILE_NAME, 800);
       await ctx.fill(GRPC.LOAD_TEST_PROFILE_NAME, LOAD_TEST_PROFILE_NAME);
       await ctx.delay(500);
 
-      // Spotlight and click Save profile.
+      // Click Save profile.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_PROFILE_SAVE, 900);
       await ctx.click(GRPC.LOAD_TEST_PROFILE_SAVE);
       await ctx.delay(700);
 
-      // Spotlight the Profile dropdown to show the saved entry.
+      // Show the Profile dropdown with the saved entry.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_PROFILE_SELECT, 1_000);
       await ctx.delay(300);
 
@@ -452,55 +584,55 @@ const steps: DemoStep[] = [
   },
 
   // =========================================================================
-  // Step 8 — Server-streaming load test
+  // Step 9 — Server-streaming load test
   // =========================================================================
   {
     id: 'grpc12-streaming',
     title: 'Server-Streaming Load Test',
     pauseAfter: true,
     description:
-      'Switch to the `echo.EchoService / ServerStream` method. Notice a new field appears: ' +
-      '**Max messages / stream** — this caps how many response messages each concurrent run ' +
-      'collects before closing the stream. Set it to **5**.\n\n' +
-      'Start the test. Each of the 5 concurrent runs opens a server-streaming RPC and collects ' +
-      'up to 5 messages. The metrics show throughput in streams-per-second and latency per stream.\n\n' +
-      'This is useful for stress-testing your server\'s streaming backpressure: does it slow down ' +
-      'gracefully, or does throughput collapse under concurrent streams?',
+      'Switch to `echo.EchoService / ServerStream`. The call type badge changes to ' +
+      '**Server stream** and a new field appears: **Max messages / stream** — this caps ' +
+      'how many response messages each concurrent run collects before closing the stream. ' +
+      'Set it to **5**.\n\n' +
+      'The test runs 5 concurrent streams, each collecting up to 5 messages. The metrics ' +
+      'show throughput in streams-per-second and latency per stream.\n\n' +
+      'Use **Max messages / stream** to stress-test your server\'s streaming backpressure: ' +
+      'raise the cap to see whether throughput collapses or latency spikes under sustained ' +
+      'concurrent streaming load.',
     highlight: GRPC.LOAD_TEST_MAX_MESSAGES_PER_STREAM,
     preAction: async (ctx) => {
-      // Switch to ServerStream in the Studio tab.
       await ensureGrpcStudioSubNavQuiet(ctx);
       await ensureStreamingMethodSelectedQuiet(ctx, 'ServerStream');
-      // Navigate back to the load test panel.
       await navigateToLoadTestPanelQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight the call type badge showing "Server stream".
+      // Call type badge — now shows "Server stream".
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_CALL_TYPE_BADGE, 900);
       await ctx.delay(300);
 
-      // Spotlight and fill Max messages / stream.
+      // Max messages / stream field.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_MAX_MESSAGES_PER_STREAM, 1_000);
       setNumberInputValue('[data-testid="grpc-load-test-max-messages-per-stream"]', 5);
       await ctx.delay(500);
 
-      // Set a small total requests count for the demo so it finishes quickly.
+      // Set a small total for a quick demo run.
       setNumberInputValue('[data-testid="grpc-load-test-total-calls"]', 10);
       await ctx.delay(300);
 
-      // Spotlight and click Start.
+      // Start.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_START, 800);
       await ctx.click(GRPC.LOAD_TEST_START);
       await ctx.delay(400);
 
-      // Spotlight the status.
+      // Status while running.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_STATUS, 700);
 
       // Wait for completion.
       await waitForLoadTestComplete(ctx, 25_000);
-      await ctx.delay(400);
+      await ctx.delay(500);
 
-      // Spotlight the results panel.
+      // Full results panel.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_RESULTS, 900);
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_SUMMARY_METRICS, 1_000);
     },
@@ -518,21 +650,24 @@ export const grpcLoadTestingLesson: GrpcDemoLesson = {
   category: 'grpc',
   description:
     'Run concurrent load tests against a gRPC method, read p50/p95/p99 latency and ' +
-    'throughput metrics, save a reusable benchmark profile, and explore server-streaming ' +
-    'load with per-stream message caps.',
+    'throughput metrics, explore the results charts, compare runs with the built-in diff view, ' +
+    'save a reusable benchmark profile, and extend load testing to server-streaming methods.',
   concept: {
     title: 'Load Testing: Concurrent Calls & Metrics',
     body:
       'gRPC Studio\'s **Load testing** panel runs **ghz-style** concurrent benchmarks from the browser — ' +
       'no extra tooling required. Configure Concurrency (parallel in-flight calls), Total requests, ' +
-      'and optional Duration or Ramp-up parameters, then click **Start**.\n\n' +
-      'After the run you get a **metrics grid** showing Throughput (RPS) and the full latency ' +
-      'percentile ladder — **p50**, **p95**, and **p99** — plus the error rate. ' +
-      'Results export as JSON (with `sourceMetadata` for traceability) or CSV for spreadsheets.\n\n' +
-      '**Saved profiles** let you store named configurations for repeatable benchmarks — ' +
-      'reload any profile in one click to compare runs across concurrency levels or server versions.\n\n' +
-      'Server-streaming methods gain a **Max messages / stream** cap so each concurrent run ' +
-      'collects a bounded number of messages before closing — preventing unbounded result buffers.',
+      'Duration or Ramp-up caps, a **Request rate (RPS)** throttle, and an optional ' +
+      '**Request body template** with `{{runId}}` interpolation.\n\n' +
+      'After the run you get a rich results panel: a **metrics grid** (Throughput, p50/p95/p99, ' +
+      'Error rate), a **status breakdown** bar chart, a **latency histogram**, and a ' +
+      '**throughput over time** timeline.\n\n' +
+      'When two or more runs exist a **Run-to-run compare** section appears — colour-coded ' +
+      'delta cards and a full metric detail table let you gate deployments against a saved baseline.\n\n' +
+      'Results export as **Copy / Download JSON** (with `sourceMetadata` for traceability) or ' +
+      '**Copy / Download CSV** for spreadsheets. The **run history selector** lets you switch ' +
+      'between all recorded runs in the session.\n\n' +
+      '**Saved profiles** store named configurations for repeatable benchmarks — reload in one click.',
   },
   grpc: buildGrpcContractMetaFromRoster(GRPC12_ROSTER),
   setup: async (ctx) => {

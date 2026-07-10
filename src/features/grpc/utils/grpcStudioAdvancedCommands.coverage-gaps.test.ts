@@ -9,6 +9,7 @@ import { buildGrpcLoadTestRunSummaryExport } from '../../../shared/grpc/grpcLoad
 import { startGrpcLoadTestSchedulerRun } from '../../../shared/grpc/grpcLoadTestSchedulerCore';
 import { invokeGrpcUnary } from '../../../shared/grpc/grpcTransportFacade';
 import {
+  applyGrpcLoadTestRequestTemplate,
   buildMockConfigSourceFromEditor,
   buildLoadTestRunId,
   finalizeGrpcLoadTestRun,
@@ -85,6 +86,65 @@ describe('grpcStudioAdvancedCommands coverage gaps', () => {
   it('validateLoadTestPreconditions treats missing call type as unary', () => {
     expect(validateLoadTestPreconditions(undefined, { concurrency: 1, totalCalls: 1 })).toBeUndefined();
     expect(validateLoadTestPreconditions(undefined, { concurrency: 0, totalCalls: 1 })).toBeTruthy();
+  });
+
+  it('applyGrpcLoadTestRequestTemplate overrides unary body from JSON template', () => {
+    const snapshot = makeExecuteSnapshot();
+    const applied = applyGrpcLoadTestRequestTemplate(snapshot, {
+      concurrency: 1,
+      totalCalls: 1,
+      requestTemplateJson: '{"message":"from-template"}',
+    });
+    expect(applied.body).toEqual({ message: 'from-template' });
+    expect(snapshot.body).toEqual({ message: 'hello' });
+  });
+
+  it('applyGrpcLoadTestRequestTemplate validates template shape', () => {
+    expect(() => applyGrpcLoadTestRequestTemplate(makeExecuteSnapshot(), {
+      concurrency: 1,
+      totalCalls: 1,
+      requestTemplateJson: '[]',
+    })).toThrow(/JSON object/i);
+  });
+
+  it('applyGrpcLoadTestRequestTemplate returns snapshot unchanged for non-unary call types', () => {
+    const snapshot = {
+      ...makeExecuteSnapshot(),
+      callType: 'server_streaming' as const,
+    };
+    const result = applyGrpcLoadTestRequestTemplate(snapshot, {
+      concurrency: 1,
+      totalCalls: 1,
+      requestTemplateJson: '{"message":"ignored"}',
+    });
+    expect(result).toBe(snapshot);
+    expect(result.body).toEqual({ message: 'hello' });
+  });
+
+  it('applyGrpcLoadTestRequestTemplate skips empty or whitespace-only templates', () => {
+    const snapshot = makeExecuteSnapshot();
+    expect(applyGrpcLoadTestRequestTemplate(snapshot, {
+      concurrency: 1,
+      totalCalls: 1,
+      requestTemplateJson: '   \n\t',
+    })).toBe(snapshot);
+    expect(applyGrpcLoadTestRequestTemplate(snapshot, {
+      concurrency: 1,
+      totalCalls: 1,
+    }).body).toEqual({ message: 'hello' });
+  });
+
+  it('applyGrpcLoadTestRequestTemplate rejects invalid JSON templates', () => {
+    expect(() => applyGrpcLoadTestRequestTemplate(makeExecuteSnapshot(), {
+      concurrency: 1,
+      totalCalls: 1,
+      requestTemplateJson: '{not-json',
+    })).toThrow(/valid JSON/i);
+    expect(() => applyGrpcLoadTestRequestTemplate(makeExecuteSnapshot(), {
+      concurrency: 1,
+      totalCalls: 1,
+      requestTemplateJson: 'null',
+    })).toThrow(/JSON object/i);
   });
 
   it('validateLoadTestPreconditions reports unresolved methods', () => {
@@ -265,7 +325,57 @@ describe('grpcStudioAdvancedCommands coverage gaps', () => {
     expect(transitionAdvancedOpQuickComplete(running).status).toBe('completed');
   });
 
-  it('transitionAdvancedOpToRunning resets non-idle non-terminal state', () => {
+  it('transitionAdvancedOpQuickComplete resets terminal completed state before completing', () => {
+    const completed = {
+      status: 'completed' as const,
+      cancellationRequested: false,
+      operationId: 'op-done',
+      completedAt: '2026-07-01T00:00:00.000Z',
+    };
+    const next = transitionAdvancedOpQuickComplete(completed);
+    expect(next.status).toBe('completed');
+    expect(next.operationId).toBeUndefined();
+  });
+
+  it('resetAdvancedOpIfTerminal returns non-terminal state unchanged', () => {
+    const validating = {
+      status: 'validating' as const,
+      cancellationRequested: false,
+      operationId: 'op-v',
+    };
+    expect(resetAdvancedOpIfTerminal(validating)).toBe(validating);
+
+    const running = {
+      status: 'running' as const,
+      cancellationRequested: false,
+      operationId: 'op-r',
+    };
+    expect(resetAdvancedOpIfTerminal(running)).toBe(running);
+  });
+
+  it('transitionAdvancedOpToRunning reinitializes from in-flight validating state', () => {
+    const validating = {
+      status: 'validating' as const,
+      cancellationRequested: false,
+      operationId: 'old-op',
+    };
+    const next = transitionAdvancedOpToRunning(validating, 'new-op');
+    expect(next.status).toBe('running');
+    expect(next.operationId).toBe('new-op');
+  });
+
+  it('transitionAdvancedOpToRunning reinitializes from in-flight running state', () => {
+    const running = {
+      status: 'running' as const,
+      cancellationRequested: false,
+      operationId: 'old-op',
+    };
+    const next = transitionAdvancedOpToRunning(running, 'new-op');
+    expect(next.status).toBe('running');
+    expect(next.operationId).toBe('new-op');
+  });
+
+  it('transitionAdvancedOpToRunning resets terminal completed state before starting', () => {
     const completed = { status: 'completed' as const, cancellationRequested: false };
     expect(transitionAdvancedOpToRunning(completed, 'op-new').status).toBe('running');
   });
@@ -275,12 +385,34 @@ describe('grpcStudioAdvancedCommands coverage gaps', () => {
     expect(transitionAdvancedOpToCompleted(running).status).toBe('completed');
   });
 
+  it('transitionAdvancedOpToCompleted uses quick-complete path from non-running state', () => {
+    const idle = { status: 'idle' as const, cancellationRequested: false };
+    expect(transitionAdvancedOpToCompleted(idle).status).toBe('completed');
+
+    const validating = {
+      status: 'validating' as const,
+      cancellationRequested: false,
+      operationId: 'op-v',
+    };
+    expect(transitionAdvancedOpToCompleted(validating).status).toBe('completed');
+  });
+
   it('transitionAdvancedOpToCancelled handles failed and validating states', () => {
     const failed = transitionAdvancedOpToFailed({ status: 'idle', cancellationRequested: false }, 'x');
     expect(transitionAdvancedOpToCancelled(failed).status).toBe('cancelled');
 
     const validating = { status: 'validating' as const, cancellationRequested: false, operationId: 'op-v' };
     expect(transitionAdvancedOpToCancelled(validating).status).toBe('cancelled');
+  });
+
+  it('transitionAdvancedOpToCancelled cancels directly from running state', () => {
+    const running = { status: 'running' as const, cancellationRequested: false, operationId: 'op-run' };
+    expect(transitionAdvancedOpToCancelled(running).status).toBe('cancelled');
+  });
+
+  it('transitionAdvancedOpToCancelled advances idle state through validating to cancelled', () => {
+    const idle = { status: 'idle' as const, cancellationRequested: false };
+    expect(transitionAdvancedOpToCancelled(idle).status).toBe('cancelled');
   });
 
   it('transitionAdvancedOpToFailed and resetAdvancedOpToIdle handle non-terminal states', () => {
@@ -293,11 +425,50 @@ describe('grpcStudioAdvancedCommands coverage gaps', () => {
 
     const runningFailed = transitionAdvancedOpToFailed(running, 'late failure');
     expect(runningFailed.status).toBe('failed');
+    expect(runningFailed.error?.message).toBe('late failure');
 
     const completed = transitionAdvancedOpToCompleted(
       transitionAdvancedOpToRunning({ status: 'idle', cancellationRequested: false }, 'op-2'),
     );
     expect(transitionAdvancedOpToCancelled(completed).status).toBe('cancelled');
+  });
+
+  it('transitionAdvancedOpToFailed transitions directly from running without re-validating', () => {
+    const running = { status: 'running' as const, cancellationRequested: false, operationId: 'op-run' };
+    const failed = transitionAdvancedOpToFailed(running, 'in-flight failure');
+    expect(failed.status).toBe('failed');
+    expect(failed.error?.message).toBe('in-flight failure');
+  });
+
+  it('resetAdvancedOpToIdle reinitializes validating and running non-terminal states', () => {
+    const validating = {
+      status: 'validating' as const,
+      cancellationRequested: false,
+      operationId: 'op-v',
+    };
+    expect(resetAdvancedOpToIdle(validating)).toEqual(createInitialGrpcAdvancedOperationState());
+
+    const running = {
+      status: 'running' as const,
+      cancellationRequested: false,
+      operationId: 'op-r',
+    };
+    expect(resetAdvancedOpToIdle(running)).toEqual(createInitialGrpcAdvancedOperationState());
+  });
+
+  it('resetAdvancedOpToIdle transitions terminal states to idle', () => {
+    const completed = { status: 'completed' as const, cancellationRequested: false };
+    expect(resetAdvancedOpToIdle(completed).status).toBe('idle');
+
+    const failed = {
+      status: 'failed' as const,
+      cancellationRequested: false,
+      error: { category: 'runtime' as const, message: 'x' },
+    };
+    expect(resetAdvancedOpToIdle(failed).status).toBe('idle');
+
+    const cancelled = { status: 'cancelled' as const, cancellationRequested: true };
+    expect(resetAdvancedOpToIdle(cancelled).status).toBe('idle');
   });
 
   it('buildMockConfigSourceFromEditor normalizes partial and empty latency policies', () => {
@@ -329,6 +500,16 @@ describe('grpcStudioAdvancedCommands coverage gaps', () => {
     expect(resolved.source).toBe('connection_profile');
   });
 
+  it('resolveGrpcStudioMockConfig falls back profile connection id to tab id', () => {
+    const resolved = resolveGrpcStudioMockConfig({
+      tabId: 'tab-profile-fallback',
+      profileMockConfig: { ruleSet: { rules: [] } },
+      workspaceDefault: { ruleSet: { rules: [] } },
+    });
+    expect(resolved.source).toBe('connection_profile');
+    expect(resolved.connectionId).toBe('tab-profile-fallback');
+  });
+
   it('computeGrpcStudioSchemaDiffReport detects descriptor changes', async () => {
     const { computeGrpcStudioSchemaDiffReport } = await import('./grpcStudioAdvancedCommands');
     const candidate = structuredClone(FIXTURE_DESCRIPTOR);
@@ -336,8 +517,10 @@ describe('grpcStudioAdvancedCommands coverage gaps', () => {
     const report = computeGrpcStudioSchemaDiffReport({
       baseline: FIXTURE_DESCRIPTOR,
       candidate,
+      generatedAt: '2026-07-01T00:00:00.000Z',
     });
     expect(report.changes.length).toBeGreaterThan(0);
+    expect(report.generatedAt).toBe('2026-07-01T00:00:00.000Z');
   });
 
   it('buildGrpcLoadTestRunSummaryExport supports cancelled stop reason in hook consumers', () => {

@@ -117,16 +117,9 @@ export async function runGqlStudioLessonTeardown(
   }
 }
 
-/** Find the first VISIBLE element matching selector — avoids clicking hidden tab panels */
-export function firstVisible(selector: string): HTMLElement | null {
-  const all = document.querySelectorAll(selector);
-  for (const el of Array.from(all)) {
-    if (!(el instanceof HTMLElement)) continue;
-    const rect = el.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) return el;
-  }
-  return null;
-}
+import { firstVisibleElement as firstVisible } from './utils/domVisibility';
+
+export { firstVisible };
 
 /**
  * Restore the hub navigation position from persisted progress.

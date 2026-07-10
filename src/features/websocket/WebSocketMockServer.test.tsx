@@ -77,7 +77,7 @@ describe('WebSocketMockServer', () => {
     const mock = makeMockReturn();
     render(<WebSocketMockServer mock={mock} />);
     const el = screen.getByTestId('mock-empty-rules');
-    expect(el.textContent).toContain('No rules configured');
+    expect(el.textContent).toContain('No mock rules yet');
     expect(el.textContent).toContain('echo');
   });
 

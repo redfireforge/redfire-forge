@@ -76,7 +76,7 @@ describe('Phase 9G acceptance checklist', () => {
   it('GrpcStudioPage uses shared endpoint preview draft helper', async () => {
     const source = await import('fs/promises').then((fs) =>
       fs.readFile(
-        new URL('../../features/grpc/GrpcStudioPage.tsx', import.meta.url),
+        new URL('../../features/grpc/grpcStudioPage/useGrpcStudioPageConnectionState.ts', import.meta.url),
         'utf8',
       ),
     );

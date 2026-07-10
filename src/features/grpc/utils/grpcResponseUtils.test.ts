@@ -15,6 +15,8 @@ describe('grpcResponseUtils (Phase 1G)', () => {
   it('formats RPC status label as message · code', () => {
     expect(formatGrpcRpcStatusLabel(0, 'OK')).toBe('OK · 0');
     expect(formatGrpcRpcStatusLabel(5, 'NOT_FOUND')).toBe('NOT_FOUND · 5');
+    expect(formatGrpcRpcStatusLabel(0, '')).toBe('OK · 0');
+    expect(formatGrpcRpcStatusLabel(13, '')).toBe('INTERNAL · 13');
   });
 
   it('classifies status badge modifier', () => {

@@ -34,6 +34,7 @@ import {
   idbLoadProjects,
 } from './idbProjects';
 import { compressTrace, sampleIterations } from './traceCompression';
+import { formatStorageDiagnostics } from './storageUiPrefs';
 import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, reclaimLocalStorageQuotaForWrite } from './storageCleanup';
 import {
   idbLoadRunnerConfig,
@@ -764,6 +765,8 @@ export async function loadTheme(): Promise<string> {
   return (await readKey(THEME_KEY)) ?? 'dark';
 }
 
+export { loadPreviewSampleId, savePreviewSampleId } from './storageUiPrefs';
+
 // ---------- Requests ----------
 
 const EMPTY_REQUESTS: RequestsData = {
@@ -857,44 +860,9 @@ export async function saveWorkflowSampleDismissed(dismissed: boolean): Promise<v
   await writeKey(WORKFLOWS_SAMPLE_DISMISSED_KEY, dismissed ? 'true' : 'false');
 }
 
-/** Preview sample workflow entry ID — survives refresh via sessionStorage. */
-const WORKFLOW_PREVIEW_SAMPLE_KEY = 'workflow_preview_sample_id';
-
-export function loadPreviewSampleId(): string | null {
-  try {
-    return sessionStorage.getItem(WORKFLOW_PREVIEW_SAMPLE_KEY) || null;
-  } catch {
-    return null;
-  }
-}
-
-export function savePreviewSampleId(id: string | null): void {
-  try {
-    if (id) {
-      sessionStorage.setItem(WORKFLOW_PREVIEW_SAMPLE_KEY, id);
-    } else {
-      sessionStorage.removeItem(WORKFLOW_PREVIEW_SAMPLE_KEY);
-    }
-  } catch {
-    /* sessionStorage may be unavailable */
-  }
-}
-
-/**
- * Get a human-readable summary of localStorage usage.
- * Designed for console debugging: `await getStorageDiagnostics()`.
- */
 export async function getStorageDiagnostics(): Promise<string> {
   const usage = await getStorageUsage();
-  const sorted = Object.entries(usage.entries)
-    .sort(([, a], [, b]) => b - a);
-  const lines = ['=== Storage Diagnostics ===',
-    `Total: ${(usage.usedBytes / 1024).toFixed(0)} KB (~5 MB limit)`,
-    '', '--- Top Keys ---'];
-  for (const [key, size] of sorted.slice(0, 20)) {
-    lines.push(`  ${(size / 1024).toFixed(1)} KB — ${key}`);
-  }
-  return lines.join('\n');
+  return formatStorageDiagnostics(usage);
 }
 
 // ---------- Re-exports (catalog & workflow CRUD live in dedicated modules) ----------

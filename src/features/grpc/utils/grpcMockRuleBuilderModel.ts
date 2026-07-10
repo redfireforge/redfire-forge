@@ -66,6 +66,8 @@ export interface GrpcMockBuilderRuleRow {
   responseStatusCode?: number;
   responseBodyText: string;
   responseMessage?: string;
+  responseLatencyMs?: number;
+  collapsed?: boolean;
 }
 
 export interface GrpcMockBuilderModel {
@@ -117,6 +119,110 @@ export function createDefaultGrpcMockBuilderRuleRow(priority = 1): GrpcMockBuild
     responseStatusCode: 0,
     responseBodyText: '{}',
   };
+}
+
+/** Summarize a builder predicate node as a human-readable string (for collapsed rule summary). */
+export function summarizeBuilderPredicateNode(node: GrpcMockBuilderPredicateNode): string {
+  const not = (node.type === 'leaf' && node.negated) || (node.type === 'expression' && node.negated);
+  const prefix = not ? 'NOT ' : '';
+  switch (node.type) {
+    case 'leaf': {
+      switch (node.kind) {
+        case 'method_equals': return `${prefix}method == "${node.method ?? ''}"`;
+        case 'service_equals': return `${prefix}service == "${node.service ?? ''}"`;
+        case 'metadata_equals': return `${prefix}metadata.${node.key ?? '?'} == "${node.value ?? ''}"`;
+        case 'metadata_exists': return `${prefix}metadata.${node.key ?? '?'} exists`;
+        case 'body_path_equals': return `${prefix}body.${node.path ?? '?'} == ${JSON.stringify(node.value ?? '')}`;
+        case 'body_path_exists': return `${prefix}body.${node.path ?? '?'} exists`;
+        default: return 'unknown';
+      }
+    }
+    case 'group': {
+      const sep = node.combinator === 'and' ? ' AND ' : ' OR ';
+      const inner = node.children.map((c) => summarizeBuilderPredicateNode(c)).join(sep);
+      return `(${inner})`;
+    }
+    case 'expression':
+      return `${prefix}${node.expression}`;
+    default:
+      return 'unknown';
+  }
+}
+
+/** Build a compact one-line summary for a collapsed rule card. */
+export function summarizeBuilderRule(rule: GrpcMockBuilderRuleRow): string {
+  const predPart = rule.predicateReadOnly && rule.originalPredicate
+    ? summarizeMockRulePredicate({
+      id: rule.id, name: rule.name, enabled: rule.enabled, priority: rule.priority,
+      predicate: rule.originalPredicate, response: {},
+    })
+    : summarizeBuilderPredicateNode(rule.predicate);
+  const statusCode = rule.responseStatusCode ?? 0;
+  const bodyPreview = rule.responseBodyText.trim().slice(0, 40);
+  const bodySuffix = rule.responseBodyText.trim().length > 40 ? '…' : '';
+  return `${predPart} → ${statusCode} ${bodyPreview}${bodySuffix}`;
+}
+
+/** Extract the primary method value from a predicate for conflict detection. */
+function extractLeafMethodValue(node: GrpcMockBuilderPredicateNode): string | undefined {
+  if (node.type === 'leaf' && node.kind === 'method_equals' && !node.negated) {
+    return node.method?.trim().toLowerCase();
+  }
+  if (node.type === 'group') {
+    for (const child of node.children) {
+      const val = extractLeafMethodValue(child);
+      if (val) return val;
+    }
+  }
+  return undefined;
+}
+
+export interface GrpcMockBuilderConflict {
+  ruleAId: string;
+  ruleAName: string;
+  ruleBId: string;
+  ruleBName: string;
+  reason: string;
+}
+
+/** Detect enabled rules at the same priority that match the same method (potential conflicts). */
+export function detectGrpcMockBuilderConflicts(model: GrpcMockBuilderModel): GrpcMockBuilderConflict[] {
+  const conflicts: GrpcMockBuilderConflict[] = [];
+  const enabledRules = model.rules.filter((r) => r.enabled);
+
+  // Group by priority
+  const byPriority = new Map<number, GrpcMockBuilderRuleRow[]>();
+  for (const rule of enabledRules) {
+    const list = byPriority.get(rule.priority) ?? [];
+    list.push(rule);
+    byPriority.set(rule.priority, list);
+  }
+
+  for (const [priority, group] of byPriority) {
+    if (group.length < 2) continue;
+
+    // Check for method overlap within same priority
+    const methodMap = new Map<string, GrpcMockBuilderRuleRow>();
+    for (const rule of group) {
+      const method = extractLeafMethodValue(rule.predicate);
+      if (method) {
+        const existing = methodMap.get(method);
+        if (existing) {
+          conflicts.push({
+            ruleAId: existing.id,
+            ruleAName: existing.name,
+            ruleBId: rule.id,
+            ruleBName: rule.name,
+            reason: `Both match method "${method}" at priority ${priority}`,
+          });
+        } else {
+          methodMap.set(method, rule);
+        }
+      }
+    }
+  }
+
+  return conflicts;
 }
 
 function stripQuotedLiteralsForSecurityScan(value: string): string {
@@ -386,6 +492,7 @@ export function parseGrpcMockRuleSetToBuilderModel(ruleSet: GrpcMockRuleSet): Gr
       responseStatusCode: response.statusCode,
       responseBodyText: responseBody == null ? '' : JSON.stringify(responseBody, null, 2),
       responseMessage: response.message,
+      responseLatencyMs: response.latencyMs,
     } satisfies GrpcMockBuilderRuleRow];
   });
   return {
@@ -415,6 +522,9 @@ export function serializeGrpcMockBuilderModelToRuleSet(model: GrpcMockBuilderMod
     }
     if (row.responseMessage?.trim()) {
       response.message = row.responseMessage.trim();
+    }
+    if (row.responseLatencyMs != null && row.responseLatencyMs > 0) {
+      response.latencyMs = row.responseLatencyMs;
     }
     return {
       id: row.id.trim(),

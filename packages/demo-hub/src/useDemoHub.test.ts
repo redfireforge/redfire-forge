@@ -334,6 +334,7 @@ describe('useDemoHub', () => {
     });
     expect(result.current.state.view).toBe('concept');
     expect(result.current.state.isPlaying).toBe(false);
+    expect(navigateToTab).toHaveBeenCalledWith('demo-hub');
   });
 
   it('exitLiveDemo runs cleanup when lesson has cleanup', async () => {

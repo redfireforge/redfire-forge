@@ -349,6 +349,9 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
         const persistedDescriptor = (rawPersistedDescriptor && typeof rawPersistedDescriptor === 'object')
           ? rawPersistedDescriptor
           : undefined;
+        const descriptorSnapshot = persisted.descriptorSnapshots?.[tab.id];
+        const snapshotDescriptor = descriptorSnapshot?.descriptor;
+        const snapshotLastKnownGood = descriptorSnapshot?.lastKnownGoodDescriptor ?? snapshotDescriptor;
         return [
           tab.id,
           {
@@ -360,6 +363,14 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
                 protoIngest: persistedDescriptor.protoIngest
                   ? normalizeProtoIngestState(persistedDescriptor.protoIngest)
                   : undefined,
+              }
+              : {}),
+            ...(snapshotDescriptor
+              ? {
+                loadState: 'loaded' as const,
+                descriptor: snapshotDescriptor,
+                lastKnownGoodDescriptor: snapshotLastKnownGood,
+                sourceFingerprint: descriptorSnapshot?.sourceFingerprint,
               }
               : {}),
           },

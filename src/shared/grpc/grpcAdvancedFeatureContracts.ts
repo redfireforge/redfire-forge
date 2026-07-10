@@ -214,6 +214,7 @@ export const GRPC_LOAD_TEST_SAFETY_LIMITS = {
   maxTotalCalls: 1_000_000,
   maxRampUpMs: 5 * 60 * 1_000,
   maxWarmupCalls: 10_000,
+  maxRequestRateRps: 5_000,
 } as const;
 
 /** Phase 11O — server-streaming load-test caps (inherits unary concurrency limits). */
@@ -234,6 +235,14 @@ export interface GrpcLoadTestConfig {
   durationMs?: number;
   rampUpMs?: number;
   warmupCalls?: number;
+  /** Optional method override service for load tests (defaults to active tab method when unset). */
+  methodOverrideService?: string;
+  /** Optional method override method for load tests (defaults to active tab method when unset). */
+  methodOverrideMethod?: string;
+  /** Optional scheduler cap. 0 or undefined means unlimited launch rate. */
+  requestRateRps?: number;
+  /** Optional unary request body template serialized as JSON object text. */
+  requestTemplateJson?: string;
   /** Phase 11O — per-stream message cap for server_streaming load tests. */
   maxMessagesPerStream?: number;
 }
@@ -246,6 +255,10 @@ export interface GrpcLoadTestConfigIssue {
     | 'durationMs'
     | 'rampUpMs'
     | 'warmupCalls'
+    | 'methodOverrideService'
+    | 'methodOverrideMethod'
+    | 'requestRateRps'
+    | 'requestTemplateJson'
     | 'maxMessagesPerStream'
     | 'runId'
     | 'executeSnapshot';
@@ -375,6 +388,31 @@ export function validateGrpcLoadTestConfig(
     }
   }
 
+  if (config.methodOverrideService != null && typeof config.methodOverrideService !== 'string') {
+    issues.push({
+      path: 'methodOverrideService',
+      message: 'methodOverrideService must be a string when provided.',
+    });
+  }
+
+  if (config.methodOverrideMethod != null && typeof config.methodOverrideMethod !== 'string') {
+    issues.push({
+      path: 'methodOverrideMethod',
+      message: 'methodOverrideMethod must be a string when provided.',
+    });
+  }
+
+  const hasMethodOverrideService = typeof config.methodOverrideService === 'string'
+    && config.methodOverrideService.trim().length > 0;
+  const hasMethodOverrideMethod = typeof config.methodOverrideMethod === 'string'
+    && config.methodOverrideMethod.trim().length > 0;
+  if (hasMethodOverrideService !== hasMethodOverrideMethod) {
+    issues.push({
+      path: hasMethodOverrideService ? 'methodOverrideMethod' : 'methodOverrideService',
+      message: 'method override requires both service and method.',
+    });
+  }
+
   if (
     config.totalCalls != null
     && config.warmupCalls != null
@@ -386,6 +424,44 @@ export function validateGrpcLoadTestConfig(
       path: 'warmupCalls',
       message: 'warmupCalls must be lower than totalCalls.',
     });
+  }
+
+  if (config.requestRateRps != null) {
+    if (!isNonNegativeInteger(config.requestRateRps)) {
+      issues.push({
+        path: 'requestRateRps',
+        message: 'requestRateRps must be a non-negative integer.',
+      });
+    } else if (config.requestRateRps > GRPC_LOAD_TEST_SAFETY_LIMITS.maxRequestRateRps) {
+      issues.push({
+        path: 'requestRateRps',
+        message: `requestRateRps exceeds max ${GRPC_LOAD_TEST_SAFETY_LIMITS.maxRequestRateRps}.`,
+      });
+    }
+  }
+
+  if (config.requestTemplateJson != null && config.requestTemplateJson.trim().length > 0) {
+    if (callType !== 'unary') {
+      issues.push({
+        path: 'requestTemplateJson',
+        message: 'requestTemplateJson is supported for unary calls only.',
+      });
+    } else {
+      try {
+        const parsed = JSON.parse(config.requestTemplateJson);
+        if (parsed == null || Array.isArray(parsed) || typeof parsed !== 'object') {
+          issues.push({
+            path: 'requestTemplateJson',
+            message: 'requestTemplateJson must be a JSON object.',
+          });
+        }
+      } catch {
+        issues.push({
+          path: 'requestTemplateJson',
+          message: 'requestTemplateJson must be valid JSON.',
+        });
+      }
+    }
   }
 
   if (config.maxMessagesPerStream != null) {

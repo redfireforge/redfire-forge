@@ -235,10 +235,10 @@ describe('Phase 10G — source-scan deliverables', () => {
 
   it('GrpcStudioPage.tsx passes callType to the drawer', async () => {
     const source = await readFile(
-      `${root}/features/grpc/GrpcStudioPage.tsx`,
+      `${root}/features/grpc/grpcStudioPage/GrpcStudioPageOverlays.tsx`,
       'utf8',
     );
-    expect(source).toContain('callType={tabCallTypes[tab.id]}');
+    expect(source).toContain('callType={tabCallTypes[activeTab.id]}');
   });
 
   it('useGrpcStudio.ts guards setTabTransportMode with canChangeGrpcTabTransportMode', async () => {
@@ -261,10 +261,10 @@ describe('Phase 10G — source-scan deliverables', () => {
 
   it('GrpcStudioPage.tsx locks transport while in-flight via canChangeGrpcTabTransportMode', async () => {
     const source = await readFile(
-      `${root}/features/grpc/GrpcStudioPage.tsx`,
+      `${root}/features/grpc/grpcStudioPage/GrpcStudioPageOverlays.tsx`,
       'utf8',
     );
-    expect(source).toContain('transportChangeBlocked={!canChangeGrpcTabTransportMode(tab)}');
+    expect(source).toContain('transportChangeBlocked={!canChangeGrpcTabTransportMode(activeTab)}');
   });
 
   it('GrpcConnectionSettingsDrawer forwards callType to GrpcTransportPanel', async () => {

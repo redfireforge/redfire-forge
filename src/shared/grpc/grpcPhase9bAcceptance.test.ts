@@ -68,9 +68,16 @@ describe('Phase 9B acceptance checklist', () => {
   });
 
   it('GrpcStudioPage uses pre-env draft for header preview', async () => {
-    const pagePath = new URL('../../features/grpc/GrpcStudioPage.tsx', import.meta.url);
-    const source = await import('fs/promises').then((fs) => fs.readFile(pagePath, 'utf8'));
-    expect(source).toContain('computeGrpcStudioTargetPreview');
-    expect(source).toMatch(/endpointPreviewDraft[\s\S]*rawConnectionTarget/);
+    const fs = await import('fs/promises');
+    const header = await fs.readFile(
+      new URL('../../features/grpc/grpcStudioPage/GrpcStudioPageHeader.tsx', import.meta.url),
+      'utf8',
+    );
+    const connection = await fs.readFile(
+      new URL('../../features/grpc/grpcStudioPage/useGrpcStudioPageConnectionState.ts', import.meta.url),
+      'utf8',
+    );
+    expect(header).toContain('computeGrpcStudioTargetPreview');
+    expect(connection).toMatch(/endpointPreviewDraft[\s\S]*rawConnectionTarget/);
   });
 });

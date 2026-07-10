@@ -244,7 +244,10 @@ describe('grpcStudioAdvancedCommands transitions (Phase 11G)', () => {
 
 describe('Phase 11G deliverable source scan', () => {
   it('GrpcStudioPage wires advanced shell', () => {
-    const src = readSrc('src/features/grpc/GrpcStudioPage.tsx');
+    const barrel = readSrc('src/features/grpc/GrpcStudioPage.tsx');
+    const page = readSrc('src/features/grpc/grpcStudioPage/GrpcStudioPage.tsx');
+    const panels = readSrc('src/features/grpc/grpcStudioPage/GrpcStudioPagePanels.tsx');
+    const src = `${barrel}\n${page}\n${panels}`;
     expect(src.includes('GrpcAdvancedFeaturesShell')).toBe(true);
     expect(src.includes('useGrpcStudioAdvancedFeatures')).toBe(true);
     expect(src.includes("panelView === 'advanced'")).toBe(true);

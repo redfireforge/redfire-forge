@@ -16,6 +16,10 @@ export const GRPC_ENVOY_TARGET = 'localhost:50055';
 
 export const GRPC_STUDIO_URL = '/?tab=grpc-studio';
 
+/** Shared copy for explorer, unary, and connection-probe recovery assertions. */
+export const GRPC_RECOVERY_ERROR_PATTERN =
+  /refused|unreachable|failed|proxy|express|unavailable|could not reach|no connection|503|service unavailable|backend server/i;
+
 /** echo.EchoService / Echo — slug matches slugifyGrpcExplorerId. */
 export const ECHO_SERVICE = 'echo.EchoService';
 export const ECHO_METHOD = 'Echo';
@@ -57,6 +61,15 @@ export async function isBackendHealthy(request: APIRequestContext): Promise<bool
   }
 }
 
+function resolveE2eMockListenerPort(tabId: string): number {
+  let hash = 0;
+  for (let index = 0; index < tabId.length; index += 1) {
+    hash = (hash * 31 + tabId.charCodeAt(index)) | 0;
+  }
+  // Keep E2E listeners clear of docker/grpc fixture ports (50051–50062).
+  return 50120 + (Math.abs(hash) % 30);
+}
+
 export async function startGrpcMockListener(
   request: APIRequestContext,
   options: {
@@ -64,6 +77,7 @@ export async function startGrpcMockListener(
     connectionId?: string;
     responseMessage?: string;
     ruleSet?: GrpcMockRuleSet;
+    port?: number;
   },
 ): Promise<{ listenTarget: string }> {
   const response = await request.post('http://localhost:3001/api/grpc/mock/start', {
@@ -73,6 +87,7 @@ export async function startGrpcMockListener(
       descriptorKey: FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.descriptorKey,
       protosetBase64: FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.protosetBase64,
       contentSha256: FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.contentSha256,
+      port: options.port ?? resolveE2eMockListenerPort(options.tabId),
       ruleSet: options.ruleSet ?? {
         rules: [{
           id: 'echo-e2e',
@@ -92,13 +107,80 @@ export async function startGrpcMockListener(
   };
   const listenTarget = body.data?.status?.listenTarget;
   expect(listenTarget).toBeTruthy();
+  await waitForGrpcListenTargetOpen(listenTarget!);
   return { listenTarget: listenTarget! };
 }
 
+async function waitForGrpcListenTargetOpen(listenTarget: string, timeoutMs = 15_000): Promise<void> {
+  const match = /^([^:]+):(\d+)$/.exec(listenTarget.trim());
+  if (!match) {
+    throw new Error(`Invalid listen target: ${listenTarget}`);
+  }
+  const host = match[1];
+  const port = Number(match[2]);
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const opened = await new Promise<boolean>((resolve) => {
+      const socket = createConnection({ host, port, timeout: 1_000 });
+      const done = (result: boolean) => {
+        socket.destroy();
+        resolve(result);
+      };
+      socket.once('connect', () => done(true));
+      socket.once('timeout', () => done(false));
+      socket.once('error', () => done(false));
+    });
+    if (opened) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+
+  throw new Error(`gRPC mock listener did not open on ${listenTarget} within ${timeoutMs}ms`);
+}
+
+export async function waitForGrpcMockListenerStopped(
+  request: APIRequestContext,
+  tabId: string,
+  options?: { timeoutMs?: number; pollMs?: number },
+): Promise<void> {
+  const timeoutMs = options?.timeoutMs ?? 15_000;
+  const pollMs = options?.pollMs ?? 100;
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const response = await request.get(
+      `http://localhost:3001/api/grpc/mock/status?tabId=${encodeURIComponent(tabId)}`,
+    );
+    expect(response.ok()).toBeTruthy();
+    const body = (await response.json()) as {
+      data?: { status?: { running?: boolean } };
+    };
+    if (body.data?.status?.running !== true) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+
+  throw new Error(`gRPC mock listener for tab ${tabId} is still running after ${timeoutMs}ms`);
+}
+
 export async function stopGrpcMockListener(request: APIRequestContext, tabId: string): Promise<void> {
-  await request.post('http://localhost:3001/api/grpc/mock/stop', {
+  const response = await request.post('http://localhost:3001/api/grpc/mock/stop', {
     data: { tabId },
   });
+  expect(response.ok()).toBeTruthy();
+  await waitForGrpcMockListenerStopped(request, tabId);
+}
+
+export async function getGrpcStudioActiveTabId(page: Page): Promise<string> {
+  const tab = page.locator('[data-testid="grpc-tab-bar"]').getByRole('tab', { selected: true });
+  const tabId = await tab.getAttribute('data-testid');
+  if (!tabId) {
+    throw new Error('Expected active gRPC studio tab id');
+  }
+  return tabId;
 }
 
 export async function isGrpcLiveInfraReady(request: APIRequestContext): Promise<boolean> {
@@ -165,10 +247,55 @@ export async function setGrpcCallTimeout(page: Page, timeoutMs: number): Promise
   await expect(input).toHaveValue(String(timeoutMs));
 }
 
+const GRPC_REQUEST_COMPOSER_SELECTOR =
+  '[data-testid="grpc-proto-form"], [data-testid="grpc-request-json"]';
+
+export async function waitForGrpcRequestComposer(page: Page): Promise<void> {
+  await expect(page.locator(GRPC_REQUEST_COMPOSER_SELECTOR)).toBeVisible({ timeout: 10_000 });
+}
+
+async function isHybridJsonComposerVisible(page: Page): Promise<boolean> {
+  return page.locator('[data-testid="grpc-request-json"]').isVisible();
+}
+
+async function fillHybridJsonBody(page: Page, patch: Record<string, unknown>): Promise<void> {
+  const jsonArea = page.locator('[data-testid="grpc-request-json"]');
+  await expect(jsonArea).toBeVisible({ timeout: 10_000 });
+  const current = await jsonArea.inputValue();
+  let body: Record<string, unknown> = {};
+  if (current.trim()) {
+    try {
+      const parsed = JSON.parse(current) as unknown;
+      if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+        body = parsed as Record<string, unknown>;
+      }
+    } catch {
+      body = {};
+    }
+  }
+  const nextBody = { ...body, ...patch };
+  const nextText = JSON.stringify(nextBody, null, 2);
+  await jsonArea.fill(nextText);
+  await expect(jsonArea).toHaveValue(nextText);
+}
+
 export async function fillProtoField(page: Page, fieldName: string, value: string): Promise<void> {
-  const input = page.locator(`[data-testid="grpc-proto-field-input-${fieldName}"]`);
-  await input.fill(value);
-  await expect(input).toHaveValue(value);
+  const protoInput = page.locator(`[data-testid="grpc-proto-field-input-${fieldName}"]`);
+  if (await protoInput.isVisible()) {
+    await protoInput.fill(value);
+    await expect(protoInput).toHaveValue(value);
+    return;
+  }
+
+  if (fieldName === 'message') {
+    await fillHybridJsonBody(page, { message: value });
+    return;
+  }
+
+  const numeric = Number(value);
+  await fillHybridJsonBody(page, {
+    [fieldName]: Number.isFinite(numeric) && value.trim() !== '' ? numeric : value,
+  });
 }
 
 export async function reflectGrpcServices(page: Page): Promise<void> {
@@ -204,7 +331,7 @@ export async function selectGrpcMethod(
   }
   await expect(methodBtn).toBeVisible({ timeout: 10_000 });
   await methodBtn.click();
-  await expect(page.locator('[data-testid="grpc-proto-form"]')).toBeVisible({ timeout: 10_000 });
+  await waitForGrpcRequestComposer(page);
 }
 
 export async function fillStreamRequest(
@@ -225,13 +352,16 @@ export async function fillStreamRequest(
   if (fields.interval_ms !== undefined) body.interval_ms = fields.interval_ms;
 
   await page.locator('[data-testid="grpc-request-tab-form"]').click();
+  if (await isHybridJsonComposerVisible(page)) {
+    await fillHybridJsonBody(page, body);
+    return;
+  }
+
   if (fields.message !== undefined) {
     await expect(page.locator('[data-testid="grpc-proto-field-input-message"]')).toHaveValue(fields.message);
   }
   if (fields.repeat_count !== undefined) {
     await fillProtoField(page, 'repeat_count', String(fields.repeat_count));
-  }
-  if (fields.repeat_count !== undefined) {
     await expect(page.locator('[data-testid="grpc-proto-field-input-repeat_count"]')).toHaveValue(String(fields.repeat_count));
   }
   if (fields.interval_ms !== undefined) {
@@ -246,8 +376,49 @@ export async function startGrpcStream(page: Page): Promise<void> {
   await btn.click();
 }
 
+export async function restartGrpcStreamAfterTargetChange(page: Page): Promise<void> {
+  const startBtn = page.locator('[data-testid="grpc-stream-start-btn"]');
+  if (await startBtn.isVisible().catch(() => false)) {
+    await startGrpcStream(page);
+    return;
+  }
+  const cancelBtn = page.locator('[data-testid="grpc-stream-cancel-btn"]');
+  if (await cancelBtn.isEnabled().catch(() => false)) {
+    await cancelGrpcStream(page);
+  }
+  await expect(startBtn).toBeVisible({ timeout: 10_000 });
+  await startGrpcStream(page);
+}
+
 export async function waitForStreamStatus(page: Page, label: string | RegExp): Promise<void> {
   await expect(page.locator('[data-testid="grpc-stream-status-badge"]')).toContainText(label, { timeout: 30_000 });
+}
+
+/** After a mock listener stops, streams may need end/write to surface dial failures on client/bidi RPCs. */
+export async function waitForStreamErrorOnStoppedListener(
+  page: Page,
+  options?: { triggerEnd?: boolean },
+): Promise<void> {
+  await startGrpcStream(page);
+  if (options?.triggerEnd !== false) {
+    const endBtn = page.locator('[data-testid="grpc-stream-end-btn"]');
+    if (await endBtn.isEnabled().catch(() => false)) {
+      await endGrpcStream(page);
+    }
+  }
+
+  const errorBlock = page.locator('[data-testid="grpc-stream-error-block"]');
+  const badge = page.locator('[data-testid="grpc-stream-status-badge"]');
+  await expect(async () => {
+    if (await errorBlock.isVisible()) {
+      return;
+    }
+    const badgeText = (await badge.textContent()) ?? '';
+    if (/Error/i.test(badgeText)) {
+      return;
+    }
+    throw new Error(`Expected stream failure UI, badge="${badgeText}"`);
+  }).toPass({ timeout: 30_000 });
 }
 
 export async function waitForStreamEnded(page: Page): Promise<void> {
@@ -259,7 +430,7 @@ export async function waitForStreamLogContains(page: Page, text: string | RegExp
 }
 
 export async function enqueueStreamMessage(page: Page): Promise<void> {
-  const btn = page.locator('[data-testid="grpc-stream-compose-panel"] [data-testid="grpc-stream-add-queue-btn"]');
+  const btn = page.locator('[data-testid="grpc-stream-add-queue-btn"]');
   await expect(btn).toBeEnabled({ timeout: 10_000 });
   await btn.evaluate((node) => (node as HTMLButtonElement).click());
 }
@@ -276,18 +447,18 @@ export async function waitForStreamStreaming(page: Page): Promise<void> {
 
 export async function sendStreamMessage(page: Page): Promise<void> {
   await waitForStreamStreaming(page);
-  const sendNow = page.locator('[data-testid="grpc-stream-compose-panel"] [data-testid="grpc-stream-send-now-btn"]');
+  const sendNow = page.locator('[data-testid="grpc-stream-send-now-btn"]');
   if (await sendNow.count()) {
     await expect(sendNow).toBeEnabled({ timeout: 10_000 });
     await sendNow.evaluate((node) => (node as HTMLButtonElement).click());
     return;
   }
-  const addQueue = page.locator('[data-testid="grpc-stream-compose-panel"] [data-testid="grpc-stream-add-queue-btn"]');
+  const addQueue = page.locator('[data-testid="grpc-stream-add-queue-btn"]');
   if (await addQueue.count()) {
     await enqueueStreamMessage(page);
     return;
   }
-  const btn = page.locator('[data-testid="grpc-stream-compose-panel"] [data-testid="grpc-stream-send-message-btn"]');
+  const btn = page.locator('[data-testid="grpc-stream-send-message-btn"]');
   await expect(btn).toBeEnabled({ timeout: 10_000 });
   await btn.evaluate((node) => (node as HTMLButtonElement).click());
 }
@@ -299,7 +470,7 @@ export async function endGrpcStream(page: Page): Promise<void> {
     await pendingEnd.evaluate((node) => (node as HTMLButtonElement).click());
     return;
   }
-  const btn = page.locator('[data-testid="grpc-stream-compose-panel"] [data-testid="grpc-stream-end-btn"]');
+  const btn = page.locator('[data-testid="grpc-stream-end-btn"]');
   await expect(btn).toBeEnabled({ timeout: 10_000 });
   await btn.evaluate((node) => (node as HTMLButtonElement).click());
 }

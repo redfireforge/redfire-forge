@@ -9,6 +9,7 @@
  *   grpc14-baseline     — Click "Capture baseline"; see key + timestamp chip
  *   grpc14-compare      — Simulate server v2 + Compare; diff results appear
  *   grpc14-read-diff    — Read the change list: breaking row + informational row
+ *   grpc14-proto-modal  — Click Proto diff badge to open scoped modal details
  *   grpc14-filter       — Filter by Breaking severity; spotlight the critical row
  *   grpc14-export       — Copy JSON diff report; Copy Markdown changelog
  *   grpc14-ack          — Acknowledge a change; toggle Hide acknowledged
@@ -343,7 +344,56 @@ const steps: DemoStep[] = [
   },
 
   // =========================================================================
-  // Step 5 — Filter by Breaking severity
+  // Step 5 — Open Proto Schema Diff modal from group badge
+  // =========================================================================
+  {
+    id: 'grpc14-proto-modal',
+    title: 'Open Proto Schema Diff Modal',
+    pauseAfter: true,
+    description:
+      'Each grouped change header now shows a **Proto diff** badge so users can discover this feature immediately. ' +
+      'Click the grouped `echo.EchoRequest` header to open **Proto Schema Diff**.\n\n' +
+      'Inside the modal you can review:\n' +
+      '- Side-by-side baseline vs current proto text\n' +
+      '- Severity summary counts\n' +
+      '- Scoped impact rows for the selected entity path\n\n' +
+      'Use this view whenever you need a focused explanation for one message/service instead of scanning the full table.',
+    highlight: GRPC.SCHEMA_DIFF_PROTO_BADGE,
+    preAction: async (ctx) => {
+      if (!document.querySelector(GRPC.SCHEMA_DIFF_RESULTS)) {
+        await navigateToSchemaDiffPanelQuiet(ctx);
+        await ensureBaselineCapturedQuiet(ctx);
+        patchGrpcSchemaDiffReport({ report: DEMO_DIFF_REPORT });
+        await ctx.delay(400);
+      }
+      const closeBtn = document.querySelector<HTMLElement>(GRPC.SCHEMA_DIFF_PROTO_MODAL_CLOSE);
+      if (closeBtn) {
+        closeBtn.click();
+        await ctx.delay(250);
+      }
+    },
+    action: async (ctx) => {
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PROTO_BADGE, 900);
+      await ctx.click(GRPC.SCHEMA_DIFF_PROTO_BTN);
+      await ctx.delay(500);
+
+      try {
+        await ctx.waitFor(GRPC.SCHEMA_DIFF_PROTO_MODAL, 3_000);
+      } catch { /* modal is usually immediate */ }
+      await ctx.delay(350);
+
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PROTO_MODAL, 950);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PROTO_MODAL_CLOSE, 700);
+
+      await ctx.click(GRPC.SCHEMA_DIFF_PROTO_MODAL_CLOSE);
+      await ctx.delay(450);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, 700);
+    },
+    verify: GRPC.SCHEMA_DIFF_CHANGE_LIST,
+  },
+
+  // =========================================================================
+  // Step 6 — Filter by Breaking severity
   // =========================================================================
   {
     id: 'grpc14-filter',
@@ -390,7 +440,7 @@ const steps: DemoStep[] = [
   },
 
   // =========================================================================
-  // Step 6 — Export diff as JSON + Markdown
+  // Step 7 — Export diff as JSON + Markdown
   // =========================================================================
   {
     id: 'grpc14-export',
@@ -434,7 +484,7 @@ const steps: DemoStep[] = [
   },
 
   // =========================================================================
-  // Step 7 — Acknowledge + Hide acknowledged
+  // Step 8 — Acknowledge + Hide acknowledged
   // =========================================================================
   {
     id: 'grpc14-ack',

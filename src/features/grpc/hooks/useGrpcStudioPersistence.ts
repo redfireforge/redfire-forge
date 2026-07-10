@@ -6,6 +6,7 @@
 import { useEffect, useCallback, useRef } from 'react';
 import type { GrpcStudioSessionState } from './grpcStudioSessionHelpers';
 import type { GrpcStudioTabState, GrpcTabDescriptorState } from '../grpcStudioTypes';
+import type { GrpcDescriptor, GrpcDescriptorSourceFingerprint } from '../../../shared/grpc/contracts';
 
 const GRPC_STUDIO_SESSION_STORAGE_KEY = 'grpc-studio-session-v1';
 const GRPC_STUDIO_DESCRIPTORS_STORAGE_KEY = 'grpc-studio-descriptors-v1';
@@ -47,7 +48,20 @@ interface GrpcStudioPersistedSession {
   activeTabId: string;
   tabs: PersistableTabState[];
   tabDescriptors: Record<string, PersistableDescriptorState>;
+  descriptorSnapshots?: Record<string, PersistedDescriptorSnapshot>;
   timestamp: number;
+}
+
+interface PersistedDescriptorSnapshot {
+  descriptor?: GrpcDescriptor;
+  lastKnownGoodDescriptor?: GrpcDescriptor;
+  sourceFingerprint?: GrpcDescriptorSourceFingerprint;
+}
+
+interface PersistedDescriptorSnapshotEnvelope {
+  version: number;
+  timestamp: number;
+  tabSnapshots: Record<string, PersistedDescriptorSnapshot>;
 }
 
 /**
@@ -110,7 +124,54 @@ function restorePersistedSession(): GrpcStudioPersistedSession | null {
       return null;
     }
 
+    const descriptorSnapshots = restorePersistedDescriptorSnapshots();
+    if (descriptorSnapshots) {
+      session.descriptorSnapshots = descriptorSnapshots;
+    }
+
     return session;
+  } catch {
+    return null;
+  }
+}
+
+function extractPersistedDescriptorSnapshots(
+  session: GrpcStudioSessionState,
+): Record<string, PersistedDescriptorSnapshot> {
+  const descriptors = session.tabDescriptors ?? {};
+  return Object.fromEntries(
+    Object.entries(descriptors)
+      .filter(([, descriptorState]) => Boolean(
+        descriptorState?.descriptor || descriptorState?.lastKnownGoodDescriptor,
+      ))
+      .map(([tabId, descriptorState]) => [
+        tabId,
+        {
+          descriptor: descriptorState.descriptor,
+          lastKnownGoodDescriptor: descriptorState.lastKnownGoodDescriptor,
+          sourceFingerprint: descriptorState.sourceFingerprint,
+        },
+      ]),
+  );
+}
+
+function restorePersistedDescriptorSnapshots(): Record<string, PersistedDescriptorSnapshot> | null {
+  try {
+    const raw = localStorage.getItem(GRPC_STUDIO_DESCRIPTORS_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as PersistedDescriptorSnapshotEnvelope;
+    if (!parsed || parsed.version !== 1 || typeof parsed !== 'object') {
+      return null;
+    }
+    if (!parsed.tabSnapshots || typeof parsed.tabSnapshots !== 'object') {
+      return null;
+    }
+    if (parsed.timestamp && Date.now() - parsed.timestamp > 7 * 24 * 60 * 60 * 1000) {
+      return null;
+    }
+    return parsed.tabSnapshots;
   } catch {
     return null;
   }
@@ -153,9 +214,18 @@ export function useGrpcStudioPersistence(
   const saveSession = useCallback(() => {
     try {
       const persistable = extractPersistableSession(session as GrpcStudioSessionState);
+      const descriptorSnapshots = extractPersistedDescriptorSnapshots(session as GrpcStudioSessionState);
       localStorage.setItem(
         GRPC_STUDIO_SESSION_STORAGE_KEY,
         JSON.stringify(persistable),
+      );
+      localStorage.setItem(
+        GRPC_STUDIO_DESCRIPTORS_STORAGE_KEY,
+        JSON.stringify({
+          version: 1,
+          timestamp: Date.now(),
+          tabSnapshots: descriptorSnapshots,
+        } satisfies PersistedDescriptorSnapshotEnvelope),
       );
     } catch {
       // localStorage may be unavailable or quota exceeded

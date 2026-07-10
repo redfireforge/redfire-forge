@@ -1,6 +1,8 @@
 import {
   GRPC_ERROR_CODES,
   type GrpcErrorBody,
+  type GrpcCallResult,
+  normalizeGrpcMetadata,
 } from '../../../shared/grpc/contracts';
 import { resolveDescriptorSourceFingerprint } from '../../../shared/grpc/descriptorSourcePolicy';
 import {
@@ -26,6 +28,7 @@ import {
 import { isGrpcExecuteBlockedByDrift } from '../utils/grpcReplayBinding';
 import { findGrpcMethod } from '../utils/grpcExplorerUtils';
 import { captureGrpcCallHistoryFromOutcome } from '../utils/grpcStudioCallHistoryCapture';
+import { getGrpcStudioMockRuntimeRegistry } from '../utils/grpcStudioAdvancedCommands';
 import {
   grpcApiErrorToExpressFallbackBody,
   isGrpcExpressFallbackOffered,
@@ -295,6 +298,57 @@ export function createExecuteUnaryCallHandler(
 
     try {
       const request = snapshotToUnaryCallRequest(snapshot);
+
+      // ── Client-side mock interception ───────────────────────────────────
+      // If a mock runtime is running for this tab in the browser registry,
+      // evaluate the rule set locally and bypass the network entirely.
+      const mockRegistry = getGrpcStudioMockRuntimeRegistry();
+      if (mockRegistry.hasManager(tabId)) {
+        const mockManager = mockRegistry.getManager(tabId);
+        if (mockManager.getState().operation.status === 'running') {
+          const mockResult = await mockManager.executeUnaryCall({
+            service: request.service,
+            method: request.method,
+            callType: 'unary',
+            metadata: normalizeGrpcMetadata(request.metadata),
+            requestBody: request.body ?? {},
+          });
+          if (isStale()) return;
+          delete core.inFlightCallRef.current[tabId];
+
+          const mockData: GrpcCallResult = {
+            callType: 'unary',
+            status: mockResult.evaluation.response.statusCode ?? 0,
+            statusMessage: mockResult.evaluation.response.message ?? '',
+            headers: {},
+            trailers: {},
+            body: (mockResult.evaluation.response.body ?? undefined) as Record<string, unknown> | undefined,
+            durationMs: mockResult.latencyMs,
+          };
+          const latencyHistoryMs = [
+            ...(core.sessionRef.current.tabs.find((entry) => entry.id === tabId)?.latencyHistoryMs ?? []),
+            mockData.durationMs,
+          ].slice(-200);
+          ctx.updateTab(tabId, {
+            lifecycle: 'success',
+            activeRequestId: undefined,
+            lastResult: mockData,
+            lastError: undefined,
+            latencyHistoryMs,
+          });
+          captureGrpcCallHistoryFromOutcome({
+            snapshot,
+            result: mockData,
+            templateContext: {
+              rawTarget: core.sessionRef.current.tabs.find((entry) => entry.id === tabId)?.target,
+              filterTarget: snapshot.target.address,
+            },
+          });
+          return;
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────────
+
       const envelope = await invokeGrpcUnary({
         request,
         tabId,
