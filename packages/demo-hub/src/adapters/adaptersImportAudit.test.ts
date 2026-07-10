@@ -34,7 +34,8 @@ const MIGRATED_REL_PATHS = new Set([
   'protocols/kafka-test-runner.ts',
   'protocols/ws-test-runner.ts',
   'protocols/ws-workflow-builder.ts',
-  'protocols/grpc-lesson-helpers.ts',
+  'protocols/grpc-lesson-helpers/lifecycle.ts',
+  'protocols/grpc-lesson-helpers/constants.ts',
   'grpc-demo-storage-cleanup.ts',
 ]);
 
