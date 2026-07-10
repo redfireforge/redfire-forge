@@ -52,14 +52,21 @@ describe('Phase 4J acceptance checklist (4J-E traceability)', () => {
   });
 
   it('GrpcStudioPage wires headless TLS modal host — not inline PEM in explorer (4J-B)', () => {
-    const source = readFileSync(join(ROOT, 'src/features/grpc/GrpcStudioPage.tsx'), 'utf8');
-    expect(source).toContain('GrpcTlsPanel');
-    expect(source).toContain('handleTlsBadgeClick');
-    expect(source).toContain('GrpcConnectionSettingsDrawer');
-    const explorerIdx = source.indexOf('GrpcExplorerPane');
-    const tlsHostIdx = source.indexOf('<GrpcTlsPanel');
-    expect(explorerIdx).toBeGreaterThan(-1);
-    expect(tlsHostIdx).toBeGreaterThan(explorerIdx);
+    const page = readFileSync(join(ROOT, 'src/features/grpc/grpcStudioPage/GrpcStudioPage.tsx'), 'utf8');
+    const panels = readFileSync(join(ROOT, 'src/features/grpc/grpcStudioPage/GrpcStudioPagePanels.tsx'), 'utf8');
+    const overlays = readFileSync(join(ROOT, 'src/features/grpc/grpcStudioPage/GrpcStudioPageOverlays.tsx'), 'utf8');
+    const connection = readFileSync(
+      join(ROOT, 'src/features/grpc/grpcStudioPage/useGrpcStudioPageConnectionState.ts'),
+      'utf8',
+    );
+    expect(overlays).toContain('GrpcTlsPanel');
+    expect(connection).toContain('handleTlsBadgeClick');
+    expect(overlays).toContain('GrpcConnectionSettingsDrawer');
+    expect(panels).toContain('GrpcExplorerPane');
+    const panelsRenderIdx = page.indexOf('<GrpcStudioPagePanels');
+    const overlaysRenderIdx = page.indexOf('<GrpcStudioPageOverlays');
+    expect(panelsRenderIdx).toBeGreaterThan(-1);
+    expect(overlaysRenderIdx).toBeGreaterThan(panelsRenderIdx);
   });
 
   it('GrpcHealthCheckPanel shows Spring Actuator hint when health is available (4G + 4J-D)', () => {

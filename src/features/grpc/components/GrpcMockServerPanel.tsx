@@ -12,6 +12,8 @@ import {
   supportsGrpcMockNetworkListener,
 } from '../utils/grpcMockListenerClient';
 import type { GrpcMockListenerLogEntry } from '../../../shared/grpc/grpcMockListenerContracts';
+import { highlightJsonTokens } from '../utils/grpcMockJsonHighlight';
+import { HighlightedHtmlTextarea } from '../../../shared/components/HighlightedHtmlTextarea';
 
 export type GrpcMockAuthoringTab = 'builder' | 'json' | 'runtime';
 
@@ -38,6 +40,7 @@ function mergeListenerLogs(
 export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
   const [authoringTab, setAuthoringTab] = useState<GrpcMockAuthoringTab>('builder');
   const [listenerLogs, setListenerLogs] = useState<GrpcMockListenerLogEntry[]>([]);
+  const [builderToolbarHost, setBuilderToolbarHost] = useState<HTMLDivElement | null>(null);
   const logCursorRef = useRef(-1);
   const listenerStatus = advanced.mockServer.listenerStatus;
   const networkSupported = supportsGrpcMockNetworkListener();
@@ -86,26 +89,15 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
     <section className="grpc-advanced-panel" data-testid="grpc-mock-server-panel">
       <header className="grpc-advanced-card__header grpc-mock-header">
         <div className="grpc-mock-header__content">
-          <h2 className="grpc-advanced-card__title">Mock server runtime</h2>
-          <p className="grpc-advanced-card__subtitle">
-            Rule evaluator for tab {advanced.activeTabLabel}
-            {networkSupported
-              ? ' — optional dialable endpoint for external clients and GRPC-13.'
-              : ' — network listener requires the web companion server (npm run server).'}
-          </p>
-
-          <div className="grpc-mock-header__meta" aria-label="Mock runtime context">
-            <span className="grpc-mock-header__meta-chip">
-              Tab: {advanced.activeTabLabel}
+          <h2 className="grpc-advanced-card__title grpc-mock-header__title-inline">
+            Mock server runtime.
+            <span className="grpc-mock-header__title-detail">
+              Rule evaluator for tab {advanced.activeTabLabel}
+              {networkSupported
+                ? ' - optional dialable endpoint for external clients and GRPC-13.'
+                : ' - network listener requires the web companion server (npm run server).'}
             </span>
-            <span
-              className={`grpc-mock-header__meta-chip${networkSupported
-                ? ' grpc-mock-header__meta-chip--ok'
-                : ' grpc-mock-header__meta-chip--warn'}`}
-            >
-              {networkSupported ? 'Listener available' : 'Listener unavailable'}
-            </span>
-          </div>
+          </h2>
 
           <div className="grpc-mock-summary-row" aria-label="Mock runtime summary">
             <div className={`grpc-mock-summary-card grpc-mock-summary-card--${status.variant}`}>
@@ -126,26 +118,30 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
                   : 'Companion required'}
               </span>
             </div>
-          </div>
 
-          {networkSupported && (
-            <label className="grpc-mock-network-toggle">
-              <input
-                type="checkbox"
-                data-testid="grpc-mock-expose-network"
-                checked={exposeNetwork}
-                disabled={advanced.mockRunning}
-                onChange={(event) => advanced.patchMockExposeNetwork(event.target.checked)}
-              />
-              <span>Expose network endpoint</span>
-            </label>
-          )}
+            {networkSupported && (
+              <label className="grpc-mock-network-toggle grpc-mock-network-toggle--inline">
+                <input
+                  type="checkbox"
+                  data-testid="grpc-mock-expose-network"
+                  checked={exposeNetwork}
+                  disabled={advanced.mockRunning}
+                  onChange={(event) => advanced.patchMockExposeNetwork(event.target.checked)}
+                />
+                <span>Expose network endpoint</span>
+              </label>
+            )}
+          </div>
         </div>
         <div className="grpc-advanced-card__actions grpc-mock-header__actions">
           {listenerStatus?.listenTarget && (
             <div className="grpc-mock-listen-chip-row">
-              <span className="grpc-advanced-chip" data-testid="grpc-mock-listen-target">
-                Listen: {listenerStatus.listenTarget}
+              <span
+                className="grpc-advanced-chip grpc-mock-listen-target-chip"
+                data-testid="grpc-mock-listen-target"
+              >
+                <span className="grpc-mock-listen-target-chip__label">Listen</span>
+                <span className="grpc-mock-listen-target-chip__value">{listenerStatus.listenTarget}</span>
               </span>
               <button
                 type="button"
@@ -160,7 +156,10 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
                 Copy
               </button>
               {listenerStatus.generation > 0 && (
-                <span className="grpc-advanced-chip" data-testid="grpc-mock-listener-generation">
+                <span
+                  className="grpc-advanced-chip grpc-mock-listener-generation-chip"
+                  data-testid="grpc-mock-listener-generation"
+                >
                   Gen {listenerStatus.generation}
                 </span>
               )}
@@ -192,13 +191,13 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
         </div>
       </header>
 
-      <div className="grpc-mock-authoring-tabs" role="tablist" aria-label="Mock authoring mode">
-        <span className="grpc-mock-authoring-tabs__label">Authoring</span>
+      <div className="grpc-mock-authoring-tabs mock-server-tabs" role="tablist" aria-label="Mock authoring mode">
+        <span className="grpc-mock-authoring-tabs__label mock-server-tabs__label">Authoring</span>
         <button
           type="button"
           role="tab"
           aria-selected={authoringTab === 'builder'}
-          className={`grpc-mock-authoring-tab${authoringTab === 'builder' ? ' grpc-mock-authoring-tab--active' : ''}`}
+          className={`grpc-mock-authoring-tab mock-server-tab${authoringTab === 'builder' ? ' grpc-mock-authoring-tab--active mock-server-tab--active' : ''}`}
           data-testid="grpc-mock-tab-builder"
           onClick={() => setAuthoringTab('builder')}
         >
@@ -208,7 +207,7 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
           type="button"
           role="tab"
           aria-selected={authoringTab === 'json'}
-          className={`grpc-mock-authoring-tab${authoringTab === 'json' ? ' grpc-mock-authoring-tab--active' : ''}`}
+          className={`grpc-mock-authoring-tab mock-server-tab${authoringTab === 'json' ? ' grpc-mock-authoring-tab--active mock-server-tab--active' : ''}`}
           data-testid="grpc-mock-tab-json"
           onClick={() => setAuthoringTab('json')}
         >
@@ -218,28 +217,37 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
           type="button"
           role="tab"
           aria-selected={authoringTab === 'runtime'}
-          className={`grpc-mock-authoring-tab${authoringTab === 'runtime' ? ' grpc-mock-authoring-tab--active' : ''}`}
+          className={`grpc-mock-authoring-tab mock-server-tab${authoringTab === 'runtime' ? ' grpc-mock-authoring-tab--active mock-server-tab--active' : ''}`}
           data-testid="grpc-mock-tab-runtime"
           onClick={() => setAuthoringTab('runtime')}
         >
           Runtime
         </button>
+        {authoringTab === 'builder' && (
+          <div
+            ref={setBuilderToolbarHost}
+            className="grpc-mock-authoring-tabs__tools"
+            data-testid="grpc-mock-authoring-tools"
+          />
+        )}
       </div>
 
       {authoringTab === 'builder' && (
-        <GrpcMockRuleBuilderPanel advanced={advanced} />
+        <GrpcMockRuleBuilderPanel advanced={advanced} toolbarHost={builderToolbarHost} />
       )}
 
       {authoringTab === 'json' && (
-        <div className="grpc-advanced-card grpc-advanced-card__body" data-testid="grpc-mock-json-panel">
-          <label className="grpc-advanced-field grpc-advanced-field--stacked">
+        <div className="grpc-advanced-card grpc-advanced-card__body grpc-mock-json-panel" data-testid="grpc-mock-json-panel">
+          <label className="grpc-advanced-field grpc-advanced-field--stacked grpc-mock-json-panel__field">
             <span className="grpc-advanced-field__label">Rules JSON</span>
-            <textarea
-              className="grpc-advanced-textarea"
-              rows={12}
-              data-testid="grpc-mock-rules-json"
+            <HighlightedHtmlTextarea
               value={advanced.mockServer.rulesJson}
-              onChange={(event) => advanced.patchMockRulesJson(event.target.value)}
+              onChange={(v) => advanced.patchMockRulesJson(v)}
+              highlightHtml={highlightJsonTokens}
+              rows={16}
+              testId="grpc-mock-rules-json"
+              wrapTestId="grpc-mock-json-editor"
+              ariaLabel="Mock rules JSON"
             />
           </label>
 
@@ -302,13 +310,13 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
               Configure default latency and jitter to simulate service behavior before applying per-rule overrides.
             </p>
 
-            <div className="grpc-advanced-form-grid grpc-advanced-form-grid--two">
-              <label className="grpc-advanced-field">
-                <span className="grpc-advanced-field__label">Default latency (ms)</span>
+            <div className="grpc-mock-latency-row">
+              <label className="grpc-mock-latency-field">
+                <span className="grpc-mock-latency-field__label">Default Latency (ms)</span>
                 <input
                   type="number"
                   min={0}
-                  className="grpc-advanced-input"
+                  className="grpc-mock-latency-field__input"
                   data-testid="grpc-mock-latency-default"
                   value={advanced.mockServer.latencyPolicy?.defaultLatencyMs ?? ''}
                   onChange={(event) => {
@@ -319,12 +327,12 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
                   }}
                 />
               </label>
-              <label className="grpc-advanced-field">
-                <span className="grpc-advanced-field__label">Jitter (ms)</span>
+              <label className="grpc-mock-latency-field">
+                <span className="grpc-mock-latency-field__label">Jitter (ms)</span>
                 <input
                   type="number"
                   min={0}
-                  className="grpc-advanced-input"
+                  className="grpc-mock-latency-field__input"
                   data-testid="grpc-mock-latency-jitter"
                   value={advanced.mockServer.latencyPolicy?.jitterMs ?? ''}
                   onChange={(event) => {
@@ -383,7 +391,9 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
               {ruleSet.rules.length === 0 && (
                 <p className="grpc-advanced-hint">No rules configured — unmatched calls return UNIMPLEMENTED.</p>
               )}
-              {ruleSet.rules.map((rule) => (
+              {ruleSet.rules.map((rule) => {
+                const hitCount = managerState?.ruleHitCounts?.[rule.id] ?? 0;
+                return (
                 <div
                   key={rule.id}
                   className={`grpc-advanced-rule-item${rule.enabled ? ' grpc-advanced-rule-item--on' : ''}`}
@@ -394,11 +404,37 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
                     aria-hidden="true"
                   />
                   <div className="grpc-advanced-rule-body">
-                    <div className="grpc-advanced-rule-name">{rule.name}</div>
+                    <div className="grpc-advanced-rule-name">
+                      {rule.name}
+                      {advanced.mockRunning && (
+                        <span
+                          className={`grpc-mock-hit-badge${hitCount > 0 ? ' grpc-mock-hit-badge--active' : ''}`}
+                          data-testid={`grpc-mock-hit-count-${rule.id}`}
+                          title={`${hitCount} hit${hitCount !== 1 ? 's' : ''} since start`}
+                        >
+                          {hitCount}
+                        </span>
+                      )}
+                    </div>
                     <div className="grpc-advanced-rule-condition">{summarizeMockRulePredicate(rule)}</div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
+              {advanced.mockRunning && (managerState?.defaultHitCount ?? 0) + (managerState?.missCount ?? 0) > 0 && (
+                <div className="grpc-mock-hit-summary" data-testid="grpc-mock-hit-summary">
+                  {(managerState?.defaultHitCount ?? 0) > 0 && (
+                    <span className="grpc-mock-hit-summary__item">
+                      Default: {managerState?.defaultHitCount ?? 0}
+                    </span>
+                  )}
+                  {(managerState?.missCount ?? 0) > 0 && (
+                    <span className="grpc-mock-hit-summary__item grpc-mock-hit-summary__item--miss">
+                      No match: {managerState?.missCount ?? 0}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </>

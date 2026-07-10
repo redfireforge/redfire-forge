@@ -9,6 +9,7 @@ import { executeGrpcAction } from './grpcExecution';
 import type { GrpcHarnessOperations } from '../shared/grpc/buildGrpcHarnessOperations';
 import * as buildOpsModule from '../shared/grpc/buildGrpcHarnessOperations';
 import * as harnessExecutor from '../shared/grpc/grpcHarnessExecutor';
+import * as grpcHarnessResultBuilder from '../shared/grpc/grpcHarnessResultBuilder';
 import * as validationResultModule from './validationResult';
 
 function grpcScenario(overrides: Partial<Scenario> = {}): Scenario {
@@ -369,5 +370,106 @@ describe('grpcExecution coverage gaps', () => {
     });
     const result = await executeGrpcAction(scenario, ops);
     expect(result.responseBody).toContain('only-body');
+  });
+
+  it('prefers transport errorDetail over grpcStatusMessage when call fails', async () => {
+    const ops = mockOps({
+      invokeUnary: vi.fn(async () => ({
+        callType: 'unary' as const,
+        passed: false,
+        grpcStatus: 13,
+        grpcStatusMessage: 'INTERNAL',
+        errorDetail: 'custom transport detail',
+        durationMs: 3,
+        headers: {},
+        trailers: {},
+        attempts: 1,
+      })),
+    });
+    const result = await executeGrpcAction(grpcScenario(), ops);
+    expect(result.passed).toBe(false);
+    expect(result.errorMessage).toBe('custom transport detail');
+  });
+
+  it('formats validation failure detail from failureDetails when errorMessage is absent', async () => {
+    const validationSpy = vi.spyOn(validationResultModule, 'buildValidationResult').mockReturnValue({
+      passed: false,
+      failureDetails: [{ path: '$.payload', expected: 'alpha', actual: 'beta' }],
+    });
+    const result = await executeGrpcAction(grpcScenario(), mockOps());
+    expect(result.passed).toBe(false);
+    expect(result.errorMessage).toBe('$.payload: expected alpha, got beta');
+    validationSpy.mockRestore();
+  });
+
+  it('returns undefined validation failure detail when failureDetails are empty', async () => {
+    const validationSpy = vi.spyOn(validationResultModule, 'buildValidationResult').mockReturnValue({
+      passed: false,
+      failureDetails: [],
+    });
+    const result = await executeGrpcAction(grpcScenario(), mockOps());
+    expect(result.passed).toBe(false);
+    expect(result.grpcResultMeta?.harnessResult?.errorDetail).toBeUndefined();
+    validationSpy.mockRestore();
+  });
+
+  it('falls back to buildErrorResult message when harness errorDetail is absent', async () => {
+    const buildSpy = vi.spyOn(harnessExecutor, 'buildGrpcHarnessSnapshotForScenario')
+      .mockImplementation(() => {
+        throw new Error('snapshot build failed');
+      });
+    const harnessSpy = vi.spyOn(grpcHarnessResultBuilder, 'buildGrpcHarnessResult')
+      .mockReturnValue({
+        schemaVersion: 1,
+        scenarioId: 'grpc-exec-gap',
+        callType: 'unary',
+        status: 'error',
+        durationMs: 0,
+        assertionResults: [],
+        errorCategory: 'internal',
+        errorDetail: undefined,
+      });
+    try {
+      const result = await executeGrpcAction(grpcScenario(), mockOps());
+      expect(result.errorMessage).toContain('snapshot build failed');
+    } finally {
+      buildSpy.mockRestore();
+      harnessSpy.mockRestore();
+    }
+  });
+
+  it('uses cfg.target when error mapping receives undefined target override', async () => {
+    const buildSpy = vi.spyOn(harnessExecutor, 'buildGrpcHarnessSnapshotForScenario')
+      .mockImplementation(() => {
+        throw new Error('forced build failure');
+      });
+    const scenario = grpcScenario({
+      grpcCallAction: {
+        callType: 'unary',
+        target: 'resolved-host:50051',
+        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+        service: FIXTURE_UNARY_CALL_REQUEST.service,
+        method: FIXTURE_UNARY_CALL_REQUEST.method,
+        body: { message: 'hello' },
+      },
+    });
+    let targetReads = 0;
+    Object.defineProperty(scenario.grpcCallAction!, 'target', {
+      configurable: true,
+      get() {
+        targetReads += 1;
+        return targetReads === 1 ? undefined : 'resolved-host:50051';
+      },
+    });
+    const result = await executeGrpcAction(scenario, mockOps());
+    expect(result.grpcResultMeta?.target).toBe('resolved-host:50051');
+    buildSpy.mockRestore();
+  });
+
+  it('omits grpcResultMeta errorCategory when harness result has no category', async () => {
+    const result = await executeGrpcAction(grpcScenario(), mockOps());
+    expect(result.passed).toBe(true);
+    expect(result.grpcResultMeta?.harnessResult).toBeDefined();
+    expect(result.grpcResultMeta?.errorCategory).toBeUndefined();
   });
 });

@@ -187,6 +187,32 @@ export function startGrpcStudioLoadTestRun(params: StartGrpcLoadTestRunParams): 
   });
 }
 
+export function applyGrpcLoadTestRequestTemplate(
+  executeSnapshot: GrpcTabExecuteSnapshot,
+  config: GrpcLoadTestConfig,
+): GrpcTabExecuteSnapshot {
+  if (executeSnapshot.callType !== 'unary') {
+    return executeSnapshot;
+  }
+  const template = config.requestTemplateJson?.trim();
+  if (!template) {
+    return executeSnapshot;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(template);
+  } catch {
+    throw new Error('Request template must be valid JSON.');
+  }
+  if (parsed == null || Array.isArray(parsed) || typeof parsed !== 'object') {
+    throw new Error('Request template must be a JSON object.');
+  }
+  return {
+    ...executeSnapshot,
+    body: parsed as Record<string, unknown>,
+  };
+}
+
 export async function finalizeGrpcLoadTestRun(
   run: GrpcLoadTestSchedulerRun,
 ): Promise<ReturnType<typeof buildGrpcLoadTestRunSummaryExport>> {

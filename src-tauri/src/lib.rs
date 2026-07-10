@@ -41,6 +41,8 @@ mod arrival_executor_test;
 #[cfg(test)]
 mod executor_test;
 #[cfg(test)]
+mod executor_test_helpers;
+#[cfg(test)]
 mod field_operator_test;
 #[cfg(test)]
 mod http_helpers_test;

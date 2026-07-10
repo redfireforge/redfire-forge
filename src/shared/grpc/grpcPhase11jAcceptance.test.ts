@@ -34,8 +34,8 @@ describe('Phase 11J acceptance checklist', () => {
   });
 
   it('checklist-3: advanced panels wire profiles, ack workflow, and mock export', () => {
-    const loadPanel = readSrc('src/features/grpc/components/GrpcLoadTestPanel.tsx');
-    const diffPanel = readSrc('src/features/grpc/components/GrpcSchemaDiffPanel.tsx');
+    const loadPanel = readSrc('src/features/grpc/components/grpcLoadTestPanel/GrpcLoadTestConfigSection.tsx');
+    const diffPanel = readSrc('src/features/grpc/components/grpcSchemaDiffPanel/GrpcSchemaDiffPanel.tsx');
     const mockPanel = readSrc('src/features/grpc/components/GrpcMockServerPanel.tsx');
     const detail = readSrc('src/features/grpc/components/GrpcSavedRequestDetail.tsx');
     expect(loadPanel).toContain('grpc-load-test-profile-save');
@@ -46,12 +46,12 @@ describe('Phase 11J acceptance checklist', () => {
   });
 
   it('checklist-4: collection handoff navigates to advanced load-test tab', () => {
-    const page = readSrc('src/features/grpc/GrpcStudioPage.tsx');
+    const panels = readSrc('src/features/grpc/grpcStudioPage/GrpcStudioPagePanels.tsx');
     const replay = readSrc('src/features/grpc/hooks/useGrpcStudioReplayActions.ts');
     expect(replay).toContain('openSavedRequestForLoadTest');
     expect(replay).toMatch(/openSavedRequestForLoadTest[\s\S]*return true/);
-    expect(page).toContain("setActiveFeatureTab('load_test')");
-    expect(page).toContain('if (!opened) return');
+    expect(panels).toContain("setActiveFeatureTab('load_test')");
+    expect(panels).toContain('if (!opened) return');
   });
 
   it('checklist-5: gate script and package.json register test:grpc:phase11j', () => {

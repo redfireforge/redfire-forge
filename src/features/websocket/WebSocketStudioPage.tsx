@@ -29,6 +29,7 @@ import {
 import { loadWsTabState, saveWsTabState } from '../../shared/websocket/websocketStorage';
 import ConfirmModal from '../../shared/components/ConfirmModal';
 import '../../styles/websocket-studio.css';
+import '../../styles/mock-server-shared.css';
 
 const MAX_TABS = 8;
 

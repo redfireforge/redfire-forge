@@ -19,6 +19,50 @@ import {
 } from '../utils/grpcSchemaDiffAck';
 import type { StudioSlice } from './useGrpcStudioAdvancedFeaturesTypes';
 
+const GRPC_SCHEMA_DIFF_STATE_STORAGE_PREFIX = 'grpc-schema-diff-state-v1';
+
+interface PersistedGrpcSchemaDiffState {
+  baselineDescriptor?: GrpcDescriptor;
+  baselineCapturedAt?: string;
+  lastReport?: GrpcSchemaDiffReport;
+  severityFilter?: GrpcSchemaDiffSeverityFilter;
+  hideAcknowledged?: boolean;
+}
+
+function schemaDiffStorageKey(tabId: string): string {
+  return `${GRPC_SCHEMA_DIFF_STATE_STORAGE_PREFIX}:${tabId}`;
+}
+
+function readPersistedSchemaDiffState(tabId: string): PersistedGrpcSchemaDiffState | null {
+  try {
+    const raw = localStorage.getItem(schemaDiffStorageKey(tabId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PersistedGrpcSchemaDiffState;
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePersistedSchemaDiffState(tabId: string, state: PersistedGrpcSchemaDiffState): void {
+  try {
+    localStorage.setItem(schemaDiffStorageKey(tabId), JSON.stringify(state));
+  } catch {
+    // localStorage may be unavailable or quota may be exceeded
+  }
+}
+
+function clearPersistedSchemaDiffState(tabId: string): void {
+  try {
+    localStorage.removeItem(schemaDiffStorageKey(tabId));
+  } catch {
+    // localStorage may be unavailable
+  }
+}
+
 export function useGrpcAdvancedSchemaDiffSession(
   studio: StudioSlice,
   activeTabId: string,
@@ -30,6 +74,7 @@ export function useGrpcAdvancedSchemaDiffSession(
 ) {
   const [schemaDiffAckChangeIds, setSchemaDiffAckChangeIds] = useState<ReadonlySet<string>>(new Set());
   const schemaDiffAckRefreshGenRef = useRef(0);
+  const hydratedTabsRef = useRef<Set<string>>(new Set());
 
   const refreshSchemaDiffAcks = useCallback(async (explicitBaselineKey?: string) => {
     const generation = ++schemaDiffAckRefreshGenRef.current;
@@ -57,6 +102,52 @@ export function useGrpcAdvancedSchemaDiffSession(
     setSchemaDiffAckChangeIds(new Set());
     void refreshSchemaDiffAcks();
   }, [activeTabId, refreshSchemaDiffAcks]);
+
+  useEffect(() => {
+    const tabState = getTabState(activeTabId);
+    const alreadyHydrated = tabState.schemaDiff.baselineDescriptor || tabState.schemaDiff.lastReport;
+    if (!alreadyHydrated) {
+      const persisted = readPersistedSchemaDiffState(activeTabId);
+      if (persisted) {
+        patchTabState(activeTabId, (prev) => ({
+          ...prev,
+          schemaDiff: {
+            ...prev.schemaDiff,
+            baselineDescriptor: persisted.baselineDescriptor,
+            baselineCapturedAt: persisted.baselineCapturedAt,
+            lastReport: persisted.lastReport,
+            severityFilter: persisted.severityFilter ?? prev.schemaDiff.severityFilter,
+            hideAcknowledged: persisted.hideAcknowledged ?? prev.schemaDiff.hideAcknowledged,
+          },
+        }));
+        if (persisted.baselineDescriptor?.key) {
+          void refreshSchemaDiffAcks(persisted.baselineDescriptor.key);
+        }
+      }
+    }
+    hydratedTabsRef.current.add(activeTabId);
+  }, [activeTabId, getTabState, patchTabState, refreshSchemaDiffAcks]);
+
+  useEffect(() => {
+    if (!hydratedTabsRef.current.has(activeTabId)) {
+      return;
+    }
+    const schemaDiff = getTabState(activeTabId).schemaDiff;
+    if (!schemaDiff.baselineDescriptor && !schemaDiff.lastReport) {
+      return;
+    }
+    writePersistedSchemaDiffState(activeTabId, {
+      baselineDescriptor: schemaDiff.baselineDescriptor,
+      baselineCapturedAt: schemaDiff.baselineCapturedAt,
+      lastReport: schemaDiff.lastReport,
+      severityFilter: schemaDiff.severityFilter,
+      hideAcknowledged: schemaDiff.hideAcknowledged,
+    });
+  }, [
+    activeTabId,
+    getTabState,
+    schemaDiffAckChangeIds,
+  ]);
 
   const setSchemaDiffSeverityFilter = useCallback((filter: GrpcSchemaDiffSeverityFilter) => {
     patchTabState(activeTabId, (prev) => ({
@@ -210,6 +301,7 @@ export function useGrpcAdvancedSchemaDiffSession(
     } else {
       setSchemaDiffAckChangeIds(new Set());
     }
+    clearPersistedSchemaDiffState(activeTabId);
   }, [activeTabId, getTabState, patchTabState]);
 
   const applySchemaDiffComparison = useCallback((input: {

@@ -2,15 +2,15 @@
  * Phase 5B — collection tree projection tests.
  */
 import { describe, expect, it } from 'vitest';
-import { createGrpcSavedRequestIdentity } from '../../../shared/grpc/grpcPersistenceSchema';
 import type { GrpcCollectionV1 } from '../../../shared/grpc/grpcPersistenceSchema';
 import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import { GRPC_TEST_TIMESTAMP, makeGrpcSavedRequest } from '../../../test-utils/grpcFactories';
 import {
   buildGrpcCollectionServiceMethodTree,
   flattenGrpcCollectionServiceMethodTree,
 } from './grpcCollectionTree';
 
-const TS = '2026-06-29T12:00:00.000Z';
+const TS = GRPC_TEST_TIMESTAMP;
 
 function makeSaved(
   id: string,
@@ -19,18 +19,7 @@ function makeSaved(
   name: string,
   callType: GrpcSavedRequest['callType'] = 'unary',
 ): GrpcSavedRequest {
-  const identity = createGrpcSavedRequestIdentity(id, TS);
-  return {
-    ...identity,
-    name,
-    callType,
-    service,
-    method,
-    descriptorKey: 'desc-1',
-    body: {},
-    metadata: {},
-    timeoutMs: 30_000,
-  };
+  return makeGrpcSavedRequest(id, { service, method, name, callType });
 }
 
 describe('grpcCollectionTree (Phase 5B)', () => {

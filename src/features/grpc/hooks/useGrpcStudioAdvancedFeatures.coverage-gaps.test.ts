@@ -27,6 +27,7 @@ import * as mockListenerClient from '../utils/grpcMockListenerClient';
 
 const startLoadTestMock = vi.fn();
 const finalizeLoadTestMock = vi.fn();
+const LOAD_TEST_HISTORY_STORAGE_KEY = 'grpc-load-test-run-history-v1';
 
 vi.mock('../utils/grpcStudioAdvancedCommands', async (importOriginal) => {
   const actual = await importOriginal<typeof advancedCommands>();
@@ -176,6 +177,7 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
     finalizeLoadTestMock.mockReset();
     finalizeLoadTestMock.mockImplementation(() => new Promise(() => {}));
     advancedCommands.resetGrpcStudioMockRuntimeRegistryForTests();
+    localStorage.removeItem(LOAD_TEST_HISTORY_STORAGE_KEY);
   });
 
   afterEach(async () => {
@@ -183,6 +185,83 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
     consoleErrorSpy?.mockRestore();
     vi.useRealTimers();
     advancedCommands.resetGrpcStudioMockRuntimeRegistryForTests();
+    localStorage.removeItem(LOAD_TEST_HISTORY_STORAGE_KEY);
+  });
+
+  it('restores persisted load-test history for the active tab', async () => {
+    const studio = makeStudioSlice();
+    const persistedSummary = await makeLoadTestRun(studio.activeTabId).completion;
+    localStorage.setItem(LOAD_TEST_HISTORY_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      tabHistory: {
+        [studio.activeTabId]: [{ summary: persistedSummary }],
+      },
+      updatedAt: Date.now(),
+    }));
+
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    await waitFor(() => {
+      expect(result.current.loadTest.lastSummary?.runId).toBe(persistedSummary.runId);
+    });
+    expect(result.current.loadTest.runHistory?.length).toBe(1);
+    expect(result.current.loadTest.selectedRunId).toBe(persistedSummary.runId);
+  });
+
+  it('clears export source when selecting a run-history entry without source metadata', async () => {
+    const studio = makeStudioSlice();
+    const summaryWithSource = await makeLoadTestRun(studio.activeTabId).completion;
+    const summaryWithoutSource = {
+      ...summaryWithSource,
+      runId: `${summaryWithSource.runId}-no-source`,
+    };
+
+    const sourceMetadata = advancedFeatureExport.buildGrpcAdvancedFeatureSourceMetadata({
+      tabId: studio.activeTabId,
+      requestId: 'req-source',
+      capturedAt: '2026-07-01T00:00:00.000Z',
+      callType: 'unary',
+      target: FIXTURE_UNARY_CALL_REQUEST.target,
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: FIXTURE_UNARY_CALL_REQUEST.method,
+      body: {},
+      metadata: {},
+      timeoutMs: 30_000,
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      transportMode: 'express',
+    });
+
+    localStorage.setItem(LOAD_TEST_HISTORY_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      tabHistory: {
+        [studio.activeTabId]: [
+          { summary: summaryWithSource, source: sourceMetadata },
+          { summary: summaryWithoutSource },
+        ],
+      },
+      updatedAt: Date.now(),
+    }));
+
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    await waitFor(() => {
+      expect(result.current.loadTest.lastExportSource?.service).toBe(FIXTURE_UNARY_CALL_REQUEST.service);
+    });
+
+    act(() => {
+      result.current.selectLoadTestRunSummary(summaryWithoutSource.runId);
+    });
+
+    expect(result.current.loadTest.selectedRunId).toBe(summaryWithoutSource.runId);
+    expect(result.current.loadTest.lastExportSource).toBeUndefined();
+    expect(result.current.exportLoadTestJson()).toBeUndefined();
+    expect(result.current.exportLoadTestCsv()).toBeUndefined();
   });
 
   it('exposes tab labels and switches advanced feature tabs', () => {
@@ -250,8 +329,47 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
       result.current.resetLoadTestStatus();
     });
     expect(result.current.runtime.loadTest.status).toBe('idle');
-    expect(result.current.loadTest.lastSummary).toBeUndefined();
-    expect(result.current.loadTest.lastExportSource).toBeUndefined();
+    expect(result.current.loadTest.lastSummary?.kind).toBe('grpc_load_test_summary');
+    expect(result.current.loadTest.lastExportSource?.service).toBe('echo.EchoService');
+    expect(result.current.loadTest.runHistory?.length).toBeGreaterThan(0);
+  });
+
+  it('applies method override when starting load test', async () => {
+    vi.useRealTimers();
+    const studio = makeStudioSlice();
+    const run = makeLoadTestRun(studio.activeTabId);
+    startLoadTestMock.mockReturnValue(run);
+    finalizeLoadTestMock.mockImplementation(() => run.completion);
+
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    await waitFor(() => {
+      expect(result.current.loadTestMethodOptions.length).toBeGreaterThan(0);
+    });
+
+    act(() => {
+      result.current.setLoadTestMethodOverride('echo.EchoService/ServerStream');
+    });
+
+    await waitFor(() => {
+      expect(result.current.selectedLoadTestMethodKey).toBe('echo.EchoService/ServerStream');
+    });
+
+    act(() => {
+      result.current.startLoadTest();
+    });
+
+    await waitFor(() => {
+      expect(result.current.runtime.loadTest.status).toBe('completed');
+    });
+    expect(studio.prepareExecuteSnapshot).toHaveBeenCalledWith(
+      studio.activeTabId,
+      expect.stringMatching(/^load-req-/),
+      expect.objectContaining({ service: 'echo.EchoService', method: 'ServerStream' }),
+    );
   });
 
   it('fails load test start when validation fails or snapshot throws', async () => {
@@ -1388,7 +1506,8 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
     resetGrpcTabCounterForTests();
     const tabA = createGrpcStudioTab({ title: 'A' });
     const tabB = createGrpcStudioTab({ title: 'B' }, [tabA]);
-    const stopListener = vi.spyOn(mockListenerClient, 'stopGrpcMockNetworkListener').mockResolvedValue(undefined);
+    const stopListener = vi.spyOn(mockListenerClient, 'stopGrpcMockNetworkListener')
+      .mockRejectedValue(new Error('stop failed'));
     vi.spyOn(mockListenerClient, 'supportsGrpcMockNetworkListener').mockReturnValue(true);
 
     const descriptor = {
@@ -1560,22 +1679,7 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
   });
 
   it('fails load test after snapshot when post-capture transport validation fails', async () => {
-    const studio = makeStudioSlice({
-      activeTab: createGrpcStudioTab({
-        target: 'localhost:50051',
-        service: FIXTURE_UNARY_CALL_REQUEST.service,
-        method: 'ServerStream',
-        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-        transportMode: 'grpc-web',
-      }),
-      tabs: [createGrpcStudioTab({
-        target: 'localhost:50051',
-        service: FIXTURE_UNARY_CALL_REQUEST.service,
-        method: 'ServerStream',
-        descriptorKey: FIXTURE_DESCRIPTOR_KEY,
-        transportMode: 'grpc-web',
-      })],
-    });
+    const studio = makeStudioSlice();
     studio.prepareExecuteSnapshot.mockReturnValue({
       tabId: studio.activeTabId,
       requestId: 'req-post-validate',
@@ -1606,5 +1710,237 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps', () => {
 
     expect(result.current.runtime.loadTest.status).toBe('failed');
     expect(result.current.runtime.loadTest.error?.message).toMatch(/server-streaming load tests/i);
+  });
+
+  it('re-hydrates persisted history when run ids change without length changes', async () => {
+    const studio = makeStudioSlice();
+    const firstSummary = await makeLoadTestRun(studio.activeTabId).completion;
+    const secondSummary = {
+      ...firstSummary,
+      runId: `${firstSummary.runId}-replacement`,
+    };
+
+    localStorage.setItem(LOAD_TEST_HISTORY_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      tabHistory: { [studio.activeTabId]: [{ summary: firstSummary }] },
+      updatedAt: Date.now(),
+    }));
+
+    const probeTab = createGrpcStudioTab({ title: 'Probe' });
+    const { result, rerender } = renderHook(
+      ({ tabs, activeTab }) => useGrpcStudioAdvancedFeatures({
+        studio: {
+          ...studio,
+          tabs,
+          activeTab,
+          activeTabId: activeTab.id,
+        },
+        pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+      }),
+      { initialProps: { tabs: studio.tabs, activeTab: studio.activeTab } },
+    );
+
+    await waitFor(() => {
+      expect(result.current.loadTest.lastSummary?.runId).toBe(firstSummary.runId);
+    });
+
+    localStorage.setItem(LOAD_TEST_HISTORY_STORAGE_KEY, JSON.stringify({
+      version: 1,
+      tabHistory: { [studio.activeTabId]: [{ summary: secondSummary }] },
+      updatedAt: Date.now(),
+    }));
+
+    act(() => {
+      rerender({ tabs: [...studio.tabs, probeTab], activeTab: studio.activeTab });
+    });
+    act(() => {
+      rerender({ tabs: studio.tabs, activeTab: studio.activeTab });
+    });
+
+    await waitFor(() => {
+      expect(result.current.loadTest.lastSummary?.runId).toBe(secondSummary.runId);
+    });
+  });
+
+  it('fails load test start when request template application throws', async () => {
+    const applySpy = vi.spyOn(advancedCommands, 'applyGrpcLoadTestRequestTemplate').mockImplementation(() => {
+      throw new Error('Invalid request template');
+    });
+    const studio = makeStudioSlice();
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    act(() => {
+      result.current.patchLoadTestConfig({ requestTemplateJson: '{"message":"x"}' });
+      result.current.startLoadTest();
+    });
+
+    expect(result.current.runtime.loadTest.status).toBe('failed');
+    expect(result.current.runtime.loadTest.error?.message).toBe('Invalid request template');
+    applySpy.mockRestore();
+  });
+
+  it('deduplicates matching run ids when appending load test history', async () => {
+    vi.useRealTimers();
+    const studio = makeStudioSlice();
+    const run = makeLoadTestRun(studio.activeTabId);
+    startLoadTestMock.mockReturnValue(run);
+    finalizeLoadTestMock.mockImplementation(() => run.completion);
+
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    await act(async () => {
+      result.current.startLoadTest();
+    });
+    await waitFor(() => {
+      expect(result.current.runtime.loadTest.status).toBe('completed');
+    });
+    expect(result.current.loadTest.runHistory?.length).toBe(1);
+
+    await act(async () => {
+      result.current.startLoadTest();
+    });
+    await waitFor(() => {
+      expect(result.current.loadTest.runHistory?.length).toBe(1);
+    });
+  });
+
+  it('swallows commitGrpcMockNetworkListener rejections when patching rules or latency', async () => {
+    vi.spyOn(mockListenerClient, 'supportsGrpcMockNetworkListener').mockReturnValue(true);
+    vi.spyOn(mockListenerClient, 'commitGrpcMockNetworkListener').mockRejectedValue(new Error('commit failed'));
+    const studio = makeStudioSlice();
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    act(() => {
+      result.current.patchMockRulesJson('{"rules":[]}');
+    });
+    await act(async () => {
+      await result.current.startMockServer();
+    });
+
+    act(() => {
+      result.current.patchMockRulesJson('{"rules":[{"id":"r1","name":"Rule","enabled":true,"priority":1,"predicate":{"kind":"method_equals","method":"Echo"},"response":{"statusCode":0}}]}');
+      result.current.patchMockLatency({ defaultLatencyMs: 12 });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(result.current.mockRunning).toBe(true);
+  });
+
+  it('stops network listener when mock runtime start fails', async () => {
+    vi.mocked(mockListenerClient.supportsGrpcMockNetworkListener).mockReturnValue(true);
+    const registry = advancedCommands.getGrpcStudioMockRuntimeRegistry();
+    vi.spyOn(registry, 'startTabFromResolved').mockImplementation(() => {
+      throw new Error('runtime start failed');
+    });
+    const stopListener = vi.spyOn(mockListenerClient, 'stopGrpcMockNetworkListener')
+      .mockRejectedValue(new Error('stop failed'));
+    const studio = makeStudioSlice();
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    act(() => {
+      result.current.patchMockRulesJson('{"rules":[]}');
+    });
+    await act(async () => {
+      await result.current.startMockServer();
+    });
+
+    expect(stopListener).toHaveBeenCalledWith(studio.activeTabId);
+    expect(result.current.runtime.mockRuntime.status).toBe('failed');
+    stopListener.mockRestore();
+  });
+
+  it('stopMockServer swallows stopGrpcMockNetworkListener rejections', async () => {
+    vi.mocked(mockListenerClient.supportsGrpcMockNetworkListener).mockReturnValue(true);
+    vi.mocked(mockListenerClient.stopGrpcMockNetworkListener).mockRejectedValue(new Error('stop failed'));
+    const studio = makeStudioSlice();
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    act(() => {
+      result.current.patchMockRulesJson('{"rules":[]}');
+    });
+    await act(async () => {
+      await result.current.startMockServer();
+      await result.current.stopMockServer();
+    });
+
+    expect(result.current.runtime.mockRuntime.status).toBe('completed');
+  });
+
+  it('ignores finalize failures for pruned tabs', async () => {
+    const studio = makeStudioSlice();
+    const run = makeLoadTestRun(studio.activeTabId);
+    startLoadTestMock.mockReturnValue(run);
+    finalizeLoadTestMock.mockRejectedValue(new Error('finalize after prune'));
+
+    const closedTab = createGrpcStudioTab({ title: 'Other' });
+    const { result, rerender } = renderHook(
+      ({ tabs, activeTab }) => useGrpcStudioAdvancedFeatures({
+        studio: {
+          ...studio,
+          tabs,
+          activeTab,
+          activeTabId: activeTab.id,
+        },
+        pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+      }),
+      { initialProps: { tabs: studio.tabs, activeTab: studio.activeTab } },
+    );
+
+    await act(async () => {
+      result.current.startLoadTest();
+    });
+
+    act(() => {
+      rerender({ tabs: [closedTab], activeTab: closedTab });
+    });
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+  });
+
+  it('clears method override, ignores invalid override keys, and no-ops missing history runs', () => {
+    const studio = makeStudioSlice();
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    act(() => {
+      result.current.setLoadTestMethodOverride('echo.EchoService/ServerStream');
+    });
+    act(() => {
+      result.current.setLoadTestMethodOverride('');
+    });
+    expect(result.current.loadTest.config.methodOverrideService).toBeUndefined();
+    expect(result.current.loadTest.config.methodOverrideMethod).toBeUndefined();
+
+    act(() => {
+      result.current.setLoadTestMethodOverride('invalid-no-slash');
+    });
+    expect(result.current.loadTest.config.methodOverrideService).toBeUndefined();
+
+    const selectedBefore = result.current.loadTest.selectedRunId;
+    act(() => {
+      result.current.selectLoadTestRunSummary('missing-run-id');
+    });
+    expect(result.current.loadTest.selectedRunId).toBe(selectedBefore);
   });
 });

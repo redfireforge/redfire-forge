@@ -40,10 +40,10 @@ describe('Phase 11K acceptance checklist', () => {
   });
 
   it('checklist-4: load test completion folds attempts into session stats', () => {
-    const advanced = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
-    expect(advanced).toContain('captureGrpcRpcStatsFromLoadTestSummary');
-    expect(advanced).toContain('executeSnapshot');
-    expect(advanced).toContain('loadTestExportSourceRef');
+    const loadTestActions = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedLoadTestActions.ts');
+    expect(loadTestActions).toContain('captureGrpcRpcStatsFromLoadTestSummary');
+    expect(loadTestActions).toContain('executeSnapshot');
+    expect(loadTestActions).toContain('loadTestExportSourceRef');
   });
 
   it('checklist-5: panel selectors and reset control are wired', () => {

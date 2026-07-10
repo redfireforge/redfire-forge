@@ -16,6 +16,7 @@ const SAMPLE_CHANGE: GrpcSchemaDiffChange = {
   entityPath: 'echo.EchoRequest.message',
   changeType: 'removed',
 };
+const SCHEMA_DIFF_STORAGE_KEY = 'grpc-schema-diff-state-v1:tab-1';
 
 function makeTabState(overrides: Partial<ReturnType<typeof createInitialGrpcTabAdvancedFeaturesUiState>> = {}) {
   return {
@@ -62,6 +63,7 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
   const deleteBaselineAcksMock = vi.spyOn(schemaDiffAck, 'deleteGrpcSchemaDiffAcksForBaseline');
 
   beforeEach(() => {
+    window.localStorage.clear();
     getAcksMock.mockReset();
     addAckMock.mockReset();
     deleteAckMock.mockReset();
@@ -390,8 +392,9 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
       getTabState,
       patchTabState,
     ));
-    act(() => {
+    await act(async () => {
       withBaseline.current.clearSchemaBaseline();
+      await Promise.resolve();
     });
     await waitFor(() => {
       expect(deleteBaselineAcksMock).toHaveBeenCalledWith(FIXTURE_DESCRIPTOR_KEY);
@@ -406,10 +409,200 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
       getTabState,
       patchTabState,
     ));
-    act(() => {
+    await act(async () => {
       withoutBaseline.current.clearSchemaBaseline();
+      await Promise.resolve();
     });
     expect(withoutBaseline.current.schemaDiffAckChangeIds.size).toBe(0);
+  });
+
+  it('hydrates schema diff baseline from localStorage when in-memory state is empty', async () => {
+    const persistedBaseline = structuredClone(FIXTURE_DESCRIPTOR);
+    const persistedReport = {
+      changes: [SAMPLE_CHANGE],
+      summary: {
+        total: 1,
+        breaking: 1,
+        nonBreaking: 0,
+        informational: 0,
+      },
+    } as const;
+
+    window.localStorage.setItem(SCHEMA_DIFF_STORAGE_KEY, JSON.stringify({
+      baselineDescriptor: persistedBaseline,
+      baselineCapturedAt: '2026-07-02T12:00:00.000Z',
+      lastReport: persistedReport,
+      severityFilter: 'all',
+      hideAcknowledged: true,
+    }));
+
+    const getTabState = vi.fn(() => makeTabState({
+      schemaDiff: {
+        baselineDescriptor: undefined,
+        baselineCapturedAt: undefined,
+        lastReport: undefined,
+        severityFilter: 'all',
+        hideAcknowledged: false,
+      },
+    }));
+    const patchTabState = vi.fn();
+
+    renderHook(() => useGrpcAdvancedSchemaDiffSession(
+      makeStudio(),
+      'tab-1',
+      getTabState,
+      patchTabState,
+    ));
+
+    await waitFor(() => {
+      expect(patchTabState).toHaveBeenCalled();
+    });
+
+    const hydrateCall = patchTabState.mock.calls.find((call) => typeof call[1] === 'function');
+    expect(hydrateCall).toBeTruthy();
+    const hydrated = hydrateCall?.[1](createInitialGrpcTabAdvancedFeaturesUiState());
+    expect(hydrated.schemaDiff.baselineDescriptor?.key).toBe(persistedBaseline.key);
+    expect(hydrated.schemaDiff.baselineCapturedAt).toBe('2026-07-02T12:00:00.000Z');
+    expect(hydrated.schemaDiff.lastReport).toEqual(persistedReport);
+    expect(hydrated.schemaDiff.hideAcknowledged).toBe(true);
+  });
+
+  it('does not clear persisted baseline during initial mount hydration', async () => {
+    window.localStorage.setItem(SCHEMA_DIFF_STORAGE_KEY, JSON.stringify({
+      baselineDescriptor: FIXTURE_DESCRIPTOR,
+      baselineCapturedAt: '2026-07-03T00:00:00.000Z',
+      lastReport: {
+        changes: [SAMPLE_CHANGE],
+        summary: {
+          total: 1,
+          breaking: 1,
+          nonBreaking: 0,
+          informational: 0,
+        },
+      },
+    }));
+
+    const getTabState = vi.fn(() => makeTabState({
+      schemaDiff: {
+        baselineDescriptor: undefined,
+        baselineCapturedAt: undefined,
+        lastReport: undefined,
+        severityFilter: 'all',
+        hideAcknowledged: false,
+      },
+    }));
+
+    renderHook(() => useGrpcAdvancedSchemaDiffSession(
+      makeStudio(),
+      'tab-1',
+      getTabState,
+      vi.fn(),
+    ));
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem(SCHEMA_DIFF_STORAGE_KEY)).not.toBeNull();
+    });
+  });
+
+  it('ignores invalid persisted schema diff payloads', async () => {
+    window.localStorage.setItem(SCHEMA_DIFF_STORAGE_KEY, '{not-json');
+    const getTabState = vi.fn(() => makeTabState({
+      schemaDiff: {
+        baselineDescriptor: undefined,
+        baselineCapturedAt: undefined,
+        lastReport: undefined,
+        severityFilter: 'all',
+        hideAcknowledged: false,
+      },
+    }));
+    const patchTabState = vi.fn();
+
+    renderHook(() => useGrpcAdvancedSchemaDiffSession(
+      makeStudio(),
+      'tab-1',
+      getTabState,
+      patchTabState,
+    ));
+
+    await waitFor(() => {
+      expect(patchTabState).not.toHaveBeenCalled();
+    });
+  });
+
+  it('persists schema diff state after hydration completes', async () => {
+    window.localStorage.setItem('grpc-schema-diff-state-v1:tab-write', JSON.stringify({
+      baselineDescriptor: FIXTURE_DESCRIPTOR,
+      baselineCapturedAt: '2026-07-04T00:00:00.000Z',
+      lastReport: {
+        changes: [SAMPLE_CHANGE],
+        summary: { total: 1, breaking: 1, nonBreaking: 0, informational: 0 },
+      },
+    }));
+
+    const getTabState = vi.fn(() => makeTabState({
+      schemaDiff: {
+        baselineDescriptor: FIXTURE_DESCRIPTOR,
+        baselineCapturedAt: '2026-07-04T00:00:00.000Z',
+        lastReport: {
+          changes: [SAMPLE_CHANGE],
+          summary: { total: 1, breaking: 1, nonBreaking: 0, informational: 0 },
+        },
+        severityFilter: 'breaking',
+        hideAcknowledged: true,
+      },
+    }));
+
+    renderHook(() => useGrpcAdvancedSchemaDiffSession(
+      makeStudio(),
+      'tab-write',
+      getTabState,
+      vi.fn(),
+    ));
+
+    await waitFor(() => {
+      const persisted = window.localStorage.getItem('grpc-schema-diff-state-v1:tab-write');
+      expect(persisted).toContain('"severityFilter":"breaking"');
+      expect(persisted).toContain('"hideAcknowledged":true');
+    });
+  });
+
+  it('hydrates persisted baseline without optional filter fields', async () => {
+    window.localStorage.setItem(SCHEMA_DIFF_STORAGE_KEY, JSON.stringify({
+      baselineDescriptor: FIXTURE_DESCRIPTOR,
+      baselineCapturedAt: '2026-07-05T00:00:00.000Z',
+      lastReport: {
+        changes: [SAMPLE_CHANGE],
+        summary: { total: 1, breaking: 1, nonBreaking: 0, informational: 0 },
+      },
+    }));
+
+    const getTabState = vi.fn(() => makeTabState({
+      schemaDiff: {
+        baselineDescriptor: undefined,
+        baselineCapturedAt: undefined,
+        lastReport: undefined,
+        severityFilter: 'all',
+        hideAcknowledged: false,
+      },
+    }));
+    const patchTabState = vi.fn();
+
+    renderHook(() => useGrpcAdvancedSchemaDiffSession(
+      makeStudio(),
+      'tab-1',
+      getTabState,
+      patchTabState,
+    ));
+
+    await waitFor(() => {
+      expect(patchTabState).toHaveBeenCalled();
+    });
+
+    const hydrateCall = patchTabState.mock.calls.find((call) => typeof call[1] === 'function');
+    const hydrated = hydrateCall?.[1](createInitialGrpcTabAdvancedFeaturesUiState());
+    expect(hydrated.schemaDiff.baselineDescriptor?.key).toBe(FIXTURE_DESCRIPTOR_KEY);
+    expect(hydrated.schemaDiff.severityFilter).toBe('all');
+    expect(hydrated.schemaDiff.hideAcknowledged).toBe(false);
   });
 
   it('applySchemaDiffComparison patches state and refreshes acknowledgements by baseline key', async () => {

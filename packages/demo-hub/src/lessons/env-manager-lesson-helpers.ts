@@ -367,14 +367,7 @@ const PROTOCOL_TAB: Record<ProtocolKey, string> = {
   grpc: EM.PROTOCOL_TAB_GRPC,
 };
 
-function firstVisibleSelector(selector: string): string | null {
-  const all = document.querySelectorAll<HTMLElement>(selector);
-  for (const el of Array.from(all)) {
-    const rect = el.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) return selector;
-  }
-  return all.length > 0 ? selector : null;
-}
+import { firstVisibleSelector } from '../utils/domVisibility';
 
 function panelScoped(selector: string): string {
   return `${EM.PROTOCOL_PANEL} ${selector}`;

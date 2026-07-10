@@ -34,6 +34,7 @@ import {
   spotlightAndPause,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
+import { closeModalByButtonQuiet } from '../modal-close-helpers';
 import type { DemoActionContext } from '../../types';
 
 // ---------------------------------------------------------------------------
@@ -69,11 +70,7 @@ async function ensureStudioNav(ctx: DemoActionContext): Promise<void> {
 
 /** Close the Import grpcurl modal quietly if it happens to be open. */
 async function closeImportModalQuiet(ctx: DemoActionContext): Promise<void> {
-  const cancelBtn = document.querySelector<HTMLButtonElement>(GRPC.IMPORT_GRPCURL_CANCEL);
-  if (cancelBtn) {
-    cancelBtn.click();
-    await ctx.delay(200);
-  }
+  await closeModalByButtonQuiet(ctx, GRPC.IMPORT_GRPCURL_CANCEL, 200);
 }
 
 /**

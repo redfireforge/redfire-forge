@@ -48,7 +48,7 @@ describe('Phase 11L acceptance checklist', () => {
   });
 
   it('checklist-5: rulesJson remains source of truth via patchMockRulesJson', () => {
-    const builder = readSrc('src/features/grpc/components/GrpcMockRuleBuilderPanel.tsx');
+    const builder = readSrc('src/features/grpc/components/grpcMockRuleBuilder/GrpcMockRuleBuilderPanel.tsx');
     const model = readSrc('src/features/grpc/utils/grpcStudioAdvancedModel.ts');
     const panel = readSrc('src/features/grpc/components/GrpcMockServerPanel.tsx');
     expect(builder).toContain('patchMockRulesJson');

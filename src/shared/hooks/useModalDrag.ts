@@ -304,6 +304,7 @@ export function useModalDrag(open: boolean, options?: UseModalDragOptions) {
     : undefined;
 
   const lockedW = lockedSizeRef.current?.w;
+  const lockedH = lockedSizeRef.current?.h;
   const modalStyle: React.CSSProperties | undefined = position
     ? {
         position: 'fixed',
@@ -320,6 +321,9 @@ export function useModalDrag(open: boolean, options?: UseModalDragOptions) {
         // the CSS containing block, which can cause the browser to
         // recalculate width/max-width and visually shrink the modal.
         ...(lockedW !== undefined ? { width: lockedW, maxWidth: 'none' } : {}),
+        // Keep height stable too; without this some dialogs can recompute height
+        // when switching to fixed positioning, causing visible resize-on-drag.
+        ...(lockedH !== undefined ? { height: lockedH, maxHeight: 'none' } : {}),
       }
     : undefined;
 

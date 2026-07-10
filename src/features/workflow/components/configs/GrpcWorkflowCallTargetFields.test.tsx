@@ -44,12 +44,20 @@ vi.mock('../../../../shared/grpc/targetValidation', () => ({
 }));
 
 vi.mock('../../../../engine/grpcConnectionProfileHydration', () => ({
-  loadGrpcConnectionProfilesFromStorage: () => [{
-    id: 'local-echo',
-    name: 'Local Echo',
-    target: 'localhost:50051',
-    tlsMode: 'disabled',
-  }],
+  loadGrpcConnectionProfilesFromStorage: () => [
+    {
+      id: 'local-echo',
+      name: 'Local Echo',
+      target: 'localhost:50051',
+      tlsMode: 'disabled',
+    },
+    {
+      id: 'no-target',
+      name: 'No Target',
+      target: '',
+      tlsMode: 'disabled',
+    },
+  ],
 }));
 
 type TestData = {
@@ -178,6 +186,43 @@ describe('GrpcWorkflowCallTargetFields', () => {
     fireEvent.change(methodInput, { target: { value: 'InputMethod' } });
 
     expect(onChange).toHaveBeenCalledTimes(4);
+  });
+
+  it('skips reflection patch when builder returns an empty patch', () => {
+    reflectionState.descriptor = { id: 'd1' };
+    patchToReturn = {};
+    const onChange = vi.fn();
+    renderComponent({ target: '127.0.0.1:50051', descriptorKey: '', service: '', method: '' }, onChange);
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('keeps existing target when selecting a profile that already has a target', () => {
+    const onChange = vi.fn();
+    renderComponent(
+      { target: 'custom:50051', descriptorKey: 'k', service: 's', method: 'm' },
+      onChange,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-test-connection-profile'), {
+      target: { value: 'local-echo' },
+    });
+    expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
+      connectionId: 'local-echo',
+      target: 'custom:50051',
+      tlsMode: 'disabled',
+    }));
+  });
+
+  it('renders generic reflection failure copy when error message is absent', () => {
+    reflectionState.status = 'error';
+    reflectionState.errorMessage = undefined;
+    renderComponent({ target: '127.0.0.1:50051', descriptorKey: '', service: '', method: '' });
+    expect(screen.getByText('Reflection failed')).toBeTruthy();
+  });
+
+  it('renders profile option label when profile target is empty', () => {
+    renderComponent({ target: '127.0.0.1:50051', descriptorKey: '', service: '', method: '' });
+    expect(screen.getByText('No Target (no target)')).toBeTruthy();
   });
 
   it('updates connection profile from the paired row', () => {

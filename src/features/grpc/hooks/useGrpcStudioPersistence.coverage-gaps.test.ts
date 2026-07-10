@@ -11,6 +11,7 @@ import {
 } from './useGrpcStudioPersistence';
 
 const STORAGE_KEY = 'grpc-studio-session-v1';
+const DESCRIPTORS_STORAGE_KEY = 'grpc-studio-descriptors-v1';
 
 describe('useGrpcStudioPersistence coverage gaps', () => {
   beforeEach(() => {
@@ -197,5 +198,55 @@ describe('useGrpcStudioPersistence coverage gaps', () => {
     expect(saved.tabs[0]?.id).toBe('flush-tab');
 
     setItemSpy.mockRestore();
+  });
+
+  it('persists and restores descriptor snapshots for tabs with loaded schema', () => {
+    const tab = createGrpcStudioTab({ id: 'tab-1', title: 'Descriptor tab' });
+    const descriptor = {
+      source: 'reflection',
+      key: 'reflection:localhost:50051:abc123',
+      sourceRef: 'localhost:50051',
+      contentSha256: 'abc123',
+      services: [],
+    } as const;
+
+    renderHook(() => useGrpcStudioPersistence({
+      tabs: [tab],
+      activeTabId: tab.id,
+      tabDescriptors: {
+        [tab.id]: {
+          ...createEmptyTabDescriptorState(),
+          loadState: 'loaded',
+          descriptor,
+          lastKnownGoodDescriptor: descriptor,
+          sourceFingerprint: {
+            source: 'reflection',
+            sourceRef: 'localhost:50051',
+            contentSha256: 'abc123',
+          },
+        },
+      },
+    }, vi.fn()));
+
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+
+    const rawDescriptorEnvelope = localStorage.getItem(DESCRIPTORS_STORAGE_KEY);
+    expect(rawDescriptorEnvelope).toBeTruthy();
+    const descriptorEnvelope = JSON.parse(rawDescriptorEnvelope ?? '{}') as {
+      tabSnapshots?: Record<string, { descriptor?: { key?: string } }>;
+    };
+    expect(descriptorEnvelope.tabSnapshots?.['tab-1']?.descriptor?.key).toBe(descriptor.key);
+
+    const onRestore = vi.fn();
+    renderHook(() => useGrpcStudioPersistence({
+      tabs: [createGrpcStudioTab({ id: 'live-tab' })],
+      activeTabId: 'live-tab',
+      tabDescriptors: { 'live-tab': createEmptyTabDescriptorState() },
+    }, onRestore));
+
+    const restored = onRestore.mock.calls[0]?.[0] as GrpcStudioPersistedSession | undefined;
+    expect(restored?.descriptorSnapshots?.['tab-1']?.descriptor?.key).toBe(descriptor.key);
   });
 });

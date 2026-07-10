@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useMemo, useRef } from 'react';
 import { highlightJson } from '../../../shared/utils/jsonHighlighter';
-import { syncHighlightedJsonScrollPosition } from '../utils/grpcHighlightedJsonScroll';
+import { syncHighlightedTextareaScroll } from '../../../shared/utils/highlightedTextareaScroll';
 
 export interface GrpcHighlightedJsonTextareaProps {
   value: string;
@@ -23,7 +23,7 @@ export function GrpcHighlightedJsonTextarea({
   const highlighted = useMemo(() => highlightJson(value), [value]);
 
   const syncScroll = useCallback(() => {
-    syncHighlightedJsonScrollPosition(textareaRef.current, backdropRef.current);
+    syncHighlightedTextareaScroll(textareaRef.current, backdropRef.current);
   }, []);
 
   useLayoutEffect(() => {
