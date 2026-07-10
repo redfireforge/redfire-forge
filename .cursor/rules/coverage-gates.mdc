@@ -24,6 +24,26 @@ Otherwise **do not** run full gates during iteration, coverage fixes, or "fix to
 
 Also acceptable at merge: `npm run test:product:coverage`, `npx tsx scripts/verify-product-coverage-gaps.ts`, `npx tsx scripts/verify-demo-coverage-gaps.ts`.
 
+`bash scripts/run-product-coverage-fast.sh` also runs **monolith check** (≥900 lines, production files only).
+
+## Workflow, shared, engine, graphql, gRPC, server, and CLI (in main product gate)
+
+`verify-product-coverage-gaps.ts` enforces **90% on all four metrics** for every product source file under `src/`, `src-server/`, and `cli/` (excluding test helpers, barrels, and demo-hub paths stripped by the product filter).
+
+Paths include: `src/features/workflow/`, `src/shared/`, `src/engine/`, `src/features/graphql/utils/`, gRPC product trees (`src/features/grpc/components|data|hooks|utils/`), legacy one-offs, **`src-server/**`**, and **`cli/**`**.
+
+`verify-grpc-coverage-gaps.ts` remains a **secondary** scoped check for gRPC server/shared paths under `src-server/grpc/` and `src/shared/grpc/`.
+
+| Area | Product batch |
+|------|----------------|
+| workflow | `features` → `bash scripts/run-product-coverage-batch.sh features src/features/workflow` |
+| graphql utils | `features` → `bash scripts/run-product-coverage-batch.sh features src/features/graphql/utils/` |
+| gRPC product | `features` → `bash scripts/run-product-coverage-batch.sh features src/features/grpc/` |
+| shared | `shared` → `bash scripts/run-product-coverage-batch.sh shared` |
+| engine | `app` → `bash scripts/run-product-coverage-batch.sh app src/engine` |
+
+During iteration use the batch pattern only — do not run a separate scoped script or full gate.
+
 ## Day-to-day — fix only what you touch
 
 ### Product (90% per file — statements, branches, functions, lines)

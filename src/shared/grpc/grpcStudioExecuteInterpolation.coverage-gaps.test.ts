@@ -1,13 +1,14 @@
 /**
  * Coverage gaps — grpcStudioExecuteInterpolation.ts (Phase 9H/9I).
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   assertGrpcStudioExecuteFieldsReady,
   resolveGrpcStudioStreamMessageBodyForSend,
   resolveGrpcStudioTabFieldsForExecute,
 } from './grpcStudioExecuteInterpolation';
 import { createGrpcInterpolationEnvSnapshotFromMap } from './grpcInterpolationEnvSnapshot';
+import * as grpcAuthPolicy from './grpcAuthPolicy';
 
 describe('grpcStudioExecuteInterpolation coverage gaps', () => {
   it('resolveGrpcStudioTabFieldsForExecute handles tabs without auth config', () => {
@@ -77,5 +78,23 @@ describe('grpcStudioExecuteInterpolation coverage gaps', () => {
       env,
     );
     expect(resolved).toEqual({});
+  });
+
+  it('assertGrpcStudioExecuteFieldsReady uses fallback message when auth issue has no message', () => {
+    vi.spyOn(grpcAuthPolicy, 'validateGrpcAuthForExecute').mockReturnValue([
+      { field: 'auth', code: 'INVALID_REQUEST', message: undefined as unknown as string },
+    ]);
+    expect(() => assertGrpcStudioExecuteFieldsReady({
+      body: {},
+      metadata: {},
+      auth: { type: 'bearer', bearerToken: 'token' },
+    })).toThrow('Invalid auth configuration');
+    vi.restoreAllMocks();
+  });
+
+  it('resolveGrpcStudioStreamMessageBodyForSend throws without interpolation env', () => {
+    expect(() => resolveGrpcStudioStreamMessageBodyForSend({ message: 'x' }, undefined)).toThrow(
+      /active execute snapshot/i,
+    );
   });
 });

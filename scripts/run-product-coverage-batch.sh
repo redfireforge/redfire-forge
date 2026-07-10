@@ -25,23 +25,21 @@ case "$BATCH" in
     ;;
 esac
 
-mkdir -p coverage/.tmp "coverage/batches/$BATCH/.tmp"
+mkdir -p coverage/.tmp "coverage/batches/$BATCH"
+product_coverage_ensure_batch_dirs
 product_coverage_warn_stale_batches "$BATCH"
 
 if [[ "$#" -gt 0 ]]; then
   TEST_PATHS=("$@")
+  PARTIAL=1
 else
   read -r -a TEST_PATHS <<< "$(product_coverage_batch_default_paths "$BATCH")"
+  PARTIAL=0
 fi
 
-echo "▶ coverage batch: $BATCH (${TEST_PATHS[*]})"
+echo "▶ coverage batch: $BATCH (${TEST_PATHS[*]})${PARTIAL:+ [partial merge]}"
 set +e
-npx vitest run --project product --coverage \
-  --maxWorkers=1 --no-file-parallelism \
-  --coverage.clean=false \
-  --coverage.reportOnFailure=true \
-  --coverage.reportsDirectory="coverage/batches/$BATCH" \
-  "${TEST_PATHS[@]}"
+product_coverage_run_vitest_batch "$BATCH" "$PARTIAL" "${TEST_PATHS[@]}"
 BATCH_EXIT=$?
 set -e
 if [[ "$BATCH_EXIT" -ne 0 ]]; then

@@ -193,6 +193,13 @@ describe('schemaStubGenerator', () => {
       expect(generateStub(schema)).toBe('string');
     });
 
+    it('merges allOf when only required constraints are provided', () => {
+      const schema: SchemaObject = {
+        allOf: [{ required: ['id'] }, { properties: { id: { type: 'string' } } }],
+      };
+      expect(generateStub(schema)).toEqual({ id: 'string' });
+    });
+
     // Depth guard
     it('returns null when max depth exceeded', () => {
       expect(generateStub({ type: 'string' }, 11)).toBeNull();

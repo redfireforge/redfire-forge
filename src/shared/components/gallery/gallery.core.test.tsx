@@ -160,6 +160,34 @@ describe('GalleryCard', () => {
     render(<GalleryCard entry={makeEntry()} />);
     expect(screen.getByText(/jsonplaceholder/)).toBeTruthy();
   });
+
+  it('renders imported sample status badge', () => {
+    render(<GalleryCard entry={makeEntry()} sampleStatus="imported" />);
+    expect(screen.getByText('✓ Loaded')).toBeTruthy();
+  });
+
+  it('renders updated sample status badge', () => {
+    const { container } = render(<GalleryCard entry={makeEntry()} sampleStatus="updated" />);
+    expect(screen.getByText('↻ Updated')).toBeTruthy();
+    expect(container.querySelector('.gallery-card-updated')).toBeTruthy();
+  });
+
+  it('renders versioning tutorial tag separately from hash tags', () => {
+    render(<GalleryCard entry={makeEntry({ tags: ['versioning-tutorial', 'alpha', 'beta', 'gamma', 'delta'] })} />);
+    expect(screen.getByText('📖 versioning-tutorial')).toBeTruthy();
+    expect(screen.getByText('#alpha')).toBeTruthy();
+    expect(screen.queryByText('#versioning-tutorial')).toBeNull();
+  });
+
+  it('omits live API badge when entry has no live APIs', () => {
+    render(<GalleryCard entry={makeEntry({ liveApis: [] })} />);
+    expect(screen.queryByText(/jsonplaceholder/)).toBeNull();
+  });
+
+  it('click is safe when onClick is omitted', () => {
+    render(<GalleryCard entry={makeEntry()} />);
+    expect(() => fireEvent.click(screen.getByRole('button'))).not.toThrow();
+  });
 });
 
 /* ── GalleryDetailPanel ── */

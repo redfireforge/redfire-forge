@@ -34,6 +34,8 @@ interface Props {
   treeExpandAll?: boolean;
   /** Select JSON path on double-click instead of single-click. */
   selectPathOnDoubleClick?: boolean;
+  /** Optional set of mapped JSON paths — shows ✓ on matching tree rows. */
+  mappedPaths?: Set<string>;
 }
 
 /* ── Tree Node (click-to-select, no checkboxes) ────── */
@@ -137,7 +139,7 @@ const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelec
 export default function RegexAssertionModal({
   initialJsonPath, initialPattern, sampleJson: externalJson,
   onFetchSampleResponse, fetchingResponse, fetchError,
-  onApply, onClose, treeExpandAll = true, selectPathOnDoubleClick,
+  onApply, onClose, treeExpandAll = true, selectPathOnDoubleClick, mappedPaths,
 }: Props) {
   const [jsonPath, setJsonPath] = useState(initialJsonPath || '');
   const [pattern, setPattern] = useState(initialPattern || '');
@@ -253,6 +255,7 @@ export default function RegexAssertionModal({
                     onSelect={handleSelectPath}
                     searchTerm={treeSearch}
                     expandAll={treeExpandAll}
+                    mappedPaths={mappedPaths}
                     selectOnDoubleClick={selectPathOnDoubleClick}
                   />
                 </div>
