@@ -76,4 +76,29 @@ describe('RegexAssertionModal coverage gaps', () => {
     const pathInput = screen.getByPlaceholderText(/offerName/) as HTMLInputElement;
     expect(pathInput.value.startsWith('$.')).toBe(true);
   });
+
+  it('keeps jsonPath when selected node already uses $ prefix', () => {
+    render(
+      <RegexAssertionModal
+        onApply={vi.fn()}
+        onClose={vi.fn()}
+        sampleJson='{"id":"x"}'
+        initialJsonPath="$.id"
+      />,
+    );
+    const pathInput = screen.getByPlaceholderText(/offerName/) as HTMLInputElement;
+    expect(pathInput.value).toBe('$.id');
+  });
+
+  it('marks mapped paths in the tree when mappedPaths is provided', () => {
+    const { container } = render(
+      <RegexAssertionModal
+        onApply={vi.fn()}
+        onClose={vi.fn()}
+        sampleJson={SAMPLE_JSON}
+        mappedPaths={new Set(['$.nested.city'])}
+      />,
+    );
+    expect(container.querySelector('.ram-tree-mapped .emm-mapped-check')).toBeTruthy();
+  });
 });

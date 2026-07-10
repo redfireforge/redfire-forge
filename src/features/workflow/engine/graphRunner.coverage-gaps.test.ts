@@ -359,4 +359,187 @@ describe('graphRunner — coverage gaps', () => {
     const ev = getTrace()?.events.find((e) => e.nodeId === 'c1');
     expect(ev).toBeDefined();
   });
+
+  it('debug trace buffers per-node logs and caps overflow lines', async () => {
+    const logDebug = makeNode('log1', 'logDebug', {
+      label: 'Log',
+      message: 'hello',
+      level: 'info',
+    });
+    const nodes = [startNode('s1'), logDebug, endNode('e1')];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 's1', target: 'log1' },
+      { id: 'e2', source: 'log1', target: 'e1' },
+    ];
+    const logs: { prefix: string; text: string }[] = [];
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn(),
+      onComplete: vi.fn(),
+      onLog: vi.fn((line: { prefix: string; text: string }) => {
+        logs.push(line);
+      }),
+    };
+    const opts: ExecutionTraceOptions = { captureFullTrace: false, traceLevel: 'debug' };
+
+    await runGraph(nodes, edges, {}, cb,
+      undefined, undefined, undefined, undefined, undefined, undefined,
+      undefined, undefined, undefined, undefined, undefined, opts);
+
+    expect(logs.length).toBeGreaterThan(0);
+  });
+
+  it('join node waits for parallel branches before continuing', async () => {
+    const fork = makeNode('fork1', 'fork', { label: 'Fork' });
+    const join = makeNode('join1', 'join', { label: 'Join' });
+    const left = httpNode('left', 'Left');
+    const right = httpNode('right', 'Right');
+    const after = httpNode('after', 'After');
+    const nodes = [startNode('s1'), fork, left, right, join, after, endNode('end1')];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 's1', target: 'fork1' },
+      { id: 'e2', source: 'fork1', target: 'left' },
+      { id: 'e3', source: 'fork1', target: 'right' },
+      { id: 'e4', source: 'left', target: 'join1' },
+      { id: 'e5', source: 'right', target: 'join1' },
+      { id: 'e6', source: 'join1', target: 'after' },
+      { id: 'e7', source: 'after', target: 'end1' },
+    ];
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn(),
+      onComplete: vi.fn(),
+      onLog: vi.fn(),
+    };
+
+    await runGraph(nodes, edges, {}, cb);
+
+    expect(mockFetch.mock.calls.length).toBeGreaterThanOrEqual(2);
+    expect(cb.onComplete).toHaveBeenCalled();
+  });
+
+  it('returns early when abortSignal is already aborted', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const nodes = [startNode('s1'), httpNode('h1', 'HTTP'), endNode('e1')];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 's1', target: 'h1' },
+      { id: 'e2', source: 'h1', target: 'e1' },
+    ];
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn(),
+      onComplete: vi.fn(),
+    };
+
+    await runGraph(nodes, edges, {}, cb, undefined, undefined, undefined, controller.signal);
+
+    expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('passes environmentLayer into variable context', async () => {
+    const nodes = [startNode('s1'), endNode('e1')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 's1', target: 'e1' }];
+    const cb = {
+      onNodeStateChange: vi.fn(),
+      onVariablesChange: vi.fn(),
+      onComplete: vi.fn(),
+    };
+    await runGraph(nodes, edges, { manual: '1' }, cb, undefined, { baseUrl: 'http://env.example' });
+    expect(cb.onComplete).toHaveBeenCalled();
+  });
+
+  it('standard trace records grpcUnary execution details when captured', async () => {
+    const { FIXTURE_DESCRIPTOR_KEY, FIXTURE_UNARY_CALL_REQUEST } = await import('../../../shared/grpc/contractFixtures');
+    const grpcUnary = makeNode('gu', 'grpcUnary', {
+      label: 'Echo Unary',
+      target: FIXTURE_UNARY_CALL_REQUEST.target.address,
+      descriptorKey: FIXTURE_DESCRIPTOR_KEY,
+      service: FIXTURE_UNARY_CALL_REQUEST.service,
+      method: FIXTURE_UNARY_CALL_REQUEST.method,
+      callType: 'unary',
+      body: { message: 'hello' },
+    });
+    const grpcOperations = {
+      invokeUnary: vi.fn().mockResolvedValue({
+        status: 0,
+        statusMessage: 'OK',
+        headers: {},
+        trailers: {},
+        body: { message: 'ok' },
+        durationMs: 4,
+      }),
+      collectServerStream: vi.fn(),
+    };
+    const nodes = [startNode('s1'), grpcUnary, endNode('e1')];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 's1', target: 'gu' },
+      { id: 'e2', source: 'gu', target: 'e1' },
+    ];
+    const { cbs, getTrace } = makeCallbacks();
+    const opts: ExecutionTraceOptions = { captureFullTrace: false, traceLevel: 'standard' };
+
+    await runGraph(nodes, edges, {}, cbs,
+      undefined, undefined, undefined, undefined, undefined, undefined,
+      undefined, undefined, undefined, undefined, undefined, opts,
+      undefined, undefined, undefined, grpcOperations);
+
+    const ev = getTrace()?.events.find((e) => e.nodeId === 'gu');
+    expect(grpcOperations.invokeUnary).toHaveBeenCalled();
+    expect(ev).toBeDefined();
+    expect(ev?.details?.grpcDetails ?? ev?.details?.responseTimeMs).toBeDefined();
+  });
+
+  it('minimal trace captures wsSend transport error', async () => {
+    const wsSend = makeNode('wss', 'wsSend', {
+      label: 'WS Send',
+      connectionId: 'missing-conn',
+      message: '{"ping":true}',
+      messageType: 'text',
+      waitForResponse: false,
+      responseTimeoutMs: 1000,
+      outputBindings: [],
+    });
+    const wsOperations = {
+      connect: vi.fn(),
+      send: vi.fn().mockRejectedValue(new Error('connection not open')),
+      snapshotCursor: vi.fn(),
+      waitForMessage: vi.fn(),
+      disconnect: vi.fn(),
+      disconnectAll: vi.fn(),
+    };
+    const nodes = [startNode('s1'), wsSend, endNode('e1')];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 's1', target: 'wss' },
+      { id: 'e2', source: 'wss', target: 'e1' },
+    ];
+    const { cbs, getTrace } = makeCallbacks();
+    const opts: ExecutionTraceOptions = { captureFullTrace: false, traceLevel: 'minimal' };
+
+    await runGraph(nodes, edges, {}, cbs,
+      undefined, undefined, undefined, undefined, undefined, undefined,
+      undefined, undefined, undefined, undefined, undefined, opts,
+      undefined, undefined, wsOperations);
+
+    const ev = getTrace()?.events.find((e) => e.nodeId === 'wss' && e.state === 'fail');
+    expect(ev?.details?.error).toContain('connection not open');
+  });
+
+  it('marks unreachable end nodes as failed when an earlier step fails', async () => {
+    mockFetch.mockRejectedValueOnce(new Error('boom'));
+    const nodes = [startNode('s1'), httpNode('h1', 'HTTP'), endNode('orphan-end')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 's1', target: 'h1' }];
+    const states: Record<string, { state: string; error?: string }> = {};
+    const cb = {
+      onNodeStateChange: vi.fn((id, st) => { states[id] = st; }),
+      onVariablesChange: vi.fn(),
+      onComplete: vi.fn(),
+    };
+
+    await runGraph(nodes, edges, {}, cb);
+
+    expect(states['h1']?.state).toBe('fail');
+    expect(states['orphan-end']?.state).toBe('fail');
+    expect(states['orphan-end']?.error).toBeTruthy();
+  });
 });

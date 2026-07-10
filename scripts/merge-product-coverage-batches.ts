@@ -1,9 +1,14 @@
 #!/usr/bin/env tsx
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import libCoverage from 'istanbul-lib-coverage';
 
 const BATCH_DIR = 'coverage/batches';
 const OUT = 'coverage/coverage-final.json';
+
+if (!existsSync(BATCH_DIR)) {
+  console.error(`❌ No batch coverage directory: ${BATCH_DIR}`);
+  process.exit(1);
+}
 
 const map = libCoverage.createCoverageMap({});
 
