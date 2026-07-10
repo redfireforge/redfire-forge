@@ -60,9 +60,21 @@ for extra in "$DIR/$STEM."*.test.ts "$DIR/$STEM."*.test.tsx "$DIR/$STEM"*.test.t
 done
 shopt -u nullglob
 
+# Split-module pattern: sibling tests that import ./<stem> directly.
+import_pattern="from ['\"]\\./${STEM}['\"]"
+while IFS= read -r testfile; do
+  [[ -f "$testfile" ]] || continue
+  local_seen=0
+  for existing in "${TESTS[@]}"; do
+    [[ "$existing" == "$testfile" ]] && local_seen=1 && break
+  done
+  [[ "$local_seen" -eq 1 ]] && continue
+  TESTS+=("$testfile")
+done < <(grep -rlE "$import_pattern" "$DIR" --include='*.test.ts' --include='*.test.tsx' 2>/dev/null || true)
+
 if [[ ${#TESTS[@]} -eq 0 ]]; then
   echo "❌ No co-located tests found for $FILE" >&2
-  echo "   Looked for: $DIR/$STEM.{test,coverage-gaps.test}.{ts,tsx}" >&2
+  echo "   Looked for: $DIR/$STEM.{test,coverage-gaps.test}.{ts,tsx} and imports of ./${STEM}" >&2
   exit 1
 fi
 
@@ -72,17 +84,19 @@ echo "▶ isolated coverage: $FILE"
 echo "   tests: ${TESTS[*]}"
 echo ""
 
-mkdir -p coverage/.tmp/isolated/.tmp
+mkdir -p coverage/.tmp/isolated-"$$"/.tmp
+ISOLATED_COV_DIR="coverage/.tmp/isolated-$$"
 
 set +e
 npx vitest run --project product --coverage \
-  --coverage.clean=false \
-  --coverage.reportsDirectory=coverage/.tmp/isolated \
+  --coverage.clean=true \
+  --coverage.reportsDirectory="$ISOLATED_COV_DIR" \
   --coverage.include="$FILE" \
   --coverage.reporter=text \
   "${TESTS[@]}"
 TEST_EXIT=$?
 set -e
+rm -rf "$ISOLATED_COV_DIR"
 
 echo ""
 if product_coverage_product_report_exists; then
