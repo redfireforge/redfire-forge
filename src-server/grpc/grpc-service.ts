@@ -46,6 +46,7 @@ import {
   markGrpcCallCompleted,
   tryRegisterGrpcCall,
 } from './callRegistry.js';
+import { getServerGrpcMockRuntimeRegistry } from './grpcMockServerRuntimeBridge.js';
 import { findGrpcMethod } from './descriptorUtils.js';
 import { getGrpcDescriptor } from './descriptorStore.js';
 import { getDescriptorRootCache } from './descriptorRootCache.js';
@@ -292,6 +293,41 @@ export class GrpcService {
     }
 
     const dialAddress = targetCheck.valid ? targetCheck.normalized : request.target.address.trim();
+
+    // ── Phase 11M: In-process mock interception ──────────────────────────────
+    // If a mock runtime is running for this tab, evaluate the rule set and
+    // return the mock response instead of dialling the real gRPC server.
+    if (tabId) {
+      const mockRegistry = getServerGrpcMockRuntimeRegistry();
+      if (mockRegistry.hasManager(tabId)) {
+        const manager = mockRegistry.getManager(tabId);
+        if (manager.getState().operation.status === 'running') {
+          try {
+            const mockResult = await manager.executeUnaryCall({
+              service: request.service,
+              method: request.method,
+              callType: 'unary',
+              metadata: normalizeGrpcMetadata(request.metadata),
+              requestBody: request.body ?? {},
+            });
+            const { evaluation, latencyMs } = mockResult;
+            const data: GrpcCallResult = {
+              callType: 'unary',
+              status: evaluation.response.statusCode ?? 0,
+              statusMessage: evaluation.response.message ?? '',
+              headers: {},
+              trailers: {},
+              body: (evaluation.response.body ?? {}) as Record<string, unknown>,
+              durationMs: latencyMs,
+            };
+            return createGrpcSuccessEnvelope('call', data);
+          } catch {
+            // If mock evaluation fails for any reason, fall through to the real server.
+          }
+        }
+      }
+    }
+    // ─────────────────────────────────────────────────────────────────────────
 
     const descriptor = getGrpcDescriptor(request.descriptorKey);
     if (!descriptor) {

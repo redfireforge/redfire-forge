@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type KeyboardEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
 import type { WsMockRule, WsMockMatchType, WsMockResponseType, WsMockFallbackMode } from '../../shared/websocket/types';
 import { formatUptime } from '../../shared/websocket/types';
 import { evaluateRules } from './wsMockRuleEngine';
@@ -42,6 +42,15 @@ export interface MockUi {
   handleToggleRule: (id: string) => void;
   handleUpdateRule: (id: string, patch: Partial<WsMockRule>) => void;
   handleMoveRule: (id: string, direction: 'up' | 'down') => void;
+  searchQuery: string;
+  setSearchQuery: (q: string) => void;
+  filteredRules: WsMockRule[];
+  dragRuleId: string | null;
+  dragOverRuleId: string | null;
+  handleDragStart: (ruleId: string) => void;
+  handleDragOver: (e: DragEvent<HTMLDivElement>, ruleId: string) => void;
+  handleDrop: (e: DragEvent<HTMLDivElement>, targetRuleId: string) => void;
+  handleDragEnd: () => void;
 }
 
 const MATCH_TYPES: { value: WsMockMatchType; label: string }[] = [
@@ -85,6 +94,9 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
   const [broadcastText, setBroadcastText] = useState('');
   const [testInput, setTestInput] = useState('');
   const [rightTab, setRightTab] = useState<MockRightTab>('rules');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [dragRuleId, setDragRuleId] = useState<string | null>(null);
+  const [dragOverRuleId, setDragOverRuleId] = useState<string | null>(null);
   // Client-side uptime anchor: WsMockStatus carries no startedAt, so we stamp
   // the moment the server transitions to running. The per-second ticker lives
   // in the <MockUptime> leaf so it does not re-render the whole pane.
@@ -168,6 +180,42 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
     updateRules(next);
   }, [updateRules, rules]);
 
+  const handleDragStart = useCallback((ruleId: string) => {
+    setDragRuleId(ruleId);
+  }, []);
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>, ruleId: string) => {
+    e.preventDefault();
+    setDragOverRuleId((prev) => (dragRuleId && dragRuleId !== ruleId) ? ruleId : prev);
+  }, [dragRuleId]);
+
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>, targetRuleId: string) => {
+    e.preventDefault();
+    if (!dragRuleId || dragRuleId === targetRuleId) {
+      setDragRuleId(null);
+      setDragOverRuleId(null);
+      return;
+    }
+    const next = [...rules];
+    const fromIdx = next.findIndex((r) => r.id === dragRuleId);
+    const toIdx = next.findIndex((r) => r.id === targetRuleId);
+    if (fromIdx < 0 || toIdx < 0) {
+      setDragRuleId(null);
+      setDragOverRuleId(null);
+      return;
+    }
+    const [moved] = next.splice(fromIdx, 1);
+    next.splice(toIdx, 0, moved);
+    updateRules(next);
+    setDragRuleId(null);
+    setDragOverRuleId(null);
+  }, [dragRuleId, rules, updateRules]);
+
+  const handleDragEnd = useCallback(() => {
+    setDragRuleId(null);
+    setDragOverRuleId(null);
+  }, []);
+
   const testResult = useMemo(() => {
     if (!testInput.trim()) return null;
     return evaluateRules(rules, testInput, config.fallback);
@@ -175,6 +223,17 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
 
   const reversedLogs = useMemo(() => [...logs].reverse(), [logs]);
   const enabledRuleCount = useMemo(() => rules.filter((r) => r.enabled).length, [rules]);
+
+  const filteredRules = useMemo(() => {
+    if (!searchQuery.trim()) return rules;
+    const q = searchQuery.toLowerCase();
+    return rules.filter((r) =>
+      r.name.toLowerCase().includes(q) ||
+      r.match.type.toLowerCase().includes(q) ||
+      r.match.pattern.toLowerCase().includes(q) ||
+      r.response.type.toLowerCase().includes(q),
+    );
+  }, [rules, searchQuery]);
 
   return {
     mock, status, logs, rules, config, starting,
@@ -187,6 +246,8 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
     handleFallbackChange,
     handleStart, handleStop, handleBroadcast,
     handleAddRule, handleDeleteRule, handleToggleRule, handleUpdateRule, handleMoveRule,
+    searchQuery, setSearchQuery, filteredRules,
+    dragRuleId, dragOverRuleId, handleDragStart, handleDragOver, handleDrop, handleDragEnd,
   };
 }
 
@@ -401,14 +462,25 @@ const RESPONSE_BADGE_CLASS: Record<WsMockResponseType, string> = {
 
 /** Single rule card (header + inline editor). */
 function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: number }) {
-  const { editingRuleId, rules } = ui;
+  const { editingRuleId, rules, dragRuleId, dragOverRuleId } = ui;
   const isOpen = editingRuleId === rule.id;
   return (
     <div
-      className={`ws-mock-rule ${rule.enabled ? '' : 'disabled'} ${isOpen ? 'editing' : ''}`}
+      className={`ws-mock-rule mock-server-rule-card${rule.enabled ? ' mock-server-rule-card--enabled' : ' mock-server-rule-card--disabled'}${!rule.enabled ? ' disabled' : ''} ${isOpen ? 'editing' : ''}${dragRuleId === rule.id ? ' mock-server-rule-card--dragging' : ''}${dragOverRuleId === rule.id ? ' mock-server-rule-card--drop-target' : ''}`}
       data-testid={`mock-rule-${rule.id}`}
+      onDragOver={(e) => ui.handleDragOver(e, rule.id)}
+      onDrop={(e) => ui.handleDrop(e, rule.id)}
     >
       <div className="ws-mock-rule-header">
+        {/* Drag handle */}
+        <span
+          className="mock-server-drag-handle"
+          draggable
+          data-testid={`ws-mock-drag-${rule.id}`}
+          onDragStart={() => ui.handleDragStart(rule.id)}
+          onDragEnd={ui.handleDragEnd}
+          title="Drag to reorder"
+        >⠿</span>
         {/* Toggle (custom switch) */}
         <label className="ws-mock-rule-toggle-switch" title={rule.enabled ? 'Enabled' : 'Disabled'} data-testid={`rule-toggle-label-${rule.id}`}>
           <input
@@ -621,7 +693,7 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
 
 /** Rule list (toolbar + cards). */
 function MockRuleList({ ui }: { ui: MockUi }) {
-  const { rules, config } = ui;
+  const { rules, config, filteredRules, searchQuery } = ui;
   return (
     <div className="ws-mock-rules-section">
       <div className="ws-mock-section-header">
@@ -634,13 +706,29 @@ function MockRuleList({ ui }: { ui: MockUi }) {
         </button>
       </div>
 
+      {rules.length > 0 && (
+        <input
+          className="ws-mock-search"
+          data-testid="ws-mock-search"
+          type="search"
+          placeholder="Filter rules by name, type, pattern…"
+          value={searchQuery}
+          onChange={(e) => ui.setSearchQuery(e.target.value)}
+        />
+      )}
+
       {rules.length === 0 && (
-        <div className="ws-mock-empty-rules" data-testid="mock-empty-rules">
-          No rules configured. Fallback mode ({config.fallback}) will apply to all messages.
+        <div className="mock-server-empty" data-testid="mock-empty-rules">
+          <div className="mock-server-empty__icon" aria-hidden="true">📡</div>
+          <div className="mock-server-empty__title">No mock rules yet</div>
+          <div className="mock-server-empty__hint">
+            Create your first rule to define how the mock server responds to incoming WebSocket messages.
+            Fallback mode ({config.fallback}) will apply when no rules match.
+          </div>
         </div>
       )}
 
-      {rules.map((rule, idx) => (
+      {filteredRules.map((rule, idx) => (
         <MockRuleCard key={rule.id} ui={ui} rule={rule} idx={idx} />
       ))}
     </div>

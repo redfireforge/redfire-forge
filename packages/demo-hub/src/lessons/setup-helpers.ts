@@ -8,19 +8,12 @@
 import type { DemoActionContext } from '../types';
 import { WS, KAFKA } from '@shared/selectors';
 import { dispatchKafkaOperation } from '@shared/kafka/kafkaClient';
+import { firstVisibleElement } from '../utils/domVisibility';
 
-/** Return the first DOM element matching `selector` that has a non-zero bounding box
- *  (i.e. it is actually rendered and not hidden via display:none / visibility:hidden).
- *  Mirrors the `firstVisible` logic in useDemoHub.ts — prevents targeting hidden
- *  panels from inactive WebSocket tabs when multiple tabs are open. */
-export function firstVisibleEl<T extends HTMLElement = HTMLElement>(selector: string): T | null {
-  const all = document.querySelectorAll<T>(selector);
-  for (const el of Array.from(all)) {
-    const rect = el.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) return el;
-  }
-  return null;
-}
+/** Re-export — see `domVisibility.ts` for implementation. */
+export { firstVisibleElement as firstVisibleEl } from '../utils/domVisibility';
+
+const firstVisibleEl = firstVisibleElement;
 
 // ─── WebSocket Helpers ───────────────────────────────────────────
 

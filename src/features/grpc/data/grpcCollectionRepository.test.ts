@@ -2,8 +2,8 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { createEmptyGrpcCollectionsStore, createGrpcSavedRequestIdentity } from '../../../shared/grpc/grpcPersistenceSchema';
-import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
+import { createEmptyGrpcCollectionsStore } from '../../../shared/grpc/grpcPersistenceSchema';
+import { makeGrpcSavedRequest, GRPC_TEST_TIMESTAMP as TS } from '../../../test-utils/grpcFactories';
 
 const saveMock = vi.fn().mockResolvedValue(undefined);
 const loadMock = vi.fn();
@@ -45,23 +45,6 @@ import {
   updateGrpcSavedRequestInStore,
 } from './grpcCollectionRepository';
 import { readKey } from '../../../shared/utils/storage';
-
-const TS = '2026-06-29T12:00:00.000Z';
-
-function makeSaved(id = 'sr-1'): GrpcSavedRequest {
-  const identity = createGrpcSavedRequestIdentity(id, TS);
-  return {
-    ...identity,
-    name: 'echo.EchoService/Echo',
-    callType: 'unary',
-    service: 'echo.EchoService',
-    method: 'Echo',
-    descriptorKey: 'desc-1',
-    body: {},
-    metadata: {},
-    timeoutMs: 30_000,
-  };
-}
 
 beforeEach(() => {
   saveMock.mockClear();
@@ -123,7 +106,7 @@ describe('grpcCollectionRepository (Phase 5B)', () => {
     let store = createEmptyGrpcCollectionsStore(TS);
     store = createGrpcCollectionInStore(store, { name: 'Echo' }, TS);
     const collectionId = store.collections[0].id;
-    store = addGrpcSavedRequestToStore(store, collectionId, makeSaved(), TS);
+    store = addGrpcSavedRequestToStore(store, collectionId, makeGrpcSavedRequest(), TS);
 
     const savedId = store.collections[0].savedRequests[0].id;
     const priorRevision = store.collections[0].savedRequests[0].revisionId;
@@ -145,7 +128,7 @@ describe('grpcCollectionRepository (Phase 5B)', () => {
       store,
       collectionId,
       {
-        ...makeSaved(),
+        ...makeGrpcSavedRequest(),
         responseBaseline: {
           capturedAt: TS,
           grpcStatus: 0,
@@ -166,7 +149,7 @@ describe('grpcCollectionRepository (Phase 5B)', () => {
     let store = createEmptyGrpcCollectionsStore(TS);
     store = createGrpcCollectionInStore(store, { name: 'Echo' }, TS);
     const collectionId = store.collections[0].id;
-    store = addGrpcSavedRequestToStore(store, collectionId, makeSaved('sr-1'), TS);
+    store = addGrpcSavedRequestToStore(store, collectionId, makeGrpcSavedRequest('sr-1'), TS);
 
     store = duplicateGrpcSavedRequestInStore(store, collectionId, 'sr-1', TS);
     expect(store.collections[0].savedRequests).toHaveLength(2);
@@ -208,7 +191,7 @@ describe('grpcCollectionRepository (Phase 5B)', () => {
     store = createGrpcCollectionInStore(store, { name: 'Secrets' }, TS);
     const collectionId = store.collections[0].id;
     store = addGrpcSavedRequestToStore(store, collectionId, {
-      ...makeSaved(),
+      ...makeGrpcSavedRequest(),
       auth: { type: 'bearer', bearerToken: 'raw-secret-token-value' },
     }, TS);
 
@@ -231,8 +214,8 @@ describe('grpcCollectionRepository (Phase 5B)', () => {
     store = createGrpcCollectionInStore(store, { name: 'A' }, TS);
     store = createGrpcCollectionInStore(store, { name: 'B' }, TS);
     const [collectionA, collectionB] = store.collections;
-    store = addGrpcSavedRequestToStore(store, collectionA.id, makeSaved('sr-dup'), TS);
-    expect(() => addGrpcSavedRequestToStore(store, collectionB.id, makeSaved('sr-dup'), TS))
+    store = addGrpcSavedRequestToStore(store, collectionA.id, makeGrpcSavedRequest('sr-dup'), TS);
+    expect(() => addGrpcSavedRequestToStore(store, collectionB.id, makeGrpcSavedRequest('sr-dup'), TS))
       .toThrow(/duplicate saved request id/i);
   });
 

@@ -130,13 +130,13 @@ describe('Phase 11O acceptance — checklist-3: Studio wiring', () => {
       .toContain('transportMode: frozenTransportMode');
     expect(readSrc('src/features/grpc/utils/grpcStudioAdvancedCommands.ts'))
       .toContain('resolveFrozenLoadTestTransportMode');
-    expect(readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts'))
+    expect(readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedLoadTestActions.ts'))
       .toContain('postSnapshotValidationError');
-    expect(readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts'))
+    expect(readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedLoadTestActions.ts'))
       .toContain('resolveGrpcStudioTabTransportMode(studio.activeTab)');
-    expect(readSrc('src/features/grpc/components/GrpcLoadTestPanel.tsx'))
+    expect(readSrc('src/features/grpc/components/grpcLoadTestPanel/GrpcLoadTestConfigSection.tsx'))
       .toContain('grpc-load-test-call-type-badge');
-    expect(readSrc('src/features/grpc/components/GrpcLoadTestPanel.tsx'))
+    expect(readSrc('src/features/grpc/components/grpcLoadTestPanel/GrpcLoadTestConfigSection.tsx'))
       .toContain('grpc-load-test-max-messages-per-stream');
     expect(formatGrpcLoadTestCallTypeBadge('server_streaming')).toBe('Server stream');
   });

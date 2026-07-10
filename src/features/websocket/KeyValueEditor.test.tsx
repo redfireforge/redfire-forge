@@ -204,5 +204,77 @@ describe('KeyValueEditor', () => {
     render(<KeyValueEditor entries={[]} onChange={vi.fn()} onDeleteAll={vi.fn()} label="Headers" testIdPrefix="h" />);
     expect(screen.queryByTestId('h-delete-all-btn')).not.toBeInTheDocument();
   });
+
+  it('updates only the targeted row when multiple entries are present', () => {
+    const onChange = vi.fn();
+    const entries = makeEntries('A', 'B');
+    render(<KeyValueEditor entries={entries} onChange={onChange} label="Headers" />);
+    fireEvent.change(screen.getByDisplayValue('B'), { target: { value: 'B-updated' } });
+    expect(onChange).toHaveBeenCalledTimes(1);
+    const updated = onChange.mock.calls[0][0] as WsKeyValueEntry[];
+    expect(updated[0].key).toBe('A');
+    expect(updated[1].key).toBe('B-updated');
+  });
+
+  it('renders disabled-entry styling and tooltip when a row is unchecked', () => {
+    const entries: WsKeyValueEntry[] = [{ key: 'X', value: '1', enabled: false }];
+    const { container } = render(
+      <KeyValueEditor entries={entries} onChange={vi.fn()} label="Headers" toggleVerb="send" />,
+    );
+    expect(container.querySelector('.is-disabled-entry')).toBeInTheDocument();
+    expect(screen.getByTitle('Disabled — skipped on send')).toBeInTheDocument();
+  });
+
+  it('renders enabled-entry tooltip with the default connect verb', () => {
+    const entries = makeEntries('X');
+    render(<KeyValueEditor entries={entries} onChange={vi.fn()} label="Headers" />);
+    expect(screen.getByTitle('Enabled — included on connect')).toBeInTheDocument();
+  });
+
+  it('renders Delete all without test ids when testIdPrefix is omitted', () => {
+    const onDeleteAll = vi.fn();
+    render(
+      <KeyValueEditor entries={makeEntries('A')} onChange={vi.fn()} onDeleteAll={onDeleteAll} label="Headers" />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: /delete all headers/i }));
+    expect(onDeleteAll).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables Delete all when the editor is disabled', () => {
+    render(
+      <KeyValueEditor
+        entries={makeEntries('A')}
+        onChange={vi.fn()}
+        onDeleteAll={vi.fn()}
+        label="Headers"
+        testIdPrefix="h"
+        disabled
+      />,
+    );
+    expect(screen.getByTestId('h-delete-all-btn')).toBeDisabled();
+  });
+
+  it('applies drag-over and dragging row classes during reorder', () => {
+    const entries = makeEntries('A', 'B');
+    const { container } = render(
+      <KeyValueEditor entries={entries} onChange={vi.fn()} label="Headers" testIdPrefix="h" />,
+    );
+
+    const data: Record<string, string> = {};
+    const dataTransfer = {
+      effectAllowed: '',
+      dropEffect: '',
+      setData: (type: string, val: string) => { data[type] = val; },
+      getData: (type: string) => data[type] ?? '',
+    };
+
+    fireEvent.dragStart(screen.getByTestId('h-grip-0'), { dataTransfer });
+    expect(container.querySelector('.is-dragging')).toBeInTheDocument();
+
+    fireEvent.dragOver(screen.getByTestId('h-row-1'), { dataTransfer });
+    expect(container.querySelector('.is-drag-over')).toBeInTheDocument();
+
+    fireEvent.dragEnd(screen.getByTestId('h-grip-0'));
+  });
 });
 

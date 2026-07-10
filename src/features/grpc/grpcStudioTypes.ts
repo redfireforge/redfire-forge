@@ -64,7 +64,7 @@ export type GrpcRequestLifecycle =
 export type GrpcRequestMode = 'form' | 'json';
 
 /** Optional body/metadata overrides applied at Send click (avoids React batching stale tab state). */
-export type GrpcExecuteOverrides = Partial<Pick<GrpcStudioTabState, 'body' | 'metadata' | 'timeoutMs' | 'transportMode'>>;
+export type GrpcExecuteOverrides = Partial<Pick<GrpcStudioTabState, 'body' | 'metadata' | 'timeoutMs' | 'transportMode' | 'service' | 'method'>>;
 
 export type GrpcDescriptorLoadState = 'idle' | 'loading' | 'loaded' | 'error';
 

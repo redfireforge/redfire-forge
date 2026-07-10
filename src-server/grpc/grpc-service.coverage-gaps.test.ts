@@ -22,6 +22,10 @@ import { setDescriptorRootCache, clearDescriptorRootCache } from './descriptorRo
 import { descriptorLoader } from './descriptorLoader.js';
 import { GrpcOAuth2TokenService } from './grpcOAuth2TokenService.js';
 import { getGrpcCallEntry } from './callRegistry.js';
+import {
+  getServerGrpcMockRuntimeRegistry,
+  resetServerGrpcMockRuntimeRegistryForTests,
+} from './grpcMockServerRuntimeBridge.js';
 
 class TestGrpcMetadata {
   private values: Record<string, string> = {};
@@ -52,6 +56,7 @@ describe('GrpcService coverage gaps', () => {
     clearGrpcDescriptorStore();
     clearDescriptorRootCache();
     clearDynamicProtoCodecCache();
+    resetServerGrpcMockRuntimeRegistryForTests();
     setGrpcDescriptor(FIXTURE_DESCRIPTOR);
   });
 
@@ -866,6 +871,131 @@ describe('GrpcService status/reflect/describe/auth coverage gaps', () => {
       expect(envelope.error.code).toBe(GRPC_ERROR_CODES.CALL_FAILED);
       expect((envelope.error.details as { trailers?: Record<string, string> })?.trailers).toBeUndefined();
     }
+  });
+
+  it('intercepts unary calls through the server mock runtime registry', async () => {
+    const tabId = 'tab-mock-intercept';
+    const registry = getServerGrpcMockRuntimeRegistry();
+    registry.startTab(tabId, {
+      connectionId: 'conn-mock',
+      ruleSet: {
+        rules: [{
+          id: 'echo',
+          name: 'Echo',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: { statusCode: 0, message: 'mocked', body: { message: 'mocked' } },
+        }],
+      },
+    });
+
+    const mockClient = createMockGrpcClientPort();
+    mockClient.invokeUnary = vi.fn(async () => {
+      throw new Error('real server should not be called');
+    });
+    const envelope = await new GrpcService(mockClient).call(
+      { ...FIXTURE_UNARY_CALL_REQUEST, requestId: 'req-mock' },
+      tabId,
+    );
+
+    expect(envelope.ok).toBe(true);
+    if (envelope.ok) {
+      expect(envelope.data.body).toEqual({ message: 'mocked' });
+      expect(mockClient.invokeUnary).not.toHaveBeenCalled();
+    }
+    registry.remove(tabId, { force: true });
+  });
+
+  it('falls through to the real server when mock evaluation fails', async () => {
+    const tabId = 'tab-mock-fallback';
+    const registry = getServerGrpcMockRuntimeRegistry();
+    registry.startTab(tabId, {
+      connectionId: 'conn-mock',
+      ruleSet: { rules: [] },
+    });
+    const manager = registry.getManager(tabId);
+    vi.spyOn(manager, 'executeUnaryCall').mockRejectedValueOnce(new Error('mock boom'));
+
+    const mockClient = createMockGrpcClientPort();
+    mockClient.invokeUnary = vi.fn(async () => ({
+      status: 0,
+      statusMessage: 'OK',
+      headers: {},
+      trailers: {},
+      body: { message: 'real' },
+      durationMs: 3,
+    }));
+    const envelope = await new GrpcService(mockClient).call(
+      { ...FIXTURE_UNARY_CALL_REQUEST, requestId: 'req-fallback' },
+      tabId,
+    );
+
+    expect(envelope.ok).toBe(true);
+    expect(mockClient.invokeUnary).toHaveBeenCalled();
+    registry.remove(tabId, { force: true });
+  });
+
+  it('returns mock responses with default status/message/body fallbacks', async () => {
+    const tabId = 'tab-mock-defaults';
+    const registry = getServerGrpcMockRuntimeRegistry();
+    registry.startTab(tabId, {
+      connectionId: 'conn-mock',
+      ruleSet: {
+        rules: [{
+          id: 'echo',
+          name: 'Echo',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: {},
+        }],
+      },
+    });
+
+    const mockClient = createMockGrpcClientPort();
+    mockClient.invokeUnary = vi.fn(async () => {
+      throw new Error('real server should not be called');
+    });
+    const envelope = await new GrpcService(mockClient).call(
+      { ...FIXTURE_UNARY_CALL_REQUEST, requestId: 'req-mock-defaults' },
+      tabId,
+    );
+
+    expect(envelope.ok).toBe(true);
+    if (envelope.ok) {
+      expect(envelope.data.status).toBe(0);
+      expect(envelope.data.statusMessage).toBe('');
+      expect(envelope.data.body).toEqual({});
+    }
+    registry.remove(tabId, { force: true });
+  });
+
+  it('skips mock interception when runtime is not running', async () => {
+    const tabId = 'tab-mock-idle';
+    const registry = getServerGrpcMockRuntimeRegistry();
+    registry.startTab(tabId, {
+      connectionId: 'conn-idle',
+      ruleSet: { rules: [], version: 1 },
+      latencyPolicy: { mode: 'none' },
+    });
+    registry.stopTab(tabId, { force: true });
+    const mockClient = createMockGrpcClientPort();
+    mockClient.invokeUnary = vi.fn(async () => ({
+      status: 0,
+      statusMessage: 'OK',
+      headers: {},
+      trailers: {},
+      body: { message: 'real' },
+      durationMs: 1,
+    }));
+    const envelope = await new GrpcService(mockClient).call(
+      { ...FIXTURE_UNARY_CALL_REQUEST, requestId: 'req-not-running' },
+      tabId,
+    );
+    expect(envelope.ok).toBe(true);
+    expect(mockClient.invokeUnary).toHaveBeenCalled();
+    registry.remove(tabId, { force: true });
   });
 
   it('exportProtoset maps non-Error encode throws to invalid descriptor', async () => {

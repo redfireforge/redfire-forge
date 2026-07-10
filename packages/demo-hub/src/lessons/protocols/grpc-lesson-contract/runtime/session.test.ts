@@ -42,6 +42,14 @@ describe('grpc lesson runtime session', () => {
     expect(run.snapshot.requestPayload).toMatchObject({ message: 'workflow-test' });
   });
 
+  it('begins GRPC-13 mock server with registered snapshot', () => {
+    const run = beginGrpcLessonRun('grpc-mock-server');
+    expect(run.status).toBe('running');
+    expect(run.snapshot.lessonId).toBe('grpc-mock-server');
+    expect(run.snapshot.callType).toBe('unary');
+    expect(run.snapshot.requestPayload).toMatchObject({ message: 'Hello from gRPC Studio' });
+  });
+
   it('rejects begin when an active run already exists', () => {
     beginGrpcLessonRun('grpc-first-call');
     expect(() => beginGrpcLessonRun('grpc-first-call')).toThrow(/Invalid gRPC lesson transition/);

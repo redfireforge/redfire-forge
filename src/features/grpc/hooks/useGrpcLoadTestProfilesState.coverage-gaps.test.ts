@@ -129,15 +129,55 @@ describe('useGrpcLoadTestProfilesState coverage gaps', () => {
     expect(patchTabState).toHaveBeenCalled();
     const updater = patchTabState.mock.calls[0]?.[1];
     expect(typeof updater).toBe('function');
+    const prev = createInitialGrpcTabAdvancedFeaturesUiState();
+    prev.loadTest.runHistory = [{
+      summary: {
+        schemaVersion: 1,
+        runId: 'existing-run',
+        callType: 'unary',
+        startedAt: '2026-07-01T00:00:00.000Z',
+        completedAt: '2026-07-01T00:00:01.000Z',
+        durationMs: 1000,
+        stopReason: 'completed_total_calls',
+        status: 'success',
+        counts: {
+          scheduled: 1,
+          completed: 1,
+          succeeded: 1,
+          failed: 0,
+          warmupScheduled: 0,
+          warmupCompleted: 0,
+          peakInFlight: 1,
+        },
+        metrics: {
+          throughputRps: 1,
+          successRate: 100,
+          errorRate: 0,
+          latency: {
+            minMs: 5,
+            maxMs: 5,
+            avgMs: 5,
+            p50Ms: 5,
+            p90Ms: 5,
+            p95Ms: 5,
+            p99Ms: 5,
+          },
+          attempts: [],
+        },
+      },
+    }];
+    prev.loadTest.selectedRunId = 'existing-run';
     const next = (updater as (prev: ReturnType<typeof createInitialGrpcTabAdvancedFeaturesUiState>) => unknown)(
-      createInitialGrpcTabAdvancedFeaturesUiState(),
+      prev,
     );
     expect(next).toMatchObject({
       loadTest: {
         config: { concurrency: 8, totalCalls: 80 },
         lastSummary: undefined,
+        selectedRunId: 'existing-run',
       },
     });
+    expect((next as ReturnType<typeof createInitialGrpcTabAdvancedFeaturesUiState>).loadTest.runHistory).toHaveLength(1);
   });
 
   it('loadLoadTestProfile preserves in-flight runtime state', async () => {

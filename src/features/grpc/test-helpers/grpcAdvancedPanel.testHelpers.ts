@@ -66,6 +66,16 @@ export function buildAdvancedMock(
     activeTabId: 'tab-ui',
     activeRpcLabel: 'echo.EchoService / Echo',
     activeLoadTestCallType: 'unary',
+    loadTestMethodOptions: [
+      {
+        key: 'echo.EchoService/Echo',
+        service: 'echo.EchoService',
+        method: 'Echo',
+        callType: 'unary',
+        label: 'echo.EchoService / Echo',
+      },
+    ],
+    selectedLoadTestMethodKey: '',
     loadTestProfiles: [],
     loadTestProfilesLoading: false,
     loadTestProfileError: undefined,
@@ -81,6 +91,7 @@ export function buildAdvancedMock(
     isSchemaDiffChangeAcknowledged: vi.fn().mockReturnValue(false),
     setActiveFeatureTab: vi.fn(),
     patchLoadTestConfig: vi.fn(),
+    setLoadTestMethodOverride: vi.fn(),
     patchMockRulesJson: vi.fn(),
     patchMockLatency: vi.fn(),
     patchMockExposeNetwork: vi.fn(),
@@ -89,6 +100,7 @@ export function buildAdvancedMock(
     startLoadTest: vi.fn(),
     cancelLoadTest: vi.fn(),
     resetLoadTestStatus: vi.fn(),
+    selectLoadTestRunSummary: vi.fn(),
     startMockServer: vi.fn(),
     stopMockServer: vi.fn(),
     resetMockStatus: vi.fn(),
@@ -116,6 +128,7 @@ export function buildAdvancedMock(
       p95LatencyMs: 0,
     },
     resetRpcSessionStats: vi.fn(),
+    activeDescriptor: FIXTURE_DESCRIPTOR,
     ...patch,
   } as UseGrpcStudioAdvancedFeaturesReturn;
 }

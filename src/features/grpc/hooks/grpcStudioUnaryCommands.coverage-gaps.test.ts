@@ -28,6 +28,7 @@ import {
   createPrepareExecuteSnapshotHandler,
 } from './grpcStudioUnaryCommands';
 import type { GrpcStudioRuntimeContext } from './grpcStudioRuntimeContext';
+import { getGrpcStudioMockRuntimeRegistry } from '../utils/grpcStudioAdvancedCommands';
 
 vi.mock('../../../shared/grpc/grpcApiClient', async () => {
   const actual = await vi.importActual<typeof grpcApiClient>('../../../shared/grpc/grpcApiClient');
@@ -73,6 +74,8 @@ function makeRuntime(sessionRef: { current: ReturnType<typeof createInitialSessi
     fireCancelInFlight: vi.fn(),
     envVarMap: {},
     profiles: [],
+    globalAuthProfiles: [],
+    defaultAuthProfileId: null,
     pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
     workspaceDefaults: { target: 'workspace:50051', tlsMode: 'disabled' },
     maxTabs: 8,
@@ -1036,6 +1039,55 @@ describe('grpcStudioUnaryCommands coverage gaps', () => {
     await createExecuteUnaryCallHandler(makeRuntime(sessionRef), core, prepare)(tabId);
     expect(sessionRef.current.tabs[0]?.lastError?.message).toBe('Transport dispatch is not available');
     vi.restoreAllMocks();
+  });
+
+  it('executeUnaryCall intercepts through the browser mock runtime registry', async () => {
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    const sessionRef = { current: session };
+    const ctx = makeRuntime(sessionRef);
+    const core = makeCore(sessionRef);
+    const prepare = createPrepareExecuteSnapshotHandler(ctx, core);
+    const registry = getGrpcStudioMockRuntimeRegistry();
+    registry.startTab(tabId, {
+      connectionId: 'conn-mock',
+      ruleSet: {
+        rules: [{
+          id: 'echo',
+          name: 'Echo',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: { statusCode: 0, message: 'mocked', body: { message: 'mocked' } },
+        }],
+      },
+    });
+    const invokeSpy = vi.spyOn(transportFacade, 'invokeGrpcUnary');
+
+    await createExecuteUnaryCallHandler(ctx, core, prepare)(tabId);
+
+    expect(invokeSpy).not.toHaveBeenCalled();
+    expect(sessionRef.current.tabs[0]?.lifecycle).toBe('success');
+    expect(sessionRef.current.tabs[0]?.lastResult?.body).toEqual({ message: 'mocked' });
+    expect(callHistoryCapture.captureGrpcCallHistoryFromOutcome).toHaveBeenCalled();
+    registry.remove(tabId, { force: true });
+    invokeSpy.mockRestore();
+  });
+
+  it('prepareExecuteSnapshot throws when resolved auth has an issue', () => {
+    const session = createInitialSessionState();
+    const tabId = configureUnaryTab(session);
+    session.tabs[0] = {
+      ...session.tabs[0]!,
+      auth: { type: 'inherit' },
+    };
+    const sessionRef = { current: session };
+    const ctx = makeRuntime(sessionRef);
+    ctx.defaultAuthProfileId = 'missing-profile';
+    ctx.globalAuthProfiles = [];
+    const prepare = createPrepareExecuteSnapshotHandler(ctx, makeCore(sessionRef));
+
+    expect(() => prepare(tabId, 'req-auth-issue')).toThrow(/auth|profile|inherit/i);
   });
 
   it('cancelUnaryCall leaves unrelated tabs unchanged in session commit', async () => {

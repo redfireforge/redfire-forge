@@ -89,6 +89,7 @@ export function useGrpcLoadTestProfilesState(
     patchTabState(activeTabId, (prev) => ({
       ...prev,
       loadTest: {
+        ...prev.loadTest,
         config: structuredClone(profile.config),
         lastSummary: undefined,
         lastExportSource: undefined,

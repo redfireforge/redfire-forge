@@ -37,14 +37,14 @@ describe('Phase 11M acceptance checklist', () => {
 
   it('checklist-4: UI exposes listen target, network toggle, and hot-swap while running', () => {
     const panel = readSrc('src/features/grpc/components/GrpcMockServerPanel.tsx');
-    const builder = readSrc('src/features/grpc/components/GrpcMockRuleBuilderPanel.tsx');
-    const hook = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
+    const builder = readSrc('src/features/grpc/components/grpcMockRuleBuilder/GrpcMockRuleBuilderPanel.tsx');
+    const mockActions = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedMockActions.ts');
     const selectors = readSrc('src/shared/selectors/grpc.ts');
     expect(panel).toContain('grpc-mock-listen-target');
     expect(panel).toContain('grpc-mock-expose-network');
     expect(builder).toContain('hot-swap');
-    expect(hook).toContain('commitGrpcMockNetworkListener');
-    expect(hook).toContain('startGrpcMockNetworkListener');
+    expect(mockActions).toContain('commitGrpcMockNetworkListener');
+    expect(mockActions).toContain('startGrpcMockNetworkListener');
     expect(selectors).toContain('MOCK_LISTEN_TARGET');
   });
 

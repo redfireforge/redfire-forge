@@ -82,9 +82,16 @@ describe('Phase 10E acceptance checklist', () => {
     });
 
     it('stream error block renders browser transport hint test id', async () => {
-      const source = await readFile(`${root}/features/grpc/components/GrpcCallPanel.tsx`, 'utf8');
-      expect(source).toContain('formatGrpcBrowserTransportFailureHint');
-      expect(source).toContain('grpc-stream-browser-transport-hint');
+      const hookSource = await readFile(
+        `${root}/features/grpc/components/grpcCallPanel/useGrpcCallPanel.ts`,
+        'utf8',
+      );
+      const paneSource = await readFile(
+        `${root}/features/grpc/components/grpcCallPanel/GrpcCallResponsePane.tsx`,
+        'utf8',
+      );
+      expect(hookSource).toContain('formatGrpcBrowserTransportFailureHint');
+      expect(paneSource).toContain('grpc-stream-browser-transport-hint');
     });
   });
 

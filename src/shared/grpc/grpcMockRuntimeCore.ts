@@ -73,6 +73,9 @@ export interface GrpcMockRuntimeState {
   latencyPolicy?: GrpcMockLatencyPolicy;
   inFlightCount: number;
   callSequence: number;
+  ruleHitCounts: Record<string, number>;
+  defaultHitCount: number;
+  missCount: number;
 }
 
 export interface GrpcMockRuntimeManager {
@@ -158,6 +161,9 @@ export function createGrpcMockRuntimeManager(): GrpcMockRuntimeManager {
   let generation = 0;
   let callSequence = 0;
   const inFlight = new Map<string, GrpcMockCallSession>();
+  const ruleHitCounts: Record<string, number> = {};
+  let defaultHitCount = 0;
+  let missCount = 0;
 
   const requireRunning = (): GrpcMockCommittedRuleSet => {
     if (operation.status !== 'running' || committed == null) {
@@ -175,6 +181,9 @@ export function createGrpcMockRuntimeManager(): GrpcMockRuntimeManager {
         latencyPolicy: latencyPolicy != null ? structuredClone(latencyPolicy) : undefined,
         inFlightCount: inFlight.size,
         callSequence,
+        ruleHitCounts: { ...ruleHitCounts },
+        defaultHitCount,
+        missCount,
       };
     },
 
@@ -203,6 +212,9 @@ export function createGrpcMockRuntimeManager(): GrpcMockRuntimeManager {
         : undefined;
       generation = 1;
       callSequence = 0;
+      Object.keys(ruleHitCounts).forEach((key) => { delete ruleHitCounts[key]; });
+      defaultHitCount = 0;
+      missCount = 0;
       committed = cloneCommittedRuleSet(config.ruleSet, generation, nowIso);
     },
 
@@ -224,6 +236,9 @@ export function createGrpcMockRuntimeManager(): GrpcMockRuntimeManager {
       latencyPolicy = undefined;
       generation = 0;
       callSequence = 0;
+      Object.keys(ruleHitCounts).forEach((key) => { delete ruleHitCounts[key]; });
+      defaultHitCount = 0;
+      missCount = 0;
     },
 
     commitRuleSet(ruleSet, options) {
@@ -261,7 +276,15 @@ export function createGrpcMockRuntimeManager(): GrpcMockRuntimeManager {
       if (active == null) {
         throw new GrpcMockRuntimeUnknownCallError(session.callId);
       }
-      return evaluateGrpcMockRuleSet(active.pinnedCommit.ruleSet, active.context);
+      const result = evaluateGrpcMockRuleSet(active.pinnedCommit.ruleSet, active.context);
+      if (result.ruleId) {
+        ruleHitCounts[result.ruleId] = (ruleHitCounts[result.ruleId] ?? 0) + 1;
+      } else if (result.usedDefault) {
+        defaultHitCount += 1;
+      } else {
+        missCount += 1;
+      }
+      return result;
     },
 
     endCall(callId) {

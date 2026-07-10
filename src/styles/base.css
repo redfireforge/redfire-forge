@@ -1092,6 +1092,47 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .modal h3 { margin-bottom: 20px; }
 
+/* ─── Standard Professional Modal ─── */
+.professional-modal-overlay {
+  padding: 4px;
+  justify-content: center;
+  align-items: flex-start;
+  z-index: 1800;
+}
+
+.professional-modal {
+  width: min(720px, calc(100vw - 16px));
+  max-height: min(74vh, 700px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px;
+  padding: 0;
+  /* White edge highlight: subtle border + inset glow + outer shadow */
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.035) inset,
+              0 10px 28px rgba(0, 0, 0, 0.35);
+}
+
+.professional-modal .modal-header {
+  padding: 18px 20px 16px;
+  border-bottom: 0;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.professional-modal .modal-header h3 {
+  margin: 0;
+}
+
+.professional-modal > div:not(.modal-header):not(.modal-resize-corner):not(.modal-resize-edge-right):not(.modal-resize-edge-bottom) {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 20px;
+}
+
 /* Modal resize handles */
 .modal-resize-edge-right {
   position: absolute;

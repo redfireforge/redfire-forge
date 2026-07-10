@@ -203,4 +203,199 @@ describe('GrpcMockServerPanel coverage gaps', () => {
     });
     expect(screen.getByTestId('grpc-mock-listener-log-log-3')).toBeTruthy();
   });
+
+  it('shows companion-required mode, internal-only endpoint, and builder tab wiring', () => {
+    vi.spyOn(mockListenerClient, 'supportsGrpcMockNetworkListener').mockReturnValue(false);
+
+    const patchMockExposeNetwork = vi.fn();
+    const patchMockRulesJson = vi.fn();
+    const resetMockRulesToDefault = vi.fn();
+
+    render(
+      <GrpcMockServerPanel
+        advanced={buildAdvancedMock({
+          patchMockExposeNetwork,
+          patchMockRulesJson,
+          resetMockRulesToDefault,
+          mockServer: {
+            rulesJson: '{"rules":[{"id":"r1","name":"Echo ok","enabled":true,"priority":1,"predicate":{"kind":"method_equals","method":"Echo"},"response":{"statusCode":0}}]}',
+            exposeNetworkEndpoint: false,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/Companion required/i)).toBeTruthy();
+    expect(screen.getByText(/requires the web companion server/i)).toBeTruthy();
+    expect(screen.queryByTestId('grpc-mock-expose-network')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-json'));
+    fireEvent.change(screen.getByTestId('grpc-mock-rules-json'), { target: { value: '{"rules":[]}' } });
+    expect(patchMockRulesJson).toHaveBeenCalledWith('{"rules":[]}');
+
+    fireEvent.click(screen.getByTestId('grpc-mock-reset-rules'));
+    expect(resetMockRulesToDefault).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-builder'));
+    expect(screen.getByTestId('grpc-mock-authoring-tools')).toBeTruthy();
+  });
+
+  it('shows internal-only endpoint mode when network listener is supported but disabled', () => {
+    vi.spyOn(mockListenerClient, 'supportsGrpcMockNetworkListener').mockReturnValue(true);
+
+    render(
+      <GrpcMockServerPanel
+        advanced={buildAdvancedMock({
+          mockServer: {
+            rulesJson: '{"rules":[]}',
+            exposeNetworkEndpoint: false,
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/Internal only/i)).toBeTruthy();
+    expect(screen.getByTestId('grpc-mock-expose-network')).toBeTruthy();
+  });
+
+  it('copies rules JSON when export helper returns text and shows runtime hit badges', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText } });
+
+    render(
+      <GrpcMockServerPanel
+        advanced={buildAdvancedMock({
+          exportMockRulesJson: vi.fn(() => '{"rules":[{"id":"r1"}]}'),
+          mockRunning: true,
+          mockServer: {
+            rulesJson: '{"rules":[{"id":"r1","name":"Echo ok","enabled":true,"priority":1,"predicate":{"kind":"method_equals","method":"Echo"},"response":{"statusCode":0}}]}',
+            latencyPolicy: { defaultLatencyMs: 25, jitterMs: 5 },
+          },
+          mockManagerState: {
+            committed: { generation: 3, tabId: 'tab-ui', rulesHash: 'abc' },
+            ruleHitCounts: { r1: 2 },
+            defaultHitCount: 1,
+            missCount: 4,
+          },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-json'));
+    fireEvent.click(screen.getByTestId('grpc-mock-export-json'));
+    await Promise.resolve();
+    expect(writeText).toHaveBeenCalledWith('{"rules":[{"id":"r1"}]}');
+
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
+    expect(screen.getByTestId('grpc-mock-generation').textContent).toContain('3');
+    expect(screen.getByTestId('grpc-mock-hit-count-r1').className).toContain('grpc-mock-hit-badge--active');
+    expect(screen.getByTestId('grpc-mock-hit-summary').textContent).toMatch(/Default: 1/);
+    expect(screen.getByTestId('grpc-mock-hit-summary').textContent).toMatch(/No match: 4/);
+
+    fireEvent.change(screen.getByTestId('grpc-mock-latency-default'), { target: { value: '40' } });
+    fireEvent.change(screen.getByTestId('grpc-mock-latency-jitter'), { target: { value: '' } });
+  });
+
+  it('wires start/stop controls and listener log metadata rows', async () => {
+    vi.spyOn(mockListenerClient, 'supportsGrpcMockNetworkListener').mockReturnValue(true);
+    vi.spyOn(mockListenerClient, 'fetchGrpcMockNetworkListenerLogs')
+      .mockResolvedValueOnce({
+        entries: [{
+          id: 'log-4',
+          event: 'request_matched',
+          service: 'echo.EchoService',
+          method: 'Echo',
+          ruleName: 'Echo ok',
+          timestamp: '2026-07-01T00:00:02.000Z',
+        }],
+        nextCursor: 3,
+      })
+      .mockResolvedValue({ entries: [], nextCursor: 3 });
+
+    const startMockServer = vi.fn();
+    const stopMockServer = vi.fn();
+    const patchMockLatency = vi.fn();
+    const patchMockExposeNetwork = vi.fn();
+
+    const { rerender } = render(
+      <GrpcMockServerPanel
+        advanced={buildAdvancedMock({
+          startMockServer,
+          stopMockServer,
+          patchMockLatency,
+          patchMockExposeNetwork,
+          mockServer: {
+            rulesJson: '{"rules":[{"id":"r1","name":"Echo ok","enabled":false,"priority":1,"predicate":{"kind":"method_equals","method":"Echo"},"response":{"statusCode":0}}]}',
+            exposeNetworkEndpoint: true,
+            listenerStatus: { listenTarget: '127.0.0.1:50100', generation: 0, tabId: 'tab-ui' },
+          },
+        })}
+      />,
+    );
+
+    expect(screen.getByText(/External \+ internal/i)).toBeTruthy();
+    fireEvent.click(screen.getByTestId('grpc-mock-start-btn'));
+    expect(startMockServer).toHaveBeenCalled();
+    expect(screen.queryByTestId('grpc-mock-listener-generation')).toBeNull();
+
+    rerender(
+      <GrpcMockServerPanel
+        advanced={buildAdvancedMock({
+          stopMockServer,
+          patchMockExposeNetwork,
+          mockRunning: true,
+          mockServer: {
+            rulesJson: '{"rules":[{"id":"r1","name":"Echo ok","enabled":true,"priority":1,"predicate":{"kind":"method_equals","method":"Echo"},"response":{"statusCode":0}}]}',
+            exposeNetworkEndpoint: true,
+          },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-mock-stop-btn'));
+    expect(stopMockServer).toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(screen.getByTestId('grpc-mock-listener-log-log-4').textContent).toMatch(/Echo ok/);
+    expect(screen.getByTestId('grpc-mock-listener-log-log-4').textContent).toMatch(/echo\.EchoService\/Echo/);
+
+    fireEvent.click(screen.getByTestId('grpc-mock-expose-network'));
+    expect(patchMockExposeNetwork).toHaveBeenCalledWith(false);
+  });
+
+  it('uses singular hit labels, miss-only summary, and empty-listener placeholder', async () => {
+    vi.spyOn(mockListenerClient, 'supportsGrpcMockNetworkListener').mockReturnValue(true);
+    vi.spyOn(mockListenerClient, 'fetchGrpcMockNetworkListenerLogs').mockResolvedValue({
+      entries: [],
+      nextCursor: 0,
+    });
+
+    render(
+      <GrpcMockServerPanel
+        advanced={buildAdvancedMock({
+          mockRunning: true,
+          mockServer: {
+            rulesJson: '{"rules":[{"id":"r1","name":"Echo ok","enabled":true,"priority":1,"predicate":{"kind":"method_equals","method":"Echo"},"response":{"statusCode":0}}]}',
+          },
+          mockManagerState: {
+            ruleHitCounts: { r1: 1 },
+            defaultHitCount: 0,
+            missCount: 2,
+          },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-mock-tab-runtime'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(900);
+    });
+    expect(screen.getByTestId('grpc-mock-hit-count-r1').getAttribute('title')).toBe('1 hit since start');
+    expect(screen.getByTestId('grpc-mock-hit-summary').textContent).toMatch(/No match: 2/);
+    expect(screen.getByTestId('grpc-mock-hit-summary').textContent).not.toMatch(/Default:/);
+    expect(screen.getByText(/Listener activity will appear here once external clients connect/i)).toBeTruthy();
+  });
 });

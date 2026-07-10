@@ -1,12 +1,12 @@
 /**
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { resetGrpcMockBuilderNodeIdsForTests, createGrpcMockBuilderNodeId, createDefaultGrpcMockBuilderPredicateLeaf } from '../utils/grpcMockRuleBuilderModel';
 import * as grpcMockRuleBuilderModel from '../utils/grpcMockRuleBuilderModel';
-import { buildAdvancedMock } from '../test-helpers/grpcAdvancedPanel.testHelpers';
+import { buildAdvancedMock, FIXTURE_DESCRIPTOR } from '../test-helpers/grpcAdvancedPanel.testHelpers';
 import { GrpcMockPredicateEditorForTests, GrpcMockRuleBuilderPanel } from './GrpcMockRuleBuilderPanel';
 
 const VALID_EMPTY_RULES = '{\n  "rules": []\n}';
@@ -19,16 +19,25 @@ function StatefulMockBuilder({
   initialRulesJson,
   onPatch = vi.fn(),
   parseError,
+  activeDescriptor,
+  toolbarHost,
+  mockRunning = false,
 }: {
   initialRulesJson: string;
   onPatch?: ReturnType<typeof vi.fn>;
   parseError?: string;
+  activeDescriptor?: typeof FIXTURE_DESCRIPTOR;
+  toolbarHost?: HTMLElement | null;
+  mockRunning?: boolean;
 }) {
   const [rulesJson, setRulesJson] = useState(initialRulesJson);
   return (
     <GrpcMockRuleBuilderPanel
+      toolbarHost={toolbarHost}
       advanced={buildAdvancedMock({
         mockServer: { rulesJson, parseError },
+        mockRunning,
+        activeDescriptor: activeDescriptor ?? null,
         patchMockRulesJson: (next) => {
           onPatch(next);
           setRulesJson(next);
@@ -36,6 +45,41 @@ function StatefulMockBuilder({
       })}
     />
   );
+}
+
+function mockRuleDragDataTransfer(_ruleId: string) {
+  const store = new Map<string, string>();
+  return {
+    effectAllowed: 'move',
+    dropEffect: 'move',
+    setData: (type: string, value: string) => {
+      store.set(type, value);
+    },
+    getData: (type: string) => store.get(type) ?? '',
+  };
+}
+
+function makeTwoRuleJson() {
+  return JSON.stringify({
+    rules: [
+      {
+        id: 'rule-a',
+        name: 'Alpha Echo',
+        enabled: true,
+        priority: 1,
+        predicate: { kind: 'method_equals', method: 'Echo' },
+        response: { statusCode: 0, body: { ok: true } },
+      },
+      {
+        id: 'rule-b',
+        name: 'Beta Ping',
+        enabled: true,
+        priority: 2,
+        predicate: { kind: 'method_equals', method: 'Ping' },
+        response: { statusCode: 0 },
+      },
+    ],
+  }, null, 2);
 }
 
 function leafField(prefix: string) {
@@ -49,6 +93,15 @@ function leafField(prefix: string) {
 describe('GrpcMockRuleBuilderPanel coverage gaps', () => {
   beforeEach(() => {
     resetGrpcMockBuilderNodeIdsForTests();
+    HTMLElement.prototype.scrollIntoView = vi.fn();
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0);
+      return 0;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it('shows parse error when rules JSON is invalid', () => {
@@ -130,6 +183,90 @@ describe('GrpcMockRuleBuilderPanel coverage gaps', () => {
     expect(patchMockRulesJson).toHaveBeenCalledTimes(2);
   });
 
+  it('collapses and expands all rules from the authoring toolbar', () => {
+    const rulesJson = JSON.stringify({
+      rules: [
+        {
+          id: 'rule-a',
+          name: 'First',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: { statusCode: 0 },
+        },
+        {
+          id: 'rule-b',
+          name: 'Second',
+          enabled: true,
+          priority: 2,
+          predicate: { kind: 'method_equals', method: 'Ping' },
+          response: { statusCode: 0 },
+        },
+      ],
+    }, null, 2);
+
+    const { container } = render(
+      <StatefulMockBuilder initialRulesJson={rulesJson} />,
+    );
+
+    expect(container.querySelector('[data-testid^="grpc-mock-builder-leaf-kind-"]')).toBeTruthy();
+
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-collapse-all'));
+    expect(container.querySelectorAll('[data-testid^="grpc-mock-builder-summary-"]').length).toBe(2);
+    expect(container.querySelector('[data-testid^="grpc-mock-builder-leaf-kind-"]')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-expand-all'));
+    expect(container.querySelectorAll('[data-testid^="grpc-mock-builder-leaf-kind-"]').length).toBeGreaterThan(0);
+    expect(container.querySelector('[data-testid^="grpc-mock-builder-summary-"]')).toBeNull();
+  });
+
+  it('collapses proto-generated stub rules by default', () => {
+    const patchMockRulesJson = vi.fn();
+    const { container } = render(
+      <StatefulMockBuilder
+        initialRulesJson={VALID_EMPTY_RULES}
+        onPatch={patchMockRulesJson}
+        activeDescriptor={FIXTURE_DESCRIPTOR}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-generate-stubs'));
+    expect(patchMockRulesJson).toHaveBeenCalled();
+
+    const collapseButtons = container.querySelectorAll(
+      '[data-testid^="grpc-mock-builder-collapse-"]:not([data-testid="grpc-mock-builder-collapse-all"])',
+    );
+    expect(collapseButtons.length).toBeGreaterThan(0);
+    for (const button of collapseButtons) {
+      expect(button.textContent).toBe('▸');
+    }
+    expect(container.querySelector('[data-testid^="grpc-mock-builder-summary-"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid^="grpc-mock-builder-leaf-kind-"]')).toBeNull();
+  });
+
+  it('opens the dry-run tester with footer close action', () => {
+    render(
+      <StatefulMockBuilder
+        initialRulesJson={rulesJsonWithRule({
+          id: 'rule-a',
+          name: 'Echo match',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: { statusCode: 0, body: { ok: true } },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-test-toggle-rule-a'));
+    expect(screen.getByText('Dry-Run Tester')).toBeTruthy();
+    expect(screen.getByTestId('grpc-mock-tester-close')).toBeTruthy();
+    expect(screen.queryByLabelText('Close')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('grpc-mock-tester-close'));
+    expect(screen.queryByText('Dry-Run Tester')).toBeNull();
+  });
+
   it('converts a leaf predicate to a group and edits group combinator', () => {
     const patchMockRulesJson = vi.fn();
     const rulesJson = rulesJsonWithRule({
@@ -171,6 +308,54 @@ describe('GrpcMockRuleBuilderPanel coverage gaps', () => {
     fireEvent.change(leafField('grpc-mock-builder-group-combinator-') as HTMLSelectElement, { target: { value: 'or' } });
     fireEvent.click(leafField('grpc-mock-builder-add-leaf-') as HTMLButtonElement);
     expect(patchMockRulesJson).toHaveBeenCalled();
+  });
+
+  it('converts a single-child group back to a leaf predicate', () => {
+    const patchMockRulesJson = vi.fn();
+    const rulesJson = rulesJsonWithRule({
+      id: 'grouped-single',
+      name: 'Ping match',
+      enabled: true,
+      priority: 1,
+      predicate: {
+        kind: 'and',
+        predicates: [{ kind: 'method_equals', method: 'Echo' }],
+      },
+      response: { statusCode: 0 },
+    });
+
+    render(
+      <StatefulMockBuilder onPatch={patchMockRulesJson} initialRulesJson={rulesJson} />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-convert-leaf-grouped-single'));
+    expect(patchMockRulesJson).toHaveBeenCalled();
+    expect(screen.getByTestId('grpc-mock-builder-convert-group-grouped-single')).toBeTruthy();
+    expect(screen.queryByTestId('grpc-mock-builder-convert-leaf-grouped-single')).toBeNull();
+  });
+
+  it('hides convert-to-leaf when a group has multiple children', () => {
+    render(
+      <StatefulMockBuilder
+        onPatch={vi.fn()}
+        initialRulesJson={rulesJsonWithRule({
+          id: 'grouped-multi',
+          name: 'Multi',
+          enabled: true,
+          priority: 1,
+          predicate: {
+            kind: 'and',
+            predicates: [
+              { kind: 'method_equals', method: 'Echo' },
+              { kind: 'service_equals', service: 'echo.EchoService' },
+            ],
+          },
+          response: { statusCode: 0 },
+        })}
+      />,
+    );
+
+    expect(screen.queryByTestId('grpc-mock-builder-convert-leaf-grouped-multi')).toBeNull();
   });
 
   it('edits all leaf predicate kinds and toggles negation', () => {
@@ -685,6 +870,296 @@ describe('GrpcMockRuleBuilderPanel coverage gaps', () => {
     );
 
     expect(container.firstChild).toBeNull();
+    modelSpy.mockRestore();
+  });
+
+  it('filters rules with the search input and clears search when adding a rule', () => {
+    const patchMockRulesJson = vi.fn();
+    render(
+      <StatefulMockBuilder onPatch={patchMockRulesJson} initialRulesJson={makeTwoRuleJson()} />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-mock-builder-search'), { target: { value: 'ping' } });
+    expect(screen.queryByTestId('grpc-mock-builder-rule-rule-a')).toBeNull();
+    expect(screen.getByTestId('grpc-mock-builder-rule-rule-b')).toBeTruthy();
+
+    patchMockRulesJson.mockClear();
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-add-rule'));
+    expect(patchMockRulesJson).toHaveBeenCalled();
+    expect((screen.getByTestId('grpc-mock-builder-search') as HTMLInputElement).value).toBe('');
+    expect(screen.getByTestId('grpc-mock-builder-rule-rule-a')).toBeTruthy();
+  });
+
+  it('renders toolbar in a portal host when toolbarHost is provided', () => {
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+
+    render(
+      <StatefulMockBuilder initialRulesJson={VALID_EMPTY_RULES} toolbarHost={host} />,
+    );
+
+    expect(host.querySelector('[data-testid="grpc-mock-builder-search"]')).toBeTruthy();
+    expect(host.contains(screen.getByTestId('grpc-mock-builder-search'))).toBe(true);
+    host.remove();
+  });
+
+  it('creates the first rule from the empty-state call to action', () => {
+    const patchMockRulesJson = vi.fn();
+    render(
+      <StatefulMockBuilder onPatch={patchMockRulesJson} initialRulesJson={VALID_EMPTY_RULES} />,
+    );
+
+    expect(screen.getByTestId('grpc-mock-builder-empty')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-empty-add'));
+    expect(patchMockRulesJson).toHaveBeenCalled();
+    expect(screen.queryByTestId('grpc-mock-builder-empty')).toBeNull();
+  });
+
+  it('disables generate-from-proto when no descriptor is loaded', () => {
+    render(<StatefulMockBuilder initialRulesJson={VALID_EMPTY_RULES} />);
+    expect((screen.getByTestId('grpc-mock-builder-generate-stubs') as HTMLButtonElement).disabled).toBe(true);
+  });
+
+  it('duplicates a rule and patches while the mock server is running', () => {
+    const patchMockRulesJson = vi.fn();
+    render(
+      <StatefulMockBuilder
+        onPatch={patchMockRulesJson}
+        initialRulesJson={makeTwoRuleJson()}
+        mockRunning
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-duplicate-rule-rule-a'));
+    expect(patchMockRulesJson).toHaveBeenCalled();
+    const parsed = JSON.parse(patchMockRulesJson.mock.calls.at(-1)?.[0] as string) as { rules: Array<{ name: string }> };
+    expect(parsed.rules.some((rule) => rule.name.includes('(copy)'))).toBe(true);
+  });
+
+  it('reorders rules via drag and drop and applies dragging CSS classes', () => {
+    const patchMockRulesJson = vi.fn();
+    render(
+      <StatefulMockBuilder onPatch={patchMockRulesJson} initialRulesJson={makeTwoRuleJson()} />,
+    );
+
+    const sourceCard = screen.getByTestId('grpc-mock-builder-rule-rule-a');
+    const targetCard = screen.getByTestId('grpc-mock-builder-rule-rule-b');
+    const dataTransfer = mockRuleDragDataTransfer('rule-a');
+
+    fireEvent.dragStart(screen.getByTestId('grpc-mock-builder-drag-rule-a'), { dataTransfer });
+    expect(sourceCard.className).toContain('mock-server-rule-card--dragging');
+
+    fireEvent.dragOver(targetCard, { dataTransfer });
+    expect(targetCard.className).toContain('mock-server-rule-card--drop-target');
+
+    fireEvent.drop(targetCard, { dataTransfer });
+    expect(patchMockRulesJson).toHaveBeenCalled();
+
+    fireEvent.dragEnd(screen.getByTestId('grpc-mock-builder-drag-rule-a'));
+    expect(sourceCard.className).not.toContain('mock-server-rule-card--dragging');
+  });
+
+  it('ignores drop onto the same rule and invalid dragged rule ids', () => {
+    const patchMockRulesJson = vi.fn();
+    render(
+      <StatefulMockBuilder onPatch={patchMockRulesJson} initialRulesJson={makeTwoRuleJson()} />,
+    );
+
+    const sourceCard = screen.getByTestId('grpc-mock-builder-rule-rule-a');
+    fireEvent.dragStart(screen.getByTestId('grpc-mock-builder-drag-rule-a'), {
+      dataTransfer: mockRuleDragDataTransfer('rule-a'),
+    });
+    fireEvent.drop(sourceCard, { dataTransfer: mockRuleDragDataTransfer('rule-a') });
+    expect(patchMockRulesJson).not.toHaveBeenCalled();
+
+    const unknownTransfer = mockRuleDragDataTransfer('missing-rule');
+    fireEvent.drop(screen.getByTestId('grpc-mock-builder-rule-rule-b'), { dataTransfer: unknownTransfer });
+    expect(patchMockRulesJson).not.toHaveBeenCalled();
+  });
+
+  it('shows conflict warnings and per-rule conflict badges for overlapping rules', () => {
+    const rulesJson = JSON.stringify({
+      rules: [
+        {
+          id: 'conflict-a',
+          name: 'Echo A',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: { statusCode: 0 },
+        },
+        {
+          id: 'conflict-b',
+          name: 'Echo B',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: { statusCode: 0 },
+        },
+      ],
+    }, null, 2);
+
+    render(<StatefulMockBuilder initialRulesJson={rulesJson} />);
+
+    expect(screen.getByTestId('grpc-mock-builder-conflicts').textContent).toMatch(/1 potential rule conflict/i);
+    expect(screen.getByTestId('grpc-mock-builder-conflict-conflict-a')).toBeTruthy();
+    expect(screen.getByTestId('grpc-mock-builder-conflict-conflict-b')).toBeTruthy();
+  });
+
+  it('toggles the dry-run tester closed when clicking the same rule test button', () => {
+    render(
+      <StatefulMockBuilder
+        initialRulesJson={rulesJsonWithRule({
+          id: 'rule-a',
+          name: 'Echo match',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: { statusCode: 0, body: { ok: true } },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-test-toggle-rule-a'));
+    expect(screen.getByText('Dry-Run Tester')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-test-toggle-rule-a'));
+    expect(screen.queryByText('Dry-Run Tester')).toBeNull();
+  });
+
+  it('closes the tester when the tested rule is deleted', () => {
+    const patchMockRulesJson = vi.fn();
+    render(
+      <StatefulMockBuilder
+        onPatch={patchMockRulesJson}
+        initialRulesJson={rulesJsonWithRule({
+          id: 'rule-a',
+          name: 'Echo match',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: { statusCode: 0 },
+        })}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-test-toggle-rule-a'));
+    expect(screen.getByText('Dry-Run Tester')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-delete-rule-rule-a'));
+    expect(patchMockRulesJson).toHaveBeenCalled();
+    expect(screen.queryByText('Dry-Run Tester')).toBeNull();
+  });
+
+  it('expanding a later rule collapses earlier rules and scrolls it into view', () => {
+    const rulesJson = JSON.stringify({
+      rules: [
+        {
+          id: 'rule-1',
+          name: 'First',
+          enabled: true,
+          priority: 1,
+          predicate: { kind: 'method_equals', method: 'Echo' },
+          response: { statusCode: 0 },
+        },
+        {
+          id: 'rule-2',
+          name: 'Second',
+          enabled: true,
+          priority: 2,
+          predicate: { kind: 'method_equals', method: 'Ping' },
+          response: { statusCode: 0 },
+        },
+        {
+          id: 'rule-3',
+          name: 'Third',
+          enabled: true,
+          priority: 3,
+          predicate: { kind: 'method_equals', method: 'Pong' },
+          response: { statusCode: 0 },
+        },
+      ],
+    }, null, 2);
+
+    const { container } = render(<StatefulMockBuilder initialRulesJson={rulesJson} />);
+
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-collapse-rule-1'));
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-collapse-rule-2'));
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-collapse-rule-3'));
+
+    fireEvent.click(screen.getByTestId('grpc-mock-builder-collapse-rule-2'));
+    expect(container.querySelector('[data-testid="grpc-mock-builder-summary-rule-1"]')).toBeTruthy();
+    expect(container.querySelector('[data-testid^="grpc-mock-builder-leaf-kind-"]')).toBeTruthy();
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('edits custom status, latency, and status message fields', () => {
+    const patchMockRulesJson = vi.fn();
+    const rulesJson = rulesJsonWithRule({
+      id: 'response-fields',
+      name: 'Custom response',
+      enabled: true,
+      priority: 1,
+      predicate: { kind: 'method_equals', method: 'Echo' },
+      response: { statusCode: 99, message: 'custom failure', latencyMs: 25, body: { ok: true } },
+    });
+
+    render(
+      <StatefulMockBuilder onPatch={patchMockRulesJson} initialRulesJson={rulesJson} />,
+    );
+
+    fireEvent.change(screen.getByTestId('grpc-mock-builder-status-response-fields'), {
+      target: { value: '5' },
+    });
+    fireEvent.change(screen.getByTestId('grpc-mock-builder-latency-response-fields'), {
+      target: { value: '120' },
+    });
+    fireEvent.change(screen.getByTestId('grpc-mock-builder-latency-response-fields'), {
+      target: { value: 'bad' },
+    });
+    fireEvent.change(screen.getByTestId('grpc-mock-builder-message-response-fields'), {
+      target: { value: 'updated message' },
+    });
+    fireEvent.change(screen.getByTestId('grpc-mock-builder-message-response-fields'), {
+      target: { value: '' },
+    });
+    expect(patchMockRulesJson).toHaveBeenCalled();
+  });
+
+  it('shows read-only complex predicate fallback without originalPredicate', () => {
+    const modelSpy = vi.spyOn(grpcMockRuleBuilderModel, 'parseGrpcMockRuleSetToBuilderModel')
+      .mockReturnValue({
+        rules: [{
+          id: 'complex-readonly',
+          name: 'Complex',
+          enabled: true,
+          priority: 1,
+          fallthrough: false,
+          predicateReadOnly: true,
+          predicate: {
+            nodeId: 'pred:complex-readonly:root',
+            type: 'group',
+            combinator: 'and',
+            children: [{
+              nodeId: 'pred:complex-readonly:leaf',
+              type: 'group',
+              combinator: 'or',
+              children: [],
+            }],
+          },
+          responseStatusCode: 0,
+          responseBodyText: '{}',
+        }],
+      });
+
+    render(
+      <GrpcMockRuleBuilderPanel
+        advanced={buildAdvancedMock({
+          mockServer: { rulesJson: VALID_EMPTY_RULES },
+        })}
+      />,
+    );
+
+    expect(screen.getByTestId('grpc-mock-builder-readonly-rule-complex-readonly').textContent)
+      .toContain('Complex predicate — edit in JSON editor.');
     modelSpy.mockRestore();
   });
 

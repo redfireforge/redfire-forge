@@ -55,6 +55,13 @@ export interface GrpcLoadTestSchedulerState {
   completedAt?: string;
   stopReason?: GrpcLoadTestStopReason;
   counts: GrpcLoadTestRunCounts;
+  liveMetrics?: {
+    measuredAttempts: number;
+    measuredAttemptsPerSecond: number;
+    successRatePercent: number;
+    errorRatePercent: number;
+    p50Ms: number;
+  };
 }
 
 export interface GrpcLoadTestSchedulerRun {
@@ -104,6 +111,10 @@ export function startGrpcLoadTestSchedulerRun(
   const runController = new AbortController();
   const inFlight = new Map<number, AbortController>();
   const attempts: GrpcLoadTestExecutionAttempt[] = [];
+  let measuredAttempts = 0;
+  let measuredSucceeded = 0;
+  let measuredFailed = 0;
+  const measuredDurationsMs: number[] = [];
 
   let nextAttemptNumber = 1;
   let operation = transitionGrpcAdvancedOperationState(
@@ -133,6 +144,33 @@ export function startGrpcLoadTestSchedulerRun(
   let stopReason: GrpcLoadTestStopReason | undefined;
   let wakeResolver: (() => void) | null = null;
   let deadlineTimer: ReturnType<typeof setTimeout> | undefined;
+  const requestRateRps = snapshot.config.requestRateRps ?? 0;
+  const launchIntervalMs = requestRateRps > 0 ? 1_000 / requestRateRps : 0;
+  let nextAllowedLaunchAtMs = startedAtMs;
+
+  const buildLiveMetrics = (atMs: number): GrpcLoadTestSchedulerState['liveMetrics'] => {
+    const elapsedMs = Math.max(1, atMs - startedAtMs);
+    const successRatePercent = measuredAttempts > 0
+      ? (measuredSucceeded / measuredAttempts) * 100
+      : 0;
+    const errorRatePercent = measuredAttempts > 0
+      ? (measuredFailed / measuredAttempts) * 100
+      : 0;
+    const sortedDurations = measuredDurationsMs.length > 0
+      ? [...measuredDurationsMs].sort((a, b) => a - b)
+      : [];
+    const p50Ms = sortedDurations.length > 0
+      ? sortedDurations[Math.floor((sortedDurations.length - 1) * 0.5)]
+      : 0;
+
+    return {
+      measuredAttempts,
+      measuredAttemptsPerSecond: (measuredAttempts * 1_000) / elapsedMs,
+      successRatePercent,
+      errorRatePercent,
+      p50Ms,
+    };
+  };
 
   const hasDurationElapsed = (): boolean => (
     durationLimitMs != null
@@ -156,10 +194,39 @@ export function startGrpcLoadTestSchedulerRun(
     resolver?.();
   };
 
-  const waitForWake = async (): Promise<void> => {
+  const waitForWake = async (maxWaitMs?: number): Promise<void> => {
     await new Promise<void>((resolve) => {
-      wakeResolver = resolve;
+      let timeout: ReturnType<typeof setTimeout> | undefined;
+      wakeResolver = () => {
+        if (timeout != null) {
+          clearTimeout(timeout);
+        }
+        resolve();
+      };
+      if (maxWaitMs != null && Number.isFinite(maxWaitMs) && maxWaitMs > 0) {
+        timeout = setTimeout(() => {
+          if (wakeResolver != null) {
+            wakeResolver = null;
+          }
+          resolve();
+        }, maxWaitMs);
+      }
     });
+  };
+
+  const canLaunchByRate = (): boolean => {
+    if (launchIntervalMs <= 0) {
+      return true;
+    }
+    return nowMs() >= nextAllowedLaunchAtMs;
+  };
+
+  const reserveLaunchRateSlot = (): void => {
+    if (launchIntervalMs <= 0) {
+      return;
+    }
+    const now = nowMs();
+    nextAllowedLaunchAtMs = Math.max(nextAllowedLaunchAtMs, now) + launchIntervalMs;
   };
 
   const requestRunCancellation = (): void => {
@@ -230,6 +297,15 @@ export function startGrpcLoadTestSchedulerRun(
         } else {
           counts.failed += 1;
         }
+        if (!warmup) {
+          measuredAttempts += 1;
+          measuredDurationsMs.push(durationMs);
+          if (outcome.ok) {
+            measuredSucceeded += 1;
+          } else {
+            measuredFailed += 1;
+          }
+        }
       })
       .catch((error): void => {
         const finishedMs = nowMs();
@@ -247,6 +323,11 @@ export function startGrpcLoadTestSchedulerRun(
           counts.warmupCompleted += 1;
         }
         counts.failed += 1;
+        if (!warmup) {
+          measuredAttempts += 1;
+          measuredFailed += 1;
+          measuredDurationsMs.push(Math.max(0, finishedMs - startedMs));
+        }
 
         if (!runController.signal.aborted && !isAbortLike(error)) {
           // Failures are tracked but do not stop the scheduler in Phase 11B.
@@ -274,7 +355,9 @@ export function startGrpcLoadTestSchedulerRun(
         && !hasDurationElapsed()
         && nextAttemptNumber <= totalCallsLimit
         && inFlight.size < snapshot.config.concurrency
+        && canLaunchByRate()
       ) {
+        reserveLaunchRateSlot();
         launchAttempt(nextAttemptNumber);
         nextAttemptNumber += 1;
       }
@@ -293,7 +376,10 @@ export function startGrpcLoadTestSchedulerRun(
         }
       }
 
-      await waitForWake();
+      const rateDelayMs = launchIntervalMs > 0
+        ? Math.max(0, nextAllowedLaunchAtMs - nowMs())
+        : undefined;
+      await waitForWake(rateDelayMs);
     }
 
     const endedAtMs = nowMs();
@@ -335,6 +421,7 @@ export function startGrpcLoadTestSchedulerRun(
       completedAt,
       stopReason,
       counts: { ...counts },
+      liveMetrics: buildLiveMetrics(nowMs()),
     }),
   };
 }

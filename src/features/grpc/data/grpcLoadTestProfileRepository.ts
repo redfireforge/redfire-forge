@@ -41,6 +41,26 @@ function validateProfile(profile: GrpcLoadTestProfile): void {
   assertGrpcLoadTestConfig('unary', profile.config);
 }
 
+function normalizeConfig(raw: Record<string, unknown>): GrpcLoadTestConfig {
+  const config = structuredClone(raw) as unknown as GrpcLoadTestConfig;
+  if (config.methodOverrideService != null && typeof config.methodOverrideService !== 'string') {
+    delete config.methodOverrideService;
+  }
+  if (config.methodOverrideMethod != null && typeof config.methodOverrideMethod !== 'string') {
+    delete config.methodOverrideMethod;
+  }
+  if (
+    config.requestRateRps != null
+    && (!Number.isInteger(config.requestRateRps) || config.requestRateRps < 0)
+  ) {
+    delete config.requestRateRps;
+  }
+  if (config.requestTemplateJson != null && typeof config.requestTemplateJson !== 'string') {
+    delete config.requestTemplateJson;
+  }
+  return config;
+}
+
 function normalizeStore(raw: unknown): GrpcLoadTestProfilesStoreV1 {
   if (raw == null || typeof raw !== 'object') {
     return emptyStore();
@@ -62,7 +82,7 @@ function normalizeStore(raw: unknown): GrpcLoadTestProfilesStoreV1 {
         id: row.id,
         name: row.name.trim(),
         updatedAt: row.updatedAt,
-        config: row.config as GrpcLoadTestConfig,
+        config: normalizeConfig(row.config as Record<string, unknown>),
       };
       validateProfile(profile);
       profiles.push(profile);
