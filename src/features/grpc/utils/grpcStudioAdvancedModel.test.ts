@@ -272,7 +272,9 @@ describe('Phase 11G deliverable source scan', () => {
   });
 
   it('load test panel uses per-tab live progress and summary metric fields', () => {
-    const src = readSrc('src/features/grpc/components/GrpcLoadTestPanel.tsx');
+    const panel = readSrc('src/features/grpc/components/grpcLoadTestPanel/GrpcLoadTestResultsSection.tsx');
+    const orchestrator = readSrc('src/features/grpc/components/grpcLoadTestPanel/GrpcLoadTestPanel.tsx');
+    const src = `${panel}\n${orchestrator}`;
     expect(src.includes('advanced.loadTest.live')).toBe(true);
     expect(src.includes('measuredAttemptsPerSecond')).toBe(true);
     expect(src.includes('p50Ms')).toBe(true);
@@ -290,7 +292,7 @@ describe('Phase 11G deliverable source scan', () => {
   });
 
   it('hook load-test poll checks generation before patching live progress', () => {
-    const src = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedFeatures.ts');
+    const src = readSrc('src/features/grpc/hooks/useGrpcStudioAdvancedLoadTestActions.ts');
     expect(src.includes('shouldApplyLoadTestRunResult(loadTestGenerationRef.current.get(tabId), runGeneration)')).toBe(true);
   });
 });
