@@ -75,6 +75,8 @@ describe('vitest project split (Phase 1)', () => {
       'src/app/hooks/useDemoGlobalAuthBridge.test.ts',
       'src/features/graphql/hooks/useDemoGqlTlsBridge.test.ts',
       'src/features/graphql/hooks/useDemoGqlEnvBridge.test.ts',
+      'src/features/graphql/hooks/useDemoGqlModalLockBridge.test.ts',
+      'src/app/hooks/useDemoWorkspaceDefaultsBridge.test.ts',
     ]) {
       expect(isDemoTestFile(file), file).toBe(true);
       expect(isProductTestFile(file), file).toBe(false);

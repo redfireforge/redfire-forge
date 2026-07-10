@@ -15,6 +15,7 @@ export const ALL_TEST_GLOBS = [
 export const DEMO_TEST_GLOBS = [
   'packages/demo-hub/**/*.test.{ts,tsx}',
   'src/**/useDemo*.test.ts',
+  'src/**/useDemo*.coverage-gaps.test.ts',
   'src/app/components/AppLiveDemoOverlay.test.tsx',
 ] as const;
 
@@ -22,6 +23,7 @@ export const DEMO_TEST_GLOBS = [
 export const PRODUCT_TEST_EXCLUDE = [
   'packages/demo-hub/**',
   'src/**/useDemo*.test.ts',
+  'src/**/useDemo*.coverage-gaps.test.ts',
   'src/app/components/AppLiveDemoOverlay.test.tsx',
 ] as const;
 

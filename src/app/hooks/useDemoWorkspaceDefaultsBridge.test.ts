@@ -56,4 +56,24 @@ describe('useDemoWorkspaceDefaultsBridge', () => {
 
     expect(state).toEqual({ grpcHost: 'localhost:50051' });
   });
+
+  it('re-registers bridge after setter identity changes', () => {
+    let state: Record<string, string> = {};
+    let setter: React.Dispatch<React.SetStateAction<Record<string, string>>> = () => {};
+    const { rerender } = renderHook(
+      ({ apply }) => useDemoWorkspaceDefaultsBridge(apply),
+      { initialProps: { apply: setter } },
+    );
+
+    setter = (next) => {
+      state = typeof next === 'function' ? next(state) : next;
+    };
+    rerender({ apply: setter });
+
+    (window as unknown as {
+      __demoUpsertWorkspaceDefaults?: (patch: Record<string, string>) => void;
+    }).__demoUpsertWorkspaceDefaults?.({ key: 'value' });
+
+    expect(state).toEqual({ key: 'value' });
+  });
 });
