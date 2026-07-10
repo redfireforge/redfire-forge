@@ -12,6 +12,11 @@ Format follows Keep a Changelog and Semantic Versioning.
 ## [Unreleased]
 
 ### Added
+- **gRPC/WebSocket mock-server UX enhancements** — shared mock-server styling (`mock-server-shared.css`), visual rule builder with proto stub generation and JSON highlighting, WebSocket mock server parity, and `StandardProfessionalModal` / `HighlightedHtmlTextarea` shared components.
+- **gRPC Studio module splits** — `GrpcStudioPage`, `GrpcCallPanel`, `GrpcLoadTestPanel`, `GrpcSchemaDiffPanel`, and `useGrpcStudioAdvancedFeatures` decomposed into focused submodules (all under 900 lines) with co-located coverage tests ≥90%.
+- **Demo Hub gRPC lesson helpers** — `grpc-lesson-helpers/` package with shared connection, streaming, TLS, mock-server, and workflow lesson steps; demo studio isolation hooks (`useDemoHubStudioIsolation`, `useDemoHubLiveDemo`).
+
+### Added
 - **Code quality refactoring — shared hooks and helpers** — extracted `useJsonTreeCollapseState` and `useMatchCountChange` hooks; added `tryParseJsonArray<T>()` to shared helpers; extracted `grpcComposerTabState.ts` from `GrpcCallPanel`; extracted `buildJTreeFromBody` and `collectJTreePaths` into `JsonTreePreview` exports; canonical JSON helper `toCanonicalJsonString` in `ResponseVersionPanel`; `WorkflowRunner` split-test setup helper `workflowRunnerSplitTestSetup.ts`. Five components wired to `useJsonTreeCollapseState`, five expression function IIFE array-parse patterns replaced, duplicate JSON-parse/import patterns consolidated across Requests, Scenarios, and GraphQL areas.
 
 ### Added
