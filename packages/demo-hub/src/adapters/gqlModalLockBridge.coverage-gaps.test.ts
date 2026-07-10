@@ -85,4 +85,33 @@ describe('gqlModalLockBridge — coverage gaps', () => {
     delete (window as unknown as Record<string, unknown>).__demoOpenGqlProfileModal;
     expect(openGqlProfileModal()).toBe(false);
   });
+
+  it('syncGqlModalLock still persists state when setGqlModalLock bridge is absent', () => {
+    delete (window as unknown as Record<string, unknown>).__demoSetGqlModalLock;
+    syncGqlModalLock({ envAllowed: false, profileAllowed: false });
+    expect((window as unknown as Record<string, unknown>).__demoGqlModalLockState).toEqual(GQL_MODAL_LOCK_OPEN);
+    delete (window as unknown as Record<string, unknown>).__demoGqlModalLockState;
+  });
+
+  it('resolveGqlModalLockForStep uses step id without highlight or verify', () => {
+    expect(resolveGqlModalLockForStep({ id: 'gql6-env' })).toEqual({
+      envAllowed: false,
+      profileAllowed: false,
+    });
+  });
+
+  it('resolveGqlModalLockForStep allows env from highlight selector', () => {
+    expect(resolveGqlModalLockForStep({ highlight: GQL.ENV_MODAL })).toEqual({
+      envAllowed: true,
+      profileAllowed: false,
+    });
+  });
+
+  it('getProfileIntroStepIndex returns -1 when intro step id is missing from steps', () => {
+    expect(getProfileIntroStepIndex('gql-auth-headers', [{ id: 'other' }])).toBe(-1);
+  });
+
+  it('getEnvIntroStepIndex returns -1 for unknown lesson id', () => {
+    expect(getEnvIntroStepIndex('unknown-lesson', [{ id: 'gql6-env' }])).toBe(-1);
+  });
 });
