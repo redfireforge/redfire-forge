@@ -13,6 +13,7 @@
  *   2nd run: verifies the demo resets it even with accumulated dirty state
  */
 import { test, expect, chromium } from '@playwright/test';
+import { visibleWsUrlInput } from './helpers';
 import path from 'path';
 import os from 'os';
 import { WS } from '../src/shared/selectors';
@@ -40,7 +41,7 @@ test.describe('TLS Demo — Persistent Browser State', () => {
       await page.goto(`${APP_BASE}/?tab=websocket-studio`, { waitUntil: 'networkidle' });
       await page.click(WS.MODE_CLIENT);
       await page.click(WS.LEFT_TAB_CONNECT);
-      await page.fill(WS.URL_INPUT, 'wss://echo.websocket.org');
+      await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
       await page.waitForSelector(WS.TLS_PANEL, { timeout: 3000 });
 
       const toggle = page.locator(WS.TLS_TOGGLE);
@@ -80,10 +81,10 @@ test.describe('TLS Demo — Persistent Browser State', () => {
       await page.click(WS.LEFT_TAB_CONNECT);
 
       // Check skip-cert state after reload
-      const urlAfterReload = await page.locator(WS.URL_INPUT).inputValue();
+      const urlAfterReload = await visibleWsUrlInput(page).inputValue();
       console.log(`\n[phase 2] URL after reload: "${urlAfterReload}"`);
 
-      await page.fill(WS.URL_INPUT, 'wss://echo.websocket.org');
+      await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
       await page.waitForSelector(WS.TLS_PANEL, { timeout: 3000 });
       if (await toggle.getAttribute('aria-expanded') !== 'true') {
         await toggle.click();
@@ -132,7 +133,7 @@ test.describe('TLS Demo — Persistent Browser State', () => {
       console.log(`[phase 3] Step 1: "${step1}"`);
 
       // Verify skip-cert was reset by tlsSetup
-      await page.fill(WS.URL_INPUT, 'wss://echo.websocket.org');
+      await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
       await page.waitForSelector(WS.TLS_PANEL, { timeout: 3000 });
       if (await toggle.getAttribute('aria-expanded') !== 'true') {
         await toggle.click();
@@ -157,7 +158,7 @@ test.describe('TLS Demo — Persistent Browser State', () => {
       await page.goto(`${APP_BASE}/?tab=websocket-studio`, { waitUntil: 'networkidle' });
       await page.click(WS.MODE_CLIENT);
       await page.click(WS.LEFT_TAB_CONNECT);
-      await page.fill(WS.URL_INPUT, 'wss://echo.websocket.org');
+      await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
       await page.waitForTimeout(300);
       await page.locator(WS.CONNECT_BTN).click();
       await page.waitForTimeout(4000);

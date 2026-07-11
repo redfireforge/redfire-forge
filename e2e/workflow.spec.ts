@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { confirmFolderPickerModal, REDFIREFORGE_IDB_VERSION, seedAppData } from './helpers';
+import { confirmFolderPickerModal, ensureAppSidebarExpanded, REDFIREFORGE_IDB_VERSION, seedAppData } from './helpers';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
 function makeSampleWorkflow(): Workflow {
@@ -238,6 +238,7 @@ test.describe('Workflow Creation', () => {
     const createBtn = page.locator('.req-confirm-ok');
     await createBtn.click();
 
+    await ensureAppSidebarExpanded(page);
     // Sidebar should have the new workflow
     await expect(page.locator('.wf-sidebar-item-name', { hasText: 'My E2E Workflow' })).toBeVisible();
   });

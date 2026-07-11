@@ -19,6 +19,24 @@ export async function waitForAppShell(page: Page): Promise<void> {
   await page.waitForLoadState('domcontentloaded');
 }
 
+/** Expand the app unified sidebar when collapsed (▶ → ◀). */
+export async function ensureAppSidebarExpanded(page: Page): Promise<void> {
+  const toggle = page.locator('.usb-toggle-btn').first();
+  if (!(await toggle.isVisible().catch(() => false))) {
+    return;
+  }
+  const label = (await toggle.textContent()) ?? '';
+  if (label.includes('▶')) {
+    await toggle.click();
+    await expect(page.locator('.unified-sidebar')).toBeVisible({ timeout: 10_000 });
+  }
+}
+
+/** Visible WebSocket URL field — avoids strict-mode violations with multi-tab studio. */
+export function visibleWsUrlInput(page: Page) {
+  return page.locator('[aria-label="WebSocket URL"]').filter({ visible: true });
+}
+
 export async function waitForWorkflowReady(page: Page): Promise<void> {
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const visible = await page.locator('.wf-designer').isVisible({ timeout: 15000 }).catch(() => false);

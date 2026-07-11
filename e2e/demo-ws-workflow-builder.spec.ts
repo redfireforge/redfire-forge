@@ -22,23 +22,38 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { WF } from '../src/shared/selectors';
 import {
   launchLesson,
   runNextStep,
-  advanceSteps,
   waitForReadingPhase,
-  skipReadingPause,
-  waitForActionPhase,
   assertNodeNotSelected,
-  assertConfigModalOpen,
-  assertConfigModalClosed,
   getStepInfo,
   takeNamedScreenshot,
   exitLesson,
   restartLesson,
 } from './demo-player-helpers';
 
+test.describe.configure({ mode: 'serial', retries: 0 });
+
 const DEMO_ACTION_TIMEOUT = 90_000;
+
+/** After these steps complete, the next step's preAction opens the config modal. */
+const CONFIG_RING_AFTER_STEP: Record<number, string> = {
+  3: WF.NODE_WS_CONNECT,
+  6: WF.NODE_WS_SEND,
+  8: WF.NODE_WS_RECEIVE,
+};
+
+async function assertConfigStepOpensWithoutSelectionRing(
+  page: Parameters<typeof launchLesson>[0],
+  nodeSelector: string,
+): Promise<void> {
+  await waitForReadingPhase(page, DEMO_ACTION_TIMEOUT);
+  await page.locator(nodeSelector).waitFor({ state: 'visible', timeout: DEMO_ACTION_TIMEOUT });
+  await expect(page.locator('.wf-config-modal')).toBeVisible({ timeout: 30_000 });
+  await assertNodeNotSelected(page, nodeSelector);
+}
 
 // Mock the WS mock-server start/stop endpoints so the lesson setup doesn't
 // fail when the real server isn't running in CI or a clean dev machine.
@@ -71,6 +86,7 @@ test.describe('WS Workflow Builder — lesson shell', () => {
     expect(title.length).toBeGreaterThan(0);
     console.log('[PASS] live demo started at step:', title);
     await takeNamedScreenshot(page, 'wf-builder-concept');
+    await exitLesson(page);
   });
 
   test('lesson has 11 steps', async ({ page }) => {
@@ -79,95 +95,32 @@ test.describe('WS Workflow Builder — lesson shell', () => {
     // e.g. "1 / 11"
     expect(counter).toMatch(/1\s*[/]\s*11/);
     console.log('[PASS] step counter:', counter?.trim());
+    await exitLesson(page);
   });
 });
 
 // ══════════════════════════════════════════════════════════════════════════════
-// 2. Config modal — node must NOT have selection ring when modal opens
-//    Regression for: "node highlight shown inside its config modal"
-// ══════════════════════════════════════════════════════════════════════════════
-
-test.describe('Config modal — node deselected before open', () => {
-  /**
-   * Helper: advance to a config step, skip reading, intercept the config modal
-   * the moment it appears, assert the target node is NOT selected.
-   *
-   * @param stepsToAdvance  How many full steps to advance BEFORE the config step
-   *                        (i.e. run steps 1…N so we arrive at the reading phase
-   *                         of the config step).
-   * @param nodeSelector    ReactFlow node selector, e.g. '.react-flow__node-wsConnect'
-   * @param stepLabel       Human label for screenshots / console logs.
-   */
-  async function checkConfigModalDeselection(
-    page: Parameters<typeof launchLesson>[0],
-    stepsToAdvance: number,
-    nodeSelector: string,
-    stepLabel: string,
-  ): Promise<void> {
-    await launchLesson(page, 'WebSocket', 'Workflow Builder');
-
-    // Advance silently through all preceding steps (actions included).
-    await advanceSteps(page, stepsToAdvance, DEMO_ACTION_TIMEOUT);
-
-    const { counter, title } = await getStepInfo(page);
-    console.log(`[INFO] At step ${counter}: "${title}" — about to run ${stepLabel}`);
-
-    // Skip reading to start the config step's action (do NOT click Next — that skips the action).
-    // The action: deselectNodes (pane click) → doubleClickNode → waitFor(form) → fill → save
-    await waitForReadingPhase(page, DEMO_ACTION_TIMEOUT);
-    await skipReadingPause(page);
-    await waitForActionPhase(page, 10_000);
-
-    // Race: catch the config modal the moment it appears (before the step saves).
-    await page.waitForSelector('.wf-config-modal', { timeout: 12_000 });
-
-    // At this instant the modal is open.  Assert the node is NOT selected.
-    await assertNodeNotSelected(page, nodeSelector);
-    await assertConfigModalOpen(page);
-
-    await takeNamedScreenshot(page, `${stepLabel}-modal-open-no-ring`);
-    console.log(`[PASS] ${stepLabel}: config modal open, node NOT selected`);
-
-    // Wait for the step to finish saving and return to reading phase.
-    await waitForReadingPhase(page, DEMO_ACTION_TIMEOUT);
-    await assertConfigModalClosed(page);
-    console.log(`[PASS] ${stepLabel}: modal closed after save`);
-  }
-
-  test('step 4 — WS Connect config modal opens without selection ring', async ({ page }) => {
-    test.setTimeout(300_000);
-    // Steps 1-3 must run first (create workflow, palette tour, add WS Connect node).
-    await checkConfigModalDeselection(page, 3, '.react-flow__node-wsConnect', 'step-4-ws-connect');
-  });
-
-  test('step 7 — WS Send config modal opens without selection ring', async ({ page }) => {
-    test.setTimeout(300_000);
-    // Steps 1-6 (includes add connect + config connect + define variable + add send).
-    await checkConfigModalDeselection(page, 6, '.react-flow__node-wsSend', 'step-7-ws-send');
-  });
-
-  test('step 9 — WS Receive config modal opens without selection ring', async ({ page }) => {
-    test.setTimeout(300_000);
-    // Steps 1-8 (all preceding steps including add receive).
-    await checkConfigModalDeselection(page, 8, '.react-flow__node-wsReceive', 'step-9-ws-receive');
-  });
-});
-
-// ══════════════════════════════════════════════════════════════════════════════
-// 3. Step-by-step walkthrough — all 11 steps
-//    Run the whole lesson end-to-end and verify it completes without error.
+// 2. Full walkthrough + config modal deselection regression (steps 4, 7, 9)
 // ══════════════════════════════════════════════════════════════════════════════
 
 test.describe('WS Workflow Builder — full walkthrough', () => {
   test('builder steps 1-9 complete without error', async ({ page }) => {
     test.setTimeout(180_000);
     await launchLesson(page, 'WebSocket', 'Workflow Builder');
+    await page.locator(WF.CANVAS).waitFor({ state: 'visible', timeout: 60_000 });
 
     for (let step = 1; step <= 9; step++) {
       const { counter, title } = await getStepInfo(page);
       console.log(`[STEP ${step}] ${counter}: ${title}`);
       await takeNamedScreenshot(page, `wf-builder-step-${String(step).padStart(2, '0')}`);
       await runNextStep(page, DEMO_ACTION_TIMEOUT);
+
+      const nodeSelector = CONFIG_RING_AFTER_STEP[step];
+      if (nodeSelector) {
+        await assertConfigStepOpensWithoutSelectionRing(page, nodeSelector);
+        console.log(`[PASS] After step ${step}: config modal opens without node ring`);
+        await takeNamedScreenshot(page, `wf-builder-step-${String(step + 1).padStart(2, '0')}-modal-no-ring`);
+      }
     }
 
     // After nine advances the demo should be on step 10 (Quick Test) reading phase.
@@ -175,6 +128,7 @@ test.describe('WS Workflow Builder — full walkthrough', () => {
     expect(counter).toMatch(/10\s*[/]\s*11/);
     expect(title).toMatch(/Quick Test/i);
     console.log('[PASS] Builder steps 1-9 completed. At:', counter, title);
+    await exitLesson(page);
   });
 });
 
