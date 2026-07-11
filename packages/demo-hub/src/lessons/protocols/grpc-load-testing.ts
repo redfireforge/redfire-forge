@@ -30,12 +30,17 @@ import {
   ensureGrpcReflected,
   ensureGrpcStudioSubNavQuiet,
   ensureStreamingMethodSelectedQuiet,
+  fillServerStreamRequestQuiet,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
   spotlightAndPause,
   spotlightElementAndPause,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
+import {
+  listGrpcLoadTestProfiles,
+  deleteGrpcLoadTestProfile,
+} from '@grpc/data/grpcLoadTestProfileRepository';
 import type { DemoActionContext } from '../../types';
 
 // ---------------------------------------------------------------------------
@@ -215,16 +220,17 @@ const steps: DemoStep[] = [
     description:
       'The **Load Testing** panel header shows the **active Studio tab** and the **RPC method** ' +
       'bound to this run — right now it is the Echo unary method. At the top, **Method under test** lets you ' +
-      'override the active tab method for load testing only. The configuration grid has seven fields:\n\n' +
+      'override the active tab method for load testing only. Six numeric fields are arranged in a compact row:\n\n' +
       '- **Concurrency** — parallel in-flight gRPC calls\n' +
       '- **Total requests** — stop after this many completed calls\n' +
       '- **Duration (s)** — optional wall-clock cap in seconds\n' +
       '- **Ramp-up (s)** — gradually reach full concurrency over this many seconds\n' +
       '- **Request rate (RPS)** — cap throughput; `0` means unlimited\n' +
-      '- **Warm-up calls** — excluded from metrics to let the server JIT warm up\n' +
-      '- **Request body template** — JSON template for unary calls; supports ' +
-      '`{{runId}}` interpolation so each iteration sends a unique payload\n\n' +
-      'Below the config is the **Saved profiles** card for named, reusable benchmark presets.',
+      '- **Warm-up calls** — excluded from metrics to let the server JIT warm up\n\n' +
+      '**Request body template** (below the row) is a JSON template for unary calls; supports ' +
+      '`{{runId}}` interpolation so each iteration sends a unique payload.\n\n' +
+      'At the bottom, the compact **Saved profiles** row lets you save and load named benchmark presets. ' +
+      'Use the ▾ collapse chevron in each card header to hide a section and focus on what you need.',
     highlight: GRPC.LOAD_TEST_PANEL,
     preAction: async (ctx) => {
       await navigateToLoadTestPanelQuiet(ctx);
@@ -492,6 +498,10 @@ const steps: DemoStep[] = [
       // Ensure at least one finished run exists before we run the second.
       await ensureLoadTestResultsQuiet(ctx);
       await navigateToLoadTestPanelQuiet(ctx);
+      // Scroll the panel back to the top so the config fields are visible.
+      const contentEl = document.querySelector<HTMLElement>('.grpc-advanced-content');
+      if (contentEl) contentEl.scrollTop = 0;
+      await ctx.delay(150);
     },
     action: async (ctx) => {
       // Set higher concurrency so the second run has visibly different numbers.
@@ -510,6 +520,11 @@ const steps: DemoStep[] = [
       // Wait for completion.
       await waitForLoadTestComplete(ctx, 20_000);
       await ctx.delay(600);
+
+      // Scroll the compare section into view before spotlighting it.
+      const compareEl = document.querySelector<HTMLElement>(GRPC.LOAD_TEST_RUN_COMPARE);
+      if (compareEl) compareEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      await ctx.delay(400);
 
       // Spotlight the compare section — appears once 2+ runs exist.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE, 1_200);
@@ -549,18 +564,27 @@ const steps: DemoStep[] = [
     title: 'Saving a Load Profile',
     pauseAfter: true,
     description:
-      'Name this configuration **Echo Baseline** and click **Save profile**. The profile ' +
-      'appears in the **Profile** dropdown — select it any time to restore Concurrency, ' +
-      'Total requests, Duration, Ramp-up, Request rate, and Warm-up in a single click.\n\n' +
+      'Type **Echo Baseline** into the profile name field and click **Save**. The profile ' +
+      'appears in the **Saved profiles** dropdown — select it any time and click **Load** to restore ' +
+      'Concurrency, Total requests, Duration, Ramp-up, Request rate, and Warm-up in a single click.\n\n' +
       'Profiles are stored locally and survive page reloads, so you can maintain a library ' +
       'of named benchmark configurations — "Smoke Test", "Soak 1h", "Rate-limited 50 RPS" — ' +
       'for different services and environments.',
     highlight: GRPC.LOAD_TEST_PROFILE_SAVE,
     preAction: async (ctx) => {
       await navigateToLoadTestPanelQuiet(ctx);
+      // Remove any stale 'Echo Baseline' profile left from a prior lesson run.
+      const existing = (await listGrpcLoadTestProfiles()).find(
+        (p) => p.name.localeCompare(LOAD_TEST_PROFILE_NAME, undefined, { sensitivity: 'base' }) === 0,
+      );
+      if (existing) await deleteGrpcLoadTestProfile(existing.id);
+      // Scroll to top so the profiles row is reachable without the panel being stuck scrolled down.
+      const contentEl = document.querySelector<HTMLElement>('.grpc-advanced-content');
+      if (contentEl) contentEl.scrollTop = 0;
+      await ctx.delay(150);
     },
     action: async (ctx) => {
-      // Spotlight the Saved profiles card.
+      // Spotlight the Saved profiles row.
       await spotlightAndPause(ctx, '[data-testid="grpc-load-test-profiles"]', 800);
 
       // Fill the Profile name field.
@@ -593,18 +617,24 @@ const steps: DemoStep[] = [
     description:
       'Switch to `echo.EchoService / ServerStream`. The call type badge changes to ' +
       '**Server stream** and a new field appears: **Max messages / stream** — this caps ' +
-      'how many response messages each concurrent run collects before closing the stream. ' +
+      'how many response messages each run collects before closing the stream. ' +
       'Set it to **5**.\n\n' +
-      'The test runs 5 concurrent streams, each collecting up to 5 messages. The metrics ' +
-      'show throughput in streams-per-second and latency per stream.\n\n' +
-      'Use **Max messages / stream** to stress-test your server\'s streaming backpressure: ' +
-      'raise the cap to see whether throughput collapses or latency spikes under sustained ' +
-      'concurrent streaming load.',
+      'Concurrency is set to **1** (one stream at a time) because the Express proxy ' +
+      'stream registry allows only one active stream per tab. The scheduler fires 10 ' +
+      'sequential streams, each collecting up to 5 messages.\n\n' +
+      'The metrics show throughput in streams-per-second and latency per stream. ' +
+      'Raise **Max messages / stream** to collect more messages per run and observe ' +
+      'how server-side streaming backpressure affects latency.',
     highlight: GRPC.LOAD_TEST_MAX_MESSAGES_PER_STREAM,
     preAction: async (ctx) => {
       await ensureGrpcStudioSubNavQuiet(ctx);
       await ensureStreamingMethodSelectedQuiet(ctx, 'ServerStream');
+      // Fill repeat_count so the echo server knows how many messages to stream back per call.
+      await fillServerStreamRequestQuiet(ctx);
       await navigateToLoadTestPanelQuiet(ctx);
+      // Enforce concurrency=1: the Express proxy stream registry allows only one active
+      // stream per tab — concurrent starts cancel each other.
+      setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 1);
     },
     action: async (ctx) => {
       // Call type badge — now shows "Server stream".
@@ -616,7 +646,10 @@ const steps: DemoStep[] = [
       setNumberInputValue('[data-testid="grpc-load-test-max-messages-per-stream"]', 5);
       await ctx.delay(500);
 
-      // Set a small total for a quick demo run.
+      // Concurrency must be 1 — the Express proxy stream registry allows only one active
+      // stream per tab; higher concurrency causes each new stream to cancel prior ones.
+      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 700);
+      setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 1);
       setNumberInputValue('[data-testid="grpc-load-test-total-calls"]', 10);
       await ctx.delay(300);
 

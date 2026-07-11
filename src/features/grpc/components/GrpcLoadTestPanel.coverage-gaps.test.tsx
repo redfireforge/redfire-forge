@@ -201,6 +201,7 @@ describe('GrpcLoadTestPanel coverage gaps', () => {
   it('renders method/profile option lists and ignores invalid concurrency input', () => {
     const patchLoadTestConfig = vi.fn();
     const setSelectedLoadTestProfileId = vi.fn();
+    const clearLoadTestProfileError = vi.fn();
 
     render(
       <GrpcLoadTestPanel
@@ -209,6 +210,7 @@ describe('GrpcLoadTestPanel coverage gaps', () => {
           selectedLoadTestMethodKey: undefined,
           patchLoadTestConfig,
           setSelectedLoadTestProfileId,
+          clearLoadTestProfileError,
           loadTestMethodOptions: [
             {
               key: 'echo.EchoService/Echo',
@@ -243,8 +245,11 @@ describe('GrpcLoadTestPanel coverage gaps', () => {
 
     fireEvent.change(screen.getByTestId('grpc-load-test-profile-select'), { target: { value: 'prof-1' } });
     expect(setSelectedLoadTestProfileId).toHaveBeenCalledWith('prof-1');
-  });
+    expect(clearLoadTestProfileError).toHaveBeenCalledTimes(1);
 
+    fireEvent.change(screen.getByTestId('grpc-load-test-profile-name'), { target: { value: 'new profile' } });
+    expect(clearLoadTestProfileError).toHaveBeenCalledTimes(2);
+  });
   it('shows profile and export errors and zero error-rate summary branch', () => {
     const summaryZeroAttempts = makeLoadTestSummary();
     summaryZeroAttempts.metrics.statusDistribution.measuredAttempts = 0;

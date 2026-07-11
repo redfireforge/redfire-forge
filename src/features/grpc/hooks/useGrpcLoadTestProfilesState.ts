@@ -27,6 +27,10 @@ export function useGrpcLoadTestProfilesState(
   const [loadTestProfileError, setLoadTestProfileError] = useState<string | undefined>();
   const [selectedLoadTestProfileId, setSelectedLoadTestProfileId] = useState<string>('');
 
+  const clearLoadTestProfileError = useCallback(() => {
+    setLoadTestProfileError(undefined);
+  }, []);
+
   const refreshLoadTestProfiles = useCallback(async () => {
     if (!enabled) {
       setLoadTestProfilesLoading(false);
@@ -140,6 +144,7 @@ export function useGrpcLoadTestProfilesState(
     loadTestProfiles,
     loadTestProfilesLoading,
     loadTestProfileError,
+    clearLoadTestProfileError,
     selectedLoadTestProfileId,
     setSelectedLoadTestProfileId,
     saveLoadTestProfile,
