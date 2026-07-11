@@ -40,6 +40,8 @@ export interface GrpcLoadTestResultsSectionProps {
   statusBreakdown: StatusBreakdownEntry[];
   latencyHistogram: LatencyHistogramBucket[];
   throughputTimeline: ThroughputTimelinePoint[];
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 export function GrpcLoadTestResultsSection({
@@ -58,6 +60,8 @@ export function GrpcLoadTestResultsSection({
   statusBreakdown,
   latencyHistogram,
   throughputTimeline,
+  collapsed,
+  onToggleCollapse,
 }: GrpcLoadTestResultsSectionProps) {
   if (!live && !summary) {
     return null;
@@ -66,8 +70,9 @@ export function GrpcLoadTestResultsSection({
   return (
     <div className="grpc-advanced-card" data-testid="grpc-load-test-results">
       <div className="grpc-advanced-card__header">
-        <h3 className="grpc-advanced-card__title">Results</h3>
-        {summary && !advanced.loadTestRunning && (
+        <div className="grpc-advanced-card__header-main">
+          <h3 className="grpc-advanced-card__title">Results</h3>
+          {summary && !advanced.loadTestRunning && (
           <div className="grpc-advanced-card__actions">
             {runHistory.length > 0 && (
               <select
@@ -155,7 +160,17 @@ export function GrpcLoadTestResultsSection({
             )}
           </div>
         )}
+        </div>
+        <button
+          type="button"
+          className="grpc-advanced-collapse-chevron"
+          onClick={onToggleCollapse}
+          title={collapsed ? 'Show results' : 'Hide results'}
+        >
+          {collapsed ? '▸' : '▾'}
+        </button>
       </div>
+      {!collapsed && (
       <div className="grpc-advanced-card__body">
         {live && (
           <>
@@ -473,6 +488,7 @@ export function GrpcLoadTestResultsSection({
           </>
         )}
       </div>
+      )}
     </div>
   );
 }
