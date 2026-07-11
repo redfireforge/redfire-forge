@@ -405,6 +405,8 @@ export async function openGqlProfileModal(page: Page) {
 export async function loadGqlProfileOnActiveTab(page: Page, profileName: string) {
   await openGqlProfileModal(page);
   await page.getByRole('button', { name: `Load profile: ${profileName}` }).click();
+  await expect(page.locator('[data-testid="gql-profile-loaded-badge"]').first()).toBeVisible({ timeout: 5_000 });
+  await page.locator('[data-testid="gql-profile-close-btn"]').click();
   await expect(page.locator('[data-testid="gql-profile-modal"]')).toBeHidden({ timeout: 5_000 });
 }
 

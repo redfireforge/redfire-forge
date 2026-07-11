@@ -10,6 +10,7 @@
  *   npx playwright test --project=demo-stepthrough e2e/ws-basics-em.spec.ts --reporter=html
  */
 import { test, expect } from '@playwright/test';
+import { visibleWsUrlInput } from './helpers';
 import {
   launchLesson,
   advanceSteps,
@@ -65,6 +66,6 @@ test.describe('WebSocket Basics — Environment Manager', () => {
     await advanceSteps(page, 5, 90_000);
     // Step 6 action fills {{wsBaseUrl}} on the Connect tab.
     await completeCurrentStepAction(page, 90_000);
-    await expect(page.locator('[aria-label="WebSocket URL"]')).toHaveValue('{{wsBaseUrl}}');
+    await expect(visibleWsUrlInput(page)).toHaveValue('{{wsBaseUrl}}');
   });
 });

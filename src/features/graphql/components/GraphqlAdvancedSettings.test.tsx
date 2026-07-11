@@ -198,6 +198,25 @@ describe('GraphqlAdvancedSettings', () => {
     expect(screen.queryByLabelText('Enable query batching')).not.toBeInTheDocument();
   });
 
+  it('shows batch enable toggle when two endpoint groups each have one tab', () => {
+    renderSettings({
+      batchSettings: {
+        groups: [
+          { key: 'staging', resolvedEndpoint: 'https://staging.example.com/gql', displayLabel: 'staging.example.com', tabIds: ['t1'] },
+          { key: 'prod', resolvedEndpoint: 'https://prod.example.com/gql', displayLabel: 'prod.example.com', tabIds: ['t2'] },
+        ],
+        activeGroupKey: 'staging',
+        onGroupChange: vi.fn(),
+        batchedTabIds: new Set<string>(),
+        onToggleBatchTab: vi.fn(),
+        tabs: [],
+      },
+    });
+    fireEvent.click(screen.getByRole('tab', { name: /Batch/i }));
+    expect(screen.getByLabelText('Enable query batching')).toBeInTheDocument();
+    expect(screen.queryByTestId('gql-adv-batch-prerequisite')).not.toBeInTheDocument();
+  });
+
   it('switches to Dedup tab on click', () => {
     renderSettings();
     fireEvent.click(screen.getByRole('tab', { name: /Dedup/i }));

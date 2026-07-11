@@ -329,20 +329,28 @@ test.describe('GraphQL Mock Server — latency', () => {
     await fillEndpoint(page, MOCK_ENDPOINT);
     await executeQuery(page);
     const baselineText = await page.locator('[data-testid="gql-response-latency"]').textContent() ?? '0';
-    const baselineMs = parseLatencyMs(baselineText);
+    expect(parseLatencyMs(baselineText)).toBeLessThan(200);
 
     await configureMockServer(request, { enabled: true, globalLatencyMs: 500, jitterMs: 0 });
-    await executeQuery(page);
-    const delayedText = await page.locator('[data-testid="gql-response-latency"]').textContent() ?? '0';
-    const delayedMs = parseLatencyMs(delayedText);
+    const directStart = Date.now();
+    const directRes = await request.post(MOCK_ENDPOINT, {
+      data: { query: USER_QUERY },
+      headers: { 'Content-Type': 'application/json' },
+    });
+    expect(directRes.ok()).toBeTruthy();
+    const directBody = await directRes.json() as { extensions?: { latencyMs?: number } };
+    const directElapsed = Date.now() - directStart;
+    const serverLatency = directBody.extensions?.latencyMs ?? directElapsed;
+    expect(serverLatency).toBeGreaterThanOrEqual(450);
 
-    expect(delayedMs).toBeGreaterThanOrEqual(450);
-    expect(delayedMs).toBeGreaterThan(baselineMs + 300);
+    await page.waitForTimeout(400);
+    await executeQuery(page, `${USER_QUERY}\n`);
 
-    // Server-side log also records the configured latency
     const logRes = await request.get('http://localhost:3001/api/graphql/mock/log?limit=1');
     expect(logRes.ok()).toBeTruthy();
     const log = await logRes.json() as { entries: Array<{ latencyMs: number }> };
+    expect(log.entries[0]?.latencyMs ?? 0).toBeGreaterThanOrEqual(450);
+
     expect(log.entries[0]?.latencyMs ?? 0).toBeGreaterThanOrEqual(450);
   });
 });

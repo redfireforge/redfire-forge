@@ -18,6 +18,7 @@ import {
   waitForStreamStatus,
   ECHO_SERVICE_TESTID,
   CLIENT_STREAM_METHOD_TESTID,
+  waitForGrpcRequestComposer,
 } from './grpc-helpers';
 
 test.describe('gRPC Studio — client streaming (Phase 2H)', () => {
@@ -35,7 +36,8 @@ test.describe('gRPC Studio — client streaming (Phase 2H)', () => {
       methodTestId: CLIENT_STREAM_METHOD_TESTID,
     });
     await setGrpcCallTimeout(page, 120_000);
-    await expect(page.locator('[data-testid="grpc-stream-compose-panel"]')).toBeVisible();
+    await waitForGrpcRequestComposer(page);
+    await expect(page.locator('[data-testid="grpc-stream-start-btn"]')).toBeVisible();
 
     await startGrpcStream(page);
     await waitForStreamStatus(page, /Streaming|Starting/);

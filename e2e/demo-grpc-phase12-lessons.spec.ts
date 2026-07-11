@@ -10,7 +10,6 @@
 import { test, expect } from '@playwright/test';
 import {
   exitLesson,
-  finishDemoStep,
   getStepInfo,
   launchGrpcLesson,
   playThroughLesson,
@@ -108,7 +107,7 @@ test.describe('GRPC-16/17 — full lesson walkthrough (Docker)', () => {
     const done = await getStepInfo(page);
     expect(done.counter).toMatch(new RegExp(`${parsedStart.total}\\s*[/]\\s*${parsedStart.total}`));
     expect(done.title).toMatch(/Export the Stream Log/i);
-    await expect(page.locator('[data-testid="grpc-proto-form"]')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('[data-testid="grpc-stream-export-log-btn"], [data-testid="grpc-stream-panel"]').first()).toBeVisible({ timeout: 15_000 });
 
     await exitLesson(page);
     await takeNamedScreenshot(page, 'grpc17-lesson-complete');

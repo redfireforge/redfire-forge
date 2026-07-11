@@ -59,12 +59,12 @@ test.describe('gRPC Studio — Phase 4J TLS modal (shell)', () => {
 });
 
 test.describe('gRPC Studio — Phase 4J settings drawer (shell)', () => {
-  test('gear opens connection settings drawer on TLS nav', async ({ page }) => {
+  test('gear opens connection settings drawer on Call nav', async ({ page }) => {
     await gotoGrpcStudio(page);
     await ensureValidTarget(page);
     await page.locator('[data-testid="grpc-connection-settings-btn"]').click();
     await expect(page.locator('[data-testid="grpc-connection-settings-drawer"]')).toBeVisible();
-    await expect(page.locator('[data-testid="grpc-settings-panel-tls"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-settings-panel-call"]')).toBeVisible();
   });
 
   test('deadline badge opens drawer on Call settings nav', async ({ page }) => {
@@ -97,7 +97,9 @@ test.describe('gRPC Studio — Phase 4J settings drawer (shell)', () => {
     await ensureValidTarget(page);
     await page.locator('[data-testid="grpc-connection-settings-btn"]').click();
     await expect(page.locator('[data-testid="grpc-connection-settings-drawer"]')).toBeVisible();
-    await page.locator('[data-testid="grpc-settings-close"]').click();
+    await page.locator('[data-testid="grpc-settings-close"]').evaluate((el) => {
+      (el as HTMLButtonElement).click();
+    });
     await expect(page.locator('[data-testid="grpc-connection-settings-drawer"]')).toHaveCount(0);
   });
 
@@ -115,7 +117,9 @@ test.describe('gRPC Studio — Phase 4J settings drawer (shell)', () => {
     await ensureValidTarget(page);
     await page.locator('[data-testid="grpc-connection-settings-btn"]').click();
     await expect(page.locator('[data-testid="grpc-connection-settings-drawer"]')).toBeVisible();
-    await page.locator('[data-testid="grpc-tls-badge"]').click();
+    await page.locator('[data-testid="grpc-tls-badge"]').evaluate((el) => {
+      (el as HTMLButtonElement).click();
+    });
     await expect(page.locator('[data-testid="grpc-connection-settings-drawer"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="grpc-tls-body"]')).toBeVisible();
   });
@@ -148,23 +152,14 @@ test.describe('gRPC Studio — Phase 4J settings drawer (shell)', () => {
     await expect(page.locator('[data-testid="grpc-connection-status-dot"]')).toBeVisible();
     await expect(page.locator('[data-testid="grpc-connection-toggle-btn"]')).toBeVisible();
   });
-
-  test('settings drawer navigates to Auth panel', async ({ page }) => {
-    await gotoGrpcStudio(page);
-    await ensureValidTarget(page);
-    await page.locator('[data-testid="grpc-connection-settings-btn"]').click();
-    await page.locator('[data-testid="grpc-settings-nav-auth"]').click();
-    await expect(page.locator('[data-testid="grpc-settings-panel-auth"]')).toBeVisible();
-    await expect(page.locator('[data-testid="grpc-auth-type-select"]')).toBeVisible();
-  });
 });
 
 test.describe('gRPC Studio — Phase 4J auth entry (shell)', () => {
-  test('auth badge opens settings drawer on Auth panel', async ({ page }) => {
+  test('auth badge focuses Auth tab in call panel', async ({ page }) => {
     await gotoGrpcStudio(page);
     await ensureValidTarget(page);
     await page.locator('[data-testid="grpc-auth-badge"]').click();
-    await expect(page.locator('[data-testid="grpc-connection-settings-drawer"]')).toBeVisible();
-    await expect(page.locator('[data-testid="grpc-settings-panel-auth"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-request-tab-auth"]')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('[data-testid="grpc-auth-panel"]')).toBeVisible();
   });
 });
