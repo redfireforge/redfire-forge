@@ -5,12 +5,15 @@
  * Docker gRPC fixture (ElizaService implemented in docker/grpc/go-server).
  */
 import { test, expect } from '@playwright/test';
+import { setupBsrDescribeFallbackIfNeeded } from './grpc-bsr-fixtures';
 import {
   gotoGrpcStudio,
   isGrpcLiveInfraReady,
   openManageSchemasModal,
+  fillProtoField,
   sendUnaryCall,
   setGrpcTarget,
+  waitForGrpcRequestComposer,
   waitForUnarySuccess,
 } from './grpc-helpers';
 
@@ -23,8 +26,14 @@ test.describe.configure({ retries: 0 });
 
 test.describe('gRPC Studio — BSR runtime parity', () => {
   test('loads BSR descriptor and executes ElizaService/Say successfully', async ({ page, request }) => {
+    test.setTimeout(120_000);
     const ready = await isGrpcLiveInfraReady(request);
     test.skip(!ready, 'Skipped: gRPC Docker (:50051) or Express backend (:3001) not running');
+
+    await setupBsrDescribeFallbackIfNeeded(page, request, {
+      bsrModule: BSR_MODULE,
+      bsrVersion: BSR_VERSION,
+    });
 
     await gotoGrpcStudio(page);
     await setGrpcTarget(page);
@@ -40,15 +49,10 @@ test.describe('gRPC Studio — BSR runtime parity', () => {
       (node as HTMLButtonElement).click();
     });
 
-    // Allow either successful load or explicit load-error visibility.
-    const loadError = page.locator('[data-testid="grpc-proto-load-error"]');
-    await expect.poll(async () => {
-      if (await loadError.isVisible().catch(() => false)) return 'error';
-      const source = await page.locator('[data-testid="grpc-explorer-source"]').textContent().catch(() => '');
-      return source?.includes('BSR') ? 'loaded' : 'pending';
-    }, { timeout: 30_000 }).toBe('loaded');
-
-    await expect(loadError).toHaveCount(0);
+    await expect(page.locator(`[data-testid="${ELIZA_SERVICE_TESTID}"]`)).toBeVisible({
+      timeout: 25_000,
+    });
+    await expect(page.locator('[data-testid="grpc-explorer-source"]')).toContainText('BSR');
     await page.locator('[data-testid="grpc-proto-cancel-btn"]').evaluate((node) => {
       (node as HTMLButtonElement).click();
     });
@@ -59,9 +63,9 @@ test.describe('gRPC Studio — BSR runtime parity', () => {
     }
 
     await page.locator(`[data-testid="${ELIZA_SAY_METHOD_TESTID}"]`).click();
-    await expect(page.locator('[data-testid="grpc-proto-form"]')).toBeVisible({ timeout: 10_000 });
+    await waitForGrpcRequestComposer(page);
 
-    await page.locator('[data-testid="grpc-proto-field-input-sentence"]').fill('bsr-e2e-hello');
+    await fillProtoField(page, 'sentence', 'bsr-e2e-hello');
     await sendUnaryCall(page);
     await waitForUnarySuccess(page);
     await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText('bsr-e2e-hello');

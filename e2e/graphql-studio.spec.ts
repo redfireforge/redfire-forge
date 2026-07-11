@@ -6,6 +6,7 @@
  */
 
 import { test, expect } from '@playwright/test';
+import { REDFIREFORGE_IDB_VERSION } from './helpers';
 
 const GQL_URL = '/?tab=graphql-studio';
 
@@ -159,20 +160,39 @@ test.describe('GraphQL Studio — persistence', () => {
       const initialCount = await page.locator(tabSelector).count();
       expect(initialCount).toBe(1);
 
-      // Add one more tab and wait for the 500ms debounce to flush to localStorage
+      // Add one more tab and wait for the 500ms debounce to flush to IndexedDB
       await page.click('[data-testid="gql-tab-add-btn"]');
       await page.waitForTimeout(800);
       expect(await page.locator(tabSelector).count()).toBe(2);
 
-      // Verify the tabs are persisted before reloading
-      const tabsInStorage = await page.evaluate(() => {
-        const raw = localStorage.getItem('gql_tabs_v1');
-        if (!raw) return null;
-        try { return JSON.parse(raw) as unknown[]; } catch { return null; }
-      });
-      expect(tabsInStorage).toHaveLength(2);
+      // Verify the tabs are persisted before reloading (GraphQL tabs live in IDB on web)
+      const tabsInStorage = await page.evaluate(async (dbVersion) => {
+        return new Promise<number | null>((resolve) => {
+          try {
+            const req = indexedDB.open('redfireforge', dbVersion);
+            req.onerror = () => resolve(null);
+            req.onsuccess = () => {
+              try {
+                const db = req.result;
+                const tx = db.transaction('gqlStudioTabs', 'readonly');
+                const getReq = tx.objectStore('gqlStudioTabs').get('all');
+                getReq.onerror = () => resolve(null);
+                getReq.onsuccess = () => {
+                  const blob = getReq.result as { tabs?: unknown[] } | undefined;
+                  resolve(Array.isArray(blob?.tabs) ? blob.tabs.length : null);
+                };
+              } catch {
+                resolve(null);
+              }
+            };
+          } catch {
+            resolve(null);
+          }
+        });
+      }, REDFIREFORGE_IDB_VERSION);
+      expect(tabsInStorage).toBe(2);
 
-      // Reload and verify the two tabs are restored from localStorage
+      // Reload and verify the two tabs are restored from IndexedDB
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.waitForSelector('[data-testid="gql-tab-bar"]', { timeout: 20000 });
       // Wait for React to stabilize after StrictMode double-invoke

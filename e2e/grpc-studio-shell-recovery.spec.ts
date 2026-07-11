@@ -179,6 +179,8 @@ test.describe('gRPC Studio — live-backed shell recovery', () => {
       await expect(toggle).toHaveText('Connect', { timeout: 10_000 });
       await expect(dot).toHaveAttribute('title', /Disconnected/);
 
+      // Stopped mock may still accept briefly — probe a guaranteed-dead target.
+      await targetInput.fill('127.0.0.1:1');
       await toggle.click();
       await expect(dot).toHaveAttribute('title', GRPC_RECOVERY_ERROR_PATTERN, { timeout: 15_000 });
       await expect(toggle).toHaveText('Connect');

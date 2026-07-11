@@ -200,7 +200,7 @@ test.describe('GraphQL workflow nodes — query config modal', () => {
 
   test('query panel has Operation tab visible', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-query-panel"]');
-    const operationTab = panel.locator('.wf-config-tab', { hasText: 'Operation' });
+    const operationTab = panel.locator('.gql-wf-subtab', { hasText: 'Operation' });
     await expect(operationTab).toBeVisible();
   });
 
@@ -212,7 +212,7 @@ test.describe('GraphQL workflow nodes — query config modal', () => {
 
   test('Variables tab shows variables JSON', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-query-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Variables' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Variables' }).click();
     const varsEditor = page.locator('[data-testid="gql-wf-variables-editor"]');
     await expect(varsEditor).toBeVisible();
     await expect(varsEditor).toContainText('"id"');
@@ -220,33 +220,33 @@ test.describe('GraphQL workflow nodes — query config modal', () => {
 
   test('Headers tab shows add-header button', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-query-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Headers' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Headers' }).click();
     await expect(page.locator('[data-testid="gql-wf-headers-add-btn"]')).toBeVisible();
   });
 
   test('clicking + Add header adds a header row', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-query-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Headers' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Headers' }).click();
     await page.locator('[data-testid="gql-wf-headers-add-btn"]').click();
     await expect(page.locator('[data-testid="gql-wf-header-key"]').first()).toBeVisible();
   });
 
   test('Extraction tab shows add-extraction button', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-query-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Extraction' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Extraction' }).click();
     await expect(page.locator('[data-testid="gql-wf-extraction-add-btn"]')).toBeVisible();
   });
 
   test('clicking + Add extraction adds an extraction row', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-query-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Extraction' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Extraction' }).click();
     await page.locator('[data-testid="gql-wf-extraction-add-btn"]').click();
     await expect(page.locator('[data-testid="gql-wf-extraction-jsonpath"]').first()).toBeVisible();
   });
 
   test('Output tab shows add-output button', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-query-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Output' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Output' }).click();
     await expect(page.locator('[data-testid="gql-wf-output-add-btn"]')).toBeVisible();
   });
 
@@ -285,7 +285,7 @@ test.describe('GraphQL workflow nodes — mutation config modal', () => {
 
   test('mutation panel Variables tab works', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-mutation-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Variables' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Variables' }).click();
     await expect(page.locator('[data-testid="gql-wf-variables-editor"]')).toBeVisible();
   });
 });
@@ -322,7 +322,7 @@ test.describe('GraphQL workflow nodes — subscription config modal', () => {
 
   test('Stop tab shows stop-after-messages input', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-subscription-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Stop' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Stop' }).click();
     const stopInput = page.locator('[data-testid="gql-wf-stop-messages-input"]');
     await expect(stopInput).toBeVisible();
     await expect(stopInput).toHaveValue('5');
@@ -330,7 +330,7 @@ test.describe('GraphQL workflow nodes — subscription config modal', () => {
 
   test('Stop tab shows stop-after-seconds input', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-subscription-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Stop' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Stop' }).click();
     await expect(page.locator('[data-testid="gql-wf-stop-secs-input"]')).toBeVisible();
   });
 });
@@ -365,7 +365,7 @@ test.describe('GraphQL workflow nodes — introspect config modal', () => {
 
   test('Schema Validation tab shows min-type-count input', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-introspect-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Schema Validation' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Schema Validation' }).click();
     const input = page.locator('[data-testid="gql-wf-introspect-min-type-count"]');
     await expect(input).toBeVisible();
     await expect(input).toHaveValue('10');
@@ -373,7 +373,7 @@ test.describe('GraphQL workflow nodes — introspect config modal', () => {
 
   test('Schema Validation tab shows required types input', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-introspect-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Schema Validation' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Schema Validation' }).click();
     const input = page.locator('[data-testid="gql-wf-introspect-required-types"]');
     await expect(input).toBeVisible();
     await expect(input).toHaveValue('User, Order');
@@ -381,7 +381,7 @@ test.describe('GraphQL workflow nodes — introspect config modal', () => {
 
   test('Schema Validation tab has + Add required field button', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-introspect-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Schema Validation' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Schema Validation' }).click();
     await expect(page.locator('[data-testid="gql-wf-introspect-add-field-btn"]')).toBeVisible();
   });
 
@@ -431,17 +431,17 @@ test.describe('GraphQL workflow nodes — assert config modal', () => {
 
   test('fail behavior error radio is checked', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-assert-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Behavior' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Behavior' }).click();
     const errorRadio = page.locator('[data-testid="gql-wf-assert-fail-error"]');
     await expect(errorRadio).toBeChecked();
   });
 
   test('fail behavior warn radio can be selected', async ({ page }) => {
     const panel = page.locator('[data-testid="gql-wf-assert-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Behavior' }).click();
-    const warnRadio = page.locator('[data-testid="gql-wf-assert-fail-warn"]');
-    await warnRadio.check();
-    await expect(warnRadio).toBeChecked();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Behavior' }).click();
+    const warnOption = page.locator('label:has([data-testid="gql-wf-assert-fail-warn"])');
+    await warnOption.click();
+    await expect(page.locator('[data-testid="gql-wf-assert-fail-warn"]')).toBeChecked();
   });
 });
 
@@ -602,7 +602,7 @@ test.describe('GraphQL workflow nodes — config persistence', () => {
 
     // Navigate to Schema Validation tab and update min type count
     const panel = page.locator('[data-testid="gql-wf-introspect-panel"]');
-    await panel.locator('.wf-config-tab', { hasText: 'Schema Validation' }).click();
+    await panel.locator('.gql-wf-subtab', { hasText: 'Schema Validation' }).click();
     await page.locator('[data-testid="gql-wf-introspect-min-type-count"]').fill('25');
 
     // Save

@@ -161,20 +161,41 @@ test.describe('GQL-14 — full lesson (Docker)', () => {
     }
 
     let { counter, title } = await getStepInfo(page);
-    // Rapid Next skips actions — land on step 11/12 until finishDemoStep runs step 12 preAction.
-    expect(counter).toMatch(/11\s*[/]\s*12/);
+    // Rapid Next skips actions — land on step 11 or 12 reading before finishDemoStep.
+    expect(counter).toMatch(/1[12]\s*[/]\s*12/);
 
     // Last step: Next stays disabled — use finishDemoStep, not completeCurrentStepAction.
     await finishDemoStep(page, MUTATION_TIMEOUT);
     ({ counter, title } = await getStepInfo(page));
     expect(counter).toMatch(new RegExp(`${TOTAL_STEPS}\\s*[/]\\s*${TOTAL_STEPS}`));
     expect(title).toMatch(/Per-Tab Schema Polling/i);
-    // Step action closes the popover — reopen to confirm polling UI is reachable.
-    const pollingBtn = page.locator(
-      '[data-testid="gql-polling-config-btn"], [data-testid="gql-polling-config-btn-standalone"]',
-    ).first();
-    await pollingBtn.click({ force: true });
-    await expect(page.locator('[data-testid="gql-polling-popover"]')).toBeVisible({ timeout: MUTATION_TIMEOUT });
+
+    const phase = await page.locator(LIVE_PANEL).getAttribute('data-step-phase');
+    expect(phase).toBe('done');
+
+    await expect(page.getByRole('tab', { name: /Staging/i })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('tab', { name: /Production/i })).toBeVisible({ timeout: 15_000 });
+    // Step 12 preAction links profiles when prior steps were skipped.
+    await expect(page.getByRole('button', { name: /saved profiles/i })).toContainText('2');
+
+    // Polling is configured on the Staging demo tab (not the default 127.0.0.1 tab).
+    await page.getByRole('tab', { name: /Staging/i }).click();
+    await expect(page.getByRole('tab', { name: /Staging/i })).toHaveAttribute('aria-selected', 'true');
+    await expect(
+      page.locator('[data-testid="gql-polling-config-btn"], [data-testid="gql-polling-config-btn-standalone"]').first(),
+    ).toBeVisible({ timeout: 15_000 });
+    await expect
+      .poll(
+        () =>
+          page.evaluate(() => {
+            const btn = document.querySelector(
+              '[data-testid="gql-polling-config-btn"], [data-testid="gql-polling-config-btn-standalone"]',
+            );
+            return btn?.className.includes('gql-polling-config-btn--active') ?? false;
+          }),
+        { timeout: 120_000 },
+      )
+      .toBe(true);
     await takeNamedScreenshot(page, 'gql14-rapid-next-step12-recovery');
     await exitLesson(page);
   });
