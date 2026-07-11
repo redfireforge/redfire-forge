@@ -11,11 +11,10 @@
  */
 import { test, expect } from '@playwright/test';
 import { WS } from '../src/shared/selectors';
+import { visibleWsUrlInput } from './helpers';
+import { runNextStep, waitForReadingPhase, completeCurrentStepAction, finishDemoStep } from './demo-player-helpers';
 
 const APP_BASE = 'http://localhost:5173';
-const WS_URL_INPUT = WS.URL_INPUT;          // '[data-testid="url-input"]'
-const TLS_TOGGLE = WS.TLS_TOGGLE;          // '[data-testid="tls-toggle"]'
-const TLS_PANEL = WS.TLS_PANEL;            // '[data-testid="tls-panel"]'
 const SKIP_CERT_CHECKBOX = `${WS.TLS_SKIP_CERT} input[type="checkbox"]`;
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -29,11 +28,11 @@ async function enableSkipCertInWsStudio(page: import('@playwright/test').Page) {
   await page.goto(`${APP_BASE}/?tab=websocket-studio`, { waitUntil: 'networkidle' });
 
   // Fill wss:// URL so the TLS panel appears
-  await page.fill(WS_URL_INPUT, 'wss://echo.websocket.org');
-  await page.waitForSelector(TLS_PANEL, { timeout: 3000 });
+  await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
+  await page.waitForSelector(WS.TLS_PANEL, { timeout: 3000 });
 
   // Expand TLS panel
-  const toggle = page.locator(TLS_TOGGLE);
+  const toggle = page.locator(WS.TLS_TOGGLE);
   if (await toggle.getAttribute('aria-expanded') !== 'true') {
     await toggle.click();
     await page.waitForTimeout(300);
@@ -123,14 +122,16 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
 
     // STEP D: The demo's step 1 preAction fills the URL with wss://echo.websocket.org.
     // Expand TLS panel and verify skip-cert is now false (tlsSetup reset it).
-    await page.waitForSelector(TLS_PANEL, { timeout: 3000 });
-    const toggle = page.locator(TLS_TOGGLE);
+    await page.waitForSelector(WS.TLS_PANEL, { timeout: 10_000 });
+    const toggle = page.locator(WS.TLS_TOGGLE);
     if (await toggle.getAttribute('aria-expanded') !== 'true') {
       await toggle.click();
       await page.waitForTimeout(300);
     }
 
-    const skipCert = await page.locator(SKIP_CERT_CHECKBOX).isChecked();
+    const skipCertLocator = page.locator(SKIP_CERT_CHECKBOX);
+    await skipCertLocator.waitFor({ state: 'visible', timeout: 30_000 });
+    const skipCert = await skipCertLocator.isChecked();
     console.log(`[test 1] skip-cert after tlsSetup = ${skipCert} (should be false)`);
     expect(skipCert).toBe(false); // THE CRITICAL ASSERTION
   });
@@ -253,16 +254,26 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
       'Transport Modes & Desktop TLS',
     ];
 
-    for (let i = 0; i < steps.length; i++) {
+    await waitForReadingPhase(page, 30_000);
+    for (let i = 0; i < steps.length - 2; i++) {
       const title = await getStepTitle(page);
       console.log(`[test 4] Step ${i + 1}: "${title}"`);
       expect(title).toContain(steps[i].split(' ').slice(0, 3).join(' ')); // partial match
-
-      const isLast = i === steps.length - 1;
-      if (!isLast) {
-        await clickNext(page);
-      }
+      await runNextStep(page, 60_000);
     }
+
+    // Penultimate step (6/7)
+    let title = await getStepTitle(page);
+    console.log(`[test 4] Step ${steps.length - 1}: "${title}"`);
+    expect(title).toContain(steps[steps.length - 2]!.split(' ').slice(0, 3).join(' '));
+    await completeCurrentStepAction(page, 60_000);
+    await page.locator('[aria-label="Next step"]').click();
+
+    // Last step (7/7) — Next stays disabled; finish action then exit for cleanup.
+    title = await getStepTitle(page);
+    console.log(`[test 4] Step ${steps.length}: "${title}"`);
+    expect(title).toContain(steps[steps.length - 1]!.split(' ').slice(0, 3).join(' '));
+    await finishDemoStep(page, 60_000);
 
     // At step 5 skip-cert gets ENABLED by the demo. By step 7 it's still enabled.
     // Now EXIT the demo → tlsCleanup runs and MUST reset skip-cert.
@@ -277,7 +288,7 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
     await page.click(WS.LEFT_TAB_CONNECT);
 
     // Fill wss:// URL so TLS panel renders
-    await page.fill(WS.URL_INPUT, 'wss://echo.websocket.org');
+    await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
     await page.waitForSelector(WS.TLS_PANEL, { timeout: 3000 });
     const toggle = page.locator(WS.TLS_TOGGLE);
     if (await toggle.getAttribute('aria-expanded') !== 'true') {
@@ -324,7 +335,7 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
     await page.click(WS.LEFT_TAB_CONNECT);
 
     // Verify custom header triggers proxy mode (sanity check)
-    await page.fill(WS.URL_INPUT, 'wss://echo.websocket.org');
+    await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
     await page.waitForTimeout(300);
     const proxyBeforeDemo: string[] = [];
     const proxyAfterDemo: string[] = [];

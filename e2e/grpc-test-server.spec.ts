@@ -76,7 +76,7 @@ test.describe('gRPC test server (port 50051)', () => {
     expect(echoMethod?.callType).toBe('unary');
 
     const methodNames = echoService!.methods.map((m: { name: string }) => m.name).sort();
-    expect(methodNames).toEqual(['BidiStream', 'ClientStream', 'Echo', 'ServerStream']);
+    expect(methodNames).toEqual(['BidiStream', 'ClientStream', 'CreateComplexEcho', 'Echo', 'ServerStream']);
 
     const serverStream = echoService!.methods.find((m: { name: string }) => m.name === 'ServerStream');
     expect(serverStream?.callType).toBe('server_streaming');

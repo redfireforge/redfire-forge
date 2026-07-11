@@ -61,15 +61,6 @@ export async function isBackendHealthy(request: APIRequestContext): Promise<bool
   }
 }
 
-function resolveE2eMockListenerPort(tabId: string): number {
-  let hash = 0;
-  for (let index = 0; index < tabId.length; index += 1) {
-    hash = (hash * 31 + tabId.charCodeAt(index)) | 0;
-  }
-  // Keep E2E listeners clear of docker/grpc fixture ports (50051–50062).
-  return 50120 + (Math.abs(hash) % 30);
-}
-
 export async function startGrpcMockListener(
   request: APIRequestContext,
   options: {
@@ -77,17 +68,16 @@ export async function startGrpcMockListener(
     connectionId?: string;
     responseMessage?: string;
     ruleSet?: GrpcMockRuleSet;
+    /** Omit to let the server auto-allocate a free port (avoids EADDRINUSE in parallel E2E). */
     port?: number;
   },
 ): Promise<{ listenTarget: string }> {
-  const response = await request.post('http://localhost:3001/api/grpc/mock/start', {
-    data: {
+  const payload: Record<string, unknown> = {
       tabId: options.tabId,
       connectionId: options.connectionId ?? `conn-${options.tabId}`,
       descriptorKey: FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.descriptorKey,
       protosetBase64: FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.protosetBase64,
       contentSha256: FIXTURE_ECHO_DESCRIPTOR_PAYLOAD.contentSha256,
-      port: options.port ?? resolveE2eMockListenerPort(options.tabId),
       ruleSet: options.ruleSet ?? {
         rules: [{
           id: 'echo-e2e',
@@ -98,7 +88,13 @@ export async function startGrpcMockListener(
           response: { statusCode: 0, body: { message: options.responseMessage ?? 'mock-e2e-response' } },
         }],
       },
-    },
+  };
+  if (options.port != null) {
+    payload.port = options.port;
+  }
+
+  const response = await request.post('http://localhost:3001/api/grpc/mock/start', {
+    data: payload,
   });
 
   expect(response.ok()).toBeTruthy();
@@ -247,11 +243,18 @@ export async function setGrpcCallTimeout(page: Page, timeoutMs: number): Promise
   await expect(input).toHaveValue(String(timeoutMs));
 }
 
-const GRPC_REQUEST_COMPOSER_SELECTOR =
+export const GRPC_REQUEST_COMPOSER_SELECTOR =
   '[data-testid="grpc-proto-form"], [data-testid="grpc-request-json"]';
+
+export const GRPC_CLIENT_STREAM_PANEL_SELECTOR =
+  '[data-testid="grpc-stream-pending-panel"], [data-testid="grpc-stream-panel"]';
 
 export async function waitForGrpcRequestComposer(page: Page): Promise<void> {
   await expect(page.locator(GRPC_REQUEST_COMPOSER_SELECTOR)).toBeVisible({ timeout: 10_000 });
+}
+
+export async function waitForClientStreamPanel(page: Page): Promise<void> {
+  await expect(page.locator(GRPC_CLIENT_STREAM_PANEL_SELECTOR)).toBeVisible({ timeout: 10_000 });
 }
 
 async function isHybridJsonComposerVisible(page: Page): Promise<boolean> {
@@ -275,7 +278,29 @@ async function fillHybridJsonBody(page: Page, patch: Record<string, unknown>): P
   }
   const nextBody = { ...body, ...patch };
   const nextText = JSON.stringify(nextBody, null, 2);
-  await jsonArea.fill(nextText);
+
+  const openFullFormBtn = page.locator('[data-testid="grpc-open-full-form-editor-btn-inline"]');
+  if (await openFullFormBtn.isVisible().catch(() => false)) {
+    await openFullFormBtn.click({ force: true });
+    await expect(page.locator('[data-testid="grpc-hybrid-tab-option-c"]')).toBeVisible({ timeout: 10_000 });
+    await page.locator('[data-testid="grpc-hybrid-tab-option-c"]').click();
+    await page.locator('[data-testid="grpc-hybrid-json-editor"]').fill(nextText);
+    await page.locator('[data-testid="grpc-hybrid-apply-btn"]').click();
+    await expect(page.locator('[data-testid="grpc-hybrid-tab-option-c"]')).toHaveCount(0, { timeout: 10_000 });
+    await expect(jsonArea).toHaveValue(nextText);
+    return;
+  }
+
+  await jsonArea.evaluate((el, text) => {
+    const textarea = el as HTMLTextAreaElement;
+    const valueSetter = Object.getOwnPropertyDescriptor(
+      window.HTMLTextAreaElement.prototype,
+      'value',
+    )?.set;
+    valueSetter?.call(textarea, text);
+    textarea.dispatchEvent(new Event('input', { bubbles: true }));
+    textarea.dispatchEvent(new Event('change', { bubbles: true }));
+  }, nextText);
   await expect(jsonArea).toHaveValue(nextText);
 }
 

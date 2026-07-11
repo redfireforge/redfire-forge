@@ -13,6 +13,7 @@ import {
   reflectGrpcServices,
   selectEchoMethod,
   setGrpcTarget,
+  waitForGrpcRequestComposer,
 } from './grpc-helpers';
 
 test.describe('gRPC Studio — Manage Schemas modal (Phase 3I shell)', () => {
@@ -71,7 +72,7 @@ test.describe('gRPC Studio — schema browser live (Phase 3I)', () => {
     await page.locator('[data-testid="grpc-schema-open-tab-btn"]').click();
 
     await expect(page.locator('[data-testid="grpc-proto-manage-modal"]')).toHaveCount(0);
-    await expect(page.locator('[data-testid="grpc-proto-form"]')).toBeVisible({ timeout: 10_000 });
+    await waitForGrpcRequestComposer(page);
     await expect(page.locator('[data-testid="grpc-call-method-name"]')).toContainText('Echo');
   });
 

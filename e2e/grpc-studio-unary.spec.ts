@@ -18,6 +18,7 @@ import {
   setGrpcTarget,
   fillEchoMessage,
   sendUnaryCall,
+  waitForGrpcRequestComposer,
   waitForUnarySuccess,
   waitForCallCancelled,
 } from './grpc-helpers';
@@ -64,7 +65,7 @@ test.describe('gRPC Studio — live unary flow (Phase 1H)', () => {
     await expect(tabs).toHaveCount(2);
 
     await tabs.first().click();
-    await expect(page.locator('[data-testid="grpc-proto-form"]')).toBeVisible({ timeout: 10_000 });
+    await waitForGrpcRequestComposer(page);
     await fillEchoMessage(page, 'tab-a-only');
     await sendUnaryCall(page);
     await waitForUnarySuccess(page);
