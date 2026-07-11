@@ -246,7 +246,7 @@ test.describe('New Node Types — Palette', () => {
     // Each category header count should match the rendered blocks in that category.
     const logicHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Logic' });
     await expect(logicHeader.locator('.wf-palette-count')).toHaveText(
-      String(await page.locator('.wf-palette-block-condition, .wf-palette-block-switch, .wf-palette-block-loop, .wf-palette-block-waitForCondition, .wf-palette-block-graphqlAssert').count()),
+      String(await page.locator('.wf-palette-block-condition, .wf-palette-block-switch, .wf-palette-block-loop, .wf-palette-block-waitForCondition, .wf-palette-block-graphqlAssert, .wf-palette-block-grpcAssert').count()),
     );
 
     const dataHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Data' });

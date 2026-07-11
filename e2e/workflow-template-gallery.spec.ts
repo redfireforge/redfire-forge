@@ -9,7 +9,7 @@
  * "From Template" now navigates to the Gallery tab.
  */
 import { test, expect } from '@playwright/test';
-import { confirmFolderPickerModal, gotoAppTab, seedAppData } from './helpers';
+import { confirmFolderPickerModal, ensureAppSidebarExpanded, gotoAppTab, seedAppData } from './helpers';
 
 async function navigateToWorkflow(page: import('@playwright/test').Page) {
   await seedAppData(page);
@@ -238,6 +238,7 @@ test.describe('+New Workflow Dropdown', () => {
     // Click Create
     await page.locator('.req-confirm-overlay button:text-is("Create")').click();
 
+    await ensureAppSidebarExpanded(page);
     // Should appear in sidebar
     await expect(page.locator('.wf-sidebar-item', { hasText: 'My Test Workflow' })).toBeVisible({ timeout: 5000 });
   });
@@ -250,6 +251,7 @@ test.describe('+New Workflow Dropdown', () => {
     await input.fill('Enter Key Workflow');
     await input.press('Enter');
 
+    await ensureAppSidebarExpanded(page);
     await expect(page.locator('.wf-sidebar-item', { hasText: 'Enter Key Workflow' })).toBeVisible({ timeout: 5000 });
   });
 

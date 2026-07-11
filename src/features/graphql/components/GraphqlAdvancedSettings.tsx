@@ -257,7 +257,8 @@ export function GraphqlAdvancedSettings({
 
   const tabMeta = TAB_META[activeTab];
   const batchGroupReady =
-    batchSettings?.groups.some((group) => group.tabIds.length >= 2) ?? false;
+    (batchSettings?.groups.length ?? 0) >= 2
+    || (batchSettings?.groups.some((group) => group.tabIds.length >= 2) ?? false);
 
   return (
     <div

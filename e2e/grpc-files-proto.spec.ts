@@ -13,9 +13,11 @@ test.describe('gRPC Studio — files and proto export shell', () => {
     await gotoGrpcStudio(page);
   });
 
-  test('files tab is disabled until a method is selected', async ({ page }) => {
-    await expect(page.locator('[data-testid="grpc-request-tab-files"]')).toBeDisabled();
+  test('files tab is enabled before method selection and shows empty state', async ({ page }) => {
+    await expect(page.locator('[data-testid="grpc-request-tab-files"]')).toBeEnabled();
+    await page.locator('[data-testid="grpc-request-tab-files"]').click();
     await expect(page.locator('[data-testid="grpc-call-panel-empty"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-call-panel-empty"]')).toContainText(/select a method/i);
   });
 
   test('collapse button remains accessible after collapse/expand', async ({ page }) => {
