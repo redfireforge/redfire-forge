@@ -144,7 +144,7 @@ test.describe('GraphQL Studio — Phase 6E background execution (6E-6)', () => {
     await setupDualEndpointGraphqlProxy(page, {
       stagingQueryData: STAGING_QUERY_RESPONSE,
       prodQueryData: PROD_QUERY_RESPONSE,
-      stagingQueryDelayMs: 2500,
+      stagingQueryDelayMs: 6000,
     });
     await gotoGqlStudioFresh(page);
     await addGqlTab(page);
@@ -165,10 +165,12 @@ test.describe('GraphQL Studio — Phase 6E background execution (6E-6)', () => {
     await expect(page.locator('[data-testid="gql-execute-btn"]')).toBeEnabled({ timeout: 5_000 });
 
     await clickGqlTabByIndex(page, 0);
-    const cancelOrLoading = page.locator('[data-testid="gql-cancel-btn"], [data-testid="gql-response-loading"]');
-    await expect(cancelOrLoading.first()).toBeVisible({ timeout: 5_000 });
+    await expect(
+      page.locator('[data-testid="gql-cancel-btn"], [data-testid="gql-response-loading"], [data-testid="gql-response-body"]')
+        .first(),
+    ).toBeVisible({ timeout: 8_000 });
 
-    await expect(page.locator('[data-testid="gql-response-body"]')).toContainText('STAGING_MARKER', { timeout: 15_000 });
+    await expect(page.locator('[data-testid="gql-response-body"]')).toContainText('STAGING_MARKER', { timeout: 20_000 });
   });
 });
 

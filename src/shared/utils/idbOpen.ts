@@ -3,8 +3,9 @@
  * Both idbTestRuns.ts and idbFeatureGroups.ts must use this single
  * openDB() so only one connection/upgrade request is ever in flight.
  *
- * Includes a 3-second timeout: if IDB never responds (e.g. corrupted state,
+ * Includes a 10-second timeout: if IDB never responds (e.g. corrupted state,
  * DevTools holding a lock), we reject so callers can fall back to localStorage.
+ * After the first timeout, further open attempts fail immediately for the session.
  */
 
 export const DB_NAME = 'redfireforge';
@@ -13,8 +14,19 @@ export const DB_VERSION = 12; // v12: gRPC Studio Phase 11J — load-test profil
 const OPEN_TIMEOUT_MS = 10_000;
 
 let dbPromise: Promise<IDBDatabase> | null = null;
+let idbDisabledForSession = false;
+
+/** Test-only reset — clears cached open state between vitest cases. */
+export function resetIdbOpenStateForTests(): void {
+  dbPromise = null;
+  idbDisabledForSession = false;
+}
 
 function openDBInternal(): Promise<IDBDatabase> {
+  if (idbDisabledForSession) {
+    return Promise.reject(new Error('IndexedDB unavailable'));
+  }
+
   return new Promise<IDBDatabase>((resolve, reject) => {
     let req: IDBOpenDBRequest;
     try {
@@ -25,6 +37,7 @@ function openDBInternal(): Promise<IDBDatabase> {
     }
 
     const timer = setTimeout(() => {
+      idbDisabledForSession = true;
       dbPromise = null;
       try { req.result?.close(); } catch { /* ignore */ }
       reject(new Error('IndexedDB open timed out'));
