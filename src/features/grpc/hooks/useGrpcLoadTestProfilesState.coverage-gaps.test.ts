@@ -575,4 +575,88 @@ describe('useGrpcLoadTestProfilesState coverage gaps', () => {
     expect(saveError).toBe('save failed');
     expect(result.current.loadTestProfileError).toBe('Failed to save profile');
   });
+
+  it('skips profile loading when hook is disabled', async () => {
+    const { result } = renderHook(() => useGrpcLoadTestProfilesState(
+      'tab-1',
+      DEFAULT_GRPC_LOAD_TEST_CONFIG,
+      vi.fn(),
+      false,
+    ));
+
+    expect(result.current.loadTestProfilesLoading).toBe(false);
+    expect(listMock).not.toHaveBeenCalled();
+  });
+
+  it('clearLoadTestProfileError clears the surfaced error', async () => {
+    listMock.mockRejectedValueOnce(new Error('load exploded'));
+    const { result } = renderHook(() => useGrpcLoadTestProfilesState(
+      'tab-1',
+      DEFAULT_GRPC_LOAD_TEST_CONFIG,
+      vi.fn(),
+    ));
+
+    await waitFor(() => {
+      expect(result.current.loadTestProfileError).toBe('load exploded');
+    });
+
+    act(() => {
+      result.current.clearLoadTestProfileError();
+    });
+    expect(result.current.loadTestProfileError).toBeUndefined();
+  });
+
+  it('saveLoadTestProfile skips list refresh when hook is disabled', async () => {
+    saveMock.mockResolvedValue({
+      id: 'profile-disabled',
+      name: 'Disabled save',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      config: DEFAULT_GRPC_LOAD_TEST_CONFIG,
+    });
+
+    const { result } = renderHook(() => useGrpcLoadTestProfilesState(
+      'tab-1',
+      DEFAULT_GRPC_LOAD_TEST_CONFIG,
+      vi.fn(),
+      false,
+    ));
+
+    await act(async () => {
+      await result.current.saveLoadTestProfile('Disabled save');
+    });
+
+    expect(saveMock).toHaveBeenCalled();
+    expect(listMock).not.toHaveBeenCalled();
+  });
+
+  it('removeLoadTestProfile surfaces Error message failures', async () => {
+    listMock.mockResolvedValue([{
+      id: 'profile-delete',
+      name: 'Delete me',
+      updatedAt: '2026-07-01T00:00:00.000Z',
+      config: DEFAULT_GRPC_LOAD_TEST_CONFIG,
+    }]);
+    deleteMock.mockRejectedValueOnce(new Error('delete exploded'));
+
+    const { result } = renderHook(() => useGrpcLoadTestProfilesState(
+      'tab-1',
+      DEFAULT_GRPC_LOAD_TEST_CONFIG,
+      vi.fn(),
+    ));
+
+    await waitFor(() => {
+      expect(result.current.loadTestProfiles).toHaveLength(1);
+    });
+
+    let deleteError: unknown;
+    await act(async () => {
+      try {
+        await result.current.removeLoadTestProfile('profile-delete');
+      } catch (error) {
+        deleteError = error;
+      }
+    });
+    expect(deleteError).toBeInstanceOf(Error);
+    expect(result.current.loadTestProfileError).toBe('delete exploded');
+  });
 });

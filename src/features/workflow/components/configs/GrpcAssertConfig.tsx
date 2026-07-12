@@ -28,7 +28,7 @@ export default function GrpcAssertConfig({
   };
 
   return (
-    <div className="wf-config-body" data-testid="grpc-assert-config">
+    <div className="wf-config-body wf-grpc-assert-config-body" data-testid="grpc-assert-config">
       <div className="wf-config-field--row">
         <label>Label</label>
         <input data-testid="grpc-assert-config-label" value={data.label} onChange={(e) => update({ label: e.target.value })} />
@@ -49,12 +49,12 @@ export default function GrpcAssertConfig({
           <option value="continue">Continue workflow</option>
         </select>
       </div>
-      <div className="wf-config-field">
+      <div className="wf-config-field wf-grpc-assertions-field">
         <label>Assertions (JSON array)</label>
         <textarea
-          className="wf-config-textarea"
+          className="wf-config-textarea wf-grpc-assertions-textarea"
           data-testid="grpc-assert-config-assertions"
-          rows={7}
+          rows={12}
           value={assertionsText}
           onChange={(e) => {
             const value = e.target.value;

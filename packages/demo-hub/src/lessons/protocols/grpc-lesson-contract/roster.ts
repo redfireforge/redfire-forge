@@ -365,6 +365,20 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     allowedTabs: STUDIO_TABS,
     estimatedMinutes: 6,
   },
+  {
+    number: 24,
+    id: 'grpc-workflow-runner',
+    title: 'Workflow Runner & Results',
+    keyConcept: 'Workflow variables, grpcTarget override, Workflow Runner, Results Dashboard, Results Explorer',
+    phaseDependencies: [11],
+    fixtures: GO_ECHO_FIXTURE,
+    implementationStatus: 'shipped',
+    introducedInSchemaVersion: 1,
+    ...GO_ECHO_DOCKER,
+    initialTab: 'workflow',
+    allowedTabs: [...STUDIO_TABS, 'workflow', 'workflow-runner', 'results'],
+    estimatedMinutes: 8,
+  },
 ] as const;
 
 export const GRPC_LESSON_ROSTER_BY_ID: Readonly<Record<string, GrpcLessonRosterEntry>> =

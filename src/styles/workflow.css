@@ -1626,6 +1626,48 @@
   font-size: 0.76rem;
   padding: 4px 8px;
 }
+.wf-config-row-stack {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wf-config-hint-text--below {
+  display: block;
+  margin-top: 1px;
+  line-height: 1.25;
+}
+.wf-config-hint-text--below strong {
+  color: var(--text);
+}
+.wf-config-readonly-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.wf-config-readonly-row .wf-config-descriptor-textarea {
+  flex: 1;
+}
+.wf-config-copy-btn {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 6px 8px;
+  min-width: 54px;
+  margin-top: 2px;
+}
+.wf-config-descriptor-textarea {
+  min-height: 42px;
+}
+.wf-config-textarea--readonly {
+  background: color-mix(in oklab, var(--bg), white 4%);
+  border: 1px dashed color-mix(in oklab, var(--border), white 20%);
+  color: color-mix(in oklab, var(--text), white 8%);
+  cursor: default;
+  resize: none;
+}
 /* Kafka section fields inherit the same label width for consistency */
 .wf-kafka-section .wf-config-field--row > label { width: 100px; }
 .wf-kafka-section .wf-config-field-pair > .wf-config-field--row > label { width: 76px; }
@@ -1655,6 +1697,17 @@
 .wf-config-textarea {
   font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.75rem; resize: vertical;
   line-height: 1.5; padding: 8px 10px;
+}
+
+/* Give gRPC Assert JSON assertions a larger default editing area. */
+.wf-grpc-assert-config-body {
+  display: block;
+}
+.wf-grpc-assertions-field {
+  margin-bottom: 0;
+}
+.wf-grpc-assertions-textarea {
+  min-height: 300px;
 }
 
 .wf-config-url-row {
@@ -5169,6 +5222,14 @@
   overflow: hidden;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
 }
+
+/* gRPC Assert config has fewer fields; use a shorter modal to avoid large dead space. */
+.wf-config-modal.modal.ram-modal:has([data-testid="grpc-assert-config"]) {
+  height: clamp(460px, 62vh, 620px);
+  max-height: min(70vh, 620px);
+  min-height: 460px;
+}
+
 .wf-config-modal .wf-modal-scroll-shell {
   display: flex;
   flex-direction: column;

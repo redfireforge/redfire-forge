@@ -14,6 +14,7 @@ import { grpcLoadTestingLesson } from './grpc-load-testing';
 import { grpcMockServerLesson } from './grpc-mock-server';
 import { grpcSchemaDiffLesson } from './grpc-schema-diff';
 import { grpcWorkflowIntegrationLesson } from './grpc-workflow-integration';
+import { grpcWorkflowRunnerLesson } from './grpc-workflow-runner';
 import { grpcTauriDesktopLesson } from './grpc-tauri-desktop';
 
 export { grpcFirstCallLesson };
@@ -30,6 +31,7 @@ export { grpcLoadTestingLesson };
 export { grpcMockServerLesson };
 export { grpcSchemaDiffLesson };
 export { grpcWorkflowIntegrationLesson };
+export { grpcWorkflowRunnerLesson };
 export { grpcTauriDesktopLesson };
 
 export const grpcLessons = [
@@ -47,6 +49,7 @@ export const grpcLessons = [
   grpcMockServerLesson,         // GRPC-13 (Mocking gRPC APIs: Rules & Network Listener)
   grpcSchemaDiffLesson,         // GRPC-14 (Proto Schema Diff & Breaking Change Detection)
   grpcWorkflowIntegrationLesson, // GRPC-11 (gRPC in Workflows: Nodes, Assertions & Chaining)
+  grpcWorkflowRunnerLesson,      // GRPC-24 (Workflow Runner & Results)
   grpcTauriDesktopLesson,        // GRPC-23 (Tauri Desktop: Native Transport, Diagnostics & Mock Listener)
 ] as const;
 
