@@ -12,7 +12,8 @@ Format follows Keep a Changelog and Semantic Versioning.
 ## [Unreleased]
 
 ### Added
-- **gRPC/WebSocket mock-server UX enhancements** — shared mock-server styling (`mock-server-shared.css`), visual rule builder with proto stub generation and JSON highlighting, WebSocket mock server parity, and `StandardProfessionalModal` / `HighlightedHtmlTextarea` shared components.
+- **gRPC Demo Hub GRPC-24 — Workflow Runner & Results** — builds a gRPC Echo workflow with `grpcTarget` variable, Quick Test, then Workflow Runner iterations, Initial Variables overrides, Results Dashboard, and Results Explorer; modular `grpc-workflow-runner-{helpers,steps}.ts` with helper unit tests (>90% coverage).
+- **gRPC Load Test panel coverage split** — monolithic `GrpcLoadTestPanel.coverage-gaps.test.tsx` split into config/results modules + shared test helpers (all source files remain ≥90% product coverage).
 - **gRPC Studio module splits** — `GrpcStudioPage`, `GrpcCallPanel`, `GrpcLoadTestPanel`, `GrpcSchemaDiffPanel`, and `useGrpcStudioAdvancedFeatures` decomposed into focused submodules (all under 900 lines) with co-located coverage tests ≥90%.
 - **Demo Hub gRPC lesson helpers** — `grpc-lesson-helpers/` package with shared connection, streaming, TLS, mock-server, and workflow lesson steps; demo studio isolation hooks (`useDemoHubStudioIsolation`, `useDemoHubLiveDemo`).
 
@@ -74,7 +75,8 @@ Format follows Keep a Changelog and Semantic Versioning.
 - Shared selector modules (`gql`, `ws`, etc.) extracted from monolithic `selectors.ts`.
 
 ### Changed
-- gRPC CI now includes a dedicated fixture-backed Phase 13B reliability gate (`grpc-phase13b-slo`) wired into `.github/workflows/ci.yml`, with baseline artifact upload on every run.
+- **gRPC Demo Hub GRPC-12** — load-testing lesson updated for compact panel UI, Step 9 server-streaming highlights, and demo step pipeline timing.
+- **gRPC workflow call-target fields** — `GrpcWorkflowCallTargetFields` and Assert config coverage extended; `GRPC.LESSON24_*` selectors for cross-feature demo highlights.
 - gRPC local/CI readiness probes explicitly bypass host proxy interception (`curl --noproxy '*'`) to prevent false 504 failures against localhost fixture health checks.
 - GraphQL demo workspace mutators (`prepareDemoWorkspace`, `closeDemoWorkspace`, etc.) no-op when `VITE_ENABLE_DEMO_HUB=false`.
 - GraphQL Studio page and App shell refactored to stay under 900-line monolith limit.

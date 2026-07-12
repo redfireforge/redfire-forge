@@ -1,6 +1,6 @@
 # RedfireForge Roadmap (Living)
 
-> Last Updated: 2026-06-28
+> Last Updated: 2026-07-12
 > Purpose: Product direction and active priorities only.
 
 ## Product Position
@@ -25,6 +25,7 @@ RedfireForge is a visual API testing and workflow automation workbench combining
 - **Dual-track builds (Standard vs Learning Hub):** `VITE_ENABLE_DEMO_HUB` feature flag, separate vitest product/demo projects, **`@redfireforge/demo-hub`** npm workspace package (`packages/demo-hub/`), lazy `DemoShellHost`, dual Tauri bundle IDs (`com.redfireforge.desktop` / `.demo`)
 - **GraphQL Studio:** batch execution with per-tab response sync, batch results modal, SDL schema diff, collections runner/import preview, multi-tab workspace, mock server, and IndexedDB-backed tabs/auth/schema cache (DB v9)
 - **GraphQL Demo Hub:** 19 interactive lessons (GQL-1–GQL-19) — Phase 8 human validation **19/19** (Web + Tauri, 2026-06-27); Lesson Notes panel; Docker-backed E2E smoke specs; §11.0 workspace isolation (`gql110` 5/5)
+- **gRPC Demo Hub:** 16 shipped lessons (GRPC-1–GRPC-24) including Workflow Runner & Results (GRPC-24), load testing (GRPC-12), workflow integration (GRPC-11), and advanced Studio panels; lesson helpers split under 900-line monolith limit with scoped helper unit tests
 
 ### In Progress / Deferred
 - Distributed execution (future scale milestone)
