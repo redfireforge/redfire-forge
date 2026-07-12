@@ -23,7 +23,7 @@ import {
 export const DEMO_PRE_SETTLE_MS = 60;
 export const DEMO_SPOTLIGHT_SETTLE_MS = 250;
 export const DEMO_POST_ACTION_SETTLE_MS = 70;
-export const DEMO_VERIFY_ABSORB_MS = 500;
+export const DEMO_VERIFY_ABSORB_MS = 250;
 
 export interface UseDemoHubStepPipelineOptions {
   navigateToTab: (tab: string) => void;
@@ -219,7 +219,7 @@ export function useDemoHubStepPipeline({
       let stepVerified = !step.verify;
       if (step.verify) {
         setStepPhase('verify');
-        stepVerified = await waitForElement(step.verify, 25000, signal);
+        stepVerified = await waitForElement(step.verify, 4000, signal);
         if (signal.aborted) return;
         if (stepVerified) {
           await abortableSleep(scaleMs(DEMO_VERIFY_ABSORB_MS), signal);

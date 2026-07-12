@@ -29,7 +29,6 @@ import {
   WF14_NODE_ASSERT,
   WF14_NODE_GRPC,
   WRONG_ASSERTIONS_JSON,
-  clickFitViewIfCanvasLoaded,
   clickWfFitView,
   collapseOnce,
   connectCanvasNodes,
@@ -65,7 +64,7 @@ The palette has three gRPC node types:
 - **gRPC Server-Stream** — executes a server-streaming call and collects messages until a condition or timeout
 
 In this lesson you will build a short workflow: **Echo Call → Assert Echo**, run it with **Quick Test**, and then see what a failing assertion looks like.`,
-    highlight: WF.SIDEBAR_NEW_BTN,
+    highlight: WF.PALETTE,
     preAction: async (ctx) => {
       resetWf14Session();
       await cleanupWorkflowDemoRunUi(ctx);
@@ -79,28 +78,21 @@ In this lesson you will build a short workflow: **Echo Call → Assert Echo**, r
       }
     },
     action: async (ctx) => {
-      // Beat 1 — + New: where every workflow in this lesson will be created.
-      await expandWfDemoAppSidebar(ctx);
-      await spotlightAndPause(ctx, WF.SIDEBAR, 700);
-      await spotlightAndPause(ctx, WF.SIDEBAR_NEW_BTN, 900);
-
-      // Beat 2 — Fit view when a workflow is already on the canvas.
-      await clickFitViewIfCanvasLoaded(ctx);
-
-      // Beat 3 — tour the designer and gRPC palette blocks.
-      await spotlightAndPause(ctx, WF.DESIGNER, 800);
-      await spotlightAndPause(ctx, WF.PALETTE, 800);
-
-      const grpcUnaryEl = document.querySelector<HTMLElement>(WF.PAL_GRPC_UNARY);
-      if (grpcUnaryEl) {
-        grpcUnaryEl.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      // Click Fit View only if a workflow is already open on the canvas.
+      const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
+      if (fitBtn) {
+        await ctx.click(WF.FIT_VIEW_BTN);
         await ctx.delay(400);
       }
-      await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 900);
-      await spotlightAndPause(ctx, WF.PAL_GRPC_ASSERT, 800);
-      await spotlightAndPause(ctx, WF.CANVAS, 700);
+      // Fill "gRPC" in the palette search to reveal the three gRPC node types.
+      // The palette is only visible when a workflow is open.
+      const palSearch = document.querySelector<HTMLElement>(WF.PAL_SEARCH);
+      if (palSearch) {
+        await ctx.fill(WF.PAL_SEARCH, 'gRPC');
+        await ctx.delay(500);
+      }
     },
-    verify: WF.PALETTE,
+    verify: WF.DESIGNER,
   },
 
   // =========================================================================
@@ -132,34 +124,34 @@ The workflow name appears in the sidebar list and in run history — pick names 
     action: async (ctx) => {
       // Expand the sidebar and spotlight it.
       await expandWfDemoAppSidebar(ctx);
-      await spotlightAndPause(ctx, WF.SIDEBAR, 800);
+      await spotlightAndPause(ctx, WF.SIDEBAR, 650);
 
       // Click + New.
-      await spotlightAndPause(ctx, WF.SIDEBAR_NEW_BTN, 700);
+      await spotlightAndPause(ctx, WF.SIDEBAR_NEW_BTN, 600);
       await ctx.click(WF.SIDEBAR_NEW_BTN);
-      await ctx.delay(400);
+      await ctx.delay(250);
 
       // Pick "Blank" from the dropdown.
       await ctx.click(WF.NEW_BLANK_ITEM);
-      await ctx.delay(400);
+      await ctx.delay(250);
 
       // Fill the workflow name.
       await ctx.fill(WF.CREATE_INPUT, WF14_NAME);
-      await ctx.delay(300);
+      await ctx.delay(200);
 
       // Confirm create.
       await ctx.click(WF.CREATE_OK);
-      await ctx.waitFor(WF.CANVAS, 8000);
-      await ctx.delay(700);
+      await ctx.waitFor(WF.CANVAS, 5000);
+      await ctx.delay(250);
 
       // Collapse sidebar — canvas gets full width.
       await collapseOnce(ctx);
       wf14Session.workflowCreated = true;
 
       // Spotlight the empty canvas.
-      await spotlightAndPause(ctx, WF.CANVAS, 900);
+      await spotlightAndPause(ctx, WF.CANVAS, 700);
     },
-    verify: WF.CANVAS,
+    verify: WF.SIDEBAR,
   },
 
   // =========================================================================
@@ -198,9 +190,9 @@ It opens a gRPC channel to the configured target, sends the request body, waits 
       const unaryBlock = document.querySelector<HTMLElement>(WF.PAL_GRPC_UNARY);
       if (unaryBlock) {
         unaryBlock.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(400);
+        await ctx.delay(200);
       }
-      await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 900);
+      await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 700);
 
       // Add node via bridge (same as clicking in palette).
       if (!isNodeOnCanvas(WF14_NODE_GRPC)) {
@@ -208,20 +200,20 @@ It opens a gRPC channel to the configured target, sends the request body, waits 
           x: 320,
           y: 200,
         });
-        await ctx.delay(600);
+        await ctx.delay(300);
         wf14Session.unaryAdded = true;
       }
 
       // Wire Start → Echo Call immediately (resolve real canvas node ids).
       connectCanvasNodes('.react-flow__node-start', WF.NODE_GRPC_UNARY, 'out');
-      await ctx.delay(600);
+      await ctx.delay(300);
 
       // Center the connected graph on screen.
       await clickWfFitView(ctx);
 
       // Spotlight the canvas with the new node and edge.
-      await spotlightAndPause(ctx, WF.CANVAS, 800);
-      await spotlightAndPause(ctx, WF.NODE_GRPC_UNARY, 900);
+      await spotlightAndPause(ctx, WF.CANVAS, 600);
+      await spotlightAndPause(ctx, WF.NODE_GRPC_UNARY, 700);
     },
     verify: WF.NODE_GRPC_UNARY,
   },
@@ -237,7 +229,7 @@ It opens a gRPC channel to the configured target, sends the request body, waits 
 
 **Target** — the gRPC server address; use localhost:50051 for the local Go Echo fixture. Studio reflects automatically against that host.
 
-**Descriptor Key** — auto-filled after reflection. It is the cache ID for the protobuf schema the runtime uses to encode your JSON request and decode the response; you rarely edit it manually.
+**Descriptor Key** — auto-filled after reflection. It is the cache ID for the protobuf schema the runtime uses to encode your JSON request and decode the response. In normal workflow usage this is managed automatically; manual entry is only for fallback scenarios when reflection is unavailable.
 
 **Service** and **Method** — pick from the dropdown lists populated by reflection instead of typing package names by hand.
 
@@ -257,14 +249,14 @@ You can still use environment variable templates like {{grpcHost}} for portable 
       await waitForWfConfigPanel(ctx, GRPC.WF_UNARY_CONFIG);
 
       // Spotlight the config panel.
-      await spotlightAndPause(ctx, GRPC.WF_UNARY_CONFIG, 800);
+      await spotlightAndPause(ctx, GRPC.WF_UNARY_CONFIG, 650);
 
       // Fill Target — reflection runs automatically.
       await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_TARGET, 'localhost:50051');
       try {
-        await ctx.waitFor('[data-testid="grpc-unary-config-reflect-status"][data-status="ready"]', 12_000);
+        await ctx.waitFor('[data-testid="grpc-unary-config-reflect-status"][data-status="ready"]', 3_000);
       } catch { /* reflection may already be cached */ }
-      await ctx.delay(600);
+      await ctx.delay(300);
 
       // Pick Service and Method from reflection dropdowns.
       await selectWfConfigOption(ctx, GRPC.WF_UNARY_CFG_SERVICE, 'echo.EchoService');
@@ -272,7 +264,7 @@ You can still use environment variable templates like {{grpcHost}} for portable 
 
       // Spotlight the whole panel to show the filled connection fields.
       await pauseWfConfigSection(ctx);
-      await spotlightAndPause(ctx, GRPC.WF_UNARY_CONFIG, 900);
+      await spotlightAndPause(ctx, GRPC.WF_UNARY_CONFIG, 700);
     },
     verify: GRPC.WF_UNARY_CONFIG,
   },
@@ -296,35 +288,43 @@ Click **Save** to close the panel and apply the configuration.`,
         await seedCompleteWorkflowQuiet(ctx);
         return;
       }
-      await closeWfConfigModalIfOpen(ctx);
+      const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
+      if (fitBtn) {
+        await ctx.click(WF.FIT_VIEW_BTN);
+        await ctx.delay(220);
+      }
       // Ensure connection config is set if step 4 was skipped.
       ensureUnaryConnectionConfig();
     },
     action: async (ctx) => {
-      // Open config modal (may already be open, re-open for viewer clarity).
-      await openWfNodeConfigModal(ctx, { nodeId: WF14_NODE_GRPC });
-      await waitForWfConfigPanel(ctx, GRPC.WF_UNARY_CONFIG);
+      // Reuse the config modal if it is already open from step 4; only open when missing.
+      if (!document.querySelector(GRPC.WF_UNARY_CONFIG)) {
+        await openWfNodeConfigModal(ctx, { nodeId: WF14_NODE_GRPC });
+        await ctx.waitFor(GRPC.WF_UNARY_CONFIG, 5000);
+      }
 
       // Spotlight the body textarea.
-      await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_BODY, 900);
+      await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_BODY, 520);
 
-      // Fill body JSON.
-      await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_BODY, ECHO_BODY_JSON);
-
-      // Section break before Save As.
-      await pauseWfConfigSection(ctx);
+      // Fill body JSON with quick pacing.
+      await ctx.waitFor(GRPC.WF_UNARY_CFG_BODY, 3000);
+      await ctx.fill(GRPC.WF_UNARY_CFG_BODY, ECHO_BODY_JSON);
+      await ctx.delay(160);
 
       // Spotlight and fill Save As.
-      await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_SAVE_AS, 800);
-      await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_SAVE_AS, 'echoReply');
+      await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_SAVE_AS, 460);
+      await ctx.waitFor(GRPC.WF_UNARY_CFG_SAVE_AS, 3000);
+      await ctx.fill(GRPC.WF_UNARY_CFG_SAVE_AS, 'echoReply');
+      await ctx.delay(160);
 
-      // Save and close the modal.
-      await saveAndCloseWfConfigModal(ctx);
+      // Save quickly to keep Acting short for this step.
+      await ctx.waitFor(WF.CFG_SAVE, 3000);
+      await ctx.click(WF.CFG_SAVE);
       wf14Session.unaryConfigured = true;
-      await ctx.delay(500);
+      await ctx.delay(220);
 
       // Spotlight the configured node on canvas.
-      await spotlightAndPause(ctx, WF.NODE_GRPC_UNARY, 900);
+      await spotlightAndPause(ctx, WF.NODE_GRPC_UNARY, 500);
     },
     verify: WF.NODE_GRPC_UNARY,
   },
@@ -359,25 +359,25 @@ Click **Save** to close the panel and apply the configuration.`,
       await openWfNodeConfigModal(ctx, { nodeId: WF14_NODE_GRPC });
       await waitForWfConfigPanel(ctx, GRPC.WF_UNARY_CONFIG);
 
-      await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_METADATA, 900);
+      await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_METADATA, 700);
       await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_METADATA, ECHO_METADATA_JSON);
       await pauseWfConfigSection(ctx);
 
-      await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_AUTH_SECTION, 900);
+      await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_AUTH_SECTION, 700);
       await selectWfConfigOption(ctx, GRPC.AUTH_TYPE_SELECT, 'bearer');
-      await ctx.delay(500);
+      await ctx.delay(250);
       await fillWfConfigField(ctx, GRPC.AUTH_BEARER_TOKEN, ECHO_BEARER_TOKEN);
       await pauseWfConfigSection(ctx);
 
-      await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_TLS_MODE, 800);
-      await ctx.delay(700);
+      await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_TLS_MODE, 600);
+      await ctx.delay(400);
 
       await saveAndCloseWfConfigModal(ctx);
       wf14Session.unarySecurityConfigured = true;
-      await ctx.delay(500);
-      await spotlightAndPause(ctx, WF.NODE_GRPC_UNARY, 900);
+      await ctx.delay(300);
+      await spotlightAndPause(ctx, WF.NODE_GRPC_UNARY, 700);
     },
-    verify: GRPC.WF_UNARY_CFG_AUTH_SECTION,
+    verify: WF.NODE_GRPC_UNARY,
   },
 
   // =========================================================================
@@ -417,9 +417,9 @@ After the node appears, the demo wires **Echo Call → Assert Echo → End**, th
       const assertBlock = document.querySelector<HTMLElement>(WF.PAL_GRPC_ASSERT);
       if (assertBlock) {
         assertBlock.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(400);
+        await ctx.delay(200);
       }
-      await spotlightAndPause(ctx, WF.PAL_GRPC_ASSERT, 900);
+      await spotlightAndPause(ctx, WF.PAL_GRPC_ASSERT, 700);
 
       // Add assert node if not present.
       if (!isNodeOnCanvas(WF14_NODE_ASSERT)) {
@@ -427,22 +427,22 @@ After the node appears, the demo wires **Echo Call → Assert Echo → End**, th
           x: 580,
           y: 200,
         });
-        await ctx.delay(500);
+        await ctx.delay(300);
         wf14Session.assertAdded = true;
       }
 
       // Wire Echo Call → Assert → End (default handles — only Start uses out).
       ensureGrpcEchoChainConnected();
-      await ctx.delay(600);
+      await ctx.delay(300);
 
       // Center the full connected graph on screen.
       await clickWfFitView(ctx);
 
       // Spotlight the canvas to show the connected graph.
-      await spotlightAndPause(ctx, WF.CANVAS, 800);
+      await spotlightAndPause(ctx, WF.CANVAS, 600);
 
       // Spotlight the assert node.
-      await spotlightAndPause(ctx, WF.NODE_GRPC_ASSERT, 900);
+      await spotlightAndPause(ctx, WF.NODE_GRPC_ASSERT, 700);
     },
     verify: WF.NODE_GRPC_ASSERT,
   },
@@ -483,26 +483,26 @@ Click **Save** to apply.`,
       await waitForWfConfigPanel(ctx, GRPC.WF_ASSERT_CONFIG);
 
       // Spotlight the config panel.
-      await spotlightAndPause(ctx, GRPC.WF_ASSERT_CONFIG, 800);
+      await spotlightAndPause(ctx, GRPC.WF_ASSERT_CONFIG, 650);
 
       // Fill Source.
-      await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 800);
+      await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 650);
       await fillWfConfigField(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 'echoReply');
 
       // Section break before assertions.
       await pauseWfConfigSection(ctx);
 
       // Fill Assertions JSON.
-      await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, 900);
+      await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, 700);
       await fillWfConfigField(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, ECHO_ASSERTIONS_JSON);
 
       // Save and close.
       await saveAndCloseWfConfigModal(ctx);
       wf14Session.assertConfigured = true;
-      await ctx.delay(500);
+      await ctx.delay(300);
 
       // Spotlight the full canvas with both nodes.
-      await spotlightAndPause(ctx, WF.CANVAS, 900);
+      await spotlightAndPause(ctx, WF.CANVAS, 700);
     },
     verify: WF.CANVAS,
   },
@@ -535,26 +535,26 @@ When the run completes, the console log shows the full gRPC request and response
     },
     action: async (ctx) => {
       // Keep the console mounted before execution so live logs are captured.
-      await spotlightAndPause(ctx, WF.CONSOLE, 800);
+      await spotlightAndPause(ctx, WF.CONSOLE, 500);
 
       // Spotlight the Quick Test button.
-      await spotlightAndPause(ctx, WF.QUICK_TEST_BTN, 900);
+      await spotlightAndPause(ctx, WF.QUICK_TEST_BTN, 650);
 
       // Trigger Quick Test with a visible click so the viewer sees it happen.
       await ctx.click(WF.QUICK_TEST_BTN);
-      await ctx.delay(700);
+      await ctx.delay(150);
 
-      // Wait for node run overlays to appear (success or fail).
+      // Wait briefly for node run overlays to appear (success or fail).
       try {
-        await ctx.waitFor('.wf-node-run-status', 15_000);
+        await ctx.waitFor('.wf-node-run-status', 3_000);
       } catch { /* server may not be running; continue demo */ }
-      await ctx.delay(800);
+      await ctx.delay(150);
 
       // Spotlight the canvas with node status overlays.
-      await spotlightAndPause(ctx, WF.CANVAS, 1000);
+      await spotlightAndPause(ctx, WF.CANVAS, 650);
 
       // Return to the console to show the streamed request/response logs.
-      await spotlightAndPause(ctx, WF.CONSOLE, 900);
+      await spotlightAndPause(ctx, WF.CONSOLE, 650);
 
       wf14Session.quickTestRun = true;
     },
@@ -593,42 +593,42 @@ In the console log you will see the exact failure reason: which assertion failed
     },
     action: async (ctx) => {
       // Spotlight the assert node.
-      await spotlightAndPause(ctx, WF.NODE_GRPC_ASSERT, 800);
+      await spotlightAndPause(ctx, WF.NODE_GRPC_ASSERT, 600);
 
       // Open assert config.
       await openWfNodeConfigModal(ctx, { nodeId: WF14_NODE_ASSERT });
       await waitForWfConfigPanel(ctx, GRPC.WF_ASSERT_CONFIG);
 
       // Spotlight the assertions field.
-      await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, 900);
+      await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, 650);
 
       // Patch to wrong value.
       await fillWfConfigField(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, WRONG_ASSERTIONS_JSON);
 
       // Save and close.
       await saveAndCloseWfConfigModal(ctx);
-      await ctx.delay(500);
+      await ctx.delay(150);
 
       // Run Quick Test again.
-      await spotlightAndPause(ctx, WF.CONSOLE, 700);
-      await spotlightAndPause(ctx, WF.QUICK_TEST_BTN, 800);
+      await spotlightAndPause(ctx, WF.CONSOLE, 500);
+      await spotlightAndPause(ctx, WF.QUICK_TEST_BTN, 600);
       await ctx.click(WF.QUICK_TEST_BTN);
-      await ctx.delay(700);
+      await ctx.delay(250);
 
-      // Wait for node overlays.
+      // Wait briefly for node overlays.
       try {
-        await ctx.waitFor('.wf-node-run-status', 15_000);
+        await ctx.waitFor('.wf-node-run-status', 3_000);
       } catch { /* server may not be running */ }
-      await ctx.delay(800);
+      await ctx.delay(150);
 
       // Spotlight canvas — assert node should be red.
-      await spotlightAndPause(ctx, WF.CANVAS, 900);
-      await spotlightAndPause(ctx, WF.NODE_GRPC_ASSERT, 1000);
+      await spotlightAndPause(ctx, WF.CANVAS, 650);
+      await spotlightAndPause(ctx, WF.NODE_GRPC_ASSERT, 700);
 
       // Open console to show failure detail.
       await openWfConsoleIfClosed(ctx);
-      await ctx.delay(500);
-      await spotlightAndPause(ctx, WF.CONSOLE, 900);
+      await ctx.delay(250);
+      await spotlightAndPause(ctx, WF.CONSOLE, 650);
     },
     verify: WF.NODE_GRPC_ASSERT,
   },

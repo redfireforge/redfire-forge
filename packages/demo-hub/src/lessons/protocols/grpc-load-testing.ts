@@ -14,6 +14,7 @@
  *   grpc12-export       — Copy & Download JSON/CSV; run history selector
  *   grpc12-compare      — Run a second test; tour the run-to-run compare section
  *   grpc12-profile      — Save "Echo Baseline"; load it back from the dropdown
+ *   grpc12-rpc-stats    — RPC Statistics panel: summary cards, method table, export, reset
  *   grpc12-streaming    — Switch to ServerStream; Max messages/stream; run
  */
 import { GRPC } from '@shared/selectors';
@@ -42,6 +43,7 @@ import {
   deleteGrpcLoadTestProfile,
 } from '@grpc/data/grpcLoadTestProfileRepository';
 import type { DemoActionContext } from '../../types';
+import { scrollDemoTargetIntoView } from '../../demoSpotlightUtils';
 
 // ---------------------------------------------------------------------------
 // Roster entry
@@ -146,6 +148,52 @@ function setNumberInputValue(selector: string, value: number): void {
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+function scrollAdvancedContentTop(): void {
+  const contentEl = document.querySelector<HTMLElement>('.grpc-advanced-content');
+  if (contentEl) contentEl.scrollTop = 0;
+}
+
+async function scrollDemoTargetWithDelay(
+  ctx: DemoActionContext,
+  selector: string,
+  block: 'start' | 'center' | 'end' = 'center',
+): Promise<HTMLElement | null> {
+  const el = document.querySelector<HTMLElement>(selector);
+  if (!el) return null;
+  scrollDemoTargetIntoView(el, { block });
+  await ctx.delay(350);
+  return el;
+}
+
+/** Scroll a load-test / advanced-panel target into view, then draw the spotlight ring. */
+async function spotlightLoadTestAndPause(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs = 700,
+  scrollBlock: 'start' | 'center' | 'end' = 'center',
+): Promise<void> {
+  const el = await scrollDemoTargetWithDelay(ctx, selector, scrollBlock);
+  if (!el) return;
+  await spotlightElementAndPause(ctx, el, holdMs);
+}
+
+/**
+ * Programmatically select the first available (non-empty) option in the
+ * run-compare baseline dropdown so the delta content renders.
+ * Uses the same React-compatible native-setter pattern as setNumberInputValue.
+ */
+function selectCompareBaseline(): void {
+  const sel = document.querySelector<HTMLSelectElement>(
+    '[data-testid="grpc-load-test-run-compare-select"]',
+  );
+  if (!sel) return;
+  const firstOption = sel.querySelector<HTMLOptionElement>('option:not([value=""])');
+  if (!firstOption) return;
+  const nativeSetter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
+  nativeSetter?.call(sel, firstOption.value);
+  sel.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
 // ---------------------------------------------------------------------------
 // Lesson steps
 // ---------------------------------------------------------------------------
@@ -199,7 +247,7 @@ const steps: DemoStep[] = [
       await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('load_test'), 700);
       await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('mock_server'), 700);
       await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('schema_diff'), 700);
-      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('rpc_stats'), 700);
+      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('rpc_statistics'), 700);
       await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('native_diagnostics'), 700);
 
       // Land on Load testing.
@@ -236,32 +284,35 @@ const steps: DemoStep[] = [
       await navigateToLoadTestPanelQuiet(ctx);
     },
     action: async (ctx) => {
-      // Panel header — active tab + RPC label.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_CALL_TYPE_BADGE, 900);
+      scrollAdvancedContentTop();
+      await ctx.delay(150);
 
-      // New: Method under test selector.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_METHOD_SELECT, 1_000);
+      // Panel header — active tab + RPC label.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_CALL_TYPE_BADGE, 900, 'start');
+
+      // Method under test selector.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_METHOD_SELECT, 1_000, 'start');
       await ctx.delay(200);
 
       // Config fields one by one.
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 700);
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-total-calls"]', 700);
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-duration"]', 700);
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-ramp-up"]', 700);
+      await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 700, 'start');
+      await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-total-calls"]', 700, 'start');
+      await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-duration"]', 700, 'start');
+      await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-ramp-up"]', 700, 'start');
 
-      // New: Request Rate field — pause longer so viewer notices the new control.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_REQUEST_RATE, 1_000);
+      // Request Rate field — pause longer so viewer notices the new control.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_REQUEST_RATE, 1_000, 'start');
       await ctx.delay(200);
 
-      // New: Request body template (only visible for unary methods).
+      // Request body template (only visible for unary methods).
       const templateEl = document.querySelector(GRPC.LOAD_TEST_REQUEST_TEMPLATE);
       if (templateEl) {
-        await spotlightAndPause(ctx, GRPC.LOAD_TEST_REQUEST_TEMPLATE, 1_000);
+        await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_REQUEST_TEMPLATE, 1_000, 'center');
         await ctx.delay(200);
       }
 
       // Profiles card.
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-profiles"]', 900);
+      await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-profiles"]', 900, 'end');
     },
     verify: GRPC.LOAD_TEST_PANEL,
   },
@@ -380,40 +431,59 @@ const steps: DemoStep[] = [
       await ensureLoadTestResultsQuiet(ctx);
     },
     action: async (ctx) => {
+      scrollAdvancedContentTop();
+      await ctx.delay(150);
+
       // Spotlight the run strip — run ID + timing context.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_RUN_STRIP, 1_000);
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_RUN_STRIP, 1_000, 'start');
       await ctx.delay(300);
 
       // Spotlight the summary metrics grid.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_SUMMARY_METRICS, 1_000);
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_SUMMARY_METRICS, 1_000, 'start');
 
       // Walk individual metric cards.
       const metricsGrid = document.querySelector(GRPC.LOAD_TEST_SUMMARY_METRICS);
       if (metricsGrid) {
         const metricEls = metricsGrid.querySelectorAll<HTMLElement>('.grpc-advanced-metric');
-        if (metricEls[0]) await spotlightElementAndPause(ctx, metricEls[0], 900);  // Throughput
+        if (metricEls[0]) {
+          scrollDemoTargetIntoView(metricEls[0], { block: 'center' });
+          await ctx.delay(300);
+          await spotlightElementAndPause(ctx, metricEls[0], 900);  // Throughput
+        }
         await ctx.delay(200);
-        if (metricEls[1]) await spotlightElementAndPause(ctx, metricEls[1], 800);  // p50
+        if (metricEls[1]) {
+          scrollDemoTargetIntoView(metricEls[1], { block: 'center' });
+          await ctx.delay(300);
+          await spotlightElementAndPause(ctx, metricEls[1], 800);  // p50
+        }
         await ctx.delay(200);
-        if (metricEls[2]) await spotlightElementAndPause(ctx, metricEls[2], 900);  // p95/p99
+        if (metricEls[2]) {
+          scrollDemoTargetIntoView(metricEls[2], { block: 'center' });
+          await ctx.delay(300);
+          await spotlightElementAndPause(ctx, metricEls[2], 900);  // p95/p99
+        }
         await ctx.delay(200);
-        if (metricEls[3]) await spotlightElementAndPause(ctx, metricEls[3], 800);  // Error rate
+        if (metricEls[3]) {
+          scrollDemoTargetIntoView(metricEls[3], { block: 'center' });
+          await ctx.delay(300);
+          await spotlightElementAndPause(ctx, metricEls[3], 800);  // Error rate
+        }
       }
 
       // Percentile legend.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_PERCENTILE_LEGEND, 800);
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PERCENTILE_LEGEND, 800, 'center');
       await ctx.delay(300);
 
       // Status breakdown chart.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_STATUS_BREAKDOWN, 1_000);
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_STATUS_BREAKDOWN, 1_000, 'center');
       await ctx.delay(300);
 
       // Latency histogram.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_LATENCY_HISTOGRAM, 1_000);
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_LATENCY_HISTOGRAM, 1_000, 'center');
       await ctx.delay(300);
 
       // Throughput over time.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_THROUGHPUT_TIMELINE, 1_000);
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_THROUGHPUT_TIMELINE, 1_000, 'end');
     },
     verify: GRPC.LOAD_TEST_SUMMARY_METRICS,
   },
@@ -476,7 +546,79 @@ const steps: DemoStep[] = [
   },
 
   // =========================================================================
-  // Step 7 — Run a second test; tour the run-to-run compare
+  // Step 7 — RPC Statistics panel tour
+  // =========================================================================
+  {
+    id: 'grpc12-rpc-stats',
+    title: 'RPC Statistics',
+    pauseAfter: true,
+    description:
+      'The **RPC Statistics** tab keeps a running tally of every call made in this session — ' +
+      'including all the load test attempts above. Switch to it now to see:\n\n' +
+      '- **Summary cards** — total calls, success rate, and average latency (with p95)\n' +
+      '- **Per-method table** — one row per RPC method with call count, error count, a latency bar, and a status chip\n' +
+      '- **Export JSON / Export CSV** — snapshot the stats for CI dashboards or spreadsheets\n' +
+      '- **Reset session** — clears the in-memory counters without touching call history\n\n' +
+      'Stats accumulate automatically from every unary call, stream, and load test run — ' +
+      'no extra configuration needed.',
+    highlight: GRPC.RPC_STATS_PANEL,
+    preAction: async (ctx) => {
+      await ensureLoadTestResultsQuiet(ctx);
+      // Ensure Advanced sub-nav is open.
+      const advEl = document.querySelector<HTMLElement>(GRPC.SUB_NAV_ADVANCED);
+      if (advEl && advEl.getAttribute('aria-selected') !== 'true') {
+        advEl.click();
+        await ctx.delay(500);
+      }
+    },
+    action: async (ctx) => {
+      // Spotlight the RPC statistics tab in the Advanced nav and click it.
+      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('rpc_statistics'), 900);
+      await ctx.click(GRPC.ADVANCED_TAB('rpc_statistics'));
+      await ctx.delay(700);
+
+      try {
+        await ctx.waitFor(GRPC.RPC_STATS_PANEL, 4_000);
+      } catch {
+        // Panel renders immediately — continue.
+      }
+      await ctx.delay(300);
+
+      // Overview of the whole panel.
+      await spotlightLoadTestAndPause(ctx, GRPC.RPC_STATS_PANEL, 1_000, 'start');
+      await ctx.delay(300);
+
+      // Summary cards (total calls / success rate / avg latency).
+      const summaryEl = document.querySelector(GRPC.RPC_STATS_SUMMARY);
+      if (summaryEl) {
+        await spotlightLoadTestAndPause(ctx, GRPC.RPC_STATS_SUMMARY, 1_100, 'start');
+        await ctx.delay(300);
+      }
+
+      // Per-method table.
+      const tableEl = document.querySelector(GRPC.RPC_STATS_TABLE);
+      if (tableEl) {
+        await spotlightLoadTestAndPause(ctx, GRPC.RPC_STATS_TABLE, 1_100, 'center');
+        await ctx.delay(300);
+      }
+
+      // Export buttons.
+      const exportJsonEl = document.querySelector(GRPC.RPC_STATS_EXPORT_JSON_BTN);
+      if (exportJsonEl) {
+        await spotlightLoadTestAndPause(ctx, GRPC.RPC_STATS_EXPORT_JSON_BTN, 800, 'center');
+        await ctx.delay(200);
+        await spotlightLoadTestAndPause(ctx, GRPC.RPC_STATS_EXPORT_CSV_BTN, 700, 'center');
+        await ctx.delay(300);
+      }
+
+      // Reset button — pause longer so the viewer reads the note about history being untouched.
+      await spotlightLoadTestAndPause(ctx, GRPC.RPC_STATS_RESET, 1_100, 'end');
+    },
+    verify: GRPC.RPC_STATS_PANEL,
+  },
+
+  // =========================================================================
+  // Step 8 — Run a second test; tour the run-to-run compare
   // =========================================================================
   {
     id: 'grpc12-compare',
@@ -498,60 +640,36 @@ const steps: DemoStep[] = [
       // Ensure at least one finished run exists before we run the second.
       await ensureLoadTestResultsQuiet(ctx);
       await navigateToLoadTestPanelQuiet(ctx);
-      // Scroll the panel back to the top so the config fields are visible.
-      const contentEl = document.querySelector<HTMLElement>('.grpc-advanced-content');
-      if (contentEl) contentEl.scrollTop = 0;
+      scrollAdvancedContentTop();
       await ctx.delay(150);
     },
     action: async (ctx) => {
-      // Set higher concurrency so the second run has visibly different numbers.
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 800);
+      // 1. Change concurrency to 10 — viewer sees the value change before the run.
+      await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 900, 'start');
       setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 10);
       await ctx.delay(500);
 
-      // Start.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_START, 800);
+      // 2. Start and wait — no status spotlight mid-run; local test completes in under a second.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_START, 900, 'start');
       await ctx.click(GRPC.LOAD_TEST_START);
-      await ctx.delay(400);
-
-      // Brief status spotlight while running.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_STATUS, 700);
-
-      // Wait for completion.
       await waitForLoadTestComplete(ctx, 20_000);
       await ctx.delay(600);
 
-      // Scroll the compare section into view before spotlighting it.
-      const compareEl = document.querySelector<HTMLElement>(GRPC.LOAD_TEST_RUN_COMPARE);
-      if (compareEl) compareEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      await ctx.delay(400);
-
-      // Spotlight the compare section — appears once 2+ runs exist.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE, 1_200);
+      // 3. The compare card appears below results — spotlight the whole section.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE, 1_300, 'start');
       await ctx.delay(300);
 
-      // Spotlight the baseline selector.
-      const compareSelect = document.querySelector(GRPC.LOAD_TEST_RUN_COMPARE_SELECT);
-      if (compareSelect) {
-        await spotlightAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE_SELECT, 900);
-        await ctx.delay(300);
-      }
+      // 4. Spotlight the baseline selector, then pick the previous run so delta content renders.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE_SELECT, 900, 'center');
+      selectCompareBaseline();
+      await ctx.delay(700); // React re-renders delta grid/table after state update.
 
-      // Spotlight the delta cards (quick Δ grid inside the compare section).
-      const compareSection = document.querySelector(GRPC.LOAD_TEST_RUN_COMPARE);
-      if (compareSection) {
-        const deltaGrid = compareSection.querySelector<HTMLElement>('.grpc-load-test-compare-grid');
-        if (deltaGrid) {
-          await spotlightElementAndPause(ctx, deltaGrid, 1_000);
-          await ctx.delay(300);
-        }
-      }
+      // 5. Delta cards — colour-coded Throughput Δ, p50 Δ, p95 Δ, Error rate Δ.
+      await spotlightLoadTestAndPause(ctx, '.grpc-load-test-compare-grid', 1_200, 'center');
+      await ctx.delay(300);
 
-      // Spotlight the detail metric table.
-      const detailsEl = document.querySelector(GRPC.LOAD_TEST_RUN_COMPARE_DETAILS);
-      if (detailsEl) {
-        await spotlightAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE_DETAILS, 1_000);
-      }
+      // 6. Metric detail table — side-by-side baseline / current / delta for every percentile.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE_DETAILS, 1_000, 'center');
     },
     verify: GRPC.LOAD_TEST_RUN_COMPARE,
   },
@@ -578,31 +696,29 @@ const steps: DemoStep[] = [
         (p) => p.name.localeCompare(LOAD_TEST_PROFILE_NAME, undefined, { sensitivity: 'base' }) === 0,
       );
       if (existing) await deleteGrpcLoadTestProfile(existing.id);
-      // Scroll to top so the profiles row is reachable without the panel being stuck scrolled down.
-      const contentEl = document.querySelector<HTMLElement>('.grpc-advanced-content');
-      if (contentEl) contentEl.scrollTop = 0;
+      scrollAdvancedContentTop();
       await ctx.delay(150);
     },
     action: async (ctx) => {
       // Spotlight the Saved profiles row.
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-profiles"]', 800);
+      await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-profiles"]', 800, 'end');
 
       // Fill the Profile name field.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_PROFILE_NAME, 800);
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_NAME, 800, 'end');
       await ctx.fill(GRPC.LOAD_TEST_PROFILE_NAME, LOAD_TEST_PROFILE_NAME);
       await ctx.delay(500);
 
       // Click Save profile.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_PROFILE_SAVE, 900);
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_SAVE, 900, 'end');
       await ctx.click(GRPC.LOAD_TEST_PROFILE_SAVE);
       await ctx.delay(700);
 
       // Show the Profile dropdown with the saved entry.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_PROFILE_SELECT, 1_000);
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_SELECT, 1_000, 'end');
       await ctx.delay(300);
 
       // Spotlight Load profile button.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_PROFILE_LOAD, 800);
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_LOAD, 800, 'end');
     },
     verify: GRPC.LOAD_TEST_PROFILE_SELECT,
   },
@@ -625,49 +741,46 @@ const steps: DemoStep[] = [
       'The metrics show throughput in streams-per-second and latency per stream. ' +
       'Raise **Max messages / stream** to collect more messages per run and observe ' +
       'how server-side streaming backpressure affects latency.',
-    highlight: GRPC.LOAD_TEST_MAX_MESSAGES_PER_STREAM,
+    // After preAction the panel lands on Load Testing with ServerStream active.
+    // The call-type badge ("Call type: Server stream") is visible and
+    // directly shows what this step demonstrates.
+    highlight: GRPC.LOAD_TEST_CALL_TYPE_BADGE,
     preAction: async (ctx) => {
       await ensureGrpcStudioSubNavQuiet(ctx);
       await ensureStreamingMethodSelectedQuiet(ctx, 'ServerStream');
-      // Fill repeat_count so the echo server knows how many messages to stream back per call.
       await fillServerStreamRequestQuiet(ctx);
       await navigateToLoadTestPanelQuiet(ctx);
-      // Enforce concurrency=1: the Express proxy stream registry allows only one active
-      // stream per tab — concurrent starts cancel each other.
+      scrollAdvancedContentTop();
       setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 1);
+      await ctx.delay(150);
     },
     action: async (ctx) => {
-      // Call type badge — now shows "Server stream".
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_CALL_TYPE_BADGE, 900);
-      await ctx.delay(300);
+      // preAction already silently switched to ServerStream and landed on Load testing.
+      // The panel header already reads "Call type: Server stream" — no navigation needed.
+      scrollAdvancedContentTop();
+      await ctx.delay(200);
 
-      // Max messages / stream field.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_MAX_MESSAGES_PER_STREAM, 1_000);
-      setNumberInputValue('[data-testid="grpc-load-test-max-messages-per-stream"]', 5);
-      await ctx.delay(500);
-
-      // Concurrency must be 1 — the Express proxy stream registry allows only one active
-      // stream per tab; higher concurrency causes each new stream to cancel prior ones.
-      await spotlightAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 700);
-      setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 1);
-      setNumberInputValue('[data-testid="grpc-load-test-total-calls"]', 10);
-      await ctx.delay(300);
-
-      // Start.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_START, 800);
-      await ctx.click(GRPC.LOAD_TEST_START);
+      // 1. Panel header — one spotlight so the viewer reads the call-type subtitle.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_CALL_TYPE_BADGE, 1_400, 'start');
       await ctx.delay(400);
 
-      // Status while running.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_STATUS, 700);
+      // 2. Max messages / stream — the only new field; set to 5 while spotlight is on it.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_MAX_MESSAGES_PER_STREAM, 1_300, 'start');
+      setNumberInputValue('[data-testid="grpc-load-test-max-messages-per-stream"]', 5);
+      await ctx.delay(600);
 
-      // Wait for completion.
+      // 3. Concurrency — brief look so the viewer registers "1 stream at a time".
+      await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 900, 'start');
+      await ctx.delay(300);
+
+      // 4. Start → wait → results.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_START, 900, 'start');
+      await ctx.click(GRPC.LOAD_TEST_START);
       await waitForLoadTestComplete(ctx, 25_000);
       await ctx.delay(500);
 
-      // Full results panel.
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_RESULTS, 900);
-      await spotlightAndPause(ctx, GRPC.LOAD_TEST_SUMMARY_METRICS, 1_000);
+      // 5. Summary metrics — the payoff: throughput and latency per stream.
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_SUMMARY_METRICS, 1_300, 'start');
     },
     verify: GRPC.LOAD_TEST_RESULTS,
   },

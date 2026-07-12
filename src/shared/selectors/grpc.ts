@@ -534,4 +534,12 @@ export const GRPC = {
   WF_ASSERT_CONFIG: '[data-testid="grpc-assert-config"]',
   WF_ASSERT_CFG_SOURCE: '[data-testid="grpc-assert-config-source"]',
   WF_ASSERT_CFG_ASSERTIONS: '[data-testid="grpc-assert-config-assertions"]',
+  // GRPC-24 Workflow Runner lesson — cross-feature selectors (Workflow Runner / Results)
+  LESSON24_WF_VARIABLES_BTN: '[data-testid="wf-toolbar-variables-btn"]',
+  LESSON24_QUICK_TEST_VERIFY: '[data-testid="exec-summary"]',
+  LESSON24_RUNNER_RUN_BTN: '[data-testid="workflow-runner-run-btn"]',
+  LESSON24_RESULTS_METRICS: '[data-testid="results-metrics-cards"]',
+  LESSON24_REQUEST_DETAILS_TAB: '[data-testid="results-tab-requests"]',
+  LESSON24_RESULTS_EXPLORER_DIAGRAM: '[data-testid="results-explorer-diagram"]',
+  LESSON24_EXPORT_JSON_BTN: '[data-testid="results-export-json-btn"]',
 } as const;
