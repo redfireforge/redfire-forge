@@ -695,7 +695,7 @@ export async function navigateToGraphqlStudio(ctx: DemoActionContext): Promise<v
 export async function navigateToGrpcStudio(ctx: DemoActionContext): Promise<void> {
   if (!isDemoTargetVisible('[data-testid="grpc-studio-page"]')) {
     ctx.navigateToTab('grpc-studio');
-    await ctx.delay(400);
+    await ctx.delay(200);
     await ctx.waitFor('[data-testid="grpc-studio-page"]');
   }
 }

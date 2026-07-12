@@ -877,6 +877,9 @@
   color: var(--text, #f1f5f9);
   margin: 0;
   line-height: 1.3;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 .demo-step-detail-body {
@@ -1198,6 +1201,7 @@
 .demo-live-panel--clickthrough .demo-live-overview-btn,
 .demo-live-panel--clickthrough .demo-live-notes-btn-wrap,
 .demo-live-panel--clickthrough .demo-live-drag-handle,
+.demo-live-panel--clickthrough .demo-live-lesson-name,
 .demo-live-panel--clickthrough .demo-live-panel-body,
 .demo-live-panel--clickthrough .demo-live-phase-badge.skippable,
 .demo-live-panel--clickthrough .demo-live-panel-controls,
@@ -1332,8 +1336,7 @@
 }
 
 .demo-live-panel-header--draggable {
-  cursor: grab;
-  user-select: none;
+  cursor: default;
 }
 
 .demo-live-panel-header--draggable:active {
@@ -1347,6 +1350,7 @@
   letter-spacing: -1px;
   flex-shrink: 0;
   cursor: grab;
+  user-select: none;
   pointer-events: auto;
 }
 
@@ -1421,6 +1425,8 @@
   margin: 0 0 6px;
   color: var(--text, #f1f5f9);
   user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
 }
 
 .demo-live-step-desc {

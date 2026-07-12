@@ -59,6 +59,8 @@ export {
   dispatchGrpcCallHistoryReload,
 } from '@grpc/utils/grpcDemoCallHistoryCleanup';
 
+export { clearGrpcCallHistory } from '@grpc/data/grpcCallHistoryRecorder';
+
 import { getDemoBridgeWindow } from './bridgeWindow';
 import type { GrpcGrpcurlExportContext } from '@grpc/utils/grpcGrpcurlTypes';
 
