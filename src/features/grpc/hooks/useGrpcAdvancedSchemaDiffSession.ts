@@ -76,9 +76,17 @@ export function useGrpcAdvancedSchemaDiffSession(
   const schemaDiffAckRefreshGenRef = useRef(0);
   const hydratedTabsRef = useRef<Set<string>>(new Set());
 
+  // Keep a stable ref to getTabState so refreshSchemaDiffAcks doesn't need
+  // getTabState in its dependency array. Without this, every tabStateById change
+  // (e.g. after each load-test run) recreates refreshSchemaDiffAcks, which
+  // triggers the ack Effect to call setSchemaDiffAckChangeIds(new Set()) with a
+  // fresh object reference — cascading into React's 50-render loop limit.
+  const getTabStateRef = useRef(getTabState);
+  getTabStateRef.current = getTabState;
+
   const refreshSchemaDiffAcks = useCallback(async (explicitBaselineKey?: string) => {
     const generation = ++schemaDiffAckRefreshGenRef.current;
-    const key = explicitBaselineKey ?? getTabState(activeTabId).schemaDiff.baselineDescriptor?.key;
+    const key = explicitBaselineKey ?? getTabStateRef.current(activeTabId).schemaDiff.baselineDescriptor?.key;
     if (!key) {
       if (generation === schemaDiffAckRefreshGenRef.current) {
         setSchemaDiffAckChangeIds(new Set());
@@ -96,7 +104,7 @@ export function useGrpcAdvancedSchemaDiffSession(
         setSchemaDiffAckChangeIds(new Set());
       }
     }
-  }, [activeTabId, getTabState]);
+  }, [activeTabId]);
 
   useEffect(() => {
     setSchemaDiffAckChangeIds(new Set());

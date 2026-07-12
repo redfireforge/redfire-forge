@@ -13,6 +13,7 @@ import {
   buildThroughputTimeline,
   downloadTextFile,
   formatStopReason,
+  GRPC_STATUS_NAMES,
   safeFilePart,
   type GrpcLoadTestSummary,
 } from './grpcLoadTestPanelUtils';
@@ -83,8 +84,8 @@ export function GrpcLoadTestResultsSection({
                   advanced.selectLoadTestRunSummary(event.target.value);
                 }}
               >
-                {runHistory.map((entry) => (
-                  <option key={entry.summary.runId} value={entry.summary.runId}>
+                {runHistory.map((entry, index) => (
+                  <option key={`${entry.summary.runId}-${index}`} value={entry.summary.runId}>
                     {entry.summary.runId} · {new Date(entry.summary.completedAt).toLocaleTimeString()}
                   </option>
                 ))}
@@ -316,8 +317,8 @@ export function GrpcLoadTestResultsSection({
                     <option value="">Select baseline run…</option>
                     {runHistory
                       .filter((entry) => entry.summary.runId !== summary.runId)
-                      .map((entry) => (
-                        <option key={entry.summary.runId} value={entry.summary.runId}>
+                      .map((entry, index) => (
+                        <option key={`${entry.summary.runId}-${index}`} value={entry.summary.runId}>
                           {entry.summary.runId}
                         </option>
                       ))}
@@ -390,7 +391,14 @@ export function GrpcLoadTestResultsSection({
                           className="grpc-load-test-compare-status__row"
                           data-testid={`grpc-load-test-run-compare-status-row-${row.statusCode.replace(/[^a-z0-9_-]/gi, '_')}`}
                         >
-                          <span>{row.statusCode}</span>
+                          <span className="grpc-load-test-compare-status__code-cell">
+                            {row.statusCode}
+                            {GRPC_STATUS_NAMES[row.statusCode] && (
+                              <span className="grpc-load-test-compare-status__code-name">
+                                {GRPC_STATUS_NAMES[row.statusCode]}
+                              </span>
+                            )}
+                          </span>
                           <span>{row.baselineCount} ({row.baselinePct.toFixed(2)}%)</span>
                           <span>{row.currentCount} ({row.currentPct.toFixed(2)}%)</span>
                           <span>{row.deltaCount >= 0 ? '+' : ''}{row.deltaCount}</span>

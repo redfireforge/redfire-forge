@@ -24,6 +24,8 @@ export const WF = {
   NEW_BLANK_ITEM:      '.wf-new-dropdown-item:first-child',
   CREATE_INPUT:        '.req-confirm-input',
   CREATE_OK:           '.req-confirm-ok',
+  // Palette search
+  PAL_SEARCH:          '.wf-palette-search',
   // Palette items
   PAL_WS_CONNECT:      '.wf-palette-block-wsConnect',
   PAL_WS_SEND:         '.wf-palette-block-wsSend',
@@ -76,6 +78,7 @@ export const WF = {
   CONSOLE_CLEAR_BTN:   '.wf-console-action-btn[title="Clear console"]',
   DEBUG_BTN:           'button[title="Run workflow step-by-step"]',
   DEBUG_STEP_BTN:      '.wf-debug-step-btn',
+  RUN_IN_HARNESS_BTN:  '.wf-toolbar-harness-btn',
   // Defaults (Variables) modal
   DEFAULTS_MODAL:      '.wf-defaults-modal',
   DEFAULTS_NEW_KEY:    '.wf-defaults-modal .wf-var-key-input[placeholder="name"]',
