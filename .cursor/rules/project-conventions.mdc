@@ -222,7 +222,7 @@ alwaysApply: true
 | Unit tests — product only | `npm run test:product` |
 | Unit tests — demo lessons | `npm run test:demo` |
 
-**Demo package:** `@redfireforge/demo-hub` lives in `packages/demo-hub/` (Phase 7 monorepo extraction, 2026-06-26). See `packages/demo-hub/README.md` and `docs/plan/feature/separate-demo/separate-demo-codebase-plan.md`.
+**Demo package:** `@redfireforge/demo-hub` lives in `packages/demo-hub/` (Phase 7 monorepo extraction, 2026-06-26). See `packages/demo-hub/README.md` and `docs/plan/feature/separate-demo/separate-demo-codebase-plan.md`. gRPC lesson GRPC-24 (Workflow Runner & Results) helpers: `packages/demo-hub/src/lessons/protocols/grpc-workflow-runner-{helpers,steps}.ts`.
 
 Product PRs that do **not** touch `packages/demo-hub/` or demo E2E specs are **not** required to run demo E2E or `test:demo`. Demo lesson work uses the [5-item done checklist](../../docs/guides/demo-lesson-done-checklist.md).
 
