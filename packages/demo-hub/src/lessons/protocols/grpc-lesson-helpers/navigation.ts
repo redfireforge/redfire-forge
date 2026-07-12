@@ -7,7 +7,7 @@ export async function closeGrpcSettingsDrawerQuiet(ctx: DemoActionContext): Prom
     const closeBtn = document.querySelector<HTMLElement>(GRPC.SETTINGS_CLOSE);
     if (closeBtn) {
       closeBtn.click();
-      await ctx.delay(400);
+      await ctx.delay(200);
     }
   }
 }
@@ -17,7 +17,7 @@ export async function ensureGrpcStudioSubNavQuiet(ctx: DemoActionContext): Promi
   const studioBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_STUDIO);
   if (studioBtn && studioBtn.getAttribute('aria-selected') !== 'true') {
     await ctx.click(GRPC.SUB_NAV_STUDIO);
-    await ctx.delay(600);
+    await ctx.delay(300);
   }
 }
 

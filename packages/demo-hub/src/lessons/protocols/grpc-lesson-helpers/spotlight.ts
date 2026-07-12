@@ -1,6 +1,7 @@
 import type { DemoActionContext } from '../../../types';
 import { GRPC } from '@shared/selectors';
 import { showSpotlightRing } from '../../../demoRipple';
+import { firstVisibleElement } from '../../../utils/domVisibility';
 import { isGrpcHybridComposerActive } from './echoComposer';
 
 /**
@@ -12,7 +13,7 @@ export async function spotlightAndPause(
   selector: string,
   holdMs = 700,
 ): Promise<void> {
-  const el = document.querySelector<HTMLElement>(selector);
+  const el = firstVisibleElement(selector) ?? document.querySelector<HTMLElement>(selector);
   if (!el) return;
   await spotlightElementAndPause(ctx, el, holdMs);
 }
