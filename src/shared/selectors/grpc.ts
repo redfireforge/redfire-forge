@@ -170,6 +170,7 @@ export const GRPC = {
   CALL_METHOD_NAME: '[data-testid="grpc-call-method-name"]',
   CALL_SEND_BAR: '[data-testid="grpc-call-send-bar"]',
   SEND_BTN: '[data-testid="grpc-send-btn"]',
+  SEND_BTN_ANY: '[data-testid="grpc-send-btn"], [data-testid="grpc-mobile-primary-action"]',
   SEND_BLOCK_HINT: '[data-testid="grpc-call-send-block-hint"]',
   CANCEL_BTN: '[data-testid="grpc-cancel-btn"]',
   CALL_TIMEOUT_INPUT: '[data-testid="grpc-call-timeout-input"]',

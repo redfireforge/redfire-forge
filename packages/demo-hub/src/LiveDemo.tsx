@@ -214,7 +214,7 @@ export default function LiveDemo({
           >
             ⠿
           </span>
-          <span className="demo-live-lesson-name">{lesson.name}</span>
+          <span className="demo-live-lesson-name" onMouseDown={(e) => e.stopPropagation()}>{lesson.name}</span>
           <span className="demo-live-step-counter">
             {stepIndex + 1} / {totalSteps}
           </span>
