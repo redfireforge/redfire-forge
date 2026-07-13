@@ -120,7 +120,10 @@ export function EnvVarsModal({
             </div>
             <div className="em-vars-modal-list">
               {overrideEntries.length === 0 && (
-                <div className="em-vars-modal-empty">No overrides for {envName}.</div>
+                <div className="em-vars-modal-empty">
+                  <span className="em-vars-modal-empty-icon">≈</span>
+                  <span>No overrides for <strong>{envName}</strong>.<br/>Add a key above to override or extend global variables.</span>
+                </div>
               )}
               {overrideEntries.map(([k, v]) => (
                 <VarRow
