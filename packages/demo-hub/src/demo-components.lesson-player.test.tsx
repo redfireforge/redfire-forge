@@ -5,6 +5,8 @@ import { describe, it, expect, vi } from 'vitest';
 import {screen, fireEvent, act } from '@testing-library/react';
 import LessonPlayer from './LessonPlayer';
 import {clickLessonPlayerStep,
+  makeLesson,
+  renderWithLessonNotes,
 } from './demo-components.testHelpers';
 
 vi.mock('./utils/checkEndpoint', () => ({

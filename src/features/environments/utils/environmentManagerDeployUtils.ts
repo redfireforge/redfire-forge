@@ -55,10 +55,13 @@ export function applyDeleteAdditionalEnv(
     delete nextUrls[envId];
     const nextAuth = { ...(s.authProfileIds ?? {}) };
     delete nextAuth[envId];
+    const nextEnvVars = s.envVars ? { ...s.envVars } : undefined;
+    if (nextEnvVars) delete nextEnvVars[envId];
     return {
       ...s,
       baseUrls: nextUrls,
       authProfileIds: nextAuth,
+      envVars: nextEnvVars && Object.keys(nextEnvVars).length > 0 ? nextEnvVars : undefined,
       customEnvs: (s.customEnvs ?? []).filter((ce) => ce.id !== envId),
       protocolEndpoints: stripEnvFromProtocolEndpoints(s, envId),
     };

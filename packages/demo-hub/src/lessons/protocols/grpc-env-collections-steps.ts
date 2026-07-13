@@ -1,6 +1,6 @@
 /** GRPC-21 Environments & Collections — lesson steps */
 import { GRPC } from '@shared/selectors';
-import { EM, emWsDefaultRowSel, emWsDefaultRowValueSel } from '@shared/selectors/em';
+import { EM } from '@shared/selectors/em';
 import {
   GRPC_DEMO_TARGET,
   ensureEchoMethodSelected,
@@ -10,8 +10,18 @@ import {
   setGrpcTargetQuiet,
   spotlightAndPause,
 } from './grpc-lesson-helpers';
-import { navigateToEnvironmentManager } from '../env-manager-lesson-helpers';
-import { upsertWorkspaceDefaults } from '../../adapters';
+import {
+  ensureGrpcDemoProtocolReady,
+  ensureGrpcDemoEndpointConfigured,
+  ensureGrpcStagingEnvConfigured,
+  ensureGrpcDemoHeaderContext,
+  selectEnvInHeader,
+  selectSvcInHeader,
+  GRPC_DEMO_ENV_NAME,
+  GRPC_DEMO_SVC_NAME,
+  GRPC_DEMO_STAGING_ENV_NAME,
+  GRPC_DEMO_STAGING_HOST,
+} from '../env-manager-lesson-helpers';
 import type { GrpcDemoLesson } from './grpc-lesson-contract';
 import {
   DEMO_COLLECTION_NAME,
@@ -20,90 +30,77 @@ import {
   DEMO_REQUEST_NAME,
   DEMO_USER_ID,
   LOCAL_GRPC_HOST,
-  STAGING_GRPC_HOST,
   UNKNOWN_VAR_TARGET,
+  ensureCustomVarsSeeded,
   ensureExecutedInStudioQuiet,
   ensureMetadataRowQuiet,
   ensureStudioNavQuiet,
   ensureTemplateTargetQuiet,
-  seedWorkspaceDefaults,
 } from './grpc-env-collections-helpers';
 
 export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] = 
 [
 
     // =========================================================================
-    // Step 1 — Workspace Defaults: the interpolation variable store
+    // Step 1 — Configure gRPC Endpoint & Custom Variables
     // =========================================================================
     {
       id: 'grpc21-intro-env',
-      title: 'Environment Variables for gRPC',
+      title: 'Configure gRPC Endpoint & Protocol Variables',
       description:
         'RedfireForge supports **template variables** in the target address, metadata, and request body. ' +
-        'Variables like `{{grpcHost}}`, `{{requestId}}`, and `{{userId}}` are defined in the **Workspace Defaults ' +
-        '(Interpolation)** section of the Environment Manager. In this step, we will populate three variables ' +
-        'live in the UI: `grpcHost` (the gRPC server address), `requestId` (for request tracing), and `userId` ' +
-        '(a body field). Open **Environments** and scroll to Workspace Defaults to watch each value being added.',
+        'Variables like `{{grpcHost}}`, `{{requestId}}`, and `{{userId}}` come from your **microservice configuration**. ' +
+        'In **Settings → Environments**, expand the **grpc-demo** microservice, open the **gRPC** tab, and set the ' +
+        'endpoint for your environment — this provides `{{grpcHost}}` automatically. Click the **Protocol vars** badge ' +
+        'on the tab to open the variable editor, where you can add global variables like `requestId` and `userId` ' +
+        'that apply to all environments for this microservice.',
       highlight: EM.MANAGER,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await navigateToEnvironmentManager(ctx);
+        await ensureGrpcDemoProtocolReady(ctx);
       },
       action: async (ctx) => {
-        await ctx.waitFor(EM.MANAGER, 5_000);
-        // Spotlight the entire environment manager panel.
-        await spotlightAndPause(ctx, EM.MANAGER, 800);
-        // Scroll to the Workspace Defaults section and spotlight the grpcHost row.
-        await ctx.delay(400);
-        const wsSection = document.querySelector<HTMLElement>('.env-section--ws-defaults');
-        if (wsSection) {
-          wsSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          await ctx.delay(600);
-          await spotlightAndPause(ctx, '.env-section--ws-defaults', 1_000);
-        }
-
-        const setWorkspaceDefaultVisible = async (key: string, value: string): Promise<void> => {
-          const existingRow = document.querySelector<HTMLElement>(emWsDefaultRowSel(key));
-          if (existingRow) {
-            existingRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            await ctx.delay(250);
-            await spotlightAndPause(ctx, emWsDefaultRowSel(key), 700);
-            const valueInputSel = emWsDefaultRowValueSel(key);
-            const valueInput = document.querySelector<HTMLInputElement>(valueInputSel);
-            if (valueInput) {
-              await spotlightAndPause(ctx, valueInputSel, 450);
-              await ctx.fill(valueInputSel, value);
-              valueInput.dispatchEvent(new Event('change', { bubbles: true }));
-              valueInput.blur();
-              await ctx.delay(250);
-            }
-            return;
-          }
-
-          await spotlightAndPause(ctx, EM.WS_DEFAULT_KEY_INPUT, 450);
-          await ctx.fill(EM.WS_DEFAULT_KEY_INPUT, key);
-          await spotlightAndPause(ctx, EM.WS_DEFAULT_VALUE_INPUT, 450);
-          await ctx.fill(EM.WS_DEFAULT_VALUE_INPUT, value);
-          await spotlightAndPause(ctx, EM.WS_DEFAULT_SAVE_BTN, 350);
-          await ctx.click(EM.WS_DEFAULT_SAVE_BTN);
-          await ctx.delay(300);
-        };
-
-        await setWorkspaceDefaultVisible('grpcHost', LOCAL_GRPC_HOST);
-        await setWorkspaceDefaultVisible('requestId', DEMO_REQUEST_ID);
-        await setWorkspaceDefaultVisible('userId', DEMO_USER_ID);
-
-        // Spotlight each variable row so the viewer can identify them.
-        await spotlightAndPause(ctx, emWsDefaultRowSel('grpcHost'), 900);
+        // Ensure gRPC endpoint is configured so the derived-vars panel shows {{grpcHost}}.
+        await ensureGrpcDemoEndpointConfigured(ctx);
+        await ctx.delay(600);
+        // Spotlight the gRPC tab with the endpoint row.
+        await spotlightAndPause(ctx, EM.PROTOCOL_TAB_GRPC, 700);
         await ctx.delay(300);
-        await spotlightAndPause(ctx, emWsDefaultRowSel('requestId'), 800);
-        await ctx.delay(300);
-        const userIdRow = document.querySelector<HTMLElement>(emWsDefaultRowSel('userId'));
-        if (userIdRow) {
-          userIdRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        // Spotlight the derived vars panel showing {{grpcHost}}.
+        const derivedPanel = document.querySelector<HTMLElement>(EM.DERIVED_VARS_GRPC);
+        if (derivedPanel) {
+          derivedPanel.scrollIntoView({ behavior: 'smooth', block: 'center' });
           await ctx.delay(400);
+          await spotlightAndPause(ctx, EM.DERIVED_VARS_GRPC, 1_000);
         }
-        await spotlightAndPause(ctx, emWsDefaultRowSel('userId'), 800);
+        // Select gRPC Demo env in header so the DerivedVarsPanel preview resolves.
+        await selectEnvInHeader(ctx, GRPC_DEMO_ENV_NAME);
+        await selectSvcInHeader(ctx, GRPC_DEMO_SVC_NAME);
+        // Spotlight the Protocol vars badge, then open the modal.
+        await spotlightAndPause(ctx, '[data-testid="protocol-vars-badge"]', 800);
+        await ctx.click('[data-testid="protocol-vars-badge"]');
+        await ctx.delay(300);
+        try { await ctx.waitFor('[data-testid="protocol-vars-modal"]', 2_000); } catch { /* ignore */ }
+        await spotlightAndPause(ctx, '[data-testid="protocol-vars-modal"]', 500);
+        // Add requestId — keep modal open so we can spotlight the new row.
+        await ctx.fill('[data-testid="protocol-vars-key-input"]', 'requestId');
+        await ctx.fill('[data-testid="protocol-vars-val-input"]', DEMO_REQUEST_ID);
+        await ctx.click('[data-testid="protocol-vars-add-btn"]');
+        await ctx.delay(300);
+        if (document.querySelector('[data-testid="protocol-var-row-requestId"]')) {
+          await spotlightAndPause(ctx, '[data-testid="protocol-var-row-requestId"]', 700);
+        }
+        // Add userId — still inside the open modal.
+        await ctx.fill('[data-testid="protocol-vars-key-input"]', 'userId');
+        await ctx.fill('[data-testid="protocol-vars-val-input"]', DEMO_USER_ID);
+        await ctx.click('[data-testid="protocol-vars-add-btn"]');
+        await ctx.delay(300);
+        if (document.querySelector('[data-testid="protocol-var-row-userId"]')) {
+          await spotlightAndPause(ctx, '[data-testid="protocol-var-row-userId"]', 700);
+        }
+        // Save and close the modal.
+        await ctx.click('[data-testid="protocol-vars-save-btn"]');
+        await ctx.delay(200);
       },
     },
 
@@ -115,14 +112,16 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
       title: '{{grpcHost}} in the Target Field',
       description:
         'Instead of hardcoding `localhost:50051`, type `{{grpcHost}}` in the target field. RedfireForge ' +
-        'resolves the template at runtime against your Workspace Defaults. The **Interpolation Preview Strip** ' +
-        'immediately below the target input shows: the raw **Template** on the left and the fully **Resolved** ' +
-        'address on the right. Switch between the two views to confirm `{{grpcHost}}` → `localhost:50051`.',
+        'resolves the template at runtime from your **microservice gRPC endpoint** for the selected environment. ' +
+        'The **Interpolation Preview Strip** immediately below the target input shows: the raw **Template** ' +
+        'on the left and the fully **Resolved** address on the right. Switch between the two views to confirm ' +
+        '`{{grpcHost}}` → `' + LOCAL_GRPC_HOST + '`.',
       highlight: GRPC.INTERPOLATION_PREVIEW_STRIP,
       pauseAfter: true,
       preAction: async (ctx) => {
-        seedWorkspaceDefaults();
+        await ensureGrpcDemoEndpointConfigured(ctx);
         await ensureStudioNavQuiet(ctx);
+        await ensureGrpcDemoHeaderContext(ctx);
         // Restore direct address first so the fill in action() is visible.
         await setGrpcTargetQuiet(ctx, GRPC_DEMO_TARGET);
         await ensureGrpcReflected(ctx);
@@ -169,24 +168,34 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
       id: 'grpc21-env-switch',
       title: 'Switch Environments — Preview Updates Instantly',
       description:
-        'When you change the `grpcHost` value in Workspace Defaults (or switch to a different environment ' +
-        'that provides a different `grpcHost`), the **Interpolation Preview Strip** updates without any page ' +
-        'reload. Watch the resolved address change from `localhost:50051` (local Docker fixture) to ' +
-        '`localhost:59999` (a staging placeholder). The staging server is intentionally unreachable — this ' +
-        'demonstrates that template resolution is **separate from connectivity**.',
+        'When you switch to a different environment in the app header, `{{grpcHost}}` resolves to **that ' +
+        'environment\'s** gRPC endpoint — no edits needed. Watch the **Interpolation Preview Strip** update ' +
+        'from `' + LOCAL_GRPC_HOST + '` (local Docker fixture, **' + GRPC_DEMO_ENV_NAME + '**) to ' +
+        '`' + GRPC_DEMO_STAGING_HOST + '` (**' + GRPC_DEMO_STAGING_ENV_NAME + '**, intentionally unreachable). ' +
+        'Template resolution is **separate from connectivity** — the preview updates even though the staging ' +
+        'server is offline.',
       highlight: GRPC.INTERPOLATION_PREVIEW_STRIP,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureTemplateTargetQuiet(ctx);
+        await ensureGrpcStagingEnvConfigured(ctx);
+        await ensureCustomVarsSeeded(ctx);
+        await ensureStudioNavQuiet(ctx);
+        await ensureGrpcDemoHeaderContext(ctx);
+        await setGrpcTargetQuiet(ctx, '{{grpcHost}}');
+        try {
+          await ctx.waitFor(GRPC.INTERPOLATION_PREVIEW_STRIP, 2_000);
+        } catch {
+          // Render may already be complete.
+        }
       },
       action: async (ctx) => {
-        // Show current resolved value (local).
+        // Show current resolved value (local env).
         await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_STRIP, 900);
         await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_VALUE, 700);
         await ctx.delay(400);
 
-        // Simulate "switching to staging" by updating grpcHost in workspace defaults.
-        upsertWorkspaceDefaults({ grpcHost: STAGING_GRPC_HOST });
+        // Switch to staging environment via the header dropdown.
+        await selectEnvInHeader(ctx, GRPC_DEMO_STAGING_ENV_NAME);
         await ctx.delay(500);
 
         // Strip should now show localhost:59999.
@@ -194,8 +203,8 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
         await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_VALUE, 1_000);
         await ctx.delay(500);
 
-        // Restore to local address for the remaining steps.
-        upsertWorkspaceDefaults({ grpcHost: LOCAL_GRPC_HOST });
+        // Switch back to local environment for the remaining steps.
+        await selectEnvInHeader(ctx, GRPC_DEMO_ENV_NAME);
         await ctx.delay(400);
         await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_VALUE, 800);
       },
@@ -332,7 +341,7 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStudioNavQuiet(ctx);
-        seedWorkspaceDefaults();
+        await ensureGrpcDemoHeaderContext(ctx);
         // Force an unresolvable token to trigger the banner.
         await setGrpcTargetQuiet(ctx, UNKNOWN_VAR_TARGET);
         try {
@@ -374,17 +383,17 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
       id: 'grpc21-save-request',
       title: 'Save a Call to a Collection',
       description:
-        'Switch back to the Form tab. With `{{grpcHost}}` resolving to the local fixture, click **Send** ' +
-        'to execute an Echo call. Once you have a successful response, click **Save request** on the ' +
+        'Switch back to the **Form** tab. With the local Docker fixture on `localhost:50051` as the target, ' +
+        'click **Send** to execute an Echo call. Once you have a successful response, click **Save request** on the ' +
         'connection bar. Give the request a name — `Echo — Hello World` — and create a new collection ' +
-        'folder called `Echo Demos`. The entire call snapshot (target template, method, metadata, body, ' +
+        'folder called `Echo Demos`. The entire call snapshot (target, method, metadata, body, ' +
         'auth) is persisted in IndexedDB for instant recall.',
       highlight: GRPC.SAVE_REQUEST_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
         // Restore direct target so the send button is enabled.
         await ensureStudioNavQuiet(ctx);
-        seedWorkspaceDefaults();
+        await ensureGrpcDemoHeaderContext(ctx);
         await setGrpcTargetQuiet(ctx, GRPC_DEMO_TARGET);
         await ensureEchoMessageFilled(ctx, DEMO_MESSAGE);
         // Switch to Form tab silently.

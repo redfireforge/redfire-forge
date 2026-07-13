@@ -38,6 +38,24 @@ export function buildEnvVarMap(
   envName?: string,
 ): Record<string, string> {
   const map: Record<string, string> = {};
+
+  // Global vars first (lowest priority) — apply to all environments
+  const globalVars = svc?.globalVars;
+  if (globalVars) {
+    for (const [k, v] of Object.entries(globalVars)) {
+      if (v) map[k] = v;
+    }
+  }
+
+  // Per-environment vars override global vars for the same key
+  const envOverrides = svc?.envVars?.[envId];
+  if (envOverrides) {
+    for (const [k, v] of Object.entries(envOverrides)) {
+      if (v) map[k] = v;
+      else delete map[k];
+    }
+  }
+
   const httpBase = svc?.baseUrls?.[envId]?.trim() ?? '';
   const protoEndpoint = svc?.protocolEndpoints?.[protocol]?.[envId];
 

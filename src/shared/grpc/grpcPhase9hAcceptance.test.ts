@@ -43,7 +43,7 @@ describe('Phase 9H acceptance checklist', () => {
   it('maps checklist: missing grpcHost blocks execution with validation error', async () => {
     const source = await import('fs/promises').then((fs) =>
       fs.readFile(
-        new URL('../../features/grpc/hooks/grpcStudioUnaryCommands.coverage-gaps.test.ts', import.meta.url),
+        new URL('../../features/grpc/hooks/grpcStudioUnaryCommands/grpcStudioUnaryCommands.prepare.coverage-gaps.test.ts', import.meta.url),
         'utf8',
       ),
     );

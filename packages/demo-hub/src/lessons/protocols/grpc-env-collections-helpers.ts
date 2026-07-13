@@ -8,8 +8,14 @@ import {
   closeGrpcSettingsDrawerQuiet,
   setGrpcTargetQuiet,
 } from './grpc-lesson-helpers';
-import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
-import { upsertWorkspaceDefaults, removeWorkspaceDefaults } from '../../adapters';
+import {
+  navigateToGrpcStudio,
+  navigateToEnvironmentManager,
+  expandNamedMicroservice,
+  ensureGrpcDemoEndpointConfigured,
+  ensureGrpcDemoHeaderContext,
+  GRPC_DEMO_SVC_NAME,
+} from '../env-manager-lesson-helpers';
 import type { DemoActionContext } from '../../types';
 
 /** Live local fixture (Go echo Docker). */
@@ -22,7 +28,7 @@ export const DEMO_USER_ID = 'user-42';
 export const DEMO_MESSAGE = 'Hello from gRPC Studio';
 export const DEMO_COLLECTION_NAME = 'Echo Demos';
 export const DEMO_REQUEST_NAME = 'Echo — Hello World';
-/** Variable token deliberately absent from workspace defaults — triggers MISSING_TOKEN banner. */
+/** Variable token deliberately absent from the environment — triggers MISSING_TOKEN banner. */
 export const UNKNOWN_VAR_TARGET = '{{_undefined_grpc_host_}}';
 
 // ---------------------------------------------------------------------------
@@ -35,18 +41,49 @@ export async function ensureStudioNavQuiet(ctx: DemoActionContext): Promise<void
   await ensureGrpcStudioSubNavQuiet(ctx);
 }
 
-/** Seed workspace defaults via bridge — quietly, no visible UI ripple. */
-export function seedWorkspaceDefaults(): void {
-  upsertWorkspaceDefaults({
-    grpcHost: LOCAL_GRPC_HOST,
-    requestId: DEMO_REQUEST_ID,
-    userId: DEMO_USER_ID,
-  });
-}
-
-/** Remove lesson workspace defaults via bridge. */
-export function clearWorkspaceDefaults(): void {
-  removeWorkspaceDefaults(['grpcHost', 'requestId', 'userId']);
+/**
+ * Ensure the gRPC Demo microservice protocol variables (requestId, userId) are configured.
+ * Navigates to the Environment Manager, expands the microservice, then seeds both
+ * global Protocol vars in a single modal open/save pass (avoids double open/close).
+ */
+export async function ensureCustomVarsSeeded(ctx: DemoActionContext): Promise<void> {
+  await navigateToEnvironmentManager(ctx);
+  await expandNamedMicroservice(ctx, GRPC_DEMO_SVC_NAME);
+  // Open the Protocol vars modal once for both keys.
+  const modalOpen = !!document.querySelector('[data-testid="protocol-vars-modal"]');
+  if (!modalOpen) {
+    await ctx.click('[data-testid="protocol-vars-badge"]');
+    await ctx.delay(200);
+  }
+  // Ensure requestId is present with the correct value.
+  if (document.querySelector(`[data-testid="protocol-var-row-requestId"]`)) {
+    const inp = document.querySelector<HTMLInputElement>('[data-testid="protocol-var-value-requestId"]');
+    if (inp && inp.value !== DEMO_REQUEST_ID) {
+      await ctx.fill('[data-testid="protocol-var-value-requestId"]', DEMO_REQUEST_ID);
+      await ctx.delay(150);
+    }
+  } else {
+    await ctx.fill('[data-testid="protocol-vars-key-input"]', 'requestId');
+    await ctx.fill('[data-testid="protocol-vars-val-input"]', DEMO_REQUEST_ID);
+    await ctx.click('[data-testid="protocol-vars-add-btn"]');
+    await ctx.delay(200);
+  }
+  // Ensure userId is present with the correct value.
+  if (document.querySelector(`[data-testid="protocol-var-row-userId"]`)) {
+    const inp = document.querySelector<HTMLInputElement>('[data-testid="protocol-var-value-userId"]');
+    if (inp && inp.value !== DEMO_USER_ID) {
+      await ctx.fill('[data-testid="protocol-var-value-userId"]', DEMO_USER_ID);
+      await ctx.delay(150);
+    }
+  } else {
+    await ctx.fill('[data-testid="protocol-vars-key-input"]', 'userId');
+    await ctx.fill('[data-testid="protocol-vars-val-input"]', DEMO_USER_ID);
+    await ctx.click('[data-testid="protocol-vars-add-btn"]');
+    await ctx.delay(200);
+  }
+  // Save and close in one shot.
+  await ctx.click('[data-testid="protocol-vars-save-btn"]');
+  await ctx.delay(250);
 }
 
 /**
@@ -54,8 +91,10 @@ export function clearWorkspaceDefaults(): void {
  * Used by several step preActions that build on the interpolation state.
  */
 export async function ensureTemplateTargetQuiet(ctx: DemoActionContext): Promise<void> {
+  await ensureGrpcDemoEndpointConfigured(ctx);
+  await ensureCustomVarsSeeded(ctx);
   await ensureStudioNavQuiet(ctx);
-  seedWorkspaceDefaults();
+  await ensureGrpcDemoHeaderContext(ctx);
   await setGrpcTargetQuiet(ctx, '{{grpcHost}}');
   // Wait up to 2 s for preview strip to mount after template change.
   try {
@@ -103,7 +142,7 @@ export async function ensureMetadataRowQuiet(ctx: DemoActionContext): Promise<vo
 /** Ensure a call has been executed and studio sub-nav is active. */
 export async function ensureExecutedInStudioQuiet(ctx: DemoActionContext): Promise<void> {
   await ensureStudioNavQuiet(ctx);
-  seedWorkspaceDefaults();
+  await ensureGrpcDemoHeaderContext(ctx);
   // Restore target to direct address so the send button is not blocked by a missing token.
   await setGrpcTargetQuiet(ctx, GRPC_DEMO_TARGET);
   await ctx.waitFor(GRPC.TARGET_INPUT, 5_000);

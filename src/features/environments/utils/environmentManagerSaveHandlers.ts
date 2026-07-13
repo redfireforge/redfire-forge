@@ -96,3 +96,58 @@ export function applyAuthProfile(
     oldProfileId,
   };
 }
+
+export function applySetSvcGlobalVar(
+  microservices: Microservice[],
+  svcId: string,
+  key: string,
+  value: string,
+): Microservice[] {
+  return updateMicroserviceById(microservices, svcId, (s) => ({
+    ...s,
+    globalVars: { ...(s.globalVars ?? {}), [key]: value },
+  }));
+}
+
+export function applyDeleteSvcGlobalVar(
+  microservices: Microservice[],
+  svcId: string,
+  key: string,
+): Microservice[] {
+  return updateMicroserviceById(microservices, svcId, (s) => {
+    const next = { ...(s.globalVars ?? {}) };
+    delete next[key];
+    return { ...s, globalVars: Object.keys(next).length === 0 ? undefined : next };
+  });
+}
+
+export function applySetSvcEnvVar(
+  microservices: Microservice[],
+  svcId: string,
+  envId: string,
+  key: string,
+  value: string,
+): Microservice[] {
+  return updateMicroserviceById(microservices, svcId, (s) => ({
+    ...s,
+    envVars: {
+      ...(s.envVars ?? {}),
+      [envId]: { ...(s.envVars?.[envId] ?? {}), [key]: value },
+    },
+  }));
+}
+
+export function applyDeleteSvcEnvVar(
+  microservices: Microservice[],
+  svcId: string,
+  envId: string,
+  key: string,
+): Microservice[] {
+  return updateMicroserviceById(microservices, svcId, (s) => {
+    const envVars = { ...(s.envVars?.[envId] ?? {}) };
+    delete envVars[key];
+    const next = { ...(s.envVars ?? {}), [envId]: envVars };
+    if (Object.keys(envVars).length === 0) delete next[envId];
+    return { ...s, envVars: Object.keys(next).length === 0 ? undefined : next };
+  });
+}
