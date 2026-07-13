@@ -17,7 +17,6 @@ import {
   setGrpcTargetQuiet,
 } from './grpc-lesson-helpers';
 import { grpcEnvCollectionsConcept } from './grpc-env-collections-concept';
-import { clearWorkspaceDefaults } from './grpc-env-collections-helpers';
 import { grpcEnvCollectionsSteps } from './grpc-env-collections-steps';
 
 const GRPC21_ROSTER = getGrpcLessonRosterEntry('grpc-env-collections')!;
@@ -38,7 +37,6 @@ export const grpcEnvCollectionsLesson: GrpcDemoLesson = {
   },
   cleanup: async (ctx) => {
     await setGrpcTargetQuiet(ctx, GRPC_DEMO_TARGET);
-    clearWorkspaceDefaults();
     await grpcFirstCallCleanup(ctx);
   },
   steps: grpcEnvCollectionsSteps,

@@ -9,6 +9,8 @@ import type { DemoProgress } from './types';
 import {
   baseProgress,
   makeLesson,
+  makeDomain,
+  renderWithLessonNotes,
 } from './demo-components.testHelpers';
 
 vi.mock('./utils/checkEndpoint', () => ({

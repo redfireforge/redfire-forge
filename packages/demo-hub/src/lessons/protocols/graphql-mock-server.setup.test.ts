@@ -29,6 +29,8 @@ import {
   gqlMockServerLessonCleanup,
   ensureLesson13MockEndpointIntrospected,
   resetGqlLesson12SessionFlags,
+  gqlMockServerLessonSetup,
+  ensureLesson13MockPanelOpen,
 } from './graphql-lesson-helpers';
 
 describe('gql-mock-server lesson — setup', () => {

@@ -64,5 +64,7 @@ describe('grpc selectors coverage gaps', () => {
       expect(typeof value, key).toBe('string');
       expect(value.length, key).toBeGreaterThan(0);
     }
+    expect(GRPC.SEND_BTN_ANY).toContain('grpc-send-btn');
+    expect(GRPC.SEND_BTN_ANY).toContain('grpc-mobile-primary-action');
   });
 });
