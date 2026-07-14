@@ -233,7 +233,7 @@ describe('grpc-schema-discovery coverage gaps', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GRPC.SCHEMA_BROWSER_SEARCH, 'Lookup');
     expect(ctx.click).toHaveBeenCalledWith(GRPC.SEND_BTN);
     const jsonEditor = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
-    expect(jsonEditor?.value).toBe('{"ref":{"id":"A-100"}}');
+    expect(jsonEditor?.value).toBe(JSON.stringify({ ref: { id: 'A-100' } }, null, 2));
   });
 
   it('executes protoset, url, bsr, and drift callbacks', async () => {
