@@ -110,7 +110,7 @@ function createAppWithQueryOverride(
 }
 
 describe('kafka-routes', () => {
-  afterEach(() => { vi.clearAllMocks(); });
+  afterEach(() => { resetAllMocks(); });
 
   it('POST /api/kafka/disconnect delegates valid bodies to service', async () => {
     const service = createMockService();

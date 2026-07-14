@@ -259,7 +259,7 @@ describe('ensureBrowserLargeDataMigrated', () => {
   beforeEach(() => {
     isTauriMock.mockReturnValue(false);
     localStorage.clear();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('migrates flat keys and removes localStorage copies when IDB has data', async () => {

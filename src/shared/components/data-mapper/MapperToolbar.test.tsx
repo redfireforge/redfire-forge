@@ -41,7 +41,7 @@ function renderWithProfiles(overrides?: Partial<Parameters<typeof MapperToolbar>
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.mocked(loadProfiles).mockResolvedValue([
     { id: 'p1', name: 'Profile A', mappings: [{ id: 'm1', sourceId: 's', sourcePath: 'a', targetPath: 'b' }] },
     { id: 'p2', name: 'Profile B', mappings: [] },

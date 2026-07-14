@@ -28,7 +28,7 @@ const mockAppendAuthQueryParams = vi.mocked(appendAuthQueryParams);
 
 describe('useSseConnection', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.restoreAllMocks();
     mockResolveEffectiveAuth.mockReturnValue(null);
     mockResolveAuthForConnect.mockResolvedValue({ headers: [], queryParams: [] });

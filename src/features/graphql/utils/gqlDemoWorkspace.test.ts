@@ -60,7 +60,7 @@ function seedTabs(tabs: ReturnType<typeof makeBlankTab>[], activeId: string): vo
 
 describe('gqlDemoWorkspace', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockWriteKey.mockResolvedValue(undefined);
     mockRemoveKey.mockResolvedValue(undefined);
   });

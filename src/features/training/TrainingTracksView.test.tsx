@@ -139,7 +139,7 @@ function setSearch(overrides: Record<string, unknown> = {}) {
 
 describe('TrainingTracksView', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.stubGlobal('open', vi.fn());
     setProgress();
     setWhatsNew();

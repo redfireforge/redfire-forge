@@ -69,7 +69,7 @@ function createMockSharedDataSource(id = 'sds-1'): SharedDataSource {
 
 describe('idbSharedDataSources', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
     mockGetResult = undefined;
     mockGetShouldError = false;

@@ -19,7 +19,7 @@ vi.mock('../../../shared/utils/storage', () => ({
 
 describe('useRunnerConfig', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns default values when no saved config exists', async () => {

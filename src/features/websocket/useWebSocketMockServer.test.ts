@@ -56,7 +56,7 @@ function mockFetchNetworkError() {
 describe('useWebSocketMockServer', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.clearAllMocks();
+    resetAllMocks();
     mockedLoadMockRules.mockResolvedValue([]);
     mockedLoadMockConfig.mockResolvedValue(null);
     mockedSaveMockRules.mockResolvedValue(undefined);

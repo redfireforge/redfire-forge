@@ -89,7 +89,7 @@ function makeParams(overrides: Partial<Parameters<typeof useGraphqlStudioExecute
 
 describe('useGraphqlStudioExecute', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('fires execute with request payload (Phase 6E — tab attribution in execution layer)', () => {

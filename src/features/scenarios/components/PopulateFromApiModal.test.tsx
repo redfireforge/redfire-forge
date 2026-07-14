@@ -64,7 +64,7 @@ function makeDataTable(): DataSource {
 
 describe('PopulateFromApiModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockHookReturn.step = 'fetch';
     mockHookReturn.insertMode = 'append';
     mockHookReturn.enabledMappings = [];

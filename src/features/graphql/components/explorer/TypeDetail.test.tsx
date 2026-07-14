@@ -49,7 +49,7 @@ const defaultProps = {
 };
 
 describe('TypeDetail — fields tab (OBJECT)', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the type detail container', () => {
     render(<TypeDetail {...defaultProps} type={makeObjectType()} />);
@@ -137,7 +137,7 @@ describe('TypeDetail — fields tab (OBJECT)', () => {
 
 describe('TypeDetail — SDL tab', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     // Mock clipboard API (jsdom doesn't provide it)
     Object.assign(navigator, {
       clipboard: { writeText: vi.fn().mockResolvedValue(undefined) },
@@ -199,7 +199,7 @@ describe('TypeDetail — SDL tab', () => {
 });
 
 describe('TypeDetail — ENUM type', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('shows "Values" label on the fields tab for ENUM', () => {
     render(<TypeDetail {...defaultProps} type={makeEnumType()} />);
@@ -215,7 +215,7 @@ describe('TypeDetail — ENUM type', () => {
 });
 
 describe('TypeDetail — UNION type', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('shows "Types" label on the fields tab for UNION', () => {
     render(<TypeDetail {...defaultProps} type={makeUnionType()} />);
@@ -270,7 +270,7 @@ describe('TypeDetail — UNION type', () => {
 });
 
 describe('TypeDetail — SCALAR type', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('shows custom scalar note when kind is SCALAR', () => {
     const scalarType: import('../../../../shared/types/graphql').GraphqlTypeNode = {
@@ -283,7 +283,7 @@ describe('TypeDetail — SCALAR type', () => {
 });
 
 describe('TypeDetail — empty type', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('shows empty-fields note for non-scalar types with no members', () => {
     const emptyType: GraphqlTypeNode = {

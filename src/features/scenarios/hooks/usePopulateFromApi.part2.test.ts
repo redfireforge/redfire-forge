@@ -38,7 +38,7 @@ describe('usePopulateFromApi', () => {
   const _mockResolveRow = vi.mocked(resolveScenarioFromDataRow);
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('buildPopulatedData', () => {

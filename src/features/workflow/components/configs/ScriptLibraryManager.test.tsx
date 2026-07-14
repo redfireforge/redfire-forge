@@ -32,7 +32,7 @@ describe('ScriptLibraryManager', () => {
   ];
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders library list', () => {

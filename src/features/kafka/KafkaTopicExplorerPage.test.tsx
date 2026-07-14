@@ -76,7 +76,7 @@ function topicDetail(name: string) {
 
 describe('KafkaTopicExplorerPage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockDispatch.mockImplementation((op: string, body: Record<string, unknown>) => {
       if (op === 'topic-detail') {
         return Promise.resolve({

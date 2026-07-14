@@ -56,7 +56,7 @@ type EnvWithGetWorker = { getWorker: (id: string, label: string) => unknown };
 
 describe('monacoGraphqlSetup — window.MonacoEnvironment.getWorker', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('sets window.MonacoEnvironment with a getWorker function', () => {

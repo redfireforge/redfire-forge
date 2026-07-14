@@ -72,7 +72,7 @@ describe('DataSourceToolbar', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('basic rendering', () => {

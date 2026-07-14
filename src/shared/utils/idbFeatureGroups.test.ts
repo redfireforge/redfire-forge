@@ -82,7 +82,7 @@ function createMockFeatureGroup(id = 'fg-1'): FeatureGroup {
 
 describe('idbFeatureGroups', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
     mockGetResult = undefined;
     mockGetShouldError = false;

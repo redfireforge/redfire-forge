@@ -65,7 +65,7 @@ function makeProps(overrides: Partial<MicroserviceProtocolPanelProps> = {}): Mic
 
 describe('MicroserviceProtocolPanel coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders HTTP table with env vars badge and auth select for deployed rows', () => {

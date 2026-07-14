@@ -32,7 +32,7 @@ describe('toHttpResponse', () => {
 
 describe('tauriGqlNativeFetch — signal and error paths', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns success without signal', async () => {

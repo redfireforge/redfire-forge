@@ -51,7 +51,7 @@ function makeWireBuffer(schemaId = 42): Buffer {
 
 describe('executeProduce', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('produces messages and returns success envelope', async () => {

@@ -71,7 +71,7 @@ function createOptions(draftOverrides: Partial<Scenario> = {}) {
 describe('useTestFetch hook', () => {
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     jsonEqualMock.mockReturnValue(false);
     validateMock.mockReturnValue([]);
     evaluateAssertionsMock.mockReturnValue({ failures: [] });

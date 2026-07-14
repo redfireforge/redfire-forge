@@ -32,7 +32,7 @@ describe('lesson2-variables-history', () => {
   beforeEach(() => {
     resetLesson2VariablesHistoryFlags();
     document.body.innerHTML = '';
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('ensureHistoryPanelWithEntries opens history tab when inactive', async () => {

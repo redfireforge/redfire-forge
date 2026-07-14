@@ -50,7 +50,7 @@ describe('WhatsNewBanner', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     (readKey as ReturnType<typeof vi.fn>).mockResolvedValue(null);
   });
 

@@ -41,7 +41,7 @@ import { useTrash } from './useTrash';
 
 describe('useTrash — coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockLoadTrash.mockResolvedValue([]);
     mockLoadSettings.mockResolvedValue({ retentionDays: 30, maxItems: 100 });
   });

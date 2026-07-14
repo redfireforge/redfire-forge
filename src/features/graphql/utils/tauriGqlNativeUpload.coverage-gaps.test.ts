@@ -31,7 +31,7 @@ describe('serializeFormDataForNativeUpload — bytesToBase64 fallback', () => {
 
 describe('tauriGqlNativeUpload — signal, headers, and error paths', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockInvoke.mockResolvedValue({
       status: 200,
       statusText: 'OK',

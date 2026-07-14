@@ -31,7 +31,7 @@ describe('useDemoHub (async execution)', () => {
 
   beforeEach(() => {
     vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
     document.body.innerHTML = '';
   });
@@ -685,7 +685,7 @@ describe('useDemoHub (async execution)', () => {
       await vi.advanceTimersByTimeAsync(6000);
       await p;
     });
-    vi.clearAllMocks();
+    resetAllMocks();
     await act(async () => {
       const p = result.current.restartDemo();
       await vi.advanceTimersByTimeAsync(6000);

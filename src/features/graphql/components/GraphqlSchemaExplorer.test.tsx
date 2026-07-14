@@ -30,7 +30,7 @@ function makeSchemaInfo(types: GraphqlTypeNode[] = [], overrides: Partial<Graphq
 const defaultIntrospect = vi.fn();
 
 describe('GraphqlSchemaExplorer — non-loaded states', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('shows idle state when status=idle', () => {
     render(<GraphqlSchemaExplorer schemaInfo={null} status="idle" onIntrospect={defaultIntrospect} />);
@@ -83,7 +83,7 @@ describe('GraphqlSchemaExplorer — loaded state', () => {
   ];
   const schemaInfo = makeSchemaInfo(types);
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the schema explorer root', () => {
     render(<GraphqlSchemaExplorer schemaInfo={schemaInfo} status="loaded" />);
@@ -311,7 +311,7 @@ describe('GraphqlSchemaExplorer — Changelog tab', () => {
   const snap2 = { id: 'snap-2', label: 'v2.0', sdl: 'type Query { world: String }', capturedAt: Date.now(), typesCount: 6 };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
   });
 
@@ -527,7 +527,7 @@ describe('GraphqlSchemaExplorer — Deprecated tab', () => {
     { fieldPath: 'Order.oldStatus', itemId: 'item-3', itemName: 'GetOrder', deprecationReason: 'Use status instead' },
   ];
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('shows deprecated tab button when deprecatedUsages are provided', () => {
     render(
@@ -606,7 +606,7 @@ describe('GraphqlSchemaExplorer — branch gap coverage', () => {
     makeType('UserInput', 'INPUT_OBJECT', { fields: [{ name: 'email', type: 'String!' }] }),
   ]);
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   // L66[0]: type description matches search
   it('finds type by description match (covers L66[0])', () => {

@@ -55,7 +55,7 @@ function makeProfile(overrides: Partial<ConnectionProfile> = {}): ConnectionProf
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockReadKey.mockResolvedValue(null);
   mockWriteKey.mockResolvedValue(undefined);
   mockReadConnectionProfiles.mockImplementation(async () => {

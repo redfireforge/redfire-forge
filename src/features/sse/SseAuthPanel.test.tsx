@@ -36,7 +36,7 @@ const profiles: GlobalAuthProfile[] = [
 ];
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 describe('SseAuthPanel', () => {

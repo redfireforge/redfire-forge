@@ -13,7 +13,7 @@ import { httpFetch, setHttpTransport, type HttpResponse } from './httpClient';
 
 describe('setHttpTransport', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     setHttpTransport(null);
     globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,

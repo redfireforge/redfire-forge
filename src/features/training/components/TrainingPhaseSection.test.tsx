@@ -33,7 +33,7 @@ describe('TrainingPhaseSection', () => {
   const mockOnNavigateToSample = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders phase header with name and count', () => {

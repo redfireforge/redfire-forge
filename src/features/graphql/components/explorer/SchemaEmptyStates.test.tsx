@@ -14,7 +14,7 @@ import {
 
 describe('SchemaIdleState', () => {
   const onIntrospect = vi.fn();
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the idle state container', () => {
     render(<SchemaIdleState onIntrospect={onIntrospect} introspecting={false} />);
@@ -63,7 +63,7 @@ describe('SchemaLoadingState', () => {
 
 describe('SchemaErrorState', () => {
   const onIntrospect = vi.fn();
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the error state container', () => {
     render(<SchemaErrorState onIntrospect={onIntrospect} introspecting={false} />);
@@ -100,7 +100,7 @@ describe('SchemaErrorState', () => {
 
 describe('SchemaIntrospectionDisabledState', () => {
   const onIntrospect = vi.fn();
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the introspection-disabled container', () => {
     render(<SchemaIntrospectionDisabledState onIntrospect={onIntrospect} introspecting={false} />);

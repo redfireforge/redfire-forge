@@ -64,7 +64,7 @@ const createMockResult = (overrides: Partial<RequestResult> = {}) =>
 describe('graphLoadRunner', () => {
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     syntheticStart.mockClear();
     syntheticStop.mockClear();
   });

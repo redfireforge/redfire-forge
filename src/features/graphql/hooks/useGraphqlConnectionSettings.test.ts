@@ -73,7 +73,7 @@ async function flushHookEffects(): Promise<void> {
 
 describe('useGraphqlConnectionSettings', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   afterEach(() => {

@@ -57,7 +57,7 @@ function makeProps(overrides: Partial<MicroserviceProtocolPanelProps> = {}): Mic
 
 describe('MicroserviceProtocolPanel', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders empty state when no protocols are enabled', () => {

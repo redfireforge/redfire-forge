@@ -74,7 +74,7 @@ describe('useScenarioExportImport', () => {
   let fgsState: FeatureGroup[];
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockHasVersionData.mockReturnValue(false);
     fgsState = [];
     setFeatureGroups = vi.fn((updater) => {

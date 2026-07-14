@@ -29,7 +29,7 @@ import { httpFetch, setHttpTransport } from './httpClient';
 
 describe('httpFetch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockedIsTauri.mockReturnValue(false);
     mockedIsNode.mockReturnValue(false);
     globalThis.fetch = vi.fn();
@@ -214,7 +214,7 @@ describe('httpFetch', () => {
       vi.resetModules();
       mockedIsNode.mockReturnValue(true);
       mockedIsTauri.mockReturnValue(false);
-      vi.clearAllMocks();
+      resetAllMocks();
       globalThis.fetch = vi.fn();
       const mod = await import('./httpClient');
       nodeHttpFetch = mod.httpFetch;

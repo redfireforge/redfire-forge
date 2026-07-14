@@ -14,7 +14,7 @@ import { reflectGrpcWorkflowTarget } from '../utils/grpcWorkflowReflection';
 
 describe('useGrpcWorkflowTargetReflection', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('reflects automatically after a valid target is entered', async () => {

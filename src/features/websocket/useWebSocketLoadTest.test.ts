@@ -99,7 +99,7 @@ describe('useWebSocketLoadTest', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   afterEach(() => {

@@ -207,7 +207,7 @@ describe('RequestEditor interaction branches', () => {
     vi.mocked(buildCurlCommand).mockReset();
     vi.mocked(serializeWithContentType).mockReturnValue({ body: '', contentType: null });
     vi.mocked(applyAuthHeaders).mockResolvedValue(undefined);
-    vi.clearAllMocks();
+    resetAllMocks();
     installClipboardMock();
   });
 
