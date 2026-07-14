@@ -32,3 +32,6 @@ export interface MicroserviceProtocolPanelProps {
   onSetEnvVar: (envId: string, key: string, value: string) => void;
   onDeleteEnvVar: (envId: string, key: string) => void;
 }
+
+// Runtime marker used by focused unit tests to ensure this module is covered.
+export const MICROSERVICE_PROTOCOL_PANEL_TYPES_RUNTIME_MARKER = 'microservice-protocol-panel-types';

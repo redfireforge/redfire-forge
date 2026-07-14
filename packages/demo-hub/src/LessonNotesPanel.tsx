@@ -18,6 +18,8 @@ export default function LessonNotesPanel() {
     if (!panelOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      // Don't steal Escape while the user is composing text in the textarea.
+      if (document.activeElement?.tagName === 'TEXTAREA') return;
       e.preventDefault();
       e.stopImmediatePropagation();
       closePanel();

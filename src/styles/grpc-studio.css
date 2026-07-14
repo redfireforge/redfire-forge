@@ -8089,6 +8089,13 @@
   white-space: nowrap;
 }
 
+.grpc-collection-group__empty {
+  margin: 8px 12px 12px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
 .grpc-saved-request-detail,
 .grpc-history-detail {
   flex: 1;
@@ -8139,6 +8146,13 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+}
+
+.grpc-saved-request-detail__empty {
+  margin: 16px;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  color: var(--text-muted);
 }
 
 .grpc-history-detail-split {
@@ -8625,6 +8639,7 @@
 }
 
 .grpc-save-request-modal,
+.grpc-collection-rename-modal,
 .grpc-import-grpcurl-modal {
   position: fixed;
   top: 50%;
@@ -8647,6 +8662,7 @@
 }
 
 .grpc-save-request-modal__header,
+.grpc-collection-rename-modal__header,
 .grpc-import-grpcurl-modal__header {
   padding: 12px 16px;
   border-bottom: 1px solid var(--border);
@@ -8677,6 +8693,7 @@
 }
 
 .grpc-save-request-modal__title,
+.grpc-collection-rename-modal__title,
 .grpc-import-grpcurl-modal__title {
   margin: 0;
   font-size: 0.88rem;
@@ -8684,6 +8701,7 @@
 }
 
 .grpc-save-request-modal__body,
+.grpc-collection-rename-modal__body,
 .grpc-import-grpcurl-modal__body {
   padding: 16px;
   display: flex;
@@ -8698,6 +8716,7 @@
 }
 
 .grpc-save-request-modal__footer,
+.grpc-collection-rename-modal__footer,
 .grpc-import-grpcurl-modal__footer {
   padding: 12px 16px;
   border-top: 1px solid var(--border);
@@ -9353,6 +9372,10 @@
   font-family: var(--mono, ui-monospace, monospace);
   min-height: 120px;
   resize: vertical;
+}
+
+.grpc-native-diagnostics-textarea {
+  min-height: clamp(260px, 42vh, 520px);
 }
 
 .grpc-advanced-hint {

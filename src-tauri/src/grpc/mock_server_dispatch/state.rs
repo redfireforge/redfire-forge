@@ -13,6 +13,10 @@ use crate::grpc::mock_rules::{
 };
 use crate::grpc::types::GrpcTauriMockListenerLogEntry;
 
+use super::reflection::{
+    build_reflection_response, decode_reflection_request, encode_reflection_response,
+    is_reflection_path,
+};
 use super::response::*;
 use super::types::*;
 
@@ -164,6 +168,13 @@ impl NativeMockDispatchState {
             self.record_error(Some(path.clone()), None, "descriptor is unavailable for native mock dispatch");
             return grpc_error_response(12, "Descriptor payload is required for native mock dispatch");
         };
+
+        // gRPC ServerReflection — answer service discovery from the loaded
+        // descriptor pool so external tools (grpcurl) and Studio's Reflect
+        // button work against the listener socket directly.
+        if is_reflection_path(&path) {
+            return self.handle_reflection(&path, &catalog, request, generation).await;
+        }
 
         let Some(dispatch_method) = catalog.methods.get(&path).cloned() else {
             self.record_error(Some(path.clone()), None, "unknown service/method path");
@@ -370,6 +381,71 @@ impl NativeMockDispatchState {
 
                 grpc_success_response(response_frames)
             }
+        }
+    }
+
+    async fn handle_reflection(
+        &self,
+        path: &str,
+        catalog: &MockDispatchCatalog,
+        request: Request<Incoming>,
+        generation: u32,
+    ) -> Response<RespBody> {
+        let _in_flight_guard = InFlightGuard::new(self);
+
+        let body_bytes = match request.into_body().collect().await {
+            Ok(collected) => collected.to_bytes(),
+            Err(error) => {
+                let detail = format!("Failed to read reflection body: {error}");
+                self.record_error(Some(path.to_string()), None, &detail);
+                return grpc_error_response(13, &detail);
+            }
+        };
+
+        let frames = match decode_grpc_frames(&body_bytes) {
+            Ok(frames) => frames,
+            Err(message) => {
+                self.record_error(Some(path.to_string()), None, &message);
+                return grpc_error_response(3, &message);
+            }
+        };
+
+        let mut response_frames: Vec<(Bytes, u64)> = Vec::new();
+        for frame in &frames {
+            let reflection_request = match decode_reflection_request(frame) {
+                Ok(value) => value,
+                Err(message) => {
+                    self.record_error(Some(path.to_string()), None, &message);
+                    return grpc_error_response(3, &message);
+                }
+            };
+            let reflection_response = build_reflection_response(&catalog.pool, reflection_request);
+            let encoded = encode_reflection_response(&reflection_response);
+            response_frames.push((grpc_frame(&encoded), 0));
+        }
+
+        self.record_reflection_log(path, frames.len(), generation);
+        grpc_success_response(response_frames)
+    }
+
+    fn record_reflection_log(&self, path: &str, request_count: usize, generation: u32) {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        let id = inner.next_log_id;
+        inner.logs.push(GrpcTauriMockListenerLogEntry {
+            id,
+            ts: crate::grpc::envelope::now_iso(),
+            event: "rpc-reflection".to_string(),
+            service: Some("grpc.reflection.ServerReflection".to_string()),
+            method: Some("ServerReflectionInfo".to_string()),
+            rule_name: None,
+            status_code: Some(0),
+            generation: Some(generation),
+            detail: Some(format!("Served reflection ({request_count} request(s)) via {path}")),
+        });
+        inner.next_log_id = inner.next_log_id.saturating_add(1);
+        if inner.logs.len() > MAX_LOG_ENTRIES {
+            let keep_from = inner.logs.len() - MAX_LOG_ENTRIES;
+            inner.logs = inner.logs.split_off(keep_from);
         }
     }
 

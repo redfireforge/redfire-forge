@@ -305,6 +305,11 @@ mod tests {
         let state = GrpcState::new();
         let (emitter, mut rx) = make_test_emitter();
 
+        // The frontend attaches a tab event listener before streams run; with a
+        // listener present, stream events emit immediately instead of buffering
+        // (buffering only kicks in when no listener has attached yet).
+        state.record_tab_event_listener_attached("tab-a");
+
         register_active_client_stream(&state, "prior-stream", "tab-a");
         state.stream_registry.next_sequence("prior-stream");
 

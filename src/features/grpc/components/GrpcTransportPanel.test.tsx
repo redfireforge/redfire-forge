@@ -81,7 +81,7 @@ describe('GrpcTransportPanel (Phase 7F)', () => {
     expect((screen.getByTestId('grpc-transport-mode-spring-servlet') as HTMLButtonElement).disabled).toBe(false);
   });
 
-  it('renders browser-direct modes as disabled on desktop (Tauri)', () => {
+  it('renders browser-direct modes as enabled on desktop (Tauri)', () => {
     vi.mocked(isTauri).mockReturnValue(true);
     render(
       <GrpcTransportPanel
@@ -92,8 +92,8 @@ describe('GrpcTransportPanel (Phase 7F)', () => {
 
     expect(screen.getByTestId('grpc-transport-mode-grpc-web')).toBeTruthy();
     expect(screen.getByTestId('grpc-transport-mode-spring-servlet')).toBeTruthy();
-    expect((screen.getByTestId('grpc-transport-mode-grpc-web') as HTMLButtonElement).disabled).toBe(true);
-    expect((screen.getByTestId('grpc-transport-mode-spring-servlet') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('grpc-transport-mode-grpc-web') as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByTestId('grpc-transport-mode-spring-servlet') as HTMLButtonElement).disabled).toBe(false);
   });
 
   it('disabled prop blocks clicks on selectable modes', () => {
@@ -382,7 +382,7 @@ describe('GrpcTransportPanel (Phase 10G — call-type guardrails)', () => {
     expect(reason.textContent).toBe('Desktop only');
   });
 
-  it('browser-direct modes show platform reason on Tauri desktop', () => {
+  it('browser-direct modes do not show platform reason on Tauri desktop', () => {
     vi.mocked(isTauri).mockReturnValue(true);
     render(
       <GrpcTransportPanel
@@ -392,12 +392,8 @@ describe('GrpcTransportPanel (Phase 10G — call-type guardrails)', () => {
       />,
     );
 
-    expect(screen.getByTestId('grpc-transport-mode-reason-grpc-web').textContent).toBe(
-      'Not supported on this platform',
-    );
-    expect(screen.getByTestId('grpc-transport-mode-reason-spring-servlet').textContent).toBe(
-      'Not supported on this platform',
-    );
+    expect(screen.queryByTestId('grpc-transport-mode-reason-grpc-web')).toBeNull();
+    expect(screen.queryByTestId('grpc-transport-mode-reason-spring-servlet')).toBeNull();
   });
 
   it('clicking call-type-disabled mode does not fire onTransportModeChange', () => {
