@@ -43,3 +43,28 @@ export async function spotlightGrpcRequestComposer(ctx: DemoActionContext): Prom
     await spotlightAndPause(ctx, GRPC.PROTO_GUIDED_CARD_CORE, 750);
   }
 }
+
+/**
+ * Spotlight an element while hiding the call panel (response output box) to avoid distraction.
+ * Restores the call panel visibility after the spotlight completes.
+ */
+export async function spotlightAndPauseWithCallPanelHidden(
+  ctx: DemoActionContext,
+  selector: string,
+  holdMs = 700,
+): Promise<void> {
+  const callPanel = document.querySelector<HTMLElement>(GRPC.CALL_PANEL);
+  const wasCallPanelVisible = callPanel && callPanel.style.display !== 'none';
+  
+  if (callPanel) {
+    callPanel.style.display = 'none';
+  }
+  
+  try {
+    await spotlightAndPause(ctx, selector, holdMs);
+  } finally {
+    if (callPanel && wasCallPanelVisible) {
+      callPanel.style.display = '';
+    }
+  }
+}

@@ -15,6 +15,7 @@ import {
   openFreshGrpcTabQuietWithOptions,
   rebindGrpcMethodQuiet,
   spotlightAndPause,
+  spotlightAndPauseWithCallPanelHidden,
   spotlightElementAndPause,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
@@ -251,7 +252,8 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
           return;
         }
         await ctx.waitFor(GRPC.PROTO_FILE_LIST, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_FILE_LIST, 850);
+        // Hide call panel while highlighting the file list
+        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_FILE_LIST, 850);
         await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 900);
       },
       verify: GRPC.PROTO_FILE_LIST,
@@ -271,7 +273,7 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await ctx.waitFor(GRPC.PROTO_ROOT_LIST, 5_000).catch(() => undefined);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.PROTO_ROOT_LIST, 800);
+        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_ROOT_LIST, 800);
         const modal = document.querySelector<HTMLElement>(GRPC.PROTO_MANAGE_MODAL);
         const sharedRoot = modal
           ? Array.from(modal.querySelectorAll<HTMLElement>('[data-testid^="grpc-proto-root-item-"]'))
@@ -281,15 +283,28 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
           sharedRoot.click();
           await ctx.delay(400);
         }
-        await spotlightAndPause(ctx, GRPC.PROTO_SELECTED_ROOT, 750);
+        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_SELECTED_ROOT, 750);
         await ctx.waitFor(GRPC.PROTO_CANONICAL_PREVIEW, 10_000);
         
-        // Spotlight each file row individually
+        // Spotlight each file row individually with call panel hidden
         const fileList = document.querySelector<HTMLElement>(GRPC.PROTO_FILE_LIST);
         if (fileList) {
           const fileRows = Array.from(fileList.querySelectorAll<HTMLElement>('li.grpc-proto-file-item'));
-          for (const fileRow of fileRows) {
-            await spotlightElementAndPause(ctx, fileRow, 750);
+          const callPanel = document.querySelector<HTMLElement>(GRPC.CALL_PANEL);
+          const wasCallPanelVisible = callPanel && callPanel.style.display !== 'none';
+          
+          if (callPanel) {
+            callPanel.style.display = 'none';
+          }
+          
+          try {
+            for (const fileRow of fileRows) {
+              await spotlightElementAndPause(ctx, fileRow, 750);
+            }
+          } finally {
+            if (callPanel && wasCallPanelVisible) {
+              callPanel.style.display = '';
+            }
           }
         }
         
@@ -315,13 +330,13 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await ctx.waitFor(GRPC.PROTO_LOAD_BTN, 5_000).catch(() => undefined);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, 800);
+        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_LOAD_BTN, 800);
         const hasFiles = (document.querySelector(GRPC.PROTO_FILE_LIST)?.children.length ?? 0) > 0;
         if (hasFiles) {
           await ctx.click(GRPC.PROTO_LOAD_BTN);
           await ctx.delay(700);
-          // Highlight the left side Virtual roots section after loading
-          await spotlightAndPause(ctx, GRPC.PROTO_ROOT_LIST, 750);
+          // Highlight the left side Virtual roots section after loading, with call panel hidden
+          await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_ROOT_LIST, 750);
           await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 850);
         }
       },
@@ -566,9 +581,14 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 850);
         await ensureManageModalClosed(ctx);
         await ctx.delay(400);
-        
-        // Recover back to reflection (EchoService) to avoid schema drift in the next step
-        await recoverGrpcReflectionQuiet(ctx);
+
+        // Eliza (loaded via BSR) has no EchoService, so the previously bound
+        // echo.EchoService/Echo method is orphaned and Studio raises a *blocking*
+        // "method unavailable" drift banner. That banner has no Dismiss button and
+        // Eliza offers no compatible rebind suggestion, so it would linger for the
+        // viewer. clearGrpcSchemaDriftQuiet rebinds onto an available Eliza method,
+        // which recomputes drift to 'none' — leaving a clean bsr/ElizaService state.
+        await clearGrpcSchemaDriftQuiet(ctx);
       },
       verify: GRPC.EXPLORER_SOURCE,
     },
