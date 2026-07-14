@@ -23,6 +23,16 @@ export async function ensureGrpcStudioSubNavQuiet(ctx: DemoActionContext): Promi
 
 /** Open History sub-nav without viewer ripple (preAction / guards). */
 export async function openGrpcHistoryPanelQuiet(ctx: DemoActionContext): Promise<void> {
+  // Already on History with the panel mounted — do nothing. Routing through
+  // ensureGrpcStudioSubNavQuiet would click Studio then History again, which
+  // the viewer sees as a jarring History → Studio → History bounce at step start.
+  const activeHistoryBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_HISTORY);
+  if (
+    activeHistoryBtn?.getAttribute('aria-selected') === 'true' &&
+    document.querySelector(GRPC.HISTORY_PANEL)
+  ) {
+    return;
+  }
   await ensureGrpcStudioSubNavQuiet(ctx);
   const historyBtn = document.querySelector<HTMLElement>(GRPC.SUB_NAV_HISTORY);
   if (historyBtn && historyBtn.getAttribute('aria-selected') !== 'true') {
