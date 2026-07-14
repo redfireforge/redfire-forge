@@ -15,6 +15,7 @@ import {
   openFreshGrpcTabQuietWithOptions,
   rebindGrpcMethodQuiet,
   spotlightAndPause,
+  spotlightElementAndPause,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import {
@@ -281,6 +282,17 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         }
         await spotlightAndPause(ctx, GRPC.PROTO_SELECTED_ROOT, 750);
         await ctx.waitFor(GRPC.PROTO_CANONICAL_PREVIEW, 10_000);
+        
+        // Spotlight each file row individually
+        const fileList = document.querySelector<HTMLElement>(GRPC.PROTO_FILE_LIST);
+        if (fileList) {
+          const fileRows = Array.from(fileList.querySelectorAll<HTMLElement>('li.grpc-proto-file-item'));
+          for (const fileRow of fileRows) {
+            await spotlightElementAndPause(ctx, fileRow, 750);
+          }
+        }
+        
+        // Final spotlight of the entire canonical preview section
         await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 900);
       },
       verify: GRPC.PROTO_CANONICAL_PREVIEW,
