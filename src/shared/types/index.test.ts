@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { TestScenario, Scenario, RequestResult, FeatureGroup } from './index';
+import { isParameterizedScenario } from './index';
 
 // ── 1A.4 — Type round-trip tests ────────────────────────────
 
@@ -117,5 +118,27 @@ describe('FeatureGroup → JSON round-trip', () => {
     expect(restored[0].scenarios[0].tags).toEqual(['e2e', 'integration']);
     expect(restored[1].scenarios[0].tags).toEqual(['performance', 'slow']);
     expect(restored[1].scenarios[1].tags).toBeUndefined();
+  });
+});
+
+describe('isParameterizedScenario', () => {
+  it('returns true when kind is parameterized', () => {
+    const scenario: TestScenario = {
+      id: 'sc-param',
+      name: 'Param suite',
+      kind: 'parameterized',
+      tests: [],
+    };
+    expect(isParameterizedScenario(scenario)).toBe(true);
+  });
+
+  it('returns false when kind is standard', () => {
+    const scenario: TestScenario = {
+      id: 'sc-std',
+      name: 'Standard suite',
+      kind: 'standard',
+      tests: [],
+    };
+    expect(isParameterizedScenario(scenario)).toBe(false);
   });
 });

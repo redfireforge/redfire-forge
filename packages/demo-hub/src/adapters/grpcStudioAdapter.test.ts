@@ -14,14 +14,17 @@ import {
   GRPC_STUDIO_LESSON_ALLOWED_TABS,
   getGrpcActiveDescriptorKey,
   patchGrpcActiveTabExportContext,
+  patchGrpcSchemaDiffReport,
   resetGrpcActiveTabRuntimeState,
 } from './grpcStudioAdapter';
 
 afterEach(() => {
   sessionStorage.clear();
+  vi.restoreAllMocks();
   delete (window as unknown as { __demoGetGrpcActiveDescriptorKey?: unknown }).__demoGetGrpcActiveDescriptorKey;
   delete (window as unknown as { __demoPatchGrpcActiveTab?: unknown }).__demoPatchGrpcActiveTab;
   delete (window as unknown as { __demoResetGrpcActiveTab?: unknown }).__demoResetGrpcActiveTab;
+  delete (window as unknown as { __demoPatchGrpcSchemaDiffReport?: unknown }).__demoPatchGrpcSchemaDiffReport;
 });
 
 describe('grpcStudioAdapter', () => {
@@ -101,5 +104,68 @@ describe('grpcStudioAdapter', () => {
     expect(resetGrpcActiveTabRuntimeState()).toBe(false);
     expect(patchGrpcActiveTabExportContext({})).toBe(false);
     expect(getGrpcActiveDescriptorKey()).toBeNull();
+  });
+
+  it('getGrpcActiveDescriptorKey falls back to sessionStorage when bridge returns blank', () => {
+    sessionStorage.setItem('rfg-demo-grpc-active-descriptor-key', 'stored-key');
+    (window as unknown as { __demoGetGrpcActiveDescriptorKey?: () => string }).__demoGetGrpcActiveDescriptorKey =
+      () => '   ';
+
+    expect(getGrpcActiveDescriptorKey()).toBe('stored-key');
+  });
+
+  it('captureGrpcActiveDescriptorKey clears storage when bridge returns blank', () => {
+    sessionStorage.setItem('rfg-demo-grpc-active-descriptor-key', 'old-key');
+    (window as unknown as { __demoGetGrpcActiveDescriptorKey?: () => string }).__demoGetGrpcActiveDescriptorKey =
+      () => '';
+
+    expect(captureGrpcActiveDescriptorKey()).toBeNull();
+    expect(sessionStorage.getItem('rfg-demo-grpc-active-descriptor-key')).toBeNull();
+  });
+
+  it('captureGrpcActiveDescriptorKey reads stored key when bridge is unavailable', () => {
+    sessionStorage.setItem('rfg-demo-grpc-active-descriptor-key', 'persisted');
+    expect(captureGrpcActiveDescriptorKey()).toBe('persisted');
+  });
+
+  it('descriptor key storage tolerates sessionStorage failures', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+
+    expect(() => captureGrpcActiveDescriptorKey()).not.toThrow();
+    expect(getGrpcActiveDescriptorKey()).toBeNull();
+  });
+
+  it('patchGrpcSchemaDiffReport forwards report through demo bridge', () => {
+    const bridge = vi.fn().mockReturnValue(true);
+    (window as unknown as { __demoPatchGrpcSchemaDiffReport?: (input: unknown) => boolean }).__demoPatchGrpcSchemaDiffReport =
+      bridge;
+
+    const report = {
+      leftDescriptorKey: 'left',
+      rightDescriptorKey: 'right',
+      generatedAt: '2026-01-01T00:00:00.000Z',
+      summary: { breaking: 1, nonBreaking: 0, informational: 0 },
+      changes: [],
+    };
+
+    expect(patchGrpcSchemaDiffReport({ report, baselineCapturedAt: '2026-01-01' })).toBe(true);
+    expect(bridge).toHaveBeenCalledWith({ report, baselineCapturedAt: '2026-01-01' });
+  });
+
+  it('patchGrpcSchemaDiffReport returns false when bridge is unavailable', () => {
+    expect(patchGrpcSchemaDiffReport({
+      report: {
+        leftDescriptorKey: 'a',
+        rightDescriptorKey: 'b',
+        generatedAt: '2026-01-01T00:00:00.000Z',
+        summary: { breaking: 0, nonBreaking: 0, informational: 0 },
+        changes: [],
+      },
+    })).toBe(false);
   });
 });

@@ -38,6 +38,12 @@ function clampGeometry(geom: LessonNotesPanelGeometry): LessonNotesPanelGeometry
   return { top, left, width };
 }
 
+function isSameGeometry(a: LessonNotesPanelGeometry, b: LessonNotesPanelGeometry): boolean {
+  return a.top === b.top
+    && a.left === b.left
+    && a.width === b.width;
+}
+
 export function createDefaultLessonNotesPanelGeometry(
   viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1280,
 ): LessonNotesPanelGeometry {
@@ -91,9 +97,15 @@ export function useLessonNotesPanelLayout(): {
 
   const commitGeometry = useCallback((next: LessonNotesPanelGeometry) => {
     const clamped = clampGeometry(next);
-    geometryRef.current = clamped;
-    setGeometry(clamped);
-    saveGeometry(clamped);
+    setGeometry((prev) => {
+      if (isSameGeometry(prev, clamped)) {
+        geometryRef.current = prev;
+        return prev;
+      }
+      geometryRef.current = clamped;
+      saveGeometry(clamped);
+      return clamped;
+    });
   }, []);
 
   useEffect(() => {

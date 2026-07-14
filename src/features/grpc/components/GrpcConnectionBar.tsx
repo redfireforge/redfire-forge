@@ -1,5 +1,6 @@
 import type { ChangeEvent } from 'react';
 import type { GrpcAuthConfig, GrpcTargetConnectionSession, GrpcTlsMode } from '../../../shared/grpc/contracts';
+import { GRPC_TRANSPORT_CAPABILITY_MATRIX, type GrpcStudioTransportMode } from '../../../shared/grpc/grpcWebTransportContracts';
 import {
   formatGrpcDeadlineLabel,
   isGrpcAuthConfigured,
@@ -8,6 +9,13 @@ import {
   resolveGrpcConnectionToggleLabel,
   resolveGrpcTlsBadgePresentation,
 } from '../utils/grpcConnectionBarUtils';
+
+const TRANSPORT_BADGE_META: Record<GrpcStudioTransportMode, { icon: string; shortLabel: string }> = {
+  express:          { icon: '🌐', shortLabel: 'Express' },
+  tauri:            { icon: '🦀', shortLabel: 'Tauri Native' },
+  'grpc-web':       { icon: '🌍', shortLabel: 'gRPC-Web' },
+  'spring-servlet': { icon: '🌿', shortLabel: 'Spring Servlet' },
+};
 
 export interface GrpcConnectionBarProps {
   target: string;
@@ -35,6 +43,8 @@ export interface GrpcConnectionBarProps {
   /** Phase 5H — import grpcurl command into active tab. */
   onImportGrpcurlClick?: () => void;
   saveRequestDisabled?: boolean;
+  /** Active transport mode for the current tab — shown as a badge on the bar. */
+  transportMode?: GrpcStudioTransportMode;
 }
 
 export function GrpcConnectionBar({
@@ -56,6 +66,7 @@ export function GrpcConnectionBar({
   onSaveRequestClick,
   onImportGrpcurlClick,
   saveRequestDisabled = false,
+  transportMode,
 }: GrpcConnectionBarProps) {
   const tlsBadge = resolveGrpcTlsBadgePresentation(tlsMode, tlsValid);
   const authLabel = resolveGrpcAuthBadgeLabel(auth);
@@ -127,7 +138,20 @@ export function GrpcConnectionBar({
       >
         {authLabel}
       </button>
-
+      {transportMode && (
+        <button
+          type="button"
+          className={`grpc-connection-transport-badge grpc-connection-transport-badge--${transportMode}`}
+          data-testid="grpc-transport-badge"
+          disabled={disabled}
+          onClick={() => onSettingsClick?.()}
+          aria-label={`Transport: ${GRPC_TRANSPORT_CAPABILITY_MATRIX[transportMode].label} — open transport settings`}
+          title={`Transport: ${GRPC_TRANSPORT_CAPABILITY_MATRIX[transportMode].label} — click to configure`}
+        >
+          <span aria-hidden="true">{TRANSPORT_BADGE_META[transportMode].icon}</span>
+          {TRANSPORT_BADGE_META[transportMode].shortLabel}
+        </button>
+      )}
       <button
         type="button"
         className="grpc-connection-deadline-badge"

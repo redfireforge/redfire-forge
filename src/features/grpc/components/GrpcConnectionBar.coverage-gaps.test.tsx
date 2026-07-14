@@ -113,4 +113,49 @@ describe('GrpcConnectionBar coverage gaps', () => {
     fireEvent.click(screen.getByTestId('grpc-connection-toggle-btn'));
     expect(onConnectionToggle).toHaveBeenCalledTimes(1);
   });
+
+  it('shows connected tooltip with latency when latencyMs is present', () => {
+    render(
+      <GrpcConnectionBar
+        {...defaultProps}
+        targetConnection={{ state: 'connected', latencyMs: 42 }}
+        onConnectionToggle={vi.fn()}
+      />,
+    );
+    expect(screen.getByTestId('grpc-connection-status-dot').getAttribute('title')).toBe('Connected (42ms)');
+  });
+
+  it('shows reflection badge when schema methods are loaded', () => {
+    const { rerender } = render(
+      <GrpcConnectionBar
+        {...defaultProps}
+        reflectionLoadedCount={1}
+      />,
+    );
+    expect(screen.getByTestId('grpc-connection-reflection-badge').getAttribute('title')).toContain('1 method');
+
+    rerender(
+      <GrpcConnectionBar
+        {...defaultProps}
+        reflectionLoadedCount={3}
+      />,
+    );
+    expect(screen.getByTestId('grpc-connection-reflection-badge').getAttribute('title')).toContain('3 methods');
+  });
+
+  it('shows transport badge and opens settings when clicked', () => {
+    const onSettingsClick = vi.fn();
+    render(
+      <GrpcConnectionBar
+        {...defaultProps}
+        transportMode="express"
+        onSettingsClick={onSettingsClick}
+      />,
+    );
+    const badge = screen.getByTestId('grpc-transport-badge');
+    expect(badge.className).toContain('grpc-connection-transport-badge--express');
+    expect(badge.getAttribute('aria-label')).toContain('Express Proxy');
+    fireEvent.click(badge);
+    expect(onSettingsClick).toHaveBeenCalledTimes(1);
+  });
 });

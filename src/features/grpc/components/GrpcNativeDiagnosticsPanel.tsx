@@ -109,14 +109,22 @@ export function GrpcNativeDiagnosticsPanel({ advanced }: GrpcNativeDiagnosticsPa
               No snapshot loaded yet. Refresh to capture current native transport diagnostics.
             </p>
           )}
+          <p className="grpc-advanced-hint" data-testid="grpc-native-diagnostics-tab-context">
+            Active Studio tab: {advanced.activeTabLabel} (id: {advanced.activeTabId})
+          </p>
           {snapshot && (
-            <textarea
-              className="grpc-advanced-textarea"
-              data-testid="grpc-native-diagnostics-json"
-              value={json}
-              readOnly
-              aria-label="Native diagnostics JSON"
-            />
+            <>
+              <p className="grpc-advanced-hint" data-testid="grpc-native-diagnostics-snapshot-tab-id">
+                Snapshot tab id: {snapshot.tabId ?? '(none provided)'}
+              </p>
+              <textarea
+                className="grpc-advanced-textarea grpc-native-diagnostics-textarea"
+                data-testid="grpc-native-diagnostics-json"
+                value={json}
+                readOnly
+                aria-label="Native diagnostics JSON"
+              />
+            </>
           )}
         </div>
       </div>

@@ -10,6 +10,10 @@ interface SpotlightProps {
   active: boolean;
   /** Bumps when the live step changes — forces a fresh track loop (Tauri WebView). */
   trackKey?: string;
+  /** When true, captures the rect once then stops tracking. Use during action phase
+   * to prevent the ring from jumping when the highlighted element resizes (e.g.
+   * when the interpolation preview strip mounts inside TARGET_PANEL_STACK). */
+  frozen?: boolean;
 }
 
 interface SpotlightRect {
@@ -21,10 +25,13 @@ interface SpotlightRect {
 
 const SPOTLIGHT_TRACK_INTERVAL_MS = 250;
 
-export default function DemoSpotlight({ selector, active, trackKey }: SpotlightProps) {
+export default function DemoSpotlight({ selector, active, trackKey, frozen }: SpotlightProps) {
   const [rect, setRect] = useState<SpotlightRect | null>(null);
   const rafRef = useRef<number>(0);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Ref so the RAF callback always reads the latest frozen value without re-running the effect.
+  const frozenRef = useRef(frozen);
+  frozenRef.current = frozen;
 
   useEffect(() => {
     setRect(null);
@@ -44,15 +51,21 @@ export default function DemoSpotlight({ selector, active, trackKey }: SpotlightP
           width: r.width + 12,
           height: r.height + 12,
         };
-        setRect((prev) => (
-          prev
-          && prev.top === next.top
-          && prev.left === next.left
-          && prev.width === next.width
-          && prev.height === next.height
-            ? prev
-            : next
-        ));
+        setRect((prev) => {
+          // When frozen, keep the rect we already have — the element may be
+          // resizing (e.g. preview strip mounting) but the ring should not move.
+          if (frozenRef.current && prev !== null) return prev;
+          // Only update if the rect has moved/resized by more than 2px to avoid
+          // trembling when the tracked element has minor layout fluctuations.
+          if (
+            prev &&
+            Math.abs(prev.top - next.top) <= 2 &&
+            Math.abs(prev.left - next.left) <= 2 &&
+            Math.abs(prev.width - next.width) <= 2 &&
+            Math.abs(prev.height - next.height) <= 2
+          ) return prev;
+          return next;
+        });
       } else {
         setRect((prev) => (prev === null ? prev : null));
       }

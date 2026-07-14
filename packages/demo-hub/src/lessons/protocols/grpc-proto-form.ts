@@ -105,6 +105,30 @@ async function ensureComplexBaselineQuiet(ctx: DemoActionContext): Promise<void>
   await guardGrpcTargetQuiet(ctx);
   await guardGrpcReflectedQuiet(ctx);
   await selectComplexMethodQuiet(ctx);
+  // Wait for React to finish resetting the form, then pre-fill message and
+  // expand nested objects so the compact JSON matches the Full Form Editor JSON View.
+  await ctx.delay(300);
+  const jsonTextarea = document.querySelector<HTMLTextAreaElement>('[data-testid="grpc-request-json"]');
+  if (jsonTextarea) {
+    let parsed: Record<string, unknown> = {};
+    try { parsed = JSON.parse(jsonTextarea.value); } catch { /* ignore */ }
+    let changed = false;
+    if (!parsed.message) { parsed.message = DEMO_MESSAGE; changed = true; }
+    // Expand nested message fields so compact JSON matches Full Form Editor JSON View
+    const addr = parsed.shipping_address as Record<string, unknown> | undefined;
+    if (!addr || (!addr.street && !addr.city && !addr.country && Object.keys(addr).length === 0)) {
+      parsed.shipping_address = { street: '', city: '', country: '' };
+      changed = true;
+    }
+    const card = parsed.card as Record<string, unknown> | undefined;
+    if (!card || (!card.card_number && !card.expiry && Object.keys(card).length === 0)) {
+      parsed.card = { card_number: '', expiry: '' };
+      changed = true;
+    }
+    if (changed) {
+      setInputValueQuiet(jsonTextarea, JSON.stringify(parsed, null, 2));
+    }
+  }
 }
 
 /** Close the Full Form Editor modal quietly if it is still open. */

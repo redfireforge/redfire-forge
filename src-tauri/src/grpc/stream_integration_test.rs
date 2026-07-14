@@ -40,6 +40,9 @@ async fn grpc_server_stream_emits_messages_and_end_against_docker_server() {
     }
 
     let state = GrpcState::new();
+    // A tab event listener is attached in production before streams run; register
+    // one so stream events emit immediately instead of buffering until attach.
+    state.record_tab_event_listener_attached("tab-integration");
     let (emitter, mut rx) = test_emitter();
     let request_id = format!("req-server-stream-{}", uuid::Uuid::new_v4());
 
@@ -122,6 +125,9 @@ async fn grpc_stream_cancel_emits_cancelled_end_against_docker_server() {
     }
 
     let state = GrpcState::new();
+    // A tab event listener is attached in production before streams run; register
+    // one so stream events emit immediately instead of buffering until attach.
+    state.record_tab_event_listener_attached("tab-integration");
     let (emitter, mut rx) = test_emitter();
     let cancel_emitter = emitter.clone();
 
@@ -191,6 +197,9 @@ async fn grpc_client_stream_aggregates_messages_and_end_against_docker_server() 
     }
 
     let state = GrpcState::new();
+    // A tab event listener is attached in production before streams run; register
+    // one so stream events emit immediately instead of buffering until attach.
+    state.record_tab_event_listener_attached("tab-integration");
     let (emitter, mut rx) = test_emitter();
     let request_id = format!("req-client-stream-{}", uuid::Uuid::new_v4());
 
@@ -288,6 +297,9 @@ async fn grpc_bidi_stream_echoes_messages_and_end_against_docker_server() {
     }
 
     let state = GrpcState::new();
+    // A tab event listener is attached in production before streams run; register
+    // one so stream events emit immediately instead of buffering until attach.
+    state.record_tab_event_listener_attached("tab-integration");
     let (emitter, mut rx) = test_emitter();
     let request_id = format!("req-bidi-stream-{}", uuid::Uuid::new_v4());
 

@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::convert::Infallible;
 
 use bytes::Bytes;
-use prost_reflect::MessageDescriptor;
+use prost_reflect::{DescriptorPool, MessageDescriptor};
 
 pub(crate) const MAX_LOG_ENTRIES: usize = 200;
 pub(crate) const HEALTH_CHECK_PATH: &str = "/grpc.health.v1.Health/Check";
@@ -29,4 +29,7 @@ pub(crate) enum DispatchCallType {
 #[derive(Clone, Debug)]
 pub struct MockDispatchCatalog {
     pub(crate) methods: HashMap<String, DispatchMethod>,
+    /// Full descriptor pool, retained so the listener can answer gRPC
+    /// ServerReflection requests from external tools (grpcurl, Studio Reflect).
+    pub(crate) pool: DescriptorPool,
 }

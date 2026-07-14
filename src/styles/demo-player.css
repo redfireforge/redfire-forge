@@ -19,7 +19,7 @@
     0 0 0 4px var(--primary, #3b82f6),
     0 0 24px 6px rgba(59, 130, 246, 0.4);
   pointer-events: none;
-  transition: top 0.35s ease, left 0.35s ease, width 0.35s ease, height 0.35s ease;
+  will-change: top, left, width, height;
   animation: demo-pulse 2s ease-in-out infinite;
 }
 

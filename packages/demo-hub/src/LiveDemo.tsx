@@ -154,6 +154,7 @@ export default function LiveDemo({
           trackKey={`${stepIndex}:${step.highlight}`}
           selector={step.highlight}
           active={true}
+          frozen={stepPhase === 'action'}
         />
       )}
 
@@ -214,7 +215,7 @@ export default function LiveDemo({
           >
             ⠿
           </span>
-          <span className="demo-live-lesson-name">{lesson.name}</span>
+          <span className="demo-live-lesson-name" onMouseDown={(e) => e.stopPropagation()}>{lesson.name}</span>
           <span className="demo-live-step-counter">
             {stepIndex + 1} / {totalSteps}
           </span>

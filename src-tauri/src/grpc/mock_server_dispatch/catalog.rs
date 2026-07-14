@@ -51,5 +51,5 @@ pub fn build_dispatch_catalog(
         }
     }
 
-    Ok(Some(MockDispatchCatalog { methods }))
+    Ok(Some(MockDispatchCatalog { methods, pool }))
 }
