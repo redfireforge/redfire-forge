@@ -276,5 +276,189 @@ describe('KeyValueEditor', () => {
 
     fireEvent.dragEnd(screen.getByTestId('h-grip-0'));
   });
+
+  // Batch coverage-gap tests for edge cases and all branches
+  it('exercises all component state combinations in batch', () => {
+    const onChange = vi.fn();
+    const onDeleteAll = vi.fn();
+
+    // Test with multiple entries and all interaction paths
+    const entries: WsKeyValueEntry[] = [
+      { key: 'Authorization', value: 'Bearer token', enabled: true },
+      { key: 'X-Custom', value: 'custom-value', enabled: false },
+      { key: 'Content-Type', value: 'application/json', enabled: true },
+    ];
+
+    render(
+      <KeyValueEditor
+        entries={entries}
+        onChange={onChange}
+        onDeleteAll={onDeleteAll}
+        label="Headers"
+        testIdPrefix="test"
+        toggleVerb="send"
+        disabled={false}
+      />,
+    );
+
+    // Test all input changes
+    fireEvent.change(screen.getByLabelText('Headers key 1'), { target: { value: 'Auth' } });
+    fireEvent.change(screen.getByLabelText('Headers value 1'), { target: { value: 'New Token' } });
+    fireEvent.change(screen.getByLabelText('Headers key 2'), { target: { value: 'X-New' } });
+    fireEvent.change(screen.getByLabelText('Headers value 2'), { target: { value: 'new-val' } });
+
+    // Test checkbox toggle multiple times
+    const checkboxes = screen.getAllByRole('checkbox');
+    fireEvent.click(checkboxes[1]);
+    fireEvent.click(checkboxes[2]);
+
+    // Test remove buttons
+    const removeButtons = screen.getAllByRole('button', { name: /remove headers/i });
+    expect(removeButtons.length).toBe(3);
+
+    // Test delete all and add
+    fireEvent.click(screen.getByTestId('test-delete-all-btn'));
+    fireEvent.click(screen.getByTestId('test-add-btn'));
+
+    expect(onChange.mock.calls.length).toBeGreaterThan(6);
+    expect(onDeleteAll).toHaveBeenCalled();
+  });
+
+  it('handles disabled state and custom attributes in batch', () => {
+    const entries = makeEntries('A', 'B', 'C');
+    const { container } = render(
+      <KeyValueEditor
+        entries={entries}
+        onChange={vi.fn()}
+        onDeleteAll={vi.fn()}
+        label="Params"
+        testIdPrefix="p"
+        disabled={true}
+        toggleVerb="process"
+        sectionClassName="custom-section-class"
+        headerClassName="custom-header-class"
+        labelClassName="custom-label-class"
+      />,
+    );
+
+    // Test all disabled elements
+    const addBtn = screen.getByTestId('p-add-btn');
+    const deleteAllBtn = screen.getByTestId('p-delete-all-btn');
+    const checkboxes = screen.getAllByRole('checkbox');
+    const removeButtons = screen.getAllByRole('button', { name: /remove params/i });
+
+    expect(addBtn).toBeDisabled();
+    expect(deleteAllBtn).toBeDisabled();
+    checkboxes.forEach((cb) => {
+      expect(cb).toBeDisabled();
+    });
+    removeButtons.forEach((btn) => {
+      expect(btn).toBeDisabled();
+    });
+
+    // Test custom classes applied
+    expect(container.querySelector('.custom-section-class')).toBeInTheDocument();
+    expect(container.querySelector('.custom-header-class')).toBeInTheDocument();
+    expect(container.querySelector('.custom-label-class')).toBeInTheDocument();
+
+    // Test toggleVerb in aria labels
+    expect(screen.getAllByTitle('Enabled — included on process').length).toBeGreaterThan(0);
+  });
+
+  it('handles drag-drop with multiple row indices in batch', () => {
+    const onChange = vi.fn();
+    const entries = makeEntries('Alpha', 'Beta', 'Gamma', 'Delta');
+    render(
+      <KeyValueEditor entries={entries} onChange={onChange} label="Items" testIdPrefix="i" />,
+    );
+
+    const data: Record<string, string> = {};
+    const dataTransfer = {
+      effectAllowed: '',
+      dropEffect: '',
+      setData: (type: string, val: string) => { data[type] = val; },
+      getData: (type: string) => data[type] ?? '',
+    };
+
+    // Test dragging to different positions
+    fireEvent.dragStart(screen.getByTestId('i-grip-0'), { dataTransfer });
+    fireEvent.dragOver(screen.getByTestId('i-row-3'), { dataTransfer });
+    fireEvent.drop(screen.getByTestId('i-row-3'), { dataTransfer });
+    expect(onChange).toHaveBeenCalled();
+
+    // Test dragging middle element
+    onChange.mockClear();
+    fireEvent.dragStart(screen.getByTestId('i-grip-1'), { dataTransfer });
+    fireEvent.dragOver(screen.getByTestId('i-row-3'), { dataTransfer });
+    fireEvent.drop(screen.getByTestId('i-row-3'), { dataTransfer });
+    expect(onChange).toHaveBeenCalled();
+
+    // Test self-drop (no-op)
+    onChange.mockClear();
+    fireEvent.dragStart(screen.getByTestId('i-grip-2'), { dataTransfer });
+    fireEvent.drop(screen.getByTestId('i-row-2'), { dataTransfer });
+    expect(onChange).not.toHaveBeenCalled();
+  });
+
+  it('tests all button interactions with and without test ids', () => {
+    const onChange = vi.fn();
+    const onDeleteAll = vi.fn();
+
+    // Without test ids
+    const { rerender } = render(
+      <KeyValueEditor
+        entries={makeEntries('Item1', 'Item2')}
+        onChange={onChange}
+        onDeleteAll={onDeleteAll}
+        label="Lines"
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText('Add lines'));
+    fireEvent.click(screen.getByLabelText('Delete all lines'));
+    expect(onChange).toHaveBeenCalled();
+    expect(onDeleteAll).toHaveBeenCalled();
+
+    // With test ids
+    onChange.mockClear();
+    onDeleteAll.mockClear();
+    rerender(
+      <KeyValueEditor
+        entries={makeEntries('Item1')}
+        onChange={onChange}
+        onDeleteAll={onDeleteAll}
+        label="Lines"
+        testIdPrefix="l"
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('l-add-btn'));
+    fireEvent.click(screen.getByTestId('l-delete-all-btn'));
+    expect(onChange).toHaveBeenCalled();
+    expect(onDeleteAll).toHaveBeenCalled();
+  });
+
+  it('renders empty and non-empty states with various labels', () => {
+    const { rerender } = render(
+      <KeyValueEditor entries={[]} onChange={vi.fn()} label="Auth Headers" testIdPrefix="ah" />,
+    );
+
+    expect(screen.getByTestId('ah-empty')).toBeInTheDocument();
+    expect(screen.getByText(/No auth headers yet/i)).toBeInTheDocument();
+    expect(screen.queryByRole('list')).not.toBeInTheDocument();
+
+    // Switch to non-empty
+    rerender(
+      <KeyValueEditor
+        entries={makeEntries('X-Token')}
+        onChange={vi.fn()}
+        label="Auth Headers"
+        testIdPrefix="ah"
+      />,
+    );
+
+    expect(screen.queryByTestId('ah-empty')).not.toBeInTheDocument();
+    expect(screen.getByRole('list')).toBeInTheDocument();
+  });
 });
 

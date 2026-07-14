@@ -509,5 +509,117 @@ describe('protocolEndpointUtils', () => {
     const svc = makeSvc({ protocolEndpoints: undefined });
     expect(stripEnvFromProtocolEndpoints(svc, 'e1')).toBeUndefined();
   });
+
+  // Batch coverage-gap tests for branch coverage
+  it('covers edge cases and all protocol branches in batch', () => {
+    const svc = makeSvc({
+      baseUrls: { e1: 'https://api.example.com', e2: 'https://api.staging.com' },
+      protocolEndpoints: {
+        websocket: { e1: { baseUrl: 'wss://ws.example.com' }, e2: { baseUrl: 'wss://ws.staging.com' } },
+        sse: { e1: { baseUrl: 'https://events.example.com' } },
+        graphql: { e1: { baseUrl: 'https://gql.example.com', path: '/v1' } },
+        grpc: { e1: { baseUrl: 'grpc.example.com:50051', tls: true } },
+      },
+      customEnvs: [{ id: 'c1', name: 'custom-dev' }],
+    });
+
+    // Test all getRowStatus branches for all protocols
+    expect(getRowStatus(svc, 'http', 'e1')).toBe('explicit');
+    expect(getRowStatus(svc, 'http', 'missing')).toBe('empty');
+    expect(getRowStatus(svc, 'websocket', 'e1')).toBe('explicit');
+    expect(getRowStatus(svc, 'websocket', 'missing')).toBe('empty');
+    expect(getRowStatus(svc, 'sse', 'e1')).toBe('explicit');
+    expect(getRowStatus(svc, 'sse', 'e2')).toBe('fallback');
+    expect(getRowStatus(svc, 'graphql', 'e1')).toBe('explicit');
+    expect(getRowStatus(svc, 'graphql', 'e2')).toBe('fallback');
+    expect(getRowStatus(svc, 'grpc', 'e1')).toBe('explicit');
+    expect(getRowStatus(svc, 'grpc', 'e2')).toBe('unresolved');
+
+    // Test completeness across all combinations
+    expect(computeProtocolCompleteness(svc, 'http', ['e1'], false).tone).toBe('ok');
+    expect(computeProtocolCompleteness(svc, 'websocket', ['e1', 'e2'], true).tone).toBe('ok');
+    expect(computeProtocolCompleteness(svc, 'websocket', ['e1', 'e2'], true).label).toBe('2/2');
+    expect(computeProtocolCompleteness(svc, 'sse', ['e1', 'e2'], true).tone).toBe('warn');
+    expect(computeProtocolCompleteness(svc, 'grpc', ['e2'], false).tone).toBe('err');
+  });
+
+  it('validates all protocol-specific format edge cases in batch', () => {
+    // Websocket scheme validation
+    expect(validateProtocolValue('websocket', 'ws://example.com')).toBeNull();
+    expect(validateProtocolValue('websocket', 'wss://example.com')).toBeNull();
+    expect(validateProtocolValue('websocket', 'WS://example.com')).toBeNull();
+    expect(validateProtocolValue('websocket', 'http://example.com')).toContain('ws');
+    
+    // HTTP family validation
+    expect(validateProtocolValue('http', 'http://example.com')).toBeNull();
+    expect(validateProtocolValue('http', 'https://example.com')).toBeNull();
+    expect(validateProtocolValue('sse', 'https://events.example.com')).toBeNull();
+    expect(validateProtocolValue('graphql', 'https://graphql.example.com')).toBeNull();
+    expect(validateProtocolValue('sse', 'ftp://bad.com')).toContain('http');
+
+    // gRPC validation - all branches
+    expect(validateProtocolValue('grpc', 'grpc.example.com:50051')).toBeNull();
+    expect(validateProtocolValue('grpc', 'grpc.example.com:1')).toBeNull();
+    expect(validateProtocolValue('grpc', 'grpc.example.com:65535')).toBeNull();
+    expect(validateProtocolValue('grpc', 'grpc.example.com:65536')).toContain('65535');
+    expect(validateProtocolValue('grpc', 'grpc.example.com:0')).toContain('between');
+    expect(validateProtocolValue('grpc', 'grpc.example.com:')).toContain('port');
+    expect(validateProtocolValue('grpc', 'grpc.example.com:abc')).toContain('numeric');
+    expect(validateProtocolValue('grpc', ':50051')).toContain('host:port');
+    expect(validateProtocolValue('grpc', 'host:')).toContain('host:port');
+  });
+
+  it('patches and preserves complex endpoint state in batch', () => {
+    const svc = makeSvc({
+      protocolEndpoints: {
+        grpc: { e1: { baseUrl: 'grpc.old.com:50051', tls: true } },
+        graphql: { e1: { baseUrl: 'https://gql.old.com', path: '/v2' } },
+        websocket: { e1: { baseUrl: 'wss://ws.old.com' } },
+      },
+    });
+
+    // Batch updates across multiple protocols
+    const p1 = patchProtocolEndpoints(svc, 'grpc', 'e1', { baseUrl: 'grpc.new.com:50051' });
+    expect(p1?.grpc?.e1?.tls).toBe(true);
+    expect(p1?.graphql?.e1?.baseUrl).toBe('https://gql.old.com');
+
+    const p2 = patchProtocolEndpoints(svc, 'graphql', 'e1', { path: '/v3' });
+    expect(p2?.graphql?.e1?.path).toBe('/v3');
+    expect(p2?.graphql?.e1?.baseUrl).toBe('https://gql.old.com');
+
+    const p3 = patchProtocolEndpoints(svc, 'websocket', 'e1', { baseUrl: '' });
+    expect(p3?.websocket?.e1).toBeUndefined();
+    expect(p3?.grpc?.e1).toBeDefined();
+
+    const p4 = patchProtocolEndpoints(svc, 'graphql', 'e1', { baseUrl: '', path: undefined });
+    expect(p4?.graphql?.e1).toBeUndefined();
+  });
+
+  it('resolves display values across all protocol branches in batch', () => {
+    const svc = makeSvc({
+      baseUrls: { e1: 'https://api.example.com' },
+      protocolEndpoints: {
+        websocket: { e1: { baseUrl: 'wss://ws.example.com' } },
+        sse: { e1: { baseUrl: 'https://events.example.com' } },
+        graphql: { e1: { baseUrl: 'https://gql.example.com', path: '/v1' } },
+        grpc: { e1: { baseUrl: 'grpc.example.com:50051' } },
+      },
+    });
+
+    // All getExplicitBaseUrl branches
+    expect(getExplicitBaseUrl(svc, 'http', 'e1')).toBe('https://api.example.com');
+    expect(getExplicitBaseUrl(svc, 'websocket', 'e1')).toBe('wss://ws.example.com');
+    expect(getExplicitBaseUrl(svc, 'sse', 'e1')).toBe('https://events.example.com');
+    expect(getExplicitBaseUrl(svc, 'graphql', 'e1')).toBe('https://gql.example.com');
+    expect(getExplicitBaseUrl(svc, 'grpc', 'e1')).toBe('grpc.example.com:50051');
+    expect(getExplicitBaseUrl(svc, 'http', 'missing')).toBe('');
+
+    // All getResolvedDisplayValue branches
+    expect(getResolvedDisplayValue(svc, 'http', 'e1', 'prod')).toBe('https://api.example.com');
+    expect(getResolvedDisplayValue(svc, 'websocket', 'e1', 'prod')).toBe('wss://ws.example.com');
+    expect(getResolvedDisplayValue(svc, 'sse', 'e1', 'prod')).toBe('https://events.example.com');
+    expect(getResolvedDisplayValue(svc, 'graphql', 'e1', 'prod')).toContain('v1');
+    expect(getResolvedDisplayValue(svc, 'grpc', 'e1', 'prod')).toBe('grpc.example.com:50051');
+  });
 });
 
