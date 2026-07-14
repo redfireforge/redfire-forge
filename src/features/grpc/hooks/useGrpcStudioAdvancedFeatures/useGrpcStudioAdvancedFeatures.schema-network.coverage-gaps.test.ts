@@ -49,6 +49,14 @@ vi.mock('../../utils/grpcMockListenerClient', async (importOriginal) => {
   };
 });
 
+vi.mock('../../../../shared/utils/platform', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../../shared/utils/platform')>();
+  return {
+    ...actual,
+    isTauri: vi.fn(() => false),
+  };
+});
+
 describe('useGrpcStudioAdvancedFeatures coverage gaps — network mock and schema', () => {
   let consoleErrorSpy: ReturnType<typeof vi.spyOn> | undefined;
 
@@ -144,6 +152,29 @@ describe('useGrpcStudioAdvancedFeatures coverage gaps — network mock and schem
       await result.current.startMockServer();
     });
     expect(result.current.mockRunning).toBe(true);
+  });
+
+  it('fails native mock start when Tauri requires descriptor export', async () => {
+    const { isTauri } = await import('../../../../shared/utils/platform');
+    vi.mocked(isTauri).mockReturnValue(true);
+    vi.mocked(mockListenerClient.supportsGrpcMockNetworkListener).mockReturnValue(true);
+    vi.mocked(mockListenerClient.exportGrpcDescriptorProtoset).mockRejectedValue('export exploded');
+
+    const studio = makeStudioSlice();
+    const { result } = renderHook(() => useGrpcStudioAdvancedFeatures({
+      studio,
+      pageDefaults: { target: 'localhost:50051', tlsMode: 'disabled' },
+    }));
+
+    act(() => {
+      result.current.patchMockRulesJson('{"rules":[]}');
+    });
+    await act(async () => {
+      await result.current.startMockServer();
+    });
+    expect(result.current.runtime.mockRuntime.status).toBe('failed');
+    expect(result.current.runtime.mockRuntime.error?.message).toMatch(/Native mock listener requires descriptor export/);
+    vi.mocked(isTauri).mockReturnValue(false);
   });
 
   it('patchMockExposeNetwork toggles network exposure flag', () => {

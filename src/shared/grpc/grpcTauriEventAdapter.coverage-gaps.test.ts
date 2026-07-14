@@ -77,6 +77,37 @@ describe('grpcTauriEventAdapter coverage gaps', () => {
     expect(buffer.getLastSequence()).toBe(GRPC_TAURI_EVENT_REORDER_BUFFER + 3);
   });
 
+  it('GrpcTauriEventSequenceBuffer rejects stale sequences', () => {
+    const buffer = new GrpcTauriEventSequenceBuffer(5);
+    expect(buffer.accept(makeStreamEvent({ sequence: 5 }))).toEqual([]);
+    expect(buffer.accept(makeStreamEvent({ sequence: 3 }))).toEqual([]);
+    expect(buffer.getLastSequence()).toBe(5);
+  });
+
+  it('GrpcTauriEventSequenceBuffer trims oldest holes when pending exceeds reorder buffer', () => {
+    const buffer = new GrpcTauriEventSequenceBuffer(0);
+    const pending = (buffer as unknown as { pending: Map<number, GrpcStreamEvent> }).pending;
+    for (let i = 0; i < GRPC_TAURI_EVENT_REORDER_BUFFER + 4; i += 1) {
+      const sequence = 2 + i * 2;
+      pending.set(sequence, makeStreamEvent({ sequence }));
+    }
+    const released = buffer.accept(makeStreamEvent({ sequence: 10_000 }));
+    expect(released[0]?.sequence).toBe(2);
+    expect(pending.size).toBeLessThanOrEqual(GRPC_TAURI_EVENT_REORDER_BUFFER);
+    expect(pending.has(2)).toBe(false);
+  });
+
+  it('GrpcTauriEventSequenceBuffer leaves stale pending when earliest is not ahead of cursor', () => {
+    const buffer = new GrpcTauriEventSequenceBuffer(5);
+    const pending = (buffer as unknown as { pending: Map<number, GrpcStreamEvent> }).pending;
+    pending.set(3, makeStreamEvent({ sequence: 3 }));
+    const released = buffer.accept(makeStreamEvent({ sequence: 7 }));
+    expect(released).toEqual([]);
+    expect(pending.has(3)).toBe(true);
+    expect(pending.has(7)).toBe(true);
+    expect(buffer.getLastSequence()).toBe(5);
+  });
+
   it('GrpcTauriEventSequenceBuffer recovers when initial sequence is missed', () => {
     const buffer = new GrpcTauriEventSequenceBuffer(0);
     const released = buffer.accept(makeStreamEvent({ sequence: 2 }));
@@ -143,5 +174,21 @@ describe('grpcTauriEventAdapter coverage gaps', () => {
     const handler = listenMock.mock.calls[0]?.[1] as ((payload: { payload: GrpcTauriEvent }) => void) | undefined;
     handler?.({ payload: makeEvent({ streamId: 'other', sequence: 1 }) });
     expect(onEvent).not.toHaveBeenCalled();
+  });
+
+  it('listenGrpcTauriStreamEvents ignores events for a different requestId', async () => {
+    listenMock.mockResolvedValue(vi.fn());
+    const onEvent = vi.fn();
+    await listenGrpcTauriStreamEvents({
+      tabId: 'tab-a',
+      streamId: 'stream-1',
+      requestId: 'req-1',
+      onEvent,
+    });
+    const handler = listenMock.mock.calls[0]?.[1] as ((payload: { payload: GrpcTauriEvent }) => void) | undefined;
+    handler?.({ payload: makeEvent({ requestId: 'req-other', sequence: 1 }) });
+    expect(onEvent).not.toHaveBeenCalled();
+    handler?.({ payload: makeEvent({ requestId: 'req-1', sequence: 1 }) });
+    expect(onEvent).toHaveBeenCalledTimes(1);
   });
 });

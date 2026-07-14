@@ -135,12 +135,8 @@ function normalizeFileReferences(file: FileDescriptorProtoLike, ctx: ResolveCont
   const pkgScope = file.package ? `.${file.package}` : '';
 
   const normalizeField = (field: FieldDescriptorProtoLike, scopeFqn: string) => {
-    if (field.typeName) {
-      field.typeName = resolveAndRecord(ctx, scopeFqn, field.typeName) ?? field.typeName;
-    }
-    if (field.extendee) {
-      field.extendee = resolveAndRecord(ctx, scopeFqn, field.extendee) ?? field.extendee;
-    }
+    field.typeName = resolveAndRecord(ctx, scopeFqn, field.typeName) ?? field.typeName;
+    field.extendee = resolveAndRecord(ctx, scopeFqn, field.extendee) ?? field.extendee;
   };
 
   const walkMessages = (messages: DescriptorProtoLike[] | null | undefined, scopeFqn: string) => {
@@ -156,12 +152,8 @@ function normalizeFileReferences(file: FileDescriptorProtoLike, ctx: ResolveCont
   for (const extension of file.extension ?? []) normalizeField(extension, pkgScope);
   for (const service of file.service ?? []) {
     for (const method of service.method ?? []) {
-      if (method.inputType) {
-        method.inputType = resolveAndRecord(ctx, pkgScope, method.inputType) ?? method.inputType;
-      }
-      if (method.outputType) {
-        method.outputType = resolveAndRecord(ctx, pkgScope, method.outputType) ?? method.outputType;
-      }
+      method.inputType = resolveAndRecord(ctx, pkgScope, method.inputType) ?? method.inputType;
+      method.outputType = resolveAndRecord(ctx, pkgScope, method.outputType) ?? method.outputType;
     }
   }
 }
@@ -219,19 +211,21 @@ export function normalizeFileDescriptorSetForProst<T extends FileDescriptorSetLi
     const fileName = file.name ?? '';
     const deps = new Set<string>(file.dependency ?? []);
     normalizeFileReferences(file, { knownTypes, typeToFile, fileName, deps });
-    // Drop dangling declared dependencies that aren't present in the set — prost-reflect
-    // rejects a declared dependency it cannot find.
-    for (const dep of [...deps]) {
-      const present = files.some((candidate) => candidate.name === dep);
-      if (!present) deps.delete(dep);
-    }
     dependencies.set(fileName, deps);
   }
 
-  for (const file of files) {
-    file.dependency = [...(dependencies.get(file.name ?? '') ?? [])];
+  // Sort first so missing declared deps take the cycle/skip path, then strip dangling
+  // entries — prost-reflect rejects a declared dependency it cannot find.
+  set.file = topologicallySortFiles(files, dependencies);
+
+  for (const file of set.file) {
+    const deps = dependencies.get(file.name ?? '') ?? new Set<string>();
+    for (const dep of [...deps]) {
+      const present = set.file.some((candidate) => candidate.name === dep);
+      if (!present) deps.delete(dep);
+    }
+    file.dependency = [...deps];
   }
 
-  set.file = topologicallySortFiles(files, dependencies);
   return set;
 }

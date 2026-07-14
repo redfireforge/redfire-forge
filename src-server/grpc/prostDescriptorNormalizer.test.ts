@@ -155,6 +155,124 @@ describe('normalizeFileDescriptorSetForProst', () => {
     expect(() => normalizeFileDescriptorSetForProst(set)).not.toThrow();
     expect(set.file).toEqual([]);
   });
+
+  it('covers unnamed files/messages, already-qualified refs, extendee, and empty fields', () => {
+    const set: FileDescriptorSetLike = {
+      file: [
+        {
+          name: '',
+          package: '',
+          messageType: [{ name: undefined, field: [{ typeName: null }] }],
+        },
+        {
+          name: null,
+          package: null,
+          messageType: [{ name: 'Anon', field: [{ typeName: null, extendee: null }] }],
+        },
+        {
+          // Named file with no package — exercises empty package prefix branches
+          name: 'nopkg.proto',
+          messageType: [{ name: 'Bare', field: [{ typeName: 'Bare' }] }],
+        },
+        {
+          name: 'ext.proto',
+          package: 'ext',
+          messageType: [
+            {
+              name: 'Host',
+              field: [{ typeName: '.ext.Host' }, { typeName: undefined }],
+              extension: [{ extendee: 'google.protobuf.Timestamp' }, { extendee: undefined }],
+              nestedType: [{ name: undefined, field: null, enumType: null }],
+              enumType: [{ name: undefined }, { name: 'Kind' }],
+            },
+          ],
+          enumType: [{ name: undefined }, { name: 'Top' }],
+          extension: [{ extendee: '.ext.Host' }],
+          service: [
+            { method: null },
+            {},
+            { method: [{ inputType: null, outputType: undefined }] },
+            {
+              method: [
+                { inputType: '.ext.Host', outputType: 'Top' },
+              ],
+            },
+          ],
+        },
+        {
+          name: 'google/protobuf/timestamp.proto',
+          package: 'google.protobuf',
+          messageType: [{ name: 'Timestamp', field: null, nestedType: null, enumType: null }],
+        },
+        {
+          name: undefined,
+          package: undefined,
+          messageType: null,
+          enumType: null,
+          service: null,
+          extension: null,
+        },
+      ],
+    };
+
+    normalizeFileDescriptorSetForProst(set);
+    const host = set.file!.find((file) => file.name === 'ext.proto')!;
+    expect(host.messageType![0].field![0].typeName).toBe('.ext.Host');
+    expect(host.extension![0].extendee).toBe('.ext.Host');
+    expect(host.dependency).toContain('google/protobuf/timestamp.proto');
+    const bare = set.file!.find((file) => file.name === 'nopkg.proto')!;
+    expect(bare.messageType![0].field![0].typeName).toBe('.Bare');
+  });
+
+  it('tolerates cyclic and missing declared dependencies during sort', () => {
+    const set: FileDescriptorSetLike = {
+      file: [
+        {
+          name: 'a.proto',
+          package: 'a',
+          dependency: ['b.proto', 'missing.proto'],
+          messageType: [{ name: 'A', field: [{ typeName: 'b.B' }] }],
+        },
+        {
+          name: 'b.proto',
+          package: 'b',
+          dependency: ['a.proto'],
+          messageType: [{ name: 'B', field: [{ typeName: 'a.A' }] }],
+        },
+      ],
+    };
+    expect(() => normalizeFileDescriptorSetForProst(set)).not.toThrow();
+    expect(set.file!.map((file) => file.name)).toEqual(expect.arrayContaining(['a.proto', 'b.proto']));
+  });
+
+  it('is a no-op when file array is missing', () => {
+    const set: FileDescriptorSetLike = {};
+    expect(() => normalizeFileDescriptorSetForProst(set)).not.toThrow();
+  });
+
+  it('skips nameless files while rebuilding dependency maps', () => {
+    const set: FileDescriptorSetLike = {
+      file: [
+        {
+          // name intentionally omitted — visited and dependency rebuild must tolerate it
+          package: 'orphan',
+          messageType: [{ name: 'Orphan', field: [{ typeName: 'google.protobuf.Timestamp' }] }],
+        },
+        {
+          name: 'google/protobuf/timestamp.proto',
+          package: 'google.protobuf',
+          messageType: [{ name: 'Timestamp' }],
+        },
+        {
+          name: 'consumer.proto',
+          package: 'consumer',
+          messageType: [{ name: 'UsesTs', field: [{ typeName: 'google.protobuf.Timestamp' }] }],
+        },
+      ],
+    };
+    normalizeFileDescriptorSetForProst(set);
+    expect(set.file!.some((file) => file.name === 'consumer.proto')).toBe(true);
+  });
 });
 
 describe('encodeRootAsProtosetBase64 (WKT-aware)', () => {
