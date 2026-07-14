@@ -12,7 +12,7 @@ export default function LessonNotesPanel() {
     saveNote,
     closePanel,
   } = useLessonNotesContext();
-  const { panelRef, panelStyle, onDragMouseDown } = useLessonNotesPanelLayout();
+  const { panelRef, panelStyle, onDragMouseDown, onResizeMouseDown } = useLessonNotesPanelLayout();
 
   useEffect(() => {
     if (!panelOpen) return;
@@ -64,6 +64,13 @@ export default function LessonNotesPanel() {
           savedText={getNote(lessonId)}
           onSave={handleSave}
           onClose={closePanel}
+        />
+        <div
+          className="demo-lesson-notes-resize-handle"
+          onMouseDown={onResizeMouseDown}
+          role="presentation"
+          aria-hidden="true"
+          title="Drag to resize"
         />
       </div>
     </div>

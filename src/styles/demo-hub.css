@@ -2231,6 +2231,30 @@
   overflow: hidden;
   padding: 14px 16px 16px;
   min-height: 0;
+  position: relative;
+}
+
+.demo-lesson-notes-resize-handle {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 24px;
+  height: 24px;
+  cursor: nwse-resize;
+  background: linear-gradient(135deg, transparent 50%, var(--text-muted, #a8b8cc) 50%);
+  background-size: 12px 12px;
+  background-repeat: no-repeat;
+  background-position: bottom right 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.demo-lesson-notes-panel:hover .demo-lesson-notes-resize-handle {
+  opacity: 0.6;
+}
+
+.demo-lesson-notes-resize-handle:hover {
+  opacity: 1;
 }
 
 .demo-lesson-player-content:has(.demo-notes-inline) {
