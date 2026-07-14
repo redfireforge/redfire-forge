@@ -100,16 +100,18 @@ describe('createPrepareExecuteSnapshotHandler transport preflight (Phase 10A)', 
     expect(snapshot.callType).toBe('server_streaming');
   });
 
-  it('blocks grpc-web on desktop before snapshot capture', () => {
+  it('allows grpc-web on desktop before snapshot capture', () => {
     vi.mocked(isTauri).mockReturnValue(true);
     const { prepare, tabId } = makePrepareHarness('grpc-web', 'Echo');
-    expect(() => prepare(tabId, 'req-desktop-blocked')).toThrow(/browser build/i);
+    const snapshot = prepare(tabId, 'req-desktop-ok');
+    expect(snapshot.transportMode).toBe('grpc-web');
   });
 
-  it('blocks spring-servlet on desktop before snapshot capture', () => {
+  it('allows spring-servlet on desktop before snapshot capture', () => {
     vi.mocked(isTauri).mockReturnValue(true);
     const { prepare, tabId } = makePrepareHarness('spring-servlet', 'Echo');
-    expect(() => prepare(tabId, 'req-desktop-blocked')).toThrow(/browser build/i);
+    const snapshot = prepare(tabId, 'req-desktop-ok');
+    expect(snapshot.transportMode).toBe('spring-servlet');
   });
 
   it('allows express on web', () => {

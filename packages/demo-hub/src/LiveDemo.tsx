@@ -154,6 +154,7 @@ export default function LiveDemo({
           trackKey={`${stepIndex}:${step.highlight}`}
           selector={step.highlight}
           active={true}
+          frozen={stepPhase === 'action'}
         />
       )}
 

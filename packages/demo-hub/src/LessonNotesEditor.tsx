@@ -56,6 +56,35 @@ export default function LessonNotesEditor({
     onClose();
   }, [onClose]);
 
+  // macOS WKWebView maps Home/End to document scroll inside a textarea instead of
+  // caret line-start/line-end. Implement it explicitly so those keys behave as
+  // users expect (with Shift extending the selection).
+  const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if ((e.key !== 'Home' && e.key !== 'End') || e.metaKey || e.ctrlKey || e.altKey) {
+      return;
+    }
+    const el = e.currentTarget;
+    const value = el.value;
+    const caret = el.selectionDirection === 'backward' ? el.selectionStart : el.selectionEnd;
+    let target: number;
+    if (e.key === 'Home') {
+      const prevNewline = value.lastIndexOf('\n', caret - 1);
+      target = prevNewline + 1;
+    } else {
+      const nextNewline = value.indexOf('\n', caret);
+      target = nextNewline === -1 ? value.length : nextNewline;
+    }
+    e.preventDefault();
+    if (e.shiftKey) {
+      const anchor = el.selectionDirection === 'backward' ? el.selectionEnd : el.selectionStart;
+      const start = Math.min(anchor, target);
+      const end = Math.max(anchor, target);
+      el.setSelectionRange(start, end, target < anchor ? 'backward' : 'forward');
+    } else {
+      el.setSelectionRange(target, target);
+    }
+  }, []);
+
   return (
     <div className="demo-lesson-notes-editor">
       {showHeader && (
@@ -68,6 +97,7 @@ export default function LessonNotesEditor({
         className="demo-lesson-notes-textarea"
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
+        onKeyDown={handleKeyDown}
         placeholder="Jot down key takeaways, commands to try later, or questions…"
         aria-label={`Notes for ${lessonName}`}
         data-testid="demo-lesson-notes-textarea"

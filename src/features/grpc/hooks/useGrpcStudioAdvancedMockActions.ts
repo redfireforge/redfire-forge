@@ -19,6 +19,8 @@ import {
   stopGrpcMockNetworkListener,
   supportsGrpcMockNetworkListener,
 } from '../utils/grpcMockListenerClient';
+import { isTauri } from '../../../shared/utils/platform';
+import { sha256HexFromBase64 } from '../../../shared/grpc/grpcTauriDescriptorBridge';
 import type { StudioSlice } from './useGrpcStudioAdvancedFeaturesTypes';
 
 function workspaceMockDefault(): GrpcMockConfigSource {
@@ -195,18 +197,33 @@ export function useGrpcStudioAdvancedMockActions(options: UseGrpcStudioAdvancedM
           throw new Error('Load a descriptor on the active tab before starting the network mock listener.');
         }
         let protosetBase64: string | undefined;
+        let contentSha256: string | undefined;
         try {
           const exported = await exportGrpcDescriptorProtoset(descriptor.key);
           protosetBase64 = exported.protosetBase64;
-        } catch {
+          if (protosetBase64.trim()) {
+            contentSha256 = await sha256HexFromBase64(protosetBase64);
+          }
+        } catch (error) {
+          if (isTauri()) {
+            const message = error instanceof Error ? error.message : 'unknown error';
+            throw new Error(`Native mock listener requires descriptor export: ${message}`);
+          }
           protosetBase64 = undefined;
+          contentSha256 = undefined;
+        }
+        if (isTauri() && !protosetBase64?.trim()) {
+          throw new Error('Native mock listener requires descriptor export before start.');
+        }
+        if (isTauri() && !contentSha256?.trim()) {
+          throw new Error('Native mock listener requires full descriptor SHA-256 before start.');
         }
         listenerStatus = await startGrpcMockNetworkListener({
           tabId,
           connectionId: config.connectionId,
           descriptorKey: descriptor.key,
           protosetBase64,
-          contentSha256: descriptor.contentSha256,
+          contentSha256,
           ruleSet: parsed.ruleSet,
           latencyPolicy: tabState.mockServer.latencyPolicy,
         });

@@ -31,7 +31,6 @@ import type { GrpcCompressionConfig } from '../../shared/grpc/contracts';
 import { prepareGrpcCallMetadata } from '../../shared/grpc/grpcCompressionPolicy';
 import type { GrpcGrpcurlExportContext } from './utils/grpcGrpcurlTypes';
 import { createDefaultDescriptorSourceSelection, normalizeDescriptorSourceSelection, resolveDescriptorSourceFingerprint } from '../../shared/grpc/descriptorSourcePolicy';
-import { hasGrpcStreamTransportBinding } from '../../shared/grpc/grpcTransportFallback';
 import { isGrpcStreamLifecycleInFlight } from '../../shared/grpc/streamLifecycle';
 import {
   type GrpcTransportMode,
@@ -267,13 +266,14 @@ export function resolveGrpcStudioTabTransportMode(tab: GrpcStudioTabState): Grpc
 }
 
 export function canChangeGrpcTabTransportMode(tab: GrpcStudioTabState): boolean {
-  if (hasGrpcStreamTransportBinding(tab.id)) {
+  // Guard only true in-flight lifecycle states. Stale ids can remain after
+  // crashes/reloads and must not permanently lock the transport panel.
+  if (isGrpcStreamLifecycleInFlight(tab.streamLifecycle)) {
     return false;
   }
-  if (isGrpcStreamLifecycleInFlight(tab.streamLifecycle) || !!tab.activeStreamId) {
-    return false;
-  }
-  if (isGrpcLifecycleInFlight(tab.lifecycle) || !!tab.activeRequestId) {
+  // "connecting" can linger during background probe transitions; only block
+  // transport switching during an active unary call.
+  if (tab.lifecycle === 'calling') {
     return false;
   }
   return true;

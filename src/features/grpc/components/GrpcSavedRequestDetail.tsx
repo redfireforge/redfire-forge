@@ -64,7 +64,7 @@ export function GrpcSavedRequestDetail({
   if (!saved) {
     return (
       <div className="grpc-saved-request-detail grpc-saved-request-detail--empty" data-testid="grpc-saved-request-detail">
-        <p className="grpc-saved-request-detail__empty">Select a saved request from the tree.</p>
+        <p className="grpc-saved-request-detail__empty">Select a saved request to view details.</p>
       </div>
     );
   }

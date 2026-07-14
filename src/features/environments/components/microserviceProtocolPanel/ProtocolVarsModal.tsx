@@ -29,11 +29,16 @@ export function ProtocolVarsModal({
   };
 
   const save = () => {
+    // Flush any uncommitted add-row entry before saving
+    const pending: Record<string, string> = {};
+    if (newKey.trim()) pending[newKey.trim()] = newVal;
+    const merged = { ...localVars, ...pending };
+
     const existing = svc.globalVars ?? {};
     for (const key of Object.keys(existing)) {
-      if (!(key in localVars)) onDeleteGlobalVar(key);
+      if (!(key in merged)) onDeleteGlobalVar(key);
     }
-    for (const [k, v] of Object.entries(localVars)) {
+    for (const [k, v] of Object.entries(merged)) {
       onSetGlobalVar(k, v);
     }
     onClose();
