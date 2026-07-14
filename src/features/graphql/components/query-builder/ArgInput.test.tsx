@@ -16,7 +16,7 @@ vi.mock('../../utils/queryBuilderGenerator', () => ({
 const NO_TYPES: GraphqlTypeNode[] = [];
 
 describe('ArgInput', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders a text input for a String type', () => {
     render(<ArgInput fieldPath="root" argName="id" argType="String" value="" types={NO_TYPES} onChange={vi.fn()} />);

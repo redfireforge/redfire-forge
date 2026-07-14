@@ -173,7 +173,7 @@ function makeProps(over: Partial<ScenarioBuilderModalsProps> = {}): ScenarioBuil
   };
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => resetAllMocks());
 
 describe('ScenarioBuilderModals', () => {
   it('renders nothing when all flags are off', () => {

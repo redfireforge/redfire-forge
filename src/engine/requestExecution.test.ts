@@ -38,7 +38,7 @@ function makeRunOpts(overrides: Partial<RunOpts> = {}): RunOpts {
 
 describe('executeWithRetry', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     clearPrepCache();
   });
 
@@ -250,7 +250,7 @@ describe('executeWithRetry', () => {
 
 describe('runSequential', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     clearPrepCache();
   });
 
@@ -296,7 +296,7 @@ describe('runSequential', () => {
 
 describe('runBatch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     clearPrepCache();
   });
 
@@ -336,7 +336,7 @@ describe('runBatch', () => {
 
 describe('runPool', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     clearPrepCache();
   });
 

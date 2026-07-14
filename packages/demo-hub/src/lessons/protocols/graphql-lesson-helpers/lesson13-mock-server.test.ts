@@ -115,7 +115,7 @@ describe('lesson13-mock-server helpers (branch coverage)', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('E2E web mock opens activity via gql13E2eOpenMockActivity', async () => {

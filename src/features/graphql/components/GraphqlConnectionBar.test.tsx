@@ -60,7 +60,7 @@ function subProps(overrides = {}) {
 // ─── Basic rendering ──────────────────────────────────────────────────────────
 
 describe('GraphqlConnectionBar — basic rendering', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the connection bar', () => {
     render(<GraphqlConnectionBar {...defaultProps()} />);
@@ -386,7 +386,7 @@ describe('GraphqlConnectionBar — operations selector', () => {
 
 describe('GraphqlConnectionBar — Sprint 3 transport selector', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders transport select dropdown for subscription operations', () => {
@@ -570,7 +570,7 @@ describe('normalizeTab — subscriptionTransport field', () => {
 // ─── Recent endpoints dropdown ───────────────────────────────────────────────
 
 describe('GraphqlConnectionBar — recent endpoints dropdown', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('shows recent endpoints dropdown on endpoint input focus', async () => {
     render(<GraphqlConnectionBar {...defaultProps({
@@ -696,7 +696,7 @@ describe('GraphqlConnectionBar — unresolved variable warnings', () => {
 // ─── Polling config button and popover ───────────────────────────────────────
 
 describe('GraphqlConnectionBar — polling config', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('shows polling config button when schema is loaded and onPollingChange provided', () => {
     render(<GraphqlConnectionBar {...defaultProps({
@@ -783,7 +783,7 @@ describe('GraphqlConnectionBar — polling config', () => {
 // ─── Subscription button states ──────────────────────────────────────────────
 
 describe('GraphqlConnectionBar — subscription states', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('shows Subscribe button when subscription is idle', () => {
     render(<GraphqlConnectionBar {...subProps({ subscriptionState: 'idle' })} />);
@@ -838,7 +838,7 @@ describe('GraphqlConnectionBar — fileErrors prop', () => {
 // ─── Execute button aria-label ternary branches ───────────────────────────────
 
 describe('GraphqlConnectionBar — execute button aria-label branches', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('shows noEndpoint aria-label when endpoint is empty', () => {
     render(<GraphqlConnectionBar {...defaultProps({ endpoint: '' })} />);
@@ -880,7 +880,7 @@ describe('GraphqlConnectionBar — execute button aria-label branches', () => {
 // ─── Polling interval input interaction ──────────────────────────────────────
 
 describe('GraphqlConnectionBar — polling interval input interaction', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('updates local interval on polling interval input onChange', async () => {
     const onPollingChange = vi.fn();
@@ -1002,7 +1002,7 @@ describe('GraphqlConnectionBar — polling interval input interaction', () => {
 // ─── Standalone polling button interactions ───────────────────────────────────
 
 describe('GraphqlConnectionBar — standalone polling button interactions', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('clicking standalone polling button opens polling popover', async () => {
     const onPollingChange = vi.fn();
@@ -1120,7 +1120,7 @@ describe('GraphqlConnectionBar — standalone polling button interactions', () =
 // ─── Polling popover click-outside and Escape key handlers ───────────────────
 
 describe('GraphqlConnectionBar — polling popover outside-click/Escape', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('Escape key closes polling popover', async () => {
     render(<GraphqlConnectionBar {...defaultProps({

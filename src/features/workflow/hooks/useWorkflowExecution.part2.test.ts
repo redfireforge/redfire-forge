@@ -119,7 +119,7 @@ function createMockOptions() {
 describe('useWorkflowExecution', () => {
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.useFakeTimers({ shouldAdvanceTime: true });
     mockRunGraph.mockResolvedValue([]);
     mockCheckEnvReadiness.mockReturnValue({ ready: true, issues: [] });

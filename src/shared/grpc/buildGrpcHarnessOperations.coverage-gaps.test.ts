@@ -21,7 +21,7 @@ vi.mock('./grpcHarnessStreamCollector', () => ({
 
 describe('buildGrpcHarnessOperations coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('delegates invokeUnary to node operations', async () => {

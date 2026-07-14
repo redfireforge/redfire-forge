@@ -166,7 +166,7 @@ describe('WorkflowExecutionReplayModal', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders workflow name and metadata', () => {

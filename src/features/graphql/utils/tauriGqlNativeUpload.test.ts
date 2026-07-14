@@ -33,7 +33,7 @@ describe('serializeFormDataForNativeUpload', () => {
 
 describe('tauriGqlNativeUpload', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockInvoke.mockResolvedValue({
       status: 200,
       statusText: 'OK',

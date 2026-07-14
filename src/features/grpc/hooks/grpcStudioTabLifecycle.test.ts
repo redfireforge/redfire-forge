@@ -49,7 +49,7 @@ function makeGrpcTab(id: string, overrides: Partial<GrpcStudioTabState> = {}): G
 
 describe('grpcStudioTabLifecycle', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('cancelGrpcUnaryForTab delegates to cancelGrpcUnary', async () => {

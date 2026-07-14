@@ -21,7 +21,7 @@ import {
 import { WsClientError } from './websocketClient';
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   _resetMessageBuffersForTesting();
 });
 

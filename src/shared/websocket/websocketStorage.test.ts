@@ -28,7 +28,7 @@ const mockRead = vi.mocked(storage.readKey);
 const mockWrite = vi.mocked(storage.writeKey);
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockWrite.mockResolvedValue(undefined);
 });
 

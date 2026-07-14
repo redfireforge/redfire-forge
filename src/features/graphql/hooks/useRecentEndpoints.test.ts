@@ -12,7 +12,7 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { readKey, writeKey } from '../../../shared/utils/storage';
 import { useRecentEndpoints } from './useRecentEndpoints';
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => resetAllMocks());
 
 describe('useRecentEndpoints', () => {
   it('starts with empty endpoints when no stored data', async () => {

@@ -49,7 +49,7 @@ function defaultProps(overrides: Partial<Parameters<typeof CollectionItemRow>[0]
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

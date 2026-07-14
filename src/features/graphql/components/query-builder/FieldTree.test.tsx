@@ -76,7 +76,7 @@ function makeProps(overrides: Partial<FieldTreeProps> = {}): FieldTreeProps {
 
 describe('FieldTree', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   afterEach(() => {

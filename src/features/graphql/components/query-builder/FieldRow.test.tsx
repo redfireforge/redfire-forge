@@ -60,7 +60,7 @@ function defaultProps(overrides = {}) {
 }
 
 describe('FieldRow', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders a leaf field row', () => {
     render(<FieldRow {...defaultProps()} />);

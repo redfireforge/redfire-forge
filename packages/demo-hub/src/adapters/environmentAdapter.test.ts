@@ -25,7 +25,7 @@ describe('environmentAdapter', () => {
     delete (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings;
     delete (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName;
     delete (window as unknown as Record<string, unknown>).__demoUpsertWorkspaceDefaults;
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('upsertGlobalAuthProfile calls window bridge', () => {

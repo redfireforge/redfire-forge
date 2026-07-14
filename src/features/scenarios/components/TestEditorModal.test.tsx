@@ -157,7 +157,7 @@ function makeProps(over: Partial<React.ComponentProps<typeof TestEditorModal>> =
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   h.effectiveAuth = { auth: { type: 'none' }, source: 'inline' };
   h.pickJsonRaw = { name: 'Imported', method: 'GET', url: 'https://imported.example.com' };
 });

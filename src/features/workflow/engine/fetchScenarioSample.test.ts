@@ -30,7 +30,7 @@ const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
   }) as Scenario;
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 describe('fetchScenarioSample', () => {

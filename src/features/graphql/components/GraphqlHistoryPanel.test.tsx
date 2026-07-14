@@ -57,7 +57,7 @@ function makeProps(overrides: Partial<GraphqlHistoryPanelProps> = {}): GraphqlHi
 
 describe('GraphqlHistoryPanel', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     // Mock clipboard
     Object.assign(navigator, { clipboard: { writeText: vi.fn().mockResolvedValue(undefined) } });
   });

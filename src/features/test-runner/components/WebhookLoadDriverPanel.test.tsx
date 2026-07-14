@@ -26,7 +26,7 @@ describe('WebhookLoadDriverPanel', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('rendering', () => {

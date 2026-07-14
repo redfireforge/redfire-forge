@@ -33,7 +33,7 @@ const defaultOpts = () => ({
 });
 
 describe('useWorkflowDetailModal', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('starts with detailModal null', () => {
     const { result } = renderHook(() => useWorkflowDetailModal(defaultOpts()));

@@ -34,7 +34,7 @@ vi.mock('../../../shared/grpc/grpcApiClient', () => ({
 
 describe('GrpcK8sPortForwardPanel', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     grpcK8sApiMocks.getStatus.mockResolvedValue({ scopeId: 'tab-1', active: false });
     grpcK8sApiMocks.getLogs.mockResolvedValue({
       scopeId: 'tab-1',

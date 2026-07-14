@@ -14,7 +14,7 @@ const mockSave = vi.mocked(saveRunnerConfig);
 
 describe('useWorkflowRunnerConfig', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('initializes with default values', async () => {

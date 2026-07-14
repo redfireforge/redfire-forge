@@ -320,7 +320,7 @@ describe('WorkflowResultsSummary', () => {
   });
 
   it('paints failed iteration bars with red gradient stops in chart', async () => {
-    vi.clearAllMocks();
+    resetAllMocks();
     const results: RequestResult[] = [
       createWorkflowResult(0, 'node-0', true, 100),
       createWorkflowResult(0, 'node-1', false, 200),
@@ -579,7 +579,7 @@ describe('WorkflowResultsSummary', () => {
   });
 
   it('does not run canvas draw when getContext returns null', () => {
-    vi.clearAllMocks();
+    resetAllMocks();
     const prevGetContext = HTMLCanvasElement.prototype.getContext;
     HTMLCanvasElement.prototype.getContext = vi.fn(
       () => null,
@@ -599,7 +599,7 @@ describe('WorkflowResultsSummary', () => {
   });
 
   it('skips average guideline on chart when all iteration times are zero', async () => {
-    vi.clearAllMocks();
+    resetAllMocks();
     const run = createWorkflowTestRun(2, 2);
     run.results = run.results.map((r) => ({ ...r, responseTimeMs: 0 }));
     const { container } = render(<WorkflowResultsSummary run={run} />);
@@ -615,7 +615,7 @@ describe('WorkflowResultsSummary', () => {
   });
 
   it('thins x-axis labels when there are many iterations', async () => {
-    vi.clearAllMocks();
+    resetAllMocks();
     const run = createWorkflowTestRun(20, 1);
     const { container } = render(<WorkflowResultsSummary run={run} />);
     const wrap = container.querySelector('.workflow-iteration-chart') as HTMLDivElement;

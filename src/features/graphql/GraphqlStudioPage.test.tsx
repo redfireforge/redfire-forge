@@ -1103,7 +1103,7 @@ function setupAdvSettings(overrides: Partial<typeof mocks.defaultAdvSettings> = 
 
 describe('GraphqlStudioPage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
     mocks.captured.connectionBar = null;
     mocks.captured.historyPanel = null;

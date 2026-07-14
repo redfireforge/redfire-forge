@@ -44,7 +44,7 @@ describe('useDemoHub', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
   });
 

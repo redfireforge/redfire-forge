@@ -105,7 +105,7 @@ function defaultProps() {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.useRealTimers();
   mockWriteText = installClipboardMock();
 });

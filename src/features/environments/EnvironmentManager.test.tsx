@@ -84,7 +84,7 @@ function fgWith(overrides: Partial<FeatureGroup>): FeatureGroup {
 describe('EnvironmentManager', () => {
   beforeEach(() => {
     uuidCounter = 0;
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   // ── Empty states ──

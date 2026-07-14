@@ -32,7 +32,7 @@ const readyConfig = {
 
 describe('GrpcK8sPortForwardPanel coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     grpcK8sApiMocks.getStatus.mockResolvedValue({ scopeId: 'tab-1', active: false });
     grpcK8sApiMocks.getLogs.mockResolvedValue({ scopeId: 'tab-1', lines: [], latestSeq: 0 });
     grpcK8sApiMocks.start.mockResolvedValue({ scopeId: 'tab-1', active: true, pid: 321 });

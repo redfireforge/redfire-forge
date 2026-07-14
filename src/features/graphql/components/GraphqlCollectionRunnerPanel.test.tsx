@@ -64,7 +64,7 @@ function makeDefaultProps(
 
 describe('GraphqlCollectionRunnerPanel', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   // ── Basic render ─────────────────────────────────────────────────────────────

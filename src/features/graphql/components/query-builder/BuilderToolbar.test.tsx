@@ -38,7 +38,7 @@ function defaultProps(overrides = {}) {
 }
 
 describe('BuilderToolbar', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { resetAllMocks(); });
 
   it('renders all three operation type buttons', () => {
     render(<BuilderToolbar {...defaultProps()} />);

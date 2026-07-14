@@ -30,7 +30,7 @@ describe('useMonacoExecutionMarkers', () => {
   const uriRef = { current: 'file:///query.graphql' };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('does nothing when monacoInstance is null', () => {

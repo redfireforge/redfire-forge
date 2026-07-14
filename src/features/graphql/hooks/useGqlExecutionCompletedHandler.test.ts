@@ -45,7 +45,7 @@ describe('useGqlExecutionCompletedHandler', () => {
   }
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('caches result and saves history with resolved tab endpoint (Phase 6)', () => {

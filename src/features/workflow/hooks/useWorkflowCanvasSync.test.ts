@@ -64,7 +64,7 @@ function createMockCanvasSyncOpts() {
 
 describe('useWorkflowCanvasSync', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('workflow selection', () => {
@@ -198,7 +198,7 @@ describe('useWorkflowCanvasSync', () => {
 
       const { rerender } = renderHook(() => useWorkflowCanvasSync(opts));
 
-      vi.clearAllMocks();
+      resetAllMocks();
       rerender();
 
       expect(opts.setNodes).not.toHaveBeenCalled();
@@ -210,7 +210,7 @@ describe('useWorkflowCanvasSync', () => {
 
       const { rerender } = renderHook(() => useWorkflowCanvasSync(opts));
 
-      vi.clearAllMocks();
+      resetAllMocks();
       opts.selected = createMockWorkflow('wf-2', [], []);
       rerender();
 
@@ -269,7 +269,7 @@ describe('useWorkflowCanvasSync', () => {
       const opts = createMockCanvasSyncOpts();
       opts.selected = createMockWorkflow('wf-1', [], []);
       const { rerender } = renderHook(() => useWorkflowCanvasSync(opts));
-      vi.clearAllMocks();
+      resetAllMocks();
       opts.selected = null;
       rerender();
       expect(opts.setNodes).not.toHaveBeenCalled();
@@ -279,7 +279,7 @@ describe('useWorkflowCanvasSync', () => {
 
 describe('useWorkflowVariableHints', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   function createMockVariableHintsOpts() {

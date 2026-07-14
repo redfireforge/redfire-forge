@@ -78,7 +78,7 @@ describe('useDataSourceFetch', () => {
   let onFetchRow: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     onChange = vi.fn();
     onFetchRow = vi.fn().mockResolvedValue(makeHttpResponse());
   });

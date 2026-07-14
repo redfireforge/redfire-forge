@@ -41,7 +41,7 @@ function Host({
 
 describe('KafkaSchemaConfigSection', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders the toggle checkbox', () => {
@@ -337,7 +337,7 @@ describe('KafkaSchemaConfigSection', () => {
 
 describe('KafkaSchemaConfigSection — additional branch coverage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('subject toggle: hides subject list when button clicked a second time (subjects.length > 0 branch)', async () => {

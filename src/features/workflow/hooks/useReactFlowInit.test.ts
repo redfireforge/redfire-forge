@@ -30,7 +30,7 @@ const wf: Workflow = {
 
 describe('useWorkflowPreviewReactFlowInit (React Flow preview onInit)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   afterEach(() => {

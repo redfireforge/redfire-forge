@@ -34,7 +34,7 @@ const successResponse = { status: 200, statusText: 'OK', headers: {}, body: '{"o
 
 describe('think time integration with execution strategies', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockedFetch.mockResolvedValue(successResponse);
   });
 
@@ -193,7 +193,7 @@ describe('think time integration with execution strategies', () => {
 
 describe('runTest with thinkTime config', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockedFetch.mockResolvedValue(successResponse);
   });
 

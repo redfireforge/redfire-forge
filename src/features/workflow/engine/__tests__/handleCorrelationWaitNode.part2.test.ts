@@ -118,7 +118,7 @@ function makeHandlerContext(overrides: Partial<NodeHandlerContext> = {}): NodeHa
 describe('handleCorrelationWaitNode', () => {
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('loadTestMode synthetic-inject (inline fallback, no store)', () => {

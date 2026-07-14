@@ -69,7 +69,7 @@ function clickSave() {
 
 describe('GraphqlAdvancedSettings', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders nothing when open=false', () => {

@@ -199,7 +199,7 @@ const defaultProps = {
 
 describe('RequestEditor - API Info', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('hides API Info button when request has no catalogMeta', () => {
@@ -359,7 +359,7 @@ describe('RequestEditor - API Info', () => {
 
 describe('RequestEditor chrome', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('dispatches method change through onUpdateRequest', () => {

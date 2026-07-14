@@ -13,7 +13,7 @@ import { readKey, writeKey } from './storage';
 
 describe('readJsonArray', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns empty array when readKey returns null', async () => {
@@ -39,7 +39,7 @@ describe('readJsonArray', () => {
 
 describe('readJsonObject', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns null when readKey returns null', async () => {
@@ -63,7 +63,7 @@ describe('readJsonObject', () => {
 
 describe('writeJson', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('writes stringified value via writeKey', async () => {

@@ -74,7 +74,7 @@ function renderCard(props: Partial<React.ComponentProps<typeof CatalogEndpointCa
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   copiedState.value = false;
   httpFetchMock.mockResolvedValue({ status: 200, statusText: 'OK', headers: { 'x-foo': 'bar' }, body: '{"ok":true}' });
   applyAuthMock.mockResolvedValue(undefined);

@@ -25,7 +25,7 @@ function defaultProps(overrides = {}) {
 }
 
 describe('GqlPollingPopoverContent', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the popover with data-testid', () => {
     render(<GqlPollingPopoverContent {...defaultProps()} />);

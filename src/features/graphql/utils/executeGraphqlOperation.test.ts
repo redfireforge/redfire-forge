@@ -21,7 +21,7 @@ function makeResult(overrides: Partial<{
   };
 }
 
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => resetAllMocks());
 
 describe('executeGraphqlOperation', () => {
   it('returns data on a successful response', async () => {

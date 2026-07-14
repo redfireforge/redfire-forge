@@ -18,7 +18,7 @@ import { httpFetch } from '../utils/httpClient';
 const mockHttpFetch = vi.mocked(httpFetch);
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   setWsClientTransport(null);
 });
 

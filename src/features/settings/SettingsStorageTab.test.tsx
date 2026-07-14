@@ -70,7 +70,7 @@ function Harness(overrides: Partial<SettingsStorageTabProps> = {}) {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.useRealTimers();
   mockIsTauri = false;
   mGetUsage.mockResolvedValue({ usedBytes: 0, entries: {} });

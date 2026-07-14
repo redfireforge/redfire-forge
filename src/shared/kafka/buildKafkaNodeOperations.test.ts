@@ -10,7 +10,7 @@ const mockDispatch = vi.mocked(kafkaClient.dispatchKafkaOperation);
 
 describe('buildKafkaNodeOperations - produce', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('dispatches produce with correct server request shape', async () => {
@@ -99,7 +99,7 @@ describe('buildKafkaNodeOperations - produce', () => {
 
 describe('buildKafkaNodeOperations - consume', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('dispatches consume-once with correct server request shape', async () => {
@@ -217,7 +217,7 @@ describe('buildKafkaNodeOperations - consume', () => {
 
 describe('buildKafkaNodeOperations - Phase 10C schemaConfig passthrough', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('produce includes schemaConfig in dispatch body when provided', async () => {

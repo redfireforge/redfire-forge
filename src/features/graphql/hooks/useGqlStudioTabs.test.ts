@@ -109,7 +109,7 @@ function defaultOptions(overrides: Partial<Parameters<typeof useGqlStudioTabs>[0
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockMakeBlankTab.mockReturnValue(makeTab({ id: 'tab-1' }));
   mockLoadTabs.mockResolvedValue([]);
   mockLoadDemoSession.mockResolvedValue(null);

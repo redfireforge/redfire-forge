@@ -78,7 +78,7 @@ function makeProps(data: HttpNodeData, selected = false) {
 describe('HttpStepNode', () => {
   beforeEach(() => {
     rsRef.rs = null;
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('truncates long URL in footer', () => {

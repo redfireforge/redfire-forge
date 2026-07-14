@@ -42,7 +42,7 @@ function makeErrorResult(index: number, errorMsg: string, hasData = false): Grap
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

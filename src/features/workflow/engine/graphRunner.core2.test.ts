@@ -604,7 +604,7 @@ async function runWsGraph(
 
 describe('runGraph — WebSocket node dispatch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('dispatches a wsConnect node and builds standard-level WS trace detail', async () => {

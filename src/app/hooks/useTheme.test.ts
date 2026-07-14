@@ -30,7 +30,7 @@ const mockClearCustomOverrides = vi.mocked(clearCustomOverrides);
 
 describe('useTheme', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockIsCustomThemeId.mockImplementation((id: string) => id.startsWith('custom:'));
     mockLoadSavedThemes.mockReturnValue([]);
     mockFindSavedTheme.mockReturnValue(null);
@@ -146,7 +146,7 @@ describe('useTheme', () => {
         result.current.setTheme('light');
       });
 
-      vi.clearAllMocks();
+      resetAllMocks();
 
       act(() => {
         result.current.reapplyTheme();
@@ -166,7 +166,7 @@ describe('useTheme', () => {
         result.current.setTheme('custom:mytheme');
       });
 
-      vi.clearAllMocks();
+      resetAllMocks();
 
       act(() => {
         result.current.reapplyTheme();

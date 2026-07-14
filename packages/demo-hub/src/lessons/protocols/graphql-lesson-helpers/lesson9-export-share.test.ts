@@ -44,7 +44,7 @@ describe('lesson9-export-share helpers', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('prepareGql9CurlReading dismisses an open context menu during reading', async () => {

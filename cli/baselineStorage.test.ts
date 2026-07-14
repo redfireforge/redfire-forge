@@ -67,7 +67,7 @@ function makeBaseline(overrides: Partial<CliBaseline> = {}): CliBaseline {
 const TEST_DIR = '.redfireforge/baselines';
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 // ── loadCliBaselines ─────────────────────────────────────────────────────────

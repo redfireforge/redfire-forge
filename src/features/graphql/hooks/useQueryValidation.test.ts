@@ -48,7 +48,7 @@ function makeRawIntrospection(): Record<string, unknown> {
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.useFakeTimers();
   // Return a fake model by default
   mockGetModel.mockReturnValue({ uri: 'inmemory://test' });

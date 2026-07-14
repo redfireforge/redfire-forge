@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useGqlPollingPopover } from './useGqlPollingPopover';
 
 describe('useGqlPollingPopover', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { resetAllMocks(); });
 
   it('starts with popover closed', () => {
     const { result } = renderHook(() =>
