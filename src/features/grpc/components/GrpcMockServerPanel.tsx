@@ -14,6 +14,7 @@ import {
 import type { GrpcMockListenerLogEntry } from '../../../shared/grpc/grpcMockListenerContracts';
 import { highlightJsonTokens } from '../utils/grpcMockJsonHighlight';
 import { HighlightedHtmlTextarea } from '../../../shared/components/HighlightedHtmlTextarea';
+import { isTauri } from '../../../shared/utils/platform';
 
 export type GrpcMockAuthoringTab = 'builder' | 'json' | 'runtime';
 
@@ -94,7 +95,11 @@ export function GrpcMockServerPanel({ advanced }: GrpcMockServerPanelProps) {
             <span className="grpc-mock-header__title-detail">
               Rule evaluator for tab {advanced.activeTabLabel}
               {networkSupported
-                ? ' - optional dialable endpoint for external clients and GRPC-13.'
+                ? (
+                  isTauri()
+                    ? ' - native dialable endpoint for external clients and GRPC-13.'
+                    : ' - optional dialable endpoint for external clients and GRPC-13 (web requires companion server: npm run server).'
+                )
                 : ' - network listener requires the web companion server (npm run server).'}
             </span>
           </h2>

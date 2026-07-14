@@ -119,7 +119,7 @@ export const GRPC_TRANSPORT_CAPABILITY_MATRIX: Record<
     browserDirect: true,
     tauriNative: false,
     desktopOnly: false,
-    browserOnly: true,
+    browserOnly: false,
   },
   'spring-servlet': {
     mode: 'spring-servlet',
@@ -133,7 +133,7 @@ export const GRPC_TRANSPORT_CAPABILITY_MATRIX: Record<
     browserDirect: true,
     tauriNative: false,
     desktopOnly: false,
-    browserOnly: true,
+    browserOnly: false,
   },
 };
 

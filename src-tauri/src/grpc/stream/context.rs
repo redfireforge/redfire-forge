@@ -12,6 +12,7 @@ use crate::grpc::types::{GrpcTauriEvent, GrpcTauriEventType};
 
 pub(crate) const DEFAULT_STREAM_TIMEOUT_MS: u64 = 30_000;
 pub(crate) const OUTBOUND_CHANNEL_CAPACITY: usize = 32;
+const STREAM_PENDING_EVENT_CAP: usize = 64;
 
 #[derive(Clone)]
 pub enum StreamEventEmitter {
@@ -81,7 +82,9 @@ impl StreamContext {
                 Some(trailers),
                 None,
             );
-            state.stream_registry.remove(&ctx.stream_id);
+            if state.tab_event_listener_count(&ctx.tab_id) > 0 {
+                state.stream_registry.remove(&ctx.stream_id);
+            }
         });
     }
 
@@ -101,7 +104,9 @@ impl StreamContext {
                 None,
                 Some(message),
             );
-            state.stream_registry.remove(&ctx.stream_id);
+            if state.tab_event_listener_count(&ctx.tab_id) > 0 {
+                state.stream_registry.remove(&ctx.stream_id);
+            }
         });
     }
 
@@ -121,7 +126,9 @@ impl StreamContext {
                 None,
                 None,
             );
-            state.stream_registry.remove(&ctx.stream_id);
+            if state.tab_event_listener_count(&ctx.tab_id) > 0 {
+                state.stream_registry.remove(&ctx.stream_id);
+            }
         });
     }
 
@@ -141,26 +148,37 @@ impl StreamContext {
             return;
         };
         state.stream_registry.touch_activity(&self.stream_id);
-        self.emitter.emit(
-            &self.tab_id,
-            GrpcTauriEvent {
-                schema_version: crate::grpc::types::GRPC_TAURI_SCHEMA_VERSION,
-                event_type,
-                stream_id: self.stream_id.clone(),
-                request_id: self.request_id.clone(),
-                tab_id: self.tab_id.clone(),
-                sequence,
-                timestamp: now_iso(),
-                data,
-                direction: direction.map(str::to_string),
-                grpc_status,
-                grpc_status_message,
-                headers,
-                trailers,
-                error_detail,
-                transport_used: Some("tauri".to_string()),
-            },
-        );
+        let event = GrpcTauriEvent {
+            schema_version: crate::grpc::types::GRPC_TAURI_SCHEMA_VERSION,
+            event_type,
+            stream_id: self.stream_id.clone(),
+            request_id: self.request_id.clone(),
+            tab_id: self.tab_id.clone(),
+            sequence,
+            timestamp: now_iso(),
+            data,
+            direction: direction.map(str::to_string),
+            grpc_status,
+            grpc_status_message,
+            headers,
+            trailers,
+            error_detail,
+            transport_used: Some("tauri".to_string()),
+        };
+
+        if state.tab_event_listener_count(&self.tab_id) == 0 {
+            state
+                .stream_registry
+                .buffer_event(&self.stream_id, event, STREAM_PENDING_EVENT_CAP);
+            return;
+        }
+
+        let pending = state.stream_registry.drain_pending_events(&self.stream_id);
+        for buffered in pending {
+            self.emitter.emit(&self.tab_id, buffered);
+        }
+
+        self.emitter.emit(&self.tab_id, event);
     }
 
     fn emit_terminal(

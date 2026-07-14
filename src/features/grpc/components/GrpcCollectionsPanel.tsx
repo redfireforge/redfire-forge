@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import type { GrpcCallResult } from '../../../shared/grpc/contracts';
 import type { GrpcCollectionV1 } from '../../../shared/grpc/grpcPersistenceSchema';
 import type { GrpcSavedRequest } from '../../../shared/grpc/grpcSavedRequest';
@@ -63,6 +63,8 @@ export function GrpcCollectionsPanel({
 }: GrpcCollectionsPanelProps) {
   const [search, setSearch] = useState('');
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
+  const [renamingCollection, setRenamingCollection] = useState<GrpcCollectionV1 | null>(null);
+  const [renameDraft, setRenameDraft] = useState('');
   const importInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -88,6 +90,11 @@ export function GrpcCollectionsPanel({
     return null;
   }, [collections.collections, selectedSavedId]);
 
+  const nonEmptyCollectionsCount = useMemo(
+    () => collections.collections.filter((collection) => collection.savedRequests.length > 0).length,
+    [collections.collections],
+  );
+
   const toggleCollection = (collectionId: string) => {
     setExpandedCollections((prev) => {
       const next = new Set(prev);
@@ -96,6 +103,11 @@ export function GrpcCollectionsPanel({
       return next;
     });
   };
+
+  const closeRenameModal = useCallback(() => {
+    setRenamingCollection(null);
+    setRenameDraft('');
+  }, []);
 
   const handleNewCollection = async () => {
     const name = window.prompt('Collection name');
@@ -108,15 +120,37 @@ export function GrpcCollectionsPanel({
     }
   };
 
-  const handleRenameCollection = async (collection: GrpcCollectionV1) => {
-    const name = window.prompt('Rename collection', collection.name);
-    if (!name?.trim() || name.trim() === collection.name) return;
+  const openRenameCollectionModal = (collection: GrpcCollectionV1) => {
+    setRenamingCollection(collection);
+    setRenameDraft(collection.name);
+  };
+
+  const handleRenameCollection = async () => {
+    if (!renamingCollection) return;
+    const trimmed = renameDraft.trim();
+    if (!trimmed || trimmed === renamingCollection.name) {
+      closeRenameModal();
+      return;
+    }
     try {
-      await collections.renameCollection(collection.id, name.trim());
+      await collections.renameCollection(renamingCollection.id, trimmed);
     } catch {
       /* error surfaced via collections.lastMutationError */
+    } finally {
+      closeRenameModal();
     }
   };
+
+  useEffect(() => {
+    if (!renamingCollection) return;
+    const onWindowKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        closeRenameModal();
+      }
+    };
+    window.addEventListener('keydown', onWindowKeyDown);
+    return () => window.removeEventListener('keydown', onWindowKeyDown);
+  }, [closeRenameModal, renamingCollection]);
 
   const handleExportCollections = async () => {
     try {
@@ -178,7 +212,7 @@ export function GrpcCollectionsPanel({
             data-testid={`grpc-collection-group-rename-${collection.id}`}
             aria-label={`Rename ${collection.name}`}
             title="Rename collection"
-            onClick={() => { void handleRenameCollection(collection); }}
+            onClick={() => { openRenameCollectionModal(collection); }}
           >
             ✎
           </button>
@@ -207,7 +241,7 @@ export function GrpcCollectionsPanel({
               </div>
             ))}
             {visibleCount === 0 && (
-              <p className="grpc-collection-group__empty">No saved requests match your search.</p>
+              <p className="grpc-collection-group__empty">No saved requests yet.</p>
             )}
           </div>
         )}
@@ -225,7 +259,7 @@ export function GrpcCollectionsPanel({
       <aside className="grpc-collections-sidebar">
         <div className="grpc-collections-sidebar__header">
           <span className="grpc-collections-sidebar__title">
-            Collections ({collections.collections.length})
+            Collections ({nonEmptyCollectionsCount})
           </span>
           <div className="grpc-collections-sidebar__actions">
             <button
@@ -342,6 +376,51 @@ export function GrpcCollectionsPanel({
           }).catch(() => {});
         }}
       />
+      {renamingCollection && (
+        <div
+          className="grpc-collection-rename-modal"
+          data-testid="grpc-collection-rename-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Rename collection"
+        >
+          <div className="grpc-collection-rename-modal__header">
+            <h2 className="grpc-collection-rename-modal__title">Rename collection</h2>
+          </div>
+          <div className="grpc-collection-rename-modal__body">
+            <label className="grpc-label" htmlFor="grpc-collection-rename-input">
+              Collection name
+            </label>
+            <input
+              id="grpc-collection-rename-input"
+              data-testid="grpc-collection-rename-input"
+              className="grpc-input"
+              value={renameDraft}
+              onChange={(event) => setRenameDraft(event.target.value)}
+              autoFocus
+            />
+          </div>
+          <div className="grpc-collection-rename-modal__footer">
+            <button
+              type="button"
+              className="grpc-btn grpc-btn--ghost"
+              data-testid="grpc-collection-rename-cancel"
+              onClick={closeRenameModal}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="grpc-btn grpc-btn--primary"
+              data-testid="grpc-collection-rename-save"
+              onClick={() => { void handleRenameCollection(); }}
+              disabled={!renameDraft.trim() || renameDraft.trim() === renamingCollection.name}
+            >
+              Save
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

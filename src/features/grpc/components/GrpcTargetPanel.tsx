@@ -6,13 +6,6 @@ import {
   shouldShowGrpcInterpolationErrorBanner,
   type GrpcInterpolationPreviewViewMode,
 } from '../../../shared/grpc/grpcInterpolationPreviewModel';
-import {
-  resolveGrpcInterpolationAuthConfig,
-  resolveGrpcInterpolationJsonValue,
-  resolveGrpcInterpolationMetadata,
-} from '../../../shared/grpc/grpcInterpolationDeepResolver';
-import { sanitizeGrpcInterpolationDiagnosticMessage } from '../../../shared/grpc/grpcInterpolationDiagnostics';
-import { createGrpcInterpolationTemplateResolver } from '../../../shared/grpc/grpcInterpolationResolver';
 import { useGrpcTargetValidation } from '../hooks/useGrpcTargetValidation';
 import { GrpcInterpolationErrorBanner } from './GrpcInterpolationErrorBanner';
 import { GrpcInterpolationPreviewStrip } from './GrpcInterpolationPreviewStrip';
@@ -48,10 +41,6 @@ export function GrpcTargetPanel({
   profiles = [],
   connectionId,
   tabOverrides,
-  body,
-  metadata,
-  auth,
-  pageDefaults,
   showValidation = true,
 }: GrpcTargetPanelProps) {
   const [viewMode, setViewMode] = useState<GrpcInterpolationPreviewViewMode>('template');
@@ -65,7 +54,6 @@ export function GrpcTargetPanel({
     profiles,
     connectionId,
     tabOverrides,
-    pageDefaults,
   });
 
   useEffect(() => {
@@ -99,32 +87,6 @@ export function GrpcTargetPanel({
   const stripHintMessage = showErrorBanner
     ? GRPC_INTERPOLATION_BANNER_STRIP_HINT
     : validation.message;
-
-  const resolvedPayloadPreview = useMemo(() => {
-    if (viewMode !== 'resolved') {
-      return undefined;
-    }
-    try {
-      const resolveTemplate = createGrpcInterpolationTemplateResolver(validation.interpolationEnv);
-      const resolvedBody = resolveGrpcInterpolationJsonValue(body ?? {}, resolveTemplate);
-      const resolvedMetadata = resolveGrpcInterpolationMetadata(metadata ?? {}, resolveTemplate);
-      const resolvedAuth = resolveGrpcInterpolationAuthConfig(auth, resolveTemplate) ?? { type: 'none' };
-      const preview = JSON.stringify(
-        {
-          body: resolvedBody,
-          metadata: resolvedMetadata,
-          auth: resolvedAuth,
-        },
-        null,
-        2,
-      );
-      return sanitizeGrpcInterpolationDiagnosticMessage(preview, {
-        env: validation.interpolationEnv,
-      });
-    } catch {
-      return undefined;
-    }
-  }, [viewMode, validation.interpolationEnv, body, metadata, auth]);
 
   if (!showValidation) {
     return null;
@@ -177,12 +139,7 @@ export function GrpcTargetPanel({
             Accepted formats: `host:port`, `[ipv6]:port`, `in-process:&lt;name&gt;`
           </p>
         )}
-        {resolvedPayloadPreview && (
-          <div className="grpc-target-hint grpc-target-hint--secondary" data-testid="grpc-interpolation-payload-preview">
-            <strong>Resolved payload preview (body/metadata/auth)</strong>
-            <pre data-testid="grpc-interpolation-payload-preview-value">{resolvedPayloadPreview}</pre>
-          </div>
-        )}
+
       </div>
     </div>
   );

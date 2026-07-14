@@ -107,6 +107,28 @@ describe('protocol vars modals coverage gaps', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('ProtocolVarsModal saves pending key/value without clicking Add', () => {
+    const onClose = vi.fn();
+    const onSetGlobalVar = vi.fn();
+    const onDeleteGlobalVar = vi.fn();
+    render(
+      <ProtocolVarsModal
+        svc={{ id: 'svc-1', name: 'demo', globalVars: {} } as Microservice}
+        onClose={onClose}
+        onSetGlobalVar={onSetGlobalVar}
+        onDeleteGlobalVar={onDeleteGlobalVar}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('protocol-vars-key-input'), { target: { value: 'requestId' } });
+    fireEvent.change(screen.getByTestId('protocol-vars-val-input'), { target: { value: 'req-1' } });
+    fireEvent.click(screen.getByTestId('protocol-vars-save-btn'));
+
+    expect(onSetGlobalVar).toHaveBeenCalledWith('requestId', 'req-1');
+    expect(onDeleteGlobalVar).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
+  });
+
   it('ProtocolVarsModal resizes and save removes deleted globals', () => {
     const onClose = vi.fn();
     const onSetGlobalVar = vi.fn();
@@ -148,7 +170,8 @@ describe('protocol vars modals coverage gaps', () => {
       />,
     );
 
-    expect(screen.getByText(/No overrides for t01/)).toBeInTheDocument();
+    const emptyState = document.querySelector('.em-vars-modal-empty');
+    expect(emptyState?.textContent?.replace(/\s+/g, ' ').trim()).toContain('No overrides for t01');
 
     const keyInput = screen.getByTestId('env-vars-key-input');
     const valInput = screen.getByTestId('env-vars-val-input');

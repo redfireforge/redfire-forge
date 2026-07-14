@@ -37,11 +37,16 @@ export function EnvVarsModal({
   };
 
   const save = () => {
+    // Flush any uncommitted add-row entry before saving
+    const pending: Record<string, string> = {};
+    if (newKey.trim()) pending[newKey.trim()] = newVal;
+    const merged = { ...localOverrides, ...pending };
+
     const existing = svc.envVars?.[envId] ?? {};
     for (const key of Object.keys(existing)) {
-      if (!(key in localOverrides)) onDeleteEnvVar(envId, key);
+      if (!(key in merged)) onDeleteEnvVar(envId, key);
     }
-    for (const [k, v] of Object.entries(localOverrides)) {
+    for (const [k, v] of Object.entries(merged)) {
       onSetEnvVar(envId, k, v);
     }
     onClose();

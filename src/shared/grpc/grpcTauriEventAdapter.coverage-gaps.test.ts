@@ -74,7 +74,15 @@ describe('grpcTauriEventAdapter coverage gaps', () => {
     for (let seq = 2; seq <= GRPC_TAURI_EVENT_REORDER_BUFFER + 3; seq += 1) {
       buffer.accept(makeStreamEvent({ sequence: seq }));
     }
-    expect(buffer.getLastSequence()).toBe(0);
+    expect(buffer.getLastSequence()).toBe(GRPC_TAURI_EVENT_REORDER_BUFFER + 3);
+  });
+
+  it('GrpcTauriEventSequenceBuffer recovers when initial sequence is missed', () => {
+    const buffer = new GrpcTauriEventSequenceBuffer(0);
+    const released = buffer.accept(makeStreamEvent({ sequence: 2 }));
+    expect(released).toHaveLength(1);
+    expect(released[0]?.sequence).toBe(2);
+    expect(buffer.getLastSequence()).toBe(2);
   });
 
   it('listenGrpcTauriStreamEvents forwards accepted events and reports schema mismatch', async () => {
