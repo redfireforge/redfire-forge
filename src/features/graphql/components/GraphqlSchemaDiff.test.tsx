@@ -50,7 +50,7 @@ const defaultProps = {
 
 // Mock scroll + timers
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockSaveJsonFile.mockResolvedValue(undefined);
   mockSaveFile.mockResolvedValue(undefined);
   vi.useFakeTimers();

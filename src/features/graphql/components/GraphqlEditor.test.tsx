@@ -68,7 +68,7 @@ function makeProps(overrides: Partial<Parameters<typeof GraphqlEditor>[0]> = {})
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mountCallback = null;
   beforeMountCallback = null;
   onChangeCb = null;

@@ -13,7 +13,7 @@ vi.mock('uuid', () => ({
 
 describe('dataLoader', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     uuidCounter = 0;
   });
 

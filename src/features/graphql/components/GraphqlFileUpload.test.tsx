@@ -29,7 +29,7 @@ function defaultProps(overrides: Partial<GraphqlFileUploadProps> = {}): GraphqlF
 
 describe('GraphqlFileUpload', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders dropzone with hint text', () => {

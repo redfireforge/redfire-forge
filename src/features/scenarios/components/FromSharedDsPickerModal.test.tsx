@@ -44,7 +44,7 @@ function makeSharedDs(id: string, name: string, rows = 3, cols = 2): SharedDataS
 describe('FromSharedDsPickerModal', () => {
   const sharedDataSources = [makeSharedDs('ds1', 'Prod VINs', 5, 3), makeSharedDs('ds2', 'QA VINs', 2, 1)];
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the list of shared data sources', () => {
     render(<FromSharedDsPickerModal sharedDataSources={sharedDataSources} onConfirm={vi.fn()} onClose={vi.fn()} />);

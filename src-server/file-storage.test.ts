@@ -89,7 +89,7 @@ describe('getAppDataPath', () => {
 });
 
 describe('readJsonFileOrDefault', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('returns parsed JSON when file exists', async () => {
     mockFs.readFile.mockResolvedValue(JSON.stringify({ name: 'test' }));
@@ -114,7 +114,7 @@ describe('readJsonFileOrDefault', () => {
 });
 
 describe('writeJsonFile', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('creates directory and writes JSON', async () => {
     mockFs.mkdir.mockResolvedValue(undefined);
@@ -131,7 +131,7 @@ describe('writeJsonFile', () => {
 });
 
 describe('getWorkflow', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('returns workflow data when file exists', async () => {
     const workflow = { id: 'w1', name: 'Test', nodes: [], edges: [] };
@@ -150,7 +150,7 @@ describe('getWorkflow', () => {
 });
 
 describe('saveWorkflow', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('writes workflow JSON file', async () => {
     mockFs.mkdir.mockResolvedValue(undefined);
@@ -167,7 +167,7 @@ describe('saveWorkflow', () => {
 });
 
 describe('listWorkflows', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('returns workflow IDs from directory', async () => {
     mockFs.readdir.mockResolvedValue(['w1.json', 'w2.json', 'readme.txt'] as never);
@@ -192,7 +192,7 @@ describe('listWorkflows', () => {
 });
 
 describe('saveExecutionResult', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('writes execution result to dated folder', async () => {
     mockFs.mkdir.mockResolvedValue(undefined);
@@ -220,7 +220,7 @@ describe('saveExecutionResult', () => {
 });
 
 describe('getExecutionHistory', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('returns executions sorted by date (newest first)', async () => {
     mockFs.readdir
@@ -350,7 +350,7 @@ describe('getExecutionHistory', () => {
 });
 
 describe('logWebhookDelivery', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('appends JSONL line to daily file', async () => {
     mockFs.mkdir.mockResolvedValue(undefined);
@@ -376,7 +376,7 @@ describe('logWebhookDelivery', () => {
 });
 
 describe('getWebhookDeliveries', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('reads and parses JSONL file', async () => {
     const d1: WebhookDelivery = {
@@ -427,7 +427,7 @@ describe('getWebhookDeliveries', () => {
 });
 
 describe('loadScheduleTriggers', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('returns triggers from file', async () => {
     const triggers: ScheduleTrigger[] = [{
@@ -449,7 +449,7 @@ describe('loadScheduleTriggers', () => {
 });
 
 describe('saveScheduleTriggers', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('writes triggers JSON file', async () => {
     mockFs.mkdir.mockResolvedValue(undefined);
@@ -468,7 +468,7 @@ describe('saveScheduleTriggers', () => {
 });
 
 describe('loadWebhookTriggers', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('returns triggers from file', async () => {
     const triggers: WebhookTrigger[] = [{
@@ -490,7 +490,7 @@ describe('loadWebhookTriggers', () => {
 });
 
 describe('saveWebhookTriggers', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('writes triggers JSON file', async () => {
     mockFs.mkdir.mockResolvedValue(undefined);

@@ -33,7 +33,7 @@ import {
 
 describe('gql-demo-tab', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     document.body.innerHTML = `<div data-testid="gql-tab-bar"></div>`;
   });
 

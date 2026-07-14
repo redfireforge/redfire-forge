@@ -26,7 +26,7 @@ const profile = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.mocked(readConnectionProfiles).mockResolvedValue([profile]);
 });
 

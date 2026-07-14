@@ -27,7 +27,7 @@ function defaultProps(overrides = {}) {
 }
 
 describe('GqlSubscriptionControls', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { resetAllMocks(); });
 
   it('renders Subscribe button when idle', () => {
     render(<GqlSubscriptionControls {...defaultProps()} />);

@@ -23,7 +23,7 @@ const defaultProps = {
 
 describe('DefinitionVersionDiffModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders title, range labels (olderLabel → newerLabel)', () => {

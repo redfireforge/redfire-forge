@@ -51,7 +51,7 @@ describe('DetailOverviewTab coverage gaps', () => {
 
   afterEach(() => {
     cleanup();
-    vi.clearAllMocks();
+    resetAllMocks();
     computeHistogramBinsMock.mockReset();
     computeHistogramBinsMock.mockImplementation((durations: number[]) => {
       if (durations.length === 0) return [];

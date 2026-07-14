@@ -10,7 +10,7 @@ vi.mock('./grpcApiClient', () => ({
 
 describe('resolveGrpcWorkflowDescriptorByKey', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns descriptor from lookup API', async () => {

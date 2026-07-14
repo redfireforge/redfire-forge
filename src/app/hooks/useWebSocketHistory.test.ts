@@ -16,7 +16,7 @@ const mockLoad = vi.mocked(storageModule.loadWsHistory);
 const mockSave = vi.mocked(storageModule.saveWsHistory);
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockLoad.mockResolvedValue([]);
   mockSave.mockResolvedValue(undefined);
 });

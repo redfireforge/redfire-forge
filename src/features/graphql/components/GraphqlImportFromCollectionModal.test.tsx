@@ -44,7 +44,7 @@ describe('GraphqlImportFromCollectionModal', () => {
   const onCancel = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockUseGraphqlCollections.mockReturnValue({
       trees: [],
       loading: false,

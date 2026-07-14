@@ -70,7 +70,7 @@ const baseParams = () => ({
 
 describe('useGraphqlBatchExecution — coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     global.fetch = vi.fn();
   });
 

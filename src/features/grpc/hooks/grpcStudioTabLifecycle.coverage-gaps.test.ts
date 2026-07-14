@@ -38,7 +38,7 @@ const flushMicrotasks = () => new Promise<void>((resolve) => {
 
 describe('grpcStudioTabLifecycle coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(isTauri).mockReturnValue(true);
     tauriMocks.getCurrentWindow.mockImplementation(async () => ({
       onCloseRequested: vi.fn(async () => tauriMocks.disposeCloseRequested),

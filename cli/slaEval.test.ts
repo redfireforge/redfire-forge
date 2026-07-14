@@ -35,7 +35,7 @@ function makeTarget(overrides: Partial<SlaTarget> = {}): SlaTarget {
 
 describe('loadSlaTargetFile', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('parses a valid array of SLA targets', () => {

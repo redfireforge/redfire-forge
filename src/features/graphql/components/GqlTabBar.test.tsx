@@ -47,7 +47,7 @@ describe('GqlTabBar', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders all tabs', () => {

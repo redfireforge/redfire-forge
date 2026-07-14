@@ -38,7 +38,7 @@ const profiles: GlobalAuthProfile[] = [
 ];
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockIsTauri.mockReturnValue(false);
 });
 

@@ -61,7 +61,7 @@ describe('cron-scheduler', () => {
   let scheduler: typeof import('./cron-scheduler.js');
 
   beforeEach(async () => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockCronValidate.mockReturnValue(true);
     mockCronSchedule.mockReturnValue(makeTask());
     mockLoadScheduleTriggers.mockResolvedValue([]);

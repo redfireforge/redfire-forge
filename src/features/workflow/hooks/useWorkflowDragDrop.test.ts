@@ -80,7 +80,7 @@ const defaultOpts = () => {
 describe('useWorkflowDragDrop', () => {
   beforeEach(() => {
     uuidSeq = 0;
-    vi.clearAllMocks();
+    resetAllMocks();
     mockFindClosest.mockReturnValue(null);
     getNodes.mockReturnValue([]);
   });

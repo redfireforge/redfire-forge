@@ -70,7 +70,7 @@ vi.mock('uuid', () => ({
 
 describe('workflowNodeFactory', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('nodeTypes', () => {

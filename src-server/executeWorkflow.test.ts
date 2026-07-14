@@ -31,7 +31,7 @@ function makeWorkflow(overrides: Partial<Workflow> = {}): Workflow {
 
 describe('executeWorkflow', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('calls runGraph with correct parameters', async () => {
@@ -283,7 +283,7 @@ describe('executeWorkflow', () => {
 
 describe('saveErrorResult', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('saves error execution result with status "error"', async () => {

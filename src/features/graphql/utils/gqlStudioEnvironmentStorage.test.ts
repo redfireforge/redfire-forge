@@ -37,7 +37,7 @@ function makeEnv(overrides: Partial<GraphqlEnvironment> = {}): GraphqlEnvironmen
 
 describe('gqlStudioEnvironmentStorage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockWriteKey.mockResolvedValue(undefined);
   });
 

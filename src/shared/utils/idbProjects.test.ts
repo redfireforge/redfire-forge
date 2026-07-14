@@ -56,7 +56,7 @@ function createMockProject(id = 'proj-1') {
 
 describe('idbProjects', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
     mockGetResult = undefined;
     mockGetShouldError = false;

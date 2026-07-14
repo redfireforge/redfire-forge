@@ -36,7 +36,7 @@ const makeFolder = (overrides: Partial<WorkflowFolder> & { id: string }): Workfl
 
 describe('useWorkflowFolders', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockLoadFolders.mockResolvedValue([]);
   });
 

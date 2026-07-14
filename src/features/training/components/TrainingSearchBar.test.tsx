@@ -21,7 +21,7 @@ describe('TrainingSearchBar', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders search input', () => {

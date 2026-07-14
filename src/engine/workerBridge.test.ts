@@ -41,7 +41,7 @@ function mockWorker(): MockWorker {
 
 describe('workerBridge — runTestInWorker', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     tracker.all.length = 0;
     tracker.current = undefined;
     mockedIsTauri.mockReturnValue(false);

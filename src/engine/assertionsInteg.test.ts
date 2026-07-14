@@ -29,7 +29,7 @@ describe('requestExecution with rich assertions', () => {
   const mockedFetch = vi.mocked(httpFetch);
 
   beforeEach(async () => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.resetModules();
     const mod = await import('./requestExecution');
     runSequential = mod.runSequential;

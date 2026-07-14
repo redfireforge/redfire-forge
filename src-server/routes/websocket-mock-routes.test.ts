@@ -26,7 +26,7 @@ describe('websocket-mock-routes', () => {
   let service: ReturnType<typeof createMockService>;
   let app: express.Express;
 
-  afterEach(() => { vi.clearAllMocks(); });
+  afterEach(() => { resetAllMocks(); });
 
   beforeEach(() => {
     service = createMockService();

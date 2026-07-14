@@ -52,7 +52,7 @@ describe('TrainingPathCard', () => {
   const mockOnNavigateToSample = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders path name, icon, and description', () => {

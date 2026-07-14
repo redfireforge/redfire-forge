@@ -115,7 +115,7 @@ describe('storageWorkflows — browser (IDB primary)', () => {
     localStorage.clear();
     isTauriMock.mockReturnValue(false);
     resetWorkflowsStore();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('loadWorkflows / saveWorkflows', () => {
@@ -329,7 +329,7 @@ describe('storageWorkflows — tauri backend', () => {
       if (value === '') tauriStoreMap.delete(key);
       else tauriStoreMap.set(key, value);
     });
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('loadWorkflows reads from tauriStore', async () => {

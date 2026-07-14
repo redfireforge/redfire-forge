@@ -33,7 +33,7 @@ describe('grpcChannelCredentials (Phase 4F)', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('uses insecure credentials when tlsMode is disabled', () => {

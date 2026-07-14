@@ -38,7 +38,7 @@ const allMockWorkers = tracker.all;
 
 describe('workerBridge — runTestMultiWorker', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     tracker.all.length = 0;
     tracker.current = undefined;
     mockedIsTauri.mockReturnValue(false);

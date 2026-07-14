@@ -113,7 +113,7 @@ describe('CatalogImportModal', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     platformMocks.isTauri = false;
     tauriMocks.reset();
     tauriMocks.readTextFile.mockResolvedValue('openapi: 3.0\ninfo:\n  title: TauriSpec');

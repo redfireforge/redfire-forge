@@ -14,7 +14,7 @@ const emptyPivot = {
 
 describe('ValidationRulesSummary', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders nothing when there are no expected fields', () => {

@@ -22,7 +22,7 @@ import { parse as gqlParse, print as gqlPrint } from 'graphql';
 const mockParse = vi.mocked(gqlParse);
 const mockPrint = vi.mocked(gqlPrint);
 
-beforeEach(() => { vi.clearAllMocks(); });
+beforeEach(() => { resetAllMocks(); });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
 

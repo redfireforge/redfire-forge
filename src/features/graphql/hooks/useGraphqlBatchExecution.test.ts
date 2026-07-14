@@ -73,7 +73,7 @@ const defaultParams = () => {
 
 describe('useGraphqlBatchExecution', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(findUnresolvedVars).mockReturnValue([]);
     vi.mocked(buildAuthHeaders).mockReturnValue({});
     global.fetch = vi.fn();

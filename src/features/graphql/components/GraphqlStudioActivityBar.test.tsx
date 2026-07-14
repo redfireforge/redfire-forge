@@ -26,7 +26,7 @@ const mockPersist = vi.mocked(persistActivityTab);
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockIsTauri.mockReturnValue(false);
 });
 

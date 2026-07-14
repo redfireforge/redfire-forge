@@ -220,7 +220,7 @@ describe('buildRulesVersion', () => {
 
 describe('buildAuthedRequest', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('builds headers from scenario headers', async () => {

@@ -48,7 +48,7 @@ describe('GqlBottomPanel', () => {
     onFileEntriesChange: vi.fn(),
   };
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders Variables tab as active', () => {
     render(<GqlBottomPanel {...baseProps} />);

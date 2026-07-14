@@ -25,7 +25,7 @@ describe('httpFetch node dispatcher (ProxyAgent fallback)', () => {
     for (const k of ['HTTP_PROXY', 'http_proxy', 'HTTPS_PROXY', 'https_proxy'] as const) {
       delete process.env[k];
     }
-    vi.clearAllMocks();
+    resetAllMocks();
     globalThis.fetch = vi.fn();
   });
 

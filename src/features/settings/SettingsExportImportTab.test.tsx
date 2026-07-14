@@ -62,7 +62,7 @@ function renderTab(overrides: Partial<React.ComponentProps<typeof SettingsExport
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockIsTauri = false;
   mockHasVersionData = false;
   mSave.mockResolvedValue(undefined);

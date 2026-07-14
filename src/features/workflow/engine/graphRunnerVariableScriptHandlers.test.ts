@@ -33,7 +33,7 @@ const mockFetch = getMockFetch();
 const mockExecuteScript = getMockExecuteScript();
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockFetch.mockResolvedValue({
     status: 200,
     statusText: 'OK',

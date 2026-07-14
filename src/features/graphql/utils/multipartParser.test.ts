@@ -93,7 +93,7 @@ import { meros } from 'meros/browser';
 const mockMeros = vi.mocked(meros);
 
 describe('parseMultipartMixed', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('does nothing when meros returns the Response (not multipart)', async () => {
     const fakeResponse = {} as Response; // no Symbol.asyncIterator
