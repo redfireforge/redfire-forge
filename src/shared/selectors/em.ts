@@ -23,10 +23,27 @@ export const EM = {
   ADD_PROTOCOL_BTN:     '[data-testid="em-add-protocol-btn"]',
   /** Derived-variables panel on a protocol tab (protocol key suffix). */
   DERIVED_VARS_GQL:     '[data-testid="derived-vars-graphql"]',
+  DERIVED_VARS_GRPC:    '[data-testid="derived-vars-grpc"]',
   /** Workspace Defaults (Interpolation) section — bottom of the Environment Manager page. */
   WS_DEFAULT_KEY_INPUT:   '[data-testid="em-ws-default-key-input"]',
   WS_DEFAULT_VALUE_INPUT: '[data-testid="em-ws-default-value-input"]',
   WS_DEFAULT_SAVE_BTN:    '[data-testid="em-ws-default-save-btn"]',
+  /** Protocol vars badge — opens the Protocol Variables modal. */
+  PROTOCOL_VARS_BADGE:     '[data-testid="protocol-vars-badge"]',
+  /** Protocol vars modal elements. */
+  PROTOCOL_VARS_MODAL:     '[data-testid="protocol-vars-modal"]',
+  PROTOCOL_VARS_KEY_INPUT: '[data-testid="protocol-vars-key-input"]',
+  PROTOCOL_VARS_VAL_INPUT: '[data-testid="protocol-vars-val-input"]',
+  PROTOCOL_VARS_ADD_BTN:   '[data-testid="protocol-vars-add-btn"]',
+  PROTOCOL_VARS_SAVE_BTN:  '[data-testid="protocol-vars-save-btn"]',
+  PROTOCOL_VARS_CLOSE_BTN: '[data-testid="protocol-vars-close-btn"]',
+  /** Env vars modal elements. */
+  ENV_VARS_MODAL:     '[data-testid="env-vars-modal"]',
+  ENV_VARS_KEY_INPUT: '[data-testid="env-vars-key-input"]',
+  ENV_VARS_VAL_INPUT: '[data-testid="env-vars-val-input"]',
+  ENV_VARS_ADD_BTN:   '[data-testid="env-vars-add-btn"]',
+  ENV_VARS_SAVE_BTN:  '[data-testid="env-vars-save-btn"]',
+  ENV_VARS_CLOSE_BTN: '[data-testid="env-vars-close-btn"]',
 } as const;
 
 /**
@@ -45,6 +62,36 @@ export function emWsDefaultRowValueSel(key: string): string {
 /** Delete button for an existing Workspace Default row. */
 export function emWsDefaultDeleteSel(key: string): string {
   return `[data-testid="em-ws-default-delete-${key}"]`;
+}
+
+/**
+ * Selector for the Env vars badge on a specific environment row.
+ * Usage: `emEnvVarsBadgeSel('env-local')` → `'[data-testid="env-vars-badge-env-local"]'`
+ */
+export function emEnvVarsBadgeSel(envId: string): string {
+  return `[data-testid="env-vars-badge-${envId}"]`;
+}
+
+/** Protocol vars modal — row for an existing variable. */
+export function emProtocolVarRowSel(key: string): string {
+  return `[data-testid="protocol-var-row-${key}"]`;
+}
+export function emProtocolVarValueSel(key: string): string {
+  return `[data-testid="protocol-var-value-${key}"]`;
+}
+export function emProtocolVarDeleteSel(key: string): string {
+  return `[data-testid="protocol-var-delete-${key}"]`;
+}
+
+/** Env vars modal — row for an existing override variable. */
+export function emEnvVarRowSel(key: string): string {
+  return `[data-testid="env-var-row-${key}"]`;
+}
+export function emEnvVarValueSel(key: string): string {
+  return `[data-testid="env-var-value-${key}"]`;
+}
+export function emEnvVarDeleteSel(key: string): string {
+  return `[data-testid="env-var-delete-${key}"]`;
 }
 
 /**

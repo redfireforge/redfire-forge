@@ -635,11 +635,13 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         'The `{{authToken}}` template resolves against the **active environment**. ' +
         'The **Interpolation Preview Strip** below the target field shows the resolved value — ' +
         'or an orange **Interpolation Error** banner if `authToken` is missing from the environment.\n\n' +
-        'This pattern lets you drive metadata values from environment configs: switch between ' +
-        '`local`, `staging`, and `production` environments and the metadata values update automatically ' +
-        'without editing the call. Use `{{grpcHost}}` in the target, `{{authToken}}` in metadata, ' +
-        'and `{{userId}}` in the request body for fully environment-driven gRPC calls. ' +
-        'Then click **Send Unary** and confirm the **Response Body** renders successfully.',
+        'In production, define `authToken` as a **Custom Variable** inside your microservice Configure panel ' +
+        '(one value per environment — `local`, `staging`, `production`). The Workspace Defaults section ' +
+        'provides a global fallback for the same key.\n\n' +
+        'This pattern lets you drive metadata values from environment configs: switch environments and ' +
+        'the metadata values update automatically without editing the call. Use `{{grpcHost}}` in the ' +
+        'target, `{{authToken}}` in metadata, and `{{userId}}` in the request body for fully ' +
+        'environment-driven gRPC calls. Then click **Send Unary** and confirm the **Response Body** renders successfully.',
       // METADATA_EDITOR is always visible once metadata tab is active.
       highlight: GRPC.METADATA_EDITOR,
       pauseAfter: true,

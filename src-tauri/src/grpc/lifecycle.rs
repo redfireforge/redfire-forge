@@ -6,9 +6,10 @@ use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use serde_json::Value;
-use tauri::State;
+use tauri::{AppHandle, State};
 
 use crate::grpc::envelope::{error_envelope, success_envelope};
+use crate::grpc::events::emit_grpc_event;
 use crate::grpc::state::GrpcState;
 use crate::grpc::types::{
     GrpcTauriTabCleanupRequest, GrpcTauriTabCleanupResult, GRPC_TAURI_INVALID_REQUEST,
@@ -84,6 +85,7 @@ pub fn execute_grpc_tab_cleanup(state: &GrpcState, request: GrpcTauriTabCleanupR
 }
 
 pub fn execute_grpc_tab_events_attach(
+    app: &AppHandle,
     state: &GrpcState,
     request: GrpcTauriTabCleanupRequest,
 ) -> Value {
@@ -117,6 +119,14 @@ pub fn execute_grpc_tab_events_attach(
     }
 
     state.record_tab_event_listener_attached(tab_id);
+    let (pending_events, terminal_streams) =
+        state.stream_registry.drain_pending_events_for_tab(tab_id);
+    for event in pending_events {
+        let _ = emit_grpc_event(app, tab_id, event);
+    }
+    for stream_id in terminal_streams {
+        state.stream_registry.remove(&stream_id);
+    }
     success_envelope(
         op,
         GrpcTauriTabEventsAck {
@@ -282,10 +292,11 @@ pub async fn grpc_tab_cleanup(
 
 #[tauri::command]
 pub async fn grpc_tab_events_attach(
+    app: AppHandle,
     state: State<'_, GrpcState>,
     request: GrpcTauriTabCleanupRequest,
 ) -> Result<Value, String> {
-    Ok(execute_grpc_tab_events_attach(&state, request))
+    Ok(execute_grpc_tab_events_attach(&app, &state, request))
 }
 
 #[tauri::command]

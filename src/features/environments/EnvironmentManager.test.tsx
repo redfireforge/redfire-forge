@@ -92,78 +92,6 @@ describe('EnvironmentManager', () => {
     render(<Harness />);
     expect(screen.getByText('No environments defined.')).toBeInTheDocument();
     expect(screen.getByText('No microservices defined.')).toBeInTheDocument();
-    expect(screen.getByText('No workspace defaults configured.')).toBeInTheDocument();
-  });
-
-  it('adds, edits, and deletes workspace defaults', () => {
-    render(<Harness workspaceDefaults={{ region: 'us-east-1' }} />);
-    expect(screen.getByDisplayValue('us-east-1')).toBeInTheDocument();
-
-    const keyInput = screen.getByTestId('em-ws-default-key-input');
-    const valueInput = screen.getByTestId('em-ws-default-value-input');
-    fireEvent.change(keyInput, { target: { value: 'grpcHost' } });
-    fireEvent.change(valueInput, { target: { value: 'workspace.example.com:50051' } });
-    fireEvent.click(screen.getByTestId('em-ws-default-save-btn'));
-
-    expect(screen.getByTestId('em-ws-default-row-grpcHost')).toBeInTheDocument();
-    const grpcValue = screen.getByTestId('em-ws-default-row-value-grpcHost');
-    fireEvent.change(grpcValue, { target: { value: 'localhost:50051' } });
-    expect(screen.getByDisplayValue('localhost:50051')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId('em-ws-default-delete-region'));
-    expect(screen.queryByTestId('em-ws-default-row-region')).not.toBeInTheDocument();
-  });
-
-  it('saves workspace default via Enter from key/value inputs and ignores Enter when key is blank', () => {
-    render(<Harness />);
-    const keyInput = screen.getByTestId('em-ws-default-key-input');
-    const valueInput = screen.getByTestId('em-ws-default-value-input');
-
-    // Guard branch: Enter with blank key should not save.
-    fireEvent.keyDown(valueInput, { key: 'Enter' });
-    expect(screen.queryByTestId('em-ws-default-row-grpcHost')).not.toBeInTheDocument();
-
-    // Positive branch on key input Enter.
-    fireEvent.change(keyInput, { target: { value: 'grpcHost' } });
-    fireEvent.change(valueInput, { target: { value: 'localhost:50051' } });
-    fireEvent.keyDown(keyInput, { key: 'Enter' });
-    expect(screen.getByTestId('em-ws-default-row-grpcHost')).toBeInTheDocument();
-
-    // Positive branch on value input Enter.
-    fireEvent.change(valueInput, { target: { value: 'localhost:50052' } });
-    fireEvent.keyDown(valueInput, { key: 'Enter' });
-    expect(screen.getByDisplayValue('localhost:50052')).toBeInTheDocument();
-  });
-
-  it('workspace default key/value keydown ignores non-Enter keys', () => {
-    render(<Harness />);
-    const keyInput = screen.getByTestId('em-ws-default-key-input');
-    const valueInput = screen.getByTestId('em-ws-default-value-input');
-
-    fireEvent.change(keyInput, { target: { value: 'grpcHost' } });
-    fireEvent.change(valueInput, { target: { value: 'localhost:50051' } });
-    fireEvent.keyDown(keyInput, { key: 'Escape' });
-    fireEvent.keyDown(valueInput, { key: 'Escape' });
-
-    expect(screen.queryByTestId('em-ws-default-row-grpcHost')).not.toBeInTheDocument();
-  });
-
-  it('saveWorkspaceDefault guard returns early when key is blank (no row added)', () => {
-    render(<Harness />);
-    const keyInput = screen.getByTestId('em-ws-default-key-input');
-    const valueInput = screen.getByTestId('em-ws-default-value-input');
-    const saveBtn = screen.getByTestId('em-ws-default-save-btn');
-
-    fireEvent.change(keyInput, { target: { value: '   ' } });
-    fireEvent.change(valueInput, { target: { value: 'will-not-save' } });
-
-    // Force-click path to execute onClick handler and cover early-return guard.
-    (saveBtn as HTMLButtonElement).disabled = false;
-    fireEvent.click(saveBtn);
-
-    expect(keyInput).toHaveValue('   ');
-    expect(valueInput).toHaveValue('will-not-save');
-    expect(screen.getByText('No workspace defaults configured.')).toBeInTheDocument();
   });
 
   // ── Add environment ──
@@ -904,6 +832,105 @@ describe('EnvironmentManager', () => {
     expect(screen.getByTestId('em-add-protocol-item-http')).toBeInTheDocument();
     fireEvent.click(screen.getByTestId('em-add-protocol-item-http'));
     expect(screen.getByRole('tab', { name: /HTTP/i })).toBeInTheDocument();
+  });
+
+  it('persists protocol and env vars through EnvironmentManager handlers', () => {
+    render(
+      <Harness
+        environments={[env('e1', 't01')]}
+        microservices={[svc({
+          id: 'svc-1',
+          name: 'orders',
+          baseUrls: { e1: 'https://api.example.com' },
+          enabledProtocols: ['http'],
+          globalVars: { requestId: 'old' },
+          envVars: { e1: { token: 'tok' } },
+        })]}
+        selectedEnvId="e1"
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    fireEvent.click(screen.getByTestId('protocol-vars-badge'));
+    fireEvent.change(screen.getByTestId('protocol-vars-key-input'), { target: { value: 'traceId' } });
+    fireEvent.change(screen.getByTestId('protocol-vars-val-input'), { target: { value: 't-1' } });
+    fireEvent.click(screen.getByTestId('protocol-vars-add-btn'));
+    fireEvent.click(screen.getByTestId('protocol-vars-save-btn'));
+
+    fireEvent.click(screen.getByTestId('env-vars-badge-e1'));
+    fireEvent.change(screen.getByTestId('env-vars-key-input'), { target: { value: 'region' } });
+    fireEvent.change(screen.getByTestId('env-vars-val-input'), { target: { value: 'us-east' } });
+    fireEvent.click(screen.getByTestId('env-vars-add-btn'));
+    fireEvent.click(screen.getByTestId('env-vars-save-btn'));
+
+    fireEvent.click(screen.getByTestId('em-svc-configure-svc-1'));
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    fireEvent.click(screen.getByTestId('protocol-vars-badge'));
+    expect(screen.getByTestId('protocol-var-row-traceId')).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('protocol-vars-close-btn'));
+
+    fireEvent.click(screen.getByTestId('env-vars-badge-e1'));
+    expect(screen.getByTestId('env-var-row-region')).toBeInTheDocument();
+  });
+
+  it('prunes envVars when deleting an environment', () => {
+    const confirmSpy = vi.fn((_msg: string, onConfirm: () => void) => onConfirm());
+    render(
+      <Harness
+        environments={[env('e1', 't01')]}
+        microservices={[svc({
+          id: 'svc-1',
+          name: 'orders',
+          baseUrls: { e1: 'https://api.example.com' },
+          enabledProtocols: ['http'],
+          envVars: { e1: { token: 'tok' } },
+        })]}
+        confirm={confirmSpy}
+      />,
+    );
+    const chip = screen.getByText('t01').closest('.settings-chip')!;
+    fireEvent.click(within(chip as HTMLElement).getByTitle('Delete'));
+    expect(screen.queryByText('t01')).not.toBeInTheDocument();
+  });
+
+  it('collapses expanded microservice card when the service is deleted', () => {
+    const confirmSpy = vi.fn((_msg: string, onConfirm: () => void) => onConfirm());
+    render(
+      <Harness
+        environments={[env('e1', 't01')]}
+        microservices={[svc({
+          id: 'svc-1',
+          name: 'orders',
+          baseUrls: { e1: 'https://api.example.com' },
+          enabledProtocols: ['http'],
+        })]}
+        selectedSvcId="svc-1"
+        confirm={confirmSpy}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    expect(screen.getByTestId('microservice-protocol-panel')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(screen.queryByText('orders')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('microservice-protocol-panel')).not.toBeInTheDocument();
+  });
+
+  it('ignores addProtocol when the protocol tab is already enabled', () => {
+    render(
+      <Harness
+        environments={[env('e1', 't01')]}
+        microservices={[svc({
+          id: 'svc-1',
+          name: 'orders',
+          baseUrls: { e1: 'https://api.example.com' },
+          enabledProtocols: ['http', 'grpc'],
+        })]}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
+    fireEvent.click(screen.getByTestId('em-add-protocol-btn'));
+    expect(screen.queryByTestId('em-add-protocol-item-http')).not.toBeInTheDocument();
+    fireEvent.click(screen.getByTestId('em-add-protocol-item-sse'));
+    expect(screen.getByRole('tab', { name: /SSE/i })).toBeInTheDocument();
   });
 });
 

@@ -611,6 +611,12 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
         await reflectAndSelectEchoVisible(ctx);
         await ctx.delay(GRPC19_SETTLE_MS);
 
+        // Guard: re-fill message right before Send. When the target switches
+        // from Envoy (:50055) to :50051, auto-reflection can reset the form
+        // body after reflectAndSelectEchoVisible already filled it.
+        await fillGrpcEchoMessage(ctx);
+        await ctx.delay(200);
+
         await spotlightAndPause(ctx, GRPC.SEND_BTN, GRPC19_SWITCH_MS);
         await ctx.click(GRPC.SEND_BTN);
         await ctx.waitFor(`${GRPC.RESPONSE_ERROR_PANEL}, ${GRPC.RETRY_EXPRESS_BTN}`, 12_000);

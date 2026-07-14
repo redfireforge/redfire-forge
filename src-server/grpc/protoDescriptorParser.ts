@@ -12,6 +12,7 @@ import {
   getCachedProtoIngestRoot,
   parseUserProtoFilesIntoRoot,
 } from './protoFileDescriptorPool.js';
+import { normalizeFileDescriptorSetForProst } from './prostDescriptorNormalizer.js';
 
 export type { ProtoFileInput };
 
@@ -151,5 +152,9 @@ export function parseDescribeRequestSource(request: GrpcDescribeRequest): protob
 export function encodeRootAsProtosetBase64(root: protobuf.Root): string {
   root.resolveAll();
   const fileDescriptorSet = root.toDescriptor('proto3');
+  // protobufjs emits type references without a leading dot and drops per-file
+  // `dependency` arrays. Restore them (+ topological order) so strict consumers
+  // like prost-reflect (Tauri native) can resolve cross-file WKT references.
+  normalizeFileDescriptorSetForProst(fileDescriptorSet);
   return Buffer.from(descriptor.FileDescriptorSet.encode(fileDescriptorSet).finish()).toString('base64');
 }
