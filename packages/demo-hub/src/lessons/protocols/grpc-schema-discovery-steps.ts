@@ -22,6 +22,7 @@ import {
   ECHO_SCHEMA_NODE_SEL,
   ELIZA_SERVICE_SEL,
   LOOKUP_REQUEST_JSON,
+  LOOKUP_REQUEST_JSON_COMPACT,
   LOOKUP_SCHEMA_NODE_SEL,
   SAMPLE_BSR_MODULE,
   SAMPLE_BSR_VERSION,
@@ -319,6 +320,8 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         if (hasFiles) {
           await ctx.click(GRPC.PROTO_LOAD_BTN);
           await ctx.delay(700);
+          // Highlight the left side Virtual roots section after loading
+          await spotlightAndPause(ctx, GRPC.PROTO_ROOT_LIST, 750);
           await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 850);
         }
       },
@@ -399,7 +402,7 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       title: 'Open in Tab and Execute Unary',
       description:
         'Click **Open in tab** to bind the method into the call panel. The modal closes and the **Form Input** composer appears. ' +
-        `Fill the request with \`${LOOKUP_REQUEST_JSON}\` (or Echo fallback), send the unary call, then pause on **OK** status and the response body.`,
+        `Fill the request with \`${LOOKUP_REQUEST_JSON_COMPACT}\` (or Echo fallback), send the unary call, then pause on **OK** status and the response body.`,
       highlight: GRPC.SCHEMA_OPEN_TAB_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
