@@ -287,9 +287,12 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       },
       action: async (ctx) => {
         await ensureGrpcRequestFormTabQuiet(ctx);
-        await spotlightEchoComposer(ctx);
+        // The composer was already introduced in the previous step, so this step
+        // stays on a single focal target: the highlighted Form Input box. Fill the
+        // message inside it and pause — no competing inner spotlight rings that
+        // would flash "other parts" while the step's box keeps showing.
         await fillGrpcEchoMessage(ctx, GRPC_DEMO_MESSAGE);
-        await spotlightAndPause(ctx, grpcEchoComposerFieldSelector(), 900);
+        await ctx.delay(900);
       },
     },
 
