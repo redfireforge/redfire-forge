@@ -5,14 +5,9 @@ import { upsertWorkspaceDefaults } from '../../adapters';
 import {
   GRPC_DEMO_MESSAGE,
   closeGrpcSettingsDrawerQuiet,
-  ensureEchoMethodSelected,
-  ensureGrpcReflected,
-  ensureGrpcStudioSubNavQuiet,
-  ensureGrpcTarget,
   ensureUnaryExecuted,
   spotlightAndPause,
 } from './grpc-lesson-helpers';
-import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import {
   DEMO_API_KEY_NAME,
   DEMO_API_KEY_VALUE,
@@ -38,7 +33,6 @@ import {
   selectAuthType,
   spotlightAuthField,
   spotlightMetadataRowKeyValue,
-  switchToFormTabQuiet,
   tryFillAuthField,
   waitForIfMissing,
 } from './grpc-metadata-auth-helpers';
@@ -65,20 +59,6 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         'Auth settings apply per-tab — changing them on one gRPC tab does not affect others.',
       highlight: GRPC.CONNECTION_SETTINGS_BTN,
       pauseAfter: true,
-      preAction: async (ctx) => {
-        await navigateToGrpcStudio(ctx);
-        await closeGrpcSettingsDrawerQuiet(ctx);
-        await ensureGrpcStudioSubNavQuiet(ctx);
-        await ensureGrpcTarget(ctx);
-        await ensureGrpcReflected(ctx);
-        await ensureEchoMethodSelected(ctx);
-
-        // Cleanup belt: lesson should always begin from a neutral composer state.
-        await resetAuthToNoneQuiet(ctx);
-        await clearAllMetadataRowsQuiet(ctx);
-        await switchToFormTabQuiet(ctx);
-        await closeGrpcSettingsDrawerQuiet(ctx);
-      },
       action: async (ctx) => {
         await openSettingsDrawerQuiet(ctx);
         // Hold on the open panel so viewers can orient before tab tour starts.
