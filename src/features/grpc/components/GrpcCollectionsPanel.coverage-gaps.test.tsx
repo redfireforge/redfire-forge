@@ -880,4 +880,29 @@ describe('GrpcCollectionsPanel coverage gaps (Phase 5H)', () => {
 
     expect(screen.getByTestId('grpc-saved-request-detail')).toBeTruthy();
   });
+
+  it('closes rename modal on Escape and ignores empty import file selection', async () => {
+    const collection = collectionWithSaved();
+    render(
+      <GrpcCollectionsPanel
+        collections={buildCollectionsMock([collection])}
+        selectedSavedId={null}
+        onSelectSaved={vi.fn()}
+        grpcurlForSaved={() => 'grpcurl cmd'}
+        onOpenInStudio={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-collection-group-rename-col-1'));
+    expect(screen.getByTestId('grpc-collection-rename-input')).toBeTruthy();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByTestId('grpc-collection-rename-input')).toBeNull();
+    });
+
+    fireEvent.change(screen.getByTestId('grpc-collections-import-input'), {
+      target: { files: [] },
+    });
+  });
 });
