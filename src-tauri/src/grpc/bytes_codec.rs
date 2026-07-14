@@ -29,7 +29,9 @@ impl Decoder for BytesDecoder {
 
     fn decode(&mut self, src: &mut DecodeBuf<'_>) -> Result<Option<Self::Item>, Self::Error> {
         if src.remaining() == 0 {
-            return Ok(None);
+            // gRPC allows zero-length messages (e.g. google.protobuf.Empty).
+            // Returning None here makes tonic treat it as "missing response message".
+            return Ok(Some(Bytes::new()));
         }
         Ok(Some(src.copy_to_bytes(src.remaining())))
     }

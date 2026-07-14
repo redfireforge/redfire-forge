@@ -1,19 +1,24 @@
 /**
  * @vitest-environment jsdom
  */
-import { act, renderHook } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { act, renderHook} from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_REFLECT_SUCCESS_ENVELOPE,
 } from '../../../shared/grpc/contractFixtures';
 import { setGrpcClientTransport } from '../../../shared/grpc/grpcApiClient';
-import { useGrpcStudio } from './useGrpcStudio';
+const downloadProtosetFileMock = vi.hoisted(() => vi.fn());
+vi.mock('../utils/downloadProtoset', () => ({
+  downloadProtosetFile: (...args: unknown[]) => downloadProtosetFileMock(...args),
+}));
+
+import {useGrpcStudio } from './useGrpcStudio';
 import { PAGE_DEFAULTS, setupUseGrpcStudioHookTest } from './useGrpcStudio.testHelpers';
 
-beforeEach(() => setupUseGrpcStudioHookTest());
-
 describe('useGrpcStudio schema drift (Phase 3H)', () => {
+  beforeEach(() => setupUseGrpcStudioHookTest({ restoreMocks: true }));
+
   it('reflectTab preserves body and sets blocking drift when active method disappears', async () => {
     let reflectCount = 0;
     setGrpcClientTransport(async () => {
@@ -583,4 +588,3 @@ describe('useGrpcStudio schema drift (Phase 3H)', () => {
     expect(result.current.tabs.find((entry) => entry.id === tabId)?.service).toBeUndefined();
   });
 });
-

@@ -1,8 +1,10 @@
 /** GRPC-15 Spring Boot — lesson steps */
 import { GRPC } from '@shared/selectors';
-import { upsertWorkspaceDefaults } from '../../adapters';
+import { getDemoBridgeWindow, upsertWorkspaceDefaults } from '../../adapters';
 import {
+  GRPC_DEMO_MESSAGE,
   GRPC_ECHO_METHOD_SEL,
+  GRPC_ECHO_SERVICE,
   openGrpcSettingsDrawerQuiet,
   resetGrpcConnectionSettingsQuiet,
   setGrpcTargetQuiet,
@@ -18,15 +20,15 @@ import {
   bearerTokenFieldValue,
   ensureManageModalClosed,
   ensureManageModalOpen,
+  ensureMessageFilledQuiet,
+  ensureSpringStudioReady,
   ensureStudioNav,
   ensureTransportModeQuiet,
   fillBearerTokenField,
   isTransportModeActive,
   openAuthTabQuiet,
   reflectQuiet,
-  resetSpringBaselineQuiet,
   selectAuthTypeQuiet,
-  selectMethodQuiet,
   selectMethodVisible,
 } from './grpc-spring-boot-helpers';
 import type { GrpcDemoLesson } from './grpc-lesson-contract';
@@ -50,7 +52,12 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
       highlight: GRPC.CONNECTION_BAR,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await resetSpringBaselineQuiet(ctx);
+        // Step 1 only highlights the connection bar — skip reflect + method
+        // selection to avoid a long Preparing wait. Step 2 handles that.
+        await ensureStudioNav(ctx);
+        await resetGrpcConnectionSettingsQuiet(ctx);
+        await ensureTransportModeQuiet(ctx, 'express');
+        await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
       },
       action: async (ctx) => {
         await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 900);
@@ -79,10 +86,7 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
       highlight: GRPC.CONNECTION_BAR,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStudioNav(ctx);
-        await resetGrpcConnectionSettingsQuiet(ctx);
-        await ensureTransportModeQuiet(ctx, 'express');
-        await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
+        await ensureSpringStudioReady(ctx, { resetAuth: true });
       },
       action: async (ctx) => {
         await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 800);
@@ -96,7 +100,7 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
         } catch {
           await ctx.delay(400);
         }
-        await ctx.delay(600);
+        await ctx.delay(400);
 
         await spotlightAndPause(ctx, GRPC.SETTINGS_NAV_ITEM('transport'), 800);
         await ctx.click(GRPC.SETTINGS_NAV_ITEM('transport'));
@@ -105,21 +109,21 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
         } catch {
           await ctx.delay(400);
         }
-        await ctx.delay(500);
+        await ctx.delay(350);
 
         if (!isTransportModeActive('express')) {
           await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('express'), 900);
           await ctx.click(GRPC.TRANSPORT_MODE('express'));
-          await ctx.delay(450);
+          await ctx.delay(400);
         }
-        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('express'), 1_200);
+        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('express'), 800);
         if (document.querySelector(GRPC.TRANSPORT_MODE_REASON('express'))) {
-          await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE_REASON('express'), 900);
+          await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE_REASON('express'), 800);
         }
 
         await spotlightAndPause(ctx, GRPC.SETTINGS_CLOSE, 600);
         await ctx.click(GRPC.SETTINGS_CLOSE);
-        await ctx.delay(700);
+        await ctx.delay(500);
 
         await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 800);
         if (!document.querySelector(GRPC.EXPLORER_TREE)) {
@@ -130,18 +134,18 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
             await ctx.delay(400);
           }
         }
-        await ctx.delay(600);
+        await ctx.delay(400);
 
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 1_100);
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
 
         // Point out the two differently-named health services, one at a time.
         const grpcHealthSel = GRPC.SERVICE('grpc.health.v1.Health');
         const fixtureHealthSel = GRPC.SERVICE('health.v1.Health');
         if (document.querySelector(fixtureHealthSel)) {
-          await spotlightAndPause(ctx, fixtureHealthSel, 900);
+          await spotlightAndPause(ctx, fixtureHealthSel, 800);
         }
         if (document.querySelector(grpcHealthSel)) {
-          await spotlightAndPause(ctx, grpcHealthSel, 900);
+          await spotlightAndPause(ctx, grpcHealthSel, 800);
         }
       },
       verify: GRPC.EXPLORER_TREE,
@@ -161,31 +165,99 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
       highlight: GRPC.RESPONSE_BODY,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStudioNav(ctx);
-        await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
-        await ensureTransportModeQuiet(ctx, 'express');
-        await selectMethodQuiet(ctx, GRPC_ECHO_METHOD_SEL);
+        await ensureSpringStudioReady(ctx, { method: GRPC_ECHO_METHOD_SEL });
       },
       action: async (ctx) => {
         await selectMethodVisible(ctx, GRPC_ECHO_METHOD_SEL, { reflectFirst: false });
+        await ensureMessageFilledQuiet(ctx);
+        await spotlightAndPause(ctx, GRPC.REQUEST_JSON_COMPACT, 500);
 
-        await spotlightAndPause(ctx, GRPC.SEND_BTN, 700);
-        await ctx.click(GRPC.SEND_BTN);
+        await spotlightAndPause(ctx, GRPC.SEND_BTN_ANY, 400);
+        await ctx.click(GRPC.SEND_BTN_ANY);
         try {
           await ctx.waitFor(GRPC.RESPONSE_BODY, 12_000);
         } catch {
           await ctx.waitFor(GRPC.RESPONSE_STATUS, 15_000);
         }
-        await ctx.delay(600);
+        await ctx.delay(200);
 
-        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 800);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 1_000);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 500);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 600);
       },
       verify: GRPC.RESPONSE_BODY,
     },
 
     // -------------------------------------------------------------------------
-    // Step 4 — Health Check (unary)
+    // Step 4 — Reflection is transport-agnostic: Spring Servlet + :9090
+    // -------------------------------------------------------------------------
+    {
+      id: 'grpc15-servlet-reflect',
+      title: 'Reflection Is Transport-Agnostic: Spring Servlet + :9090',
+      description:
+        'Switch the transport to **Spring Servlet** — but leave the target on `:9090`. Click **Reflect**.\n\n' +
+        'The service tree repopulates with the same four services. Schema discovery always runs through ' +
+        "RedfireForge's server-side proxy using standard HTTP/2 gRPC, independent of the transport badge on " +
+        'the connection bar. The badge controls *how calls are sent* once a method is selected — it has no ' +
+        'effect on the reflect path.\n\n' +
+        '**What if the app only exposed `:8081`?** gRPC Server Reflection is itself a gRPC service ' +
+        '(`grpc.reflection.v1alpha.ServerReflection`) that only exists on a real Netty server. A servlet-only ' +
+        'deployment has no reflection endpoint at all — reflection would fail regardless of which transport you ' +
+        'choose. In that case you would need to load the schema manually: upload `.proto` files, a compiled ' +
+        'protoset, or pull from a Buf Schema Registry.\n\n' +
+        'This is the key to Step 9: switching to `localhost:8081` + Spring Servlet breaks reflection not because ' +
+        'of the transport, but because `:8081` is a plain HTTP/1.1 servlet with no reflection service. ' +
+        'The schema loaded here carries across to that step.',
+      highlight: GRPC.SERVICE_EXPLORER,
+      pauseAfter: true,
+      preAction: async (ctx) => {
+        await ensureSpringStudioReady(ctx, { transport: 'spring-servlet' });
+      },
+      action: async (ctx) => {
+        // Spotlight the Spring Servlet transport badge on the connection bar.
+        await spotlightAndPause(ctx, '[data-testid="grpc-transport-badge"]', 900);
+
+        // Open Transport panel so the viewer can read that Spring Servlet is selected.
+        await spotlightAndPause(ctx, GRPC.CONNECTION_SETTINGS_BTN, 600);
+        await ctx.click(GRPC.CONNECTION_SETTINGS_BTN);
+        try {
+          await ctx.waitFor(GRPC.SETTINGS_DRAWER, 3_000);
+        } catch {
+          await ctx.delay(300);
+        }
+        await spotlightAndPause(ctx, GRPC.SETTINGS_NAV_ITEM('transport'), 500);
+        await ctx.click(GRPC.SETTINGS_NAV_ITEM('transport'));
+        try {
+          await ctx.waitFor(GRPC.SETTINGS_PANEL('transport'), 2_000);
+        } catch {
+          await ctx.delay(300);
+        }
+        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('spring-servlet'), 900);
+
+        await spotlightAndPause(ctx, GRPC.SETTINGS_CLOSE, 400);
+        await ctx.click(GRPC.SETTINGS_CLOSE);
+        await ctx.delay(300);
+
+        // Reflect — this fires a fresh server-reflection call through the proxy.
+        await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 900);
+        await ctx.click(GRPC.REFLECT_BTN);
+        try {
+          await ctx.waitFor(`${GRPC.EXPLORER_TREE}, ${GRPC.EXPLORER_ERROR}`, 12_000);
+        } catch {
+          await ctx.delay(500);
+        }
+        await ctx.delay(400);
+
+        // Spotlight the populated service tree.
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
+        if (document.querySelector(GRPC_ECHO_METHOD_SEL)) {
+          await spotlightAndPause(ctx, GRPC_ECHO_METHOD_SEL, 700);
+        }
+      },
+      verify: GRPC.EXPLORER_TREE,
+    },
+
+    // -------------------------------------------------------------------------
+    // Step 5 — Health Check (unary)
     // -------------------------------------------------------------------------
     {
       id: 'grpc15-health-check',
@@ -200,10 +272,7 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
       highlight: GRPC.HEALTH_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStudioNav(ctx);
-        await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
-        await ensureTransportModeQuiet(ctx, 'express');
-        await reflectQuiet(ctx);
+        await ensureSpringStudioReady(ctx, { reflect: true });
       },
       action: async (ctx) => {
         await spotlightAndPause(ctx, GRPC.CONNECTION_SETTINGS_BTN, 700);
@@ -213,7 +282,7 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
         } catch {
           await ctx.delay(400);
         }
-        await ctx.delay(500);
+        await ctx.delay(400);
 
         await spotlightAndPause(ctx, GRPC.SETTINGS_NAV_ITEM('health'), 700);
         await ctx.click(GRPC.SETTINGS_NAV_ITEM('health'));
@@ -222,7 +291,7 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
         } catch {
           await ctx.delay(400);
         }
-        await ctx.delay(500);
+        await ctx.delay(400);
 
         const hintSel = GRPC.SPRING_HINT('spring_health_actuator');
         if (document.querySelector(hintSel)) {
@@ -243,10 +312,10 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
           await ctx.delay(1_000);
         }
         await ctx.delay(400);
-        await spotlightAndPause(ctx, GRPC.HEALTH_RESULT, 1_100);
+        await spotlightAndPause(ctx, GRPC.HEALTH_RESULT, 900);
 
         await ctx.click(GRPC.SETTINGS_CLOSE);
-        await ctx.delay(500);
+        await ctx.delay(350);
       },
       verify: GRPC.CONNECTION_BAR,
     },
@@ -267,10 +336,16 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
       highlight: GRPC.STREAM_LOG_LIST,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStudioNav(ctx);
-        await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
-        await ensureTransportModeQuiet(ctx, 'express');
-        await reflectQuiet(ctx);
+        await ensureSpringStudioReady(ctx, { reflect: true });
+        // Extend deadline so the streaming watch isn't killed before two beats arrive.
+        const timeoutInput = document.querySelector<HTMLInputElement>(GRPC.CALL_TIMEOUT_INPUT);
+        if (timeoutInput) {
+          const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+          nativeSet?.set?.call(timeoutInput, '20000');
+          timeoutInput.dispatchEvent(new Event('input', { bubbles: true }));
+          timeoutInput.dispatchEvent(new Event('change', { bubbles: true }));
+          await ctx.delay(100);
+        }
       },
       action: async (ctx) => {
         await openGrpcSettingsDrawerQuiet(ctx, 'health');
@@ -298,6 +373,15 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
           await ctx.click(GRPC.STREAM_CANCEL_BTN);
           await ctx.delay(500);
         }
+
+        // Restore default deadline after the stream is closed.
+        const timeoutInput = document.querySelector<HTMLInputElement>(GRPC.CALL_TIMEOUT_INPUT);
+        if (timeoutInput) {
+          const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+          nativeSet?.set?.call(timeoutInput, '5000');
+          timeoutInput.dispatchEvent(new Event('input', { bubbles: true }));
+          timeoutInput.dispatchEvent(new Event('change', { bubbles: true }));
+        }
       },
       verify: GRPC.STREAM_LOG_LIST,
     },
@@ -317,29 +401,21 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
       highlight: GRPC.RESPONSE_STATUS,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStudioNav(ctx);
-        await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
-        await ensureTransportModeQuiet(ctx, 'express');
-        await resetGrpcConnectionSettingsQuiet(ctx);
-        await selectMethodQuiet(ctx, GRPC_SECURE_ECHO_SEL);
+        await ensureSpringStudioReady(ctx, { resetAuth: true, method: GRPC_SECURE_ECHO_SEL });
       },
       action: async (ctx) => {
-        await selectMethodVisible(ctx, GRPC_SECURE_ECHO_SEL, { reflectFirst: false });
-
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 800);
-
-        await spotlightAndPause(ctx, GRPC.SEND_BTN, 700);
-        await ctx.click(GRPC.SEND_BTN);
+        await spotlightAndPause(ctx, GRPC_SECURE_ECHO_SEL, 100);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 150);
+        await spotlightAndPause(ctx, GRPC.SEND_BTN_ANY, 100);
+        await ctx.click(GRPC.SEND_BTN_ANY);
         try {
-          await ctx.waitFor(GRPC.RESPONSE_STATUS, 12_000);
+          await ctx.waitFor(GRPC.RESPONSE_ERROR_SUMMARY, 1_000);
         } catch {
-          await ctx.delay(1_500);
+          await ctx.delay(100);
         }
-        await ctx.delay(500);
-
-        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 1_300);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_ERROR_SUMMARY, 200);
       },
-      verify: GRPC.RESPONSE_STATUS,
+      verify: GRPC.RESPONSE_ERROR_SUMMARY,
     },
 
     // -------------------------------------------------------------------------
@@ -357,10 +433,7 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
       highlight: GRPC.REQUEST_TAB_AUTH,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStudioNav(ctx);
-        await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
-        await ensureTransportModeQuiet(ctx, 'express');
-        await selectMethodQuiet(ctx, GRPC_SECURE_ECHO_SEL);
+        await ensureSpringStudioReady(ctx, { method: GRPC_SECURE_ECHO_SEL });
         await openAuthTabQuiet(ctx);
         if (bearerTokenFieldValue() !== DEMO_BEARER_TOKEN) {
           await selectAuthTypeQuiet(ctx, 'bearer');
@@ -368,39 +441,32 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
         }
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 400);
         await openAuthTabQuiet(ctx);
-        await ctx.delay(300);
 
-        await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 700);
+        await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 400);
         await selectAuthTypeQuiet(ctx, 'bearer');
-        await ctx.delay(400);
 
         const tokenSel = '[data-testid="grpc-auth-bearer-token"]';
-        await ctx.waitFor(tokenSel, 4_000).catch(() => undefined);
         const tokenEl = document.querySelector<HTMLElement>(tokenSel);
         if (tokenEl) {
-          await spotlightElementAndPause(ctx, tokenEl, 600);
+          await spotlightElementAndPause(ctx, tokenEl, 500);
         }
         if (bearerTokenFieldValue() !== DEMO_BEARER_TOKEN) {
           fillBearerTokenField(DEMO_BEARER_TOKEN);
-          await ctx.delay(350);
-        }
-        if (tokenEl) {
-          await spotlightElementAndPause(ctx, tokenEl, 700);
+          await ctx.delay(150);
         }
 
-        await spotlightAndPause(ctx, GRPC.SEND_BTN, 700);
-        await ctx.click(GRPC.SEND_BTN);
+        await spotlightAndPause(ctx, GRPC.SEND_BTN_ANY, 400);
+        await ctx.click(GRPC.SEND_BTN_ANY);
         try {
-          await ctx.waitFor(GRPC.RESPONSE_BODY, 12_000);
+          await ctx.waitFor(GRPC.RESPONSE_BODY, 5_000);
         } catch {
-          await ctx.waitFor(GRPC.RESPONSE_STATUS, 15_000);
+          await ctx.waitFor(GRPC.RESPONSE_STATUS, 3_000);
         }
-        await ctx.delay(600);
 
-        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 900);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 1_000);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 500);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 600);
       },
       verify: GRPC.RESPONSE_BODY,
     },
@@ -421,59 +487,73 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
       highlight: GRPC.TRANSPORT_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStudioNav(ctx);
-        await resetGrpcConnectionSettingsQuiet(ctx);
-        await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
-        await ensureTransportModeQuiet(ctx, 'express');
-        await selectMethodQuiet(ctx, GRPC_ECHO_METHOD_SEL);
+        await ensureSpringStudioReady(ctx, { resetAuth: true, method: GRPC_ECHO_METHOD_SEL });
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.CONNECTION_SETTINGS_BTN, 700);
+        await spotlightAndPause(ctx, GRPC.CONNECTION_SETTINGS_BTN, 450);
         await ctx.click(GRPC.CONNECTION_SETTINGS_BTN);
         try {
-          await ctx.waitFor(GRPC.SETTINGS_DRAWER, 5_000);
+          await ctx.waitFor(GRPC.SETTINGS_DRAWER, 2_000);
         } catch {
-          await ctx.delay(400);
+          await ctx.delay(200);
         }
-        await ctx.delay(500);
 
-        await spotlightAndPause(ctx, GRPC.SETTINGS_NAV_ITEM('transport'), 700);
+        await spotlightAndPause(ctx, GRPC.SETTINGS_NAV_ITEM('transport'), 450);
         await ctx.click(GRPC.SETTINGS_NAV_ITEM('transport'));
         try {
-          await ctx.waitFor(GRPC.SETTINGS_PANEL('transport'), 3_000);
+          await ctx.waitFor(GRPC.SETTINGS_PANEL('transport'), 2_000);
         } catch {
-          await ctx.delay(400);
+          await ctx.delay(200);
         }
-        await ctx.delay(500);
 
         if (!isTransportModeActive('spring-servlet')) {
-          await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('spring-servlet'), 900);
+          await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('spring-servlet'), 500);
           await ctx.click(GRPC.TRANSPORT_MODE('spring-servlet'));
-          await ctx.delay(450);
+          await ctx.delay(200);
         }
-        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('spring-servlet'), 1_000);
+        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('spring-servlet'), 400);
 
-        await spotlightAndPause(ctx, GRPC.SETTINGS_CLOSE, 600);
+        await spotlightAndPause(ctx, GRPC.SETTINGS_CLOSE, 350);
         await ctx.click(GRPC.SETTINGS_CLOSE);
-        await ctx.delay(600);
+        await ctx.delay(200);
 
-        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 700);
-        await ctx.fill(GRPC.TARGET_INPUT, GRPC_SPRING_SERVLET_TARGET);
-        await ctx.delay(700); // target change clears the tree — no re-reflect needed for servlet dispatch
-
-        await selectMethodVisible(ctx, GRPC_ECHO_METHOD_SEL, { reflectFirst: false });
-
-        await spotlightAndPause(ctx, GRPC.SEND_BTN, 700);
-        await ctx.click(GRPC.SEND_BTN);
-        try {
-          await ctx.waitFor(GRPC.RESPONSE_BODY, 12_000);
-        } catch {
-          await ctx.waitFor(GRPC.RESPONSE_STATUS, 15_000);
+        await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 500);
+        const currentTarget = document.querySelector<HTMLInputElement>(GRPC.TARGET_INPUT)?.value.trim();
+        if (currentTarget !== GRPC_SPRING_SERVLET_TARGET) {
+          // Use the demo bridge to atomically change target + preserve the descriptor.
+          // Supplying `descriptorKey` in the same patch triggers the replay-connection-change
+          // path in updateTab, so the schema stays loaded (service tree remains usable,
+          // Send button stays enabled). Plain ctx.fill() would clear the schema.
+          const bridge = getDemoBridgeWindow();
+          const descriptorKey = bridge.__demoGetGrpcActiveDescriptorKey?.();
+          if (descriptorKey) {
+            (bridge as unknown as Record<string, (...args: unknown[]) => unknown>)['__demoPatchGrpcActiveTab']?.({
+              target: GRPC_SPRING_SERVLET_TARGET,
+              descriptorKey,
+              service: GRPC_ECHO_SERVICE,
+              method: 'Echo',
+              body: { message: GRPC_DEMO_MESSAGE },
+            });
+            await ctx.delay(350);
+          } else {
+            await ctx.fill(GRPC.TARGET_INPUT, GRPC_SPRING_SERVLET_TARGET);
+            await ctx.delay(300);
+          }
         }
-        await ctx.delay(600);
 
-        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 900);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 1_000);
+        await ensureMessageFilledQuiet(ctx);
+
+        await spotlightAndPause(ctx, GRPC.SEND_BTN_ANY, 450);
+        await ctx.click(GRPC.SEND_BTN_ANY);
+        try {
+          await ctx.waitFor(GRPC.RESPONSE_BODY, 5_000);
+        } catch {
+          await ctx.waitFor(GRPC.RESPONSE_STATUS, 5_000);
+        }
+        await ctx.delay(200);
+
+        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 450);
+        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 550);
       },
       verify: GRPC.RESPONSE_BODY,
     },
@@ -495,11 +575,8 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
       highlight: GRPC.INTERPOLATION_PREVIEW_STRIP,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStudioNav(ctx);
-        await resetGrpcConnectionSettingsQuiet(ctx);
-        await ensureTransportModeQuiet(ctx, 'express');
+        await ensureSpringStudioReady(ctx, { resetAuth: true });
         upsertWorkspaceDefaults({ grpcHost: GRPC_SPRING_NETTY_TARGET });
-        await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
       },
       action: async (ctx) => {
         upsertWorkspaceDefaults({ grpcHost: GRPC_SPRING_NETTY_TARGET });
@@ -507,17 +584,24 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
 
         await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 700);
         await ctx.fill(GRPC.TARGET_INPUT, DEMO_GRPC_HOST_VAR);
-        await ctx.delay(600);
+        await ctx.delay(400);
 
         try {
           await ctx.waitFor(GRPC.INTERPOLATION_PREVIEW_STRIP, 4_000);
         } catch {
-          await ctx.delay(600);
+          await ctx.delay(500);
         }
         if (document.querySelector(GRPC.INTERPOLATION_PREVIEW_STRIP)) {
-          await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_STRIP, 1_100);
+          await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_STRIP, 1_000);
           if (document.querySelector(GRPC.INTERPOLATION_PREVIEW_TEMPLATE)) {
             await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_TEMPLATE, 700);
+          }
+          // Click Resolved to show the resolved localhost:9090 value.
+          const resolvedBtn = document.querySelector<HTMLButtonElement>(GRPC.INTERPOLATION_PREVIEW_RESOLVED);
+          if (resolvedBtn) {
+            await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_RESOLVED, 500);
+            await ctx.click(GRPC.INTERPOLATION_PREVIEW_RESOLVED);
+            await ctx.delay(200);
           }
           if (document.querySelector(GRPC.INTERPOLATION_PREVIEW_VALUE)) {
             await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_VALUE, 900);
@@ -531,8 +615,8 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
         } catch {
           await ctx.delay(1_500);
         }
-        await ctx.delay(500);
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
+        await ctx.delay(400);
+        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 800);
       },
       verify: GRPC.TARGET_INPUT,
     },
@@ -553,11 +637,8 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
       highlight: GRPC.MANAGE_SCHEMAS_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
-        await ensureStudioNav(ctx);
         upsertWorkspaceDefaults({ grpcHost: '' });
-        await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
-        await ensureTransportModeQuiet(ctx, 'express');
-        await reflectQuiet(ctx);
+        await ensureSpringStudioReady(ctx, { reflect: true });
         await ensureManageModalClosed(ctx);
       },
       action: async (ctx) => {
@@ -583,14 +664,14 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
 
         await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_SEARCH, 600);
         await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Health');
-        await ctx.delay(500);
+        await ctx.delay(400);
 
         const healthNodeSel = GRPC.SCHEMA_TREE_NODE('method', 'health.v1.Health', 'Check');
         try {
           await ctx.waitFor(healthNodeSel, 6_000);
           await spotlightAndPause(ctx, healthNodeSel, 700);
           await ctx.click(healthNodeSel);
-          await ctx.delay(600);
+          await ctx.delay(400);
         } catch {
           // Fallback: search Echo instead if the Health node did not resolve.
           await ctx.fill(GRPC.SCHEMA_BROWSER_SEARCH, 'Echo');
@@ -598,13 +679,13 @@ export const grpcSpringBootSteps: GrpcDemoLesson['steps'] =
           try {
             await ctx.waitFor(echoNodeSel, 4_000);
             await ctx.click(echoNodeSel);
-            await ctx.delay(600);
+            await ctx.delay(400);
           } catch {
             // Best-effort — Schema Browser stays navigable even if node selection lags.
           }
         }
 
-        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_DETAIL, 1_200);
+        await spotlightAndPause(ctx, GRPC.SCHEMA_BROWSER_DETAIL, 1_000);
 
         await ctx.click(GRPC.PROTO_CANCEL_BTN);
         await ctx.delay(400);

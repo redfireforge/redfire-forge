@@ -1,4 +1,5 @@
 use super::*;
+use super::registry::{is_port_available, MOCK_PORT_MAX, MOCK_PORT_MIN};
 use bytes::Bytes;
 use http::uri::PathAndQuery;
 use std::sync::{Mutex, OnceLock};

@@ -58,6 +58,12 @@ export {
   GRPC_DEMO_CALL_HISTORY_TARGETS,
   dispatchGrpcCallHistoryReload,
 } from '@grpc/utils/grpcDemoCallHistoryCleanup';
+export {
+  purgeGrpcDemoSavedRequests,
+  purgeEmptyGrpcDemoCollectionsByName,
+} from '@grpc/utils/grpcDemoCollectionsCleanup';
+
+export { clearGrpcCallHistory } from '@grpc/data/grpcCallHistoryRecorder';
 
 import { getDemoBridgeWindow } from './bridgeWindow';
 import type { GrpcGrpcurlExportContext } from '@grpc/utils/grpcGrpcurlTypes';

@@ -86,4 +86,27 @@ describe('applyDeleteAdditionalEnv', () => {
     const next = applyDeleteAdditionalEnv([svcNoAuth], 'svc-a', 'c1');
     expect(next[0].authProfileIds).toEqual({});
   });
+
+  it('clears envVars map entry when deleting the last custom env override bucket', () => {
+    const svcWithEnvVars: Microservice = {
+      ...svcA,
+      envVars: { c1: { token: 'secret' } },
+    };
+    const next = applyDeleteAdditionalEnv([svcWithEnvVars], 'svc-a', 'c1');
+    expect(next[0].envVars).toBeUndefined();
+  });
+
+  it('preserves other envVars when deleting one custom env', () => {
+    const svcWithEnvVars: Microservice = {
+      ...svcA,
+      customEnvs: [
+        { id: 'c1', name: 'staging' },
+        { id: 'c2', name: 'qa' },
+      ],
+      baseUrls: { c1: '', c2: '' },
+      envVars: { c1: { token: 'a' }, c2: { token: 'b' } },
+    };
+    const next = applyDeleteAdditionalEnv([svcWithEnvVars], 'svc-a', 'c1');
+    expect(next[0].envVars).toEqual({ c2: { token: 'b' } });
+  });
 });

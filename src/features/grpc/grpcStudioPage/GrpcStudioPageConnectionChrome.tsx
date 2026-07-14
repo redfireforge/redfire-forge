@@ -1,6 +1,7 @@
 import { GrpcConnectionBar } from '../components/GrpcConnectionBar';
 import { GrpcTargetPanel } from '../components/GrpcTargetPanel';
 import type { UseGrpcStudioReturn } from '../hooks/useGrpcStudio';
+import { resolveGrpcStudioTabTransportMode } from '../grpcStudioTypes';
 import type { GrpcTabConnectionPageDefaults } from '../utils/resolveGrpcTabConnection';
 import type { useGrpcStudioPageConnectionState } from './useGrpcStudioPageConnectionState';
 
@@ -61,6 +62,7 @@ export function GrpcStudioPageConnectionChrome({
         onSaveRequestClick={onSaveRequestClick}
         onImportGrpcurlClick={onImportGrpcurlClick}
         saveRequestDisabled={!activeTab.service || !activeTab.method}
+        transportMode={resolveGrpcStudioTabTransportMode(activeTab)}
       />
       <GrpcTargetPanel
         target={activeTab.target}
