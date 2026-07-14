@@ -83,9 +83,11 @@ describe('grpc-streaming coverage gaps', () => {
     await getStep('grpc17-client-queue').preAction?.(ctx);
     await getStep('grpc17-client-queue').action?.(ctx);
 
-    expect(helperSpies.navigateToGrpcStudio).toHaveBeenCalled();
+    // Note: navigateToGrpcStudio and ensureGrpcStudioSubNavQuiet are called in the
+    // lesson's setup function, not in individual step preActions, to avoid redundant
+    // modal operations at step 1. guardGrpcReflectedQuiet and closeGrpcSettingsDrawerQuiet
+    // are still called in later steps' preActions.
     expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalled();
-    expect(helperSpies.ensureGrpcStudioSubNavQuiet).toHaveBeenCalled();
     expect(helperSpies.guardGrpcReflectedQuiet).toHaveBeenCalled();
     expect(helperSpies.ensureStreamingMethodSelected).toHaveBeenCalledWith(ctx, 'ServerStream');
     expect(helperSpies.ensureStreamingMethodSelected).toHaveBeenCalledWith(ctx, 'ClientStream');

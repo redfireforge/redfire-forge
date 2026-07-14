@@ -32,7 +32,6 @@ import {
   GRPC_BIDI_STREAM_SEL,
   cancelActiveStreamQuiet,
   closeGrpcSettingsDrawerQuiet,
-  ensureGrpcStudioSubNavQuiet,
   ensureStreamingMethodSelected,
   fillServerStreamRequest,
   grpcFirstCallCleanup,
@@ -49,7 +48,6 @@ import {
   spotlightAndPause,
   startAndExchangeBidiStream,
 } from './grpc-lesson-helpers';
-import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 
 const GRPC17_ROSTER = getGrpcLessonRosterEntry('grpc-streaming')!;
 
@@ -341,12 +339,6 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         'Unary (**U**) appears in the selector for context — see the first gRPC lesson for a unary walkthrough.',
       highlight: GRPC.CALL_TYPE_SELECTOR,
       pauseAfter: true,
-      preAction: async (ctx) => {
-        await navigateToGrpcStudio(ctx);
-        await closeGrpcSettingsDrawerQuiet(ctx);
-        await ensureGrpcStudioSubNavQuiet(ctx);
-        await guardGrpcReflectedQuiet(ctx);
-      },
       action: async (ctx) => {
         await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 800);
         await spotlightCallTypeBadges(ctx);
