@@ -234,7 +234,7 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         `2. \`${SAMPLE_PROTO_SERVICE}\`\n\n` +
         'The demo stages each drop with a short pause so viewers can follow each addition. ' +
         'After upload, both filenames should appear in the selected root file list and in the canonical preview panel.',
-      highlight: GRPC.PROTO_UPLOAD_ZONE,
+      highlight: GRPC.PROTO_FILE_LIST,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureProtoFilesTabQuiet(ctx);
@@ -551,6 +551,9 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 850);
         await ensureManageModalClosed(ctx);
         await ctx.delay(400);
+        
+        // Recover back to reflection (EchoService) to avoid schema drift in the next step
+        await recoverGrpcReflectionQuiet(ctx);
       },
       verify: GRPC.EXPLORER_SOURCE,
     },
