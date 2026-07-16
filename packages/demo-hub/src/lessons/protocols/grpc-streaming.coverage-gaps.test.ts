@@ -83,9 +83,11 @@ describe('grpc-streaming coverage gaps', () => {
     await getStep('grpc17-client-queue').preAction?.(ctx);
     await getStep('grpc17-client-queue').action?.(ctx);
 
-    expect(helperSpies.navigateToGrpcStudio).toHaveBeenCalled();
+    // Note: navigateToGrpcStudio and ensureGrpcStudioSubNavQuiet are called in the
+    // lesson's setup function, not in individual step preActions, to avoid redundant
+    // modal operations at step 1. guardGrpcReflectedQuiet and closeGrpcSettingsDrawerQuiet
+    // are still called in later steps' preActions.
     expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalled();
-    expect(helperSpies.ensureGrpcStudioSubNavQuiet).toHaveBeenCalled();
     expect(helperSpies.guardGrpcReflectedQuiet).toHaveBeenCalled();
     expect(helperSpies.ensureStreamingMethodSelected).toHaveBeenCalledWith(ctx, 'ServerStream');
     expect(helperSpies.ensureStreamingMethodSelected).toHaveBeenCalledWith(ctx, 'ClientStream');
@@ -205,23 +207,25 @@ describe('grpc-streaming coverage gaps', () => {
 
   it('export step seeds a stream log when absent and clicks export when available', async () => {
     const ctx = makeCtx();
+    // Provide an enabled export button (not disabled, no disabled attribute)
     document.body.innerHTML = '<button data-testid="grpc-stream-export-log-btn"></button>';
 
     await getStep('grpc17-export').preAction?.(ctx);
     await getStep('grpc17-export').action?.(ctx);
 
     expect(helperSpies.seedBidiStreamLogQuiet).toHaveBeenCalledWith(ctx);
-    expect(helperSpies.cancelActiveStreamQuiet).toHaveBeenCalledWith(ctx);
+    // Export button should NOT be cancelled in preAction so stream remains active
+    expect(helperSpies.cancelActiveStreamQuiet).not.toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_EXPORT_LOG_BTN);
   });
 
-  it('export preAction skips seeding when stream log exists', async () => {
+  it('export preAction still seeds when stream log exists to ensure counts are non-zero', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = '<div data-testid="grpc-stream-log-list"></div><button data-testid="grpc-stream-export-log-btn"></button>';
 
     await getStep('grpc17-export').preAction?.(ctx);
 
     expect(helperSpies.guardBidiStreamSelectedQuiet).toHaveBeenCalledWith(ctx);
-    expect(helperSpies.seedBidiStreamLogQuiet).not.toHaveBeenCalled();
+    expect(helperSpies.seedBidiStreamLogQuiet).toHaveBeenCalledWith(ctx);
   });
 });

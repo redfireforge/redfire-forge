@@ -5,7 +5,8 @@
  */
 import { readFileSync } from 'node:fs';
 
-const INPUT = 'coverage/coverage-final.product.json';
+const COVERAGE_DIR = process.env.PRODUCT_COVERAGE_DIR ?? 'coverage';
+const INPUT = `${COVERAGE_DIR}/coverage-final.product.json`;
 const THRESHOLD = 90;
 
 const PRODUCT_COVERAGE_ALLOWLIST = [

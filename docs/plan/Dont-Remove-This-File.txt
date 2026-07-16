@@ -312,18 +312,21 @@ DON"T RUN FULL PATH BATCH. Is there any code coverage issue file? If yes, please
 
 
 ---- Unit Test Direction ---------
-As I mentioned, you should run one clean full coverage snapshot now, freeze that as the baseline, and then implement tests in chunked batches against that list without re-running full coverage between small fixes.
+Let's do code coverate tests in all of codes in ths repo. 
+You should run one clean full coverage snapshot now, freeze that as the baseline, and then implement tests in chunked batches against that list without re-running full coverage between small fixes.
 Once you get full coverage snapshot, you should extract the list of files that are below 90% coverage and then implement tests for those files in small batches. After you fix all of small batches, you can run full coverage report again to see if you have any files below 90% coverage. 
 
 
 If you keep runining code coverage report after fixing small batch, not only takes long time but also token comsumption issue.
 
+Please fix all of unit test issues and bug. Repeat this process until there is no issue or bug.  
+
 
 ----- Code Quality -----
-code coverage is very important. We already have strick directions for it. On the other hand, code quality is also important. 
+code quality is very important. 
 It should be maintanable and minimize duplcated codes. If we have, we should extract them and make common codes like template. 
 From this code quality perspective, can you do research and improve code quality for our entire code base? Make sure nothing should be broken. 
-
+And find and improve at least 50 files in this entire code base. 
 
 
 ----- Demo Highlight and Pausing Time -----
@@ -332,4 +335,10 @@ Highlight meansing is not flash in some part, but draw box so user can see the p
 Second, for acting, preparing, etc, pausing time should be not long or not short. It should be relavent. But reading time should be enough given to user to read its contents. 
 Based on this guidedance, can you thoroughly evaluate the following lesson and if you find any missing or issue, please update it. And then implement it. And then thoroughly re-evaluate your implementation. 
 
-Lesson 5. TLS, mTLS & Certificate Configuration
+Lesson 9. Environments, Collections & History
+You can use grpc-demo-lessons.md file as you reference. 
+
+
+
+
+Don't wait until full report is geneated. At some point, do grep and find under covered codes and fix them. Then do grep again and fix them. keep the same pattern. I believe we can't significantly reduce time. ß

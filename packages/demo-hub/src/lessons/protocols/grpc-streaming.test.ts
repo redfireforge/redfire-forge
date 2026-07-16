@@ -214,15 +214,15 @@ describe('grpcStreamingLesson wrapper', () => {
     expect(body).toContain('Unary');
   });
 
-  it('intro step highlights the call-type selector row', () => {
+  it('intro step omits highlight (action spotlights suffice)', () => {
     const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-intro')!;
-    expect(step.highlight).toBe(GRPC.CALL_TYPE_SELECTOR);
-    expect(step.verify).toBe(GRPC.CALL_TYPE_SELECTOR);
+    expect(step.highlight).toBeUndefined();
+    expect(step.verify).toBe(GRPC.CONNECTION_BAR);
   });
 
-  it('server-select step highlights the ServerStream method', () => {
+  it('server-select step omits highlight (action spotlights suffice)', () => {
     const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-server-select')!;
-    expect(step.highlight).toBe(GRPC_SERVER_STREAM_SEL);
+    expect(step.highlight).toBeUndefined();
     expect(step.verify).toBe(GRPC.STREAM_START_BTN);
   });
 
@@ -234,31 +234,31 @@ describe('grpcStreamingLesson wrapper', () => {
     expect(step.description).not.toContain('FINISHED');
   });
 
-  it('server-fill step highlights the message log (payoff after start)', () => {
+  it('server-fill step omits highlight (action spotlights suffice)', () => {
     const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-server-fill')!;
-    expect(step.highlight).toBe(GRPC.STREAM_MESSAGE_LOG);
+    expect(step.highlight).toBeUndefined();
     expect(step.verify).toBe(GRPC.STREAM_MESSAGE_LOG);
   });
 
-  it('client-send step highlights the pending panel', () => {
+  it('client-send step omits highlight (action spotlights suffice)', () => {
     const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-client-send')!;
-    expect(step.highlight).toBe(GRPC.STREAM_PENDING_PANEL);
+    expect(step.highlight).toBeUndefined();
   });
 
-  it('client-queue step highlights the pending panel', () => {
+  it('client-queue step omits highlight (action spotlights suffice)', () => {
     const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-client-queue')!;
-    expect(step.highlight).toBe(GRPC.STREAM_PENDING_PANEL);
+    expect(step.highlight).toBeUndefined();
   });
 
-  it('bidi-exchange step highlights the message log', () => {
+  it('bidi-exchange step omits highlight (action spotlights suffice)', () => {
     const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-bidi-exchange')!;
-    expect(step.highlight).toBe(GRPC.STREAM_MESSAGE_LOG);
+    expect(step.highlight).toBeUndefined();
     expect(step.verify).toBe(GRPC.STREAM_MESSAGE_LOG);
   });
 
-  it('cancel step highlights cancel button', () => {
+  it('cancel step omits highlight (action spotlights suffice)', () => {
     const step = grpcStreamingLesson.steps.find((s) => s.id === 'grpc17-cancel')!;
-    expect(step.highlight).toBe(GRPC.STREAM_CANCEL_BTN);
+    expect(step.highlight).toBeUndefined();
   });
 
   it('all steps have pauseAfter: true', () => {
@@ -315,6 +315,19 @@ describe('fillServerStreamRequest', () => {
     expect(msg?.value).toBe('custom-msg');
   });
 
+  it('fills JSON request editor when proto field inputs are not rendered', async () => {
+    document.body.innerHTML = `<textarea data-testid="grpc-request-json"></textarea>`;
+    const ctx = makeCtx();
+
+    await fillServerStreamRequest(ctx);
+
+    const jsonEditor = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
+    expect(jsonEditor).toBeTruthy();
+    expect(jsonEditor?.value).toContain('"message": "stream-demo"');
+    expect(jsonEditor?.value).toContain('"repeat_count": 5');
+    expect(jsonEditor?.value).toContain('"interval_ms": 300');
+  });
+
   it('skips repeat_count fill when field is absent', async () => {
     document.querySelector<HTMLInputElement>('[data-testid="grpc-proto-field-input-repeat_count"]')?.remove();
     const ctx = makeCtx();
@@ -360,6 +373,20 @@ describe('queueClientStreamMessage', () => {
 
     await queueClientStreamMessage(ctx, 'msg');
     expect(ctx.click).not.toHaveBeenCalledWith(GRPC.STREAM_ADD_QUEUE_BTN);
+  });
+
+  it('fills JSON composer when proto field input is not rendered', async () => {
+    document.body.innerHTML = `
+      <textarea data-testid="grpc-request-json"></textarea>
+      <button data-testid="grpc-stream-add-queue-btn"></button>
+    `;
+    const ctx = makeCtx();
+
+    await queueClientStreamMessage(ctx, 'json-msg');
+
+    const jsonEditor = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
+    expect(jsonEditor?.value).toContain('"message": "json-msg"');
+    expect(ctx.click).toHaveBeenCalledWith(GRPC.STREAM_ADD_QUEUE_BTN);
   });
 });
 

@@ -60,7 +60,9 @@ describe('grpc-spring-boot lesson', () => {
     const ctx = makeCtx();
     await grpcSpringBootLesson.setup?.(ctx);
     expect(helperSpies.grpcFirstCallSetup).toHaveBeenCalledTimes(1);
-    expect(helperSpies.resetSpringBaselineQuiet).toHaveBeenCalledWith(ctx);
+    // Setup skips reflect/method selection so step 1 (connection bar only) does
+    // not flash the service tree + method highlight before the narration.
+    expect(helperSpies.resetSpringBaselineQuiet).toHaveBeenCalledWith(ctx, { selectMethod: false });
   });
 
   it('cleanup clears grpcHost workspace default', async () => {

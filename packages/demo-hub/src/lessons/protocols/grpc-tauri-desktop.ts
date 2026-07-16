@@ -39,6 +39,8 @@ import {
   resetGrpcManageSchemasDraftsQuiet,
   setGrpcTargetQuiet,
   spotlightAndPause,
+  spotlightRequestJsonContentTight,
+  spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
 import {
   getLastRuleIds,
@@ -354,7 +356,7 @@ async function spotlightRequestMessageLine(ctx: DemoActionContext, fallbackMs: n
     }
   }
 
-  await spotlightAndPause(ctx, GRPC.REQUEST_JSON, fallbackMs);
+  await spotlightRequestJsonContentTight(ctx, fallbackMs);
 }
 
 function ensureRequestMessageLineHighlight(): void {
@@ -948,7 +950,7 @@ const steps: DemoStep[] = [
         await ctx.delay(700);
         if (document.querySelector(GRPC.RESPONSE_BODY)) {
           // Spotlight response — "pong" from the mock via the listener socket
-          await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 1_500);
+          await spotlightResponseJsonContentTight(ctx, 1_500);
         }
         // Spotlight the target bar again — still showing the listener port, confirming the external route
         await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 1_200);
@@ -1116,7 +1118,7 @@ const steps: DemoStep[] = [
         await ctx.delay(700);
         if (document.querySelector(GRPC.RESPONSE_BODY)) {
           // "world" comes back even though we targeted 50051 — transparent interception at work
-          await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 1_500);
+          await spotlightResponseJsonContentTight(ctx, 1_500);
         }
         // Spotlight target again — still showing localhost:50051, yet mock replied
         await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 1_200);
@@ -1309,6 +1311,113 @@ const concept: GrpcDemoLesson['concept'] = {
     { term: 'Desktop secret vault', definition: 'Desktop path stores auth secrets with encrypted-local persistence semantics for restore across sessions.' },
     { term: 'Native preflight fallback', definition: 'On transport start failures, Studio can offer a quick switch/retry path through Express Proxy.' },
   ],
+  diagram: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 400" style="display:block;width:100%;height:auto;font-family:system-ui,sans-serif">
+  <defs>
+    <marker id="grpc23-arr" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto">
+      <path d="M1,1 L6,3.5 L1,6 Z" fill="#3b82f6"/>
+    </marker>
+    <marker id="grpc23-arr-g" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto">
+      <path d="M1,1 L6,3.5 L1,6 Z" fill="#22c55e"/>
+    </marker>
+    <marker id="grpc23-arr-p" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto">
+      <path d="M1,1 L6,3.5 L1,6 Z" fill="#a78bfa"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="700" height="400" rx="10" fill="#0d1520"/>
+
+  <!-- Title -->
+  <text x="350" y="28" text-anchor="middle" font-size="13" fill="#e2e8f0" font-weight="600">Tauri Desktop — Native Transport Architecture</text>
+
+  <!-- ── Left: gRPC Studio UI ── -->
+  <rect x="20" y="50" width="160" height="130" rx="6" fill="#0f172a" stroke="#3b82f6" stroke-width="1.2"/>
+  <text x="100" y="72" text-anchor="middle" font-size="10" fill="#93c5fd" font-weight="600">🖥 gRPC Studio</text>
+  <text x="100" y="92" text-anchor="middle" font-size="8" fill="#a8b8cc">Send / Stream</text>
+  <rect x="35" y="100" width="130" height="16" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="100" y="112" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#f1f5f9">localhost:50051</text>
+
+  <!-- Transport badge -->
+  <rect x="40" y="125" width="105" height="18" rx="9" fill="#1c3a2a" stroke="#22c55e" stroke-width="1"/>
+  <text x="92" y="137" text-anchor="middle" font-size="8" fill="#4ade80">⚡ Tauri Native</text>
+  <rect x="40" y="148" width="105" height="18" rx="9" fill="#1e293b" stroke="#3b4a60" stroke-width="0.8"/>
+  <text x="92" y="160" text-anchor="middle" font-size="8" fill="#64748b">🔄 Express Proxy</text>
+
+  <!-- ── Center top: Rust tonic backend ── -->
+  <line x1="180" y1="110" x2="235" y2="110" stroke="#22c55e" stroke-width="1.4" marker-end="url(#grpc23-arr-g)"/>
+  <text x="207" y="104" text-anchor="middle" font-size="7" fill="#4ade80">IPC</text>
+
+  <rect x="240" y="55" width="200" height="130" rx="8" fill="#0f172a" stroke="#22c55e" stroke-width="1.4"/>
+  <text x="340" y="78" text-anchor="middle" font-size="10.5" fill="#4ade80" font-weight="600">🦀 Rust Backend (tonic)</text>
+
+  <!-- Channel pool -->
+  <rect x="255" y="90" width="170" height="35" rx="4" fill="#1e293b" stroke="#1c3a2a"/>
+  <text x="340" y="105" text-anchor="middle" font-size="8.5" fill="#a8b8cc">Channel Pool</text>
+  <text x="340" y="118" text-anchor="middle" font-family="monospace" font-size="7" fill="#4ade80">3 channels · 12 calls · 0 streams</text>
+
+  <!-- Call dispatch -->
+  <rect x="255" y="132" width="170" height="24" rx="4" fill="#1e293b" stroke="#1c3a2a"/>
+  <text x="340" y="148" text-anchor="middle" font-size="8" fill="#a8b8cc">Call dispatch → HTTP/2 gRPC</text>
+
+  <!-- Arrow: tonic → server -->
+  <line x1="440" y1="110" x2="495" y2="110" stroke="#22c55e" stroke-width="1.4" marker-end="url(#grpc23-arr-g)"/>
+
+  <!-- ── Right: gRPC server ── -->
+  <rect x="500" y="65" width="180" height="90" rx="6" fill="#0f172a" stroke="#64748b" stroke-width="1.2"/>
+  <text x="590" y="88" text-anchor="middle" font-size="10" fill="#a8b8cc" font-weight="600">📡 gRPC Server</text>
+  <text x="590" y="108" text-anchor="middle" font-size="8" fill="#64748b">echo.EchoService</text>
+  <text x="590" y="124" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#64748b">:50051</text>
+
+  <!-- ── Bottom left: Native Diagnostics ── -->
+  <rect x="20" y="210" width="200" height="100" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1.2"/>
+  <text x="120" y="232" text-anchor="middle" font-size="9.5" fill="#c4b5fd" font-weight="600">🔍 Native Diagnostics</text>
+  <rect x="32" y="242" width="176" height="14" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="120" y="253" text-anchor="middle" font-family="monospace" font-size="7" fill="#a8b8cc">channels: 3  active_calls: 0</text>
+  <rect x="32" y="260" width="176" height="14" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="120" y="271" text-anchor="middle" font-family="monospace" font-size="7" fill="#a8b8cc">streams: 1 completed  last_err: none</text>
+  <rect x="55" y="282" width="55" height="18" rx="3" fill="#1e293b" stroke="#a78bfa" stroke-width="0.8"/>
+  <text x="82" y="294" text-anchor="middle" font-size="7" fill="#c4b5fd">Refresh</text>
+  <rect x="118" y="282" width="55" height="18" rx="3" fill="#1e293b" stroke="#a78bfa" stroke-width="0.8"/>
+  <text x="145" y="294" text-anchor="middle" font-size="7" fill="#c4b5fd">Copy JSON</text>
+
+  <!-- Arrow: diagnostics ← backend -->
+  <line x1="340" y1="185" x2="340" y2="215" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4 3"/>
+  <line x1="340" y1="215" x2="220" y2="255" stroke="#a78bfa" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#grpc23-arr-p)"/>
+  <text x="290" y="208" font-size="7" fill="#c4b5fd">IPC snapshot</text>
+
+  <!-- ── Bottom center: Mock Network Listener ── -->
+  <rect x="250" y="210" width="220" height="120" rx="6" fill="#0f172a" stroke="#fbbf24" stroke-width="1.2"/>
+  <text x="360" y="232" text-anchor="middle" font-size="9.5" fill="#fbbf24" font-weight="600">🌐 Mock Network Listener</text>
+  <text x="360" y="250" text-anchor="middle" font-size="8" fill="#a8b8cc">TCP :50099 (tonic server)</text>
+
+  <!-- Rules -->
+  <rect x="262" y="260" width="196" height="18" rx="3" fill="#1e293b" stroke="#22c55e" stroke-width="0.8"/>
+  <text x="360" y="273" text-anchor="middle" font-size="7.5" fill="#4ade80">Rule: ping → pong  (gen #3)</text>
+  <rect x="262" y="282" width="196" height="18" rx="3" fill="#1e293b" stroke="#ef4444" stroke-width="0.8"/>
+  <text x="360" y="295" text-anchor="middle" font-size="7.5" fill="#f87171">Rule: fallback → INTERNAL</text>
+
+  <!-- Hot-swap badge -->
+  <rect x="290" y="306" width="140" height="16" rx="8" fill="#1e293b" stroke="#fbbf24" stroke-width="0.8"/>
+  <text x="360" y="317" text-anchor="middle" font-size="7" fill="#fbbf24">🔄 Hot-swap · no restart</text>
+
+  <!-- ── Bottom right: External clients ── -->
+  <rect x="500" y="210" width="180" height="100" rx="6" fill="#0f172a" stroke="#64748b" stroke-width="1"/>
+  <text x="590" y="232" text-anchor="middle" font-size="9.5" fill="#a8b8cc" font-weight="600">🔌 External Clients</text>
+  <rect x="515" y="245" width="150" height="18" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="590" y="258" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#a8b8cc">grpcurl → :50099</text>
+  <rect x="515" y="268" width="150" height="18" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="590" y="281" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#a8b8cc">microservice → :50099</text>
+  <rect x="515" y="291" width="150" height="18" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="590" y="304" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#a8b8cc">CI pipeline → :50099</text>
+
+  <!-- Arrow: external → listener -->
+  <line x1="500" y1="265" x2="472" y2="265" stroke="#fbbf24" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#grpc23-arr)"/>
+
+  <!-- ── Bottom labels ── -->
+  <text x="120" y="355" text-anchor="middle" font-size="8" fill="#64748b">Inspect runtime state</text>
+  <text x="360" y="355" text-anchor="middle" font-size="8" fill="#64748b">Mock with real TCP port</text>
+  <text x="590" y="355" text-anchor="middle" font-size="8" fill="#64748b">Connect from anywhere</text>
+</svg>`,
 };
 
 // ---------------------------------------------------------------------------
@@ -1330,7 +1439,7 @@ export const grpcTauriDesktopLesson: GrpcDemoLesson = {
   steps,
   setup: async (ctx) => {
     resetSession();
-    await grpcFirstCallSetup(ctx);
+    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
     if (document.querySelector(GRPC.PROTO_MANAGE_MODAL)) {
       await resetGrpcManageSchemasDraftsQuiet(ctx);
     }

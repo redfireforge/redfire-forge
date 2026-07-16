@@ -3438,9 +3438,12 @@
   display: flex;
   flex-direction: column;
   background: var(--surface, #252525);
-  border: 1px solid var(--border, #444);
+  border: 1px solid rgba(255, 255, 255, 0.30);
   border-radius: var(--radius, 10px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 16px 48px rgba(0, 0, 0, 0.5);
   pointer-events: auto;
   overflow: hidden;
 }

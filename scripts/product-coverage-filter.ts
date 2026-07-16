@@ -10,8 +10,10 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import libCoverage from 'istanbul-lib-coverage';
 import { isDemoCoveragePath } from '../vitest.projectPatterns';
 
-const INPUT = 'coverage/coverage-final.json';
-const SUMMARY_OUT = 'coverage/coverage-summary.product.json';
+const COVERAGE_DIR = process.env.PRODUCT_COVERAGE_DIR ?? 'coverage';
+const INPUT = `${COVERAGE_DIR}/coverage-final.json`;
+const SUMMARY_OUT = `${COVERAGE_DIR}/coverage-summary.product.json`;
+const FILTERED_OUT = `${COVERAGE_DIR}/coverage-final.product.json`;
 
 let raw: Record<string, unknown>;
 try {
@@ -40,7 +42,7 @@ if (remainingDemo.length > 0) {
 
 const summary = map.getCoverageSummary().toJSON();
 writeFileSync(SUMMARY_OUT, JSON.stringify(summary, null, 2));
-writeFileSync('coverage/coverage-final.product.json', JSON.stringify(map.toJSON(), null, 2));
+writeFileSync(FILTERED_OUT, JSON.stringify(map.toJSON(), null, 2));
 
 const pct = (n: number | string) => `${Number(n).toFixed(2)}%`;
 console.log(`✅ Product coverage map excludes demo-hub (${removed} path(s) stripped from raw report)`);
@@ -51,4 +53,4 @@ console.log(
   + `Lines ${pct(summary.lines.pct)}`,
 );
 console.log(`   Summary written to ${SUMMARY_OUT}`);
-console.log('   Filtered map written to coverage/coverage-final.product.json');
+console.log(`   Filtered map written to ${FILTERED_OUT}`);
