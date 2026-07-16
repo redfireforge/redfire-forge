@@ -64,6 +64,26 @@ describe('grpc-lesson-helpers/navigation', () => {
     expect(clickSpy).not.toHaveBeenCalled();
   });
 
+  it('openGrpcHistoryPanelQuiet does not bounce through Studio when History is already active', async () => {
+    // Live state arriving from the previous step: History selected, Studio not.
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="false"></button>
+      <button data-testid="grpc-sub-nav-history" aria-selected="true"></button>
+      <div data-testid="grpc-history-panel"></div>
+    `;
+    const studioBtn = document.querySelector<HTMLButtonElement>(GRPC.SUB_NAV_STUDIO)!;
+    const historyBtn = document.querySelector<HTMLButtonElement>(GRPC.SUB_NAV_HISTORY)!;
+    const studioClickSpy = vi.spyOn(studioBtn, 'click');
+    const historyClickSpy = vi.spyOn(historyBtn, 'click');
+    const ctx = makeCtx();
+
+    await openGrpcHistoryPanelQuiet(ctx);
+
+    expect(studioClickSpy).not.toHaveBeenCalled();
+    expect(historyClickSpy).not.toHaveBeenCalled();
+    expect(ctx.click).not.toHaveBeenCalled();
+  });
+
   it('openGrpcSettingsDrawerQuiet opens drawer without selecting a nav tab', async () => {
     document.body.innerHTML = `<button data-testid="grpc-connection-settings-btn"></button>`;
     const settingsBtn = document.querySelector<HTMLButtonElement>(GRPC.CONNECTION_SETTINGS_BTN)!;

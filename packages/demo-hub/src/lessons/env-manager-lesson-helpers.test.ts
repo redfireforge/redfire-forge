@@ -269,15 +269,21 @@ describe('env-manager-lesson-helpers', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('environments');
   });
 
-  it('ensureProtocolDisabled clicks remove when HTTP tab is present', async () => {
+  it('ensureProtocolDisabled clicks remove when HTTP tab is present (no viewer ripple)', async () => {
     document.body.innerHTML = `
       <div data-testid="microservice-protocol-panel">
         <button data-testid="em-protocol-tab-http">HTTP</button>
         <button data-testid="em-remove-protocol-http">×</button>
       </div>`;
+    const removeBtn = document.querySelector<HTMLButtonElement>(
+      '[data-testid="em-remove-protocol-http"]',
+    )!;
+    const removeClickSpy = vi.spyOn(removeBtn, 'click');
     const ctx = makeCtx();
     await ensureProtocolDisabled(ctx, 'http');
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-remove-protocol-http"]');
+    // Removal uses a plain DOM click so no demo ripple/highlight fires during setup.
+    expect(removeClickSpy).toHaveBeenCalledTimes(1);
+    expect(ctx.click).not.toHaveBeenCalled();
   });
 
   it('ensureProtocolDisabled is no-op when remove button is absent', async () => {
@@ -336,9 +342,13 @@ describe('env-manager-lesson-helpers', () => {
       </div>`;
     const d01Checkbox = document.querySelector<HTMLInputElement>('[aria-label="Deploy d01"]')!;
     const d01Click = vi.spyOn(d01Checkbox, 'click');
+    const removeHttpBtn = document.querySelector<HTMLButtonElement>(
+      '[data-testid="em-remove-protocol-http"]',
+    )!;
+    const removeHttpClick = vi.spyOn(removeHttpBtn, 'click');
     const ctx = makeCtx();
     await ensureWsDemoEndpointConfigured(ctx);
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-remove-protocol-http"]');
+    expect(removeHttpClick).toHaveBeenCalled();
     expect(d01Click).toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-websocket"]');
   });
@@ -431,9 +441,13 @@ describe('env-manager-lesson-helpers', () => {
       </div>`;
     const d01Checkbox = document.querySelector<HTMLInputElement>('[aria-label="Deploy d01"]')!;
     const d01Click = vi.spyOn(d01Checkbox, 'click');
+    const removeHttpBtn = document.querySelector<HTMLButtonElement>(
+      '[data-testid="em-remove-protocol-http"]',
+    )!;
+    const removeHttpClick = vi.spyOn(removeHttpBtn, 'click');
     const ctx = makeCtx();
     await ensureGqlDemoProtocolReady(ctx);
-    expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-remove-protocol-http"]');
+    expect(removeHttpClick).toHaveBeenCalled();
     expect(d01Click).toHaveBeenCalled();
     expect(ctx.click).toHaveBeenCalledWith('[data-testid="em-protocol-tab-graphql"]');
   });

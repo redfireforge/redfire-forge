@@ -8,7 +8,10 @@ import {
 } from '../../src/shared/grpc/contractFixtures.js';
 import { clearGrpcDescriptorStore, getGrpcDescriptor, setGrpcDescriptor } from './descriptorStore.js';
 import { encodeRootAsProtosetBase64, parseProtoFiles } from './protoDescriptorParser.js';
-import { resetServerGrpcMockRuntimeRegistryForTests } from './grpcMockServerRuntimeBridge.js';
+import {
+  getServerGrpcMockRuntimeRegistry,
+  resetServerGrpcMockRuntimeRegistryForTests,
+} from './grpcMockServerRuntimeBridge.js';
 
 const listenerMocks = vi.hoisted(() => {
   const instances: Array<{
@@ -152,6 +155,24 @@ describe('grpcMockServerPool coverage gaps', () => {
     await pool.stop(BASE_START_REQUEST.tabId);
   });
 
+  it('falls back to normalized content hash when provided hash is blank', async () => {
+    clearGrpcDescriptorStore();
+    const root = parseProtoFiles([{ path: 'echo.proto', content: FIXTURE_ECHO_PROTO }]);
+    const protosetBase64 = encodeRootAsProtosetBase64(root);
+
+    await pool.start({
+      ...BASE_START_REQUEST,
+      descriptorKey: 'protoset-blank-sha',
+      protosetBase64,
+      contentSha256: '   ',
+    });
+
+    const stored = getGrpcDescriptor('protoset-blank-sha');
+    expect(stored?.key).toBe('protoset-blank-sha');
+    expect(stored?.contentSha256).not.toBe('   ');
+    await pool.stop(BASE_START_REQUEST.tabId);
+  });
+
   it('uses allocated port when listener status omits port', async () => {
     listenerMocks.omitPortInStatus.set(true);
     await pool.start(BASE_START_REQUEST);
@@ -183,6 +204,21 @@ describe('grpcMockServerPool coverage gaps', () => {
     await pool.stop(BASE_START_REQUEST.tabId);
   });
 
+  it('forces stop of an already-registered runtime manager before listener boot', async () => {
+    const registry = getServerGrpcMockRuntimeRegistry();
+    registry.startTab(BASE_START_REQUEST.tabId, {
+      connectionId: BASE_START_REQUEST.connectionId,
+      ruleSet: BASE_START_REQUEST.ruleSet,
+    });
+    const stopSpy = vi.spyOn(registry, 'stopTab');
+
+    await pool.start(BASE_START_REQUEST);
+
+    expect(stopSpy).toHaveBeenCalledWith(BASE_START_REQUEST.tabId, { force: true });
+    stopSpy.mockRestore();
+    await pool.stop(BASE_START_REQUEST.tabId);
+  });
+
   it('cleans up listener and registry when start fails after listener creation', async () => {
     listenerMocks.startError.set(new Error('listener start failed'));
     await expect(pool.start(BASE_START_REQUEST)).rejects.toThrow(/listener start failed/i);
@@ -195,6 +231,20 @@ describe('grpcMockServerPool coverage gaps', () => {
     expect(status.tabId).toBe('missing-tab');
     expect(pool.getStatus('missing-tab').running).toBe(false);
     expect(pool.getLogs('missing-tab')).toEqual([]);
+  });
+
+  it('delegates status and logs to active listener entries', async () => {
+    await pool.start(BASE_START_REQUEST);
+
+    const status = pool.getStatus(BASE_START_REQUEST.tabId);
+    expect(status.running).toBe(true);
+    expect(listenerMocks.instances[0]?.getStatus).toHaveBeenCalled();
+
+    const logs = pool.getLogs(BASE_START_REQUEST.tabId, 7);
+    expect(listenerMocks.instances[0]?.getLogs).toHaveBeenCalledWith(7);
+    expect(logs.length).toBeGreaterThan(0);
+
+    await pool.stop(BASE_START_REQUEST.tabId);
   });
 
   it('commits latency policy updates for running tabs', () => {

@@ -24,28 +24,32 @@ import {
   type GrpcDemoLesson,
 } from './grpc-lesson-contract';
 import {
+  GRPC_DEMO_MESSAGE,
   GRPC_DEMO_TARGET,
   GRPC_ECHO_METHOD_SEL,
   GRPC_ECHO_SERVICE_SEL,
   closeGrpcSettingsDrawerQuiet,
   closeExtraGrpcTabsQuiet,
-  ensureEchoMessageFilled,
-  ensureEchoMethodSelected,
   ensureGrpcRequestFormTabQuiet,
   ensureGrpcStudioSubNavQuiet,
-  ensureGrpcTarget,
   fillGrpcEchoMessage,
   grpcEchoComposerFieldSelector,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
+  guardGrpcTargetQuiet,
   isGrpcEchoComposerReady,
+  isGrpcHybridComposerActive,
   openGrpcSettingsDrawerQuiet,
   setGrpcTargetQuiet,
+  setInputValueAndDispatch,
   spotlightAndPause,
   spotlightElementAndPause,
   spotlightGrpcRequestComposer,
+  spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
+import { ensureMessageFilledQuiet } from './grpc-spring-boot-helpers';
+import { resetGrpcActiveTabTransport } from '../../adapters';
 import type { DemoActionContext } from '../../types';
 
 const GRPC19_ROSTER = getGrpcLessonRosterEntry('grpc-transport-modes')!;
@@ -60,7 +64,6 @@ const GRPC19_SETTLE_MS = 700;
 const GRPC19_PAYOFF_MS = 1_200;
 
 type TransportMode = 'express' | 'tauri' | 'grpc-web' | 'spring-servlet';
-const TRANSPORT_MODE_ORDER: TransportMode[] = ['express', 'tauri', 'grpc-web', 'spring-servlet'];
 
 // ---------------------------------------------------------------------------
 // Transport panel helpers (quiet — used from preAction guards)
@@ -86,7 +89,24 @@ async function ensureStudioNav(ctx: DemoActionContext): Promise<void> {
 async function resetTransportBaselineQuiet(ctx: DemoActionContext): Promise<void> {
   await ensureStudioNav(ctx);
 
-  // Open the drawer a single time and do both resets before closing.
+  // Fast path: if the connection-bar transport badge already reads Express, the
+  // demo tab is at baseline and there is nothing to reset.
+  const transportBadge = document.querySelector<HTMLElement>(GRPC.TRANSPORT_BADGE);
+  if (transportBadge?.className.includes('grpc-connection-transport-badge--express')) {
+    await setGrpcTargetQuiet(ctx, GRPC_DEMO_TARGET);
+    return;
+  }
+
+  // Programmatic path: patch transport + compression via the bridge so we never
+  // open the Session Settings drawer.  The drawer open/close cycle is exactly the
+  // "quick unnecessary modal popup" the viewer sees flashing before narration.
+  if (resetGrpcActiveTabTransport('express')) {
+    await ctx.delay(200);
+    await setGrpcTargetQuiet(ctx, GRPC_DEMO_TARGET);
+    return;
+  }
+
+  // Fallback (bridge unavailable): open the drawer once and do both resets.
   await openGrpcSettingsDrawerQuiet(ctx, 'compression');
   if (document.querySelector(GRPC.COMPRESSION_PANEL)) {
     const toggle = document.querySelector<HTMLButtonElement>(GRPC.COMPRESSION_ENABLED);
@@ -95,8 +115,6 @@ async function resetTransportBaselineQuiet(ctx: DemoActionContext): Promise<void
       await ctx.delay(200);
     }
   }
-
-  // Navigate to Transport within the already-open drawer.
   const transportNavBtn = document.querySelector<HTMLElement>(GRPC.SETTINGS_NAV_ITEM('transport'));
   if (transportNavBtn) {
     transportNavBtn.click();
@@ -112,19 +130,68 @@ async function resetTransportBaselineQuiet(ctx: DemoActionContext): Promise<void
       }
     }
   }
-
   await closeGrpcSettingsDrawerQuiet(ctx);
   await setGrpcTargetQuiet(ctx, GRPC_DEMO_TARGET);
 }
 
 // ---------------------------------------------------------------------------
-// Reflect + Echo selection on the *current* target (does not force the
-// default target — required once the lesson points Studio at :50055/back).
+// Silent reflect + Echo selection — plain DOM clicks, no viewer ripple.
+//
+// The shared `ensureEchoMethodSelected` and `ensureGrpcReflected` both use
+// `ctx.click()` which draws demo ripples. In a preAction those ripples are
+// the "quick unnecessary highlights" the viewer sees flashing before the
+// narration. This local helper does the exact same work with plain DOM
+// `.click()` calls, and short-circuits when the composer is already ready
+// (the common sequential-playback case).
 // ---------------------------------------------------------------------------
 
-async function reflectAndSelectEchoQuiet(ctx: DemoActionContext): Promise<void> {
-  await ensureEchoMethodSelected(ctx);
-  await ensureEchoMessageFilled(ctx);
+async function reflectAndSelectEchoSilent(ctx: DemoActionContext): Promise<void> {
+  // Already ready — fast path for sequential playback.
+  if (isGrpcEchoComposerReady()) {
+    await ensureGrpcRequestFormTabQuiet(ctx);
+    return;
+  }
+
+  // Reflect if the service tree is not populated.
+  if (!document.querySelector(GRPC.EXPLORER_TREE) && !document.querySelector(GRPC.EXPLORER_SOURCE)) {
+    const reflectBtn = document.querySelector<HTMLButtonElement>(GRPC.REFLECT_BTN);
+    if (reflectBtn && !reflectBtn.disabled) {
+      reflectBtn.click();
+    }
+    try {
+      await ctx.waitFor(`${GRPC.EXPLORER_TREE}, ${GRPC.EXPLORER_SOURCE}`, 12_000);
+    } catch { /* remain navigable */ }
+    await ctx.delay(200);
+  }
+
+  // Expand service if needed, then select the Echo method.
+  if (!document.querySelector(GRPC_ECHO_METHOD_SEL)) {
+    const serviceBtn = document.querySelector<HTMLElement>(GRPC_ECHO_SERVICE_SEL);
+    if (serviceBtn) {
+      serviceBtn.click();
+      await ctx.delay(200);
+    }
+  }
+  const methodBtn = document.querySelector<HTMLElement>(GRPC_ECHO_METHOD_SEL);
+  if (methodBtn) {
+    methodBtn.click();
+    try {
+      await ctx.waitFor(GRPC.REQUEST_FORM_SCROLL, 8_000);
+      await ctx.waitFor(grpcEchoComposerFieldSelector(), 8_000);
+    } catch { /* best effort */ }
+    await ctx.delay(200);
+  }
+
+  await ensureGrpcRequestFormTabQuiet(ctx);
+
+  // Fill the Echo message if not already present.
+  const field = document.querySelector<HTMLInputElement | HTMLTextAreaElement>(grpcEchoComposerFieldSelector());
+  if (field && !field.value.trim()) {
+    setInputValueAndDispatch(field, isGrpcHybridComposerActive()
+      ? JSON.stringify({ message: GRPC_DEMO_MESSAGE }, null, 2)
+      : GRPC_DEMO_MESSAGE);
+    await ctx.delay(150);
+  }
 }
 
 /** Visible reflect + Echo selection (with spotlight pacing) for steps that re-teach it. */
@@ -152,7 +219,9 @@ async function openTransportPanelVisible(ctx: DemoActionContext): Promise<void> 
     }
   }
   await ctx.delay(GRPC19_SETTLE_MS);
-  await spotlightAndPause(ctx, GRPC.TRANSPORT_PANEL, GRPC19_SWITCH_MS);
+  // No whole-panel spotlight here — the nav tab spotlight already oriented the
+  // viewer, and the caller spotlights individual mode cards next. A ring around
+  // the entire Transport section is redundant and visually noisy.
 }
 
 /** Visible Session settings → Compression (spotlight each beat before interacting). */
@@ -179,7 +248,6 @@ async function openCompressionPanelVisible(ctx: DemoActionContext): Promise<void
     }
   }
   await ctx.delay(GRPC19_SETTLE_MS);
-  await spotlightAndPause(ctx, GRPC.COMPRESSION_PANEL, GRPC19_SWITCH_MS);
 }
 
 async function closeSettingsDrawerVisible(ctx: DemoActionContext): Promise<void> {
@@ -234,8 +302,17 @@ async function reflectAndSelectEchoVisible(ctx: DemoActionContext): Promise<void
     }
   }
 
-  await spotlightGrpcRequestComposer(ctx);
   await fillGrpcEchoMessage(ctx);
+  // Wait for React to settle after method selection + fill.  Auto-reflection
+  // or a deferred re-render from the method click can clobber the fill.
+  // Retry up to 3 times so the spotlight never lands on an empty body.
+  for (let attempt = 0; attempt < 3; attempt++) {
+    await ctx.delay(400);
+    const textarea = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
+    if (textarea && textarea.value.includes(GRPC_DEMO_MESSAGE)) break;
+    await fillGrpcEchoMessage(ctx);
+  }
+  await spotlightGrpcRequestComposer(ctx);
 }
 
 // ---------------------------------------------------------------------------
@@ -253,7 +330,11 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
     '"Retry with Express Proxy" fallback and per-tab transport isolation.',
 
   setup: async (ctx) => {
-    await grpcFirstCallSetup(ctx);
+    // Skip the Manage Schemas draft reset — this lesson only covers transport
+    // modes, never schema sources. Running it would open/close the Manage Schemas
+    // modal (cycling Proto Files/Protoset/URL/BSR sub-tabs) for every tab, which
+    // the viewer sees as a burst of modals flashing on and off before step 1.
+    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
     await resetTransportBaselineQuiet(ctx);
   },
   cleanup: async (ctx) => {
@@ -394,7 +475,7 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
       description:
         'Browsers cannot open a raw HTTP/2 gRPC channel — `fetch` and `XMLHttpRequest` don\'t expose the trailer ' +
         'frames gRPC relies on. Every RedfireForge transport mode works around that limitation differently.\n\n' +
-        'Open **Session settings → Transport** to see all four. Each card is spotlighted in turn below:\n\n' +
+        'Open **Session settings → Transport** to see all four. This step spotlights only the key cards:\n\n' +
         '- 🌐 **Express Proxy** — the local Node.js server makes the real call (default, works everywhere)\n' +
         '- 🦀 **Tauri Native** — desktop-only, grayed out here in the web app\n' +
         '- 🌍 **gRPC-Web** — the browser talks directly to a grpc-web-aware server or proxy\n' +
@@ -405,42 +486,41 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
-        await ensureGrpcTarget(ctx);
-        await ensureEchoMethodSelected(ctx);
-        // No drawer-opening reset here — the lesson setup handles baseline state,
-        // and this step's action opens the drawer intentionally for the tour.
+        await guardGrpcTargetQuiet(ctx);
+        await reflectAndSelectEchoSilent(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.CONNECTION_SETTINGS_BTN, GRPC19_SPOTLIGHT_MS);
+        await spotlightAndPause(ctx, GRPC.CONNECTION_SETTINGS_BTN, 1_150);
         await ctx.click(GRPC.CONNECTION_SETTINGS_BTN);
         try {
           await ctx.waitFor(GRPC.SETTINGS_DRAWER, 5_000);
         } catch {
           await ctx.delay(GRPC19_SETTLE_MS);
         }
-        await ctx.delay(GRPC19_SETTLE_MS);
-        await spotlightAndPause(ctx, GRPC.SETTINGS_DRAWER, GRPC19_SWITCH_MS);
+        await ctx.delay(850);
 
-        await spotlightAndPause(ctx, GRPC.SETTINGS_NAV_ITEM('transport'), GRPC19_SWITCH_MS);
+        await spotlightAndPause(ctx, GRPC.SETTINGS_NAV_ITEM('transport'), 1_050);
         await ctx.click(GRPC.SETTINGS_NAV_ITEM('transport'));
         try {
           await ctx.waitFor(GRPC.SETTINGS_PANEL('transport'), 3_000);
         } catch {
           await ctx.delay(GRPC19_SETTLE_MS);
         }
-        await ctx.delay(GRPC19_SETTLE_MS);
-        await spotlightAndPause(ctx, GRPC.TRANSPORT_PANEL, GRPC19_SWITCH_MS);
+        await ctx.delay(800);
 
-        // Spotlight each mode card in turn so the viewer can read every option.
-        for (const mode of TRANSPORT_MODE_ORDER) {
-          await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE(mode), GRPC19_PAYOFF_MS);
-          if (document.querySelector(GRPC.TRANSPORT_MODE_REASON(mode))) {
-            await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE_REASON(mode), GRPC19_SWITCH_MS);
-          }
+        // Spotlight each mode card individually — never the whole panel container.
+        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('express'), 1_200);
+        await ctx.delay(250);
+        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('grpc-web'), 1_200);
+        await ctx.delay(250);
+        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('spring-servlet'), 1_100);
+        if (document.querySelector(GRPC.TRANSPORT_MODE_REASON('tauri'))) {
           await ctx.delay(250);
+          await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE_REASON('tauri'), 1_000);
         }
 
-        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('express'), GRPC19_SWITCH_MS);
+        await ctx.delay(250);
+        await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('express'), 1_000);
         await closeSettingsDrawerVisible(ctx);
       },
       verify: GRPC.CONNECTION_BAR,
@@ -465,7 +545,7 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
         await setGrpcTargetQuiet(ctx, GRPC_DEMO_TARGET);
-        await reflectAndSelectEchoQuiet(ctx);
+        await reflectAndSelectEchoSilent(ctx);
       },
       action: async (ctx) => {
         await openTransportPanelVisible(ctx);
@@ -484,8 +564,8 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
         await closeSettingsDrawerVisible(ctx);
         await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, GRPC19_SWITCH_MS);
 
-        await spotlightGrpcRequestComposer(ctx);
         await fillGrpcEchoMessage(ctx);
+        await spotlightGrpcRequestComposer(ctx);
         await spotlightAndPause(ctx, GRPC.SEND_BTN, GRPC19_SWITCH_MS);
         await ctx.click(GRPC.SEND_BTN);
         try {
@@ -496,7 +576,7 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
         await ctx.delay(GRPC19_SETTLE_MS);
 
         await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, GRPC19_SWITCH_MS);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, GRPC19_PAYOFF_MS);
+        await spotlightResponseJsonContentTight(ctx, GRPC19_PAYOFF_MS);
         await spotlightAndPause(ctx, GRPC.RESPONSE_TARGET, GRPC19_SPOTLIGHT_MS);
       },
       verify: GRPC.RESPONSE_BODY,
@@ -541,6 +621,8 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
         }
 
         await reflectAndSelectEchoVisible(ctx);
+        await ctx.delay(400);
+        await ensureMessageFilledQuiet(ctx);
 
         await spotlightAndPause(ctx, GRPC.SEND_BTN, GRPC19_SWITCH_MS);
         await ctx.click(GRPC.SEND_BTN);
@@ -552,7 +634,7 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
         await ctx.delay(GRPC19_SETTLE_MS);
 
         await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, GRPC19_SWITCH_MS);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, GRPC19_PAYOFF_MS);
+        await spotlightResponseJsonContentTight(ctx, GRPC19_PAYOFF_MS);
         await spotlightAndPause(ctx, GRPC.RESPONSE_TARGET, GRPC19_SPOTLIGHT_MS);
       },
       verify: GRPC.RESPONSE_BODY,
@@ -578,7 +660,18 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
         await setGrpcTargetQuiet(ctx, GRPC_ENVOY_TARGET);
-        // Single drawer session: set grpc-web mode AND shorten call deadline.
+
+        // Fast path: step 3 already left gRPC-Web active. If the transport badge
+        // confirms gRPC-Web, skip opening the settings drawer entirely — opening
+        // it just to set transport + call deadline is the "quick unnecessary modal"
+        // the viewer sees flashing before the narration starts.
+        const badge = document.querySelector<HTMLElement>(GRPC.TRANSPORT_BADGE);
+        if (badge?.className.includes('grpc-connection-transport-badge--grpc-web')) {
+          return;
+        }
+
+        // Slow path (direct step entry / restart): open drawer once, set grpc-web
+        // + call deadline, then close.
         await openGrpcSettingsDrawerQuiet(ctx, 'transport');
         if (!isTransportModeActive('grpc-web')) {
           const btn = document.querySelector<HTMLButtonElement>(GRPC.TRANSPORT_MODE('grpc-web'));
@@ -615,7 +708,10 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
         // from Envoy (:50055) to :50051, auto-reflection can reset the form
         // body after reflectAndSelectEchoVisible already filled it.
         await fillGrpcEchoMessage(ctx);
-        await ctx.delay(200);
+        await ctx.delay(400);
+        // Verify the fill actually stuck — auto-reflection may have clobbered
+        // it between the fill and the delay.
+        await ensureMessageFilledQuiet(ctx);
 
         await spotlightAndPause(ctx, GRPC.SEND_BTN, GRPC19_SWITCH_MS);
         await ctx.click(GRPC.SEND_BTN);
@@ -640,7 +736,7 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
           await ctx.waitFor(GRPC.RESPONSE_BODY, 15_000);
           await ctx.delay(GRPC19_SETTLE_MS);
           await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, GRPC19_SWITCH_MS);
-          await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, GRPC19_PAYOFF_MS);
+          await spotlightResponseJsonContentTight(ctx, GRPC19_PAYOFF_MS);
           await spotlightAndPause(ctx, GRPC.RESPONSE_TARGET, GRPC19_SPOTLIGHT_MS);
         }
       },
@@ -699,23 +795,15 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
         await setGrpcTargetQuiet(ctx, GRPC_DEMO_TARGET);
-        await reflectAndSelectEchoQuiet(ctx);
+        await reflectAndSelectEchoSilent(ctx);
         // Step 5 may leave Spring Servlet selected — reset transport + compression quietly.
         await resetTransportBaselineQuiet(ctx);
-        await reflectAndSelectEchoQuiet(ctx);
+        await reflectAndSelectEchoSilent(ctx);
       },
       action: async (ctx) => {
-        await openTransportPanelVisible(ctx);
-        if (!isTransportModeActive('express')) {
-          const modeBtn = document.querySelector<HTMLButtonElement>(GRPC.TRANSPORT_MODE('express'));
-          if (modeBtn && !modeBtn.disabled) {
-            await spotlightAndPause(ctx, GRPC.TRANSPORT_MODE('express'), GRPC19_SPOTLIGHT_MS);
-            modeBtn.click();
-            await ctx.delay(GRPC19_SETTLE_MS);
-          }
-        }
-        await closeSettingsDrawerVisible(ctx);
-
+        // preAction already reset transport to Express and compression off, so go
+        // straight to Compression — no redundant Transport panel detour that the
+        // viewer sees as a second "modal popup" open/close cycle.
         await openCompressionPanelVisible(ctx);
         await spotlightAndPause(ctx, GRPC.COMPRESSION_ENABLED, GRPC19_SWITCH_MS);
         const toggle = document.querySelector<HTMLButtonElement>(GRPC.COMPRESSION_ENABLED);
@@ -732,8 +820,8 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
 
         await closeSettingsDrawerVisible(ctx);
 
-        await spotlightGrpcRequestComposer(ctx);
         await fillGrpcEchoMessage(ctx);
+        await spotlightGrpcRequestComposer(ctx);
         await spotlightAndPause(ctx, GRPC.SEND_BTN, GRPC19_SWITCH_MS);
         await ctx.click(GRPC.SEND_BTN);
         try {
@@ -743,7 +831,7 @@ export const grpcTransportModesLesson: GrpcDemoLesson = {
         }
         await ctx.delay(GRPC19_SETTLE_MS);
         await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, GRPC19_SWITCH_MS);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, GRPC19_PAYOFF_MS);
+        await spotlightResponseJsonContentTight(ctx, GRPC19_PAYOFF_MS);
       },
       verify: GRPC.RESPONSE_BODY,
     },

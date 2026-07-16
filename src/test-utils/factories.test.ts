@@ -362,5 +362,26 @@ describe('factories', () => {
       const fg = makeFeatureGroup({ name: 'Named Group' });
       expect(fg.scenarios).toEqual([]);
     });
+
+    it('preserves explicit null overrides', () => {
+      const folder = makeWorkflowFolder({
+        id: null as unknown as string,
+        name: null as unknown as string,
+        order: null as unknown as number,
+      });
+      expect(folder.id).toBeNull();
+      expect(folder.name).toBeNull();
+      expect(folder.order).toBeNull();
+
+      const group = makeFeatureGroup({
+        name: null as unknown as string,
+        scenarios: null as unknown as FeatureGroup['scenarios'],
+      });
+      expect(group.name).toBeNull();
+      expect(group.scenarios).toBeNull();
+
+      const scenario = makeTestScenario({ name: null as unknown as string });
+      expect(scenario.name).toBeNull();
+    });
   });
 });

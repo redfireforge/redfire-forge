@@ -33,6 +33,7 @@ import {
   grpcFirstCallSetup,
   openGrpcHistoryPanelQuiet,
   spotlightAndPause,
+  spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import { closeModalByButtonQuiet } from '../modal-close-helpers';
@@ -554,7 +555,6 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
         '- **Body** — `{"message":"hello from grpcurl"}` echoed back\n' +
         '- **Duration** — how long the round-trip took\n\n' +
         'History logs this entry automatically. You\'ll use it in the next step to export back to grpcurl.',
-      highlight: GRPC.RESPONSE_PANEL,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
         await closeImportModalQuiet(ctx);
@@ -577,11 +577,10 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
         await ctx.delay(600);
 
         // Spotlight the response status + body.
-        await spotlightAndPause(ctx, GRPC.RESPONSE_PANEL, 800);
         if (document.querySelector(GRPC.RESPONSE_STATUS)) {
           await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 800);
         }
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 1_000);
+        await spotlightResponseJsonContentTight(ctx, 1_000);
 
         // Note the history badge that appeared.
         if (document.querySelector(GRPC.SUB_NAV_HISTORY_BADGE)) {

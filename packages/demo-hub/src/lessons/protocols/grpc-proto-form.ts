@@ -37,9 +37,10 @@ import {
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
   closeGrpcSettingsDrawerQuiet,
-  guardGrpcReflectedQuiet,
   guardGrpcTargetQuiet,
   resetGrpcConnectionSettingsQuiet,
+  spotlightRequestJsonContentTight,
+  spotlightResponseJsonContentTight,
   spotlightAndPause,
   spotlightElementAndPause,
   isGrpcHybridComposerActive,
@@ -80,8 +81,34 @@ async function ensureStudioNav(ctx: DemoActionContext): Promise<void> {
   await ensureGrpcStudioSubNavQuiet(ctx);
 }
 
+/**
+ * Reflect quietly using a direct DOM click — no viewer ripple.
+ *
+ * The shared `guardGrpcReflectedQuiet` delegates to `ensureGrpcReflected`, which
+ * calls `ctx.click(REFLECT_BTN)` — that draws a demo ripple. In a preAction (the
+ * "beginning" of a step, before narration) that ripple is exactly the "quick
+ * unnecessary highlight" the viewer sees flashing. A plain DOM `.click()` fires
+ * the same reflect without any spotlight/ripple. Returns early when the service
+ * tree is already present (steps 2+ during sequential playback).
+ */
+async function reflectComplexQuiet(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(GRPC.EXPLORER_TREE) || document.querySelector(GRPC.EXPLORER_SOURCE)) {
+    return;
+  }
+  const reflectBtn = document.querySelector<HTMLButtonElement>(GRPC.REFLECT_BTN);
+  if (reflectBtn && !reflectBtn.disabled) {
+    reflectBtn.click();
+  }
+  try {
+    await ctx.waitFor(`${GRPC.EXPLORER_TREE}, ${GRPC.EXPLORER_SOURCE}`, 12_000);
+  } catch {
+    // Remain navigable if local reflection infra is unavailable.
+  }
+  await ctx.delay(200);
+}
+
 async function selectComplexMethodQuiet(ctx: DemoActionContext): Promise<void> {
-  await guardGrpcReflectedQuiet(ctx);
+  await reflectComplexQuiet(ctx);
   if (
     document.querySelector(GRPC.CALL_METHOD_NAME)?.textContent?.includes(GRPC_COMPLEX_METHOD)
   ) {
@@ -103,7 +130,7 @@ async function ensureComplexBaselineQuiet(ctx: DemoActionContext): Promise<void>
   await ensureStudioNav(ctx);
   await resetGrpcConnectionSettingsQuiet(ctx);
   await guardGrpcTargetQuiet(ctx);
-  await guardGrpcReflectedQuiet(ctx);
+  await reflectComplexQuiet(ctx);
   await selectComplexMethodQuiet(ctx);
   // Wait for React to finish resetting the form, then pre-fill message and
   // expand nested objects so the compact JSON matches the Full Form Editor JSON View.
@@ -143,7 +170,15 @@ async function closeHybridModalQuiet(ctx: DemoActionContext): Promise<void> {
     return;
   }
   closeBtn.click();
-  await ctx.delay(200);
+  await ctx.delay(150);
+
+  // Some modal states prompt a discard-confirm only after the first close click.
+  // Dismiss it here so lesson startup does not show a quick popup flicker.
+  const discardAfterClose = document.querySelector<HTMLButtonElement>('[data-testid="grpc-hybrid-close-discard-btn"]');
+  if (discardAfterClose) {
+    discardAfterClose.click();
+    await ctx.delay(150);
+  }
 }
 
 /** Open the Full Form Editor from the compact JSON composer, or from the send-bar button. */
@@ -322,7 +357,12 @@ export const grpcProtoFormLesson: GrpcDemoLesson = {
     'scalar, nested message, repeated, map, oneof, and Timestamp — then apply the result to the request and send.',
 
   setup: async (ctx) => {
-    await grpcFirstCallSetup(ctx);
+    // Skip the Manage Schemas draft reset — this lesson only covers the Full Form
+    // Editor over the reflected schema, never staged schema sources. Running it
+    // would open/close the Manage Schemas modal (cycling Proto Files/Protoset/URL/
+    // BSR sub-tabs) for every tab, which the viewer sees as a burst of modals
+    // flashing on and off before step 1.
+    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
   },
   cleanup: async (ctx) => {
     await closeHybridModalQuiet(ctx);
@@ -479,16 +519,15 @@ All three views edit the **same working draft**. Switching tabs never loses your
         await ensureStudioNav(ctx);
         await resetGrpcConnectionSettingsQuiet(ctx);
         await guardGrpcTargetQuiet(ctx);
-        await guardGrpcReflectedQuiet(ctx);
+        await reflectComplexQuiet(ctx);
         await selectComplexMethodQuiet(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.CALL_METHOD_NAME, 700);
-        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 650);
-        await spotlightAndPause(ctx, GRPC.REQUEST_FORM_SCROLL, 750);
+        await spotlightAndPause(ctx, GRPC.CALL_METHOD_NAME, 750);
+        await spotlightAndPause(ctx, GRPC.REQUEST_FORM_SCROLL, 850);
 
         if (isGrpcHybridComposerActive()) {
-          await spotlightAndPause(ctx, GRPC.REQUEST_JSON_COMPACT, 750);
+          await spotlightRequestJsonContentTight(ctx, 850);
           const openBtn = document.querySelector<HTMLButtonElement>(GRPC.OPEN_FULL_FORM_EDITOR_BTN_INLINE)
             ?? document.querySelector<HTMLButtonElement>(GRPC.OPEN_FULL_FORM_EDITOR_BTN);
           if (openBtn) {
@@ -858,7 +897,7 @@ All three views edit the **same working draft**. Switching tabs never loses your
 
         // Confirm the modal closed and compact composer shows the updated body.
         if (isGrpcHybridComposerActive()) {
-          await spotlightAndPause(ctx, GRPC.REQUEST_JSON, 900);
+          await spotlightRequestJsonContentTight(ctx, 900);
         } else {
           await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('message'), 900);
         }
@@ -877,7 +916,6 @@ All three views edit the **same working draft**. Switching tabs never loses your
         '`shipping_address`, `deadline`, and the active `payment_method` member — confirming the proto encoding ' +
         'was correct for every field shape covered in this lesson: scalar, nested message, repeated, map, oneof, ' +
         'and well-known type.',
-      highlight: GRPC.RESPONSE_BODY,
       pauseAfter: true,
       preAction: async (ctx) => {
         // If the modal was left open, apply any remaining draft first.
@@ -901,7 +939,7 @@ All three views edit the **same working draft**. Switching tabs never loses your
         await ctx.delay(600);
 
         await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 800);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 1_200);
+        await spotlightResponseJsonContentTight(ctx, 1_200);
       },
       verify: GRPC.RESPONSE_BODY,
     },

@@ -32,8 +32,16 @@ export const grpcSpringBootLesson: GrpcDemoLesson = {
     'the standard gRPC Health Check protocol, a bearer-token-gated RPC mirroring a Spring Security ' +
     'interceptor, and environment-variable interpolation in the target field.',
   setup: async (ctx) => {
-    await grpcFirstCallSetup(ctx);
-    await resetSpringBaselineQuiet(ctx);
+    // Skip the Manage Schemas draft reset — this lesson uses server reflection,
+    // never staged schema sources. Running it would open/close the Manage Schemas
+    // modal (cycling Proto Files/Protoset/URL/BSR sub-tabs) for every tab, which
+    // the viewer sees as a burst of modals flashing on and off before step 1.
+    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+    // Skip reflect + method selection here — step 1 teaches only the connection
+    // bar. Reflecting in setup builds the service tree and highlights the Echo
+    // method before the narration mentions them, which the viewer sees as several
+    // quick unnecessary highlights at the start. Step 2 does the visible reflect.
+    await resetSpringBaselineQuiet(ctx, { selectMethod: false });
   },
   cleanup: async (ctx) => {
     upsertWorkspaceDefaults({ grpcHost: '' });

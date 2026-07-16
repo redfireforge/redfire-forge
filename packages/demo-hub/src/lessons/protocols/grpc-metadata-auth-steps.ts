@@ -5,14 +5,10 @@ import { upsertWorkspaceDefaults } from '../../adapters';
 import {
   GRPC_DEMO_MESSAGE,
   closeGrpcSettingsDrawerQuiet,
-  ensureEchoMethodSelected,
-  ensureGrpcReflected,
-  ensureGrpcStudioSubNavQuiet,
-  ensureGrpcTarget,
   ensureUnaryExecuted,
   spotlightAndPause,
+  spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
-import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import {
   DEMO_API_KEY_NAME,
   DEMO_API_KEY_VALUE,
@@ -38,7 +34,6 @@ import {
   selectAuthType,
   spotlightAuthField,
   spotlightMetadataRowKeyValue,
-  switchToFormTabQuiet,
   tryFillAuthField,
   waitForIfMissing,
 } from './grpc-metadata-auth-helpers';
@@ -63,22 +58,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         '**Auth is not in gRPC session settings** — it lives in the **Auth tab** of the Call Panel below. ' +
         'Click the **Auth badge** in the connection bar (or the Auth tab) to open it. ' +
         'Auth settings apply per-tab — changing them on one gRPC tab does not affect others.',
-      highlight: GRPC.CONNECTION_SETTINGS_BTN,
       pauseAfter: true,
-      preAction: async (ctx) => {
-        await navigateToGrpcStudio(ctx);
-        await closeGrpcSettingsDrawerQuiet(ctx);
-        await ensureGrpcStudioSubNavQuiet(ctx);
-        await ensureGrpcTarget(ctx);
-        await ensureGrpcReflected(ctx);
-        await ensureEchoMethodSelected(ctx);
-
-        // Cleanup belt: lesson should always begin from a neutral composer state.
-        await resetAuthToNoneQuiet(ctx);
-        await clearAllMetadataRowsQuiet(ctx);
-        await switchToFormTabQuiet(ctx);
-        await closeGrpcSettingsDrawerQuiet(ctx);
-      },
       action: async (ctx) => {
         await openSettingsDrawerQuiet(ctx);
         // Hold on the open panel so viewers can orient before tab tour starts.
@@ -97,7 +77,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
           const tabButton = document.querySelector<HTMLButtonElement>(tabSelector);
           if (!tabButton || tabButton.disabled) continue;
 
-          await spotlightAndPause(ctx, tabSelector, 1000);
+          await spotlightAndPause(ctx, tabSelector, 1200);
           tabButton.click();
           await ctx.delay(900);
         }
@@ -114,10 +94,10 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
 
         // Show destinations without changing active tab state.
         // Narrative order: Metadata first, then Authentication.
-        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 1000);
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 1200);
         await ctx.delay(700);
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 900);
-        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_AUTH, 1000);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 1100);
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_AUTH, 1200);
       },
       verify: GRPC.CONNECTION_BAR,
     },
@@ -134,12 +114,15 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         `Click **+ Add row** and fill in the new entry:\n- **Key:** \`x-request-id\`\n- **Value:** \`${DEMO_REQUEST_ID}\`\n\n` +
         'This header will appear in the **request metadata** the echo server receives. ' +
         'Use `x-request-id` for distributed tracing, `x-feature` for flag passing, or any custom header your server reads.',
-      // REQUEST_TAB_METADATA is always visible in the call panel during reading —
-      // better than METADATA_EDITOR which only renders once the tab is active.
-      highlight: GRPC.REQUEST_TAB_METADATA,
-      pauseAfter: true,
+      pauseAfter: false,
       preAction: async (ctx) => {
-        await ensureAuthReadyFast(ctx);
+        // The Metadata editor (like the whole Call Panel composer) only renders
+        // once a method is bound — otherwise it shows "select a method to edit
+        // the request body". Step 1 only tours the settings drawer and never
+        // selects a method, so use ensureEchoReadyFast (not ensureAuthReadyFast)
+        // to bind the Echo method here. It returns fast when a method is already
+        // selected, so sequential playback stays cheap.
+        await ensureEchoReadyFast(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
 
         // Reset auth only when it is clearly not in None mode.
@@ -156,21 +139,16 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         await clearAllMetadataRowsQuiet(ctx);
       },
       action: async (ctx) => {
-        // Spotlight the Metadata tab so the viewer knows where to look before it activates.
-        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 600);
-        await waitForIfMissing(ctx, GRPC.REQUEST_TAB_METADATA, 8_000);
+        await waitForIfMissing(ctx, GRPC.REQUEST_TAB_METADATA, 2_500);
         await ctx.click(GRPC.REQUEST_TAB_METADATA);
-        await waitForIfMissing(ctx, GRPC.METADATA_EDITOR, 5_000);
-        await ctx.delay(220);
-
-        // Spotlight the + Add row button before clicking it.
-        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 600);
+        await waitForIfMissing(ctx, GRPC.METADATA_EDITOR, 2_500);
+        await ctx.delay(80);
 
         // Add the x-request-id row.
         await addMetadataRowQuiet(ctx, 'x-request-id', DEMO_REQUEST_ID);
 
-        // Hold on the filled editor so the viewer can confirm the entry was added.
-        await spotlightAndPause(ctx, GRPC.METADATA_EDITOR, 800);
+        // Single spotlight on the final row keeps focus without rapid jumps.
+        await spotlightMetadataRowKeyValue(ctx, 'x-request-id', 950);
       },
       verify: GRPC.METADATA_EDITOR,
     },
@@ -248,7 +226,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         }
 
         // Spotlight the response body so the viewer sees the successful result.
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 900);
+        await spotlightResponseJsonContentTight(ctx, 1100);
       },
       verify: GRPC.RESPONSE_BODY,
     },
@@ -280,7 +258,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         ]);
 
         // Spotlight the Auth badge so the viewer knows which element opens auth settings.
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 900);
 
         if (!bearerReady) {
           // Click the Auth badge — this closes gRPC session settings and activates the Auth tab.
@@ -293,12 +271,12 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
           await ctx.delay(220);
 
           // Spotlight the auth type dropdown before changing it.
-          await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 420);
+          await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 650);
           await selectAuthType(ctx, 'bearer');
           await ctx.delay(220);
 
           // Fill the bearer token field.
-          await spotlightAuthField(ctx, 'grpc-auth-bearer-token', 620);
+          await spotlightAuthField(ctx, 'grpc-auth-bearer-token', 840);
           await tryFillAuthField(ctx, 'grpc-auth-bearer-token', DEMO_BEARER_TOKEN);
           await ctx.delay(260);
         }
@@ -306,14 +284,14 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         // Spotlight the auth preview to confirm the header was generated.
         try {
           await ctx.waitFor(GRPC.AUTH_PREVIEW, 3_000);
-          await spotlightAndPause(ctx, GRPC.AUTH_PREVIEW, 680);
+          await spotlightAndPause(ctx, GRPC.AUTH_PREVIEW, 900);
         } catch {
           // Preview may not render until token is filled.
           await ctx.delay(320);
         }
 
         // Spotlight the auth badge — it now shows "Bearer" to confirm the mode is active.
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 900);
       },
       verify: GRPC.AUTH_BADGE,
     },
@@ -345,7 +323,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         ]);
 
         // Spotlight auth badge first to show Bearer is active, then open auth tab.
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 500);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 750);
         if (!basicReady) {
           await ctx.click(GRPC.AUTH_BADGE);
           try {
@@ -356,28 +334,28 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
           await ctx.delay(220);
 
           // Spotlight auth type dropdown before switching.
-          await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 420);
+          await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 650);
           await selectAuthType(ctx, 'basic');
           await ctx.delay(220);
 
           // Fill username then password with a brief pause on each field.
-          await spotlightAuthField(ctx, 'grpc-auth-basic-user', 560);
+          await spotlightAuthField(ctx, 'grpc-auth-basic-user', 760);
           await tryFillAuthField(ctx, 'grpc-auth-basic-user', DEMO_BASIC_USERNAME);
           await ctx.delay(260);
-          await spotlightAuthField(ctx, 'grpc-auth-basic-pass', 620);
+          await spotlightAuthField(ctx, 'grpc-auth-basic-pass', 840);
           await tryFillAuthField(ctx, 'grpc-auth-basic-pass', DEMO_BASIC_PASSWORD);
         }
 
         // Hold on the auth preview strip to show the base64-encoded header.
         try {
           await ctx.waitFor(GRPC.AUTH_PREVIEW, 2_000);
-          await spotlightAndPause(ctx, GRPC.AUTH_PREVIEW, 680);
+          await spotlightAndPause(ctx, GRPC.AUTH_PREVIEW, 900);
         } catch {
           await ctx.delay(340);
         }
 
         // Spotlight the auth badge so the viewer sees it now shows Basic.
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 900);
       },
       verify: GRPC.AUTH_BADGE,
     },
@@ -408,7 +386,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
           { testId: 'grpc-auth-api-key-value', value: DEMO_API_KEY_VALUE },
         ]);
 
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 500);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 750);
         if (!apiKeyReady) {
           await ctx.click(GRPC.AUTH_BADGE);
           try {
@@ -418,27 +396,27 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
           }
           await ctx.delay(220);
 
-          await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 420);
+          await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 650);
           await selectAuthType(ctx, 'api_key');
           await ctx.delay(220);
 
           // Fill header name and value with a pause on each so the viewer can read them.
-          await spotlightAuthField(ctx, 'grpc-auth-api-key-name', 560);
+          await spotlightAuthField(ctx, 'grpc-auth-api-key-name', 760);
           await tryFillAuthField(ctx, 'grpc-auth-api-key-name', DEMO_API_KEY_NAME);
           await ctx.delay(260);
-          await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 620);
+          await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 840);
           await tryFillAuthField(ctx, 'grpc-auth-api-key-value', DEMO_API_KEY_VALUE);
         }
 
         // Spotlight auth preview.
         try {
           await ctx.waitFor(GRPC.AUTH_PREVIEW, 3_000);
-          await spotlightAndPause(ctx, GRPC.AUTH_PREVIEW, 680);
+          await spotlightAndPause(ctx, GRPC.AUTH_PREVIEW, 900);
         } catch {
           await ctx.delay(320);
         }
 
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 900);
       },
       verify: GRPC.AUTH_BADGE,
     },
@@ -491,8 +469,8 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         // Start from Auth and spotlight the API key value that owns x-api-key.
         await openAuthTabQuiet(ctx);
         await waitForIfMissing(ctx, '[data-testid="grpc-auth-api-key-value"]', 3_000);
-        await spotlightAuthField(ctx, 'grpc-auth-api-key-name', 90);
-        await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 90);
+        await spotlightAuthField(ctx, 'grpc-auth-api-key-name', 380);
+        await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 420);
 
         const authApiKeyValueInput = document.querySelector<HTMLInputElement>('[data-testid="grpc-auth-api-key-value"]');
         const authApiKeyValue = authApiKeyValueInput?.value.trim() ?? '';
@@ -513,7 +491,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         }
 
         // Spotlight the Metadata tab before clicking so the viewer knows where to look.
-        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 70);
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 450);
         await waitForIfMissing(ctx, GRPC.REQUEST_TAB_METADATA, 8_000);
         const metadataTabBtn = document.querySelector<HTMLButtonElement>(GRPC.REQUEST_TAB_METADATA);
         if (metadataTabBtn && !metadataTabBtn.disabled) {
@@ -524,13 +502,13 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         await ctx.delay(20);
 
         // Spotlight the + Add row button before clicking.
-        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 60);
+        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 420);
 
         // Force a fresh x-api-key row so the conflict is deterministic and visible.
         await removeMetadataRowsByKey(ctx, DEMO_API_KEY_NAME);
         await ctx.delay(10);
         await addMetadataRowQuiet(ctx, DEMO_API_KEY_NAME, conflictingMetadataValue);
-        await spotlightMetadataRowKeyValue(ctx, DEMO_API_KEY_NAME, 70);
+        await spotlightMetadataRowKeyValue(ctx, DEMO_API_KEY_NAME, 520);
         // Hold briefly on Metadata after configuration before moving to Auth.
         await ctx.delay(15);
 
@@ -542,13 +520,13 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         // Spotlight the conflict warning as the key outcome of this step.
         try {
           await ctx.waitFor(GRPC.AUTH_CONFLICTS, 4_000);
-          await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 90);
-          await spotlightAndPause(ctx, GRPC.AUTH_CONFLICTS, 120);
+          await spotlightAuthField(ctx, 'grpc-auth-api-key-value', 420);
+          await spotlightAndPause(ctx, GRPC.AUTH_CONFLICTS, 650);
           // Also highlight the call-level block hint so viewers see conflict detection
           // both inside Auth and in the global send block strip.
           try {
             await ctx.waitFor(GRPC.SEND_BLOCK_HINT, 1_500);
-            await spotlightAndPause(ctx, GRPC.SEND_BLOCK_HINT, 120);
+            await spotlightAndPause(ctx, GRPC.SEND_BLOCK_HINT, 650);
           } catch {
             // Optional visual strip can be hidden in compact/mocked layouts.
           }
@@ -557,7 +535,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
           await ctx.delay(60);
         }
       },
-      verify: GRPC.AUTH_CONFLICTS,
+      verify: GRPC.AUTH_PANEL,
     },
 
     // -------------------------------------------------------------------------
@@ -591,7 +569,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
           { testId: 'grpc-auth-oauth-client-secret', value: DEMO_OAUTH2_CLIENT_SECRET },
         ]);
 
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 500);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 750);
         if (!oauthReady) {
           await ctx.click(GRPC.AUTH_BADGE);
           try {
@@ -601,23 +579,23 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
           }
           await ctx.delay(220);
 
-          await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 420);
+          await spotlightAndPause(ctx, GRPC.AUTH_TYPE_SELECT, 650);
           await selectAuthType(ctx, 'oauth2');
           await ctx.delay(220);
 
           // Fill token URL and client ID with a pause on each field.
-          await spotlightAuthField(ctx, 'grpc-auth-oauth-token-url', 560);
+          await spotlightAuthField(ctx, 'grpc-auth-oauth-token-url', 760);
           await tryFillAuthField(ctx, 'grpc-auth-oauth-token-url', DEMO_OAUTH2_TOKEN_URL);
           await ctx.delay(260);
-          await spotlightAuthField(ctx, 'grpc-auth-oauth-client-id', 560);
+          await spotlightAuthField(ctx, 'grpc-auth-oauth-client-id', 760);
           await tryFillAuthField(ctx, 'grpc-auth-oauth-client-id', DEMO_OAUTH2_CLIENT_ID);
           await ctx.delay(260);
-          await spotlightAuthField(ctx, 'grpc-auth-oauth-client-secret', 620);
+          await spotlightAuthField(ctx, 'grpc-auth-oauth-client-secret', 840);
           await tryFillAuthField(ctx, 'grpc-auth-oauth-client-secret', DEMO_OAUTH2_CLIENT_SECRET);
           await ctx.delay(500);
         }
 
-        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 700);
+        await spotlightAndPause(ctx, GRPC.AUTH_BADGE, 900);
       },
       verify: GRPC.AUTH_BADGE,
     },
@@ -642,8 +620,6 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         'the metadata values update automatically without editing the call. Use `{{grpcHost}}` in the ' +
         'target, `{{authToken}}` in metadata, and `{{userId}}` in the request body for fully ' +
         'environment-driven gRPC calls. Then click **Send Unary** and confirm the **Response Body** renders successfully.',
-      // METADATA_EDITOR is always visible once metadata tab is active.
-      highlight: GRPC.METADATA_EDITOR,
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureEchoReadyFast(ctx);
@@ -672,14 +648,14 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
       },
       action: async (ctx) => {
         // Spotlight the Metadata tab before clicking.
-        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 600);
+        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 850);
         await ctx.waitFor(GRPC.REQUEST_TAB_METADATA, 8_000);
         await ctx.click(GRPC.REQUEST_TAB_METADATA);
         await ctx.waitFor(GRPC.METADATA_EDITOR, 5_000);
         await ctx.delay(500);
 
         // Spotlight the + Add row button before clicking.
-        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 500);
+        await spotlightAndPause(ctx, GRPC.METADATA_ADD_BTN, 750);
 
         // Ensure this step visibly demonstrates adding the row even on replay.
         await removeMetadataRowsByKey(ctx, DEMO_ENV_METADATA_KEY);
@@ -690,14 +666,14 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         await ctx.delay(500);
 
         // Spotlight the entire metadata row (key + value) to highlight the template.
-        await spotlightMetadataRowKeyValue(ctx, DEMO_ENV_METADATA_KEY, 800);
+        await spotlightMetadataRowKeyValue(ctx, DEMO_ENV_METADATA_KEY, 1050);
         await ctx.delay(300);
 
         // Spotlight the value field where the {{authToken}} template is visible.
         await spotlightAndPause(
           ctx,
           `[data-testid="grpc-metadata-row-value-${DEMO_ENV_METADATA_KEY}"]`,
-          1_100
+          1_300
         );
 
         // Now highlight the interpolation preview or error banner showing the resolved value.
@@ -708,10 +684,10 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
           await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_STRIP, 1_200);
           await ctx.delay(200);
           // Highlight the template part of the preview.
-          await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_TEMPLATE, 600);
+          await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_TEMPLATE, 800);
           await ctx.delay(200);
           // Highlight the resolved part.
-          await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_VALUE, 800);
+          await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_VALUE, 1000);
         } else if (hasErrorBanner) {
           await spotlightAndPause(ctx, GRPC.INTERPOLATION_ERROR_BANNER, 1_200);
         } else {
@@ -722,7 +698,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
         await ctx.delay(300);
         const sendBtn = document.querySelector<HTMLButtonElement>(GRPC.SEND_BTN);
         if (sendBtn && !sendBtn.disabled) {
-          await spotlightAndPause(ctx, GRPC.SEND_BTN, 600);
+          await spotlightAndPause(ctx, GRPC.SEND_BTN, 850);
           await ctx.click(GRPC.SEND_BTN);
         } else {
           await ensureUnaryExecuted(ctx);
@@ -730,7 +706,7 @@ export const grpcMetadataAuthSteps: GrpcDemoLesson['steps'] = [
 
         await ctx.waitFor(GRPC.RESPONSE_PANEL, 8_000);
         await ctx.waitFor(GRPC.RESPONSE_BODY, 8_000);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 900);
+        await spotlightResponseJsonContentTight(ctx, 1100);
       },
       verify: GRPC.RESPONSE_BODY,
     },

@@ -264,6 +264,24 @@ describe('grpc-spring-boot-helpers', () => {
     expect(navigateToGrpcStudio).toHaveBeenCalledWith(ctx);
   });
 
+  it('resetSpringBaselineQuiet skips reflect + method selection when selectMethod is false', async () => {
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>
+      <span data-testid="grpc-transport-badge" class="grpc-connection-transport-badge--express"></span>
+      <input data-testid="grpc-target-input" value="" />
+      <button data-testid="grpc-reflect-btn"></button>
+      <button data-testid="${GRPC_ECHO_METHOD_SEL.match(/data-testid="([^"]+)"/)?.[1] ?? ''}"></button>
+      <textarea data-testid="grpc-request-json"></textarea>
+    `;
+    const reflectBtn = document.querySelector<HTMLButtonElement>('[data-testid="grpc-reflect-btn"]')!;
+    const reflectClickSpy = vi.spyOn(reflectBtn, 'click');
+    const ctx = makeCtx();
+    await resetSpringBaselineQuiet(ctx, { selectMethod: false });
+    expect(navigateToGrpcStudio).toHaveBeenCalledWith(ctx);
+    // No reflect — the service tree must not build during setup / step 1.
+    expect(reflectClickSpy).not.toHaveBeenCalled();
+  });
+
   it('selectMethodVisible reflects, expands service, and selects method', async () => {
     const methodId = GRPC_ECHO_METHOD_SEL.match(/data-testid="([^"]+)"/)?.[1] ?? '';
     const serviceId = GRPC_ECHO_SERVICE_SEL.match(/data-testid="([^"]+)"/)?.[1] ?? '';
