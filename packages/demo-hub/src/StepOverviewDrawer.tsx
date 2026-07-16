@@ -18,7 +18,12 @@ function useDraggableModal(ref: React.RefObject<HTMLDivElement | null>) {
   const origin = useRef({ mx: 0, my: 0, px: 0, py: 0 });
 
   const onMouseDown = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button')) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('button')) return;
+    // Let the viewer highlight/copy the lesson title — starting a drag from it
+    // would preventDefault() and block text selection. Dragging still works from
+    // the drag handle and the rest of the header.
+    if (target.closest('.demo-overview-modal-title')) return;
     e.preventDefault();
     const el = ref.current;
     if (!el) return;

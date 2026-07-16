@@ -148,13 +148,13 @@ export default function LiveDemo({
   return (
     <>
       {/* Spotlight ring — hidden while steps overview is open */}
-      {targetFound && step.highlight && stepPhase !== 'pre' && !overviewOpen && (
+      {targetFound && step.highlight && stepPhase === 'reading' && !overviewOpen && (
         <DemoSpotlight
           key={`${stepIndex}:${step.highlight}`}
           trackKey={`${stepIndex}:${step.highlight}`}
           selector={step.highlight}
           active={true}
-          frozen={stepPhase === 'action'}
+          frozen={false}
         />
       )}
 

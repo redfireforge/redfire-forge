@@ -23,7 +23,6 @@ import {
 } from './grpc-lesson-contract';
 import {
   GRPC_DEMO_TARGET,
-  GRPC_ECHO_SERVICE_SEL,
   GRPC_STREAM_MESSAGE,
   GRPC_STREAM_REPEAT_COUNT,
   GRPC_STREAM_INTERVAL_MS,
@@ -43,9 +42,11 @@ import {
   guardGrpcReflectedQuiet,
   guardServerStreamExecutedQuiet,
   guardServerStreamFormQuiet,
+  queueClientStreamMessage,
   runClientStreamSendLifecycle,
   seedBidiStreamLogQuiet,
   spotlightAndPause,
+  spotlightRequestJsonContentTight,
   startAndExchangeBidiStream,
 } from './grpc-lesson-helpers';
 
@@ -86,10 +87,18 @@ async function spotlightCallTypeBadges(
 async function spotlightServerStreamComposer(
   ctx: Parameters<NonNullable<GrpcDemoLesson['steps'][number]['action']>>[0],
 ): Promise<void> {
-  await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 700);
-  await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('message'), 750);
-  await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('repeat_count'), 700);
-  await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('interval_ms'), 700);
+  if (document.querySelector(GRPC.PROTO_FIELD_INPUT('message'))) {
+    await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 700);
+    await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('message'), 750);
+    await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('repeat_count'), 700);
+    await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('interval_ms'), 700);
+    return;
+  }
+
+  // Comfortable mode uses JSON-first composer instead of per-field inputs.
+  if (document.querySelector(GRPC.REQUEST_JSON)) {
+    await spotlightRequestJsonContentTight(ctx, 900);
+  }
 }
 
 export const grpcStreamingLesson: GrpcDemoLesson = {
@@ -99,7 +108,12 @@ export const grpcStreamingLesson: GrpcDemoLesson = {
   description:
     'Walk through the three gRPC streaming patterns (server, client, bidirectional) using echo.EchoService, plus stream controls and cancel/export. Unary is introduced for context — live-demoed in the first gRPC lesson.',
 
-  setup: grpcFirstCallSetup,
+  // Skip the Manage Schemas draft reset — this lesson uses server reflection
+  // (echo.EchoService), never staged schema sources. Running it would open/close
+  // the Manage Schemas modal (cycling Proto Files/Protoset/URL/BSR sub-tabs) for
+  // every tab, which the viewer sees as a burst of modals flashing on and off
+  // before step 1.
+  setup: (ctx) => grpcFirstCallSetup(ctx, { resetSchemaDrafts: false }),
   cleanup: grpcFirstCallCleanup,
 
   grpc: buildGrpcContractMetaFromRoster(GRPC17_ROSTER),
@@ -337,16 +351,20 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         'gRPC defines **four call types** total; **three are streaming** (**SS**, **CS**, **BD**). ' +
         'This lesson live-demos those three on **echo.EchoService** at `localhost:50051`. ' +
         'Unary (**U**) appears in the selector for context — see the first gRPC lesson for a unary walkthrough.',
-      highlight: GRPC.CALL_TYPE_SELECTOR,
       pauseAfter: true,
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 800);
+        // Spotlight and click the Refresh Reflection button so users see where it is
+        const reflectBtn = document.querySelector<HTMLButtonElement>(GRPC.REFLECT_BTN);
+        if (reflectBtn) {
+          await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 900);
+          await ctx.click(GRPC.REFLECT_BTN);
+          await ctx.delay(1200); // Wait for reflection to complete
+        }
+        
         await spotlightCallTypeBadges(ctx);
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
-        await spotlightAndPause(ctx, GRPC_ECHO_SERVICE_SEL, 750);
-        await spotlightAndPause(ctx, GRPC.STREAM_PANEL, 850);
       },
-      verify: GRPC.CALL_TYPE_SELECTOR,
+      // Use a stable verify target so this step doesn't wait on call-type selector render timing.
+      verify: GRPC.CONNECTION_BAR,
     },
 
     // -------------------------------------------------------------------------
@@ -360,20 +378,15 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         'Once a method is selected, the call-type selector row from step 1 disappears — the streaming mode is now fixed by the schema. ' +
         'The panel switches to the **server streaming layout**: a **Start stream** button appears along with the message log area. ' +
         'The header reads **Server streaming RPC · echo.StreamRequest → echo.EchoResponse**.',
-      highlight: GRPC_SERVER_STREAM_SEL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardGrpcReflectedQuiet(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 800);
-        await spotlightAndPause(ctx, GRPC_ECHO_SERVICE_SEL, 750);
         await spotlightAndPause(ctx, GRPC_SERVER_STREAM_SEL, 850);
         await ensureStreamingMethodSelected(ctx, 'ServerStream');
         await spotlightAndPause(ctx, GRPC.CALL_METHOD_NAME, 750);
-        await spotlightAndPause(ctx, GRPC.METHOD_CALL_TYPE, 700);
-        await spotlightAndPause(ctx, GRPC.STREAM_PANEL, 800);
         await spotlightAndPause(ctx, GRPC.STREAM_START_BTN, 900);
       },
       verify: GRPC.STREAM_START_BTN,
@@ -390,7 +403,6 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         `Then click **Start stream**. The server pushes **${GRPC_STREAM_REPEAT_COUNT} echo messages** back, one every ${GRPC_STREAM_INTERVAL_MS} ms. ` +
         'Watch them land **one by one** in the message log — each row shows **↓** (server → client), the payload, and a sequence number. ' +
         'The ↓/↑ direction legend in the log toolbar tells you which side sent each message.',
-      highlight: GRPC.STREAM_MESSAGE_LOG,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardServerStreamFormQuiet(ctx);
@@ -404,14 +416,10 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         if (startBtn && !startBtn.disabled) {
           await ctx.click(GRPC.STREAM_START_BTN);
         }
-        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 900);
         try {
           await ctx.waitFor(GRPC.STREAM_LOG_LIST, 4_000);
         } catch {
           // Stream log may render asynchronously; proceed anyway.
-        }
-        if (document.querySelector(GRPC.STREAM_DIRECTION_LEGEND)) {
-          await spotlightAndPause(ctx, GRPC.STREAM_DIRECTION_LEGEND, 750);
         }
         await spotlightAndPause(ctx, GRPC.STREAM_LOG_LIST, 1_500);
       },
@@ -431,20 +439,16 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         'The **↓ inbound count chip** shows the total received. ' +
         'This is the defining trait of server streaming: the client sends nothing after the initial request — ' +
         'data flows strictly one-way, server → client, until the server decides it is done.',
-      highlight: GRPC.STREAM_STATUS_BAR,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardServerStreamExecutedQuiet(ctx);
         await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 5_000);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BAR, 850);
         await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BADGE, 900);
         if (document.querySelector(GRPC.STREAM_INBOUND_COUNT)) {
           await spotlightAndPause(ctx, GRPC.STREAM_INBOUND_COUNT, 800);
         }
-        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 850);
-        await spotlightAndPause(ctx, GRPC.STREAM_LOG_LIST, 950);
         await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 2_000);
       },
       verify: GRPC.STREAM_STATUS_BAR,
@@ -461,17 +465,14 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         'The call panel switches to the **client streaming layout**: a **Pending messages** panel on the left with **+ Add to queue**, **Send all**, and **End stream** controls grouped together. ' +
         'Client streaming is the inverse of server streaming — you send multiple messages; the server accumulates them and replies **once** when you signal end-of-stream. ' +
         'The pending queue lets you stage messages locally before the stream even opens.',
-      highlight: GRPC_CLIENT_STREAM_SEL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardGrpcReflectedQuiet(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 800);
         await spotlightAndPause(ctx, GRPC_CLIENT_STREAM_SEL, 850);
         await ensureStreamingMethodSelected(ctx, 'ClientStream');
-        await spotlightAndPause(ctx, GRPC.CALL_METHOD_NAME, 750);
         await spotlightAndPause(ctx, GRPC.STREAM_PENDING_PANEL, 850);
         await spotlightAndPause(ctx, GRPC.STREAM_ADD_QUEUE_BTN, 900);
       },
@@ -493,36 +494,31 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         'All three entries appear in the **Pending messages** panel with an index and payload preview. ' +
         'You can remove any item before opening the stream. ' +
         'The queue keeps your messages staged until you are ready to flush them.',
-      highlight: GRPC.STREAM_PENDING_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardClientStreamSelectedQuiet(ctx);
       },
       action: async (ctx) => {
         if (document.querySelector(GRPC.STREAM_PENDING_ITEM(0))) {
-          await spotlightAndPause(ctx, GRPC.STREAM_PENDING_PANEL, 850);
-          await spotlightAndPause(ctx, GRPC.STREAM_PENDING_LIST, 800);
-          if (document.querySelector(GRPC.STREAM_PENDING_CHIP)) {
-            await spotlightAndPause(ctx, GRPC.STREAM_PENDING_CHIP, 750);
-          }
+          await spotlightAndPause(ctx, GRPC.STREAM_PENDING_LIST, 850);
           return;
         }
 
-        await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('message'), 750);
+        // Spotlight the message input area — field input in Compact mode,
+        // JSON editor in Comfortable mode.
+        if (document.querySelector(GRPC.PROTO_FIELD_INPUT('message'))) {
+          await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('message'), 750);
+        } else if (document.querySelector(GRPC.REQUEST_JSON)) {
+          await spotlightRequestJsonContentTight(ctx, 750);
+        }
         await spotlightAndPause(ctx, GRPC.STREAM_ADD_QUEUE_BTN, 800);
 
         for (const msg of CLIENT_STREAM_QUEUE_MESSAGES) {
-          await ctx.fill(GRPC.PROTO_FIELD_INPUT('message'), msg);
-          await ctx.delay(450);
-          await ctx.click(GRPC.STREAM_ADD_QUEUE_BTN);
-          await ctx.delay(500);
+          await queueClientStreamMessage(ctx, msg);
+          await ctx.delay(300);
         }
 
-        await spotlightAndPause(ctx, GRPC.STREAM_PENDING_PANEL, 850);
-        await spotlightAndPause(ctx, GRPC.STREAM_PENDING_LIST, 800);
-        if (document.querySelector(GRPC.STREAM_PENDING_CHIP)) {
-          await spotlightAndPause(ctx, GRPC.STREAM_PENDING_CHIP, 800);
-        }
+        await spotlightAndPause(ctx, GRPC.STREAM_PENDING_LIST, 850);
       },
       verify: GRPC.STREAM_PENDING_PANEL,
     },
@@ -541,17 +537,13 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         '2. **▶ Send all** — flushes all 3 staged messages at once. Watch three **↑** entries appear in the log.\n' +
         '3. **End stream** — signals half-close (client is done writing). The server returns one aggregated echo and both sides close.\n\n' +
         'The status bar walks through **Streaming → Ending… → Ended**. The log ends with 3 outbound (↑) and 1 inbound (↓).',
-      highlight: GRPC.STREAM_PENDING_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardClientStreamQueuedQuiet(ctx);
         await cancelActiveStreamQuiet(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.STREAM_PENDING_PANEL, 800);
         await runClientStreamSendLifecycle(ctx);
-        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 850);
-        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BAR, 850);
         await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BADGE, 900);
         await waitForStreamStatusText(ctx, /(finished|ended|complete)/i, 2_600);
       },
@@ -569,20 +561,21 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         'The call panel shows a **message compose area** (type + Send message) alongside the live message log. ' +
         'Bidirectional streaming is the most powerful pattern: **both client and server stream messages independently** over the same persistent HTTP/2 connection. ' +
         'This enables real-time chat, live collaboration feeds, and request-response ping-pong — without opening a new connection for each exchange.',
-      highlight: GRPC_BIDI_STREAM_SEL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardGrpcReflectedQuiet(ctx);
         await closeGrpcSettingsDrawerQuiet(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 800);
         await spotlightAndPause(ctx, GRPC_BIDI_STREAM_SEL, 850);
         await ensureStreamingMethodSelected(ctx, 'BidiStream');
-        await spotlightAndPause(ctx, GRPC.CALL_METHOD_NAME, 750);
-        await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('message'), 750);
+        // Spotlight message compose area — field input in Compact, JSON editor in Comfortable.
+        if (document.querySelector(GRPC.PROTO_FIELD_INPUT('message'))) {
+          await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT('message'), 750);
+        } else if (document.querySelector(GRPC.REQUEST_JSON)) {
+          await spotlightRequestJsonContentTight(ctx, 750);
+        }
         await spotlightAndPause(ctx, GRPC.STREAM_SEND_MESSAGE_BTN, 800);
-        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 850);
         await spotlightAndPause(ctx, GRPC.STREAM_START_BTN, 900);
       },
       verify: GRPC.STREAM_START_BTN,
@@ -601,17 +594,12 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         'When finished gracefully, click **End stream** (same bar). Use **Cancel stream** in the top send bar only to abort mid-flight.\n\n' +
         'Watch the **message log**: ↑ rows are your sends, ↓ rows are the server echoes, interleaved in real time. ' +
         'This is the ping-pong pattern — both sides talking over one persistent HTTP/2 stream.',
-      highlight: GRPC.STREAM_MESSAGE_LOG,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardBidiStreamSelectedQuiet(ctx);
       },
       action: async (ctx) => {
         await startAndExchangeBidiStream(ctx);
-        if (document.querySelector(GRPC.STREAM_DIRECTION_LEGEND)) {
-          await spotlightAndPause(ctx, GRPC.STREAM_DIRECTION_LEGEND, 750);
-        }
-        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 900);
         await spotlightAndPause(ctx, GRPC.STREAM_LOG_LIST, 1_000);
       },
       verify: GRPC.STREAM_MESSAGE_LOG,
@@ -628,7 +616,6 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         'The status badge transitions to **Cancelled**. ' +
         'This is safe and instant: unlike closing a TCP socket, RST_STREAM is protocol-level — the server handles it cleanly and releases resources right away. ' +
         'Use Cancel any time you need to abort a long-running or stale stream.',
-      highlight: GRPC.STREAM_CANCEL_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardBidiStreamActiveQuiet(ctx);
@@ -639,7 +626,6 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         if (cancelBtn && !cancelBtn.disabled) {
           await ctx.click(GRPC.STREAM_CANCEL_BTN);
         }
-        await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BAR, 850);
         await spotlightAndPause(ctx, GRPC.STREAM_STATUS_BADGE, 950);
         await waitForStreamStatusText(ctx, /(cancelled|canceled)/i, 2_400);
       },
@@ -656,25 +642,32 @@ The **stream status bar** shows lifecycle transitions: **Streaming** → **Endin
         'Click **Export log** in the message log toolbar. ' +
         'RedfireForge downloads a structured JSON file — an array of entries each containing **direction** (inbound/outbound), **payload**, and **timestamp**. ' +
         'The transcript covers the entire session: every ↑ send, every ↓ echo, and the final Cancelled status. ' +
-        'Use it for regression tests, sharing stream behavior without live server access, or feeding raw payloads into other tools.',
-      highlight: GRPC.STREAM_EXPORT_LOG_BTN,
+        'Use it for regression tests, sharing stream behavior without live server access, or feeding raw payloads into other tools.\n\n' +
+        'Click **Clear log** to wipe the message log and reset the counters — useful before starting a fresh stream session.',
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardBidiStreamSelectedQuiet(ctx);
-        if (!document.querySelector(GRPC.STREAM_LOG_LIST)) {
-          await seedBidiStreamLogQuiet(ctx);
+        // After step 10 (Cancel), the stream state may have been cleared (↓ 0 ↑ 0),
+        // leaving Export log / Clear log disabled. Seed a fresh bidi exchange so
+        // there are always messages to export. seedBidiStreamLogQuiet now checks
+        // actual message counts, not just whether the log list element exists.
+        await seedBidiStreamLogQuiet(ctx);
+
+        // Retry if the first seed did not produce messages (e.g. Start failed).
+        const exportBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_EXPORT_LOG_BTN);
+        if (exportBtn?.disabled) {
           await cancelActiveStreamQuiet(ctx);
+          await seedBidiStreamLogQuiet(ctx);
         }
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.STREAM_MESSAGE_LOG, 800);
-        await spotlightAndPause(ctx, GRPC.STREAM_LOG_LIST, 850);
         await spotlightAndPause(ctx, GRPC.STREAM_EXPORT_LOG_BTN, 900);
         const exportBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_EXPORT_LOG_BTN);
         if (exportBtn && !exportBtn.disabled) {
           await ctx.click(GRPC.STREAM_EXPORT_LOG_BTN);
         }
         await ctx.delay(800);
+        await spotlightAndPause(ctx, GRPC.STREAM_CLEAR_LOG, 900);
       },
       verify: GRPC.STREAM_EXPORT_LOG_BTN,
     },

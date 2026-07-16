@@ -82,15 +82,12 @@ In this lesson you will build a short workflow: **Echo Call → Assert Echo**, r
       const fitBtn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
       if (fitBtn) {
         await ctx.click(WF.FIT_VIEW_BTN);
-        await ctx.delay(400);
+        await ctx.delay(700);
       }
-      // Fill "gRPC" in the palette search to reveal the three gRPC node types.
-      // The palette is only visible when a workflow is open.
-      const palSearch = document.querySelector<HTMLElement>(WF.PAL_SEARCH);
-      if (palSearch) {
-        await ctx.fill(WF.PAL_SEARCH, 'gRPC');
-        await ctx.delay(500);
-      }
+      // Keep the intro calm: orient to the workflow canvas and palette once,
+      // without a fast search/filter beat that changes the sidebar state too quickly.
+      await ctx.delay(500);
+      await spotlightAndPause(ctx, WF.PALETTE, 900);
     },
     verify: WF.DESIGNER,
   },

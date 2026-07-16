@@ -157,7 +157,11 @@ const steps: DemoStep[] = [
       'acknowledge individual changes once reviewed.',
     highlight: GRPC.REFLECT_BTN,
     preAction: async (ctx) => {
-      await grpcFirstCallSetup(ctx);
+      // Skip the Manage Schemas draft reset — this lesson diffs live reflection
+      // against a captured baseline, never staged schema sources. Running it
+      // would cycle the Manage Schemas modal across every tab, flashing a burst
+      // of modals before step 1.
+      await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
       await guardGrpcTargetQuiet(ctx);
       await ensureGrpcStudioSubNavQuiet(ctx);
       await clearGrpcSchemaDriftQuiet(ctx);
@@ -573,10 +577,132 @@ export const grpcSchemaDiffLesson: GrpcDemoLesson = {
       '- 🔵 **Informational** — pure additions (new optional fields, new methods)\n\n' +
       'The diff report exports as **JSON** (for CI gates) or **Markdown** (for changelogs). ' +
       'Individual changes can be **acknowledged** to mark them as reviewed without discarding history.',
+    keyTerms: [
+      {
+        term: 'Baseline snapshot',
+        definition:
+          'A frozen copy of the server\'s proto descriptor at a known-good point in time. All future diffs compare the current live descriptor against this baseline.',
+      },
+      {
+        term: 'Breaking change',
+        definition:
+          'A schema modification that causes existing compiled clients to fail at runtime — field removed, field number reused, or type changed. Blocks deployment until resolved.',
+      },
+      {
+        term: 'Non-breaking change',
+        definition:
+          'A structural modification that existing clients can tolerate — for example renaming a message or changing a field from optional to repeated with the same wire type.',
+      },
+      {
+        term: 'Informational change',
+        definition:
+          'A pure addition that cannot break any existing client — new optional fields, new methods, or new services. Safe to deploy without coordination.',
+      },
+      {
+        term: 'Acknowledge',
+        definition:
+          'Mark an individual diff entry as reviewed. Acknowledged changes remain in the report history but no longer trigger severity alerts in subsequent comparisons.',
+      },
+    ],
+    diagram: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 380" style="display:block;width:100%;height:auto;font-family:system-ui,sans-serif">
+  <defs>
+    <marker id="grpc14-arr" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto">
+      <path d="M1,1 L6,3.5 L1,6 Z" fill="#3b82f6"/>
+    </marker>
+    <marker id="grpc14-arr-g" markerWidth="7" markerHeight="7" refX="4" refY="3.5" orient="auto">
+      <path d="M1,1 L6,3.5 L1,6 Z" fill="#22c55e"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="700" height="380" rx="10" fill="#0d1520"/>
+
+  <!-- Title -->
+  <text x="350" y="28" text-anchor="middle" font-size="13" fill="#e2e8f0" font-weight="600">Schema Diff Workflow</text>
+
+  <!-- ── Left: Baseline ── -->
+  <rect x="20" y="55" width="180" height="120" rx="6" fill="#0f172a" stroke="#3b82f6" stroke-width="1.2"/>
+  <text x="110" y="78" text-anchor="middle" font-size="10" fill="#93c5fd" font-weight="600">📋 Baseline Snapshot</text>
+  <text x="110" y="98" text-anchor="middle" font-size="8" fill="#a8b8cc">echo.proto  v1</text>
+
+  <rect x="35" y="108" width="150" height="16" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="110" y="120" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#64748b">message EchoRequest {</text>
+  <rect x="35" y="128" width="150" height="16" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="110" y="140" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#64748b">  string message = 1;</text>
+  <rect x="35" y="148" width="150" height="16" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="110" y="160" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#64748b">}</text>
+
+  <!-- ── Right: Current ── -->
+  <rect x="500" y="55" width="180" height="140" rx="6" fill="#0f172a" stroke="#fbbf24" stroke-width="1.2"/>
+  <text x="590" y="78" text-anchor="middle" font-size="10" fill="#fbbf24" font-weight="600">🔄 Current Descriptor</text>
+  <text x="590" y="98" text-anchor="middle" font-size="8" fill="#a8b8cc">echo.proto  v2</text>
+
+  <rect x="515" y="108" width="150" height="16" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="590" y="120" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#64748b">message EchoRequest {</text>
+  <rect x="515" y="128" width="150" height="16" rx="3" fill="#1c1c2a" stroke="#ef4444" stroke-width="0.8"/>
+  <text x="590" y="140" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#f87171">  int32 message = 1;</text>
+  <rect x="515" y="148" width="150" height="16" rx="3" fill="#1c2a1c" stroke="#22c55e" stroke-width="0.8"/>
+  <text x="590" y="160" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#4ade80">  string tag = 2;</text>
+  <rect x="515" y="168" width="150" height="16" rx="3" fill="#0a1118" stroke="#3b4a60"/>
+  <text x="590" y="180" text-anchor="middle" font-family="monospace" font-size="7.5" fill="#64748b">}</text>
+
+  <!-- Arrows: baseline → compare ← current -->
+  <line x1="200" y1="115" x2="260" y2="115" stroke="#3b82f6" stroke-width="1.3" marker-end="url(#grpc14-arr)"/>
+  <line x1="500" y1="115" x2="440" y2="115" stroke="#fbbf24" stroke-width="1.3" marker-end="url(#grpc14-arr)"/>
+
+  <!-- ── Center: Diff Engine ── -->
+  <rect x="265" y="70" width="170" height="55" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1.4"/>
+  <text x="350" y="92" text-anchor="middle" font-size="10" fill="#c4b5fd" font-weight="600">⚙ Schema Diff</text>
+  <text x="350" y="108" text-anchor="middle" font-size="8" fill="#a8b8cc">compare descriptors</text>
+
+  <!-- Arrow: diff → results -->
+  <line x1="350" y1="125" x2="350" y2="160" stroke="#a78bfa" stroke-width="1.3" marker-end="url(#grpc14-arr)"/>
+
+  <!-- ── Center: Diff Results ── -->
+  <rect x="220" y="165" width="260" height="130" rx="6" fill="#0f172a" stroke="#a78bfa" stroke-width="1.2"/>
+  <text x="350" y="185" text-anchor="middle" font-size="10" fill="#c4b5fd" font-weight="600">📊 Diff Report</text>
+
+  <!-- Breaking row -->
+  <circle cx="238" cy="207" r="5" fill="#ef4444"/>
+  <text x="250" y="211" font-size="8.5" fill="#f87171" font-weight="600">Breaking</text>
+  <text x="320" y="211" font-size="8" fill="#a8b8cc">message field 1: string → int32</text>
+
+  <!-- Non-breaking row -->
+  <circle cx="238" cy="232" r="5" fill="#fbbf24"/>
+  <text x="250" y="236" font-size="8.5" fill="#fbbf24" font-weight="600">Non-breaking</text>
+  <text x="335" y="236" font-size="8" fill="#a8b8cc">(none in this diff)</text>
+
+  <!-- Informational row -->
+  <circle cx="238" cy="257" r="5" fill="#3b82f6"/>
+  <text x="250" y="261" font-size="8.5" fill="#93c5fd" font-weight="600">Informational</text>
+  <text x="335" y="261" font-size="8" fill="#a8b8cc">new field: tag (string) = 2</text>
+
+  <!-- Acknowledge button -->
+  <rect x="235" y="273" width="80" height="16" rx="8" fill="#1e293b" stroke="#22c55e" stroke-width="0.8"/>
+  <text x="275" y="284" text-anchor="middle" font-size="7" fill="#4ade80">✓ Acknowledge</text>
+
+  <!-- ── Bottom: Export ── -->
+  <rect x="180" y="315" width="140" height="40" rx="6" fill="#0f172a" stroke="#3b4a60" stroke-width="1"/>
+  <text x="250" y="335" text-anchor="middle" font-size="9" fill="#a8b8cc" font-weight="600">{ } Export JSON</text>
+  <text x="250" y="349" text-anchor="middle" font-size="7.5" fill="#64748b">CI gate integration</text>
+
+  <rect x="380" y="315" width="140" height="40" rx="6" fill="#0f172a" stroke="#3b4a60" stroke-width="1"/>
+  <text x="450" y="335" text-anchor="middle" font-size="9" fill="#a8b8cc" font-weight="600">📝 Export Markdown</text>
+  <text x="450" y="349" text-anchor="middle" font-size="7.5" fill="#64748b">Changelog / PR description</text>
+
+  <!-- Arrows: results → exports -->
+  <line x1="310" y1="295" x2="250" y2="315" stroke="#3b4a60" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#grpc14-arr)"/>
+  <line x1="390" y1="295" x2="450" y2="315" stroke="#3b4a60" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#grpc14-arr)"/>
+</svg>`,
   },
   steps,
   setup: async (ctx) => {
-    await grpcFirstCallSetup(ctx);
+    // Skip the Manage Schemas draft reset — this lesson diffs live reflection
+    // against a captured baseline, never staged schema sources. Running it would
+    // open/close the Manage Schemas modal (cycling Proto Files/Protoset/URL/BSR
+    // sub-tabs) for every tab, which the viewer sees as a burst of modals
+    // flashing on and off before step 1.
+    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
     await ensureGrpcStudioSubNavQuiet(ctx);
   },
   cleanup: async (ctx) => {

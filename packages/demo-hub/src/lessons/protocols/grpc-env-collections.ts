@@ -25,7 +25,7 @@ import {
 } from '../env-manager-lesson-helpers';
 import { grpcEnvCollectionsConcept } from './grpc-env-collections-concept';
 import { grpcEnvCollectionsSteps } from './grpc-env-collections-steps';
-import { DEMO_COLLECTION_NAME } from './grpc-env-collections-helpers';
+import { clearProtocolVarsQuiet, DEMO_COLLECTION_NAME } from './grpc-env-collections-helpers';
 
 const GRPC21_ROSTER = getGrpcLessonRosterEntry('grpc-env-collections')!;
 
@@ -54,12 +54,14 @@ export const grpcEnvCollectionsLesson: GrpcDemoLesson = {
     await ensureProtocolDisabled(ctx, 'sse');
     await ensureProtocolDisabled(ctx, 'graphql');
     await ensureProtocolDisabled(ctx, 'grpc');
+    await clearProtocolVarsQuiet(ctx);
   },
-  cleanup: async (_ctx) => {
+  cleanup: async (ctx) => {
     // Non-visual cleanup to avoid noisy close transitions.
     await clearGrpcCallHistory();
     await purgeGrpcDemoSavedRequests();
     await purgeEmptyGrpcDemoCollectionsByName([DEMO_COLLECTION_NAME, 'Saved Requests']);
+    await clearProtocolVarsQuiet(ctx);
   },
   steps: grpcEnvCollectionsSteps,
 };

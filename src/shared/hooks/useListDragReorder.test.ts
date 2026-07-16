@@ -103,4 +103,55 @@ describe('useListDragReorder', () => {
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange.mock.calls[0][0]).toEqual(['b', 'c', 'a']);
   });
+
+  it('uses a custom mime type and updates dropEffect during drag over', () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() =>
+      useListDragReorder(['a', 'b', 'c'], onChange, { mime: 'application/x-custom-list' }),
+    );
+    const dt = makeDataTransfer();
+
+    act(() => result.current.onDragStart(dragEvent(dt), 1));
+    expect(dt.effectAllowed).toBe('move');
+    expect(dt.getData('application/x-custom-list')).toBe('1');
+
+    act(() => result.current.onDragOver(dragEvent(dt), 0));
+    expect(dt.dropEffect).toBe('move');
+
+    act(() => result.current.onDrop(dragEvent(dt), 0));
+    expect(onChange.mock.calls[0][0]).toEqual(['b', 'a', 'c']);
+  });
+
+  it('ignores dragOver when nothing is being dragged or when disabled', () => {
+    const onChange = vi.fn();
+    const dt = makeDataTransfer();
+
+    const enabled = renderHook(() => useListDragReorder(['a', 'b'], onChange));
+    act(() => enabled.result.current.onDragOver(dragEvent(dt), 1));
+    expect(enabled.result.current.dragOverIndex).toBeNull();
+
+    const disabled = renderHook(() => useListDragReorder(['a', 'b'], onChange, { disabled: true }));
+    act(() => disabled.result.current.onDragStart(dragEvent(dt), 0));
+    act(() => disabled.result.current.onDragOver(dragEvent(dt), 1));
+    expect(disabled.result.current.dragIndex).toBeNull();
+    expect(disabled.result.current.dragOverIndex).toBeNull();
+  });
+
+  it('does not reorder when the parsed drag index is invalid or out of bounds', () => {
+    const onChange = vi.fn();
+    const { result } = renderHook(() => useListDragReorder(['a', 'b'], onChange));
+
+    const invalidDt = makeDataTransfer();
+    invalidDt.setData('application/x-redfire-list-index', 'not-a-number');
+    act(() => result.current.onDrop(dragEvent(invalidDt), 1));
+    expect(onChange).not.toHaveBeenCalled();
+
+    act(() => result.current.onDragStart(dragEvent(makeDataTransfer()), 0));
+    const oobDt = makeDataTransfer();
+    oobDt.setData('application/x-redfire-list-index', '99');
+    act(() => result.current.onDrop(dragEvent(oobDt), 1));
+    expect(onChange).not.toHaveBeenCalled();
+    expect(result.current.dragIndex).toBeNull();
+    expect(result.current.dragOverIndex).toBeNull();
+  });
 });

@@ -995,8 +995,12 @@
   overflow: hidden;
   border-radius: 10px !important;
   background: var(--surface) !important;
-  border: 1px solid var(--border) !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.30) !important;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 20px 60px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .grpc-settings-drawer-header {
@@ -6047,15 +6051,21 @@
   width: min(920px, calc(100vw - 48px));
   height: min(640px, calc(100vh - 48px));
   max-height: min(640px, calc(100vh - 48px));
-  border: 1px solid var(--border);
+  border: 1px solid rgba(255, 255, 255, 0.30);
   border-radius: 10px;
   background: var(--surface);
-  box-shadow: 0 12px 40px color-mix(in srgb, var(--bg) 35%, transparent);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 12px 40px color-mix(in srgb, var(--bg) 35%, transparent);
   overflow: hidden;
 }
 
 .grpc-proto-modal--dragged {
-  box-shadow: 0 16px 48px color-mix(in srgb, var(--bg) 45%, transparent);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 16px 48px color-mix(in srgb, var(--bg) 45%, transparent);
 }
 
 .grpc-proto-modal-header {

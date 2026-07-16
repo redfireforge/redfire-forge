@@ -637,8 +637,14 @@ export async function ensureProtocolDisabled(
   protocol: ProtocolKey,
 ): Promise<void> {
   const removeSel = emRemoveProtocolSel(protocol);
-  if (!document.querySelector(removeSel)) return;
-  await ctx.click(removeSel);
+  const removeBtn = document.querySelector<HTMLElement>(removeSel);
+  if (!removeBtn) return;
+  // Use a plain DOM click (not ctx.click) so no viewer ripple/highlight fires.
+  // This helper only ever runs in setup / preAction to normalize the starting
+  // protocol tab set — a lesson that disables several protocols during boot
+  // (e.g. env-collections removes http/ws/sse/graphql/grpc) would otherwise flash
+  // a burst of "quick unnecessary highlights" before step 1's narration begins.
+  removeBtn.click();
   await ctx.delay(400);
   const tabSel = PROTOCOL_TAB[protocol];
   for (let i = 0; i < 20; i++) {

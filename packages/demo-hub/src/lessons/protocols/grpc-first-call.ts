@@ -27,6 +27,8 @@ import {
   openFirstGrpcHistoryEntry,
   openGrpcHistoryPanelQuiet,
   spotlightAndPause,
+  spotlightRequestJsonContentTight,
+  spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 
@@ -36,8 +38,7 @@ const GRPC_ECHO_METHOD_SEL = GRPC.METHOD('echo.EchoService', 'Echo');
 async function spotlightEchoComposer(ctx: Parameters<typeof spotlightAndPause>[0]): Promise<void> {
   await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 750);
   if (isGrpcHybridComposerActive()) {
-    await spotlightAndPause(ctx, GRPC.REQUEST_JSON_COMPACT, 800);
-    await spotlightAndPause(ctx, GRPC.REQUEST_JSON, 900);
+    await spotlightRequestJsonContentTight(ctx, 900);
   } else {
     await spotlightAndPause(ctx, GRPC.PROTO_FORM, 750);
     await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT_MESSAGE, 900);
@@ -280,19 +281,18 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       description:
         `Enter \`${GRPC_DEMO_MESSAGE}\` in the **message** field on **Form Input**. ` +
         'In **Compact** density, Form Input may show compact JSON (`"message": "..."`); in **Comfortable** density, it shows typed fields. Both stay schema-synced.',
-      highlight: GRPC.REQUEST_FORM_SCROLL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardEchoMethodQuiet(ctx);
       },
       action: async (ctx) => {
         await ensureGrpcRequestFormTabQuiet(ctx);
-        // The composer was already introduced in the previous step, so this step
-        // stays on a single focal target: the highlighted Form Input box. Fill the
-        // message inside it and pause — no competing inner spotlight rings that
-        // would flash "other parts" while the step's box keeps showing.
         await fillGrpcEchoMessage(ctx, GRPC_DEMO_MESSAGE);
-        await ctx.delay(900);
+        if (isGrpcHybridComposerActive()) {
+          await spotlightRequestJsonContentTight(ctx, 900);
+        } else {
+          await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT_MESSAGE, 900);
+        }
       },
     },
 
@@ -322,7 +322,7 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
         await spotlightAndPause(ctx, GRPC.SEND_BTN, 800);
         await ensureUnaryExecuted(ctx);
         await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 800);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 950);
+        await spotlightResponseJsonContentTight(ctx, 950);
       },
       verify: GRPC.RESPONSE_BODY,
     },
@@ -333,7 +333,6 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
       description:
         `The response body should contain your message echoed back: \`"${GRPC_DEMO_MESSAGE}"\`. ` +
         'Check the status line for **OK** and duration. Then open **Headers** and **Trailers** so you know where transport metadata lives.',
-      highlight: GRPC.RESPONSE_PANEL,
       pauseAfter: true,
       preAction: async (ctx) => {
         await guardUnaryExecutedQuiet(ctx);
@@ -343,7 +342,7 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
         await spotlightAndPause(ctx, GRPC.RESPONSE_HEADER, 750);
         await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 850);
         await spotlightAndPause(ctx, GRPC.RESPONSE_DURATION, 750);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 950);
+        await spotlightResponseJsonContentTight(ctx, 950);
         await spotlightAndPause(ctx, GRPC.RESPONSE_TAB_HEADERS, 700);
         await spotlightAndPause(ctx, GRPC.RESPONSE_HEADERS, 800);
         await spotlightAndPause(ctx, GRPC.RESPONSE_TAB_TRAILERS, 700);
@@ -394,7 +393,7 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
         await ctx.waitFor(GRPC.HISTORY_REPLAY_BTN, 8_000);
         await spotlightAndPause(ctx, GRPC.HISTORY_ENTRY_ROW, 800);
         await spotlightAndPause(ctx, GRPC.HISTORY_DETAIL, 750);
-        await spotlightAndPause(ctx, GRPC.HISTORY_REPLAY_BTN, 900);
+        await spotlightAndPause(ctx, GRPC.HISTORY_REPLAY_BTN, 1400);
         const replayBtn = document.querySelector<HTMLButtonElement>(GRPC.HISTORY_REPLAY_BTN);
         if (replayBtn && !replayBtn.disabled) {
           replayBtn.click();
@@ -429,7 +428,7 @@ This lesson uses the local Docker echo server on **50051** and the Express gRPC 
             await ctx.waitFor(GRPC.RESPONSE_STATUS, 8_000);
             await ctx.waitFor(GRPC.RESPONSE_BODY, 5_000);
             await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 800);
-            await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 950);
+            await spotlightResponseJsonContentTight(ctx, 950);
           }
         } catch {
           // Replay or send unavailable in some local runs — keep lesson stable.

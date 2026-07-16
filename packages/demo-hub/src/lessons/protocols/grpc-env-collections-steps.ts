@@ -9,6 +9,8 @@ import {
   ensureEchoMessageFilled,
   setGrpcTargetQuiet,
   spotlightAndPause,
+  spotlightRequestJsonContentTight,
+  spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
 import {
   ensureGrpcDemoEndpointConfigured,
@@ -73,57 +75,73 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
     },
     action: async (ctx) => {
       // 1. Add gRPC protocol via the + Add protocol button.
-      await spotlightAndPause(ctx, EM.ADD_PROTOCOL_BTN, 800);
+      await spotlightAndPause(ctx, EM.ADD_PROTOCOL_BTN, 1_100);
+      await ctx.delay(250);
       await ctx.click(EM.ADD_PROTOCOL_BTN);
-      await ctx.delay(500);
-      await spotlightAndPause(ctx, emAddProtocolItemSel('grpc'), 800);
+      await ctx.delay(900);
+      const grpcAddItem = document.querySelector<HTMLElement>(emAddProtocolItemSel('grpc'));
+      if (grpcAddItem) {
+        grpcAddItem.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await ctx.delay(500);
+        await spotlightAndPause(ctx, emAddProtocolItemSel('grpc'), 1_100);
+        await ctx.delay(250);
+      }
       await ctx.click(emAddProtocolItemSel('grpc'));
       try { await ctx.waitFor(EM.PROTOCOL_TAB_GRPC, 2_000); } catch { /* ok */ }
-      await ctx.delay(600);
+      const grpcTab = document.querySelector<HTMLElement>(EM.PROTOCOL_TAB_GRPC);
+      if (grpcTab) {
+        grpcTab.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        await ctx.delay(300);
+      }
+      await ctx.delay(700);
 
       // 2. Show endpoint row for gRPC Demo environment.
       await ensureGrpcDemoEndpointConfigured(ctx);
       await ctx.delay(400);
       await selectEnvInHeader(ctx, GRPC_DEMO_ENV_NAME);
       await selectSvcInHeader(ctx, GRPC_DEMO_SVC_NAME);
-      await spotlightAndPause(ctx, EM.PROTOCOL_TAB_GRPC, 800);
       const derivedPanel = document.querySelector<HTMLElement>(EM.DERIVED_VARS_GRPC);
       if (derivedPanel) {
         derivedPanel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         await ctx.delay(400);
-        await spotlightAndPause(ctx, EM.DERIVED_VARS_GRPC, 1_000);
+        await spotlightAndPause(ctx, EM.DERIVED_VARS_GRPC, 1_200);
+        await ctx.delay(250);
       }
 
       // 3. Open Protocol vars modal, add requestId + userId, save.
-      await spotlightAndPause(ctx, '[data-testid="protocol-vars-badge"]', 800);
+      await spotlightAndPause(ctx, '[data-testid="protocol-vars-badge"]', 1_000);
+      await ctx.delay(200);
       await ctx.click('[data-testid="protocol-vars-badge"]');
       try { await ctx.waitFor('[data-testid="protocol-vars-modal"]', 1_500); } catch { /* ok */ }
-      await spotlightAndPause(ctx, '[data-testid="protocol-vars-modal"]', 600);
+      await spotlightAndPause(ctx, '[data-testid="protocol-vars-modal"]', 900);
+      await ctx.delay(220);
       const ensureVarInModal = async (key: string, value: string) => {
         const rowSel = `[data-testid="protocol-var-row-${key}"]`;
         if (document.querySelector(rowSel)) {
           const valueSel = `[data-testid="protocol-var-value-${key}"]`;
           const valueInput = document.querySelector<HTMLInputElement>(valueSel);
           if (valueInput && valueInput.value !== value) {
+            await spotlightAndPause(ctx, valueSel, 850);
+            await ctx.delay(200);
             await ctx.fill(valueSel, value);
-            await ctx.delay(300);
+            await ctx.delay(350);
           } else {
             await ctx.delay(200);
           }
           return;
         }
+        await spotlightAndPause(ctx, '[data-testid="protocol-vars-key-input"]', 850);
         await ctx.fill('[data-testid="protocol-vars-key-input"]', key);
-        await ctx.delay(300);
+        await ctx.delay(350);
+        await spotlightAndPause(ctx, '[data-testid="protocol-vars-val-input"]', 850);
         await ctx.fill('[data-testid="protocol-vars-val-input"]', value);
-        await ctx.delay(400);
+        await ctx.delay(450);
+        await spotlightAndPause(ctx, '[data-testid="protocol-vars-add-btn"]', 650);
         await ctx.click('[data-testid="protocol-vars-add-btn"]');
         await ctx.delay(500);
       };
       await ensureVarInModal('requestId', DEMO_REQUEST_ID);
       await ensureVarInModal('userId', DEMO_USER_ID);
-      if (document.querySelector('[data-testid="protocol-var-row-userId"]')) {
-        await spotlightAndPause(ctx, '[data-testid="protocol-vars-modal"]', 800);
-      }
       await ctx.click('[data-testid="protocol-vars-save-btn"]');
       await ctx.delay(400);
       markCustomVarsSeeded();
@@ -159,20 +177,20 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
       await ctx.delay(300);
       try { await ctx.waitFor(GRPC.INTERPOLATION_PREVIEW_STRIP, 1_500); } catch { /* ok */ }
       await ctx.delay(300);
-      // Click Template toggle, then Resolved.
       const templateBtn = document.querySelector<HTMLButtonElement>(GRPC.INTERPOLATION_PREVIEW_TEMPLATE);
       if (templateBtn) {
-        await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_TEMPLATE, 300);
+        await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_TEMPLATE, 900);
+        await ctx.delay(250);
         templateBtn.click();
-        await ctx.delay(300);
+        await ctx.delay(350);
       }
       const resolvedBtn = document.querySelector<HTMLButtonElement>(GRPC.INTERPOLATION_PREVIEW_RESOLVED);
       if (resolvedBtn) {
-        await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_RESOLVED, 300);
+        await spotlightAndPause(ctx, GRPC.INTERPOLATION_PREVIEW_RESOLVED, 900);
+        await ctx.delay(250);
         resolvedBtn.click();
-        await ctx.delay(300);
+        await ctx.delay(350);
       }
-      await ctx.delay(400);
     },
     verify: GRPC.INTERPOLATION_PREVIEW_STRIP,
   },
@@ -233,14 +251,12 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
       }
     },
     action: async (ctx) => {
-      await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 400);
       await ctx.click(GRPC.REQUEST_TAB_FORM);
       try { await ctx.waitFor(GRPC.REQUEST_JSON, 1_500); } catch { /* ok */ }
-      await spotlightAndPause(ctx, GRPC.REQUEST_JSON, 400);
       const body = JSON.stringify({ message: DEMO_MESSAGE, userId: '{{userId}}' }, null, 2);
       await ctx.fill(GRPC.REQUEST_JSON, body);
       await ctx.delay(300);
-      await spotlightAndPause(ctx, GRPC.REQUEST_JSON, 600);
+      await spotlightRequestJsonContentTight(ctx, 600);
     },
     verify: GRPC.REQUEST_JSON,
   },
@@ -335,7 +351,7 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
     action: async (ctx) => {
       // Transition beat: show what will be executed and saved.
       await spotlightAndPause(ctx, GRPC.TARGET_INPUT, 900);
-      await spotlightAndPause(ctx, GRPC.REQUEST_JSON, 900);
+      await spotlightRequestJsonContentTight(ctx, 900);
       await spotlightAndPause(ctx, GRPC.REQUEST_TAB_METADATA, 900);
 
       // Send the call.
@@ -346,7 +362,7 @@ export const grpcEnvCollectionsSteps: GrpcDemoLesson['steps'] =
       }
       try { await ctx.waitFor(GRPC.RESPONSE_STATUS, 6_000); } catch { await ctx.delay(1_100); }
       await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 1_100);
-      await spotlightAndPause(ctx, GRPC.RESPONSE_PANEL, 1_700);
+      await spotlightResponseJsonContentTight(ctx, 1_700);
 
       // Save the request.
       await spotlightAndPause(ctx, GRPC.SAVE_REQUEST_BTN, 1_150);

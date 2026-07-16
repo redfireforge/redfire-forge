@@ -7,6 +7,7 @@ import {
   ensureGrpcStudioSubNavQuiet,
   spotlightAndPause,
   spotlightElementAndPause,
+  spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
 import type { GrpcDemoLesson } from './grpc-lesson-contract';
 import {
@@ -89,7 +90,6 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
       '```json\n{"message": "pong"}\n```\n\n' +
       'Notice the response arrives in ~100ms — the global latency you set. The real server ' +
       'is never contacted.',
-    highlight: GRPC.RESPONSE_PANEL,
     preAction: async (ctx) => {
       // Ensure mock is running with the right rules.
       const rulesOk = document.querySelectorAll(GRPC.MOCK_BUILDER_RULE).length >= 2;
@@ -123,11 +123,8 @@ export const grpcMockServerRuntimeSteps: DemoStep[] = [
       } catch { /* mock may respond very fast */ }
       await ctx.delay(400);
 
-      // Spotlight the response panel.
-      await spotlightAndPause(ctx, GRPC.RESPONSE_PANEL, 900);
-
       // Spotlight the response body showing "pong".
-      await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 1_000);
+      await spotlightResponseJsonContentTight(ctx, 1_000);
       await ctx.delay(650);
     },
     verify: GRPC.RESPONSE_BODY,
