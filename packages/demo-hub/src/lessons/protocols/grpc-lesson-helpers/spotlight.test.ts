@@ -8,6 +8,8 @@ import {
   spotlightAndPause,
   spotlightElementAndPause,
   spotlightGrpcRequestComposer,
+  spotlightRequestJsonContentTight,
+  spotlightResponseJsonContentTight,
 } from './spotlight';
 
 const removeRing = vi.hoisted(() => vi.fn());
@@ -54,11 +56,11 @@ describe('grpc-lesson-helpers/spotlight', () => {
     expect(ctx.delay).toHaveBeenCalledWith(250);
   });
 
-  it('spotlightGrpcRequestComposer spotlights hybrid JSON composer fields', async () => {
+  it('spotlightGrpcRequestComposer spotlights hybrid JSON composer with tight ring', async () => {
     document.body.innerHTML = `
       <div data-testid="grpc-request-tab-form"></div>
       <div data-testid="grpc-request-json-compact"></div>
-      <textarea data-testid="grpc-request-json"></textarea>
+      <textarea data-testid="grpc-request-json">{"message":"hello"}</textarea>
     `;
     document.querySelectorAll<HTMLElement>('[data-testid]').forEach((node) => makeVisible(node));
     const ctx = makeCtx();
@@ -66,8 +68,98 @@ describe('grpc-lesson-helpers/spotlight', () => {
     await spotlightGrpcRequestComposer(ctx);
 
     expect(ctx.delay).toHaveBeenCalledWith(750);
-    expect(ctx.delay).toHaveBeenCalledWith(800);
     expect(ctx.delay).toHaveBeenCalledWith(900);
+    expect(removeRing).toHaveBeenCalled();
+  });
+
+  it('spotlightRequestJsonContentTight creates a tight proxy ring over content', async () => {
+    document.body.innerHTML = `
+      <textarea data-testid="grpc-request-json">{"a":1}</textarea>
+    `;
+    makeVisible(document.querySelector<HTMLElement>('[data-testid="grpc-request-json"]')!);
+    const ctx = makeCtx();
+
+    await spotlightRequestJsonContentTight(ctx, 600);
+
+    expect(ctx.delay).toHaveBeenCalledWith(600);
+    expect(removeRing).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('div[style*="position:fixed"]')).toBeNull();
+  });
+
+  it('spotlightRequestJsonContentTight falls back to regular spotlight if textarea missing', async () => {
+    document.body.innerHTML = '';
+    const ctx = makeCtx();
+
+    await spotlightRequestJsonContentTight(ctx, 500);
+
+    expect(removeRing).not.toHaveBeenCalled();
+  });
+
+  it('spotlightRequestJsonContentTight waits for non-empty request JSON before highlighting', async () => {
+    document.body.innerHTML = `
+      <textarea data-testid="grpc-request-json"></textarea>
+    `;
+    const textarea = document.querySelector<HTMLTextAreaElement>('[data-testid="grpc-request-json"]')!;
+    makeVisible(textarea);
+    const ctx = makeCtx();
+    let delayCallCount = 0;
+    vi.mocked(ctx.delay).mockImplementation(async (_ms: number) => {
+      delayCallCount += 1;
+      if (delayCallCount === 1) {
+        textarea.value = '{"message":"ready"}';
+      }
+    });
+
+    await spotlightRequestJsonContentTight(ctx, 600);
+
+    expect(delayCallCount).toBeGreaterThanOrEqual(2);
+    expect(removeRing).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('div[style*="position:fixed"]')).toBeNull();
+  });
+
+  it('spotlightResponseJsonContentTight creates a tight proxy ring over response JSON content', async () => {
+    document.body.innerHTML = `
+      <pre data-testid="grpc-response-body">{\n  "message": "hello"\n}</pre>
+    `;
+    makeVisible(document.querySelector<HTMLElement>('[data-testid="grpc-response-body"]')!);
+    const ctx = makeCtx();
+
+    await spotlightResponseJsonContentTight(ctx, 650);
+
+    expect(ctx.delay).toHaveBeenCalledWith(650);
+    expect(removeRing).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('div[style*="position:fixed"]')).toBeNull();
+  });
+
+  it('spotlightResponseJsonContentTight falls back to regular spotlight if response body is missing', async () => {
+    document.body.innerHTML = '';
+    const ctx = makeCtx();
+
+    await spotlightResponseJsonContentTight(ctx, 500);
+
+    expect(removeRing).not.toHaveBeenCalled();
+  });
+
+  it('spotlightResponseJsonContentTight waits for non-empty response JSON before highlighting', async () => {
+    document.body.innerHTML = `
+      <pre data-testid="grpc-response-body"></pre>
+    `;
+    const body = document.querySelector<HTMLElement>('[data-testid="grpc-response-body"]')!;
+    makeVisible(body);
+    const ctx = makeCtx();
+    let delayCallCount = 0;
+    vi.mocked(ctx.delay).mockImplementation(async (_ms: number) => {
+      delayCallCount += 1;
+      if (delayCallCount === 1) {
+        body.textContent = '{"message":"ready"}';
+      }
+    });
+
+    await spotlightResponseJsonContentTight(ctx, 650);
+
+    expect(delayCallCount).toBeGreaterThanOrEqual(2);
+    expect(removeRing).toHaveBeenCalledTimes(1);
+    expect(document.querySelector('div[style*="position:fixed"]')).toBeNull();
   });
 
   it('spotlightGrpcRequestComposer spotlights classic proto form when hybrid is inactive', async () => {

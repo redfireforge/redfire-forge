@@ -345,8 +345,8 @@ export async function reflectAndSelectEchoVisible(ctx: LessonCtx): Promise<void>
     }
   }
 
-  await spotlightGrpcRequestComposer(ctx);
   await fillGrpcEchoMessage(ctx);
+  await spotlightGrpcRequestComposer(ctx);
 }
 
 /** Minimal nav guard: navigate to gRPC Studio, close overlays, ensure studio sub-nav. */

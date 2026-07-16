@@ -6,11 +6,11 @@ import { validateGrpcDemoLesson, getGrpcLessonRosterEntry } from './grpc-lesson-
 import { grpcSchemaDiscoveryLesson } from './grpc-schema-discovery';
 
 describe('grpc-schema-discovery lesson', () => {
-  it('registers GRPC-16 metadata and 17 steps', () => {
+  it('registers GRPC-16 metadata and 15 steps', () => {
     expect(grpcSchemaDiscoveryLesson.id).toBe('grpc-schema-discovery');
     expect(grpcSchemaDiscoveryLesson.category).toBe('grpc');
     expect(grpcSchemaDiscoveryLesson.grpc.rosterNumber).toBe(16);
-    expect(grpcSchemaDiscoveryLesson.steps).toHaveLength(17);
+    expect(grpcSchemaDiscoveryLesson.steps).toHaveLength(15);
     expect(grpcSchemaDiscoveryLesson.initialTab).toBe('grpc-studio');
   });
 
@@ -27,10 +27,8 @@ describe('grpc-schema-discovery lesson', () => {
       'grpc16-reflect',
       'grpc16-source',
       'grpc16-manage-open',
-      'grpc16-proto-roots',
       'grpc16-tabs',
       'grpc16-proto-files',
-      'grpc16-select-root',
       'grpc16-proto-load',
       'grpc16-schema-browser',
       'grpc16-copy-grpcurl',
@@ -77,19 +75,20 @@ describe('grpc-schema-discovery lesson', () => {
   });
 
   it('references concrete samples for all four ingest tabs', () => {
-    const rootsStep = grpcSchemaDiscoveryLesson.steps.find((s) => s.id === 'grpc16-proto-roots')!;
     const tabsStep = grpcSchemaDiscoveryLesson.steps.find((s) => s.id === 'grpc16-tabs')!;
     const protoFilesStep = grpcSchemaDiscoveryLesson.steps.find((s) => s.id === 'grpc16-proto-files')!;
-    const selectRootStep = grpcSchemaDiscoveryLesson.steps.find((s) => s.id === 'grpc16-select-root')!;
-    expect(rootsStep.description).toContain('protoRoots');
-    expect(rootsStep.description).toContain('collision');
+    const protoLoadStep = grpcSchemaDiscoveryLesson.steps.find((s) => s.id === 'grpc16-proto-load')!;
+    // The root-aware ingest concept (protoRoots / collision) folds into the merged upload step.
+    expect(protoFilesStep.description).toContain('protoRoots');
+    expect(protoFilesStep.description).toContain('collision');
     expect(tabsStep.description).toContain('examples/grpc/schema-discovery/protoset/echo.protoset');
     expect(tabsStep.description).toContain('http://localhost:5173/grpc-samples/url/echo.proto');
     expect(tabsStep.description).toContain('buf.build/connectrpc/eliza');
     expect(protoFilesStep.description).toContain('examples/grpc/schema-discovery/proto-files/api/service.proto');
     expect(protoFilesStep.description).toContain('examples/grpc/schema-discovery/proto-files/shared/common.proto');
-    expect(selectRootStep.description).toContain('Click the **shared** virtual root');
-    expect(selectRootStep.description).toContain('Canonical paths');
+    // Root selection + canonical path review fold into the merged load step.
+    expect(protoLoadStep.description).toContain('Click the **shared** virtual root');
+    expect(protoLoadStep.description).toContain('Canonical paths');
   });
 
   it('stays aligned with roster title', () => {

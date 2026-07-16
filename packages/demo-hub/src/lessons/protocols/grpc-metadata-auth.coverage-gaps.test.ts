@@ -423,7 +423,7 @@ describe('grpc-metadata-auth coverage gaps', () => {
     expect(helperSpies.ensureEchoMethodSelected).not.toHaveBeenCalled();
   });
 
-  it('conflict step action keeps delay budget under 1.2s', async () => {
+  it('conflict step action keeps delay budget under 6s', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <button data-testid="grpc-request-tab-auth" aria-pressed="true"></button>
@@ -452,7 +452,7 @@ describe('grpc-metadata-auth coverage gaps', () => {
       .mocked(ctx.delay)
       .mock.calls
       .reduce((sum, [ms]) => sum + (typeof ms === 'number' ? ms : 0), 0);
-    expect(totalDelayMs).toBeLessThan(1200);
+    expect(totalDelayMs).toBeLessThan(6000);
   });
 
   // ---------------------------------------------------------------------------

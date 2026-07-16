@@ -148,13 +148,11 @@ describe('grpc-schema-discovery coverage gaps', () => {
     expect(ctx.fill).toHaveBeenCalledWith(GRPC.EXPLORER_SEARCH, '');
   });
 
-  it('executes manage-open, proto-roots, and tabs callbacks', async () => {
+  it('executes manage-open and tabs callbacks', async () => {
     const ctx = makeCtx();
 
     await getStep('grpc16-manage-open').preAction?.(ctx);
     await getStep('grpc16-manage-open').action?.(ctx);
-    await getStep('grpc16-proto-roots').preAction?.(ctx);
-    await getStep('grpc16-proto-roots').action?.(ctx);
     await getStep('grpc16-tabs').preAction?.(ctx);
     await getStep('grpc16-tabs').action?.(ctx);
 
@@ -185,13 +183,11 @@ describe('grpc-schema-discovery coverage gaps', () => {
     expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_CANCEL_BTN);
   });
 
-  it('executes proto-files, select-root, and proto-load callbacks', async () => {
+  it('executes proto-files and proto-load callbacks', async () => {
     const ctx = makeCtx();
 
     await getStep('grpc16-proto-files').preAction?.(ctx);
     await getStep('grpc16-proto-files').action?.(ctx);
-    await getStep('grpc16-select-root').preAction?.(ctx);
-    await getStep('grpc16-select-root').action?.(ctx);
 
     const loadBtn = document.querySelector<HTMLButtonElement>(GRPC.PROTO_LOAD_BTN)!;
     loadBtn.disabled = true;
@@ -256,7 +252,6 @@ describe('grpc-schema-discovery coverage gaps', () => {
     await getStep('grpc16-drift').action?.(ctx);
 
     expect(helperSpies.openFreshGrpcTabQuietWithOptions).toHaveBeenCalled();
-    expect(helperSpies.rebindGrpcMethodQuiet).toHaveBeenCalledWith(ctx);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_PROTOSET);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_URL);
     expect(ctx.click).toHaveBeenCalledWith(GRPC.PROTO_TAB_BSR);
