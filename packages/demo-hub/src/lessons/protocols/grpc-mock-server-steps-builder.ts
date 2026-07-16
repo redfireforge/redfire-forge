@@ -57,7 +57,10 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
       'Rules hot-swap while the runtime is running — add or remove them without restarting.',
     highlight: GRPC.MOCK_SERVER_PANEL,
     preAction: async (ctx) => {
-      await grpcFirstCallSetup(ctx);
+      // Skip the Manage Schemas draft reset — this lesson uses server reflection,
+      // never staged schema sources. Running it would cycle the Manage Schemas
+      // modal across every tab, flashing a burst of modals before step 1.
+      await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
       await ensureGrpcReflected(ctx);
       await clearGrpcSchemaDriftQuiet(ctx);
       await closeGrpcSettingsDrawerQuiet(ctx);
@@ -145,8 +148,6 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
       await ctx.delay(200);
     },
     action: async (ctx) => {
-      // Spotlight and click + Add rule.
-      await spotlightAndPause(ctx, GRPC.MOCK_BUILDER_ADD_RULE, 800);
       await ctx.click(GRPC.MOCK_BUILDER_ADD_RULE);
       await ctx.delay(500);
 

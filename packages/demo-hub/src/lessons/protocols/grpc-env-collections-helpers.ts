@@ -66,7 +66,11 @@ export async function clearProtocolVarsQuiet(ctx: DemoActionContext): Promise<vo
     await ctx.click('[data-testid="protocol-vars-badge"]');
     await ctx.delay(200);
   }
-  for (const key of ['requestId', 'userId']) {
+  const rowSelectors = Array.from(document.querySelectorAll<HTMLElement>('[data-testid^="protocol-var-row-"]'));
+  for (let index = rowSelectors.length - 1; index >= 0; index -= 1) {
+    const row = rowSelectors[index];
+    const key = row?.getAttribute('data-testid')?.replace('protocol-var-row-', '') ?? '';
+    if (!key) continue;
     const deleteBtn = document.querySelector<HTMLButtonElement>(`[data-testid="protocol-var-delete-${key}"]`);
     if (deleteBtn) {
       await ctx.click(`[data-testid="protocol-var-delete-${key}"]`);

@@ -103,6 +103,40 @@ export function patchGrpcActiveTabExportContext(ctx: GrpcGrpcurlExportContext): 
 }
 
 /**
+ * Programmatically reset transport mode and compression on the active gRPC tab.
+ * Avoids opening the Session Settings drawer — used in preAction to prevent
+ * visible modal popups before a step's narration starts.
+ */
+export function resetGrpcActiveTabTransport(mode: string = 'express'): boolean {
+  const w = getDemoBridgeWindow() as unknown as Record<string, (...args: unknown[]) => boolean>;
+  const bridge = w.__demoPatchGrpcActiveTab;
+  if (typeof bridge !== 'function') return false;
+  return bridge({ transportMode: mode, compression: undefined });
+}
+
+/**
+ * Directly set the request body on the active gRPC tab's React state.
+ * Needed because the DOM fill (setInputValueAndDispatch) fires textarea onChange
+ * which calls handleJsonChange — but that early-returns without patching the tab
+ * if `method` is not yet resolved.  This ensures the tab state always carries the
+ * correct body for Send / Retry with Express Proxy.
+ *
+ * `body` is a JSON string (e.g. `'{"message":"hello"}'`).  The tab stores body
+ * as `Record<string, unknown>`, so we parse before patching.
+ */
+export function patchGrpcActiveTabBody(body: string): boolean {
+  const w = getDemoBridgeWindow() as unknown as Record<string, (...args: unknown[]) => boolean>;
+  const bridge = w.__demoPatchGrpcActiveTab;
+  if (typeof bridge !== 'function') return false;
+  try {
+    const parsed = JSON.parse(body);
+    return bridge({ body: parsed });
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Reset active gRPC tab runtime state used by demos:
  * unlink profile, force plaintext, clear auth and metadata.
  */

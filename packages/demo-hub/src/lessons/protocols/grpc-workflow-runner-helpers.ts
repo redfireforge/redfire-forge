@@ -439,7 +439,12 @@ export async function closeResultsExplorerIfOpen(ctx: DemoActionContext): Promis
 
 export async function grpcWorkflowRunnerSetup(ctx: DemoActionContext): Promise<void> {
   resetGrpcWRSession();
-  await grpcFirstCallSetup(ctx);
+  // Skip the Manage Schemas draft reset — this lesson runs workflows with gRPC
+  // nodes over the reflected schema, never staged schema sources. Running it
+  // would open/close the Manage Schemas modal (cycling Proto Files/Protoset/URL/
+  // BSR sub-tabs) for every tab, which the viewer sees as a burst of modals
+  // flashing on and off before step 1.
+  await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
   await cleanupWorkflowDemoRunUi(ctx);
   await closeWfConfigModalIfOpen(ctx);
   if (getWorkflowByName(WF14_NAME)) {

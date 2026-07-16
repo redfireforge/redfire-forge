@@ -257,6 +257,38 @@ describe('grpc-lesson-helpers', () => {
     expect(document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)).toBeNull();
   });
 
+  it('clearGrpcSchemaDriftQuiet expands a collapsed service to find a rebind target', async () => {
+    // Blocking drift (e.g. Eliza via BSR) with no rebind/dismiss/prune button and
+    // no method button, because the service node starts collapsed.
+    document.body.innerHTML = `
+      <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>
+      <button class="grpc-explorer-service-btn" data-testid="grpc-service-connectrpc-eliza-v1-elizaservice">ElizaService</button>
+      <div data-testid="grpc-schema-drift-banner"></div>
+    `;
+
+    const serviceBtn = document.querySelector<HTMLButtonElement>(
+      '[data-testid="grpc-service-connectrpc-eliza-v1-elizaservice"]',
+    )!;
+    // Expanding the service renders its method buttons (simulate React re-render).
+    serviceBtn.addEventListener('click', () => {
+      serviceBtn.classList.add('grpc-explorer-service-btn--open');
+      if (!document.querySelector('[data-testid="grpc-method-connectrpc-eliza-v1-elizaservice-converse"]')) {
+        const methodBtn = document.createElement('button');
+        methodBtn.setAttribute('data-testid', 'grpc-method-connectrpc-eliza-v1-elizaservice-converse');
+        methodBtn.addEventListener('click', () => {
+          document.querySelector('[data-testid="grpc-schema-drift-banner"]')?.remove();
+        });
+        document.body.appendChild(methodBtn);
+      }
+    });
+
+    const ctx = makeCtx();
+    await clearGrpcSchemaDriftQuiet(ctx);
+
+    expect(serviceBtn.classList.contains('grpc-explorer-service-btn--open')).toBe(true);
+    expect(document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)).toBeNull();
+  });
+
   it('clearGrpcSchemaDriftQuiet handles banner re-render after first dismiss', async () => {
     document.body.innerHTML = `
       <button data-testid="grpc-sub-nav-studio" aria-selected="true"></button>
