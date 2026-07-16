@@ -262,7 +262,7 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     ...GO_ECHO_DOCKER,
     initialTab: 'grpc-studio',
     allowedTabs: STUDIO_TABS,
-    estimatedMinutes: 8,
+    estimatedMinutes: 7,
   },
   {
     number: 17,

@@ -173,7 +173,9 @@ describe('Grpc node config coverage gaps', () => {
 
     const callsBeforeInvalid = onChange.mock.calls.length;
     fireEvent.change(bodyTextarea, { target: { value: '[1,2,3]' } });
+    fireEvent.change(bodyTextarea, { target: { value: 'null' } });
     fireEvent.change(loadTestTextarea, { target: { value: 'invalid-json' } });
+    fireEvent.change(loadTestTextarea, { target: { value: 'null' } });
     expect(onChange.mock.calls.length).toBe(callsBeforeInvalid);
 
     rerender(<GrpcLoadTestConfig data={{ ...data, body: { id: 2 }, loadTest: { concurrency: 3 } }} onChange={onChange} />);
@@ -190,6 +192,19 @@ describe('Grpc node config coverage gaps', () => {
     expect(rowControl<HTMLInputElement>(container, 'Profile ID', 'input')).toHaveValue('');
     expect(rowControl<HTMLInputElement>(container, 'Timeout (ms)', 'input')).toHaveValue(null);
     expect(rowControl<HTMLInputElement>(container, 'Save As', 'input')).toHaveValue('');
+
+    // Cover useState initializer undefined branches on first mount.
+    const initUndefined = render(
+      <GrpcLoadTestConfig
+        data={{ ...data, body: undefined, loadTest: undefined, onError: undefined, saveAs: undefined, timeoutMs: undefined }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(textareaByLabel(initUndefined.container, 'Request Body (JSON object)')).toHaveValue('{}');
+    expect(textareaByLabel(initUndefined.container, 'Load Test Config (JSON object)')).toHaveValue('{}');
+    expect(rowControl<HTMLSelectElement>(initUndefined.container, 'On Error', 'select')).toHaveValue('fail');
+    expect(rowControl<HTMLInputElement>(initUndefined.container, 'Save As', 'input')).toHaveValue('');
+    expect(rowControl<HTMLInputElement>(initUndefined.container, 'Timeout (ms)', 'input')).toHaveValue(null);
   });
 
   it('GrpcMockAssertConfig handles JSON object fields and expectedBodyValue branches', () => {
@@ -367,7 +382,9 @@ describe('Grpc node config coverage gaps', () => {
 
     const callsBeforeInvalid = onChange.mock.calls.length;
     fireEvent.change(screen.getByTestId(`${prefix}-body`), { target: { value: '[1]' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-body`), { target: { value: 'null' } });
     fireEvent.change(screen.getByTestId(`${prefix}-metadata`), { target: { value: 'bad-json' } });
+    fireEvent.change(screen.getByTestId(`${prefix}-metadata`), { target: { value: 'null' } });
     expect(onChange.mock.calls.length).toBe(callsBeforeInvalid);
 
     rerender(
@@ -380,6 +397,21 @@ describe('Grpc node config coverage gaps', () => {
     expect(screen.getByTestId(`${prefix}-timeout`)).toHaveValue(null);
     expect(screen.getByTestId(`${prefix}-save-as`)).toHaveValue('');
     expect(container).toBeTruthy();
+
+    // Cover useState initializer undefined branches on first mount.
+    const initUndefined = render(
+      <GrpcUnaryConfig
+        data={{ ...data, timeoutMs: undefined, onError: undefined, saveAs: undefined, body: undefined, metadata: undefined }}
+        onChange={vi.fn()}
+      />,
+    );
+    const q = (testId: string) => initUndefined.container.querySelector(`[data-testid="${testId}"]`) as HTMLElement;
+    expect(q(`${prefix}-on-error`)).toHaveValue('fail');
+    expect(q(`${prefix}-timeout`)).toHaveValue(null);
+    expect(q(`${prefix}-save-as`)).toHaveValue('');
+    expect(q(`${prefix}-body`)).toHaveValue('{}');
+    expect(q(`${prefix}-metadata`)).toHaveValue('{}');
+    expect(initUndefined.container).toBeTruthy();
   });
 
   it('GrpcServerStreamConfig updates collect fields and guards invalid JSON', () => {
@@ -458,7 +490,9 @@ describe('Grpc node config coverage gaps', () => {
 
     const callsBeforeInvalid = onChange.mock.calls.length;
     fireEvent.change(bodyTextarea, { target: { value: '[1,2]' } });
+    fireEvent.change(bodyTextarea, { target: { value: 'null' } });
     fireEvent.change(metadataTextarea, { target: { value: 'oops' } });
+    fireEvent.change(metadataTextarea, { target: { value: 'null' } });
     expect(onChange.mock.calls.length).toBe(callsBeforeInvalid);
 
     rerender(
@@ -481,6 +515,27 @@ describe('Grpc node config coverage gaps', () => {
     expect(rowControl<HTMLInputElement>(container, 'Collect Max Duration (ms)', 'input')).toHaveValue(null);
     expect(rowControl<HTMLInputElement>(container, 'Collect Until Expression', 'input')).toHaveValue('');
     expect(rowControl<HTMLInputElement>(container, 'Save As', 'input')).toHaveValue('');
+
+    // Cover useState initializer undefined branches on first mount.
+    const initUndefined = render(
+      <GrpcServerStreamConfig
+        data={{
+          ...data,
+          timeoutMs: undefined,
+          collect: { maxMessages: undefined, maxDurationMs: undefined, untilExpression: undefined },
+          onError: undefined,
+          saveAs: undefined,
+          body: undefined,
+          metadata: undefined,
+        }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(textareaByLabel(initUndefined.container, 'Request Body (JSON object)')).toHaveValue('{}');
+    expect(textareaByLabel(initUndefined.container, 'Metadata (JSON object)')).toHaveValue('{}');
+    expect(rowControl<HTMLSelectElement>(initUndefined.container, 'On Error', 'select')).toHaveValue('fail');
+    expect(rowControl<HTMLInputElement>(initUndefined.container, 'Timeout (ms)', 'input')).toHaveValue(null);
+    expect(rowControl<HTMLInputElement>(initUndefined.container, 'Save As', 'input')).toHaveValue('');
   });
 
   it('GrpcSchemaDiffConfig handles checkbox default branch and optional fields', () => {

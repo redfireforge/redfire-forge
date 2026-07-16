@@ -41,6 +41,10 @@ describe('extractHost', () => {
   it('falls back for host without scheme', () => {
     expect(extractHost('api.example.com/path')).toBe('api.example.com');
   });
+
+  it('returns the full input when parsing fails and there is no slash to trim', () => {
+    expect(extractHost('not a valid url')).toBe('not a valid url');
+  });
 });
 
 describe('buildEnvVarMap grpc branches', () => {
@@ -179,6 +183,11 @@ describe('buildEnvVarMap', () => {
     expect(map).toEqual({ envName: 'local' });
   });
 
+  it('returns an empty object when service and envName are both absent', () => {
+    const map = buildEnvVarMap(undefined, 'env-local', 'http');
+    expect(map).toEqual({});
+  });
+
   it('trims whitespace from values', () => {
     const svc = makeSvc({
       name: '  orders  ',
@@ -260,5 +269,41 @@ describe('buildEnvVarMap', () => {
 
   it('extractHost uses URL host when parse succeeds', () => {
     expect(extractHost('http://localhost:8080/path')).toBe('localhost:8080');
+  });
+
+  it('trims explicit grpc endpoints and ignores whitespace-only grpc endpoints', () => {
+    const explicitSvc = makeSvc({
+      protocolEndpoints: {
+        grpc: {
+          'env-local': { baseUrl: '  grpc.example.com:9443  ', tls: true },
+        },
+      },
+    });
+    const explicitMap = buildEnvVarMap(explicitSvc, 'env-local', 'grpc');
+    expect(explicitMap.grpcHost).toBe('grpc.example.com:9443');
+    expect(explicitMap.grpcPort).toBe('9443');
+
+    const blankSvc = makeSvc({
+      protocolEndpoints: {
+        grpc: {
+          'env-local': { baseUrl: '   ', tls: false },
+        },
+      },
+    });
+    const blankMap = buildEnvVarMap(blankSvc, 'env-local', 'grpc');
+    expect(blankMap.grpcHost).toBeUndefined();
+    expect(blankMap.grpcPort).toBeUndefined();
+  });
+
+  it('uses the default graphql path when the stored path is whitespace only', () => {
+    const svc = makeSvc({
+      protocolEndpoints: {
+        graphql: {
+          'env-local': { baseUrl: 'https://gql.example.com', path: '   ' },
+        },
+      },
+    });
+    const map = buildEnvVarMap(svc, 'env-local', 'graphql', 'local');
+    expect(map.graphqlUrl).toBe('https://gql.example.com/graphql');
   });
 });

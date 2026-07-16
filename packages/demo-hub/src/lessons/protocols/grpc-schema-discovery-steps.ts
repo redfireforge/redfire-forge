@@ -13,14 +13,18 @@ import {
   guardGrpcReflectedQuiet,
   guardGrpcTargetQuiet,
   openFreshGrpcTabQuietWithOptions,
-  rebindGrpcMethodQuiet,
   spotlightAndPause,
+  spotlightAndPauseWithCallPanelHidden,
+  spotlightElementAndPause,
+  spotlightRequestJsonContentTight,
+  spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import {
   ECHO_SCHEMA_NODE_SEL,
   ELIZA_SERVICE_SEL,
   LOOKUP_REQUEST_JSON,
+  LOOKUP_REQUEST_JSON_COMPACT,
   LOOKUP_SCHEMA_NODE_SEL,
   SAMPLE_BSR_MODULE,
   SAMPLE_BSR_VERSION,
@@ -50,7 +54,6 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         'gRPC Studio needs a **service descriptor** before it can show you method forms. ' +
         'It can load that descriptor from five sources — reflection, proto files, protoset bundles, URL, and BSR. ' +
         'This lesson covers all five and ends with you opening a callable method from Schema Browser.',
-      highlight: GRPC.CONNECTION_BAR,
       pauseAfter: true,
       preAction: async (ctx) => {
         await navigateToGrpcStudio(ctx);
@@ -166,31 +169,6 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
     },
 
     {
-      id: 'grpc16-proto-roots',
-      title: 'Proto Files: Root-Aware Ingest',
-      description:
-        'On **Proto Files**, Studio now uses a root-aware `protoRoots` model. ' +
-        'Each uploaded file belongs to a virtual root and is normalized to a canonical path (`<mount>/<file>`). ' +
-        'Use this panel to add roots, verify selected-root ownership, and inspect canonical preview output before pressing **Load**. ' +
-        'If two roots create ambiguous basenames or duplicate canonical paths, collision warnings appear immediately.',
-      highlight: GRPC.PROTO_ROOT_MANAGER,
-      pauseAfter: true,
-      preAction: async (ctx) => {
-        await ensureProtoFilesTabQuiet(ctx);
-        await ctx.waitFor(GRPC.PROTO_ROOT_MANAGER, 5_000).catch(() => undefined);
-      },
-      action: async (ctx) => {
-        await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
-        await ctx.waitFor(GRPC.PROTO_ROOT_MANAGER, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_ROOT_MANAGER, 800);
-        await spotlightAndPause(ctx, GRPC.PROTO_ROOT_LIST, 850);
-        await ctx.waitFor(GRPC.PROTO_CANONICAL_PREVIEW, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 900);
-      },
-      verify: GRPC.PROTO_CANONICAL_PREVIEW,
-    },
-
-    {
       id: 'grpc16-tabs',
       title: 'Quick Orientation: Source Tabs',
       description:
@@ -202,22 +180,31 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
         'This is an orientation pass only. The next steps perform a full Proto Files workflow end-to-end.\n\n' +
         'Each tab targets a different deployment pattern.\n\n' +
         '_Note: the BSR example needs internet access._',
-      highlight: GRPC.PROTO_TAB_PROTO_FILES,
       pauseAfter: true,
       preAction: async (ctx) => {
         await clearGrpcSchemaDriftQuiet(ctx);
         await ensureManageModalOpenQuiet(ctx);
       },
       action: async (ctx) => {
+        // Spotlight each tab as we cycle through them
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTO_FILES, 600);
+        
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTOSET, 600);
         await ctx.click(GRPC.PROTO_TAB_PROTOSET);
         await ctx.waitFor(GRPC.PROTO_PROTOSET_ZONE, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, 800);
+        await spotlightAndPause(ctx, GRPC.PROTO_PROTOSET_ZONE, 700);
+        
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_URL, 600);
         await ctx.click(GRPC.PROTO_TAB_URL);
         await ctx.waitFor(GRPC.PROTO_URL_INPUT, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_URL_INPUT, 800);
+        await spotlightAndPause(ctx, GRPC.PROTO_URL_INPUT, 700);
+        
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_BSR, 600);
         await ctx.click(GRPC.PROTO_TAB_BSR);
         await ctx.waitFor(GRPC.PROTO_BSR_MODULE_INPUT, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_BSR_MODULE_INPUT, 800);
+        await spotlightAndPause(ctx, GRPC.PROTO_BSR_MODULE_INPUT, 700);
+        
+        await spotlightAndPause(ctx, GRPC.PROTO_TAB_PROTO_FILES, 600);
         await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
         await ctx.waitFor(GRPC.PROTO_UPLOAD_ZONE, 10_000);
         await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, 850);
@@ -227,20 +214,32 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
 
     {
       id: 'grpc16-proto-files',
-      title: 'Proto Files: Upload Two Files',
+      title: 'Proto Files: Upload to a Virtual Root',
       description:
-        'Stay on **Proto Files** and keep the **shared** virtual root selected. Then add the two sample files to the drop zone in sequence:\n\n' +
+        'On **Proto Files**, Studio uses a root-aware `protoRoots` model: each uploaded file belongs to a ' +
+        'virtual root and is normalized to a canonical path (`<mount>/<file>`). Keep the **shared** virtual ' +
+        'root selected, then drop the two sample files into the upload zone in sequence:\n\n' +
         `1. \`${SAMPLE_PROTO_SHARED}\`\n` +
         `2. \`${SAMPLE_PROTO_SERVICE}\`\n\n` +
-        'The demo stages each drop with a short pause so viewers can follow each addition. ' +
-        'After upload, both filenames should appear in the selected root file list and in the canonical preview panel.',
-      highlight: GRPC.PROTO_UPLOAD_ZONE,
+        'After upload, both filenames appear in the selected root file list and the **Canonical paths** ' +
+        'preview. If two roots produce ambiguous basenames or duplicate canonical paths, collision ' +
+        'warnings appear immediately.',
+      // No frozen step-level highlight: this step walks several panels (root list →
+      // upload zone → file list → canonical preview). A persistent ring is `frozen`
+      // on one element during the action phase and would keep showing while the
+      // action spotlights the others. Instead every content beat is spotlighted
+      // inside action() with its own pause.
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureProtoFilesTabQuiet(ctx);
         await ctx.waitFor(GRPC.PROTO_UPLOAD_ZONE, 5_000).catch(() => undefined);
       },
       action: async (ctx) => {
+        await ctx.click(GRPC.PROTO_TAB_PROTO_FILES);
+        await ctx.waitFor(GRPC.PROTO_ROOT_MANAGER, 10_000);
+        // Beat 1 — root-aware model: uploads land in a virtual root; keep "shared" selected.
+        await spotlightAndPause(ctx, GRPC.PROTO_ROOT_LIST, 900);
+        // Beat 2 — drop the two sample files into the upload zone.
         await spotlightAndPause(ctx, GRPC.PROTO_UPLOAD_ZONE, 800);
         const uploaded = await injectProtoFilesIntoManageSchemas(ctx);
         if (!uploaded) {
@@ -249,27 +248,37 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
           return;
         }
         await ctx.waitFor(GRPC.PROTO_FILE_LIST, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_FILE_LIST, 850);
-        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 900);
+        // Beat 3 — outcome: both files now sit in the selected root's file list.
+        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_FILE_LIST, 1_000);
+        // Beat 4 — outcome the step teaches: files normalize to canonical <mount>/<file> paths.
+        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 1_100);
       },
       verify: GRPC.PROTO_FILE_LIST,
     },
 
     {
-      id: 'grpc16-select-root',
-      title: 'Proto Files: Select Root and Review Paths',
+      id: 'grpc16-proto-load',
+      title: 'Proto Files: Review Paths & Load Schema',
       description:
-        'Click the **shared** virtual root from the left list to make it active. ' +
-        'The right side immediately switches context to that selected root.\n\n' +
-        'Review the **Canonical paths** panel for the shared root to confirm file paths are normalized as expected before loading.',
-      highlight: GRPC.PROTO_ROOT_LIST,
+        'Click the **shared** virtual root in the left list to make it active — the right side switches ' +
+        'context to that selected root. Review the **Canonical paths** panel to confirm the file paths are ' +
+        'normalized as expected, then click **Load** to parse them into an active descriptor source.\n\n' +
+        'Expected result:\n' +
+        '- No parse error shown\n' +
+        '- Schema Browser can now browse the uploaded service\n\n' +
+        'If files are missing or imports are unresolved, fix the file set / import root and retry.',
+      // No frozen step-level highlight: this step walks root selection → canonical
+      // path review → Load → Schema Browser. Each beat is spotlighted inside
+      // action() with its own pause so the ring follows the narration instead of a
+      // single frozen box on the Load button.
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureProtoFilesTabQuiet(ctx);
-        await ctx.waitFor(GRPC.PROTO_ROOT_LIST, 5_000).catch(() => undefined);
+        await ctx.waitFor(GRPC.PROTO_LOAD_BTN, 5_000).catch(() => undefined);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.PROTO_ROOT_LIST, 800);
+        // Beat 1 — click the "shared" virtual root to make it active.
+        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_ROOT_LIST, 900);
         const modal = document.querySelector<HTMLElement>(GRPC.PROTO_MANAGE_MODAL);
         const sharedRoot = modal
           ? Array.from(modal.querySelectorAll<HTMLElement>('[data-testid^="grpc-proto-root-item-"]'))
@@ -277,37 +286,41 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
           : null;
         if (sharedRoot) {
           sharedRoot.click();
-          await ctx.delay(400);
+          await ctx.delay(450);
         }
-        await spotlightAndPause(ctx, GRPC.PROTO_SELECTED_ROOT, 750);
+        // Beat 2 — the right side switches context to the selected root.
+        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_SELECTED_ROOT, 850);
         await ctx.waitFor(GRPC.PROTO_CANONICAL_PREVIEW, 10_000);
-        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 900);
-      },
-      verify: GRPC.PROTO_CANONICAL_PREVIEW,
-    },
 
-    {
-      id: 'grpc16-proto-load',
-      title: 'Proto Files: Load Schema',
-      description:
-        'Click **Load** to parse the selected files in the root-aware model into an active descriptor source.\n\n' +
-        'Expected result:\n' +
-        '- No parse error shown\n' +
-        '- Schema Browser can now browse the uploaded service\n\n' +
-        'If files are missing or imports are unresolved, fix the file set/import root and retry.',
-      highlight: GRPC.PROTO_LOAD_BTN,
-      pauseAfter: true,
-      preAction: async (ctx) => {
-        await ensureProtoFilesTabQuiet(ctx);
-        await ctx.waitFor(GRPC.PROTO_LOAD_BTN, 5_000).catch(() => undefined);
-      },
-      action: async (ctx) => {
-        await spotlightAndPause(ctx, GRPC.PROTO_LOAD_BTN, 800);
+        // Beat 3 — review each normalized canonical path row, then the full panel.
+        const fileList = document.querySelector<HTMLElement>(GRPC.PROTO_FILE_LIST);
+        if (fileList) {
+          const fileRows = Array.from(fileList.querySelectorAll<HTMLElement>('li.grpc-proto-file-item'));
+          const callPanel = document.querySelector<HTMLElement>(GRPC.CALL_PANEL);
+          const wasCallPanelVisible = callPanel && callPanel.style.display !== 'none';
+          if (callPanel) {
+            callPanel.style.display = 'none';
+          }
+          try {
+            for (const fileRow of fileRows) {
+              await spotlightElementAndPause(ctx, fileRow, 750);
+            }
+          } finally {
+            if (callPanel && wasCallPanelVisible) {
+              callPanel.style.display = '';
+            }
+          }
+        }
+        await spotlightAndPause(ctx, GRPC.PROTO_CANONICAL_PREVIEW, 1_000);
+
+        // Beat 4 — payoff: press Load to parse the files into an active descriptor source.
+        await spotlightAndPauseWithCallPanelHidden(ctx, GRPC.PROTO_LOAD_BTN, 900);
         const hasFiles = (document.querySelector(GRPC.PROTO_FILE_LIST)?.children.length ?? 0) > 0;
         if (hasFiles) {
           await ctx.click(GRPC.PROTO_LOAD_BTN);
-          await ctx.delay(700);
-          await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 850);
+          await ctx.delay(800);
+          // Beat 5 — outcome: Schema Browser can now browse the loaded service.
+          await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 1_000);
         }
       },
       verify: GRPC.PROTO_LOAD_BTN,
@@ -387,7 +400,7 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       title: 'Open in Tab and Execute Unary',
       description:
         'Click **Open in tab** to bind the method into the call panel. The modal closes and the **Form Input** composer appears. ' +
-        `Fill the request with \`${LOOKUP_REQUEST_JSON}\` (or Echo fallback), send the unary call, then pause on **OK** status and the response body.`,
+        `Fill the request with \`${LOOKUP_REQUEST_JSON_COMPACT}\` (or Echo fallback), send the unary call, then pause on **OK** status and the response body.`,
       highlight: GRPC.SCHEMA_OPEN_TAB_BTN,
       pauseAfter: true,
       preAction: async (ctx) => {
@@ -408,11 +421,10 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
           await ensureEchoMethodSelected(ctx);
         }
 
-        await spotlightAndPause(ctx, GRPC.REQUEST_TAB_FORM, 650);
         if (document.querySelector(GRPC.REQUEST_JSON)) {
-          await spotlightAndPause(ctx, GRPC.REQUEST_JSON, 750);
+          await spotlightRequestJsonContentTight(ctx, 850);
         } else {
-          await spotlightAndPause(ctx, GRPC.PROTO_FORM, 750);
+          await spotlightAndPause(ctx, GRPC.PROTO_FIELD_INPUT_MESSAGE, 850);
         }
 
         if (!document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON)?.value.includes('A-100')) {
@@ -429,8 +441,7 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
           }
         }
         await ctx.delay(400);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 700);
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 850);
+        await spotlightResponseJsonContentTight(ctx, 900);
       },
       verify: GRPC.RESPONSE_BODY,
     },
@@ -484,8 +495,13 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureManageModalClosed(ctx);
+        // Open a fresh tab so there is no previously bound method to orphan
+        // when the URL load replaces the descriptor. Without this, a tab
+        // still pointing at ElizaService/Converse (from a prior BSR run)
+        // would produce a blocking drift banner visible through the
+        // transparent modal overlay.
+        await openFreshGrpcTabQuietWithOptions(ctx, { forceFresh: true });
         await clearGrpcSchemaDriftQuiet(ctx);
-        await rebindGrpcMethodQuiet(ctx);
         await ensureManageModalOpenQuiet(ctx);
       },
       action: async (ctx) => {
@@ -518,6 +534,11 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
       pauseAfter: true,
       preAction: async (ctx) => {
         await ensureManageModalClosed(ctx);
+        // Open a fresh tab so there is no previously bound method to orphan
+        // when BSR loads Eliza (which has no EchoService). Without this,
+        // a tab still pointing at echo.EchoService/Echo would produce a
+        // blocking drift banner visible through the transparent modal overlay.
+        await openFreshGrpcTabQuietWithOptions(ctx, { forceFresh: true });
         await clearGrpcSchemaDriftQuiet(ctx);
         await ensureManageModalOpenQuiet(ctx);
       },
@@ -544,13 +565,23 @@ export const grpcSchemaDiscoverySteps: GrpcDemoLesson['steps'] = [
           return;
         }
 
+        // Fresh tab has no previous method → no drift expected after BSR
+        // loads Eliza. Close modal and show outcomes.
+        await ensureManageModalClosed(ctx);
+        await ctx.delay(200);
+
+        // Safety net: clear any unexpected drift that may still appear.
+        if (document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)) {
+          await clearGrpcSchemaDriftQuiet(ctx);
+          await ctx.delay(100);
+        }
+
+        // Outcome: a clean bsr/ElizaService state with no drift banner.
         await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 900);
         if (document.querySelector(ELIZA_SERVICE_SEL)) {
           await spotlightAndPause(ctx, ELIZA_SERVICE_SEL, 850);
         }
         await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 850);
-        await ensureManageModalClosed(ctx);
-        await ctx.delay(400);
       },
       verify: GRPC.EXPLORER_SOURCE,
     },

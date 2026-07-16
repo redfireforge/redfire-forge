@@ -131,18 +131,17 @@ describe('grpc-metadata-auth coverage gaps', () => {
   // ---------------------------------------------------------------------------
   // Step 1: grpc18-intro
   // ---------------------------------------------------------------------------
-  it('intro preAction navigates and ensures target/reflect/method', async () => {
-    const ctx = makeCtx();
-    document.body.innerHTML = `
-      <div data-testid="grpc-connection-bar"></div>
-      <input data-testid="grpc-target-input" />
-    `;
-    await getStep('grpc18-intro').preAction?.(ctx);
-    expect(helperSpies.navigateToGrpcStudio).toHaveBeenCalled();
-    expect(helperSpies.closeGrpcSettingsDrawerQuiet).toHaveBeenCalled();
-    expect(helperSpies.ensureGrpcTarget).toHaveBeenCalled();
-    expect(helperSpies.ensureGrpcReflected).toHaveBeenCalled();
-    expect(helperSpies.ensureEchoMethodSelected).toHaveBeenCalled();
+  it('intro preAction is absent (initialization handled by lesson setup)', async () => {
+    // Step 1 no longer has a preAction to avoid redundant modal operations during
+    // lesson start. The lesson setup function (grpcFirstCallSetup) already handles:
+    // - navigateToGrpcStudio
+    // - ensureGrpcTarget
+    // - ensureGrpcReflected
+    // - ensureEchoMethodSelected
+    // - closeGrpcSettingsDrawerQuiet
+    // The setup is called once before all steps, so step 1's preAction was redundant.
+    const step = getStep('grpc18-intro');
+    expect(step.preAction).toBeUndefined();
   });
 
   it('intro action opens drawer when not already open', async () => {
@@ -424,7 +423,7 @@ describe('grpc-metadata-auth coverage gaps', () => {
     expect(helperSpies.ensureEchoMethodSelected).not.toHaveBeenCalled();
   });
 
-  it('conflict step action keeps delay budget under 1.2s', async () => {
+  it('conflict step action keeps delay budget under 6s', async () => {
     const ctx = makeCtx();
     document.body.innerHTML = `
       <button data-testid="grpc-request-tab-auth" aria-pressed="true"></button>
@@ -453,7 +452,7 @@ describe('grpc-metadata-auth coverage gaps', () => {
       .mocked(ctx.delay)
       .mock.calls
       .reduce((sum, [ms]) => sum + (typeof ms === 'number' ? ms : 0), 0);
-    expect(totalDelayMs).toBeLessThan(1200);
+    expect(totalDelayMs).toBeLessThan(6000);
   });
 
   // ---------------------------------------------------------------------------

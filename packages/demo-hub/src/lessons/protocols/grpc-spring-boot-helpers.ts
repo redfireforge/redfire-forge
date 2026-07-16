@@ -165,13 +165,27 @@ export async function selectMethodVisible(
   await ensureMessageFilledQuiet(ctx);
 }
 
-/** Restore the lesson baseline: Express Proxy, Netty target, Echo selected, auth none. */
-export async function resetSpringBaselineQuiet(ctx: DemoActionContext): Promise<void> {
+/**
+ * Restore the lesson baseline: Express Proxy, Netty target, auth none.
+ *
+ * By default this also reflects and selects the Echo method. Pass
+ * `{ selectMethod: false }` (used by the lesson `setup`) to skip that: step 1
+ * teaches only the connection bar and deliberately avoids reflecting so the
+ * viewer doesn't see the service tree build + method highlight flash before the
+ * narration even mentions it. Step 2 performs the visible reflect + selection.
+ */
+export async function resetSpringBaselineQuiet(
+  ctx: DemoActionContext,
+  opts: { selectMethod?: boolean } = {},
+): Promise<void> {
+  const { selectMethod = true } = opts;
   await ensureStudioNav(ctx);
   await resetGrpcConnectionSettingsQuiet(ctx);
   await ensureTransportModeQuiet(ctx, 'express');
   await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
-  await selectMethodQuiet(ctx, GRPC_ECHO_METHOD_SEL);
+  if (selectMethod) {
+    await selectMethodQuiet(ctx, GRPC_ECHO_METHOD_SEL);
+  }
 }
 
 /**
