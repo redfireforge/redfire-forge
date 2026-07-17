@@ -155,6 +155,10 @@ describe('kafka-consume lesson', () => {
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('con-export-btn'));
   });
+  it('has Docker badge tag', () => {
+    expect(kafkaConsumeLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 
 

@@ -12,12 +12,16 @@ type ReflectionState = {
   services: Array<{ fullName: string }>;
   status: 'idle' | 'loading' | 'ready' | 'error';
   errorMessage?: string;
+  resolvedTarget?: string;
+  usedWorkflowDefaults?: boolean;
 };
 
 const reflectionState: ReflectionState = {
   descriptor: null,
   services: [],
   status: 'idle',
+  resolvedTarget: '',
+  usedWorkflowDefaults: false,
 };
 
 let targetValid = true;
@@ -25,11 +29,13 @@ let patchToReturn: Record<string, unknown> = {};
 let methodsToReturn: Array<{ name: string; callType: string }> = [];
 
 vi.mock('../../hooks/useGrpcWorkflowTargetReflection', () => ({
-  useGrpcWorkflowTargetReflection: () => ({
+  useGrpcWorkflowTargetReflection: (target: string) => ({
     descriptor: reflectionState.descriptor,
     services: reflectionState.services,
     status: reflectionState.status,
     errorMessage: reflectionState.errorMessage,
+    resolvedTarget: reflectionState.resolvedTarget || target,
+    usedWorkflowDefaults: reflectionState.usedWorkflowDefaults ?? false,
     reflectNow,
   }),
 }));
@@ -87,6 +93,8 @@ describe('GrpcWorkflowCallTargetFields', () => {
     reflectionState.services = [];
     reflectionState.status = 'idle';
     reflectionState.errorMessage = undefined;
+    reflectionState.resolvedTarget = '';
+    reflectionState.usedWorkflowDefaults = false;
     targetValid = true;
     patchToReturn = {};
     methodsToReturn = [];
@@ -101,12 +109,31 @@ describe('GrpcWorkflowCallTargetFields', () => {
     expect(screen.getByText('Reflecting target…')).toBeTruthy();
   });
 
+  it('renders loading status with resolved workflow-default hint', () => {
+    reflectionState.status = 'loading';
+    reflectionState.usedWorkflowDefaults = true;
+    reflectionState.resolvedTarget = 'localhost:50051';
+    renderComponent({ target: '{{grpcTarget}}', descriptorKey: '', service: '', method: '' });
+
+    expect(screen.getByText('Reflecting target (via localhost:50051)…')).toBeTruthy();
+  });
+
   it('renders ready status with service count pluralization', () => {
     reflectionState.status = 'ready';
     reflectionState.services = [{ fullName: 'pkg.A' }, { fullName: 'pkg.B' }];
     renderComponent({ target: '127.0.0.1:50051', descriptorKey: '', service: '', method: '' });
 
     expect(screen.getByText('2 services loaded via reflection')).toBeTruthy();
+  });
+
+  it('renders ready status with resolved workflow-default hint', () => {
+    reflectionState.status = 'ready';
+    reflectionState.services = [{ fullName: 'pkg.A' }];
+    reflectionState.usedWorkflowDefaults = true;
+    reflectionState.resolvedTarget = 'localhost:50051';
+    renderComponent({ target: '{{grpcTarget}}', descriptorKey: '', service: '', method: '' });
+
+    expect(screen.getByText('1 service loaded via reflection (via localhost:50051)')).toBeTruthy();
   });
 
   it('renders error status and triggers retry reflect action', () => {
@@ -124,7 +151,19 @@ describe('GrpcWorkflowCallTargetFields', () => {
     targetValid = false;
     renderComponent({ target: ' bad-target ', descriptorKey: '', service: '', method: '' });
 
-    expect(screen.getByText('Enter a valid host:port to load services')).toBeTruthy();
+    expect(
+      screen.getByText('Enter a valid host:port (or a workflow variable that resolves to one) to load services'),
+    ).toBeTruthy();
+  });
+
+  it('shows resolved-target validation hint when workflow defaults produce an invalid address', () => {
+    reflectionState.status = 'idle';
+    reflectionState.usedWorkflowDefaults = true;
+    reflectionState.resolvedTarget = 'not-a-host';
+    targetValid = false;
+    renderComponent({ target: '{{grpcTarget}}', descriptorKey: '', service: '', method: '' });
+
+    expect(screen.getByText('Resolved target "not-a-host" is not a valid host:port')).toBeTruthy();
   });
 
   it('uses selects for service and method when reflection data exists', () => {

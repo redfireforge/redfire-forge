@@ -185,6 +185,7 @@ export const kafkaWorkflowConsumeWaitLesson: DemoLesson = {
 
   dockerEndpoint: 'http://localhost:18080',
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
+  tag: '🐳 Docker',
 
   setup: kafkaWorkflowConsumeWaitSetup,
   cleanup: kafkaWorkflowConsumeWaitCleanup,

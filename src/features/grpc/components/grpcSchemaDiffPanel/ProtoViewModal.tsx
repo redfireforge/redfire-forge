@@ -71,6 +71,7 @@ export function ProtoViewModal({
       open
       title="Proto Schema Diff"
       onClose={onClose}
+      dialogClassName="grpc-sdiff-proto-modal-shell"
       closeButtonKind="none"
       dragAnchor={{
         selector: '[data-testid="grpc-schema-diff-panel"]',

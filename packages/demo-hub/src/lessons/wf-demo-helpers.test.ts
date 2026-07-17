@@ -5,6 +5,7 @@ import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { makeCtx } from './protocols/ws-test-utils';
 import {
   clickWfConfigAddRow,
+  clickWfConfigControl,
   clickWfConfigTab,
   clickWfDebugStepButtons,
   closeWfConfigModalIfOpen,
@@ -14,14 +15,22 @@ import {
   resetWorkflowRunStateQuiet,
   ensureWfNodeConfigModalOpen,
   fillWfConfigField,
+  getWfConfigDemoTiming,
   isWfConfigTabActive,
   openWfConsoleIfClosed,
   openWfNodeConfigModal,
   pauseWfConfigDemo,
   pauseWfConfigSection,
   saveAndCloseWfConfigModal,
+  selectWfConfigOption,
+  scrollWfConfigFieldIntoView,
+  scrollWfConfigModalToTop,
   selectWorkflowFromAppSidebar,
+  startWfDebugRun,
+  setWfConfigDemoTiming,
+  waitForWfConfigPanel,
   WF_CONFIG_DEMO_TIMING,
+  WF_CONFIG_DEMO_TIMING_BRISK,
   WF_CONSOLE_MODE_STORAGE_KEY,
 } from './wf-demo-helpers';
 import { WF } from '@shared/selectors';
@@ -37,10 +46,12 @@ function mockSidebarBridge(): { collapse: ReturnType<typeof vi.fn>; expand: Retu
 describe('wf-demo-helpers', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
+    setWfConfigDemoTiming(null);
     delete (window as unknown as Record<string, unknown>).__demoCollapseAppSidebar;
     delete (window as unknown as Record<string, unknown>).__demoExpandAppSidebar;
     delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
     delete (window as unknown as Record<string, unknown>).__wfDeselectAll;
+    delete (window as unknown as Record<string, unknown>).__wfResetRunState;
     delete (window as unknown as Record<string, unknown>).__wfSetConsoleFloatLayout;
     localStorage.removeItem(WF_CONSOLE_MODE_STORAGE_KEY);
   });
@@ -179,6 +190,40 @@ describe('wf-demo-helpers', () => {
     expect(ctx.delay).toHaveBeenCalledWith(WF_CONFIG_DEMO_TIMING.afterFill);
   });
 
+  it('scrollWfConfigModalToTop scrolls the modal viewport to 0', async () => {
+    document.body.innerHTML = '<div class="wf-config-modal-scroll"></div>';
+    const viewport = document.querySelector<HTMLElement>('.wf-config-modal-scroll')!;
+    viewport.scrollTo = vi.fn();
+    const ctx = makeCtx();
+    await scrollWfConfigModalToTop(ctx);
+    expect(viewport.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+  });
+
+  it('scrollWfConfigFieldIntoView scrolls inside the modal viewport', async () => {
+    document.body.innerHTML = `
+      <div class="wf-config-modal-scroll" style="height: 100px; overflow: auto;">
+        <input data-testid="field" />
+      </div>
+    `;
+    const viewport = document.querySelector<HTMLElement>('.wf-config-modal-scroll')!;
+    const field = document.querySelector<HTMLElement>('[data-testid="field"]')!;
+    viewport.scrollTo = vi.fn();
+    vi.spyOn(field, 'getBoundingClientRect').mockReturnValue({
+      top: 200, left: 0, width: 100, height: 30,
+      right: 100, bottom: 230, x: 0, y: 200, toJSON: () => ({}),
+    });
+    vi.spyOn(viewport, 'getBoundingClientRect').mockReturnValue({
+      top: 0, left: 0, width: 300, height: 100,
+      right: 300, bottom: 100, x: 0, y: 0, toJSON: () => ({}),
+    });
+    Object.defineProperty(viewport, 'scrollTop', { value: 0, configurable: true });
+    Object.defineProperty(viewport, 'scrollHeight', { value: 400, configurable: true });
+    Object.defineProperty(viewport, 'clientHeight', { value: 100, configurable: true });
+    const ctx = makeCtx();
+    await scrollWfConfigFieldIntoView(ctx, '[data-testid="field"]');
+    expect(viewport.scrollTo).toHaveBeenCalled();
+  });
+
   it('pauseWfConfigSection uses sectionBreak timing', async () => {
     const ctx = makeCtx();
     await pauseWfConfigSection(ctx);
@@ -201,6 +246,27 @@ describe('wf-demo-helpers', () => {
     const ctx = makeCtx();
     await pauseWfConfigDemo(ctx, 'tabSwitch');
     expect(ctx.delay).toHaveBeenCalledWith(WF_CONFIG_DEMO_TIMING.tabSwitch);
+  });
+
+  it('setWfConfigDemoTiming switches pause durations to brisk', async () => {
+    setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
+    const ctx = makeCtx();
+    await pauseWfConfigDemo(ctx, 'afterFill');
+    expect(ctx.delay).toHaveBeenCalledWith(WF_CONFIG_DEMO_TIMING_BRISK.afterFill);
+  });
+
+  it('scroll settle uses shorter delay under brisk timing', async () => {
+    setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
+    document.body.innerHTML = `
+      <div class="wf-config-modal-scroll" style="overflow:auto;height:100px">
+        <div data-testid="panel"></div>
+      </div>
+    `;
+    const viewport = document.querySelector<HTMLElement>('.wf-config-modal-scroll')!;
+    viewport.scrollTo = vi.fn();
+    const ctx = makeCtx();
+    await scrollWfConfigModalToTop(ctx);
+    expect(ctx.delay).toHaveBeenCalledWith(250);
   });
 
   it('clickWfConfigTab clicks gql-wf-subtab inside panel', async () => {
@@ -366,5 +432,183 @@ describe('wf-demo-helpers', () => {
     expect(expand).toHaveBeenCalled();
     expect(clickSpy).not.toHaveBeenCalled();
     expect(collapse).toHaveBeenCalled();
+  });
+
+  it('exposes and resets active timing table', () => {
+    setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
+    expect(getWfConfigDemoTiming()).toEqual(WF_CONFIG_DEMO_TIMING_BRISK);
+    setWfConfigDemoTiming(null);
+    expect(getWfConfigDemoTiming()).toEqual(WF_CONFIG_DEMO_TIMING);
+  });
+
+  it('openWfNodeConfigModal resolves nodeId from nodeSelector path', async () => {
+    document.body.innerHTML = '<div class="react-flow__node" data-id="node-7"><div class="node-hit"></div></div>';
+    const openSpy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = openSpy;
+    const ctx = makeCtx();
+    await openWfNodeConfigModal(ctx, { nodeSelector: '.node-hit' });
+    expect(openSpy).toHaveBeenCalledWith('node-7');
+  });
+
+  it('scrollWfConfigModalToTop no-ops when viewport is missing', async () => {
+    const ctx = makeCtx();
+    await scrollWfConfigModalToTop(ctx);
+    expect(ctx.delay).not.toHaveBeenCalled();
+  });
+
+  it('scrollWfConfigFieldIntoView no-ops when selector does not resolve', async () => {
+    const ctx = makeCtx();
+    await scrollWfConfigFieldIntoView(ctx, '[data-testid="missing"]');
+    expect(ctx.delay).not.toHaveBeenCalled();
+  });
+
+  it('waitForWfConfigPanel waits with default timeout and recenters', async () => {
+    document.body.innerHTML = '<div class="wf-config-modal-scroll"></div><div data-testid="panel"></div>';
+    const viewport = document.querySelector<HTMLElement>('.wf-config-modal-scroll')!;
+    viewport.scrollTo = vi.fn();
+    const ctx = makeCtx();
+    await waitForWfConfigPanel(ctx, '[data-testid="panel"]');
+    expect(ctx.waitFor).toHaveBeenCalledWith('[data-testid="panel"]', 8000);
+    expect(viewport.scrollTo).toHaveBeenCalledWith({ top: 0, behavior: 'smooth' });
+  });
+
+  it('selectWfConfigOption selects and applies pacing delay', async () => {
+    document.body.innerHTML = '<select data-testid="pick"><option value="one">One</option></select>';
+    const ctx = makeCtx();
+    await selectWfConfigOption(ctx, '[data-testid="pick"]', 'one');
+    expect(ctx.selectOption).toHaveBeenCalledWith('[data-testid="pick"]', 'one');
+    expect(ctx.delay).toHaveBeenCalledWith(WF_CONFIG_DEMO_TIMING.afterSelect);
+  });
+
+  it('clickWfConfigControl clicks selector and applies pacing delay', async () => {
+    document.body.innerHTML = '<button data-testid="ctl">ctl</button>';
+    const ctx = makeCtx();
+    await clickWfConfigControl(ctx, '[data-testid="ctl"]');
+    expect(ctx.click).toHaveBeenCalledWith('[data-testid="ctl"]');
+    expect(ctx.delay).toHaveBeenCalledWith(WF_CONFIG_DEMO_TIMING.afterClick);
+  });
+
+  it('resetWorkflowRunStateQuiet uses DOM fallback when bridge is unavailable', () => {
+    document.body.innerHTML = `
+      <button class="wf-toolbar-reset-btn"></button>
+      <button class="wf-console-action-btn" title="Clear console"></button>
+      <button class="wf-exec-strip-close"></button>
+    `;
+    const resetBtn = document.querySelector<HTMLButtonElement>('.wf-toolbar-reset-btn')!;
+    const clearBtn = document.querySelector<HTMLButtonElement>('.wf-console-action-btn[title="Clear console"]')!;
+    const stripClose = document.querySelector<HTMLButtonElement>('.wf-exec-strip-close')!;
+    const resetSpy = vi.spyOn(resetBtn, 'click');
+    const clearSpy = vi.spyOn(clearBtn, 'click');
+    const closeSpy = vi.spyOn(stripClose, 'click');
+    expect(resetWorkflowRunStateQuiet()).toBe(false);
+    expect(resetSpy).toHaveBeenCalled();
+    expect(clearSpy).toHaveBeenCalled();
+    expect(closeSpy).toHaveBeenCalled();
+  });
+
+  it('isWfConfigTabActive returns false when panel exists but tab label is missing', () => {
+    document.body.innerHTML = '<div data-testid="panel"><button class="gql-wf-subtab">Other</button></div>';
+    expect(isWfConfigTabActive('[data-testid="panel"]', 'Missing Label')).toBe(false);
+  });
+
+  it('isWfConfigTabActive returns false when panel is missing', () => {
+    expect(isWfConfigTabActive('[data-testid="no-panel"]', 'Stop')).toBe(false);
+  });
+
+  it('closeWfConsoleIfOpen returns early when panel is absent', async () => {
+    document.body.innerHTML = '<button class="wf-console-badge"></button>';
+    const badge = document.querySelector<HTMLElement>('.wf-console-badge')!;
+    const clickSpy = vi.spyOn(badge, 'click');
+    const ctx = makeCtx();
+    await closeWfConsoleIfOpen(ctx);
+    expect(clickSpy).not.toHaveBeenCalled();
+  });
+
+  it('closeWfConsoleIfOpen no-ops when panel exists but badge is missing', async () => {
+    document.body.innerHTML = '<div class="wf-console-panel"></div>';
+    const ctx = makeCtx();
+    await closeWfConsoleIfOpen(ctx);
+    expect(document.querySelector('.wf-console-panel')).not.toBeNull();
+  });
+
+  it('startWfDebugRun navigates and triggers debug button', async () => {
+    const ctx = makeCtx();
+    await startWfDebugRun(ctx);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
+    expect(ctx.click).toHaveBeenCalledWith(WF.DEBUG_BTN);
+  });
+
+  it('openWfConsoleIfClosed keeps existing panel and still applies floating layout', async () => {
+    document.body.innerHTML = `
+      <div class="wf-console-panel"></div>
+      <select class="wf-console-mode-select">
+        <option value="docked">Bottom</option>
+        <option value="floating">Floating</option>
+      </select>
+    `;
+    const layoutSpy = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfSetConsoleFloatLayout = layoutSpy;
+    const ctx = makeCtx();
+    await openWfConsoleIfClosed(ctx);
+    expect(layoutSpy).toHaveBeenCalled();
+    expect(localStorage.getItem(WF_CONSOLE_MODE_STORAGE_KEY)).toBe('floating');
+  });
+
+  it('clickWfDebugStepButtons breaks out when waitFor rejects', async () => {
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockRejectedValueOnce(new Error('timed out'));
+    const count = await clickWfDebugStepButtons(ctx, 3);
+    expect(count).toBe(0);
+  });
+
+  it('ensureWfNodeConfigModalOpen closes stale modal before opening target', async () => {
+    document.body.innerHTML = `
+      <div class="wf-config-modal">
+        <div class="wf-config-modal-footer-actions">
+          <button class="btn-ghost">Close</button>
+        </div>
+      </div>
+    `;
+    const closeBtn = document.querySelector<HTMLButtonElement>('.btn-ghost')!;
+    const closeSpy = vi.spyOn(closeBtn, 'click');
+    closeBtn.addEventListener('click', () => document.querySelector('.wf-config-modal')?.remove());
+    const openSpy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = openSpy;
+    const ctx = makeCtx();
+    await ensureWfNodeConfigModalOpen(ctx, {
+      nodeId: 'node-2',
+      panelSelector: '[data-testid="target-panel"]',
+    });
+    expect(closeSpy).toHaveBeenCalled();
+    expect(openSpy).toHaveBeenCalledWith('node-2');
+  });
+
+  it('clickWfConfigTab returns when panel or target tab is missing', async () => {
+    const ctx = makeCtx();
+    await clickWfConfigTab(ctx, '[data-testid="missing-panel"]', 'Stop');
+    document.body.innerHTML = '<div data-testid="panel"><button class="gql-wf-subtab">Other</button></div>';
+    await clickWfConfigTab(ctx, '[data-testid="panel"]', 'Stop');
+    expect(ctx.delay).not.toHaveBeenCalled();
+  });
+
+  it('closeWfConfigModalIfOpen returns early when modal is absent', async () => {
+    const ctx = makeCtx();
+    await closeWfConfigModalIfOpen(ctx);
+    expect(ctx.delay).not.toHaveBeenCalled();
+  });
+
+  it('closeWfConfigModalIfOpen no-ops when modal has no close button', async () => {
+    document.body.innerHTML = '<div class="wf-config-modal"></div>';
+    const ctx = makeCtx();
+    await closeWfConfigModalIfOpen(ctx);
+    expect(ctx.delay).not.toHaveBeenCalled();
+  });
+
+  it('saveAndCloseWfConfigModal returns true when save exists outside modal shell', async () => {
+    document.body.innerHTML = '<div class="wf-config-modal-footer-actions"><button class="btn-primary">Save</button></div>';
+    const ctx = makeCtx();
+    const ok = await saveAndCloseWfConfigModal(ctx);
+    expect(ok).toBe(true);
+    expect(ctx.click).toHaveBeenCalledWith(WF.CFG_SAVE);
   });
 });

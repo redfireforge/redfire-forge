@@ -1,8 +1,10 @@
 /** GRPC-24 Workflow Runner lesson — step definitions */
 import { GRPC, WF } from '@shared/selectors';
+import { RES } from '@shared/selectors/res';
 import {
   addWorkflowNodeWithPreset,
   deleteWorkflowByName,
+  fitWorkflowCanvasView,
   getWorkflowByName,
   patchWorkflowByName,
   patchWorkflowNodeDataById,
@@ -18,19 +20,24 @@ import {
   openWfNodeConfigModal,
   pauseWfConfigSection,
   saveAndCloseWfConfigModal,
+  scrollWfConfigFieldIntoView,
   waitForWfConfigPanel,
 } from '../wf-demo-helpers';
 import {
   WF14_NAME,
   WF14_NODE_GRPC,
+  WF14_NODE_GRPC_SEL,
   WF14_NODE_ASSERT,
+  WF14_NODE_ASSERT_SEL,
   ECHO_BODY_JSON,
   ECHO_ASSERTIONS_JSON,
   clickWfFitView,
   isNodeOnCanvas,
   isWorkflowPresent,
+  selectGrpcUnaryServiceAndMethod,
+  spotlightWfCanvasNode,
 } from './grpc-workflow-integration-helpers';
-import { spotlightAndPause, GRPC_DEMO_DOCKER_COMMAND } from './grpc-lesson-helpers';
+import { spotlightAndPause, spotlightElementAndPause, GRPC_DEMO_DOCKER_COMMAND } from './grpc-lesson-helpers';
 import type { DemoLesson } from '../../types';
 import {
   GRPCWR_TARGET_VAR,
@@ -38,11 +45,13 @@ import {
   GRPCWR_TARGET_EXPR,
   GRPCWR_ITERATIONS,
   GRPCWR_CONCURRENCY,
-  GRPCWR_TRACE_LEVEL,
   WF_RUNNER_SELECT,
   GRPCWR_EXPLORER_BTN,
+  GRPCWR_VARS_SECTION,
+  GRPCWR_CONFIG_SECTION,
+  GRPCWR_COMPLETION,
+  GRPCWR_VIEW_RESULTS_BTN,
   grpcWRSession,
-  resetGrpcWRSession,
   resolveDescriptorKey,
   ensureChainConnected,
   seedGrpcWRWorkflowQuiet,
@@ -50,18 +59,27 @@ import {
   ensureGrpcWRNodesPresent,
   ensureWorkflowSeededForRunner,
   selectGrpcEchoWorkflow,
-  applyGrpcWRConfig,
+  applyGrpcWRConfigVisible,
   runGrpcEchoWorkflow,
   ensureRunnerReady,
   openResultsFromCompletionBanner,
   ensureOnResultsTab,
-  openRequestDetailsTab,
+  tourRequestDetailsRow,
   openResultsOverviewTab,
   ensureFullResultsMetricsCards,
   scrollResultsMetricsCardsIntoView,
-  openAndFitResultsExplorer,
+  tourResultsExplorerPanels,
   closeResultsExplorerIfOpen,
+  spotlightGrpcTargetVarRow,
 } from './grpc-workflow-runner-helpers';
+
+/**
+ * Numeric pauseAfter overrides calcReadingTime (4.5s floor + ~160 wpm), which
+ * was producing 25–40s "Reading — click to skip" holds on longer GRPC-24 steps.
+ */
+const READ_BRIEF_MS = 2_500;
+const READ_STD_MS = 4_000;
+const READ_TEACH_MS = 5_500;
 
 export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
     // ── Step 1: Create blank workflow ─────────────────────────────────────
@@ -69,43 +87,60 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-create',
       title: 'Create a Blank Workflow',
       description:
-        `Open the **Workflow Designer** tab. Click **+ New** in the sidebar → **Blank Workflow**, then name it **${WF14_NAME}** and confirm.\n\n` +
-        `A blank canvas appears with **Start** and **End** nodes. The palette on the left shows three gRPC node types: **gRPC Unary**, **gRPC Assert**, and **gRPC Server-Stream**.\n\n` +
-        `Every workflow starts the same way — canvas + node palette. The demo collapses the sidebar after creation so the canvas has full width.`,
+        `Click **+ New** → **Blank Workflow**, name it **${WF14_NAME}**, and confirm.\n\n` +
+        `You get a canvas with **Start** / **End** and the gRPC palette blocks (**Unary**, **Assert**, **Server-Stream**). The demo collapses the sidebar so the canvas has full width.`,
+      // Short Reading — default calc was ~30s for the longer copy; action does the teaching.
+      pauseAfter: READ_BRIEF_MS,
       highlight: WF.SIDEBAR_NEW_BTN,
       preAction: async (ctx) => {
-        resetGrpcWRSession();
-        await cleanupWorkflowDemoRunUi(ctx);
         await closeWfConfigModalIfOpen(ctx);
         if (getWorkflowByName(WF14_NAME)) {
           deleteWorkflowByName(WF14_NAME);
-          await ctx.delay(200);
+          await ctx.delay(100);
         }
-        ctx.navigateToTab('workflow');
-        await ctx.delay(500);
-        const skipBtn = document.querySelector<HTMLElement>('.onboarding-tooltip-skip');
-        if (skipBtn) { skipBtn.click(); await ctx.delay(200); }
+        // Only navigate + expand when setup's state is missing (rapid-Next / restart).
+        if (!document.querySelector(WF.SIDEBAR_NEW_BTN)) {
+          ctx.navigateToTab('workflow');
+          await ctx.delay(250);
+          const skipBtn = document.querySelector<HTMLElement>('.onboarding-tooltip-skip');
+          if (skipBtn) { skipBtn.click(); await ctx.delay(60); }
+          await expandWfDemoAppSidebar(ctx);
+          grpcWRSession.sidebarCollapsed = false;
+        }
       },
       action: async (ctx) => {
-        await expandWfDemoAppSidebar(ctx);
-        await spotlightAndPause(ctx, WF.SIDEBAR, 500);
-        await spotlightAndPause(ctx, WF.SIDEBAR_NEW_BTN, 500);
+        await spotlightAndPause(ctx, WF.SIDEBAR_NEW_BTN, 600);
         await ctx.click(WF.SIDEBAR_NEW_BTN);
-        await ctx.delay(250);
+        await ctx.delay(300);
+
+        await spotlightAndPause(ctx, WF.NEW_BLANK_ITEM, 550);
         await ctx.click(WF.NEW_BLANK_ITEM);
-        await ctx.delay(250);
+        await ctx.delay(300);
+
+        await spotlightAndPause(ctx, WF.CREATE_INPUT, 450);
         await ctx.fill(WF.CREATE_INPUT, WF14_NAME);
-        await ctx.delay(200);
+        await ctx.delay(400);
+
+        await spotlightAndPause(ctx, WF.CREATE_OK, 450);
         await ctx.click(WF.CREATE_OK);
         await ctx.waitFor(WF.CANVAS, 5000);
-        await ctx.delay(400);
+        await ctx.delay(350);
+
         await collapseWfDemoAppSidebar(ctx);
         grpcWRSession.workflowCreated = true;
         grpcWRSession.sidebarCollapsed = true;
-        await spotlightAndPause(ctx, WF.CANVAS, 600);
+
+        // Payoff: ring the Start node only — not the whole canvas/design box.
+        fitWorkflowCanvasView();
+        await ctx.delay(300);
+        await ctx.waitFor(WF.NODE_START, 3000);
+        await spotlightAndPause(ctx, WF.NODE_START, 900);
+        // Narration mentions the three gRPC palette blocks — show Unary as the entry point.
+        const unary = document.querySelector<HTMLElement>(WF.PAL_GRPC_UNARY);
+        unary?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 700);
       },
-      verify: WF.CANVAS,
-      pauseAfter: true,
+      verify: WF.NODE_START,
     },
 
     // ── Step 2: Define grpcTarget variable ─────────────────────────────────
@@ -113,11 +148,10 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-variables',
       title: `Define the ${GRPCWR_TARGET_VAR} Variable`,
       description:
-        `Click **Variables** in the Designer toolbar. In the **Workflow Variables** modal, add:\n\n` +
-        `- **Name:** \`${GRPCWR_TARGET_VAR}\`\n` +
-        `- **Value:** \`${GRPCWR_TARGET_DEFAULT}\`\n\n` +
-        `Click **Save**.\n\n` +
-        `This variable is the key feature for the Workflow Runner — any node that references \`${GRPCWR_TARGET_EXPR}\` will have its value replaced at runtime. In the Workflow Runner's **Initial Variables** panel, this row appears as an overridable field. Without editing the canvas, a user can point the same workflow at \`staging-grpc.acme.com:443\` just by changing this one field before clicking Run.`,
+        `Click **Variables**. Add \`${GRPCWR_TARGET_VAR}\` = \`${GRPCWR_TARGET_DEFAULT}\`, then **Save**.\n\n` +
+        `Nodes that use \`${GRPCWR_TARGET_EXPR}\` resolve this at runtime — and you can override it in the Runner's **Initial Variables** without editing the canvas.\n\n` +
+        `The default also drives **design-time reflection**: Service/Method stay as dropdowns while Target keeps the portable template.`,
+      pauseAfter: READ_TEACH_MS,
       highlight: GRPC.LESSON24_WF_VARIABLES_BTN,
       preAction: async (ctx) => {
         if (!grpcWRSession.workflowCreated) {
@@ -130,39 +164,53 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         await closeWfConfigModalIfOpen(ctx);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, WF.VARIABLES_BTN, 500);
+        await spotlightAndPause(ctx, WF.VARIABLES_BTN, 650);
         await ctx.click(WF.VARIABLES_BTN);
         await ctx.waitFor(WF.DEFAULTS_MODAL, 5000);
-        await ctx.delay(600);
+        await ctx.delay(700);
+        await spotlightAndPause(ctx, WF.DEFAULTS_MODAL, 600);
 
-        // Check if the row already exists (rapid-next guard)
         const existingRows = document.querySelectorAll(`${WF.DEFAULTS_MODAL} .wf-config-kv-row-vars:not(:last-child)`);
         const alreadyDefined = Array.from(existingRows).some(
           (row) => (row.querySelector('.wf-var-key-input') as HTMLInputElement)?.value === GRPCWR_TARGET_VAR,
         );
 
         if (!alreadyDefined) {
+          await spotlightAndPause(ctx, WF.DEFAULTS_NEW_KEY, 500);
           await ctx.fill(WF.DEFAULTS_NEW_KEY, GRPCWR_TARGET_VAR);
-          await ctx.delay(350);
+          await ctx.delay(450);
+
+          await spotlightAndPause(ctx, WF.DEFAULTS_NEW_VAL, 500);
           await ctx.fill(WF.DEFAULTS_NEW_VAL, GRPCWR_TARGET_DEFAULT);
-          await ctx.delay(350);
+          await ctx.delay(450);
+
+          await spotlightAndPause(ctx, WF.DEFAULTS_ADD_BTN, 450);
           await ctx.click(WF.DEFAULTS_ADD_BTN);
-          await ctx.delay(500);
+          await ctx.delay(600);
         }
 
-        await spotlightAndPause(ctx, WF.DEFAULTS_MODAL, 500);
-        await ctx.click(WF.DEFAULTS_SAVE_BTN);
-        await ctx.delay(700);
+        // Payoff: spotlight the actual grpcTarget row (not the header).
+        const savedRow = Array.from(
+          document.querySelectorAll<HTMLElement>(`${WF.DEFAULTS_MODAL} .wf-config-kv-row-vars:not(:last-child)`),
+        ).find((row) => (row.querySelector('.wf-var-key-input') as HTMLInputElement)?.value === GRPCWR_TARGET_VAR);
+        if (savedRow) {
+          await spotlightElementAndPause(ctx, savedRow, 700);
+        } else {
+          await spotlightAndPause(ctx, WF.DEFAULTS_MODAL, 500);
+        }
 
-        // Bridge fallback if modal interaction didn't persist
+        await spotlightAndPause(ctx, WF.DEFAULTS_SAVE_BTN, 500);
+        await ctx.click(WF.DEFAULTS_SAVE_BTN);
+        await ctx.delay(800);
+
         if (!getWorkflowByName<{ variables?: Record<string, unknown> }>(WF14_NAME)?.variables?.[GRPCWR_TARGET_VAR]) {
           patchWorkflowByName(WF14_NAME, { variables: { [GRPCWR_TARGET_VAR]: GRPCWR_TARGET_DEFAULT } });
           await ctx.delay(200);
         }
         grpcWRSession.variablesDefined = true;
+        await spotlightAndPause(ctx, WF.CANVAS, 450);
       },
       verify: WF.CANVAS,
-      pauseAfter: true,
     },
 
     // ── Step 3: Add gRPC Unary node ─────────────────────────────────────────
@@ -170,8 +218,9 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-unary',
       title: 'Add a gRPC Unary Node',
       description:
-        `Click **gRPC Unary** in the palette (**Actions** section). The node drops onto the canvas. The demo wires **Start → Echo Call** and clicks **Fit view** to center the graph.\n\n` +
-        `**gRPC Unary** is for single request → single response calls (the most common gRPC pattern). At runtime it opens a channel to the configured target, sends the body, receives the unary response, and publishes all response fields under the \`saveAs\` namespace so downstream nodes can reference them.`,
+        `Click **gRPC Unary** in the palette. The demo wires **Start → Echo Call** and fits the view.\n\n` +
+        `Unary = one request → one response. At runtime it publishes response fields under the \`saveAs\` namespace for downstream nodes.`,
+      pauseAfter: READ_STD_MS,
       highlight: WF.PAL_GRPC_UNARY,
       preAction: async (ctx) => {
         if (!grpcWRSession.workflowCreated || !isWorkflowPresent()) {
@@ -194,20 +243,19 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       action: async (ctx) => {
         const palBlock = document.querySelector<HTMLElement>(WF.PAL_GRPC_UNARY);
         palBlock?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(200);
-        await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 700);
+        await ctx.delay(250);
+        await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 800);
         if (!isNodeOnCanvas(WF14_NODE_GRPC)) {
           addWorkflowNodeWithPreset('grpcUnary', WF14_NODE_GRPC, 'Echo Call', { x: 320, y: 200 });
-          await ctx.delay(400);
+          await ctx.delay(500);
           grpcWRSession.unaryAdded = true;
         }
         ensureChainConnected();
-        await ctx.delay(300);
+        await ctx.delay(350);
         await clickWfFitView(ctx);
-        await spotlightAndPause(ctx, WF.NODE_GRPC_UNARY, 600);
+        await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 900);
       },
       verify: WF.NODE_GRPC_UNARY,
-      pauseAfter: true,
     },
 
     // ── Step 4: Configure gRPC Unary ───────────────────────────────────────
@@ -215,52 +263,63 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-config-unary',
       title: 'Configure Echo Call — target={{grpcTarget}}',
       description:
-        `Double-click **Echo Call** to open its config panel. Set:\n\n` +
-        `- **Target:** \`${GRPCWR_TARGET_EXPR}\` — references the workflow variable; the runner resolves it to \`${GRPCWR_TARGET_DEFAULT}\` (or whatever override the user provides)\n` +
-        `- **Service:** \`echo.EchoService\`\n` +
-        `- **Method:** \`Echo\`\n` +
-        `- **Body:** \`${ECHO_BODY_JSON}\`\n` +
-        `- **Save As:** \`echoReply\` — makes response fields available as \`echoReply.message\`, \`echoReply.grpcStatus\`, etc.\n\n` +
-        `Click **Save**. The \`{{grpcTarget}}\` syntax is the same template syntax used by GQL nodes for endpoints — it works across all workflow node types.`,
-      highlight: GRPC.WF_UNARY_CONFIG,
+        `Open **Echo Call** and set:\n\n` +
+        `- **Target:** \`${GRPCWR_TARGET_EXPR}\` — Schema still reflects via \`${GRPCWR_TARGET_DEFAULT}\`\n` +
+        `- **Service** / **Method:** \`echo.EchoService\` → \`Echo\` from the dropdowns\n` +
+        `- **Body:** \`${ECHO_BODY_JSON}\` · **Save As:** \`echoReply\`\n\n` +
+        `Click **Save**.`,
+      pauseAfter: READ_TEACH_MS,
+      highlight: WF14_NODE_GRPC_SEL,
       preAction: async (ctx) => {
         await ensureOnWorkflowTab(ctx);
         if (!isWorkflowPresent() || !isNodeOnCanvas(WF14_NODE_GRPC)) {
           await seedGrpcWRWorkflowQuiet(ctx);
           return;
         }
+        // Reflection needs the workflow default before the config modal opens.
+        if (!getWorkflowByName<{ variables?: Record<string, unknown> }>(WF14_NAME)?.variables?.[GRPCWR_TARGET_VAR]) {
+          patchWorkflowByName(WF14_NAME, { variables: { [GRPCWR_TARGET_VAR]: GRPCWR_TARGET_DEFAULT } });
+        }
         await closeWfConfigModalIfOpen(ctx);
+        fitWorkflowCanvasView();
+        await ctx.delay(200);
       },
       action: async (ctx) => {
+        await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 600);
         await openWfNodeConfigModal(ctx, { nodeId: WF14_NODE_GRPC });
         await waitForWfConfigPanel(ctx, GRPC.WF_UNARY_CONFIG);
+        await spotlightAndPause(ctx, GRPC.WF_UNARY_CONFIG, 550);
 
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_TARGET, 600);
-        await ctx.waitFor(GRPC.WF_UNARY_CFG_TARGET, 3000);
+        // Target is the teaching beat — hold longer after fill.
+        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_UNARY_CFG_TARGET);
+        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_TARGET, 700);
         await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_TARGET, GRPCWR_TARGET_EXPR);
+        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_TARGET, 700);
+
+        // Schema status shows "(via localhost:50051)" while Target stays templated.
+        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_UNARY_CFG_REFLECT_STATUS);
+        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_REFLECT_STATUS, 900);
 
         await pauseWfConfigSection(ctx);
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_SERVICE, 500);
-        await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_SERVICE, 'echo.EchoService');
-
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_METHOD, 500);
-        await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_METHOD, 'Echo');
+        await selectGrpcUnaryServiceAndMethod(ctx, 'echo.EchoService', 'Echo', { paced: true });
 
         await pauseWfConfigSection(ctx);
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_BODY, 500);
-        await ctx.waitFor(GRPC.WF_UNARY_CFG_BODY, 3000);
-        await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_BODY, ECHO_BODY_JSON);
-
-        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_SAVE_AS, 500);
-        await ctx.waitFor(GRPC.WF_UNARY_CFG_SAVE_AS, 3000);
+        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_UNARY_CFG_SAVE_AS);
+        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_SAVE_AS, 550);
         await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_SAVE_AS, 'echoReply');
+        await ctx.delay(350);
+
+        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_UNARY_CFG_BODY);
+        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_BODY, 550);
+        await fillWfConfigField(ctx, GRPC.WF_UNARY_CFG_BODY, ECHO_BODY_JSON);
+        await spotlightAndPause(ctx, GRPC.WF_UNARY_CFG_BODY, 700);
 
         await ctx.waitFor(WF.CFG_SAVE, 3000);
+        await spotlightAndPause(ctx, WF.CFG_SAVE, 500);
         await ctx.click(WF.CFG_SAVE);
         grpcWRSession.unaryConfigured = true;
-        await ctx.delay(250);
+        await ctx.delay(400);
 
-        // Fallback: ensure node data is set via bridge
         patchWorkflowNodeDataById(WF14_NODE_GRPC, {
           target: GRPCWR_TARGET_EXPR,
           descriptorKey: resolveDescriptorKey(),
@@ -269,10 +328,10 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
           body: { message: 'workflow-test' },
           saveAs: 'echoReply',
         });
-        await spotlightAndPause(ctx, WF.NODE_GRPC_UNARY, 500);
+        await clickWfFitView(ctx);
+        await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 700);
       },
       verify: WF.NODE_GRPC_UNARY,
-      pauseAfter: true,
     },
 
     // ── Step 5: Add gRPC Assert node ────────────────────────────────────────
@@ -280,11 +339,9 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-assert',
       title: 'Add a gRPC Assert Node',
       description:
-        `Click **gRPC Assert** in the palette (**Logic** section). The demo wires **Echo Call → Assert Echo → End** and fits the view.\n\n` +
-        `**gRPC Assert** makes no network calls — it reads the result stored by an upstream call node and evaluates your assertions. Two assertion types are relevant here:\n\n` +
-        `- \`grpcStatus: 0\` — passes when the gRPC status is OK (0 = success)\n` +
-        `- \`grpcField: "message"\` — checks a field in the response body by dot-notation path\n\n` +
-        `A failing assert node **blocks downstream execution** unless you set \`onError: "continue"\`.`,
+        `Click **gRPC Assert**. The demo wires **Echo Call → Assert Echo → End**.\n\n` +
+        `Assert reads an upstream result (no network). We'll check \`grpcStatus: 0\` and the \`message\` field. A failing assert blocks downstream unless \`onError: "continue"\`.`,
+      pauseAfter: READ_STD_MS,
       highlight: WF.PAL_GRPC_ASSERT,
       preAction: async (ctx) => {
         await ensureOnWorkflowTab(ctx);
@@ -311,20 +368,19 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       action: async (ctx) => {
         const assertBlock = document.querySelector<HTMLElement>(WF.PAL_GRPC_ASSERT);
         assertBlock?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(200);
-        await spotlightAndPause(ctx, WF.PAL_GRPC_ASSERT, 700);
+        await ctx.delay(250);
+        await spotlightAndPause(ctx, WF.PAL_GRPC_ASSERT, 800);
         if (!isNodeOnCanvas(WF14_NODE_ASSERT)) {
           addWorkflowNodeWithPreset('grpcAssert', WF14_NODE_ASSERT, 'Assert Echo', { x: 580, y: 200 });
-          await ctx.delay(350);
+          await ctx.delay(450);
           grpcWRSession.assertAdded = true;
         }
         ensureChainConnected();
-        await ctx.delay(300);
+        await ctx.delay(350);
         await clickWfFitView(ctx);
-        await spotlightAndPause(ctx, WF.NODE_GRPC_ASSERT, 600);
+        await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 900);
       },
       verify: WF.NODE_GRPC_ASSERT,
-      pauseAfter: true,
     },
 
     // ── Step 6: Configure Assert ────────────────────────────────────────────
@@ -332,13 +388,11 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-config-assert',
       title: 'Configure Assert Echo',
       description:
-        `Double-click **Assert Echo**. Set:\n\n` +
-        `- **Source:** \`echoReply\` — the \`saveAs\` alias from the Unary node\n` +
-        `- **Assertions (JSON):**\n` +
+        `Open **Assert Echo**. Set **Source** to \`echoReply\`, then assertions:\n\n` +
         `\`\`\`json\n${ECHO_ASSERTIONS_JSON}\n\`\`\`\n\n` +
-        `**grpcStatus: 0** checks the gRPC status code (0 = OK). **grpcField** uses dot-notation to check a field in the response body — \`"message"\` with \`"equals": "workflow-test"\` confirms the echo server returned exactly what was sent.\n\n` +
-        `Click **Save**. The workflow is now complete.`,
-      highlight: GRPC.WF_ASSERT_CONFIG,
+        `\`grpcStatus: 0\` = OK; \`grpcField\` checks the echoed message. Click **Save**.`,
+      pauseAfter: READ_STD_MS,
+      highlight: WF14_NODE_ASSERT_SEL,
       preAction: async (ctx) => {
         await ensureOnWorkflowTab(ctx);
         if (
@@ -351,22 +405,30 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         }
         ensureChainConnected();
         await closeWfConfigModalIfOpen(ctx);
+        fitWorkflowCanvasView();
+        await ctx.delay(150);
       },
       action: async (ctx) => {
+        await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 550);
         await openWfNodeConfigModal(ctx, { nodeId: WF14_NODE_ASSERT });
         await waitForWfConfigPanel(ctx, GRPC.WF_ASSERT_CONFIG);
-        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CONFIG, 550);
+        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CONFIG, 600);
 
-        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 550);
+        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_ASSERT_CFG_SOURCE);
+        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 600);
         await fillWfConfigField(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 'echoReply');
+        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_SOURCE, 550);
         await pauseWfConfigSection(ctx);
 
-        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, 600);
+        await scrollWfConfigFieldIntoView(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS);
+        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, 650);
         await fillWfConfigField(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, ECHO_ASSERTIONS_JSON);
+        await spotlightAndPause(ctx, GRPC.WF_ASSERT_CFG_ASSERTIONS, 800);
 
+        await spotlightAndPause(ctx, WF.CFG_SAVE, 450);
         await saveAndCloseWfConfigModal(ctx);
         grpcWRSession.assertConfigured = true;
-        await ctx.delay(250);
+        await ctx.delay(350);
 
         patchWorkflowNodeDataById(WF14_NODE_ASSERT, {
           source: 'echoReply',
@@ -375,10 +437,10 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
             { grpcField: 'message', equals: 'workflow-test' },
           ],
         });
-        await spotlightAndPause(ctx, WF.NODE_GRPC_ASSERT, 500);
+        await clickWfFitView(ctx);
+        await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 700);
       },
       verify: WF.NODE_GRPC_ASSERT,
-      pauseAfter: true,
     },
 
     // ── Step 7: Quick Test ──────────────────────────────────────────────────
@@ -386,11 +448,9 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-quick-test',
       title: 'Quick Test — Verify the Workflow',
       description:
-        `Open the **Console** (badge in the status bar), then click **▶ Quick Test**.\n\n` +
-        `The workflow executes: **Start → Echo Call → Assert Echo → End**. The canvas shows live status as each node runs — **green** = pass, **red** = fail. The Console streams per-node logs including:\n\n` +
-        `- Echo Call: target resolved from \`${GRPCWR_TARGET_EXPR}\` → \`${GRPCWR_TARGET_DEFAULT}\`, request body, gRPC status, response body, latency\n` +
-        `- Assert Echo: assertion results — \`grpcStatus==0 ✓\`, \`message==workflow-test ✓\`\n\n` +
-        `**Quick Test does not save a run record** — it is for validation only. The Workflow Runner (next) runs with iterations and saves results.`,
+        `Open the **Console**, then click **▶ Quick Test**.\n\n` +
+        `Watch **Start → Echo Call → Assert Echo → End** light up (**green** = pass). Quick Test validates only — it does **not** save a run. Harness (next) persists iterations.`,
+      pauseAfter: READ_STD_MS,
       highlight: WF.QUICK_TEST_BTN,
       preAction: async (ctx) => {
         await ensureGrpcWRNodesPresent(ctx);
@@ -426,18 +486,20 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         await ctx.delay(300);
       },
       action: async (ctx) => {
-        await spotlightAndPause(ctx, WF.CONSOLE, 450);
-        await spotlightAndPause(ctx, WF.QUICK_TEST_BTN, 600);
+        await openWfConsoleIfClosed(ctx);
+        await spotlightAndPause(ctx, WF.CONSOLE, 700);
+        await spotlightAndPause(ctx, WF.QUICK_TEST_BTN, 700);
         await ctx.click(WF.QUICK_TEST_BTN);
-        await ctx.delay(150);
-        try { await ctx.waitFor('.wf-node-run-status', 3000); } catch { /* server may not be running */ }
         await ctx.delay(200);
-        await spotlightAndPause(ctx, WF.CANVAS, 600);
-        await spotlightAndPause(ctx, WF.CONSOLE, 600);
+        try { await ctx.waitFor('.wf-node-run-status', 4000); } catch { /* server may not be running */ }
+        await ctx.delay(350);
+        await spotlightAndPause(ctx, WF.CANVAS, 800);
+        await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 600);
+        await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 600);
+        await spotlightAndPause(ctx, WF.CONSOLE, 800);
         grpcWRSession.quickTestRun = true;
       },
       verify: GRPC.LESSON24_QUICK_TEST_VERIFY,
-      pauseAfter: true,
     },
 
     // ── Step 8: Run in Harness from Designer toolbar ────────────────────────
@@ -445,19 +507,14 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-runner',
       title: 'Run in Harness (Designer → Workflow Runner)',
       description:
-        `In the Designer toolbar, click **Run in Harness** (next to Variables/Versions). This is the handoff from canvas editing to tracked test execution.\n\n` +
-        `The app navigates to **Workflow Runner** and carries your workflow context forward. If the picker is not already set, select **${WF14_NAME}** in the Workflow dropdown.\n\n` +
-        `Once selected, you will see:\n` +
-        `1. **Initial Variables** — including \`${GRPCWR_TARGET_VAR}\`\n` +
-        `2. **Execution Config** — Iterations and Concurrency\n` +
-        `3. **Run** button\n\n` +
-        `Unlike Quick Test, Harness runs are persisted and visible in Results history.`,
+        `Click **Run in Harness** in the Designer toolbar. The app opens **Workflow Runner** with **${WF14_NAME}** selected.\n\n` +
+        `You'll see **Initial Variables** (\`${GRPCWR_TARGET_VAR}\`), **Execution Config**, and **Run**. Unlike Quick Test, Harness runs are saved to Results.`,
+      pauseAfter: READ_STD_MS,
       highlight: WF.RUN_IN_HARNESS_BTN,
       preAction: async (ctx) => {
         await ensureOnWorkflowTab(ctx);
         await closeWfConfigModalIfOpen(ctx);
         await closeWfConsoleIfOpen(ctx);
-        // Ensure workflow has grpcTarget variable (if user rapid-clicked through build steps)
         if (!getWorkflowByName(WF14_NAME)) {
           await seedGrpcWRWorkflowQuiet(ctx);
         } else {
@@ -469,18 +526,23 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       },
       action: async (ctx) => {
         await closeWfConsoleIfOpen(ctx);
-        await spotlightAndPause(ctx, WF.RUN_IN_HARNESS_BTN, 600);
+        await spotlightAndPause(ctx, WF.RUN_IN_HARNESS_BTN, 700);
         await ctx.click(WF.RUN_IN_HARNESS_BTN);
-        await ctx.delay(800);
+        await ctx.delay(900);
         if (!document.querySelector(WF_RUNNER_SELECT)) {
           ctx.navigateToTab('workflow-runner');
           await ctx.delay(700);
         }
         await selectGrpcEchoWorkflow(ctx);
-        await ctx.delay(500);
+        await ctx.delay(400);
+
+        // Tour the three surfaces the narration promises.
+        await spotlightAndPause(ctx, GRPCWR_VARS_SECTION, 800);
+        await spotlightGrpcTargetVarRow(ctx, 700);
+        await spotlightAndPause(ctx, GRPCWR_CONFIG_SECTION, 700);
+        await spotlightAndPause(ctx, GRPC.LESSON24_RUNNER_RUN_BTN, 650);
       },
-      verify: '.workflow-vars-section',
-      pauseAfter: true,
+      verify: GRPCWR_VARS_SECTION,
     },
 
     // ── Step 9: INITIAL VARIABLES panel ────────────────────────────────────
@@ -488,14 +550,10 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-initial-vars',
       title: 'Initial Variables — Override grpcTarget Per Run',
       description:
-        `The **Initial Variables** panel shows \`${GRPCWR_TARGET_VAR} = ${GRPCWR_TARGET_DEFAULT}\` — the default you defined in step 2.\n\n` +
-        `**This is the value you can change per run, without editing the workflow.** Examples:\n\n` +
-        `- \`localhost:50051\` — local Docker Echo server (default)\n` +
-        `- \`localhost:50443\` — local TLS fixture\n` +
-        `- \`staging-grpc.acme.com:443\` — staging environment\n\n` +
-        `The Unary node's target field reads \`${GRPCWR_TARGET_EXPR}\` and the runtime substitutes whatever value is in this row at execution time. Change it here, click Run, and you've just run the exact same workflow against a different server — no canvas edits, no re-deployment.\n\n` +
-        `Leave the default \`${GRPCWR_TARGET_DEFAULT}\` for this demo run.`,
-      highlight: '.workflow-vars-section',
+        `**Initial Variables** shows \`${GRPCWR_TARGET_VAR} = ${GRPCWR_TARGET_DEFAULT}\`.\n\n` +
+        `Change this per run (local / TLS / staging) without editing the canvas — the Unary target still reads \`${GRPCWR_TARGET_EXPR}\`. Leave the default for this demo.`,
+      pauseAfter: READ_TEACH_MS,
+      highlight: GRPCWR_VARS_SECTION,
       preAction: async (ctx) => {
         if (!grpcWRSession.workflowSelected) {
           if (!document.querySelector(WF_RUNNER_SELECT)) {
@@ -506,8 +564,11 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
           await selectGrpcEchoWorkflow(ctx);
         }
       },
-      // No action — reading step; highlight the variables panel
-      pauseAfter: true,
+      action: async (ctx) => {
+        await spotlightAndPause(ctx, GRPCWR_VARS_SECTION, 700);
+        await spotlightGrpcTargetVarRow(ctx, 1200);
+      },
+      verify: GRPCWR_VARS_SECTION,
     },
 
     // ── Step 10: Execution Config ───────────────────────────────────────────
@@ -515,11 +576,10 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-config',
       title: 'Set Iterations & Concurrency',
       description:
-        `In **Execution Config**, set **Iterations** to **${GRPCWR_ITERATIONS}** and **Concurrency** to **${GRPCWR_CONCURRENCY}**.\n\n` +
-        `- **Iterations** — how many times the full workflow runs. Each iteration is independent: one Echo Call + one Assert result row in the Dashboard\n` +
-        `- **Concurrency** — how many instances run in parallel (\`1\` = sequential, easy to follow in the progress bar)\n\n` +
-        `For load testing against a production gRPC server you might use 50 iterations at concurrency 4. Here we keep it to ${GRPCWR_ITERATIONS} so the demo is quick.`,
-      highlight: '.workflow-runner-config-section .resilience-field:nth-child(2)',
+        `Set **Iterations** to **${GRPCWR_ITERATIONS}** and **Concurrency** to **${GRPCWR_CONCURRENCY}**.\n\n` +
+        `Each iteration produces one Echo Call + Assert row. Concurrency \`1\` keeps the progress bar easy to follow.`,
+      pauseAfter: READ_STD_MS,
+      highlight: GRPCWR_CONFIG_SECTION,
       preAction: async (ctx) => {
         if (!grpcWRSession.workflowSelected) {
           if (!document.querySelector(WF_RUNNER_SELECT)) {
@@ -531,11 +591,10 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         }
       },
       action: async (ctx) => {
-        await applyGrpcWRConfig(ctx);
-        await ctx.delay(500);
+        await applyGrpcWRConfigVisible(ctx);
+        await ctx.delay(400);
       },
-      // No verify — config is applied via bridge; Run button was already visible
-      pauseAfter: true,
+      verify: GRPCWR_CONFIG_SECTION,
     },
 
     // ── Step 11: Run ────────────────────────────────────────────────────────
@@ -543,9 +602,9 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-run',
       title: 'Run the Workflow',
       description:
-        `Click **▶ Run Workflow**. The progress bar advances as each iteration completes.\n\n` +
-        `Each iteration executes: **Start → Echo Call (target=${GRPCWR_TARGET_EXPR} → ${GRPCWR_TARGET_DEFAULT}) → Assert Echo → End**. The run uses \`${GRPCWR_TRACE_LEVEL}\` trace level so the Results Explorer Console will have per-node detail for every iteration.\n\n` +
-        `When finished, the green **Completion Banner** shows total requests and wall-clock time. The run is **automatically saved** — it appears in the Results tab's run list immediately.`,
+        `Click **▶ Run Workflow**. Watch the progress bar through ${GRPCWR_ITERATIONS} iterations (` +
+        `\`${GRPCWR_TARGET_EXPR}\` → \`${GRPCWR_TARGET_DEFAULT}\`). The green **Completion Banner** means the run is saved to Results.`,
+      pauseAfter: READ_STD_MS,
       highlight: GRPC.LESSON24_RUNNER_RUN_BTN,
       preAction: async (ctx) => {
         await ensureRunnerReady(ctx);
@@ -553,8 +612,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       action: async (ctx) => {
         await runGrpcEchoWorkflow(ctx);
       },
-      verify: '.completion-section',
-      pauseAfter: true,
+      verify: GRPCWR_COMPLETION,
     },
 
     // ── Step 12: Navigate to Results ────────────────────────────────────────
@@ -562,15 +620,13 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-completion',
       title: 'Open the Results Dashboard',
       description:
-        `The **Completion Banner** shows total requests, overall status, and wall-clock time.\n\n` +
-        `**If 0% error rate:** All ${GRPCWR_ITERATIONS} iterations passed — gRPC status 0 and the message assertion matched.\n\n` +
-        `**If error rate > 0%:** The Echo server is unreachable or the assertion failed. Check:\n` +
-        `1. Docker running: \`${GRPC_DEMO_DOCKER_COMMAND}\`\n` +
-        `2. Back to **Lesson 14** and confirm Quick Test passes with \`${GRPCWR_TARGET_DEFAULT}\`\n\n` +
-        `Click **View Full Results →** to open the Results Dashboard.`,
-      highlight: '.completion-section .btn-primary',
+        `The **Completion Banner** summarizes the run. **0% errors** means all ${GRPCWR_ITERATIONS} iterations passed.\n\n` +
+        `If errors appear, confirm Docker (\`${GRPC_DEMO_DOCKER_COMMAND}\`) and Quick Test against \`${GRPCWR_TARGET_DEFAULT}\`.\n\n` +
+        `Click **View Full Results →**.`,
+      pauseAfter: READ_STD_MS,
+      highlight: GRPCWR_VIEW_RESULTS_BTN,
       preAction: async (ctx) => {
-        if (!document.querySelector('.completion-section')) {
+        if (!document.querySelector(GRPCWR_COMPLETION)) {
           await ensureRunnerReady(ctx);
           await runGrpcEchoWorkflow(ctx);
         }
@@ -579,7 +635,6 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         await openResultsFromCompletionBanner(ctx);
       },
       verify: '.results-run-filter-tabs',
-      pauseAfter: true,
     },
 
     // ── Step 13: Metrics cards ───────────────────────────────────────────────
@@ -587,19 +642,26 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-metrics',
       title: 'Throughput & Latency Cards',
       description:
-        `The **headline metric cards** summarize the run:\n\n` +
-        `- **Req/s** — gRPC Echo calls per second\n` +
-        `- **p50 latency** — median round-trip (Echo Call on localhost is typically 5–30ms)\n` +
-        `- **p95 latency** — tail latency; should stay close to p50 on a healthy local server\n` +
-        `- **Error rate** — 0% when all Assert nodes pass\n\n` +
-        `Scroll down for the **Workflow Execution Summary** — iteration chart, per-step breakdown (**Echo Call** vs **Assert Echo** timing).`,
+        `Headline cards: **Req/s**, **p50/p95 latency**, and **Error rate**. Local Echo is typically 5–30ms.\n\n` +
+        `Below: **Workflow Execution Summary** — per-step timing for Echo Call vs Assert Echo.`,
+      pauseAfter: READ_STD_MS,
       highlight: GRPC.LESSON24_RESULTS_METRICS,
       preAction: async (ctx) => {
         await openResultsOverviewTab(ctx);
         await ensureFullResultsMetricsCards(ctx);
         await scrollResultsMetricsCardsIntoView(ctx);
       },
-      pauseAfter: true,
+      action: async (ctx) => {
+        await scrollResultsMetricsCardsIntoView(ctx);
+        await spotlightAndPause(ctx, RES.METRICS_CARDS, 900);
+        const latencyRow = document.querySelector<HTMLElement>(RES.METRICS_LATENCY_ROW);
+        if (latencyRow) {
+          latencyRow.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+          await ctx.delay(200);
+          await spotlightAndPause(ctx, RES.METRICS_LATENCY_ROW, 800);
+        }
+      },
+      verify: RES.METRICS_CARDS,
     },
 
     // ── Step 14: Request Details tab ─────────────────────────────────────────
@@ -607,16 +669,14 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-request-detail',
       title: 'Request Details — GRPC Badge Rows',
       description:
-        `Click the **Request Details** tab. Each row is one gRPC call from one iteration — **Echo Call** rows show a **GRPC** method badge (analogous to HTTP's GET/POST badge).\n\n` +
-        `Click any row to open **Response Detail**: the proto message sent (\`{"message":"workflow-test"}\`), the response body, and gRPC status 0. This is the per-call audit trail — exactly what was sent to \`${GRPCWR_TARGET_DEFAULT}\` and what came back for each of the ${GRPCWR_ITERATIONS} iterations.`,
+        `Open **Request Details**. Each Echo Call row has a **GRPC** badge. Click a row for request/response bodies and status 0 — the per-iteration audit trail against \`${GRPCWR_TARGET_DEFAULT}\`.`,
+      pauseAfter: READ_STD_MS,
       highlight: GRPC.LESSON24_REQUEST_DETAILS_TAB,
       preAction: ensureOnResultsTab,
       action: async (ctx) => {
-        await openRequestDetailsTab(ctx);
-        await ctx.delay(300);
+        await tourRequestDetailsRow(ctx);
       },
       verify: '.clickable-row',
-      pauseAfter: true,
     },
 
     // ── Step 15: Results Explorer ─────────────────────────────────────────────
@@ -624,22 +684,18 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-explorer',
       title: 'Results Explorer — Canvas, Detail & Matrix',
       description:
-        `Click **📊 Results Explorer** in the dashboard header. The modal has three panels:\n\n` +
-        `1. **Canvas** — the workflow diagram with pass/fail badges and per-node timing. **Echo Call** shows average latency; **Assert Echo** shows pass/fail count\n` +
-        `2. **Detail panel** — click a node to see the variable snapshot (\`echoReply\`) and assertion results for the selected iteration\n` +
-        `3. **Iteration matrix** — grid of iteration × node: Echo Call rows show latency, Assert Echo rows show pass/fail\n\n` +
-        `For this two-node chain the bottleneck is always **Echo Call** (the only network step). In more complex workflows the matrix compares multiple node timings side by side.`,
+        `Open **Results Explorer**: **Canvas** (pass/fail + timing), **Detail** (\`echoReply\` snapshot), and **Iteration matrix**.\n\n` +
+        `For this chain the network bottleneck is always **Echo Call**.`,
+      pauseAfter: READ_TEACH_MS,
       highlight: GRPCWR_EXPLORER_BTN,
       preAction: async (ctx) => {
         await closeResultsExplorerIfOpen(ctx);
         await ensureOnResultsTab(ctx);
       },
       action: async (ctx) => {
-        await openAndFitResultsExplorer(ctx);
-        await ctx.delay(500);
+        await tourResultsExplorerPanels(ctx);
       },
       verify: GRPC.LESSON24_RESULTS_EXPLORER_DIAGRAM,
-      pauseAfter: true,
     },
 
     // ── Step 16: Export JSON ──────────────────────────────────────────────────
@@ -647,17 +703,18 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
       id: 'grpc24-export',
       title: 'Export JSON for CI',
       description:
-        `Click **Export JSON** in the dashboard header. The file contains:\n\n` +
-        `- Run metadata: workflow name, \`${GRPCWR_TARGET_VAR}\` override used, iterations, concurrency, timestamp\n` +
-        `- Per-node latency aggregates: p50, p95, p99 for **Echo Call**\n` +
-        `- Per-iteration request/response pairs with gRPC status and response body\n\n` +
-        `Use this in CI to fail a build when \`p95Latency\` exceeds a threshold, or archive by build SHA to track latency regressions across gRPC service versions. The variable override is recorded in the metadata — so exported results from a staging run are clearly distinguishable from local runs.`,
+        `**Export JSON** includes run metadata (\`${GRPCWR_TARGET_VAR}\` override, iterations), Echo Call p50/p95/p99, and per-iteration request/response pairs — useful for CI latency gates and archival.`,
+      pauseAfter: READ_STD_MS,
       highlight: GRPC.LESSON24_EXPORT_JSON_BTN,
       preAction: async (ctx) => {
         await closeResultsExplorerIfOpen(ctx);
         await ensureOnResultsTab(ctx);
       },
+      action: async (ctx) => {
+        await closeResultsExplorerIfOpen(ctx);
+        await spotlightAndPause(ctx, RES.EXPORT_JSON_BTN, 1000);
+        // Do not click Export — avoids a download during demos; the ring is the teaching beat.
+      },
       verify: GRPC.LESSON24_EXPORT_JSON_BTN,
-      pauseAfter: true,
     },
 ];

@@ -30,7 +30,7 @@ export const grpcWorkflowRunnerLesson: GrpcDemoLesson = {
     body: `**Quick Test** in the Workflow Designer is a development tool: it runs once, shows pass/fail on the canvas, and discards the result when you navigate away. The **Workflow Runner** is where workflows graduate to production-grade test execution — every run is **saved, timestamped, and explorable** in the Results Dashboard.
 
 **Why workflow variables before running?**
-The gRPC Unary node can reference \`{{grpcTarget}}\` instead of a hardcoded \`localhost:50051\`. When you open the workflow in the Workflow Runner, that variable appears in the **Initial Variables** panel as an overridable row. You can point the exact same workflow at staging or production without ever editing a node — just change the value in the panel and click Run. This is the key difference between a workflow that is **configurable** and one that is hardwired.
+The gRPC Unary node can reference \`{{grpcTarget}}\` instead of a hardcoded \`localhost:50051\`. The Variables default (\`localhost:50051\`) also drives **design-time reflection**, so Service/Method stay as dropdowns while the field keeps the portable template. When you open the workflow in the Workflow Runner, that variable appears in the **Initial Variables** panel as an overridable row. You can point the exact same workflow at staging or production without ever editing a node — just change the value in the panel and click Run. This is the key difference between a workflow that is **configurable** and one that is hardwired.
 
 **Why three iterations?**
 Quick Test runs the workflow once. The Workflow Runner's **Iterations** field runs it N times, collecting one result row per call per iteration. With 3 iterations you get 3 Echo Call rows in the Results Dashboard — enough to see p50/p95 latency cards, the latency histogram, and per-request detail without a long wait.
@@ -51,7 +51,7 @@ The Dashboard's metric cards summarize all iterations. The **Results Explorer** 
       {
         term: 'grpcTarget',
         definition:
-          'The workflow variable defined in this lesson. Its default is `localhost:50051` — the local gRPC Echo server. Override it to `localhost:50443` for TLS or to a remote address without changing the Echo Call node.',
+          'The workflow variable defined in this lesson. Its default is `localhost:50051` — used for design-time reflection (Service/Method dropdowns) and as the runtime default. Override it to `localhost:50443` for TLS or to a remote address without changing the Echo Call node.',
       },
       {
         term: 'Iterations',
