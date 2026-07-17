@@ -83,7 +83,7 @@ describe('DataSourceSetupModal', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('handleClose with contract changes', () => {

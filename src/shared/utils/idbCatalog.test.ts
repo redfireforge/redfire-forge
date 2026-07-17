@@ -97,7 +97,7 @@ function createMockEndpointValues(): Record<string, SavedEndpointValues> {
 
 describe('idbCatalog', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
     mockStore.clear();
     mockGetShouldError = false;

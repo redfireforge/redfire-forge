@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { GrpcCallType, GrpcTlsMode } from '../../../../shared/grpc/contracts';
 import { loadGrpcConnectionProfilesFromStorage } from '../../../../engine/grpcConnectionProfileHydration';
 import { validateResolvedGrpcTargetAddress } from '../../../../shared/grpc/targetValidation';
@@ -17,22 +17,36 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
   onChange,
   callType,
   testIdPrefix,
+  workflowVariables = {},
 }: {
   data: T;
   onChange: (next: T) => void;
   callType: GrpcCallType;
   testIdPrefix: string;
+  /** Workflow-level defaults — used to resolve `{{var}}` targets for design-time reflection. */
+  workflowVariables?: Record<string, string>;
 }) {
   const profiles = useMemo(() => loadGrpcConnectionProfilesFromStorage(), []);
   const tlsMode: GrpcTlsMode = data.tlsMode ?? 'disabled';
-  const { descriptor, services, status, errorMessage, reflectNow } = useGrpcWorkflowTargetReflection(
+  const {
+    descriptor,
+    services,
+    status,
+    errorMessage,
+    resolvedTarget,
+    usedWorkflowDefaults,
+    reflectNow,
+  } = useGrpcWorkflowTargetReflection(
     data.target,
     tlsMode,
+    workflowVariables,
   );
   const methods = listGrpcWorkflowMethods(descriptor, data.service, callType);
-  const targetValidation = validateResolvedGrpcTargetAddress(data.target.trim());
+  const targetValidation = validateResolvedGrpcTargetAddress(resolvedTarget.trim());
   const useServiceSelect = services.length > 0;
   const useMethodSelect = useServiceSelect && Boolean(data.service) && methods.length > 0;
+  const descriptorAutoManaged = status === 'ready' && Boolean(data.descriptorKey?.trim());
+  const [descriptorCopied, setDescriptorCopied] = useState(false);
 
   useEffect(() => {
     if (!descriptor) return;
@@ -51,6 +65,18 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
 
   const update = (patch: Partial<T>) => onChange({ ...data, ...patch });
 
+  const handleCopyDescriptorKey = async () => {
+    const descriptorKey = data.descriptorKey?.trim();
+    if (!descriptorKey || typeof navigator === 'undefined' || !navigator.clipboard) return;
+    try {
+      await navigator.clipboard.writeText(descriptorKey);
+      setDescriptorCopied(true);
+      window.setTimeout(() => setDescriptorCopied(false), 1200);
+    } catch {
+      // Clipboard may be unavailable in restricted contexts; keep UI silent.
+    }
+  };
+
   const handleProfileChange = (connectionId: string) => {
     const profile = profiles.find((entry) => entry.id === connectionId);
     const patch: Partial<T> = {
@@ -65,14 +91,19 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
     update(patch);
   };
 
+  const resolvedHint = usedWorkflowDefaults && resolvedTarget.trim()
+    ? ` (via ${resolvedTarget.trim()})`
+    : '';
   const statusLabel = status === 'loading'
-    ? 'Reflecting target…'
+    ? `Reflecting target${resolvedHint}…`
     : status === 'ready'
-      ? `${services.length} service${services.length === 1 ? '' : 's'} loaded via reflection`
+      ? `${services.length} service${services.length === 1 ? '' : 's'} loaded via reflection${resolvedHint}`
       : status === 'error'
         ? errorMessage ?? 'Reflection failed'
         : data.target.trim() && !targetValidation.valid
-          ? 'Enter a valid host:port to load services'
+          ? usedWorkflowDefaults
+            ? `Resolved target "${resolvedTarget.trim()}" is not a valid host:port`
+            : 'Enter a valid host:port (or a workflow variable that resolves to one) to load services'
           : 'Service and method lists populate after reflection';
 
   return (
@@ -110,14 +141,45 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
 
       <div className="wf-config-field--row wf-config-field--row-top">
         <label>Descriptor key</label>
-        <textarea
-          className="wf-config-textarea"
-          data-testid={`${testIdPrefix}-descriptor-key`}
-          rows={2}
-          value={data.descriptorKey}
-          onChange={(e) => update({ descriptorKey: e.target.value } as Partial<T>)}
-          placeholder="Auto-filled after reflection"
-        />
+        <div className="wf-config-row-stack">
+          {descriptorAutoManaged ? (
+            <div className="wf-config-readonly-row">
+              <textarea
+                className="wf-config-textarea wf-config-descriptor-textarea wf-config-textarea--readonly"
+                data-testid={`${testIdPrefix}-descriptor-key`}
+                rows={1}
+                value={data.descriptorKey}
+                readOnly
+                aria-readonly="true"
+                title={data.descriptorKey}
+              />
+              <button
+                type="button"
+                className="btn-ghost wf-config-copy-btn"
+                onClick={() => { void handleCopyDescriptorKey(); }}
+                title="Copy descriptor key"
+              >
+                {descriptorCopied ? 'Copied' : 'Copy'}
+              </button>
+            </div>
+          ) : (
+            <textarea
+              className="wf-config-textarea wf-config-descriptor-textarea"
+              data-testid={`${testIdPrefix}-descriptor-key`}
+              rows={1}
+              value={data.descriptorKey}
+              onChange={(e) => {
+                update({ descriptorKey: e.target.value } as Partial<T>);
+              }}
+              placeholder="Auto-filled after reflection"
+            />
+          )}
+          {descriptorAutoManaged && (
+            <span className="wf-config-hint-text wf-config-hint-text--below">
+              <strong>Managed automatically:</strong> locked while schema is loaded from reflection
+            </span>
+          )}
+        </div>
       </div>
 
       <div className="wf-config-field--row">

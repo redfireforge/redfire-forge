@@ -61,7 +61,7 @@ function defaultDefs(): ColumnDef[] {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockAnalyzeUrlPath.mockReturnValue({
     origin: 'http://api.example.com',
     segments: [

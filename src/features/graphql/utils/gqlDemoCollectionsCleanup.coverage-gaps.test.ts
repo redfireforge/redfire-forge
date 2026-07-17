@@ -38,7 +38,7 @@ import { idbDeleteCollection, idbDeleteItem } from '../../../shared/utils/idbGra
 
 describe('gqlDemoCollectionsCleanup — coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('gqlDemoHistoryConnectionIds includes canonical and template variants', () => {

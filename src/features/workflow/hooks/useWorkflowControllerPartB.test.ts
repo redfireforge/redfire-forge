@@ -324,7 +324,7 @@ function makePartATracked(initial: ServiceRegistryMode): {
 
 describe('useWorkflowDesignerControllerPartB', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     partBMutable.configModalNodeId = null;
     partBMutable.selectedHintNode = null;
   });

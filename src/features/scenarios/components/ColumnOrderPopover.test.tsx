@@ -21,7 +21,7 @@ describe('ColumnOrderPopover', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders header with title', () => {

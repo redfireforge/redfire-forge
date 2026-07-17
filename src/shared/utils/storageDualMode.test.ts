@@ -32,7 +32,7 @@ describe('createDualModeArrayStorage', () => {
   const idbMigrate = vi.fn(async (_lsKey: string) => true);
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     isTauriMock.mockReturnValue(false);
     readKeyMock.mockResolvedValue(null);
     writeKeyMock.mockResolvedValue(undefined);

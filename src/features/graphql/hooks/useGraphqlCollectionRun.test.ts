@@ -63,7 +63,7 @@ describe('useGraphqlCollectionRun', () => {
   let runner: ReturnType<typeof makeRunner>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     runner = makeRunner();
     vi.mocked(buildAuthHeaders).mockReturnValue({ Authorization: 'Bearer test-token' });
     vi.mocked(resolveVars).mockImplementation((val: string) => val);

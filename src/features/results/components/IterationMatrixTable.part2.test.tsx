@@ -53,7 +53,7 @@ describe('IterationMatrixTable', () => {
 
   afterEach(() => {
     cleanup();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('marks selected node column header when selectedNodeId matches', () => {

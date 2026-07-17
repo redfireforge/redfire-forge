@@ -44,7 +44,7 @@ const defaults = () => ({
 
 describe('useGqlKeyboardShortcuts', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(isTauri).mockReturnValue(false);
     vi.mocked(findUnresolvedVars).mockReturnValue([]);
   });

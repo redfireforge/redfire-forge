@@ -8,7 +8,7 @@ import { makeCtx } from './ws-test-utils';
 describe('ws-tls-local lesson', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   // ── Structure ────────────────────────────────────────────────────

@@ -27,7 +27,7 @@ function makeProfile(overrides?: Partial<WsConnectionProfile>): WsConnectionProf
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 describe('ProfileEditorModal', () => {

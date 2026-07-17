@@ -7,6 +7,7 @@ import { createInitialGrpcTabAdvancedFeaturesUiState } from '../grpcStudioAdvanc
 import * as mockListenerClient from '../utils/grpcMockListenerClient';
 import { buildAdvancedMock } from '../test-helpers/grpcAdvancedPanel.testHelpers';
 import { GrpcMockServerPanel } from './GrpcMockServerPanel';
+import { mergeGrpcMockListenerLogs } from '../utils/grpcMockListenerLogMerge';
 
 describe('GrpcMockServerPanel coverage gaps', () => {
   beforeEach(() => {
@@ -397,5 +398,46 @@ describe('GrpcMockServerPanel coverage gaps', () => {
     expect(screen.getByTestId('grpc-mock-hit-summary').textContent).toMatch(/No match: 2/);
     expect(screen.getByTestId('grpc-mock-hit-summary').textContent).not.toMatch(/Default:/);
     expect(screen.getByText(/Listener activity will appear here once external clients connect/i)).toBeTruthy();
+  });
+
+  it('mergeGrpcMockListenerLogs returns previous when incoming is empty', () => {
+    const previous = [{
+      id: 'keep',
+      event: 'request_matched' as const,
+      service: 'echo.EchoService',
+      method: 'Echo',
+      timestamp: '2026-07-01T00:00:00.000Z',
+    }];
+    expect(mergeGrpcMockListenerLogs(previous, [])).toBe(previous);
+  });
+
+  it('mergeGrpcMockListenerLogs dedupes by id and caps history', () => {
+    const previous = Array.from({ length: 70 }, (_, index) => ({
+      id: `old-${index}`,
+      event: 'request_matched' as const,
+      service: 'echo.EchoService',
+      method: 'Echo',
+      timestamp: '2026-07-01T00:00:00.000Z',
+    }));
+    const incoming = [
+      {
+        id: 'old-1',
+        event: 'request_matched' as const,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        timestamp: '2026-07-01T00:00:01.000Z',
+      },
+      {
+        id: 'new-1',
+        event: 'request_unmatched' as const,
+        service: 'echo.EchoService',
+        method: 'Echo',
+        timestamp: '2026-07-01T00:00:02.000Z',
+      },
+    ];
+    const merged = mergeGrpcMockListenerLogs(previous, incoming);
+    expect(merged.length).toBeLessThanOrEqual(80);
+    expect(merged.some((entry) => entry.id === 'new-1')).toBe(true);
+    expect(merged.find((entry) => entry.id === 'old-1')?.timestamp).toBe('2026-07-01T00:00:01.000Z');
   });
 });

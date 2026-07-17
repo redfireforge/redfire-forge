@@ -148,12 +148,13 @@ export default function LiveDemo({
   return (
     <>
       {/* Spotlight ring — hidden while steps overview is open */}
-      {targetFound && step.highlight && stepPhase !== 'pre' && !overviewOpen && (
+      {targetFound && step.highlight && stepPhase === 'reading' && !overviewOpen && (
         <DemoSpotlight
           key={`${stepIndex}:${step.highlight}`}
           trackKey={`${stepIndex}:${step.highlight}`}
           selector={step.highlight}
           active={true}
+          frozen={false}
         />
       )}
 
@@ -214,7 +215,7 @@ export default function LiveDemo({
           >
             ⠿
           </span>
-          <span className="demo-live-lesson-name">{lesson.name}</span>
+          <span className="demo-live-lesson-name" onMouseDown={(e) => e.stopPropagation()}>{lesson.name}</span>
           <span className="demo-live-step-counter">
             {stepIndex + 1} / {totalSteps}
           </span>

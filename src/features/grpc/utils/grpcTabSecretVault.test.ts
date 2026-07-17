@@ -35,7 +35,7 @@ abc
 describe('grpcTabSecretVault (Phase 4E)', () => {
   afterEach(() => {
     resetGrpcTabSecretVaultForTests();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('shouldScheduleTabSecretsVaultSync detects explicit clears and target changes', () => {

@@ -27,26 +27,66 @@ describe('grpcStudioExecuteInterpolation coverage gaps', () => {
     })).toThrow();
   });
 
-    it('resolveGrpcStudioTabFieldsForExecute falls back to no auth for incomplete oauth2', () => {
-      const resolved = resolveGrpcStudioTabFieldsForExecute(
-        {
-          body: { message: 'plain' },
-          metadata: {},
-          auth: {
-            type: 'oauth2',
-            oauth2: {
-              tokenUrl: '',
-              clientId: '',
-              clientSecret: '',
-              scope: '',
-            },
+  it('resolveGrpcStudioTabFieldsForExecute falls back to no auth for incomplete oauth2', () => {
+    const resolved = resolveGrpcStudioTabFieldsForExecute(
+      {
+        body: { message: 'plain' },
+        metadata: {},
+        auth: {
+          type: 'oauth2',
+          oauth2: {
+            tokenUrl: '',
+            clientId: '',
+            clientSecret: '',
+            scope: '',
           },
         },
-        {},
-      );
+      },
+      {},
+    );
 
-      expect(resolved.auth).toBeUndefined();
-    });
+    expect(resolved.auth).toBeUndefined();
+  });
+
+  it('drops oauth2 when only tokenUrl is present', () => {
+    const resolved = resolveGrpcStudioTabFieldsForExecute(
+      {
+        body: {},
+        metadata: {},
+        auth: {
+          type: 'oauth2',
+          oauth2: {
+            tokenUrl: 'https://auth.example/token',
+            clientId: '',
+            clientSecret: '',
+            scope: '',
+          },
+        },
+      },
+      {},
+    );
+    expect(resolved.auth).toBeUndefined();
+  });
+
+  it('drops oauth2 when tokenUrl and clientId are present but secret is missing', () => {
+    const resolved = resolveGrpcStudioTabFieldsForExecute(
+      {
+        body: {},
+        metadata: {},
+        auth: {
+          type: 'oauth2',
+          oauth2: {
+            tokenUrl: 'https://auth.example/token',
+            clientId: 'client-id',
+            clientSecret: '   ',
+            scope: '',
+          },
+        },
+      },
+      {},
+    );
+    expect(resolved.auth).toBeUndefined();
+  });
 
   it('assertGrpcStudioExecuteFieldsReady throws on invalid auth configuration', () => {
     expect(() => assertGrpcStudioExecuteFieldsReady({
@@ -54,6 +94,57 @@ describe('grpcStudioExecuteInterpolation coverage gaps', () => {
       metadata: {},
       auth: { type: 'bearer', bearerToken: '   ' },
     })).toThrow(/Bearer token is required/i);
+  });
+
+  it('assertGrpcStudioExecuteFieldsReady uses fallback when auth issue message is missing', () => {
+    const spy = vi.spyOn(grpcAuthPolicy, 'validateGrpcAuthForExecute').mockReturnValue([
+      { field: 'auth', code: 'INVALID_REQUEST', message: undefined as unknown as string },
+    ]);
+    try {
+      expect(() => assertGrpcStudioExecuteFieldsReady({
+        body: {},
+        metadata: {},
+        auth: { type: 'bearer', bearerToken: 'token' },
+      })).toThrow('Invalid auth configuration');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('keeps complete oauth2 auth after execute interpolation', () => {
+    const resolved = resolveGrpcStudioTabFieldsForExecute(
+      {
+        body: {},
+        metadata: {},
+        auth: {
+          type: 'oauth2',
+          oauth2: {
+            tokenUrl: 'https://auth.example/token',
+            clientId: 'client-id',
+            clientSecret: 'client-secret',
+            scope: 'openid',
+          },
+        },
+      },
+      {},
+    );
+    expect(resolved.auth?.type).toBe('oauth2');
+    expect(resolved.auth?.oauth2?.clientId).toBe('client-id');
+  });
+
+  it('rejects unresolved metadata templates at execute time', () => {
+    expect(() => resolveGrpcStudioTabFieldsForExecute(
+      {
+        body: {},
+        metadata: { authorization: 'Bearer {{missingToken}}' },
+      },
+      {},
+    )).toThrow(/unresolved|template|missingToken/i);
+  });
+
+  it('resolveGrpcStudioStreamMessageBodyForSend requires an execute snapshot env', () => {
+    expect(() => resolveGrpcStudioStreamMessageBodyForSend({ message: 'x' }, undefined))
+      .toThrow(/active execute snapshot/i);
   });
 
   it('resolveGrpcStudioStreamMessageBodyForSend accepts literal body with empty interpolation env', () => {

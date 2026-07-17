@@ -70,7 +70,7 @@ function defaultProps(overrides = {}) {
 }
 
 describe('SummaryPanel', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the summary panel container', () => {
     render(<SummaryPanel {...defaultProps()} />);

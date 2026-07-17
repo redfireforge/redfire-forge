@@ -41,7 +41,7 @@ const col: GraphqlCollection = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.mocked(idbLoadCollections).mockResolvedValue([col]);
   vi.mocked(idbLoadFolders).mockResolvedValue([]);
   vi.mocked(idbLoadItems).mockResolvedValue([]);

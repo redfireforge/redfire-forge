@@ -23,7 +23,7 @@ const defaultProps = {
 };
 
 describe('FieldTableRow', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the field name', () => {
     render(

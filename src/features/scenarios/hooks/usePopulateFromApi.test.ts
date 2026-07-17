@@ -38,7 +38,7 @@ describe('usePopulateFromApi', () => {
   const mockResolveRow = vi.mocked(resolveScenarioFromDataRow);
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('fetch transport', () => {

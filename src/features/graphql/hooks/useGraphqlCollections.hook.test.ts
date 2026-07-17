@@ -85,7 +85,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 // ─── Helper: mount hook and wait for loading to settle ───────────────────────

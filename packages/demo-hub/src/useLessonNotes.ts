@@ -1,5 +1,5 @@
 /** React hook for per-lesson note CRUD. */
-import { useCallback, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import {
   hasLessonNoteContent,
   loadLessonNotes,
@@ -20,14 +20,18 @@ export function useLessonNotes() {
     }
     return normalized;
   });
+  const latestNotesRef = useRef<LessonNotesMap>(notes);
+
+  // Keep latest notes available to stable callbacks without recreating them.
+  latestNotesRef.current = notes;
 
   const getNote = useCallback((lessonId: string): string => {
-    return notes[lessonId] ?? '';
-  }, [notes]);
+    return latestNotesRef.current[lessonId] ?? '';
+  }, []);
 
   const hasNote = useCallback((lessonId: string): boolean => {
-    return hasLessonNoteContent(notes[lessonId]);
-  }, [notes]);
+    return hasLessonNoteContent(latestNotesRef.current[lessonId]);
+  }, []);
 
   const saveNote = useCallback((lessonId: string, text: string) => {
     setNotes(prev => {

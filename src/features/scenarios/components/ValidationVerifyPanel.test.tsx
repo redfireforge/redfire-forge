@@ -34,7 +34,7 @@ function renderPanel(props: Partial<PanelProps> = {}) {
 
 describe('ValidationVerifyPanel', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders nothing when there are no rules and no assertions', () => {

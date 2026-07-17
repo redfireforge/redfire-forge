@@ -47,7 +47,7 @@ const SUCCESS_RESPONSE = {
 
 describe('gqlFetch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockIsTauri.mockReturnValue(false);
     mockHttpFetch.mockResolvedValue(SUCCESS_RESPONSE);
     mockTauriGqlNativeFetch.mockResolvedValue(SUCCESS_RESPONSE);

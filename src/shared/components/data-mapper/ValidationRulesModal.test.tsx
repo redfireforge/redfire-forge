@@ -69,7 +69,7 @@ const baseProps = {
 
 beforeEach(() => {
   localStorage.clear();
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.useFakeTimers();
 });
 

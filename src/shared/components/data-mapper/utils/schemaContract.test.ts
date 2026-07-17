@@ -210,7 +210,7 @@ describe('contractViolationsToFailures', () => {
 
 describe('contract config storage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('loads a saved config', async () => {

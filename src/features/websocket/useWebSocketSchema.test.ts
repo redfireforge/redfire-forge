@@ -41,7 +41,7 @@ function makeFrame(overrides: Partial<WsFrame> = {}): WsFrame {
 
 describe('useWebSocketSchema', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   // ── Initial state ──────────────────────────────────────────────────

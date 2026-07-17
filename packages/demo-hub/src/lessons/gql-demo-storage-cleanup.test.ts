@@ -23,7 +23,7 @@ import { purgeGqlDemoEphemeralStorage } from './gql-demo-storage-cleanup';
 
 describe('purgeGqlDemoEphemeralStorage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('purges profiles, runner configs, and stale keys', async () => {

@@ -5,6 +5,13 @@ import { describe, expect, it } from 'vitest';
 import {
   EM,
   emAddProtocolItemSel,
+  emEnvVarDeleteSel,
+  emEnvVarRowSel,
+  emEnvVarValueSel,
+  emEnvVarsBadgeSel,
+  emProtocolVarDeleteSel,
+  emProtocolVarRowSel,
+  emProtocolVarValueSel,
   emRemoveProtocolSel,
   emWsDefaultDeleteSel,
   emWsDefaultRowSel,
@@ -32,5 +39,21 @@ describe('shared selectors em', () => {
     expect(emWsDefaultRowSel('requestId')).toBe('[data-testid="em-ws-default-row-requestId"]');
     expect(emWsDefaultRowValueSel('requestId')).toBe('[data-testid="em-ws-default-row-value-requestId"]');
     expect(emWsDefaultDeleteSel('requestId')).toBe('[data-testid="em-ws-default-delete-requestId"]');
+  });
+
+  it('builds env vars badge and modal row selectors', () => {
+    expect(emEnvVarsBadgeSel('e1')).toBe('[data-testid="env-vars-badge-e1"]');
+    expect(emProtocolVarRowSel('requestId')).toBe('[data-testid="protocol-var-row-requestId"]');
+    expect(emProtocolVarValueSel('requestId')).toBe('[data-testid="protocol-var-value-requestId"]');
+    expect(emProtocolVarDeleteSel('requestId')).toBe('[data-testid="protocol-var-delete-requestId"]');
+    expect(emEnvVarRowSel('token')).toBe('[data-testid="env-var-row-token"]');
+    expect(emEnvVarValueSel('token')).toBe('[data-testid="env-var-value-token"]');
+    expect(emEnvVarDeleteSel('token')).toBe('[data-testid="env-var-delete-token"]');
+  });
+
+  it('exposes protocol and env vars modal selector constants', () => {
+    expect(EM.PROTOCOL_VARS_BADGE).toBe('[data-testid="protocol-vars-badge"]');
+    expect(EM.PROTOCOL_VARS_MODAL).toBe('[data-testid="protocol-vars-modal"]');
+    expect(EM.ENV_VARS_MODAL).toBe('[data-testid="env-vars-modal"]');
   });
 });

@@ -166,4 +166,57 @@ describe('grpcMockListenerClient coverage gaps', () => {
     const result = await exportGrpcDescriptorProtoset('desc-1');
     expect(result.protosetBase64).toBe('YWJj');
   });
+
+  it('routes start/stop/status/commit/log through native Tauri helpers', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    const native = await import('../../../shared/grpc/grpcNativeTauriMockListener');
+    const startSpy = vi.spyOn(native, 'invokeGrpcMockListenerStartNative').mockResolvedValue({
+      running: true,
+      tabId: 'tab-t',
+      listenTarget: '127.0.0.1:50070',
+      generation: 9,
+    });
+    const stopSpy = vi.spyOn(native, 'invokeGrpcMockListenerStopNative').mockResolvedValue({
+      running: false,
+      tabId: 'tab-t',
+      listenTarget: '127.0.0.1:50070',
+      generation: 9,
+    });
+    const statusSpy = vi.spyOn(native, 'invokeGrpcMockListenerStatusNative').mockResolvedValue({
+      running: true,
+      tabId: 'tab-t',
+      listenTarget: '127.0.0.1:50070',
+      generation: 9,
+    });
+    const commitSpy = vi.spyOn(native, 'invokeGrpcMockListenerCommitNative').mockResolvedValue({
+      ruleCount: 1,
+    } as never);
+    const logSpy = vi.spyOn(native, 'invokeGrpcMockListenerLogNative').mockResolvedValue({
+      entries: [],
+      nextCursor: 4,
+    });
+
+    await expect(startGrpcMockNetworkListener({
+      tabId: 'tab-t',
+      connectionId: 'conn',
+      descriptorKey: 'desc',
+      ruleSet: { rules: [] },
+    })).resolves.toMatchObject({ listenTarget: '127.0.0.1:50070' });
+    await expect(stopGrpcMockNetworkListener('tab-t')).resolves.toMatchObject({ running: false });
+    await expect(fetchGrpcMockNetworkListenerStatus('tab-t')).resolves.toMatchObject({ generation: 9 });
+    await expect(commitGrpcMockNetworkListener({
+      tabId: 'tab-t',
+      ruleSet: { rules: [] },
+    })).resolves.toMatchObject({ ruleCount: 1 });
+    await expect(fetchGrpcMockNetworkListenerLogs('tab-t', 2)).resolves.toEqual({
+      entries: [],
+      nextCursor: 4,
+    });
+
+    expect(startSpy).toHaveBeenCalled();
+    expect(stopSpy).toHaveBeenCalledWith('tab-t');
+    expect(statusSpy).toHaveBeenCalledWith('tab-t');
+    expect(commitSpy).toHaveBeenCalled();
+    expect(logSpy).toHaveBeenCalledWith('tab-t', 2);
+  });
 });

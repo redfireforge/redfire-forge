@@ -9,6 +9,7 @@ import {
 } from './constants';
 import { setGrpcLessonRunFlag } from '../grpc-lesson-contract/runtime';
 import { setInputValueAndDispatch } from './dom';
+import { patchGrpcActiveTabBody } from '../../../adapters';
 import { ensureGrpcReflected } from './reflection';
 
 export async function ensureGrpcRequestFormTabQuiet(ctx: DemoActionContext): Promise<void> {
@@ -72,10 +73,11 @@ export async function fillGrpcEchoMessage(
   message = GRPC_DEMO_MESSAGE,
 ): Promise<void> {
   await ensureGrpcRequestFormTabQuiet(ctx);
+  const json = echoMessageJsonBody(message);
   if (isGrpcHybridComposerActive()) {
-    const json = echoMessageJsonBody(message);
     const textarea = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
     if (textarea?.value.trim() === json.trim()) {
+      patchGrpcActiveTabBody(json);
       setGrpcLessonRunFlag('messageFilled', true);
       return;
     }
@@ -89,6 +91,7 @@ export async function fillGrpcEchoMessage(
     await ctx.waitFor(GRPC.PROTO_FIELD_INPUT_MESSAGE, 10_000);
     const field = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT_MESSAGE);
     if (field?.value === message) {
+      patchGrpcActiveTabBody(json);
       setGrpcLessonRunFlag('messageFilled', true);
       return;
     }
@@ -97,6 +100,9 @@ export async function fillGrpcEchoMessage(
       setInputValueAndDispatch(field, message);
     }
   }
+  // Ensure the tab's React state carries the body regardless of whether
+  // handleJsonChange's `method` guard allowed the onChange to propagate.
+  patchGrpcActiveTabBody(json);
   await ctx.delay(400);
   setGrpcLessonRunFlag('messageFilled', true);
 }

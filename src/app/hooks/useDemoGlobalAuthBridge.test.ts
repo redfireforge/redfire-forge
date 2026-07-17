@@ -21,7 +21,7 @@ describe('useDemoGlobalAuthBridge', () => {
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__demoUpsertGlobalAuthProfile;
     delete (window as unknown as Record<string, unknown>).__demoPurgeGlobalAuthProfiles;
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('exposes __demoUpsertGlobalAuthProfile on window', () => {

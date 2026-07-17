@@ -139,7 +139,7 @@ describe('validateJsonBody', () => {
 // ── sendOnce ──────────────────────────────────────────────────────────────
 
 describe('sendOnce', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { resetAllMocks(); });
 
   it('sets publishResult on success', async () => {
     const mockResult = { topic: 'orders.events', sentCount: 1, records: [{ partition: 0, offset: '42' }] };
@@ -217,7 +217,7 @@ describe('sendOnce', () => {
 // ── consumeOnce ───────────────────────────────────────────────────────────
 
 describe('consumeOnce', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { resetAllMocks(); });
 
   it('sets consumeResult on success', async () => {
     const messages = [
@@ -335,7 +335,7 @@ describe('clearConsumeResult', () => {
 // ── loadMore (pagination) ─────────────────────────────────────────────────
 
 describe('loadMore', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { resetAllMocks(); });
 
   it('appends messages to existing result on success', async () => {
     const page1 = [{ topic: 'o', partition: 0, offset: '0', value: '{"p":1}' }];
@@ -519,7 +519,7 @@ describe('consumeOnce — throw path', () => {
 // ── loadMore branch coverage ──────────────────────────────────────────────
 
 describe('loadMore — branch coverage', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { resetAllMocks(); });
 
   it('is a no-op when nextCursor is an empty array (length === 0)', async () => {
     // Covers the || nextCursor.length === 0 branch at line 212

@@ -92,7 +92,7 @@ vi.mock('../../../shared/components/data-mapper', async () => {
 
 describe('TestEditorValidationTab', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('Phase 3 — collection assertion types in +Add menu', () => {

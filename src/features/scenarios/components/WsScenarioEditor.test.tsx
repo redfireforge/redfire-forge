@@ -26,7 +26,7 @@ function makeWsDraft(overrides: Partial<Scenario>): Scenario {
 
 describe('WsScenarioEditor', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   // ── wsConnect mode ──────────────────────────────────────────────────────────

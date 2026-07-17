@@ -11,7 +11,7 @@ import { calculateTotalRequests, WebhookRateConfig } from './webhookLoadDriver';
 
 describe('webhookLoadDriver', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockFetch.mockReset();
   });
 

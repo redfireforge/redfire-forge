@@ -107,7 +107,7 @@ function defaultOptions() {
 
 describe('useGqlStudioTabs — coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockMakeBlankTab.mockReturnValue(makeTab());
     mockLoadTabs.mockResolvedValue([]);
     vi.mocked(loadActiveTabId).mockResolvedValue('');

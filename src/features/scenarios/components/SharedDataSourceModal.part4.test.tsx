@@ -249,7 +249,7 @@ function WizardStripHarness({ initial }: { initial: SharedDataSource[] }) {
 
 describe('SharedDataSourceModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(proxyFetch).mockResolvedValue({
       status: 200,
       statusText: 'OK',

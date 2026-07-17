@@ -60,7 +60,7 @@ function createMockRequestsData(): RequestsData {
 
 describe('idbRequests', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
     mockGetResult = undefined;
     mockGetShouldError = false;

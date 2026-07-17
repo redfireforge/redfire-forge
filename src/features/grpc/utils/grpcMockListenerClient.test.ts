@@ -4,6 +4,7 @@ import {
   supportsGrpcMockNetworkListener,
   startGrpcMockNetworkListener,
 } from './grpcMockListenerClient';
+import { invokeGrpcMockListenerStartNative } from '../../../shared/grpc/grpcNativeTauriMockListener';
 
 vi.mock('../../../shared/utils/platform', () => ({
   isTauri: vi.fn(() => false),
@@ -35,12 +36,27 @@ vi.mock('../../../shared/utils/httpClient', () => ({
   })),
 }));
 
+vi.mock('../../../shared/grpc/grpcNativeTauriMockListener', () => ({
+  invokeGrpcMockListenerStartNative: vi.fn(async (request: { tabId: string }) => ({
+    running: true,
+    tabId: request.tabId,
+    listenTarget: '127.0.0.1:50071',
+    port: 50071,
+    generation: 1,
+    inFlightCount: 0,
+  })),
+  invokeGrpcMockListenerStopNative: vi.fn(),
+  invokeGrpcMockListenerStatusNative: vi.fn(),
+  invokeGrpcMockListenerCommitNative: vi.fn(),
+  invokeGrpcMockListenerLogNative: vi.fn(),
+}));
+
 describe('grpcMockListenerClient', () => {
-  it('supports network listener on web only', () => {
+  it('supports network listener on both web and desktop', () => {
     vi.mocked(isTauri).mockReturnValue(false);
     expect(supportsGrpcMockNetworkListener()).toBe(true);
     vi.mocked(isTauri).mockReturnValue(true);
-    expect(supportsGrpcMockNetworkListener()).toBe(false);
+    expect(supportsGrpcMockNetworkListener()).toBe(true);
   });
 
   it('startGrpcMockNetworkListener returns status envelope', async () => {
@@ -52,6 +68,20 @@ describe('grpcMockListenerClient', () => {
       ruleSet: { rules: [] },
     });
     expect(status.listenTarget).toBe('127.0.0.1:50061');
+    expect(status.running).toBe(true);
+  });
+
+  it('startGrpcMockNetworkListener uses native invoke on desktop', async () => {
+    vi.mocked(isTauri).mockReturnValue(true);
+    const status = await startGrpcMockNetworkListener({
+      tabId: 'tab-tauri',
+      connectionId: 'conn-1',
+      descriptorKey: 'desc-1',
+      ruleSet: { rules: [] },
+    });
+
+    expect(invokeGrpcMockListenerStartNative).toHaveBeenCalled();
+    expect(status.listenTarget).toBe('127.0.0.1:50071');
     expect(status.running).toBe(true);
   });
 });

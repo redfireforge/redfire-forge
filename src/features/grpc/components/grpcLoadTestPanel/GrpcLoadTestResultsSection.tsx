@@ -13,6 +13,7 @@ import {
   buildThroughputTimeline,
   downloadTextFile,
   formatStopReason,
+  GRPC_STATUS_NAMES,
   safeFilePart,
   type GrpcLoadTestSummary,
 } from './grpcLoadTestPanelUtils';
@@ -40,6 +41,8 @@ export interface GrpcLoadTestResultsSectionProps {
   statusBreakdown: StatusBreakdownEntry[];
   latencyHistogram: LatencyHistogramBucket[];
   throughputTimeline: ThroughputTimelinePoint[];
+  collapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
 export function GrpcLoadTestResultsSection({
@@ -58,6 +61,8 @@ export function GrpcLoadTestResultsSection({
   statusBreakdown,
   latencyHistogram,
   throughputTimeline,
+  collapsed,
+  onToggleCollapse,
 }: GrpcLoadTestResultsSectionProps) {
   if (!live && !summary) {
     return null;
@@ -66,8 +71,9 @@ export function GrpcLoadTestResultsSection({
   return (
     <div className="grpc-advanced-card" data-testid="grpc-load-test-results">
       <div className="grpc-advanced-card__header">
-        <h3 className="grpc-advanced-card__title">Results</h3>
-        {summary && !advanced.loadTestRunning && (
+        <div className="grpc-advanced-card__header-main">
+          <h3 className="grpc-advanced-card__title">Results</h3>
+          {summary && !advanced.loadTestRunning && (
           <div className="grpc-advanced-card__actions">
             {runHistory.length > 0 && (
               <select
@@ -78,8 +84,8 @@ export function GrpcLoadTestResultsSection({
                   advanced.selectLoadTestRunSummary(event.target.value);
                 }}
               >
-                {runHistory.map((entry) => (
-                  <option key={entry.summary.runId} value={entry.summary.runId}>
+                {runHistory.map((entry, index) => (
+                  <option key={`${entry.summary.runId}-${index}`} value={entry.summary.runId}>
                     {entry.summary.runId} · {new Date(entry.summary.completedAt).toLocaleTimeString()}
                   </option>
                 ))}
@@ -155,7 +161,17 @@ export function GrpcLoadTestResultsSection({
             )}
           </div>
         )}
+        </div>
+        <button
+          type="button"
+          className="grpc-advanced-collapse-chevron"
+          onClick={onToggleCollapse}
+          title={collapsed ? 'Show results' : 'Hide results'}
+        >
+          {collapsed ? '▸' : '▾'}
+        </button>
       </div>
+      {!collapsed && (
       <div className="grpc-advanced-card__body">
         {live && (
           <>
@@ -301,8 +317,8 @@ export function GrpcLoadTestResultsSection({
                     <option value="">Select baseline run…</option>
                     {runHistory
                       .filter((entry) => entry.summary.runId !== summary.runId)
-                      .map((entry) => (
-                        <option key={entry.summary.runId} value={entry.summary.runId}>
+                      .map((entry, index) => (
+                        <option key={`${entry.summary.runId}-${index}`} value={entry.summary.runId}>
                           {entry.summary.runId}
                         </option>
                       ))}
@@ -375,7 +391,14 @@ export function GrpcLoadTestResultsSection({
                           className="grpc-load-test-compare-status__row"
                           data-testid={`grpc-load-test-run-compare-status-row-${row.statusCode.replace(/[^a-z0-9_-]/gi, '_')}`}
                         >
-                          <span>{row.statusCode}</span>
+                          <span className="grpc-load-test-compare-status__code-cell">
+                            {row.statusCode}
+                            {GRPC_STATUS_NAMES[row.statusCode] && (
+                              <span className="grpc-load-test-compare-status__code-name">
+                                {GRPC_STATUS_NAMES[row.statusCode]}
+                              </span>
+                            )}
+                          </span>
                           <span>{row.baselineCount} ({row.baselinePct.toFixed(2)}%)</span>
                           <span>{row.currentCount} ({row.currentPct.toFixed(2)}%)</span>
                           <span>{row.deltaCount >= 0 ? '+' : ''}{row.deltaCount}</span>
@@ -473,6 +496,7 @@ export function GrpcLoadTestResultsSection({
           </>
         )}
       </div>
+      )}
     </div>
   );
 }

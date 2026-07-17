@@ -47,7 +47,7 @@ function makeSuccessResponse(data: unknown = { ok: true }) {
 
 describe('useGraphqlExecution — coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(gqlFetch).mockResolvedValue(makeSuccessResponse());
     vi.mocked(getInFlight).mockReturnValue(null);
   });

@@ -14,20 +14,20 @@ import { migrateGrpcLessonProgress, isGrpcLessonProgressCompatible, assertGrpcLe
 import { GRPC_LESSON_SCHEMA_VERSION } from './types';
 
 describe('validateGrpcLessonRoster', () => {
-  it('validates all 23 canonical roster entries', () => {
+  it('validates all 24 canonical roster entries', () => {
     const result = validateGrpcLessonRoster();
     expect(result.ok, result.issues.map((i) => `${i.path}: ${i.message}`).join('\n')).toBe(true);
-    expect(GRPC_LESSON_ROSTER).toHaveLength(23);
+    expect(GRPC_LESSON_ROSTER).toHaveLength(24);
   });
 
-  it('has unique ids and sequential numbers 1–23', () => {
+  it('has unique ids and sequential numbers 1–24', () => {
     const ids = GRPC_LESSON_ROSTER.map((e) => e.id);
     const numbers = GRPC_LESSON_ROSTER.map((e) => e.number);
-    expect(new Set(ids).size).toBe(23);
-    expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23]);
+    expect(new Set(ids).size).toBe(24);
+    expect(numbers).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24]);
   });
 
-  it('matches the published GRPC-1–23 lesson id roster from the plan', () => {
+  it('matches the published GRPC-1–24 lesson id roster from the plan', () => {
     expect(GRPC_LESSON_ROSTER.map((e) => e.id)).toEqual([
       'grpc-first-call',
       'grpc-server-reflection',
@@ -52,6 +52,7 @@ describe('validateGrpcLessonRoster', () => {
       'grpc-env-collections',
       'grpc-grpcurl',
       'grpc-tauri-desktop',
+      'grpc-workflow-runner',
     ]);
   });
 
@@ -80,6 +81,7 @@ describe('validateGrpcLessonRoster', () => {
       { title: 'Environments, Collections & History', phases: [5, 9], keyConcept: '{{grpcHost}} target interpolation, Workspace Defaults variables, Collections tree, History replay' },
       { title: 'grpcurl Interop, Replay & Sharing', phases: [5, 9], keyConcept: 'Import grpcurl command, Studio field mapping, Copy grpcurl from History, secret filtering' },
       { title: 'Tauri Desktop: Native Transport, Diagnostics & Mock Listener', phases: [12], keyConcept: 'Tauri native tonic transport, channel pool diagnostics, mock network listener' },
+      { title: 'Workflow Runner & Results', phases: [11], keyConcept: 'Workflow variables, grpcTarget override, Workflow Runner, Results Dashboard, Results Explorer' },
     ];
     expect(GRPC_LESSON_ROSTER.map((e) => e.title)).toEqual(planRows.map((r) => r.title));
     expect(GRPC_LESSON_ROSTER.map((e) => e.keyConcept)).toEqual(planRows.map((r) => r.keyConcept));

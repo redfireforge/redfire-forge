@@ -151,6 +151,34 @@ describe('GalleryCard', () => {
     expect(screen.getByText('#users')).toBeTruthy();
   });
 
+  it('renders versioning-tutorial badge and trims remaining tags to three', () => {
+    render(
+      <GalleryCard
+        entry={makeEntry({
+          tags: ['versioning-tutorial', 'alpha', 'beta', 'gamma', 'delta'],
+        })}
+        selected
+        sampleStatus="imported"
+      />,
+    );
+    expect(screen.getByText(/versioning-tutorial/)).toBeTruthy();
+    expect(screen.getByText('#alpha')).toBeTruthy();
+    expect(screen.getByText('#beta')).toBeTruthy();
+    expect(screen.getByText('#gamma')).toBeTruthy();
+    expect(screen.queryByText('#delta')).toBeNull();
+    expect(screen.getByText(/Loaded/)).toBeTruthy();
+  });
+
+  it('renders without onClick and without live APIs', () => {
+    const { container } = render(
+      <GalleryCard
+        entry={makeEntry({ liveApis: [], tags: ['solo'] })}
+      />,
+    );
+    expect(container.querySelector('.gallery-card-selected')).toBeNull();
+    expect(screen.getByText('#solo')).toBeTruthy();
+  });
+
   it('renders difficulty dots', () => {
     const { container } = render(<GalleryCard entry={makeEntry()} />);
     expect(container.querySelectorAll('.gallery-dot')).toHaveLength(3);

@@ -34,6 +34,10 @@ describe('getTransportFilter', () => {
   it('returns "kafka" for kafkaConsume', () => {
     expect(getTransportFilter('kafkaConsume')).toBe('kafka');
   });
+
+  it('falls back to "http" for unsupported action types', () => {
+    expect(getTransportFilter('graphql' as never)).toBe('http');
+  });
 });
 
 describe('isRowVisibleForTransport', () => {
@@ -78,6 +82,20 @@ describe('isRowVisibleForTransport', () => {
     expect(isRowVisibleForTransport(kafkaRow, 'http')).toBe(false);
     expect(isRowVisibleForTransport(kafkaRow, 'ws')).toBe(false);
   });
+
+  it('applies transport filtering for regex builder rows', () => {
+    const regexBuilderRow = {
+      kind: 'regexBuilder' as const,
+      icon: 'x',
+      label: 'Regex Builder',
+      desc: 'builder',
+      category: 'Field Validation',
+      transport: 'ws' as const,
+    };
+    expect(isRowVisibleForTransport(regexBuilderRow, 'ws')).toBe(true);
+    expect(isRowVisibleForTransport(regexBuilderRow, 'http')).toBe(false);
+    expect(isRowVisibleForTransport(regexBuilderRow, 'kafka')).toBe(false);
+  });
 });
 
 describe('ASSERTION_CATEGORIES', () => {
@@ -121,5 +139,18 @@ describe('ADD_ASSERTION_MENU_ROWS', () => {
       r => r.kind !== 'divider' && !('transport' in r && r.transport),
     );
     expect(agnosticRows.length).toBeGreaterThanOrEqual(10);
+  });
+
+  it('builds a date-precise assertion dynamically', () => {
+    const datePrecise = ADD_ASSERTION_MENU_ROWS.find(
+      r => r.kind === 'item' && 'label' in r && r.label === 'Date Precise',
+    );
+    expect(datePrecise).toBeDefined();
+    if (!datePrecise || datePrecise.kind !== 'item') return;
+    expect(typeof datePrecise.assertion).toBe('function');
+    const built = (datePrecise.assertion as () => { type: string; reference: string; precision: string })();
+    expect(built.type).toBe('datePrecise');
+    expect(built.precision).toBe('second');
+    expect(new Date(built.reference).toString()).not.toBe('Invalid Date');
   });
 });

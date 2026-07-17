@@ -85,7 +85,7 @@ function csvFile(name = 'data.csv') {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 describe('CsvImportModal', () => {

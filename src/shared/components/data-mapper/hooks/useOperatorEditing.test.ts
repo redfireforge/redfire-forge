@@ -21,7 +21,7 @@ describe('useOperatorEditing', () => {
   const onUpdate = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('defaults currentOp to equals when no mapping', () => {

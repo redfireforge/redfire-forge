@@ -34,8 +34,31 @@ describe('extractHost', () => {
     expect(extractHost('http://localhost:9876')).toBe('localhost:9876');
   });
 
+  it('falls back for host without scheme or path', () => {
+    expect(extractHost('api.example.com')).toBe('api.example.com');
+  });
+
   it('falls back for host without scheme', () => {
     expect(extractHost('api.example.com/path')).toBe('api.example.com');
+  });
+
+  it('returns the full input when parsing fails and there is no slash to trim', () => {
+    expect(extractHost('not a valid url')).toBe('not a valid url');
+  });
+});
+
+describe('buildEnvVarMap grpc branches', () => {
+  it('omits grpcPort when address has no port', () => {
+    const svc = makeSvc({
+      protocolEndpoints: {
+        grpc: {
+          'env-local': { baseUrl: 'grpc.example.com', tls: false },
+        },
+      },
+    });
+    const map = buildEnvVarMap(svc, 'env-local', 'grpc', 'local');
+    expect(map.grpcHost).toBe('grpc.example.com');
+    expect(map.grpcPort).toBeUndefined();
   });
 });
 
@@ -160,6 +183,11 @@ describe('buildEnvVarMap', () => {
     expect(map).toEqual({ envName: 'local' });
   });
 
+  it('returns an empty object when service and envName are both absent', () => {
+    const map = buildEnvVarMap(undefined, 'env-local', 'http');
+    expect(map).toEqual({});
+  });
+
   it('trims whitespace from values', () => {
     const svc = makeSvc({
       name: '  orders  ',
@@ -196,5 +224,86 @@ describe('buildEnvVarMap', () => {
     const map = buildEnvVarMap(makeSvc({ baseUrls: { 'env-local': 'https://' } }), 'env-local', 'http', 'local');
     expect(map.baseUrl).toBe('https://');
     expect(map.host).toBeUndefined();
+  });
+
+  it('merges global vars and per-environment overrides into the map', () => {
+    const svc = makeSvc({
+      globalVars: { requestId: 'global-req', shared: 'global' },
+      envVars: { 'env-local': { requestId: 'local-req', extra: 'local-only' } },
+    });
+    const map = buildEnvVarMap(svc, 'env-local', 'http', 'local');
+    expect(map.requestId).toBe('local-req');
+    expect(map.shared).toBe('global');
+    expect(map.extra).toBe('local-only');
+  });
+
+  it('skips empty global var values and removes overridden keys cleared to empty', () => {
+    const svc = makeSvc({
+      globalVars: { keep: 'yes', drop: '' },
+      envVars: { 'env-local': { keep: '', added: 'v' } },
+    });
+    const map = buildEnvVarMap(svc, 'env-local', 'http');
+    expect(map.keep).toBeUndefined();
+    expect(map.drop).toBeUndefined();
+    expect(map.added).toBe('v');
+  });
+
+  it('uses httpToWsUrl fallback path for bare host websocket derivation', () => {
+    const map = buildEnvVarMap(makeSvc({ baseUrls: { 'env-local': 'api.example.com' } }), 'env-local', 'websocket');
+    expect(map.wsBaseUrl).toBe('api.example.com');
+  });
+
+  it('clears overridden global keys when env override value is empty', () => {
+    const svc = makeSvc({
+      globalVars: { shared: 'global' },
+      envVars: { 'env-local': { shared: '' } },
+    });
+    const map = buildEnvVarMap(svc, 'env-local', 'http');
+    expect(map.shared).toBeUndefined();
+  });
+
+  it('covers http and ws scheme branches explicitly', () => {
+    expect(httpToWsUrl('https://x')).toBe('wss://x');
+    expect(httpToWsUrl('http://x')).toBe('ws://x');
+  });
+
+  it('extractHost uses URL host when parse succeeds', () => {
+    expect(extractHost('http://localhost:8080/path')).toBe('localhost:8080');
+  });
+
+  it('trims explicit grpc endpoints and ignores whitespace-only grpc endpoints', () => {
+    const explicitSvc = makeSvc({
+      protocolEndpoints: {
+        grpc: {
+          'env-local': { baseUrl: '  grpc.example.com:9443  ', tls: true },
+        },
+      },
+    });
+    const explicitMap = buildEnvVarMap(explicitSvc, 'env-local', 'grpc');
+    expect(explicitMap.grpcHost).toBe('grpc.example.com:9443');
+    expect(explicitMap.grpcPort).toBe('9443');
+
+    const blankSvc = makeSvc({
+      protocolEndpoints: {
+        grpc: {
+          'env-local': { baseUrl: '   ', tls: false },
+        },
+      },
+    });
+    const blankMap = buildEnvVarMap(blankSvc, 'env-local', 'grpc');
+    expect(blankMap.grpcHost).toBeUndefined();
+    expect(blankMap.grpcPort).toBeUndefined();
+  });
+
+  it('uses the default graphql path when the stored path is whitespace only', () => {
+    const svc = makeSvc({
+      protocolEndpoints: {
+        graphql: {
+          'env-local': { baseUrl: 'https://gql.example.com', path: '   ' },
+        },
+      },
+    });
+    const map = buildEnvVarMap(svc, 'env-local', 'graphql', 'local');
+    expect(map.graphqlUrl).toBe('https://gql.example.com/graphql');
   });
 });

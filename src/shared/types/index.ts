@@ -40,6 +40,12 @@ export interface Microservice {
   protocolEndpoints?: Partial<Record<ProtocolKey, Record<string, ProtocolEndpoint>>>;
   /** Protocols explicitly added by the user. Omitted = derive from baseUrls / protocolEndpoints for backward compat. */
   enabledProtocols?: ProtocolKey[];
+  /** Protocol-level variables that apply to all environments: varName → value.
+   *  Overridden by envVars for the same key; protocol-derived vars (grpcHost, etc.) take highest precedence. */
+  globalVars?: Record<string, string>;
+  /** Per-environment variable overrides: envId → varName → value.
+   *  Override globalVars for the same key; protocol-derived vars still take highest precedence. */
+  envVars?: Record<string, Record<string, string>>;
 }
 
 export interface KeyValue {

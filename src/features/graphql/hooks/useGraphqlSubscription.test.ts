@@ -46,7 +46,7 @@ const BASE_PARAMS = {
 
 describe('useGraphqlSubscription', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   afterEach(() => {

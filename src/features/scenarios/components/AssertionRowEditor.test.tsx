@@ -20,7 +20,7 @@ const baseProps = {
 
 describe('AssertionRowEditor', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('status assertion', () => {

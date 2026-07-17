@@ -59,7 +59,7 @@ describe('KafkaSchemaRegistryPage', () => {
   let mockDispatch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockDispatch = vi.fn();
   });
 

@@ -36,7 +36,7 @@ describe('RequestDefinitionVersionPanel', () => {
   const onCompare = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('shows empty hint when versions empty', () => {

@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act } from '@testing-library/react';
 import DemoSpotlight from './DemoSpotlight';
+import { getManualSpotlightEventName } from './demoRipple';
 
 function mockRect(el: Element, width: number, height: number): void {
   vi.spyOn(el, 'getBoundingClientRect').mockReturnValue({
@@ -181,5 +182,122 @@ describe('DemoSpotlight — coverage gaps', () => {
     unmount();
     globalThis.requestAnimationFrame = savedRaf;
     globalThis.cancelAnimationFrame = savedCancel;
+  });
+
+  it('toggles visibility from manual spotlight change events with numeric detail', () => {
+    const target = document.createElement('div');
+    target.className = 'manual-target';
+    mockRect(target, 40, 20);
+    document.body.appendChild(target);
+
+    const { container } = render(<DemoSpotlight selector=".manual-target" active />);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(container.querySelector('.demo-spotlight-ring')).toBeTruthy();
+
+    const eventName = getManualSpotlightEventName();
+    act(() => {
+      window.dispatchEvent(new CustomEvent(eventName, { detail: 1 }));
+    });
+    expect(container.querySelector('.demo-spotlight-ring')).toBeNull();
+
+    act(() => {
+      window.dispatchEvent(new CustomEvent(eventName, { detail: 0 }));
+      vi.advanceTimersByTime(300);
+    });
+    expect(container.querySelector('.demo-spotlight-ring')).toBeTruthy();
+  });
+
+  it('handles manual spotlight change events without numeric detail', () => {
+    const target = document.createElement('div');
+    target.className = 'manual-fallback-target';
+    mockRect(target, 40, 20);
+    document.body.appendChild(target);
+
+    const { container } = render(<DemoSpotlight selector=".manual-fallback-target" active />);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(container.querySelector('.demo-spotlight-ring')).toBeTruthy();
+
+    const eventName = getManualSpotlightEventName();
+    act(() => {
+      window.dispatchEvent(new CustomEvent(eventName));
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(container.querySelector('.demo-spotlight-ring')).toBeTruthy();
+  });
+
+  it('keeps existing rect when frozen=true and target geometry changes', () => {
+    const target = document.createElement('div');
+    target.className = 'frozen-target';
+    mockRect(target, 40, 20);
+    document.body.appendChild(target);
+
+    const { container } = render(<DemoSpotlight selector=".frozen-target" active frozen={true} />);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    const ringBefore = container.querySelector('.demo-spotlight-ring') as HTMLElement;
+    expect(ringBefore).toBeTruthy();
+    const topBefore = ringBefore.style.top;
+    const leftBefore = ringBefore.style.left;
+
+    vi.spyOn(target, 'getBoundingClientRect').mockReturnValue({
+      top: 80,
+      left: 70,
+      width: 110,
+      height: 45,
+      right: 180,
+      bottom: 125,
+      x: 70,
+      y: 80,
+      toJSON: () => ({}),
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+
+    const ringAfter = container.querySelector('.demo-spotlight-ring') as HTMLElement;
+    expect(ringAfter.style.top).toBe(topBefore);
+    expect(ringAfter.style.left).toBe(leftBefore);
+  });
+
+  it('does not start tracking when manual spotlight is already active at mount', () => {
+    document.body.setAttribute('data-demo-manual-spotlight-count', '1');
+    const target = document.createElement('div');
+    target.className = 'manual-active-target';
+    mockRect(target, 40, 20);
+    document.body.appendChild(target);
+
+    const { container } = render(<DemoSpotlight selector=".manual-active-target" active />);
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(container.querySelector('.demo-spotlight-ring')).toBeNull();
+    document.body.removeAttribute('data-demo-manual-spotlight-count');
+  });
+
+  it('unmounts safely when setInterval returns a falsy handle', () => {
+    const target = document.createElement('div');
+    target.className = 'falsy-interval-target';
+    mockRect(target, 40, 20);
+    document.body.appendChild(target);
+
+    const setIntervalSpy = vi.spyOn(window, 'setInterval').mockImplementation((handler: TimerHandler) => {
+      // Execute immediately once, then return a falsy handle to cover cleanup branch.
+      if (typeof handler === 'function') {
+        handler();
+      }
+      return 0 as unknown as ReturnType<typeof setInterval>;
+    });
+
+    const { unmount } = render(<DemoSpotlight selector=".falsy-interval-target" active />);
+    expect(() => unmount()).not.toThrow();
+    setIntervalSpy.mockRestore();
   });
 });

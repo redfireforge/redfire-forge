@@ -27,7 +27,7 @@ vi.mock('./graphqlProxyTransports', () => ({
 
 describe('buildApqSendFn', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   afterEach(() => {

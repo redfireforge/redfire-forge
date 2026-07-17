@@ -3,9 +3,18 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
+  GRPC_EXPRESS_HEALTH_URL,
+  GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_URL,
+} from '../../../../adapters/grpcStudioAdapter';
+import {
   buildGrpcFirstCallScenarioSnapshot,
+  buildGrpcMetadataAuthScenarioSnapshot,
+  buildGrpcMockServerScenarioSnapshot,
   buildGrpcSchemaDiscoveryScenarioSnapshot,
   buildGrpcScenarioSnapshotForLesson,
+  buildGrpcSpringBootScenarioSnapshot,
+  buildGrpcStreamingScenarioSnapshot,
+  buildGrpcWorkflowIntegrationScenarioSnapshot,
 } from './snapshots';
 import { GRPC_DEMO_MESSAGE } from '../../grpc-lesson-helpers';
 
@@ -33,5 +42,42 @@ describe('buildGrpcScenarioSnapshotForLesson', () => {
     expect(snap.callType).toBe('unary');
     expect(snap.requestPayload.message).toBe(GRPC_DEMO_MESSAGE);
     expect(buildGrpcScenarioSnapshotForLesson('grpc-schema-discovery')?.fingerprint).toBe(snap.fingerprint);
+  });
+
+  it('builds GRPC-3 streaming snapshot', () => {
+    const snap = buildGrpcStreamingScenarioSnapshot();
+    expect(snap.lessonId).toBe('grpc-streaming');
+    expect(snap.callType).toBe('server-stream');
+    expect(snap.method).toBe('ServerStream');
+    expect(buildGrpcScenarioSnapshotForLesson('grpc-streaming')?.fingerprint).toBe(snap.fingerprint);
+  });
+
+  it('builds GRPC-4 metadata auth snapshot', () => {
+    const snap = buildGrpcMetadataAuthScenarioSnapshot();
+    expect(snap.lessonId).toBe('grpc-metadata-auth');
+    expect(buildGrpcScenarioSnapshotForLesson('grpc-metadata-auth')?.lessonId).toBe('grpc-metadata-auth');
+  });
+
+  it('builds GRPC-11 workflow integration snapshot', () => {
+    const snap = buildGrpcWorkflowIntegrationScenarioSnapshot();
+    expect(snap.lessonId).toBe('grpc-workflow-integration');
+    expect(snap.requestPayload.message).toBe('workflow-test');
+    expect(buildGrpcScenarioSnapshotForLesson('grpc-workflow-integration')?.method).toBe('Echo');
+  });
+
+  it('builds GRPC-13 mock server snapshot', () => {
+    const snap = buildGrpcMockServerScenarioSnapshot();
+    expect(snap.lessonId).toBe('grpc-mock-server');
+    expect(buildGrpcScenarioSnapshotForLesson('grpc-mock-server')?.target).toBe(snap.target);
+  });
+
+  it('builds GRPC-15 Spring Boot snapshot with actuator fixture fingerprint', () => {
+    const snap = buildGrpcSpringBootScenarioSnapshot();
+    expect(snap.lessonId).toBe('grpc-spring-boot');
+    expect(snap.target).toBe('localhost:9090');
+    expect(snap.fixtureFingerprint).toBe(
+      [GRPC_EXPRESS_HEALTH_URL, GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_URL].join('|'),
+    );
+    expect(buildGrpcScenarioSnapshotForLesson('grpc-spring-boot')?.fingerprint).toBe(snap.fingerprint);
   });
 });

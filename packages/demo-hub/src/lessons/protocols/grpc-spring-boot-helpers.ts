@@ -1,6 +1,6 @@
 /** GRPC-15 Spring Boot — navigation, transport, and quiet helpers */
 import { GRPC } from '@shared/selectors';
-import { GRPC_SPRING_FIXTURE_SERVLET_TARGET } from '../../adapters';
+import { getDemoBridgeWindow, GRPC_SPRING_FIXTURE_SERVLET_TARGET } from '../../adapters';
 import {
   GRPC_DEMO_MESSAGE,
   GRPC_ECHO_SERVICE,
@@ -8,6 +8,7 @@ import {
   GRPC_ECHO_METHOD_SEL,
   closeGrpcSettingsDrawerQuiet,
   ensureGrpcStudioSubNavQuiet,
+  fillGrpcEchoMessage,
   openGrpcSettingsDrawerQuiet,
   resetGrpcConnectionSettingsQuiet,
   setGrpcTargetQuiet,
@@ -32,26 +33,33 @@ export async function ensureStudioNav(ctx: DemoActionContext): Promise<void> {
 }
 
 export async function ensureMessageFilledQuiet(ctx: DemoActionContext, message = GRPC_DEMO_MESSAGE): Promise<void> {
-  const field = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT_MESSAGE);
-  if (!field || field.value.trim() === message) return;
-  field.focus();
-  const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-  if (nativeSet?.set) {
-    nativeSet.set.call(field, message);
-  } else {
-    field.value = message;
-  }
-  field.dispatchEvent(new Event('input', { bubbles: true }));
-  await ctx.delay(150);
+  await fillGrpcEchoMessage(ctx, message);
 }
 
 export function isTransportModeActive(mode: TransportMode): boolean {
+  // Check the drawer button first (only available when the settings drawer is open).
   const btn = document.querySelector<HTMLButtonElement>(GRPC.TRANSPORT_MODE(mode));
-  return btn?.getAttribute('aria-pressed') === 'true';
+  if (btn) return btn.getAttribute('aria-pressed') === 'true';
+  // Fallback: check the connection-bar transport badge (always in the DOM).
+  const badge = document.querySelector<HTMLElement>('[data-testid="grpc-transport-badge"]');
+  if (badge) return badge.classList.contains(`grpc-connection-transport-badge--${mode}`);
+  return false;
 }
 
-/** Quietly select `mode` in the Transport panel — opens/closes the drawer only if needed. */
+/** Quietly select `mode` in the Transport panel without opening the settings drawer. */
 export async function ensureTransportModeQuiet(ctx: DemoActionContext, mode: TransportMode): Promise<void> {
+  if (isTransportModeActive(mode)) return;
+
+  // Use the bridge to patch transportMode directly — no drawer open/close, no visible flash.
+  const bridge = getDemoBridgeWindow();
+  const patchFn = (bridge as unknown as Record<string, (...args: unknown[]) => unknown>)['__demoPatchGrpcActiveTab'];
+  if (patchFn) {
+    patchFn({ transportMode: mode });
+    await ctx.delay(150);
+    return;
+  }
+
+  // Fallback: open the settings drawer (causes a brief flash).
   await openGrpcSettingsDrawerQuiet(ctx, 'transport');
   if (!document.querySelector(GRPC.TRANSPORT_PANEL)) return;
   if (!isTransportModeActive(mode)) {
@@ -77,29 +85,37 @@ export async function reflectQuiet(ctx: DemoActionContext): Promise<void> {
   }
   try {
     await ctx.waitFor(`${GRPC.EXPLORER_TREE}, ${GRPC.EXPLORER_ERROR}`, 12_000);
-  } catch {
-    // Best-effort — infra may be temporarily unavailable in test stubs.
-  }
-  await ctx.delay(350);
+  } catch { /* timeout — proceed anyway */ }
+  await ctx.delay(100);
 }
 
 export async function selectMethodQuiet(ctx: DemoActionContext, methodSel: string): Promise<void> {
+  // Skip entirely if the method is already selected and the call panel is visible.
+  const alreadySelected = document.querySelector(`${methodSel}.grpc-explorer-method-btn--selected`);
+  if (alreadySelected && document.querySelector(GRPC.CALL_PANEL)) {
+    await ctx.delay(150);
+    await ensureMessageFilledQuiet(ctx);
+    return;
+  }
   await reflectQuiet(ctx);
   if (!document.querySelector(methodSel)) {
     const serviceBtn = document.querySelector<HTMLElement>(GRPC_ECHO_SERVICE_SEL);
     if (serviceBtn) {
       serviceBtn.click();
-      await ctx.delay(350);
+      await ctx.delay(150);
     }
   }
   const methodBtn = document.querySelector<HTMLElement>(methodSel);
   if (methodBtn) {
     methodBtn.click();
+    // Wait for the specific method to become selected (not just CALL_PANEL which
+    // persists from the previously-selected method).
     try {
-      await ctx.waitFor(GRPC.PROTO_FORM, 8_000);
-    } catch {
-      await ctx.delay(400);
-    }
+      await ctx.waitFor(`${methodSel}.grpc-explorer-method-btn--selected`, 2_000);
+    } catch { /* timeout */ }
+    // Wait for React to finish re-rendering the form with default values before
+    // overwriting the message — otherwise the app resets the field after our fill.
+    await ctx.delay(300);
   }
   await ensureMessageFilledQuiet(ctx);
 }
@@ -126,33 +142,97 @@ export async function selectMethodVisible(
   }
 
   if (!document.querySelector(methodSel) && document.querySelector(GRPC_ECHO_SERVICE_SEL)) {
-    await spotlightAndPause(ctx, GRPC_ECHO_SERVICE_SEL, 600);
+    await spotlightAndPause(ctx, GRPC_ECHO_SERVICE_SEL, 400);
     await ctx.click(GRPC_ECHO_SERVICE_SEL);
     try {
       await ctx.waitFor(methodSel, 5_000);
     } catch {
-      await ctx.delay(400);
+      await ctx.delay(200);
     }
   }
   if (document.querySelector(methodSel)) {
-    await spotlightAndPause(ctx, methodSel, 700);
-    await ctx.click(methodSel);
-    try {
-      await ctx.waitFor(GRPC.PROTO_FORM, 8_000);
-    } catch {
-      await ctx.delay(400);
+    const alreadyActive = document.querySelector(`${methodSel}.grpc-explorer-method-btn--selected`);
+    await spotlightAndPause(ctx, methodSel, 400);
+    if (!alreadyActive) {
+      await ctx.click(methodSel);
+      try {
+        await ctx.waitFor(`${methodSel}.grpc-explorer-method-btn--selected`, 4_000);
+      } catch {
+        await ctx.delay(200);
+      }
     }
   }
   await ensureMessageFilledQuiet(ctx);
 }
 
-/** Restore the lesson baseline: Express Proxy, Netty target, Echo selected, auth none. */
-export async function resetSpringBaselineQuiet(ctx: DemoActionContext): Promise<void> {
+/**
+ * Restore the lesson baseline: Express Proxy, Netty target, auth none.
+ *
+ * By default this also reflects and selects the Echo method. Pass
+ * `{ selectMethod: false }` (used by the lesson `setup`) to skip that: step 1
+ * teaches only the connection bar and deliberately avoids reflecting so the
+ * viewer doesn't see the service tree build + method highlight flash before the
+ * narration even mentions it. Step 2 performs the visible reflect + selection.
+ */
+export async function resetSpringBaselineQuiet(
+  ctx: DemoActionContext,
+  opts: { selectMethod?: boolean } = {},
+): Promise<void> {
+  const { selectMethod = true } = opts;
   await ensureStudioNav(ctx);
   await resetGrpcConnectionSettingsQuiet(ctx);
   await ensureTransportModeQuiet(ctx, 'express');
   await setGrpcTargetQuiet(ctx, GRPC_SPRING_NETTY_TARGET);
-  await selectMethodQuiet(ctx, GRPC_ECHO_METHOD_SEL);
+  if (selectMethod) {
+    await selectMethodQuiet(ctx, GRPC_ECHO_METHOD_SEL);
+  }
+}
+
+/**
+ * Fast preAction guard: verify the gRPC studio is showing the expected state.
+ * Skips redundant sub-nav, drawer close, and target checks when everything matches.
+ * Falls back to the full sequential path for any mismatch.
+ */
+export async function ensureSpringStudioReady(
+  ctx: DemoActionContext,
+  opts: {
+    target?: string;
+    transport?: TransportMode;
+    resetAuth?: boolean;
+    method?: string;
+    reflect?: boolean;
+  } = {},
+): Promise<void> {
+  const {
+    target = GRPC_SPRING_NETTY_TARGET,
+    transport = 'express',
+    resetAuth = false,
+    method,
+    reflect = false,
+  } = opts;
+
+  await ensureStudioNav(ctx);
+
+  if (resetAuth) {
+    await resetGrpcConnectionSettingsQuiet(ctx);
+  }
+
+  if (!isTransportModeActive(transport)) {
+    await ensureTransportModeQuiet(ctx, transport);
+  }
+
+  const input = document.querySelector<HTMLInputElement>(GRPC.TARGET_INPUT);
+  if (input && input.value.trim() !== target.trim()) {
+    await setGrpcTargetQuiet(ctx, target);
+  }
+
+  if (reflect && !document.querySelector(GRPC.EXPLORER_TREE)) {
+    await reflectQuiet(ctx);
+  }
+
+  if (method) {
+    await selectMethodQuiet(ctx, method);
+  }
 }
 
 // ---------------------------------------------------------------------------

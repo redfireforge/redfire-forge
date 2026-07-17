@@ -72,7 +72,9 @@ describe('workflowDesignerAdapter', () => {
     const fitSpy = vi.fn(() => true);
     (window as unknown as Record<string, unknown>).__wfFitView = fitSpy;
     expect(fitWorkflowCanvasView()).toBe(true);
-    expect(fitSpy).toHaveBeenCalled();
+    expect(fitSpy).toHaveBeenCalledWith(undefined);
+    expect(fitWorkflowCanvasView({ minZoom: 1 })).toBe(true);
+    expect(fitSpy).toHaveBeenCalledWith({ minZoom: 1 });
   });
 
   it('connectWorkflowNodes returns false when bridge missing', () => {

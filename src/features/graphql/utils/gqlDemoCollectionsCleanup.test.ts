@@ -32,7 +32,7 @@ import {
 
 describe('gqlDemoCollectionsCleanup', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(idbLoadCollections).mockResolvedValue([]);
     vi.mocked(idbLoadHistory).mockResolvedValue([]);
   });

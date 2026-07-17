@@ -22,6 +22,8 @@ export interface GrpcLoadTestPanelProps {
 export function GrpcLoadTestPanel({ advanced }: GrpcLoadTestPanelProps) {
   const [profileName, setProfileName] = useState('');
   const [compareRunId, setCompareRunId] = useState('');
+  const [configCollapsed, setConfigCollapsed] = useState(false);
+  const [resultsCollapsed, setResultsCollapsed] = useState(false);
 
   useEffect(() => {
     if (!advanced.selectedLoadTestProfileId) {
@@ -100,6 +102,8 @@ export function GrpcLoadTestPanel({ advanced }: GrpcLoadTestPanelProps) {
         callTypeBadge={callTypeBadge}
         canStart={canStart}
         canStop={canStop}
+        collapsed={configCollapsed}
+        onToggleCollapse={() => setConfigCollapsed((v) => !v)}
       />
       <GrpcLoadTestResultsSection
         advanced={advanced}
@@ -117,6 +121,8 @@ export function GrpcLoadTestPanel({ advanced }: GrpcLoadTestPanelProps) {
         statusBreakdown={statusBreakdown}
         latencyHistogram={latencyHistogram}
         throughputTimeline={throughputTimeline}
+        collapsed={resultsCollapsed}
+        onToggleCollapse={() => setResultsCollapsed((v) => !v)}
       />
     </section>
   );
