@@ -1,0 +1,768 @@
+/* ── SSE Studio ─────────────────────────────────────────────────────── */
+
+/* ── Theme alias shim ───────────────────────────────────────────────────────
+   Maps the legacy undefined alias tokens to the canonical theme tokens from
+   src/index.css so the SSE Studio is fully theme-aware (matches Requests).
+   Scoped to the container; SSE renders no portals. */
+.sse-studio {
+  --bg-primary: var(--bg);
+  --bg-secondary: var(--surface);
+  --bg-tertiary: var(--bg);
+  --bg-surface: var(--surface);
+  --bg-input: var(--surface);
+  --input-bg: var(--surface);
+  --color-input-bg: var(--surface);
+  --color-surface: var(--surface);
+  --panel-bg: var(--surface);
+  --dropdown-bg: var(--surface);
+  --bg-hover: var(--surface-hover);
+  --hover-bg: var(--surface-hover);
+  --color-btn-secondary-bg: var(--surface);
+  --color-btn-secondary-hover: var(--surface-hover);
+  --text-primary: var(--text);
+  --color-text-primary: var(--text);
+  --text-secondary: var(--text-muted);
+  --color-text-secondary: var(--text-muted);
+  --text-tertiary: var(--text-muted);
+  --border-color: var(--border);
+  --border-primary: var(--border);
+  --color-border: var(--border);
+  --accent-color: var(--primary);
+  --accent-primary: var(--primary);
+  --color-accent: var(--primary);
+  --ws-accent-color: var(--primary);
+  --accent-hover: var(--primary-hover);
+  --ws-accent-hover: var(--primary-hover);
+  --error-color: var(--danger);
+  --color-error-text: var(--danger);
+  --warning-color: var(--warning);
+  --ws-warning-color: var(--warning);
+  --color-warning-text: var(--warning);
+  --success-color: var(--success);
+  --color-warning-bg: color-mix(in srgb, var(--warning) 14%, transparent);
+  --color-warning-border: color-mix(in srgb, var(--warning) 40%, transparent);
+  --selection-bg: color-mix(in srgb, var(--primary) 35%, transparent);
+  --font-mono: 'Fira Code', 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+  font-size: 13px;
+  color: var(--text-primary, #e0e0e0);
+}
+
+/* ── Connection Panel ──────────────────────────────────────────────── */
+
+.sse-connect-panel {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.sse-url-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.sse-url-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.sse-state-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  box-shadow: 0 0 4px rgba(255, 255, 255, 0.1);
+}
+
+/* Text label color (no background — avoids unreadable solid block) */
+.sse-state-connected { color: var(--success); }
+.sse-state-connecting { color: var(--warning); }
+.sse-state-error { color: var(--danger); }
+.sse-state-disconnected { color: var(--text-muted); }
+
+/* Status dot fill */
+.sse-state-dot.sse-state-connected { background: var(--success); }
+.sse-state-dot.sse-state-connecting { background: var(--warning); }
+.sse-state-dot.sse-state-error { background: var(--danger); }
+.sse-state-dot.sse-state-disconnected { background: var(--text-muted); }
+
+.sse-url-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 12px;
+  background: var(--input-bg, #1e1e2e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  color: var(--text-primary, #e0e0e0);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.sse-url-input:focus {
+  border-color: var(--ws-accent-color, #7c6bf0);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(124, 107, 240, 0.15);
+}
+
+.sse-url-input:disabled {
+  opacity: 0.6;
+}
+
+.sse-connect-btn {
+  padding: 8px 20px;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  letter-spacing: 0.3px;
+}
+
+.sse-connect-btn-primary {
+  background: var(--ws-accent-color, #7c6bf0);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(124, 107, 240, 0.25);
+}
+
+.sse-connect-btn-primary:hover { opacity: 0.9; box-shadow: 0 4px 12px rgba(124, 107, 240, 0.35); }
+.sse-connect-btn-primary:disabled { opacity: 0.4; cursor: not-allowed; box-shadow: none; }
+
+.sse-connect-btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+.sse-connect-btn-danger:hover { opacity: 0.9; }
+
+.sse-headers-toggle {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  color: var(--text-secondary, #999);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.sse-headers-toggle:hover { border-color: var(--text-secondary, #999); color: var(--text-primary, #e0e0e0); }
+.sse-headers-toggle.active { border-color: var(--ws-accent-color, #7c6bf0); color: var(--ws-accent-color, #7c6bf0); background: rgba(124, 107, 240, 0.08); }
+
+.sse-state-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  font-size: 11px;
+}
+
+.sse-auto-reconnect-badge {
+  color: var(--text-secondary, #999);
+  font-size: 11px;
+  padding: 2px 8px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 4px;
+}
+
+/* ── Headers Panel ─────────────────────────────────────────────────── */
+
+.sse-headers-panel {
+  margin-top: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* Config sections (Headers / Reconnect) */
+.sse-config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sse-config-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sse-config-section-title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary, #999);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* Headers use the shared key-value editor (.ws-connect-kv-*, see
+   src/styles/key-value-editor.css) so the SSE header format matches the
+   WebSocket Studio exactly. */
+
+/* Reconnect card */
+.sse-reconnect-card {
+  border: 1px solid var(--border-color, #444);
+  border-radius: 8px;
+  padding: 12px 14px;
+  background: var(--bg-secondary, #1e1e1e);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sse-toggle-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+}
+
+.sse-toggle-checkbox {
+  flex-shrink: 0;
+  width: 15px;
+  height: 15px;
+  margin: 1px 0 0;
+  accent-color: var(--accent-color, #7c6bf0);
+  cursor: pointer;
+}
+
+.sse-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.sse-toggle-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary, #e0e0e0);
+}
+
+.sse-toggle-sub {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+}
+
+.sse-retry-info {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  padding-left: 25px;
+}
+
+.sse-retry-info strong {
+  color: var(--text-primary, #e0e0e0);
+  font-weight: 600;
+}
+
+/* ── Redesigned split-pane shell (Phase 7, feature-flagged) ──────────────────
+   Mirrors the WebSocket `.ws-studio-*` split-pane chrome. Simplified for SSE:
+   no mode switch and no per-pane tab strips (single config / events view). */
+
+.sse-studio-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.sse-studio-topbar {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.sse-studio-status-strip {
+  padding: 6px 14px;
+  border-bottom: 1px solid var(--border-color, #333);
+  background: var(--bg-secondary, #1e1e1e);
+  flex-shrink: 0;
+}
+
+.sse-studio-status-strip .sse-state-label {
+  margin-top: 0;
+}
+
+.sse-studio-split {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sse-studio-left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-right: 1px solid var(--border-color, #333);
+}
+
+.sse-studio-right {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.sse-studio-pane-title {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #999);
+  border-bottom: 1px solid var(--border-color, #333);
+  background: var(--bg-secondary, #1e1e1e);
+  flex-shrink: 0;
+}
+
+.sse-studio-left-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 8px 12px;
+}
+
+.sse-studio-right-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.sse-studio-divider {
+  width: 5px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: var(--border-color, #333);
+  transition: background 0.15s;
+}
+
+.sse-studio-divider:hover {
+  background: var(--ws-accent-color, var(--accent-color, #7c6bf0));
+}
+
+.sse-studio-divider:focus-visible {
+  outline: none;
+  background: var(--ws-accent-color, var(--accent-color, #7c6bf0));
+  box-shadow: 0 0 0 2px var(--ws-accent-color, var(--accent-color, #7c6bf0));
+}
+
+/* Config body inside the left pane: headers + reconnect, always visible. */
+.sse-config-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* In shell mode the events log fills the right pane. */
+.sse-studio-right-body .sse-message-log {
+  flex: 1;
+}
+
+/* ── Message Log ───────────────────────────────────────────────────── */
+
+.sse-message-log {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+}
+
+.sse-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-color, #333);
+  background: color-mix(in srgb, var(--bg-secondary, #1a1a1a) 50%, transparent);
+  flex-shrink: 0;
+}
+
+.sse-search {
+  width: 200px;
+  padding: 5px 10px;
+  background: var(--input-bg, #1e1e2e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  transition: border-color 0.15s;
+}
+
+.sse-search:focus {
+  border-color: var(--ws-accent-color, #7c6bf0);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(124, 107, 240, 0.15);
+}
+
+.sse-type-filter {
+  padding: 5px 10px;
+  background: var(--input-bg, #1e1e2e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  transition: border-color 0.15s;
+}
+.sse-type-filter:focus {
+  border-color: var(--ws-accent-color, #7c6bf0);
+  outline: none;
+}
+
+.sse-toolbar-btn {
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  color: var(--text-secondary, #999);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+  font-weight: 500;
+}
+
+.sse-toolbar-btn:hover { border-color: var(--text-secondary, #999); color: var(--text-primary, #e0e0e0); background: rgba(255, 255, 255, 0.04); }
+.sse-toolbar-btn.active { border-color: var(--ws-accent-color, #7c6bf0); color: var(--ws-accent-color, #7c6bf0); background: rgba(124, 107, 240, 0.08); }
+
+.sse-toolbar-spacer { flex: 1; }
+
+/* ── Event List ────────────────────────────────────────────────────── */
+
+.sse-list-container {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.sse-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 28px;
+  cursor: pointer;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border-color, #222);
+}
+
+.sse-row:hover { background: rgba(124, 107, 240, 0.06); }
+.sse-row-selected { background: rgba(124, 107, 240, 0.12); }
+.sse-row-selected:hover { background: rgba(124, 107, 240, 0.18); }
+
+.sse-bookmark-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #666);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 0;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.sse-bookmark-btn.active { color: #ffc107; }
+
+.sse-row-time {
+  color: var(--text-secondary, #999);
+  font-size: 11px;
+  font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+  flex-shrink: 0;
+  width: 70px;
+}
+
+.sse-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  background: rgba(124, 107, 240, 0.15);
+  color: var(--ws-accent-color, #7c6bf0);
+}
+
+.sse-type-message { background: rgba(76, 175, 80, 0.15); color: #4caf50; }
+.sse-type-error { background: rgba(244, 67, 54, 0.15); color: #f44336; }
+.sse-type-ping { background: rgba(255, 152, 0, 0.15); color: #ff9800; }
+.sse-type-heartbeat { background: rgba(0, 188, 212, 0.15); color: #00bcd4; }
+
+.sse-row-data {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-primary, #e0e0e0);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.sse-row-size {
+  color: var(--text-secondary, #666);
+  font-size: 11px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.sse-empty,
+.sse-empty-filtered {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 48px 24px;
+  color: var(--text-secondary, #888);
+  font-size: 13px;
+}
+.sse-empty-icon {
+  font-size: 36px;
+  line-height: 1;
+  opacity: 0.5;
+}
+.sse-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary, #aaa);
+}
+.sse-empty-text {
+  font-size: 12px;
+  color: var(--text-tertiary, #666);
+  max-width: 280px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+/* ── Detail Panel ──────────────────────────────────────────────────── */
+
+.sse-detail {
+  border-top: 1px solid var(--border-color, #333);
+  max-height: 40%;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.sse-detail-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+}
+
+.sse-detail-title {
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.sse-detail-close {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary, #999);
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.sse-detail-close:hover { color: var(--text-primary, #e0e0e0); }
+
+.sse-detail-body {
+  padding: 8px 12px;
+}
+
+.sse-detail-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.sse-detail-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sse-detail-label {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  text-transform: uppercase;
+}
+
+.sse-detail-value {
+  font-size: 12px;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.sse-detail-data-header {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  text-transform: uppercase;
+  margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sse-detail-json-badge {
+  font-size: 9px;
+  padding: 1px 4px;
+  border-radius: 2px;
+  background: rgba(76, 175, 80, 0.15);
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.sse-detail-data {
+  background: var(--input-bg, #1e1e2e);
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  padding: 10px 14px;
+  margin: 0;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  white-space: pre-wrap;
+  word-break: break-all;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+/* ── Status Bar ────────────────────────────────────────────────────── */
+
+.sse-status-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 6px 14px;
+  border-top: 1px solid var(--border-color, #333);
+  background: color-mix(in srgb, var(--bg-secondary, #1a1a1a) 80%, transparent);
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  flex-shrink: 0;
+}
+.sse-status-bar span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sse-status-types {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Phase 8: left-pane tab strip (Connect / Auth) ───────────────────────── */
+
+.sse-studio-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 6px 12px 0;
+  border-bottom: 1px solid var(--border-color, #333);
+  background: var(--bg-secondary, #1e1e1e);
+  flex-shrink: 0;
+}
+
+.sse-studio-tab {
+  position: relative;
+  padding: 6px 16px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary, #999);
+  font-size: 13px;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sse-studio-tab:hover {
+  color: var(--text-primary, #ccc);
+}
+
+.sse-studio-tab.active {
+  color: var(--text-primary, #e0e0e0);
+  border-bottom-color: var(--accent-color, #4fc3f7);
+}
+
+.sse-studio-tab:focus-visible {
+  outline: 2px solid var(--ws-accent-color, var(--accent-color, #7c6bf0));
+  outline-offset: -2px;
+  border-radius: 3px;
+}
+
+.sse-studio-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-color, #4fc3f7);
+  flex-shrink: 0;
+}
+
+/* ── Phase 8: Auth tab body ──────────────────────────────────────────────── */
+
+.sse-auth-pane {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.sse-auth-pane .sse-auth-panel {
+  margin: 0;
+}
+
+.sse-auth-resolved {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border-color, #333);
+  border-radius: 6px;
+  background: var(--bg-secondary, #1e1e1e);
+}
+
+.sse-auth-resolved-label {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary, #999);
+}
+
+.sse-auth-resolved-value {
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+  color: var(--text-primary, #e0e0e0);
+  word-break: break-all;
+}
+

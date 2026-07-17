@@ -459,7 +459,7 @@ describe('extractionAdapter – fetchTargetSchema', () => {
       fetchSampleData: async () => null,
     });
     const result = await adapter.fetchTargetSchema!();
-    expect(result.sampleData).toBeNull();
+    expect(result.sampleData).toBeUndefined();
     expect(result.fields).toBeUndefined();
   });
 
@@ -469,6 +469,15 @@ describe('extractionAdapter – fetchTargetSchema', () => {
     });
     const result = await adapter.fetchTargetSchema!();
     expect(result.sampleData).toBe(99);
+    expect(result.fields).toBeUndefined();
+  });
+
+  it('handles invalid JSON string response gracefully (does not throw)', async () => {
+    const adapter = createExtractionAdapter({
+      fetchSampleData: async () => '{bad json',
+    });
+    const result = await adapter.fetchTargetSchema!();
+    expect(result.sampleData).toBeUndefined();
     expect(result.fields).toBeUndefined();
   });
 

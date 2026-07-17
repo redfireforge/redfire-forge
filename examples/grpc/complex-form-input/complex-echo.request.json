@@ -1,0 +1,62 @@
+{
+  "message": "Complex echo demo",
+  "labels": ["alpha", "gamma", "tenant-us-east"],
+  "attributes": {
+    "env": "prod",
+    "region": "us-east",
+    "release": "2026.07"
+  },
+  "shipping_address": {
+    "street": "500 Market St",
+    "city": "San Francisco",
+    "country": "USA",
+    "postal_code": "94105"
+  },
+  "deadline": "2026-07-06T11:03:26.487Z",
+  "line_items": [
+    {
+      "sku": "SKU-001",
+      "quantity": 2,
+      "dimensions": {
+        "width_cm": "10",
+        "height_cm": "25",
+        "depth_cm": "8"
+      }
+    },
+    {
+      "sku": "SKU-002",
+      "quantity": 1,
+      "dimensions": {
+        "width_cm": "15",
+        "height_cm": "35",
+        "depth_cm": "9"
+      }
+    }
+  ],
+  "windows": [
+    {
+      "start": "2026-07-06T11:03:26.487Z",
+      "end": "2026-07-06T12:03:26.487Z"
+    },
+    {
+      "start": "2026-07-06T14:03:26.487Z",
+      "end": "2026-07-06T15:03:26.487Z"
+    }
+  ],
+  "payment_method": {
+    "invoice": {
+      "invoice_id": "INV-10029",
+      "cost_center": "ops-platform"
+    }
+  },
+  "experiment_flags": {
+    "checkout_v2": {
+      "enabled": true,
+      "source": "growth-lab"
+    },
+    "fraud_shield": {
+      "enabled": false,
+      "source": "risk-team"
+    }
+  }
+}

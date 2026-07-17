@@ -5,6 +5,16 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      variant:
+        description: 'Build variant (standard = prod slim, demo = Learning Hub)'
+        required: true
+        default: standard
+        type: choice
+        options:
+          - standard
+          - demo
+          - both
 
 jobs:
   build:
@@ -15,18 +25,42 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             label: macOS-ARM64
+            variant: standard
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            label: macOS-ARM64-Demo
+            variant: demo
           - platform: macos-latest
             target: x86_64-apple-darwin
             label: macOS-x64
+            variant: standard
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            label: macOS-x64-Demo
+            variant: demo
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             label: Linux-x64
+            variant: standard
+          - platform: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            label: Linux-x64-Demo
+            variant: demo
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             label: Windows-x64
+            variant: standard
+          - platform: windows-latest
+            target: x86_64-pc-windows-msvc
+            label: Windows-x64-Demo
+            variant: demo
 
     runs-on: ${{ matrix.platform }}
     name: Build (${{ matrix.label }})
+
+    if: |
+      (github.event_name == 'workflow_dispatch' && (inputs.variant == 'both' || inputs.variant == matrix.variant)) ||
+      (github.event_name == 'push' && ((endsWith(github.ref_name, '-demo') && matrix.variant == 'demo') || (!endsWith(github.ref_name, '-demo') && matrix.variant == 'standard')))
 
     steps:
       - uses: actions/checkout@v4
@@ -57,7 +91,8 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Build Tauri app
+      - name: Build Tauri app (standard)
+        if: matrix.variant == 'standard'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -68,3 +103,17 @@ jobs:
           releaseDraft: true
           prerelease: false
           args: --target ${{ matrix.target }}
+
+      - name: Build Tauri app (Learning Hub)
+        if: matrix.variant == 'demo'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'RedfireForge Learning Hub ${{ github.ref_name }}'
+          releaseBody: 'Learning Hub build with interactive tutorials. Download the installer for your platform below.'
+          releaseDraft: true
+          prerelease: false
+          assetNamePattern: 'RedfireForge-LearningHub-[version]-[platform]-[arch][ext]'
+          args: --target ${{ matrix.target }} --config src-tauri/tauri.conf.demo.json

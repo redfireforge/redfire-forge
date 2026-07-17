@@ -1,0 +1,108 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`Phase 11C-B - JSON and CSV export stability > serializes CSV with reproducible metadata and per-attempt rows 1`] = `
+"runId,exportedAt,startedAt,completedAt,durationMs,stopReason,resolvedEnvName,concurrency,totalCalls,durationLimitMs,rampUpMs,warmupCalls,scheduled,completed,succeeded,failed,warmupScheduled,warmupCompleted,peakInFlight,totalAttempts,warmupAttempts,measuredAttempts,latencySamples,latencyMinMs,latencyMaxMs,latencyMeanMs,latencyP50Ms,latencyP95Ms,latencyP99Ms,latencyP999Ms,allAttemptsPerSecond,measuredAttemptsPerSecond,warmupAttemptsPerSecond,succeededAttemptsPerSecond,failedAttemptsPerSecond,statusCodeDistribution,attemptNumber,warmup,attemptStartedAt,attemptFinishedAt,attemptDurationMs,attemptOk,attemptStatusCode,attemptErrorMessage,sourceService,sourceMethod,sourceDescriptorKey,sourceTargetTemplate,sourceTransportMode
+run-11c,2026-07-01T00:00:13.000Z,2026-07-01T00:00:02.000Z,2026-07-01T00:00:12.000Z,10000,completed_total_calls,local,4,4,,,2,4,4,3,1,2,2,2,4,2,2,2,100,200,150,200,200,200,200,0.4,0.2,0.2,0.1,0.1,0|14,1,true,2026-07-01T00:00:02.000Z,2026-07-01T00:00:02.010Z,10,true,0,,,,,,
+run-11c,2026-07-01T00:00:13.000Z,2026-07-01T00:00:02.000Z,2026-07-01T00:00:12.000Z,10000,completed_total_calls,local,4,4,,,2,4,4,3,1,2,2,2,4,2,2,2,100,200,150,200,200,200,200,0.4,0.2,0.2,0.1,0.1,0|14,2,true,2026-07-01T00:00:02.000Z,2026-07-01T00:00:02.020Z,20,true,0,,,,,,
+run-11c,2026-07-01T00:00:13.000Z,2026-07-01T00:00:02.000Z,2026-07-01T00:00:12.000Z,10000,completed_total_calls,local,4,4,,,2,4,4,3,1,2,2,2,4,2,2,2,100,200,150,200,200,200,200,0.4,0.2,0.2,0.1,0.1,0|14,3,false,2026-07-01T00:00:02.000Z,2026-07-01T00:00:02.100Z,100,true,0,,,,,,
+run-11c,2026-07-01T00:00:13.000Z,2026-07-01T00:00:02.000Z,2026-07-01T00:00:12.000Z,10000,completed_total_calls,local,4,4,,,2,4,4,3,1,2,2,2,4,2,2,2,100,200,150,200,200,200,200,0.4,0.2,0.2,0.1,0.1,0|14,4,false,2026-07-01T00:00:02.000Z,2026-07-01T00:00:02.200Z,200,false,14,UNAVAILABLE,,,,,"
+`;
+
+exports[`Phase 11C-B - JSON and CSV export stability > serializes stable JSON with run metadata and raw attempts 1`] = `
+"{
+  "schemaVersion": 1,
+  "kind": "grpc_load_test_summary",
+  "runId": "run-11c",
+  "exportedAt": "2026-07-01T00:00:13.000Z",
+  "startedAt": "2026-07-01T00:00:02.000Z",
+  "completedAt": "2026-07-01T00:00:12.000Z",
+  "durationMs": 10000,
+  "stopReason": "completed_total_calls",
+  "resolvedEnvName": "local",
+  "config": {
+    "concurrency": 4,
+    "totalCalls": 4,
+    "warmupCalls": 2
+  },
+  "counts": {
+    "scheduled": 4,
+    "completed": 4,
+    "succeeded": 3,
+    "failed": 1,
+    "warmupScheduled": 2,
+    "warmupCompleted": 2,
+    "peakInFlight": 2
+  },
+  "metrics": {
+    "latency": {
+      "samples": 2,
+      "warmupSamples": 2,
+      "measuredSamples": 2,
+      "minMs": 100,
+      "maxMs": 200,
+      "meanMs": 150,
+      "p50Ms": 200,
+      "p95Ms": 200,
+      "p99Ms": 200,
+      "p999Ms": 200
+    },
+    "throughput": {
+      "allAttemptsPerSecond": 0.4,
+      "measuredAttemptsPerSecond": 0.2,
+      "warmupAttemptsPerSecond": 0.2,
+      "succeededAttemptsPerSecond": 0.1,
+      "failedAttemptsPerSecond": 0.1
+    },
+    "statusDistribution": {
+      "totalAttempts": 4,
+      "warmupAttempts": 2,
+      "measuredAttempts": 2,
+      "succeededAttempts": 1,
+      "failedAttempts": 1,
+      "byStatusCode": {
+        "0": 1,
+        "14": 1
+      }
+    }
+  },
+  "attempts": [
+    {
+      "attemptNumber": 1,
+      "warmup": true,
+      "startedAt": "2026-07-01T00:00:02.000Z",
+      "finishedAt": "2026-07-01T00:00:02.010Z",
+      "durationMs": 10,
+      "ok": true,
+      "statusCode": 0
+    },
+    {
+      "attemptNumber": 2,
+      "warmup": true,
+      "startedAt": "2026-07-01T00:00:02.000Z",
+      "finishedAt": "2026-07-01T00:00:02.020Z",
+      "durationMs": 20,
+      "ok": true,
+      "statusCode": 0
+    },
+    {
+      "attemptNumber": 3,
+      "warmup": false,
+      "startedAt": "2026-07-01T00:00:02.000Z",
+      "finishedAt": "2026-07-01T00:00:02.100Z",
+      "durationMs": 100,
+      "ok": true,
+      "statusCode": 0
+    },
+    {
+      "attemptNumber": 4,
+      "warmup": false,
+      "startedAt": "2026-07-01T00:00:02.000Z",
+      "finishedAt": "2026-07-01T00:00:02.200Z",
+      "durationMs": 200,
+      "ok": false,
+      "statusCode": 14,
+      "errorMessage": "UNAVAILABLE"
+    }
+  ]
+}"
+`;

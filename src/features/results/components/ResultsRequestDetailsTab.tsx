@@ -3,6 +3,7 @@ import type { Dispatch, ReactNode, SetStateAction } from 'react';
 import type { RequestResult, TestRun } from '../../../shared/types';
 import type { GroupNode, GroupByLevel } from '../../test-runner/utils/resultsGrouping';
 import { DataRowSummaryTable } from './DataRowSummaryTable';
+import { formatTransportStatus, getTransportMethodLabel } from '../utils/transportStatus';
 
 interface Props {
   selectedRun: TestRun | null;
@@ -76,12 +77,12 @@ export function ResultsRequestDetailsTab({
     <tr key={r.id} className={`group-detail-row ${r.passed ? '' : 'row-failed'} clickable-row`} onClick={() => onResultClick(r)}>
       <td className="result-id-cell">{r.id.replace(/^\D+/, '')}</td>
       <td className="group-detail-name">
-        <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
+        <span className={`method-badge method-${r.method.toLowerCase()}`}>{getTransportMethodLabel(r)}</span>
         {' '}{r.scenarioName}
         {r.dataRowLabel && <span className="data-row-label">{r.dataRowLabel}</span>}
       </td>
       <td colSpan={2} className="url-cell">{r.url}</td>
-      <td>{(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
+      <td>{formatTransportStatus(r)}</td>
       <td><span className={`tag ${r.validationMode === 'none' ? 'tag-dim' : 'tag-info'}`}>{r.validationMode ?? 'none'}</span></td>
       <td>{r.responseTimeMs}</td>
       <td>{r.passed ? '✓' : '✗'}</td>
@@ -273,9 +274,9 @@ export function ResultsRequestDetailsTab({
                 <tr key={r.id} className={`${r.passed ? '' : 'row-failed'} clickable-row`} onClick={() => onResultClick(r)}>
                   <td className="result-id-cell">{r.id.replace(/^\D+/, '')}</td>
                   <td>{r.scenarioName}{r.dataRowLabel && <span className="data-row-label">{r.dataRowLabel}</span>}</td>
-                  <td><span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span></td>
+                  <td><span className={`method-badge method-${r.method.toLowerCase()}`}>{getTransportMethodLabel(r)}</span></td>
                   <td className="url-cell">{r.url}</td>
-                  <td>{(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</td>
+                  <td>{formatTransportStatus(r)}</td>
                   <td>{r.responseTimeMs}</td>
                   <td><span className={`tag ${r.validationMode === 'none' ? 'tag-dim' : 'tag-info'}`}>{r.validationMode ?? 'none'}</span></td>
                   <td>{r.passed ? '✓' : '✗'}</td>

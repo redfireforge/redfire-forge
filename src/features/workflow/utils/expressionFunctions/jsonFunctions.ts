@@ -1,5 +1,6 @@
 import type { ExpressionFunction } from './types';
 import { s, n } from './helpers';
+import { tryParseJsonArray } from '../../../../shared/utils/helpers';
 
 /**
  * Parse a JSONPath-like string into segments.
@@ -161,7 +162,7 @@ const $flatten: ExpressionFunction = {
   returnType: 'array',
   examples: [{ input: '$flatten([[1,2],[3,4]])', output: '[1,2,3,4]' }],
   evaluate: (v) => {
-    const arr = Array.isArray(v) ? v : (() => { try { return JSON.parse(s(v)); } catch { return []; } })();
+    const arr = tryParseJsonArray<unknown>(v);
     return Array.isArray(arr) ? arr.flat() : [];
   },
 };
@@ -207,7 +208,7 @@ const $sort: ExpressionFunction = {
   returnType: 'array',
   examples: [{ input: '$sort([3,1,2])', output: '[1,2,3]' }],
   evaluate: (v) => {
-    const arr = Array.isArray(v) ? [...v] : (() => { try { return JSON.parse(s(v)); } catch { return []; } })();
+    const arr = tryParseJsonArray<unknown>([...Array.isArray(v) ? v : (tryParseJsonArray<unknown>(s(v)))]);
     if (!Array.isArray(arr)) return [];
     return arr.sort((a, b) => {
       const sa = String(a), sb = String(b);
@@ -224,7 +225,7 @@ const $reverse: ExpressionFunction = {
   returnType: 'array',
   examples: [{ input: '$reverse([1,2,3])', output: '[3,2,1]' }],
   evaluate: (v) => {
-    const arr = Array.isArray(v) ? [...v] : (() => { try { return JSON.parse(s(v)); } catch { return []; } })();
+    const arr = Array.isArray(v) ? [...v] : tryParseJsonArray<unknown>(s(v));
     if (!Array.isArray(arr)) return [];
     return arr.reverse();
   },
@@ -238,7 +239,7 @@ const $unique: ExpressionFunction = {
   returnType: 'array',
   examples: [{ input: '$unique([1,2,2,3,3])', output: '[1,2,3]' }],
   evaluate: (v) => {
-    const arr = Array.isArray(v) ? v : (() => { try { return JSON.parse(s(v)); } catch { return []; } })();
+    const arr = Array.isArray(v) ? v : tryParseJsonArray<unknown>(s(v));
     if (!Array.isArray(arr)) return [];
     return [...new Set(arr.map(x => JSON.stringify(x)))].map(x => { try { return JSON.parse(x); } catch { return x; } });
   },
@@ -296,7 +297,7 @@ const $slice: ExpressionFunction = {
   returnType: 'array',
   examples: [{ input: '$slice([1,2,3,4,5], 1, 3)', output: '[2,3]' }],
   evaluate: (v, start, end) => {
-    const arr = Array.isArray(v) ? v : (() => { try { return JSON.parse(s(v)); } catch { return []; } })();
+    const arr = Array.isArray(v) ? v : tryParseJsonArray<unknown>(s(v));
     if (!Array.isArray(arr)) return [];
     return end != null ? arr.slice(n(start), n(end)) : arr.slice(n(start));
   },

@@ -1,0 +1,94 @@
+[
+  {
+    "name": "Echo Server (Basic)",
+    "url": "ws://localhost:8765",
+    "subprotocols": "",
+    "headers": [],
+    "queryParams": [],
+    "protocolMode": "auto",
+    "autoReconnect": false,
+    "maxReconnectAttempts": 5,
+    "reconnectIntervalMs": 3000,
+    "backoffMultiplier": 2,
+    "maxMessages": 10000,
+    "notes": "Basic echo server connection — used for WC-04, WC-05, WC-11 through WC-24"
+  },
+  {
+    "name": "Echo Server (With Headers)",
+    "url": "ws://localhost:8765",
+    "subprotocols": "",
+    "headers": [
+      { "key": "Authorization", "value": "Bearer test-token-123", "enabled": true },
+      { "key": "X-Custom-Header", "value": "test-value", "enabled": true }
+    ],
+    "queryParams": [
+      { "key": "token", "value": "abc123", "enabled": true },
+      { "key": "mode", "value": "test", "enabled": true }
+    ],
+    "protocolMode": "auto",
+    "autoReconnect": false,
+    "maxReconnectAttempts": 5,
+    "reconnectIntervalMs": 3000,
+    "backoffMultiplier": 2,
+    "maxMessages": 10000,
+    "notes": "Echo server with custom headers (forces proxy mode) — used for WC-06, WC-07, WC-17"
+  },
+  {
+    "name": "Echo Server (Subprotocol)",
+    "url": "ws://localhost:8765",
+    "subprotocols": "json",
+    "headers": [],
+    "queryParams": [],
+    "protocolMode": "auto",
+    "autoReconnect": false,
+    "maxReconnectAttempts": 5,
+    "reconnectIntervalMs": 3000,
+    "backoffMultiplier": 2,
+    "maxMessages": 10000,
+    "notes": "Echo server with subprotocol negotiation — used for WC-08 (jmalloc/echo-server does not negotiate subprotocols, so the connection fails with 'Server sent no subprotocol')"
+  },
+  {
+    "name": "Echo Server (Auto-Reconnect)",
+    "url": "ws://localhost:8765",
+    "subprotocols": "",
+    "headers": [],
+    "queryParams": [],
+    "protocolMode": "auto",
+    "autoReconnect": true,
+    "maxReconnectAttempts": 5,
+    "reconnectIntervalMs": 3000,
+    "backoffMultiplier": 2,
+    "maxMessages": 10000,
+    "notes": "Echo server with auto-reconnect enabled — used for WC-37, WC-39, WC-39a"
+  },
+  {
+    "name": "Environment Template",
+    "url": "{{wsBaseUrl}}/ws",
+    "subprotocols": "",
+    "headers": [
+      { "key": "X-Environment", "value": "{{envName}}", "enabled": true }
+    ],
+    "queryParams": [],
+    "protocolMode": "auto",
+    "autoReconnect": false,
+    "maxReconnectAttempts": 5,
+    "reconnectIntervalMs": 3000,
+    "backoffMultiplier": 2,
+    "maxMessages": 10000,
+    "notes": "Profile using environment variable templates (stored raw, resolved at connect time) — used for WC-40, WC-41, WC-43"
+  },
+  {
+    "name": "Echo Server (Low Cap 100)",
+    "url": "ws://localhost:8765",
+    "subprotocols": "",
+    "headers": [],
+    "queryParams": [],
+    "protocolMode": "auto",
+    "autoReconnect": false,
+    "maxReconnectAttempts": 5,
+    "reconnectIntervalMs": 3000,
+    "backoffMultiplier": 2,
+    "maxMessages": 100,
+    "notes": "Echo server with low message cap (100) — used for WC-45"
+  }
+]

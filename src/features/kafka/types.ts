@@ -15,17 +15,26 @@ export interface KafkaHeaderRow {
   enabled: boolean;
 }
 
+// ── Serde format ──────────────────────────────────────────────────────────
+
+/** Serialization format for key and value fields in the Publish panel. */
+export type KafkaSerdeFormat = 'string' | 'json' | 'base64' | 'hex';
+
 // ── Publish draft ──────────────────────────────────────────────────────────
 
 export interface KafkaPublishDraft {
   topic: string;
   key: string;
+  /** Encoding format for the key. Default: 'string'. */
+  keyFormat: KafkaSerdeFormat;
   /** '' = auto, numeric string = explicit partition number */
   partition: string;
   acks: -1 | 0 | 1;
   timeoutMs: string;
   headers: KafkaHeaderRow[];
   body: string;
+  /** Encoding format for the message body. Default: 'json'. */
+  bodyFormat: KafkaSerdeFormat;
   schemaConfig?: KafkaSchemaConfig;
 }
 

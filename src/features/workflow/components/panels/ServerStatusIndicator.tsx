@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { isTauri } from '../../../../shared/utils/platform';
 
 interface ServerStatus {
   online: boolean;
@@ -112,17 +113,32 @@ export default function ServerStatusIndicator() {
     }
   };
 
-  const stateClass = status.checking ? 'checking' : status.online ? 'online' : 'offline';
+  const isDesktop = isTauri();
+  const stateClass = status.checking ? 'checking' : status.online ? 'online' : isDesktop ? 'native' : 'offline';
+
+  const label = status.checking
+    ? '⟳ Checking...'
+    : status.online
+      ? '✓ Server Running'
+      : isDesktop
+        ? '⚡ Native Desktop'
+        : '✗ Server Offline';
+
+  const title = status.online
+    ? `Server healthy on port ${status.port}\nClick to refresh`
+    : isDesktop
+      ? 'Running in native desktop mode\nWS/Kafka use Rust transport\nClick to check proxy server'
+      : 'Server not responding\nClick to retry';
 
   return (
     <div
       className={`wf-server-status wf-server-status-${stateClass}`}
       onClick={handleClick}
-      title={status.online ? `Server healthy on port ${status.port}\nClick to refresh` : 'Server not responding\nClick to retry'}
+      title={title}
     >
       <div className={`wf-server-dot wf-server-dot-${stateClass}`} />
       <span className="wf-server-label">
-        {status.checking ? '⟳ Checking...' : status.online ? '✓ Server Running' : '✗ Server Offline'}
+        {label}
       </span>
       {status.online && status.port && (
         <span className="wf-server-port">:{status.port}</span>

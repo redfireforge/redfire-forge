@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import DataMapperModal from './DataMapperModal';
 import { MapperAdapter, Mapping, ValidationIssue } from './types';
@@ -42,6 +42,14 @@ function createAdapter(overrides?: Partial<MapperAdapter<Mapping[]>>): MapperAda
 }
 
 describe('DataMapperModal', () => {
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
 
   it('renders with adapter title in context badge', () => {
     const adapter = createAdapter();
@@ -474,7 +482,7 @@ describe('DataMapperModal', () => {
     await act(async () => {
       render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(loadSnapshot).toHaveBeenCalledWith('test');
   });
 
@@ -485,7 +493,7 @@ describe('DataMapperModal', () => {
     await act(async () => {
       render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(screen.getByText('Test Mapper')).toBeTruthy();
   });
 
@@ -496,7 +504,7 @@ describe('DataMapperModal', () => {
     const { container } = render(
       <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
     );
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(container.querySelector('.dm-drift-banner')).toBeNull();
   });
 
@@ -556,7 +564,7 @@ describe('DataMapperModal', () => {
     const { container } = await act(async () => {
       return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
   });
 
@@ -595,7 +603,7 @@ describe('DataMapperModal', () => {
     const { container } = await act(async () => {
       return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
 
     const dismissBtn = screen.getByLabelText('Dismiss drift notification');
@@ -639,7 +647,7 @@ describe('DataMapperModal', () => {
     const { container } = await act(async () => {
       return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
 
     const acceptBtn = screen.getByText('Accept & Update');
@@ -683,7 +691,7 @@ describe('DataMapperModal', () => {
     const { container } = await act(async () => {
       return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
 
     const diffBtn = screen.getByText('Show Diff');
@@ -739,7 +747,7 @@ describe('DataMapperModal', () => {
         onCancel={vi.fn()}
       />,
     );
-    await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     expect(container.querySelector('.dm-drift-banner')).toBeTruthy();
 
     fireEvent.click(screen.getByText('Save'));

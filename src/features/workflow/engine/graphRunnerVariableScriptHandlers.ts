@@ -7,6 +7,7 @@ import type {
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlerContext';
 import { executeScript } from './scriptSandbox';
 import { loadScriptLibraries, buildLibraryPreamble } from './scriptLibraries';
+import { tryParseJsonArray } from '../../../shared/utils/helpers';
 
 export async function handleSetVariableNode(
   nodeId: string,
@@ -90,9 +91,7 @@ export async function handleAggregateNode(
     switch (m.strategy) {
       case 'concat': {
         const existing = hCtx.ctx.resolve(`{{${m.targetVariable}}}`);
-        let arr: unknown[];
-        try { arr = JSON.parse(existing); } catch { arr = []; }
-        if (!Array.isArray(arr)) arr = [];
+        const arr = tryParseJsonArray(existing);
         try { arr.push(JSON.parse(sourceVal)); } catch { arr.push(sourceVal); }
         result = JSON.stringify(arr);
         break;

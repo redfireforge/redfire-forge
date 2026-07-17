@@ -20,7 +20,7 @@ vi.mock('./tauriStore', () => ({
   getUsageBytes: () => tauriGetUsage(),
 }));
 
-const { idbStore, catalogStore, workflowsStore, requestsStore, projectsStore } = vi.hoisted(() => {
+const { idbStore, catalogStore, workflowsStore, requestsStore, projectsStore, appConfigStore, runnerConfigStore } = vi.hoisted(() => {
   const store: Record<string, unknown> = {};
   return {
     idbStore: store,
@@ -39,6 +39,13 @@ const { idbStore, catalogStore, workflowsStore, requestsStore, projectsStore } =
     projectsStore: {
       projects: null as unknown[] | null,
     },
+    appConfigStore: {
+      environments: null as unknown[] | null,
+      microservices: null as unknown[] | null,
+      featureGroups: null as unknown[] | null,
+      globalAuthProfiles: null as unknown[] | null,
+    },
+    runnerConfigStore: {} as Record<string, string>,
   };
 });
 
@@ -92,6 +99,38 @@ vi.mock('./idbProjects', () => ({
   idbLoadProjects: vi.fn(async () => projectsStore.projects),
   idbSaveProjects: vi.fn(async (projects: unknown[]) => { projectsStore.projects = projects; }),
   idbMigrateProjects: vi.fn(async () => false),
+}));
+
+vi.mock('./idbEnvironmentsMicroservices', () => ({
+  idbLoadEnvironments: vi.fn(async () => appConfigStore.environments),
+  idbSaveEnvironments: vi.fn(async (data: unknown[]) => { appConfigStore.environments = data; }),
+  idbMigrateEnvironments: vi.fn(async () => false),
+  idbLoadMicroservices: vi.fn(async () => appConfigStore.microservices),
+  idbSaveMicroservices: vi.fn(async (data: unknown[]) => { appConfigStore.microservices = data; }),
+  idbMigrateMicroservices: vi.fn(async () => false),
+}));
+
+vi.mock('./idbFeatureGroups', () => ({
+  idbLoadFeatureGroups: vi.fn(async () => appConfigStore.featureGroups),
+  idbSaveFeatureGroups: vi.fn(async (data: unknown[]) => { appConfigStore.featureGroups = data; }),
+  idbMigrateFeatureGroups: vi.fn(async () => false),
+}));
+
+vi.mock('./idbGlobalAuthProfiles', () => ({
+  idbLoadGlobalAuthProfiles: vi.fn(async () => appConfigStore.globalAuthProfiles),
+  idbSaveGlobalAuthProfiles: vi.fn(async (data: unknown[]) => { appConfigStore.globalAuthProfiles = data; }),
+  idbMigrateGlobalAuthProfiles: vi.fn(async () => false),
+}));
+
+vi.mock('./idbRunnerConfig', () => ({
+  idbLoadRunnerConfig: vi.fn(async (contextKey: string) => runnerConfigStore[contextKey || '__default__'] ?? null),
+  idbSaveRunnerConfig: vi.fn(async (contextKey: string, payload: string) => {
+    runnerConfigStore[contextKey || '__default__'] = payload;
+  }),
+  idbMigrateRunnerConfigsFromLocalStorage: vi.fn(async () => 0),
+  purgeRunnerConfigLocalStorageKeys: vi.fn(() => ({ removed: 0, freedBytes: 0 })),
+  idbPruneRunnerConfigs: vi.fn(async () => 0),
+  idbListRunnerConfigIds: vi.fn(async () => Object.keys(runnerConfigStore)),
 }));
 
 vi.mock('./idbTestRuns', () => {
@@ -188,6 +227,11 @@ beforeEach(() => {
   workflowsStore.folders = null;
   requestsStore.data = null;
   projectsStore.projects = null;
+  appConfigStore.environments = null;
+  appConfigStore.microservices = null;
+  appConfigStore.featureGroups = null;
+  appConfigStore.globalAuthProfiles = null;
+  for (const k of Object.keys(runnerConfigStore)) delete runnerConfigStore[k];
   _idbInsertOrder = 0;
   isTauriMock.mockReturnValue(false);
   tauriGetItem.mockReset();
@@ -304,6 +348,18 @@ describe('storage — runner config', () => {
   it('returns null when no config stored', async () => {
     expect(await loadRunnerConfig()).toBeNull();
   });
+
+  it('saveRunnerConfig persists to IDB without leaving legacy localStorage keys', async () => {
+    await saveRunnerConfig({ concurrency: 2 }, 'env-1:svc-1');
+    expect(await loadRunnerConfig('env-1:svc-1')).toEqual({ concurrency: 2 });
+    expect(localStorage.getItem('perf-test-runner-config:env-1:svc-1')).toBeNull();
+  });
+
+  it('loadRunnerConfig migrates legacy localStorage into IDB', async () => {
+    localStorage.setItem('perf-test-runner-config:legacy-env', '{"concurrency":7}');
+    const loaded = await loadRunnerConfig('legacy-env');
+    expect(loaded).toEqual({ concurrency: 7 });
+  });
 });
 
 describe('storage — theme', () => {
@@ -328,7 +384,7 @@ describe('storage — usage', () => {
     await saveEnvironments([{ id: 'e1', name: 't01' }]);
     const { usedBytes, entries } = await getStorageUsage();
     expect(usedBytes).toBeGreaterThan(0);
-    expect(entries['perf-test-v3-environments']).toBeGreaterThan(0);
+    expect(entries['environments (IndexedDB)']).toBeGreaterThan(0);
   });
 
   it('includes sizes for workflows, requests, catalog, and projects IDB stores', async () => {
@@ -374,11 +430,15 @@ describe('storage — diagnostics and cleanup', () => {
     expect(localStorage.getItem('perf-test-wf-undo-wf1')).toBeNull();
   });
 
-  it('cleanupStaleStorageKeys removes deep runner-config keys', () => {
+  it('cleanupStaleStorageKeys removes stale runner-config keys', () => {
     localStorage.setItem('perf-test-runner-config:a:b:c:d', '{"iterations":1}');
+    localStorage.setItem('perf-test-runner-config:90601c56-6402-4abc-def0-1234', '{"iterations":2}');
+    localStorage.setItem('perf-test-runner-config:_workflow_runner', '{"iterations":3}');
     const { removed } = cleanupStaleStorageKeys();
-    expect(removed).toBe(1);
+    expect(removed).toBeGreaterThanOrEqual(2);
     expect(localStorage.getItem('perf-test-runner-config:a:b:c:d')).toBeNull();
+    expect(localStorage.getItem('perf-test-runner-config:90601c56-6402-4abc-def0-1234')).toBeNull();
+    expect(localStorage.getItem('perf-test-runner-config:_workflow_runner')).toBe('{"iterations":3}');
   });
 
   it('cleanupStaleStorageKeys returns zero on Tauri', () => {

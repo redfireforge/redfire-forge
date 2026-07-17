@@ -84,6 +84,12 @@ services:
           -X pass=admin-secret \
           -X sasl.mechanism=SCRAM-SHA-256
 
+        rpk topic create secure.demo.orders --partitions 1 \
+          -X brokers=redpanda-secure:9092 \
+          -X user=admin \
+          -X pass=admin-secret \
+          -X sasl.mechanism=SCRAM-SHA-256
+
         # Grant ACLs to application user on all topics and groups.
         rpk acl create --allow-principal User:redfireforge-app \
           --operation all --topic '*' \

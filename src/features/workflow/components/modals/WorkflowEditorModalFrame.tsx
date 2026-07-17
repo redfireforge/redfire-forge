@@ -12,6 +12,11 @@ interface Props extends UseModalFrameOptions {
   children: ReactNode;
   footer?: ReactNode;
   headerActions?: ReactNode;
+  /**
+   * Fixed chrome between the title header and the scroll body (e.g. Config/Input tabs).
+   * Stays visible while the form scrolls.
+   */
+  toolbar?: ReactNode;
   overlayClassName?: string;
   dialogClassName?: string;
   bodyClassName?: string;
@@ -40,6 +45,7 @@ export default function WorkflowEditorModalFrame({
   children,
   footer,
   headerActions,
+  toolbar,
   overlayClassName = 'wf-config-modal-overlay',
   dialogClassName = 'wf-config-modal',
   bodyClassName,
@@ -56,7 +62,7 @@ export default function WorkflowEditorModalFrame({
   minWidth,
   minHeight,
 }: Props) {
-  const { expanded, setExpanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({
+  const { expanded, setExpanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner, onBottomEdge } = useModalFrame({
     open,
     initialExpanded,
     expandMode,
@@ -93,6 +99,8 @@ export default function WorkflowEditorModalFrame({
           </div>
         </div>
 
+        {toolbar ? <div className="wf-config-modal-toolbar">{toolbar}</div> : null}
+
         {bodyScrollable ? (
           <WorkflowModalScrollBody className={joinClasses('wf-config-modal-body', bodyClassName)} viewportClassName={bodyViewportClassName}>
             {children}
@@ -108,7 +116,7 @@ export default function WorkflowEditorModalFrame({
           </div>
         ) : null}
 
-        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} />
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} />
       </div>
     </div>
   );

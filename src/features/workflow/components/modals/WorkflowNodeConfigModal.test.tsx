@@ -8,6 +8,13 @@ import WorkflowNodeConfigModal from './WorkflowNodeConfigModal';
 import { WorkflowNode, HttpNodeData } from '../../types/workflow';
 import { Scenario } from '../../../../shared/types';
 import { WorkflowVariableHint } from '../../utils/workflowVariableHints';
+import { makeScenario as _makeScenario } from '../../../../test-utils/factories';
+import {
+  defaultGraphqlQueryNodeData,
+  defaultGraphqlSubscriptionNodeData,
+  defaultGraphqlIntrospectNodeData,
+  defaultGraphqlAssertNodeData,
+} from '../../utils/workflowNodeFactory';
 
 // Mock heavy child components to keep tests focused
 vi.mock('../configs/HttpConfig', () => ({
@@ -210,6 +217,58 @@ vi.mock('../configs/KafkaConsumeConfig', () => ({
   )),
 }));
 
+vi.mock('../configs/WsConnectConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+  }) => (
+    <div data-testid="ws-connect-config">
+      WsConnectConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched WS Connect' })}>patch-ws-connect</button>
+    </div>
+  )),
+}));
+
+vi.mock('../configs/WsSendConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+  }) => (
+    <div data-testid="ws-send-config">
+      WsSendConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched WS Send' })}>patch-ws-send</button>
+    </div>
+  )),
+}));
+
+vi.mock('../configs/WsReceiveConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+  }) => (
+    <div data-testid="ws-receive-config">
+      WsReceiveConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched WS Receive' })}>patch-ws-receive</button>
+    </div>
+  )),
+}));
+
+vi.mock('../configs/WsTriggerConfig', () => ({
+  __esModule: true,
+  default: vi.fn().mockImplementation((props: {
+    data: { label: string };
+    onChange: (p: Record<string, unknown>) => void;
+  }) => (
+    <div data-testid="ws-trigger-config">
+      WsTriggerConfig: {props.data.label}
+      <button type="button" onClick={() => props.onChange({ label: 'Patched WS Trigger' })}>patch-ws-trigger</button>
+    </div>
+  )),
+}));
+
 vi.mock('./WorkflowVariableInsertModal', () => ({
   __esModule: true,
   default: vi.fn().mockImplementation((props: { open: boolean; initialSearch: string }) => (
@@ -238,13 +297,14 @@ vi.mock('../configs/NodeConfigLogsTab', () => ({
   )),
 }));
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1', name: 'Test', url: '/api/test', method: 'GET',
-    headers: [], body: '', auth: { type: 'none' }, validation: {},
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
+    id: 's1',
+    name: 'Test',
+    url: '/api/test',
+    validation: {},
     ...overrides,
-  } as Scenario;
-}
+  }) as Scenario;
 
 function makeHttpNode(overrides: Partial<HttpNodeData> = {}): WorkflowNode {
   return {
@@ -268,7 +328,7 @@ const defaultProps = {
 
 describe('WorkflowNodeConfigModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   // ── Title ──
@@ -554,7 +614,7 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByDisplayValue('My Trigger')).toBeTruthy();
     expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
     expect(screen.getByDisplayValue('orders.created')).toBeTruthy();
-    expect(screen.getByText('Max Concurrent Runs')).toBeTruthy();
+    expect(screen.getByText('Max Concurrent')).toBeTruthy();
     expect(screen.getByText('Extract Variables')).toBeTruthy();
   });
 
@@ -566,7 +626,119 @@ describe('WorkflowNodeConfigModal', () => {
     expect(screen.getByDisplayValue('test-cluster')).toBeTruthy();
     expect(screen.getByDisplayValue('payments.done')).toBeTruthy();
     expect(screen.getByText('Correlation Matching')).toBeTruthy();
-    expect(screen.getByText('Correlation Source')).toBeTruthy();
+    expect(screen.getByText('Source')).toBeTruthy();
+  });
+
+  it('renders GrpcUnaryConfig for grpcUnary node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcUnary', {
+      label: 'gRPC Unary',
+      target: '127.0.0.1:50051',
+      descriptorKey: 'desc-key',
+      service: 'demo.EchoService',
+      method: 'Echo',
+      callType: 'unary',
+      body: {},
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-unary-config')).toBeInTheDocument();
+    expect(screen.queryByTestId('http-config')).not.toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('127.0.0.1:50051'), { target: { value: '127.0.0.1:50052' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ target: '127.0.0.1:50052' }));
+  });
+
+  it('renders GrpcServerStreamConfig for grpcServerStream node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcServerStream', {
+      label: 'gRPC Server Stream',
+      target: '127.0.0.1:50051',
+      descriptorKey: 'desc-key',
+      service: 'demo.EchoService',
+      method: 'StreamEcho',
+      callType: 'server_streaming',
+      body: {},
+      collect: { maxMessages: 10 },
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-server-stream-config')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('10'), { target: { value: '25' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith(
+      'node-1',
+      expect.objectContaining({ collect: expect.objectContaining({ maxMessages: 25 }) }),
+    );
+  });
+
+  it('renders GrpcAssertConfig for grpcAssert node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcAssert', {
+      label: 'gRPC Assert',
+      source: 'grpc.call.result',
+      assertions: [{ grpcStatus: 0 }],
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-assert-config')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('grpc.call.result'), { target: { value: 'grpc.call.alias' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ source: 'grpc.call.alias' }));
+  });
+
+  it('renders GrpcLoadTestConfig for grpcLoadTest node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcLoadTest', {
+      label: 'gRPC Load Test',
+      target: '127.0.0.1:50051',
+      descriptorKey: 'desc-key',
+      service: 'demo.EchoService',
+      method: 'Echo',
+      body: {},
+      loadTest: { concurrency: 1, totalCalls: 10, warmupCalls: 0 },
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-load-test-config')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('127.0.0.1:50051'), { target: { value: '127.0.0.1:50061' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ target: '127.0.0.1:50061' }));
+  });
+
+  it('renders GrpcSchemaDiffConfig for grpcSchemaDiff node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcSchemaDiff', {
+      label: 'gRPC Schema Diff',
+      leftDescriptorKey: 'left-v1',
+      rightDescriptorKey: 'right-v2',
+      failOnBreaking: true,
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-schema-diff-config')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('checkbox'));
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ failOnBreaking: false }));
+  });
+
+  it('renders GrpcMockAssertConfig for grpcMockAssert node and persists edits', () => {
+    const onUpdateNode = vi.fn();
+    const node = makeNode('grpcMockAssert', {
+      label: 'gRPC Mock Assert',
+      listenTarget: '127.0.0.1:50061',
+      descriptorKey: 'desc-key',
+      service: 'demo.EchoService',
+      method: 'Echo',
+      body: {},
+      expectedStatus: 0,
+      onError: 'fail',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />);
+    expect(screen.getByTestId('grpc-mock-assert-config')).toBeInTheDocument();
+    fireEvent.change(screen.getByDisplayValue('127.0.0.1:50061'), { target: { value: '127.0.0.1:50062' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledWith('node-1', expect.objectContaining({ listenTarget: '127.0.0.1:50062' }));
   });
 
   // ── Draft / base URL / HTTP callbacks ──
@@ -746,5 +918,119 @@ describe('WorkflowNodeConfigModal', () => {
       expect(onUpdateNode.mock.calls.length).toBeGreaterThan(0);
       unmount();
     }
+  });
+
+  it('renders WS config components for all 4 WS node types', () => {
+    const wsCases: Array<{ type: WorkflowNode['type']; data: Record<string, unknown>; testId: string; button: string }> = [
+      { type: 'wsConnect', data: { url: 'wss://test', connectionId: 'c1' }, testId: 'ws-connect-config', button: 'patch-ws-connect' },
+      { type: 'wsSend', data: { connectionId: 'c1', message: 'hi' }, testId: 'ws-send-config', button: 'patch-ws-send' },
+      { type: 'wsReceive', data: { connectionId: 'c1', timeoutMs: 5000 }, testId: 'ws-receive-config', button: 'patch-ws-receive' },
+      { type: 'wsTrigger', data: { url: 'wss://test' }, testId: 'ws-trigger-config', button: 'patch-ws-trigger' },
+    ];
+    for (const { type, data, testId, button } of wsCases) {
+      const onUpdateNode = vi.fn();
+      const node = makeNode(type, data);
+      const { unmount } = render(
+        <WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />,
+      );
+      expect(screen.getByTestId(testId)).toBeInTheDocument();
+      fireEvent.click(screen.getByText(button));
+      fireEvent.click(screen.getByText('Save'));
+      expect(onUpdateNode.mock.calls.length).toBeGreaterThan(0);
+      unmount();
+    }
+  });
+
+  it('disables Save for graphql query node with validation errors', () => {
+    const node = makeNode('graphqlQuery', defaultGraphqlQueryNodeData());
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByText('Save')).toBeDisabled();
+  });
+
+  it('enables Save for graphql query node when config is valid', () => {
+    const node = makeNode('graphqlQuery', {
+      ...defaultGraphqlQueryNodeData(),
+      endpoint: 'http://api.example.com/graphql',
+      query: 'query { user { id } }',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={node} />);
+    expect(screen.getByText('Save')).not.toBeDisabled();
+  });
+
+  it('renders GraphQL workflow config panels and applies onChange callbacks', () => {
+    const onUpdateNode = vi.fn();
+    const graphqlCases: Array<{ type: WorkflowNode['type']; data: Record<string, unknown>; display: string }> = [
+      {
+        type: 'graphqlMutation',
+        data: { ...defaultGraphqlQueryNodeData(), label: 'Mut', endpoint: 'http://api.example.com/graphql', query: 'mutation { x }' },
+        display: 'Mut',
+      },
+      {
+        type: 'graphqlSubscription',
+        data: { ...defaultGraphqlSubscriptionNodeData(), endpoint: 'ws://api.example.com/graphql', query: 'subscription { x }' },
+        display: 'GraphQL Subscription',
+      },
+      {
+        type: 'graphqlIntrospect',
+        data: { ...defaultGraphqlIntrospectNodeData(), endpoint: 'http://api.example.com/graphql' },
+        display: 'GraphQL Introspect',
+      },
+      {
+        type: 'graphqlAssert',
+        data: { ...defaultGraphqlAssertNodeData(), sourceVariable: 'payload' },
+        display: 'GraphQL Assert',
+      },
+    ];
+
+    for (const { type, data, display } of graphqlCases) {
+      const node = makeNode(type, data);
+      const { unmount } = render(
+        <WorkflowNodeConfigModal {...defaultProps} node={node} onUpdateNode={onUpdateNode} />,
+      );
+      expect(screen.getByDisplayValue(display)).toBeTruthy();
+      fireEvent.change(screen.getByDisplayValue(display), { target: { value: `${display} v2` } });
+      fireEvent.click(screen.getByText('Save'));
+      expect(onUpdateNode).toHaveBeenCalled();
+      onUpdateNode.mockClear();
+      unmount();
+    }
+  });
+
+  it('collects wsConnectionIds from wsConnect nodes for wsSend config', () => {
+    const wsConnect = makeNode('wsConnect', { url: 'wss://example.com', connectionId: 'conn-42' });
+    const wsSend = makeNode('wsSend', { connectionId: '', message: 'hi' });
+    render(
+      <WorkflowNodeConfigModal
+        {...defaultProps}
+        node={wsSend}
+        allNodes={[wsConnect, wsSend]}
+      />,
+    );
+    expect(screen.getByTestId('ws-send-config')).toBeInTheDocument();
+  });
+
+  it('fires onChange when kafkaTrigger and kafkaWait configs edit label', () => {
+    const onUpdateNode = vi.fn();
+    const trigger = makeNode('kafkaTrigger', { clusterId: 'c1', topic: 'orders', label: 'Trigger' });
+    const { unmount: unmountTrigger } = render(
+      <WorkflowNodeConfigModal {...defaultProps} node={trigger} onUpdateNode={onUpdateNode} />,
+    );
+    fireEvent.change(screen.getByDisplayValue('Trigger'), { target: { value: 'Trigger v2' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalled();
+    unmountTrigger();
+
+    const wait = makeNode('kafkaWait', {
+      clusterId: 'c1',
+      topic: 'orders',
+      correlationIdExpression: '{{id}}',
+      correlationSource: 'body',
+      timeoutMs: 5000,
+      label: 'Wait',
+    });
+    render(<WorkflowNodeConfigModal {...defaultProps} node={wait} onUpdateNode={onUpdateNode} />);
+    fireEvent.change(screen.getByDisplayValue('Wait'), { target: { value: 'Wait v2' } });
+    fireEvent.click(screen.getByText('Save'));
+    expect(onUpdateNode).toHaveBeenCalledTimes(2);
   });
 });

@@ -67,7 +67,7 @@ function makeEntry(domain: GalleryDomain, overrides = {}): GalleryEntry<unknown>
 
 describe('useGalleryImport', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(storage.loadSharedDataSources).mockResolvedValue([]);
     vi.mocked(storage.saveSharedDataSources).mockResolvedValue(undefined);
   });

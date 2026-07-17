@@ -1,14 +1,14 @@
-import type { ValidationConfig, FailureDetail, ExpectedField, Assertion, ComparisonOperator } from '../shared/types';
+import type { ValidationConfig, FailureDetail, ExpectedField, Assertion } from '../shared/types';
 import { getByPath } from '../shared/utils/jsonPath';
-import Ajv from 'ajv';
-import addFormats from 'ajv-formats';
 import { evaluateFieldOperator } from './fieldOperatorEvaluation';
 import { deepCompare } from './deepCompare';
-import { evaluateExpression, formatExpressionResult } from '../features/workflow/utils/expressionEvaluator';
-import { resolveDate, toDayString, truncateToUnit } from './validatorDateHelpers';
-import { matchesStatusPattern, findHeader, evaluateHeaderOp, getJsonTypeName } from './validatorHttpHelpers';
-import { deepSubsetMatch } from './validatorSubsetMatch';
-import { wrapCustomExprDollarPaths, isTruthy } from './validatorCustomExpression';
+import {
+  handleStatus, handleResponseTime, handleHeader, handleRegex,
+  handleArrayLength, handleNumeric, handleDate, handleDatePrecise,
+  handleTypeCheck, handleExistence, handleArrayContains, handleEach,
+  handleContainsSubset, handleJsonSchema, handleBodySize,
+  handleKafkaField, handleWsField, handleWsNumericField, handleCustom,
+} from './validatorAssertionHandlers';
 export type { FieldEvalResult } from './fieldOperatorEvaluation';
 
 // Re-export canonical path engine for backward compatibility
@@ -19,15 +19,9 @@ export { resolveDate, toDayString, truncateToUnit } from './validatorDateHelpers
 export { matchesStatusPattern, getJsonTypeName } from './validatorHttpHelpers';
 export { deepSubsetMatch } from './validatorSubsetMatch';
 export { wrapCustomExprDollarPaths } from './validatorCustomExpression';
+export { compare, formatOp } from './validatorAssertionHandlers';
 
-let _ajvInstance: Ajv | null = null;
-function getAjv(): Ajv {
-  if (!_ajvInstance) {
-    _ajvInstance = new Ajv({ allErrors: true, strict: false });
-    addFormats(_ajvInstance);
-  }
-  return _ajvInstance;
-}
+// AJV singleton moved to validatorAssertionHandlers.ts
 
 
 
@@ -281,23 +275,7 @@ function tryRemapPaths(fields: ExpectedField[], responseBody: unknown, unordered
   return null;
 }
 
-export function compare(a: number, op: ComparisonOperator, b: number): boolean {
-  switch (op) {
-    case '=':  return a === b;
-    case '!=': return a !== b;
-    case '>':  return a > b;
-    case '>=': return a >= b;
-    case '<':  return a < b;
-    case '<=': return a <= b;
-  }
-}
-
-export function formatOp(op: ComparisonOperator): string {
-  const map: Record<ComparisonOperator, string> = {
-    '=': '=', '!=': '≠', '>': '>', '>=': '≥', '<': '<', '<=': '≤',
-  };
-  return map[op];
-}
+// compare() and formatOp() moved to validatorAssertionHandlers.ts — re-exported above
 
 export interface AssertionContext {
   httpStatus: number;
@@ -315,6 +293,18 @@ export interface AssertionContext {
     partition?: number;
     topic?: string;
   };
+  /**
+   * WebSocket-specific field context for `wsField` / `wsNumericField` assertion evaluation.
+   * Populated by the WS execution layer when building `ValidationInput`.
+   */
+  wsContext?: {
+    connectionId?: string;
+    frameType?: 'text' | 'binary';
+    protocol?: string;
+    messageSize?: number;
+    latencyMs?: number;
+    url?: string;
+  };
 }
 
 export function evaluateAssertions(
@@ -328,484 +318,66 @@ export function evaluateAssertions(
     const a = assertions[_ai];
     const negated = !!a.negate;
     const negPrefix = negated ? 'NOT ' : '';
-    const assertionFailures: FailureDetail[] = [];
+    let assertionFailures: FailureDetail[] = [];
     switch (a.type) {
-      case 'status': {
+      case 'status':
         statusAsserted = true;
-        if (!matchesStatusPattern(ctx.httpStatus, a.expected)) {
-          assertionFailures.push({
-            path: '(status)',
-            expected: a.expected,
-            actual: String(ctx.httpStatus),
-          });
-        }
+        assertionFailures = handleStatus(a, ctx);
         break;
-      }
-      case 'responseTime': {
-        if (ctx.responseTimeMs > a.maxMs) {
-          assertionFailures.push({
-            path: '(responseTime)',
-            expected: `≤ ${a.maxMs}ms`,
-            actual: `${ctx.responseTimeMs}ms`,
-          });
-        }
+      case 'responseTime':
+        assertionFailures = handleResponseTime(a, ctx);
         break;
-      }
-      case 'header': {
-        const headerVal = findHeader(ctx.responseHeaders, a.name);
-        const opResult = evaluateHeaderOp(headerVal, a.operator, a.value);
-        if (!opResult.pass) {
-          assertionFailures.push({
-            path: `(header:${a.name})`,
-            expected: opResult.expected,
-            actual: opResult.actual,
-          });
-        }
+      case 'header':
+        assertionFailures = handleHeader(a, ctx);
         break;
-      }
-      case 'regex': {
-        const val = getByPath(ctx.responseBody, a.jsonPath);
-        const str = val === undefined ? 'undefined' : typeof val === 'string' ? val : JSON.stringify(val);
-        try {
-          const re = new RegExp(a.pattern);
-          if (!re.test(str)) {
-            assertionFailures.push({
-              path: `(regex:${a.jsonPath})`,
-              expected: `matches /${a.pattern}/`,
-              actual: str.length > 200 ? str.slice(0, 200) + '…' : str,
-            });
-          }
-        } catch {
-          assertionFailures.push({
-            path: `(regex:${a.jsonPath})`,
-            expected: `valid regex /${a.pattern}/`,
-            actual: 'invalid regex pattern',
-          });
-        }
+      case 'regex':
+        assertionFailures = handleRegex(a, ctx);
         break;
-      }
-      case 'arrayLength': {
-        const arr = getByPath(ctx.responseBody, a.jsonPath);
-        if (!Array.isArray(arr)) {
-          assertionFailures.push({
-            path: `(arrayLength:${a.jsonPath})`,
-            expected: `array with length ${formatOp(a.operator)} ${a.value}`,
-            actual: arr === undefined ? 'undefined' : `not an array (${typeof arr})`,
-          });
-        } else if (!compare(arr.length, a.operator, a.value)) {
-          assertionFailures.push({
-            path: `(arrayLength:${a.jsonPath})`,
-            expected: `length ${formatOp(a.operator)} ${a.value}`,
-            actual: `length ${arr.length}`,
-          });
-        }
+      case 'arrayLength':
+        assertionFailures = handleArrayLength(a, ctx);
         break;
-      }
-      case 'numeric': {
-        const raw = getByPath(ctx.responseBody, a.jsonPath);
-        const num = typeof raw === 'number' ? raw : Number(raw);
-        if (raw === undefined) {
-          assertionFailures.push({
-            path: `(numeric:${a.jsonPath})`,
-            expected: `numeric value ${formatOp(a.operator)} ${a.value}`,
-            actual: 'undefined',
-          });
-        } else if (isNaN(num)) {
-          assertionFailures.push({
-            path: `(numeric:${a.jsonPath})`,
-            expected: `numeric value ${formatOp(a.operator)} ${a.value}`,
-            actual: `not a number: ${JSON.stringify(raw)}`,
-          });
-        } else if (!compare(num, a.operator, a.value)) {
-          assertionFailures.push({
-            path: `(numeric:${a.jsonPath})`,
-            expected: `${formatOp(a.operator)} ${a.value}`,
-            actual: String(num),
-          });
-        }
+      case 'numeric':
+        assertionFailures = handleNumeric(a, ctx);
         break;
-      }
-      case 'date': {
-        const rawDate = getByPath(ctx.responseBody, a.jsonPath);
-        const dayStr = toDayString(rawDate);
-        if (rawDate === undefined) {
-          assertionFailures.push({
-            path: `(date:${a.jsonPath})`,
-            expected: `date ${formatOp(a.operator)} ${resolveDate(a.reference)}`,
-            actual: 'undefined',
-          });
-        } else if (dayStr === null) {
-          assertionFailures.push({
-            path: `(date:${a.jsonPath})`,
-            expected: `date ${formatOp(a.operator)} ${resolveDate(a.reference)}`,
-            actual: `not a date: ${JSON.stringify(rawDate)}`,
-          });
-        } else {
-          const refStr = resolveDate(a.reference);
-          const cmp = dayStr.localeCompare(refStr);
-          if (!compare(cmp, a.operator, 0)) {
-            assertionFailures.push({
-              path: `(date:${a.jsonPath})`,
-              expected: `${formatOp(a.operator)} ${refStr}`,
-              actual: dayStr,
-            });
-          }
-        }
+      case 'date':
+        assertionFailures = handleDate(a, ctx);
         break;
-      }
-      case 'typeCheck': {
-        const tcVal = getByPath(ctx.responseBody, a.jsonPath);
-        if (tcVal === undefined) {
-          assertionFailures.push({
-            path: `(typeCheck:${a.jsonPath})`,
-            expected: `type ${a.expectedType}`,
-            actual: 'path not found',
-          });
-        } else {
-          const actualType = getJsonTypeName(tcVal);
-          if (actualType !== a.expectedType) {
-            assertionFailures.push({
-              path: `(typeCheck:${a.jsonPath})`,
-              expected: `type ${a.expectedType}`,
-              actual: `type ${actualType}`,
-            });
-          }
-        }
+      case 'typeCheck':
+        assertionFailures = handleTypeCheck(a, ctx);
         break;
-      }
-      case 'existence': {
-        const exVal = getByPath(ctx.responseBody, a.jsonPath);
-        const found = exVal !== undefined;
-        if (found !== a.expectExists) {
-          assertionFailures.push({
-            path: `(existence:${a.jsonPath})`,
-            expected: a.expectExists ? 'field exists' : 'field does not exist',
-            actual: found ? 'field exists' : 'field not found',
-          });
-        }
+      case 'existence':
+        assertionFailures = handleExistence(a, ctx);
         break;
-      }
-      case 'arrayContains': {
-        const acArr = getByPath(ctx.responseBody, a.jsonPath);
-        if (!Array.isArray(acArr)) {
-          assertionFailures.push({
-            path: `(arrayContains:${a.jsonPath})`,
-            expected: `array containing value`,
-            actual: acArr === undefined ? 'undefined' : `not an array (${typeof acArr})`,
-          });
-          break;
-        }
-        let parsedValue: unknown;
-        try { parsedValue = JSON.parse(a.value); } catch { parsedValue = a.value; }
-        const itemMatches = (item: unknown): boolean => {
-          if (typeof parsedValue === 'object' && parsedValue !== null) {
-            return deepSubsetMatch(item, parsedValue).match;
-          }
-          return item === parsedValue || JSON.stringify(item) === JSON.stringify(parsedValue);
-        };
-        switch (a.mode) {
-          case 'any': {
-            if (!acArr.some(itemMatches)) {
-              assertionFailures.push({
-                path: `(arrayContains:${a.jsonPath})`,
-                expected: `array contains ${a.value}`,
-                actual: `no matching item in ${acArr.length} items`,
-              });
-            }
-            break;
-          }
-          case 'all': {
-            const failCount = acArr.filter(item => !itemMatches(item)).length;
-            if (failCount > 0) {
-              assertionFailures.push({
-                path: `(arrayContains:${a.jsonPath})`,
-                expected: `all ${acArr.length} items match ${a.value}`,
-                actual: `${failCount} of ${acArr.length} items did not match`,
-              });
-            }
-            break;
-          }
-          case 'only': {
-            const parsedArr = Array.isArray(parsedValue) ? parsedValue : [parsedValue];
-            const unmatched = parsedArr.filter(exp =>
-              !acArr.some(act => deepSubsetMatch(act, exp).match),
-            );
-            const extras = acArr.filter(act =>
-              !parsedArr.some(exp => deepSubsetMatch(act, exp).match),
-            );
-            if (unmatched.length > 0 || extras.length > 0) {
-              const parts: string[] = [];
-              if (unmatched.length > 0) parts.push(`missing: ${JSON.stringify(unmatched)}`);
-              if (extras.length > 0) parts.push(`extras: ${JSON.stringify(extras)}`);
-              assertionFailures.push({
-                path: `(arrayContains:${a.jsonPath})`,
-                expected: `exactly ${parsedArr.length} items (unordered)`,
-                actual: parts.join('; '),
-              });
-            }
-            break;
-          }
-          case 'none': {
-            const matchIdx = acArr.findIndex(itemMatches);
-            if (matchIdx >= 0) {
-              assertionFailures.push({
-                path: `(arrayContains:${a.jsonPath})`,
-                expected: `no items match ${a.value}`,
-                actual: `item at index ${matchIdx} matched`,
-              });
-            }
-            break;
-          }
-        }
+      case 'arrayContains':
+        assertionFailures = handleArrayContains(a, ctx);
         break;
-      }
-      case 'each': {
-        const eachArr = getByPath(ctx.responseBody, a.jsonPath);
-        if (!Array.isArray(eachArr)) {
-          assertionFailures.push({
-            path: `(each:${a.jsonPath})`,
-            expected: `array where every element satisfies condition`,
-            actual: eachArr === undefined ? 'undefined' : `not an array (${typeof eachArr})`,
-          });
-          break;
-        }
-        const eachFailures: string[] = [];
-        for (let idx = 0; idx < eachArr.length; idx++) {
-          const elem = eachArr[idx];
-          const fieldVal = a.fieldPath
-            ? getByPath(elem, a.fieldPath)
-            : elem;
-          const result = evaluateFieldOperator(
-            fieldVal, a.operator, a.value, a.value ?? '',
-          );
-          if (!result.pass) {
-            eachFailures.push(`[${idx}]${a.fieldPath ? '.' + a.fieldPath : ''}: expected ${result.expected}, got ${result.actual}`);
-          }
-        }
-        if (eachFailures.length > 0) {
-          const summary = eachFailures.length <= 3
-            ? eachFailures.join('; ')
-            : `${eachFailures.slice(0, 3).join('; ')} … and ${eachFailures.length - 3} more`;
-          assertionFailures.push({
-            path: `(each:${a.jsonPath})`,
-            expected: `all ${eachArr.length} items: ${a.fieldPath ? a.fieldPath + ' ' : ''}${a.operator}${a.value ? ' ' + a.value : ''}`,
-            actual: `${eachFailures.length} of ${eachArr.length} failed — ${summary}`,
-          });
-        }
+      case 'each':
+        assertionFailures = handleEach(a, ctx);
         break;
-      }
-      case 'containsSubset': {
-        const csVal = getByPath(ctx.responseBody, a.jsonPath);
-        if (csVal === undefined) {
-          assertionFailures.push({
-            path: `(containsSubset:${a.jsonPath})`,
-            expected: `contains subset ${a.expected}`,
-            actual: 'undefined',
-          });
-          break;
-        }
-        let parsedExpected: unknown;
-        try { parsedExpected = JSON.parse(a.expected); } catch {
-          assertionFailures.push({
-            path: `(containsSubset:${a.jsonPath})`,
-            expected: `valid JSON subset`,
-            actual: 'invalid JSON in expected',
-          });
-          break;
-        }
-        const subResult = deepSubsetMatch(csVal, parsedExpected);
-        if (!subResult.match) {
-          assertionFailures.push({
-            path: `(containsSubset:${a.jsonPath}${subResult.path ? '.' + subResult.path : ''})`,
-            expected: subResult.expected ?? a.expected,
-            actual: subResult.actual ?? JSON.stringify(csVal),
-          });
-        }
+      case 'containsSubset':
+        assertionFailures = handleContainsSubset(a, ctx);
         break;
-      }
-
-      case 'jsonSchema': {
-        try {
-          const schema = JSON.parse(a.schema);
-          const ajv = getAjv();
-          const validate = ajv.compile(schema);
-          const valid = validate(ctx.responseBody);
-          if (!valid && validate.errors) {
-            for (const err of validate.errors.slice(0, 10)) {
-              assertionFailures.push({
-                path: `(jsonSchema#${_ai}:${err.instancePath || '/'})`,
-                expected: err.message ?? 'schema validation',
-                actual: `violation at ${err.instancePath || '/'}: ${err.keyword}`,
-              });
-            }
-          }
-          ajv.removeSchema();
-        } catch (e) {
-          assertionFailures.push({
-            path: `(jsonSchema#${_ai})`,
-            expected: 'valid JSON Schema',
-            actual: e instanceof Error ? e.message : 'invalid schema',
-          });
-        }
+      case 'jsonSchema':
+        assertionFailures = handleJsonSchema(a, ctx, _ai);
         break;
-      }
-
-      case 'bodySize': {
-        const raw = ctx.rawBody ?? (ctx.responseBody != null ? JSON.stringify(ctx.responseBody) : '');
-        const sizeBytes = new TextEncoder().encode(raw).length;
-        const divisor = a.unit === 'kb' ? 1024 : a.unit === 'mb' ? 1024 * 1024 : 1;
-        const actualSize = sizeBytes / divisor;
-        const threshold = a.value;
-        if (!compare(actualSize, a.operator, threshold)) {
-          const unitLabel = a.unit === 'bytes' ? 'B' : a.unit.toUpperCase();
-          assertionFailures.push({
-            path: '(bodySize)',
-            expected: `body size ${formatOp(a.operator)} ${threshold} ${unitLabel}`,
-            actual: `${Math.round(actualSize * 100) / 100} ${unitLabel}`,
-          });
-        }
+      case 'bodySize':
+        assertionFailures = handleBodySize(a, ctx);
         break;
-      }
-
-      case 'datePrecise': {
-        const rawDp = getByPath(ctx.responseBody, a.jsonPath);
-        if (rawDp === undefined) {
-          assertionFailures.push({
-            path: `(datePrecise:${a.jsonPath})`,
-            expected: `date ${formatOp(a.operator)} ${a.reference} (${a.precision})`,
-            actual: 'undefined',
-          });
-          break;
-        }
-        const actualDate = new Date(String(rawDp));
-        const refDate = new Date(a.reference);
-        if (isNaN(actualDate.getTime())) {
-          assertionFailures.push({
-            path: `(datePrecise:${a.jsonPath})`,
-            expected: `valid date`,
-            actual: `invalid date: ${String(rawDp)}`,
-          });
-          break;
-        }
-        if (isNaN(refDate.getTime())) {
-          assertionFailures.push({
-            path: `(datePrecise:${a.jsonPath})`,
-            expected: `valid reference date`,
-            actual: `invalid reference: ${a.reference}`,
-          });
-          break;
-        }
-        const truncActual = truncateToUnit(actualDate, a.precision);
-        const truncRef = truncateToUnit(refDate, a.precision);
-        if (!compare(truncActual, a.operator, truncRef)) {
-          assertionFailures.push({
-            path: `(datePrecise:${a.jsonPath})`,
-            expected: `date ${formatOp(a.operator)} ${a.reference} (precision: ${a.precision})`,
-            actual: String(rawDp),
-          });
-        }
+      case 'datePrecise':
+        assertionFailures = handleDatePrecise(a, ctx);
         break;
-      }
-
-      case 'kafkaField': {
-        // Resolve a field from Kafka action result (key, offset, partition, header.*, body)
-        let kafkaFieldVal: string | undefined;
-        const kTarget = a.target;
-        if (kTarget === 'kafka.body') {
-          kafkaFieldVal = ctx.rawBody ?? (typeof ctx.responseBody === 'string' ? ctx.responseBody : JSON.stringify(ctx.responseBody));
-        } else if (kTarget === 'kafka.key') {
-          kafkaFieldVal = ctx.kafkaContext?.key;
-        } else if (kTarget === 'kafka.partition') {
-          kafkaFieldVal = ctx.kafkaContext?.partition !== undefined ? String(ctx.kafkaContext.partition) : undefined;
-        } else if (kTarget === 'kafka.offset') {
-          kafkaFieldVal = ctx.kafkaContext?.offset !== undefined ? String(ctx.kafkaContext.offset) : undefined;
-        } else if (kTarget.startsWith('kafka.header.')) {
-          kafkaFieldVal = findHeader(ctx.responseHeaders, kTarget.slice('kafka.header.'.length));
-        }
-        const kOpResult = evaluateHeaderOp(kafkaFieldVal, a.operator, a.value);
-        if (!kOpResult.pass) {
-          assertionFailures.push({
-            path: `(kafkaField:${kTarget})`,
-            expected: kOpResult.expected,
-            actual: kOpResult.actual,
-          });
-        }
+      case 'kafkaField':
+        assertionFailures = handleKafkaField(a, ctx);
         break;
-      }
-
-      case 'custom': {
-        // (handled above)
-        const expr = a.expression?.trim();
-        if (!expr) {
-          assertionFailures.push({
-            path: '(custom)',
-            expected: `${negPrefix}custom predicate to evaluate`,
-            actual: 'empty expression',
-          });
-          break;
-        }
-
-        const resolveVariable = (name: string): unknown => {
-          if (name === '$.body' || name === '$') return ctx.responseBody;
-          if (name === '$.status') return ctx.httpStatus;
-          if (name === '$.responseTime') return ctx.responseTimeMs;
-          if (name === '$.headers') return ctx.responseHeaders;
-          if (name === '$.rawBody') return ctx.rawBody ?? '';
-          if (name.startsWith('$.body.')) {
-            return getByPath(ctx.responseBody, '$.' + name.slice('$.body.'.length));
-          }
-          if (name.startsWith('$.headers.')) {
-            const headerName = name.slice('$.headers.'.length);
-            return findHeader(ctx.responseHeaders, headerName);
-          }
-          if (name.startsWith('$.')) {
-            return getByPath(ctx.responseBody, name);
-          }
-          // Kafka field selectors for custom assertions on Kafka action results
-          if (name.startsWith('kafka.')) {
-            const kafkaPath = name.slice('kafka.'.length);
-            if (kafkaPath === 'body') return ctx.rawBody ?? ctx.responseBody;
-            if (kafkaPath === 'key') return ctx.kafkaContext?.key;
-            if (kafkaPath === 'partition') return ctx.kafkaContext?.partition;
-            if (kafkaPath === 'offset') return ctx.kafkaContext?.offset;
-            if (kafkaPath === 'topic') return ctx.kafkaContext?.topic;
-            if (kafkaPath.startsWith('header.')) {
-              return findHeader(ctx.responseHeaders, kafkaPath.slice('header.'.length));
-            }
-          }
-          return undefined;
-        };
-
-        try {
-          const processed = wrapCustomExprDollarPaths(expr);
-          const result = evaluateExpression(processed, { resolveVariable });
-          if (result.error) {
-            assertionFailures.push({
-              path: '(custom)',
-              expected: `${negPrefix}expression to evaluate without error`,
-              actual: `expression error: ${result.error}`,
-            });
-          } else {
-            const v = result.value;
-            const passed = isTruthy(v);
-            if (!passed) {
-              const desc = a.description ? ` (${a.description})` : '';
-              assertionFailures.push({
-                path: '(custom)',
-                expected: `${negPrefix}custom predicate to pass${desc}`,
-                actual: formatExpressionResult(result.value),
-              });
-            }
-          }
-        } catch (e) {
-          assertionFailures.push({
-            path: '(custom)',
-            expected: `${negPrefix}expression to evaluate`,
-            actual: `runtime error: ${e instanceof Error ? e.message : String(e)}`,
-          });
-        }
+      case 'wsField':
+        assertionFailures = handleWsField(a, ctx);
         break;
-      }
+      case 'wsNumericField':
+        assertionFailures = handleWsNumericField(a, ctx);
+        break;
+      case 'custom':
+        assertionFailures = handleCustom(a, ctx, negPrefix);
+        break;
     }
 
     if (negated) {

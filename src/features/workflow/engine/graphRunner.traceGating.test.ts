@@ -24,30 +24,10 @@ vi.mock('./scriptLibraries', () => ({
 import { runGraph } from './graphRunner';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { executeScript } from './scriptSandbox';
+import { httpNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);
 const mockExecuteScript = vi.mocked(executeScript);
-
-function httpNode(id: string, label: string): WorkflowNode {
-  return {
-    id,
-    type: 'http',
-    position: { x: 0, y: 0 },
-    data: {
-      label,
-      scenario: {
-        id,
-        name: label,
-        url: `https://example.com/${id}`,
-        method: 'GET',
-        headers: [],
-        body: '',
-        auth: { type: 'none' },
-        validation: { mode: 'none' },
-      },
-    } as HttpNodeData,
-  };
-}
 
 function makeCallbacks() {
   let capturedTrace: WorkflowIterationTrace | undefined;

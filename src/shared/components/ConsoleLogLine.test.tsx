@@ -109,6 +109,30 @@ describe('ConsoleLogLine', () => {
     const el = container.firstChild as HTMLElement;
     expect(el.className).toContain('wf-cl-separator');
   });
+
+  it('renders nested depth, search highlights, and current-match styling', () => {
+    const line: LogLine = {
+      prefix: '#',
+      text: 'extract data',
+      ts: Date.now(),
+      depth: 2,
+      nodeLabel: 'Node',
+    };
+    const { container } = render(
+      <ConsoleLogLine line={line} searchQuery="extract" isMatch isCurrentMatch />,
+    );
+    const el = container.firstChild as HTMLElement;
+    expect(el.style.paddingLeft).toBe('32px');
+    expect(el.className).toContain('wf-cl-line-current-match');
+    expect(el.className).toContain('wf-cl-line-nested');
+    expect(container.querySelector('mark')).toBeTruthy();
+    expect(screen.getByText('[Node]')).toBeTruthy();
+  });
+
+  it('omits timestamp when ts is zero', () => {
+    const { container } = render(<ConsoleLogLine line={{ prefix: '', text: 'plain', ts: 0 }} />);
+    expect(container.querySelector('.wf-cl-ts')).toBeNull();
+  });
 });
 
 describe('highlightSearchMatch', () => {

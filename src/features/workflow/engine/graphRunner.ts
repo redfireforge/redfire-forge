@@ -32,15 +32,47 @@ import {
   handleKafkaConsumeNode,
   handleKafkaTriggerNode,
   handleKafkaWaitNode,
+  handleWsConnectNode,
+  handleWsSendNode,
+  handleWsReceiveNode,
+  handleWsTriggerNode,
+  handleGraphqlQueryNode,
+  handleGraphqlSubscriptionNode,
+  handleGraphqlIntrospectNode,
+  handleGraphqlAssertNode,
+  handleGrpcUnaryNode,
+  handleGrpcServerStreamNode,
+  handleGrpcAssertNode,
+  handleGrpcLoadTestNode,
+  handleGrpcSchemaDiffNode,
+  handleGrpcMockAssertNode,
   type NodeHandlerContext,
   type PassedFlag,
 } from './graphRunnerNodeHandlers';
 import { TraceCollector } from './traceCollector';
+import { GrpcWorkflowStepResultStore } from '../utils/grpcWorkflowStepResultStore';
+import { GrpcWorkflowOutputRegistry } from '../utils/grpcWorkflowOutputRegistry';
 import type { GraphRunCallbacks, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
 // Re-export interfaces so existing consumers of graphRunner.ts stay unbroken.
 export type { GraphRunCallbacks, SubWorkflowRunSummary, CorrelationWaitRunnerConfig } from './graphRunnerInterfaces';
 export { resolveTraceLevel } from './graphRunnerTraceLevel';
 import { resolveTraceLevel } from './graphRunnerTraceLevel';
+
+/** gRPC nodes record per-node pass/fail on RequestResult; trace must not inherit cumulative workflow state. */
+function resolveNodeTraceState(
+  nodeType: string,
+  nodeId: string,
+  passedFlag: { value: boolean },
+  results: RequestResult[],
+): 'pass' | 'fail' {
+  if (nodeType === 'grpcUnary' || nodeType === 'grpcServerStream' || nodeType === 'grpcAssert'
+    || nodeType === 'grpcLoadTest' || nodeType === 'grpcSchemaDiff' || nodeType === 'grpcMockAssert') {
+    const nodeResults = results.filter((r) => r.workflowNodeId === nodeId);
+    const lastResult = nodeResults[nodeResults.length - 1];
+    if (lastResult) return lastResult.passed ? 'pass' : 'fail';
+  }
+  return passedFlag.value ? 'pass' : 'fail';
+}
 
 /**
  * Execute a workflow graph with topological traversal.
@@ -82,6 +114,12 @@ export async function runGraph(
   httpTimeoutMs?: number,
   /** Kafka client operations for produce/consume nodes. When omitted, Kafka nodes will fail. */
   kafkaOperations?: import('./graphRunnerNodeHandlerContext').KafkaNodeOperations,
+  /** WebSocket client operations for WS nodes. When omitted, WS nodes will fail. */
+  wsOperations?: import('./graphRunnerNodeHandlerContext').WsNodeOperations,
+  /** gRPC client operations for grpcUnary/grpcServerStream nodes. When omitted, gRPC nodes will fail. */
+  grpcOperations?: import('./graphRunnerNodeHandlerContext').GrpcNodeOperations,
+  /** Hydrated gRPC connection profiles + global auth for workflow node snapshots. */
+  grpcWorkflowExecutionRuntime?: import('../utils/grpcWorkflowRuntimeContext').GrpcWorkflowExecutionRuntime,
 ): Promise<RequestResult[]> {
   const start = performance.now();
   const ctx = new VariableContext(initialVariables, environmentLayer);
@@ -95,6 +133,10 @@ export async function runGraph(
   const capturedSubWorkflowTraces = new Map<string, import('../../../shared/types').WorkflowExecutionTrace>();
   const capturedScriptOutput = new Map<string, string[]>();
   const capturedKafkaDetails = new Map<string, import('../../../shared/types').CapturedKafkaNodeDetails>();
+  const capturedWsDetails = new Map<string, import('../../../shared/types').CapturedWsNodeDetails>();
+  const capturedGrpcDetails = new Map<string, import('../../../shared/types').CapturedGrpcNodeDetails>();
+  const grpcStepResultStore = new GrpcWorkflowStepResultStore();
+  const grpcOutputRegistry = new GrpcWorkflowOutputRegistry();
 
   const effectiveLevelOnce = resolveTraceLevel(traceOptions);
   const nodeLogBuffer = new Map<string, { prefix: string; text: string; ts: number }[]>();
@@ -223,6 +265,13 @@ export async function runGraph(
       httpTimeoutMs: httpTimeoutMs ?? 30_000,
       kafkaOperations,
       capturedKafkaDetails,
+      wsOperations,
+      capturedWsDetails,
+      grpcOperations,
+      capturedGrpcDetails,
+      grpcStepResultStore,
+      grpcOutputRegistry,
+      grpcWorkflowExecutionRuntime,
     };
 
     // Phase 7e: Record node execution start
@@ -273,6 +322,34 @@ export async function runGraph(
         await handleKafkaTriggerNode(nodeId, node, hCtx);
       } else if (node.type === 'kafkaWait') {
         await handleKafkaWaitNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'wsConnect') {
+        await handleWsConnectNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'wsSend') {
+        await handleWsSendNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'wsReceive') {
+        await handleWsReceiveNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'wsTrigger') {
+        await handleWsTriggerNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'graphqlQuery' || node.type === 'graphqlMutation') {
+        await handleGraphqlQueryNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'graphqlSubscription') {
+        await handleGraphqlSubscriptionNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'graphqlIntrospect') {
+        await handleGraphqlIntrospectNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'graphqlAssert') {
+        await handleGraphqlAssertNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcUnary') {
+        await handleGrpcUnaryNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcServerStream') {
+        await handleGrpcServerStreamNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcAssert') {
+        await handleGrpcAssertNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcLoadTest') {
+        await handleGrpcLoadTestNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcSchemaDiff') {
+        await handleGrpcSchemaDiffNode(nodeId, node, hCtx, passedFlag);
+      } else if (node.type === 'grpcMockAssert') {
+        await handleGrpcMockAssertNode(nodeId, node, hCtx, passedFlag);
       } else if (node.type === 'end') {
         callbacks.onNodeStateChange(nodeId, { state: 'pass' });
       }
@@ -419,6 +496,78 @@ export async function runGraph(
           ctx.delete('__kwWaitDurationMs');
           ctx.delete('__kwResumeData');
           ctx.delete('__kwOutcome');
+        } else if (node.type === 'wsConnect' || node.type === 'wsSend' || node.type === 'wsReceive') {
+          const wsCaptured = capturedWsDetails.get(nodeId);
+          const wsNodeResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastWsResult = wsNodeResults[wsNodeResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(wsCaptured ? { wsDetails: wsCaptured } : {}),
+            ...(lastWsResult ? { responseTimeMs: lastWsResult.responseTimeMs } : {}),
+            ...(!passedFlag.value && lastWsResult?.errorMessage ? { error: lastWsResult.errorMessage } : {}),
+          };
+        } else if (node.type === 'wsTrigger') {
+          const triggerUrl = ctx.get('ws.trigger.url');
+          const triggerConnId = ctx.get('ws.trigger.connectionId');
+          const triggerMsgType = ctx.get('ws.trigger.messageType');
+          const triggerResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastTriggerResult = triggerResults[triggerResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            wsTriggerDetails: {
+              url: triggerUrl ?? '',
+              connectionId: triggerConnId ?? '',
+              ...(triggerMsgType ? { messageType: triggerMsgType } : {}),
+            },
+            ...(!passedFlag.value && lastTriggerResult?.errorMessage ? { error: lastTriggerResult.errorMessage } : {}),
+          };
+        } else if (
+          node.type === 'graphqlQuery' || node.type === 'graphqlMutation'
+          || node.type === 'graphqlSubscription' || node.type === 'graphqlIntrospect'
+          || node.type === 'graphqlAssert'
+        ) {
+          const gqlResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastResult = gqlResults[gqlResults.length - 1];
+          if (lastResult) {
+            eventDetails = {
+              responseTimeMs: lastResult.responseTimeMs,
+              ...(lastResult.httpStatus ? { statusCode: lastResult.httpStatus } : {}),
+              ...(lastResult.url ? { method: lastResult.method, url: lastResult.url } : {}),
+            };
+            if (!lastResult.passed && lastResult.errorMessage) {
+              eventDetails.error = lastResult.errorMessage;
+            }
+          }
+        } else if (node.type === 'grpcUnary' || node.type === 'grpcServerStream') {
+          const grpcCaptured = capturedGrpcDetails.get(nodeId);
+          const grpcResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastResult = grpcResults[grpcResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(grpcCaptured ? { grpcDetails: grpcCaptured } : {}),
+            ...(lastResult ? { responseTimeMs: lastResult.responseTimeMs } : {}),
+            ...(!lastResult?.passed && lastResult?.errorMessage ? { error: lastResult.errorMessage } : {}),
+          };
+        } else if (node.type === 'grpcAssert') {
+          const grpcCaptured = capturedGrpcDetails.get(nodeId);
+          const grpcResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastResult = grpcResults[grpcResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(grpcCaptured ? { grpcDetails: grpcCaptured } : {}),
+            ...(lastResult ? { responseTimeMs: lastResult.responseTimeMs } : {}),
+            ...(!lastResult?.passed && lastResult?.errorMessage ? { error: lastResult.errorMessage } : {}),
+          };
+        } else if (
+          node.type === 'grpcLoadTest' || node.type === 'grpcSchemaDiff' || node.type === 'grpcMockAssert'
+        ) {
+          const grpcResults = results.filter(r => r.workflowNodeId === nodeId);
+          const lastResult = grpcResults[grpcResults.length - 1];
+          eventDetails = {
+            extractedVariables: ctx.snapshot(),
+            ...(lastResult ? { responseTimeMs: lastResult.responseTimeMs } : {}),
+            ...(!lastResult?.passed && lastResult?.errorMessage ? { error: lastResult.errorMessage } : {}),
+          };
         }
       } else {
         // Minimal: only capture error info for failed nodes
@@ -432,6 +581,19 @@ export async function runGraph(
                   .map(f => `${f.path}: expected ${f.expected}, got ${f.actual}`)
                   .join('; '),
               };
+            }
+          } else if (node.type === 'wsConnect' || node.type === 'wsSend' || node.type === 'wsReceive' || node.type === 'wsTrigger'
+            || node.type === 'kafkaProduce' || node.type === 'kafkaConsume'
+            || node.type === 'graphqlQuery' || node.type === 'graphqlMutation'
+            || node.type === 'graphqlSubscription' || node.type === 'graphqlIntrospect'
+            || node.type === 'graphqlAssert'
+            || node.type === 'grpcUnary' || node.type === 'grpcServerStream'
+            || node.type === 'grpcAssert'
+            || node.type === 'grpcLoadTest' || node.type === 'grpcSchemaDiff' || node.type === 'grpcMockAssert') {
+            const transportResults = results.filter(r => r.workflowNodeId === nodeId);
+            const lastResult = transportResults[transportResults.length - 1];
+            if (lastResult && !lastResult.passed && lastResult.errorMessage) {
+              eventDetails = { error: lastResult.errorMessage };
             }
           }
         }
@@ -450,7 +612,11 @@ export async function runGraph(
         }
       }
 
-      traceCollector.onNodeComplete(nodeId, passedFlag.value ? 'pass' : 'fail', eventDetails);
+      traceCollector.onNodeComplete(
+        nodeId,
+        resolveNodeTraceState(node.type, nodeId, passedFlag, results),
+        eventDetails,
+      );
     } catch (err) {
       allPassed = false;
       const technical = toErrorMessage(err);
@@ -506,6 +672,15 @@ export async function runGraph(
       callbacks.onVariablesChange(ctx.snapshot());
       log({ prefix: '!', text: `Workflow-level error handler triggered — executing handler node "${nodeLabel(errorConfig.handlerEntryNodeId)}"` });
       await visit(errorConfig.handlerEntryNodeId);
+    }
+  }
+
+  // ── WebSocket cleanup — close all held connections (after error handler, so it can use WS nodes) ──
+  if (wsOperations) {
+    try {
+      await wsOperations.disconnectAll();
+    } catch {
+      // Best-effort cleanup — ignore disconnect failures
     }
   }
 

@@ -53,7 +53,7 @@ describe('IterationMatrixTable', () => {
 
   afterEach(() => {
     cleanup();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders table with HTTP nodes as columns', () => {

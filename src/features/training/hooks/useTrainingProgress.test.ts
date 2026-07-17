@@ -60,7 +60,7 @@ const mockWriteKey = vi.mocked(storage.writeKey);
 
 describe('useTrainingProgress', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockReadKey.mockResolvedValue(null);
     mockWriteKey.mockResolvedValue(undefined);
   });

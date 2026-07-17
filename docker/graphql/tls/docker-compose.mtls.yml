@@ -1,0 +1,65 @@
+# GraphQL mTLS Test Stack — TLS Phase 3 (Mutual TLS)
+#
+# Requires a valid client certificate presented by the caller.
+# The nginx server verifies the client cert against the Dev Root CA
+# (ssl_verify_client on). Connections without a valid cert are rejected
+# at the TLS handshake — before any GraphQL data is exchanged.
+#
+# Endpoints after startup:
+#   HTTPS  https://localhost:4445/graphql  ← mTLS endpoint (requires client cert)
+#   WSS    wss://localhost:4445/graphql    ← mTLS subscriptions (requires client cert)
+#   Health http://localhost:4446/health    ← plain HTTP health probe
+#
+# Setup (one-time, before first use):
+#   cd docker/graphql/tls
+#   ./generate-cert.sh          # creates CA + server cert
+#   ./generate-client-cert.sh   # creates client cert + key
+#
+# Start:
+#   docker compose -f docker/graphql/tls/docker-compose.mtls.yml up -d
+#
+# Stop:
+#   docker compose -f docker/graphql/tls/docker-compose.mtls.yml down
+#
+# TLS lesson phase 3:
+#   Paste certs/client.crt into "Client Certificate (PEM)".
+#   Paste certs/client.key  into "Client Private Key (PEM)".
+#   Also paste certs/ca.crt into "CA Certificate (PEM)" — the mTLS server's
+#   own cert is still self-signed and needs CA validation on the client side.
+services:
+  gql-test-server-mtls:
+    build: ../                           # docker/graphql/Dockerfile + server.js
+    container_name: gql-test-server-mtls
+    ports:
+      # Health probe: http://localhost:4446/health (plain HTTP, no client cert)
+      - "4446:4010"
+    environment:
+      - PORT=4010
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:4010/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - gql-mtls-net
+
+  gql-mtls-proxy:
+    image: nginx:alpine
+    container_name: gql-mtls-proxy
+    depends_on:
+      gql-test-server-mtls:
+        condition: service_healthy
+    ports:
+      - "4445:4445"
+    volumes:
+      - ./nginx-gql-mtls.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    restart: unless-stopped
+    networks:
+      - gql-mtls-net
+
+networks:
+  gql-mtls-net:
+    driver: bridge

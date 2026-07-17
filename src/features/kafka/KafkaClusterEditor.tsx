@@ -202,10 +202,10 @@ export function KafkaClusterEditor({
                     </span>
                   </div>
                   <div className="kafka-editor-field">
-                    <label htmlFor="kafka-auth-mode">Authentication</label>
+                    <label htmlFor="kafka-auth-mode">Mechanism</label>
                     <select
                       id="kafka-auth-mode"
-                      value={draft.authMode}
+                      value={draft.authMode ?? 'none'}
                       onChange={(event) =>
                         updateDraft({ authMode: event.target.value as KafkaClusterDraft['authMode'] })
                       }
@@ -216,7 +216,7 @@ export function KafkaClusterEditor({
                       <option value="scram-sha-512">SCRAM-SHA-512</option>
                     </select>
                   </div>
-                  {draft.authMode !== 'none' && (
+                  {(draft.authMode ?? 'none') !== 'none' && (
                     <div className="kafka-subcard-fields">
                       <div className="kafka-editor-field">
                         <label htmlFor="kafka-auth-username">Username</label>
@@ -261,6 +261,7 @@ export function KafkaClusterEditor({
                     <label className="kafka-editor-checkbox">
                       <input
                         type="checkbox"
+                        data-testid="kafka-tls-toggle"
                         checked={draft.tlsEnabled}
                         onChange={(event) => updateDraft({ tlsEnabled: event.target.checked })}
                       />
@@ -271,6 +272,7 @@ export function KafkaClusterEditor({
                     >
                       <input
                         type="checkbox"
+                        data-testid="kafka-tls-verify-toggle"
                         checked={draft.tlsRejectUnauthorized}
                         onChange={(event) =>
                           updateDraft({ tlsRejectUnauthorized: event.target.checked })
@@ -361,6 +363,7 @@ export function KafkaClusterEditor({
                       <button
                         type="button"
                         className="btn btn-sm btn-danger-outline"
+                        data-testid="kafka-delete-cluster-btn"
                         onClick={() => setPendingDeleteClusterId(editingClusterId)}
                       >
                         Delete Cluster
@@ -372,6 +375,7 @@ export function KafkaClusterEditor({
                         <button
                           type="button"
                           className="btn btn-sm btn-danger"
+                          data-testid="kafka-confirm-delete-btn"
                           onClick={confirmDelete}
                         >
                           Confirm Delete

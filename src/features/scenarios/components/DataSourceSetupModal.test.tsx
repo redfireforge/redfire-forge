@@ -80,7 +80,7 @@ describe('DataSourceSetupModal', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('Rendering', () => {

@@ -63,7 +63,7 @@ describe('ResultsExplorerConsolePanel', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.removeItem(RE_CONSOLE_MODE_KEY);
     Object.defineProperty(HTMLElement.prototype, 'scrollIntoView', {
       configurable: true,

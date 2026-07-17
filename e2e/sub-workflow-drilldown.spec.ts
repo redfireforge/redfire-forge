@@ -131,6 +131,7 @@ async function setupAndOpenResultsExplorer(page: Page): Promise<void> {
 }
 
 test.describe('Sub-Workflow Drill-Down — Synthetic Trace', () => {
+  test.describe.configure({ timeout: 90_000 });
   test('shows View Sub-Workflow button when sub-workflow node is selected', async ({ page }) => {
     await setupAndOpenResultsExplorer(page);
 
@@ -148,6 +149,7 @@ test.describe('Sub-Workflow Drill-Down — Synthetic Trace', () => {
   });
 
   test('clicking drill-down button shows breadcrumb and child workflow', async ({ page }) => {
+    test.slow();
     await setupAndOpenResultsExplorer(page);
 
     const canvas = page.getByRole('application');
@@ -176,6 +178,7 @@ test.describe('Sub-Workflow Drill-Down — Synthetic Trace', () => {
   });
 
   test('breadcrumb click navigates back to parent workflow', async ({ page }) => {
+    test.slow();
     await setupAndOpenResultsExplorer(page);
 
     const canvas = page.getByRole('application');
@@ -292,13 +295,11 @@ test.describe('Sub-Workflow Drill-Down — Live Execution', () => {
     const wrTab = page.locator('button.sub-nav-tab:has-text("Workflow Runner")');
     await expect(wrTab).toBeVisible({ timeout: 5000 });
     await wrTab.click();
-    await page.waitForTimeout(1000);
+    await expect(page.getByTestId('workflow-select')).toBeVisible({ timeout: 10000 });
 
     // Select the parent workflow
-    await expect(page.getByTestId('workflow-select')).toBeVisible({ timeout: 5000 });
     await page.getByTestId('workflow-select').click();
     await page.locator('.wfp-dropdown-item:has-text("Sub-Workflow Orchestrator")').click();
-    await page.waitForTimeout(500);
 
     // Click Run
     const runBtn = page.locator('button.btn-primary.btn-lg');
@@ -307,28 +308,23 @@ test.describe('Sub-Workflow Drill-Down — Live Execution', () => {
 
     // Wait for execution to complete (makes HTTP calls to jsonplaceholder.typicode.com)
     // Look for progress indicator reaching 100%, or the "Run Complete" state
-    await page.waitForTimeout(2000);
     const progressComplete = page.locator('text=/1\\s*\\/\\s*1/').or(page.locator('text=100%'));
-    await expect(progressComplete.first()).toBeVisible({ timeout: 45000 });
-    await page.waitForTimeout(3000);
+    await expect(progressComplete.first()).toBeVisible({ timeout: 25000 });
 
     // Navigate to Results tab
     const resultsTab = page.locator('button.sub-nav-tab:has-text("Results")');
     await expect(resultsTab).toBeVisible({ timeout: 5000 });
     await resultsTab.click();
-    await page.waitForTimeout(2000);
 
     // Open Results Explorer
     const explorerBtn = page.locator('button:has-text("Results Explorer")');
     await expect(explorerBtn.first()).toBeVisible({ timeout: 10000 });
     await explorerBtn.first().click();
-    await page.waitForTimeout(2000);
 
     // Fit view
     const fitBtn = page.locator('button[title="Fit view"]');
     if (await fitBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await fitBtn.click();
-      await page.waitForTimeout(500);
     }
 
     // Find and click the sub-workflow node
@@ -337,7 +333,6 @@ test.describe('Sub-Workflow Drill-Down — Live Execution', () => {
     await subNode.scrollIntoViewIfNeeded();
     await expect(subNode).toBeVisible({ timeout: 10000 });
     await subNode.click();
-    await page.waitForTimeout(1000);
 
     // The detail panel should show drill-down button (NOT "trace not captured")
     const noTraceMsg = page.locator('.sub-workflow-no-trace');

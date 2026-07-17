@@ -24,7 +24,8 @@ export function getWorkerCount(): number {
  * Run a test inside a Web Worker. Has the same signature as `runTest`
  * so it can be used as a drop-in replacement.
  *
- * - Browser mode: the worker uses httpFetchViaViteProxy (POST /__proxy) like the main thread.
+ * - Browser mode: the worker uses proxyFetch (relative `/api/*` via native fetch,
+ *   absolute URLs via POST /__proxy) like the main thread.
  * - Tauri mode:  HTTP requests are proxied through the main thread
  *   via postMessage so the Tauri HTTP plugin (main-thread only) is used.
  */
@@ -35,6 +36,7 @@ export function runTestInWorker(
   abortSignal?: AbortSignal,
   /** Optional workflow for graph-based execution (when config.workflowId is set). */
   workflow?: Workflow,
+  grpcHarnessEnv?: Record<string, string>,
 ): Promise<TestResult> {
   return new Promise<TestResult>((resolve, reject) => {
     const allResults: RequestResult[] = [];
@@ -128,6 +130,7 @@ export function runTestInWorker(
       scenarios,
       useTauriProxy: isTauri(),
       workflow,
+      grpcHarnessEnv,
     } satisfies MainToWorkerMessage);
   });
 }
@@ -143,11 +146,12 @@ export function runTestMultiWorker(
   onProgress: ProgressCallback,
   abortSignal?: AbortSignal,
   workflow?: Workflow,
+  grpcHarnessEnv?: Record<string, string>,
 ): Promise<TestResult> {
   const isLoadProfile = config.executionMode === 'load-profile' && !!config.loadProfile;
   const N = getWorkerCount();
   if (N <= 1 || workflow || (!isLoadProfile && scenarios.length < MIN_SCENARIOS_FOR_MULTI)) {
-    return runTestInWorker(config, scenarios, onProgress, abortSignal, workflow);
+    return runTestInWorker(config, scenarios, onProgress, abortSignal, workflow, grpcHarnessEnv);
   }
 
   const actualWorkerCount = isLoadProfile
@@ -165,7 +169,7 @@ export function runTestMultiWorker(
   }
   const workerCount = chunks.length;
   if (workerCount <= 1) {
-    return runTestInWorker(config, scenarios, onProgress, abortSignal, workflow);
+    return runTestInWorker(config, scenarios, onProgress, abortSignal, workflow, grpcHarnessEnv);
   }
   const totalConcurrency = config.concurrency ?? 1;
   const baseConcurrency = Math.floor(totalConcurrency / workerCount);
@@ -314,6 +318,7 @@ export function runTestMultiWorker(
         useTauriProxy,
         workerIndex: i,
         totalWorkers: workerCount,
+        grpcHarnessEnv,
       } satisfies MainToWorkerMessage);
     }
   });

@@ -361,18 +361,21 @@ describe('SourceTreeNode', () => {
       vi.useRealTimers();
     });
 
-    it('writes full leaf value to clipboard when copyable sample is clicked', () => {
+    it('writes full leaf value to clipboard when copyable sample is clicked', async () => {
       const writeText = vi.fn().mockResolvedValue(undefined);
       Object.assign(navigator, { clipboard: { writeText } });
       render(<SourceTreeNode node={leaf} {...defaults} />);
       const copyable = document.querySelector('.dm-node-sample-value--copyable');
       expect(copyable).not.toBeNull();
-      fireEvent.click(copyable!);
+      await act(async () => {
+        fireEvent.click(copyable!);
+        await Promise.resolve();
+      });
       expect(writeText).toHaveBeenCalledTimes(1);
       expect(writeText).toHaveBeenCalledWith('Alice');
     });
 
-    it('copies full untruncated string when display is truncated', () => {
+    it('copies full untruncated string when display is truncated', async () => {
       const writeText = vi.fn().mockResolvedValue(undefined);
       Object.assign(navigator, { clipboard: { writeText } });
       const longVal = 'B'.repeat(50);
@@ -380,7 +383,10 @@ describe('SourceTreeNode', () => {
         key: 'bio', path: 'bio', type: 'string', value: longVal, children: [],
       };
       render(<SourceTreeNode node={longLeaf} {...defaults} />);
-      fireEvent.click(document.querySelector('.dm-node-sample-value--copyable')!);
+      await act(async () => {
+        fireEvent.click(document.querySelector('.dm-node-sample-value--copyable')!);
+        await Promise.resolve();
+      });
       expect(writeText).toHaveBeenCalledWith(longVal);
     });
 
@@ -402,12 +408,15 @@ describe('SourceTreeNode', () => {
       vi.useRealTimers();
     });
 
-    it('does not invoke onNodeSelect when sample value is clicked (stopPropagation)', () => {
+    it('does not invoke onNodeSelect when sample value is clicked (stopPropagation)', async () => {
       const writeText = vi.fn().mockResolvedValue(undefined);
       Object.assign(navigator, { clipboard: { writeText } });
       const onNodeSelect = vi.fn();
       render(<SourceTreeNode node={leaf} {...defaults} onNodeSelect={onNodeSelect} />);
-      fireEvent.click(document.querySelector('.dm-node-sample-value--copyable')!);
+      await act(async () => {
+        fireEvent.click(document.querySelector('.dm-node-sample-value--copyable')!);
+        await Promise.resolve();
+      });
       expect(onNodeSelect).not.toHaveBeenCalled();
     });
   });

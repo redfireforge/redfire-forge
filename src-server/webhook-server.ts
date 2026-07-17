@@ -11,11 +11,17 @@ import { executeWorkflow, saveErrorResult } from './executeWorkflow.js';
 import { createCorrelationRouter } from './correlation-handler.js';
 import { createKafkaRouter } from './routes/kafka-routes.js';
 import { createKafkaTriggerRouter } from './routes/kafka-trigger-routes.js';
+import { createWebSocketRouter } from './routes/websocket-routes.js';
+import { createWebSocketMockRouter } from './routes/websocket-mock-routes.js';
+import { createGraphqlRouter } from './routes/graphql/graphql-routes.js';
+import { createGrpcRouter } from './routes/grpc/grpc-routes.js';
+import { createGrpcMockRouter } from './routes/grpc/grpc-mock-routes.js';
 import { kafkaTriggerSubscriptionManager } from './kafka/kafkaTriggerSubscriptionManager.js';
 import type { WebhookTriggerNodeData } from '../src/features/workflow/types/workflow';
 import type { LogLine } from '../src/shared/types/server-api';
 import { generateExecutionId } from '../src/features/test-runner/utils/serverFormatters';
 import { toErrorMessage } from '../src/shared/utils/helpers';
+import { GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL } from '../src/shared/grpc/grpcSpringFixturePorts';
 
 const app = express();
 
@@ -37,7 +43,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Cache-Control, Last-Event-ID');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
   }
@@ -51,6 +57,53 @@ app.get('/health', (req: Request, res: Response) => {
     timestamp: new Date().toISOString(),
     port: 3001,
   });
+});
+
+// Spring fixture health proxy used by Demo Hub prerequisite checks.
+app.get('/health/spring', async (_req: Request, res: Response) => {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    });
+
+    if (!response.ok) {
+      return res.status(503).json({
+        status: 'down',
+        source: 'spring-actuator',
+        reason: `http_${response.status}`,
+      });
+    }
+
+    let payload: unknown;
+    try {
+      payload = await response.json();
+    } catch {
+      payload = null;
+    }
+
+    const springStatus = (payload && typeof payload === 'object' && 'status' in payload)
+      ? String((payload as { status?: unknown }).status)
+      : 'UP';
+    const up = springStatus.toUpperCase() === 'UP';
+
+    return res.status(up ? 200 : 503).json({
+      status: up ? 'ok' : 'down',
+      source: 'spring-actuator',
+      springStatus,
+      payload,
+    });
+  } catch (error) {
+    return res.status(503).json({
+      status: 'down',
+      source: 'spring-actuator',
+      reason: toErrorMessage(error),
+    });
+  } finally {
+    clearTimeout(timer);
+  }
 });
 
 // API: Get execution history
@@ -129,6 +182,18 @@ app.use(createKafkaRouter({ onLog: broadcastLog }));
 
 // Kafka trigger subscription routes
 app.use(createKafkaTriggerRouter({ onLog: broadcastLog }));
+
+// WebSocket proxy routes
+app.use(createWebSocketRouter({ onLog: broadcastLog }));
+
+// GraphQL Studio proxy routes (Phase 2.0 — subscribe/SSE/upload)
+app.use(createGraphqlRouter({ onLog: broadcastLog }));
+
+app.use(createGrpcRouter({ onLog: broadcastLog }));
+app.use(createGrpcMockRouter({ onLog: broadcastLog }));
+
+// WebSocket mock server routes
+app.use(createWebSocketMockRouter({ onLog: broadcastLog }));
 
 // Webhook endpoint - handles all HTTP methods
 app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) => {
@@ -272,6 +337,42 @@ app.all('/webhooks/:workflowId/:triggerId', async (req: Request, res: Response) 
       executionId,
     });
   }
+});
+
+// SSE test endpoint — sends periodic events for E2E testing
+app.get('/api/sse-test', (req: Request, res: Response) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.flushHeaders();
+
+  let counter = 0;
+  const lastEventId = req.headers['last-event-id'] as string | undefined;
+  if (lastEventId) {
+    counter = parseInt(lastEventId, 10) || 0;
+  }
+
+  // Send an initial event immediately
+  counter++;
+  res.write(`id: ${counter}\nevent: message\ndata: ${JSON.stringify({ type: 'greeting', text: 'Hello from SSE test server', counter })}\n\n`);
+
+  const requestedIntervalMs = Number.parseInt(String(req.query.intervalMs ?? ''), 10);
+  const intervalMs = Number.isFinite(requestedIntervalMs)
+    ? Math.min(1000, Math.max(20, requestedIntervalMs))
+    : 1000;
+
+  // Then send events periodically (defaults to 1 second for manual testing)
+  const interval = setInterval(() => {
+    counter++;
+    const eventType = counter % 3 === 0 ? 'status' : counter % 3 === 1 ? 'message' : 'update';
+    res.write(`id: ${counter}\nevent: ${eventType}\ndata: ${JSON.stringify({ type: eventType, text: `Event #${counter}`, counter, ts: Date.now() })}\n\n`);
+  }, intervalMs);
+
+  req.on('close', () => {
+    clearInterval(interval);
+    console.log('[SSE-Test] Client disconnected');
+  });
 });
 
 // SSE endpoint for live log streaming to the UI Console

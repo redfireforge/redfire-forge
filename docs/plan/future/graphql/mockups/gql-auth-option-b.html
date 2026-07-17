@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1280" />
+  <title>Option B — Connection profiles only</title>
+  <link rel="stylesheet" href="gql-per-tab-auth-mockup.css" />
+</head>
+<body>
+  <header class="mock-topbar">
+    <div class="mock-topbar-left">
+      <span class="mock-brand">RedfireForge · GraphQL Studio</span>
+      <span class="mock-option-tag">Option B — profiles</span>
+    </div>
+    <div class="mock-topbar-right">
+      <a class="mock-nav-link" href="gql-per-tab-auth-index.html">← All options</a>
+      <a class="mock-nav-link" href="gql-auth-option-c.html">Next: Option C →</a>
+    </div>
+  </header>
+
+  <div class="mock-banner info">
+    <b>Option B:</b> Keep page-level auth popover as workspace default, but isolate tabs by linking each to a
+    <strong>Connection Profile</strong> (endpoint + auth bundle). Partially works today — profile-linked tabs get
+    <code>profile.auth</code>. Heavy when only auth differs on the same URL.
+  </div>
+
+  <div class="gql-studio">
+    <nav class="proto-nav"><span>Requests</span><span class="active">GraphQL</span><span>WebSocket</span></nav>
+
+    <div class="profile-bar">
+      <span style="color:var(--text-muted);">Connection profile:</span>
+      <select id="profileSelect">
+        <option value="0">Local 4010 — No Auth</option>
+        <option value="1">Local 4010 — Demo Bearer</option>
+      </select>
+      <span style="color:var(--text-muted);font-size:0.68rem;">Each tab links via <code>tab.connectionId</code></span>
+    </div>
+
+    <div class="conn-bar">
+      <div class="conn-endpoint-wrap">
+        <input class="conn-endpoint" readonly value="http://localhost:4010/graphql" />
+      </div>
+      <div class="auth-wrap">
+        <button type="button" class="auth-badge profile" id="authBadge">
+          <span class="dot"></span>
+          <span id="authLabel">No Auth</span>
+          <span class="auth-scope-pill profile">profile</span>
+        </button>
+      </div>
+      <button type="button" class="conn-btn conn-btn--secondary">Introspect</button>
+      <button type="button" class="conn-btn conn-btn--primary">Execute</button>
+    </div>
+
+    <div class="gql-main">
+      <div class="editor-col">
+        <div class="query-tabs" id="queryTabs">
+          <button type="button" class="query-tab active" data-tab="0">
+            <span class="auth-dot profile"></span> Local 4010 Docker
+          </button>
+          <button type="button" class="query-tab" data-tab="1">
+            <span class="auth-dot profile"></span> Demo: Authentication
+          </button>
+        </div>
+
+        <div class="code-area" id="codeArea"></div>
+
+        <div class="bottom-panel">
+          <div class="bottom-tabs">
+            <button type="button" class="bottom-tab">Variables</button>
+            <button type="button" class="bottom-tab active">Headers</button>
+          </div>
+          <div class="bottom-body" style="color:var(--text-muted);font-size:0.72rem;line-height:1.55;">
+            Auth is read-only here — bound to the linked profile. To change auth, edit the profile in
+            <b>Connection Profiles</b> modal or switch this tab's profile link.<br/><br/>
+            <span style="color:var(--warning);">UX friction:</span> two profiles for the same endpoint URL just to differ auth.
+          </div>
+        </div>
+      </div>
+
+      <aside class="response-col">
+        <div class="response-header">Response · Metadata</div>
+        <div class="response-meta">
+          <div class="auth-sent" id="authSent"></div>
+        </div>
+      </aside>
+
+      <aside class="annot-col">
+        <h3>Option B trade-offs</h3>
+        <div class="highlight good" id="annotBox"></div>
+        <p><b>Pros</b></p>
+        <ul>
+          <li>Already implemented for profile-linked tabs</li>
+          <li>Auth + endpoint travel together</li>
+          <li>Reusable across sessions</li>
+        </ul>
+        <p><b>Cons</b></p>
+        <ul>
+          <li>Must create/manage profiles for auth-only differences</li>
+          <li>Editing auth popover unlinks profile (today)</li>
+          <li>Same URL duplicated in profile catalog</li>
+        </ul>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const profiles = [
+      { name: 'Local 4010 — No Auth', auth: 'No Auth', sent: '(no Authorization header)', badge: 'No Auth' },
+      { name: 'Local 4010 — Demo Bearer', auth: 'Bearer', sent: 'Authorization: Bearer demo-token-••••', badge: 'Bearer' },
+    ];
+    const tabProfiles = [0, 1];
+    const queries = [
+      '<div><span class="kw">query</span> <span class="pn">{</span></div><div>&nbsp;&nbsp;<span class="fn">health</span></div><div><span class="pn">}</span></div>',
+      '<div><span class="kw">query</span> <span class="fn">Me</span> <span class="pn">{</span></div><div>&nbsp;&nbsp;<span class="fn">me</span> <span class="pn">{</span> <span class="fn">id</span> <span class="pn">}</span></div><div><span class="pn">}</span></div>',
+    ];
+
+    const tabs = document.querySelectorAll('.query-tab[data-tab]');
+    const profileSelect = document.getElementById('profileSelect');
+    const authLabel = document.getElementById('authLabel');
+    const authSent = document.getElementById('authSent');
+    const codeArea = document.getElementById('codeArea');
+    const annotBox = document.getElementById('annotBox');
+    let active = 0;
+
+    function render() {
+      const p = profiles[tabProfiles[active]];
+      profileSelect.value = String(tabProfiles[active]);
+      authLabel.textContent = p.badge;
+      codeArea.innerHTML = queries[active];
+      authSent.innerHTML = 'Profile: <b>' + p.name + '</b><br/>Request sent with:<br /><span style="color:var(--primary);">' + p.sent + '</span>';
+      annotBox.innerHTML = '<div class="label">Tab ' + (active + 1) + ' profile</div><b>' + p.name + '</b><br/>Auth from <code>profile.auth</code>, not page storage.';
+    }
+
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        active = +btn.dataset.tab;
+        render();
+      });
+    });
+    profileSelect.addEventListener('change', () => {
+      tabProfiles[active] = +profileSelect.value;
+      render();
+    });
+    render();
+  </script>
+</body>
+</html>

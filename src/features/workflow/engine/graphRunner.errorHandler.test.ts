@@ -7,6 +7,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
 }));
 
 import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);
 
@@ -27,37 +28,27 @@ function makeCallbacks() {
   return { states, vars, callbacks, statesFor, lastVars };
 }
 
-const startNode: WorkflowNode = {
+const workflowStartNode: WorkflowNode = {
   id: 's1', type: 'start', position: { x: 0, y: 0 },
   data: { label: 'Start' },
 };
 
-const endNode: WorkflowNode = {
+const workflowEndNode: WorkflowNode = {
   id: 'end1', type: 'end', position: { x: 0, y: 0 },
   data: { label: 'End' },
 };
 
-function httpNode(id: string, label = 'HTTP', failOnError = false): WorkflowNode {
-  return {
-    id,
-    type: 'http',
-    position: { x: 0, y: 0 },
-    data: {
-      label,
-      scenario: {
-        id, name: label,
-        url: 'https://example.com/api',
-        method: 'GET',
-        headers: [],
-        body: '',
-        auth: { type: 'none' },
-        validation: {
-          mode: 'none',
-          assertions: failOnError ? [{ type: 'status', expected: '200' }] : [],
-        },
-      },
-    } as unknown as HttpNodeData,
-  };
+function failHttpNode(id: string, label = 'HTTP'): WorkflowNode {
+  const node = httpNode(id, label);
+  const scenario = (node.data as HttpNodeData).scenario;
+  if (scenario) {
+    scenario.url = 'https://example.com/api';
+    scenario.validation = {
+      mode: 'none',
+      assertions: [{ type: 'status', expected: '200' }],
+    };
+  }
+  return node;
 }
 
 function errorHandlerNode(id: string, overrides?: Partial<ErrorHandlerNodeData>): WorkflowNode {
@@ -123,7 +114,7 @@ describe('runGraph - Error Handler Node', () => {
       const catchHttp = httpNode('catch1', 'CatchStep');
       const doneHttp = httpNode('done1', 'DoneStep');
 
-      const nodes = [startNode, eh, bodyHttp, catchHttp, doneHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, catchHttp, doneHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -146,11 +137,11 @@ describe('runGraph - Error Handler Node', () => {
     it('executes catch path when body fails', async () => {
       mockFetch.mockResolvedValueOnce(failResponse()).mockResolvedValue(okResponse());
       const eh = errorHandlerNode('eh1');
-      const bodyHttp = httpNode('body1', 'BodyStep', true);
+      const bodyHttp = failHttpNode('body1', 'BodyStep');
       const catchHttp = httpNode('catch1', 'CatchStep');
       const doneHttp = httpNode('done1', 'DoneStep');
 
-      const nodes = [startNode, eh, bodyHttp, catchHttp, doneHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, catchHttp, doneHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -174,10 +165,10 @@ describe('runGraph - Error Handler Node', () => {
     it('marks handler as fail when continueOnError is false', async () => {
       mockFetch.mockResolvedValueOnce(failResponse()).mockResolvedValue(okResponse());
       const eh = errorHandlerNode('eh1', { continueOnError: false });
-      const bodyHttp = httpNode('body1', 'HTTP', true);
+      const bodyHttp = failHttpNode('body1', 'HTTP');
       const catchHttp = httpNode('catch1');
 
-      const nodes = [startNode, eh, bodyHttp, catchHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, catchHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -198,10 +189,10 @@ describe('runGraph - Error Handler Node', () => {
         .mockResolvedValueOnce(failResponse())  // body attempt 0
         .mockResolvedValueOnce(okResponse());    // body attempt 1 (retry)
       const eh = errorHandlerNode('eh1', { retryCount: 2, retryDelayMs: 0 });
-      const bodyHttp = httpNode('body1', 'HTTP', true);
+      const bodyHttp = failHttpNode('body1', 'HTTP');
       const catchHttp = httpNode('catch1');
 
-      const nodes = [startNode, eh, bodyHttp, catchHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, catchHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -225,10 +216,10 @@ describe('runGraph - Error Handler Node', () => {
         .mockResolvedValueOnce(failResponse())  // body attempt 2 (retry)
         .mockResolvedValue(okResponse());        // catch HTTP succeeds
       const eh = errorHandlerNode('eh1', { retryCount: 2, retryDelayMs: 0 });
-      const bodyHttp = httpNode('body1', 'HTTP', true);
+      const bodyHttp = failHttpNode('body1', 'HTTP');
       const catchHttp = httpNode('catch1');
 
-      const nodes = [startNode, eh, bodyHttp, catchHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, catchHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -257,10 +248,10 @@ describe('runGraph - Error Handler Node', () => {
         retryDelayMs: 0,
         errorFilter: 'network-error',
       });
-      const bodyHttp = httpNode('body1', 'HTTP', true);
+      const bodyHttp = failHttpNode('body1', 'HTTP');
       const catchHttp = httpNode('catch1');
 
-      const nodes = [startNode, eh, bodyHttp, catchHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, catchHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -284,10 +275,10 @@ describe('runGraph - Error Handler Node', () => {
         retryDelayMs: 0,
         errorFilter: 'http-error',
       });
-      const bodyHttp = httpNode('body1', 'HTTP', true);
+      const bodyHttp = failHttpNode('body1', 'HTTP');
       const catchHttp = httpNode('catch1');
 
-      const nodes = [startNode, eh, bodyHttp, catchHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, catchHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -322,10 +313,10 @@ describe('runGraph - Error Handler Node', () => {
         retryDelayMs: 0,
         retryTimeoutMs: 1, // very short timeout
       });
-      const bodyHttp = httpNode('body1', 'HTTP', true);
+      const bodyHttp = failHttpNode('body1', 'HTTP');
       const catchHttp = httpNode('catch1');
 
-      const nodes = [startNode, eh, bodyHttp, catchHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, catchHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -346,10 +337,10 @@ describe('runGraph - Error Handler Node', () => {
     it('classifies status 0 as network-error', async () => {
       mockFetch.mockResolvedValueOnce(networkError()).mockResolvedValue(okResponse());
       const eh = errorHandlerNode('eh1', { retryCount: 0, errorFilter: 'all' });
-      const bodyHttp = httpNode('body1', 'HTTP', true);
+      const bodyHttp = failHttpNode('body1', 'HTTP');
       const catchHttp = httpNode('catch1');
 
-      const nodes = [startNode, eh, bodyHttp, catchHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, catchHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -372,7 +363,7 @@ describe('runGraph - Error Handler Node', () => {
       const bodyHttp = httpNode('body1');
       const doneHttp = httpNode('done1');
 
-      const nodes = [startNode, eh, bodyHttp, doneHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, doneHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -389,11 +380,11 @@ describe('runGraph - Error Handler Node', () => {
     it('executes done after body failure + catch', async () => {
       mockFetch.mockResolvedValueOnce(failResponse()).mockResolvedValue(okResponse());
       const eh = errorHandlerNode('eh1');
-      const bodyHttp = httpNode('body1', 'HTTP', true);
+      const bodyHttp = failHttpNode('body1', 'HTTP');
       const catchHttp = httpNode('catch1');
       const doneHttp = httpNode('done1');
 
-      const nodes = [startNode, eh, bodyHttp, catchHttp, doneHttp, endNode];
+      const nodes = [workflowStartNode, eh, bodyHttp, catchHttp, doneHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'eh1' },
         { id: 'e2', source: 'eh1', target: 'body1', sourceHandle: 'body' },
@@ -413,10 +404,10 @@ describe('runGraph - Error Handler Node', () => {
     it('runs handler node on unhandled failure when mode is run-handler', async () => {
       // First call fails (main flow), second call succeeds (handler)
       mockFetch.mockResolvedValueOnce(failResponse()).mockResolvedValue(okResponse());
-      const failHttp = httpNode('fail1', 'FailStep', true);
+      const failHttp = failHttpNode('fail1', 'FailStep');
       const handlerHttp = httpNode('handler1', 'HandlerStep');
 
-      const nodes = [startNode, failHttp, handlerHttp, endNode];
+      const nodes = [workflowStartNode, failHttp, handlerHttp, workflowEndNode];
       const edges: WorkflowEdge[] = [
         { id: 'e1', source: 's1', target: 'fail1' },
         { id: 'e2', source: 'fail1', target: 'end1' },
@@ -431,6 +422,25 @@ describe('runGraph - Error Handler Node', () => {
 
       expect(statesFor('fail1')).toContain('fail');
       expect(statesFor('handler1')).toContain('pass');
+    });
+
+    it('logs handler node id when handlerEntryNodeId is missing from workflow', async () => {
+      mockFetch.mockResolvedValueOnce(failResponse());
+      const failHttp = failHttpNode('fail1', 'FailStep');
+      const nodes = [workflowStartNode, failHttp, workflowEndNode];
+      const edges: WorkflowEdge[] = [
+        { id: 'e1', source: 's1', target: 'fail1' },
+        { id: 'e2', source: 'fail1', target: 'end1' },
+      ];
+
+      const { callbacks } = makeCallbacks();
+      await runGraph(
+        nodes, edges, {}, callbacks, new AbortController().signal, {},
+        undefined, undefined, undefined,
+        { mode: 'run-handler', handlerEntryNodeId: 'missing-handler-node' },
+      );
+
+      expect(callbacks.onComplete).toHaveBeenCalled();
     });
   });
 });

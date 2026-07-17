@@ -151,4 +151,47 @@ describe('useModalResize', () => {
     act(() => { result.current.resetSize(); });
     expect(result.current.resizeStyle).toBeUndefined();
   });
+
+  it('onBottomEdge drag changes height only — width falls back to size?.w (line 47 cond-expr false branch)', () => {
+    const { result } = renderHook(() => useModalResize(320, 200));
+    act(() => {
+      result.current.onBottomEdge(makeMockMouseEvent(500, 300));
+    });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 500, clientY: 400 }));
+    });
+    // resizesW = false for 'bottom', so width stays as size?.w ?? origW = origRect.width = 600
+    expect(result.current.resizeStyle!.width).toBe(600); // origW (no size?.w yet)
+    // resizesH = true, dy = 100, height = 400 + 100 = 500
+    expect(result.current.resizeStyle!.height).toBe(500);
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+  });
+
+  it('second drag uses existing size?.w when size already set (line 47 [9][0] binary-expr true)', () => {
+    const { result } = renderHook(() => useModalResize(320, 200));
+    // First drag sets size
+    act(() => {
+      result.current.onRightEdge(makeMockMouseEvent(500, 300));
+    });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 650, clientY: 300 }));
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+    const firstWidth = result.current.resizeStyle!.width as number;
+
+    // Second drag from bottom — resizesW=false, size?.w is now set
+    act(() => {
+      result.current.onBottomEdge(makeMockMouseEvent(500, 300));
+    });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 500, clientY: 350 }));
+    });
+    // Width should use previous size.w
+    expect(result.current.resizeStyle!.width).toBe(firstWidth);
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+  });
 });

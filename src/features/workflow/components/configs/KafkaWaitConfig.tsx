@@ -80,26 +80,26 @@ export default function KafkaWaitConfig({
 
   return (
     <div className="wf-config-body" data-testid="kafka-wait-config">
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Cluster ID</label>
         <input value={data.clusterId} onChange={(e) => update({ clusterId: e.target.value })} placeholder="cluster-a" />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Topic</label>
         <input value={data.topic} onChange={(e) => update({ topic: e.target.value })} placeholder="payments.authorized" />
       </div>
 
-      <div className="wf-kafka-section">
+      <div className="wf-kafka-section" data-testid="wait-correlation-section">
         <div className="wf-kafka-section-title">Correlation Matching</div>
 
-        <div className="wf-config-field">
-          <label>Correlation ID Expression</label>
+        <div className="wf-config-field--row">
+          <label>ID Expression</label>
           <InsertVarField
             onRequestVariableInsert={onRequestVariableInsert}
             shortRef
@@ -112,48 +112,43 @@ export default function KafkaWaitConfig({
               variableHints={hintSet}
             />
           </InsertVarField>
-          <span className="wf-config-hint">The value to match against incoming messages. Supports <code>{'{{variable}}'}</code> templates.</span>
         </div>
 
-        <div className="wf-config-field">
-          <label>Correlation Source</label>
+        <div className="wf-config-field--row">
+          <label>Source</label>
           <select value={data.correlationSource ?? 'body'} onChange={(e) => update({ correlationSource: e.target.value as KafkaWaitCorrelationSource })}>
             {CORRELATION_SOURCE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
           </select>
         </div>
 
         {(data.correlationSource ?? 'body') === 'body' && (
-          <div className="wf-config-field">
-            <label>Correlation JSONPath</label>
+          <div className="wf-config-field--row">
+            <label>JSONPath</label>
             <input
               value={data.correlationJsonPath ?? ''}
               onChange={(e) => update({ correlationJsonPath: e.target.value || undefined })}
               placeholder="$.orderId"
             />
-            <span className="wf-config-hint">JSONPath within the message value to extract the correlation ID.</span>
           </div>
         )}
 
         {data.correlationSource === 'header' && (
-          <div className="wf-config-field">
-            <label>Correlation Header</label>
+          <div className="wf-config-field--row">
+            <label>Header Name</label>
             <input
               value={data.correlationHeader ?? ''}
               onChange={(e) => update({ correlationHeader: e.target.value || undefined })}
               placeholder="X-Correlation-Id"
             />
-            <span className="wf-config-hint">Header name containing the correlation ID.</span>
           </div>
         )}
 
         {data.correlationSource === 'key' && (
-          <div className="wf-config-field">
-            <span className="wf-config-hint">The message key is used directly as the correlation ID.</span>
-          </div>
+          <span className="wf-config-row-hint" style={{ marginLeft: 0 }}>The message key is used directly as the correlation ID.</span>
         )}
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Timeout (ms)</label>
         <input
           type="number"
@@ -161,10 +156,10 @@ export default function KafkaWaitConfig({
           onChange={(e) => update({ timeoutMs: e.target.value === '' ? 0 : Number(e.target.value) })}
           placeholder="30000"
         />
-        <span className="wf-config-hint">0 = unlimited wait. Workflow fails if no match within timeout.</span>
       </div>
+      <span className="wf-config-row-hint">0 = unlimited wait. Workflow fails if no match within timeout.</span>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Key Regex</label>
         <InsertVarField
           onRequestVariableInsert={onRequestVariableInsert}
@@ -181,14 +176,24 @@ export default function KafkaWaitConfig({
       </div>
 
       <div className="wf-kafka-section">
-        <div className="wf-kafka-section-title">Header Filters</div>
+        <div className="wf-kafka-section-title">
+          Header Filters
+          <button type="button" className="wf-section-add-btn" onClick={() => update({ headerFilters: [...headerFilters, createHeaderFilter()] })}>+ Add</button>
+        </div>
+        {headerFilters.length > 0 && (
+          <div className="wf-config-kv-col-headers">
+            <span className="wf-kv-col-toggle">On</span>
+            <span className="wf-kv-col-fill">Name</span>
+            <span className="wf-kv-col-fill">Value</span>
+            <span className="wf-kv-col-del" />
+          </div>
+        )}
         <div className="wf-config-kv-list">
           {headerFilters.map((row, index) => (
             <div key={row.id} className="wf-config-kv-row">
-              <label className="wf-config-checkbox-label" style={{ minWidth: 72 }}>
+              <div className="wf-kv-toggle">
                 <input type="checkbox" checked={row.enabled} onChange={(e) => headerCrud.update(index, { enabled: e.target.checked })} />
-                Enabled
-              </label>
+              </div>
               <input value={row.key} placeholder="Header name" onChange={(e) => headerCrud.update(index, { key: e.target.value })} />
               <div className="wf-config-kv-val-wrap">
                 <InsertVarField
@@ -205,16 +210,27 @@ export default function KafkaWaitConfig({
                   />
                 </InsertVarField>
               </div>
-              <button type="button" className="btn btn-sm btn-danger" onClick={() => headerCrud.remove(index)}>×</button>
+              <div className="wf-kv-del">
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => headerCrud.remove(index)}>×</button>
+              </div>
             </div>
           ))}
         </div>
-        <button type="button" className="btn btn-sm" onClick={() => update({ headerFilters: [...headerFilters, createHeaderFilter()] })}>+ Add Header Filter</button>
       </div>
 
       <div className="wf-kafka-section">
-        <div className="wf-kafka-section-title">Extract Variables</div>
+        <div className="wf-kafka-section-title">
+          Extract Variables
+          <button type="button" className="wf-section-add-btn" onClick={() => update({ extractVariables: [...extractVariables, createExtractVariable()] })}>+ Add</button>
+        </div>
         <span className="wf-config-hint">Extract fields from the correlated message body into workflow variables.</span>
+        {extractVariables.length > 0 && (
+          <div className="wf-config-kv-col-headers" style={{ marginTop: 6 }}>
+            <span className="wf-kv-col-fill">Variable Name</span>
+            <span className="wf-kv-col-fill">JSONPath</span>
+            <span className="wf-kv-col-del" />
+          </div>
+        )}
         <div className="wf-config-kv-list">
           {extractVariables.map((ev, index) => (
             <div key={index} className="wf-config-kv-row">
@@ -228,11 +244,12 @@ export default function KafkaWaitConfig({
                 placeholder="$.field.path"
                 onChange={(e) => handleExtractChange(index, 'jsonPath', e.target.value)}
               />
-              <button type="button" className="btn btn-sm btn-danger" onClick={() => handleExtractRemove(index)}>×</button>
+              <div className="wf-kv-del">
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => handleExtractRemove(index)}>×</button>
+              </div>
             </div>
           ))}
         </div>
-        <button type="button" className="btn btn-sm" onClick={() => update({ extractVariables: [...extractVariables, createExtractVariable()] })}>+ Add Variable</button>
       </div>
 
       <div className="wf-kafka-section">
@@ -244,13 +261,14 @@ export default function KafkaWaitConfig({
           <label>Message Body (JSON)</label>
           <textarea
             className="wf-config-textarea"
+            data-testid="wait-sample-payload"
             rows={5}
             value={data.samplePayload ?? ''}
             onChange={(e) => update({ samplePayload: e.target.value || undefined })}
             placeholder={`{\n  "orderId": "order-123",\n  "status": "approved",\n  "approvedAt": "2026-01-01T00:00:00Z"\n}`}
           />
         </div>
-        <div className="wf-config-field">
+        <div className="wf-config-field--row">
           <label>Message Key</label>
           <input
             value={data.sampleKey ?? ''}
@@ -270,9 +288,9 @@ export default function KafkaWaitConfig({
         </div>
       </div>
 
-      <div className="wf-config-field">
-        <label>Load Test Behavior</label>
-        <select value={loadTestBehavior.mode} onChange={(e) => applyLoadTestBehavior({ mode: e.target.value as KafkaConsumeLoadTestBehavior['mode'] })}>
+      <div className="wf-config-field--row">
+        <label>Load Test</label>
+        <select data-testid="wait-load-mode" value={loadTestBehavior.mode} onChange={(e) => applyLoadTestBehavior({ mode: e.target.value as KafkaConsumeLoadTestBehavior['mode'] })}>
           {LOAD_TEST_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
         </select>
       </div>

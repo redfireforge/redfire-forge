@@ -1,0 +1,1552 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GraphQL Studio — Main View Mockup</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #1e1e2e; color: #cdd6f4; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+/* Top Bar */
+.top-bar { display: flex; align-items: center; padding: 8px 12px; background: #181825; border-bottom: 1px solid #313244; gap: 8px; }
+.top-bar .tab-group { display: flex; gap: 2px; }
+.top-bar .tab { padding: 6px 14px; border-radius: 6px 6px 0 0; font-size: 12px; cursor: pointer; background: #1e1e2e; color: #6c7086; border: 1px solid transparent; }
+.top-bar .tab.active { background: #313244; color: #cdd6f4; border-color: #45475a; border-bottom-color: #313244; }
+.top-bar .tab:hover:not(.active) { background: #252536; }
+.app-tabs { display: flex; gap: 4px; margin-left: auto; }
+.app-tabs .app-tab { padding: 4px 10px; border-radius: 4px; font-size: 11px; background: #313244; color: #a6adc8; cursor: pointer; }
+.app-tabs .app-tab.active { background: #89b4fa; color: #1e1e2e; font-weight: 600; }
+
+/* Connection Bar */
+.connection-bar { display: flex; align-items: center; padding: 10px 12px; background: #181825; border-bottom: 1px solid #313244; gap: 8px; }
+.method-badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; background: #a6e3a1; color: #1e1e2e; }
+.url-input { flex: 1; padding: 8px 12px; border-radius: 6px; border: 1px solid #45475a; background: #1e1e2e; color: #cdd6f4; font-size: 13px; font-family: 'JetBrains Mono', monospace; }
+.url-input:focus { outline: none; border-color: #89b4fa; }
+.btn { padding: 7px 14px; border-radius: 6px; border: none; font-size: 12px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+.btn-primary { background: #89b4fa; color: #1e1e2e; }
+.btn-primary:hover { background: #74c7ec; }
+.btn-secondary { background: #313244; color: #cdd6f4; border: 1px solid #45475a; }
+.btn-secondary:hover { background: #45475a; }
+.btn-success { background: #a6e3a1; color: #1e1e2e; }
+.btn-success:hover { background: #94e2d5; }
+.btn-warning { background: #f9e2af; color: #1e1e2e; }
+
+/* Phase 1D: Auth badge (replaces inline <select> dropdown) */
+.auth-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 5px; font-size: 11.5px; font-weight: 500; border: 1px solid #45475a; background: rgba(255,255,255,0.04); color: #a6adc8; cursor: pointer; white-space: nowrap; }
+.auth-badge:hover { background: rgba(255,255,255,0.08); color: #cdd6f4; }
+.auth-badge.configured { background: rgba(137,180,250,0.1); color: #89b4fa; border-color: rgba(137,180,250,0.3); }
+.auth-badge.open { background: rgba(255,255,255,0.1); border-color: #89b4fa; }
+/* Phase 1E: Env badge — production CSS uses --gql-teal token for active state */
+.env-badge { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 5px; font-size: 11.5px; font-weight: 500; border: 1px solid #45475a; background: rgba(255,255,255,0.04); color: #a6adc8; cursor: pointer; white-space: nowrap; }
+/* Teal (#94e2d5) maps to var(--gql-teal) in production */
+.env-badge.active { background: rgba(148,226,213,0.1); color: #94e2d5; border-color: rgba(148,226,213,0.3); }
+/* Phase 1E: Env modal
+   BUG-R2-2 (fixed): min-height on modal so it's never a tiny sliver
+   BUG-R3-1 (fixed): masked input gets padding 5px 9px (matches non-masked gql-input padding)
+   BUG-R3-2 (fixed): empty state embeds Add Variable CTA centered below the hint text
+*/
+.env-modal-overlay { position: fixed; inset: 0; z-index: 600; display: flex; align-items: center; justify-content: center; background: transparent; }
+/* BUG-1E-R4 fix: inner glow uses border color token, not rgba(255,255,255,0.04) */
+.env-modal { display: flex; flex-direction: column; width: 780px; min-height: 440px; max-height: 90vh; background: #0f0f1a; border: 1px solid #2a2a40; border-radius: 10px; box-shadow: 0 24px 64px rgba(0,0,0,0.75), 0 0 0 1px #2a2a40; overflow: hidden; }
+.env-modal-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid #2a2a40; }
+.env-modal-body { display: flex; flex: 1; min-height: 0; }
+.env-sidebar { width: 210px; border-right: 1px solid #2a2a40; display: flex; flex-direction: column; background: #16162a; }
+.env-sidebar-hdr { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #2a2a40; }
+.env-sidebar-list { flex: 1; overflow-y: auto; padding: 4px 0; list-style: none; }
+.env-item { display: flex; align-items: center; padding: 0 8px; }
+.env-item.selected { background: rgba(137,180,250,0.08); border-left: 2px solid #89b4fa; padding-left: 6px; margin-left: 4px; }
+.env-item-btn { flex: 1; display: flex; align-items: center; gap: 7px; padding: 7px 4px; background: none; border: none; color: #cdd6f4; font-size: 12px; cursor: pointer; }
+.env-dot { width: 7px; height: 7px; border-radius: 50%; border: 1.5px solid #3a3a55; flex-shrink: 0; }
+.env-dot.on { background: #a6e3a1; border-color: #a6e3a1; box-shadow: 0 0 5px rgba(166,227,161,0.4); }
+.env-main { flex: 1; display: flex; flex-direction: column; }
+.env-main-hdr { display: flex; align-items: center; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid #2a2a40; }
+/* BUG-R2-5 (fixed): Active badge has pop-in animation */
+@keyframes env-badge-pop { 0% { transform:scale(0.8); opacity:0; } 60% { transform:scale(1.06); } 100% { transform:scale(1); opacity:1; } }
+.env-active-badge { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 4px; background: rgba(166,227,161,0.1); border: 1px solid rgba(166,227,161,0.3); color: #a6e3a1; font-size: 11.5px; font-weight: 600; animation: env-badge-pop 0.18s ease-out; }
+/* Variable section: scrollable table + always-visible Add button below */
+.env-var-section { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.env-var-table { flex: 1; overflow-y: auto; padding: 6px 14px; }
+.env-var-head { display: flex; align-items: center; padding: 4px 0 6px; border-bottom: 1px solid #2a2a40; font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #6c7086; gap: 8px; }
+.env-var-row { display: flex; align-items: center; gap: 8px; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.env-var-key { flex: 0 0 160px; padding: 5px 9px; background: #1e1e2e; border: 1px solid #2a2a40; border-radius: 5px; color: #cdd6f4; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+/* Non-masked value: plain input with gql-input padding */
+.env-var-val { flex: 1; padding: 5px 9px; background: #1e1e2e; border: 1px solid #2a2a40; border-radius: 5px; color: #cdd6f4; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+/* Masked value wrap: border provided by container; inner input has padding too */
+.env-var-val-wrap { flex: 1; display: flex; align-items: center; background: #1e1e2e; border: 1px solid #2a2a40; border-radius: 5px; overflow: hidden; }
+.env-var-val-wrap:focus-within { border-color: #89b4fa; box-shadow: 0 0 0 2px rgba(137,180,250,0.15); }
+.env-var-val-wrap input { flex: 1; padding: 5px 9px; border: none; background: transparent; color: #cdd6f4; font-family: 'JetBrains Mono', monospace; font-size: 12px; outline: none; }
+.env-var-val-toggle { width: 28px; height: 100%; border-left: 1px solid #2a2a40; background: none; border-top: none; border-right: none; border-bottom: none; color: #6c7086; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+/* Empty state: column layout so CTA is co-located with hint (BUG-R3-2 fix) */
+.env-var-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; padding: 32px 24px; font-size: 12.5px; color: #6c7086; text-align: center; line-height: 1.7; }
+.env-var-add { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 5px; border: 1px dashed #2a2a40; background: none; color: #6c7086; font-size: 12px; cursor: pointer; margin: 8px 14px; align-self: flex-start; }
+.env-var-add.centered { align-self: center; border-style: solid; color: #89b4fa; border-color: rgba(137,180,250,0.35); background: rgba(137,180,250,0.06); }
+.env-var-add:hover, .env-var-add.centered:hover { border-color: #89b4fa; color: #89b4fa; background: rgba(137,180,250,0.1); }
+.env-unresolved-warn { color: #f9e2af; font-size: 11px; }
+/* Phase 1E: Headers panel warning icon */
+.hdr-warn-icon { color: #f9e2af; font-size: 10px; cursor: help; margin-left: 2px; }
+/* BUG-R3-1: No Auth hint shown in empty popover body */
+.auth-no-auth-hint { padding: 9px 11px; background: rgba(255,255,255,0.03); border: 1px dashed rgba(255,255,255,0.1); border-radius: 5px; font-size: 12px; color: #6c7086; line-height: 1.5; text-align: center; }
+/* Phase 1D: Auth popover */
+.auth-popover-wrap { position: relative; }
+.auth-popover { position: absolute; top: calc(100% + 6px); right: 0; z-index: 300; width: 320px; background: #1e1e2e; border: 1px solid #45475a; border-radius: 8px; box-shadow: 0 12px 32px rgba(0,0,0,0.5); overflow: hidden; }
+.auth-popover-header { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-bottom: 1px solid #313244; }
+.auth-popover-title { font-size: 12.5px; font-weight: 600; color: #cdd6f4; }
+.auth-popover-close { background: none; border: none; color: #6c7086; cursor: pointer; padding: 2px 6px; border-radius: 3px; font-size: 14px; }
+.auth-popover-close:hover { background: #313244; color: #cdd6f4; }
+.auth-popover-body { display: flex; flex-direction: column; gap: 12px; padding: 14px; }
+.auth-field { display: flex; flex-direction: column; gap: 5px; }
+.auth-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #6c7086; }
+.auth-select, .auth-input { padding: 6px 10px; border-radius: 5px; border: 1px solid #45475a; background: #181825; color: #cdd6f4; font-size: 12px; }
+.auth-select:focus, .auth-input:focus { outline: none; border-color: #89b4fa; }
+.auth-pw-wrap { display: flex; border: 1px solid #45475a; border-radius: 5px; overflow: hidden; }
+.auth-pw-input { flex: 1; padding: 6px 10px; border: none; background: #181825; color: #cdd6f4; font-size: 12px; }
+.auth-pw-toggle { padding: 6px 10px; background: #181825; border: none; border-left: 1px solid #313244; color: #6c7086; cursor: pointer; }
+.auth-info-box { padding: 10px 12px; background: rgba(137,180,250,0.06); border: 1px solid rgba(137,180,250,0.2); border-radius: 5px; font-size: 12px; color: #a6adc8; line-height: 1.5; }
+.auth-info-box strong { color: #89b4fa; }
+.auth-popover-footer { display: flex; align-items: center; gap: 7px; padding: 8px 14px; border-top: 1px solid #313244; background: rgba(0,0,0,0.15); }
+.auth-preview { font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #6c7086; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Phase 1D: Recent endpoints dropdown */
+.recent-endpoints { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: #1e1e2e; border: 1px solid #45475a; border-radius: 6px; padding: 4px 0; z-index: 200; box-shadow: 0 8px 24px rgba(0,0,0,0.4); }
+.recent-endpoint-item { display: flex; align-items: center; padding: 0; }
+.recent-endpoint-btn { flex: 1; display: flex; align-items: center; gap: 8px; padding: 6px 12px; background: none; border: none; color: #a6adc8; font-family: 'JetBrains Mono', monospace; font-size: 11.5px; cursor: pointer; text-align: left; }
+.recent-endpoint-btn:hover { background: rgba(255,255,255,0.06); color: #cdd6f4; }
+.recent-endpoint-remove { padding: 4px 10px; background: none; border: none; color: #6c7086; font-size: 14px; cursor: pointer; }
+.schema-status { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #a6e3a1; }
+.schema-status .dot { width: 6px; height: 6px; border-radius: 50%; background: #a6e3a1; }
+
+/* Main Layout */
+.main-content { display: flex; flex: 1; overflow: hidden; }
+
+/* Schema Explorer (Left Panel) */
+.schema-panel { width: 240px; border-right: 1px solid #313244; display: flex; flex-direction: column; background: #181825; }
+.schema-panel .panel-header { padding: 10px 12px; border-bottom: 1px solid #313244; display: flex; align-items: center; justify-content: space-between; }
+.schema-panel .panel-header h3 { font-size: 12px; font-weight: 600; color: #89b4fa; text-transform: uppercase; letter-spacing: 0.5px; }
+.schema-search { margin: 8px; padding: 6px 10px; border-radius: 4px; border: 1px solid #45475a; background: #1e1e2e; color: #cdd6f4; font-size: 12px; width: calc(100% - 16px); }
+.schema-search:focus { outline: none; border-color: #89b4fa; }
+.schema-tree { flex: 1; overflow-y: auto; padding: 4px 0; }
+.tree-item { padding: 4px 12px; font-size: 12px; cursor: pointer; display: flex; align-items: center; gap: 6px; }
+.tree-item:hover { background: #313244; }
+.tree-item.active { background: #313244; border-left: 2px solid #89b4fa; }
+.tree-item .icon { width: 14px; height: 14px; display: flex; align-items: center; justify-content: center; font-size: 10px; border-radius: 3px; font-weight: 700; }
+.tree-item .icon.type { background: #89b4fa22; color: #89b4fa; }
+.tree-item .icon.field { background: #a6e3a122; color: #a6e3a1; }
+.tree-item .icon.arg { background: #f9e2af22; color: #f9e2af; }
+.tree-item .icon.enum { background: #cba6f722; color: #cba6f7; }
+.tree-item .icon.input { background: #fab38722; color: #fab387; }
+.tree-item .name { color: #cdd6f4; }
+.tree-item .type-hint { color: #6c7086; margin-left: auto; font-size: 11px; }
+.tree-item .add-btn { margin-left: auto; opacity: 0; color: #89b4fa; font-size: 14px; font-weight: 700; }
+.tree-item:hover .add-btn { opacity: 1; }
+.tree-section { padding: 6px 12px 3px; font-size: 10px; font-weight: 700; text-transform: uppercase; color: #6c7086; letter-spacing: 0.8px; margin-top: 6px; }
+
+/* Editor Panel (Center) */
+.editor-panel { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.editor-tabs { display: flex; align-items: center; padding: 4px 8px; background: #181825; border-bottom: 1px solid #313244; gap: 2px; }
+.editor-tab { padding: 5px 12px; border-radius: 4px 4px 0 0; font-size: 11px; cursor: pointer; background: transparent; color: #6c7086; display: flex; align-items: center; gap: 6px; }
+.editor-tab.active { background: #1e1e2e; color: #cdd6f4; }
+.editor-tab .close { font-size: 10px; opacity: 0.5; }
+.editor-tab .close:hover { opacity: 1; color: #f38ba8; } /* #f38ba8 = var(--gql-danger) Catppuccin red */
+.editor-tab .op-type { font-size: 9px; padding: 1px 4px; border-radius: 2px; font-weight: 700; }
+.editor-tab .op-type.query { background: #89b4fa33; color: #89b4fa; }
+.editor-tab .op-type.mutation { background: #f38ba833; color: #f38ba8; }
+.editor-tab .op-type.subscription { background: #a6e3a133; color: #a6e3a1; }
+.add-tab { width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; border-radius: 4px; cursor: pointer; color: #6c7086; font-size: 16px; }
+.add-tab:hover { background: #313244; color: #cdd6f4; }
+
+/* Phase 1 Gap Round 7: Prettify floating button — overlays top-right of editor pane */
+/* Rests at 75% opacity, blurs editor content behind it, full opacity on hover/focus. */
+/* Error state flashes red + shakes when the query has syntax errors (cannot parse). */
+.editor-pane-wrap { position: relative; flex: 1; overflow: hidden; }
+.prettify-btn {
+  position: absolute; top: 8px; right: 14px; z-index: 10;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px 3px 6px; border-radius: 4px;
+  border: 1px solid #45475a; background: rgba(24,24,37,0.85);
+  backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  color: #a6adc8; font-size: 11px; cursor: pointer;
+  opacity: 0.75; white-space: nowrap; user-select: none;
+  transition: opacity 120ms ease, background 120ms ease, color 120ms ease;
+}
+.prettify-btn:hover { opacity: 1; background: rgba(137,180,250,0.1); color: #89b4fa; border-color: rgba(137,180,250,0.4); }
+@keyframes prettify-shake { 0%{transform:translateX(0)} 20%{transform:translateX(-3px)} 40%{transform:translateX(3px)} 60%{transform:translateX(-2px)} 80%{transform:translateX(2px)} 100%{transform:translateX(0)} }
+.prettify-btn.error { opacity:1; background:rgba(243,139,168,0.1); color:#f38ba8; border-color:rgba(243,139,168,0.4); animation:prettify-shake 0.35s ease; }
+
+/* Empty endpoint: Execute + Introspect buttons visually disabled */
+/* Round 7 fix: noEndpoint = !endpoint.trim() disables both buttons */
+.btn:disabled, .btn[disabled] { opacity: 0.38; cursor: not-allowed; pointer-events: none; }
+
+.editor-area { flex: 1; display: flex; flex-direction: column; }
+.code-editor { flex: 1; padding: 16px; font-family: 'JetBrains Mono', 'Fira Code', monospace; font-size: 13px; line-height: 1.6; overflow: auto; background: #1e1e2e; }
+.code-editor .line { display: flex; }
+.code-editor .line-num { width: 32px; text-align: right; color: #45475a; margin-right: 16px; user-select: none; }
+.code-editor .keyword { color: #cba6f7; }
+.code-editor .type-name { color: #89b4fa; }
+.code-editor .field-name { color: #cdd6f4; }
+.code-editor .arg-name { color: #f9e2af; }
+.code-editor .string { color: #a6e3a1; }
+.code-editor .variable { color: #fab387; }
+.code-editor .comment { color: #6c7086; font-style: italic; }
+.code-editor .punctuation { color: #6c7086; }
+.code-editor .directive { color: #f38ba8; }
+
+/* Bottom Panels */
+.bottom-panels { border-top: 1px solid #313244; height: 160px; display: flex; flex-direction: column; }
+.bottom-tabs { display: flex; padding: 0 8px; background: #181825; border-bottom: 1px solid #313244; }
+.bottom-tab { padding: 6px 12px; font-size: 11px; cursor: pointer; color: #6c7086; border-bottom: 2px solid transparent; }
+.bottom-tab.active { color: #cdd6f4; border-bottom-color: #89b4fa; }
+.bottom-content { flex: 1; padding: 10px 16px; overflow: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; background: #1e1e2e; }
+.var-editor .line { color: #cdd6f4; }
+
+/* Response Panel (Right) */
+.response-panel { width: 380px; border-left: 1px solid #313244; display: flex; flex-direction: column; background: #181825; }
+.response-header { padding: 10px 12px; border-bottom: 1px solid #313244; display: flex; align-items: center; gap: 8px; }
+.response-header h3 { font-size: 12px; font-weight: 600; color: #a6e3a1; }
+.status-badge { padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 700; }
+.status-badge.success { background: rgba(166,227,161,0.14); color: #a6e3a1; }
+.status-badge.redirect { background: rgba(249,226,175,0.14); color: #f9e2af; }
+.status-badge.client-error,
+.status-badge.server-error { background: rgba(243,139,168,0.14); color: #f38ba8; }
+.latency-badge { font-size: 11px; color: #f9e2af; }
+.size-badge { font-size: 11px; color: #6c7086; }
+.copy-btn { margin-left: auto; padding: 2px 9px; font-size: 11px; border-radius: 4px; border: 1px solid #313244; background: transparent; color: #6c7086; cursor: pointer; }
+.copy-btn:hover { color: #cdd6f4; border-color: rgba(255,255,255,0.2); }
+.response-tabs { display: flex; padding: 0 8px; border-bottom: 1px solid #313244; }
+.response-tab { padding: 6px 12px; font-size: 11px; cursor: pointer; color: #6c7086; border-bottom: 2px solid transparent; }
+.response-tab.active { color: #cdd6f4; border-bottom-color: #89b4fa; }
+.response-body { flex: 1; padding: 12px; overflow: auto; font-family: 'JetBrains Mono', monospace; font-size: 12px; line-height: 1.5; }
+.response-body .key { color: #89b4fa; }
+.response-body .string-val { color: #a6e3a1; }
+.response-body .number-val { color: #fab387; }
+.response-body .null-val { color: #6c7086; }
+.response-body .bool-val { color: #cba6f7; }
+
+/* Bottom Status Bar */
+.status-bar { display: flex; align-items: center; padding: 4px 12px; background: #11111b; border-top: 1px solid #313244; font-size: 11px; color: #6c7086; gap: 16px; }
+.status-bar .item { display: flex; align-items: center; gap: 4px; }
+.status-bar .dot { width: 6px; height: 6px; border-radius: 50%; }
+.status-bar .dot.green { background: #a6e3a1; }
+.status-bar .dot.yellow { background: #f9e2af; }
+
+/* Tooltips */
+.tooltip { position: relative; }
+.tooltip::after { content: attr(data-tip); position: absolute; bottom: 100%; left: 50%; transform: translateX(-50%); padding: 4px 8px; background: #45475a; color: #cdd6f4; font-size: 10px; border-radius: 4px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity 0.2s; }
+.tooltip:hover::after { opacity: 1; }
+
+/* History sidebar overlay */
+.history-overlay { position: absolute; right: 390px; top: 120px; width: 280px; background: #181825; border: 1px solid #45475a; border-radius: 8px; box-shadow: 0 8px 32px rgba(0,0,0,0.5); z-index: 100; display: none; }
+.history-overlay.show { display: block; }
+.history-header { padding: 10px 12px; border-bottom: 1px solid #313244; display: flex; align-items: center; justify-content: space-between; }
+.history-header h4 { font-size: 12px; color: #cdd6f4; }
+.history-list { max-height: 300px; overflow-y: auto; }
+.history-item { padding: 8px 12px; border-bottom: 1px solid #313244; cursor: pointer; }
+.history-item:hover { background: #313244; }
+.history-item .op-name { font-size: 12px; color: #cdd6f4; font-weight: 500; }
+.history-item .op-meta { font-size: 10px; color: #6c7086; margin-top: 2px; display: flex; gap: 8px; }
+.history-item .op-badge { font-size: 9px; padding: 1px 4px; border-radius: 2px; font-weight: 700; }
+
+/* Env Badge */
+.env-badge { padding: 3px 8px; border-radius: 4px; font-size: 11px; background: #45475a; color: #f9e2af; cursor: pointer; }
+.env-badge:hover { background: #585b70; }
+</style>
+</head>
+<body>
+<!-- Top Navigation Bar -->
+<div class="top-bar">
+  <div class="tab-group">
+    <div class="tab">WebSocket</div>
+    <div class="tab">Kafka</div>
+    <div class="tab">SSE</div>
+    <div class="tab active">GraphQL</div>
+  </div>
+  <div class="app-tabs">
+    <div class="app-tab">Test Runner</div>
+    <div class="app-tab">Workflows</div>
+    <div class="app-tab active">Protocols</div>
+    <div class="app-tab">Results</div>
+  </div>
+</div>
+
+<!-- Connection Bar — Phase 1D: auth badge replaces inline select -->
+<!-- Phase 1A: close-tab confirm, Phase 1C: validation badge, Phase 1D: profile badge + auth popover -->
+<!-- Phase 1 Gap: TLS skip toggle (after URL), schema polling config button (next to schema status badge) -->
+<div class="connection-bar">
+  <span class="method-badge">GQL</span>
+
+  <!--
+    Phase 1D addition: Profile badge — between GQL badge and URL input.
+    STATE A (shown): 2 saved profiles → blue count badge "2"
+    STATE B: no profiles → gray "Profiles" text
+    Click opens Connection Profiles modal.
+    PROFILE BADGE UX GUIDE:
+    • 0 profiles → gray badge, "Profiles" label; tooltip "No saved profiles — click to save current connection"
+    • N profiles → blue count badge "N"; tooltip "N saved profiles — click to manage"
+    • Click → opens GraphqlProfileModal (single-panel: saved list + save form)
+    • "Load" on a profile row → applies endpoint + auth to connection bar, closes modal
+    • Two-click delete: first click shows "✓ Confirm" red; second click deletes (2.5 s timeout)
+  -->
+  <button style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px 3px 7px;border-radius:5px;font-size:11.5px;font-weight:500;background:rgba(137,180,250,0.06);border:1px solid rgba(137,180,250,0.25);color:#b0bec5;cursor:pointer;" title="2 saved profiles — click to manage">
+    🔖 <span style="font-size:10px;font-weight:700;background:rgba(137,180,250,0.2);color:#89b4fa;border-radius:3px;padding:0 4px;">2</span>
+  </button>
+
+  <!-- URL input with recent endpoints (Phase 1D) -->
+  <div style="position:relative;flex:1">
+    <input class="url-input" style="width:100%" value="https://countries.trevorblades.com/graphql" placeholder="Enter GraphQL endpoint URL..." />
+    <!-- Recent Endpoints Dropdown (shown on focus) -->
+    <div class="recent-endpoints" style="display:none">
+      <div class="recent-endpoint-item">
+        <button class="recent-endpoint-btn">🕐 https://countries.trevorblades.com/graphql</button>
+        <button class="recent-endpoint-remove">×</button>
+      </div>
+      <div class="recent-endpoint-item">
+        <button class="recent-endpoint-btn">🕐 https://api.github.com/graphql</button>
+        <button class="recent-endpoint-remove">×</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Auth Badge + Popover (Phase 1D) — State A: Bearer Token configured (open) -->
+  <div class="auth-popover-wrap">
+    <button class="auth-badge configured open" aria-expanded="true">🔒 Bearer <span style="opacity:.6;font-size:9px">▾</span></button>
+    <!-- Auth Popover — Bearer Token state: auto-focuses token field on re-open -->
+    <div class="auth-popover">
+      <div class="auth-popover-header">
+        <span class="auth-popover-title">Authentication</span>
+        <button class="auth-popover-close">×</button>
+      </div>
+      <div class="auth-popover-body">
+        <div class="auth-field">
+          <label class="auth-label">Type</label>
+          <select class="auth-select">
+            <option>No Auth</option>
+            <option selected>Bearer Token</option>
+            <option>Basic Auth</option>
+            <option>API Key</option>
+            <option>OAuth 2.0</option>
+            <option>Custom (Headers Panel)</option>
+          </select>
+        </div>
+        <div class="auth-field">
+          <label class="auth-label">Token</label>
+          <div class="auth-pw-wrap">
+            <!-- BUG-R3-2: auto-focused on re-open (auth already configured) -->
+            <input type="password" class="auth-pw-input" value="eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9..." style="outline:2px solid #89b4fa;outline-offset:-1px;" />
+            <button class="auth-pw-toggle">👁</button>
+          </div>
+        </div>
+      </div>
+      <div class="auth-popover-footer">
+        <span style="color:#6c7086;font-size:11px">ⓘ</span>
+        <!-- BUG-R3-3: improved preview — no misleading base64-of-*** -->
+        <code class="auth-preview">Authorization: Bearer eyJhbGciOiJSU…</code>
+      </div>
+    </div>
+  </div>
+  <!-- Auth Badge — State B: No Auth (shown as annotation below connection bar) -->
+  <!-- 
+    NO AUTH state: badge shows gray "No Auth ▾"
+    Popover body shows hint: "No authentication headers will be sent. Select a type above to add credentials."
+    Type selector auto-focused (correct for first-time config)
+    
+    BEARER state (above): token field auto-focused when re-opening (BUG-R3-2 fix)
+    BASIC state: username field auto-focused on re-open
+    API KEY state: header name field auto-focused on re-open
+    After type CHANGE: first credential field auto-focused (BUG-R3-5 fix)
+    Badge turns BLUE when credentials are set (isAuthConfigured)
+    API Key badge goes blue once headerName is set, even if value is empty (BUG-R3-4 fix)
+  -->
+  <!-- Phase 1E: Env badge — shown between URL input and auth badge -->
+  <!-- State A: Active environment named "Staging" (teal) -->
+  <button class="env-badge active" title="Active environment: Staging — click to manage">
+    ⊕ Staging ▾
+  </button>
+  <!-- State B (annotated): No active env → gray "No Env ▾" -->
+  <!--
+    ENV BADGE UX GUIDE:
+    • No active env  → gray badge, text "No Env ▾"
+    • Active env set → teal badge, shows env name (truncated to 18 chars)
+    • Click always opens the Environment Manager modal
+    • Variables like {{baseUrl}} in URL/headers resolve against active env before execution
+    • Unresolved {{var}} in headers → amber ⚠ warning icon appears on that header row
+  -->
+
+  <button class="btn btn-secondary" title="Introspect Schema">⟳ Schema</button>
+
+  <!--
+    Phase 1C addition: Query validation warning badge.
+    Shown when graphql.validate() finds semantic errors in the current query after schema is loaded.
+    Does NOT disable Execute — it's informational only (user may want to see server-side errors too).
+    Amber pill: triangle icon + error count.
+    Disappears when errors are fixed, when schema is unloaded, or during execution.
+    STATE SHOWN: 2 validation errors found.
+  -->
+  <span style="display:inline-flex;align-items:center;gap:4px;padding:2px 8px 2px 6px;border-radius:4px;font-size:11px;font-weight:600;color:#f9e2af;background:rgba(249,226,175,0.12);border:1px solid rgba(249,226,175,0.28);cursor:default;white-space:nowrap;" title="2 schema validation errors — check editor squiggles">
+    ⚠ 2
+  </span>
+
+  <!--
+    Round 7 fix: Execute + Introspect are DISABLED when endpoint URL is empty.
+    STATE A (shown): endpoint filled → buttons are enabled
+    STATE B: endpoint empty → both buttons disabled (opacity: 0.38, cursor: not-allowed)
+      tooltip: "Enter an endpoint URL first"
+    The same noEndpoint guard is also applied in GraphqlStudioPage.handleExecute()
+    for keyboard shortcut ⌘Enter as a defense-in-depth check.
+  -->
+  <button class="btn btn-primary">▶ Execute</button>
+
+  <!--
+    Phase 1 Gap: TLS skip toggle — only visible for https:// endpoints.
+    STATE A (shown): TLS verification is ON (default, safe)
+    STATE B (amber): TLS verification is OFF (user clicked — for self-signed certs)
+    • Normal state: "SSL" label, muted border, muted text color
+    • Active (TLS skip) state: amber color, strikethrough shield icon, "SSL off" label
+    • aria-pressed: reflects current TLS state
+    • Only shown when endpoint URL starts with https://
+  -->
+  <button style="display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 8px;border-radius:6px;border:1px solid rgba(255,255,255,0.1);background:transparent;color:#6c7086;cursor:pointer;font-size:11px;flex-shrink:0;" title="TLS verification enabled — click to disable for self-signed certificates" aria-pressed="false">
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+    </svg>
+    SSL
+  </button>
+  <!-- Active state example:
+  <button style="...color:#f9e2af;border-color:rgba(249,226,175,0.4);background:rgba(249,226,175,0.08);" aria-pressed="true">
+    <svg ...><path .../><line x1="4" y1="4" x2="20" y2="20"/></svg>
+    SSL off
+  </button> -->
+
+  <!--
+    Phase 1 Gap: Schema status + polling config button.
+    The schema loaded badge is wrapped in .gql-schema-status-wrap so the
+    polling config button (⏱) can float right next to it.
+    The ⏱ button opens a popover with:
+      • Toggle "Enable polling" (switch)
+      • Interval input "Every [30] s" (shown when enabled)
+      • Hint text
+    When polling is active: pulsing green dot replaces static dot; ⏱ button turns green.
+  -->
+  <div style="position:relative;display:inline-flex;align-items:center;gap:4px;">
+    <div class="schema-status"><span class="dot"></span> Schema loaded (42 types)</div>
+    <!-- Polling config button — tiny circular button next to schema badge -->
+    <button style="display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;border:1px solid transparent;background:transparent;color:#6c7086;cursor:pointer;padding:0;" title="Enable auto-refresh (schema polling)">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="23 4 23 10 17 10"/>
+        <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+      </svg>
+    </button>
+    <!-- Polling popover (shown when button clicked):
+    <div style="position:absolute;top:calc(100% + 8px);right:0;width:240px;background:#1e1e2e;border:1px solid #2a2a40;border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.3);overflow:hidden;z-index:300;">
+      Header: "Auto-refresh schema" + × close
+      Body: toggle switch + "Enable polling"
+      (when enabled) interval input "Every [30] s"
+      Hint: "Schema re-introspected every 30s. Only updated when SDL changes."
+    </div> -->
+  </div>
+</div>
+
+<!--
+  Phase 1A addition: Close-tab confirmation UX (two-click pattern).
+  TAB BAR UX GUIDE for unsaved-changes confirmation:
+  • Normal unsaved tab: AMBER dot (var(--gql-warning) / #f9e2af) — BUG-1A-1 fix: was blue accent
+    "×" close button with title "Unsaved changes (click to confirm)"
+  • First click on ×: tab enters "confirming" state
+    - × turns red (#f38ba8) + bold + pulsing opacity animation
+    - title changes to "Unsaved changes — click again to close"
+    - aria-label: "Click again to discard changes and close [tab name]"
+    - Amber dot hides (× is the visual indicator now)
+    - Auto-resets after 2.5 s if no second click
+  • Clicking a different tab: also resets confirming state (visual → user abandoned the close)
+  • Second click on × within 2.5 s: tab closes immediately
+  • Only tabs with unsavedChanges = true AND tabs.length > 1 get this treatment
+    (last tab or saved tabs close immediately with a single click)
+
+  PLUS-BUTTON LIMIT UX (BUG-1A-2 fix):
+  • Always render the + button (was conditionally hidden at MAX_TABS = 8)
+  • At MAX_TABS: button shows as disabled (opacity: 0.3, cursor: not-allowed)
+    tooltip: "Maximum 8 tabs — close one to open another"
+  • Below MAX_TABS: button is enabled with tooltip "New tab"
+
+  ARIA (BUG-1A-3 to BUG-1A-5 fixes):
+  • Tab bar role="tablist" has aria-label="Query tabs"
+  • Bottom panel Variables/Headers buttons have IDs + aria-controls="gql-bottom-tabpanel"
+  • Bottom panel div has id="gql-bottom-tabpanel" + aria-labelledby pointing to active tab btn
+  • Right pane Response/Schema buttons have IDs + aria-controls="gql-right-pane-tabpanel"
+  • Right pane content div has id="gql-right-pane-tabpanel" + dynamic aria-labelledby
+
+  TAB BUTTON ACCESSIBLE NAME (BUG-1A-R2-3 fix):
+  • Tab <button> has explicit aria-label="GetCountries" or "GetCountries, unsaved"
+  • Tab label span has aria-hidden="true" (prevents duplicate reading)
+  • Unsaved dot span has aria-hidden="true" (accessible name from parent aria-label)
+
+  LAST TAB CLOSE BUTTON (BUG-1A-R2-2 fix):
+  • Close × only renders when tabs.length > 1
+  • With a single tab: × is hidden entirely (can't close the last tab anyway)
+  • Matches VS Code / browser-tab behavior
+
+  MONACO FOCUS ON TAB SWITCH (BUG-1A-R2-1 fix):
+  • GraphqlEditor.tsx useEffect([modelPath]) calls editor.focus() (deferred 1 rAF)
+  • User can start typing immediately after clicking any tab
+-->
+
+<!-- Phase 1E: Environment Manager Modal (shown when env badge clicked) -->
+<!-- BUG-R6-2 fix: panel gets tabIndex="-1" in production; useEffect focuses it on mount -->
+<!-- BUG-R6-3 fix: close (Escape/×) restores focus to env badge trigger via restoreFocusToTrigger() -->
+<div class="env-modal-overlay" style="display:none" id="env-modal-demo">
+  <div class="env-modal" tabindex="-1" role="dialog" aria-label="Environment Variables" aria-modal="true">
+    <!-- Modal header -->
+    <div class="env-modal-header">
+      <div style="display:flex;align-items:center;gap:8px;color:#89b4fa;">
+        <span>⊕</span>
+        <span style="font-size:13px;font-weight:600;color:#eeffff;">Environment Variables</span>
+      </div>
+      <button style="background:none;border:none;color:#6c7086;cursor:pointer;font-size:18px;">×</button>
+    </div>
+    <!-- Modal body -->
+    <div class="env-modal-body" style="min-height:460px;">
+      <!-- Left sidebar -->
+      <div class="env-sidebar">
+        <div class="env-sidebar-hdr">
+          <span style="font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:#6c7086;">Environments</span>
+          <button style="display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:4px;border:1px solid #2a2a40;background:rgba(137,180,250,0.08);color:#89b4fa;font-size:11px;cursor:pointer;">+ New</button>
+        </div>
+        <!-- BUG-R6-1 fix: production uses role="list" (not listbox) and aria-current on button (not role="option") -->
+        <ul class="env-sidebar-list" role="list" aria-label="Environments">
+          <li class="env-item selected">
+            <button class="env-item-btn" aria-current="true"><span class="env-dot on"></span> Staging</button>
+            <button style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:none;background:none;color:#6c7086;cursor:pointer;border-radius:3px;">🗑</button>
+          </li>
+          <li class="env-item">
+            <button class="env-item-btn"><span class="env-dot"></span> Production</button>
+            <button style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:none;background:none;color:#6c7086;cursor:pointer;border-radius:3px;opacity:0;">🗑</button>
+          </li>
+          <li class="env-item">
+            <button class="env-item-btn"><span class="env-dot"></span> Local Dev</button>
+            <button style="display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:none;background:none;color:#6c7086;cursor:pointer;border-radius:3px;opacity:0;">🗑</button>
+          </li>
+        </ul>
+        <!-- Import button at bottom -->
+        <div style="padding:8px 10px;border-top:1px solid #2a2a40;">
+          <button style="display:flex;align-items:center;gap:5px;width:100%;padding:5px 8px;border-radius:4px;border:1px dashed #2a2a40;background:none;color:#6c7086;font-size:11.5px;cursor:pointer;">↑ Import</button>
+        </div>
+      </div>
+
+      <!-- Right main panel -->
+      <div class="env-main">
+        <!-- Env name + actions -->
+        <div class="env-main-hdr">
+          <div>
+            <button style="display:inline-flex;align-items:center;gap:6px;padding:4px 6px;border-radius:4px;border:1px solid transparent;background:none;font-size:14px;font-weight:600;color:#eeffff;cursor:pointer;">
+              Staging ✏
+            </button>
+          </div>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <!-- Active badge — this env IS active -->
+            <span class="env-active-badge">✓ Active</span>
+            <button style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;border-radius:4px;border:1px solid #2a2a40;background:none;color:#a6adc8;font-size:11.5px;cursor:pointer;">↓ Export</button>
+          </div>
+        </div>
+        <!--
+          Variable section layout:
+          - When there are variables: scrollable .env-var-table + .env-var-add button below
+          - When empty: .env-var-empty (column flex) with hint text + .env-var-add.centered CTA inside
+            (BUG-R3-2 fix: button co-located with hint, not disconnected at bottom-left)
+        -->
+        <div class="env-var-section">
+          <div class="env-var-table">
+          <div class="env-var-head">
+            <span style="width:22px;flex-shrink:0;"></span>
+            <span style="flex:0 0 160px;">Key</span>
+            <span style="flex:1;">Value</span>
+            <span style="width:60px;flex-shrink:0;"></span>
+          </div>
+          <!-- Variable row 1: plain (non-masked) value — renders as gql-input with padding -->
+          <div class="env-var-row">
+            <input type="checkbox" checked style="width:13px;height:13px;accent-color:#89b4fa;flex-shrink:0;" />
+            <input type="text" class="env-var-key" value="baseUrl" />
+            <!-- BUG-R3-1 fix: non-masked = plain gql-input with padding:5px 9px -->
+            <input type="text" class="env-var-val" value="https://staging.api.example.com/graphql" />
+            <div style="display:flex;gap:4px;">
+              <button style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;background:none;border:1px solid transparent;border-radius:4px;color:#6c7086;cursor:pointer;" title="Mark as secret">🔒</button>
+              <button style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;background:none;border:none;border-radius:4px;color:#6c7086;cursor:pointer;" title="Remove">×</button>
+            </div>
+          </div>
+          <!-- Variable row 2: masked (secret) value — renders in env-var-val-wrap container -->
+          <div class="env-var-row">
+            <input type="checkbox" checked style="width:13px;height:13px;accent-color:#89b4fa;flex-shrink:0;" />
+            <input type="text" class="env-var-key" value="authToken" />
+            <!--
+              BUG-R3-1 fix: masked path uses .env-var-val-wrap container for the border/bg.
+              Inner input has padding:5px 9px too (same as non-masked).
+            -->
+            <div class="env-var-val-wrap">
+              <input type="password" value="eyJhbGciOiJSUzI1NiJ9" placeholder="secret value" />
+              <button class="env-var-val-toggle" title="Show value">👁</button>
+            </div>
+            <div style="display:flex;gap:4px;">
+              <!-- Secret toggle active = amber highlight -->
+              <button style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;background:rgba(249,226,175,0.08);border:1px solid rgba(249,226,175,0.3);color:#f9e2af;cursor:pointer;border-radius:4px;" title="Secret (click to unmark)">🔒</button>
+              <button style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;background:none;border:none;border-radius:4px;color:#6c7086;cursor:pointer;" title="Remove">×</button>
+            </div>
+          </div>
+          <!-- Variable row 3: disabled (unchecked) -->
+          <div class="env-var-row" style="opacity:.45;">
+            <input type="checkbox" style="width:13px;height:13px;accent-color:#89b4fa;flex-shrink:0;" />
+            <input type="text" class="env-var-key" value="debugMode" />
+            <input type="text" class="env-var-val" value="true" />
+            <div style="display:flex;gap:4px;">
+              <button style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;background:none;border:1px solid transparent;border-radius:4px;color:#6c7086;cursor:pointer;">🔒</button>
+              <button style="display:flex;align-items:center;justify-content:center;width:26px;height:26px;background:none;border:none;border-radius:4px;color:#6c7086;cursor:pointer;">×</button>
+            </div>
+          </div>
+          </div>
+          <!-- Add Variable button: at bottom of table, left-aligned (gql-env-var-add default) -->
+          <button class="env-var-add">+ Add Variable</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!--
+  PHASE 1E ENV MODAL UX GUIDE (updated after Round 3 re-evaluation):
+  • Left sidebar: env list with green dot for active env, delete (trash) on hover, + New, ↑ Import
+  • Right panel: clickable name (inline edit on click), Set Active / Active ✓ badge, ↓ Export
+  • Active badge: pop-in animation (scale 0.8→1.06→1, 0.18s) confirms "Set Active" action
+  • Variable table: ☑ Enabled | Key (monospace, 160px) | Value | 🔒 secret toggle | × delete
+  • Non-masked value: plain input with padding:5px 9px (like all gql-input elements)
+  • Masked value: .env-var-val-wrap container provides border/bg; inner input also has padding:5px 9px
+  • 🔒 secret toggle: amber when active, masks value in password field; eye button visible inside wrap
+  • Env not active? → "Set Active" button instead of "Active ✓" badge
+  • Import: accepts Postman environment JSON (values[]) or native format (variables[])
+  • Export: downloads env as {name}-env.json
+  • Escape closes modal; click outside panel closes modal
+  • After create: name goes into inline edit mode immediately (no flash — skipNextResetRef + RAF)
+  • After import: newly imported env is auto-selected in the sidebar
+  • Empty state: shows hint text + centered "+ Add Variable" button (BUG-R3-2 fix)
+  • Blank name commit: if user clears name and blurs, nameValue resets to existing name (BUG-R3-3 fix)
+  • Import error: auto-clears after 5 seconds (BUG-R2-4 fix)
+-->
+
+<!-- Phase 1D addition: Connection Profiles Modal (shown when profile badge clicked) -->
+<!--
+  PROFILE MODAL UX GUIDE (updated after BUG-R1 through BUG-R3 fixes):
+  • Single-panel, 540px wide (narrower than env modal — simpler content)
+  • Transparent overlay (gql-env-modal-overlay) + gql-modal-pop-in entrance animation
+  • Modal panel: role="dialog", aria-modal="true", tabIndex={-1} for keyboard focus capture
+  • Section 1 "Saved Profiles":
+    - Profile list has max-height: 280px with internal scroll (BUG-R1-6 fix — Section 2 always visible)
+    - Load button → applies endpoint + auth to connection bar, closes modal
+    - Delete: two-click confirm (× → "✓ Confirm" → delete; 2.5 s timeout)
+    - Delete button has min-width: 74px to prevent layout shift on text change (BUG-R1-7 fix)
+  • Section 2 "Save Current Connection": preview of current endpoint + auth badge + name input + Save button
+    - Save button: min-width: 68px; on success shows green "✓ Saved" for 2 s (BUG-R1-5 fix)
+    - Disabled only when name is empty AND not in ✓ Saved flash state (BUG-R3-1 fix)
+    - If no endpoint: amber hint with ⚠ icon (BUG-R1-8 fix)
+  • Auto-focus rules (BUG-R1-4 fix):
+    - 0 profiles → auto-focus name input (save is the primary action)
+    - N profiles → focus the modal panel itself (Tab navigates to first Load button)
+  • Escape key / click outside closes
+  • Profile badge in connection bar has :focus-visible ring (BUG-R2-1 fix)
+-->
+<div class="env-modal-overlay" style="display:none" id="profile-modal-demo">
+  <div style="background:#1e2030;border:1px solid rgba(255,255,255,0.1);border-radius:10px;box-shadow:0 20px 60px rgba(0,0,0,0.55);width:540px;max-width:96vw;max-height:82vh;display:flex;flex-direction:column;overflow:hidden;" tabindex="-1">
+    <!-- Header -->
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 18px 12px;border-bottom:1px solid rgba(255,255,255,0.07);">
+      <div style="display:flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:#cdd6f4;">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"/></svg>
+        Connection Profiles
+      </div>
+      <button style="font-size:18px;line-height:1;color:#7f8c9a;background:transparent;border:none;cursor:pointer;padding:2px 5px;border-radius:4px;" aria-label="Close Connection Profiles">×</button>
+    </div>
+
+    <!-- Body (overflow-y:auto on body; Section 1 list scrolls internally) -->
+    <div style="flex:1;overflow-y:auto;">
+
+      <!-- Section 1: Saved profiles -->
+      <div style="padding:16px 18px;">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#7f8c9a;margin-bottom:10px;">Saved Profiles</div>
+        <!--
+          BUG-R1-6 fix: max-height: 280px + overflow-y: auto on the list — Section 2 (Save form)
+          is always visible below regardless of how many profiles are saved.
+        -->
+        <ul style="list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,0.12) transparent;">
+          <!-- Profile row 1 — normal state -->
+          <li style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+              <span style="font-size:12.5px;font-weight:600;color:#cdd6f4;">Staging (Countries API)</span>
+              <span style="font-size:11px;color:#7f8c9a;font-family:monospace;">https://countries.trevorblades…/graphql</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(166,227,161,0.12);color:#a6e3a1;border:1px solid rgba(166,227,161,0.2);">Bearer</span>
+              <button style="font-size:11px;font-weight:500;padding:4px 10px;border-radius:4px;background:rgba(137,180,250,0.12);color:#89b4fa;border:1px solid rgba(137,180,250,0.2);cursor:pointer;">Load</button>
+              <!-- BUG-R1-7 fix: min-width:74px prevents layout shift when text changes to "✓ Confirm" -->
+              <button style="font-size:11px;font-weight:500;padding:4px 10px;border-radius:4px;background:transparent;color:#7f8c9a;border:1px solid rgba(255,255,255,0.07);cursor:pointer;min-width:74px;text-align:center;" title="Delete profile">×</button>
+            </div>
+          </li>
+          <!-- Profile row 2 — delete confirming state -->
+          <li style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:9px 12px;border-radius:6px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;">
+              <span style="font-size:12.5px;font-weight:600;color:#cdd6f4;">GitHub GraphQL API</span>
+              <span style="font-size:11px;color:#7f8c9a;font-family:monospace;">https://api.github.com/graphql</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;">
+              <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(255,255,255,0.06);color:#7f8c9a;border:1px solid rgba(255,255,255,0.08);">No Auth</span>
+              <button style="font-size:11px;font-weight:500;padding:4px 10px;border-radius:4px;background:rgba(137,180,250,0.12);color:#89b4fa;border:1px solid rgba(137,180,250,0.2);cursor:pointer;">Load</button>
+              <!-- Confirming delete state — same min-width as normal state (no layout shift) -->
+              <button style="font-size:10px;font-weight:500;padding:4px 8px;border-radius:4px;background:rgba(243,139,168,0.15);color:#f38ba8;border:1px solid rgba(243,139,168,0.35);cursor:pointer;min-width:74px;text-align:center;" title="Click again to confirm delete">✓ Confirm</button>
+            </div>
+          </li>
+        </ul>
+      </div>
+
+      <!-- Section 2: Save current connection (always visible due to list max-height) -->
+      <div style="padding:16px 18px;border-top:1px solid rgba(255,255,255,0.07);background:rgba(255,255,255,0.015);">
+        <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:#7f8c9a;margin-bottom:10px;">Save Current Connection</div>
+        <!-- Preview row -->
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:8px 10px;border-radius:5px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);">
+          <span style="flex:1;min-width:0;font-size:11.5px;color:#b0bec5;font-family:monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">https://countries.trevorblades.com/graphql</span>
+          <span style="font-size:10px;font-weight:600;padding:2px 6px;border-radius:3px;background:rgba(166,227,161,0.12);color:#a6e3a1;border:1px solid rgba(166,227,161,0.2);">Bearer</span>
+        </div>
+        <!-- Name input + save button -->
+        <div style="display:flex;gap:8px;align-items:center;">
+          <input type="text" placeholder="Profile name (e.g. Staging, Production)" value="Staging (Countries API)" style="flex:1;min-width:0;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.12);border-radius:5px;padding:6px 10px;color:#cdd6f4;font-size:12px;outline:none;" />
+          <!--
+            BUG-R1-5 fix: Save button shows "✓ Saved" flash (2 s) after saving — two states below.
+            BUG-R3-1 fix: disabled only when name is empty AND NOT in saved-flash state.
+            STATE A (shown): ready to save → blue primary button
+            STATE B: just saved → green "✓ Saved" button (min-width:68px prevents shift)
+          -->
+          <button style="padding:6px 16px;background:#89b4fa;color:#1e1e2e;font-weight:600;font-size:12px;border:none;border-radius:5px;cursor:pointer;white-space:nowrap;min-width:68px;" title="Save current connection as a profile">Save</button>
+          <!-- STATE B: ✓ Saved (replaces the button above for 2 s) -->
+          <!--<button style="padding:6px 16px;background:rgba(166,227,161,0.14);color:#a6e3a1;font-weight:600;font-size:12px;border:1px solid rgba(166,227,161,0.3);border-radius:5px;cursor:default;white-space:nowrap;min-width:68px;">✓ Saved</button>-->
+        </div>
+        <!--
+          BUG-R1-8 fix: Hint now has a warning icon for visual consistency.
+          Only shown when currentEndpoint is empty.
+        -->
+        <!-- <p style="margin:6px 0 0;font-size:11.5px;color:#f38ba8;display:flex;align-items:center;gap:5px;">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          Enter an endpoint URL in the connection bar first.
+        </p> -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Main Content -->
+<div class="main-content">
+  <!-- Schema Explorer (Left) -->
+  <div class="schema-panel">
+    <div class="panel-header">
+      <h3>Schema Explorer</h3>
+      <span style="font-size: 11px; color: #6c7086;">⌘K</span>
+    </div>
+    <input class="schema-search" placeholder="Search types, fields..." />
+    <div class="schema-tree">
+      <div class="tree-section">Root Types</div>
+      <div class="tree-item active">
+        <span class="icon type">Q</span>
+        <span class="name">Query</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon type">M</span>
+        <span class="name">Mutation</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon type">S</span>
+        <span class="name">Subscription</span>
+      </div>
+      
+      <div class="tree-section">Query Fields</div>
+      <div class="tree-item">
+        <span class="icon field">f</span>
+        <span class="name">countries</span>
+        <span class="type-hint">[Country!]!</span>
+        <span class="add-btn">⊕</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon field">f</span>
+        <span class="name">country</span>
+        <span class="type-hint">Country</span>
+        <span class="add-btn">⊕</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon field">f</span>
+        <span class="name">continents</span>
+        <span class="type-hint">[Continent!]!</span>
+        <span class="add-btn">⊕</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon field">f</span>
+        <span class="name">continent</span>
+        <span class="type-hint">Continent</span>
+        <span class="add-btn">⊕</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon field">f</span>
+        <span class="name">languages</span>
+        <span class="type-hint">[Language!]!</span>
+        <span class="add-btn">⊕</span>
+      </div>
+
+      <div class="tree-section">Object Types</div>
+      <div class="tree-item">
+        <span class="icon type">T</span>
+        <span class="name">Country</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">code</span>
+        <span class="type-hint">ID!</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">name</span>
+        <span class="type-hint">String!</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">capital</span>
+        <span class="type-hint">String</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">currency</span>
+        <span class="type-hint">String</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">continent</span>
+        <span class="type-hint">Continent!</span>
+      </div>
+      <div class="tree-item" style="padding-left: 28px;">
+        <span class="icon field">f</span>
+        <span class="name">languages</span>
+        <span class="type-hint">[Language!]!</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon type">T</span>
+        <span class="name">Continent</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon type">T</span>
+        <span class="name">Language</span>
+      </div>
+      
+      <div class="tree-section">Input Types</div>
+      <div class="tree-item">
+        <span class="icon input">I</span>
+        <span class="name">CountryFilterInput</span>
+      </div>
+      <div class="tree-item">
+        <span class="icon input">I</span>
+        <span class="name">ContinentFilterInput</span>
+      </div>
+      
+      <div class="tree-section">Enums</div>
+      <div class="tree-item">
+        <span class="icon enum">E</span>
+        <span class="name">CacheControlScope</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Editor Panel (Center) -->
+  <div class="editor-panel">
+    <div class="editor-tabs">
+      <div class="editor-tab active">
+        <span class="op-type query">Q</span>
+        GetCountries
+        <span class="close">✕</span>
+      </div>
+      <div class="editor-tab">
+        <span class="op-type query">Q</span>
+        GetContinent
+        <span class="close">✕</span>
+      </div>
+      <div class="editor-tab">
+        <span class="op-type mutation">M</span>
+        CreateUser
+        <span class="close">✕</span>
+      </div>
+      <div class="editor-tab">
+        <span class="op-type subscription">S</span>
+        OnNotification
+        <span class="close">✕</span>
+      </div>
+      <div class="add-tab">+</div>
+      <div style="margin-left: auto; display: flex; gap: 6px;">
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 10px;">History</button>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 10px;">Collections</button>
+        <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 10px;">⟨/⟩ Code Gen</button>
+      </div>
+    </div>
+    <!-- Phase 1 Gap Round 7: editor-pane-wrap provides position:relative anchor for prettify button -->
+    <div class="editor-pane-wrap">
+      <!-- Prettify floating button (top-right corner of editor, above Monaco scrollbar) -->
+      <!--
+        PRETTIFY BUTTON UX GUIDE:
+        • Always visible at 75% opacity — more discoverable than a hover-only button
+        • backdrop-filter: blur(6px) ensures legibility against dark Monaco background
+        • On success: formats query using graphql's print(parse(query)) — normalises indentation
+        • On parse failure: flashes red + shakes for 1s; no destructive changes made
+        • Tooltip in normal state: "Prettify / format query"
+        • Tooltip in error state: "Cannot format — fix syntax errors first"
+        • Clears to normal after 1s automatically
+        • Keyboard accessible: Tab to focus, Space/Enter to activate, focus ring visible
+        • Position: right: 14px to clear Monaco's ~10px vertical scrollbar with 4px gap
+      -->
+      <button class="prettify-btn" title="Prettify / format query">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/>
+          <line x1="16" y1="8" x2="2" y2="22"/>
+          <line x1="17.5" y1="15" x2="9" y2="15"/>
+        </svg>
+        Prettify
+      </button>
+      <div class="editor-area">
+      <div class="code-editor">
+        <div class="line"><span class="line-num">1</span><span class="comment"># Fetch countries with filtering</span></div>
+        <div class="line"><span class="line-num">2</span><span class="keyword">query</span> <span class="type-name">GetCountries</span>(<span class="variable">$filter</span>: <span class="type-name">CountryFilterInput</span>) <span class="punctuation">{</span></div>
+        <div class="line"><span class="line-num">3</span>&nbsp;&nbsp;<span class="field-name">countries</span>(<span class="arg-name">filter</span>: <span class="variable">$filter</span>) <span class="punctuation">{</span></div>
+        <div class="line"><span class="line-num">4</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">code</span></div>
+        <div class="line"><span class="line-num">5</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">name</span></div>
+        <div class="line"><span class="line-num">6</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">capital</span></div>
+        <div class="line"><span class="line-num">7</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">currency</span></div>
+        <div class="line"><span class="line-num">8</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">continent</span> <span class="punctuation">{</span></div>
+        <div class="line"><span class="line-num">9</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">name</span></div>
+        <div class="line"><span class="line-num">10</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span></div>
+        <div class="line"><span class="line-num">11</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">languages</span> <span class="punctuation">{</span></div>
+        <div class="line"><span class="line-num">12</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">name</span></div>
+        <div class="line"><span class="line-num">13</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="field-name">native</span></div>
+        <div class="line"><span class="line-num">14</span>&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span></div>
+        <div class="line"><span class="line-num">15</span>&nbsp;&nbsp;<span class="punctuation">}</span></div>
+        <div class="line"><span class="line-num">16</span><span class="punctuation">}</span></div>
+        <div class="line"><span class="line-num">17</span></div>
+      </div>
+    </div>
+    </div><!-- /editor-area -->
+    </div><!-- /editor-pane-wrap -->
+    <!-- Bottom Panels (Variables / Headers / Scripts) -->
+    <div class="bottom-panels">
+      <div class="bottom-tabs">
+        <div class="bottom-tab active">Variables</div>
+        <div class="bottom-tab">Headers</div>
+        <div class="bottom-tab">Pre-Request Script</div>
+        <div class="bottom-tab">Environments</div>
+      </div>
+      <div class="bottom-content var-editor">
+        <div class="line"><span class="punctuation">{</span></div>
+        <div class="line">&nbsp;&nbsp;<span style="color: #89b4fa;">"filter"</span>: <span class="punctuation">{</span></div>
+        <div class="line">&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #89b4fa;">"continent"</span>: <span class="punctuation">{</span></div>
+        <div class="line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #89b4fa;">"eq"</span>: <span style="color: #a6e3a1;">"AS"</span></div>
+        <div class="line">&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span></div>
+        <div class="line">&nbsp;&nbsp;<span class="punctuation">}</span></div>
+        <div class="line"><span class="punctuation">}</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Response Panel (Right) -->
+  <div class="response-panel">
+    <div class="response-header">
+      <span class="status-badge success">200 OK</span>
+      <span class="latency-badge">142ms</span>
+      <span class="size-badge">2.4 KB</span>
+      <button class="copy-btn">Copy</button>
+    </div>
+    <div class="response-tabs">
+      <div class="response-tab active">Body</div>
+      <div class="response-tab">Headers (8)</div>
+      <div class="response-tab">Metadata</div>
+    </div>
+    <div class="response-body">
+      <div><span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;<span class="key">"data"</span>: <span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"countries"</span>: <span class="punctuation">[</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"code"</span>: <span class="string-val">"JP"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"Japan"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"capital"</span>: <span class="string-val">"Tokyo"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"currency"</span>: <span class="string-val">"JPY"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"continent"</span>: <span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"Asia"</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"languages"</span>: <span class="punctuation">[</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"Japanese"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"native"</span>: <span class="string-val">"日本語"</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">]</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"code"</span>: <span class="string-val">"KR"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"South Korea"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"capital"</span>: <span class="string-val">"Seoul"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"currency"</span>: <span class="string-val">"KRW"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"continent"</span>: <span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"Asia"</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"languages"</span>: <span class="punctuation">[</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">{</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"name"</span>: <span class="string-val">"Korean"</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"native"</span>: <span class="string-val">"한국어"</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">]</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">}</span>,</div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #6c7086;">// ... 48 more countries</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span class="punctuation">]</span></div>
+      <div>&nbsp;&nbsp;<span class="punctuation">}</span></div>
+      <div><span class="punctuation">}</span></div>
+    </div>
+  </div>
+</div>
+
+<!-- Status Bar -->
+<div class="status-bar">
+  <div class="item"><span class="dot green"></span> Connected</div>
+  <div class="item">Schema: 42 types, 156 fields</div>
+  <div class="item">Last introspection: 2 min ago</div>
+  <div class="item" style="margin-left: auto;">Ln 3, Col 12</div>
+  <div class="item">UTF-8</div>
+  <div class="item">GraphQL</div>
+  <div class="item" style="color: #6c7086;">RedfireForge v0.8.x</div>
+</div>
+
+<!--
+  ═══════════════════════════════════════════════════════════════════════════════
+  PHASE 2.0 SPRINT 1: Sprint 1 infrastructure changes + UX additions
+  ═══════════════════════════════════════════════════════════════════════════════
+
+  SUBSCRIPTION READINESS HINT (Sprint 1 delivery — in production as of Phase 2.0 S1)
+  ─────────────────────────────────────────────────────────────────────────────
+  When the active tab's operation type is detected as 'subscription' (from
+  deriveOperationType → GqlTabBar badge shows "S"), AND no response exists yet,
+  AND not currently executing, the response pane shows this friendly hint instead
+  of the generic "No response yet" empty state.
+
+  Location: GqlRightPane.tsx → .gql-subscription-hint (view='response' branch)
+  Triggers: activeOperationType='subscription' && execStatus='idle' && response===null
+
+  STATE: subscription tab selected, no prior execution
+-->
+<div style="display:flex;flex:1;overflow:hidden;background:#181825;border:1px solid #313244;border-radius:8px;margin:20px;max-height:220px;">
+  <!-- Subscription hint panel (right pane, response view) -->
+  <div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:32px 24px;text-align:center;">
+    <!-- Heartbeat/waveform icon — representing live streaming data -->
+    <div style="color:#a6e3a1;opacity:0.6;margin-bottom:4px;">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
+      </svg>
+    </div>
+    <p style="font-size:13px;font-weight:600;color:#a6e3a1;letter-spacing:0.01em;margin:0;">
+      Subscription operation
+    </p>
+    <p style="font-size:12px;color:#a8b8cc;line-height:1.65;max-width:320px;margin:0;">
+      Subscriptions require a live WebSocket connection.
+      Real-time streaming via <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(166,227,161,0.1);color:#a6e3a1;border:1px solid rgba(166,227,161,0.25);">graphql-transport-ws</code>
+      is coming in <strong style="color:#cdd6f4;">Phase 2.0 Sprint 2</strong>.
+    </p>
+    <p style="font-size:11px;color:#6c7086;max-width:280px;line-height:1.5;margin:0;">
+      You can still execute this as an HTTP request to test the server response.
+    </p>
+  </div>
+</div>
+
+<!--
+  PHASE 2.0 SPRINT 1 subscription readiness hint (rendered above ↑)
+  Phase 2.0 Sprint 2 fully implemented below ↓
+-->
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     PHASE 2.0 SPRINT 2: Live Subscription Stream Panel
+     Rendered mockup showing the active subscription log in the right pane.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div style="margin-top:48px;padding:0 12px 48px;">
+  <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#a6adc8;margin:0 0 16px;padding-bottom:6px;border-bottom:1px solid #313244;">
+    Phase 2.0 Sprint 2 — Live Subscription Stream
+  </h2>
+
+  <!-- Connection bar with Subscribe/Stop controls -->
+  <div style="background:#181825;border:1px solid #313244;border-radius:8px 8px 0 0;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;">
+    <span style="background:#a6e3a1;color:#1e1e2e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;">GQL</span>
+    <div style="flex:1;background:#1e1e2e;border:1px solid #45475a;border-radius:5px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#cdd6f4;">
+      wss://api.example.com/graphql
+    </div>
+    <!-- WS Status pill — Live state -->
+    <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;background:rgba(166,227,161,0.1);border:1px solid rgba(166,227,161,0.25);color:#a6e3a1;font-size:11px;font-weight:500;white-space:nowrap;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#a6e3a1;animation:gql-sub-pulse 1.5s ease-in-out infinite;display:inline-block;"></span>
+      Live
+    </div>
+    <!-- Stop button -->
+    <button style="background:rgba(243,139,168,0.15);border:1px solid rgba(243,139,168,0.3);color:#f38ba8;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      Stop
+    </button>
+    <!-- Introspect button -->
+    <button style="background:#313244;border:1px solid #45475a;color:#cdd6f4;padding:6px 10px;border-radius:5px;font-size:12px;cursor:pointer;">Introspect</button>
+  </div>
+
+  <!-- Stream tab bar -->
+  <div style="background:#181825;border-left:1px solid #313244;border-right:1px solid #313244;padding:4px 8px 0;display:flex;gap:2px;">
+    <button style="padding:6px 14px;border-radius:6px 6px 0 0;font-size:11.5px;background:#1e1e2e;color:#cdd6f4;border:1px solid #45475a;border-bottom-color:#1e1e2e;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      Stream
+      <span style="width:7px;height:7px;border-radius:50%;background:#a6e3a1;"></span>
+    </button>
+    <button style="padding:6px 14px;border-radius:6px 6px 0 0;font-size:11.5px;background:transparent;color:#6c7086;border:1px solid transparent;cursor:pointer;">Schema</button>
+  </div>
+
+  <!-- Subscription log panel -->
+  <div style="background:#1e1e2e;border:1px solid #45475a;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;">
+
+    <!-- Stats bar -->
+    <div style="background:#181825;border-bottom:1px solid #313244;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;font-size:11px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:rgba(166,227,161,0.1);border:1px solid rgba(166,227,161,0.2);color:#a6e3a1;font-size:10.5px;font-weight:600;">
+          ● Live
+        </span>
+        <span style="color:#cdd6f4;font-size:11.5px;font-weight:600;">OnOrderStatus</span>
+        <span style="padding:2px 6px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.3);color:#89b4fa;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">WS</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:12px;color:#a6adc8;">
+        <span><strong style="color:#cdd6f4;">17</strong> msgs</span>
+        <span style="color:#f38ba8;"><strong>2</strong> err</span>
+        <span><strong style="color:#cdd6f4;">3.4</strong>/s</span>
+        <span style="color:#a6adc8;"><strong style="color:#89b4fa;font-family:'JetBrains Mono',monospace;">02:14</strong></span>
+      </div>
+    </div>
+
+    <!-- Toolbar -->
+    <div style="background:#181825;border-bottom:1px solid #2a2a40;padding:5px 10px;display:flex;align-items:center;gap:6px;font-size:11px;">
+      <button style="background:rgba(249,226,175,0.08);border:1px solid rgba(249,226,175,0.3);color:#f9e2af;padding:4px 9px;border-radius:5px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;font-weight:500;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        Pause
+      </button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;font-size:11px;cursor:pointer;">Clear</button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+        Filter
+      </button>
+      <!-- Stop in toolbar (right-aligned) -->
+      <button style="margin-left:auto;background:rgba(243,139,168,0.1);border:1px solid rgba(243,139,168,0.25);color:#f38ba8;padding:4px 9px;border-radius:4px;font-size:11px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Stop
+      </button>
+    </div>
+
+    <!-- Message rows -->
+    <div style="max-height:280px;overflow-y:auto;font-family:'JetBrains Mono',monospace;font-size:11.5px;">
+
+      <!-- Row 1 -->
+      <div style="display:flex;align-items:baseline;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);background:rgba(255,255,255,0.01);">
+        <span style="color:#6c7086;min-width:24px;">#1</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+0.12s</span>
+        <button style="background:none;border:none;color:#cdd6f4;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:center;justify-content:space-between;">
+          <span style="color:#a6adc8;">{"order": {"id": "ord_123", "status": "PENDING"}}</span>
+          <span style="color:#6c7086;font-size:10px;">▼</span>
+        </button>
+      </div>
+
+      <!-- Row 2 — expanded JSON -->
+      <div style="display:flex;align-items:flex-start;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);background:rgba(166,227,161,0.03);">
+        <span style="color:#6c7086;min-width:24px;">#2</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+3.40s</span>
+        <button style="background:none;border:none;color:#cdd6f4;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:flex-start;justify-content:space-between;">
+          <pre style="margin:0;color:#cdd6f4;white-space:pre;line-height:1.5;">{"order": {
+  "id": "ord_123",
+  "status": "SHIPPED",
+  "updatedAt": "2026-06-17T23:00:00Z"
+}}</pre>
+          <span style="color:#a6e3a1;font-size:10px;margin-left:8px;">▲</span>
+        </button>
+      </div>
+
+      <!-- Row 3 — error row -->
+      <div style="display:flex;align-items:baseline;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);background:rgba(243,139,168,0.03);">
+        <span style="color:#6c7086;min-width:24px;">#3</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+5.21s</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(243,139,168,0.12);border:1px solid rgba(243,139,168,0.25);color:#f38ba8;font-size:10px;font-weight:600;">ERR</span>
+        <button style="background:none;border:none;color:#f38ba8;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:center;justify-content:space-between;">
+          <span>{"errors": [{"message": "Authorization expired"}]}</span>
+          <span style="color:#6c7086;font-size:10px;">▼</span>
+        </button>
+      </div>
+
+      <!-- Row 4 -->
+      <div style="display:flex;align-items:baseline;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="color:#6c7086;min-width:24px;">#4</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+12.1s</span>
+        <button style="background:none;border:none;color:#cdd6f4;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:center;justify-content:space-between;">
+          <span style="color:#a6adc8;">{"order": {"id": "ord_124", "status": "DELIVERED"}}</span>
+          <span style="color:#6c7086;font-size:10px;">▼</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Re-subscribe / Retry state (after subscription ends) -->
+  <div style="margin-top:24px;">
+    <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Connection bar — subscription completed state</h3>
+    <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:8px;">
+      <span style="background:#a6e3a1;color:#1e1e2e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;">GQL</span>
+      <div style="flex:1;background:#1e1e2e;border:1px solid #45475a;border-radius:5px;padding:6px 10px;color:#cdd6f4;font-family:monospace;font-size:12px;">
+        wss://api.example.com/graphql
+      </div>
+      <!-- Closed pill -->
+      <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;background:rgba(108,112,134,0.1);border:1px solid rgba(108,112,134,0.25);color:#a6adc8;font-size:11px;font-weight:500;">
+        <span style="width:6px;height:6px;border-radius:50%;background:#6c7086;display:inline-block;"></span>
+        Closed
+      </div>
+      <!-- Re-subscribe button -->
+      <button style="background:rgba(166,227,161,0.15);border:1px solid rgba(166,227,161,0.3);color:#a6e3a1;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+        Re-subscribe
+      </button>
+    </div>
+  </div>
+
+  <!-- Error state -->
+  <div style="margin-top:24px;">
+    <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Subscription error state — error banner + Retry button</h3>
+    <div style="background:#1e1e2e;border:1px solid #45475a;border-radius:6px;overflow:hidden;">
+      <!-- Error banner -->
+      <div style="background:rgba(243,139,168,0.08);border-bottom:1px solid rgba(243,139,168,0.2);padding:8px 12px;display:flex;align-items:center;gap:7px;font-size:11.5px;color:#f38ba8;" role="alert">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+        WebSocket closed (4401): Unauthorized — check your auth configuration
+      </div>
+      <!-- Toolbar after error -->
+      <div style="background:#181825;padding:5px 10px;display:flex;align-items:center;gap:6px;font-size:11px;">
+        <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;cursor:pointer;">Clear</button>
+        <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;cursor:pointer;">Export</button>
+        <span style="color:#6c7086;font-size:11px;margin-left:auto;">Subscription failed</span>
+      </div>
+      <!-- No messages -->
+      <div style="padding:28px;display:flex;flex-direction:column;align-items:center;gap:10px;color:#6c7086;font-size:12px;">
+        No messages were received before the error.
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════════
+     PHASE 2.0 SPRINT 3: Transport Selector + SSE Support
+     Shows the transport dropdown in the connection bar, and SSE stream state.
+     ══════════════════════════════════════════════════════════════════════════ -->
+<div style="margin-top:48px;padding:0 12px 64px;">
+  <h2 style="font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#a6adc8;margin:0 0 16px;padding-bottom:6px;border-bottom:1px solid #313244;">
+    Phase 2.0 Sprint 3 — Transport Selector + SSE Subscriptions
+  </h2>
+
+  <!-- ── Transport selector: Auto (WS default) ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Connection bar — subscription operation with transport dropdown (Auto selected, non-stream URL)</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:16px;">
+    <span style="background:#a6e3a1;color:#1e1e2e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;">GQL</span>
+    <div style="flex:1;background:#1e1e2e;border:1px solid #45475a;border-radius:5px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#cdd6f4;">
+      wss://api.example.com/graphql
+    </div>
+    <!-- Transport selector dropdown (no hint for non-stream URL) -->
+    <div style="display:inline-flex;align-items:center;gap:5px;flex-shrink:0;">
+      <div style="position:relative;">
+        <select style="height:30px;padding:0 24px 0 9px;font-size:11.5px;font-weight:500;color:#cdd6f4;background:#0f172a;border:1px solid #3b4a60;border-radius:5px;cursor:pointer;min-width:90px;appearance:none;" aria-label="Subscription transport protocol">
+          <option selected>Auto</option>
+          <option>WS (modern)</option>
+          <option>WS (legacy)</option>
+          <option>SSE</option>
+        </select>
+        <svg style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="#a8b8cc" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <!-- No auto-detect hint for non-/stream URL -->
+    </div>
+    <!-- Subscribe button -->
+    <button style="background:rgba(166,227,161,0.15);border:1px solid rgba(166,227,161,0.3);color:#a6e3a1;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;" title="Subscribe via WebSocket (⌘ Enter)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Subscribe
+    </button>
+  </div>
+
+  <!-- ── Auto-detect SSE hint (shown when Auto + /stream URL) ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Connection bar — Auto + /stream URL: shows "→ SSE" auto-detect hint</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:24px;">
+    <span style="background:#a6e3a1;color:#1e1e2e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;">GQL</span>
+    <div style="flex:1;background:#1e1e2e;border:1px solid #45475a;border-radius:5px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#cdd6f4;">
+      https://api.example.com/graphql/stream
+    </div>
+    <!-- Transport selector + auto-detect hint -->
+    <div style="display:inline-flex;align-items:center;gap:5px;flex-shrink:0;">
+      <div style="position:relative;">
+        <select style="height:30px;padding:0 24px 0 9px;font-size:11.5px;font-weight:500;color:#cdd6f4;background:#0f172a;border:1px solid #3b4a60;border-radius:5px;cursor:pointer;min-width:90px;appearance:none;" aria-label="Subscription transport protocol">
+          <option selected>Auto</option>
+          <option>WS (modern)</option>
+          <option>WS (legacy)</option>
+          <option>SSE</option>
+        </select>
+        <svg style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="#a8b8cc" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <!-- "→ SSE" auto-detect hint badge — shows when Auto detects /stream URL -->
+      <span style="font-size:10.5px;font-weight:600;color:#89b4fa;white-space:nowrap;letter-spacing:0.02em;padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.25);cursor:default;"
+            title="Auto-detected: this endpoint ends with /stream — SSE transport will be used">
+        → SSE
+      </span>
+    </div>
+    <!-- Subscribe button (SSE variant) -->
+    <button style="background:rgba(166,227,161,0.15);border:1px solid rgba(166,227,161,0.3);color:#a6e3a1;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;" title="Subscribe via SSE (⌘ Enter)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+      Subscribe
+    </button>
+  </div>
+
+  <!-- ── Transport selector: SSE selected, active stream ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Connection bar — SSE transport active (disabled while streaming)</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:8px 8px 0 0;padding:8px 12px;display:flex;align-items:center;gap:8px;font-size:12px;margin-bottom:0;">
+    <span style="background:#a6e3a1;color:#1e1e2e;padding:3px 8px;border-radius:4px;font-size:11px;font-weight:700;">GQL</span>
+    <div style="flex:1;background:#1e1e2e;border:1px solid #45475a;border-radius:5px;padding:6px 10px;font-family:'JetBrains Mono',monospace;font-size:12px;color:#cdd6f4;">
+      https://api.example.com/graphql/stream
+    </div>
+    <!-- Transport selector (disabled while active) -->
+    <div style="position:relative;flex-shrink:0;opacity:0.45;">
+      <select style="height:30px;padding:0 24px 0 9px;font-size:11.5px;font-weight:500;color:#cdd6f4;background:#0f172a;border:1px solid #3b4a60;border-radius:5px;cursor:not-allowed;min-width:90px;appearance:none;" disabled>
+        <option>SSE</option>
+      </select>
+      <svg style="position:absolute;right:7px;top:50%;transform:translateY(-50%);pointer-events:none;" width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="#a8b8cc" stroke-width="1.5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <!-- SSE Live pill -->
+    <div style="display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:5px;background:rgba(166,227,161,0.1);border:1px solid rgba(166,227,161,0.25);color:#a6e3a1;font-size:11px;font-weight:500;white-space:nowrap;">
+      <span style="width:6px;height:6px;border-radius:50%;background:#a6e3a1;animation:gql-sub-pulse 1.5s ease-in-out infinite;display:inline-block;"></span>
+      Live
+    </div>
+    <!-- Stop button -->
+    <button style="background:rgba(243,139,168,0.15);border:1px solid rgba(243,139,168,0.3);color:#f38ba8;padding:6px 12px;border-radius:5px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      Stop
+    </button>
+  </div>
+
+  <!-- SSE subscription log — shows SSE badge instead of WS -->
+  <div style="background:#181825;border-left:1px solid #313244;border-right:1px solid #313244;padding:4px 8px 0;display:flex;gap:2px;">
+    <button style="padding:6px 14px;border-radius:6px 6px 0 0;font-size:11.5px;background:#1e1e2e;color:#cdd6f4;border:1px solid #45475a;border-bottom-color:#1e1e2e;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;">
+      Stream
+      <span style="width:7px;height:7px;border-radius:50%;background:#a6e3a1;"></span>
+    </button>
+    <button style="padding:6px 14px;border-radius:6px 6px 0 0;font-size:11.5px;background:transparent;color:#6c7086;border:1px solid transparent;cursor:pointer;">Schema</button>
+  </div>
+
+  <div style="background:#1e1e2e;border:1px solid #45475a;border-top:none;border-radius:0 0 8px 8px;overflow:hidden;margin-bottom:24px;">
+    <!-- Stats bar: SSE transport badge instead of WS -->
+    <div style="background:#181825;border-bottom:1px solid #313244;padding:6px 12px;display:flex;align-items:center;justify-content:space-between;font-size:11px;">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:4px;background:rgba(166,227,161,0.1);border:1px solid rgba(166,227,161,0.2);color:#a6e3a1;font-size:10.5px;font-weight:600;">
+          ● Live
+        </span>
+        <span style="color:#cdd6f4;font-size:11.5px;font-weight:600;">OnStockPriceUpdate</span>
+        <!-- SSE transport badge — blue tinted, "SSE" label -->
+        <span style="padding:2px 6px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.3);color:#89b4fa;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">SSE</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:14px;color:#a6adc8;">
+        <span><strong style="color:#cdd6f4;">12</strong> msgs</span>
+        <span><strong style="color:#cdd6f4;">0.8</strong>/s</span>
+        <span style="color:#89b4fa;font-weight:500;">00:15</span>
+      </div>
+    </div>
+    <!-- Toolbar -->
+    <div style="background:#181825;border-bottom:1px solid #313244;padding:5px 10px;display:flex;align-items:center;gap:6px;font-size:11px;">
+      <button style="background:rgba(249,226,175,0.08);border:1px solid rgba(249,226,175,0.3);color:#f9e2af;padding:4px 9px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        Pause
+      </button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;cursor:pointer;">Clear</button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;cursor:pointer;display:flex;align-items:center;gap:4px;">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export
+      </button>
+      <button style="background:rgba(255,255,255,0.04);border:1px solid #45475a;color:#a6adc8;padding:4px 9px;border-radius:4px;cursor:pointer;">Filter</button>
+      <button style="background:rgba(243,139,168,0.08);border:1px solid rgba(243,139,168,0.2);color:#f38ba8;padding:4px 9px;border-radius:4px;cursor:pointer;margin-left:auto;display:flex;align-items:center;gap:4px;">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Stop
+      </button>
+    </div>
+    <!-- Sample SSE messages -->
+    <div style="padding:0;font-family:'JetBrains Mono',monospace;font-size:11.5px;">
+      <div style="display:flex;align-items:baseline;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="color:#6c7086;min-width:24px;">#1</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+0ms</span>
+        <button style="background:none;border:none;color:#cdd6f4;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:center;justify-content:space-between;">
+          <span style="color:#a6adc8;">{"ticker": "AAPL", "price": 189.5, "change": +0.012}</span>
+          <span style="color:#6c7086;font-size:10px;">▼</span>
+        </button>
+      </div>
+      <div style="display:flex;align-items:baseline;gap:8px;padding:7px 12px;border-bottom:1px solid rgba(255,255,255,0.04);">
+        <span style="color:#6c7086;min-width:24px;">#2</span>
+        <span style="padding:2px 5px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.2);color:#89b4fa;font-size:10px;font-weight:600;">IN</span>
+        <span style="color:#6c7086;min-width:52px;">+1.2s</span>
+        <button style="background:none;border:none;color:#cdd6f4;text-align:left;flex:1;cursor:pointer;font-family:inherit;font-size:11.5px;padding:0;display:flex;align-items:center;justify-content:space-between;">
+          <span style="color:#a6adc8;">{"ticker": "MSFT", "price": 415.2, "change": -0.003}</span>
+          <span style="color:#6c7086;font-size:10px;">▼</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Auto-detect SSE annotation ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Auto-detect note: /stream endpoints default to SSE</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:12px 14px;font-size:12px;color:#a6adc8;line-height:1.6;margin-bottom:16px;">
+    When <strong style="color:#cdd6f4;">Auto</strong> transport is selected and the endpoint URL ends with
+    <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">/stream</code>
+    or contains <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">/stream?</code>,
+    the client automatically uses <strong style="color:#cdd6f4;">SSE (graphql-sse)</strong> instead of WebSocket.
+    A <strong style="color:#89b4fa;">→ SSE</strong> hint badge appears inline next to the transport dropdown to signal the auto-selection.
+    This matches common conventions (e.g. <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">https://api.example.com/graphql/stream</code>).
+    For <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">wss://</code>
+    or non-stream URLs, Auto defaults to WebSocket (modern <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">graphql-transport-ws</code>).
+    Also: <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">wss://</code> URLs are auto-converted to
+    <code style="font-family:'JetBrains Mono',monospace;font-size:11px;padding:1px 5px;border-radius:3px;background:rgba(137,180,250,0.1);color:#89b4fa;border:1px solid rgba(137,180,250,0.25);">https://</code> when SSE transport is used, so users can switch transport without changing the URL.
+  </div>
+
+  <!-- ── Transport badge color-coding annotation ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Transport badge color-coding (stats bar)</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:12px 14px;font-size:12px;color:#a6adc8;line-height:1.6;margin-bottom:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.3);color:#3b82f6;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">WS</span>
+      <span>WebSocket modern (primary blue)</span>
+    </span>
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="padding:2px 6px;border-radius:3px;background:rgba(249,226,175,0.08);border:1px solid rgba(249,226,175,0.3);color:#f9e2af;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">WS LEGACY</span>
+      <span>WebSocket legacy (amber — deprecated)</span>
+    </span>
+    <span style="display:flex;align-items:center;gap:6px;">
+      <span style="padding:2px 6px;border-radius:3px;background:rgba(137,180,250,0.1);border:1px solid rgba(137,180,250,0.3);color:#89b4fa;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:0.3px;">SSE</span>
+      <span>Server-Sent Events (light blue — HTTP)</span>
+    </span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════════════════════
+     SPRINT 4 — File Upload (2E-1/2E-5) + Subscription Filter Bar (2C-4)
+     ═══════════════════════════════════════════════════════════════════════════ -->
+
+<div style="background:#11111b;padding:28px 32px;margin-top:32px;border-top:2px solid #3b82f6;">
+  <h2 style="font-size:15px;font-weight:700;color:#cdd6f4;margin:0 0 24px;letter-spacing:0.02em;">
+    Sprint 4 — File Upload UI (2E-1/2E-5) + Subscription Filter Bar (2C-4)
+  </h2>
+
+  <!-- ── Bottom panel: Variables / Headers / Files tabs ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Bottom panel — Variables / Headers / Files tabs</h3>
+  <div style="background:#1e1e2e;border:1px solid #313244;border-radius:8px;margin-bottom:28px;overflow:hidden;">
+    <!-- Tab bar -->
+    <div style="display:flex;background:#181825;border-bottom:1px solid #313244;padding:0 10px;">
+      <button style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 12px;font-size:12px;color:#6c7086;cursor:pointer;">Variables</button>
+      <button style="background:none;border:none;border-bottom:2px solid transparent;padding:8px 12px;font-size:12px;color:#6c7086;cursor:pointer;">Headers <span style="background:#313244;border-radius:10px;font-size:9px;padding:1px 5px;margin-left:3px;">3</span></button>
+      <button style="background:none;border:none;border-bottom:2px solid #3b82f6;padding:8px 12px;font-size:12px;color:#3b82f6;cursor:pointer;font-weight:600;">Files <span style="background:rgba(59,130,246,0.2);border-radius:10px;font-size:9px;padding:1px 5px;margin-left:3px;color:#3b82f6;">2</span></button>
+    </div>
+    <!-- Dropzone -->
+    <div style="display:flex;align-items:center;gap:10px;padding:10px 14px;background:rgba(59,130,246,0.05);border-bottom:1px solid rgba(59,130,246,0.15);cursor:pointer;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+      </svg>
+      <span style="flex:1;font-size:12.5px;color:#6c7086;">Drop files here</span>
+      <button style="background:rgba(59,130,246,0.12);border:1px solid rgba(59,130,246,0.3);color:#3b82f6;border-radius:4px;padding:4px 10px;font-size:11.5px;font-weight:500;cursor:pointer;">Browse</button>
+      <span style="font-size:10.5px;color:#6c7086;opacity:0.65;">Max 50 MB per file · 200 MB hard cap</span>
+    </div>
+    <!-- File list header -->
+    <div style="display:grid;grid-template-columns:130px 1fr 70px 28px;gap:8px;padding:5px 12px 4px;background:#11111b;border-bottom:1px solid #313244;font-size:10.5px;font-weight:600;color:#6c7086;text-transform:uppercase;letter-spacing:0.04em;">
+      <span>Variable path</span><span>File</span><span>Size</span><span></span>
+    </div>
+    <!-- File row 1: valid -->
+    <div style="display:grid;grid-template-columns:130px 1fr 70px 28px;gap:8px;padding:6px 12px;border-bottom:1px solid #313244;align-items:center;">
+      <input value="avatar" style="background:#11111b;border:1px solid #313244;border-radius:4px;color:#cdd6f4;font-size:11.5px;padding:4px 7px;font-family:monospace;width:100%;box-sizing:border-box;" />
+      <div style="display:flex;flex-direction:column;gap:1px;overflow:hidden;">
+        <span style="font-size:12px;color:#cdd6f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">profile-photo.jpg</span>
+        <span style="font-size:10px;color:#6c7086;opacity:0.75;">image/jpeg</span>
+      </div>
+      <span style="font-size:11px;color:#6c7086;text-align:right;white-space:nowrap;">1.2 MB</span>
+      <button style="background:none;border:none;color:#6c7086;cursor:pointer;font-size:16px;line-height:1;padding:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:3px;">×</button>
+    </div>
+    <!-- File row 2: error (too large) -->
+    <div style="display:grid;grid-template-columns:130px 1fr 70px 28px;gap:8px;padding:6px 12px 2px 10px;border-bottom:1px solid #313244;align-items:center;background:rgba(243,139,168,0.05);border-left:2px solid #f38ba8;">
+      <input value="banner" style="background:#11111b;border:1px solid #45475a;border-radius:4px;color:#cdd6f4;font-size:11.5px;padding:4px 7px;font-family:monospace;width:100%;box-sizing:border-box;" />
+      <div style="display:flex;flex-direction:column;gap:1px;overflow:hidden;">
+        <span style="font-size:12px;color:#cdd6f4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">hero-banner-4k.png</span>
+        <span style="font-size:10px;color:#6c7086;opacity:0.75;">image/png</span>
+      </div>
+      <span style="font-size:11px;color:#f38ba8;font-weight:600;text-align:right;white-space:nowrap;">76.4 MB</span>
+      <button style="background:none;border:none;color:#f38ba8;cursor:pointer;font-size:16px;line-height:1;padding:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center;border-radius:3px;">×</button>
+    </div>
+    <!-- Inline error on row 2 -->
+    <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:#f38ba8;padding:2px 12px 6px;background:rgba(243,139,168,0.05);">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      File too large (76.4 MB) — maximum is 50 MB
+    </div>
+    <!-- Footer -->
+    <div style="padding:6px 12px;border-top:1px solid #313244;background:#11111b;font-size:11.5px;display:flex;align-items:center;gap:5px;color:#f38ba8;font-weight:500;">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      Fix file errors before executing
+    </div>
+  </div>
+
+  <!-- ── Execute button disabled due to file errors ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Execute button disabled when Files tab has errors</h3>
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:10px 14px;font-size:12px;color:#a6adc8;line-height:1.6;margin-bottom:28px;">
+    <div style="display:flex;align-items:center;gap:8px;">
+      <button disabled style="background:rgba(59,130,246,0.1);border:1px solid rgba(59,130,246,0.2);color:rgba(59,130,246,0.4);border-radius:5px;padding:7px 16px;font-size:12px;cursor:not-allowed;opacity:0.5;">
+        ▶ Execute
+      </button>
+      <span style="font-size:11px;color:#f38ba8;">← Disabled: Fix file errors in the Files tab first</span>
+    </div>
+    <p style="margin:8px 0 0;font-size:11px;color:#6c7086;">
+      The Execute button disables when any file in the Files tab has a size validation error. Tooltip shows "Fix file errors in the Files tab first". The error dot appears on the Files tab badge.
+    </p>
+  </div>
+
+  <!-- ── Subscription filter bar with Text/JSONPath mode toggle ── -->
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Subscription filter bar — Text mode</h3>
+  <div style="background:#1e1e2e;border:1px solid #313244;border-radius:8px;margin-bottom:16px;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:#1e1e2e;border-bottom:1px solid #313244;">
+      <!-- Mode toggle -->
+      <div style="display:inline-flex;border:1px solid #313244;border-radius:4px;overflow:hidden;flex-shrink:0;">
+        <button style="background:rgba(59,130,246,0.15);border:none;padding:3px 8px;font-size:11px;font-weight:600;color:#3b82f6;cursor:pointer;">Text</button>
+        <button style="background:none;border-left:1px solid #313244;padding:3px 8px;font-size:11px;color:#6c7086;cursor:pointer;">JSONPath</button>
+      </div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6c7086" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input value="SHIPPED" style="flex:1;background:#11111b;border:1px solid #3b82f6;border-radius:4px;padding:4px 8px;color:#cdd6f4;font-size:12px;outline:none;box-shadow:0 0 0 2px rgba(59,130,246,0.15);" />
+      <button style="background:none;border:none;color:#6c7086;cursor:pointer;font-size:14px;padding:0 2px;border-radius:2px;">×</button>
+      <span style="font-size:11px;font-weight:500;color:#a6adc8;white-space:nowrap;padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);">Showing 4/17</span>
+    </div>
+  </div>
+
+  <h3 style="font-size:11.5px;font-weight:600;color:#a6adc8;margin:0 0 8px;">Subscription filter bar — JSONPath mode with comparison</h3>
+  <div style="background:#1e1e2e;border:1px solid #313244;border-radius:8px;margin-bottom:28px;overflow:hidden;">
+    <div style="display:flex;align-items:center;gap:6px;padding:5px 10px;background:#1e1e2e;border-bottom:1px solid #313244;">
+      <!-- Mode toggle — JSONPath active -->
+      <div style="display:inline-flex;border:1px solid #313244;border-radius:4px;overflow:hidden;flex-shrink:0;">
+        <button style="background:none;border:none;padding:3px 8px;font-size:11px;color:#6c7086;cursor:pointer;">Text</button>
+        <button style="background:rgba(59,130,246,0.15);border-left:1px solid #313244;padding:3px 8px;font-size:11px;font-weight:600;color:#3b82f6;cursor:pointer;">JSONPath</button>
+      </div>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6c7086" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <input value='$.order.status == "SHIPPED"' style="flex:1;background:#11111b;border:1px solid #3b82f6;border-radius:4px;padding:4px 8px;color:#a6e3a1;font-size:11.5px;outline:none;font-family:'JetBrains Mono',monospace;box-shadow:0 0 0 2px rgba(59,130,246,0.15);" />
+      <button style="background:none;border:none;color:#6c7086;cursor:pointer;font-size:14px;padding:0 2px;border-radius:2px;">×</button>
+      <span style="font-size:11px;font-weight:500;color:#a6adc8;white-space:nowrap;padding:2px 6px;border-radius:3px;background:rgba(59,130,246,0.08);border:1px solid rgba(59,130,246,0.2);">Showing 3/17</span>
+    </div>
+  </div>
+
+  <!-- ── Annotation: JSONPath mode rules ── -->
+  <div style="background:#181825;border:1px solid #313244;border-radius:6px;padding:12px 14px;font-size:12px;color:#a6adc8;line-height:1.6;margin-bottom:16px;">
+    <strong style="color:#cdd6f4;">Filter mode rules:</strong>
+    <ul style="margin:8px 0 0;padding-left:20px;font-size:11.5px;line-height:1.8;">
+      <li><strong>Text mode</strong>: substring match across JSON.stringify(message.data)</li>
+      <li><strong>JSONPath mode</strong>: path existence <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">$.order.id</code> or comparison <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">$.order.status == "SHIPPED"</code></li>
+      <li>Note: the expression root is <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">message.data</code> (the GraphQL payload), so <em>do not</em> include a leading <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">data.</code> prefix</li>
+      <li>Supports <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">==</code>, <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">!=</code>, <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">&gt;</code>, <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">&gt;=</code>, <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">&lt;</code>, <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">&lt;=</code> operators</li>
+      <li>Escape key closes the filter bar and resets filter state</li>
+      <li>Count shows <code style="background:#11111b;padding:1px 4px;border-radius:2px;font-size:10.5px;">Showing N/M</code> — live, not a search-only state</li>
+    </ul>
+  </div>
+</div>
+</body>
+</html>

@@ -1,14 +1,12 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import type { Scenario, FeatureGroup, KeyValue, GlobalAuthProfile, SharedDataSource, DataSource, AuthConfig } from '../../../shared/types';
+import type { Scenario, FeatureGroup, KeyValue, GlobalAuthProfile, SharedDataSource, DataSource, AuthConfig, ScenarioActionType } from '../../../shared/types';
+import { isWsActionType } from '../../../shared/types';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
 import {
   getBaseUrl,
   parseQueryParams,
-  pickJsonFile,
   rebuildUrl,
-  unwrapImport,
 } from '../utils/testEditorUtils';
 import { toErrorMessage } from '../../../shared/utils/helpers';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
@@ -20,8 +18,6 @@ import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from 
 import { useToast } from '../../../shared/hooks/useToast';
 import { useAuthVerify } from '../../requests/hooks/useAuthVerify';
 import { useTestFetch } from '../hooks/useTestFetch';
-import { saveFile } from '../../../shared/utils/fileSaver';
-import Papa from 'papaparse';
 import DataSourceSetupModal from './DataSourceSetupModal';
 import TestEditorAuthTab from './TestEditorAuthTab';
 import TestEditorValidationTab from './TestEditorValidationTab';
@@ -29,6 +25,17 @@ import ExtractionEditor from '../../requests/components/ExtractionEditor';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
 import DataSourceEditor from './DataSourceEditor';
 import type { ImportChoice, ExportChoice } from './ImportExportChoiceModal';
+import WsScenarioEditor from './WsScenarioEditor';
+import {
+  createDefaultWsConnectAction,
+  createDefaultWsSendAction,
+  createDefaultWsReceiveAction,
+} from '../../../shared/utils/wsScenarioDefaults';
+import { makeDefaultGrpcHarnessCallAction } from '../../../shared/utils/grpcHarnessScenarioContracts';
+import {
+  createTestEditorExportHandler,
+  createTestEditorImportHandler,
+} from '../utils/testEditorModalImportExport';
 
 // emptyTest is imported directly from '../utils/testEditorUtils' by consumers
 
@@ -258,6 +265,78 @@ export default function TestEditorModal({
   const paramCount = useMemo(() => queryParams.filter((p) => p.key.trim() && p.enabled).length, [queryParams]);
   const headerCount = useMemo(() => draft.headers.filter((h) => h.key.trim()).length, [draft.headers]);
 
+  const effectiveTransport: ScenarioActionType = draft.actionType ?? 'http';
+  const isHttp = effectiveTransport === 'http';
+  const isWs = isWsActionType(effectiveTransport);
+  const isKafka = effectiveTransport === 'kafkaProduce' || effectiveTransport === 'kafkaConsume';
+  const isGrpc = effectiveTransport === 'grpcCall';
+
+  const siblingTests = useMemo(() => {
+    const fg = featureGroups.find((g) => g.id === editingTest.fgId);
+    if (!fg) return [];
+    const sc = fg.scenarios.find((s) => s.id === editingTest.scenarioId);
+    return sc?.tests ?? [];
+  }, [featureGroups, editingTest.fgId, editingTest.scenarioId]);
+
+  const handleTransportChange = useCallback((actionType: ScenarioActionType) => {
+    const cur = draftRef.current;
+    if ((cur.actionType ?? 'http') === actionType) return;
+    const patch: Partial<Scenario> = {
+      actionType: actionType === 'http' ? undefined : actionType,
+      wsConnectAction: undefined,
+      wsSendAction: undefined,
+      wsReceiveAction: undefined,
+      kafkaProduceAction: undefined,
+      kafkaConsumeAction: undefined,
+      grpcCallAction: undefined,
+    };
+    if (actionType === 'http') {
+      patch.method = 'GET';
+    } else if (isWsActionType(actionType)) {
+      patch.method = 'WEBSOCKET';
+      if (actionType === 'wsConnect') patch.wsConnectAction = createDefaultWsConnectAction();
+      else if (actionType === 'wsSend') patch.wsSendAction = createDefaultWsSendAction();
+      else if (actionType === 'wsReceive') patch.wsReceiveAction = createDefaultWsReceiveAction();
+    } else if (actionType === 'grpcCall') {
+      patch.method = 'GRPC';
+      patch.grpcCallAction = makeDefaultGrpcHarnessCallAction();
+    } else if (actionType === 'kafkaProduce' || actionType === 'kafkaConsume') {
+      patch.method = 'KAFKA';
+    }
+    if (isWsActionType(actionType) && cur.extractions?.some(e => e.source !== 'body')) {
+      patch.extractions = cur.extractions.filter(e => e.source === 'body');
+    }
+    onDraftChange({ ...cur, ...patch });
+    if (actionType !== 'http' && inputMode !== 'builder') {
+      onInputModeChange('builder');
+    }
+    // Switch away from HTTP-only tabs (extract is shared by HTTP and WS)
+    const httpOnlyTabs: TestEditorTab[] = ['params', 'body', 'auth', 'headers'];
+    if (actionType !== 'http' && httpOnlyTabs.includes(activeTab)) {
+      onActiveTabChange('validation');
+    }
+    if (!isWsActionType(actionType) && actionType !== 'http' && activeTab === 'extract') {
+      onActiveTabChange('validation');
+    }
+  }, [onDraftChange, inputMode, onInputModeChange, activeTab, onActiveTabChange]);
+
+  const canSave = useMemo(() => {
+    if (!draft.name.trim()) return false;
+    if (isHttp) return !!draft.url.trim();
+    if (isWs) {
+      if (effectiveTransport === 'wsConnect') return !!(draft.wsConnectAction?.url?.trim());
+      if (effectiveTransport === 'wsSend') return !!(draft.wsSendAction?.connectionRef?.trim());
+      if (effectiveTransport === 'wsReceive') {
+        if (!draft.wsReceiveAction?.connectionRef?.trim()) return false;
+        const mc = draft.wsReceiveAction?.matchCriteria;
+        if (mc?.jsonPathValue !== undefined && !mc?.jsonPathMatch) return false;
+        return true;
+      }
+      return true;
+    }
+    return true;
+  }, [draft, isHttp, isWs, effectiveTransport]);
+
   // For parameterized tests, build a preview URL with {{variable}} placeholders for param columns
   const displayUrl = useMemo(() => {
     const dt = draft.dataSource;
@@ -276,117 +355,39 @@ export default function TestEditorModal({
 
   const baseUrl = useMemo(() => (displayUrl ? getBaseUrl(displayUrl) : ''), [displayUrl]);
 
-  // ─── Import/Export choice handlers ──────────────────────────
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- factory returns a stable handler; deps listed explicitly
+  const importHandler = useCallback(
+    createTestEditorImportHandler({
+      draftRef,
+      onDraftChange,
+      syncParamsFromUrl,
+      inputMode,
+      onInputModeChange,
+      onActiveTabChange,
+      toast,
+    }),
+    [onDraftChange, syncParamsFromUrl, inputMode, onInputModeChange, onActiveTabChange, toast],
+  );
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- factory returns a stable handler; deps listed explicitly
+  const exportHandler = useCallback(
+    createTestEditorExportHandler({
+      draftRef,
+      onExportTest,
+      setCsvExportOpen,
+    }),
+    [onExportTest],
+  );
+
   const handleImportChoice = useCallback((choice: ImportChoice) => {
     setImportDropdownOpen(false);
-    if (choice === 'test-definition') {
-      pickJsonFile((raw) => {
-        const data = unwrapImport(raw);
-        const t = data as Scenario;
-        if (!t.name || !t.url || !t.method) { toast.show('error', 'Invalid file', 'Expected a test with name, url, and method.'); return; }
-        const cur = draftRef.current;
-        onDraftChange({ ...t, id: cur.id });
-        syncParamsFromUrl(t.url || '');
-        if (inputMode !== 'builder') onInputModeChange('builder');
-      });
-    } else if (choice === 'data-rows') {
-      // Trigger file picker for CSV/JSON data rows
-      const dt = draftRef.current.dataSource;
-      if (!dt) return;
-      const input = document.createElement('input');
-      input.type = 'file';
-      input.accept = '.csv,.json';
-      input.onchange = async () => {
-        const file = input.files?.[0];
-        if (!file) return;
-        const text = await file.text();
-        const cur = draftRef.current;
-        const currentDt = cur.dataSource;
-        if (!currentDt) return;
-
-        if (file.name.endsWith('.json')) {
-          try {
-            const json = JSON.parse(text);
-            // Minimal JSON import — map values by column name
-            if (json.rows && Array.isArray(json.rows)) {
-              const newRows = json.rows.map((r: { values?: Record<string, string>; enabled?: boolean }) => {
-                const values: Record<string, string> = {};
-                for (const col of currentDt.columns) {
-                  values[col.id] = r.values?.[col.name] ?? '';
-                }
-                return { id: uuidv4(), values, enabled: r.enabled !== false };
-              });
-              onDraftChange({ ...cur, dataSource: { ...currentDt, rows: newRows } });
-            }
-          } catch (err) { console.error('JSON import failed:', err); }
-          return;
-        }
-
-        // CSV import
-        const lines = text.split(/\r?\n/).filter(l => l.trim());
-        if (lines.length === 0) return;
-        const rawHeaders = Papa.parse(lines[0]).data[0] as string[];
-        const colIdMap = rawHeaders.map(h => {
-          const trimmed = h.trim();
-          // Strip type prefix (path:, param:, expect:, header:, body:, validate:)
-          const stripped = trimmed.replace(/^(?:path|param|expect|header|body|validate):/, '');
-          const col = currentDt.columns.find(c => c.name.toLowerCase() === stripped.toLowerCase() || c.mapping.toLowerCase() === stripped.toLowerCase())
-            || currentDt.columns.find(c => c.name.toLowerCase() === trimmed.toLowerCase() || c.mapping.toLowerCase() === trimmed.toLowerCase());
-          return col?.id ?? null;
-        });
-        const parsed = Papa.parse<string[]>(text, { header: false, skipEmptyLines: true });
-        const dataRows = parsed.data.slice(1); // skip header row
-        const newRows = [];
-        for (const cells of dataRows) {
-          const values: Record<string, string> = {};
-          for (const col of currentDt.columns) values[col.id] = '';
-          for (let j = 0; j < colIdMap.length; j++) {
-            if (colIdMap[j]) values[colIdMap[j]!] = cells[j] ?? '';
-          }
-          newRows.push({ id: uuidv4(), values, enabled: true });
-        }
-        if (newRows.length > 0) {
-          onDraftChange({ ...cur, dataSource: { ...currentDt, rows: newRows } });
-        }
-      };
-      input.click();
-    }
-  }, [onDraftChange, onInputModeChange, inputMode, syncParamsFromUrl, toast]);
+    importHandler(choice);
+  }, [importHandler]);
 
   const handleExportChoice = useCallback((choice: ExportChoice) => {
     setExportDropdownOpen(false);
-    if (choice === 'test-definition') {
-      // Export directly with default options (include all versions)
-      onExportTest(draftRef.current);
-    } else if (choice === 'excel-template') {
-      setCsvExportOpen(true);
-    } else if (choice === 'data-csv') {
-      const dt = draftRef.current.dataSource;
-      if (!dt) return;
-      const headers = dt.columns.map(col => {
-        const prefix = col.type === 'path' ? 'path:' : col.type === 'param' ? 'param:' : col.type === 'validate' ? 'expect:' : col.type === 'header' ? 'header:' : col.type === 'body' ? 'body:' : '';
-        return prefix + col.name;
-      });
-      const data = dt.rows.map(row =>
-        dt.columns.map(col => row.values[col.id] ?? ''),
-      );
-      const csv = Papa.unparse({ fields: headers, data });
-      const blob = new Blob([csv], { type: 'text/csv' });
-      void saveFile(blob, { filename: `${draftRef.current.name || 'data-source'}.csv`, mimeType: 'text/csv', description: 'CSV file' });
-    } else if (choice === 'data-json') {
-      const cur = draftRef.current;
-      const dt = cur.dataSource;
-      if (!dt) return;
-      const json = {
-        version: '1.0',
-        metadata: { name: cur.name, method: cur.method, urlTemplate: dt.urlTemplate || cur.url, createdAt: new Date().toISOString(), exportedFrom: 'RedfireForge' },
-        columns: dt.columns.map(col => ({ id: col.id, name: col.name, type: col.type, mapping: col.mapping })),
-        rows: dt.rows.map(row => ({ id: row.id, enabled: row.enabled, tags: row.tags, note: row.note, values: Object.fromEntries(dt.columns.map(col => [col.name, row.values[col.id] ?? ''])) })),
-      };
-      const blob = new Blob([JSON.stringify(json, null, 2)], { type: 'application/json' });
-      void saveFile(blob, { filename: `${cur.name || 'data-source'}.json`, mimeType: 'application/json', description: 'JSON file' });
-    }
-  }, [onExportTest]);
+    exportHandler(choice);
+  }, [exportHandler]);
 
   return (
     <>
@@ -400,17 +401,21 @@ export default function TestEditorModal({
           <>
             <div className="mode-toggle">
               <button type="button" className={`mode-btn ${inputMode === 'builder' ? 'active' : ''}`} onClick={() => onInputModeChange('builder')}>Builder</button>
-              <button type="button" className={`mode-btn ${inputMode === 'curlImport' ? 'active' : ''}`} onClick={() => onInputModeChange('curlImport')}>cURL Import</button>
-              <button
-                type="button"
-                className={`mode-btn ${inputMode === 'curlExport' ? 'active' : ''}`}
-                onClick={() => {
-                  onInputModeChange('curlExport');
-                  void triggerCurlGeneration();
-                }}
-              >
-                cURL Export
-              </button>
+              {isHttp && (
+                <button type="button" className={`mode-btn ${inputMode === 'curlImport' ? 'active' : ''}`} onClick={() => onInputModeChange('curlImport')}>cURL Import</button>
+              )}
+              {isHttp && (
+                <button
+                  type="button"
+                  className={`mode-btn ${inputMode === 'curlExport' ? 'active' : ''}`}
+                  onClick={() => {
+                    onInputModeChange('curlExport');
+                    void triggerCurlGeneration();
+                  }}
+                >
+                  cURL Export
+                </button>
+              )}
               <div className="mode-btn-dropdown-wrapper" ref={importDropdownRef}>
                 <button
                   type="button"
@@ -463,7 +468,7 @@ export default function TestEditorModal({
               </div>
             </div>
             <button type="button" className="btn" onClick={onCancel}>Cancel</button>
-            <button type="button" className="btn btn-primary" onClick={onSave} disabled={!draft.name.trim() || !draft.url.trim()}>Save</button>
+            <button type="button" className="btn btn-primary" onClick={onSave} disabled={!canSave}>Save</button>
           </>
         }
       >
@@ -533,57 +538,111 @@ export default function TestEditorModal({
               <input value={draft.name} onChange={(e) => onDraftChange({ ...draft, name: e.target.value })} placeholder="e.g. Get User Profile" />
             </div>
 
-            <div className="url-bar">
+            <div className="form-row form-row--transport">
+              <label>Transport</label>
               <select
-                className={`method-select method-color-${draft.method.toLowerCase()}`}
-                value={draft.method}
-                onChange={(e) => onDraftChange({ ...draft, method: e.target.value as Scenario['method'] })}
+                value={effectiveTransport}
+                onChange={(e) => handleTransportChange(e.target.value as ScenarioActionType)}
+                className="transport-select"
+                aria-label="Transport type"
               >
-                <option value="GET">GET</option>
-                <option value="POST">POST</option>
-                <option value="PUT">PUT</option>
-                <option value="PATCH">PATCH</option>
-                <option value="DELETE">DELETE</option>
+                <optgroup label="HTTP">
+                  <option value="http">HTTP</option>
+                </optgroup>
+                <optgroup label="WebSocket">
+                  <option value="wsConnect">WS Connect</option>
+                  <option value="wsSend">WS Send</option>
+                  <option value="wsReceive">WS Receive</option>
+                </optgroup>
+                <optgroup label="Kafka">
+                  <option value="kafkaProduce">Kafka Produce</option>
+                  <option value="kafkaConsume">Kafka Consume</option>
+                </optgroup>
               </select>
-              <input
-                className="url-input"
-                value={baseUrl}
-                onChange={(e) => handleBaseUrlChange(e.target.value)}
-                placeholder={resolvedBaseUrl ? `${resolvedBaseUrl}/...` : 'https://api.example.com/endpoint'}
-              />
-              {resolvedBaseUrl && !draft.url && (
-                <button type="button" className="btn btn-sm url-fill-btn" onClick={() => handleBaseUrlChange(resolvedBaseUrl)} title="Use resolved base URL">Use</button>
-              )}
             </div>
 
-            {draft.url && (
-              <div className="url-preview">
-                <span className="url-preview-label">URL PREVIEW</span>
-                <code>{displayUrl}</code>
+            {isHttp && (
+              <>
+                <div className="url-bar">
+                  <select
+                    className={`method-select method-color-${draft.method.toLowerCase()}`}
+                    value={draft.method}
+                    onChange={(e) => onDraftChange({ ...draft, method: e.target.value as Scenario['method'] })}
+                  >
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="PATCH">PATCH</option>
+                    <option value="DELETE">DELETE</option>
+                  </select>
+                  <input
+                    className="url-input"
+                    value={baseUrl}
+                    onChange={(e) => handleBaseUrlChange(e.target.value)}
+                    placeholder={resolvedBaseUrl ? `${resolvedBaseUrl}/...` : 'https://api.example.com/endpoint'}
+                  />
+                  {resolvedBaseUrl && !draft.url && (
+                    <button type="button" className="btn btn-sm url-fill-btn" onClick={() => handleBaseUrlChange(resolvedBaseUrl)} title="Use resolved base URL">Use</button>
+                  )}
+                </div>
+
+                {draft.url && (
+                  <div className="url-preview">
+                    <span className="url-preview-label">URL PREVIEW</span>
+                    <code>{displayUrl}</code>
+                  </div>
+                )}
+              </>
+            )}
+
+            {isWs && (
+              <WsScenarioEditor
+                draft={draft}
+                onDraftChange={onDraftChange}
+                resolvedBaseUrl={resolvedBaseUrl}
+                siblingTests={siblingTests}
+              />
+            )}
+
+            {isKafka && (
+              <div className="kafka-editor-placeholder">
+                <p>Kafka scenario editor is planned for a future phase. Configure Kafka actions via JSON import or the data model.</p>
+              </div>
+            )}
+
+            {isGrpc && (
+              <div className="kafka-editor-placeholder">
+                <p>gRPC harness scenario editor is planned for a future phase. Configure gRPC calls via JSON import.</p>
               </div>
             )}
 
             <div className="builder-tabs">
-              <button type="button" className={`builder-tab ${activeTab === 'params' ? 'active' : ''}`} onClick={() => onActiveTabChange('params')}>
-                Params {paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
-              </button>
-              {draft.method !== 'GET' && (
+              {isHttp && (
+                <button type="button" className={`builder-tab ${activeTab === 'params' ? 'active' : ''}`} onClick={() => onActiveTabChange('params')}>
+                  Params {paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
+                </button>
+              )}
+              {isHttp && draft.method !== 'GET' && (
                 <button type="button" className={`builder-tab ${activeTab === 'body' ? 'active' : ''}`} onClick={() => onActiveTabChange('body')}>
                   Body {(draft.body || (draft.bodyForm ?? []).some(kv => kv.key.trim())) ? <span className="tab-badge-dot" /> : null}
                 </button>
               )}
-              <button type="button" className={`builder-tab ${activeTab === 'auth' ? 'active' : ''}`} onClick={() => onActiveTabChange('auth')}>
-                Auth {draft.auth.type !== 'none' && <span className="tab-badge-dot" />}
-              </button>
-              <button type="button" className={`builder-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => onActiveTabChange('headers')}>
-                Headers {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
-              </button>
+              {isHttp && (
+                <button type="button" className={`builder-tab ${activeTab === 'auth' ? 'active' : ''}`} onClick={() => onActiveTabChange('auth')}>
+                  Auth {draft.auth.type !== 'none' && <span className="tab-badge-dot" />}
+                </button>
+              )}
+              {isHttp && (
+                <button type="button" className={`builder-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => onActiveTabChange('headers')}>
+                  Headers {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
+                </button>
+              )}
               {!(draft.dataSource?.columns.some(c => c.type === 'validate')) && (
                 <button type="button" className={`builder-tab ${activeTab === 'validation' ? 'active' : ''}`} onClick={() => onActiveTabChange('validation')}>
                   Validation {(draft.validation.mode === 'selective' || (draft.validation.mode === 'full' && !!draft.validation.expectedJson?.trim()) || (draft.validation.assertions?.length ?? 0) > 0) && <span className="tab-badge-dot" />}
                 </button>
               )}
-              {!(draft.dataSource?.columns.some(c => c.type === 'validate')) && (
+              {(isHttp || isWs) && !(draft.dataSource?.columns.some(c => c.type === 'validate')) && (
                 <button type="button" className={`builder-tab ${activeTab === 'extract' ? 'active' : ''}`} onClick={() => onActiveTabChange('extract')}>
                   Extract {(draft.extractions?.length ?? 0) > 0 && <span className="tab-badge">{draft.extractions!.length}</span>}
                 </button>
@@ -606,15 +665,15 @@ export default function TestEditorModal({
             </div>
 
             <div className="builder-tab-content">
-              {activeTab === 'params' && (
+              {activeTab === 'params' && isHttp && (
                 <ParamsEditor params={queryParams} onChange={handleParamsChange} onImportFromUrl={handleImportFromUrl} />
               )}
 
-              {activeTab === 'body' && draft.method !== 'GET' && (
+              {activeTab === 'body' && isHttp && draft.method !== 'GET' && (
                 <BodyEditor draft={draft} onDraftChange={onDraftChange} />
               )}
 
-              {activeTab === 'auth' && (
+              {activeTab === 'auth' && isHttp && (
                 <TestEditorAuthTab
                   draft={draft}
                   onDraftChange={onDraftChange}
@@ -631,7 +690,7 @@ export default function TestEditorModal({
                 />
               )}
 
-              {activeTab === 'headers' && (
+              {activeTab === 'headers' && isHttp && (
                 <div className="kv-section">
                   <div className="kv-header">
                     <span>REQUEST HEADERS</span>
@@ -672,7 +731,7 @@ export default function TestEditorModal({
                 />
               )}
 
-              {activeTab === 'extract' && (
+              {activeTab === 'extract' && isHttp && (
                 <ExtractionEditor
                   extractions={draft.extractions ?? []}
                   onChange={(extractions) => onDraftChange({ ...draft, extractions })}
@@ -694,6 +753,20 @@ export default function TestEditorModal({
                     },
                   }}
                   contextScope={draft.id}
+                />
+              )}
+
+              {activeTab === 'extract' && isWs && (
+                <ExtractionEditor
+                  extractions={draft.extractions ?? []}
+                  onChange={(extractions) => onDraftChange({ ...draft, extractions })}
+                  sampleResponseBody={
+                    (draft.validation.sampleJson && draft.validation.sampleJson.trim())
+                      ? draft.validation.sampleJson
+                      : validationResult?.responseJson
+                  }
+                  contextScope={draft.id}
+                  transportType="ws"
                 />
               )}
 

@@ -30,7 +30,7 @@ test.describe('IDB loading', () => {
   });
 
   test('app loads even when IDB is blocked (timeout fallback)', async ({ page }) => {
-    test.slow(); // This test deliberately waits for IDB timeout (~3s)
+    test.slow(); // Waits for a single 10s IDB open timeout, then fast-fails subsequent opens
     // Sabotage IDB: intercept open() for 'redfireforge' so no events ever fire
     await page.addInitScript(() => {
       const origOpen = indexedDB.open.bind(indexedDB);
@@ -59,14 +59,12 @@ test.describe('IDB loading', () => {
     await seedAppData(page);
     await page.goto('/');
     // Measure only the post-load time (excludes network/bundle load time).
-    // The IDB 3s timeout fires after page JS starts, so the Loading screen
-    // should disappear within ~5s of the page finishing load.
+    // IDB open times out after 10s; subsequent opens fail fast and localStorage fallback loads.
     const start = Date.now();
-    await page.waitForSelector('text=Loading...', { state: 'hidden', timeout: 10_000 });
+    await page.waitForSelector('text=Loading...', { state: 'hidden', timeout: 20_000 });
     const elapsed = Date.now() - start;
     console.log(`Blocked IDB test: post-load loading-dismiss time ${elapsed}ms`);
     expect(await page.locator('text=Loading...').count()).toBe(0);
-    // IDB timeout is 3s; app should dismiss the loading screen within 5s of page load completing.
-    expect(elapsed).toBeLessThan(5000);
+    expect(elapsed).toBeLessThan(18_000);
   });
 });

@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'react';
 
-export type ResizeEdge = 'right' | 'corner';
+export type ResizeEdge = 'right' | 'corner' | 'bottom';
 
 interface ResizeState {
   startX: number;
@@ -26,8 +26,13 @@ export function useModalResize(minWidth = 320, minHeight = 200) {
     (e: React.MouseEvent, edge: ResizeEdge) => {
       e.preventDefault();
       e.stopPropagation();
-      const modal = (e.currentTarget as HTMLElement).parentElement as HTMLElement;
-      if (!modal) return;
+      const handle = e.currentTarget as HTMLElement;
+      // First try to find closest dialog element (AppModalFrame structure)
+      // Fall back to parentElement for test compatibility
+      const modal = (handle.closest('[role="dialog"]') || handle.parentElement) as HTMLElement | null;
+      if (!modal) {
+        return;
+      }
       const rect = modal.getBoundingClientRect();
       stateRef.current = {
         startX: e.clientX,
@@ -42,9 +47,15 @@ export function useModalResize(minWidth = 320, minHeight = 200) {
         if (!s) return;
         const dx = ev.clientX - s.startX;
         const dy = ev.clientY - s.startY;
-        const newW = Math.max(minWidth, s.origW + dx);
-        const newH = s.edge === 'corner' ? Math.max(minHeight, s.origH + dy) : (size?.h ?? s.origH);
-        setSize({ w: newW, h: s.edge === 'corner' ? newH : newH });
+        const resizesW = s.edge === 'right' || s.edge === 'corner';
+        const resizesH = s.edge === 'corner' || s.edge === 'bottom';
+        const maxW = Math.max(minWidth, window.innerWidth - 16);
+        const maxH = Math.max(minHeight, window.innerHeight - 16);
+        const nextW = resizesW ? Math.max(minWidth, s.origW + dx) : (size?.w ?? s.origW);
+        const nextH = resizesH ? Math.max(minHeight, s.origH + dy) : (size?.h ?? s.origH);
+        const newW = Math.min(nextW, maxW);
+        const newH = Math.min(nextH, maxH);
+        setSize({ w: newW, h: newH });
       };
 
       const handleUp = () => {
@@ -69,6 +80,15 @@ export function useModalResize(minWidth = 320, minHeight = 200) {
     [startResize],
   );
 
+  const onBottomEdge = useCallback(
+    (e: React.MouseEvent) => startResize(e, 'bottom'),
+    [startResize],
+  );
+
+  const resetSize = useCallback(() => {
+    setSize((prev) => (prev === null ? prev : null));
+  }, []);
+
   // Component remount resets size automatically via useState initial value.
 
   const resizeStyle: React.CSSProperties | undefined = size
@@ -81,5 +101,5 @@ export function useModalResize(minWidth = 320, minHeight = 200) {
       }
     : undefined;
 
-  return { resizeStyle, onRightEdge, onCorner, resetSize: () => setSize(null) } as const;
+  return { resizeStyle, onRightEdge, onCorner, onBottomEdge, resetSize } as const;
 }

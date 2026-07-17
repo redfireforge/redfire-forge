@@ -104,5 +104,12 @@ describe('useNodeBase', () => {
       unmount();
       expect(clearTimeoutSpy).toHaveBeenCalled();
     });
+
+    it('does not schedule timeout when node is not new', () => {
+      vi.spyOn(NewNodeContext, 'isNodeNew').mockReturnValue(false);
+      const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
+      renderHook(() => useNodeBase('not-new-node'));
+      expect(setTimeoutSpy).not.toHaveBeenCalled();
+    });
   });
 });

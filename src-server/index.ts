@@ -16,9 +16,12 @@ import { getAppDataPath } from './file-storage.js';
 import { initScheduler, stopScheduler } from './cron-scheduler.js';
 import { createCorrelationStore } from './correlation-store-factory.js';
 import { setCorrelationStore } from './correlation-handler.js';
+import { wsMockPool } from './websocket/websocket-mock-service.js';
+import { grpcMockServerPool } from './grpc/grpcMockServerPool.js';
+import { toErrorMessage } from '../src/shared/utils/helpers';
 
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
-const HOST = process.env.HOST || '127.0.0.1'; // Localhost only by default
+const HOST = process.env.HOST || 'localhost'; // Localhost by default (IPv4/IPv6-friendly)
 
 let server: ReturnType<typeof app.listen> | null = null;
 let cleanupInterval: ReturnType<typeof setInterval> | null = null;
@@ -52,7 +55,22 @@ async function startServer() {
 
       // Initialize cron scheduler after server starts
       await initScheduler();
-      
+
+      // Auto-start the built-in WS echo mock server on port 9876 via the pool
+      // so the frontend's per-tab mock server management can track and control it.
+      try {
+        await wsMockPool.getOrCreate(9876).start({ port: 9876, rules: [], fallback: 'echo' });
+        console.log('  ✅ WS echo mock server listening on ws://127.0.0.1:9876');
+      } catch (err) {
+        const msg = toErrorMessage(err);
+        // EADDRINUSE means another process already has the port — treat as OK
+        if (msg.includes('EADDRINUSE')) {
+          console.log('  ⚠️  ws://127.0.0.1:9876 already in use — skipping mock server start');
+        } else {
+          console.warn('  ⚠️  WS echo mock server failed to start:', msg);
+        }
+      }
+
       console.log('═══════════════════════════════════════════════════════════');
       console.log('  Press Ctrl+C to stop');
       console.log('═══════════════════════════════════════════════════════════\n');
@@ -81,6 +99,10 @@ async function stopServer() {
     
     // Stop scheduler first
     stopScheduler();
+
+    // Stop all mock servers managed by the pool
+    try { wsMockPool.stopAll(); } catch { /* ignore */ }
+    try { grpcMockServerPool.stopAll(); } catch { /* ignore */ }
 
     // Stop cleanup interval
     if (cleanupInterval) {
@@ -126,8 +148,5 @@ process.on('unhandledRejection', (reason, promise) => {
   process.exit(1);
 });
 
-// Start the server
-startServer().catch((error) => {
-  console.error('❌ Fatal error:', error);
-  process.exit(1);
-});
+// Start the server (errors are handled inside startServer)
+void startServer();

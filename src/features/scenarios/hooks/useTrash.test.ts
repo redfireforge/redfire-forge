@@ -48,7 +48,7 @@ import { useTrash } from './useTrash';
 
 describe('useTrash — core', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockLoadTrash.mockResolvedValue([]);
     mockLoadSettings.mockResolvedValue({ retentionDays: 30, maxItems: 100 });
     mockSaveSettings.mockResolvedValue(undefined);
@@ -291,7 +291,7 @@ describe('useTrash — core', () => {
 
 describe('useTrash — trashSettings', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockLoadTrash.mockResolvedValue([]);
     mockLoadSettings.mockResolvedValue({ retentionDays: 30, maxItems: 100 });
     mockSaveSettings.mockResolvedValue(undefined);

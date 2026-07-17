@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { defaultCapabilities, resolveCapabilities } from './types';
+import { defaultCapabilities, MapperFetchError, resolveCapabilities } from './types';
 import type { AdapterCapabilities } from './types';
 
 describe('defaultCapabilities', () => {
@@ -50,5 +50,20 @@ describe('resolveCapabilities', () => {
     for (const key of keys) {
       expect((caps as Record<string, unknown>)[key]).not.toBeUndefined();
     }
+  });
+});
+
+describe('MapperFetchError', () => {
+  it('captures fetch error detail on the error instance', () => {
+    const detail = {
+      message: 'Request failed',
+      status: 502,
+      statusText: 'Bad Gateway',
+      body: '{"error":"upstream"}',
+    };
+    const error = new MapperFetchError(detail);
+    expect(error.name).toBe('MapperFetchError');
+    expect(error.message).toBe('Request failed');
+    expect(error.detail).toEqual(detail);
   });
 });

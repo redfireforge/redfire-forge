@@ -53,4 +53,10 @@ describe('NodeConfigureButton', () => {
     const btn = container.querySelector('button');
     expect(btn?.className).toBe('wf-node-configure-badge');
   });
+
+  it('treats an empty className like no extra class', () => {
+    const { container } = render(<NodeConfigureButton title="Test" onClick={vi.fn()} className="" />);
+    const btn = container.querySelector('button');
+    expect(btn?.className).toBe('wf-node-configure-badge');
+  });
 });

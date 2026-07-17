@@ -19,8 +19,19 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "erasableSyntaxOnly": true,
-    "noFallthroughCasesInSwitch": true
+    "noFallthroughCasesInSwitch": true,
+    "ignoreDeprecations": "6.0",
+
+    "baseUrl": ".",
+    "paths": {
+      "@redfireforge/demo-hub": ["packages/demo-hub/src/index.ts"],
+      "@redfireforge/demo-hub/*": ["packages/demo-hub/src/*"],
+      "@shared/*": ["src/shared/*"],
+      "@graphql/*": ["src/features/graphql/*"],
+      "@grpc/*": ["src/features/grpc/*"],
+      "@workflow/*": ["src/features/workflow/*"]
+    }
   },
-  "include": ["src"],
-  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/**/*.spec.tsx"]
+  "include": ["src", "packages/demo-hub/src"],
+  "exclude": ["src/**/*.test.ts", "src/**/*.test.tsx", "src/**/*.spec.ts", "src/**/*.spec.tsx", "packages/demo-hub/**/*.test.ts", "packages/demo-hub/**/*.test.tsx"]
 }

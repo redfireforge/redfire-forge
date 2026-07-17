@@ -298,7 +298,7 @@
   align-items: center;
   gap: 8px;
   padding: 5px 10px;
-  cursor: pointer;
+  cursor: grab;
   font-size: 0.8rem;
   border-radius: 4px;
   transition: background 0.12s;
@@ -354,7 +354,7 @@
   align-items: center;
   gap: 5px;
   padding: 5px 10px 5px 20px;
-  cursor: pointer;
+  cursor: grab;
   font-size: 0.8rem;
   transition: background 0.12s;
   user-select: none;
@@ -406,7 +406,6 @@
 /* Drag state on collection / request items */
 .req-col-header.dragging { opacity: 0.4; }
 .req-req-item.dragging { opacity: 0.4; }
-.req-req-item { cursor: grab; }
 .req-req-item:active { cursor: grabbing; }
 .req-req-drop-wrapper { position: relative; }
 .req-drop-indicator {
@@ -470,7 +469,6 @@
 
 /* Folder drag state */
 .req-folder-group.dragging { opacity: 0.4; }
-.req-folder-header { cursor: grab; }
 .req-folder-header:active { cursor: grabbing; }
 
 /* ─── Main editor area ──────────────────────────── */
@@ -773,9 +771,19 @@
 
 /* Headers editor */
 .req-headers-editor { display: flex; flex-direction: column; gap: 5px; }
-.req-kv-toolbar { display: flex; gap: 8px; margin-bottom: 6px; }
-.req-header-row { display: flex; gap: 6px; align-items: center; }
-.req-header-row .req-input { flex: 1; }
+
+/* Theme-alias shim: maps the shared KeyValueEditor's alias tokens onto the
+   canonical Requests theme tokens so it renders correctly in light + dark. */
+.req-headers-kv {
+  --border-color: var(--border);
+  --text-primary: var(--text);
+  --text-secondary: var(--text-muted);
+  --accent-color: var(--primary);
+  --hover-bg: var(--surface-hover);
+  --bg-secondary: var(--surface);
+  --input-bg: var(--surface);
+  --error-color: var(--danger);
+}
 
 /* Auth editor */
 .req-auth-editor { max-width: 100%; }

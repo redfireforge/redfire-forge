@@ -1,0 +1,84 @@
+name: Demo Nightly
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+jobs:
+  typecheck:
+    name: TypeScript Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npx tsc -b --noEmit
+
+  demo-unit:
+    name: Demo unit tests
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run test:demo
+
+  demo-build:
+    name: Demo frontend build
+    runs-on: ubuntu-latest
+    needs: typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build:demo
+      - name: Verify demo bundle references demo shell
+        run: grep -q DemoShellHost dist/assets/index-*.js
+
+  demo-e2e-smoke:
+    name: Demo E2E smoke (GQL 1–3)
+    runs-on: ubuntu-latest
+    needs: demo-unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+      - name: Run GraphQL lessons smoke
+        env:
+          E2E_GRAPHQL_SERVER: '1'
+        run: npm run test:e2e:demo:gql-smoke
+
+  demo-e2e-gql5:
+    name: Demo E2E GQL-5 (Docker TLS)
+    runs-on: ubuntu-latest
+    needs: demo-unit
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browsers
+        run: npx playwright install chromium --with-deps
+      - name: Run GQL-5 demo E2E
+        env:
+          E2E_GQL5_DOCKER: '1'
+          E2E_DOCKER_TEARDOWN: '1'
+        run: npm run test:e2e:demo:gql5:ci

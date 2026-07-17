@@ -1,6 +1,6 @@
 [package]
 name = "redfireforge"
-version = "0.6.0"
+version = "0.6.2-beta.1"
 description = "RedfireForge - API Performance Testing Tool"
 authors = ["you"]
 license = "MIT"
@@ -26,9 +26,10 @@ tauri-plugin-http = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-shell = "2"
 clap = { version = "4", features = ["derive"] }
-reqwest = { version = "0.13", features = ["json", "gzip", "brotli"] }
+reqwest = { version = "0.13", features = ["json", "gzip", "brotli", "rustls", "multipart"] }
 tokio = { version = "1", features = ["full"] }
 tokio-util = "0.7"
+tokio-stream = "0.1"
 rand = "0.9"
 regex = "1"
 jsonschema = "0.27"
@@ -37,6 +38,23 @@ hdrhistogram = "7"
 rdkafka = { version = "0.37", features = ["cmake-build", "ssl"] }
 futures = "0.3"
 uuid = { version = "1", features = ["v4"] }
+tokio-tungstenite = { version = "0.28", features = ["rustls-tls-native-roots"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std"] }
+rustls-pemfile = "2"
+rustls-native-certs = "0.8"
+base64 = "0.22"
+bytes = "1"
+http = "1"
+hyper = { version = "1", features = ["http2", "server"] }
+hyper-util = { version = "0.1", features = ["server", "http2", "tokio"] }
+http-body-util = "0.1"
+tonic = { version = "0.12", features = ["tls", "transport"] }
+tonic-health = "0.12"
+prost = "0.13"
+prost-reflect = { version = "0.14", features = ["serde"] }
+prost-types = "0.13"
+sha2 = "0.10"
+hex = "0.4"
 tauri-plugin-connector = { version = "0.12", optional = true }
 tauri-plugin-mcp-bridge = "0.11.2"
 

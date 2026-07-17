@@ -74,11 +74,13 @@ vi.mock('@xyflow/react', async () => {
     Background: helpers.MockBackground,
     Controls: helpers.MockControls,
     MiniMap: helpers.MockMiniMap,
+    Panel: helpers.MockPanel,
     MarkerType: helpers.xyflowMockStaticExports.MarkerType,
     Position: helpers.xyflowMockStaticExports.Position,
     useReactFlow: () => flowApi,
     useViewport: () => ({ x: viewportState.x, y: viewportState.y, zoom: viewportState.zoom }),
     applyNodeChanges: applyNodeChangesStub,
+    getNodesBounds: helpers.mockGetNodesBounds,
   };
 });
 
@@ -113,13 +115,13 @@ describe('WorkflowExecutionCanvas', () => {
 
   it('renders React Flow canvas', () => {
     const trace = createMockTrace();
-    const { getByTestId, container } = render(<WorkflowExecutionCanvas trace={trace} />);
+    const { getByTestId, queryByTestId, container } = render(<WorkflowExecutionCanvas trace={trace} />);
 
     expect(getByTestId('react-flow')).toBeInTheDocument();
     expect(getByTestId('background')).toBeInTheDocument();
     // Check for custom controls (wf-pill-controls class)
     expect(container.querySelector('.wf-pill-controls')).toBeInTheDocument();
-    expect(getByTestId('minimap')).toBeInTheDocument();
+    expect(queryByTestId('minimap')).not.toBeInTheDocument();
   });
 
   it('renders all nodes from workflow snapshot', () => {

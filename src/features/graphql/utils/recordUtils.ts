@@ -1,0 +1,1 @@
+export { isEmptyRecord } from '../../../shared/utils/recordUtils';

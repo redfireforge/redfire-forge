@@ -21,6 +21,7 @@ vi.mock('../../../shared/utils/httpClient', () => ({
 
 import { runGraph } from './graphRunner';
 import { httpFetch } from '../../../shared/utils/httpClient';
+import { httpNode } from './graphRunnerNodeHandlers.test-utils';
 
 const mockFetch = vi.mocked(httpFetch);
 
@@ -63,27 +64,6 @@ function kafkaWaitNode(id: string): WorkflowNode {
   };
 }
 
-function httpNode(id: string, label: string): WorkflowNode {
-  return {
-    id,
-    type: 'http',
-    position: { x: 0, y: 0 },
-    data: {
-      label,
-      scenario: {
-        id,
-        name: label,
-        url: `https://example.com/${id}`,
-        method: 'GET',
-        headers: [],
-        body: '',
-        auth: { type: 'none' },
-        validation: { mode: 'none' },
-      },
-    },
-  };
-}
-
 function makeCorrelationStore(overrides: Partial<ICorrelationStore> = {}): ICorrelationStore {
   return {
     pause: vi.fn(),
@@ -105,7 +85,7 @@ const defaultCallbacks = () => ({
 });
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockFetch.mockResolvedValue({
     status: 200,
     statusText: 'OK',

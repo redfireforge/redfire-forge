@@ -1,6 +1,10 @@
 import { useState, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { useWorkflowInspect } from './WorkflowInspectContext';
 import { useModalDrag } from '../../../../shared/hooks/useModalDrag';
+
+const WF_CONTEXT_MODAL_MOUNT =
+  () => document.querySelector('.workflow-designer-mount') || document.body;
 
 interface Props {
   variables: Record<string, string>;
@@ -45,7 +49,7 @@ export default function VariableContextBadge({ variables }: Props) {
         <span className="wf-var-badge-count">{entries.length}</span>
       </button>
 
-      {open && (
+      {open && createPortal(
         <div
           className="modal-overlay wf-vars-modal-overlay"
           role="presentation"
@@ -92,8 +96,7 @@ export default function VariableContextBadge({ variables }: Props) {
                         className="wf-vars-modal-row"
                         title="View or edit in Initial variables"
                         onClick={() => {
-                          openVariableDetail(name);
-                          handleClose();
+                          openVariableDetail(name, value);
                         }}
                       >
                         <div className="wf-vars-modal-row-head">
@@ -112,7 +115,8 @@ export default function VariableContextBadge({ variables }: Props) {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        WF_CONTEXT_MODAL_MOUNT(),
       )}
     </>
   );

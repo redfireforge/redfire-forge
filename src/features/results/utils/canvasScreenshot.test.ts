@@ -26,7 +26,7 @@ describe('captureCanvasScreenshot', () => {
   ];
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('throws if viewport element is not found', async () => {
@@ -102,7 +102,7 @@ describe('captureCanvasSvg', () => {
   ];
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('throws if viewport element is not found', async () => {

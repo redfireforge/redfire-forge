@@ -17,6 +17,7 @@ export interface RunnerPageProps {
   svcId?: string;
   isAdditionalEnv?: boolean;
   resolvedBaseUrl?: string;
+  microservices?: import('../../../shared/types').Microservice[];
   globalAuthProfiles?: GlobalAuthProfile[];
   envFallbackAuth?: import('../../../shared/types').AuthConfig;
   sharedDataSources?: SharedDataSource[];
@@ -25,11 +26,11 @@ export interface RunnerPageProps {
 export default function RunnerPage({
   variant,
   featureGroups, onComplete, envName, svcName, envId, svcId, isAdditionalEnv,
-  resolvedBaseUrl, globalAuthProfiles = [], envFallbackAuth, sharedDataSources = [],
+  resolvedBaseUrl, microservices, globalAuthProfiles = [], envFallbackAuth, sharedDataSources = [],
 }: RunnerPageProps & { variant: RunnerVariant }) {
   const runner = useRunnerOrchestration({
     featureGroups, kind: variant.kind, envId, svcId, envName, svcName,
-    resolvedBaseUrl, globalAuthProfiles, envFallbackAuth, sharedDataSources,
+    resolvedBaseUrl, microservices, globalAuthProfiles, envFallbackAuth, sharedDataSources,
   });
 
   const {
@@ -62,7 +63,7 @@ export default function RunnerPage({
   const hasContent = variant.hasContent(featureGroups);
 
   return (
-    <div className="page">
+    <div className={`page ${variant.namePrefix}-page`}>
       <div className="page-header">
         <h2>{variant.title}</h2>
         <div className="context-tags">

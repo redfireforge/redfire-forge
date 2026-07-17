@@ -41,11 +41,11 @@ vi.mock('./idbOpen', () => {
   };
 });
 
-import { idbAvailable, wrap, createIdbBlobStore } from './idbHelpers';
+import { idbAvailable, wrap, txComplete, createIdbBlobStore } from './idbHelpers';
 
 describe('idbHelpers', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockGetResult = undefined;
     mockGetShouldError = false;
     mockPutShouldError = false;
@@ -72,6 +72,53 @@ describe('idbHelpers', () => {
       } finally {
         (globalThis as Record<string, unknown>).indexedDB = orig;
       }
+    });
+  });
+
+  describe('txComplete', () => {
+    it('resolves when transaction completes', async () => {
+      const tx = {
+        get oncomplete() { return null; },
+        set oncomplete(fn: (() => void) | null) {
+          if (fn) Promise.resolve().then(() => fn());
+        },
+        get onerror() { return null; },
+        set onerror(_fn: (() => void) | null) { /* */ },
+        get onabort() { return null; },
+        set onabort(_fn: (() => void) | null) { /* */ },
+        error: null,
+      } as unknown as IDBTransaction;
+      await expect(txComplete(tx)).resolves.toBeUndefined();
+    });
+
+    it('rejects when transaction errors', async () => {
+      const tx = {
+        get oncomplete() { return null; },
+        set oncomplete(_fn: (() => void) | null) { /* */ },
+        get onerror() { return null; },
+        set onerror(fn: (() => void) | null) {
+          if (fn) Promise.resolve().then(() => fn());
+        },
+        get onabort() { return null; },
+        set onabort(_fn: (() => void) | null) { /* */ },
+        error: new Error('tx error'),
+      } as unknown as IDBTransaction;
+      await expect(txComplete(tx)).rejects.toBeInstanceOf(Error);
+    });
+
+    it('rejects on abort with fallback message when error is null', async () => {
+      const tx = {
+        get oncomplete() { return null; },
+        set oncomplete(_fn: (() => void) | null) { /* */ },
+        get onerror() { return null; },
+        set onerror(_fn: (() => void) | null) { /* */ },
+        get onabort() { return null; },
+        set onabort(fn: (() => void) | null) {
+          if (fn) Promise.resolve().then(() => fn());
+        },
+        error: null,
+      } as unknown as IDBTransaction;
+      await expect(txComplete(tx)).rejects.toThrow('IDB transaction aborted');
     });
   });
 
@@ -129,6 +176,18 @@ describe('idbHelpers', () => {
         mockGetResult = undefined;
         const store = createIdbBlobStore('test-store');
         expect(await store.load()).toBeNull();
+      });
+
+      it('uses default validate (truthy check) when no custom validator provided', async () => {
+        mockGetResult = { ok: true };
+        const store = createIdbBlobStore('default-validate-store');
+        expect(await store.load()).toEqual({ ok: true });
+      });
+
+      it('default validate rejects falsy stored values during migrate', async () => {
+        localStorage.setItem('falsy-key', JSON.stringify(null));
+        const store = createIdbBlobStore('default-validate-store');
+        expect(await store.migrate('falsy-key')).toBe(false);
       });
 
       it('returns null when IDB throws (catch branch)', async () => {

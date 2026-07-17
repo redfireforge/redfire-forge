@@ -2,6 +2,9 @@ import type { RefObject } from 'react';
 import type { Environment, Microservice } from '../../shared/types';
 import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
 import { isCustomThemeId, findSavedTheme } from '../themeCustomizerUtils';
+import type { Tab } from '../utils/appTabUtils';
+import { resolveHeaderProtocolIndicator } from '../utils/headerProtocolUtils';
+import HeaderProtocolIndicator from './HeaderProtocolIndicator';
 import KafkaConnectionIndicator from './KafkaConnectionIndicator';
 
 interface ThemeItem {
@@ -18,6 +21,7 @@ interface ThemeGroup {
 
 interface AppHeaderProps {
   headerRef: RefObject<HTMLElement | null>;
+  activeTab: Tab;
   environments: Environment[];
   microservices: Microservice[];
   selectedEnvId: string;
@@ -40,6 +44,7 @@ interface AppHeaderProps {
 
 export default function AppHeader({
   headerRef,
+  activeTab,
   environments,
   microservices,
   selectedEnvId,
@@ -59,14 +64,22 @@ export default function AppHeader({
   kafkaHasClusters,
   onNavigateToKafkaSettings,
 }: AppHeaderProps) {
+  const selectedSvc = microservices.find((s) => s.id === selectedSvcId);
+  const protocolIndicator = resolveHeaderProtocolIndicator(
+    activeTab,
+    selectedSvc,
+    selectedEnvId,
+    environments,
+  );
+
   return (
     <header ref={headerRef} className="app-header">
       <h1>🔥 RedfireForge
         <span style={{ fontSize: '0.4em', fontWeight: 400, opacity: 0.5, marginLeft: '0.6em', verticalAlign: 'middle', background: 'rgba(255,255,255,0.1)', padding: '2px 8px', borderRadius: '10px' }}>v{__APP_VERSION__}</span>
       </h1>
-      <div className="header-selectors">
+      <div className="header-selectors" data-testid="header-selectors">
         <div className="header-select-group">
-          <select value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value)}>
+          <select data-testid="header-env-select" value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value)}>
             <option value="">Environment…</option>
             {environments.map((env) => <option key={env.id} value={env.id}>{env.name}</option>)}
             {microservices.some(s => (s.customEnvs ?? []).length > 0) && (
@@ -79,17 +92,19 @@ export default function AppHeader({
           </select>
         </div>
         <div className="header-select-group">
-          <select value={selectedSvcId} onChange={(e) => setSelectedSvcId(e.target.value)}>
+          <select data-testid="header-svc-select" value={selectedSvcId} onChange={(e) => setSelectedSvcId(e.target.value)}>
             <option value="">Service…</option>
             {microservices.map((svc) => <option key={svc.id} value={svc.id}>{svc.name}</option>)}
           </select>
         </div>
+        {protocolIndicator && <HeaderProtocolIndicator state={protocolIndicator} />}
         <KafkaConnectionIndicator
           connection={kafkaConnection}
           clusterName={kafkaClusterName}
           hasClusters={kafkaHasClusters}
           onNavigateToSettings={onNavigateToKafkaSettings}
         />
+
         <div className={`theme-picker${themePickerOpen ? ' open' : ''}`} ref={themePickerRef}>
           <button className="theme-toggle" onClick={() => setThemePickerOpen((o: boolean) => !o)}
             title={`Theme: ${isCustomThemeId(theme) ? (findSavedTheme(theme)?.name ?? 'Custom') : theme}`}>

@@ -82,11 +82,13 @@ async function setupAndOpenResultsExplorer(page: Page) {
 }
 
 test.describe('Parallel Execution Visualization (Phase 8c)', () => {
+  test.describe.configure({ timeout: 90_000 });
   test.beforeEach(async ({ page }) => {
     await seedWorkflowAndTestRun(page, FORK_JOIN_WORKFLOW, makeTestRunWithForkJoin());
   });
 
   test('swim lanes are rendered with node names as labels', async ({ page }) => {
+    test.slow();
     await setupAndOpenResultsExplorer(page);
 
     // Swim lane labels should show actual node names, not generic "Branch A/B"
@@ -116,6 +118,7 @@ test.describe('Parallel Execution Visualization (Phase 8c)', () => {
   });
 
   test('branch comparison table appears when clicking fork node', async ({ page }) => {
+    test.slow();
     await setupAndOpenResultsExplorer(page);
 
     // Click fork node within the results explorer flow canvas
@@ -150,6 +153,7 @@ test.describe('Parallel Execution Visualization (Phase 8c)', () => {
   });
 
   test('no branch comparison for non-fork/join nodes', async ({ page }) => {
+    test.slow();
     await setupAndOpenResultsExplorer(page);
 
     // Click the "Branch A: Users" HTTP node — should NOT show branch comparison

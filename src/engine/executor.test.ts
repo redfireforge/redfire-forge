@@ -2,6 +2,31 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Scenario, TestConfig } from '../shared/types';
 import type { Workflow } from '../features/workflow/types/workflow';
 import { buildHeaders, buildUrl, runTest, proxyFetch } from './executor';
+import * as grpcConnectionProfileHydration from './grpcConnectionProfileHydration';
+import { makeScenario as _makeScenario, makeConfig as _makeConfig } from '../test-utils/factories';
+
+const harnessMocks = vi.hoisted(() => ({
+  invokeUnary: vi.fn(async () => ({
+    status: 0,
+    statusMessage: 'OK',
+    headers: {},
+    trailers: {},
+    body: { message: 'hello' },
+    durationMs: 5,
+  })),
+  collectHarnessServerStream: vi.fn(),
+  executeClientStream: vi.fn(),
+  executeBidiStream: vi.fn(),
+}));
+
+vi.mock('../shared/grpc/buildGrpcHarnessOperations', () => ({
+  buildGrpcHarnessOperations: () => ({
+    invokeUnary: (...args: unknown[]) => harnessMocks.invokeUnary(...args),
+    collectHarnessServerStream: harnessMocks.collectHarnessServerStream,
+    executeClientStream: harnessMocks.executeClientStream,
+    executeBidiStream: harnessMocks.executeBidiStream,
+  }),
+}));
 
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn().mockResolvedValue({ status: 200, statusText: 'OK', headers: {}, body: '{"ok":true}' }),
@@ -21,14 +46,15 @@ vi.mock('../features/workflow/utils/workflowHostResolve', () => ({
   resolveServiceAuth: vi.fn(() => ({ type: 'bearer', token: 'svc-token', prefix: 'Bearer' })),
 }));
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1', name: 'Test', url: 'https://example.com/api',
-    method: 'POST', headers: [], body: '{}',
-    auth: { type: 'none' }, validation: { mode: 'none' },
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
+    id: 's1',
+    name: 'Test',
+    url: 'https://example.com/api',
+    method: 'POST',
+    body: '{}',
     ...overrides,
-  };
-}
+  });
 
 function makeScenarioWithDataRows(rowCount: number): Scenario {
   const rows = Array.from({ length: rowCount }, (_, i) => ({
@@ -208,7 +234,7 @@ describe('buildUrl', () => {
 
 describe('proxyFetch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('delegates to httpFetch with the same arguments', async () => {
@@ -226,17 +252,15 @@ describe('proxyFetch', () => {
 
 describe('runTest', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {
-    return {
-      concurrency: 1,
+    return _makeConfig({
       iterations: 2,
       scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
-      executionMode: 'sequential',
       ...overrides,
-    };
+    });
   }
 
   it('runs test with sequential mode', async () => {
@@ -467,6 +491,30 @@ describe('runTest', () => {
     );
   });
 
+  it('forwards grpcOperations to runGraphLoad in workflow mode', async () => {
+    const { runGraphLoad } = await import('../features/workflow/engine');
+    const s = makeScenario();
+    const config = makeConfig({ executionMode: 'workflow', workflowId: 'w1', iterations: 1 });
+    const grpcOps = { invokeUnary: vi.fn(), collectServerStream: vi.fn() };
+    await runTest(
+      config,
+      [s],
+      vi.fn(),
+      undefined,
+      minimalWorkflow('w1'),
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      grpcOps,
+    );
+    expect(vi.mocked(runGraphLoad)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ grpcOperations: grpcOps }),
+    );
+  });
+
   it('uses runWorkflow when workflowId is set but workflow definition is missing', async () => {
     const { runWorkflow, runGraphLoad } = await import('../features/workflow/engine');
     const s = makeScenario();
@@ -672,5 +720,170 @@ describe('runTest', () => {
     const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
     const { results } = await runTest(config, [s], vi.fn());
     expect(results.length).toBe(1);
+  });
+
+  it('throws error for Kafka action without kafkaOperations', async () => {
+    const s = makeScenario({ id: 's1', actionType: 'kafkaProduce' });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const wsOps = { disconnectAll: vi.fn().mockResolvedValue(undefined) } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    await expect(
+      runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps),
+    ).rejects.toThrow('Kafka operations not available');
+  });
+
+  it('throws error for WS action without wsOperations', async () => {
+    const s = makeScenario({ id: 's1', actionType: 'wsConnect' });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const kafkaOps = {} as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').KafkaNodeOperations;
+    await expect(
+      runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, kafkaOps),
+    ).rejects.toThrow('WS operations not available');
+  });
+
+  it('throws error for unknown non-HTTP action type', async () => {
+    const s = makeScenario({ id: 's1', actionType: 'unknownThing' as never });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const wsOps = { disconnectAll: vi.fn().mockResolvedValue(undefined) } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    await expect(
+      runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps),
+    ).rejects.toThrow('Unknown non-HTTP action type');
+  });
+
+  it('rejects malformed grpc harness scenarios before execution', async () => {
+    const s = makeScenario({
+      id: 's1',
+      actionType: 'grpcCall',
+      method: 'GRPC',
+      grpcCallAction: {
+        callType: 'unary',
+        target: '',
+        descriptorKey: '',
+        service: '',
+        method: '',
+        body: {},
+      },
+    });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    await expect(
+      runTest(config, [s], vi.fn()),
+    ).rejects.toThrow('Invalid gRPC harness scenario');
+  });
+
+  it('executes valid grpc harness scenarios via executeGrpcAction', async () => {
+    harnessMocks.invokeUnary.mockClear();
+    const s = makeScenario({
+      id: 's1',
+      actionType: 'grpcCall',
+      method: 'GRPC',
+      grpcCallAction: {
+        callType: 'unary',
+        target: 'localhost:50051',
+        descriptorKey: 'echo-v1',
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'hello' },
+      },
+    });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const { results } = await runTest(config, [s], vi.fn());
+    expect(results).toHaveLength(1);
+    expect(results[0]?.transportType).toBe('grpcCall');
+    expect(results[0]?.passed).toBe(true);
+    expect(harnessMocks.invokeUnary).toHaveBeenCalled();
+  });
+
+  it('auto-hydrates grpc connection profiles for profile-only harness scenarios', async () => {
+    harnessMocks.invokeUnary.mockClear();
+    const loadSpy = vi
+      .spyOn(grpcConnectionProfileHydration, 'loadGrpcConnectionProfilesFromStorage')
+      .mockReturnValue([
+        {
+          id: 'profile-a',
+          name: 'Hydrated Profile',
+          target: 'hydrated-host:50052',
+          tlsMode: 'disabled',
+        },
+      ]);
+
+    const s = makeScenario({
+      id: 's1',
+      actionType: 'grpcCall',
+      method: 'GRPC',
+      grpcCallAction: {
+        callType: 'unary',
+        target: '',
+        connectionId: 'profile-a',
+        descriptorKey: 'echo-v1',
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'hello' },
+      },
+    });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    const { results } = await runTest(config, [s], vi.fn());
+
+    expect(results).toHaveLength(1);
+    expect(results[0]?.passed).toBe(true);
+    expect(loadSpy).toHaveBeenCalledTimes(1);
+    expect(harnessMocks.invokeUnary).toHaveBeenCalledWith(
+      expect.objectContaining({
+        target: expect.objectContaining({ address: 'hydrated-host:50052' }),
+      }),
+      expect.any(String),
+    );
+
+    loadSpy.mockRestore();
+  });
+
+  it('records grpc harness results in load-profile mode without throwing', async () => {
+    const s = makeScenario({
+      id: 's1',
+      actionType: 'grpcCall',
+      method: 'GRPC',
+      grpcCallAction: {
+        callType: 'unary',
+        target: 'localhost:50051',
+        descriptorKey: 'echo-v1',
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'hello' },
+      },
+    });
+    const config = makeConfig({
+      executionMode: 'load-profile',
+      iterations: 1,
+      scenarioWeights: [{ scenarioId: 's1', weight: 1 }],
+      loadProfile: { type: 'sustained', durationSec: 0.05, maxConcurrency: 1 },
+    });
+    const { results } = await runTest(config, [s], vi.fn());
+    expect(results.length).toBeGreaterThan(0);
+    expect(results.every((r) => r.transportType === 'grpcCall')).toBe(true);
+  });
+
+  it('calls wsOperations.disconnectAll in finally block', async () => {
+    const disconnectAll = vi.fn().mockResolvedValue(undefined);
+    const wsOps = { disconnectAll } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    const s = makeScenario({ id: 's1' });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    await runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps);
+    expect(disconnectAll).toHaveBeenCalled();
+  });
+
+  it('swallows wsOperations.disconnectAll errors in finally block', async () => {
+    const disconnectAll = vi.fn().mockRejectedValue(new Error('cleanup fail'));
+    const wsOps = { disconnectAll } as unknown as import('../features/workflow/engine/graphRunnerNodeHandlerContext').WsNodeOperations;
+    const s = makeScenario({ id: 's1' });
+    const config = makeConfig({ iterations: 1, scenarioWeights: [{ scenarioId: 's1', weight: 1 }] });
+    // Should not throw even though disconnectAll rejects
+    await expect(runTest(config, [s], vi.fn(), undefined, undefined, undefined, undefined, undefined, undefined, wsOps)).resolves.toBeTruthy();
+  });
+
+  it('form-data content type overwrites existing Content-Type', () => {
+    const scenario = makeScenario({
+      headers: [{ key: 'Content-Type', value: 'application/json' }],
+      bodyType: 'form-data',
+    });
+    const headers = buildHeaders(scenario, undefined, 'multipart/form-data; boundary=---xyz');
+    expect(headers['Content-Type']).toBe('multipart/form-data; boundary=---xyz');
   });
 });

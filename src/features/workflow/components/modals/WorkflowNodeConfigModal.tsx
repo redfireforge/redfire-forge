@@ -22,6 +22,14 @@ import type {
   KafkaConsumeNodeData,
   KafkaTriggerNodeData,
   KafkaWaitNodeData,
+  WsConnectNodeData,
+  WsSendNodeData,
+  WsReceiveNodeData,
+  WsTriggerNodeData,
+  GraphqlQueryNodeData,
+  GraphqlSubscriptionNodeData,
+  GraphqlIntrospectNodeData,
+  GraphqlAssertNodeData,
   WorkflowNodeData,
   WorkflowService,
 } from '../../types/workflow';
@@ -54,6 +62,24 @@ import KafkaProduceConfig from '../configs/KafkaProduceConfig';
 import KafkaConsumeConfig from '../configs/KafkaConsumeConfig';
 import KafkaTriggerConfig from '../configs/KafkaTriggerConfig';
 import KafkaWaitConfig from '../configs/KafkaWaitConfig';
+import WsConnectConfig from '../configs/WsConnectConfig';
+import WsSendConfig from '../configs/WsSendConfig';
+import WsReceiveConfig from '../configs/WsReceiveConfig';
+import WsTriggerConfig from '../configs/WsTriggerConfig';
+import GraphqlQueryConfigPanel from '../../../graphql/components/GraphqlQueryConfigPanel';
+import GraphqlSubscriptionConfigPanel from '../../../graphql/components/GraphqlSubscriptionConfigPanel';
+import GraphqlIntrospectConfigPanel from '../../../graphql/components/GraphqlIntrospectConfigPanel';
+import GraphqlAssertConfigPanel from '../../../graphql/components/GraphqlAssertConfigPanel';
+import GrpcLoadTestConfig from '../configs/GrpcLoadTestConfig';
+import GrpcSchemaDiffConfig from '../configs/GrpcSchemaDiffConfig';
+import GrpcMockAssertConfig from '../configs/GrpcMockAssertConfig';
+import GrpcUnaryConfig from '../configs/GrpcUnaryConfig';
+import GrpcServerStreamConfig from '../configs/GrpcServerStreamConfig';
+import GrpcAssertConfig from '../configs/GrpcAssertConfig';
+import {
+  hasGraphqlNodeConfigErrors,
+  isGraphqlWorkflowNodeType,
+} from '../../../graphql/utils/graphqlPanelHelpers';
 import VariablesSection from '../panels/VariablesSection';
 import NodeConfigInputTab from '../configs/NodeConfigInputTab';
 import NodeConfigOutputTab from '../configs/NodeConfigOutputTab';
@@ -61,9 +87,44 @@ import NodeConfigLogsTab from '../configs/NodeConfigLogsTab';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
-import type { Environment, Scenario } from '../../../../shared/types';
+import type { Environment, Scenario, GlobalAuthProfile } from '../../../../shared/types';
+import type {
+  GrpcAssertNodeData,
+  GrpcServerStreamNodeData,
+  GrpcUnaryNodeData,
+} from '../../types/workflow/node-grpc';
+import type {
+  GrpcLoadTestNodeData,
+  GrpcMockAssertNodeData,
+  GrpcSchemaDiffNodeData,
+} from '../../types/workflow/node-grpc-advanced';
 
 type ConfigPanelTab = 'config' | 'input' | 'output' | 'logs';
+
+const NODE_TYPE_LABELS: Record<string, string> = {
+  http: 'HTTP', wsConnect: 'WS Connect', wsSend: 'WS Send',
+  wsReceive: 'WS Receive', wsTrigger: 'WS Trigger',
+  kafkaProduce: 'Kafka Produce', kafkaConsume: 'Kafka Consume',
+  kafkaTrigger: 'Kafka Trigger', kafkaWait: 'Kafka Wait',
+  graphqlQuery: 'GraphQL Query', graphqlMutation: 'GraphQL Mutation',
+  graphqlSubscription: 'GraphQL Subscription', graphqlIntrospect: 'GraphQL Introspect',
+  graphqlAssert: 'GraphQL Assert',
+  grpcUnary: 'gRPC Unary', grpcServerStream: 'gRPC Server Stream',
+  grpcAssert: 'gRPC Assert',
+  grpcLoadTest: 'gRPC Load Test', grpcSchemaDiff: 'gRPC Schema Diff',
+  grpcMockAssert: 'gRPC Mock Assert',
+  condition: 'Condition', delay: 'Delay', start: 'Start',
+  webhook: 'Webhook', schedule: 'Schedule', switch: 'Switch',
+  loop: 'Loop', setVariable: 'Set Variable', aggregate: 'Aggregate',
+  errorHandler: 'Error Handler', logDebug: 'Log Debug',
+  waitForCondition: 'Wait For Condition', subWorkflow: 'Sub-Workflow',
+  script: 'Script', correlationWait: 'Correlation Wait',
+  fork: 'Fork', join: 'Join', end: 'End',
+};
+
+function formatNodeTypeLabel(type: string): string {
+  return NODE_TYPE_LABELS[type] ?? type.replace(/([A-Z])/g, ' $1').trim();
+}
 
 interface Props {
   node: WorkflowNode;
@@ -96,6 +157,10 @@ interface Props {
   workflows?: WorkflowPickerItem[];
   /** Full variable scope from last run — includes upstream extracted values. */
   runtimeVariables?: Record<string, string>;
+  /** All nodes in the workflow — used to discover upstream connection IDs. */
+  allNodes?: WorkflowNode[];
+  /** Global auth profiles from Environment Manager — used by gRPC workflow node auth panel. */
+  globalAuthProfiles?: GlobalAuthProfile[];
 }
 
 export default function WorkflowNodeConfigModal({
@@ -108,6 +173,8 @@ export default function WorkflowNodeConfigModal({
   nodeRunStatus,
   workflows = [],
   runtimeVariables,
+  allNodes = [],
+  globalAuthProfiles = [],
 }: Props) {
   const [httpTab, setHttpTab] = useState<HttpTab>('url');
   const [panelTab, setPanelTab] = useState<ConfigPanelTab>('config');
@@ -130,6 +197,14 @@ export default function WorkflowNodeConfigModal({
   }, [node.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const draftNode = useMemo((): WorkflowNode => ({ ...node, data: draft }), [node, draft]);
+
+  const graphqlConfigHasErrors = useMemo(() => {
+    if (!isGraphqlWorkflowNodeType(draftNode.type)) return false;
+    return hasGraphqlNodeConfigErrors(
+      draftNode.type,
+      draft as GraphqlQueryNodeData | GraphqlSubscriptionNodeData | GraphqlIntrospectNodeData | GraphqlAssertNodeData,
+    );
+  }, [draftNode.type, draft]);
 
   // Compute effective base URL from draft so it updates live when Service changes
   const draftEffectiveBaseUrl = useMemo(() => {
@@ -195,6 +270,16 @@ export default function WorkflowNodeConfigModal({
     });
   }, [variableInsertHints]);
 
+  // Available WebSocket connection IDs from all wsConnect nodes in the workflow
+  const wsConnectionIds = useMemo(() => {
+    return [...new Set(
+      allNodes
+        .filter((n) => n.type === 'wsConnect')
+        .map((n) => (n.data as WsConnectNodeData).connectionId?.trim())
+        .filter(Boolean),
+    )];
+  }, [allNodes]);
+
   // ── Validation fetch hook for HTTP nodes ──
   const httpDraftScenario = isHttpWorkflowNode(draftNode) ? (draftNode.data as HttpNodeData).scenario : null;
   const placeholderScenario = useRef<Scenario>({ id: '', name: '', url: '', method: 'GET', headers: [], body: '', auth: { type: 'none' }, validation: { mode: 'none' } });
@@ -213,7 +298,18 @@ export default function WorkflowNodeConfigModal({
     resetKey: node.id,
   });
 
-  const title = `${node.type.toUpperCase()} — ${(draft as HttpNodeData).label || 'Step Config'}`;
+  const nodeTypeLabel = formatNodeTypeLabel(node.type);
+  const isGraphqlNode = isGraphqlWorkflowNodeType(node.type);
+  const rawLabel = (draft as HttpNodeData).label?.trim();
+  // When the user has explicitly set an empty label, fall back to "Step Config"
+  // so the modal title still identifies the node's purpose.
+  const nodeUserLabel = rawLabel === '' ? 'Step Config' : rawLabel;
+  const title = nodeUserLabel && nodeUserLabel !== nodeTypeLabel
+    ? `${nodeTypeLabel} — ${nodeUserLabel}`
+    : nodeTypeLabel;
+  const dialogClassName = isGraphqlNode
+    ? 'wf-config-modal wf-config-modal--gql'
+    : 'wf-config-modal';
 
   return (
     <>
@@ -224,32 +320,43 @@ export default function WorkflowNodeConfigModal({
         expandMode="fullscreen"
         hideExpandButton
         hideCloseButton
-        footer={(
-          <div className="wf-config-modal-footer-actions">
-            <button type="button" className="btn btn-sm btn-ghost" onClick={handleCancel}>Close</button>
-            <button type="button" className="btn btn-sm btn-primary" onClick={handleSave}>Save</button>
-          </div>
-        )}
-      >
+        dialogClassName={dialogClassName}
+        toolbar={(
           <div className="wf-config-modal-tabs">
-            <button className={`wf-config-modal-tab${panelTab === 'config' ? ' active' : ''}`} onClick={() => setPanelTab('config')}>
+            <button type="button" className={`wf-config-modal-tab${panelTab === 'config' ? ' active' : ''}`} onClick={() => setPanelTab('config')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
               Config
             </button>
-            <button className={`wf-config-modal-tab${panelTab === 'input' ? ' active' : ''}`} onClick={() => setPanelTab('input')}>
+            <button type="button" className={`wf-config-modal-tab${panelTab === 'input' ? ' active' : ''}`} onClick={() => setPanelTab('input')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 16 12"/><polyline points="22 12 18 8"/><polyline points="22 12 18 16"/><rect x="2" y="4" width="12" height="16" rx="2"/></svg>
               Input
               {inputTabHints.length > 0 && <span className="wf-config-modal-tab-badge">{inputTabHints.length}</span>}
             </button>
-            <button className={`wf-config-modal-tab${panelTab === 'output' ? ' active' : ''}`} onClick={() => setPanelTab('output')}>
+            <button type="button" className={`wf-config-modal-tab${panelTab === 'output' ? ' active' : ''}`} onClick={() => setPanelTab('output')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="2 12 8 12"/><polyline points="2 12 6 8"/><polyline points="2 12 6 16"/><rect x="10" y="4" width="12" height="16" rx="2"/></svg>
               Output
             </button>
-            <button className={`wf-config-modal-tab${panelTab === 'logs' ? ' active' : ''}`} onClick={() => setPanelTab('logs')}>
+            <button type="button" className={`wf-config-modal-tab${panelTab === 'logs' ? ' active' : ''}`} onClick={() => setPanelTab('logs')}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
               Logs
             </button>
           </div>
+        )}
+        footer={(
+          <div className="wf-config-modal-footer-actions">
+            <button type="button" className="btn btn-sm btn-ghost" onClick={handleCancel}>Close</button>
+            <button
+              type="button"
+              className="btn btn-sm btn-primary"
+              onClick={handleSave}
+              disabled={graphqlConfigHasErrors}
+              title={graphqlConfigHasErrors ? 'Fix validation errors before saving' : undefined}
+            >
+              Save
+            </button>
+          </div>
+        )}
+      >
           <div>
             {panelTab === 'config' && (<>
             {isHttpWorkflowNode(draftNode) && (
@@ -464,6 +571,134 @@ export default function WorkflowNodeConfigModal({
                 onChange={(data) => updateDraft(data)}
                 onRequestVariableInsert={requestVariableInsert}
                 variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'wsConnect' && (
+              <WsConnectConfig
+                data={draftNode.data as WsConnectNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'wsSend' && (
+              <WsSendConfig
+                key={draftNode.id}
+                data={draftNode.data as WsSendNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+                availableConnectionIds={wsConnectionIds}
+              />
+            )}
+
+            {draftNode.type === 'wsReceive' && (
+              <WsReceiveConfig
+                key={draftNode.id}
+                data={draftNode.data as WsReceiveNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                availableConnectionIds={wsConnectionIds}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'wsTrigger' && (
+              <WsTriggerConfig
+                data={draftNode.data as WsTriggerNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {(draftNode.type === 'graphqlQuery' || draftNode.type === 'graphqlMutation') && (
+              <GraphqlQueryConfigPanel
+                data={draftNode.data as GraphqlQueryNodeData}
+                nodeType={draftNode.type as 'graphqlQuery' | 'graphqlMutation'}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+                nodeRunStatus={nodeRunStatus}
+              />
+            )}
+
+            {draftNode.type === 'graphqlSubscription' && (
+              <GraphqlSubscriptionConfigPanel
+                data={draftNode.data as GraphqlSubscriptionNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+                nodeRunStatus={nodeRunStatus}
+              />
+            )}
+
+            {draftNode.type === 'graphqlIntrospect' && (
+              <GraphqlIntrospectConfigPanel
+                data={draftNode.data as GraphqlIntrospectNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+              />
+            )}
+
+            {draftNode.type === 'graphqlAssert' && (
+              <GraphqlAssertConfigPanel
+                data={draftNode.data as GraphqlAssertNodeData}
+                onChange={(data) => updateDraft(data)}
+                onRequestVariableInsert={requestVariableInsert}
+                variableHints={variableInsertHints}
+                runtimeVariables={runtimeVariables}
+              />
+            )}
+
+            {draftNode.type === 'grpcUnary' && (
+              <GrpcUnaryConfig
+                data={draftNode.data as GrpcUnaryNodeData}
+                onChange={(data) => updateDraft(data)}
+                globalAuthProfiles={globalAuthProfiles}
+                workflowVariables={workflowVariables}
+              />
+            )}
+
+            {draftNode.type === 'grpcServerStream' && (
+              <GrpcServerStreamConfig
+                data={draftNode.data as GrpcServerStreamNodeData}
+                onChange={(data) => updateDraft(data)}
+                globalAuthProfiles={globalAuthProfiles}
+                workflowVariables={workflowVariables}
+              />
+            )}
+
+            {draftNode.type === 'grpcAssert' && (
+              <GrpcAssertConfig
+                data={draftNode.data as GrpcAssertNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'grpcLoadTest' && (
+              <GrpcLoadTestConfig
+                data={draftNode.data as GrpcLoadTestNodeData}
+                onChange={(data) => updateDraft(data)}
+                globalAuthProfiles={globalAuthProfiles}
+                workflowVariables={workflowVariables}
+              />
+            )}
+
+            {draftNode.type === 'grpcSchemaDiff' && (
+              <GrpcSchemaDiffConfig
+                data={draftNode.data as GrpcSchemaDiffNodeData}
+                onChange={(data) => updateDraft(data)}
+              />
+            )}
+
+            {draftNode.type === 'grpcMockAssert' && (
+              <GrpcMockAssertConfig
+                data={draftNode.data as GrpcMockAssertNodeData}
+                onChange={(data) => updateDraft(data)}
               />
             )}
 

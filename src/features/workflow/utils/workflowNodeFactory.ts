@@ -28,7 +28,23 @@ import type {
   KafkaConsumeNodeData,
   KafkaTriggerNodeData,
   KafkaWaitNodeData,
+  WsConnectNodeData,
+  WsSendNodeData,
+  WsReceiveNodeData,
+  WsTriggerNodeData,
+  GraphqlQueryNodeData,
+  GraphqlSubscriptionNodeData,
+  GraphqlIntrospectNodeData,
+  GraphqlAssertNodeData,
+  GrpcUnaryNodeData,
+  GrpcServerStreamNodeData,
+  GrpcAssertNodeData,
 } from '../types/workflow';
+import type {
+  GrpcLoadTestNodeData,
+  GrpcMockAssertNodeData,
+  GrpcSchemaDiffNodeData,
+} from '../types/workflow/node-grpc-advanced';
 import { isHttpWorkflowNode } from './workflowVariableHints';
 import HttpStepNode from '../components/nodes/HttpStepNode';
 import ConditionNode from '../components/nodes/ConditionNode';
@@ -53,6 +69,18 @@ import KafkaProduceNode from '../components/nodes/KafkaProduceNode';
 import KafkaConsumeNode from '../components/nodes/KafkaConsumeNode';
 import KafkaTriggerNode from '../components/nodes/KafkaTriggerNode';
 import KafkaWaitNode from '../components/nodes/KafkaWaitNode';
+import WsConnectNode from '../components/nodes/WsConnectNode';
+import WsSendNode from '../components/nodes/WsSendNode';
+import WsReceiveNode from '../components/nodes/WsReceiveNode';
+import WsTriggerNode from '../components/nodes/WsTriggerNode';
+import GraphqlQueryNode from '../components/nodes/GraphqlQueryNode';
+import GraphqlMutationNode from '../components/nodes/GraphqlMutationNode';
+import GraphqlSubscriptionNode from '../components/nodes/GraphqlSubscriptionNode';
+import GraphqlIntrospectNode from '../components/nodes/GraphqlIntrospectNode';
+import GraphqlAssertNode from '../components/nodes/GraphqlAssertNode';
+import GrpcUnaryNode from '../components/nodes/GrpcUnaryNode';
+import GrpcServerStreamNode from '../components/nodes/GrpcServerStreamNode';
+import GrpcAssertNode from '../components/nodes/GrpcAssertNode';
 
 export type WorkflowRFNode = Node<WorkflowNodeData, WorkflowNodeType>;
 export type WorkflowRFEdge = Edge;
@@ -81,6 +109,18 @@ export const nodeTypes = {
   kafkaConsume: KafkaConsumeNode,
   kafkaTrigger: KafkaTriggerNode,
   kafkaWait: KafkaWaitNode,
+  wsConnect: WsConnectNode,
+  wsSend: WsSendNode,
+  wsReceive: WsReceiveNode,
+  wsTrigger: WsTriggerNode,
+  graphqlQuery: GraphqlQueryNode,
+  graphqlMutation: GraphqlMutationNode,
+  graphqlSubscription: GraphqlSubscriptionNode,
+  graphqlIntrospect: GraphqlIntrospectNode,
+  graphqlAssert: GraphqlAssertNode,
+  grpcUnary: GrpcUnaryNode,
+  grpcServerStream: GrpcServerStreamNode,
+  grpcAssert: GrpcAssertNode,
 };
 
 export function makeEmptyScenario(): Scenario {
@@ -196,6 +236,21 @@ export function defaultNodeData(type: WorkflowNodeType): WorkflowNodeData {
     case 'kafkaConsume': return defaultKafkaConsumeNodeData();
     case 'kafkaTrigger': return defaultKafkaTriggerNodeData();
     case 'kafkaWait':    return defaultKafkaWaitNodeData();
+    case 'wsConnect':    return defaultWsConnectNodeData();
+    case 'wsSend':       return defaultWsSendNodeData();
+    case 'wsReceive':    return defaultWsReceiveNodeData();
+    case 'wsTrigger':    return defaultWsTriggerNodeData();
+    case 'graphqlQuery':        return defaultGraphqlQueryNodeData();
+    case 'graphqlMutation':     return defaultGraphqlMutationNodeData();
+    case 'graphqlSubscription': return defaultGraphqlSubscriptionNodeData();
+    case 'graphqlIntrospect':   return defaultGraphqlIntrospectNodeData();
+    case 'graphqlAssert':       return defaultGraphqlAssertNodeData();
+    case 'grpcUnary':           return defaultGrpcUnaryNodeData();
+    case 'grpcServerStream':    return defaultGrpcServerStreamNodeData();
+    case 'grpcAssert':          return defaultGrpcAssertNodeData();
+    case 'grpcLoadTest':        return defaultGrpcLoadTestNodeData();
+    case 'grpcSchemaDiff':      return defaultGrpcSchemaDiffNodeData();
+    case 'grpcMockAssert':      return defaultGrpcMockAssertNodeData();
   }
 }
 
@@ -255,5 +310,183 @@ export function defaultKafkaWaitNodeData(): KafkaWaitNodeData {
     timeoutMs: 60000,
     headerFilters: [],
     loadTestBehavior: { mode: 'wait-for-real' },
+  };
+}
+
+// ── WebSocket Node Defaults ──────────────────────────────────────────
+
+export function defaultWsConnectNodeData(): WsConnectNodeData {
+  return {
+    label: 'WS Connect',
+    url: '',
+    headers: [],
+    queryParams: [],
+    subprotocols: [],
+    connectionId: 'ws1',
+    timeoutMs: 10000,
+    outputBindings: [],
+  };
+}
+
+export function defaultWsSendNodeData(): WsSendNodeData {
+  return {
+    label: 'WS Send',
+    connectionId: 'ws1',
+    message: '',
+    messageType: 'text',
+    waitForResponse: false,
+    responseTimeoutMs: 5000,
+    outputBindings: [],
+  };
+}
+
+export function defaultWsReceiveNodeData(): WsReceiveNodeData {
+  return {
+    label: 'WS Receive',
+    connectionId: 'ws1',
+    timeoutMs: 30000,
+    matchCriteria: { messageType: 'any' },
+    extractionRules: [],
+    outputBindings: [],
+  };
+}
+
+export function defaultWsTriggerNodeData(): WsTriggerNodeData {
+  return {
+    label: 'WS Trigger',
+    url: '',
+    connectionId: 'ws1',
+    matchCriteria: { messageType: 'any' },
+    extractionRules: [],
+  };
+}
+
+// ── GraphQL Node Defaults ────────────────────────────────────────────────────
+
+export function defaultGraphqlQueryNodeData(): GraphqlQueryNodeData {
+  return {
+    label: 'GraphQL Query',
+    endpoint: '',
+    query: 'query {\n  \n}',
+    variables: '{}',
+    headers: [],
+    timeoutMs: 30000,
+    extractionRules: [],
+    outputBindings: [],
+  };
+}
+
+export function defaultGraphqlMutationNodeData(): GraphqlQueryNodeData {
+  return {
+    label: 'GraphQL Mutation',
+    endpoint: '',
+    query: 'mutation {\n  \n}',
+    variables: '{}',
+    headers: [],
+    timeoutMs: 30000,
+    extractionRules: [],
+    outputBindings: [],
+  };
+}
+
+export function defaultGraphqlSubscriptionNodeData(): GraphqlSubscriptionNodeData {
+  return {
+    label: 'GraphQL Subscription',
+    endpoint: '',
+    subscriptionQuery: 'subscription {\n  \n}',
+    variables: '{}',
+    headers: [],
+    subscriptionTransport: 'auto',
+    stopAfterMessages: 10,
+    extractionRules: [],
+    outputBindings: [],
+  };
+}
+
+export function defaultGraphqlIntrospectNodeData(): GraphqlIntrospectNodeData {
+  return {
+    label: 'GraphQL Introspect',
+    endpoint: '',
+    headers: [],
+    timeoutMs: 30000,
+    outputBindings: [],
+  };
+}
+
+export function defaultGraphqlAssertNodeData(): GraphqlAssertNodeData {
+  return {
+    label: 'GraphQL Assert',
+    sourceVariable: '',
+    assertions: [],
+    failBehavior: 'error',
+  };
+}
+
+export function defaultGrpcUnaryNodeData(): GrpcUnaryNodeData {
+  return {
+    label: 'gRPC Unary',
+    target: '',
+    descriptorKey: '',
+    service: '',
+    method: '',
+    callType: 'unary',
+    body: {},
+    timeoutMs: 30_000,
+    onError: 'fail',
+  };
+}
+
+export function defaultGrpcServerStreamNodeData(): GrpcServerStreamNodeData {
+  return {
+    label: 'gRPC Server Stream',
+    target: '',
+    descriptorKey: '',
+    service: '',
+    method: '',
+    callType: 'server_streaming',
+    body: {},
+    collect: { maxMessages: 10 },
+    timeoutMs: 30_000,
+    onError: 'fail',
+  };
+}
+
+export function defaultGrpcAssertNodeData(): GrpcAssertNodeData {
+  return {
+    label: 'gRPC Assert',
+    source: '',
+    assertions: [],
+    onError: 'fail',
+  };
+}
+
+export function defaultGrpcLoadTestNodeData(): GrpcLoadTestNodeData {
+  return {
+    ...defaultGrpcUnaryNodeData(),
+    label: 'gRPC Load Test',
+    loadTest: { concurrency: 1, totalCalls: 10, warmupCalls: 0 },
+  };
+}
+
+export function defaultGrpcSchemaDiffNodeData(): GrpcSchemaDiffNodeData {
+  return {
+    label: 'gRPC Schema Diff',
+    leftDescriptorKey: '',
+    rightDescriptorKey: '',
+    failOnBreaking: true,
+    onError: 'fail',
+  };
+}
+
+export function defaultGrpcMockAssertNodeData(): GrpcMockAssertNodeData {
+  return {
+    label: 'gRPC Mock Assert',
+    listenTarget: '127.0.0.1:50061',
+    descriptorKey: '',
+    service: '',
+    method: '',
+    body: {},
+    expectedStatus: 0,
+    onError: 'fail',
   };
 }

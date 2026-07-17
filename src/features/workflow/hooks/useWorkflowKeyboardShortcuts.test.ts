@@ -72,7 +72,7 @@ const makeOpts = () => ({
 
 describe('useWorkflowKeyboardShortcuts', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   afterEach(() => {

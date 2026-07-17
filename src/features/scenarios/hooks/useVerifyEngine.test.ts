@@ -88,7 +88,7 @@ describe('useVerifyEngine', () => {
   let mockFetch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     draft = makeDraft();
     onDraftChange = vi.fn();
     mockFetch = vi.fn();

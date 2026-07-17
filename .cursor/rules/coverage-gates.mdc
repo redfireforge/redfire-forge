@@ -1,0 +1,97 @@
+---
+description: Product and demo coverage gates — scoped dev loop vs full gate on PR/merge only
+alwaysApply: true
+---
+
+# Coverage Gates — Scoped Dev, Full Gate on PR/Merge Only
+
+## When the full gate is allowed
+
+Run **full** product or demo coverage **only** when:
+
+1. **Opening a pull request** (pre-PR validation)
+2. **Merging** to `develop`, `release/*`, or `master`
+3. The user **explicitly asks** for a full gate (e.g. "run full coverage gate")
+
+Otherwise **do not** run full gates during iteration, coverage fixes, or "fix top 10 gaps" tasks.
+
+## Full gate commands (PR / merge / explicit ask only)
+
+| Gate | Command | Duration |
+|------|---------|----------|
+| **Product** | `bash scripts/run-product-coverage-fast.sh` | ~15–20 min (4 batches) |
+| **Demo hub** | `bash scripts/run-demo-coverage-full.sh` or `npm run test:demo:coverage` | Full demo Vitest project |
+
+Also acceptable at merge: `npm run test:product:coverage`, `npx tsx scripts/verify-product-coverage-gaps.ts`, `npx tsx scripts/verify-demo-coverage-gaps.ts`.
+
+`bash scripts/run-product-coverage-fast.sh` also runs **monolith check** (≥900 lines, production files only).
+
+## Workflow, shared, engine, graphql, gRPC, server, and CLI (in main product gate)
+
+`verify-product-coverage-gaps.ts` enforces **90% on all four metrics** for every product source file under `src/`, `src-server/`, and `cli/` (excluding test helpers, barrels, and demo-hub paths stripped by the product filter).
+
+Paths include: `src/features/workflow/`, `src/shared/`, `src/engine/`, `src/features/graphql/utils/`, gRPC product trees (`src/features/grpc/components|data|hooks|utils/`), legacy one-offs, **`src-server/**`**, and **`cli/**`**.
+
+`verify-grpc-coverage-gaps.ts` remains a **secondary** scoped check for gRPC server/shared paths under `src-server/grpc/` and `src/shared/grpc/`.
+
+| Area | Product batch |
+|------|----------------|
+| workflow | `features` → `bash scripts/run-product-coverage-batch.sh features src/features/workflow` |
+| graphql utils | `features` → `bash scripts/run-product-coverage-batch.sh features src/features/graphql/utils/` |
+| gRPC product | `features` → `bash scripts/run-product-coverage-batch.sh features src/features/grpc/` |
+| shared | `shared` → `bash scripts/run-product-coverage-batch.sh shared` |
+| engine | `app` → `bash scripts/run-product-coverage-batch.sh app src/engine` |
+
+During iteration use the batch pattern only — do not run a separate scoped script or full gate.
+
+## Day-to-day — fix only what you touch
+
+### Product (90% per file — statements, branches, functions, lines)
+
+```bash
+# List gaps from last merge (no test run)
+bash scripts/product-coverage-status.sh 10
+
+# Uncovered lines for one file
+npx tsx scripts/coverage-gap-lines.ts <file-substring>
+
+# Fast isolated check while writing tests
+bash scripts/run-product-coverage-file.sh src/path/to/File.ts
+
+# Refresh merged totals for one batch/area only
+bash scripts/run-product-coverage-batch.sh <shared|features|app|server> [paths...]
+```
+
+Batches: `shared` → `src/shared` · `features` → `src/features` · `app` → `src/app src/data src/engine src/config` · `server` → `src-server cli`
+
+### Demo hub (`packages/demo-hub/`)
+
+```bash
+bash scripts/demo-coverage-status.sh 10
+npx tsx scripts/coverage-gap-lines.ts --demo <file-substring>
+bash scripts/run-demo-coverage-file.sh packages/demo-hub/src/.../File.ts
+bash scripts/run-demo-coverage-scope.sh packages/demo-hub/src/.../File.ts
+bash scripts/run-demo-e2e.sh <lesson-id-or-path>   # one lesson E2E, not full suite
+```
+
+## "Fix top N coverage gaps" tasks
+
+1. `product-coverage-status.sh` / `demo-coverage-status.sh` — **do not** start with full gate
+2. Per file: `coverage-gap-lines` → extend `*.coverage-gaps.test.ts` → `run-*-coverage-file` → `run-*-coverage-batch` or `run-demo-coverage-scope` for that file's batch/lesson only
+3. End with status/gap list again — **still no full gate** unless user asked for PR prep
+
+If no coverage report exists yet, seed with **one batch/scope**, not the full gate.
+
+## Do NOT during iteration
+
+- `bash scripts/run-product-coverage-fast.sh`
+- `bash scripts/run-demo-coverage-full.sh`
+- `npm run test:demo:coverage` (full demo project)
+- `npm run test:product:coverage` when it runs the entire product suite without scoping
+- Full Playwright demo E2E suite (`npm run test:e2e:demo`, `e2e/demo-*.spec.ts` glob) unless validating a specific lesson or at merge
+
+## E2E (demo lessons)
+
+- **One lesson:** `bash scripts/run-demo-e2e.sh <lesson-id>` or matching `npm run test:e2e:demo:gql*`
+- **Full demo E2E:** merge gate or explicit user request only
+- Product-only PRs that do not touch demo files: demo E2E not required (see `project-conventions.mdc`)

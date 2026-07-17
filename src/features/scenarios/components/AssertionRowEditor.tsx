@@ -1,4 +1,4 @@
-import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FieldOperator, JsonTypeName } from '../../../shared/types';
+import type { Assertion, AssertionOperator, ComparisonOperator, DateReference, FieldOperator, JsonTypeName, WsAssertionTarget, WsNumericAssertionTarget, KafkaAssertionTarget } from '../../../shared/types';
 import JsonPathPicker from './JsonPathPicker';
 import { getByPath, stripJsonPathPrefix } from '../../../shared/utils/jsonPath';
 import { generateJsonSchema } from '../../../shared/components/data-mapper/utils/schemaGenerator';
@@ -423,7 +423,7 @@ export default function AssertionRowEditor({
               type="button"
               className="btn btn-xs btn-outline assertion-schema-action"
               onClick={() => updateAssertion({ schema: prettyJson(a.schema) })}
-              title="Format JSON with indentation"
+              title="Pretty Format JSON"
             >
               Pretty Format
             </button>
@@ -599,6 +599,137 @@ export default function AssertionRowEditor({
           >
             i
           </span>
+        </div>
+      )}
+
+      {a.type === 'wsField' && (
+        <div className="assertion-field">
+          <select
+            value={a.target.startsWith('ws.$.') ? 'ws.$.' : a.target.startsWith('ws.header.') ? 'ws.header.' : a.target}
+            onChange={(e) => {
+              const v = e.target.value as WsAssertionTarget;
+              updateAssertion({ target: v });
+            }}
+            className="assertion-select"
+            aria-label="WS target"
+          >
+            <option value="ws.body">ws.body</option>
+            <option value="ws.type">ws.type</option>
+            <option value="ws.protocol">ws.protocol</option>
+            <option value="ws.connectionId">ws.connectionId</option>
+            <option value="ws.header.">ws.header.name</option>
+            <option value="ws.$.">ws.$.path (JSON)</option>
+          </select>
+          {a.target.startsWith('ws.header.') && (
+            <input
+              value={a.target.slice(10)}
+              onChange={(e) => updateAssertion({ target: `ws.header.${e.target.value}` as WsAssertionTarget })}
+              placeholder="header-name"
+              className="assertion-input assertion-input-path"
+              aria-label="WS header name"
+            />
+          )}
+          {a.target.startsWith('ws.$.') && (
+            <input
+              value={a.target.slice(5)}
+              onChange={(e) => updateAssertion({ target: `ws.$.${e.target.value}` as WsAssertionTarget })}
+              placeholder="data.status"
+              className="assertion-input assertion-input-path"
+              aria-label="JSONPath within WS body"
+            />
+          )}
+          <select
+            value={a.operator}
+            onChange={(e) => updateAssertion({ operator: e.target.value as AssertionOperator })}
+            className="assertion-select"
+          >
+            <option value="equals">equals</option>
+            <option value="contains">contains</option>
+            <option value="regex">regex</option>
+            <option value="exists">exists</option>
+          </select>
+          {a.operator !== 'exists' && (
+            <input
+              value={a.value ?? ''}
+              onChange={(e) => updateAssertion({ value: e.target.value })}
+              placeholder="Expected value"
+              className="assertion-input"
+            />
+          )}
+        </div>
+      )}
+
+      {a.type === 'wsNumericField' && (
+        <div className="assertion-field">
+          <select
+            value={a.target}
+            onChange={(e) => updateAssertion({ target: e.target.value as WsNumericAssertionTarget })}
+            className="assertion-select"
+            aria-label="WS numeric target"
+          >
+            <option value="ws.latencyMs">ws.latencyMs</option>
+            <option value="ws.size">ws.size</option>
+          </select>
+          <ComparisonSelect
+            value={a.operator}
+            onChange={(op) => updateAssertion({ operator: op })}
+            options={NUMERIC_OP_OPTIONS}
+          />
+          <input
+            type="number"
+            value={a.value}
+            onChange={(e) => updateAssertion({ value: Number(e.target.value) || 0 })}
+            className="assertion-input assertion-input-sm"
+            min={0}
+            step="any"
+          />
+        </div>
+      )}
+
+      {a.type === 'kafkaField' && (
+        <div className="assertion-field">
+          <select
+            value={a.target.startsWith('kafka.header.') ? 'kafka.header.' : a.target}
+            onChange={(e) => {
+              const v = e.target.value as KafkaAssertionTarget;
+              updateAssertion({ target: v });
+            }}
+            className="assertion-select"
+            aria-label="Kafka target"
+          >
+            <option value="kafka.body">kafka.body</option>
+            <option value="kafka.key">kafka.key</option>
+            <option value="kafka.partition">kafka.partition</option>
+            <option value="kafka.offset">kafka.offset</option>
+            <option value="kafka.header.">kafka.header.name</option>
+          </select>
+          {a.target.startsWith('kafka.header.') && (
+            <input
+              value={a.target.slice(13)}
+              onChange={(e) => updateAssertion({ target: `kafka.header.${e.target.value}` as KafkaAssertionTarget })}
+              placeholder="header-name"
+              className="assertion-input assertion-input-path"
+              aria-label="Kafka header name"
+            />
+          )}
+          <select
+            value={a.operator}
+            onChange={(e) => updateAssertion({ operator: e.target.value as AssertionOperator })}
+            className="assertion-select"
+          >
+            <option value="equals">equals</option>
+            <option value="contains">contains</option>
+            <option value="regex">regex</option>
+            <option value="exists">exists</option>
+          </select>
+          {a.operator !== 'exists' && (
+            <input
+              value={a.value ?? ''}
+              onChange={(e) => updateAssertion({ value: e.target.value })}
+              placeholder="Expected value"
+              className="assertion-input"
+            />
+          )}
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { seedAppData } from './helpers';
+import { seedAppData, getPersistedWorkflowsFromIDB } from './helpers';
 
 // ── Seed data builders ────────────────────────────────────
 
@@ -108,33 +108,8 @@ async function openVersionPanel(page: import('@playwright/test').Page) {
 }
 
 /** Read the persisted workflow from IndexedDB (migrated from localStorage on first load). */
-async function getPersistedWorkflows(page: import('@playwright/test').Page) {
-  return page.evaluate(async () => {
-    // App migrates localStorage to IndexedDB on first load, so read from IDB
-    return new Promise((resolve) => {
-      const req = indexedDB.open('redfireforge', 5);
-      req.onsuccess = () => {
-        const db = req.result;
-        try {
-          const tx = db.transaction('workflows', 'readonly');
-          const store = tx.objectStore('workflows');
-          const getReq = store.get('all');
-          getReq.onsuccess = () => {
-            db.close();
-            resolve(getReq.result || []);
-          };
-          getReq.onerror = () => {
-            db.close();
-            resolve([]);
-          };
-        } catch {
-          db.close();
-          resolve([]);
-        }
-      };
-      req.onerror = () => resolve([]);
-    });
-  });
+async function getPersistedWorkflows(page: import('@playwright/test').Page): Promise<unknown[]> {
+  return getPersistedWorkflowsFromIDB(page);
 }
 
 // ═══════════════════════════════════════════════════════════

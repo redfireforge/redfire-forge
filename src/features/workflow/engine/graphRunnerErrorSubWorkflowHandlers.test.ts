@@ -14,7 +14,8 @@ vi.mock('./scriptLibraries', () => ({
 }));
 
 import type { RequestResult } from '../../../shared/types';
-import { handleErrorHandlerNode, handleLogDebugNode } from './graphRunnerNodeHandlers';
+import { handleErrorHandlerNode } from './graphRunnerErrorHandler';
+import { handleLogDebugNode } from './graphRunnerNodeHandlers';
 import {
   getMockFetch,
   makeCtx,
@@ -28,7 +29,7 @@ import {
 const mockFetch = getMockFetch();
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockFetch.mockResolvedValue({
     status: 200,
     statusText: 'OK',

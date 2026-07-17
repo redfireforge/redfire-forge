@@ -86,7 +86,7 @@ describe('KafkaConsumeConfig', () => {
   it('adds header filter rows', () => {
     render(<Host />);
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Add Header Filter' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add' })[0]);
     expect(screen.getAllByPlaceholderText('Header name')).toHaveLength(1);
   });
 
@@ -118,7 +118,7 @@ describe('KafkaConsumeConfig', () => {
   it('adds JSONPath filter rows', () => {
     render(<Host />);
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Add JSONPath Filter' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add' })[1]);
     expect(screen.getByPlaceholderText('$.payload.id')).toBeTruthy();
   });
 
@@ -150,7 +150,7 @@ describe('KafkaConsumeConfig', () => {
   it('adds output binding rows', () => {
     render(<Host />);
 
-    fireEvent.click(screen.getByRole('button', { name: '+ Add Binding' }));
+    fireEvent.click(screen.getAllByRole('button', { name: '+ Add' })[2]);
     expect(screen.getByPlaceholderText('targetVariable')).toBeTruthy();
   });
 

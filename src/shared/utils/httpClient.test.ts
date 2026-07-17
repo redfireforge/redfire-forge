@@ -29,7 +29,7 @@ import { httpFetch, setHttpTransport } from './httpClient';
 
 describe('httpFetch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockedIsTauri.mockReturnValue(false);
     mockedIsNode.mockReturnValue(false);
     globalThis.fetch = vi.fn();
@@ -134,6 +134,22 @@ describe('httpFetch', () => {
       expect(result.headers['content-type']).toBe('application/json');
     });
 
+    it('resolves relative /api routes to the companion server on port 3001', async () => {
+      const mockHeaders = new Map([['content-type', 'application/json']]);
+      mockTFetch.mockResolvedValueOnce({
+        status: 200,
+        statusText: 'OK',
+        headers: { forEach: (fn: (v: string, k: string) => void) => mockHeaders.forEach((v, k) => fn(v, k)) },
+        text: () => Promise.resolve('{"ok":true}'),
+      });
+
+      await httpFetch('/api/grpc/reflect', 'POST', {}, '{"requestId":"r1"}');
+      expect(mockTFetch).toHaveBeenCalledWith(
+        'http://localhost:3001/api/grpc/reflect',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
     it('does not attach body to GET requests', async () => {
       const mockHeaders = new Map();
       mockTFetch.mockResolvedValueOnce({
@@ -198,7 +214,7 @@ describe('httpFetch', () => {
       vi.resetModules();
       mockedIsNode.mockReturnValue(true);
       mockedIsTauri.mockReturnValue(false);
-      vi.clearAllMocks();
+      resetAllMocks();
       globalThis.fetch = vi.fn();
       const mod = await import('./httpClient');
       nodeHttpFetch = mod.httpFetch;
@@ -410,6 +426,21 @@ describe('httpFetch', () => {
 
       const result = await httpFetch('/api/kafka/status', 'GET', {});
       expect(result.error).toMatch(/Server returned 503/);
+    });
+
+    it('preserves gateway response body when it is a valid API envelope', async () => {
+      vi.mocked(globalThis.fetch).mockResolvedValueOnce({
+        status: 503,
+        statusText: 'Service Unavailable',
+        headers: new Headers(),
+        text: () => Promise.resolve('{"ok":false,"op":"reflect","error":{"code":"GRPC_UNREACHABLE","message":"Could not reach localhost:50052"}}'),
+      } as unknown as Response);
+
+      const result = await httpFetch('/api/grpc/reflect', 'POST', { 'Content-Type': 'application/json' }, '{}');
+      expect(result.status).toBe(503);
+      expect(result.error).toBeUndefined();
+      expect(result.body).toContain('"op":"reflect"');
+      expect(result.body).toContain('"code":"GRPC_UNREACHABLE"');
     });
 
     it('maps gateway error 504 to networkError string', async () => {

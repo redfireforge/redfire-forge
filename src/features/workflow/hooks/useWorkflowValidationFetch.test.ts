@@ -57,7 +57,7 @@ function setup(draft?: Scenario) {
 
 describe('useWorkflowValidationFetch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockFetch.mockResolvedValue({ ok: true, body: '{"id":1}', rawBody: '{"id":1}', httpStatus: 200, finalUrl: '', responseHeaders: {}, responseTimeMs: 50 });
   });
 

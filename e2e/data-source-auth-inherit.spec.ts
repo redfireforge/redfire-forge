@@ -7,12 +7,21 @@ import { test, expect, type Page } from '@playwright/test';
  */
 async function seedWithBearerAuth(page: Page) {
   await page.addInitScript(() => {
-    localStorage.setItem('perf-test-v3-environments', JSON.stringify([{ id: 'env-1', name: 't01' }]));
-    localStorage.setItem('perf-test-v3-microservices', JSON.stringify([{
+    if (sessionStorage.getItem('__rf_auth_seeded__') === '1') return;
+    sessionStorage.setItem('__rf_auth_seeded__', '1');
+
+    const setIfMissing = (key: string, value: string) => {
+      if (localStorage.getItem(key) === null) {
+        localStorage.setItem(key, value);
+      }
+    };
+
+    setIfMissing('perf-test-v3-environments', JSON.stringify([{ id: 'env-1', name: 't01' }]));
+    setIfMissing('perf-test-v3-microservices', JSON.stringify([{
       id: 'svc-1', name: 'test-service',
       baseUrls: { 'env-1': 'https://api.example.com' },
     }]));
-    localStorage.setItem('perf-test-v3-feature-groups', JSON.stringify([{
+    setIfMissing('perf-test-v3-feature-groups', JSON.stringify([{
       id: 'fg-1',
       name: 'Auth Feature',
       microserviceId: 'svc-1',
@@ -47,10 +56,10 @@ async function seedWithBearerAuth(page: Page) {
         }],
       }],
     }]));
-    localStorage.setItem('perf-test-v3-selected-env', 'env-1');
-    localStorage.setItem('perf-test-v3-selected-svc', 'svc-1');
-    localStorage.setItem('perf-test-v3-migrated', 'true');
-    localStorage.setItem('perf-test-theme', 'dark');
+    setIfMissing('perf-test-v3-selected-env', 'env-1');
+    setIfMissing('perf-test-v3-selected-svc', 'svc-1');
+    setIfMissing('perf-test-v3-migrated', 'true');
+    setIfMissing('perf-test-theme', 'dark');
   });
 }
 

@@ -13,6 +13,11 @@ import type { GraphRunCallbacks } from './graphRunnerInterfaces';
 import type { CorrelationWaitRunnerConfig, ExecutionTraceOptions, CapturedHttpRequest, CapturedHttpResponse, AssertionResult } from '../../../shared/types';
 import type { Semaphore } from '../../../shared/utils/semaphore';
 import type { KafkaSchemaConfig } from '../../../shared/kafka/kafkaClient';
+import type { GrpcCallRequest, GrpcDescriptor, GrpcStreamStartRequest } from '../../../shared/grpc/contracts';
+import type { GrpcLoadTestConfig } from '../../../shared/grpc/grpcAdvancedFeatureContracts';
+import type { GrpcServerStreamCollectConfig } from '../types/workflow/node-grpc';
+import type { GrpcUnaryInvokeResult } from '../utils/grpcWorkflowUnaryExecutor';
+import type { GrpcWorkflowStreamCollectionResult } from '../utils/grpcWorkflowStreamCollector';
 
 // ────────────────────────────────────────────────────────
 // Kafka node operations (dependency-injected for testability)
@@ -65,6 +70,103 @@ export interface KafkaNodeOperations {
     jsonPathFilters?: Array<{ jsonPath: string; expectedValue?: string }>;
     schemaConfig?: KafkaSchemaConfig;
   }): Promise<KafkaConsumedMessage[]>;
+}
+
+// ────────────────────────────────────────────────────────
+// WebSocket node operations (dependency-injected for testability)
+// ────────────────────────────────────────────────────────
+
+/** Result envelope returned by a WS connect operation. */
+export interface WsConnectResult {
+  connectionId: string;
+  protocol?: string;
+  extensions?: string;
+  latencyMs: number;
+}
+
+/** Result envelope returned by a WS send operation. */
+export interface WsSendResult {
+  latencyMs: number;
+}
+
+/** A single received WebSocket message. */
+export interface WsReceivedMessage {
+  data: string;
+  type: 'text' | 'binary';
+  timestamp: number;
+}
+
+/** Match criteria for filtering received WebSocket messages. */
+export interface WsMessageMatchCriteria {
+  contentContains?: string;
+  contentRegex?: string;
+  jsonPathMatch?: string;
+  jsonPathValue?: string;
+  messageType?: 'text' | 'binary' | 'any';
+}
+
+/** Dependency-injected operations for WebSocket node handlers. */
+export interface WsNodeOperations {
+  /** Open a WebSocket connection through the proxy. */
+  connect(params: {
+    url: string;
+    /** User-defined connection label (e.g. "ws1") — used as registry key for Send/Receive lookups. */
+    connectionId?: string;
+    headers?: Record<string, string>;
+    queryParams?: Record<string, string>;
+    subprotocols?: string[];
+    timeoutMs?: number;
+  }): Promise<WsConnectResult>;
+
+  /** Send a message on an existing connection. */
+  send(params: {
+    connectionId: string;
+    data: string;
+    type?: 'text' | 'binary';
+  }): Promise<WsSendResult>;
+
+  /** Get the current message cursor for a connection (used to skip buffered messages). */
+  snapshotCursor(params: { connectionId: string }): Promise<string | undefined>;
+
+  /** Poll for a matching message on an existing connection. */
+  waitForMessage(params: {
+    connectionId: string;
+    timeoutMs: number;
+    matchCriteria?: WsMessageMatchCriteria;
+    /** Start polling from this cursor (skip earlier buffered messages). */
+    sinceCursor?: string;
+    /** Abort signal for early cancellation (e.g. user stop). */
+    abortSignal?: AbortSignal;
+  }): Promise<WsReceivedMessage>;
+
+  /** Close a specific WebSocket connection. */
+  disconnect(params: {
+    connectionId: string;
+    code?: number;
+    reason?: string;
+  }): Promise<void>;
+
+  /** Close all open connections (cleanup at workflow end). */
+  disconnectAll(): Promise<void>;
+}
+
+// ────────────────────────────────────────────────────────
+// gRPC node operations (dependency-injected for testability)
+// ────────────────────────────────────────────────────────
+
+/** Dependency-injected operations for gRPC workflow node handlers. */
+export interface GrpcNodeOperations {
+  invokeUnary(request: GrpcCallRequest, tabId: string): Promise<GrpcUnaryInvokeResult>;
+  collectServerStream(
+    request: GrpcStreamStartRequest,
+    tabId: string,
+    collect: GrpcServerStreamCollectConfig,
+    options?: { abortSignal?: AbortSignal },
+  ): Promise<GrpcWorkflowStreamCollectionResult>;
+  /** Phase 11N — resolve descriptor snapshots for grpcSchemaDiff nodes. */
+  resolveDescriptor?: (descriptorKey: string) => GrpcDescriptor | Promise<GrpcDescriptor>;
+  /** Phase 11N — resolve saved load-test profile config when node uses profileId. */
+  resolveLoadTestProfile?: (profileId: string) => GrpcLoadTestConfig | Promise<GrpcLoadTestConfig>;
 }
 
 // ────────────────────────────────────────────────────────
@@ -173,6 +275,29 @@ export interface NodeHandlerContext {
    * Populated by handleKafkaProduceNode/handleKafkaConsumeNode, consumed when building eventDetails.
    */
   capturedKafkaDetails?: Map<string, import('../../../shared/types').CapturedKafkaNodeDetails>;
+  /**
+   * WebSocket client operations for WS node handlers.
+   * Injected through context for testability — handlers never access a global client.
+   */
+  wsOperations?: WsNodeOperations;
+  /**
+   * Storage for captured WebSocket execution details per node (for trace capture).
+   * Populated by handleWsConnectNode/handleWsSendNode/handleWsReceiveNode, consumed when building eventDetails.
+   */
+  capturedWsDetails?: Map<string, import('../../../shared/types').CapturedWsNodeDetails>;
+  /** gRPC client operations for grpcUnary/grpcServerStream node handlers. */
+  grpcOperations?: GrpcNodeOperations;
+  /**
+   * Storage for captured gRPC execution details per node (for trace capture).
+   * Populated by handleGrpcUnaryNode/handleGrpcServerStreamNode.
+   */
+  capturedGrpcDetails?: Map<string, import('../../../shared/types').CapturedGrpcNodeDetails>;
+  /** Frozen per-run gRPC step results for grpcAssert evaluation (Phase 6E). */
+  grpcStepResultStore?: import('../utils/grpcWorkflowStepResultStore').GrpcWorkflowStepResultStore;
+  /** Collision-safe output namespace publisher (Phase 6F). */
+  grpcOutputRegistry?: import('../utils/grpcWorkflowOutputRegistry').GrpcWorkflowOutputRegistry;
+  /** Hydrated gRPC profiles + global auth for workflow Quick Test execution. */
+  grpcWorkflowExecutionRuntime?: import('../utils/grpcWorkflowRuntimeContext').GrpcWorkflowExecutionRuntime;
 }
 
 /**

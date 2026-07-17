@@ -99,4 +99,21 @@ describe('RequestCatalogApiInfoDrawer', () => {
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('No')).toBeInTheDocument();
   });
+
+  it('renders legacy catalog metadata without crashing when tags and tables are missing', () => {
+    render(
+      <RequestCatalogApiInfoDrawer
+        method="PATCH"
+        catalogMeta={{
+          originalPath: '/legacy',
+        } as CatalogRequestMeta}
+        onClose={() => {}}
+      />,
+    );
+
+    expect(screen.getByText('PATCH /legacy')).toBeInTheDocument();
+    expect(screen.queryByText('Tags')).toBeNull();
+    expect(screen.queryByText('Parameters')).toBeNull();
+    expect(screen.queryByText('Responses')).toBeNull();
+  });
 });

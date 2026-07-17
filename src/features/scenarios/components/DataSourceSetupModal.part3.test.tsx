@@ -84,7 +84,7 @@ describe('DataSourceSetupModal', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('handleApply edge cases', () => {

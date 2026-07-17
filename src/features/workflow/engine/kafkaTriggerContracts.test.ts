@@ -70,6 +70,11 @@ describe('Phase 5A \u2014 kafkaTriggerContracts', () => {
       expect(KAFKA_TRIGGER_CONTEXT_KEYS.topic).not.toBe(KAFKA_WAIT_CONTEXT_KEYS.topic);
       expect(KAFKA_TRIGGER_CONTEXT_KEYS.value).not.toBe(KAFKA_WAIT_CONTEXT_KEYS.value);
     });
+
+    it('has a wait headerPrefix for dynamic header key construction', () => {
+      expect(KAFKA_WAIT_CONTEXT_KEYS.headerPrefix).toBe('kafka.wait.header');
+      expect(`${KAFKA_WAIT_CONTEXT_KEYS.headerPrefix}.trace-id`).toBe('kafka.wait.header.trace-id');
+    });
   });
 
   // ── isValidKafkaTriggerConfig ───────────────────────────────────────────────
@@ -97,6 +102,11 @@ describe('Phase 5A \u2014 kafkaTriggerContracts', () => {
 
     it('returns false when clusterId is whitespace only', () => {
       const data: KafkaTriggerNodeData = { ...defaultKafkaTriggerNodeData(), clusterId: '   ', topic: 'orders' };
+      expect(isValidKafkaTriggerConfig(data)).toBe(false);
+    });
+
+    it('returns false when topic is whitespace only', () => {
+      const data: KafkaTriggerNodeData = { ...defaultKafkaTriggerNodeData(), clusterId: 'cluster-1', topic: '   ' };
       expect(isValidKafkaTriggerConfig(data)).toBe(false);
     });
   });
@@ -136,6 +146,26 @@ describe('Phase 5A \u2014 kafkaTriggerContracts', () => {
         clusterId: 'cluster-1',
         topic: 'responses',
         correlationIdExpression: '   ',
+      };
+      expect(isValidKafkaWaitConfig(data)).toBe(false);
+    });
+
+    it('returns false when topic is whitespace only even with correlation configured', () => {
+      const data: KafkaWaitNodeData = {
+        ...defaultKafkaWaitNodeData(),
+        clusterId: 'cluster-1',
+        topic: '   ',
+        correlationIdExpression: '{{orderId}}',
+      };
+      expect(isValidKafkaWaitConfig(data)).toBe(false);
+    });
+
+    it('returns false when clusterId is whitespace only even with topic and correlation configured', () => {
+      const data: KafkaWaitNodeData = {
+        ...defaultKafkaWaitNodeData(),
+        clusterId: '   ',
+        topic: 'responses',
+        correlationIdExpression: '{{orderId}}',
       };
       expect(isValidKafkaWaitConfig(data)).toBe(false);
     });

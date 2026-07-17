@@ -357,5 +357,28 @@ describe('buildSelectedTests', () => {
       const result = buildSelectedTests([fg], selectAll(fg), 'hardcoded', '', undefined, false, true, 'default', 'default', []);
       expect(result[0].validation.assertions).toEqual([]);
     });
+
+    it('clears grpcCallAction.assertions when skipAssertions is true', () => {
+      const fg = makeFg({
+        scenarios: [{
+          id: 'sc-1', name: 'S', kind: 'standard',
+          tests: [makeScenario({
+            actionType: 'grpcCall',
+            method: 'GRPC',
+            grpcCallAction: {
+              callType: 'unary',
+              target: 'localhost:50051',
+              descriptorKey: 'echo-v1',
+              service: 'echo.EchoService',
+              method: 'Echo',
+              body: {},
+              assertions: [{ grpcStatus: 0 }],
+            },
+          })],
+        }],
+      });
+      const result = buildSelectedTests([fg], selectAll(fg), 'hardcoded', '', undefined, false, true, 'default', 'default', []);
+      expect(result[0].grpcCallAction?.assertions).toEqual([]);
+    });
   });
 });

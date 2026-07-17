@@ -41,7 +41,7 @@ function makeProps(overrides: Partial<SetupStepVariablesProps> = {}): SetupStepV
 
 describe('SetupStepVariables', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('path variables', () => {

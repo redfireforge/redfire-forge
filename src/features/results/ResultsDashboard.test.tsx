@@ -234,7 +234,7 @@ vi.mock('./components/ResultsRequestDetailsTab', () => ({
 
 describe('ResultsDashboard', () => {
   beforeEach(async () => {
-    vi.clearAllMocks();
+    resetAllMocks();
     storageMocks.loadTraceForRun.mockResolvedValue(null);
     storageMocks.deleteTestRun.mockResolvedValue(undefined);
     runBaselineMocks.markAsBaseline.mockResolvedValue([]);

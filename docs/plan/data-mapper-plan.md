@@ -1249,7 +1249,7 @@ Final wiring to ensure all parent components correctly use the new adapters and 
 | 3E.1 | ~~Added `@deprecated` JSDoc to `ExtractionPathPickerModal`~~ — file deleted post-Phase 12. | ~~`ExtractionPathPickerModal.tsx`~~ | ✅ (deleted) |
 | 3E.2 | ~~Added `@deprecated` JSDoc to `ExtractionMapperModal`~~ — file deleted post-Phase 12. | ~~`ExtractionMapperModal.tsx`~~ | ✅ (deleted) |
 | 3E.3 | ~~Added `@deprecated` JSDoc to `JsonPathBuilder`~~ — file deleted post-Phase 12. | ~~`JsonPathBuilder.tsx`~~ | ✅ (deleted) |
-| 3E.4 | ~~Added `@deprecated` JSDoc to `PickerNode` export~~ — `PickerNode` is now a private (non-exported) component inside `RegexAssertionModal.tsx`. | `RegexAssertionModal.tsx` | ✅ (privatised) |
+| 3E.4 | ~~Added `@deprecated` JSDoc to `PickerNode` export~~ — `PickerNode` is now a private (non-exported) component inside `RegexAssertionModal.tsx`. Dedicated `PickerNode` unit tests removed from `RegexAssertionModal.component.test.tsx` (behavior covered by `RegexAssertionModal` integration tests). `@deprecated` JSDoc added to `RegexAssertionModal` (replaced by `RegexAssertionBuilderModal`). | `RegexAssertionModal.tsx`, `RegexAssertionModal.component.test.tsx` | ✅ (privatised) |
 | 3E.5 | Verified all imports of deprecated components are in expected locations only. Post-removal: `ExtractionFetchSampleProps` moved to `ExtractionEditor.tsx`. All stale imports removed. | Grep search | ✅ |
 
 #### Sub-Phase 3F: Hardening & Documentation

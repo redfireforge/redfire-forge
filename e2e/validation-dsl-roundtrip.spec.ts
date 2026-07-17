@@ -264,8 +264,6 @@ test.describe('DSL collection assertions round-trip', () => {
 
     await setValidationMonacoValue(page, dslInput);
 
-    await page.screenshot({ path: 'test-results/dsl-rt-01-typed.png', fullPage: true });
-
     // Verify Monaco has the content
     const afterType = await getValidationMonacoValue(page);
     console.log(`DSL after typing:\n${afterType}\n`);
@@ -274,15 +272,11 @@ test.describe('DSL collection assertions round-trip', () => {
     await page.locator('.vr-modal-panel .vr-modal-btn--primary', { hasText: 'Save' }).click();
     await expect(page.locator('.vr-modal-panel')).not.toBeVisible({ timeout: 10_000 });
 
-    await page.screenshot({ path: 'test-results/dsl-rt-02-after-save.png', fullPage: true });
-
     // Reopen Rules
     await openRulesAndWait(mapper, page);
 
     const dslAfterReopen = await getValidationMonacoValue(page);
     console.log(`DSL after Save+reopen:\n${dslAfterReopen}\n`);
-
-    await page.screenshot({ path: 'test-results/dsl-rt-03-reopened.png', fullPage: true });
 
     // Verify all collection assertions survived
     const lines = dslAfterReopen.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
@@ -313,8 +307,6 @@ test.describe('DSL collection assertions round-trip', () => {
 
     const dsl3 = await getValidationMonacoValue(page);
     console.log(`DSL after SECOND Save+reopen:\n${dsl3}\n`);
-
-    await page.screenshot({ path: 'test-results/dsl-rt-04-second-reopen.png', fullPage: true });
 
     const lines3 = dsl3.split('\n').filter(l => l.trim() && !l.trim().startsWith('#'));
     console.log(`Rule count after 2nd round-trip: ${lines3.length}`);

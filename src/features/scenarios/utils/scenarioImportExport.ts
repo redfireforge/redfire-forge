@@ -1,5 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 import type { TestScenario, FeatureGroup, Scenario } from '../../../shared/types';
+import {
+  redactGrpcAuthConfig,
+  redactGrpcMetadataForExport,
+} from '../../../shared/grpc/grpcRedaction';
+import { assertGrpcCrossFeatureExportSafe } from '../../../shared/grpc/grpcPersistRedactionMiddleware';
 
 export interface VersionExportOptions {
   includeResponseVersions: boolean;
@@ -149,6 +154,8 @@ export function wrapExport(
 ): ScenarioExportWrap {
   const effectiveOpts = versionOpts ?? DEFAULT_VERSION_EXPORT;
   const stripped = stripVersions(data, effectiveOpts);
+  const redacted = redactGrpcScenarioDefinitionsForExport(stripped);
+  assertGrpcCrossFeatureExportSafe({ scenario_definition_export: redacted }, 'scenario_definition_export');
   return {
     _exportMeta: {
       microservice: opts.microservice,
@@ -159,8 +166,68 @@ export function wrapExport(
       includesRulesVersions: effectiveOpts.includeRulesVersions,
       includesDefinitionVersions: effectiveOpts.includeDefinitionVersions,
     },
-    data: stripped,
+    data: redacted,
   };
+}
+
+function redactGrpcScenarioDefinitionsForExport(data: unknown): unknown {
+  if (Array.isArray(data)) {
+    return data.map((entry) => redactGrpcScenarioDefinitionsForExport(entry));
+  }
+  if (!data || typeof data !== 'object') {
+    return data;
+  }
+
+  if (isFeatureGroup(data)) {
+    return {
+      ...data,
+      scenarios: data.scenarios.map((scenario) => redactGrpcScenarioDefinitionsForExport(scenario) as TestScenario),
+    };
+  }
+
+  if (isTestScenario(data)) {
+    return {
+      ...data,
+      tests: data.tests.map((test) => redactGrpcScenarioDefinitionsForExport(test) as Scenario),
+    };
+  }
+
+  if (isScenario(data)) {
+    const grpc = data.grpcCallAction;
+    if (!grpc) {
+      return data;
+    }
+    return {
+      ...data,
+      grpcCallAction: {
+        ...grpc,
+        metadata: redactGrpcMetadataForExport(grpc.metadata, grpc.auth),
+        auth: redactGrpcAuthConfig(grpc.auth),
+      },
+    };
+  }
+
+  return data;
+}
+
+function isScenario(data: unknown): data is Scenario {
+  if (!data || typeof data !== 'object') return false;
+  const candidate = data as Partial<Scenario>;
+  return typeof candidate.url === 'string'
+    && typeof candidate.method === 'string'
+    && typeof candidate.validation === 'object';
+}
+
+function isTestScenario(data: unknown): data is TestScenario {
+  if (!data || typeof data !== 'object') return false;
+  const candidate = data as Partial<TestScenario>;
+  return Array.isArray(candidate.tests) && !('scenarios' in (data as Record<string, unknown>));
+}
+
+function isFeatureGroup(data: unknown): data is FeatureGroup {
+  if (!data || typeof data !== 'object') return false;
+  const candidate = data as Partial<FeatureGroup>;
+  return Array.isArray(candidate.scenarios);
 }
 
 export interface UnwrapResult {

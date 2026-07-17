@@ -23,7 +23,7 @@ interface Props {
  */
 export default function WorkflowExecutionReplayModal({ trace, onClose }: Props) {
   const [selectedNodeId, setSelectedNodeId] = useState<string | undefined>();
-  const [showMinimap, setShowMinimap] = useState(true);
+  const [showMinimap, setShowMinimap] = useState(false);
   // undefined = aggregate view, number = specific iteration (0-based)
   const [selectedIteration, setSelectedIteration] = useState<number | undefined>(
     trace.totalIterations === 1 ? 0 : undefined

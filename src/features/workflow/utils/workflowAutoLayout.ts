@@ -88,6 +88,9 @@ export function getAutoLayoutNodes<N extends Node>(
   edges: Edge[],
   direction: 'TB' | 'LR' = 'TB',
 ): N[] {
+  const nodeIds = new Set(nodes.map((n) => n.id));
+  const layoutEdges = edges.filter((e) => nodeIds.has(e.source) && nodeIds.has(e.target));
+
   const g = new Dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
 
   // Detect whether the graph has fork/join — increase spacing for parallel branches
@@ -124,7 +127,7 @@ export function getAutoLayoutNodes<N extends Node>(
     g.setNode(node.id, { width: w, height: h });
   }
 
-  for (const edge of edges) {
+  for (const edge of layoutEdges) {
     g.setEdge(edge.source, edge.target);
   }
 
@@ -144,33 +147,33 @@ export function getAutoLayoutNodes<N extends Node>(
   // Post-process: for condition/start/fork/trigger nodes with branching source handles,
   // ensure the "true"/Yes target is to the left of the "false"/No target to prevent
   // edge crossings (the Yes handle is at left:30%, No handle at left:70%).
-  fixBranchOrdering(edges, positioned, direction);
+  fixBranchOrdering(layoutEdges, positioned, direction);
 
   // Post-process: align direct children of fork nodes to the same rank (y in TB)
   // so parallel branches visually start at the same level.
   if (hasFork) {
-    alignForkChildren(nodes, edges, positioned, direction);
+    alignForkChildren(nodes, layoutEdges, positioned, direction);
   }
 
   // Post-process: resolve any node overlaps on the same rank
   resolveOverlaps(nodes, positioned, nodeWidths, nodeHeights, direction);
 
   // Post-process: center condition branch children symmetrically under their parent
-  centerConditionBranches(nodes, edges, positioned, nodeWidths, direction);
+  centerConditionBranches(nodes, layoutEdges, positioned, nodeWidths, direction);
 
   // Post-process: spread switch case children evenly under the switch node
-  centerSwitchBranches(nodes, edges, positioned, nodeWidths, direction);
+  centerSwitchBranches(nodes, layoutEdges, positioned, nodeWidths, direction);
 
   // Post-process: center fork/join/start/end/trigger nodes over their branches
   if (hasFork) {
-    centerForkJoinNodes(nodes, edges, positioned, nodeWidths, nodeHeights, direction);
+    centerForkJoinNodes(nodes, layoutEdges, positioned, nodeWidths, nodeHeights, direction);
     // Re-run overlap resolution after centering may have introduced new overlaps
     resolveOverlaps(nodes, positioned, nodeWidths, nodeHeights, direction);
   }
 
   // Post-process: align nodes in linear chains (single parent + single child)
   // to share the same center as their neighbors, fixing vertical misalignment
-  alignLinearChains(nodes, edges, positioned, nodeWidths, direction);
+  alignLinearChains(nodes, layoutEdges, positioned, nodeWidths, direction);
 
   // Post-process: resolve overlaps again after all centering operations
   // This catches cases where end nodes were centered under close parents
@@ -431,9 +434,11 @@ function alignLinearChains<N extends Node>(
     visited.add(childId);
 
     // Center child under parent
-    const parentPos = positions.get(nodeId)!;
+    const parentPos = positions.get(nodeId);
+    const childPos = positions.get(childId);
+    if (!parentPos || !childPos) return;
+
     const parentW = nodeWidths.get(nodeId) ?? 0;
-    const childPos = positions.get(childId)!;
     const childW = nodeWidths.get(childId) ?? 0;
 
     const parentCenter = parentPos[axis] + parentW / 2;

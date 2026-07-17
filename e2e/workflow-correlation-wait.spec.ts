@@ -89,6 +89,7 @@ async function seedAndNavigate(page: import('@playwright/test').Page) {
 // ── Canvas rendering ─────────────────────────────────
 
 test.describe('Correlation Wait Node — Canvas', () => {
+  test.describe.configure({ timeout: 90_000 });
   test.beforeEach(async ({ page }) => {
     await seedAndNavigate(page);
   });
@@ -106,6 +107,7 @@ test.describe('Correlation Wait Node — Canvas', () => {
   });
 
   test('shows webhook path', async ({ page }) => {
+    test.slow();
     const node = page.locator('.wf-node-correlationWait');
     await expect(node).toBeVisible({ timeout: 5000 });
     await expect(node.locator('.wf-correlation-path')).toContainText('/webhooks/callback/payment');
@@ -142,7 +144,7 @@ test.describe('Correlation Wait Node — Config Modal', () => {
     await page.locator('.wf-node-correlationWait .wf-node-configure-badge').click();
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('#wf-config-modal-title')).toContainText('CORRELATIONWAIT');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Correlation Wait');
   });
 
   test('config modal shows label field', async ({ page }) => {

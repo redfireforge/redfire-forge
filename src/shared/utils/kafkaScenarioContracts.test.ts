@@ -20,25 +20,21 @@ import type {
   FeatureGroup,
   TestScenario,
 } from '../types';
+import { makeScenario as _makeScenario, makeTestScenario as _makeTestScenario } from '../../test-utils/factories';
 
 // ─── Test helpers ──────────────────────────────────────────────────────────────
 
 function makeTest(id: string, overrides: Partial<Scenario> = {}): Scenario {
-  return {
+  return _makeScenario({
     id,
     name: `Test ${id}`,
     url: '/api',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  } as Scenario;
+  }) as Scenario;
 }
 
 function makeScenario(id: string, tests: Scenario[]): TestScenario {
-  return { id, name: `Scenario ${id}`, kind: 'standard', tests } as TestScenario;
+  return _makeTestScenario({ id, name: `Scenario ${id}`, tests });
 }
 
 function makeFg(id: string, scenarios: TestScenario[]): FeatureGroup {

@@ -67,7 +67,17 @@ export async function runLoadProfile(
   weights: ScenarioWeight[],
   opts: RunOpts
 ): Promise<RequestResult[]> {
-  const { tokenManager, timeoutMs, retryCount, retryDelayMs, breaker, onProgress, abortSignal, getThinkTimeMs } = opts;
+  const {
+    tokenManager,
+    timeoutMs,
+    retryCount,
+    retryDelayMs,
+    breaker,
+    onProgress,
+    abortSignal,
+    getThinkTimeMs,
+    executeNonHttp,
+  } = opts;
   const allResults: RequestResult[] = [];
   let inFlight = 0;
   const durationMs = profile.durationSec * 1000;
@@ -95,16 +105,22 @@ export async function runLoadProfile(
     function launchOne() {
       const scenario = nextScenario();
       inFlight++;
-      const prep = prepareScenario(scenario);
-      const tokenPromise = prep.needsOAuth ? tokenManager.getToken(scenario) : Promise.resolve(undefined);
-      tokenPromise.then((token) => {
-        const headers = token ? { ...prep.baseHeaders, Authorization: `Bearer ${token}` } : prep.baseHeaders;
-        return executeWithRetry(scenario, headers, prep.body, timeoutMs, retryCount, retryDelayMs, prep.resolvedUrl);
-      }).then((result) => {
+      const isNonHttp = executeNonHttp && (scenario.actionType ?? 'http') !== 'http';
+      const httpPrep = isNonHttp ? null : prepareScenario(scenario);
+      const execPromise = isNonHttp
+        ? Promise.resolve().then(() => executeNonHttp!(scenario))
+        : (() => {
+            const tokenPromise = httpPrep!.needsOAuth ? tokenManager.getToken(scenario) : Promise.resolve(undefined);
+            return tokenPromise.then((token) => {
+              const headers = token ? { ...httpPrep!.baseHeaders, Authorization: `Bearer ${token}` } : httpPrep!.baseHeaders;
+              return executeWithRetry(scenario, headers, httpPrep!.body, timeoutMs, retryCount, retryDelayMs, httpPrep!.resolvedUrl);
+            });
+          })();
+      execPromise.then((result) => {
         allResults.push(result);
         breaker.record(result);
       }).catch((err) => {
-        const errorResult = buildErrorResult(scenario, err, prep.body);
+        const errorResult = buildErrorResult(scenario, err, httpPrep?.body);
         allResults.push(errorResult);
         breaker.record(errorResult);
       }).finally(() => {

@@ -28,7 +28,7 @@ import {
 const mockFetch = getMockFetch();
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockFetch.mockResolvedValue({
     status: 200,
     statusText: 'OK',
