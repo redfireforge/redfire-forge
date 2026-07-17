@@ -28,7 +28,7 @@ describe('executeSubscribe', () => {
   let onSubscriptionRemoved: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     subscriptionStore = new KafkaSubscriptionStore();
     onSubscriptionRemoved = vi.fn();
   });

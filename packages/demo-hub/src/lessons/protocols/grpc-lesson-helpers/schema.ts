@@ -208,8 +208,26 @@ export async function clearGrpcSchemaDriftQuiet(ctx: DemoActionContext): Promise
     // Descriptor source may not contain Echo (e.g., BSR/Eliza). Fall back to
     // any available method so the tab can rebind away from an orphaned method.
     if (document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)) {
-      const anyMethodBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-testid^="grpc-method-"]'))
+      let anyMethodBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-testid^="grpc-method-"]'))
         .find((btn) => !btn.disabled);
+      // Method buttons only render for *expanded* service nodes. A freshly loaded
+      // source (e.g. Eliza via BSR) can have every service collapsed, leaving no
+      // grpc-method-* button to click — and an Eliza blocking banner exposes no
+      // rebind/dismiss/prune control, so it can never clear without a rebind. Expand
+      // collapsed services first so a rebind target exists, then retry.
+      if (!anyMethodBtn) {
+        const collapsedServices = Array.from(
+          document.querySelectorAll<HTMLButtonElement>('button.grpc-explorer-service-btn'),
+        ).filter((btn) => !btn.classList.contains('grpc-explorer-service-btn--open'));
+        for (const serviceBtn of collapsedServices) {
+          serviceBtn.click();
+          await ctx.delay(80);
+        }
+        if (collapsedServices.length > 0) {
+          anyMethodBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-testid^="grpc-method-"]'))
+            .find((btn) => !btn.disabled);
+        }
+      }
       if (anyMethodBtn) {
         anyMethodBtn.click();
         await ctx.delay(160);

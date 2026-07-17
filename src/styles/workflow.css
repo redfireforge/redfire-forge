@@ -1626,6 +1626,48 @@
   font-size: 0.76rem;
   padding: 4px 8px;
 }
+.wf-config-row-stack {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wf-config-hint-text--below {
+  display: block;
+  margin-top: 1px;
+  line-height: 1.25;
+}
+.wf-config-hint-text--below strong {
+  color: var(--text);
+}
+.wf-config-readonly-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.wf-config-readonly-row .wf-config-descriptor-textarea {
+  flex: 1;
+}
+.wf-config-copy-btn {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 6px 8px;
+  min-width: 54px;
+  margin-top: 2px;
+}
+.wf-config-descriptor-textarea {
+  min-height: 42px;
+}
+.wf-config-textarea--readonly {
+  background: color-mix(in oklab, var(--bg), white 4%);
+  border: 1px dashed color-mix(in oklab, var(--border), white 20%);
+  color: color-mix(in oklab, var(--text), white 8%);
+  cursor: default;
+  resize: none;
+}
 /* Kafka section fields inherit the same label width for consistency */
 .wf-kafka-section .wf-config-field--row > label { width: 100px; }
 .wf-kafka-section .wf-config-field-pair > .wf-config-field--row > label { width: 76px; }
@@ -1655,6 +1697,17 @@
 .wf-config-textarea {
   font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.75rem; resize: vertical;
   line-height: 1.5; padding: 8px 10px;
+}
+
+/* Give gRPC Assert JSON assertions a larger default editing area. */
+.wf-grpc-assert-config-body {
+  display: block;
+}
+.wf-grpc-assertions-field {
+  margin-bottom: 0;
+}
+.wf-grpc-assertions-textarea {
+  min-height: 300px;
 }
 
 .wf-config-url-row {
@@ -2940,21 +2993,28 @@
   flex-shrink: 0;
 }
 
-/* Source column in variables section */
+/* Source column in variables section — keep a visible slot even when empty */
 .wf-var-source-cell-header {
-  width: 160px;
-  flex-shrink: 0;
+  width: 200px;
+  min-width: 180px;
+  flex: 0 0 200px;
 }
 .wf-var-source-cell {
-  width: 160px;
-  flex-shrink: 0;
+  width: 200px;
+  min-width: 180px;
+  flex: 0 0 200px;
   display: flex;
   align-items: center;
 }
 .wf-var-source-input {
+  /* Override `.wf-config-kv-row input { flex: 1 }` which collapses an empty Source field */
+  flex: 0 0 auto !important;
   width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  box-sizing: border-box;
   padding: 6px 10px;
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-muted);
@@ -5157,6 +5217,7 @@
 .wf-config-modal-overlay.modal-overlay > .modal {
   pointer-events: auto;
 }
+/* Standard workflow node config chrome: dark --surface interior + subtle white edge. */
 .wf-config-modal.modal.ram-modal {
   display: flex;
   flex-direction: column;
@@ -5167,8 +5228,22 @@
   min-height: 260px;
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
+
+/* gRPC Assert config has fewer fields; use a shorter modal to avoid large dead space. */
+.wf-config-modal.modal.ram-modal:has([data-testid="grpc-assert-config"]) {
+  height: clamp(460px, 62vh, 620px);
+  max-height: min(70vh, 620px);
+  min-height: 460px;
+}
+
 .wf-config-modal .wf-modal-scroll-shell {
   display: flex;
   flex-direction: column;
@@ -5182,8 +5257,22 @@
   overflow-y: auto;
   overflow-x: hidden;
 }
+/* Title + Config/Input/Output/Logs stay pinned; only the form body scrolls. */
 .wf-config-modal .ram-header {
   padding: 11px 18px;
+  flex-shrink: 0;
+  z-index: 2;
+  background: inherit;
+}
+.wf-config-modal-toolbar {
+  flex-shrink: 0;
+  z-index: 2;
+  background: inherit;
+  border-bottom: 1px solid var(--border);
+}
+.wf-config-modal-toolbar .wf-config-modal-tabs {
+  border-bottom: none;
+  background: transparent;
 }
 .wf-config-modal .ram-header h3 {
   overflow: hidden;
@@ -5255,16 +5344,67 @@
 
 /* ── Workflow Defaults Modal ── */
 .wf-defaults-modal.wf-config-modal.modal.ram-modal {
-  width: min(780px, 92vw);
-  max-width: 780px;
+  /* Compact card; height hugs content (no tall empty body). */
+  width: min(720px, 92vw);
+  max-width: 720px;
+  min-width: min(520px, 92vw);
   height: auto;
-  max-height: min(78vh, 720px);
+  max-height: min(72vh, 640px);
+  min-height: 0;
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+  position: relative;
+  flex: 0 0 auto;
+  align-self: center;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .wf-config-modal-overlay:has(.wf-defaults-modal) {
   align-items: flex-start;
-  padding-top: 80px;
+  justify-content: center;
+  padding-top: 56px;
+  padding-bottom: 24px;
+}
+/* Resize grips live inside the dialog (overflow:hidden would clip bottom:-3px handles). */
+.wf-config-modal.modal.ram-modal .modal-resize-edge-bottom {
+  bottom: 0;
+  left: 0;
+  right: 18px;
+  height: 10px;
+  cursor: ns-resize;
+}
+.wf-config-modal.modal.ram-modal .modal-resize-corner {
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+}
+.wf-config-modal.modal.ram-modal .modal-resize-corner::after {
+  opacity: 0.65;
+}
+.wf-defaults-modal.wf-config-modal.modal.ram-modal .modal-resize-corner::after {
+  opacity: 0.75;
+}
+/*
+ * Hug content by default. When vars grow past max-height, this shell shrinks
+ * and scrolls — without reserving a tall empty flex region under Error Handling.
+ */
+.wf-defaults-modal .wf-modal-scroll-shell,
+.wf-defaults-modal .wf-config-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.wf-defaults-modal .wf-modal-scroll-viewport,
+.wf-defaults-modal .wf-config-modal-scroll {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 4px;
 }
 .wf-defaults-modal .ram-header {
   padding: 16px 24px 14px;
@@ -5322,34 +5462,119 @@
   letter-spacing: 0.5px;
   color: var(--text-muted);
 }
+.wf-defaults-vars-section .wf-var-source-cell-header,
+.wf-defaults-vars-section .wf-var-source-cell {
+  width: 140px;
+  min-width: 120px;
+  flex: 0 0 140px;
+}
 .wf-defaults-error-section {
   border-top: 1px solid var(--border);
-  padding-top: 16px;
+  padding-top: 14px;
+  /* Reserve space under the hint so the error-mode menu can open fully downward. */
+  padding-bottom: 140px;
+  margin-bottom: 0;
 }
 .wf-defaults-error-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
+}
+.wf-defaults-error-field + .wf-defaults-error-field {
+  margin-top: 12px;
+}
+/* When handler node select appears, keep room for that menu too. */
+.wf-defaults-error-section:has(.wf-defaults-error-field + .wf-defaults-error-field) {
+  padding-bottom: 160px;
 }
 .wf-defaults-field-label {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text);
 }
-.wf-defaults-select {
+.wf-defaults-select,
+.wf-dark-select__trigger {
   width: 100%;
-  padding: 8px 12px;
+  padding: 8px 32px 8px 12px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8b8cc' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
   color: var(--text);
   font-size: 0.82rem;
   outline: none;
-  transition: border-color 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.wf-defaults-select:focus {
-  border-color: var(--accent, #818cf8);
+.wf-defaults-select:hover,
+.wf-dark-select__trigger:hover {
+  border-color: var(--primary);
+}
+.wf-defaults-select:focus,
+.wf-dark-select__trigger:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.wf-dark-select {
+  position: relative;
+  width: 100%;
+}
+.wf-dark-select__value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-dark-select__menu {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 22%, var(--border));
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 10%, transparent),
+    0 10px 28px rgba(0, 0, 0, 0.45);
+  max-height: 220px;
+  overflow-y: auto;
+}
+/* Portaled below the trigger so it opens downward over the footer if needed. */
+.wf-dark-select__menu--portal {
+  position: fixed;
+  z-index: 12000;
+}
+.wf-dark-select__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-dark-select__option:hover {
+  background: var(--surface-hover);
+}
+.wf-dark-select__option.is-active {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.wf-dark-select__check {
+  flex: 0 0 14px;
+  font-size: 0.75rem;
+  color: var(--primary);
 }
 .wf-defaults-field-hint {
   font-size: 0.7rem;
@@ -5364,7 +5589,8 @@
   font-size: 0.68rem;
 }
 .wf-defaults-modal .wf-config-modal-footer {
-  padding: 14px 24px;
+  padding: 12px 24px;
+  margin-top: 0;
 }
 
 /* ── Configure badge on nodes ──────────────────────── */
@@ -9360,13 +9586,13 @@
   min-height: 0;
 }
 
+.wf-config-modal--gql .wf-config-modal-toolbar {
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+}
 .wf-config-modal--gql .wf-config-modal-tabs {
-  position: sticky;
-  top: 0;
-  z-index: 3;
   padding: 0 16px;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
+  background: transparent;
+  border-bottom: none;
 }
 
 .wf-config-modal--gql .wf-config-modal-tab {

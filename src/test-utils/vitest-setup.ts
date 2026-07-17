@@ -1,3 +1,5 @@
+import { vi } from 'vitest';
+
 /**
  * Global Vitest setup — polyfills required by Monaco Editor in jsdom.
  */
@@ -40,3 +42,10 @@ for (const method of ['error', 'warn', 'info'] as const) {
     original(...args);
   };
 }
+
+/**
+ * Shared helper used across tests to avoid repeating vi.clearAllMocks().
+ */
+(globalThis as typeof globalThis & { resetAllMocks: () => void }).resetAllMocks = () => {
+  vi.clearAllMocks();
+};

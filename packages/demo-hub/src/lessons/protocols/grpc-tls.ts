@@ -31,7 +31,7 @@ export const grpcTlsLesson: GrpcDemoLesson = {
     'Connect to TLS-protected gRPC servers, configure mutual TLS with client certificates, ' +
     'validate the handshake locally, and learn how RedfireForge keeps PEM material in a session vault.',
 
-  setup: grpcFirstCallSetup,
+  setup: (ctx) => grpcFirstCallSetup(ctx, { resetSchemaDrafts: false }),
   cleanup: async (ctx) => {
     await resetTlsToPlaintextQuiet(ctx);
     await fillTargetQuiet(ctx, GRPC_DEMO_TARGET);

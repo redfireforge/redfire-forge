@@ -25,7 +25,7 @@ describe('GraphqlComplexityGateModal', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   afterEach(() => {

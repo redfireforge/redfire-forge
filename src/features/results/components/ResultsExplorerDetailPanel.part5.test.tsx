@@ -14,7 +14,7 @@ describe('ResultsExplorerDetailPanel — part5', () => {
 
   afterEach(() => {
     cleanup();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
 

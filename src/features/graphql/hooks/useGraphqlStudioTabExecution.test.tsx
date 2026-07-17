@@ -64,7 +64,7 @@ function makeTab(id: string): GqlStudioTab {
 
 describe('useGraphqlStudioTabExecution', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     layerMounts.length = 0;
   });
 

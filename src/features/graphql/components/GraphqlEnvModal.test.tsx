@@ -42,7 +42,7 @@ function makeProps(overrides: Partial<Parameters<typeof GraphqlEnvModal>[0]> = {
 }
 
 afterEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.restoreAllMocks();
 });
 

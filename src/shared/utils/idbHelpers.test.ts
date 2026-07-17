@@ -45,7 +45,7 @@ import { idbAvailable, wrap, txComplete, createIdbBlobStore } from './idbHelpers
 
 describe('idbHelpers', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockGetResult = undefined;
     mockGetShouldError = false;
     mockPutShouldError = false;

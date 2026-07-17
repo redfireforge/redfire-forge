@@ -113,7 +113,7 @@ async function putWorkflowWithRetry(body: unknown) {
 
 describe('webhook-server', { timeout: 30_000 }, () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('GET /health', () => {

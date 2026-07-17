@@ -60,7 +60,7 @@ const makeSchemaInfo = (sdl = 'type Query { hello: String }', fetchedAt = Date.n
 
 describe('useGraphqlSchemaSnapshots', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(loadSnapshots).mockResolvedValue([]);
     vi.mocked(saveSnapshot).mockResolvedValue(undefined);
     vi.mocked(deleteSnapshot).mockResolvedValue(undefined);

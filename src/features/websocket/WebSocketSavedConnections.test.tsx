@@ -43,7 +43,7 @@ function defaultProps(overrides?: Partial<WebSocketSavedConnectionsProps>): WebS
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 describe('WebSocketSavedConnections', () => {

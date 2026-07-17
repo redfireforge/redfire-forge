@@ -18,7 +18,10 @@ export const SAMPLE_URL_PROTO = 'http://localhost:5173/grpc-samples/url/echo.pro
 export const SAMPLE_BSR_MODULE = 'buf.build/connectrpc/eliza';
 export const SAMPLE_BSR_VERSION = 'main';
 export const ELIZA_SERVICE_SEL = '[data-testid="grpc-service-connectrpc-eliza-v1-elizaservice"]';
-export const LOOKUP_REQUEST_JSON = '{"ref":{"id":"A-100"}}';
+/** Compact one-line form for inline narration text. */
+export const LOOKUP_REQUEST_JSON_COMPACT = '{"ref": {"id": "A-100"}}';
+/** Pretty-printed form filled into the Form Input JSON editor. */
+export const LOOKUP_REQUEST_JSON = JSON.stringify({ ref: { id: 'A-100' } }, null, 2);
 
 export const SAMPLE_COMMON_PROTO_CONTENT = `syntax = "proto3";
 

@@ -255,4 +255,84 @@ describe('GrpcProtoHybridEditorModal', () => {
     expect(screen.getByTestId('grpc-hybrid-assist-map').textContent).toContain('No map fields');
     expect(screen.getByTestId('grpc-hybrid-assist-repeated').textContent).toContain('No repeated fields');
   });
+
+  it('switches to Form and Focus tabs and patches drafts from both views', () => {
+    const onEvent = vi.fn();
+    const onSelectPath = vi.fn();
+    const { rerender } = render(
+      <GrpcProtoHybridEditorModal
+        open
+        method={COMPLEX_METHOD}
+        selectedPath={null}
+        modalState={makeModalState({ activeView: 'optionC', dirty: true })}
+        onEvent={onEvent}
+        onSelectPath={onSelectPath}
+        onClose={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('grpc-hybrid-tab-option-a'));
+    expect(onEvent).toHaveBeenCalledWith({ type: 'MODAL_VIEW_SWITCH', view: 'optionA' });
+    fireEvent.click(screen.getByTestId('grpc-hybrid-tab-option-b'));
+    expect(onEvent).toHaveBeenCalledWith({ type: 'MODAL_VIEW_SWITCH', view: 'optionB' });
+
+    rerender(
+      <GrpcProtoHybridEditorModal
+        open
+        method={COMPLEX_METHOD}
+        selectedPath="field:message"
+        modalState={makeModalState({
+          activeView: 'optionA',
+          dirty: true,
+          workingDraft: { message: 'hello', invoice: { invoice_id: '1' } },
+        })}
+        onEvent={onEvent}
+        onSelectPath={onSelectPath}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const messageInput = screen.getByDisplayValue('hello');
+    fireEvent.change(messageInput, { target: { value: 'patched-a' } });
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'FULL_FORM_PATCH' }));
+
+    rerender(
+      <GrpcProtoHybridEditorModal
+        open
+        method={COMPLEX_METHOD}
+        selectedPath="field:message"
+        modalState={makeModalState({
+          activeView: 'optionB',
+          dirty: true,
+          workingDraft: { message: 'focus' },
+        })}
+        onEvent={onEvent}
+        onSelectPath={onSelectPath}
+        onClose={vi.fn()}
+      />,
+    );
+
+    const focusInput = screen.getByDisplayValue('focus');
+    fireEvent.change(focusInput, { target: { value: 'patched-b' } });
+    expect(onEvent).toHaveBeenCalledWith(expect.objectContaining({ type: 'FULL_FORM_PATCH' }));
+  });
+
+  it('handles invalid JSON change errors that are not Error instances', () => {
+    const onEvent = vi.fn();
+    const parseSpy = vi.spyOn(JSON, 'parse').mockImplementationOnce(() => {
+      throw 'boom';
+    });
+    render(
+      <GrpcProtoHybridEditorModal
+        open
+        method={ECHO_METHOD}
+        modalState={makeModalState({ activeView: 'optionC', dirty: true })}
+        onEvent={onEvent}
+        onClose={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByTestId('grpc-hybrid-json-editor'), { target: { value: '{bad' } });
+    expect(onEvent).toHaveBeenCalledWith({ type: 'JSON_MODAL_PARSE_ERROR', message: 'Invalid JSON' });
+    parseSpy.mockRestore();
+  });
 });

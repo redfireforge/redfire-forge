@@ -70,7 +70,7 @@ function makeDetail(name: string, overrides?: Partial<KafkaTopicDetail>): KafkaT
 
 describe('useTopicExplorer', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('initial state: all filters default, filteredTopics matches topics minus internals', () => {

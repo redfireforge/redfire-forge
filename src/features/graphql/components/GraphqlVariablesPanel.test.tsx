@@ -34,7 +34,7 @@ vi.mock('../utils/monacoGraphqlSetup', () => ({
 
 describe('GraphqlVariablesPanel', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders the wrapper div with testid', () => {

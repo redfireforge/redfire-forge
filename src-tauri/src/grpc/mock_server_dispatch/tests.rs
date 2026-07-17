@@ -1,4 +1,10 @@
+use super::catalog::build_dispatch_catalog;
+use super::reflection::{
+    build_reflection_response, server_reflection_request, server_reflection_response,
+    ServerReflectionRequest,
+};
 use super::response::*;
+use crate::grpc::test_echo_protoset::{ECHO_PROTOSET_BASE64, ECHO_PROTOSET_SHA256};
 
 #[test]
 fn encode_grpc_message_header_percent_encodes_unsafe_bytes() {
@@ -69,4 +75,94 @@ fn decode_grpc_frames_rejects_compressed_flag() {
     let payload = [1u8, 0, 0, 0, 0];
     let error = decode_grpc_frames(&payload).expect_err("expected compressed frame rejection");
     assert!(error.contains("Compressed gRPC frames are not supported"));
+}
+
+fn echo_catalog() -> super::types::MockDispatchCatalog {
+    build_dispatch_catalog(Some(ECHO_PROTOSET_BASE64), Some(ECHO_PROTOSET_SHA256))
+        .expect("catalog builds")
+        .expect("catalog present")
+}
+
+#[test]
+fn reflection_list_services_returns_echo_service() {
+    let catalog = echo_catalog();
+    let request = ServerReflectionRequest {
+        host: String::new(),
+        message_request: Some(server_reflection_request::MessageRequest::ListServices(
+            String::new(),
+        )),
+    };
+
+    let response = build_reflection_response(&catalog.pool, request);
+    match response.message_response {
+        Some(server_reflection_response::MessageResponse::ListServicesResponse(list)) => {
+            let names: Vec<String> = list.service.into_iter().map(|entry| entry.name).collect();
+            assert!(names.contains(&"echo.EchoService".to_string()), "got: {names:?}");
+        }
+        other => panic!("expected list services response, got {other:?}"),
+    }
+}
+
+#[test]
+fn reflection_file_containing_symbol_returns_descriptors() {
+    let catalog = echo_catalog();
+    let request = ServerReflectionRequest {
+        host: String::new(),
+        message_request: Some(
+            server_reflection_request::MessageRequest::FileContainingSymbol(
+                "echo.EchoService".to_string(),
+            ),
+        ),
+    };
+
+    let response = build_reflection_response(&catalog.pool, request);
+    match response.message_response {
+        Some(server_reflection_response::MessageResponse::FileDescriptorResponse(files)) => {
+            assert!(
+                !files.file_descriptor_proto.is_empty(),
+                "expected at least one file descriptor proto"
+            );
+        }
+        other => panic!("expected file descriptor response, got {other:?}"),
+    }
+}
+
+#[test]
+fn reflection_file_containing_symbol_resolves_method_symbol() {
+    let catalog = echo_catalog();
+    let request = ServerReflectionRequest {
+        host: String::new(),
+        message_request: Some(
+            server_reflection_request::MessageRequest::FileContainingSymbol(
+                "echo.EchoService.Echo".to_string(),
+            ),
+        ),
+    };
+
+    let response = build_reflection_response(&catalog.pool, request);
+    assert!(matches!(
+        response.message_response,
+        Some(server_reflection_response::MessageResponse::FileDescriptorResponse(_))
+    ));
+}
+
+#[test]
+fn reflection_unknown_symbol_returns_not_found_error() {
+    let catalog = echo_catalog();
+    let request = ServerReflectionRequest {
+        host: String::new(),
+        message_request: Some(
+            server_reflection_request::MessageRequest::FileContainingSymbol(
+                "does.not.Exist".to_string(),
+            ),
+        ),
+    };
+
+    let response = build_reflection_response(&catalog.pool, request);
+    match response.message_response {
+        Some(server_reflection_response::MessageResponse::ErrorResponse(error)) => {
+            assert_eq!(error.error_code, 5);
+        }
+        other => panic!("expected error response, got {other:?}"),
+    }
 }

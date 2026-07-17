@@ -52,7 +52,7 @@ function makeMockKafkaMessage(overrides: Partial<KafkaConsumedMessage> = {}): Ka
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 // ── handleKafkaWaitNode ───────────────────────────────────────────────────────

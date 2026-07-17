@@ -14,7 +14,7 @@ const mockReadFileSync = vi.mocked(readFileSync);
 
 describe('workflowLoader', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('loadWorkflowFile', () => {

@@ -69,7 +69,7 @@ function baseInput(overrides: Record<string, unknown> = {}) {
 
 describe('useGraphqlStudioSchemaLayer', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockUseGraphqlSchema.mockReturnValue({
       status: 'loaded',
       schemaInfo: { sdl: 'type Query { hello: String }' } as never,

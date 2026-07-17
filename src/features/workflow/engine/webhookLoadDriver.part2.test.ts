@@ -16,7 +16,7 @@ import {
 
 describe('runWebhookLoadTest', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockFetch.mockReset();
   });
 

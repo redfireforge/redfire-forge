@@ -18,7 +18,7 @@ const flushPromises = () => new Promise<void>((resolve) => setTimeout(resolve, 0
 
 describe('useGraphqlAdvancedSettings', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(readKey).mockResolvedValue(null);
     vi.mocked(writeKey).mockResolvedValue();
   });

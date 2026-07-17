@@ -490,6 +490,85 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
     expect(screen.getByTestId('grpc-history-list-empty-filtered')).toBeTruthy();
   });
 
+  it('prompts to select a call when history exists but nothing is selected', () => {
+    const entry = historyEntry('pick-me');
+    renderPanel(buildHistoryMock({
+      entries: [entry],
+      filteredEntries: [entry],
+    }));
+    expect(screen.getByText(/Select a call to inspect/i)).toBeTruthy();
+  });
+
+  it('falls back to raw timestamp text when capturedAt is invalid', () => {
+    const entry = historyEntry('bad-ts', { capturedAt: 'not-a-real-timestamp' });
+    renderPanel(buildHistoryMock({ filteredEntries: [entry] }));
+    expect(screen.getByTestId('grpc-history-entry-bad-ts').textContent).toMatch(/not-a-real-timestamp/);
+  });
+
+  it('disables schema diff when active tab has no descriptor key', () => {
+    const entry = historyEntry('diff-no-tab-key');
+    renderPanel(buildHistoryMock({ filteredEntries: [entry] }), {
+      studio: {
+        activeTab: createGrpcStudioTab({ descriptorKey: undefined }),
+        activeTabDescriptor: createEmptyTabDescriptorState(),
+        profiles: [],
+      },
+    });
+    fireEvent.click(screen.getByTestId('grpc-history-entry-diff-no-tab-key'));
+    const diffBtn = screen.getByTestId('grpc-history-open-diff-btn') as HTMLButtonElement;
+    expect(diffBtn.disabled).toBe(true);
+    expect(diffBtn.title).toMatch(/Load a descriptor on the active tab/i);
+  });
+
+  it('disables schema diff when history entry is missing a descriptor key', () => {
+    const entry = {
+      ...historyEntry('diff-no-entry-key'),
+      descriptorKey: '',
+    };
+    renderPanel(buildHistoryMock({ filteredEntries: [entry] }), {
+      studio: {
+        activeTab: createGrpcStudioTab({ descriptorKey: FIXTURE_DESCRIPTOR_KEY }),
+        activeTabDescriptor: {
+          ...createEmptyTabDescriptorState(),
+          loadState: 'loaded',
+          descriptor: FIXTURE_DESCRIPTOR,
+        },
+        profiles: [],
+      },
+    });
+    fireEvent.click(screen.getByTestId('grpc-history-entry-diff-no-entry-key'));
+    const diffBtn = screen.getByTestId('grpc-history-open-diff-btn') as HTMLButtonElement;
+    expect(diffBtn.disabled).toBe(true);
+    expect(diffBtn.title).toMatch(/missing a descriptor key/i);
+  });
+
+  it('hides schema diff when onOpenDiff is not provided', () => {
+    const entry = historyEntry('diff-unavailable');
+    const history = buildHistoryMock({ filteredEntries: [entry] });
+    render(
+      <GrpcHistoryPanel
+        history={history}
+        studio={{
+          activeTab: createGrpcStudioTab({ descriptorKey: FIXTURE_DESCRIPTOR_KEY }),
+          activeTabDescriptor: {
+            ...createEmptyTabDescriptorState(),
+            loadState: 'loaded',
+            descriptor: FIXTURE_DESCRIPTOR,
+          },
+          profiles: [],
+        }}
+        envVarMap={{}}
+        pageDefaults={{ target: 'localhost:50051', tlsMode: 'disabled' }}
+        profiles={[]}
+        onReplay={vi.fn()}
+        onCopyGrpcurl={vi.fn()}
+        grpcurlForEntry={() => ''}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('grpc-history-entry-diff-unavailable'));
+    expect(screen.queryByTestId('grpc-history-open-diff-btn')).toBeNull();
+  });
+
   afterEach(() => {
     cleanup();
   });

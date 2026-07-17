@@ -6,6 +6,10 @@ import {
   applySaveProtocolEndpoint,
   applyToggleGrpcTls,
   updateMicroserviceById,
+  applySetSvcGlobalVar,
+  applyDeleteSvcGlobalVar,
+  applySetSvcEnvVar,
+  applyDeleteSvcEnvVar,
 } from './environmentManagerSaveHandlers';
 
 const svcA: Microservice = {
@@ -68,6 +72,15 @@ describe('applyToggleGrpcTls', () => {
     expect(result.changed).toBe(false);
   });
 
+  it('patches TLS when grpc endpoint has whitespace-only base URL', () => {
+    const svc = {
+      ...svcA,
+      protocolEndpoints: { grpc: { e1: { baseUrl: '   ', tls: false } } },
+    };
+    const result = applyToggleGrpcTls([svc], svc, 'e1', true);
+    expect(result.microservices[0].protocolEndpoints?.grpc?.e1?.tls).toBe(true);
+  });
+
   it('reports TLS change when value differs', () => {
     const result = applyToggleGrpcTls([svcA], svcA, 'e1', true);
     expect(result.changed).toBe(true);
@@ -92,5 +105,94 @@ describe('applyAuthProfile', () => {
   it('reports unchanged when profileId matches existing value', () => {
     const result = applyAuthProfile([svcA], svcA, 'e1', 'auth-1');
     expect(result.changed).toBe(false);
+  });
+});
+
+describe('applySetSvcGlobalVar', () => {
+  it('sets a new global var on the matching service', () => {
+    const svc: Microservice = { id: 'svc-a', name: 'alpha', baseUrls: {} };
+    const result = applySetSvcGlobalVar([svc], 'svc-a', 'requestId', 'req-001');
+    expect(result[0].globalVars?.requestId).toBe('req-001');
+  });
+
+  it('does not touch other services', () => {
+    const a: Microservice = { id: 'svc-a', name: 'alpha', baseUrls: {} };
+    const b: Microservice = { id: 'svc-b', name: 'beta', baseUrls: {} };
+    const result = applySetSvcGlobalVar([a, b], 'svc-a', 'k', 'v');
+    expect(result[1]).toBe(b);
+  });
+});
+
+describe('applyDeleteSvcGlobalVar', () => {
+  it('removes an existing global var', () => {
+    const svc: Microservice = { id: 'svc-a', name: 'alpha', baseUrls: {}, globalVars: { requestId: 'req-001' } };
+    const result = applyDeleteSvcGlobalVar([svc], 'svc-a', 'requestId');
+    expect(result[0].globalVars?.requestId).toBeUndefined();
+  });
+
+  it('clears globalVars entirely when the last key is removed', () => {
+    const svc: Microservice = { id: 'svc-a', name: 'alpha', baseUrls: {}, globalVars: { only: 'v' } };
+    const result = applyDeleteSvcGlobalVar([svc], 'svc-a', 'only');
+    expect(result[0].globalVars).toBeUndefined();
+  });
+
+  it('keeps remaining global vars when deleting one of many', () => {
+    const svc: Microservice = { id: 'svc-a', name: 'alpha', baseUrls: {}, globalVars: { a: '1', b: '2' } };
+    const result = applyDeleteSvcGlobalVar([svc], 'svc-a', 'a');
+    expect(result[0].globalVars).toEqual({ b: '2' });
+  });
+});
+
+describe('applySetSvcEnvVar', () => {
+  it('sets an env-scoped override', () => {
+    const svc: Microservice = { id: 'svc-a', name: 'alpha', baseUrls: {} };
+    const result = applySetSvcEnvVar([svc], 'svc-a', 'env-local', 'requestId', 'req-local');
+    expect(result[0].envVars?.['env-local']?.requestId).toBe('req-local');
+  });
+
+  it('preserves other env overrides', () => {
+    const svc: Microservice = { id: 'svc-a', name: 'alpha', baseUrls: {}, envVars: { 'env-staging': { userId: 'u2' } } };
+    const result = applySetSvcEnvVar([svc], 'svc-a', 'env-local', 'requestId', 'req-local');
+    expect(result[0].envVars?.['env-staging']?.userId).toBe('u2');
+  });
+});
+
+describe('applyDeleteSvcEnvVar', () => {
+  it('removes an env-scoped override', () => {
+    const svc: Microservice = { id: 'svc-a', name: 'alpha', baseUrls: {}, envVars: { 'env-local': { requestId: 'req-001' } } };
+    const result = applyDeleteSvcEnvVar([svc], 'svc-a', 'env-local', 'requestId');
+    expect(result[0].envVars?.['env-local']?.requestId).toBeUndefined();
+  });
+
+  it('drops empty env bucket and clears envVars when last override is removed', () => {
+    const svc: Microservice = { id: 'svc-a', name: 'alpha', baseUrls: {}, envVars: { 'env-local': { only: 'v' } } };
+    const result = applyDeleteSvcEnvVar([svc], 'svc-a', 'env-local', 'only');
+    expect(result[0].envVars).toBeUndefined();
+  });
+
+  it('preserves other env buckets when deleting one key', () => {
+    const svc: Microservice = {
+      id: 'svc-a',
+      name: 'alpha',
+      baseUrls: {},
+      envVars: {
+        'env-local': { a: '1', b: '2' },
+        'env-staging': { c: '3' },
+      },
+    };
+    const result = applyDeleteSvcEnvVar([svc], 'svc-a', 'env-local', 'a');
+    expect(result[0].envVars?.['env-local']).toEqual({ b: '2' });
+    expect(result[0].envVars?.['env-staging']).toEqual({ c: '3' });
+  });
+
+  it('keeps envVars object when another env bucket still has overrides', () => {
+    const svc: Microservice = {
+      id: 'svc-a',
+      name: 'alpha',
+      baseUrls: {},
+      envVars: { 'env-local': { only: 'v' }, 'env-staging': { keep: 'yes' } },
+    };
+    const result = applyDeleteSvcEnvVar([svc], 'svc-a', 'env-local', 'only');
+    expect(result[0].envVars).toEqual({ 'env-staging': { keep: 'yes' } });
   });
 });

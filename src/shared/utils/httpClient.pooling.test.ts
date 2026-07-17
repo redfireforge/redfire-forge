@@ -50,7 +50,7 @@ describe('httpClient connection pooling', () => {
       delete process.env[k];
     }
     vi.resetModules();
-    vi.clearAllMocks();
+    resetAllMocks();
     mockedIsNode.mockReturnValue(true);
     mockedIsTauri.mockReturnValue(false);
     globalThis.fetch = vi.fn();
@@ -196,7 +196,7 @@ describe('httpClient connection pooling', () => {
     it('retries without dispatcher on proxy ECONNREFUSED', async () => {
       process.env.HTTP_PROXY = 'http://proxy:8080';
       vi.resetModules();
-      vi.clearAllMocks();
+      resetAllMocks();
       globalThis.fetch = vi.fn();
       const mod = await import('./httpClient');
 
@@ -216,7 +216,7 @@ describe('httpClient connection pooling', () => {
     it('retries on UND_ERR_CONNECT_TIMEOUT', async () => {
       process.env.HTTPS_PROXY = 'http://proxy:8080';
       vi.resetModules();
-      vi.clearAllMocks();
+      resetAllMocks();
       globalThis.fetch = vi.fn();
       const mod = await import('./httpClient');
 
@@ -233,7 +233,7 @@ describe('httpClient connection pooling', () => {
     it('retries on proxy tunnel error message', async () => {
       process.env.http_proxy = 'http://proxy:8080';
       vi.resetModules();
-      vi.clearAllMocks();
+      resetAllMocks();
       globalThis.fetch = vi.fn();
       const mod = await import('./httpClient');
 
@@ -248,7 +248,7 @@ describe('httpClient connection pooling', () => {
     it('does not retry non-proxy errors', async () => {
       process.env.HTTP_PROXY = 'http://proxy:8080';
       vi.resetModules();
-      vi.clearAllMocks();
+      resetAllMocks();
       globalThis.fetch = vi.fn();
       const mod = await import('./httpClient');
 
@@ -274,7 +274,7 @@ describe('httpClient connection pooling', () => {
     it('does not retry when error cause is non-Error', async () => {
       process.env.HTTP_PROXY = 'http://proxy:8080';
       vi.resetModules();
-      vi.clearAllMocks();
+      resetAllMocks();
       globalThis.fetch = vi.fn();
       const mod = await import('./httpClient');
 
@@ -292,7 +292,7 @@ describe('httpClient connection pooling', () => {
     it('uses EnvHttpProxyAgent when proxy env is set', async () => {
       process.env.HTTP_PROXY = 'http://proxy:8080';
       vi.resetModules();
-      vi.clearAllMocks();
+      resetAllMocks();
       globalThis.fetch = vi.fn();
       mockFetchResponse();
       const mod = await import('./httpClient');
@@ -339,7 +339,7 @@ describe('httpClient connection pooling', () => {
 describe('httpClient — setHttpTransport', () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.clearAllMocks();
+    resetAllMocks();
     mockedIsNode.mockReturnValue(false);
     mockedIsTauri.mockReturnValue(false);
   });
@@ -379,7 +379,7 @@ describe('httpClient — setHttpTransport', () => {
 describe('httpClient — Tauri transport', () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.clearAllMocks();
+    resetAllMocks();
     mockedIsNode.mockReturnValue(false);
     mockedIsTauri.mockReturnValue(true);
   });
@@ -444,7 +444,7 @@ describe('httpClient — Tauri transport', () => {
 describe('httpClient — Vite proxy (browser)', () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.clearAllMocks();
+    resetAllMocks();
     mockedIsNode.mockReturnValue(false);
     mockedIsTauri.mockReturnValue(false);
   });
@@ -547,7 +547,7 @@ describe('httpClient — Vite proxy (browser)', () => {
 describe('httpFetchViaViteProxy — direct export', () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('is the same function used by the browser proxy path', async () => {
@@ -564,7 +564,7 @@ describe('httpFetchViaViteProxy — direct export', () => {
 describe('proxyFetch — relative vs absolute routing', () => {
   beforeEach(() => {
     vi.resetModules();
-    vi.clearAllMocks();
+    resetAllMocks();
     globalThis.fetch = vi.fn();
   });
 

@@ -196,7 +196,7 @@ describe('studioPageCompositionUtils', () => {
 
 describe('useGraphqlStudioPageComposition', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(useGraphqlStudioPageTabsLayer).mockReturnValue(tabsReadyMock as never);
   });
 

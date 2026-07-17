@@ -5,6 +5,7 @@ import {
   GRPC_ECHO_SERVICE,
   GRPC_ECHO_SERVICE_SEL,
 } from './constants';
+import { fillGrpcRequestJsonBody } from './echoComposer';
 import { setInputValueAndDispatch } from './dom';
 import { closeGrpcSettingsDrawerQuiet } from './navigation';
 import { ensureGrpcReflected, guardGrpcReflectedQuiet } from './reflection';
@@ -89,7 +90,8 @@ export async function ensureStreamingMethodSelectedQuiet(
 
 /**
  * Fill the StreamRequest fields for server-streaming.
- * Fills message, repeat_count, and interval_ms.
+ * Fills message, repeat_count, and interval_ms with visual feedback.
+ * Uses fallback to setInputValueAndDispatch to ensure React state updates properly.
  */
 export async function fillServerStreamRequest(
   ctx: DemoActionContext,
@@ -97,19 +99,44 @@ export async function fillServerStreamRequest(
 ): Promise<void> {
   const { message = GRPC_STREAM_MESSAGE, repeatCount = GRPC_STREAM_REPEAT_COUNT, intervalMs = GRPC_STREAM_INTERVAL_MS } = opts;
 
-  await ctx.waitFor(GRPC.PROTO_FIELD_INPUT('message'), 10_000);
+  const requestJson = JSON.stringify({
+    message,
+    repeat_count: repeatCount,
+    interval_ms: intervalMs,
+  }, null, 2);
+
+  // Comfortable mode uses a JSON-first composer instead of per-field inputs.
+  // If fields are absent, write the full request body directly in the JSON editor.
+  const msgInput = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
+  if (!msgInput) {
+    await fillGrpcRequestJsonBody(ctx, requestJson);
+    return;
+  }
+
+  // Fill message field with fallback for React state
   await ctx.fill(GRPC.PROTO_FIELD_INPUT('message'), message);
+  if (msgInput.value !== message) {
+    setInputValueAndDispatch(msgInput, message);
+  }
   await ctx.delay(120);
 
+  // Fill repeat_count field with fallback
   const repeatInput = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('repeat_count'));
   if (repeatInput) {
     await ctx.fill(GRPC.PROTO_FIELD_INPUT('repeat_count'), String(repeatCount));
+    if (repeatInput.value !== String(repeatCount)) {
+      setInputValueAndDispatch(repeatInput, String(repeatCount));
+    }
     await ctx.delay(120);
   }
 
+  // Fill interval_ms field with fallback
   const intervalInput = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('interval_ms'));
   if (intervalInput) {
     await ctx.fill(GRPC.PROTO_FIELD_INPUT('interval_ms'), String(intervalMs));
+    if (intervalInput.value !== String(intervalMs)) {
+      setInputValueAndDispatch(intervalInput, String(intervalMs));
+    }
     await ctx.delay(120);
   }
 }
@@ -126,16 +153,29 @@ export async function fillServerStreamRequestQuiet(
   } = opts;
 
   const msgEl = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
+  const repeatEl = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('repeat_count'));
+  const intervalEl = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('interval_ms'));
+
+  if (!msgEl && !repeatEl && !intervalEl) {
+    await fillGrpcRequestJsonBody(
+      ctx,
+      JSON.stringify({
+        message,
+        repeat_count: repeatCount,
+        interval_ms: intervalMs,
+      }, null, 2),
+    );
+    return;
+  }
+
   if (msgEl && msgEl.value !== message) {
     setInputValueAndDispatch(msgEl, message);
   }
 
-  const repeatEl = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('repeat_count'));
   if (repeatEl && repeatEl.value !== String(repeatCount)) {
     setInputValueAndDispatch(repeatEl, String(repeatCount));
   }
 
-  const intervalEl = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('interval_ms'));
   if (intervalEl && intervalEl.value !== String(intervalMs)) {
     setInputValueAndDispatch(intervalEl, String(intervalMs));
   }
@@ -155,6 +195,11 @@ export async function queueClientStreamMessage(
   if (messageInput) {
     await ctx.fill(GRPC.PROTO_FIELD_INPUT('message'), message);
     await ctx.delay(120);
+  } else if (document.querySelector(GRPC.REQUEST_JSON)) {
+    await fillGrpcRequestJsonBody(
+      ctx,
+      JSON.stringify({ message }, null, 2),
+    );
   }
   const addBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_ADD_QUEUE_BTN);
   if (addBtn && !addBtn.disabled) {
@@ -273,6 +318,12 @@ export async function startAndExchangeBidiStream(ctx: DemoActionContext): Promis
       } finally {
         removeInputRing();
       }
+    } else {
+      // Comfortable mode — JSON-first composer.
+      await fillGrpcRequestJsonBody(
+        ctx,
+        JSON.stringify({ message: text }, null, 2),
+      );
     }
     const sendBtn = document.querySelector<HTMLButtonElement>(GRPC.STREAM_SEND_MESSAGE_BTN);
     if (sendBtn && !sendBtn.disabled) {
@@ -311,11 +362,34 @@ function isServerStreamFormFilled(): boolean {
   const message = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
   const repeat = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('repeat_count'));
   const interval = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('interval_ms'));
-  return (
+  const fieldComposerFilled = (
     message?.value === GRPC_STREAM_MESSAGE
     && repeat?.value === String(GRPC_STREAM_REPEAT_COUNT)
     && interval?.value === String(GRPC_STREAM_INTERVAL_MS)
   );
+  if (fieldComposerFilled) {
+    return true;
+  }
+
+  // Comfortable mode JSON composer path.
+  const jsonEditor = document.querySelector<HTMLTextAreaElement>(GRPC.REQUEST_JSON);
+  if (!jsonEditor?.value?.trim()) {
+    return false;
+  }
+  try {
+    const parsed = JSON.parse(jsonEditor.value) as {
+      message?: unknown;
+      repeat_count?: unknown;
+      interval_ms?: unknown;
+    };
+    return (
+      String(parsed.message ?? '') === GRPC_STREAM_MESSAGE
+      && Number(parsed.repeat_count ?? NaN) === GRPC_STREAM_REPEAT_COUNT
+      && Number(parsed.interval_ms ?? NaN) === GRPC_STREAM_INTERVAL_MS
+    );
+  } catch {
+    return false;
+  }
 }
 
 export async function guardServerStreamSelectedQuiet(ctx: DemoActionContext): Promise<void> {
@@ -373,6 +447,12 @@ export async function guardClientStreamQueuedQuiet(ctx: DemoActionContext): Prom
     const messageInput = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
     if (messageInput) {
       setInputValueAndDispatch(messageInput, msg);
+    } else {
+      // Comfortable mode — fill JSON editor for client-stream queue.
+      await fillGrpcRequestJsonBody(
+        ctx,
+        JSON.stringify({ message: msg }, null, 2),
+      );
     }
     document.querySelector<HTMLButtonElement>(GRPC.STREAM_ADD_QUEUE_BTN)?.click();
     await ctx.delay(100);
@@ -412,7 +492,13 @@ export async function guardBidiStreamActiveQuiet(ctx: DemoActionContext): Promis
 /** Seed bidi log entries without visible ripples — for export/cancel preAction recovery. */
 export async function seedBidiStreamLogQuiet(ctx: DemoActionContext): Promise<void> {
   await guardBidiStreamSelectedQuiet(ctx);
-  if (document.querySelector(GRPC.STREAM_LOG_LIST)) return;
+  // The STREAM_LOG_LIST element may be present but empty (0 items). Check that at
+  // least one message is counted so Export log / Clear log are not disabled.
+  const outboundCountText = document.querySelector<HTMLElement>(GRPC.STREAM_OUTBOUND_COUNT)?.textContent ?? '';
+  const inboundCountText = document.querySelector<HTMLElement>(GRPC.STREAM_INBOUND_COUNT)?.textContent ?? '';
+  const existingOutbound = Number((outboundCountText.match(/(\d+)/) ?? [])[1] ?? 0);
+  const existingInbound = Number((inboundCountText.match(/(\d+)/) ?? [])[1] ?? 0);
+  if (existingOutbound + existingInbound > 0) return;
 
   if (!document.querySelector(GRPC.STREAM_CANCEL_BTN)) {
     document.querySelector<HTMLButtonElement>(GRPC.STREAM_START_BTN)?.click();
@@ -427,14 +513,27 @@ export async function seedBidiStreamLogQuiet(ctx: DemoActionContext): Promise<vo
     const messageInput = document.querySelector<HTMLInputElement>(GRPC.PROTO_FIELD_INPUT('message'));
     if (messageInput) {
       setInputValueAndDispatch(messageInput, text);
+    } else {
+      // Comfortable mode — fill JSON editor.
+      await fillGrpcRequestJsonBody(
+        ctx,
+        JSON.stringify({ message: text }, null, 2),
+      );
     }
     document.querySelector<HTMLButtonElement>(GRPC.STREAM_SEND_MESSAGE_BTN)?.click();
-    await ctx.delay(120);
+    await ctx.delay(260);
   }
 
   try {
     await ctx.waitFor(GRPC.STREAM_LOG_LIST, 4_000);
   } catch {
-    // Log may populate asynchronously.
+    // Some runtimes render counts before list rows; accept either signal.
+    const outboundText = document.querySelector<HTMLElement>(GRPC.STREAM_OUTBOUND_COUNT)?.textContent ?? '';
+    const inboundText = document.querySelector<HTMLElement>(GRPC.STREAM_INBOUND_COUNT)?.textContent ?? '';
+    const outbound = Number((outboundText.match(/(\d+)/) ?? [])[1] ?? 0);
+    const inbound = Number((inboundText.match(/(\d+)/) ?? [])[1] ?? 0);
+    if (outbound + inbound > 0) {
+      return;
+    }
   }
 }

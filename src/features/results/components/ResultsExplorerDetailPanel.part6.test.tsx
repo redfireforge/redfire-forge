@@ -15,7 +15,7 @@ describe('ResultsExplorerDetailPanel — part6 (DetailOverviewTab wsDetails)', (
 
   afterEach(() => {
     cleanup();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   function makeIteration(event: ExecutionEvent): WorkflowIterationTrace {

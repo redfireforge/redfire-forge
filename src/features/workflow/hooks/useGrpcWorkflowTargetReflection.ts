@@ -1,24 +1,36 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GrpcDescriptor, GrpcServiceInfo, GrpcTlsMode } from '../../../shared/grpc/contracts';
 import { validateResolvedGrpcTargetAddress } from '../../../shared/grpc/targetValidation';
 import { reflectGrpcWorkflowTarget } from '../utils/grpcWorkflowReflection';
+import { resolveGrpcDesignTimeTarget } from '../utils/resolveGrpcDesignTimeTarget';
 
 export type GrpcWorkflowReflectionStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 export function useGrpcWorkflowTargetReflection(
   target: string,
   tlsMode: GrpcTlsMode = 'disabled',
+  workflowVariables: Record<string, string> = {},
 ): {
   descriptor: GrpcDescriptor | null;
   services: GrpcServiceInfo[];
   status: GrpcWorkflowReflectionStatus;
   errorMessage?: string;
+  /** Target used for reflect after substituting workflow variable defaults. */
+  resolvedTarget: string;
+  /** True when reflection target came from substituting `{{var}}` defaults. */
+  usedWorkflowDefaults: boolean;
   reflectNow: () => Promise<void>;
 } {
   const [descriptor, setDescriptor] = useState<GrpcDescriptor | null>(null);
   const [status, setStatus] = useState<GrpcWorkflowReflectionStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const reflectTokenRef = useRef(0);
+
+  const designTime = useMemo(
+    () => resolveGrpcDesignTimeTarget(target, workflowVariables),
+    [target, workflowVariables],
+  );
+  const resolvedTarget = designTime.resolved;
 
   const resetReflection = useCallback(() => {
     setDescriptor(null);
@@ -27,7 +39,7 @@ export function useGrpcWorkflowTargetReflection(
   }, []);
 
   const reflectNow = useCallback(async () => {
-    const validation = validateResolvedGrpcTargetAddress(target.trim());
+    const validation = validateResolvedGrpcTargetAddress(resolvedTarget.trim());
     if (!validation.valid) {
       resetReflection();
       return;
@@ -38,7 +50,7 @@ export function useGrpcWorkflowTargetReflection(
     setErrorMessage(undefined);
 
     try {
-      const nextDescriptor = await reflectGrpcWorkflowTarget(target, tlsMode);
+      const nextDescriptor = await reflectGrpcWorkflowTarget(resolvedTarget, tlsMode);
       if (token !== reflectTokenRef.current) return;
       setDescriptor(nextDescriptor);
       setStatus('ready');
@@ -48,10 +60,10 @@ export function useGrpcWorkflowTargetReflection(
       setStatus('error');
       setErrorMessage(error instanceof Error ? error.message : String(error));
     }
-  }, [resetReflection, target, tlsMode]);
+  }, [resetReflection, resolvedTarget, tlsMode]);
 
   useEffect(() => {
-    const validation = validateResolvedGrpcTargetAddress(target.trim());
+    const validation = validateResolvedGrpcTargetAddress(resolvedTarget.trim());
     if (!validation.valid) {
       resetReflection();
       return;
@@ -62,13 +74,15 @@ export function useGrpcWorkflowTargetReflection(
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [target, tlsMode, reflectNow, resetReflection]);
+  }, [resolvedTarget, tlsMode, reflectNow, resetReflection]);
 
   return {
     descriptor,
     services: descriptor?.services ?? [],
     status,
     errorMessage,
+    resolvedTarget,
+    usedWorkflowDefaults: designTime.usedWorkflowDefaults,
     reflectNow,
   };
 }

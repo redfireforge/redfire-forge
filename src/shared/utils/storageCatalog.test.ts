@@ -152,7 +152,7 @@ describe('storageCatalog — browser (IDB primary)', () => {
     localStorage.clear();
     isTauriMock.mockReturnValue(false);
     resetCatalogStore();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('loadCatalogEntries / saveCatalogEntries', () => {
@@ -383,7 +383,7 @@ describe('storageCatalog — tauri backend', () => {
       if (value === '') tauriStoreMap.delete(key);
       else tauriStoreMap.set(key, value);
     });
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('loadCatalogEntries reads via tauriStore', async () => {

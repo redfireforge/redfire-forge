@@ -58,7 +58,7 @@ function successResponse(data: unknown = { hello: 'world' }) {
 // ─── Tests ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 describe('useGraphqlCollectionRunner — sequential run', () => {
@@ -944,7 +944,7 @@ describe('useGraphqlCollectionRunner — Phase 3B scripts', () => {
 // ─── Pause / Resume / State machine coverage ──────────────────────────────────
 
 describe('useGraphqlCollectionRunner — pause and resume', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { resetAllMocks(); });
 
   it('pause() sets paused state (covers pause useCallback + setState)', () => {
     const { result } = renderHook(() => useGraphqlCollectionRunner());
@@ -1040,7 +1040,7 @@ describe('useGraphqlCollectionRunner — pause and resume', () => {
 // ─── Branch coverage: HTTP throw, missing response fields, plural test failures ─
 
 describe('useGraphqlCollectionRunner — HTTP error branches', () => {
-  beforeEach(() => { vi.clearAllMocks(); });
+  beforeEach(() => { resetAllMocks(); });
 
   it('executeGraphqlOperation Error throw emits error event with message (L293 idx=0)', async () => {
     mockExecute.mockRejectedValue(new Error('network timeout'));

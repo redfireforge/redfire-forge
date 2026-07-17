@@ -13,7 +13,7 @@ const mockReadFileSync = vi.mocked(readFileSync);
 
 describe('loader', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('loadTestFile', () => {

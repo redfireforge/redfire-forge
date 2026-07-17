@@ -31,7 +31,7 @@ const op: GraphqlOperation = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.mocked(idbLoadHistory).mockResolvedValue([]);
 });
 

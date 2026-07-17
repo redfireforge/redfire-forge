@@ -14,7 +14,7 @@ describe('RustTestPanelOverlay', () => {
   const originalSearch = window.location.search;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   afterEach(() => {

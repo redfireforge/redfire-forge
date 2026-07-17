@@ -19,7 +19,7 @@ describe('sseStorage', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns null when nothing is stored', async () => {

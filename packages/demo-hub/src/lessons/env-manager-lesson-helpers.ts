@@ -156,6 +156,135 @@ export async function ensureGqlDemoHeaderContext(ctx: DemoActionContext): Promis
   await navigateToGraphqlStudio(ctx);
 }
 
+/** Shared gRPC demo lesson identifiers and endpoints (env-collections + related lessons). */
+export const GRPC_DEMO_ENV_NAME = 'gRPC Demo';
+export const GRPC_DEMO_SVC_NAME = 'grpc-demo';
+export const GRPC_DEMO_STAGING_ENV_NAME = 'gRPC Staging';
+export const GRPC_DEMO_LOCAL_HOST = 'localhost:50051';
+export const GRPC_DEMO_STAGING_HOST = 'localhost:59999';
+
+/**
+ * Prepare grpc-demo for gRPC demo lessons: gRPC protocol only, gRPC Demo row deployed.
+ * Does not set the endpoint URL — use before the "Configure endpoint" demo step.
+ */
+export async function ensureGrpcDemoProtocolReady(ctx: DemoActionContext): Promise<void> {
+  await ensureDemoEnvironment(ctx, GRPC_DEMO_ENV_NAME);
+  await ensureDemoMicroservice(ctx, GRPC_DEMO_SVC_NAME);
+  await navigateToEnvironmentManager(ctx);
+  await ctx.delay(400);
+  await expandNamedMicroservice(ctx, GRPC_DEMO_SVC_NAME);
+  await ensureProtocolDisabled(ctx, 'http');
+  await ensureProtocolEnabled(ctx, 'grpc');
+  await undeployAllExceptNamedEnv(ctx, GRPC_DEMO_ENV_NAME);
+  await ensureNamedEnvDeployedOnProtocol(ctx, 'grpc', GRPC_DEMO_ENV_NAME);
+  await selectProtocolTab(ctx, 'grpc');
+}
+
+/**
+ * Recreate the gRPC Demo environment + grpc-demo microservice with gRPC endpoint configured.
+ * gRPC-only — does not add an HTTP protocol tab.
+ */
+export async function ensureGrpcDemoEndpointConfigured(ctx: DemoActionContext): Promise<void> {
+  await ensureGrpcDemoProtocolReady(ctx);
+  await editNamedProtocolEndpoint(ctx, GRPC_DEMO_ENV_NAME, GRPC_DEMO_LOCAL_HOST);
+}
+
+/**
+ * Add and configure a staging environment on the grpc-demo microservice with a distinct host.
+ * Idempotent — only adds the env and deploys it if not already present.
+ */
+export async function ensureGrpcStagingEnvConfigured(ctx: DemoActionContext): Promise<void> {
+  await ensureGrpcDemoEndpointConfigured(ctx);
+  await ensureDemoEnvironment(ctx, GRPC_DEMO_STAGING_ENV_NAME);
+  await ensureNamedEnvDeployedOnProtocol(ctx, 'grpc', GRPC_DEMO_STAGING_ENV_NAME, GRPC_DEMO_STAGING_HOST);
+}
+
+/**
+ * Add or update a protocol (global) variable via the Protocol Vars modal.
+ * Opens the modal if not already open, adds/updates the key, then saves.
+ * To avoid opening/closing the modal for each key, call openProtocolVarsModal
+ * manually and use this helper only once; it will save after each call.
+ */
+export async function setProtocolVarInModal(
+  ctx: DemoActionContext,
+  key: string,
+  value: string,
+): Promise<void> {
+  // Open modal if not already visible.
+  const modalOpen = !!document.querySelector('[data-testid="protocol-vars-modal"]');
+  if (!modalOpen) {
+    await ctx.click('[data-testid="protocol-vars-badge"]');
+    await ctx.delay(200);
+  }
+  // If the row already exists, update its value inline then save.
+  const existingRow = document.querySelector(`[data-testid="protocol-var-row-${key}"]`);
+  if (existingRow) {
+    const valueInput = document.querySelector<HTMLInputElement>(`[data-testid="protocol-var-value-${key}"]`);
+    if (valueInput && valueInput.value !== value) {
+      await ctx.fill(`[data-testid="protocol-var-value-${key}"]`, value);
+      await ctx.delay(150);
+    }
+    await ctx.click('[data-testid="protocol-vars-save-btn"]');
+    await ctx.delay(250);
+    return;
+  }
+  // Add a new row, then save.
+  await ctx.fill('[data-testid="protocol-vars-key-input"]', key);
+  await ctx.fill('[data-testid="protocol-vars-val-input"]', value);
+  await ctx.click('[data-testid="protocol-vars-add-btn"]');
+  await ctx.delay(150);
+  await ctx.click('[data-testid="protocol-vars-save-btn"]');
+  await ctx.delay(250);
+}
+
+/**
+ * Add or update an environment-scoped variable via the Env Vars modal.
+ * Opens the modal for the given envId if not already open, adds/updates the key, then saves.
+ */
+export async function setEnvVarInModal(
+  ctx: DemoActionContext,
+  envId: string,
+  key: string,
+  value: string,
+): Promise<void> {
+  // Open modal if not already visible.
+  const modalOpen = !!document.querySelector('[data-testid="env-vars-modal"]');
+  if (!modalOpen) {
+    await ctx.click(`[data-testid="env-vars-badge-${envId}"]`);
+    await ctx.delay(200);
+  }
+  // If the row already exists, update its value inline.
+  const existingRow = document.querySelector(`[data-testid="env-var-row-${key}"]`);
+  if (existingRow) {
+    const valueInput = document.querySelector<HTMLInputElement>(`[data-testid="env-var-value-${key}"]`);
+    if (valueInput && valueInput.value !== value) {
+      await ctx.fill(`[data-testid="env-var-value-${key}"]`, value);
+      await ctx.delay(200);
+    }
+    await ctx.click('[data-testid="env-vars-save-btn"]');
+    await ctx.delay(200);
+    return;
+  }
+  // Add a new row.
+  await ctx.fill('[data-testid="env-vars-key-input"]', key);
+  await ctx.fill('[data-testid="env-vars-val-input"]', value);
+  await ctx.click('[data-testid="env-vars-add-btn"]');
+  await ctx.delay(200);
+  await ctx.click('[data-testid="env-vars-save-btn"]');
+  await ctx.delay(200);
+}
+
+/** Ensure demo env/svc exist and are selected in the app header so {{grpcHost}} resolves. */
+export async function ensureGrpcDemoHeaderContext(ctx: DemoActionContext): Promise<void> {
+  const envReady = isNamedHeaderOptionAvailable(APP.HEADER_ENV_SELECT, GRPC_DEMO_ENV_NAME);
+  const svcReady = isNamedHeaderOptionAvailable(APP.HEADER_SVC_SELECT, GRPC_DEMO_SVC_NAME);
+  if (!envReady || !svcReady) {
+    await ensureGrpcDemoEndpointConfigured(ctx);
+  }
+  await selectEnvInHeader(ctx, GRPC_DEMO_ENV_NAME);
+  await selectSvcInHeader(ctx, GRPC_DEMO_SVC_NAME);
+}
+
 // ── Demo-dedicated env / microservice creation & cleanup ───────────────────
 
 /**
@@ -508,8 +637,14 @@ export async function ensureProtocolDisabled(
   protocol: ProtocolKey,
 ): Promise<void> {
   const removeSel = emRemoveProtocolSel(protocol);
-  if (!document.querySelector(removeSel)) return;
-  await ctx.click(removeSel);
+  const removeBtn = document.querySelector<HTMLElement>(removeSel);
+  if (!removeBtn) return;
+  // Use a plain DOM click (not ctx.click) so no viewer ripple/highlight fires.
+  // This helper only ever runs in setup / preAction to normalize the starting
+  // protocol tab set — a lesson that disables several protocols during boot
+  // (e.g. env-collections removes http/ws/sse/graphql/grpc) would otherwise flash
+  // a burst of "quick unnecessary highlights" before step 1's narration begins.
+  removeBtn.click();
   await ctx.delay(400);
   const tabSel = PROTOCOL_TAB[protocol];
   for (let i = 0; i < 20; i++) {
@@ -695,7 +830,7 @@ export async function navigateToGraphqlStudio(ctx: DemoActionContext): Promise<v
 export async function navigateToGrpcStudio(ctx: DemoActionContext): Promise<void> {
   if (!isDemoTargetVisible('[data-testid="grpc-studio-page"]')) {
     ctx.navigateToTab('grpc-studio');
-    await ctx.delay(400);
+    await ctx.delay(200);
     await ctx.waitFor('[data-testid="grpc-studio-page"]');
   }
 }

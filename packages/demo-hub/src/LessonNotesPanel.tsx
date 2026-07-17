@@ -12,12 +12,14 @@ export default function LessonNotesPanel() {
     saveNote,
     closePanel,
   } = useLessonNotesContext();
-  const { panelRef, panelStyle, onDragMouseDown } = useLessonNotesPanelLayout();
+  const { panelRef, panelStyle, onDragMouseDown, onResizeMouseDown } = useLessonNotesPanelLayout();
 
   useEffect(() => {
     if (!panelOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      // Don't steal Escape while the user is composing text in the textarea.
+      if (document.activeElement?.tagName === 'TEXTAREA') return;
       e.preventDefault();
       e.stopImmediatePropagation();
       closePanel();
@@ -62,6 +64,13 @@ export default function LessonNotesPanel() {
           savedText={getNote(lessonId)}
           onSave={handleSave}
           onClose={closePanel}
+        />
+        <div
+          className="demo-lesson-notes-resize-handle"
+          onMouseDown={onResizeMouseDown}
+          role="presentation"
+          aria-hidden="true"
+          title="Drag to resize"
         />
       </div>
     </div>

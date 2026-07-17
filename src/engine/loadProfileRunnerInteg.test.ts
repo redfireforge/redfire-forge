@@ -28,7 +28,7 @@ function makeOpts(overrides: Partial<RunOpts> = {}): RunOpts {
 
 describe('runLoadProfile', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.useRealTimers();
     clearPrepCache();
   });

@@ -49,7 +49,7 @@ function seedTabs(tabs: ReturnType<typeof makeBlankTab>[], activeId: string): vo
 
 describe('gqlDemoWorkspace — coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockWriteKey.mockResolvedValue(undefined);
   });
 

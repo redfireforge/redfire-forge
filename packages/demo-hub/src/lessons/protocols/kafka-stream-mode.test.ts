@@ -159,6 +159,10 @@ describe('kafka-stream-mode lesson', () => {
     expect(clickSpy).toHaveBeenCalled();
     expect(zone.scrollIntoView).toHaveBeenCalled();
   });
+  it('has Docker badge tag', () => {
+    expect(kafkaStreamModeLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 
 // ─── K9: kafka-workflow-produce ─────────────────────────────────

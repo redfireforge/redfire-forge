@@ -33,7 +33,7 @@ function makeState(selectedFields: Record<string, boolean> = {}): BuilderState {
 }
 
 describe('SelectAllButton', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders nothing when rootType has no fields', () => {
     const { container } = render(

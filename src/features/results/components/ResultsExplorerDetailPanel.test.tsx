@@ -14,7 +14,7 @@ describe('ResultsExplorerDetailPanel', () => {
 
   afterEach(() => {
     cleanup();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders node type and label', () => {

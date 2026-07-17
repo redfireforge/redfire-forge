@@ -22,6 +22,7 @@ export const kafkaTlsLesson: DemoLesson = {
 
   dockerEndpoint: 'http://localhost:19648',
   dockerCommand: 'cd docker/kafka/tls && docker compose up -d',
+  tag: '🐳 Docker',
 
   setup: kafkaTlsSetup,
   cleanup: kafkaCleanup,

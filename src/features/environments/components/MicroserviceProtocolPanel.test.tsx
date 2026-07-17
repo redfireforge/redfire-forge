@@ -47,13 +47,17 @@ function makeProps(overrides: Partial<MicroserviceProtocolPanelProps> = {}): Mic
     onNewAdditionalEnvNameChange: vi.fn(),
     onAddAdditionalEnv: vi.fn(),
     onDeleteAdditionalEnv: vi.fn(),
+    onSetGlobalVar: vi.fn(),
+    onDeleteGlobalVar: vi.fn(),
+    onSetEnvVar: vi.fn(),
+    onDeleteEnvVar: vi.fn(),
     ...overrides,
   };
 }
 
 describe('MicroserviceProtocolPanel', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders empty state when no protocols are enabled', () => {

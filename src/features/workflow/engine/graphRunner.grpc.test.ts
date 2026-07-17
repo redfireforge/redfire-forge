@@ -59,7 +59,7 @@ const defaultCallbacks = () => ({
 
 describe('gRPC workflow nodes — runGraph dispatch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockHttpFetch.mockResolvedValue({
       status: 200,
       statusText: 'OK',

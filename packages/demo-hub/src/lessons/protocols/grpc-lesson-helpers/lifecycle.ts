@@ -41,7 +41,15 @@ export async function grpcFirstCallCleanup(ctx: DemoActionContext): Promise<void
   // Reset composer to Form Input so the next lesson starts in a stable
   // request-editor state even when the previous lesson used JSON request mode.
   await ensureGrpcRequestFormTabQuiet(ctx);
-  await resetGrpcManageSchemasDraftsQuiet(ctx);
+  // NOTE: do NOT reset Manage Schemas drafts here. gRPC lessons run on an
+  // isolated "demo" tab that is closed on teardown, so any staged proto/protoset/
+  // url/bsr drafts are discarded per-tab automatically. Driving the modal reset
+  // in cleanup is redundant, touches the user's real tabs, and — because it opens
+  // the Manage Schemas modal for every tab and cycles its sub-tabs — flashes a
+  // burst of modals on and off (visible at lesson start/restart, e.g. the
+  // Metadata & Auth lesson which never touches schemas). Lessons that genuinely
+  // need a clean draft baseline still reset it in their own setup (default
+  // resetSchemaDrafts !== false).
   await clearGrpcSchemaDriftQuiet(ctx);
   await resetGrpcConnectionSettingsQuiet(ctx);
   await ensureGrpcStudioSubNavQuiet(ctx);

@@ -48,7 +48,7 @@ function makeTestRun(results: RequestResult[]): TestRun {
 
 describe('mergeRerunResults', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockComputeMetrics.mockReturnValue(makeSummary());
   });
 

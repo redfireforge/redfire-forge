@@ -34,7 +34,7 @@ function makeProfile(overrides?: Partial<WsConnectionProfile>): WsConnectionProf
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockLoad.mockResolvedValue([]);
   mockSave.mockResolvedValue(undefined);
 });

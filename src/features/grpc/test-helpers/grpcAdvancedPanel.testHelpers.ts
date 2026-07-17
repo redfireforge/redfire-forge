@@ -79,6 +79,7 @@ export function buildAdvancedMock(
     loadTestProfiles: [],
     loadTestProfilesLoading: false,
     loadTestProfileError: undefined,
+    clearLoadTestProfileError: vi.fn(),
     selectedLoadTestProfileId: '',
     setSelectedLoadTestProfileId: vi.fn(),
     saveLoadTestProfile: vi.fn().mockResolvedValue(undefined),

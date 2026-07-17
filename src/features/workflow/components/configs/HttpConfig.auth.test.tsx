@@ -48,7 +48,7 @@ const defaultProps = makeDefaultProps();
 
 describe('HttpConfig — auth tab', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders auth type select with inherit default', () => {
@@ -353,7 +353,7 @@ describe('HttpConfig — auth tab', () => {
 
 describe('HttpConfig — body tab formatting', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('formats JSON when Pretty Format button is clicked', () => {
@@ -395,7 +395,7 @@ describe('HttpConfig — body tab formatting', () => {
 
 describe('HttpConfig — spec version mode', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders spec version select when sourceSpecVersionId is set', () => {
@@ -426,7 +426,7 @@ describe('HttpConfig — spec version mode', () => {
 
 describe('HttpConfig — timeout field', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders timeout input with current value', () => {
@@ -465,7 +465,7 @@ describe('HttpConfig — timeout field', () => {
 
 describe('HttpConfig — visual variables mapper', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('shows Visual Variables button when template slots exist', () => {
@@ -483,7 +483,7 @@ describe('HttpConfig — visual variables mapper', () => {
 
 describe('HttpConfig — validation badge', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('shows badge-dot when validation mode is selective', () => {

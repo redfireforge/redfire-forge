@@ -35,7 +35,7 @@ vi.mock('../hooks/useGraphqlExecution', () => ({
 
 describe('GqlTabExecutionLayer', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('registers handle with tab attribution on mount (layout effect)', () => {

@@ -32,6 +32,10 @@ import {
   applySaveGraphqlPath,
   applySaveProtocolEndpoint,
   applyToggleGrpcTls,
+  applySetSvcGlobalVar,
+  applyDeleteSvcGlobalVar,
+  applySetSvcEnvVar,
+  applyDeleteSvcEnvVar,
 } from './utils/environmentManagerSaveHandlers';
 
 export interface EnvironmentManagerProps {
@@ -55,8 +59,8 @@ export default function EnvironmentManager({
   setEnvironments,
   microservices,
   setMicroservices,
-  workspaceDefaults,
-  setWorkspaceDefaults,
+  workspaceDefaults: _workspaceDefaults,
+  setWorkspaceDefaults: _setWorkspaceDefaults,
   appGlobalAuthProfiles,
   featureGroups,
   selectedEnvId,
@@ -73,8 +77,6 @@ export default function EnvironmentManager({
   const [newAdditionalEnvBySvc, setNewAdditionalEnvBySvc] = useState<Record<string, string>>({});
   const [draggingEnvIdx, setDraggingEnvIdx] = useState<number | null>(null);
   const [draggingSvcIdx, setDraggingSvcIdx] = useState<number | null>(null);
-  const [newWorkspaceDefaultKey, setNewWorkspaceDefaultKey] = useState('');
-  const [newWorkspaceDefaultValue, setNewWorkspaceDefaultValue] = useState('');
 
   const getActiveProtocol = useCallback((svc: Microservice): ProtocolKey => {
     const enabled = getEffectiveEnabledProtocols(svc);
@@ -94,9 +96,12 @@ export default function EnvironmentManager({
     setMicroservices((prev) => prev.map((s) => {
       const next = { ...s.baseUrls };
       delete next[env.id];
+      const nextEnvVars = s.envVars ? { ...s.envVars } : undefined;
+      if (nextEnvVars) delete nextEnvVars[env.id];
       return {
         ...s,
         baseUrls: next,
+        envVars: nextEnvVars && Object.keys(nextEnvVars).length > 0 ? nextEnvVars : undefined,
         protocolEndpoints: stripEnvFromProtocolEndpoints(s, env.id),
       };
     }));
@@ -235,25 +240,21 @@ export default function EnvironmentManager({
     });
   }, [setMicroservices]);
 
-  const saveWorkspaceDefault = useCallback(() => {
-    const key = newWorkspaceDefaultKey.trim();
-    if (!key) return;
-    setWorkspaceDefaults((prev) => ({ ...prev, [key]: newWorkspaceDefaultValue }));
-    setNewWorkspaceDefaultKey('');
-    setNewWorkspaceDefaultValue('');
-  }, [newWorkspaceDefaultKey, newWorkspaceDefaultValue, setWorkspaceDefaults]);
+  const setGlobalVar = useCallback((svc: Microservice, key: string, value: string) => {
+    setMicroservices((prev) => applySetSvcGlobalVar(prev, svc.id, key, value));
+  }, [setMicroservices]);
 
-  const updateWorkspaceDefaultValue = useCallback((key: string, value: string) => {
-    setWorkspaceDefaults((prev) => ({ ...prev, [key]: value }));
-  }, [setWorkspaceDefaults]);
+  const deleteGlobalVar = useCallback((svc: Microservice, key: string) => {
+    setMicroservices((prev) => applyDeleteSvcGlobalVar(prev, svc.id, key));
+  }, [setMicroservices]);
 
-  const deleteWorkspaceDefault = useCallback((key: string) => {
-    setWorkspaceDefaults((prev) => {
-      const next = { ...prev };
-      delete next[key];
-      return next;
-    });
-  }, [setWorkspaceDefaults]);
+  const setEnvVar = useCallback((svc: Microservice, envId: string, key: string, value: string) => {
+    setMicroservices((prev) => applySetSvcEnvVar(prev, svc.id, envId, key, value));
+  }, [setMicroservices]);
+
+  const deleteEnvVar = useCallback((svc: Microservice, envId: string, key: string) => {
+    setMicroservices((prev) => applyDeleteSvcEnvVar(prev, svc.id, envId, key));
+  }, [setMicroservices]);
 
   return (
     <div className="env-manager">
@@ -437,6 +438,10 @@ export default function EnvironmentManager({
                           onNewAdditionalEnvNameChange={(value) => setNewAdditionalEnvBySvc((prev) => ({ ...prev, [svc.id]: value }))}
                           onAddAdditionalEnv={() => addAdditionalEnv(svc)}
                           onDeleteAdditionalEnv={(envId) => deleteAdditionalEnv(svc, envId)}
+                          onSetGlobalVar={(key, value) => setGlobalVar(svc, key, value)}
+                          onDeleteGlobalVar={(key) => deleteGlobalVar(svc, key)}
+                          onSetEnvVar={(envId, key, value) => setEnvVar(svc, envId, key, value)}
+                          onDeleteEnvVar={(envId, key) => deleteEnvVar(svc, envId, key)}
                         />
                       )}
                     </div>
@@ -445,67 +450,6 @@ export default function EnvironmentManager({
               );
             })}
           </div>
-        </div>
-
-        <div className="env-section">
-          <h4>Workspace Defaults (Interpolation)</h4>
-          <div className="em-workspace-defaults-note">
-            Values in this map are available to gRPC interpolation as workspace-level defaults.
-          </div>
-          <div className="settings-add-row">
-            <input
-              data-testid="em-ws-default-key-input"
-              placeholder="Key (e.g. grpcHost)"
-              value={newWorkspaceDefaultKey}
-              onChange={(e) => setNewWorkspaceDefaultKey(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newWorkspaceDefaultKey.trim()) saveWorkspaceDefault();
-              }}
-            />
-            <input
-              data-testid="em-ws-default-value-input"
-              placeholder="Value"
-              value={newWorkspaceDefaultValue}
-              onChange={(e) => setNewWorkspaceDefaultValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && newWorkspaceDefaultKey.trim()) saveWorkspaceDefault();
-              }}
-            />
-            <button
-              data-testid="em-ws-default-save-btn"
-              type="button"
-              className="btn btn-primary btn-xs"
-              disabled={!newWorkspaceDefaultKey.trim()}
-              onClick={saveWorkspaceDefault}
-            >
-              Set
-            </button>
-          </div>
-          {Object.keys(workspaceDefaults).length === 0 && (
-            <div className="empty-hint">No workspace defaults configured.</div>
-          )}
-          {Object.entries(workspaceDefaults)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([key, value]) => (
-              <div key={key} className="em-workspace-default-row" data-testid={`em-ws-default-row-${key}`}>
-                <code className="em-workspace-default-key">{key}</code>
-                <input
-                  data-testid={`em-ws-default-row-value-${key}`}
-                  className="em-workspace-default-value"
-                  value={value}
-                  onChange={(e) => updateWorkspaceDefaultValue(key, e.target.value)}
-                  aria-label={`Workspace default value for ${key}`}
-                />
-                <button
-                  type="button"
-                  className="btn btn-xs btn-danger"
-                  data-testid={`em-ws-default-delete-${key}`}
-                  onClick={() => deleteWorkspaceDefault(key)}
-                >
-                  Delete
-                </button>
-              </div>
-            ))}
         </div>
       </div>
     </div>

@@ -13,7 +13,7 @@ const mockReadFileSync = vi.mocked(readFileSync);
 
 describe('readStructuredFile', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('parses JSON files', () => {

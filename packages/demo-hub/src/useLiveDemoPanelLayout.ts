@@ -38,6 +38,13 @@ function clampGeometry(geom: LiveDemoPanelGeometry): LiveDemoPanelGeometry {
   return { top, left, width, height };
 }
 
+function isSameGeometry(a: LiveDemoPanelGeometry, b: LiveDemoPanelGeometry): boolean {
+  return a.top === b.top
+    && a.left === b.left
+    && a.width === b.width
+    && a.height === b.height;
+}
+
 export function createDefaultLiveDemoPanelGeometry(
   viewportWidth = typeof window !== 'undefined' ? window.innerWidth : 1280,
   viewportHeight = typeof window !== 'undefined' ? window.innerHeight : 900,
@@ -94,9 +101,15 @@ export function useLiveDemoPanelLayout(): {
 
   const commitGeometry = useCallback((next: LiveDemoPanelGeometry) => {
     const clamped = clampGeometry(next);
-    geometryRef.current = clamped;
-    setGeometry(clamped);
-    saveGeometry(clamped);
+    setGeometry((prev) => {
+      if (isSameGeometry(prev, clamped)) {
+        geometryRef.current = prev;
+        return prev;
+      }
+      geometryRef.current = clamped;
+      saveGeometry(clamped);
+      return clamped;
+    });
   }, []);
 
   useEffect(() => {

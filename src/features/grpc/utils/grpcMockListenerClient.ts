@@ -11,6 +11,13 @@ import type {
   GrpcMockListenerStatus,
 } from '../../../shared/grpc/grpcMockListenerContracts';
 import type { GrpcExportProtosetResult, GrpcRouteEnvelope } from '../../../shared/grpc/contracts';
+import {
+  invokeGrpcMockListenerCommitNative,
+  invokeGrpcMockListenerLogNative,
+  invokeGrpcMockListenerStartNative,
+  invokeGrpcMockListenerStatusNative,
+  invokeGrpcMockListenerStopNative,
+} from '../../../shared/grpc/grpcNativeTauriMockListener';
 
 interface MockApiEnvelope<T> {
   ok: boolean;
@@ -38,12 +45,15 @@ async function mockFetch<T>(method: 'GET' | 'POST', path: string, body?: unknown
 }
 
 export function supportsGrpcMockNetworkListener(): boolean {
-  return !isTauri();
+  return true;
 }
 
 export async function startGrpcMockNetworkListener(
   request: GrpcMockListenerStartRequest,
 ): Promise<GrpcMockListenerStatus> {
+  if (isTauri()) {
+    return invokeGrpcMockListenerStartNative(request);
+  }
   const data = await mockFetch<{ status: GrpcMockListenerStatus }>(
     'POST',
     '/api/grpc/mock/start',
@@ -53,6 +63,9 @@ export async function startGrpcMockNetworkListener(
 }
 
 export async function stopGrpcMockNetworkListener(tabId: string): Promise<GrpcMockListenerStatus> {
+  if (isTauri()) {
+    return invokeGrpcMockListenerStopNative(tabId);
+  }
   const data = await mockFetch<{ status: GrpcMockListenerStatus }>(
     'POST',
     '/api/grpc/mock/stop',
@@ -64,10 +77,16 @@ export async function stopGrpcMockNetworkListener(tabId: string): Promise<GrpcMo
 export async function commitGrpcMockNetworkListener(
   request: GrpcMockListenerCommitRequest,
 ): Promise<GrpcMockListenerCommitResult> {
+  if (isTauri()) {
+    return invokeGrpcMockListenerCommitNative(request);
+  }
   return mockFetch<GrpcMockListenerCommitResult>('POST', '/api/grpc/mock/commit', request);
 }
 
 export async function fetchGrpcMockNetworkListenerStatus(tabId: string): Promise<GrpcMockListenerStatus> {
+  if (isTauri()) {
+    return invokeGrpcMockListenerStatusNative(tabId);
+  }
   const data = await mockFetch<{ status: GrpcMockListenerStatus }>(
     'GET',
     `/api/grpc/mock/status?tabId=${encodeURIComponent(tabId)}`,
@@ -79,6 +98,9 @@ export async function fetchGrpcMockNetworkListenerLogs(
   tabId: string,
   since = -1,
 ): Promise<GrpcMockListenerLogsResult> {
+  if (isTauri()) {
+    return invokeGrpcMockListenerLogNative(tabId, since);
+  }
   return mockFetch<GrpcMockListenerLogsResult>(
     'GET',
     `/api/grpc/mock/log?tabId=${encodeURIComponent(tabId)}&since=${since}`,

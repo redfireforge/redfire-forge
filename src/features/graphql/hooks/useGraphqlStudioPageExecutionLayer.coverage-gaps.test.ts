@@ -224,7 +224,7 @@ const tabsLayer = {
 
 describe('useGraphqlStudioPageExecutionLayer — coverage gaps', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('wires execution refs and exposes response pane state', () => {

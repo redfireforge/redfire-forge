@@ -92,6 +92,21 @@ export class GrpcTauriEventSequenceBuffer {
       released.push(next);
     }
 
+    // If the first expected sequence was missed (attach race), do not deadlock forever.
+    // Fast-forward to the earliest available event and continue in-order from there.
+    if (released.length === 0 && this.pending.size > 0) {
+      const earliestPending = Math.min(...this.pending.keys());
+      if (earliestPending > this.lastSequence + 1) {
+        this.lastSequence = earliestPending - 1;
+        while (this.pending.has(this.lastSequence + 1)) {
+          const next = this.pending.get(this.lastSequence + 1)!;
+          this.pending.delete(this.lastSequence + 1);
+          this.lastSequence = next.sequence;
+          released.push(next);
+        }
+      }
+    }
+
     if (this.pending.size > GRPC_TAURI_EVENT_REORDER_BUFFER) {
       const overflow = [...this.pending.keys()].sort((a, b) => a - b);
       for (const key of overflow.slice(0, overflow.length - GRPC_TAURI_EVENT_REORDER_BUFFER)) {

@@ -26,7 +26,7 @@ function makeEnv(vars: Record<string, string>): GraphqlEnvironment {
 describe('GraphqlHeadersPanel', () => {
   const onChange = vi.fn();
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders empty state when no headers', () => {
     render(<GraphqlHeadersPanel headers={[]} onChange={onChange} />);

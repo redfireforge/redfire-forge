@@ -62,7 +62,7 @@ function makeSuccessFetchResult(data: unknown = { hello: 'world' }) {
 
 describe('useGraphqlStudioTabExecution — real layers (Phase 6E integration)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('isolates per-tab response state when switching tabs', async () => {

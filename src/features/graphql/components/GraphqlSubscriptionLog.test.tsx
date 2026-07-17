@@ -58,7 +58,7 @@ function defaultProps(overrides: Partial<GraphqlSubscriptionLogProps> = {}): Gra
 describe('GraphqlSubscriptionLog', () => {
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders the stats bar', () => {

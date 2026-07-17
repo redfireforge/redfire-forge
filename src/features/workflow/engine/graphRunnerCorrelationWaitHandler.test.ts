@@ -43,7 +43,7 @@ function makeResumeData(data: Record<string, unknown> = {}): Record<string, unkn
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 // ── handleCorrelationWaitNode ─────────────────────────────────────────────────

@@ -37,7 +37,7 @@ function defaultProps(menu: ContextMenuState) {
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

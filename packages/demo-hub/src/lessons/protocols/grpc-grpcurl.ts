@@ -26,15 +26,18 @@ import {
   closeGrpcSettingsDrawerQuiet,
   clearGrpcSchemaDriftQuiet,
   ensureGrpcReflected,
+  guardGrpcReflectedQuiet,
   ensureGrpcStudioSubNavQuiet,
   ensureUnaryExecuted,
   grpcFirstCallCleanup,
   grpcFirstCallSetup,
   openGrpcHistoryPanelQuiet,
   spotlightAndPause,
+  spotlightResponseJsonContentTight,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
 import { closeModalByButtonQuiet } from '../modal-close-helpers';
+import { clearGrpcCallHistory, dispatchGrpcCallHistoryReload } from '../../adapters';
 import type { DemoActionContext } from '../../types';
 
 // ---------------------------------------------------------------------------
@@ -98,6 +101,11 @@ async function ensureCommandPastedQuiet(ctx: DemoActionContext): Promise<void> {
 
 /** Submit the pasted grpcurl command and wait for reflection to finish. */
 async function ensureGrpcurlImportedQuiet(ctx: DemoActionContext): Promise<void> {
+  // Skip the full modal flow if the import has already been done in this session.
+  if (document.querySelector(GRPC.EXPLORER_TREE) && !document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)) {
+    return;
+  }
+
   await ensureCommandPastedQuiet(ctx);
 
   if (document.querySelector(GRPC.IMPORT_GRPCURL_MODAL)) {
@@ -143,7 +151,12 @@ export const grpcGrpcurlLesson: GrpcDemoLesson = {
     'a grpcurl command via History — the complete command, including all headers and ' +
     'the auth token, is copied to the clipboard ready to run in a terminal.',
 
-  setup: (ctx) => grpcFirstCallSetup(ctx, { resetSchemaDrafts: false }),
+  setup: async (ctx) => {
+    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+    // Full clear so step 7 shows only the single call made during this lesson.
+    try { await clearGrpcCallHistory(); } catch { /* best-effort */ }
+    dispatchGrpcCallHistoryReload();
+  },
   cleanup: grpcFirstCallCleanup,
 
   grpc: buildGrpcContractMetaFromRoster(GRPC22_ROSTER),
@@ -300,6 +313,13 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
         await closeImportModalQuiet(ctx);
+        // Full clear once the Studio page is confirmed mounted so the
+        // GRPC_CALL_HISTORY_UPDATED_EVENT reaches the live useGrpcCallHistory
+        // listener and the badge resets to 0 before the viewer sees it.
+        try { await clearGrpcCallHistory(); } catch { /* best-effort */ }
+        // Second pulse after a tick so React's batched state update flushes.
+        await ctx.delay(120);
+        dispatchGrpcCallHistoryReload();
       },
       action: async (ctx) => {
         // Spotlight the Import grpcurl button first so the viewer lands on the exact control.
@@ -444,12 +464,14 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
       highlight: GRPC.TARGET_INPUT,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
+        // If already imported and reflected with no drift, nothing to do.
         if (
           document.querySelector(GRPC.EXPLORER_TREE)
           && !document.querySelector(GRPC.SCHEMA_DRIFT_BANNER)
         ) {
           return;
         }
+        // Open the modal with the command pre-filled so the action can click Import.
         await ensureCommandPastedQuiet(ctx);
       },
       action: async (ctx) => {
@@ -471,6 +493,15 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
         } catch {
           await ensureGrpcReflected(ctx);
         }
+
+        // guardGrpcReflectedQuiet checks if the tree is already loaded from
+        // auto-reflection and, if so, only captures the descriptor key + sets
+        // the reflected flag without clicking Reflect a second time. If the
+        // tree isn't loaded yet it falls back to a full ensureGrpcReflected.
+        // This is necessary because auto-reflection doesn't set the lesson's
+        // reflected flag, so clearGrpcSchemaDriftQuiet needs the descriptor
+        // key bound before it can dismiss the "No descriptor loaded" banner.
+        await guardGrpcReflectedQuiet(ctx);
         await clearGrpcSchemaDriftQuiet(ctx);
         await ctx.delay(500);
 
@@ -524,11 +555,13 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
         '- **Body** — `{"message":"hello from grpcurl"}` echoed back\n' +
         '- **Duration** — how long the round-trip took\n\n' +
         'History logs this entry automatically. You\'ll use it in the next step to export back to grpcurl.',
-      highlight: GRPC.RESPONSE_PANEL,
       preAction: async (ctx) => {
         await ensureStudioNav(ctx);
         await closeImportModalQuiet(ctx);
-        await ensureImportedCallExecuted(ctx);
+        // Only ensure the import is done — the action is what sends the call
+        // visibly to the viewer. Calling ensureImportedCallExecuted here would
+        // fire a silent pre-send that duplicates the action's own Send click.
+        await ensureGrpcurlImportedQuiet(ctx);
       },
       action: async (ctx) => {
         // Spotlight the Send button for the viewer.
@@ -544,11 +577,10 @@ The **Copy grpcurl** button in History (and Collections) produces a complete, re
         await ctx.delay(600);
 
         // Spotlight the response status + body.
-        await spotlightAndPause(ctx, GRPC.RESPONSE_PANEL, 800);
         if (document.querySelector(GRPC.RESPONSE_STATUS)) {
           await spotlightAndPause(ctx, GRPC.RESPONSE_STATUS, 800);
         }
-        await spotlightAndPause(ctx, GRPC.RESPONSE_BODY, 1_000);
+        await spotlightResponseJsonContentTight(ctx, 1_000);
 
         // Note the history badge that appeared.
         if (document.querySelector(GRPC.SUB_NAV_HISTORY_BADGE)) {

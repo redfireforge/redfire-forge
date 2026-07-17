@@ -63,7 +63,7 @@ async function renderMockHook(connectionId = 'conn-1', sdl: string | null = null
 
 describe('useGraphqlMockServer', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockFetch.mockResolvedValue({ ok: true, json: async () => ({ ok: true }) });
   });
 
@@ -75,7 +75,7 @@ describe('useGraphqlMockServer', () => {
     // IMPORTANT: Uses Promise.resolve() (microtask), NOT setTimeout — setTimeout would
     // hang indefinitely when vi.useFakeTimers() is active in a test.
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('initial state', () => {

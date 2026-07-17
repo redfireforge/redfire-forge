@@ -14,7 +14,7 @@ import { reflectGrpcWorkflowTarget } from '../utils/grpcWorkflowReflection';
 
 describe('useGrpcWorkflowTargetReflection', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
   });
 
   it('reflects automatically after a valid target is entered', async () => {
@@ -37,7 +37,27 @@ describe('useGrpcWorkflowTargetReflection', () => {
     });
 
     expect(result.current.status).toBe('idle');
+    expect(result.current.usedWorkflowDefaults).toBe(false);
+    expect(result.current.resolvedTarget).toBe('{{grpcHost}}');
     expect(reflectGrpcWorkflowTarget).not.toHaveBeenCalled();
+  });
+
+  it('reflects against workflow variable defaults for template targets', async () => {
+    vi.mocked(reflectGrpcWorkflowTarget).mockResolvedValue(FIXTURE_DESCRIPTOR);
+
+    const { result } = renderHook(() =>
+      useGrpcWorkflowTargetReflection('{{grpcTarget}}', 'disabled', {
+        grpcTarget: 'localhost:50051',
+      }),
+    );
+
+    await waitFor(() => {
+      expect(result.current.status).toBe('ready');
+    });
+
+    expect(result.current.usedWorkflowDefaults).toBe(true);
+    expect(result.current.resolvedTarget).toBe('localhost:50051');
+    expect(reflectGrpcWorkflowTarget).toHaveBeenCalledWith('localhost:50051', 'disabled');
   });
 
   it('surfaces reflection errors and supports manual reflectNow', async () => {

@@ -9,6 +9,7 @@
 @import './requests.css';
 @import './catalog.css';
 @import './environment-manager.css';
+@import './environment-manager-vars-modal.css';
 @import './studio-endpoint-preview.css';
 @import './waterfall.css';
 @import './workflow.css';

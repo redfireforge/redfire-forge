@@ -504,6 +504,31 @@ describe('useGrpcAdvancedSchemaDiffSession coverage gaps', () => {
     });
   });
 
+  it('ignores persisted schema diff payloads that are not objects', async () => {
+    window.localStorage.setItem(SCHEMA_DIFF_STORAGE_KEY, 'null');
+    const getTabState = vi.fn(() => makeTabState({
+      schemaDiff: {
+        baselineDescriptor: undefined,
+        baselineCapturedAt: undefined,
+        lastReport: undefined,
+        severityFilter: 'all',
+        hideAcknowledged: false,
+      },
+    }));
+    const patchTabState = vi.fn();
+
+    renderHook(() => useGrpcAdvancedSchemaDiffSession(
+      makeStudio(),
+      'tab-1',
+      getTabState,
+      patchTabState,
+    ));
+
+    await waitFor(() => {
+      expect(patchTabState).not.toHaveBeenCalled();
+    });
+  });
+
   it('ignores invalid persisted schema diff payloads', async () => {
     window.localStorage.setItem(SCHEMA_DIFF_STORAGE_KEY, '{not-json');
     const getTabState = vi.fn(() => makeTabState({

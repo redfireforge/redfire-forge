@@ -24,6 +24,8 @@ export const WF = {
   NEW_BLANK_ITEM:      '.wf-new-dropdown-item:first-child',
   CREATE_INPUT:        '.req-confirm-input',
   CREATE_OK:           '.req-confirm-ok',
+  // Palette search
+  PAL_SEARCH:          '.wf-palette-search',
   // Palette items
   PAL_WS_CONNECT:      '.wf-palette-block-wsConnect',
   PAL_WS_SEND:         '.wf-palette-block-wsSend',
@@ -41,9 +43,9 @@ export const WF = {
   PAL_GRPC_UNARY:      '.wf-palette-block-grpcUnary',
   PAL_GRPC_ASSERT:     '.wf-palette-block-grpcAssert',
   PAL_GRPC_SERVER_STREAM: '.wf-palette-block-grpcServerStream',
-  // gRPC workflow canvas nodes
-  NODE_GRPC_UNARY:     '.react-flow__node-grpcUnary',
-  NODE_GRPC_ASSERT:    '.react-flow__node-grpcAssert',
+  // gRPC workflow canvas nodes (testid on node body — reliable for demo verify/spotlight)
+  NODE_GRPC_UNARY:     '[data-testid="grpc-canvas-unary-node"]',
+  NODE_GRPC_ASSERT:    '[data-testid="grpc-canvas-assert-node"]',
   // gRPC workflow config modal fields
   GRPC_UNARY_CONFIG:       '[data-testid="grpc-unary-config"]',
   GRPC_UNARY_CFG_TARGET:   '[data-testid="grpc-unary-config-target"]',
@@ -76,6 +78,7 @@ export const WF = {
   CONSOLE_CLEAR_BTN:   '.wf-console-action-btn[title="Clear console"]',
   DEBUG_BTN:           'button[title="Run workflow step-by-step"]',
   DEBUG_STEP_BTN:      '.wf-debug-step-btn',
+  RUN_IN_HARNESS_BTN:  '.wf-toolbar-harness-btn',
   // Defaults (Variables) modal
   DEFAULTS_MODAL:      '.wf-defaults-modal',
   DEFAULTS_NEW_KEY:    '.wf-defaults-modal .wf-var-key-input[placeholder="name"]',
