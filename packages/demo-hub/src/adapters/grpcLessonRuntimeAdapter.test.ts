@@ -4,6 +4,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   isGrpcStudioLesson,
+  pauseGrpcStudioLessonRun,
   runGrpcStudioLessonSetup,
   runGrpcStudioLessonTeardown,
   restartGrpcStudioLessonRun,
@@ -39,10 +40,28 @@ describe('grpcLessonRuntimeAdapter', () => {
     expect(getGrpcLessonRun()).toBeNull();
   });
 
+  it('pause marks run paused without clearing run state', () => {
+    runGrpcStudioLessonSetup(grpcFirstCallLesson);
+    pauseGrpcStudioLessonRun();
+    expect(getGrpcLessonRun()?.status).toBe('paused');
+  });
+
   it('syncGrpcStudioLessonStep updates checkpoints', () => {
     runGrpcStudioLessonSetup(grpcFirstCallLesson);
     syncGrpcStudioLessonStep(grpcFirstCallLesson, 'grpc1-target', 1);
     expect(getGrpcLessonRun()?.flags.targetSet).toBe(true);
+  });
+
+  it('sync helpers are no-op for non-gRPC lessons', () => {
+    runGrpcStudioLessonSetup(grpcFirstCallLesson);
+    const nonGrpc = { ...grpcFirstCallLesson, category: 'graphql' } as never;
+    syncGrpcStudioLessonStep(nonGrpc, 'grpc1-target', 1);
+    syncGrpcStudioLessonStepOnComplete(nonGrpc, 'grpc1-fill-message', 4, {
+      verifyRequired: false,
+      verified: true,
+    });
+    expect(getGrpcLessonRun()?.flags.targetSet).toBe(false);
+    expect(getGrpcLessonRun()?.stepIndex).toBe(0);
   });
 
   it('syncGrpcStudioLessonStepOnComplete advances unverified checkpoint steps', () => {
@@ -106,5 +125,29 @@ describe('grpcLessonRuntimeAdapter', () => {
     } satisfies DemoActionContext;
     await runGrpcStudioLessonTeardown(grpcFirstCallLesson, ctx);
     expect(getGrpcLessonRun()).toBeNull();
+  });
+
+  it('teardown logs warning and still clears runtime when cleanup throws', async () => {
+    runGrpcStudioLessonSetup(grpcFirstCallLesson);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const badLesson = {
+      ...grpcFirstCallLesson,
+      cleanup: async () => {
+        throw new Error('cleanup failed');
+      },
+    };
+    const ctx = {
+      navigateToTab: () => {},
+      click: async () => {},
+      fill: async () => {},
+      selectOption: async () => {},
+      waitFor: async () => {},
+      delay: async () => {},
+    } satisfies DemoActionContext;
+
+    await runGrpcStudioLessonTeardown(badLesson, ctx);
+    expect(warnSpy).toHaveBeenCalled();
+    expect(getGrpcLessonRun()).toBeNull();
+    warnSpy.mockRestore();
   });
 });

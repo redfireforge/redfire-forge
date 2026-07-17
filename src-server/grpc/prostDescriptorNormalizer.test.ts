@@ -273,6 +273,44 @@ describe('normalizeFileDescriptorSetForProst', () => {
     normalizeFileDescriptorSetForProst(set);
     expect(set.file!.some((file) => file.name === 'consumer.proto')).toBe(true);
   });
+
+  it('clears empty extendee/typeName on map-entry fields (prost-reflect compatibility)', () => {
+    const set: FileDescriptorSetLike = {
+      file: [
+        {
+          name: 'echo.proto',
+          package: 'echo',
+          messageType: [
+            {
+              name: 'ComplexEchoRequest',
+              nestedType: [
+                {
+                  name: 'Attributes',
+                  field: [
+                    { name: 'key', number: 1, typeName: '', extendee: '' },
+                    { name: 'value', number: 2, typeName: '', extendee: '' },
+                  ],
+                },
+              ],
+              field: [
+                { name: 'attributes', number: 3, typeName: 'Attributes', extendee: '' },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    normalizeFileDescriptorSetForProst(set);
+
+    const request = set.file![0]!.messageType![0]!;
+    const attrs = request.nestedType![0]!;
+    expect(attrs.field![0]!.extendee == null).toBe(true);
+    expect(attrs.field![0]!.typeName == null).toBe(true);
+    expect(attrs.field![1]!.extendee == null).toBe(true);
+    expect(request.field![0]!.extendee == null).toBe(true);
+    expect(request.field![0]!.typeName).toBe('.echo.ComplexEchoRequest.Attributes');
+  });
 });
 
 describe('encodeRootAsProtosetBase64 (WKT-aware)', () => {
@@ -307,5 +345,35 @@ describe('encodeRootAsProtosetBase64 (WKT-aware)', () => {
     // Dependency precedes dependent.
     const order = files.map((f) => f.name);
     expect(order.indexOf(timestampFile!.name)).toBeLessThan(order.indexOf(echoFile!.name));
+  });
+
+  it('reflection map-entry protoset encodes without empty extendee (Tauri native)', async () => {
+    // Live Go echo fixture — skip when Docker is down so unit CI stays hermetic.
+    try {
+      const health = await fetch('http://localhost:50052/health', { signal: AbortSignal.timeout(800) });
+      if (!health.ok) return;
+    } catch {
+      return;
+    }
+
+    const { GrpcReflectionClient } = await import('./reflectionClient.js');
+    const client = new GrpcReflectionClient();
+    const reflected = await client.fetchReflectionRoot({
+      address: 'localhost:50051',
+      timeoutMs: 8_000,
+    });
+    const base64 = encodeRootAsProtosetBase64(reflected.root);
+    const fds = descriptor.FileDescriptorSet.decode(Buffer.from(base64, 'base64'));
+    const echo = (fds.file ?? []).find((f: { package?: string }) => f.package === 'echo');
+    expect(echo).toBeDefined();
+    const request = (echo!.messageType ?? []).find((m: { name?: string }) => m.name === 'ComplexEchoRequest');
+    const attrs = (request?.nestedType ?? []).find((m: { name?: string }) => m.name === 'Attributes');
+    expect(attrs).toBeDefined();
+    // Encode the map-entry DescriptorProto and ensure key/value do not carry an
+    // empty `extendee` (`12 00` after the field name) — that breaks prost-reflect.
+    const attrsHex = Buffer.from(descriptor.DescriptorProto.encode(attrs).finish()).toString('hex');
+    expect(attrsHex.includes('0a036b65791200')).toBe(false); // name "key" + empty extendee
+    expect(attrsHex.includes('0a0576616c75651200')).toBe(false); // name "value" + empty extendee
+    expect(attrsHex.includes('3a023801')).toBe(true); // options.map_entry = true still present
   });
 });

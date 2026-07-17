@@ -150,6 +150,10 @@ describe('kafka-publish lesson', () => {
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('pub-clear-btn'));
   });
+  it('has Docker badge tag', () => {
+    expect(kafkaPublishLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 
 // ─── K1: kafka-quick-start ──────────────────────────────────────

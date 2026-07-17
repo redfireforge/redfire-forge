@@ -233,6 +233,10 @@ describe('kafka-quick-start lesson', () => {
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-message-studio');
     expect(ctx.delay).toHaveBeenCalledWith(400);
   });
+  it('has Docker badge tag', () => {
+    expect(kafkaQuickStartLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 
 // ─── K3: kafka-consume ─────────────────────────────────────────────────────

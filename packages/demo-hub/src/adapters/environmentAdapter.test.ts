@@ -6,15 +6,21 @@ vi.mock('@graphql/utils/gqlDemoGlobalAuthProfiles', () => ({
   ALL_GQL_DEMO_GLOBAL_AUTH_PROFILE_SPECS: [{ id: 'lesson6-gql-profile', name: 'Lesson 6 Bearer' }],
   purgeGqlDemoGlobalAuthProfilesFromStorage: vi.fn(async () => 2),
 }));
+vi.mock('@graphql/utils/gqlDemoBatchDetectionCleanup', () => ({
+  purgeGqlDemoBatchDetectionFlags: vi.fn(async () => undefined),
+}));
 
 import {
   applyGqlTlsSettings,
   deleteGqlEnvironmentByName,
   purgeGqlDemoGlobalAuthProfiles,
+  removeWorkspaceDefaults,
+  resetGqlDemoBatchDetection,
   upsertGlobalAuthProfile,
   upsertGqlEnvironment,
   upsertWorkspaceDefaults,
 } from './environmentAdapter';
+import { purgeGqlDemoBatchDetectionFlags } from '@graphql/utils/gqlDemoBatchDetectionCleanup';
 import { purgeGqlDemoGlobalAuthProfilesFromStorage } from '@graphql/utils/gqlDemoGlobalAuthProfiles';
 
 describe('environmentAdapter', () => {
@@ -25,6 +31,8 @@ describe('environmentAdapter', () => {
     delete (window as unknown as Record<string, unknown>).__demoApplyGqlTlsSettings;
     delete (window as unknown as Record<string, unknown>).__demoDeleteGqlEnvByName;
     delete (window as unknown as Record<string, unknown>).__demoUpsertWorkspaceDefaults;
+    delete (window as unknown as Record<string, unknown>).__demoRemoveWorkspaceDefaults;
+    delete (window as unknown as Record<string, unknown>).__demoResetGqlBatchDetection;
     resetAllMocks();
   });
 
@@ -81,6 +89,30 @@ describe('environmentAdapter', () => {
     (window as unknown as Record<string, unknown>).__demoUpsertWorkspaceDefaults = spy;
     expect(upsertWorkspaceDefaults({ authToken: 'token-demo-123' })).toBe(true);
     expect(spy).toHaveBeenCalledWith({ authToken: 'token-demo-123' });
+  });
+
+  it('removeWorkspaceDefaults returns false when bridge missing', () => {
+    expect(removeWorkspaceDefaults(['authToken'])).toBe(false);
+  });
+
+  it('removeWorkspaceDefaults applies key removal via bridge', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoRemoveWorkspaceDefaults = spy;
+    expect(removeWorkspaceDefaults(['authToken'])).toBe(true);
+    expect(spy).toHaveBeenCalledWith(['authToken']);
+  });
+
+  it('resetGqlDemoBatchDetection purges persisted flags and returns bridge live value', async () => {
+    const spy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__demoResetGqlBatchDetection = spy;
+    await expect(resetGqlDemoBatchDetection()).resolves.toBe(true);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(purgeGqlDemoBatchDetectionFlags).toHaveBeenCalledTimes(1);
+  });
+
+  it('resetGqlDemoBatchDetection returns false when bridge is absent', async () => {
+    await expect(resetGqlDemoBatchDetection()).resolves.toBe(false);
+    expect(purgeGqlDemoBatchDetectionFlags).toHaveBeenCalledTimes(1);
   });
 
   it('purgeGqlDemoGlobalAuthProfiles purges storage and syncs bridge state', async () => {

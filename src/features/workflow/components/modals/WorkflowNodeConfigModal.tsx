@@ -307,6 +307,9 @@ export default function WorkflowNodeConfigModal({
   const title = nodeUserLabel && nodeUserLabel !== nodeTypeLabel
     ? `${nodeTypeLabel} — ${nodeUserLabel}`
     : nodeTypeLabel;
+  const dialogClassName = isGraphqlNode
+    ? 'wf-config-modal wf-config-modal--gql'
+    : 'wf-config-modal';
 
   return (
     <>
@@ -317,7 +320,28 @@ export default function WorkflowNodeConfigModal({
         expandMode="fullscreen"
         hideExpandButton
         hideCloseButton
-        dialogClassName={isGraphqlNode ? 'wf-config-modal wf-config-modal--gql' : 'wf-config-modal'}
+        dialogClassName={dialogClassName}
+        toolbar={(
+          <div className="wf-config-modal-tabs">
+            <button type="button" className={`wf-config-modal-tab${panelTab === 'config' ? ' active' : ''}`} onClick={() => setPanelTab('config')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+              Config
+            </button>
+            <button type="button" className={`wf-config-modal-tab${panelTab === 'input' ? ' active' : ''}`} onClick={() => setPanelTab('input')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 16 12"/><polyline points="22 12 18 8"/><polyline points="22 12 18 16"/><rect x="2" y="4" width="12" height="16" rx="2"/></svg>
+              Input
+              {inputTabHints.length > 0 && <span className="wf-config-modal-tab-badge">{inputTabHints.length}</span>}
+            </button>
+            <button type="button" className={`wf-config-modal-tab${panelTab === 'output' ? ' active' : ''}`} onClick={() => setPanelTab('output')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="2 12 8 12"/><polyline points="2 12 6 8"/><polyline points="2 12 6 16"/><rect x="10" y="4" width="12" height="16" rx="2"/></svg>
+              Output
+            </button>
+            <button type="button" className={`wf-config-modal-tab${panelTab === 'logs' ? ' active' : ''}`} onClick={() => setPanelTab('logs')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+              Logs
+            </button>
+          </div>
+        )}
         footer={(
           <div className="wf-config-modal-footer-actions">
             <button type="button" className="btn btn-sm btn-ghost" onClick={handleCancel}>Close</button>
@@ -333,25 +357,6 @@ export default function WorkflowNodeConfigModal({
           </div>
         )}
       >
-          <div className="wf-config-modal-tabs">
-            <button className={`wf-config-modal-tab${panelTab === 'config' ? ' active' : ''}`} onClick={() => setPanelTab('config')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-              Config
-            </button>
-            <button className={`wf-config-modal-tab${panelTab === 'input' ? ' active' : ''}`} onClick={() => setPanelTab('input')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="22 12 16 12"/><polyline points="22 12 18 8"/><polyline points="22 12 18 16"/><rect x="2" y="4" width="12" height="16" rx="2"/></svg>
-              Input
-              {inputTabHints.length > 0 && <span className="wf-config-modal-tab-badge">{inputTabHints.length}</span>}
-            </button>
-            <button className={`wf-config-modal-tab${panelTab === 'output' ? ' active' : ''}`} onClick={() => setPanelTab('output')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="2 12 8 12"/><polyline points="2 12 6 8"/><polyline points="2 12 6 16"/><rect x="10" y="4" width="12" height="16" rx="2"/></svg>
-              Output
-            </button>
-            <button className={`wf-config-modal-tab${panelTab === 'logs' ? ' active' : ''}`} onClick={() => setPanelTab('logs')}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
-              Logs
-            </button>
-          </div>
           <div>
             {panelTab === 'config' && (<>
             {isHttpWorkflowNode(draftNode) && (
@@ -654,6 +659,7 @@ export default function WorkflowNodeConfigModal({
                 data={draftNode.data as GrpcUnaryNodeData}
                 onChange={(data) => updateDraft(data)}
                 globalAuthProfiles={globalAuthProfiles}
+                workflowVariables={workflowVariables}
               />
             )}
 
@@ -662,6 +668,7 @@ export default function WorkflowNodeConfigModal({
                 data={draftNode.data as GrpcServerStreamNodeData}
                 onChange={(data) => updateDraft(data)}
                 globalAuthProfiles={globalAuthProfiles}
+                workflowVariables={workflowVariables}
               />
             )}
 
@@ -677,6 +684,7 @@ export default function WorkflowNodeConfigModal({
                 data={draftNode.data as GrpcLoadTestNodeData}
                 onChange={(data) => updateDraft(data)}
                 globalAuthProfiles={globalAuthProfiles}
+                workflowVariables={workflowVariables}
               />
             )}
 

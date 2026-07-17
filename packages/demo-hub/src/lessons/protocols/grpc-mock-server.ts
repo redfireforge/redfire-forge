@@ -37,7 +37,7 @@ import {
   grpcFirstCallSetup,
 } from './grpc-lesson-helpers';
 import { navigateToGrpcStudio } from '../env-manager-lesson-helpers';
-import { navigateToMockServerPanelQuiet, stopMockQuiet } from './grpc-mock-server-helpers';
+import { markDemoMockRunning, navigateToMockServerPanelQuiet, stopMockQuiet } from './grpc-mock-server-helpers';
 import { grpcMockServerSteps } from './grpc-mock-server-steps';
 
 const GRPC13_ROSTER = getGrpcLessonRosterEntry('grpc-mock-server')!;
@@ -201,6 +201,10 @@ export const grpcMockServerLesson: GrpcDemoLesson = {
   },
   grpc: buildGrpcContractMetaFromRoster(GRPC13_ROSTER),
   setup: async (ctx) => {
+    // Reset mock-running tracking so a re-entry / restart doesn't inherit a
+    // stale "running" flag from a previous run (the runtime is stopped on
+    // cleanup, so the flag must start false).
+    markDemoMockRunning(false);
     // Skip the Manage Schemas draft reset — this lesson uses server reflection,
     // never staged schema sources. Running it would open/close the Manage Schemas
     // modal (cycling Proto Files/Protoset/URL/BSR sub-tabs) for every tab, which

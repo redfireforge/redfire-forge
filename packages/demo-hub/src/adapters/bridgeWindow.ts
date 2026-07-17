@@ -50,7 +50,12 @@ export type DemoBridgeWindow = Window &
     ) => boolean;
     __wfWorkflowsLoaded?: boolean;
     __wfOpenNodeConfig?: (nodeId: string) => void;
-    __wfFitView?: () => boolean;
+    __wfFitView?: (opts?: {
+      padding?: number | { top?: number; right?: number; bottom?: number; left?: number };
+      maxZoom?: number;
+      minZoom?: number;
+      duration?: number;
+    }) => boolean;
     __wfDeselectAll?: () => void;
     __wfSetConsoleFloatLayout?: () => void;
     __wfConnect?: (

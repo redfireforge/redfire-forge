@@ -267,4 +267,17 @@ describe('useLiveDemoPanelLayout — coverage gaps', () => {
     expect(result.current.panelStyle.left).toBeLessThanOrEqual(92);
     expect(result.current.panelStyle.top).toBeLessThanOrEqual(400 - DEMO_LIVE_PANEL_MIN_HEIGHT - 8);
   });
+
+  it('does not persist when resize keeps geometry identical', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    const { result } = renderHook(() => useLiveDemoPanelLayout());
+    const before = { ...result.current.panelStyle };
+
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    expect(result.current.panelStyle).toMatchObject(before);
+    expect(setItemSpy).not.toHaveBeenCalled();
+  });
 });

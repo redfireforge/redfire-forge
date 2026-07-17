@@ -8,6 +8,7 @@ import {
   connectWorkflowNodes,
   deleteWorkflowByName,
   fitResultsExplorerDiagram,
+  fitWorkflowCanvasView,
   getGrpcActiveDescriptorKey,
   getWorkflowByName,
   applyRunnerBatchConfig,
@@ -21,7 +22,7 @@ import {
 import {
   cleanupWorkflowDemoRunUi,
   closeWfConfigModalIfOpen,
-  collapseWfDemoAppSidebar,
+  expandWfDemoAppSidebar,
 } from '../wf-demo-helpers';
 import {
   WF14_NAME,
@@ -30,8 +31,9 @@ import {
   isNodeOnCanvas,
   isWorkflowPresent,
 } from './grpc-workflow-integration-helpers';
-import { grpcFirstCallSetup, grpcFirstCallCleanup } from './grpc-lesson-helpers';
+import { grpcFirstCallCleanup, spotlightAndPause, spotlightElementAndPause } from './grpc-lesson-helpers';
 import { findScrollableParent, pauseDemoAutoScroll } from '../../demoSpotlightUtils';
+import { showClickRipple } from '../../demoRipple';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -48,6 +50,14 @@ export const GRPCWR_TRACE_LEVEL = 'standard' as const;
 
 export const WF_RUNNER_SELECT = '[data-testid="workflow-select"]';
 export const GRPCWR_EXPLORER_BTN = 'button[title="Explore execution results"]';
+export const GRPCWR_VARS_SECTION = '.workflow-vars-section';
+export const GRPCWR_CONFIG_SECTION = '.workflow-runner-config-section';
+export const GRPCWR_COMPLETION = '.completion-section';
+export const GRPCWR_VIEW_RESULTS_BTN = '.completion-section .btn-primary, .wfp-view-results-btn, [data-testid="view-results-btn"]';
+export const GRPCWR_PROGRESS = '.progress-section';
+export const GRPCWR_REQUEST_ROW = '.clickable-row';
+export const GRPCWR_EXPLORER_DETAIL = '.results-explorer-detail';
+export const GRPCWR_EXPLORER_MATRIX = '.iteration-matrix';
 
 // ── Session flags ──────────────────────────────────────────────────────────
 
@@ -197,6 +207,8 @@ export async function seedGrpcWRWorkflowQuiet(ctx: DemoActionContext): Promise<v
     assertAdded: true,
     assertConfigured: true,
   });
+  fitWorkflowCanvasView();
+  await ctx.delay(120);
 }
 
 export async function ensureOnWorkflowTab(ctx: DemoActionContext): Promise<void> {
@@ -225,8 +237,43 @@ export async function ensureWorkflowSeededForRunner(ctx: DemoActionContext): Pro
   }
 }
 
+function fillRunnerLabeledNumberInput(labelText: string, value: string): HTMLInputElement | null {
+  const field = Array.from(document.querySelectorAll('.resilience-field')).find(
+    (el) => el.querySelector('label')?.textContent?.trim() === labelText,
+  );
+  const input = field?.querySelector<HTMLInputElement>('input') ?? null;
+  if (!input) return null;
+  const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+  nativeSet?.call(input, value);
+  input.dispatchEvent(new Event('input', { bubbles: true }));
+  input.dispatchEvent(new Event('change', { bubbles: true }));
+  input.dispatchEvent(new Event('blur', { bubbles: true }));
+  return input;
+}
+
+function resilienceFieldByLabel(labelText: string): HTMLElement | null {
+  const field = Array.from(document.querySelectorAll<HTMLElement>('.resilience-field')).find(
+    (el) => el.querySelector('label')?.textContent?.trim() === labelText,
+  );
+  return field ?? null;
+}
+
+/** Spotlight the grpcTarget row in Initial Variables (name + override value). */
+export async function spotlightGrpcTargetVarRow(ctx: DemoActionContext, holdMs = 900): Promise<void> {
+  const rows = Array.from(document.querySelectorAll<HTMLElement>(`${GRPCWR_VARS_SECTION} .wfp-var-row, ${GRPCWR_VARS_SECTION} [data-testid="var-row"]`));
+  const row =
+    rows.find((el) => el.textContent?.includes(GRPCWR_TARGET_VAR))
+    ?? document.querySelector<HTMLElement>(`${GRPCWR_VARS_SECTION} .wfp-var-row`)
+    ?? document.querySelector<HTMLElement>(GRPCWR_VARS_SECTION);
+  if (!row) return;
+  row.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  await ctx.delay(200);
+  await spotlightElementAndPause(ctx, row, holdMs);
+}
+
 export async function selectGrpcEchoWorkflow(ctx: DemoActionContext): Promise<void> {
   selectRunnerWorkflowByName(WF14_NAME);
+  await spotlightAndPause(ctx, WF_RUNNER_SELECT, 550);
   await ctx.click(WF_RUNNER_SELECT);
   await ctx.waitFor('.wfp-dropdown-panel');
   await ctx.delay(400);
@@ -235,35 +282,96 @@ export async function selectGrpcEchoWorkflow(ctx: DemoActionContext): Promise<vo
     items.find((el) => el.textContent?.trim() === WF14_NAME) ??
     items.find((el) => el.textContent?.trim().startsWith(WF14_NAME));
   if (target) {
+    await spotlightElementAndPause(ctx, target, 500);
     target.click();
     await ctx.delay(700);
   }
   grpcWRSession.workflowSelected = true;
 }
 
+/** Quiet bridge apply — for preAction / rapid-Next guards. */
 export async function applyGrpcWRConfig(ctx: DemoActionContext): Promise<void> {
   selectRunnerWorkflowByName(WF14_NAME);
   await waitForRunnerBridge(ctx);
   applyRunnerBatchConfig(GRPCWR_ITERATIONS, GRPCWR_CONCURRENCY, GRPCWR_TRACE_LEVEL);
   grpcWRSession.configApplied = true;
+  await ctx.delay(120);
+}
+
+/**
+ * Visible Execution Config beat: spotlight Iterations + Concurrency, fill values,
+ * then bridge-apply so the runner state matches what the viewer saw.
+ */
+export async function applyGrpcWRConfigVisible(ctx: DemoActionContext): Promise<void> {
+  selectRunnerWorkflowByName(WF14_NAME);
+  await waitForRunnerBridge(ctx);
+
+  await spotlightAndPause(ctx, GRPCWR_CONFIG_SECTION, 600);
+
+  const iterField = resilienceFieldByLabel('Iterations');
+  if (iterField) {
+    iterField.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    await spotlightElementAndPause(ctx, iterField, 550);
+  }
+  fillRunnerLabeledNumberInput('Iterations', String(GRPCWR_ITERATIONS));
+  await ctx.delay(450);
+
+  const concField = resilienceFieldByLabel('Concurrency');
+  if (concField) {
+    concField.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    await spotlightElementAndPause(ctx, concField, 500);
+  }
+  fillRunnerLabeledNumberInput('Concurrency', String(GRPCWR_CONCURRENCY));
+  await ctx.delay(450);
+
+  applyRunnerBatchConfig(GRPCWR_ITERATIONS, GRPCWR_CONCURRENCY, GRPCWR_TRACE_LEVEL);
+  grpcWRSession.configApplied = true;
+
+  if (iterField) await spotlightElementAndPause(ctx, iterField, 500);
 }
 
 export async function runGrpcEchoWorkflow(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector('.completion-section')) return;
+  if (document.querySelector(GRPCWR_COMPLETION)) {
+    grpcWRSession.runCompleted = true;
+    return;
+  }
   selectRunnerWorkflowByName(WF14_NAME);
   await waitForRunnerBridge(ctx);
   applyRunnerBatchConfig(GRPCWR_ITERATIONS, GRPCWR_CONCURRENCY, GRPCWR_TRACE_LEVEL);
+
+  const runBtn = document.querySelector<HTMLElement>('[data-testid="workflow-runner-run-btn"]');
+  if (runBtn) {
+    runBtn.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    await spotlightElementAndPause(ctx, runBtn, 650);
+    showClickRipple(runBtn);
+    await ctx.delay(200);
+  }
+
   let started = selectAndRunRunnerWorkflow(WF14_NAME);
   if (!started) {
     await ctx.delay(400);
     started = selectAndRunRunnerWorkflow(WF14_NAME);
   }
+
+  // Progress bar while iterations run.
+  for (let i = 0; i < 8; i++) {
+    await ctx.delay(350);
+    const progress = document.querySelector<HTMLElement>(GRPCWR_PROGRESS);
+    if (progress) {
+      await spotlightElementAndPause(ctx, progress, 700);
+      break;
+    }
+    if (document.querySelector(GRPCWR_COMPLETION)) break;
+  }
+
   for (let i = 0; i < 60; i++) {
     await ctx.delay(500);
-    if (document.querySelector('.completion-section')) break;
+    if (document.querySelector(GRPCWR_COMPLETION)) break;
   }
-  document.querySelector('.completion-section')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  await ctx.delay(500);
+  const completion = document.querySelector<HTMLElement>(GRPCWR_COMPLETION);
+  completion?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  await ctx.delay(400);
+  if (completion) await spotlightElementAndPause(ctx, completion, 900);
   grpcWRSession.runCompleted = true;
 }
 
@@ -278,19 +386,26 @@ export async function ensureRunnerReady(ctx: DemoActionContext): Promise<void> {
 }
 
 export async function openResultsFromCompletionBanner(ctx: DemoActionContext): Promise<void> {
-  if (!document.querySelector('.completion-section')) {
+  if (!document.querySelector(GRPCWR_COMPLETION)) {
     await ensureRunnerReady(ctx);
     await runGrpcEchoWorkflow(ctx);
   }
-  const link = document.querySelector<HTMLElement>(
-    '.wfp-view-results-btn, .completion-section a, [data-testid="view-results-btn"]',
-  );
+  const banner = document.querySelector<HTMLElement>(GRPCWR_COMPLETION);
+  if (banner) {
+    banner.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    await spotlightElementAndPause(ctx, banner, 700);
+  }
+  const link = document.querySelector<HTMLElement>(GRPCWR_VIEW_RESULTS_BTN);
   if (link) {
+    await spotlightElementAndPause(ctx, link, 600);
+    showClickRipple(link);
+    await ctx.delay(150);
     link.click();
   } else {
     ctx.navigateToTab('results');
   }
   await ctx.delay(900);
+  await spotlightAndPause(ctx, '.results-run-filter-tabs', 600);
 }
 
 export async function ensureOnResultsTab(ctx: DemoActionContext): Promise<void> {
@@ -309,10 +424,13 @@ export async function ensureOnResultsTab(ctx: DemoActionContext): Promise<void> 
 
 export async function openRequestDetailsTab(ctx: DemoActionContext): Promise<void> {
   await ensureOnResultsTab(ctx);
-  const tab = Array.from(document.querySelectorAll<HTMLElement>('.results-view-tab')).find(
-    (el) => el.textContent?.trim() === 'Request Details',
-  );
+  const tab =
+    document.querySelector<HTMLElement>(RES.REQUEST_DETAILS_TAB)
+    ?? Array.from(document.querySelectorAll<HTMLElement>('.results-view-tab')).find(
+      (el) => el.textContent?.trim() === 'Request Details',
+    );
   if (tab) {
+    await spotlightElementAndPause(ctx, tab, 550);
     tab.click();
     await ctx.delay(500);
   }
@@ -322,6 +440,43 @@ export async function openRequestDetailsTab(ctx: DemoActionContext): Promise<voi
     nativeSet?.call(groupBySelect, 'test');
     groupBySelect.dispatchEvent(new Event('change', { bubbles: true }));
     await ctx.delay(400);
+  }
+}
+
+/** Tour Request Details: GRPC badge row → open Response Detail → pause → close. */
+export async function tourRequestDetailsRow(ctx: DemoActionContext): Promise<void> {
+  await openRequestDetailsTab(ctx);
+  const row =
+    Array.from(document.querySelectorAll<HTMLElement>(GRPCWR_REQUEST_ROW)).find((el) =>
+      /grpc/i.test(el.textContent ?? ''),
+    )
+    ?? document.querySelector<HTMLElement>(GRPCWR_REQUEST_ROW);
+  if (!row) return;
+  row.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  await spotlightElementAndPause(ctx, row, 800);
+  showClickRipple(row);
+  await ctx.delay(150);
+  row.click();
+  await ctx.delay(700);
+  const detail =
+    document.querySelector<HTMLElement>('[data-testid="response-detail-modal"]')
+    ?? document.querySelector<HTMLElement>('.response-detail-modal')
+    ?? document.querySelector<HTMLElement>('.professional-modal');
+  if (detail) {
+    await spotlightElementAndPause(ctx, detail, 1000);
+    const closeBtn =
+      detail.querySelector<HTMLElement>('button.btn-ghost, button.btn-primary, .ram-modal-close')
+      ?? Array.from(detail.querySelectorAll<HTMLButtonElement>('button')).find(
+        (b) => /close|cancel/i.test(b.textContent ?? ''),
+      );
+    if (closeBtn) {
+      await spotlightElementAndPause(ctx, closeBtn, 400);
+      closeBtn.click();
+      await ctx.delay(500);
+    } else {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      await ctx.delay(400);
+    }
   }
 }
 
@@ -391,17 +546,59 @@ export async function openAndFitResultsExplorer(ctx: DemoActionContext): Promise
   if (!document.querySelector(REX.DIAGRAM)) {
     const explorerBtn = document.querySelector<HTMLElement>(GRPCWR_EXPLORER_BTN);
     if (explorerBtn) {
+      await spotlightElementAndPause(ctx, explorerBtn, 600);
+      showClickRipple(explorerBtn);
+      await ctx.delay(150);
       explorerBtn.click();
-      await ctx.delay(600);
+      await ctx.delay(700);
     }
   }
   await waitForResultsExplorerBridge(ctx);
-  if (!fitResultsExplorerDiagram()) {
-    const fitBtn = document.querySelector<HTMLElement>(REX.FIT_VIEW_BTN);
-    fitBtn?.click();
+  const fitBtn = document.querySelector<HTMLElement>(REX.FIT_VIEW_BTN);
+  if (fitBtn) {
+    await spotlightElementAndPause(ctx, fitBtn, 450);
+    fitBtn.click();
+    await ctx.delay(400);
+  } else if (!fitResultsExplorerDiagram()) {
     await ctx.delay(300);
   }
-  await ctx.delay(400);
+  await ctx.delay(300);
+}
+
+/** Walk Canvas → Detail → Iteration matrix so narration matches visible panels. */
+export async function tourResultsExplorerPanels(ctx: DemoActionContext): Promise<void> {
+  await openAndFitResultsExplorer(ctx);
+
+  await spotlightAndPause(ctx, REX.DIAGRAM, 900);
+
+  // Ensure detail panel is open, then ring it.
+  const detailToggle = document.querySelector<HTMLElement>(REX.DETAIL_PANEL_TOGGLE);
+  if (detailToggle && !document.querySelector(GRPCWR_EXPLORER_DETAIL)) {
+    detailToggle.click();
+    await ctx.delay(400);
+  }
+  const detail = document.querySelector<HTMLElement>(GRPCWR_EXPLORER_DETAIL);
+  if (detail) {
+    await spotlightElementAndPause(ctx, detail, 800);
+  } else if (detailToggle) {
+    await spotlightElementAndPause(ctx, detailToggle, 500);
+  }
+
+  // Click a canvas node so detail has content (best-effort).
+  const canvasNode = document.querySelector<HTMLElement>(REX.CANVAS_NODE);
+  if (canvasNode) {
+    await spotlightElementAndPause(ctx, canvasNode, 600);
+    canvasNode.click();
+    await ctx.delay(500);
+    const detailAfter = document.querySelector<HTMLElement>(GRPCWR_EXPLORER_DETAIL);
+    if (detailAfter) await spotlightElementAndPause(ctx, detailAfter, 700);
+  }
+
+  const matrix = document.querySelector<HTMLElement>(GRPCWR_EXPLORER_MATRIX);
+  if (matrix) {
+    matrix.scrollIntoView?.({ behavior: 'smooth', block: 'nearest' });
+    await spotlightElementAndPause(ctx, matrix, 900);
+  }
 }
 
 export async function closeResultsExplorerIfOpen(ctx: DemoActionContext): Promise<void> {
@@ -439,24 +636,32 @@ export async function closeResultsExplorerIfOpen(ctx: DemoActionContext): Promis
 
 export async function grpcWorkflowRunnerSetup(ctx: DemoActionContext): Promise<void> {
   resetGrpcWRSession();
-  // Skip the Manage Schemas draft reset — this lesson runs workflows with gRPC
-  // nodes over the reflected schema, never staged schema sources. Running it
-  // would open/close the Manage Schemas modal (cycling Proto Files/Protoset/URL/
-  // BSR sub-tabs) for every tab, which the viewer sees as a burst of modals
-  // flashing on and off before step 1.
-  await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+  // This lesson opens on Workflow Designer step 1 (+ New). Skip the full
+  // grpcFirstCallSetup Studio tour — it flashes gRPC Studio / tabs / drawers
+  // before Reading. Quiet storage hygiene is enough; the isolated demo tab is
+  // discarded on cleanup.
+  try {
+    const { purgeGrpcDemoEphemeralStorage } = await import('../grpc-demo-storage-cleanup');
+    await purgeGrpcDemoEphemeralStorage();
+  } catch {
+    // Best-effort hygiene only.
+  }
   await cleanupWorkflowDemoRunUi(ctx);
   await closeWfConfigModalIfOpen(ctx);
   if (getWorkflowByName(WF14_NAME)) {
     deleteWorkflowByName(WF14_NAME);
-    await ctx.delay(200);
+    await ctx.delay(100);
   }
+  // Land on the Reading frame: Workflow Designer + sidebar open + + New visible.
   ctx.navigateToTab('workflow');
-  await ctx.delay(600);
+  await ctx.delay(180);
   const skipBtn = document.querySelector<HTMLElement>('.onboarding-tooltip-skip');
-  if (skipBtn) { skipBtn.click(); await ctx.delay(200); }
-  await collapseWfDemoAppSidebar(ctx);
-  grpcWRSession.sidebarCollapsed = true;
+  if (skipBtn) { skipBtn.click(); await ctx.delay(60); }
+  await expandWfDemoAppSidebar(ctx);
+  grpcWRSession.sidebarCollapsed = false;
+  // Readable node size — leave room for the LiveDemo card on the right.
+  fitWorkflowCanvasView();
+  await ctx.delay(100);
 }
 
 export async function grpcWorkflowRunnerCleanup(ctx: DemoActionContext): Promise<void> {
