@@ -4,8 +4,10 @@
 import { describe, expect, it } from 'vitest';
 import { VariableContext } from '../engine/variableContext';
 import {
+  createGrpcWorkflowNodeSnapshotContext,
   createGrpcWorkflowSnapshotBuildContext,
   mergeGrpcWorkflowRuntimeOverrides,
+  resolveGrpcWorkflowPageDefaultTarget,
 } from './grpcWorkflowRuntimeContext';
 
 describe('grpcWorkflowRuntimeContext coverage gaps', () => {
@@ -16,9 +18,35 @@ describe('grpcWorkflowRuntimeContext coverage gaps', () => {
   });
 
   it('resolveGrpcWorkflowPageDefaultTarget falls back when {{grpcHost}} is absent', () => {
+    expect(resolveGrpcWorkflowPageDefaultTarget({})).toBe('localhost:50051');
     const ctx = new VariableContext(undefined, {});
     const built = createGrpcWorkflowSnapshotBuildContext(ctx);
     expect(built.pageDefaults.target).toBe('localhost:50051');
+  });
+
+  it('createGrpcWorkflowNodeSnapshotContext uses execution runtime when provided', () => {
+    const ctx = new VariableContext(undefined, { greeting: 'hi' });
+    const built = createGrpcWorkflowNodeSnapshotContext(
+      ctx,
+      { tlsConfig: { serverCaPem: 'node-pem' } },
+      {
+        profiles: [{ id: 'p1', name: 'Exec', target: 'exec:50051', tlsMode: 'disabled' }],
+        globalAuthProfiles: [{ id: 'a1', name: 'Auth', type: 'bearer', config: { token: 't' } }],
+        defaultAuthProfileId: 'a1',
+      },
+    );
+    expect(built.profiles).toHaveLength(1);
+    expect(built.tlsConfig).toEqual({ serverCaPem: 'node-pem' });
+    expect(built.globalAuthProfiles).toHaveLength(1);
+    expect(built.defaultAuthProfileId).toBe('a1');
+    expect(built.resolveTemplate('{{greeting}}')).toBe('hi');
+  });
+
+  it('createGrpcWorkflowNodeSnapshotContext loads profiles from storage without runtime', () => {
+    const ctx = new VariableContext(undefined, {});
+    const built = createGrpcWorkflowNodeSnapshotContext(ctx, {});
+    expect(built.profiles).toEqual([]);
+    expect(built.pageDefaults.tlsMode).toBe('disabled');
   });
 
   it('createGrpcWorkflowSnapshotBuildContext uses overrides when provided', () => {
