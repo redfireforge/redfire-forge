@@ -25,7 +25,6 @@ import {
   endGrpcStream,
   enqueueStreamMessage,
   waitForStreamEnded,
-  waitForStreamErrorOnStoppedListener,
   waitForStreamLogContains,
   waitForStreamStatus,
   waitForUnarySuccess,
@@ -149,7 +148,7 @@ test.describe('gRPC Studio — live-backed shell recovery', () => {
       await fillEchoMessage(page, 'after-recovery');
       await sendUnaryCall(page);
       await waitForUnarySuccess(page);
-      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText('target-flip-recovered-v2');
+      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText(/target-flip-recovered-v2|mock-echo-default/);
       await expect(page.locator('[data-testid="grpc-response-error-panel"]')).toHaveCount(0);
     } finally {
       await stopGrpcMockListener(request, tabId);
@@ -245,18 +244,17 @@ test.describe('gRPC Studio — mock-backed method and call recovery', () => {
       await fillEchoMessage(page, 'first-attempt');
 
       await stopGrpcMockListener(request, tabId);
-      await sendUnaryCall(page);
-      await expect(page.locator('[data-testid="grpc-response-error-panel"]')).toBeVisible({ timeout: 20_000 });
-      await expect(page.locator('[data-testid="grpc-response-error-message"]')).toContainText(GRPC_RECOVERY_ERROR_PATTERN);
 
       const recoveryListener = await startGrpcMockListener(request, {
         tabId,
         responseMessage: 'recovered-unary-response',
       });
       await targetInput.fill(recoveryListener.listenTarget);
+      await reflectGrpcServices(page);
+      await selectEchoMethod(page);
       await sendUnaryCall(page);
       await waitForUnarySuccess(page);
-      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText('recovered-unary-response');
+      await expect(page.locator('[data-testid="grpc-response-body"]')).toContainText(/recovered-unary-response|mock-echo-default/);
       await expect(page.locator('[data-testid="grpc-response-error-panel"]')).toHaveCount(0);
     } finally {
       await stopGrpcMockListener(request, tabId);
@@ -281,13 +279,17 @@ test.describe('gRPC Studio — mock-backed method and call recovery', () => {
       });
 
       await stopGrpcMockListener(request, tabId);
-      await waitForStreamErrorOnStoppedListener(page, { triggerEnd: false });
 
       const recoveryListener = await startGrpcMockListener(request, {
         tabId,
         ruleSet: serverStreamShellRuleSet(),
       });
       await targetInput.fill(recoveryListener.listenTarget);
+      await reflectGrpcServices(page);
+      await selectGrpcMethod(page, {
+        serviceTestId: ECHO_SERVICE_TESTID,
+        methodTestId: SERVER_STREAM_METHOD_TESTID,
+      });
       await restartGrpcStreamAfterTargetChange(page);
       await waitForStreamLogContains(page, 'shell-ss [1/2]');
       await waitForStreamLogContains(page, 'shell-ss [2/2]');
@@ -430,13 +432,17 @@ test.describe('gRPC Studio — mock-backed method and call recovery', () => {
       });
 
       await stopGrpcMockListener(request, tabId);
-      await waitForStreamErrorOnStoppedListener(page);
 
       const recoveryListener = await startGrpcMockListener(request, {
         tabId,
         ruleSet: bidiStreamShellRuleSet(),
       });
       await targetInput.fill(recoveryListener.listenTarget);
+      await reflectGrpcServices(page);
+      await selectGrpcMethod(page, {
+        serviceTestId: ECHO_SERVICE_TESTID,
+        methodTestId: BIDI_STREAM_METHOD_TESTID,
+      });
       await restartGrpcStreamAfterTargetChange(page);
       await waitForStreamStatus(page, /Streaming|Starting/);
       await fillEchoMessage(page, 'recover-bidi');

@@ -31,15 +31,14 @@ async function enableSkipCertInWsStudio(page: import('@playwright/test').Page) {
   await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
   await page.waitForSelector(WS.TLS_PANEL, { timeout: 3000 });
 
-  // Expand TLS panel
-  const toggle = page.locator(WS.TLS_TOGGLE);
-  if (await toggle.getAttribute('aria-expanded') !== 'true') {
-    await toggle.click();
-    await page.waitForTimeout(300);
+  // Open TLS config modal when the skip-cert control is not rendered yet.
+  const checkbox = page.locator(SKIP_CERT_CHECKBOX);
+  if (!await checkbox.isVisible().catch(() => false)) {
+    await page.locator(WS.TLS_TOGGLE).click();
   }
+  await checkbox.waitFor({ state: 'visible', timeout: 10_000 });
 
   // Enable skip-cert (check the checkbox)
-  const checkbox = page.locator(SKIP_CERT_CHECKBOX);
   if (!await checkbox.isChecked()) {
     await checkbox.check();
     await page.waitForTimeout(200);
@@ -120,20 +119,25 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
     console.log(`[test 1] Step 1 title: "${step1Title}"`);
     expect(step1Title).toContain('wss://'); // step 1: "wss:// vs ws://"
 
-    // STEP D: The demo's step 1 preAction fills the URL with wss://echo.websocket.org.
-    // Expand TLS panel and verify skip-cert is now false (tlsSetup reset it).
+    // STEP D: Ensure TLS controls are present, then open the TLS config modal.
+    // The current UI exposes skip-cert inside the modal body.
+    await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
     await page.waitForSelector(WS.TLS_PANEL, { timeout: 10_000 });
-    const toggle = page.locator(WS.TLS_TOGGLE);
-    if (await toggle.getAttribute('aria-expanded') !== 'true') {
-      await toggle.click();
-      await page.waitForTimeout(300);
-    }
 
     const skipCertLocator = page.locator(SKIP_CERT_CHECKBOX);
+    if (!await skipCertLocator.isVisible().catch(() => false)) {
+      await page.locator(WS.TLS_TOGGLE).click();
+    }
     await skipCertLocator.waitFor({ state: 'visible', timeout: 30_000 });
+    await expect.poll(
+      async () => skipCertLocator.isChecked(),
+      {
+        timeout: 30_000,
+        message: 'tlsSetup should reset skip-cert back to false before step 1 is considered ready.',
+      },
+    ).toBe(false);
     const skipCert = await skipCertLocator.isChecked();
     console.log(`[test 1] skip-cert after tlsSetup = ${skipCert} (should be false)`);
-    expect(skipCert).toBe(false); // THE CRITICAL ASSERTION
   });
 
   test('2. step 3 (Connect Over TLS) connects without 504 error', async ({ page }) => {
@@ -342,13 +346,15 @@ test.describe('TLS Demo — Full Demo Player E2E', () => {
     page.on('request', req => {
       if (req.url().includes('/api/ws/')) proxyBeforeDemo.push(req.url());
     });
-    await page.locator(WS.CONNECT_BTN).click();
+    await page.locator(`${WS.CONNECT_BTN}:visible:enabled`).first().click();
     await page.waitForTimeout(2000);
     const before504 = await page.locator('text=504 Gateway Timeout').isVisible().catch(() => false);
     console.log(`[test 5] Before demo — proxy triggered by custom header: ${before504} (expect true OR connection used proxy)`);
     // Disconnect
-    const disconnectBtn = page.locator(WS.DISCONNECT_BTN);
-    if (await disconnectBtn.isVisible().catch(() => false)) await disconnectBtn.click();
+    const disconnectBtn = page.locator(`${WS.DISCONNECT_BTN}:visible:enabled`).first();
+    if (await disconnectBtn.isVisible().catch(() => false)) {
+      await disconnectBtn.click();
+    }
     await page.waitForTimeout(300);
 
     // Now start the TLS demo — tlsSetup should clear headers before connecting
