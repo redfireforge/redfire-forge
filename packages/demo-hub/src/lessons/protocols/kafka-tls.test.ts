@@ -225,6 +225,10 @@ describe('kafka-tls lesson', () => {
     expect(called).toBe(true);
   });
 
+  it('has Docker badge tag', () => {
+    expect(kafkaTlsLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 
 // ─── K13: kafka-test-runner ─────────────────────────────────────

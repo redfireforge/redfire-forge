@@ -1083,12 +1083,14 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 }
 .modal {
   background: var(--surface);
-  border: none;
+  border: 1px solid color-mix(in srgb, var(--text) 12%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--text) 3.5%, transparent) inset;
   border-radius: 0;
   padding: 32px 48px;
   width: 100%;
   max-width: 100%;
   position: relative;
+  box-sizing: border-box;
 }
 .modal h3 { margin-bottom: 20px; }
 

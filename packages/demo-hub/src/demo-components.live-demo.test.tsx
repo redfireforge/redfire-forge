@@ -74,7 +74,7 @@ describe('LiveDemo', () => {
     );
 
     expect(screen.getByText('Add a gRPC Unary Node')).toBeTruthy();
-    expect(screen.getByText(/What the node does at runtime:/)).toBeTruthy();
+    expect(screen.getByText(/At runtime it sends the request/i)).toBeTruthy();
     expect(screen.queryByText(/\\n\\n/)).toBeNull();
   });
 

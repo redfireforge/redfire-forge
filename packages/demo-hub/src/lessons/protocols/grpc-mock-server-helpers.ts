@@ -25,13 +25,38 @@ export const FALLBACK_STATUS_CODE = 13; // gRPC INTERNAL
 export const TEST_MESSAGE_PING = 'ping';
 export const TEST_MESSAGE_OTHER = 'other-request';
 
-/** Spotlight hold durations for the dry-run tester walkthrough (viewer-paced). */
-export const GRPC13_DRY_RUN_SPOTLIGHT_MS = 1_700;
-export const GRPC13_DRY_RUN_PAYOFF_MS = 2_100;
+/** Spotlight hold durations for the dry-run tester walkthrough. */
+export const GRPC13_DRY_RUN_SPOTLIGHT_MS = 1_000;
+/** Match / No-match result — keep slightly longer so the payoff is readable. */
+export const GRPC13_DRY_RUN_PAYOFF_MS = 1_400;
 
 /** Global latency for the runtime demo. */
 export const DEMO_LATENCY_MS = 100;
 export const DEMO_JITTER_MS = 20;
+
+// ---------------------------------------------------------------------------
+// Mock runtime state tracking
+// ---------------------------------------------------------------------------
+
+/**
+ * Tracks whether the demo mock runtime is currently running during this lesson.
+ * The mock rule cards only render on the Advanced > Mock server tab, so later
+ * steps (which run on the Studio tab) cannot reliably detect the running state
+ * from the DOM. This flag lets those steps skip the visible navigate-to-mock
+ * dance when the mock is already running — avoiding a jarring
+ * Studio → Advanced → Studio bounce at step start.
+ */
+let demoMockRunning = false;
+
+/** Record whether the demo mock runtime is running (called by start/stop helpers). */
+export function markDemoMockRunning(running: boolean): void {
+  demoMockRunning = running;
+}
+
+/** True when the demo mock runtime has been started this lesson run. */
+export function isDemoMockRunning(): boolean {
+  return demoMockRunning;
+}
 
 // ---------------------------------------------------------------------------
 // Navigation & DOM helpers
@@ -69,6 +94,62 @@ export async function selectMockAuthoringTab(
     btn.click();
     await ctx.delay(350);
   }
+}
+
+/**
+ * Clearance below the Advanced nav so the spotlight ring (≈6–10px) isn't
+ * clipped when a control sits at the top of `.grpc-advanced-content`.
+ */
+const MOCK_SCROLL_TOP_PAD_PX = 80;
+
+/**
+ * Scroll a mock-server control into the advanced content viewport so Reading /
+ * Acting spotlights aren't clipped by the Advanced nav / fold.
+ *
+ * Prefer the advanced content scroller (not window.scrollIntoView) and keep a
+ * top pad so tabs like Runtime aren't flush under the feature-tab bar.
+ */
+export async function scrollMockControlIntoView(
+  ctx: DemoActionContext,
+  selectorOrEl: string | HTMLElement,
+  block: ScrollLogicalPosition = 'center',
+): Promise<void> {
+  const el = typeof selectorOrEl === 'string'
+    ? document.querySelector<HTMLElement>(selectorOrEl)
+    : selectorOrEl;
+  if (!el) return;
+
+  const scrollParent =
+    document.querySelector<HTMLElement>('.grpc-advanced-content')
+    ?? findScrollableParent(el);
+
+  if (scrollParent && scrollParent.contains(el)) {
+    const elRect = el.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+    const offsetTop = elRect.top - parentRect.top + scrollParent.scrollTop;
+    let targetScroll: number;
+    if (block === 'end') {
+      targetScroll = offsetTop - scrollParent.clientHeight + elRect.height + 24;
+    } else if (block === 'nearest' || block === 'start') {
+      // Sit just below the Advanced nav with room for the spotlight ring.
+      targetScroll = offsetTop - MOCK_SCROLL_TOP_PAD_PX;
+    } else {
+      // Center-ish, but never flush to the top edge.
+      const centerScroll = offsetTop - scrollParent.clientHeight / 2 + elRect.height / 2;
+      const minScroll = offsetTop - MOCK_SCROLL_TOP_PAD_PX;
+      targetScroll = Math.min(centerScroll, minScroll);
+    }
+    const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);
+    scrollParent.scrollTo({
+      top: Math.max(0, Math.min(targetScroll, maxScroll)),
+      behavior: 'smooth',
+    });
+    await ctx.delay(500);
+    return;
+  }
+
+  el.scrollIntoView({ behavior: 'smooth', block: block === 'nearest' ? 'center' : block, inline: 'nearest' });
+  await ctx.delay(500);
 }
 
 /** Get the ruleId and leaf nodeId for the LAST rule in the builder. */
@@ -173,28 +254,48 @@ export async function stopMockQuiet(ctx: DemoActionContext): Promise<void> {
     stopBtn?.click();
     await ctx.delay(500);
   }
+  markDemoMockRunning(false);
 }
 
 /** Quietly start the mock runtime if it is not already running. */
 export async function startMockQuiet(ctx: DemoActionContext): Promise<void> {
   await navigateToMockServerPanelQuiet(ctx);
-  if (document.querySelector(GRPC.MOCK_STOP)) return; // already running
+  if (document.querySelector(GRPC.MOCK_STOP)) {
+    markDemoMockRunning(true);
+    return; // already running
+  }
   const startBtn = document.querySelector<HTMLButtonElement>(GRPC.MOCK_START);
   if (startBtn && !startBtn.disabled) {
     startBtn.click();
     await ctx.delay(600);
+    markDemoMockRunning(true);
   }
+}
+
+/**
+ * Count builder rule cards. Selects Builder first — Runtime/JSON hide the cards
+ * from the DOM, which would falsely report 0 rules and trigger a JSON-tab flash.
+ */
+export async function countMockBuilderRulesQuiet(ctx: DemoActionContext): Promise<number> {
+  await selectMockAuthoringTab(ctx, 'builder');
+  await ctx.delay(100);
+  return document.querySelectorAll(GRPC.MOCK_BUILDER_RULE).length;
 }
 
 /**
  * Silently reset the mock rule set to the two demo rules.
  * Uses the JSON tab to patch the full rules JSON at once — avoids
  * repeated builder clicks that would be slow in preAction guards.
+ * Callers should prefer {@link countMockBuilderRulesQuiet} before invoking this
+ * so forward-play from Runtime does not flash the JSON editor.
  */
 export async function ensureDemoRulesQuiet(ctx: DemoActionContext): Promise<void> {
   await navigateToMockServerPanelQuiet(ctx);
+  // Already have the demo pair — stay on Builder, no JSON flash.
+  if ((await countMockBuilderRulesQuiet(ctx)) >= 2) return;
+
   await selectMockAuthoringTab(ctx, 'json');
-  await ctx.delay(200);
+  await ctx.delay(120);
 
   // Build the demo rule set JSON directly.
   const rulesJson = JSON.stringify({
@@ -234,8 +335,8 @@ export async function ensureDemoRulesQuiet(ctx: DemoActionContext): Promise<void
   }, null, 2);
 
   setMockInputValue(GRPC.MOCK_RULES_JSON, rulesJson);
-  await ctx.delay(300);
+  await ctx.delay(200);
   // Switch back to Builder so the viewer sees the rule cards.
   await selectMockAuthoringTab(ctx, 'builder');
-  await ctx.delay(200);
+  await ctx.delay(120);
 }

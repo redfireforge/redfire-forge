@@ -818,9 +818,12 @@ describe('setup-helpers', () => {
   it('kafkaQuickStartCleanup confirms deletion when all buttons present', async () => {
     const card = document.createElement('div');
     card.setAttribute('data-testid', 'kafka-cluster-card-demo');
+    const actions = document.createElement('div');
+    actions.className = 'kafka-cluster-card-actions';
     const editBtn = document.createElement('button');
     editBtn.className = 'btn';
-    card.appendChild(editBtn);
+    actions.appendChild(editBtn);
+    card.appendChild(actions);
     const deleteBtn = document.createElement('button');
     deleteBtn.setAttribute('data-testid', 'kafka-delete-cluster-btn');
     const confirmBtn = document.createElement('button');
@@ -830,5 +833,34 @@ describe('setup-helpers', () => {
     await kafkaQuickStartCleanup(ctx);
     expect(ctx.navigateToTab).toHaveBeenCalledWith('kafka-settings');
     [card, deleteBtn, confirmBtn].forEach(el => el.remove());
+  });
+
+  it('kafkaQuickStartCleanup disconnects active connection before delete flow', async () => {
+    const disconnectBtn = document.createElement('button');
+    disconnectBtn.setAttribute('data-testid', 'kafka-disconnect-btn');
+
+    const card = document.createElement('div');
+    card.setAttribute('data-testid', 'kafka-cluster-card-demo');
+    const actions = document.createElement('div');
+    actions.className = 'kafka-cluster-card-actions';
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn';
+    const editClickSpy = vi.spyOn(editBtn, 'click');
+    actions.appendChild(editBtn);
+    card.appendChild(actions);
+
+    const deleteBtn = document.createElement('button');
+    deleteBtn.setAttribute('data-testid', 'kafka-delete-cluster-btn');
+    const confirmBtn = document.createElement('button');
+    confirmBtn.setAttribute('data-testid', 'kafka-confirm-delete-btn');
+
+    document.body.append(disconnectBtn, card, deleteBtn, confirmBtn);
+    const disconnectClickSpy = vi.spyOn(disconnectBtn, 'click');
+
+    await kafkaQuickStartCleanup(ctx);
+
+    expect(disconnectClickSpy).toHaveBeenCalled();
+    expect(editClickSpy).toHaveBeenCalled();
+    [disconnectBtn, card, deleteBtn, confirmBtn].forEach((el) => el.remove());
   });
 });

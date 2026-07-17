@@ -662,6 +662,7 @@ export function GrpcMockRuleBuilderPanel({ advanced, toolbarHost = null }: GrpcM
           title="Dry-Run Tester"
           onClose={() => setTesterRuleId(null)}
           closeButtonKind="none"
+          dialogClassName="grpc-dry-run-tester-modal"
           headerClassName="modal-header grpc-mock-tester-modal__header"
           bodyStyle={{ padding: '0 14px 14px' }}
           dragAnchor={{

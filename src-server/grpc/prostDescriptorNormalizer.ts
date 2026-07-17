@@ -18,6 +18,11 @@
 interface FieldDescriptorProtoLike {
   typeName?: string | null;
   extendee?: string | null;
+  jsonName?: string | null;
+  /** protobufjs Message helper — preferred when clearing empty strings so they are not wire-encoded. */
+  clearExtendee?: () => void;
+  clearTypeName?: () => void;
+  clearJsonName?: () => void;
 }
 
 interface EnumDescriptorProtoLike {
@@ -197,11 +202,53 @@ function topologicallySortFiles(
 }
 
 /**
+ * protobufjs `toDescriptor()` often leaves empty-string `extendee` / `typeName` on
+ * fields (especially synthetic map-entry messages). On the wire those empty strings
+ * are still encoded, so prost-reflect treats the field as an extension and fails with:
+ *   message '….Attributes' does not define '1' as an extension number
+ *
+ * Clear empty strings so absent optional fields stay absent.
+ */
+function clearEmptyFieldStrings(field: FieldDescriptorProtoLike): void {
+  if (!field.extendee) {
+    if (typeof field.clearExtendee === 'function') field.clearExtendee();
+    else field.extendee = null;
+  }
+  if (!field.typeName) {
+    if (typeof field.clearTypeName === 'function') field.clearTypeName();
+    else field.typeName = null;
+  }
+  if (!field.jsonName) {
+    if (typeof field.clearJsonName === 'function') field.clearJsonName();
+    else field.jsonName = null;
+  }
+}
+
+function sanitizeEmptyDescriptorStrings(file: FileDescriptorProtoLike): void {
+  const walkMessages = (messages: DescriptorProtoLike[] | null | undefined) => {
+    for (const message of messages ?? []) {
+      for (const field of message.field ?? []) clearEmptyFieldStrings(field);
+      for (const extension of message.extension ?? []) clearEmptyFieldStrings(extension);
+      walkMessages(message.nestedType);
+    }
+  };
+
+  for (const extension of file.extension ?? []) clearEmptyFieldStrings(extension);
+  walkMessages(file.messageType);
+}
+
+/**
  * Mutates and returns the given FileDescriptorSet so prost-reflect can load it.
  */
 export function normalizeFileDescriptorSetForProst<T extends FileDescriptorSetLike>(set: T): T {
   const files = set.file ?? [];
   if (files.length === 0) return set;
+
+  // Run before reference rewriting so empty extendee/typeName never participate
+  // in dependency discovery and never survive into the encoded protoset.
+  for (const file of files) {
+    sanitizeEmptyDescriptorStrings(file);
+  }
 
   const typeToFile = buildTypeToFileMap(files);
   const knownTypes = new Set(typeToFile.keys());
@@ -225,6 +272,8 @@ export function normalizeFileDescriptorSetForProst<T extends FileDescriptorSetLi
       if (!present) deps.delete(dep);
     }
     file.dependency = [...deps];
+    // Re-sanitize after reference rewrites (empty strings can reappear from defaults).
+    sanitizeEmptyDescriptorStrings(file);
   }
 
   return set;

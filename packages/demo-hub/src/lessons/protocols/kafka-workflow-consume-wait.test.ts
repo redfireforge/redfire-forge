@@ -496,6 +496,10 @@ describe('kafka-workflow-consume-wait lesson', () => {
     const step = kafkaWorkflowConsumeWaitLesson.steps.find((s) => s.id === 'cw-summary')!;
     expect(step.preAction).toBeUndefined();
   });
+  it('has Docker badge tag', () => {
+    expect(kafkaWorkflowConsumeWaitLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 
 // ─── K11: kafka-secure ──────────────────────────────────────────

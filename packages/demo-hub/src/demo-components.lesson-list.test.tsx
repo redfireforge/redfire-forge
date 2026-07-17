@@ -373,6 +373,30 @@ describe('LessonList', () => {
     expect(screen.getByText('🐳 Docker')).toBeTruthy();
   });
 
+  it('shows category Docker badge when any lesson requires Docker', () => {
+    const domain = makeDomain({
+      categories: [
+        { id: 'kafka', label: 'Kafka', icon: '📨' },
+        { id: 'sse', label: 'SSE', icon: '📡' },
+      ],
+      lessons: [
+        makeLesson({ id: 'k1', category: 'kafka', dockerEndpoint: 'http://localhost:18080' }),
+        makeLesson({ id: 's1', category: 'sse', name: 'SSE Studio' }),
+      ],
+    });
+    const { container } = renderWithLessonNotes(
+      <LessonList
+        domain={domain}
+        progress={baseProgress}
+        onSelect={vi.fn()}
+        onBack={vi.fn()}
+        {...defaultResetProps}
+      />,
+    );
+    expect(container.querySelectorAll('.demo-category-docker-badge')).toHaveLength(1);
+    expect(screen.getByLabelText('Kafka lessons require Docker')).toBeTruthy();
+  });
+
   it('blocks lesson select while reset confirmation is open', () => {
     const onSelect = vi.fn();
     const progress: DemoProgress = { ...baseProgress, completedLessons: ['l1'] };

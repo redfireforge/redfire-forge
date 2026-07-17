@@ -90,6 +90,9 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
             const completedCount = catLessons.filter(l =>
               progress.completedLessons.includes(l.id),
             ).length;
+            const needsDocker = catLessons.some(
+              (l) => Boolean(l.dockerEndpoint) || Boolean(l.dockerEndpoints?.length),
+            );
             const isActive = activeCategory === cat.id;
             const isEmpty = catLessons.length === 0;
 
@@ -104,7 +107,18 @@ export default function LessonList({ domain, progress, onSelect, onBack, onReset
                 disabled={isEmpty}
                 title={isEmpty ? `${cat.label} — coming soon` : undefined}
               >
-                <span className="demo-category-icon">{cat.icon}</span>
+                <span className="demo-category-icon-wrap">
+                  <span className="demo-category-icon">{cat.icon}</span>
+                  {needsDocker && (
+                    <span
+                      className="demo-category-docker-badge"
+                      aria-label={`${cat.label} lessons require Docker`}
+                      title="Some lessons require Docker"
+                    >
+                      🐳
+                    </span>
+                  )}
+                </span>
                 <span className="demo-category-label">{cat.label}</span>
                 {catLessons.length > 0 && (
                   <span className={`demo-category-count${completedCount === catLessons.length ? ' all-done' : ''}`}>

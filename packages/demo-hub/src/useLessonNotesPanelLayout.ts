@@ -74,10 +74,24 @@ function loadSavedGeometry(): LessonNotesPanelGeometry | null {
       typeof parsed.top !== 'number'
       || typeof parsed.left !== 'number'
       || typeof parsed.width !== 'number'
+      || !Number.isFinite(parsed.top)
+      || !Number.isFinite(parsed.left)
+      || !Number.isFinite(parsed.width)
     ) {
       return null;
     }
-    return clampGeometry(parsed as LessonNotesPanelGeometry);
+    // Backward compatible with older saved payloads that didn't persist height.
+    const height = (
+      typeof parsed.height === 'number' && Number.isFinite(parsed.height)
+        ? parsed.height
+        : LESSON_NOTES_PANEL_DEFAULT_HEIGHT
+    );
+    return clampGeometry({
+      top: parsed.top,
+      left: parsed.left,
+      width: parsed.width,
+      height,
+    });
   } catch {
     return null;
   }

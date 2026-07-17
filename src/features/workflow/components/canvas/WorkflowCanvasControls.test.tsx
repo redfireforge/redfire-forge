@@ -254,7 +254,13 @@ describe('WorkflowCanvasControls', () => {
     );
     const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
-    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.2, maxZoom: 1.5, duration: 300, includeHiddenNodes: true });
+    expect(mockFitView).toHaveBeenCalledWith({
+      padding: 0.1,
+      maxZoom: 1.5,
+      minZoom: 0.85,
+      duration: 300,
+      includeHiddenNodes: true,
+    });
   });
 
   it('always fits view even when savedViewport is provided', () => {
@@ -266,7 +272,13 @@ describe('WorkflowCanvasControls', () => {
     );
     const btn = container.querySelector('.wf-pill-btn[title="Fit view"]');
     fireEvent.click(btn!);
-    expect(mockFitView).toHaveBeenCalledWith({ padding: 0.2, maxZoom: 1.5, duration: 300, includeHiddenNodes: true });
+    expect(mockFitView).toHaveBeenCalledWith({
+      padding: 0.1,
+      maxZoom: 1.5,
+      minZoom: 0.85,
+      duration: 300,
+      includeHiddenNodes: true,
+    });
     expect(mockSetViewport).not.toHaveBeenCalled();
   });
 
@@ -298,8 +310,9 @@ describe('WorkflowCanvasControls', () => {
       fireEvent.click(btn!);
       expect(onAutoLayout).toHaveBeenCalledTimes(1);
       expect(mockFitView).toHaveBeenCalledWith({
-        padding: 0.2,
+        padding: 0.1,
         maxZoom: 1.5,
+        minZoom: 0.85,
         duration: 300,
         includeHiddenNodes: true,
       });
