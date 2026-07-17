@@ -13,6 +13,7 @@ import {
   buildGrpcSchemaDiscoveryScenarioSnapshot,
   buildGrpcScenarioSnapshotForLesson,
   buildGrpcSpringBootScenarioSnapshot,
+  buildGrpcTransportModesScenarioSnapshot,
   buildGrpcStreamingScenarioSnapshot,
   buildGrpcWorkflowIntegrationScenarioSnapshot,
 } from './snapshots';
@@ -79,5 +80,13 @@ describe('buildGrpcScenarioSnapshotForLesson', () => {
       [GRPC_EXPRESS_HEALTH_URL, GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_URL].join('|'),
     );
     expect(buildGrpcScenarioSnapshotForLesson('grpc-spring-boot')?.fingerprint).toBe(snap.fingerprint);
+  });
+
+  it('builds GRPC-19 transport modes snapshot', () => {
+    const snap = buildGrpcTransportModesScenarioSnapshot();
+    expect(snap.lessonId).toBe('grpc-transport-modes');
+    expect(snap.target).toBe('localhost:50051');
+    expect(snap.method).toBe('Echo');
+    expect(buildGrpcScenarioSnapshotForLesson('grpc-transport-modes')?.fingerprint).toBe(snap.fingerprint);
   });
 });

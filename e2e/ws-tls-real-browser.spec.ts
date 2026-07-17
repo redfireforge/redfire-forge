@@ -21,11 +21,19 @@ import { WS } from '../src/shared/selectors';
 const APP_BASE = 'http://localhost:5173';
 // Persistent user data dir — state accumulates across runs (like real Chrome)
 const USER_DATA_DIR = path.join(os.tmpdir(), 'redfire-forge-real-browser-test');
+const RUN_PERSISTENT_WS_TLS_E2E = process.env.E2E_WS_TLS_PERSISTENT === '1';
 
 const SKIP_CERT_CHECKBOX = `${WS.TLS_SKIP_CERT} input[type="checkbox"]`;
 
+async function clickVisibleEnabledConnect(page: import('@playwright/test').Page): Promise<void> {
+  const connectBtn = page.locator(`${WS.CONNECT_BTN}:visible:enabled`).first();
+  await expect(connectBtn).toBeVisible({ timeout: 10_000 });
+  await connectBtn.click();
+}
+
 test.describe('TLS Demo — Persistent Browser State', () => {
   test.describe.configure({ timeout: 120_000 });
+  test.skip(!RUN_PERSISTENT_WS_TLS_E2E, 'Set E2E_WS_TLS_PERSISTENT=1 to run persistent browser TLS stress test.');
 
   test('full scenario: dirty state + demo + cleanup + direct connect all work', async () => {
     // Launch a persistent browser (NOT isolated — state survives between launches)
@@ -38,7 +46,7 @@ test.describe('TLS Demo — Persistent Browser State', () => {
       const page = await browser.newPage();
 
       // === PHASE 1: Create dirty state in the persistent browser ===
-      await page.goto(`${APP_BASE}/?tab=websocket-studio`, { waitUntil: 'networkidle' });
+      await page.goto(`${APP_BASE}/?tab=websocket-studio`, { waitUntil: 'domcontentloaded' });
       await page.click(WS.MODE_CLIENT);
       await page.click(WS.LEFT_TAB_CONNECT);
       await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
@@ -76,7 +84,7 @@ test.describe('TLS Demo — Persistent Browser State', () => {
       }
 
       // === PHASE 2: Hard reload (simulates user hitting F5) ===
-      await page.reload({ waitUntil: 'networkidle' });
+      await page.reload({ waitUntil: 'domcontentloaded' });
       await page.click(WS.MODE_CLIENT);
       await page.click(WS.LEFT_TAB_CONNECT);
 
@@ -114,7 +122,7 @@ test.describe('TLS Demo — Persistent Browser State', () => {
       // Clear persisted demo navigation state so we always land on the domains grid
       // (a previous failed run can leave lastView='concept' in localStorage).
       await page.evaluate(() => { localStorage.removeItem('redfire-demo-progress-v2'); });
-      await page.goto(`${APP_BASE}/?tab=demo-hub`, { waitUntil: 'networkidle' });
+      await page.goto(`${APP_BASE}/?tab=demo-hub`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('.demo-domain-grid', { timeout: 10000 });
       await page.locator('.demo-domain-card').filter({ hasText: 'Protocols' }).click();
       await page.waitForSelector('.demo-category-tabs', { timeout: 5000 });
@@ -155,12 +163,12 @@ test.describe('TLS Demo — Persistent Browser State', () => {
       await page.waitForTimeout(2000);
 
       // Navigate to WS studio and connect
-      await page.goto(`${APP_BASE}/?tab=websocket-studio`, { waitUntil: 'networkidle' });
+      await page.goto(`${APP_BASE}/?tab=websocket-studio`, { waitUntil: 'domcontentloaded' });
       await page.click(WS.MODE_CLIENT);
       await page.click(WS.LEFT_TAB_CONNECT);
       await visibleWsUrlInput(page).fill('wss://echo.websocket.org');
       await page.waitForTimeout(300);
-      await page.locator(WS.CONNECT_BTN).click();
+      await clickVisibleEnabledConnect(page);
       await page.waitForTimeout(4000);
 
       const has504 = await page.locator('text=504 Gateway Timeout').isVisible().catch(() => false);

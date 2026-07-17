@@ -34,7 +34,7 @@ export function collectWorkflowReferencedVariables(nodes: Workflow['nodes']): Se
     if (typeof val === 'string') {
       for (const m of val.matchAll(TEMPLATE_VAR_RE)) {
         const name = m[1].trim();
-        if (!name.includes(':') && !name.startsWith('$')) found.add(name);
+        found.add(name);
       }
     } else if (Array.isArray(val)) {
       val.forEach(scan);

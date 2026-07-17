@@ -172,4 +172,20 @@ describe('buildMappingSummary', () => {
     };
     expect(buildMappingSummary({ url: '', headers: [], body: '' }, ds).warnings).toHaveLength(0);
   });
+
+  it('returns empty summary when dataSource is undefined', () => {
+    const r = buildMappingSummary({ url: 'https://x.com/{{id}}', headers: [], body: '' }, undefined);
+    expect(r.warnings).toHaveLength(0);
+    expect(r.counts.path).toBe(0);
+  });
+
+  it('handles undefined fetch config and column fields', () => {
+    const ds: DataSource = {
+      columns: [{ id: '1', name: undefined as unknown as string, type: 'path', mapping: undefined as unknown as string }],
+      rows: [],
+    };
+    const r = buildMappingSummary(undefined, ds);
+    expect(r.counts.path).toBe(1);
+    expect(r.warnings).toHaveLength(0);
+  });
 });

@@ -170,4 +170,22 @@ describe('grpcStudioExecuteInterpolation coverage gaps', () => {
     );
     expect(resolved).toEqual({});
   });
+
+  it('assertGrpcStudioExecuteFieldsReady uses fallback message when auth issue has no message', () => {
+    vi.spyOn(grpcAuthPolicy, 'validateGrpcAuthForExecute').mockReturnValue([
+      { field: 'auth', code: 'INVALID_REQUEST', message: undefined as unknown as string },
+    ]);
+    expect(() => assertGrpcStudioExecuteFieldsReady({
+      body: {},
+      metadata: {},
+      auth: { type: 'bearer', bearerToken: 'token' },
+    })).toThrow('Invalid auth configuration');
+    vi.restoreAllMocks();
+  });
+
+  it('resolveGrpcStudioStreamMessageBodyForSend throws without interpolation env', () => {
+    expect(() => resolveGrpcStudioStreamMessageBodyForSend({ message: 'x' }, undefined)).toThrow(
+      /active execute snapshot/i,
+    );
+  });
 });
