@@ -48,7 +48,7 @@ const baseProps = {
 };
 
 describe('GqlRightPane', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the right pane container', () => {
     render(<GqlRightPane {...baseProps} />);

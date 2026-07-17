@@ -28,7 +28,7 @@ function makeTemplate(overrides?: Partial<WsMessageTemplate>): WsMessageTemplate
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockLoad.mockReset();
   mockSave.mockReset();
   mockLoad.mockResolvedValue([]);

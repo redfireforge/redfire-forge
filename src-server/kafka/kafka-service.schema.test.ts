@@ -65,7 +65,7 @@ async function connectService(): Promise<{ service: KafkaService; mock: ReturnTy
 
 describe('KafkaService — Phase 10B Schema Registry: Produce Encode', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('calls encodeValue and sends binary wire-format Buffer with valueEncoding avro', async () => {
@@ -228,7 +228,7 @@ describe('KafkaService — Phase 10B Schema Registry: Produce Encode', () => {
 
 describe('KafkaService — Phase 10B Schema Registry: ConsumeOnce Decode', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('calls decodeValue using rawValue and puts decoded JSON in record.value', async () => {

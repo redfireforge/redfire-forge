@@ -129,7 +129,7 @@ describe('DataSourceVerifyModal', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockEngineState = {
       results: new Map(),
       verifying: false,

@@ -32,7 +32,7 @@ function makeJwt(payload: Record<string, unknown>): string {
 
 describe('TokenManager', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns undefined for non-oauth2 auth', async () => {

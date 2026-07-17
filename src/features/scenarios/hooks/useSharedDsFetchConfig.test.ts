@@ -55,7 +55,7 @@ describe('useSharedDsFetchConfig', () => {
   let onUpdate: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     onUpdate = vi.fn();
   });
 

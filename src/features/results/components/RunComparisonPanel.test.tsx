@@ -113,7 +113,7 @@ function makeReq(partial: Partial<RequestResult> & Pick<RequestResult, 'scenario
 
 describe('RunComparisonPanel', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders comparison header', () => {

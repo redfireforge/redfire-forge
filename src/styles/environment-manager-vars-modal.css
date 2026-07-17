@@ -1,0 +1,368 @@
+/* ── Environment Manager — protocol/env vars badges and modals ─────────── */
+
+/* ── Vars badges (Protocol vars / Env vars) ─────────────────────────────── */
+.em-vars-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px 3px 8px;
+  border-radius: 20px;
+  border: 1px solid color-mix(in srgb, var(--em-grpc-color, #a78bfa) 30%, var(--border));
+  background: color-mix(in srgb, var(--em-grpc-color, #a78bfa) 8%, var(--surface));
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--em-grpc-color, #a78bfa) 80%, var(--text-muted));
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s;
+  white-space: nowrap;
+  letter-spacing: 0.01em;
+}
+.em-vars-badge:hover {
+  background: color-mix(in srgb, var(--em-grpc-color, #a78bfa) 16%, var(--surface));
+  border-color: color-mix(in srgb, var(--em-grpc-color, #a78bfa) 60%, var(--border));
+  color: var(--em-grpc-color, #a78bfa);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--em-grpc-color, #a78bfa) 15%, transparent);
+}
+.em-vars-badge:active {
+  background: color-mix(in srgb, var(--em-grpc-color, #a78bfa) 22%, var(--surface));
+}
+/* Env-vars variant: teal/cyan accent */
+.em-vars-badge--env {
+  font-size: 0.64rem;
+  padding: 2px 7px 2px 7px;
+  border-color: color-mix(in srgb, var(--em-http-color, #34d399) 25%, var(--border));
+  background: color-mix(in srgb, var(--em-http-color, #34d399) 6%, var(--surface));
+  color: color-mix(in srgb, var(--em-http-color, #34d399) 70%, var(--text-muted));
+}
+.em-vars-badge--env:hover {
+  background: color-mix(in srgb, var(--em-http-color, #34d399) 14%, var(--surface));
+  border-color: color-mix(in srgb, var(--em-http-color, #34d399) 55%, var(--border));
+  color: var(--em-http-color, #34d399);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--em-http-color, #34d399) 15%, transparent);
+}
+.em-vars-badge--env:active {
+  background: color-mix(in srgb, var(--em-http-color, #34d399) 20%, var(--surface));
+}
+/* Icons via ::before */
+.em-vars-badge:not(.em-vars-badge--env)::before {
+  content: '{ }';
+  font-size: 0.58rem;
+  font-family: ui-monospace, 'Cascadia Code', monospace;
+  opacity: 0.75;
+  letter-spacing: -0.04em;
+}
+.em-vars-badge--env::before {
+  content: '≈';
+  font-size: 0.75rem;
+  opacity: 0.7;
+  line-height: 1;
+}
+/* Count bubble */
+.em-vars-badge-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 17px;
+  height: 17px;
+  padding: 0 4px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-alt, #2a2a3a) 80%, var(--surface));
+  border: 1px solid var(--border);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.em-vars-badge-count--set {
+  background: color-mix(in srgb, var(--em-grpc-color, #a78bfa) 22%, var(--surface));
+  border-color: color-mix(in srgb, var(--em-grpc-color, #a78bfa) 30%, var(--border));
+  color: var(--em-grpc-color, #a78bfa);
+}
+/* Env-vars count bubble when set */
+.em-vars-badge--env .em-vars-badge-count--set {
+  background: color-mix(in srgb, var(--em-http-color, #34d399) 20%, var(--surface));
+  border-color: color-mix(in srgb, var(--em-http-color, #34d399) 30%, var(--border));
+  color: var(--em-http-color, #34d399);
+}
+
+/* ── Vars modals ────────────────────────────────────────────────────────── */
+.em-vars-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  background: transparent;
+  pointer-events: all;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.em-vars-modal {
+  position: relative;
+  z-index: 1201;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface, #1e1e2e);
+  border: 1px solid var(--border, #3a3a4e);
+  border-radius: 12px;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.65), 0 4px 16px rgba(0,0,0,0.35);
+  min-width: 380px;
+  min-height: 300px;
+  overflow: hidden;
+}
+.em-vars-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  background: color-mix(in srgb, var(--surface-alt, #16162a) 70%, var(--surface));
+  flex-shrink: 0;
+  position: relative;
+}
+/* Accent stripe at top of header */
+.em-vars-modal-header::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--primary, #6366f1), color-mix(in srgb, var(--primary, #6366f1) 40%, transparent));
+  border-radius: 12px 12px 0 0;
+}
+.em-vars-modal-header:active { cursor: grabbing; }
+.em-vars-modal-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.em-vars-modal-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--text, #e2e2f0);
+  letter-spacing: -0.01em;
+}
+.em-vars-modal-subtitle {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+.em-vars-modal-close {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  border-radius: 5px;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.em-vars-modal-close:hover { background: color-mix(in srgb, var(--em-danger) 15%, var(--surface)); color: var(--em-danger); }
+.em-vars-modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.em-vars-modal-section { display: flex; flex-direction: column; gap: 6px; }
+.em-vars-modal-section-label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  margin-bottom: 2px;
+}
+.em-vars-modal-section-hint { font-weight: 400; text-transform: none; letter-spacing: 0; }
+.em-vars-modal-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 2px 0;
+}
+/* Add row */
+.em-vars-modal-add-row {
+  display: flex;
+  gap: 6px;
+  background: color-mix(in srgb, var(--surface-alt, #16162a) 50%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.em-vars-modal-key-input {
+  flex: 1.2;
+  min-width: 0;
+  padding: 6px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--input-bg, #12121f);
+  color: var(--text);
+  font-size: 0.76rem;
+  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+  transition: border-color 0.15s;
+}
+.em-vars-modal-key-input:focus {
+  outline: none;
+  border-color: var(--primary, #6366f1);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #6366f1) 20%, transparent);
+}
+.em-vars-modal-val-input {
+  flex: 1.8;
+  min-width: 0;
+  padding: 6px 9px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--input-bg, #12121f);
+  color: var(--text);
+  font-size: 0.76rem;
+  transition: border-color 0.15s;
+}
+.em-vars-modal-val-input:focus {
+  outline: none;
+  border-color: var(--primary, #6366f1);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #6366f1) 20%, transparent);
+}
+/* Variable list */
+.em-vars-modal-list { display: flex; flex-direction: column; gap: 5px; }
+.em-vars-modal-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 28px 16px;
+  border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 8px;
+  text-align: center;
+}
+.em-vars-modal-empty-icon {
+  font-size: 1.4rem;
+  opacity: 0.3;
+  line-height: 1;
+}
+.em-vars-modal-empty span:last-child {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+/* Variable row — card style */
+.em-vars-modal-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--surface-alt, #16162a) 50%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+  transition: border-color 0.12s, background 0.12s;
+}
+.em-vars-modal-row:not(.em-vars-modal-row--readonly):hover {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--surface-alt, #16162a) 80%, var(--surface));
+}
+.em-vars-modal-row--readonly {
+  opacity: 0.6;
+}
+.em-vars-modal-key {
+  font-size: 0.7rem;
+  font-weight: 600;
+  font-family: var(--font-mono, 'JetBrains Mono', 'Fira Code', monospace);
+  color: var(--em-grpc-color, #a78bfa);
+  background: color-mix(in srgb, var(--em-grpc-color, #a78bfa) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--em-grpc-color, #a78bfa) 20%, transparent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  min-width: 90px;
+  max-width: 140px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.em-vars-modal-overridden-tag {
+  font-size: 0.6rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--em-warning) 15%, var(--surface));
+  color: var(--em-warning);
+  border: 1px solid color-mix(in srgb, var(--em-warning) 30%, var(--border));
+  border-radius: 4px;
+  padding: 1px 5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  flex-shrink: 0;
+}
+.em-vars-modal-value {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  background: var(--input-bg, #12121f);
+  color: var(--text);
+  font-size: 0.74rem;
+  transition: border-color 0.15s;
+}
+.em-vars-modal-value:focus {
+  outline: none;
+  border-color: var(--primary, #6366f1);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary, #6366f1) 20%, transparent);
+}
+.em-vars-modal-value[readonly] {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: default;
+}
+.em-vars-modal-delete {
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity 0.12s;
+}
+.em-vars-modal-row:hover .em-vars-modal-delete { opacity: 1; }
+/* Footer */
+.em-vars-modal-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  background: color-mix(in srgb, var(--surface-alt, #16162a) 50%, var(--surface));
+}
+.em-vars-modal-footer--right {
+  justify-content: flex-end;
+}
+.em-vars-modal-footer-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-right: auto;
+}
+/* Resize handle */
+.em-vars-modal-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 20px;
+  height: 20px;
+  cursor: nwse-resize;
+  opacity: 0.35;
+  transition: opacity 0.15s;
+  background: linear-gradient(
+    135deg,
+    transparent 40%,
+    var(--border) 40%, var(--border) 50%,
+    transparent 50%, transparent 65%,
+    var(--border) 65%, var(--border) 75%,
+    transparent 75%
+  );
+  border-bottom-right-radius: 12px;
+}
+.em-vars-modal:hover .em-vars-modal-resize-handle { opacity: 0.7; }
+
+/* Env vars column in protocol tables */
+.svc-env-th-envvars { width: 130px; text-align: left; }
+.svc-env-td-envvars { vertical-align: middle; padding: 0 6px; }

@@ -82,7 +82,7 @@ const defaultOpts = (): NodeActionsOpts => ({
 });
 
 describe('useWorkflowObjectActions (useWorkflowNodeActions)', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('handleAddNode adds a node to canvas', () => {
     const opts = defaultOpts();

@@ -152,7 +152,7 @@ function sc(): Scenario[] {
 
 describe('Worker Integration', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockedIsTauri.mockReturnValue(false);
   });
 

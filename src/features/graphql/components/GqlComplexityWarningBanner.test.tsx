@@ -18,7 +18,7 @@ function makeComplexityResult(overrides: Partial<ComplexityResult> = {}): Comple
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 describe('GqlComplexityWarningBanner — rendering', () => {

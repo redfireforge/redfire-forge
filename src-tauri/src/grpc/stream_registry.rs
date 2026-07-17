@@ -1,6 +1,6 @@
 //! Active gRPC stream registry — Phase 7D.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -39,6 +39,7 @@ pub struct StreamRegistryEntry {
     pub client_writes_ended: bool,
     pub last_activity_at: Instant,
     pub terminal_at: Option<Instant>,
+    pub pending_events: VecDeque<crate::grpc::types::GrpcTauriEvent>,
 }
 
 #[derive(Clone)]
@@ -120,6 +121,7 @@ impl StreamRegistry {
             client_writes_ended: false,
             last_activity_at: now,
             terminal_at: None,
+            pending_events: VecDeque::new(),
         };
 
         let mut map = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -181,6 +183,63 @@ impl StreamRegistry {
         let mut entry = entry_arc.lock().unwrap();
         entry.sequence += 1;
         Some(entry.sequence)
+    }
+
+    pub fn buffer_event(
+        &self,
+        stream_id: &str,
+        event: crate::grpc::types::GrpcTauriEvent,
+        max_pending: usize,
+    ) {
+        if let Some(entry_arc) = self.get_entry(stream_id) {
+            let mut entry = entry_arc.lock().unwrap();
+            entry.pending_events.push_back(event);
+            while entry.pending_events.len() > max_pending {
+                entry.pending_events.pop_front();
+            }
+        }
+    }
+
+    pub fn drain_pending_events(
+        &self,
+        stream_id: &str,
+    ) -> Vec<crate::grpc::types::GrpcTauriEvent> {
+        if let Some(entry_arc) = self.get_entry(stream_id) {
+            let mut entry = entry_arc.lock().unwrap();
+            return entry.pending_events.drain(..).collect();
+        }
+        Vec::new()
+    }
+
+    pub fn drain_pending_events_for_tab(
+        &self,
+        tab_id: &str,
+    ) -> (Vec<crate::grpc::types::GrpcTauriEvent>, Vec<String>) {
+        let entries: Vec<Arc<Mutex<StreamRegistryEntry>>> = self
+            .inner
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .values()
+            .cloned()
+            .collect();
+
+        let mut events = Vec::new();
+        let mut terminal_streams = Vec::new();
+
+        for entry_arc in entries {
+            let mut entry = entry_arc.lock().unwrap();
+            if entry.tab_id != tab_id {
+                continue;
+            }
+            if !entry.pending_events.is_empty() {
+                events.extend(entry.pending_events.drain(..));
+            }
+            if entry.status != StreamRegistryStatus::Active && entry.pending_events.is_empty() {
+                terminal_streams.push(entry.stream_id.clone());
+            }
+        }
+
+        (events, terminal_streams)
     }
 
     pub fn snapshot(&self, stream_id: &str) -> Option<(String, String, String, u64)> {

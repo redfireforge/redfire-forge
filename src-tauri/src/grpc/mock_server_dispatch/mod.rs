@@ -1,6 +1,7 @@
 //! Native gRPC mock listener HTTP/2 dispatch runtime.
 
 mod catalog;
+mod reflection;
 mod response;
 mod server;
 mod state;

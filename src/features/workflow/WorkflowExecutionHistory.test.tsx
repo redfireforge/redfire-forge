@@ -73,7 +73,7 @@ const samplePaused = [
 
 describe('WorkflowExecutionHistory — Paused Tab', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders the paused filter option in dropdown', async () => {
@@ -299,7 +299,7 @@ const sampleExecution2 = {
 
 describe('WorkflowExecutionHistory — Execution List', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('shows loading state initially', () => {

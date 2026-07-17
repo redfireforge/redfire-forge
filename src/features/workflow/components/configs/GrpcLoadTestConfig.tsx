@@ -9,11 +9,13 @@ export default function GrpcLoadTestConfig({
   onChange,
   globalAuthProfiles = [],
   defaultAuthProfileId = null,
+  workflowVariables = {},
 }: {
   data: GrpcLoadTestNodeData;
   onChange: (d: GrpcLoadTestNodeData) => void;
   globalAuthProfiles?: GlobalAuthProfile[];
   defaultAuthProfileId?: string | null;
+  workflowVariables?: Record<string, string>;
 }) {
   const [bodyText, setBodyText] = useState(() => JSON.stringify(data.body ?? {}, null, 2));
   const [loadTestText, setLoadTestText] = useState(() => JSON.stringify(data.loadTest ?? {}, null, 2));
@@ -62,6 +64,7 @@ export default function GrpcLoadTestConfig({
         onChange={onChange}
         callType="unary"
         testIdPrefix="grpc-load-test-config"
+        workflowVariables={workflowVariables}
       />
 
       <GrpcWorkflowConnectionSecurityFields

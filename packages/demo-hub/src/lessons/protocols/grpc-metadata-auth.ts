@@ -35,7 +35,11 @@ export const grpcMetadataAuthLesson: GrpcDemoLesson = {
     'Add custom request metadata headers, configure Bearer, Basic, and API Key auth, detect auth conflicts, ' +
     'try OAuth2 client-credentials flow, and interpolate environment variables in metadata values.',
 
-  setup: grpcFirstCallSetup,
+  // Skip the Manage Schemas draft reset — this lesson only covers metadata and
+  // auth, never schema sources. Running it would open/close the Manage Schemas
+  // modal (cycling Proto Files/Protoset/URL/BSR sub-tabs) for every tab, which
+  // the viewer sees as a burst of modals flashing on and off before step 1.
+  setup: (ctx) => grpcFirstCallSetup(ctx, { resetSchemaDrafts: false }),
   cleanup: async (ctx) => {
     await grpcFirstCallCleanup(ctx);
 

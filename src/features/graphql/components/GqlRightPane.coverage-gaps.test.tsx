@@ -29,7 +29,7 @@ const baseProps = {
 };
 
 describe('GqlRightPane — coverage gaps', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('skips latency history for batch context responses', () => {
     const { rerender } = render(

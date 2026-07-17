@@ -49,7 +49,7 @@ function collectTsSources(dir: string, acc: string[] = [], skipAdapters = false)
       collectTsSources(full, acc, skipAdapters);
       continue;
     }
-    if ((entry.endsWith('.ts') || entry.endsWith('.tsx')) && !entry.endsWith('.test.ts') && !entry.endsWith('.test.tsx')) {
+    if ((entry.endsWith('.ts') || entry.endsWith('.tsx')) && !entry.endsWith('.test.ts') && !entry.endsWith('.test.tsx') && !entry.endsWith('.testHelpers.ts') && !entry.endsWith('.testHelpers.tsx')) {
       acc.push(full);
     }
   }

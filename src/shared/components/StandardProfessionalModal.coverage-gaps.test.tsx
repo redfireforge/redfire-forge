@@ -3,46 +3,72 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import '@testing-library/jest-dom';
 import StandardProfessionalModal from './StandardProfessionalModal';
 
-vi.mock('../hooks/useModalFrame', () => ({
-  useModalFrame: () => ({
-    expanded: false,
-    toggleExpand: vi.fn(),
-    expandClass: '',
-    overlayStyle: undefined,
-    dialogStyle: {},
-    headerDragStyle: { cursor: 'move' },
-    onHeaderMouseDown: vi.fn(),
-    onRightEdge: vi.fn(),
-    onCorner: vi.fn(),
-  }),
+vi.mock('./AppModalFrame', () => ({
+  default: (props: Record<string, unknown>) => (
+    <div
+      data-testid="app-modal-frame"
+      data-overlay={String(props.overlayClassName)}
+      data-dialog={String(props.dialogClassName)}
+      data-close-kind={String(props.closeButtonKind)}
+      data-overlay-close={String(props.closeOnOverlayClick)}
+      data-resize={String(props.showResizeHandles)}
+      data-constrain={String(props.constrainDragToViewport)}
+      data-padding={String(props.dragViewportPadding)}
+      data-expand={String(props.showExpandButton)}
+    >
+      {props.children as React.ReactNode}
+      <span>{String(props.title)}</span>
+    </div>
+  ),
 }));
 
 describe('StandardProfessionalModal coverage gaps', () => {
-  it('renders through AppModalFrame with professional modal classes', () => {
+  it('applies professional defaults and forwards children', () => {
     render(
-      <StandardProfessionalModal open title="Professional" onClose={vi.fn()}>
-        <p>Body</p>
+      <StandardProfessionalModal open title="Coverage Modal" onClose={() => undefined}>
+        <p>body</p>
       </StandardProfessionalModal>,
     );
-    expect(screen.getByText('Professional')).toBeTruthy();
-    expect(screen.getByText('Body')).toBeTruthy();
-    expect(document.querySelector('.professional-modal-overlay')).toBeTruthy();
-    expect(document.querySelector('.professional-modal')).toBeTruthy();
+
+    const frame = screen.getByTestId('app-modal-frame');
+    expect(frame).toHaveAttribute('data-overlay', 'professional-modal-overlay');
+    expect(frame).toHaveAttribute('data-dialog', 'professional-modal');
+    expect(frame).toHaveAttribute('data-close-kind', 'icon');
+    expect(frame).toHaveAttribute('data-overlay-close', 'true');
+    expect(frame).toHaveAttribute('data-resize', 'true');
+    expect(frame).toHaveAttribute('data-constrain', 'true');
+    expect(frame).toHaveAttribute('data-padding', '8');
+    expect(frame).toHaveAttribute('data-expand', 'false');
+    expect(screen.getByText('Coverage Modal')).toBeTruthy();
+    expect(screen.getByText('body')).toBeTruthy();
   });
 
-  it('supports text close button kind', () => {
+  it('honors explicit prop overrides', () => {
     render(
       <StandardProfessionalModal
         open
-        title="Close text"
-        onClose={vi.fn()}
+        title="Overrides"
+        onClose={() => undefined}
         closeButtonKind="text"
+        closeOnOverlayClick={false}
+        showResizeHandles={false}
+        constrainDragToViewport={false}
+        dragViewportPadding={16}
+        showExpandButton
       >
-        X
+        null
       </StandardProfessionalModal>,
     );
-    expect(screen.getByRole('button', { name: 'Close' })).toBeTruthy();
+
+    const frame = screen.getByTestId('app-modal-frame');
+    expect(frame).toHaveAttribute('data-close-kind', 'text');
+    expect(frame).toHaveAttribute('data-overlay-close', 'false');
+    expect(frame).toHaveAttribute('data-resize', 'false');
+    expect(frame).toHaveAttribute('data-constrain', 'false');
+    expect(frame).toHaveAttribute('data-padding', '16');
+    expect(frame).toHaveAttribute('data-expand', 'true');
   });
 });

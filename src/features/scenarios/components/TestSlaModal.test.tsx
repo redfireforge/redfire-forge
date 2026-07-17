@@ -43,7 +43,7 @@ function makeTest(slaTargets?: SlaTarget[]): Scenario {
 }
 
 describe('TestSlaModal', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('renders the title with test name', () => {
     render(<TestSlaModal test={makeTest()} onSave={vi.fn()} onClose={vi.fn()} />);

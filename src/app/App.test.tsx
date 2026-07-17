@@ -631,7 +631,7 @@ function resetState() {
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   resetState();
   window.history.pushState({}, '', '/');
 });

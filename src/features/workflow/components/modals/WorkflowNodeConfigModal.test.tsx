@@ -328,7 +328,7 @@ const defaultProps = {
 
 describe('WorkflowNodeConfigModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   // ── Title ──

@@ -4,12 +4,19 @@
 import {
   GRPC_DEMO_TARGET,
   GRPC_DEMO_PREREQUISITE_ENDPOINTS,
+  GRPC_EXPRESS_HEALTH_URL,
+  GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_URL,
 } from '../../../../adapters/grpcStudioAdapter';
 import { GRPC_LESSON_SCHEMA_VERSION } from '../types';
 import { freezeGrpcScenarioSnapshot } from './fingerprint';
 import type { GrpcLessonScenarioSnapshot } from './types';
 
 const GRPC1_FIXTURE_FINGERPRINT = GRPC_DEMO_PREREQUISITE_ENDPOINTS.join('|');
+
+const GRPC_SPRING_FIXTURE_FINGERPRINT = [
+  GRPC_EXPRESS_HEALTH_URL,
+  GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_URL,
+].join('|');
 
 /** GRPC-1 — unary Echo via reflection on Docker echo + Express proxy. */
 export function buildGrpcFirstCallScenarioSnapshot(): GrpcLessonScenarioSnapshot {
@@ -113,6 +120,23 @@ export function buildGrpcMockServerScenarioSnapshot(): GrpcLessonScenarioSnapsho
   });
 }
 
+/** GRPC-15 — Spring Boot & Spring gRPC integration (Netty :9090 + Servlet :8081). */
+export function buildGrpcSpringBootScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-spring-boot',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: 'localhost:9090',
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'Hello from gRPC Studio' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC_SPRING_FIXTURE_FINGERPRINT,
+  });
+}
+
 const SNAPSHOT_BUILDERS: Readonly<Record<string, () => GrpcLessonScenarioSnapshot>> = {
   'grpc-first-call': buildGrpcFirstCallScenarioSnapshot,
   'grpc-schema-discovery': buildGrpcSchemaDiscoveryScenarioSnapshot,
@@ -120,6 +144,7 @@ const SNAPSHOT_BUILDERS: Readonly<Record<string, () => GrpcLessonScenarioSnapsho
   'grpc-metadata-auth': buildGrpcMetadataAuthScenarioSnapshot,
   'grpc-workflow-integration': buildGrpcWorkflowIntegrationScenarioSnapshot,
   'grpc-mock-server': buildGrpcMockServerScenarioSnapshot,
+  'grpc-spring-boot': buildGrpcSpringBootScenarioSnapshot,
 };
 
 /** Build the frozen scenario snapshot for a shipped lesson id. */

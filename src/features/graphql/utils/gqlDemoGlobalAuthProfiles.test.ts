@@ -14,7 +14,7 @@ import { loadGlobalAuthProfiles, saveGlobalAuthProfiles } from '../../../shared/
 
 describe('gqlDemoGlobalAuthProfiles', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('removes profiles that match demo id or name', async () => {

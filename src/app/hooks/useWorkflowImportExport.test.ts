@@ -57,7 +57,7 @@ import { useWorkflowImportExport } from './useWorkflowImportExport';
 
 describe('useWorkflowImportExport', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockPickJsonFile.mockReset();
   });
 

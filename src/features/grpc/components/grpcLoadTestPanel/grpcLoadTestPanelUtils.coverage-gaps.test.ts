@@ -11,6 +11,8 @@ import {
   buildStatusBreakdown,
   buildThroughputTimeline,
   downloadTextFile,
+  formatGrpcStatusCode,
+  formatStopReason,
   parseNonNegativeInt,
   parseNonNegativeSecondsToMs,
   parsePositiveInt,
@@ -18,6 +20,7 @@ import {
   presentMsAsSeconds,
   safeFilePart,
   statusCodeSort,
+  toPercentString,
   toSignedNumber,
 } from './grpcLoadTestPanelUtils';
 
@@ -79,12 +82,24 @@ describe('grpcLoadTestPanelUtils coverage gaps', () => {
     expect(statusCodeSort('12', '3')).toBe(9);
   });
 
+  it('builds status breakdown with measured attempts and sorts by count', () => {
+    const summary = makeLoadTestSummary();
+    summary.metrics.statusDistribution.measuredAttempts = 6;
+    summary.metrics.statusDistribution.byStatusCode = { '0': 4, '14': 2 };
+    const rows = buildStatusBreakdown(summary);
+    expect(rows).toEqual([
+      { statusCode: '0', count: 4, ratio: 4 / 6 },
+      { statusCode: '14', count: 2, ratio: 2 / 6 },
+    ]);
+  });
+
   it('builds status breakdown with zero measured attempts', () => {
     const summary = makeLoadTestSummary();
     summary.metrics.statusDistribution.measuredAttempts = 0;
     summary.metrics.statusDistribution.byStatusCode = { '0': 2 };
     const rows = buildStatusBreakdown(summary);
     expect(rows[0]?.ratio).toBe(0);
+    expect(rows.length).toBeGreaterThan(0);
   });
 
   it('builds latency histogram for uniform durations', () => {
@@ -164,5 +179,83 @@ describe('grpcLoadTestPanelUtils coverage gaps', () => {
     const composition = buildCompareStatusComposition(current, baseline);
     expect(composition.find((row) => row.statusCode === '14')?.currentPct).toBe(0);
     expect(composition.find((row) => row.statusCode === '14')?.baselinePct).toBe(0);
+  });
+
+  it('formats gRPC status codes and stop reasons', () => {
+    expect(formatGrpcStatusCode('0')).toBe('0 · OK');
+    expect(formatGrpcStatusCode('custom')).toBe('custom');
+    expect(formatStopReason('completed_total_calls')).toBe('Completed Total Calls');
+    expect(toPercentString(12.345)).toBe('12.35%');
+  });
+
+  it('builds multi-bucket latency histogram and throughput timeline with successes', () => {
+    const summary = makeLoadTestSummary();
+    summary.attempts = [
+      {
+        attemptNumber: 1,
+        warmup: false,
+        startedAt: '2026-07-01T00:00:00.000Z',
+        finishedAt: '2026-07-01T00:00:00.050Z',
+        durationMs: 10,
+        ok: true,
+      },
+      {
+        attemptNumber: 2,
+        warmup: false,
+        startedAt: '2026-07-01T00:00:01.000Z',
+        finishedAt: '2026-07-01T00:00:01.500Z',
+        durationMs: 500,
+        ok: true,
+      },
+      {
+        attemptNumber: 3,
+        warmup: false,
+        startedAt: '2026-07-01T00:00:02.000Z',
+        finishedAt: '2026-07-01T00:00:02.900Z',
+        durationMs: 900,
+        ok: true,
+        statusCode: 0,
+      },
+    ];
+
+    const histogram = buildLatencyHistogram(summary);
+    expect(histogram.length).toBeGreaterThan(1);
+    expect(histogram.some((bucket) => bucket.count > 0)).toBe(true);
+
+    const timeline = buildThroughputTimeline(summary);
+    expect(timeline.length).toBeGreaterThan(1);
+    expect(timeline.some((bucket) => bucket.succeeded > 0)).toBe(true);
+    expect(timeline.every((bucket) => bucket.ratio > 0)).toBe(true);
+  });
+
+  it('builds compare helpers with measured attempts and regression deltas', () => {
+    const current = makeLoadTestSummary();
+    const baseline = makeLoadTestSummary();
+    current.metrics.throughput.measuredAttemptsPerSecond = 4;
+    baseline.metrics.throughput.measuredAttemptsPerSecond = 8;
+    current.metrics.latency.p50Ms = 30;
+    baseline.metrics.latency.p50Ms = 10;
+    current.metrics.latency.p95Ms = 60;
+    baseline.metrics.latency.p95Ms = 20;
+    current.metrics.latency.p99Ms = 90;
+    baseline.metrics.latency.p99Ms = 30;
+    current.metrics.statusDistribution.measuredAttempts = 4;
+    current.metrics.statusDistribution.failedAttempts = 2;
+    current.metrics.statusDistribution.byStatusCode = { '0': 2, '14': 2 };
+    baseline.metrics.statusDistribution.measuredAttempts = 4;
+    baseline.metrics.statusDistribution.failedAttempts = 0;
+    baseline.metrics.statusDistribution.byStatusCode = { '0': 4 };
+
+    const deltas = buildCompareDeltas(current, baseline);
+    expect(deltas.throughputDelta).toBeLessThan(0);
+    expect(deltas.errorRateDelta).toBeGreaterThan(0);
+
+    const rows = buildCompareDetailRows(current, baseline);
+    expect(rows.find((row) => row.label === 'Throughput (RPS)')?.improved).toBe(false);
+    expect(rows.find((row) => row.label === 'p50 latency (ms)')?.improved).toBe(false);
+
+    const composition = buildCompareStatusComposition(current, baseline);
+    expect(composition.find((row) => row.statusCode === '14')?.currentPct).toBe(50);
+    expect(composition.find((row) => row.statusCode === '0')?.baselinePct).toBe(100);
   });
 });

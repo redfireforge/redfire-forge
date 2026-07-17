@@ -113,6 +113,18 @@ describe('grpcWebTransportContracts (Phase 10A)', () => {
     }
   });
 
+  it('assertGrpcTransportCallTypeSupported uses unary label when capability blocks it', () => {
+    const matrixEntry = GRPC_TRANSPORT_CAPABILITY_MATRIX.express;
+    const previous = matrixEntry.unary;
+    matrixEntry.unary = false;
+    try {
+      expect(() => assertGrpcTransportCallTypeSupported('express', 'unary'))
+        .toThrow(/unary/i);
+    } finally {
+      matrixEntry.unary = previous;
+    }
+  });
+
   it('assertGrpcTransportCallTypeSupported throws validation error for blocked combinations', () => {
     expect(() => assertGrpcTransportCallTypeSupported('grpc-web', 'client_streaming'))
       .toThrow(GrpcWebTransportPreflightError);
@@ -137,9 +149,9 @@ describe('grpcWebTransportContracts (Phase 10A)', () => {
     }
   });
 
-  it('browser-direct modes are browser-only in capability matrix', () => {
-    expect(getGrpcTransportCapabilities('grpc-web').browserOnly).toBe(true);
-    expect(getGrpcTransportCapabilities('spring-servlet').browserOnly).toBe(true);
+  it('browser-direct modes are not browser-only in capability matrix', () => {
+    expect(getGrpcTransportCapabilities('grpc-web').browserOnly).toBe(false);
+    expect(getGrpcTransportCapabilities('spring-servlet').browserOnly).toBe(false);
     expect(getGrpcTransportCapabilities('express').browserOnly).toBe(false);
   });
 
@@ -161,13 +173,11 @@ describe('grpcWebTransportContracts (Phase 10A)', () => {
     expect(() => assertGrpcTransportPlatformSupported('express')).not.toThrow();
   });
 
-  it('grpc-web is supported on web but not desktop', () => {
+  it('grpc-web is supported on web and desktop', () => {
     expect(isGrpcTransportPlatformSupported('grpc-web')).toBe(true);
-
     vi.mocked(isTauri).mockReturnValue(true);
-    expect(isGrpcTransportPlatformSupported('grpc-web')).toBe(false);
-    expect(() => assertGrpcTransportPlatformSupported('grpc-web'))
-      .toThrow(/browser build/i);
+    expect(isGrpcTransportPlatformSupported('grpc-web')).toBe(true);
+    expect(() => assertGrpcTransportPlatformSupported('grpc-web')).not.toThrow();
   });
 
   it('tauri is supported on desktop but not web', () => {
@@ -178,6 +188,21 @@ describe('grpcWebTransportContracts (Phase 10A)', () => {
     expect(isGrpcTransportPlatformSupported('tauri')).toBe(false);
     expect(() => assertGrpcTransportPlatformSupported('tauri'))
       .toThrow(/desktop/i);
+  });
+
+  it('browserOnly modes are rejected on desktop', () => {
+    const matrixEntry = GRPC_TRANSPORT_CAPABILITY_MATRIX['grpc-web'];
+    const previous = matrixEntry.browserOnly;
+    matrixEntry.browserOnly = true;
+    try {
+      vi.mocked(isTauri).mockReturnValue(true);
+      expect(isGrpcTransportPlatformSupported('grpc-web')).toBe(false);
+      expect(() => assertGrpcTransportPlatformSupported('grpc-web'))
+        .toThrow(/browser build/i);
+    } finally {
+      matrixEntry.browserOnly = previous;
+      vi.mocked(isTauri).mockReturnValue(false);
+    }
   });
 
   it('assertGrpcTransportExecutePreflight combines platform and call-type checks', () => {

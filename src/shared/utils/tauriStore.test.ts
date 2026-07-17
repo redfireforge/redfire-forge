@@ -22,7 +22,7 @@ async function loadTauriStore() {
 
 describe('tauriStore', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockFs.mkdir.mockResolvedValue(undefined);
     mockAppDataDir.mockResolvedValue('/Users/test/.appdata/redfireforge/');
   });

@@ -147,7 +147,7 @@ describe('KafkaTriggerSubscriptionManager', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   // ── Activation ────────────────────────────────────────────────────────────

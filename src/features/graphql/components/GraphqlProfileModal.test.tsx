@@ -33,7 +33,7 @@ const defaultProps = {
 describe('GraphqlProfileModal', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   afterEach(() => {

@@ -57,7 +57,7 @@ describe('useSchemaRegistry', () => {
   let mockDispatch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockDispatch = vi.fn();
   });
 
@@ -469,7 +469,7 @@ describe('useSchemaRegistry — additional branch coverage', () => {
   let mockDispatch: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockDispatch = vi.fn();
   });
 

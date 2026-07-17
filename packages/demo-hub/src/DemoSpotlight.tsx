@@ -4,12 +4,17 @@ import {
   findFirstVisibleElement,
   isSpotlightSuppressedForModal,
 } from './demoSpotlightUtils';
+import { getManualSpotlightEventName, isManualSpotlightActive } from './demoRipple';
 
 interface SpotlightProps {
   selector?: string;
   active: boolean;
   /** Bumps when the live step changes — forces a fresh track loop (Tauri WebView). */
   trackKey?: string;
+  /** When true, captures the rect once then stops tracking. Use during action phase
+   * to prevent the ring from jumping when the highlighted element resizes (e.g.
+   * when the interpolation preview strip mounts inside TARGET_PANEL_STACK). */
+  frozen?: boolean;
 }
 
 interface SpotlightRect {
@@ -21,14 +26,17 @@ interface SpotlightRect {
 
 const SPOTLIGHT_TRACK_INTERVAL_MS = 250;
 
-export default function DemoSpotlight({ selector, active, trackKey }: SpotlightProps) {
+export default function DemoSpotlight({ selector, active, trackKey, frozen }: SpotlightProps) {
   const [rect, setRect] = useState<SpotlightRect | null>(null);
-  const rafRef = useRef<number>(0);
+  const [manualSpotlightActive, setManualSpotlightActive] = useState<boolean>(() => isManualSpotlightActive());
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Ref so the RAF callback always reads the latest frozen value without re-running the effect.
+  const frozenRef = useRef(frozen);
+  frozenRef.current = frozen;
 
   useEffect(() => {
     setRect(null);
-    if (!active || !selector) { return; }
+    if (!active || !selector || manualSpotlightActive) { return; }
 
     let cancelled = false;
 
@@ -44,30 +52,27 @@ export default function DemoSpotlight({ selector, active, trackKey }: SpotlightP
           width: r.width + 12,
           height: r.height + 12,
         };
-        setRect((prev) => (
-          prev
-          && prev.top === next.top
-          && prev.left === next.left
-          && prev.width === next.width
-          && prev.height === next.height
-            ? prev
-            : next
-        ));
+        setRect((prev) => {
+          // When frozen, keep the rect we already have — the element may be
+          // resizing (e.g. preview strip mounting) but the ring should not move.
+          if (frozenRef.current && prev !== null) return prev;
+          // Only update if the rect has moved/resized by more than 2px to avoid
+          // trembling when the tracked element has minor layout fluctuations.
+          if (
+            prev &&
+            Math.abs(prev.top - next.top) <= 2 &&
+            Math.abs(prev.left - next.left) <= 2 &&
+            Math.abs(prev.width - next.width) <= 2 &&
+            Math.abs(prev.height - next.height) <= 2
+          ) return prev;
+          return next;
+        });
       } else {
         setRect((prev) => (prev === null ? prev : null));
       }
     };
 
-    const scheduleRaf = () => {
-      if (cancelled || typeof requestAnimationFrame !== 'function') return;
-      rafRef.current = requestAnimationFrame(() => {
-        track();
-        scheduleRaf();
-      });
-    };
-
     track();
-    scheduleRaf();
     intervalRef.current = setInterval(track, SPOTLIGHT_TRACK_INTERVAL_MS);
 
     const onLayoutChange = () => { track(); };
@@ -76,9 +81,6 @@ export default function DemoSpotlight({ selector, active, trackKey }: SpotlightP
 
     return () => {
       cancelled = true;
-      if (typeof cancelAnimationFrame === 'function') {
-        cancelAnimationFrame(rafRef.current);
-      }
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -86,9 +88,25 @@ export default function DemoSpotlight({ selector, active, trackKey }: SpotlightP
       window.removeEventListener('resize', onLayoutChange);
       window.removeEventListener('scroll', onLayoutChange, true);
     };
-  }, [selector, active, trackKey]);
+  }, [selector, active, trackKey, manualSpotlightActive]);
 
-  if (!active || !rect) return null;
+  useEffect(() => {
+    const eventName = getManualSpotlightEventName();
+    const onManualSpotlightChange = (event: Event) => {
+      const customEvent = event as CustomEvent<number>;
+      const detail = typeof customEvent.detail === 'number' ? customEvent.detail : Number.NaN;
+      if (Number.isFinite(detail)) {
+        setManualSpotlightActive(detail > 0);
+        return;
+      }
+      setManualSpotlightActive(isManualSpotlightActive());
+    };
+
+    window.addEventListener(eventName, onManualSpotlightChange as EventListener);
+    return () => window.removeEventListener(eventName, onManualSpotlightChange as EventListener);
+  }, []);
+
+  if (!active || !rect || manualSpotlightActive) return null;
 
   return (
     <>

@@ -23,7 +23,7 @@ function makeResponse(overrides: Partial<GraphqlResponse> = {}): GraphqlResponse
 
 describe('GraphqlResponseViewer', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
   });
 

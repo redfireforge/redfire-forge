@@ -58,7 +58,7 @@ describe('ScriptLibraryVersionPanel', () => {
   const onClose = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     diffPropsSpy.mockClear();
   });
 

@@ -234,7 +234,7 @@ describe('buildUrl', () => {
 
 describe('proxyFetch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('delegates to httpFetch with the same arguments', async () => {
@@ -252,7 +252,7 @@ describe('proxyFetch', () => {
 
 describe('runTest', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   function makeConfig(overrides: Partial<TestConfig> = {}): TestConfig {

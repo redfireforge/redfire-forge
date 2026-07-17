@@ -76,7 +76,7 @@ function renderModal(onClose = vi.fn()) {
 
 describe('DataTableVerifyModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockEngineState = baseState();
   });
 

@@ -17,7 +17,7 @@ import { saveFile } from '../../shared/utils/fileSaver';
 
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 function makeCatalog(entry?: CatalogEntry): UseCatalogReturn {

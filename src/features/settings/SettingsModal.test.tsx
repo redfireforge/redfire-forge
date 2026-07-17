@@ -79,7 +79,7 @@ function Harness({
 }
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockAuthVerifying = false;
   mockAuthVerifyResult = null;
 });

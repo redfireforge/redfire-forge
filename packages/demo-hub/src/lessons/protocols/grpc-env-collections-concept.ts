@@ -3,12 +3,13 @@ import type { GrpcDemoLesson } from './grpc-lesson-contract';
 
 export const grpcEnvCollectionsConcept: GrpcDemoLesson['concept'] = {
     title: 'Environments, Collections & History',
-    body: `gRPC Studio supports **template variables** (\`{{name}}\`) in four places: the **target** address, **metadata** headers, the **request body**, and **auth** credentials. Variables are resolved at call time from three layered sources — Workspace Defaults, the active environment, and profile overrides.
+    body: `gRPC Studio supports **template variables** (\`{{name}}\`) in four places: the **target** address, **metadata** headers, the **request body**, and **auth** credentials. Variables are resolved at call time from two layered sources — the active microservice configuration and profile overrides.
 
 | Variable source | Where it lives | Who sets it |
 |---|---|---|
-| \`{{grpcHost}}\` | Active env / Workspace Defaults | Environment Manager ← gRPC endpoint |
-| \`{{requestId}}\`, \`{{userId}}\`, … | Workspace Defaults (Interpolation) | Environment Manager → bottom section |
+| \`{{grpcHost}}\` | Active env (gRPC endpoint) | Environment Manager → microservice Configure → gRPC tab |
+| \`{{requestId}}\`, \`{{userId}}\`, … | **Protocol vars** (all environments) | Environment Manager → microservice Configure → Protocol vars badge |
+| Env-specific overrides | **Env vars** (per environment) | Environment Manager → microservice Configure → Env vars badge |
 | Profile-level overrides | Named connection profile | gRPC Studio settings |
 
 **Interpolation Preview Strip** — appears below the target input whenever the field contains \`{{\`; shows the raw template and the fully resolved address side by side. An **Interpolation Error banner** blocks the call when a token cannot be resolved.
@@ -18,9 +19,9 @@ export const grpcEnvCollectionsConcept: GrpcDemoLesson['concept'] = {
 **History** auto-logs every invocation. Auth token *values* are stripped before persist — shared history entries are safe. Click **Replay** to restore any historical call into the active Studio tab.
 
 **What you will do in this lesson:**
-1. **Open** the Workspace Defaults section in the Environment Manager.
+1. **Open** the Environment Manager — configure the gRPC endpoint (provides \`{{grpcHost}}\`) and add Protocol Variables (\`requestId\`, \`userId\`) via the **Protocol vars** badge on the gRPC tab.
 2. **Type** \`{{grpcHost}}\` in the target field and observe the Preview Strip.
-3. **Switch** the \`grpcHost\` value and watch the strip update in real time.
+3. **Switch** to a staging environment in the header and watch the strip update instantly.
 4. **Add** \`x-request-id: {{requestId}}\` in the Metadata tab.
 5. **Add** \`"userId": "{{userId}}"\` in the JSON body; view the resolved payload preview.
 6. **Trigger** the Interpolation Error banner with an unknown token.
@@ -33,12 +34,12 @@ export const grpcEnvCollectionsConcept: GrpcDemoLesson['concept'] = {
       {
         term: '{{grpcHost}}',
         definition:
-          'Reserved gRPC interpolation variable. Resolves to the `host:port` of the active gRPC endpoint — no scheme. Set via the deployed endpoint in the Environment Manager or directly in Workspace Defaults.',
+          'Reserved gRPC interpolation variable. Resolves to the `host:port` of the active gRPC endpoint — no scheme. Set via the deployed endpoint in the microservice Configure panel → gRPC tab.',
       },
       {
-        term: 'Workspace Defaults',
+        term: 'Protocol vars & Env vars',
         definition:
-          'A global flat map of key → value pairs in the Environment Manager. Variables defined here are available to all gRPC calls in every tab, regardless of which environment is selected.',
+          'Two layers of custom variables per microservice. **Protocol vars** (opened via the Protocol vars badge on any protocol tab) are global — same key/value for all environments. **Env vars** (opened via the Env vars badge on a deployed row) are per-environment overrides; an empty value deletes the inherited Protocol var for that env. Both layers are lower priority than protocol-derived vars (e.g. `{{grpcHost}}` from the gRPC endpoint).',
       },
       {
         term: 'Interpolation Preview Strip',

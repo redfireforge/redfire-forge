@@ -51,7 +51,7 @@ const makeWorkflow = (overrides: Partial<Workflow> = {}): Workflow =>
 
 describe('useWorkflows', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockMigrateWorkflow.mockImplementation((wf: Workflow) => ({ ...wf, schemaVersion: 5 }));
     mockLoadWorkflows.mockResolvedValue([]);
     mockLoadSelectedId.mockResolvedValue(null);

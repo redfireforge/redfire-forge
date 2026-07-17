@@ -80,7 +80,7 @@ function makeGqlFetchError(status: number, body = '') {
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   clearGraphqlSchemaMemoryCacheForTests();
   localStorage.clear();
   mockParseIntrospection.mockReturnValue(makeSchemaInfo());

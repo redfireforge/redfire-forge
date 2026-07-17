@@ -23,7 +23,7 @@ vi.mock('./grpcTransportFacade', async (importOriginal) => {
 
 describe('buildGrpcNodeOperations', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     grpcTransportFacade.resetGrpcNativeTransportRefCountForTests();
     grpcTransportFacade.setGrpcTransportMode(null);
     resetBuildGrpcNodeOperationsForTests();

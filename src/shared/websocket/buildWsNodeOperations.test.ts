@@ -22,7 +22,7 @@ function envelope<T>(data: T) {
 
 describe('buildWsNodeOperations', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('connect', () => {

@@ -93,7 +93,7 @@ function makeErrorResponse(errors: unknown[]) {
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.mocked(hasIncrementalDirective).mockReturnValue(false);
   vi.mocked(getInFlight).mockReturnValue(null);
   vi.mocked(buildDedupKey).mockReturnValue('dedup-key');
@@ -101,7 +101,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 // ─── Initial state ────────────────────────────────────────────────────────────

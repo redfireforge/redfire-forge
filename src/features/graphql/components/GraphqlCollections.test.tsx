@@ -174,7 +174,7 @@ const defaultProps = {
 
 describe('GraphqlCollections', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   // ─── Loading state ─────────────────────────────────────────────────────────

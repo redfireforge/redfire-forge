@@ -94,7 +94,7 @@ function makeWireBuffer(schemaId: number, payload: Buffer = Buffer.from([0x06, 0
 
 describe('schema-registry-client', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     clearSchemaCache();
   });
 

@@ -26,7 +26,7 @@ import {
 
 describe('graphRunnerNodeHandlers.test-utils', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('getMockFetch returns the mocked httpFetch', () => {

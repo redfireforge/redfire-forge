@@ -1,7 +1,7 @@
 /**
  * @vitest-environment jsdom
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   L13,
   resetGqlLesson13SessionFlags,
@@ -18,7 +18,7 @@ describe('lesson13-mock-server-session', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('mockToggleChecked reads E2E session flags when desktop mock mode is active', () => {

@@ -22,7 +22,7 @@ vi.mock('../../engine/tokenManager', () => ({
 
 describe('applyAuthHeaders', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns headers unchanged for auth type "none"', async () => {

@@ -108,3 +108,26 @@ When working in any `.tsx` or `.css` file containing forms or settings panels:
 3. Ensure `justify-content: flex-start` on inline/row-direction ctrl containers
 4. Ensure labels are sentence-case (never ALL-CAPS in rendered text)
 5. Ensure selects use `appearance: none` + custom SVG chevron
+
+## Workflow Node Config Modals (standard)
+
+All Workflow Designer node configuration dialogs use `WorkflowEditorModalFrame` with class `wf-config-modal` (defined in `src/styles/workflow.css`).
+
+**Chrome (required for every node config modal, including future node types):**
+
+- Interior: `background: var(--surface)` — do **not** lighten the fill
+- Four edges: subtle white ring only — border + outer/inset hairlines (see `.wf-config-modal.modal.ram-modal`)
+- Title header + Config/Input/Output/Logs tabs stay **outside** the scroll viewport (`toolbar` prop); only the form body scrolls
+- Footer Close/Save stays pinned at the bottom
+
+```css
+/* Canonical edge treatment — do not invent per-node variants */
+border: 1px solid color-mix(in srgb, white 28%, var(--border));
+box-shadow:
+  0 0 0 1px color-mix(in srgb, white 14%, transparent),
+  inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+  0 12px 40px rgba(0, 0, 0, 0.45),
+  0 2px 8px rgba(0, 0, 0, 0.25);
+```
+
+New node configs must reuse `WorkflowEditorModalFrame` + `wf-config-modal` so this chrome applies automatically.

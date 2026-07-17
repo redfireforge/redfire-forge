@@ -66,7 +66,7 @@ function createMockWorkflowFolder(id = 'folder-1'): WorkflowFolder {
 
 describe('idbWorkflows', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
     mockStores.workflows.clear();
     mockStores.workflowFolders.clear();

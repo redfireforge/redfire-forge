@@ -29,7 +29,7 @@ const resp: GraphqlResponse = { httpStatus: 200, httpHeaders: {}, latencyMs: 50,
 const errResp: GraphqlResponse = { httpStatus: 200, httpHeaders: {}, latencyMs: 50, timestamp: Date.now(), data: null, errors: [{ message: 'Oops' }] };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   vi.mocked(idbLoadHistory).mockResolvedValue([]);
   vi.mocked(idbSaveHistoryItem).mockResolvedValue(undefined);
   vi.mocked(idbDeleteHistoryItem).mockResolvedValue(undefined);

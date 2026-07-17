@@ -68,7 +68,7 @@ function defaultProps(overrides: Partial<SaveToCollectionModalProps> = {}): Save
 // ─── Setup ────────────────────────────────────────────────────────────────────
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

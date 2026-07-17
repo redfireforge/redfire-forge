@@ -223,7 +223,7 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     ...GO_ECHO_DOCKER,
     initialTab: 'grpc-studio',
     allowedTabs: STUDIO_TABS,
-    estimatedMinutes: 6,
+    estimatedMinutes: 7,
   },
   {
     number: 15,
@@ -262,7 +262,7 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     ...GO_ECHO_DOCKER,
     initialTab: 'grpc-studio',
     allowedTabs: STUDIO_TABS,
-    estimatedMinutes: 8,
+    estimatedMinutes: 7,
   },
   {
     number: 17,
@@ -364,6 +364,20 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     initialTab: 'grpc-studio',
     allowedTabs: STUDIO_TABS,
     estimatedMinutes: 6,
+  },
+  {
+    number: 24,
+    id: 'grpc-workflow-runner',
+    title: 'Workflow Runner & Results',
+    keyConcept: 'Workflow variables, grpcTarget override, Workflow Runner, Results Dashboard, Results Explorer',
+    phaseDependencies: [11],
+    fixtures: GO_ECHO_FIXTURE,
+    implementationStatus: 'shipped',
+    introducedInSchemaVersion: 1,
+    ...GO_ECHO_DOCKER,
+    initialTab: 'workflow',
+    allowedTabs: [...STUDIO_TABS, 'workflow', 'workflow-runner', 'results'],
+    estimatedMinutes: 10,
   },
 ] as const;
 

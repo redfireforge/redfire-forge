@@ -12,7 +12,7 @@ vi.mock('@tauri-apps/api/core', () => ({
 
 describe('tauriGqlNativeFetch', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockInvoke.mockResolvedValue({
       status: 200,
       statusText: 'OK',

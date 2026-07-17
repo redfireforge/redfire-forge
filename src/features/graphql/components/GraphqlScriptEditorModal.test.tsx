@@ -502,7 +502,7 @@ describe('GraphqlScriptEditorModal — resetKey', () => {
 
 describe('GraphqlScriptEditorModal — Test Script', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockResolvePendingTests.mockResolvedValue([]);
     mockGetLogs.mockReturnValue([]);
     vi.mocked(runScript).mockResolvedValue(undefined);
@@ -672,7 +672,7 @@ describe('GraphqlScriptEditorModal — Test Script', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 });
 
@@ -814,7 +814,7 @@ describe('GraphqlScriptEditorModal — template insertion branches', () => {
 
 describe('GraphqlScriptEditorModal — test result fail entries', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(runScript).mockResolvedValue(undefined);
     vi.mocked(createRfContext).mockReturnValue({
       rf: mockRf as never,
