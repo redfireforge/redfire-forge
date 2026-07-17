@@ -333,6 +333,18 @@ describe('GalleryPage', () => {
     });
   });
 
+  it('calls onImportTest when a data-mapper sample is loaded', () => {
+    const onImportTest = vi.fn();
+    const { container } = render(<GalleryPage onImportTest={onImportTest} />);
+    const domainBtns = container.querySelectorAll('.gallery-domain-btn');
+    const dmBtn = Array.from(domainBtns).find(btn => btn.textContent?.includes('Data Mapper'));
+    expect(dmBtn).toBeTruthy();
+    fireEvent.click(dmBtn!);
+    fireEvent.click(container.querySelector('.gallery-card') as HTMLElement);
+    fireEvent.click(screen.getByText('Load Sample'));
+    expect(onImportTest).toHaveBeenCalledTimes(1);
+  });
+
   afterEach(() => {
     vi.unstubAllGlobals();
   });

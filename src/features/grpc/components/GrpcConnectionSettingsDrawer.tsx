@@ -17,6 +17,15 @@ import { GrpcHealthCheckPanel } from './GrpcHealthCheckPanel';
 import { GrpcK8sPortForwardPanel } from './GrpcK8sPortForwardPanel';
 import { GrpcTransportPanel } from './GrpcTransportPanel';
 
+const GRPC_SETTINGS_DRAG_ANCHOR = {
+  selector: '[data-testid="grpc-target-input"]',
+  hAlign: 'right',
+  vAlign: 'top',
+  padding: {
+    right: -210,
+  },
+} as const;
+
 export type GrpcConnectionSettingsNav =
   | 'call'
   | 'compression'
@@ -137,14 +146,7 @@ export function GrpcConnectionSettingsDrawer({
       showExpandButton={false}
       showResizeHandles={false}
       disableDrag={false}
-      dragAnchor={{
-        selector: '[data-testid="grpc-target-input"]',
-        hAlign: 'right',
-        vAlign: 'top',
-        padding: {
-          right: -210,
-        },
-      }}
+      dragAnchor={GRPC_SETTINGS_DRAG_ANCHOR}
       constrainDragToViewport
       dragViewportPadding={8}
       closeButtonKind="none"

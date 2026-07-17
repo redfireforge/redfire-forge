@@ -12,7 +12,8 @@ const raw = JSON.parse(readFileSync(INPUT, 'utf8'));
 const rows = [];
 
 for (const [file, cov] of Object.entries(raw)) {
-  if (!file.includes('/src/')) continue;
+  const normalized = file.replace(/\\/g, '/');
+  if (!normalized.includes('/src/') && !normalized.includes('/src-server/') && !normalized.includes('/cli/')) continue;
   if (file.includes('__test-utils__')) continue;
   if (file.includes('.test-utils.')) continue;
   if (file.endsWith('shared/types/index.ts')) continue;
@@ -46,7 +47,11 @@ for (const [file, cov] of Object.entries(raw)) {
   const min = Math.min(stmts, branches, funcs, lines);
 
   rows.push({
-    file: file.replace(/.*\/src\//, 'src/'),
+    file: normalized.includes('/src-server/')
+      ? normalized.replace(/.*\/src-server\//, 'src-server/')
+      : normalized.includes('/cli/')
+        ? normalized.replace(/.*\/cli\//, 'cli/')
+        : normalized.replace(/.*\/src\//, 'src/'),
     stmts,
     branches,
     funcs,

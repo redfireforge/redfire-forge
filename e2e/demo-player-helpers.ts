@@ -57,6 +57,28 @@ export async function installPhase8DemoGuardBypass(page: Page): Promise<void> {
 const HUB_TIMEOUT       = 10_000;  // demo hub DOM ready
 const STEP_TIMEOUT      = 25_000;  // one step action (some steps have long waits)
 const RESTART_TIMEOUT   = 30_000;  // restart includes cleanup + setup
+const APP_NAV_ATTEMPTS  = 5;
+const APP_NAV_DELAY_MS  = 2_000;
+
+async function gotoAppWithRetry(page: Page, url: string): Promise<void> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= APP_NAV_ATTEMPTS; attempt += 1) {
+    try {
+      await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 20_000 });
+      return;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('ERR_CONNECTION_REFUSED') || attempt === APP_NAV_ATTEMPTS) {
+        break;
+      }
+      await page.waitForTimeout(APP_NAV_DELAY_MS);
+    }
+  }
+  throw lastError instanceof Error
+    ? lastError
+    : new Error(`Failed to open ${url}: ${String(lastError)}`);
+}
 
 // ─── Navigation helpers ───────────────────────────────────────────────────────
 
@@ -86,10 +108,10 @@ export async function clearDemoE2EStorage(page: Page): Promise<void> {
 /** Navigate to the root page and open the Demo Hub pane. */
 export async function openDemoHub(page: Page): Promise<void> {
   await installPhase8DemoGuardBypass(page);
-  await page.goto('http://localhost:5173', { waitUntil: 'networkidle' });
+  await gotoAppWithRetry(page, 'http://localhost:5173');
   if (process.env.PHASE8_E2E_SWEEP === '1') {
     await clearDemoE2EStorage(page);
-    await page.reload({ waitUntil: 'networkidle' });
+    await page.reload({ waitUntil: 'domcontentloaded' });
   }
   await page.locator('[title="Demo Hub"]').click();
   await page.waitForSelector('.demo-domain-card', { timeout: HUB_TIMEOUT });

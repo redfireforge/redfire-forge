@@ -41,6 +41,48 @@ product_coverage_product_report_exists() {
   [[ -f coverage/coverage-final.product.json ]]
 }
 
+product_coverage_ensure_batch_dirs() {
+  mkdir -p coverage/.tmp coverage/batches/{shared,features,app,server}
+}
+
+# Run vitest coverage in an isolated scratch dir, then publish coverage-final.json
+# into coverage/batches/<name>/ so vitest temp files cannot delete sibling batches.
+# When partial=1, merge incoming coverage into the existing store (accumulative scoped runs).
+product_coverage_run_vitest_batch() {
+  local batch_name="$1"
+  local partial="${2:-0}"
+  shift 2
+  local scratch="coverage/.tmp/vitest-batch-${batch_name}-$$"
+  local store="coverage/batches/${batch_name}"
+  local store_file="$store/coverage-final.json"
+  local partials_dir="$store/partials"
+  mkdir -p "$scratch/.tmp" "$store" "$partials_dir"
+  trap "rm -rf '${scratch}'" RETURN
+  set +e
+  npx vitest run --project product --coverage \
+    --maxWorkers=1 --no-file-parallelism \
+    --coverage.clean=true \
+    --coverage.reportOnFailure=true \
+    --coverage.reportsDirectory="$scratch" \
+    "$@"
+  local batch_exit=$?
+  set -e
+  if [[ -f "$scratch/coverage-final.json" ]]; then
+    local stamp
+    stamp="$(date +%Y%m%d-%H%M%S)"
+    cp "$scratch/coverage-final.json" "$partials_dir/${stamp}-partial.json"
+    if [[ "$partial" -eq 1 ]]; then
+      npx tsx scripts/merge-coverage-map-into.ts "$store_file" "$scratch/coverage-final.json"
+      echo "ℹ merged partial into $store_file (snapshot: $partials_dir/${stamp}-partial.json)"
+    else
+      cp "$scratch/coverage-final.json" "$store_file"
+    fi
+  else
+    echo "⚠ no coverage-final.json from batch $batch_name (vitest exit $batch_exit)" >&2
+  fi
+  return "$batch_exit"
+}
+
 product_coverage_warn_stale_batches() {
   local batch="$1"
   local missing=0
@@ -54,4 +96,35 @@ product_coverage_warn_stale_batches() {
   if [[ "$missing" -eq 1 ]]; then
     echo "Run all batches once on PR/CI: bash scripts/run-product-coverage-fast.sh"
   fi
+}
+
+# Fail when any production source file is ≥900 lines (tests excluded).
+product_coverage_check_monolithic() {
+  local threshold="${MONOLITH_LINE_THRESHOLD:-900}"
+  local offenders
+  offenders="$(
+    find src packages/demo-hub/src src-server cli -type f \( -name '*.ts' -o -name '*.tsx' \) \
+      ! -path '*/node_modules/*' \
+      ! -name '*.test.*' \
+      ! -name '*.coverage-gaps.test.*' \
+      ! -path '*/__test-utils__/*' \
+      ! -path '*/test-utils/*' \
+      -print0 2>/dev/null \
+    | xargs -0 wc -l 2>/dev/null \
+    | awk -v t="$threshold" '$1 >= t && $2 != "total" { print $1, $2 }' \
+    | sort -rn
+  )"
+
+  if [[ -z "$offenders" ]]; then
+    echo "✅ No production files ≥${threshold} lines (tests excluded)"
+    return 0
+  fi
+
+  echo "❌ Monolithic production files (≥${threshold} lines, tests excluded):"
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && echo "   $line"
+  done <<< "$offenders"
+  echo ""
+  echo "Split into focused modules before merge."
+  return 1
 }

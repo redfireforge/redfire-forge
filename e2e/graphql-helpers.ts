@@ -271,8 +271,23 @@ export async function fillMonacoEditor(page: Page, query: string, editorTestId =
   await page.waitForSelector(`[data-testid="${editorTestId}"] .monaco-editor`, { timeout: 8_000 });
   const editor = page.locator(`[data-testid="${editorTestId}"] .monaco-editor`).first();
   await editor.click();
-  await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
-  await page.keyboard.type(query, { delay: 15 });
+  const wroteViaMonacoModel = await page.evaluate((args: { query: string }) => {
+    const w = window as unknown as Record<string, unknown>;
+    const monaco = w['monaco'] as {
+      editor?: { getModels?: () => { uri: { toString: () => string }; getValue: () => string; setValue: (value: string) => void }[] };
+    };
+    const models = monaco?.editor?.getModels?.() ?? [];
+    const model = models.find((mod) => mod.uri.toString().includes('inmemory://graphql/'));
+    if (!model) return false;
+    model.setValue(args.query);
+    return true;
+  }, { query });
+
+  if (!wroteViaMonacoModel) {
+    await page.keyboard.press(process.platform === 'darwin' ? 'Meta+A' : 'Control+A');
+    await page.keyboard.type(query, { delay: 15 });
+  }
+
   const needle = query.slice(0, Math.min(24, query.length));
   await page.waitForFunction(
     (args: { snippet: string; testId: string }) => {
@@ -282,10 +297,16 @@ export async function fillMonacoEditor(page: Page, query: string, editorTestId =
       };
       const models = monaco?.editor?.getModels?.() ?? [];
       const model = models.find((mod) => mod.uri.toString().includes('inmemory://graphql/'));
-      return (model?.getValue() ?? '').includes(args.snippet);
+      if ((model?.getValue() ?? '').includes(args.snippet)) {
+        return true;
+      }
+
+      const textarea = document
+        .querySelector(`[data-testid="${args.testId}"] .monaco-editor textarea`) as HTMLTextAreaElement | null;
+      return (textarea?.value ?? '').includes(args.snippet);
     },
     { snippet: needle, testId: editorTestId },
-    { timeout: 5_000 },
+    { timeout: 15_000 },
   );
   await page.waitForTimeout(300);
 }

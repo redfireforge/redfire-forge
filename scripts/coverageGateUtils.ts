@@ -11,8 +11,42 @@ export function pct(covered: number, total: number): number {
   return total === 0 ? 100 : (covered / total) * 100;
 }
 
+/** True for product gate source roots: src/, src-server/, cli/. */
+export function isProductGateSourcePath(file: string): boolean {
+  const normalized = file.replace(/\\/g, '/');
+  return normalized.includes('/src/')
+    || normalized.includes('/src-server/')
+    || normalized.includes('/cli/');
+}
+
+/** Short display path for gate output (src/…, src-server/…, cli/…). */
+export function toProductGatePath(file: string): string {
+  const normalized = file.replace(/\\/g, '/');
+  if (normalized.includes('/src-server/')) {
+    return normalized.replace(/.*\/src-server\//, 'src-server/');
+  }
+  if (normalized.includes('/cli/')) {
+    return normalized.replace(/.*\/cli\//, 'cli/');
+  }
+  if (normalized.includes('/src/')) {
+    return normalized.replace(/.*\/src\//, 'src/');
+  }
+  return normalized;
+}
+
+/** @deprecated Use toProductGatePath — kept for allowlist callers. */
 export function toSrcPath(file: string): string {
-  return file.includes('/src/') ? file.replace(/.*\/src\//, 'src/') : file;
+  return toProductGatePath(file);
+}
+
+export function shouldSkipProductGateFile(file: string): boolean {
+  if (!isProductGateSourcePath(file)) return true;
+  if (file.includes('__test-utils__')) return true;
+  if (file.includes('.test-utils.')) return true;
+  if (file.endsWith('shared/types/index.ts')) return true;
+  if (file.includes('.test.')) return true;
+  if (file.includes('.testHelpers.')) return true;
+  return false;
 }
 
 export function isAllowlistedPath(file: string, allowlist: string[]): boolean {

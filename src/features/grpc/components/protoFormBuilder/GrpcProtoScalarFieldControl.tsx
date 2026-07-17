@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { isValidWideIntegralString } from '../../utils/grpcProtoFormValues';
 import {
   isNumericScalarField,
@@ -18,36 +18,46 @@ export function GrpcProtoScalarFieldControl({
   const numericField = isNumericScalarField(field);
   const wideIntegralField = isWideIntegralScalarField(field);
   const [numericDraft, setNumericDraft] = useState<string | null>(null);
+  const onFieldErrorRef = useRef(onFieldError);
+  const lastReportedErrorRef = useRef<boolean | null>(null);
+
+  onFieldErrorRef.current = onFieldError;
 
   useEffect(() => {
     setNumericDraft(null);
+    lastReportedErrorRef.current = null;
   }, [field.name, field.type]);
 
-  const reportNumericValidity = useCallback((raw: string | null) => {
+  const reportNumericValidity = (raw: string | null) => {
+    const report = onFieldErrorRef.current;
+    if (!report) return;
+
+    let hasError: boolean;
     if (wideIntegralField) {
-      if (!onFieldError) return;
+      hasError = raw === null
+        ? !isValidWideIntegralString(String(value ?? ''), field.type)
+        : !isValidWideIntegralString(raw, field.type);
+    } else if (numericField) {
       if (raw === null) {
-        onFieldError(!isValidWideIntegralString(String(value ?? ''), field.type));
-        return;
+        hasError = typeof value === 'number' && !Number.isFinite(value);
+      } else if (raw === '') {
+        hasError = false;
+      } else {
+        hasError = !Number.isFinite(Number(raw));
       }
-      onFieldError(!isValidWideIntegralString(raw, field.type));
+    } else {
       return;
     }
-    if (!numericField || !onFieldError) return;
-    if (raw === null) {
-      onFieldError(typeof value === 'number' && !Number.isFinite(value));
-      return;
-    }
-    if (raw === '') {
-      onFieldError(false);
-      return;
-    }
-    onFieldError(!Number.isFinite(Number(raw)));
-  }, [field.type, numericField, onFieldError, value, wideIntegralField]);
+
+    if (lastReportedErrorRef.current === hasError) return;
+    lastReportedErrorRef.current = hasError;
+    report(hasError);
+  };
 
   useEffect(() => {
     reportNumericValidity(numericDraft);
-  }, [numericDraft, reportNumericValidity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [numericDraft, numericField, wideIntegralField, value, field.type]);
 
   if (field.type === 'bool') {
     return (

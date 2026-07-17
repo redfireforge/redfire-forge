@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { countWorkflowDesignerVariables, buildInitialRunnerVariables } from './countWorkflowDesignerVariables';
+import { countWorkflowDesignerVariables, buildInitialRunnerVariables, collectWorkflowReferencedVariables } from './countWorkflowDesignerVariables';
 import type { WorkflowRFNode } from './workflowNodeFactory';
 import type { GraphqlQueryNodeData } from '../types/workflow';
 
@@ -51,6 +51,11 @@ describe('countWorkflowDesignerVariables', () => {
     expect(countWorkflowDesignerVariables({ a: '1' }, nodes, {})).toBe(1);
   });
 
+  it('handles HTTP node with empty initial vars object', () => {
+    const nodes = [httpNode('n1')];
+    expect(countWorkflowDesignerVariables({ a: '1' }, nodes, { n1: {} })).toBe(1);
+  });
+
   it('returns 0 when no variables anywhere', () => {
     expect(countWorkflowDesignerVariables({}, [], {})).toBe(0);
   });
@@ -80,6 +85,42 @@ describe('countWorkflowDesignerVariables', () => {
   it('graphqlAssert nodes do not affect the count', () => {
     const nodes = [otherNode('gql1', 'graphqlAssert')];
     expect(countWorkflowDesignerVariables({ x: '1' }, nodes, {})).toBe(1);
+  });
+
+  it('counts multiple keys from HTTP node initial vars', () => {
+    const nodes = [httpNode('n1'), otherNode('s1')];
+    expect(countWorkflowDesignerVariables({}, nodes, { n1: { token: 'a', secret: 'b' } })).toBe(2);
+  });
+
+  it('skips non-HTTP nodes and counts HTTP initial vars in the same scan', () => {
+    const nodes = [otherNode('start-node'), httpNode('h1')];
+    expect(countWorkflowDesignerVariables({}, nodes, { h1: { scoped: 'v' } })).toBe(1);
+  });
+
+  it('handles multiple HTTP nodes where only the second has initial vars', () => {
+    const nodes = [httpNode('n1'), httpNode('n2')];
+    expect(countWorkflowDesignerVariables({}, nodes, { n2: { late: 'v' } })).toBe(1);
+  });
+});
+
+describe('collectWorkflowReferencedVariables', () => {
+  it('scans nested objects and arrays for template placeholders', () => {
+    const nodes = [{
+      data: {
+        nested: { body: '{{nestedVar}}' },
+        items: ['{{arrayVar}}'],
+      },
+    }];
+    const found = collectWorkflowReferencedVariables(nodes as never);
+    expect(found.has('nestedVar')).toBe(true);
+    expect(found.has('arrayVar')).toBe(true);
+  });
+
+  it('skips null object fields while scanning node data', () => {
+    const nodes = [{ data: { ignored: null, kept: '{{stillCounted}}' } }];
+    const found = collectWorkflowReferencedVariables(nodes as never);
+    expect(found.has('stillCounted')).toBe(true);
+    expect(found.size).toBe(1);
   });
 });
 
