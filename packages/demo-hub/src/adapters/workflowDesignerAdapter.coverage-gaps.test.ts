@@ -4,9 +4,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   applyRunnerBatchConfig,
+  addWorkflowNodeWithPreset,
   fitResultsExplorerDiagram,
+  patchWorkflowNodeDataByType,
   patchWorkflowNodeDataById,
   resetWorkflowRunState,
+  seedNamedWorkflow,
   selectAndRunRunnerWorkflow,
   selectRunnerWorkflowByName,
   selectWorkflowByName,
@@ -123,5 +126,81 @@ describe('workflowDesignerAdapter — coverage gaps', () => {
     (window as unknown as Record<string, unknown>).__wfResetRunState = resetSpy;
     expect(patchWorkflowNodeDataById('n1', { query: 'q' })).toBe(true);
     expect(resetWorkflowRunState()).toBe(true);
+  });
+
+  it('returns false when optional patch/add/reset bridges are unavailable', () => {
+    expect(patchWorkflowNodeDataByType('query', { q: 1 })).toBe(false);
+    expect(patchWorkflowNodeDataById('n1', { q: 1 })).toBe(false);
+    expect(addWorkflowNodeWithPreset('graphqlQuery', 'n1', 'Q', { x: 1, y: 2 })).toBe(false);
+    expect(resetWorkflowRunState()).toBe(false);
+  });
+
+  it('seedNamedWorkflow warns and returns false when workflows are not loaded', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const insertSpy = vi.fn();
+    (window as unknown as Record<string, unknown>).__wfInsertWorkflow = insertSpy;
+    (window as unknown as Record<string, unknown>).__wfWorkflowsLoaded = false;
+    const ctx = { delay: async () => {} };
+
+    const ok = await seedNamedWorkflow(ctx, 'Demo WF', { name: 'Demo WF' }, { bridgeTimeoutMs: 0 });
+
+    expect(ok).toBe(false);
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('seedNamedWorkflow warns and returns false when insert bridge returns false', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const deleteSpy = vi.fn(() => {
+      delete (window as unknown as Record<string, unknown>).__wfInsertWorkflow;
+      return false;
+    });
+    const insertSpy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfDeleteByName = deleteSpy;
+    (window as unknown as Record<string, unknown>).__wfInsertWorkflow = insertSpy;
+    (window as unknown as Record<string, unknown>).__wfWorkflowsLoaded = true;
+    const delays: number[] = [];
+    const ctx = { delay: async (ms: number) => { delays.push(ms); } };
+
+    const ok = await seedNamedWorkflow(ctx, 'Demo WF', { name: 'Demo WF' }, {
+      bridgeTimeoutMs: 0,
+      deleteDelayMs: 50,
+      insertPreDelayMs: 0,
+    });
+
+    expect(ok).toBe(false);
+    expect(deleteSpy).toHaveBeenCalledWith('Demo WF');
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(delays).toEqual([50]);
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it('seedNamedWorkflow returns false when workflow never appears in store after insert', async () => {
+    const deleteSpy = vi.fn();
+    const insertSpy = vi.fn();
+    const selectSpy = vi.fn(() => true);
+    const runnerSelectSpy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfDeleteByName = deleteSpy;
+    (window as unknown as Record<string, unknown>).__wfInsertWorkflow = insertSpy;
+    (window as unknown as Record<string, unknown>).__wfWorkflowsLoaded = true;
+    (window as unknown as Record<string, unknown>).__wfGetWorkflowByName = () => null;
+    (window as unknown as Record<string, unknown>).__wfSelectByName = selectSpy;
+    (window as unknown as Record<string, unknown>).__wfRunnerSelectByName = runnerSelectSpy;
+    const delays: number[] = [];
+    const ctx = { delay: async (ms: number) => { delays.push(ms); } };
+
+    const ok = await seedNamedWorkflow(ctx, 'Demo WF', { name: 'Demo WF' }, {
+      bridgeTimeoutMs: 0,
+      deleteDelayMs: 0,
+      insertPreDelayMs: 0,
+      insertDelayMs: 0,
+      storeTimeoutMs: 50,
+    });
+
+    expect(ok).toBe(false);
+    expect(insertSpy).toHaveBeenCalled();
+    expect(delays).toEqual([50]);
   });
 });

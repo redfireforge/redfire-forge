@@ -42,6 +42,20 @@ import type { DemoActionContext } from '../../types';
 
 const GRPC14_ROSTER = getGrpcLessonRosterEntry('grpc-schema-diff')!;
 
+/** Hold times tuned for 1× viewing — long enough to read, not a tour blur. */
+const HOLD = {
+  /** Brief look at a control before interacting */
+  beforeClick: 1_200,
+  /** After a tab / sub-nav switch settles */
+  afterNav: 1_100,
+  /** Outcome the step is teaching (badge, chip, summary) */
+  outcome: 1_600,
+  /** Dense text the viewer must read (diff rows, proto panes) */
+  read: 2_000,
+  /** Full modal / panel digest */
+  modal: 1_800,
+} as const;
+
 // ---------------------------------------------------------------------------
 // Pre-seeded diff report — simulates a v2 echo server that renamed the
 // request field from "message" to "text".
@@ -126,6 +140,24 @@ function setSeverityFilter(value: 'all' | 'breaking' | 'non_breaking' | 'informa
   el.dispatchEvent(new Event('change', { bubbles: true }));
 }
 
+/** Quietly dismiss the Proto Schema Diff modal if still open. */
+async function closeProtoModalQuiet(ctx: DemoActionContext): Promise<void> {
+  const closeBtn = document.querySelector<HTMLElement>(GRPC.SCHEMA_DIFF_PROTO_MODAL_CLOSE);
+  if (!closeBtn) return;
+  closeBtn.click();
+  await ctx.delay(300);
+}
+
+/** Ensure Schema Diff results are present (quiet recreate for rapid Next / restart). */
+async function ensureDiffResultsQuiet(ctx: DemoActionContext): Promise<void> {
+  await closeProtoModalQuiet(ctx);
+  if (document.querySelector(GRPC.SCHEMA_DIFF_RESULTS)) return;
+  await navigateToSchemaDiffPanelQuiet(ctx);
+  await ensureBaselineCapturedQuiet(ctx);
+  patchGrpcSchemaDiffReport({ report: DEMO_DIFF_REPORT });
+  await ctx.delay(400);
+}
+
 // ---------------------------------------------------------------------------
 // Lesson steps
 // ---------------------------------------------------------------------------
@@ -169,38 +201,27 @@ const steps: DemoStep[] = [
       await clearBaselineQuiet(ctx);
     },
     action: async (ctx) => {
-      // Beat 1 — connection row: target must be valid before reflection.
-      await spotlightAndPause(ctx, GRPC.CONNECTION_BAR, 800);
-      await spotlightAndPause(ctx, GRPC.TARGET_STATUS_OK, 700);
-
-      // Beat 2 — Reflect: pull the live descriptor into Service Explorer.
-      await spotlightAndPause(ctx, GRPC.REFLECT_BTN, 900);
+      // Beat 1 — Reflect: pull the live descriptor into Service Explorer.
+      await spotlightAndPause(ctx, GRPC.REFLECT_BTN, HOLD.beforeClick);
       await ensureGrpcReflected(ctx);
-      await ctx.delay(600);
-      await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, 900);
-      await spotlightAndPause(ctx, GRPC.EXPLORER_TREE, 800);
-      await spotlightAndPause(ctx, GRPC.EXPLORER_SOURCE, 800);
+      await ctx.delay(HOLD.afterNav);
+      await spotlightAndPause(ctx, GRPC.SERVICE_EXPLORER, HOLD.outcome);
 
-      // Beat 3 — Advanced → Schema diff: baseline captures what reflection loaded.
-      await spotlightAndPause(ctx, GRPC.SUB_NAV_ADVANCED, 800);
+      // Beat 2 — Advanced → Schema Diff (one path, no side tours).
+      await spotlightAndPause(ctx, GRPC.SUB_NAV_ADVANCED, HOLD.beforeClick);
       await ctx.click(GRPC.SUB_NAV_ADVANCED);
-      await ctx.delay(600);
+      await ctx.delay(HOLD.afterNav);
 
-      await spotlightAndPause(ctx, GRPC.ADVANCED_NAV, 700);
-      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('schema_diff'), 800);
+      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('schema_diff'), HOLD.beforeClick);
       await ctx.click(GRPC.ADVANCED_TAB('schema_diff'));
-      await ctx.delay(500);
-
       try {
         await ctx.waitFor(GRPC.SCHEMA_DIFF_PANEL, 4_000);
       } catch { /* panel renders quickly */ }
-      await ctx.delay(300);
+      await ctx.delay(HOLD.afterNav);
 
-      // Beat 4 — tour the empty panel; Capture baseline is the next step.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PANEL, 900);
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CAPTURE_BASELINE, 900);
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_COMPARE, 800);
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_STATUS, 700);
+      // Beat 3 — empty panel + Capture baseline (next step's action).
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PANEL, HOLD.modal);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CAPTURE_BASELINE, HOLD.outcome);
     },
     verify: GRPC.SCHEMA_DIFF_PANEL,
   },
@@ -227,22 +248,16 @@ const steps: DemoStep[] = [
       await clearBaselineQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight the Capture baseline button and click it.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CAPTURE_BASELINE, 900);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CAPTURE_BASELINE, HOLD.beforeClick);
       await ctx.click(GRPC.SCHEMA_DIFF_CAPTURE_BASELINE);
-      await ctx.delay(700);
 
-      // Wait for the baseline chip to reflect the captured key.
       try {
         await ctx.waitFor(GRPC.SCHEMA_DIFF_BASELINE_KEY, 3_000);
       } catch { /* chip renders synchronously */ }
-      await ctx.delay(400);
+      await ctx.delay(HOLD.afterNav);
 
-      // Spotlight the chip row to show key + timestamp.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_BASELINE_KEY, 1_000);
-
-      // Spotlight the status area.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_STATUS, 700);
+      // Outcome: baseline fingerprint + captured timestamp.
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_BASELINE_KEY, HOLD.outcome);
     },
     verify: GRPC.SCHEMA_DIFF_BASELINE_KEY,
   },
@@ -268,26 +283,17 @@ const steps: DemoStep[] = [
       await ensureBaselineCapturedQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight and simulate clicking Compare (we inject the diff rather than
-      // requiring an actual v2 server to be running).
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_COMPARE, 900);
-
-      // Inject the pre-seeded diff report — simulates Compare against v2 server.
+      // Simulate Compare against a v2 server (injected report — no live v2 needed).
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_COMPARE, HOLD.beforeClick);
       patchGrpcSchemaDiffReport({ report: DEMO_DIFF_REPORT });
-      await ctx.delay(600);
 
-      // Wait for the results panel to appear.
       try {
         await ctx.waitFor(GRPC.SCHEMA_DIFF_RESULTS, 3_000);
       } catch { /* results render synchronously after injection */ }
-      await ctx.delay(400);
+      await ctx.delay(HOLD.afterNav);
 
-      // Spotlight the results panel with summary metrics.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_RESULTS, 900);
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_SUMMARY, 1_000);
-
-      // Spotlight the change list.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, 900);
+      // Outcome: severity summary cards (rows are the next step).
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_SUMMARY, HOLD.read);
     },
     verify: GRPC.SCHEMA_DIFF_RESULTS,
   },
@@ -310,39 +316,27 @@ const steps: DemoStep[] = [
       'would also appear as breaking — proto uses numbers, not names, on the wire.',
     highlight: GRPC.SCHEMA_DIFF_CHANGE_LIST,
     preAction: async (ctx) => {
-      // Ensure diff results are present.
-      if (!document.querySelector(GRPC.SCHEMA_DIFF_RESULTS)) {
-        await navigateToSchemaDiffPanelQuiet(ctx);
-        await ensureBaselineCapturedQuiet(ctx);
-        patchGrpcSchemaDiffReport({ report: DEMO_DIFF_REPORT });
-        await ctx.delay(400);
-      }
+      await ensureDiffResultsQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight the full change list.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, 900);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, HOLD.outcome);
 
-      // Spotlight the first (breaking) row.
       const rows = document.querySelectorAll<HTMLElement>(GRPC.SCHEMA_DIFF_CHANGE_ROW);
       const breakingRow = Array.from(rows).find((r) =>
         r.classList.contains('grpc-advanced-diff-line--breaking') ||
         r.textContent?.includes('breaking'),
       );
       if (breakingRow) {
-        await spotlightElementAndPause(ctx, breakingRow, 1_000);
+        await spotlightElementAndPause(ctx, breakingRow, HOLD.read);
       }
 
-      // Spotlight the informational row.
       const infoRow = Array.from(rows).find((r) =>
         r.classList.contains('grpc-advanced-diff-line--informational') ||
         r.textContent?.includes('informational'),
       );
       if (infoRow) {
-        await spotlightElementAndPause(ctx, infoRow, 900);
+        await spotlightElementAndPause(ctx, infoRow, HOLD.read);
       }
-
-      // Final: spotlight the full list again.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, 800);
     },
     verify: GRPC.SCHEMA_DIFF_CHANGE_LIST,
   },
@@ -364,34 +358,25 @@ const steps: DemoStep[] = [
       'Use this view whenever you need a focused explanation for one message/service instead of scanning the full table.',
     highlight: GRPC.SCHEMA_DIFF_PROTO_BADGE,
     preAction: async (ctx) => {
-      if (!document.querySelector(GRPC.SCHEMA_DIFF_RESULTS)) {
-        await navigateToSchemaDiffPanelQuiet(ctx);
-        await ensureBaselineCapturedQuiet(ctx);
-        patchGrpcSchemaDiffReport({ report: DEMO_DIFF_REPORT });
-        await ctx.delay(400);
-      }
-      const closeBtn = document.querySelector<HTMLElement>(GRPC.SCHEMA_DIFF_PROTO_MODAL_CLOSE);
-      if (closeBtn) {
-        closeBtn.click();
-        await ctx.delay(250);
-      }
+      await ensureDiffResultsQuiet(ctx);
     },
     action: async (ctx) => {
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PROTO_BADGE, 900);
+      // Open from the Proto diff badge on the grouped header.
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PROTO_BADGE, HOLD.beforeClick);
       await ctx.click(GRPC.SCHEMA_DIFF_PROTO_BTN);
-      await ctx.delay(500);
 
       try {
         await ctx.waitFor(GRPC.SCHEMA_DIFF_PROTO_MODAL, 3_000);
       } catch { /* modal is usually immediate */ }
-      await ctx.delay(350);
+      await ctx.delay(HOLD.afterNav);
 
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PROTO_MODAL, 950);
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PROTO_MODAL_CLOSE, 700);
+      // Tour the modal once: impact counts → before/after proto panes.
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PROTO_IMPACT_SUMMARY, HOLD.outcome);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PROTO_BEFORE, HOLD.read);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_PROTO_AFTER, HOLD.read);
 
       await ctx.click(GRPC.SCHEMA_DIFF_PROTO_MODAL_CLOSE);
-      await ctx.delay(450);
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, 700);
+      await ctx.delay(HOLD.afterNav);
     },
     verify: GRPC.SCHEMA_DIFF_CHANGE_LIST,
   },
@@ -414,31 +399,22 @@ const steps: DemoStep[] = [
       'Toggle **Hide acknowledged** to hide rows you have already reviewed.',
     highlight: GRPC.SCHEMA_DIFF_SEVERITY_FILTER,
     preAction: async (ctx) => {
-      if (!document.querySelector(GRPC.SCHEMA_DIFF_RESULTS)) {
-        await navigateToSchemaDiffPanelQuiet(ctx);
-        await ensureBaselineCapturedQuiet(ctx);
-        patchGrpcSchemaDiffReport({ report: DEMO_DIFF_REPORT });
-        await ctx.delay(400);
-      }
-      // Reset filter to 'all'.
+      await ensureDiffResultsQuiet(ctx);
       setSeverityFilter('all');
       await ctx.delay(200);
     },
     action: async (ctx) => {
-      // Spotlight the filter dropdown.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_SEVERITY_FILTER, 900);
-
-      // Set filter to "breaking".
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_SEVERITY_FILTER, HOLD.beforeClick);
       setSeverityFilter('breaking');
-      await ctx.delay(600);
+      await ctx.delay(HOLD.afterNav);
 
-      // Spotlight the filtered change list — only one breaking row.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, 900);
+      // Outcome: only the breaking row remains.
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, HOLD.read);
 
-      // Reset to "all" for the viewer to see both rows again.
+      // Restore full list so later steps see both rows.
       setSeverityFilter('all');
-      await ctx.delay(500);
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, 800);
+      await ctx.delay(HOLD.afterNav);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, HOLD.outcome);
     },
     verify: GRPC.SCHEMA_DIFF_CHANGE_LIST,
   },
@@ -460,29 +436,16 @@ const steps: DemoStep[] = [
       'into a PR description, CHANGELOG.md, or Slack notification.',
     highlight: GRPC.SCHEMA_DIFF_EXPORT_JSON,
     preAction: async (ctx) => {
-      if (!document.querySelector(GRPC.SCHEMA_DIFF_RESULTS)) {
-        await navigateToSchemaDiffPanelQuiet(ctx);
-        await ensureBaselineCapturedQuiet(ctx);
-        patchGrpcSchemaDiffReport({ report: DEMO_DIFF_REPORT });
-        await ctx.delay(400);
-      }
+      await ensureDiffResultsQuiet(ctx);
     },
     action: async (ctx) => {
-      // Spotlight the Diff report header + export buttons.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_RESULTS, 800);
-
-      // Spotlight and click Copy JSON.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_EXPORT_JSON, 900);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_EXPORT_JSON, HOLD.beforeClick);
       await ctx.click(GRPC.SCHEMA_DIFF_EXPORT_JSON);
-      await ctx.delay(600);
+      await ctx.delay(HOLD.outcome);
 
-      // Spotlight Copy Markdown.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_EXPORT_MARKDOWN, 900);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_EXPORT_MARKDOWN, HOLD.beforeClick);
       await ctx.click(GRPC.SCHEMA_DIFF_EXPORT_MARKDOWN);
-      await ctx.delay(600);
-
-      // Spotlight summary one more time to show the counts.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_SUMMARY, 900);
+      await ctx.delay(HOLD.outcome);
     },
     verify: GRPC.SCHEMA_DIFF_EXPORT_JSON,
   },
@@ -506,46 +469,35 @@ const steps: DemoStep[] = [
       'current baseline does not affect future comparisons.',
     highlight: GRPC.SCHEMA_DIFF_ACK_BTN,
     preAction: async (ctx) => {
-      if (!document.querySelector(GRPC.SCHEMA_DIFF_RESULTS)) {
-        await navigateToSchemaDiffPanelQuiet(ctx);
-        await ensureBaselineCapturedQuiet(ctx);
-        patchGrpcSchemaDiffReport({ report: DEMO_DIFF_REPORT });
-        await ctx.delay(400);
-      }
-      // Ensure severity filter is "all".
+      await ensureDiffResultsQuiet(ctx);
       setSeverityFilter('all');
       await ctx.delay(200);
     },
     action: async (ctx) => {
-      // Spotlight the full change list.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, 800);
-
-      // Find and spotlight the first Acknowledge button.
       const ackBtn = document.querySelector<HTMLButtonElement>(GRPC.SCHEMA_DIFF_ACK_BTN);
       if (ackBtn) {
-        await spotlightElementAndPause(ctx, ackBtn, 800);
+        await spotlightElementAndPause(ctx, ackBtn, HOLD.beforeClick);
         ackBtn.click();
-        await ctx.delay(600);
+        await ctx.delay(HOLD.afterNav);
       }
 
-      // Spotlight the acknowledged row (now shows "Unacknowledge").
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, 800);
+      // Outcome: row flips to Unacknowledge / muted reviewed style.
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, HOLD.outcome);
 
-      // Spotlight and toggle "Hide acknowledged".
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_HIDE_ACKNOWLEDGED, 900);
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_HIDE_ACKNOWLEDGED, HOLD.beforeClick);
       const hideCheckbox = document.querySelector<HTMLInputElement>(GRPC.SCHEMA_DIFF_HIDE_ACKNOWLEDGED);
-      if (hideCheckbox) {
+      if (hideCheckbox && !hideCheckbox.checked) {
+        hideCheckbox.click();
+        await ctx.delay(HOLD.afterNav);
+      }
+
+      // Outcome: acknowledged row hidden — focus on remaining changes.
+      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, HOLD.read);
+
+      // Quiet restore so the panel is left in a sensible end state.
+      if (hideCheckbox?.checked) {
         hideCheckbox.click();
         await ctx.delay(500);
-      }
-
-      // Show the filtered (acknowledged-hidden) list.
-      await spotlightAndPause(ctx, GRPC.SCHEMA_DIFF_CHANGE_LIST, 800);
-
-      // Uncheck "Hide acknowledged" to restore full view.
-      if (hideCheckbox) {
-        hideCheckbox.click();
-        await ctx.delay(400);
       }
     },
     verify: GRPC.SCHEMA_DIFF_CHANGE_LIST,

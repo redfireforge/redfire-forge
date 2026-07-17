@@ -9,11 +9,13 @@ export default function GrpcUnaryConfig({
   onChange,
   globalAuthProfiles = [],
   defaultAuthProfileId = null,
+  workflowVariables = {},
 }: {
   data: GrpcUnaryNodeData;
   onChange: (d: GrpcUnaryNodeData) => void;
   globalAuthProfiles?: GlobalAuthProfile[];
   defaultAuthProfileId?: string | null;
+  workflowVariables?: Record<string, string>;
 }) {
   const [bodyText, setBodyText] = useState(() => JSON.stringify(data.body ?? {}, null, 2));
   const [metadataText, setMetadataText] = useState(() => JSON.stringify(data.metadata ?? {}, null, 2));
@@ -51,6 +53,7 @@ export default function GrpcUnaryConfig({
         onChange={onChange}
         callType="unary"
         testIdPrefix="grpc-unary-config"
+        workflowVariables={workflowVariables}
       />
 
       <GrpcWorkflowConnectionSecurityFields

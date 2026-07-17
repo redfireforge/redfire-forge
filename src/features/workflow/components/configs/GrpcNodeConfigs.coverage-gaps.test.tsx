@@ -18,6 +18,8 @@ vi.mock('../../hooks/useGrpcWorkflowTargetReflection', () => ({
     services: [],
     status: 'idle',
     errorMessage: undefined,
+    resolvedTarget: '',
+    usedWorkflowDefaults: false,
     reflectNow: vi.fn(),
   }),
 }));

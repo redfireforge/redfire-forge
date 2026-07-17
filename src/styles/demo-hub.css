@@ -257,8 +257,26 @@
   cursor: not-allowed;
 }
 
+.demo-category-icon-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+}
+
 .demo-category-icon {
   font-size: 15px;
+}
+
+.demo-category-docker-badge {
+  position: absolute;
+  right: -6px;
+  bottom: -5px;
+  font-size: 9px;
+  line-height: 1;
+  filter: drop-shadow(0 0 1px rgba(15, 23, 42, 0.9));
+  pointer-events: none;
 }
 
 .demo-category-label {
@@ -2310,7 +2328,7 @@
 
 .demo-lesson-notes-panel .demo-lesson-notes-textarea {
   flex: 1;
-  min-height: 340px;
+  min-height: 180px;
 }
 
 .demo-lesson-notes-inline-header {

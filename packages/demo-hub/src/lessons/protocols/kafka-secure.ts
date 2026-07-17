@@ -22,6 +22,7 @@ export const kafkaSecureLesson: DemoLesson = {
 
   dockerEndpoint: 'http://localhost:19645',
   dockerCommand: 'cd docker/kafka/secure && docker compose up -d',
+  tag: '🐳 Docker',
 
   setup: kafkaSecureSetup,
   cleanup: kafkaCleanup,

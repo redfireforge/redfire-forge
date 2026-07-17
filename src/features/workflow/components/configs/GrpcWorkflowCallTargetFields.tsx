@@ -17,20 +17,32 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
   onChange,
   callType,
   testIdPrefix,
+  workflowVariables = {},
 }: {
   data: T;
   onChange: (next: T) => void;
   callType: GrpcCallType;
   testIdPrefix: string;
+  /** Workflow-level defaults — used to resolve `{{var}}` targets for design-time reflection. */
+  workflowVariables?: Record<string, string>;
 }) {
   const profiles = useMemo(() => loadGrpcConnectionProfilesFromStorage(), []);
   const tlsMode: GrpcTlsMode = data.tlsMode ?? 'disabled';
-  const { descriptor, services, status, errorMessage, reflectNow } = useGrpcWorkflowTargetReflection(
+  const {
+    descriptor,
+    services,
+    status,
+    errorMessage,
+    resolvedTarget,
+    usedWorkflowDefaults,
+    reflectNow,
+  } = useGrpcWorkflowTargetReflection(
     data.target,
     tlsMode,
+    workflowVariables,
   );
   const methods = listGrpcWorkflowMethods(descriptor, data.service, callType);
-  const targetValidation = validateResolvedGrpcTargetAddress(data.target.trim());
+  const targetValidation = validateResolvedGrpcTargetAddress(resolvedTarget.trim());
   const useServiceSelect = services.length > 0;
   const useMethodSelect = useServiceSelect && Boolean(data.service) && methods.length > 0;
   const descriptorAutoManaged = status === 'ready' && Boolean(data.descriptorKey?.trim());
@@ -79,14 +91,19 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
     update(patch);
   };
 
+  const resolvedHint = usedWorkflowDefaults && resolvedTarget.trim()
+    ? ` (via ${resolvedTarget.trim()})`
+    : '';
   const statusLabel = status === 'loading'
-    ? 'Reflecting target…'
+    ? `Reflecting target${resolvedHint}…`
     : status === 'ready'
-      ? `${services.length} service${services.length === 1 ? '' : 's'} loaded via reflection`
+      ? `${services.length} service${services.length === 1 ? '' : 's'} loaded via reflection${resolvedHint}`
       : status === 'error'
         ? errorMessage ?? 'Reflection failed'
         : data.target.trim() && !targetValidation.valid
-          ? 'Enter a valid host:port to load services'
+          ? usedWorkflowDefaults
+            ? `Resolved target "${resolvedTarget.trim()}" is not a valid host:port`
+            : 'Enter a valid host:port (or a workflow variable that resolves to one) to load services'
           : 'Service and method lists populate after reflection';
 
   return (

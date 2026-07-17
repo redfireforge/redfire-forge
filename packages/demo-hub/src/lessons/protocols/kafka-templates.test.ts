@@ -68,6 +68,7 @@ describe('kafka-templates lesson', () => {
   it('has no dockerEndpoint — works without a broker', () => {
     expect(kafkaTemplatesLesson.dockerEndpoint).toBeUndefined();
     expect(kafkaTemplatesLesson.dockerCommand).toBeUndefined();
+    expect(kafkaTemplatesLesson.tag).toBeUndefined();
   });
 
   it('has a setup function that cleans stale templates and resets form', async () => {

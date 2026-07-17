@@ -3,26 +3,27 @@
  *
  * Thin barrel — helpers and steps live in sibling modules.
  */
-import { deleteWorkflowByName, getWorkflowByName } from '../../adapters';
+import { deleteWorkflowByName, fitWorkflowCanvasView } from '../../adapters';
 import {
   buildGrpcLessonShellFromRoster,
   buildGrpcContractMetaFromRoster,
   getGrpcLessonRosterEntry,
   type GrpcDemoLesson,
 } from './grpc-lesson-contract';
-import {
-  grpcFirstCallCleanup,
-  grpcFirstCallSetup,
-} from './grpc-lesson-helpers';
+import { grpcFirstCallCleanup } from './grpc-lesson-helpers';
 import {
   cleanupWorkflowDemoRunUi,
   closeWfConfigModalIfOpen,
   closeWfConsoleIfOpen,
-  collapseWfDemoAppSidebar,
+  expandWfDemoAppSidebar,
+  setWfConfigDemoTiming,
+  WF_CONFIG_DEMO_TIMING_BRISK,
 } from '../wf-demo-helpers';
+import { WF } from '@shared/selectors';
 import {
   WF14_NAME,
   resetWf14Session,
+  seedCompleteWorkflowQuiet,
   wf14Session,
 } from './grpc-workflow-integration-helpers';
 import { grpcWorkflowIntegrationSteps } from './grpc-workflow-integration-steps';
@@ -168,24 +169,33 @@ A failing assert node **blocks downstream execution** unless onError: "continue"
   steps: grpcWorkflowIntegrationSteps,
   setup: async (ctx) => {
     resetWf14Session();
-    // Skip the Manage Schemas draft reset — this lesson builds workflows with
-    // gRPC nodes over the reflected schema, never staged schema sources. Running
-    // it would open/close the Manage Schemas modal (cycling Proto Files/Protoset/
-    // URL/BSR sub-tabs) for every tab, which the viewer sees as a burst of modals
-    // flashing on and off before step 1.
-    await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
+    // Dense multi-field config tour — use brisk modal pacing (still readable at 1×).
+    setWfConfigDemoTiming(WF_CONFIG_DEMO_TIMING_BRISK);
+    // Land directly on step 1 Reading: seeded Echo workflow + Blocks palette.
+    // Skip grpcFirstCallSetup Studio tour (visible tab/drawer flash before Reading).
+    try {
+      const { purgeGrpcDemoEphemeralStorage } = await import('../grpc-demo-storage-cleanup');
+      await purgeGrpcDemoEphemeralStorage();
+    } catch {
+      // Best-effort hygiene only.
+    }
     await cleanupWorkflowDemoRunUi(ctx);
     await closeWfConfigModalIfOpen(ctx);
-    if (getWorkflowByName(WF14_NAME)) {
-      deleteWorkflowByName(WF14_NAME);
-      await ctx.delay(200);
-    }
     ctx.navigateToTab('workflow');
-    await ctx.delay(400);
+    await ctx.delay(180);
     const skipBtn = document.querySelector<HTMLElement>('.onboarding-tooltip-skip');
-    if (skipBtn) { skipBtn.click(); await ctx.delay(200); }
-    await collapseWfDemoAppSidebar(ctx);
-    wf14Session.sidebarCollapsed = true;
+    if (skipBtn) { skipBtn.click(); await ctx.delay(60); }
+    await seedCompleteWorkflowQuiet(ctx);
+    await expandWfDemoAppSidebar(ctx);
+    wf14Session.sidebarCollapsed = false;
+    await ctx.waitFor(WF.PAL_SEARCH, 5000);
+    if (document.querySelector<HTMLInputElement>(WF.PAL_SEARCH)?.value) {
+      await ctx.fill(WF.PAL_SEARCH, '');
+    }
+    // Fit View so Reading opens on a readable centered graph (sidebar + LiveDemo card).
+    fitWorkflowCanvasView();
+    document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN)?.click();
+    await ctx.delay(120);
   },
   cleanup: async (ctx) => {
     await closeWfConfigModalIfOpen(ctx);
@@ -193,6 +203,7 @@ A failing assert node **blocks downstream execution** unless onError: "continue"
     await closeWfConsoleIfOpen(ctx);
     deleteWorkflowByName(WF14_NAME);
     resetWf14Session();
+    setWfConfigDemoTiming(null);
     await grpcFirstCallCleanup(ctx);
   },
 };
