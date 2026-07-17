@@ -162,6 +162,44 @@ export async function waitForGrpcMockListenerStopped(
   throw new Error(`gRPC mock listener for tab ${tabId} is still running after ${timeoutMs}ms`);
 }
 
+/** Wait for a listener target to stop accepting TCP connections after shutdown. */
+export async function waitForGrpcListenTargetClosed(
+  listenTarget: string,
+  options?: { timeoutMs?: number; pollMs?: number },
+): Promise<void> {
+  const timeoutMs = options?.timeoutMs ?? 15_000;
+  const pollMs = options?.pollMs ?? 100;
+  const match = /^([^:]+):(\d+)$/.exec(listenTarget.trim());
+  if (!match) {
+    throw new Error(`Invalid listen target: ${listenTarget}`);
+  }
+
+  const host = match[1]!;
+  const port = Number(match[2]);
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    const opened = await new Promise<boolean>((resolve) => {
+      const socket = createConnection({ host, port, timeout: 1_000 });
+      const done = (result: boolean) => {
+        socket.destroy();
+        resolve(result);
+      };
+      socket.once('connect', () => done(true));
+      socket.once('timeout', () => done(false));
+      socket.once('error', () => done(false));
+    });
+
+    if (!opened) {
+      return;
+    }
+
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+
+  throw new Error(`gRPC listen target ${listenTarget} still accepts connections after ${timeoutMs}ms`);
+}
+
 export async function stopGrpcMockListener(request: APIRequestContext, tabId: string): Promise<void> {
   const response = await request.post('http://localhost:3001/api/grpc/mock/stop', {
     data: { tabId },

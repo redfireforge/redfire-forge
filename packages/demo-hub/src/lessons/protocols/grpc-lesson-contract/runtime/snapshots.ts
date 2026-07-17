@@ -137,6 +137,23 @@ export function buildGrpcSpringBootScenarioSnapshot(): GrpcLessonScenarioSnapsho
   });
 }
 
+/** GRPC-19 — transport modes lesson (browser fallback + express proxy retry). */
+export function buildGrpcTransportModesScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-transport-modes',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: GRPC_DEMO_TARGET,
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'Hello from gRPC Studio' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC1_FIXTURE_FINGERPRINT,
+  });
+}
+
 const SNAPSHOT_BUILDERS: Readonly<Record<string, () => GrpcLessonScenarioSnapshot>> = {
   'grpc-first-call': buildGrpcFirstCallScenarioSnapshot,
   'grpc-schema-discovery': buildGrpcSchemaDiscoveryScenarioSnapshot,
@@ -145,6 +162,7 @@ const SNAPSHOT_BUILDERS: Readonly<Record<string, () => GrpcLessonScenarioSnapsho
   'grpc-workflow-integration': buildGrpcWorkflowIntegrationScenarioSnapshot,
   'grpc-mock-server': buildGrpcMockServerScenarioSnapshot,
   'grpc-spring-boot': buildGrpcSpringBootScenarioSnapshot,
+  'grpc-transport-modes': buildGrpcTransportModesScenarioSnapshot,
 };
 
 /** Build the frozen scenario snapshot for a shipped lesson id. */
