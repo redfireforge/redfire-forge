@@ -1,5 +1,6 @@
 import type { TestRun, RequestResult, FeatureGroup, Environment, Microservice, GlobalAuthProfile, RequestsData, SharedDataSource, DataSource } from '../types';
 import { migrateScenarioKinds } from './scenarioMigration';
+import { ensureScenarioDefaults } from './wsScenarioDefaults';
 import { isTauri } from './platform';
 import * as tauriStore from './tauriStore';
 import {
@@ -11,6 +12,15 @@ import {
 import {
   idbLoadFeatureGroups, idbSaveFeatureGroups, idbMigrateFeatureGroups,
 } from './idbFeatureGroups';
+import {
+  idbLoadEnvironments, idbSaveEnvironments, idbMigrateEnvironments,
+  idbLoadMicroservices, idbSaveMicroservices, idbMigrateMicroservices,
+} from './idbEnvironmentsMicroservices';
+import {
+  idbLoadGlobalAuthProfiles,
+  idbSaveGlobalAuthProfiles,
+  idbMigrateGlobalAuthProfiles,
+} from './idbGlobalAuthProfiles';
 import { createDualModeArrayStorage } from './storageDualMode';
 import {
   idbLoadSharedDataSources, idbSaveSharedDataSources, idbMigrateSharedDataSources,
@@ -21,33 +31,44 @@ import {
 } from './idbRequests';
 import { idbLoadCatalogEntries } from './idbCatalog';
 import {
-  idbLoadProjects, idbMigrateProjects,
+  idbLoadProjects,
 } from './idbProjects';
 import { compressTrace, sampleIterations } from './traceCompression';
+import { formatStorageDiagnostics } from './storageUiPrefs';
+import { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, reclaimLocalStorageQuotaForWrite } from './storageCleanup';
+import {
+  idbLoadRunnerConfig,
+  idbSaveRunnerConfig,
+  purgeRunnerConfigLocalStorageKeys,
+} from './idbRunnerConfig';
+import {
+  STORAGE_KEY,
+  GLOBAL_AUTH_KEY,
+  MAX_RUNS_KEY,
+  RUNNER_CONFIG_KEY,
+  THEME_KEY,
+  REQUESTS_KEY,
+  LEGACY_WORKBENCH_KEY,
+  FLAT_ENVS_KEY,
+  FLAT_SVCS_KEY,
+  FLAT_FGS_KEY,
+  FLAT_SHARED_DS_KEY,
+  FLAT_WORKSPACE_DEFAULTS_KEY,
+  FLAT_SEL_ENV_KEY,
+  FLAT_SEL_SVC_KEY,
+} from './storageKeys';
 
-const STORAGE_KEY = 'perf-test-runs';
-const GLOBAL_AUTH_KEY = 'perf-test-global-auth-profiles';
-const MAX_RUNS_KEY = 'perf-test-max-runs';
-const RUNNER_CONFIG_KEY = 'perf-test-runner-config';
-const THEME_KEY = 'perf-test-theme';
-const REQUESTS_KEY = 'perf-test-requests';
-const LEGACY_WORKBENCH_KEY = 'perf-test-workbench';
-// Flat app-level data keys (v3)
-const FLAT_ENVS_KEY = 'perf-test-v3-environments';
-const FLAT_SVCS_KEY = 'perf-test-v3-microservices';
-const FLAT_FGS_KEY = 'perf-test-v3-feature-groups';
-const FLAT_SHARED_DS_KEY = 'perf-test-v3-shared-data-sources';
-const FLAT_SEL_ENV_KEY = 'perf-test-v3-selected-env';
-const FLAT_SEL_SVC_KEY = 'perf-test-v3-selected-svc';
-export const FLAT_MIGRATED_KEY = 'perf-test-v3-migrated';
+export {
+  FLAT_MIGRATED_KEY,
+  LEGACY_FEATURES_KEY,
+  LEGACY_ENVS_KEY,
+  LEGACY_SERVICES_KEY,
+  LEGACY_GLOBAL_AUTH_KEY,
+  PROJECTS_KEY,
+  SELECTED_PROJECT_KEY,
+} from './storageKeys';
 
-// Legacy keys (exported for use by `storageMigration.ts`).
-export const LEGACY_FEATURES_KEY = 'perf-test-features';
-export const LEGACY_ENVS_KEY = 'perf-test-environments';
-export const LEGACY_SERVICES_KEY = 'perf-test-microservices';
-export const LEGACY_GLOBAL_AUTH_KEY = 'perf-test-global-auth';
-export const PROJECTS_KEY = 'perf-test-projects';
-export const SELECTED_PROJECT_KEY = 'perf-test-selected-project';
+export { cleanupStaleStorageKeys, purgeStaleRunnerConfigKeys, migrateAppFlatDataFromLocalStorage, ensureBrowserLargeDataMigrated, reclaimLocalStorageQuotaForWrite } from './storageCleanup';
 
 const DEFAULT_MAX_RUNS = 50;
 const RESPONSE_BODY_MAX_CHARS = 2000;
@@ -62,7 +83,8 @@ export async function readKey(key: string): Promise<string | null> {
   return localStorage.getItem(key);
 }
 
-export async function writeKey(key: string, value: string): Promise<void> {
+export async function writeKey(key: string, value: string, options?: { notifyOnQuotaExhausted?: boolean }): Promise<void> {
+  const notify = options?.notifyOnQuotaExhausted !== false;
   if (isTauri()) {
     await tauriStore.setItem(key, value);
     return;
@@ -71,8 +93,21 @@ export async function writeKey(key: string, value: string): Promise<void> {
     localStorage.setItem(key, value);
   } catch (e) {
     if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-      console.error(`[Storage] QuotaExceededError writing "${key}" (${(value.length / 1024).toFixed(0)} KB). localStorage is full.`);
-      notifyStorageFull(key);
+      console.warn(`[Storage] QuotaExceededError writing "${key}" — reclaiming quota and retrying`);
+      cleanupStaleStorageKeys();
+      await reclaimLocalStorageQuotaForWrite();
+      try {
+        localStorage.setItem(key, value);
+        return;
+      } catch (retryErr) {
+        if (retryErr instanceof DOMException && retryErr.name === 'QuotaExceededError') {
+          console.error(
+            `[Storage] QuotaExceededError writing "${key}" after cleanup (${(value.length / 1024).toFixed(0)} KB). localStorage is full.`,
+          );
+          if (notify) notifyStorageFull(key);
+        }
+        throw retryErr;
+      }
     }
     throw e;
   }
@@ -217,6 +252,9 @@ export async function getStorageUsage(): Promise<{ usedBytes: number; entries: R
     { label: 'requests (IndexedDB)', fn: idbLoadRequests },
     { label: 'catalog (IndexedDB)', fn: () => idbLoadCatalogEntries() },
     { label: 'projects (IndexedDB)', fn: idbLoadProjects },
+    { label: 'environments (IndexedDB)', fn: idbLoadEnvironments },
+    { label: 'microservices (IndexedDB)', fn: idbLoadMicroservices },
+    { label: 'global auth (IndexedDB)', fn: idbLoadGlobalAuthProfiles },
   ];
   for (const { label, fn } of idbChecks) {
     try {
@@ -446,17 +484,47 @@ export interface AppData {
 async function saveJsonKey<T>(key: string, data: T): Promise<void> { await writeKey(key, JSON.stringify(data)); }
 async function loadJsonKey<T>(key: string): Promise<T[]> { try { const r = await readKey(key); return r ? JSON.parse(r) : []; } catch { return []; } }
 
-export async function saveEnvironments(envs: Environment[]): Promise<void> { await saveJsonKey(FLAT_ENVS_KEY, envs); }
-export async function loadEnvironments(): Promise<Environment[]> { return loadJsonKey<Environment>(FLAT_ENVS_KEY); }
+export async function saveEnvironments(envs: Environment[]): Promise<void> {
+  await environmentsStorage.save(envs);
+}
+export async function loadEnvironments(): Promise<Environment[]> {
+  return environmentsStorage.load();
+}
 
-export async function saveMicroservices(svcs: Microservice[]): Promise<void> { await saveJsonKey(FLAT_SVCS_KEY, svcs); }
-export async function loadMicroservices(): Promise<Microservice[]> { return loadJsonKey<Microservice>(FLAT_SVCS_KEY); }
+export async function saveMicroservices(svcs: Microservice[]): Promise<void> {
+  await microservicesStorage.save(svcs);
+}
+export async function loadMicroservices(): Promise<Microservice[]> {
+  return microservicesStorage.load();
+}
+
+const environmentsStorage = createDualModeArrayStorage<Environment>({
+  key: FLAT_ENVS_KEY,
+  idbLoad: idbLoadEnvironments,
+  idbSave: idbSaveEnvironments,
+  idbMigrate: idbMigrateEnvironments,
+});
+
+const microservicesStorage = createDualModeArrayStorage<Microservice>({
+  key: FLAT_SVCS_KEY,
+  idbLoad: idbLoadMicroservices,
+  idbSave: idbSaveMicroservices,
+  idbMigrate: idbMigrateMicroservices,
+});
+
+const globalAuthProfilesStorage = createDualModeArrayStorage<GlobalAuthProfile>({
+  key: GLOBAL_AUTH_KEY,
+  idbLoad: idbLoadGlobalAuthProfiles,
+  idbSave: idbSaveGlobalAuthProfiles,
+  idbMigrate: idbMigrateGlobalAuthProfiles,
+});
 
 const featureGroupsStorage = createDualModeArrayStorage<FeatureGroup>({
   key: FLAT_FGS_KEY,
   idbLoad: idbLoadFeatureGroups,
   idbSave: idbSaveFeatureGroups,
   idbMigrate: idbMigrateFeatureGroups,
+  fallbackToLocalStorageOnIdbSaveError: true,
 });
 
 export async function saveFeatureGroups(fgs: FeatureGroup[]): Promise<void> {
@@ -465,6 +533,21 @@ export async function saveFeatureGroups(fgs: FeatureGroup[]): Promise<void> {
 
 export async function loadFeatureGroups(): Promise<FeatureGroup[]> {
   let fgs = await featureGroupsStorage.load();
+
+  // Normalize: ensure all test objects have required fields (auth, body, validation, headers)
+  let normalized = false;
+  for (const fg of fgs) {
+    for (const sc of fg.scenarios ?? []) {
+      for (const t of sc.tests ?? []) {
+        if (!t.auth || !t.validation || t.body == null || !t.headers) {
+          ensureScenarioDefaults(t);
+          normalized = true;
+        }
+      }
+    }
+  }
+  if (normalized) await saveFeatureGroups(fgs);
+
   // Migrate: rename legacy "dataTable" property to "dataSource" on Scenario objects
   let migrated = false;
   for (const fg of fgs) {
@@ -504,8 +587,12 @@ export async function loadSelectedSvcId(): Promise<string> { return (await readK
 
 // ---------- Global Auth Profiles ----------
 
-export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> { await saveJsonKey(GLOBAL_AUTH_KEY, profiles); }
-export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> { return loadJsonKey<GlobalAuthProfile>(GLOBAL_AUTH_KEY); }
+export async function saveGlobalAuthProfiles(profiles: GlobalAuthProfile[]): Promise<void> {
+  await globalAuthProfilesStorage.save(profiles);
+}
+export async function loadGlobalAuthProfiles(): Promise<GlobalAuthProfile[]> {
+  return globalAuthProfilesStorage.load();
+}
 
 // ---------- Shared Data Sources ----------
 
@@ -540,6 +627,40 @@ export async function loadSharedDataSources(): Promise<SharedDataSource[]> {
   }
 }
 
+// ---------- Workspace Defaults ----------
+
+export async function saveWorkspaceDefaults(defaults: Record<string, string>): Promise<void> {
+  await writeKey(FLAT_WORKSPACE_DEFAULTS_KEY, JSON.stringify(defaults));
+}
+
+export async function loadWorkspaceDefaults(): Promise<Record<string, string>> {
+  try {
+    const raw = await readKey(FLAT_WORKSPACE_DEFAULTS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+    const map: Record<string, string> = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (typeof value === 'string') {
+        map[key] = value;
+      } else if (value == null) {
+        map[key] = '';
+      } else if (typeof value === 'object') {
+        try {
+          map[key] = JSON.stringify(value);
+        } catch {
+          map[key] = String(value);
+        }
+      } else {
+        map[key] = String(value);
+      }
+    }
+    return map;
+  } catch {
+    return {};
+  }
+}
+
 // ---------- Migration (v1 legacy + v2 projects → v3 flat) ----------
 // Implementations live in `./storageMigration.ts` to keep this file under the
 // monolithic-class threshold; re-exports below preserve the public API.
@@ -550,25 +671,88 @@ export {
 
 // ---------- Runner config ----------
 
+function runnerConfigStorageKey(contextKey?: string): string {
+  return contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
+}
+
+function readLegacyRunnerConfigRaw(contextKey?: string): string | null {
+  try {
+    return localStorage.getItem(runnerConfigStorageKey(contextKey));
+  } catch {
+    return null;
+  }
+}
+
+async function parseRunnerConfigPayload(raw: string, contextKey?: string): Promise<unknown> {
+  const parsed = JSON.parse(raw);
+  if (parsed && typeof parsed === 'object' && 'totalTransactions' in parsed && !('iterations' in parsed)) {
+    (parsed as Record<string, unknown>).iterations = (parsed as Record<string, unknown>).totalTransactions;
+    delete (parsed as Record<string, unknown>).totalTransactions;
+    await saveRunnerConfig(parsed, contextKey);
+  }
+  return parsed;
+}
+
 export async function saveRunnerConfig(config: unknown, contextKey?: string): Promise<void> {
-  const key = contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
-  await writeKey(key, JSON.stringify(config));
+  const payload = JSON.stringify(config);
+
+  if (isTauri()) {
+    const key = runnerConfigStorageKey(contextKey);
+    purgeStaleRunnerConfigKeys(contextKey);
+    try {
+      await writeKey(key, payload, { notifyOnQuotaExhausted: false });
+    } catch (e) {
+      if (!(e instanceof DOMException && e.name === 'QuotaExceededError')) throw e;
+      purgeStaleRunnerConfigKeys(contextKey);
+      cleanupStaleStorageKeys();
+      try {
+        await writeKey(key, payload, { notifyOnQuotaExhausted: false });
+      } catch {
+        console.warn(`[Storage] Runner config save failed for "${key}" — quota exceeded.`);
+      }
+    }
+    return;
+  }
+
+  try {
+    await idbSaveRunnerConfig(contextKey ?? '', payload);
+    purgeRunnerConfigLocalStorageKeys(contextKey);
+  } catch (err) {
+    console.warn('[Storage] Runner config IDB save failed — localStorage fallback', err);
+    purgeStaleRunnerConfigKeys(contextKey);
+    purgeRunnerConfigLocalStorageKeys(contextKey);
+    try {
+      await writeKey(runnerConfigStorageKey(contextKey), payload, { notifyOnQuotaExhausted: false });
+    } catch {
+      console.warn('[Storage] Runner config save skipped — storage full.');
+    }
+  }
 }
 
 export async function loadRunnerConfig(contextKey?: string): Promise<unknown | null> {
   try {
-    const key = contextKey ? `${RUNNER_CONFIG_KEY}:${contextKey}` : RUNNER_CONFIG_KEY;
-    const raw = await readKey(key);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw);
-    // Migrate legacy totalTransactions → iterations
-    if (parsed && typeof parsed === 'object' && 'totalTransactions' in parsed && !('iterations' in parsed)) {
-      (parsed as Record<string, unknown>).iterations = (parsed as Record<string, unknown>).totalTransactions;
-      delete (parsed as Record<string, unknown>).totalTransactions;
-      await saveRunnerConfig(parsed, contextKey);
+    if (isTauri()) {
+      const raw = await readKey(runnerConfigStorageKey(contextKey));
+      if (!raw) return null;
+      return await parseRunnerConfigPayload(raw, contextKey);
     }
-    return parsed;
-  } catch { return null; }
+
+    let raw = await idbLoadRunnerConfig(contextKey ?? '');
+    if (raw === null) {
+      const legacy = readLegacyRunnerConfigRaw(contextKey);
+      if (legacy) {
+        try {
+          await idbSaveRunnerConfig(contextKey ?? '', legacy);
+          purgeRunnerConfigLocalStorageKeys(contextKey);
+        } catch { /* best effort */ }
+        raw = legacy;
+      }
+    }
+    if (!raw) return null;
+    return await parseRunnerConfigPayload(raw, contextKey);
+  } catch {
+    return null;
+  }
 }
 
 // ---------- Theme ----------
@@ -580,6 +764,8 @@ export async function saveTheme(theme: string): Promise<void> {
 export async function loadTheme(): Promise<string> {
   return (await readKey(THEME_KEY)) ?? 'dark';
 }
+
+export { loadPreviewSampleId, savePreviewSampleId } from './storageUiPrefs';
 
 // ---------- Requests ----------
 
@@ -674,133 +860,9 @@ export async function saveWorkflowSampleDismissed(dismissed: boolean): Promise<v
   await writeKey(WORKFLOWS_SAMPLE_DISMISSED_KEY, dismissed ? 'true' : 'false');
 }
 
-/** Preview sample workflow entry ID — survives refresh via sessionStorage. */
-const WORKFLOW_PREVIEW_SAMPLE_KEY = 'workflow_preview_sample_id';
-
-export function loadPreviewSampleId(): string | null {
-  try {
-    return sessionStorage.getItem(WORKFLOW_PREVIEW_SAMPLE_KEY) || null;
-  } catch {
-    return null;
-  }
-}
-
-export function savePreviewSampleId(id: string | null): void {
-  try {
-    if (id) {
-      sessionStorage.setItem(WORKFLOW_PREVIEW_SAMPLE_KEY, id);
-    } else {
-      sessionStorage.removeItem(WORKFLOW_PREVIEW_SAMPLE_KEY);
-    }
-  } catch {
-    /* sessionStorage may be unavailable */
-  }
-}
-
-/**
- * Get a human-readable summary of localStorage usage.
- * Designed for console debugging: `await getStorageDiagnostics()`.
- */
 export async function getStorageDiagnostics(): Promise<string> {
   const usage = await getStorageUsage();
-  const sorted = Object.entries(usage.entries)
-    .sort(([, a], [, b]) => b - a);
-  const lines = ['=== Storage Diagnostics ===',
-    `Total: ${(usage.usedBytes / 1024).toFixed(0)} KB (~5 MB limit)`,
-    '', '--- Top Keys ---'];
-  for (const [key, size] of sorted.slice(0, 20)) {
-    lines.push(`  ${(size / 1024).toFixed(1)} KB — ${key}`);
-  }
-  return lines.join('\n');
-}
-
-/**
- * Remove stale per-scenario runner config, progress, undo, replay, and dm- keys
- * that accumulate over time and bloat localStorage. Keeps only keys that reference
- * IDs still present in the active data.
- * Returns the number of keys removed and bytes freed.
- */
-export function cleanupStaleStorageKeys(): { removed: number; freedKB: number } {
-  if (isTauri()) return { removed: 0, freedKB: 0 };
-
-  const EPHEMERAL_PREFIXES = [
-    'perf-test-last-progress:',
-    'perf-test-wf-undo-',
-    'replayLayout:',
-    'dm-schema-snapshot-',
-    'dm-patterns:',
-  ];
-
-  let removed = 0;
-  let freedBytes = 0;
-  const toRemove: string[] = [];
-
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key) continue;
-    if (EPHEMERAL_PREFIXES.some(p => key.startsWith(p))) {
-      toRemove.push(key);
-    }
-  }
-
-  for (const key of toRemove) {
-    const size = (localStorage.getItem(key) ?? '').length * 2;
-    localStorage.removeItem(key);
-    removed++;
-    freedBytes += size;
-  }
-
-  // Also trim runner-config keys with deep composite IDs (4+ segments = stale per-run configs)
-  const configsToRemove: string[] = [];
-  for (let i = 0; i < localStorage.length; i++) {
-    const key = localStorage.key(i);
-    if (!key) continue;
-    if (key.startsWith('perf-test-runner-config:')) {
-      const segments = key.split(':');
-      if (segments.length >= 4) {
-        configsToRemove.push(key);
-      }
-    }
-  }
-
-  for (const key of configsToRemove) {
-    const size = (localStorage.getItem(key) ?? '').length * 2;
-    localStorage.removeItem(key);
-    removed++;
-    freedBytes += size;
-  }
-
-  // Migrate remaining large localStorage keys to IDB (fire-and-forget)
-  migrateRemainingLargeKeysToIdb().catch(() => { /* best effort */ });
-
-  const freedKB = Math.round(freedBytes / 1024);
-  if (removed > 0) {
-    console.info(`[Storage] Cleanup: removed ${removed} stale keys, freed ${freedKB} KB`);
-  }
-  return { removed, freedKB };
-}
-
-/**
- * Migrate any large localStorage keys that haven't been moved to IDB yet.
- * Called on startup by cleanupStaleStorageKeys — each key is moved once then
- * deleted from localStorage, freeing up the ~5 MB quota.
- */
-async function migrateRemainingLargeKeysToIdb(): Promise<void> {
-  const [{ migrateWorkflowKeysToIdb }, { migrateCatalogKeysToIdb }] = await Promise.all([
-    import('./storageWorkflows'),
-    import('./storageCatalog'),
-  ]);
-  await migrateWorkflowKeysToIdb();
-  const migrations: Array<{ check: string; fn: () => Promise<boolean | number> }> = [
-    { check: REQUESTS_KEY, fn: () => idbMigrateRequests(REQUESTS_KEY) },
-    { check: PROJECTS_KEY, fn: () => idbMigrateProjects(PROJECTS_KEY) },
-  ];
-  for (const { check, fn } of migrations) {
-    if (localStorage.getItem(check)) {
-      try { await fn(); } catch { /* ignore */ }
-    }
-  }
-  await migrateCatalogKeysToIdb();
+  return formatStorageDiagnostics(usage);
 }
 
 // ---------- Re-exports (catalog & workflow CRUD live in dedicated modules) ----------

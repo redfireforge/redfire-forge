@@ -384,7 +384,7 @@ export default function ResultsDashboard({ envName, svcName, onRerunFailed, isRe
                     {traceLoading ? '⏳ Loading trace…' : '📊 Results Explorer'}
                   </button>
                 )}
-                <button className="btn" onClick={() => exportJson(selectedRun)}>Export JSON</button>
+                <button className="btn" onClick={() => exportJson(selectedRun)} data-testid="results-export-json-btn">Export JSON</button>
                 <button className="btn" onClick={() => exportCsv(selectedRun.results, selectedRun.envName, selectedRun.svcName)}>Export CSV</button>
                 <div className="report-menu-wrapper">
                   <button className="btn" onClick={() => setReportMenuOpen(!reportMenuOpen)}>Generate Report ▾</button>

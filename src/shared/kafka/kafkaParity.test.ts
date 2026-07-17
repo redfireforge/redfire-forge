@@ -147,7 +147,7 @@ function makeCaptureTransport(mockResponse: KafkaEnvelope): {
 // ── Shared setup / teardown ────────────────────────────────────────────────────
 afterEach(() => {
   setKafkaClientTransport(null);
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 // ══════════════════════════════════════════════════════════════════════════════

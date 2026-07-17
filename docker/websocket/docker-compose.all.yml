@@ -1,0 +1,27 @@
+# Unified Docker Compose for all WebSocket protocol test servers
+# Usage: docker compose -f docker/websocket/docker-compose.all.yml up -d
+#
+# Starts:
+#   - Socket.IO echo     → ws://localhost:3100/socket.io/?EIO=4&transport=websocket
+#   - RabbitMQ + STOMP   → ws://localhost:15674/ws  (guest/guest)
+#   - GraphQL-WS         → ws://localhost:4100/graphql
+#   - TLS echo (nginx)   → wss://localhost:8766  (skip-cert / CA cert, Phase 1+2)
+#   - mTLS echo (nginx)  → wss://localhost:8768  (client cert required, Phase 3)
+#
+# Requires Docker Compose v2.20+ for the `include` directive.
+# On older versions, start each stack individually:
+#   docker compose -f socketio/docker-compose.yml up -d
+#   docker compose -f stomp/docker-compose.yml up -d
+#   docker compose -f graphql/docker-compose.yml up -d
+#   docker compose -f docker-compose.tls.yml up -d
+#   docker compose -f docker-compose.mtls.yml up -d
+#
+# mTLS prerequisites (one-time):
+#   cd docker/websocket && ./generate-cert.sh && ./generate-client-cert.sh
+
+include:
+  - socketio/docker-compose.yml
+  - stomp/docker-compose.yml
+  - graphql/docker-compose.yml
+  - docker-compose.tls.yml
+  - docker-compose.mtls.yml

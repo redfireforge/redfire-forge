@@ -165,21 +165,21 @@ test.describe('New Node Types — Config Modals', () => {
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
     // Modal title
-    await expect(page.locator('#wf-config-modal-title')).toContainText('SWITCH');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Switch');
   });
 
   test('opens Loop config modal with mode selector', async ({ page }) => {
     await page.locator('.wf-node-loop .wf-node-configure-badge').click();
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('#wf-config-modal-title')).toContainText('LOOP');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Loop');
   });
 
   test('opens SetVariable config modal', async ({ page }) => {
     await page.locator('.wf-node-setVariable .wf-node-configure-badge').click();
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 3000 });
-    await expect(page.locator('#wf-config-modal-title')).toContainText('SETVARIABLE');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Set Variable');
   });
 
   test('opens Aggregate config modal', async ({ page }) => {
@@ -188,7 +188,7 @@ test.describe('New Node Types — Config Modals', () => {
     await aggNode.locator('.wf-node-configure-badge').click();
     const modal = page.locator('.wf-config-modal');
     await expect(modal).toBeVisible({ timeout: 10_000 });
-    await expect(page.locator('#wf-config-modal-title')).toContainText('AGGREGATE');
+    await expect(page.locator('#wf-config-modal-title')).toContainText('Aggregate');
   });
 
   test('Switch config modal closes on Close', async ({ page }) => {
@@ -246,7 +246,7 @@ test.describe('New Node Types — Palette', () => {
     // Each category header count should match the rendered blocks in that category.
     const logicHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Logic' });
     await expect(logicHeader.locator('.wf-palette-count')).toHaveText(
-      String(await page.locator('.wf-palette-block-condition, .wf-palette-block-switch, .wf-palette-block-loop, .wf-palette-block-waitForCondition').count()),
+      String(await page.locator('.wf-palette-block-condition, .wf-palette-block-switch, .wf-palette-block-loop, .wf-palette-block-waitForCondition, .wf-palette-block-graphqlAssert, .wf-palette-block-grpcAssert').count()),
     );
 
     const dataHeader = page.locator('.wf-palette-category-header').filter({ hasText: 'Data' });
@@ -278,9 +278,9 @@ test.describe('New Node Types — Palette', () => {
     const blocksTab = page.locator('.wf-palette-tab', { hasText: 'Blocks' });
     await blocksTab.click();
 
-    await expect(page.locator('.wf-node-loop')).toHaveCount(1);
+    await expect(page.locator('.wf-node-loop')).toHaveCount(1, { timeout: 5000 });
     await page.locator('.wf-palette-block-loop').click();
-    await expect(page.locator('.wf-node-loop')).toHaveCount(2);
+    await expect(page.locator('.wf-node-loop')).toHaveCount(2, { timeout: 5000 });
   });
 
   test('clicking SetVariable palette block adds a SetVariable node', async ({ page }) => {

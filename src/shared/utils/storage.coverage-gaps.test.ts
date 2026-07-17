@@ -79,6 +79,24 @@ vi.mock('./idbTestRuns', () => {
   };
 });
 
+const runnerConfigIdb = vi.hoisted(() => ({
+  store: {} as Record<string, string>,
+  saveShouldFail: false,
+}));
+
+vi.mock('./idbRunnerConfig', () => ({
+  idbLoadRunnerConfig: vi.fn(async (contextKey: string) =>
+    runnerConfigIdb.store[contextKey || '__default__'] ?? null),
+  idbSaveRunnerConfig: vi.fn(async (contextKey: string, payload: string) => {
+    if (runnerConfigIdb.saveShouldFail) throw new Error('idb save failed');
+    runnerConfigIdb.store[contextKey || '__default__'] = payload;
+  }),
+  idbMigrateRunnerConfigsFromLocalStorage: vi.fn(async () => 0),
+  purgeRunnerConfigLocalStorageKeys: vi.fn(() => ({ removed: 0, freedBytes: 0 })),
+  idbPruneRunnerConfigs: vi.fn(async () => 0),
+  idbListRunnerConfigIds: vi.fn(async () => Object.keys(runnerConfigIdb.store)),
+}));
+
 const fgIdb = vi.hoisted(() => ({
   idbLoadFeatureGroups: vi.fn(async () => null as import('../types').FeatureGroup[] | null),
   idbSaveFeatureGroups: vi.fn(async () => {}),
@@ -103,7 +121,25 @@ vi.mock('./idbSharedDataSources', () => ({
   idbMigrateSharedDataSources: (key: string) => sharedIdb.idbMigrateSharedDataSources(key),
 }));
 
-import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, getStorageDiagnostics, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, loadWorkflowFolders, saveWorkflowFolders, } from './storage';
+const workflowsIdb = vi.hoisted(() => ({
+  folders: null as unknown[] | null,
+  idbLoadWorkflowFolders: vi.fn(async () => workflowsIdb.folders),
+  idbSaveWorkflowFolders: vi.fn(async (folders: unknown[]) => {
+    workflowsIdb.folders = folders;
+  }),
+  idbMigrateWorkflowFolders: vi.fn(async () => false),
+}));
+
+vi.mock('./idbWorkflows', () => ({
+  idbLoadWorkflows: vi.fn(async () => null),
+  idbSaveWorkflows: vi.fn(async () => {}),
+  idbMigrateWorkflows: vi.fn(async () => false),
+  idbLoadWorkflowFolders: () => workflowsIdb.idbLoadWorkflowFolders(),
+  idbSaveWorkflowFolders: (folders: unknown[]) => workflowsIdb.idbSaveWorkflowFolders(folders),
+  idbMigrateWorkflowFolders: (key: string) => workflowsIdb.idbMigrateWorkflowFolders(key),
+}));
+
+import { saveTestRun, forceSaveTestRun, loadTestRuns, updateTestRun, deleteTestRun, deleteRunsOlderThan, clearAllTestRuns, setMaxRuns, getStorageUsage, getStorageDiagnostics, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, loadPreviewSampleId, savePreviewSampleId, loadTestRunsLite, loadTraceForRun, loadRunnerConfig, saveRunnerConfig, writeKey, loadWorkflowFolders, saveWorkflowFolders, onStorageFull, saveWorkspaceDefaults, loadWorkspaceDefaults, } from './storage';
 import { SharedDataSource, TestRun } from '../types';
 import { idbSaveTestRun, idbLoadTestRuns, idbGetRunsInfo, idbLoadTestRunsLite, idbLoadTrace, } from './idbTestRuns';
 
@@ -169,6 +205,12 @@ beforeEach(() => {
   sharedIdb.idbLoadSharedDataSources.mockImplementation(async () => null);
   sharedIdb.idbSaveSharedDataSources.mockImplementation(async () => {});
   sharedIdb.idbMigrateSharedDataSources.mockImplementation(async () => false);
+  workflowsIdb.folders = null;
+  workflowsIdb.idbLoadWorkflowFolders.mockImplementation(async () => workflowsIdb.folders);
+  workflowsIdb.idbSaveWorkflowFolders.mockImplementation(async (folders: unknown[]) => {
+    workflowsIdb.folders = folders;
+  });
+  workflowsIdb.idbMigrateWorkflowFolders.mockImplementation(async () => false);
 });
 
 describe('storage — coverage gaps (Tauri test runs)', () => {
@@ -463,6 +505,87 @@ describe('storage — feature groups / shared DS branches', () => {
     expect((fgs[0].scenarios![0].tests![0] as unknown as Record<string, unknown>)['dataTable']).toBeDefined();
   });
 
+  it('loadFeatureGroups normalizes tests missing auth, body, validation, or headers', async () => {
+    localStorage.setItem(
+      'perf-test-v3-feature-groups',
+      JSON.stringify([
+        {
+          id: 'fg-norm',
+          name: 'Norm',
+          scenarios: [
+            {
+              id: 'sc',
+              name: 'S',
+              tests: [{ id: 't1', name: 'Bare', url: 'http://x', method: 'GET' }],
+            },
+          ],
+        },
+      ]),
+    );
+    const fgs = await loadFeatureGroups();
+    const test = fgs[0].scenarios![0].tests![0];
+    expect(test.auth).toBeDefined();
+    expect(test.validation).toBeDefined();
+    expect(test.headers).toBeDefined();
+    expect(test.body).toBeDefined();
+  });
+
+  it('notifyStorageFull swallows listener errors', async () => {
+    const bad = vi.fn(() => { throw new Error('listener fail'); });
+    const good = vi.fn();
+    onStorageFull(bad);
+    onStorageFull(good);
+    const original = Storage.prototype.setItem;
+    let attempts = 0;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key === 'perf-test-theme') {
+        attempts += 1;
+        throw new DOMException('QuotaExceeded', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+    try {
+      await expect(writeKey('perf-test-theme', 'dark')).rejects.toThrow();
+      expect(attempts).toBeGreaterThanOrEqual(2);
+      expect(good).toHaveBeenCalledWith('perf-test-theme');
+    } finally {
+      Storage.prototype.setItem = original;
+    }
+  });
+
+  it('writeKey rethrows non-quota localStorage errors', async () => {
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function () {
+      throw new Error('blocked');
+    };
+    try {
+      await expect(writeKey('perf-test-theme', 'dark')).rejects.toThrow('blocked');
+    } finally {
+      Storage.prototype.setItem = original;
+    }
+  });
+
+  it('saveRunnerConfig warns and skips when IDB and localStorage both fail', async () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    runnerConfigIdb.saveShouldFail = true;
+    const original = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key: string, value: string) {
+      if (key.startsWith('perf-test-runner-config')) {
+        throw new DOMException('quota exceeded', 'QuotaExceededError');
+      }
+      return original.call(this, key, value);
+    };
+    try {
+      await saveRunnerConfig({ concurrency: 1 }, 'quota-stuck');
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('Runner config save skipped'));
+      expect(await loadRunnerConfig('quota-stuck')).toBeNull();
+    } finally {
+      Storage.prototype.setItem = original;
+      runnerConfigIdb.saveShouldFail = false;
+      warnSpy.mockRestore();
+    }
+  });
+
   it('saveSharedDataSources uses JSON when Tauri', async () => {
     isTauriMock.mockReturnValue(true);
     tauriSetItem.mockImplementation(async (k: string, v: string) => {
@@ -557,6 +680,49 @@ describe('storage — feature groups / shared DS branches', () => {
     localStorage.setItem('perf-test-v3-shared-data-sources', JSON.stringify(blob));
     const loaded = await loadSharedDataSources();
     expect(loaded[0].id).toBe('fb');
+  });
+
+  it('saveSharedDataSources falls back to JSON when IDB save throws', async () => {
+    const sds: SharedDataSource[] = [
+      {
+        id: 'save-fallback',
+        name: 'Fallback',
+        dataSource: { id: 'd', columns: [], rows: [], source: { type: 'inline' } },
+        updatedAt: 10,
+      },
+    ];
+    sharedIdb.idbSaveSharedDataSources.mockRejectedValueOnce(new Error('idb save fail'));
+    await saveSharedDataSources(sds);
+    expect(localStorage.getItem('perf-test-v3-shared-data-sources')).toContain('save-fallback');
+  });
+});
+
+describe('storage — workspace defaults branches', () => {
+  it('save/load workspace defaults handles mixed scalar/object/null values', async () => {
+    await saveWorkspaceDefaults({ envA: 'dev' });
+    localStorage.setItem(
+      'perf-test-v3-workspace-defaults',
+      JSON.stringify({
+        envA: 'dev',
+        nilVal: null,
+        numVal: 42,
+        objVal: { nested: true },
+      }),
+    );
+
+    const loaded = await loadWorkspaceDefaults();
+    expect(loaded.envA).toBe('dev');
+    expect(loaded.nilVal).toBe('');
+    expect(loaded.numVal).toBe('42');
+    expect(loaded.objVal).toContain('nested');
+  });
+
+  it('loadWorkspaceDefaults returns empty object for invalid payloads', async () => {
+    localStorage.setItem('perf-test-v3-workspace-defaults', '["bad"]');
+    await expect(loadWorkspaceDefaults()).resolves.toEqual({});
+
+    localStorage.setItem('perf-test-v3-workspace-defaults', '{bad-json');
+    await expect(loadWorkspaceDefaults()).resolves.toEqual({});
   });
 });
 
@@ -752,6 +918,66 @@ describe('storage — loadRunnerConfig legacy migration', () => {
     const result = await loadRunnerConfig();
     expect(result).toEqual(expect.objectContaining({ iterations: 100, concurrency: 5 }));
     expect((result as Record<string, unknown>).totalTransactions).toBeUndefined();
+  });
+
+  it('loadRunnerConfig uses Tauri readKey path', async () => {
+    isTauriMock.mockReturnValue(true);
+    tauriGetItem.mockResolvedValue(JSON.stringify({ iterations: 3, concurrency: 2 }));
+    const result = await loadRunnerConfig('desktop-ctx');
+    expect(result).toEqual({ iterations: 3, concurrency: 2 });
+  });
+
+  it('saveRunnerConfig Tauri retries after QuotaExceededError then succeeds', async () => {
+    isTauriMock.mockReturnValue(true);
+    let attempts = 0;
+    tauriSetItem.mockImplementation(async () => {
+      attempts += 1;
+      if (attempts === 1) throw new DOMException('quota', 'QuotaExceededError');
+    });
+    await saveRunnerConfig({ iterations: 1, concurrency: 1 }, 'tauri-retry');
+    expect(attempts).toBe(2);
+  });
+
+  it('saveRunnerConfig Tauri warns when retry still fails with quota', async () => {
+    isTauriMock.mockReturnValue(true);
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    tauriSetItem.mockRejectedValue(new DOMException('quota', 'QuotaExceededError'));
+    try {
+      await saveRunnerConfig({ iterations: 1, concurrency: 1 }, 'tauri-hard-fail');
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Runner config save failed for "perf-test-runner-config:tauri-hard-fail"'),
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
+
+  it('loadRunnerConfig migrates legacy localStorage into IDB on browser path', async () => {
+    isTauriMock.mockReturnValue(false);
+    localStorage.setItem('perf-test-runner-config:legacy-ctx', JSON.stringify({ iterations: 9 }));
+    const result = await loadRunnerConfig('legacy-ctx');
+    expect(result).toEqual(expect.objectContaining({ iterations: 9 }));
+  });
+
+  it('loadRunnerConfig returns null when outer try fails', async () => {
+    isTauriMock.mockReturnValue(false);
+    const { idbLoadRunnerConfig } = await import('./idbRunnerConfig');
+    vi.mocked(idbLoadRunnerConfig).mockRejectedValueOnce(new Error('idb down'));
+    await expect(loadRunnerConfig('broken')).resolves.toBeNull();
+  });
+
+  it('loadRunnerConfig handles legacy localStorage read errors', async () => {
+    isTauriMock.mockReturnValue(false);
+    const { idbLoadRunnerConfig } = await import('./idbRunnerConfig');
+    vi.mocked(idbLoadRunnerConfig).mockResolvedValueOnce(null);
+    const getSpy = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new Error('blocked read');
+    });
+    try {
+      await expect(loadRunnerConfig('legacy-read-fail')).resolves.toBeNull();
+    } finally {
+      getSpy.mockRestore();
+    }
   });
 });
 

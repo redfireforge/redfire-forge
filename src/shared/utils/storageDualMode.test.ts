@@ -32,7 +32,7 @@ describe('createDualModeArrayStorage', () => {
   const idbMigrate = vi.fn(async (_lsKey: string) => true);
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     isTauriMock.mockReturnValue(false);
     readKeyMock.mockResolvedValue(null);
     writeKeyMock.mockResolvedValue(undefined);
@@ -105,14 +105,16 @@ describe('createDualModeArrayStorage', () => {
       expect(idbMigrate).toHaveBeenCalledWith(STORAGE_KEY);
     });
 
-    it('Browser mode: readKey returns empty array → returns [] without idbMigrate', async () => {
+    it('Browser mode: readKey returns empty array → clears legacy key without migrating', async () => {
       idbLoad.mockResolvedValue(null);
       readKeyMock.mockResolvedValue(JSON.stringify([]));
+      localStorage.setItem(STORAGE_KEY, '[]');
 
       const result = await createStorage().load();
 
       expect(result).toEqual([]);
       expect(idbMigrate).not.toHaveBeenCalled();
+      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
     });
 
     it('Browser mode: readKey returns non-array JSON → returns empty array', async () => {
@@ -181,12 +183,25 @@ describe('createDualModeArrayStorage', () => {
       expect(writeKeyMock).not.toHaveBeenCalled();
     });
 
-    it('Browser mode: idbSave fails → falls back to writeKey', async () => {
+    it('Browser mode: idbLoad succeeds → removes stale localStorage copy', async () => {
+      const items: TestItem[] = [{ id: 'idb-1', name: 'From IDB' }];
+      idbLoad.mockResolvedValue(items);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify([{ id: 'old', name: 'Legacy' }]));
+
+      const result = await createStorage().load();
+
+      expect(result).toEqual(items);
+      expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    });
+
+    it('Browser mode: idbSave fails → does not fall back to localStorage', async () => {
       idbSave.mockRejectedValue(new Error('idb save failed'));
+      const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-      await createStorage().save(items);
+      await expect(createStorage().save(items)).resolves.toBeUndefined();
 
-      expect(writeKeyMock).toHaveBeenCalledWith(STORAGE_KEY, JSON.stringify(items));
+      expect(writeKeyMock).not.toHaveBeenCalled();
+      errSpy.mockRestore();
     });
   });
 });

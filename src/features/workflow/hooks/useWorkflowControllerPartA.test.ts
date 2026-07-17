@@ -240,7 +240,7 @@ const makeProps = (over: Partial<WorkflowDesignerProps> = {}): WorkflowDesignerP
 
 describe('useWorkflowDesignerControllerPartA', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     nodesSeed.current = null;
     versioningCb.applyToCanvas = undefined;
     versioningCb.persistRestore = undefined;

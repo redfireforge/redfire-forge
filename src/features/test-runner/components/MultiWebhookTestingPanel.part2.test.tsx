@@ -113,7 +113,7 @@ describe('MultiWebhookTestingPanel', () => {
   const mockOnLoadScenario = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('Decision Picker', () => {

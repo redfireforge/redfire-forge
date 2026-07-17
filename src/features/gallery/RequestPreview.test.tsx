@@ -5,20 +5,18 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import RequestPreview from './RequestPreview';
 import type { Scenario } from '../../shared/types';
+import { makeScenario as _makeScenario } from '../../test-utils/factories';
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
     id: 's1',
     name: 'Test Request',
     method: 'GET',
     url: 'https://jsonplaceholder.typicode.com/users/1',
     headers: [{ key: 'Accept', value: 'application/json' }],
-    body: '',
-    auth: { type: 'none' },
     validation: { assertions: [] },
     ...overrides,
-  } as Scenario;
-}
+  }) as Scenario;
 
 describe('RequestPreview', () => {
   it('renders request tab by default', () => {

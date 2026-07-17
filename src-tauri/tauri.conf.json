@@ -1,13 +1,13 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "RedfireForge",
-  "version": "0.6.0",
+  "version": "0.6.2-beta.1",
   "identifier": "com.redfireforge.desktop",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "npm run dev",
-    "beforeBuildCommand": "npm run build"
+    "beforeBuildCommand": "npm run build:prod"
   },
   "app": {
     "withGlobalTauri": true,

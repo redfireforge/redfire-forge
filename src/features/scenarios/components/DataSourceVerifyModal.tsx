@@ -7,7 +7,7 @@ import { extractJsonPath, expandPatternFromResponse } from '../utils/dataSourceI
 import { useVerifyEngine, executeRowFetch } from '../hooks/useVerifyEngine';
 import type { VerifyResult } from '../hooks/useVerifyEngine';
 import VerifyRowCard from './VerifyRowCard';
-import { toErrorMessage } from '../../../shared/utils/helpers';
+import { toErrorMessage, tryParseJson } from '../../../shared/utils/helpers';
 
 export type { VerifyResult };
 
@@ -80,8 +80,7 @@ export default function DataSourceVerifyModal({ draft, dataTable, onDraftChange,
           continue;
         }
 
-        let responseObj: unknown = null;
-        try { responseObj = JSON.parse(result.body); } catch { /* not JSON */ }
+        const responseObj: unknown = tryParseJson(result.body) ?? null;
 
         const updatedValues = { ...row.values };
         const actualCells: Record<string, string> = {};

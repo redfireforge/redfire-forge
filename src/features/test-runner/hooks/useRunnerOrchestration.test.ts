@@ -153,7 +153,7 @@ const defaultOpts = {
 
 describe('useRunnerOrchestration', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
   });
 

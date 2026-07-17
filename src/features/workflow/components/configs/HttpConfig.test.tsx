@@ -48,7 +48,7 @@ const defaultProps = makeDefaultProps();
 
 describe('HttpConfig — basic rendering', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders label input with current value', () => {
@@ -441,7 +441,7 @@ describe('HttpConfig — service binding and env override', () => {
   ];
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('shows environment override when service has multiple enabled endpoints', () => {
@@ -613,7 +613,7 @@ describe('HttpConfig — service binding and env override', () => {
 
 describe('HttpConfig — auth fields with missing optional properties', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders empty basic auth fields when username/password are undefined', () => {

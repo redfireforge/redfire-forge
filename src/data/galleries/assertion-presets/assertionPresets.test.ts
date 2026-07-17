@@ -5,6 +5,8 @@ import {
   createTokenExpiryAssertions,
   createPriceGuardAssertions,
   createApiContractAssertions,
+  createDataTypeGuardAssertions,
+  createRequiredFieldsAssertions,
 } from './presets';
 import { assertionPresetCatalog, ASSERTION_PRESET_CATEGORIES } from './index';
 import type { Assertion } from '../../../shared/types';
@@ -208,6 +210,65 @@ describe('createApiContractAssertions', () => {
     if (regex?.type === 'regex') {
       expect(regex.jsonPath).toBe('$.title');
       expect(regex.pattern).toBe('.{3,}');
+    }
+  });
+});
+
+describe('createDataTypeGuardAssertions', () => {
+  it('returns 4 assertions', () => {
+    expect(createDataTypeGuardAssertions()).toHaveLength(4);
+  });
+
+  it('contains only typeCheck assertions', () => {
+    const types = assertTypes(createDataTypeGuardAssertions());
+    expect(new Set(types)).toEqual(new Set(['typeCheck']));
+  });
+
+  it('validates id, name, active, and tags field types', () => {
+    const a = createDataTypeGuardAssertions();
+    const expected = [
+      { path: '$.id', type: 'number' },
+      { path: '$.name', type: 'string' },
+      { path: '$.active', type: 'boolean' },
+      { path: '$.tags', type: 'array' },
+    ] as const;
+
+    for (const item of expected) {
+      const assertion = a.find(x => x.type === 'typeCheck' && x.jsonPath === item.path);
+      expect(assertion).toBeDefined();
+      if (assertion?.type === 'typeCheck') {
+        expect(assertion.expectedType).toBe(item.type);
+      }
+    }
+  });
+});
+
+describe('createRequiredFieldsAssertions', () => {
+  it('returns 4 assertions', () => {
+    expect(createRequiredFieldsAssertions()).toHaveLength(4);
+  });
+
+  it('contains only existence assertions', () => {
+    const types = assertTypes(createRequiredFieldsAssertions());
+    expect(new Set(types)).toEqual(new Set(['existence']));
+  });
+
+  it('requires id/name/email and forbids deletedAt', () => {
+    const a = createRequiredFieldsAssertions();
+
+    const mustExist = ['$.id', '$.name', '$.email'];
+    for (const path of mustExist) {
+      const assertion = a.find(x => x.type === 'existence' && x.jsonPath === path);
+      expect(assertion).toBeDefined();
+      if (assertion?.type === 'existence') {
+        expect(assertion.expectExists).toBe(true);
+      }
+    }
+
+    const mustNotExist = a.find(x => x.type === 'existence' && x.jsonPath === '$.deletedAt');
+    expect(mustNotExist).toBeDefined();
+    if (mustNotExist?.type === 'existence') {
+      expect(mustNotExist.expectExists).toBe(false);
     }
   });
 });

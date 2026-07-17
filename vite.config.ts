@@ -3,6 +3,10 @@ import react from '@vitejs/plugin-react'
 import type { Plugin, PreviewServer, ViteDevServer } from 'vite'
 import { readFileSync, existsSync } from 'fs'
 import { resolve, join } from 'path'
+import { isLoopbackUrl, preferLocalhostHostname, resolveLoopbackUrl } from './src/shared/utils/loopbackUrl'
+import { demoHubRootImportsPlugin } from './vite/demoHubRootImports'
+import { demoLiveGuardPlugin } from './vite/demoLiveGuardPlugin'
+import { createMonacoAwareLogger, monacoDevNoisePlugin } from './vite/monacoDevNoisePlugin'
 
 const PROXY_RETRY_CODES = new Set([
   'ENOTFOUND', 'ECONNREFUSED', 'ETIMEDOUT', 'ECONNRESET',
@@ -82,6 +86,11 @@ function proxyPlugin(): Plugin {
           method: string;
           headers: Record<string, string>;
           body?: string;
+          /** When true, TLS certificate validation is skipped (self-signed / dev endpoints) */
+          skipTlsVerify?: boolean;
+          caCert?: string;
+          clientCert?: string;
+          clientKey?: string;
         };
         try {
           payload = JSON.parse(rawBody);
@@ -92,6 +101,13 @@ function proxyPlugin(): Plugin {
         }
 
         try {
+          // HTTPS loopback: keep localhost for Docker TLS/mTLS lesson stacks; plain HTTP
+          // still resolves to 127.0.0.1 for Node/undici corporate-proxy quirks.
+          if (payload.url.startsWith('https://')) {
+            payload.url = preferLocalhostHostname(payload.url);
+          } else {
+            payload.url = resolveLoopbackUrl(payload.url);
+          }
           payload.headers['Connection'] = 'keep-alive';
           const fetchOpts: Record<string, unknown> = {
             method: payload.method,
@@ -101,8 +117,33 @@ function proxyPlugin(): Plugin {
             fetchOpts.body = payload.body;
           }
 
-          const { dispatcher, isProxy } = await getDispatcher();
-          if (dispatcher) fetchOpts.dispatcher = dispatcher;
+          // TLS: create a one-off Agent when skip-cert, CA, or mTLS client creds are set.
+          let isProxy = false;
+          const loopback = isLoopbackUrl(payload.url);
+          const hasCustomTls =
+            (payload.skipTlsVerify && payload.url.startsWith('https://')) ||
+            !!payload.caCert?.trim() ||
+            !!payload.clientCert?.trim() ||
+            !!payload.clientKey?.trim();
+          if (hasCustomTls && payload.url.startsWith('https://')) {
+            try {
+              const { Agent } = await import('undici');
+              const connect: Record<string, unknown> = {};
+              if (payload.skipTlsVerify) {
+                connect.rejectUnauthorized = false;
+              } else if (loopback && !payload.caCert?.trim()) {
+                connect.rejectUnauthorized = false;
+              }
+              if (payload.caCert?.trim()) connect.ca = payload.caCert;
+              if (payload.clientCert?.trim()) connect.cert = payload.clientCert;
+              if (payload.clientKey?.trim()) connect.key = payload.clientKey;
+              fetchOpts.dispatcher = new Agent({ connect });
+            } catch { /* undici unavailable — fall through to global default */ }
+          } else if (!loopback) {
+            const dispatched = await getDispatcher();
+            if (dispatched.dispatcher) fetchOpts.dispatcher = dispatched.dispatcher;
+            isProxy = dispatched.isProxy;
+          }
 
           const MAX_PROXY_BODY = 2 * 1024 * 1024; // 2 MB cap to prevent pathological responses
 
@@ -217,11 +258,41 @@ const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
 
 // https://vite.dev/config/
 export default defineConfig({
-  plugins: [react(), proxyPlugin(), docsPlugin()],
+  plugins: [demoHubRootImportsPlugin(), monacoDevNoisePlugin(), react(), proxyPlugin(), demoLiveGuardPlugin(), docsPlugin()],
+  customLogger: createMonacoAwareLogger(),
+  resolve: {
+    alias: {
+      '@redfireforge/demo-hub': resolve(__dirname, 'packages/demo-hub/src'),
+      '@shared': resolve(__dirname, 'src/shared'),
+      '@graphql': resolve(__dirname, 'src/features/graphql'),
+      '@grpc': resolve(__dirname, 'src/features/grpc'),
+      '@workflow': resolve(__dirname, 'src/features/workflow'),
+      'fs/promises': resolve(__dirname, 'src/shims/fs-promises-browser.ts'),
+      fs: resolve(__dirname, 'src/shims/fs-browser.ts'),
+      'node:fs/promises': resolve(__dirname, 'src/shims/fs-promises-browser.ts'),
+      'node:fs': resolve(__dirname, 'src/shims/fs-browser.ts'),
+      stream: resolve(__dirname, 'src/shims/stream-browser.ts'),
+      'node:stream': resolve(__dirname, 'src/shims/stream-browser.ts'),
+    },
+  },
   clearScreen: false,
   server: {
     strictPort: true,
     port: 5173,
+    hmr: process.env.PHASE8_E2E_SWEEP !== '1',
+    watch: {
+      // Runtime writes (API correlation store, E2E artifacts) must not trigger full reloads.
+      ignored: [
+        '**/data/**',
+        '**/*.db',
+        '**/*.db-journal',
+        '**/.cursor/**',
+        '**/coverage/**',
+        '**/e2e/screenshots/**',
+        '**/playwright-report/**',
+        '**/test-results/**',
+      ],
+    },
     proxy: {
       '/api': {
         target: 'http://localhost:3001',

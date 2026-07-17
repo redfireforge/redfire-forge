@@ -86,6 +86,12 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
   const [bottleneckInsights, setBottleneckInsights] = useState<BottleneckInsight[]>([]);
   const [forkJoinTopology, setForkJoinTopology] = useState<ForkJoinTopology | undefined>();
 
+  // Re-fit diagram when layout-affecting panels toggle (console, detail, matrix)
+  useEffect(() => {
+    if (viewMode !== 'diagram') return;
+    setFitViewTrigger((v) => v + 1);
+  }, [consoleOpen, detailCollapsed, matrixCollapsed, viewMode]);
+
   const handleBottlenecksComputed = useCallback((insights: BottleneckInsight[]) => {
     setBottleneckInsights(insights);
   }, []);
@@ -528,7 +534,7 @@ export default function WorkflowResultsExplorerModal({ trace, onClose, importedF
       )}
       <div className="results-explorer-body">
         {/* Left Panel: Workflow Diagram */}
-        <div className={`results-explorer-diagram${iterationTransitioning ? ' iteration-transitioning' : ''}`}>
+        <div className={`results-explorer-diagram${iterationTransitioning ? ' iteration-transitioning' : ''}`} data-testid="results-explorer-diagram">
           <div className="node-search-bar" data-testid="node-search-bar">
             <div className="node-search-input-wrap">
               <svg className="node-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

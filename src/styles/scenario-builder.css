@@ -221,7 +221,6 @@
 }
 
 /* Key-Value sections (params, headers, expected fields) */
-.kv-section {}
 .kv-header {
   font-size: 0.7rem;
   font-weight: 600;
@@ -521,6 +520,12 @@
 .params-row.disabled {
   opacity: 0.45;
 }
+.params-row.is-dragging {
+  opacity: 0.4;
+}
+.params-row.is-drag-over {
+  box-shadow: inset 0 2px 0 0 var(--primary);
+}
 .params-row.with-desc {
   grid-template-columns: 16px 200px 160px 1fr 1fr auto auto;
 }
@@ -540,6 +545,9 @@
   line-height: 1;
   letter-spacing: -1px;
   opacity: 0.5;
+}
+.params-drag-handle:active {
+  cursor: grabbing;
 }
 
 .params-value-with-insert {
@@ -2160,7 +2168,7 @@
 }
 .auth-badge-none { background: transparent; border: 1px solid var(--text-muted); color: var(--text-muted); font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: var(--radius); }
 .auth-badge-test-global { background: transparent; border: 1px solid #e67e22; color: #e67e22; }
-.btn-active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.btn-active { background: var(--accent, #6c5ce7); border-color: var(--accent, #6c5ce7); color: #fff; }
 
 /* Secret toggle */
 .secret-input-wrap {
@@ -3095,11 +3103,6 @@
   max-height: 300px;
   overflow-y: auto;
 }
-.btn-active {
-  background: var(--accent, #6c5ce7);
-  color: #fff;
-}
-
 /* Validate Response Section */
 .validate-response-section {
   margin-top: 12px;

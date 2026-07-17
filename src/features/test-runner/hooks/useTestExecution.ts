@@ -11,6 +11,9 @@ import { supportsWorkers } from '../../../shared/utils/platform';
 import { isRustExecutorAvailable, canUseRustExecutor, runTestViaRust } from '../utils/rustBridge';
 import { toErrorMessage } from '../../../shared/utils/helpers';
 import { buildKafkaNodeOperations } from '../../../shared/kafka/buildKafkaNodeOperations';
+import { buildWsNodeOperations } from '../../../shared/websocket/buildWsNodeOperations';
+import { buildGrpcNodeOperations } from '../../../shared/grpc/buildGrpcNodeOperations';
+import { resolveGrpcHarnessEnv } from '../../../shared/grpc/grpcHarnessRuntimeContext';
 import type { KafkaResultsPublishConfig } from '../../../shared/types';
 import { publishRunResults } from '../../../shared/kafka/kafkaResultsPublisher';
 
@@ -175,9 +178,12 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
     if (r.responseTimeMs < inc.min) inc.min = r.responseTimeMs;
     if (r.responseTimeMs > inc.max) inc.max = r.responseTimeMs;
     if (!hasStreamingMetrics) inc.times.push(r.responseTimeMs);
-    if ((r.transportType ?? 'http') === 'http' && (r.httpStatus >= 400 || r.httpStatus === 0)) {
+    const isHttpTransport = (r.transportType ?? 'http') === 'http';
+    if (isHttpTransport && (r.httpStatus >= 400 || r.httpStatus === 0)) {
       inc.failedRequests++;
       inc.errorsByStatus[r.httpStatus] = (inc.errorsByStatus[r.httpStatus] || 0) + 1;
+    } else if (!isHttpTransport && !r.passed) {
+      inc.failedRequests++;
     }
     if (!r.passed && r.failureDetails.length > 0) {
       inc.failedValidations++;
@@ -205,8 +211,12 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
       const recentWindow = pending.allResults.slice(-Math.max(intervalCompleted, 1));
       const avgRecent = recentWindow.reduce((s, r) => s + r.responseTimeMs, 0) / recentWindow.length;
 
-      const failedInWindow = recentWindow.filter(r => (r.transportType ?? 'http') === 'http' && (r.httpStatus >= 400 || r.httpStatus === 0)).length;
-      const errorPct = (failedInWindow / recentWindow.length) * 100;
+      const activeInWindow = recentWindow.filter(r => !r.cancelled);
+      const failedInWindow = activeInWindow.filter(r => {
+        const isHttp = (r.transportType ?? 'http') === 'http';
+        return isHttp ? (r.httpStatus >= 400 || r.httpStatus === 0) : !r.passed;
+      }).length;
+      const errorPct = activeInWindow.length > 0 ? (failedInWindow / activeInWindow.length) * 100 : 0;
 
       const point: TimeSeriesPoint = {
         elapsedSec,
@@ -244,7 +254,7 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
     lastFlushRef.current = now;
   }, []);
 
-  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined, workflowResolverData?: WorkflowResolverData) => {
+  const execute = useCallback(async (config: TestConfig, scenarios: Scenario[], meta?: { projectName?: string; envName?: string; svcName?: string; baseUrl?: string; grpcHarnessEnv?: Record<string, string> }, workflow?: Workflow, resolveSubWorkflow?: (id: string) => Workflow | undefined, workflowResolverData?: WorkflowResolverData) => {
     abortRef.current = new AbortController();
     startTimeRef.current = performance.now();
     lastSnapshotRef.current = 0;
@@ -333,18 +343,27 @@ export function useTestExecution(publishConfig?: KafkaResultsPublishConfig) {
       let testResult;
       // Build Kafka operations for both workflow-mode and harness-mode Kafka scenarios.
       const kafkaOps = buildKafkaNodeOperations();
+      const wsOps = buildWsNodeOperations();
+      const grpcOps = buildGrpcNodeOperations();
+      const grpcHarnessEnv = resolveGrpcHarnessEnv({
+        grpcHarnessEnv: meta?.grpcHarnessEnv,
+        microservices: workflowResolverData?.microservices,
+        svcId: workflowResolverData?.selectedSvcId,
+        envId: workflowResolverData?.selectedEnvId,
+        envName: meta?.envName,
+      });
       if (useRust) {
         testResult = await runTestViaRust(config, scenarios, wrappedOnProgress, abortRef.current.signal);
       } else if (useWorker) {
         try {
-          testResult = await runTestMultiWorker(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow);
+          testResult = await runTestMultiWorker(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, grpcHarnessEnv);
         } catch (workerErr) {
           // Worker failed (common in Tauri WebView) — fall back to direct execution
           console.warn('Worker execution failed, falling back to direct execution:', workerErr);
-          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps);
+          testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
         }
       } else {
-        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps);
+        testResult = await runTest(config, scenarios, wrappedOnProgress, abortRef.current.signal, workflow, resolveSubWorkflow, undefined, workflowResolverData, kafkaOps, wsOps, grpcOps, grpcHarnessEnv);
       }
 
       if (flushTimerRef.current) {

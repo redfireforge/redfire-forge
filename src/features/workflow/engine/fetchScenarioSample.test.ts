@@ -16,20 +16,21 @@ vi.mock('../../../engine/tokenManager', () => {
 
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { fetchScenarioSample } from './fetchScenarioSample';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 const mockedFetch = vi.mocked(httpFetch);
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 's1', name: 'Test', url: '/api/test',
-    method: 'GET', headers: [], body: '', auth: { type: 'none' as const },
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
+    id: 's1',
+    name: 'Test',
+    url: '/api/test',
     validation: { mode: 'none' as const, expectedFields: [], excludedPaths: [], assertions: [] },
     ...overrides,
-  } as Scenario;
-}
+  }) as Scenario;
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
 });
 
 describe('fetchScenarioSample', () => {

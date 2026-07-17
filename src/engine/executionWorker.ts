@@ -1,9 +1,11 @@
 import type { MainToWorkerMessage, WorkerToMainMessage } from './workerProtocol';
 import type { HttpResponse } from '../shared/utils/httpClient';
-import { httpFetchViaViteProxy, setHttpTransport } from '../shared/utils/httpClient';
+import { proxyFetch, setHttpTransport } from '../shared/utils/httpClient';
 import { runTest } from './executor';
 import { toErrorMessage } from '../shared/utils/helpers';
 import { buildKafkaNodeOperations } from '../shared/kafka/buildKafkaNodeOperations';
+import { buildWsNodeOperations } from '../shared/websocket/buildWsNodeOperations';
+import { buildGrpcNodeOperations } from '../shared/grpc/buildGrpcNodeOperations';
 
 interface WorkerContext {
   postMessage: (msg: WorkerToMainMessage) => void;
@@ -33,7 +35,10 @@ function postMsg(msg: WorkerToMainMessage): void {
 }
 
 function setupBrowserTransport(): void {
-  setHttpTransport(httpFetchViaViteProxy);
+  // Use proxyFetch (not httpFetchViaViteProxy directly) so relative `/api/*` paths
+  // (e.g. WS/Kafka proxy endpoints) use native fetch instead of being POSTed to
+  // /__proxy, whose Node-side fetch rejects relative URLs (ERR_INVALID_URL).
+  setHttpTransport(proxyFetch);
 }
 
 function setupTauriTransport(): void {
@@ -95,7 +100,10 @@ ctx.addEventListener('message', async (e: MessageEvent<MainToWorkerMessage>) => 
           undefined,
           msg.workerIndex,
           undefined,
-          msg.workflow ? buildKafkaNodeOperations() : undefined,
+          buildKafkaNodeOperations(),
+          buildWsNodeOperations(),
+          buildGrpcNodeOperations(),
+          msg.grpcHarnessEnv,
         );
         if (hasPending) {
           postMsg({ type: 'progress', completed: pendingCompleted, total: pendingTotal, newResults: pendingNewResults, meta: pendingMeta });

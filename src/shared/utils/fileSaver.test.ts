@@ -91,7 +91,7 @@ describe('buildExportFilename', () => {
 
 describe('saveFile (browser fallback)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     URL.createObjectURL = vi.fn(() => 'blob:test');
     URL.revokeObjectURL = vi.fn();
   });
@@ -158,7 +158,7 @@ describe('saveCsvFile', () => {
 
 describe('saveFile with showSaveFilePicker', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     URL.createObjectURL = vi.fn(() => 'blob:test');
     URL.revokeObjectURL = vi.fn();
   });
@@ -255,7 +255,7 @@ describe('saveFile with showSaveFilePicker', () => {
 
 describe('saveFile (Tauri)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(isTauri).mockReturnValue(true);
     tauriMocks.documentDir.mockResolvedValue('/Users/docs');
     tauriMocks.exists.mockResolvedValue(true);
@@ -399,7 +399,7 @@ describe('saveFile (Tauri)', () => {
 
 describe('savePngFile and saveSvgFile (browser via anchor fallback)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     URL.createObjectURL = vi.fn(() => 'blob:png-test');
     URL.revokeObjectURL = vi.fn();
     vi.spyOn(document.body, 'appendChild').mockImplementation(vi.fn());
@@ -444,7 +444,7 @@ describe('savePngFile and saveSvgFile (browser via anchor fallback)', () => {
 
 describe('saveJsonFile and saveCsvFile (Tauri)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(isTauri).mockReturnValue(true);
     tauriMocks.exists.mockResolvedValue(true);
     tauriMocks.save.mockResolvedValue('/out/file');
@@ -480,7 +480,7 @@ describe('openJsonFile', () => {
 
 describe('openJsonFile (Tauri)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(isTauri).mockReturnValue(true);
     tauriMocks.exists.mockResolvedValue(true);
     tauriMocks.readTextFile.mockResolvedValue('{"ok":true}');
@@ -546,7 +546,7 @@ describe('openJsonFile (Tauri)', () => {
 
 describe('getDefaultExportDir failure paths (Tauri)', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.mocked(isTauri).mockReturnValue(true);
     tauriMocks.documentDir.mockResolvedValue('/Users/docs');
     tauriMocks.save.mockResolvedValue('/out/chosen.txt');

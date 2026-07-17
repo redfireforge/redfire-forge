@@ -83,7 +83,7 @@ describe('useDataSourceImport', () => {
   let originalCreateElement: typeof document.createElement;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     onDraftChange = vi.fn();
     originalCreateElement = document.createElement.bind(document);
   });

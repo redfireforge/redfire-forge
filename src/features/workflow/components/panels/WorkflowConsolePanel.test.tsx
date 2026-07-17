@@ -300,6 +300,25 @@ describe('WorkflowConsolePanel', () => {
     expect(container.querySelector('.wf-console-float-edge-right')).toBeTruthy();
   });
 
+  it('exposes __wfSetConsoleFloatLayout demo bridge', () => {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1280 });
+    Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
+    const { container, unmount } = render(<WorkflowConsolePanel {...defaultProps} />);
+    const bridge = (window as unknown as Record<string, () => void>).__wfSetConsoleFloatLayout;
+    expect(typeof bridge).toBe('function');
+    act(() => {
+      bridge();
+    });
+    const panel = container.querySelector('.wf-console-floating') as HTMLElement;
+    expect(panel).toBeTruthy();
+    expect(panel.style.left).toBe('68px');
+    expect(panel.style.top).toBe('72px');
+    expect(panel.style.width).toBe('486px');
+    expect(panel.style.height).toBe('675px');
+    unmount();
+    expect((window as unknown as Record<string, unknown>).__wfSetConsoleFloatLayout).toBeUndefined();
+  });
+
   it('renders docked resize handle when in docked mode', () => {
     const { container } = render(<WorkflowConsolePanel {...defaultProps} />);
     expect(container.querySelector('.wf-console-resize-handle')).toBeTruthy();

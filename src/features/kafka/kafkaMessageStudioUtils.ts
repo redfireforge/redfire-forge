@@ -29,6 +29,51 @@ export function validateAndFormatJson(raw: string): ValidateJsonResult {
   }
 }
 
+// ── Binary format validators (browser-compatible) ───────────────────────────────────
+
+export interface ValidateBinaryResult {
+  ok: boolean;
+  /** Number of decoded bytes (0 when input is empty). */
+  byteCount?: number;
+  /** First ~60 chars of the UTF-8 interpretation of the decoded bytes. */
+  utf8Preview?: string;
+  error?: string;
+}
+
+/** Validate a base64 string and return decoded byte count + UTF-8 preview. */
+export function validateBase64(raw: string): ValidateBinaryResult {
+  const trimmed = raw.trim();
+  if (trimmed === '') return { ok: true, byteCount: 0 };
+  // Base64 characters + optional padding
+  if (!/^[A-Za-z0-9+/]+=*$/.test(trimmed) || trimmed.length % 4 !== 0) {
+    return { ok: false, error: 'Invalid base64 — must be a valid base64-encoded string' };
+  }
+  try {
+    const decoded = atob(trimmed);
+    const padding = (trimmed.match(/=/g) ?? []).length;
+    const byteCount = (trimmed.length / 4) * 3 - padding;
+    return { ok: true, byteCount, utf8Preview: decoded.slice(0, 60) };
+  } catch {
+    return { ok: false, error: 'Invalid base64 string' };
+  }
+}
+
+/** Validate a hex string (space-separated or continuous) and return decoded byte count + UTF-8 preview. */
+export function validateHex(raw: string): ValidateBinaryResult {
+  const stripped = raw.replace(/\s/g, '');
+  if (stripped === '') return { ok: true, byteCount: 0 };
+  if (!/^[0-9a-fA-F]+$/.test(stripped) || stripped.length % 2 !== 0) {
+    return { ok: false, error: 'Invalid hex — must be pairs of hex digits, e.g. „68 65 6c 6c 6f“' };
+  }
+  const byteCount = stripped.length / 2;
+  const bytes: number[] = [];
+  for (let i = 0; i < stripped.length; i += 2) {
+    bytes.push(parseInt(stripped.slice(i, i + 2), 16));
+  }
+  const utf8Preview = String.fromCharCode(...bytes.slice(0, 60));
+  return { ok: true, byteCount, utf8Preview };
+}
+
 // ── Header helpers ─────────────────────────────────────────────────────────
 
 /**
@@ -112,6 +157,12 @@ export function buildPublishRequest(
 
   if (timeoutMs !== undefined && !isNaN(timeoutMs)) req.timeoutMs = timeoutMs;
   if (draft.schemaConfig) req.schemaConfig = draft.schemaConfig;
+
+  // Pass format hints to the server so it can decode base64/hex to Buffer.
+  const bodyFormat = draft.bodyFormat ?? 'json';
+  const keyFormat = draft.keyFormat ?? 'string';
+  if (bodyFormat !== 'json') req.bodyFormat = bodyFormat;
+  if (keyFormat !== 'string') req.keyFormat = keyFormat;
 
   return req;
 }

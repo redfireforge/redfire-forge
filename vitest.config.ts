@@ -1,34 +1,97 @@
 import path from 'path';
-import { defineConfig } from 'vitest/config';
+import { defineConfig, coverageConfigDefaults } from 'vitest/config';
+import {
+  ALL_TEST_GLOBS,
+  COMMON_TEST_EXCLUDE,
+  DEMO_TEST_GLOBS,
+  PRODUCT_COVERAGE_EXCLUDE,
+  PRODUCT_TEST_EXCLUDE,
+} from './vitest.projectPatterns';
+import { demoHubRootImportsPlugin } from './vite/demoHubRootImports';
+import { createMonacoAwareLogger, monacoDevNoisePlugin } from './vite/monacoDevNoisePlugin';
 
-export default defineConfig({
-  test: {
-    globals: true,
-    environment: 'node',
-    include: ['src/**/*.test.{ts,tsx}', 'src-server/**/*.test.{ts,tsx}', 'cli/**/*.test.ts'],
-    exclude: ['node_modules', 'dist', 'src-tauri', 'e2e'],
-    poolMatchGlobs: [
-      // Server tests share module-level state — run each file in its own fork
-      ['src-server/**', 'forks'],
-    ],
-    coverage: {
-      reporter: ['text', 'json-summary'],
-      clean: false,
-      exclude: [
-        '**/__test-utils__/**',
-        '**/__mocks__/**',
-        '**/*.test.{ts,tsx}',
-        '**/*.config.{ts,js}',
-        'node_modules',
-        'dist',
-        'src-tauri',
-        'e2e',
-      ],
-    },
+const productCoverageExclude = [
+  ...PRODUCT_COVERAGE_EXCLUDE,
+  ...coverageConfigDefaults.exclude,
+];
+
+const demoCoverageExclude = [
+  ...coverageConfigDefaults.exclude,
+  '**/__test-utils__/**',
+  '**/*.coverage-helpers.ts',
+  'packages/demo-hub/**/test-utils/**',
+];
+
+const sharedTestOptions = {
+  globals: true,
+  environment: 'node' as const,
+  setupFiles: ['./src/test-utils/vitest-setup.ts'],
+  testTimeout: 15000,
+  hookTimeout: 15000,
+  exclude: [...COMMON_TEST_EXCLUDE],
+  retry: 2,
+  env: {
+    VITE_ENABLE_DEMO_HUB: 'true',
   },
+};
+
+const sharedProjectConfig = {
+  plugins: [demoHubRootImportsPlugin(), monacoDevNoisePlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@redfireforge/demo-hub': path.resolve(__dirname, './packages/demo-hub/src'),
+      '@shared': path.resolve(__dirname, './src/shared'),
+      '@graphql': path.resolve(__dirname, './src/features/graphql'),
+      '@grpc': path.resolve(__dirname, './src/features/grpc'),
+      '@workflow': path.resolve(__dirname, './src/features/workflow'),
     },
+  },
+};
+
+export default defineConfig({
+  customLogger: createMonacoAwareLogger(),
+  ...sharedProjectConfig,
+  test: {
+    poolMatchGlobs: [
+      ['src-server/**', 'forks'],
+      ['packages/demo-hub/useDemoHub.coverage*.ts', 'forks'],
+    ],
+    projects: [
+      {
+        ...sharedProjectConfig,
+        test: {
+          ...sharedTestOptions,
+          name: 'product',
+          include: [...ALL_TEST_GLOBS],
+          exclude: [...COMMON_TEST_EXCLUDE, ...PRODUCT_TEST_EXCLUDE],
+          coverage: {
+            provider: 'v8',
+            reporter: ['text', 'json-summary', 'json'],
+            clean: false,
+            excludeAfterRemap: true,
+            exclude: productCoverageExclude,
+          },
+        },
+      },
+      {
+        ...sharedProjectConfig,
+        test: {
+          ...sharedTestOptions,
+          name: 'demo',
+          include: [...DEMO_TEST_GLOBS],
+          retry: 0,
+          testTimeout: 120_000,
+          hookTimeout: 120_000,
+          coverage: {
+            provider: 'v8',
+            reporter: ['text', 'json-summary', 'json'],
+            clean: true,
+            excludeAfterRemap: true,
+            exclude: demoCoverageExclude,
+          },
+        },
+      },
+    ],
   },
 });

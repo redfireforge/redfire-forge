@@ -46,22 +46,22 @@ export default function KafkaProduceConfig({
 
   return (
     <div className="wf-config-body">
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Cluster ID</label>
         <input value={data.clusterId} onChange={(e) => update({ clusterId: e.target.value })} placeholder="cluster-a" />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Topic</label>
         <input value={data.topic} onChange={(e) => update({ topic: e.target.value })} placeholder="orders.events" />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Key Template</label>
         <InsertVarField
           onRequestVariableInsert={onRequestVariableInsert}
@@ -75,28 +75,45 @@ export default function KafkaProduceConfig({
             variableHints={hintSet}
           />
         </InsertVarField>
-        <span className="wf-config-hint">Supports <code>{'{{variable}}'}</code> templates.</span>
       </div>
 
-      <div className="wf-config-field">
-        <label>Partition</label>
-        <input
-          type="number"
-          value={data.partition ?? ''}
-          onChange={(e) => update({ partition: e.target.value === '' ? undefined : Number(e.target.value) })}
-          placeholder="Optional"
-        />
+      <div className="wf-config-field-pair">
+        <div className="wf-config-field--row">
+          <label>Partition</label>
+          <input
+            type="number"
+            value={data.partition ?? ''}
+            onChange={(e) => update({ partition: e.target.value === '' ? undefined : Number(e.target.value) })}
+            placeholder="Auto"
+          />
+        </div>
+        <div className="wf-config-field--row">
+          <label>Ack Mode</label>
+          <select value={data.ackMode ?? 'all'} onChange={(e) => update({ ackMode: e.target.value as KafkaAckMode })}>
+            {ACK_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </div>
       </div>
 
       <div className="wf-kafka-section">
-        <div className="wf-kafka-section-title">Headers</div>
+        <div className="wf-kafka-section-title">
+          Headers
+          <button type="button" className="wf-section-add-btn" onClick={() => update({ headers: [...headers, createHeader()] })}>+ Add</button>
+        </div>
+        {headers.length > 0 && (
+          <div className="wf-config-kv-col-headers">
+            <span className="wf-kv-col-toggle">On</span>
+            <span className="wf-kv-col-fill">Name</span>
+            <span className="wf-kv-col-fill">Value</span>
+            <span className="wf-kv-col-del" />
+          </div>
+        )}
         <div className="wf-config-kv-list">
           {headers.map((row, index) => (
             <div key={row.id} className="wf-config-kv-row">
-              <label className="wf-config-checkbox-label" style={{ minWidth: 72 }}>
+              <div className="wf-kv-toggle">
                 <input type="checkbox" checked={row.enabled} onChange={(e) => headerCrud.update(index, { enabled: e.target.checked })} />
-                Enabled
-              </label>
+              </div>
               <input
                 value={row.key}
                 placeholder="Header name"
@@ -117,11 +134,12 @@ export default function KafkaProduceConfig({
                   />
                 </InsertVarField>
               </div>
-              <button type="button" className="btn btn-sm btn-danger" onClick={() => headerCrud.remove(index)}>×</button>
+              <div className="wf-kv-del">
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => headerCrud.remove(index)}>×</button>
+              </div>
             </div>
           ))}
         </div>
-        <button type="button" className="btn btn-sm" onClick={() => update({ headers: [...headers, createHeader()] })}>+ Add Header</button>
       </div>
 
       <div className="wf-config-field">
@@ -133,23 +151,15 @@ export default function KafkaProduceConfig({
         >
           <textarea
             className="wf-config-textarea"
-            rows={6}
+            rows={5}
             value={data.bodyTemplate ?? ''}
             onChange={(e) => update({ bodyTemplate: e.target.value })}
             placeholder="JSON or plain text template with {{variables}}"
           />
         </InsertVarField>
-        <span className="wf-config-hint">Supports <code>{'{{variable}}'}</code> templates.</span>
       </div>
 
-      <div className="wf-config-field">
-        <label>Ack Mode</label>
-        <select value={data.ackMode ?? 'all'} onChange={(e) => update({ ackMode: e.target.value as KafkaAckMode })}>
-          {ACK_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </div>
-
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Timeout (ms)</label>
         <input
           type="number"
@@ -159,15 +169,25 @@ export default function KafkaProduceConfig({
         />
       </div>
 
-      <div className="wf-kafka-section">
-        <div className="wf-kafka-section-title">Output Bindings</div>
+      <div className="wf-kafka-section" data-testid="output-bindings-section">
+        <div className="wf-kafka-section-title">
+          Output Bindings
+          <button type="button" className="wf-section-add-btn" data-testid="node-binding-add-btn" onClick={() => update({ outputBindings: [...outputBindings, createBinding()] })}>+ Add</button>
+        </div>
+        {outputBindings.length > 0 && (
+          <div className="wf-config-kv-col-headers">
+            <span className="wf-kv-col-toggle">On</span>
+            <span className="wf-kv-col-fill">Source</span>
+            <span className="wf-kv-col-fill">Target Variable</span>
+            <span className="wf-kv-col-del" />
+          </div>
+        )}
         <div className="wf-config-kv-list">
           {outputBindings.map((row, index) => (
             <div key={row.id} className="wf-config-kv-row">
-              <label className="wf-config-checkbox-label" style={{ minWidth: 72 }}>
+              <div className="wf-kv-toggle">
                 <input type="checkbox" checked={row.enabled} onChange={(e) => bindingCrud.update(index, { enabled: e.target.checked })} />
-                Enabled
-              </label>
+              </div>
               <select value={row.source} onChange={(e) => bindingCrud.update(index, { source: e.target.value as KafkaNodeMetadataBinding['source'] })}>
                 {OUTPUT_SOURCE_OPTIONS.map((source) => <option key={source} value={source}>{source}</option>)}
               </select>
@@ -176,11 +196,12 @@ export default function KafkaProduceConfig({
                 onChange={(e) => bindingCrud.update(index, { targetVariable: e.target.value })}
                 placeholder="targetVariable"
               />
-              <button type="button" className="btn btn-sm btn-danger" onClick={() => bindingCrud.remove(index)}>×</button>
+              <div className="wf-kv-del">
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => bindingCrud.remove(index)}>×</button>
+              </div>
             </div>
           ))}
         </div>
-        <button type="button" className="btn btn-sm" onClick={() => update({ outputBindings: [...outputBindings, createBinding()] })}>+ Add Binding</button>
       </div>
 
       <KafkaSchemaConfigSection

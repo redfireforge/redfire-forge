@@ -1,0 +1,12 @@
+# Socket.IO v4 Echo Server for WebSocket Studio E2E tests
+# Usage: docker compose up -d
+# Endpoint: ws://localhost:3100/socket.io/?EIO=4&transport=websocket
+services:
+  ws-socketio-echo:
+    build: .
+    container_name: ws-socketio-echo
+    ports:
+      - "3100:3100"
+    environment:
+      - PORT=3100
+    restart: unless-stopped

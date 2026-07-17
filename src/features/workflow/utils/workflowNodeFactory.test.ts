@@ -6,6 +6,23 @@ import {
   defaultNodeData,
   defaultKafkaTriggerNodeData,
   defaultKafkaWaitNodeData,
+  defaultKafkaProduceNodeData,
+  defaultKafkaConsumeNodeData,
+  defaultWsConnectNodeData,
+  defaultWsSendNodeData,
+  defaultWsReceiveNodeData,
+  defaultWsTriggerNodeData,
+  defaultGraphqlQueryNodeData,
+  defaultGraphqlMutationNodeData,
+  defaultGraphqlSubscriptionNodeData,
+  defaultGraphqlIntrospectNodeData,
+  defaultGraphqlAssertNodeData,
+  defaultGrpcUnaryNodeData,
+  defaultGrpcServerStreamNodeData,
+  defaultGrpcAssertNodeData,
+  defaultGrpcLoadTestNodeData,
+  defaultGrpcSchemaDiffNodeData,
+  defaultGrpcMockAssertNodeData,
   type WorkflowRFNode,
 } from './workflowNodeFactory';
 import type {
@@ -32,6 +49,17 @@ import type {
   KafkaConsumeNodeData,
   KafkaTriggerNodeData,
   KafkaWaitNodeData,
+  WsConnectNodeData,
+  WsSendNodeData,
+  WsReceiveNodeData,
+  WsTriggerNodeData,
+  GraphqlQueryNodeData,
+  GraphqlSubscriptionNodeData,
+  GraphqlIntrospectNodeData,
+  GraphqlAssertNodeData,
+  GrpcUnaryNodeData,
+  GrpcServerStreamNodeData,
+  GrpcAssertNodeData,
   WorkflowNodeType,
   WorkflowNodeData,
 } from '../types/workflow';
@@ -42,7 +70,7 @@ vi.mock('uuid', () => ({
 
 describe('workflowNodeFactory', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('nodeTypes', () => {
@@ -68,6 +96,11 @@ describe('workflowNodeFactory', () => {
       expect(nodeTypes.correlationWait).toBeDefined();
       expect(nodeTypes.kafkaTrigger).toBeDefined();
       expect(nodeTypes.kafkaWait).toBeDefined();
+      expect(nodeTypes.graphqlQuery).toBeDefined();
+      expect(nodeTypes.graphqlMutation).toBeDefined();
+      expect(nodeTypes.graphqlSubscription).toBeDefined();
+      expect(nodeTypes.graphqlIntrospect).toBeDefined();
+      expect(nodeTypes.graphqlAssert).toBeDefined();
     });
   });
 
@@ -86,6 +119,130 @@ describe('workflowNodeFactory', () => {
 
       expect((produceData as KafkaProduceNodeData).label).toBe('Kafka Produce');
       expect((consumeData as KafkaConsumeNodeData).label).toBe('Kafka Consume');
+    });
+  });
+
+  describe('GraphQL node contracts', () => {
+    it('includes all 5 graphql types in the WorkflowNodeType union', () => {
+      const q: WorkflowNodeType = 'graphqlQuery';
+      const m: WorkflowNodeType = 'graphqlMutation';
+      const s: WorkflowNodeType = 'graphqlSubscription';
+      const i: WorkflowNodeType = 'graphqlIntrospect';
+      const a: WorkflowNodeType = 'graphqlAssert';
+      expect(q).toBe('graphqlQuery');
+      expect(m).toBe('graphqlMutation');
+      expect(s).toBe('graphqlSubscription');
+      expect(i).toBe('graphqlIntrospect');
+      expect(a).toBe('graphqlAssert');
+    });
+
+    it('defaultNodeData returns correct labels for all 5 graphql types', () => {
+      expect((defaultNodeData('graphqlQuery') as GraphqlQueryNodeData).label).toBe('GraphQL Query');
+      expect((defaultNodeData('graphqlMutation') as GraphqlQueryNodeData).label).toBe('GraphQL Mutation');
+      expect((defaultNodeData('graphqlSubscription') as GraphqlSubscriptionNodeData).label).toBe('GraphQL Subscription');
+      expect((defaultNodeData('graphqlIntrospect') as GraphqlIntrospectNodeData).label).toBe('GraphQL Introspect');
+      expect((defaultNodeData('graphqlAssert') as GraphqlAssertNodeData).label).toBe('GraphQL Assert');
+    });
+
+    it('defaultGraphqlQueryNodeData has correct shape', () => {
+      const d = defaultGraphqlQueryNodeData();
+      expect(d.label).toBe('GraphQL Query');
+      expect(d.query).toContain('query');
+      expect(d.variables).toBe('{}');
+      expect(d.timeoutMs).toBe(30000);
+      expect(d.extractionRules).toEqual([]);
+      expect(d.outputBindings).toEqual([]);
+    });
+
+    it('defaultGraphqlMutationNodeData has correct shape', () => {
+      const d = defaultGraphqlMutationNodeData();
+      expect(d.label).toBe('GraphQL Mutation');
+      expect(d.query).toContain('mutation');
+    });
+
+    it('defaultGraphqlSubscriptionNodeData has correct shape', () => {
+      const d = defaultGraphqlSubscriptionNodeData();
+      expect(d.label).toBe('GraphQL Subscription');
+      expect(d.subscriptionQuery).toContain('subscription');
+      expect(d.subscriptionTransport).toBe('auto');
+      expect(d.stopAfterMessages).toBe(10);
+    });
+
+    it('defaultGraphqlIntrospectNodeData has correct shape', () => {
+      const d = defaultGraphqlIntrospectNodeData();
+      expect(d.label).toBe('GraphQL Introspect');
+      expect(d.timeoutMs).toBe(30000);
+      expect(d.outputBindings).toEqual([]);
+    });
+
+    it('defaultGraphqlAssertNodeData has correct shape', () => {
+      const d = defaultGraphqlAssertNodeData();
+      expect(d.label).toBe('GraphQL Assert');
+      expect(d.sourceVariable).toBe('');
+      expect(d.assertions).toEqual([]);
+      expect(d.failBehavior).toBe('error');
+    });
+  });
+
+  describe('gRPC advanced defaults', () => {
+    it('defaultGrpcUnaryNodeData has unary defaults', () => {
+      const d = defaultGrpcUnaryNodeData();
+      expect(d.label).toBe('gRPC Unary');
+      expect(d.callType).toBe('unary');
+      expect(d.target).toBe('');
+      expect(d.timeoutMs).toBe(30000);
+      expect(d.onError).toBe('fail');
+    });
+
+    it('defaultGrpcServerStreamNodeData has stream defaults', () => {
+      const d = defaultGrpcServerStreamNodeData();
+      expect(d.label).toBe('gRPC Server Stream');
+      expect(d.callType).toBe('server_streaming');
+      expect(d.collect).toEqual({ maxMessages: 10 });
+      expect(d.timeoutMs).toBe(30000);
+      expect(d.onError).toBe('fail');
+    });
+
+    it('defaultGrpcAssertNodeData has assert defaults', () => {
+      const d = defaultGrpcAssertNodeData();
+      expect(d.label).toBe('gRPC Assert');
+      expect(d.source).toBe('');
+      expect(d.assertions).toEqual([]);
+      expect(d.onError).toBe('fail');
+    });
+
+    it('defaultGrpcLoadTestNodeData has load test defaults', () => {
+      const d = defaultGrpcLoadTestNodeData();
+      expect(d.label).toBe('gRPC Load Test');
+      expect(d.callType).toBe('unary');
+      expect(d.loadTest).toEqual({ concurrency: 1, totalCalls: 10, warmupCalls: 0 });
+    });
+
+    it('defaultGrpcSchemaDiffNodeData has schema diff defaults', () => {
+      const d = defaultGrpcSchemaDiffNodeData();
+      expect(d.label).toBe('gRPC Schema Diff');
+      expect(d.failOnBreaking).toBe(true);
+      expect(d.onError).toBe('fail');
+    });
+
+    it('defaultGrpcMockAssertNodeData has mock assert defaults', () => {
+      const d = defaultGrpcMockAssertNodeData();
+      expect(d.label).toBe('gRPC Mock Assert');
+      expect(d.listenTarget).toBe('127.0.0.1:50061');
+      expect(d.expectedStatus).toBe(0);
+      expect(d.onError).toBe('fail');
+    });
+
+    it('defaultNodeData supports grpc advanced node types', () => {
+      expect((defaultNodeData('grpcLoadTest') as { label: string }).label).toBe('gRPC Load Test');
+      expect((defaultNodeData('grpcSchemaDiff') as { label: string }).label).toBe('gRPC Schema Diff');
+      expect((defaultNodeData('grpcMockAssert') as { label: string }).label).toBe('gRPC Mock Assert');
+    });
+
+    it('defaultNodeData supports grpc base node types', () => {
+      expect((defaultNodeData('grpcUnary') as GrpcUnaryNodeData).label).toBe('gRPC Unary');
+      expect((defaultNodeData('grpcServerStream') as GrpcServerStreamNodeData).label).toBe('gRPC Server Stream');
+      expect((defaultNodeData('grpcAssert') as GrpcAssertNodeData).label).toBe('gRPC Assert');
     });
   });
 
@@ -425,6 +582,112 @@ describe('workflowNodeFactory', () => {
     it('kafkaTrigger and kafkaWait have registered canvas node components', () => {
       expect(nodeTypes.kafkaTrigger).toBeDefined();
       expect(nodeTypes.kafkaWait).toBeDefined();
+    });
+  });
+
+  describe('WebSocket node types', () => {
+    it('registers all WS node components in nodeTypes', () => {
+      expect(nodeTypes.wsConnect).toBeDefined();
+      expect(nodeTypes.wsSend).toBeDefined();
+      expect(nodeTypes.wsReceive).toBeDefined();
+      expect(nodeTypes.wsTrigger).toBeDefined();
+    });
+
+    it('registers all Kafka node components in nodeTypes', () => {
+      expect(nodeTypes.kafkaProduce).toBeDefined();
+      expect(nodeTypes.kafkaConsume).toBeDefined();
+    });
+  });
+
+  describe('defaultNodeData — WS nodes', () => {
+    it('returns default wsConnect node data', () => {
+      const data = defaultNodeData('wsConnect') as WsConnectNodeData;
+      expect(data.label).toBe('WS Connect');
+      expect(data.url).toBe('');
+      expect(data.connectionId).toBe('ws1');
+      expect(data.timeoutMs).toBe(10000);
+      expect(Array.isArray(data.headers)).toBe(true);
+      expect(Array.isArray(data.queryParams)).toBe(true);
+      expect(Array.isArray(data.subprotocols)).toBe(true);
+      expect(Array.isArray(data.outputBindings)).toBe(true);
+    });
+
+    it('returns default wsSend node data', () => {
+      const data = defaultNodeData('wsSend') as WsSendNodeData;
+      expect(data.label).toBe('WS Send');
+      expect(data.connectionId).toBe('ws1');
+      expect(data.message).toBe('');
+      expect(data.messageType).toBe('text');
+      expect(data.waitForResponse).toBe(false);
+      expect(data.responseTimeoutMs).toBe(5000);
+      expect(Array.isArray(data.outputBindings)).toBe(true);
+    });
+
+    it('returns default wsReceive node data', () => {
+      const data = defaultNodeData('wsReceive') as WsReceiveNodeData;
+      expect(data.label).toBe('WS Receive');
+      expect(data.connectionId).toBe('ws1');
+      expect(data.timeoutMs).toBe(30000);
+      expect(data.matchCriteria).toEqual({ messageType: 'any' });
+      expect(Array.isArray(data.extractionRules)).toBe(true);
+      expect(Array.isArray(data.outputBindings)).toBe(true);
+    });
+
+    it('returns default wsTrigger node data', () => {
+      const data = defaultNodeData('wsTrigger') as WsTriggerNodeData;
+      expect(data.label).toBe('WS Trigger');
+      expect(data.url).toBe('');
+      expect(data.connectionId).toBe('ws1');
+      expect(data.matchCriteria).toEqual({ messageType: 'any' });
+      expect(Array.isArray(data.extractionRules)).toBe(true);
+    });
+  });
+
+  describe('standalone default factory functions', () => {
+    it('defaultWsConnectNodeData returns correct defaults', () => {
+      const data = defaultWsConnectNodeData();
+      expect(data.label).toBe('WS Connect');
+      expect(data.url).toBe('');
+      expect(data.connectionId).toBe('ws1');
+    });
+
+    it('defaultWsSendNodeData returns correct defaults', () => {
+      const data = defaultWsSendNodeData();
+      expect(data.label).toBe('WS Send');
+      expect(data.messageType).toBe('text');
+      expect(data.waitForResponse).toBe(false);
+    });
+
+    it('defaultWsReceiveNodeData returns correct defaults', () => {
+      const data = defaultWsReceiveNodeData();
+      expect(data.label).toBe('WS Receive');
+      expect(data.timeoutMs).toBe(30000);
+    });
+
+    it('defaultWsTriggerNodeData returns correct defaults', () => {
+      const data = defaultWsTriggerNodeData();
+      expect(data.label).toBe('WS Trigger');
+      expect(data.url).toBe('');
+    });
+
+    it('defaultKafkaProduceNodeData returns correct defaults', () => {
+      const data = defaultKafkaProduceNodeData();
+      expect(data.label).toBe('Kafka Produce');
+      expect(data.clusterId).toBe('');
+      expect(data.topic).toBe('');
+      expect(data.ackMode).toBe('all');
+      expect(data.timeoutMs).toBe(10000);
+    });
+
+    it('defaultKafkaConsumeNodeData returns correct defaults', () => {
+      const data = defaultKafkaConsumeNodeData();
+      expect(data.label).toBe('Kafka Consume');
+      expect(data.clusterId).toBe('');
+      expect(data.topic).toBe('');
+      expect(data.timeoutMs).toBe(30000);
+      expect(data.maxMessages).toBe(1);
+      expect(data.startPosition).toBe('latest');
+      expect(data.loadTestBehavior).toEqual({ mode: 'wait-for-real' });
     });
   });
 });

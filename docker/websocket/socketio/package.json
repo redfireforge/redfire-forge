@@ -1,0 +1,10 @@
+{
+  "name": "redfire-socketio-echo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Socket.IO v4 echo server for WebSocket Studio E2E tests",
+  "main": "server.js",
+  "dependencies": {
+    "socket.io": "^4.7.5"
+  }
+}

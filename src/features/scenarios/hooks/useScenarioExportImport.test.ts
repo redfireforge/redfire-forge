@@ -31,6 +31,13 @@ vi.mock('../utils/scenarioImportExport', () => ({
   normalizeTestFields: vi.fn((test: unknown) => test),
 }));
 
+vi.mock('../../../shared/utils/wsScenarioDefaults', () => ({
+  validateWsActionConfig: vi.fn(() => []),
+}));
+
+import { validateWsActionConfig } from '../../../shared/utils/wsScenarioDefaults';
+const mockValidateWsActionConfig = vi.mocked(validateWsActionConfig);
+
 import { saveJsonFile } from '../../../shared/utils/fileSaver';
 import { pickJsonFile, hasVersionData, stripVersions } from '../utils/scenarioImportExport';
 
@@ -67,7 +74,7 @@ describe('useScenarioExportImport', () => {
   let fgsState: FeatureGroup[];
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockHasVersionData.mockReturnValue(false);
     fgsState = [];
     setFeatureGroups = vi.fn((updater) => {
@@ -660,7 +667,7 @@ describe('useScenarioExportImport', () => {
     const { result } = renderHook(() => useScenarioExportImport(defaultParams({ confirm: confirmSpy })));
     act(() => result.current.importTestsInto('fg1', 's1'));
 
-    expect(confirmSpy).toHaveBeenCalledWith('Import Error', 'Invalid file: expected test(s) with name, url, and method.', expect.any(Function));
+    expect(confirmSpy).toHaveBeenCalledWith('Import Error', 'Invalid file: expected test(s) with name and method (HTTP tests also require url).', expect.any(Function));
   });
 
   it('importTestsInto prompts on duplicate test names and imports when confirmed', () => {
@@ -806,5 +813,258 @@ describe('useScenarioExportImport', () => {
 
     // scenario not found, no duplicate check, still adds to s-nonexistent
     expect(pickJsonFile).toHaveBeenCalled();
+  });
+
+  // ─── Transport-aware import validation (Phase 5F.2) ────────────
+
+  it('importTestsInto accepts WS test without url', () => {
+    const existingSc = makeTestScenario('s1', 'Scenario 1');
+    const existingFg = makeFg('fg1', 'Feature 1', [existingSc]);
+    fgsState = [existingFg];
+
+    const wsTest = makeScenario({
+      id: 'ws1',
+      name: 'WS Test',
+      url: '',
+      method: 'WEBSOCKET',
+      actionType: 'wsConnect',
+      wsConnectAction: { url: 'wss://example.com/ws', headers: [], timeoutMs: 5000 },
+    });
+    mockPickJsonFile.mockImplementation((cb) => cb([wsTest]));
+
+    const { result } = renderHook(() => useScenarioExportImport(
+      defaultParams({ featureGroups: [existingFg] })
+    ));
+    act(() => result.current.importTestsInto('fg1', 's1'));
+
+    expect(fgsState[0].scenarios[0].tests).toHaveLength(1);
+    expect(fgsState[0].scenarios[0].tests[0].name).toBe('WS Test');
+  });
+
+  it('importTestsInto rejects HTTP test without url', () => {
+    const confirmSpy = vi.fn();
+    const httpNoUrl = makeScenario({ id: 't1', name: 'HTTP No URL', url: '' });
+    mockPickJsonFile.mockImplementation((cb) => cb([httpNoUrl]));
+
+    const { result } = renderHook(() => useScenarioExportImport(defaultParams({ confirm: confirmSpy })));
+    act(() => result.current.importTestsInto('fg1', 's1'));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Import Error',
+      'Invalid file: expected test(s) with name and method (HTTP tests also require url).',
+      expect.any(Function),
+    );
+  });
+
+  it('importTestsInto shows warning for WS config issues and imports on confirm', () => {
+    mockValidateWsActionConfig.mockReturnValue(['wsConnectAction.url is required']);
+
+    const existingSc = makeTestScenario('s1', 'Scenario 1');
+    const existingFg = makeFg('fg1', 'Feature 1', [existingSc]);
+    fgsState = [existingFg];
+
+    const wsTest = makeScenario({
+      id: 'ws1',
+      name: 'WS Broken',
+      url: '',
+      method: 'WEBSOCKET',
+      actionType: 'wsConnect',
+    });
+    mockPickJsonFile.mockImplementation((cb) => cb([wsTest]));
+    const confirmSpy = vi.fn((_t: string, _m: string, onConfirm: () => void) => onConfirm());
+
+    const { result } = renderHook(() => useScenarioExportImport(
+      defaultParams({ featureGroups: [existingFg], confirm: confirmSpy })
+    ));
+    act(() => result.current.importTestsInto('fg1', 's1'));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Import Warnings',
+      expect.stringContaining('wsConnectAction.url is required'),
+      expect.any(Function),
+    );
+    expect(fgsState[0].scenarios[0].tests).toHaveLength(1);
+
+    mockValidateWsActionConfig.mockReturnValue([]);
+  });
+
+  it('importTestsInto accepts gRPC harness test without url', () => {
+    const existingSc = makeTestScenario('s1', 'Scenario 1');
+    const existingFg = makeFg('fg1', 'Feature 1', [existingSc]);
+    fgsState = [existingFg];
+
+    const grpcTest = makeScenario({
+      id: 'grpc1',
+      name: 'gRPC Echo',
+      url: '',
+      method: 'GRPC',
+      actionType: 'grpcCall',
+      grpcCallAction: {
+        callType: 'unary',
+        target: 'localhost:50051',
+        descriptorKey: 'echo-v1',
+        service: 'echo.EchoService',
+        method: 'Echo',
+        body: { message: 'hello' },
+      },
+    });
+    mockPickJsonFile.mockImplementation((cb) => cb([grpcTest]));
+
+    const { result } = renderHook(() => useScenarioExportImport(
+      defaultParams({ featureGroups: [existingFg] })
+    ));
+    act(() => result.current.importTestsInto('fg1', 's1'));
+
+    expect(fgsState[0].scenarios[0].tests).toHaveLength(1);
+    expect(fgsState[0].scenarios[0].tests[0].name).toBe('gRPC Echo');
+  });
+
+  it('importTestsInto does not warn on valid Kafka test (gRPC validator skips non-grpc)', () => {
+    const existingSc = makeTestScenario('s1', 'Scenario 1');
+    const existingFg = makeFg('fg1', 'Feature 1', [existingSc]);
+    fgsState = [existingFg];
+
+    const kafkaTest = makeScenario({
+      id: 'kafka1',
+      name: 'Kafka Produce',
+      url: '',
+      method: 'KAFKA',
+      actionType: 'kafkaProduce',
+      kafkaProduceAction: { clusterId: 'cluster-1', topic: 'events' },
+    });
+    mockPickJsonFile.mockImplementation((cb) => cb([kafkaTest]));
+    const confirmSpy = vi.fn();
+
+    const { result } = renderHook(() => useScenarioExportImport(
+      defaultParams({ featureGroups: [existingFg], confirm: confirmSpy })
+    ));
+    act(() => result.current.importTestsInto('fg1', 's1'));
+
+    expect(confirmSpy).not.toHaveBeenCalledWith(
+      'Import Warnings',
+      expect.any(String),
+      expect.any(Function),
+    );
+    expect(fgsState[0].scenarios[0].tests).toHaveLength(1);
+  });
+
+  it('importTestsInto shows warning for gRPC harness config issues and imports on confirm', () => {
+    const existingSc = makeTestScenario('s1', 'Scenario 1');
+    const existingFg = makeFg('fg1', 'Feature 1', [existingSc]);
+    fgsState = [existingFg];
+
+    const grpcTest = makeScenario({
+      id: 'grpc-bad',
+      name: 'gRPC Broken',
+      url: '',
+      method: 'GRPC',
+      actionType: 'grpcCall',
+      grpcCallAction: {
+        callType: 'unary',
+        target: '',
+        descriptorKey: '',
+        service: '',
+        method: '',
+        body: {},
+      },
+    });
+    mockPickJsonFile.mockImplementation((cb) => cb([grpcTest]));
+    const confirmSpy = vi.fn((_t: string, _m: string, onConfirm: () => void) => onConfirm());
+
+    const { result } = renderHook(() => useScenarioExportImport(
+      defaultParams({ featureGroups: [existingFg], confirm: confirmSpy })
+    ));
+    act(() => result.current.importTestsInto('fg1', 's1'));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Import Warnings',
+      expect.stringContaining('descriptorKey is required'),
+      expect.any(Function),
+    );
+    expect(fgsState[0].scenarios[0].tests).toHaveLength(1);
+  });
+
+  it('importScenariosInto shows warning for nested malformed gRPC tests', () => {
+    const existingFg = makeFg('fg1', 'Feature 1', []);
+    fgsState = [existingFg];
+
+    const scenarioBundle = makeTestScenario('sc-import', 'gRPC Scenario Bundle', [{
+      id: 'grpc-bad',
+      name: 'Broken gRPC',
+      url: '',
+      method: 'GRPC',
+      actionType: 'grpcCall',
+      grpcCallAction: {
+        callType: 'unary',
+        target: '',
+        descriptorKey: '',
+        service: '',
+        method: '',
+        body: {},
+      },
+    } as Scenario]);
+    mockPickJsonFile.mockImplementation((cb) => cb([scenarioBundle]));
+    const confirmSpy = vi.fn((_t: string, _m: string, onConfirm: () => void) => onConfirm());
+
+    const { result } = renderHook(() => useScenarioExportImport(
+      defaultParams({ featureGroups: [existingFg], confirm: confirmSpy })
+    ));
+    act(() => result.current.importScenariosInto('fg1'));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Import Warnings',
+      expect.stringContaining('descriptorKey is required'),
+      expect.any(Function),
+    );
+    expect(fgsState[0].scenarios).toHaveLength(1);
+  });
+
+  it('importAll shows warning for nested malformed gRPC tests in feature groups', () => {
+    const confirmSpy = vi.fn((_t: string, _m: string, onConfirm: () => void) => onConfirm());
+    const fgImport = makeFg('fg-import', 'gRPC FG', [
+      makeTestScenario('sc1', 'Scenario 1', [{
+        id: 'grpc-bad',
+        name: 'Broken gRPC',
+        url: '',
+        method: 'GRPC',
+        actionType: 'grpcCall',
+        grpcCallAction: {
+          callType: 'unary',
+          target: '',
+          descriptorKey: '',
+          service: '',
+          method: '',
+          body: {},
+        },
+      }]),
+    ]);
+    mockPickJsonFile.mockImplementation((cb) => cb([fgImport]));
+
+    const { result } = renderHook(() => useScenarioExportImport(
+      defaultParams({ confirm: confirmSpy })
+    ));
+    act(() => result.current.importAll());
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Import Warnings',
+      expect.stringContaining('descriptorKey is required'),
+      expect.any(Function),
+    );
+    expect(fgsState).toHaveLength(1);
+  });
+
+  it('importTestsInto rejects whitespace-only url for HTTP tests', () => {
+    const confirmSpy = vi.fn();
+    const httpWhitespaceUrl = makeScenario({ id: 't1', name: 'Whitespace URL', url: '   ' });
+    mockPickJsonFile.mockImplementation((cb) => cb([httpWhitespaceUrl]));
+
+    const { result } = renderHook(() => useScenarioExportImport(defaultParams({ confirm: confirmSpy })));
+    act(() => result.current.importTestsInto('fg1', 's1'));
+
+    expect(confirmSpy).toHaveBeenCalledWith(
+      'Import Error',
+      expect.stringContaining('expected test(s) with name and method'),
+      expect.any(Function),
+    );
   });
 });

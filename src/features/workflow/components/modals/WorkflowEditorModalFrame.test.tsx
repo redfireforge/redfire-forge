@@ -197,4 +197,21 @@ describe('WorkflowEditorModalFrame', () => {
     render(<WorkflowEditorModalFrame {...defaultProps} forceExpanded />);
     expect(mockSetExpanded).toHaveBeenCalledWith(true);
   });
+
+  it('renders toolbar between header and scroll body', () => {
+    const { container } = render(
+      <WorkflowEditorModalFrame
+        {...defaultProps}
+        toolbar={<div data-testid="fixed-tabs">Tabs</div>}
+      />,
+    );
+    const dialog = container.querySelector('[role="dialog"]');
+    const toolbar = container.querySelector('.wf-config-modal-toolbar');
+    expect(toolbar).toBeTruthy();
+    expect(toolbar?.querySelector('[data-testid="fixed-tabs"]')).toBeTruthy();
+    const html = dialog?.innerHTML ?? '';
+    expect(html.indexOf('ram-header')).toBeGreaterThanOrEqual(0);
+    expect(html.indexOf('wf-config-modal-toolbar')).toBeGreaterThan(html.indexOf('ram-header'));
+    expect(html.indexOf('scroll-body')).toBeGreaterThan(html.indexOf('wf-config-modal-toolbar'));
+  });
 });

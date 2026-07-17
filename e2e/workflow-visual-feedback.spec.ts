@@ -272,6 +272,8 @@ test.describe('Phase 2 – Minimap', () => {
   });
 
   test('minimap renders with correct node colors', async ({ page }) => {
+    const minimapBtn = page.locator('.wf-pill-btn[title="Toggle minimap"]');
+    await minimapBtn.click();
     const minimap = page.locator('.react-flow__minimap');
     await expect(minimap).toBeVisible({ timeout: 5000 });
     // Minimap should have node representations
@@ -281,10 +283,13 @@ test.describe('Phase 2 – Minimap', () => {
 
   test('minimap can be toggled off and on', async ({ page }) => {
     const minimap = page.locator('.react-flow__minimap');
+    await expect(minimap).not.toBeVisible();
+
+    const minimapBtn = page.locator('.wf-pill-btn[title="Toggle minimap"]');
+    await minimapBtn.click();
     await expect(minimap).toBeVisible({ timeout: 5000 });
 
     // Toggle minimap off
-    const minimapBtn = page.locator('.wf-pill-btn[title="Toggle minimap"]');
     await minimapBtn.click();
     await expect(minimap).not.toBeVisible();
 

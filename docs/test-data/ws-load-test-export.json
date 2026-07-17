@@ -1,0 +1,131 @@
+{
+  "_exportMeta": {
+    "type": "ws-load-test-data",
+    "version": "1.0.0",
+    "exportedAt": "2026-06-10T22:15:00.000Z",
+    "source": "ws-load-test-scenarios.md",
+    "description": "WebSocket Load Test configuration and sample results for scenarios WL-01 through WL-15"
+  },
+  "data": {
+    "testConfigs": [
+      {
+        "scenario": "WL-07",
+        "name": "Constant Rate — 10 msg/s × 5s",
+        "profile": "constant",
+        "rate": 10,
+        "durationSec": 5,
+        "template": "{\"type\":\"ping\",\"seq\":{{counter}},\"ts\":\"{{timestamp}}\"}",
+        "expectedMessages": 50
+      },
+      {
+        "scenario": "WL-08",
+        "name": "Ramp-up — 5 to 50 msg/s × 10s",
+        "profile": "ramp",
+        "rate": 5,
+        "rateEnd": 50,
+        "durationSec": 10,
+        "template": "{\"type\":\"ramp\",\"seq\":{{counter}}}",
+        "expectedMessages": 275
+      },
+      {
+        "scenario": "WL-09",
+        "name": "Burst — 500 messages",
+        "profile": "burst",
+        "burstCount": 500,
+        "template": "{\"id\":{{counter}},\"r\":\"{{random}}\"}",
+        "expectedMessages": 500
+      },
+      {
+        "scenario": "WL-06",
+        "name": "High Rate (Safety Confirmation)",
+        "profile": "constant",
+        "rate": 150,
+        "durationSec": 5,
+        "template": "{\"seq\":{{counter}}}",
+        "expectsConfirmation": true
+      }
+    ],
+    "sampleResults": {
+      "scenario": "WL-12/13/14",
+      "description": "Sample load test result from 10 msg/s × 5s constant rate test",
+      "result": {
+        "totalSent": 49,
+        "totalReceived": 49,
+        "duration": "5.04s",
+        "avgSendRate": "9.73/s",
+        "errors": 0,
+        "bytesSent": 4505,
+        "bytesReceived": 4505,
+        "latency": {
+          "min": 3,
+          "mean": 8.59,
+          "p50": 8,
+          "p95": 12,
+          "p99": 25,
+          "max": 25,
+          "unit": "ms",
+          "samples": 49
+        },
+        "histogram": [
+          { "bucket": "2-5ms", "count": 4 },
+          { "bucket": "5-10ms", "count": 33 },
+          { "bucket": "10-25ms", "count": 12 }
+        ]
+      }
+    },
+    "mockServerRules": [
+      {
+        "scenario": "WM-10",
+        "name": "Ping-Pong Rule",
+        "matchType": "contains",
+        "matchValue": "ping",
+        "responseAction": "static",
+        "responseBody": "{\"type\":\"pong\",\"timestamp\":\"{{timestamp}}\"}",
+        "delay": 0,
+        "enabled": true
+      },
+      {
+        "scenario": "WM-12",
+        "name": "Delayed Response",
+        "matchType": "contains",
+        "matchValue": "slow",
+        "responseAction": "static",
+        "responseBody": "{\"status\":\"delayed\",\"delay\":2000}",
+        "delay": 2000,
+        "enabled": true
+      },
+      {
+        "scenario": "WM-13",
+        "name": "Template Variable Test",
+        "matchType": "any",
+        "matchValue": "",
+        "responseAction": "template",
+        "responseBody": "Client {{clientId}} received {{message}} at {{timestamp}} (count: {{counter}})",
+        "delay": 0,
+        "enabled": true
+      },
+      {
+        "scenario": "WM-11",
+        "name": "Exact Match (High Priority)",
+        "matchType": "exact",
+        "matchValue": "status",
+        "responseAction": "static",
+        "responseBody": "{\"status\":\"ok\",\"server\":\"mock\"}",
+        "delay": 0,
+        "enabled": true,
+        "priority": 1
+      },
+      {
+        "scenario": "WM-15",
+        "name": "Disabled Rule",
+        "matchType": "contains",
+        "matchValue": "test",
+        "responseAction": "echo",
+        "responseBody": "",
+        "delay": 0,
+        "enabled": false,
+        "note": "This rule should be skipped during evaluation"
+      }
+    ]
+  }
+}

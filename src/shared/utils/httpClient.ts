@@ -1,4 +1,5 @@
 import { isTauri, isNode } from './platform';
+import { isLoopbackUrl, resolveLoopbackUrl } from './loopbackUrl';
 import type { TimingBreakdown } from '../types';
 
 /** Walk the error `.cause` chain to build a detailed message string. */
@@ -37,6 +38,16 @@ export type HttpTransportFn = (
   headers: Record<string, string>,
   body?: string,
 ) => Promise<HttpResponse>;
+
+const COMPANION_SERVER_BASE = 'http://localhost:3001';
+
+/** Tauri has no Vite /api proxy — resolve companion-server routes to :3001. */
+export function resolveCompanionServerUrl(url: string): string {
+  if (url.startsWith('/api/') || url === '/health' || url.startsWith('/health?')) {
+    return `${COMPANION_SERVER_BASE}${url}`;
+  }
+  return url;
+}
 
 let _transportOverride: HttpTransportFn | null = null;
 
@@ -158,7 +169,7 @@ export async function httpFetch(
     return nodeFetch(url, method, headers, body, signal);
   }
   if (isTauri()) {
-    return tauriFetch(url, method, headers, body, signal);
+    return tauriFetch(resolveCompanionServerUrl(url), method, headers, body, signal);
   }
   return proxyFetch(url, method, headers, body, signal);
 }
@@ -215,7 +226,18 @@ async function tauriFetch(
   }
 }
 
-async function proxyFetch(
+/**
+ * Browser / Web Worker default transport.
+ *
+ * - Relative `/api/*` paths use the native `fetch` (resolved against the page/worker
+ *   origin; Vite's dev/preview proxy forwards `/api` → the backend). These MUST NOT
+ *   go through `/__proxy`, whose Node-side `fetch` rejects relative URLs (ERR_INVALID_URL).
+ * - Absolute external URLs are routed through `/__proxy` to avoid CORS.
+ *
+ * Exported so the execution worker can install it via `setHttpTransport` and get the
+ * same relative-vs-absolute routing the main thread uses.
+ */
+export async function proxyFetch(
   url: string,
   method: string,
   headers: Record<string, string>,
@@ -238,14 +260,17 @@ async function proxyFetch(
       const tDone = performance.now();
       const responseHeaders: Record<string, string> = {};
       response.headers.forEach((v, k) => { responseHeaders[k] = v; });
+      const trimmedBody = responseBody.trim();
+      const looksLikeApiEnvelope = trimmedBody.startsWith('{')
+        && trimmedBody.includes('"ok"')
+        && trimmedBody.includes('"op"');
       // Treat gateway / server-not-running responses as network errors so the
       // caller classifies them as KAFKA_NETWORK_ERROR (retryable) rather than
       // KAFKA_INVALID_ENVELOPE (configuration error).
       const networkError =
-        response.status === 0 ||
-        response.status === 502 ||
-        response.status === 503 ||
-        response.status === 504
+        response.status === 0
+          || ((response.status === 502 || response.status === 503 || response.status === 504)
+            && !looksLikeApiEnvelope)
           ? `Server returned ${response.status} ${response.statusText || 'error'} — is the backend server running?`
           : undefined;
       return {
@@ -339,16 +364,18 @@ async function nodeFetch(
   signal?: AbortSignal,
 ): Promise<HttpResponse> {
   try {
+    const targetUrl = resolveLoopbackUrl(url);
     const { dispatcher, isProxy } = await getNodeDispatcher();
     const pooledHeaders = { ...headers, 'Connection': 'keep-alive' };
     const opts: Record<string, unknown> = { method, headers: pooledHeaders };
     if (body && method !== 'GET') opts.body = body;
-    if (dispatcher) opts.dispatcher = dispatcher;
+    const useProxyDispatcher = Boolean(dispatcher) && !isLoopbackUrl(targetUrl);
+    if (useProxyDispatcher) opts.dispatcher = dispatcher;
     if (signal) opts.signal = signal;
 
     const doFetch = async (fetchOpts: Record<string, unknown>) => {
       const t0 = performance.now();
-      const response = await fetch(url, fetchOpts as RequestInit);
+      const response = await fetch(targetUrl, fetchOpts as RequestInit);
       const tFirstByte = performance.now();
       const responseBody = await response.text();
       const tDone = performance.now();
@@ -371,7 +398,7 @@ async function nodeFetch(
     try {
       return await doFetch(opts);
     } catch (proxyErr) {
-      if (isProxy && isProxyError(proxyErr)) {
+      if (useProxyDispatcher && isProxy && isProxyError(proxyErr)) {
         const directOpts = { ...opts };
         delete directOpts.dispatcher;
         return await doFetch(directOpts);

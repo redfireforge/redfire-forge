@@ -73,7 +73,7 @@ describe('WorkflowNodeConfigModal node switching', () => {
   it('switches from logDebug to http without rendering a blank screen', () => {
     render(<ModalHost />);
 
-    expect(screen.getByText('LOGDEBUG — Error Caught')).toBeTruthy();
+    expect(screen.getByText('Log Debug — Error Caught')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Show HTTP' }));
 

@@ -134,7 +134,7 @@ export default function KafkaSchemaConfigSection({
 
       {enabled && value && (
         <div className="wf-schema-config">
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Registry URL</label>
             <input
               value={value.registryUrl}
@@ -143,9 +143,10 @@ export default function KafkaSchemaConfigSection({
             />
           </div>
 
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Format</label>
             <select
+              data-testid="schema-format-select"
               value={value.format}
               onChange={(e) => patch({ format: e.target.value as KafkaSchemaConfig['format'] })}
             >
@@ -155,102 +156,106 @@ export default function KafkaSchemaConfigSection({
             </select>
           </div>
 
-          {/* Auth — optional */}
-          <div className="wf-config-field">
-            <label>Username (optional)</label>
-            <input
-              value={value.auth?.username ?? ''}
-              onChange={(e) => patchAuth({ username: e.target.value })}
-              placeholder="schema-user"
-              autoComplete="off"
-            />
-          </div>
-
-          <div className="wf-config-field">
-            <label>Password (optional)</label>
-            <input
-              type="password"
-              value={value.auth?.password ?? ''}
-              onChange={(e) => patchAuth({ password: e.target.value })}
-              placeholder="••••••"
-              autoComplete="new-password"
-            />
-          </div>
-
-          {/* Subject selector — loaded lazily */}
-          <div className="wf-config-field">
-            <label>Subject</label>
-            <div style={{ display: 'flex', gap: 6 }}>
+          <div className="wf-config-field-pair">
+            <div className="wf-config-field--row">
+              <label>Username</label>
               <input
-                value={value.subject ?? ''}
-                onChange={(e) => patch({ subject: e.target.value || undefined })}
-                placeholder={topic ? `${topic}-value (default)` : 'topic-name-value'}
-                style={{ flex: 1 }}
+                value={value.auth?.username ?? ''}
+                onChange={(e) => patchAuth({ username: e.target.value })}
+                placeholder="Optional"
+                autoComplete="off"
+                data-testid="schema-username"
               />
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => subjects.length > 0 ? setSubjects([]) : loadSubjects()}
-                disabled={loadingSubjects || !value.registryUrl?.trim()}
-                title={subjects.length > 0 ? 'Hide subject list' : 'Load subjects from registry'}
-              >
-                {loadingSubjects ? '…' : '↓'}
-              </button>
             </div>
-            {subjectsError && <span className="wf-config-error">{subjectsError}</span>}
-            {subjects.length > 0 && (
-              <select
-                size={Math.min(subjects.length + 1, 6)}
-                style={{ marginTop: 4, width: '100%' }}
-                onChange={(e) => {
-                  patch({ subject: e.target.value || undefined });
-                  setSubjects([]);
-                }}
-                value={value.subject ?? ''}
-              >
-                <option value="">(default — {topic ? `${topic}-value` : 'topic-value'})</option>
-                {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
-              </select>
-            )}
+            <div className="wf-config-field--row">
+              <label>Password</label>
+              <input
+                type="password"
+                value={value.auth?.password ?? ''}
+                onChange={(e) => patchAuth({ password: e.target.value })}
+                placeholder="Optional"
+                autoComplete="new-password"
+                data-testid="schema-password"
+              />
+            </div>
           </div>
 
-          {/* Version selector — loaded lazily */}
-          <div className="wf-config-field">
-            <label>Version</label>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input
-                type="number"
-                value={value.version ?? ''}
-                onChange={(e) => patch({ version: e.target.value === '' ? undefined : Number(e.target.value) })}
-                placeholder="latest (default)"
-                style={{ flex: 1 }}
-              />
-              <button
-                type="button"
-                className="btn btn-sm"
-                onClick={() => versions.length > 0 ? setVersions([]) : loadVersions()}
-                disabled={loadingVersions || !value.registryUrl?.trim()}
-                title={versions.length > 0 ? 'Hide version list' : 'Load versions from registry'}
-              >
-                {loadingVersions ? '…' : '↓'}
-              </button>
+          <div className="wf-config-field-pair">
+            <div className="wf-config-field--row">
+              <label>Subject</label>
+              <div className="wf-config-field-with-insert" style={{ flex: 1, minWidth: 0 }}>
+                <input
+                  data-testid="schema-subject-input"
+                  value={value.subject ?? ''}
+                  onChange={(e) => patch({ subject: e.target.value || undefined })}
+                  placeholder={topic ? `${topic}-value` : 'topic-value'}
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => subjects.length > 0 ? setSubjects([]) : loadSubjects()}
+                  disabled={loadingSubjects || !value.registryUrl?.trim()}
+                  title={subjects.length > 0 ? 'Hide subject list' : 'Load subjects from registry'}
+                >
+                  {loadingSubjects ? '…' : '↓'}
+                </button>
+              </div>
             </div>
-            {versionsError && <span className="wf-config-error">{versionsError}</span>}
-            {versions.length > 0 && (
-              <select
-                size={Math.min(versions.length + 1, 6)}
-                style={{ marginTop: 4, width: '100%' }}
-                onChange={(e) => {
-                  patch({ version: e.target.value === '' ? undefined : Number(e.target.value) });
-                  setVersions([]);
-                }}
-                value={value.version ?? ''}
-              >
-                <option value="">(latest)</option>
-                {versions.map((v) => <option key={v} value={v}>{v}</option>)}
-              </select>
-            )}
+            <div className="wf-config-field--row">
+              <label>Version</label>
+              <div className="wf-config-field-with-insert" style={{ flex: 1, minWidth: 0 }}>
+                <input
+                  type="number"
+                  value={value.version ?? ''}
+                  onChange={(e) => patch({ version: e.target.value === '' ? undefined : Number(e.target.value) })}
+                  placeholder="latest"
+                  style={{ flex: 1, minWidth: 0 }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-sm"
+                  onClick={() => versions.length > 0 ? setVersions([]) : loadVersions()}
+                  disabled={loadingVersions || !value.registryUrl?.trim()}
+                  title={versions.length > 0 ? 'Hide version list' : 'Load versions from registry'}
+                >
+                  {loadingVersions ? '…' : '↓'}
+                </button>
+              </div>
+            </div>
           </div>
+          {subjectsError && <span className="wf-config-error">{subjectsError}</span>}
+          {subjects.length > 0 && (
+            <select
+              data-testid="schema-subjects-dropdown"
+              size={Math.min(subjects.length + 1, 6)}
+              style={{ marginTop: 4, width: '100%' }}
+              onChange={(e) => {
+                patch({ subject: e.target.value || undefined });
+                setSubjects([]);
+              }}
+              value={value.subject ?? ''}
+            >
+              <option value="">(default — {topic ? `${topic}-value` : 'topic-value'})</option>
+              {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+          )}
+          {versionsError && <span className="wf-config-error">{versionsError}</span>}
+          {versions.length > 0 && (
+            <select
+              data-testid="schema-versions-dropdown"
+              size={Math.min(versions.length + 1, 6)}
+              style={{ marginTop: 4, width: '100%' }}
+              onChange={(e) => {
+                patch({ version: e.target.value === '' ? undefined : Number(e.target.value) });
+                setVersions([]);
+              }}
+              value={value.version ?? ''}
+            >
+              <option value="">(latest)</option>
+              {versions.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
+          )}
         </div>
       )}
     </div>

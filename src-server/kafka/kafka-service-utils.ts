@@ -2,8 +2,34 @@ import type {
   KafkaConnectionConfig,
   KafkaConsumeOnceRequest,
   KafkaConsumeRecord,
+  KafkaOperation,
   KafkaProduceRequest,
+  KafkaRouteEnvelope,
 } from './contracts.js';
+import { createKafkaErrorEnvelope } from './contracts.js';
+
+// ── Cluster mismatch guard ────────────────────────────────────────────────────
+
+/**
+ * Returns an error envelope when `requestClusterId` is provided and differs
+ * from `activeClusterId`.  Returns `null` when the check passes.
+ *
+ * Consolidates the repeated cluster-mismatch guard that appears in
+ * KafkaService, KafkaSubscriptionStore, and operation modules.
+ */
+export function checkClusterMismatch(
+  op: KafkaOperation,
+  requestClusterId: string | undefined,
+  activeClusterId: string | undefined,
+): KafkaRouteEnvelope<never> | null {
+  if (requestClusterId && activeClusterId && requestClusterId !== activeClusterId) {
+    return createKafkaErrorEnvelope(op, {
+      code: 'KAFKA_CLUSTER_MISMATCH',
+      message: `Request cluster '${requestClusterId}' does not match active cluster '${activeClusterId}'`,
+    });
+  }
+  return null;
+}
 
 export function validateConnectionConfig(connection: KafkaConnectionConfig): { code: string; message: string } | null {
   if (!connection.clusterId?.trim()) {

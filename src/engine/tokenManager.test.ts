@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { AuthConfig, Scenario } from '../shared/types';
 import { TokenManager } from './tokenManager';
+import { makeScenario as _makeScenario } from '../test-utils/factories';
 
 vi.mock('../shared/utils/httpClient', () => ({
   httpFetch: vi.fn(),
@@ -20,13 +21,8 @@ function makeOAuth2Auth(overrides: Partial<AuthConfig> = {}): AuthConfig {
   };
 }
 
-function makeScenario(auth: AuthConfig): Scenario {
-  return {
-    id: 's1', name: 'Test', url: 'https://example.com',
-    method: 'GET', headers: [], body: '', auth,
-    validation: { mode: 'none' },
-  };
-}
+const makeScenario = (auth: AuthConfig): Scenario =>
+  _makeScenario({ id: 's1', name: 'Test', url: 'https://example.com', auth });
 
 function makeJwt(payload: Record<string, unknown>): string {
   const header = btoa(JSON.stringify({ alg: 'HS256' }));
@@ -36,7 +32,7 @@ function makeJwt(payload: Record<string, unknown>): string {
 
 describe('TokenManager', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns undefined for non-oauth2 auth', async () => {

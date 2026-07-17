@@ -7,7 +7,10 @@ import {
   isGalleryTab,
   isSettingsTab,
   isProtocolsTab,
+  isDemoTab,
+  getLastProtocolsTab,
 } from '../utils/appTabUtils';
+import { DEMO_HUB_ENABLED } from '../../config/features';
 
 interface AppActivityBarProps {
   activeTab: Tab;
@@ -90,8 +93,9 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
       </button>
       <button
         className={`ab-btn ${domainOf(activeTab) === 'protocols' ? 'active' : ''}`}
-        onClick={() => { if (!isProtocolsTab(activeTab)) setActiveTab('kafka-message-studio'); }}
+        onClick={() => { if (!isProtocolsTab(activeTab)) setActiveTab(getLastProtocolsTab()); }}
         title="Protocols"
+        data-testid="ab-protocols"
       >
         <span className="ab-icon">
           <ActivityBarIcon>
@@ -104,11 +108,29 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
         </span>
         <span className="ab-label">Protocols</span>
       </button>
+      {DEMO_HUB_ENABLED && (
+      <button
+        className={`ab-btn ${domainOf(activeTab) === 'demo' ? 'active' : ''}`}
+        onClick={() => { if (!isDemoTab(activeTab)) setActiveTab('demo-hub'); }}
+        title="Demo Hub"
+      >
+        <span className="ab-icon">
+          <ActivityBarIcon>
+            <path d="M12 3v18" />
+            <path d="M5 6l7 4 7-4" />
+            <path d="M5 10l7 4 7-4" />
+            <path d="M5 14l7 4 7-4" />
+          </ActivityBarIcon>
+        </span>
+        <span className="ab-label">Demo Hub</span>
+      </button>
+      )}
       <div className="ab-spacer" />
       <button
         className={`ab-btn ${domainOf(activeTab) === 'settings' ? 'active' : ''}`}
         onClick={() => { if (!isSettingsTab(activeTab)) setActiveTab('environments'); }}
         title="Settings"
+        data-testid="ab-settings"
       >
         <span className="ab-icon">
           <ActivityBarIcon>

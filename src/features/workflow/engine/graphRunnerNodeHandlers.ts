@@ -12,6 +12,7 @@
  *   graphRunnerErrorHandler         — ErrorHandler
  *   graphRunnerSubWorkflowHandler   — SubWorkflow
  *   graphRunnerKafkaNodeHandlers    — KafkaProduce, KafkaConsume
+ *   graphRunnerWsNodeHandlers       — WsConnect, WsSend, WsReceive, WsTrigger
  *
  * All imports from this file continue to work unchanged via re-exports.
  */
@@ -24,6 +25,12 @@ export type {
   KafkaNodeOperations,
   KafkaProduceResult,
   KafkaConsumedMessage,
+  WsNodeOperations,
+  WsConnectResult,
+  WsSendResult,
+  WsReceivedMessage,
+  WsMessageMatchCriteria,
+  GrpcNodeOperations,
 } from './graphRunnerNodeHandlerContext';
 
 // ── HTTP ──────────────────────────────────────────────────────────────────────
@@ -75,3 +82,21 @@ export { handleSubWorkflowNode } from './graphRunnerSubWorkflowHandler';
 
 // ── Kafka nodes ───────────────────────────────────────────────────────────────
 export { handleKafkaProduceNode, handleKafkaConsumeNode, classifyKafkaFailure, getKafkaSourceValue } from './graphRunnerKafkaNodeHandlers';
+
+// ── WebSocket nodes ───────────────────────────────────────────────────────────
+export { handleWsConnectNode, handleWsSendNode, handleWsReceiveNode, handleWsTriggerNode, classifyWsFailure } from './graphRunnerWsNodeHandlers';
+
+// ── GraphQL nodes ─────────────────────────────────────────────────────────────
+export { handleGraphqlQueryNode, handleGraphqlSubscriptionNode, handleGraphqlIntrospectNode, handleGraphqlAssertNode } from './graphRunnerGraphqlNodeHandlers';
+
+// ── gRPC nodes ────────────────────────────────────────────────────────────────
+export {
+  handleGrpcUnaryNode,
+  handleGrpcServerStreamNode,
+  handleGrpcAssertNode,
+} from './graphRunnerGrpcNodeHandlers';
+export {
+  handleGrpcLoadTestNode,
+  handleGrpcSchemaDiffNode,
+  handleGrpcMockAssertNode,
+} from './graphRunnerGrpcAdvancedNodeHandlers';

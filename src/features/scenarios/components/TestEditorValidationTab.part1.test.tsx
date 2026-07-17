@@ -92,7 +92,7 @@ vi.mock('../../../shared/components/data-mapper', async () => {
 
 describe('TestEditorValidationTab', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('assertions section', () => {

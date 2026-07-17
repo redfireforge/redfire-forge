@@ -1,0 +1,14 @@
+{
+  "name": "@redfireforge/demo-hub",
+  "version": "0.6.0",
+  "private": true,
+  "type": "module",
+  "description": "RedfireForge Learning Hub — demo lessons, hub UI, and adapters",
+  "exports": {
+    ".": "./src/index.ts",
+    "./*": "./src/*"
+  },
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  }
+}

@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Option B on Current Layout</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #eef2f8;
+      --panel: #ffffff;
+      --ink: #1c2534;
+      --muted: #61708a;
+      --line: #d8e0ef;
+      --current: #2f7ef7;
+      --proposed: #0f9a75;
+      --alert: #7d46db;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(1000px 600px at -10% 0%, #e4f0ff 0%, transparent 60%),
+        radial-gradient(1000px 600px at 110% -10%, #e9f7ef 0%, transparent 60%),
+        var(--bg);
+      color: var(--ink);
+      font-family: "Space Grotesk", sans-serif;
+      padding: 20px;
+    }
+    .wrap { max-width: 1400px; margin: 0 auto; }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+    h1 { margin: 0; font-size: 26px; }
+    .sub { margin: 4px 0 0; color: var(--muted); }
+    .actions { display: flex; gap: 8px; }
+    .btn {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 10px;
+      padding: 8px 12px;
+      text-decoration: none;
+      color: var(--ink);
+      font-weight: 600;
+      font-size: 14px;
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 12px 32px rgba(23, 30, 46, 0.08);
+    }
+    .panel-head {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: #f8fbff;
+    }
+    .tag {
+      border-radius: 999px;
+      padding: 4px 9px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      border: 1px solid var(--line);
+      color: var(--muted);
+      background: #fff;
+    }
+    .tag.current { border-color: #9dc1ff; color: #1f5fc8; background: #ecf4ff; }
+    .tag.next { border-color: #91e0c8; color: #0f7d5e; background: #ebfbf5; }
+
+    .canvas {
+      position: relative;
+      min-height: 690px;
+      background: #0f1830;
+      padding: 10px;
+    }
+
+    .app-shell {
+      position: absolute;
+      inset: 10px;
+      border: 1px solid #34446f;
+      border-radius: 10px;
+      background: linear-gradient(180deg, #1a2745 0%, #111b36 100%);
+      overflow: hidden;
+    }
+    .topbar {
+      height: 56px;
+      border-bottom: 1px solid #334264;
+      background: #16223d;
+    }
+    .body {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr) 420px;
+      height: calc(100% - 56px);
+    }
+    .svc {
+      border-right: 1px solid #334264;
+      background: #18243f;
+      position: relative;
+    }
+    .composer {
+      border-right: 1px solid #334264;
+      position: relative;
+      overflow: hidden;
+    }
+    .response {
+      background: #17233f;
+      position: relative;
+    }
+
+    .mock-line {
+      height: 10px;
+      border-radius: 6px;
+      background: #294067;
+      margin: 10px;
+      opacity: 0.95;
+    }
+    .mock-card {
+      border: 1px solid #30466f;
+      border-radius: 8px;
+      margin: 10px;
+      padding: 8px;
+      background: #1c2b4a;
+    }
+
+    .overlay {
+      position: absolute;
+      border: 2px solid;
+      border-radius: 10px;
+      pointer-events: none;
+    }
+    .overlay .label {
+      position: absolute;
+      top: -11px;
+      left: 10px;
+      background: #fff;
+      border: 1px solid currentColor;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      color: inherit;
+      white-space: nowrap;
+    }
+
+    .note {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .note-card {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+    }
+    .note-card h3 { margin: 0 0 6px; font-size: 15px; }
+    .note-card p { margin: 0; font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+    .kbd {
+      font-family: "IBM Plex Mono", monospace;
+      font-size: 12px;
+      border: 1px solid var(--line);
+      border-bottom-width: 2px;
+      border-radius: 6px;
+      padding: 1px 6px;
+      background: #fff;
+      color: #30415e;
+    }
+
+    @media (max-width: 1200px) {
+      .compare { grid-template-columns: 1fr; }
+      .canvas { min-height: 560px; }
+      .body { grid-template-columns: 220px minmax(0, 1fr) 300px; }
+      .note { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Option B Explained on Current Layout</h1>
+        <p class="sub">Same workspace, but composer area changes from “all rows stacked” to “navigator + focused detail”.</p>
+      </div>
+      <div class="actions">
+        <a class="btn" href="index.html">Back</a>
+      </div>
+    </div>
+
+    <div class="compare">
+      <section class="panel">
+        <header class="panel-head">
+          <strong>Current (Your Existing UX)</strong>
+          <span class="tag current">Everything stacked in Form Input</span>
+        </header>
+        <div class="canvas">
+          <div class="app-shell">
+            <div class="topbar"></div>
+            <div class="body">
+              <aside class="svc">
+                <div class="mock-line" style="width: 76%"></div>
+                <div class="mock-line" style="width: 64%"></div>
+                <div class="mock-card"><div class="mock-line" style="width: 72%"></div></div>
+              </aside>
+              <main class="composer">
+                <div class="mock-line" style="width: 96%"></div>
+                <div class="mock-card"><div class="mock-line" style="width: 50%"></div><div class="mock-line" style="width: 88%"></div></div>
+                <div class="mock-card"><div class="mock-line" style="width: 42%"></div><div class="mock-line" style="width: 84%"></div></div>
+                <div class="mock-card"><div class="mock-line" style="width: 48%"></div><div class="mock-line" style="width: 82%"></div></div>
+                <div class="mock-card"><div class="mock-line" style="width: 44%"></div><div class="mock-line" style="width: 86%"></div></div>
+                <div class="mock-card"><div class="mock-line" style="width: 40%"></div><div class="mock-line" style="width: 74%"></div></div>
+              </main>
+              <aside class="response">
+                <div class="mock-line" style="width: 60%"></div>
+                <div class="mock-card"><div class="mock-line" style="width: 85%"></div><div class="mock-line" style="width: 77%"></div><div class="mock-line" style="width: 68%"></div></div>
+              </aside>
+            </div>
+          </div>
+
+          <div class="overlay" style="left: 278px; top: 92px; width: calc(100% - 710px); height: calc(100% - 112px); border-color: var(--current); color: var(--current);">
+            <div class="label">Single long stacked form</div>
+          </div>
+          <div class="overlay" style="right: 18px; top: 92px; width: 402px; height: calc(100% - 112px); border-color: #5e8ad6; color: #2d64c3;">
+            <div class="label">Response panel (unchanged)</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <header class="panel-head">
+          <strong>Option B (Proposed)</strong>
+          <span class="tag next">Composer split: Navigator + Focus Detail</span>
+        </header>
+        <div class="canvas">
+          <div class="app-shell">
+            <div class="topbar"></div>
+            <div class="body">
+              <aside class="svc">
+                <div class="mock-line" style="width: 76%"></div>
+                <div class="mock-line" style="width: 64%"></div>
+                <div class="mock-card"><div class="mock-line" style="width: 72%"></div></div>
+              </aside>
+              <main class="composer" style="display:grid; grid-template-columns: 240px minmax(0,1fr);">
+                <section style="border-right:1px solid #334264; background:#172742;">
+                  <div class="mock-line" style="width: 88%"></div>
+                  <div class="mock-card"><div class="mock-line" style="width: 70%"></div></div>
+                  <div class="mock-card"><div class="mock-line" style="width: 76%"></div></div>
+                  <div class="mock-card" style="border-color:#4f8f7d;"><div class="mock-line" style="width: 84%"></div></div>
+                </section>
+                <section>
+                  <div class="mock-line" style="width: 94%"></div>
+                  <div class="mock-card"><div class="mock-line" style="width: 52%"></div><div class="mock-line" style="width: 80%"></div></div>
+                  <div class="mock-card"><div class="mock-line" style="width: 48%"></div><div class="mock-line" style="width: 88%"></div><div class="mock-line" style="width: 76%"></div></div>
+                </section>
+              </main>
+              <aside class="response">
+                <div class="mock-line" style="width: 60%"></div>
+                <div class="mock-card"><div class="mock-line" style="width: 85%"></div><div class="mock-line" style="width: 77%"></div><div class="mock-line" style="width: 68%"></div></div>
+              </aside>
+            </div>
+          </div>
+
+          <div class="overlay" style="left: 278px; top: 92px; width: 236px; height: calc(100% - 112px); border-color: var(--proposed); color: var(--proposed);">
+            <div class="label">NEW: Schema Navigator</div>
+          </div>
+          <div class="overlay" style="left: 520px; top: 92px; width: calc(100% - 950px); height: calc(100% - 112px); border-color: var(--alert); color: var(--alert);">
+            <div class="label">NEW: Focus Detail Editor</div>
+          </div>
+          <div class="overlay" style="right: 18px; top: 92px; width: 402px; height: calc(100% - 112px); border-color: #5e8ad6; color: #2d64c3;">
+            <div class="label">Response panel (unchanged)</div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <section class="note">
+      <article class="note-card">
+        <h3>Where details show</h3>
+        <p>When user clicks a node in Navigator, full editing appears in Focus Detail Editor (right part of composer). It is not modal and not popup.</p>
+      </article>
+      <article class="note-card">
+        <h3>What stays same</h3>
+        <p>Service explorer and response panel remain in place. Only current Form Input area is re-partitioned.</p>
+      </article>
+      <article class="note-card">
+        <h3>Interaction model</h3>
+        <p><span class="kbd">Click node</span> → <span class="kbd">Edit in focus pane</span> → <span class="kbd">Node status updates</span> (complete/warn/error) in navigator.</p>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

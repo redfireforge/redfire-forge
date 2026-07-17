@@ -147,7 +147,7 @@ describe('KafkaTriggerSubscriptionManager', () => {
   });
 
   afterEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   // ── Activation ────────────────────────────────────────────────────────────
@@ -232,6 +232,27 @@ describe('KafkaTriggerSubscriptionManager', () => {
     expect(call.triggerType).toBe('kafka-trigger');
     expect(call.triggerId).toBe('trigger-1');
     expect(call.initialVariables.__kafkaTriggerMessage).toBe(JSON.stringify(record));
+  });
+
+  it('strips server-only rawValue from __kafkaTriggerMessage (no Buffer blob)', async () => {
+    const workflow = makeWorkflow();
+    await manager.activateTrigger({ workflow, nodeId: 'trigger-1', connection: makeConnection() });
+
+    const record = makeRecord({
+      value: '{"orderId":"123"}',
+      rawValue: Buffer.from('{"orderId":"123"}', 'utf-8'),
+    });
+    await consumer.simulateMessage(record);
+    await flushPromises();
+
+    expect(mockExecuteWorkflow).toHaveBeenCalledTimes(1);
+    const call = mockExecuteWorkflow.mock.calls[0][0];
+    const serialized = call.initialVariables.__kafkaTriggerMessage as string;
+    expect(serialized).not.toContain('rawValue');
+    expect(serialized).not.toContain('"type":"Buffer"');
+    const parsed = JSON.parse(serialized);
+    expect(parsed.value).toBe('{"orderId":"123"}');
+    expect('rawValue' in parsed).toBe(false);
   });
 
   it('does not dispatch executeWorkflow for messages that fail keyRegex filter', async () => {

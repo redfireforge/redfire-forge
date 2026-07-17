@@ -8,17 +8,39 @@ const __dirname = dirname(__filename);
 
 const phase25Dir = resolve(__dirname, '..', 'docs', 'test-data', 'phase25-run-comparison');
 
+async function waitForImportedRunLabel(page: Page, labelFragment: string) {
+  await expect.poll(async () => {
+    const optionCount = await page.locator('.results-run-select-option').count();
+    if (optionCount > 0) {
+      const optionTexts = await page.locator('.results-run-select-option').allTextContents();
+      return optionTexts.some((text) => text.includes(labelFragment));
+    }
+    const bodyText = await page.locator('body').innerText();
+    return bodyText.includes(labelFragment);
+  }, { timeout: 15_000 }).toBe(true);
+}
+
 async function importRun(page: Page, fileName: string) {
   const fileInput = page.locator('input[data-testid="import-run-input"]');
   const sampleJson = readFileSync(resolve(phase25Dir, fileName), 'utf-8');
+  const parsed = JSON.parse(sampleJson) as { summary?: { tps?: number } };
+  const tpsLabel = parsed.summary?.tps != null ? `${parsed.summary.tps} TPS` : null;
+
   await fileInput.setInputFiles({
     name: fileName,
     mimeType: 'application/json',
     buffer: Buffer.from(sampleJson),
   });
+
+  if (tpsLabel) {
+    await waitForImportedRunLabel(page, tpsLabel);
+  } else {
+    await page.waitForSelector('.results-run-select', { timeout: 15_000 });
+  }
 }
 
 async function selectRunByLabelFragment(page: Page, labelFragment: string) {
+  await page.waitForSelector('.results-run-select', { timeout: 15_000 });
   await page.locator('.results-run-select-trigger').click();
   await expect(page.locator('.results-run-select-menu')).toBeVisible();
   await expect(page.locator('.results-run-select-menu')).toContainText(labelFragment);
@@ -45,6 +67,7 @@ async function selectCompareOptionByLabelFragment(page: Page, labelFragment: str
 }
 
 test.describe('Phase 25 run comparison and trends', () => {
+  test.describe.configure({ mode: 'serial' });
   test.beforeEach(async ({ page }) => {
     await page.addInitScript(() => {
       try {
@@ -54,8 +77,8 @@ test.describe('Phase 25 run comparison and trends', () => {
       }
     });
     await page.goto('/?tab=results');
-    await page.waitForSelector('.app-header', { timeout: 25000 });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
   });
 
   test('imports the performance regression baseline sample and exposes analysis controls', async ({ page }) => {
@@ -89,6 +112,7 @@ test.describe('Phase 25 run comparison and trends', () => {
     await importRun(page, 'baseline-run.json');
     await importRun(page, 'regression-run.json');
     await importRun(page, 'improved-run.json');
+    await page.waitForSelector('.results-run-select', { timeout: 15_000 });
 
     await selectRunByLabelFragment(page, '6.94 TPS');
     await markSelectedRunAsBaseline(page);
@@ -120,6 +144,7 @@ test.describe('Phase 25 run comparison and trends', () => {
   test('regression status is visible via summary strip and table cells without duplicate top banners', async ({ page }) => {
     await importRun(page, 'baseline-run.json');
     await importRun(page, 'regression-run.json');
+    await page.waitForSelector('.results-run-select', { timeout: 15_000 });
 
     await selectRunByLabelFragment(page, '6.94 TPS');
     await markSelectedRunAsBaseline(page);
@@ -174,16 +199,18 @@ test.describe('Phase 25 run comparison and trends', () => {
   test('export comparison as Markdown triggers download', async ({ page }) => {
     await importRun(page, 'baseline-run.json');
     await importRun(page, 'regression-run.json');
+    await page.waitForSelector('.results-run-select', { timeout: 15_000 });
     await selectRunByLabelFragment(page, '6.94 TPS');
     await markSelectedRunAsBaseline(page);
     await selectRunByLabelFragment(page, '5.1 TPS');
     await page.getByRole('tab', { name: 'Comparison & Trends' }).click();
     await selectCompareOptionByLabelFragment(page, '6.94 TPS');
+    await expect(page.locator('.run-comparison-summary')).toBeVisible({ timeout: 15_000 });
 
-    const downloadPromise = page.waitForEvent('download');
+    const downloadPromise = page.waitForEvent('download', { timeout: 15_000 });
     await page.getByRole('button', { name: /Export ▾/ }).click();
     await page.getByRole('button', { name: /Markdown/ }).click();
-    await expect(downloadPromise).resolves.toBeTruthy();
+    await downloadPromise;
   });
 
   test('Run picker modal opens and allows comparing two arbitrary runs', async ({ page }) => {

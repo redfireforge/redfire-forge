@@ -44,7 +44,7 @@ const baseProps = {
 
 describe('OperatorValueEditor', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns null when operator does not need value', () => {

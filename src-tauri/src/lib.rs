@@ -1,7 +1,10 @@
 pub mod assertion_evaluator;
 mod arrival_executor;
 mod commands;
+mod graphql;
+mod grpc;
 mod kafka;
+mod websocket;
 pub mod date_helpers;
 pub mod histogram;
 pub mod deep_compare;
@@ -38,6 +41,8 @@ mod arrival_executor_test;
 #[cfg(test)]
 mod executor_test;
 #[cfg(test)]
+mod executor_test_helpers;
+#[cfg(test)]
 mod field_operator_test;
 #[cfg(test)]
 mod http_helpers_test;
@@ -53,10 +58,21 @@ mod validation_result_test;
 mod validation_types_test;
 
 use commands::ExecutorState;
+use grpc::lifecycle;
+use grpc::state::GrpcState;
 use kafka::state::KafkaState;
+use tauri::Manager;
+use websocket::state::WsState;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+  // Install a process-level rustls CryptoProvider (ring) before any TLS work.
+  // rustls 0.23 panics on the first `wss://` handshake if no default provider
+  // is installed and the enabled crypto crate features are ambiguous (both
+  // `ring` and `aws-lc-rs` get unified in via tokio-tungstenite's rustls dep).
+  // Installing explicitly here fixes native `wss://` connections.
+  let _ = rustls::crypto::ring::default_provider().install_default();
+
   #[allow(unused_mut)] // `mut` is required when the `mcp-bridge` feature is enabled
   let mut builder = tauri::Builder::default()
     .plugin(tauri_plugin_fs::init())
@@ -65,6 +81,8 @@ pub fn run() {
     .plugin(tauri_plugin_shell::init())
     .manage(ExecutorState::new())
     .manage(KafkaState::new())
+    .manage(WsState::new())
+    .manage(GrpcState::new())
     .invoke_handler(tauri::generate_handler![
       commands::start_load_test,
       commands::abort_load_test,
@@ -78,6 +96,30 @@ pub fn run() {
       kafka::operations::kafka_subscribe,
       kafka::operations::kafka_unsubscribe,
       kafka::operations::kafka_subscriptions,
+      websocket::lifecycle::ws_connect,
+      websocket::lifecycle::ws_disconnect,
+      websocket::lifecycle::ws_status,
+      websocket::operations::ws_send,
+      websocket::operations::ws_ping,
+      websocket::operations::ws_receive_next,
+      graphql::http_fetch::gql_http_fetch,
+      graphql::http_upload::gql_http_upload,
+      grpc::unary::grpc_unary,
+      grpc::unary::grpc_call_cancel,
+      grpc::stream::grpc_stream_start,
+      grpc::stream::grpc_stream_send,
+      grpc::stream::grpc_stream_end,
+      grpc::stream::grpc_stream_cancel,
+      grpc::lifecycle::grpc_tab_cleanup,
+      grpc::lifecycle::grpc_tab_events_attach,
+      grpc::lifecycle::grpc_tab_events_detach,
+      grpc::lifecycle::grpc_tab_heartbeat,
+      grpc::diagnostics::grpc_native_diagnostics,
+      grpc::mock_server::grpc_mock_listener_start,
+      grpc::mock_server::grpc_mock_listener_stop,
+      grpc::mock_server::grpc_mock_listener_status,
+      grpc::mock_server::grpc_mock_listener_commit,
+      grpc::mock_server::grpc_mock_listener_log,
     ]);
 
   #[cfg(debug_assertions)]
@@ -87,6 +129,9 @@ pub fn run() {
 
   builder
     .setup(|app| {
+      let grpc_state = app.state::<GrpcState>();
+      lifecycle::start_orphan_supervisor(grpc_state.inner().clone());
+
       if cfg!(debug_assertions) {
         app.handle().plugin(
           tauri_plugin_log::Builder::default()
@@ -96,6 +141,20 @@ pub fn run() {
       }
       Ok(())
     })
-    .run(tauri::generate_context!())
-    .expect("error while running tauri application");
+    .on_window_event(|window, event| {
+      if let tauri::WindowEvent::Destroyed = event {
+        let state = window.state::<GrpcState>();
+        lifecycle::shutdown_all(&state);
+        let _ = grpc::mock_server::shutdown_all_mock_listeners();
+      }
+    })
+    .build(tauri::generate_context!())
+    .expect("error while running tauri application")
+    .run(|app_handle, event| {
+      if let tauri::RunEvent::Exit = event {
+        let state = app_handle.state::<GrpcState>();
+        lifecycle::shutdown_all(&state);
+        let _ = grpc::mock_server::shutdown_all_mock_listeners();
+      }
+    });
 }

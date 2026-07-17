@@ -7,6 +7,7 @@ import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import {
   ARRAY_CONTAINS_MODE_OPTIONS,
+  CalendarIcon,
   ComparisonSelect,
   DATE_OP_OPTIONS,
   FIELD_OP_OPTIONS,
@@ -31,6 +32,12 @@ describe('getAssertionTypeBadgeLabel', () => {
     expect(getAssertionTypeBadgeLabel('bodySize')).toBe('SIZE');
     expect(getAssertionTypeBadgeLabel('datePrecise')).toBe('DATE⁺');
     expect(getAssertionTypeBadgeLabel('custom')).toBe('CUSTOM');
+  });
+
+  it('maps transport assertion types to badge labels', () => {
+    expect(getAssertionTypeBadgeLabel('kafkaField')).toBe('KAFKA');
+    expect(getAssertionTypeBadgeLabel('wsField')).toBe('WS');
+    expect(getAssertionTypeBadgeLabel('wsNumericField')).toBe('WS#');
   });
 
   it('returns SUBSET for unknown types', () => {
@@ -80,5 +87,12 @@ describe('ComparisonSelect', () => {
       }),
     );
     expect(screen.getByRole('combobox')).toHaveClass('custom-op-select');
+  });
+});
+
+describe('CalendarIcon', () => {
+  it('renders an svg element', () => {
+    const { container } = render(createElement(CalendarIcon, { 'data-testid': 'cal-icon' }));
+    expect(container.querySelector('svg')).toBeTruthy();
   });
 });

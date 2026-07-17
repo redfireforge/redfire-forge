@@ -18,6 +18,9 @@ export function getAssertionTypeBadgeLabel(type: string): string {
     case 'bodySize': return 'SIZE';
     case 'datePrecise': return 'DATE⁺';
     case 'custom': return 'CUSTOM';
+    case 'kafkaField': return 'KAFKA';
+    case 'wsField': return 'WS';
+    case 'wsNumericField': return 'WS#';
     default: return 'SUBSET';
   }
 }

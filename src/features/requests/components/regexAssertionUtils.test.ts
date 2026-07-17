@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import {
   PATTERN_LIBRARY,
   testPattern,
@@ -138,6 +138,15 @@ describe('regexAssertionUtils', () => {
         const result = testPattern('(', 'test');
         expect(result.valid).toBe(false);
         expect(result.error).toBeTruthy();
+      });
+
+      it('uses fallback error text when RegExp throws a non-Error value', () => {
+        const spy = vi.spyOn(RegExp.prototype, 'test').mockImplementation(() => {
+          throw 'boom';
+        });
+        const result = testPattern('abc', 'value');
+        expect(result).toEqual({ valid: false, matches: false, error: 'Invalid regex' });
+        spy.mockRestore();
       });
     });
 

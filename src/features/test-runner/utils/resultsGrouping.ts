@@ -142,10 +142,11 @@ export interface WorkflowIterationSummary {
 export function computeWorkflowIterationSummaries(results: RequestResult[]): WorkflowIterationSummary[] {
   const iterGroups = buildGroups(results, ['iteration']);
   return iterGroups.map(g => {
-    const idx = parseInt(g.key.replace('Iteration #', '')) || 0;
+    const idx = Number.parseInt(g.key.replace('Iteration #', ''), 10);
+    const iterationIndex = Number.isNaN(idx) ? 0 : idx;
     const totalTime = Math.round(g.results.reduce((sum, r) => sum + r.responseTimeMs, 0) * 10) / 10;
     return {
-      iterationIndex: idx,
+      iterationIndex,
       total: g.total,
       passed: g.passed,
       allPassed: g.passed === g.total,

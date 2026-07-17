@@ -128,7 +128,7 @@ describe('DataSourceRowDetailModal', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockResolveScenario.mockImplementation(() => ({
       url: 'https://api.example.com/users/1',
       method: 'GET',

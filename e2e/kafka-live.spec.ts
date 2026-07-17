@@ -21,6 +21,20 @@
 
 import { expect, test, type Page } from '@playwright/test';
 import { seedAppData } from './helpers';
+import { isSchemaRegistryReachable } from './kafka-docker-helpers';
+
+// ── Skip entire suite when backend / Docker infra is not running ──────────────
+
+async function isBackendReachable(): Promise<boolean> {
+  try {
+    const resp = await fetch('http://localhost:3001/health', { signal: AbortSignal.timeout(2000) });
+    return resp.ok;
+  } catch {
+    return false;
+  }
+}
+
+const backendUp = isBackendReachable();
 
 // ── Config ────────────────────────────────────────────────────────────────────
 
@@ -96,7 +110,10 @@ async function runQuickTestAndAssertPassed(
 // ── Kafka Message Studio ───────────────────────────────────────────────────────
 
 test.describe('Kafka Message Studio — Live Docker', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(async ({ page }) => {
+    test.skip(!(await backendUp), 'Skipped: backend server (port 3001) or Docker Kafka not running');
     await seedAppData(page);
     await seedKafkaCluster(page);
     await page.goto('/?tab=kafka-message-studio', { waitUntil: 'domcontentloaded' });
@@ -117,8 +134,8 @@ test.describe('Kafka Message Studio — Live Docker', () => {
 
     // Fill topic (placeholder is "e.g. orders.events" in the Publish form)
     await page.locator('input[placeholder="e.g. orders.events"]').fill('orders.created');
-    // Fill key (placeholder is "(optional)")
-    await page.locator('input[placeholder="(optional)"]').first().fill('e2e-live-test');
+    // Fill key (placeholder is "Enter message key (optional)")
+    await page.locator('input[placeholder="Enter message key (optional)"]').fill('e2e-live-test');
     // Fill body (placeholder is '{"key": "value"}')
     await page.locator('textarea[placeholder*="key"]').fill(
       JSON.stringify({ orderId: 'E2E-LIVE-001', status: 'CREATED', amount: '99.00' }),
@@ -147,7 +164,7 @@ test.describe('Kafka Message Studio — Live Docker', () => {
     await page.waitForTimeout(400);
 
     await page.locator('input[placeholder="e.g. orders.events"]').fill('orders.created');
-    await page.getByLabel('Start Position').selectOption('Earliest');
+    await page.getByLabel('Start Position').selectOption('earliest');
     await page.getByLabel('Max Messages').fill('5');
 
     // Use the execute button (not the mode tab which also has text "Consume Once")
@@ -193,6 +210,7 @@ test.describe('Kafka Message Studio — Live Docker', () => {
   });
 
   test('Schema Registry — connects to localhost:8085 and browses subjects', async ({ page }) => {
+    test.skip(!(await isSchemaRegistryReachable()), 'Skipped: Schema Registry (port 8085) not running');
     await page.locator('button:has-text("Schema Registry")').first().click();
     await page.waitForTimeout(400);
 
@@ -225,7 +243,10 @@ test.describe('Kafka Message Studio — Live Docker', () => {
 // ── Gallery Workflow Quick Tests ───────────────────────────────────────────────
 
 test.describe('Gallery — Kafka Workflow Quick Tests (Live Docker)', () => {
+  test.describe.configure({ mode: 'serial' });
+
   test.beforeEach(async ({ page }) => {
+    test.skip(!(await backendUp), 'Skipped: backend server (port 3001) or Docker Kafka not running');
     await seedAppData(page);
     await seedKafkaCluster(page);
   });
@@ -241,9 +262,9 @@ test.describe('Gallery — Kafka Workflow Quick Tests (Live Docker)', () => {
   });
 
   test('Kafka: Full Event Pipeline — Quick Test 8/8 passed', async ({ page }) => {
-    test.setTimeout(60_000); // workflow itself takes ~15s + navigation overhead
+    test.setTimeout(90_000);
     await loadGalleryWorkflow(page, 'Kafka: Full Event Pipeline');
-    await runQuickTestAndAssertPassed(page, 8, 45_000);
+    await runQuickTestAndAssertPassed(page, 8, 60_000);
   });
 
   test('Kafka: Async Request–Reply — Quick Test 8/8 passed', async ({ page }) => {

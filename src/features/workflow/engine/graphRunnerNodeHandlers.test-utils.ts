@@ -2,6 +2,8 @@ import { vi } from 'vitest';
 import type { WorkflowNode, WorkflowEdge, WorkflowNodeType, NodeRunStatus } from '../types/workflow';
 import type { TraceCollector } from './traceCollector';
 import type { NodeHandlerContext, PassedFlag } from './graphRunnerNodeHandlers';
+import { GrpcWorkflowOutputRegistry } from '../utils/grpcWorkflowOutputRegistry';
+import { GrpcWorkflowStepResultStore } from '../utils/grpcWorkflowStepResultStore';
 import { httpFetch } from '../../../shared/utils/httpClient';
 import { executeScript } from './scriptSandbox';
 import { VariableContext } from './variableContext';
@@ -53,6 +55,28 @@ export function makeNode(id: string, type: WorkflowNodeType, data: Record<string
   return { id, type, position: { x: 0, y: 0 }, data: { label: type, ...data } };
 }
 
+export function httpNode(id: string, label = id): WorkflowNode {
+  return {
+    id, type: 'http', position: { x: 0, y: 0 },
+    data: {
+      label,
+      scenario: {
+        id, name: label, url: `https://example.com/${id}`,
+        method: 'GET', headers: [], body: '',
+        auth: { type: 'none' }, validation: { mode: 'none' },
+      },
+    },
+  };
+}
+
+export function startNode(id = 'start'): WorkflowNode {
+  return { id, type: 'start', position: { x: 0, y: 0 }, data: { label: 'Start', inputVariables: [] } };
+}
+
+export function endNode(id = 'end'): WorkflowNode {
+  return { id, type: 'end', position: { x: 0, y: 0 }, data: { label: 'End' } };
+}
+
 export function makeEdge(id: string, source: string, target: string, sourceHandle?: string, label?: string): WorkflowEdge {
   return { id, source, target, sourceHandle, label } as WorkflowEdge;
 }
@@ -62,6 +86,7 @@ export function makeHandlerContext(overrides: Partial<NodeHandlerContext> & {
   traceOptions?: { captureFullTrace?: boolean; alwaysCaptureFailures?: boolean; maxResponseBodySize?: number };
   capturedHttpDetails?: Map<string, unknown>;
   capturedKafkaDetails?: Map<string, unknown>;
+  capturedWsDetails?: Map<string, unknown>;
 } = {}): NodeHandlerContext {
   const initialVars = overrides.initialVariables ?? {};
   const ctx = overrides.ctx ?? makeCtx(initialVars);
@@ -86,6 +111,8 @@ export function makeHandlerContext(overrides: Partial<NodeHandlerContext> & {
     initialVariables: initialVars,
     traceOptions: overrides.traceOptions,
     capturedHttpDetails: overrides.capturedHttpDetails,
+    grpcOutputRegistry: overrides.grpcOutputRegistry ?? new GrpcWorkflowOutputRegistry(),
+    grpcStepResultStore: overrides.grpcStepResultStore ?? new GrpcWorkflowStepResultStore(),
     ...overrides,
   };
 }

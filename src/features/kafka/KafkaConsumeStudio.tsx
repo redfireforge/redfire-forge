@@ -5,6 +5,8 @@ import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMod
 import { exportResultSet, valuePreview } from './kafkaMessageStudioUtils';
 import type { KafkaConsumeResultRow } from './types';
 import type { KafkaConsumeTemplate } from '../../shared/kafka/kafkaStorage';
+import { KafkaTemplateControls } from './KafkaTemplateControls';
+import { parseKafkaTimestamp, formatRelativeAge, formatTimestampTooltip } from './kafkaTimestamp';
 
 type ConsumeMode = 'once' | 'stream';
 
@@ -18,6 +20,9 @@ interface KafkaConsumeStudioProps {
   onDeleteConsumeTemplate: (id: string) => Promise<void>;
   streamMode: UseKafkaStreamModeReturn;
   onUseAsWorkflowInput?: (payload: string, meta: { topic: string; partition: number; offset: string }) => void;
+  /** When false, the Consume/Stream buttons are disabled and a connection notice is shown.
+   *  Templates are always accessible regardless of connection state. */
+  connected?: boolean;
 }
 
 export function KafkaConsumeStudio({
@@ -30,6 +35,7 @@ export function KafkaConsumeStudio({
   onDeleteConsumeTemplate,
   streamMode,
   onUseAsWorkflowInput,
+  connected = true,
 }: KafkaConsumeStudioProps) {
   const {
     consumeDraft, setConsumeDraft,
@@ -42,26 +48,32 @@ export function KafkaConsumeStudio({
   const [mode, setMode] = useState<ConsumeMode>('once');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const topicEmpty = consumeDraft.topic.trim() === '';
-  const canConsume = !topicEmpty && !consumeLoading;
+  const canConsume = !topicEmpty && !consumeLoading && connected;
 
-  // ── Template dropdown state ──────────────────────────────────────────────
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [showSaveInput, setShowSaveInput] = useState(false);
-  const [saveName, setSaveName] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
-  const streamListRef = useRef<HTMLDivElement>(null);
-  const userScrolledRef = useRef(false);
-
+  // E2E test bridge: __kafkaInjectConsumeResults(rows) injects mock rows directly
+  // into the consume results without needing a real Kafka cluster.
   useEffect(() => {
-    if (!dropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
+    const w = window as unknown as Record<string, unknown>;
+    w.__kafkaInjectConsumeResults = (rows: KafkaConsumeResultRow[]) => {
+      studio.consumeOnce(); // ignored — we override via the studio mock approach
+      // Use setConsumeResult if exposed, otherwise dispatch via consumeOnce mock
+      const studioAny = studio as unknown as Record<string, unknown>;
+      if (typeof studioAny.__setConsumeResult === 'function') {
+        (studioAny.__setConsumeResult as (r: typeof rows) => void)(rows);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => { document.removeEventListener('mousedown', handler); };
-  }, [dropdownOpen]);
+    return () => { delete w.__kafkaInjectConsumeResults; };
+  }, [studio]);
+
+  // Tick every 30 s so relative timestamps ("2m ago") stay up to date
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const streamListRef = useRef<HTMLDivElement>(null);
+  const userScrolledRef = useRef(false);
 
   // Auto-scroll stream list to bottom when new messages arrive
   useEffect(() => {
@@ -83,30 +95,6 @@ export function KafkaConsumeStudio({
       userScrolledRef.current = false;
     }
   }, [streamMode.isStreaming]);
-
-  const handleSaveSubmit = useCallback(async () => {
-    const name = saveName.trim();
-    if (!name) return;
-    await onSaveConsumeTemplate(name);
-    setSaveName('');
-    setShowSaveInput(false);
-  }, [saveName, onSaveConsumeTemplate]);
-
-  const handleSaveKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') void handleSaveSubmit();
-      if (e.key === 'Escape') { setSaveName(''); setShowSaveInput(false); }
-    },
-    [handleSaveSubmit],
-  );
-
-  const handleDeleteTemplate = useCallback(
-    (e: React.MouseEvent, id: string) => {
-      e.stopPropagation();
-      void onDeleteConsumeTemplate(id);
-    },
-    [onDeleteConsumeTemplate],
-  );
 
   const handleConsume = useCallback(() => {
     void consumeOnce();
@@ -160,6 +148,21 @@ export function KafkaConsumeStudio({
       offset: msg.offset,
     });
   }, [mode, selectedMessage, selectedStreamMessage, onUseAsWorkflowInput]);
+
+  /** Renders a compact relative-age cell with a full datetime tooltip. */
+  const renderTimestampCell = (ts: string | undefined) => {
+    const date = parseKafkaTimestamp(ts);
+    if (!date) return <td className="kafka-ts-cell kafka-ts-missing" data-testid="ts-cell-missing">—</td>;
+    return (
+      <td
+        className="kafka-ts-cell"
+        title={formatTimestampTooltip(date)}
+        data-testid="ts-cell"
+      >
+        {formatRelativeAge(date)}
+      </td>
+    );
+  };
 
   const renderDetailPane = (msg: KafkaConsumeResultRow) => (
     <div className="kafka-ms-detail-pane" data-testid="con-detail-pane">
@@ -225,201 +228,185 @@ export function KafkaConsumeStudio({
           <span className="kafka-ms-card-title">Consume</span>
           <span className="kafka-ms-card-subtitle">Fetch messages from a topic</span>
         </div>
-        <div className="kafka-ms-template-controls">
-          <div className="kafka-ms-template-dropdown-anchor" ref={dropdownRef}>
-            <button
-              className="kafka-ms-template-btn"
-              onClick={() => setDropdownOpen((o) => !o)}
-              disabled={templatesLoading}
-              title="Load a saved template"
-            >
-              Load ▾
-            </button>
-            {dropdownOpen && (
-              <div className="kafka-ms-template-dropdown">
-                {consumeTemplates.length === 0 ? (
-                  <div className="kafka-ms-template-empty">No saved templates</div>
-                ) : (
-                  consumeTemplates.map((t) => (
-                    <div
-                      key={t.id}
-                      className="kafka-ms-template-item"
-                      onClick={() => { onLoadConsumeTemplate(t.id); setDropdownOpen(false); }}
-                    >
-                      <span className="kafka-ms-template-item-name">{t.name}</span>
-                      <button
-                        className="kafka-ms-template-item-delete"
-                        onClick={(e) => handleDeleteTemplate(e, t.id)}
-                        title="Delete template"
-                      >×</button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-          {showSaveInput ? (
-            <div className="kafka-ms-template-save-row">
-              <input
-                className="kafka-ms-template-save-input"
-                type="text"
-                placeholder="Template name"
-                value={saveName}
-                autoFocus
-                onChange={(e) => setSaveName(e.target.value)}
-                onKeyDown={handleSaveKeyDown}
-              />
-              <button
-                className="kafka-ms-template-btn"
-                onClick={() => void handleSaveSubmit()}
-                disabled={!saveName.trim()}
-              >✓</button>
-              <button
-                className="kafka-ms-template-btn kafka-ms-template-btn-cancel"
-                onClick={() => { setSaveName(''); setShowSaveInput(false); }}
-              >✕</button>
-            </div>
-          ) : (
-            <button
-              className="kafka-ms-template-btn"
-              onClick={() => setShowSaveInput(true)}
-              title="Save current settings as a template"
-            >
-              Save
-            </button>
-          )}
-        </div>
+        <KafkaTemplateControls
+          templates={consumeTemplates}
+          templatesLoading={templatesLoading}
+          onLoad={onLoadConsumeTemplate}
+          onSave={onSaveConsumeTemplate}
+          onDelete={onDeleteConsumeTemplate}
+          testIdPrefix="con"
+        />
       </div>
 
       <div className="kafka-ms-body">
-        {/* Topic + Consumer Group */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-topic">Topic</label>
-            <input
-              id="kms-con-topic"
-              type="text"
-              placeholder="e.g. orders.events"
-              value={consumeDraft.topic}
-              onChange={(e) => setConsumeDraft({ topic: e.target.value })}
-              onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
-            />
-            {touched.topic && topicEmpty && (
-              <span className="kafka-ms-field-hint" data-testid="con-topic-hint">Topic is required</span>
-            )}
+        {/* ── Main settings form ── */}
+        <div className="kafka-ms-form">
+
+          {/* Topic */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-topic">
+              Topic<span className="kafka-ms-required-dot" aria-hidden="true">*</span>
+            </label>
+            <div className="kafka-ms-form-ctrl">
+              <input
+                id="kms-con-topic"
+                data-testid="con-topic-input"
+                className="kafka-ms-form-input"
+                type="text"
+                placeholder="e.g. orders.events"
+                value={consumeDraft.topic}
+                onChange={(e) => setConsumeDraft({ topic: e.target.value })}
+                onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
+              />
+              {touched.topic && topicEmpty && (
+                <span className="kafka-ms-field-hint" data-testid="con-topic-hint">Topic is required</span>
+              )}
+            </div>
           </div>
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-group">Consumer Group</label>
-            <input
-              id="kms-con-group"
-              type="text"
-              value={consumeDraft.groupId}
-              onChange={(e) => setConsumeDraft({ groupId: e.target.value })}
-            />
+
+          {/* Consumer Group */}
+          <div className="kafka-ms-form-row kafka-ms-form-row--tall">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-group">Consumer Group</label>
+            <div className="kafka-ms-form-ctrl">
+              <input
+                id="kms-con-group"
+                className="kafka-ms-form-input"
+                type="text"
+                placeholder="auto-generated"
+                value={consumeDraft.groupId}
+                onChange={(e) => setConsumeDraft({ groupId: e.target.value })}
+              />
+              <span className="kafka-ms-form-hint-sub">Leave blank to auto-generate a unique group ID</span>
+            </div>
           </div>
+
+          {/* Start Position */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-pos">Start Position</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <select
+                id="kms-con-pos"
+                className="kafka-ms-form-select kafka-ms-form-select--acks"
+                value={consumeDraft.startPosition}
+                onChange={(e) => setConsumeDraft({ startPosition: e.target.value as 'latest' | 'earliest' })}
+              >
+                <option value="latest">Latest — start from newest messages</option>
+                <option value="earliest">Earliest — replay from beginning</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Max Messages */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-max">Max Messages</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <input
+                id="kms-con-max"
+                className="kafka-ms-form-input kafka-ms-form-input--short"
+                type="text"
+                value={consumeDraft.maxMessages}
+                onChange={(e) => setConsumeDraft({ maxMessages: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Timeout */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-timeout">Timeout (ms)</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <input
+                id="kms-con-timeout"
+                className="kafka-ms-form-input kafka-ms-form-input--short"
+                type="text"
+                value={consumeDraft.timeoutMs}
+                onChange={(e) => setConsumeDraft({ timeoutMs: e.target.value })}
+              />
+            </div>
+          </div>
+
+          {/* Sort Order */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-con-sort">Sort Order</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <select
+                id="kms-con-sort"
+                className="kafka-ms-form-select kafka-ms-form-select--acks"
+                value={consumeDraft.sortOrder ?? 'asc'}
+                onChange={(e) => setConsumeDraft({ sortOrder: e.target.value as 'asc' | 'desc' })}
+                data-testid="con-sort-order"
+              >
+                <option value="asc">Oldest First</option>
+                <option value="desc">Newest First</option>
+              </select>
+            </div>
+          </div>
+
         </div>
 
-        {/* Start Position + Timeout */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-pos">Start Position</label>
-            <select
-              id="kms-con-pos"
-              value={consumeDraft.startPosition}
-              onChange={(e) =>
-                setConsumeDraft({ startPosition: e.target.value as 'latest' | 'earliest' })
-              }
-            >
-              <option value="latest">Latest</option>
-              <option value="earliest">Earliest</option>
-            </select>
-          </div>
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-timeout">Timeout (ms)</label>
-            <input
-              id="kms-con-timeout"
-              type="text"
-              value={consumeDraft.timeoutMs}
-              onChange={(e) => setConsumeDraft({ timeoutMs: e.target.value })}
-            />
-          </div>
-        </div>
-
-        {/* Max Messages + Sort Order */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-max">Max Messages</label>
-            <input
-              id="kms-con-max"
-              type="text"
-              value={consumeDraft.maxMessages}
-              onChange={(e) => setConsumeDraft({ maxMessages: e.target.value })}
-            />
-          </div>
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-con-sort">Sort Order</label>
-            <select
-              id="kms-con-sort"
-              value={consumeDraft.sortOrder ?? 'asc'}
-              onChange={(e) =>
-                setConsumeDraft({ sortOrder: e.target.value as 'asc' | 'desc' })
-              }
-              data-testid="con-sort-order"
-            >
-              <option value="asc">Oldest First</option>
-              <option value="desc">Newest First</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Filters */}
-        <div className="kafka-ms-section">
-          <div className="kafka-ms-section-header">
+        {/* ── Filters ── */}
+        <div className="kafka-ms-con-filters">
+          <div className="kafka-ms-section-header kafka-ms-con-filters-header">
             <span className="kafka-ms-section-title">Filters</span>
+            <span className="kafka-ms-form-hint">All filters are optional — leave blank to receive all messages</span>
           </div>
-          <div className="kafka-ms-field-grid">
-            <div className="kafka-ms-field">
-              <label htmlFor="kms-con-key">Key Equals</label>
-              <input
-                id="kms-con-key"
-                type="text"
-                placeholder="exact key match"
-                value={consumeDraft.keyEquals}
-                onChange={(e) => setConsumeDraft({ keyEquals: e.target.value })}
-              />
+          <div className="kafka-ms-form">
+
+            <div className="kafka-ms-form-row">
+              <label className="kafka-ms-form-label" htmlFor="kms-con-key">Key Equals</label>
+              <div className="kafka-ms-form-ctrl">
+                <input
+                  id="kms-con-key"
+                  className="kafka-ms-form-input"
+                  type="text"
+                  placeholder="exact key match"
+                  value={consumeDraft.keyEquals}
+                  onChange={(e) => setConsumeDraft({ keyEquals: e.target.value })}
+                />
+              </div>
             </div>
-            <div className="kafka-ms-field">
-              <label htmlFor="kms-con-header">Header Match</label>
-              <input
-                id="kms-con-header"
-                type="text"
-                placeholder="key=value"
-                value={consumeDraft.headerMatch}
-                onChange={(e) => setConsumeDraft({ headerMatch: e.target.value })}
-              />
+
+            <div className="kafka-ms-form-row">
+              <label className="kafka-ms-form-label" htmlFor="kms-con-header">Header Match</label>
+              <div className="kafka-ms-form-ctrl">
+                <input
+                  id="kms-con-header"
+                  className="kafka-ms-form-input"
+                  type="text"
+                  placeholder="key=value"
+                  value={consumeDraft.headerMatch}
+                  onChange={(e) => setConsumeDraft({ headerMatch: e.target.value })}
+                />
+              </div>
             </div>
-          </div>
-          <div className="kafka-ms-field-grid">
-            <div className="kafka-ms-field">
-              <label htmlFor="kms-con-jsonpath">JSONPath</label>
-              <input
-                id="kms-con-jsonpath"
-                type="text"
-                placeholder="$.status"
-                value={consumeDraft.jsonPath}
-                onChange={(e) => setConsumeDraft({ jsonPath: e.target.value })}
-              />
+
+            <div className="kafka-ms-form-row kafka-ms-form-row--tall">
+              <label className="kafka-ms-form-label" htmlFor="kms-con-jsonpath">JSONPath Filter</label>
+              <div className="kafka-ms-form-ctrl">
+                <div className="kafka-ms-jsonpath-pair">
+                  <input
+                    id="kms-con-jsonpath"
+                    className="kafka-ms-form-input kafka-ms-form-input--mono"
+                    type="text"
+                    placeholder="$.status"
+                    value={consumeDraft.jsonPath}
+                    onChange={(e) => setConsumeDraft({ jsonPath: e.target.value })}
+                    aria-label="JSONPath expression"
+                  />
+                  <span className="kafka-ms-jsonpath-eq" aria-hidden="true">=</span>
+                  <input
+                    id="kms-con-jsonval"
+                    className="kafka-ms-form-input kafka-ms-form-input--mono"
+                    type="text"
+                    placeholder="CREATED"
+                    value={consumeDraft.jsonPathEquals}
+                    onChange={(e) => setConsumeDraft({ jsonPathEquals: e.target.value })}
+                    aria-label="JSONPath expected value"
+                  />
+                </div>
+                <span className="kafka-ms-form-hint-sub">Both fields must be filled — path and value are matched together</span>
+              </div>
             </div>
-            <div className="kafka-ms-field">
-              <label htmlFor="kms-con-jsonval">JSONPath Equals</label>
-              <input
-                id="kms-con-jsonval"
-                type="text"
-                placeholder="CREATED"
-                value={consumeDraft.jsonPathEquals}
-                onChange={(e) => setConsumeDraft({ jsonPathEquals: e.target.value })}
-              />
-            </div>
+
           </div>
         </div>
 
@@ -518,6 +505,7 @@ export function KafkaConsumeStudio({
                           <th>#</th>
                           <th>Offset</th>
                           <th>Partition</th>
+                          <th className="kafka-ts-th">Timestamp</th>
                           <th>Key</th>
                           <th>Value</th>
                         </tr>
@@ -534,6 +522,7 @@ export function KafkaConsumeStudio({
                             <td>{idx + 1}</td>
                             <td>{row.offset}</td>
                             <td>{row.partition}</td>
+                            {renderTimestampCell(row.timestamp)}
                             <td>{row.key ?? '—'}</td>
                             <td>{valuePreview(row.value)}</td>
                           </tr>
@@ -568,7 +557,7 @@ export function KafkaConsumeStudio({
               {!streamMode.isStreaming ? (
                 <button
                   className="kafka-ms-primary-btn"
-                  disabled={topicEmpty}
+                  disabled={topicEmpty || !connected}
                   onClick={handleStartStream}
                   data-testid="stream-start-btn"
                 >
@@ -644,6 +633,7 @@ export function KafkaConsumeStudio({
                         <th>#</th>
                         <th>Offset</th>
                         <th>Partition</th>
+                        <th className="kafka-ts-th">Timestamp</th>
                         <th>Key</th>
                         <th>Value</th>
                       </tr>
@@ -660,6 +650,7 @@ export function KafkaConsumeStudio({
                           <td>{idx + 1}</td>
                           <td>{row.offset}</td>
                           <td>{row.partition}</td>
+                          {renderTimestampCell(row.timestamp)}
                           <td>{row.key ?? '—'}</td>
                           <td>{valuePreview(row.value)}</td>
                         </tr>

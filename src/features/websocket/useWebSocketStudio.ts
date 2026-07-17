@@ -1,0 +1,885 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  type WsCloseDetail,
+  type WsConnectionDraft,
+  type WsConnectionSnapshot,
+  type WsFrame,
+  type WsTlsConfig,
+  createDefaultDraft,
+  createDefaultTlsConfig,
+  createFrame,
+  hasCustomHeaders,
+  hasTlsOverrides,
+  getCloseCodeLabel,
+} from '../../shared/websocket/types';
+import { dispatchWsOperation } from '../../shared/websocket/websocketClient';
+import {
+  listenWsMessage,
+  listenWsConnectionClosed,
+  type WsMessagePayload,
+  type WsConnectionClosedPayload,
+} from '../../shared/websocket/websocketNativeTauriTransport';
+import { isTauri } from '../../shared/utils/platform';
+import { resolveEnvVars, buildResolvedEffectiveUrl, decodeBase64ToBytesStrict, sanitizeNativeCloseCode } from './wsMessageUtils';
+import { parseSubprotocolList, encodeWsMessageData, createSystemConnectFrame, runEarlyProtocolDetection, buildConnectHeadersMap } from './wsConnectionHelpers';
+import { resolveAuthForConnect, appendAuthQueryParams, resolveEffectiveAuth, type ResolvedAuth } from './wsAuthResolve';
+import type { GlobalAuthProfile } from '../../shared/types';
+import { toErrorMessage } from '../../shared/utils/helpers';
+import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
+import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
+import {
+  annotateSentFrame,
+  buildGqlWsInitAction,
+  type SioServerParams,
+} from './wsProtocolHelpers';
+import { processReceivedMessage } from './wsMessageProcessing';
+import { useWebSocketBookmarks } from './useWebSocketBookmarks';
+import { useWebSocketUptime } from './useWebSocketUptime';
+import { useWebSocketReconnect } from './useWebSocketReconnect';
+import { useWebSocketFilters } from './useWebSocketFilters';
+import {
+  DEFAULT_MAX_MESSAGES,
+  PROXY_POLL_INTERVAL_MS,
+  formatCloseFrame,
+  type WsDirectionFilter,
+  type WsSearchMode,
+  type WsSizeFilter,
+  type WsTimeFilter,
+  type WsContentTypeFilter,
+  type WsTransportMode,
+  type UseWebSocketStudioReturn,
+} from './useWebSocketStudioTypes';
+
+export type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter, WsTransportMode, UseWebSocketStudioReturn };
+
+export function useWebSocketStudio(
+  envVarMap?: Record<string, string>,
+  globalAuthProfiles?: GlobalAuthProfile[],
+): UseWebSocketStudioReturn {
+  const [draft, setDraftState] = useState<WsConnectionDraft>(createDefaultDraft);
+  const [connection, setConnection] = useState<WsConnectionSnapshot>({ state: 'disconnected' });
+  const [messages, setMessages] = useState<WsFrame[]>([]);
+  const [maxMessages, setMaxMessages] = useState(DEFAULT_MAX_MESSAGES);
+  const [sentCount, setSentCount] = useState(0);
+  const [receivedCount, setReceivedCount] = useState(0);
+  const [transportMode, setTransportMode] = useState<WsTransportMode>('direct');
+
+  const { uptime, connectedAtRef, startUptimeTimer, resetConnectionTiming } = useWebSocketUptime();
+  const [protocolMode, setProtocolMode] = useState<WsProtocolMode>('auto');
+  const [detectedProtocol, setDetectedProtocol] = useState<WsProtocolDetectionResult | null>(null);
+  const [tlsConfig, setTlsConfigFull] = useState<WsTlsConfig>(createDefaultTlsConfig);
+  const [sioServerParams, setSioServerParams] = useState<SioServerParams | null>(null);
+
+  const wsRef = useRef<WebSocket | null>(null);
+  const maxMessagesRef = useRef(maxMessages);
+  const messagesRef = useRef(messages);
+  const draftRef = useRef(draft);
+
+  const { bookmarkedIds, bookmarkedMessages, toggleBookmark } = useWebSocketBookmarks(messagesRef);
+
+  const {
+    searchText, setSearchText,
+    searchMode, setSearchMode,
+    directionFilter, setDirectionFilter,
+    sizeFilter, setSizeFilter,
+    timeFilter, setTimeFilter,
+    contentTypeFilter, setContentTypeFilter,
+    filteredMessages,
+  } = useWebSocketFilters(messages, bookmarkedMessages);
+
+  const proxyConnectionIdRef = useRef<string | null>(null);
+  const proxyPollTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const proxyCursorRef = useRef(0);
+  const mountedRef = useRef(true);
+  const manualDisconnectRef = useRef(false);
+  const connectFnRef = useRef<() => void>(() => {});
+
+  const {
+    autoReconnect, setAutoReconnect,
+    reconnectState,
+    reconnectIntervalMs, setReconnectIntervalMs,
+    maxReconnectAttempts, setMaxReconnectAttempts,
+    backoffMultiplier, setBackoffMultiplier,
+    cancelReconnect, retryNow,
+    scheduleReconnectRef, reconnectingRef, lastReconnectErrorRef,
+  } = useWebSocketReconnect(connectFnRef, mountedRef);
+
+  const protocolModeRef = useRef(protocolMode);
+  const detectedProtocolRef = useRef(detectedProtocol);
+  const messageDetectionDoneRef = useRef(false);
+  const tlsConfigRef = useRef(tlsConfig);
+  const unlistenMessageRef = useRef<(() => void) | null>(null);
+  const unlistenClosedRef = useRef<(() => void) | null>(null);
+  const envVarMapRef = useRef<Record<string, string>>(envVarMap ?? {});
+  const globalAuthProfilesRef = useRef<GlobalAuthProfile[]>(globalAuthProfiles ?? []);
+  // Auth resolved at connect time (headers + query params) — re-resolved on
+  // every connect/reconnect so OAuth2 tokens stay fresh.
+  const resolvedAuthRef = useRef<ResolvedAuth>({ headers: [], queryParams: [] });
+
+  maxMessagesRef.current = maxMessages;
+  messagesRef.current = messages;
+  envVarMapRef.current = envVarMap ?? {};
+  globalAuthProfilesRef.current = globalAuthProfiles ?? [];
+  protocolModeRef.current = protocolMode;
+  detectedProtocolRef.current = detectedProtocol;
+  tlsConfigRef.current = tlsConfig;
+
+  const updateDetectedProtocol = useCallback((value: WsProtocolDetectionResult | null) => {
+    detectedProtocolRef.current = value;
+    setDetectedProtocol(value);
+  }, []);
+  draftRef.current = draft;
+
+  const setDraft = useCallback((patch: Partial<WsConnectionDraft>) => {
+    setDraftState((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const setTlsConfig = useCallback((patch: Partial<WsTlsConfig>) => {
+    setTlsConfigFull((prev) => ({ ...prev, ...patch }));
+  }, []);
+
+  const appendMessage = useCallback((frame: WsFrame) => {
+    setMessages((prev) => {
+      const cap = maxMessagesRef.current;
+      const next = [...prev, frame];
+      if (next.length > cap) {
+        return next.slice(next.length - cap);
+      }
+      return next;
+    });
+  }, []);
+
+  const appendMessages = useCallback((frames: WsFrame[]) => {
+    setMessages((prev) => {
+      const cap = maxMessagesRef.current;
+      const next = [...prev, ...frames];
+      if (next.length > cap) {
+        return next.slice(next.length - cap);
+      }
+      return next;
+    });
+  }, []);
+
+  const stopProxyPolling = useCallback(() => {
+    if (proxyPollTimerRef.current !== null) {
+      clearInterval(proxyPollTimerRef.current);
+      proxyPollTimerRef.current = null;
+    }
+  }, []);
+
+  // Tear down a proxy connection lost mid-poll (caller supplies the state patch:
+  // block A clears `lastError`, block B leaves it untouched).
+  const failProxyConnection = useCallback(
+    (next: Partial<WsConnectionSnapshot>) => {
+      stopProxyPolling();
+      setConnection((prev) => ({ ...prev, ...next }));
+      resetConnectionTiming();
+      proxyConnectionIdRef.current = null;
+      // eslint-disable-next-line @typescript-eslint/no-unused-expressions -- short-circuit reconnect scheduling
+      !manualDisconnectRef.current && scheduleReconnectRef.current();
+    },
+    [stopProxyPolling, resetConnectionTiming, scheduleReconnectRef],
+  );
+
+  const stopNativeListeners = useCallback(() => {
+    if (unlistenMessageRef.current) {
+      unlistenMessageRef.current();
+      unlistenMessageRef.current = null;
+    }
+    if (unlistenClosedRef.current) {
+      unlistenClosedRef.current();
+      unlistenClosedRef.current = null;
+    }
+  }, []);
+
+  const startProxyPolling = useCallback((connectionId: string) => {
+    stopProxyPolling();
+    proxyCursorRef.current = 0;
+
+    proxyPollTimerRef.current = setInterval(async () => {
+      if (!mountedRef.current) return;
+      try {
+        const env = await dispatchWsOperation<{
+          messages: Array<{ data: string; type: string; receivedAt: string; size: number }>;
+          cursor: number;
+          state?: string;
+          closeCode?: number;
+          closeReason?: string;
+        }>('messages', {
+          connectionId,
+          sinceCursor: proxyCursorRef.current,
+        });
+
+        if (!mountedRef.current) return;
+
+        // Check if the server-side connection has been closed (e.g. mock server stopped).
+        // The messages response now includes the connection state so we can detect
+        // disconnects without waiting for a poll failure.
+        if (env.data?.state && env.data.state !== 'connected') {
+          const code = env.data.closeCode ?? 1006;
+          const reason = env.data.closeReason || undefined;
+          const ackMsg = formatCloseFrame('ACK', code, reason);
+          appendMessage(createFrame('received', 'close', ackMsg));
+          failProxyConnection({
+            state: env.data.state === 'error' ? 'error' : 'disconnected',
+            closeCode: code,
+            closeReason: reason,
+            closedAt: new Date().toISOString(),
+          });
+          return;
+        }
+
+        if (env.data && env.data.messages.length > 0) {
+          const allFrames: WsFrame[] = [];
+
+          for (const m of env.data.messages) {
+            const isBinary = m.type === 'binary';
+            const result = processReceivedMessage(
+              m.data, isBinary,
+              protocolModeRef.current, detectedProtocolRef.current,
+              messageDetectionDoneRef.current,
+              (r) => { updateDetectedProtocol(r); },
+            );
+            messageDetectionDoneRef.current = result.detectionNowDone;
+
+            if (result.autoRespond) {
+              allFrames.push(result.frame);
+              dispatchWsOperation('send', { connectionId, data: result.autoRespond.replyData, type: 'text' }).catch(() => {});
+              allFrames.push(result.autoRespond.replyFrame);
+              setSentCount((c) => c + 1);
+              if (result.autoRespond.sioServerParams) setSioServerParams(result.autoRespond.sioServerParams);
+              continue;
+            }
+
+            allFrames.push(result.frame);
+          }
+
+          appendMessages(allFrames);
+          setReceivedCount((c) => c + env.data!.messages.length);
+          proxyCursorRef.current = env.data.cursor;
+        }
+      } catch {
+        if (!mountedRef.current) return;
+        try {
+          const statusEnv = await dispatchWsOperation<{ state: string; lastError?: string }>(
+            'status',
+            { connectionId },
+          );
+          if (!mountedRef.current) return;
+          if (statusEnv.data && statusEnv.data.state !== 'connected') {
+            const statusData = statusEnv.data;
+            failProxyConnection({
+              state: statusData.state === 'error' ? 'error' : 'disconnected',
+              lastError: statusData.lastError,
+            });
+          }
+        } catch {
+          if (!mountedRef.current) return;
+          failProxyConnection({ state: 'disconnected' });
+        }
+      }
+    }, PROXY_POLL_INTERVAL_MS);
+  }, [stopProxyPolling, appendMessage, appendMessages, failProxyConnection, updateDetectedProtocol]);
+
+  const startNativeListeners = useCallback(async (connectionId: string) => {
+    stopNativeListeners();
+
+    const unlistenMsg = await listenWsMessage((payload: WsMessagePayload) => {
+      if (!mountedRef.current) return;
+      if (payload.connectionId !== connectionId) return;
+
+      const isBinary = payload.messageType === 'binary';
+      const result = processReceivedMessage(
+        payload.data, isBinary,
+        protocolModeRef.current, detectedProtocolRef.current,
+        messageDetectionDoneRef.current,
+        (r) => { updateDetectedProtocol(r); },
+      );
+      messageDetectionDoneRef.current = result.detectionNowDone;
+
+      if (result.autoRespond) {
+        appendMessage(result.frame);
+        dispatchWsOperation('send', { connectionId, data: result.autoRespond.replyData, type: 'text' }).catch(() => {});
+        appendMessage(result.autoRespond.replyFrame);
+        setReceivedCount((c) => c + 1);
+        setSentCount((c) => c + 1);
+        if (result.autoRespond.sioServerParams) setSioServerParams(result.autoRespond.sioServerParams);
+        return;
+      }
+
+      appendMessage(result.frame);
+      setReceivedCount((c) => c + 1);
+    });
+    unlistenMessageRef.current = unlistenMsg;
+
+    const unlistenClosed = await listenWsConnectionClosed((payload: WsConnectionClosedPayload) => {
+      if (!mountedRef.current) return;
+      if (payload.connectionId !== connectionId) return;
+
+      stopNativeListeners();
+      resetConnectionTiming();
+      proxyConnectionIdRef.current = null;
+
+      const code = payload.code ?? 1006;
+      const reason = payload.reason;
+      const ackMsg = formatCloseFrame('ACK', code, reason);
+      appendMessage(createFrame('received', 'close', ackMsg));
+
+      setConnection((prev) => ({
+        ...prev,
+        state: 'disconnected',
+        closedAt: new Date().toISOString(),
+        closeCode: code,
+        closeReason: reason,
+      }));
+
+      if (!manualDisconnectRef.current && code !== 1000) {
+        lastReconnectErrorRef.current = `Connection closed — code: ${code} (${getCloseCodeLabel(code)})`;
+        scheduleReconnectRef.current();
+      }
+      manualDisconnectRef.current = false;
+    });
+    unlistenClosedRef.current = unlistenClosed;
+  }, [stopNativeListeners, appendMessage, resetConnectionTiming, updateDetectedProtocol, lastReconnectErrorRef, scheduleReconnectRef]);
+
+  // ── Cleanup ─────────────────────────────────────────────────────────────────
+
+  const cleanupRef = useRef(() => {});
+  cleanupRef.current = () => {
+    // Only fully cancel reconnect on cleanup if NOT in a reconnect cycle
+    // (during reconnect, the reconnect hook manages its own timer)
+    if (!reconnectingRef.current) {
+      cancelReconnect();
+    }
+
+    if (wsRef.current) {
+      const ws = wsRef.current;
+      ws.onopen = null;
+      ws.onmessage = null;
+      ws.onclose = null;
+      ws.onerror = null;
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close(1000, 'User disconnected');
+      }
+      wsRef.current = null;
+    }
+
+    if (proxyConnectionIdRef.current) {
+      const connId = proxyConnectionIdRef.current;
+      proxyConnectionIdRef.current = null;
+      dispatchWsOperation('disconnect', { connectionId: connId }).catch(() => {});
+    }
+
+    stopProxyPolling();
+    stopNativeListeners();
+    resetConnectionTiming();
+  };
+
+  // ── Direct Transport ────────────────────────────────────────────────────────
+
+  const connectDirect = useCallback(() => {
+    const effectiveUrl = appendAuthQueryParams(
+      buildResolvedEffectiveUrl(draftRef.current, envVarMapRef.current),
+      resolvedAuthRef.current.queryParams,
+    );
+
+    setConnection({ state: 'connecting', url: effectiveUrl });
+    setTransportMode('direct');
+    messageDetectionDoneRef.current = false;
+    const connectStart = Date.now();
+
+    const protocols = parseSubprotocolList(draftRef.current.subprotocols);
+
+    const earlyDetect = runEarlyProtocolDetection(protocolModeRef.current, effectiveUrl, protocols);
+    if (earlyDetect) {
+      updateDetectedProtocol(earlyDetect);
+      messageDetectionDoneRef.current = true;
+    }
+
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(effectiveUrl, protocols.length > 0 ? protocols : undefined);
+    } catch (err) {
+      setConnection({ state: 'error', url: effectiveUrl, lastError: toErrorMessage(err) });
+      return;
+    }
+
+    wsRef.current = ws;
+    ws.binaryType = 'arraybuffer';
+
+    ws.onopen = () => {
+      const latencyMs = Date.now() - connectStart;
+      connectedAtRef.current = Date.now();
+      cancelReconnect();
+      const proto = ws.protocol || 'none';
+      setConnection({
+        state: 'connected',
+        url: effectiveUrl,
+        connectedAt: new Date().toISOString(),
+        protocol: ws.protocol || undefined,
+        extensions: ws.extensions || undefined,
+        latencyMs,
+      });
+      startUptimeTimer();
+
+      appendMessage(createSystemConnectFrame(effectiveUrl, proto));
+
+      const effectiveOnOpen = resolveEffectiveProtocol(protocolModeRef.current, detectedProtocolRef.current);
+      if (effectiveOnOpen === 'graphql-ws') {
+        const init = buildGqlWsInitAction();
+        try { ws.send(init.replyData); } catch { /* connection may have closed */ }
+        appendMessage(init.replyFrame);
+        setSentCount((c) => c + 1);
+      }
+    };
+
+    ws.onmessage = (event: MessageEvent) => {
+      const { data, isBinary } = encodeWsMessageData(event.data);
+      const result = processReceivedMessage(
+        data, isBinary,
+        protocolModeRef.current, detectedProtocolRef.current,
+        messageDetectionDoneRef.current,
+        (r) => { updateDetectedProtocol(r); },
+      );
+      messageDetectionDoneRef.current = result.detectionNowDone;
+
+      if (result.autoRespond) {
+        try { ws.send(result.autoRespond.replyData); } catch { /* connection may have closed */ }
+        appendMessage(result.frame);
+        appendMessage(result.autoRespond.replyFrame);
+        setReceivedCount((c) => c + 1);
+        setSentCount((c) => c + 1);
+        if (result.autoRespond.sioServerParams) setSioServerParams(result.autoRespond.sioServerParams);
+        return;
+      }
+
+      appendMessage(result.frame);
+      setReceivedCount((c) => c + 1);
+    };
+
+    ws.onclose = (event: CloseEvent) => {
+      resetConnectionTiming();
+      wsRef.current = null;
+
+      const ackMsg = formatCloseFrame('ACK', event.code, event.reason || undefined);
+      appendMessage(createFrame('received', 'close', ackMsg));
+
+      setConnection((prev) => ({
+        ...prev,
+        state: 'disconnected',
+        closedAt: new Date().toISOString(),
+        closeCode: event.code,
+        closeReason: event.reason || undefined,
+      }));
+
+      if (!manualDisconnectRef.current && event.code !== 1000) {
+        lastReconnectErrorRef.current = `Connection closed — code: ${event.code} (${getCloseCodeLabel(event.code)})`;
+        scheduleReconnectRef.current();
+      }
+      manualDisconnectRef.current = false;
+    };
+
+    ws.onerror = () => {
+      if (ws.readyState === WebSocket.CONNECTING || ws.readyState === WebSocket.CLOSED) {
+        ws.onopen = null;
+        ws.onmessage = null;
+        ws.onclose = null;
+        ws.onerror = null;
+        wsRef.current = null;
+        resetConnectionTiming();
+        const isWss = effectiveUrl.toLowerCase().startsWith('wss://');
+        const errMsg = isWss
+          ? 'Connection failed — self-signed or untrusted certificate? Configure TLS settings (Skip Verify or CA cert) to connect via proxy'
+          : 'Connection failed — check URL, network, or CORS policy';
+        lastReconnectErrorRef.current = errMsg;
+        setConnection({
+          state: 'error',
+          url: effectiveUrl,
+          lastError: errMsg,
+        });
+
+        if (!manualDisconnectRef.current) {
+          scheduleReconnectRef.current();
+        }
+        manualDisconnectRef.current = false;
+      }
+    };
+  }, [appendMessage, startUptimeTimer, resetConnectionTiming, updateDetectedProtocol, connectedAtRef, cancelReconnect, lastReconnectErrorRef, scheduleReconnectRef]);
+
+  // ── Proxy Transport ─────────────────────────────────────────────────────────
+
+  const connectProxy = useCallback(async () => {
+    const currentDraft = draftRef.current;
+    const evm = envVarMapRef.current;
+    const effectiveUrl = appendAuthQueryParams(
+      buildResolvedEffectiveUrl(currentDraft, evm),
+      resolvedAuthRef.current.queryParams,
+    );
+
+    setConnection({ state: 'connecting', url: effectiveUrl });
+    setTransportMode(isTauri() ? 'native' : 'proxy');
+    messageDetectionDoneRef.current = false;
+
+    const headersMap = buildConnectHeadersMap(
+      currentDraft.headers, evm, resolvedAuthRef.current.headers, resolveEnvVars,
+    );
+    const subprotocols = parseSubprotocolList(currentDraft.subprotocols);
+
+    const tlsPayload = effectiveUrl.toLowerCase().startsWith('wss://') ? tlsConfigRef.current : undefined;
+
+    try {
+      const env = await dispatchWsOperation<{
+        connectionId: string;
+        protocol: string;
+        extensions: string;
+        latencyMs: number;
+      }>('connect', {
+        url: effectiveUrl,
+        headers: Object.keys(headersMap).length > 0 ? headersMap : undefined,
+        subprotocols: subprotocols.length > 0 ? subprotocols : undefined,
+        tls: tlsPayload,
+      });
+
+      if (!mountedRef.current) return;
+
+      if (env.data) {
+        proxyConnectionIdRef.current = env.data.connectionId;
+        connectedAtRef.current = Date.now();
+        cancelReconnect();
+
+        const earlyDetectProxy = runEarlyProtocolDetection(protocolModeRef.current, effectiveUrl, subprotocols);
+        if (earlyDetectProxy) {
+          updateDetectedProtocol(earlyDetectProxy);
+          messageDetectionDoneRef.current = true;
+        }
+
+        setConnection({
+          state: 'connected',
+          url: effectiveUrl,
+          connectedAt: new Date().toISOString(),
+          protocol: env.data.protocol || undefined,
+          extensions: env.data.extensions || undefined,
+          latencyMs: env.data.latencyMs,
+        });
+        startUptimeTimer();
+        if (isTauri()) {
+          await startNativeListeners(env.data.connectionId);
+        } else {
+          startProxyPolling(env.data.connectionId);
+        }
+
+        appendMessage(createSystemConnectFrame(effectiveUrl, env.data.protocol));
+
+        const effectiveOnProxy = resolveEffectiveProtocol(protocolModeRef.current, detectedProtocolRef.current);
+        if (effectiveOnProxy === 'graphql-ws') {
+          const init = buildGqlWsInitAction();
+          dispatchWsOperation('send', { connectionId: env.data.connectionId, data: init.replyData, type: 'text' }).catch(() => {});
+          appendMessage(init.replyFrame);
+          setSentCount((c) => c + 1);
+        }
+      } else {
+        setConnection({ state: 'error', url: effectiveUrl, lastError: 'Server returned no connection data' });
+      }
+    } catch (err) {
+      const message = toErrorMessage(err);
+      lastReconnectErrorRef.current = message;
+      setConnection({ state: 'error', url: effectiveUrl, lastError: message });
+      if (!manualDisconnectRef.current) {
+        scheduleReconnectRef.current();
+      }
+    }
+  }, [startUptimeTimer, startProxyPolling, startNativeListeners, appendMessage, updateDetectedProtocol, connectedAtRef, cancelReconnect, lastReconnectErrorRef, scheduleReconnectRef]);
+
+  // ── Public API ──────────────────────────────────────────────────────────────
+
+  const connect = useCallback(() => {
+    const evm = envVarMapRef.current;
+    const effectiveUrlForDisplay = buildResolvedEffectiveUrl(draftRef.current, evm);
+    const resolvedEffective = effectiveUrlForDisplay.toLowerCase();
+    if (!resolvedEffective || (!resolvedEffective.startsWith('ws://') && !resolvedEffective.startsWith('wss://'))) return;
+
+    manualDisconnectRef.current = false;
+    if (!reconnectingRef.current) {
+      cancelReconnect();
+      updateDetectedProtocol(null);
+      setSioServerParams(null);
+    }
+    cleanupRef.current();
+
+    // Choose a transport from the resolved auth. Header-based auth forces the
+    // proxy in the browser since the direct WebSocket transport cannot set
+    // custom headers; query-based auth (API key in query) works on every
+    // transport.
+    const route = (resolvedAuth: ResolvedAuth) => {
+      resolvedAuthRef.current = resolvedAuth;
+      if (isTauri()) {
+        connectProxy();
+        return;
+      }
+      // wss://localhost and wss://127.0.0.1 with self-signed certs always fail
+      // in the browser's Direct transport (the browser rejects untrusted certs).
+      // Route through the Node.js proxy so TLS options can be applied server-side.
+      // This also avoids corporate proxy / VPN interference with localhost.
+      const isLocalWss = resolvedEffective.startsWith('wss://') &&
+        /^wss:\/\/(localhost|127\.0\.0\.1)([:/?#]|$)/i.test(resolvedEffective);
+      const needsProxy = hasCustomHeaders(draftRef.current) ||
+        resolvedAuth.headers.length > 0 ||
+        isLocalWss ||
+        (resolvedEffective.startsWith('wss://') && hasTlsOverrides(tlsConfigRef.current));
+      if (needsProxy) {
+        connectProxy();
+      } else {
+        connectDirect();
+      }
+    };
+
+    // No auth configured → connect synchronously (preserves legacy timing and
+    // avoids a needless microtask). Auth is resolved asynchronously only when
+    // present, since OAuth2 may fetch a token.
+    const effectiveAuth = resolveEffectiveAuth(draftRef.current.auth, globalAuthProfilesRef.current);
+    if (!effectiveAuth) {
+      route({ headers: [], queryParams: [] });
+      return;
+    }
+
+    void (async () => {
+      let resolvedAuth: ResolvedAuth;
+      try {
+        resolvedAuth = await resolveAuthForConnect(
+          draftRef.current.auth,
+          globalAuthProfilesRef.current,
+          evm,
+        );
+      } catch (err) {
+        resolvedAuthRef.current = { headers: [], queryParams: [] };
+        setConnection({
+          state: 'error',
+          url: effectiveUrlForDisplay,
+          lastError: `Auth failed: ${toErrorMessage(err)}`,
+        });
+        return;
+      }
+      route(resolvedAuth);
+    })();
+  }, [connectDirect, connectProxy, updateDetectedProtocol, cancelReconnect, reconnectingRef]);
+
+  const disconnect = useCallback((detail?: WsCloseDetail) => {
+    manualDisconnectRef.current = true;
+    cancelReconnect();
+
+    const code = detail?.code ?? 1000;
+    const reason = detail?.reason ?? 'User disconnected';
+    // The native browser `ws.close()` only accepts 1000 or 3000–4999; reserved
+    // codes fall back to 1000. The Tauri proxy (tungstenite) can send the code
+    // as-is over IPC, so only the native path is sanitized.
+    const nativeCode = sanitizeNativeCloseCode(code);
+
+    if (proxyConnectionIdRef.current) {
+      if (detail) {
+        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', code, reason)));
+      }
+      setConnection((prev) => ({ ...prev, state: 'closing' }));
+      const connId = proxyConnectionIdRef.current;
+      proxyConnectionIdRef.current = null;
+      stopProxyPolling();
+      stopNativeListeners();
+
+      dispatchWsOperation('disconnect', { connectionId: connId, code, reason })
+        .then(() => {
+          if (!mountedRef.current) return;
+          resetConnectionTiming();
+          appendMessage(createFrame('received', 'close', formatCloseFrame('ACK', code, reason)));
+          setConnection((prev) => ({
+            ...prev,
+            state: 'disconnected',
+            closedAt: new Date().toISOString(),
+            closeCode: code,
+            closeReason: reason,
+          }));
+        })
+        .catch(() => {
+          if (!mountedRef.current) return;
+          resetConnectionTiming();
+          setConnection((prev) => ({ ...prev, state: 'disconnected' }));
+        });
+    } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+      if (detail) {
+        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', nativeCode, reason)));
+      }
+      setConnection((prev) => ({ ...prev, state: 'closing' }));
+      wsRef.current.close(nativeCode, reason);
+    } else if (wsRef.current) {
+      if (detail) {
+        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', nativeCode, reason)));
+      }
+      wsRef.current.close(nativeCode, reason);
+      resetConnectionTiming();
+      setConnection((prev) => ({ ...prev, state: 'disconnected' }));
+    } else {
+      resetConnectionTiming();
+      setConnection((prev) => prev.state === 'disconnected' ? prev : { ...prev, state: 'disconnected' });
+    }
+  }, [stopProxyPolling, stopNativeListeners, resetConnectionTiming, cancelReconnect, appendMessage]);
+
+  const send = useCallback(
+    (data: string, format?: 'text' | 'json' | 'binary') => {
+      const isBinary = format === 'binary';
+      const frameType = isBinary ? 'binary' : 'text';
+
+      if (proxyConnectionIdRef.current) {
+        const connId = proxyConnectionIdRef.current;
+        dispatchWsOperation('send', {
+          connectionId: connId,
+          data,
+          type: isBinary ? 'binary' : 'text',
+        })
+          .then(() => {
+            if (!mountedRef.current) return;
+            const frame = createFrame('sent', frameType, data);
+            annotateSentFrame(frame, data, isBinary, protocolModeRef.current, detectedProtocolRef.current);
+            appendMessage(frame);
+            setSentCount((c) => c + 1);
+          })
+          .catch(async (err) => {
+            if (!mountedRef.current) return;
+            const msg = toErrorMessage(err);
+            // If the error indicates the connection is already gone, verify its current state
+            // and properly tear it down so the UI reflects reality (prevents silent "nothing happened").
+            if (msg.includes('WS_NOT_CONNECTED') || msg.includes('not found') || msg.includes('not open')) {
+              try {
+                const statusEnv = await dispatchWsOperation<{ state: string; lastError?: string }>(
+                  'status',
+                  { connectionId: connId },
+                );
+                if (!mountedRef.current) return;
+                if (!statusEnv.data || statusEnv.data.state !== 'connected') {
+                  failProxyConnection({
+                    state: statusEnv.data?.state === 'error' ? 'error' : 'disconnected',
+                    lastError: statusEnv.data?.lastError ?? `Send failed: ${msg}`,
+                  });
+                  return;
+                }
+              } catch { /* status check also failed — treat as disconnected */ }
+              failProxyConnection({ state: 'error', lastError: `Send failed: ${msg}` });
+            } else {
+              setConnection((prev) => ({
+                ...prev,
+                lastError: `Send failed: ${msg}`,
+              }));
+            }
+          });
+      } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        if (isBinary) {
+          try {
+            wsRef.current.send(decodeBase64ToBytesStrict(data) as Uint8Array<ArrayBuffer>);
+          } catch (err) {
+            setConnection((prev) => ({
+              ...prev,
+              lastError: `Binary send failed: ${toErrorMessage(err)}`,
+            }));
+            return;
+          }
+        } else {
+          wsRef.current.send(data);
+        }
+        const frame = createFrame('sent', frameType, data);
+        annotateSentFrame(frame, data, isBinary, protocolModeRef.current, detectedProtocolRef.current);
+        appendMessage(frame);
+        setSentCount((c) => c + 1);
+      }
+    },
+    [appendMessage, failProxyConnection],
+  );
+
+  const sendPing = useCallback(() => {
+    if (!proxyConnectionIdRef.current) return;
+    const connId = proxyConnectionIdRef.current;
+    dispatchWsOperation('ping', { connectionId: connId })
+      .then(() => {
+        if (!mountedRef.current) return;
+        appendMessage(createFrame('sent', 'ping', ''));
+      })
+      .catch((err) => {
+        if (!mountedRef.current) return;
+        setConnection((prev) => ({
+          ...prev,
+          lastError: `Ping failed: ${toErrorMessage(err)}`,
+        }));
+      });
+  }, [appendMessage]);
+
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+    setSentCount(0);
+    setReceivedCount(0);
+  }, []);
+
+  // Wire connectFnRef so the reconnect hook can call connect()
+  connectFnRef.current = connect;
+
+  useEffect(() => {
+    // Set true on (re)mount — React 18 StrictMode mounts, unmounts (cleanup sets
+    // this false), then remounts in dev; without resetting here the ref would stay
+    // false and silently disable reconnect/polling guards.
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      cleanupRef.current();
+    };
+  }, []);
+
+  const isMaxReached = messages.length >= maxMessages;
+
+  return {
+    draft,
+    setDraft,
+    connection,
+    connect,
+    disconnect,
+    send,
+    sendPing,
+    messages,
+    filteredMessages,
+    maxMessages,
+    setMaxMessages,
+    isMaxReached,
+    searchText,
+    setSearchText,
+    searchMode,
+    setSearchMode,
+    directionFilter,
+    setDirectionFilter,
+    sizeFilter,
+    setSizeFilter,
+    timeFilter,
+    setTimeFilter,
+    contentTypeFilter,
+    setContentTypeFilter,
+    clearMessages,
+    appendReplayFrame: appendMessage,
+    bookmarkedIds,
+    bookmarkedMessages,
+    toggleBookmark,
+    sentCount,
+    receivedCount,
+    uptime,
+    transportMode,
+    autoReconnect,
+    setAutoReconnect,
+    reconnectState,
+    cancelReconnect,
+    reconnectIntervalMs,
+    setReconnectIntervalMs,
+    maxReconnectAttempts,
+    setMaxReconnectAttempts,
+    backoffMultiplier,
+    setBackoffMultiplier,
+    retryNow,
+    protocolMode,
+    setProtocolMode,
+    detectedProtocol,
+    tlsConfig,
+    setTlsConfig,
+    sioServerParams,
+  };
+}

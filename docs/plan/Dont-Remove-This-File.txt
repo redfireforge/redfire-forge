@@ -3,7 +3,34 @@ Don't ignore any existing bug for unit tests and E2E tests with 30 seconds timeo
 Please always run E2E with report so that I can see progress. Keep in mind. 
 
 --------------------------------------------------------------------------
+Only Unit Tests and Monorithic Class Definition Review
 
+Consider all of files for unit test including this branch. 
+Please thoroughly review this feature branch and if there is any monorithic class which is above 900 lines or it requires refactoring, make module for common codes. And also fix any existing bug or issues even though you didn't touch. Please remove any redundant codes and make module. And add unit tests. Test code quality is very important and also code coverage should be above 90 %. Repeat several rounds of these processes until there is no issue found. Make sure you should not break any existing logic. And alwasy show max lines for 10 classes and lowest 10 code coverage codes. Also fix eslint issues. 
+Keep in mind that we should not have any monorithic class which is above 900 lines. All of classes should have above 90 % code coverages. And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel. 
+Let me emphasize no monorithc file and all of them should have code coverage over 90 %. Condider across the entire codebase, not just this branch. PERIOD. 
+
+--------------------------------------------------------------------------
+E2E Tests Review
+Consider all of files for E2E test including this branch. 
+Please full E2E tests and if there is any issue or bug, please fix them. 
+You should do consider entire codes for E2E tests. And any existing bug or issue should be fixed. 
+And if E2E tests need any docker environment, please use existing or create new docker environment and run E2E tests.
+And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel.
+Condider across the entire codebase, not just this branch. PERIOD. 
+--------------------------------------------------------------------------
+
+Plan Re-Summarization
+
+I think graphql-studio-plan.md file is too length and it has a lot of bug reports. I wonder because of this, my token usage is rapidly increased. Can you do re-evaluate this file and if you think it is not necessary in the future, please eliminate them. 
+
+--------------------------------------------------------------------------
+
+
+Please thoroughly re-evaluate all of your implementations and if you find any issue or bug, please fix them. Repeat this re-evaulation until there is no issue.
+
+
+--------------------------------------------------------------------------
 
 Thoroughly re-evaluate what are missing or if there are any bugs in any phase , update or fix all of them.  Then let's implement 3F
 
@@ -18,7 +45,7 @@ Make sure to follow the mockup design as your reference.
 
 
 Any existing code coverage / bug should also fixed. 
-And as I mentioned, any code with monorithic or under 90% code coverage should be fixed. And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel. 
+And as I mentioned, any code with monorithic or under 90% code coverage should be fixed. And any duplcated codes should be extracted like template and reuse them. Don't reinvent wheel. And finally run E2E tests and fix any issues.
 
 
 
@@ -34,3 +61,284 @@ Please do commit including Dont-Remove-This-File.txt file. Don't delete this fil
 
 
 595 E2E tests passed. Some E2E tests were flaky/skipped but none failed. Let me do a final comprehensive check of all assertions:
+
+
+Please thoroughly re-evaluate Phase 4 implementations and if you find missing steps, please add them. Go ahead to implement Phase 3. Then revisit your implementation to verify everything is fine. Then manaully and visually validate them with Docker. Finally update md file. Make sure you should add professional UI/UX if we need them. 
+
+
+
+
+We hava mockup files for each phase. Please compare what we have and what is in the mockup files. If there are any differences or gaps, please update your implementation to match the mockup files. And update md file.
+
+- Please re-evaluate what we implmeneted based on the above and if we have any issue or bug or discrepancy, please fix them. Repeat re-evaulation until there is no issue.
+
+
+
+Please thoroughly evaluate Phase 4A and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue.
+
+
+
+Pease thoroughly re-evaluate all of Phase 6C implemenations and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. 
+
+please thoroughly re-evaluate Phase 6C plan and if you find any missing or issue, please update the plan. Then implmenet it. Then thoroughly re-evaluate the implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. 
+
+
+
+
+Can you fix the following two issues? 
+All 40 tests pass. The act() warning is just informational (async template save)
+Any preexisting issues
+
+
+
+
+Let's do the same test cycles based on sse-studio-test-scenarios.md file. 
+With Web and tauri, you should do test. Web means normal Chrome browser. Any issue or bug you should fix them. And after fully testing them, please update this md file from new user and tester perspective. Go ahead. 
+Make sure you should always use "normla full screen Chrome broser for your testing"
+
+
+Did you fix any issue and bug and update ws-mock-server-test-scenarios.md from new user or tester perspective? 
+
+
+
+1. sse-studio-test-scenarios.md
+2. ws-filtering-diff-schema-test-scenarios.md
+3. ws-load-test-scenarios.md
+4. ws-workflow-runner-test-scenarios.md
+
+
+
+Additionally from the summary line:
+
+new-feature scenarios (Auth / Console / command line) ⚠️ (5/8) — only ws-core-connect, ws-tabs-persistence, ws-mock-server, sse-studio, ws-load-test done
+
+The 3 files still incomplete for new-feature scenario authoring are:
+ws-filtering-diff-schema — needs Console-vs-Events interplay scenarios
+ws-workflow-runner — marked "largely unaffected" but hasn't had explicit Auth/Console scenario coverage added
+
+Any bug or un-implemented or not finished one we have this time? 
+
+
+
+
+Next feature work — pick from the unimplemented phases based on user demand:
+
+Next feature work (from your list):
+
+Priority	Feature	Effort	Value
+1	Tab keyboard nav (WT-39–42)	Low	High (a11y)
+2	Saved filter presets (WF-12–14)	Medium	High (power users)
+3	Session replay (WT-28–31)	Medium	Medium (demo)
+4	Tab drag-reorder (WT-36–38)	Low	Low
+
+Demo lessons — add new ones organically as features ship, not retroactively for existing features
+
+
+
+
+
+Please thoroughly re-evaluate the Lession 6 implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. You also always do visual vaildation and consider the demo speed from End User perspective, not machine. 
+
+1 - 
+2 - done
+3 - done
+
+
+
+
+
+
+
+
+
+
+Please thoroughly re-evaluate the Lession 18 implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. You also always do visual vaildation and consider the demo speed from End User perspective, not machine. 
+
+
+
+You got all contents. I want to completely replace Lesson 20 with this one. Can you do thoroughly re-plan it and start implementing it? 
+
+
+
+
+
+
+
+
+GraphQL
+
+
+Please thoroughly re-evaluate Phase 3 plan and have very detail plans and update plan md file. 
+
+Please thoroughly re-evaluate Phase 1 and detail plan and if there is anything missing or issue, please fix them. 
+
+
+Pleaes thoroughly re-evaluate Phase 1D and if there is any missing or bug plan, please update then implement it. After finish it, please re-evaluate your implementation. If you find any bug, please fix it. Do one more round re-evaluation until no more issue. 
+You also always do visual vaildation and consider  from End User perspective, not machine. And always consider mockup UI/UX files as your reference. If you have better idea for mockup, please also update mockup and codes, too.
+Go ahead. 
+
+
+
+Pleaes thoroughly re-evaluate Sprint 8 and if there is any missing or bug plan, please update then implement it. After finish it, please re-evaluate your implementation. If you find any bug, please fix it. Do one more round re-evaluation until no more issue. 
+You also always do visual vaildation and consider  from End User perspective, not machine. And always consider mockup UI/UX files as your reference. If you have better idea for mockup, please also update mockup and codes, too.
+Go ahead. 
+
+
+Please thoroughly and deeply re-evaluate the previous implementation and if you find any issue or bug, please fix them. Repeat re-evaulation until there is no issue. You also always do visual vaildation and consider  from End User perspective, not machine. And always consider mockup UI/UX files as your reference. If you have better idea for mockup, please also update mockup and codes, too. Finally update plan md file. 
+Whereever possible, UI/UX should be professional and polished.
+
+
+--- WIthout visual validation
+
+Based on graphql-studio-plan.md file, Please thoroughly re-evaluate the Phase 2 Sprint 1 implementations and if you find any issue or bug, please fix them. Repeat this process until there is no issue.
+
+
+Pleaes thoroughly re-evaluate Sprint 8 plan and if there is any missing or bug plan, please update then implement it. After finish it, please re-evaluate your implementation. If you find any bug, please fix it. Do one more round re-evaluation until no more issue. 
+
+
+
+
+I realized that graphql-studio-plan.md file is too length and it has a lot of bug reports. I wonder because of this, my token usage is rapidly increased. Can you do re-evaluate this file and if you think it is not necessary in the future, please eliminate them. 
+
+
+
+
+A practical sprint sequence would be: 3A (history + collections) → 3B (scripts) → 3D (schema diff) → 3E (mock server) → 3F (APQ/batch/dedup).
+
+
+
+--- Previous Commit report
+
+
+The E2E failures that remain are all pre-existing, environmental (require WS mock server on port 9876, Docker for Kafka, external TLS endpoints) — none are caused by our changes.
+
+The E2E suite finished: 971 passed, 3 skipped, 51 did not run, exit code 1.
+
+The failures are all pre-existing environmental issues — not caused by our changes:
+
+WS tests (WC-04, WC-06, WC-07, WT-02, WT-10, etc.) — require the mock WebSocket server on port 9876
+Kafka tests (K06, K08, K09) — require Docker
+Workflow/results/demo tests — timeouts due to UI timing under load
+TLS tests — require external TLS setup
+
+
+Pleaes thoroughly re-evaluate Phase 3F and if there is any missing or bug plan, please update then implement it. After finish it, please re-evaluate your implementation. If you find any bug, please fix it. Repeat this re-evaluation process until no more issue or bug. 
+
+
+
+Please thoroughly re-evaluate the previous implementation and if you find any issue or bug, please fix them. Repeat this re-evaulation until there is no issue.
+
+
+One more round re-evaluation. 
+
+
+
+Please thoroughly re-evaluate the Phase 3A implementation and if you find any issue or bug, please fix them. Repeat this re-evaulation until there is no issue.
+
+
+
+I think graphql-studio-plan.md file is too length and it has a lot of bug reports. I wonder because of this, my token usage is rapidly increased. Can you do re-evaluate this file and if you think it is not necessary in the future, please eliminate them. 
+
+
+
+
+Profiles, Templates & Env Vars has the same issues for environment configurations. 
+
+
+Based on graphql-studio-plan.md file, Pleaes thoroughly re-evaluate Phase 6E and if there is any missing or bug plan, please update then implement it. After finish it, please do deep re-evaluate your implementation. If you find any bug, please fix it. Repeat this re-evaluation process until no more issue or bug. 
+
+
+
+
+Pleaes thoroughly re-evaluate Phase 6D and if there is any missing or bug plan, please update then implement it. After finish it, please re-evaluate your implementation. If you find any bug, please fix it. Repeat this re-evaluation process until no more issue or bug. 
+
+
+
+
+--------- GRPC 
+
+Based on grpc-studio-plan.md file. Please thorughly re-evaluate Phase 11O plan if you find any missing or bug, please update md file. And then implement this plan. After implementation is done, please thoroughly re-evalaute what you implemented and if you find any bug, please fix it. Repeate this review process until there is no bug or issue. DON'T RUN FULL PATH BATCH.
+
+
+
+Please thoroughly evaluate Phase 11O and if we have any issue or bug or discrepancy, please fix them. Repeat re-evaulation until there is no issue or bug.  DON'T RUN FULL PATH BATCH.
+
+
+One more deep re-evaluateion please for Phase 11O. DON'T RUN FULL PATH BATCH.
+
+
+
+
+
+
+Based on grpc-studio-plan.md file.
+Please thoroughly evaluate all of Phase 2 implementaions and if we have any issue or bug or discrepancy, please fix them. Repeat re-evaulation until there is no issue or bug. 
+
+
+
+Please thorughly re-evaluate Phase 2 plans and if it has any missing or bug, please update it. 
+And let me know what is your implemenation plan for this phase 2? 
+
+
+
+
+Recommended implementation order (from plan)
+11J → 11K (parallel OK) → 11L → 11M → 11N → 11O (optional)
+
+
+mplementation order I’d follow
+Types + validation first (6A) — fail fast at graph design time.
+Snapshot boundary (6B) — single choke point before any executor work.
+Executors in parallel (6C + 6D) — unary and server-stream once 6B is stable.
+Assert + namespace (6E + 6F) — before UI, so Results Explorer reads final shapes.
+UI + mixed-protocol E2E (6G + 6H) — then 6I gate.
+
+One more deep re-evaluateion please for Phase (6G + 6H)
+
+
+DON"T RUN FULL PATH BATCH. Please find top 10 lowest code coverage files which has less than 90% code coverages if it has. And fix them. At the end show another top 10 lowest code coverage files if you have. 
+
+Finding the bottom five product-coverage files and fixing them using the scoped workflow (no full gate).
+
+
+This is defered lists in Phase 8. Can you implement them? After then, thorughly re-evaluate your implemenation and Repeat re-evaulation until there is no issue or bug.  
+
+Is there any code coverage issue file with 10 file as max if you have? If yes, please fix them. Don't run full path batch. 
+
+
+
+
+DON"T RUN FULL PATH BATCH. Is there any code coverage issue file? If yes, please fix them.
+
+
+---- Unit Test Direction ---------
+Let's do code coverate tests in all of codes in ths repo. 
+You should run one clean full coverage snapshot now, freeze that as the baseline, and then implement tests in chunked batches against that list without re-running full coverage between small fixes.
+Once you get full coverage snapshot, you should extract the list of files that are below 90% coverage and then implement tests for those files in small batches. After you fix all of small batches, you can run full coverage report again to see if you have any files below 90% coverage. 
+
+
+If you keep runining code coverage report after fixing small batch, not only takes long time but also token comsumption issue.
+
+Please fix all of unit test issues and bug. Repeat this process until there is no issue or bug.  
+
+
+----- Code Quality -----
+code quality is very important. 
+It should be maintanable and minimize duplcated codes. If we have, we should extract them and make common codes like template. 
+From this code quality perspective, can you do research and improve code quality for our entire code base? Make sure nothing should be broken. 
+And find and improve at least 50 files in this entire code base. 
+
+
+----- Demo Highlight and Pausing Time -----
+Here is demo guide for this project.
+Highlight meansing is not flash in some part, but draw box so user can see the part based on important part in demo step description. If it has multiple parts highlighted, it should have small pause in each highlight so user can identify or digest its contents in UI. 
+Second, for acting, preparing, etc, pausing time should be not long or not short. It should be relavent. But reading time should be enough given to user to read its contents. 
+Based on this guidedance, can you thoroughly evaluate the following lesson and if you find any missing or issue, please update it. And then implement it. And then thoroughly re-evaluate your implementation. 
+
+Lesson 9. Environments, Collections & History
+You can use grpc-demo-lessons.md file as you reference. 
+
+
+
+
+Don't wait until full report is geneated. At some point, do grep and find under covered codes and fix them. Then do grep again and fix them. keep the same pattern. I believe we can't significantly reduce time. ß

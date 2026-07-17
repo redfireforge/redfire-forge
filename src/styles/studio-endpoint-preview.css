@@ -1,0 +1,40 @@
+/* Shared inline resolved-endpoint preview (Phase 4 — protocol studios) */
+.studio-endpoint-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.studio-endpoint-preview-label {
+  flex-shrink: 0;
+  font-style: italic;
+}
+.studio-endpoint-preview-url {
+  font-family: ui-monospace, 'SF Mono', 'Fira Code', monospace;
+  font-size: 0.68rem;
+  color: var(--text);
+  word-break: break-all;
+  flex: 1;
+  min-width: 0;
+}
+.studio-endpoint-preview-status {
+  font-size: 0.68rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.studio-endpoint-preview-status--explicit { color: #22c55e; }
+.studio-endpoint-preview-status--fallback { color: #f59e0b; }
+.studio-endpoint-preview-status--unresolved { color: #ef4444; }
+
+.sse-url-row .studio-endpoint-preview {
+  padding-left: 18px;
+}
+
+.gql-endpoint-preview-row {
+  padding: 0 14px 6px 52px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}

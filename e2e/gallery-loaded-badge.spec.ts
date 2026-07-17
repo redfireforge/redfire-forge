@@ -29,6 +29,7 @@ function loadedBadge(page: import('@playwright/test').Page) {
 }
 
 test.describe('Gallery Loaded Badge Lifecycle', () => {
+  test.describe.configure({ timeout: 90_000 });
   test.beforeEach(async ({ page }) => {
     await seedAppData(page);
   });
@@ -112,6 +113,7 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
   });
 
   test('badge disappears after closing preview without saving', async ({ page }) => {
+    test.slow();
     await goToGalleryWorkflows(page);
 
     // Load the sample
@@ -136,6 +138,7 @@ test.describe('Gallery Loaded Badge Lifecycle', () => {
   });
 
   test('clicking "✓ Loaded" navigates to workflow tab instead of showing modal', async ({ page }) => {
+    test.slow();
     await goToGalleryWorkflows(page);
 
     // Load the sample

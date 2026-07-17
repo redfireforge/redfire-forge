@@ -1,4 +1,5 @@
 import type { Scenario, RequestResult, TimingBreakdown } from '../shared/types';
+import { buildGrpcHarnessRowTraceKey } from '../shared/grpc/grpcHarnessRowIdentity';
 import { httpFetch } from '../shared/utils/httpClient';
 import { serializeWithContentType } from '../shared/utils/bodySerializer';
 import { buildHeaders, buildUrl, type ProgressMeta } from './executor';
@@ -6,7 +7,7 @@ import type { TokenManager } from './tokenManager';
 import { CircuitBreaker } from './circuitBreaker';
 import { applyThinkTime } from './thinkTime';
 import { buildValidationResult } from './validationResult';
-import { toErrorMessage } from '../shared/utils/helpers';
+import { toErrorMessage, parseJsonOrRaw } from '../shared/utils/helpers';
 
 let _resultIdCounter = 0;
 let _resultIdPrefix = 'r';
@@ -18,7 +19,7 @@ export function nextResultId(): string { return `${_resultIdPrefix}-${++_resultI
 
 export function buildErrorResult(scenario: Scenario, err: unknown, reqBody?: string): RequestResult {
   const msg = toErrorMessage(err);
-  return {
+  const result: RequestResult = {
     id: nextResultId(),
     scenarioId: scenario.id,
     scenarioName: scenario.name,
@@ -31,13 +32,19 @@ export function buildErrorResult(scenario: Scenario, err: unknown, reqBody?: str
     responseBody: '',
     timestamp: Date.now(),
     passed: false,
-    validationMode: scenario.validation.mode,
+    validationMode: scenario.validation?.mode ?? 'none',
     failureDetails: [{ path: '(error)', expected: 'success', actual: msg }],
     errorMessage: msg,
     responseHeaders: {},
     requestLog: { headers: {}, body: reqBody },
     scenarioTags: scenario.scenarioTags,
   };
+  if (scenario.dataRowId) result.dataRowId = scenario.dataRowId;
+  if (scenario.dataRowLabel) result.dataRowLabel = scenario.dataRowLabel;
+  if (scenario.actionType && scenario.actionType !== 'http') {
+    result.transportType = scenario.actionType as RequestResult['transportType'];
+  }
+  return result;
 }
 
 export function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
@@ -62,13 +69,15 @@ const _prepCache = new Map<string, PreparedScenario>();
 export function clearPrepCache(): void { _prepCache.clear(); }
 
 export function prepareScenario(scenario: Scenario): PreparedScenario {
-  const cacheKey = scenario.dataRowId ? `${scenario.id}::${scenario.dataRowId}` : scenario.id;
+  const cacheKey = scenario.dataRowId
+    ? buildGrpcHarnessRowTraceKey(scenario.id, scenario.dataRowId)
+    : scenario.id;
   const cached = _prepCache.get(cacheKey);
   if (cached) return cached;
   const { body, contentType } = serializeWithContentType(scenario);
   const baseHeaders = buildHeaders(scenario, undefined, contentType);
   const resolvedUrl = buildUrl(scenario);
-  const needsOAuth = scenario.auth.type === 'oauth2';
+  const needsOAuth = scenario.auth?.type === 'oauth2';
   const prep: PreparedScenario = { body, contentType, baseHeaders, resolvedUrl, needsOAuth };
   _prepCache.set(cacheKey, prep);
   return prep;
@@ -105,11 +114,11 @@ async function executeRequest(
       responseHeaders = result.headers;
       const isHttpError = httpStatus >= 400 || httpStatus === 0;
       const needsParse = isHttpError
-        || scenario.validation.mode !== 'none'
-        || (scenario.validation.assertions?.length ?? 0) > 0
-        || (scenario.validation.expectedFields?.length ?? 0) > 0;
+        || (scenario.validation?.mode ?? 'none') !== 'none'
+        || (scenario.validation?.assertions?.length ?? 0) > 0
+        || (scenario.validation?.expectedFields?.length ?? 0) > 0;
       if (needsParse && responseBody) {
-        try { responseObj = JSON.parse(responseBody); } catch { responseObj = responseBody; }
+        responseObj = parseJsonOrRaw(responseBody);
       } else {
         responseObj = responseBody;
       }
@@ -135,10 +144,11 @@ async function executeRequest(
     }
   }
 
-  const assertions = scenario.validation.assertions ?? [];
+  const validation = scenario.validation ?? { mode: 'none' as const };
+  const assertions = validation.assertions ?? [];
   const vr = buildValidationResult({
     httpStatus, responseTimeMs, responseHeaders, responseBody, responseObj,
-    errorMessage, validation: scenario.validation, assertions,
+    errorMessage, validation, assertions,
   });
 
   return {
@@ -155,7 +165,7 @@ async function executeRequest(
     responseHeaders,
     timestamp: Date.now(),
     passed: vr.passed,
-    validationMode: scenario.validation.mode,
+    validationMode: scenario.validation?.mode ?? 'none',
     failureDetails: vr.failureDetails,
     errorMessage: vr.errorMessage,
     timing,
@@ -206,6 +216,8 @@ export interface RunOpts {
    * Kafka (and future protocol) logic lives in the callback — not in this file.
    */
   executeNonHttp?: (scenario: Scenario) => Promise<RequestResult>;
+  /** Env map for gRPC harness template resolution (`{{grpcHost}}`, etc.). */
+  grpcHarnessEnv?: Record<string, string>;
 }
 
 export async function runSequential(queue: Scenario[], opts: RunOpts): Promise<RequestResult[]> {

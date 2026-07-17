@@ -1,4 +1,5 @@
 import { type Domain, type Tab, domainOf } from '../utils/appTabUtils';
+import { DEMO_HUB_ENABLED } from '../../config/features';
 import MigrationBanner from '../../features/test-runner/components/MigrationBanner';
 import ServerStatusIndicator from '../../features/workflow/components/panels/ServerStatusIndicator';
 
@@ -40,6 +41,13 @@ const DOMAIN_ITEMS: Record<Domain, SubNavItem[]> = {
   ],
   protocols: [
     { tab: 'kafka-message-studio', label: 'Kafka' },
+    { tab: 'websocket-studio', label: 'WebSocket' },
+    { tab: 'sse-studio', label: 'SSE' },
+    { tab: 'graphql-studio', label: 'GraphQL' },
+    { tab: 'grpc-studio', label: 'gRPC' },
+  ],
+  demo: [
+    { tab: 'demo-hub', label: 'Learning Hub' },
   ],
 };
 
@@ -49,6 +57,7 @@ function renderTabs(items: SubNavItem[], activeTab: Tab, setActiveTab: (tab: Tab
       key={tab}
       className={`sub-nav-tab ${activeTab === tab ? 'active' : ''}`}
       onClick={() => setActiveTab(tab)}
+      data-testid={`nav-tab-${tab}`}
     >
       {label}
     </button>
@@ -93,6 +102,11 @@ export default function AppSubNav({ activeTab, setActiveTab }: AppSubNavProps) {
       {domain === 'protocols' && (
         <div className="sub-nav-tabs">
           {renderTabs(DOMAIN_ITEMS.protocols, activeTab, setActiveTab)}
+        </div>
+      )}
+      {DEMO_HUB_ENABLED && domain === 'demo' && (
+        <div className="sub-nav-tabs">
+          {renderTabs(DOMAIN_ITEMS.demo, activeTab, setActiveTab)}
         </div>
       )}
     </div>

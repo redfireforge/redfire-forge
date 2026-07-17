@@ -11,8 +11,13 @@ import {
   truncate,
   escapeRegExp,
   parseJsonOrRaw,
+  tryParseJson,
   isValidJson,
   minifyJson,
+  parseJsonSafe,
+  tryParseJsonArray,
+  formatFailureDetails,
+  getResultErrorMessage,
 } from './helpers';
 
 describe('formatBytes', () => {
@@ -558,6 +563,28 @@ describe('parseJsonOrRaw', () => {
   });
 });
 
+describe('tryParseJson', () => {
+  it('parses valid JSON object', () => {
+    expect(tryParseJson('{"a":1}')).toEqual({ a: 1 });
+  });
+
+  it('returns undefined for invalid JSON', () => {
+    expect(tryParseJson('not json')).toBeUndefined();
+  });
+
+  it('returns undefined for empty string', () => {
+    expect(tryParseJson('')).toBeUndefined();
+  });
+
+  it('parses valid JSON array', () => {
+    expect(tryParseJson('[1,2]')).toEqual([1, 2]);
+  });
+
+  it('parses null literal', () => {
+    expect(tryParseJson('null')).toBe(null);
+  });
+});
+
 describe('isValidJson', () => {
   it('returns true for valid JSON objects', () => {
     expect(isValidJson('{"a":1}')).toBe(true);
@@ -608,5 +635,70 @@ describe('minifyJson', () => {
   it('handles nested objects', () => {
     const input = '{\n  "user": {\n    "name": "test"\n  }\n}';
     expect(minifyJson(input)).toBe('{"user":{"name":"test"}}');
+  });
+});
+
+describe('parseJsonSafe', () => {
+  it('returns null for empty string', () => {
+    expect(parseJsonSafe('')).toBeNull();
+  });
+
+  it('returns null for falsy values', () => {
+    expect(parseJsonSafe(undefined as unknown as string)).toBeNull();
+    expect(parseJsonSafe(null as unknown as string)).toBeNull();
+  });
+
+  it('parses valid JSON', () => {
+    expect(parseJsonSafe('{"a":1}')).toEqual({ a: 1 });
+    expect(parseJsonSafe('[1,2]')).toEqual([1, 2]);
+    expect(parseJsonSafe('"hello"')).toBe('hello');
+  });
+
+  it('returns raw string for invalid JSON', () => {
+    expect(parseJsonSafe('not json')).toBe('not json');
+    expect(parseJsonSafe('{bad}')).toBe('{bad}');
+  });
+});
+
+describe('tryParseJsonArray', () => {
+  it('returns arrays unchanged', () => {
+    expect(tryParseJsonArray([1, 2])).toEqual([1, 2]);
+  });
+
+  it('parses JSON array strings', () => {
+    expect(tryParseJsonArray('[1,2]')).toEqual([1, 2]);
+  });
+
+  it('returns fallback for non-array JSON strings and invalid JSON', () => {
+    expect(tryParseJsonArray('{"a":1}', ['fallback'])).toEqual(['fallback']);
+    expect(tryParseJsonArray('not-json', ['fallback'])).toEqual(['fallback']);
+  });
+
+  it('returns fallback for non-string non-array values', () => {
+    expect(tryParseJsonArray(42, ['fallback'])).toEqual(['fallback']);
+  });
+});
+
+describe('formatFailureDetails', () => {
+  it('joins failure detail rows into a readable string', () => {
+    expect(formatFailureDetails([
+      { path: '$.id', expected: '1', actual: '2' },
+      { path: '$.name', expected: 'alice', actual: 'bob' },
+    ])).toBe('$.id: expected 1, got 2; $.name: expected alice, got bob');
+  });
+});
+
+describe('getResultErrorMessage', () => {
+  it('prefers errorMessage when present', () => {
+    expect(getResultErrorMessage({
+      errorMessage: 'boom',
+      failureDetails: [{ path: '$.x', expected: '1', actual: '2' }],
+    })).toBe('boom');
+  });
+
+  it('falls back to formatted failure details', () => {
+    expect(getResultErrorMessage({
+      failureDetails: [{ path: '$.x', expected: '1', actual: '2' }],
+    })).toBe('$.x: expected 1, got 2');
   });
 });

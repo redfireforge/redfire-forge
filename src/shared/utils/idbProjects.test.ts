@@ -56,7 +56,7 @@ function createMockProject(id = 'proj-1') {
 
 describe('idbProjects', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     localStorage.clear();
     mockGetResult = undefined;
     mockGetShouldError = false;
@@ -172,6 +172,11 @@ describe('idbProjects', () => {
     it('returns false when localStorage contains non-array', async () => {
       localStorage.setItem('rf-projects', '{"not": "array"}');
 
+      expect(await idbMigrateProjects('rf-projects')).toBe(false);
+    });
+
+    it('returns false when localStorage contains an empty array payload', async () => {
+      localStorage.setItem('rf-projects', '[]');
       expect(await idbMigrateProjects('rf-projects')).toBe(false);
     });
 

@@ -10,6 +10,7 @@ interface AppModalFrameRenderState {
   toggleExpand: () => void;
   headerDragStyle: CSSProperties | undefined;
   onHeaderMouseDown: ((event: React.MouseEvent<HTMLDivElement>) => void) | undefined;
+  onHeaderPointerDown: ((event: React.PointerEvent<HTMLDivElement>) => void) | undefined;
   headerExpandButton: ReactNode;
   footerExpandButton: ReactNode;
   closeButton: ReactNode;
@@ -41,6 +42,8 @@ interface Props extends UseModalFrameOptions {
   footerContent?: (state: AppModalFrameRenderState) => ReactNode;
   disableDrag?: boolean;
   showResizeHandles?: boolean;
+  constrainDragToViewport?: boolean;
+  dragViewportPadding?: number;
 }
 
 function joinClasses(...classes: Array<string | undefined>) {
@@ -73,17 +76,36 @@ export default function AppModalFrame({
   footerContent,
   disableDrag = false,
   showResizeHandles = true,
+  dragAnchor,
+  constrainDragToViewport = false,
+  dragViewportPadding = 8,
   initialExpanded,
   expandMode,
   minWidth,
   minHeight,
 }: Props) {
-  const { expanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner } = useModalFrame({
+  const {
+    expanded,
+    toggleExpand,
+    expandClass,
+    overlayStyle,
+    dialogStyle,
+    headerDragStyle,
+    onHeaderMouseDown,
+    onHeaderPointerDown,
+    dialogRef,
+    onRightEdge,
+    onCorner,
+    onBottomEdge,
+  } = useModalFrame({
     open,
     initialExpanded,
     expandMode,
     minWidth,
     minHeight,
+    dragAnchor,
+    constrainDragToViewport,
+    dragViewportPadding,
   });
 
   if (!open) return null;
@@ -123,6 +145,7 @@ export default function AppModalFrame({
     toggleExpand,
     headerDragStyle: disableDrag ? undefined : headerDragStyle,
     onHeaderMouseDown: disableDrag ? undefined : onHeaderMouseDown,
+    onHeaderPointerDown: disableDrag ? undefined : onHeaderPointerDown,
     headerExpandButton,
     footerExpandButton,
     closeButton,
@@ -131,6 +154,7 @@ export default function AppModalFrame({
   return (
     <div className={joinClasses('modal-overlay', overlayClassName, expandClass)} role="presentation" onClick={handleOverlayClick} style={overlayStyle}>
       <div
+        ref={dialogRef}
         className={joinClasses('modal', dialogClassName, expandClass)}
         role="dialog"
         aria-modal="true"
@@ -143,6 +167,7 @@ export default function AppModalFrame({
             className={headerClassName}
             style={disableDrag ? undefined : headerDragStyle}
             onMouseDown={disableDrag ? undefined : onHeaderMouseDown}
+            onPointerDown={disableDrag ? undefined : onHeaderPointerDown}
           >
             {titleContent}
             <div className={controlsClassName} style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
@@ -163,7 +188,7 @@ export default function AppModalFrame({
           </div>
         ) : null}
 
-        {showResizeHandles ? <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} /> : null}
+        {showResizeHandles ? <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} /> : null}
       </div>
     </div>
   );

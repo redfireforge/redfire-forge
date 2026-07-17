@@ -1,23 +1,24 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import type { TestConfig, LoadProfileConfig, CorrelationWaitRunnerConfig, RequestResult, WorkflowExecutionTrace, Microservice, GlobalAuthProfile, SlaTarget } from '../../shared/types';
-import type { Workflow, WorkflowFolder, WebhookTriggerNodeData, KafkaConsumeNodeData } from '../workflow/types/workflow';
-import { resolveKafkaConsumeLoadPolicy } from '../workflow/engine/kafkaLoadPolicy';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import type { CorrelationWaitRunnerConfig, LoadProfileConfig, SlaTarget, WorkflowExecutionTrace } from '../../shared/types';
+import type { Workflow, WorkflowFolder, WebhookTriggerNodeData } from '../workflow/types/workflow';
 import { useTestExecution } from './hooks/useTestExecution';
 import { useWorkflowRunnerConfig } from './hooks/useWorkflowRunnerConfig';
+import { useWorkflowRunnerBridge } from './hooks/useWorkflowRunnerBridge';
+import { useWorkflowRunnerWebhookLoadRun } from './hooks/useWorkflowRunnerWebhookLoadRun';
 import WorkflowPicker from './components/WorkflowPicker';
 import { saveWorkflowRunConfig } from './utils/workflowRunConfigStorage';
-import RunnerExecutionConfig from './components/RunnerExecutionConfig';
 import LiveProgressPanel from './components/LiveProgressPanel';
-import CorrelationWaitConfigPanel from './components/CorrelationWaitConfig';
-import WebhookLoadDriverPanel, { type WebhookLoadConfig } from './components/WebhookLoadDriverPanel';
-import MultiWebhookTestingPanel, { type WebhookScenario } from './components/MultiWebhookTestingPanel';
+import { type WebhookLoadConfig } from './components/WebhookLoadDriverPanel';
+import { type WebhookScenario } from './components/MultiWebhookTestingPanel';
 import { type PersistedProgress, saveProgress, loadProgress, clearProgress } from './utils/runnerProgressStorage';
-import { runWebhookLoadTest, calculateTotalRequests } from '../workflow/engine/webhookLoadDriver';
 import { loadWebhookScenarios, saveWebhookScenario, deleteWebhookScenario, fireWebhook, buildPayloadWithCorrelationId } from './utils/webhookScenarioStorage';
 import { sampleWorkflowCatalog } from '../../data/galleries/workflows';
-import { toErrorMessage } from '../../shared/utils/helpers';
-import RunnerSlaOverridePanel from './components/RunnerSlaOverridePanel';
+import { buildInitialRunnerVariables } from '../workflow/utils/countWorkflowDesignerVariables';
 import { buildSlaTargetScopeLabel } from '../results/components/slaEditorUtils';
+import { resolveWebhookTriggerNode } from './resolveWebhookTriggerNode';
+import { computeKafkaLoadBanners } from './computeKafkaLoadBanners';
+import { buildWorkflowRunnerTestConfig } from './buildWorkflowRunnerTestConfig';
+import WorkflowRunnerConfigSection from './WorkflowRunnerConfigSection';
 
 interface Props {
   workflows: Workflow[];
@@ -33,11 +34,13 @@ interface Props {
   /** Resolved base URL from environment config (env + microservice selection). */
   resolvedBaseUrl?: string;
   /** App-level microservice definitions (needed for per-node service URL resolution). */
-  microservices?: Microservice[];
+  microservices?: import('../../shared/types').Microservice[];
   /** App-level global auth profiles (needed for per-node service auth resolution). */
-  globalAuthProfiles?: GlobalAuthProfile[];
+  globalAuthProfiles?: import('../../shared/types').GlobalAuthProfile[];
   /** Currently selected environment ID from the app header. */
   selectedEnvId?: string;
+  /** Currently selected microservice ID from the app header (harness gRPC env resolution). */
+  selectedSvcId?: string;
   /** Persist SLA target changes back to the workflow definition. */
   onUpdateWorkflow?: (id: string, patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>) => void;
   /** Phase 3C: Pre-populate workflow variables from Kafka consume. */
@@ -50,7 +53,7 @@ interface Props {
 
 const PROGRESS_KEY = '_workflow_runner_progress';
 
-export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl, microservices, globalAuthProfiles, selectedEnvId, onUpdateWorkflow: _onUpdateWorkflow, initialWorkflowVariables, onClearInitialWorkflowVariables, onWorkflowOutputAvailable }: Props) {
+export default function WorkflowRunner({ workflows, folders, onComplete, initialWorkflowId, onClearInitialWorkflowId, onImportSample, resolvedBaseUrl, microservices, globalAuthProfiles, selectedEnvId, selectedSvcId, onUpdateWorkflow: _onUpdateWorkflow, initialWorkflowVariables, onClearInitialWorkflowVariables, onWorkflowOutputAvailable }: Props) {
   const {
     concurrency, setConcurrency,
     iterations, setIterations,
@@ -70,6 +73,10 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   } = useWorkflowRunnerConfig();
 
   const [workflowVariables, setWorkflowVariables] = useState<Record<string, string>>({});
+  const selectedWorkflowIdRef = useRef<string | null>(selectedWorkflowId);
+  selectedWorkflowIdRef.current = selectedWorkflowId;
+  const workflowVariablesRef = useRef(workflowVariables);
+  workflowVariablesRef.current = workflowVariables;
   const [savedProgress, setSavedProgress] = useState<PersistedProgress | null>(null);
   const [variablesInitialized, setVariablesInitialized] = useState(false);
   const [correlationWaitConfig, setCorrelationWaitConfig] = useState<CorrelationWaitRunnerConfig | undefined>(undefined);
@@ -77,6 +84,22 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   const [workflowSlaOverrides, setWorkflowSlaOverrides] = useState<SlaTarget[]>([]);
 
   const { isRunning, completed, total, liveSummary, profileMeta, timeSeries, error, execute, abort, finalRun, pendingRun, confirmSavePendingRun, dismissPendingRun, startExternalExecution } = useTestExecution(kafkaResultsPublish);
+
+  const isRunningRef = useRef(isRunning);
+  isRunningRef.current = isRunning;
+  const workflowsRef = useRef(workflows);
+  workflowsRef.current = workflows;
+  const executionModeRef = useRef(executionMode);
+  executionModeRef.current = executionMode;
+  const iterationsRef = useRef(iterations);
+  iterationsRef.current = iterations;
+  const concurrencyRef = useRef(concurrency);
+  concurrencyRef.current = concurrency;
+  const loadProfileRef = useRef(loadProfile);
+  loadProfileRef.current = loadProfile;
+  const traceOptionsRef = useRef(traceOptions);
+  traceOptionsRef.current = traceOptions;
+  const handleRunRef = useRef<() => boolean>(() => false);
 
   const selectedWorkflow = workflows.find(w => w.id === selectedWorkflowId) ?? null;
 
@@ -89,35 +112,34 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
     [selectedWorkflow?.slaTargets],
   );
 
-  // Reset session-scoped SLA overrides whenever the user switches to a different workflow
-  // so stale overrides from the previous workflow are never merged into the new one.
   useEffect(() => {
     setWorkflowSlaOverrides([]);
   }, [selectedWorkflowId]);
 
-  // Handle "Run in Harness" navigation from Workflow Designer - pre-select the workflow
-  // Wait for config to be loaded before applying initialWorkflowId to avoid timing issues
   useEffect(() => {
-    if (configLoaded && initialWorkflowId && initialWorkflowId !== selectedWorkflowId) {
-      const wf = workflows.find(w => w.id === initialWorkflowId);
-      if (wf) {
-        setSelectedWorkflowId(initialWorkflowId);
-        setWorkflowVariables({ ...wf.variables });
-        setVariablesInitialized(true);
-      }
-      onClearInitialWorkflowId?.();
-    }
+    if (!configLoaded || !initialWorkflowId || initialWorkflowId === selectedWorkflowId) return;
+    const wf = workflows.find(w => w.id === initialWorkflowId);
+    if (!wf) return;
+    setSelectedWorkflowId(initialWorkflowId);
+    setWorkflowVariables(buildInitialRunnerVariables(wf));
+    setVariablesInitialized(true);
+    onClearInitialWorkflowId?.();
   }, [configLoaded, initialWorkflowId, workflows, selectedWorkflowId, setSelectedWorkflowId, onClearInitialWorkflowId]);
 
-  // Initialize variables when workflow selection is restored from storage
+  useEffect(() => {
+    if (!configLoaded || !selectedWorkflowId) return;
+    if (workflows.some((w) => w.id === selectedWorkflowId)) return;
+    setSelectedWorkflowId(null);
+    setVariablesInitialized(false);
+  }, [configLoaded, selectedWorkflowId, workflows, setSelectedWorkflowId]);
+
   useEffect(() => {
     if (selectedWorkflow && !variablesInitialized) {
-      setWorkflowVariables({ ...selectedWorkflow.variables });
+      setWorkflowVariables(buildInitialRunnerVariables(selectedWorkflow));
       setVariablesInitialized(true);
     }
   }, [selectedWorkflow, variablesInitialized]);
 
-  // Phase 3C: Merge Kafka-sourced variables into workflow variables
   useEffect(() => {
     if (configLoaded && initialWorkflowVariables) {
       setWorkflowVariables((prev) => ({ ...prev, ...initialWorkflowVariables }));
@@ -125,7 +147,6 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
     }
   }, [configLoaded, initialWorkflowVariables, onClearInitialWorkflowVariables]);
 
-  // Phase 3D: Emit workflow output variables when a run completes
   useEffect(() => {
     if (!finalRun || !onWorkflowOutputAvailable) return;
     const trace = finalRun.executionTrace as WorkflowExecutionTrace | undefined;
@@ -136,54 +157,24 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
     }
   }, [finalRun, onWorkflowOutputAvailable]);
 
-  // Detect if workflow has CorrelationWait nodes and auto-initialize config
   const hasCorrelationWait = useMemo(() => {
     return selectedWorkflow?.nodes.some(n => n.type === 'correlationWait') ?? false;
   }, [selectedWorkflow]);
 
-  // Detect if workflow has WaitForCondition nodes (for poll throttling)
   const hasWaitForCondition = useMemo(() => {
     return selectedWorkflow?.nodes.some(n => n.type === 'waitForCondition') ?? false;
   }, [selectedWorkflow]);
 
-  // Detect if workflow starts with a Webhook Trigger node (Phase 7c)
-  const webhookTriggerNode = useMemo(() => {
-    if (!selectedWorkflow) return null;
-    const webhookNode = selectedWorkflow.nodes.find(n => n.type === 'webhook');
-    if (!webhookNode) return null;
-
-    // Must have outgoing edges (disconnected/orphaned webhook nodes don't count)
-    const hasOutgoing = selectedWorkflow.edges.some(e => e.source === webhookNode.id);
-    if (!hasOutgoing) return null;
-
-    // Must have no real incoming edges (it's a trigger, not mid-workflow)
-    // Ignore edges from orphaned Start nodes (Start nodes that only connect to this webhook)
-    const incomingEdges = selectedWorkflow.edges.filter(e => e.target === webhookNode.id);
-    const hasRealIncoming = incomingEdges.some(edge => {
-      const sourceNode = selectedWorkflow.nodes.find(n => n.id === edge.source);
-      if (!sourceNode) return false;
-      if (sourceNode.type === 'start') {
-        const startOtherOutgoing = selectedWorkflow.edges.filter(
-          e => e.source === sourceNode.id && e.target !== webhookNode.id
-        );
-        if (startOtherOutgoing.length === 0) return false;
-      }
-      return true;
-    });
-    if (hasRealIncoming) return null;
-
-    return webhookNode;
-  }, [selectedWorkflow]);
+  const webhookTriggerNode = useMemo(
+    () => resolveWebhookTriggerNode(selectedWorkflow),
+    [selectedWorkflow],
+  );
 
   const isWebhookTriggered = webhookTriggerNode !== null;
 
-  // Webhook run mode: 'single' runs workflow once with sample payload, 'load' runs load test
   const [webhookRunMode, setWebhookRunMode] = useState<'single' | 'load'>('single');
-
-  // Webhook load driver config (Phase 7c)
   const [webhookLoadConfig, setWebhookLoadConfig] = useState<WebhookLoadConfig | null>(null);
 
-  // Reset webhook state when switching workflows or when webhook is not detected
   useEffect(() => {
     if (isWebhookTriggered && webhookTriggerNode && !webhookLoadConfig) {
       const data = webhookTriggerNode.data as WebhookTriggerNodeData;
@@ -201,24 +192,17 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
     }
   }, [isWebhookTriggered, webhookTriggerNode, webhookLoadConfig, selectedWorkflow]);
 
-  // Max concurrent polls config (for WaitForCondition throttling)
   const [maxConcurrentPolls, setMaxConcurrentPolls] = useState(20);
-
-  // Webhook scenarios for multi-webhook testing (Phase 7f)
   const [webhookScenarios, setWebhookScenarios] = useState<WebhookScenario[]>([]);
 
-  // Auto-initialize correlation config when workflow changes
   useEffect(() => {
     if (hasCorrelationWait && !correlationWaitConfig) {
-      // Auto-initialize with auto-resume mode (most common for load tests)
       setCorrelationWaitConfig({ mode: 'auto-resume', mockPayloads: {} });
     } else if (!hasCorrelationWait && correlationWaitConfig) {
-      // Clear config when switching to workflow without CorrelationWait
       setCorrelationWaitConfig(undefined);
     }
   }, [hasCorrelationWait, correlationWaitConfig, selectedWorkflowId]);
 
-  // Load webhook scenarios when workflow changes (Phase 7f)
   useEffect(() => {
     if (selectedWorkflowId && hasCorrelationWait) {
       setWebhookScenarios(loadWebhookScenarios(selectedWorkflowId));
@@ -229,12 +213,10 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
 
   const isLoadProfile = executionMode === 'load-profile';
 
-  // Load saved progress on mount
   useEffect(() => {
     setSavedProgress(loadProgress(PROGRESS_KEY));
   }, []);
 
-  // Save progress when run completes
   useEffect(() => {
     if (finalRun && liveSummary && !isRunning) {
       const data: PersistedProgress = {
@@ -266,58 +248,76 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
     setLoadProfile((prev) => ({ ...prev, ...patch }));
   };
 
-  const handleRun = () => {
-    if (!selectedWorkflow) return;
+  const handleWebhookLoadRun = useWorkflowRunnerWebhookLoadRun({
+    selectedWorkflow,
+    selectedWorkflowId,
+    webhookLoadConfig,
+    webhookTriggerNode,
+    workflowVariables,
+    traceOptions,
+    startExternalExecution,
+  });
 
-    // If this is a webhook-triggered workflow in load test mode, use the webhook load driver
-    if (isWebhookTriggered && webhookRunMode === 'load' && webhookLoadConfig) {
-      handleWebhookLoadRun();
-      return;
+  const handleRun = (): boolean => {
+    const runWorkflowId = selectedWorkflowIdRef.current;
+    const runWorkflow = runWorkflowId
+      ? workflowsRef.current.find((w) => w.id === runWorkflowId) ?? null
+      : null;
+    const runVariables = workflowVariablesRef.current;
+
+    if (!runWorkflow || !runWorkflowId) {
+      console.warn(
+        '[WorkflowRunner] Cannot run — selected workflow id',
+        runWorkflowId,
+        'is not in the loaded workflow list. Re-select the workflow from the picker.',
+      );
+      return false;
     }
 
-    // For webhook workflows in single mode, or regular workflows, use standard execution
-    // Force single transaction for "wait-for-real" mode
+    if (isWebhookTriggered && webhookRunMode === 'load' && webhookLoadConfig) {
+      void handleWebhookLoadRun();
+      return true;
+    }
+
     const isWaitForReal = correlationWaitConfig?.mode === 'wait-for-real';
+    const runIsLoadProfile = executionModeRef.current === 'load-profile';
+    const runLoadProfile = loadProfileRef.current;
+    const runConcurrency = concurrencyRef.current;
+    const runIterations = iterationsRef.current;
 
-    // Determine base URL: explicit workflow variable > environment config
-    const effectiveBaseUrl = workflowVariables.baseUrl?.trim() || resolvedBaseUrl?.trim() || undefined;
-
-    const config: TestConfig = {
-      concurrency: isWaitForReal ? 1 : (isLoadProfile ? loadProfile.maxConcurrency : concurrency),
-      iterations: isWaitForReal ? 1 : (isLoadProfile ? 0 : iterations),
-      scenarioWeights: [],
-      executionMode: 'workflow',
-      ...(isLoadProfile && !isWaitForReal ? { loadProfile } : {}),
-      thinkTime: thinkTime.mode !== 'none' ? thinkTime : undefined,
-      timeoutSec: timeoutSec > 0 ? timeoutSec : undefined,
-      retryCount: retryCount > 0 ? retryCount : 0,
+    const config = buildWorkflowRunnerTestConfig({
+      runWorkflow,
+      runWorkflowId,
+      runVariables,
+      resolvedBaseUrl,
+      isWaitForReal,
+      runIsLoadProfile,
+      runLoadProfile,
+      runConcurrency,
+      runIterations,
+      thinkTime,
+      timeoutSec,
+      retryCount,
       retryDelayMs,
       errorPolicy,
       maxErrors,
       maxErrorRate,
-      workflowVariables: Object.keys(workflowVariables).length > 0 ? workflowVariables : undefined,
-      workflowId: selectedWorkflowId!,
-      slaTargets: (() => {
-        // SLA-B9: merge definition targets (workflow.slaTargets) with session override targets (runner wins on conflict)
-        const baseSla = selectedWorkflow.slaTargets ?? [];
-        const conflictKey = (t: SlaTarget) => `${t.metric}:${t.scenarioName ?? ''}`;
-        const overrideKeys = new Set(workflowSlaOverrides.map(conflictKey));
-        const merged = [
-          ...baseSla.filter((t) => !overrideKeys.has(conflictKey(t))),
-          ...workflowSlaOverrides,
-        ];
-        return merged.length ? merged : undefined;
-      })(),
-      correlationWaitConfig: hasCorrelationWait ? correlationWaitConfig : undefined,
-      maxConcurrentPolls: hasWaitForCondition ? maxConcurrentPolls : undefined,
-      traceOptions,
-      workflowBaseUrl: effectiveBaseUrl,
-    };
+      workflowSlaOverrides,
+      hasCorrelationWait,
+      correlationWaitConfig,
+      hasWaitForCondition,
+      maxConcurrentPolls,
+      traceOptions: traceOptionsRef.current,
+    });
 
-    saveWorkflowRunConfig({ workflowId: selectedWorkflowId!, variables: workflowVariables });
+    try {
+      saveWorkflowRunConfig({ workflowId: runWorkflowId, variables: runVariables });
+    } catch (err) {
+      console.warn('[WorkflowRunner] Could not save run variable history:', err);
+    }
 
     const resolveSubWorkflow = (id: string) => {
-      const found = workflows.find(w => w.id === id);
+      const found = workflowsRef.current.find(w => w.id === id);
       if (found) return found;
       for (const entry of sampleWorkflowCatalog) {
         if (!entry.companionFactories) continue;
@@ -329,141 +329,36 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
       return undefined;
     };
 
-    execute(config, [], { projectName: selectedWorkflow.name }, selectedWorkflow, resolveSubWorkflow, {
-      microservices, globalAuthProfiles, selectedEnvId,
+    void execute(config, [], { projectName: runWorkflow.name }, runWorkflow, resolveSubWorkflow, {
+      microservices, globalAuthProfiles, selectedEnvId, selectedSvcId,
     });
+    return true;
   };
 
-  // Webhook load test execution (Phase 7c)
-  const handleWebhookLoadRun = async () => {
-    if (!selectedWorkflow || !webhookLoadConfig) return;
+  handleRunRef.current = handleRun;
 
-    const totalReqs = calculateTotalRequests(webhookLoadConfig.rate);
-    const captureTraces = traceOptions.captureFullTrace;
-    
-    // Start external execution tracking with useTestExecution
-    const { reportProgress, complete, fail, abortSignal } = startExternalExecution(
-      totalReqs,
-      { projectName: `Webhook: ${selectedWorkflow.name}` }
-    );
-
-    const collectedResults: RequestResult[] = [];
-
-    try {
-      // Register workflow with the webhook server before starting load test
-      const serverHost = window.location.hostname || 'localhost';
-      const registerUrl = `http://${serverHost}:3001/api/workflows/${selectedWorkflow.id}`;
-      try {
-        const registerRes = await fetch(registerUrl, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(selectedWorkflow),
-        });
-        if (!registerRes.ok) {
-          throw new Error(`Failed to register workflow: ${registerRes.status} ${registerRes.statusText}`);
-        }
-      } catch (regErr) {
-        // If registration fails, it's likely the server isn't running
-        const errMsg = toErrorMessage(regErr);
-        if (errMsg.includes('Failed to fetch') || errMsg.includes('NetworkError')) {
-          fail('Webhook server not running. Start it with: npm run server');
-          return;
-        }
-        throw regErr;
-      }
-
-      const loadResult = await runWebhookLoadTest(
-        {
-          webhookUrl: webhookLoadConfig.webhookUrl,
-          method: webhookLoadConfig.method,
-          payloadTemplate: webhookLoadConfig.payloadTemplate,
-          rate: webhookLoadConfig.rate,
-          headers: webhookLoadConfig.headers,
-          captureTraces, // Pass trace capture option
-        },
-        {
-          onProgress: (_completed, _total, _rps) => {
-            // Progress is now reported on each request completion for accuracy
-          },
-          onRequestComplete: (result) => {
-            collectedResults.push(result);
-            // Report progress after each request for accurate UI updates
-            reportProgress(collectedResults, collectedResults.length);
-          },
-        },
-        abortSignal,
-      );
-
-      // Build execution trace if traces were captured
-      let executionTrace: WorkflowExecutionTrace | undefined;
-      if (captureTraces && loadResult.iterationTraces && loadResult.iterationTraces.length > 0) {
-        // Collect all traversed edges from all iterations
-        const allTraversedEdges = new Set<string>();
-        for (const iter of loadResult.iterationTraces) {
-          for (const edgeId of iter.traversedEdges || []) {
-            allTraversedEdges.add(edgeId);
-          }
-        }
-        
-        // Filter out orphaned Start nodes (Start nodes that only connect to the webhook trigger)
-        // These are legacy nodes that shouldn't appear in webhook-triggered workflows
-        const webhookNodeId = webhookTriggerNode?.id;
-        const filteredNodes = selectedWorkflow.nodes.filter(node => {
-          if (node.type !== 'start') return true;
-          // Check if this Start node only connects to the webhook node
-          const outgoingEdges = selectedWorkflow.edges.filter(e => e.source === node.id);
-          if (outgoingEdges.length === 0) return false; // Orphaned with no edges
-          if (outgoingEdges.length === 1 && outgoingEdges[0].target === webhookNodeId) return false; // Only connects to webhook
-          return true;
-        });
-        
-        // Filter out edges from removed Start nodes
-        const removedNodeIds = new Set(
-          selectedWorkflow.nodes.filter(n => !filteredNodes.includes(n)).map(n => n.id)
-        );
-        const filteredEdges = selectedWorkflow.edges.filter(
-          e => !removedNodeIds.has(e.source) && !removedNodeIds.has(e.target)
-        );
-        
-        executionTrace = {
-          workflowId: selectedWorkflow.id,
-          workflowName: selectedWorkflow.name,
-          iterations: loadResult.iterationTraces,
-          traversedEdges: Array.from(allTraversedEdges),
-          workflowSnapshot: {
-            nodes: filteredNodes,
-            edges: filteredEdges,
-          },
-          totalIterations: loadResult.iterationTraces.length,
-          totalDurationMs: loadResult.actualDurationMs,
-          fullTraceCaptured: true,
-        };
-      }
-
-      // Complete and save results
-      const config: TestConfig = {
-        concurrency: 1,
-        iterations: totalReqs,
-        scenarioWeights: [],
-        executionMode: 'workflow',
-        workflowId: selectedWorkflowId!,
-        traceOptions: captureTraces ? traceOptions : undefined,
-      };
-      
-      saveWorkflowRunConfig({ workflowId: selectedWorkflowId!, variables: workflowVariables });
-      await complete(config, executionTrace);
-    } catch (err) {
-      if (!abortSignal.aborted) {
-        fail(toErrorMessage(err));
-      }
-    }
-  };
+  useWorkflowRunnerBridge({
+    workflowsRef,
+    selectedWorkflowIdRef,
+    workflowVariablesRef,
+    executionModeRef,
+    iterationsRef,
+    concurrencyRef,
+    traceOptionsRef,
+    handleRunRef,
+    setSelectedWorkflowId,
+    setWorkflowVariables,
+    setVariablesInitialized,
+    setExecutionMode,
+    setIterations,
+    setConcurrency,
+    setTraceOptions,
+  });
 
   const handleAbort = () => {
     abort();
   };
 
-  // Webhook scenario handlers (Phase 7f)
   const handleSaveWebhookScenario = useCallback((scenario: Omit<WebhookScenario, 'id' | 'createdAt'>) => {
     if (!selectedWorkflowId) return;
     const saved = saveWebhookScenario(selectedWorkflowId, scenario);
@@ -477,40 +372,21 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   }, [selectedWorkflowId]);
 
   const handleFireWebhook = useCallback(async (nodeId: string, correlationId: string, payload: Record<string, unknown>) => {
-    // Find the node to get webhook path
     const node = selectedWorkflow?.nodes.find(n => n.id === nodeId);
     if (!node) throw new Error('Node not found');
-    
+
     const nodeData = node.data as import('../workflow/types/workflow').CorrelationWaitNodeData;
     const webhookPath = nodeData.webhookPath || '/webhooks/callback';
-    
-    // Build resolved payload with correlation ID
+
     const resolvedPayload = buildPayloadWithCorrelationId(payload, correlationId);
-    
+
     await fireWebhook(correlationId, resolvedPayload, webhookPath);
   }, [selectedWorkflow]);
 
-  // ── Phase 7C: Kafka load policy banners ──────────────────────────────────
-  // WorkflowRunner always runs as 'workflow' executionMode — compute banners
-  // against that fixed mode so warnings reflect what will actually happen.
-  const kafkaLoadBanners = useMemo(() => {
-    const blockNodes: string[] = [];
-    const infoNodes: string[] = [];
-    if (selectedWorkflow) {
-      for (const node of selectedWorkflow.nodes) {
-        if (node.type !== 'kafkaConsume') continue;
-        const consumeMode = (node.data as KafkaConsumeNodeData).loadTestBehavior?.mode;
-        const label = (node.data as { label?: string }).label ?? node.id;
-        const outcome = resolveKafkaConsumeLoadPolicy('workflow', consumeMode);
-        if (outcome.decision === 'block') {
-          blockNodes.push(label);
-        } else if (outcome.fallbackMode !== undefined) {
-          infoNodes.push(label);
-        }
-      }
-    }
-    return { blockNodes, infoNodes };
-  }, [selectedWorkflow]);
+  const kafkaLoadBanners = useMemo(
+    () => computeKafkaLoadBanners(selectedWorkflow),
+    [selectedWorkflow],
+  );
 
   const hasLiveProgress = isRunning || liveSummary;
   const showProgress = hasLiveProgress || (!isRunning && savedProgress);
@@ -525,7 +401,6 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   const displayExecMode = hasLiveProgress ? 'workflow' : savedProgress?.executionMode ?? 'workflow';
   const displayConc = hasLiveProgress ? concurrency : savedProgress?.concurrency ?? concurrency;
 
-  // Host label for progress panel — show workflow name
   const hostLabel = selectedWorkflow ? `⚡ ${selectedWorkflow.name}` : undefined;
 
   return (
@@ -546,229 +421,62 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
           const newId = onImportSample(wf);
           if (typeof newId === 'string') {
             setSelectedWorkflowId(newId);
-            setWorkflowVariables({ ...wf.variables });
+            setWorkflowVariables(buildInitialRunnerVariables(wf));
           }
         } : undefined}
       />
 
-        {selectedWorkflow && (
-          <RunnerSlaOverridePanel
-            key={selectedWorkflow.id}
-            initialTargets={workflowSlaOverrides}
-            onSave={setWorkflowSlaOverrides}
-            definitionTargetCount={selectedWorkflow.slaTargets?.length ?? 0}
-            definitionTargets={workflowDefinitionTargets}
-            scenarioNames={[]}
-            disabled={isRunning}
-          />
-        )}
-
-        {selectedWorkflow && (
-          <>
-            {/* Webhook run mode selector — shown when workflow starts with webhook trigger */}
-            {isWebhookTriggered && (
-              <div className="webhook-run-mode-selector">
-                <span className="webhook-mode-label">Run Mode:</span>
-                <div className="webhook-mode-buttons">
-                  <button
-                    className={`webhook-mode-btn ${webhookRunMode === 'single' ? 'active' : ''}`}
-                    onClick={() => setWebhookRunMode('single')}
-                    disabled={isRunning}
-                  >
-                    Single Run
-                  </button>
-                  <button
-                    className={`webhook-mode-btn ${webhookRunMode === 'load' ? 'active' : ''}`}
-                    onClick={() => setWebhookRunMode('load')}
-                    disabled={isRunning}
-                  >
-                    Load Test
-                  </button>
-                </div>
-                <span className="webhook-mode-hint">
-                  {webhookRunMode === 'single' 
-                    ? '— Run workflow once using sample payload (supports trace capture)' 
-                    : '— Send many requests to webhook endpoint'}
-                </span>
-              </div>
-            )}
-
-            {/* Webhook Load Driver Panel (Phase 7c) — shown when workflow starts with webhook trigger AND in load mode */}
-            {isWebhookTriggered && webhookRunMode === 'load' && webhookLoadConfig && webhookTriggerNode && (
-              <WebhookLoadDriverPanel
-                webhookUrl={webhookLoadConfig.webhookUrl}
-                method={webhookLoadConfig.method}
-                initialPayload={(webhookTriggerNode.data as WebhookTriggerNodeData).samplePayload || '{}'}
-                config={webhookLoadConfig}
-                onChange={setWebhookLoadConfig}
-                disabled={isRunning}
-              />
-            )}
-
-          {/* CorrelationWait behavior config — right after workflow selection since it's workflow-specific */}
-          {hasCorrelationWait && (
-            <CorrelationWaitConfigPanel
-              workflow={selectedWorkflow}
-              config={correlationWaitConfig}
-              onChange={setCorrelationWaitConfig}
-              disabled={isRunning}
-            />
-          )}
-
-          {/* Multi-Webhook Testing Panel (Phase 7f) — shown when in wait-for-real mode with multiple webhooks */}
-          {hasCorrelationWait && correlationWaitConfig?.mode === 'wait-for-real' && (
-            <MultiWebhookTestingPanel
-              workflow={selectedWorkflow}
-              isRunning={isRunning}
-              onFireWebhook={handleFireWebhook}
-              scenarios={webhookScenarios}
-              onSaveScenario={handleSaveWebhookScenario}
-              onDeleteScenario={handleDeleteWebhookScenario}
-            />
-          )}
-
-          {/* Execution options - subtle inline row */}
-          <div className="wf-runner-inline-options">
-            {/* Poll throttle - only shown when workflow has WaitForCondition nodes (non-webhook workflows) */}
-            {!isWebhookTriggered && hasWaitForCondition && (
-              <div className="wf-inline-option">
-                <span className="wf-inline-label">Poll limit</span>
-                <input
-                  type="number"
-                  className="wf-inline-input"
-                  min={1}
-                  max={100}
-                  value={maxConcurrentPolls}
-                  onChange={(e) => setMaxConcurrentPolls(Math.max(1, parseInt(e.target.value) || 20))}
-                  disabled={isRunning}
-                />
-                <span className="wf-inline-hint">— max concurrent polls across {concurrency} iterations</span>
-              </div>
-            )}
-
-            {/* Trace level — radio row matching Execution Mode style */}
-            <div className="wf-inline-option" style={{ flex: '0 0 auto' }}>
-              <span className="runner-exec-label">Trace Level:</span>
-              {(['minimal', 'standard', 'full', 'debug'] as const).map(level => (
-                <label key={level} className="radio-label">
-                  <input
-                    type="radio"
-                    name="wf-traceLevel"
-                    checked={(traceOptions.traceLevel ?? (traceOptions.captureFullTrace ? 'full' : 'standard')) === level}
-                    onChange={() => {
-                      setTraceOptions(prev => ({
-                        ...prev,
-                        traceLevel: level,
-                        captureFullTrace: level === 'full' || level === 'debug',
-                      }));
-                    }}
-                    disabled={isRunning}
-                  />
-                  {level.charAt(0).toUpperCase() + level.slice(1)}
-                </label>
-              ))}
-              {(traceOptions.traceLevel === 'full' || traceOptions.traceLevel === 'debug' || (!traceOptions.traceLevel && traceOptions.captureFullTrace)) && (
-                <>
-                  <label className="radio-label" style={{ marginLeft: 8 }}>
-                    <input
-                      type="checkbox"
-                      checked={traceOptions.samplingEnabled !== false}
-                      onChange={(e) => setTraceOptions(prev => ({ ...prev, samplingEnabled: e.target.checked }))}
-                      disabled={isRunning}
-                    />
-                    Sampling
-                  </label>
-                  {traceOptions.samplingEnabled !== false && (
-                    <input
-                      type="number"
-                      min={10}
-                      max={1000}
-                      step={10}
-                      value={traceOptions.samplingThreshold ?? 50}
-                      onChange={(e) => setTraceOptions(prev => ({ ...prev, samplingThreshold: Math.max(10, parseInt(e.target.value) || 50) }))}
-                      disabled={isRunning}
-                      className="wf-sampling-threshold-input"
-                    />
-                  )}
-                  <span className="exec-mode-hint">(≤100 iters recommended)</span>
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Execution settings (concurrency, iterations, etc.) — hidden for webhook load test mode */}
-          {(!isWebhookTriggered || webhookRunMode === 'single') && (
-          <div className="workflow-runner-config-section">
-            <RunnerExecutionConfig
-              executionMode={executionMode}
-              onExecutionModeChange={setExecutionMode}
-              concurrency={concurrency}
-              onConcurrencyChange={setConcurrency}
-              iterations={iterations}
-              onIterationsChange={setIterations}
-              timeoutSec={timeoutSec}
-              onTimeoutSecChange={setTimeoutSec}
-              retryCount={retryCount}
-              onRetryCountChange={setRetryCount}
-              retryDelayMs={retryDelayMs}
-              onRetryDelayMsChange={setRetryDelayMs}
-              errorPolicy={errorPolicy}
-              onErrorPolicyChange={setErrorPolicy}
-              maxErrors={maxErrors}
-              onMaxErrorsChange={setMaxErrors}
-              maxErrorRate={maxErrorRate}
-              onMaxErrorRateChange={setMaxErrorRate}
-              loadProfile={loadProfile}
-              onLoadProfileChange={updateProfile}
-              thinkTime={thinkTime}
-              onThinkTimeChange={(patch) => setThinkTime((prev) => ({ ...prev, ...patch }))}
-              activeTestCount={1}
-              isRunning={isRunning}
-              forceSingleIteration={correlationWaitConfig?.mode === 'wait-for-real'}
-              namePrefix="workflow-runner"
-            />
-          </div>
-          )}
-
-          {/* Kafka load policy banners (Phase 7C) — shown before run button when relevant.
-              Only displayed in non-webhook or webhook-single mode (same guard as RunnerExecutionConfig).
-              Priority: block > info (only one level shown at a time per plan spec). */}
-          {(!isWebhookTriggered || webhookRunMode === 'single') && kafkaLoadBanners.blockNodes.length > 0 && (
-            <div className="kafka-load-warning--block">
-              <strong>⛔ Cannot run load test:</strong>{' '}
-              {kafkaLoadBanners.blockNodes.length === 1
-                ? <><strong>{kafkaLoadBanners.blockNodes[0]}</strong> is configured with <strong>wait-for-real</strong> mode, which blocks workflow load tests. Edit the node and change Load Test Behavior to <strong>auto-resume</strong> or <strong>synthetic-inject</strong>.</>
-                : <>{kafkaLoadBanners.blockNodes.length} kafkaConsume nodes use <strong>wait-for-real</strong> mode — change them to <strong>auto-resume</strong> or <strong>synthetic-inject</strong>.</>
-              }
-            </div>
-          )}
-          {(!isWebhookTriggered || webhookRunMode === 'single') && kafkaLoadBanners.blockNodes.length === 0 && kafkaLoadBanners.infoNodes.length > 0 && (
-            <div className="kafka-load-info">
-              <strong>ℹ Auto-resume:</strong>{' '}
-              {kafkaLoadBanners.infoNodes.length === 1
-                ? <><strong>{kafkaLoadBanners.infoNodes[0]}</strong> has no load test behavior set — it will skip the consume and continue (<strong>auto-resume</strong> default) during load tests.</>
-                : <>{kafkaLoadBanners.infoNodes.length} kafkaConsume nodes have no load test behavior set — they will auto-resume (skip consume) during load tests.</>
-              }
-            </div>
-          )}
-
-          {/* Run/Stop buttons */}
-          <div className="config-form" style={{ marginTop: 16 }}>
-            <div className="form-actions">
-              {!isRunning ? (
-                <button className="btn btn-primary btn-lg" onClick={handleRun}>
-                  {isWebhookTriggered 
-                    ? (webhookRunMode === 'load' ? '🔗 Run Webhook Load Test' : '▶ Run Workflow')
-                    : '▶ Run Workflow'}
-                </button>
-              ) : (
-                <button className="btn btn-danger btn-lg" onClick={handleAbort}>
-                  ■ Stop
-                </button>
-              )}
-            </div>
-          </div>
-        </>
+      {selectedWorkflow && (
+        <WorkflowRunnerConfigSection
+          selectedWorkflow={selectedWorkflow}
+          workflowDefinitionTargets={workflowDefinitionTargets}
+          workflowSlaOverrides={workflowSlaOverrides}
+          onWorkflowSlaOverridesChange={setWorkflowSlaOverrides}
+          isWebhookTriggered={isWebhookTriggered}
+          webhookRunMode={webhookRunMode}
+          onWebhookRunModeChange={setWebhookRunMode}
+          webhookLoadConfig={webhookLoadConfig}
+          onWebhookLoadConfigChange={setWebhookLoadConfig}
+          webhookTriggerNode={webhookTriggerNode}
+          hasCorrelationWait={hasCorrelationWait}
+          correlationWaitConfig={correlationWaitConfig}
+          onCorrelationWaitConfigChange={setCorrelationWaitConfig}
+          hasWaitForCondition={hasWaitForCondition}
+          isRunning={isRunning}
+          onFireWebhook={handleFireWebhook}
+          webhookScenarios={webhookScenarios}
+          onSaveWebhookScenario={handleSaveWebhookScenario}
+          onDeleteWebhookScenario={handleDeleteWebhookScenario}
+          maxConcurrentPolls={maxConcurrentPolls}
+          onMaxConcurrentPollsChange={setMaxConcurrentPolls}
+          concurrency={concurrency}
+          traceOptions={traceOptions}
+          onTraceOptionsChange={setTraceOptions}
+          executionMode={executionMode}
+          onExecutionModeChange={setExecutionMode}
+          onConcurrencyChange={setConcurrency}
+          iterations={iterations}
+          onIterationsChange={setIterations}
+          timeoutSec={timeoutSec}
+          onTimeoutSecChange={setTimeoutSec}
+          retryCount={retryCount}
+          onRetryCountChange={setRetryCount}
+          retryDelayMs={retryDelayMs}
+          onRetryDelayMsChange={setRetryDelayMs}
+          errorPolicy={errorPolicy}
+          onErrorPolicyChange={setErrorPolicy}
+          maxErrors={maxErrors}
+          onMaxErrorsChange={setMaxErrors}
+          maxErrorRate={maxErrorRate}
+          onMaxErrorRateChange={setMaxErrorRate}
+          loadProfile={loadProfile}
+          onLoadProfileChange={updateProfile}
+          thinkTime={thinkTime}
+          onThinkTimeChange={(patch) => setThinkTime((prev) => ({ ...prev, ...patch }))}
+          kafkaLoadBanners={kafkaLoadBanners}
+          onRun={handleRun}
+          onAbort={handleAbort}
+        />
       )}
 
       {showProgress && (

@@ -1,6 +1,8 @@
-export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results' | 'kafka-message-studio';
+import { DEMO_HUB_ENABLED } from '../../config/features';
 
-export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings' | 'protocols';
+export type Tab = 'environments' | 'preferences' | 'kafka-settings' | 'requests' | 'catalog' | 'workflow' | 'workflow-executions' | 'webhook-deliveries' | 'workflow-runner' | 'gallery' | 'training' | 'scenarios' | 'runner' | 'param-runner' | 'results' | 'kafka-message-studio' | 'websocket-studio' | 'sse-studio' | 'graphql-studio' | 'grpc-studio' | 'demo-hub';
+
+export type Domain = 'api' | 'workflow' | 'testing' | 'gallery' | 'settings' | 'protocols' | 'demo';
 
 const HARNESS_TABS = new Set<Tab>(['scenarios', 'runner', 'param-runner', 'workflow-runner', 'results']);
 export const isHarnessTab = (t: Tab) => HARNESS_TABS.has(t);
@@ -17,8 +19,27 @@ export const isApiTab = (t: Tab) => API_TABS.has(t);
 const SETTINGS_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings']);
 export const isSettingsTab = (t: Tab) => SETTINGS_TABS.has(t);
 
-const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio']);
+const PROTOCOLS_TABS = new Set<Tab>(['kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio', 'grpc-studio']);
 export const isProtocolsTab = (t: Tab) => PROTOCOLS_TABS.has(t);
+
+export const PROTOCOLS_DEFAULT_TAB: Tab = 'kafka-message-studio';
+export const LAST_PROTOCOLS_TAB_STORAGE_KEY = 'app-last-protocols-tab';
+
+let lastProtocolsTabCache: Tab = PROTOCOLS_DEFAULT_TAB;
+
+/** Last Protocols sub-tab visited (GraphQL, Kafka, etc.) — used when re-entering from another domain. */
+export function getLastProtocolsTab(): Tab {
+  return lastProtocolsTabCache;
+}
+
+export function setLastProtocolsTab(tab: Tab): void {
+  if (isProtocolsTab(tab)) {
+    lastProtocolsTabCache = tab;
+  }
+}
+
+const DEMO_TABS = new Set<Tab>(['demo-hub']);
+export const isDemoTab = (t: Tab) => DEMO_HUB_ENABLED && DEMO_TABS.has(t);
 
 /** Derive the active domain from the current tab. */
 export function domainOf(tab: Tab): Domain {
@@ -27,10 +48,11 @@ export function domainOf(tab: Tab): Domain {
   if (isGalleryTab(tab)) return 'gallery';
   if (isHarnessTab(tab)) return 'testing';
   if (isProtocolsTab(tab)) return 'protocols';
+  if (isDemoTab(tab)) return 'demo';
   return 'settings';
 }
 
-const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results', 'kafka-message-studio']);
+const ALL_TABS = new Set<Tab>(['environments', 'preferences', 'kafka-settings', 'requests', 'catalog', 'workflow', 'workflow-executions', 'webhook-deliveries', 'workflow-runner', 'gallery', 'training', 'scenarios', 'runner', 'param-runner', 'results', 'kafka-message-studio', 'websocket-studio', 'sse-studio', 'graphql-studio', 'grpc-studio', 'demo-hub']);
 const TAB_QUERY = 'tab';
 const DEFAULT_TAB: Tab = 'requests';
 
@@ -38,7 +60,10 @@ const DEFAULT_TAB: Tab = 'requests';
 export function readTabFromUrl(): Tab {
   try {
     const q = new URLSearchParams(window.location.search).get(TAB_QUERY);
-    if (q && ALL_TABS.has(q as Tab)) return q as Tab;
+    if (q && ALL_TABS.has(q as Tab)) {
+      if (q === 'demo-hub' && !DEMO_HUB_ENABLED) return DEFAULT_TAB;
+      return q as Tab;
+    }
   } catch {
     /* ignore */
   }
@@ -46,12 +71,13 @@ export function readTabFromUrl(): Tab {
 }
 
 export function writeTabToUrl(tab: Tab): void {
+  const resolvedTab = tab === 'demo-hub' && !DEMO_HUB_ENABLED ? DEFAULT_TAB : tab;
   try {
     const url = new URL(window.location.href);
-    if (tab === DEFAULT_TAB) {
+    if (resolvedTab === DEFAULT_TAB) {
       url.searchParams.delete(TAB_QUERY);
     } else {
-      url.searchParams.set(TAB_QUERY, tab);
+      url.searchParams.set(TAB_QUERY, resolvedTab);
     }
     const serialized = url.pathname + (url.search ? url.search : '') + url.hash;
     const current = window.location.pathname + window.location.search + window.location.hash;

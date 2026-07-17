@@ -1,10 +1,18 @@
 import type { NodeRunStatus, Workflow } from '../types/workflow';
+import type { QuickTestFailureReport } from './workflowRunErrors';
 
 type DetailModal =
   | null
   | { type: 'step'; nodeId: string }
   | { type: 'variable'; key: string }
   | { type: 'runError' };
+
+export interface DetailModalProps {
+  title: string;
+  subtitle: string | undefined;
+  body: string | undefined;
+  failureReport?: QuickTestFailureReport;
+}
 
 /**
  * Compute the title, subtitle, and body for the WorkflowDetailModal
@@ -15,7 +23,8 @@ export function getDetailModalProps(
   stepDetailMeta: { title: string; body: string },
   selectedNodeType: string | undefined,
   lastRunError: string | null,
-): { title: string; subtitle: string | undefined; body: string | undefined } {
+  failureReport?: QuickTestFailureReport | null,
+): DetailModalProps {
   if (!detailModal) return { title: '', subtitle: undefined, body: undefined };
 
   switch (detailModal.type) {
@@ -36,8 +45,12 @@ export function getDetailModalProps(
     case 'runError':
       return {
         title: 'Quick Test failed',
-        subtitle: 'Full error message (same as the status line, not truncated).',
-        body: lastRunError ?? '',
+        subtitle: failureReport
+          ? `${failureReport.failedSteps.length} failed · ${failureReport.passedSteps.length} passed` +
+            (failureReport.durationMs != null ? ` · ${(failureReport.durationMs / 1000).toFixed(1)}s` : '')
+          : 'Review the failed step(s) below.',
+        body: failureReport?.summary ?? lastRunError ?? '',
+        failureReport: failureReport ?? undefined,
       };
   }
 }

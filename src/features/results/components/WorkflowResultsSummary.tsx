@@ -9,6 +9,7 @@ import {
   type WorkflowStepSummary,
   type WorkflowIterationSummary,
 } from '../../test-runner/utils/resultsGrouping';
+import { formatTransportStatus, getTransportMethodLabel } from '../utils/transportStatus';
 
 interface Props {
   run: TestRun;
@@ -122,7 +123,7 @@ export function WorkflowIterationChart({ iterations, maxHeight = 200 }: Iteratio
     ctx.fillStyle = 'rgba(148, 163, 184, 0.8)';
     ctx.font = '10px system-ui';
     ctx.textAlign = 'center';
-    const labelStep = Math.max(1, Math.floor(iterations.length / 10));
+    const labelStep = iterations.length <= 10 ? 1 : Math.max(1, Math.floor(iterations.length / 10));
     iterations.forEach((iter, idx) => {
       if (idx % labelStep === 0 || idx === iterations.length - 1) {
         const x = padding.left + barSpacing + idx * (barWidth + barSpacing) + barWidth / 2;
@@ -351,9 +352,9 @@ export function WorkflowResultsSummary({ run, onResultClick }: Props) {
                         className={`iteration-result ${r.passed ? '' : 'result-failed'}`}
                         onClick={() => onResultClick?.(r)}
                       >
-                        <span className={`method-badge method-${r.method.toLowerCase()}`}>{r.method}</span>
+                        <span className={`method-badge method-${r.method.toLowerCase()}`}>{getTransportMethodLabel(r)}</span>
                         <span className="result-name">{r.scenarioName}</span>
-                        <span className="result-status">{(r.transportType ?? 'http') === 'http' ? (r.httpStatus || 'ERR') : r.transportType === 'kafkaProduce' ? 'PRODUCE' : 'CONSUME'}</span>
+                        <span className="result-status">{formatTransportStatus(r)}</span>
                         <span className="result-time">{Math.round(r.responseTimeMs * 10) / 10}ms</span>
                         <span className="result-passed">{r.passed ? '✓' : '✗'}</span>
                       </div>

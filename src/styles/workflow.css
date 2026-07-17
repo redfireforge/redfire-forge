@@ -323,7 +323,7 @@
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0,0,0,0.25);
   padding: 4px 0;
-  z-index: 90;
+  z-index: 1001;
 }
 
 .wf-sidebar-ctx-item-muted {
@@ -800,7 +800,7 @@
 .wf-sidebar-ctx-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: 999;
 }
 
 .wf-sidebar-ctx-menu {
@@ -811,7 +811,7 @@
   border-radius: 8px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.28);
   padding: 4px;
-  z-index: 71;
+  z-index: 1000;
 }
 
 .wf-sidebar-ctx-divider {
@@ -1420,8 +1420,6 @@
 
 .wf-method-mini { font-size: 0.6rem; font-weight: 700; font-family: 'SF Mono', monospace; flex-shrink: 0; width: 36px; }
 
-.wf-palette-children { }
-.wf-palette-folder { }
 .wf-palette-folder-header {
   display: flex; align-items: center; gap: 4px; width: 100%;
   padding: 4px 8px; background: none; border: none; color: var(--text);
@@ -1444,7 +1442,7 @@
   padding: 20px; text-align: center; color: var(--text-muted);
 }
 .wf-config-empty p { font-size: 0.82rem; }
-.wf-config-hint { font-size: 0.72rem; color: var(--text-muted); margin-top: 4px; }
+.wf-config-hint { font-size: 0.7rem; color: var(--text-muted); margin-top: 4px; line-height: 1.35; }
 
 .wf-config-header {
   display: flex; justify-content: space-between; align-items: center;
@@ -1455,7 +1453,7 @@
   letter-spacing: 0.5px; color: var(--primary);
 }
 
-.wf-config-body { padding: 10px 12px; }
+.wf-config-body { padding: 12px 16px 16px; }
 .wf-config-run-error {
   margin-bottom: 10px; padding: 8px 10px; border-radius: 6px;
   border: 1px solid #ef444455; background: #ef444412;
@@ -1552,11 +1550,127 @@
   border-radius: 4px; font-size: 0.65rem; font-weight: 700; letter-spacing: 0.5px;
 }
 
-.wf-config-field { margin-bottom: 8px; }
+.wf-config-field { margin-bottom: 10px; }
 .wf-config-field label {
   display: block; font-size: 0.68rem; color: var(--text-muted);
-  text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 4px; font-weight: 600;
 }
+/* Inline label + input on one row */
+.wf-config-field--row {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 6px;
+  min-height: 30px;
+}
+.wf-config-field--row > label {
+  flex-shrink: 0; width: 100px; font-size: 0.68rem; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.3px; font-weight: 600; margin-bottom: 0;
+  line-height: 1.3;
+}
+/* gRPC workflow node configs — wider labels so two-word names stay on one line */
+.wf-config-body[data-testid^="grpc-"] .wf-config-field--row > label {
+  width: 132px;
+  white-space: nowrap;
+}
+.wf-config-field--row-top {
+  align-items: flex-start;
+}
+.wf-config-field--row-top > label {
+  padding-top: 6px;
+}
+.wf-config-field--row > textarea.wf-config-textarea {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+}
+.wf-config-field--row > input,
+.wf-config-field--row > select {
+  flex: 1; min-width: 0; padding: 5px 8px; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 5px;
+  color: var(--text); font-size: 0.8rem;
+}
+.wf-config-field--row > .wf-config-field-with-insert,
+.wf-config-field--row > .wf-expression-input-wrap {
+  flex: 1; min-width: 0;
+}
+.wf-config-field--row > .wf-config-hint {
+  display: none;
+}
+/* Two-column grid for pairing short fields side-by-side */
+.wf-config-field-pair {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; margin-bottom: 6px;
+}
+.wf-config-field-pair > .wf-config-field--row { margin-bottom: 0; }
+.wf-config-field-pair > .wf-config-field--row > label { width: 76px; }
+.wf-config-field--row > .wf-config-inline-ctrls {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.wf-config-field--row > .wf-config-inline-ctrls > select {
+  flex: 1;
+  min-width: 0;
+  padding: 5px 8px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.8rem;
+}
+.wf-config-field--row > .wf-config-inline-ctrls > .wf-config-inline-btn {
+  flex-shrink: 0;
+  white-space: nowrap;
+  font-size: 0.76rem;
+  padding: 4px 8px;
+}
+.wf-config-row-stack {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.wf-config-hint-text--below {
+  display: block;
+  margin-top: 1px;
+  line-height: 1.25;
+}
+.wf-config-hint-text--below strong {
+  color: var(--text);
+}
+.wf-config-readonly-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-width: 0;
+}
+.wf-config-readonly-row .wf-config-descriptor-textarea {
+  flex: 1;
+}
+.wf-config-copy-btn {
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  line-height: 1;
+  padding: 6px 8px;
+  min-width: 54px;
+  margin-top: 2px;
+}
+.wf-config-descriptor-textarea {
+  min-height: 42px;
+}
+.wf-config-textarea--readonly {
+  background: color-mix(in oklab, var(--bg), white 4%);
+  border: 1px dashed color-mix(in oklab, var(--border), white 20%);
+  color: color-mix(in oklab, var(--text), white 8%);
+  cursor: default;
+  resize: none;
+}
+/* Kafka section fields inherit the same label width for consistency */
+.wf-kafka-section .wf-config-field--row > label { width: 100px; }
+.wf-kafka-section .wf-config-field-pair > .wf-config-field--row > label { width: 76px; }
 .wf-config-version-mode-row {
   display: flex; align-items: center; gap: 8px;
 }
@@ -1571,7 +1685,30 @@
   width: 100%; padding: 5px 8px; background: var(--bg); border: 1px solid var(--border);
   border-radius: 5px; color: var(--text); font-size: 0.8rem;
 }
-.wf-config-textarea { font-family: 'SF Mono', monospace; font-size: 0.75rem; resize: vertical; }
+.wf-config-field input[type="radio"],
+.wf-config-field input[type="checkbox"],
+.wf-config-body input[type="radio"],
+.wf-config-body input[type="checkbox"] {
+  width: auto;
+  max-width: none;
+  flex: 0 0 auto;
+  padding: 0;
+}
+.wf-config-textarea {
+  font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.75rem; resize: vertical;
+  line-height: 1.5; padding: 8px 10px;
+}
+
+/* Give gRPC Assert JSON assertions a larger default editing area. */
+.wf-grpc-assert-config-body {
+  display: block;
+}
+.wf-grpc-assertions-field {
+  margin-bottom: 0;
+}
+.wf-grpc-assertions-textarea {
+  min-height: 300px;
+}
 
 .wf-config-url-row {
   display: flex; gap: 4px; margin-bottom: 8px;
@@ -1642,7 +1779,7 @@
 .wf-config-tab:hover { color: var(--text); }
 .wf-config-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
 
-.wf-config-tab-content { min-height: 60px; }
+.wf-config-tab-content { min-height: 60px; padding: 16px; }
 
 .wf-config-hint-text { font-size: 0.72rem; color: var(--text-muted); }
 
@@ -1678,9 +1815,13 @@
   color: var(--text-muted);
   cursor: pointer;
 }
-.wf-config-inline-radio input {
+.wf-config-inline-radio input[type="radio"] {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
   margin: 0;
   cursor: pointer;
+  accent-color: var(--primary);
 }
 .wf-config-field-error {
   font-size: 0.72rem;
@@ -2614,7 +2755,6 @@
 }
 .wf-expr-arg-input:focus { border-color: var(--primary); outline: none; }
 
-.wf-expr-var-chips { }
 .wf-expr-var-chips-title {
   font-size: 0.68rem;
   font-weight: 600;
@@ -2635,7 +2775,6 @@
 .wf-expr-var-chip:hover { background: #3b82f622; border-color: var(--primary); }
 .wf-expr-var-chips-more { font-size: 0.64rem; color: var(--text-muted); align-self: center; }
 
-.wf-expr-preview { }
 .wf-expr-preview-title {
   font-size: 0.68rem;
   font-weight: 600;
@@ -2799,15 +2938,39 @@
 }
 
 .wf-config-kv-list { display: flex; flex-direction: column; gap: 0; }
+.wf-config-kv-col-headers {
+  display: flex; gap: 6px; align-items: center;
+  padding: 0 4px 4px; border-bottom: 1px solid var(--border-subtle, rgba(255,255,255,0.06));
+  margin-bottom: 2px;
+}
+.wf-config-kv-col-headers span {
+  font-size: 0.62rem; font-weight: 600; text-transform: uppercase;
+  letter-spacing: 0.04em; color: var(--text-muted); user-select: none;
+}
+.wf-kv-col-toggle { width: 28px; text-align: center; flex-shrink: 0; }
+.wf-kv-col-fill { flex: 1; min-width: 0; }
+.wf-kv-col-del { width: 28px; flex-shrink: 0; }
 .wf-config-kv-row {
   display: flex; gap: 6px; align-items: center;
   padding: 3px 4px; border-radius: 4px; transition: background 0.1s;
 }
 .wf-config-kv-row:hover { background: var(--surface-hover); }
 .wf-config-kv-row input {
-  flex: 1; padding: 6px 10px; background: var(--surface); border: 1px solid var(--border);
-  border-radius: 4px; color: var(--text); font-size: 0.83rem;
+  flex: 1; padding: 5px 8px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: 4px; color: var(--text); font-size: 0.8rem;
 }
+.wf-config-kv-row select {
+  flex: 1; min-width: 0; padding: 5px 8px; background: var(--surface);
+  border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 0.8rem;
+}
+.wf-kv-toggle { width: 28px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.wf-kv-toggle input[type="checkbox"] { width: 15px; height: 15px; accent-color: var(--primary); cursor: pointer; }
+.wf-kv-del { width: 28px; flex-shrink: 0; }
+.wf-kv-del .btn {
+  padding: 2px 6px; font-size: 0.75rem;
+  opacity: 0; transition: opacity 0.15s;
+}
+.wf-config-kv-row:hover .wf-kv-del .btn { opacity: 1; }
 
 /* Header row */
 .wf-config-kv-header {
@@ -2830,21 +2993,28 @@
   flex-shrink: 0;
 }
 
-/* Source column in variables section */
+/* Source column in variables section — keep a visible slot even when empty */
 .wf-var-source-cell-header {
-  width: 160px;
-  flex-shrink: 0;
+  width: 200px;
+  min-width: 180px;
+  flex: 0 0 200px;
 }
 .wf-var-source-cell {
-  width: 160px;
-  flex-shrink: 0;
+  width: 200px;
+  min-width: 180px;
+  flex: 0 0 200px;
   display: flex;
   align-items: center;
 }
 .wf-var-source-input {
+  /* Override `.wf-config-kv-row input { flex: 1 }` which collapses an empty Source field */
+  flex: 0 0 auto !important;
   width: 100%;
+  min-width: 0;
+  min-height: 30px;
+  box-sizing: border-box;
   padding: 6px 10px;
-  background: var(--surface);
+  background: var(--bg);
   border: 1px solid var(--border);
   border-radius: 4px;
   color: var(--text-muted);
@@ -2943,7 +3113,9 @@
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
 .wf-node-ctx-item {
-  display: block;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   width: 100%;
   border: none;
   background: transparent;
@@ -3226,7 +3398,8 @@
   left: 0;
   right: 0;
   bottom: 0;
-  z-index: 10090;
+  z-index: 10100;
+  display: flex;
   align-items: center;
   justify-content: center;
   background: transparent;
@@ -3273,11 +3446,20 @@
   text-align: center;
 }
 
-/* Transparent overlay for context modal */
+/* Portal overlay — full designer viewport, above canvas resize handles & config split */
 .wf-vars-modal-overlay.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10090;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: transparent;
   backdrop-filter: none;
-  pointer-events: none;
+  pointer-events: auto;
 }
 /* Centered card (not full screen); overrides ram-modal full-viewport shell */
 .wf-vars-modal.wf-vars-modal--card.modal.ram-modal {
@@ -3554,6 +3736,7 @@
 .wf-waitcond-body > div:has(.wf-node-label),
 .wf-webhook-body > div:has(.wf-node-label),
 .wf-kafka-body > div:has(.wf-node-label),
+.wf-ws-body > div:has(.wf-node-label),
 .wf-correlation-body > div:has(.wf-node-label),
 .wf-subworkflow-body > div:has(.wf-node-label),
 .wf-script-body > div:has(.wf-node-label) {
@@ -3708,6 +3891,329 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+}
+.wf-detail-modal-footer--end {
+  justify-content: flex-end;
+}
+
+/* Quick Test failure — content-sized card; body scrolls when content exceeds viewport */
+.wf-detail-modal.wf-detail-modal--compact.modal.ram-modal {
+  display: flex;
+  flex-direction: column;
+  height: auto;
+  max-width: min(640px, 92vw);
+  width: 100%;
+  max-height: min(92vh, 900px);
+  min-height: 0;
+  overflow: hidden;
+}
+.wf-detail-modal--compact .ram-header {
+  flex-shrink: 0;
+}
+.wf-detail-modal--compact .wf-detail-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: none;
+  padding: 16px 20px 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg);
+}
+.wf-detail-modal--compact .wf-detail-modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+.wf-detail-modal--compact .wf-detail-modal-body::-webkit-scrollbar-track {
+  background: var(--bg);
+  border-radius: 4px;
+}
+.wf-detail-modal--compact .wf-detail-modal-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+.wf-detail-modal--compact .wf-detail-modal-body::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--primary) 40%, var(--border));
+}
+.wf-detail-modal--compact .wf-detail-modal-footer,
+.wf-detail-modal--compact .ram-footer {
+  flex-shrink: 0;
+}
+.wf-detail-modal--compact .wf-qt-fail-panel {
+  padding-bottom: 0;
+  overflow: visible;
+}
+.wf-detail-modal--compact .wf-detail-modal-textarea {
+  min-height: 140px;
+  max-height: min(40vh, 320px);
+}
+.wf-detail-modal--compact .wf-detail-modal-pretty {
+  min-height: 140px;
+  max-height: min(40vh, 320px);
+}
+
+/* ── Quick Test failure panel (detail modal) ─────────── */
+.wf-qt-fail-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-height: 0;
+  overflow: visible;
+  padding: 2px 2px 10px;
+}
+
+.wf-qt-fail-hero {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+  padding: 14px 16px;
+  border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--error, #f87171) 40%, var(--border));
+  background: color-mix(in srgb, var(--error, #f87171) 10%, var(--surface));
+}
+
+.wf-qt-fail-hero-icon {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--error, #f87171) 18%, var(--bg));
+  color: var(--error, #f87171);
+}
+
+.wf-qt-fail-hero-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.wf-qt-fail-hero-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.wf-qt-fail-hero-detail {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.wf-qt-fail-hero-raw {
+  margin: 2px 0 0;
+  padding: 6px 8px;
+  border-radius: 5px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.7rem;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  color: var(--text-muted);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.wf-qt-fail-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.wf-qt-fail-stat {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+}
+
+.wf-qt-fail-stat--fail {
+  border-color: color-mix(in srgb, var(--error, #f87171) 45%, var(--border));
+  background: color-mix(in srgb, var(--error, #f87171) 12%, var(--surface));
+  color: color-mix(in srgb, var(--error, #f87171) 85%, var(--text));
+}
+
+.wf-qt-fail-stat--pass {
+  border-color: color-mix(in srgb, var(--success, #22c55e) 40%, var(--border));
+  background: color-mix(in srgb, var(--success, #22c55e) 10%, var(--surface));
+  color: color-mix(in srgb, var(--success, #22c55e) 80%, var(--text));
+}
+
+.wf-qt-fail-stat--neutral {
+  font-weight: 500;
+}
+
+.wf-qt-fail-section-title {
+  margin: 0 0 6px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0.01em;
+}
+
+.wf-qt-fail-section-hint {
+  margin: 0 0 8px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.85;
+  line-height: 1.4;
+}
+
+.wf-qt-fail-step-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wf-qt-fail-step-list--compact {
+  gap: 6px;
+}
+.wf-qt-fail-step {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  padding: 10px 12px;
+}
+.wf-qt-fail-step--fail {
+  border-color: color-mix(in srgb, var(--error, #f87171) 40%, var(--border));
+  background: color-mix(in srgb, var(--error, #f87171) 4%, var(--surface));
+}
+.wf-qt-fail-step--pass {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.76rem;
+  border-color: color-mix(in srgb, var(--success, #22c55e) 28%, var(--border));
+}
+.wf-qt-fail-step-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.wf-qt-fail-step-meta-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+.wf-qt-fail-status-pill {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.wf-qt-fail-status-pill--fail {
+  background: color-mix(in srgb, var(--error, #f87171) 20%, var(--bg));
+  color: color-mix(in srgb, var(--error, #f87171) 90%, var(--text));
+  border: 1px solid color-mix(in srgb, var(--error, #f87171) 35%, var(--border));
+}
+.wf-qt-fail-status-pill--pass {
+  background: color-mix(in srgb, var(--success, #22c55e) 16%, var(--bg));
+  color: color-mix(in srgb, var(--success, #22c55e) 85%, var(--text));
+  border: 1px solid color-mix(in srgb, var(--success, #22c55e) 30%, var(--border));
+}
+.wf-qt-fail-step-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.wf-qt-fail-step-meta {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+}
+.wf-qt-fail-step--fail .wf-qt-fail-step-head {
+  margin-bottom: 8px;
+}
+.wf-qt-fail-step-error {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.45;
+}
+.wf-qt-fail-vars {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.wf-qt-fail-var-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 38%) 1fr;
+  align-items: stretch;
+  min-height: 48px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.wf-qt-fail-var-row:last-child {
+  border-bottom: none;
+}
+.wf-qt-fail-var-key {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  font-size: 0.72rem;
+  font-weight: 500;
+  color: var(--primary);
+  font-family: 'SF Mono', ui-monospace, monospace;
+  display: flex;
+  align-items: center;
+}
+.wf-qt-fail-var-val {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  font-family: 'SF Mono', ui-monospace, monospace;
+  color: var(--text);
+  word-break: break-all;
+  line-height: 1.45;
+  display: flex;
+  align-items: center;
+}
+.wf-qt-fail-hints {
+  padding: 12px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+}
+.wf-qt-fail-hint-list {
+  margin: 0;
+  padding: 0 0 0 18px;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+.wf-qt-fail-hint-list li + li {
+  margin-top: 6px;
 }
 
 /* ── Expanded config modal (full-screen step editor) ─── */
@@ -3959,7 +4465,8 @@
 
 /* Start node */
 .wf-node-start { min-width: 160px; border-color: var(--cat-trigger);
-  background: linear-gradient(135deg, var(--cat-trigger-bg) 0%, var(--surface) 60%);
+  background: linear-gradient(145deg, var(--cat-trigger-bg) 0%, var(--surface) 55%);
+  border-radius: 24px;
 }
 .wf-start-body {
   display: flex; align-items: center; gap: 10px; padding: 12px 16px;
@@ -3993,7 +4500,8 @@
 
 /* End node */
 .wf-node-end { min-width: 160px; border-color: var(--cat-terminal);
-  background: linear-gradient(135deg, var(--cat-terminal-bg) 0%, var(--surface) 60%);
+  background: linear-gradient(145deg, var(--cat-terminal-bg) 0%, var(--surface) 55%);
+  border-radius: 24px;
 }
 .wf-end-body {
   display: flex; align-items: center; gap: 10px; padding: 12px 16px;
@@ -4126,7 +4634,8 @@
 
 .react-flow__controls { display: none; }
 .react-flow__minimap { background: var(--surface) !important; border: 1px solid var(--border); border-radius: 8px; }
-.react-flow__edge-path { stroke: var(--border); stroke-width: 2; }
+.react-flow__edge-path { stroke: var(--border); stroke-width: 2; opacity: 0.7; transition: stroke 0.2s, opacity 0.2s; }
+.react-flow__edge:hover .react-flow__edge-path { stroke: var(--text-muted); opacity: 1; stroke-width: 2.5; }
 .react-flow__attribution { display: none; }
 
 /* ── Phase 3: Floating pill controls ── */
@@ -4173,27 +4682,25 @@
   flex-shrink: 0;
 }
 
-/* ── Phase 3: Arrow marker color override for execution state edges ── */
-.react-flow__edge.wf-edge-pass .react-flow__edge-path { marker-end: url(#wf-arrow-pass); }
-.react-flow__edge.wf-edge-fail .react-flow__edge-path { marker-end: url(#wf-arrow-fail); }
-.react-flow__edge.wf-edge-animated .react-flow__edge-path { marker-end: url(#wf-arrow-animated); }
-.react-flow__edge.wf-edge-skipped .react-flow__edge-path { marker-end: none; }
-
-/* ── Phase 2: Edge execution states ── */
+/* ── Edge execution states (stroke + arrow marker) ── */
 .react-flow__edge.wf-edge-animated .react-flow__edge-path {
   stroke: #3b82f6; stroke-width: 2.5;
   stroke-dasharray: 8 4;
   animation: wf-edge-flow 0.6s linear infinite;
+  marker-end: url(#wf-arrow-animated);
 }
 .react-flow__edge.wf-edge-pass .react-flow__edge-path {
   stroke: #22c55e; stroke-width: 2;
+  marker-end: url(#wf-arrow-pass);
 }
 .react-flow__edge.wf-edge-fail .react-flow__edge-path {
   stroke: #ef4444; stroke-width: 2;
+  marker-end: url(#wf-arrow-fail);
 }
 .react-flow__edge.wf-edge-skipped .react-flow__edge-path {
   stroke: var(--border); stroke-width: 1.5;
   stroke-dasharray: 4 4; opacity: 0.4;
+  marker-end: none;
 }
 @keyframes wf-edge-flow {
   to { stroke-dashoffset: -12; }
@@ -4701,6 +5208,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  /* Shift vertical center below toolbar + SLA Targets bar */
+  padding-top: 96px;
   background: transparent;
   backdrop-filter: none;
   pointer-events: none;
@@ -4708,15 +5217,62 @@
 .wf-config-modal-overlay.modal-overlay > .modal {
   pointer-events: auto;
 }
+/* Standard workflow node config chrome: dark --surface interior + subtle white edge. */
 .wf-config-modal.modal.ram-modal {
   display: flex;
   flex-direction: column;
-  width: 90vw;
-  max-width: 900px;
-  height: 85vh;
-  max-height: 85vh;
-  border-radius: 8px;
+  width: min(660px, 94vw);
+  max-width: none;
+  height: min(82vh, 900px);
+  max-height: 82vh;
+  min-height: 260px;
+  border-radius: 10px;
   overflow: hidden;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* gRPC Assert config has fewer fields; use a shorter modal to avoid large dead space. */
+.wf-config-modal.modal.ram-modal:has([data-testid="grpc-assert-config"]) {
+  height: clamp(460px, 62vh, 620px);
+  max-height: min(70vh, 620px);
+  min-height: 460px;
+}
+
+.wf-config-modal .wf-modal-scroll-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+.wf-config-modal .wf-modal-scroll-viewport {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+/* Title + Config/Input/Output/Logs stay pinned; only the form body scrolls. */
+.wf-config-modal .ram-header {
+  padding: 11px 18px;
+  flex-shrink: 0;
+  z-index: 2;
+  background: inherit;
+}
+.wf-config-modal-toolbar {
+  flex-shrink: 0;
+  z-index: 2;
+  background: inherit;
+  border-bottom: 1px solid var(--border);
+}
+.wf-config-modal-toolbar .wf-config-modal-tabs {
+  border-bottom: none;
+  background: transparent;
 }
 .wf-config-modal .ram-header h3 {
   overflow: hidden;
@@ -4724,6 +5280,9 @@
   white-space: nowrap;
   min-width: 0;
   flex: 1;
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 .wf-modal-scroll-shell {
   flex: 1;
@@ -4734,16 +5293,26 @@
   height: 100%;
   min-height: 0;
   overflow-y: auto;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
+  -ms-overflow-style: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
 .wf-modal-scroll-viewport::-webkit-scrollbar {
-  width: 0;
-  height: 0;
-  display: none;
+  width: 8px;
+  height: 8px;
+}
+.wf-modal-scroll-viewport::-webkit-scrollbar-track {
+  background: transparent;
+}
+.wf-modal-scroll-viewport::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--border) 88%, transparent);
+  border-radius: 999px;
+}
+.wf-modal-scroll-viewport::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--text-muted) 82%, transparent);
 }
 .wf-config-modal-scroll {
-  padding: 16px 24px 24px;
+  padding: 10px 16px 16px;
 }
 .wf-config-modal-scroll .wf-config-body {
   max-height: none;
@@ -4760,7 +5329,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 24px;
+  padding: 10px 18px;
   border-top: 1px solid var(--border);
   flex-shrink: 0;
 }
@@ -4775,16 +5344,67 @@
 
 /* ── Workflow Defaults Modal ── */
 .wf-defaults-modal.wf-config-modal.modal.ram-modal {
-  width: min(780px, 92vw);
-  max-width: 780px;
+  /* Compact card; height hugs content (no tall empty body). */
+  width: min(720px, 92vw);
+  max-width: 720px;
+  min-width: min(520px, 92vw);
   height: auto;
-  max-height: min(78vh, 720px);
+  max-height: min(72vh, 640px);
+  min-height: 0;
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.25);
+  position: relative;
+  flex: 0 0 auto;
+  align-self: center;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .wf-config-modal-overlay:has(.wf-defaults-modal) {
   align-items: flex-start;
-  padding-top: 80px;
+  justify-content: center;
+  padding-top: 56px;
+  padding-bottom: 24px;
+}
+/* Resize grips live inside the dialog (overflow:hidden would clip bottom:-3px handles). */
+.wf-config-modal.modal.ram-modal .modal-resize-edge-bottom {
+  bottom: 0;
+  left: 0;
+  right: 18px;
+  height: 10px;
+  cursor: ns-resize;
+}
+.wf-config-modal.modal.ram-modal .modal-resize-corner {
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+}
+.wf-config-modal.modal.ram-modal .modal-resize-corner::after {
+  opacity: 0.65;
+}
+.wf-defaults-modal.wf-config-modal.modal.ram-modal .modal-resize-corner::after {
+  opacity: 0.75;
+}
+/*
+ * Hug content by default. When vars grow past max-height, this shell shrinks
+ * and scrolls — without reserving a tall empty flex region under Error Handling.
+ */
+.wf-defaults-modal .wf-modal-scroll-shell,
+.wf-defaults-modal .wf-config-modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.wf-defaults-modal .wf-modal-scroll-viewport,
+.wf-defaults-modal .wf-config-modal-scroll {
+  flex: 1 1 auto;
+  height: auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding-bottom: 4px;
 }
 .wf-defaults-modal .ram-header {
   padding: 16px 24px 14px;
@@ -4842,34 +5462,119 @@
   letter-spacing: 0.5px;
   color: var(--text-muted);
 }
+.wf-defaults-vars-section .wf-var-source-cell-header,
+.wf-defaults-vars-section .wf-var-source-cell {
+  width: 140px;
+  min-width: 120px;
+  flex: 0 0 140px;
+}
 .wf-defaults-error-section {
   border-top: 1px solid var(--border);
-  padding-top: 16px;
+  padding-top: 14px;
+  /* Reserve space under the hint so the error-mode menu can open fully downward. */
+  padding-bottom: 140px;
+  margin-bottom: 0;
 }
 .wf-defaults-error-field {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  margin-bottom: 12px;
+  margin-bottom: 0;
+}
+.wf-defaults-error-field + .wf-defaults-error-field {
+  margin-top: 12px;
+}
+/* When handler node select appears, keep room for that menu too. */
+.wf-defaults-error-section:has(.wf-defaults-error-field + .wf-defaults-error-field) {
+  padding-bottom: 160px;
 }
 .wf-defaults-field-label {
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--text);
 }
-.wf-defaults-select {
+.wf-defaults-select,
+.wf-dark-select__trigger {
   width: 100%;
-  padding: 8px 12px;
+  padding: 8px 32px 8px 12px;
   border-radius: 6px;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background-color: var(--bg);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8b8cc' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
   color: var(--text);
   font-size: 0.82rem;
   outline: none;
-  transition: border-color 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s;
 }
-.wf-defaults-select:focus {
-  border-color: var(--accent, #818cf8);
+.wf-defaults-select:hover,
+.wf-dark-select__trigger:hover {
+  border-color: var(--primary);
+}
+.wf-defaults-select:focus,
+.wf-dark-select__trigger:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.wf-dark-select {
+  position: relative;
+  width: 100%;
+}
+.wf-dark-select__value {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wf-dark-select__menu {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 22%, var(--border));
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 10%, transparent),
+    0 10px 28px rgba(0, 0, 0, 0.45);
+  max-height: 220px;
+  overflow-y: auto;
+}
+/* Portaled below the trigger so it opens downward over the footer if needed. */
+.wf-dark-select__menu--portal {
+  position: fixed;
+  z-index: 12000;
+}
+.wf-dark-select__option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.82rem;
+  text-align: left;
+  cursor: pointer;
+}
+.wf-dark-select__option:hover {
+  background: var(--surface-hover);
+}
+.wf-dark-select__option.is-active {
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.wf-dark-select__check {
+  flex: 0 0 14px;
+  font-size: 0.75rem;
+  color: var(--primary);
 }
 .wf-defaults-field-hint {
   font-size: 0.7rem;
@@ -4884,7 +5589,8 @@
   font-size: 0.68rem;
 }
 .wf-defaults-modal .wf-config-modal-footer {
-  padding: 14px 24px;
+  padding: 12px 24px;
+  margin-top: 0;
 }
 
 /* ── Configure badge on nodes ──────────────────────── */
@@ -4928,6 +5634,10 @@
   background: color-mix(in srgb, var(--danger) 12%, transparent);
   border-color: var(--danger);
 }
+.wf-server-status-native {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-color: var(--primary);
+}
 .wf-server-status-checking {
   background: color-mix(in srgb, var(--warning) 12%, transparent);
   border-color: var(--warning);
@@ -4938,6 +5648,7 @@
 }
 .wf-server-dot-online  { background: var(--success); }
 .wf-server-dot-offline { background: var(--danger); }
+.wf-server-dot-native  { background: var(--primary); }
 .wf-server-dot-checking {
   background: var(--warning);
   animation: wf-server-pulse 1.5s ease-in-out infinite;
@@ -5717,12 +6428,12 @@
   background: transparent;
 }
 .wf-config-modal-tab {
-  flex: 1; padding: 10px 8px; text-align: center;
-  font-size: 12px; font-weight: 500; color: var(--text-muted);
+  flex: 1; padding: 8px 8px; text-align: center;
+  font-size: 11.5px; font-weight: 500; color: var(--text-muted);
   background: transparent; border: none; cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: background 0.15s, color 0.15s;
-  display: flex; align-items: center; justify-content: center; gap: 6px;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
 }
 .wf-config-modal-tab svg { width: 14px; height: 14px; }
 .wf-config-modal-tab:hover { color: var(--text); background: rgba(148,163,184,0.06); }
@@ -5736,7 +6447,6 @@
 }
 
 /* ── Config tab content ── */
-.wf-config-tab-content { padding: 16px; }
 .wf-config-tab-hint { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
 .wf-config-tab-empty {
   padding: 32px 16px; text-align: center; color: var(--text-muted); font-size: 13px;
@@ -6136,11 +6846,6 @@
 .wf-node-ctx-sep {
   height: 1px; background: var(--border); margin: 2px 0;
 }
-.wf-node-ctx-item {
-  display: flex; align-items: center; justify-content: space-between;
-  width: 100%;
-}
-
 /* ── Drag Preview & Drop Indicator ────────────────────── */
 
 .wf-drag-ghost {
@@ -7003,6 +7708,7 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
 }
 .wf-script-modal-editor .wf-script-code-editor {
   flex: 1;
@@ -7013,9 +7719,6 @@
   top: 8px;
   right: 12px;
   z-index: 5;
-}
-.wf-script-modal-editor .wf-config-field-with-insert {
-  position: relative;
 }
 /* Right: Test sidebar */
 .wf-script-modal-sidebar {
@@ -7325,61 +8028,147 @@
 /* ── Available Variables (collapsible) ─────────── */
 .wf-avail-vars {
   margin-top: 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
 }
 .wf-avail-vars-toggle {
   all: unset;
+  box-sizing: border-box;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 6px;
-  font-size: 0.78rem;
+  gap: 8px;
+  width: 100%;
+  font-size: 0.76rem;
   font-weight: 600;
   color: var(--text-muted);
-  padding: 4px 0;
+  padding: 10px 12px;
   user-select: none;
 }
-.wf-avail-vars-toggle:hover { color: var(--text); }
+.wf-avail-vars-toggle:hover { color: var(--text); background: var(--surface-hover); }
+.wf-avail-vars--open .wf-avail-vars-toggle {
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+}
 .wf-avail-vars-chevron {
   display: inline-block;
   transition: transform 0.15s;
   font-size: 0.7rem;
+  flex-shrink: 0;
 }
 .wf-avail-vars-chevron.open { transform: rotate(90deg); }
-.wf-avail-vars-count {
+.wf-avail-vars-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.wf-avail-vars-toggle-hint {
+  font-size: 0.65rem;
   font-weight: 400;
-  font-size: 0.7rem;
   color: var(--text-muted);
-  background: var(--hover-bg);
-  padding: 1px 6px;
+  opacity: 0.8;
+}
+.wf-avail-vars-scroll-hint {
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 0.66rem;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--primary) 6%, var(--bg));
+  border-bottom: 1px solid var(--border);
+}
+.wf-avail-vars--dock {
+  margin-top: 0;
+  flex-shrink: 0;
+}
+.wf-avail-vars--dock:not(.wf-avail-vars--open) .wf-avail-vars-toggle {
+  padding: 7px 12px;
+}
+.wf-avail-vars--dock:not(.wf-avail-vars--open) .wf-avail-vars-toggle-text {
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.wf-avail-vars--dock:not(.wf-avail-vars--open) .wf-avail-vars-toggle-hint {
+  font-size: 0.68rem;
+  opacity: 0.75;
+}
+.wf-avail-vars--dock.wf-avail-vars--open .wf-avail-vars-body {
+  min-height: 132px;
+  max-height: min(240px, 42vh);
+}
+.wf-avail-vars-count {
+  font-weight: 500;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--primary) 10%, var(--bg));
+  border: 1px solid var(--border);
+  padding: 1px 7px;
   border-radius: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+.wf-avail-vars-body {
+  max-height: min(220px, 38vh);
+  overflow-x: auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  background: var(--bg);
+}
+.wf-avail-vars-body::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.wf-avail-vars-body::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
 }
 .wf-avail-vars-table {
   width: 100%;
   border-collapse: collapse;
-  margin-top: 6px;
   font-size: 0.72rem;
 }
 .wf-avail-vars-table th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
   text-align: left;
   font-weight: 600;
   font-size: 0.68rem;
   text-transform: uppercase;
   letter-spacing: 0.3px;
   color: var(--text-muted);
-  padding: 4px 8px;
+  padding: 8px 12px;
   border-bottom: 1px solid var(--border);
+  background: var(--bg);
 }
 .wf-avail-vars-table td {
-  padding: 3px 8px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.wf-avail-vars-table tbody tr:last-child td {
+  border-bottom: none;
 }
 .wf-avail-vars-ref code {
   font-size: 0.72rem;
-  color: var(--accent);
+  color: var(--primary);
+  word-break: break-all;
+}
+.wf-avail-vars-type {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  white-space: nowrap;
 }
 .wf-avail-vars-source {
   color: var(--text-muted);
   font-size: 0.7rem;
+  line-height: 1.35;
 }
 
 /* ── Log/Debug node ────────────────────────────── */
@@ -8497,49 +9286,218 @@
 .wf-node-kafkaConsume,
 .wf-node-kafkaWait {
   min-width: 200px; border-color: var(--cat-integration);
-  background: linear-gradient(135deg, var(--cat-integration-bg) 0%, var(--surface) 60%);
+  background: linear-gradient(145deg, var(--cat-integration-bg) 0%, var(--surface) 55%, var(--surface) 100%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22), 0 0 0 1px rgba(50,208,165,0.06);
+}
+.wf-node-kafkaProduce:hover,
+.wf-node-kafkaConsume:hover,
+.wf-node-kafkaWait:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.28), 0 0 12px rgba(50,208,165,0.08);
 }
 .wf-node-kafkaTrigger {
   min-width: 200px; border-color: var(--cat-trigger);
-  background: linear-gradient(135deg, var(--cat-trigger-bg) 0%, var(--surface) 60%);
+  background: linear-gradient(145deg, var(--cat-trigger-bg) 0%, var(--surface) 55%, var(--surface) 100%);
 }
 .wf-kafka-body {
-  display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px;
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px 6px;
   min-width: 0; overflow: hidden;
 }
 .wf-kafka-details {
-  padding: 4px 16px 6px; font-size: 0.72rem; color: var(--text-muted);
+  padding: 2px 16px 8px; font-size: 0.72rem; color: var(--text-muted);
+  display: flex; flex-direction: column; gap: 3px;
 }
-.wf-kafka-topic {
+.wf-kafka-topic,
+.wf-kafka-cluster,
+.wf-kafka-meta {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+  display: flex; align-items: center; gap: 4px;
 }
 .wf-kafka-topic strong,
-.wf-kafka-cluster strong {
-  color: var(--cat-integration); font-weight: 600; font-size: 0.68rem;
-  text-transform: uppercase; letter-spacing: 0.04em;
+.wf-kafka-cluster strong,
+.wf-kafka-meta strong {
+  color: var(--cat-integration); font-weight: 700; font-size: 0.62rem;
+  text-transform: uppercase; letter-spacing: 0.05em; flex-shrink: 0;
+  background: rgba(50,208,165,0.08); padding: 1px 5px; border-radius: 3px;
 }
 /* kafkaTrigger uses trigger color for label accents */
 .wf-node-kafkaTrigger .wf-kafka-topic strong,
-.wf-node-kafkaTrigger .wf-kafka-cluster strong {
+.wf-node-kafkaTrigger .wf-kafka-cluster strong,
+.wf-node-kafkaTrigger .wf-kafka-meta strong {
+  color: var(--cat-trigger); background: rgba(34,197,94,0.08);
+}
+
+/* ── WebSocket Integration Nodes ── */
+.wf-node-wsConnect,
+.wf-node-wsSend,
+.wf-node-wsReceive {
+  min-width: 200px; border-color: var(--cat-integration);
+  background: linear-gradient(145deg, var(--cat-integration-bg) 0%, var(--surface) 55%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22), 0 0 0 1px rgba(50,208,165,0.06);
+}
+.wf-node-wsConnect:hover,
+.wf-node-wsSend:hover,
+.wf-node-wsReceive:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.28), 0 0 12px rgba(50,208,165,0.08);
+}
+.wf-node-wsTrigger {
+  min-width: 200px; border-color: var(--cat-trigger);
+  background: linear-gradient(145deg, var(--cat-trigger-bg) 0%, var(--surface) 55%);
+}
+.wf-ws-body {
+  display: flex; align-items: center; gap: 10px; padding: 12px 16px 4px;
+  min-width: 0; overflow: hidden;
+}
+.wf-ws-details {
+  padding: 4px 16px 6px; font-size: 0.72rem; color: var(--text-muted);
+}
+.wf-ws-url {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+}
+.wf-ws-url strong,
+.wf-ws-connid strong,
+.wf-ws-match strong,
+.wf-ws-msg strong {
+  color: var(--cat-integration); font-weight: 600; font-size: 0.68rem;
+  text-transform: uppercase; letter-spacing: 0.04em;
+}
+.wf-node-wsTrigger .wf-ws-url strong,
+.wf-node-wsTrigger .wf-ws-connid strong {
   color: var(--cat-trigger);
 }
-.wf-kafka-cluster {
+.wf-node-graphqlIntrospect .wf-ws-url strong {
+  color: var(--cat-action);
+}
+.wf-node-graphqlAssert .wf-ws-url strong {
+  color: var(--cat-logic);
+}
+.wf-ws-connid {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
   margin-top: 2px;
 }
-.wf-kafka-meta {
+.wf-ws-match,
+.wf-ws-msg {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px;
+  margin-top: 2px;
+}
+.wf-ws-meta {
   margin-top: 2px; font-size: 0.68rem; color: var(--text-muted);
+}
+
+/* ── GraphQL Integration Nodes ── */
+.wf-node-graphqlQuery,
+.wf-node-graphqlMutation,
+.wf-node-graphqlSubscription {
+  min-width: 200px; border-color: var(--cat-integration);
+  background: linear-gradient(145deg, var(--cat-integration-bg) 0%, var(--surface) 55%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22), 0 0 0 1px rgba(50,208,165,0.06);
+}
+.wf-node-graphqlQuery:hover,
+.wf-node-graphqlMutation:hover,
+.wf-node-graphqlSubscription:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.28), 0 0 12px rgba(50,208,165,0.08);
+}
+.wf-node-graphqlIntrospect {
+  min-width: 200px; border-color: var(--cat-action);
+  background: linear-gradient(145deg, var(--cat-action-bg) 0%, var(--surface) 55%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22), 0 0 0 1px rgba(59,130,246,0.06);
+}
+.wf-node-graphqlIntrospect:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.28), 0 0 12px rgba(59,130,246,0.08);
+}
+.wf-node-graphqlAssert {
+  min-width: 200px; border-color: var(--cat-logic);
+  background: linear-gradient(145deg, var(--cat-logic-bg) 0%, var(--surface) 55%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22), 0 0 0 1px rgba(168,85,247,0.06);
+}
+.wf-node-graphqlAssert:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.28), 0 0 12px rgba(168,85,247,0.08);
+}
+
+/* ── gRPC Integration Nodes ── */
+.wf-node-grpcUnary,
+.wf-node-grpcServerStream {
+  min-width: 200px; border-color: var(--cat-integration);
+  background: linear-gradient(145deg, var(--cat-integration-bg) 0%, var(--surface) 55%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22), 0 0 0 1px rgba(50,208,165,0.06);
+}
+.wf-node-grpcUnary:hover,
+.wf-node-grpcServerStream:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.28), 0 0 12px rgba(50,208,165,0.08);
+}
+.wf-node-grpcAssert {
+  min-width: 200px; border-color: var(--cat-logic);
+  background: linear-gradient(145deg, var(--cat-logic-bg) 0%, var(--surface) 55%);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.22), 0 0 0 1px rgba(168,85,247,0.06);
+}
+.wf-node-grpcAssert:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.28), 0 0 12px rgba(168,85,247,0.08);
 }
 
 /* ── Kafka Config Sections ── */
 .wf-kafka-section {
-  margin-top: 10px; padding: 10px 12px; border-radius: 8px;
-  background: rgba(50, 208, 165, 0.04); border: 1px solid rgba(50, 208, 165, 0.12);
+  margin-top: 12px; padding: 10px 14px 12px; border-radius: 8px;
+  background: rgba(50, 208, 165, 0.03); border: 1px solid rgba(50, 208, 165, 0.10);
 }
 .wf-kafka-section-title {
-  font-size: 0.78rem; font-weight: 700; color: var(--cat-integration);
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.68rem; font-weight: 700; color: var(--cat-integration);
   margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em;
 }
+.wf-kafka-section-title::before {
+  content: ''; display: inline-block; width: 3px; height: 12px;
+  background: var(--cat-integration); border-radius: 2px; flex-shrink: 0;
+}
+.wf-kafka-section-title .wf-section-add-btn {
+  margin-left: auto; background: transparent; border: 1px dashed var(--border);
+  color: var(--text-muted); font-size: 0.65rem; font-weight: 500;
+  padding: 2px 10px; border-radius: 4px; cursor: pointer;
+  text-transform: none; letter-spacing: 0; line-height: 1.4;
+  transition: border-color 0.15s, color 0.15s;
+}
+.wf-kafka-section-title .wf-section-add-btn:hover {
+  border-color: var(--primary); color: var(--primary);
+}
+/* Section hint sits directly below the title */
+.wf-kafka-section > .wf-config-hint {
+  font-size: 0.7rem; color: var(--text-muted); margin: -4px 0 8px 11px; line-height: 1.35;
+}
+/* + Add buttons inside sections */
+.wf-kafka-section > .btn {
+  margin-top: 6px; background: transparent; border: 1px dashed var(--border);
+  color: var(--text-muted); font-size: 0.72rem; padding: 4px 12px; border-radius: 5px;
+  cursor: pointer; transition: border-color 0.15s, color 0.15s;
+}
+.wf-kafka-section > .btn:hover { border-color: var(--primary); color: var(--primary); }
+/* Hint shown on its own line below a --row field */
+.wf-config-row-hint {
+  font-size: 0.7rem; color: var(--text-muted); margin: -2px 0 6px 108px; line-height: 1.3;
+}
+.wf-config-row-hint code { color: #f59e0b; background: var(--bg); padding: 1px 3px; border-radius: 2px; font-size: 0.68rem; }
+.wf-kafka-section .wf-config-row-hint { margin-left: 108px; }
+
+/* ── WebSocket Config Sections ── */
+.wf-ws-section {
+  margin-top: 12px; padding: 10px 14px 12px; border-radius: 8px;
+  background: rgba(50, 208, 165, 0.03); border: 1px solid rgba(50, 208, 165, 0.10);
+}
+.wf-ws-section-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 0.68rem; font-weight: 700; color: var(--cat-integration);
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.06em;
+}
+.wf-ws-section-title::before {
+  content: ''; display: inline-block; width: 3px; height: 12px;
+  background: var(--cat-integration); border-radius: 2px; flex-shrink: 0;
+}
+.wf-ws-section > .wf-config-hint {
+  font-size: 0.7rem; color: var(--text-muted); margin: -4px 0 8px 11px; line-height: 1.35;
+}
+.wf-ws-section > .btn {
+  margin-top: 6px; background: transparent; border: 1px dashed var(--border);
+  color: var(--text-muted); font-size: 0.72rem; padding: 4px 12px; border-radius: 5px;
+  cursor: pointer; transition: border-color 0.15s, color 0.15s;
+}
+.wf-ws-section > .btn:hover { border-color: var(--primary); color: var(--primary); }
 
 
 
@@ -8579,3 +9537,1014 @@
   line-height: 1.5;
 }
 .kafka-load-info strong { color: #3b82f6; font-weight: 600; }
+
+/* GraphQL workflow config — extraction/assert test feedback */
+.gql-wf-test-banner {
+  font-size: 0.78rem;
+  padding: 8px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  margin: 8px 0;
+  line-height: 1.4;
+}
+.gql-wf-test-banner--pass {
+  background: color-mix(in srgb, #22c55e 12%, var(--surface));
+  border-color: color-mix(in srgb, #22c55e 35%, var(--border));
+  color: var(--text);
+}
+.gql-wf-test-banner--fail {
+  background: color-mix(in srgb, #ef4444 12%, var(--surface));
+  border-color: color-mix(in srgb, #ef4444 35%, var(--border));
+  color: var(--text);
+}
+.gql-wf-test-banner--warn {
+  background: color-mix(in srgb, #f59e0b 12%, var(--surface));
+  border-color: color-mix(in srgb, #f59e0b 35%, var(--border));
+  color: var(--text-muted);
+}
+.gql-wf-test-inline {
+  display: block;
+  font-size: 0.72rem;
+  margin-top: 4px;
+  line-height: 1.35;
+  word-break: break-all;
+}
+.gql-wf-test-inline--pass { color: #4ade80; }
+.gql-wf-test-inline--fail { color: #f87171; }
+
+/* ── GraphQL workflow node config — professional form layout ── */
+.wf-config-modal--gql.modal.ram-modal {
+  width: min(720px, 94vw);
+  height: min(82vh, 900px);
+  max-height: 82vh;
+}
+
+.wf-config-modal--gql .wf-modal-scroll-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0;
+  min-height: 0;
+}
+
+.wf-config-modal--gql .wf-config-modal-toolbar {
+  background: color-mix(in srgb, var(--surface) 92%, var(--bg));
+}
+.wf-config-modal--gql .wf-config-modal-tabs {
+  padding: 0 16px;
+  background: transparent;
+  border-bottom: none;
+}
+
+.wf-config-modal--gql .wf-config-modal-tab {
+  flex: 0 1 auto;
+  padding: 10px 14px;
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.wf-config-modal--gql .wf-config-modal-scroll {
+  padding: 0;
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.wf-config-modal--gql .wf-modal-scroll-viewport {
+  flex: 1 1 0;
+  min-height: 0;
+  height: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -ms-overflow-style: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) var(--bg);
+}
+
+.wf-config-modal--gql .wf-modal-scroll-viewport::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+  display: block;
+}
+
+.wf-config-modal--gql .wf-modal-scroll-viewport::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+.wf-config-modal--gql .wf-modal-scroll-viewport::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 5px;
+  border: 2px solid var(--bg);
+}
+
+.gql-wf-config {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1 1 auto;
+  padding: 14px 16px 16px;
+}
+
+.gql-wf-config > .gql-wf-form-card:first-of-type,
+.gql-wf-config > .gql-wf-subtabs {
+  flex-shrink: 0;
+}
+
+.gql-wf-config .wf-config-tab-content {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 200px;
+  padding: 12px 0 0;
+}
+
+.gql-wf-tab-stack {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  gap: 12px;
+}
+
+.gql-wf-tab-main {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+  padding-right: 2px;
+}
+
+.gql-wf-tab-main::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gql-wf-tab-main::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 4px;
+}
+
+.gql-wf-tab-footer {
+  flex: 0 0 auto;
+}
+
+.gql-wf-config input[type="radio"],
+.gql-wf-config input[type="checkbox"] {
+  width: auto;
+  max-width: none;
+  padding: 0;
+}
+
+.gql-wf-checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  accent-color: var(--primary);
+}
+
+.gql-wf-form-row--stack .gql-wf-form-ctrl {
+  gap: 6px;
+}
+
+.gql-wf-form-row--stack .gql-wf-inline-hint {
+  margin-top: 0;
+}
+
+.gql-wf-form-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.gql-wf-form-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 48px;
+  max-height: 74px;
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.gql-wf-form-row--stack {
+  min-height: auto;
+  max-height: none;
+  align-items: stretch;
+}
+
+.gql-wf-form-row--last,
+.gql-wf-form-row:last-child {
+  border-bottom: none;
+}
+
+.gql-wf-form-row--compact {
+  min-height: auto;
+  max-height: none;
+  border-bottom: none;
+}
+
+.gql-wf-section-body {
+  padding: 12px 14px 14px;
+}
+
+.gql-wf-form-label {
+  flex: 0 0 152px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin: 0;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.gql-wf-form-label--top {
+  align-items: flex-start;
+  padding-top: 12px;
+}
+
+.gql-wf-form-ctrl {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 8px 12px;
+  background: var(--surface);
+}
+
+.gql-wf-form-ctrl--stack {
+  padding: 0;
+  justify-content: flex-start;
+}
+
+.gql-wf-form-ctrl input[type="text"],
+.gql-wf-form-ctrl input[type="number"],
+.gql-wf-form-ctrl input[type="password"],
+.gql-wf-form-ctrl select {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.gql-wf-form-ctrl input:focus,
+.gql-wf-form-ctrl select:focus,
+.gql-wf-code-editor:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-wf-form-ctrl .wf-config-field-with-insert {
+  width: 100%;
+  align-items: center;
+}
+
+.gql-wf-form-ctrl .wf-expression-input-wrap input,
+.gql-wf-form-ctrl .wf-expression-input-wrap textarea {
+  width: 100%;
+}
+
+.gql-wf-field-error {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: #f87171;
+  line-height: 1.3;
+}
+
+.gql-wf-checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+  margin: 0;
+  text-transform: none;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.gql-wf-checkbox-row input {
+  flex: 0 0 auto;
+  margin: 0;
+  cursor: pointer;
+}
+
+.gql-wf-checkbox-label {
+  white-space: nowrap;
+  line-height: 1.2;
+}
+
+.gql-wf-checkbox-field {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 14px;
+  min-height: 48px;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.gql-wf-checkbox-field .gql-wf-checkbox-row {
+  flex: 0 0 auto;
+}
+
+.gql-wf-checkbox-field--last,
+.gql-wf-checkbox-field:last-child {
+  border-bottom: none;
+}
+
+.gql-wf-checkbox-hint {
+  margin-left: auto;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gql-wf-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 14px 0 0;
+  padding: 4px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.gql-wf-subtab {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.gql-wf-subtab:hover {
+  color: var(--text);
+  background: var(--surface-hover);
+}
+
+.gql-wf-subtab.active {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--bg) 40%, transparent);
+}
+
+.gql-wf-subtab-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+  color: var(--primary);
+}
+
+.gql-wf-subtab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ef4444;
+  flex-shrink: 0;
+}
+
+.gql-wf-code-block {
+  width: 100%;
+  border-top: 1px solid var(--border);
+}
+
+.gql-wf-code-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+
+.gql-wf-code-toolbar-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
+}
+
+.gql-wf-code-editor,
+.gql-wf-config .wf-config-code-editor {
+  display: block;
+  width: 100%;
+  min-height: 160px;
+  padding: 12px 14px;
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.78rem;
+  line-height: 1.55;
+  resize: vertical;
+}
+
+.gql-wf-config .wf-config-hint {
+  margin: 10px 0 8px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.gql-wf-config .wf-config-hint-inline {
+  font-size: 0.68rem;
+  font-weight: 400;
+  opacity: 0.75;
+}
+
+.gql-wf-config .wf-kafka-section-title {
+  margin: 0 0 10px;
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.gql-wf-config .wf-config-empty-hint {
+  padding: 16px;
+  text-align: center;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+}
+
+.gql-wf-config .wf-config-kv-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.gql-wf-config .wf-config-kv-row {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.gql-wf-config .wf-config-kv-row:last-child {
+  border-bottom: none;
+}
+
+.gql-wf-config details.wf-http-var-hints,
+.gql-wf-config .wf-available-vars {
+  margin-top: 12px;
+}
+
+/* GraphQL Assert panel */
+.gql-wf-section-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.gql-wf-section-toolbar-text {
+  min-width: 0;
+}
+
+.gql-wf-section-title {
+  margin: 0;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.gql-wf-section-subtitle {
+  margin: 4px 0 0;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.gql-wf-section-subtitle--inset {
+  margin-top: 8px;
+}
+
+.gql-wf-section-subtitle code {
+  font-size: 0.68rem;
+  color: var(--text);
+  background: var(--bg);
+  padding: 1px 4px;
+  border-radius: 3px;
+}
+
+.gql-wf-section-intro {
+  margin: 0 0 12px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.gql-wf-section-toolbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.gql-wf-section-add-btn {
+  border: 1px dashed var(--border);
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.gql-wf-section-add-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* GraphQL Output Bindings — structured field → variable mapper */
+.gql-wf-output-bindings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gql-wf-output-col-headers,
+.gql-wf-output-row {
+  display: grid;
+  grid-template-columns: 36px minmax(120px, 1fr) 32px minmax(140px, 1.2fr) 36px;
+  gap: 8px;
+  align-items: center;
+}
+
+.gql-wf-output-col-headers {
+  padding: 0 10px 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.gql-wf-output-col-headers span {
+  font-size: 0.62rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.gql-wf-output-list {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.gql-wf-output-row {
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  transition: background 0.12s ease;
+}
+
+.gql-wf-output-row:last-child {
+  border-bottom: none;
+}
+
+.gql-wf-output-row:hover {
+  background: var(--surface-hover);
+}
+
+.gql-wf-output-map-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.gql-wf-output-col-field select,
+.gql-wf-output-col-var input {
+  width: 100%;
+  min-width: 0;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.76rem;
+}
+
+.gql-wf-output-col-field select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8b8cc' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+}
+
+.gql-wf-output-col-field select:hover,
+.gql-wf-output-col-var input:hover {
+  border-color: var(--primary);
+}
+
+.gql-wf-output-col-field select:focus,
+.gql-wf-output-col-var input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+  outline: none;
+}
+
+.gql-wf-output-col-var {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.gql-wf-output-col-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gql-wf-output-col-toggle input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.gql-wf-output-col-del {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gql-wf-output-col-del .btn {
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}
+
+.gql-wf-output-row:hover .gql-wf-output-col-del .btn {
+  opacity: 1;
+}
+
+.gql-wf-section-body--flush-top {
+  padding-top: 10px;
+}
+
+.gql-wf-assert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gql-wf-assert-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  padding: 10px 12px 12px;
+}
+
+.gql-wf-assert-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gql-wf-assert-card-index {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.gql-wf-assert-remove-btn {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.gql-wf-assert-remove-btn:hover {
+  color: #f87171;
+  background: color-mix(in srgb, #ef4444 12%, transparent);
+}
+
+.gql-wf-assert-card-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(110px, 0.8fr) minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.gql-wf-assert-card-grid--no-value {
+  grid-template-columns: minmax(0, 1.4fr) minmax(110px, 0.8fr);
+}
+
+.gql-wf-assert-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.gql-wf-assert-field--full {
+  margin-top: 0;
+}
+
+.gql-wf-assert-field-label {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.gql-wf-assert-field input,
+.gql-wf-assert-field select {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.gql-wf-assert-field select {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8b8cc' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 28px;
+}
+
+.gql-wf-assert-field input:focus,
+.gql-wf-assert-field select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.gql-wf-behavior-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Segmented radio cards (GraphQL Assert Behavior, etc.) */
+.gql-wf-choice-group {
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+
+.gql-wf-choice-legend {
+  padding: 0;
+  margin: 0 0 12px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.gql-wf-choice-options {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.gql-wf-choice-option {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.gql-wf-choice-option:hover {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 5%, var(--bg));
+}
+
+.gql-wf-choice-option--selected {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+.gql-wf-choice-option__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.gql-wf-choice-option__indicator {
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  background: var(--surface);
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.gql-wf-choice-option--selected .gql-wf-choice-option__indicator {
+  border-color: var(--primary);
+  background: var(--primary);
+  box-shadow: inset 0 0 0 3px var(--surface);
+}
+
+.gql-wf-choice-option__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.gql-wf-choice-option__title {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.3;
+}
+
+.gql-wf-choice-option__desc {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+/* Legacy behavior aliases — keep for any external references */
+.gql-wf-behavior-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+}
+
+.gql-wf-behavior-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.gql-wf-behavior-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.gql-wf-behavior-option-body strong {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.gql-wf-behavior-option-body span {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+.gql-wf-section-intro--card {
+  padding: 12px 14px 0;
+  margin-bottom: 0;
+}
+
+.gql-wf-inline-hint {
+  display: block;
+  margin-top: 4px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  line-height: 1.3;
+}
+
+.gql-wf-section-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 12px 0;
+}
+
+.gql-wf-section-divider--inset {
+  margin: 0;
+}
+
+.gql-wf-required-field-compose {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.gql-wf-required-field-compose input {
+  flex: 1;
+  min-width: 0;
+  padding: 6px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.gql-wf-required-field-sep {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.gql-wf-required-field-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.gql-wf-required-field-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+}
+
+.gql-wf-required-field-row code {
+  font-size: 0.76rem;
+  color: var(--text);
+}
+
+.gql-wf-section-body .gql-wf-form-row {
+  margin-bottom: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-top: 10px;
+  overflow: hidden;
+}
+
+.gql-wf-section-body .gql-wf-form-label {
+  flex: 0 0 132px;
+}
+
+
+
+

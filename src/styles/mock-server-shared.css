@@ -1,0 +1,191 @@
+/**
+ * mock-server-shared.css — Cross-protocol shared styles for mock server UIs.
+ *
+ * All three protocol mock servers (gRPC, WebSocket, GraphQL) share these
+ * base classes for consistent look & feel. Protocol-specific overrides
+ * live in their own CSS files (grpc-studio.css, ws-mock.css, graphql-mock.css).
+ *
+ * Naming: .mock-server-* prefix.
+ */
+
+/* ─── Shared tab bar ─── */
+.mock-server-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 72%, var(--bg));
+}
+
+.mock-server-tabs__label {
+  font-size: 0.66rem;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-weight: 700;
+  margin-right: 2px;
+}
+
+.mock-server-tab {
+  appearance: none;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.74rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.mock-server-tab:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.mock-server-tab--active {
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface));
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.mock-server-tab .mock-server-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--text-muted) 15%, transparent);
+  color: var(--text-muted);
+}
+
+.mock-server-tab--active .mock-server-tab-badge {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  color: var(--primary);
+}
+
+/* ─── Shared status chip ─── */
+.mock-server-status-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.72rem;
+  font-weight: 500;
+  padding: 3px 10px;
+  border-radius: 12px;
+  white-space: nowrap;
+}
+
+.mock-server-status-chip--running {
+  background: color-mix(in srgb, var(--success, #34d399) 12%, transparent);
+  color: var(--success, #34d399);
+}
+
+.mock-server-status-chip--stopped {
+  background: color-mix(in srgb, var(--text-muted) 10%, transparent);
+  color: var(--text-muted);
+}
+
+.mock-server-status-chip--error {
+  background: color-mix(in srgb, var(--danger, #f87171) 10%, transparent);
+  color: var(--danger, #f87171);
+}
+
+.mock-server-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ─── Shared rule card ─── */
+.mock-server-rule-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s, opacity 0.15s;
+}
+
+.mock-server-rule-card:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.mock-server-rule-card--enabled {
+  border-left: 3px solid var(--primary);
+}
+
+.mock-server-rule-card--disabled {
+  opacity: 0.55;
+}
+
+.mock-server-rule-card--dragging {
+  opacity: 0.4;
+}
+
+.mock-server-rule-card--drop-target {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+
+/* ─── Shared drag handle ─── */
+.mock-server-drag-handle {
+  cursor: grab;
+  font-size: 1rem;
+  color: var(--text-muted);
+  opacity: 0;
+  padding: 0 4px;
+  user-select: none;
+  transition: opacity 0.15s;
+  line-height: 1;
+}
+
+.mock-server-drag-handle:active {
+  cursor: grabbing;
+}
+
+.mock-server-rule-card:hover .mock-server-drag-handle {
+  opacity: 0.6;
+}
+
+.mock-server-drag-handle:hover {
+  opacity: 1 !important;
+  color: var(--text);
+}
+
+/* ─── Shared empty state ─── */
+.mock-server-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.mock-server-empty__icon {
+  font-size: 2.2rem;
+  opacity: 0.5;
+}
+
+.mock-server-empty__title {
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.mock-server-empty__hint {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  max-width: 340px;
+  line-height: 1.5;
+}

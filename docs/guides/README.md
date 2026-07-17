@@ -85,6 +85,7 @@ Welcome to the RedfireForge documentation. These guides cover all features of th
 |-------|-------------|
 | [Gallery Guide](./gallery-guide.md) | Browsing samples, importing, try-it |
 | [Training Tracks Guide](./training-tracks-guide.md) | Using training tracks, progress tracking |
+| [Demo Lesson Done Checklist](./demo-lesson-done-checklist.md) | 5-item merge gate for Demo Hub lessons (manual run, E2E smoke, helper tests) |
 
 ---
 

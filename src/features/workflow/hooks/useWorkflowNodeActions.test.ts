@@ -84,7 +84,7 @@ const defaultOpts = (): NodeActionsOpts => ({
 });
 
 describe('useWorkflowNodeActions', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('handleAddNode adds a node to canvas', () => {
     const opts = defaultOpts();
@@ -107,6 +107,37 @@ describe('useWorkflowNodeActions', () => {
     opts.selected = null;
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
     act(() => result.current.handleAddNode('http'));
+    expect(opts.setNodes).not.toHaveBeenCalled();
+  });
+
+  it('exposes __wfAddNode with preset id, label, and position', () => {
+    const opts = defaultOpts();
+    const { unmount } = renderHook(() => useWorkflowNodeActions(opts));
+    const win = window as unknown as Record<string, (t: string, id?: string, label?: string, pos?: { x: number; y: number }) => string>;
+    expect(win.__wfAddNode).toBeTypeOf('function');
+    act(() => win.__wfAddNode('graphqlMutation', 'gql18-delete', 'Delete User', { x: 780, y: 280 }));
+    expect(opts.setNodes).toHaveBeenCalled();
+    expect(opts.undoRedo.takeSnapshot).toHaveBeenCalledWith('Add node');
+    unmount();
+    expect(win.__wfAddNode).toBeUndefined();
+  });
+
+  it('addNodeToCanvasWithPreset is idempotent for duplicate ids', () => {
+    const opts = defaultOpts();
+    const existing: WorkflowRFNode = {
+      id: 'gql18-delete',
+      type: 'graphqlMutation',
+      position: { x: 1, y: 2 },
+      data: { label: 'Delete User' } as WorkflowNodeData,
+    };
+    opts.nodesRef = makeRef([existing]);
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.addNodeToCanvasWithPreset(
+      'graphqlMutation',
+      'gql18-delete',
+      'Delete User',
+      { x: 780, y: 280 },
+    ));
     expect(opts.setNodes).not.toHaveBeenCalled();
   });
 

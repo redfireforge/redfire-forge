@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getDetailModalProps, getNodeMiniMapColor, buildConfigModalWorkflowList } from './workflowDesignerUtils';
+import { buildQuickTestFailureReport } from './workflowRunErrors';
 import type { Workflow } from '../types/workflow';
 
 function minimalWorkflow(id: string, name: string): Workflow {
@@ -60,6 +61,19 @@ describe('getDetailModalProps', () => {
     const result = getDetailModalProps({ type: 'runError' }, meta, undefined, 'timeout');
     expect(result.title).toBe('Quick Test failed');
     expect(result.body).toBe('timeout');
+  });
+
+  it('returns runError with structured failure report', () => {
+    const report = buildQuickTestFailureReport(
+      undefined,
+      [{ nodeId: 'a1', label: 'GraphQL Assert', state: 'fail', error: 'detail line' }],
+      { gqlLatency: '28' },
+      900,
+      'detail line',
+    );
+    const result = getDetailModalProps({ type: 'runError' }, meta, undefined, report.summary, report);
+    expect(result.failureReport).toBe(report);
+    expect(result.subtitle).toContain('1 failed');
   });
 
   it('returns empty string body when runError and lastRunError is null', () => {

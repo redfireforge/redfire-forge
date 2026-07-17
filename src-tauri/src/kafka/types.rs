@@ -76,6 +76,7 @@ pub struct KafkaMessageFilter {
 
 #[derive(Deserialize, Debug, Clone)]
 #[serde(rename_all = "camelCase")]
+#[allow(dead_code)]
 pub struct KafkaConsumeOnceRequest {
     pub cluster_id: Option<String>,
     pub topic: String,

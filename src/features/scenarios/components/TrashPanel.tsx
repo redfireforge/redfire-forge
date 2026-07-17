@@ -127,7 +127,7 @@ export default function TrashPanel({
           <input
             className="trash-panel-search"
             type="text"
-            placeholder="Search trash\u2026"
+            placeholder="Search trash…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             aria-label="Search trash"

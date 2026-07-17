@@ -155,6 +155,11 @@ function cleanupResumeQueue(): void {
 }
 setInterval(cleanupResumeQueue, 60_000).unref?.();
 
+/** Trigger resume queue cleanup immediately (test and maintenance helper). */
+export function runResumeQueueCleanup(): void {
+  cleanupResumeQueue();
+}
+
 
 /**
  * Extract correlation ID from an incoming webhook request
@@ -422,7 +427,16 @@ export function dispatchKafkaResumeMessage(message: KafkaResumeMessage): KafkaDi
 
 // ── Router ───────────────────────────────────────────
 
-export function createCorrelationRouter(): Router {
+interface CorrelationRouterOptions {
+  defaultWaitMs?: number;
+  minWaitMs?: number;
+  maxWaitMs?: number;
+}
+
+export function createCorrelationRouter(options: CorrelationRouterOptions = {}): Router {
+  const defaultWaitMs = options.defaultWaitMs ?? 30000;
+  const minWaitMs = options.minWaitMs ?? 1000;
+  const maxWaitMs = options.maxWaitMs ?? 120000;
   const router = Router();
 
   // Register a paused workflow correlation
@@ -511,8 +525,8 @@ export function createCorrelationRouter(): Router {
   router.get('/api/correlations/:correlationId/wait', (req: Request, res: Response) => {
     const { correlationId } = req.params;
     const timeoutMs = Math.min(
-      Math.max(parseInt((req.query.timeoutMs as string) || '30000', 10) || 30000, 1000),
-      120000,
+      Math.max(parseInt((req.query.timeoutMs as string) || String(defaultWaitMs), 10) || defaultWaitMs, minWaitMs),
+      maxWaitMs,
     );
 
     // Already queued?

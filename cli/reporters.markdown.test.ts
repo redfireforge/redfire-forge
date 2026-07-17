@@ -217,5 +217,26 @@ describe('buildMarkdownReport', () => {
       expect(md).toContain('| CONSUME |');
       expect(md).not.toContain('| Row 1 | 0 |'); // status cell must not show raw httpStatus
     });
+
+    it('shows WS_TRIGGER in status column for failed WebSocket trigger results', () => {
+      const summary = makeSummary({ failedRequests: 1 });
+      const config = makeConfig();
+      const results = [
+        makeResult({
+          dataRowId: 'r1',
+          dataRowLabel: 'Row 1',
+          passed: false,
+          method: 'WS',
+          transportType: 'wsTrigger',
+          httpStatus: 0,
+          errorMessage: 'Trigger timeout',
+          wsResultMeta: { url: 'ws://localhost:9876' },
+        }),
+      ];
+
+      const md = buildMarkdownReport(summary, config, {}, results);
+
+      expect(md).toContain('| WS_TRIGGER |');
+    });
   });
 });

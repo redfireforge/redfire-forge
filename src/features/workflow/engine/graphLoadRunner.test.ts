@@ -66,7 +66,7 @@ const createMockResult = (overrides: Partial<RequestResult> = {}) =>
 describe('graphLoadRunner', () => {
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     syntheticStart.mockClear();
     syntheticStop.mockClear();
   });
@@ -234,6 +234,8 @@ describe('graphLoadRunner', () => {
         undefined,          // traceOptions
         undefined,          // httpTimeoutMs
         undefined,          // kafkaOperations
+        undefined,          // wsOperations
+        undefined,          // grpcOperations
       );
     });
 
@@ -808,6 +810,8 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
+        undefined, // grpcOperations
       );
     });
 
@@ -845,7 +849,78 @@ describe('graphLoadRunner', () => {
         undefined,          // traceOptions
         undefined,          // httpTimeoutMs
         kafkaOperations,    // kafkaOperations ← must be threaded through
+        undefined,          // wsOperations
+        undefined,          // grpcOperations
       );
+    });
+
+    it('passes grpcOperations from opts through to runGraph', async () => {
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockResolvedValue([createMockResult()]);
+
+      const grpcOperations = {
+        invokeUnary: vi.fn(),
+        collectServerStream: vi.fn(),
+      };
+
+      await runGraphLoad(workflow, {
+        iterations: 1,
+        concurrency: 1,
+        grpcOperations,
+      });
+
+      expect(mockRunGraph).toHaveBeenCalledWith(
+        workflow.nodes,
+        workflow.edges,
+        expect.any(Object),
+        expect.any(Object),
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        true,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        grpcOperations,
+      );
+    });
+
+    it('creates per-iteration wsOperations when opts.wsOperations is provided', async () => {
+      const workflow = createMockWorkflow();
+      mockRunGraph.mockResolvedValue([createMockResult()]);
+
+      const wsOperations = {
+        connect: vi.fn(),
+        send: vi.fn(),
+        waitForMessage: vi.fn(),
+        disconnect: vi.fn(),
+        disconnectAll: vi.fn(),
+      };
+
+      await runGraphLoad(workflow, {
+        iterations: 1,
+        concurrency: 1,
+        wsOperations: wsOperations as never,
+      });
+
+      const callArgs = mockRunGraph.mock.calls[0];
+      const passedWsOps = callArgs[18];
+      expect(passedWsOps).toBeDefined();
+      expect(passedWsOps).not.toBe(wsOperations);
+      expect(passedWsOps).toHaveProperty('connect');
+      expect(passedWsOps).toHaveProperty('send');
+      expect(passedWsOps).toHaveProperty('snapshotCursor');
+      expect(passedWsOps).toHaveProperty('waitForMessage');
+      expect(passedWsOps).toHaveProperty('disconnect');
+      expect(passedWsOps).toHaveProperty('disconnectAll');
     });
 
     describe('Kafka load policy guard (Phase 7B)', () => {

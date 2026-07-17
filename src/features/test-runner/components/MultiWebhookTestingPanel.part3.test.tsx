@@ -113,7 +113,7 @@ describe('MultiWebhookTestingPanel', () => {
   const _mockOnLoadScenario = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('shows waiting hint on pending node body when expanded', async () => {

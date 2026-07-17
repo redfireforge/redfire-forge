@@ -2,7 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-import { useFloatingPanel, PANEL_LIMITS } from './useFloatingPanel';
+import { useFloatingPanel, PANEL_LIMITS, computeWorkflowConsoleDemoFloatLayout } from './useFloatingPanel';
 
 function setViewport(width: number, height: number) {
   Object.defineProperty(window, 'innerWidth', { configurable: true, writable: true, value: width });
@@ -35,6 +35,14 @@ describe('useFloatingPanel', () => {
     document.body.style.userSelect = '';
   });
 
+  it('computeWorkflowConsoleDemoFloatLayout anchors left of canvas', () => {
+    const layout = computeWorkflowConsoleDemoFloatLayout({ w: 1280, h: 900 });
+    expect(layout.x).toBe(68);
+    expect(layout.y).toBe(72);
+    expect(layout.w).toBe(486);
+    expect(layout.h).toBe(675);
+  });
+
   it('initializes docked and floating state from defaults', () => {
     const { result } = renderHook(() => useFloatingPanel());
     expect(result.current.dockedHeight).toBe(200);
@@ -63,6 +71,50 @@ describe('useFloatingPanel', () => {
     const { result } = renderHook(() => useFloatingPanel());
     expect(result.current.floatPos.x).toBe(150);
     document.documentElement.style.removeProperty('--sidebar-w');
+  });
+
+  it('uses default sidebar width when CSS variable is empty', () => {
+    document.documentElement.style.setProperty('--sidebar-w', '');
+    const { result } = renderHook(() => useFloatingPanel());
+    expect(result.current.floatPos.x).toBeGreaterThanOrEqual(68);
+    document.documentElement.style.removeProperty('--sidebar-w');
+  });
+
+  it('computeWorkflowConsoleDemoFloatLayout accepts explicit viewport bounds', () => {
+    const layout = computeWorkflowConsoleDemoFloatLayout({ w: 1200, h: 800 });
+    expect(layout.w).toBeGreaterThanOrEqual(PANEL_LIMITS.MIN_FLOAT_W);
+    expect(layout.h).toBeGreaterThanOrEqual(PANEL_LIMITS.MIN_FLOAT_H);
+    expect(layout.x).toBeGreaterThanOrEqual(68);
+  });
+
+  it('uses parsed sidebar width from CSS variable when set', () => {
+    document.documentElement.style.setProperty('--sidebar-w', '200');
+    const { result } = renderHook(() => useFloatingPanel());
+    expect(result.current.floatPos.x).toBe(220);
+    document.documentElement.style.removeProperty('--sidebar-w');
+  });
+
+  it('computeWorkflowConsoleDemoFloatLayout uses SSR sidebar fallback without document', () => {
+    const doc = globalThis.document;
+    Object.defineProperty(globalThis, 'document', { configurable: true, value: undefined });
+    try {
+      const layout = computeWorkflowConsoleDemoFloatLayout({ w: 1000, h: 800 });
+      expect(layout.x).toBe(68);
+    } finally {
+      Object.defineProperty(globalThis, 'document', { configurable: true, value: doc });
+    }
+  });
+
+  it('computeWorkflowConsoleDemoFloatLayout uses fallback viewport without window', () => {
+    const win = globalThis.window;
+    Object.defineProperty(globalThis, 'window', { configurable: true, value: undefined });
+    try {
+      const layout = computeWorkflowConsoleDemoFloatLayout();
+      expect(layout.w).toBeGreaterThanOrEqual(PANEL_LIMITS.MIN_FLOAT_W);
+      expect(layout.h).toBeGreaterThanOrEqual(PANEL_LIMITS.MIN_FLOAT_H);
+    } finally {
+      Object.defineProperty(globalThis, 'window', { configurable: true, value: win });
+    }
   });
 
   it('resizes docked panel and clamps within min/max limits', () => {

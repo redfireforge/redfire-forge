@@ -657,9 +657,9 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
                                   : 'auth-badge-test-global';
                                 return <span className={`tag auth-badge ${cls}`}>Auth: {resolved.label} ({resolved.source})</span>;
                               })()}
-                              <span className="tag">Validation: {t.validation.mode}</span>
-                              {(t.validation.assertions ?? []).length > 0 && (() => {
-                                const types = new Set((t.validation.assertions ?? []).map(a => a.type));
+                              <span className="tag">Validation: {t.validation?.mode ?? 'none'}</span>
+                              {(t.validation?.assertions ?? []).length > 0 && (() => {
+                                const types = new Set((t.validation?.assertions ?? []).map(a => a.type));
                                 return (
                                   <>
                                     {types.has('status') && <span className="tag assertion-badge assertion-badge-status">Status</span>}

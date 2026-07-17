@@ -9,6 +9,7 @@ import { WorkflowDesignerProps } from '../utils/workflowDesignerShellTypes';
 import { Workflow } from '../types/workflow';
 import { enrichNodeData, type WorkflowRFNode } from '../utils/workflowNodeFactory';
 import { WorkflowDesignerControllerPartA } from './useWorkflowDesignerControllerPartA';
+import * as workflowRunErrors from '../utils/workflowRunErrors';
 
 type ServiceRegistryMode = 'closed' | 'panel' | 'fullscreen';
 
@@ -323,7 +324,7 @@ function makePartATracked(initial: ServiceRegistryMode): {
 
 describe('useWorkflowDesignerControllerPartB', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     partBMutable.configModalNodeId = null;
     partBMutable.selectedHintNode = null;
   });
@@ -516,5 +517,32 @@ describe('useWorkflowDesignerControllerPartB', () => {
     const { result } = renderHook(() => useWorkflowDesignerControllerPartB(props, a));
 
     expect(result.current.configModalNode).toEqual(enrichNodeData(httpNode, a.nodeInitialVars));
+  });
+
+  it('builds failure report when last run failed', () => {
+    const reportSpy = vi.spyOn(workflowRunErrors, 'buildQuickTestFailureReport');
+    const props = makeDesignerProps();
+    const runEntry = {
+      stepSummaries: [{ nodeId: 'n1', label: 'HTTP', state: 'fail' as const, error: '500' }],
+      variableSnapshot: { token: 'abc' },
+      durationMs: 1200,
+      error: 'HTTP 500',
+    };
+    const a = {
+      ...makePartA(),
+      lastRunStatus: 'fail' as const,
+      lastRunError: 'HTTP 500',
+      runHistory: [runEntry],
+    };
+    renderHook(() => useWorkflowDesignerControllerPartB(props, a));
+
+    expect(reportSpy).toHaveBeenCalledWith(
+      undefined,
+      runEntry.stepSummaries,
+      expect.any(Object),
+      runEntry.durationMs,
+      runEntry.error,
+    );
+    reportSpy.mockRestore();
   });
 });

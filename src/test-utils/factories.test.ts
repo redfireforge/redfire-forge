@@ -14,6 +14,7 @@ import {
   makeWorkflow,
   makeWorkflowNode,
   makeWorkflowEdge,
+  makeWorkflowFolder,
 } from './factories';
 
 describe('factories', () => {
@@ -236,6 +237,151 @@ describe('factories', () => {
       expect(edge.id).toBe('custom-edge');
       expect(edge.source).toBe('a');
       expect(edge.target).toBe('b');
+    });
+  });
+
+  describe('makeWorkflowFolder', () => {
+    it('creates a folder with defaults', () => {
+      const folder = makeWorkflowFolder();
+      expect(folder.id).toBe('folder-1');
+      expect(folder.name).toBe('Test Folder');
+      expect(folder.order).toBe(0);
+    });
+
+    it('allows overrides', () => {
+      const folder = makeWorkflowFolder({ id: 'f-custom', name: 'Custom Folder', order: 3 });
+      expect(folder.id).toBe('f-custom');
+      expect(folder.name).toBe('Custom Folder');
+      expect(folder.order).toBe(3);
+    });
+
+    it('allows undefined folder fields from explicit overrides', () => {
+      const folder = makeWorkflowFolder({
+        id: undefined,
+        name: undefined,
+        order: undefined,
+      });
+      expect(folder.id).toBeUndefined();
+      expect(folder.name).toBeUndefined();
+      expect(folder.order).toBeUndefined();
+    });
+  });
+
+  describe('nullish override branches', () => {
+    it('allows explicit undefined overrides while exercising nullish fallback expressions', () => {
+      const scenario = makeTestScenario({ name: undefined });
+      expect(scenario.name).toBeUndefined();
+
+      const group = makeFeatureGroup({ name: undefined, scenarios: undefined });
+      expect(group.name).toBeUndefined();
+      expect(group.scenarios).toBeUndefined();
+
+      const workflow = makeWorkflow({ name: undefined, nodes: undefined, edges: undefined, variables: undefined });
+      expect(workflow.name).toBeUndefined();
+      expect(workflow.nodes).toBeUndefined();
+      expect(workflow.edges).toBeUndefined();
+      expect(workflow.variables).toBeUndefined();
+
+      const node = makeWorkflowNode({ type: undefined, position: undefined, data: undefined });
+      expect(node.type).toBeUndefined();
+      expect(node.position).toBeUndefined();
+      expect(node.data).toBeUndefined();
+
+      const edge = makeWorkflowEdge({ source: undefined, target: undefined });
+      expect(edge.source).toBeUndefined();
+      expect(edge.target).toBeUndefined();
+    });
+  });
+
+  describe('makeWorkflowNode default branches', () => {
+    it('uses default type, position, and data when omitted', () => {
+      const node = makeWorkflowNode();
+      expect(node.type).toBe('http');
+      expect(node.position).toEqual({ x: 0, y: 0 });
+      expect(node.data).toEqual({ label: 'Test Node', method: 'GET', url: '/test' });
+    });
+  });
+
+  describe('makeWorkflowEdge default branches', () => {
+    it('uses default source and target when omitted', () => {
+      const edge = makeWorkflowEdge();
+      expect(edge.source).toBe('node-1');
+      expect(edge.target).toBe('node-2');
+    });
+  });
+
+  describe('makeTestScenario default name branch', () => {
+    it('uses generated name when name override is omitted', () => {
+      const ts = makeTestScenario();
+      expect(ts.name).toMatch(/Test Scenario \d+/);
+    });
+  });
+
+  describe('makeTrashItem defaults', () => {
+    it('uses default parentPath and feature group data shape', () => {
+      const item = makeTrashItem();
+      expect(item.parentPath).toBe('');
+      expect(item.data).toEqual({ id: 'fg-1', name: 'Test FG', scenarios: [] });
+    });
+  });
+
+  describe('makeWorkflowNode data override', () => {
+    it('preserves custom node data when provided', () => {
+      const node = makeWorkflowNode({
+        data: { label: 'Custom', method: 'POST', url: '/custom' },
+      });
+      expect(node.data).toEqual({ label: 'Custom', method: 'POST', url: '/custom' });
+    });
+  });
+
+  describe('makeWorkflow defaults', () => {
+    it('uses empty nodes and edges arrays when omitted', () => {
+      const wf = makeWorkflow();
+      expect(wf.nodes).toEqual([]);
+      expect(wf.edges).toEqual([]);
+      expect(wf.variables).toEqual({});
+    });
+  });
+
+  describe('makeWorkflowFolder partial overrides', () => {
+    it('uses default id when only name is overridden', () => {
+      const folder = makeWorkflowFolder({ name: 'Only Name' });
+      expect(folder.id).toBe('folder-1');
+      expect(folder.name).toBe('Only Name');
+    });
+
+    it('uses default order when only id is overridden', () => {
+      const folder = makeWorkflowFolder({ id: 'custom-id' });
+      expect(folder.id).toBe('custom-id');
+      expect(folder.order).toBe(0);
+    });
+  });
+
+  describe('makeFeatureGroup scenarios default branch', () => {
+    it('uses empty scenarios array when scenarios override is omitted', () => {
+      const fg = makeFeatureGroup({ name: 'Named Group' });
+      expect(fg.scenarios).toEqual([]);
+    });
+
+    it('preserves explicit null overrides', () => {
+      const folder = makeWorkflowFolder({
+        id: null as unknown as string,
+        name: null as unknown as string,
+        order: null as unknown as number,
+      });
+      expect(folder.id).toBeNull();
+      expect(folder.name).toBeNull();
+      expect(folder.order).toBeNull();
+
+      const group = makeFeatureGroup({
+        name: null as unknown as string,
+        scenarios: null as unknown as FeatureGroup['scenarios'],
+      });
+      expect(group.name).toBeNull();
+      expect(group.scenarios).toBeNull();
+
+      const scenario = makeTestScenario({ name: null as unknown as string });
+      expect(scenario.name).toBeNull();
     });
   });
 });

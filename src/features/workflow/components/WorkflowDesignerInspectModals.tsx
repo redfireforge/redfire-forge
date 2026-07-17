@@ -43,6 +43,7 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
     setWorkflowErrorConfig,
     persistWorkflow,
     nodes,
+    globalAuthProfiles,
   } = vm;
 
   return (
@@ -52,6 +53,7 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
         title={detailModalDerived.title}
         subtitle={detailModalDerived.subtitle}
         body={detailModalDerived.body}
+        failureReport={detailModalDerived.failureReport}
         variableMode={detailModal?.type === 'variable'}
         variableValue={variableDetailDraft}
         onVariableChange={setVariableDetailDraft}
@@ -88,6 +90,8 @@ export function WorkflowDesignerInspectModals({ vm }: { vm: WorkflowDesignerView
           selectedEnvId={selectedEnvId}
           nodeRunStatus={configModalNodeId ? nodeStatuses[configModalNodeId] : undefined}
           workflows={configModalWorkflows}
+          allNodes={nodes.map(n => ({ id: n.id, type: n.type, position: n.position, data: n.data } as import('../types/workflow').WorkflowNode))}
+          globalAuthProfiles={globalAuthProfiles}
         />
       )}
 

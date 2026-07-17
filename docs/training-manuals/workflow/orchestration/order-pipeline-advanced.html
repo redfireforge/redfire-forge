@@ -94,7 +94,7 @@
     send a confirmation. The canonical sequential orchestration pattern.
   </p>
   <div class="meta">
-    <strong>RedfireForge v0.5.4</strong><br>
+    <strong>RedfireForge v0.6.0</strong><br>
     Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 7 &nbsp;|&nbsp; Category: Orchestration<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
@@ -139,16 +139,18 @@
   <li>Content publishing (draft → review → approve → publish → distribute)</li>
 </ul>
 
+
 <!-- ════════════════════════════════════════════ -->
 <!-- 2. CONCEPTS                                 -->
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li>Building a <strong>multi-stage pipeline</strong> with sequential dependencies</li>
-  <li>Integrating a <strong>sub-workflow</strong> as a validation stage in a pipeline</li>
-  <li>Using <strong>HTTP GET</strong> to fetch data and <strong>HTTP POST/PUT</strong> to mutate state</li>
-  <li><strong>Stage-gate pattern</strong> — each stage must succeed before the next begins</li>
-  <li>Sending <strong>confirmation notifications</strong> as the final pipeline stage</li>
+  <li>Using a <strong>Condition node</strong> to branch between two <strong>Sub-Workflow nodes</strong></li>
+  <li>How <strong>SubWorkflow input mappings</strong> pass parent variables to a child workflow</li>
+  <li>How <strong>SubWorkflow output mappings</strong> bring child results back to the parent</li>
+  <li>Building a <strong>child shipping workflow</strong> that is reused for both express and standard paths</li>
+  <li>Using a <strong>SetVariable node</strong> to build a confirmation string after the sub-workflow completes</li>
+  <li>Using a <strong>LogDebug node</strong> with <code>snapshotVariables: true</code> to log the final state</li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -156,51 +158,70 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
 <div class="flow-diagram">
-  ┌─────────────┐
-  │    Start    │  Input: orderId
-  └──────┬──────┘
+  ┌──────────────────────────────┐
+  │    Start                     │  orderId = "12345", shippingType = "express"
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  1. HTTP GET Order          │  GET /api/orders/{{orderId}}
-  │     (HTTP)                  │
-  │                             │  Extracts: orderData
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  1. Fetch Order              │  GET /posts/{{orderId}}
+  │  (HTTP GET)                  │  Extracts: orderTitle, orderBody
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  2. Validate Order          │  Calls sub-workflow:
-  │     (Sub-Workflow)          │  "Order Validation"
-  │                             │
-  │  Input: orderData           │  Output: validationResult
-  │  Gate: must be isValid      │  { isValid, errors[] }
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  2. Express Shipping?        │  Condition: {{shippingType}} == "express"
+  │  (Condition)                 │
+  └──────┬───────────────┬───────┘
+         │ true (Express) │ false (Standard)
+         ▼                ▼
+  ┌─────────────────┐  ┌─────────────────────┐
+  │ 3a. Express     │  │ 3b. Standard         │
+  │  Shipping       │  │  Shipping            │
+  │ (SubWorkflow)   │  │ (SubWorkflow)        │
+  │ tier="express"  │  │ tier="standard"      │
+  └──────┬──────────┘  └──────────┬──────────┘
+         └──────────┬─────────────┘
+                    ▼
+  ┌──────────────────────────────┐
+  │  4. Build Confirmation       │  SetVariable
+  │  (SetVariable)               │  confirmation = "Order {{orderId}} shipped via
+  │                              │   {{shippingType}}. Tracking: {{trackingNumber}}"
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  3. Process Payment         │  POST /api/payments
-  │     (HTTP)                  │  { orderId, amount,
-  │                             │    paymentMethod }
-  │  Extracts: paymentId        │
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  5. Log                      │  LogDebug: info, snapshotVariables=true
+  │  (LogDebug)                  │  Message: {{confirmation}}
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  4. Update Inventory        │  PUT /api/inventory
-  │     (HTTP)                  │  Decrement stock for
-  │                             │  each line item
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │    End                       │
+  └──────────────────────────────┘
+
+  ═══ Child: Shipping Processor (reused by both branches) ═══
+
+  ┌──────────────────────────────┐
+  │  Start                       │  orderId, tier (injected by parent)
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  5. Send Confirmation       │  POST /api/notifications
-  │     (HTTP)                  │  Email confirmation
-  │                             │  to customer
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────┐
+  │  Ship Order                  │  POST /posts, body: {orderId, tier}
+  │  (HTTP POST)                 │  Extracts: shipmentId ← $.id
+  └──────┬───────────────────────┘
          ▼
-  ┌─────────────┐
-  │    End      │
-  └─────────────┘
+  ┌──────────────────────────────┐
+  │  Build Tracking              │  SetVariable
+  │  (SetVariable)               │  trackingNumber = "TRK-{{tier}}-{{shipmentId}}"
+  └──────┬───────────────────────┘
+         ▼
+  ┌──────────────────────────────┐
+  │  End                         │  Returns: trackingNumber → parent
+  └──────────────────────────────┘
 </div>
 
 <p>
-  <strong>7 nodes, 6 edges</strong> — a strict sequential pipeline where each stage
-  depends on the previous. The validation stage delegates to a reusable sub-workflow.
+  <strong>8 nodes in the parent + 4 nodes in the child (Shipping Processor)</strong> — the parent
+  conditionally routes to one of two Sub-Workflow nodes, both pointing at the same child workflow
+  with different <code>tier</code> input mappings. The child returns <code>trackingNumber</code>
+  which the parent uses to build the confirmation message.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -214,55 +235,64 @@
   <tr>
     <td><span class="step-num">S</span> Start</td>
     <td>Start</td>
-    <td>Entry point. Receives <code>orderId</code> as input variable.</td>
+    <td>Input variables: <code>orderId = "12345"</code>, <code>shippingType = "express"</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> HTTP GET Order</td>
-    <td>HTTP</td>
-    <td>Fetches the full order from <code>GET /api/orders/{{orderId}}</code>. Extracts <code>orderData</code> including items, customer, and totals.</td>
+    <td><span class="step-num">1</span> Fetch Order</td>
+    <td>HTTP GET</td>
+    <td>GET <code>https://jsonplaceholder.typicode.com/posts/{{orderId}}</code>. Extracts: <code>orderTitle</code> ← <code>$.title</code>, <code>orderBody</code> ← <code>$.body</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Validate Order</td>
-    <td>Sub-Workflow</td>
-    <td>Calls the "Order Validation" sub-workflow with <code>orderData</code>. If <code>validationResult.isValid</code> is false, the pipeline stops and the order is rejected.</td>
+    <td><span class="step-num">2</span> Express Shipping?</td>
+    <td>Condition</td>
+    <td>Checks <code>{{shippingType}} == "express"</code>. true → 3a Express Shipping, false → 3b Standard Shipping.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3</span> Process Payment</td>
-    <td>HTTP</td>
-    <td>Sends <code>POST /api/payments</code> with order amount and payment method. Extracts <code>paymentId</code> and <code>paymentStatus</code>.</td>
+    <td><span class="step-num">3a</span> Express Shipping</td>
+    <td>SubWorkflow</td>
+    <td>Calls <em>Shipping Processor</em>. Input: <code>orderId={{orderId}}</code>, <code>tier="express"</code>. Output: maps <code>trackingNumber</code> back to parent. Timeout: 15s, retryCount: 2.</td>
   </tr>
   <tr>
-    <td><span class="step-num">4</span> Update Inventory</td>
-    <td>HTTP</td>
-    <td>Sends <code>PUT /api/inventory</code> to decrement stock for each order line item. Extracts <code>inventoryStatus</code>.</td>
+    <td><span class="step-num">3b</span> Standard Shipping</td>
+    <td>SubWorkflow</td>
+    <td>Calls the same <em>Shipping Processor</em>. Input: <code>orderId={{orderId}}</code>, <code>tier="standard"</code>. Output: maps <code>trackingNumber</code>. Timeout: 30s.</td>
   </tr>
   <tr>
-    <td><span class="step-num">5</span> Send Confirmation</td>
-    <td>HTTP</td>
-    <td>Sends <code>POST /api/notifications</code> to email the customer an order confirmation with <code>paymentId</code> and estimated delivery.</td>
+    <td><span class="step-num">4</span> Build Confirmation</td>
+    <td>SetVariable</td>
+    <td>Sets <code>confirmation</code> = <code>Order {{orderId}} shipped via {{shippingType}}. Tracking: {{trackingNumber}}</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">E</span> End</td>
-    <td>End</td>
-    <td>Pipeline complete. Order is validated, paid, inventory updated, and customer notified.</td>
+    <td><span class="step-num">5</span> Log</td>
+    <td>LogDebug (info)</td>
+    <td>Logs <code>{{confirmation}}</code>. snapshotVariables: true — full variable dump in console.</td>
   </tr>
 </table>
 
-<h3>Sub-Workflow Gate (Node 2)</h3>
+<h3>Child Workflow: Shipping Processor</h3>
 <table>
-  <tr><td><strong>Target Workflow</strong></td><td><code>Order Validation</code></td></tr>
-  <tr><td><strong>Input Mapping</strong></td><td><code>order</code> ← <code>{{orderData}}</code></td></tr>
-  <tr><td><strong>Output Mapping</strong></td><td><code>validationResult</code> ← sub-workflow output <code>result</code></td></tr>
-  <tr><td><strong>Gate Condition</strong></td><td>If <code>validationResult.isValid == false</code>, fail the pipeline with validation errors</td></tr>
+  <tr><th>Node</th><th>Type</th><th>Purpose</th></tr>
+  <tr>
+    <td>Start</td>
+    <td>Start</td>
+    <td>Receives <code>orderId</code> and <code>tier</code> from parent via input mappings.</td>
+  </tr>
+  <tr>
+    <td>Ship Order</td>
+    <td>HTTP POST</td>
+    <td>POST <code>https://jsonplaceholder.typicode.com/posts</code>. Body: <code>{"orderId": "{{orderId}}", "tier": "{{tier}}"}</code>. Extracts: <code>shipmentId</code> ← <code>$.id</code>.</td>
+  </tr>
+  <tr>
+    <td>Build Tracking</td>
+    <td>SetVariable</td>
+    <td>Sets <code>trackingNumber</code> = <code>TRK-{{tier}}-{{shipmentId}}</code>.</td>
+  </tr>
+  <tr>
+    <td>End</td>
+    <td>End</td>
+    <td>Returns <code>trackingNumber</code> to parent via output mappings.</td>
+  </tr>
 </table>
-
-<div class="callout">
-  <strong>📘 Stage-Gate Pattern</strong>
-  In a sequential pipeline, each stage acts as a gate: it must succeed before the next
-  stage executes. If validation fails, the pipeline aborts — no payment is processed,
-  no inventory is decremented, and no confirmation is sent. This prevents partial state
-  changes that are hard to clean up.
-</div>
 
 <!-- ════════════════════════════════════════════ -->
 <!-- 5. DEV GUIDE                                -->
@@ -272,46 +302,37 @@
 
 <ol>
   <li>
-    <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🎭 Order Pipeline with Sub-Workflow"</strong>
-    in the <em>Orchestration</em> category. Click <em>Use Template</em>.
+    <strong>Load from Gallery.</strong><br>
+    Click <em>Workflows → Gallery</em>. Find <strong>"Sample: Order Pipeline with Sub-Workflow"</strong>
+    in the <em>Orchestration</em> category. Click <em>Import</em>. Both the parent and child workflows are imported together.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
   <li>
-    <strong>Ensure the "Order Validation" sub-workflow exists.</strong><br>
-    If you haven't already, create it from the
-    <a href="sub-workflow-advanced.html">Sub-Workflow Orchestrator</a> sample.
-  </li>
-  <li>
-    <strong>Create the pipeline workflow.</strong><br>
-    Click <em>Workflows → + New</em>. Name it "Order Pipeline with Sub-Workflow".
-  </li>
-  <li>
-    <strong>Add the HTTP GET node.</strong><br>
-    Configure: <code>GET /api/orders/{{orderId}}</code>. Extract <code>orderData</code>
-    from the response body. Connect Start → HTTP GET Order.
-  </li>
-  <li>
-    <strong>Add the Sub-Workflow node.</strong><br>
-    Select "Order Validation". Map input/output. Add a Condition node after it
-    to check <code>validationResult.isValid</code> — fail on false.
-    Connect HTTP GET Order → Validate Order.
-  </li>
-  <li>
-    <strong>Add the payment, inventory, and confirmation nodes.</strong><br>
-    Chain three HTTP nodes in sequence:
+    <strong>Build the child workflow first.</strong><br>
+    Create a new workflow named "Shipping Processor". Add nodes:
     <ul>
-      <li><strong>Process Payment</strong>: <code>POST /api/payments</code></li>
-      <li><strong>Update Inventory</strong>: <code>PUT /api/inventory</code></li>
-      <li><strong>Send Confirmation</strong>: <code>POST /api/notifications</code></li>
+      <li>Start (input vars: orderId, tier)</li>
+      <li>Ship Order (HTTP POST /posts, extract shipmentId ← $.id)</li>
+      <li>Build Tracking (SetVariable: trackingNumber = TRK-{{tier}}-{{shipmentId}})</li>
+      <li>End</li>
     </ul>
-    Connect each in sequence → End.
+    Note the workflow ID for use in parent sub-workflow nodes.
   </li>
   <li>
-    <strong>Test the full pipeline.</strong><br>
-    Run with a valid order ID. Verify each stage executes in order. Then test with
-    an invalid order to confirm the pipeline stops at validation.
+    <strong>Build the parent workflow.</strong><br>
+    Create a new workflow. Add: Start → Fetch Order → Express Shipping? → [3a/3b] → Build Confirmation → Log → End.
+  </li>
+  <li>
+    <strong>Configure both Sub-Workflow nodes.</strong><br>
+    For each (3a and 3b), select the "Shipping Processor" workflow.
+    Set input mappings: <code>orderId = {{orderId}}</code>, <code>tier = "express"</code> (or <code>"standard"</code>).
+    Set output mapping: <code>trackingNumber → trackingNumber</code>.
+  </li>
+  <li>
+    <strong>Run the workflow.</strong><br>
+    Click <em>Quick Test</em>. With <code>shippingType = "express"</code>, the Express branch fires.
+    Change to <code>"standard"</code> to test the other branch.
   </li>
 </ol>
 
@@ -320,36 +341,18 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="expected-results">6. Expected Execution Results</h2>
 
-<h3>Node States (valid order)</h3>
+<h3>Node States (shippingType = "express")</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>Start</td><td>✅ Pass</td><td>orderId = "ORD-2026-001"</td></tr>
-  <tr><td>1. HTTP GET Order</td><td>✅ Pass</td><td>HTTP 200 — order with 3 line items, total $249.97</td></tr>
-  <tr><td>2. Validate Order</td><td>✅ Pass</td><td>Sub-workflow: isValid = true, 0 errors</td></tr>
-  <tr><td>3. Process Payment</td><td>✅ Pass</td><td>HTTP 201 — paymentId = "PAY-88421"</td></tr>
-  <tr><td>4. Update Inventory</td><td>✅ Pass</td><td>HTTP 200 — 3 items decremented</td></tr>
-  <tr><td>5. Send Confirmation</td><td>✅ Pass</td><td>HTTP 202 — email queued to customer@example.com</td></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>orderId="12345", shippingType="express"</td></tr>
+  <tr><td>1. Fetch Order</td><td>✅ Pass</td><td>HTTP 200 · orderTitle extracted</td></tr>
+  <tr><td>2. Express Shipping?</td><td>✅ Pass (true)</td><td>"express" == "express"</td></tr>
+  <tr><td>3a. Express Shipping</td><td>✅ Pass</td><td>Child ran · trackingNumber = "TRK-express-101"</td></tr>
+  <tr><td>3b. Standard Shipping</td><td>⏭️ Skipped</td><td>false branch not taken</td></tr>
+  <tr><td>4. Build Confirmation</td><td>✅ Pass</td><td>confirmation = "Order 12345 shipped via express. Tracking: TRK-express-101"</td></tr>
+  <tr><td>5. Log</td><td>✅ Pass</td><td>info · confirmation logged · snapshot captured</td></tr>
   <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
 </table>
-
-<h3>Node States (invalid order — validation fails)</h3>
-<table>
-  <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>Start</td><td>✅ Pass</td><td>orderId = "ORD-2026-002"</td></tr>
-  <tr><td>1. HTTP GET Order</td><td>✅ Pass</td><td>HTTP 200 — order with 1 out-of-stock item</td></tr>
-  <tr><td>2. Validate Order</td><td>❌ Fail</td><td>isValid = false, errors: ["Item SKU-99 out of stock"]</td></tr>
-  <tr><td>3. Process Payment</td><td>⏭️ Skipped</td><td>Pipeline aborted at validation gate</td></tr>
-  <tr><td>4. Update Inventory</td><td>⏭️ Skipped</td><td>—</td></tr>
-  <tr><td>5. Send Confirmation</td><td>⏭️ Skipped</td><td>—</td></tr>
-  <tr><td>End</td><td>❌ Fail</td><td>Order rejected: validation errors</td></tr>
-</table>
-
-<div class="callout callout-warn">
-  <strong>⚠️ Compensating Actions</strong>
-  If payment succeeds but inventory update fails, you need a compensating action
-  (refund). For production pipelines, consider implementing the Saga pattern where
-  each stage has an undo action that runs on failure of subsequent stages.
-</div>
 
 <!-- ════════════════════════════════════════════ -->
 <!-- 7. EXERCISES                                -->
@@ -357,38 +360,35 @@
 <div class="page-break"></div>
 <h2 id="exercises">7. Try It Yourself — Exercises</h2>
 
-<h3>Exercise 1: Add a Fraud Check Stage</h3>
+<h3>Exercise 1: Add a Third Shipping Tier</h3>
 <p>
-  Insert a "Fraud Detection" sub-workflow call between Validate Order and Process
-  Payment. If the fraud score exceeds a threshold, reject the order before charging.
+  Add a "Overnight" tier. Change the Condition to a Switch node with three cases:
+  "express", "standard", and "overnight". Create a third Sub-Workflow node that calls
+  the same Shipping Processor with <code>tier="overnight"</code>.
 </p>
 
-<h3>Exercise 2: Implement Saga Rollback</h3>
+<h3>Exercise 2: Add Error Handling to the Child</h3>
 <p>
-  If the inventory update fails (step 4), add a compensating action that refunds the
-  payment (step 3). Use a Condition node after step 4 to trigger the refund on failure.
+  In the Shipping Processor, set <code>onChildFailure = "fail"</code> and add a
+  Workflow Error Handler. Add a LogDebug node in the error subgraph that logs
+  <code>"Shipping failed: {{error.message}}"</code>.
 </p>
 
-<h3>Exercise 3: Parallel Notifications</h3>
+<h3>Exercise 3: Pass Back Multiple Outputs</h3>
 <p>
-  Replace the single Send Confirmation node with parallel branches: one sends an email,
-  another sends an SMS, and a third updates the order dashboard via WebSocket.
+  Extend the child to also return <code>estimatedDays</code> (1 for express, 5 for standard)
+  via a SetVariable. Add a second output mapping on both Sub-Workflow nodes.
+  Include <code>estimatedDays</code> in the confirmation message.
 </p>
 
-<h3>Exercise 4: Retry Failed Payments</h3>
+<h3>Exercise 4: Retry with Backoff</h3>
 <p>
-  If Process Payment returns a 503 (service unavailable), retry up to 3 times with
-  exponential backoff. Only fail the pipeline if all retries are exhausted.
+  On the Express Shipping Sub-Workflow, set <code>retryCount = 3</code> and
+  <code>retryDelayMs = 2000</code>. Change the child's Ship Order URL to
+  an invalid endpoint to trigger retries and observe the retry behavior in
+  the Results Explorer.
 </p>
 
-<div class="callout callout-tip">
-  <strong>💡 Learning Path</strong>
-  Ready for the most complex orchestration pattern? Try the
-  <a href="deploy-orchestrator-advanced.html">Multi-Region Deploy Orchestrator</a>
-  to learn parallel execution, health checks, and rollback strategies.
-</div>
-
-<footer>RedfireForge Training Manual — Order Pipeline with Sub-Workflow · April 2026</footer>
+<footer>RedfireForge Training Manual — Order Pipeline with Sub-Workflow · v0.6.0</footer>
 
 </body>
-</html>

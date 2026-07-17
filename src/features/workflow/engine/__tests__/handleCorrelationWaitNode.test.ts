@@ -118,7 +118,7 @@ function makeHandlerContext(overrides: Partial<NodeHandlerContext> = {}): NodeHa
 describe('handleCorrelationWaitNode', () => {
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('resolves correlation ID, pauses, and resumes on webhook', async () => {

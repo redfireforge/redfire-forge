@@ -55,7 +55,7 @@ const defaultProps = makeDefaultProps();
 
 describe('HttpConfig — interactions', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     resetHttpConfigMockState();
   });
 

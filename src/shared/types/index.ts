@@ -1,15 +1,34 @@
 import type {
-  KafkaActionType,
+  TransportType,
   KafkaAssertionTarget,
   KafkaProduceActionConfig,
   KafkaConsumeActionConfig,
   KafkaResultMeta,
+  GrpcResultMeta,
 } from './kafka';
+import type {
+  ScenarioActionType,
+  WsAssertionTarget,
+  WsNumericAssertionTarget,
+  WsConnectActionConfig,
+  WsSendActionConfig,
+  WsReceiveActionConfig,
+  WsResultMeta,
+} from './websocket';
+import type { GrpcHarnessCallActionConfig } from './grpc-harness';
 import type { SlaTarget, TestConfig } from './runner-config';
 
 export interface Environment {
   id: string;
   name: string;
+}
+
+export type ProtocolKey = 'http' | 'websocket' | 'sse' | 'graphql' | 'grpc';
+
+export interface ProtocolEndpoint {
+  baseUrl: string;               // protocol-specific base URL / address
+  path?: string;                 // optional default path (e.g. /graphql, /subscriptions)
+  tls?: boolean;                 // override TLS for this protocol
 }
 
 export interface Microservice {
@@ -18,11 +37,26 @@ export interface Microservice {
   baseUrls: Record<string, string>;        // environmentId -> base URL
   authProfileIds?: Record<string, string>; // environmentId -> GlobalAuthProfile id
   customEnvs?: Environment[];              // additional (service-specific) environments
+  protocolEndpoints?: Partial<Record<ProtocolKey, Record<string, ProtocolEndpoint>>>;
+  /** Protocols explicitly added by the user. Omitted = derive from baseUrls / protocolEndpoints for backward compat. */
+  enabledProtocols?: ProtocolKey[];
+  /** Protocol-level variables that apply to all environments: varName → value.
+   *  Overridden by envVars for the same key; protocol-derived vars (grpcHost, etc.) take highest precedence. */
+  globalVars?: Record<string, string>;
+  /** Per-environment variable overrides: envId → varName → value.
+   *  Override globalVars for the same key; protocol-derived vars still take highest precedence. */
+  envVars?: Record<string, Record<string, string>>;
 }
 
 export interface KeyValue {
   key: string;
   value: string;
+  /**
+   * Whether this entry is included when the request is sent.
+   * Absent/undefined is treated as enabled (true) for backward compatibility;
+   * only explicitly disabled entries persist `enabled: false`.
+   */
+  enabled?: boolean;
 }
 
 export type AuthType = 'none' | 'inherit' | 'basic' | 'bearer' | 'apikey' | 'digest' | 'oauth2';
@@ -150,7 +184,18 @@ export type Assertion =
    * Target selector paths: `kafka.body`, `kafka.key`, `kafka.partition`, `kafka.offset`,
    * `kafka.header.<headerName>` (e.g. `kafka.header.x-order-id`).
    */
-  | (AssertionBase & { type: 'kafkaField'; target: KafkaAssertionTarget; operator: AssertionOperator; value?: string });
+  | (AssertionBase & { type: 'kafkaField'; target: KafkaAssertionTarget; operator: AssertionOperator; value?: string })
+  /**
+   * WebSocket field assertion (string-based) — evaluates against the WS message body,
+   * frame type, protocol, connection ID, upgrade headers, or JSONPath into the message.
+   * Uses `AssertionOperator` (equals/contains/regex/exists).
+   */
+  | (AssertionBase & { type: 'wsField'; target: WsAssertionTarget; operator: AssertionOperator; value?: string })
+  /**
+   * WebSocket numeric field assertion — evaluates `ws.latencyMs` or `ws.size` using
+   * `ComparisonOperator` (`<`, `>`, `<=`, `>=`, `=`, `!=`).
+   */
+  | (AssertionBase & { type: 'wsNumericField'; target: WsNumericAssertionTarget; operator: ComparisonOperator; value: number });
 
 export interface ValidationConfig {
   mode: ValidationMode;
@@ -180,13 +225,20 @@ export interface Extraction {
 export interface TestDefinitionSnapshot {
   name: string;
   url: string;
-  method: HttpMethod | 'KAFKA';
+  method: HttpMethod | 'KAFKA' | 'WEBSOCKET' | 'GRPC';
   headers: KeyValue[];
   body: string;
   bodyType?: BodyType;
   bodyForm?: KeyValue[];
   auth: AuthConfig;
   extractions?: Extraction[];
+  actionType?: ScenarioActionType;
+  wsConnectAction?: WsConnectActionConfig;
+  wsSendAction?: WsSendActionConfig;
+  wsReceiveAction?: WsReceiveActionConfig;
+  kafkaProduceAction?: KafkaProduceActionConfig;
+  kafkaConsumeAction?: KafkaConsumeActionConfig;
+  grpcCallAction?: GrpcHarnessCallActionConfig;
 }
 
 export interface TestDefinitionVersion {
@@ -316,7 +368,7 @@ export interface Scenario {
   id: string;
   name: string;
   url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'KAFKA';
+  method: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'KAFKA' | 'WEBSOCKET' | 'GRPC';
   headers: KeyValue[];
   body: string;
   bodyType?: BodyType;
@@ -353,11 +405,19 @@ export interface Scenario {
    * Transport action type. Absent or `'http'` means standard HTTP request.
    * Older saved scenarios without this field are always treated as `'http'` by all consumers.
    */
-  actionType?: KafkaActionType;
+  actionType?: ScenarioActionType;
   /** Configuration for a Kafka produce action (present when `actionType === 'kafkaProduce'`). */
   kafkaProduceAction?: KafkaProduceActionConfig;
   /** Configuration for a Kafka consume action (present when `actionType === 'kafkaConsume'`). */
   kafkaConsumeAction?: KafkaConsumeActionConfig;
+  /** Configuration for a WS connect action (present when `actionType === 'wsConnect'`). */
+  wsConnectAction?: WsConnectActionConfig;
+  /** Configuration for a WS send action (present when `actionType === 'wsSend'`). */
+  wsSendAction?: WsSendActionConfig;
+  /** Configuration for a WS receive action (present when `actionType === 'wsReceive'`). */
+  wsReceiveAction?: WsReceiveActionConfig;
+  /** Configuration for a gRPC harness call (present when `actionType === 'grpcCall'`). */
+  grpcCallAction?: GrpcHarnessCallActionConfig;
 }
 
 export type ScenarioKind = 'standard' | 'parameterized';
@@ -451,6 +511,9 @@ export interface TrashSettings {
 
 export * from './runner-config';
 export * from './kafka';
+export * from './grpc-harness';
+export * from './grpc-harness-snapshot';
+export * from './websocket';
 
 export interface FailureDetail {
   path: string;
@@ -506,9 +569,13 @@ export interface RequestResult {
    * Rendering components should guard `httpStatus`/method-badge display behind
    * `(r.transportType ?? 'http') === 'http'`.
    */
-  transportType?: KafkaActionType;
+  transportType?: TransportType;
   /** Kafka-specific result metadata (populated when `transportType` is `'kafkaProduce'` or `'kafkaConsume'`). */
   kafkaResultMeta?: KafkaResultMeta;
+  /** WebSocket-specific result metadata (populated when `transportType` is a WS action). */
+  wsResultMeta?: WsResultMeta;
+  /** gRPC-specific result metadata (workflow: `grpcUnary`/`grpcServerStream`; harness: `grpcCall`). */
+  grpcResultMeta?: GrpcResultMeta;
 }
 
 export interface TestSummary {
@@ -560,6 +627,9 @@ export type {
   WorkflowExecutionTrace,
   CapturedKafkaNodeDetails,
   KafkaFailureClass,
+  CapturedWsNodeDetails,
+  CapturedGrpcNodeDetails,
+  WsFailureClass,
 } from './trace';
 
 

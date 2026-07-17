@@ -105,4 +105,10 @@ describe('AppSubNav', () => {
     await user.click(kafkaTab);
     expect(setActiveTab).toHaveBeenCalledWith('kafka-settings');
   });
+
+  it('renders Learning Hub tab in demo domain when demo is enabled', () => {
+    const setActiveTab = vi.fn();
+    render(<AppSubNav activeTab="demo-hub" setActiveTab={setActiveTab} />);
+    expect(screen.getByRole('button', { name: 'Learning Hub' }).className).toContain('active');
+  });
 });
