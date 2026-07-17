@@ -53,6 +53,12 @@ const baseProps = {
   onClose: vi.fn(),
 };
 
+async function pickDarkSelectOption(testId: string, label: string) {
+  const root = screen.getByTestId(testId);
+  fireEvent.click(root.querySelector('.wf-dark-select__trigger')!);
+  fireEvent.click(await screen.findByRole('option', { name: label }));
+}
+
 describe('WorkflowDefaultsModal', () => {
   it('renders nothing when closed', () => {
     const { container } = render(<WorkflowDefaultsModal {...baseProps} open={false} />);
@@ -63,44 +69,35 @@ describe('WorkflowDefaultsModal', () => {
     render(<WorkflowDefaultsModal {...baseProps} />);
     expect(screen.getByTestId('vars-section').textContent).toContain('baseUrl');
     expect(screen.getByText('Workflow Variables')).toBeTruthy();
-    const select = document.querySelector('.wf-defaults-select') as HTMLSelectElement;
-    expect(select.value).toBe('stop');
+    expect(screen.getByTestId('wf-defaults-error-mode').textContent).toContain('Stop workflow (default)');
   });
 
   it('reflects existing errorConfig mode', () => {
     render(<WorkflowDefaultsModal {...baseProps} errorConfig={{ mode: 'continue' }} />);
-    const select = document.querySelector('.wf-defaults-select') as HTMLSelectElement;
-    expect(select.value).toBe('continue');
+    expect(screen.getByTestId('wf-defaults-error-mode').textContent).toContain('Continue (ignore errors)');
     expect(screen.getByText('Workflow continues even when steps fail')).toBeTruthy();
   });
 
-  it('switching to run-handler shows handler node select (filters start/end)', () => {
+  it('switching to run-handler shows handler node select (filters start/end)', async () => {
     render(<WorkflowDefaultsModal {...baseProps} workflowNodes={nodes} />);
-    const select = document.querySelector('.wf-defaults-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'run-handler' } });
-    const selects = document.querySelectorAll('.wf-defaults-select');
-    expect(selects.length).toBe(2);
-    const handlerSelect = selects[1] as HTMLSelectElement;
-    const options = handlerSelect.querySelectorAll('option');
-    // placeholder + n1 + n2 (start filtered out)
-    expect(options.length).toBe(3);
-    expect(screen.getByText('Get User (http)')).toBeTruthy();
-    expect(screen.getByText('delay (delay)')).toBeTruthy();
+    await pickDarkSelectOption('wf-defaults-error-mode', 'Run error handler subgraph');
+    expect(screen.getByTestId('wf-defaults-handler-node')).toBeTruthy();
+    fireEvent.click(screen.getByTestId('wf-defaults-handler-node').querySelector('.wf-dark-select__trigger')!);
+    expect(screen.getByRole('option', { name: 'Get User (http)' })).toBeTruthy();
+    expect(screen.getByRole('option', { name: 'delay (delay)' })).toBeTruthy();
+    expect(screen.queryByRole('option', { name: /start/ })).toBeNull();
   });
 
-  it('selecting handler entry node updates draft', () => {
+  it('selecting handler entry node updates draft', async () => {
     render(<WorkflowDefaultsModal {...baseProps} workflowNodes={nodes} />);
-    const modeSelect = document.querySelector('.wf-defaults-select') as HTMLSelectElement;
-    fireEvent.change(modeSelect, { target: { value: 'run-handler' } });
-    const handlerSelect = document.querySelectorAll('.wf-defaults-select')[1] as HTMLSelectElement;
-    fireEvent.change(handlerSelect, { target: { value: 'n1' } });
-    expect(handlerSelect.value).toBe('n1');
+    await pickDarkSelectOption('wf-defaults-error-mode', 'Run error handler subgraph');
+    await pickDarkSelectOption('wf-defaults-handler-node', 'Get User (http)');
+    expect(screen.getByTestId('wf-defaults-handler-node').textContent).toContain('Get User (http)');
   });
 
-  it('switching back to stop clears error draft', () => {
+  it('switching back to stop clears error draft', async () => {
     render(<WorkflowDefaultsModal {...baseProps} errorConfig={{ mode: 'continue' }} />);
-    const select = document.querySelector('.wf-defaults-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'stop' } });
+    await pickDarkSelectOption('wf-defaults-error-mode', 'Stop workflow (default)');
     expect(screen.getByText(/Workflow stops when any step fails/)).toBeTruthy();
   });
 

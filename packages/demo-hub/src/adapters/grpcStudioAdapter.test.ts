@@ -13,8 +13,10 @@ import {
   GRPC_SPRING_DOCKER_COMMAND,
   GRPC_STUDIO_LESSON_ALLOWED_TABS,
   getGrpcActiveDescriptorKey,
+  patchGrpcActiveTabBody,
   patchGrpcActiveTabExportContext,
   patchGrpcSchemaDiffReport,
+  resetGrpcActiveTabTransport,
   resetGrpcActiveTabRuntimeState,
 } from './grpcStudioAdapter';
 
@@ -103,7 +105,32 @@ describe('grpcStudioAdapter', () => {
   it('bridge helpers return false when bridge is unavailable', () => {
     expect(resetGrpcActiveTabRuntimeState()).toBe(false);
     expect(patchGrpcActiveTabExportContext({})).toBe(false);
+    expect(resetGrpcActiveTabTransport()).toBe(false);
+    expect(patchGrpcActiveTabBody('{"a":1}')).toBe(false);
     expect(getGrpcActiveDescriptorKey()).toBeNull();
+  });
+
+  it('resetGrpcActiveTabTransport patches mode via bridge', () => {
+    const bridge = vi.fn().mockReturnValue(true);
+    (window as unknown as { __demoPatchGrpcActiveTab?: (patch: unknown) => boolean }).__demoPatchGrpcActiveTab = bridge;
+
+    expect(resetGrpcActiveTabTransport('browser')).toBe(true);
+    expect(bridge).toHaveBeenCalledWith({ transportMode: 'browser', compression: undefined });
+  });
+
+  it('patchGrpcActiveTabBody parses JSON and patches body via bridge', () => {
+    const bridge = vi.fn().mockReturnValue(true);
+    (window as unknown as { __demoPatchGrpcActiveTab?: (patch: unknown) => boolean }).__demoPatchGrpcActiveTab = bridge;
+
+    expect(patchGrpcActiveTabBody('{"message":"hello"}')).toBe(true);
+    expect(bridge).toHaveBeenCalledWith({ body: { message: 'hello' } });
+  });
+
+  it('patchGrpcActiveTabBody returns false on invalid JSON', () => {
+    const bridge = vi.fn().mockReturnValue(true);
+    (window as unknown as { __demoPatchGrpcActiveTab?: (patch: unknown) => boolean }).__demoPatchGrpcActiveTab = bridge;
+
+    expect(patchGrpcActiveTabBody('{bad json')).toBe(false);
   });
 
   it('getGrpcActiveDescriptorKey falls back to sessionStorage when bridge returns blank', () => {

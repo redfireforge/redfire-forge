@@ -429,6 +429,10 @@ describe('kafka-topic-explorer lesson', () => {
     await step.action!(ctx);
     expect(messagesTab.querySelector('[data-testid="detail-results"]')).toBeTruthy();
   });
+  it('has Docker badge tag', () => {
+    expect(kafkaTopicExplorerLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 
 // ─── K7: kafka-schema-registry ──────────────────────────────────

@@ -58,6 +58,7 @@ export const kafkaSchemaRegistryLesson: DemoLesson = {
 
   dockerEndpoint: 'http://localhost:8085',
   dockerCommand: 'cd docker/kafka/schema-registry && docker compose up -d',
+  tag: '🐳 Docker',
 
   setup: kafkaSchemaSetup,
   cleanup: kafkaCleanup,

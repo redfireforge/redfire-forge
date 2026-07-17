@@ -241,5 +241,9 @@ describe('kafka-schema-registry lesson', () => {
     await step.preAction!(makeCtx());
     expect(clickSpy).not.toHaveBeenCalled();
   });
+  it('has Docker badge tag', () => {
+    expect(kafkaSchemaRegistryLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 

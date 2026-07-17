@@ -54,6 +54,11 @@ interface StandardProfessionalModalProps extends Omit<AppModalFrameProps, 'overl
    * @default 'icon'
    */
   closeButtonKind?: 'icon' | 'text' | 'none';
+  /**
+   * Extra class name appended to the `professional-modal` dialog root.
+   * Use for per-modal visual overrides (e.g. a stronger white edge).
+   */
+  dialogClassName?: string;
 }
 
 export default function StandardProfessionalModal({
@@ -63,13 +68,14 @@ export default function StandardProfessionalModal({
   constrainDragToViewport = true,
   dragViewportPadding = 8,
   showExpandButton = false,
+  dialogClassName,
   ...props
 }: StandardProfessionalModalProps) {
   return (
     <AppModalFrame
       {...props}
       overlayClassName="professional-modal-overlay"
-      dialogClassName="professional-modal"
+      dialogClassName={dialogClassName ? `professional-modal ${dialogClassName}` : 'professional-modal'}
       closeButtonKind={closeButtonKind}
       closeOnOverlayClick={closeOnOverlayClick}
       showResizeHandles={showResizeHandles}

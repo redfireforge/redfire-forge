@@ -4,6 +4,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   findVisibleAppModal,
+  hasDemoHubTextSelection,
   installDemoUserScrollListeners,
   isElementVisibleInViewport,
   scrollDemoTargetIntoView,
@@ -125,5 +126,36 @@ describe('demoSpotlightUtils — coverage gaps', () => {
     svgOverlay.setAttribute('class', 'modal-overlay');
     document.body.appendChild(svgOverlay);
     expect(findVisibleAppModal()).toBeNull();
+  });
+
+  it('scrollDemoTargetIntoView calls scrollIntoView fallback when parent is not scrollable', () => {
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 60_000);
+    const el = document.createElement('div');
+    el.scrollIntoView = vi.fn();
+    document.body.appendChild(el);
+    scrollDemoTargetIntoView(el, { block: 'center' });
+    expect(el.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+  });
+
+  it('isElementVisibleInViewport returns true for in-bounds visible element in parent chain', () => {
+    const outer = document.createElement('div');
+    const middle = document.createElement('div');
+    const el = document.createElement('div');
+    outer.appendChild(middle);
+    middle.appendChild(el);
+    document.body.appendChild(outer);
+    mockRect(el, 120, 120, 80, 30);
+    expect(isElementVisibleInViewport(el)).toBe(true);
+  });
+
+  it('hasDemoHubTextSelection returns false when selection has no anchor node', () => {
+    vi.spyOn(window, 'getSelection').mockReturnValue({ isCollapsed: false, anchorNode: null } as Selection);
+    expect(hasDemoHubTextSelection()).toBe(false);
+  });
+
+  it('hasDemoHubTextSelection returns false when anchor node has no element ancestor', () => {
+    const text = document.createTextNode('hello');
+    vi.spyOn(window, 'getSelection').mockReturnValue({ isCollapsed: false, anchorNode: text } as Selection);
+    expect(hasDemoHubTextSelection()).toBe(false);
   });
 });

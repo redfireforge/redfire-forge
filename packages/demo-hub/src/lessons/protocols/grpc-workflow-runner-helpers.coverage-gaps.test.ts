@@ -14,6 +14,7 @@ import {
   grpcWRSession,
   resetGrpcWRSession,
   applyGrpcWRConfig,
+  applyGrpcWRConfigVisible,
   ensureChainConnected,
   ensureFullResultsMetricsCards,
   ensureRunnerReady,
@@ -31,13 +32,18 @@ import {
   selectGrpcEchoWorkflow,
   ensureWorkflowSeededForRunner,
   ensureGrpcWRNodesPresent,
+  spotlightGrpcTargetVarRow,
+  tourResultsExplorerPanels,
 } from './grpc-workflow-runner-helpers';
 
 describe('grpc-workflow-runner-helpers — coverage gaps', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     document.body.innerHTML = '';
     resetGrpcWRSession();
     stubWorkflowSeedBridge(WF14_NAME);
+    const lessonHelpers = await import('./grpc-lesson-helpers');
+    vi.spyOn(lessonHelpers, 'spotlightAndPause').mockResolvedValue(undefined);
+    vi.spyOn(lessonHelpers, 'spotlightElementAndPause').mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -64,8 +70,12 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
   it('ensureChainConnected wires start, unary, assert, and end nodes', () => {
     document.body.innerHTML = `
       <div class="react-flow__node-start" data-id="start-1"></div>
-      <div class="react-flow__node react-flow__node-grpcUnary" data-id="grpc14-echo"></div>
-      <div class="react-flow__node react-flow__node-grpcAssert" data-id="grpc14-assert"></div>
+      <div class="react-flow__node react-flow__node-grpcUnary" data-id="grpc14-echo">
+        <div data-testid="grpc-canvas-unary-node"></div>
+      </div>
+      <div class="react-flow__node react-flow__node-grpcAssert" data-id="grpc14-assert">
+        <div data-testid="grpc-canvas-assert-node"></div>
+      </div>
       <div class="react-flow__node-end" data-id="end-1"></div>
     `;
     const removeSpy = vi.spyOn(adapters, 'removeWorkflowEdge').mockImplementation(() => undefined);
@@ -89,23 +99,40 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
     stubRunnerBridge({ selectAndRun: false });
     const selectSpy = vi.spyOn(adapters, 'selectAndRunRunnerWorkflow')
       .mockReturnValueOnce(false)
-      .mockReturnValueOnce(true);
-    vi.spyOn(adapters, 'waitForRunnerBridge').mockResolvedValue(true);
-
-    let delayCalls = 0;
-    vi.mocked(ctx.delay).mockImplementation(async () => {
-      delayCalls += 1;
-      if (delayCalls === 2) {
+      .mockImplementationOnce(() => {
         const completion = document.createElement('div');
         completion.className = 'completion-section';
         completion.scrollIntoView = vi.fn();
         document.body.appendChild(completion);
-      }
-    });
+        return true;
+      });
+    vi.spyOn(adapters, 'waitForRunnerBridge').mockResolvedValue(true);
 
     await runGrpcEchoWorkflow(ctx);
     expect(selectSpy).toHaveBeenCalledTimes(2);
     expect(grpcWRSession.runCompleted).toBe(true);
+  });
+
+  it('applyGrpcWRConfigVisible fills Iterations/Concurrency and applies batch config', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <div class="workflow-runner-config-section">
+        <div class="resilience-field"><label>Iterations</label><input type="number" value="1" /></div>
+        <div class="resilience-field"><label>Concurrency</label><input type="number" value="2" /></div>
+      </div>
+    `;
+    const batchSpy = vi.spyOn(adapters, 'applyRunnerBatchConfig').mockImplementation(() => true);
+    vi.spyOn(adapters, 'waitForRunnerBridge').mockResolvedValue(true);
+    await applyGrpcWRConfigVisible(ctx);
+    expect((document.querySelectorAll('input')[0] as HTMLInputElement).value).toBe(String(GRPCWR_ITERATIONS));
+    expect((document.querySelectorAll('input')[1] as HTMLInputElement).value).toBe(String(GRPCWR_CONCURRENCY));
+    expect(batchSpy).toHaveBeenCalledWith(GRPCWR_ITERATIONS, GRPCWR_CONCURRENCY, 'standard');
+    expect(grpcWRSession.configApplied).toBe(true);
+  });
+
+  it('spotlightGrpcTargetVarRow no-ops when variables section is missing', async () => {
+    const ctx = makeCtx();
+    await expect(spotlightGrpcTargetVarRow(ctx)).resolves.toBeUndefined();
   });
 
   it('ensureRunnerReady skips select and config when session flags already set', async () => {
@@ -207,20 +234,22 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
     expect(tabSpy).not.toHaveBeenCalled();
   });
 
-  it('grpcWorkflowRunnerSetup deletes existing workflow and collapses sidebar', async () => {
+  it('grpcWorkflowRunnerSetup deletes existing workflow and expands sidebar for step 1', async () => {
     const ctx = makeCtx();
-    const lessonHelpers = await import('./grpc-lesson-helpers');
     const wfHelpers = await import('../wf-demo-helpers');
-    vi.spyOn(lessonHelpers, 'grpcFirstCallSetup').mockResolvedValue(undefined);
     vi.spyOn(wfHelpers, 'cleanupWorkflowDemoRunUi').mockResolvedValue(undefined);
     vi.spyOn(wfHelpers, 'closeWfConfigModalIfOpen').mockResolvedValue(undefined);
-    vi.spyOn(wfHelpers, 'collapseWfDemoAppSidebar').mockResolvedValue(undefined);
+    const expandSpy = vi.spyOn(wfHelpers, 'expandWfDemoAppSidebar').mockResolvedValue(undefined);
+    const fitSpy = vi.spyOn(adapters, 'fitWorkflowCanvasView').mockReturnValue(true);
     vi.spyOn(adapters, 'getWorkflowByName').mockReturnValue({ name: WF14_NAME });
     const deleteSpy = vi.spyOn(adapters, 'deleteWorkflowByName').mockImplementation(() => undefined);
     document.body.innerHTML = '<button class="onboarding-tooltip-skip">Skip</button>';
     await grpcWorkflowRunnerSetup(ctx);
     expect(deleteSpy).toHaveBeenCalledWith(WF14_NAME);
-    expect(grpcWRSession.sidebarCollapsed).toBe(true);
+    expect(expandSpy).toHaveBeenCalled();
+    expect(fitSpy).toHaveBeenCalled();
+    expect(grpcWRSession.sidebarCollapsed).toBe(false);
+    expect(ctx.navigateToTab).toHaveBeenCalledWith('workflow');
   });
 
   it('grpcWorkflowRunnerCleanup resets session and deletes workflow', async () => {
@@ -240,8 +269,12 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
   it('ensureChainConnected resolves node ids via closest react-flow parent', () => {
     document.body.innerHTML = `
       <div class="react-flow__node-start" data-id="start-1"><span class="label"></span></div>
-      <div class="react-flow__node react-flow__node-grpcUnary" data-id="grpc14-echo"><span class="label"></span></div>
-      <div class="react-flow__node react-flow__node-grpcAssert" data-id="grpc14-assert"></div>
+      <div class="react-flow__node react-flow__node-grpcUnary" data-id="grpc14-echo">
+        <div data-testid="grpc-canvas-unary-node"><span class="label"></span></div>
+      </div>
+      <div class="react-flow__node react-flow__node-grpcAssert" data-id="grpc14-assert">
+        <div data-testid="grpc-canvas-assert-node"></div>
+      </div>
       <div class="react-flow__node-end" data-id="end-1"></div>
     `;
     const connectSpy = vi.spyOn(adapters, 'connectWorkflowNodes').mockImplementation(() => undefined);
@@ -304,19 +337,36 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
     `;
     vi.spyOn(adapters, 'getWorkflowByName').mockReturnValue({ name: WF14_NAME });
     vi.spyOn(adapters, 'waitForRunnerBridge').mockResolvedValue(true);
-    vi.spyOn(adapters, 'selectAndRunRunnerWorkflow').mockReturnValue(true);
-    let delayCalls = 0;
-    vi.mocked(ctx.delay).mockImplementation(async () => {
-      delayCalls += 1;
-      if (delayCalls === 3) {
+    vi.spyOn(adapters, 'selectAndRunRunnerWorkflow').mockImplementation(() => {
+      if (!document.querySelector('.completion-section')) {
         const completion = document.createElement('div');
         completion.className = 'completion-section';
         completion.scrollIntoView = vi.fn();
+        const link = document.createElement('button');
+        link.className = 'btn-primary';
+        link.textContent = 'View Full Results';
+        completion.appendChild(link);
         document.body.appendChild(completion);
       }
+      return true;
     });
     await openResultsFromCompletionBanner(ctx);
     expect(grpcWRSession.runCompleted).toBe(true);
+  });
+
+  it('tourResultsExplorerPanels opens explorer and rings diagram when present', async () => {
+    const ctx = makeCtx();
+    document.body.innerHTML = `
+      <button title="Explore execution results">Explorer</button>
+      <div data-testid="results-explorer-diagram"></div>
+      <div class="results-explorer-detail"></div>
+      <div class="iteration-matrix"></div>
+      <button data-testid="results-explorer-fit-view-btn">Fit</button>
+    `;
+    vi.spyOn(adapters, 'waitForResultsExplorerBridge').mockResolvedValue(true);
+    vi.spyOn(adapters, 'fitResultsExplorerDiagram').mockReturnValue(true);
+    await tourResultsExplorerPanels(ctx);
+    expect(document.querySelector('[data-testid="results-explorer-diagram"]')).toBeTruthy();
   });
 
   it('ensureOnResultsTab navigates to results when run already completed', async () => {
@@ -445,15 +495,14 @@ describe('grpc-workflow-runner-helpers — coverage gaps', () => {
 
   it('grpcWorkflowRunnerSetup skips delete when workflow does not exist', async () => {
     const ctx = makeCtx();
-    const lessonHelpers = await import('./grpc-lesson-helpers');
     const wfHelpers = await import('../wf-demo-helpers');
-    vi.spyOn(lessonHelpers, 'grpcFirstCallSetup').mockResolvedValue(undefined);
     vi.spyOn(wfHelpers, 'cleanupWorkflowDemoRunUi').mockResolvedValue(undefined);
     vi.spyOn(wfHelpers, 'closeWfConfigModalIfOpen').mockResolvedValue(undefined);
-    vi.spyOn(wfHelpers, 'collapseWfDemoAppSidebar').mockResolvedValue(undefined);
+    vi.spyOn(wfHelpers, 'expandWfDemoAppSidebar').mockResolvedValue(undefined);
     vi.spyOn(adapters, 'getWorkflowByName').mockReturnValue(null);
     const deleteSpy = vi.spyOn(adapters, 'deleteWorkflowByName').mockImplementation(() => undefined);
     await grpcWorkflowRunnerSetup(ctx);
     expect(deleteSpy).not.toHaveBeenCalled();
+    expect(grpcWRSession.sidebarCollapsed).toBe(false);
   });
 });

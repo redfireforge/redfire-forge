@@ -268,5 +268,9 @@ describe('kafka-test-runner lesson', () => {
       }
     }
   });
+  it('has Docker badge tag', () => {
+    expect(kafkaTestRunnerLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 

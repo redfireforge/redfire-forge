@@ -9,11 +9,13 @@ export default function GrpcServerStreamConfig({
   onChange,
   globalAuthProfiles = [],
   defaultAuthProfileId = null,
+  workflowVariables = {},
 }: {
   data: GrpcServerStreamNodeData;
   onChange: (d: GrpcServerStreamNodeData) => void;
   globalAuthProfiles?: GlobalAuthProfile[];
   defaultAuthProfileId?: string | null;
+  workflowVariables?: Record<string, string>;
 }) {
   const [bodyText, setBodyText] = useState(() => JSON.stringify(data.body ?? {}, null, 2));
   const [metadataText, setMetadataText] = useState(() => JSON.stringify(data.metadata ?? {}, null, 2));
@@ -51,6 +53,7 @@ export default function GrpcServerStreamConfig({
         onChange={onChange}
         callType="server_streaming"
         testIdPrefix="grpc-server-stream-config"
+        workflowVariables={workflowVariables}
       />
 
       <GrpcWorkflowConnectionSecurityFields

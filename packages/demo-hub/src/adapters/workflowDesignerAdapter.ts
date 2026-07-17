@@ -147,8 +147,16 @@ export function openWorkflowNodeConfig(nodeId: string): boolean {
   return true;
 }
 
-export function fitWorkflowCanvasView(): boolean {
-  return getDemoBridgeWindow().__wfFitView?.() ?? false;
+export type WorkflowCanvasFitOptions = {
+  padding?: number | { top?: number; right?: number; bottom?: number; left?: number };
+  maxZoom?: number;
+  minZoom?: number;
+  duration?: number;
+};
+
+/** Fit Designer canvas. Defaults leave room for the floating LiveDemo panel. */
+export function fitWorkflowCanvasView(opts?: WorkflowCanvasFitOptions): boolean {
+  return getDemoBridgeWindow().__wfFitView?.(opts) ?? false;
 }
 
 export function deselectAllWorkflowNodes(): void {

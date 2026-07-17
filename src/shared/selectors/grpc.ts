@@ -509,6 +509,9 @@ export const GRPC = {
   SCHEMA_DIFF_PROTO_BTN: '[data-testid="grpc-sdiff-group-proto-btn"]',
   SCHEMA_DIFF_PROTO_BADGE: '[data-testid="grpc-sdiff-group-proto-badge"]',
   SCHEMA_DIFF_PROTO_MODAL: '[data-testid="grpc-sdiff-proto-modal"]',
+  SCHEMA_DIFF_PROTO_IMPACT_SUMMARY: '[data-testid="grpc-sdiff-proto-impact-summary"]',
+  SCHEMA_DIFF_PROTO_BEFORE: '[data-testid="grpc-sdiff-proto-before"]',
+  SCHEMA_DIFF_PROTO_AFTER: '[data-testid="grpc-sdiff-proto-after"]',
   SCHEMA_DIFF_PROTO_MODAL_CLOSE: '[data-testid="grpc-sdiff-proto-modal-close"]',
   SAVED_REQUEST_RUN_LOAD_TEST: '[data-testid="grpc-saved-request-run-load-test"]',
   RPC_STATS_PANEL: '[data-testid="grpc-rpc-stats-panel"]',
@@ -531,6 +534,8 @@ export const GRPC = {
   // Workflow Designer gRPC node config panels
   WF_UNARY_CONFIG: '[data-testid="grpc-unary-config"]',
   WF_UNARY_CFG_TARGET: '[data-testid="grpc-unary-config-target"]',
+  WF_UNARY_CFG_REFLECT_STATUS: '[data-testid="grpc-unary-config-reflect-status"]',
+  WF_UNARY_CFG_REFLECT_READY: '[data-testid="grpc-unary-config-reflect-status"][data-status="ready"]',
   WF_UNARY_CFG_SERVICE: '[data-testid="grpc-unary-config-service"]',
   WF_UNARY_CFG_METHOD: '[data-testid="grpc-unary-config-method"]',
   WF_UNARY_CFG_BODY: '[data-testid="grpc-unary-config-body"]',

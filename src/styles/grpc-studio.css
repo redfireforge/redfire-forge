@@ -11147,16 +11147,11 @@
   line-height: 1.5;
 }
 
-/* --- Hover affordances: show action buttons only on hover --- */
+/* --- Rule action buttons: always visible --- */
 
 .grpc-mock-builder-actions-group {
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.grpc-mock-builder-rule:hover .grpc-mock-builder-actions-group,
-.grpc-mock-builder-rule:focus-within .grpc-mock-builder-actions-group {
   opacity: 1;
+  transition: opacity 0.15s;
 }
 
 /* --- Hit counters --- */
@@ -11440,6 +11435,16 @@
 
 .professional-modal .grpc-mock-tester-modal__header {
   padding: 14px 16px 6px;
+}
+
+/* Dry-Run Tester — stronger subtle white edge, matching gRPC session settings. */
+.professional-modal.grpc-dry-run-tester-modal {
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.16),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 20px 60px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 .grpc-mock-builder-tester__hero {
@@ -11845,13 +11850,16 @@
 }
 
 .grpc-mock-header__actions {
-  display: flex;
+  display: inline-flex;
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
+  flex: 0 0 auto;
   gap: 8px;
-  min-width: 236px;
-  padding: 10px;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: color-mix(in srgb, var(--bg) 70%, var(--surface) 30%);
@@ -11860,12 +11868,14 @@
 
 .grpc-mock-header__primary-actions {
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
   width: auto;
+  flex: 0 0 auto;
 }
 
 .grpc-mock-header__primary-actions .btn {
-  min-width: 96px;
+  min-width: 0;
+  white-space: nowrap;
 }
 
 .grpc-mock-summary-row {
@@ -12798,6 +12808,14 @@
 
 
 /* ── Proto view modal (schema diff) ───────────────────────────────── */
+
+.professional-modal.grpc-sdiff-proto-modal-shell {
+  border: 1px solid color-mix(in srgb, var(--text) 28%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, var(--text) 8%, transparent),
+    0 10px 28px rgba(0, 0, 0, 0.35);
+}
 
 .grpc-sdiff-proto-modal-content {
   --grpc-sdiff-proto-edge: var(--border);
