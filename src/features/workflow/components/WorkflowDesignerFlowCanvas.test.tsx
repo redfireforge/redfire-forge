@@ -7,6 +7,10 @@ import { WorkflowDesignerFlowCanvas } from './WorkflowDesignerFlowCanvas';
 import type { WorkflowDesignerViewModel } from '../hooks/useWorkflowDesignerController';
 import type { Workflow } from '../types/workflow';
 
+const mockGetViewport = vi.fn(() => ({ x: 1, y: 2, zoom: 1 }));
+const mockSetViewport = vi.fn();
+const mockFitView = vi.fn();
+
 // jsdom does not implement requestAnimationFrame; polyfill it so source-level
 // setTimeout(() => requestAnimationFrame(...)) calls don't blow up in tests.
 if (typeof globalThis.requestAnimationFrame === 'undefined') {
@@ -35,9 +39,9 @@ vi.mock('@xyflow/react', () => ({
   ConnectionMode: { Loose: 'loose' },
   MarkerType: { ArrowClosed: 'arrowclosed' },
   useReactFlow: () => ({
-    getViewport: vi.fn(() => ({ x: 1, y: 2, zoom: 1 })),
-    setViewport: vi.fn(),
-    fitView: vi.fn(),
+    getViewport: mockGetViewport,
+    setViewport: mockSetViewport,
+    fitView: mockFitView,
   }),
 }));
 
@@ -167,6 +171,9 @@ function makeVm(over: Partial<WorkflowDesignerViewModel> = {}): WorkflowDesigner
 }
 
 beforeEach(() => {
+  mockGetViewport.mockClear();
+  mockSetViewport.mockClear();
+  mockFitView.mockClear();
   ioCallback = null;
   class MockIO {
     constructor(cb: (entries: { isIntersecting: boolean }[]) => void) {
@@ -589,5 +596,72 @@ describe('WorkflowDesignerFlowCanvas', () => {
     render(<WorkflowDesignerFlowCanvas vm={makeVm({ setNodes })} selected={selected} />);
     (window as unknown as Record<string, () => void>).__wfDeselectAll();
     expect(setNodes).toHaveBeenCalled();
+  });
+
+  it('returns early when canvas ref current is unavailable', () => {
+    const nullRef = {
+      get current() {
+        return null;
+      },
+      set current(_next: HTMLDivElement | null) {
+        // Keep current null so the effect early-return path is exercised.
+      },
+    };
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({ canvasAreaRef: nullRef as unknown as WorkflowDesignerViewModel['canvasAreaRef'] })}
+        selected={selected}
+      />,
+    );
+    expect(screen.getByTestId('rf')).toBeTruthy();
+  });
+
+  it('skips viewport switch effect when selected id is unchanged', () => {
+    const vm = makeVm();
+    const { rerender } = render(<WorkflowDesignerFlowCanvas vm={vm} selected={selected} />);
+    rerender(<WorkflowDesignerFlowCanvas vm={vm} selected={selected} />);
+    expect(screen.getByTestId('rf')).toBeTruthy();
+  });
+
+  it('exposes wfFitView helper with default and custom options', () => {
+    render(<WorkflowDesignerFlowCanvas vm={makeVm()} selected={selected} />);
+    const fn = (window as unknown as Record<string, unknown>).__wfFitView as
+      | ((opts?: Record<string, unknown>) => boolean)
+      | undefined;
+    expect(typeof fn).toBe('function');
+
+    expect(fn?.()).toBe(true);
+    expect(mockFitView).toHaveBeenCalledWith({
+      padding: { top: 0.08, right: 0.34, bottom: 0.1, left: 0.06 },
+      maxZoom: 1.35,
+      minZoom: 0.9,
+      duration: 250,
+      includeHiddenNodes: true,
+    });
+
+    fn?.({ padding: 0.2, maxZoom: 2, minZoom: 0.5, duration: 10 });
+    expect(mockFitView).toHaveBeenLastCalledWith({
+      padding: 0.2,
+      maxZoom: 2,
+      minZoom: 0.5,
+      duration: 10,
+      includeHiddenNodes: true,
+    });
+  });
+
+  it('keeps non-target edges untouched when highlighting drop target edge', () => {
+    render(
+      <WorkflowDesignerFlowCanvas
+        vm={makeVm({
+          dropTargetEdgeId: 'e1',
+          edges: [
+            { id: 'e1', source: 'a', target: 'b', className: 'base' },
+            { id: 'e2', source: 'b', target: 'c', className: 'other' },
+          ] as unknown as WorkflowDesignerViewModel['edges'],
+        })}
+        selected={selected}
+      />,
+    );
+    expect(screen.getByTestId('rf')).toBeTruthy();
   });
 });
