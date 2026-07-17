@@ -68,8 +68,8 @@ test.describe('Response Detail Modal', () => {
       localStorage.setItem('perf-test-theme', 'dark');
     });
     await page.goto('/?tab=results');
-    await page.waitForSelector('.app-header', { timeout: 25000 });
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
 
     // Navigate to the Request Details tab where clickable rows live
     await page.getByRole('tab', { name: 'Request Details' }).click();
@@ -91,48 +91,30 @@ test.describe('Response Detail Modal', () => {
   });
 
   test('scrollbar is thin (5px) in normal mode', async ({ page }) => {
-    // Wait for results table
     await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
-    
-    // Click on a result row to open the modal
     await page.locator('tr.clickable-row').first().click();
-    
-    // Wait for modal to appear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
-    
-    // Get the body element
-    const body = page.locator('.response-detail-body');
-    
-    // Check scrollbar width using evaluate
-    const scrollbarWidth = await body.evaluate((el) => {
-      const computedStyle = window.getComputedStyle(el, '::-webkit-scrollbar');
-      return computedStyle.width;
+
+    // The scrollable viewport inside the modal uses .wf-config-modal-scroll.
+    // CSS: .response-detail-modal .wf-config-modal-scroll::-webkit-scrollbar { width: 5px; }
+    const viewport = page.locator('.response-detail-modal .wf-config-modal-scroll');
+    const scrollbarWidth = await viewport.evaluate((el) => {
+      return window.getComputedStyle(el, '::-webkit-scrollbar').width;
     });
-    
-    // In normal mode, scrollbar should be 5px
     expect(scrollbarWidth).toBe('5px');
   });
 
   test('scrollbar style is consistent in response body', async ({ page }) => {
-    // Wait for results table
     await expect(page.locator('tr.clickable-row')).toBeVisible({ timeout: 5000 });
-    
-    // Click on a result row to open the modal
     await page.locator('tr.clickable-row').first().click();
-    
-    // Wait for modal to appear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
-    
-    // Get the body element
-    const body = page.locator('.response-detail-body');
-    
-    // Check scrollbar width using evaluate
-    const scrollbarWidth = await body.evaluate((el) => {
-      const computedStyle = window.getComputedStyle(el, '::-webkit-scrollbar');
-      return computedStyle.width;
+
+    // The scrollable viewport inside the modal uses .wf-config-modal-scroll.
+    // CSS: .response-detail-modal .wf-config-modal-scroll::-webkit-scrollbar { width: 5px; }
+    const viewport = page.locator('.response-detail-modal .wf-config-modal-scroll');
+    const scrollbarWidth = await viewport.evaluate((el) => {
+      return window.getComputedStyle(el, '::-webkit-scrollbar').width;
     });
-    
-    // Scrollbar should be 5px (expand/close buttons are hidden in this modal)
     expect(scrollbarWidth).toBe('5px');
   });
 
@@ -185,21 +167,15 @@ test.describe('Response Detail Modal', () => {
     // Wait for modal to appear
     await expect(page.locator('.response-detail-modal')).toBeVisible({ timeout: 5000 });
     
-    // Check badges container is in body
-    const badgesInBody = page.locator('.response-detail-body .response-detail-meta');
-    await expect(badgesInBody).toBeVisible();
+    // Hero section (rd-hero) is inside the modal body
+    const heroInBody = page.locator('.response-detail-body .rd-hero');
+    await expect(heroInBody).toBeVisible();
     
-    // Check badges container has proper background
-    const metaBackground = await badgesInBody.evaluate((el) => 
-      window.getComputedStyle(el).background
-    );
-    expect(metaBackground).toContain('rgba(255, 255, 255, 0.03)');
+    // Method badge exists inside the hero (uses rd-method-badge + method-<verb> classes)
+    await expect(page.locator('.response-detail-body .rd-method-badge')).toBeVisible();
     
-    // Check method badge exists in body
-    await expect(page.locator('.response-detail-body .method-badge')).toBeVisible();
-    
-    // Check status tag exists in body (use first() since there are multiple tags)
-    await expect(page.locator('.response-detail-body .tag').first()).toBeVisible();
+    // Status/timing stats row exists inside the hero
+    await expect(page.locator('.response-detail-body .rd-hero-stats .rd-stat').first()).toBeVisible();
   });
 
   test('close button closes the modal', async ({ page }) => {

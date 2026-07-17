@@ -207,7 +207,7 @@ describe('RequestEditor interaction branches', () => {
     vi.mocked(buildCurlCommand).mockReset();
     vi.mocked(serializeWithContentType).mockReturnValue({ body: '', contentType: null });
     vi.mocked(applyAuthHeaders).mockResolvedValue(undefined);
-    vi.clearAllMocks();
+    resetAllMocks();
     installClipboardMock();
   });
 
@@ -475,7 +475,7 @@ describe('RequestEditor interaction branches', () => {
     );
     const reqPaneLeft = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
     fireEvent.click(within(reqPaneLeft).getByRole('button', { name: /^Headers\b/ }));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete all' }));
+    fireEvent.click(screen.getByTestId('req-headers-delete-all-btn'));
     expect(onUpdateRequest).toHaveBeenCalledWith({ headers: [{ key: '', value: '' }] });
   });
 
@@ -603,7 +603,7 @@ describe('RequestEditor interaction branches', () => {
     );
     const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
-    fireEvent.click(document.querySelector('.req-header-row .req-icon-btn.danger')!);
+    fireEvent.click(document.querySelector('.ws-connect-kv-remove-btn')!);
 
     await waitFor(() =>
       expect(onUpdateRequest).toHaveBeenCalledWith({

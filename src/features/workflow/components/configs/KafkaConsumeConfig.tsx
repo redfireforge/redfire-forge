@@ -77,22 +77,22 @@ export default function KafkaConsumeConfig({
 
   return (
     <div className="wf-config-body">
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => update({ label: e.target.value })} />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Cluster ID</label>
         <input value={data.clusterId} onChange={(e) => update({ clusterId: e.target.value })} placeholder="cluster-a" />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Topic</label>
         <input value={data.topic} onChange={(e) => update({ topic: e.target.value })} placeholder="orders.events" />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Key Regex</label>
         <InsertVarField
           onRequestVariableInsert={onRequestVariableInsert}
@@ -109,14 +109,24 @@ export default function KafkaConsumeConfig({
       </div>
 
       <div className="wf-kafka-section">
-        <div className="wf-kafka-section-title">Header Filters</div>
+        <div className="wf-kafka-section-title">
+          Header Filters
+          <button type="button" className="wf-section-add-btn" onClick={() => update({ headerFilters: [...headerFilters, createHeaderFilter()] })}>+ Add</button>
+        </div>
+        {headerFilters.length > 0 && (
+          <div className="wf-config-kv-col-headers">
+            <span className="wf-kv-col-toggle">On</span>
+            <span className="wf-kv-col-fill">Name</span>
+            <span className="wf-kv-col-fill">Value</span>
+            <span className="wf-kv-col-del" />
+          </div>
+        )}
         <div className="wf-config-kv-list">
           {headerFilters.map((row, index) => (
             <div key={row.id} className="wf-config-kv-row">
-              <label className="wf-config-checkbox-label" style={{ minWidth: 72 }}>
+              <div className="wf-kv-toggle">
                 <input type="checkbox" checked={row.enabled} onChange={(e) => headerCrud.update(index, { enabled: e.target.checked })} />
-                Enabled
-              </label>
+              </div>
               <input value={row.key} placeholder="Header name" onChange={(e) => headerCrud.update(index, { key: e.target.value })} />
               <div className="wf-config-kv-val-wrap">
                 <InsertVarField
@@ -133,22 +143,33 @@ export default function KafkaConsumeConfig({
                   />
                 </InsertVarField>
               </div>
-              <button type="button" className="btn btn-sm btn-danger" onClick={() => headerCrud.remove(index)}>×</button>
+              <div className="wf-kv-del">
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => headerCrud.remove(index)}>×</button>
+              </div>
             </div>
           ))}
         </div>
-        <button type="button" className="btn btn-sm" onClick={() => update({ headerFilters: [...headerFilters, createHeaderFilter()] })}>+ Add Header Filter</button>
       </div>
 
       <div className="wf-kafka-section">
-        <div className="wf-kafka-section-title">JSONPath Filters</div>
+        <div className="wf-kafka-section-title">
+          JSONPath Filters
+          <button type="button" className="wf-section-add-btn" onClick={() => update({ jsonPathFilters: [...jsonPathFilters, createJsonPathFilter()] })}>+ Add</button>
+        </div>
+        {jsonPathFilters.length > 0 && (
+          <div className="wf-config-kv-col-headers">
+            <span className="wf-kv-col-toggle">On</span>
+            <span className="wf-kv-col-fill">Path</span>
+            <span className="wf-kv-col-fill">Expected</span>
+            <span className="wf-kv-col-del" />
+          </div>
+        )}
         <div className="wf-config-kv-list">
           {jsonPathFilters.map((row, index) => (
             <div key={row.id} className="wf-config-kv-row">
-              <label className="wf-config-checkbox-label" style={{ minWidth: 72 }}>
+              <div className="wf-kv-toggle">
                 <input type="checkbox" checked={row.enabled} onChange={(e) => jsonPathCrud.update(index, { enabled: e.target.checked })} />
-                Enabled
-              </label>
+              </div>
               <input value={row.jsonPath} placeholder="$.payload.id" onChange={(e) => jsonPathCrud.update(index, { jsonPath: e.target.value })} />
               <div className="wf-config-kv-val-wrap">
                 <InsertVarField
@@ -165,45 +186,48 @@ export default function KafkaConsumeConfig({
                   />
                 </InsertVarField>
               </div>
-              <button type="button" className="btn btn-sm btn-danger" onClick={() => jsonPathCrud.remove(index)}>×</button>
+              <div className="wf-kv-del">
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => jsonPathCrud.remove(index)}>×</button>
+              </div>
             </div>
           ))}
         </div>
-        <button type="button" className="btn btn-sm" onClick={() => update({ jsonPathFilters: [...jsonPathFilters, createJsonPathFilter()] })}>+ Add JSONPath Filter</button>
       </div>
 
-      <div className="wf-config-field">
-        <label>Timeout (ms)</label>
-        <input
-          type="number"
-          value={data.timeoutMs ?? ''}
-          onChange={(e) => update({ timeoutMs: e.target.value === '' ? undefined : Number(e.target.value) })}
-          placeholder="30000"
-        />
+      <div className="wf-config-field-pair">
+        <div className="wf-config-field--row">
+          <label>Timeout (ms)</label>
+          <input
+            type="number"
+            value={data.timeoutMs ?? ''}
+            onChange={(e) => update({ timeoutMs: e.target.value === '' ? undefined : Number(e.target.value) })}
+            placeholder="30000"
+          />
+        </div>
+        <div className="wf-config-field--row">
+          <label>Max Messages</label>
+          <input
+            type="number"
+            value={data.maxMessages ?? ''}
+            onChange={(e) => update({ maxMessages: e.target.value === '' ? undefined : Number(e.target.value) })}
+            placeholder="1"
+          />
+        </div>
       </div>
 
-      <div className="wf-config-field">
-        <label>Max Messages</label>
-        <input
-          type="number"
-          value={data.maxMessages ?? ''}
-          onChange={(e) => update({ maxMessages: e.target.value === '' ? undefined : Number(e.target.value) })}
-          placeholder="1"
-        />
-      </div>
-
-      <div className="wf-config-field">
-        <label>Start Position</label>
-        <select value={data.startPosition ?? 'latest'} onChange={(e) => update({ startPosition: e.target.value as KafkaConsumeStartPosition })}>
-          {START_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
-      </div>
-
-      <div className="wf-config-field">
-        <label>Load Test Behavior</label>
-        <select value={loadTestBehavior.mode} onChange={(e) => applyLoadTestBehavior({ mode: e.target.value as KafkaConsumeLoadTestBehavior['mode'] })}>
-          {LOAD_TEST_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-        </select>
+      <div className="wf-config-field-pair">
+        <div className="wf-config-field--row">
+          <label>Start Position</label>
+          <select value={data.startPosition ?? 'latest'} onChange={(e) => update({ startPosition: e.target.value as KafkaConsumeStartPosition })}>
+            {START_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </div>
+        <div className="wf-config-field--row">
+          <label>Load Test</label>
+          <select value={loadTestBehavior.mode} onChange={(e) => applyLoadTestBehavior({ mode: e.target.value as KafkaConsumeLoadTestBehavior['mode'] })}>
+            {LOAD_TEST_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+          </select>
+        </div>
       </div>
 
       {loadTestBehavior.mode !== 'wait-for-real' && (
@@ -221,9 +245,9 @@ export default function KafkaConsumeConfig({
       )}
 
       {loadTestBehavior.mode === 'synthetic-inject' && (
-        <>
-          <div className="wf-config-field">
-            <label>Synthetic Delay (ms)</label>
+        <div className="wf-config-field-pair">
+          <div className="wf-config-field--row">
+            <label>Synth Delay (ms)</label>
             <input
               type="number"
               value={loadTestBehavior.syntheticDelayMs ?? ''}
@@ -232,8 +256,8 @@ export default function KafkaConsumeConfig({
               placeholder="1000"
             />
           </div>
-          <div className="wf-config-field">
-            <label>Synthetic Jitter (ms)</label>
+          <div className="wf-config-field--row">
+            <label>Synth Jitter (ms)</label>
             <input
               type="number"
               value={loadTestBehavior.syntheticJitterMs ?? ''}
@@ -242,18 +266,28 @@ export default function KafkaConsumeConfig({
               placeholder="100"
             />
           </div>
-        </>
+        </div>
       )}
 
-      <div className="wf-kafka-section">
-        <div className="wf-kafka-section-title">Output Bindings</div>
+      <div className="wf-kafka-section" data-testid="output-bindings-section">
+        <div className="wf-kafka-section-title">
+          Output Bindings
+          <button type="button" className="wf-section-add-btn" data-testid="node-binding-add-btn" onClick={() => update({ outputBindings: [...outputBindings, createBinding()] })}>+ Add</button>
+        </div>
+        {outputBindings.length > 0 && (
+          <div className="wf-config-kv-col-headers">
+            <span className="wf-kv-col-toggle">On</span>
+            <span className="wf-kv-col-fill">Source</span>
+            <span className="wf-kv-col-fill">Target Variable</span>
+            <span className="wf-kv-col-del" />
+          </div>
+        )}
         <div className="wf-config-kv-list">
           {outputBindings.map((row, index) => (
             <div key={row.id} className="wf-config-kv-row">
-              <label className="wf-config-checkbox-label" style={{ minWidth: 72 }}>
+              <div className="wf-kv-toggle">
                 <input type="checkbox" checked={row.enabled} onChange={(e) => bindingCrud.update(index, { enabled: e.target.checked })} />
-                Enabled
-              </label>
+              </div>
               <select value={row.source} onChange={(e) => bindingCrud.update(index, { source: e.target.value as KafkaNodeMetadataBinding['source'] })}>
                 {OUTPUT_SOURCE_OPTIONS.map((source) => <option key={source} value={source}>{source}</option>)}
               </select>
@@ -262,11 +296,12 @@ export default function KafkaConsumeConfig({
                 onChange={(e) => bindingCrud.update(index, { targetVariable: e.target.value })}
                 placeholder="targetVariable"
               />
-              <button type="button" className="btn btn-sm btn-danger" onClick={() => bindingCrud.remove(index)}>×</button>
+              <div className="wf-kv-del">
+                <button type="button" className="btn btn-sm btn-danger" onClick={() => bindingCrud.remove(index)}>×</button>
+              </div>
             </div>
           ))}
         </div>
-        <button type="button" className="btn btn-sm" onClick={() => update({ outputBindings: [...outputBindings, createBinding()] })}>+ Add Binding</button>
       </div>
 
       <KafkaSchemaConfigSection

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>gRPC Studio — Streaming (Phase 2)</title>
+<link rel="stylesheet" href="shared.css">
+<style>
+.streaming-tabs { display:flex; gap:2px; padding:0 12px; background:var(--surface); border-bottom:1px solid var(--border); height:38px; align-items:center; flex-shrink:0; }
+.stream-type-tab { padding:5px 14px; border-radius:4px; font-size:12px; font-weight:600; color:var(--text-muted); cursor:pointer; border:none; background:none; transition:all 0.15s; display:flex; align-items:center; gap:7px; }
+.stream-type-tab:hover { background:var(--surface-hover); color:var(--text); }
+.stream-type-tab.active { color:var(--text); background:var(--bg); }
+.call-type-pill { font-size:9px; font-weight:700; padding:2px 6px; border-radius:3px; }
+.pill-u  { background:rgba(137,180,250,0.2); color:var(--primary); }
+.pill-ss { background:rgba(166,227,161,0.2); color:var(--success); }
+.pill-cs { background:rgba(249,226,175,0.2); color:var(--warning); }
+.pill-bd { background:rgba(203,166,247,0.2); color:var(--mauve); }
+.stream-layout { display:flex; flex:1; min-height:0; overflow:hidden; flex-direction:column; }
+.request-section { flex-shrink:0; background:var(--surface); border-bottom:1px solid var(--border); padding:12px 14px; }
+.compose-area { display:flex; gap:8px; align-items:flex-start; }
+.compose-textarea { flex:1; background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:8px 10px; color:var(--text); font-family:var(--mono); font-size:12px; resize:vertical; min-height:70px; outline:none; }
+.compose-textarea:focus { border-color:var(--primary); }
+.compose-actions { display:flex; flex-direction:column; gap:6px; }
+.msg-log-section { flex:1; min-height:0; display:flex; flex-direction:column; overflow:hidden; }
+.log-toolbar { display:flex; align-items:center; gap:8px; padding:8px 14px; background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; }
+.log-count { font-size:11px; font-family:var(--mono); color:var(--text-muted); }
+.message-log { flex:1; overflow-y:auto; }
+.msg-detail { font-family:var(--mono); font-size:11px; color:var(--text-muted); margin-top:2px; padding-left:28px; }
+.msg-detail span { color:var(--text); }
+.stream-input-queue { background:var(--surface); border-top:1px solid var(--border); padding:10px 14px; flex-shrink:0; }
+.queue-label { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:0.6px; color:var(--text-faint); margin-bottom:6px; }
+.queue-item { display:flex; align-items:center; gap:8px; padding:5px 8px; background:var(--bg); border:1px solid var(--border); border-radius:4px; margin-bottom:4px; font-family:var(--mono); font-size:11px; }
+.queue-item .qi-body { flex:1; color:var(--text-muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.queue-item .qi-idx { color:var(--text-faint); min-width:20px; }
+.queue-rm { background:none; border:none; color:var(--danger); cursor:pointer; font-size:14px; }
+.bidi-split { display:flex; flex:1; min-height:0; overflow:hidden; }
+.bidi-pane { flex:1; display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+.bidi-pane:first-child { border-right:1px solid var(--border); }
+.pane-legend { display:flex; align-items:center; gap:6px; padding:8px 14px; font-size:11px; font-weight:600; color:var(--text-muted); background:var(--surface); border-bottom:1px solid var(--border); flex-shrink:0; }
+.legend-dot { width:8px;height:8px;border-radius:50%; }
+.client-stream-layout { display:flex; flex:1; min-height:0; overflow:hidden; }
+.pending-panel { width:220px; flex-shrink:0; border-right:1px solid var(--border); display:flex; flex-direction:column; overflow:hidden; }
+</style>
+</head>
+<body data-grpc-page="chrome">
+<div class="app-header">
+  <a class="app-logo" href="index.html">🔥 <span>RedfireForge</span></a>
+  <div class="nav-pills">
+    <button class="nav-pill active">Protocols</button>
+  </div>
+  <div class="header-right">
+    <div class="env-badge">🌿 staging</div>
+  </div>
+</div>
+<div class="proto-nav">
+  <button class="proto-tab active"><span class="dot"></span> gRPC</button>
+</div>
+
+<!-- Connection Bar (same chrome as mockup 01 — Phase 4J) -->
+<div class="connection-bar">
+  <div class="status-dot connected" title="Per-call transport ready"></div>
+  <input class="target-input grpc-target-input" type="text" value="grpc.example.com:50051" style="max-width:280px" aria-label="gRPC target address">
+  <button type="button" class="tls-badge" id="grpcTlsBadge" title="Configure TLS — shared modal">🔒 TLS</button>
+  <button type="button" class="auth-badge auth-badge--configured" id="grpcAuthBadge" title="Open auth settings">Auth: Bearer</button>
+  <button type="button" class="deadline-badge deadline-badge--btn" data-action="settings" data-settings-panel="call" title="Call settings">⏱ 30s</button>
+  <button type="button" class="btn btn-ghost btn-sm connection-settings-btn" data-action="settings" title="All connection settings">⚙</button>
+  <span style="font-size:11px;color:var(--text-muted);margin-left:4px">EchoService</span>
+  <div class="connection-bar-spacer"></div>
+</div>
+
+<!-- Streaming type selector -->
+<div class="streaming-tabs">
+  <span style="font-size:11px;font-weight:700;color:var(--text-faint);margin-right:8px;text-transform:uppercase;letter-spacing:0.6px">Call Type:</span>
+  <button class="stream-type-tab" id="tab-u"  onclick="showType('unary')"><span class="call-type-pill pill-u">U</span> Unary</button>
+  <button class="stream-type-tab active" id="tab-ss" onclick="showType('ss')"><span class="call-type-pill pill-ss">SS</span> Server Streaming</button>
+  <button class="stream-type-tab" id="tab-cs" onclick="showType('cs')"><span class="call-type-pill pill-cs">CS</span> Client Streaming</button>
+  <button class="stream-type-tab" id="tab-bd" onclick="showType('bidi')"><span class="call-type-pill pill-bd">BD</span> Bidirectional</button>
+</div>
+
+<!-- ══ SERVER STREAMING ════════════════════════════════════════════ -->
+<div id="view-ss" class="stream-layout" style="flex:1;min-height:0;overflow:hidden">
+  <!-- Send bar -->
+  <div class="request-section">
+    <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">
+      EchoService / <strong>ServerStream</strong>
+      <span class="chip chip-green" style="margin-left:8px">Server Streaming</span>
+    </div>
+    <div class="compose-area">
+      <textarea class="compose-textarea" rows="3">{
+  "message": "ping",
+  "repeat_count": 5,
+  "interval_ms": 200
+}</textarea>
+      <div class="compose-actions">
+        <button class="btn btn-success" onclick="simulateServerStream()">▶ Start Stream</button>
+        <button class="btn btn-danger" id="cancelSS">✕ Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live stream status -->
+  <div class="stream-status" id="ss-status">
+    <div class="pulse"></div>
+    <span style="color:var(--success);font-weight:600">STREAMING</span>
+    <span class="log-count">· 5 messages received</span>
+    <span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-faint)">total: 412ms</span>
+    <button class="btn btn-ghost btn-xs" onclick="clearLog()">Clear log</button>
+  </div>
+
+  <!-- Message log -->
+  <div class="msg-log-section">
+    <div class="log-toolbar">
+      <span class="pane-title">Message Log</span>
+      <span class="log-count">Showing 5 of 5 messages · cap: 10,000</span>
+      <div style="display:flex;gap:4px;margin-left:auto;font-size:11px;color:var(--text-muted)">
+        <span style="color:var(--success)">↓ server</span>
+        <span style="color:var(--primary)">↑ client</span>
+      </div>
+      <button class="btn btn-ghost btn-xs" onclick="alert('Export log as JSON')">⬇ Export</button>
+    </div>
+    <div class="message-log" id="ss-log">
+      <div class="msg-row server">
+        <span class="msg-arrow down">↓</span>
+        <span class="msg-time">0ms</span>
+        <span class="msg-seq">#1</span>
+        <span class="msg-body"><span class="json-preview">{"message":"pong-1","sequence":1,"echo":"ping"}</span></span>
+        <span class="msg-expand">▶</span>
+      </div>
+      <div class="msg-row server">
+        <span class="msg-arrow down">↓</span>
+        <span class="msg-time">204ms</span>
+        <span class="msg-seq">#2</span>
+        <span class="msg-body"><span class="json-preview">{"message":"pong-2","sequence":2,"echo":"ping"}</span></span>
+        <span class="msg-expand">▶</span>
+      </div>
+      <div class="msg-row server">
+        <span class="msg-arrow down">↓</span>
+        <span class="msg-time">409ms</span>
+        <span class="msg-seq">#3</span>
+        <span class="msg-body"><span class="json-preview">{"message":"pong-3","sequence":3,"echo":"ping"}</span></span>
+        <span class="msg-expand">▶</span>
+      </div>
+      <div class="msg-row server">
+        <span class="msg-arrow down">↓</span>
+        <span class="msg-time">613ms</span>
+        <span class="msg-seq">#4</span>
+        <span class="msg-body"><span class="json-preview">{"message":"pong-4","sequence":4,"echo":"ping"}</span></span>
+        <span class="msg-expand">▶</span>
+      </div>
+      <div class="msg-row server" style="background:rgba(166,227,161,0.04)">
+        <span class="msg-arrow down">↓</span>
+        <span class="msg-time">817ms</span>
+        <span class="msg-seq">#5</span>
+        <span class="msg-body"><span class="json-preview">{"message":"pong-5","sequence":5,"echo":"ping","done":true}</span></span>
+        <span class="msg-expand">▶</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;padding:8px 14px;font-size:11px;color:var(--success)">
+        <span>✓</span> Stream ended · grpc-status: 0 (OK) · 5 messages · 817ms
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CLIENT STREAMING ════════════════════════════════════════════ -->
+<div id="view-cs" class="stream-layout" style="display:none;flex:1;min-height:0;overflow:hidden">
+  <div class="client-stream-layout">
+    <!-- Left: pending messages queue -->
+    <div class="pending-panel">
+      <div class="pane-header">
+        <span class="pane-title">Pending Messages</span>
+        <span class="chip chip-orange">3 queued</span>
+      </div>
+      <div class="scrollable" style="padding:8px">
+        <div class="queue-item">
+          <span class="qi-idx">#1</span>
+          <span class="qi-body">{"user_id":"usr_001","ac…</span>
+          <button class="queue-rm">×</button>
+        </div>
+        <div class="queue-item">
+          <span class="qi-idx">#2</span>
+          <span class="qi-body">{"user_id":"usr_002","ac…</span>
+          <button class="queue-rm">×</button>
+        </div>
+        <div class="queue-item">
+          <span class="qi-idx">#3</span>
+          <span class="qi-body">{"user_id":"usr_003","ac…</span>
+          <button class="queue-rm">×</button>
+        </div>
+      </div>
+      <div style="padding:8px;border-top:1px solid var(--border);display:flex;flex-direction:column;gap:6px">
+        <button class="btn btn-success" style="width:100%" onclick="alert('Sends pending messages to open stream')">▶ Send All (3)</button>
+        <button class="btn btn-danger" style="width:100%" onclick="alert('Sends EOF — server processes and responds')">⏹ End Stream (EOF)</button>
+      </div>
+    </div>
+
+    <!-- Right: compose + log -->
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;min-height:0">
+      <div class="request-section">
+        <div style="font-size:12px;font-weight:600;color:var(--text);margin-bottom:8px">
+          EchoService / <strong>ClientStream</strong>
+          <span class="chip chip-orange" style="margin-left:8px">Client Streaming</span>
+        </div>
+        <div class="compose-area">
+          <textarea class="compose-textarea" rows="4">{
+  "user_id": "usr_004",
+  "action": "VIEW",
+  "product_id": "prod_abc"
+}</textarea>
+          <div class="compose-actions">
+            <button class="btn btn-primary" onclick="alert('Adds message to queue')">+ Add to Stream</button>
+            <button class="btn btn-ghost" onclick="alert('Sends just this message immediately')">▶ Send Now</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="stream-status">
+        <div class="pulse"></div>
+        <span style="color:var(--warning);font-weight:600">OPEN — AWAITING EOF</span>
+        <span class="log-count">· 3 messages queued</span>
+        <span style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--text-faint)">stream-id: cs_7f2a</span>
+      </div>
+
+      <div class="msg-log-section">
+        <div class="log-toolbar"><span class="pane-title">Activity Log</span></div>
+        <div class="message-log">
+          <div class="msg-row client">
+            <span class="msg-arrow up">↑</span>
+            <span class="msg-time">0ms</span>
+            <span class="msg-seq">#1</span>
+            <span class="msg-body">{"user_id":"usr_001","action":"PURCHASE","product_id":"prod_x1"}</span>
+          </div>
+          <div class="msg-row client">
+            <span class="msg-arrow up">↑</span>
+            <span class="msg-time">320ms</span>
+            <span class="msg-seq">#2</span>
+            <span class="msg-body">{"user_id":"usr_002","action":"VIEW","product_id":"prod_y7"}</span>
+          </div>
+          <div class="msg-row client">
+            <span class="msg-arrow up">↑</span>
+            <span class="msg-time">640ms</span>
+            <span class="msg-seq">#3</span>
+            <span class="msg-body">{"user_id":"usr_003","action":"WISHLIST","product_id":"prod_z3"}</span>
+          </div>
+          <div style="padding:8px 14px;font-size:11px;color:var(--text-muted)">
+            ⏸ Awaiting EOF — click "End Stream" to receive server response
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ BIDIRECTIONAL STREAMING ════════════════════════════════════ -->
+<div id="view-bidi" class="stream-layout" style="display:none;flex:1;min-height:0;overflow:hidden">
+  <div class="bidi-split">
+    <!-- Full duplex message log -->
+    <div class="bidi-pane">
+      <div class="pane-legend">
+        <div class="legend-dot" style="background:var(--primary)"></div> Client → Server
+        <div class="legend-dot" style="background:var(--success);margin-left:16px"></div> Server → Client
+        <span class="chip chip-mauve" style="margin-left:auto">Full Duplex</span>
+      </div>
+      <div class="stream-status">
+        <div class="pulse"></div>
+        <span style="color:var(--mauve);font-weight:600">BIDI OPEN</span>
+        <span class="log-count">· 8 messages total</span>
+        <span style="margin-left:auto">
+          <button class="btn btn-danger btn-xs" onclick="alert('Cancel bidirectional stream')">✕ Cancel</button>
+        </span>
+      </div>
+      <div class="message-log" style="flex:1">
+        <div class="msg-row client">
+          <span class="msg-arrow up">↑</span>
+          <span class="msg-time">0ms</span>
+          <span class="msg-body" style="font-size:11px">{"op":"SUBSCRIBE","channel":"orders","filter":"status=PENDING"}</span>
+        </div>
+        <div class="msg-row server">
+          <span class="msg-arrow down">↓</span>
+          <span class="msg-time">42ms</span>
+          <span class="msg-body" style="font-size:11px">{"type":"ACK","channel":"orders","message":"Subscribed"}</span>
+        </div>
+        <div class="msg-row server">
+          <span class="msg-arrow down">↓</span>
+          <span class="msg-time">180ms</span>
+          <span class="msg-body" style="font-size:11px">{"type":"EVENT","order_id":"ord_001","status":"PENDING","amount":42.00}</span>
+        </div>
+        <div class="msg-row server">
+          <span class="msg-arrow down">↓</span>
+          <span class="msg-time">340ms</span>
+          <span class="msg-body" style="font-size:11px">{"type":"EVENT","order_id":"ord_002","status":"PENDING","amount":18.50}</span>
+        </div>
+        <div class="msg-row client">
+          <span class="msg-arrow up">↑</span>
+          <span class="msg-time">800ms</span>
+          <span class="msg-body" style="font-size:11px">{"op":"ACK","order_id":"ord_001","processed":true}</span>
+        </div>
+        <div class="msg-row server">
+          <span class="msg-arrow down">↓</span>
+          <span class="msg-time">1200ms</span>
+          <span class="msg-body" style="font-size:11px">{"type":"EVENT","order_id":"ord_003","status":"PENDING","amount":97.80}</span>
+        </div>
+        <div class="msg-row client">
+          <span class="msg-arrow up">↑</span>
+          <span class="msg-time">1650ms</span>
+          <span class="msg-body" style="font-size:11px">{"op":"ACK","order_id":"ord_002","processed":true}</span>
+        </div>
+        <div class="msg-row server">
+          <span class="msg-arrow down">↓</span>
+          <span class="msg-time">2100ms</span>
+          <span class="msg-body" style="font-size:11px">{"type":"EVENT","order_id":"ord_004","status":"PENDING","amount":225.00}</span>
+        </div>
+        <div style="padding:8px 14px;font-size:11px;color:var(--text-muted)">
+          ⟳ Stream active · scrolling paused (click to resume)
+        </div>
+      </div>
+    </div>
+
+    <!-- Right: compose + EOF controls -->
+    <div style="width:320px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden">
+      <div class="pane-header">
+        <span class="pane-title">EchoService / BidiStream</span>
+        <span class="chip chip-mauve">BD</span>
+      </div>
+      <div class="scrollable" style="padding:12px">
+        <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px">Compose message to server:</div>
+        <textarea class="compose-textarea" rows="5" style="width:100%;margin-bottom:8px">{
+  "op": "ACK",
+  "order_id": "ord_004",
+  "processed": true
+}</textarea>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-primary" style="flex:1" onclick="alert('Sends message to server stream')">↑ Send</button>
+          <button class="btn btn-danger btn-sm" onclick="alert('Sends EOF — server will finalize stream')">⏹ EOF</button>
+        </div>
+
+        <div class="section-divider" style="margin:14px 0"></div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-faint);margin-bottom:8px">Stream Info</div>
+        <table style="width:100%;font-size:11px">
+          <tr><td style="color:var(--text-muted);padding:3px 0">Stream ID:</td><td style="font-family:var(--mono)">bidi_a3f8</td></tr>
+          <tr><td style="color:var(--text-muted);padding:3px 0">Sent:</td><td>3 messages</td></tr>
+          <tr><td style="color:var(--text-muted);padding:3px 0">Received:</td><td>5 messages</td></tr>
+          <tr><td style="color:var(--text-muted);padding:3px 0">Duration:</td><td style="font-family:var(--mono)">2100ms</td></tr>
+          <tr><td style="color:var(--text-muted);padding:3px 0">Status:</td><td><span class="chip chip-mauve">Active</span></td></tr>
+        </table>
+
+        <div class="section-divider" style="margin:14px 0"></div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--text-faint);margin-bottom:8px">Message Cap</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <input type="range" min="100" max="10000" value="10000" style="flex:1;accent-color:var(--primary)">
+          <span style="font-size:11px;font-family:var(--mono);color:var(--text-muted)">10,000</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ UNARY ══════════════════════════════════════════════════════ -->
+<div id="view-unary" style="display:none;flex:1;padding:20px;min-height:0;overflow:auto">
+  <div class="empty-state">
+    <div class="icon">U</div>
+    <p>Unary RPC mode — see <strong>01-main-studio.html</strong> for the full unary call interface.</p>
+    <a href="01-main-studio.html" class="btn btn-primary btn-sm">→ Open Main Studio</a>
+  </div>
+</div>
+
+<div class="nav-back">
+  <a href="index.html" class="btn btn-ghost btn-sm">← All Mockups</a>
+</div>
+
+<script>
+function showType(type) {
+  ['unary','ss','cs','bidi'].forEach(t => {
+    document.getElementById('view-' + t).style.display = 'none';
+    document.getElementById('tab-' + (t==='bidi'?'bd':t==='cs'?'cs':t==='ss'?'ss':'u')).classList.remove('active');
+  });
+  document.getElementById('view-' + type).style.display = type === 'unary' ? 'flex' : '';
+  document.getElementById('tab-' + (type==='bidi'?'bd':type==='cs'?'cs':type==='ss'?'ss':'u')).classList.add('active');
+  if (type !== 'unary') {
+    document.getElementById('view-' + type).style.display = 'flex';
+    document.getElementById('view-' + type).style.flexDirection = 'column';
+  }
+}
+let ssRunning = false;
+function simulateServerStream() {
+  if (ssRunning) return;
+  ssRunning = true;
+}
+function clearLog() {
+  const log = document.getElementById('ss-log');
+  log.innerHTML = '<div style="padding:20px;text-align:center;color:var(--text-faint);font-size:12px">Log cleared</div>';
+}
+// init
+document.getElementById('view-ss').style.display = 'flex';
+document.getElementById('view-ss').style.flexDirection = 'column';
+</script>
+<script src="mockup-shared.js"></script>
+</body>
+</html>

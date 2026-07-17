@@ -395,7 +395,7 @@ describe('WorkflowToolbar', () => {
     };
 
     beforeEach(() => {
-      vi.clearAllMocks();
+      resetAllMocks();
     });
 
     it('opens dropdown and shows panel; second toggle click closes', () => {

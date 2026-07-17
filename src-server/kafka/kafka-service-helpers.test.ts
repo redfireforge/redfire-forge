@@ -14,6 +14,7 @@ import {
   isTimeoutError,
   resolveConnectTimeout,
   resolveRequestTimeout,
+  requireKafkaPlainObject,
   safeDisconnectConsumer,
   safeDisconnectProducer,
   safeStopAndDisconnectConsumer,
@@ -243,5 +244,21 @@ describe('exported constants', () => {
 
   it('DEFAULT_CLEANUP_TIMEOUT_MS is 2000', () => {
     expect(DEFAULT_CLEANUP_TIMEOUT_MS).toBe(2_000);
+  });
+});
+
+describe('requireKafkaPlainObject', () => {
+  it('returns null for plain objects', () => {
+    expect(requireKafkaPlainObject('produce', { topic: 'x' }, 'ERR')).toBeNull();
+  });
+
+  it('returns an error envelope for invalid bodies', () => {
+    const nilBody = requireKafkaPlainObject('produce', null, 'KAFKA_INVALID_PRODUCE');
+    expect(nilBody?.ok).toBe(false);
+    expect(nilBody && !nilBody.ok ? nilBody.error.code : undefined).toBe('KAFKA_INVALID_PRODUCE');
+
+    const arrayBody = requireKafkaPlainObject('produce', [], 'KAFKA_INVALID_PRODUCE');
+    expect(arrayBody?.ok).toBe(false);
+    expect(arrayBody && !arrayBody.ok ? arrayBody.error.message : undefined).toContain('request body must be an object');
   });
 });

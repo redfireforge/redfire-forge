@@ -199,7 +199,7 @@ const defaultProps = {
 
 describe('RequestEditor - API Info', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('hides API Info button when request has no catalogMeta', () => {
@@ -330,11 +330,36 @@ describe('RequestEditor - API Info', () => {
     fireEvent.click(button);
     expect(screen.getByTitle('Hide API Info')).toHaveClass('active');
   });
+
+  it('resets API Info drawer when switching to a different request', () => {
+    const specRequest = makeRequest({
+      id: 'req-spec',
+      catalogMeta: {
+        operationId: 'getUsers',
+        description: 'Get all users',
+        originalPath: '/api/users',
+        tags: [],
+        parameters: [],
+        expectedResponses: [],
+      },
+    });
+
+    const { rerender } = render(<RequestEditor {...defaultProps} request={specRequest} />);
+
+    fireEvent.click(screen.getByTitle('Show API Info'));
+    expect(screen.getByText('ⓘ API Reference')).toBeInTheDocument();
+
+    const plainRequest = makeRequest({ id: 'req-plain' });
+    rerender(<RequestEditor {...defaultProps} request={plainRequest} />);
+
+    expect(screen.queryByText('ⓘ API Reference')).toBeNull();
+    expect(screen.queryByTitle('Show API Info')).toBeNull();
+  });
 });
 
 describe('RequestEditor chrome', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('dispatches method change through onUpdateRequest', () => {

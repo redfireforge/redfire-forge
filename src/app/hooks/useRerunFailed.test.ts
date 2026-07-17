@@ -119,7 +119,7 @@ function makeTestRun(): TestRun {
 
 describe('useRerunFailed', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('returns isRerunning=false initially', () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { collectConditionVariableHints, collectDescendantNodeIds, collectWaitForConditionVariableHints } from './workflowVariableHints';
-import { HttpNodeData, KafkaConsumeNodeData, KafkaNodeMetadataBinding, KafkaProduceNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WorkflowEdge, WorkflowNode } from '../types/workflow';
+import { HttpNodeData, KafkaConsumeNodeData, KafkaNodeMetadataBinding, KafkaProduceNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WsConnectNodeData, WsSendNodeData, WsReceiveNodeData, WsTriggerNodeData, WorkflowEdge, WorkflowNode } from '../types/workflow';
 
 describe('collectConditionVariableHints — non-HTTP upstream nodes', () => {
   const setVar = (id: string, vars: Record<string, string>): WorkflowNode => ({
@@ -862,5 +862,265 @@ describe('collectConditionVariableHints — kafkaConsume ancestor', () => {
     expect(refs).not.toContain('messageVal');
     const keyHint = hints.find(h => h.ref === 'messageKey');
     expect(keyHint?.source?.category).toBe('Integrations');
+  });
+});
+
+// ── WebSocket node hints ──
+
+describe('collectConditionVariableHints — WebSocket upstream nodes', () => {
+  const cond = (id: string): WorkflowNode => ({
+    id,
+    type: 'condition',
+    position: { x: 0, y: 0 },
+    data: { label: 'Cond', conditions: [] },
+  });
+
+  it('includes wsConnect outputBindings from ancestor', () => {
+    const wsConnect: WorkflowNode = {
+      id: 'wc1',
+      type: 'wsConnect',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'WS Connect',
+        url: 'ws://x',
+        connectionId: 'ws1',
+        timeoutMs: 5000,
+        headers: [],
+        queryParams: [],
+        subprotocols: [],
+        outputBindings: [
+          { field: 'protocol', variableName: 'proto', enabled: true },
+          { field: 'extensions', variableName: 'ext', enabled: false },
+          { field: 'latencyMs', variableName: '', enabled: true },
+        ],
+      } as WsConnectNodeData,
+    };
+    const nodes = [wsConnect, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'wc1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('proto');
+    expect(refs).not.toContain('ext'); // disabled
+    expect(refs).not.toContain(''); // empty variableName
+    expect(hints.find(h => h.ref === 'proto')?.source?.category).toBe('Integrations');
+  });
+
+  it('includes wsSend outputBindings when waitForResponse', () => {
+    const wsSend: WorkflowNode = {
+      id: 'ws1',
+      type: 'wsSend',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'WS Send',
+        connectionId: 'ws1',
+        message: '{}',
+        messageType: 'text',
+        waitForResponse: true,
+        responseTimeoutMs: 5000,
+        outputBindings: [
+          { field: 'responseBody', variableName: 'body', enabled: true },
+          { field: 'latencyMs', variableName: 'lat', enabled: true },
+        ],
+      } as WsSendNodeData,
+    };
+    const nodes = [wsSend, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'ws1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('body');
+    expect(refs).toContain('lat');
+  });
+
+  it('excludes wsSend outputBindings when waitForResponse is false', () => {
+    const wsSend: WorkflowNode = {
+      id: 'ws1',
+      type: 'wsSend',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'WS Send',
+        connectionId: 'ws1',
+        message: '{}',
+        messageType: 'text',
+        waitForResponse: false,
+        responseTimeoutMs: 5000,
+        outputBindings: [
+          { field: 'responseBody', variableName: 'body', enabled: true },
+        ],
+      } as WsSendNodeData,
+    };
+    const nodes = [wsSend, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'ws1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.map(h => h.ref)).not.toContain('body');
+  });
+
+  it('includes wsReceive outputBindings and extractionRules', () => {
+    const wsReceive: WorkflowNode = {
+      id: 'wr1',
+      type: 'wsReceive',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'WS Receive',
+        connectionId: 'ws1',
+        timeoutMs: 5000,
+        matchCriteria: {},
+        outputBindings: [
+          { field: 'messageBody', variableName: 'msg', enabled: true },
+          { field: 'latencyMs', variableName: 'lat', enabled: false },
+        ],
+        extractionRules: [
+          { variableName: 'orderId', jsonPath: '$.orderId' },
+          { variableName: '', jsonPath: '$.empty' }, // empty variableName — should be excluded
+        ],
+      } as WsReceiveNodeData,
+    };
+    const nodes = [wsReceive, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'wr1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    expect(refs).toContain('msg');
+    expect(refs).not.toContain('lat'); // disabled
+    expect(refs).toContain('orderId');
+    expect(refs).not.toContain(''); // empty
+    expect(hints.find(h => h.ref === 'orderId')?.description).toContain('JSONPath');
+  });
+
+  it('includes wsTrigger built-in keys and extractionRules', () => {
+    const wsTrigger: WorkflowNode = {
+      id: 'wt1',
+      type: 'wsTrigger',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'WS Trigger',
+        url: 'ws://x',
+        connectionId: 'ws1',
+        matchCriteria: {},
+        extractionRules: [
+          { variableName: 'eventType', jsonPath: '$.event' },
+        ],
+      } as WsTriggerNodeData,
+    };
+    const nodes = [wsTrigger, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'wt1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map(h => h.ref);
+    // Built-in trigger keys
+    expect(refs).toContain('ws.trigger.message');
+    expect(refs).toContain('ws.trigger.messageType');
+    expect(refs).toContain('ws.trigger.url');
+    expect(refs).toContain('ws.trigger.connectionId');
+    // Extraction rule
+    expect(refs).toContain('eventType');
+    expect(hints.find(h => h.ref === 'ws.trigger.message')?.source?.category).toBe('Triggers');
+    expect(hints.find(h => h.ref === 'eventType')?.description).toContain('JSONPath');
+  });
+});
+
+describe('collectConditionVariableHints — GraphQL upstream nodes', () => {
+  const cond = (id: string): WorkflowNode => ({
+    id,
+    type: 'condition',
+    position: { x: 0, y: 0 },
+    data: { label: 'If', left: '{{x}}', operator: '==', right: '1' },
+  });
+
+  it('includes graphqlQuery outputs and extraction rules', () => {
+    const gqlQuery: WorkflowNode = {
+      id: 'gq1',
+      type: 'graphqlQuery',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Fetch User',
+        endpoint: 'http://api.example.com/graphql',
+        query: '{ user { id } }',
+        extractionRules: [{ jsonPath: '$.data.user.id', variableName: 'userId' }],
+      },
+    };
+    const nodes = [gqlQuery, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'gq1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map((h) => h.ref);
+    expect(refs).toContain('data');
+    expect(refs).toContain('userId');
+    expect(refs).toContain('latencyMs');
+  });
+
+  it('uses default label for graphqlMutation without label', () => {
+    const gqlMutation: WorkflowNode = {
+      id: 'gm1',
+      type: 'graphqlMutation',
+      position: { x: 0, y: 0 },
+      data: {
+        label: '',
+        endpoint: 'http://api.example.com/graphql',
+        query: 'mutation { updateUser { id } }',
+      },
+    };
+    const nodes = [gqlMutation, cond('c')];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'gm1', target: 'c' }];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    expect(hints.some((h) => h.label.includes('GraphQL Mutation'))).toBe(true);
+  });
+
+  it('includes graphqlSubscription and graphqlIntrospect integration variables', () => {
+    const gqlSub: WorkflowNode = {
+      id: 'gs1',
+      type: 'graphqlSubscription',
+      position: { x: 0, y: 0 },
+      data: { label: 'Live', endpoint: 'ws://api.example.com/graphql', query: 'subscription { x }' },
+    };
+    const gqlIntro: WorkflowNode = {
+      id: 'gi1',
+      type: 'graphqlIntrospect',
+      position: { x: 0, y: 0 },
+      data: { label: '', endpoint: 'http://api.example.com/graphql' },
+    };
+    const nodes = [gqlSub, gqlIntro, cond('c')];
+    const edges: WorkflowEdge[] = [
+      { id: 'e1', source: 'gs1', target: 'gi1' },
+      { id: 'e2', source: 'gi1', target: 'c' },
+    ];
+    const hints = collectConditionVariableHints(nodes, edges, 'c', {});
+    const refs = hints.map((h) => h.ref);
+    expect(refs).toContain('messages');
+    expect(refs).toContain('sdl');
+    expect(refs).toContain('queryTypeName');
+    expect(hints.some((h) => h.label.includes('GraphQL Introspect'))).toBe(true);
+  });
+});
+
+describe('collectWaitForConditionVariableHints — poll body initial variables', () => {
+  it('includes poll-body initial variables from HTTP nodes in the body subgraph', () => {
+    const waitNode: WorkflowNode = {
+      id: 'w1',
+      type: 'waitForCondition',
+      position: { x: 0, y: 0 },
+      data: { label: 'Wait', timeoutMs: 1000, pollIntervalMs: 100, condition: '{{ready}}' },
+    };
+    const pollHttp: WorkflowNode = {
+      id: 'h1',
+      type: 'http',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Poll',
+        initialVariables: { token: 'abc' },
+        scenario: {
+          id: 's1',
+          name: 'Poll',
+          url: 'https://example.com/status',
+          method: 'GET',
+          headers: [],
+          body: '',
+          auth: { type: 'none' },
+          validation: { mode: 'none' },
+          extractions: [{ name: 'status', source: 'body', expression: '$.ready' }],
+        },
+      },
+    };
+    const nodes = [waitNode, pollHttp];
+    const edges: WorkflowEdge[] = [{ id: 'e1', source: 'w1', target: 'h1', sourceHandle: 'body' }];
+    const hints = collectWaitForConditionVariableHints(nodes, edges, 'w1', {});
+    expect(hints.some((h) => h.ref === 'token' && h.label.includes('poll body'))).toBe(true);
+    expect(hints.some((h) => h.ref === 'status' && h.label.includes('poll body'))).toBe(true);
   });
 });

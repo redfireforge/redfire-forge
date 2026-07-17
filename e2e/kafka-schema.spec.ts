@@ -182,7 +182,7 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     const toggle = page.getByLabel('Enable Schema Registry');
     await toggle.check();
 
-    const formatSelect = page.locator('.wf-config-field').filter({ hasText: 'Format' }).locator('select');
+    const formatSelect = page.locator('[data-testid="schema-format-select"]');
     await expect(formatSelect).toBeVisible();
 
     const options = await formatSelect.locator('option').allTextContents();
@@ -198,8 +198,8 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
 
     await page.getByLabel('Enable Schema Registry').check();
 
-    await expect(page.locator('input[placeholder="schema-user"]')).toBeVisible();
-    await expect(page.locator('input[type="password"]')).toBeVisible();
+    await expect(page.locator('[data-testid="schema-username"]')).toBeVisible();
+    await expect(page.locator('[data-testid="schema-password"]')).toBeVisible();
   });
 
   // ── 4. Subject load button fires the proxy call ────────────────────────────
@@ -229,8 +229,8 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     await loadSubjectsBtn.click();
 
     // Dropdown with loaded subjects should appear
-    await expect(page.locator('.wf-config-field').filter({ hasText: 'Subject' }).locator('select[size]')).toBeVisible({ timeout: 6000 });
-    const subjectOptions = await page.locator('.wf-config-field').filter({ hasText: 'Subject' }).locator('select[size] option').allTextContents();
+    await expect(page.locator('[data-testid="schema-subjects-dropdown"]')).toBeVisible({ timeout: 6000 });
+    const subjectOptions = await page.locator('[data-testid="schema-subjects-dropdown"] option').allTextContents();
     expect(subjectOptions.some((o) => o.includes('orders.created-value'))).toBe(true);
     expect(subjectsCalled).toBe(true);
   });
@@ -266,8 +266,8 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     await loadVersionsBtn.click();
 
     // Dropdown with loaded versions should appear
-    await expect(page.locator('.wf-config-field').filter({ hasText: 'Version' }).locator('select[size]')).toBeVisible({ timeout: 6000 });
-    const versionOptions = await page.locator('.wf-config-field').filter({ hasText: 'Version' }).locator('select[size] option').allTextContents();
+    await expect(page.locator('[data-testid="schema-versions-dropdown"]')).toBeVisible({ timeout: 6000 });
+    const versionOptions = await page.locator('[data-testid="schema-versions-dropdown"] option').allTextContents();
     expect(versionOptions.some((o) => o.includes('1'))).toBe(true);
     expect(versionOptions.some((o) => o.includes('3'))).toBe(true);
     expect(versionsCalled).toBe(true);
@@ -340,10 +340,8 @@ test.describe('Kafka Schema Registry UX — KafkaProduceConfig', () => {
     await openNodeConfig(page, '.wf-node-kafkaProduce');
     await page.getByLabel('Enable Schema Registry').check();
 
-    // The produce node has topic 'orders.created', so placeholder is 'orders.created-value (default)'
-    const subjectInput = page.locator('.wf-config-field')
-      .filter({ hasText: 'Subject' })
-      .locator('input:not([type="number"])');
+    // The produce node has topic 'orders.created', so placeholder is 'orders.created-value'
+    const subjectInput = page.locator('[data-testid="schema-subject-input"]');
     const placeholder = await subjectInput.getAttribute('placeholder');
     expect(placeholder).toContain('orders.created-value');
   });
@@ -394,9 +392,7 @@ test.describe('Kafka Schema Registry UX — KafkaConsumeConfig', () => {
 
     await page.locator('button[title="Load subjects from registry"]').click();
 
-    await expect(
-      page.locator('.wf-config-field').filter({ hasText: 'Subject' }).locator('select[size]'),
-    ).toBeVisible({ timeout: 6000 });
+    await expect(page.locator('[data-testid="schema-subjects-dropdown"]')).toBeVisible({ timeout: 6000 });
     expect(subjectsCalled).toBe(true);
   });
 

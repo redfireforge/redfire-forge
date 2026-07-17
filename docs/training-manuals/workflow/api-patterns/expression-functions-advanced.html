@@ -97,7 +97,7 @@
     Transform data without writing full scripts using powerful inline expressions.
   </p>
   <div class="meta">
-    <strong>RedfireForge v0.5.4</strong><br>
+    <strong>RedfireForge v0.6.0</strong><br>
     Difficulty: ★★★ (Advanced) &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: API Patterns<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
@@ -141,18 +141,19 @@
   <li><strong>Scripts:</strong> Complex logic — loops, conditional branching within code, multi-step processing, external library calls</li>
 </ul>
 
+
 <!-- ════════════════════════════════════════════ -->
 <!-- 2. CONCEPTS                                 -->
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li><strong>Expression syntax:</strong> <code>{{expression}}</code> in variable values and conditions</li>
-  <li><strong>String functions:</strong> <code>upper()</code>, <code>lower()</code>, <code>trim()</code>, <code>substring()</code>, <code>replace()</code>, <code>length()</code></li>
-  <li><strong>Math functions:</strong> <code>round()</code>, <code>ceil()</code>, <code>floor()</code>, <code>abs()</code>, <code>min()</code>, <code>max()</code></li>
-  <li><strong>Date functions:</strong> <code>now()</code>, <code>formatDate()</code>, <code>dateAdd()</code>, <code>dateDiff()</code></li>
-  <li><strong>Template literals:</strong> Embedding expressions inside string values</li>
-  <li>Using expressions in <strong>Condition nodes</strong> for data validation</li>
-  <li>Combining expressions with <strong>Script nodes</strong> for advanced transformations</li>
+  <li><strong>Expression syntax:</strong> <code>{{$functionName(args)}}</code> in SetVariable node values</li>
+  <li><strong>String functions:</strong> <code>$upper()</code>, <code>$substring()</code>, <code>$indexOf()</code>, <code>$concat()</code>, <code>$contains()</code>, <code>$padStart()</code>, <code>$default()</code></li>
+  <li><strong>Math functions:</strong> <code>$add()</code>, <code>$divide()</code>, <code>$round()</code>, <code>$min()</code>, <code>$max()</code></li>
+  <li><strong>Aggregation:</strong> <code>$count()</code> — count elements in an extracted array</li>
+  <li><strong>Conditional:</strong> <code>$if(condition, valueIfTrue, valueIfFalse)</code></li>
+  <li>Using expressions to build <strong>multi-step derived values</strong> across SetVariable nodes</li>
+  <li>Using expression results in <strong>LogDebug messages</strong> and <strong>Condition checks</strong></li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -160,43 +161,67 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="architecture">3. Architecture &amp; Flow Diagram</h2>
 <div class="flow-diagram">
-  ┌─────────────┐
-  │    Start    │
-  └──────┬──────┘
+  ┌──────────────────────────────────────────────┐
+  │    Start                                     │  reportTitle = "User Activity Report"
+  └──────┬───────────────────────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  1. Set Raw Data            │  SetVariable
-  │     (SetVariable)           │
-  │                             │  rawName = "  john DOE  "
-  │  Sets up raw test data      │  rawPrice = "49.956"
-  │  for transformation         │  rawDate = "2026-04-29"
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────────────────────┐
+  │  1. Fetch Users                              │  GET /users
+  │  (HTTP GET)                                  │  Extracts: usersJson, firstUserName
+  │                                              │             firstUserEmail, firstUserCity
+  └──────┬───────────────────────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  2. Transform with          │  Script (Transform mode)
-  │     Expressions             │
-  │     (Script)                │  Applies string, math,
-  │                             │  and date functions
-  │  input: rawName, rawPrice,  │  output: cleanName,
-  │         rawDate             │   formattedPrice,
-  │                             │   displayDate, summary
-  └──────┬──────────────────────┘
+  ┌──────────────────────────────────────────────┐
+  │  2. Compute User Stats                       │  SetVariable (expressions)
+  │  (SetVariable)                               │  totalUsers = {{$count(usersJson)}}
+  │                                              │  upperName = {{$upper(firstUserName)}}
+  │                                              │  displayCity = {{$default(firstUserCity, "N/A")}}
+  │                                              │  emailAtPos = {{$indexOf(firstUserEmail, "@")}}
+  │                                              │  domainStart = {{$add(emailAtPos, 1)}}
+  │                                              │  firstUserDomain = {{$substring(firstUserEmail, domainStart)}}
+  │                                              │  userSummary = {{$concat(upperName, " <", firstUserEmail, ">")}}
+  │                                              │  reportHeader = "REPORT: {{reportTitle}} | {{totalUsers}} users"
+  └──────┬───────────────────────────────────────┘
          ▼
-  ┌─────────────────────────────┐
-  │  3. Validate                │  {{cleanName}} != "" AND
-  │     (Condition)             │  {{formattedPrice}} != ""
-  └──────┬──────────────────────┘
-         │ Yes (true)
+  ┌──────────────────────────────────────────────┐
+  │  3. Fetch Posts                              │  GET /posts
+  │  (HTTP GET)                                  │  Extracts: postsJson, firstPostTitle
+  └──────┬───────────────────────────────────────┘
          ▼
-  ┌─────────────┐
-  │     End     │
-  └─────────────┘
+  ┌──────────────────────────────────────────────┐
+  │  4. Aggregate Post Stats                     │  SetVariable (expressions)
+  │  (SetVariable)                               │  totalPosts = {{$count(postsJson)}}
+  │                                              │  avgRaw = {{$divide(totalPosts, totalUsers)}}
+  │                                              │  avgPostsPerUser = {{$round(avgRaw, 1)}}
+  │                                              │  titleHasProvident = {{$contains(firstPostTitle, "provident")}}
+  │                                              │  activityLevel = {{$if(titleHasProvident, "Active", "Normal")}}
+  │                                              │  titlePreview = {{$substring(firstPostTitle, 0, 30)}}
+  │                                              │  paddedUserCount = {{$padStart(totalUsers, 5, "0")}}
+  │                                              │  minMetric = {{$min(totalPosts, totalUsers)}}
+  │                                              │  maxMetric = {{$max(totalPosts, totalUsers)}}
+  └──────┬───────────────────────────────────────┘
+         ▼
+  ┌──────────────────────────────────────────────┐
+  │  5. Enough Data?                             │  Condition: {{totalPosts}} >= 5
+  │  (Condition)                                 │
+  └──────┬───────────────────────────────┬───────┘
+         │ true (Yes)                    │ false (No)
+         ▼                               ▼
+  ┌──────────────────┐       ┌──────────────────────────┐
+  │  Log: Success    │       │  Log: Insufficient       │
+  │  (LogDebug info) │       │  (LogDebug warn)         │
+  └──────┬───────────┘       └──────────┬───────────────┘
+         └──────────────┬───────────────┘
+                        ▼
+                  ┌──────────┐
+                  │   End    │
+                  └──────────┘
 </div>
 
 <p>
-  <strong>5 nodes, 4 edges</strong> — a linear pipeline. The SetVariable node provides
-  raw data, the Script node demonstrates expression-based transformations, and the
-  Condition node validates the results using expression comparisons.
+  <strong>8 nodes, 9 edges</strong> — two HTTP GET calls feed two SetVariable nodes that
+  compute derived metrics purely via expression functions. A Condition node then routes
+  to one of two LogDebug outcomes.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -210,120 +235,65 @@
   <tr>
     <td><span class="step-num">S</span> Start</td>
     <td>Start</td>
-    <td>Entry point. No input variables — raw data is set inline for demonstration.</td>
+    <td>Entry point. Input variable: <code>reportTitle = "User Activity Report"</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> Set Raw Data</td>
+    <td><span class="step-num">1</span> Fetch Users</td>
+    <td>HTTP GET</td>
+    <td>GET <code>https://jsonplaceholder.typicode.com/users</code>. Extracts: <code>usersJson</code> (full array), <code>firstUserName</code> ← <code>$.0.name</code>, <code>firstUserEmail</code> ← <code>$.0.email</code>, <code>firstUserCity</code> ← <code>$.0.address.city</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">2</span> Compute User Stats</td>
     <td>SetVariable</td>
-    <td>Initializes three test variables with intentionally messy data: a name with extra whitespace and mixed case, a price with too many decimals, and a date in ISO format.</td>
+    <td>Computes 8 derived variables using expression functions. Uses <code>$count</code>, <code>$upper</code>, <code>$default</code>, <code>$indexOf</code>, <code>$add</code>, <code>$substring</code>, <code>$concat</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Transform with Expressions</td>
-    <td>Script</td>
-    <td>Applies expression functions to clean, format, and transform the raw data. Demonstrates string, math, and date operations. Outputs cleaned values and a formatted summary.</td>
+    <td><span class="step-num">3</span> Fetch Posts</td>
+    <td>HTTP GET</td>
+    <td>GET <code>https://jsonplaceholder.typicode.com/posts</code>. Extracts: <code>postsJson</code> (full array), <code>firstPostTitle</code> ← <code>$.0.title</code>.</td>
   </tr>
   <tr>
-    <td><span class="step-num">3</span> Validate</td>
+    <td><span class="step-num">4</span> Aggregate Post Stats</td>
+    <td>SetVariable</td>
+    <td>Computes 9 derived variables. Uses <code>$count</code>, <code>$divide</code>, <code>$round</code>, <code>$contains</code>, <code>$if</code>, <code>$substring</code>, <code>$padStart</code>, <code>$min</code>, <code>$max</code>.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">5</span> Enough Data?</td>
     <td>Condition</td>
-    <td>Validates that the transformation produced non-empty results for both <code>cleanName</code> and <code>formattedPrice</code>.</td>
+    <td>Checks <code>{{totalPosts}} &gt;= 5</code>. Routes: true → Log: Success, false → Log: Insufficient.</td>
   </tr>
   <tr>
-    <td><span class="step-num">E</span> End</td>
-    <td>End</td>
-    <td>Workflow complete. All transformed variables available in context.</td>
+    <td><span class="step-num">6a</span> Log: Success</td>
+    <td>LogDebug (info)</td>
+    <td>Logs full report: <code>{{reportHeader}} | Posts: {{totalPosts}}, Avg: {{avgPostsPerUser}}/user ({{activityLevel}}), User: {{userSummary}} from {{displayCity}}, Domain: {{firstUserDomain}}, Preview: {{titlePreview}}, Range: {{minMetric}}–{{maxMetric}}</code></td>
+  </tr>
+  <tr>
+    <td><span class="step-num">6b</span> Log: Insufficient</td>
+    <td>LogDebug (warn)</td>
+    <td>Logs: <code>Only {{totalPosts}} posts found. Activity: {{activityLevel}}. Contains "provident": {{titleHasProvident}}</code></td>
   </tr>
 </table>
 
 <h3>Expression Functions Reference</h3>
-<p>The Script node in this workflow demonstrates these built-in functions:</p>
+<p>This workflow demonstrates every built-in expression function in the <em>Compute User Stats</em> and <em>Aggregate Post Stats</em> nodes:</p>
 
 <table>
-  <tr><th>Category</th><th>Function</th><th>Example</th><th>Result</th></tr>
-  <tr>
-    <td rowspan="4"><strong>String</strong></td>
-    <td><code>trim()</code></td>
-    <td><code>trim("  john DOE  ")</code></td>
-    <td><code>"john DOE"</code></td>
-  </tr>
-  <tr>
-    <td><code>upper()</code></td>
-    <td><code>upper("john")</code></td>
-    <td><code>"JOHN"</code></td>
-  </tr>
-  <tr>
-    <td><code>lower()</code></td>
-    <td><code>lower("DOE")</code></td>
-    <td><code>"doe"</code></td>
-  </tr>
-  <tr>
-    <td><code>substring()</code></td>
-    <td><code>substring("hello", 0, 3)</code></td>
-    <td><code>"hel"</code></td>
-  </tr>
-  <tr>
-    <td rowspan="3"><strong>Math</strong></td>
-    <td><code>round()</code></td>
-    <td><code>round(49.956, 2)</code></td>
-    <td><code>49.96</code></td>
-  </tr>
-  <tr>
-    <td><code>ceil()</code></td>
-    <td><code>ceil(49.1)</code></td>
-    <td><code>50</code></td>
-  </tr>
-  <tr>
-    <td><code>floor()</code></td>
-    <td><code>floor(49.9)</code></td>
-    <td><code>49</code></td>
-  </tr>
-  <tr>
-    <td rowspan="2"><strong>Date</strong></td>
-    <td><code>formatDate()</code></td>
-    <td><code>formatDate("2026-04-29", "MMM D, YYYY")</code></td>
-    <td><code>"Apr 29, 2026"</code></td>
-  </tr>
-  <tr>
-    <td><code>now()</code></td>
-    <td><code>now()</code></td>
-    <td><code>"2026-04-29T..."</code></td>
-  </tr>
+  <tr><th>Function</th><th>Used In</th><th>Example</th><th>Result</th></tr>
+  <tr><td><code>$count(arr)</code></td><td>Both SetVar nodes</td><td><code>{{$count(usersJson)}}</code></td><td><code>10</code></td></tr>
+  <tr><td><code>$upper(str)</code></td><td>Compute User Stats</td><td><code>{{$upper(firstUserName)}}</code></td><td><code>"LEANNE GRAHAM"</code></td></tr>
+  <tr><td><code>$default(val, fb)</code></td><td>Compute User Stats</td><td><code>{{$default(firstUserCity, "N/A")}}</code></td><td><code>"Gwenborough"</code></td></tr>
+  <tr><td><code>$indexOf(str, ch)</code></td><td>Compute User Stats</td><td><code>{{$indexOf(firstUserEmail, "@")}}</code></td><td><code>7</code></td></tr>
+  <tr><td><code>$add(a, b)</code></td><td>Compute User Stats</td><td><code>{{$add(emailAtPos, 1)}}</code></td><td><code>8</code></td></tr>
+  <tr><td><code>$substring(str, start)</code></td><td>Compute User Stats</td><td><code>{{$substring(firstUserEmail, domainStart)}}</code></td><td><code>"april.biz"</code></td></tr>
+  <tr><td><code>$concat(...args)</code></td><td>Compute User Stats</td><td><code>{{$concat(upperName, " &lt;", firstUserEmail, "&gt;")}}</code></td><td><code>"LEANNE GRAHAM &lt;Sincere@april.biz&gt;"</code></td></tr>
+  <tr><td><code>$divide(a, b)</code></td><td>Aggregate Post Stats</td><td><code>{{$divide(totalPosts, totalUsers)}}</code></td><td><code>10</code></td></tr>
+  <tr><td><code>$round(val, dp)</code></td><td>Aggregate Post Stats</td><td><code>{{$round(avgRaw, 1)}}</code></td><td><code>10.0</code></td></tr>
+  <tr><td><code>$contains(str, sub)</code></td><td>Aggregate Post Stats</td><td><code>{{$contains(firstPostTitle, "provident")}}</code></td><td><code>true/false</code></td></tr>
+  <tr><td><code>$if(cond, a, b)</code></td><td>Aggregate Post Stats</td><td><code>{{$if(titleHasProvident, "Active", "Normal")}}</code></td><td><code>"Active"</code></td></tr>
+  <tr><td><code>$padStart(val, len, ch)</code></td><td>Aggregate Post Stats</td><td><code>{{$padStart(totalUsers, 5, "0")}}</code></td><td><code>"00010"</code></td></tr>
+  <tr><td><code>$min(a, b)</code></td><td>Aggregate Post Stats</td><td><code>{{$min(totalPosts, totalUsers)}}</code></td><td><code>10</code></td></tr>
+  <tr><td><code>$max(a, b)</code></td><td>Aggregate Post Stats</td><td><code>{{$max(totalPosts, totalUsers)}}</code></td><td><code>100</code></td></tr>
 </table>
-
-<h3>Script Code: Transform with Expressions</h3>
-<pre>
-<span class="comment">// Demonstrate expression functions for data transformation</span>
-<span class="keyword">const</span> name = input.rawName.trim();
-<span class="keyword">const</span> parts = name.split(<span class="string">" "</span>);
-
-<span class="comment">// String functions: proper case (capitalize first letter of each word)</span>
-output.cleanName = parts
-  .map(p => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
-  .join(<span class="string">" "</span>);
-
-<span class="comment">// Math functions: round price to 2 decimal places</span>
-<span class="keyword">const</span> price = parseFloat(input.rawPrice);
-output.formattedPrice = <span class="string">"$"</span> + price.toFixed(2);
-
-<span class="comment">// Date functions: format ISO date to human-readable</span>
-<span class="keyword">const</span> d = <span class="keyword">new</span> Date(input.rawDate);
-<span class="keyword">const</span> months = [<span class="string">"Jan"</span>,<span class="string">"Feb"</span>,<span class="string">"Mar"</span>,<span class="string">"Apr"</span>,<span class="string">"May"</span>,<span class="string">"Jun"</span>,
-                 <span class="string">"Jul"</span>,<span class="string">"Aug"</span>,<span class="string">"Sep"</span>,<span class="string">"Oct"</span>,<span class="string">"Nov"</span>,<span class="string">"Dec"</span>];
-output.displayDate = months[d.getMonth()] + <span class="string">" "</span>
-  + d.getDate() + <span class="string">", "</span> + d.getFullYear();
-
-<span class="comment">// Template literal: combine all transformed values</span>
-output.summary = output.cleanName + <span class="string">" | "</span>
-  + output.formattedPrice + <span class="string">" | "</span> + output.displayDate;
-
-console.log(<span class="string">"Transformed: "</span> + output.summary);</pre>
-
-<div class="callout callout-tip">
-  <strong>💡 Expressions vs. Script</strong>
-  The Script node here uses JavaScript equivalents of expression functions
-  to show how they work under the hood. In practice, you can use expression
-  syntax directly in SetVariable values: <code>{{trim(rawName)}}</code>,
-  <code>{{round(rawPrice, 2)}}</code>, etc. — no Script node needed.
-</div>
 
 <!-- ════════════════════════════════════════════ -->
 <!-- 5. DEV GUIDE                                -->
@@ -334,8 +304,8 @@ console.log(<span class="string">"Transformed: "</span> + output.summary);</pre>
 <ol>
   <li>
     <strong>Load from Template Gallery.</strong><br>
-    Click <em>New Workflow → Template Gallery</em>. Find <strong>"🔗 Expression Functions Showcase"</strong>
-    in the <em>API Patterns</em> category. Click <em>Use Template</em>.
+    Click <em>Workflows → Gallery</em>. Find <strong>"Sample: Expression Functions Showcase"</strong>
+    in the <em>API Patterns</em> category. Click <em>Import</em>.
     <br><br>
     <em>— OR build manually: —</em>
   </li>
@@ -344,40 +314,72 @@ console.log(<span class="string">"Transformed: "</span> + output.summary);</pre>
     Click <em>Workflows → + New</em>. Name it "Expression Functions Showcase".
   </li>
   <li>
-    <strong>Add the SetVariable node for raw data.</strong><br>
-    Drag a SetVariable node. Add three variables:
-    <ul>
-      <li><code>rawName</code> = <code>&nbsp;&nbsp;john DOE&nbsp;&nbsp;</code> (with leading/trailing spaces)</li>
-      <li><code>rawPrice</code> = <code>49.956</code></li>
-      <li><code>rawDate</code> = <code>2026-04-29</code></li>
-    </ul>
-    Connect Start → Set Raw Data.
+    <strong>Configure the Start node.</strong><br>
+    Add input variable: <code>reportTitle = "User Activity Report"</code>.
   </li>
   <li>
-    <strong>Add the Script node for transformations.</strong><br>
-    Drag a Script node. Set mode to Transform. Configure:
+    <strong>Add Fetch Users (HTTP GET).</strong><br>
+    URL: <code>https://jsonplaceholder.typicode.com/users</code>. Method: GET.<br>
+    Extractions:
     <ul>
-      <li><em>Input</em>: <code>rawName</code>, <code>rawPrice</code>, <code>rawDate</code></li>
-      <li><em>Output</em>: <code>cleanName</code>, <code>formattedPrice</code>, <code>displayDate</code>, <code>summary</code></li>
-      <li><em>Code</em>: Paste the script from the walkthrough above</li>
-      <li><em>Console Capture</em>: Enabled</li>
+      <li><code>usersJson</code> ← body <code>$</code> (full response array)</li>
+      <li><code>firstUserName</code> ← body <code>$.0.name</code></li>
+      <li><code>firstUserEmail</code> ← body <code>$.0.email</code></li>
+      <li><code>firstUserCity</code> ← body <code>$.0.address.city</code></li>
     </ul>
-    Connect Set Raw Data → Transform.
+    Connect Start → Fetch Users.
   </li>
   <li>
-    <strong>Add the Condition node.</strong><br>
-    Drag a Condition node. Configure:
+    <strong>Add Compute User Stats (SetVariable).</strong><br>
+    Add variables (in order — later ones reference earlier ones):
     <ul>
-      <li><em>Left</em>: <code>{{cleanName}}</code></li>
-      <li><em>Operator</em>: <code>!=</code></li>
-      <li><em>Right</em>: (empty)</li>
+      <li><code>totalUsers</code> = <code>{{$count(usersJson)}}</code></li>
+      <li><code>upperName</code> = <code>{{$upper(firstUserName)}}</code></li>
+      <li><code>displayCity</code> = <code>{{$default(firstUserCity, "N/A")}}</code></li>
+      <li><code>emailAtPos</code> = <code>{{$indexOf(firstUserEmail, "@")}}</code></li>
+      <li><code>domainStart</code> = <code>{{$add(emailAtPos, 1)}}</code></li>
+      <li><code>firstUserDomain</code> = <code>{{$substring(firstUserEmail, domainStart)}}</code></li>
+      <li><code>userSummary</code> = <code>{{$concat(upperName, " &lt;", firstUserEmail, "&gt;")}}</code></li>
+      <li><code>reportHeader</code> = <code>REPORT: {{reportTitle}} | {{totalUsers}} users</code></li>
     </ul>
-    Connect Transform → Validate → End.
+    Connect Fetch Users → Compute User Stats.
+  </li>
+  <li>
+    <strong>Add Fetch Posts (HTTP GET).</strong><br>
+    URL: <code>https://jsonplaceholder.typicode.com/posts</code>. Method: GET.<br>
+    Extractions: <code>postsJson</code> ← body <code>$</code>, <code>firstPostTitle</code> ← body <code>$.0.title</code>.
+    Connect Compute User Stats → Fetch Posts.
+  </li>
+  <li>
+    <strong>Add Aggregate Post Stats (SetVariable).</strong><br>
+    Add variables:
+    <ul>
+      <li><code>totalPosts</code> = <code>{{$count(postsJson)}}</code></li>
+      <li><code>avgRaw</code> = <code>{{$divide(totalPosts, totalUsers)}}</code></li>
+      <li><code>avgPostsPerUser</code> = <code>{{$round(avgRaw, 1)}}</code></li>
+      <li><code>titleHasProvident</code> = <code>{{$contains(firstPostTitle, "provident")}}</code></li>
+      <li><code>activityLevel</code> = <code>{{$if(titleHasProvident, "Active", "Normal")}}</code></li>
+      <li><code>titlePreview</code> = <code>{{$substring(firstPostTitle, 0, 30)}}</code></li>
+      <li><code>paddedUserCount</code> = <code>{{$padStart(totalUsers, 5, "0")}}</code></li>
+      <li><code>minMetric</code> = <code>{{$min(totalPosts, totalUsers)}}</code></li>
+      <li><code>maxMetric</code> = <code>{{$max(totalPosts, totalUsers)}}</code></li>
+    </ul>
+    Connect Fetch Posts → Aggregate Post Stats.
+  </li>
+  <li>
+    <strong>Add Enough Data? (Condition).</strong><br>
+    Left: <code>{{totalPosts}}</code>, Operator: <code>&gt;=</code>, Right: <code>5</code>.
+    Connect Aggregate Post Stats → Enough Data?
+  </li>
+  <li>
+    <strong>Add Log: Success (LogDebug, info) and Log: Insufficient (LogDebug, warn).</strong><br>
+    Connect Enough Data? true → Log: Success, false → Log: Insufficient.
+    Both connect to End.
   </li>
   <li>
     <strong>Run the workflow.</strong><br>
-    Click <em>Quick Test</em>. Inspect the Script node's output to see the transformed values.
-    Check the console for the summary log message.
+    Click <em>Quick Test</em>. Inspect the LogDebug output in the console. All 14 expression
+    functions are evaluated and their results appear in the node variables panel.
   </li>
 </ol>
 
@@ -386,48 +388,32 @@ console.log(<span class="string">"Transformed: "</span> + output.summary);</pre>
 <!-- ════════════════════════════════════════════ -->
 <h2 id="expected-results">6. Expected Execution Results</h2>
 
-<h3>Console Output</h3>
-<pre>
-# [2. Transform with Expressions] Executing script (transform)...
-# [2. Transform with Expressions] console: Transformed: John Doe | $49.96 | Apr 29, 2026</pre>
+<h3>Key Variable Values After Execution</h3>
+<table class="var-table">
+  <tr><th>Variable</th><th>Value</th><th>Expression Used</th></tr>
+  <tr><td><code>totalUsers</code></td><td><code>10</code></td><td><code>$count(usersJson)</code></td></tr>
+  <tr><td><code>upperName</code></td><td><code>"LEANNE GRAHAM"</code></td><td><code>$upper(firstUserName)</code></td></tr>
+  <tr><td><code>displayCity</code></td><td><code>"Gwenborough"</code></td><td><code>$default(firstUserCity, "N/A")</code></td></tr>
+  <tr><td><code>firstUserDomain</code></td><td><code>"april.biz"</code></td><td><code>$substring($indexOf+$add)</code></td></tr>
+  <tr><td><code>totalPosts</code></td><td><code>100</code></td><td><code>$count(postsJson)</code></td></tr>
+  <tr><td><code>avgPostsPerUser</code></td><td><code>10.0</code></td><td><code>$round($divide(100, 10), 1)</code></td></tr>
+  <tr><td><code>activityLevel</code></td><td><code>"Active"</code> or <code>"Normal"</code></td><td><code>$if($contains(...))</code></td></tr>
+  <tr><td><code>paddedUserCount</code></td><td><code>"00010"</code></td><td><code>$padStart(10, 5, "0")</code></td></tr>
+  <tr><td><code>minMetric</code></td><td><code>10</code></td><td><code>$min(100, 10)</code></td></tr>
+  <tr><td><code>maxMetric</code></td><td><code>100</code></td><td><code>$max(100, 10)</code></td></tr>
+</table>
 
 <h3>Node States</h3>
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
-  <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>1. Set Raw Data</td><td>✅ Pass</td><td>3 variables set</td></tr>
-  <tr><td>2. Transform</td><td>✅ Pass</td><td>4 output variables set</td></tr>
-  <tr><td>3. Validate</td><td>✅ Pass (true)</td><td>"John Doe" != ""</td></tr>
+  <tr><td>Start</td><td>✅ Pass</td><td>reportTitle = "User Activity Report"</td></tr>
+  <tr><td>1. Fetch Users</td><td>✅ Pass</td><td>HTTP 200 · 10 users · firstUserName = "Leanne Graham"</td></tr>
+  <tr><td>2. Compute User Stats</td><td>✅ Pass</td><td>8 variables set via expressions</td></tr>
+  <tr><td>3. Fetch Posts</td><td>✅ Pass</td><td>HTTP 200 · 100 posts</td></tr>
+  <tr><td>4. Aggregate Post Stats</td><td>✅ Pass</td><td>9 variables set via expressions</td></tr>
+  <tr><td>5. Enough Data?</td><td>✅ Pass (true)</td><td>100 &gt;= 5 → yes</td></tr>
+  <tr><td>Log: Success</td><td>✅ Pass</td><td>Full report logged (info)</td></tr>
   <tr><td>End</td><td>✅ Pass</td><td>—</td></tr>
-</table>
-
-<h3>Transformed Variable Values</h3>
-<table class="var-table">
-  <tr><th>Variable</th><th>Raw Value</th><th>Transformed Value</th><th>Functions Used</th></tr>
-  <tr>
-    <td><code>cleanName</code></td>
-    <td><code>"  john DOE  "</code></td>
-    <td><code>"John Doe"</code></td>
-    <td>trim, split, capitalize</td>
-  </tr>
-  <tr>
-    <td><code>formattedPrice</code></td>
-    <td><code>"49.956"</code></td>
-    <td><code>"$49.96"</code></td>
-    <td>parseFloat, toFixed (round)</td>
-  </tr>
-  <tr>
-    <td><code>displayDate</code></td>
-    <td><code>"2026-04-29"</code></td>
-    <td><code>"Apr 29, 2026"</code></td>
-    <td>Date parse, formatDate</td>
-  </tr>
-  <tr>
-    <td><code>summary</code></td>
-    <td>—</td>
-    <td><code>"John Doe | $49.96 | Apr 29, 2026"</code></td>
-    <td>Template literal (concat)</td>
-  </tr>
 </table>
 
 <!-- ════════════════════════════════════════════ -->
@@ -436,46 +422,42 @@ console.log(<span class="string">"Transformed: "</span> + output.summary);</pre>
 <div class="page-break"></div>
 <h2 id="exercises">7. Try It Yourself — Exercises</h2>
 
-<h3>Exercise 1: Add Phone Number Formatting</h3>
+<h3>Exercise 1: Add Email Domain Validation</h3>
 <p>
-  Add a <code>rawPhone</code> variable set to <code>"1234567890"</code>. In the Script
-  node, format it as <code>"(123) 456-7890"</code> using <code>substring()</code>.
-  Output as <code>formattedPhone</code>.
+  Add a Condition after "Compute User Stats" that checks if <code>{{firstUserDomain}}</code>
+  contains <code>"biz"</code> using <code>$contains</code>. Route to different LogDebug
+  nodes: "Domain OK" vs "Unexpected Domain".
 </p>
 
-<h3>Exercise 2: Use Expressions in SetVariable</h3>
+<h3>Exercise 2: Format the Post Average</h3>
 <p>
-  Replace the Script node with multiple SetVariable nodes that use inline expressions
-  directly: <code>{{trim(rawName)}}</code>, <code>{{round(rawPrice, 2)}}</code>, etc.
-  Compare this approach with the Script-based approach — which is more readable?
+  In "Aggregate Post Stats", add a variable <code>avgLabel</code> that combines expressions:
+  <code>{{$concat("Avg: ", $round(avgRaw, 2), " posts/user")}}</code>.
+  Verify the label appears in the Log: Success output.
 </p>
 
-<h3>Exercise 3: Add Date Arithmetic</h3>
+<h3>Exercise 3: Pad the Post Count</h3>
 <p>
-  Add a <code>dueDate</code> output that is 30 days after <code>rawDate</code>.
-  Use <code>new Date()</code> arithmetic or the <code>dateAdd()</code> expression
-  function to compute the future date and format it.
+  Add <code>paddedPostCount = {{$padStart(totalPosts, 5, "0")}}</code> to the Aggregate
+  Post Stats node. Change the Enough Data? threshold to check <code>totalUsers &gt;= 5</code>
+  instead. Does the result change?
 </p>
 
-<h3>Exercise 4: Build a Validation Pipeline</h3>
+<h3>Exercise 4: Chained Expression Pipeline</h3>
 <p>
-  Add multiple Condition nodes after the Transform that validate each transformed value:
-  <ul>
-    <li><code>cleanName</code> length > 0</li>
-    <li><code>formattedPrice</code> starts with "$"</li>
-    <li><code>displayDate</code> contains "2026"</li>
-  </ul>
-  Chain them with AND logic (sequential conditions) to create a multi-check validation.
+  Add a third HTTP GET that fetches <code>/albums</code> and extracts <code>albumsJson</code>.
+  Use <code>$count</code> to get <code>totalAlbums</code>. Then extend the report header to
+  include the album count using <code>$concat</code>. Update the Log: Success message to
+  show <code>{{totalAlbums}}</code>.
 </p>
 
 <div class="callout callout-tip">
   <strong>💡 Learning Path</strong>
   You've completed the API Patterns category! Next, explore the
-  <strong>Script Node</strong> category for deeper JavaScript scripting techniques,
-  or the <strong>Diverse APIs</strong> category for real-world multi-service integrations.
+  <strong>Flow Control</strong> category to see how conditional branching and loops
+  combine with expression functions for data-driven routing.
 </div>
 
-<footer>RedfireForge Training Manual — Expression Functions Showcase · April 2026</footer>
+<footer>RedfireForge Training Manual — Expression Functions Showcase · v0.6.0</footer>
 
 </body>
-</html>

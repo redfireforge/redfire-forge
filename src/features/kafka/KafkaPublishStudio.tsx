@@ -3,6 +3,9 @@ import { useListCrud } from '../../shared/hooks/useListCrud';
 import KafkaSchemaConfigSection from '../workflow/components/configs/KafkaSchemaConfigSection';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
 import type { KafkaPublishTemplate } from '../../shared/kafka/kafkaStorage';
+import type { KafkaSerdeFormat } from './types';
+import { validateBase64, validateHex } from './kafkaMessageStudioUtils';
+import { KafkaTemplateControls } from './KafkaTemplateControls';
 
 interface KafkaPublishStudioProps {
   studio: UseKafkaMessageStudioReturn;
@@ -16,6 +19,9 @@ interface KafkaPublishStudioProps {
   onDeleteTemplate: (id: string) => Promise<void>;
   // ── Workflow integration (Phase 3D) ────────────────────────────────────
   lastWorkflowOutput?: Record<string, string> | null;
+  /** When false, the Send button is disabled and a connection notice is shown.
+   *  Templates are always accessible regardless of connection state. */
+  connected?: boolean;
 }
 
 export function KafkaPublishStudio({
@@ -26,50 +32,9 @@ export function KafkaPublishStudio({
   onLoadTemplate,
   onDeleteTemplate,
   lastWorkflowOutput,
+  connected = true,
 }: KafkaPublishStudioProps) {
   const { publishDraft, setPublishDraft, publishLoading, publishResult, publishError } = studio;
-
-  // ── Template dropdown state ──────────────────────────────────────────────
-  const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [showSaveInput, setShowSaveInput] = useState(false);
-  const [saveName, setSaveName] = useState('');
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Close dropdown on outside click
-  useEffect(() => {
-    if (!dropdownOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => { document.removeEventListener('mousedown', handler); };
-  }, [dropdownOpen]);
-
-  const handleSaveSubmit = useCallback(async () => {
-    const name = saveName.trim();
-    if (!name) return;
-    await onSaveTemplate(name);
-    setSaveName('');
-    setShowSaveInput(false);
-  }, [saveName, onSaveTemplate]);
-
-  const handleSaveKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLInputElement>) => {
-      if (e.key === 'Enter') void handleSaveSubmit();
-      if (e.key === 'Escape') { setSaveName(''); setShowSaveInput(false); }
-    },
-    [handleSaveSubmit],
-  );
-
-  const handleDeleteTemplate = useCallback(
-    (e: React.MouseEvent, id: string) => {
-      e.stopPropagation();
-      void onDeleteTemplate(id);
-    },
-    [onDeleteTemplate],
-  );
 
   const { update: updateHeader, remove: removeHeader, move: moveHeader } =
     useListCrud(publishDraft.headers, (items) => setPublishDraft({ headers: items }));
@@ -84,9 +49,10 @@ export function KafkaPublishStudio({
   }, [publishDraft.headers, setPublishDraft]);
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [decodePreview, setDecodePreview] = useState<{ text: string; ok: boolean } | null>(null);
   const topicEmpty = publishDraft.topic.trim() === '';
   const bodyEmpty = publishDraft.body.trim() === '';
-  const canSend = !topicEmpty && !publishLoading;
+  const canSend = !topicEmpty && !publishLoading && connected;
 
   const handleSend = useCallback(() => {
     void studio.sendOnce();
@@ -95,6 +61,17 @@ export function KafkaPublishStudio({
   const handleFormatJson = useCallback(() => {
     studio.validateJsonBody();
   }, [studio]);
+
+  const handleDecodePreview = useCallback(() => {
+    const fmt = publishDraft.bodyFormat ?? 'json';
+    const result = fmt === 'base64' ? validateBase64(publishDraft.body) : validateHex(publishDraft.body);
+    if (result.ok && result.byteCount !== undefined) {
+      const preview = result.utf8Preview ? ` — “${result.utf8Preview}${result.byteCount > 60 ? '…' : ''}”` : '';
+      setDecodePreview({ text: `${result.byteCount} bytes${preview}`, ok: true });
+    } else {
+      setDecodePreview({ text: result.error ?? 'Invalid encoding', ok: false });
+    }
+  }, [publishDraft.body, publishDraft.bodyFormat]);
 
   // ── Workflow variable dropdown (Phase 3D) ──────────────────────────────
   const [wfDropdownOpen, setWfDropdownOpen] = useState(false);
@@ -137,144 +114,127 @@ export function KafkaPublishStudio({
           <span className="kafka-ms-card-title">Publish</span>
           <span className="kafka-ms-card-subtitle">Send a message to a topic</span>
         </div>
-        <div className="kafka-ms-template-controls">
-          {/* Load dropdown */}
-          <div className="kafka-ms-template-dropdown-anchor" ref={dropdownRef}>
-            <button
-              className="kafka-ms-template-btn"
-              onClick={() => setDropdownOpen((o) => !o)}
-              disabled={templatesLoading}
-              title="Load a saved template"
-            >
-              Load ▾
-            </button>
-            {dropdownOpen && (
-              <div className="kafka-ms-template-dropdown">
-                {publishTemplates.length === 0 ? (
-                  <div className="kafka-ms-template-empty">No saved templates</div>
-                ) : (
-                  publishTemplates.map((t) => (
-                    <div
-                      key={t.id}
-                      className="kafka-ms-template-item"
-                      onClick={() => { onLoadTemplate(t.id); setDropdownOpen(false); }}
-                    >
-                      <span className="kafka-ms-template-item-name">{t.name}</span>
-                      <button
-                        className="kafka-ms-template-item-delete"
-                        onClick={(e) => handleDeleteTemplate(e, t.id)}
-                        title="Delete template"
-                      >×</button>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
-          </div>
-          {/* Save / inline input */}
-          {showSaveInput ? (
-            <div className="kafka-ms-template-save-row">
-              <input
-                className="kafka-ms-template-save-input"
-                type="text"
-                placeholder="Template name"
-                value={saveName}
-                autoFocus
-                onChange={(e) => setSaveName(e.target.value)}
-                onKeyDown={handleSaveKeyDown}
-              />
-              <button
-                className="kafka-ms-template-btn"
-                onClick={() => void handleSaveSubmit()}
-                disabled={!saveName.trim()}
-              >✓</button>
-              <button
-                className="kafka-ms-template-btn kafka-ms-template-btn-cancel"
-                onClick={() => { setSaveName(''); setShowSaveInput(false); }}
-              >✕</button>
-            </div>
-          ) : (
-            <button
-              className="kafka-ms-template-btn"
-              onClick={() => setShowSaveInput(true)}
-              title="Save current settings as a template"
-            >
-              Save
-            </button>
-          )}
-        </div>
+        <KafkaTemplateControls
+          templates={publishTemplates}
+          templatesLoading={templatesLoading}
+          onLoad={onLoadTemplate}
+          onSave={onSaveTemplate}
+          onDelete={onDeleteTemplate}
+          testIdPrefix="pub"
+        />
       </div>
 
       <div className="kafka-ms-body">
-        {/* Topic + Acks */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-pub-topic">Topic</label>
-            <input
-              id="kms-pub-topic"
-              type="text"
-              placeholder="e.g. orders.events"
-              value={publishDraft.topic}
-              onChange={(e) => setPublishDraft({ topic: e.target.value })}
-              onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
-            />
-            {touched.topic && topicEmpty && (
-              <span className="kafka-ms-field-hint" data-testid="pub-topic-hint">Topic is required</span>
-            )}
+        {/* ── Form: single-row label-left layout ── */}
+        <div className="kafka-ms-form">
+
+          {/* Topic */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-pub-topic">
+              Topic<span className="kafka-ms-required-dot" aria-hidden="true">*</span>
+            </label>
+            <div className="kafka-ms-form-ctrl">
+              <input
+                id="kms-pub-topic"
+                className="kafka-ms-form-input"
+                type="text"
+                placeholder="e.g. orders.events"
+                value={publishDraft.topic}
+                onChange={(e) => setPublishDraft({ topic: e.target.value })}
+                onBlur={() => setTouched((p) => ({ ...p, topic: true }))}
+                data-testid="pub-topic-input"
+              />
+              {touched.topic && topicEmpty && (
+                <span className="kafka-ms-field-hint" data-testid="pub-topic-hint">Topic is required</span>
+              )}
+            </div>
           </div>
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-pub-acks">Acks</label>
-            <select
-              id="kms-pub-acks"
-              value={String(publishDraft.acks)}
-              onChange={(e) =>
-                setPublishDraft({ acks: Number(e.target.value) as -1 | 0 | 1 })
-              }
-            >
-              <option value="-1">all (–1)</option>
-              <option value="1">leader (1)</option>
-              <option value="0">none (0)</option>
-            </select>
+
+          {/* Acks */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-pub-acks">Acks</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <select
+                id="kms-pub-acks"
+                className="kafka-ms-form-select kafka-ms-form-select--acks"
+                value={String(publishDraft.acks)}
+                onChange={(e) => setPublishDraft({ acks: Number(e.target.value) as -1 | 0 | 1 })}
+              >
+                <option value="-1">all (–1)</option>
+                <option value="1">leader (1)</option>
+                <option value="0">none (0)</option>
+              </select>
+              <span className="kafka-ms-form-hint">
+                {publishDraft.acks === -1 && 'Wait for all in-sync replicas — strongest durability'}
+                {publishDraft.acks === 1  && 'Wait for leader only — balanced'}
+                {publishDraft.acks === 0  && 'No acknowledgement — fire and forget'}
+              </span>
+            </div>
           </div>
+
+          {/* Key */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-pub-key">
+              Key<span className="kafka-ms-optional-tag">opt</span>
+            </label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <select
+                aria-label="Key format"
+                className="kafka-ms-form-select kafka-ms-form-select--fmt"
+                value={publishDraft.keyFormat ?? 'string'}
+                onChange={(e) => setPublishDraft({ keyFormat: e.target.value as KafkaSerdeFormat })}
+                data-testid="pub-key-format"
+              >
+                <option value="string">String</option>
+                <option value="base64">Base64</option>
+                <option value="hex">Hex</option>
+              </select>
+              <input
+                id="kms-pub-key"
+                className="kafka-ms-form-input kafka-ms-form-input--mono kafka-ms-form-input--grow"
+                type="text"
+                placeholder="Enter message key (optional)"
+                value={publishDraft.key}
+                onChange={(e) => setPublishDraft({ key: e.target.value })}
+                data-testid="pub-key-input"
+              />
+            </div>
+          </div>
+
+          {/* Partition */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-pub-partition">Partition</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <input
+                id="kms-pub-partition"
+                className="kafka-ms-form-input kafka-ms-form-input--short"
+                type="text"
+                placeholder="auto"
+                value={publishDraft.partition}
+                onChange={(e) => setPublishDraft({ partition: e.target.value })}
+              />
+              <span className="kafka-ms-form-hint">Leave empty to auto-assign</span>
+            </div>
+          </div>
+
+          {/* Timeout */}
+          <div className="kafka-ms-form-row">
+            <label className="kafka-ms-form-label" htmlFor="kms-pub-timeout">Timeout (ms)</label>
+            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
+              <input
+                id="kms-pub-timeout"
+                className="kafka-ms-form-input kafka-ms-form-input--short"
+                type="text"
+                placeholder="30 000"
+                value={publishDraft.timeoutMs}
+                onChange={(e) => setPublishDraft({ timeoutMs: e.target.value })}
+              />
+            </div>
+          </div>
+
         </div>
 
-        {/* Key + Partition */}
-        <div className="kafka-ms-field-grid">
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-pub-key">Key</label>
-            <input
-              id="kms-pub-key"
-              type="text"
-              placeholder="(optional)"
-              value={publishDraft.key}
-              onChange={(e) => setPublishDraft({ key: e.target.value })}
-            />
-          </div>
-          <div className="kafka-ms-field">
-            <label htmlFor="kms-pub-partition">Partition</label>
-            <input
-              id="kms-pub-partition"
-              type="text"
-              placeholder="auto"
-              value={publishDraft.partition}
-              onChange={(e) => setPublishDraft({ partition: e.target.value })}
-            />
-          </div>
-        </div>
-
-        {/* Timeout */}
-        <div className="kafka-ms-field">
-          <label htmlFor="kms-pub-timeout">Timeout (ms)</label>
-          <input
-            id="kms-pub-timeout"
-            type="text"
-            placeholder="default"
-            value={publishDraft.timeoutMs}
-            onChange={(e) => setPublishDraft({ timeoutMs: e.target.value })}
-          />
-        </div>
-
-        {/* Headers */}
+        {/* ── Headers ── */}
         <div className="kafka-ms-section">
           <div className="kafka-ms-section-header">
             <span className="kafka-ms-section-title">Headers</span>
@@ -287,7 +247,7 @@ export function KafkaPublishStudio({
             </button>
           </div>
           {publishDraft.headers.length === 0 ? (
-            <p className="kafka-ms-empty-state">No headers</p>
+            <p className="kafka-ms-empty-state">No headers — click Add to include custom Kafka headers</p>
           ) : (
             <div className="kafka-ms-kv-list">
               {publishDraft.headers.map((row, idx) => (
@@ -300,7 +260,7 @@ export function KafkaPublishStudio({
                   />
                   <input
                     type="text"
-                    placeholder="key"
+                    placeholder="header-key"
                     value={row.key}
                     onChange={(e) => updateHeader(idx, { ...row, key: e.target.value })}
                   />
@@ -336,15 +296,69 @@ export function KafkaPublishStudio({
 
         {/* Body */}
         <div className="kafka-ms-field full">
-          <label htmlFor="kms-pub-body">Message Body (JSON)</label>
+          <div className="kafka-ms-field-label-row">
+            <label htmlFor="kms-pub-body">Message Body</label>
+            <div className="kafka-ms-field-label-actions">
+              <select
+                aria-label="Body format"
+                className="kafka-ms-serde-select"
+                value={publishDraft.bodyFormat ?? 'json'}
+                onChange={(e) => {
+                  setPublishDraft({ bodyFormat: e.target.value as KafkaSerdeFormat });
+                  setDecodePreview(null);
+                }}
+                data-testid="pub-body-format"
+              >
+                <option value="json">JSON</option>
+                <option value="string">String</option>
+                <option value="base64">Base64</option>
+                <option value="hex">Hex</option>
+              </select>
+              {(publishDraft.bodyFormat == null || publishDraft.bodyFormat === 'json') && (
+                <button
+                  type="button"
+                  className="kafka-ms-pretty-badge"
+                  onClick={handleFormatJson}
+                  title="Pretty Format JSON"
+                  data-testid="pub-pretty-format-badge"
+                >
+                  Pretty Format
+                </button>
+              )}
+              {(publishDraft.bodyFormat === 'base64' || publishDraft.bodyFormat === 'hex') && (
+                <button
+                  type="button"
+                  className="kafka-ms-pretty-badge"
+                  onClick={handleDecodePreview}
+                  title={`Preview decoded ${publishDraft.bodyFormat} bytes`}
+                  data-testid="pub-decode-preview-badge"
+                >
+                  Preview
+                </button>
+              )}
+            </div>
+          </div>
           <textarea
             id="kms-pub-body"
             className="kafka-ms-textarea"
-            placeholder='{"key": "value"}'
+            placeholder={
+              publishDraft.bodyFormat === 'base64' ? 'aGVsbG8gd29ybGQ='
+              : publishDraft.bodyFormat === 'hex' ? '68 65 6c 6c 6f'
+              : publishDraft.bodyFormat === 'string' ? 'Plain text value'
+              : '{"key": "value"}'
+            }
             value={publishDraft.body}
-            onChange={(e) => setPublishDraft({ body: e.target.value })}
+            onChange={(e) => { setPublishDraft({ body: e.target.value }); setDecodePreview(null); }}
             onBlur={() => setTouched((p) => ({ ...p, body: true }))}
           />
+          {decodePreview && (
+            <span
+              className={`kafka-ms-decode-preview${decodePreview.ok ? '' : ' kafka-ms-decode-preview--error'}`}
+              data-testid="pub-decode-preview-result"
+            >
+              {decodePreview.text}
+            </span>
+          )}
           {touched.body && bodyEmpty && (
             <span className="kafka-ms-field-hint" data-testid="pub-body-hint">Message body is required</span>
           )}
@@ -371,6 +385,7 @@ export function KafkaPublishStudio({
             className="kafka-ms-secondary-btn"
             onClick={handleFormatJson}
             title="Validate and format JSON body"
+            data-testid="pub-format-btn"
           >
             Validate &amp; Format JSON
           </button>
@@ -419,6 +434,7 @@ export function KafkaPublishStudio({
             <button
               className="kafka-ms-ghost-btn"
               onClick={studio.clearPublishResult}
+              data-testid="pub-clear-btn"
             >
               Clear
             </button>

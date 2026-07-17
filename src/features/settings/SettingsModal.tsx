@@ -89,7 +89,6 @@ export default function SettingsPage({
                 type="button"
                 className="btn btn-primary btn-sm"
                 onClick={() => {
-                  if (!newGlobalProfileName.trim()) return;
                   const id = uuidv4();
                   const name = newGlobalProfileName.trim();
                   setAppGlobalAuthProfiles((prev) => [...prev, { id, name, auth: { type: 'none' } }]);

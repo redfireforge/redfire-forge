@@ -152,7 +152,7 @@ describe('storageCatalog — browser (IDB primary)', () => {
     localStorage.clear();
     isTauriMock.mockReturnValue(false);
     resetCatalogStore();
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('loadCatalogEntries / saveCatalogEntries', () => {
@@ -173,11 +173,12 @@ describe('storageCatalog — browser (IDB primary)', () => {
       expect(localStorage.getItem(CATALOG_KEY)).toBeNull();
     });
 
-    it('falls back to localStorage when IDB save fails', async () => {
+    it('does not write to localStorage when IDB save fails on web', async () => {
       catalogStore.throwOnSaveEntries = true;
       const entries = [makeEntry('c1', 'Fallback')];
       await saveCatalogEntries(entries);
-      expect(JSON.parse(localStorage.getItem(CATALOG_KEY)!)).toEqual(entries);
+      expect(localStorage.getItem(CATALOG_KEY)).toBeNull();
+      expect(catalogStore.entries).toBeNull();
     });
 
     it('loads from localStorage and migrates when IDB is empty', async () => {
@@ -196,6 +197,12 @@ describe('storageCatalog — browser (IDB primary)', () => {
 
     it('returns empty array when IDB load throws', async () => {
       catalogStore.throwOnLoadEntries = true;
+      expect(await loadCatalogEntries()).toEqual([]);
+    });
+
+    it('returns empty array when localStorage catalog JSON is invalid during migration fallback', async () => {
+      catalogStore.throwOnLoadEntries = true;
+      localStorage.setItem(CATALOG_KEY, '{bad-json');
       expect(await loadCatalogEntries()).toEqual([]);
     });
 
@@ -242,6 +249,11 @@ describe('storageCatalog — browser (IDB primary)', () => {
 
     it('returns null when IDB load throws', async () => {
       catalogStore.throwOnLoadRawSpec = true;
+      expect(await loadCatalogRawSpec('c1', 'v1')).toBeNull();
+    });
+
+    it('returns null when localStorage raw spec key exists but is empty string', async () => {
+      localStorage.setItem(`${CATALOG_SPEC_PREFIX}c1-v1`, '');
       expect(await loadCatalogRawSpec('c1', 'v1')).toBeNull();
     });
   });
@@ -306,6 +318,12 @@ describe('storageCatalog — browser (IDB primary)', () => {
       catalogStore.throwOnLoadEndpointValues = true;
       expect(await loadCatalogEndpointValues('c1')).toEqual({});
     });
+
+    it('returns empty object when legacy endpoint values JSON is invalid', async () => {
+      catalogStore.throwOnLoadEndpointValues = true;
+      localStorage.setItem(`${CATALOG_EP_VALUES_PREFIX}c1`, '{bad-json');
+      expect(await loadCatalogEndpointValues('c1')).toEqual({});
+    });
   });
 
   describe('removeCatalogEndpointValues', () => {
@@ -316,6 +334,15 @@ describe('storageCatalog — browser (IDB primary)', () => {
       expect(await loadCatalogEndpointValues('c1')).toEqual({});
       expect(localStorage.getItem(`${CATALOG_EP_VALUES_PREFIX}c1`)).toBeNull();
       expect(idbRemoveCatalogEndpointValues).toHaveBeenCalledWith('c1');
+    });
+  });
+
+  describe('migrateCatalogKeysToIdb', () => {
+    it('skips entry migration when localStorage catalog key is absent', async () => {
+      await migrateCatalogKeysToIdb();
+      expect(idbMigrateCatalogEntries).not.toHaveBeenCalled();
+      expect(idbMigrateCatalogRawSpecs).toHaveBeenCalled();
+      expect(idbMigrateCatalogEndpointValues).toHaveBeenCalled();
     });
   });
 
@@ -356,7 +383,7 @@ describe('storageCatalog — tauri backend', () => {
       if (value === '') tauriStoreMap.delete(key);
       else tauriStoreMap.set(key, value);
     });
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('loadCatalogEntries reads via tauriStore', async () => {

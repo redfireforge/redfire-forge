@@ -1,0 +1,27 @@
+# RabbitMQ with STOMP Web Plugin for WebSocket Studio E2E tests
+# Usage: docker compose up -d
+# Endpoint: ws://localhost:15674/ws (STOMP over WebSocket)
+# Management UI: http://localhost:15672 (guest/guest)
+# Credentials: guest/guest
+services:
+  ws-stomp-rabbitmq:
+    image: rabbitmq:3-management
+    container_name: ws-stomp-rabbitmq
+    ports:
+      - "15674:15674"   # STOMP over WebSocket
+      - "15672:15672"   # Management UI (debug)
+      - "5672:5672"     # AMQP (optional)
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    # Enable the web-stomp plugin on startup
+    command: >
+      bash -c "rabbitmq-plugins enable --offline rabbitmq_web_stomp &&
+               rabbitmq-server"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped

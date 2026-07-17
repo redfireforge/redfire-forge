@@ -16,6 +16,7 @@ import {
   getLastReactFlowProps as _getLastReactFlowProps,
 } from './__test-utils__/workflowExecutionCanvasTestHelpers';
 import { captureCanvasScreenshot, captureCanvasSvg } from '../utils/canvasScreenshot';
+import { REPLAY_CANVAS_FIT_VIEW_OPTIONS } from '../utils/replayCanvasFitView';
 
 const _mockedCaptureScreenshot = vi.mocked(captureCanvasScreenshot);
 const _mockedCaptureSvg = vi.mocked(captureCanvasSvg);
@@ -30,6 +31,21 @@ vi.mock('../utils/canvasScreenshot', () => ({
   captureCanvasScreenshot: vi.fn().mockResolvedValue('data:image/png;base64,xx'),
   captureCanvasSvg: vi.fn().mockResolvedValue('<svg xmlns="http://www.w3.org/2000/svg"/>'),
 }));
+
+vi.mock('../utils/replayCanvasFitView', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/replayCanvasFitView')>();
+  return {
+    ...actual,
+    scheduleReplayFitView: (instance: { fitView: (opts: unknown) => void; getNodes?: () => unknown[] } | null | undefined) => {
+      if (!instance) return false;
+      instance.fitView({
+        ...actual.REPLAY_CANVAS_FIT_VIEW_OPTIONS,
+        nodes: instance.getNodes?.() ?? [],
+      });
+      return true;
+    },
+  };
+});
 
 const { flowApi, applyNodeChangesStub } = vi.hoisted(() => {
   const api = {
@@ -74,11 +90,13 @@ vi.mock('@xyflow/react', async () => {
     Background: helpers.MockBackground,
     Controls: helpers.MockControls,
     MiniMap: helpers.MockMiniMap,
+    Panel: helpers.MockPanel,
     MarkerType: helpers.xyflowMockStaticExports.MarkerType,
     Position: helpers.xyflowMockStaticExports.Position,
     useReactFlow: () => flowApi,
     useViewport: () => ({ x: viewportState.x, y: viewportState.y, zoom: viewportState.zoom }),
     applyNodeChanges: applyNodeChangesStub,
+    getNodesBounds: helpers.mockGetNodesBounds,
   };
 });
 
@@ -113,13 +131,13 @@ describe('WorkflowExecutionCanvas', () => {
 
   it('renders React Flow canvas', () => {
     const trace = createMockTrace();
-    const { getByTestId, container } = render(<WorkflowExecutionCanvas trace={trace} />);
+    const { getByTestId, queryByTestId, container } = render(<WorkflowExecutionCanvas trace={trace} />);
 
     expect(getByTestId('react-flow')).toBeInTheDocument();
     expect(getByTestId('background')).toBeInTheDocument();
     // Check for custom controls (wf-pill-controls class)
     expect(container.querySelector('.wf-pill-controls')).toBeInTheDocument();
-    expect(getByTestId('minimap')).toBeInTheDocument();
+    expect(queryByTestId('minimap')).not.toBeInTheDocument();
   });
 
   it('renders all nodes from workflow snapshot', () => {
@@ -335,18 +353,24 @@ describe('WorkflowExecutionCanvas', () => {
   });
 
   describe('fitViewTrigger', () => {
-    it('updates layout key when fitViewTrigger changes', () => {
-      const trace = createMockTrace();
-      const { rerender, getByTestId } = render(
-        <WorkflowExecutionCanvas trace={trace} fitViewTrigger={1} />
-      );
+    it('calls fitView when fitViewTrigger changes', () => {
+      vi.useFakeTimers();
+      try {
+        const trace = createMockTrace();
+        const { rerender } = render(
+          <WorkflowExecutionCanvas trace={trace} fitViewTrigger={1} />
+        );
 
-      expect(getByTestId('react-flow')).toBeInTheDocument();
+        vi.advanceTimersByTime(200);
+        expect(flowApi.fitView).toHaveBeenCalledWith(expect.objectContaining(REPLAY_CANVAS_FIT_VIEW_OPTIONS));
 
-      // Trigger a re-render with new fitViewTrigger
-      rerender(<WorkflowExecutionCanvas trace={trace} fitViewTrigger={2} />);
-
-      expect(getByTestId('react-flow')).toBeInTheDocument();
+        flowApi.fitView.mockClear();
+        rerender(<WorkflowExecutionCanvas trace={trace} fitViewTrigger={2} />);
+        vi.advanceTimersByTime(200);
+        expect(flowApi.fitView).toHaveBeenCalledWith(expect.objectContaining(REPLAY_CANVAS_FIT_VIEW_OPTIONS));
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('does not update on initial render without fitViewTrigger', () => {
@@ -416,7 +440,9 @@ describe('WorkflowExecutionCanvas', () => {
   describe('minimap nodeColor', () => {
     it('returns green for pass, red for fail, slate for skipped and unknown ids', () => {
       const tracePass = createMockTrace({ iterations: 2, passedIterations: 2 });
-      const { getByTestId, unmount } = render(<WorkflowExecutionCanvas trace={tracePass} />);
+      const { getByTestId, unmount } = render(
+        <WorkflowExecutionCanvas trace={tracePass} showMinimap />
+      );
       const mm = getByTestId('minimap');
       expect(mm.getAttribute('data-color-n1')).toBe('#22c55e');
       expect(mm.getAttribute('data-color-n2')).toBe('#22c55e');
@@ -425,9 +451,23 @@ describe('WorkflowExecutionCanvas', () => {
       unmount();
 
       const traceFail = createMockTrace({ iterations: 2, passedIterations: 1 });
-      const { getByTestId: getFail } = render(<WorkflowExecutionCanvas trace={traceFail} />);
+      const { getByTestId: getFail } = render(
+        <WorkflowExecutionCanvas trace={traceFail} showMinimap />
+      );
       const mmFail = getFail('minimap');
       expect(mmFail.getAttribute('data-color-n1')).toBe('#ef4444');
+    });
+  });
+
+  describe('results explorer bridge', () => {
+    it('__reExplorerFitView calls fitView on the canvas instance', () => {
+      const trace = createMockTrace();
+      render(<WorkflowExecutionCanvas trace={trace} />);
+      const fit = (window as Window & { __reExplorerFitView?: () => boolean }).__reExplorerFitView;
+      expect(fit).toBeDefined();
+      expect(fit?.()).toBe(true);
+      expect(flowApi.fitView).toHaveBeenCalledWith(expect.objectContaining(REPLAY_CANVAS_FIT_VIEW_OPTIONS));
+      delete (window as Window & { __reExplorerFitView?: () => boolean }).__reExplorerFitView;
     });
   });
 
@@ -445,7 +485,7 @@ describe('WorkflowExecutionCanvas', () => {
 
       const fitBtn = container.querySelector('.wf-pill-btn[title="Fit view"]') as HTMLButtonElement;
       fireEvent.click(fitBtn);
-      expect(flowApi.fitView).toHaveBeenCalledWith({ padding: 0.05, duration: 200 });
+      expect(flowApi.fitView).toHaveBeenCalledWith(expect.objectContaining(REPLAY_CANVAS_FIT_VIEW_OPTIONS));
     });
 
     it('calls onToggleMinimap and marks toggle button active when minimap is shown', () => {

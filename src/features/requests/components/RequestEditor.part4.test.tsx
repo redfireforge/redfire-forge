@@ -207,7 +207,7 @@ describe('RequestEditor interaction branches', () => {
     vi.mocked(buildCurlCommand).mockReset();
     vi.mocked(serializeWithContentType).mockReturnValue({ body: '', contentType: null });
     vi.mocked(applyAuthHeaders).mockResolvedValue(undefined);
-    vi.clearAllMocks();
+    resetAllMocks();
     installClipboardMock();
   });
 
@@ -282,8 +282,7 @@ describe('RequestEditor interaction branches', () => {
     );
     const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
-    const inputs = document.querySelectorAll('.req-header-row .req-input');
-    fireEvent.change(inputs[1], { target: { value: 'new-value' } });
+    fireEvent.change(screen.getByLabelText('Headers value 1'), { target: { value: 'new-value' } });
     expect(onUpdateRequest).toHaveBeenCalledWith({
       headers: [{ key: 'X-Custom', value: 'new-value' }],
     });
@@ -302,8 +301,7 @@ describe('RequestEditor interaction branches', () => {
     );
     const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
-    const inputs = document.querySelectorAll('.req-header-row .req-input');
-    fireEvent.change(inputs[0], { target: { value: 'New-Key' } });
+    fireEvent.change(screen.getByLabelText('Headers key 1'), { target: { value: 'New-Key' } });
     expect(onUpdateRequest).toHaveBeenCalledWith({
       headers: [{ key: 'New-Key', value: 'val' }],
     });
@@ -322,13 +320,13 @@ describe('RequestEditor interaction branches', () => {
     );
     const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
-    fireEvent.click(screen.getByRole('button', { name: '+ Add' }));
+    fireEvent.click(screen.getByTestId('req-headers-add-btn'));
     expect(onUpdateRequest).toHaveBeenCalledWith({
       headers: [{ key: 'Existing', value: 'v' }, { key: '', value: '' }],
     });
   });
 
-  it('removes the last header and replaces with empty row', () => {
+  it('removes the last header row', () => {
     const onUpdateRequest = vi.fn();
     render(
       <RequestEditor
@@ -341,9 +339,47 @@ describe('RequestEditor interaction branches', () => {
     );
     const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
-    fireEvent.click(document.querySelector('.req-header-row .req-icon-btn.danger')!);
+    fireEvent.click(document.querySelector('.ws-connect-kv-remove-btn')!);
     expect(onUpdateRequest).toHaveBeenCalledWith({
-      headers: [{ key: '', value: '' }],
+      headers: [],
+    });
+  });
+
+  it('persists enabled:false when a header checkbox is unchecked', () => {
+    const onUpdateRequest = vi.fn();
+    render(
+      <RequestEditor
+        {...defaultProps}
+        onUpdateRequest={onUpdateRequest}
+        request={makeRequest({
+          headers: [{ key: 'X-Custom', value: 'v' }],
+        })}
+      />,
+    );
+    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
+    fireEvent.click(screen.getByLabelText('Enable headers 1'));
+    expect(onUpdateRequest).toHaveBeenCalledWith({
+      headers: [{ key: 'X-Custom', value: 'v', enabled: false }],
+    });
+  });
+
+  it('omits the enabled flag for headers that remain enabled', () => {
+    const onUpdateRequest = vi.fn();
+    render(
+      <RequestEditor
+        {...defaultProps}
+        onUpdateRequest={onUpdateRequest}
+        request={makeRequest({
+          headers: [{ key: 'X-Custom', value: 'v', enabled: false }],
+        })}
+      />,
+    );
+    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
+    fireEvent.click(screen.getByLabelText('Enable headers 1'));
+    expect(onUpdateRequest).toHaveBeenCalledWith({
+      headers: [{ key: 'X-Custom', value: 'v' }],
     });
   });
 

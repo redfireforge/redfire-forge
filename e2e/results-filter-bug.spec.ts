@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { REDFIREFORGE_IDB_VERSION } from './helpers';
 
 test.describe('Results Dashboard — Failed Only filter', () => {
   test.beforeEach(async ({ page }) => {
@@ -130,9 +131,9 @@ test.describe('Results Dashboard — Failed Only filter', () => {
 
     // Corrupt IDB data: set passed=1 (truthy but not boolean true)
     // and remove localStorage to prevent re-migration
-    await page.evaluate(() => {
+    await page.evaluate((dbVersion) => {
       return new Promise<void>((resolve, reject) => {
-        const dbOpen = indexedDB.open('redfireforge');
+        const dbOpen = indexedDB.open('redfireforge', dbVersion);
         dbOpen.onsuccess = () => {
           const db = dbOpen.result;
           const tx = db.transaction('testRuns', 'readwrite');
@@ -154,7 +155,7 @@ test.describe('Results Dashboard — Failed Only filter', () => {
         };
         dbOpen.onerror = () => reject(dbOpen.error);
       });
-    });
+    }, REDFIREFORGE_IDB_VERSION);
 
     // Navigate without addInitScript re-seeding localStorage
     // Use page.reload() instead of page.goto() — addInitScript still fires,

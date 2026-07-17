@@ -139,7 +139,7 @@ describe('ScriptCodeModal', () => {
   };
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockTestResult = null;
     mockMockInputs = {};
     mockComplexityWarnings = [];

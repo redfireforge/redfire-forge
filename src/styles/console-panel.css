@@ -1,0 +1,337 @@
+/* Console panel (Phase 9) — shared by the WebSocket and SSE studios.
+   Imported directly by ConsolePanel.tsx so the styles load on both pages.
+   Relies on the studio CSS-variable aliases (--text-primary, --border-color,
+   --accent-color, --warning-color, --error-color, --hover-bg, --input-bg);
+   the literal fallbacks keep it usable if rendered outside a studio. */
+
+.ws-console {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ws-console-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color, #333);
+  flex-shrink: 0;
+}
+
+.ws-console-seg {
+  display: inline-flex;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.ws-console-seg button {
+  padding: 5px 12px;
+  background: transparent;
+  border: none;
+  border-right: 1px solid var(--border-color, #444);
+  color: var(--text-secondary, #999);
+  font-size: 12px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.ws-console-seg button:last-child {
+  border-right: none;
+}
+
+.ws-console-seg button:hover {
+  background: var(--hover-bg, #333);
+  color: var(--text-primary, #e0e0e0);
+}
+
+.ws-console-seg button.active {
+  background: var(--accent-color, #4fc3f7);
+  color: #fff;
+}
+
+.ws-console-category-filter {
+  padding: 5px 10px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 6px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.ws-console-category-filter:focus {
+  border-color: var(--accent-color, #4fc3f7);
+}
+
+.ws-console-search {
+  flex: 1 1 160px;
+  min-width: 0;
+  padding: 6px 12px;
+  background: var(--input-bg, #2a2a2a);
+  border: 1px solid var(--border-color, #444);
+  border-radius: 6px;
+  color: var(--text-primary, #e0e0e0);
+  font-size: 12px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.ws-console-search:focus {
+  border-color: var(--accent-color, #4fc3f7);
+  box-shadow: 0 0 0 2px rgba(79, 195, 247, 0.15);
+}
+
+.ws-console-count {
+  font-size: 11px;
+  color: var(--text-secondary, #999);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ws-console-spacer {
+  flex: 1 1 auto;
+}
+
+.ws-console-btn {
+  padding: 5px 12px;
+  background: transparent;
+  border: 1px solid var(--border-color, #444);
+  border-radius: 6px;
+  color: var(--text-secondary, #999);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  font-weight: 500;
+  transition: all 0.15s;
+}
+
+.ws-console-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-primary, #e0e0e0);
+  border-color: var(--text-secondary, #999);
+}
+
+.ws-console-btn.active {
+  border-color: var(--accent-color, #4fc3f7);
+  color: var(--accent-color, #4fc3f7);
+  background: rgba(79, 195, 247, 0.08);
+}
+
+.ws-console-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ws-console-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.ws-console-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-secondary, #888);
+}
+.ws-console-empty-icon {
+  font-size: 36px;
+  line-height: 1;
+  opacity: 0.5;
+}
+.ws-console-empty-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-secondary, #aaa);
+}
+.ws-console-empty-text {
+  font-size: 12px;
+  color: var(--text-tertiary, #666);
+  max-width: 280px;
+  line-height: 1.5;
+}
+
+.ws-console-list {
+  display: flex;
+  flex-direction: column;
+  font-family: var(--font-mono, monospace);
+  font-size: 12px;
+}
+
+/* Structured view */
+.ws-console-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 12px;
+  border-left: 2px solid transparent;
+  line-height: 1.5;
+}
+
+.ws-console-row.ws-console-expandable {
+  cursor: pointer;
+}
+
+.ws-console-row.ws-console-expandable:hover {
+  background: var(--hover-bg, #2a2a2a);
+}
+
+.ws-console-row.ws-console-warn {
+  border-left-color: var(--warning-color, #e6a700);
+}
+
+.ws-console-row.ws-console-error {
+  border-left-color: var(--error-color, #f44336);
+}
+
+.ws-console-time {
+  color: var(--text-secondary, #888);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.ws-console-level-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 1px 6px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.ws-console-level-info {
+  color: var(--accent-color, #4fc3f7);
+  background: color-mix(in srgb, var(--accent-color, #4fc3f7) 16%, transparent);
+}
+
+.ws-console-level-warn {
+  color: var(--warning-color, #e6a700);
+  background: color-mix(in srgb, var(--warning-color, #e6a700) 18%, transparent);
+}
+
+.ws-console-level-error {
+  color: var(--error-color, #f44336);
+  background: color-mix(in srgb, var(--error-color, #f44336) 18%, transparent);
+}
+
+.ws-console-level-debug {
+  color: var(--text-secondary, #999);
+  background: var(--hover-bg, #333);
+}
+
+.ws-console-cat {
+  color: var(--text-secondary, #888);
+  flex-shrink: 0;
+}
+
+.ws-console-msg {
+  color: var(--text-primary, #e0e0e0);
+  word-break: break-word;
+  flex: 1;
+}
+
+.ws-console-chev {
+  color: var(--text-secondary, #888);
+  flex-shrink: 0;
+}
+
+.ws-console-detail {
+  margin: 0;
+  padding: 6px 12px 8px 32px;
+  background: var(--input-bg, #1e1e1e);
+  color: var(--text-secondary, #bbb);
+  font-family: var(--font-mono, monospace);
+  font-size: 11.5px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  border-left: 2px solid var(--border-color, #333);
+}
+
+/* Raw view */
+.ws-console-raw-row {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 1px 12px;
+  line-height: 1.5;
+}
+
+.ws-console-raw-pfx {
+  width: 10px;
+  text-align: center;
+  flex-shrink: 0;
+  font-weight: 700;
+}
+
+.ws-console-raw-info .ws-console-raw-pfx {
+  color: var(--text-secondary, #888);
+}
+
+.ws-console-raw-out .ws-console-raw-pfx {
+  color: var(--accent-color, #4fc3f7);
+}
+
+.ws-console-raw-in .ws-console-raw-pfx {
+  color: var(--success-color, #4caf50);
+}
+
+.ws-console-raw-cmd .ws-console-raw-pfx {
+  color: var(--warning-color, #e6a700);
+}
+
+.ws-console-raw-row.ws-console-raw-grouped .ws-console-msg {
+  color: var(--text-secondary, #aaa);
+}
+
+/* Command line (Phase 10) — bottom input, shared by WS + SSE. */
+.ws-console-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-top: 1px solid var(--border-color, #333);
+  background: var(--input-bg, #2a2a2a);
+}
+
+.ws-console-prompt {
+  color: var(--success-color, #4caf50);
+  font-family: var(--font-mono, monospace);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.ws-console-cmd-input {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 6px;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-primary, #e0e0e0);
+  font-family: var(--font-mono, monospace);
+  font-size: 12.5px;
+}
+
+.ws-console-cmd-input::placeholder {
+  color: var(--text-secondary, #777);
+}
+
+.ws-console-cmd-hint {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--text-secondary, #888);
+  white-space: nowrap;
+}

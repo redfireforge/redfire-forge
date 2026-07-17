@@ -1,4 +1,5 @@
 import type { Scenario, TestDefinitionVersion, TestDefinitionSnapshot } from '../../../shared/types';
+import { prepareGrpcHarnessCallActionDefinitionSnapshot } from '../../../shared/grpc/grpcInterpolationPersistGuard';
 import { canonicalize } from '../../../shared/utils/canonicalize';
 import {
   computeSnapshotFingerprint,
@@ -13,7 +14,7 @@ const MAX_VERSIONS = 20;
 
 export function createSnapshot(scenario: Scenario): TestDefinitionSnapshot {
   const url = scenario.dataSource?.urlTemplate || scenario.url;
-  return {
+  const snap: TestDefinitionSnapshot = {
     name: scenario.name,
     url,
     method: scenario.method,
@@ -24,6 +25,16 @@ export function createSnapshot(scenario: Scenario): TestDefinitionSnapshot {
     auth: scenario.auth,
     extractions: scenario.extractions,
   };
+  if (scenario.actionType && scenario.actionType !== 'http') snap.actionType = scenario.actionType;
+  if (scenario.wsConnectAction) snap.wsConnectAction = scenario.wsConnectAction;
+  if (scenario.wsSendAction) snap.wsSendAction = scenario.wsSendAction;
+  if (scenario.wsReceiveAction) snap.wsReceiveAction = scenario.wsReceiveAction;
+  if (scenario.kafkaProduceAction) snap.kafkaProduceAction = scenario.kafkaProduceAction;
+  if (scenario.kafkaConsumeAction) snap.kafkaConsumeAction = scenario.kafkaConsumeAction;
+  if (scenario.grpcCallAction) {
+    snap.grpcCallAction = prepareGrpcHarnessCallActionDefinitionSnapshot(scenario.grpcCallAction);
+  }
+  return snap;
 }
 
 export { computeSnapshotFingerprint };
@@ -47,6 +58,26 @@ export function generateChangeSummary(
   else if (extractDiff < 0) changes.push(`${-extractDiff} extraction${-extractDiff > 1 ? 's' : ''} removed`);
   else if (oldExtractions.length > 0 && JSON.stringify(canonicalize(oldExtractions)) !== JSON.stringify(canonicalize(newExtractions))) {
     changes.push('extractions modified');
+  }
+
+  if ((oldSnap.actionType ?? 'http') !== (newSnap.actionType ?? 'http')) {
+    changes.push('action type changed');
+  }
+
+  const transportFields: Array<{ key: keyof TestDefinitionSnapshot; label: string }> = [
+    { key: 'wsConnectAction', label: 'WS connect config' },
+    { key: 'wsSendAction', label: 'WS send config' },
+    { key: 'wsReceiveAction', label: 'WS receive config' },
+    { key: 'kafkaProduceAction', label: 'Kafka produce config' },
+    { key: 'kafkaConsumeAction', label: 'Kafka consume config' },
+    { key: 'grpcCallAction', label: 'gRPC call config' },
+  ];
+  for (const { key, label } of transportFields) {
+    const oldVal = oldSnap[key];
+    const newVal = newSnap[key];
+    if (JSON.stringify(canonicalize(oldVal)) !== JSON.stringify(canonicalize(newVal))) {
+      changes.push(`${label} changed`);
+    }
   }
 
   return changes.length > 0 ? changes.join(', ') : 'no changes detected';
@@ -87,6 +118,8 @@ export interface SnapshotDiffResult extends HttpSnapshotDiffBase {
   extractionsAdded: number;
   extractionsRemoved: number;
   extractionsModified: boolean;
+  actionTypeChanged: boolean;
+  transportConfigChanged: boolean;
 }
 
 export function computeSnapshotDiff(
@@ -98,11 +131,27 @@ export function computeSnapshotDiff(
   const oldExtractions = older.extractions ?? [];
   const newExtractions = newer.extractions ?? [];
 
+  const actionTypeChanged = (older.actionType ?? 'http') !== (newer.actionType ?? 'http');
+
+  const transportFields = [
+    'wsConnectAction',
+    'wsSendAction',
+    'wsReceiveAction',
+    'kafkaProduceAction',
+    'kafkaConsumeAction',
+    'grpcCallAction',
+  ] as const;
+  const transportConfigChanged = transportFields.some((field) =>
+    JSON.stringify(canonicalize(older[field])) !== JSON.stringify(canonicalize(newer[field])),
+  );
+
   return {
     ...baseDiff,
     extractionsAdded: Math.max(0, newExtractions.length - oldExtractions.length),
     extractionsRemoved: Math.max(0, oldExtractions.length - newExtractions.length),
     extractionsModified: JSON.stringify(canonicalize(oldExtractions)) !== JSON.stringify(canonicalize(newExtractions)),
+    actionTypeChanged,
+    transportConfigChanged,
   };
 }
 

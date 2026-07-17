@@ -91,7 +91,7 @@ vi.mock('../../../shared/components/data-mapper', async () => {
 
 describe('TestEditorValidationTab', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('branch coverage — optional fallbacks and edge handlers', () => {

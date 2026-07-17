@@ -23,7 +23,7 @@ let mockClipboardWriteText: Mock;
 
 describe('WebhookConfig', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockClipboardWriteText = installClipboardMock();
   });
 

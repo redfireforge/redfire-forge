@@ -4,6 +4,7 @@
 import http from 'node:http';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import request from 'supertest';
+import { GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL } from '../src/shared/grpc/grpcSpringFixturePorts.js';
 import { app } from './webhook-server.js';
 import type { Workflow } from '../src/features/workflow/types/workflow';
 
@@ -112,7 +113,7 @@ async function putWorkflowWithRetry(body: unknown) {
 
 describe('webhook-server', { timeout: 30_000 }, () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('GET /health', () => {
@@ -123,6 +124,38 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.body.status).toBe('ok');
       expect(res.body.port).toBe(3001);
       expect(res.body.timestamp).toBeDefined();
+    });
+  });
+
+  describe('GET /health/spring', () => {
+    it('returns ok when Spring actuator reports UP', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ status: 'UP' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+      const res = await request(app).get('/health/spring');
+
+      expect(res.status).toBe(200);
+      expect(res.body.status).toBe('ok');
+      expect(res.body.source).toBe('spring-actuator');
+      expect(fetchSpy).toHaveBeenCalledWith(
+        GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_LOOPBACK_URL,
+        expect.any(Object),
+      );
+    });
+
+    it('returns down when Spring actuator is unreachable', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error('connect ECONNREFUSED'));
+
+      const res = await request(app).get('/health/spring');
+
+      expect(res.status).toBe(503);
+      expect(res.body.status).toBe('down');
+      expect(res.body.source).toBe('spring-actuator');
+      expect(String(res.body.reason)).toContain('ECONNREFUSED');
     });
   });
 
@@ -163,6 +196,13 @@ describe('webhook-server', { timeout: 30_000 }, () => {
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('Failed to load execution history');
     });
+
+    it('handles non-Error rejections in execution history', async () => {
+      mockGetExecutionHistory.mockRejectedValue('db string failure');
+      const res = await request(app).get('/api/executions');
+      expect(res.status).toBe(500);
+      expect(res.body.message).toBe('db string failure');
+    });
   });
 
   describe('PUT /api/workflows/:id', () => {
@@ -172,6 +212,7 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       const res = await request(app)
         .put('/api/workflows/wf-1')
+        .timeout({ response: 5000, deadline: 7000 })
         .send(workflow);
 
       expect(res.status).toBe(200);
@@ -231,6 +272,15 @@ describe('webhook-server', { timeout: 30_000 }, () => {
 
       expect(res.status).toBe(500);
       expect(res.body.error).toBe('Failed to load webhook deliveries');
+    });
+
+    it('handles non-Error rejections in webhook deliveries', async () => {
+      mockGetWebhookDeliveries.mockRejectedValue('string-delivery-error');
+
+      const res = await request(app).get('/api/webhook-deliveries');
+
+      expect(res.status).toBe(500);
+      expect(res.body.message).toBe('string-delivery-error');
     });
   });
 
@@ -567,10 +617,187 @@ describe('webhook-server', { timeout: 30_000 }, () => {
   });
 });
 
+// ── SSE test endpoint ─────────────────────────────────────────────────────
+
+describe('GET /api/sse-test', () => {
+  it('sends initial greeting event with correct headers', async () => {
+    const chunks: string[] = [];
+    let contentType = '';
+
+    await new Promise<void>((resolve) => {
+      const server = app.listen(0, () => {
+        const addr = server.address();
+        const port = typeof addr === 'object' ? addr?.port : 0;
+        const req = http.get(`http://localhost:${port}/api/sse-test`, (res) => {
+          contentType = res.headers['content-type'] ?? '';
+          res.on('data', (chunk: Buffer) => {
+            chunks.push(chunk.toString());
+            req.destroy();
+          });
+          res.on('close', () => {
+            server.close();
+            resolve();
+          });
+        });
+      });
+    });
+
+    const allData = chunks.join('');
+    expect(contentType).toBe('text/event-stream');
+    expect(allData).toContain('event: message');
+    expect(allData).toContain('Hello from SSE test server');
+    expect(allData).toContain('"counter":1');
+  });
+
+  it('resumes from last-event-id header', async () => {
+    const chunks: string[] = [];
+
+    await new Promise<void>((resolve) => {
+      const server = app.listen(0, () => {
+        const addr = server.address();
+        const port = typeof addr === 'object' ? addr?.port : 0;
+        const req = http.get({
+          hostname: 'localhost',
+          port,
+          path: '/api/sse-test',
+          headers: { 'Last-Event-ID': '5' },
+        }, (res) => {
+          res.on('data', (chunk: Buffer) => {
+            chunks.push(chunk.toString());
+            req.destroy();
+          });
+          res.on('close', () => {
+            server.close();
+            resolve();
+          });
+        });
+      });
+    });
+
+    const allData = chunks.join('');
+    expect(allData).toContain('"counter":6');
+  });
+
+  it('treats invalid last-event-id as zero', async () => {
+    const chunks: string[] = [];
+
+    await new Promise<void>((resolve) => {
+      const server = app.listen(0, () => {
+        const addr = server.address();
+        const port = typeof addr === 'object' ? addr?.port : 0;
+        const req = http.get({
+          hostname: 'localhost',
+          port,
+          path: '/api/sse-test',
+          headers: { 'Last-Event-ID': 'not-a-number' },
+        }, (res) => {
+          res.on('data', (chunk: Buffer) => {
+            chunks.push(chunk.toString());
+            req.destroy();
+          });
+          res.on('close', () => {
+            server.close();
+            resolve();
+          });
+        });
+      });
+    });
+
+    const allData = chunks.join('');
+    expect(allData).toContain('"counter":1');
+  });
+
+  it('emits status events on interval counter divisible by three', async () => {
+    const chunks: string[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      const server = app.listen(0, '127.0.0.1', () => {
+        const addr = server.address() as import('net').AddressInfo;
+        let settled = false;
+        const closeAll = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(fallbackTimer);
+          req.destroy();
+          server.close(() => resolve());
+        };
+        const req = http.get({
+          hostname: '127.0.0.1',
+          port: addr.port,
+          path: '/api/sse-test?intervalMs=40',
+          headers: { 'Last-Event-ID': '5' },
+        }, (res) => {
+          res.on('data', (chunk: Buffer) => {
+            const text = chunk.toString();
+            chunks.push(text);
+            if (chunks.join('').includes('event: status')) {
+              closeAll();
+            }
+          });
+          res.on('error', (err) => {
+            if (settled && (err as NodeJS.ErrnoException).code === 'ECONNRESET') return;
+            reject(err);
+          });
+        });
+        req.on('error', (err) => {
+          if (settled && (err as NodeJS.ErrnoException).code === 'ECONNRESET') return;
+          reject(err);
+        });
+        const fallbackTimer = setTimeout(closeAll, 450);
+      });
+      server.on('error', reject);
+    });
+
+    const allData = chunks.join('');
+    expect(allData).toContain('event: status');
+  }, 10_000);
+
+  it('sends additional interval events after the greeting', async () => {
+    const chunks: string[] = [];
+
+    await new Promise<void>((resolve, reject) => {
+      const server = app.listen(0, '127.0.0.1', () => {
+        const addr = server.address() as import('net').AddressInfo;
+        let settled = false;
+        const closeAll = () => {
+          if (settled) return;
+          settled = true;
+          clearTimeout(fallbackTimer);
+          req.destroy();
+          server.close(() => resolve());
+        };
+        const req = http.get(`http://127.0.0.1:${addr.port}/api/sse-test?intervalMs=40`, (res) => {
+          res.on('data', (chunk: Buffer) => {
+            const text = chunk.toString();
+            chunks.push(text);
+            if (chunks.join('').includes('Event #2')) {
+              closeAll();
+            }
+          });
+          res.on('error', (err) => {
+            if (settled && (err as NodeJS.ErrnoException).code === 'ECONNRESET') return;
+            reject(err);
+          });
+        });
+        req.on('error', (err) => {
+          if (settled && (err as NodeJS.ErrnoException).code === 'ECONNRESET') return;
+          reject(err);
+        });
+        const fallbackTimer = setTimeout(closeAll, 300);
+      });
+      server.on('error', reject);
+    });
+
+    const allData = chunks.join('');
+    expect(allData).toContain('Event #2');
+    expect(allData).toMatch(/event: (message|update|status)/);
+  }, 10_000);
+});
+
 // ── shutdown / graceful cleanup ────────────────────────────────────────────
 
 describe('webhook-server — shutdown', () => {
-  it('shutdown deactivates Kafka subscriptions and exits', async () => {
+  it('shutdown deactivates Kafka subscriptions and exits on SIGTERM', async () => {
     const { kafkaTriggerSubscriptionManager } = await import('./kafka/kafkaTriggerSubscriptionManager.js');
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -579,6 +806,21 @@ describe('webhook-server — shutdown', () => {
     process.emit('SIGTERM');
 
     // Allow the async shutdown to complete
+    await new Promise<void>((resolve) => setTimeout(resolve, 50));
+
+    expect(vi.mocked(kafkaTriggerSubscriptionManager.deactivateAll)).toHaveBeenCalled();
+    expect(exitSpy).toHaveBeenCalledWith(0);
+
+    exitSpy.mockRestore();
+    consoleSpy.mockRestore();
+  });
+
+  it('shutdown deactivates Kafka subscriptions and exits on SIGINT', async () => {
+    const { kafkaTriggerSubscriptionManager } = await import('./kafka/kafkaTriggerSubscriptionManager.js');
+    const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    process.emit('SIGINT');
     await new Promise<void>((resolve) => setTimeout(resolve, 50));
 
     expect(vi.mocked(kafkaTriggerSubscriptionManager.deactivateAll)).toHaveBeenCalled();

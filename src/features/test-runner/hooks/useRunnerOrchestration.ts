@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
-import type { FeatureGroup, GlobalAuthProfile, Scenario, SlaTarget, TestConfig, ScenarioWeight, SharedDataSource, ScenarioKind, ExecutionMode, ArrivalRateConfig } from '../../../shared/types';
+import type { FeatureGroup, GlobalAuthProfile, Microservice, Scenario, SlaTarget, TestConfig, ScenarioWeight, SharedDataSource, ScenarioKind, ExecutionMode, ArrivalRateConfig } from '../../../shared/types';
+import { buildGrpcHarnessEnvFromRunnerContext } from '../../../shared/grpc/grpcHarnessRuntimeContext';
 import type { LoadProfileConfig } from '../../../shared/types';
 import type { AllocationSummary } from '../../../engine/allocationEngine';
 import { useTestExecution } from './useTestExecution';
@@ -18,6 +19,7 @@ interface RunnerOrchestrationOptions {
   envName?: string;
   svcName?: string;
   resolvedBaseUrl?: string;
+  microservices?: Microservice[];
   globalAuthProfiles: GlobalAuthProfile[];
   envFallbackAuth?: import('../../../shared/types').AuthConfig;
   sharedDataSources: SharedDataSource[];
@@ -77,7 +79,7 @@ export interface RunnerOrchestrationResult {
 export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): RunnerOrchestrationResult {
   const {
     featureGroups, kind, envId, svcId, envName, svcName,
-    resolvedBaseUrl, globalAuthProfiles, envFallbackAuth, sharedDataSources,
+    resolvedBaseUrl, microservices, globalAuthProfiles, envFallbackAuth, sharedDataSources,
   } = opts;
 
   const configSuffix = kind === 'parameterized' ? 'param' : undefined;
@@ -278,7 +280,8 @@ export function useRunnerOrchestration(opts: RunnerOrchestrationOptions): Runner
 
     const usedBaseUrl = hostMode === 'settings' ? (resolvedBaseUrl || undefined) : hostMode === 'custom' ? (customBaseUrl.trim() || undefined) : undefined;
     const resolvedTests = resolveSharedDataSources(testsToRun, sharedDataSources);
-    execution.execute(cfg, resolvedTests, { envName, svcName, baseUrl: usedBaseUrl });
+    const grpcHarnessEnv = buildGrpcHarnessEnvFromRunnerContext(microservices, svcId, envId, envName);
+    execution.execute(cfg, resolvedTests, { envName, svcName, baseUrl: usedBaseUrl, grpcHarnessEnv });
   };
 
   const updateProfile = (patch: Partial<LoadProfileConfig>) => {

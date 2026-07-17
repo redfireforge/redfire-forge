@@ -48,6 +48,19 @@ npm install
 npm run tauri:dev     # launches the native desktop window with hot-reload
 ```
 
+### Desktop Builds — Standard vs Learning Hub
+
+RedfireForge ships two desktop variants (side-by-side install on macOS via different bundle IDs):
+
+| Variant | Command | Bundle ID | Demo Hub |
+|---------|---------|-----------|----------|
+| **Standard** (performance workbench) | `npm run tauri:build:prod` | `com.redfireforge.desktop` | Off |
+| **Learning Hub** (interactive lessons) | `npm run tauri:build:demo` | `com.redfireforge.desktop.demo` | On |
+
+Web-only builds: `npm run build:prod` vs `npm run build:demo`.  
+Demo lessons live in the **`@redfireforge/demo-hub`** workspace package (`packages/demo-hub/`).  
+GitHub Releases: tag `vX.Y.Z` for Standard; `vX.Y.Z-demo` or workflow dispatch for Learning Hub.
+
 ### Desktop Build (Production — Local)
 
 ```bash
@@ -993,7 +1006,9 @@ After running a workflow, click **📊 Results Explorer** to open a full-screen 
 | Weighted test distribution | Control relative frequency of each test |
 | Live progress monitoring | Real-time TPS, response times, and error rates during runs (throttled updates, incremental metrics) |
 | **Trash Box** | Soft-delete with configurable retention (7–90 days) for Feature Groups, Scenarios, Tests, and Shared Data Sources; 5-second undo toast, Trash Panel for browse/search/restore, automatic purge on startup |
-| Persistent configuration | All settings saved across sessions (file system in desktop, localStorage in browser) |
+| **GraphQL Studio** | Multi-tab query workspace with Monaco editor, introspection-driven schema explorer, variables/headers/auth panels, history, collections runner, batch execution (select tabs → Send Batch → per-tab response slices + full batch modal), SDL schema diff, connection profiles, TLS/mTLS settings, mock server mode, and workflow integration hooks |
+| **Learning Hub (Demo)** | Interactive protocol lessons in `@redfireforge/demo-hub` (`packages/demo-hub/`) — GraphQL GQL-1–19 complete (Phase 8 human 19/19; E2E sweep 20/20), gRPC GRPC-1–24 (incl. Workflow Runner & Results), Kafka, WebSocket, etc.; live studio bridges, prerequisite gates, Docker health probes, §11.0 workspace isolation, per-lesson notes — ships as `npm run tauri:build:demo` |
+| Persistent configuration | All settings saved across sessions (file system in desktop, IndexedDB + localStorage in browser) |
 | Results filtering | Filter runs by environment and microservice |
 | Multi-level grouped results | Group by Feature → Scenario → Test with cascading sub-groups and per-group summary stats |
 | Advanced search (Scenario Builder) | Boolean search: AND, OR, NOT/-, "quoted phrases", (parentheses); searches name, URL, method, headers, body, auth, validation |
@@ -1239,25 +1254,28 @@ Data is stored using a tiered storage strategy:
 | `testRuns` | Historical test run results |
 | `sharedDataSources` | Top-level shared data sources (harness-wide) |
 | `trash` | Soft-deleted items with metadata (retention, expiry, parent path) |
+| `workflows`, `workflowFolders`, `requests`, `catalog`, `projects` | Workflow designer, request collections, API catalog, and project data |
+| `graphql-*` | GraphQL Studio history, collections, schema snapshots, and diff acknowledgements |
+| `environments`, `microservices`, `globalAuthProfiles` | Environment Manager config blobs |
+| `gqlStudioTabs`, `gqlStudioEnvironments`, `gqlConnectionProfiles`, `gqlPageAuth`, `gqlSchemaCache` | GraphQL Studio tabs, env overrides, profiles, auth, and introspection cache |
 
-IndexedDB is used for large data that would exceed localStorage's ~5 MB limit. The database (`redfireforge`, version 4) uses a blob-per-store pattern with automatic migration from localStorage on first load.
+IndexedDB is used for large data that would exceed localStorage's ~5 MB limit. The database (`redfireforge`, version 9) uses a blob-per-store pattern with automatic migration from localStorage on first load (non-empty arrays only).
 
-**localStorage (Secondary — for small data)**
+**localStorage (Secondary — for small prefs and legacy keys)**
 
 | Key | Content |
 |---|---|
-| `perf-test-environments` | Environment definitions |
-| `perf-test-microservices` | Microservice definitions and base URLs |
-| `perf-test-global-auth` | Global Auth Profile definitions |
 | `perf-test-runner-config` | Runner settings (concurrency, weights, host mode, execution mode, etc.) |
 | `perf-test-max-runs` | Maximum number of stored runs (default 50, configurable 1–500) |
 | `perf-test-selected-env` | Currently selected environment ID |
 | `perf-test-selected-svc` | Currently selected microservice ID |
 | `perf-test-theme` | Theme preference (`dark` or `light`) |
 
+Legacy keys (`perf-test-environments`, `perf-test-microservices`, etc.) are migrated into IndexedDB on first load when they contain data.
+
 **Fallback Behavior:**
-- If IndexedDB is blocked (e.g., private browsing, DevTools lock), the app falls back to localStorage with a 3-second timeout
-- Feature groups and test runs auto-migrate from localStorage to IndexedDB on first load
+- If IndexedDB open times out (10 s — e.g., corrupted state, DevTools lock), callers reject and reads return empty; large blob **saves do not fall back to localStorage** on web
+- Non-empty legacy localStorage arrays auto-migrate to IndexedDB on first load; empty legacy arrays are cleared in place
 - Response bodies are truncated to 2 KB; results per run capped at 2,000
 
 **Storage Management:**

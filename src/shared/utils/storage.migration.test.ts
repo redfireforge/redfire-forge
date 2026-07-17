@@ -20,9 +20,20 @@ vi.mock('./tauriStore', () => ({
   getUsageBytes: () => tauriGetUsage(),
 }));
 
-const { idbStore } = vi.hoisted(() => {
+const { idbStore, appConfigStore, sharedDsStore } = vi.hoisted(() => {
   const store: Record<string, unknown> = {};
-  return { idbStore: store };
+  return {
+    idbStore: store,
+    appConfigStore: {
+      environments: null as import('../types').Environment[] | null,
+      microservices: null as import('../types').Microservice[] | null,
+      featureGroups: null as import('../types').FeatureGroup[] | null,
+      globalAuthProfiles: null as import('../types').GlobalAuthProfile[] | null,
+    },
+    sharedDsStore: {
+      data: null as import('../types').SharedDataSource[] | null,
+    },
+  };
 });
 
 let _idbInsertOrder = 0;
@@ -70,6 +81,43 @@ vi.mock('./idbTestRuns', () => {
   };
 });
 
+vi.mock('./idbEnvironmentsMicroservices', () => ({
+  idbLoadEnvironments: vi.fn(async () => appConfigStore.environments),
+  idbSaveEnvironments: vi.fn(async (data: import('../types').Environment[]) => {
+    appConfigStore.environments = data;
+  }),
+  idbMigrateEnvironments: vi.fn(async () => false),
+  idbLoadMicroservices: vi.fn(async () => appConfigStore.microservices),
+  idbSaveMicroservices: vi.fn(async (data: import('../types').Microservice[]) => {
+    appConfigStore.microservices = data;
+  }),
+  idbMigrateMicroservices: vi.fn(async () => false),
+}));
+
+vi.mock('./idbFeatureGroups', () => ({
+  idbLoadFeatureGroups: vi.fn(async () => appConfigStore.featureGroups),
+  idbSaveFeatureGroups: vi.fn(async (data: import('../types').FeatureGroup[]) => {
+    appConfigStore.featureGroups = data;
+  }),
+  idbMigrateFeatureGroups: vi.fn(async () => false),
+}));
+
+vi.mock('./idbGlobalAuthProfiles', () => ({
+  idbLoadGlobalAuthProfiles: vi.fn(async () => appConfigStore.globalAuthProfiles),
+  idbSaveGlobalAuthProfiles: vi.fn(async (data: import('../types').GlobalAuthProfile[]) => {
+    appConfigStore.globalAuthProfiles = data;
+  }),
+  idbMigrateGlobalAuthProfiles: vi.fn(async () => false),
+}));
+
+vi.mock('./idbSharedDataSources', () => ({
+  idbLoadSharedDataSources: vi.fn(async () => sharedDsStore.data),
+  idbSaveSharedDataSources: vi.fn(async (data: import('../types').SharedDataSource[]) => {
+    sharedDsStore.data = data;
+  }),
+  idbMigrateSharedDataSources: vi.fn(async () => false),
+}));
+
 import { migrateToFlat, loadEnvironments, migratePerFgSharedDataSourcesToTopLevel, saveFeatureGroups, loadFeatureGroups, saveSharedDataSources, loadSharedDataSources, } from './storage';
 import { FeatureGroup, SharedDataSource, DataSource } from '../types';
 
@@ -77,6 +125,11 @@ beforeEach(() => {
   localStorage.clear();
   for (const k of Object.keys(idbStore)) delete idbStore[k];
   _idbInsertOrder = 0;
+  appConfigStore.environments = null;
+  appConfigStore.microservices = null;
+  appConfigStore.featureGroups = null;
+  appConfigStore.globalAuthProfiles = null;
+  sharedDsStore.data = null;
   isTauriMock.mockReturnValue(false);
   tauriGetItem.mockReset();
   tauriGetItem.mockResolvedValue(null);

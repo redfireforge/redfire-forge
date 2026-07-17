@@ -299,4 +299,27 @@ describe('useWorkflowEdgeOps', () => {
     expect(edges.find((x) => x.id === 'e1')?.className).toBeUndefined();
     expect(edges.find((x) => x.id === 'e2')).toBe(bareBefore);
   });
+
+  it('removeEdgeBetween drops matching source/target and snapshots', async () => {
+    const initial: WorkflowRFEdge[] = [
+      { id: 'e1', source: 'a', target: 'b' } as unknown as WorkflowRFEdge,
+      { id: 'e2', source: 'b', target: 'c' } as unknown as WorkflowRFEdge,
+    ];
+    const { result, e, takeSnapshot, update } = setup({ initialEdges: initial });
+    act(() => result.current.removeEdgeBetween('a', 'b'));
+    expect(takeSnapshot).toHaveBeenCalledWith('Remove connection');
+    expect(e.get()).toHaveLength(1);
+    expect(e.get()[0].source).toBe('b');
+    await new Promise(r => queueMicrotask(() => r(null)));
+    expect(update).toHaveBeenCalledWith('w1', expect.objectContaining({ edges: [{ id: 'e2', source: 'b', target: 'c' }] }));
+  });
+
+  it('exposes __wfRemoveEdge on window', () => {
+    const initial: WorkflowRFEdge[] = [{ id: 'e1', source: 'a', target: 'b' } as unknown as WorkflowRFEdge];
+    const { e } = setup({ initialEdges: initial });
+    const win = window as unknown as Record<string, (s: string, t: string) => void>;
+    expect(win.__wfRemoveEdge).toBeTypeOf('function');
+    act(() => win.__wfRemoveEdge('a', 'b'));
+    expect(e.get()).toHaveLength(0);
+  });
 });

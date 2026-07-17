@@ -94,8 +94,8 @@
     when there are no more pages. The essential pagination pattern.
   </p>
   <div class="meta">
-    <strong>RedfireForge v0.5.4</strong><br>
-    Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Nodes: 5 &nbsp;|&nbsp; Category: Flow Control<br>
+    <strong>RedfireForge v0.6.0</strong><br>
+    Difficulty: ★★☆ (Medium) &nbsp;|&nbsp; Nodes: 9 &nbsp;|&nbsp; Category: Flow Control<br>
     <em>Print this page to PDF: Ctrl/Cmd + P → Save as PDF</em>
   </div>
 </div>
@@ -145,13 +145,13 @@
 <!-- ════════════════════════════════════════════ -->
 <h2 id="concepts">2. Concepts You'll Learn</h2>
 <ul>
-  <li>Using <strong>SetVariable</strong> to initialize a page counter before a loop</li>
-  <li>Using a <strong>Loop</strong> node to repeat a sequence of nodes</li>
-  <li>Building dynamic URLs with <strong>page parameters</strong> (<code>?page={{page}}</code>)</li>
-  <li><strong>Aggregating</strong> data across multiple loop iterations</li>
+  <li>Using <strong>SetVariable</strong> to initialize counters and flags before a loop</li>
+  <li>Using a <strong>Loop</strong> node in <em>while</em> mode to repeat a sequence</li>
+  <li>Using an <strong>Aggregate</strong> node to accumulate data across iterations (concat/sum)</li>
   <li><strong>Incrementing</strong> a counter variable inside the loop body</li>
-  <li>Using a <strong>hasMore</strong> condition to exit the loop</li>
+  <li>Using a <strong>hasMore</strong> flag to control loop exit</li>
   <li>Preventing <strong>infinite loops</strong> with max-iteration guards</li>
+  <li>Post-loop <strong>Condition</strong> nodes to analyze aggregated results</li>
 </ul>
 
 <!-- ════════════════════════════════════════════ -->
@@ -164,37 +164,45 @@
   └──────┬──────┘
          ▼
   ┌─────────────────────────────┐
-  │  1. Init Page               │  SetVariable
+  │  1. Init Variables          │  SetVariable
   │     (SetVariable)           │
   │                             │  page = 1
-  │  Initialize page counter    │  allUsers = []
+  │                             │  hasMore = true
+  │                             │  allItems = []
+  │                             │  totalCount = 0
   └──────┬──────────────────────┘
          ▼
-  ┌──────────────────────────────────────────────────┐
-  │  2. Fetch Loop (Loop)                            │
-  │  ┌────────────────────────────────────────────┐  │
-  │  │                                            │  │
-  │  │  2a. Fetch Page ──→ 2b. Aggregate ──→ 2c. │  │
-  │  │      (HTTP)            (SetVar)       Incr │  │
-  │  │                                       page │  │
-  │  │  GET /users?page=     allUsers +=     page │  │
-  │  │    {{page}}           pageData         + 1 │  │
-  │  │                                            │  │
-  │  └────────────────────────────────────────────┘  │
-  │                                                  │
-  │  Exit when: {{hasMore}} == false                 │
-  │  Max iterations: 10                              │
-  └──────┬───────────────────────────────────────────┘
+  ┌─────────────────────────────────────────────────┐
+  │  2. Fetch Pages (Loop while hasMore==true)      │
+  │  ┌───────────────────────────────────────────┐  │
+  │  │ 2a. GET Page → 2b. Accumulate (Agg)       │  │
+  │  │ /posts?_page=1  concat allItems,          │  │
+  │  │   &_limit=10    sum totalCount            │  │
+  │  │ pageItems,      → 2c. Next Page           │  │
+  │  │ itemCount           hasMore=itemCount     │  │
+  │  └───────────────────────────────────────────┘  │
+  │  while: {{hasMore}} == true, max 10 iters       │
+  └──────┬──────────────────────────────────────────┘
          ▼
-  ┌─────────────┐
-  │    End      │  allUsers contains all
-  └─────────────┘  collected records
+  ┌─────────────────────────────┐
+  │  3. Many Items? (Condition) │  totalCount > 50
+  └──────┬──────────────────────┘
+  true   │                  │ false
+         ▼                  ▼
+  ┌───────────┐      ┌─────────┐
+  │Send Alert │      │   End   │
+  │(HTTP POST)│      └─────────┘
+  └───────┬───┘
+          ▼
+  ┌─────────┐
+  │   End   │
+  └─────────┘
 </div>
 
 <p>
-  <strong>5 nodes, 6 edges</strong> — a loop-based pipeline. The SetVariable initializes
-  the counter, the Loop node iterates through pages, and the workflow exits when
-  <code>hasMore</code> is false or the max iteration limit is reached.
+  <strong>9 nodes, 9 edges</strong> — a loop-based pipeline. Init Variables sets up
+  counters, the Loop iterates while <code>hasMore == true</code>, the Aggregate node
+  accumulates data, then a post-loop Condition checks if a large-dataset alert should be sent.
 </p>
 
 <!-- ════════════════════════════════════════════ -->
@@ -211,56 +219,75 @@
     <td>Entry point. No input variables — page counter is initialized internally.</td>
   </tr>
   <tr>
-    <td><span class="step-num">1</span> Init Page</td>
+    <td><span class="step-num">1</span> Init Variables</td>
     <td>SetVariable</td>
-    <td>Sets <code>page = 1</code> and <code>allUsers = []</code> before entering the loop.</td>
+    <td>Sets <code>page = 1</code>, <code>hasMore = true</code>, <code>allItems = []</code>, <code>totalCount = 0</code> before entering the loop.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2</span> Fetch Loop</td>
+    <td><span class="step-num">2</span> Fetch Pages</td>
     <td>Loop</td>
-    <td>Repeats the inner nodes until <code>{{hasMore}} == false</code> or max 10 iterations.</td>
+    <td>Repeats the inner nodes while <code>{{hasMore}} == true</code> or until max 10 iterations.</td>
   </tr>
   <tr>
-    <td><span class="step-num">2a</span> Fetch Page</td>
+    <td><span class="step-num">2a</span> GET Page</td>
     <td>HTTP</td>
-    <td>GET <code>https://reqres.in/api/users?page={{page}}</code>. Extracts <code>pageData</code> (user array) and <code>totalPages</code>.</td>
+    <td>GET <code>https://jsonplaceholder.typicode.com/posts?_page=1&amp;_limit=10</code>. Extracts <code>pageItems</code> (← body <code>$</code>) and <code>itemCount</code> (← <code>$.length</code>).</td>
   </tr>
   <tr>
-    <td><span class="step-num">2b</span> Aggregate</td>
-    <td>SetVariable</td>
-    <td>Appends <code>pageData</code> to <code>allUsers</code>. Sets <code>hasMore = (page &lt; totalPages)</code>.</td>
+    <td><span class="step-num">2b</span> Accumulate</td>
+    <td>Aggregate</td>
+    <td>Concatenates <code>{{pageItems}}</code> into <code>allItems</code> (strategy: concat) and sums <code>{{itemCount}}</code> into <code>totalCount</code> (strategy: sum).</td>
   </tr>
   <tr>
-    <td><span class="step-num">2c</span> Increment</td>
+    <td><span class="step-num">2c</span> Next Page</td>
     <td>SetVariable</td>
-    <td>Sets <code>page = {{page}} + 1</code> to advance to the next page.</td>
+    <td>Sets <code>hasMore</code> = <code>{{itemCount}}</code>. When itemCount becomes 0/falsy, the loop exits on the next evaluation.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">3</span> Many Items?</td>
+    <td>Condition</td>
+    <td>Checks <code>{{totalCount}} &gt; 50</code>. True branch sends an alert; false branch goes directly to End.</td>
+  </tr>
+  <tr>
+    <td><span class="step-num">4</span> Send Alert</td>
+    <td>HTTP</td>
+    <td>POST <code>https://jsonplaceholder.typicode.com/posts</code> with body <code>{"alert":"Large dataset: {{totalCount}} items fetched"}</code>. Only runs when more than 50 items collected.</td>
   </tr>
 </table>
 
-<h3>HTTP GET Configuration (Fetch Page)</h3>
+<h3>HTTP GET Configuration (GET Page)</h3>
 <table>
-  <tr><td><strong>URL</strong></td><td><code>https://reqres.in/api/users?page={{page}}</code></td></tr>
+  <tr><td><strong>URL</strong></td><td><code>https://jsonplaceholder.typicode.com/posts?_page=1&amp;_limit=10</code></td></tr>
   <tr><td><strong>Method</strong></td><td>GET</td></tr>
   <tr><td><strong>Extractions</strong></td><td>
-    <code>pageData</code> ← body <code>$.data</code><br>
-    <code>totalPages</code> ← body <code>$.total_pages</code>
+    <code>pageItems</code> ← body <code>$</code><br>
+    <code>itemCount</code> ← body <code>$.length</code>
   </td></tr>
+</table>
+
+<h3>Aggregate Configuration (Accumulate)</h3>
+<table>
+  <tr><th>Source Expression</th><th>Target Variable</th><th>Strategy</th></tr>
+  <tr><td><code>{{pageItems}}</code></td><td><code>allItems</code></td><td>concat</td></tr>
+  <tr><td><code>{{itemCount}}</code></td><td><code>totalCount</code></td><td>sum</td></tr>
 </table>
 
 <h3>Loop Configuration</h3>
 <table>
-  <tr><td><strong>Exit condition</strong></td><td><code>{{hasMore}} == false</code></td></tr>
+  <tr><td><strong>Mode</strong></td><td>while</td></tr>
+  <tr><td><strong>While condition</strong></td><td><code>{{hasMore}} == true</code></td></tr>
   <tr><td><strong>Max iterations</strong></td><td>10</td></tr>
-  <tr><td><strong>Inner nodes</strong></td><td>Fetch Page → Aggregate → Increment</td></tr>
+  <tr><td><strong>Inner nodes</strong></td><td>GET Page → Accumulate → Next Page</td></tr>
 </table>
 
 <h3>Variables at Each Stage</h3>
 <table class="var-table">
-  <tr><th>Variable</th><th>After Init</th><th>After Iter 1</th><th>After Iter 2</th></tr>
-  <tr><td>page</td><td>1</td><td>2</td><td>3</td></tr>
-  <tr><td>allUsers</td><td>[]</td><td>[6 users]</td><td>[12 users]</td></tr>
-  <tr><td>hasMore</td><td>—</td><td>true</td><td>false</td></tr>
-  <tr><td>totalPages</td><td>—</td><td>2</td><td>2</td></tr>
+  <tr><th>Variable</th><th>After Init</th><th>After Iter 1</th><th>After Iter 2 (no more)</th></tr>
+  <tr><td>page</td><td>1</td><td>1</td><td>1</td></tr>
+  <tr><td>allItems</td><td>[]</td><td>[10 items]</td><td>[20 items]</td></tr>
+  <tr><td>totalCount</td><td>0</td><td>10</td><td>20</td></tr>
+  <tr><td>hasMore</td><td>true</td><td>10 (truthy)</td><td>0 (falsy → loop exits)</td></tr>
+  <tr><td>itemCount</td><td>—</td><td>10</td><td>0 (empty page)</td></tr>
 </table>
 
 <div class="callout">
@@ -290,56 +317,73 @@
   </li>
   <li>
     <strong>Add the Init SetVariable node.</strong><br>
-    Drag a SetVariable node. Configure:
+    Drag a SetVariable node. Configure 4 assignments:
     <ul>
-      <li><em>Variable</em>: <code>page</code> = <code>1</code></li>
-      <li><em>Variable</em>: <code>allUsers</code> = <code>[]</code></li>
+      <li><code>page</code> = <code>1</code></li>
+      <li><code>hasMore</code> = <code>true</code></li>
+      <li><code>allItems</code> = <code>[]</code></li>
+      <li><code>totalCount</code> = <code>0</code></li>
     </ul>
-    Connect Start → Init Page.
+    Connect Start → Init Variables.
   </li>
   <li>
     <strong>Add the Loop node.</strong><br>
     Drag a Loop node. Configure:
     <ul>
-      <li><em>Exit condition</em>: <code>{{hasMore}} == false</code></li>
+      <li><em>Mode</em>: while</li>
+      <li><em>While condition</em>: <code>{{hasMore}} == true</code></li>
       <li><em>Max iterations</em>: <code>10</code></li>
     </ul>
-    Connect Init Page → Fetch Loop.
+    Connect Init Variables → Fetch Pages.
   </li>
   <li>
-    <strong>Add the HTTP node inside the loop.</strong><br>
+    <strong>Add the HTTP node inside the loop (node 2a).</strong><br>
     Inside the Loop body, drag an HTTP node. Configure:
     <ul>
-      <li><em>URL</em>: <code>https://reqres.in/api/users?page={{page}}</code></li>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts?_page=1&amp;_limit=10</code></li>
       <li><em>Method</em>: GET</li>
-      <li><em>Extractions</em>: <code>pageData</code> ← body <code>$.data</code>, <code>totalPages</code> ← body <code>$.total_pages</code></li>
+      <li><em>Extractions</em>: <code>pageItems</code> ← body <code>$</code>, <code>itemCount</code> ← body <code>$.length</code></li>
     </ul>
   </li>
   <li>
-    <strong>Add the Aggregate SetVariable node.</strong><br>
-    Inside the Loop body, after the HTTP node, add a SetVariable:
+    <strong>Add the Aggregate node inside the loop (node 2b).</strong><br>
+    Inside the Loop body, after GET Page, add an Aggregate node:
     <ul>
-      <li><code>allUsers</code> = append <code>{{pageData}}</code></li>
-      <li><code>hasMore</code> = <code>{{page}} &lt; {{totalPages}}</code></li>
+      <li>Source <code>{{pageItems}}</code> → target <code>allItems</code>, strategy: <em>concat</em></li>
+      <li>Source <code>{{itemCount}}</code> → target <code>totalCount</code>, strategy: <em>sum</em></li>
     </ul>
   </li>
   <li>
-    <strong>Add the Increment SetVariable node.</strong><br>
-    Inside the Loop body, after Aggregate, add another SetVariable:
+    <strong>Add the Next Page SetVariable node inside the loop (node 2c).</strong><br>
+    Inside the Loop body, after Accumulate, add a SetVariable:
     <ul>
-      <li><code>page</code> = <code>{{page}} + 1</code></li>
+      <li><code>hasMore</code> = <code>{{itemCount}}</code> (becomes falsy when page is empty)</li>
     </ul>
-    Connect Fetch Page → Aggregate → Increment.
+    Connect GET Page → Accumulate → Next Page.
   </li>
   <li>
-    <strong>Connect the Loop to End.</strong><br>
-    Connect the Loop's exit output → End. The <code>allUsers</code> variable will
-    contain all collected records.
+    <strong>Add the post-loop Condition node (node 3).</strong><br>
+    After the Loop's <em>done</em> output, drag a Condition node:
+    <ul>
+      <li>Left: <code>{{totalCount}}</code>, Operator: <code>&gt;</code>, Right: <code>50</code></li>
+    </ul>
+    Connect Loop (done) → Many Items?.
+  </li>
+  <li>
+    <strong>Add the Send Alert HTTP node (node 4).</strong><br>
+    On the Condition's <em>true</em> output, drag an HTTP node:
+    <ul>
+      <li><em>URL</em>: <code>https://jsonplaceholder.typicode.com/posts</code></li>
+      <li><em>Method</em>: POST</li>
+      <li><em>Body</em>: <code>{"alert":"Large dataset: {{totalCount}} items fetched"}</code></li>
+    </ul>
+    Connect Condition (true) → Send Alert → End. Connect Condition (false) → End.
   </li>
   <li>
     <strong>Run the workflow.</strong><br>
-    Click <em>Quick Test</em>. The reqres.in API has 2 pages of users (6 per page).
-    The loop should iterate twice, collecting 12 users total.
+    Click <em>Quick Test</em>. JSONPlaceholder <code>/posts?_page=1&amp;_limit=10</code> returns
+    10 items per call. The loop runs while <code>hasMore</code> is truthy. Since totalCount will
+    exceed 50 after 6 iterations, the alert branch fires.
   </li>
 </ol>
 
@@ -352,39 +396,21 @@
 <table>
   <tr><th>Node</th><th>State</th><th>Detail</th></tr>
   <tr><td>Start</td><td>✅ Pass</td><td>—</td></tr>
-  <tr><td>1. Init Page</td><td>✅ Pass</td><td>page = 1, allUsers = []</td></tr>
-  <tr><td>2. Fetch Loop (iter 1)</td><td>✅ Pass</td><td>Fetched page 1, 6 users</td></tr>
-  <tr><td>2. Fetch Loop (iter 2)</td><td>✅ Pass</td><td>Fetched page 2, 6 users</td></tr>
-  <tr><td>2. Fetch Loop (exit)</td><td>✅ Pass</td><td>hasMore = false, exiting loop</td></tr>
-  <tr><td>End</td><td>✅ Pass</td><td>allUsers = 12 users total</td></tr>
+  <tr><td>1. Init Variables</td><td>✅ Pass</td><td>page=1, hasMore=true, allItems=[], totalCount=0</td></tr>
+  <tr><td>2. Fetch Pages (iter 1)</td><td>✅ Pass</td><td>GET 10 posts, itemCount=10, totalCount=10</td></tr>
+  <tr><td>2. Fetch Pages (iter 2+)</td><td>✅ Pass</td><td>Loop repeats until hasMore is falsy</td></tr>
+  <tr><td>3. Many Items?</td><td>✅ Pass</td><td>totalCount &gt; 50 → true branch (after 6 iterations)</td></tr>
+  <tr><td>4. Send Alert</td><td>✅ Pass</td><td>HTTP 201, alert POST with totalCount</td></tr>
+  <tr><td>End</td><td>✅ Pass</td><td>allItems contains all fetched records</td></tr>
 </table>
 
-<h3>Page 1 Response</h3>
+<h3>Sample Response (GET Page node)</h3>
 <pre>
-{
-  "page": 1,
-  "per_page": 6,
-  "total": 12,
-  "total_pages": 2,
-  "data": [
-    { "id": 1, "email": "george.bluth@reqres.in", "first_name": "George", ... },
-    { "id": 2, "email": "janet.weaver@reqres.in", "first_name": "Janet", ... },
-    ...
-  ]
-}</pre>
-
-<h3>Page 2 Response</h3>
-<pre>
-{
-  "page": 2,
-  "per_page": 6,
-  "total": 12,
-  "total_pages": 2,
-  "data": [
-    { "id": 7, "email": "michael.lawson@reqres.in", "first_name": "Michael", ... },
-    ...
-  ]
-}</pre>
+[
+  { "userId": 1, "id": 1, "title": "sunt aut facere repellat...", "body": "quia et suscipit..." },
+  { "userId": 1, "id": 2, "title": "qui est esse", "body": "est rerum tempore..." },
+  ...
+]</pre>
 
 <div class="callout callout-warn">
   <strong>⚠️ Rate Limiting</strong>

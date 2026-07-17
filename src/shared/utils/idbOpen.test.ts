@@ -3,6 +3,21 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
+/** All object stores except testRuns — created when upgrading from a testRuns-only DB. */
+const STORES_EXCEPT_TEST_RUNS = [
+  'featureGroups', 'sharedDataSources', 'trash',
+  'workflows', 'workflowFolders', 'requests', 'catalog', 'projects',
+  'graphql-history', 'graphql-collections', 'graphql-collection-folders',
+  'graphql-collection-items', 'graphql-schema-snapshots', 'graphql-diff-acknowledgements',
+  'environments', 'microservices', 'globalAuthProfiles',
+  'gqlStudioTabs', 'gqlStudioEnvironments', 'gqlConnectionProfiles', 'gqlPageAuth', 'gqlSchemaCache',
+  'runnerConfigs',
+  'grpc-collections', 'grpc-collection-items', 'grpc-call-history',
+  'grpc-load-test-profiles', 'grpc-schema-diff-acks',
+] as const;
+
+const ALL_STORES = ['testRuns', ...STORES_EXCEPT_TEST_RUNS] as const;
+
 afterEach(() => {
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
@@ -10,6 +25,12 @@ afterEach(() => {
 });
 
 describe('idbOpen.openDB', () => {
+  it('DB_VERSION matches E2E REDFIREFORGE_IDB_VERSION re-export', async () => {
+    const { DB_VERSION } = await import('./idbOpen');
+    const { REDFIREFORGE_IDB_VERSION } = await import('../../../e2e/helpers');
+    expect(REDFIREFORGE_IDB_VERSION).toBe(DB_VERSION);
+  });
+
   it('opens database and exposes expected object stores', async () => {
     vi.resetModules();
     await import('fake-indexeddb/auto');
@@ -58,7 +79,7 @@ describe('idbOpen.openDB', () => {
       () => { throw new Error('expected rejection'); },
       (e: Error) => e,
     );
-    await vi.advanceTimersByTimeAsync(3000);
+    await vi.advanceTimersByTimeAsync(10_000);
     expect((await settled).message).toBe('IndexedDB open timed out');
   });
 
@@ -158,9 +179,7 @@ describe('idbOpen.openDB', () => {
     // Simulate a db that already has all object stores
     const mockDb = {
       objectStoreNames: {
-        contains: vi.fn((name: string) =>
-          ['testRuns', 'featureGroups', 'sharedDataSources', 'trash', 'workflows', 'workflowFolders', 'requests', 'catalog', 'projects'].includes(name),
-        ),
+        contains: vi.fn((name: string) => ALL_STORES.includes(name as typeof ALL_STORES[number])),
       },
       createObjectStore: vi.fn(),
       close: vi.fn(),
@@ -241,10 +260,7 @@ describe('idbOpen.openDB', () => {
     });
     
     await p;
-    expect(storesCreated).toEqual([
-      'featureGroups', 'sharedDataSources', 'trash',
-      'workflows', 'workflowFolders', 'requests', 'catalog', 'projects',
-    ]);
-    expect(mockDb.createObjectStore).toHaveBeenCalledTimes(8);
+    expect(storesCreated).toEqual([...STORES_EXCEPT_TEST_RUNS]);
+    expect(mockDb.createObjectStore).toHaveBeenCalledTimes(STORES_EXCEPT_TEST_RUNS.length);
   });
 });

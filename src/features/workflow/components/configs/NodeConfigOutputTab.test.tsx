@@ -111,3 +111,179 @@ describe('NodeConfigOutputTab', () => {
     expect(screen.getAllByText(/Skipped/).length).toBeGreaterThanOrEqual(1);
   });
 });
+
+// ─── gRPC nodes (Phase 6G) ────────────────────────────────────────────────────
+
+describe('NodeConfigOutputTab — gRPC nodes', () => {
+  const grpcUnaryStatus = (): NodeRunStatus => ({
+    state: 'pass',
+    responseTimeMs: 45,
+    grpcMeta: {
+      service: 'echo.EchoService',
+      method: 'Echo',
+      target: 'localhost:50051',
+      callType: 'unary',
+      grpcStatus: 0,
+      grpcStatusMessage: 'OK',
+      bodyPreview: '{"reply":"hello"}',
+    },
+  });
+
+  it('shows "Unary Details" section header for a grpcUnary node', () => {
+    render(<NodeConfigOutputTab nodeRunStatus={grpcUnaryStatus()} />);
+    expect(screen.getByText(/Unary Details/i)).toBeTruthy();
+  });
+
+  it('hides HTTP statusCode row for gRPC nodes', () => {
+    const status: NodeRunStatus = { ...grpcUnaryStatus(), statusCode: 200 };
+    render(<NodeConfigOutputTab nodeRunStatus={status} />);
+    // statusCode = 200 present but should NOT render Status row for gRPC
+    expect(screen.queryByText('Status')).not.toBeTruthy();
+  });
+
+  it('shows gRPC status code and label for unary node', () => {
+    render(<NodeConfigOutputTab nodeRunStatus={grpcUnaryStatus()} />);
+    expect(screen.getByText(/0 OK/)).toBeTruthy();
+  });
+
+  it('shows gRPC status as error color when non-zero', () => {
+    const status: NodeRunStatus = {
+      state: 'fail',
+      grpcMeta: {
+        service: 'svc.Svc',
+        method: 'Call',
+        target: 'host:1234',
+        callType: 'unary',
+        grpcStatus: 14,
+      },
+    };
+    const { container } = render(<NodeConfigOutputTab nodeRunStatus={status} />);
+    expect(container.querySelector('.wf-output-meta-err')).toBeTruthy();
+  });
+
+  it('shows method and target for unary node', () => {
+    render(<NodeConfigOutputTab nodeRunStatus={grpcUnaryStatus()} />);
+    expect(screen.getByText('echo.EchoService/Echo')).toBeTruthy();
+    expect(screen.getByText('localhost:50051')).toBeTruthy();
+  });
+
+  it('shows response body preview for unary node', () => {
+    render(<NodeConfigOutputTab nodeRunStatus={grpcUnaryStatus()} />);
+    expect(screen.getByText('Response')).toBeTruthy();
+    expect(screen.getByText('{"reply":"hello"}')).toBeTruthy();
+  });
+
+  it('shows "Server Stream Details" section header for server_streaming', () => {
+    const status: NodeRunStatus = {
+      state: 'pass',
+      responseTimeMs: 120,
+      grpcMeta: {
+        service: 'events.Svc',
+        method: 'Watch',
+        target: 'host:9090',
+        callType: 'server_streaming',
+        grpcStatus: 0,
+        messageCount: 5,
+        streamStopReason: 'stream_end',
+      },
+    };
+    render(<NodeConfigOutputTab nodeRunStatus={status} />);
+    expect(screen.getByText(/Server Stream Details/i)).toBeTruthy();
+    expect(screen.getByText('5')).toBeTruthy();
+    expect(screen.getByText('stream_end')).toBeTruthy();
+  });
+
+  it('shows "Assert Details" section header for assert node', () => {
+    const status: NodeRunStatus = {
+      state: 'pass',
+      responseTimeMs: 2,
+      grpcMeta: {
+        service: '',
+        method: 'ASSERT',
+        target: 'echoCall',
+        callType: 'assert',
+        assertionFailures: [],
+      },
+    };
+    render(<NodeConfigOutputTab nodeRunStatus={status} />);
+    expect(screen.getByText(/Assert Details/i)).toBeTruthy();
+  });
+
+  it('shows "All assertions passed" for assert pass (assertionFailures=[])', () => {
+    const status: NodeRunStatus = {
+      state: 'pass',
+      responseTimeMs: 2,
+      grpcMeta: {
+        service: '',
+        method: 'ASSERT',
+        target: 'echoCall',
+        callType: 'assert',
+        assertionFailures: [],
+      },
+    };
+    render(<NodeConfigOutputTab nodeRunStatus={status} />);
+    expect(screen.getByText(/All assertions passed/i)).toBeTruthy();
+  });
+
+  it('shows assertion failures list for assert fail (assertionFailures non-empty)', () => {
+    const status: NodeRunStatus = {
+      state: 'fail',
+      responseTimeMs: 1,
+      grpcMeta: {
+        service: '',
+        method: 'ASSERT',
+        target: 'echoCall',
+        callType: 'assert',
+        assertionFailures: ['$.msg expected "ok" got "fail"', '$.code expected 0 got 3'],
+      },
+    };
+    render(<NodeConfigOutputTab nodeRunStatus={status} />);
+    expect(screen.getByText('Assertion Failures')).toBeTruthy();
+    expect(screen.getByText('$.msg expected "ok" got "fail"')).toBeTruthy();
+    expect(screen.getByText('$.code expected 0 got 3')).toBeTruthy();
+  });
+
+  it('shows nothing about assertions when assertionFailures is undefined (not yet evaluated)', () => {
+    const status: NodeRunStatus = {
+      state: 'pass',
+      grpcMeta: {
+        service: '',
+        method: 'ASSERT',
+        target: 'echoCall',
+        callType: 'assert',
+        // assertionFailures intentionally omitted
+      },
+    };
+    render(<NodeConfigOutputTab nodeRunStatus={status} />);
+    expect(screen.queryByText(/All assertions passed/i)).not.toBeTruthy();
+    expect(screen.queryByText('Assertion Failures')).not.toBeTruthy();
+  });
+
+  it('hides responseDetail section for gRPC nodes', () => {
+    const status: NodeRunStatus = {
+      ...grpcUnaryStatus(),
+      responseDetail: 'UNARY echo.EchoService/Echo → localhost:50051\ngRPC 0 OK',
+    };
+    render(<NodeConfigOutputTab nodeRunStatus={status} />);
+    // responseDetail is suppressed when grpcMeta is set; GrpcMetaSection used instead
+    expect(screen.queryByText('Response')).toBeTruthy(); // bodyPreview section "Response" exists
+    // but the raw responseDetail text should NOT render as a <pre> block
+    expect(screen.queryByText(/UNARY echo\.EchoService/)).not.toBeTruthy();
+  });
+
+  it('shows attempts row when attempts > 1', () => {
+    const status: NodeRunStatus = {
+      state: 'pass',
+      grpcMeta: {
+        service: 'svc.Svc',
+        method: 'Call',
+        target: 'host:1',
+        callType: 'unary',
+        grpcStatus: 0,
+        attempts: 3,
+      },
+    };
+    render(<NodeConfigOutputTab nodeRunStatus={status} />);
+    expect(screen.getByText('3')).toBeTruthy();
+  });
+});

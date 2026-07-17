@@ -30,13 +30,20 @@ export default function WorkflowCanvasControls({
   const [saveFlash, setSaveFlash] = useState(false);
 
   const handleFitView = useCallback(() => {
+    const opts = {
+      padding: 0.1,
+      maxZoom: 1.5,
+      minZoom: 0.85,
+      duration: 300,
+      includeHiddenNodes: true,
+    } as const;
     if (onAutoLayout) {
       onAutoLayout();
       requestAnimationFrame(() => {
-        fitView({ padding: 0.2, maxZoom: 1.5, duration: 300, includeHiddenNodes: true });
+        fitView(opts);
       });
     } else {
-      fitView({ padding: 0.2, maxZoom: 1.5, duration: 300, includeHiddenNodes: true });
+      fitView(opts);
     }
   }, [fitView, onAutoLayout]);
 

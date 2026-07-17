@@ -16,6 +16,9 @@ export default defineConfig([
     'playwright-report',
     'test-results',
     'src-tauri/target',
+    // CSS files are linted by stylelint (npm run lint:css), not ESLint.
+    // Without this ignore, "eslint ." emits a noisy "File ignored" warning for every .css file.
+    '**/*.css',
   ]),
   {
     files: ['**/*.{ts,tsx}'],

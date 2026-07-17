@@ -72,7 +72,7 @@ describe('WorkflowResultsExplorerModal — part6', () => {
   const mockOnClose = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     lastCanvasTraceRef.current = null;
   });
 

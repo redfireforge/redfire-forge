@@ -4,6 +4,17 @@
  */
 
 import type { Workflow } from '../../../features/workflow/types/workflow';
+import {
+  makeStartNode,
+  makeGetNode,
+  makeSetVariableNode,
+  makeConditionNode,
+  makeForkNode,
+  makeJoinNode,
+  makeEdge,
+  jsonBody,
+  bodyExtraction,
+} from './nodeFactories';
 
 /**
  * Simple 2-step workflow for basic load testing introduction.
@@ -19,12 +30,7 @@ export function createPerfSimpleWorkflow(): Workflow {
       userId: '1',
     },
     nodes: [
-      {
-        id: 'ps-start',
-        type: 'start',
-        position: { x: 250, y: 0 },
-        data: { label: 'Start', inputVariables: {} },
-      },
+      makeStartNode('ps-start', {}, { x: 250, y: 0 }),
       {
         id: 'ps-create',
         type: 'http',
@@ -88,8 +94,8 @@ export function createPerfSimpleWorkflow(): Workflow {
       },
     ],
     edges: [
-      { id: 'ps-e1', source: 'ps-start', target: 'ps-create' },
-      { id: 'ps-e2', source: 'ps-create', target: 'ps-verify' },
+      makeEdge('ps-e1', 'ps-start', 'ps-create'),
+      makeEdge('ps-e2', 'ps-create', 'ps-verify'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -111,45 +117,16 @@ export function createPerfBranchingWorkflow(): Workflow {
       fallbackCode: 'US',
     },
     nodes: [
-      {
-        id: 'pb-start',
-        type: 'start',
-        position: { x: 250, y: 0 },
-        data: { label: 'Start', inputVariables: {} },
-      },
-      {
-        id: 'pb-search',
-        type: 'http',
-        position: { x: 200, y: 100 },
-        data: {
-          label: '1. Search Country',
-          scenario: {
-            id: 'pb-s1',
-            name: 'Search Country',
-            url: 'https://restcountries.com/v3.1/name/{{searchTerm}}?fullText=false',
-            method: 'GET',
-            headers: [{ key: 'Accept', value: 'application/json' }],
-            body: '',
-            auth: { type: 'none' },
-            validation: { mode: 'none' },
-            extractions: [
-              { name: 'countryCode', source: 'body', expression: '$[0].cca2' },
-              { name: 'searchStatus', source: 'status', expression: '' },
-            ],
-          },
-        },
-      },
-      {
-        id: 'pb-cond',
-        type: 'condition',
-        position: { x: 240, y: 250 },
-        data: {
-          label: '2. Country Found?',
-          left: '{{searchStatus}}',
-          operator: '==',
-          right: '200',
-        },
-      },
+      makeStartNode('pb-start', {}, { x: 250, y: 0 }),
+      makeGetNode('pb-search', '1. Search Country', 'https://restcountries.com/v3.1/name/{{searchTerm}}?fullText=false', {
+        x: 200,
+        y: 100,
+        extractions: [
+          bodyExtraction('countryCode', '$[0].cca2'),
+          { name: 'searchStatus', source: 'status', expression: '' },
+        ],
+      }),
+      makeConditionNode('pb-cond', '2. Country Found?', '{{searchStatus}}', '200', { x: 240, y: 250 }),
       {
         id: 'pb-details',
         type: 'http',
@@ -204,8 +181,8 @@ export function createPerfBranchingWorkflow(): Workflow {
       },
     ],
     edges: [
-      { id: 'pb-e1', source: 'pb-start', target: 'pb-search' },
-      { id: 'pb-e2', source: 'pb-search', target: 'pb-cond' },
+      makeEdge('pb-e1', 'pb-start', 'pb-search'),
+      makeEdge('pb-e2', 'pb-search', 'pb-cond'),
       { id: 'pb-e3', source: 'pb-cond', target: 'pb-details', sourceHandle: 'true', label: 'Yes' },
       { id: 'pb-e4', source: 'pb-cond', target: 'pb-fallback', sourceHandle: 'false', label: 'No' },
     ],
@@ -228,12 +205,7 @@ export function createPerfParallelWorkflow(): Workflow {
       userId: '1',
     },
     nodes: [
-      {
-        id: 'pp-start',
-        type: 'start',
-        position: { x: 300, y: 0 },
-        data: { label: 'Start', inputVariables: {} },
-      },
+      makeStartNode('pp-start', {}, { x: 300, y: 0 }),
       {
         id: 'pp-user',
         type: 'http',
@@ -260,81 +232,23 @@ export function createPerfParallelWorkflow(): Workflow {
           },
         },
       },
-      {
-        id: 'pp-fork',
-        type: 'fork',
-        position: { x: 300, y: 220 },
-        data: { label: 'Fork: Parallel Fetch' },
-      },
-      {
-        id: 'pp-posts',
-        type: 'http',
-        position: { x: 50, y: 340 },
-        data: {
-          label: '2a. Get Posts',
-          scenario: {
-            id: 'pp-s2',
-            name: 'Get User Posts',
-            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}/posts',
-            method: 'GET',
-            headers: [{ key: 'Accept', value: 'application/json' }],
-            body: '',
-            auth: { type: 'none' },
-            validation: { mode: 'none' },
-            extractions: [
-              { name: 'postCount', source: 'body', expression: '$.length' },
-            ],
-          },
-        },
-      },
-      {
-        id: 'pp-todos',
-        type: 'http',
-        position: { x: 250, y: 340 },
-        data: {
-          label: '2b. Get Todos',
-          scenario: {
-            id: 'pp-s3',
-            name: 'Get User Todos',
-            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}/todos',
-            method: 'GET',
-            headers: [{ key: 'Accept', value: 'application/json' }],
-            body: '',
-            auth: { type: 'none' },
-            validation: { mode: 'none' },
-            extractions: [
-              { name: 'todoCount', source: 'body', expression: '$.length' },
-            ],
-          },
-        },
-      },
-      {
-        id: 'pp-albums',
-        type: 'http',
-        position: { x: 450, y: 340 },
-        data: {
-          label: '2c. Get Albums',
-          scenario: {
-            id: 'pp-s4',
-            name: 'Get User Albums',
-            url: 'https://jsonplaceholder.typicode.com/users/{{userId}}/albums',
-            method: 'GET',
-            headers: [{ key: 'Accept', value: 'application/json' }],
-            body: '',
-            auth: { type: 'none' },
-            validation: { mode: 'none' },
-            extractions: [
-              { name: 'albumCount', source: 'body', expression: '$.length' },
-            ],
-          },
-        },
-      },
-      {
-        id: 'pp-join',
-        type: 'join',
-        position: { x: 300, y: 480 },
-        data: { label: 'Join: Wait for All' },
-      },
+      makeForkNode('pp-fork', 'Fork: Parallel Fetch', { x: 300, y: 220 }),
+      makeGetNode('pp-posts', '2a. Get Posts', 'https://jsonplaceholder.typicode.com/users/{{userId}}/posts', {
+        x: 50,
+        y: 340,
+        extractions: [bodyExtraction('postCount', '$.length')],
+      }),
+      makeGetNode('pp-todos', '2b. Get Todos', 'https://jsonplaceholder.typicode.com/users/{{userId}}/todos', {
+        x: 250,
+        y: 340,
+        extractions: [bodyExtraction('todoCount', '$.length')],
+      }),
+      makeGetNode('pp-albums', '2c. Get Albums', 'https://jsonplaceholder.typicode.com/users/{{userId}}/albums', {
+        x: 450,
+        y: 340,
+        extractions: [bodyExtraction('albumCount', '$.length')],
+      }),
+      makeJoinNode('pp-join', 'Join: Wait for All', { x: 300, y: 480 }),
       {
         id: 'pp-verify',
         type: 'http',
@@ -361,15 +275,15 @@ export function createPerfParallelWorkflow(): Workflow {
       },
     ],
     edges: [
-      { id: 'pp-e1', source: 'pp-start', target: 'pp-user' },
-      { id: 'pp-e2', source: 'pp-user', target: 'pp-fork' },
-      { id: 'pp-e3', source: 'pp-fork', target: 'pp-posts' },
-      { id: 'pp-e4', source: 'pp-fork', target: 'pp-todos' },
-      { id: 'pp-e5', source: 'pp-fork', target: 'pp-albums' },
-      { id: 'pp-e6', source: 'pp-posts', target: 'pp-join' },
-      { id: 'pp-e7', source: 'pp-todos', target: 'pp-join' },
-      { id: 'pp-e8', source: 'pp-albums', target: 'pp-join' },
-      { id: 'pp-e9', source: 'pp-join', target: 'pp-verify' },
+      makeEdge('pp-e1', 'pp-start', 'pp-user'),
+      makeEdge('pp-e2', 'pp-user', 'pp-fork'),
+      makeEdge('pp-e3', 'pp-fork', 'pp-posts'),
+      makeEdge('pp-e4', 'pp-fork', 'pp-todos'),
+      makeEdge('pp-e5', 'pp-fork', 'pp-albums'),
+      makeEdge('pp-e6', 'pp-posts', 'pp-join'),
+      makeEdge('pp-e7', 'pp-todos', 'pp-join'),
+      makeEdge('pp-e8', 'pp-albums', 'pp-join'),
+      makeEdge('pp-e9', 'pp-join', 'pp-verify'),
     ],
     createdAt: Date.now(),
     updatedAt: Date.now(),
@@ -395,12 +309,7 @@ export function createPerfBottleneckDemoWorkflow(): Workflow {
     description: 'Workflow with fast, slow, and failing endpoints to demonstrate bottleneck detection, heatmap coloring, and the Results Explorer insights panel.',
     variables: {},
     nodes: [
-      {
-        id: 'bn-start',
-        type: 'start',
-        position: { x: 250, y: 0 },
-        data: { label: 'Start', inputVariables: {} },
-      },
+      makeStartNode('bn-start', {}, { x: 250, y: 0 }),
       {
         id: 'bn-fast',
         type: 'http',
@@ -467,17 +376,7 @@ export function createPerfBottleneckDemoWorkflow(): Workflow {
           },
         },
       },
-      {
-        id: 'bn-cond',
-        type: 'condition',
-        position: { x: 240, y: 540 },
-        data: {
-          label: '4. Check Title?',
-          left: '{{postTitle}}',
-          operator: '!=',
-          right: '',
-        },
-      },
+      makeConditionNode('bn-cond', '4. Check Title?', '{{postTitle}}', '', { operator: '!=', x: 240, y: 540 }),
       {
         id: 'bn-failing',
         type: 'http',
@@ -524,10 +423,10 @@ export function createPerfBottleneckDemoWorkflow(): Workflow {
       },
     ],
     edges: [
-      { id: 'bn-e1', source: 'bn-start', target: 'bn-fast' },
-      { id: 'bn-e2', source: 'bn-fast', target: 'bn-slow' },
-      { id: 'bn-e3', source: 'bn-slow', target: 'bn-variable' },
-      { id: 'bn-e4', source: 'bn-variable', target: 'bn-cond' },
+      makeEdge('bn-e1', 'bn-start', 'bn-fast'),
+      makeEdge('bn-e2', 'bn-fast', 'bn-slow'),
+      makeEdge('bn-e3', 'bn-slow', 'bn-variable'),
+      makeEdge('bn-e4', 'bn-variable', 'bn-cond'),
       { id: 'bn-e5', source: 'bn-cond', target: 'bn-failing', sourceHandle: 'true', label: 'Yes' },
       { id: 'bn-e6', source: 'bn-cond', target: 'bn-final', sourceHandle: 'false', label: 'No' },
     ],
@@ -551,56 +450,20 @@ export function createPerfEdgePercentageWorkflow(): Workflow {
     description: 'Demonstrates edge traversal percentages: random postId branches found vs not-found (~67/33 split). Open Results Explorer aggregate view to see % on edges.',
     variables: {},
     nodes: [
-      {
-        id: 'ep-start',
-        type: 'start',
-        position: { x: 250, y: 0 },
-        data: { label: 'Start', inputVariables: {} },
-      },
-      {
-        id: 'ep-setvar',
-        type: 'setVariable',
-        position: { x: 200, y: 80 },
-        data: {
-          label: 'Random Post ID',
-          assignments: [
-            { name: 'postId', expression: '{{$randomInt(1, 150)}}' },
-          ],
-        },
-      },
-      {
-        id: 'ep-fetch',
-        type: 'http',
-        position: { x: 200, y: 180 },
-        data: {
-          label: '1. Fetch Post',
-          scenario: {
-            id: 'ep-s1',
-            name: 'Fetch Random Post',
-            url: 'https://jsonplaceholder.typicode.com/posts/{{postId}}',
-            method: 'GET',
-            headers: [{ key: 'Accept', value: 'application/json' }],
-            body: '',
-            auth: { type: 'none' },
-            validation: { mode: 'none' },
-            extractions: [
-              { name: 'fetchStatus', source: 'status', expression: '' },
-              { name: 'postTitle', source: 'body', expression: '$.title' },
-            ],
-          },
-        },
-      },
-      {
-        id: 'ep-cond',
-        type: 'condition',
-        position: { x: 240, y: 310 },
-        data: {
-          label: '2. Post Found?',
-          left: '{{fetchStatus}}',
-          operator: '==',
-          right: '200',
-        },
-      },
+      makeStartNode('ep-start', {}, { x: 250, y: 0 }),
+      makeSetVariableNode('ep-setvar', 'Random Post ID', [{ id: 'ep-a1', name: 'postId', expression: '{{$randomInt(1, 150)}}' }], {
+        x: 200,
+        y: 80,
+      }),
+      makeGetNode('ep-fetch', '1. Fetch Post', 'https://jsonplaceholder.typicode.com/posts/{{postId}}', {
+        x: 200,
+        y: 180,
+        extractions: [
+          { name: 'fetchStatus', source: 'status', expression: '' },
+          bodyExtraction('postTitle', '$.title'),
+        ],
+      }),
+      makeConditionNode('ep-cond', '2. Post Found?', '{{fetchStatus}}', '200', { x: 240, y: 310 }),
       {
         id: 'ep-found',
         type: 'http',
@@ -639,11 +502,11 @@ export function createPerfEdgePercentageWorkflow(): Workflow {
             headers: [
               { key: 'Content-Type', value: 'application/json' },
             ],
-            body: JSON.stringify({
+            body: jsonBody({
               title: 'Fallback Post',
               body: 'Created because the random post ID was not found.',
               userId: 1,
-            }, null, 2),
+            }),
             bodyType: 'json',
             auth: { type: 'none' },
             validation: {
@@ -658,9 +521,9 @@ export function createPerfEdgePercentageWorkflow(): Workflow {
       },
     ],
     edges: [
-      { id: 'ep-e1', source: 'ep-start', target: 'ep-setvar' },
-      { id: 'ep-e2', source: 'ep-setvar', target: 'ep-fetch' },
-      { id: 'ep-e3', source: 'ep-fetch', target: 'ep-cond' },
+      makeEdge('ep-e1', 'ep-start', 'ep-setvar'),
+      makeEdge('ep-e2', 'ep-setvar', 'ep-fetch'),
+      makeEdge('ep-e3', 'ep-fetch', 'ep-cond'),
       { id: 'ep-e4', source: 'ep-cond', target: 'ep-found', sourceHandle: 'true', label: 'Found' },
       { id: 'ep-e5', source: 'ep-cond', target: 'ep-notfound', sourceHandle: 'false', label: 'Not Found' },
     ],

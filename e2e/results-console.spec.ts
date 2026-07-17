@@ -153,9 +153,8 @@ async function seedAndOpenResultsExplorer(page: Page, testRun: ReturnType<typeof
   const seeded = await seedTestRunsViaIDB(page, [testRun]);
   expect(seeded).toBe('ok');
 
-  await page.reload();
-  await page.waitForLoadState('networkidle').catch(() => {});
-  await page.waitForSelector('.app-header', { timeout: 25000 });
+  await page.goto('/?tab=results', { waitUntil: 'domcontentloaded' });
+  await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
 
   await openResultsExplorer(page, { retryHarness: true });
 
@@ -336,7 +335,7 @@ test.describe('Results Explorer Console Panel', () => {
     await expect(page.locator('[data-testid="results-console-panel"]')).toBeVisible({ timeout: 3000 });
 
     // Click close button (✕)
-    const closeBtn = page.locator('.re-console-action-btn[title*="Close console"]');
+    const closeBtn = page.locator('[data-testid="results-console-close-btn"]');
     await expect(closeBtn).toBeVisible();
     await closeBtn.click();
 

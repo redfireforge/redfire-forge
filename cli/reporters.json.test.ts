@@ -17,9 +17,54 @@ describe('buildJsonReport', () => {
     expect(report.timestamp).toBeDefined();
     expect(report.config).toBe(config);
     expect(report.summary).toBe(summary);
-    expect(report.results).toBe(results);
+    expect(report.results).toEqual(results);
     expect(report.envName).toBe('staging');
     expect(report.projectName).toBe('Test');
+  });
+
+  it('redacts grpc harness runner artifacts in JSON output', () => {
+    const results = [makeResult({
+      method: 'GRPC',
+      transportType: 'grpcCall',
+      responseBody: JSON.stringify({ token: 'super-secret-token' }),
+      responseHeaders: {
+        authorization: 'Bearer abc123',
+      },
+      requestLog: {
+        headers: {
+          authorization: 'Bearer abc123',
+        },
+        body: JSON.stringify({ token: 'super-secret-token' }),
+      },
+      grpcResultMeta: {
+        service: 'echo.EchoService',
+        method: 'Echo',
+        target: 'localhost:50051',
+        grpcStatus: 0,
+        grpcStatusMessage: 'Bearer abc123',
+        harnessResult: {
+          scenarioId: 'scenario-1',
+          status: 'error',
+          callType: 'unary',
+          grpcStatus: 0,
+          durationMs: 10,
+          attemptCount: 1,
+          assertionResults: [],
+          errorDetail: 'Bearer abc123',
+        },
+      },
+      passed: false,
+      errorMessage: 'Bearer abc123',
+    })];
+
+    const summary = makeSummary({ failedRequests: 1, successfulRequests: 0 });
+    const config = makeConfig();
+    const report = buildJsonReport(results, summary, config, {});
+    const serialized = JSON.stringify(report);
+
+    expect(serialized).not.toContain('abc123');
+    expect(serialized).not.toContain('super-secret-token');
+    expect(serialized).toContain('[REDACTED]');
   });
 });
 
@@ -106,5 +151,42 @@ describe('buildDataRowSummary', () => {
     const summary = buildDataRowSummary(results);
 
     expect(summary[0].failedRowDetails[0].status).toBe('CONSUME');
+  });
+
+  it('uses WS_CONNECT status label for failed WebSocket connect data rows', () => {
+    const results = [
+      makeResult({
+        dataRowId: 'r1',
+        dataRowLabel: 'Row 1',
+        passed: false,
+        method: 'WS',
+        transportType: 'wsConnect',
+        httpStatus: 0,
+        errorMessage: 'Connection refused',
+        wsResultMeta: { url: 'ws://localhost:9876' },
+      }),
+    ];
+
+    const summary = buildDataRowSummary(results);
+
+    expect(summary[0].failedRowDetails[0].status).toBe('WS_CONNECT');
+  });
+
+  it('uses WS_SEND status label for failed WebSocket send data rows', () => {
+    const results = [
+      makeResult({
+        dataRowId: 'r1',
+        dataRowLabel: 'Row 1',
+        passed: false,
+        method: 'WS',
+        transportType: 'wsSend',
+        httpStatus: 0,
+        errorMessage: 'Send failed',
+      }),
+    ];
+
+    const summary = buildDataRowSummary(results);
+
+    expect(summary[0].failedRowDetails[0].status).toBe('WS_SEND');
   });
 });

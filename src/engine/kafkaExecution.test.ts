@@ -6,24 +6,18 @@ import { executeKafkaAction } from './kafkaExecution';
 import { evaluateAssertions, type AssertionContext } from './validator';
 import type { Scenario, Assertion } from '../shared/types';
 import type { KafkaNodeOperations } from '../features/workflow/engine/graphRunnerNodeHandlerContext';
+import { makeScenario as _makeScenario } from '../test-utils/factories';
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeScenario(overrides: Partial<Scenario> = {}): Scenario {
-  return {
-    id: 'sc-1',
-    name: 'Test Scenario',
+const makeScenario = (overrides: Partial<Scenario> = {}): Scenario =>
+  _makeScenario({
     url: '',
     method: 'KAFKA',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  } as unknown as Scenario;
-}
+  }) as unknown as Scenario;
 
 function makeProduceScenario(overrides: Partial<Scenario> = {}): Scenario {
   return makeScenario({

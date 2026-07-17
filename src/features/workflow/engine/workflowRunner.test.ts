@@ -11,17 +11,12 @@ import { httpFetch } from '../../../shared/utils/httpClient';
 import { VariableContext } from './variableContext';
 import { TokenManager } from '../../../engine/tokenManager';
 import { CircuitBreaker } from '../../../engine/circuitBreaker';
+import { makeScenario as _makeScenario } from '../../../test-utils/factories';
 
 const mockFetch = vi.mocked(httpFetch);
 
-function makeScenario(id: string, name: string, url = 'https://example.com/api'): Scenario {
-  return {
-    id, name, url, method: 'GET',
-    headers: [], body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
-  };
-}
+const makeScenario = (id: string, name: string, url = 'https://example.com/api'): Scenario =>
+  _makeScenario({ id, name, url });
 
 function makeOpts(overrides: Partial<RunOpts> = {}): RunOpts {
   return {

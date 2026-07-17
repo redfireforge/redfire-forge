@@ -1,0 +1,40 @@
+# Self-contained secure-WebSocket (wss://) test stack for WebSocket Studio.
+#
+#   1. ./generate-cert.sh            # one-time: create certs/server.{crt,key}
+#   2. docker compose -f docker/websocket/docker-compose.tls.yml up -d
+#   3. Connect WebSocket Studio to wss://localhost:8766
+#      - Direct browser: rejected (self-signed not in OS trust store)
+#      - Proxy / Tauri native: check "Skip certificate validation", OR paste
+#        certs/server.crt into the "CA Certificate (PEM)" field
+#   4. docker compose -f docker/websocket/docker-compose.tls.yml down
+#
+# The plain-ws echo backend is internal-only; clients reach it through nginx
+# TLS termination on host port 8766. This does not touch the plain ws-echo
+# container on 8765.
+services:
+  ws-echo-tls:
+    image: jmalloc/echo-server
+    container_name: ws-echo-tls
+    ports:
+      # Health probe port: curl http://localhost:8767 or the PrerequisiteGate
+      # probes this plain-HTTP endpoint to confirm the stack is up.
+      - "8767:8080"
+    networks:
+      - ws-tls-net
+
+  ws-tls-proxy:
+    image: nginx:alpine
+    container_name: ws-tls-proxy
+    depends_on:
+      - ws-echo-tls
+    ports:
+      - "8766:8766"
+    volumes:
+      - ./nginx-wss.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    networks:
+      - ws-tls-net
+
+networks:
+  ws-tls-net:
+    driver: bridge

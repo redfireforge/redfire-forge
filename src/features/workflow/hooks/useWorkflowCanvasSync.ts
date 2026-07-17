@@ -157,7 +157,7 @@ export function useWorkflowVariableHints({
     if (selectedNode.type === 'waitForCondition') {
       return collectWaitForConditionVariableHints(hintNodes, hintEdges, selectedNode.id, workflowVariables);
     }
-    if (['condition', 'switch', 'logDebug', 'loop', 'setVariable', 'aggregate', 'script', 'kafkaProduce', 'kafkaConsume', 'kafkaTrigger', 'kafkaWait'].includes(selectedNode.type)) {
+    if (['condition', 'switch', 'logDebug', 'loop', 'setVariable', 'aggregate', 'script', 'kafkaProduce', 'kafkaConsume', 'kafkaTrigger', 'kafkaWait', 'wsConnect', 'wsSend', 'wsReceive', 'wsTrigger'].includes(selectedNode.type)) {
       return collectConditionVariableHints(hintNodes, hintEdges, selectedNode.id, workflowVariables);
     }
     return [];

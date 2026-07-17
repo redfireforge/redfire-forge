@@ -1,0 +1,67 @@
+/* GraphQL Studio — TLS / mTLS configuration panel (Lesson GQL-5) */
+
+/* ── Connection-bar trigger button ────────────────────────────────────────── */
+
+.gql-tls-configure-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.gql-tls-configure-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.gql-tls-configure-btn--active {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  color: var(--primary);
+}
+
+.gql-tls-configure-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.gql-tls-configure-label {
+  letter-spacing: 0.02em;
+}
+
+/* ── Mode badges (on the trigger button) ──────────────────────────────────── */
+
+.gql-tls-mode-badge {
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 1px 5px;
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.gql-tls-mode-badge--skip {
+  background: color-mix(in srgb, var(--warning) 18%, var(--surface));
+  color: var(--warning);
+}
+
+.gql-tls-mode-badge--ca {
+  background: color-mix(in srgb, var(--primary) 15%, var(--surface));
+  color: var(--primary);
+}
+
+.gql-tls-mode-badge--mtls {
+  background: color-mix(in srgb, #34d399 15%, var(--surface));
+  color: #34d399;
+}
+

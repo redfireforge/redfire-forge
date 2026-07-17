@@ -6,6 +6,7 @@ import {
   findRequestInCollection,
   findAncestorSubCollection,
   collectAllRequests,
+  collectAllRequestsFromCollection,
   cloneRequest,
   cloneFolder,
   extractFolderDeep,
@@ -133,6 +134,46 @@ describe('findAncestorSubCollection', () => {
     };
     const top = makeFolder('top', [], [sub]);
     expect(findAncestorSubCollection([top], 'r1')).toEqual(sub);
+  });
+
+  it('returns null when the request id is not in any folder', () => {
+    const nested = makeFolder('nested', [], [makeFolder('inner', [makeReq('r1')])]);
+    expect(findAncestorSubCollection([makeFolder('other'), nested], 'missing')).toBeNull();
+  });
+});
+
+// ─── collectAllRequestsFromCollection ────────────────────
+
+describe('collectAllRequestsFromCollection', () => {
+  it('collects root requests and nested folder requests', () => {
+    const inner = makeFolder('inner', [makeReq('r2')]);
+    const outer = makeFolder('outer', [makeReq('r1')], [inner]);
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'Collection',
+      requests: [makeReq('root')],
+      folders: [outer],
+    };
+    expect(collectAllRequestsFromCollection(col).map((r) => r.id)).toEqual(['root', 'r1', 'r2']);
+  });
+
+  it('returns only root requests when there are no folders', () => {
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'Collection',
+      requests: [makeReq('a'), makeReq('b')],
+    };
+    expect(collectAllRequestsFromCollection(col)).toHaveLength(2);
+  });
+
+  it('handles collections with empty folder lists', () => {
+    const col: RequestCollection = {
+      id: 'c1',
+      name: 'Collection',
+      requests: [],
+      folders: [],
+    };
+    expect(collectAllRequestsFromCollection(col)).toEqual([]);
   });
 });
 

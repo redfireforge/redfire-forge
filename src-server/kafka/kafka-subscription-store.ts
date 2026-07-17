@@ -20,6 +20,7 @@ import {
   type KafkaRouteEnvelope,
 } from './contracts.js';
 import { DEFAULT_CLEANUP_TIMEOUT_MS, withTimeout } from './kafka-service-helpers.js';
+import { checkClusterMismatch } from './kafka-service-utils.js';
 import { randomUUID } from 'node:crypto';
 
 const SUBSCRIPTION_GROUP_PREFIX = 'redfireforge-sub';
@@ -103,12 +104,8 @@ export class KafkaSubscriptionStore {
     currentConnection: KafkaConnectionConfig | undefined,
   ): KafkaRouteEnvelope<KafkaSubscriptionsResult> {
     const clusterId = currentConnection?.clusterId;
-    if (request?.clusterId && clusterId && request.clusterId !== clusterId) {
-      return createKafkaErrorEnvelope('subscriptions', {
-        code: 'KAFKA_CLUSTER_MISMATCH',
-        message: `Subscriptions request cluster '${request.clusterId}' does not match active cluster '${clusterId}'`,
-      });
-    }
+    const mismatch = checkClusterMismatch('subscriptions', request?.clusterId, clusterId);
+    if (mismatch) return mismatch;
 
     return createKafkaSuccessEnvelope('subscriptions', {
       clusterId,
@@ -121,12 +118,8 @@ export class KafkaSubscriptionStore {
     currentConnection: KafkaConnectionConfig | undefined,
   ): KafkaRouteEnvelope<KafkaSubscriptionMessagesResult> {
     const clusterId = currentConnection?.clusterId;
-    if (request.clusterId && clusterId && request.clusterId !== clusterId) {
-      return createKafkaErrorEnvelope('subscription-messages', {
-        code: 'KAFKA_CLUSTER_MISMATCH',
-        message: `Request cluster '${request.clusterId}' does not match active cluster '${clusterId}'`,
-      });
-    }
+    const mismatch = checkClusterMismatch('subscription-messages', request.clusterId, clusterId);
+    if (mismatch) return mismatch;
 
     if (!request.subscriptionId) {
       return createKafkaErrorEnvelope('subscription-messages', {
@@ -170,12 +163,8 @@ export class KafkaSubscriptionStore {
     currentConnection: KafkaConnectionConfig | undefined,
   ): Promise<KafkaRouteEnvelope<KafkaUnsubscribeResult>> {
     const clusterId = currentConnection?.clusterId;
-    if (request.clusterId && clusterId && request.clusterId !== clusterId) {
-      return createKafkaErrorEnvelope('unsubscribe', {
-        code: 'KAFKA_CLUSTER_MISMATCH',
-        message: `Unsubscribe request cluster '${request.clusterId}' does not match active cluster '${clusterId}'`,
-      });
-    }
+    const mismatch = checkClusterMismatch('unsubscribe', request.clusterId, clusterId);
+    if (mismatch) return mismatch;
 
     const existing = this.subscriptions.get(request.subscriptionId);
     if (!existing) {

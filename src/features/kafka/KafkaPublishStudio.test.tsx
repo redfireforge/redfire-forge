@@ -9,8 +9,8 @@ import type { KafkaPublishDraft } from './types';
 
 function basePublishDraft(): KafkaPublishDraft {
   return {
-    topic: 'orders.events', key: '', partition: '', acks: -1,
-    timeoutMs: '', headers: [], body: '{"hello":"world"}',
+    topic: 'orders.events', key: '', keyFormat: 'string', partition: '', acks: -1,
+    timeoutMs: '', headers: [], body: '{"hello":"world"}', bodyFormat: 'json',
   };
 }
 
@@ -58,7 +58,7 @@ const defaultTemplateProps = () => ({
 describe('KafkaPublishStudio', () => {
   it('renders topic input with current value', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
-    const input = screen.getByLabelText('Topic') as HTMLInputElement;
+    const input = screen.getByTestId('pub-topic-input') as HTMLInputElement;
     expect(input.value).toBe('orders.events');
   });
 
@@ -135,7 +135,7 @@ describe('KafkaPublishStudio', () => {
   it('calls setPublishDraft when topic input changes', () => {
     const studio = makeStudio();
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Topic'), { target: { value: 'new-topic' } });
+    fireEvent.change(screen.getByTestId('pub-topic-input'), { target: { value: 'new-topic' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith({ topic: 'new-topic' });
   });
 
@@ -150,7 +150,7 @@ describe('KafkaPublishStudio', () => {
 
   it('shows "No headers" when headers array is empty', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
-    expect(screen.getByText('No headers')).toBeTruthy();
+    expect(screen.getByText(/no headers/i)).toBeTruthy();
   });
 
   it('shows inline validation hint when topic is blurred while empty', () => {
@@ -159,7 +159,7 @@ describe('KafkaPublishStudio', () => {
     });
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
     expect(screen.queryByTestId('pub-topic-hint')).toBeNull();
-    fireEvent.blur(screen.getByLabelText('Topic'));
+    fireEvent.blur(screen.getByTestId('pub-topic-input'));
     expect(screen.getByTestId('pub-topic-hint').textContent).toBe('Topic is required');
   });
 
@@ -169,7 +169,7 @@ describe('KafkaPublishStudio', () => {
     });
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
     expect(screen.queryByTestId('pub-body-hint')).toBeNull();
-    fireEvent.blur(screen.getByLabelText('Message Body (JSON)'));
+    fireEvent.blur(screen.getByLabelText('Message Body'));
     expect(screen.getByTestId('pub-body-hint').textContent).toBe('Message body is required');
   });
 
@@ -197,7 +197,7 @@ describe('KafkaPublishStudio', () => {
   it('shows "No saved templates" when list is empty', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
     fireEvent.click(screen.getByTitle('Load a saved template'));
-    expect(screen.getByText('No saved templates')).toBeTruthy();
+    expect(screen.getByText('No saved templates yet')).toBeTruthy();
   });
 });
 
@@ -277,7 +277,7 @@ describe('KafkaPublishStudio — Template Save', () => {
   it('opens save input when Save button clicked', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    expect(screen.getByPlaceholderText('Template name')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Template name\u2026')).toBeTruthy();
   });
 
   it('confirm button disabled when save name is empty', () => {
@@ -290,7 +290,7 @@ describe('KafkaPublishStudio — Template Save', () => {
     const tplProps = defaultTemplateProps();
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    fireEvent.change(screen.getByPlaceholderText('Template name'), { target: { value: 'My Publish Preset' } });
+    fireEvent.change(screen.getByPlaceholderText('Template name\u2026'), { target: { value: 'My Publish Preset' } });
     fireEvent.click(screen.getByText('✓'));
     await waitFor(() => expect(tplProps.onSaveTemplate).toHaveBeenCalledWith('My Publish Preset'));
   });
@@ -299,7 +299,7 @@ describe('KafkaPublishStudio — Template Save', () => {
     const tplProps = defaultTemplateProps();
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    const input = screen.getByPlaceholderText('Template name');
+    const input = screen.getByPlaceholderText('Template name\u2026');
     fireEvent.change(input, { target: { value: 'My Publish Preset' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(tplProps.onSaveTemplate).toHaveBeenCalledWith('My Publish Preset'));
@@ -308,16 +308,16 @@ describe('KafkaPublishStudio — Template Save', () => {
   it('closes save input on Escape key', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    const input = screen.getByPlaceholderText('Template name');
+    const input = screen.getByPlaceholderText('Template name\u2026');
     fireEvent.keyDown(input, { key: 'Escape' });
-    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+    expect(screen.queryByPlaceholderText('Template name\u2026')).toBeNull();
   });
 
   it('cancel button closes save input', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
     fireEvent.click(screen.getByText('✕'));
-    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+    expect(screen.queryByPlaceholderText('Template name\u2026')).toBeNull();
   });
 
   it('calls onDeleteTemplate when delete button clicked on template item', async () => {
@@ -327,7 +327,7 @@ describe('KafkaPublishStudio — Template Save', () => {
     ];
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...tplProps} />);
     fireEvent.click(screen.getByTitle('Load a saved template'));
-    fireEvent.click(screen.getByTitle('Delete template'));
+    fireEvent.click(screen.getByTitle('Delete "My Preset"'));
     await waitFor(() => expect(tplProps.onDeleteTemplate).toHaveBeenCalledWith('pub-1'));
   });
 });
@@ -349,7 +349,7 @@ describe('KafkaPublishStudio — Form Fields', () => {
 
   it('calls setPublishDraft when Key input changes', () => {
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Key'), { target: { value: 'my-key' } });
+    fireEvent.change(screen.getByTestId('pub-key-input'), { target: { value: 'my-key' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith({ key: 'my-key' });
   });
 
@@ -367,7 +367,7 @@ describe('KafkaPublishStudio — Form Fields', () => {
 
   it('calls setPublishDraft when Message Body textarea changes', () => {
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Message Body (JSON)'), { target: { value: '{"new":"body"}' } });
+    fireEvent.change(screen.getByLabelText('Message Body'), { target: { value: '{"new":"body"}' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith({ body: '{"new":"body"}' });
   });
 });
@@ -384,7 +384,7 @@ describe('KafkaPublishStudio — Header Row Actions', () => {
 
   it('calls setPublishDraft when header key changes', () => {
     const studio = renderWithHeader();
-    fireEvent.change(screen.getByPlaceholderText('key'), { target: { value: 'x-region' } });
+    fireEvent.change(screen.getByPlaceholderText('header-key'), { target: { value: 'x-region' } });
     expect(studio.setPublishDraft).toHaveBeenCalledWith(
       expect.objectContaining({ headers: [expect.objectContaining({ key: 'x-region' })] }),
     );
@@ -504,5 +504,69 @@ describe('KafkaPublishStudio — Header Row Actions', () => {
     });
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
     expect(screen.getByTestId('pub-result').textContent).toContain('ts 1700000000000');
+  });
+
+  it('shows decode-preview badge when bodyFormat is base64 and calls handler', async () => {
+    // Covers lines 66-72: handleDecodePreview for base64 format
+    const studio = makeStudio({
+      publishDraft: { topic: 'test', body: 'aGVsbG8=', bodyFormat: 'base64', acks: 1, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
+    });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    const badge = screen.getByTestId('pub-decode-preview-badge');
+    expect(badge).toBeTruthy();
+    fireEvent.click(badge);
+    // After click, the decode preview result should appear
+    await waitFor(() => {
+      const result = screen.queryByTestId('pub-decode-preview-result');
+      expect(result).toBeTruthy();
+    });
+  });
+
+  it('shows decode-preview badge for hex format and handles invalid hex', async () => {
+    // Covers lines 67 cond-expr: fmt === 'base64' is false, so validateHex is called
+    const studio = makeStudio({
+      publishDraft: { topic: 'test', body: 'ZZ ZZ ZZ', bodyFormat: 'hex', acks: 1, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
+    });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    const badge = screen.getByTestId('pub-decode-preview-badge');
+    fireEvent.click(badge);
+    await waitFor(() => {
+      const result = screen.queryByTestId('pub-decode-preview-result');
+      expect(result).toBeTruthy();
+    });
+  });
+
+  it('decode preview shows utf8Preview with "…" for long base64 body (line 69 cond-expr)', async () => {
+    // A base64 string that decodes to >60 bytes
+    const longStr = 'A'.repeat(70);
+    const encoded = btoa(longStr);
+    const studio = makeStudio({
+      publishDraft: { topic: 'test', body: encoded, bodyFormat: 'base64', acks: 1, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
+    });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    fireEvent.click(screen.getByTestId('pub-decode-preview-badge'));
+    await waitFor(() => {
+      const result = screen.queryByTestId('pub-decode-preview-result');
+      expect(result).toBeTruthy();
+      // Long body (>60 bytes) should include '…'
+      expect(result?.textContent).toContain('…');
+    });
+  });
+
+  it('acks 0 shows "fire and forget" hint, acks -1 shows durability hint (lines 169/170)', () => {
+    // Test acks = 0 hint
+    const studio0 = makeStudio({
+      publishDraft: { topic: 't', body: '', bodyFormat: 'json', acks: 0, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
+    });
+    const { unmount } = render(<KafkaPublishStudio studio={studio0} clusterId="c" {...defaultTemplateProps()} />);
+    expect(document.body.textContent).toContain('fire and forget');
+    unmount();
+
+    // Test acks = -1 hint
+    const studioN1 = makeStudio({
+      publishDraft: { topic: 't', body: '', bodyFormat: 'json', acks: -1, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
+    });
+    render(<KafkaPublishStudio studio={studioN1} clusterId="c" {...defaultTemplateProps()} />);
+    expect(document.body.textContent).toContain('strongest durability');
   });
 });

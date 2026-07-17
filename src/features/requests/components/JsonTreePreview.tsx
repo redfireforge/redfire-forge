@@ -14,6 +14,16 @@ export function buildJTree(val: unknown, key: string): JNode {
   return node;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
+export function buildJTreeFromBody(body: string | null | undefined): JNode | null {
+  if (!body) return null;
+  try {
+    return buildJTree(JSON.parse(body), '');
+  } catch {
+    return null;
+  }
+}
+
 /** The unified model uses `[i]` keys for array children; legacy JNode uses plain `"i"`. */
 function fixArrayKeys(node: JNode): void {
   if (!node.children) return;
@@ -249,7 +259,7 @@ export default function JsonPreview({ body, error, search, currentMatchIdx = 0, 
   const tree = useMemo(() => {
     if (prebuiltTree !== undefined) return prebuiltTree;
     if (error || !body) return null;
-    try { return buildJTree(JSON.parse(body), ''); } catch { return null; }
+    return buildJTreeFromBody(body);
   }, [body, error, prebuiltTree]);
 
   const matchNodesWithPaths = useMemo(() => {

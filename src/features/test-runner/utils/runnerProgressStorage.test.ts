@@ -137,4 +137,20 @@ describe('saveProgress / loadProgress / clearProgress', () => {
     saveProgress('key', makeProgress({ completed: 99 }));
     expect(loadProgress('key')?.completed).toBe(99);
   });
+
+  it('swallows localStorage setItem failures', () => {
+    const spy = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('quota');
+    });
+    expect(() => saveProgress('quota-key', makeProgress())).not.toThrow();
+    spy.mockRestore();
+  });
+
+  it('swallows localStorage removeItem failures', () => {
+    const spy = vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => {
+      throw new Error('blocked');
+    });
+    expect(() => clearProgress('blocked-key')).not.toThrow();
+    spy.mockRestore();
+  });
 });

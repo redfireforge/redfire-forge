@@ -486,7 +486,7 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
               <button
                 type="button"
                 className="btn btn-sm wf-config-pretty-btn"
-                title="Format JSON with indentation"
+                title="Pretty Format JSON"
                 onClick={() => {
                   try {
                     const formatted = JSON.stringify(JSON.parse(s.body), null, 2);

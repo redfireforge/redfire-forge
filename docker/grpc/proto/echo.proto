@@ -1,0 +1,75 @@
+syntax = "proto3";
+
+package echo;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "grpc-test-server/echo";
+
+message EchoRequest {
+  string message = 1;
+}
+
+message EchoResponse {
+  string message = 1;
+}
+
+message StreamRequest {
+  string message = 1;
+  int32 repeat_count = 2;
+  int32 interval_ms = 3;
+}
+
+// Nested message type for ComplexEchoRequest/Response.shipping_address —
+// exercises the Proto Form Builder's nested-message JSON editor (Lesson 8).
+message ShippingAddress {
+  string street = 1;
+  string city = 2;
+  string country = 3;
+}
+
+// oneof `payment_method` member types (Lesson 8) — each is a small message so
+// selecting a member in the Form Builder shows a scoped JSON sub-editor.
+message CardPayment {
+  string card_number = 1;
+  string expiry = 2;
+}
+
+message InvoicePayment {
+  string invoice_number = 1;
+  string due_date = 2;
+}
+
+message ComplexEchoRequest {
+  string message = 1;
+  repeated string labels = 2;
+  map<string, string> attributes = 3;
+  ShippingAddress shipping_address = 4;
+  google.protobuf.Timestamp deadline = 5;
+  oneof payment_method {
+    CardPayment card = 6;
+    InvoicePayment invoice = 7;
+  }
+}
+
+message ComplexEchoResponse {
+  string request_id = 1;
+  string message = 2;
+  repeated string labels = 3;
+  map<string, string> attributes = 4;
+  int64 received_unix_ms = 5;
+  ShippingAddress shipping_address = 6;
+  google.protobuf.Timestamp deadline = 7;
+  oneof payment_method {
+    CardPayment card = 8;
+    InvoicePayment invoice = 9;
+  }
+}
+
+service EchoService {
+  rpc Echo (EchoRequest) returns (EchoResponse);
+  rpc CreateComplexEcho (ComplexEchoRequest) returns (ComplexEchoResponse);
+  rpc ServerStream (StreamRequest) returns (stream EchoResponse);
+  rpc ClientStream (stream EchoRequest) returns (EchoResponse);
+  rpc BidiStream (stream EchoRequest) returns (stream EchoResponse);
+}

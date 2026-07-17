@@ -1,4 +1,4 @@
-import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData, KafkaProduceNodeData, KafkaConsumeNodeData, KafkaTriggerNodeData, KafkaWaitNodeData } from '../types/workflow';
+import type { HttpNodeData, WorkflowEdge, WorkflowNode, SetVariableNodeData, AggregateNodeData, LoopNodeData, WaitForConditionNodeData, StartNodeData, ErrorHandlerNodeData, ScriptNodeData, KafkaProduceNodeData, KafkaConsumeNodeData, KafkaTriggerNodeData, KafkaWaitNodeData, WsConnectNodeData, WsSendNodeData, WsReceiveNodeData, WsTriggerNodeData, GraphqlQueryNodeData, GraphqlSubscriptionNodeData, GraphqlIntrospectNodeData } from '../types/workflow';
 
 /** Category for grouping sources in the Insert Variable modal. */
 export type VariableSourceCategory = 'Workflow' | 'Triggers' | 'HTTP Steps' | 'Logic' | 'Integrations' | 'Data';
@@ -33,6 +33,15 @@ export const NODE_TYPE_DISPLAY: Record<string, { icon: string; category: Variabl
   kafkaConsume:      { icon: '⇠',  category: 'Integrations' },
   kafkaTrigger:      { icon: '⚡', category: 'Triggers' },
   kafkaWait:         { icon: '⏸', category: 'Integrations' },
+  wsConnect:         { icon: '⇌',  category: 'Integrations' },
+  wsSend:            { icon: '⇢',  category: 'Integrations' },
+  wsReceive:         { icon: '⇠',  category: 'Integrations' },
+  wsTrigger:         { icon: '⚡', category: 'Triggers' },
+  graphqlQuery:      { icon: '◈',  category: 'Integrations' },
+  graphqlMutation:   { icon: '◈',  category: 'Integrations' },
+  graphqlSubscription: { icon: '◈', category: 'Integrations' },
+  graphqlIntrospect: { icon: '◈',  category: 'Integrations' },
+  graphqlAssert:     { icon: '◈',  category: 'Logic' },
   fork:              { icon: '⑂',  category: 'Logic' },
   join:              { icon: '⑂',  category: 'Logic' },
   end:               { icon: '⏹',  category: 'Logic' },
@@ -88,6 +97,9 @@ const NON_HTTP_TYPES = new Set([
   'switch', 'loop', 'setVariable', 'script', 'aggregate', 'logDebug',
   'waitForCondition', 'correlationWait', 'errorHandler', 'subWorkflow', 'end',
   'kafkaProduce', 'kafkaConsume', 'kafkaTrigger', 'kafkaWait',
+  'wsConnect', 'wsSend', 'wsReceive', 'wsTrigger',
+  'graphqlQuery', 'graphqlMutation', 'graphqlSubscription', 'graphqlIntrospect', 'graphqlAssert',
+  'grpcUnary', 'grpcServerStream', 'grpcAssert', 'grpcLoadTest', 'grpcSchemaDiff', 'grpcMockAssert',
 ]);
 
 /** True if this canvas node is an HTTP step (React Flow may omit `type` in edge cases). */
@@ -136,10 +148,6 @@ function aggregateStrategyType(s: string): string {
   }
 }
 
-/**
- * Variable names safe to reference for conditions and HTTP config (insert picker):
- * this step's Initial variables (HTTP), workflow defaults, upstream HTTP extractions / initial vars (scoped),
- * and `status` / `node:"Step name".status`.
 /**
  * Build picker hints from workflow-level default variables.
  * Used by WorkflowConfigPanel and WorkflowNodeConfigModal to provide Insert Variable hints.
@@ -398,7 +406,98 @@ export function collectConditionVariableHints(
           push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from Kafka wait message via JSONPath "${ev.jsonPath}"`, 'string', waitSource);
         }
       }
+    } else if (n.type === 'wsConnect') {
+      const data = n.data as WsConnectNodeData;
+      const label = data.label?.trim() || 'WS Connect';
+      const wsSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'wsConnect', category: 'Integrations' };
+      for (const b of data.outputBindings ?? []) {
+        const nm = b.variableName?.trim();
+        if (nm && b.enabled) {
+          push(nm, `${nm} ← "${label}" (${b.field})`, `WebSocket connection metadata (${b.field}) from "${label}"`, 'string', wsSource);
+        }
+      }
+    } else if (n.type === 'wsSend') {
+      const data = n.data as WsSendNodeData;
+      const label = data.label?.trim() || 'WS Send';
+      const wsSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'wsSend', category: 'Integrations' };
+      if (data.waitForResponse) {
+        for (const b of data.outputBindings ?? []) {
+          const nm = b.variableName?.trim();
+          if (nm && b.enabled) {
+            push(nm, `${nm} ← "${label}" (${b.field})`, `WebSocket send metadata (${b.field}) from "${label}"`, 'string', wsSource);
+          }
+        }
+      }
+    } else if (n.type === 'wsReceive') {
+      const data = n.data as WsReceiveNodeData;
+      const label = data.label?.trim() || 'WS Receive';
+      const wsSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'wsReceive', category: 'Integrations' };
+      for (const b of data.outputBindings ?? []) {
+        const nm = b.variableName?.trim();
+        if (nm && b.enabled) {
+          push(nm, `${nm} ← "${label}" (${b.field})`, `WebSocket received message metadata (${b.field}) from "${label}"`, 'string', wsSource);
+        }
+      }
+      for (const er of data.extractionRules ?? []) {
+        const nm = er.variableName?.trim();
+        if (nm) {
+          push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from WebSocket message via JSONPath "${er.jsonPath}"`, 'string', wsSource);
+        }
+      }
+    } else if (n.type === 'wsTrigger') {
+      const data = n.data as WsTriggerNodeData;
+      const label = data.label?.trim() || 'WS Trigger';
+      const triggerSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'wsTrigger', category: 'Triggers' };
+      const triggerKeys = [
+        { ref: 'ws.trigger.message',      desc: 'Full message body of the triggering WebSocket frame' },
+        { ref: 'ws.trigger.messageType',  desc: 'Frame type of the triggering message (text or binary)' },
+        { ref: 'ws.trigger.url',          desc: 'WebSocket URL the trigger is listening on' },
+        { ref: 'ws.trigger.connectionId', desc: 'Connection ID from the triggering WebSocket message' },
+      ];
+      for (const { ref, desc } of triggerKeys) {
+        push(ref, `${ref} ← "${label}"`, desc, 'string', triggerSource);
+      }
+      for (const er of data.extractionRules ?? []) {
+        const nm = er.variableName?.trim();
+        if (nm) {
+          push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from WebSocket trigger message via JSONPath "${er.jsonPath}"`, 'string', triggerSource);
+        }
+      }
+    } else if (n.type === 'graphqlQuery' || n.type === 'graphqlMutation') {
+      const data = n.data as GraphqlQueryNodeData;
+      const label = data.label?.trim() || (n.type === 'graphqlMutation' ? 'GraphQL Mutation' : 'GraphQL Query');
+      const gqlSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: n.type, category: 'Integrations' };
+      push('data',            `data ← "${label}"`,            `Full response data object from "${label}"`,                   'object',  gqlSource);
+      push('errors',          `errors ← "${label}"`,          `GraphQL errors array from "${label}" (empty if no errors)`,   'array',   gqlSource);
+      push('latencyMs',       `latencyMs ← "${label}"`,       `Round-trip latency in ms for "${label}"`,                     'number',  gqlSource);
+      push('httpStatus',      `httpStatus ← "${label}"`,      `HTTP status code returned by "${label}" (usually 200)`,       'number',  gqlSource);
+      push('operationName',   `operationName ← "${label}"`,   `GraphQL operation name label from "${label}"`,                'string',  gqlSource);
+      for (const rule of data.extractionRules ?? []) {
+        const nm = rule.variableName?.trim();
+        if (nm) {
+          push(nm, `${nm} ← "${label}" (extracted)`, `Variable extracted from response via JSONPath "${rule.jsonPath}"`, 'unknown', gqlSource);
+        }
+      }
+    } else if (n.type === 'graphqlSubscription') {
+      const data = n.data as GraphqlSubscriptionNodeData;
+      const label = data.label?.trim() || 'GraphQL Subscription';
+      const gqlSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'graphqlSubscription', category: 'Integrations' };
+      push('messages',      `messages ← "${label}"`,      `Array of all collected subscription message payloads from "${label}"`,   'array',  gqlSource);
+      push('messageCount',  `messageCount ← "${label}"`,  `Total number of messages received from "${label}"`,                      'number', gqlSource);
+      push('firstMessage',  `firstMessage ← "${label}"`,  `First message payload received from "${label}"`,                         'object', gqlSource);
+      push('lastMessage',   `lastMessage ← "${label}"`,   `Last message payload received from "${label}"`,                          'object', gqlSource);
+      push('latencyMs',     `latencyMs ← "${label}"`,     `Latency to first message in ms for "${label}"`,                          'number', gqlSource);
+    } else if (n.type === 'graphqlIntrospect') {
+      const data = n.data as GraphqlIntrospectNodeData;
+      const label = data.label?.trim() || 'GraphQL Introspect';
+      const gqlSource: WorkflowVariableHintSource = { nodeId: n.id, nodeLabel: label, nodeType: 'graphqlIntrospect', category: 'Integrations' };
+      push('sdl',           `sdl ← "${label}"`,           `Full SDL string of the introspected schema from "${label}"`,   'string', gqlSource);
+      push('typeCount',     `typeCount ← "${label}"`,     `Number of types in the schema from "${label}"`,                'number', gqlSource);
+      push('fieldCount',    `fieldCount ← "${label}"`,    `Total number of fields across all types from "${label}"`,      'number', gqlSource);
+      push('schemaHash',    `schemaHash ← "${label}"`,    `SHA-256 hash of the SDL from "${label}" (for change detection)`, 'string', gqlSource);
+      push('queryTypeName', `queryTypeName ← "${label}"`, `Name of the root Query type from "${label}" (usually "Query")`, 'string', gqlSource);
     }
+    // graphqlAssert is excluded — it consumes variables, it does not produce them
   }
 
   out.sort((a, b) => a.ref.localeCompare(b.ref));

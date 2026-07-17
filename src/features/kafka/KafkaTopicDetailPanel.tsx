@@ -93,6 +93,7 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
             key={t}
             className={`kafka-explorer-detail-tab ${tab === t ? 'active' : ''}`}
             onClick={() => setTab(t)}
+            data-testid={`detail-tab-${t}`}
           >
             {t === 'messages' ? 'Messages' : t === 'partitions' ? 'Partitions' : t === 'groups' ? 'Consumer Groups' : 'Config'}
           </button>

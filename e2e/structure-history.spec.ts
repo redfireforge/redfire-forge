@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { REDFIREFORGE_IDB_VERSION } from './helpers';
 
 const BASE_URL = 'http://localhost:5173';
 
@@ -87,11 +88,11 @@ async function openHistory(page: import('@playwright/test').Page, fgName: string
 
 /** Get structure log from IndexedDB (or localStorage fallback) for a given FG id. */
 async function getStructureLog(page: import('@playwright/test').Page, fgId: string) {
-  return page.evaluate((id) => {
+  return page.evaluate(({ id, dbVersion }) => {
     return new Promise((resolve) => {
       // Try IndexedDB first (app stores feature groups there)
       try {
-        const req = indexedDB.open('redfireforge');
+        const req = indexedDB.open('redfireforge', dbVersion);
         req.onsuccess = () => {
           try {
             const db = req.result;
@@ -128,7 +129,7 @@ async function getStructureLog(page: import('@playwright/test').Page, fgId: stri
         resolve(null);
       }
     });
-  }, fgId);
+  }, { id: fgId, dbVersion: REDFIREFORGE_IDB_VERSION });
 }
 
 /** Add a scenario to a feature group and return. Expands FG if needed. */
@@ -226,6 +227,7 @@ test.describe('V-Phase 6: Structure Change History', () => {
       // After Rename, <span> becomes <input> so hasText stops matching. Use first scenario card.
       const fgBody = page.locator('.feature-group-card', { hasText: 'Feature Group A' }).locator('.feature-group-body');
       const renameInput = fgBody.locator('.scenario-group-card').first().locator('.inline-edit-input');
+      await renameInput.waitFor({ state: 'visible', timeout: 5000 });
       await renameInput.fill('Scenario Alpha Renamed');
       await renameInput.press('Enter');
       await page.waitForTimeout(500);
@@ -450,11 +452,10 @@ test.describe('V-Phase 6: Structure Change History', () => {
       // Click Export on FG
       const fgCard = page.locator('.feature-group-card', { hasText: 'Feature Group A' });
       await fgCard.locator('.feature-group-actions button', { hasText: 'Export' }).click();
-      await page.waitForTimeout(500);
 
       // Check if popover appeared
       const popover = page.locator('.export-opts-popover');
-      if (await popover.isVisible()) {
+      if (await popover.isVisible({ timeout: 3000 }).catch(() => false)) {
         // Should have Structure History checkbox
         await expect(popover.locator('.export-opts-check', { hasText: 'Structure History' })).toBeVisible();
       }

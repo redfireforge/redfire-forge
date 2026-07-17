@@ -48,7 +48,7 @@ function renderModal(props: Partial<Parameters<typeof RegexAssertionBuilderModal
 
 describe('RegexAssertionBuilderModal', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   describe('rendering', () => {

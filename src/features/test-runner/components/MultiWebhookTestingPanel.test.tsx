@@ -113,7 +113,7 @@ describe('MultiWebhookTestingPanel', () => {
   const _mockOnLoadScenario = vi.fn();
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders nothing when workflow has no CorrelationWait nodes', () => {

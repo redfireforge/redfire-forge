@@ -9,6 +9,7 @@ import { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createPr
 import { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow, createPerfBottleneckDemoWorkflow } from './performance';
 import { createParallelShowcaseWorkflow } from './parallelShowcase';
 import { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
+import { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow } from './graphql';
 import type { SampleWorkflowEntry } from './types';
 
 // Re-export all factory functions
@@ -21,6 +22,7 @@ export { createPokemonEvolutionWorkflow, createCountryCurrencyWorkflow, createPr
 export { createPerfSimpleWorkflow, createPerfBranchingWorkflow, createPerfParallelWorkflow, createPerfEdgePercentageWorkflow } from './performance';
 export { createParallelShowcaseWorkflow } from './parallelShowcase';
 export { createKafkaProduceWorkflow, createKafkaTriggerWorkflow, createKafkaEventPipelineWorkflow, createKafkaAsyncCorrelationWorkflow } from './kafka';
+export { createGraphqlHealthCheckWorkflow, createGraphqlECommerceFlowWorkflow, createGraphqlSchemaWatchdogWorkflow, createGraphqlUserCrudWorkflow } from './graphql';
 
 /** All available sample workflows. */
 export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
@@ -655,5 +657,67 @@ export const sampleWorkflowCatalog: SampleWorkflowEntry[] = [
     primaryNodes: ['KafkaTrigger', 'KafkaProduce', 'KafkaWait'],
     secondaryNodes: ['HTTP', 'Condition', 'Log'],
     factory: createKafkaAsyncCorrelationWorkflow,
+  },
+
+  // ── GraphQL Workflow Samples ─────────────────────────────────────────────
+  {
+    id: 'sample-graphql-health-check',
+    name: 'GraphQL: Health Check',
+    description: 'Verifies a GraphQL API is reachable via introspection, runs a sentinel query, and asserts response latency is under 500ms',
+    domain: 'workflows',
+    tags: ['graphql', 'health-check', 'introspection', 'assert', 'latency', 'api-patterns'],
+    liveApis: ['(configurable GraphQL endpoint)'],
+    category: 'api-patterns',
+    difficulty: 'easy',
+    icon: '🔍',
+    nodeCount: 5,
+    primaryNodes: ['GraphqlIntrospect', 'GraphqlQuery', 'GraphqlAssert'],
+    secondaryNodes: ['Start', 'End'],
+    factory: createGraphqlHealthCheckWorkflow,
+  },
+  {
+    id: 'sample-graphql-e-commerce-flow',
+    name: 'GraphQL: E-Commerce Order Flow',
+    description: 'Creates an order via GraphQL mutation, subscribes to status updates until COMPLETE, then asserts the final status',
+    domain: 'workflows',
+    tags: ['graphql', 'mutation', 'subscription', 'assert', 'event-driven', 'order-flow'],
+    liveApis: ['(configurable GraphQL endpoint)'],
+    category: 'event-driven',
+    difficulty: 'medium',
+    icon: '🛒',
+    nodeCount: 5,
+    primaryNodes: ['GraphqlMutation', 'GraphqlSubscription', 'GraphqlAssert'],
+    secondaryNodes: ['Start', 'End'],
+    factory: createGraphqlECommerceFlowWorkflow,
+  },
+  {
+    id: 'sample-graphql-schema-watchdog',
+    name: 'GraphQL: Schema Watchdog',
+    description: 'Polls a GraphQL schema on a cron schedule; logs a warning whenever the schema hash changes',
+    domain: 'workflows',
+    tags: ['graphql', 'introspection', 'schedule', 'schema', 'watchdog', 'event-driven'],
+    liveApis: ['(configurable GraphQL endpoint)'],
+    category: 'event-driven',
+    difficulty: 'medium',
+    icon: '👁️',
+    nodeCount: 5,
+    primaryNodes: ['GraphqlIntrospect'],
+    secondaryNodes: ['ScheduleTrigger', 'Condition', 'Log'],
+    factory: createGraphqlSchemaWatchdogWorkflow,
+  },
+  {
+    id: 'sample-graphql-user-crud',
+    name: 'GraphQL: User CRUD',
+    description: 'Full user lifecycle via GraphQL: create a user, fetch it back, assert the ID matches, then delete it',
+    domain: 'workflows',
+    tags: ['graphql', 'mutation', 'query', 'assert', 'crud', 'api-patterns'],
+    liveApis: ['(configurable GraphQL endpoint)'],
+    category: 'api-patterns',
+    difficulty: 'medium',
+    icon: '👤',
+    nodeCount: 6,
+    primaryNodes: ['GraphqlMutation', 'GraphqlQuery', 'GraphqlAssert'],
+    secondaryNodes: ['Start', 'End'],
+    factory: createGraphqlUserCrudWorkflow,
   },
 ];

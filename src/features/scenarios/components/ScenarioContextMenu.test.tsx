@@ -6,16 +6,10 @@ import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import ScenarioContextMenu from './ScenarioContextMenu';
 import type { TestScenario } from '../../../shared/types';
+import { makeTestScenario as _makeTestScenario } from '../../../test-utils/factories';
 
-function makeScenario(overrides: Partial<TestScenario> = {}): TestScenario {
-  return {
-    id: 'sc-1',
-    name: 'Test Scenario',
-    kind: 'standard',
-    tests: [],
-    ...overrides,
-  };
-}
+const makeScenario = (overrides: Partial<TestScenario> = {}): TestScenario =>
+  _makeTestScenario({ id: 'sc-1', name: 'Test Scenario', tests: [], ...overrides });
 
 describe('ScenarioContextMenu', () => {
   let onAddTag: ReturnType<typeof vi.fn>;

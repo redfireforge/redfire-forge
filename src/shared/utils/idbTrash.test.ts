@@ -46,7 +46,7 @@ import { idbLoadTrash, idbSaveTrash } from './idbTrash';
 
 describe('idbTrash', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockGetResult = undefined;
     mockGetShouldError = false;
     mockPutShouldError = false;

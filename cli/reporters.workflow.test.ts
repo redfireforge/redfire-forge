@@ -334,5 +334,27 @@ describe('Workflow reporters', () => {
       expect(xml).toContain('KAFKA KAFKA');
       expect(xml).toContain('orders-topic');
     });
+
+    it('buildWorkflowJunitXml includes WebSocket step detail for wsConnect failure', () => {
+      const summary = makeSummary({ failedRequests: 1 });
+      const workflow = makeWorkflow();
+      const results = [
+        makeResult({
+          iterationIndex: 0,
+          passed: false,
+          transportType: 'wsConnect',
+          method: 'WS',
+          url: '',
+          httpStatus: undefined as unknown as number,
+          errorMessage: 'connection refused',
+          wsResultMeta: { url: 'ws://localhost:9876' },
+        }),
+      ];
+
+      const xml = buildWorkflowJunitXml(results, summary, workflow.name, 1);
+
+      expect(xml).toContain('WS_CONNECT');
+      expect(xml).toContain('ws://localhost:9876');
+    });
   });
 });

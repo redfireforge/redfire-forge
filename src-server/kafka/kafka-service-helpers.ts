@@ -5,7 +5,7 @@
  * and to make each utility individually testable.
  */
 
-import type { KafkaConnectionConfig } from './contracts.js';
+import { createKafkaErrorEnvelope, type KafkaConnectionConfig, type KafkaOperation, type KafkaRouteEnvelope } from './contracts.js';
 
 // ── Timeout constants ─────────────────────────────────────────────────────────
 
@@ -117,4 +117,16 @@ export async function safeStopAndDisconnectConsumer(
     // Stop failures are non-fatal during cleanup.
   }
   await safeDisconnectConsumer(consumer);
+}
+
+/** Shared guard: ensures request body is a non-null, non-array plain object. */
+export function requireKafkaPlainObject(
+  op: KafkaOperation,
+  body: unknown,
+  code: string,
+): KafkaRouteEnvelope<never> | null {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return createKafkaErrorEnvelope(op, { code, message: 'request body must be an object' });
+  }
+  return null;
 }

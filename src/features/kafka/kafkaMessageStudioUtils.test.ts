@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   validateAndFormatJson,
+  validateBase64,
+  validateHex,
   parseHeaderMatch,
   headersToRecord,
   buildConsumeFilter,
@@ -159,8 +161,8 @@ describe('buildConsumeFilter', () => {
 
 function basePublishDraft(): KafkaPublishDraft {
   return {
-    topic: 'orders.events', key: '', partition: '', acks: -1,
-    timeoutMs: '', headers: [], body: '{"hello":"world"}',
+    topic: 'orders.events', key: '', keyFormat: 'string', partition: '', acks: -1,
+    timeoutMs: '', headers: [], body: '{"hello":"world"}', bodyFormat: 'json',
   };
 }
 
@@ -242,8 +244,98 @@ describe('buildPublishRequest', () => {
     const req = buildPublishRequest(basePublishDraft(), 'c');
     expect(req.schemaConfig).toBeUndefined();
   });
+
+  it('omits bodyFormat when json (default — no extra field)', () => {
+    const req = buildPublishRequest(basePublishDraft(), 'c');
+    expect(req.bodyFormat).toBeUndefined();
+  });
+
+  it('omits keyFormat when string (default — no extra field)', () => {
+    const req = buildPublishRequest(basePublishDraft(), 'c');
+    expect(req.keyFormat).toBeUndefined();
+  });
+
+  it('includes bodyFormat when base64', () => {
+    const req = buildPublishRequest({ ...basePublishDraft(), bodyFormat: 'base64' }, 'c');
+    expect(req.bodyFormat).toBe('base64');
+  });
+
+  it('includes bodyFormat when hex', () => {
+    const req = buildPublishRequest({ ...basePublishDraft(), bodyFormat: 'hex' }, 'c');
+    expect(req.bodyFormat).toBe('hex');
+  });
+
+  it('includes keyFormat when base64', () => {
+    const req = buildPublishRequest({ ...basePublishDraft(), keyFormat: 'base64' }, 'c');
+    expect(req.keyFormat).toBe('base64');
+  });
+
+  it('includes bodyFormat when string', () => {
+    const req = buildPublishRequest({ ...basePublishDraft(), bodyFormat: 'string' }, 'c');
+    expect(req.bodyFormat).toBe('string');
+  });
+});
+// ── validateBase64 ──────────────────────────────────────────────────────────────
+
+describe('validateBase64', () => {
+  it('returns ok:true + byteCount:0 for empty input', () => {
+    expect(validateBase64('')).toMatchObject({ ok: true, byteCount: 0 });
+    expect(validateBase64('   ')).toMatchObject({ ok: true, byteCount: 0 });
+  });
+
+  it('decodes valid base64 and returns byte count', () => {
+    // 'hello' in base64 = 'aGVsbG8='
+    const result = validateBase64('aGVsbG8=');
+    expect(result.ok).toBe(true);
+    expect(result.byteCount).toBe(5);
+    expect(result.utf8Preview).toBe('hello');
+  });
+
+  it('returns ok:false for invalid base64 characters', () => {
+    const result = validateBase64('not-valid!!!');
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeDefined();
+  });
+
+  it('returns ok:false for base64 with wrong padding', () => {
+    const result = validateBase64('aGVsbG8');
+    expect(result.ok).toBe(false);
+  });
 });
 
+// ── validateHex ───────────────────────────────────────────────────────────────────
+
+describe('validateHex', () => {
+  it('returns ok:true + byteCount:0 for empty input', () => {
+    expect(validateHex('')).toMatchObject({ ok: true, byteCount: 0 });
+    expect(validateHex('  ')).toMatchObject({ ok: true, byteCount: 0 });
+  });
+
+  it('decodes space-separated hex and returns byte count + preview', () => {
+    // '68 65 6c 6c 6f' = 'hello'
+    const result = validateHex('68 65 6c 6c 6f');
+    expect(result.ok).toBe(true);
+    expect(result.byteCount).toBe(5);
+    expect(result.utf8Preview).toBe('hello');
+  });
+
+  it('decodes continuous hex (no spaces)', () => {
+    const result = validateHex('68656c6c6f');
+    expect(result.ok).toBe(true);
+    expect(result.byteCount).toBe(5);
+  });
+
+  it('returns ok:false for odd number of hex digits', () => {
+    const result = validateHex('abc');
+    expect(result.ok).toBe(false);
+    expect(result.error).toBeDefined();
+  });
+
+  it('returns ok:false for non-hex characters', () => {
+    const result = validateHex('zz');
+    expect(result.ok).toBe(false);
+  });
+});
 // ── buildConsumeRequest ────────────────────────────────────────────────────
 
 describe('buildConsumeRequest', () => {

@@ -1,0 +1,194 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { WsFrame } from '../../shared/websocket/types';
+
+const HISTORY_SIZE = 60;
+const SAMPLE_INTERVAL_MS = 1000;
+
+export interface WsMetricsSnapshot {
+  msgPerSec: number;
+  sentPerSec: number;
+  receivedPerSec: number;
+  totalBytesIn: number;
+  totalBytesOut: number;
+  bytesInPerSec: number;
+  bytesOutPerSec: number;
+  textFrames: number;
+  binaryFrames: number;
+  controlFrames: number;
+  errorCount: number;
+  history: number[];
+}
+
+const CONTROL_TYPES = new Set(['ping', 'pong', 'close']);
+
+function createEmptySnapshot(): WsMetricsSnapshot {
+  return {
+    msgPerSec: 0,
+    sentPerSec: 0,
+    receivedPerSec: 0,
+    totalBytesIn: 0,
+    totalBytesOut: 0,
+    bytesInPerSec: 0,
+    bytesOutPerSec: 0,
+    textFrames: 0,
+    binaryFrames: 0,
+    controlFrames: 0,
+    errorCount: 0,
+    history: [],
+  };
+}
+
+export function useWebSocketMetrics(
+  messages: WsFrame[],
+  connectionState: string,
+): WsMetricsSnapshot {
+  const [snapshot, setSnapshot] = useState<WsMetricsSnapshot>(createEmptySnapshot);
+
+  const lastProcessedIdRef = useRef<string | null>(null);
+  const historyRef = useRef<number[]>([]);
+  const accSentRef = useRef(0);
+  const accReceivedRef = useRef(0);
+  const accBytesInRef = useRef(0);
+  const accBytesOutRef = useRef(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  const sample = useCallback(() => {
+    const sent = accSentRef.current;
+    const received = accReceivedRef.current;
+    const bytesIn = accBytesInRef.current;
+    const bytesOut = accBytesOutRef.current;
+    const rate = sent + received;
+
+    accSentRef.current = 0;
+    accReceivedRef.current = 0;
+    accBytesInRef.current = 0;
+    accBytesOutRef.current = 0;
+
+    const history = historyRef.current;
+    history.push(rate);
+    if (history.length > HISTORY_SIZE) {
+      history.splice(0, history.length - HISTORY_SIZE);
+    }
+
+    setSnapshot((prev) => ({
+      ...prev,
+      msgPerSec: rate,
+      sentPerSec: sent,
+      receivedPerSec: received,
+      bytesInPerSec: bytesIn,
+      bytesOutPerSec: bytesOut,
+      history: [...history],
+    }));
+  }, []);
+
+  useEffect(() => {
+    if (connectionState !== 'connected') {
+      if (connectionState === 'disconnected' || connectionState === 'error') {
+        historyRef.current = [];
+        accSentRef.current = 0;
+        accReceivedRef.current = 0;
+        accBytesInRef.current = 0;
+        accBytesOutRef.current = 0;
+        setSnapshot((prev) => ({
+          ...prev,
+          msgPerSec: 0,
+          sentPerSec: 0,
+          receivedPerSec: 0,
+          bytesInPerSec: 0,
+          bytesOutPerSec: 0,
+          history: [],
+        }));
+      }
+      return;
+    }
+
+    accSentRef.current = 0;
+    accReceivedRef.current = 0;
+    accBytesInRef.current = 0;
+    accBytesOutRef.current = 0;
+    if (timerRef.current !== null) {
+      clearInterval(timerRef.current);
+    }
+    timerRef.current = setInterval(sample, SAMPLE_INTERVAL_MS);
+
+    return () => {
+      if (timerRef.current !== null) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, [connectionState, sample]);
+
+  useEffect(() => {
+    const len = messages.length;
+    if (len === 0) {
+      if (lastProcessedIdRef.current !== null) {
+        lastProcessedIdRef.current = null;
+        historyRef.current = [];
+        setSnapshot(createEmptySnapshot());
+      }
+      return;
+    }
+
+    const currentLastId = messages[len - 1].id;
+    if (currentLastId === lastProcessedIdRef.current) return;
+
+    let startIdx: number;
+    if (lastProcessedIdRef.current === null) {
+      startIdx = 0;
+    } else {
+      const foundIdx = messages.findIndex((m) => m.id === lastProcessedIdRef.current);
+      startIdx = foundIdx >= 0 ? foundIdx + 1 : 0;
+    }
+
+    let newSent = 0;
+    let newReceived = 0;
+    let newBytesIn = 0;
+    let newBytesOut = 0;
+    let textFrames = 0;
+    let binaryFrames = 0;
+    let controlFrames = 0;
+    let errorCount = 0;
+
+    for (let i = startIdx; i < len; i++) {
+      const frame = messages[i];
+      if (frame.direction === 'sent') {
+        newSent++;
+        newBytesOut += frame.size;
+      } else {
+        newReceived++;
+        newBytesIn += frame.size;
+      }
+      if (CONTROL_TYPES.has(frame.type)) {
+        controlFrames++;
+      } else if (frame.type === 'binary') {
+        binaryFrames++;
+      } else {
+        textFrames++;
+      }
+      if (frame.type === 'close') {
+        const isNormalClose = /code:\s*100[01]\b/.test(frame.data);
+        if (!isNormalClose) errorCount++;
+      }
+    }
+
+    accSentRef.current += newSent;
+    accReceivedRef.current += newReceived;
+    accBytesInRef.current += newBytesIn;
+    accBytesOutRef.current += newBytesOut;
+
+    lastProcessedIdRef.current = currentLastId;
+
+    setSnapshot((prev) => ({
+      ...prev,
+      totalBytesIn: prev.totalBytesIn + newBytesIn,
+      totalBytesOut: prev.totalBytesOut + newBytesOut,
+      textFrames: prev.textFrames + textFrames,
+      binaryFrames: prev.binaryFrames + binaryFrames,
+      controlFrames: prev.controlFrames + controlFrames,
+      errorCount: prev.errorCount + errorCount,
+    }));
+  }, [messages]);
+
+  return snapshot;
+}

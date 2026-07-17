@@ -20,5 +20,10 @@
     "erasableSyntaxOnly": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["vite.config.ts"]
+  "include": [
+    "vite.config.ts",
+    "vitest.projectPatterns.ts",
+    "vitest.node-globals.d.ts",
+    "scripts/product-coverage-filter.ts"
+  ]
 }

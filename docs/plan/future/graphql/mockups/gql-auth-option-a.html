@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1280" />
+  <title>Option A — tab.auth override</title>
+  <link rel="stylesheet" href="gql-per-tab-auth-mockup.css" />
+</head>
+<body>
+  <header class="mock-topbar">
+    <div class="mock-topbar-left">
+      <span class="mock-brand">RedfireForge · GraphQL Studio</span>
+      <span class="mock-option-tag rec">Option A — tab.auth</span>
+    </div>
+    <div class="mock-topbar-right">
+      <a class="mock-nav-link" href="gql-per-tab-auth-index.html">← All options</a>
+      <a class="mock-nav-link" href="gql-auth-option-d.html">Next: Option D →</a>
+    </div>
+  </header>
+
+  <div class="mock-banner good">
+    <b>Option A:</b> Add <code>auth?: GraphqlAuth</code> to each tab. Resolution: <code>tab.auth → profile.auth → page default</code>.
+    Connection bar shows <b>active tab's</b> resolved auth. Badge styling distinguishes inherit vs override.
+  </div>
+
+  <div class="gql-studio">
+    <nav class="proto-nav"><span>Requests</span><span class="active">GraphQL</span><span>WebSocket</span></nav>
+
+    <div class="conn-bar">
+      <div class="conn-endpoint-wrap">
+        <input class="conn-endpoint" readonly value="http://localhost:4010/graphql" />
+      </div>
+      <div class="auth-wrap">
+        <button type="button" class="auth-badge inherit" id="authBadge">
+          <span class="dot"></span>
+          <span id="authLabel">No Auth</span>
+          <span class="auth-scope-pill tab" id="authScope">tab</span>
+        </button>
+      </div>
+      <button type="button" class="conn-btn conn-btn--secondary">Introspect</button>
+      <button type="button" class="conn-btn conn-btn--primary">Execute</button>
+      <span class="schema-pill"><span class="dot"></span> Schema loaded (9)</span>
+    </div>
+
+    <div class="gql-main">
+      <div class="editor-col">
+        <div class="query-tabs" id="queryTabs">
+          <button type="button" class="query-tab active" data-tab="0">
+            <span class="auth-dot none"></span> Local 4010 Docker
+          </button>
+          <button type="button" class="query-tab" data-tab="1">
+            <span class="auth-dot bearer"></span> Demo: Authentication
+          </button>
+          <button type="button" class="query-tab" style="opacity:0.5; max-width:32px; padding:0 8px;">+</button>
+        </div>
+
+        <div class="code-area" id="codeArea"></div>
+
+        <div class="bottom-panel">
+          <div class="bottom-tabs">
+            <button type="button" class="bottom-tab">Variables</button>
+            <button type="button" class="bottom-tab active">Headers</button>
+            <button type="button" class="bottom-tab">Fragments</button>
+          </div>
+          <div class="bottom-body" id="bottomHint">
+            Per-tab auth is configured via the connection bar badge (active tab only). Headers remain for custom keys.
+          </div>
+        </div>
+      </div>
+
+      <aside class="response-col">
+        <div class="response-header">Response · Metadata</div>
+        <div class="response-meta">
+          <div><span class="ok">200 OK</span> · <span id="latency">24</span> ms</div>
+          <div class="auth-sent" id="authSent"></div>
+        </div>
+      </aside>
+
+      <aside class="annot-col">
+        <h3>Option A behavior</h3>
+        <div class="highlight good" id="annotBox">
+          <div class="label">Tab 1 — explicit override</div>
+          <code>tab.auth = { type: 'none' }</code><br />
+          Overrides page default (Inherit Bearer). Badge: <b>No Auth</b> + tab pill.
+        </div>
+        <p><b>Switch to Tab 2</b> to see inherited page auth replaced by tab override.</p>
+        <ul>
+          <li>Auth badge updates per active tab</li>
+          <li>Tab strip dots show auth at a glance</li>
+          <li>Execution uses tab-scoped resolution</li>
+        </ul>
+        <div class="highlight good">
+          <div class="label">Edit routing</div>
+          Multi-tab session → edits write to <code>activeTab.auth</code>, not page storage.
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const state = [
+      {
+        query: '<div><span class="kw">query</span> <span class="pn">{</span></div><div>&nbsp;&nbsp;<span class="fn">health</span></div><div><span class="pn">}</span></div>',
+        badgeClass: 'auth-badge inherit',
+        label: 'No Auth',
+        scope: '<span class="auth-scope-pill tab">tab</span>',
+        sent: '(no Authorization header)',
+        sentColor: 'var(--text-muted)',
+        latency: '24',
+        annot: '<div class="label">Tab 1 — explicit override</div><code>tab.auth = { type: \'none\' }</code><br/>Overrides page default. Badge shows <b>No Auth</b>.',
+      },
+      {
+        query: '<div><span class="kw">query</span> <span class="fn">Me</span> <span class="pn">{</span></div><div>&nbsp;&nbsp;<span class="fn">me</span> <span class="pn">{</span> <span class="fn">id</span> <span class="fn">email</span> <span class="pn">}</span></div><div><span class="pn">}</span></div>',
+        badgeClass: 'auth-badge override configured',
+        label: 'Bearer',
+        scope: '<span class="auth-scope-pill tab">tab</span>',
+        sent: 'Authorization: Bearer demo-token-••••',
+        sentColor: 'var(--primary)',
+        latency: '31',
+        annot: '<div class="label">Tab 2 — explicit override</div><code>tab.auth = { type: \'bearer\', token: \'…\' }</code><br/>Independent from Tab 1 and from page default.',
+      },
+    ];
+
+    const tabs = document.querySelectorAll('.query-tab[data-tab]');
+    const codeArea = document.getElementById('codeArea');
+    const authBadge = document.getElementById('authBadge');
+    const authLabel = document.getElementById('authLabel');
+    const authScope = document.getElementById('authScope');
+    const authSent = document.getElementById('authSent');
+    const annotBox = document.getElementById('annotBox');
+    const latency = document.getElementById('latency');
+
+    function showTab(i) {
+      const s = state[i];
+      codeArea.innerHTML = s.query;
+      authBadge.className = s.badgeClass;
+      authLabel.textContent = s.label;
+      authScope.innerHTML = s.scope;
+      authSent.innerHTML = 'Request sent with:<br /><span style="color:' + s.sentColor + ';">' + s.sent + '</span>';
+      annotBox.innerHTML = s.annot;
+      latency.textContent = s.latency;
+    }
+
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        showTab(+btn.dataset.tab);
+      });
+    });
+    showTab(0);
+  </script>
+</body>
+</html>

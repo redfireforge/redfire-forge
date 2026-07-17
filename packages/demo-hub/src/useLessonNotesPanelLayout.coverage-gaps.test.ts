@@ -1,0 +1,223 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { renderHook, act } from '@testing-library/react';
+import {
+  useLessonNotesPanelLayout,
+  createDefaultLessonNotesPanelGeometry,
+  LESSON_NOTES_PANEL_STORAGE_KEY,
+} from './useLessonNotesPanelLayout';
+
+describe('useLessonNotesPanelLayout — coverage gaps', () => {
+  beforeEach(() => {
+    localStorage.clear();
+    vi.stubGlobal('innerWidth', 1280);
+    vi.stubGlobal('innerHeight', 900);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('createDefaultLessonNotesPanelGeometry clamps width on narrow viewports', () => {
+    const geom = createDefaultLessonNotesPanelGeometry(400);
+    expect(geom.width).toBeLessThanOrEqual(400 - 32);
+  });
+
+  it('loads invalid saved geometry as default', () => {
+    localStorage.setItem(LESSON_NOTES_PANEL_STORAGE_KEY, JSON.stringify({ top: 'bad' }));
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+    expect(result.current.panelStyle.width).toBeDefined();
+  });
+
+  it('drag handler ignores mousedown on buttons and moves panel', () => {
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+    const panel = document.createElement('div');
+    panel.getBoundingClientRect = () => ({
+      left: 100, top: 80, width: 480, height: 300,
+      right: 580, bottom: 380, x: 100, y: 80, toJSON: () => ({}),
+    });
+    result.current.panelRef.current = panel;
+
+    const btnEvent = { target: document.createElement('button'), preventDefault: vi.fn(), clientX: 0, clientY: 0 } as never;
+    act(() => result.current.onDragMouseDown(btnEvent));
+    expect(btnEvent.preventDefault).not.toHaveBeenCalled();
+
+    const moveEvent = { target: panel, preventDefault: vi.fn(), clientX: 120, clientY: 100 } as never;
+    act(() => result.current.onDragMouseDown(moveEvent));
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 140, clientY: 120 }));
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+    expect(result.current.panelStyle.left).toBeDefined();
+  });
+
+  it('loads valid saved geometry and reclamps on resize', () => {
+    localStorage.setItem(LESSON_NOTES_PANEL_STORAGE_KEY, JSON.stringify({
+      top: 40,
+      left: 50,
+      width: 520,
+      height: 320,
+    }));
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+    expect(result.current.panelStyle.top).toBe(40);
+    act(() => {
+      vi.stubGlobal('innerWidth', 400);
+      window.dispatchEvent(new Event('resize'));
+    });
+    expect(result.current.panelStyle.width).toBeLessThanOrEqual(560);
+  });
+
+  it('re-clamps saved geometry when viewport shrinks', () => {
+    localStorage.setItem(LESSON_NOTES_PANEL_STORAGE_KEY, JSON.stringify({
+      top: 40,
+      left: 50,
+      width: 520,
+      height: 320,
+    }));
+    vi.stubGlobal('innerWidth', 400);
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+    expect(result.current.panelStyle.width).toBeLessThanOrEqual(400 - 32);
+  });
+
+  it('onDragMouseDown no-ops when panel ref is missing', () => {
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+    expect(() => {
+      act(() => {
+        result.current.onDragMouseDown({
+          target: document.createElement('div'),
+          preventDefault: vi.fn(),
+          clientX: 0,
+          clientY: 0,
+        } as never);
+      });
+    }).not.toThrow();
+  });
+
+  it('restores legacy saved geometry without height using default height', () => {
+    localStorage.setItem(LESSON_NOTES_PANEL_STORAGE_KEY, JSON.stringify({
+      top: 100,
+      left: 220,
+      width: 520,
+    }));
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+    expect(result.current.panelStyle.top).toBe(100);
+    expect(result.current.panelStyle.left).toBe(220);
+    expect(result.current.panelStyle.width).toBe(520);
+    expect(result.current.panelStyle.height).toBeDefined();
+  });
+
+  it('drag handler ignores resize-handle mousedown targets', () => {
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+    const resizeHandle = document.createElement('div');
+    resizeHandle.className = 'demo-lesson-notes-resize-handle';
+    const child = document.createElement('span');
+    resizeHandle.appendChild(child);
+
+    const event = {
+      target: child,
+      preventDefault: vi.fn(),
+      clientX: 10,
+      clientY: 10,
+    } as never;
+
+    act(() => result.current.onDragMouseDown(event));
+    expect(event.preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('resize handler updates width/height and no-ops when panel ref is missing', () => {
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+
+    // Missing panel ref path should not throw.
+    expect(() => {
+      act(() => {
+        result.current.onResizeMouseDown({
+          preventDefault: vi.fn(),
+          stopPropagation: vi.fn(),
+          clientX: 0,
+          clientY: 0,
+        } as never);
+      });
+    }).not.toThrow();
+
+    const panel = document.createElement('div');
+    panel.getBoundingClientRect = () => ({
+      left: 100,
+      top: 80,
+      width: 480,
+      height: 300,
+      right: 580,
+      bottom: 380,
+      x: 100,
+      y: 80,
+      toJSON: () => ({}),
+    });
+    result.current.panelRef.current = panel;
+
+    const resizeEvent = {
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      clientX: 100,
+      clientY: 100,
+    } as never;
+
+    act(() => result.current.onResizeMouseDown(resizeEvent));
+    expect(resizeEvent.preventDefault).toHaveBeenCalled();
+    expect(resizeEvent.stopPropagation).toHaveBeenCalled();
+
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 140, clientY: 140 }));
+      window.dispatchEvent(new MouseEvent('mouseup'));
+    });
+
+    expect(Number(result.current.panelStyle.width)).toBeGreaterThanOrEqual(480);
+    expect(Number(result.current.panelStyle.height)).toBeGreaterThanOrEqual(300);
+  });
+
+  it('returns default geometry when saved payload is malformed JSON', () => {
+    localStorage.setItem(LESSON_NOTES_PANEL_STORAGE_KEY, '{bad-json');
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+    expect(result.current.panelStyle.width).toBeDefined();
+    expect(result.current.panelStyle.top).toBeDefined();
+  });
+
+  it('keeps geometry unchanged on resize when clamped geometry is identical', () => {
+    const setItemSpy = vi.spyOn(Storage.prototype, 'setItem');
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+    const before = { ...result.current.panelStyle };
+
+    act(() => {
+      window.dispatchEvent(new Event('resize'));
+    });
+
+    expect(result.current.panelStyle).toMatchObject(before);
+    // No persisted write when commitGeometry resolves to identical values.
+    expect(setItemSpy).not.toHaveBeenCalled();
+  });
+
+  it('swallows localStorage quota errors when saving geometry', () => {
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new Error('QuotaExceededError');
+    });
+    const { result } = renderHook(() => useLessonNotesPanelLayout());
+    const panel = document.createElement('div');
+    panel.getBoundingClientRect = () => ({
+      left: 100, top: 80, width: 480, height: 300,
+      right: 580, bottom: 380, x: 100, y: 80, toJSON: () => ({}),
+    });
+    result.current.panelRef.current = panel;
+    expect(() => {
+      act(() => {
+        result.current.onDragMouseDown({
+          target: panel,
+          preventDefault: vi.fn(),
+          clientX: 110,
+          clientY: 90,
+        } as never);
+        window.dispatchEvent(new MouseEvent('mousemove', { clientX: 130, clientY: 110 }));
+        window.dispatchEvent(new MouseEvent('mouseup'));
+      });
+    }).not.toThrow();
+  });
+});

@@ -46,7 +46,7 @@ const SAMPLE_ROWS: KafkaConsumeResultRow[] = [
 
 describe('useTopicMessageBrowser', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('initial state: empty result, no selected message', () => {

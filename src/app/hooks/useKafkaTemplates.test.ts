@@ -52,7 +52,7 @@ const conDraft: KafkaConsumeDraft = {
 };
 
 beforeEach(() => {
-  vi.clearAllMocks();
+  resetAllMocks();
   mockLoadPub.mockResolvedValue([]);
   mockSavePub.mockResolvedValue(undefined);
   mockLoadCon.mockResolvedValue([]);

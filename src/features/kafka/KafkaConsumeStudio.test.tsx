@@ -13,6 +13,7 @@ import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessag
 import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
 import type { KafkaConsumeDraft, KafkaConsumeResultRow } from './types';
 import { exportResultSet } from './kafkaMessageStudioUtils';
+import { installClipboardMock } from '../../test-utils/clipboardMock';
 
 function baseConsumeDraft(): KafkaConsumeDraft {
   return {
@@ -79,15 +80,18 @@ const defaultTemplateProps = () => ({
   onDeleteConsumeTemplate: vi.fn().mockResolvedValue(undefined),
 });
 
+// A timestamp 5 minutes in the past (relative: "5m ago")
+const FIVE_MIN_AGO_MS = String(Date.now() - 5 * 60 * 1000);
+
 const SAMPLE_MESSAGES: KafkaConsumeResultRow[] = [
-  { topic: 'orders.events', partition: 0, offset: '10', value: '{"id":1}', key: 'order-1' },
+  { topic: 'orders.events', partition: 0, offset: '10', value: '{"id":1}', key: 'order-1', timestamp: FIVE_MIN_AGO_MS },
   { topic: 'orders.events', partition: 1, offset: '3', value: '{"id":2}', key: undefined },
 ];
 
 const STREAM_MESSAGES: KafkaConsumeResultRow[] = [
-  { topic: 'orders.events', partition: 0, offset: '100', value: '{"seq":1}', key: 'sk-0' },
+  { topic: 'orders.events', partition: 0, offset: '100', value: '{"seq":1}', key: 'sk-0', timestamp: FIVE_MIN_AGO_MS },
   { topic: 'orders.events', partition: 1, offset: '101', value: '{"seq":2}', key: 'sk-1' },
-  { topic: 'orders.events', partition: 0, offset: '102', value: '{"seq":3}', key: 'sk-2' },
+  { topic: 'orders.events', partition: 0, offset: '102', value: '{"seq":3}', key: 'sk-2', timestamp: FIVE_MIN_AGO_MS },
 ];
 
 function renderConsume(opts?: {
@@ -111,7 +115,7 @@ function renderConsume(opts?: {
 describe('KafkaConsumeStudio — Consume Once', () => {
   it('renders topic input', () => {
     renderConsume();
-    const input = screen.getByLabelText('Topic') as HTMLInputElement;
+    const input = screen.getByTestId('con-topic-input') as HTMLInputElement;
     expect(input.value).toBe('orders.events');
   });
 
@@ -153,6 +157,33 @@ describe('KafkaConsumeStudio — Consume Once', () => {
     expect(screen.getByTestId('con-results-zone')).toBeTruthy();
     expect(screen.getByTestId('con-row-0')).toBeTruthy();
     expect(screen.getByTestId('con-row-1')).toBeTruthy();
+  });
+
+  it('renders Timestamp column header', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2 } });
+    const headers = screen.getAllByRole('columnheader');
+    const texts = headers.map((h) => h.textContent);
+    expect(texts).toContain('Timestamp');
+  });
+
+  it('shows relative age in timestamp cell when timestamp is present', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2 } });
+    const tsCells = screen.getAllByTestId('ts-cell');
+    // row 0 has a 5-minute-old timestamp → should contain "m ago"
+    expect(tsCells[0].textContent).toMatch(/m ago|just now|h ago/);
+  });
+
+  it('shows tooltip with full datetime on timestamp cell', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2 } });
+    const tsCells = screen.getAllByTestId('ts-cell');
+    // title attribute should contain year
+    expect(tsCells[0].getAttribute('title')).toMatch(/202\d/);
+  });
+
+  it('shows dash for rows without a timestamp', () => {
+    renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2 } });
+    // row 1 has no timestamp → missing cell
+    expect(screen.getAllByTestId('ts-cell-missing').length).toBeGreaterThan(0);
   });
 
   it('shows "No messages received" when result is empty array', () => {
@@ -203,7 +234,7 @@ describe('KafkaConsumeStudio — Consume Once', () => {
   it('calls setConsumeDraft when topic changes', () => {
     const studio = makeStudio();
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Topic'), { target: { value: 'events.v2' } });
+    fireEvent.change(screen.getByTestId('con-topic-input'), { target: { value: 'events.v2' } });
     expect(studio.setConsumeDraft).toHaveBeenCalledWith({ topic: 'events.v2' });
   });
 
@@ -215,14 +246,14 @@ describe('KafkaConsumeStudio — Consume Once', () => {
   it('shows inline validation hint when topic is blurred while empty', () => {
     renderConsume({ studio: { consumeDraft: { ...baseConsumeDraft(), topic: '' } } });
     expect(screen.queryByTestId('con-topic-hint')).toBeNull();
-    fireEvent.blur(screen.getByLabelText('Topic'));
+    fireEvent.blur(screen.getByTestId('con-topic-input'));
     expect(screen.getByTestId('con-topic-hint').textContent).toBe('Topic is required');
   });
 
   it('opens template dropdown and shows empty state', () => {
     renderConsume();
     fireEvent.click(screen.getByTitle('Load a saved template'));
-    expect(screen.getByText('No saved templates')).toBeTruthy();
+    expect(screen.getByText('No saved templates yet')).toBeTruthy();
   });
 
   it('loads a template when clicked from dropdown', () => {
@@ -487,7 +518,7 @@ describe('KafkaConsumeStudio — Template Save', () => {
   it('opens save input when Save button clicked', () => {
     renderConsume();
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    expect(screen.getByPlaceholderText('Template name')).toBeTruthy();
+    expect(screen.getByPlaceholderText('Template name\u2026')).toBeTruthy();
   });
 
   it('confirm button disabled when save name is empty', () => {
@@ -499,7 +530,7 @@ describe('KafkaConsumeStudio — Template Save', () => {
   it('updates save name when typing in save input', () => {
     renderConsume();
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    const input = screen.getByPlaceholderText('Template name');
+    const input = screen.getByPlaceholderText('Template name\u2026');
     fireEvent.change(input, { target: { value: 'My Preset' } });
     expect((input as HTMLInputElement).value).toBe('My Preset');
   });
@@ -508,7 +539,7 @@ describe('KafkaConsumeStudio — Template Save', () => {
     const tplProps = defaultTemplateProps();
     render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={makeStreamMode()} {...tplProps} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    fireEvent.change(screen.getByPlaceholderText('Template name'), { target: { value: 'My Preset' } });
+    fireEvent.change(screen.getByPlaceholderText('Template name\u2026'), { target: { value: 'My Preset' } });
     fireEvent.click(screen.getByText('✓'));
     await waitFor(() => expect(tplProps.onSaveConsumeTemplate).toHaveBeenCalledWith('My Preset'));
   });
@@ -517,7 +548,7 @@ describe('KafkaConsumeStudio — Template Save', () => {
     const tplProps = defaultTemplateProps();
     render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={makeStreamMode()} {...tplProps} />);
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    const input = screen.getByPlaceholderText('Template name');
+    const input = screen.getByPlaceholderText('Template name\u2026');
     fireEvent.change(input, { target: { value: 'My Preset' } });
     fireEvent.keyDown(input, { key: 'Enter' });
     await waitFor(() => expect(tplProps.onSaveConsumeTemplate).toHaveBeenCalledWith('My Preset'));
@@ -526,16 +557,16 @@ describe('KafkaConsumeStudio — Template Save', () => {
   it('closes save input on Escape key', () => {
     renderConsume();
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
-    const input = screen.getByPlaceholderText('Template name');
+    const input = screen.getByPlaceholderText('Template name\u2026');
     fireEvent.keyDown(input, { key: 'Escape' });
-    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+    expect(screen.queryByPlaceholderText('Template name\u2026')).toBeNull();
   });
 
   it('cancel button closes save input', () => {
     renderConsume();
     fireEvent.click(screen.getByTitle('Save current settings as a template'));
     fireEvent.click(screen.getByText('✕'));
-    expect(screen.queryByPlaceholderText('Template name')).toBeNull();
+    expect(screen.queryByPlaceholderText('Template name\u2026')).toBeNull();
   });
 
   it('calls onDeleteConsumeTemplate when delete button clicked on template item', async () => {
@@ -545,7 +576,7 @@ describe('KafkaConsumeStudio — Template Save', () => {
     ];
     render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={makeStreamMode()} {...tplProps} />);
     fireEvent.click(screen.getByTitle('Load a saved template'));
-    fireEvent.click(screen.getByTitle('Delete template'));
+    fireEvent.click(screen.getByTitle('Delete "My Preset"'));
     await waitFor(() => expect(tplProps.onDeleteConsumeTemplate).toHaveBeenCalledWith('tpl-1'));
   });
 });
@@ -625,14 +656,14 @@ describe('KafkaConsumeStudio — Form Fields', () => {
   it('calls setConsumeDraft when JSONPath filter changes', () => {
     const studio = makeStudio();
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('JSONPath'), { target: { value: '$.status' } });
+    fireEvent.change(screen.getByLabelText('JSONPath expression'), { target: { value: '$.status' } });
     expect(studio.setConsumeDraft).toHaveBeenCalledWith({ jsonPath: '$.status' });
   });
 
   it('calls setConsumeDraft when JSONPath Equals filter changes', () => {
     const studio = makeStudio();
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('JSONPath Equals'), { target: { value: 'ACTIVE' } });
+    fireEvent.change(screen.getByLabelText('JSONPath expected value'), { target: { value: 'ACTIVE' } });
     expect(studio.setConsumeDraft).toHaveBeenCalledWith({ jsonPathEquals: 'ACTIVE' });
   });
 });
@@ -656,10 +687,7 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
   });
 
   it('copies payload to clipboard when Copy Payload clicked', async () => {
-    const clipboardMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: clipboardMock }, configurable: true,
-    });
+    const clipboardMock = installClipboardMock();
     renderConsume({
       studio: {
         consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2,
@@ -671,10 +699,7 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
   });
 
   it('copies key to clipboard when Copy Key clicked with key present', async () => {
-    const clipboardMock = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', {
-      value: { writeText: clipboardMock }, configurable: true,
-    });
+    const clipboardMock = installClipboardMock();
     renderConsume({
       studio: {
         consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2,
@@ -888,8 +913,7 @@ describe('KafkaConsumeStudio — branch coverage additions', () => {
 
   it('handleCopyKey: uses selectedStreamMessage when mode is stream', async () => {
     // Covers line 137 [0]: mode === 'stream' true branch → uses selectedStreamMessage
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const writeText = installClipboardMock();
 
     renderConsume({
       stream: {
@@ -911,8 +935,7 @@ describe('KafkaConsumeStudio — branch coverage additions', () => {
 
   it('handleCopyKey: no-op when msg.key is null/undefined (if msg?.key false branch)', async () => {
     // Covers line 138 [1]: msg.key is falsy → clipboard not called
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const writeText = installClipboardMock();
 
     renderConsume({
       studio: {
@@ -931,8 +954,7 @@ describe('KafkaConsumeStudio — branch coverage additions', () => {
 
   it('handleCopyPayload: uses selectedStreamMessage when mode is stream', async () => {
     // Covers line 142 [0]: mode === 'stream' true branch
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const writeText = installClipboardMock();
 
     renderConsume({
       stream: {
@@ -953,8 +975,7 @@ describe('KafkaConsumeStudio — branch coverage additions', () => {
 
   it('handleCopyPayload: no-op when no message selected (if msg false branch)', async () => {
     // Covers line 143 [1]: msg is null → clipboard not called
-    const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    const writeText = installClipboardMock();
 
     renderConsume({ studio: { selectedMessage: null, selectedMessageIndex: null } });
     const copyPayloadBtn = screen.queryByText('Copy Payload');

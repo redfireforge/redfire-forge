@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=1280" />
+  <title>Current — Page-level auth (design gap)</title>
+  <link rel="stylesheet" href="gql-per-tab-auth-mockup.css" />
+</head>
+<body>
+  <header class="mock-topbar">
+    <div class="mock-topbar-left">
+      <span class="mock-brand">RedfireForge · GraphQL Studio</span>
+      <span class="mock-option-tag current">Current behavior</span>
+    </div>
+    <div class="mock-topbar-right">
+      <a class="mock-nav-link" href="gql-per-tab-auth-index.html">← All options</a>
+      <a class="mock-nav-link" href="gql-auth-option-a.html">Next: Option A →</a>
+    </div>
+  </header>
+
+  <div class="mock-banner warn">
+    <b>Problem:</b> Auth is stored in <code>gql_auth_v1</code> (page-level). The connection bar badge shows
+    <code>resolvedTabAuth</code>, but editing auth always writes the page default — so Tab 2 cannot use Bearer
+    while Tab 1 uses no auth.
+  </div>
+
+  <div class="gql-studio">
+    <nav class="proto-nav"><span>Requests</span><span class="active">GraphQL</span><span>WebSocket</span></nav>
+
+    <div class="conn-bar">
+      <div class="conn-endpoint-wrap">
+        <input class="conn-endpoint" readonly value="http://localhost:4010/graphql" />
+      </div>
+      <div class="auth-wrap">
+        <button type="button" class="auth-badge configured" id="authBadge">
+          <span class="dot"></span>
+          <span id="authLabel">Inherit (Session &amp; Bearer)</span>
+        </button>
+      </div>
+      <button type="button" class="conn-btn conn-btn--secondary">Introspect</button>
+      <button type="button" class="conn-btn conn-btn--primary">Execute</button>
+      <span class="schema-pill"><span class="dot"></span> Schema loaded (9)</span>
+    </div>
+
+    <div class="gql-main">
+      <div class="editor-col">
+        <div class="query-tabs" id="queryTabs">
+          <button type="button" class="query-tab active" data-tab="0">
+            <span class="auth-dot inherit"></span> Local 4010 Docker
+          </button>
+          <button type="button" class="query-tab" data-tab="1">
+            <span class="auth-dot inherit"></span> Demo: Authentication
+          </button>
+          <button type="button" class="query-tab" style="opacity:0.5; max-width:32px; padding:0 8px;">+</button>
+        </div>
+
+        <div class="code-area" id="codeArea">
+          <div><span class="kw">query</span> <span class="pn">{</span></div>
+          <div>&nbsp;&nbsp;<span class="fn">health</span></div>
+          <div><span class="pn">}</span></div>
+        </div>
+
+        <div class="bottom-panel">
+          <div class="bottom-tabs">
+            <button type="button" class="bottom-tab">Variables</button>
+            <button type="button" class="bottom-tab active">Headers</button>
+            <button type="button" class="bottom-tab">Fragments</button>
+          </div>
+          <div class="bottom-body">
+            <table class="hdr-table">
+              <thead><tr><th class="cb">✓</th><th>Key</th><th>Value</th></tr></thead>
+              <tbody>
+                <tr><td class="cb">☐</td><td colspan="2" style="color:var(--text-muted);font-style:italic;">No headers — auth comes from connection bar only</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <aside class="response-col">
+        <div class="response-header">Response · Metadata</div>
+        <div class="response-meta">
+          <div><span class="ok">200 OK</span> · 24 ms · 515 B</div>
+          <div class="auth-sent" id="authSent">
+            Request sent with:<br />
+            <span style="color:var(--primary);">Authorization: Bearer &lt;session-token&gt;</span>
+          </div>
+          <p style="margin-top:10px;color:var(--danger);font-size:0.7rem;">
+            Tab 1 wanted no auth, but page-level inherit still injects Bearer on every tab.
+          </p>
+        </div>
+      </aside>
+
+      <aside class="annot-col">
+        <h3>What you see</h3>
+        <div class="highlight bad">
+          <div class="label">Auth badge</div>
+          Same label on both tabs — always resolves to page <code>gql_auth_v1</code>.
+        </div>
+        <p><b>Switch tabs</b> using the tab strip above. Notice:</p>
+        <ul>
+          <li>Auth badge never changes</li>
+          <li>Both tabs send the same Bearer token</li>
+          <li>Tab dots are identical (inherit)</li>
+        </ul>
+        <div class="highlight bad">
+          <div class="label">Resolution chain today</div>
+          profile.auth → <b>page.auth</b><br />
+          (no <code>tab.auth</code>)
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <script>
+    const tabs = document.querySelectorAll('.query-tab[data-tab]');
+    const codeArea = document.getElementById('codeArea');
+    const authSent = document.getElementById('authSent');
+    const queries = [
+      '<div><span class="kw">query</span> <span class="pn">{</span></div><div>&nbsp;&nbsp;<span class="fn">health</span></div><div><span class="pn">}</span></div>',
+      '<div><span class="kw">query</span> <span class="fn">Me</span> <span class="pn">{</span></div><div>&nbsp;&nbsp;<span class="fn">me</span> <span class="pn">{</span> <span class="fn">id</span> <span class="fn">email</span> <span class="pn">}</span></div><div><span class="pn">}</span></div>',
+    ];
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+        codeArea.innerHTML = queries[+btn.dataset.tab];
+        authSent.innerHTML = 'Request sent with:<br /><span style="color:var(--primary);">Authorization: Bearer &lt;session-token&gt;</span>';
+      });
+    });
+  </script>
+</body>
+</html>

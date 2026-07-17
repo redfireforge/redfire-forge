@@ -6,6 +6,7 @@
  */
 import { useCallback, useState } from 'react';
 import { useReactFlow } from '@xyflow/react';
+import { scheduleReplayFitView } from '../utils/replayCanvasFitView';
 
 interface ReplayCanvasControlsProps {
   showMinimap?: boolean;
@@ -14,12 +15,13 @@ interface ReplayCanvasControlsProps {
 }
 
 export function ReplayCanvasControls({ showMinimap, onToggleMinimap, onSaveLayout }: ReplayCanvasControlsProps) {
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const rf = useReactFlow();
+  const { zoomIn, zoomOut } = rf;
   const [saveFlash, setSaveFlash] = useState(false);
 
   const handleFitView = useCallback(() => {
-    fitView({ padding: 0.05, duration: 200 });
-  }, [fitView]);
+    scheduleReplayFitView(rf);
+  }, [rf]);
 
   const handleSave = useCallback(() => {
     onSaveLayout?.();
@@ -42,7 +44,7 @@ export function ReplayCanvasControls({ showMinimap, onToggleMinimap, onSaveLayou
         </svg>
       </button>
       <div className="wf-pill-sep" />
-      <button type="button" className="wf-pill-btn" title="Fit view" onClick={handleFitView}>
+      <button type="button" className="wf-pill-btn" title="Fit view" data-testid="results-explorer-fit-view-btn" onClick={handleFitView}>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
         </svg>

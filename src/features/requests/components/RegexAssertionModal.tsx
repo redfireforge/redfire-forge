@@ -9,6 +9,12 @@ import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorB
 import { testPattern, resolveValue, type PatternEntry } from './regexAssertionUtils';
 export type { MatchResult } from './regexAssertionUtils';
 
+/**
+ * @deprecated Use `RegexAssertionBuilderModal` from `data-mapper` barrel instead.
+ * This component is superseded by the Data Mapper-integrated `RegexAssertionBuilderModal`
+ * (Phase 3B). Retained for reference; scheduled for deletion in Phase 7 cleanup.
+ */
+
 export interface RegexAssertionResult {
   jsonPath: string;
   pattern: string;
@@ -24,6 +30,12 @@ interface Props {
   fetchError?: FetchErrorDetail | null;
   onApply: (result: RegexAssertionResult) => void;
   onClose: () => void;
+  /** When false, nested tree nodes start collapsed (default: true). */
+  treeExpandAll?: boolean;
+  /** Select JSON path on double-click instead of single-click. */
+  selectPathOnDoubleClick?: boolean;
+  /** Optional set of mapped JSON paths — shows ✓ on matching tree rows. */
+  mappedPaths?: Set<string>;
 }
 
 /* ── Tree Node (click-to-select, no checkboxes) ────── */
@@ -39,7 +51,7 @@ interface PickerNodeProps {
   selectOnDoubleClick?: boolean;
 }
 
-export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm, expandAll, mappedPaths, selectOnDoubleClick }: PickerNodeProps) {
+const PickerNode = memo(function PickerNode({ node, depth, selectedPath, onSelect, searchTerm, expandAll, mappedPaths, selectOnDoubleClick }: PickerNodeProps) {
   const [manualExpanded, setManualExpanded] = useState<boolean | null>(null);
   const hasChildren = node.children && node.children.length > 0;
 
@@ -127,7 +139,7 @@ export const PickerNode = memo(function PickerNode({ node, depth, selectedPath, 
 export default function RegexAssertionModal({
   initialJsonPath, initialPattern, sampleJson: externalJson,
   onFetchSampleResponse, fetchingResponse, fetchError,
-  onApply, onClose,
+  onApply, onClose, treeExpandAll = true, selectPathOnDoubleClick, mappedPaths,
 }: Props) {
   const [jsonPath, setJsonPath] = useState(initialJsonPath || '');
   const [pattern, setPattern] = useState(initialPattern || '');
@@ -242,7 +254,9 @@ export default function RegexAssertionModal({
                     selectedPath={jsonPath.replace(/^\$\.?/, '')}
                     onSelect={handleSelectPath}
                     searchTerm={treeSearch}
-                    expandAll
+                    expandAll={treeExpandAll}
+                    mappedPaths={mappedPaths}
+                    selectOnDoubleClick={selectPathOnDoubleClick}
                   />
                 </div>
               </>

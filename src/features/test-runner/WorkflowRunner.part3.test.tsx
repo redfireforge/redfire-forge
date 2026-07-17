@@ -12,8 +12,12 @@ import {
   selectWorkflowById,
   makeSummary,
 } from './__test-utils__/workflowRunnerTestHelpers';
+import {
+  cleanupWorkflowRunnerSplitTestGlobals,
+  resetWorkflowRunnerSplitTestState,
+} from './__test-utils__/workflowRunnerSplitTestSetup';
 import type { Workflow } from '../workflow/types/workflow';
-import type { RequestResult, TestSummary } from '../../../shared/types';
+import type { TestSummary } from '../../../shared/types';
 import { saveWorkflowRunConfig } from './utils/workflowRunConfigStorage';
 
 const runnerProgressMocks = vi.hoisted(() => ({
@@ -219,83 +223,18 @@ function ImportSampleHarness(): JSX.Element {
 describe('WorkflowRunner', () => {
 
   beforeEach(() => {
-    testExec.execute.mockClear();
-    testExec.abort.mockClear();
-    testExec.confirmSavePendingRun.mockClear();
-    testExec.dismissPendingRun.mockClear();
-    testExec.startExternalExecution.mockClear();
-    testExec.startExternalExecution.mockImplementation(() => {
-      const ac = new AbortController();
-      return {
-        reportProgress: vi.fn(),
-        complete: vi.fn().mockResolvedValue(undefined),
-        fail: vi.fn(),
-        abortSignal: ac.signal,
-      };
+    resetWorkflowRunnerSplitTestState({
+      testExec,
+      runnerProgressMocks,
+      storageMocks,
+      webhookDriverMocks,
+      webhookScenarioMocks,
+      saveWorkflowRunConfigMock: vi.mocked(saveWorkflowRunConfig),
     });
-    testExec.isRunning = false;
-    testExec.completed = 0;
-    testExec.total = 0;
-    testExec.liveSummary = null;
-    testExec.timeSeries = [];
-    testExec.finalRun = null;
-    testExec.error = null;
-    testExec.pendingRun = null;
-    runnerProgressMocks.saveProgress.mockClear();
-    runnerProgressMocks.loadProgress.mockReturnValue(null);
-    storageMocks.loadRunnerConfig.mockReset();
-    storageMocks.loadRunnerConfig.mockResolvedValue(null);
-    storageMocks.saveRunnerConfig.mockClear();
-    vi.mocked(saveWorkflowRunConfig).mockClear();
-    webhookDriverMocks.runWebhookLoadTest.mockReset();
-    webhookDriverMocks.runWebhookLoadTest.mockImplementation(async (_cfg, callbacks, _abort) => {
-      const mockReq = {
-        id: 'wb-mock-result',
-        statusCode: 200,
-        label: '',
-        responseTimeMs: 1,
-      } as unknown as RequestResult;
-      callbacks?.onProgress?.(1, 1, 10, 0);
-      callbacks?.onRequestComplete?.(mockReq, 1, 1);
-
-      return {
-        results: [mockReq],
-        totalRequests: 1,
-        successCount: 1,
-        failureCount: 0,
-        avgResponseTimeMs: 1,
-        minResponseTimeMs: 1,
-        maxResponseTimeMs: 1,
-        actualDurationMs: 50,
-        actualRps: 0,
-      };
-    });
-    webhookDriverMocks.calculateTotalRequests.mockImplementation(
-      (rate?: { rps?: number; durationSec?: number }) =>
-        typeof rate?.rps === 'number' && typeof rate?.durationSec === 'number'
-          ? Math.ceil(rate.rps * rate.durationSec)
-          : 10
-    );
-    webhookScenarioMocks.loadWebhookScenarios.mockClear();
-    webhookScenarioMocks.saveWebhookScenario.mockClear();
-    webhookScenarioMocks.deleteWebhookScenario.mockClear();
-    webhookScenarioMocks.fireWebhook.mockClear();
-    webhookScenarioMocks.buildPayloadWithCorrelationId.mockClear();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        json: async () => ({}),
-      } as Response)
-    );
-    localStorage.clear();
-    sessionStorage.clear();
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
+    cleanupWorkflowRunnerSplitTestGlobals();
   });
 
   it('passes configurable poll concurrency limits alongside wait-for-condition nodes', async () => {

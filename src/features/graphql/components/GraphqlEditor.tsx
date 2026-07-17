@@ -1,0 +1,124 @@
+import { useCallback, useEffect, useRef } from 'react';
+import type React from 'react';
+import Editor, { useMonaco, type BeforeMount, type OnMount } from '@monaco-editor/react';
+import {
+  GRAPHQL_LANGUAGE_ID,
+  GRAPHQL_THEME_ID,
+  registerGraphqlLanguage,
+  defineGraphqlTheme,
+  getGraphqlEditorOptions,
+  getOrInitGraphqlMode,
+} from '../utils/monacoGraphqlSetup';
+
+// Stable beforeMount handler — defined outside the component because it captures
+// nothing from the component scope. Both calls are idempotent.
+const handleBeforeMount: BeforeMount = (monaco) => {
+  registerGraphqlLanguage(monaco);
+  // Eagerly initialise the monaco-graphql language service so the worker is
+  // ready before the first editor instance is created. This ensures schema-aware
+  // autocomplete becomes active as soon as setGraphqlSchema() is called.
+  try {
+    getOrInitGraphqlMode();
+  } catch {
+    // Non-fatal — worker may not be available in all environments (e.g. tests)
+  }
+};
+
+interface GraphqlEditorProps {
+  /** Monaco model path — each tab has a unique path so models persist across tab switches */
+  modelPath: string;
+  /** Initial value (used only when the model for this path doesn't exist yet) */
+  defaultValue?: string;
+  /** Called with the new document text on every change */
+  onChange?: (value: string) => void;
+  /** Editor height — defaults to filling its container */
+  height?: string | number;
+  readOnly?: boolean;
+  'data-testid'?: string;
+  /** Optional ref that receives the Monaco editor instance after mount (used by Prettify) */
+  editorMountRef?: React.MutableRefObject<import('monaco-editor').editor.IStandaloneCodeEditor | null>;
+}
+
+export function GraphqlEditor({
+  modelPath,
+  defaultValue = '',
+  onChange,
+  height = '100%',
+  readOnly = false,
+  'data-testid': testId,
+  editorMountRef,
+}: GraphqlEditorProps) {
+  const editorRef = useRef<import('monaco-editor').editor.IStandaloneCodeEditor | null>(null);
+  const keydownDisposableRef = useRef<import('monaco-editor').IDisposable | null>(null);
+  const monaco = useMonaco();
+
+  const handleMount: OnMount = useCallback((editor, monacoInstance) => {
+    editorRef.current = editor;
+    if (editorMountRef) editorMountRef.current = editor;
+
+    keydownDisposableRef.current?.dispose();
+    keydownDisposableRef.current = editor.onKeyDown((e) => {
+      // Belt-and-suspenders: demo hub Space → play/pause must not run while typing here.
+      const isSpace = e.browserEvent?.key === ' '
+        || (monacoInstance && e.keyCode === monacoInstance.KeyCode.Space);
+      if (isSpace) {
+        e.stopPropagation();
+      }
+    });
+
+    if (!readOnly) editor.focus();
+  }, [readOnly, editorMountRef]);
+
+  useEffect(() => {
+    return () => {
+      keydownDisposableRef.current?.dispose();
+      keydownDisposableRef.current = null;
+    };
+  }, []);
+
+  // Auto-focus the editor whenever the active model changes (i.e. the user switches tabs).
+  // @monaco-editor/react swaps the model on `path` change but does NOT re-fire onMount,
+  // so the editor loses focus. We defer one animation frame to ensure the model swap
+  // is fully settled before calling focus().
+  useEffect(() => {
+    if (readOnly) return;
+    const frame = requestAnimationFrame(() => {
+      editorRef.current?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [modelPath, readOnly]);
+
+  // Re-apply the Monaco theme whenever the app theme changes (data-theme attribute on <html>).
+  // This keeps editor.background in sync with var(--bg) across all app themes.
+  useEffect(() => {
+    if (!monaco) return;
+    const observer = new MutationObserver(() => {
+      defineGraphqlTheme(monaco);
+      monaco.editor.setTheme(GRAPHQL_THEME_ID);
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+    return () => observer.disconnect();
+  }, [monaco]);
+
+  const baseOptions = getGraphqlEditorOptions();
+
+  return (
+    <div
+      className="gql-editor-wrapper"
+      style={{ height }}
+      data-testid={testId ?? 'gql-editor'}
+    >
+      <Editor
+        language={GRAPHQL_LANGUAGE_ID}
+        theme={GRAPHQL_THEME_ID}
+        path={modelPath}
+        defaultValue={defaultValue}
+        height={height}
+        options={{ ...baseOptions, readOnly }}
+        beforeMount={handleBeforeMount}
+        onMount={handleMount}
+        onChange={(val) => onChange?.(val ?? '')}
+      />
+    </div>
+  );
+}

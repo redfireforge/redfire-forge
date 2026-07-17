@@ -22,6 +22,13 @@ function minimalScenario(overrides: Partial<Scenario> = {}): Scenario {
 }
 
 describe('csvTemplateCsv — generate and parse', () => {
+  it('parseCsvToScenarios leaves meta null when metadata line is absent', () => {
+    const csv = 'name,url\nRow,https://example.test/';
+    const result = parseCsvToScenarios(csv);
+    expect(result.meta).toBeNull();
+    expect(result.validRows).toBe(1);
+  });
+
   it('generateCsvTemplate prefixes meta and a single sample row', () => {
     const test = minimalScenario();
     const csv = generateCsvTemplate({ test, pathVariables: [] });
@@ -52,6 +59,14 @@ describe('csvTemplateCsv — generate and parse', () => {
     const result = parseCsvToScenarios(csv);
     expect(result.errorRows).toBe(1);
     expect(result.rows[0].scenario).toBeNull();
+  });
+
+  it('parseCsvToScenarios tracks valid and invalid rows together', () => {
+    const csv = 'name,url\nRow,https://ok.test/\n,https://bad.test/';
+    const result = parseCsvToScenarios(csv);
+    expect(result.totalRows).toBe(2);
+    expect(result.validRows).toBe(1);
+    expect(result.errorRows).toBe(1);
   });
 
   it('defaults columns to empty array when Papa result omits meta.fields', () => {

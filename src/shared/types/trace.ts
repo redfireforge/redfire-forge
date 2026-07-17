@@ -152,6 +152,19 @@ export interface ExecutionEventDetails {
     outcome?: 'matched' | 'timed_out' | 'cancelled';
   };
 
+  // WebSocket nodes
+  /** Structured WebSocket execution details (captured at standard+ trace level) */
+  wsDetails?: CapturedWsNodeDetails;
+  /** Metadata captured from a WsTrigger node fire */
+  wsTriggerDetails?: {
+    url: string;
+    connectionId: string;
+    messageType?: string;
+  };
+
+  /** Structured gRPC execution details (captured at standard+ trace level) */
+  grpcDetails?: CapturedGrpcNodeDetails;
+
   // Errors
   error?: string;
   errorStack?: string;
@@ -159,6 +172,9 @@ export interface ExecutionEventDetails {
 
 /** Failure class for Kafka node errors — actionable categorization. */
 export type KafkaFailureClass = 'validation' | 'auth' | 'tls' | 'timeout' | 'network' | 'extraction';
+
+/** Failure class for WebSocket node errors — actionable categorization. */
+export type WsFailureClass = 'validation' | 'connection' | 'timeout' | 'protocol' | 'network';
 
 /** Structured capture of a Kafka node execution for trace/replay. */
 export interface CapturedKafkaNodeDetails {
@@ -170,6 +186,38 @@ export interface CapturedKafkaNodeDetails {
   matchedMessages?: number;
   failureClass?: KafkaFailureClass;
   /** Truncated preview of the message body (max 512 chars). */
+  bodyPreview?: string;
+}
+
+/** Structured capture of a WebSocket node execution for trace/replay. */
+export interface CapturedWsNodeDetails {
+  url?: string;
+  connectionId: string;
+  durationMs: number;
+  /** Message type: text or binary */
+  messageType?: 'text' | 'binary';
+  /** Negotiated subprotocol (connect only). */
+  protocol?: string;
+  /** Negotiated extensions (connect only). */
+  extensions?: string;
+  failureClass?: WsFailureClass;
+  /** Truncated preview of the message body (max 512 chars). */
+  bodyPreview?: string;
+}
+
+/** Structured capture of a gRPC workflow node execution for trace/replay. */
+export interface CapturedGrpcNodeDetails {
+  target: string;
+  service: string;
+  method: string;
+  callType: 'unary' | 'server_streaming';
+  durationMs: number;
+  grpcStatus?: number;
+  grpcStatusMessage?: string;
+  messageCount?: number;
+  streamStopReason?: string;
+  attempts?: number;
+  /** Truncated preview of response body or last stream message (max 512 chars). */
   bodyPreview?: string;
 }
 
@@ -186,7 +234,9 @@ export interface ExecutionEvent {
            'loop' | 'setVariable' | 'script' | 'aggregate' |
            'correlationWait' | 'waitForCondition' | 'subWorkflow' |
            'webhook' | 'schedule' | 'start' | 'errorHandler' |
-           'kafkaProduce' | 'kafkaConsume' | 'kafkaTrigger' | 'kafkaWait';
+           'kafkaProduce' | 'kafkaConsume' | 'kafkaTrigger' | 'kafkaWait' |
+           'wsConnect' | 'wsSend' | 'wsReceive' | 'wsTrigger' |
+           'grpcUnary' | 'grpcServerStream' | 'grpcAssert';
 
   /** User-visible node label */
   nodeLabel: string;

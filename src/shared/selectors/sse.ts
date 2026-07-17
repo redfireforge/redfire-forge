@@ -1,0 +1,23 @@
+// ─── SSE Studio ─────────────────────────────────────────────────
+export const SSE = {
+  NAV_TAB:             '[data-testid="nav-tab-sse-studio"]',
+  STUDIO:              '[data-testid="sse-studio"]',
+  URL_INPUT:           '[data-testid="sse-url-input"]',
+  CONNECT_BTN:         '[data-testid="sse-connect-btn"]',
+  STATE_LABEL:         '[data-testid="sse-state-label"]',
+  LEFT_TAB_CONNECT:    '[data-testid="sse-left-tab-connect"]',
+  LEFT_TAB_AUTH:       '[data-testid="sse-left-tab-auth"]',
+  RIGHT_TAB_EVENTS:    '[data-testid="sse-right-tab-events"]',
+  RIGHT_TAB_CONSOLE:   '[data-testid="sse-right-tab-console"]',
+  MESSAGE_LOG:         '[data-testid="sse-message-log"]',
+  EVENT_ROW:           '[data-testid="sse-event-row"]',
+  EVENT_DETAIL:        '[data-testid="sse-event-detail"]',
+  SEARCH_INPUT:        '[data-testid="sse-search"]',
+  TYPE_FILTER:         '[data-testid="sse-type-filter"]',
+  BOOKMARK_FILTER:     '[data-testid="sse-bookmark-filter"]',
+  EXPORT_BTN:          '[data-testid="sse-export-btn"]',
+  CLEAR_BTN:           '[data-testid="sse-clear-btn"]',
+  STATUS_BAR:          '[data-testid="sse-status-bar"]',
+  RECONNECT_CARD:      '[data-testid="sse-reconnect-card"]',
+  RECONNECT_TOGGLE:    '[data-testid="sse-reconnect-toggle"]',
+} as const;

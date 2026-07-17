@@ -33,9 +33,13 @@ vi.mock('../utils/workflowEnvReadiness', () => ({
   checkEnvReadiness: vi.fn().mockReturnValue({ ready: true, issues: [] }),
 }));
 
-vi.mock('../utils/workflowRunErrors', () => ({
-  summarizeRequestFailure: vi.fn().mockReturnValue('Mock error summary'),
-}));
+vi.mock('../utils/workflowRunErrors', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/workflowRunErrors')>();
+  return {
+    ...actual,
+    summarizeRequestFailure: vi.fn().mockReturnValue('Mock error summary'),
+  };
+});
 
 import { runGraph } from '../engine/graphRunner';
 import { checkEnvReadiness } from '../utils/workflowEnvReadiness';
@@ -115,7 +119,7 @@ function createMockOptions() {
 describe('useWorkflowExecution', () => {
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     vi.useFakeTimers({ shouldAdvanceTime: true });
     mockRunGraph.mockResolvedValue([]);
     mockCheckEnvReadiness.mockReturnValue({ ready: true, issues: [] });
@@ -218,7 +222,7 @@ describe('useWorkflowExecution', () => {
       const { result } = renderHook(() => useWorkflowExecution(opts));
       await act(async () => { result.current.handleQuickTest(); });
       await waitFor(() => { expect(result.current.isRunning).toBe(false); });
-      expect(opts.setLastRunError).toHaveBeenCalledWith('One or more steps failed.');
+      expect(opts.setLastRunError).toHaveBeenCalledWith('One or more workflow steps failed.');
     });
 
     it('does not push console when console panel closed', async () => {
@@ -263,7 +267,7 @@ describe('useWorkflowExecution', () => {
       expect(result.current.runProgress?.completed).toBe(1);
     });
 
-    it('failedStepLabel is null when failure is not on an HTTP node', () => {
+    it('failedStepLabel returns label when a non-HTTP node failed', () => {
       const opts = createMockOptions();
       opts.lastRunStatus = 'fail';
       opts.nodes = [
@@ -271,7 +275,7 @@ describe('useWorkflowExecution', () => {
       ];
       opts.nodeStatuses = { sw: { state: 'fail' } };
       const { result } = renderHook(() => useWorkflowExecution(opts));
-      expect(result.current.failedStepLabel).toBeNull();
+      expect(result.current.failedStepLabel).toBe('Sub');
     });
 
     it('records last request URL from successful run', async () => {

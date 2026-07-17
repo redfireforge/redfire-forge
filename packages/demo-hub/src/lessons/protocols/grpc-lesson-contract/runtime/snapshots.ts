@@ -1,0 +1,172 @@
+/**
+ * Phase 12B — immutable scenario snapshot factories per shipped lesson.
+ */
+import {
+  GRPC_DEMO_TARGET,
+  GRPC_DEMO_PREREQUISITE_ENDPOINTS,
+  GRPC_EXPRESS_HEALTH_URL,
+  GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_URL,
+} from '../../../../adapters/grpcStudioAdapter';
+import { GRPC_LESSON_SCHEMA_VERSION } from '../types';
+import { freezeGrpcScenarioSnapshot } from './fingerprint';
+import type { GrpcLessonScenarioSnapshot } from './types';
+
+const GRPC1_FIXTURE_FINGERPRINT = GRPC_DEMO_PREREQUISITE_ENDPOINTS.join('|');
+
+const GRPC_SPRING_FIXTURE_FINGERPRINT = [
+  GRPC_EXPRESS_HEALTH_URL,
+  GRPC_SPRING_FIXTURE_ACTUATOR_HEALTH_URL,
+].join('|');
+
+/** GRPC-1 — unary Echo via reflection on Docker echo + Express proxy. */
+export function buildGrpcFirstCallScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-first-call',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: GRPC_DEMO_TARGET,
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'Hello from gRPC Studio' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC1_FIXTURE_FINGERPRINT,
+  });
+}
+
+/** GRPC-16 — consolidated schema discovery (reflection + proto import orientation). */
+export function buildGrpcSchemaDiscoveryScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-schema-discovery',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: GRPC_DEMO_TARGET,
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'Hello from gRPC Studio' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC1_FIXTURE_FINGERPRINT,
+  });
+}
+
+/** GRPC-3 — streaming patterns lesson (server, client, bidi). Primary verify method is ServerStream. */
+export function buildGrpcStreamingScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-streaming',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: GRPC_DEMO_TARGET,
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'ServerStream',
+    callType: 'server-stream',
+    requestPayload: { message: 'stream-demo', repeat_count: 5, interval_ms: 300 },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC1_FIXTURE_FINGERPRINT,
+  });
+}
+
+/** GRPC-4 — request metadata & authentication lesson (headers, auth types, conflict detection). */
+export function buildGrpcMetadataAuthScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-metadata-auth',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: GRPC_DEMO_TARGET,
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'Hello from gRPC Studio' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC1_FIXTURE_FINGERPRINT,
+  });
+}
+
+/** GRPC-11 — workflow integration lesson (grpcUnary + grpcAssert chaining). */
+export function buildGrpcWorkflowIntegrationScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-workflow-integration',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: 'localhost:50051',
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'workflow-test' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC1_FIXTURE_FINGERPRINT,
+  });
+}
+
+/** GRPC-13 — mock server lesson (rules, runtime, and network listener). */
+export function buildGrpcMockServerScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-mock-server',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: GRPC_DEMO_TARGET,
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'Hello from gRPC Studio' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC1_FIXTURE_FINGERPRINT,
+  });
+}
+
+/** GRPC-15 — Spring Boot & Spring gRPC integration (Netty :9090 + Servlet :8081). */
+export function buildGrpcSpringBootScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-spring-boot',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: 'localhost:9090',
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'Hello from gRPC Studio' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC_SPRING_FIXTURE_FINGERPRINT,
+  });
+}
+
+/** GRPC-19 — transport modes lesson (browser fallback + express proxy retry). */
+export function buildGrpcTransportModesScenarioSnapshot(): GrpcLessonScenarioSnapshot {
+  return freezeGrpcScenarioSnapshot({
+    lessonId: 'grpc-transport-modes',
+    schemaVersion: GRPC_LESSON_SCHEMA_VERSION,
+    target: GRPC_DEMO_TARGET,
+    descriptorSource: 'reflection',
+    service: 'echo.EchoService',
+    method: 'Echo',
+    callType: 'unary',
+    requestPayload: { message: 'Hello from gRPC Studio' },
+    expectedStatus: 'OK',
+    transportMode: 'express',
+    fixtureFingerprint: GRPC1_FIXTURE_FINGERPRINT,
+  });
+}
+
+const SNAPSHOT_BUILDERS: Readonly<Record<string, () => GrpcLessonScenarioSnapshot>> = {
+  'grpc-first-call': buildGrpcFirstCallScenarioSnapshot,
+  'grpc-schema-discovery': buildGrpcSchemaDiscoveryScenarioSnapshot,
+  'grpc-streaming': buildGrpcStreamingScenarioSnapshot,
+  'grpc-metadata-auth': buildGrpcMetadataAuthScenarioSnapshot,
+  'grpc-workflow-integration': buildGrpcWorkflowIntegrationScenarioSnapshot,
+  'grpc-mock-server': buildGrpcMockServerScenarioSnapshot,
+  'grpc-spring-boot': buildGrpcSpringBootScenarioSnapshot,
+  'grpc-transport-modes': buildGrpcTransportModesScenarioSnapshot,
+};
+
+/** Build the frozen scenario snapshot for a shipped lesson id. */
+export function buildGrpcScenarioSnapshotForLesson(lessonId: string): GrpcLessonScenarioSnapshot | null {
+  const builder = SNAPSHOT_BUILDERS[lessonId];
+  return builder ? builder() : null;
+}

@@ -64,7 +64,7 @@ const createMockResult = (overrides: Partial<RequestResult> = {}) =>
 describe('graphLoadRunner', () => {
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     syntheticStart.mockClear();
     syntheticStop.mockClear();
   });
@@ -98,6 +98,8 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
+        undefined, // grpcOperations
       );
     });
 
@@ -134,6 +136,8 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
+        undefined, // grpcOperations
       );
     });
 
@@ -166,6 +170,8 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
+        undefined, // grpcOperations
       );
     });
 
@@ -218,6 +224,8 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
+        undefined, // grpcOperations
       );
     });
 
@@ -385,6 +393,8 @@ describe('graphLoadRunner', () => {
         traceOpts, // traceOptions passed through
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
+        undefined, // grpcOperations
       );
     });
 
@@ -495,6 +505,8 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
+        undefined, // grpcOperations
       );
     });
 
@@ -527,6 +539,8 @@ describe('graphLoadRunner', () => {
         undefined,
         undefined, // httpTimeoutMs
         undefined, // kafkaOperations
+        undefined, // wsOperations
+        undefined, // grpcOperations
       );
     });
   });

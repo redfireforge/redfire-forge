@@ -41,7 +41,7 @@ function Host({
 
 describe('KafkaSchemaConfigSection', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('renders the toggle checkbox', () => {
@@ -95,7 +95,7 @@ describe('KafkaSchemaConfigSection', () => {
   it('renders topic-derived subject placeholder', () => {
     const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro' };
     render(<Host initial={initial} topic="my-topic" />);
-    expect(screen.getByPlaceholderText('my-topic-value (default)')).toBeTruthy();
+    expect(screen.getByPlaceholderText('my-topic-value')).toBeTruthy();
   });
 
   it('loads subjects from registry when ↓ button is clicked', async () => {
@@ -136,7 +136,7 @@ describe('KafkaSchemaConfigSection', () => {
     const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro' };
     render(<Host initial={initial} />);
 
-    fireEvent.change(screen.getByPlaceholderText('schema-user'), { target: { value: 'alice' } });
+    fireEvent.change(screen.getByTestId('schema-username'), { target: { value: 'alice' } });
     const output = JSON.parse(screen.getByTestId('output').textContent!);
     expect(output.auth?.username).toBe('alice');
   });
@@ -149,8 +149,8 @@ describe('KafkaSchemaConfigSection', () => {
     };
     render(<Host initial={initial} />);
 
-    fireEvent.change(screen.getByPlaceholderText('schema-user'), { target: { value: '' } });
-    fireEvent.change(screen.getByDisplayValue('secret'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('schema-username'), { target: { value: '' } });
+    fireEvent.change(screen.getByTestId('schema-password'), { target: { value: '' } });
 
     const output = JSON.parse(screen.getByTestId('output').textContent!);
     expect(output.auth).toBeUndefined();
@@ -193,8 +193,7 @@ describe('KafkaSchemaConfigSection', () => {
     const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro' };
     render(<Host initial={initial} />);
 
-    // The subject input has placeholder that includes 'value (default)'
-    const subjectInput = screen.getByPlaceholderText(/value \(default\)/i);
+    const subjectInput = screen.getByPlaceholderText('orders-value');
     fireEvent.change(subjectInput, { target: { value: 'my-topic-value' } });
 
     const output = JSON.parse(screen.getByTestId('output').textContent!);
@@ -216,7 +215,7 @@ describe('KafkaSchemaConfigSection', () => {
     const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro' };
     render(<Host initial={initial} />);
 
-    const versionInput = screen.getByPlaceholderText(/latest \(default\)/i);
+    const versionInput = screen.getByPlaceholderText('latest');
     fireEvent.change(versionInput, { target: { value: '5' } });
 
     const output = JSON.parse(screen.getByTestId('output').textContent!);
@@ -338,7 +337,7 @@ describe('KafkaSchemaConfigSection', () => {
 
 describe('KafkaSchemaConfigSection — additional branch coverage', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('subject toggle: hides subject list when button clicked a second time (subjects.length > 0 branch)', async () => {

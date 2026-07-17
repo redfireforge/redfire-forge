@@ -12,11 +12,14 @@ dist
 dist-cli
 dist-server
 dist-ssr
+build-artifacts/
+artifacts/
 *.local
 
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
+.cursor/demo-live-guard.json
 .idea
 .DS_Store
 *.suo
@@ -33,11 +36,15 @@ coverage/
 cov-*/
 coverage-*/
 
+# Java fixture build outputs
+docker/grpc/spring-boot/target/
+
 # jscpd duplication reports
 jscpd-report/
 
 # Playwright test results & reports
 test-results/
 playwright-report/
+e2e/screenshots/
 test-script-paste.cjs
 .playwright-mcp/

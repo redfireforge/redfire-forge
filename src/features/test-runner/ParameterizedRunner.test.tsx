@@ -183,7 +183,7 @@ const selectedTestsWithTags = [
 
 describe('ParameterizedRunner', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     orch.overrides = {};
   });
 

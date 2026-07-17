@@ -94,7 +94,7 @@ function makeWireBuffer(schemaId: number, payload: Buffer = Buffer.from([0x06, 0
 
 describe('schema-registry-client', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     clearSchemaCache();
   });
 
@@ -252,6 +252,30 @@ describe('schema-registry-client', () => {
       mockFetch.mockResolvedValueOnce(okJson(rawLatest));
       await fetchSchema(baseConfig, 'orders-value', 3);
       await fetchSchema(baseConfig, 'orders-value', 3);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('does not cache the "latest" alias — re-fetches so a new version is visible', async () => {
+      // First "latest" lookup resolves to version 3.
+      mockFetch.mockResolvedValueOnce(okJson(rawLatest));
+      const first = await fetchSchema(baseConfig, 'orders-value');
+      expect(first.version).toBe(3);
+
+      // A newer version 4 is registered; the next "latest" lookup must hit the
+      // registry again (not return the stale cached version 3).
+      mockFetch.mockResolvedValueOnce(okJson({ ...rawLatest, id: 43, version: 4 }));
+      const second = await fetchSchema(baseConfig, 'orders-value');
+      expect(second.version).toBe(4);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('still serves a concrete version from cache after a "latest" fetch', async () => {
+      // "latest" resolves to version 3 and caches it under the concrete key.
+      mockFetch.mockResolvedValueOnce(okJson(rawLatest));
+      await fetchSchema(baseConfig, 'orders-value');
+      // Requesting concrete version 3 reuses the cached entry — no new HTTP call.
+      const concrete = await fetchSchema(baseConfig, 'orders-value', 3);
+      expect(concrete.version).toBe(3);
       expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
@@ -502,6 +526,23 @@ describe('schema-registry-client', () => {
 
       // After cache clear — fresh instance should be created
       await encodeValue(baseConfig, 'orders', { id: 3 });
+      expect((vi.mocked(SchemaRegistryMock)).mock.calls.length).toBe(callsAfterFirst + 1);
+    });
+
+    it('creates a fresh instance when the password changes (not reused)', async () => {
+      const encodedBuf = makeWireBuffer(5);
+      mockGetLatestSchemaId.mockResolvedValue(5);
+      mockEncode.mockResolvedValue(encodedBuf);
+
+      const configA = { ...baseConfig, auth: { username: 'user', password: 'old-pw' } };
+      const configB = { ...baseConfig, auth: { username: 'user', password: 'new-pw' } };
+
+      await encodeValue(configA, 'orders', { id: 1 });
+      const callsAfterFirst = (vi.mocked(SchemaRegistryMock)).mock.calls.length;
+
+      // Same URL + username but a corrected password must NOT reuse the
+      // previously-cached (wrong-credential) instance.
+      await encodeValue(configB, 'orders', { id: 2 });
       expect((vi.mocked(SchemaRegistryMock)).mock.calls.length).toBe(callsAfterFirst + 1);
     });
   });

@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
+import { useAppLayoutSync } from './hooks/useAppLayoutSync';
+import { useGalleryMigration } from './hooks/useGalleryMigration';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
 import { useGalleryImport } from './hooks/useGalleryImport';
 import { useWorkbenchActions } from './hooks/useWorkbenchActions';
@@ -14,6 +16,8 @@ import AppWorkbenchModals from './components/AppWorkbenchModals';
 import AppHeader from './components/AppHeader';
 import AppActivityBar from './components/AppActivityBar';
 import AppSubNav from './components/AppSubNav';
+import AppSidebarRegion from './components/AppSidebarRegion';
+import AppShellOverlays from './components/AppShellOverlays';
 import { useRerunFailed } from './hooks/useRerunFailed';
 import { useTheme } from './hooks/useTheme';
 import { useProjects } from '../features/scenarios/hooks/useProjects';
@@ -28,44 +32,44 @@ import ResultsDashboard from '../features/results/ResultsDashboard';
 import Requests from '../features/requests/Requests';
 import type { PreviewRequest } from '../features/requests/Requests';
 import ApiCatalog from '../features/catalog/ApiCatalog';
-import CatalogSidebar from '../features/catalog/components/CatalogSidebar';
-import Sidebar from './Sidebar';
-import RequestsSidebar from '../features/requests/components/RequestsSidebar';
 import SettingsPage from '../features/settings/SettingsModal';
 import KafkaSettingsPage from '../features/kafka/KafkaSettingsPage';
 import { KafkaMessageStudioPage } from '../features/kafka/KafkaMessageStudioPage';
+import { WebSocketStudioPage } from '../features/websocket/WebSocketStudioPage';
+import { SseStudioPage } from '../features/sse/SseStudioPage';
+import { GraphqlStudioPage } from '../features/graphql/GraphqlStudioPage';
+import { GrpcStudioPage } from '../features/grpc/GrpcStudioPage';
 import EnvironmentManager from '../features/environments/EnvironmentManager';
 import WorkflowDesigner from '../features/workflow/WorkflowDesigner';
 import WorkflowExecutionHistory from '../features/workflow/WorkflowExecutionHistory';
 import WebhookDeliveryLogs from '../features/webhooks/WebhookDeliveryLogs';
-import WorkflowSidebar from '../features/workflow/components/panels/WorkflowSidebar';
-import FolderPickerModal from '../features/workflow/components/modals/FolderPickerModal';
 import { GalleryPage } from '../features/gallery/GalleryPage';
 import { sampleWorkflowCatalog } from '../data/galleries/workflows';
 import TrainingTracksView from '../features/training/TrainingTracksView';
 import { useWorkflows } from '../features/workflow/hooks/useWorkflows';
 import { useWorkflowFolders } from '../features/workflow/hooks/useWorkflowFolders';
-import RequestCollectionModal from '../features/requests/components/RequestCollectionModal';
-import SubCollectionModal from '../features/requests/components/SubCollectionModal';
 import { useToast } from '../shared/hooks/useToast';
 import {
   type Tab,
-  domainOf,
-  isApiTab,
-  isWorkflowTab,
-  isHarnessTab,
+  isProtocolsTab,
   readTabFromUrl,
   writeTabToUrl,
+  setLastProtocolsTab,
+  LAST_PROTOCOLS_TAB_STORAGE_KEY,
 } from './utils/appTabUtils';
-import { onStorageFull, cleanupStaleStorageKeys } from '../shared/utils/storage';
+import { onStorageFull, cleanupStaleStorageKeys, ensureBrowserLargeDataMigrated, readKey, writeKey } from '../shared/utils/storage';
 import { useKafkaState } from './hooks/useKafkaState';
 import '../styles/index.css';
-import { lazy, Suspense } from 'react';
-import type { ComponentType } from 'react';
+import { DEMO_HUB_ENABLED } from '../config/features';
+import { demoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
+import { shouldExitLiveDemoForTabChange } from './demo/liveDemoTabGuard';
+import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
+import { useDemoWorkspaceDefaultsBridge } from './hooks/useDemoWorkspaceDefaultsBridge';
+import { RustExecutorTestPanel } from './rustExecutorDevPanel';
 
-const RustExecutorTestPanel = import.meta.env.DEV
-  ? lazy(() => import('../features/test-runner/components/RustExecutorTestPanel'))
-  : null;
+const DemoShellHost = lazy(() =>
+  import('./demo/DemoShellHost').then((m) => ({ default: m.DemoShellHost })),
+);
 
 export default function App() {
   const {
@@ -75,17 +79,39 @@ export default function App() {
     featureGroups, setFeatureGroups,
     appGlobalAuthProfiles, setAppGlobalAuthProfiles,
     sharedDataSources, setSharedDataSources,
+    workspaceDefaults, setWorkspaceDefaults,
     selectedEnvId, setSelectedEnvId,
     selectedSvcId, setSelectedSvcId,
     moveScenario, moveTest,
     initialTheme, initialTestRuns,
   } = useProjects();
+  useDemoWorkspaceDefaultsBridge(setWorkspaceDefaults);
 
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
 
   const wb = useRequests();
   const catalog = useCatalog();
+  const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
+  const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
   const wfHook = useWorkflows();
+  const selectRunnerWorkflowByName = useCallback((name: string): boolean => {
+    const bridge = (window as unknown as { __wfRunnerApplySelection?: (n: string) => boolean })
+      .__wfRunnerApplySelection;
+    if (bridge?.(name)) return true;
+    const wf = wfHook.workflows.find((w) => w.name === name);
+    if (!wf) return false;
+    setWorkflowRunnerInitialId(wf.id);
+    return true;
+  }, [wfHook.workflows]);
+  useDemoWorkflowBridge(
+    wfHook.workflows,
+    wfHook.remove,
+    DEMO_HUB_ENABLED ? wfHook.insert : undefined,
+    DEMO_HUB_ENABLED ? wfHook.select : undefined,
+    DEMO_HUB_ENABLED ? wfHook.loaded : false,
+    DEMO_HUB_ENABLED ? wfHook.update : undefined,
+    DEMO_HUB_ENABLED ? selectRunnerWorkflowByName : undefined,
+  );
   const {
     previewWorkflow,
     setPreviewWorkflow,
@@ -112,11 +138,35 @@ export default function App() {
     setActiveTab,
   });
   const [resultsRunTypeFilter, setResultsRunTypeFilter] = useState<'all' | 'test' | 'workflow' | undefined>();
-  const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
-  const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
   const [lastWorkflowOutput, setLastWorkflowOutput] = useState<Record<string, string> | null>(null);
 
   const { sidebarWidth, sidebarCollapsed, setSidebarCollapsed, handleResizeStart } = useSidebarResize();
+  /** Demo lesson tab switches avoid flushSync to prevent lifecycle warnings/loops. */
+  const navigateToTab = useCallback((t: string) => {
+    setActiveTab(t as Tab);
+  }, [setActiveTab]);
+
+  // When sidebar / sub-nav navigates during live mode, exit only if leaving the
+  // lesson's tab scope. Same-tab clicks (e.g. workflow sidebar re-select) must
+  // not tear down the overlay — that was killing GQL-18 setup.
+  const handleSetActiveTab = useCallback((tab: Tab) => {
+    const hub = demoHubRuntimeRef.current;
+    const inLive = DEMO_HUB_ENABLED && hub.state.view === 'live';
+    const suppressed = hub.suppressLiveTabExitRef?.current === true;
+    const shouldExit = inLive
+      && !suppressed
+      && shouldExitLiveDemoForTabChange(tab, activeTab, hub.state.selectedLesson);
+
+    if (shouldExit) {
+      const leave = window.confirm(
+        'Leave the live demo? Navigating away will end the current demo session.',
+      );
+      if (!leave) return;
+      void hub.exitLiveDemo().then(() => setActiveTab(tab));
+    } else {
+      setActiveTab(tab);
+    }
+  }, [setActiveTab, activeTab]);
 
   const handleCompleteToResults = (runType?: 'test' | 'workflow') => {
     setResultsRunTypeFilter(runType);
@@ -215,9 +265,13 @@ export default function App() {
     }
   }, [loading, initialTheme, initialTestRuns, setTheme]);
 
-  // ---- Warn when localStorage is full ----
+  // ---- Warn when localStorage is full (debounced — parallel saves fire once) ----
+  const lastStorageFullToastRef = useRef(0);
   useEffect(() => {
     return onStorageFull((key) => {
+      const now = Date.now();
+      if (now - lastStorageFullToastRef.current < 8_000) return;
+      lastStorageFullToastRef.current = now;
       toast.show('error', 'Storage Full',
         `Cannot save ${key}. Browser storage is full. Go to Settings → Storage to free up space.`);
     });
@@ -226,6 +280,30 @@ export default function App() {
   // ---- Auto-cleanup stale keys on first load ----
   useEffect(() => {
     cleanupStaleStorageKeys();
+    void ensureBrowserLargeDataMigrated().catch(() => { /* best effort */ });
+    if (DEMO_HUB_ENABLED) {
+      void import('@redfireforge/demo-hub/demoLiveSession').then(({ hasRestorableDemoLiveSession }) => {
+        if (hasRestorableDemoLiveSession()) return;
+        return import('@redfireforge/demo-hub/lessons/gql-demo-storage-cleanup')
+          .then((m) => m.purgeGqlDemoEphemeralStorage())
+          .catch(() => { /* best effort */ });
+      }).catch(() => { /* best effort */ });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!DEMO_HUB_ENABLED && activeTab === 'demo-hub') {
+      setActiveTab('requests');
+    }
+  }, [activeTab, setActiveTab]);
+
+  // Restore last Protocols sub-tab (GraphQL, Kafka, etc.) from storage.
+  useEffect(() => {
+    void readKey(LAST_PROTOCOLS_TAB_STORAGE_KEY).then((saved) => {
+      if (saved && isProtocolsTab(saved as Tab)) {
+        setLastProtocolsTab(saved as Tab);
+      }
+    });
   }, []);
 
   const [galleryInitialDomain, setGalleryInitialDomain] = useState<import('../data/galleries/types').GalleryDomain | undefined>(undefined);
@@ -234,42 +312,17 @@ export default function App() {
   useEffect(() => {
     writeTabToUrl(activeTab);
     if (activeTab !== 'gallery') setGalleryInitialDomain(undefined);
+    if (isProtocolsTab(activeTab)) {
+      setLastProtocolsTab(activeTab);
+      void writeKey(LAST_PROTOCOLS_TAB_STORAGE_KEY, activeTab).catch(() => { /* silent */ });
+    }
   }, [activeTab, setGalleryInitialDomain]);
 
-  // ---- Header height sync ----
-  const headerRef = useRef<HTMLElement>(null);
-  const syncHeaderHeight = useCallback(() => {
-    if (headerRef.current) {
-      document.documentElement.style.setProperty('--header-h', `${headerRef.current.offsetHeight}px`);
-    }
-  }, []);
-  useEffect(() => {
-    syncHeaderHeight();
-    window.addEventListener('resize', syncHeaderHeight);
-    return () => window.removeEventListener('resize', syncHeaderHeight);
-  }, [syncHeaderHeight]);
-
-  // ---- Sidebar width sync (CSS var for modals/overlays that respect the sidebar) ----
-  // Activity bar is 48px; when the sidebar is collapsed the unified-sidebar is unmounted.
-  useEffect(() => {
-    const activityBar = 48;
-    const total = sidebarCollapsed ? activityBar : activityBar + sidebarWidth;
-    document.documentElement.style.setProperty('--sidebar-w', `${total}px`);
-  }, [sidebarWidth, sidebarCollapsed]);
+  // ---- Layout CSS var sync (--header-h and --sidebar-w) ----
+  const headerRef = useAppLayoutSync({ sidebarWidth, sidebarCollapsed });
 
   // ---- Fix Gallery Samples microservice baseUrls (migration for pre-0.9.1 data) ----
-  const galleryFixApplied = useRef(false);
-  useEffect(() => {
-    if (loading || galleryFixApplied.current) return;
-    galleryFixApplied.current = true;
-    const galEnv = environments.find(e => e.name === 'Gallery Samples');
-    const galSvc = microservices.find(s => s.name === 'Gallery Samples');
-    if (galEnv && galSvc && !(galEnv.id in galSvc.baseUrls)) {
-      setMicroservices(prev => prev.map(s =>
-        s.id === galSvc.id ? { ...s, baseUrls: { ...s.baseUrls, [galEnv.id]: '' } } : s
-      ));
-    }
-  }, [loading, environments, microservices, setMicroservices]);
+  useGalleryMigration({ loading, environments, microservices, setMicroservices });
 
   // ---- Derived view state ----
 
@@ -318,6 +371,25 @@ export default function App() {
     setActiveTab('gallery');
   }, [setActiveTab]);
 
+  const handleImportPreview = useCallback(() => {
+    if (!previewRequest) return;
+    const req = previewRequest.request;
+    const GALLERY_COL_NAME = 'Gallery Samples';
+    const col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
+    const colId = col ? col.id : wb.addCollection({ name: GALLERY_COL_NAME, mode: 'direct' });
+    const reqId = wb.addRequest(colId);
+    wb.updateRequest(colId, reqId, {
+      name: req.name,
+      method: req.method,
+      url: req.url,
+      headers: req.headers,
+      body: req.body,
+      bodyType: req.bodyType,
+      auth: req.auth,
+    });
+    setPreviewRequest(null);
+  }, [previewRequest, wb]);
+
   // ---- Loading screen ----
   if (loading) {
     return (
@@ -331,9 +403,28 @@ export default function App() {
   }
 
   return (
+    <>
+      {DEMO_HUB_ENABLED && (
+        <Suspense fallback={null}>
+          <DemoShellHost
+            navigateToTab={navigateToTab}
+            activeTab={activeTab}
+            setSidebarCollapsed={setSidebarCollapsed}
+            setAppGlobalAuthProfiles={setAppGlobalAuthProfiles}
+            setWorkspaceDefaults={setWorkspaceDefaults}
+            selectedEnvId={selectedEnvId}
+            selectedSvcId={selectedSvcId}
+            setEnvironments={setEnvironments}
+            setMicroservices={setMicroservices}
+            setSelectedEnvId={setSelectedEnvId}
+            setSelectedSvcId={setSelectedSvcId}
+          />
+        </Suspense>
+      )}
     <div className={`app ${sidebarCollapsed ? '' : 'sidebar-visible'}`}>
       <AppHeader
         headerRef={headerRef}
+        activeTab={activeTab}
         environments={environments}
         microservices={microservices}
         selectedEnvId={selectedEnvId}
@@ -366,146 +457,48 @@ export default function App() {
 
       <div className="app-body">
       {/* ── Activity Bar ── */}
-      <AppActivityBar activeTab={activeTab} setActiveTab={setActiveTab} />
+      <AppActivityBar activeTab={activeTab} setActiveTab={handleSetActiveTab} />
 
-      {/* ── Sidebar (contextual per domain) ── */}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && (
-      <aside className="unified-sidebar" style={{ width: sidebarWidth }}>
-
-        <div className="usb-content">
-          {/* API domain: Requests + Catalog toggle */}
-          {isApiTab(activeTab) && (
-            <>
-              <div className="usb-sidebar-toggle-row">
-                <button className={`usb-sidebar-toggle ${activeTab === 'requests' ? 'active' : ''}`} onClick={() => setActiveTab('requests')}>Requests</button>
-                <button className={`usb-sidebar-toggle ${activeTab === 'catalog' ? 'active' : ''}`} onClick={() => setActiveTab('catalog')}>Catalog</button>
-              </div>
-              <div style={{ display: activeTab === 'catalog' ? 'contents' : 'none' }}>
-            {catalog.loaded && (
-              <CatalogSidebar
-                entries={catalog.entries}
-                selectedEntryId={catalog.selectedEntryId}
-                onSelectEntry={(id) => { catalog.selectEntry(id); setActiveTab('catalog'); }}
-                onImport={() => { setCatalogReimportId(undefined); setShowCatalogImport(true); }}
-                onReimport={(entryId) => { setCatalogReimportId(entryId); setShowCatalogImport(true); }}
-                onDeleteEntry={catalog.removeEntry}
-                onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
-                onEdit={(entryId) => setCatalogEditId(entryId)}
-                onExportSpec={handleExportSpec}
-              />
-            )}
-          </div>
-          <div style={{ display: activeTab === 'requests' ? 'contents' : 'none' }}>
-            {wb.loaded && (
-              <RequestsSidebar
-                collections={wb.collections}
-                selectedCollectionId={wb.selectedCollection?.id}
-                selectedRequestId={wb.selectedRequest?.id}
-                onSelectCollection={(colId) => { wb.selectCollection(colId); setActiveTab('requests'); }}
-                onSelectRequest={(colId, reqId) => { wb.selectRequest(colId, reqId); setActiveTab('requests'); }}
-                onNewCollection={handleWbNewCollection}
-                onEditCollection={handleWbEditCollection}
-                onDeleteCollection={wb.removeCollection}
-                onDuplicateCollection={wb.duplicateCollection}
-                onNewRequest={handleWbNewRequest}
-                onDeleteRequest={wb.removeRequest}
-                onDuplicateRequest={wb.duplicateRequest}
-                onAddFolder={wb.addFolder}
-                onAddSubCollection={wb.addSubCollection}
-                onEditSubCollection={handleEditSubCollection}
-                onRenameFolder={wb.renameFolder}
-                onDeleteFolder={wb.removeFolder}
-                onDuplicateFolder={wb.duplicateFolder}
-                onMoveFolder={wb.moveFolder}
-                onMoveFolderTo={wb.moveFolderTo}
-                onMoveRequest={wb.moveRequest}
-                onMoveRequestToCollection={wb.moveRequestToCollection}
-                onMoveFolderToCollection={wb.moveFolderToCollection}
-                onMergeCollectionInto={wb.moveCollectionAsSubCollection}
-                countAllRequests={wb.countAllRequests}
-                onImportCollection={wb.importCollection}
-                onImportFolder={wb.importFolder}
-                onAddGroup={wb.addGroup}
-                onRenameGroup={wb.renameGroup}
-                onDeleteGroup={wb.deleteGroup}
-                onMoveToGroup={wb.moveToGroup}
-                onDuplicateGroup={wb.duplicateGroup}
-                onSendCollectionToHarness={(colId) => setBatchHarnessTarget({ colId })}
-                onSendFolderToHarness={(colId, folderId) => setBatchHarnessTarget({ colId, folderId })}
-                harnessRequestIds={harnessRequestIds}
-              />
-            )}
-          </div>
-            </>
-          )}
-          {isWorkflowTab(activeTab) && (
-            <WorkflowSidebar
-              workflows={wfHook.workflows}
-              selectedId={wfHook.selectedId}
-              folders={wfFolders.folders}
-              foldersLoaded={wfFolders.loaded}
-              onSelect={(id) => { wfHook.select(id); setActiveTab('workflow'); }}
-              onNew={(name: string) => {
-                wfHook.create(name); setActiveTab('workflow');
-              }}
-              onBrowseTemplates={() => { setGalleryInitialDomain('workflows'); setActiveTab('gallery'); }}
-              onRename={(id, name) => {
-                wfHook.update(id, { name });
-              }}
-              onDelete={(id) => { wfHook.remove(id); }}
-              onDuplicate={(id) => { wfHook.duplicate(id); }}
-              onExport={handleWorkflowExport}
-              onExportFolder={handleExportFolder}
-              onImport={handleWorkflowImport}
-              onToggleFolderCollapse={wfFolders.toggleCollapse}
-              onSetFolderCollapsed={wfFolders.setCollapsed}
-              onCreateFolder={wfFolders.create}
-              onRenameFolder={wfFolders.rename}
-              onDeleteFolder={(id) => wfFolders.remove(id, wfFolders.folders)}
-              onMoveWorkflowToFolder={(wfId, folderId, order) => {
-                wfHook.reorder(wfId, folderId, order);
-              }}
-              onMoveWorkflowsToFolder={(wfIds, folderId, startOrder) => {
-                wfIds.forEach((id, i) => {
-                  wfHook.reorder(id, folderId, startOrder + i);
-                });
-              }}
-              onMoveFolder={wfFolders.move}
-            />
-          )}
-          {isHarnessTab(activeTab) && (
-            <Sidebar
-              environments={environments}
-              microservices={microservices}
-              featureGroups={featureGroups}
-              selectedEnvId={selectedEnvId}
-              selectedSvcId={selectedSvcId}
-              onEnvSelect={setSelectedEnvId}
-              onSvcSelect={setSelectedSvcId}
-              sidebarView={sidebarView}
-              onSidebarViewChange={setSidebarView}
-            />
-          )}
-        </div>
-
-        <button className="usb-settings-btn" onClick={() => setActiveTab('preferences')}>⚙ Settings</button>
-      </aside>
-      )}
-      {!sidebarCollapsed && domainOf(activeTab) !== 'settings' && domainOf(activeTab) !== 'gallery' && domainOf(activeTab) !== 'protocols' && (
-        <div className="usb-resize-handle" onMouseDown={handleResizeStart} />
-      )}
-      <button
-        className={`usb-toggle-btn ${sidebarCollapsed || domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' ? 'collapsed' : ''}`}
-        onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-        title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        style={domainOf(activeTab) === 'settings' || domainOf(activeTab) === 'gallery' || domainOf(activeTab) === 'protocols' ? { display: 'none' } : undefined}
-      >
-        {sidebarCollapsed ? '▶' : '◀'}
-      </button>
+      <AppSidebarRegion
+        activeTab={activeTab}
+        setActiveTab={handleSetActiveTab}
+        sidebarCollapsed={sidebarCollapsed}
+        setSidebarCollapsed={setSidebarCollapsed}
+        sidebarWidth={sidebarWidth}
+        handleResizeStart={handleResizeStart}
+        catalog={catalog}
+        wb={wb}
+        wfHook={wfHook}
+        wfFolders={wfFolders}
+        environments={environments}
+        microservices={microservices}
+        featureGroups={featureGroups}
+        selectedEnvId={selectedEnvId}
+        selectedSvcId={selectedSvcId}
+        setSelectedEnvId={setSelectedEnvId}
+        setSelectedSvcId={setSelectedSvcId}
+        sidebarView={sidebarView}
+        setSidebarView={setSidebarView}
+        harnessRequestIds={harnessRequestIds}
+        setGalleryInitialDomain={setGalleryInitialDomain}
+        setCatalogReimportId={setCatalogReimportId}
+        setShowCatalogImport={setShowCatalogImport}
+        setCatalogVersionHistoryId={setCatalogVersionHistoryId}
+        setCatalogEditId={setCatalogEditId}
+        setBatchHarnessTarget={setBatchHarnessTarget}
+        handleExportSpec={handleExportSpec}
+        handleWorkflowExport={handleWorkflowExport}
+        handleExportFolder={handleExportFolder}
+        handleWorkflowImport={handleWorkflowImport}
+        handleWbNewCollection={handleWbNewCollection}
+        handleWbEditCollection={handleWbEditCollection}
+        handleWbNewRequest={handleWbNewRequest}
+        handleEditSubCollection={handleEditSubCollection}
+      />
 
         <main className="app-main">
           {/* ── Contextual sub-nav ── */}
-          {!showCatalogImport && <AppSubNav activeTab={activeTab} setActiveTab={setActiveTab} />}
+          {!showCatalogImport && <AppSubNav activeTab={activeTab} setActiveTab={handleSetActiveTab} />}
           {/* Keep mounted when hidden so canvas state (per-step initial variables, etc.) survives tab switches; still persisted via Save + storage on refresh. */}
           <div hidden={activeTab !== 'workflow'} className="workflow-designer-mount">
             <WorkflowDesigner
@@ -543,6 +536,9 @@ export default function App() {
               />
             </div>
           )}
+          {DEMO_HUB_ENABLED && activeTab === 'demo-hub' && (
+            <div id={DEMO_HUB_MOUNT_ID} className="app-tab-pane demo-hub-pane" />
+          )}
           {activeTab === 'training' && (
             <div className="app-tab-pane training-pane">
               <TrainingTracksView onNavigateToSample={(_sampleId) => { setGalleryInitialDomain(undefined); setActiveTab('gallery'); }} />
@@ -563,6 +559,7 @@ export default function App() {
                 microservices={microservices}
                 globalAuthProfiles={appGlobalAuthProfiles}
                 selectedEnvId={selectedEnvId}
+                selectedSvcId={selectedSvcId}
                 onImportSample={(wf) => {
                   const existing = wfHook.workflows.find(w => w.id === wf.id);
                   if (existing) {
@@ -592,6 +589,8 @@ export default function App() {
               setEnvironments={setEnvironments}
               microservices={microservices}
               setMicroservices={setMicroservices}
+              workspaceDefaults={workspaceDefaults}
+              setWorkspaceDefaults={setWorkspaceDefaults}
               appGlobalAuthProfiles={appGlobalAuthProfiles}
               featureGroups={featureGroups}
               selectedEnvId={selectedEnvId}
@@ -629,6 +628,58 @@ export default function App() {
             </div>
           )}
 
+          {activeTab === 'websocket-studio' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <WebSocketStudioPage
+                resolvedBaseUrl={resolvedBaseUrl}
+                envName={selectedEnv?.name}
+                svcName={selectedSvc?.name}
+                selectedSvc={selectedSvc}
+                selectedEnvId={selectedEnvId}
+                globalAuthProfiles={appGlobalAuthProfiles}
+              />
+            </div>
+          )}
+
+          {activeTab === 'sse-studio' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <SseStudioPage
+                resolvedBaseUrl={resolvedBaseUrl}
+                envName={selectedEnv?.name}
+                svcName={selectedSvc?.name}
+                selectedSvc={selectedSvc}
+                selectedEnvId={selectedEnvId}
+                globalAuthProfiles={appGlobalAuthProfiles}
+              />
+            </div>
+          )}
+
+          {activeTab === 'graphql-studio' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <GraphqlStudioPage
+                resolvedBaseUrl={resolvedBaseUrl}
+                envName={selectedEnv?.name}
+                svcName={selectedSvc?.name}
+                selectedSvc={selectedSvc}
+                selectedEnvId={selectedEnvId}
+                globalAuthProfiles={appGlobalAuthProfiles}
+              />
+            </div>
+          )}
+
+          {activeTab === 'grpc-studio' && (
+            <div className="app-tab-pane" style={{ display: 'flex', flexDirection: 'column' }}>
+              <GrpcStudioPage
+                resolvedBaseUrl={resolvedBaseUrl}
+                envName={selectedEnv?.name}
+                svcName={selectedSvc?.name}
+                selectedSvc={selectedSvc}
+                selectedEnvId={selectedEnvId}
+                workspaceDefaultsOverride={workspaceDefaults}
+                globalAuthProfiles={appGlobalAuthProfiles}
+              />
+            </div>
+          )}
 
           {activeTab === 'scenarios' && (
             <ScenarioBuilder
@@ -675,6 +726,7 @@ export default function App() {
               svcId={selectedSvcId}
               isAdditionalEnv={isAdditionalEnv}
               resolvedBaseUrl={resolvedBaseUrl}
+              microservices={microservices}
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
               sharedDataSources={sharedDataSources}
@@ -691,6 +743,7 @@ export default function App() {
               svcId={selectedSvcId}
               isAdditionalEnv={isAdditionalEnv}
               resolvedBaseUrl={resolvedBaseUrl}
+              microservices={microservices}
               globalAuthProfiles={appGlobalAuthProfiles}
               envFallbackAuth={envFallbackAuth}
               sharedDataSources={sharedDataSources}
@@ -738,29 +791,7 @@ export default function App() {
               onClearPreview={() => { setPreviewRequest(null); setGalleryInitialDomain(undefined); setActiveTab('gallery'); }}
               onSendToHarness={() => setShowSendToHarness(true)}
               harnessRequestIds={harnessRequestIds}
-              onImportPreview={() => {
-                if (!previewRequest) return;
-                const req = previewRequest.request;
-                const GALLERY_COL_NAME = 'Gallery Samples';
-                const col = wb.collections.find(c => c.name === GALLERY_COL_NAME);
-                let colId: string;
-                if (col) {
-                  colId = col.id;
-                } else {
-                  colId = wb.addCollection({ name: GALLERY_COL_NAME, mode: 'direct' });
-                }
-                const reqId = wb.addRequest(colId);
-                wb.updateRequest(colId, reqId, {
-                  name: req.name,
-                  method: req.method,
-                  url: req.url,
-                  headers: req.headers,
-                  body: req.body,
-                  bodyType: req.bodyType,
-                  auth: req.auth,
-                });
-                setPreviewRequest(null);
-              }}
+              onImportPreview={handleImportPreview}
             />
           </div>
           <AppWorkbenchModals
@@ -800,72 +831,31 @@ export default function App() {
         </main>
       </div>
 
-      {showWbCollectionModal && (
-        <RequestCollectionModal
-          collection={editingWbCollection}
-          collections={wb.collections}
-          environments={wb.environments}
-          appEnvironments={environments}
-          appMicroservices={microservices}
-          globalAuthProfiles={appGlobalAuthProfiles}
-          defaultMode={newColMode}
-          onSave={handleWbSaveCollection}
-          onAddEnv={wb.addEnv}
-          onClose={() => { setShowWbCollectionModal(false); setEditingWbCollection(null); setNewColGroupId(undefined); setNewColMode(undefined); }}
-        />
-      )}
-
-      {editingSubCol && subColForEdit && (
-        <SubCollectionModal
-          subCollection={subColForEdit.folder}
-          parentCollection={subColForEdit.col}
-          environments={wb.environments}
-          globalAuthProfiles={appGlobalAuthProfiles}
-          onSave={(patch) => wb.updateSubCollection(editingSubCol.colId, editingSubCol.folderId, patch)}
-          onClose={() => setEditingSubCol(null)}
-        />
-      )}
-
-      {confirmDialogElement}
-
-      <FolderPickerModal
-        open={pendingTemplateImport !== null}
-        folders={wfFolders.folders}
-        title="Save Template To..."
-        onCancel={() => setPendingTemplateImport(null)}
-        onPick={handleTemplatePickFolder}
+      <AppShellOverlays
+        showWbCollectionModal={showWbCollectionModal}
+        setShowWbCollectionModal={setShowWbCollectionModal}
+        editingWbCollection={editingWbCollection}
+        setEditingWbCollection={setEditingWbCollection}
+        newColMode={newColMode}
+        setNewColGroupId={setNewColGroupId}
+        setNewColMode={setNewColMode}
+        wb={wb}
+        environments={environments}
+        microservices={microservices}
+        appGlobalAuthProfiles={appGlobalAuthProfiles}
+        handleWbSaveCollection={handleWbSaveCollection}
+        editingSubCol={editingSubCol}
+        setEditingSubCol={setEditingSubCol}
+        subColForEdit={subColForEdit}
+        confirmDialogElement={confirmDialogElement}
+        pendingTemplateImport={pendingTemplateImport}
+        setPendingTemplateImport={setPendingTemplateImport}
+        wfFolders={wfFolders}
+        handleTemplatePickFolder={handleTemplatePickFolder}
+        RustExecutorTestPanel={RustExecutorTestPanel}
       />
 
-      {RustExecutorTestPanel && <RustTestPanelOverlay Panel={RustExecutorTestPanel} />}
-
     </div>
-  );
-}
-
-/** Dev-only overlay for the Rust executor integration test panel. */
-function RustTestPanelOverlay({ Panel }: { Panel: ComponentType }) {
-  const [show, setShow] = useState(() => new URLSearchParams(window.location.search).has('rust-test'));
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.key === 'T') {
-        e.preventDefault();
-        setShow(v => !v);
-      }
-    };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
-  }, []);
-  if (!show) return null;
-  return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 99999, overflow: 'auto', background: 'var(--background, #0d1117)' }}>
-      <div style={{ position: 'absolute', top: 8, right: 12, zIndex: 1 }}>
-        <button onClick={() => setShow(false)} style={{ background: 'none', border: '1px solid var(--border, #30363d)', color: 'var(--text-muted, #8b949e)', borderRadius: 4, padding: '4px 10px', cursor: 'pointer', fontSize: '12px' }}>
-          Close (Cmd+Shift+T)
-        </button>
-      </div>
-      <Suspense fallback={<div style={{ padding: 20, color: '#8b949e' }}>Loading test panel...</div>}>
-        <Panel />
-      </Suspense>
-    </div>
+    </>
   );
 }

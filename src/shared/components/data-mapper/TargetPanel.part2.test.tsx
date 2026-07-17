@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent} from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import TargetPanel from './TargetPanel';
 import type { MapperTarget, Mapping } from './types';
 import type { Assertion } from '../../types';
@@ -506,10 +506,10 @@ describe('TargetPanel', () => {
         <TargetPanel {...panelDefaults} target={deepTarget} scrollToPathSignal={{ path: '$.nested.deep.value', tick: 1 }} />,
       );
 
-      await new Promise(r => setTimeout(r, 50));
-
-      const node = container.querySelector('[data-path="nested.deep.value"]');
-      expect(node).not.toBeNull();
+      await waitFor(() => {
+        const node = container.querySelector('[data-path="nested.deep.value"]');
+        expect(node).not.toBeNull();
+      });
     });
 
     it('strips $. prefix and finds node by stripped path', async () => {
@@ -519,9 +519,10 @@ describe('TargetPanel', () => {
         <TargetPanel {...panelDefaults} scrollToPathSignal={{ path: '$.userName', tick: 1 }} />,
       );
 
-      await new Promise(r => setTimeout(r, 50));
-      const node = container.querySelector('[data-path="userName"]');
-      expect(node).not.toBeNull();
+      await waitFor(() => {
+        const node = container.querySelector('[data-path="userName"]');
+        expect(node).not.toBeNull();
+      });
     });
 
     it('handles path without $. prefix', async () => {
@@ -531,8 +532,9 @@ describe('TargetPanel', () => {
         <TargetPanel {...panelDefaults} scrollToPathSignal={{ path: 'userName', tick: 1 }} />,
       );
 
-      await new Promise(r => setTimeout(r, 50));
-      expect(container.querySelector('[data-path="userName"]')).not.toBeNull();
+      await waitFor(() => {
+        expect(container.querySelector('[data-path="userName"]')).not.toBeNull();
+      });
     });
   });
 

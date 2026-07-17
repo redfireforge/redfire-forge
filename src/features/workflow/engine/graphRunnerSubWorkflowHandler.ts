@@ -134,6 +134,9 @@ export async function handleSubWorkflowNode(
           hCtx.traceOptions,
           undefined, // httpTimeoutMs
           hCtx.kafkaOperations,
+          hCtx.wsOperations ? { ...hCtx.wsOperations, disconnectAll: async () => {} } : undefined,
+          hCtx.grpcOperations,
+          hCtx.grpcWorkflowExecutionRuntime,
         );
       } finally {
         if (timeoutHandle) clearTimeout(timeoutHandle);

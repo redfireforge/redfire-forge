@@ -23,7 +23,7 @@ const minimalProps = {} as WorkflowDesignerProps;
 
 describe('useWorkflowDesignerController', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
   });
 
   it('composes PartA and PartB with PartB overriding shared keys', () => {

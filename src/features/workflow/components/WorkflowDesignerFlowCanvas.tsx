@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import {
   ReactFlow,
   MiniMap,
@@ -70,6 +70,7 @@ export function WorkflowDesignerFlowCanvas({
     runVariableSnapshot,
     workflowVariables,
     nodeCtxMenu,
+    configModalNodeId,
     setSelectedNodeId,
     handleCopyNode,
     handleDuplicateNode,
@@ -137,11 +138,67 @@ export function WorkflowDesignerFlowCanvas({
     } else {
       setTimeout(() => {
         requestAnimationFrame(() => {
-          fitView({ padding: 0.1, maxZoom: 1, duration: 200 });
+          // Keep nodes readable — tall graphs used to zoom out below ~0.5×.
+          fitView({ padding: 0.08, maxZoom: 1.25, minZoom: 0.85, duration: 200 });
         });
       }, 120);
     }
   }, [selected, previewWorkflow, setViewport, fitView]);
+
+  // Expose demo-player bridge helpers so lesson actions can manipulate the canvas
+  // without relying on synthetic mouse events (which ReactFlow ignores).
+  //   window.__wfDeselectAll()         — clears .selected on every node
+  //   window.__wfOpenNodeConfig(id)    — opens config modal for a node by id
+  //   window.__wfFitView(opts?)        — fits viewport; demo defaults leave room for LiveDemo panel
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__wfDeselectAll = () => {
+      _setNodes((ns) => ns.map((n) => (n.selected ? { ...n, selected: false } : n)));
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__wfDeselectAll;
+    };
+  }, [_setNodes]);
+
+  useEffect(() => {
+    (window as unknown as Record<string, unknown>).__wfOpenNodeConfig = (nodeId: string) => {
+      // Deselect all nodes first so the highlight ring is gone before the config renders
+      _setNodes((ns) => ns.map((n) => (n.selected ? { ...n, selected: false } : n)));
+      openNodeConfig(nodeId);
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__wfOpenNodeConfig;
+    };
+  }, [_setNodes, openNodeConfig]);
+
+  useEffect(() => {
+    type DemoFitOpts = {
+      padding?: number | { top?: number; right?: number; bottom?: number; left?: number };
+      maxZoom?: number;
+      minZoom?: number;
+      duration?: number;
+    };
+    (window as unknown as Record<string, unknown>).__wfFitView = (opts?: DemoFitOpts) => {
+      // Default asymmetric padding: LiveDemo card covers the right side of the canvas.
+      fitView({
+        padding: opts?.padding ?? { top: 0.08, right: 0.34, bottom: 0.1, left: 0.06 },
+        maxZoom: opts?.maxZoom ?? 1.35,
+        minZoom: opts?.minZoom ?? 0.9,
+        duration: opts?.duration ?? 250,
+        includeHiddenNodes: true,
+      });
+      return true;
+    };
+    return () => {
+      delete (window as unknown as Record<string, unknown>).__wfFitView;
+    };
+  }, [fitView]);
+
+  // When a node config modal is open, clear the ReactFlow-level `selected` flag so the
+  // node's highlight ring does not bleed into its configuration panel view.
+  const displayNodes = useMemo(
+    () => (configModalNodeId ? nodes.map((n) => (n.selected ? { ...n, selected: false } : n)) : nodes),
+    [nodes, configModalNodeId],
+  );
 
   return (
     <div
@@ -211,7 +268,7 @@ export function WorkflowDesignerFlowCanvas({
         <ReactFlow<WorkflowRFNode, WorkflowRFEdge>
           key={layoutVersion}
           style={previewWorkflow && laidOutId !== selected?.id ? { visibility: 'hidden' as const } : undefined}
-          nodes={nodes}
+          nodes={displayNodes}
           edges={dropTargetEdgeId ? edges.map(e => e.id === dropTargetEdgeId ? { ...e, className: (e.className ? e.className + ' ' : '') + 'wf-edge-drop-target' } : e) : edges}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}

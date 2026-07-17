@@ -4,6 +4,7 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { DataRowSummaryTable } from './DataRowSummaryTable';
 import type { RequestResult } from '../../../shared/types';
+import { makeResult as _makeResult } from '../../../test-utils/factories';
 
 function makeResult(
   id: string,
@@ -11,24 +12,20 @@ function makeResult(
   dataRowId?: string,
   overrides: Partial<Omit<RequestResult, 'id'>> = {},
 ): RequestResult {
-  return {
+  return _makeResult({
     id,
     scenarioId: 'sc1',
     scenarioName: 'Test',
     url: '/api',
-    method: 'GET',
-    requestHeaders: [],
     httpStatus: passed ? 200 : 500,
-    responseTimeMs: 100,
     passed,
-    failureDetails: [],
+    requestHeaders: [],
     responseHeaders: [],
     requestTimestamp: Date.now(),
     dataRowId,
     dataRowLabel: dataRowId ? `Row ${dataRowId}` : undefined,
-    validationMode: 'none',
     ...overrides,
-  } as RequestResult;
+  }) as RequestResult;
 }
 
 describe('DataRowSummaryTable', () => {
@@ -237,5 +234,29 @@ describe('DataRowSummaryTable', () => {
     ];
     render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
     expect(screen.getByText('CONSUME')).toBeInTheDocument();
+  });
+
+  it('shows CONNECT in status column for WS connect results', () => {
+    const results = [
+      makeResult('r1', false, 'row-1', { transportType: 'wsConnect', httpStatus: undefined as unknown as number }),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText('CONNECT')).toBeInTheDocument();
+  });
+
+  it('shows SEND in status column for WS send results', () => {
+    const results = [
+      makeResult('r1', false, 'row-1', { transportType: 'wsSend', httpStatus: undefined as unknown as number }),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText('SEND')).toBeInTheDocument();
+  });
+
+  it('shows RECEIVE in status column for WS receive results', () => {
+    const results = [
+      makeResult('r1', false, 'row-1', { transportType: 'wsReceive', httpStatus: undefined as unknown as number }),
+    ];
+    render(<DataRowSummaryTable results={results} scenarioName="Test" onResultClick={vi.fn()} />);
+    expect(screen.getByText('RECEIVE')).toBeInTheDocument();
   });
 });

@@ -1,0 +1,40 @@
+# Mutual TLS (mTLS) WebSocket echo server for Phase 3 of the Local TLS Demo.
+#
+# Requires client certificates signed by the RedfireForge Dev Root CA:
+#   1. ./generate-cert.sh          # one-time: creates CA + server certs
+#   2. ./generate-client-cert.sh   # one-time: creates client.crt + client.key
+#   3. docker compose -f docker/websocket/docker-compose.mtls.yml up -d
+#   4. Connect WebSocket Studio to wss://localhost:8768
+#      - Requires BOTH CA cert + client cert/key in the TLS panel
+#      - Connections without a valid client cert are rejected by nginx (SSL: 400)
+#
+# Stack:
+#   ws-echo-mtls  (jmalloc/echo-server, plain ws on :8080) ← internal only
+#   ws-mtls-proxy (nginx with mTLS)                         ← wss://localhost:8768
+#   Health probe:  http://localhost:8769 (echo-server HTTP, host-mapped for gate)
+services:
+  ws-echo-mtls:
+    image: jmalloc/echo-server
+    container_name: ws-echo-mtls
+    ports:
+      # Health probe port for PrerequisiteGate (plain HTTP echo, no TLS)
+      - "8769:8080"
+    networks:
+      - ws-mtls-net
+
+  ws-mtls-proxy:
+    image: nginx:alpine
+    container_name: ws-mtls-proxy
+    depends_on:
+      - ws-echo-mtls
+    ports:
+      - "8768:8768"
+    volumes:
+      - ./nginx-mtls.conf:/etc/nginx/nginx.conf:ro
+      - ./certs:/etc/nginx/certs:ro
+    networks:
+      - ws-mtls-net
+
+networks:
+  ws-mtls-net:
+    driver: bridge

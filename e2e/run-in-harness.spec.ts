@@ -40,7 +40,8 @@ test.describe('Run in Harness Navigation', () => {
     await seedWorkflows(page, [workflow]);
     
     // Navigate to workflow designer
-    await page.goto('/?tab=workflow');
+    await page.goto('/?tab=workflow', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
     await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 25000 });
     
     // Wait for workflow to be loaded - the sidebar item should be visible
@@ -66,7 +67,8 @@ test.describe('Run in Harness Navigation', () => {
     await seedWorkflows(page, [workflowA, workflowB]);
     
     // Navigate to workflow designer
-    await page.goto('/?tab=workflow');
+    await page.goto('/?tab=workflow', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
     await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 25000 });
     
     // Select Workflow A in the designer toolbar dropdown
@@ -80,7 +82,8 @@ test.describe('Run in Harness Navigation', () => {
     await expect(page.getByTestId('workflow-select')).toContainText('Workflow A');
     
     // Go back to Designer
-    await page.goto('/?tab=workflow');
+    await page.goto('/?tab=workflow', { waitUntil: 'domcontentloaded' });
+    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
     await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 25000 });
     
     // Select Workflow B

@@ -1,19 +1,20 @@
 import { describe, it, expect } from 'vitest';
-import { migrateScenarioKinds, inferScenarioKind } from './scenarioMigration';
+import {
+  migrateScenarioKinds,
+  inferScenarioKind,
+  normalizeScenarioActionType,
+  normalizeGroupActionTypes,
+} from './scenarioMigration';
 import type { FeatureGroup, TestScenario, Scenario, DataSource, ScenarioKind } from '../types';
+import { makeScenario as _makeScenario } from '../../test-utils/factories';
 
 function makeTest(id: string, overrides: Partial<Scenario> = {}): Scenario {
-  return {
+  return _makeScenario({
     id,
     name: `Test ${id}`,
     url: '/api',
-    method: 'GET',
-    headers: [],
-    body: '',
-    auth: { type: 'none' },
-    validation: { mode: 'none' },
     ...overrides,
-  } as Scenario;
+  }) as Scenario;
 }
 
 const sampleDataSource: DataSource = {
@@ -209,5 +210,50 @@ describe('migrateScenarioKinds', () => {
 
     expect(stdSc.tests).toEqual([t1, t3, t5]);
     expect(paramSc.tests).toEqual([t2, t4]);
+  });
+});
+
+describe('normalizeScenarioActionType', () => {
+  it('adds actionType=http when missing', () => {
+    const scenario = makeTest('t1');
+    const normalized = normalizeScenarioActionType(scenario);
+    expect(normalized).not.toBe(scenario);
+    expect(normalized.actionType).toBe('http');
+  });
+
+  it('returns original reference when actionType already exists', () => {
+    const scenario = makeTest('t1', { actionType: 'graphql' });
+    const normalized = normalizeScenarioActionType(scenario);
+    expect(normalized).toBe(scenario);
+  });
+});
+
+describe('normalizeGroupActionTypes', () => {
+  it('returns same groups reference when no changes are required', () => {
+    const groups = [makeFg('fg1', [makeScenario('sc1', [makeTest('t1', { actionType: 'http' })], 'standard')])];
+    const normalized = normalizeGroupActionTypes(groups);
+    expect(normalized).toBe(groups);
+  });
+
+  it('normalizes missing actionType fields across tests', () => {
+    const groups = [makeFg('fg1', [
+      makeScenario('sc1', [
+        makeTest('t1'),
+        makeTest('t2', { actionType: 'graphql' }),
+      ], 'standard'),
+    ])];
+    const normalized = normalizeGroupActionTypes(groups);
+    expect(normalized).not.toBe(groups);
+    expect(normalized[0]).not.toBe(groups[0]);
+    expect(normalized[0].scenarios[0]).not.toBe(groups[0].scenarios[0]);
+    expect(normalized[0].scenarios[0].tests[0].actionType).toBe('http');
+    expect(normalized[0].scenarios[0].tests[1].actionType).toBe('graphql');
+  });
+
+  it('preserves scenario reference when no tests need changes', () => {
+    const scenario = makeScenario('sc1', [makeTest('t1', { actionType: 'http' })], 'standard');
+    const groups = [makeFg('fg1', [scenario])];
+    const normalized = normalizeGroupActionTypes(groups);
+    expect(normalized[0].scenarios[0]).toBe(scenario);
   });
 });

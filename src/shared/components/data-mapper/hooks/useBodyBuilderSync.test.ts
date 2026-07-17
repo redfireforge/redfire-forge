@@ -214,4 +214,23 @@ describe('useBodyBuilderSync', () => {
     // Stale mappings should be cleared (not carried forward)
     expect(result.current.mappings.length).toBe(0);
   });
+
+  it('initializes mappings from parseable initial body', () => {
+    const { result } = renderSyncHook('{"id": "{{userId}}"}');
+    expect(result.current.mappings).toHaveLength(1);
+    expect(result.current.mappings[0]?.sourcePath).toBe('userId');
+  });
+
+  it('uses applyTemplateDiff when external body changes from parseable JSON', () => {
+    let body = '{"id": "{{userId}}"}';
+    const onPush = vi.fn((b: string) => { body = b; });
+    const { result, rerender } = renderHook(() =>
+      useBodyBuilderSync(body, onPush, { sources }),
+    );
+    expect(result.current.mappings).toHaveLength(1);
+
+    body = '{"id": "{{userId}}", "name": "{{name}}"}';
+    rerender();
+    expect(result.current.mappings).toHaveLength(2);
+  });
 });

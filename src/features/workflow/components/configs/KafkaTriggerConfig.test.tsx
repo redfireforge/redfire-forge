@@ -151,7 +151,7 @@ describe('KafkaTriggerConfig', () => {
   // ── Header Filters ────────────────────────────────────────────────────────
   it('adds a new header filter row', () => {
     render(<Host />);
-    fireEvent.click(screen.getByText('+ Add Header Filter'));
+    fireEvent.click(screen.getAllByText('+ Add')[0]);
     expect(screen.getByPlaceholderText('Header name')).toBeTruthy();
   });
 
@@ -215,7 +215,7 @@ describe('KafkaTriggerConfig', () => {
   // ── JSONPath Filters ──────────────────────────────────────────────────────
   it('adds a new JSONPath filter row', () => {
     render(<Host />);
-    fireEvent.click(screen.getByText('+ Add JSONPath Filter'));
+    fireEvent.click(screen.getAllByText('+ Add')[1]);
     expect(screen.getByPlaceholderText('$.payload.type')).toBeTruthy();
   });
 
@@ -280,7 +280,7 @@ describe('KafkaTriggerConfig', () => {
   // ── Extract Variables ─────────────────────────────────────────────────────
   it('adds a new extract variable row', () => {
     render(<Host />);
-    fireEvent.click(screen.getByText('+ Add Variable'));
+    fireEvent.click(screen.getAllByText('+ Add')[2]);
     expect(screen.getByPlaceholderText('Variable name')).toBeTruthy();
     expect(screen.getByPlaceholderText('$.field.path')).toBeTruthy();
   });
@@ -401,17 +401,17 @@ describe('KafkaTriggerConfig', () => {
     render(<Host />);
 
     // Add header filter
-    fireEvent.click(screen.getByText('+ Add Header Filter'));
+    fireEvent.click(screen.getAllByText('+ Add')[0]);
     const headerKey = screen.getByPlaceholderText('Header name');
     fireEvent.change(headerKey, { target: { value: 'X-Env' } });
 
     // Add JSONPath filter
-    fireEvent.click(screen.getByText('+ Add JSONPath Filter'));
+    fireEvent.click(screen.getAllByText('+ Add')[1]);
     const jsonPathInput = screen.getByPlaceholderText('$.payload.type');
     fireEvent.change(jsonPathInput, { target: { value: '$.status' } });
 
     // Add extract variable
-    fireEvent.click(screen.getByText('+ Add Variable'));
+    fireEvent.click(screen.getAllByText('+ Add')[2]);
     const varName = screen.getByPlaceholderText('Variable name');
     fireEvent.change(varName, { target: { value: 'status' } });
 

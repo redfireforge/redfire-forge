@@ -91,7 +91,7 @@ describe('POST /api/kafka/trigger/activate', () => {
   let manager: ReturnType<typeof createMockManager>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     service = createMockService();
     manager = createMockManager();
   });
@@ -253,7 +253,7 @@ describe('POST /api/kafka/trigger/deactivate', () => {
   let manager: ReturnType<typeof createMockManager>;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     manager = createMockManager();
   });
 
@@ -316,7 +316,7 @@ describe('POST /api/kafka/trigger/deactivate', () => {
 // ── GET /api/kafka/trigger/active ─────────────────────────────────────────────
 
 describe('GET /api/kafka/trigger/active', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('returns empty list when no triggers are active', async () => {
     const manager = createMockManager();
@@ -367,7 +367,7 @@ describe('GET /api/kafka/trigger/active', () => {
 // ── Coverage gap: non-Error throws (String(err) branch) ───────────────────────
 
 describe('non-Error thrown values', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => resetAllMocks());
 
   it('activate: returns 500 with String(err) when a non-Error is thrown (line 68)', async () => {
     mockGetWorkflow.mockResolvedValueOnce(createMockWorkflow() as never);

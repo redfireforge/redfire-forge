@@ -4,6 +4,7 @@ import {
   ReactFlow,
   Background,
   MiniMap,
+  Panel,
   MarkerType,
   type Node,
   type Edge,
@@ -27,6 +28,15 @@ import {
 import { heatmapColor } from '../utils/heatmapColor';
 import { saveLayoutToStorage, loadLayoutFromStorage } from '../utils/replayLayoutStorage';
 import { ReplayCanvasControls } from './ReplayCanvasControls';
+import { scheduleReplayFitView } from '../utils/replayCanvasFitView';
+
+type ResultsExplorerBridgeWindow = Window & {
+  __reExplorerFitView?: () => boolean;
+};
+
+function getResultsExplorerBridgeWindow(): ResultsExplorerBridgeWindow {
+  return window as ResultsExplorerBridgeWindow;
+}
 import {
   EdgePercentageOverlay,
   SwimLaneOverlay,
@@ -83,7 +93,7 @@ export default function WorkflowExecutionCanvas({
   selectedNodeId,
   onNodeClick,
   onNodeDoubleClick,
-  showMinimap = true,
+  showMinimap = false,
   onToggleMinimap,
   fitViewTrigger,
   onBottlenecksComputed,
@@ -93,16 +103,34 @@ export default function WorkflowExecutionCanvas({
   onSvgReady,
   onForkJoinDetected,
 }: Props) {
-  const [layoutKey, setLayoutKey] = useState(0);
   const hasFittedAfterMeasure = useRef(false);
   const rfInstanceRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
 
   useEffect(() => {
     if (fitViewTrigger) {
-      setLayoutKey(k => k + 1);
       hasFittedAfterMeasure.current = false;
     }
   }, [fitViewTrigger]);
+
+  const performFitView = useCallback((): boolean => {
+    const ok = scheduleReplayFitView(rfInstanceRef.current);
+    if (ok) hasFittedAfterMeasure.current = true;
+    return ok;
+  }, []);
+
+  useEffect(() => {
+    if (!fitViewTrigger) return;
+    const timer = setTimeout(() => performFitView(), 200);
+    return () => clearTimeout(timer);
+  }, [fitViewTrigger, performFitView]);
+
+  useEffect(() => {
+    const win = getResultsExplorerBridgeWindow();
+    win.__reExplorerFitView = () => performFitView();
+    return () => {
+      delete win.__reExplorerFitView;
+    };
+  }, [performFitView]);
 
   useEffect(() => {
     hasFittedAfterMeasure.current = false;
@@ -404,7 +432,7 @@ export default function WorkflowExecutionCanvas({
         if (fitTimerRef.current) clearTimeout(fitTimerRef.current);
         fitTimerRef.current = setTimeout(() => {
           hasFittedAfterMeasure.current = true;
-          rfInstanceRef.current?.fitView({ padding: 0.05, duration: 200 });
+          scheduleReplayFitView(rfInstanceRef.current);
         }, 150);
       }
     },
@@ -414,6 +442,24 @@ export default function WorkflowExecutionCanvas({
   // Tooltip hover state
   const [hoveredNode, setHoveredNode] = useState<{ id: string; x: number; y: number } | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Re-fit when the diagram pane resizes (console open, detail panel toggle, matrix collapse)
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const observer = new ResizeObserver(() => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        scheduleReplayFitView(rfInstanceRef.current);
+      }, 150);
+    });
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+      if (timer) clearTimeout(timer);
+    };
+  }, [trace.workflowId]);
 
   const handleNodeMouseEnter: NodeMouseHandler = useCallback((_event, node) => {
     const target = _event.currentTarget as HTMLElement;
@@ -534,9 +580,9 @@ export default function WorkflowExecutionCanvas({
   }, [hoveredNode, nodeStates, rfNodes, bottleneckMap]);
 
   return (
-    <div ref={containerRef} style={{ position: 'relative', width: '100%', height: '100%' }}>
+    <div ref={containerRef} className="results-explorer-canvas-wrap">
       <ReactFlow
-        key={`${trace.workflowId}-${layoutKey}`}
+        key={trace.workflowId}
         className="results-explorer-flow"
         nodes={displayNodes}
         edges={edges}
@@ -547,9 +593,10 @@ export default function WorkflowExecutionCanvas({
         onNodeMouseLeave={handleNodeMouseLeave}
         onPaneClick={handlePaneClick}
         nodeTypes={nodeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.05 }}
-        onInit={(instance) => { rfInstanceRef.current = instance; }}
+        onInit={(instance) => {
+          rfInstanceRef.current = instance;
+          scheduleReplayFitView(instance);
+        }}
         nodesDraggable={true}
         nodesConnectable={false}
         elementsSelectable={true}
@@ -573,12 +620,14 @@ export default function WorkflowExecutionCanvas({
             zoomable
           />
         )}
+        <Panel position="bottom-center" className="results-explorer-canvas-controls">
+          <ReplayCanvasControls
+            showMinimap={showMinimap}
+            onToggleMinimap={onToggleMinimap}
+            onSaveLayout={handleSaveLayout}
+          />
+        </Panel>
       </ReactFlow>
-      <ReplayCanvasControls 
-        showMinimap={showMinimap} 
-        onToggleMinimap={onToggleMinimap}
-        onSaveLayout={handleSaveLayout}
-      />
       {hoveredNode && tooltipData && (
         <div
           className="replay-node-tooltip"

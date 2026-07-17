@@ -16,7 +16,7 @@ import {
 
 describe('runWebhookLoadTest', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    resetAllMocks();
     mockFetch.mockReset();
   });
 
@@ -684,7 +684,7 @@ describe('runWebhookLoadTest', () => {
       mockFetch.mockImplementation(
         () =>
           new Promise(resolve => {
-            setTimeout(() => resolve(mockSuccessResponse()), 40);
+            setTimeout(() => resolve(mockSuccessResponse()), 25);
           }),
       );
       const config = createConfig({
@@ -703,7 +703,7 @@ describe('runWebhookLoadTest', () => {
       mockFetch.mockImplementation(
         () =>
           new Promise(resolve => {
-            setTimeout(() => resolve(mockSuccessResponse()), 35);
+            setTimeout(() => resolve(mockSuccessResponse()), 20);
           }),
       );
       const config = createConfig({
@@ -713,7 +713,7 @@ describe('runWebhookLoadTest', () => {
       const finished = runWebhookLoadTest(config, { onProgress });
 
       await vi.waitFor(() => expect(onProgress).toHaveBeenCalled(), {
-        timeout: 8000,
+        timeout: 5000,
         interval: 25,
       });
 
@@ -730,7 +730,7 @@ describe('runWebhookLoadTest', () => {
       mockFetch.mockImplementation(
         () =>
           new Promise(resolve => {
-            setTimeout(() => resolve(mockSuccessResponse()), 35);
+            setTimeout(() => resolve(mockSuccessResponse()), 20);
           }),
       );
       const config = createConfig({
@@ -740,7 +740,7 @@ describe('runWebhookLoadTest', () => {
       const finished = runWebhookLoadTest(config, { onProgress });
 
       await vi.waitFor(() => expect(onProgress).toHaveBeenCalled(), {
-        timeout: 8000,
+        timeout: 5000,
         interval: 25,
       });
 
