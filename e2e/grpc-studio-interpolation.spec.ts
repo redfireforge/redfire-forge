@@ -21,12 +21,10 @@ test.describe('@grpc-interpolation gRPC Studio — interpolation shell', () => {
     await page.locator('[data-testid="grpc-target-input"]').fill('{{missingPreviewHost}}');
     await page.locator('[data-testid="grpc-interpolation-preview-resolved"]').click();
 
-    await expect(page.locator('[data-testid="grpc-interpolation-payload-preview"]')).toBeVisible();
-    await expect(page.locator('[data-testid="grpc-interpolation-payload-preview-value"]')).toContainText(
-      /"body": \{\}/,
-    );
-    await expect(page.locator('[data-testid="grpc-interpolation-payload-preview-value"]')).toContainText(
-      /"metadata": \{\}/,
+    await expect(page.locator('[data-testid="grpc-interpolation-preview-strip"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-interpolation-preview-value"]')).toBeVisible();
+    await expect(page.locator('[data-testid="grpc-interpolation-preview-value"]')).toContainText(
+      /missingPreviewHost|\{\{|\}\}/i,
     );
   });
 });

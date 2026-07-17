@@ -164,6 +164,7 @@ export function useGrpcCallPanel({
   const lastAuthTabFocusRequestRef = useRef<number | null>(null);
   const lastHybridWarningCountRef = useRef<number | null>(null);
   const lastSendBlockHintRef = useRef<string | null>(null);
+  const lastHybridPatchedBodyRef = useRef<string | null>(null);
 
   useEffect(() => {
     persistComposerTab(tab.id, composerTab);
@@ -182,14 +183,20 @@ export function useGrpcCallPanel({
 
   useEffect(() => {
     if (!hybridEditorEnabled) {
-      setHybridState(createGrpcProtoHybridInitialState(tab.id, tab.body));
-      setHybridCloseConfirmVisible(false);
+      setHybridState((previous) => {
+        const tabChanged = previous.tabId !== tab.id;
+        const requestChanged = stringifyUnknown(previous.requestDraft) !== stringifyUnknown(tab.body);
+        if (!tabChanged && !requestChanged && !previous.modal.isOpen) {
+          return previous;
+        }
+        return createGrpcProtoHybridInitialState(tab.id, tab.body);
+      });
+      setHybridCloseConfirmVisible((visible) => (visible ? false : visible));
       return;
     }
     setHybridState((previous) => {
       const tabChanged = previous.tabId !== tab.id;
-      const requestChanged = stringifyUnknown(previous.requestDraft) !== stringifyUnknown(tab.body);
-      if (!tabChanged && (!requestChanged || previous.modal.isOpen)) {
+      if (!tabChanged) {
         return previous;
       }
       return createGrpcProtoHybridInitialState(tab.id, tab.body);
@@ -204,7 +211,16 @@ export function useGrpcCallPanel({
 
   useEffect(() => {
     if (!hybridEditorEnabled) return;
-    if (stringifyUnknown(hybridState.requestDraft) === stringifyUnknown(tab.body)) return;
+    const draftSig = stringifyUnknown(hybridState.requestDraft);
+    const tabSig = stringifyUnknown(tab.body);
+    if (draftSig === tabSig) {
+      lastHybridPatchedBodyRef.current = null;
+      return;
+    }
+    if (lastHybridPatchedBodyRef.current === draftSig) {
+      return;
+    }
+    lastHybridPatchedBodyRef.current = draftSig;
     onPatch({
       body: hybridState.requestDraft as Record<string, unknown>,
       requestMode: 'json',
