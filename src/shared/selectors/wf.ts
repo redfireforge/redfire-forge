@@ -43,9 +43,9 @@ export const WF = {
   PAL_GRPC_UNARY:      '.wf-palette-block-grpcUnary',
   PAL_GRPC_ASSERT:     '.wf-palette-block-grpcAssert',
   PAL_GRPC_SERVER_STREAM: '.wf-palette-block-grpcServerStream',
-  // gRPC workflow canvas nodes
-  NODE_GRPC_UNARY:     '.react-flow__node-grpcUnary',
-  NODE_GRPC_ASSERT:    '.react-flow__node-grpcAssert',
+  // gRPC workflow canvas nodes (testid on node body — reliable for demo verify/spotlight)
+  NODE_GRPC_UNARY:     '[data-testid="grpc-canvas-unary-node"]',
+  NODE_GRPC_ASSERT:    '[data-testid="grpc-canvas-assert-node"]',
   // gRPC workflow config modal fields
   GRPC_UNARY_CONFIG:       '[data-testid="grpc-unary-config"]',
   GRPC_UNARY_CFG_TARGET:   '[data-testid="grpc-unary-config-target"]',

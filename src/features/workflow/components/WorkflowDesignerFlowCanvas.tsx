@@ -138,7 +138,8 @@ export function WorkflowDesignerFlowCanvas({
     } else {
       setTimeout(() => {
         requestAnimationFrame(() => {
-          fitView({ padding: 0.1, maxZoom: 1, duration: 200 });
+          // Keep nodes readable — tall graphs used to zoom out below ~0.5×.
+          fitView({ padding: 0.08, maxZoom: 1.25, minZoom: 0.85, duration: 200 });
         });
       }, 120);
     }
@@ -148,7 +149,7 @@ export function WorkflowDesignerFlowCanvas({
   // without relying on synthetic mouse events (which ReactFlow ignores).
   //   window.__wfDeselectAll()         — clears .selected on every node
   //   window.__wfOpenNodeConfig(id)    — opens config modal for a node by id
-  //   window.__wfFitView()             — fits the canvas viewport to current nodes
+  //   window.__wfFitView(opts?)        — fits viewport; demo defaults leave room for LiveDemo panel
   useEffect(() => {
     (window as unknown as Record<string, unknown>).__wfDeselectAll = () => {
       _setNodes((ns) => ns.map((n) => (n.selected ? { ...n, selected: false } : n)));
@@ -170,8 +171,21 @@ export function WorkflowDesignerFlowCanvas({
   }, [_setNodes, openNodeConfig]);
 
   useEffect(() => {
-    (window as unknown as Record<string, unknown>).__wfFitView = () => {
-      fitView({ padding: 0.2, maxZoom: 1.5, duration: 300, includeHiddenNodes: true });
+    type DemoFitOpts = {
+      padding?: number | { top?: number; right?: number; bottom?: number; left?: number };
+      maxZoom?: number;
+      minZoom?: number;
+      duration?: number;
+    };
+    (window as unknown as Record<string, unknown>).__wfFitView = (opts?: DemoFitOpts) => {
+      // Default asymmetric padding: LiveDemo card covers the right side of the canvas.
+      fitView({
+        padding: opts?.padding ?? { top: 0.08, right: 0.34, bottom: 0.1, left: 0.06 },
+        maxZoom: opts?.maxZoom ?? 1.35,
+        minZoom: opts?.minZoom ?? 0.9,
+        duration: opts?.duration ?? 250,
+        includeHiddenNodes: true,
+      });
       return true;
     };
     return () => {

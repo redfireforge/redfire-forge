@@ -218,6 +218,10 @@ describe('kafka-headers-filters lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith('[data-testid="con-row-0"]');
     expect(ctx.waitFor).toHaveBeenCalledWith(expect.stringContaining('detail-pane'), expect.any(Number));
   });
+  it('has Docker badge tag', () => {
+    expect(kafkaHeadersFiltersLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 
 // ─── K6: kafka-topic-explorer ───────────────────────────────────

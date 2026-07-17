@@ -39,18 +39,52 @@ export const WF_CONFIG_DEMO_TIMING = {
   afterSubFormOpen: 1300,
 } as const;
 
+/**
+ * Faster config pacing for dense multi-field tours (gRPC workflow lessons).
+ * Still readable at 1× — cuts stacked modalOpen + afterFill + sectionBreak dead air.
+ */
+export const WF_CONFIG_DEMO_TIMING_BRISK = {
+  modalOpen: 900,
+  panelReady: 500,
+  tabSwitch: 800,
+  afterClick: 450,
+  afterFill: 400,
+  afterSelect: 400,
+  beforeSave: 550,
+  afterSave: 550,
+  modalClose: 450,
+  sectionBreak: 500,
+  afterSubFormOpen: 700,
+} as const satisfies Record<keyof typeof WF_CONFIG_DEMO_TIMING, number>;
+
 export type WfConfigDemoTimingKey = keyof typeof WF_CONFIG_DEMO_TIMING;
+export type WfConfigDemoTimingTable = Record<WfConfigDemoTimingKey, number>;
+
+let activeWfConfigTiming: WfConfigDemoTimingTable = WF_CONFIG_DEMO_TIMING;
+
+/** Scope config-modal pacing for a lesson (call from setup; reset in cleanup). */
+export function setWfConfigDemoTiming(timing: WfConfigDemoTimingTable | null): void {
+  activeWfConfigTiming = timing ?? WF_CONFIG_DEMO_TIMING;
+}
+
+export function getWfConfigDemoTiming(): WfConfigDemoTimingTable {
+  return activeWfConfigTiming;
+}
 
 export async function pauseWfConfigDemo(
   ctx: DemoActionContext,
   key: WfConfigDemoTimingKey,
 ): Promise<void> {
-  await ctx.delay(WF_CONFIG_DEMO_TIMING[key]);
+  await ctx.delay(activeWfConfigTiming[key]);
 }
 
 /** Extra pause between logical sections inside one config modal (tab groups, field clusters). */
 export async function pauseWfConfigSection(ctx: DemoActionContext): Promise<void> {
   await pauseWfConfigDemo(ctx, 'sectionBreak');
+}
+
+function wfConfigScrollSettleMs(): number {
+  return activeWfConfigTiming.panelReady <= WF_CONFIG_DEMO_TIMING_BRISK.panelReady ? 250 : 450;
 }
 
 function wfNodeIdFromCanvasTestId(testIdSelector: string): string | null {
@@ -91,6 +125,68 @@ export async function openWfNodeConfigModal(
   await pauseWfConfigDemo(ctx, 'modalOpen');
 }
 
+/** Scroll viewport inside an open workflow config modal (`.wf-config-modal-scroll`). */
+function findWfConfigScrollViewport(from?: HTMLElement | null): HTMLElement | null {
+  if (from) {
+    const nested = from.closest<HTMLElement>('.wf-config-modal-scroll')
+      ?? from.closest<HTMLElement>('.wf-modal-scroll-viewport');
+    if (nested) return nested;
+  }
+  return document.querySelector<HTMLElement>('.wf-config-modal-scroll')
+    ?? document.querySelector<HTMLElement>('.wf-modal-scroll-viewport');
+}
+
+/**
+ * Reset the config modal body to the top so Schema / connection fields are visible
+ * when the panel first opens (prevents starting mid-scroll with the header clipped).
+ */
+export async function scrollWfConfigModalToTop(ctx: DemoActionContext): Promise<void> {
+  const scrollParent = findWfConfigScrollViewport();
+  if (!scrollParent) return;
+  scrollParent.scrollTo({ top: 0, behavior: 'smooth' });
+  await ctx.delay(wfConfigScrollSettleMs());
+}
+
+/**
+ * Scroll a field/section into the config modal viewport before interacting so
+ * viewers can follow each configuration beat (top fields + lower body/metadata).
+ *
+ * Scrolls the field row (label + control) when present, and pins it just below
+ * the modal chrome with a top pad — center-aligning tall textareas was clipping
+ * labels and the top of the spotlight ring under the header.
+ */
+export async function scrollWfConfigFieldIntoView(
+  ctx: DemoActionContext,
+  selectorOrEl: string | HTMLElement,
+): Promise<void> {
+  const el = typeof selectorOrEl === 'string'
+    ? document.querySelector<HTMLElement>(selectorOrEl)
+    : selectorOrEl;
+  if (!el) return;
+
+  // Prefer the labeled row so "Request Body" / "Save As" headings stay visible.
+  const scrollTarget = el.closest<HTMLElement>('.wf-config-field, .wf-config-field--row') ?? el;
+  const scrollParent = findWfConfigScrollViewport(scrollTarget);
+  if (scrollParent && scrollParent.contains(scrollTarget)) {
+    const elRect = scrollTarget.getBoundingClientRect();
+    const parentRect = scrollParent.getBoundingClientRect();
+    const topPad = 72;
+    const offsetTop = elRect.top - parentRect.top + scrollParent.scrollTop;
+    // Start-align with pad — keeps the field top + spotlight ring fully in view.
+    const targetScroll = offsetTop - topPad;
+    const maxScroll = Math.max(0, scrollParent.scrollHeight - scrollParent.clientHeight);
+    scrollParent.scrollTo({
+      top: Math.max(0, Math.min(targetScroll, maxScroll)),
+      behavior: 'smooth',
+    });
+    await ctx.delay(wfConfigScrollSettleMs());
+    return;
+  }
+
+  scrollTarget.scrollIntoView?.({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+  await ctx.delay(wfConfigScrollSettleMs());
+}
+
 /** Wait for a config panel root, then pause so fields render before interaction. */
 export async function waitForWfConfigPanel(
   ctx: DemoActionContext,
@@ -99,6 +195,8 @@ export async function waitForWfConfigPanel(
 ): Promise<void> {
   await ctx.waitFor(panelSelector, timeout);
   await pauseWfConfigDemo(ctx, 'panelReady');
+  // Always start at the top — prior steps / layout can leave the body mid-scroll.
+  await scrollWfConfigModalToTop(ctx);
 }
 
 export async function fillWfConfigField(
@@ -107,6 +205,7 @@ export async function fillWfConfigField(
   value: string,
 ): Promise<void> {
   await ctx.waitFor(selector, 8000);
+  await scrollWfConfigFieldIntoView(ctx, selector);
   await ctx.fill(selector, value);
   await pauseWfConfigDemo(ctx, 'afterFill');
 }
@@ -117,6 +216,7 @@ export async function selectWfConfigOption(
   value: string,
 ): Promise<void> {
   await ctx.waitFor(selector, 8000);
+  await scrollWfConfigFieldIntoView(ctx, selector);
   await ctx.selectOption(selector, value);
   await pauseWfConfigDemo(ctx, 'afterSelect');
 }
@@ -128,8 +228,10 @@ export async function clickWfConfigAddRow(
   rowSelector: string,
   timeout = 8000,
 ): Promise<void> {
+  await scrollWfConfigFieldIntoView(ctx, addBtnSelector);
   await ctx.click(addBtnSelector);
   await ctx.waitFor(rowSelector, timeout);
+  await scrollWfConfigFieldIntoView(ctx, rowSelector);
   await pauseWfConfigDemo(ctx, 'afterSubFormOpen');
 }
 
@@ -137,6 +239,7 @@ export async function clickWfConfigControl(
   ctx: DemoActionContext,
   selector: string,
 ): Promise<void> {
+  await scrollWfConfigFieldIntoView(ctx, selector);
   await ctx.click(selector);
   await pauseWfConfigDemo(ctx, 'afterClick');
 }

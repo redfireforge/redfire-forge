@@ -200,8 +200,8 @@ describe('DemoSpotlight', () => {
     vi.useRealTimers();
   });
 
-  it('cleans up animation frame on unmount', () => {
-    const cancelSpy = vi.spyOn(window, 'cancelAnimationFrame');
+  it('cleans up spotlight tracking interval on unmount', () => {
+    const clearIntervalSpy = vi.spyOn(window, 'clearInterval');
     const target = document.createElement('div');
     target.className = 'cleanup-test';
     document.body.appendChild(target);
@@ -209,8 +209,7 @@ describe('DemoSpotlight', () => {
     const { unmount } = render(<DemoSpotlight selector=".cleanup-test" active={true} />);
     unmount();
 
-    // clearTimeout + cancelAnimationFrame should be called on cleanup
-    expect(cancelSpy).toHaveBeenCalled();
+    expect(clearIntervalSpy).toHaveBeenCalled();
     document.body.removeChild(target);
   });
 

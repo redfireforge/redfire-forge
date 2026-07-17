@@ -28,6 +28,7 @@ import {
   navigateToMockServerPanelQuiet,
   scrollAndSpotlight,
   scrollBelowMockAuthoringTabs,
+  scrollMockControlIntoView,
   selectMockAuthoringTab,
   setMockInputValue,
   setSelectValue,
@@ -473,7 +474,7 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
     title: 'Dry-Run Tester: Test a Rule',
     pauseAfter: true,
     description:
-      'Each rule has an inline **dry-run tester** — click the **🧪** button on a rule card ' +
+      'Each rule has an inline **dry-run tester** — click the **edit / test** control on a rule card ' +
       'to open it. Fill in a mock evaluation context (service, method, metadata, request body) ' +
       'and click **Run test** to see whether this rule would match.\n\n' +
       'The tester evaluates the rule\'s predicate **in isolation** — it doesn\'t start the ' +
@@ -488,86 +489,99 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
         await ensureDemoRulesQuiet(ctx);
       }
       await selectMockAuthoringTab(ctx, 'builder');
+      // Quietly expand the first (Ping) rule so action can open the tester immediately.
+      const firstRuleEl = document.querySelector<HTMLElement>(GRPC.MOCK_BUILDER_RULE);
+      const preRuleId = firstRuleEl?.getAttribute('data-testid')?.replace('grpc-mock-builder-rule-', '');
+      if (preRuleId && document.querySelector(`[data-testid="grpc-mock-builder-summary-${preRuleId}"]`)) {
+        document
+          .querySelector<HTMLButtonElement>(`[data-testid="grpc-mock-builder-collapse-${preRuleId}"]`)
+          ?.click();
+      }
       await ctx.delay(200);
     },
     action: async (ctx) => {
-      // Find Rule 1 and open its tester.
       const ruleEls = document.querySelectorAll<HTMLElement>(GRPC.MOCK_BUILDER_RULE);
       const firstRuleId = ruleEls[0]?.getAttribute('data-testid')?.replace('grpc-mock-builder-rule-', '');
       if (!firstRuleId) return;
 
-      // Click the Test toggle button to open the tester panel.
+      // Expand quietly if still collapsed — skip chevron tour (preAction usually handled it).
+      const isRule1Collapsed = !!document.querySelector(
+        `[data-testid="grpc-mock-builder-summary-${firstRuleId}"]`,
+      );
+      if (isRule1Collapsed) {
+        document
+          .querySelector<HTMLButtonElement>(`[data-testid="grpc-mock-builder-collapse-${firstRuleId}"]`)
+          ?.click();
+        await ctx.delay(350);
+      }
+
+      const actionsGroup = document.querySelector<HTMLElement>(
+        `[data-testid="grpc-mock-builder-rule-${firstRuleId}"] .grpc-mock-builder-actions-group`,
+      );
+      if (actionsGroup) {
+        // Demo spotlight needs hover-only actions to be visible before click.
+        actionsGroup.style.opacity = '1';
+        await ctx.delay(120);
+      }
+
+      // Open the dry-run tester — short hold so Acting doesn't linger on the pencil.
       const testToggle = document.querySelector<HTMLButtonElement>(
         `[data-testid="grpc-mock-builder-test-toggle-${firstRuleId}"]`,
       );
       if (testToggle) {
         testToggle.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(700);
-        await spotlightElementAndPause(ctx, testToggle, GRPC13_DRY_RUN_SPOTLIGHT_MS);
+        await ctx.delay(280);
+        await spotlightElementAndPause(ctx, testToggle, 800);
         testToggle.click();
-        await ctx.delay(1_000);
+        await ctx.delay(450);
       }
 
-      // Wait for the dry-run modal to render.
+      if (actionsGroup) {
+        actionsGroup.style.opacity = '';
+      }
+
       try {
         await ctx.waitFor('[data-testid="grpc-mock-tester-close"]', 3_000);
       } catch { /* renders synchronously */ }
-      await ctx.delay(600);
 
-      // Spotlight the modal shell so viewers see the full tester surface.
-      const modalEl = document.querySelector<HTMLElement>('.professional-modal');
-      if (modalEl) {
-        modalEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(700);
-        await spotlightElementAndPause(ctx, modalEl, GRPC13_DRY_RUN_PAYOFF_MS);
-      }
-
-      // Spotlight the tester form content.
+      // One digest of the open tester (no separate modal-shell + form tours).
       const testerEl = document.querySelector<HTMLElement>(
         `[data-testid="grpc-mock-builder-tester-${firstRuleId}"]`,
       );
       if (testerEl) {
-        testerEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(700);
         await spotlightElementAndPause(ctx, testerEl, GRPC13_DRY_RUN_SPOTLIGHT_MS);
       }
 
-      // Fill the body with the matching value.
       const bodyInput = `[data-testid="grpc-mock-tester-body-${firstRuleId}"]`;
       await scrollAndSpotlight(ctx, bodyInput, GRPC13_DRY_RUN_SPOTLIGHT_MS);
-      setMockInputValue(bodyInput, JSON.stringify({ message: 'ping' }));
-      await ctx.delay(800);
+      setMockInputValue(bodyInput, JSON.stringify({ message: 'ping' }, null, 2));
+      await ctx.delay(500);
 
-      // Click Run test.
       const evalBtn = `[data-testid="grpc-mock-tester-run-${firstRuleId}"]`;
       await scrollAndSpotlight(ctx, evalBtn, GRPC13_DRY_RUN_SPOTLIGHT_MS);
       const evalBtnEl = document.querySelector<HTMLButtonElement>(evalBtn);
       if (evalBtnEl) {
         evalBtnEl.click();
-        await ctx.delay(1_000);
+        await ctx.delay(600);
       }
 
-      // Spotlight the result.
       const resultEl = document.querySelector<HTMLElement>(
         `[data-testid="grpc-mock-tester-result-${firstRuleId}"]`,
       );
       if (resultEl) {
-        resultEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(700);
+        resultEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        await ctx.delay(300);
         await spotlightElementAndPause(ctx, resultEl, GRPC13_DRY_RUN_PAYOFF_MS);
       }
 
-      // Close the tester modal.
       const closeBtn = document.querySelector<HTMLButtonElement>('[data-testid="grpc-mock-tester-close"]');
       if (closeBtn) {
-        await spotlightElementAndPause(ctx, closeBtn, GRPC13_DRY_RUN_SPOTLIGHT_MS);
         closeBtn.click();
-        await ctx.delay(600);
+        await ctx.delay(450);
       } else if (testToggle) {
         testToggle.click();
-        await ctx.delay(500);
+        await ctx.delay(350);
       }
-      await ctx.delay(900);
     },
     verify: GRPC.MOCK_BUILDER_PANEL,
   },
@@ -597,28 +611,29 @@ export const grpcMockServerBuilderSteps: DemoStep[] = [
       if (existing.length < 2) {
         await ensureDemoRulesQuiet(ctx);
       }
+      // Pin Runtime below the Advanced nav with top pad so the Reading
+      // spotlight ring isn't half-clipped under the feature-tab bar.
+      await scrollMockControlIntoView(ctx, GRPC.MOCK_TAB_RUNTIME, 'start');
     },
     action: async (ctx) => {
-      // Spotlight then click Runtime tab.
+      await scrollMockControlIntoView(ctx, GRPC.MOCK_TAB_RUNTIME, 'start');
       await spotlightAndPause(ctx, GRPC.MOCK_TAB_RUNTIME, 800);
       await ctx.click(GRPC.MOCK_TAB_RUNTIME);
       await ctx.delay(500);
 
-      // Spotlight the latency form fields.
-      await spotlightAndPause(ctx, '[data-testid="grpc-mock-latency-default"]', 900);
+      // Latency fields live below the header — scroll them fully into view first.
+      await scrollAndSpotlight(ctx, '[data-testid="grpc-mock-latency-default"]', 900);
       setMockInputValue('[data-testid="grpc-mock-latency-default"]', String(DEMO_LATENCY_MS));
       await ctx.delay(500);
 
-      await spotlightAndPause(ctx, '[data-testid="grpc-mock-latency-jitter"]', 800);
+      await scrollAndSpotlight(ctx, '[data-testid="grpc-mock-latency-jitter"]', 800);
       setMockInputValue('[data-testid="grpc-mock-latency-jitter"]', String(DEMO_JITTER_MS));
       await ctx.delay(500);
 
       await startMockQuiet(ctx);
       await ctx.delay(400);
 
-      // Spotlight the runtime panel as a whole.
-      await spotlightAndPause(ctx, '[data-testid="grpc-mock-runtime-panel"]', 900);
-      await ctx.delay(600);
+      await scrollAndSpotlight(ctx, '[data-testid="grpc-mock-runtime-panel"]', 900);
     },
     verify: GRPC.MOCK_TAB_RUNTIME,
   },

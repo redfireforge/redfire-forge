@@ -303,6 +303,10 @@ describe('kafka-workflow-produce lesson', () => {
     expect(document.querySelector('.wf-console-panel')).toBeNull();
   });
 
+  it('has Docker badge tag', () => {
+    expect(kafkaWorkflowProduceLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 
 // ─── K10: kafka-workflow-consume-wait ───────────────────────────

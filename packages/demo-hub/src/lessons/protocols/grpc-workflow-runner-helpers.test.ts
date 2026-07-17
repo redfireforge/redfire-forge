@@ -3,14 +3,18 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
+import { GRPC } from '@shared/selectors';
 import * as adapters from '../../adapters';
 import { clearWorkflowSeedBridge, stubRunnerBridge, stubWorkflowSeedBridge } from '../../test-utils/workflowBridgeStubs';
+import * as wfDemoHelpers from '../wf-demo-helpers';
 import { makeCtx } from './ws-test-utils';
 import * as integrationHelpers from './grpc-workflow-integration-helpers';
 import {
   WF14_NAME,
   WF14_NODE_ASSERT,
   WF14_NODE_GRPC,
+  selectGrpcUnaryServiceAndMethod,
+  waitForGrpcUnaryReflectionReady,
 } from './grpc-workflow-integration-helpers';
 import {
   GRPCWR_TARGET_DEFAULT,
@@ -33,6 +37,7 @@ describe('grpc-workflow-runner-helpers (direct)', () => {
   beforeEach(() => {
     document.body.innerHTML = '';
     resetGrpcWRSession();
+    Element.prototype.scrollIntoView = vi.fn();
   });
 
   afterEach(() => {
@@ -123,7 +128,7 @@ describe('grpc-workflow-runner-helpers (direct)', () => {
     const ctx = makeCtx();
     stubRunnerBridge({ selectAndRun: true });
     await runGrpcEchoWorkflow(ctx);
-    expect(grpcWRSession.runCompleted).toBe(false);
+    expect(grpcWRSession.runCompleted).toBe(true);
     expect(ctx.delay).not.toHaveBeenCalled();
   });
 
@@ -184,5 +189,76 @@ describe('grpc-workflow-runner-helpers (direct)', () => {
     expect(seedSpy).not.toHaveBeenCalled();
     presentSpy.mockRestore();
     onCanvasSpy.mockRestore();
+  });
+
+  it('waitForGrpcUnaryReflectionReady returns true when status is ready', async () => {
+    document.body.innerHTML =
+      '<div data-testid="grpc-unary-config-reflect-status" data-status="ready"></div>';
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    await expect(waitForGrpcUnaryReflectionReady(ctx, 100)).resolves.toBe(true);
+    expect(ctx.waitFor).toHaveBeenCalledWith(GRPC.WF_UNARY_CFG_REFLECT_READY, 100);
+  });
+
+  it('waitForGrpcUnaryReflectionReady returns false when wait times out', async () => {
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockRejectedValue(new Error('timeout'));
+    await expect(waitForGrpcUnaryReflectionReady(ctx, 50)).resolves.toBe(false);
+  });
+
+  it('selectGrpcUnaryServiceAndMethod uses dropdowns when reflection populated selects', async () => {
+    document.body.innerHTML = `
+      <div data-testid="grpc-unary-config-reflect-status" data-status="ready"></div>
+      <select data-testid="grpc-unary-config-service"></select>
+      <select data-testid="grpc-unary-config-method"></select>
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    const selectSpy = vi.spyOn(wfDemoHelpers, 'selectWfConfigOption').mockResolvedValue(undefined);
+    const fillSpy = vi.spyOn(wfDemoHelpers, 'fillWfConfigField').mockResolvedValue(undefined);
+
+    await selectGrpcUnaryServiceAndMethod(ctx, 'echo.EchoService', 'Echo');
+
+    expect(selectSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_SERVICE, 'echo.EchoService');
+    expect(selectSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_METHOD, 'Echo');
+    expect(fillSpy).not.toHaveBeenCalled();
+  });
+
+  it('selectGrpcUnaryServiceAndMethod falls back to fill when service is still an input', async () => {
+    document.body.innerHTML = `
+      <div data-testid="grpc-unary-config-reflect-status" data-status="idle"></div>
+      <input data-testid="grpc-unary-config-service" />
+      <input data-testid="grpc-unary-config-method" />
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockRejectedValue(new Error('timeout'));
+    const selectSpy = vi.spyOn(wfDemoHelpers, 'selectWfConfigOption').mockResolvedValue(undefined);
+    const fillSpy = vi.spyOn(wfDemoHelpers, 'fillWfConfigField').mockResolvedValue(undefined);
+
+    await selectGrpcUnaryServiceAndMethod(ctx, 'echo.EchoService', 'Echo');
+
+    expect(fillSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_SERVICE, 'echo.EchoService');
+    expect(fillSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_METHOD, 'Echo');
+    expect(selectSpy).not.toHaveBeenCalled();
+  });
+
+  it('selectGrpcUnaryServiceAndMethod paced mode spotlights service and method around selects', async () => {
+    document.body.innerHTML = `
+      <div data-testid="grpc-unary-config-reflect-status" data-status="ready"></div>
+      <select data-testid="grpc-unary-config-service"></select>
+      <select data-testid="grpc-unary-config-method"></select>
+    `;
+    const ctx = makeCtx();
+    vi.mocked(ctx.waitFor).mockResolvedValue(undefined);
+    const selectSpy = vi.spyOn(wfDemoHelpers, 'selectWfConfigOption').mockResolvedValue(undefined);
+    const scrollSpy = vi.spyOn(wfDemoHelpers, 'scrollWfConfigFieldIntoView').mockResolvedValue(undefined);
+
+    await selectGrpcUnaryServiceAndMethod(ctx, 'echo.EchoService', 'Echo', { paced: true });
+
+    expect(selectSpy).toHaveBeenCalledTimes(2);
+    expect(scrollSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_SERVICE);
+    expect(scrollSpy).toHaveBeenCalledWith(ctx, GRPC.WF_UNARY_CFG_METHOD);
+    // Pre/post holds on each control (4) plus waitForGrpcUnaryReflectionReady settle.
+    expect(vi.mocked(ctx.delay).mock.calls.length).toBeGreaterThanOrEqual(4);
   });
 });

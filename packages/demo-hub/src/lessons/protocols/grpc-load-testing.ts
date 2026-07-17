@@ -229,9 +229,10 @@ const steps: DemoStep[] = [
       await closeGrpcSettingsDrawerQuiet(ctx);
     },
     action: async (ctx) => {
-      // Show the Studio sub-nav so the viewer sees current context.
-      await spotlightAndPause(ctx, GRPC.SUB_NAV_STUDIO, 700);
-      await ctx.delay(300);
+      // Click Studio tab visibly so the viewer sees the starting context.
+      await spotlightAndPause(ctx, GRPC.SUB_NAV_STUDIO, 800);
+      await ctx.click(GRPC.SUB_NAV_STUDIO);
+      await ctx.delay(800);
 
       // Click the Advanced sub-nav tab.
       await spotlightAndPause(ctx, GRPC.SUB_NAV_ADVANCED, 800);
@@ -388,6 +389,14 @@ const steps: DemoStep[] = [
       await ctx.click(GRPC.LOAD_TEST_START);
       await ctx.delay(300);
 
+      // Scroll down immediately so the viewer sees the Results area filling in.
+      const resultsArea = document.querySelector<HTMLElement>(GRPC.LOAD_TEST_STATUS)
+        ?? document.querySelector<HTMLElement>(GRPC.LOAD_TEST_RESULTS);
+      if (resultsArea) {
+        scrollDemoTargetIntoView(resultsArea, { block: 'start' });
+        await ctx.delay(300);
+      }
+
       // Spotlight the status indicator.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_STATUS, 700);
 
@@ -404,6 +413,13 @@ const steps: DemoStep[] = [
       // Wait for results to appear.
       await waitForLoadTestComplete(ctx, 20_000);
       await ctx.delay(400);
+
+      // Scroll the results panel into view so the viewer can see it.
+      const resultsEl = document.querySelector<HTMLElement>(GRPC.LOAD_TEST_RESULTS);
+      if (resultsEl) {
+        scrollDemoTargetIntoView(resultsEl, { block: 'start' });
+        await ctx.delay(400);
+      }
 
       // Spotlight the results panel appearing.
       await spotlightAndPause(ctx, GRPC.LOAD_TEST_RESULTS, 1_000);
@@ -643,36 +659,62 @@ const steps: DemoStep[] = [
       // Ensure at least one finished run exists before we run the second.
       await ensureLoadTestResultsQuiet(ctx);
       await navigateToLoadTestPanelQuiet(ctx);
-      scrollAdvancedContentTop();
+
+      // Scroll the Run-to-Run Compare section (or the Results panel if compare
+      // doesn't exist yet) into view so the reading-phase highlight is visible.
+      const compareEl = document.querySelector<HTMLElement>(GRPC.LOAD_TEST_RUN_COMPARE);
+      const fallbackEl = compareEl ?? document.querySelector<HTMLElement>(GRPC.LOAD_TEST_RESULTS);
+      if (fallbackEl) {
+        scrollDemoTargetIntoView(fallbackEl, { block: 'start' });
+      } else {
+        scrollAdvancedContentTop();
+      }
       await ctx.delay(150);
     },
     action: async (ctx) => {
+      // Scroll to top so the viewer sees the config fields before we change them.
+      scrollAdvancedContentTop();
+      await ctx.delay(200);
+
       // 1. Change concurrency to 10 — viewer sees the value change before the run.
       await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-concurrency"]', 900, 'start');
       setNumberInputValue('[data-testid="grpc-load-test-concurrency"]', 10);
       await ctx.delay(500);
 
-      // 2. Start and wait — no status spotlight mid-run; local test completes in under a second.
+      // 2. Start and wait — scroll down immediately so viewer sees progress.
       await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_START, 900, 'start');
       await ctx.click(GRPC.LOAD_TEST_START);
+      await ctx.delay(300);
+
+      // Scroll down so results/compare area is visible while running.
+      const statusEl = document.querySelector<HTMLElement>(GRPC.LOAD_TEST_STATUS);
+      if (statusEl) {
+        scrollDemoTargetIntoView(statusEl, { block: 'start' });
+        await ctx.delay(300);
+      }
+
       await waitForLoadTestComplete(ctx, 20_000);
       await ctx.delay(600);
 
-      // 3. The compare card appears below results — spotlight the whole section.
+      // 3. The compare card appears below results — scroll it into view and spotlight.
+      try { await ctx.waitFor(GRPC.LOAD_TEST_RUN_COMPARE, 5_000); } catch { /* may already exist */ }
       await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE, 1_300, 'start');
-      await ctx.delay(300);
+      await ctx.delay(400);
 
       // 4. Spotlight the baseline selector, then pick the previous run so delta content renders.
-      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE_SELECT, 900, 'center');
+      try { await ctx.waitFor(GRPC.LOAD_TEST_RUN_COMPARE_SELECT, 3_000); } catch { /* */ }
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE_SELECT, 900, 'start');
       selectCompareBaseline();
-      await ctx.delay(700); // React re-renders delta grid/table after state update.
+      await ctx.delay(1000); // React re-renders delta grid/table after state update.
 
-      // 5. Delta cards — colour-coded Throughput Δ, p50 Δ, p95 Δ, Error rate Δ.
-      await spotlightLoadTestAndPause(ctx, '.grpc-load-test-compare-grid', 1_200, 'center');
-      await ctx.delay(300);
+      // 5. Delta cards — scroll to start so full cards are visible above demo panel.
+      try { await ctx.waitFor('.grpc-load-test-compare-grid', 3_000); } catch { /* */ }
+      await spotlightLoadTestAndPause(ctx, '.grpc-load-test-compare-grid', 1_400, 'start');
+      await ctx.delay(400);
 
-      // 6. Metric detail table — side-by-side baseline / current / delta for every percentile.
-      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE_DETAILS, 1_000, 'center');
+      // 6. Metric detail table — scroll to start so table header + rows are visible.
+      try { await ctx.waitFor(GRPC.LOAD_TEST_RUN_COMPARE_DETAILS, 3_000); } catch { /* */ }
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_RUN_COMPARE_DETAILS, 1_200, 'start');
     },
     verify: GRPC.LOAD_TEST_RUN_COMPARE,
   },
@@ -699,29 +741,38 @@ const steps: DemoStep[] = [
         (p) => p.name.localeCompare(LOAD_TEST_PROFILE_NAME, undefined, { sensitivity: 'base' }) === 0,
       );
       if (existing) await deleteGrpcLoadTestProfile(existing.id);
-      scrollAdvancedContentTop();
+
+      // Scroll the Saved profiles / Save button into view so the reading-phase
+      // highlight is visible — the profiles row sits below the config fields.
+      const profileEl = document.querySelector<HTMLElement>(GRPC.LOAD_TEST_PROFILE_SAVE)
+        ?? document.querySelector<HTMLElement>('[data-testid="grpc-load-test-profiles"]');
+      if (profileEl) {
+        scrollDemoTargetIntoView(profileEl, { block: 'center' });
+      } else {
+        scrollAdvancedContentTop();
+      }
       await ctx.delay(150);
     },
     action: async (ctx) => {
       // Spotlight the Saved profiles row.
-      await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-profiles"]', 800, 'end');
+      await spotlightLoadTestAndPause(ctx, '[data-testid="grpc-load-test-profiles"]', 800, 'start');
 
       // Fill the Profile name field.
-      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_NAME, 800, 'end');
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_NAME, 800, 'start');
       await ctx.fill(GRPC.LOAD_TEST_PROFILE_NAME, LOAD_TEST_PROFILE_NAME);
       await ctx.delay(500);
 
       // Click Save profile.
-      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_SAVE, 900, 'end');
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_SAVE, 900, 'start');
       await ctx.click(GRPC.LOAD_TEST_PROFILE_SAVE);
       await ctx.delay(700);
 
       // Show the Profile dropdown with the saved entry.
-      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_SELECT, 1_000, 'end');
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_SELECT, 1_000, 'start');
       await ctx.delay(300);
 
       // Spotlight Load profile button.
-      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_LOAD, 800, 'end');
+      await spotlightLoadTestAndPause(ctx, GRPC.LOAD_TEST_PROFILE_LOAD, 800, 'start');
     },
     verify: GRPC.LOAD_TEST_PROFILE_SELECT,
   },
@@ -758,8 +809,26 @@ const steps: DemoStep[] = [
       await ctx.delay(150);
     },
     action: async (ctx) => {
-      // preAction already silently switched to ServerStream and landed on Load testing.
-      // The panel header already reads "Call type: Server stream" — no navigation needed.
+      // 1. Visibly click "Studio" tab so the viewer sees the service tree.
+      await spotlightAndPause(ctx, GRPC.SUB_NAV_STUDIO, 800);
+      await ctx.click(GRPC.SUB_NAV_STUDIO);
+      await ctx.delay(800);
+
+      // 2. Click ServerStream method in the service tree with highlight.
+      const serverStreamSel = GRPC.METHOD('echo.EchoService', 'ServerStream');
+      try { await ctx.waitFor(serverStreamSel, 3_000); } catch { /* */ }
+      await spotlightAndPause(ctx, serverStreamSel, 900);
+      await ctx.click(serverStreamSel);
+      await ctx.delay(800);
+
+      // 3. Navigate to Advanced > Load testing visibly.
+      await spotlightAndPause(ctx, GRPC.SUB_NAV_ADVANCED, 800);
+      await ctx.click(GRPC.SUB_NAV_ADVANCED);
+      await ctx.delay(600);
+      await spotlightAndPause(ctx, GRPC.ADVANCED_TAB('load_test'), 700);
+      await ctx.click(GRPC.ADVANCED_TAB('load_test'));
+      await ctx.delay(500);
+
       scrollAdvancedContentTop();
       await ctx.delay(200);
 

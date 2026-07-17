@@ -154,6 +154,10 @@ describe('kafka-secure lesson', () => {
     await step.action!(ctx);
     expect(clickSpy).toHaveBeenCalled();
   });
+  it('has Docker badge tag', () => {
+    expect(kafkaSecureLesson.tag).toBe('🐳 Docker');
+  });
+
 });
 
 // ─── K12: kafka-tls ─────────────────────────────────────────────
