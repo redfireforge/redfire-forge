@@ -667,7 +667,7 @@ describe('RequestEditor interaction branches', () => {
 
   it('shows request auth inspector when the Auth tab is activated', () => {
     const onUpdateRequest = vi.fn();
-    const { container } = render(
+    render(
       <RequestEditor
         {...defaultProps}
         onUpdateRequest={onUpdateRequest}
@@ -676,9 +676,8 @@ describe('RequestEditor interaction branches', () => {
     );
     const requestTabs = document.querySelector('.req-pane-left .req-tabs');
     fireEvent.click(within(requestTabs as HTMLElement).getByRole('button', { name: /^Auth\b/ }));
-    const authSelect = container.querySelector('.req-auth-editor .req-select') as HTMLSelectElement;
-    expect(authSelect).toBeTruthy();
-    fireEvent.change(authSelect, { target: { value: 'none' } });
+    fireEvent.click(screen.getByRole('button', { name: /Bearer Token/i }));
+    fireEvent.click(screen.getByRole('option', { name: /No Auth/i }));
     expect(onUpdateRequest).toHaveBeenCalledWith({ auth: { type: 'none' } });
   });
 

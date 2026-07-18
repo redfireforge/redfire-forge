@@ -36,6 +36,30 @@ describe('CatalogOverview', () => {
     expect(onVersionHistory).toHaveBeenCalled();
   });
 
+  it('shows the spec format badge next to the version pill when present', () => {
+    render(
+      <CatalogOverview
+        entry={makeEntry({ versions: [makeVersion({ specFormat: 'OpenAPI 3.0.3' })] })}
+        onReimport={vi.fn()}
+        onVersionHistory={vi.fn()}
+        onExportSpec={vi.fn()}
+      />,
+    );
+    expect(screen.getByText('OpenAPI 3.0.3')).toBeInTheDocument();
+  });
+
+  it('omits the spec format badge when not present', () => {
+    render(
+      <CatalogOverview
+        entry={makeEntry({ versions: [makeVersion({ specFormat: undefined })] })}
+        onReimport={vi.fn()}
+        onVersionHistory={vi.fn()}
+        onExportSpec={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/Swagger|OpenAPI/)).not.toBeInTheDocument();
+  });
+
   it('renders servers, method stats, deprecated note, tags and security schemes', () => {
     const entry = makeEntry({
       description: undefined,

@@ -5,15 +5,15 @@ export type HubView = 'domains' | 'lessons' | 'concept' | 'live';
 export type SpeedMultiplier = 0.5 | 1 | 1.5 | 2;
 
 /** Minimum ms to display a step (floor, even for very short descriptions) */
-export const MIN_STEP_DISPLAY = 4500;
+export const MIN_STEP_DISPLAY = 6500;
 
 /** Words-per-minute for reading time calculation.
- *  160 wpm = comfortable pace for reading while also looking at UI changes. */
-const READING_WPM = 160;
+ *  130 wpm = slower pacing so users can read and track UI highlights. */
+const READING_WPM = 130;
 
 /** Extra ms added when a step has a highlight — gives user time to
  *  glance between the narration panel and the spotlighted element. */
-const LOOK_AT_TARGET_MS = 1500;
+const LOOK_AT_TARGET_MS = 2200;
 
 /** Calculate how long a user needs to read a step's narration (ms). */
 export function calcReadingTime(step: DemoStep): number {

@@ -1,0 +1,70 @@
+import { useEffect, useRef } from 'react';
+import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
+import { parseOpenApiSpec } from '../../features/catalog/utils/openApiParser';
+
+/**
+ * Demo-player bridge for the API Catalog. Mounts imperative `window.__demo*`
+ * functions so the Catalog convert lesson (CAT / P4-E) can seed a Swagger 2.0
+ * entry, select it, and clean it up without driving the multi-step Import modal.
+ *
+ * Mirrors the workflow/gql/harness bridge pattern (App shell hook → `window`
+ * function → typed adapter surface consumed by lessons). Only mounted when the
+ * Demo Hub build flag is on; a no-op otherwise.
+ */
+export function useDemoCatalogBridge(catalog: UseCatalogReturn, enabled: boolean): void {
+  // Keep the latest catalog state/actions reachable from the imperative bridge
+  // functions without re-mounting them on every entry change.
+  const ref = useRef(catalog);
+  ref.current = catalog;
+
+  useEffect(() => {
+    if (!enabled) return;
+    const win = window as unknown as Record<string, unknown>;
+
+    /** Seed a Swagger 2.0 spec as a Catalog entry (idempotent by display name). */
+    const seedSwagger2 = async (name: string, rawSpec: string): Promise<string | null> => {
+      const existing = ref.current.entries.find(e => e.name.toLowerCase() === name.toLowerCase());
+      if (existing) {
+        ref.current.selectEntry(existing.id);
+        return existing.id;
+      }
+      try {
+        const parsed = await parseOpenApiSpec(rawSpec);
+        const entry = { ...parsed.entry, name };
+        await ref.current.addEntry(entry, parsed.rawSpec);
+        return entry.id;
+      } catch {
+        return null;
+      }
+    };
+
+    const deleteByName = (name: string): void => {
+      const target = ref.current.entries.find(e => e.name.toLowerCase() === name.toLowerCase());
+      if (target) void ref.current.removeEntry(target.id);
+    };
+
+    const selectByName = (name: string): boolean => {
+      const target = ref.current.entries.find(e => e.name.toLowerCase() === name.toLowerCase());
+      if (!target) return false;
+      ref.current.selectEntry(target.id);
+      return true;
+    };
+
+    win.__demoSeedCatalogSwagger2 = seedSwagger2;
+    win.__demoDeleteCatalogByName = deleteByName;
+    win.__demoSelectCatalogByName = selectByName;
+
+    return () => {
+      delete win.__demoSeedCatalogSwagger2;
+      delete win.__demoDeleteCatalogByName;
+      delete win.__demoSelectCatalogByName;
+    };
+  }, [enabled]);
+
+  // Publish a readiness flag so lessons can wait for the catalog to hydrate.
+  useEffect(() => {
+    if (!enabled) return;
+    (window as unknown as Record<string, unknown>).__demoCatalogLoaded = catalog.loaded;
+    return () => { delete (window as unknown as Record<string, unknown>).__demoCatalogLoaded; };
+  }, [enabled, catalog.loaded]);
+}

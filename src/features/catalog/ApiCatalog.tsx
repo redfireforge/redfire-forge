@@ -8,6 +8,7 @@ import CatalogWelcome from './components/CatalogWelcome';
 import CatalogEndpointBrowser from './components/CatalogEndpointBrowser';
 import CatalogOverview from './components/CatalogOverview';
 import CatalogSendToRequestsModal from './components/CatalogSendToRequestsModal';
+import { loadCatalogView, saveCatalogView } from '../../shared/utils/storageCatalog';
 
 interface Props {
   catalog: UseCatalogReturn;
@@ -15,6 +16,7 @@ interface Props {
   onReimport?: (entryId: string) => void;
   onVersionHistory?: (entryId: string) => void;
   onExportSpec?: (entryId: string) => void;
+  onConvertToOpenApi?: (entryId: string) => void;
   onSendToRequests?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>) => void;
   onExportSingleEndpoint?: (entry: NonNullable<UseCatalogReturn['selectedEntry']>, endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
   onEditEntry?: (entryId: string) => void;
@@ -30,7 +32,7 @@ interface Props {
 
 type View = 'overview' | 'endpoints' | 'export';
 
-export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onSendToRequests, onExportSingleEndpoint, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices, collections, onNavigateToRequest, savedEpValues, onExportConfirm, onSendEndpointToHarness }: Props) {
+export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onConvertToOpenApi, onSendToRequests, onExportSingleEndpoint, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices, collections, onNavigateToRequest, savedEpValues, onExportConfirm, onSendEndpointToHarness }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
   const [view, setView] = useState<View>('endpoints');
   const prevEntryId = useRef<string | undefined>(undefined);
@@ -158,6 +160,31 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     [catalog.selectedEntry, collections],
   );
 
+  const isViewAllowed = useCallback((candidate: string): candidate is View => {
+    if (candidate === 'overview' || candidate === 'endpoints') return true;
+    if (candidate === 'export') return !!(onSendToRequests || onExportConfirm);
+    return false;
+  }, [onSendToRequests, onExportConfirm]);
+
+  useEffect(() => {
+    const entryId = catalog.selectedEntry?.id;
+    if (!entryId) return;
+    let cancelled = false;
+    void loadCatalogView(entryId).then((saved) => {
+      if (cancelled || !saved || !isViewAllowed(saved)) return;
+      setView(saved);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [catalog.selectedEntry?.id, isViewAllowed]);
+
+  useEffect(() => {
+    const entryId = catalog.selectedEntry?.id;
+    if (!entryId || !isViewAllowed(view)) return;
+    void saveCatalogView(entryId, view);
+  }, [catalog.selectedEntry?.id, view, isViewAllowed]);
+
   if (!catalog.loaded) {
     return <div className="cat-loading">Loading API Catalog...</div>;
   }
@@ -171,14 +198,14 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
   return (
     <div className="cat-main-panel">
       <div className="cat-view-tabs">
-        <button className={`cat-view-tab ${view === 'overview' ? 'active' : ''}`} onClick={() => setView('overview')}>
+        <button className={`cat-view-tab ${view === 'overview' ? 'active' : ''}`} data-testid="catalog-view-overview" onClick={() => setView('overview')}>
           Overview
         </button>
-        <button className={`cat-view-tab ${view === 'endpoints' ? 'active' : ''}`} onClick={() => setView('endpoints')}>
+        <button className={`cat-view-tab ${view === 'endpoints' ? 'active' : ''}`} data-testid="catalog-view-endpoints" onClick={() => setView('endpoints')}>
           Endpoints
         </button>
         {(onSendToRequests || onExportConfirm) && (
-          <button className={`cat-view-tab ${view === 'export' ? 'active' : ''}`} onClick={() => setView('export')}>
+          <button className={`cat-view-tab ${view === 'export' ? 'active' : ''}`} data-testid="catalog-view-export" onClick={() => setView('export')}>
             Export to Requests
           </button>
         )}
@@ -190,6 +217,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           onReimport={() => onReimport?.(entry.id)}
           onVersionHistory={() => onVersionHistory?.(entry.id)}
           onExportSpec={() => onExportSpec?.(entry.id)}
+          onConvertToOpenApi={onConvertToOpenApi ? () => onConvertToOpenApi(entry.id) : undefined}
         />
       </div>
       <div className="cat-view-pane" style={{ display: view === 'endpoints' ? 'flex' : 'none' }}>

@@ -168,7 +168,7 @@ export default function SendToHarnessModal({
 
   return (
     <div className="send-harness-overlay">
-      <div className="send-harness-modal" onClick={e => e.stopPropagation()}>
+      <div className="send-harness-modal" data-testid="req-send-harness-modal" onClick={e => e.stopPropagation()}>
         {/* Header */}
         <div className="send-harness-header">
           <div className="send-harness-title-row">
@@ -287,14 +287,15 @@ export default function SendToHarnessModal({
 
         {/* Footer */}
         <div className="send-harness-footer">
-          <button className="send-harness-cancel-btn" onClick={onClose}>Cancel</button>
+          <button className="send-harness-cancel-btn" data-testid="send-harness-cancel" onClick={onClose}>Cancel</button>
           <div className="send-harness-footer-right">
             {step === 'options' && (
-              <button className="send-harness-back-btn" onClick={() => setStep('target')}>Back</button>
+              <button className="send-harness-back-btn" data-testid="send-harness-back" onClick={() => setStep('target')}>Back</button>
             )}
             {step === 'target' && (
               <button
                 className="send-harness-next-btn"
+                data-testid="send-harness-next"
                 disabled={!canProceed}
                 onClick={() => setStep('options')}
               >
@@ -302,7 +303,7 @@ export default function SendToHarnessModal({
               </button>
             )}
             {step === 'options' && (
-              <button className="send-harness-confirm-btn" onClick={handleConfirm}>
+              <button className="send-harness-confirm-btn" data-testid="send-harness-confirm" onClick={handleConfirm}>
                 Send to Harness
               </button>
             )}

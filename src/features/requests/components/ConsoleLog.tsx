@@ -14,7 +14,7 @@ export default function ConsoleLog({ lines }: { lines: ConsoleLine[] }) {
   }
 
   return (
-    <div className="req-console-log">
+    <div className="req-console-log" data-testid="req-console-log">
       {lines.map((line, i) => {
         const cls = prefixClass[line.prefix] ?? 'req-cl-plain';
         const pfx = line.prefix ? `${line.prefix} ` : '';

@@ -9,3 +9,4 @@ export * from './kafkaStudioAdapter';
 export * from './websocketStudioAdapter';
 export * from './grpcStudioAdapter';
 export * from './grpcLessonRuntimeAdapter';
+export * from './catalogConvertAdapter';

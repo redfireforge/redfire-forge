@@ -8,6 +8,7 @@ import {
   clearGrpcDescriptorStore,
   deleteGrpcDescriptor,
   getGrpcDescriptor,
+  hasGrpcDescriptor,
   setGrpcDescriptor,
 } from './descriptorStore.js';
 
@@ -46,5 +47,15 @@ describe('descriptorStore', () => {
     encodeProtoMessage(FIXTURE_DESCRIPTOR, 'echo.EchoRequest', { message: 'warm' });
     expect(deleteGrpcDescriptor(FIXTURE_DESCRIPTOR.key)).toBe(true);
     expect(getGrpcDescriptor(FIXTURE_DESCRIPTOR_KEY)).toBeUndefined();
+  });
+
+  it('reports presence by descriptor key', () => {
+    expect(hasGrpcDescriptor(FIXTURE_DESCRIPTOR_KEY)).toBe(false);
+    setGrpcDescriptor(FIXTURE_DESCRIPTOR);
+    expect(hasGrpcDescriptor(FIXTURE_DESCRIPTOR_KEY)).toBe(true);
+  });
+
+  it('returns false when deleting an unknown descriptor key', () => {
+    expect(deleteGrpcDescriptor('missing-descriptor')).toBe(false);
   });
 });

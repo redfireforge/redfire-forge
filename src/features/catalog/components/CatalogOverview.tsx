@@ -7,6 +7,7 @@ interface Props {
   onReimport: () => void;
   onVersionHistory: () => void;
   onExportSpec: () => void;
+  onConvertToOpenApi?: () => void;
 }
 
 import { SWAGGER_METHOD_COLORS as METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
@@ -23,7 +24,7 @@ function collectAllEndpoints(entry: CatalogEntry): CatalogEndpoint[] {
   return eps;
 }
 
-export default function CatalogOverview({ entry, onReimport, onVersionHistory, onExportSpec }: Props) {
+export default function CatalogOverview({ entry, onReimport, onVersionHistory, onExportSpec, onConvertToOpenApi }: Props) {
   const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
   const allEps = collectAllEndpoints(entry);
   const totalEndpoints = countEndpoints(entry);
@@ -36,10 +37,15 @@ export default function CatalogOverview({ entry, onReimport, onVersionHistory, o
   const deprecatedCount = allEps.filter(ep => ep.deprecated).length;
 
   return (
-    <div className="cat-overview">
+    <div className="cat-overview" data-testid="catalog-overview">
       <div className="cat-ov-header">
         <h2 className="cat-ov-title">{entry.name}</h2>
         {currentVersion && <span className="cat-ov-version">v{currentVersion.version}</span>}
+        {currentVersion?.specFormat && (
+          <span className="cat-ov-spec-format" data-testid="catalog-overview-spec-format" title="API specification schema format">
+            {currentVersion.specFormat}
+          </span>
+        )}
       </div>
 
       {entry.description && <p className="cat-ov-desc">{entry.description}</p>}
@@ -65,6 +71,9 @@ export default function CatalogOverview({ entry, onReimport, onVersionHistory, o
       <div className="cat-ov-actions">
         <button className="cat-btn cat-btn-outline" onClick={onReimport}>Re-import</button>
         <button className="cat-btn cat-btn-outline" onClick={onExportSpec}>Export Spec</button>
+        {onConvertToOpenApi && (
+          <button className="cat-btn cat-btn-outline" data-testid="catalog-convert-btn" onClick={onConvertToOpenApi}>Convert / Upgrade OpenAPI</button>
+        )}
         <button className="cat-btn cat-btn-outline" onClick={onVersionHistory}>Version History</button>
       </div>
 
