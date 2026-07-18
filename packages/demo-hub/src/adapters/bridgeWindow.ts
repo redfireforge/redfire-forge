@@ -74,6 +74,15 @@ export type DemoBridgeWindow = Window &
     };
     __wfQuickTest?: () => void;
     __wfCloseConfigModal?: () => void;
+    __demoSeedHarnessTarget?: () => { envId: string; svcId: string } | null;
+    /** Seed a Swagger 2.0 spec as a Catalog entry (idempotent by name). Returns the entry id. */
+    __demoSeedCatalogSwagger2?: (name: string, rawSpec: string) => Promise<string | null>;
+    /** Remove a Catalog entry by display name (demo cleanup). */
+    __demoDeleteCatalogByName?: (name: string) => void;
+    /** Select a Catalog entry by display name. Returns false when absent. */
+    __demoSelectCatalogByName?: (name: string) => boolean;
+    /** True once the Catalog store has hydrated from storage. */
+    __demoCatalogLoaded?: boolean;
   };
 
 export function getDemoBridgeWindow(): DemoBridgeWindow {

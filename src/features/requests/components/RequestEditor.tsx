@@ -13,6 +13,7 @@ import { useResponseCache } from '../hooks/useResponseCache';
 import type { ConsoleLine } from '../hooks/useResponseCache';
 import { buildDisplayUrl, resolveFullSendUrl } from '../utils/requestUrlResolver';
 import { formatBytes, toErrorMessage } from '../../../shared/utils/helpers';
+import { HttpMethodSelect } from './HttpMethodSelect';
 import { saveFile } from '../../../shared/utils/fileSaver';
 import type { UrlResolverContext } from '../utils/requestUrlResolver';
 import { BodyEditor } from './BodyEditor';
@@ -45,10 +46,6 @@ import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNa
 type EditorTab = 'params' | 'headers' | 'body' | 'auth' | 'history';
 type InputMode = 'builder' | 'curlImport' | 'curlExport';
 type ResponseTab = 'preview' | 'headers' | 'console';
-
-import { METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
-
-const METHODS: HttpMethod[] = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'];
 
 interface Props {
   collection: RequestCollection;
@@ -478,7 +475,7 @@ export default function RequestEditor({
 
   return (
     <>
-    <div className="req-editor">
+    <div className="req-editor" data-testid="req-editor">
       {/* ── Request name ── */}
       <div className="req-req-name-bar">
         {reqNameEditing ? (
@@ -504,7 +501,7 @@ export default function RequestEditor({
           )}
           <SpecVersionSwitcher request={request} onUpdateRequest={onUpdateRequest} onCompare={() => setShowVersionCompare(true)} />
           {onSendToHarness && (
-            <button className="req-send-harness-btn" onClick={onSendToHarness} title="Send to Harness as a test">
+            <button className="req-send-harness-btn" data-testid="req-send-harness-btn" onClick={onSendToHarness} title="Send to Harness as a test">
               Send to Harness
             </button>
           )}
@@ -513,26 +510,26 @@ export default function RequestEditor({
 
       {/* ── URL bar + status ── */}
       <div className="req-url-row">
-        <select className="req-method-select" value={request.method}
-          onChange={(e) => handleMethodChange(e.target.value as HttpMethod)}
-          style={{ color: METHOD_COLORS[request.method] }}>
-          {METHODS.map((m) => <option key={m} value={m} style={{ color: METHOD_COLORS[m] }}>{m}</option>)}
-        </select>
+        <HttpMethodSelect
+          value={request.method}
+          onChange={(m) => handleMethodChange(m as HttpMethod)}
+        />
         <input className="req-url-input"
           value={relativePath}
           onChange={(e) => handleUrlChange(e.target.value)}
-          placeholder={collection.mode === 'multi-env' ? '/v1/endpoint' : 'https://api.example.com/v1/endpoint'} />
-        <button className="req-send-btn" onClick={handleSend} disabled={sending}>
+          placeholder={collection.mode === 'multi-env' ? '/v1/endpoint' : 'https://api.example.com/v1/endpoint'}
+          data-testid="req-url-input" />
+        <button className="req-send-btn" onClick={handleSend} disabled={sending} data-testid="req-send-btn">
           {sending ? '...' : 'Send'}
         </button>
         <div className="req-status-row">
           {response && !sending && (
             <>
-              <span className={`req-status-pill ${response.status >= 200 && response.status < 300 ? 'success' : response.status >= 400 ? 'error' : 'warn'}`}>
+              <span className={`req-status-pill ${response.status >= 200 && response.status < 300 ? 'success' : response.status >= 400 ? 'error' : 'warn'}`} data-testid="req-status-pill">
                 {response.status} {response.statusText}
               </span>
-              <span className="req-stat">{responseTime} ms</span>
-              <span className="req-stat">{formatBytes(response.body?.length ?? 0)}</span>
+              <span className="req-stat" data-testid="req-response-time">{responseTime} ms</span>
+              <span className="req-stat" data-testid="req-response-size">{formatBytes(response.body?.length ?? 0)}</span>
             </>
           )}
           <ResponseHistoryDropdown
@@ -559,14 +556,15 @@ export default function RequestEditor({
         const hasBaseUrls = Object.keys(resolvedColBaseUrls).length > 0
           || Object.keys(parentSubCollection?.baseUrls ?? {}).length > 0;
         return (
-        <div className="req-env-bar">
+        <div className="req-env-bar" data-testid="req-env-bar">
           <span className="req-env-bar-label">Env:</span>
           {parentSubCollection ? (
-            <span className="req-env-pill active pinned">{envName ?? parentSubCollection.name}</span>
+            <span className="req-env-pill active pinned" data-testid="req-env-pill">{envName ?? parentSubCollection.name}</span>
           ) : (
             <div className="req-env-pills">
               {environments.filter(env => !linkedSvc || resolvedColBaseUrls[env.id]).map((env) => (
                 <button key={env.id} className={`req-env-pill ${selectedEnvId === env.id ? 'active' : ''}`}
+                  data-testid="req-env-pill" data-env-name={env.name}
                   onClick={() => onEnvChange(env.id)}>{env.name}</button>
               ))}
             </div>
@@ -574,7 +572,7 @@ export default function RequestEditor({
           {displayUrl !== relativePath && (
             <>
               <span className="req-resolved-url-arrow">&#8594;</span>
-              <span className="req-resolved-url-full" title={displayUrl}>{displayUrl}</span>
+              <span className="req-resolved-url-full" data-testid="req-resolved-url" title={displayUrl}>{displayUrl}</span>
             </>
           )}
           {!hasBaseUrls && (
@@ -591,27 +589,27 @@ export default function RequestEditor({
         <div className="req-pane-left">
           {/* Tabs row with action menu */}
           <div className="req-tabs">
-            <button className={`req-tab ${activeTab === 'params' ? 'active' : ''}`} onClick={() => { setActiveTab('params'); setInputMode('builder'); }}>
+            <button className={`req-tab ${activeTab === 'params' ? 'active' : ''}`} data-testid="req-tab-params" onClick={() => { setActiveTab('params'); setInputMode('builder'); }}>
               Params {paramCount > 0 && <span className="tab-badge">{paramCount}</span>}
             </button>
-            <button className={`req-tab ${activeTab === 'body' ? 'active' : ''}`} onClick={() => { setActiveTab('body'); setInputMode('builder'); }}>Body</button>
-            <button className={`req-tab ${activeTab === 'auth' ? 'active' : ''}`} onClick={() => { setActiveTab('auth'); setInputMode('builder'); }}>
+            <button className={`req-tab ${activeTab === 'body' ? 'active' : ''}`} data-testid="req-tab-body" onClick={() => { setActiveTab('body'); setInputMode('builder'); }}>Body</button>
+            <button className={`req-tab ${activeTab === 'auth' ? 'active' : ''}`} data-testid="req-tab-auth" onClick={() => { setActiveTab('auth'); setInputMode('builder'); }}>
               Auth {request.auth.type !== 'none' && request.auth.type !== 'inherit' && <span className="req-tab-dot" />}
             </button>
-            <button className={`req-tab ${activeTab === 'headers' ? 'active' : ''}`} onClick={() => { setActiveTab('headers'); setInputMode('builder'); }}>
+            <button className={`req-tab ${activeTab === 'headers' ? 'active' : ''}`} data-testid="req-tab-headers" onClick={() => { setActiveTab('headers'); setInputMode('builder'); }}>
               Headers {headerCount > 0 && <span className="tab-badge">{headerCount}</span>}
             </button>
-            <button className={`req-tab ${activeTab === 'history' ? 'active' : ''}`} onClick={() => { setActiveTab('history'); setInputMode('builder'); }}>
+            <button className={`req-tab ${activeTab === 'history' ? 'active' : ''}`} data-testid="req-tab-definition-history" onClick={() => { setActiveTab('history'); setInputMode('builder'); }}>
               History {(request.definitionVersions?.length ?? 0) > 0 && <span className="tab-badge">{request.definitionVersions!.length}</span>}
             </button>
 
             <div className="req-action-menu-wrapper">
-              <button className="req-action-menu-btn" onClick={() => setShowActionMenu(!showActionMenu)}
+              <button className="req-action-menu-btn" data-testid="req-action-menu-btn" onClick={() => setShowActionMenu(!showActionMenu)}
                 title="Import / Export">&#9662;</button>
               {showActionMenu && (
-                <div className="req-action-dropdown" onClick={() => setShowActionMenu(false)}>
-                  <button onClick={() => setInputMode('curlImport')}>cURL Import</button>
-                  <button onClick={() => { setInputMode('curlExport'); void triggerCurlGeneration(); }}>cURL Export</button>
+                <div className="req-action-dropdown" data-testid="req-action-dropdown" onClick={() => setShowActionMenu(false)}>
+                  <button data-testid="req-curl-import-btn" onClick={() => setInputMode('curlImport')}>cURL Import</button>
+                  <button data-testid="req-curl-export-btn" onClick={() => { setInputMode('curlExport'); void triggerCurlGeneration(); }}>cURL Export</button>
                   <div className="req-dropdown-divider" />
                   <button onClick={handleJsonImport}>Import JSON</button>
                   <button onClick={handleJsonExport}>Export JSON</button>
@@ -624,15 +622,15 @@ export default function RequestEditor({
           <div className="req-tab-content">
             {/* cURL Import panel */}
             {inputMode === 'curlImport' && (
-              <div className="req-curl-panel">
+              <div className="req-curl-panel" data-testid="req-curl-import-panel">
                 <label className="req-curl-label">Paste your cURL command</label>
-                <textarea className="req-curl-textarea" rows={8} autoFocus value={curlText}
+                <textarea className="req-curl-textarea" data-testid="req-curl-textarea" rows={8} autoFocus value={curlText}
                   onChange={(e) => setCurlText(e.target.value)}
                   placeholder={`curl -X POST https://api.example.com \\
   -H 'Authorization: Bearer token' \\
   -d '{"key": "value"}'`} />
                 <div className="req-curl-actions">
-                  <button className="btn btn-primary" disabled={!curlText.trim()} onClick={handleCurlImport}>Import &amp; Apply</button>
+                  <button className="btn btn-primary" data-testid="req-curl-apply-btn" disabled={!curlText.trim()} onClick={handleCurlImport}>Import &amp; Apply</button>
                   <button className="btn btn-ghost" onClick={() => setInputMode('builder')}>Cancel</button>
                 </div>
               </div>
@@ -640,10 +638,10 @@ export default function RequestEditor({
 
             {/* cURL Export panel */}
             {inputMode === 'curlExport' && (
-              <div className="req-curl-panel">
+              <div className="req-curl-panel" data-testid="req-curl-export-panel">
                 <label className="req-curl-label">Generated cURL command</label>
                 {request.url.trim() ? (<>
-                  <textarea className="req-curl-textarea req-curl-export" rows={10} readOnly
+                  <textarea className="req-curl-textarea req-curl-export" data-testid="req-curl-export-textarea" rows={10} readOnly
                     value={curlGenerating ? 'Generating...' : generatedCurl}
                     onClick={(e) => (e.target as HTMLTextAreaElement).select()} />
                   <div className="req-curl-actions">
@@ -713,11 +711,11 @@ export default function RequestEditor({
           ) : (<>
           {/* Response tabs */}
           <div className="req-tabs req-resp-tabs">
-            <button className={`req-tab ${responseTab === 'preview' ? 'active' : ''}`} onClick={() => setResponseTab('preview')}>Preview</button>
-            <button className={`req-tab ${responseTab === 'headers' ? 'active' : ''}`} onClick={() => setResponseTab('headers')}>
+            <button className={`req-tab ${responseTab === 'preview' ? 'active' : ''}`} onClick={() => setResponseTab('preview')} data-testid="req-resp-tab-preview">Preview</button>
+            <button className={`req-tab ${responseTab === 'headers' ? 'active' : ''}`} onClick={() => setResponseTab('headers')} data-testid="req-resp-tab-headers">
               Headers {responseHeaderCount > 0 && <span className="tab-badge">{responseHeaderCount}</span>}
             </button>
-            <button className={`req-tab ${responseTab === 'console' ? 'active' : ''}`} onClick={() => setResponseTab('console')}>
+            <button className={`req-tab ${responseTab === 'console' ? 'active' : ''}`} onClick={() => setResponseTab('console')} data-testid="req-resp-tab-console">
               Console
             </button>
           </div>

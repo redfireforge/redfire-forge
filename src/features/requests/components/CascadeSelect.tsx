@@ -32,7 +32,7 @@ export function CascadeSelect({
   }, [isCreating]);
 
   return (
-    <div className="send-harness-cascade-field">
+    <div className="send-harness-cascade-field" data-testid={`send-harness-cascade-${label.toLowerCase().replace(/\s+/g, '-')}`}>
       <label className="send-harness-cascade-label">{label}</label>
       {settingsHint && options.length === 0 ? (
         <div className="send-harness-settings-hint">

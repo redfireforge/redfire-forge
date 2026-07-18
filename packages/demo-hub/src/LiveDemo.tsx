@@ -147,8 +147,8 @@ export default function LiveDemo({
 
   return (
     <>
-      {/* Spotlight ring — hidden while steps overview is open */}
-      {targetFound && step.highlight && stepPhase === 'reading' && !overviewOpen && (
+      {/* Reading-phase ring only — hide during action so in-action spotlights never overlap */}
+      {targetFound && step.highlight && (stepPhase === 'reading' || stepPhase === 'done') && !overviewOpen && (
         <DemoSpotlight
           key={`${stepIndex}:${step.highlight}`}
           trackKey={`${stepIndex}:${step.highlight}`}

@@ -73,12 +73,13 @@ export function ResponseHistoryDropdown({ history, currentEntryId, onRestore, on
         onClick={() => setOpen(o => !o)}
         disabled={history.length === 0}
         title="Response history"
+        data-testid="req-resp-history-trigger"
       >
         {triggerLabel} {history.length > 0 && <span className="resp-history-arrow">{open ? '▲' : '▼'}</span>}
       </button>
 
       {open && (
-        <div className="resp-history-dropdown">
+        <div className="resp-history-dropdown" data-testid="req-resp-history-dropdown">
           <div className="resp-history-actions">
             {currentEntryId && (
               <button
@@ -115,6 +116,7 @@ export function ResponseHistoryDropdown({ history, currentEntryId, onRestore, on
                       key={entry.id}
                       type="button"
                       className={`resp-history-entry ${isActive ? 'active' : ''}`}
+                      data-testid="req-resp-history-entry"
                       onClick={() => handleRestore(entry.id)}
                     >
                       <span className={`resp-history-status ${statusCls}`}>

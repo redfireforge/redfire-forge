@@ -1,9 +1,10 @@
 /**
  * Phase 5G — coverage gaps for grpcGrpcurlExport.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
 import { createGrpcSavedRequestFromSnapshot } from '../../../shared/grpc/grpcSavedRequest';
+import * as grpcAuthPolicy from '../../../shared/grpc/grpcAuthPolicy';
 import {
   buildGrpcurlInvokeCommandFromSavedRequest,
   buildGrpcurlInvokeCommandFromSnapshot,
@@ -123,6 +124,21 @@ describe('grpcGrpcurlExport coverage gaps', () => {
     }).some((m) => m.includes('caCertPath'))).toBe(true);
   });
 
+  it('compareGrpcGrpcurlSemanticParity detects protoset path drift', () => {
+    const parsed = parseGrpcurlCommand(
+      'grpcurl -protoset baseline.protoset localhost:50051 echo.EchoService/Echo',
+    );
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(compareGrpcGrpcurlSemanticParity(parsed, {
+      targetAddress: 'localhost:50051',
+      serviceFullName: 'echo.EchoService',
+      methodName: 'Echo',
+      tlsMode: 'tls',
+      descriptorFlags: { protosetPath: 'other.protoset', protoPaths: undefined, importPaths: undefined },
+    }).some((m) => m.includes('protosetPath'))).toBe(true);
+  });
+
   it('buildGrpcurlInvokeCommandFromSavedRequest uses template target when saved target missing', () => {
     const saved = createGrpcSavedRequestFromSnapshot(
       {
@@ -143,6 +159,28 @@ describe('grpcGrpcurlExport coverage gaps', () => {
     saved.target = undefined;
     const command = buildGrpcurlInvokeCommandFromSavedRequest(saved);
     expect(command).toContain('{{grpcHost}}');
+  });
+
+  it('buildGrpcurlInvokeCommandFromSavedRequest falls back tlsMode to disabled', () => {
+    const saved = createGrpcSavedRequestFromSnapshot(
+      {
+        tabId: 'tab-1',
+        requestId: 'req-1',
+        capturedAt: '2026-06-29T12:00:00.000Z',
+        callType: 'unary',
+        target: FIXTURE_UNARY_CALL_REQUEST.target,
+        service: FIXTURE_UNARY_CALL_REQUEST.service,
+        method: FIXTURE_UNARY_CALL_REQUEST.method,
+        body: {},
+        metadata: {},
+        timeoutMs: 30_000,
+        descriptorKey: 'desc-1',
+      },
+      { id: 'sr-1', revisionId: 'rev-1', updatedAt: '2026-06-29T12:00:00.000Z' },
+    );
+    saved.tlsMode = undefined;
+    const command = buildGrpcurlInvokeCommandFromSavedRequest(saved);
+    expect(command).toContain('-plaintext');
   });
 
   it('buildGrpcurlInvokeCommandFromSnapshot exports snapshot fields', () => {
@@ -166,6 +204,29 @@ describe('grpcGrpcurlExport coverage gaps', () => {
     expect(command).toContain('-authority grpc.internal');
     expect(command).not.toContain('-plaintext');
     expect(command).toContain('x-trace');
+  });
+
+  it('buildGrpcurlInvokeCommandFromSnapshot falls back to snapshot metadata when auth policy throws', () => {
+    const spy = vi.spyOn(grpcAuthPolicy, 'prepareGrpcExecuteRequestMetadata').mockImplementationOnce(() => {
+      throw new Error('forced prepare failure');
+    });
+    const command = buildGrpcurlInvokeCommandFromSnapshot({
+      tabId: 'tab-1',
+      requestId: 'req-1',
+      capturedAt: '2026-06-29T12:00:00.000Z',
+      callType: 'unary',
+      target: {
+        address: 'localhost:50051',
+      },
+      service: 'echo.EchoService',
+      method: 'Echo',
+      body: { message: 'snap' },
+      metadata: { 'x-trace': '1' },
+      timeoutMs: 30_000,
+      descriptorKey: 'desc-1',
+    });
+    expect(command).toContain('x-trace: 1');
+    spy.mockRestore();
   });
 
   it('buildGrpcurlInvokeCommandFromSnapshot includes real auth metadata and keeps redacted keys as hints', () => {

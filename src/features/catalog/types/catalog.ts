@@ -45,6 +45,8 @@ export interface CatalogVersion {
   specHash: string;
   specSize: number;
   changelog?: string;
+  /** Human-readable spec schema format, e.g. "Swagger 2.0" or "OpenAPI 3.0.3". */
+  specFormat?: string;
 }
 
 // ─── Folders & Endpoints ─────────────────────────────────

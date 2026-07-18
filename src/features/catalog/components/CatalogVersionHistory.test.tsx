@@ -34,8 +34,8 @@ vi.mock('./CatalogVersionDiff', () => ({
 const twoVersionEntry = makeEntry({
   currentVersionId: 'v2',
   versions: [
-    makeVersion({ id: 'v2', version: '2.0.0', specSize: 4096, changelog: 'Added endpoints' }),
-    makeVersion({ id: 'v1', version: '1.0.0', specSize: 2048 }),
+    makeVersion({ id: 'v2', version: '2.0.0', specSize: 4096, changelog: 'Added endpoints', specFormat: 'OpenAPI 3.0.3' }),
+    makeVersion({ id: 'v1', version: '1.0.0', specSize: 2048, specFormat: 'Swagger 2.0' }),
   ],
 });
 
@@ -72,6 +72,12 @@ describe('CatalogVersionHistory', () => {
     expect(screen.getByText('v1.0.0')).toBeInTheDocument();
     expect(screen.getByText('CURRENT')).toBeInTheDocument();
     expect(screen.getByText('Compare Versions')).toBeInTheDocument();
+  });
+
+  it('shows the spec format badge for each version', () => {
+    renderHistory();
+    expect(screen.getByText('OpenAPI 3.0.3')).toBeInTheDocument();
+    expect(screen.getByText('Swagger 2.0')).toBeInTheDocument();
   });
 
   it('triggers reimport and close from the Import button', async () => {
