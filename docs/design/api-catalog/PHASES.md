@@ -21,6 +21,15 @@
 
 > **Goal**: Import an OpenAPI spec and see it listed in the sidebar.
 
+> **⚠️ Historical note (implementation diverged):** the checklist below references
+> `@apidevtools/swagger-parser`, but the shipped parser is a **custom**
+> `src/features/catalog/utils/openApiParser.ts` built on the `yaml` package. It resolves
+> **internal `#/` `$ref` only** (no external/URL/circular, no full validation), normalizes
+> Swagger 2.0 **into the model** (raw spec stored unchanged), and lives under
+> `src/features/catalog/utils/`, not `src/utils/`. `swagger-parser` is a dead dependency.
+> Actual Swagger 2.0 → OpenAPI 3 **file** conversion is a later, separate feature (see
+> [`convert-swagger-to-openapi-plan.md`](../../plan/future/catalog/convert-swagger-to-openapi-plan.md)).
+
 ### Deliverables
 
 - [ ] **New types** (`src/types/catalog.ts`)
@@ -29,11 +38,11 @@
   - `CatalogServer`, `CatalogSecurityScheme`
   - `HostConfig`, `CatalogAuthConfig`, `ResolutionStrategy`
 
-- [ ] **Install dependency**: `@apidevtools/swagger-parser`
+- [ ] ~~**Install dependency**: `@apidevtools/swagger-parser`~~ → **Not used** (custom parser on `yaml`; see note above)
 
-- [ ] **OpenAPI / Swagger parser** (`src/utils/openApiParser.ts`)
+- [ ] **OpenAPI / Swagger parser** (`src/features/catalog/utils/openApiParser.ts`)
   - Accept raw YAML or JSON string (Swagger 2.0, OpenAPI 3.0.x, OpenAPI 3.1.x)
-  - Validate + dereference with swagger-parser (auto-normalizes Swagger 2.0 → 3.x internally)
+  - Parse + resolve internal `#/` `$ref`; normalize Swagger 2.0 → internal model (raw spec kept as-is)
   - Walk `paths` → produce `CatalogEndpoint[]` per method/path
   - Group endpoints by tag → produce `CatalogFolder[]`
   - Extract `servers[]` → `CatalogServer[]`
@@ -45,7 +54,7 @@
   - Convert JSON Schema to a sample JSON object
   - Use `example` or `default` values when present
   - Fall back to type-based stubs (`string` → `"string"`, `integer` → `0`, etc.)
-  - Handle `$ref` (already dereferenced by swagger-parser)
+  - Handle `$ref` (internal `#/` already inlined by the parser)
   - Handle `oneOf`/`anyOf` (pick first option)
   - Handle arrays (single-item stub)
   - Handle nested objects recursively

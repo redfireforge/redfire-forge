@@ -188,8 +188,10 @@ export interface CatalogAuthConfig {
 ## 2. OpenAPI / Swagger → Catalog Mapping
 
 Both Swagger 2.0 and OpenAPI 3.x specs are normalized into the same `CatalogEntry`
-structure. The parser uses `@apidevtools/swagger-parser` which handles Swagger 2.0
-internally, so the mapping below describes the unified output.
+structure by the custom parser (`src/features/catalog/utils/openApiParser.ts`, built on
+the `yaml` package). The mapping below describes that unified output. Normalization
+happens **in the model only** — the raw spec text is stored unchanged, and only internal
+`#/` `$ref` are resolved (no external-file / URL / circular resolution).
 
 ### OpenAPI 3.x Field Mapping
 
@@ -223,7 +225,7 @@ was imported.
 | `host` + `basePath` + `schemes` | `servers[].url` | Compose: `{scheme}://{host}{basePath}` for each scheme |
 | `info.title` | `name` | Direct mapping (same as OpenAPI 3.x) |
 | `info.version` | `versions[0].version` | Direct mapping |
-| `definitions` | (dereferenced into schemas) | swagger-parser resolves `$ref` to `#/definitions/*` |
+| `definitions` | (inlined into schemas) | parser resolves internal `#/definitions/*` `$ref` |
 | `paths./foo.get` | Endpoint with `method: 'GET'` | Same as OpenAPI 3.x |
 | `parameters[].in: 'body'` | `endpoint.requestBody` | Body param → `requestBody` with `application/json` content type |
 | `parameters[].in: 'formData'` | `endpoint.requestBody` | Form params → `requestBody` with `form-urlencoded` or `form-data` |

@@ -59,8 +59,15 @@ function setup(overrides: {
 }
 
 const nameInput = () => screen.getByPlaceholderText('e.g. veh-metadata, weather-api');
-const authTypeSelect = () =>
-  screen.getAllByRole('combobox').find((el) => el.querySelector('option[value="none"]')) as HTMLSelectElement;
+
+// WfDarkSelect helpers: open the trigger by testId, then click the option by label.
+const darkTrigger = (testId: string) =>
+  screen.getByTestId(testId).querySelector('.wf-dark-select__trigger') as HTMLButtonElement;
+function pickDark(testId: string, optionLabel: string | RegExp) {
+  fireEvent.click(darkTrigger(testId));
+  fireEvent.click(screen.getByRole('option', { name: optionLabel }));
+}
+const setAuthType = (label: string | RegExp) => pickDark('req-auth-type-select', label);
 
 beforeEach(() => {
   toastShow.mockReset();
@@ -121,8 +128,7 @@ describe('RequestCollectionModal', () => {
   it('links a microservice and inherits env base URLs (read-only)', () => {
     const { onSave } = setup({ appMicroservices: linkedMicroservices });
     fireEvent.change(nameInput(), { target: { value: 'Linked' } });
-    const svcSelect = screen.getByDisplayValue('None (manual config)');
-    fireEvent.change(svcSelect, { target: { value: 'm1' } });
+    pickDark('req-svc-select', 'Payments');
     expect(screen.getByText(/inherited from Environments/)).toBeInTheDocument();
     expect(screen.getByDisplayValue('https://pay-dev')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
@@ -137,8 +143,7 @@ describe('RequestCollectionModal', () => {
 
   it('shows empty message when linked microservice has no environments', () => {
     setup({ appMicroservices: emptyMicroservices });
-    const svcSelect = screen.getByDisplayValue('None (manual config)');
-    fireEvent.change(svcSelect, { target: { value: 'm2' } });
+    pickDark('req-svc-select', 'Empty Svc');
     expect(screen.getByText('No environments configured for this microservice.')).toBeInTheDocument();
   });
 
@@ -200,7 +205,7 @@ describe('RequestCollectionModal', () => {
   it('configures default bearer auth and saves it', () => {
     const { onSave } = setup();
     fireEvent.change(nameInput(), { target: { value: 'Bearer Col' } });
-    fireEvent.change(authTypeSelect(), { target: { value: 'bearer' } });
+    setAuthType('Bearer Token');
     fireEvent.change(screen.getByPlaceholderText('Paste your token'), { target: { value: 'abc' } });
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
     expect(onSave).toHaveBeenCalledWith(expect.objectContaining({
@@ -210,15 +215,15 @@ describe('RequestCollectionModal', () => {
 
   it('renders global-profile auth fields and fires profile select change', () => {
     setup();
-    fireEvent.change(authTypeSelect(), { target: { value: 'global-profile' } });
+    setAuthType('Global Auth Profile');
     expect(screen.getByText('Select Profile')).toBeInTheDocument();
     expect(screen.getByText('BEARER')).toBeInTheDocument();
-    fireEvent.change(screen.getByDisplayValue('Prod Token (bearer)'), { target: { value: 'p1' } });
+    pickDark('req-profile-select', 'Prod Token (bearer)');
   });
 
   it('edits bearer prefix and token fields', () => {
     setup();
-    fireEvent.change(authTypeSelect(), { target: { value: 'bearer' } });
+    setAuthType('Bearer Token');
     fireEvent.change(screen.getByPlaceholderText('Bearer'), { target: { value: 'Token' } });
     fireEvent.change(screen.getByPlaceholderText('Paste your token'), { target: { value: 'tok' } });
     expect(screen.getByPlaceholderText('Bearer')).toHaveValue('Token');
@@ -226,14 +231,14 @@ describe('RequestCollectionModal', () => {
 
   it('edits basic, apikey (incl. Add To), and oauth2 auth fields', () => {
     setup();
-    fireEvent.change(authTypeSelect(), { target: { value: 'basic' } });
+    setAuthType('Basic Auth');
     fireEvent.change(screen.getByPlaceholderText('Username'), { target: { value: 'u' } });
     fireEvent.change(screen.getByPlaceholderText('Password'), { target: { value: 'p' } });
-    fireEvent.change(authTypeSelect(), { target: { value: 'apikey' } });
+    setAuthType('API Key');
     fireEvent.change(screen.getByPlaceholderText('e.g. X-API-Key'), { target: { value: 'X-Key' } });
     fireEvent.change(screen.getByPlaceholderText('Key value'), { target: { value: 'kv' } });
-    fireEvent.change(screen.getByDisplayValue('Header'), { target: { value: 'query' } });
-    fireEvent.change(authTypeSelect(), { target: { value: 'oauth2' } });
+    pickDark('req-apikey-in-select', 'Query String');
+    setAuthType('OAuth2 Client Credentials');
     fireEvent.change(screen.getByPlaceholderText('https://auth.example.com/oauth/token'), { target: { value: 'https://t' } });
     fireEvent.change(screen.getByPlaceholderText('Client ID'), { target: { value: 'cid' } });
     fireEvent.change(screen.getByPlaceholderText('Client Secret'), { target: { value: 'cs' } });
@@ -245,7 +250,7 @@ describe('RequestCollectionModal', () => {
     fireEvent.change(nameInput(), { target: { value: 'PerEnv' } });
     fireEvent.click(screen.getByRole('button', { name: 'Per environment' }));
     // active tab is e1 (Dev). Configure bearer on Dev.
-    fireEvent.change(authTypeSelect(), { target: { value: 'bearer' } });
+    setAuthType('Bearer Token');
     fireEvent.change(screen.getByPlaceholderText('Paste your token'), { target: { value: 'devtok' } });
     // switch to Prod tab
     fireEvent.click(screen.getByRole('button', { name: /Prod/ }));
@@ -268,13 +273,30 @@ describe('RequestCollectionModal', () => {
     expect(screen.getByRole('button', { name: 'Per environment' })).toHaveClass('active');
   });
 
-  it('closes via Cancel, close button, and overlay; panel click does not close', () => {
+  it('has no top-right close button', () => {
+    setup();
+    expect(screen.queryByRole('button', { name: '×' })).not.toBeInTheDocument();
+    expect(document.querySelector('.req-modal-close')).toBeNull();
+  });
+
+  it('is draggable via the header', () => {
+    setup();
+    const modal = screen.getByTestId('req-collection-modal');
+    expect(modal).toHaveStyle({ transform: 'translate(0px, 0px)' });
+    const header = document.querySelector('.req-modal-header')!;
+    fireEvent.mouseDown(header, { clientX: 100, clientY: 100 });
+    fireEvent.mouseMove(document, { clientX: 145, clientY: 130 });
+    fireEvent.mouseUp(document);
+    expect(modal).toHaveStyle({ transform: 'translate(45px, 30px)' });
+  });
+
+  it('closes via Cancel, overlay, and Escape; panel click does not close', () => {
     const { onClose } = setup();
     fireEvent.click(document.querySelector('.req-col-modal')!);
     expect(onClose).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
-    fireEvent.click(screen.getByRole('button', { name: '×' }));
     fireEvent.click(document.querySelector('.req-modal-overlay')!);
+    fireEvent.keyDown(document, { key: 'Escape' });
     expect(onClose).toHaveBeenCalledTimes(3);
   });
 });

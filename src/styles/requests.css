@@ -98,6 +98,11 @@
 .req-icon-btn.danger:hover {
   color: var(--danger);
 }
+.req-icon-btn.active {
+  color: var(--primary);
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
 .req-sidebar-search {
   position: relative;
   padding: 6px 12px;
@@ -450,9 +455,10 @@
 .req-ctx-submenu-wrapper { position: relative; }
 .req-ctx-arrow { float: right; font-size: 0.65rem; margin-left: 8px; }
 .req-ctx-submenu {
-  position: absolute; left: 100%; top: -4px; min-width: 150px;
+  position: fixed; min-width: 150px;
   background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
-  box-shadow: 0 8px 24px rgba(0,0,0,0.3); padding: 4px 0; z-index: 1000;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.3); padding: 4px 0; z-index: 1001;
+  max-height: calc(100vh - 20px); overflow-y: auto;
 }
 .req-ctx-submenu button {
   display: block; width: 100%; text-align: left; background: none; border: none;
@@ -513,11 +519,76 @@
   display: flex; align-items: center; gap: 0; flex-shrink: 0;
   border-bottom: 1px solid var(--border); background: var(--surface);
 }
-.req-method-select {
-  width: auto; min-width: 80px; border: none; border-right: 1px solid var(--border);
-  border-radius: 0; padding: 10px 12px; font-weight: 700; font-size: 0.85rem;
-  background: transparent; color: inherit; cursor: pointer; outline: none;
-  -webkit-appearance: none; appearance: none;
+.req-method-select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+  border-right: 1px solid var(--border);
+}
+.req-method-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 10px 8px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 0.82rem;
+  min-width: 90px;
+  transition: background 0.12s;
+}
+.req-method-trigger:hover { background: var(--surface-hover); }
+.req-method-trigger:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.req-method-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.req-method-label { flex: 1; text-align: left; letter-spacing: 0.3px; }
+.req-method-chevron { font-size: 0.65rem; opacity: 0.6; margin-left: 2px; }
+
+.req-method-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2);
+  padding: 4px;
+  z-index: 1000;
+  animation: req-method-dropdown-in 0.12s ease-out;
+}
+@keyframes req-method-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.req-method-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s;
+  text-align: left;
+}
+.req-method-option:hover { background: var(--surface-hover); }
+.req-method-option.active { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.req-method-option-dot {
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.req-method-option-label {
+  font-weight: 700; font-size: 0.8rem; min-width: 52px; letter-spacing: 0.3px;
+}
+.req-method-option-desc {
+  flex: 1; font-size: 0.72rem; color: var(--text-muted); white-space: nowrap;
+}
+.req-method-option-check {
+  font-size: 0.75rem; color: var(--primary); font-weight: 700; margin-left: auto;
 }
 .req-url-input {
   flex: 1; border: none; border-radius: 0; padding: 10px 14px; font-size: 0.85rem;
@@ -790,6 +861,70 @@
 .req-auth-fields { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
 .req-auth-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-top: 2px; }
 .req-auth-label:first-child { margin-top: 0; }
+
+/* ── Auth Type Custom Select ── */
+.req-auth-type-wrapper {
+  position: relative;
+  width: 100%;
+}
+.req-auth-type-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s;
+  font-size: 0.84rem;
+  color: var(--text);
+}
+.req-auth-type-trigger:hover { border-color: var(--primary); background: var(--surface-hover); }
+.req-auth-type-trigger:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
+.req-auth-type-icon { font-size: 0.9rem; flex-shrink: 0; }
+.req-auth-type-label { flex: 1; text-align: left; font-weight: 500; }
+.req-auth-type-chevron { font-size: 0.65rem; opacity: 0.6; }
+
+.req-auth-type-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  min-width: 240px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2);
+  padding: 4px;
+  z-index: 1000;
+  animation: req-auth-dropdown-in 0.12s ease-out;
+}
+@keyframes req-auth-dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.req-auth-type-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.1s;
+  text-align: left;
+}
+.req-auth-type-option:hover { background: var(--surface-hover); }
+.req-auth-type-option.active { background: color-mix(in srgb, var(--primary) 12%, transparent); }
+.req-auth-type-option-icon { font-size: 0.9rem; flex-shrink: 0; width: 20px; text-align: center; }
+.req-auth-type-option-text { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.req-auth-type-option-label { font-size: 0.8rem; font-weight: 600; color: var(--text); }
+.req-auth-type-option-desc { font-size: 0.68rem; color: var(--text-muted); margin-top: 1px; }
+.req-auth-type-option-check { font-size: 0.75rem; color: var(--primary); font-weight: 700; margin-left: auto; flex-shrink: 0; }
 
 /* Auth mode switcher (single vs per-env) */
 .req-auth-mode-switcher {
@@ -1096,33 +1231,96 @@
 /* ─── Requests modals (centered dialog style) ──── */
 .req-col-modal,
 .req-env-modal {
-  max-width: 540px;
+  max-width: 560px;
   width: 90vw;
+  max-height: min(86vh, 780px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--surface);
   border-radius: calc(var(--radius) + 4px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
   padding: 0;
-  border: 1px solid var(--border);
+  /* Subtle white ring on all four edges (matches demo-step / wf-config-modal chrome) */
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .req-modal-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: var(--overlay-bg);
+  background: transparent;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
 }
+
+/* ── Draggable header ── */
 .req-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 20px;
+  gap: 12px;
+  padding: 14px 18px;
   border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 6%, var(--surface)) 0%, var(--surface) 100%);
+  cursor: move;
+  user-select: none;
+  flex-shrink: 0;
 }
-.req-modal-header h3 {
+.req-modal-header-main {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.req-modal-header-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  font-size: 1.05rem;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--border));
+}
+.req-modal-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+.req-modal-header-text h3 {
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text);
 }
+.req-modal-header-sub {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.req-modal-grip {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  opacity: 0.5;
+  font-size: 0.85rem;
+  letter-spacing: -3px;
+  line-height: 1;
+  padding-right: 2px;
+  transition: opacity 0.15s;
+}
+.req-modal-header:hover .req-modal-grip { opacity: 0.85; }
+
 .req-modal-close {
   background: none;
   border: none;
@@ -1134,16 +1332,64 @@
 }
 .req-modal-close:hover { color: var(--text); }
 .req-modal-body {
-  padding: 20px;
+  padding: 18px 20px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }
+.req-modal-body::-webkit-scrollbar { width: 6px; }
+.req-modal-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .req-modal-footer {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 20px;
+  padding: 12px 18px;
   border-top: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+
+/* ── Modal-scoped form polish (does not affect other req-inputs) ── */
+.req-col-modal .req-form-group:last-child { margin-bottom: 0; }
+.req-col-modal .req-input,
+.req-col-modal .req-select {
+  background: var(--bg);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.req-col-modal .req-input:hover,
+.req-col-modal .req-select:hover {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--border));
+}
+.req-col-modal .req-input:focus,
+.req-col-modal .req-select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.req-col-modal .req-hint {
+  font-size: 0.74rem;
+  line-height: 1.4;
+}
+.req-col-modal .req-mode-btn { background: var(--bg); }
+.req-col-modal .req-mode-btn.active {
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg));
+}
+.req-col-modal .req-auth-mode-switcher,
+.req-col-modal .req-base-url-list,
+.req-col-modal .req-env-auth-tabs {
+  background: var(--bg);
+  border-radius: var(--radius);
+}
+.req-col-modal .req-auth-mode-btn { background: var(--bg); }
+.req-col-modal .req-base-url-list {
+  padding: 10px;
+  border: 1px solid var(--border);
+}
+.req-col-modal .req-env-auth-tabs {
+  padding: 8px 10px 10px;
+  border: 1px solid var(--border);
+  margin-top: 8px;
 }
 
 /* ─── Sub-Collection Settings Modal ─── */

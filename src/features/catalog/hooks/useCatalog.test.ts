@@ -14,6 +14,11 @@ const storage = {
   loadCatalogRawSpec: vi.fn(),
   removeCatalogEndpointValues: vi.fn(),
 };
+const catalogSelectionStorage = {
+  loadCatalogSelectedEntryId: vi.fn(),
+  saveCatalogSelectedEntryId: vi.fn(),
+  removeCatalogSelectedEntryId: vi.fn(),
+};
 const mockParse = vi.fn();
 
 vi.mock('../../../shared/utils/storage', () => ({
@@ -24,6 +29,11 @@ vi.mock('../../../shared/utils/storage', () => ({
   removeAllCatalogRawSpecs: (...a: unknown[]) => storage.removeAllCatalogRawSpecs(...a),
   loadCatalogRawSpec: (...a: unknown[]) => storage.loadCatalogRawSpec(...a),
   removeCatalogEndpointValues: (...a: unknown[]) => storage.removeCatalogEndpointValues(...a),
+}));
+vi.mock('../../../shared/utils/storageCatalog', () => ({
+  loadCatalogSelectedEntryId: () => catalogSelectionStorage.loadCatalogSelectedEntryId(),
+  saveCatalogSelectedEntryId: (...a: unknown[]) => catalogSelectionStorage.saveCatalogSelectedEntryId(...a),
+  removeCatalogSelectedEntryId: () => catalogSelectionStorage.removeCatalogSelectedEntryId(),
 }));
 vi.mock('../utils/openApiParser', () => ({
   parseOpenApiSpec: (raw: string) => mockParse(raw),
@@ -54,12 +64,16 @@ function makeParsed(versionId: string) {
 
 beforeEach(() => {
   Object.values(storage).forEach((m) => m.mockReset());
+  Object.values(catalogSelectionStorage).forEach((m) => m.mockReset());
   mockParse.mockReset();
   storage.loadCatalogEntries.mockResolvedValue([]);
+  catalogSelectionStorage.loadCatalogSelectedEntryId.mockResolvedValue(null);
   storage.saveCatalogRawSpec.mockResolvedValue(undefined);
   storage.removeCatalogRawSpec.mockResolvedValue(undefined);
   storage.removeAllCatalogRawSpecs.mockResolvedValue(undefined);
   storage.removeCatalogEndpointValues.mockResolvedValue(undefined);
+  catalogSelectionStorage.saveCatalogSelectedEntryId.mockResolvedValue(undefined);
+  catalogSelectionStorage.removeCatalogSelectedEntryId.mockResolvedValue(undefined);
 });
 
 async function setup(initial: CatalogEntry[] = []) {
@@ -79,6 +93,13 @@ describe('useCatalog', () => {
   it('does not auto-select when there are multiple entries', async () => {
     const { result } = await setup([makeEntry({ id: 'a' }), makeEntry({ id: 'b' })]);
     expect(result.current.selectedEntryId).toBeUndefined();
+  });
+
+  it('restores the persisted selected entry when it still exists', async () => {
+    catalogSelectionStorage.loadCatalogSelectedEntryId.mockResolvedValueOnce('b');
+    const { result } = await setup([makeEntry({ id: 'a' }), makeEntry({ id: 'b' })]);
+    expect(result.current.selectedEntryId).toBe('b');
+    expect(result.current.selectedEntry?.id).toBe('b');
   });
 
   it('persists entries after load', async () => {
@@ -234,8 +255,15 @@ describe('useCatalog', () => {
     const { result } = await setup([makeEntry({ id: 'a' }), makeEntry({ id: 'b' })]);
     act(() => result.current.selectEntry('b'));
     expect(result.current.selectedEntryId).toBe('b');
+    await waitFor(() => expect(catalogSelectionStorage.saveCatalogSelectedEntryId).toHaveBeenCalledWith('b'));
     act(() => result.current.selectEndpoint('ep1'));
     expect(result.current.selectedEndpointId).toBe('ep1');
+  });
+
+  it('clears the persisted selection when the selected entry is removed', async () => {
+    const { result } = await setup([makeEntry()]);
+    await act(async () => { await result.current.removeEntry('e1'); });
+    await waitFor(() => expect(catalogSelectionStorage.removeCatalogSelectedEntryId).toHaveBeenCalled());
   });
 
   it('delegates loadRawSpec to storage', async () => {

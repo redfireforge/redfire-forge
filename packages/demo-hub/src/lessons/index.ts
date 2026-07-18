@@ -36,6 +36,7 @@ import { kafkaTlsLesson } from './protocols/kafka-tls';
 import { kafkaTestRunnerLesson } from './protocols/kafka-test-runner';
 import { graphqlLessons } from './protocols/graphql-lessons';
 import { grpcLessons } from './protocols/grpc-lessons';
+import { apiLessons } from './api';
 
 // ─── Domains ─────────────────────────────────────────────────────
 
@@ -59,9 +60,13 @@ export const apiDomain: DemoDomain = {
   id: 'api',
   name: 'API Testing',
   icon: '🔌',
-  description: 'HTTP methods, assertions, environments, and chaining.',
-  available: false,
-  lessons: [],
+  description: 'HTTP Requests, API Catalog, and Test Promotion.',
+  available: true,
+  categories: [
+    { id: 'requests', label: 'Requests', icon: '📤' },
+    { id: 'catalog',  label: 'Catalog',  icon: '📚' },
+  ],
+  lessons: apiLessons,
 };
 
 export const workflowDomain: DemoDomain = {

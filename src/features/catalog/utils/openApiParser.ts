@@ -230,6 +230,7 @@ export async function parseOpenApiSpec(rawText: string, importSourceUrl?: string
     importedAt: Date.now(),
     specHash,
     specSize: rawText.length,
+    specFormat: getSpecFormatLabel(rawText),
   };
 
   const entry: CatalogEntry = {
