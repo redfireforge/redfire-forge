@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { RequestCollection, RequestEnv, GlobalAuthProfile, Microservice, Environment, AuthConfig } from '../../../shared/types';
 import type { ModalAuthType, EnvAuthState } from '../utils/requestAuthState';
 import { authToState, stateToAuth, emptyAuthState } from '../utils/requestAuthState';
 import { useToast } from '../../../shared/hooks/useToast';
+import { useDraggableModal } from '../../environments/components/microserviceProtocolPanel/useDraggableModal';
+import WfDarkSelect from '../../workflow/components/modals/WfDarkSelect';
 
 interface Props {
   collection: RequestCollection | null;
@@ -26,25 +28,31 @@ function AuthFields({ state, onChange, globalAuthProfiles }: {
 
   return (
     <>
-      <select className="req-select" value={state.authType}
-        onChange={(e) => onChange({ authType: e.target.value as ModalAuthType })}>
-        <option value="none">No Auth</option>
-        {globalAuthProfiles.length > 0 && <option value="global-profile">Global Auth Profile</option>}
-        <option value="bearer">Bearer Token</option>
-        <option value="basic">Basic Auth</option>
-        <option value="apikey">API Key</option>
-        <option value="oauth2">OAuth2 Client Credentials</option>
-      </select>
+      <WfDarkSelect
+        testId="req-auth-type-select"
+        aria-label="Authentication type"
+        value={state.authType}
+        onChange={(v) => onChange({ authType: v as ModalAuthType })}
+        options={[
+          { value: 'none', label: 'No Auth' },
+          ...(globalAuthProfiles.length > 0 ? [{ value: 'global-profile', label: 'Global Auth Profile' }] : []),
+          { value: 'bearer', label: 'Bearer Token' },
+          { value: 'basic', label: 'Basic Auth' },
+          { value: 'apikey', label: 'API Key' },
+          { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+        ]}
+      />
 
       {state.authType === 'global-profile' && (
         <div className="req-auth-fields">
           <label className="req-auth-label">Select Profile</label>
-          <select className="req-select" value={state.selectedProfileId}
-            onChange={(e) => onChange({ selectedProfileId: e.target.value })}>
-            {globalAuthProfiles.map((p) => (
-              <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-            ))}
-          </select>
+          <WfDarkSelect
+            testId="req-profile-select"
+            aria-label="Select auth profile"
+            value={state.selectedProfileId}
+            onChange={(v) => onChange({ selectedProfileId: v })}
+            options={globalAuthProfiles.map((p) => ({ value: p.id, label: `${p.name} (${p.auth.type})` }))}
+          />
           {selectedProfile && (
             <div className="req-profile-info">
               <span className="req-profile-type-badge">{selectedProfile.auth.type.toUpperCase()}</span>
@@ -79,10 +87,16 @@ function AuthFields({ state, onChange, globalAuthProfiles }: {
           <label className="req-auth-label">Key Value</label>
           <input className="req-input" value={state.apiKeyValue} onChange={(e) => onChange({ apiKeyValue: e.target.value })} placeholder="Key value" />
           <label className="req-auth-label">Add To</label>
-          <select className="req-select" value={state.apiKeyIn} onChange={(e) => onChange({ apiKeyIn: e.target.value as 'header' | 'query' })}>
-            <option value="header">Header</option>
-            <option value="query">Query String</option>
-          </select>
+          <WfDarkSelect
+            testId="req-apikey-in-select"
+            aria-label="API key location"
+            value={state.apiKeyIn}
+            onChange={(v) => onChange({ apiKeyIn: v as 'header' | 'query' })}
+            options={[
+              { value: 'header', label: 'Header' },
+              { value: 'query', label: 'Query String' },
+            ]}
+          />
         </div>
       )}
 
@@ -141,6 +155,16 @@ export default function RequestCollectionModal({ collection, collections, enviro
 
   const [activeEnvTab, setActiveEnvTab] = useState<string>(environments[0]?.id ?? '');
 
+  const { offset, onHeaderMouseDown } = useDraggableModal();
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const isEnvMode = !!linkedSvc || mode === 'multi-env';
+
   const handleBaseUrlChange = (envId: string, url: string) => {
     setBaseUrls((prev) => ({ ...prev, [envId]: url }));
   };
@@ -196,10 +220,23 @@ export default function RequestCollectionModal({ collection, collections, enviro
 
   return (
     <div className="req-modal-overlay" onClick={onClose}>
-      <div className="modal req-col-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="req-modal-header">
-          <h3>{collection ? 'Edit Collection' : 'New Collection'}</h3>
-          <button className="req-modal-close" onClick={onClose}>&times;</button>
+      <div
+        className="modal req-col-modal"
+        data-testid="req-collection-modal"
+        onClick={(e) => e.stopPropagation()}
+        style={{ transform: `translate(${offset.dx}px, ${offset.dy}px)` }}
+      >
+        <div className="req-modal-header" onMouseDown={onHeaderMouseDown}>
+          <div className="req-modal-header-main">
+            <span className="req-modal-header-icon" aria-hidden>{isEnvMode ? '\uD83C\uDF10' : '\uD83D\uDCE1'}</span>
+            <div className="req-modal-header-text">
+              <h3>{collection ? 'Edit Collection' : 'New Collection'}</h3>
+              <span className="req-modal-header-sub">
+                {isEnvMode ? 'Multi-environment base URLs & auth' : 'Direct URLs & default auth'}
+              </span>
+            </div>
+          </div>
+          <span className="req-modal-grip" title="Drag to move" aria-hidden>&#8942;&#8942;</span>
         </div>
 
         <div className="req-modal-body">
@@ -211,10 +248,16 @@ export default function RequestCollectionModal({ collection, collections, enviro
 
           <div className="req-form-group">
             <label>Linked Microservice</label>
-            <select className="req-select" value={microserviceId ?? ''} onChange={e => setMicroserviceId(e.target.value || undefined)}>
-              <option value="">None (manual config)</option>
-              {appMicroservices.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-            </select>
+            <WfDarkSelect
+              testId="req-svc-select"
+              aria-label="Linked microservice"
+              value={microserviceId ?? ''}
+              onChange={(v) => setMicroserviceId(v || undefined)}
+              options={[
+                { value: '', label: 'None (manual config)' },
+                ...appMicroservices.map(s => ({ value: s.id, label: s.name })),
+              ]}
+            />
             {linkedSvc && (
               <p className="req-hint" style={{ marginTop: 4 }}>Base URLs and auth are inherited from Environments.</p>
             )}
@@ -259,12 +302,12 @@ export default function RequestCollectionModal({ collection, collections, enviro
                   {environments.length === 0 ? (
                     <p className="req-hint">No environments defined yet. Add one below or go to the Environments tab.</p>
                   ) : (
-                    <div className="req-base-url-list">
+                    <div className="req-base-url-list" data-testid="req-base-url-map">
                       {environments.map((env) => (
-                        <div key={env.id} className="req-base-url-row">
+                        <div key={env.id} className="req-base-url-row" data-env-id={env.id}>
                           <span className="req-env-label">{env.name}</span>
                           <div className="req-base-url-input-group">
-                            <input className="req-input" value={baseUrls[env.id] ?? ''}
+                            <input className="req-input" data-testid="req-base-url-input" value={baseUrls[env.id] ?? ''}
                               onChange={(e) => handleBaseUrlChange(env.id, e.target.value)}
                               placeholder={`https://${name || 'service'}.${env.name}.example.com`} />
                           </div>
@@ -273,7 +316,7 @@ export default function RequestCollectionModal({ collection, collections, enviro
                     </div>
                   )}
                   <div className="req-add-env-row">
-                    <input className="req-input" value={newEnvName}
+                    <input className="req-input" data-testid="req-add-env-input" value={newEnvName}
                       onChange={(e) => setNewEnvName(e.target.value)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' && newEnvName.trim()) {
@@ -284,7 +327,7 @@ export default function RequestCollectionModal({ collection, collections, enviro
                         }
                       }}
                       placeholder="Add new environment (e.g. staging)" />
-                    <button className="btn btn-sm" disabled={!newEnvName.trim()}
+                    <button className="btn btn-sm" data-testid="req-add-env-btn" disabled={!newEnvName.trim()}
                       onClick={() => {
                         const exists = environments.some(env => env.name.toLowerCase() === newEnvName.trim().toLowerCase());
                         if (exists) { toast.show('warning', 'Environment already exists', `Environment "${newEnvName.trim()}" already exists.`); return; }

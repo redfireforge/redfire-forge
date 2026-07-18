@@ -254,6 +254,31 @@ Replace with a new version:
 2. Select **Update Spec**
 3. Import new file/URL
 
+### Converting / Upgrading to OpenAPI
+
+Imports are normalized into the Catalog's internal model for browsing and testing, but the
+stored spec is kept as-is. To produce a real **OpenAPI YAML file** (for OpenAPI Generator /
+Maven / Spring Boot codegen), convert or upgrade it. The modal auto-routes on the source:
+**Convert** Swagger 2.0 → 3.0 / 3.1, or **Upgrade** OpenAPI 3.0 → 3.1 / 3.2 and 3.1 → 3.2.
+
+1. Right-click an API → **Convert / Upgrade OpenAPI YAML…** (or use the **Convert / Upgrade
+   OpenAPI** button in the overview)
+2. Pick an **engine** — `swagger2openapi` (default, emits 3.0.x) or `Scalar` (for 3.1; the
+   only engine for upgrades) — and a **target** version
+3. Check the ✅/❌ **validation badge** and preview the output; in the convert flow the
+   converter auto-falls back to the other engine if the chosen one fails or produces invalid
+   output. Optionally run **Deep lint** for advisory schema / best-practice checks, or
+   **Compare engines** to see both engines' output side by side
+4. Leave **Prettify** on (default) to emit canonical, diff-friendly YAML (keys sorted into the
+   standard OpenAPI order); turn it off to keep the engine's raw output. The toggle is remembered
+5. **Download YAML** to save a file, or **Save as new version** to add the result as a new
+   version of the same entry (tagged in Version History as *"Converted …"* / *"Upgraded …"*)
+
+> The action appears whenever a forward target exists; a spec already at OpenAPI 3.2 (or an
+> unsupported format) shows a "Nothing to convert" toast. For Maven/Spring Boot codegen, keep
+> the default **swagger2openapi → OpenAPI 3.0**. See
+> [Catalog Import Guide](./catalog-import-guide.md#convert--upgrade-to-openapi) for details.
+
 ### Removing an API
 
 1. Right-click the API

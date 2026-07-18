@@ -181,6 +181,26 @@ describe('RequestsSidebar', () => {
     expect(props.onSelectRequest).toHaveBeenCalledWith('c1', 'r1');
   });
 
+  it('expand-all toggle expands then shrinks all collections and folders', () => {
+    setup();
+    const toggle = screen.getByTestId('req-sidebar-expand-all');
+    // Sub-collection is nested inside a collapsed folder, so hidden initially.
+    expect(screen.queryByText('SubCol')).not.toBeInTheDocument();
+    expect(toggle).toHaveAttribute('title', 'Expand All');
+
+    // Expand all -> nested folder + sub-collection become visible.
+    fireEvent.click(toggle);
+    expect(screen.getByText('SubCol')).toBeInTheDocument();
+    expect(toggle).toHaveAttribute('title', 'Shrink All');
+    expect(toggle).toHaveClass('active');
+
+    // Shrink all -> collapse everything again.
+    fireEvent.click(toggle);
+    expect(screen.queryByText('SubCol')).not.toBeInTheDocument();
+    expect(screen.queryByText('Folder One')).not.toBeInTheDocument();
+    expect(toggle).toHaveAttribute('title', 'Expand All');
+  });
+
   it('toggles folder expansion and group expansion', () => {
     setup();
     fireEvent.click(screen.getByText('Folder One'));

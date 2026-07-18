@@ -3,6 +3,40 @@ import type { RequestCollection, RequestFolder } from '../../../shared/types';
 import { collectAllGroups, collectGroupIds, countGroupRequests, findFolderDeep, findSiblingFolders, countFolderReqs } from '../utils/requestTree';
 import type { CtxMenuData } from './RequestsSidebar';
 
+function PositionedSubmenu({ children, show }: { children: React.ReactNode; show: boolean }) {
+  const wrapperRef = useRef<HTMLDivElement>(null);
+  const submenuRef = useRef<HTMLDivElement>(null);
+
+  useLayoutEffect(() => {
+    if (!show) return;
+    const wrapper = wrapperRef.current;
+    const submenu = submenuRef.current;
+    if (!wrapper || !submenu) return;
+    const rect = wrapper.getBoundingClientRect();
+    const subRect = submenu.getBoundingClientRect();
+    let left = rect.right + 2;
+    let top = rect.top - 4;
+    if (left + subRect.width > window.innerWidth - 10) {
+      left = rect.left - subRect.width - 2;
+    }
+    if (top + subRect.height > window.innerHeight - 10) {
+      top = Math.max(10, window.innerHeight - subRect.height - 10);
+    }
+    submenu.style.left = `${left}px`;
+    submenu.style.top = `${top}px`;
+  });
+
+  return (
+    <div className="req-ctx-submenu-wrapper" ref={wrapperRef}>
+      {show && (
+        <div className="req-ctx-submenu" ref={submenuRef}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
 interface Props {
   contextMenu: CtxMenuData;
   collections: RequestCollection[];
@@ -145,7 +179,7 @@ export default function SidebarContextMenu({
   });
 
   return (
-    <div ref={menuRef} className="req-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}
+    <div ref={menuRef} className="req-context-menu" data-testid="req-context-menu" style={{ left: contextMenu.x, top: contextMenu.y }}
       onClick={(e) => e.stopPropagation()}>
 
       {/* ── Group context menu ── */}
@@ -168,8 +202,7 @@ export default function SidebarContextMenu({
               <button onClick={() => setShowColMoveMenu(!showColMoveMenu)}>
                 Move to... <span className="req-ctx-arrow">&#9656;</span>
               </button>
-              {showColMoveMenu && (
-                <div className="req-ctx-submenu">
+              <PositionedSubmenu show={showColMoveMenu}>
                   {group.groupId && (
                     <button onClick={() => { onMoveToGroup(contextMenu.colId, undefined); dismiss(); setShowColMoveMenu(false); }}>
                       &#128203; Root level
@@ -182,8 +215,7 @@ export default function SidebarContextMenu({
                         &#128450;&#65039; {g.name}
                       </button>
                     ))}
-                </div>
-              )}
+              </PositionedSubmenu>
             </div>
             );
           })()}
@@ -213,8 +245,7 @@ export default function SidebarContextMenu({
           <button onClick={() => setShowColMoveMenu(!showColMoveMenu)}>
             Move to... <span className="req-ctx-arrow">&#9656;</span>
           </button>
-          {showColMoveMenu && (
-            <div className="req-ctx-submenu">
+          <PositionedSubmenu show={showColMoveMenu}>
               {ctxCol?.groupId && (
                 <button onClick={() => { onMoveToGroup(contextMenu.colId, undefined); dismiss(); setShowColMoveMenu(false); }}>
                   &#128203; Root level
@@ -235,8 +266,7 @@ export default function SidebarContextMenu({
                   &#128230; {c.name}
                 </button>
               ))}
-            </div>
-          )}
+          </PositionedSubmenu>
         </div>
         <hr className="req-ctx-divider" />
         <button onClick={() => handleExportCollection(contextMenu.colId)}>Export Collection</button>
@@ -289,8 +319,7 @@ export default function SidebarContextMenu({
               <button onClick={() => setShowFolderMoveMenu(!showFolderMoveMenu)}>
                 Move to... <span className="req-ctx-arrow">&#9656;</span>
               </button>
-              {showFolderMoveMenu && (
-                <div className="req-ctx-submenu">
+              <PositionedSubmenu show={showFolderMoveMenu}>
                   {ctxFolderLocation !== null && (
                     <button onClick={() => { onMoveFolderTo(contextMenu.colId, contextMenu.folderId!, null); dismiss(); setShowFolderMoveMenu(false); }}>
                       &#128203; Collection Root
@@ -325,8 +354,7 @@ export default function SidebarContextMenu({
                       ))}
                     </div>
                   ))}
-                </div>
-              )}
+              </PositionedSubmenu>
             </div>
           )}
           <button onClick={() => { onDuplicateFolder(contextMenu.colId, contextMenu.folderId!); dismiss(); }}>
@@ -370,8 +398,7 @@ export default function SidebarContextMenu({
             <button onClick={() => setShowMoveMenu(!showMoveMenu)}>
               Move to... <span className="req-ctx-arrow">&#9656;</span>
             </button>
-            {showMoveMenu && (
-              <div className="req-ctx-submenu">
+            <PositionedSubmenu show={showMoveMenu}>
                 {ctxReqLocation !== null && (
                   <button onClick={() => { onMoveRequest(contextMenu.colId, contextMenu.reqId!, null); dismiss(); setShowMoveMenu(false); }}>
                     &#128203; Collection Root
@@ -397,8 +424,7 @@ export default function SidebarContextMenu({
                     ))}
                   </div>
                 ))}
-              </div>
-            )}
+            </PositionedSubmenu>
           </div>
         )}
 

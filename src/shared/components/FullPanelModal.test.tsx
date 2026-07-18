@@ -79,4 +79,21 @@ describe('FullPanelModal', () => {
     expect(container.querySelector('.wf-modal-scroll-shell')).toBeNull();
     expect(container.querySelector('.wf-config-modal-body')).toBeTruthy();
   });
+
+  it('enables drag and resize handlers when movable and resizable are true', () => {
+    const { container } = render(
+      <FullPanelModal title="T" onClose={onClose} movable resizable>
+        C
+      </FullPanelModal>,
+    );
+    const header = container.querySelector('.ram-header') as HTMLElement;
+    expect(header.style.cursor).not.toBe('default');
+
+    fireEvent.mouseDown(header);
+    fireEvent.pointerDown(header);
+
+    expect(container.querySelector('.modal-resize-edge-right')).toBeTruthy();
+    expect(container.querySelector('.modal-resize-edge-bottom')).toBeTruthy();
+    expect(container.querySelector('.modal-resize-corner')).toBeTruthy();
+  });
 });

@@ -7,7 +7,7 @@ import {
   computeCoverageMetrics,
   shouldSkipProductGateFile,
   toProductGatePath,
-} from './coverageGateUtils';
+} from './coverageGateUtils.ts';
 
 const INPUT = process.argv.includes('--demo')
   ? 'coverage/coverage-final.json'

@@ -157,6 +157,7 @@ export default function CatalogVersionHistory({ entry, onClose, onSwitchVersion,
                   <div className="cat-vh-card-body">
                     <div className="cat-vh-card-top">
                       <span className="cat-vh-card-version">v{v.version}</span>
+                      {v.specFormat && <span className="cat-vh-badge-format">{v.specFormat}</span>}
                       {isCurrent && <span className="cat-vh-badge-current">CURRENT</span>}
                       {idx === 0 && !isCurrent && <span className="cat-vh-badge-latest">LATEST</span>}
                     </div>

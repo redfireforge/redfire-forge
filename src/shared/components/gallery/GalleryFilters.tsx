@@ -70,6 +70,7 @@ export function GalleryFilters({
           <button
             key={d.key}
             className={`gallery-domain-btn${value.domain === d.key && mode === 'samples' ? ' active' : ''}`}
+            data-testid={`gallery-domain-${d.key}`}
             onClick={() => handleDomainClick(d.key)}
             type="button"
           >

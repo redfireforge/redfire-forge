@@ -31,6 +31,7 @@ export function GalleryCard<T = unknown>({
     <button
       className={`gallery-card${selected ? ' gallery-card-selected' : ''}${sampleStatus ? ` gallery-card-${sampleStatus}` : ''}`}
       data-domain={entry.domain}
+      data-testid={`gallery-card-${entry.id}`}
       onClick={() => onClick?.(entry)}
       type="button"
     >

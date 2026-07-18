@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import { useModalFrame } from '../hooks/useModalFrame';
+import ModalResizeHandles from './ModalResizeHandles';
 
 interface Props {
   title: ReactNode;
@@ -11,6 +13,12 @@ interface Props {
   /** Extra class(es) appended to the dialog element */
   dialogClassName?: string;
   bodyScrollable?: boolean;
+  /** Enable drag-to-move using the modal header (opt-in). */
+  movable?: boolean;
+  /** Show edge/corner resize handles (opt-in). */
+  resizable?: boolean;
+  minWidth?: number;
+  minHeight?: number;
 }
 
 /**
@@ -26,7 +34,32 @@ export default function FullPanelModal({
   overlayClassName,
   dialogClassName,
   bodyScrollable = true,
+  movable = false,
+  resizable = false,
+  minWidth,
+  minHeight,
 }: Props) {
+  const {
+    overlayStyle,
+    dialogStyle,
+    headerDragStyle,
+    onHeaderMouseDown,
+    onHeaderPointerDown,
+    dialogRef,
+    onRightEdge,
+    onCorner,
+    onBottomEdge,
+  } = useModalFrame({
+    open: true,
+    minWidth,
+    minHeight,
+    constrainDragToViewport: true,
+    dragViewportPadding: 8,
+  });
+
+  const dragEnabled = movable;
+  const resizeEnabled = resizable;
+
   const resolvedFooter = footer === undefined
     ? <button className="cat-btn" onClick={onClose}>Close</button>
     : footer;
@@ -35,9 +68,21 @@ export default function FullPanelModal({
   const dialogClasses = ['modal ram-modal wf-config-modal full-panel-modal', dialogClassName].filter(Boolean).join(' ');
 
   return (
-    <div className={overlayClasses} role="presentation">
-      <div className={dialogClasses} role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
-        <div className="ram-header" style={{ cursor: 'default' }}>
+    <div className={overlayClasses} role="presentation" style={dragEnabled ? overlayStyle : undefined}>
+      <div
+        ref={dialogRef}
+        className={dialogClasses}
+        role="dialog"
+        aria-modal="true"
+        onClick={e => e.stopPropagation()}
+        style={(dragEnabled || resizeEnabled) ? dialogStyle : undefined}
+      >
+        <div
+          className="ram-header"
+          style={dragEnabled ? headerDragStyle : { cursor: 'default' }}
+          onMouseDown={dragEnabled ? onHeaderMouseDown : undefined}
+          onPointerDown={dragEnabled ? onHeaderPointerDown : undefined}
+        >
           <h3>{title}</h3>
         </div>
 
@@ -54,6 +99,8 @@ export default function FullPanelModal({
         {resolvedFooter !== null && (
           <div className="wf-config-modal-footer">{resolvedFooter}</div>
         )}
+
+        {resizeEnabled ? <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} /> : null}
       </div>
     </div>
   );

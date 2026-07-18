@@ -33,6 +33,13 @@ describe('CatalogSidebar', () => {
     expect(props.onImport).toHaveBeenCalled();
   });
 
+  it('fires onBatchConvertToOpenApi from the Batch Convert button when provided', async () => {
+    const props = { ...defaultProps(), onBatchConvertToOpenApi: vi.fn() };
+    render(<CatalogSidebar entries={[]} {...props} />);
+    await userEvent.click(screen.getByRole('button', { name: /Batch Convert/ }));
+    expect(props.onBatchConvertToOpenApi).toHaveBeenCalled();
+  });
+
   it('renders entries with version, endpoint count and method dots; selects on click', async () => {
     const props = defaultProps();
     const entry = makeEntry({

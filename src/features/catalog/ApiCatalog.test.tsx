@@ -2,7 +2,7 @@
  * @vitest-environment jsdom
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import ApiCatalog from './ApiCatalog';
@@ -65,6 +65,13 @@ vi.mock('./components/CatalogSendToRequestsModal', () => ({
   ),
 }));
 
+const loadCatalogView = vi.fn();
+const saveCatalogView = vi.fn();
+vi.mock('../../shared/utils/storageCatalog', () => ({
+  loadCatalogView: (...args: unknown[]) => loadCatalogView(...args),
+  saveCatalogView: (...args: unknown[]) => saveCatalogView(...args),
+}));
+
 function makeCatalog(entry: CatalogEntry | null, loaded = true): UseCatalogReturn {
   return {
     entries: entry ? [entry] : [],
@@ -87,6 +94,8 @@ function makeCatalog(entry: CatalogEntry | null, loaded = true): UseCatalogRetur
 
 beforeEach(() => {
   buildCoverageMap.mockReturnValue(new Map());
+  loadCatalogView.mockResolvedValue(null);
+  saveCatalogView.mockResolvedValue(undefined);
 });
 
 describe('ApiCatalog', () => {
@@ -109,6 +118,27 @@ describe('ApiCatalog', () => {
     await userEvent.click(screen.getByText('Overview'));
     await userEvent.click(screen.getByText('Endpoints'));
     expect(screen.getByTestId('browser')).toBeInTheDocument();
+  });
+
+  it('restores the saved view for the selected entry on mount', async () => {
+    const entry = makeEntry();
+    loadCatalogView.mockResolvedValue('overview');
+    render(<ApiCatalog catalog={makeCatalog(entry)} onImport={vi.fn()} />);
+
+    await waitFor(() => expect(loadCatalogView).toHaveBeenCalledWith('entry1'));
+    await waitFor(() => {
+      const overviewTab = screen.getByRole('button', { name: 'Overview' });
+      expect(overviewTab.className.includes('active')).toBe(true);
+    });
+  });
+
+  it('persists view changes for the selected entry', async () => {
+    const entry = makeEntry();
+    render(<ApiCatalog catalog={makeCatalog(entry)} onImport={vi.fn()} />);
+
+    await userEvent.click(screen.getByText('Overview'));
+
+    await waitFor(() => expect(saveCatalogView).toHaveBeenCalledWith('entry1', 'overview'));
   });
 
   it('forwards Overview actions', async () => {

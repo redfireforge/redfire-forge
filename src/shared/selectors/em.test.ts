@@ -5,10 +5,14 @@ import { describe, expect, it } from 'vitest';
 import {
   EM,
   emAddProtocolItemSel,
+  emEnvByNameSel,
   emEnvVarDeleteSel,
   emEnvVarRowSel,
   emEnvVarValueSel,
   emEnvVarsBadgeSel,
+  emSvcByNameSel,
+  emSvcConfigureByNameSel,
+  emSvcEnvChipByNameSel,
   emProtocolVarDeleteSel,
   emProtocolVarRowSel,
   emProtocolVarValueSel,
@@ -49,6 +53,13 @@ describe('shared selectors em', () => {
     expect(emEnvVarRowSel('token')).toBe('[data-testid="env-var-row-token"]');
     expect(emEnvVarValueSel('token')).toBe('[data-testid="env-var-value-token"]');
     expect(emEnvVarDeleteSel('token')).toBe('[data-testid="env-var-delete-token"]');
+  });
+
+  it('builds env and service scoped selectors by name', () => {
+    expect(emEnvByNameSel('local')).toBe('[data-env-name="local"]');
+    expect(emSvcByNameSel('users')).toBe('[data-svc-name="users"]');
+    expect(emSvcConfigureByNameSel('users')).toBe('[data-svc-name="users"] [data-testid^="em-svc-configure-"]');
+    expect(emSvcEnvChipByNameSel('users', 'local')).toBe('[data-svc-name="users"] .svc-env-table [data-env-name="local"]');
   });
 
   it('exposes protocol and env vars modal selector constants', () => {

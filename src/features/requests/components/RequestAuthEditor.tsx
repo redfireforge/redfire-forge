@@ -1,4 +1,5 @@
 import type { AuthConfig, RequestCollection, GlobalAuthProfile } from '../../../shared/types';
+import { AuthTypeSelect } from './AuthTypeSelect';
 
 interface Props {
   auth: AuthConfig;
@@ -29,16 +30,12 @@ export default function RequestAuthEditor({ auth, collection, globalAuthProfiles
     : null;
 
   return (
-    <div className="req-auth-editor">
-      <select className="req-select" value={authSelectValue} onChange={(e) => handleTypeChange(e.target.value)}>
-        <option value="inherit">Inherit from Collection</option>
-        <option value="none">No Auth</option>
-        {globalAuthProfiles.length > 0 && <option value="global-profile">Global Auth Profile</option>}
-        <option value="bearer">Bearer Token</option>
-        <option value="basic">Basic Auth</option>
-        <option value="apikey">API Key</option>
-        <option value="oauth2">OAuth2 Client Credentials</option>
-      </select>
+    <div className="req-auth-editor" data-testid="req-auth-editor">
+      <AuthTypeSelect
+        value={authSelectValue}
+        onChange={handleTypeChange}
+        showGlobalProfile={globalAuthProfiles.length > 0}
+      />
 
       {authSelectValue === 'global-profile' && (
         <div className="req-auth-fields">
@@ -59,11 +56,11 @@ export default function RequestAuthEditor({ auth, collection, globalAuthProfiles
       )}
 
       {auth.type === 'bearer' && !selectedProfile && (
-        <div className="req-auth-fields">
+        <div className="req-auth-fields" data-testid="req-auth-bearer-fields">
           <label className="req-auth-label">Prefix</label>
-          <input className="req-input" value={auth.prefix ?? 'Bearer'} onChange={(e) => onUpdate({ ...auth, prefix: e.target.value })} placeholder="Bearer" />
+          <input className="req-input" data-testid="req-auth-prefix-input" value={auth.prefix ?? 'Bearer'} onChange={(e) => onUpdate({ ...auth, prefix: e.target.value })} placeholder="Bearer" />
           <label className="req-auth-label">Token</label>
-          <input className="req-input" value={auth.token ?? ''} onChange={(e) => onUpdate({ ...auth, token: e.target.value })} placeholder="Token" />
+          <input className="req-input" data-testid="req-auth-token-input" value={auth.token ?? ''} onChange={(e) => onUpdate({ ...auth, token: e.target.value })} placeholder="Token" />
         </div>
       )}
       {auth.type === 'basic' && !selectedProfile && (

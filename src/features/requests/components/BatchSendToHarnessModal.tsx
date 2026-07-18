@@ -82,7 +82,7 @@ export default function BatchSendToHarnessModal({ collection, environments, micr
 
   return (
     <div className="send-harness-overlay" onClick={onClose}>
-      <div className="send-harness-modal" onClick={e => e.stopPropagation()} style={{ width: 540 }}>
+      <div className="send-harness-modal" data-testid="req-batch-harness-modal" onClick={e => e.stopPropagation()} style={{ width: 540 }}>
 
         {/* Header */}
         <div className="send-harness-header">
