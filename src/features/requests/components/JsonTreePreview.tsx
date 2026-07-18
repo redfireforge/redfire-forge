@@ -305,7 +305,7 @@ export default function JsonPreview({ body, error, search, currentMatchIdx = 0, 
   }
 
   return (
-    <div className="req-json-preview-wrapper">
+    <div className="req-json-preview-wrapper" data-testid="req-json-preview">
       <div className="jt-tree">
         <JsonTreeNode node={tree} depth={0} search={search ?? ''}
           activeMatchNode={activeNode} activeMatchRef={activeMatchRef}

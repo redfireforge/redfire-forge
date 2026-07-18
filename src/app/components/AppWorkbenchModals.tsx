@@ -13,6 +13,9 @@ import CatalogSendToRequestsModal from '../../features/catalog/components/Catalo
 import CatalogImportModal from '../../features/catalog/components/CatalogImportModal';
 import CatalogVersionHistory from '../../features/catalog/components/CatalogVersionHistory';
 import CatalogEditModal from '../../features/catalog/components/CatalogEditModal';
+import CatalogConvertOpenApiModal from '../../features/catalog/components/CatalogConvertOpenApiModal';
+import type { CatalogConvertTarget, SaveConvertedVersionArgs } from '../hooks/useCatalogState';
+import type { ToastType } from '../../features/workflow/components/WorkflowToastProvider';
 import SendToHarnessModal from '../../features/requests/components/SendToHarnessModal';
 import BatchSendToHarnessModal from '../../features/requests/components/BatchSendToHarnessModal';
 import { catalogEndpointToRequest } from '../../features/catalog/utils/catalogEndpointToRequest';
@@ -69,6 +72,10 @@ interface AppWorkbenchModalsProps {
   setCatalogVersionHistoryId: Dispatch<SetStateAction<string | undefined>>;
   catalogEditId: string | undefined;
   setCatalogEditId: Dispatch<SetStateAction<string | undefined>>;
+  catalogConvert: CatalogConvertTarget | undefined;
+  setCatalogConvert: Dispatch<SetStateAction<CatalogConvertTarget | undefined>>;
+  handleSaveConvertedVersion: (entryId: string, args: SaveConvertedVersionArgs) => Promise<void>;
+  showToast?: (type: ToastType, title: string, subtitle?: string) => void;
 }
 
 export default function AppWorkbenchModals(props: AppWorkbenchModalsProps) {
@@ -105,6 +112,10 @@ export default function AppWorkbenchModals(props: AppWorkbenchModalsProps) {
     setCatalogVersionHistoryId,
     catalogEditId,
     setCatalogEditId,
+    catalogConvert,
+    setCatalogConvert,
+    handleSaveConvertedVersion,
+    showToast,
   } = props;
 
   return (
@@ -192,6 +203,15 @@ export default function AppWorkbenchModals(props: AppWorkbenchModalsProps) {
           onImport={(entry, rawSpec) => { catalog.addEntry(entry, rawSpec); setActiveTab('catalog'); }}
           onReimport={(entryId, parsed) => { catalog.addVersionToEntry(entryId, parsed); setActiveTab('catalog'); }}
           onClose={() => { setShowCatalogImport(false); setCatalogReimportId(undefined); setCatalogInitialSpec(undefined); }}
+        />
+      )}
+      {catalogConvert && (
+        <CatalogConvertOpenApiModal
+          specName={catalogConvert.specName}
+          rawSpec={catalogConvert.rawSpec}
+          showToast={showToast}
+          onClose={() => setCatalogConvert(undefined)}
+          onSaveAsVersion={(args) => handleSaveConvertedVersion(catalogConvert.entryId, args)}
         />
       )}
       {catalogVersionHistoryId && (() => {

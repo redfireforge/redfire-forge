@@ -19,7 +19,7 @@ RedfireForge is a visual API testing and workflow automation workbench combining
 - Results explorer and debug console patterns
 - Validation and assertion system
 - Data-driven testing flows
-- API catalog core functionality
+- API catalog core functionality (incl. **Convert / Upgrade to OpenAPI YAML**: Swagger 2.0 → 3.0/3.1 (dual-engine swagger2openapi/Scalar) and OpenAPI 3.0/3.1 → 3.1/3.2 upgrades, validation gate + auto-fallback, advisory deep lint, download or save-as-version)
 - Kafka integration foundation and modularized service layer
 - Rust executor path and performance-oriented execution modes
 - **Dual-track builds (Standard vs Learning Hub):** `VITE_ENABLE_DEMO_HUB` feature flag, separate vitest product/demo projects, **`@redfireforge/demo-hub`** npm workspace package (`packages/demo-hub/`), lazy `DemoShellHost`, dual Tauri bundle IDs (`com.redfireforge.desktop` / `.demo`)

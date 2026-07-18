@@ -11,12 +11,26 @@ interface Props {
   onDeleteEntry: (entryId: string) => void;
   onVersionHistory: (entryId: string) => void;
   onExportSpec?: (entryId: string) => void;
+  onConvertToOpenApi?: (entryId: string) => void;
+  onBatchConvertToOpenApi?: () => void;
   onEdit?: (entryId: string) => void;
 }
 
 import { METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
 
-export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry, onImport, onReimport, onDeleteEntry, onVersionHistory, onExportSpec, onEdit }: Props) {
+export default function CatalogSidebar({
+  entries,
+  selectedEntryId,
+  onSelectEntry,
+  onImport,
+  onReimport,
+  onDeleteEntry,
+  onVersionHistory,
+  onExportSpec,
+  onConvertToOpenApi,
+  onBatchConvertToOpenApi,
+  onEdit,
+}: Props) {
   const [filter, setFilter] = useState('');
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; entryId: string } | null>(null);
   const ctxRef = useRef<HTMLDivElement>(null);
@@ -33,18 +47,29 @@ export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry
   const closeCtx = useCallback(() => setCtxMenu(null), []);
 
   return (
-    <div className="cat-sidebar" onClick={closeCtx}>
+    <div className="cat-sidebar" data-testid="catalog-sidebar" onClick={closeCtx}>
       <div className="cat-sidebar-header">
         <input
           className="cat-sidebar-filter"
+          data-testid="catalog-sidebar-filter"
           type="text"
           placeholder="Filter APIs..."
           value={filter}
           onChange={e => setFilter(e.target.value)}
         />
-        <button className="cat-sidebar-import-btn" onClick={onImport}>
+        <button className="cat-sidebar-import-btn" data-testid="catalog-import-btn" onClick={onImport}>
           + Import Spec
         </button>
+        {onBatchConvertToOpenApi && (
+          <button
+            className="cat-sidebar-import-btn"
+            data-testid="catalog-batch-convert-btn"
+            onClick={onBatchConvertToOpenApi}
+            title="Convert all Swagger 2.0 entries to OpenAPI 3.0 and save as new versions"
+          >
+            Batch Convert
+          </button>
+        )}
       </div>
 
       <div className="cat-sidebar-list">
@@ -66,6 +91,8 @@ export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry
               key={entry.id}
               role="button"
               tabIndex={0}
+              data-testid="catalog-entry-item"
+              data-cat-entry-name={entry.name}
               className={`cat-sidebar-entry ${isSelected ? 'active' : ''}`}
               onClick={() => onSelectEntry(entry.id)}
               onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSelectEntry(entry.id); } }}
@@ -88,6 +115,7 @@ export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry
         <div
           ref={ctxRef}
           className="cat-ctx-menu"
+          data-testid="catalog-ctx-menu"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
           onClick={e => e.stopPropagation()}
         >
@@ -118,6 +146,11 @@ export default function CatalogSidebar({ entries, selectedEntryId, onSelectEntry
                 {onExportSpec && (
                   <div className="cat-ctx-item" onClick={() => { onExportSpec(ctxMenu.entryId); closeCtx(); }}>
                     Export Original Spec
+                  </div>
+                )}
+                {onConvertToOpenApi && (
+                  <div className="cat-ctx-item" data-testid="catalog-ctx-convert" onClick={() => { onConvertToOpenApi(ctxMenu.entryId); closeCtx(); }}>
+                    Convert / Upgrade OpenAPI YAML…
                   </div>
                 )}
                 <div className="cat-ctx-sep" />

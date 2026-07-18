@@ -46,6 +46,14 @@ alwaysApply: true
 | `src/features/requests/components/SendToHarnessModal.tsx` | Send to Harness: 2-step modal (target + preview/options) |
 | `src/features/requests/components/BatchSendToHarnessModal.tsx` | Batch Send to Harness: checkbox selection + options |
 | `src/features/catalog/utils/catalogEndpointToRequest.ts` | Catalog endpoint → temporary RequestItem for direct-to-Harness promotion (incl. schema-based sample body generation) |
+| `src/features/catalog/utils/openApiParser.ts` | Custom Swagger 2.0 / OpenAPI 3.x → `CatalogEntry` parser (on `yaml`; internal `#/` refs only; model normalize, raw spec kept as-is) |
+| `src/features/catalog/utils/swaggerToOpenApi.ts` | Convert / Upgrade dispatchers: `convertSwaggerToOpenApiYaml` (Swagger 2 → 3.0/3.1) + `upgradeOpenApi3Yaml` (3.0→3.1/3.2, 3.1→3.2); `detectSpecFormat` / `availableTargets` routing; structural `validateOpenApi3` + `normalizeConvertedOpenApi3` repair; validate-driven auto-fallback (convert flow) |
+| `src/features/catalog/utils/engines/swagger2openapiEngine.ts` | Convert adapter — `swagger2openapi` (default, 3.0.x), warning collection (lazy `import()`) |
+| `src/features/catalog/utils/engines/scalarEngine.ts` | Convert / upgrade adapter — `@scalar/openapi-upgrader` (3.0/3.1/3.2), warning derivation (lazy `import()`) |
+| `src/features/catalog/utils/openApiLint.ts` | Deep lint via lazy `oas-validator` (schema + best-practice rules, OpenAPI 3.0.x); advisory only, graceful degradation |
+| `src/features/catalog/utils/convertPrefs.ts` | Persists last-used convert `{engine, target}` + the Prettify toggle via storage abstraction |
+| `src/features/catalog/utils/prettyYaml.ts` | Pretty-YAML normalization: lazy `openapi-format` `openapiSort` → canonical, diff-friendly key order; graceful fallback to raw YAML. Needs `path`/`http`/`https` browser shims (`src/shims/`) |
+| `src/features/catalog/components/CatalogConvertOpenApiModal.tsx` | Convert / Upgrade modal: source-aware engine/target selectors, validation badge + errors, warnings, on-demand Deep lint, copyable + searchable YAML preview, Download / Save-as-version |
 | `src/app/hooks/useDerivedViewState.ts` | Derived view state (selectedEnv, selectedSvc, isAdditionalEnv, resolvedBaseUrl, filteredFeatureGroups) |
 | `src/features/workflow/components/WorkflowDesignerFlowCanvas.tsx` | Workflow canvas: ReactFlow wrapper with viewport persistence (IntersectionObserver) and tab-switch restoration |
 | `src/features/workflow/data/emptyCanvasTemplates.ts` | Empty canvas template definitions: curated gallery samples for quick-start workflow suggestions |

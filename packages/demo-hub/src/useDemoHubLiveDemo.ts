@@ -318,7 +318,7 @@ export function useDemoHubLiveDemo({
       return;
     }
 
-    const breathingPause = Math.round(1500 / state.speed);
+    const breathingPause = Math.round(4200 / state.speed);
     const gen = ++autoPlayGenRef.current;
 
     autoPlayRef.current = setTimeout(async () => {

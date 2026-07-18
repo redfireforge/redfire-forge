@@ -13,6 +13,8 @@ import { createDualModeArrayStorage } from './storageDualMode';
 export const CATALOG_KEY = 'perf-test-catalog';
 export const CATALOG_SPEC_PREFIX = 'perf-test-catalog-spec-';
 export const CATALOG_EP_VALUES_PREFIX = 'perf-test-catalog-ep-';
+export const CATALOG_SELECTED_ENTRY_KEY = 'perf-test-catalog-selected-entry';
+export const CATALOG_VIEW_PREFIX = 'perf-test-catalog-view-';
 
 const catalogEntriesStorage = createDualModeArrayStorage<CatalogEntry>({
   key: CATALOG_KEY,
@@ -119,6 +121,40 @@ export async function removeCatalogEndpointValues(entryId: string): Promise<void
   }
   await idbRemoveCatalogEndpointValues(entryId);
   await removeKey(`${CATALOG_EP_VALUES_PREFIX}${entryId}`);
+}
+
+export async function loadCatalogSelectedEntryId(): Promise<string | null> {
+  try {
+    const value = await readKey(CATALOG_SELECTED_ENTRY_KEY);
+    return value?.trim() ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveCatalogSelectedEntryId(entryId: string): Promise<void> {
+  await writeKey(CATALOG_SELECTED_ENTRY_KEY, entryId);
+}
+
+export async function removeCatalogSelectedEntryId(): Promise<void> {
+  await removeKey(CATALOG_SELECTED_ENTRY_KEY);
+}
+
+export async function loadCatalogView(entryId: string): Promise<string | null> {
+  try {
+    const value = await readKey(`${CATALOG_VIEW_PREFIX}${entryId}`);
+    return value?.trim() ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function saveCatalogView(entryId: string, view: string): Promise<void> {
+  await writeKey(`${CATALOG_VIEW_PREFIX}${entryId}`, view);
+}
+
+export async function removeCatalogView(entryId: string): Promise<void> {
+  await removeKey(`${CATALOG_VIEW_PREFIX}${entryId}`);
 }
 
 /** Migrate catalog localStorage keys to IndexedDB (browser only). */

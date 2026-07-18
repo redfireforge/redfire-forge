@@ -19,8 +19,8 @@ export const DEMO_QUIET_DELAY_FACTOR = 0.25;
 export const DEMO_QUIET_DELAY_MIN_MS = 40;
 export const DEMO_QUIET_DELAY_MAX_MS = 280;
 
-export const DEMO_VISIBLE_RIPPLE_MS = 280;
-export const DEMO_VISIBLE_FILL_PAUSE_MS = 200;
+export const DEMO_VISIBLE_RIPPLE_MS = 560;
+export const DEMO_VISIBLE_FILL_PAUSE_MS = 420;
 
 export const INITIAL_STATE: DemoHubState = {
   view: 'domains',

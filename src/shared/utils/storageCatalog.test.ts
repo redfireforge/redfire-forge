@@ -93,6 +93,8 @@ import {
   CATALOG_KEY,
   CATALOG_SPEC_PREFIX,
   CATALOG_EP_VALUES_PREFIX,
+  CATALOG_SELECTED_ENTRY_KEY,
+  CATALOG_VIEW_PREFIX,
   loadCatalogEntries,
   saveCatalogEntries,
   loadCatalogRawSpec,
@@ -102,6 +104,12 @@ import {
   loadCatalogEndpointValues,
   saveCatalogEndpointValues,
   removeCatalogEndpointValues,
+  loadCatalogSelectedEntryId,
+  saveCatalogSelectedEntryId,
+  removeCatalogSelectedEntryId,
+  loadCatalogView,
+  saveCatalogView,
+  removeCatalogView,
   migrateCatalogKeysToIdb,
 } from './storageCatalog';
 import {
@@ -337,6 +345,32 @@ describe('storageCatalog — browser (IDB primary)', () => {
     });
   });
 
+  describe('selected entry + catalog view helpers', () => {
+    it('saves, loads, and removes selected entry id', async () => {
+      await saveCatalogSelectedEntryId('entry-1');
+      expect(await loadCatalogSelectedEntryId()).toBe('entry-1');
+      await removeCatalogSelectedEntryId();
+      expect(await loadCatalogSelectedEntryId()).toBeNull();
+    });
+
+    it('treats whitespace selected entry id as null', async () => {
+      localStorage.setItem(CATALOG_SELECTED_ENTRY_KEY, '   ');
+      expect(await loadCatalogSelectedEntryId()).toBeNull();
+    });
+
+    it('saves, loads, and removes catalog view by entry id', async () => {
+      await saveCatalogView('entry-1', 'schema');
+      expect(await loadCatalogView('entry-1')).toBe('schema');
+      await removeCatalogView('entry-1');
+      expect(await loadCatalogView('entry-1')).toBeNull();
+    });
+
+    it('treats whitespace view values as null', async () => {
+      localStorage.setItem(`${CATALOG_VIEW_PREFIX}entry-1`, '   ');
+      expect(await loadCatalogView('entry-1')).toBeNull();
+    });
+  });
+
   describe('migrateCatalogKeysToIdb', () => {
     it('skips entry migration when localStorage catalog key is absent', async () => {
       await migrateCatalogKeysToIdb();
@@ -463,5 +497,13 @@ describe('storageCatalog — tauri backend', () => {
     tauriStoreMap.set(`${CATALOG_EP_VALUES_PREFIX}c1`, '{}');
     await removeCatalogEndpointValues('c1');
     expect(tauriStoreMap.has(`${CATALOG_EP_VALUES_PREFIX}c1`)).toBe(false);
+  });
+
+  it('selected entry and view loaders return null when tauri read throws', async () => {
+    tauriGetItem.mockRejectedValueOnce(new Error('selected read fail'));
+    expect(await loadCatalogSelectedEntryId()).toBeNull();
+
+    tauriGetItem.mockRejectedValueOnce(new Error('view read fail'));
+    expect(await loadCatalogView('c1')).toBeNull();
   });
 });

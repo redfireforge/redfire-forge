@@ -5,9 +5,14 @@ import {
   saveCatalogRawSpec, removeCatalogRawSpec, removeAllCatalogRawSpecs,
   loadCatalogRawSpec, removeCatalogEndpointValues,
 } from '../../../shared/utils/storage';
+import {
+  loadCatalogSelectedEntryId,
+  saveCatalogSelectedEntryId,
+  removeCatalogSelectedEntryId,
+} from '../../../shared/utils/storageCatalog';
 import { parseOpenApiSpec } from '../utils/openApiParser';
 
-const MAX_VERSIONS = 10;
+export const MAX_VERSIONS = 10;
 
 export type UseCatalogReturn = ReturnType<typeof useCatalog>;
 
@@ -18,16 +23,40 @@ export function useCatalog() {
   const [selectedEndpointId, setSelectedEndpointId] = useState<string | undefined>();
 
   useEffect(() => {
-    loadCatalogEntries().then((e) => {
+    let cancelled = false;
+    void (async () => {
+      const [e, persistedSelectedEntryId] = await Promise.all([
+        loadCatalogEntries(),
+        loadCatalogSelectedEntryId(),
+      ]);
+      if (cancelled) return;
+
       setEntries(e);
       setLoaded(true);
-      if (e.length === 1) setSelectedEntryId(e[0].id);
-    });
+
+      const selected = persistedSelectedEntryId && e.some(entry => entry.id === persistedSelectedEntryId)
+        ? persistedSelectedEntryId
+        : (e.length === 1 ? e[0].id : undefined);
+      setSelectedEntryId(selected);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
     if (loaded) saveCatalogEntries(entries);
   }, [entries, loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
+    if (!selectedEntryId) {
+      void removeCatalogSelectedEntryId();
+      return;
+    }
+    void saveCatalogSelectedEntryId(selectedEntryId);
+  }, [loaded, selectedEntryId]);
 
   const selectedEntry = entries.find(e => e.id === selectedEntryId) ?? null;
 

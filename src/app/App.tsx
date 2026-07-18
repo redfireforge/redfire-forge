@@ -65,6 +65,8 @@ import { demoHubRuntimeRef, DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
 import { shouldExitLiveDemoForTabChange } from './demo/liveDemoTabGuard';
 import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
 import { useDemoWorkspaceDefaultsBridge } from './hooks/useDemoWorkspaceDefaultsBridge';
+import { useDemoHarnessBridge } from './hooks/useDemoHarnessBridge';
+import { useDemoCatalogBridge } from './hooks/useDemoCatalogBridge';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
 
 const DemoShellHost = lazy(() =>
@@ -86,11 +88,13 @@ export default function App() {
     initialTheme, initialTestRuns,
   } = useProjects();
   useDemoWorkspaceDefaultsBridge(setWorkspaceDefaults);
+  useDemoHarnessBridge(environments, microservices, setEnvironments, setMicroservices);
 
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
 
   const wb = useRequests();
   const catalog = useCatalog();
+  useDemoCatalogBridge(catalog, DEMO_HUB_ENABLED);
   const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
   const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
   const wfHook = useWorkflows();
@@ -255,8 +259,13 @@ export default function App() {
     setCatalogVersionHistoryId,
     catalogEditId,
     setCatalogEditId,
+    catalogConvert,
+    setCatalogConvert,
     handleExportSpec,
-  } = useCatalogState(catalog);
+    handleConvertToOpenApi,
+    handleSaveConvertedVersion,
+    handleBatchConvertToOpenApi,
+  } = useCatalogState(catalog, { showToast: toast.show });
   const [previewRequest, setPreviewRequest] = useState<PreviewRequest | null>(null);
   // ---- Sync theme from loaded data ----
   useEffect(() => {
@@ -487,6 +496,8 @@ export default function App() {
         setCatalogEditId={setCatalogEditId}
         setBatchHarnessTarget={setBatchHarnessTarget}
         handleExportSpec={handleExportSpec}
+        handleConvertToOpenApi={handleConvertToOpenApi}
+        handleBatchConvertToOpenApi={handleBatchConvertToOpenApi}
         handleWorkflowExport={handleWorkflowExport}
         handleExportFolder={handleExportFolder}
         handleWorkflowImport={handleWorkflowImport}
@@ -765,6 +776,7 @@ export default function App() {
               onReimport={(entryId) => { setCatalogReimportId(entryId); setShowCatalogImport(true); }}
               onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
               onExportSpec={handleExportSpec}
+              onConvertToOpenApi={handleConvertToOpenApi}
               onSendToRequests={handleSendToRequests}
               onExportSingleEndpoint={handleExportSingleEndpoint}
               onEditEntry={(entryId) => setCatalogEditId(entryId)}
@@ -827,6 +839,10 @@ export default function App() {
             setCatalogVersionHistoryId={setCatalogVersionHistoryId}
             catalogEditId={catalogEditId}
             setCatalogEditId={setCatalogEditId}
+            catalogConvert={catalogConvert}
+            setCatalogConvert={setCatalogConvert}
+            handleSaveConvertedVersion={handleSaveConvertedVersion}
+            showToast={toast.show}
           />
         </main>
       </div>

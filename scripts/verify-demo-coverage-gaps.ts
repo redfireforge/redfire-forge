@@ -46,6 +46,8 @@ const DEMO_COVERAGE_ALLOWLIST = [
   'packages/demo-hub/src/lessons/protocols/graphql-lesson-helpers/lesson2-variables-history.ts',
   'packages/demo-hub/src/adapters/bridgeWindow.ts',
   'packages/demo-hub/src/adapters/gqlModalLockBridge.ts',
+  // Lesson wrapper (thin step/narration file) — excluded per demo-lesson done checklist.
+  'packages/demo-hub/src/lessons/api/cat-convert-openapi.ts',
 ];
 
 function pct(covered: number, total: number): number {
