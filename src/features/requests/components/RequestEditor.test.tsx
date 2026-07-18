@@ -365,14 +365,16 @@ describe('RequestEditor chrome', () => {
   it('dispatches method change through onUpdateRequest', () => {
     const onUpdateRequest = vi.fn();
     render(<RequestEditor {...defaultProps} onUpdateRequest={onUpdateRequest} />);
-    fireEvent.change(screen.getByDisplayValue('GET'), { target: { value: 'DELETE' } });
+    fireEvent.click(screen.getByRole('button', { name: /GET/ }));
+    fireEvent.click(screen.getByRole('option', { name: /DELETE/i }));
     expect(onUpdateRequest).toHaveBeenCalledWith({ method: 'DELETE' });
   });
 
   it('accepts PATCH when the outbound editor already exposes PUT styling', () => {
     const onUpdateRequest = vi.fn();
     render(<RequestEditor {...defaultProps} onUpdateRequest={onUpdateRequest} request={makeRequest({ method: 'PUT' })} />);
-    fireEvent.change(screen.getByDisplayValue('PUT'), { target: { value: 'PATCH' } });
+    fireEvent.click(screen.getByRole('button', { name: /PUT/ }));
+    fireEvent.click(screen.getByRole('option', { name: /PATCH/i }));
     expect(onUpdateRequest).toHaveBeenCalledWith({ method: 'PATCH' });
   });
 

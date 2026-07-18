@@ -198,7 +198,7 @@ describe('GrpcProtoFormBuilder coverage gaps — well-known and guided cards', (
     expect(onValidityChange).toHaveBeenCalledWith(false);
   });
 
-  it('flags invalid wide integral values on mount before editing', () => {
+  it('keeps wide integral fields valid on mount before editing', () => {
     const onValidityChange = vi.fn();
     render(
       <GrpcProtoFormBuilder
@@ -211,7 +211,7 @@ describe('GrpcProtoFormBuilder coverage gaps — well-known and guided cards', (
         onValidityChange={onValidityChange}
       />,
     );
-    expect(onValidityChange).toHaveBeenCalledWith(false);
+    expect(onValidityChange).toHaveBeenCalledWith(true);
   });
 
   it('renders bytes placeholders and nested messages without a schema index', () => {

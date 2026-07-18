@@ -604,7 +604,7 @@
 
 /* Scrollable content */
 .usb-content {
-  flex: 1; overflow-y: auto; overflow-x: hidden;
+  flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
 }
 .usb-content::-webkit-scrollbar { width: 5px; }

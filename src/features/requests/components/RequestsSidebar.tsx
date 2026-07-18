@@ -1,15 +1,19 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { RequestCollection, RequestFolder, CatalogRequestMeta } from '../../../shared/types';
-import { countGroupRequests, collectGroupIds, findFolderDeep, findSiblingFolders, countFolderReqs } from '../utils/requestTree';
-import { saveJsonFile, openJsonFile } from '../../../shared/utils/fileSaver';
+import { countGroupRequests, findFolderDeep, findSiblingFolders, countFolderReqs } from '../utils/requestTree';
 import { toggleSetItem } from '../../../shared/utils/setToggle';
-import { isTauri } from '../../../shared/utils/platform';
-import { v4 as uuidv4 } from 'uuid';
 import SidebarContextMenu from './SidebarContextMenu';
 import { useToast } from '../../../shared/hooks/useToast';
 import { useRequestsSidebarSearch } from '../hooks/useRequestsSidebarSearch';
 import { useRequestsSidebarDnD } from '../hooks/useRequestsSidebarDnD';
-import { tryParseJson } from '../../../shared/utils/helpers';
+import {
+  handleExportAll as exportAllToFile,
+  handleExportCollection as exportCollectionToFile,
+  handleExportFolder as exportFolderToFile,
+  handleExportGroup as exportGroupToFile,
+  handleImportToCollection as importToCollectionFromFile,
+  handleImportToFolder as importToFolderFromFile,
+} from '../utils/requestsSidebarImportExport';
 
 interface Props {
   collections: RequestCollection[];
@@ -71,59 +75,6 @@ export type CtxMenuData = {
 };
 type CtxMenu = CtxMenuData | null;
 
-function regenIds(folder: RequestFolder): RequestFolder {
-  return {
-    ...folder, id: uuidv4(),
-    requests: folder.requests.map(r => ({ ...r, id: uuidv4() })),
-    folders: (folder.folders ?? []).map(regenIds),
-  };
-}
-
-function slugify(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-}
-
-function buildExportPayload(type: string, data: unknown) {
-  return { type, version: '1.0', exportedAt: new Date().toISOString(), data };
-}
-
-type RequestsImportPayload = {
-  type?: string;
-  data?: Record<string, unknown>;
-};
-
-function parseImportPayload(content: string): RequestsImportPayload | null {
-  const parsed = tryParseJson(content);
-  if (!parsed || typeof parsed !== 'object') return null;
-  return parsed as RequestsImportPayload;
-}
-
-async function pickAndParseImportPayload(): Promise<{ payload: RequestsImportPayload | null; cancelled: boolean }> {
-  const content = await pickImportFile();
-  if (!content) return { payload: null, cancelled: true };
-  return { payload: parseImportPayload(content), cancelled: false };
-}
-
-async function pickImportFile(): Promise<string | null> {
-  if (isTauri()) {
-    const result = await openJsonFile();
-    return result?.content ?? null;
-  }
-  return new Promise((resolve) => {
-    const input = document.createElement('input');
-    input.type = 'file'; input.accept = '.json';
-    input.onchange = () => {
-      const file = input.files?.[0];
-      if (!file) { resolve(null); return; }
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = () => { resolve(null); };
-      reader.readAsText(file);
-    };
-    input.click();
-  });
-}
-
 function modeIcon(mode: RequestCollection['mode']): string {
   if (mode === 'group') return '\uD83D\uDDC2\uFE0F';
   if (mode === 'multi-env') return '\uD83C\uDF10';
@@ -170,6 +121,30 @@ export default function RequestsSidebar({
   const addMenuRef = useRef<HTMLDivElement>(null);
 
   const nonGroupCollections = useMemo(() => collections.filter(c => c.mode !== 'group'), [collections]);
+
+  const allColIds = useMemo(() => collections.map(c => c.id), [collections]);
+  const allFolderIds = useMemo(() => {
+    const ids: string[] = [];
+    const walk = (folders: RequestFolder[]) => {
+      for (const f of folders) { ids.push(f.id); walk(f.folders ?? []); }
+    };
+    collections.forEach(c => walk(c.folders ?? []));
+    return ids;
+  }, [collections]);
+  const isAllExpanded = useMemo(() =>
+    allColIds.length > 0 &&
+    allColIds.every(id => expandedCols.has(id)) &&
+    allFolderIds.every(id => expandedFolders.has(id)),
+    [allColIds, allFolderIds, expandedCols, expandedFolders]);
+  const toggleExpandAll = useCallback(() => {
+    if (isAllExpanded) {
+      setExpandedCols(new Set());
+      setExpandedFolders(new Set());
+    } else {
+      setExpandedCols(new Set(allColIds));
+      setExpandedFolders(new Set(allFolderIds));
+    }
+  }, [isAllExpanded, allColIds, allFolderIds]);
 
   const {
     search,
@@ -321,166 +296,46 @@ export default function RequestsSidebar({
   // ─── Export / Import ──────────────────────────────────
 
   const handleExportAll = async () => {
-    if (collections.length === 0) return;
-    const payload = buildExportPayload('requests-all', { collections });
-    await saveJsonFile(payload, `requests-all-collections.json`);
+    await exportAllToFile(collections);
   };
 
   const handleExportCollection = async (colId: string) => {
-    const col = collections.find(c => c.id === colId);
-    if (!col) return;
-    await saveJsonFile(buildExportPayload('requests-collection', col), `collection-${slugify(col.name)}.json`);
+    await exportCollectionToFile(collections, colId);
     setContextMenu(null);
   };
 
   const handleExportFolder = async (colId: string, folderId: string) => {
-    const col = collections.find(c => c.id === colId);
-    const folder = col ? findFolderDeep(col.folders ?? [], folderId) : null;
-    if (!folder) return;
-    await saveJsonFile(buildExportPayload('requests-folder', folder), `folder-${slugify(folder.name)}.json`);
+    await exportFolderToFile(collections, colId, folderId);
     setContextMenu(null);
   };
 
   const handleExportGroup = async (groupId: string) => {
-    const group = collections.find(c => c.id === groupId);
-    if (!group || group.mode !== 'group') return;
-    const allIds = collectGroupIds(groupId, collections);
-    const children = collections.filter(c => allIds.includes(c.id) && c.id !== groupId);
-    await saveJsonFile(buildExportPayload('requests-group', { group, children }), `group-${slugify(group.name)}.json`);
+    await exportGroupToFile(collections, groupId);
     setContextMenu(null);
   };
 
   const handleImportToCollection = async (colId?: string, targetGroupId?: string) => {
     setContextMenu(null);
-    const { payload: json, cancelled } = await pickAndParseImportPayload();
-    if (cancelled) return;
-    if (!json) {
-      toast.show('error', 'Invalid JSON file', 'Please select a valid export file.');
-      return;
-    }
-    try {
-      if (json.type === 'requests-collection' && json.data) {
-        const incoming = json.data as unknown as RequestCollection;
-        if (!incoming.name || !incoming.requests) {
-          toast.show('error', 'Invalid collection format', 'Missing required fields.'); return;
-        }
-        const nameExists = collections.some(c => c.name.toLowerCase() === incoming.name.toLowerCase());
-        const imported: RequestCollection = {
-          ...incoming,
-          id: uuidv4(),
-          name: nameExists ? `${incoming.name} (imported)` : incoming.name,
-          groupId: targetGroupId,
-          requests: incoming.requests.map(r => ({ ...r, id: uuidv4() })),
-          folders: (incoming.folders ?? []).map(regenIds),
-        };
-        onImportCollection(imported);
-      } else if (json.type === 'requests-folder' && json.data && colId) {
-        const incoming = json.data as unknown as RequestFolder;
-        if (!incoming.name || !incoming.requests) {
-          toast.show('error', 'Invalid folder format', 'Missing required fields.'); return;
-        }
-        const col = collections.find(c => c.id === colId);
-        const siblings = col?.folders ?? [];
-        const nameExists = siblings.some(f => f.name.toLowerCase() === incoming.name.toLowerCase());
-        const imported = regenIds({
-          ...incoming,
-          name: nameExists ? `${incoming.name} (imported)` : incoming.name,
-        });
-        onImportFolder(colId, imported);
-      } else if (json.type === 'requests-group' && json.data?.group) {
-        importGroupData(
-          json.data.group as unknown as RequestCollection,
-          (json.data.children ?? []) as unknown as RequestCollection[],
-          targetGroupId,
-        );
-      } else if (json.type === 'requests-all' && json.data?.collections) {
-        const incoming = json.data.collections as unknown as RequestCollection[];
-        const idMap = new Map<string, string>();
-        for (const inc of incoming) {
-          idMap.set(inc.id, uuidv4());
-        }
-        let importedCount = 0;
-        for (const inc of incoming) {
-          if (!inc.name || (!inc.requests && inc.mode !== 'group')) continue;
-          const nameExists = collections.some(c => c.name.toLowerCase() === inc.name.toLowerCase());
-          const resolvedGroupId = inc.groupId
-            ? idMap.get(inc.groupId) ?? targetGroupId
-            : targetGroupId;
-          const imported: RequestCollection = {
-            ...inc,
-            id: idMap.get(inc.id)!,
-            name: nameExists ? `${inc.name} (imported)` : inc.name,
-            groupId: resolvedGroupId,
-            requests: (inc.requests ?? []).map(r => ({ ...r, id: uuidv4() })),
-            folders: (inc.folders ?? []).map(regenIds),
-          };
-          onImportCollection(imported);
-          importedCount++;
-        }
-        if (importedCount === 0) toast.show('warning', 'No valid collections found in the file');
-      } else {
-        toast.show('error', 'Unrecognized file format', 'Expected a Requests collection, folder, group, or all-collections export.');
-      }
-    } catch {
-      toast.show('error', 'Invalid JSON file', 'Please select a valid export file.');
-    }
-  };
-
-  const importGroupData = (group: RequestCollection, children: RequestCollection[], parentGroupId?: string) => {
-    const idMap = new Map<string, string>();
-    idMap.set(group.id, uuidv4());
-    for (const child of children) {
-      idMap.set(child.id, uuidv4());
-    }
-    const importedGroup: RequestCollection = {
-      ...group,
-      id: idMap.get(group.id)!,
-      groupId: parentGroupId,
-      requests: [],
-      folders: [],
-    };
-    onImportCollection(importedGroup);
-    for (const child of children) {
-      const newGroupId = child.groupId ? idMap.get(child.groupId) ?? child.groupId : undefined;
-      const imported: RequestCollection = {
-        ...child,
-        id: idMap.get(child.id)!,
-        groupId: newGroupId,
-        requests: (child.requests ?? []).map(r => ({ ...r, id: uuidv4() })),
-        folders: (child.folders ?? []).map(regenIds),
-      };
-      onImportCollection(imported);
-    }
+    await importToCollectionFromFile({
+      collections,
+      toast,
+      colId,
+      targetGroupId,
+      onImportCollection,
+      onImportFolder,
+      onAddGroup,
+    });
   };
 
   const handleImportToFolder = async (colId: string, parentFolderId: string) => {
     setContextMenu(null);
-    const { payload: json, cancelled } = await pickAndParseImportPayload();
-    if (cancelled) return;
-    if (!json) {
-      toast.show('error', 'Invalid JSON file', 'Please select a valid export file.');
-      return;
-    }
-    try {
-      if (json.type === 'requests-folder' && json.data) {
-        const incoming = json.data as unknown as RequestFolder;
-        if (!incoming.name || !incoming.requests) {
-          toast.show('error', 'Invalid folder format', 'Missing required fields.'); return;
-        }
-        const parent = findFolderDeep(collections.find(c => c.id === colId)?.folders ?? [], parentFolderId);
-        const siblings = parent?.folders ?? [];
-        const nameExists = siblings.some(f => f.name.toLowerCase() === incoming.name.toLowerCase());
-        const imported = regenIds({
-          ...incoming,
-          name: nameExists ? `${incoming.name} (imported)` : incoming.name,
-        });
-        onImportFolder(colId, imported, parentFolderId);
-      } else {
-        toast.show('error', 'Unexpected file type', 'Expected a folder/sub-collection export file.');
-      }
-    } catch {
-      toast.show('error', 'Invalid JSON file', 'Please select a valid export file.');
-    }
+    await importToFolderFromFile({
+      collections,
+      toast,
+      colId,
+      parentFolderId,
+      onImportFolder,
+    });
   };
 
   // ─── Render helpers ──────────────────────────────────
@@ -500,12 +355,13 @@ export default function RequestsSidebar({
           onDragOver={(e) => handleReqDragOver(e, colId, reqId, inFolderId)}
           onDragLeave={() => setDropInsert(null)}
           onDrop={(e) => handleReqDrop(e, colId, inFolderId, siblingRequests ?? [])}
+          data-testid="req-req-item" data-req-name={name || url || 'Untitled'}
           draggable onDragStart={(e) => handleReqDragStart(e, colId, reqId)} onDragEnd={handleDragEnd}>
           <span className="req-req-method" style={{ color: METHOD_COLORS[method] || '#94a3b8' }}>{method}</span>
           <span className={`req-req-name ${meta?.deprecated ? 'deprecated' : ''}`} title={name || url}>{name || url || 'Untitled'}</span>
           {meta && <span className="req-req-catalog-badge" title={meta.sourceSpec ? `From: ${meta.sourceSpec}` : 'From API Catalog'}>&#128203;</span>}
           {meta?.deprecated && <span className="req-req-deprecated-badge" title="Deprecated">&#9888;&#65039;</span>}
-          {inHarness && <span className="req-req-harness-badge" title="Promoted to Harness">IN HARNESS</span>}
+          {inHarness && <span className="req-req-harness-badge" data-testid="req-in-harness-badge" title="Promoted to Harness">IN HARNESS</span>}
         </div>
         {showAfter && <div className="req-drop-indicator" />}
       </div>
@@ -552,7 +408,7 @@ export default function RequestsSidebar({
             {isNewFolderHere && (
               <div className="req-new-folder-row">
                 <span className="req-folder-icon">{newFolderTarget?.isSubCollection ? '📦' : '📁'}</span>
-                <input className="req-inline-input" value={newFolderName} placeholder={newFolderTarget?.isSubCollection ? 'Sub-collection name' : 'Folder name'}
+                <input className="req-inline-input" data-testid="req-folder-name-input" value={newFolderName} placeholder={newFolderTarget?.isSubCollection ? 'Sub-collection name' : 'Folder name'}
                   onChange={(e) => setNewFolderName(e.target.value)} onBlur={commitAddFolder}
                   onKeyDown={(e) => { if (e.key === 'Enter') commitAddFolder(); if (e.key === 'Escape') setNewFolderTarget(null); }} autoFocus />
               </div>
@@ -596,6 +452,7 @@ export default function RequestsSidebar({
         <div className={`req-col-header ${selectedCollectionId === col.id && !selectedRequestId ? 'selected' : ''} ${dropTarget === `col-header-${col.id}` ? 'drop-target' : ''} ${dragItem?.kind === 'collection' && dragItem.colId === col.id ? 'dragging' : ''}`}
           onClick={() => { toggleCol(col.id); onSelectCollection(col.id); }}
           onContextMenu={(e) => handleContext(e, 'collection', col.id)}
+          data-testid="req-col-item" data-col-name={col.name}
           draggable onDragStart={(e) => handleCollectionDragStart(e, col.id)} onDragEnd={handleDragEnd}>
           <span className="req-col-arrow">{isExpCol ? '▾' : '▸'}</span>
           <span className="req-col-icon">{modeIcon(col.mode)}</span>
@@ -621,7 +478,7 @@ export default function RequestsSidebar({
             {newFolderTarget?.colId === col.id && !newFolderTarget.parentFolderId && (
               <div className="req-new-folder-row">
                 <span className="req-folder-icon">{newFolderTarget?.isSubCollection ? '📦' : '📁'}</span>
-                <input className="req-inline-input" value={newFolderName} placeholder={newFolderTarget?.isSubCollection ? 'Sub-collection name' : 'Folder name'}
+                <input className="req-inline-input" data-testid="req-folder-name-input" value={newFolderName} placeholder={newFolderTarget?.isSubCollection ? 'Sub-collection name' : 'Folder name'}
                   onChange={(e) => setNewFolderName(e.target.value)} onBlur={commitAddFolder}
                   onKeyDown={(e) => { if (e.key === 'Enter') commitAddFolder(); if (e.key === 'Escape') setNewFolderTarget(null); }} autoFocus />
               </div>
@@ -707,23 +564,31 @@ export default function RequestsSidebar({
   };
 
   return (
-    <div className="req-sidebar">
+    <div className="req-sidebar" data-testid="req-sidebar">
       <div className="req-sidebar-header">
         <span className="req-sidebar-title">COLLECTIONS</span>
         <div className="req-sidebar-actions">
-          <button className="req-icon-btn" onClick={handleExportAll} title="Export All">&#8613;</button>
-          <button className="req-icon-btn" onClick={() => handleImportToCollection()} title="Import">&#8615;</button>
+          <button
+            className={`req-icon-btn ${isAllExpanded ? 'active' : ''}`}
+            onClick={toggleExpandAll}
+            title={isAllExpanded ? 'Shrink All' : 'Expand All'}
+            aria-label={isAllExpanded ? 'Shrink all collections' : 'Expand all collections'}
+            aria-pressed={isAllExpanded}
+            data-testid="req-sidebar-expand-all"
+          >{isAllExpanded ? '\u229F' : '\u229E'}</button>
+          <button className="req-icon-btn" onClick={handleExportAll} title="Export All" data-testid="req-sidebar-export-all">&#8613;</button>
+          <button className="req-icon-btn" onClick={() => handleImportToCollection()} title="Import" data-testid="req-sidebar-import">&#8615;</button>
           <div className="req-add-menu-wrapper" ref={addMenuRef}>
-            <button className="req-icon-btn" onClick={() => setShowAddMenu(!showAddMenu)} title="Add new...">+</button>
+            <button className="req-icon-btn" onClick={() => setShowAddMenu(!showAddMenu)} title="Add new..." data-testid="req-sidebar-add-btn">+</button>
             {showAddMenu && (
-              <div className="req-add-dropdown">
-                <button onClick={() => { startAddGroup(); setShowAddMenu(false); }}>
+              <div className="req-add-dropdown" data-testid="req-add-dropdown">
+                <button data-testid="req-add-group" onClick={() => { startAddGroup(); setShowAddMenu(false); }}>
                   {modeIcon('group')} Group
                 </button>
-                <button onClick={() => { onNewCollection('direct'); setShowAddMenu(false); }}>
+                <button data-testid="req-add-url-collection" onClick={() => { onNewCollection('direct'); setShowAddMenu(false); }}>
                   {modeIcon('direct')} URL Collection
                 </button>
-                <button onClick={() => { onNewCollection('multi-env'); setShowAddMenu(false); }}>
+                <button data-testid="req-add-env-collection" onClick={() => { onNewCollection('multi-env'); setShowAddMenu(false); }}>
                   {modeIcon('multi-env')} ENV Collection
                 </button>
               </div>
@@ -740,6 +605,7 @@ export default function RequestsSidebar({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           aria-label="Search collections and requests"
+          data-testid="req-sidebar-search"
         />
         {search && (
           <button

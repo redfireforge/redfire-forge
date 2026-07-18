@@ -40,6 +40,8 @@ export interface AppSidebarRegionProps {
   setCatalogEditId: Dispatch<SetStateAction<string | undefined>>;
   setBatchHarnessTarget: Dispatch<SetStateAction<{ colId: string; folderId?: string } | undefined>>;
   handleExportSpec: (entryId: string) => void;
+  handleConvertToOpenApi: (entryId: string) => void;
+  handleBatchConvertToOpenApi: () => void;
   handleWorkflowExport: (id: string) => void;
   handleExportFolder: (folderId: string) => void;
   handleWorkflowImport: () => void;
@@ -77,6 +79,8 @@ export default function AppSidebarRegion({
   setCatalogEditId,
   setBatchHarnessTarget,
   handleExportSpec,
+  handleConvertToOpenApi,
+  handleBatchConvertToOpenApi,
   handleWorkflowExport,
   handleExportFolder,
   handleWorkflowImport,
@@ -113,6 +117,8 @@ export default function AppSidebarRegion({
                       onVersionHistory={(entryId) => setCatalogVersionHistoryId(entryId)}
                       onEdit={(entryId) => setCatalogEditId(entryId)}
                       onExportSpec={handleExportSpec}
+                      onConvertToOpenApi={handleConvertToOpenApi}
+                      onBatchConvertToOpenApi={handleBatchConvertToOpenApi}
                     />
                   )}
                 </div>

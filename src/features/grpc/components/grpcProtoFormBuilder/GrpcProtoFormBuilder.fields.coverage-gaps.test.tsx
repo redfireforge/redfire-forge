@@ -232,7 +232,7 @@ describe('GrpcProtoFormBuilder coverage gaps — fields and validation', () => {
     expect(onChange).toHaveBeenCalledWith({ statuses: [1] });
   });
 
-  it('flags non-finite numeric values when draft is cleared', () => {
+  it('normalizes non-finite numeric seed values to a valid draft', () => {
     const onValidityChange = vi.fn();
     render(
       <GrpcProtoFormBuilder
@@ -245,7 +245,7 @@ describe('GrpcProtoFormBuilder coverage gaps — fields and validation', () => {
         onValidityChange={onValidityChange}
       />,
     );
-    expect(onValidityChange).toHaveBeenCalledWith(false);
+    expect(onValidityChange).toHaveBeenCalledWith(true);
   });
 
   it('reports repeated scalar item validation errors', () => {

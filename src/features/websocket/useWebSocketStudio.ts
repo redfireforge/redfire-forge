@@ -49,6 +49,7 @@ import {
   type WsTransportMode,
   type UseWebSocketStudioReturn,
 } from './useWebSocketStudioTypes';
+import { startWsProxyPolling } from './wsProxyPolling';
 
 export type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter, WsTransportMode, UseWebSocketStudioReturn };
 
@@ -196,89 +197,22 @@ export function useWebSocketStudio(
     stopProxyPolling();
     proxyCursorRef.current = 0;
 
-    proxyPollTimerRef.current = setInterval(async () => {
-      if (!mountedRef.current) return;
-      try {
-        const env = await dispatchWsOperation<{
-          messages: Array<{ data: string; type: string; receivedAt: string; size: number }>;
-          cursor: number;
-          state?: string;
-          closeCode?: number;
-          closeReason?: string;
-        }>('messages', {
-          connectionId,
-          sinceCursor: proxyCursorRef.current,
-        });
-
-        if (!mountedRef.current) return;
-
-        // Check if the server-side connection has been closed (e.g. mock server stopped).
-        // The messages response now includes the connection state so we can detect
-        // disconnects without waiting for a poll failure.
-        if (env.data?.state && env.data.state !== 'connected') {
-          const code = env.data.closeCode ?? 1006;
-          const reason = env.data.closeReason || undefined;
-          const ackMsg = formatCloseFrame('ACK', code, reason);
-          appendMessage(createFrame('received', 'close', ackMsg));
-          failProxyConnection({
-            state: env.data.state === 'error' ? 'error' : 'disconnected',
-            closeCode: code,
-            closeReason: reason,
-            closedAt: new Date().toISOString(),
-          });
-          return;
-        }
-
-        if (env.data && env.data.messages.length > 0) {
-          const allFrames: WsFrame[] = [];
-
-          for (const m of env.data.messages) {
-            const isBinary = m.type === 'binary';
-            const result = processReceivedMessage(
-              m.data, isBinary,
-              protocolModeRef.current, detectedProtocolRef.current,
-              messageDetectionDoneRef.current,
-              (r) => { updateDetectedProtocol(r); },
-            );
-            messageDetectionDoneRef.current = result.detectionNowDone;
-
-            if (result.autoRespond) {
-              allFrames.push(result.frame);
-              dispatchWsOperation('send', { connectionId, data: result.autoRespond.replyData, type: 'text' }).catch(() => {});
-              allFrames.push(result.autoRespond.replyFrame);
-              setSentCount((c) => c + 1);
-              if (result.autoRespond.sioServerParams) setSioServerParams(result.autoRespond.sioServerParams);
-              continue;
-            }
-
-            allFrames.push(result.frame);
-          }
-
-          appendMessages(allFrames);
-          setReceivedCount((c) => c + env.data!.messages.length);
-          proxyCursorRef.current = env.data.cursor;
-        }
-      } catch {
-        if (!mountedRef.current) return;
-        try {
-          const statusEnv = await dispatchWsOperation<{ state: string; lastError?: string }>(
-            'status',
-            { connectionId },
-          );
-          if (!mountedRef.current) return;
-          if (statusEnv.data && statusEnv.data.state !== 'connected') {
-            const statusData = statusEnv.data;
-            failProxyConnection({
-              state: statusData.state === 'error' ? 'error' : 'disconnected',
-              lastError: statusData.lastError,
-            });
-          }
-        } catch {
-          if (!mountedRef.current) return;
-          failProxyConnection({ state: 'disconnected' });
-        }
-      }
-    }, PROXY_POLL_INTERVAL_MS);
+    proxyPollTimerRef.current = startWsProxyPolling({
+      connectionId,
+      pollIntervalMs: PROXY_POLL_INTERVAL_MS,
+      mountedRef,
+      proxyCursorRef,
+      protocolModeRef,
+      detectedProtocolRef,
+      messageDetectionDoneRef,
+      appendMessage,
+      appendMessages,
+      setSentCount,
+      setReceivedCount,
+      setSioServerParams,
+      updateDetectedProtocol,
+      failProxyConnection,
+    });
   }, [stopProxyPolling, appendMessage, appendMessages, failProxyConnection, updateDetectedProtocol]);
 
   const startNativeListeners = useCallback(async (connectionId: string) => {

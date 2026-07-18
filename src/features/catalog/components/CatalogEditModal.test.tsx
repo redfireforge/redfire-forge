@@ -10,7 +10,7 @@ import CatalogEditModal from './CatalogEditModal';
 import { makeEntry, makeHostConfig } from './catalogTestFactories';
 import type { Microservice, Environment } from '../../../shared/types';
 
-vi.mock('../../../shared/components/FullPanelModal', () => ({
+vi.mock('../../../shared/components/AppModalFrame', () => ({
   default: ({ title, footer, children }: { title: string; footer: ReactNode; children: ReactNode }) => (
     <div data-testid="full-panel-modal">
       <div data-testid="modal-title">{title}</div>
@@ -59,7 +59,8 @@ describe('CatalogEditModal', () => {
         onClose={vi.fn()}
       />,
     );
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'svc1');
+    await userEvent.click(screen.getByRole('button', { name: 'Microservice' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Orders Service' }));
     expect(screen.getByText('Dev')).toBeInTheDocument();
     expect(screen.getByText('https://dev.orders')).toBeInTheDocument();
   });
@@ -74,7 +75,8 @@ describe('CatalogEditModal', () => {
         onClose={vi.fn()}
       />,
     );
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'svc1');
+    await userEvent.click(screen.getByRole('button', { name: 'Microservice' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Orders Service' }));
     expect(screen.getByText(/no base URLs configured/)).toBeInTheDocument();
   });
 
@@ -111,7 +113,8 @@ describe('CatalogEditModal', () => {
         onClose={vi.fn()}
       />,
     );
-    await userEvent.selectOptions(screen.getByRole('combobox'), 'svc1');
+    await userEvent.click(screen.getByRole('button', { name: 'Microservice' }));
+    await userEvent.click(screen.getByRole('option', { name: 'Orders Service' }));
     await userEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({
