@@ -76,10 +76,12 @@ describe('WsConnectionTabBar', () => {
     expect(props.onAdd).toHaveBeenCalled();
   });
 
-  it('hides add button when at max tabs', () => {
+  it('disables add button when at max tabs', () => {
     props = makeProps({ maxTabs: 2 });
     render(<WsConnectionTabBar {...props} />);
-    expect(screen.queryByTestId('conn-tab-add')).toBeNull();
+    const addBtn = screen.getByTestId('conn-tab-add');
+    expect(addBtn).toBeTruthy();
+    expect((addBtn as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('renders close buttons for each tab', () => {
@@ -770,5 +772,119 @@ describe('WsConnectionTabBar — History Dropdown', () => {
     fireEvent.click(screen.getByTestId('conn-tab-history-clear'));
     expect(onClearHistory).toHaveBeenCalledOnce();
     expect(screen.queryByTestId('conn-tab-history-dropdown')).toBeNull();
+  });
+
+  it('ignores drag over when mime payload is missing', () => {
+    render(<WsConnectionTabBar {...makeProps()} />);
+    const tab2 = screen.getByTestId('conn-tab-tab-2');
+    const preventDefault = vi.fn();
+
+    fireEvent.dragOver(tab2, {
+      dataTransfer: { types: [], dropEffect: '' },
+      preventDefault,
+      clientX: 100,
+    });
+
+    expect(preventDefault).not.toHaveBeenCalled();
+  });
+
+  it('ignores drop when drag index is not numeric', () => {
+    const onReorder = vi.fn();
+    render(<WsConnectionTabBar {...makeProps({ onReorder })} />);
+    const tab2 = screen.getByTestId('conn-tab-tab-2');
+
+    fireEvent.drop(tab2, {
+      dataTransfer: makeDragDataTransfer({ 'text/x-ws-tab-index': 'NaN' }),
+      preventDefault: vi.fn(),
+      clientX: 100,
+    });
+
+    expect(onReorder).not.toHaveBeenCalled();
+  });
+
+  it('opens context menu and runs rename/duplicate/close actions', () => {
+    const onDuplicate = vi.fn();
+    const onClose = vi.fn();
+    render(<WsConnectionTabBar {...makeProps({ onDuplicate, onClose })} />);
+
+    fireEvent.contextMenu(screen.getByTestId('conn-tab-tab-1'));
+    fireEvent.click(screen.getByTestId('studio-tab-ctx-rename'));
+    expect(screen.getByTestId('conn-tab-rename-tab-1')).toBeTruthy();
+
+    fireEvent.contextMenu(screen.getByTestId('conn-tab-tab-1'));
+    fireEvent.click(screen.getByTestId('studio-tab-ctx-duplicate'));
+    expect(onDuplicate).toHaveBeenCalledWith('tab-1');
+
+    fireEvent.contextMenu(screen.getByTestId('conn-tab-tab-1'));
+    fireEvent.click(screen.getByTestId('studio-tab-ctx-close'));
+    expect(onClose).toHaveBeenCalledWith('tab-1');
+  });
+
+  it('context close-others and close-right skip connected/connecting tabs', () => {
+    const onClose = vi.fn();
+    const props = makeProps({
+      tabs: [
+        { id: 'tab-1', label: 'A' },
+        { id: 'tab-2', label: 'B' },
+        { id: 'tab-3', label: 'C' },
+      ],
+      connectionStates: {
+        'tab-1': 'disconnected',
+        'tab-2': 'connected',
+        'tab-3': 'disconnected',
+      },
+      onClose,
+    });
+    render(<WsConnectionTabBar {...props} />);
+
+    fireEvent.contextMenu(screen.getByTestId('conn-tab-tab-1'));
+    fireEvent.click(screen.getByTestId('studio-tab-ctx-close-right'));
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onClose).toHaveBeenCalledWith('tab-3');
+
+    fireEvent.contextMenu(screen.getByTestId('conn-tab-tab-3'));
+    fireEvent.click(screen.getByTestId('studio-tab-ctx-close-others'));
+    expect(onClose).toHaveBeenCalledWith('tab-1');
+    expect(onClose).toHaveBeenCalledTimes(2);
+  });
+
+  it('context menu duplicate is disabled when onDuplicate is not provided', () => {
+    render(<WsConnectionTabBar {...makeProps({ onDuplicate: undefined })} />);
+
+    fireEvent.contextMenu(screen.getByTestId('conn-tab-tab-1'));
+    const duplicate = screen.getByTestId('studio-tab-ctx-duplicate') as HTMLButtonElement;
+    expect(duplicate.disabled).toBe(true);
+  });
+
+  it('context menu close is disabled when only one tab exists', () => {
+    const props = makeProps({
+      tabs: [{ id: 'tab-1', label: 'Only' }],
+      activeTabId: 'tab-1',
+      maxTabs: 3,
+      connectionStates: { 'tab-1': 'disconnected' },
+    });
+    render(<WsConnectionTabBar {...props} />);
+
+    fireEvent.contextMenu(screen.getByTestId('conn-tab-tab-1'));
+    const close = screen.getByTestId('studio-tab-ctx-close') as HTMLButtonElement;
+    expect(close.disabled).toBe(true);
+  });
+
+  it('context menu uses fallback label/index when menu tab is no longer in tabs', () => {
+    const initial = makeProps();
+    const { rerender } = render(<WsConnectionTabBar {...initial} />);
+
+    fireEvent.contextMenu(screen.getByTestId('conn-tab-tab-2'));
+
+    const updated = makeProps({
+      tabs: [{ id: 'tab-1', label: 'localhost:8765' }],
+      activeTabId: 'tab-1',
+      maxTabs: 2,
+      connectionStates: { 'tab-1': 'disconnected' },
+    });
+    rerender(<WsConnectionTabBar {...updated} />);
+
+    const closeRight = screen.getByTestId('studio-tab-ctx-close-right') as HTMLButtonElement;
+    expect(closeRight.disabled).toBe(false);
   });
 });
