@@ -40,6 +40,7 @@ function makeBaseCallbacks() {
     onMergeCollectionInto: vi.fn(),
     countAllRequests: vi.fn(() => 0),
     startAddFolder: vi.fn(),
+    getSubColEligibleCount: vi.fn(() => 1),
     startRenameFolder: vi.fn(),
     handleExportCollection: vi.fn(),
     handleExportFolder: vi.fn(),

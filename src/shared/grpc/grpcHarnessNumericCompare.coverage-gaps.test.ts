@@ -90,4 +90,18 @@ describe('grpcHarnessNumericCompare coverage gaps (Phase 8E)', () => {
     expect(compareGrpcHarnessNumericValues(null, '==', '').ok).toBe(true);
     expect(compareGrpcHarnessNumericValues(undefined, '>', '1').ok).toBe(false);
   });
+
+  it('covers remaining ordered operator branches including fallback operator handling', () => {
+    expect(compareGrpcHarnessNumericValues('5', '>=', '5').ok).toBe(true);
+    expect(compareGrpcHarnessNumericValues('3', '<', '4').ok).toBe(true);
+    expect(compareGrpcHarnessNumericValues('3', '<=', '3').ok).toBe(true);
+    expect(compareGrpcHarnessNumericValues('3', '>=' as unknown as '==', '4').ok).toBe(false);
+  });
+
+  it('falls back to String(value) when JSON serialization fails', () => {
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    const result = compareGrpcHarnessNumericValues(circular, '==', '[object Object]');
+    expect(result.actualText).toBe('[object Object]');
+  });
 });

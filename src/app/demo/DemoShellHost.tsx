@@ -13,6 +13,8 @@ import { useDemoSidebarBridge } from '../hooks/useDemoSidebarBridge';
 import { useDemoGlobalAuthBridge } from '../hooks/useDemoGlobalAuthBridge';
 import { useDemoWorkspaceDefaultsBridge } from '../hooks/useDemoWorkspaceDefaultsBridge';
 import { useDemoAppEnvironmentCleanupBridge } from '../hooks/useDemoAppEnvironmentCleanupBridge';
+import { useDemoSettingsEnvBridge } from '../hooks/useDemoSettingsEnvBridge';
+import { useDemoSettingsSvcBridge } from '../hooks/useDemoSettingsSvcBridge';
 import AppLiveDemoOverlay from '../components/AppLiveDemoOverlay';
 import '../../styles/demo-player.css';
 import '../../styles/demo-hub.css';
@@ -60,6 +62,8 @@ export function DemoShellHost({
     setSelectedEnvId,
     setSelectedSvcId,
   });
+  useDemoSettingsEnvBridge({ setEnvironments });
+  useDemoSettingsSvcBridge({ setMicroservices });
 
   syncDemoHubRuntimeRef(demoHub as DemoHubApi);
 

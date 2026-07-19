@@ -3,6 +3,7 @@ import type { WsMockRule, WsMockMatchType, WsMockResponseType, WsMockFallbackMod
 import { formatUptime } from '../../shared/websocket/types';
 import { evaluateRules } from './wsMockRuleEngine';
 import type { UseWebSocketMockServerReturn, MockServerConfig } from './useWebSocketMockServer';
+import { MockActivityLog, MockRuleTester } from './WebSocketMockRulesExtras';
 
 interface WebSocketMockServerProps {
   mock: UseWebSocketMockServerReturn;
@@ -11,9 +12,6 @@ interface WebSocketMockServerProps {
 
 type MockRightTab = 'rules' | 'log';
 
-/** Shared mock-server UI state lifted out of the view so the shell can render
- *  the server bar (topBar), clients pane (left) and rules pane (right) from a
- *  single source of truth (Phase 6b). */
 export interface MockUi {
   mock: UseWebSocketMockServerReturn;
   status: UseWebSocketMockServerReturn['status'];
@@ -251,7 +249,6 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
   };
 }
 
-/** Per-second uptime ticker, isolated so only this leaf re-renders each tick. */
 function MockUptime({ startedAt }: { startedAt: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -261,7 +258,6 @@ function MockUptime({ startedAt }: { startedAt: number }) {
   return <b>{formatUptime(now - startedAt)}</b>;
 }
 
-/** Full-width server bar + status strip (shell `topBar`). */
 export function WebSocketMockServerBar({ ui, onPortChange }: { ui: MockUi; onPortChange?: (port: number) => void }) {
   const { status, config, starting, enabledRuleCount, startedAt } = ui;
   const canEditPort = !status.running && !starting;
@@ -389,7 +385,6 @@ export function WebSocketMockServerBar({ ui, onPortChange }: { ui: MockUi; onPor
   );
 }
 
-/** Connected-clients list + broadcast composer (shell left pane). */
 export function WebSocketMockClientsPane({ ui }: { ui: MockUi }) {
   const { status, broadcastText } = ui;
   return (
@@ -444,7 +439,6 @@ export function WebSocketMockClientsPane({ ui }: { ui: MockUi }) {
   );
 }
 
-/** Match-type badge color map. */
 const MATCH_BADGE_CLASS: Record<WsMockMatchType, string> = {
   any: 'badge-any',
   exact: 'badge-exact',
@@ -452,7 +446,6 @@ const MATCH_BADGE_CLASS: Record<WsMockMatchType, string> = {
   regex: 'badge-regex',
   jsonpath: 'badge-jsonpath',
 };
-/** Response-type badge color map. */
 const RESPONSE_BADGE_CLASS: Record<WsMockResponseType, string> = {
   echo: 'badge-echo',
   static: 'badge-static',
@@ -460,7 +453,6 @@ const RESPONSE_BADGE_CLASS: Record<WsMockResponseType, string> = {
   close: 'badge-close',
 };
 
-/** Single rule card (header + inline editor). */
 function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: number }) {
   const { editingRuleId, rules, dragRuleId, dragOverRuleId } = ui;
   const isOpen = editingRuleId === rule.id;
@@ -691,7 +683,6 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
   );
 }
 
-/** Rule list (toolbar + cards). */
 function MockRuleList({ ui }: { ui: MockUi }) {
   const { rules, config, filteredRules, searchQuery } = ui;
   return (
@@ -735,73 +726,6 @@ function MockRuleList({ ui }: { ui: MockUi }) {
   );
 }
 
-/** Rule tester. */
-function MockRuleTester({ ui }: { ui: MockUi }) {
-  const { testInput, testResult, config } = ui;
-  return (
-    <div className="ws-mock-test-section" data-testid="mock-test-section">
-      <div className="ws-mock-section-title">Rule Tester</div>
-      <div className="ws-mock-test-row">
-        <input
-          className="ws-mock-test-input"
-          type="text"
-          value={testInput}
-          onChange={(e) => ui.setTestInput(e.target.value)}
-          placeholder="Type a sample message to test rule matching…"
-          data-testid="mock-test-input"
-        />
-      </div>
-      {testResult && (
-        <div className={`ws-mock-test-result ${testResult.matched ? 'matched' : 'fallback'}`} data-testid="mock-test-result">
-          {testResult.matched
-            ? <>Matched rule: <strong>{testResult.rule?.name}</strong> → {testResult.response?.type}</>
-            : <>No rule matched → fallback: <strong>{config.fallback}</strong></>
-          }
-        </div>
-      )}
-    </div>
-  );
-}
-
-/** Activity log. */
-function MockActivityLog({ ui }: { ui: MockUi }) {
-  const { logs, reversedLogs } = ui;
-  return (
-    <div className="ws-mock-log-section">
-      <div className="ws-mock-section-header">
-        <span className="ws-mock-section-title">Activity Log</span>
-        {logs.length > 0 && (
-          <button className="ws-mock-clear-log-btn" onClick={ui.mock.clearLogs} data-testid="mock-clear-log" title="Clear activity log" aria-label="Clear activity log">
-            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-              <path d="M2 3h8M5 3V2h2v1M4.5 3v6.5h3V3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
-            Clear
-          </button>
-        )}
-      </div>
-      <div className="ws-mock-log" data-testid="mock-log">
-        {reversedLogs.length === 0 && (
-          <div className="ws-mock-log-empty">No activity yet</div>
-        )}
-        {reversedLogs.map((entry) => (
-          <div key={entry.id} className={`ws-mock-log-entry ws-mock-log-${entry.event}`} data-testid={`mock-log-${entry.id}`}>
-            <span className="ws-mock-log-ts">
-              {new Date(entry.ts).toLocaleTimeString()}
-            </span>
-            <span className="ws-mock-log-event">{entry.event}</span>
-            {entry.clientId && <span className="ws-mock-log-client">[{entry.clientId}]</span>}
-            {entry.ruleName && <span className="ws-mock-log-rule">{entry.ruleName}</span>}
-            {entry.data && <span className="ws-mock-log-data">{entry.data}</span>}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/** Rule engine pane: Rules | Server Log tabs (shell right pane).
- *  `showTabs={false}` (the legacy/flat path) renders rules + tester + log
- *  stacked so every testid stays reachable without switching tabs. */
 export function WebSocketMockRulesPane({ ui, showTabs = true }: { ui: MockUi; showTabs?: boolean }) {
   const { rightTab, enabledRuleCount } = ui;
   if (!showTabs) {
@@ -846,10 +770,6 @@ export function WebSocketMockRulesPane({ ui, showTabs = true }: { ui: MockUi; sh
   );
 }
 
-/** Thin wrapper for the legacy / test path: server bar + clients + rules
- *  stacked in a single flat column. The shell composes the three exported
- *  panes (`WebSocketMockServerBar`, `WebSocketMockClientsPane`,
- *  `WebSocketMockRulesPane`) into topBar / left / right instead. */
 export function WebSocketMockServer({ mock, onPortChange }: WebSocketMockServerProps) {
   const ui = useMockServerUi(mock);
   return (

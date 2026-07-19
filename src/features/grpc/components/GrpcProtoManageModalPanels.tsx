@@ -232,7 +232,7 @@ export function GrpcProtoFilesPanel({
   );
 }
 
-function estimateBase64DecodedBytes(base64: string): number {
+export function estimateBase64DecodedBytes(base64: string): number {
   const compact = base64.trim().replace(/\s+/g, '');
   if (!compact) {
     return 0;

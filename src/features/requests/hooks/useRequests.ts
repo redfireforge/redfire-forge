@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { RequestsData, RequestCollection, RequestItem, RequestFolder, HttpMethod, BodyType } from '../../../shared/types';
 import { loadRequests, saveRequests } from '../../../shared/utils/storage';
 import {
   findFolderDeep, findRequestInCollection,
   countAllRequests, collectGroupIds, collectGroupChildren,
+  collectAllRequests,
   mapRequests, removeRequestFrom,
   mapFolderDeep, addToFolderDeep, removeFolderDeep,
   cloneRequest, cloneFolder, extractFolderDeep,
@@ -13,6 +14,7 @@ import {
   reorderInFolders, swapInFolders,
 } from '../utils/requestTree';
 import { autoSaveVersion } from '../utils/requestDefinitionVersioning';
+import { reconcileRequestsEnvKeys } from '../utils/reconcileEnvKeys';
 
 const EMPTY_REQUEST: () => RequestItem = () => ({
   id: uuidv4(),
@@ -29,8 +31,12 @@ const EMPTY_REQUEST: () => RequestItem = () => ({
 export type UseRequestsReturn = ReturnType<typeof useRequests>;
 
 export function useRequests() {
-  const [data, setData] = useState<RequestsData>({ environments: [], collections: [] });
+  const [data, setData] = useState<RequestsData>({ collections: [] });
   const [loaded, setLoaded] = useState(false);
+
+  // Always-current snapshot so imperative actions (e.g. env-key reconcile) read fresh state.
+  const dataRef = useRef(data);
+  dataRef.current = data;
 
   useEffect(() => { loadRequests().then((d) => { setData(d); setLoaded(true); }); }, []);
   useEffect(() => { if (loaded) saveRequests(data); }, [data, loaded]);
@@ -46,20 +52,23 @@ export function useRequests() {
   );
 
   // ─── Environments ──────────────────────────────────────
-
-  const addEnv = useCallback((name: string) => {
-    setData((prev) => ({ ...prev, environments: [...prev.environments, { id: uuidv4(), name }] }));
-  }, []);
-
-  const removeEnv = useCallback((envId: string) => {
-    setData((prev) => ({
-      ...prev, environments: prev.environments.filter((e) => e.id !== envId),
-      selectedEnvId: prev.selectedEnvId === envId ? undefined : prev.selectedEnvId,
-    }));
-  }, []);
+  // Environments are the single source of truth in Settings. The Requests workbench no longer
+  // maintains its own env registry; it only tracks the active selection (`selectedEnvId`) and
+  // reconciles any legacy per-env keys onto Settings env IDs once at load.
 
   const setSelectedEnvId = useCallback((envId: string | undefined) => {
     setData((prev) => ({ ...prev, selectedEnvId: envId }));
+  }, []);
+
+  /**
+   * One-time migration of legacy Requests-local env IDs → Settings env IDs (by name).
+   * Returns the names of any envs that were dropped (no matching Settings env). Idempotent:
+   * empties `data.environments` so a second call is a no-op.
+   */
+  const reconcileEnvironmentKeys = useCallback((appEnvironments: { id: string; name: string }[]): string[] => {
+    const res = reconcileRequestsEnvKeys(dataRef.current, appEnvironments);
+    if (res.changed) setData(res.data);
+    return res.droppedNames;
   }, []);
 
   // ─── Collections ───────────────────────────────────────
@@ -113,7 +122,10 @@ export function useRequests() {
           }
         }
       }
-      return { ...prev, collections, selectedCollectionId: colId, selectedRequestId: undefined };
+      // Auto-select first request in the collection so the editor isn't empty
+      const col = collections.find(c => c.id === colId);
+      const firstReq = col?.requests?.[0];
+      return { ...prev, collections, selectedCollectionId: colId, selectedRequestId: firstReq?.id };
     });
   }, []);
 
@@ -134,12 +146,11 @@ export function useRequests() {
     return folder.id;
   }, []);
 
-  const addSubCollection = useCallback((colId: string, name: string, parentFolderId?: string) => {
+  const addSubCollection = useCallback((colId: string, name: string, parentFolderId?: string, selectedEnvId?: string) => {
     setData((prev) => {
-      const matchedEnv = prev.environments.find(e => e.name.toLowerCase() === name.toLowerCase());
       const sub: RequestFolder = {
         id: uuidv4(), name, requests: [], folders: [], isSubCollection: true,
-        selectedEnvId: matchedEnv?.id,
+        selectedEnvId,
       };
       return {
         ...prev,
@@ -175,18 +186,32 @@ export function useRequests() {
   }, []);
 
   const removeFolder = useCallback((colId: string, folderId: string) => {
-    setData((prev) => ({
-      ...prev,
-      collections: prev.collections.map((c) => {
-        if (c.id !== colId) return c;
-        const target = findFolderDeep(c.folders ?? [], folderId);
-        const { folders, orphaned } = removeFolderDeep(c.folders ?? [], folderId);
-        if (target?.isSubCollection) {
-          return { ...c, folders };
+    setData((prev) => {
+      const col = prev.collections.find(c => c.id === colId);
+      if (!col) return prev;
+      const target = findFolderDeep(col.folders ?? [], folderId);
+      const { folders, orphaned } = removeFolderDeep(col.folders ?? [], folderId);
+
+      let selectedRequestId = prev.selectedRequestId;
+      if (target?.isSubCollection && selectedRequestId) {
+        const deletedReqIds = new Set(collectAllRequests(target).map(r => r.id));
+        if (deletedReqIds.has(selectedRequestId)) {
+          selectedRequestId = undefined;
         }
-        return { ...c, requests: [...c.requests, ...orphaned], folders };
-      }),
-    }));
+      }
+
+      return {
+        ...prev,
+        selectedRequestId,
+        collections: prev.collections.map((c) => {
+          if (c.id !== colId) return c;
+          if (target?.isSubCollection) {
+            return { ...c, folders };
+          }
+          return { ...c, requests: [...c.requests, ...orphaned], folders };
+        }),
+      };
+    });
   }, []);
 
   const duplicateFolder = useCallback((colId: string, folderId: string) => {
@@ -470,12 +495,14 @@ export function useRequests() {
       const group = prev.collections.find(c => c.id === groupId);
       if (!group || group.mode !== 'group') return prev;
       const parentGroupId = group.groupId;
+      const clearSelection = prev.selectedCollectionId === groupId;
       return {
         ...prev,
         collections: prev.collections
           .filter(c => c.id !== groupId)
           .map(c => c.groupId === groupId ? { ...c, groupId: parentGroupId } : c),
-        selectedCollectionId: prev.selectedCollectionId === groupId ? undefined : prev.selectedCollectionId,
+        selectedCollectionId: clearSelection ? undefined : prev.selectedCollectionId,
+        selectedRequestId: clearSelection ? undefined : prev.selectedRequestId,
       };
     });
   }, []);
@@ -524,15 +551,6 @@ export function useRequests() {
     });
   }, []);
 
-  const addEnvironments = useCallback((envs: { id: string; name: string }[]) => {
-    setData((prev) => {
-      const existingNames = new Set(prev.environments.map((e) => e.name));
-      const newEnvs = envs.filter((e) => !existingNames.has(e.name));
-      if (newEnvs.length === 0) return prev;
-      return { ...prev, environments: [...prev.environments, ...newEnvs] };
-    });
-  }, []);
-
   const importCollection = useCallback((col: RequestCollection) => {
     setData((prev) => ({
       ...prev,
@@ -571,13 +589,13 @@ export function useRequests() {
 
   return {
     data, loaded, selectedCollection, selectedRequest,
-    environments: data.environments, collections: data.collections, selectedEnvId: data.selectedEnvId,
-    addEnv, removeEnv, setSelectedEnvId,
+    collections: data.collections, selectedEnvId: data.selectedEnvId,
+    setSelectedEnvId, reconcileEnvironmentKeys,
     addCollection, updateCollection, removeCollection, duplicateCollection, selectCollection,
     addFolder, addSubCollection, updateSubCollection, renameFolder, removeFolder, duplicateFolder, moveFolder, reorderFolder, moveFolderTo,
     addRequest, updateRequest, removeRequest, duplicateRequest, moveRequest, selectRequest,
     moveRequestToCollection, moveFolderToCollection, moveCollectionAsSubCollection,
     addGroup, renameGroup, deleteGroup, moveToGroup, duplicateGroup,
-    addEnvironments, countAllRequests, importCollection, importFolder, importRequests,
+    countAllRequests, importCollection, importFolder, importRequests,
   };
 }

@@ -229,11 +229,10 @@ describe('RequestEditor interaction branches', () => {
         appMicroservices={[{
           id: 'svc-99',
           name: 'Bridge',
-          baseUrls: { 'ae-rem': 'https://bridge.example/api' },
+          baseUrls: { 'env-wb': 'https://bridge.example/api' },
           customEnvs: [],
-          authProfileIds: { 'ae-rem': 'gp-z' },
+          authProfileIds: { 'env-wb': 'gp-z' },
         }]}
-        appEnvironments={[{ id: 'ae-rem', name: 'WorkbenchEnv' }]}
         environments={[{ id: 'env-wb', name: 'WorkbenchEnv' }]}
         selectedEnvId="env-wb"
         request={makeRequest({ url: '/rel', auth: { type: 'inherit' } })}
@@ -572,10 +571,9 @@ describe('RequestEditor interaction branches', () => {
         appMicroservices={[{
           id: 'svc-x',
           name: 'X',
-          baseUrls: { 'ae-rem': 'https://ghost.example/api' },
-          authProfileIds: { 'ae-rem': 'missing-profile' },
+          baseUrls: { 'env-wb': 'https://ghost.example/api' },
+          authProfileIds: { 'env-wb': 'missing-profile' },
         }]}
-        appEnvironments={[{ id: 'ae-rem', name: 'WorkbenchEnv' }]}
         environments={[{ id: 'env-wb', name: 'WorkbenchEnv' }]}
         selectedEnvId="env-wb"
         appGlobalAuthProfiles={[]}

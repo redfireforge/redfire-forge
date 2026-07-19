@@ -9,7 +9,10 @@ export interface UrlResolverContext {
 }
 
 export function resolveBaseUrl(ctx: UrlResolverContext): string | null {
-  const envId = ctx.subColEnvId || ctx.selectedEnvId;
+  // Inside a sub-collection, resolve strictly via its bound env (`subColEnvId`). Never silently
+  // fall back to the workbench's active env — that produced wrong base URLs for orphaned
+  // sub-collections whose name/selectedEnvId no longer maps to a configured environment.
+  const envId = ctx.parentSubCollection ? ctx.subColEnvId : (ctx.subColEnvId || ctx.selectedEnvId);
 
   if (ctx.parentSubCollection?.baseUrls) {
     const subBaseUrls = ctx.parentSubCollection.baseUrls;

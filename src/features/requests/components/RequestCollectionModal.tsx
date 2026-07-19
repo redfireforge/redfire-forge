@@ -15,7 +15,6 @@ interface Props {
   globalAuthProfiles: GlobalAuthProfile[];
   defaultMode?: 'direct' | 'multi-env';
   onSave: (col: Omit<RequestCollection, 'id' | 'requests'> & { id?: string }) => void;
-  onAddEnv: (name: string) => void;
   onClose: () => void;
 }
 
@@ -114,13 +113,13 @@ function AuthFields({ state, onChange, globalAuthProfiles }: {
   );
 }
 
-export default function RequestCollectionModal({ collection, collections, environments, appEnvironments, appMicroservices, globalAuthProfiles, defaultMode, onSave, onAddEnv, onClose }: Props) {
+export default function RequestCollectionModal({ collection, collections, environments, appEnvironments, appMicroservices, globalAuthProfiles, defaultMode, onSave, onClose }: Props) {
   const toast = useToast();
   const [name, setName] = useState(collection?.name ?? '');
-  const [mode, setMode] = useState<'direct' | 'multi-env'>(collection?.mode === 'group' ? 'direct' : (collection?.mode ?? defaultMode ?? 'direct'));
+  // Collection type is fixed at creation (URL vs ENV vs Group) — not switchable in the modal.
+  const mode: 'direct' | 'multi-env' = collection?.mode === 'group' ? 'direct' : (collection?.mode ?? defaultMode ?? 'direct');
   const [microserviceId, setMicroserviceId] = useState<string | undefined>(collection?.microserviceId);
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>(collection?.baseUrls ?? {});
-  const [newEnvName, setNewEnvName] = useState('');
 
   const linkedSvc = useMemo(
     () => microserviceId ? appMicroservices.find(s => s.id === microserviceId) : undefined,
@@ -163,7 +162,7 @@ export default function RequestCollectionModal({ collection, collections, enviro
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  const isEnvMode = !!linkedSvc || mode === 'multi-env';
+  const isEnvMode = mode === 'multi-env';
 
   const handleBaseUrlChange = (envId: string, url: string) => {
     setBaseUrls((prev) => ({ ...prev, [envId]: url }));
@@ -187,6 +186,20 @@ export default function RequestCollectionModal({ collection, collections, enviro
         toast.show('warning', 'Name already exists', `A collection with the name "${name.trim()}" already exists.`);
         return;
       }
+    }
+
+    if (mode === 'direct') {
+      // URL collections: each request owns its own hostname + auth. Lock to None / No Auth.
+      onSave({
+        ...(collection ? { id: collection.id } : {}),
+        name: name.trim(),
+        mode: 'direct',
+        microserviceId: undefined,
+        baseUrls: undefined,
+        auth: { type: 'none' },
+        authPerEnv: undefined,
+      });
+      return;
     }
 
     let auth: AuthConfig | undefined;
@@ -232,7 +245,7 @@ export default function RequestCollectionModal({ collection, collections, enviro
             <div className="req-modal-header-text">
               <h3>{collection ? 'Edit Collection' : 'New Collection'}</h3>
               <span className="req-modal-header-sub">
-                {isEnvMode ? 'Multi-environment base URLs & auth' : 'Direct URLs & default auth'}
+                {isEnvMode ? 'Multi-environment base URLs & auth' : 'Full URLs & auth per request'}
               </span>
             </div>
           </div>
@@ -240,150 +253,131 @@ export default function RequestCollectionModal({ collection, collections, enviro
         </div>
 
         <div className="req-modal-body">
-          <div className="req-form-group">
-            <label>Collection Name</label>
-            <input className="req-input" value={name} onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. veh-metadata, weather-api" autoFocus />
-          </div>
+          <div className="req-form-table">
+            <div className="req-form-table-row">
+              <label className="req-form-table-label">Collection Name</label>
+              <div className="req-form-table-ctrl">
+                <input className="req-input" value={name} onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. veh-metadata, weather-api" autoFocus />
+              </div>
+            </div>
 
-          <div className="req-form-group">
-            <label>Linked Microservice</label>
-            <WfDarkSelect
-              testId="req-svc-select"
-              aria-label="Linked microservice"
-              value={microserviceId ?? ''}
-              onChange={(v) => setMicroserviceId(v || undefined)}
-              options={[
-                { value: '', label: 'None (manual config)' },
-                ...appMicroservices.map(s => ({ value: s.id, label: s.name })),
-              ]}
-            />
-            {linkedSvc && (
-              <p className="req-hint" style={{ marginTop: 4 }}>Base URLs and auth are inherited from Environments.</p>
+            {mode === 'multi-env' && (
+              <div className="req-form-table-row">
+                <label className="req-form-table-label">Linked Microservice</label>
+                <div className="req-form-table-ctrl">
+                  <WfDarkSelect
+                    testId="req-svc-select"
+                    aria-label="Linked microservice"
+                    value={microserviceId ?? ''}
+                    onChange={(v) => setMicroserviceId(v || undefined)}
+                    options={[
+                      { value: '', label: 'None (manual config)' },
+                      ...appMicroservices.map(s => ({ value: s.id, label: s.name })),
+                    ]}
+                  />
+                </div>
+              </div>
             )}
           </div>
 
-          {linkedSvc ? (
-            <div className="req-form-group">
-              <label>Environments (from Environments config)</label>
-              {linkedEnvRows.length > 0 ? (
-                <div className="req-base-url-list">
-                  {linkedEnvRows.map(r => (
-                    <div key={r.envId} className="req-base-url-row">
-                      <span className="req-env-label">{r.envName}</span>
-                      <div className="req-base-url-input-group">
-                        <input className="req-input" value={r.baseUrl} readOnly style={{ opacity: 0.7 }} />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="req-hint">No environments configured for this microservice.</p>
-              )}
-              <p className="req-hint" style={{ marginTop: 6, fontStyle: 'italic' }}>To edit, go to Environments.</p>
-            </div>
-          ) : (
-            <>
-              <div className="req-form-group">
-                <label>URL Mode</label>
-                <div className="req-mode-switcher">
-                  <button className={`req-mode-btn ${mode === 'direct' ? 'active' : ''}`} onClick={() => setMode('direct')}>
-                    <strong>Direct URL</strong><span>Full URLs per request</span>
-                  </button>
-                  <button className={`req-mode-btn ${mode === 'multi-env' ? 'active' : ''}`} onClick={() => setMode('multi-env')}>
-                    <strong>Multi-Environment</strong><span>Base URLs + relative paths</span>
-                  </button>
-                </div>
-              </div>
+          {mode === 'multi-env' && linkedSvc && (
+            <p className="req-hint" style={{ marginBottom: 12 }}>Base URLs and auth are inherited from Environments.</p>
+          )}
 
-              {mode === 'multi-env' && (
+          {mode === 'multi-env' && (
+            <>
+
+              {linkedSvc ? (
                 <div className="req-form-group">
-                  <label>Base URLs per Environment</label>
-                  {environments.length === 0 ? (
-                    <p className="req-hint">No environments defined yet. Add one below or go to the Environments tab.</p>
-                  ) : (
-                    <div className="req-base-url-list" data-testid="req-base-url-map">
-                      {environments.map((env) => (
-                        <div key={env.id} className="req-base-url-row" data-env-id={env.id}>
-                          <span className="req-env-label">{env.name}</span>
+                  <label>Environments (from Environments config)</label>
+                  {linkedEnvRows.length > 0 ? (
+                    <div className="req-base-url-list">
+                      {linkedEnvRows.map(r => (
+                        <div key={r.envId} className="req-base-url-row">
+                          <span className="req-env-label">{r.envName}</span>
                           <div className="req-base-url-input-group">
-                            <input className="req-input" data-testid="req-base-url-input" value={baseUrls[env.id] ?? ''}
-                              onChange={(e) => handleBaseUrlChange(env.id, e.target.value)}
-                              placeholder={`https://${name || 'service'}.${env.name}.example.com`} />
+                            <input className="req-input" value={r.baseUrl} readOnly style={{ opacity: 0.7 }} />
                           </div>
                         </div>
                       ))}
                     </div>
+                  ) : (
+                    <p className="req-hint">No environments configured for this microservice.</p>
                   )}
-                  <div className="req-add-env-row">
-                    <input className="req-input" data-testid="req-add-env-input" value={newEnvName}
-                      onChange={(e) => setNewEnvName(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' && newEnvName.trim()) {
-                          const exists = environments.some(env => env.name.toLowerCase() === newEnvName.trim().toLowerCase());
-                          if (exists) { toast.show('warning', 'Environment already exists', `Environment "${newEnvName.trim()}" already exists.`); return; }
-                          onAddEnv(newEnvName.trim());
-                          setNewEnvName('');
-                        }
-                      }}
-                      placeholder="Add new environment (e.g. staging)" />
-                    <button className="btn btn-sm" data-testid="req-add-env-btn" disabled={!newEnvName.trim()}
-                      onClick={() => {
-                        const exists = environments.some(env => env.name.toLowerCase() === newEnvName.trim().toLowerCase());
-                        if (exists) { toast.show('warning', 'Environment already exists', `Environment "${newEnvName.trim()}" already exists.`); return; }
-                        onAddEnv(newEnvName.trim());
-                        setNewEnvName('');
-                      }}>+ Add Env</button>
-                  </div>
+                  <p className="req-hint" style={{ marginTop: 6, fontStyle: 'italic' }}>To edit, go to Environments.</p>
                 </div>
+              ) : (
+                <>
+                  <div className="req-form-group">
+                    <label>Base URLs per Environment</label>
+                    {environments.length === 0 ? (
+                      <p className="req-hint">No environments defined yet. Add them in Settings → Environments, then set a base URL here.</p>
+                    ) : (
+                      <div className="req-base-url-list" data-testid="req-base-url-map">
+                        {environments.map((env) => (
+                          <div key={env.id} className="req-base-url-row" data-env-id={env.id}>
+                            <span className="req-env-label">{env.name}</span>
+                            <div className="req-base-url-input-group">
+                              <input className="req-input" data-testid="req-base-url-input" value={baseUrls[env.id] ?? ''}
+                                onChange={(e) => handleBaseUrlChange(env.id, e.target.value)}
+                                placeholder={`https://${name || 'service'}.${env.name}.example.com`} />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <p className="req-hint" style={{ marginTop: 6, fontStyle: 'italic' }}>Environments come from Settings → Environments.</p>
+                  </div>
+
+                  <div className="req-form-group">
+                    <label>Default Auth</label>
+                    <p className="req-hint">Requests set to "Inherit from Collection" will use this auth.</p>
+
+                    {environments.length > 0 && (
+                      <div className="req-auth-mode-switcher">
+                        <button className={`req-auth-mode-btn ${authMode === 'single' ? 'active' : ''}`}
+                          onClick={() => setAuthMode('single')}>Same for all envs</button>
+                        <button className={`req-auth-mode-btn ${authMode === 'per-env' ? 'active' : ''}`}
+                          onClick={() => setAuthMode('per-env')}>Per environment</button>
+                      </div>
+                    )}
+
+                    {authMode === 'single' && (
+                      <AuthFields state={defaultAuth}
+                        onChange={(patch) => setDefaultAuth((prev) => ({ ...prev, ...patch }))}
+                        globalAuthProfiles={globalAuthProfiles} />
+                    )}
+
+                    {authMode === 'per-env' && environments.length > 0 && (
+                      <div className="req-env-auth-tabs">
+                        <div className="req-env-tab-bar">
+                          {environments.map((env) => {
+                            const s = perEnvAuth[env.id];
+                            const configured = s && s.authType !== 'none';
+                            return (
+                              <button key={env.id}
+                                className={`req-env-tab ${activeEnvTab === env.id ? 'active' : ''} ${configured ? 'configured' : ''}`}
+                                onClick={() => setActiveEnvTab(env.id)}>
+                                {env.name}
+                                {configured && <span className="req-env-tab-dot" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div className="req-env-tab-content">
+                          {environments.filter(env => env.id === activeEnvTab).map((env) => (
+                            <AuthFields key={env.id}
+                              state={perEnvAuth[env.id] ?? emptyAuthState(globalAuthProfiles)}
+                              onChange={(patch) => updatePerEnvAuth(env.id, patch)}
+                              globalAuthProfiles={globalAuthProfiles} />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </>
               )}
-
-              <div className="req-form-group">
-                <label>Default Auth</label>
-                <p className="req-hint">Requests set to "Inherit from Collection" will use this auth.</p>
-
-                {mode === 'multi-env' && environments.length > 0 && (
-                  <div className="req-auth-mode-switcher">
-                    <button className={`req-auth-mode-btn ${authMode === 'single' ? 'active' : ''}`}
-                      onClick={() => setAuthMode('single')}>Same for all envs</button>
-                    <button className={`req-auth-mode-btn ${authMode === 'per-env' ? 'active' : ''}`}
-                      onClick={() => setAuthMode('per-env')}>Per environment</button>
-                  </div>
-                )}
-
-                {(mode !== 'multi-env' || authMode === 'single') && (
-                  <AuthFields state={defaultAuth}
-                    onChange={(patch) => setDefaultAuth((prev) => ({ ...prev, ...patch }))}
-                    globalAuthProfiles={globalAuthProfiles} />
-                )}
-
-                {mode === 'multi-env' && authMode === 'per-env' && environments.length > 0 && (
-                  <div className="req-env-auth-tabs">
-                    <div className="req-env-tab-bar">
-                      {environments.map((env) => {
-                        const s = perEnvAuth[env.id];
-                        const configured = s && s.authType !== 'none';
-                        return (
-                          <button key={env.id}
-                            className={`req-env-tab ${activeEnvTab === env.id ? 'active' : ''} ${configured ? 'configured' : ''}`}
-                            onClick={() => setActiveEnvTab(env.id)}>
-                            {env.name}
-                            {configured && <span className="req-env-tab-dot" />}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div className="req-env-tab-content">
-                      {environments.filter(env => env.id === activeEnvTab).map((env) => (
-                        <AuthFields key={env.id}
-                          state={perEnvAuth[env.id] ?? emptyAuthState(globalAuthProfiles)}
-                          onChange={(patch) => updatePerEnvAuth(env.id, patch)}
-                          globalAuthProfiles={globalAuthProfiles} />
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             </>
           )}
         </div>

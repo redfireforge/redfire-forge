@@ -16,6 +16,12 @@ describe('protoFetchPolicy', () => {
     expect(protoPathFromFetchUrl(url)).toBe('echo.proto');
   });
 
+  it('appends .proto when the fetched path has no proto extension', () => {
+    const url = new URL('https://example.com/schemas/echo');
+
+    expect(protoPathFromFetchUrl(url)).toBe('echo.proto');
+  });
+
   it('allows http localhost in dev mode', () => {
     const url = validateProtoFetchUrl('http://localhost:8080/echo.proto');
     expect(url.protocol).toBe('http:');

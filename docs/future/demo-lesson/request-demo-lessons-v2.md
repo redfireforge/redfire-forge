@@ -180,9 +180,9 @@ This matches Protocol demos (gRPC, GraphQL) where one step configures an entire 
 |-------|-------|
 | `id` | `req-multi-env` |
 | `estimatedMinutes` | 3 |
-| Steps | 4 |
+| Steps | 5 |
 | `initialTab` | `requests` |
-| `allowedTabs` | `['requests']` |
+| `allowedTabs` | `['requests', 'environments']` |
 
 **Public API:** DummyJSON (`https://dummyjson.com`)
 
@@ -190,10 +190,11 @@ This matches Protocol demos (gRPC, GraphQL) where one step configures an entire 
 
 | # | ID | Title | Highlight | Action (combined) |
 |---|---|---|---|---|
-| 1 | `req3-create` | Create Multi-Env Collection | `REQ.SIDEBAR_ADD_BTN` | Click + → spotlight dropdown → click **"ENV Collection"** → modal opens → **spotlight URL Mode section** (1000ms, "Multi-Environment" now selected — explains base URLs + relative paths) → **spotlight "Base URLs per Environment" section** (800ms) → add "production" env → fill base URL `https://dummyjson.com` → **spotlight filled row** (800ms) → add "staging" env → fill same URL → **spotlight both env rows** (800ms) → **spotlight Default Auth section** (800ms, shows per-env auth toggle) → fill name "DummyJSON" → Save → **spotlight ENV badge** on collection (1000ms, shows "ENV 2" indicator) |
-| 2 | `req3-request` | Add Request & See Resolved URL | `REQ.URL_INPUT` | Right-click → Add Request → **spotlight URL input** (600ms, notice it shows relative path placeholder) → type `/products/search?q=laptop&limit=3` → **spotlight URL input with relative path** (800ms) → **spotlight resolved URL preview below** (1200ms, shows full `https://dummyjson.com/products/search?q=laptop&limit=3`) → **spotlight environment pills bar** (1000ms, shows "production" and "staging" toggles, explains click-to-switch) |
-| 3 | `req3-switch` | Switch Environments & Send | `REQ.ENV_PILL` | **Spotlight staging pill** → click → **spotlight resolved URL change** (1000ms, URL now resolves to staging base) → **spotlight production pill** → click → **spotlight resolved URL back** (800ms) → spotlight Send → click Send → **spotlight 200 status** (800ms) → **spotlight JSON response** (800ms, shows product search results) |
-| 4 | `req3-summary` | When to Use Multi-Env | `REQ.colByName('DummyJSON')` | Informational (pauseAfter) — **spotlight collection header** (1200ms) → description explains: (1) one collection tests all environments with zero URL edits, (2) per-env auth lets you use different tokens for staging vs production, (3) promotes cleanly to Test Harness with environment-aware scenarios |
+| 1 | `req3-settings-envs` | Create Environments in Settings | `EM.ADD_ENV_INPUT` | Switch to **Settings** tab → spotlight env input (900ms) → type **production** → spotlight **Add Env** (750ms) → click → spotlight new production row (1050ms) → repeat for **staging** → return to Requests tab (520ms pause each tab switch) |
+| 2 | `req3-create` | Create Multi-Env Collection | `REQ.SIDEBAR_ADD_BTN` | Click + → spotlight dropdown → click **"ENV Collection"** → modal opens → **spotlight "Base URLs per Environment" section** (1000ms) → fill `production` and `staging` rows with `https://dummyjson.com` (900ms per row spotlight) → **spotlight Default Auth section** (1000ms) → fill name "DummyJSON" → Save → **spotlight ENV badge** on collection (1100ms) |
+| 3 | `req3-request` | Add Request & See Resolved URL | `REQ.URL_INPUT` | Right-click → Add Request → rename to **Search Laptops** → **spotlight URL input** (800ms) → type `/products/search?q=laptop&limit=3` → **spotlight resolved URL preview** (1200ms) → **spotlight environment pills bar** (1100ms) |
+| 4 | `req3-switch` | Switch Environments & Send | `REQ.envPillByName('staging')` | **Spotlight staging pill** → click → **spotlight resolved URL change** (1200ms) → spotlight production pill → click → spotlight resolved URL back (1100ms) → spotlight Send → click Send → spotlight 200 status/time/size + JSON body |
+| 5 | `req3-summary` | When to Use Multi-Env | `REQ.ENV_BAR` | Informational (pauseAfter) — reinforce one relative-path request set across environments and zero URL rewrites |
 
 **Cleanup:** Delete "DummyJSON" collection.
 
@@ -245,7 +246,7 @@ This matches Protocol demos (gRPC, GraphQL) where one step configures an entire 
 | # | ID | Title | Highlight | Action (combined) |
 |---|---|---|---|---|
 | 1 | `req5-setup` | Create Collection & Request | `REQ.SIDEBAR_ADD_BTN` | Create "Promotion Demo" collection → Add Request → name "Get Users" → type URL `.../users` → spotlight URL (600ms) → Send → **spotlight 200 status** (800ms) → confirm working request |
-| 2 | `req5-env` | Create Demo Environment | `EM.ADD_ENV_INPUT` | Navigate to Environments tab → **spotlight environment list** (800ms) → create "demo" env → **spotlight created environment** (1000ms) → **spotlight microservice section** (800ms) → create "jsonplaceholder" microservice → **spotlight created microservice** (800ms) → click Configure → **spotlight protocol options** (800ms, shows HTTP/gRPC/WebSocket) → add HTTP → fill base URL `https://jsonplaceholder.typicode.com` → **spotlight configured HTTP row** (1200ms, shows base URL + protocol badge) |
+| 2 | `req5-env` | Create Demo Environment | `EM.ADD_ENV_INPUT` | Navigate to Settings → Environments → **spotlight environment list** (800ms) → create "demo" env → **spotlight created environment** (1000ms) → **spotlight microservice section** (800ms) → create "jsonplaceholder" microservice → **spotlight created microservice** (800ms) → click Configure → **spotlight protocol options** (800ms, shows HTTP/gRPC/WebSocket) → add HTTP → fill base URL `https://jsonplaceholder.typicode.com` → **spotlight configured HTTP row** (1200ms, shows base URL + protocol badge) |
 | 3 | `req5-promote` | Open Promotion Modal | `REQ.SEND_HARNESS_BTN` | Back to Requests → select request → **spotlight "Send to Harness" button** (1000ms) → click → modal opens → **spotlight Environment cascade** (800ms, select "demo") → **spotlight Microservice cascade** (800ms, select "jsonplaceholder") → **spotlight Feature Group cascade** (800ms, create "API Tests") → **spotlight Scenario cascade** (800ms, create "User Endpoints") → **spotlight all 4 filled cascades** (1000ms) |
 | 4 | `req5-confirm` | Confirm & See Badge | `REQ.HARNESS_CONFIRM_BTN` | **Spotlight Next button** → click → **spotlight preview panel** (1000ms, shows scenario snapshot with method/URL/headers) → **spotlight Confirm button** (800ms) → click → **spotlight "IN HARNESS" badge** on sidebar request item (1200ms, explains request is now linked to Test Harness) |
 | 5 | `req5-batch` | Batch Promotion | `REQ.colByName('Promotion Demo')` | Right-click collection → spotlight "Send to Harness" in context menu (800ms) → click → **spotlight batch modal** (1000ms, shows checkbox list of all requests in collection) → **spotlight select-all checkbox** (600ms) → **spotlight "folder → scenario" mapping explanation** (800ms) → Cancel → explain this promotes entire collections at once |
