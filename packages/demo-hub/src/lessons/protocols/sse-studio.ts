@@ -17,6 +17,7 @@ import {
   selectSvcInHeader,
   ensureSseDemoHeaderContext,
 } from '../env-manager-lesson-helpers';
+import { closeExtraSseConnectionTabs } from '../setup-helpers';
 
 
 // ── Constants ──────────────────────────────────────────────────────
@@ -61,6 +62,7 @@ async function sseSetup(ctx: DemoActionContext): Promise<void> {
     connectBtn.click();
     await ctx.delay(500);
   }
+  await closeExtraSseConnectionTabs(ctx);
   // Clear any existing events
   const clearBtn = document.querySelector(SSE.CLEAR_BTN) as HTMLButtonElement | null;
   if (clearBtn && !clearBtn.disabled) {
@@ -89,6 +91,7 @@ async function sseCleanup(ctx: DemoActionContext): Promise<void> {
     connectBtn.click();
     await ctx.delay(500);
   }
+  await closeExtraSseConnectionTabs(ctx);
   // Clear events panel.
   const clearBtn = document.querySelector(SSE.CLEAR_BTN) as HTMLButtonElement | null;
   if (clearBtn && !clearBtn.disabled) {
@@ -188,7 +191,8 @@ export const sseStudioLesson: DemoLesson = {
       id: 'sse-nav',
       title: 'SSE Studio',
       description:
-        'Welcome to SSE Studio — RedfireForge\'s dedicated workspace for Server-Sent Events. The layout mirrors WebSocket Studio: connection config on the left, live events on the right.',
+        'Welcome to SSE Studio — RedfireForge\'s dedicated workspace for Server-Sent Events. The layout mirrors WebSocket Studio: connection config on the left, live events on the right. ' +
+        'Notice the **connection tab bar** at the top — each tab is an independent SSE workspace with its own URL and event buffer.',
       highlight: SSE.NAV_TAB,
       pauseAfter: true,
       preAction: async () => {

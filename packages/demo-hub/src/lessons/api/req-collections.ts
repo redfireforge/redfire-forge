@@ -15,6 +15,7 @@ import {
   dismissContextMenu,
   shrinkAllCollections,
   ensureCollectionExpanded,
+  closeExtraRequestTabs,
 } from './req-demo-helpers';
 
 const COLLECTION_NAME = 'User Service';
@@ -300,6 +301,7 @@ export const reqCollectionsLesson: DemoLesson = {
   setup: async (ctx) => {
     ctx.navigateToTab('requests');
     await ctx.delay(80);
+    await closeExtraRequestTabs(ctx);
     await deleteCollectionIfExists(ctx);
     await shrinkAllCollections();
     const sidebar = document.querySelector<HTMLElement>(REQ.SIDEBAR);
@@ -308,12 +310,11 @@ export const reqCollectionsLesson: DemoLesson = {
 
   cleanup: async (ctx) => {
     dismissContextMenu();
-    // Close collection modal if open
     const modalClose = document.querySelector<HTMLElement>('.req-col-modal .btn-secondary');
     if (modalClose) { modalClose.click(); await ctx.delay(60); }
-    // Clear search
     const search = document.querySelector<HTMLInputElement>(REQ.SIDEBAR_SEARCH);
     if (search && search.value) fillControlledInput(search, '');
+    await closeExtraRequestTabs(ctx);
     await deleteCollectionIfExists(ctx);
     ctx.navigateToTab('requests');
     await ctx.delay(60);
@@ -328,6 +329,7 @@ export const reqCollectionsLesson: DemoLesson = {
         'Create a **"User Service"** collection, then add two requests from scratch:\n' +
         '- **"List Users"** — `GET /users` (returns all 10 users)\n' +
         '- **"Get User"** — `GET /users/1` (returns a single user by ID)\n\n' +
+        'Each request opens in its own **tab** — you can switch between them without losing context.\n\n' +
         'The **context menu** (right-click any collection) gives you: Add Request, ' +
         'Add Folder, Add Sub-Collection, Edit Collection, Duplicate, Export, and Delete.',
       highlight: REQ.colByName(COLLECTION_NAME),

@@ -5,7 +5,6 @@ import type {
   GlobalAuthProfile,
   Microservice,
   RequestCollection,
-  RequestEnv,
   RequestFolder,
   RequestItem,
   Scenario,
@@ -18,7 +17,6 @@ export interface PromotionContext {
   collection: RequestCollection;
   folderId?: string;
   selectedEnvId?: string;
-  environments: RequestEnv[];
   globalAuthProfiles: GlobalAuthProfile[];
   microservices: Microservice[];
   appEnvironments?: Environment[];
@@ -43,8 +41,6 @@ export function resolveRequestAuth(
   envId: string | undefined,
   microservices: Pick<Microservice, 'id' | 'authProfileIds'>[],
   globalAuthProfiles: Pick<GlobalAuthProfile, 'id' | 'auth'>[],
-  requestEnvs: Pick<RequestEnv, 'id' | 'name'>[],
-  appEnvironments?: Pick<Environment, 'id' | 'name'>[],
 ): AuthConfig {
   if (request.auth?.type !== 'none' && request.auth?.type !== 'inherit') {
     return request.auth;
@@ -68,10 +64,7 @@ export function resolveRequestAuth(
     : undefined;
 
   if (linkedSvc?.authProfileIds && envId) {
-    const wbEnv = requestEnvs.find(e => e.id === envId);
-    const appEnv = wbEnv ? appEnvironments?.find(ae => ae.name === wbEnv.name) : undefined;
-    const lookupId = appEnv?.id ?? envId;
-    const profileId = linkedSvc.authProfileIds[lookupId];
+    const profileId = linkedSvc.authProfileIds[envId];
     if (profileId) {
       const profile = globalAuthProfiles.find(p => p.id === profileId);
       if (profile) return { ...profile.auth, globalProfileId: profile.id };
@@ -217,8 +210,6 @@ export function createScenarioFromRequest(
         context.selectedEnvId,
         context.microservices,
         context.globalAuthProfiles,
-        context.environments,
-        context.appEnvironments,
       );
 
   let resolvedUrl = resolveAbsoluteUrl(

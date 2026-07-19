@@ -66,6 +66,33 @@ export function removeWorkspaceDefaults(keys: string[]): boolean {
 }
 
 /**
+ * Ensure a Settings environment exists (by name). Creates one if absent.
+ * Returns the env ID, or empty string if the bridge is unavailable.
+ */
+export function ensureSettingsEnvironment(name: string): string {
+  return getDemoBridgeWindow().__demoEnsureSettingsEnv?.(name) ?? '';
+}
+
+/** Remove a Settings environment by name (demo cleanup). */
+export function removeSettingsEnvironment(name: string): void {
+  getDemoBridgeWindow().__demoRemoveSettingsEnv?.(name);
+}
+
+/**
+ * Ensure a Settings microservice exists (by name). Creates one if absent.
+ * Optionally merges `baseUrls` (envId → URL) into the existing record.
+ * Returns the svc ID, or empty string if the bridge is unavailable.
+ */
+export function ensureSettingsMicroservice(name: string, baseUrls?: Record<string, string>): string {
+  return getDemoBridgeWindow().__demoEnsureSettingsSvc?.(name, baseUrls) ?? '';
+}
+
+/** Remove a Settings microservice by name (demo cleanup). */
+export function removeSettingsMicroservice(name: string): void {
+  getDemoBridgeWindow().__demoRemoveSettingsSvc?.(name);
+}
+
+/**
  * Clear cached "batch unsupported" for the demo server — live Studio state when mounted,
  * plus persisted per-connection detection keys in storage.
  */

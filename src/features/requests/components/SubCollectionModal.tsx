@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react';
-import type { RequestFolder, RequestCollection, RequestEnv, AuthConfig, GlobalAuthProfile } from '../../../shared/types';
+import type { RequestFolder, RequestCollection, RequestEnv, AuthConfig, GlobalAuthProfile, Microservice } from '../../../shared/types';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
+import AppModalFrame from '../../../shared/components/AppModalFrame';
+import WfDarkSelect from '../../workflow/components/modals/WfDarkSelect';
+import { resolveCollectionBaseUrls, usedEnvIdsInCollection } from '../utils/subCollectionEnvs';
 
 type AuthType = 'none' | 'inherit' | 'bearer' | 'basic' | 'api-key' | 'oauth2' | 'global-profile';
 
@@ -8,6 +11,7 @@ interface Props {
   subCollection: RequestFolder;
   parentCollection: RequestCollection;
   environments: RequestEnv[];
+  microservices?: Microservice[];
   globalAuthProfiles: GlobalAuthProfile[];
   onSave: (patch: Partial<Pick<RequestFolder, 'name' | 'auth' | 'baseUrls' | 'selectedEnvId'>>) => void;
   onClose: () => void;
@@ -22,7 +26,7 @@ function getAuthType(auth?: AuthConfig, profiles?: GlobalAuthProfile[]): AuthTyp
   return auth.type as AuthType;
 }
 
-export default function SubCollectionModal({ subCollection, parentCollection, environments, globalAuthProfiles, onSave, onClose }: Props) {
+export default function SubCollectionModal({ subCollection, parentCollection, environments, microservices, globalAuthProfiles, onSave, onClose }: Props) {
   const [name, setName] = useState(subCollection.name);
   const [selectedEnvId, setSelectedEnvId] = useState(subCollection.selectedEnvId ?? '');
   const [authType, setAuthType] = useState<AuthType>(getAuthType(subCollection.auth, globalAuthProfiles));
@@ -44,12 +48,24 @@ export default function SubCollectionModal({ subCollection, parentCollection, en
       : ''
   );
 
+  const resolvedBaseUrls = useMemo(
+    () => resolveCollectionBaseUrls(parentCollection, environments, microservices),
+    [parentCollection, environments, microservices],
+  );
+
+  const usedEnvIds = useMemo(
+    () => usedEnvIdsInCollection(parentCollection, environments, subCollection.id),
+    [parentCollection, environments, subCollection.id],
+  );
+
   const availableEnvs = useMemo(() => {
     if (parentCollection.mode !== 'multi-env') return [];
-    return environments.filter(env => parentCollection.baseUrls?.[env.id]);
-  }, [parentCollection, environments]);
+    return environments.filter(env =>
+      resolvedBaseUrls[env.id] && (!usedEnvIds.has(env.id) || env.id === selectedEnvId),
+    );
+  }, [parentCollection, environments, resolvedBaseUrls, usedEnvIds, selectedEnvId]);
 
-  const parentBaseUrl = selectedEnvId ? parentCollection.baseUrls?.[selectedEnvId] ?? '' : '';
+  const parentBaseUrl = selectedEnvId ? resolvedBaseUrls[selectedEnvId] ?? '' : '';
 
   useEscapeKey(onClose);
 
@@ -85,13 +101,39 @@ export default function SubCollectionModal({ subCollection, parentCollection, en
   }
 
   return (
-    <div className="req-subcol-overlay" onClick={onClose}>
-      <div className="req-subcol-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="req-subcol-header">
+    <AppModalFrame
+      title="Sub-Collection Settings"
+      onClose={onClose}
+      overlayClassName="req-subcol-overlay"
+      dialogClassName="req-subcol-panel"
+      bodyClassName="req-subcol-body"
+      footerClassName="req-subcol-footer"
+      closeButtonKind="none"
+      showExpandButton={false}
+      minWidth={420}
+      minHeight={280}
+      constrainDragToViewport
+      dragViewportPadding={10}
+      headerContent={({ headerDragStyle, onHeaderMouseDown, onHeaderPointerDown }) => (
+        <div
+          className="req-subcol-header"
+          style={headerDragStyle}
+          onMouseDown={onHeaderMouseDown}
+          onPointerDown={onHeaderPointerDown}
+        >
           <h3>Sub-Collection Settings</h3>
+          <span className="req-subcol-grip" aria-hidden title="Drag to move">
+            &#8942;&#8942;
+          </span>
         </div>
-
-        <div className="req-subcol-body">
+      )}
+      footer={(
+        <>
+          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
+          <button className="btn btn-primary" onClick={handleSave}>Save</button>
+        </>
+      )}
+    >
           <div className="req-subcol-field">
             <label className="req-subcol-label">Name</label>
             <input className="req-input" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
@@ -101,13 +143,17 @@ export default function SubCollectionModal({ subCollection, parentCollection, en
             <div className="req-subcol-field">
               <label className="req-subcol-label">Environment</label>
               <span className="req-subcol-hint">Pick one environment from the parent collection.</span>
-              <select className="req-select" value={selectedEnvId}
-                onChange={(e) => { setSelectedEnvId(e.target.value); setBaseUrlOverride(''); }}>
-                <option value="">— Inherit all from parent —</option>
-                {availableEnvs.map((env) => (
-                  <option key={env.id} value={env.id}>{env.name}</option>
-                ))}
-              </select>
+              <WfDarkSelect
+                testId="req-subcol-env-select"
+                aria-label="Sub-collection environment"
+                className="req-subcol-dark-select"
+                value={selectedEnvId}
+                onChange={(value) => { setSelectedEnvId(value); setBaseUrlOverride(''); }}
+                options={[
+                  { value: '', label: '— Inherit all from parent —' },
+                  ...availableEnvs.map((env) => ({ value: env.id, label: env.name })),
+                ]}
+              />
               {selectedEnvId && (
                 <div className="req-subcol-env-detail">
                   <div className="req-subcol-env-row">
@@ -125,26 +171,34 @@ export default function SubCollectionModal({ subCollection, parentCollection, en
 
           <div className="req-subcol-field">
             <label className="req-subcol-label">Authentication</label>
-            <select className="req-select" value={authType}
-              onChange={(e) => setAuthType(e.target.value as AuthType)}>
-              <option value="inherit">Inherit from parent collection</option>
-              <option value="none">No Auth</option>
-              {globalAuthProfiles.length > 0 && <option value="global-profile">Global Auth Profile</option>}
-              <option value="bearer">Bearer Token</option>
-              <option value="basic">Basic Auth</option>
-              <option value="api-key">API Key</option>
-              <option value="oauth2">OAuth2 Client Credentials</option>
-            </select>
+            <WfDarkSelect
+              testId="req-subcol-auth-type-select"
+              aria-label="Sub-collection authentication type"
+              className="req-subcol-dark-select"
+              value={authType}
+              onChange={(value) => setAuthType(value as AuthType)}
+              options={[
+                { value: 'inherit', label: 'Inherit from parent collection' },
+                { value: 'none', label: 'No Auth' },
+                ...(globalAuthProfiles.length > 0 ? [{ value: 'global-profile', label: 'Global Auth Profile' }] : []),
+                { value: 'bearer', label: 'Bearer Token' },
+                { value: 'basic', label: 'Basic Auth' },
+                { value: 'api-key', label: 'API Key' },
+                { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+              ]}
+            />
 
             {authType === 'global-profile' && (
               <div className="req-subcol-auth-fields">
                 <label className="req-subcol-label">Select Profile</label>
-                <select className="req-select" value={selectedProfileId}
-                  onChange={(e) => setSelectedProfileId(e.target.value)}>
-                  {globalAuthProfiles.map((p) => (
-                    <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-                  ))}
-                </select>
+                <WfDarkSelect
+                  testId="req-subcol-profile-select"
+                  aria-label="Sub-collection auth profile"
+                  className="req-subcol-dark-select"
+                  value={selectedProfileId}
+                  onChange={setSelectedProfileId}
+                  options={globalAuthProfiles.map((p) => ({ value: p.id, label: `${p.name} (${p.auth.type})` }))}
+                />
               </div>
             )}
 
@@ -173,10 +227,17 @@ export default function SubCollectionModal({ subCollection, parentCollection, en
                 <label className="req-subcol-label">Key Value</label>
                 <input className="req-input" value={apiKeyValue} onChange={(e) => setApiKeyValue(e.target.value)} placeholder="Key value" />
                 <label className="req-subcol-label">Add To</label>
-                <select className="req-select" value={apiKeyIn} onChange={(e) => setApiKeyIn(e.target.value as 'header' | 'query')}>
-                  <option value="header">Header</option>
-                  <option value="query">Query String</option>
-                </select>
+                <WfDarkSelect
+                  testId="req-subcol-apikey-in-select"
+                  aria-label="Sub-collection API key location"
+                  className="req-subcol-dark-select"
+                  value={apiKeyIn}
+                  onChange={(value) => setApiKeyIn(value as 'header' | 'query')}
+                  options={[
+                    { value: 'header', label: 'Header' },
+                    { value: 'query', label: 'Query String' },
+                  ]}
+                />
               </div>
             )}
 
@@ -191,13 +252,6 @@ export default function SubCollectionModal({ subCollection, parentCollection, en
               </div>
             )}
           </div>
-        </div>
-
-        <div className="req-subcol-footer">
-          <button className="btn btn-ghost" onClick={onClose}>Cancel</button>
-          <button className="btn btn-primary" onClick={handleSave}>Save</button>
-        </div>
-      </div>
-    </div>
+    </AppModalFrame>
   );
 }

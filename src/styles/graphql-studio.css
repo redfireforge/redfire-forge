@@ -2130,6 +2130,10 @@
   background: var(--gql-success, #4ade80);
 }
 
+.gql-tab--dragging {
+  opacity: 0.4;
+}
+
 .gql-tab-type-badge {
   display: inline-flex;
   align-items: center;
@@ -2286,8 +2290,10 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
+  gap: 2px;
+  min-width: 32px;
   min-height: 32px;
+  padding: 0 6px;
   margin: 4px 0 4px 2px;
   align-self: center;
   background: transparent;
@@ -2320,6 +2326,13 @@
   color: var(--text-muted);
   border-color: var(--border);
   background: transparent;
+}
+
+.gql-tab-add-count {
+  font-size: 0.58rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  margin-left: 2px;
 }
 
 /* ─── Main Layout ───────────────────────────────────────────────────────────── */

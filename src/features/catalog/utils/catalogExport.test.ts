@@ -200,7 +200,7 @@ describe('buildCatalogExport', () => {
     servers: [{ url: 'https://api.example.com' }] as CatalogServer[],
     microserviceId: 'svc-1',
     versionLabel: '1.0.0',
-    existingWbEnvNames: new Map(),
+    existingEnvNames: new Map(),
   };
 
   it('creates a collection with version suffix', () => {
@@ -234,7 +234,7 @@ describe('buildCatalogExport', () => {
   it('maps existing wb environments by name', () => {
     const ctx = {
       ...baseContext,
-      existingWbEnvNames: new Map([['t01', 'req-t01-id']]),
+      existingEnvNames: new Map([['t01', 'req-t01-id']]),
     };
     const { collection, newEnvironments } = buildCatalogExport(basePayload, ctx);
     expect(newEnvironments).toHaveLength(1);
@@ -497,7 +497,7 @@ describe('catalogMeta fields via buildCatalogExport', () => {
     const ctx: CatalogExportContext = {
       servers: [{ url: 'https://api.com' }] as CatalogServer[],
       versionLabel: '3.0.1',
-      existingWbEnvNames: new Map(),
+      existingEnvNames: new Map(),
       catalogEntryName: 'My API',
       catalogEntryId: 'entry-99',
     };
@@ -523,7 +523,7 @@ describe('catalogMeta fields via buildCatalogExport', () => {
     };
     const ctx: CatalogExportContext = {
       servers: [] as CatalogServer[],
-      existingWbEnvNames: new Map(),
+      existingEnvNames: new Map(),
       catalogEntryId: 'entry-1',
       versionLabel: '1.0.0',
     };

@@ -298,4 +298,22 @@ describe('GrpcJsStreamingClient mocked coverage gaps', () => {
     serverCall.emit('end');
     expect(onTerminal).toHaveBeenCalledTimes(1);
   });
+
+  it('falls back to OK when a terminal status code is unknown', async () => {
+    const client = new GrpcJsStreamingClient();
+    const onTerminal = vi.fn();
+
+    client.startStream(
+      { ...baseParams, callType: 'server_streaming' },
+      { onInboundMessage: vi.fn(), onTerminal, onError: vi.fn() },
+    );
+
+    const serverCall = mockCalls.at(-1) as EventEmitter & { emit: (event: string, ...args: unknown[]) => boolean };
+    serverCall.emit('status', { code: 999, metadata: { getMap: () => ({}) } });
+    serverCall.emit('end');
+
+    await vi.waitFor(() => {
+      expect(onTerminal).toHaveBeenCalledWith(expect.objectContaining({ status: 999, statusMessage: 'OK' }));
+    });
+  });
 });

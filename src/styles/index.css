@@ -11,6 +11,7 @@
 @import './environment-manager.css';
 @import './environment-manager-vars-modal.css';
 @import './studio-endpoint-preview.css';
+@import './studio-tab-bar.css';
 @import './waterfall.css';
 @import './workflow.css';
 @import './results-explorer.css';
