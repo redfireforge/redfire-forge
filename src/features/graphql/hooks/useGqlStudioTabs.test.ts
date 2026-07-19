@@ -359,6 +359,124 @@ describe('useGqlStudioTabs', () => {
     expect(onTabClosed).toHaveBeenCalledWith('tab-1');
   });
 
+  it('duplicateTab clones a non-demo tab and activates the copy', async () => {
+    const tab1 = makeTab({ id: 'tab-1', label: 'Primary', query: 'query { ping }' });
+    const tab2 = makeTab({ id: 'tab-2', label: 'Secondary' });
+    mockLoadTabs.mockResolvedValue([tab1, tab2] as never);
+    mockMakeBlankTab.mockReturnValueOnce(makeTab({ id: 'tab-3' }));
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    act(() => {
+      result.current.duplicateTab('tab-1');
+    });
+
+    expect(result.current.tabs).toHaveLength(3);
+    expect(result.current.activeTabId).toBe('tab-3');
+    expect(result.current.tabs[2]?.label).toBe('Labeled (copy)');
+    expect(result.current.tabs[2]?.labelManual).toBe(true);
+  });
+
+  it('duplicateTab no-ops for demo tab ids when demo session owns the demo tab', async () => {
+    const demoTab = makeTab({ id: 'demo-1', demoLessonId: 'gql-demo', label: 'Demo' });
+    const userTab = makeTab({ id: 'tab-1', label: 'User' });
+    mockLoadTabs.mockResolvedValue([demoTab, userTab] as never);
+    mockLoadDemoSession.mockResolvedValue({
+      lessonId: 'gql-demo',
+      priorActiveTabId: 'tab-1',
+      demoTabId: 'demo-1',
+      tabBudget: 1,
+    });
+
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
+    await act(async () => {});
+
+    act(() => {
+      result.current.duplicateTab('demo-1');
+    });
+
+    expect(result.current.tabs).toHaveLength(2);
+    expect(result.current.tabs.filter((t) => t.id === 'demo-1')).toHaveLength(1);
+  });
+
+  it('closeOtherTabs keeps requested tab and active-session demo tabs, and cancels executing non-demo tabs', async () => {
+    const keep = makeTab({ id: 'tab-1', label: 'Keep' });
+    const closeMe = makeTab({ id: 'tab-2', label: 'Close Me' });
+    const demo = makeTab({ id: 'demo-1', demoLessonId: 'lesson-1', label: 'Demo' });
+    mockLoadTabs.mockResolvedValue([keep, closeMe, demo] as never);
+    mockLoadDemoSession.mockResolvedValue({
+      lessonId: 'lesson-1',
+      priorActiveTabId: 'tab-1',
+      demoTabId: 'demo-1',
+      tabBudget: 1,
+    });
+
+    const onCancelExecution = vi.fn();
+    const isTabExecuting = vi.fn((tabId: string) => tabId === 'tab-2');
+    const onTabClosed = vi.fn();
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions({ onCancelExecution, isTabExecuting, onTabClosed })));
+    await act(async () => {});
+
+    act(() => {
+      result.current.closeOtherTabs('tab-1');
+    });
+
+    expect(result.current.tabs.map((t) => t.id)).toEqual(['tab-1', 'demo-1']);
+    expect(onCancelExecution).toHaveBeenCalledWith('tab-2');
+    expect(onTabClosed).toHaveBeenCalledWith('tab-2');
+  });
+
+  it('closeTabsToRight closes only non-demo tabs to the right and reassigns active tab when needed', async () => {
+    const left = makeTab({ id: 'tab-1', label: 'Left' });
+    const mid = makeTab({ id: 'tab-2', label: 'Mid' });
+    const demo = makeTab({ id: 'demo-1', demoLessonId: 'lesson-1', label: 'Demo' });
+    const right = makeTab({ id: 'tab-3', label: 'Right' });
+    mockLoadTabs.mockResolvedValue([left, mid, demo, right] as never);
+    mockLoadDemoSession.mockResolvedValue({
+      lessonId: 'lesson-1',
+      priorActiveTabId: 'tab-1',
+      demoTabId: 'demo-1',
+      tabBudget: 1,
+    });
+
+    const onCancelExecution = vi.fn();
+    const isTabExecuting = vi.fn((tabId: string) => tabId === 'tab-3');
+    const onTabClosed = vi.fn();
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions({ onCancelExecution, isTabExecuting, onTabClosed })));
+    await act(async () => {});
+
+    act(() => {
+      result.current.handleTabClick('tab-3');
+    });
+
+    act(() => {
+      result.current.closeTabsToRight('tab-2');
+    });
+
+    expect(result.current.tabs.map((t) => t.id)).toEqual(['tab-1', 'tab-2', 'demo-1']);
+    expect(result.current.activeTabId).toBe('tab-2');
+    expect(onCancelExecution).toHaveBeenCalledWith('tab-3');
+    expect(onTabClosed).toHaveBeenCalledWith('tab-3');
+  });
+
+  it('closeTabsToRight no-ops when target tab is missing', async () => {
+    const tab1 = makeTab({ id: 'tab-1' });
+    const tab2 = makeTab({ id: 'tab-2' });
+    mockLoadTabs.mockResolvedValue([tab1, tab2] as never);
+
+    const onTabClosed = vi.fn();
+    const { result } = renderHook(() => useGqlStudioTabs(defaultOptions({ onTabClosed })));
+    await act(async () => {});
+
+    act(() => {
+      result.current.closeTabsToRight('missing-tab');
+    });
+
+    expect(result.current.tabs).toHaveLength(2);
+    expect(onTabClosed).not.toHaveBeenCalled();
+  });
+
   it('updateActiveTab marks tab as unsaved', async () => {
     const { result } = renderHook(() => useGqlStudioTabs(defaultOptions()));
     await act(async () => {});
