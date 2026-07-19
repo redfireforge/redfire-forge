@@ -480,7 +480,6 @@ describe('RequestEditor interaction branches', () => {
   });
 
   it('renders pinned env pills when catalog links microservice mappings', async () => {
-    const appEnvironments = [{ id: 'app-dev', name: 'Development', baseUrls: {} }];
     render(
       <RequestEditor
         {...defaultProps}
@@ -494,9 +493,8 @@ describe('RequestEditor interaction branches', () => {
         appMicroservices={[{
           id: 'svc-1',
           name: 'Orders',
-          baseUrls: { 'app-dev': 'https://tenant.dev.example/api' },
+          baseUrls: { 'env-1': 'https://tenant.dev.example/api' },
         }]}
-        appEnvironments={appEnvironments}
       />,
     );
     expect(screen.getAllByRole('button', { name: /Development/ })[0]).toBeTruthy();
@@ -504,7 +502,6 @@ describe('RequestEditor interaction branches', () => {
   });
 
   it('drops env pills lacking microservice mappings', () => {
-    const appEnvironments = [{ id: 'ae-dev', name: 'Development', baseUrls: {} }];
     render(
       <RequestEditor
         {...defaultProps}
@@ -524,9 +521,8 @@ describe('RequestEditor interaction branches', () => {
         appMicroservices={[{
           id: 'svc-1',
           name: 'Orders',
-          baseUrls: { 'ae-dev': 'https://tenant.dev.example/api' },
+          baseUrls: { 'env-1': 'https://tenant.dev.example/api' },
         }]}
-        appEnvironments={appEnvironments}
       />,
     );
     expect(screen.getByRole('button', { name: /Development/ })).toBeInTheDocument();

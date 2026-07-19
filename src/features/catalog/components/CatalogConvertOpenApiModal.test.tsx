@@ -301,6 +301,33 @@ describe('CatalogConvertOpenApiModal', () => {
     await waitFor(() => expect((search as HTMLInputElement).value).toBe(''));
   });
 
+  it('keeps search navigation stable when there are no matches', async () => {
+    renderModal();
+    await screen.findByText('Valid OpenAPI 3.0.4');
+
+    const search = screen.getByPlaceholderText('Search… (Cmd+F)');
+    fireEvent.change(search, { target: { value: '___no_match___' } });
+    await waitFor(() => expect(screen.getByText('No match')).toBeInTheDocument());
+
+    fireEvent.keyDown(search, { key: 'Enter' });
+    fireEvent.keyDown(search, { key: 'Enter', shiftKey: true });
+    expect(screen.getByText('No match')).toBeInTheDocument();
+  });
+
+  it('keeps copy disabled before YAML is available', async () => {
+    let resolveConvert: (r: ConvertSwaggerResult) => void = () => {};
+    vi.mocked(convertSwaggerToOpenApiYaml).mockReturnValue(new Promise<ConvertSwaggerResult>(res => { resolveConvert = res; }));
+    renderModal();
+
+    const copyBtn = screen.getByTestId('catalog-convert-copy-btn');
+    expect(copyBtn).toBeDisabled();
+    fireEvent.click(copyBtn);
+    expect(navigator.clipboard.writeText).not.toHaveBeenCalled();
+
+    await act(async () => { resolveConvert(makeResult()); });
+    expect(await screen.findByText('Valid OpenAPI 3.0.4')).toBeInTheDocument();
+  });
+
   it('focuses the search input on Cmd+F', async () => {
     renderModal();
     await screen.findByText('Valid OpenAPI 3.0.4');
@@ -498,6 +525,15 @@ describe('CatalogConvertOpenApiModal', () => {
       await waitFor(() => expect(prettifyOpenApiYaml).toHaveBeenCalled());
       expect(screen.getByText(/openapi: 3.0.4/)).toBeInTheDocument();
     });
+
+    it('falls back to engine YAML when prettify throws', async () => {
+      vi.mocked(loadPrettyPref).mockResolvedValue(true);
+      vi.mocked(prettifyOpenApiYaml).mockRejectedValue(new Error('format failed'));
+      renderModal();
+      await screen.findByText('Valid OpenAPI 3.0.4');
+      await waitFor(() => expect(prettifyOpenApiYaml).toHaveBeenCalled());
+      expect(screen.getByText(/openapi: 3.0.4/)).toBeInTheDocument();
+    });
   });
 
   it('shows a Saving… label and disables both actions while the save is in flight', async () => {
@@ -544,6 +580,44 @@ describe('CatalogConvertOpenApiModal', () => {
       target: '3.0',
       fallbackOnInvalid: false,
     });
+  });
+
+  it('renders compare failures/invalid output and omits the identical/different note when two valid runs are unavailable', async () => {
+    vi.mocked(convertSwaggerToOpenApiYaml).mockImplementation(async (_raw, opts) => {
+      if (opts.fallbackOnInvalid !== false) return makeResult();
+      if (opts.engine === 'swagger2openapi') throw new Error('engine boom');
+      return makeResult({
+        engineUsed: 'scalar',
+        valid: false,
+        validationErrors: ['missing schema'],
+      });
+    });
+
+    renderModal();
+    await screen.findByText('Valid OpenAPI 3.0.4');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Compare engines' })); });
+
+    const compare = await screen.findByTestId('catalog-convert-compare-result');
+    expect(compare.textContent).toContain('failed: engine boom');
+    expect(compare.textContent).toContain('invalid');
+    expect(compare.textContent).toContain('1 validation error');
+    expect(compare.textContent).not.toContain('Both engines produced identical YAML output for target 3.0.');
+    expect(compare.textContent).not.toContain('Engines produced different YAML output for target 3.0.');
+  });
+
+  it('shows the compare note when two valid engines produce different YAML', async () => {
+    vi.mocked(convertSwaggerToOpenApiYaml).mockImplementation(async (_raw, opts) => {
+      if (opts.fallbackOnInvalid !== false) return makeResult();
+      if (opts.engine === 'scalar') {
+        return makeResult({ engineUsed: 'scalar', yaml: 'openapi: 3.0.4\npaths:\n  /scalar: {}\n' });
+      }
+      return makeResult({ engineUsed: 'swagger2openapi', yaml: 'openapi: 3.0.4\npaths:\n  /s2o: {}\n' });
+    });
+
+    renderModal();
+    await screen.findByText('Valid OpenAPI 3.0.4');
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Compare engines' })); });
+    expect(await screen.findByText('Engines produced different YAML output for target 3.0.')).toBeInTheDocument();
   });
 });
 
@@ -685,6 +759,21 @@ describe('CatalogConvertOpenApiModal — deep lint', () => {
     expect(await screen.findByText(/1 advisory finding/)).toBeInTheDocument();
     expect(screen.getByText('operation-operationId')).toBeInTheDocument();
     expect(screen.getByText(/operation should have an operationId/)).toBeInTheDocument();
+  });
+
+  it('renders lint findings with fallback rule label and without pointer text', async () => {
+    vi.mocked(lintOpenApi).mockResolvedValue({
+      supported: true,
+      clean: false,
+      findings: [{ message: 'missing docs' }],
+    });
+    renderModal();
+    await screen.findByText('Valid OpenAPI 3.0.4');
+
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Deep lint' })); });
+    expect(await screen.findByText('rule')).toBeInTheDocument();
+    expect(screen.getByText(/missing docs/)).toBeInTheDocument();
+    expect(screen.queryByText(/\(#/)).not.toBeInTheDocument();
   });
 
   it('shows a clean message when lint passes', async () => {

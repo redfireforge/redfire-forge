@@ -22,6 +22,7 @@ import ScenarioContextMenu from './components/ScenarioContextMenu';
 import ScenarioSlaPanel from './components/ScenarioSlaPanel';
 import TestSlaModal from './components/TestSlaModal';
 import ScenarioBuilderUnassociatedSection from './components/ScenarioBuilderUnassociatedSection';
+import { ScenarioBuilderSearchBar } from './components/ScenarioBuilderSearchBar';
 
 export default function ScenarioBuilder({ featureGroups, setFeatureGroups, sharedDataSources, setSharedDataSources, resolvedBaseUrl, selectedSvcId, selectedSvcName, selectedEnvId, selectedEnvName, isAdditionalEnv, unassociatedFeatureGroups = [], microservices = [], environments = [], globalAuthProfiles = [], onMoveScenario, onMoveTest, pendingEditTest, onPendingEditConsumed, onLocateRequest }: ScenarioBuilderProps) {
   const allAuthProfiles = globalAuthProfiles;
@@ -104,13 +105,11 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     editingTest, draft, setDraft, setEditingTest, setInputMode, setActiveTab,
   });
 
-  // Tag management
   const { addTag, removeTag, clearTags, tagSuggestions } = useScenarioTags(featureGroups, setFeatureGroups);
   const [editingTagScenario, setEditingTagScenario] = useState<{ fgId: string; scId: string } | null>(null);
   const [tagInputValue, setTagInputValue] = useState('');
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; fgId: string; scId: string } | null>(null);
 
-  // Handler for creating a parameterized copy from the wizard
   const handleCreateParameterizedCopy = useCallback((copy: Scenario, targetFgId?: string, targetScenarioId?: string) => {
     const fgId = targetFgId || editingTest?.featureId;
     const scId = targetScenarioId || editingTest?.scenarioId;
@@ -137,7 +136,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     }, 0);
   }, [editingTest, setFeatureGroups, setEditingTest, setDraft, setActiveTab]);
 
-  // Move dialog state
   const [moveDialog, setMoveDialog] = useState<{
     type: MoveType;
     itemName: string;
@@ -149,16 +147,12 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     fgAuthProfileId?: string;
   } | null>(null);
 
-  // CSV Import modal state
   const [csvImportOpen, setCsvImportOpen] = useState(false);
 
-  // Export popover state: tracks which item's export popover is open
   const [exportPopover, setExportPopover] = useState<{ id: string; data: unknown; exportFn: (opts: VersionExportOptions) => void } | null>(null);
 
-  // SLA modal state: tracks which test's SLA modal is open
   const [slaModalTest, setSlaModalTest] = useState<{ fgId: string; scId: string; test: Scenario } | null>(null);
 
-  // ── Export / Import (extracted hook) ──
   const showConfirm = useCallback((title: string, message: string, onConfirm: () => void) => {
     setConfirmDialog({ title, message, onConfirm: () => { onConfirm(); setConfirmDialog(null); } });
   }, [setConfirmDialog]);
@@ -187,7 +181,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     matchCount,
   } = useScenarioBuilderSearch(featureGroups);
 
-  // ── Drag-and-drop (extracted hook) ──
   const {
     dragScenario, setDragScenario,
     dragTest, setDragTest,
@@ -195,8 +188,6 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
     handleDragEnd,
   } = useScenarioDragDrop({ setFeatureGroups });
   const dragHandleActive = useRef(false);
-
-  // load/save is handled by App.tsx to avoid overwriting unfiltered groups
 
   const totalTests = featureGroups.reduce((sum, fg) => sum + fg.scenarios.reduce((s2, sc) => s2 + sc.tests.length, 0), 0);
 
@@ -261,40 +252,14 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
       )}
 
       {selectedSvcId && selectedEnvId && featureGroups.length > 0 && (
-        <div className="builder-search-wrapper">
-          <div className="builder-search-bar">
-            <input
-              className="builder-search-input"
-              type="text"
-              placeholder='Search tests, URLs, methods, tags...'
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            {isSearching && (
-              <>
-                <span className="builder-search-count">{matchCount} match{matchCount !== 1 ? 'es' : ''}</span>
-                <button className="btn btn-xs btn-ghost" onClick={() => setSearchQuery('')}>Clear</button>
-              </>
-            )}
-            <button className="btn btn-xs btn-ghost" onClick={() => setShowSearchHelp((v) => !v)} title="Search syntax help">?</button>
-          </div>
-          {showSearchHelp && (
-            <div className="search-help">
-              <table className="search-help-table">
-                <tbody>
-                  <tr><td><code>trial</code></td><td>Substring match (case-insensitive)</td></tr>
-                  <tr><td><code>"OnStar One"</code></td><td>Exact phrase (word boundary)</td></tr>
-                  <tr><td><code>trial AND US</code></td><td>Both terms must match</td></tr>
-                  <tr><td><code>trial OR spike</code></td><td>Either term matches</td></tr>
-                  <tr><td><code>NOT CA</code> or <code>-CA</code></td><td>Exclude term</td></tr>
-                  <tr><td><code>(US OR CA) AND trial</code></td><td>Group with parentheses</td></tr>
-                  <tr><td><code>onboard US -FL</code></td><td>Implicit AND between terms</td></tr>
-                </tbody>
-              </table>
-              <div className="search-help-fields">Searches: name, URL, method, headers, body, auth, validation rules &amp; expected values</div>
-            </div>
-          )}
-        </div>
+        <ScenarioBuilderSearchBar
+          searchQuery={searchQuery}
+          onSearchQueryChange={setSearchQuery}
+          showSearchHelp={showSearchHelp}
+          onToggleSearchHelp={() => setShowSearchHelp((v) => !v)}
+          isSearching={isSearching}
+          matchCount={matchCount}
+        />
       )}
 
       <div className="feature-tree">

@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { RequestCollection, RequestFolder, CatalogRequestMeta } from '../../../shared/types';
+import type { RequestCollection, RequestFolder, CatalogRequestMeta, Environment, Microservice } from '../../../shared/types';
 import { countGroupRequests, findFolderDeep, findSiblingFolders, countFolderReqs } from '../utils/requestTree';
+import { computeEligibleSubColEnvs, type SubColEnvOption } from '../utils/subCollectionEnvs';
 import { toggleSetItem } from '../../../shared/utils/setToggle';
 import SidebarContextMenu from './SidebarContextMenu';
 import { useToast } from '../../../shared/hooks/useToast';
@@ -17,6 +18,8 @@ import {
 
 interface Props {
   collections: RequestCollection[];
+  environments: Environment[];
+  microservices: Microservice[];
   selectedCollectionId?: string;
   selectedRequestId?: string;
   onSelectCollection: (colId: string) => void;
@@ -29,7 +32,7 @@ interface Props {
   onDeleteRequest: (colId: string, reqId: string) => void;
   onDuplicateRequest: (colId: string, reqId: string) => void;
   onAddFolder: (colId: string, name: string, parentFolderId?: string) => void;
-  onAddSubCollection: (colId: string, name: string, parentFolderId?: string) => void;
+  onAddSubCollection: (colId: string, name: string, parentFolderId?: string, selectedEnvId?: string) => void;
   onEditSubCollection: (colId: string, folderId: string) => void;
   onRenameFolder: (colId: string, folderId: string, name: string) => void;
   onDeleteFolder: (colId: string, folderId: string) => void;
@@ -51,6 +54,10 @@ interface Props {
   onSendCollectionToHarness?: (colId: string) => void;
   onSendFolderToHarness?: (colId: string, folderId: string) => void;
   harnessRequestIds?: Set<string>;
+  /** Request IDs that currently have an open tab (shown as a dot indicator). */
+  openTabRequestIds?: Set<string>;
+  /** Open request in a guaranteed-new tab (context menu "Open in New Tab"). */
+  onOpenInNewTab?: (colId: string, reqId: string) => void;
 }
 
 import { METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
@@ -88,7 +95,7 @@ function modeBadge(mode: RequestCollection['mode']): string {
 }
 
 export default function RequestsSidebar({
-  collections, selectedCollectionId, selectedRequestId,
+  collections, environments, microservices, selectedCollectionId, selectedRequestId,
   onSelectCollection, onSelectRequest, onNewCollection,
   onEditCollection, onDeleteCollection, onDuplicateCollection, onNewRequest, onDeleteRequest,
   onDuplicateRequest, onAddFolder, onAddSubCollection, onEditSubCollection, onRenameFolder, onDeleteFolder, onDuplicateFolder, onMoveFolder,
@@ -98,6 +105,8 @@ export default function RequestsSidebar({
   onSendCollectionToHarness,
   onSendFolderToHarness,
   harnessRequestIds,
+  openTabRequestIds,
+  onOpenInNewTab,
 }: Props) {
   const toast = useToast();
   const [expandedCols, setExpandedCols] = useState<Set<string>>(new Set(collections.map(c => c.id)));
@@ -228,13 +237,39 @@ export default function RequestsSidebar({
     setShowMoveMenu(false); setShowFolderMoveMenu(false);
   };
 
+  const getSubColEligibleEnvs = useCallback((colId: string, parentFolderId?: string): SubColEnvOption[] => {
+    const col = collections.find(c => c.id === colId);
+    if (!col) return [];
+    const siblings = parentFolderId
+      ? findFolderDeep(col.folders ?? [], parentFolderId)?.folders ?? []
+      : col.folders ?? [];
+    return computeEligibleSubColEnvs(col, siblings, environments, microservices);
+  }, [collections, environments, microservices]);
+
   const startAddFolder = (colId: string, parentFolderId?: string, isSubCollection?: boolean) => {
+    if (isSubCollection && getSubColEligibleEnvs(colId, parentFolderId).length === 0) {
+      toast.show('info', 'No environments available',
+        'Configure a base URL for at least one environment in this collection before adding a sub-collection.');
+      setContextMenu(null);
+      return;
+    }
     setNewFolderTarget({ colId, parentFolderId, isSubCollection }); setNewFolderName(''); setContextMenu(null);
     setExpandedCols((prev) => new Set(prev).add(colId));
     if (parentFolderId) setExpandedFolders((prev) => new Set(prev).add(parentFolderId));
   };
+  const commitAddSubCollection = (envId: string) => {
+    const target = newFolderTarget;
+    if (!target || !envId) { setNewFolderTarget(null); return; }
+    const env = environments.find(e => e.id === envId);
+    if (!env) { setNewFolderTarget(null); return; }
+    onAddSubCollection(target.colId, env.name, target.parentFolderId, env.id);
+    setExpandedCols((prev) => new Set(prev).add(target.colId));
+    if (target.parentFolderId) setExpandedFolders((prev) => new Set(prev).add(target.parentFolderId!));
+    setNewFolderTarget(null); setNewFolderName('');
+  };
   const commitAddFolder = () => {
-    if (newFolderTarget && newFolderName.trim()) {
+    // Sub-collections are created via the eligible-env dropdown (commitAddSubCollection), not here.
+    if (newFolderTarget && !newFolderTarget.isSubCollection && newFolderName.trim()) {
       const col = collections.find(c => c.id === newFolderTarget.colId);
       const siblings = newFolderTarget.parentFolderId
         ? findFolderDeep(col?.folders ?? [], newFolderTarget.parentFolderId)?.folders ?? []
@@ -244,14 +279,40 @@ export default function RequestsSidebar({
         toast.show('warning', 'Name already exists', `A folder or sub-collection with the name "${newFolderName.trim()}" already exists at this level.`);
         return;
       }
-      if (newFolderTarget.isSubCollection) {
-        onAddSubCollection(newFolderTarget.colId, newFolderName.trim(), newFolderTarget.parentFolderId);
-      } else {
-        onAddFolder(newFolderTarget.colId, newFolderName.trim(), newFolderTarget.parentFolderId);
-      }
+      onAddFolder(newFolderTarget.colId, newFolderName.trim(), newFolderTarget.parentFolderId);
     }
     setNewFolderTarget(null); setNewFolderName('');
   };
+  const renderNewFolderInput = (colId: string, parentFolderId?: string) => {
+    if (newFolderTarget?.isSubCollection) {
+      const eligible = getSubColEligibleEnvs(colId, parentFolderId);
+      return (
+        <div className="req-new-folder-row">
+          <span className="req-folder-icon">📦</span>
+          <select className="req-inline-input" data-testid="req-subcol-env-select" autoFocus
+            aria-label="Sub-collection environment"
+            defaultValue=""
+            onChange={(e) => commitAddSubCollection(e.target.value)}
+            onBlur={() => setNewFolderTarget(null)}
+            onKeyDown={(e) => { if (e.key === 'Escape') setNewFolderTarget(null); }}>
+            <option value="" disabled>Select environment…</option>
+            {eligible.map((env) => (
+              <option key={env.id} value={env.id}>{env.name}</option>
+            ))}
+          </select>
+        </div>
+      );
+    }
+    return (
+      <div className="req-new-folder-row">
+        <span className="req-folder-icon">📁</span>
+        <input className="req-inline-input" data-testid="req-folder-name-input" value={newFolderName} placeholder="Folder name"
+          onChange={(e) => setNewFolderName(e.target.value)} onBlur={commitAddFolder}
+          onKeyDown={(e) => { if (e.key === 'Enter') commitAddFolder(); if (e.key === 'Escape') setNewFolderTarget(null); }} autoFocus />
+      </div>
+    );
+  };
+
   const startRenameFolder = (colId: string, folderId: string, currentName: string) => {
     setRenamingFolder({ colId, folderId }); setRenameVal(currentName); setContextMenu(null);
     setTimeout(() => renameRef.current?.focus(), 50);
@@ -362,6 +423,7 @@ export default function RequestsSidebar({
           {meta && <span className="req-req-catalog-badge" title={meta.sourceSpec ? `From: ${meta.sourceSpec}` : 'From API Catalog'}>&#128203;</span>}
           {meta?.deprecated && <span className="req-req-deprecated-badge" title="Deprecated">&#9888;&#65039;</span>}
           {inHarness && <span className="req-req-harness-badge" data-testid="req-in-harness-badge" title="Promoted to Harness">IN HARNESS</span>}
+          {openTabRequestIds?.has(reqId) && <span className="req-req-tab-dot" title="Open in tab" />}
         </div>
         {showAfter && <div className="req-drop-indicator" />}
       </div>
@@ -405,14 +467,7 @@ export default function RequestsSidebar({
           <div className="req-folder-requests">
             {filteredRequests.map((req) => renderRequest(col.id, req.id, req.method, req.name, req.url, folder.id, folder.requests, req.catalogMeta))}
             {subFolders.map((sf) => renderFolder(col, sf, depth + 1))}
-            {isNewFolderHere && (
-              <div className="req-new-folder-row">
-                <span className="req-folder-icon">{newFolderTarget?.isSubCollection ? '📦' : '📁'}</span>
-                <input className="req-inline-input" data-testid="req-folder-name-input" value={newFolderName} placeholder={newFolderTarget?.isSubCollection ? 'Sub-collection name' : 'Folder name'}
-                  onChange={(e) => setNewFolderName(e.target.value)} onBlur={commitAddFolder}
-                  onKeyDown={(e) => { if (e.key === 'Enter') commitAddFolder(); if (e.key === 'Escape') setNewFolderTarget(null); }} autoFocus />
-              </div>
-            )}
+            {isNewFolderHere && renderNewFolderInput(col.id, folder.id)}
           </div>
         )}
       </div>
@@ -475,14 +530,7 @@ export default function RequestsSidebar({
               {filteredRootReqs.map((req) => renderRequest(col.id, req.id, req.method, req.name, req.url, undefined, col.requests, req.catalogMeta))}
             </div>
             {(col.folders ?? []).map((folder) => renderFolder(col, folder, 0))}
-            {newFolderTarget?.colId === col.id && !newFolderTarget.parentFolderId && (
-              <div className="req-new-folder-row">
-                <span className="req-folder-icon">{newFolderTarget?.isSubCollection ? '📦' : '📁'}</span>
-                <input className="req-inline-input" data-testid="req-folder-name-input" value={newFolderName} placeholder={newFolderTarget?.isSubCollection ? 'Sub-collection name' : 'Folder name'}
-                  onChange={(e) => setNewFolderName(e.target.value)} onBlur={commitAddFolder}
-                  onKeyDown={(e) => { if (e.key === 'Enter') commitAddFolder(); if (e.key === 'Escape') setNewFolderTarget(null); }} autoFocus />
-              </div>
-            )}
+            {newFolderTarget?.colId === col.id && !newFolderTarget.parentFolderId && renderNewFolderInput(col.id, undefined)}
           </div>
         )}
       </div>
@@ -676,6 +724,7 @@ export default function RequestsSidebar({
           onMergeCollectionInto={onMergeCollectionInto}
           countAllRequests={countAllRequests}
           startAddFolder={startAddFolder}
+          getSubColEligibleCount={(colId, parentFolderId) => getSubColEligibleEnvs(colId, parentFolderId).length}
           startRenameFolder={startRenameFolder}
           handleExportCollection={handleExportCollection}
           handleExportFolder={handleExportFolder}
@@ -691,6 +740,7 @@ export default function RequestsSidebar({
           handleExportGroup={handleExportGroup}
           onSendCollectionToHarness={onSendCollectionToHarness}
           onSendFolderToHarness={onSendFolderToHarness}
+          onOpenInNewTab={onOpenInNewTab}
         />
       )}
 

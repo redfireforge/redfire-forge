@@ -98,6 +98,16 @@ describe('grpcHarnessTransportAdapter coverage gaps', () => {
     );
   });
 
+  it('builds unary runtime boundary and fingerprints unary request payloads', () => {
+    const unarySnapshot = makeUnarySnapshot();
+    const boundary = buildGrpcHarnessRuntimeCallBoundary(unarySnapshot);
+    expect(boundary.unaryRequest).toBeDefined();
+    expect(boundary.streamStartRequest).toBeUndefined();
+    expect(grpcHarnessTransportRequestFingerprint(boundary)).toBe(
+      JSON.stringify(boundary.unaryRequest),
+    );
+  });
+
   it('buildGrpcHarnessRuntimeCallBoundary attaches sendMessages on harness snapshot for client streaming', () => {
     const snapshot = buildGrpcHarnessExecuteSnapshot(
       {

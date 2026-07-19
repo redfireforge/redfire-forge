@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
+import type { Environment } from '../../shared/types';
 import type { CatalogEntry, CatalogEndpoint, SavedEndpointValues } from '../../features/catalog/types/catalog';
 import { buildCatalogExport } from '../../features/catalog/utils/catalogExport';
 import { mergeExportIntoCollections, isCollectionEmpty, separateFoldersForMerge } from '../../features/catalog/utils/versionMerge';
@@ -11,6 +12,8 @@ import type { Tab } from '../utils/appTabUtils';
 export type UseCatalogExportParams = {
   wb: UseRequestsReturn;
   catalog: UseCatalogReturn;
+  appEnvironments: Environment[];
+  setEnvironments: Dispatch<SetStateAction<Environment[]>>;
   setActiveTab: Dispatch<SetStateAction<Tab>>;
 };
 
@@ -22,6 +25,8 @@ function applyExportToWorkbench(
   payload: SendToRequestsPayload,
   entry: CatalogEntry,
   wb: UseRequestsReturn,
+  appEnvironments: Environment[],
+  setEnvironments: Dispatch<SetStateAction<Environment[]>>,
 ) {
   let groupId: string | undefined;
   if (payload.newGroupName) {
@@ -31,14 +36,14 @@ function applyExportToWorkbench(
   }
 
   const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
-  const existingWbEnvNames = new Map(wb.environments.map(e => [e.name, e.id]));
+  const existingEnvNames = new Map(appEnvironments.map(e => [e.name, e.id]));
   const versionLabel = currentVersion?.version ?? '';
 
   const { collection, newEnvironments } = buildCatalogExport(payload, {
     servers: entry.servers ?? [],
     microserviceId: entry.microserviceId,
     versionLabel,
-    existingWbEnvNames,
+    existingEnvNames,
     groupId,
     catalogEntryName: entry.name,
     catalogEntryId: entry.id,
@@ -49,7 +54,13 @@ function applyExportToWorkbench(
   );
   for (const u of updates) wb.updateRequest(u.collectionId, u.requestId, u.patch);
 
-  if (newEnvironments.length > 0) wb.addEnvironments(newEnvironments);
+  if (newEnvironments.length > 0) {
+    setEnvironments(prev => {
+      const existingNames = new Set(prev.map(e => e.name.toLowerCase()));
+      const toAdd = newEnvironments.filter(e => !existingNames.has(e.name.toLowerCase()));
+      return toAdd.length > 0 ? [...prev, ...toAdd] : prev;
+    });
+  }
 
   if (!isCollectionEmpty(newCollection)) {
     if (existingCollectionId) {
@@ -70,7 +81,7 @@ function applyExportToWorkbench(
   }
 }
 
-export function useCatalogExport({ wb, catalog, setActiveTab }: UseCatalogExportParams) {
+export function useCatalogExport({ wb, catalog, appEnvironments, setEnvironments, setActiveTab }: UseCatalogExportParams) {
   const [sendToReqEntry, setSendToReqEntry] = useState<CatalogEntry | undefined>();
   const [sendToReqEpValues, setSendToReqEpValues] = useState<Record<string, SavedEndpointValues>>({});
   const [sendToReqSingleEndpoint, setSendToReqSingleEndpoint] = useState<
@@ -109,20 +120,20 @@ export function useCatalogExport({ wb, catalog, setActiveTab }: UseCatalogExport
   const handleSendToReqConfirm = useCallback((payload: SendToRequestsPayload) => {
     if (sendToReqEntry) {
       catalog.updateEntry(sendToReqEntry.id, { customEndpointNames: payload.customNames });
-      applyExportToWorkbench(payload, sendToReqEntry, wb);
+      applyExportToWorkbench(payload, sendToReqEntry, wb, appEnvironments, setEnvironments);
     }
     setSendToReqEntry(undefined);
     setActiveTab('requests');
-  }, [wb, sendToReqEntry, catalog, setActiveTab]);
+  }, [wb, sendToReqEntry, catalog, appEnvironments, setEnvironments, setActiveTab]);
 
   const handleInlineExportConfirm = useCallback((payload: SendToRequestsPayload) => {
     const entry = catalog.selectedEntry;
     if (!entry) return;
 
     catalog.updateEntry(entry.id, { customEndpointNames: payload.customNames });
-    applyExportToWorkbench(payload, entry, wb);
+    applyExportToWorkbench(payload, entry, wb, appEnvironments, setEnvironments);
     setActiveTab('requests');
-  }, [wb, catalog, setActiveTab]);
+  }, [wb, catalog, appEnvironments, setEnvironments, setActiveTab]);
 
   return {
     sendToReqEntry,

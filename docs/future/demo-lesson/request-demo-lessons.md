@@ -220,7 +220,7 @@ Each lesson references **existing gallery samples** and **training path manuals*
 | 1 | `req3-gallery` | Import Multi-Env Sample | Gallery card | Import `req-multi-env-product` — auto-creates multi-env collection |
 | 2 | `req3-badge` | Notice the ENV Badge | Collection badge | Sidebar shows `ENV` badge — collection is multi-env mode |
 | 3 | `req3-edit-collection` | Edit Collection Settings | Collection modal | Open → see base URLs map: env → host |
-| 4 | `req3-add-env` | Add a Second Environment | Base URL row | Add "staging" env → set different host URL |
+| 4 | `req3-fill-env` | Fill Environment Base URLs | Base URL row | Fill "production" + "staging" base URL rows (envs seeded from Settings) |
 | 5 | `req3-relative-url` | See the Relative URL | URL input | Request URL is `/products/search?q=laptop` (no host) |
 | 6 | `req3-env-pill` | Switch Environment | Env pill | Click staging pill → resolved URL preview changes |
 | 7 | `req3-send-both` | Send to Each Env | Send button | Send with "dev" → 200; switch to "staging" → send again |

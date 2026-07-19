@@ -63,6 +63,7 @@ interface Props {
   onMergeCollectionInto: (srcColId: string, destColId: string) => void;
   countAllRequests: (col: RequestCollection) => number;
   startAddFolder: (colId: string, parentFolderId: string | undefined, isSubCollection: boolean) => void;
+  getSubColEligibleCount: (colId: string, parentFolderId?: string) => number;
   startRenameFolder: (colId: string, folderId: string, currentName: string) => void;
   handleExportCollection: (colId: string) => void;
   handleExportFolder: (colId: string, folderId: string) => void;
@@ -78,6 +79,7 @@ interface Props {
   handleExportGroup: (groupId: string) => void;
   onSendCollectionToHarness?: (colId: string) => void;
   onSendFolderToHarness?: (colId: string, folderId: string) => void;
+  onOpenInNewTab?: (colId: string, reqId: string) => void;
 }
 
 function collectAllFolders(folders: RequestFolder[], depth = 0): { folder: RequestFolder; depth: number }[] {
@@ -147,7 +149,7 @@ export default function SidebarContextMenu({
   onDeleteFolder, onDeleteRequest,
   onMoveFolder, onMoveFolderTo, onMoveRequest,
   onMoveRequestToCollection, onMoveFolderToCollection, onMergeCollectionInto,
-  countAllRequests, startAddFolder, startRenameFolder,
+  countAllRequests, startAddFolder, getSubColEligibleCount, startRenameFolder,
   handleExportCollection, handleExportFolder,
   handleImportToCollection, handleImportToFolder,
   setConfirmDelete,
@@ -155,6 +157,7 @@ export default function SidebarContextMenu({
   onDeleteGroup, onDuplicateGroup, onMoveToGroup, handleExportGroup,
   onSendCollectionToHarness,
   onSendFolderToHarness,
+  onOpenInNewTab,
 }: Props) {
   const [showColMoveMenu, setShowColMoveMenu] = useState(false);
   const ctxCol = collections.find(c => c.id === contextMenu.colId) ?? null;
@@ -238,7 +241,16 @@ export default function SidebarContextMenu({
       {contextMenu.type === 'collection' && (<>
         <button onClick={() => { onNewRequest(contextMenu.colId); dismiss(); }}>Add Request</button>
         <button onClick={() => startAddFolder(contextMenu.colId, undefined, false)}>Add Folder</button>
-        <button onClick={() => startAddFolder(contextMenu.colId, undefined, true)}>Add Sub-Collection</button>
+        {ctxCol?.mode === 'multi-env' && (() => {
+          const eligible = getSubColEligibleCount(contextMenu.colId);
+          return (
+            <button
+              disabled={eligible === 0}
+              title={eligible === 0 ? 'Configure a base URL for an environment first' : undefined}
+              onClick={() => startAddFolder(contextMenu.colId, undefined, true)}
+            >Add Sub-Collection</button>
+          );
+        })()}
         <button onClick={() => { const col = collections.find(c => c.id === contextMenu.colId); if (col) onEditCollection(col); dismiss(); }}>Edit Collection</button>
         <button onClick={() => { onDuplicateCollection(contextMenu.colId); dismiss(); }}>Duplicate Collection</button>
         <div className="req-ctx-submenu-wrapper">
@@ -295,7 +307,16 @@ export default function SidebarContextMenu({
         return (<>
           <button onClick={() => { onNewRequest(contextMenu.colId, contextMenu.folderId); dismiss(); }}>Add Request</button>
           <button onClick={() => startAddFolder(contextMenu.colId, contextMenu.folderId, false)}>Add Folder</button>
-          <button onClick={() => startAddFolder(contextMenu.colId, contextMenu.folderId, true)}>Add Sub-Collection</button>
+          {ctxCol?.mode === 'multi-env' && (() => {
+            const eligible = getSubColEligibleCount(contextMenu.colId, contextMenu.folderId);
+            return (
+              <button
+                disabled={eligible === 0}
+                title={eligible === 0 ? 'Configure a base URL for an environment first' : undefined}
+                onClick={() => startAddFolder(contextMenu.colId, contextMenu.folderId, true)}
+              >Add Sub-Collection</button>
+            );
+          })()}
           {isSub && (
             <button onClick={() => { onEditSubCollection(contextMenu.colId, contextMenu.folderId!); dismiss(); }}>Edit Settings</button>
           )}
@@ -391,6 +412,9 @@ export default function SidebarContextMenu({
 
       {/* ── Request context menu ── */}
       {contextMenu.type === 'request' && contextMenu.reqId && (<>
+        {onOpenInNewTab && (
+          <button onClick={() => { onOpenInNewTab(contextMenu.colId, contextMenu.reqId!); dismiss(); }}>Open in New Tab</button>
+        )}
         <button onClick={() => { onDuplicateRequest(contextMenu.colId, contextMenu.reqId!); dismiss(); }}>Duplicate</button>
 
         {ctxCol && (

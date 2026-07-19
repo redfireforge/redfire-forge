@@ -83,6 +83,14 @@ export type DemoBridgeWindow = Window &
     __demoSelectCatalogByName?: (name: string) => boolean;
     /** True once the Catalog store has hydrated from storage. */
     __demoCatalogLoaded?: boolean;
+    /** Ensure a Settings environment exists by name; returns its ID. */
+    __demoEnsureSettingsEnv?: (name: string) => string;
+    /** Remove a Settings environment by name (demo cleanup). */
+    __demoRemoveSettingsEnv?: (name: string) => void;
+    /** Ensure a Settings microservice exists by name; optionally set base URLs. Returns its ID. */
+    __demoEnsureSettingsSvc?: (name: string, baseUrls?: Record<string, string>) => string;
+    /** Remove a Settings microservice by name (demo cleanup). */
+    __demoRemoveSettingsSvc?: (name: string) => void;
   };
 
 export function getDemoBridgeWindow(): DemoBridgeWindow {

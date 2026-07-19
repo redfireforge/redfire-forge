@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { parseGrpcSseStream, parseGrpcStreamEventJson } from './grpcStreamSseParser';
 
 async function collectSseFrames(text: string) {
@@ -182,5 +182,31 @@ describe('grpcStreamSseParser coverage gaps', () => {
     controller.abort();
     await expect(iterator.next()).rejects.toMatchObject({ name: 'AbortError' });
     expect(cancelCalled).toBe(true);
+  });
+
+  it('throws AbortError when done is reached after signal aborts', async () => {
+    const controller = new AbortController();
+    const reader = {
+      read: vi.fn(async () => {
+        controller.abort();
+        return { done: true, value: undefined };
+      }),
+      cancel: vi.fn(async () => undefined),
+      releaseLock: vi.fn(),
+    };
+    const stream = {
+      getReader: () => reader,
+    } as unknown as ReadableStream<Uint8Array>;
+
+    await expect(async () => {
+      for await (const _frame of parseGrpcSseStream(stream, { abortSignal: controller.signal })) {
+        // drain
+      }
+    }).rejects.toMatchObject({ name: 'AbortError' });
+  });
+
+  it('parses trailing buffer event without newline before stream closes', async () => {
+    const frames = await collectSseFrames('event: trailing-event');
+    expect(frames).toEqual([]);
   });
 });

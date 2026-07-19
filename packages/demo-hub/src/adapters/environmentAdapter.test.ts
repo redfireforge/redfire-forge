@@ -13,7 +13,11 @@ vi.mock('@graphql/utils/gqlDemoBatchDetectionCleanup', () => ({
 import {
   applyGqlTlsSettings,
   deleteGqlEnvironmentByName,
+  ensureSettingsEnvironment,
+  ensureSettingsMicroservice,
   purgeGqlDemoGlobalAuthProfiles,
+  removeSettingsEnvironment,
+  removeSettingsMicroservice,
   removeWorkspaceDefaults,
   resetGqlDemoBatchDetection,
   upsertGlobalAuthProfile,
@@ -33,6 +37,8 @@ describe('environmentAdapter', () => {
     delete (window as unknown as Record<string, unknown>).__demoUpsertWorkspaceDefaults;
     delete (window as unknown as Record<string, unknown>).__demoRemoveWorkspaceDefaults;
     delete (window as unknown as Record<string, unknown>).__demoResetGqlBatchDetection;
+    delete (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv;
+    delete (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv;
     resetAllMocks();
   });
 
@@ -121,5 +127,49 @@ describe('environmentAdapter', () => {
     await expect(purgeGqlDemoGlobalAuthProfiles()).resolves.toBe(2);
     expect(purgeGqlDemoGlobalAuthProfilesFromStorage).toHaveBeenCalled();
     expect(spy).toHaveBeenCalledWith(['Lesson 6 Bearer'], ['lesson6-gql-profile']);
+  });
+
+  it('ensureSettingsEnvironment returns empty string when bridge missing', () => {
+    expect(ensureSettingsEnvironment('prod')).toBe('');
+  });
+
+  it('ensureSettingsEnvironment calls bridge and returns env id', () => {
+    const spy = vi.fn(() => 'env-123');
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsEnv = spy;
+    expect(ensureSettingsEnvironment('prod')).toBe('env-123');
+    expect(spy).toHaveBeenCalledWith('prod');
+  });
+
+  it('removeSettingsEnvironment calls bridge', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoRemoveSettingsEnv = spy;
+    removeSettingsEnvironment('staging');
+    expect(spy).toHaveBeenCalledWith('staging');
+  });
+
+  it('removeSettingsEnvironment is a no-op when bridge missing', () => {
+    expect(() => removeSettingsEnvironment('staging')).not.toThrow();
+  });
+
+  it('ensureSettingsMicroservice returns empty string when bridge missing', () => {
+    expect(ensureSettingsMicroservice('svc')).toBe('');
+  });
+
+  it('ensureSettingsMicroservice calls bridge and returns svc id', () => {
+    const spy = vi.fn(() => 'svc-abc');
+    (window as unknown as Record<string, unknown>).__demoEnsureSettingsSvc = spy;
+    expect(ensureSettingsMicroservice('product-api', { e1: 'http://x' })).toBe('svc-abc');
+    expect(spy).toHaveBeenCalledWith('product-api', { e1: 'http://x' });
+  });
+
+  it('removeSettingsMicroservice calls bridge', () => {
+    const spy = vi.fn();
+    (window as unknown as Record<string, unknown>).__demoRemoveSettingsSvc = spy;
+    removeSettingsMicroservice('product-api');
+    expect(spy).toHaveBeenCalledWith('product-api');
+  });
+
+  it('removeSettingsMicroservice is a no-op when bridge missing', () => {
+    expect(() => removeSettingsMicroservice('product-api')).not.toThrow();
   });
 });

@@ -90,6 +90,7 @@ const ALL_DOCKER_SPECS = DOCKER_SPECS;
 const DEMO_STEPTHROUGH_SPECS = [
   '**/demo-ws-workflow-builder.spec.ts',
   '**/ws-basics-em.spec.ts',
+  '**/demo-cat-convert-openapi.spec.ts',
   // GQL-1 has its own isolated project — see demo-gql1 below.
   // Future per-lesson step-through specs follow the same naming pattern:
   // '**/demo-kafka-consume.spec.ts',
@@ -141,6 +142,8 @@ const DEMO_GQL19_SPEC = '**/demo-gql-workflow-subscription.spec.ts';
 const DEMO_GQL110_SPEC = '**/demo-gql-workspace-isolation.spec.ts';
 /** GRPC-1 only: Your First gRPC Call (isolated Docker lesson). */
 const DEMO_GRPC1_SPEC = '**/demo-grpc-first-call.spec.ts';
+/** REQ-3 only: Multi-Environment Requests (api › requests) smoke walk. */
+const DEMO_REQ3_SPEC = '**/demo-req-multi-env.spec.ts';
 /** GQL-1..3 smoke — first three lessons auto-play (requires port 4010). */
 const DEMO_GQL_LESSONS_SPEC = '**/graphql-lessons.spec.ts';
 
@@ -207,6 +210,7 @@ export default defineConfig({
         DEMO_GQL110_SPEC,
         DEMO_GQL_LESSONS_SPEC,
         DEMO_GRPC1_SPEC,
+        DEMO_REQ3_SPEC,
       ],
       use: { browserName: 'chromium' },
     },
@@ -409,6 +413,15 @@ export default defineConfig({
     {
       name: 'demo-grpc1',
       testMatch: DEMO_GRPC1_SPEC,
+      timeout: 720_000,
+      retries: 0,
+      use: { browserName: 'chromium' },
+    },
+
+    // ── REQ-3 only: Multi-Environment Requests ─
+    {
+      name: 'demo-req3',
+      testMatch: DEMO_REQ3_SPEC,
       timeout: 720_000,
       retries: 0,
       use: { browserName: 'chromium' },

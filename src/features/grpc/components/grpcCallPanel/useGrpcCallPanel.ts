@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { GRPC_PROTO_HYBRID_EDITOR_ENABLED } from '../../../../config/features';
 import { isGrpcStreamLifecycleInFlight } from '../../../../shared/grpc/streamLifecycle';
 import {
@@ -38,9 +38,9 @@ import {
 import { emitGrpcHybridTelemetry } from '../../utils/grpcHybridTelemetry';
 import { hasGrpcProtoHybridApplyBlockingState } from '../../utils/grpcProtoHybridValidation';
 import { hashTabId, schemaComplexityBucket, stringifyUnknown } from './grpcCallPanelHelpers';
+import { resolveGrpcSendBlockHint } from './grpcCallPanelSendState';
+import { useGrpcUploadedFiles } from './useGrpcUploadedFiles';
 import type { GrpcCallPanelProps, GrpcMobileStage } from './grpcCallPanelTypes';
-
-export type UploadedFileEntry = { id: string; name: string; size: number; file: File };
 
 export function useGrpcCallPanel({
   tab,
@@ -85,7 +85,13 @@ export function useGrpcCallPanel({
   const [metadataEditorValid, setMetadataEditorValid] = useState(true);
   const [metadataSwitchError, setMetadataSwitchError] = useState<string | null>(null);
   const [pendingSendInFlight, setPendingSendInFlight] = useState(false);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileEntry[]>([]);
+  const {
+    uploadedFiles,
+    handleFilesPicked,
+    handleRemoveUploadedFile,
+    handleClearUploadedFiles,
+    applyFileDataToBody,
+  } = useGrpcUploadedFiles(tab.body);
   const [hybridState, setHybridState] = useState(() => createGrpcProtoHybridInitialState(tab.id, tab.body));
   const [hybridCloseConfirmVisible, setHybridCloseConfirmVisible] = useState(false);
 
@@ -485,47 +491,6 @@ export function useGrpcCallPanel({
     onPatch({ timeoutMs: Math.round(parsed) });
   };
 
-  const handleFilesPicked = (event: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    setUploadedFiles((prior) => ([
-      ...prior,
-      ...files.map((file, index) => ({
-        id: `${file.name}-${file.size}-${Date.now()}-${index}`,
-        name: file.name,
-        size: file.size,
-        file,
-      })),
-    ]));
-  };
-
-  const handleRemoveUploadedFile = (fileId: string) => {
-    setUploadedFiles((prior) => prior.filter((file) => file.id !== fileId));
-  };
-
-  const handleClearUploadedFiles = () => {
-    setUploadedFiles([]);
-  };
-
-  const applyFileDataToBody = useCallback(async (): Promise<Record<string, unknown> | null> => {
-    if (uploadedFiles.length === 0) return null;
-    const bodyWithFiles = { ...tab.body };
-    const bytesFields = uploadedFiles.filter((f) => f.file.type.includes('octet-stream') || /\.(bin|pb|proto)$/.test(f.name));
-    if (bytesFields.length === 0) return null;
-    for (let i = 0; i < bytesFields.length && i < 1; i++) {
-      const fileData = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => resolve((e.target?.result as string) ?? '');
-        reader.readAsDataURL(bytesFields[i]!.file);
-      });
-      const base64 = fileData.split(',')[1] ?? '';
-      const firstBytesFieldKey = Object.keys(bodyWithFiles).find((key) => typeof bodyWithFiles[key] === 'string' && bodyWithFiles[key] === '');
-      if (firstBytesFieldKey) {
-        bodyWithFiles[firstBytesFieldKey] = base64;
-      }
-    }
-    return bodyWithFiles;
-  }, [tab.body, uploadedFiles]);
-
   const resolveBodyOverrides = useCallback((): import('../../grpcStudioTypes').GrpcExecuteOverrides | undefined => {
     if (!method) return undefined;
     const isJsonSurface = composerTab === 'form';
@@ -649,34 +614,23 @@ export function useGrpcCallPanel({
     && tlsValid;
 
   const sendBlockHint = useMemo(() => {
-    if (!hasMethod) return null;
-    if (!targetValid) {
-      return 'Set a valid target endpoint before sending.';
-    }
-    if (!tlsValid) {
-      return 'Fix TLS configuration in the connection panel before sending.';
-    }
-    if (allowSendWithoutOAuth2 && hasTypedOAuth2Input) {
-      return 'OAuth2 is incomplete. Send will run without OAuth2 until token URL, client ID, and client secret are set.';
-    }
-    if (!authReady) {
-      return authPreview.issues[0]?.message
-        ?? authPreview.errorMessage
-        ?? 'Complete auth configuration before sending.';
-    }
-    if (!metadataReady) {
-      return persistedMetadataValidation.message
-        ?? 'Fix metadata validation errors before sending.';
-    }
-    if (!composerFormReady) {
-      return formError ?? 'Fix form input errors before sending.';
-    }
-    if (!composerJsonReady) {
-      return jsonError
-        ?? offTabJsonValidation.error
-        ?? 'Fix JSON request body errors before sending.';
-    }
-    return null;
+    return resolveGrpcSendBlockHint({
+      hasMethod,
+      targetValid,
+      tlsValid,
+      allowSendWithoutOAuth2,
+      hasTypedOAuth2Input,
+      authReady,
+      authIssueMessage: authPreview.issues[0]?.message,
+      authErrorMessage: authPreview.errorMessage,
+      metadataReady,
+      metadataValidationMessage: persistedMetadataValidation.message,
+      composerFormReady,
+      composerJsonReady,
+      formError,
+      jsonError,
+      offTabJsonValidationError: offTabJsonValidation.error,
+    });
   }, [
     authPreview.errorMessage,
     authPreview.issues,

@@ -130,7 +130,7 @@ export async function clearCustomHeaders(ctx: DemoActionContext) {
   await ctx.delay(200);
 }
 
-/** Close extra connection tabs until only 1 remains. */
+/** Close extra WS connection tabs until only 1 remains. */
 export async function closeExtraConnectionTabs(ctx: DemoActionContext, maxIterations = 7) {
   for (let i = 0; i < maxIterations; i++) {
     const tabs = document.querySelectorAll(`${WS.CONN_TAB_BAR} [role="tab"]`);
@@ -138,6 +138,25 @@ export async function closeExtraConnectionTabs(ctx: DemoActionContext, maxIterat
     const lastTab = tabs[tabs.length - 1] as HTMLElement;
     const tabId = lastTab.getAttribute('data-testid')?.replace('conn-tab-', '') ?? '';
     const closeBtn = document.querySelector(`[data-testid="conn-tab-close-${tabId}"]`) as HTMLElement | null;
+    if (closeBtn) {
+      closeBtn.click();
+      await ctx.delay(300);
+    } else {
+      break;
+    }
+  }
+}
+
+/** Close extra SSE connection tabs until only 1 remains. */
+export async function closeExtraSseConnectionTabs(ctx: DemoActionContext, maxIterations = 7) {
+  const SSE_BAR = '[data-testid="sse-conn-tab-bar"]';
+  const SSE_ITEM = '[data-testid="sse-conn-tab-item"]';
+  const SSE_CLOSE = '[data-testid="sse-conn-tab-close"]';
+  for (let i = 0; i < maxIterations; i++) {
+    const tabs = document.querySelectorAll(`${SSE_BAR} ${SSE_ITEM}`);
+    if (tabs.length <= 1) break;
+    const lastTab = tabs[tabs.length - 1] as HTMLElement;
+    const closeBtn = lastTab.querySelector<HTMLElement>(SSE_CLOSE);
     if (closeBtn) {
       closeBtn.click();
       await ctx.delay(300);

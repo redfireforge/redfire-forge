@@ -65,7 +65,13 @@ const folder = { id: 'f1', name: 'Folder One', requests: [reqB], folders: [subFo
 const col: RequestCollection = {
   id: 'c1', name: 'My Coll', mode: 'multi-env',
   requests: [reqA], folders: [folder], auth: { type: 'bearer', token: 't' },
+  baseUrls: { 'e-dev': 'https://dev', 'e-stg': 'https://stg' },
 } as unknown as RequestCollection;
+
+const testEnvironments = [
+  { id: 'e-dev', name: 'dev' },
+  { id: 'e-stg', name: 'staging' },
+];
 const childCol: RequestCollection = {
   id: 'c2', name: 'Child Coll', mode: 'direct', requests: [], folders: [], groupId: 'g1',
 } as unknown as RequestCollection;
@@ -78,6 +84,8 @@ const baseCollections: RequestCollection[] = [group, childCol, col];
 function makeProps(overrides: Partial<Record<string, unknown>> = {}) {
   return {
     collections: baseCollections,
+    environments: testEnvironments,
+    microservices: [],
     selectedCollectionId: 'c1',
     selectedRequestId: undefined,
     onSelectCollection: vi.fn(),
@@ -281,14 +289,34 @@ describe('RequestsSidebar', () => {
     expect(props.onAddFolder).toHaveBeenCalledWith('c1', 'Brand New', undefined);
   });
 
-  it('startAddFolder as sub-collection inside a parent folder', () => {
+  it('startAddFolder as sub-collection inside a parent folder uses the env dropdown', () => {
     const props = setup();
+    fireEvent.click(screen.getByText('Folder One')); // expand f1
     openCollectionCtx();
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', 'f1', true); });
-    const input = screen.getByPlaceholderText('Sub-collection name');
-    fireEvent.change(input, { target: { value: 'NewSub' } });
-    fireEvent.keyDown(input, { key: 'Enter' });
-    expect(props.onAddSubCollection).toHaveBeenCalledWith('c1', 'NewSub', 'f1');
+    const select = screen.getByTestId('req-subcol-env-select');
+    fireEvent.change(select, { target: { value: 'e-dev' } });
+    expect(props.onAddSubCollection).toHaveBeenCalledWith('c1', 'dev', 'f1', 'e-dev');
+  });
+
+  it('toasts and does not open the dropdown when no environments are eligible', () => {
+    const props = setup({
+      collections: [{ ...col, baseUrls: undefined }],
+      selectedCollectionId: 'c1',
+    });
+    openCollectionCtx();
+    act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });
+    expect(h.toast).toHaveBeenCalledWith('info', 'No environments available', expect.any(String));
+    expect(screen.queryByTestId('req-subcol-env-select')).not.toBeInTheDocument();
+    expect(props.onAddSubCollection).not.toHaveBeenCalled();
+  });
+
+  it('exposes an eligible-env count helper to the context menu', () => {
+    setup();
+    openCollectionCtx();
+    expect((h.ctx.getSubColEligibleCount as (c: string) => number)('c1')).toBe(2);
+    // env already bound to a sibling sub-collection is excluded
+    expect((h.ctx.getSubColEligibleCount as (c: string, p?: string) => number)('c1', 'f1')).toBe(2);
   });
 
   it('cancels add folder with Escape', () => {
@@ -872,11 +900,14 @@ describe('RequestsSidebar', () => {
     expect(screen.queryByDisplayValue('My Group')).not.toBeInTheDocument();
   });
 
-  it('renders sub-collection add-folder input with package icon and placeholder', () => {
+  it('renders sub-collection env dropdown at collection root with eligible options', () => {
     setup();
     openCollectionCtx();
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });
-    expect(screen.getByPlaceholderText('Sub-collection name')).toBeInTheDocument();
+    const select = screen.getByTestId('req-subcol-env-select');
+    expect(select).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'dev' })).toBeInTheDocument();
+    expect(within(select).getByRole('option', { name: 'staging' })).toBeInTheDocument();
   });
 
   it('imports a collection with nested folders and a mixed all-collections payload', async () => {
@@ -931,9 +962,9 @@ describe('RequestsSidebar', () => {
     fireEvent.keyDown(fInput, { key: 'Escape' }); // folder-level Escape arm
     expect(screen.queryByPlaceholderText('Folder name')).not.toBeInTheDocument();
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', 'f1', true); });
-    const sInput = screen.getByPlaceholderText('Sub-collection name'); // sub-collection icon/placeholder arms
-    fireEvent.keyDown(sInput, { key: 'Enter' }); // folder-level Enter arm
-    expect(screen.queryByPlaceholderText('Sub-collection name')).not.toBeInTheDocument();
+    const sSelect = screen.getByTestId('req-subcol-env-select'); // sub-collection dropdown arms
+    fireEvent.keyDown(sSelect, { key: 'Escape' }); // Escape closes the dropdown
+    expect(screen.queryByTestId('req-subcol-env-select')).not.toBeInTheDocument();
   });
 
   it('renders method-color fallback for an unknown HTTP method', () => {
@@ -945,5 +976,134 @@ describe('RequestsSidebar', () => {
     setup({ collections: [oddCol], selectedCollectionId: 'co' });
     const methodEl = document.querySelector('.req-req-method') as HTMLElement;
     expect(methodEl.style.color).toBe('rgb(148, 163, 184)'); // #94a3b8 fallback
+  });
+
+  // ─── Tab indicator + "Open in New Tab" ────────────────
+
+  it('renders tab-dot indicator for requests with open tabs', () => {
+    setup({ openTabRequestIds: new Set(['r1']) });
+    const dot = document.querySelector('.req-req-tab-dot');
+    expect(dot).toBeInTheDocument();
+  });
+
+  it('does not render tab-dot when openTabRequestIds is not provided', () => {
+    setup();
+    expect(document.querySelector('.req-req-tab-dot')).not.toBeInTheDocument();
+  });
+
+  it('does not render tab-dot for requests not in openTabRequestIds', () => {
+    setup({ openTabRequestIds: new Set(['other-id']) });
+    expect(document.querySelector('.req-req-tab-dot')).not.toBeInTheDocument();
+  });
+
+  it('passes onOpenInNewTab to SidebarContextMenu', () => {
+    const openInNewTab = vi.fn();
+    setup({ onOpenInNewTab: openInNewTab });
+    openCollectionCtx();
+    expect((h.ctx as Record<string, unknown>).onOpenInNewTab).toBe(openInNewTab);
+  });
+
+  it('renders safely with collection auth missing and folders undefined', () => {
+    setup({
+      collections: [{
+        id: 'c-na',
+        name: 'NoAuthRaw',
+        mode: 'direct',
+        requests: [{ id: 'r-na', name: '', method: 'GET', url: '', headers: [] }],
+        folders: undefined,
+      } as unknown as RequestCollection],
+      selectedCollectionId: 'c-na',
+    });
+
+    // name/url fallback branch in renderRequest
+    expect(screen.getByText('Untitled')).toBeInTheDocument();
+    // hasAuth/authLabel branch where auth object is absent
+    const header = screen.getByText('NoAuthRaw').closest('.req-col-header')!;
+    expect(within(header).queryByTitle(/Auth:/)).toBeNull();
+  });
+
+  it('renders folder safely when nested folders array is undefined', () => {
+    const colWithUndefinedNested = {
+      id: 'c-uf',
+      name: 'UF',
+      mode: 'direct',
+      requests: [],
+      folders: [{ id: 'f-uf', name: 'Folder UF', requests: [], folders: undefined }],
+    } as unknown as RequestCollection;
+
+    setup({ collections: [colWithUndefinedNested], selectedCollectionId: 'c-uf' });
+    expect(screen.getByText('Folder UF')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('Folder UF'));
+    expect(screen.getByText('Folder UF')).toBeInTheDocument();
+  });
+
+  it('getSubColEligibleCount returns empty for missing collection', () => {
+    setup();
+    openCollectionCtx();
+    expect((h.ctx.getSubColEligibleCount as (c: string, p?: string) => number)('missing-col')).toBe(0);
+  });
+
+  it('sub-collection add guards invalid env selection and allows root valid selection', () => {
+    const props = setup();
+    openCollectionCtx();
+
+    act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });
+    let select = screen.getByTestId('req-subcol-env-select');
+    fireEvent.change(select, { target: { value: '' } });
+    expect(props.onAddSubCollection).not.toHaveBeenCalled();
+
+    act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });
+    select = screen.getByTestId('req-subcol-env-select');
+    fireEvent.change(select, { target: { value: 'missing-env' } });
+    expect(props.onAddSubCollection).not.toHaveBeenCalled();
+
+    act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });
+    select = screen.getByTestId('req-subcol-env-select');
+    fireEvent.change(select, { target: { value: 'e-dev' } });
+    expect(props.onAddSubCollection).toHaveBeenCalledWith('c1', 'dev', undefined, 'e-dev');
+  });
+
+  it('does not add folder when inline folder name is empty on blur', () => {
+    const props = setup();
+    openCollectionCtx();
+    act(() => { (h.ctx.startAddFolder as (c: string) => void)('c1'); });
+    const input = screen.getByPlaceholderText('Folder name');
+    fireEvent.change(input, { target: { value: '   ' } });
+    fireEvent.blur(input);
+    expect(props.onAddFolder).not.toHaveBeenCalled();
+  });
+
+  it('does not commit empty folder/group rename or empty group add', () => {
+    const props = setup();
+
+    openCollectionCtx();
+    act(() => { (h.ctx.startRenameFolder as (c: string, f: string, n: string) => void)('c1', 'f1', 'Folder One'); });
+    const folderInput = screen.getByDisplayValue('Folder One');
+    fireEvent.change(folderInput, { target: { value: '   ' } });
+    fireEvent.blur(folderInput);
+    expect(props.onRenameFolder).not.toHaveBeenCalled();
+
+    fireEvent.contextMenu(screen.getByText('My Group'));
+    act(() => { (h.ctx.startRenameGroup as (g: string, n: string) => void)('g1', 'My Group'); });
+    const groupInput = screen.getByDisplayValue('My Group');
+    fireEvent.change(groupInput, { target: { value: '   ' } });
+    fireEvent.blur(groupInput);
+    expect(props.onRenameGroup).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByTitle('Add new...'));
+    const dd = document.querySelector('.req-add-dropdown')!;
+    fireEvent.click(within(dd as HTMLElement).getByText(/Group/));
+    const addGroupInput = screen.getByPlaceholderText('Group name');
+    fireEvent.change(addGroupInput, { target: { value: '   ' } });
+    fireEvent.blur(addGroupInput);
+    expect(props.onAddGroup).not.toHaveBeenCalled();
+  });
+
+  it('container drag-leave does nothing when related target stays inside container', () => {
+    setup();
+    const colGroup = screen.getByText('My Coll').closest('.req-col-group')!;
+    const inside = colGroup.querySelector('.req-col-header')!;
+    fireEvent.dragLeave(colGroup, { relatedTarget: inside });
+    expect(screen.getByText('My Coll')).toBeInTheDocument();
   });
 });
