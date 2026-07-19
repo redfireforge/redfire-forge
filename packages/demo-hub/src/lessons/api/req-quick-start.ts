@@ -17,6 +17,7 @@ import {
   dismissContextMenu,
   shrinkAllCollections,
   ensureCollectionExpanded,
+  closeExtraRequestTabs,
 } from './req-demo-helpers';
 
 const COLLECTION_NAME = 'My API';
@@ -236,6 +237,7 @@ export const reqQuickStartLesson: DemoLesson = {
   setup: async (ctx) => {
     ctx.navigateToTab('requests');
     await ctx.delay(80);
+    await closeExtraRequestTabs(ctx);
     await cleanupLessonCollections(ctx);
     await shrinkAllCollections();
     const sidebar = document.querySelector<HTMLElement>(REQ.SIDEBAR);
@@ -250,6 +252,7 @@ export const reqQuickStartLesson: DemoLesson = {
       const trigger = document.querySelector<HTMLElement>(REQ.HISTORY_TRIGGER);
       if (trigger) { trigger.click(); await ctx.delay(60); }
     }
+    await closeExtraRequestTabs(ctx);
     await cleanupLessonCollections(ctx);
     ctx.navigateToTab('requests');
     await ctx.delay(60);
@@ -322,7 +325,8 @@ export const reqQuickStartLesson: DemoLesson = {
       title: 'Add a Request',
       description:
         'Right-click the collection to open the **context menu**. Choose **"Add Request"** — ' +
-        'the editor opens with **GET** as the default method (GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS). ' +
+        'the editor opens in its own **tab** with **GET** as the default method ' +
+        '(GET / POST / PUT / PATCH / DELETE / HEAD / OPTIONS). ' +
         'Type the URL: `https://jsonplaceholder.typicode.com/users`.',
       // No reading-phase highlight — Step 1 already showed My API; re-highlighting it is noise.
       preAction: async (ctx) => {

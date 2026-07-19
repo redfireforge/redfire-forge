@@ -20,4 +20,11 @@ export const SSE = {
   STATUS_BAR:          '[data-testid="sse-status-bar"]',
   RECONNECT_CARD:      '[data-testid="sse-reconnect-card"]',
   RECONNECT_TOGGLE:    '[data-testid="sse-reconnect-toggle"]',
+
+  // ── Connection Tab Bar (Phase 2) ────────────────────────────────
+  CONN_TAB_BAR:        '[data-testid="sse-conn-tab-bar"]',
+  CONN_TAB_ADD:        '[data-testid="sse-conn-tab-add"]',
+  CONN_TAB_ITEM:       '[data-testid="sse-conn-tab-item"]',
+  CONN_TAB_CLOSE:      '[data-testid="sse-conn-tab-close"]',
+  connTabById: (id: string) => `[data-testid="sse-conn-tab-item"][data-tab-id="${id}"]`,
 } as const;

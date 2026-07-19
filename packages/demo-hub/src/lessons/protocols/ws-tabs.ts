@@ -157,7 +157,8 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
       id: 'tabs-intro',
       title: 'Your Connection Tab Bar',
       description:
-        'Each tab is a fully independent workspace — its own URL, connection state, message log, and built-in mock server. Tab 1 is already running a mock echo server on **:9876**. Let\'s add a second tab and explore the power of per-tab isolation.',
+        'Each tab is a fully independent workspace — its own URL, connection state, message log, and built-in mock server. Tab 1 is already running a mock echo server on **:9876**.\n\n' +
+        'You can **drag tabs** to reorder them, **right-click** for a context menu (rename, duplicate, close), or use **keyboard shortcuts** — see the **Power User** lesson for the full keyboard-first workflow.',
       highlight: WS.CONN_TAB_BAR,
       // Switch to Mock Server mode so the "already running on :9876" claim in the
       // description is visually confirmed — viewer sees the green "Running on :9876"
@@ -392,7 +393,8 @@ Real-world debugging often requires running multiple WebSocket scenarios side-by
       id: 'tabs-close',
       title: 'Close a Tab — Server Stops Automatically',
       description:
-        'Click **×** on Tab 2 to close it. Its mock server on **:9877** stops automatically — no orphaned processes. Tab 1 and its **:9876** server are completely unaffected. Connected tabs show a confirmation before closing.',
+        'Click **x** on Tab 2 to close it (or **right-click** the tab and choose **Close** from the context menu). ' +
+        'Its mock server on **:9877** stops automatically — no orphaned processes. Tab 1 and its **:9876** server are completely unaffected. Connected tabs show a confirmation before closing.',
       highlight: WS.CONN_TAB_LAST,
       preAction: async (ctx) => {
         // Disconnect Tab 2 first to avoid the confirmation modal blocking the demo.

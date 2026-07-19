@@ -27,11 +27,14 @@ import {
   createAddTabHandler,
   createAbortTabInFlightCallsHandler,
   createCloseTabHandler,
+  createCloseOtherTabsHandler,
+  createCloseTabsToRightHandler,
   createDismissSchemaDriftHandler,
   createDuplicateTabHandler,
   createPruneSchemaDriftBodyHandler,
   createRebindSchemaDriftMethodHandler,
   createRenameTabHandler,
+  createReorderTabHandler,
   createResolveTabConnectionHandler,
   createSelectMethodHandler,
   createSelectTabHandler,
@@ -155,6 +158,9 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
   const renameTab = useMemo(() => createRenameTabHandler(runtimeCtx), [runtimeCtx]);
   const closeTab = useMemo(() => createCloseTabHandler(runtimeCtx, core), [runtimeCtx, core]);
   const duplicateTab = useMemo(() => createDuplicateTabHandler(runtimeCtx, core), [runtimeCtx, core]);
+  const reorderTabs = useMemo(() => createReorderTabHandler(core), [core]);
+  const closeOtherTabs = useMemo(() => createCloseOtherTabsHandler(core, closeTab), [core, closeTab]);
+  const closeTabsToRight = useMemo(() => createCloseTabsToRightHandler(core, closeTab), [core, closeTab]);
   const toggleServiceExpanded = useMemo(() => createToggleServiceExpandedHandler(core), [core]);
   const selectMethod = useMemo(() => createSelectMethodHandler(runtimeCtx, core), [runtimeCtx, core]);
   const abortTabInFlightCalls = useMemo(
@@ -402,6 +408,9 @@ export function useGrpcStudio(options: UseGrpcStudioOptions) {
     addTab,
     closeTab,
     duplicateTab,
+    reorderTabs,
+    closeOtherTabs,
+    closeTabsToRight,
     selectTab,
     renameTab,
     updateTab: core.updateTab,

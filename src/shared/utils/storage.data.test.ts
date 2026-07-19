@@ -537,6 +537,12 @@ describe('storage — requests', () => {
     expect(loaded).toEqual({ environments: [], collections: [] });
   });
 
+  it('normalizes malformed request payloads from IDB', async () => {
+    requestsStore.data = { selectedEnvId: 'e1' } as unknown as { environments: unknown[]; collections: unknown[] };
+    const loaded = await loadRequests();
+    expect(loaded).toEqual({ environments: [], collections: [], selectedEnvId: 'e1', selectedCollectionId: undefined, selectedRequestId: undefined });
+  });
+
   it('clears stale localStorage copy after successful IDB save', async () => {
     localStorage.setItem('perf-test-requests', '[]');
     await saveRequests({ environments: [], collections: [] } as RequestsData);
@@ -592,6 +598,12 @@ describe('storage — requests (Tauri)', () => {
 
   it('returns empty requests when tauri read fails', async () => {
     tauriGetItem.mockRejectedValue(new Error('disk error'));
+    const loaded = await loadRequests();
+    expect(loaded).toEqual({ environments: [], collections: [] });
+  });
+
+  it('returns empty requests when tauri keys are absent', async () => {
+    tauriGetItem.mockResolvedValue(null);
     const loaded = await loadRequests();
     expect(loaded).toEqual({ environments: [], collections: [] });
   });

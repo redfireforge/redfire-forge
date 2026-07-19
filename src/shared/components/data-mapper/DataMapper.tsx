@@ -5,11 +5,7 @@ import { useMapperState } from './hooks/useMapperState';
 import { useConnectionLines, useLayoutTick } from './hooks/useConnectionLines';
 import { detectArrayMappings } from './utils/arrayMapping';
 import type { ArrayLineKind } from './hooks/useConnectionLines';
-import SourcePanel from './SourcePanel';
-import TargetPanel from './TargetPanel';
-import MappingCanvas from './MappingCanvas';
-import MapperToolbar from './MapperToolbar';
-import ExpressionEditorModal from './ExpressionEditorModal';
+
 import { useDataMapperValidation } from './hooks/useDataMapperValidation';
 import { useDataMapperAutoMap } from './hooks/useDataMapperAutoMap';
 import { useDataMapperDrop } from './hooks/useDataMapperDrop';
@@ -21,18 +17,9 @@ import { useBottomUtilityDock } from './hooks/useBottomUtilityDock';
 import { useDataMapperTreeInteraction, type LineFocusNode } from './hooks/useDataMapperTreeInteraction';
 import '../../../styles/data-mapper.css';
 import '../../../styles/data-mapper-expression.css';
-
 import { safeDeserialize } from './utils/bottomUtilityHelpers';
 import { enrichConnectionLines } from './utils/lineEnrichment';
-import ExampleInferenceModal from './ExampleInferenceModal';
-import ErrorPopover from './ErrorPopover';
 import { useDebugOverlay } from './hooks/useDebugOverlay';
-import MappingHealthDashboard from './MappingHealthDashboard';
-import ValidationRepairPanel from './ValidationRepairPanel';
-import MapperFooter from './MapperFooter';
-import BulkActionsBar from './BulkActionsBar';
-import BottomUtilityDock from './BottomUtilityDock';
-import ValidationRulesModal from './ValidationRulesModal';
 import { buildAssertionVerifyMap, buildRulesLineResults } from './utils/validationRulesResults';
 import { useTargetFields } from './hooks/useTargetFields';
 import { usePanelResize } from './hooks/usePanelResize';
@@ -49,8 +36,9 @@ import { useDataMapperFocusCallbacks } from './hooks/useDataMapperFocusCallbacks
 import { useDataMapperLifecycleEffects } from './hooks/useDataMapperLifecycleEffects';
 import { useSourcePathBulkMapHandlers } from './hooks/useSourcePathBulkMapHandlers';
 import { useDockResize } from './hooks/useDockResize';
-import DataMapperDebugTraceBar from './DataMapperDebugTraceBar';
-import DataMapperArraySuggestionBar from './DataMapperArraySuggestionBar';
+import { DataMapperWorkspace } from './DataMapperWorkspace';
+import { DataMapperTopPanels } from './DataMapperTopPanels';
+import { DataMapperOverlays } from './DataMapperOverlays';
 
 export default function DataMapper<TOutput = unknown>({
   adapter,
@@ -539,330 +527,217 @@ export default function DataMapper<TOutput = unknown>({
 
   return (
     <div className="dm-container" ref={containerRef} style={{ height }}>
-      <MapperToolbar
-        onAutoMap={handleAutoMap}
-        onClearAll={handleClearAllMappings}
-        onUndo={undo}
-        onRedo={redo}
+      <DataMapperTopPanels
+        handleAutoMap={handleAutoMap}
+        handleClearAllMappings={handleClearAllMappings}
+        undo={undo}
+        redo={redo}
         canUndo={canUndo}
         canRedo={canRedo}
-        mappingCount={state.mappings.length}
-        resolvedCount={mappingResolution.resolved}
-        unresolvedCount={mappingResolution.unresolved}
-        autoMapCount={autoMapCandidateCount}
-        showPreview={bottomUtilityMode === 'preview'}
-        onTogglePreview={handleTogglePreview}
+        state={state}
+        mappingResolution={mappingResolution}
+        autoMapCandidateCount={autoMapCandidateCount}
+        bottomUtilityMode={bottomUtilityMode}
+        handleTogglePreview={handleTogglePreview}
         hasPending={hasPending}
-        onAcceptAllPending={acceptAllPending}
-        onRejectAllPending={rejectAllPending}
-        contextId={adapter.contextId}
-        mappings={state.mappings}
-        capabilities={caps}
+        acceptAllPending={acceptAllPending}
+        rejectAllPending={rejectAllPending}
+        adapter={adapter}
+        caps={caps}
         onLoadProfile={effectiveHideAdvanced ? undefined : (m: Mapping[]) => { setMappings(m); setSelectedIds(new Set()); setSelectedSourcePaths(new Set()); }}
         onApplyProfileDelta={effectiveHideAdvanced ? undefined : handleApplyProfileDelta}
-        showCodeView={bottomUtilityMode === 'code'}
-        onToggleCodeView={handleToggleCodeView}
-        showTableView={bottomUtilityMode === 'table'}
-        onToggleTableView={handleToggleTableView}
-        showRulesView={rulesModalOpen}
-        onToggleRulesView={caps.codeEditor ? handleToggleRulesView : undefined}
-        onVerifyAll={caps.verification ? handleVerifyAll : undefined}
-        onFetchAndVerify={caps.verification && adapter.fetchTargetSchema ? handleFetchAndVerify : undefined}
-        onToggleAutoVerify={caps.verification ? handleToggleAutoVerify : undefined}
-        autoVerify={autoVerifyEnabled}
-        verifyStatus={verifyHook.result.status}
-        verifyPassedCount={verifyHook.result.passedCount}
-        verifyFailedCount={verifyHook.result.failedCount}
-        verifyParseErrorCount={validationSync.parseErrors.length}
-        verifyFailures={verifyFailuresList}
-        onNavigateToFailure={handleNavigateToFailure}
-        onLoadGallerySample={effectiveHideAdvanced ? undefined : handleLoadGallerySample}
+        handleToggleCodeView={handleToggleCodeView}
+        handleToggleTableView={handleToggleTableView}
+        rulesModalOpen={rulesModalOpen}
+        handleToggleRulesView={handleToggleRulesView}
+        handleVerifyAll={handleVerifyAll}
+        handleFetchAndVerify={handleFetchAndVerify}
+        handleToggleAutoVerify={handleToggleAutoVerify}
+        autoVerifyEnabled={autoVerifyEnabled}
+        verifyHook={verifyHook}
+        validationSync={validationSync}
+        verifyFailuresList={verifyFailuresList}
+        handleNavigateToFailure={handleNavigateToFailure}
+        effectiveHideAdvanced={effectiveHideAdvanced}
+        handleLoadGallerySample={handleLoadGallerySample}
         hasTraceData={hasTraceData}
         debugMode={debugMode}
-        onToggleDebugMode={() => setDebugMode((d) => !d)}
+        setDebugMode={setDebugMode}
         traceErrorCount={traceErrorCount}
         confidenceThreshold={confidenceThreshold}
-        onConfidenceThresholdChange={effectiveHideAdvanced ? undefined : setConfidenceThreshold}
-        onLearnFromExamples={effectiveHideAdvanced ? undefined : () => setShowExampleModal(true)}
+        setConfidenceThreshold={setConfidenceThreshold}
+        setShowExampleModal={setShowExampleModal}
         showMappingLines={showMappingLines}
-        onToggleMappingLines={() => setShowMappingLines((s) => !s)}
+        setShowMappingLines={setShowMappingLines}
         nodeFocusMode={nodeFocusMode}
-        onToggleNodeFocusMode={() => setNodeFocusMode((s) => !s)}
+        setNodeFocusMode={setNodeFocusMode}
         compactMode={compactMode}
-        onToggleCompactMode={handleToggleCompactMode}
-        advancedOpen={advancedControlsOpen}
-        onAdvancedOpenChange={setAdvancedControlsOpen}
-      />
-      <BulkActionsBar
+        handleToggleCompactMode={handleToggleCompactMode}
+        advancedControlsOpen={advancedControlsOpen}
+        setAdvancedControlsOpen={setAdvancedControlsOpen}
         bulkSourcePath={bulkSourcePath}
         bulkTargetPath={bulkTargetPath}
         hasBulkSourceAndTarget={hasBulkSourceAndTarget}
         canMapSiblingSubtrees={canMapSiblingSubtrees}
         canPreviewPropagation={canPreviewPropagation}
-        selectedMappingTargetPath={selectedMapping?.targetPath ?? null}
+        selectedMapping={selectedMapping}
         propagationPreview={propagationPreview}
-        onMapSubtree={handleMapSubtree}
-        onMapSiblingSubtrees={handleMapSiblingSubtrees}
-        onClearTargetSubtree={handleClearTargetSubtree}
-        onReplaceTargetSubtree={handleReplaceTargetSubtree}
-        onPreviewPropagation={handlePreviewPropagation}
-        onApplyPropagation={handleApplyPropagation}
-        onClosePropagation={() => setPropagationPreview(null)}
-      />
-      {debugMode && hasTraceData && traceByMappingId && (
-        <DataMapperDebugTraceBar
-          traceCount={traceByMappingId.size}
-          traceErrorCount={traceErrorCount}
-        />
-      )}
-      <MappingHealthDashboard
-        mappings={state.mappings}
-        targetTree={healthTargetTree}
+        handleMapSubtree={handleMapSubtree}
+        handleMapSiblingSubtrees={handleMapSiblingSubtrees}
+        handleClearTargetSubtree={handleClearTargetSubtree}
+        handleReplaceTargetSubtree={handleReplaceTargetSubtree}
+        handlePreviewPropagation={handlePreviewPropagation}
+        handleApplyPropagation={handleApplyPropagation}
+        setPropagationPreview={setPropagationPreview}
+        traceByMappingId={traceByMappingId}
+        healthTargetTree={healthTargetTree}
         driftMappingIds={driftMappingIds}
-        typeMismatchCount={typeMismatches.length}
+        typeMismatches={typeMismatches}
         onShowDrift={onShowDrift}
+        visibleRepairIssues={visibleRepairIssues}
+        handleFixRepairIssue={handleFixRepairIssue}
+        handleReplaceRepairIssue={handleReplaceRepairIssue}
+        handleIgnoreRepairIssue={handleIgnoreRepairIssue}
+        handleOpenRepairIssue={handleOpenRepairIssue}
       />
-      <ValidationRepairPanel
-        issues={visibleRepairIssues}
-        onFix={handleFixRepairIssue}
-        onReplace={handleReplaceRepairIssue}
-        onIgnoreOnce={handleIgnoreRepairIssue}
-        onOpenNode={handleOpenRepairIssue}
+      <DataMapperWorkspace
+        panelsCollapsed={panelsCollapsed}
+        handleTreeNodeClickForLineFocus={handleTreeNodeClickForLineFocus}
+        handleTreeNodeClickForKeyboard={handleTreeNodeClickForKeyboard}
+        handleTreeNodeHover={handleTreeNodeHover}
+        handleBodyMouseLeave={handleBodyMouseLeave}
+        sourcePanelWidth={sourcePanelWidth}
+        targetPanelWidth={targetPanelWidth}
+        canvasWidth={canvasWidth}
+        targetPanelRef={targetPanelRef}
+        containerHeight={containerHeight}
+        handleResizeStart={handleResizeStart}
+        effectiveSources={effectiveSources}
+        state={state}
+        setActiveSource={setActiveSource}
+        handleDragStart={handleDragStart}
+        handleSourceDragEnd={handleSourceDragEnd}
+        setSourceSample={setSourceSample}
+        adapter={adapter}
+        handleFetchSample={handleFetchSample}
+        fetchError={fetchError}
+        sourceSearchRef={sourceSearchRef}
+        handleSelectSourceNode={handleSelectSourceNode}
+        bulkSourceId={bulkSourceId}
+        bulkSourcePath={bulkSourcePath}
+        selectedSourcePaths={selectedSourcePaths}
+        handleToggleSourcePath={handleToggleSourcePath}
+        focusRegion={focusRegion}
+        focusedPath={focusedPath}
+        setFocusRegion={setFocusRegion}
+        handleTreeKeyDown={handleTreeKeyDown}
+        driftMap={driftMap}
+        sourceTraceOverlay={sourceTraceOverlay}
+        mappedSourcePaths={mappedSourcePaths}
+        handleMapFilteredFields={handleMapFilteredFields}
+        handleMapSelectedFields={handleMapSelectedFields}
+        handleUnmapSelectedFields={handleUnmapSelectedFields}
+        highlightedSourcePaths={highlightedSourcePaths}
+        visibleLines={visibleLines}
+        handleSelectMappingExclusive={handleSelectMappingExclusive}
+        selectedIds={selectedIds}
+        handleToggleSelectMapping={handleToggleSelectMapping}
+        removeMapping={removeMapping}
+        handleEditExpression={handleEditExpression}
+        acceptPending={acceptPending}
+        rejectPending={rejectPending}
+        debugMode={debugMode}
+        traceByMappingId={traceByMappingId}
+        handleShowErrorDetail={handleShowErrorDetail}
+        expressionSuggestions={expressionSuggestions}
+        handleApplySuggestion={handleApplySuggestion}
+        repairSuggestions={repairSuggestions}
+        onApplyRepair={onApplyRepair}
+        verifyHook={verifyHook}
+        highlightedMappingIds={highlightedMappingIds}
+        handleRemapDragStart={handleRemapDragStart}
+        handleRemapDragEnd={handleRemapDragEnd}
+        effectiveTarget={effectiveTarget}
+        handleDrop={handleDrop}
+        typeMismatches={typeMismatches}
+        handleQuickFix={handleQuickFix}
+        mappedTargetValueOverlay={mappedTargetValueOverlay}
+        targetTraceOverlay={targetTraceOverlay}
+        handleAddCustomField={handleAddCustomField}
+        handleRemoveCustomField={handleRemoveCustomField}
+        handleUpdateCustomField={handleUpdateCustomField}
+        handleFetchTargetSchema={handleFetchTargetSchema}
+        targetFetchError={targetFetchError}
+        handlePasteTargetSample={handlePasteTargetSample}
+        handleReorderTargetField={handleReorderTargetField}
+        handleTargetFieldDragStart={handleTargetFieldDragStart}
+        handleTargetFieldDragEnd={handleTargetFieldDragEnd}
+        getDraggedSource={getDraggedSource}
+        getDraggedTargetFieldPath={getDraggedTargetFieldPath}
+        handleSelectTargetNode={handleSelectTargetNode}
+        bulkTargetPath={bulkTargetPath}
+        mappingResolution={mappingResolution}
+        targetResetSignal={targetResetSignal}
+        unorderedDefault={unorderedDefault}
+        onToggleUnorderedArray={onToggleUnorderedArray}
+        caps={caps}
+        handleUpdateMappingOperator={handleUpdateMappingOperator}
+        handleToggleMappingNegate={handleToggleMappingNegate}
+        validationAssertions={validationAssertions}
+        assertionVerifyMap={assertionVerifyMap}
+        handleAddArrayAssertion={handleAddArrayAssertion}
+        handleUpdateArrayAssertion={handleUpdateArrayAssertion}
+        handleRemoveArrayAssertion={handleRemoveArrayAssertion}
+        filterFailedSignal={filterFailedSignal}
+        highlightedTargetPaths={highlightedTargetPaths}
+        handleRemapDrop={handleRemapDrop}
+        getDraggedRemapId={getDraggedRemapId}
+        scrollToPathSignal={scrollToPathSignal}
       />
-      <div className={`dm-body${panelsCollapsed ? ' dm-body--collapsed' : ''}`} onClickCapture={handleTreeNodeClickForLineFocus} onClick={handleTreeNodeClickForKeyboard} onMouseOver={handleTreeNodeHover} onMouseLeave={handleBodyMouseLeave}>
-        <div className="dm-panel-wrapper" style={sourcePanelWidth ? { width: sourcePanelWidth, flex: 'none' } : undefined}>
-          <SourcePanel
-            sources={effectiveSources}
-            activeSourceId={state.activeSourceId}
-            sourceSampleOverrides={state.sourceSampleOverrides}
-            onSourceChange={setActiveSource}
-            onDragStart={handleDragStart}
-            onDragEnd={handleSourceDragEnd}
-            onSourceSampleChange={setSourceSample}
-            onFetchSample={adapter.fetchSampleData ? handleFetchSample : undefined}
-            canFetch={!!adapter.fetchSampleData}
-            fetchError={fetchError}
-            searchInputRef={sourceSearchRef}
-            onNodeSelect={handleSelectSourceNode}
-            selectedNodePath={bulkSourceId === state.activeSourceId ? bulkSourcePath : null}
-            selectedSourcePaths={selectedSourcePaths}
-            onToggleSourcePath={handleToggleSourcePath}
-            isFocusRegion={focusRegion === 'source'}
-            focusedPath={focusRegion === 'source' ? focusedPath : null}
-            onFocus={() => setFocusRegion('source')}
-            onTreeKeyDown={handleTreeKeyDown}
-            driftMap={driftMap}
-            traceOverlay={sourceTraceOverlay}
-            mappedPaths={mappedSourcePaths}
-            onMapFilteredFields={handleMapFilteredFields}
-            onMapSelectedFields={handleMapSelectedFields}
-            onUnmapSelectedFields={handleUnmapSelectedFields}
-            highlightedPaths={highlightedSourcePaths}
-          />
-        </div>
-        <div
-          className="dm-resize-handle"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize source panel"
-          onMouseDown={(e) => handleResizeStart('source', e)}
-        />
-        <div className="dm-canvas-wrapper" style={{ width: canvasWidth, flex: 'none' }}>
-          <MappingCanvas
-            lines={visibleLines}
-            width={canvasWidth}
-            height={containerHeight || 400}
-            selectedMappingId={state.selectedMappingId}
-            selectedMappingIds={selectedIds}
-            onSelectMapping={handleSelectMappingExclusive}
-            onToggleSelectMapping={handleToggleSelectMapping}
-            onRemoveMapping={removeMapping}
-            onEditExpression={handleEditExpression}
-            onAcceptPending={acceptPending}
-            onRejectPending={rejectPending}
-            debugMode={debugMode}
-            traceByMappingId={traceByMappingId}
-            onShowErrorDetail={handleShowErrorDetail}
-            expressionSuggestions={expressionSuggestions}
-            onApplySuggestion={handleApplySuggestion}
-            repairSuggestions={repairSuggestions}
-            onApplyRepair={onApplyRepair}
-            totalMappingCount={state.mappings.length}
-            failedMappingIds={verifyHook.result.status === 'complete' ? verifyHook.result.failedMappingIds : undefined}
-            highlightedMappingIds={highlightedMappingIds}
-            onRemapDragStart={handleRemapDragStart}
-            onRemapDragEnd={handleRemapDragEnd}
-          />
-        </div>
-        <div
-          className="dm-resize-handle"
-          role="separator"
-          aria-orientation="vertical"
-          aria-label="Resize target panel"
-          onMouseDown={(e) => handleResizeStart('target', e)}
-        />
-        <div className="dm-panel-wrapper" ref={targetPanelRef} style={targetPanelWidth ? { width: targetPanelWidth, flex: 'none' } : undefined}>
-          <TargetPanel
-            target={effectiveTarget}
-            mappings={state.mappings}
-            onDrop={handleDrop}
-            selectedMappingId={state.selectedMappingId}
-            onSelectMapping={handleSelectMappingExclusive}
-            onEditExpression={handleEditExpression}
-            typeMismatches={typeMismatches}
-            onQuickFix={handleQuickFix}
-            onRemoveMapping={removeMapping}
-            isFocusRegion={focusRegion === 'target'}
-            focusedPath={focusRegion === 'target' ? focusedPath : null}
-            onFocus={() => setFocusRegion('target')}
-            onTreeKeyDown={handleTreeKeyDown}
-            traceOverlay={debugMode ? targetTraceOverlay : mappedTargetValueOverlay}
-            onAddCustomField={effectiveTarget.allowCustomFields ? handleAddCustomField : undefined}
-            onRemoveCustomField={handleRemoveCustomField}
-            onUpdateCustomField={handleUpdateCustomField}
-            onFetchTargetSchema={adapter.fetchTargetSchema ? handleFetchTargetSchema : undefined}
-            canFetchTarget={!!adapter.fetchTargetSchema}
-            targetFetchError={targetFetchError}
-            onPasteTargetSample={handlePasteTargetSample}
-            onReorderField={effectiveTarget.sampleData == null ? handleReorderTargetField : undefined}
-            onTargetFieldDragStart={handleTargetFieldDragStart}
-            onTargetFieldDragEnd={handleTargetFieldDragEnd}
-            getDraggedSource={getDraggedSource}
-            getDraggedTargetFieldPath={getDraggedTargetFieldPath}
-            onNodeSelect={handleSelectTargetNode}
-            selectedNodePath={bulkTargetPath}
-            resolvedMappingCount={mappingResolution.resolved}
-            unresolvedMappingCount={mappingResolution.unresolved}
-            resetViewSignal={targetResetSignal}
-            unorderedDefault={unorderedDefault}
-            onToggleUnorderedArray={onToggleUnorderedArray}
-            capabilities={caps}
-            onUpdateMappingOperator={caps.operators ? handleUpdateMappingOperator : undefined}
-            onToggleMappingNegate={caps.operators ? handleToggleMappingNegate : undefined}
-            nodeStatusMap={verifyHook.result.status === 'complete' ? verifyHook.nodeStatusMap : undefined}
-            fieldVerifyResults={verifyHook.result.status === 'complete' ? verifyHook.mergedFieldResults : undefined}
-            onAddArrayAssertion={caps.arrayAssertions ? handleAddArrayAssertion : undefined}
-            onUpdateArrayAssertion={caps.arrayAssertions ? handleUpdateArrayAssertion : undefined}
-            onRemoveArrayAssertion={caps.arrayAssertions ? handleRemoveArrayAssertion : undefined}
-            arrayAssertions={caps.arrayAssertions ? validationAssertions : undefined}
-            assertionVerifyMap={assertionVerifyMap}
-            filterFailedSignal={filterFailedSignal}
-            highlightedPaths={highlightedTargetPaths}
-            onRemapDrop={handleRemapDrop}
-            onRemapDragStart={handleRemapDragStart}
-            onRemapDragEnd={handleRemapDragEnd}
-            getDraggedRemapId={getDraggedRemapId}
-            scrollToPathSignal={scrollToPathSignal}
-          />
-        </div>
-      </div>
-      <DataMapperArraySuggestionBar
+      <DataMapperOverlays
         selectedArrayInfo={selectedArrayInfo}
-        selectedMappingId={state.selectedMappingId}
-        onApplySuggestedExpression={(mappingId, expression) => {
-          updateMapping(mappingId, { expression });
-        }}
-      />
-      {bottomUtilityMode !== 'none' && (
-        <>
-          <div className="dm-dock-resize-bar">
-            <button
-              type="button"
-              className="dm-dock-collapse-toggle"
-              onClick={togglePanelsCollapsed}
-              title={panelsCollapsed ? 'Show Source/Target panels' : 'Hide Source/Target panels'}
-              aria-label={panelsCollapsed ? 'Show panels' : 'Hide panels'}
-            >
-              <span className={`dm-dock-collapse-arrow ${panelsCollapsed ? 'down' : 'up'}`}>▲</span>
-              {panelsCollapsed ? 'Show Panels' : 'Hide Panels'}
-            </button>
-            <div
-              className="dm-dock-resize-handle"
-              onMouseDown={handleDockResizeStart}
-              title="Drag to resize"
-            />
-          </div>
-          <BottomUtilityDock
-            mode={bottomUtilityMode}
-            style={panelsCollapsed ? { flex: 1, maxHeight: 'none' } : dockHeight != null ? { height: dockHeight, maxHeight: 'none' } : undefined}
-          mappings={state.mappings}
-          assertions={validationAssertions}
-          sources={effectiveSources}
-          activeSourceId={state.activeSourceId}
-          targetSampleData={effectiveTarget.sampleData}
-          customFunctions={adapter.customFunctions}
-          debugMode={debugMode}
-          traceByMappingId={traceByMappingId}
-          selectedMappingId={state.selectedMappingId}
-          onRemoveMapping={removeMapping}
-          onSelectMapping={handleSelectMappingExclusive}
-          verifyStatus={verifyHook.result.status}
-          failedMappingIds={verifyHook.result.failedMappingIds}
-          assertionVerifyMap={assertionVerifyMap}
-        />
-        </>
-      )}
-      {rulesModalOpen && (
-        <ValidationRulesModal
-          value={validationSync.dslText}
-          onChange={validationSync.handleCodeChange}
-          errors={validationSync.parseErrors}
-          samplePaths={validationSamplePaths}
-          onClose={handleCloseRulesModal}
-          onJumpToNode={handleJumpToNode}
-          portalContainerRef={containerRef}
-          verifyStatus={verifyHook.result.status}
-          verifyPassedCount={verifyHook.result.passedCount}
-          verifyFailedCount={verifyHook.result.failedCount}
-          lineResults={rulesLineResults}
-          sampleResponseData={effectiveTarget.sampleData}
-          unorderedArrays={unorderedDefault}
-        />
-      )}
-      {editingMapping && (
-        <ExpressionEditorModal
-          mapping={editingMapping}
-          sources={effectiveSources}
-          activeSourceId={state.activeSourceId}
-          customFunctions={adapter.customFunctions}
-          onSave={handleSaveExpression}
-          onCancel={() => setEditingMappingId(null)}
-          onRename={effectiveTarget.allowCustomFields ? (_mappingId, oldPath, newPath) => {
-            handleUpdateCustomField(oldPath, { path: newPath, label: newPath.split('.').pop() || newPath });
-          } : undefined}
-        />
-      )}
-      {toast && (
-        <div className="dm-toast" role="status" aria-live="polite">
-          {toast}
-        </div>
-      )}
-      {errorPopover && (
-        <ErrorPopover
-          ref={errorPopoverRef}
-          data={errorPopover.data}
-          y={errorPopover.y}
-          onClose={() => setErrorPopover(null)}
-        />
-      )}
-      <MapperFooter
-        mappings={state.mappings}
+        state={state}
+        updateMapping={updateMapping}
+        bottomUtilityMode={bottomUtilityMode}
+        togglePanelsCollapsed={togglePanelsCollapsed}
+        panelsCollapsed={panelsCollapsed}
+        handleDockResizeStart={handleDockResizeStart}
+        dockHeight={dockHeight}
+        validationAssertions={validationAssertions}
+        effectiveSources={effectiveSources}
+        effectiveTarget={effectiveTarget}
+        adapter={adapter}
+        debugMode={debugMode}
+        traceByMappingId={traceByMappingId}
+        removeMapping={removeMapping}
+        handleSelectMappingExclusive={handleSelectMappingExclusive}
+        verifyHook={verifyHook}
+        assertionVerifyMap={assertionVerifyMap}
+        rulesModalOpen={rulesModalOpen}
+        validationSync={validationSync}
+        validationSamplePaths={validationSamplePaths}
+        handleCloseRulesModal={handleCloseRulesModal}
+        handleJumpToNode={handleJumpToNode}
+        containerRef={containerRef}
+        rulesLineResults={rulesLineResults}
+        unorderedDefault={unorderedDefault}
+        editingMapping={editingMapping}
+        handleSaveExpression={handleSaveExpression}
+        setEditingMappingId={setEditingMappingId}
+        handleUpdateCustomField={handleUpdateCustomField}
+        toast={toast}
+        errorPopover={errorPopover}
+        errorPopoverRef={errorPopoverRef}
+        setErrorPopover={setErrorPopover}
         arrayMappingInfos={arrayMappingInfos}
         typeMismatches={typeMismatches}
-        resolvedCount={mappingResolution.resolved}
-        unresolvedCount={mappingResolution.unresolved}
+        mappingResolution={mappingResolution}
         compactMode={compactMode}
-        verifyPassedCount={verifyHook.result.passedCount}
-        verifyFailedCount={verifyHook.result.failedCount}
-        verifyStatus={verifyHook.result.status}
-        onFilterFailed={verifyHook.result.failedCount > 0 ? () => setFilterFailedSignal(Date.now()) : undefined}
+        setFilterFailedSignal={setFilterFailedSignal}
+        showExampleModal={showExampleModal}
+        setShowExampleModal={setShowExampleModal}
+        handleExampleInferenceApply={handleExampleInferenceApply}
       />
-      {showExampleModal && (
-        <ExampleInferenceModal
-          onClose={() => setShowExampleModal(false)}
-          onApply={handleExampleInferenceApply}
-        />
-      )}
     </div>
   );
 }

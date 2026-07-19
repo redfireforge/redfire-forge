@@ -255,12 +255,9 @@ describe('RequestEditor interaction branches', () => {
           {
             id: 'bound-ms',
             name: 'Inventory',
-            baseUrls: { 'ae-dev': 'https://inventory.example/api' },
+            baseUrls: { 'env-1': 'https://inventory.example/api' },
             customEnvs: [],
           },
-        ]}
-        appEnvironments={[
-          { id: 'ae-dev', name: 'Development' },
         ]}
       />,
     );

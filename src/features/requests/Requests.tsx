@@ -1,8 +1,9 @@
 import { useCallback, useMemo } from 'react';
-import type { GlobalAuthProfile, Microservice, Environment, RequestItem, RequestCollection } from '../../shared/types';
+import type { GlobalAuthProfile, Microservice, Environment, RequestItem, RequestCollection, RequestTab, RequestSubTab, ResponseSubTab, RequestInputMode } from '../../shared/types';
 import type { UseRequestsReturn } from './hooks/useRequests';
+import { findRequestInCollection, findAncestorSubCollection } from './utils/requestTree';
 import RequestEditor from './components/RequestEditor';
-import { findAncestorSubCollection } from './utils/requestTree';
+import { RequestTabBar } from './components/RequestTabBar';
 
 export interface PreviewRequest {
   collection: RequestCollection;
@@ -20,32 +21,109 @@ interface Props {
   onImportPreview?: () => void;
   onSendToHarness?: () => void;
   harnessRequestIds?: Set<string>;
+  tabs: RequestTab[];
+  activeTabId: string;
+  activeTab: RequestTab | null;
+  onSelectTab: (tabId: string) => void;
+  onCloseTab: (tabId: string) => void;
+  onAddTab: () => void;
+  onRenameTab: (tabId: string, label: string) => void;
+  onReorderTabs?: (fromIndex: number, toIndex: number) => void;
+  onDuplicateTab?: (tabId: string) => void;
+  onCloseOtherTabs?: (tabId: string) => void;
+  onCloseTabsToRight?: (tabId: string) => void;
+  onEnvChange: (envId: string | undefined) => void;
+  onUpdateTabUI: (tabId: string, patch: Partial<Pick<RequestTab, 'activeSubTab' | 'responseSubTab' | 'inputMode' | 'envId' | 'activeHistoryId'>>) => void;
+  onSyncTabLabel?: (reqId: string, name: string) => void;
 }
 
-export default function Requests({ wb, appGlobalAuthProfiles, appMicroservices, appEnvironments, previewRequest, onClearPreview, onImportPreview, onSendToHarness, harnessRequestIds }: Props) {
+export default function Requests({
+  wb, appGlobalAuthProfiles, appMicroservices, appEnvironments,
+  previewRequest, onClearPreview, onImportPreview, onSendToHarness, harnessRequestIds,
+  tabs, activeTabId, activeTab, onSelectTab, onCloseTab, onAddTab, onRenameTab,
+  onReorderTabs, onDuplicateTab, onCloseOtherTabs, onCloseTabsToRight,
+  onEnvChange, onUpdateTabUI, onSyncTabLabel,
+}: Props) {
+  const tabCollection = useMemo(() => {
+    if (!activeTab) return null;
+    return wb.collections.find(c => c.id === activeTab.collectionId) ?? null;
+  }, [wb.collections, activeTab?.collectionId]);
+
+  const tabRequest = useMemo(() => {
+    if (!tabCollection || !activeTab) return null;
+    return findRequestInCollection(tabCollection, activeTab.requestId);
+  }, [tabCollection, activeTab?.requestId]);
+
+  const collection = previewRequest ? previewRequest.collection : (tabCollection ?? wb.selectedCollection);
+  const request = previewRequest ? previewRequest.request : (tabRequest ?? wb.selectedRequest);
+
   const handleUpdateRequest = useCallback((reqPatch: Partial<RequestItem>) => {
-    if (previewRequest) return; // preview is read-only
-    if (wb.selectedCollection && wb.selectedRequest) {
-      wb.updateRequest(wb.selectedCollection.id, wb.selectedRequest.id, reqPatch);
+    if (previewRequest) return;
+    if (collection && request) {
+      wb.updateRequest(collection.id, request.id, reqPatch);
+      if (reqPatch.name !== undefined && onSyncTabLabel) {
+        onSyncTabLabel(request.id, reqPatch.name || request.url || 'Untitled');
+      }
     }
-  }, [wb, previewRequest]);
+  }, [wb, collection, request, previewRequest, onSyncTabLabel]);
 
   const parentSubCollection = useMemo(() => {
     if (previewRequest) return null;
-    if (!wb.selectedCollection || !wb.selectedRequest) return null;
-    return findAncestorSubCollection(wb.selectedCollection.folders ?? [], wb.selectedRequest.id);
-  }, [wb.selectedCollection, wb.selectedRequest, previewRequest]);
+    if (!collection || !request) return null;
+    return findAncestorSubCollection(collection.folders ?? [], request.id);
+  }, [collection, request, previewRequest]);
+
+  const handleActiveSubTabChange = useCallback((tab: RequestSubTab) => {
+    if (activeTab) onUpdateTabUI(activeTab.id, { activeSubTab: tab });
+  }, [activeTab, onUpdateTabUI]);
+
+  const handleResponseSubTabChange = useCallback((tab: ResponseSubTab) => {
+    if (activeTab) onUpdateTabUI(activeTab.id, { responseSubTab: tab });
+  }, [activeTab, onUpdateTabUI]);
+
+  const handleInputModeChange = useCallback((mode: RequestInputMode) => {
+    if (activeTab) onUpdateTabUI(activeTab.id, { inputMode: mode });
+  }, [activeTab, onUpdateTabUI]);
+
+  const handleActiveHistoryIdChange = useCallback((id: string | null) => {
+    if (activeTab) onUpdateTabUI(activeTab.id, { activeHistoryId: id });
+  }, [activeTab, onUpdateTabUI]);
+
+  const methodByRequestId = useMemo(() => {
+    const map: Record<string, string | undefined> = {};
+    for (const tab of tabs) {
+      const col = wb.collections.find(c => c.id === tab.collectionId);
+      if (!col) continue;
+      const req = findRequestInCollection(col, tab.requestId);
+      if (req) map[tab.requestId] = req.method;
+    }
+    return map;
+  }, [tabs, wb.collections]);
 
   if (!wb.loaded) {
     return <div className="req-loading">Loading Requests...</div>;
   }
 
-  const collection = previewRequest ? previewRequest.collection : wb.selectedCollection;
-  const request = previewRequest ? previewRequest.request : wb.selectedRequest;
+  const showTabBar = tabs.length > 0 && !previewRequest;
 
   return (
     <div className="req-container req-no-sidebar">
       <div className="req-main">
+        {showTabBar && (
+          <RequestTabBar
+            tabs={tabs}
+            activeTabId={activeTabId}
+            methodByRequestId={methodByRequestId}
+            onSelect={onSelectTab}
+            onClose={onCloseTab}
+            onAdd={onAddTab}
+            onRename={onRenameTab}
+            onReorder={onReorderTabs}
+            onDuplicate={onDuplicateTab}
+            onCloseOthers={onCloseOtherTabs}
+            onCloseRight={onCloseTabsToRight}
+          />
+        )}
         {previewRequest && (
           <div className="req-preview-banner">
             <span className="req-preview-banner-icon">🔍</span>
@@ -68,18 +146,26 @@ export default function Requests({ wb, appGlobalAuthProfiles, appMicroservices, 
         )}
         {collection && request ? (
           <RequestEditor
+            key={previewRequest ? `preview-${request.id}` : request.id}
             collection={collection}
             request={request}
             parentSubCollection={previewRequest ? undefined : (parentSubCollection ?? undefined)}
-            environments={previewRequest ? [] : wb.environments}
+            environments={previewRequest ? [] : appEnvironments}
             appMicroservices={appMicroservices}
-            appEnvironments={appEnvironments}
-            selectedEnvId={previewRequest ? undefined : wb.selectedEnvId}
-            onEnvChange={previewRequest ? () => {} : wb.setSelectedEnvId}
+            selectedEnvId={previewRequest ? undefined : (activeTab?.envId ?? wb.selectedEnvId)}
+            onEnvChange={previewRequest ? () => {} : onEnvChange}
             onUpdateRequest={handleUpdateRequest}
             appGlobalAuthProfiles={appGlobalAuthProfiles}
             onSendToHarness={previewRequest ? undefined : onSendToHarness}
             isInHarness={!previewRequest && !!request && !!harnessRequestIds?.has(request.id)}
+            activeSubTab={previewRequest ? undefined : (activeTab?.activeSubTab ?? 'params')}
+            responseSubTab={previewRequest ? undefined : (activeTab?.responseSubTab ?? 'preview')}
+            inputMode={previewRequest ? undefined : (activeTab?.inputMode ?? 'builder')}
+            activeHistoryId={previewRequest ? undefined : (activeTab?.activeHistoryId ?? null)}
+            onActiveSubTabChange={previewRequest ? undefined : handleActiveSubTabChange}
+            onResponseSubTabChange={previewRequest ? undefined : handleResponseSubTabChange}
+            onInputModeChange={previewRequest ? undefined : handleInputModeChange}
+            onActiveHistoryIdChange={previewRequest ? undefined : handleActiveHistoryIdChange}
           />
         ) : (
           <div className="req-empty-state">

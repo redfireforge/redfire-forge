@@ -18,6 +18,16 @@ function collection(overrides: Partial<RequestCollection> = {}): RequestCollecti
   };
 }
 
+// The auth-type control is a custom AuthTypeSelect (button + role="listbox"), not a native
+// <select>. Open its trigger, then click the matching role="option".
+function selectAuthType(name: RegExp) {
+  const trigger = screen
+    .getByTestId('req-auth-type-select')
+    .querySelector('.req-auth-type-trigger') as HTMLElement;
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole('option', { name }));
+}
+
 describe('RequestAuthEditor', () => {
   it('omits Global Auth Profile option when no workspace profiles exist', () => {
     render(
@@ -60,7 +70,7 @@ describe('RequestAuthEditor', () => {
         onUpdate={onUpdate}
       />,
     );
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'global-profile' } });
+    selectAuthType(/Global Auth Profile/);
     expect(onUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ globalProfileId: 'first', username: 'u' }),
     );
@@ -79,8 +89,8 @@ describe('RequestAuthEditor', () => {
         onUpdate={onUpdate}
       />,
     );
-    const selects = screen.getAllByRole('combobox');
-    fireEvent.change(selects[1], { target: { value: 'p2' } });
+    fireEvent.click(screen.getByLabelText('Select global auth profile'));
+    fireEvent.click(screen.getByRole('option', { name: /Beta/ }));
     expect(onUpdate).toHaveBeenCalledWith(
       expect.objectContaining({ globalProfileId: 'p2', apiKeyName: 'k' }),
     );
@@ -109,8 +119,8 @@ describe('RequestAuthEditor', () => {
         onUpdate={onUpdate}
       />,
     );
-    const combos = screen.getAllByRole('combobox');
-    fireEvent.change(combos[combos.length - 1], { target: { value: 'query' } });
+    fireEvent.click(screen.getByLabelText('Add API key to'));
+    fireEvent.click(screen.getByRole('option', { name: 'Query String' }));
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ apiKeyIn: 'query' }));
   });
 
@@ -183,11 +193,11 @@ describe('RequestAuthEditor', () => {
         onUpdate={onUpdate}
       />,
     );
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'none' } });
+    selectAuthType(/No Auth/);
     expect(onUpdate).toHaveBeenCalledWith({ type: 'none' });
   });
 
-  it('profile change with unknown id does not call onUpdate', () => {
+  it('offers only known profiles in the custom profile dropdown', () => {
     const onUpdate = vi.fn();
     render(
       <RequestAuthEditor
@@ -197,8 +207,15 @@ describe('RequestAuthEditor', () => {
         onUpdate={onUpdate}
       />,
     );
-    fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'missing' } });
-    expect(onUpdate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByLabelText('Select global auth profile'));
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveTextContent('Prod');
+    // Re-selecting the already-active profile still routes through onUpdate.
+    fireEvent.click(options[0]);
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ globalProfileId: 'gp1' }),
+    );
   });
 
   it('renders Bearer prefix default while editing token-less bearer auth', () => {
@@ -490,9 +507,7 @@ describe('RequestAuthEditor', () => {
     );
     expect(screen.getByPlaceholderText('Key name')).toHaveValue('');
     expect(screen.getByPlaceholderText('Key value')).toHaveValue('');
-    const combos = screen.getAllByRole('combobox');
-    const addToSelect = combos[combos.length - 1];
-    expect(addToSelect).toHaveValue('header');
+    expect(screen.getByLabelText('Add API key to')).toHaveTextContent('Header');
   });
 
   it('switching to global-profile with empty profiles does not call onUpdate', () => {
@@ -505,7 +520,7 @@ describe('RequestAuthEditor', () => {
         onUpdate={onUpdate}
       />,
     );
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'bearer' } });
+    selectAuthType(/Bearer Token/);
     expect(onUpdate).toHaveBeenCalledWith({ type: 'bearer' });
   });
 });

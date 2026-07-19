@@ -59,7 +59,7 @@ describe('useCatalogExport', () => {
     const catalog = makeCatalog(baseEntry());
 
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleSendToRequests(baseEntry());
@@ -79,7 +79,7 @@ describe('useCatalogExport', () => {
     vi.mocked(loadCatalogEndpointValues).mockResolvedValueOnce({ foo: {} } as SavedEndpointValues);
 
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleSendToRequests(baseEntry());
@@ -105,6 +105,8 @@ describe('useCatalogExport', () => {
         useCatalogExport({
           wb: makeWb(),
           catalog: { ...catalog, selectedEntry: selId ? entry : undefined, selectedEntryId: selId } as UseCatalogReturn,
+          appEnvironments: [],
+          setEnvironments: vi.fn(),
           setActiveTab: vi.fn(),
         }),
       { initialProps: { selId: undefined as string | undefined } },
@@ -129,7 +131,7 @@ describe('useCatalogExport', () => {
     } as unknown as UseCatalogReturn;
 
     const { result } = renderHook(() =>
-      useCatalogExport({ wb: makeWb(), catalog: catalogNoSelection, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb: makeWb(), catalog: catalogNoSelection, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleExportSingleEndpoint(baseEntry(), ep, saved);
@@ -152,15 +154,15 @@ describe('useCatalogExport', () => {
     vi.spyOn(versionMergeModule, 'isCollectionEmpty').mockReturnValue(false);
 
     const updateRequest = vi.fn();
-    const addEnvironments = vi.fn();
     const importCollection = vi.fn();
     const addGroup = vi.fn().mockReturnValue('g-new');
-    const wb = makeWb({ updateRequest, addEnvironments, importCollection, addGroup });
+    const wb = makeWb({ updateRequest, importCollection, addGroup });
     const updateEntry = vi.fn();
     const catalog = makeCatalog(baseEntry(), { updateEntry });
     const setActiveTab = vi.fn();
+    const setEnvironments = vi.fn();
 
-    const { result } = renderHook(() => useCatalogExport({ wb, catalog, setActiveTab }));
+    const { result } = renderHook(() => useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments, setActiveTab }));
 
     await act(async () => {
       result.current.handleSendToRequests(baseEntry());
@@ -183,7 +185,10 @@ describe('useCatalogExport', () => {
     expect(updateEntry).toHaveBeenCalledWith('ce1', { customEndpointNames: {} });
     expect(addGroup).toHaveBeenCalledWith('New Group');
     expect(updateRequest).toHaveBeenCalledWith('c1', 'r1', { name: 'patched' });
-    expect(addEnvironments).toHaveBeenCalledWith([{ id: 'env-new', name: 'Staging' }]);
+    // New Settings environments are seeded via setEnvironments (functional updater).
+    expect(setEnvironments).toHaveBeenCalled();
+    const envUpdater = setEnvironments.mock.calls[0][0] as (prev: { id: string; name: string }[]) => { id: string; name: string }[];
+    expect(envUpdater([])).toEqual([{ id: 'env-new', name: 'Staging' }]);
     expect(importCollection).toHaveBeenCalled();
     expect(setActiveTab).toHaveBeenCalledWith('requests');
     expect(result.current.sendToReqEntry).toBeUndefined();
@@ -205,7 +210,7 @@ describe('useCatalogExport', () => {
     const catalog = makeCatalog(baseEntry());
 
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleSendToRequests(baseEntry());
@@ -244,7 +249,7 @@ describe('useCatalogExport', () => {
     const wb = makeWb();
     const catalog = makeCatalog(entry);
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleSendToRequests(entry);
@@ -282,7 +287,7 @@ describe('useCatalogExport', () => {
     const wb = makeWb();
     const catalog = makeCatalog(entry);
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleSendToRequests(entry);
@@ -314,7 +319,7 @@ describe('useCatalogExport', () => {
     } as unknown as UseCatalogReturn;
 
     const { result } = renderHook(() =>
-      useCatalogExport({ wb: makeWb(), catalog: catalogNoSelection, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb: makeWb(), catalog: catalogNoSelection, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleExportSingleEndpoint(baseEntry(), ep);
@@ -352,7 +357,7 @@ describe('useCatalogExport', () => {
     const wb = makeWb({ updateRequest, importCollection, addEnvironments });
     const setActiveTab = vi.fn();
 
-    const { result } = renderHook(() => useCatalogExport({ wb, catalog, setActiveTab }));
+    const { result } = renderHook(() => useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab }));
 
     await act(async () => {
       result.current.handleInlineExportConfirm({
@@ -390,10 +395,10 @@ describe('useCatalogExport', () => {
     }) as unknown as UseCatalogReturn;
     catalog.selectedEntry = entry;
 
-    const addEnvironments = vi.fn();
-    const wb = makeWb({ addEnvironments });
+    const setEnvironments = vi.fn();
+    const wb = makeWb();
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments, setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleInlineExportConfirm({
@@ -406,7 +411,9 @@ describe('useCatalogExport', () => {
       });
     });
 
-    expect(addEnvironments).toHaveBeenCalledWith([{ id: 'ne1', name: 'Fresh' }]);
+    expect(setEnvironments).toHaveBeenCalled();
+    const envUpdater = setEnvironments.mock.calls[0][0] as (prev: { id: string; name: string }[]) => { id: string; name: string }[];
+    expect(envUpdater([])).toEqual([{ id: 'ne1', name: 'Fresh' }]);
   });
 
   it('handleInlineExportConfirm can author a brand new group similar to send flow', async () => {
@@ -436,7 +443,7 @@ describe('useCatalogExport', () => {
 
     const wb = makeWb({ addGroup });
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleInlineExportConfirm({
@@ -451,6 +458,65 @@ describe('useCatalogExport', () => {
     });
 
     expect(addGroup).toHaveBeenCalledWith('Brand');
+  });
+
+  it('handleSendToReqConfirm keeps duplicate environments unchanged and tolerates missing folders on merge', async () => {
+    vi.spyOn(catalogExportModule, 'buildCatalogExport').mockReturnValue({
+      collection: { id: 'nc', name: 'Imported', requests: [], mode: 'direct' },
+      newEnvironments: [{ id: 'env-dup', name: 'Existing' }],
+    });
+    const separateSpy = vi.spyOn(versionMergeModule, 'separateFoldersForMerge').mockReturnValue({
+      requestsToAddToExisting: [],
+      trulyNewFolders: [],
+    });
+    vi.spyOn(versionMergeModule, 'mergeExportIntoCollections').mockReturnValue({
+      updates: [],
+      newCollection: { id: 'merge-col', name: 'Merge', requests: [], mode: 'direct' },
+      existingCollectionId: 'c1',
+    });
+    vi.spyOn(versionMergeModule, 'isCollectionEmpty').mockReturnValue(false);
+
+    const setEnvironments = vi.fn();
+    const wb = makeWb({
+      collections: [{
+        id: 'c1',
+        name: 'Existing',
+        mode: 'direct' as const,
+        requests: [],
+        folders: [],
+      }],
+    });
+    const catalog = makeCatalog(baseEntry());
+
+    const { result } = renderHook(() =>
+      useCatalogExport({
+        wb,
+        catalog,
+        appEnvironments: [{ id: 'env-existing', name: 'Existing' }],
+        setEnvironments,
+        setActiveTab: vi.fn(),
+      }));
+
+    await act(async () => {
+      result.current.handleSendToRequests(baseEntry());
+    });
+
+    await act(async () => {
+      result.current.handleSendToReqConfirm({
+        collectionName: 'Merge',
+        envs: [],
+        endpoints: [],
+        customNames: {},
+        sampleEpIds: new Set(),
+        savedEpValues: {},
+        targetGroupId: 'existing-group',
+      });
+    });
+
+    expect(separateSpy).toHaveBeenCalledWith([], []);
+    expect(setEnvironments).toHaveBeenCalled();
+    const updater = setEnvironments.mock.calls[0][0] as (prev: { id: string; name: string }[]) => { id: string; name: string }[];
+    expect(updater([{ id: 'env-existing', name: 'Existing' }])).toEqual([{ id: 'env-existing', name: 'Existing' }]);
   });
 
   it('handleSendToReqConfirm skips catalog mutations until an entry context exists', async () => {
@@ -468,7 +534,7 @@ describe('useCatalogExport', () => {
     const catalog = makeCatalog(baseEntry(), { updateEntry });
     const wb = makeWb();
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleSendToReqConfirm({
@@ -500,7 +566,7 @@ describe('useCatalogExport', () => {
     const wb = makeWb({ addGroup });
 
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog: makeCatalog(baseEntry()), setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog: makeCatalog(baseEntry()), appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleSendToRequests(baseEntry());
@@ -584,7 +650,7 @@ describe('useCatalogExport', () => {
     };
     const catalog = makeCatalog(entry);
 
-    const { result } = renderHook(() => useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+    const { result } = renderHook(() => useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     // Simulate exporting a DIFFERENT endpoint (Add a new pet) to the same catalog entry
     const payload = {
@@ -645,7 +711,7 @@ describe('useCatalogExport', () => {
     catalog.selectedEntry = undefined;
 
     const wb = makeWb();
-    const { result } = renderHook(() => useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+    const { result } = renderHook(() => useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleInlineExportConfirm({
@@ -698,7 +764,7 @@ describe('useCatalogExport', () => {
     });
     const catalog = makeCatalog(baseEntry());
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleSendToRequests(baseEntry());
@@ -767,7 +833,7 @@ describe('useCatalogExport', () => {
       }]
     });
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab: vi.fn() }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab: vi.fn() }));
 
     await act(async () => {
       result.current.handleInlineExportConfirm({
@@ -815,7 +881,7 @@ describe('useCatalogExport', () => {
     const setActiveTab = vi.fn();
 
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab }));
 
     await act(async () => {
       result.current.handleSendToRequests(entry);
@@ -859,7 +925,7 @@ describe('useCatalogExport', () => {
     const setActiveTab = vi.fn();
 
     const { result } = renderHook(() =>
-      useCatalogExport({ wb, catalog, setActiveTab }));
+      useCatalogExport({ wb, catalog, appEnvironments: [], setEnvironments: vi.fn(), setActiveTab }));
 
     await act(async () => {
       result.current.handleSendToRequests(baseEntry());

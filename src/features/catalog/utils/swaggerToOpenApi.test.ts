@@ -106,7 +106,7 @@ describe('isSwagger2RawSpec', () => {
   });
 
   it('returns false for garbage / non-object', () => {
-    expect(isSwagger2RawSpec('%%% not valid %%%: : :')).toBe(false);
+    expect(isSwagger2RawSpec('foo: [bar')).toBe(false);
     expect(isSwagger2RawSpec('"just a string"')).toBe(false);
     expect(isSwagger2RawSpec('')).toBe(false);
   });
@@ -139,7 +139,7 @@ describe('detectSpecFormat', () => {
     expect(detectSpecFormat('openapi: 3.9.0\ninfo: {title: t, version: 1}\npaths: {}')).toBe('oas30');
   });
   it('returns unknown for garbage / non-spec / arrays', () => {
-    expect(detectSpecFormat('%%% not valid %%%: : :')).toBe('unknown');
+    expect(detectSpecFormat('foo: [bar')).toBe('unknown');
     expect(detectSpecFormat('"just a string"')).toBe('unknown');
     expect(detectSpecFormat('- a\n- b')).toBe('unknown');
     expect(detectSpecFormat('{}')).toBe('unknown');
@@ -481,7 +481,7 @@ describe('convertSwaggerToOpenApiYaml (guards)', () => {
   });
 
   it('rejects unparseable input', async () => {
-    await expect(convertSwaggerToOpenApiYaml('%%% : : :')).rejects.toThrow(/parse/i);
+    await expect(convertSwaggerToOpenApiYaml('foo: [bar')).rejects.toThrow(/parse/i);
   });
 
   it('rejects a non-object document', async () => {
@@ -559,6 +559,6 @@ describe('upgradeOpenApi3Yaml', () => {
   });
 
   it('rejects unparseable input', async () => {
-    await expect(upgradeOpenApi3Yaml('%%% : : :', { target: '3.1' })).rejects.toThrow(/parse/i);
+    await expect(upgradeOpenApi3Yaml('foo: [bar', { target: '3.1' })).rejects.toThrow(/parse/i);
   });
 });

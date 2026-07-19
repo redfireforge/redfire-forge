@@ -16,6 +16,7 @@ import { grpcSchemaDiffLesson } from './grpc-schema-diff';
 import { grpcWorkflowIntegrationLesson } from './grpc-workflow-integration';
 import { grpcWorkflowRunnerLesson } from './grpc-workflow-runner';
 import { grpcTauriDesktopLesson } from './grpc-tauri-desktop';
+import { grpcTabsLesson } from './grpc-tabs';
 
 export { grpcFirstCallLesson };
 export { grpcSchemaDiscoveryLesson };
@@ -33,6 +34,7 @@ export { grpcSchemaDiffLesson };
 export { grpcWorkflowIntegrationLesson };
 export { grpcWorkflowRunnerLesson };
 export { grpcTauriDesktopLesson };
+export { grpcTabsLesson };
 
 export const grpcLessons = [
   grpcFirstCallLesson,          // GRPC-1
@@ -51,6 +53,7 @@ export const grpcLessons = [
   grpcWorkflowIntegrationLesson, // GRPC-11 (gRPC in Workflows: Nodes, Assertions & Chaining)
   grpcWorkflowRunnerLesson,      // GRPC-24 (Workflow Runner & Results)
   grpcTauriDesktopLesson,        // GRPC-23 (Tauri Desktop: Native Transport, Diagnostics & Mock Listener)
+  grpcTabsLesson,                // GRPC-Tabs (Multi-Tab gRPC Calls — P5-C backfill)
 ] as const;
 
 export function shippedGrpcLessonCount(): number {
