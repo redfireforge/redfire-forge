@@ -111,4 +111,28 @@ describe('useTabContextMenu', () => {
     expect(items.find((item) => item.id === 'close')?.disabled).toBe(true);
     expect(items.find((item) => item.id === 'close-right')?.disabled).toBe(true);
   });
+
+  it('keeps menu open for inside click and non-Escape key, then closes on Escape', () => {
+    const onAction = vi.fn();
+    const { result } = renderHook(() => useTabContextMenu());
+
+    const event = {
+      preventDefault: vi.fn(),
+      stopPropagation: vi.fn(),
+      clientX: 30,
+      clientY: 40,
+    } as unknown as React.MouseEvent;
+
+    act(() => result.current.openMenu('tab-3', event));
+
+    const menu = result.current.renderMenu([{ id: 'rename', label: 'Rename Tab' }], onAction);
+    render(<>{menu}</>);
+
+    fireEvent.mouseDown(screen.getByTestId('studio-tab-ctx-menu'));
+    fireEvent.keyDown(document, { key: 'Enter' });
+    expect(result.current.menuState).not.toBeNull();
+
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(result.current.menuState).toBeNull();
+  });
 });
