@@ -9,9 +9,12 @@ import {
   createAbortTabInFlightCallsHandler,
   createAddTabHandler,
   createCloseTabHandler,
+  createCloseOtherTabsHandler,
+  createCloseTabsToRightHandler,
   createDismissSchemaDriftHandler,
   createDuplicateTabHandler,
   createPruneSchemaDriftBodyHandler,
+  createReorderTabHandler,
   createRebindSchemaDriftMethodHandler,
   createRenameTabHandler,
   createResolveTabConnectionHandler,
@@ -180,6 +183,19 @@ describe('grpcStudioTabCommands coverage gaps', () => {
     );
   });
 
+  it('selectMethod no-ops when method is not found in descriptor', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    const tabId = ctx.sessionRef.current.activeTabId;
+    ctx.sessionRef.current.tabDescriptors[tabId] = {
+      ...createEmptyTabDescriptorState(),
+      descriptor: FIXTURE_DESCRIPTOR,
+    };
+
+    createSelectMethodHandler(ctx, core)(tabId, 'echo.EchoService', 'UnknownMethod');
+    expect(ctx.updateTab).not.toHaveBeenCalled();
+  });
+
   it('pruneSchemaDriftBody syncs body to active method schema', () => {
     const ctx = makeRuntime();
     const tabId = ctx.sessionRef.current.activeTabId;
@@ -243,6 +259,11 @@ describe('grpcStudioTabCommands coverage gaps', () => {
     expect(resolution.target).toBe('localhost:50051');
   });
 
+  it('resolveTabConnection throws when the tab id is missing', () => {
+    const ctx = makeRuntime();
+    expect(() => createResolveTabConnectionHandler(ctx)('missing-tab')).toThrow('Tab not found: missing-tab');
+  });
+
   it('abortTabInFlightCalls no-ops for missing tab', () => {
     const ctx = makeRuntime();
     const core = makeCore(ctx);
@@ -257,11 +278,33 @@ describe('grpcStudioTabCommands coverage gaps', () => {
     expect(ctx.sessionRef.current.tabDescriptors['missing-tab']).toBeUndefined();
   });
 
+  it('toggleServiceExpanded initializes descriptor when missing', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    const tabId = ctx.sessionRef.current.activeTabId;
+    delete ctx.sessionRef.current.tabDescriptors[tabId];
+
+    createToggleServiceExpandedHandler(core)(tabId, 'echo.EchoService');
+    expect(ctx.sessionRef.current.tabDescriptors[tabId]?.expandedServiceIds).toEqual(['echo.EchoService']);
+  });
+
   it('duplicateTab no-ops when source tab is missing', () => {
     const ctx = makeRuntime();
     const core = makeCore(ctx);
     createDuplicateTabHandler(ctx, core)('missing-tab');
     expect(ctx.sessionRef.current.tabs.length).toBe(1);
+  });
+
+  it('duplicateTab uses empty descriptor when source descriptor is missing', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    const sourceId = ctx.sessionRef.current.activeTabId;
+    delete ctx.sessionRef.current.tabDescriptors[sourceId];
+
+    createDuplicateTabHandler(ctx, core)(sourceId);
+    const newTabId = ctx.sessionRef.current.activeTabId;
+    expect(ctx.sessionRef.current.tabs.length).toBe(2);
+    expect(ctx.sessionRef.current.tabDescriptors[newTabId]).toEqual(createEmptyTabDescriptorState());
   });
 
   it('closeTab keeps active tab when closing a background tab', () => {
@@ -281,6 +324,86 @@ describe('grpcStudioTabCommands coverage gaps', () => {
     createCloseTabHandler(ctx, core)(second.id);
     expect(ctx.sessionRef.current.tabs.length).toBe(1);
     expect(ctx.sessionRef.current.activeTabId).toBe(first.id);
+  });
+
+  it('closeOtherTabs closes every tab except the keeper', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    const first = ctx.sessionRef.current.tabs[0]!;
+    const second = createGrpcStudioTab({}, ctx.sessionRef.current.tabs);
+    const third = createGrpcStudioTab({}, [first, second]);
+    ctx.sessionRef.current = {
+      tabs: [first, second, third],
+      activeTabId: first.id,
+      tabDescriptors: {
+        [first.id]: createEmptyTabDescriptorState(),
+        [second.id]: createEmptyTabDescriptorState(),
+        [third.id]: createEmptyTabDescriptorState(),
+      },
+    };
+
+    const closeTab = vi.fn();
+    createCloseOtherTabsHandler(core, closeTab)(first.id);
+
+    expect(closeTab).toHaveBeenCalledWith(second.id);
+    expect(closeTab).toHaveBeenCalledWith(third.id);
+  });
+
+  it('closeTabsToRight only closes tabs after the selected one', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    const first = ctx.sessionRef.current.tabs[0]!;
+    const second = createGrpcStudioTab({}, ctx.sessionRef.current.tabs);
+    const third = createGrpcStudioTab({}, [first, second]);
+    ctx.sessionRef.current = {
+      tabs: [first, second, third],
+      activeTabId: first.id,
+      tabDescriptors: {
+        [first.id]: createEmptyTabDescriptorState(),
+        [second.id]: createEmptyTabDescriptorState(),
+        [third.id]: createEmptyTabDescriptorState(),
+      },
+    };
+
+    const closeTab = vi.fn();
+    createCloseTabsToRightHandler(core, closeTab)(second.id);
+
+    expect(closeTab).toHaveBeenCalledTimes(1);
+    expect(closeTab).toHaveBeenCalledWith(third.id);
+  });
+
+  it('closeTabsToRight no-ops for unknown tab id', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    const closeTab = vi.fn();
+
+    createCloseTabsToRightHandler(core, closeTab)('missing-tab');
+    expect(closeTab).not.toHaveBeenCalled();
+  });
+
+  it('reorderTab reorders valid indices and ignores invalid indices', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    const first = ctx.sessionRef.current.tabs[0]!;
+    const second = createGrpcStudioTab({}, ctx.sessionRef.current.tabs);
+    const third = createGrpcStudioTab({}, [first, second]);
+    ctx.sessionRef.current = {
+      tabs: [first, second, third],
+      activeTabId: first.id,
+      tabDescriptors: {
+        [first.id]: createEmptyTabDescriptorState(),
+        [second.id]: createEmptyTabDescriptorState(),
+        [third.id]: createEmptyTabDescriptorState(),
+      },
+    };
+
+    createReorderTabHandler(core)(0, 2);
+    expect(ctx.sessionRef.current.tabs.map((tab) => tab.id)).toEqual([second.id, third.id, first.id]);
+
+    const afterValid = ctx.sessionRef.current.tabs.map((tab) => tab.id);
+    createReorderTabHandler(core)(-1, 1);
+    createReorderTabHandler(core)(1, 9);
+    expect(ctx.sessionRef.current.tabs.map((tab) => tab.id)).toEqual(afterValid);
   });
 
   it('selectMethod aborts active stream before switching methods', () => {
@@ -401,6 +524,12 @@ describe('grpcStudioTabCommands coverage gaps', () => {
       ctx.sessionRef.current.activeTabId,
       { title: 'Renamed Tab' },
     );
+  });
+
+  it('renameTab no-ops when title trims to empty', () => {
+    const ctx = makeRuntime();
+    createRenameTabHandler(ctx)(ctx.sessionRef.current.activeTabId, '   ');
+    expect(ctx.updateTab).not.toHaveBeenCalled();
   });
 
   it('dismissSchemaDrift only clears warning drift', () => {
@@ -549,6 +678,13 @@ describe('grpcStudioTabCommands coverage gaps', () => {
     expect(ctx.fireCancelInFlight).not.toHaveBeenCalled();
   });
 
+  it('selectMethod no-ops when descriptor state is missing', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    createSelectMethodHandler(ctx, core)(ctx.sessionRef.current.activeTabId, 'echo.EchoService', 'Echo');
+    expect(ctx.updateTab).not.toHaveBeenCalled();
+  });
+
   it('rebindSchemaDriftMethod no-ops when tab row is missing', () => {
     const ctx = makeRuntime();
     const core = makeCore(ctx);
@@ -559,6 +695,13 @@ describe('grpcStudioTabCommands coverage gaps', () => {
     };
 
     createRebindSchemaDriftMethodHandler(ctx, core)(tabId, 'echo.EchoService', 'Echo');
+    expect(ctx.updateTab).not.toHaveBeenCalled();
+  });
+
+  it('rebindSchemaDriftMethod no-ops when descriptor state is missing', () => {
+    const ctx = makeRuntime();
+    const core = makeCore(ctx);
+    createRebindSchemaDriftMethodHandler(ctx, core)(ctx.sessionRef.current.activeTabId, 'echo.EchoService', 'Echo');
     expect(ctx.updateTab).not.toHaveBeenCalled();
   });
 });
