@@ -48,6 +48,15 @@ describe('GqlTabBar', () => {
 
   beforeEach(() => {
     resetAllMocks();
+    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
+      cb(0);
+      return 1;
+    });
+    Object.assign(navigator, {
+      clipboard: {
+        writeText: vi.fn().mockResolvedValue(undefined),
+      },
+    });
   });
 
   it('renders all tabs', () => {
@@ -167,6 +176,87 @@ describe('GqlTabBar', () => {
     expect(defaultProps.onTabClose).toHaveBeenCalled();
   });
 
+  it('arrow keys, Home, and End move focus across tabs', () => {
+    render(<GqlTabBar {...defaultProps} tabs={[makeTab('t1'), makeTab('t2'), makeTab('t3')]} />);
+    const tab1 = screen.getByTestId('gql-tab-t1');
+    const tab2 = screen.getByTestId('gql-tab-t2');
+    const tab3 = screen.getByTestId('gql-tab-t3');
+
+    tab1.focus();
+    fireEvent.keyDown(tab1, { key: 'ArrowRight' });
+    expect(document.activeElement).toBe(tab2);
+
+    fireEvent.keyDown(tab2, { key: 'ArrowLeft' });
+    expect(document.activeElement).toBe(tab1);
+
+    fireEvent.keyDown(tab1, { key: 'End' });
+    expect(document.activeElement).toBe(tab3);
+
+    fireEvent.keyDown(tab3, { key: 'Home' });
+    expect(document.activeElement).toBe(tab1);
+  });
+
+  it('Enter and Space on a tab activate it', () => {
+    render(<GqlTabBar {...defaultProps} />);
+    const tab2 = screen.getByTestId('gql-tab-t2');
+    fireEvent.keyDown(tab2, { key: 'Enter' });
+    fireEvent.keyDown(tab2, { key: ' ' });
+    expect(defaultProps.onTabClick).toHaveBeenNthCalledWith(1, 't2');
+    expect(defaultProps.onTabClick).toHaveBeenNthCalledWith(2, 't2');
+  });
+
+  it('Delete closes a non-demo tab and focus can move to the next active tab after rerender', () => {
+    const onTabClose = vi.fn();
+    const { rerender } = render(
+      <GqlTabBar
+        {...defaultProps}
+        tabs={[makeTab('t1'), makeTab('t2')]}
+        activeTabId="t1"
+        onTabClose={onTabClose}
+      />,
+    );
+
+    const tab1 = screen.getByTestId('gql-tab-t1');
+    tab1.focus();
+    fireEvent.keyDown(tab1, { key: 'Delete' });
+    expect(onTabClose).toHaveBeenCalledWith('t1', expect.any(Object));
+
+    rerender(
+      <GqlTabBar
+        {...defaultProps}
+        tabs={[makeTab('t2')]}
+        activeTabId="t2"
+        onTabClose={onTabClose}
+      />,
+    );
+
+    expect(document.activeElement).toBe(screen.getByTestId('gql-tab-t2'));
+  });
+
+  it('Delete does not close a demo tab or unknown key paths', () => {
+    const onTabClose = vi.fn();
+    render(
+      <GqlTabBar
+        {...defaultProps}
+        tabs={[makeTab('user-1'), makeTab('demo-1', { demoLessonId: 'lesson-1' })]}
+        activeTabId="demo-1"
+        onTabClose={onTabClose}
+      />,
+    );
+
+    const demoTab = screen.getByTestId('gql-tab-demo-1');
+    fireEvent.keyDown(demoTab, { key: 'Delete' });
+    fireEvent.keyDown(demoTab, { key: 'A' });
+    expect(onTabClose).not.toHaveBeenCalled();
+  });
+
+  it('F2 starts rename from keyboard when rename is enabled', () => {
+    render(<GqlTabBar {...defaultProps} onRenameTab={vi.fn()} />);
+    const tab1 = screen.getByTestId('gql-tab-t1');
+    fireEvent.keyDown(tab1, { key: 'F2' });
+    expect(screen.getByTestId('gql-tab-rename-t1')).toBeInTheDocument();
+  });
+
   describe('batch mode', () => {
     it('renders read-only batch badge on included tabs', () => {
       render(
@@ -256,6 +346,165 @@ describe('GqlTabBar', () => {
       render(<GqlTabBar {...defaultProps} />);
       fireEvent.doubleClick(screen.getByTestId('gql-tab-t1').querySelector('.gql-tab-label')!);
       expect(screen.queryByTestId('gql-tab-rename-t1')).toBeNull();
+    });
+
+    it('does not commit blank rename values on blur', () => {
+      const onRenameTab = vi.fn();
+      render(<GqlTabBar {...defaultProps} onRenameTab={onRenameTab} />);
+      fireEvent.doubleClick(screen.getByTestId('gql-tab-t1').querySelector('.gql-tab-label')!);
+      const input = screen.getByTestId('gql-tab-rename-t1') as HTMLInputElement;
+      fireEvent.change(input, { target: { value: '   ' } });
+      fireEvent.blur(input);
+      expect(onRenameTab).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('duplicate controls', () => {
+    it('calls onDuplicateTab from the duplicate button when below cap', () => {
+      const onDuplicateTab = vi.fn();
+      render(<GqlTabBar {...defaultProps} onDuplicateTab={onDuplicateTab} />);
+      fireEvent.click(screen.getByTestId('gql-tab-duplicate-t1'));
+      expect(onDuplicateTab).toHaveBeenCalledWith('t1');
+    });
+
+    it('marks duplicate button disabled and blocks click when at cap', () => {
+      const onDuplicateTab = vi.fn();
+      const maxUserTabs = Array.from({ length: 7 }, (_, i) => makeTab(`t${i + 1}`));
+      render(<GqlTabBar {...defaultProps} tabs={maxUserTabs} onDuplicateTab={onDuplicateTab} />);
+      const duplicate = screen.getByTestId('gql-tab-duplicate-t1');
+      expect(duplicate).toHaveAttribute('aria-disabled', 'true');
+      fireEvent.click(duplicate);
+      expect(onDuplicateTab).not.toHaveBeenCalled();
+    });
+
+    it('hides duplicate button for demo tabs', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          onDuplicateTab={vi.fn()}
+          tabs={[makeTab('user-1'), makeTab('demo-1', { demoLessonId: 'lesson-1' })]}
+        />,
+      );
+      expect(screen.getByTestId('gql-tab-duplicate-user-1')).toBeInTheDocument();
+      expect(screen.queryByTestId('gql-tab-duplicate-demo-1')).toBeNull();
+    });
+
+    it('executes drag-and-drop tab handlers for non-demo tabs', () => {
+      render(<GqlTabBar {...defaultProps} tabs={[makeTab('t1'), makeTab('t2')]} />);
+      const tab1 = screen.getByTestId('gql-tab-t1');
+      const tab2 = screen.getByTestId('gql-tab-t2');
+      const getBoundingClientRect = vi.spyOn(tab2, 'getBoundingClientRect').mockReturnValue({
+        x: 0,
+        y: 0,
+        top: 0,
+        left: 0,
+        right: 200,
+        bottom: 40,
+        width: 200,
+        height: 40,
+        toJSON: () => ({}),
+      });
+      const dataTransfer = {
+        effectAllowed: 'move',
+        dropEffect: 'move',
+        types: ['text/x-gql-tab-index'],
+        setData: vi.fn(),
+        getData: vi.fn(() => '0'),
+      };
+
+      fireEvent.dragStart(tab1, {
+        dataTransfer,
+      });
+      fireEvent.dragOver(tab2, {
+        dataTransfer,
+        clientX: 180,
+      });
+      fireEvent.dragLeave(tab2);
+      fireEvent.drop(tab2, {
+        dataTransfer,
+        clientX: 180,
+      });
+      fireEvent.dragEnd(tab1);
+
+      expect(tab1).toBeInTheDocument();
+      expect(tab2).toBeInTheDocument();
+      getBoundingClientRect.mockRestore();
+    });
+  });
+
+  describe('context menu actions', () => {
+    it('opens the context menu and dispatches rename, duplicate, copy, close, close-others, and close-right', () => {
+      const onRenameTab = vi.fn();
+      const onDuplicateTab = vi.fn();
+      const onCloseOtherTabs = vi.fn();
+      const onCloseTabsToRight = vi.fn();
+      const onTabClose = vi.fn();
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          tabs={[makeTab('t1'), makeTab('t2'), makeTab('t3')]}
+          onRenameTab={onRenameTab}
+          onDuplicateTab={onDuplicateTab}
+          onCloseOtherTabs={onCloseOtherTabs}
+          onCloseTabsToRight={onCloseTabsToRight}
+          onTabClose={onTabClose}
+        />,
+      );
+
+      fireEvent.contextMenu(screen.getByTestId('gql-tab-t2'));
+      fireEvent.click(screen.getByTestId('studio-tab-ctx-rename'));
+      expect(screen.getByTestId('gql-tab-rename-t2')).toBeInTheDocument();
+
+      fireEvent.contextMenu(screen.getByTestId('gql-tab-t2'));
+      fireEvent.click(screen.getByTestId('studio-tab-ctx-duplicate'));
+      expect(onDuplicateTab).toHaveBeenCalledWith('t2');
+
+      fireEvent.contextMenu(screen.getByTestId('gql-tab-t2'));
+      fireEvent.click(screen.getByTestId('studio-tab-ctx-copy-label'));
+      expect(navigator.clipboard.writeText).toHaveBeenCalled();
+
+      fireEvent.contextMenu(screen.getByTestId('gql-tab-t2'));
+      fireEvent.click(screen.getByTestId('studio-tab-ctx-close'));
+      expect(onTabClose).toHaveBeenCalledWith('t2', expect.any(Object));
+
+      fireEvent.contextMenu(screen.getByTestId('gql-tab-t2'));
+      fireEvent.click(screen.getByTestId('studio-tab-ctx-close-others'));
+      expect(onCloseOtherTabs).toHaveBeenCalledWith('t2');
+
+      fireEvent.contextMenu(screen.getByTestId('gql-tab-t2'));
+      fireEvent.click(screen.getByTestId('studio-tab-ctx-close-right'));
+      expect(onCloseTabsToRight).toHaveBeenCalledWith('t2');
+    });
+
+    it('disables duplicate and close actions in the menu for demo tabs', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          tabs={[makeTab('user-1'), makeTab('demo-1', { demoLessonId: 'lesson-1' })]}
+          activeTabId="demo-1"
+          onDuplicateTab={vi.fn()}
+        />,
+      );
+
+      fireEvent.contextMenu(screen.getByTestId('gql-tab-demo-1'));
+      expect(screen.getByTestId('studio-tab-ctx-duplicate')).toBeDisabled();
+      expect(screen.getByTestId('studio-tab-ctx-close')).toBeDisabled();
+    });
+
+    it('disables close-right for the last tab and duplicate when the user tab cap is reached', () => {
+      const maxUserTabs = Array.from({ length: 7 }, (_, i) => makeTab(`t${i + 1}`));
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          tabs={maxUserTabs}
+          activeTabId="t7"
+          onDuplicateTab={vi.fn()}
+        />,
+      );
+
+      fireEvent.contextMenu(screen.getByTestId('gql-tab-t7'));
+      expect(screen.getByTestId('studio-tab-ctx-duplicate')).toBeDisabled();
+      expect(screen.getByTestId('studio-tab-ctx-close-right')).toBeDisabled();
     });
   });
 
@@ -426,6 +675,20 @@ describe('GqlTabBar', () => {
       );
       const dot = screen.getByTestId('gql-tab-auth-dot-t2');
       expect(dot.className).toContain('gql-tab-auth-dot--override');
+    });
+
+    it('treats explicit no-auth tab auth as an override dot in the tab bar', () => {
+      render(
+        <GqlTabBar
+          {...defaultProps}
+          tabs={[
+            makeTab('t1'),
+            makeTab('t2', { auth: { type: 'none' } as GqlStudioTab['auth'] }),
+          ]}
+          activeTabId="t2"
+        />,
+      );
+      expect(screen.getByTestId('gql-tab-auth-dot-t2')).toHaveAttribute('aria-label', 'Tab auth override');
     });
   });
 });
