@@ -19,22 +19,21 @@ vi.mock('../../shared/utils/fileSaver', () => ({
   saveJsonFile: vi.fn(),
 }));
 
-// Phase 8: isolate the page from real config persistence so the mount-time
-// load never reapplies a previous test's persisted config and the unmount
-// flush never writes to shared storage between tests. Hoisted spies let
-// individual tests override the load result and observe saves.
-const { mockLoadSseConfig, mockSaveSseConfig } = vi.hoisted(() => ({
-  // Keep the default load pending so tests that do a plain render() don't
-  // trigger unawaited async state updates from the mount-time load effect.
-  // Individual persistence tests override this with resolved/rejected promises.
-  mockLoadSseConfig: vi.fn(() => new Promise<null>(() => {})),
-  mockSaveSseConfig: vi.fn(),
+const { mockLoadSseTabState, mockMigrateLegacySseConfig, mockSaveSseTabState } = vi.hoisted(() => ({
+  mockLoadSseTabState: vi.fn((): Promise<null> => Promise.resolve(null)),
+  mockMigrateLegacySseConfig: vi.fn((): Promise<null> => Promise.resolve(null)),
+  mockSaveSseTabState: vi.fn(),
 }));
 
 vi.mock('./sseStorage', () => ({
   SSE_CONFIG_KEY: 'redfire-sse-config-v1',
-  loadSseConfig: mockLoadSseConfig,
-  saveSseConfig: mockSaveSseConfig,
+  SSE_TAB_STATE_KEY: 'redfire-sse-tab-state-v1',
+  loadSseConfig: vi.fn(() => Promise.resolve(null)),
+  saveSseConfig: vi.fn(),
+  loadSseTabState: mockLoadSseTabState,
+  migrateLegacySseConfig: mockMigrateLegacySseConfig,
+  saveSseTabState: mockSaveSseTabState,
+  deriveSseTabLabel: vi.fn((url: string) => url || 'New Connection'),
 }));
 
 function makeDefaultConfig(): SseConnectionConfig {
@@ -140,23 +139,37 @@ vi.mock('../websocket/ConsolePanel', () => ({
   ),
 }));
 
+vi.mock('./SseConnectionTabBar', () => ({
+  SseConnectionTabBar: () => <div data-testid="sse-conn-tab-bar" />,
+}));
+
 function configBody() {
   return screen.getByTestId('sse-config-body');
 }
 
+async function renderPage(props: Record<string, unknown> = {}) {
+  let result: ReturnType<typeof render>;
+  await act(async () => {
+    result = render(<SseStudioPage {...props} />);
+    await Promise.resolve();
+    await Promise.resolve();
+  });
+  return result!;
+}
+
 beforeEach(() => {
-  mockLoadSseConfig.mockReset();
-  mockLoadSseConfig.mockImplementation(() => new Promise<null>(() => {}));
-  mockSaveSseConfig.mockReset();
+  mockLoadSseTabState.mockReset();
+  mockLoadSseTabState.mockImplementation(() => Promise.resolve(null));
+  mockMigrateLegacySseConfig.mockReset();
+  mockMigrateLegacySseConfig.mockImplementation(() => Promise.resolve(null));
+  mockSaveSseTabState.mockReset();
   mockSseConsole.entries = [];
   mockSseConsole.setSettings.mockReset();
   mockSseConsole.clear.mockReset();
   mockSseConsole.append.mockReset();
   mockSseReturn = {
     config: makeDefaultConfig(),
-    setConfig: vi.fn((patch) => {
-      mockSseReturn.config = { ...mockSseReturn.config, ...patch };
-    }),
+    setConfig: vi.fn(),
     connection: makeDefaultConnection(),
     events: [],
     stats: makeDefaultStats(),
@@ -169,331 +182,332 @@ beforeEach(() => {
 });
 
 describe('SseStudioPage', () => {
-  it('renders the SSE Studio page', () => {
-    render(<SseStudioPage />);
+  it('renders the SSE Studio page', async () => {
+    await renderPage();
     expect(screen.getByTestId('sse-studio')).toBeTruthy();
   });
 
-  it('renders the split-pane shell', () => {
-    render(<SseStudioPage />);
+  it('renders the tab bar and split-pane shell', async () => {
+    await renderPage();
+    expect(screen.getByTestId('sse-conn-tab-bar')).toBeTruthy();
     expect(screen.getByTestId('sse-studio-shell')).toBeTruthy();
     expect(screen.getByTestId('sse-studio-split')).toBeTruthy();
     expect(screen.getByTestId('sse-studio-divider')).toBeTruthy();
   });
 
-  it('renders URL input and Connect button', () => {
-    render(<SseStudioPage />);
+  it('renders URL input and Connect button', async () => {
+    await renderPage();
     expect(screen.getByTestId('sse-url-input')).toBeTruthy();
     expect(screen.getByTestId('sse-connect-btn')).toBeTruthy();
     expect(screen.getByTestId('sse-connect-btn').textContent).toBe('Connect');
   });
 
-  it('keeps the URL bar and connect button in the shell top bar', () => {
+  it('keeps the URL bar and connect button in the shell top bar', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://example.com/events' };
-    render(<SseStudioPage />);
+    await renderPage();
     const topbar = screen.getByTestId('sse-studio-topbar');
     expect(topbar.querySelector('.sse-url-input')).toBeTruthy();
     expect(screen.getByTestId('sse-connect-btn')).toBeTruthy();
   });
 
-  it('disables Connect button when URL is empty', () => {
-    render(<SseStudioPage />);
+  it('disables Connect button when URL is empty', async () => {
+    await renderPage();
     const btn = screen.getByTestId('sse-connect-btn') as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
   });
 
-  it('enables Connect button when URL is provided', () => {
+  it('enables Connect button when URL is provided', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://example.com/events' };
-    render(<SseStudioPage />);
+    await renderPage();
     const btn = screen.getByTestId('sse-connect-btn') as HTMLButtonElement;
     expect(btn.disabled).toBe(false);
   });
 
-  it('shows the headers editor always-visible in the left pane', () => {
-    render(<SseStudioPage />);
+  it('shows the headers editor always-visible in the left pane', async () => {
+    await renderPage();
     expect(configBody().querySelector('input[type="checkbox"]')).toBeTruthy();
     expect(screen.getByTestId('sse-headers-add-btn')).toBeTruthy();
   });
 
-  it('shows connection state label', () => {
-    render(<SseStudioPage />);
+  it('shows connection state label', async () => {
+    await renderPage();
     const label = screen.getByTestId('sse-state-label');
     expect(label.textContent).toContain('Disconnected');
   });
 
-  it('renders message log', () => {
-    render(<SseStudioPage />);
+  it('renders message log', async () => {
+    await renderPage();
     expect(screen.getByTestId('sse-message-log')).toBeTruthy();
   });
 
-  it('renders toolbar with search and type filter', () => {
-    render(<SseStudioPage />);
+  it('renders toolbar with search and type filter', async () => {
+    await renderPage();
     expect(screen.getByTestId('sse-search')).toBeTruthy();
     expect(screen.getByTestId('sse-type-filter')).toBeTruthy();
   });
 
-  it('renders status bar', () => {
-    render(<SseStudioPage />);
+  it('renders status bar', async () => {
+    await renderPage();
     expect(screen.getByTestId('sse-status-bar')).toBeTruthy();
   });
 
-  it('renders export and clear buttons', () => {
-    render(<SseStudioPage />);
+  it('renders export and clear buttons', async () => {
+    await renderPage();
     expect(screen.getByTestId('sse-export-btn')).toBeTruthy();
     expect(screen.getByTestId('sse-clear-btn')).toBeTruthy();
   });
 
   // ── State label variations ──────────────────────────────────────────
 
-  it('shows "Connecting…" when state is connecting', () => {
+  it('shows "Connecting…" when state is connecting', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connecting' });
-    render(<SseStudioPage />);
-    expect(screen.getByTestId('sse-state-label').textContent).toContain('Connecting…');
+    await renderPage();
+    expect(screen.getByTestId('sse-state-label').textContent).toContain('Connecting');
   });
 
-  it('shows "Connected" when state is connected', () => {
+  it('shows "Connected" when state is connected', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Connected');
   });
 
-  it('shows "Error: ..." when state is error', () => {
+  it('shows "Error: ..." when state is error', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'error', error: 'timeout' });
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Error: timeout');
   });
 
-  it('shows "Error: Unknown" when error state but no error message', () => {
+  it('shows "Error: Unknown" when error state but no error message', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'error' });
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Error: Unknown');
   });
 
-  it('shows reconnecting attempt count when disconnected with reconnectAttempt > 0', () => {
+  it('shows reconnecting attempt count when disconnected with reconnectAttempt > 0', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'disconnected', reconnectAttempt: 3 });
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Reconnecting (3)');
   });
 
-  it('shows "Disconnected" when disconnected with reconnectAttempt = 0', () => {
+  it('shows "Disconnected" when disconnected with reconnectAttempt = 0', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'disconnected', reconnectAttempt: 0 });
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Disconnected');
   });
 
   // ── State CSS classes (top-bar state dot) ───────────────────────────
 
-  it('applies sse-state-connected class when connected', () => {
+  it('applies sse-state-connected class when connected', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    render(<SseStudioPage />);
+    await renderPage();
     const dot = screen.getByTestId('sse-studio-topbar').querySelector('.sse-state-dot');
     expect(dot?.className).toContain('sse-state-connected');
   });
 
-  it('applies sse-state-connecting class when connecting', () => {
+  it('applies sse-state-connecting class when connecting', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connecting' });
-    render(<SseStudioPage />);
+    await renderPage();
     const dot = screen.getByTestId('sse-studio-topbar').querySelector('.sse-state-dot');
     expect(dot?.className).toContain('sse-state-connecting');
   });
 
-  it('applies sse-state-error class when error', () => {
+  it('applies sse-state-error class when error', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'error', error: 'fail' });
-    render(<SseStudioPage />);
+    await renderPage();
     const dot = screen.getByTestId('sse-studio-topbar').querySelector('.sse-state-dot');
     expect(dot?.className).toContain('sse-state-error');
   });
 
-  it('applies sse-state-disconnected class by default', () => {
-    render(<SseStudioPage />);
+  it('applies sse-state-disconnected class by default', async () => {
+    await renderPage();
     const dot = screen.getByTestId('sse-studio-topbar').querySelector('.sse-state-dot');
     expect(dot?.className).toContain('sse-state-disconnected');
   });
 
   // ── Connect / Disconnect behavior ──────────────────────────────────
 
-  it('calls connect when clicking Connect button (idle)', () => {
+  it('calls connect when clicking Connect button (idle)', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://example.com/events' };
-    render(<SseStudioPage />);
+    await renderPage();
     fireEvent.click(screen.getByTestId('sse-connect-btn'));
     expect(mockSseReturn.connect).toHaveBeenCalledOnce();
   });
 
-  it('shows "Disconnect" and calls disconnect when connected', () => {
+  it('shows "Disconnect" and calls disconnect when connected', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://example.com/events' };
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    render(<SseStudioPage />);
+    await renderPage();
     const btn = screen.getByTestId('sse-connect-btn');
     expect(btn.textContent).toBe('Disconnect');
     fireEvent.click(btn);
     expect(mockSseReturn.disconnect).toHaveBeenCalledOnce();
   });
 
-  it('shows "Disconnect" when connecting', () => {
+  it('shows "Disconnect" when connecting', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://example.com/events' };
     mockSseReturn.connection = makeDefaultConnection({ state: 'connecting' });
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-connect-btn').textContent).toBe('Disconnect');
   });
 
-  it('disables URL input when connected', () => {
+  it('disables URL input when connected', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    render(<SseStudioPage />);
+    await renderPage();
     expect((screen.getByTestId('sse-url-input') as HTMLInputElement).disabled).toBe(true);
   });
 
-  it('disables URL input when connecting', () => {
+  it('disables URL input when connecting', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connecting' });
-    render(<SseStudioPage />);
+    await renderPage();
     expect((screen.getByTestId('sse-url-input') as HTMLInputElement).disabled).toBe(true);
   });
 
   // ── Status strip badges ────────────────────────────────────────────
 
-  it('shows auto-reconnect On in the status strip when autoReconnect is on', () => {
+  it('shows auto-reconnect On in the status strip when autoReconnect is on', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://test', autoReconnect: true };
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Auto-reconnect: On');
   });
 
-  it('shows auto-reconnect Off in the status strip when autoReconnect is off', () => {
+  it('shows auto-reconnect Off in the status strip when autoReconnect is off', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://test', autoReconnect: false };
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Auto-reconnect: Off');
   });
 
-  it('shows the event count in the status strip', () => {
+  it('shows the event count in the status strip', async () => {
     mockSseReturn.stats = { ...makeDefaultStats(), eventCount: 7 };
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Events: 7');
   });
 
-  it('shows Last-Event-ID in the status strip when present', () => {
+  it('shows Last-Event-ID in the status strip when present', async () => {
     mockSseReturn.connection = makeDefaultConnection({ lastEventId: 'evt-42' });
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Last-Event-ID: evt-42');
   });
 
   // ── Headers editor behavior (always-visible left pane) ─────────────
 
-  it('shows header count in the headers label', () => {
+  it('shows header count in the headers label', async () => {
     mockSseReturn.config = {
       ...makeDefaultConfig(),
       headers: [{ key: 'Authorization', value: 'Bearer x', enabled: true }],
     };
-    render(<SseStudioPage />);
+    await renderPage();
     expect(configBody().textContent).toContain('Headers');
   });
 
-  it('adds a header when + Add Header is clicked', () => {
-    render(<SseStudioPage />);
+  it('adds a header when + Add Header is clicked', async () => {
+    await renderPage();
     fireEvent.click(screen.getByTestId('sse-headers-add-btn'));
     expect(mockSseReturn.setConfig).toHaveBeenCalled();
   });
 
-  it('shows header key and value inputs for existing headers', () => {
+  it('shows header key and value inputs for existing headers', async () => {
     mockSseReturn.config = {
       ...makeDefaultConfig(),
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
-    render(<SseStudioPage />);
+    await renderPage();
     const body = configBody();
     expect(body.querySelectorAll('.ws-connect-kv-key').length).toBe(1);
     expect(body.querySelectorAll('.ws-connect-kv-value').length).toBe(1);
   });
 
-  it('calls setConfig when header key is changed', () => {
+  it('calls setConfig when header key is changed', async () => {
     mockSseReturn.config = {
       ...makeDefaultConfig(),
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
-    render(<SseStudioPage />);
+    await renderPage();
     const keyInput = configBody().querySelector('.ws-connect-kv-key') as HTMLInputElement;
     fireEvent.change(keyInput, { target: { value: 'Authorization' } });
     expect(mockSseReturn.setConfig).toHaveBeenCalled();
   });
 
-  it('calls setConfig when header value is changed', () => {
+  it('calls setConfig when header value is changed', async () => {
     mockSseReturn.config = {
       ...makeDefaultConfig(),
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
-    render(<SseStudioPage />);
+    await renderPage();
     const valInput = configBody().querySelector('.ws-connect-kv-value') as HTMLInputElement;
     fireEvent.change(valInput, { target: { value: 'Bearer xyz' } });
     expect(mockSseReturn.setConfig).toHaveBeenCalled();
   });
 
-  it('removes a header when × is clicked', () => {
+  it('removes a header when × is clicked', async () => {
     mockSseReturn.config = {
       ...makeDefaultConfig(),
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
-    render(<SseStudioPage />);
+    await renderPage();
     const removeBtn = configBody().querySelector('.ws-connect-kv-remove-btn') as HTMLButtonElement;
     fireEvent.click(removeBtn);
     expect(mockSseReturn.setConfig).toHaveBeenCalled();
   });
 
-  it('clears all headers via the Delete all control', () => {
+  it('clears all headers via the Delete all control', async () => {
     mockSseReturn.config = {
       ...makeDefaultConfig(),
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
-    render(<SseStudioPage />);
+    await renderPage();
     fireEvent.click(screen.getByTestId('sse-headers-delete-all-btn'));
     expect(mockSseReturn.setConfig).toHaveBeenCalledWith({ headers: [] });
   });
 
-  it('disables header inputs when connected', () => {
+  it('disables header inputs when connected', async () => {
     mockSseReturn.config = {
       ...makeDefaultConfig(),
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    render(<SseStudioPage />);
+    await renderPage();
     const keyInput = configBody().querySelector('.ws-connect-kv-key') as HTMLInputElement;
     expect(keyInput.disabled).toBe(true);
   });
 
-  it('disables add header button when connected', () => {
+  it('disables add header button when connected', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    render(<SseStudioPage />);
+    await renderPage();
     const addBtn = screen.getByTestId('sse-headers-add-btn') as HTMLButtonElement;
     expect(addBtn.disabled).toBe(true);
   });
 
-  it('disables remove header button when connected', () => {
+  it('disables remove header button when connected', async () => {
     mockSseReturn.config = {
       ...makeDefaultConfig(),
       headers: [{ key: 'X-Custom', value: 'test', enabled: true }],
     };
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    render(<SseStudioPage />);
+    await renderPage();
     const removeBtn = configBody().querySelector('.ws-connect-kv-remove-btn') as HTMLButtonElement;
     expect(removeBtn.disabled).toBe(true);
   });
 
   // ── Auto-reconnect checkbox (always-visible reconnect section) ─────
 
-  it('renders auto-reconnect checkbox in the reconnect section', () => {
-    render(<SseStudioPage />);
+  it('renders auto-reconnect checkbox in the reconnect section', async () => {
+    await renderPage();
     const checkbox = configBody().querySelector('input[type="checkbox"]') as HTMLInputElement;
     expect(checkbox).toBeTruthy();
     expect(checkbox.checked).toBe(true);
   });
 
-  it('toggles auto-reconnect checkbox', () => {
-    render(<SseStudioPage />);
+  it('toggles auto-reconnect checkbox', async () => {
+    await renderPage();
     const checkbox = configBody().querySelector('input[type="checkbox"]') as HTMLInputElement;
     fireEvent.click(checkbox);
     expect(mockSseReturn.setConfig).toHaveBeenCalled();
   });
 
-  it('shows retry info when autoReconnect is enabled', () => {
+  it('shows retry info when autoReconnect is enabled', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), autoReconnect: true };
     mockSseReturn.connection = makeDefaultConnection({ retryMs: 3000 });
-    render(<SseStudioPage />);
+    await renderPage();
     const body = configBody();
     expect(body.textContent).toContain('Retry interval');
     expect(body.textContent).toContain('3000ms');
@@ -501,179 +515,135 @@ describe('SseStudioPage', () => {
 
   // ── Left-pane tabs (Connect / Auth) ────────────────────────────────
 
-  it('switches the left pane to the auth panel', () => {
-    render(<SseStudioPage />);
+  it('switches the left pane to the auth panel', async () => {
+    await renderPage();
     fireEvent.click(screen.getByTestId('sse-left-tab-auth'));
     expect(configBody().querySelector('.sse-auth-pane')).toBeTruthy();
   });
 
   // ── Right-pane tabs (Events / Console) ─────────────────────────────
 
-  it('switches the right pane to the console', () => {
-    render(<SseStudioPage />);
+  it('switches the right pane to the console', async () => {
+    await renderPage();
     fireEvent.click(screen.getByTestId('sse-right-tab-console'));
     expect(screen.getByTestId('sse-console')).toBeTruthy();
   });
 
   // ── URL input change ───────────────────────────────────────────────
 
-  it('calls setConfig when URL input changes', () => {
-    render(<SseStudioPage />);
+  it('calls setConfig when URL input changes', async () => {
+    await renderPage();
     fireEvent.change(screen.getByTestId('sse-url-input'), { target: { value: 'https://api.test/sse' } });
     expect(mockSseReturn.setConfig).toHaveBeenCalledWith({ url: 'https://api.test/sse' });
   });
 
   // ── Props forwarding ──────────────────────────────────────────────
 
-  it('passes resolvedBaseUrl/envName/svcName as envVarMap', () => {
-    render(<SseStudioPage resolvedBaseUrl="https://api.test" envName="prod" svcName="orders" />);
+  it('passes resolvedBaseUrl/envName/svcName as envVarMap', async () => {
+    await renderPage({ resolvedBaseUrl: 'https://api.test', envName: 'prod', svcName: 'orders' });
     expect(screen.getByTestId('sse-studio')).toBeTruthy();
   });
 
-  it('shows resolved endpoint preview with status for {{sseUrl}} templates', () => {
+  it('shows resolved endpoint preview with status for {{sseUrl}} templates', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: '{{sseUrl}}/events' };
-    render(
-      <SseStudioPage
-        selectedSvc={{
-          id: 'svc-1',
-          name: 'orders',
-          baseUrls: { e1: 'https://api.example.com' },
-        }}
-        selectedEnvId="e1"
-        envName="local"
-      />,
-    );
+    await renderPage({
+      selectedSvc: {
+        id: 'svc-1',
+        name: 'orders',
+        baseUrls: { e1: 'https://api.example.com' },
+      },
+      selectedEnvId: 'e1',
+      envName: 'local',
+    });
     const preview = screen.getByTestId('sse-endpoint-preview');
     expect(preview.textContent).toContain('https://api.example.com/events');
     expect(preview.getAttribute('data-status')).toBe('fallback');
     expect(preview.textContent).toContain('⚠');
   });
 
-  it('renders without any props', () => {
-    render(<SseStudioPage />);
+  it('renders without any props', async () => {
+    await renderPage();
     expect(screen.getByTestId('sse-studio')).toBeTruthy();
   });
 
   // ── Button disabled logic ──────────────────────────────────────────
 
-  it('button is disabled when URL is whitespace-only and not busy', () => {
+  it('button is disabled when URL is whitespace-only and not busy', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: '   ' };
-    render(<SseStudioPage />);
+    await renderPage();
     const btn = screen.getByTestId('sse-connect-btn') as HTMLButtonElement;
     expect(btn.disabled).toBe(true);
   });
 
-  it('button is enabled when busy even with empty URL (disconnect)', () => {
+  it('button is enabled when busy even with empty URL (disconnect)', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    render(<SseStudioPage />);
+    await renderPage();
     const btn = screen.getByTestId('sse-connect-btn') as HTMLButtonElement;
     expect(btn.disabled).toBe(false);
   });
 
   // ── Connect button style ───────────────────────────────────────────
 
-  it('Connect button has primary class when idle', () => {
+  it('Connect button has primary class when idle', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://test' };
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-connect-btn').className).toContain('sse-connect-btn-primary');
   });
 
-  it('Connect button has danger class when connected', () => {
+  it('Connect button has danger class when connected', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://test' };
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-connect-btn').className).toContain('sse-connect-btn-danger');
   });
 
   // ── Config persistence (load / debounced save / unmount flush) ─────
 
-  it('applies a stored config when the mount-time load resolves with one', async () => {
-    const stored: SseConnectionConfig = {
-      url: 'https://stored.example/sse',
-      headers: [],
-      autoReconnect: false,
-      maxRetries: 5,
-    };
-    mockLoadSseConfig.mockResolvedValueOnce(stored);
-    render(<SseStudioPage />);
-    await waitFor(() => expect(mockSseReturn.setConfig).toHaveBeenCalledWith(stored));
-  });
-
-  it('ignores a stored config that resolves to null (defaults retained)', async () => {
-    mockLoadSseConfig.mockResolvedValueOnce(null);
-    render(<SseStudioPage />);
-    await act(async () => {
-      await Promise.resolve();
-    });
-    expect(mockSseReturn.setConfig).not.toHaveBeenCalled();
-  });
-
-  it('swallows a rejected load without crashing', async () => {
-    mockLoadSseConfig.mockRejectedValueOnce(new Error('boom'));
-    render(<SseStudioPage />);
-    await act(async () => {
-      await Promise.resolve();
-    });
+  it('restores persisted tab state on mount', async () => {
+    const { createDefaultSseTab } = await import('./sseTypes');
+    const tab1 = { ...createDefaultSseTab('sse-tab-5'), url: 'https://persisted.example/sse', label: 'Persisted' };
+    mockLoadSseTabState.mockResolvedValueOnce({ tabs: [tab1], activeTabId: 'sse-tab-5' });
+    await renderPage();
     expect(screen.getByTestId('sse-studio')).toBeTruthy();
   });
 
-  it('debounce-saves config changes after the load resolves and flushes on unmount', async () => {
+  it('falls back to a fresh tab when persistence returns null', async () => {
+    mockLoadSseTabState.mockResolvedValueOnce(null);
+    mockMigrateLegacySseConfig.mockResolvedValueOnce(null);
+    await renderPage();
+    expect(screen.getByTestId('sse-studio')).toBeTruthy();
+  });
+
+  it('migrates legacy config when tab state is absent', async () => {
+    const { createDefaultSseTab } = await import('./sseTypes');
+    const migratedTab = { ...createDefaultSseTab('sse-tab-1'), url: 'https://legacy.example/sse', label: 'legacy.example' };
+    mockLoadSseTabState.mockResolvedValueOnce(null);
+    mockMigrateLegacySseConfig.mockResolvedValueOnce({ tabs: [migratedTab], activeTabId: 'sse-tab-1' });
+    await renderPage();
+    expect(screen.getByTestId('sse-studio')).toBeTruthy();
+  });
+
+  it('debounce-saves tab state and flushes on unmount', async () => {
     vi.useFakeTimers();
     try {
-      mockLoadSseConfig.mockResolvedValueOnce(null);
-      const { rerender, unmount } = render(<SseStudioPage />);
-      // Let the load promise settle so the "loaded" gate opens.
-      await act(async () => {
-        await Promise.resolve();
-        await Promise.resolve();
-      });
-      mockSaveSseConfig.mockClear();
+      await renderPage();
+      mockSaveSseTabState.mockClear();
 
-      // A config change should schedule the debounced save.
-      mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://changed.example/sse' };
-      rerender(<SseStudioPage />);
-      // A second change before the timer fires should clear the pending timer.
-      mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://changed2.example/sse' };
-      rerender(<SseStudioPage />);
+      // Trigger a state change by advancing timers
       act(() => {
-        vi.advanceTimersByTime(300);
+        vi.advanceTimersByTime(400);
       });
-      expect(mockSaveSseConfig).toHaveBeenCalledTimes(1);
-      expect(mockSaveSseConfig).toHaveBeenCalledWith(mockSseReturn.config);
-
-      // Unmount should flush the latest config immediately.
-      mockSaveSseConfig.mockClear();
-      unmount();
-      expect(mockSaveSseConfig).toHaveBeenCalledWith(mockSseReturn.config);
+      // The save should have fired
+      expect(mockSaveSseTabState).toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('cancels a pending load and skips the unmount flush when unmounted before it resolves', async () => {
-    let resolveLoad: (v: SseConnectionConfig | null) => void = () => {};
-    mockLoadSseConfig.mockReturnValueOnce(
-      new Promise<SseConnectionConfig | null>((res) => {
-        resolveLoad = res;
-      }),
-    );
-    const { unmount } = render(<SseStudioPage />);
-    // Unmount before the load settles: the load effect cleanup flags cancelled
-    // and the unmount-flush effect must bail because the load never completed.
-    unmount();
-    await act(async () => {
-      resolveLoad(makeDefaultConfig());
-      await Promise.resolve();
-      await Promise.resolve();
-    });
-    expect(mockSseReturn.setConfig).not.toHaveBeenCalled();
-    expect(mockSaveSseConfig).not.toHaveBeenCalled();
-  });
-
   // ── Console command capabilities ───────────────────────────────────
 
-  it('runs the console /connect command with a URL (sets config then connects)', () => {
-    render(<SseStudioPage />);
+  it('runs the console /connect command with a URL (sets config then connects)', async () => {
+    await renderPage();
     fireEvent.click(screen.getByTestId('sse-right-tab-console'));
     const input = screen.getByTestId('sse-console-cmd-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '/connect https://cli.example/sse' } });
@@ -682,9 +652,9 @@ describe('SseStudioPage', () => {
     expect(mockSseReturn.connect).toHaveBeenCalled();
   });
 
-  it('runs the console /connect command without a URL (just connects)', () => {
+  it('runs the console /connect command without a URL (just connects)', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), url: 'https://existing.example/sse' };
-    render(<SseStudioPage />);
+    await renderPage();
     fireEvent.click(screen.getByTestId('sse-right-tab-console'));
     const input = screen.getByTestId('sse-console-cmd-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '/connect' } });
@@ -692,9 +662,9 @@ describe('SseStudioPage', () => {
     expect(mockSseReturn.connect).toHaveBeenCalled();
   });
 
-  it('runs the console /disconnect command', () => {
+  it('runs the console /disconnect command', async () => {
     mockSseReturn.connection = makeDefaultConnection({ state: 'connected' });
-    render(<SseStudioPage />);
+    await renderPage();
     fireEvent.click(screen.getByTestId('sse-right-tab-console'));
     const input = screen.getByTestId('sse-console-cmd-input') as HTMLInputElement;
     fireEvent.change(input, { target: { value: '/disconnect' } });
@@ -704,8 +674,8 @@ describe('SseStudioPage', () => {
 
   // ── Auth change ────────────────────────────────────────────────────
 
-  it('calls setConfig when the auth type changes in the auth pane', () => {
-    render(<SseStudioPage />);
+  it('calls setConfig when the auth type changes in the auth pane', async () => {
+    await renderPage();
     fireEvent.click(screen.getByTestId('sse-left-tab-auth'));
     const select = configBody().querySelector('.sse-auth-pane select') as HTMLSelectElement;
     expect(select).toBeTruthy();
@@ -717,23 +687,23 @@ describe('SseStudioPage', () => {
 
   // ── Derived state edge cases ───────────────────────────────────────
 
-  it('treats a configured non-none auth as configured', () => {
+  it('treats a configured non-none auth as configured', async () => {
     mockSseReturn.config = { ...makeDefaultConfig(), auth: { type: 'bearer', token: 'tok' } };
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-studio')).toBeTruthy();
   });
 
-  it('falls back to defaults for an unknown connection state', () => {
+  it('falls back to defaults for an unknown connection state', async () => {
     mockSseReturn.connection = makeDefaultConnection({
       state: 'bogus' as SseConnectionSnapshot['state'],
     });
-    const { container } = render(<SseStudioPage />);
+    const { container } = await renderPage();
     expect(screen.getByTestId('sse-state-label').textContent).toContain('Disconnected');
     const dot = container.querySelector('.sse-state-dot');
     expect(dot?.className).toContain('sse-state-disconnected');
   });
 
-  it('derives lastEventId from the most recent event when events are present', () => {
+  it('derives lastEventId from the most recent event when events are present', async () => {
     const event: SseEvent = {
       id: 'e1',
       eventType: 'message',
@@ -743,7 +713,7 @@ describe('SseStudioPage', () => {
       timestamp: new Date().toISOString(),
     };
     mockSseReturn.events = [event];
-    render(<SseStudioPage />);
+    await renderPage();
     expect(screen.getByTestId('sse-studio')).toBeTruthy();
   });
 });

@@ -6,6 +6,7 @@ import { reqMultiEnvLesson } from './req-multi-env';
 import { reqBodyAuthLesson } from './req-body-auth';
 import { reqSendHarnessLesson } from './req-send-harness';
 import { reqVersioningLesson } from './req-versioning';
+import { reqMultiTabLesson } from './req-multi-tab';
 import { catConvertOpenApiLesson } from './cat-convert-openapi';
 
 export const requestLessons: DemoLesson[] = [
@@ -15,6 +16,7 @@ export const requestLessons: DemoLesson[] = [
   reqBodyAuthLesson,
   reqSendHarnessLesson,
   reqVersioningLesson,
+  reqMultiTabLesson,
 ];
 
 export const catalogLessons: DemoLesson[] = [

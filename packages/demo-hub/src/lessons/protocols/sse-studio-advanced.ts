@@ -20,6 +20,7 @@ import {
   SSE_DEMO_ENV_NAME,
   SSE_DEMO_SVC_NAME,
 } from '../env-manager-lesson-helpers';
+import { closeExtraSseConnectionTabs } from '../setup-helpers';
 
 const SSE_ENV_VAR_URL = '{{sseUrl}}/api/sse-test';
 
@@ -62,6 +63,8 @@ async function sseAdvancedSetup(ctx: DemoActionContext): Promise<void> {
     await ctx.delay(500);
   }
 
+  await closeExtraSseConnectionTabs(ctx);
+
   // Clear existing events
   const clearBtn = document.querySelector(SSE.CLEAR_BTN) as HTMLButtonElement | null;
   if (clearBtn && !clearBtn.disabled) {
@@ -94,6 +97,8 @@ async function sseAdvancedCleanup(ctx: DemoActionContext): Promise<void> {
     connectBtn.click();
     await ctx.delay(500);
   }
+
+  await closeExtraSseConnectionTabs(ctx);
 
   const clearBtn = document.querySelector(SSE.CLEAR_BTN) as HTMLButtonElement | null;
   if (clearBtn && !clearBtn.disabled) {
@@ -185,7 +190,9 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       id: 'sse-adv-intro',
       title: 'Welcome Back to SSE Studio',
       description:
-        'Welcome back to SSE Studio. In the SSE Studio lesson you learned the basics — connecting, viewing events, searching, and using the console. Now we\'ll explore the advanced features that make SSE Studio a production-ready tool: bookmarks, live stats, auto-reconnect, and export.',
+        'Welcome back to SSE Studio. In the SSE Studio lesson you learned the basics — connecting, viewing events, searching, and using the console. ' +
+        'Each **connection tab** above is an independent workspace — bookmarks, filters, and stats are all per-tab. ' +
+        'Now we\'ll explore the advanced features that make SSE Studio a production-ready tool: bookmarks, live stats, auto-reconnect, and export.',
       highlight: SSE.STUDIO,
       preAction: async (ctx) => {
         document.querySelectorAll('.sse-row-selected').forEach((el) => {

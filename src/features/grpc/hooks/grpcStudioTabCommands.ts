@@ -211,6 +211,45 @@ export function createDuplicateTabHandler(
   };
 }
 
+export function createReorderTabHandler(
+  core: SessionCore,
+): (fromIndex: number, toIndex: number) => void {
+  return (fromIndex, toIndex) => {
+    core.setSession((prev) => {
+      if (fromIndex < 0 || fromIndex >= prev.tabs.length) return prev;
+      if (toIndex < 0 || toIndex >= prev.tabs.length) return prev;
+      const next = [...prev.tabs];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return core.commitSession({ ...prev, tabs: next });
+    });
+  };
+}
+
+export function createCloseOtherTabsHandler(
+  core: SessionCore,
+  closeTab: (tabId: string) => void,
+): (keepTabId: string) => void {
+  return (keepTabId) => {
+    const { tabs } = core.sessionRef.current;
+    const toClose = tabs.filter((t) => t.id !== keepTabId);
+    for (const t of toClose) closeTab(t.id);
+  };
+}
+
+export function createCloseTabsToRightHandler(
+  core: SessionCore,
+  closeTab: (tabId: string) => void,
+): (tabId: string) => void {
+  return (tabId) => {
+    const { tabs } = core.sessionRef.current;
+    const idx = tabs.findIndex((t) => t.id === tabId);
+    if (idx < 0) return;
+    const toClose = tabs.slice(idx + 1);
+    for (const t of toClose) closeTab(t.id);
+  };
+}
+
 export function createToggleServiceExpandedHandler(
   core: SessionCore,
 ): (tabId: string, serviceFullName: string) => void {

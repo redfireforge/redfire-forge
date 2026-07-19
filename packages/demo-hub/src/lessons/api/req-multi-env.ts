@@ -1,22 +1,41 @@
 /**
  * REQ-3 v2: Multi-Environment Requests
  *
- * 4 steps: create ENV collection → add request + resolved URL → switch env + send → summary.
+ * 7 steps: create Settings environments → create manual ENV collection (spotlight the
+ * Linked Microservice dropdown) → add request + resolved URL → switch env + send →
+ * create a Linked Microservice ENV collection → send from it → manual-vs-linked summary.
  * Follows Lesson 1 guidelines: one spotlight at a time, pause before each beat,
  * no reading/action overlap noise, expand sidebar to show created request, hard cleanup.
  * Public API: DummyJSON
  */
 import type { DemoLesson, DemoActionContext } from '../../types';
-import { REQ } from '@shared/selectors';
-import { showSpotlightRing } from '../../demoRipple';
+import { APP, EM, REQ, emEnvByNameSel, emSvcByNameSel, emSvcConfigureByNameSel, emAddProtocolItemSel } from '@shared/selectors';
 import { fillControlledInput } from '../setup-helpers';
+import { STEP_REQ3_CREATE_DESC, STEP_REQ3_LINKED_SVC_DESC, reqMultiEnvConcept } from './req-multi-env.content';
+import {
+  spotlight,
+  spotlightEl,
+  spotlightElNoScroll,
+  firstVisible,
+  findRequestVisibleInCollection,
+  openContextMenuForElement,
+  clickContextItemVisible,
+  spotlightContextItem,
+} from './req-multi-env.ui';
 import {
   ensureRequestsTab,
-  triggerContextMenu,
   dismissContextMenu,
   shrinkAllCollections,
   ensureCollectionExpanded,
+  selectRequestByName,
+  closeExtraRequestTabs,
 } from './req-demo-helpers';
+import {
+  ensureSettingsEnvironment,
+  removeSettingsEnvironment,
+  ensureSettingsMicroservice,
+  removeSettingsMicroservice,
+} from '../../adapters';
 
 const COLLECTION_NAME = 'DummyJSON';
 const REQUEST_NAME = 'Search Laptops';
@@ -25,99 +44,14 @@ const ENV_STAGING = 'staging';
 const BASE_URL_PROD = 'https://dummyjson.com';
 const BASE_URL_STAGING = 'https://dummyjson.com';
 const REQUEST_PATH = '/products/search?q=laptop&limit=3';
+
+const LINKED_COLLECTION_NAME = 'Product Service';
+const LINKED_SVC_NAME = 'product-api';
+const LINKED_REQUEST_NAME = 'Get Products';
+const LINKED_REQUEST_PATH = '/products?limit=5';
+
 /** Sibling lesson collections — remove so this lesson starts clean. */
 const SIBLING_COLLECTIONS = ['My API', 'User Service'] as const;
-let activeSpotlightCleanup: (() => void) | null = null;
-
-async function spotlight(ctx: DemoActionContext, selector: string, holdMs: number): Promise<void> {
-  const el = document.querySelector<HTMLElement>(selector);
-  if (!el) return;
-  activeSpotlightCleanup?.();
-  activeSpotlightCleanup = null;
-  el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  const remove = showSpotlightRing(el);
-  activeSpotlightCleanup = remove;
-  try {
-    await ctx.delay(holdMs);
-  } finally {
-    remove();
-    if (activeSpotlightCleanup === remove) activeSpotlightCleanup = null;
-  }
-}
-
-async function spotlightEl(ctx: DemoActionContext, el: HTMLElement, holdMs: number): Promise<void> {
-  activeSpotlightCleanup?.();
-  activeSpotlightCleanup = null;
-  el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  const remove = showSpotlightRing(el);
-  activeSpotlightCleanup = remove;
-  try {
-    await ctx.delay(holdMs);
-  } finally {
-    remove();
-    if (activeSpotlightCleanup === remove) activeSpotlightCleanup = null;
-  }
-}
-
-async function spotlightElNoScroll(ctx: DemoActionContext, el: HTMLElement, holdMs: number): Promise<void> {
-  activeSpotlightCleanup?.();
-  activeSpotlightCleanup = null;
-  const remove = showSpotlightRing(el);
-  activeSpotlightCleanup = remove;
-  try {
-    await ctx.delay(holdMs);
-  } finally {
-    remove();
-    if (activeSpotlightCleanup === remove) activeSpotlightCleanup = null;
-  }
-}
-
-function isVisible(el: Element | null): el is HTMLElement {
-  if (!(el instanceof HTMLElement)) return false;
-  const rect = el.getBoundingClientRect();
-  if (rect.width === 0 && rect.height === 0) return false;
-  const style = getComputedStyle(el);
-  return style.display !== 'none' && style.visibility !== 'hidden' && style.opacity !== '0';
-}
-
-function firstVisible(selector: string): HTMLElement | null {
-  return Array.from(document.querySelectorAll<HTMLElement>(selector)).find(isVisible) ?? null;
-}
-
-async function openContextMenuForElement(ctx: DemoActionContext, el: HTMLElement): Promise<boolean> {
-  for (let attempt = 0; attempt < 3; attempt += 1) {
-    triggerContextMenu(el);
-    await ctx.waitFor(REQ.CONTEXT_MENU, 700);
-    if (firstVisible(REQ.CONTEXT_MENU)) return true;
-    await ctx.delay(120);
-  }
-  return !!firstVisible(REQ.CONTEXT_MENU);
-}
-
-async function clickContextItemVisible(ctx: DemoActionContext, text: string): Promise<boolean> {
-  const menu = firstVisible(REQ.CONTEXT_MENU);
-  if (!menu) return false;
-  const btn = Array.from(menu.querySelectorAll<HTMLButtonElement>('button'))
-    .find(b => b.textContent?.trim() === text);
-  if (!btn) return false;
-  btn.click();
-  await ctx.delay(180);
-  return true;
-}
-
-async function spotlightContextItem(
-  ctx: DemoActionContext,
-  text: string,
-  holdMs = 1000,
-): Promise<HTMLButtonElement | null> {
-  const menu = firstVisible(REQ.CONTEXT_MENU);
-  if (!menu) return null;
-  const btn = Array.from(menu.querySelectorAll<HTMLButtonElement>('button'))
-    .find(b => b.textContent?.trim() === text);
-  if (!btn) return null;
-  await spotlightElNoScroll(ctx, btn, holdMs);
-  return btn;
-}
 
 async function deleteCollectionByName(ctx: DemoActionContext, collectionName: string): Promise<void> {
   ensureRequestsTab(ctx);
@@ -148,6 +82,7 @@ async function cleanupLessonCollections(ctx: DemoActionContext): Promise<void> {
     await deleteCollectionByName(ctx, name);
   }
   await deleteCollectionByName(ctx, COLLECTION_NAME);
+  await deleteCollectionByName(ctx, LINKED_COLLECTION_NAME);
 }
 
 async function closeOpenOverlays(ctx: DemoActionContext): Promise<void> {
@@ -201,21 +136,42 @@ async function ensureEnvWithBaseUrl(
   const visible = options?.visible ?? false;
   let input = findBaseUrlInputByEnvName(envName);
   if (!input) {
-    const addEnvInput = document.querySelector<HTMLInputElement>(REQ.ADD_ENV_INPUT);
-    const addBtn = document.querySelector<HTMLButtonElement>(REQ.ADD_ENV_BTN);
-    if (addEnvInput && addBtn) {
-      if (visible) await spotlightElNoScroll(ctx, addEnvInput, 800);
-      fillControlledInput(addEnvInput, envName);
-      await ctx.delay(160);
-      if (visible) await spotlightElNoScroll(ctx, addBtn, 700);
-      addBtn.click();
-      input = await waitForBaseUrlInputByEnvName(ctx, envName);
-    }
+    // Wait briefly — React may need a tick to render the row after env creation.
+    input = await waitForBaseUrlInputByEnvName(ctx, envName);
   }
   if (!input) return;
   fillControlledInput(input, baseUrl);
   if (visible) await spotlightElNoScroll(ctx, input, 900);
   else await ctx.delay(80);
+}
+
+async function createSettingsEnvironmentVisible(
+  ctx: DemoActionContext,
+  envName: string,
+): Promise<void> {
+  await ctx.waitFor(EM.ADD_ENV_INPUT, 2200);
+  const existing = document.querySelector<HTMLElement>(emEnvByNameSel(envName));
+  if (existing) {
+    existing.click();
+    await spotlightEl(ctx, existing, 1000);
+    return;
+  }
+
+  const envInput = document.querySelector<HTMLInputElement>(EM.ADD_ENV_INPUT);
+  if (!envInput) return;
+  await spotlight(ctx, EM.ADD_ENV_INPUT, 900);
+  envInput.focus();
+  await ctx.delay(180);
+  fillControlledInput(envInput, envName);
+  await ctx.delay(420);
+  await spotlight(ctx, EM.ADD_ENV_BTN, 750);
+  await ctx.click(EM.ADD_ENV_BTN);
+  await ctx.waitFor(emEnvByNameSel(envName), 2200);
+  const row = document.querySelector<HTMLElement>(emEnvByNameSel(envName));
+  if (row) {
+    row.click();
+    await spotlightEl(ctx, row, 1050);
+  }
 }
 
 async function openCollectionModalForCreate(ctx: DemoActionContext): Promise<boolean> {
@@ -260,8 +216,12 @@ function envBaseUrlLooksCorrect(envName: string, expectedUrl: string): boolean {
  * on the correct env rows (not the first workspace envs like d01/t01).
  */
 async function ensureMultiEnvCollection(ctx: DemoActionContext): Promise<void> {
+  // Guarantee the envs exist in Settings before touching the collection modal.
+  ensureSettingsEnvironment(ENV_PROD);
+  ensureSettingsEnvironment(ENV_STAGING);
+  await ctx.delay(60);
+
   if (document.querySelector(REQ.colByName(COLLECTION_NAME))) {
-    // Repair prior bad runs where base URLs were written onto the wrong env rows.
     const opened = await openCollectionModalForEdit(ctx);
     if (!opened) return;
     const ok =
@@ -316,10 +276,9 @@ async function repairBaseUrlsIfNeeded(ctx: DemoActionContext): Promise<void> {
 async function ensureRequestReady(ctx: DemoActionContext): Promise<void> {
   await repairBaseUrlsIfNeeded(ctx);
   await ensureCollectionExpanded(ctx, COLLECTION_NAME);
-  const existingReq = firstVisible(REQ.reqInCollection(COLLECTION_NAME, REQUEST_NAME));
+  const existingReq = findRequestVisibleInCollection(COLLECTION_NAME, REQUEST_NAME);
   if (existingReq) {
-    existingReq.click();
-    await ctx.delay(100);
+    await selectRequestByName(ctx, REQUEST_NAME, COLLECTION_NAME);
     const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
     if (urlInput && urlInput.value !== REQUEST_PATH) {
       fillControlledInput(urlInput, REQUEST_PATH);
@@ -356,50 +315,18 @@ export const reqMultiEnvLesson: DemoLesson = {
   category: 'requests',
   name: 'Multi-Environment Requests',
   description:
-    'Create an ENV collection with production and staging base URLs, then reuse one request path across both with instant URL resolution.',
-  estimatedMinutes: 3,
+    'Create production and staging environments in Settings, build an ENV collection with manual base URLs, ' +
+    'then create a Linked Microservice collection that pulls URLs automatically from Settings.',
+  estimatedMinutes: 6,
   initialTab: 'requests',
-  allowedTabs: ['requests'],
+  allowedTabs: ['requests', 'environments'],
 
-  concept: {
-    title: 'One Request, Multiple Targets',
-    body:
-      'A **Multi-Environment (ENV) Collection** stores a base URL map and lets requests use ' +
-      'relative paths. You write one path once, then switch environments with a single click.\n\n' +
-      '**What this lesson demonstrates:**\n' +
-      '- Creating an ENV collection from scratch\n' +
-      '- Defining production and staging base URLs\n' +
-      '- Adding a request with a relative path (`/products/search?...`)\n' +
-      '- Using the env pill to switch targets and re-send quickly\n\n' +
-      '**Why this matters:**\n' +
-      '- No URL rewrites when moving between environments\n' +
-      '- Cleaner request definitions for teams\n' +
-      '- Ready for per-environment auth inheritance in larger projects',
-    keyTerms: [
-      { term: 'ENV Collection', definition: 'Collection mode where requests use relative paths with environment base URLs' },
-      { term: 'Base URL Map', definition: 'Environment-to-host mapping stored at collection level' },
-      { term: 'Relative Path', definition: 'Request path without host, resolved with the active environment base URL' },
-      { term: 'Resolved URL', definition: 'Live preview of full URL after host + path composition' },
-      { term: 'Env Pill', definition: 'Clickable badge that switches the active environment base URL' },
-    ],
-    diagram: `<svg viewBox="0 0 400 120" xmlns="http://www.w3.org/2000/svg">
-      <rect x="130" y="5" width="140" height="28" rx="5" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
-      <text x="200" y="23" text-anchor="middle" fill="#10b981" font-size="10">ENV Collection: DummyJSON</text>
-      <path d="M160 33 L80 55" stroke="#3b4a60" stroke-width="1"/>
-      <path d="M240 33 L320 55" stroke="#3b4a60" stroke-width="1"/>
-      <rect x="20" y="55" width="120" height="24" rx="4" fill="#1e293b" stroke="#3b82f6" stroke-width="1"/>
-      <text x="80" y="71" text-anchor="middle" fill="#3b82f6" font-size="9">production: dummyjson.com</text>
-      <rect x="260" y="55" width="120" height="24" rx="4" fill="#1e293b" stroke="#f59e0b" stroke-width="1"/>
-      <text x="320" y="71" text-anchor="middle" fill="#f59e0b" font-size="9">staging: dummyjson.com</text>
-      <path d="M200 33 L200 90" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3"/>
-      <rect x="110" y="90" width="180" height="22" rx="4" fill="#1e293b" stroke="#94a3b8" stroke-width="1"/>
-      <text x="200" y="105" text-anchor="middle" fill="#f1f5f9" font-size="9">/products/search?q=laptop&limit=3</text>
-    </svg>`,
-  },
+  concept: reqMultiEnvConcept,
 
   setup: async (ctx) => {
     ctx.navigateToTab('requests');
     await ctx.delay(80);
+    await closeExtraRequestTabs(ctx);
     await closeOpenOverlays(ctx);
     await cleanupLessonCollections(ctx);
     await shrinkAllCollections();
@@ -409,24 +336,58 @@ export const reqMultiEnvLesson: DemoLesson = {
 
   cleanup: async (ctx) => {
     await closeOpenOverlays(ctx);
+    await closeExtraRequestTabs(ctx);
     await cleanupLessonCollections(ctx);
+    removeSettingsMicroservice(LINKED_SVC_NAME);
+    removeSettingsEnvironment(ENV_PROD);
+    removeSettingsEnvironment(ENV_STAGING);
     ctx.navigateToTab('requests');
     await ctx.delay(60);
   },
 
   steps: [
+    {
+      id: 'req3-settings-envs',
+      title: 'Create Environments in Settings',
+      description:
+        'Open **Settings**, add the **production** environment, then add **staging**. ' +
+        'Pause on each new environment row so viewers can confirm both exist before returning to Requests.',
+      // No step-level highlight: the action spotlights Settings when it starts, and
+      // this step ends back on the Requests tab — a lingering ring on Settings would
+      // be misplaced during the reading/done phases.
+      preAction: async (ctx) => {
+        await closeOpenOverlays(ctx);
+        await cleanupLessonCollections(ctx);
+        removeSettingsEnvironment(ENV_PROD);
+        removeSettingsEnvironment(ENV_STAGING);
+        ensureRequestsTab(ctx);
+      },
+      action: async (ctx) => {
+        await spotlight(ctx, APP.AB_SETTINGS, 1200);
+        ctx.navigateToTab('environments');
+        await ctx.delay(700);
+        await ctx.waitFor(EM.ADD_ENV_INPUT, 2200);
+
+        await createSettingsEnvironmentVisible(ctx, ENV_PROD);
+        await createSettingsEnvironmentVisible(ctx, ENV_STAGING);
+
+        ctx.navigateToTab('requests');
+        await ctx.delay(700);
+        await shrinkAllCollections();
+      },
+    },
+
     // ── Step 1: Create Multi-Env Collection ──
     {
       id: 'req3-create',
       title: 'Create Multi-Env Collection',
-      description:
-        'Click **+** to see Group / URL Collection / **ENV Collection**. Choose **ENV Collection**. ' +
-        'Name it **"DummyJSON"**, review URL mode and the **Base URLs per Environment** map, ' +
-        'add **production** and **staging** (both `https://dummyjson.com`), review Default Auth, then save.',
+      description: STEP_REQ3_CREATE_DESC,
       highlight: REQ.SIDEBAR_ADD_BTN,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await closeOpenOverlays(ctx);
+        ensureSettingsEnvironment(ENV_PROD);
+        ensureSettingsEnvironment(ENV_STAGING);
         if (document.querySelector(REQ.colByName(COLLECTION_NAME))) return;
         await shrinkAllCollections();
       },
@@ -456,8 +417,35 @@ export const reqMultiEnvLesson: DemoLesson = {
           await ctx.delay(300);
         }
 
-        const modeSwitcher = firstVisible('.req-col-modal .req-mode-switcher');
-        if (modeSwitcher) await spotlightEl(ctx, modeSwitcher, 1100);
+        // Linked Microservice — one of the most important beats. Open the dropdown so the
+        // viewer sees BOTH modes (None (manual config) + any microservices), then dwell on
+        // "None (manual config)" a little longer before re-selecting it (keeps manual mode).
+        const svcSelectRoot = firstVisible(REQ.SVC_SELECT);
+        if (svcSelectRoot) {
+          await spotlightElNoScroll(ctx, svcSelectRoot, 900);
+          const trigger = svcSelectRoot.querySelector<HTMLButtonElement>('.wf-dark-select__trigger');
+          if (trigger) {
+            trigger.click();
+            await ctx.waitFor('.wf-dark-select__menu', 1500);
+            await ctx.delay(400);
+            // Show the full option list first so viewers see manual vs linked choices.
+            const menu = firstVisible('.wf-dark-select__menu');
+            if (menu) await spotlightElNoScroll(ctx, menu, 1700);
+            // Then dwell longer on the important default: None (manual config).
+            const noneOption = Array.from(
+              document.querySelectorAll<HTMLButtonElement>('.wf-dark-select__menu [role="option"]'),
+            ).find(o => /none \(manual config\)/i.test((o.textContent || '').trim()));
+            if (noneOption) {
+              await spotlightElNoScroll(ctx, noneOption, 2000);
+              noneOption.click(); // re-selects None (no-op change) and closes the menu
+              await ctx.delay(450);
+            } else {
+              trigger.click(); // fallback: close without changing selection
+              await ctx.delay(200);
+            }
+          }
+          await spotlightElNoScroll(ctx, svcSelectRoot, 900);
+        }
 
         const baseMap = firstVisible(REQ.BASE_URL_MAP);
         if (baseMap) await spotlightEl(ctx, baseMap, 1000);
@@ -482,9 +470,9 @@ export const reqMultiEnvLesson: DemoLesson = {
       id: 'req3-request',
       title: 'Add Request & See Resolved URL',
       description:
-        'Right-click the collection and choose **Add Request**. Rename it **"Search Laptops"**, ' +
-        'enter the relative path `/products/search?q=laptop&limit=3`, then read the **Resolved URL** ' +
-        'and the **production / staging** env pills.',
+        'Right-click the collection and choose **Add Request** — it opens in its own **tab**. ' +
+        'Rename it **"Search Laptops"**, enter the relative path `/products/search?q=laptop&limit=3`, ' +
+        'then read the **Resolved URL** and the **production / staging** env pills.',
       // No reading highlight on DummyJSON — Step 1 already showed it.
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
@@ -494,7 +482,7 @@ export const reqMultiEnvLesson: DemoLesson = {
         }
       },
       action: async (ctx) => {
-        const existing = firstVisible(REQ.reqInCollection(COLLECTION_NAME, REQUEST_NAME));
+        const existing = findRequestVisibleInCollection(COLLECTION_NAME, REQUEST_NAME);
         if (!existing) {
           const col = firstVisible(REQ.colByName(COLLECTION_NAME));
           if (!col) return;
@@ -547,8 +535,8 @@ export const reqMultiEnvLesson: DemoLesson = {
         }
 
         // Expand sidebar so the created request is visible (no collection ring).
-        await ensureCollectionExpanded(ctx, COLLECTION_NAME);
-        const createdReq = firstVisible(REQ.reqInCollection(COLLECTION_NAME, REQUEST_NAME));
+        await selectRequestByName(ctx, REQUEST_NAME, COLLECTION_NAME);
+        const createdReq = findRequestVisibleInCollection(COLLECTION_NAME, REQUEST_NAME);
         if (createdReq) await spotlightElNoScroll(ctx, createdReq, 1000);
       },
     },
@@ -594,28 +582,300 @@ export const reqMultiEnvLesson: DemoLesson = {
 
         const json = firstVisible(REQ.JSON_PREVIEW);
         if (json) await spotlightEl(ctx, json, 1100);
+
+        // Keep the request selected at the end of the step so the editor does not
+        // transition through an empty state before the summary step starts.
+        await selectRequestByName(ctx, REQUEST_NAME, COLLECTION_NAME);
       },
     },
 
-    // ── Step 4: Summary ──
+    // ── Step 4: Create Linked Microservice Collection ──
+    {
+      id: 'req3-linked-svc',
+      title: 'Linked Microservice Collection',
+      description: STEP_REQ3_LINKED_SVC_DESC,
+      highlight: REQ.SIDEBAR_ADD_BTN,
+      preAction: async (ctx) => {
+        ensureRequestsTab(ctx);
+        await closeOpenOverlays(ctx);
+        // Ensure the first scenario is complete
+        ensureSettingsEnvironment(ENV_PROD);
+        ensureSettingsEnvironment(ENV_STAGING);
+        if (!document.querySelector(REQ.colByName(COLLECTION_NAME))) {
+          await ensureMultiEnvCollection(ctx);
+        }
+        // Clean up linked collection if it already exists (restart)
+        if (document.querySelector(REQ.colByName(LINKED_COLLECTION_NAME))) {
+          await deleteCollectionByName(ctx, LINKED_COLLECTION_NAME);
+        }
+        removeSettingsMicroservice(LINKED_SVC_NAME);
+      },
+      action: async (ctx) => {
+        // 1. Navigate to Settings → create microservice
+        await spotlight(ctx, APP.AB_SETTINGS, 1200);
+        ctx.navigateToTab('environments');
+        await ctx.delay(700);
+        await ctx.waitFor(EM.ADD_SVC_INPUT, 2200);
+
+        // Create the microservice
+        if (!document.querySelector(emSvcByNameSel(LINKED_SVC_NAME))) {
+          const svcInput = document.querySelector<HTMLInputElement>(EM.ADD_SVC_INPUT);
+          if (svcInput) {
+            await spotlight(ctx, EM.ADD_SVC_INPUT, 900);
+            svcInput.focus();
+            fillControlledInput(svcInput, LINKED_SVC_NAME);
+            await ctx.delay(420);
+            await spotlight(ctx, EM.ADD_SVC_BTN, 750);
+            await ctx.click(EM.ADD_SVC_BTN);
+            await ctx.waitFor(emSvcByNameSel(LINKED_SVC_NAME), 2200);
+            await ctx.delay(400);
+          }
+        }
+
+        // Highlight the created microservice
+        const svcRow = document.querySelector<HTMLElement>(emSvcByNameSel(LINKED_SVC_NAME));
+        if (svcRow) await spotlightEl(ctx, svcRow, 1200);
+
+        // 2. Click "Configure" to expand the microservice card
+        const configureBtn = document.querySelector<HTMLButtonElement>(emSvcConfigureByNameSel(LINKED_SVC_NAME));
+        if (configureBtn?.textContent?.includes('Configure')) {
+          await spotlight(ctx, emSvcConfigureByNameSel(LINKED_SVC_NAME), 1000);
+          await ctx.click(emSvcConfigureByNameSel(LINKED_SVC_NAME));
+          await ctx.delay(850);
+        }
+
+        // 3. Add HTTP protocol
+        await ctx.waitFor(EM.PROTOCOL_PANEL, 2200);
+        if (!document.querySelector(EM.PROTOCOL_TAB_HTTP)) {
+          await ctx.waitFor(EM.ADD_PROTOCOL_BTN, 2200);
+          await spotlight(ctx, EM.ADD_PROTOCOL_BTN, 1000);
+          await ctx.click(EM.ADD_PROTOCOL_BTN);
+          await ctx.delay(600);
+          await ctx.waitFor(emAddProtocolItemSel('http'), 2200);
+          await spotlight(ctx, emAddProtocolItemSel('http'), 900);
+          await ctx.click(emAddProtocolItemSel('http'));
+          await ctx.delay(900);
+        }
+
+        // Ensure HTTP tab is active
+        await ctx.waitFor(EM.PROTOCOL_TAB_HTTP, 2200);
+        await ctx.click(EM.PROTOCOL_TAB_HTTP);
+        await ctx.delay(600);
+        await spotlight(ctx, EM.PROTOCOL_TAB_HTTP, 900);
+
+        // 4. Enable deploy checkboxes + set base URLs for production and staging
+        const svcSel = emSvcByNameSel(LINKED_SVC_NAME);
+        for (const { envName, baseUrl } of [
+          { envName: ENV_PROD, baseUrl: BASE_URL_PROD },
+          { envName: ENV_STAGING, baseUrl: BASE_URL_STAGING },
+        ]) {
+          const envChip = document.querySelector<HTMLElement>(
+            `${svcSel} .svc-env-table [data-env-name="${envName}"]`,
+          );
+          const row = envChip?.closest('tr');
+          if (!row) continue;
+
+          // Enable deploy checkbox if not checked
+          const checkbox = row.querySelector<HTMLInputElement>('input[type="checkbox"]');
+          if (checkbox && !checkbox.checked) {
+            await spotlightElNoScroll(ctx, checkbox, 800);
+            checkbox.click();
+            await ctx.delay(600);
+          }
+
+          // Check if base URL already set
+          const urlText = row.querySelector<HTMLElement>('.em-url-text')?.textContent ?? '';
+          if (urlText.includes(baseUrl)) continue;
+
+          // Click Edit → fill → Save
+          const editBtn = row.querySelector<HTMLButtonElement>('[data-testid="em-endpoint-edit-btn"]');
+          if (editBtn) {
+            await spotlightElNoScroll(ctx, editBtn, 800);
+            editBtn.click();
+            await ctx.delay(500);
+          }
+          const editInput = document.querySelector<HTMLInputElement>(EM.ENDPOINT_EDIT_INPUT);
+          if (editInput) {
+            fillControlledInput(editInput, baseUrl);
+            await spotlightElNoScroll(ctx, editInput, 1000);
+          }
+          const saveBtn = document.querySelector<HTMLButtonElement>(EM.ENDPOINT_SAVE);
+          if (saveBtn) {
+            saveBtn.click();
+            await ctx.delay(700);
+          }
+        }
+
+        // Pause on the configured table
+        const envTable = document.querySelector<HTMLElement>(`${svcSel} .svc-env-table`);
+        if (envTable) await spotlightEl(ctx, envTable, 1500);
+
+        // 5. Navigate back to Requests → create linked collection
+        ctx.navigateToTab('requests');
+        await ctx.delay(700);
+        await shrinkAllCollections();
+
+        // Open + Add → ENV Collection
+        await ctx.click(REQ.SIDEBAR_ADD_BTN);
+        await ctx.waitFor(REQ.ADD_DROPDOWN, 1500);
+        await ctx.click(REQ.ADD_ENV_COLLECTION);
+        await ctx.waitFor(REQ.COLLECTION_MODAL, 2000);
+        await ctx.delay(280);
+
+        // Name it
+        const nameInput = document.querySelector<HTMLInputElement>('.req-col-modal .req-input');
+        if (nameInput) {
+          nameInput.focus();
+          fillControlledInput(nameInput, LINKED_COLLECTION_NAME);
+          await ctx.delay(300);
+        }
+
+        // Select linked microservice from the WfDarkSelect dropdown
+        const svcSelectRoot = document.querySelector<HTMLElement>(REQ.SVC_SELECT);
+        if (svcSelectRoot) {
+          await spotlightElNoScroll(ctx, svcSelectRoot, 1000);
+          const trigger = svcSelectRoot.querySelector<HTMLButtonElement>('.wf-dark-select__trigger');
+          if (trigger) {
+            trigger.click();
+            await ctx.delay(300);
+            // Find option in the portaled listbox menu
+            const menuOptions = document.querySelectorAll<HTMLButtonElement>('.wf-dark-select__menu [role="option"]');
+            const svcOption = Array.from(menuOptions).find(btn =>
+              btn.textContent?.includes(LINKED_SVC_NAME),
+            );
+            if (svcOption) {
+              await spotlightElNoScroll(ctx, svcOption, 900);
+              svcOption.click();
+              await ctx.delay(500);
+            }
+          }
+          await spotlightElNoScroll(ctx, svcSelectRoot, 1200);
+        }
+
+        // Show the read-only base URL map (auto-filled from microservice)
+        await ctx.delay(400);
+        const baseMap = firstVisible(REQ.BASE_URL_MAP);
+        if (baseMap) await spotlightEl(ctx, baseMap, 1500);
+
+        // Save
+        await saveCollectionModal(ctx);
+        await spotlight(ctx, REQ.colByName(LINKED_COLLECTION_NAME), 1100);
+      },
+    },
+
+    // ── Step 5: Send from Linked Collection ──
+    {
+      id: 'req3-linked-send',
+      title: 'Send from Linked Collection',
+      description:
+        'Add a request to the **Product Service** collection, enter `/products?limit=5`, and ' +
+        'notice the env pills are automatically available. Switch environments and **Send** — ' +
+        'the base URL is resolved from the microservice config without any manual entry.',
+      highlight: REQ.envPillByName(ENV_PROD),
+      preAction: async (ctx) => {
+        ensureRequestsTab(ctx);
+        await closeOpenOverlays(ctx);
+        // Ensure linked scenario is set up
+        const prodEnvId = ensureSettingsEnvironment(ENV_PROD);
+        const stagingEnvId = ensureSettingsEnvironment(ENV_STAGING);
+        const baseUrls: Record<string, string> = {};
+        if (prodEnvId) baseUrls[prodEnvId] = BASE_URL_PROD;
+        if (stagingEnvId) baseUrls[stagingEnvId] = BASE_URL_STAGING;
+        ensureSettingsMicroservice(LINKED_SVC_NAME, baseUrls);
+        // If linked collection doesn't exist, bail (prior step must run)
+        if (!document.querySelector(REQ.colByName(LINKED_COLLECTION_NAME))) return;
+      },
+      action: async (ctx) => {
+        await ensureCollectionExpanded(ctx, LINKED_COLLECTION_NAME);
+
+        // Add or select the request
+        const existing = firstVisible(REQ.reqInCollection(LINKED_COLLECTION_NAME, LINKED_REQUEST_NAME));
+        if (!existing) {
+          const col = firstVisible(REQ.colByName(LINKED_COLLECTION_NAME));
+          if (!col) return;
+          const opened = await openContextMenuForElement(ctx, col);
+          if (!opened) return;
+          await clickContextItemVisible(ctx, 'Add Request');
+          await ctx.waitFor(REQ.URL_INPUT, 2200);
+          await ctx.delay(240);
+
+          const nameDisplay = firstVisible('.req-req-name-display');
+          if (nameDisplay) {
+            nameDisplay.click();
+            await ctx.delay(120);
+            const nameInput = firstVisible('.req-req-name-input') as HTMLInputElement | null;
+            if (nameInput) {
+              fillControlledInput(nameInput, LINKED_REQUEST_NAME);
+              await ctx.delay(200);
+              nameInput.blur();
+            }
+            await ctx.delay(120);
+          }
+        } else {
+          existing.click();
+          await ctx.delay(120);
+        }
+
+        // Fill the URL
+        const urlInput = firstVisible(REQ.URL_INPUT) as HTMLInputElement | null;
+        if (urlInput) {
+          if (urlInput.value !== LINKED_REQUEST_PATH) {
+            urlInput.focus();
+            fillControlledInput(urlInput, LINKED_REQUEST_PATH);
+            await ctx.delay(300);
+          }
+          await spotlightElNoScroll(ctx, urlInput, 900);
+        }
+
+        // Show env bar + resolved URL
+        await spotlight(ctx, REQ.ENV_BAR, 1100);
+        await spotlight(ctx, REQ.RESOLVED_URL, 1200);
+
+        // Switch to staging, pause on resolved URL
+        const stagingPill = firstVisible(REQ.envPillByName(ENV_STAGING));
+        if (stagingPill) {
+          stagingPill.click();
+          await ctx.delay(350);
+          await spotlight(ctx, REQ.RESOLVED_URL, 1100);
+        }
+
+        // Switch to production + send
+        const prodPill = firstVisible(REQ.envPillByName(ENV_PROD));
+        if (prodPill) {
+          prodPill.click();
+          await ctx.delay(350);
+        }
+
+        await spotlight(ctx, REQ.SEND_BTN, 1000);
+        await ctx.click(REQ.SEND_BTN);
+        await ctx.waitFor(REQ.STATUS_PILL, 5000);
+        await spotlight(ctx, REQ.STATUS_PILL, 1100);
+
+        const json = firstVisible(REQ.JSON_PREVIEW);
+        if (json) await spotlightEl(ctx, json, 1100);
+      },
+    },
+
+    // ── Step 6: Summary ──
     {
       id: 'req3-summary',
-      title: 'When to Use Multi-Env',
+      title: 'Manual vs Linked Microservice',
       description:
-        'Use ENV collections when the same requests must run across development, staging, and production. ' +
-        'Keep one relative-path request set, switch environments with pills, and avoid repetitive URL edits. ' +
-        'Per-environment auth can also ride along with the active pill.',
+        'You\'ve seen two multi-env approaches:\n\n' +
+        '**None (manual config)** — type base URLs directly in the collection modal. Best for ad-hoc APIs.\n\n' +
+        '**Linked Microservice** — base URLs come from Settings automatically. Change the URL in Settings once ' +
+        'and every linked collection updates. Best for team services with shared environments.\n\n' +
+        'Both support env pills, per-env auth, and relative paths.',
       highlight: REQ.ENV_BAR,
       pauseAfter: true,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await closeOpenOverlays(ctx);
-        if (!document.querySelector(REQ.colByName(COLLECTION_NAME))) {
+        if (!document.querySelector(REQ.colByName(LINKED_COLLECTION_NAME))
+          && !document.querySelector(REQ.colByName(COLLECTION_NAME))) {
           await ensureMultiEnvCollection(ctx);
         }
-        await ensureRequestReady(ctx);
       },
-      // No action spotlights — reading highlight + pauseAfter is enough (avoids double rings).
     },
   ],
 };

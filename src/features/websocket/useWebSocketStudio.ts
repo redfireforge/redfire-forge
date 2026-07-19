@@ -20,7 +20,7 @@ import {
   type WsConnectionClosedPayload,
 } from '../../shared/websocket/websocketNativeTauriTransport';
 import { isTauri } from '../../shared/utils/platform';
-import { resolveEnvVars, buildResolvedEffectiveUrl, decodeBase64ToBytesStrict, sanitizeNativeCloseCode } from './wsMessageUtils';
+import { resolveEnvVars, buildResolvedEffectiveUrl, decodeBase64ToBytesStrict } from './wsMessageUtils';
 import { parseSubprotocolList, encodeWsMessageData, createSystemConnectFrame, runEarlyProtocolDetection, buildConnectHeadersMap } from './wsConnectionHelpers';
 import { resolveAuthForConnect, appendAuthQueryParams, resolveEffectiveAuth, type ResolvedAuth } from './wsAuthResolve';
 import type { GlobalAuthProfile } from '../../shared/types';
@@ -50,6 +50,7 @@ import {
   type UseWebSocketStudioReturn,
 } from './useWebSocketStudioTypes';
 import { startWsProxyPolling } from './wsProxyPolling';
+import { disconnectWebSocketConnection } from './wsDisconnect';
 
 export type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter, WsTransportMode, UseWebSocketStudioReturn };
 
@@ -598,61 +599,19 @@ export function useWebSocketStudio(
   }, [connectDirect, connectProxy, updateDetectedProtocol, cancelReconnect, reconnectingRef]);
 
   const disconnect = useCallback((detail?: WsCloseDetail) => {
-    manualDisconnectRef.current = true;
-    cancelReconnect();
-
-    const code = detail?.code ?? 1000;
-    const reason = detail?.reason ?? 'User disconnected';
-    // The native browser `ws.close()` only accepts 1000 or 3000–4999; reserved
-    // codes fall back to 1000. The Tauri proxy (tungstenite) can send the code
-    // as-is over IPC, so only the native path is sanitized.
-    const nativeCode = sanitizeNativeCloseCode(code);
-
-    if (proxyConnectionIdRef.current) {
-      if (detail) {
-        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', code, reason)));
-      }
-      setConnection((prev) => ({ ...prev, state: 'closing' }));
-      const connId = proxyConnectionIdRef.current;
-      proxyConnectionIdRef.current = null;
-      stopProxyPolling();
-      stopNativeListeners();
-
-      dispatchWsOperation('disconnect', { connectionId: connId, code, reason })
-        .then(() => {
-          if (!mountedRef.current) return;
-          resetConnectionTiming();
-          appendMessage(createFrame('received', 'close', formatCloseFrame('ACK', code, reason)));
-          setConnection((prev) => ({
-            ...prev,
-            state: 'disconnected',
-            closedAt: new Date().toISOString(),
-            closeCode: code,
-            closeReason: reason,
-          }));
-        })
-        .catch(() => {
-          if (!mountedRef.current) return;
-          resetConnectionTiming();
-          setConnection((prev) => ({ ...prev, state: 'disconnected' }));
-        });
-    } else if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      if (detail) {
-        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', nativeCode, reason)));
-      }
-      setConnection((prev) => ({ ...prev, state: 'closing' }));
-      wsRef.current.close(nativeCode, reason);
-    } else if (wsRef.current) {
-      if (detail) {
-        appendMessage(createFrame('sent', 'close', formatCloseFrame('SENT', nativeCode, reason)));
-      }
-      wsRef.current.close(nativeCode, reason);
-      resetConnectionTiming();
-      setConnection((prev) => ({ ...prev, state: 'disconnected' }));
-    } else {
-      resetConnectionTiming();
-      setConnection((prev) => prev.state === 'disconnected' ? prev : { ...prev, state: 'disconnected' });
-    }
+    disconnectWebSocketConnection({
+      detail,
+      mountedRef,
+      wsRef,
+      proxyConnectionIdRef,
+      manualDisconnectRef,
+      cancelReconnect,
+      appendMessage,
+      setConnection,
+      stopProxyPolling,
+      stopNativeListeners,
+      resetConnectionTiming,
+    });
   }, [stopProxyPolling, stopNativeListeners, resetConnectionTiming, cancelReconnect, appendMessage]);
 
   const send = useCallback(

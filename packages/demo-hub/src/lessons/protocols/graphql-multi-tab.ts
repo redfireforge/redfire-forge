@@ -259,6 +259,7 @@ Multi-tab workspaces make the most sense after you have learned per-tab concerns
       title: 'Independent Tab Workspaces',
       description:
         'Look at the **tab bar** just below the connection bar. Right now there is one tab — your current workspace. Each tab you add becomes a completely independent environment with its own endpoint, introspected schema, and response cache.\n\n' +
+        'You can **drag tabs** to reorder them, **right-click** any tab for a context menu (rename, duplicate, close), or use **keyboard shortcuts** (Arrow keys to navigate, F2 to rename, Delete to close).\n\n' +
         '**Why tabs instead of separate windows or tools?** A second browser window of the same Studio app would share state — changing the endpoint in one window would affect the other. A second tool (Postman, Insomnia) means double the configuration and no shared history. Studio tabs isolate execution context while sharing the sidebar, history, and collections. You can query staging on Tab 1 and production on Tab 2 with a single click to switch between them.',
       highlight: GQL.TAB_BAR,
       preAction: ensureLesson14IntroReady,

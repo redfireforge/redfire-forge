@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import type { BodyType } from '../../../shared/types';
 import { isValidJson as checkValidJson, minifyJson, prettyJson } from '../../../shared/utils/helpers';
 
@@ -22,8 +22,15 @@ export interface CodeTextareaProps {
 export function CodeTextarea({ value, onChange, placeholder, bodyType }: CodeTextareaProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const lineNumbersRef = useRef<HTMLDivElement>(null);
+  const [copied, setCopied] = useState(false);
   const lines = (value || '').split('\n');
   const lineCount = Math.max(lines.length, 1);
+
+  const handleCopy = () => {
+    void navigator.clipboard.writeText(value);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
 
   const handleScroll = () => {
     if (textareaRef.current && lineNumbersRef.current) {
@@ -84,12 +91,12 @@ export function CodeTextarea({ value, onChange, placeholder, bodyType }: CodeTex
           )}
           <button
             type="button"
-            className="body-code-btn"
-            onClick={() => { void navigator.clipboard.writeText(value); }}
+            className={`body-code-btn${copied ? ' copied' : ''}`}
+            onClick={handleCopy}
             disabled={!value.trim()}
             title="Copy to clipboard"
           >
-            Copy
+            {copied ? '✓ Copied' : 'Copy'}
           </button>
         </div>
       </div>

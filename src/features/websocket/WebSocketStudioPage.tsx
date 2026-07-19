@@ -300,85 +300,75 @@ export function WebSocketStudioPage({
 
   const handleAddTab = useCallback(() => {
     const id = generateTabId();
-    let added = false;
     setTabs((prev) => {
       if (prev.length >= MAX_TABS) return prev;
-      added = true;
+      mockPorts.current[id] = assignNextPort();
+      setActiveTabId(id);
+      setConnectionStates((current) => ({ ...current, [id]: 'disconnected' }));
+      debouncedSave();
       return [...prev, { id, label: 'New Connection' }];
     });
-    if (!added) return;
-    mockPorts.current[id] = assignNextPort();
-    setActiveTabId(id);
-    setConnectionStates((prev) => ({ ...prev, [id]: 'disconnected' }));
-    debouncedSave();
   }, [debouncedSave, assignNextPort]);
 
   const handleAddTabWithUrl = useCallback(
     (url: string, protocol?: WsProtocolMode) => {
       const id = generateTabId();
       const label = deriveTabLabel(url) ?? 'New Connection';
-      let added = false;
       setTabs((prev) => {
         if (prev.length >= MAX_TABS) return prev;
-        added = true;
+        mockPorts.current[id] = assignNextPort();
+        setActiveTabId(id);
+        setConnectionStates((current) => ({ ...current, [id]: 'disconnected' }));
+        tabUrls.current[id] = url;
+        initialUrlsRef.current[id] = url;
+        if (protocol) initialProtocolsRef.current[id] = protocol;
+        debouncedSave();
         return [...prev, { id, label, url }];
       });
-      if (!added) return;
-      mockPorts.current[id] = assignNextPort();
-      setActiveTabId(id);
-      setConnectionStates((prev) => ({ ...prev, [id]: 'disconnected' }));
-      tabUrls.current[id] = url;
-      initialUrlsRef.current[id] = url;
-      if (protocol) initialProtocolsRef.current[id] = protocol;
-      debouncedSave();
     },
     [debouncedSave, assignNextPort],
   );
 
   const doCloseTab = useCallback(
     (id: string) => {
-      let removed = false;
       setTabs((prev) => {
         if (prev.length <= 1) return prev;
-        removed = true;
         const filtered = prev.filter((t) => t.id !== id);
         if (activeTabId === id && filtered.length > 0) {
           const oldIdx = prev.findIndex((t) => t.id === id);
           const newIdx = Math.min(oldIdx, filtered.length - 1);
           setActiveTabId(filtered[newIdx].id);
         }
+        setConnectionStates((current) => {
+          const next = { ...current };
+          delete next[id];
+          return next;
+        });
+        tabRefs.current.delete(id);
+        renamedTabIds.current.delete(id);
+        delete tabUrls.current[id];
+        delete tabViewTabs.current[id];
+        delete initialUrlsRef.current[id];
+        delete initialProtocolsRef.current[id];
+        delete initialDraftsRef.current[id];
+        const closedPort = mockPorts.current[id];
+        if (closedPort !== undefined) {
+          delete mockPorts.current[id];
+          void fetch('/api/ws/mock/stop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ port: closedPort }),
+          }).catch(() => { /* ignore if server wasn't running */ });
+        }
+        setStudioLoc((current) => {
+          if (!(id in current)) return current;
+          const next = { ...current };
+          delete next[id];
+          return next;
+        });
+        debouncedSave();
         return filtered;
       });
-      if (!removed) return;
-      setConnectionStates((prev) => {
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-      tabRefs.current.delete(id);
-      renamedTabIds.current.delete(id);
-      delete tabUrls.current[id];
-      delete tabViewTabs.current[id];
-      delete initialUrlsRef.current[id];
-      delete initialProtocolsRef.current[id];
-      delete initialDraftsRef.current[id];
-      // Release this tab's mock server port (fire-and-forget stop call).
-      const closedPort = mockPorts.current[id];
-      if (closedPort !== undefined) {
-        delete mockPorts.current[id];
-        void fetch('/api/ws/mock/stop', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ port: closedPort }),
-        }).catch(() => { /* ignore if server wasn't running */ });
-      }
-      setStudioLoc((prev) => {
-        if (!(id in prev)) return prev;
-        const next = { ...prev };
-        delete next[id];
-        return next;
-      });
-      debouncedSave();
     },
     [activeTabId, debouncedSave],
   );
@@ -425,6 +415,46 @@ export function WebSocketStudioPage({
       debouncedSave();
     },
     [debouncedSave],
+  );
+
+  const handleDuplicateTab = useCallback(
+    (tabId: string) => {
+      const srcTab = tabs.find((t) => t.id === tabId);
+      if (!srcTab) return;
+      if (tabs.length >= MAX_TABS) return;
+      const newId = generateTabId();
+      const isRenamed = renamedTabIds.current.has(tabId);
+      const newLabel = isRenamed ? `${srcTab.label} (copy)` : srcTab.label;
+      const newTab: WsConnectionTabInfo = { id: newId, label: newLabel, url: srcTab.url };
+      setTabs((prev) => {
+        if (prev.length >= MAX_TABS) return prev;
+        if (isRenamed) renamedTabIds.current.add(newId);
+        mockPorts.current[newId] = assignNextPort();
+        const srcUrl = tabUrls.current[tabId] ?? srcTab.url ?? '';
+        tabUrls.current[newId] = srcUrl;
+        initialUrlsRef.current[newId] = srcUrl;
+        const srcProtocol = initialProtocolsRef.current[tabId];
+        if (srcProtocol) initialProtocolsRef.current[newId] = srcProtocol;
+        const srcDraft = initialDraftsRef.current[tabId];
+        if (srcDraft) {
+          initialDraftsRef.current[newId] = {
+            ...srcDraft,
+            headers: srcDraft.headers ? [...srcDraft.headers] : undefined,
+            queryParams: srcDraft.queryParams ? [...srcDraft.queryParams] : undefined,
+            auth: srcDraft.auth ? { ...srcDraft.auth } : undefined,
+          };
+        }
+        const srcLoc = studioLocRef.current[tabId];
+        if (srcLoc) {
+          setStudioLoc((current) => ({ ...current, [newId]: { ...srcLoc } }));
+        }
+        setActiveTabId(newId);
+        setConnectionStates((current) => ({ ...current, [newId]: 'disconnected' }));
+        debouncedSave();
+        return [...prev, newTab];
+      });
+    },
+    [tabs, debouncedSave, assignNextPort],
   );
 
   const addHistoryEntry = historyHook.addEntry;
@@ -531,6 +561,7 @@ export function WebSocketStudioPage({
         onClose={handleCloseTab}
         onRename={handleRenameTab}
         onReorder={handleReorderTab}
+        onDuplicate={handleDuplicateTab}
         history={historyHook.history}
         onClearHistory={historyHook.clearHistory}
       />

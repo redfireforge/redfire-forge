@@ -785,7 +785,8 @@ describe('WebSocketStudioPage', () => {
         renamedTabIds: [],
       });
       await renderStudioPage();
-      expect(screen.queryByTestId('conn-tab-add')).toBeNull();
+      const addButton = screen.getByTestId('conn-tab-add') as HTMLButtonElement;
+      expect(addButton.disabled).toBe(true);
       expect(screen.getByTestId('conn-tab-bar').querySelectorAll('.ws-conn-tab').length).toBe(8);
     });
   });

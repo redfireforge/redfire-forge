@@ -29,17 +29,48 @@ const EMPTY_CACHED: CachedResponse = { response: null, responseTime: 0, sendAllR
 
 let _historyIdCounter = 0;
 
+// ─── Module-level singleton ─────────────────────────────────────
+// Survives component unmounts and tab switches. Keyed by requestId.
+const _cache = new Map<string, CachedResponse>();
+
+/**
+ * Remove cached response data for a single request.
+ * Call from closeTab() or deleteRequest() to prevent unbounded growth.
+ */
+export function pruneResponseCache(requestId: string): void {
+  _cache.delete(requestId);
+}
+
+/**
+ * Remove cached response data for every request in the given set.
+ * Call when an entire collection is deleted.
+ */
+export function pruneResponseCacheMany(requestIds: Iterable<string>): void {
+  for (const id of requestIds) _cache.delete(id);
+}
+
+/** Read-only access for testing. */
+export function _getResponseCacheSize(): number {
+  return _cache.size;
+}
+
+/** Reset the singleton — ONLY for tests. */
+export function _resetResponseCache(): void {
+  _cache.clear();
+}
+
+// ─── Hook ───────────────────────────────────────────────────────
+
 export function useResponseCache(requestId: string) {
-  const cacheRef = useRef<Map<string, CachedResponse>>(new Map());
   const prevReqId = useRef<string>(requestId);
 
   const getCached = useCallback((): CachedResponse => {
-    return cacheRef.current.get(requestId) ?? EMPTY_CACHED;
+    return _cache.get(requestId) ?? EMPTY_CACHED;
   }, [requestId]);
 
   const updateCache = useCallback(<K extends keyof CachedResponse>(key: K, val: CachedResponse[K]) => {
-    const c = cacheRef.current.get(requestId) ?? EMPTY_CACHED;
-    cacheRef.current.set(requestId, { ...c, [key]: val });
+    const c = _cache.get(requestId) ?? EMPTY_CACHED;
+    _cache.set(requestId, { ...c, [key]: val });
   }, [requestId]);
 
   const [response, _setResponse] = useState<HttpResponse | null>(() => getCached().response);
@@ -56,7 +87,7 @@ export function useResponseCache(requestId: string) {
   const pushHistory = useCallback((entry: Omit<ResponseHistoryEntry, 'id'>): string => {
     const id = `rh-${++_historyIdCounter}-${Date.now()}`;
     const full: ResponseHistoryEntry = { ...entry, id };
-    const prev = cacheRef.current.get(requestId)?.history ?? [];
+    const prev = _cache.get(requestId)?.history ?? [];
     const next = [full, ...prev].slice(0, MAX_HISTORY);
     updateCache('history', next);
     _setHistory(next);
@@ -64,7 +95,7 @@ export function useResponseCache(requestId: string) {
   }, [requestId, updateCache]);
 
   const restoreFromHistory = useCallback((entryId: string) => {
-    const cached = cacheRef.current.get(requestId);
+    const cached = _cache.get(requestId);
     const entry = cached?.history.find(h => h.id === entryId);
     if (!entry) return;
     setResponse(entry.response);
@@ -74,7 +105,7 @@ export function useResponseCache(requestId: string) {
   }, [requestId, setResponse, setResponseTime, setConsoleLines, setSendAllResults]);
 
   const deleteHistoryEntry = useCallback((entryId: string) => {
-    const prev = cacheRef.current.get(requestId)?.history ?? [];
+    const prev = _cache.get(requestId)?.history ?? [];
     const next = prev.filter(h => h.id !== entryId);
     updateCache('history', next);
     _setHistory(next);

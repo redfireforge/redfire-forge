@@ -196,7 +196,7 @@ describe('useHarnessPromotion', () => {
     expect(result.current.batchHarnessTarget).toBeUndefined();
   });
 
-  it('resolveWbEnvId path: app env id maps to workbench env by name for batch urls', () => {
+  it('uses the selected Settings env id directly for batch urls', () => {
     batchPromoteCollection.mockReturnValue({
       featureGroup: { id: 'fgx', name: 'X', scenarios: [] } as FeatureGroup,
       promotedRequestIds: ['rq1'],
@@ -234,7 +234,7 @@ describe('useHarnessPromotion', () => {
     });
 
     const ctxPassed = batchPromoteCollection.mock.calls[0]?.[1] as { selectedEnvId: string };
-    expect(ctxPassed.selectedEnvId).toBe('wb-by-name');
+    expect(ctxPassed.selectedEnvId).toBe('app-env-staging-id');
   });
 
   it('handleSendToHarnessConfirm skips sidebar env/service updates when overrides match selections', () => {
@@ -465,7 +465,7 @@ describe('useHarnessPromotion', () => {
     expect(setSelectedSvcId).toHaveBeenCalledWith('new-m');
   });
 
-  it('falls back to workbench env when app environment name has no Requests roster match', () => {
+  it('uses the resolved Settings env id for batch urls', () => {
     batchPromoteCollection.mockReturnValue({
       featureGroup: { id: 'fgz', name: 'Z', scenarios: [] } as FeatureGroup,
       promotedRequestIds: ['rq1'],
@@ -500,7 +500,7 @@ describe('useHarnessPromotion', () => {
       });
     });
     const ctxPassed = batchPromoteCollection.mock.calls[0]?.[1] as { selectedEnvId: string };
-    expect(ctxPassed.selectedEnvId).toBe('wb-current');
+    expect(ctxPassed.selectedEnvId).toBe('app-route');
     expect(groups.find(g => g.id === 'fgz')).toBeTruthy();
   });
 

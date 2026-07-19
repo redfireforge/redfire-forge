@@ -2,7 +2,7 @@
  * GqlTabBar.tsx — tab bar for the GraphQL Studio editor tabs.
  */
 
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 import { MAX_TABS, MAX_USER_TABS, countUserTabs, isDemoTab } from '../utils/tabPersistence';
@@ -10,22 +10,29 @@ import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import { findProfileById, resolveTabLabelEndpoint } from '../utils/tabConnectionResolution';
 import { resolveTabAuthDotKind } from '../utils/authUtils';
 import { getTabPresentation } from '../utils/tabLabelUtils';
+import { useTabDragReorder } from '../../../shared/components/studio-tabs/useTabDragReorder';
+import {
+  buildContextMenuItems,
+  useTabContextMenu,
+} from '../../../shared/components/studio-tabs/TabContextMenu';
 
 interface GqlTabBarProps {
   tabs: GqlStudioTab[];
   activeTabId: string;
   confirmingCloseTabId: string | null;
   pageDefaultEndpoint?: string;
-  /** Env-resolved page default — used for auto tab labels when tab inherits page URL. */
   pageDefaultEndpointResolved?: string;
   onTabClick: (tabId: string) => void;
   onTabClose: (tabId: string, e: React.MouseEvent) => void;
   onAddTab: () => void;
   onRenameTab?: (tabId: string, label: string) => void;
+  onReorderTabs?: (fromIndex: number, toIndex: number) => void;
+  onDuplicateTab?: (tabId: string) => void;
+  onCloseOtherTabs?: (tabId: string) => void;
+  onCloseTabsToRight?: (tabId: string) => void;
   profiles?: ConnectionProfile[];
   globalAuthProfiles?: GlobalAuthProfile[];
   batchEnabled?: boolean;
-  /** Phase 6G: read-only badge on tabs included in the active batch group. */
   batchIncludedTabIds?: ReadonlySet<string>;
 }
 
@@ -48,6 +55,10 @@ export function GqlTabBar({
   onTabClose,
   onAddTab,
   onRenameTab,
+  onReorderTabs,
+  onDuplicateTab,
+  onCloseOtherTabs,
+  onCloseTabsToRight,
   profiles = [],
   globalAuthProfiles = [],
   batchEnabled = false,
@@ -56,32 +67,150 @@ export function GqlTabBar({
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const tabElRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const pendingFocusRef = useRef(false);
+  const prevTabsLenRef = useRef(tabs.length);
   const userTabCount = countUserTabs(tabs);
   const atUserTabCap = userTabCount >= MAX_USER_TABS || tabs.length >= MAX_TABS;
   const showAuthDots = tabs.length > 1;
 
-  const startRename = (tab: GqlStudioTab, title: string, e: React.MouseEvent) => {
+  const startRename = useCallback((tab: GqlStudioTab, title: string, e?: React.MouseEvent) => {
     if (!onRenameTab) return;
-    e.stopPropagation();
-    e.preventDefault();
+    e?.stopPropagation();
+    e?.preventDefault();
     setEditingTabId(tab.id);
     setEditValue(title);
     requestAnimationFrame(() => {
       renameInputRef.current?.focus();
       renameInputRef.current?.select();
     });
-  };
+  }, [onRenameTab]);
 
-  const commitRename = (tabId: string) => {
+  const commitRename = useCallback((tabId: string) => {
     const trimmed = editValue.trim();
     if (trimmed && onRenameTab) onRenameTab(tabId, trimmed);
     setEditingTabId(null);
-  };
+  }, [editValue, onRenameTab]);
+
+  // ── Drag & Drop ──────────────────────────────────────────────────
+  const dnd = useTabDragReorder({
+    mimeType: 'text/x-gql-tab-index',
+    isEditing: editingTabId !== null,
+    onReorder: onReorderTabs,
+  });
+
+  // ── Keyboard Navigation ──────────────────────────────────────────
+  const handleTabKeyDown = useCallback(
+    (e: KeyboardEvent<HTMLButtonElement>, tabId: string) => {
+      if (editingTabId) return;
+      const idx = tabs.findIndex((t) => t.id === tabId);
+      if (idx < 0) return;
+
+      let targetIndex = -1;
+      switch (e.key) {
+        case 'ArrowLeft':
+          targetIndex = idx > 0 ? idx - 1 : tabs.length - 1;
+          break;
+        case 'ArrowRight':
+          targetIndex = idx < tabs.length - 1 ? idx + 1 : 0;
+          break;
+        case 'Home':
+          targetIndex = 0;
+          break;
+        case 'End':
+          targetIndex = tabs.length - 1;
+          break;
+        case 'Enter':
+        case ' ':
+          e.preventDefault();
+          onTabClick(tabId);
+          return;
+        case 'Delete':
+          if (tabs.length > 1 && !isDemoTab(tabs[idx])) {
+            e.preventDefault();
+            pendingFocusRef.current = true;
+            onTabClose(tabId, e as unknown as React.MouseEvent);
+          }
+          return;
+        case 'F2': {
+          e.preventDefault();
+          const tab = tabs[idx];
+          const profileName = findProfileById(profiles, tab.connectionId)?.name ?? null;
+          const labelEndpoint = resolveTabLabelEndpoint(tab, profiles, pageDefaultEndpoint, pageDefaultEndpointResolved);
+          const { title } = getTabPresentation(tab, profileName, labelEndpoint);
+          startRename(tab, title);
+          return;
+        }
+        default:
+          return;
+      }
+
+      if (targetIndex >= 0 && targetIndex !== idx) {
+        e.preventDefault();
+        const el = tabElRefs.current.get(tabs[targetIndex].id);
+        el?.focus();
+      }
+    },
+    [tabs, editingTabId, onTabClick, onTabClose, startRename, profiles, pageDefaultEndpoint, pageDefaultEndpointResolved],
+  );
+
+  useEffect(() => {
+    const prevLen = prevTabsLenRef.current;
+    prevTabsLenRef.current = tabs.length;
+    if (!pendingFocusRef.current) return;
+    if (tabs.length >= prevLen) { pendingFocusRef.current = false; return; }
+    pendingFocusRef.current = false;
+    tabElRefs.current.get(activeTabId)?.focus();
+  }, [tabs.length, activeTabId]);
+
+  // ── Context Menu ─────────────────────────────────────────────────
+  const ctxMenu = useTabContextMenu();
+
+  const handleContextMenuAction = useCallback((actionId: string) => {
+    const tabId = ctxMenu.menuState?.tabId;
+    if (!tabId) return;
+    const tab = tabs.find((t) => t.id === tabId);
+    if (!tab) return;
+
+    switch (actionId) {
+      case 'rename': {
+        const profileName = findProfileById(profiles, tab.connectionId)?.name ?? null;
+        const labelEndpoint = resolveTabLabelEndpoint(tab, profiles, pageDefaultEndpoint, pageDefaultEndpointResolved);
+        const { title } = getTabPresentation(tab, profileName, labelEndpoint);
+        startRename(tab, title);
+        break;
+      }
+      case 'duplicate':
+        onDuplicateTab?.(tabId);
+        break;
+      case 'copy-label': {
+        const profileName = findProfileById(profiles, tab.connectionId)?.name ?? null;
+        const labelEndpoint = resolveTabLabelEndpoint(tab, profiles, pageDefaultEndpoint, pageDefaultEndpointResolved);
+        const { title } = getTabPresentation(tab, profileName, labelEndpoint);
+        void navigator.clipboard.writeText(title);
+        break;
+      }
+      case 'close':
+        onTabClose(tabId, { stopPropagation: () => {} } as React.MouseEvent);
+        break;
+      case 'close-others':
+        onCloseOtherTabs?.(tabId);
+        break;
+      case 'close-right':
+        onCloseTabsToRight?.(tabId);
+        break;
+    }
+  }, [ctxMenu.menuState, tabs, profiles, pageDefaultEndpoint, pageDefaultEndpointResolved, startRename, onDuplicateTab, onTabClose, onCloseOtherTabs, onCloseTabsToRight]);
+
+  const setTabElRef = useCallback((id: string, el: HTMLButtonElement | null) => {
+    if (el) tabElRefs.current.set(id, el);
+    else tabElRefs.current.delete(id);
+  }, []);
 
   return (
     <div className="gql-tab-bar" data-testid="gql-tab-bar" role="tablist" aria-label="Query tabs">
       <div className="gql-tab-bar__scroll">
-        {tabs.map((tab) => {
+        {tabs.map((tab, index) => {
           const isActive = tab.id === activeTabId;
           const isConfirming = confirmingCloseTabId === tab.id;
           const isEditing = editingTabId === tab.id;
@@ -107,16 +236,28 @@ export function GqlTabBar({
           const authDotKind = showAuthDots
             ? resolveTabAuthDotKind(tab, profiles, globalAuthProfiles)
             : null;
+          const isDragging = dnd.draggingTabId === tab.id;
+          const dropClass = dnd.dropClassFor(tab.id);
 
           return (
             <button
               key={tab.id}
+              ref={(el) => setTabElRef(tab.id, el)}
               type="button"
-              className={`gql-tab ${typeClass}${isActive ? ' gql-tab--active' : ''}${hasSubtitle ? ' gql-tab--stacked' : ''}${demoTab ? ' gql-tab--demo' : ''}`}
+              className={`gql-tab ${typeClass}${isActive ? ' gql-tab--active' : ''}${hasSubtitle ? ' gql-tab--stacked' : ''}${demoTab ? ' gql-tab--demo' : ''}${isDragging ? ' gql-tab--dragging' : ''} ${dropClass}`}
               role="tab"
               aria-selected={isActive}
               aria-label={`${title}${subtitle ? `, ${subtitle}` : ''}${tab.unsavedChanges ? ', unsaved' : ''}${demoTab ? ', demo tab' : ''}`}
+              tabIndex={isActive ? 0 : -1}
               onClick={() => onTabClick(tab.id)}
+              onContextMenu={(e) => ctxMenu.openMenu(tab.id, e)}
+              onKeyDown={(e) => handleTabKeyDown(e, tab.id)}
+              draggable={!isEditing && !demoTab}
+              onDragStart={(e) => dnd.handleDragStart(e as unknown as React.DragEvent<HTMLElement>, index, tab.id)}
+              onDragEnd={dnd.handleDragEnd}
+              onDragOver={(e) => dnd.handleDragOver(e as unknown as React.DragEvent<HTMLElement>, tab.id)}
+              onDragLeave={(e) => dnd.handleDragLeave(e as unknown as React.DragEvent<HTMLElement>, tab.id)}
+              onDrop={(e) => dnd.handleDrop(e as unknown as React.DragEvent<HTMLElement>, index)}
               data-testid={`gql-tab-${tab.id}`}
               data-demo-lesson={demoTab ? tab.demoLessonId : undefined}
             >
@@ -203,6 +344,21 @@ export function GqlTabBar({
                 <span className="gql-tab-dot" aria-hidden="true" title="Unsaved changes" />
               )}
 
+              {onDuplicateTab && !demoTab && (
+                <span
+                  className="studio-tab-duplicate-btn"
+                  role="button"
+                  aria-label={`Duplicate ${title}`}
+                  aria-disabled={atUserTabCap || undefined}
+                  title={atUserTabCap ? 'Maximum tabs reached' : 'Duplicate tab'}
+                  tabIndex={-1}
+                  onClick={(e) => { e.stopPropagation(); if (!atUserTabCap) onDuplicateTab(tab.id); }}
+                  data-testid={`gql-tab-duplicate-${tab.id}`}
+                >
+                  ⧉
+                </span>
+              )}
+
               {tabs.length > 1 && !demoTab && (
                 <span
                   className={`gql-tab-close${isConfirming ? ' gql-tab-close--confirming' : ''}`}
@@ -252,7 +408,7 @@ export function GqlTabBar({
         title={
           atUserTabCap
             ? `Maximum ${MAX_USER_TABS} user tabs — close one to open another (demo lessons use a reserved slot)`
-            : 'New tab'
+            : `New tab (${userTabCount}/${MAX_USER_TABS})`
         }
         data-testid="gql-tab-add-btn"
         type="button"
@@ -261,7 +417,28 @@ export function GqlTabBar({
           <line x1="12" y1="5" x2="12" y2="19" />
           <line x1="5" y1="12" x2="19" y2="12" />
         </svg>
+        <span className="gql-tab-add-count" aria-hidden="true">
+          {userTabCount}/{MAX_USER_TABS}
+        </span>
       </button>
+
+      {ctxMenu.renderMenu(
+        ctxMenu.menuState
+          ? (() => {
+              const ctxTab = tabs.find((t) => t.id === ctxMenu.menuState!.tabId);
+              const isDemo = ctxTab ? isDemoTab(ctxTab) : true;
+              return buildContextMenuItems({
+                tabId: ctxMenu.menuState.tabId,
+                tabLabel: '',
+                tabIndex: tabs.findIndex((t) => t.id === ctxMenu.menuState!.tabId),
+                totalTabs: tabs.length,
+                canDuplicate: !atUserTabCap && Boolean(onDuplicateTab) && !isDemo,
+                canClose: tabs.length > 1 && !isDemo,
+              });
+            })()
+          : [],
+        handleContextMenuAction,
+      )}
     </div>
   );
 }

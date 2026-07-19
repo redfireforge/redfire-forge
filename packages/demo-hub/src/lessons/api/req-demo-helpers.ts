@@ -77,12 +77,23 @@ export async function selectRequestByName(
   name: string,
   collectionName?: string,
 ): Promise<void> {
-  const selector = collectionName
-    ? REQ.reqInCollection(collectionName, name)
-    : REQ.reqByName(name);
   if (collectionName) {
     await ensureCollectionExpanded(ctx, collectionName);
+    const group = document.querySelector<HTMLElement>(REQ.colByName(collectionName))
+      ?.closest('.req-col-group');
+    const requestInGroup = group
+      ? Array.from(group.querySelectorAll<HTMLElement>(REQ.REQ_ITEM))
+        .find((el) => el.getAttribute('data-req-name') === name)
+      : null;
+    if (requestInGroup) {
+      requestInGroup.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+      requestInGroup.click();
+      await ctx.delay(300);
+      return;
+    }
   }
+
+  const selector = REQ.reqByName(name);
   await ctx.waitFor(selector, 3000);
   const el = document.querySelector<HTMLElement>(selector);
   el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
@@ -150,8 +161,12 @@ export async function ensureCollectionExpanded(ctx: DemoActionContext, colName: 
   const col = document.querySelector<HTMLElement>(REQ.colByName(colName));
   if (!col) return false;
   const parent = col.closest('.req-col-group');
-  const list = parent?.querySelector('.req-req-list');
-  if (!list) {
+  const list = parent?.querySelector<HTMLElement>('.req-req-list');
+  const isListVisible = !!list
+    && list.getBoundingClientRect().height > 0
+    && getComputedStyle(list).display !== 'none'
+    && getComputedStyle(list).visibility !== 'hidden';
+  if (!isListVisible) {
     col.click();
     await ctx.delay(200);
   }
@@ -523,6 +538,79 @@ export async function ensureCollectionExists(
   if (col) return true;
   await createCollectionViaModal(ctx, colName);
   return !!document.querySelector(REQ.colByName(colName));
+}
+
+// ─── Tab Bar Helpers ─────────────────────────────────────────────────
+
+const REQ_TAB_ROLE_SELECTOR = `${REQ.TAB_BAR} [role="tab"]`;
+
+/** Number of open request tabs. */
+export function getRequestTabCount(): number {
+  return document.querySelectorAll(REQ_TAB_ROLE_SELECTOR).length;
+}
+
+/** Close all request tabs except the first. Used in setup/cleanup. */
+export async function closeExtraRequestTabs(ctx: DemoActionContext): Promise<void> {
+  let guard = 0;
+  while (getRequestTabCount() > 1 && guard < 10) {
+    const tabs = document.querySelectorAll<HTMLElement>(REQ_TAB_ROLE_SELECTOR);
+    const lastTab = tabs[tabs.length - 1];
+    const closeBtn = lastTab?.querySelector<HTMLElement>(REQ.TAB_CLOSE);
+    if (closeBtn) {
+      closeBtn.click();
+      await ctx.delay(200);
+    } else {
+      break;
+    }
+    guard++;
+  }
+}
+
+/** Click a request tab by its 0-based index. */
+export async function clickRequestTabByIndex(
+  ctx: DemoActionContext,
+  index: number,
+  delayMs = 400,
+): Promise<void> {
+  const tabs = document.querySelectorAll<HTMLElement>(REQ_TAB_ROLE_SELECTOR);
+  const tab = tabs[index];
+  if (tab && tab.getAttribute('aria-selected') !== 'true') {
+    tab.click();
+    await ctx.delay(delayMs);
+  }
+}
+
+/** Double-click a request tab to enter rename mode, type a new name, commit. */
+export async function renameRequestTabByIndex(
+  ctx: DemoActionContext,
+  index: number,
+  newName: string,
+): Promise<void> {
+  const tabs = document.querySelectorAll<HTMLElement>(REQ_TAB_ROLE_SELECTOR);
+  const tab = tabs[index];
+  if (!tab) return;
+  tab.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+  await ctx.delay(400);
+  const renameInput = tab.querySelector<HTMLInputElement>('.req-tab-bar__rename');
+  if (renameInput) {
+    fillControlledInput(renameInput, newName);
+    await ctx.delay(300);
+    renameInput.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    await ctx.delay(300);
+  }
+}
+
+/** Get the label text of the active request tab. */
+export function getActiveRequestTabLabel(): string | null {
+  const activeTab = document.querySelector<HTMLElement>(`${REQ_TAB_ROLE_SELECTOR}[aria-selected="true"]`);
+  return activeTab?.querySelector<HTMLElement>(REQ.TAB_LABEL)?.textContent ?? null;
+}
+
+/** Check if a request tab at the given index has a visible close button. */
+export function requestTabHasCloseButton(index: number): boolean {
+  const tabs = document.querySelectorAll<HTMLElement>(REQ_TAB_ROLE_SELECTOR);
+  const tab = tabs[index];
+  return !!tab?.querySelector(REQ.TAB_CLOSE);
 }
 
 /** Timing constants for request demo pacing. */

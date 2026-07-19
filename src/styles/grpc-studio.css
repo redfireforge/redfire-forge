@@ -257,6 +257,10 @@
   background: var(--primary);
 }
 
+.grpc-tab--dragging {
+  opacity: 0.4;
+}
+
 .grpc-tab--in-flight {
   border-color: color-mix(in srgb, var(--warning) 55%, var(--border));
 }

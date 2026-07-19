@@ -4,6 +4,7 @@ import type { Tab } from '../utils/appTabUtils';
 import { domainOf, isApiTab, isHarnessTab, isWorkflowTab } from '../utils/appTabUtils';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
 import type { UseRequestsReturn } from '../../features/requests/hooks/useRequests';
+import type { UseRequestTabCoordinatorReturn } from '../../features/requests/hooks/useRequestTabCoordinator';
 import type { WorkflowHook } from '../../features/workflow/hooks/useWorkflows';
 import type { WorkflowFoldersHook } from '../../features/workflow/hooks/useWorkflowFolders';
 import type { GalleryDomain } from '../../data/galleries/types';
@@ -49,6 +50,7 @@ export interface AppSidebarRegionProps {
   handleWbEditCollection: (col: RequestCollection) => void;
   handleWbNewRequest: (colId: string, folderId?: string) => void;
   handleEditSubCollection: (colId: string, folderId: string) => void;
+  reqTabs: UseRequestTabCoordinatorReturn;
 }
 
 export default function AppSidebarRegion({
@@ -88,6 +90,7 @@ export default function AppSidebarRegion({
   handleWbEditCollection,
   handleWbNewRequest,
   handleEditSubCollection,
+  reqTabs,
 }: AppSidebarRegionProps) {
   const hideSidebar = domainOf(activeTab) === 'settings'
     || domainOf(activeTab) === 'gallery'
@@ -126,29 +129,33 @@ export default function AppSidebarRegion({
                   {wb.loaded && (
                     <RequestsSidebar
                       collections={wb.collections}
+                      environments={environments}
+                      microservices={microservices}
                       selectedCollectionId={wb.selectedCollection?.id}
                       selectedRequestId={wb.selectedRequest?.id}
                       onSelectCollection={(colId) => { wb.selectCollection(colId); setActiveTab('requests'); }}
-                      onSelectRequest={(colId, reqId) => { wb.selectRequest(colId, reqId); setActiveTab('requests'); }}
+                      onSelectRequest={(colId, reqId) => { reqTabs.selectRequest(colId, reqId); setActiveTab('requests'); }}
+                      openTabRequestIds={reqTabs.openTabRequestIds}
+                      onOpenInNewTab={(colId, reqId) => { reqTabs.openInNewTab(colId, reqId); setActiveTab('requests'); }}
                       onNewCollection={handleWbNewCollection}
                       onEditCollection={handleWbEditCollection}
-                      onDeleteCollection={wb.removeCollection}
+                      onDeleteCollection={reqTabs.removeCollection}
                       onDuplicateCollection={wb.duplicateCollection}
                       onNewRequest={handleWbNewRequest}
-                      onDeleteRequest={wb.removeRequest}
+                      onDeleteRequest={reqTabs.removeRequest}
                       onDuplicateRequest={wb.duplicateRequest}
                       onAddFolder={wb.addFolder}
                       onAddSubCollection={wb.addSubCollection}
                       onEditSubCollection={handleEditSubCollection}
                       onRenameFolder={wb.renameFolder}
-                      onDeleteFolder={wb.removeFolder}
+                      onDeleteFolder={reqTabs.removeFolder}
                       onDuplicateFolder={wb.duplicateFolder}
                       onMoveFolder={wb.moveFolder}
                       onMoveFolderTo={wb.moveFolderTo}
                       onMoveRequest={wb.moveRequest}
-                      onMoveRequestToCollection={wb.moveRequestToCollection}
-                      onMoveFolderToCollection={wb.moveFolderToCollection}
-                      onMergeCollectionInto={wb.moveCollectionAsSubCollection}
+                      onMoveRequestToCollection={reqTabs.moveRequestToCollection}
+                      onMoveFolderToCollection={reqTabs.moveFolderToCollection}
+                      onMergeCollectionInto={reqTabs.mergeCollectionInto}
                       countAllRequests={wb.countAllRequests}
                       onImportCollection={wb.importCollection}
                       onImportFolder={wb.importFolder}
