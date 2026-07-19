@@ -36,37 +36,45 @@ describe('useRequests', () => {
   it('loads initial data and marks loaded', async () => {
     const { result } = await setup({ environments: [{ id: 'e1', name: 'dev' }] });
     expect(result.current.loaded).toBe(true);
-    expect(result.current.environments).toEqual([{ id: 'e1', name: 'dev' }]);
+    expect(result.current.data.environments).toEqual([{ id: 'e1', name: 'dev' }]);
   });
 
   it('persists data after load', async () => {
     const { result } = await setup();
     await act(async () => {
-      result.current.addEnv('prod');
+      result.current.addCollection({ name: 'C', mode: 'multi-env' });
     });
     expect(mockSaveRequests).toHaveBeenCalled();
   });
 
   describe('environments', () => {
-    it('adds, selects and removes an environment', async () => {
+    it('tracks the active env selection', async () => {
       const { result } = await setup();
-      act(() => result.current.addEnv('dev'));
-      expect(result.current.environments).toHaveLength(1);
-      const envId = result.current.environments[0].id;
-      act(() => result.current.setSelectedEnvId(envId));
-      expect(result.current.selectedEnvId).toBe(envId);
-      act(() => result.current.removeEnv(envId));
-      expect(result.current.environments).toHaveLength(0);
+      act(() => result.current.setSelectedEnvId('env-a'));
+      expect(result.current.selectedEnvId).toBe('env-a');
+      act(() => result.current.setSelectedEnvId(undefined));
       expect(result.current.selectedEnvId).toBeUndefined();
     });
 
-    it('adds only environments with new names', async () => {
-      const { result } = await setup({ environments: [{ id: 'e1', name: 'dev' }] });
-      act(() => result.current.addEnvironments([{ id: 'x', name: 'dev' }, { id: 'y', name: 'qa' }]));
-      expect(result.current.environments.map((e) => e.name)).toEqual(['dev', 'qa']);
-      // no-op when all already exist
-      act(() => result.current.addEnvironments([{ id: 'z', name: 'dev' }]));
-      expect(result.current.environments).toHaveLength(2);
+    it('reconciles legacy env-keyed data onto Settings env IDs by name', async () => {
+      const { result } = await setup({
+        environments: [{ id: 'wb-dev', name: 'Dev' }, { id: 'wb-old', name: 'Legacy' }],
+        selectedEnvId: 'wb-dev',
+        collections: [{
+          id: 'c1', name: 'C', mode: 'multi-env',
+          baseUrls: { 'wb-dev': 'https://dev.example.com', 'wb-old': 'https://old.example.com' },
+          requests: [], folders: [],
+        }],
+      });
+      let dropped: string[] = [];
+      act(() => { dropped = result.current.reconcileEnvironmentKeys([{ id: 'settings-dev', name: 'Dev' }]); });
+      expect(dropped).toEqual(['Legacy']);
+      expect(result.current.selectedEnvId).toBe('settings-dev');
+      expect(result.current.collections[0].baseUrls).toEqual({ 'settings-dev': 'https://dev.example.com' });
+      // legacy registry cleared → second call is a no-op
+      expect(result.current.data.environments).toBeUndefined();
+      act(() => { dropped = result.current.reconcileEnvironmentKeys([{ id: 'settings-dev', name: 'Dev' }]); });
+      expect(dropped).toEqual([]);
     });
   });
 
@@ -148,13 +156,13 @@ describe('useRequests', () => {
       expect(result.current.collections[0].folders![0].folders![0].id).toBe(childId);
     });
 
-    it('adds and updates a sub-collection, matching env by name', async () => {
-      const hook = await setup({ environments: [{ id: 'env-dev', name: 'Dev' }] });
+    it('adds and updates a sub-collection with an explicit env id', async () => {
+      const hook = await setup();
       act(() => { colId = hook.result.current.addCollection({ name: 'C' }); });
-      act(() => { hook.result.current.addSubCollection(colId, 'dev'); });
+      act(() => { hook.result.current.addSubCollection(colId, 'dev', undefined, 'settings-dev'); });
       const sub = hook.result.current.collections[0].folders![0];
       expect(sub.isSubCollection).toBe(true);
-      expect(sub.selectedEnvId).toBe('env-dev');
+      expect(sub.selectedEnvId).toBe('settings-dev');
       act(() => hook.result.current.updateSubCollection(colId, sub.id, { name: 'renamed' }));
       expect(hook.result.current.collections[0].folders![0].name).toBe('renamed');
     });
@@ -198,6 +206,31 @@ describe('useRequests', () => {
       act(() => { reqId = result.current.addRequest(colId, folderId); });
       act(() => result.current.removeFolder(colId, folderId));
       expect(result.current.collections[0].requests.some((r) => r.id === reqId)).toBe(true);
+    });
+
+    it('removing a sub-collection clears selectedRequestId when selected request was inside', async () => {
+      const { result } = await withCol();
+      act(() => result.current.addSubCollection(colId, 'Sub'));
+      const subId = result.current.collections[0].folders![0].id;
+      let reqId = '';
+      act(() => { reqId = result.current.addRequest(colId, subId); });
+      act(() => result.current.selectRequest(colId, reqId));
+      expect(result.current.selectedRequest?.id).toBe(reqId);
+      act(() => result.current.removeFolder(colId, subId));
+      expect(result.current.selectedRequest).toBeNull();
+    });
+
+    it('removing a sub-collection preserves selectedRequestId when selected request was outside', async () => {
+      const { result } = await withCol();
+      let rootReqId = '';
+      act(() => { rootReqId = result.current.addRequest(colId); });
+      act(() => result.current.addSubCollection(colId, 'Sub'));
+      const subId = result.current.collections[0].folders![0].id;
+      act(() => result.current.addRequest(colId, subId));
+      act(() => result.current.selectRequest(colId, rootReqId));
+      expect(result.current.selectedRequest?.id).toBe(rootReqId);
+      act(() => result.current.removeFolder(colId, subId));
+      expect(result.current.selectedRequest?.id).toBe(rootReqId);
     });
 
     it('moves a folder up and down', async () => {
@@ -603,12 +636,17 @@ describe('useRequests', () => {
   });
 
   describe('multi-collection branch coverage', () => {
-    it('removeEnv preserves selectedEnvId when removing a different environment', async () => {
-      const { result } = await setup({ environments: [{ id: 'e1', name: 'dev' }, { id: 'e2', name: 'qa' }] });
-      act(() => result.current.setSelectedEnvId('e1'));
-      act(() => result.current.removeEnv('e2'));
-      expect(result.current.environments).toHaveLength(1);
-      expect(result.current.selectedEnvId).toBe('e1');
+    it('reconcile is a no-op when there is no legacy env registry', async () => {
+      const { result } = await setup({
+        collections: [{
+          id: 'c1', name: 'C', mode: 'multi-env',
+          baseUrls: { 'settings-dev': 'https://dev.example.com' }, requests: [], folders: [],
+        }],
+      });
+      let dropped: string[] = [];
+      act(() => { dropped = result.current.reconcileEnvironmentKeys([{ id: 'settings-dev', name: 'Dev' }]); });
+      expect(dropped).toEqual([]);
+      expect(result.current.collections[0].baseUrls).toEqual({ 'settings-dev': 'https://dev.example.com' });
     });
 
     it('updateCollection does not affect other collections', async () => {
@@ -931,6 +969,22 @@ describe('useRequests', () => {
       act(() => result.current.deleteGroup(g1));
       expect(result.current.collections.some((c) => c.id === g1)).toBe(false);
       expect(result.current.collections.find((c) => c.id === child)?.groupId).toBeUndefined();
+    });
+
+    it('deleteGroup also clears selectedRequestId when group is selected', async () => {
+      const { result } = await setup();
+      let g1 = '';
+      act(() => { g1 = result.current.addGroup('G1'); });
+      let c1 = '';
+      act(() => { c1 = result.current.addCollection({ name: 'C1' }); });
+      act(() => result.current.moveToGroup(c1, g1));
+      let r1 = '';
+      act(() => { r1 = result.current.addRequest(c1); });
+      act(() => result.current.selectRequest(c1, r1));
+      act(() => result.current.selectCollection(g1));
+      act(() => result.current.deleteGroup(g1));
+      expect(result.current.data.selectedRequestId).toBeUndefined();
+      expect(result.current.data.selectedCollectionId).toBeUndefined();
     });
 
     it('selectRequest auto-save skips when prevReq has no version updates', async () => {

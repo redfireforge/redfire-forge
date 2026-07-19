@@ -18,6 +18,7 @@ import {
   resolveInitialSchemaBrowserSelection,
   type SchemaBrowserNode,
 } from '../utils/grpcSchemaBrowserModel';
+import { SchemaBrowserTree, findSchemaNodeByTypeName } from './grpcSchemaBrowserTree';
 
 const GRPCURL_COPY_HINT_SEEN_KEY = 'grpc-schema-copy-grpcurl-hint-seen';
 const GRPCURL_INSTALL_GO_CMD = 'go install github.com/fullstorydev/grpcurl/cmd/grpcurl@latest';
@@ -241,27 +242,6 @@ function FieldTypeCell({
       {label}
     </button>
   );
-}
-
-function findSchemaNodeByTypeName(
-  nodes: SchemaBrowserNode[],
-  typeName: string,
-): SchemaBrowserNode | undefined {
-  for (const node of nodes) {
-    if (node.kind === 'message' && node.messageSchema?.typeName === typeName) {
-      return node;
-    }
-    if (node.kind === 'enum' && node.enumSchema?.typeName === typeName) {
-      return node;
-    }
-    if (node.children?.length) {
-      const found = findSchemaNodeByTypeName(node.children, typeName);
-      if (found) {
-        return found;
-      }
-    }
-  }
-  return undefined;
 }
 
 function FieldDocTable({
@@ -501,86 +481,6 @@ function ServiceDetail({
         </tbody>
       </table>
     </div>
-  );
-}
-
-function TreeNodeButton({
-  node,
-  depth,
-  selectedNodeId,
-  onSelect,
-}: {
-  node: SchemaBrowserNode;
-  depth: number;
-  selectedNodeId?: string;
-  onSelect: (node: SchemaBrowserNode) => void;
-}) {
-  const isPackage = node.kind === 'package';
-  if (isPackage) {
-    return (
-      <div
-        className="grpc-schema-tree-package"
-        style={{ paddingLeft: `${8 + depth * 12}px` }}
-      >
-        {node.label}
-      </div>
-    );
-  }
-
-  const icon = node.kind === 'service'
-    ? '⚡'
-    : node.kind === 'method'
-      ? 'ƒ'
-      : node.kind === 'enum'
-        ? 'E'
-        : '⬡';
-
-  return (
-    <button
-      type="button"
-      className={`grpc-schema-tree-node grpc-schema-tree-node--${node.kind}${selectedNodeId === node.id ? ' grpc-schema-tree-node--active' : ''}`}
-      style={{ paddingLeft: `${12 + depth * 12}px` }}
-      data-testid={`grpc-schema-tree-node-${node.id}`}
-      onClick={() => onSelect(node)}
-    >
-      <span className="grpc-schema-tree-node-icon" aria-hidden>{icon}</span>
-      <span className="grpc-schema-tree-node-label">{node.label}</span>
-    </button>
-  );
-}
-
-function TreeNodes({
-  nodes,
-  depth,
-  selectedNodeId,
-  onSelect,
-}: {
-  nodes: SchemaBrowserNode[];
-  depth: number;
-  selectedNodeId?: string;
-  onSelect: (node: SchemaBrowserNode) => void;
-}) {
-  return (
-    <>
-      {nodes.map((node) => (
-        <div key={node.id}>
-          <TreeNodeButton
-            node={node}
-            depth={depth}
-            selectedNodeId={selectedNodeId}
-            onSelect={onSelect}
-          />
-          {node.children?.length ? (
-            <TreeNodes
-              nodes={node.children}
-              depth={depth + 1}
-              selectedNodeId={selectedNodeId}
-              onSelect={onSelect}
-            />
-          ) : null}
-        </div>
-      ))}
-    </>
   );
 }
 
@@ -866,18 +766,11 @@ export function GrpcSchemaBrowser({
       </div>
       <div className="grpc-schema-browser-split">
         <div className="grpc-schema-browser-tree" data-testid="grpc-schema-browser-tree">
-          {filteredTree.length > 0 ? (
-            <TreeNodes
-              nodes={filteredTree}
-              depth={0}
-              selectedNodeId={selectedNodeId}
-              onSelect={handleSelectNode}
-            />
-          ) : (
-            <p className="grpc-schema-tree-empty" data-testid="grpc-schema-tree-empty">
-              No schema nodes match your search.
-            </p>
-          )}
+          <SchemaBrowserTree
+            nodes={filteredTree}
+            selectedNodeId={selectedNodeId}
+            onSelect={handleSelectNode}
+          />
         </div>
         <div className="grpc-schema-browser-detail" data-testid="grpc-schema-browser-detail">
           {renderDetail()}

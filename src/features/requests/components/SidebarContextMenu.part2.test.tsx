@@ -40,6 +40,7 @@ function makeBaseCallbacks() {
     onMergeCollectionInto: vi.fn(),
     countAllRequests: vi.fn(() => 0),
     startAddFolder: vi.fn(),
+    getSubColEligibleCount: vi.fn(() => 1),
     startRenameFolder: vi.fn(),
     handleExportCollection: vi.fn(),
     handleExportFolder: vi.fn(),
@@ -264,12 +265,29 @@ describe('SidebarContextMenu', () => {
   });
 
   it('collection menu: add folder and sub-collection', () => {
-    const col: RequestCollection = { id: 'c1', name: 'C', mode: 'direct', requests: [], folders: [] };
+    const col: RequestCollection = { id: 'c1', name: 'C', mode: 'multi-env', requests: [], folders: [] };
     renderMenu({ x: 0, y: 0, type: 'collection', colId: 'c1' }, [col]);
     fireEvent.click(screen.getByText('Add Folder'));
     expect(baseCallbacks.startAddFolder).toHaveBeenCalledWith('c1', undefined, false);
     fireEvent.click(screen.getByText('Add Sub-Collection'));
     expect(baseCallbacks.startAddFolder).toHaveBeenCalledWith('c1', undefined, true);
+  });
+
+  it('collection menu: URL (direct) collection omits Add Sub-Collection', () => {
+    const col: RequestCollection = { id: 'c1', name: 'C', mode: 'direct', requests: [], folders: [] };
+    renderMenu({ x: 0, y: 0, type: 'collection', colId: 'c1' }, [col]);
+    expect(screen.getByText('Add Folder')).toBeInTheDocument();
+    expect(screen.queryByText('Add Sub-Collection')).not.toBeInTheDocument();
+  });
+
+  it('collection menu: disables Add Sub-Collection when no eligible envs', () => {
+    const col: RequestCollection = { id: 'c1', name: 'C', mode: 'multi-env', requests: [], folders: [] };
+    renderMenu({ x: 0, y: 0, type: 'collection', colId: 'c1' }, [col], {
+      getSubColEligibleCount: vi.fn(() => 0),
+    });
+    const btn = screen.getByText('Add Sub-Collection');
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute('title', 'Configure a base URL for an environment first');
   });
 
   it('request menu: omits move submenu when collection missing', () => {
@@ -345,7 +363,7 @@ describe('SidebarContextMenu', () => {
 
   it('folder menu: add folder and sub-collection under parent', () => {
     const col: RequestCollection = {
-      id: 'c1', name: 'C', mode: 'direct', requests: [],
+      id: 'c1', name: 'C', mode: 'multi-env', requests: [],
       folders: [{ id: 'f1', name: 'F', requests: [], folders: [] }],
     };
     renderMenu({ x: 0, y: 0, type: 'folder', colId: 'c1', folderId: 'f1' }, [col]);
@@ -353,6 +371,16 @@ describe('SidebarContextMenu', () => {
     expect(baseCallbacks.startAddFolder).toHaveBeenCalledWith('c1', 'f1', false);
     fireEvent.click(screen.getByText('Add Sub-Collection'));
     expect(baseCallbacks.startAddFolder).toHaveBeenCalledWith('c1', 'f1', true);
+  });
+
+  it('folder menu: URL (direct) collection omits Add Sub-Collection', () => {
+    const col: RequestCollection = {
+      id: 'c1', name: 'C', mode: 'direct', requests: [],
+      folders: [{ id: 'f1', name: 'F', requests: [], folders: [] }],
+    };
+    renderMenu({ x: 0, y: 0, type: 'folder', colId: 'c1', folderId: 'f1' }, [col]);
+    expect(screen.getByText('Add Folder')).toBeInTheDocument();
+    expect(screen.queryByText('Add Sub-Collection')).not.toBeInTheDocument();
   });
 
   it('folder at collection root omits Collection Root move target', () => {
@@ -501,5 +529,108 @@ describe('SidebarContextMenu', () => {
     );
     fireEvent.click(container.querySelector('.req-context-menu')!);
     expect(parentClick).not.toHaveBeenCalled();
+  });
+
+  it('collection menu omits Send to Harness when callback is absent', () => {
+    const col: RequestCollection = { id: 'c1', name: 'C', mode: 'direct', requests: [], folders: [] };
+    renderMenu({ x: 0, y: 0, type: 'collection', colId: 'c1' }, [col], {
+      onSendCollectionToHarness: undefined,
+    });
+    expect(screen.queryByText('Send to Harness')).toBeNull();
+  });
+
+  it('folder menu omits Send to Harness when callback is absent', () => {
+    const col: RequestCollection = {
+      id: 'c1', name: 'C', mode: 'direct', requests: [],
+      folders: [{ id: 'f1', name: 'F', requests: [], folders: [] }],
+    };
+    renderMenu({ x: 0, y: 0, type: 'folder', colId: 'c1', folderId: 'f1' }, [col], {
+      onSendFolderToHarness: undefined,
+    });
+    expect(screen.queryByText('Send to Harness')).toBeNull();
+  });
+
+  it('folder menu disables Add Sub-Collection when no eligible envs', () => {
+    const col: RequestCollection = {
+      id: 'c1', name: 'C', mode: 'multi-env', requests: [],
+      folders: [{ id: 'f1', name: 'F', requests: [], folders: [] }],
+    };
+    renderMenu({ x: 0, y: 0, type: 'folder', colId: 'c1', folderId: 'f1' }, [col], {
+      getSubColEligibleCount: vi.fn(() => 0),
+    });
+    const btn = screen.getByText('Add Sub-Collection');
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute('title', 'Configure a base URL for an environment first');
+  });
+
+  it('request move submenu handles destination collections with undefined folders', () => {
+    const src: RequestCollection = {
+      id: 'c1', name: 'Src', mode: 'direct', requests: [req('r1', 'R1')], folders: [],
+    };
+    const dst = {
+      id: 'c2', name: 'Dest', mode: 'direct', requests: [], folders: undefined,
+    } as RequestCollection;
+    renderMenu(
+      { x: 0, y: 0, type: 'request', colId: 'c1', reqId: 'r1' },
+      [src, dst],
+      { showMoveMenu: true, setShowMoveMenu: vi.fn() },
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Dest/ }));
+    expect(baseCallbacks.onMoveRequestToCollection).toHaveBeenCalledWith('c1', 'r1', 'c2', null);
+  });
+
+  it('repositions context and submenu when they overflow viewport', () => {
+    const origRect = HTMLElement.prototype.getBoundingClientRect;
+    Object.defineProperty(window, 'innerWidth', { value: 460, configurable: true });
+    Object.defineProperty(window, 'innerHeight', { value: 460, configurable: true });
+
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function mockRect() {
+      const cls = String((this as HTMLElement).className || '');
+      if (cls.includes('req-context-menu')) {
+        return {
+          x: 430, y: 430, left: 430, top: 430, right: 700, bottom: 700, width: 270, height: 270,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+      if (cls.includes('req-ctx-submenu-wrapper')) {
+        return {
+          x: 420, y: 420, left: 420, top: 420, right: 450, bottom: 450, width: 30, height: 30,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+      if (cls.includes('req-ctx-submenu')) {
+        return {
+          x: 0, y: 0, left: 0, top: 0, right: 280, bottom: 280, width: 280, height: 280,
+          toJSON: () => ({}),
+        } as DOMRect;
+      }
+      return {
+        x: 0, y: 0, left: 0, top: 0, right: 40, bottom: 24, width: 40, height: 24,
+        toJSON: () => ({}),
+      } as DOMRect;
+    });
+
+    try {
+      const c1: RequestCollection = {
+        id: 'c1', name: 'C1', mode: 'direct', requests: [req('r1', 'R')], folders: [],
+      };
+      const c2: RequestCollection = {
+        id: 'c2', name: 'C2', mode: 'direct', requests: [], folders: [],
+      };
+      renderMenu(
+        { x: 450, y: 450, type: 'request', colId: 'c1', reqId: 'r1' },
+        [c1, c2],
+        { showMoveMenu: true, setShowMoveMenu: vi.fn() },
+      );
+      const menu = screen.getByTestId('req-context-menu') as HTMLElement;
+      const submenu = document.querySelector('.req-ctx-submenu') as HTMLElement;
+      expect(menu.style.left).not.toBe('');
+      expect(menu.style.top).not.toBe('');
+      expect(submenu.style.left).not.toBe('');
+      expect(submenu.style.top).not.toBe('');
+    } finally {
+      vi.restoreAllMocks();
+      HTMLElement.prototype.getBoundingClientRect = origRect;
+    }
   });
 });

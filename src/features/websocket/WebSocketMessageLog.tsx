@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { WsFrame, WsReplaySpeed, WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
-import { formatUptime } from '../../shared/websocket/types';
 import type { WsDirectionFilter, WsSearchMode, WsSizeFilter, WsTimeFilter, WsContentTypeFilter } from './useWebSocketStudioTypes';
 import { WebSocketMessageDetail } from './WebSocketMessageDetail';
 import { useDropdownClose } from './useDropdownClose';
@@ -17,6 +16,7 @@ import { WebSocketSchemaPanel } from './WebSocketSchemaPanel';
 import { MessageRow } from './WebSocketMessageRow';
 import { useWebSocketFilterPresets } from './useWebSocketFilterPresets';
 import { WebSocketFilterBar } from './WebSocketFilterBar';
+import { WebSocketCompareBanner, WebSocketMessagesStatusBar, WebSocketReplayBar } from './WebSocketMessageLogBars';
 
 const ROW_HEIGHT = 26;
 const VIRTUALIZER_OVERSCAN = 15;
@@ -446,23 +446,16 @@ export function WebSocketMessageLog({
     return false;
   }, [selectedFrame, allMessages]);
 
-  const statusDotClass = isConnected ? 'connected' : 'disconnected';
-
   return (
     <div className="ws-message-log-container">
       {showStatusBar && (
-        <div className="ws-messages-status-bar" data-testid="messages-status-bar">
-          <span className={`ws-status-dot ${statusDotClass}`} aria-hidden="true" />
-          <span className="ws-messages-status-label">{isConnected ? 'Connected' : 'Disconnected'}</span>
-          {connectionUrl && (
-            <span className="ws-messages-status-url" title={connectionUrl}>{connectionUrl}</span>
-          )}
-          {uptime != null && (
-            <span className="ws-messages-status-metric">Uptime: {formatUptime(uptime)}</span>
-          )}
-          <span className="ws-messages-status-metric">↑ {sentCount} &nbsp; ↓ {receivedCount}</span>
-          <span className="ws-messages-status-hints">↑↓ navigate · Esc close detail</span>
-        </div>
+        <WebSocketMessagesStatusBar
+          isConnected={isConnected}
+          connectionUrl={connectionUrl}
+          uptime={uptime}
+          sentCount={sentCount}
+          receivedCount={receivedCount}
+        />
       )}
 
       {/* Toolbar */}
@@ -670,86 +663,20 @@ export function WebSocketMessageLog({
       )}
 
       {isReplaying && (
-        <div className="ws-replay-bar" data-testid="replay-bar">
-          {/* Left: mode badge + playback controls */}
-          <div className="ws-replay-bar-left">
-            <span className="ws-replay-badge">
-              <span className="ws-replay-dot" />
-              REPLAY
-            </span>
-            <button
-              className="ws-replay-playpause"
-              onClick={recordingState === 'paused' ? onResumeReplay : onPauseReplay}
-              data-testid="replay-playpause-btn"
-              title={recordingState === 'paused' ? 'Resume replay' : 'Pause replay'}
-              aria-label={recordingState === 'paused' ? 'Resume replay' : 'Pause replay'}
-            >
-              {recordingState === 'paused' ? '▶' : '⏸'}
-            </button>
-            <div className="ws-replay-speed-group">
-              <span className="ws-replay-speed-label">Speed</span>
-              <select
-                className="ws-replay-speed"
-                value={replaySpeed}
-                onChange={(e) => onSetReplaySpeed?.(Number(e.target.value) as WsReplaySpeed)}
-                data-testid="replay-speed-select"
-                aria-label="Replay speed"
-              >
-                <option value={1}>1×</option>
-                <option value={2}>2×</option>
-                <option value={5}>5×</option>
-                <option value={10}>10×</option>
-                <option value={0}>Max</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Center: progress track + counter */}
-          {replayProgress && (
-            <div className="ws-replay-center" data-testid="replay-progress">
-              <div className="ws-replay-track">
-                <div
-                  className="ws-replay-fill"
-                  style={{ width: `${Math.min(100, (replayProgress.current / Math.max(replayProgress.total, 1)) * 100)}%` }}
-                />
-              </div>
-              <span className="ws-replay-counter">
-                <span className="ws-replay-counter-current">{replayProgress.current}</span>
-                <span className="ws-replay-counter-sep">/</span>
-                <span className="ws-replay-counter-total">{replayProgress.total}</span>
-                <span className="ws-replay-counter-label">events</span>
-              </span>
-            </div>
-          )}
-
-          {/* Right: exit */}
-          <button
-            className="ws-replay-exit-btn"
-            onClick={onStopReplay}
-            data-testid="replay-exit-btn"
-            title="Stop replay and return to live view"
-            aria-label="Exit replay"
-          >
-            <span className="ws-replay-exit-icon">✕</span>
-            Exit Replay
-          </button>
-        </div>
+        <WebSocketReplayBar
+          recordingState={recordingState}
+          replaySpeed={replaySpeed}
+          onSetReplaySpeed={onSetReplaySpeed}
+          replayProgress={replayProgress}
+          onResumeReplay={onResumeReplay}
+          onPauseReplay={onPauseReplay}
+          onStopReplay={onStopReplay}
+        />
       )}
 
       {/* Compare mode banner */}
       {compareMode && (
-        <div className="ws-compare-banner" data-testid="compare-banner">
-          <span>
-            {compareIds[0] === null
-              ? 'Click a message to select it for comparison'
-              : compareIds[1] === null
-                ? 'Click a second message to compare'
-                : 'Comparison ready'}
-          </span>
-          <button className="ws-compare-banner-cancel" onClick={toggleCompare} data-testid="compare-cancel">
-            Cancel
-          </button>
-        </div>
+        <WebSocketCompareBanner compareIds={compareIds} onCancel={toggleCompare} />
       )}
 
       {/* Virtualized message list */}

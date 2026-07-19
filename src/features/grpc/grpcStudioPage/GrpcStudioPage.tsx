@@ -183,6 +183,9 @@ export function GrpcStudioPage({
           onClose={studio.closeTab}
           onDuplicate={studio.duplicateTab}
           onRename={studio.renameTab}
+          onReorder={studio.reorderTabs}
+          onCloseOthers={studio.closeOtherTabs}
+          onCloseRight={studio.closeTabsToRight}
         />
       )}
 

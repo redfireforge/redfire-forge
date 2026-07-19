@@ -22,7 +22,7 @@ export interface CatalogExportContext {
   servers: CatalogServer[];
   microserviceId?: string;
   versionLabel?: string;
-  existingWbEnvNames: Map<string, string>; // envName -> wbEnvId
+  existingEnvNames: Map<string, string>; // envName -> Settings environmentId
   groupId?: string;
   catalogEntryName?: string;
   catalogEntryId?: string;
@@ -159,18 +159,20 @@ export function buildCatalogExport(
   context: CatalogExportContext,
 ): CatalogExportResult {
   const { collectionName, envs, endpoints, customNames, sampleEpIds, savedEpValues: epVals } = payload;
-  const { servers, microserviceId, versionLabel, existingWbEnvNames, groupId, catalogEntryName, catalogEntryId } = context;
+  const { servers, microserviceId, versionLabel, existingEnvNames, groupId, catalogEntryName, catalogEntryId } = context;
 
+  // Resolve each catalog env to a Settings environment id (reuse by name, else mint a new one
+  // that the caller adds to Settings). Everything keys off Settings env ids.
   const envIdMap: Record<string, string> = {};
   const baseUrls: Record<string, string> = {};
   const newEnvironments: { id: string; name: string }[] = [];
 
   for (const env of envs) {
-    const existingId = existingWbEnvNames.get(env.envName);
-    const wbEnvId = existingId ?? uuidv4();
-    envIdMap[env.envId] = wbEnvId;
-    baseUrls[wbEnvId] = env.baseUrl;
-    if (!existingId) newEnvironments.push({ id: wbEnvId, name: env.envName });
+    const existingId = existingEnvNames.get(env.envName);
+    const settingsEnvId = existingId ?? uuidv4();
+    envIdMap[env.envId] = settingsEnvId;
+    baseUrls[settingsEnvId] = env.baseUrl;
+    if (!existingId) newEnvironments.push({ id: settingsEnvId, name: env.envName });
   }
 
   const serverPathPrefix = extractServerPathPrefix(servers);

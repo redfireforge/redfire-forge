@@ -42,6 +42,14 @@ export const REQ = {
   reqInCollection: (colName: string, reqName: string) =>
     `.req-col-group:has([data-col-name="${colName}"]) [data-req-name="${reqName}"]`,
 
+  // ── Tab Bar ──────────────────────────────────────────────────
+  TAB_BAR:                  '[data-testid="req-tab-bar"]',
+  TAB_ADD:                  '[data-testid="req-tab-add"]',
+  TAB_ITEM:                 '[data-testid="req-tab-item"]',
+  TAB_CLOSE:                '[data-testid="req-tab-close"]',
+  TAB_LABEL:                '[data-testid="req-tab-label"]',
+  tabById: (id: string) => `[data-testid="req-tab-item"][data-tab-id="${id}"]`,
+
   // ── Request Editor ────────────────────────────────────────────
   EDITOR:                   '[data-testid="req-editor"]',
   METHOD_SELECT:            '[data-testid="req-method-select"]',
@@ -110,10 +118,9 @@ export const REQ = {
 
   // ── Collection Modal ──────────────────────────────────────────
   COLLECTION_MODAL:         '[data-testid="req-collection-modal"]',
+  SVC_SELECT:               '[data-testid="req-svc-select"]',
   BASE_URL_MAP:             '[data-testid="req-base-url-map"]',
   BASE_URL_INPUT:           '[data-testid="req-base-url-input"]',
-  ADD_ENV_INPUT:            '[data-testid="req-add-env-input"]',
-  ADD_ENV_BTN:              '[data-testid="req-add-env-btn"]',
 
   // ── Send to Harness Modal ─────────────────────────────────────
   HARNESS_MODAL:            '[data-testid="req-send-harness-modal"]',

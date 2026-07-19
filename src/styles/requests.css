@@ -2,6 +2,180 @@
    Requests – full-page layout for ad-hoc API testing
    ═══════════════════════════════════════════════════════ */
 
+/* ─── Tab Bar ──────────────────────────────────── */
+
+.req-tab-bar {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  min-height: 36px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+
+.req-tab-bar__scroll {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.req-tab-bar__scroll::-webkit-scrollbar {
+  height: 3px;
+}
+.req-tab-bar__scroll::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+.req-tab-bar__list {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  padding: 4px 0 0;
+}
+
+.req-tab-bar__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: 6px 6px 0 0;
+  cursor: pointer;
+  white-space: nowrap;
+  max-width: 180px;
+  position: relative;
+  transition: color 0.12s, background 0.12s;
+  user-select: none;
+}
+
+.req-tab-bar__tab:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-hover) 80%, transparent);
+  border-color: color-mix(in srgb, var(--border) 70%, transparent);
+}
+
+.req-tab-bar__tab:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.req-tab-bar__tab--dragging {
+  opacity: 0.4;
+}
+
+.req-tab-bar__tab--active {
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
+}
+
+.req-tab-bar__tab--active::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  border-radius: 0 0 2px 2px;
+  background: var(--primary);
+}
+
+.req-tab-bar__method {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  flex-shrink: 0;
+}
+
+.req-tab-bar__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.req-tab-bar__rename {
+  width: 110px;
+  padding: 1px 5px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.76rem;
+}
+.req-tab-bar__rename:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+
+.req-tab-bar__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 3px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.12s, background 0.12s;
+  flex-shrink: 0;
+}
+.req-tab-bar__tab:hover .req-tab-bar__close,
+.req-tab-bar__tab--active .req-tab-bar__close {
+  opacity: 1;
+}
+.req-tab-bar__close:hover {
+  background: color-mix(in srgb, var(--danger, #ef4444) 20%, transparent);
+  color: var(--text);
+}
+
+.req-tab-bar__add {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 10px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: color 0.12s, background 0.12s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+.req-tab-bar__add:hover:not(:disabled) {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-hover) 60%, transparent);
+}
+.req-tab-bar__add:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.req-tab-bar__add:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: -2px;
+}
+
+.req-tab-bar__counter {
+  font-size: 0.62rem;
+  opacity: 0.6;
+}
+
 /* ─── Container ─────────────────────────────────── */
 .req-container {
   display: flex;
@@ -518,6 +692,11 @@
 .req-url-row {
   display: flex; align-items: center; gap: 0; flex-shrink: 0;
   border-bottom: 1px solid var(--border); background: var(--surface);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.req-url-row:focus-within {
+  border-bottom-color: var(--primary);
+  box-shadow: inset 0 -2px 0 -1px var(--primary);
 }
 .req-method-select-wrapper {
   position: relative;
@@ -595,22 +774,28 @@
   font-family: 'Fira Code', 'Cascadia Code', monospace; background: transparent;
   color: var(--text); outline: none; min-width: 0;
 }
+.req-url-input::placeholder { color: var(--text-muted); opacity: 0.55; font-style: italic; }
 .req-send-btn {
-  background: var(--success); color: #fff; border: none; padding: 6px 20px;
-  font-weight: 700; font-size: 0.85rem; cursor: pointer; white-space: nowrap;
-  transition: background 0.15s; flex-shrink: 0; border-radius: 4px; margin: 4px 0;
+  background: var(--success); color: #fff; border: none; padding: 8px 24px;
+  font-weight: 700; font-size: 0.85rem; letter-spacing: 0.3px; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.05s;
+  flex-shrink: 0; border-radius: 6px; margin: 5px 8px 5px 5px; min-width: 78px;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
-.req-send-btn:hover { background: #16a34a; }
-.req-send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.req-send-btn:hover { background: color-mix(in srgb, var(--success) 86%, #000); box-shadow: 0 2px 10px color-mix(in srgb, var(--success) 40%, transparent); }
+.req-send-btn:active { transform: translateY(1px); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+.req-send-btn:focus-visible { outline: 2px solid var(--success); outline-offset: 2px; }
+.req-send-btn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 
 /* Status pills (inline with Send) */
 .req-status-row { display: flex; align-items: center; gap: 6px; padding: 0 4px 0 8px; flex-shrink: 0; position: relative; min-width: 280px; }
 .req-status-pill {
-  font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 4px; white-space: nowrap;
+  font-size: 0.75rem; font-weight: 700; padding: 3px 10px; border-radius: 5px; white-space: nowrap;
+  border: 1px solid transparent;
 }
-.req-status-pill.success { background: rgba(34,197,94,0.2); color: var(--success); }
-.req-status-pill.error   { background: rgba(239,68,68,0.2); color: var(--danger); }
-.req-status-pill.warn    { background: rgba(245,158,11,0.2); color: var(--warning); }
+.req-status-pill.success { background: color-mix(in srgb, var(--success) 18%, transparent); color: var(--success); border-color: color-mix(in srgb, var(--success) 35%, transparent); }
+.req-status-pill.error   { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+.req-status-pill.warn    { background: color-mix(in srgb, var(--warning) 18%, transparent); color: var(--warning); border-color: color-mix(in srgb, var(--warning) 35%, transparent); }
 .req-stat { font-size: 0.75rem; color: var(--text-muted); white-space: nowrap; }
 
 /* ── Response history dropdown ─────────────────── */
@@ -762,10 +947,13 @@
   padding: 2px 10px; border-radius: 12px; font-size: 0.7rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
 }
 .req-env-pill:hover { border-color: var(--primary); color: var(--text); }
-.req-env-pill.active { background: rgba(59,130,246,0.2); border-color: var(--primary); color: var(--primary); }
+.req-env-pill.active { background: color-mix(in srgb, var(--primary) 18%, transparent); border-color: var(--primary); color: var(--primary); }
 .req-env-pill.pinned { cursor: default; font-style: italic; }
 .req-env-hint {
   font-size: 0.65rem; color: var(--warning, #f59e0b); font-style: italic; opacity: 0.85;
+}
+.req-env-hint-warn {
+  color: var(--danger, #ef4444); font-weight: 600; opacity: 1;
 }
 .req-resolved-url-arrow {
   color: var(--primary); font-size: 0.75rem; flex-shrink: 0; font-weight: 700;
@@ -773,8 +961,8 @@
 .req-resolved-url-full {
   font-size: 0.7rem; color: var(--primary); font-family: 'Fira Code', 'Cascadia Code', monospace;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; flex: 1;
-  padding: 2px 8px; background: rgba(var(--primary-rgb, 99,102,241), 0.08);
-  border-radius: 4px; border: 1px solid rgba(var(--primary-rgb, 99,102,241), 0.15);
+  padding: 2px 8px; background: color-mix(in srgb, var(--primary) 8%, transparent);
+  border-radius: 4px; border: 1px solid color-mix(in srgb, var(--primary) 18%, transparent);
   cursor: default; user-select: all; font-weight: 500;
 }
 
@@ -795,11 +983,14 @@
 }
 .req-tab {
   background: none; border: none; border-bottom: 2px solid transparent;
-  color: var(--text-muted); padding: 7px 14px; font-size: 0.78rem; font-weight: 500;
-  cursor: pointer; transition: all 0.15s; display: flex; align-items: center; gap: 5px;
+  color: var(--text-muted); padding: 8px 14px; font-size: 0.78rem; font-weight: 500;
+  cursor: pointer; transition: color 0.15s, border-color 0.15s, background 0.15s;
+  display: flex; align-items: center; gap: 5px;
+  border-top-left-radius: 5px; border-top-right-radius: 5px;
 }
-.req-tab:hover { color: var(--text); }
-.req-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+.req-tab:hover { color: var(--text); background: color-mix(in srgb, var(--surface-hover) 55%, transparent); }
+.req-tab.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
+.req-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }
 .tab-badge { background: var(--primary); color: #fff; font-size: 0.58rem; font-weight: 700; padding: 1px 5px; border-radius: 8px; min-width: 14px; text-align: center; }
 .req-tab-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); display: inline-block; }
 
@@ -856,11 +1047,75 @@
   --error-color: var(--danger);
 }
 
-/* Auth editor */
-.req-auth-editor { max-width: 100%; }
-.req-auth-fields { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
-.req-auth-label { font-size: 0.72rem; font-weight: 600; color: var(--text-muted); margin-top: 2px; }
-.req-auth-label:first-child { margin-top: 0; }
+/* Auth editor — constrain width so controls read as a tidy form, not a stretched band */
+.req-auth-editor { max-width: 620px; }
+
+/* Credential fields render as a two-tone properties card: darker label column,
+   surface control column, hairline dividers — compact and professional. */
+.req-auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+/* Each credential field is one aligned row: [label column] [control] */
+.req-auth-row {
+  display: flex;
+  align-items: stretch;
+  min-height: 40px;
+}
+.req-auth-row + .req-auth-row { border-top: 1px solid var(--border); }
+.req-auth-row .req-auth-label {
+  flex: 0 0 140px;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0 12px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  font-size: 0.74rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.req-auth-row .req-input,
+.req-auth-row .req-select {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 8px 12px;
+}
+.req-auth-row .req-input:focus,
+.req-auth-row .req-select:focus {
+  border: none;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+/* Custom select (WfDarkSelect) fills the control column borderless, keeping its chevron */
+.req-auth-row .req-auth-wf-select { flex: 1 1 auto; min-width: 0; }
+.req-auth-row .wf-dark-select__trigger {
+  border: none;
+  border-radius: 0;
+  background-color: transparent;
+  font-size: 0.85rem;
+  padding: 8px 32px 8px 12px;
+}
+.req-auth-row .wf-dark-select__trigger:hover { border: none; }
+.req-auth-row .wf-dark-select__trigger:focus {
+  border: none;
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--primary) 40%, transparent);
+}
+
+.req-auth-label { font-size: 0.74rem; font-weight: 500; color: var(--text-muted); }
 
 /* ── Auth Type Custom Select ── */
 .req-auth-type-wrapper {
@@ -977,14 +1232,21 @@
 .req-resp-content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 .req-resp-content::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
 
-.req-response-placeholder { display: flex; align-items: center; justify-content: center; flex: 1; color: var(--text-muted); font-size: 0.82rem; opacity: 0.5; }
+.req-response-placeholder {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px; flex: 1; color: var(--text-muted); font-size: 0.82rem; text-align: center; padding: 24px;
+}
+.req-response-placeholder-icon { width: 42px; height: 42px; color: var(--text-muted); opacity: 0.35; }
+.req-response-placeholder-title { font-size: 0.92rem; font-weight: 600; color: var(--text); opacity: 0.8; }
+.req-response-placeholder-hint { font-size: 0.78rem; color: var(--text-muted); opacity: 0.7; }
+.req-response-placeholder-hint strong { color: var(--success); font-weight: 700; }
 .req-response-loading { display: flex; align-items: center; justify-content: center; gap: 8px; flex: 1; color: var(--text-muted); }
 .req-spinner { width: 16px; height: 16px; border: 2px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: req-spin 0.7s linear infinite; }
 @keyframes req-spin { to { transform: rotate(360deg); } }
 
 /* Response headers list */
 .req-resp-headers-list { flex: 1; overflow-y: auto; padding: 8px 12px; }
-.req-resp-header-row { display: flex; gap: 12px; padding: 4px 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.78rem; }
+.req-resp-header-row { display: flex; gap: 12px; padding: 5px 0; border-bottom: 1px solid color-mix(in srgb, var(--border) 55%, transparent); font-size: 0.78rem; }
 .req-resp-header-key { color: var(--accent); font-weight: 600; min-width: 160px; word-break: break-all; }
 .req-resp-header-val { color: var(--text); word-break: break-all; flex: 1; }
 
@@ -1109,6 +1371,33 @@
 }
 
 /* ─── Modals (Collection + Env Manager) ─────────── */
+.req-form-table {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.req-form-table-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.req-form-table-label {
+  flex: 0 0 160px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+.req-form-table-ctrl {
+  flex: 1;
+  min-width: 0;
+}
+.req-form-table-ctrl .req-input,
+.req-form-table-ctrl .wf-dark-select-trigger {
+  width: 100%;
+}
 .req-form-group {
   margin-bottom: 18px;
 }
@@ -1166,8 +1455,12 @@
 .req-env-label {
   font-size: 0.8rem;
   font-weight: 600;
-  min-width: 60px;
+  flex: 0 0 110px;
+  text-align: right;
   color: var(--success);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .req-base-url-input-group {
   flex: 1; display: flex; flex-direction: column; gap: 4px;
@@ -1404,18 +1697,26 @@
 }
 .req-subcol-panel {
   background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
-  width: 460px;
-  max-width: 90%;
-  max-height: 80vh;
+  border: 1px solid color-mix(in srgb, white 24%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 10%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 10px 34px rgba(0, 0, 0, 0.4);
+  border-radius: 12px;
+  width: min(520px, calc(100vw - 24px));
+  max-height: min(78vh, 740px);
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  padding: 0;
 }
 .req-subcol-header {
-  padding: 16px 20px 12px;
+  padding: 14px 16px 12px;
   border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 .req-subcol-header h3 {
   margin: 0;
@@ -1423,18 +1724,26 @@
   font-weight: 600;
   color: var(--text);
 }
+.req-subcol-grip {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  letter-spacing: -3px;
+  line-height: 1;
+  opacity: 0.75;
+}
 .req-subcol-body {
-  padding: 16px 20px;
+  padding: 12px 16px;
   overflow-y: auto;
   flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 .req-subcol-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 .req-subcol-label {
   font-size: 0.78rem;
@@ -1454,9 +1763,9 @@
 .req-subcol-env-detail {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   margin-top: 4px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: var(--bg);
   border-radius: 6px;
   border: 1px solid var(--border);
@@ -1481,9 +1790,9 @@
 .req-subcol-auth-fields {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
   margin-top: 6px;
-  padding: 10px 12px;
+  padding: 8px 10px;
   background: var(--bg);
   border-radius: 6px;
   border: 1px solid var(--border);
@@ -1492,8 +1801,12 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-  padding: 12px 20px;
+  padding: 10px 16px;
   border-top: 1px solid var(--border);
+}
+
+.req-subcol-dark-select .wf-dark-select__trigger {
+  width: 100%;
 }
 
 /* Confirm delete dialog */
@@ -1658,7 +1971,7 @@
 }
 .req-api-info-btn:hover { color: var(--text); border-color: var(--text-muted); }
 .req-api-info-btn.active {
-  background: rgba(59, 130, 246, 0.1);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
   border-color: var(--primary);
   color: var(--primary);
 }
@@ -2488,30 +2801,46 @@
   box-shadow: none;
 }
 .req-send-harness-btn {
-  padding: 3px 10px;
-  border-radius: 4px;
-  border: 1px solid #6c63ff44;
+  padding: 4px 12px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   background: transparent;
-  color: #6c63ff;
-  font-size: 11px;
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s;
 }
 .req-send-harness-btn:hover {
-  background: #6c63ff18;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  border-color: var(--accent);
 }
+.req-send-harness-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .req-req-harness-badge {
-  font-size: 9px;
-  font-weight: 600;
-  padding: 1px 5px;
-  border-radius: 3px;
-  background: #6c63ff30;
-  color: #a89dff;
-  border: 1px solid #6c63ff44;
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--accent) 20%, transparent);
+  color: color-mix(in srgb, var(--accent) 55%, var(--text));
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
   white-space: nowrap;
-  margin-left: 4px;
+  margin-left: 8px;
   flex-shrink: 0;
 }
+
+.req-req-tab-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--primary);
+  margin-left: auto;
+  flex-shrink: 0;
+  opacity: 0.7;
+}
+
 /* ─── Batch Send to Harness Modal ─── */
 .batch-harness-col-name {
   font-size: 12px;

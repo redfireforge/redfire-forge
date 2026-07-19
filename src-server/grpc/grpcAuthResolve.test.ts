@@ -50,6 +50,35 @@ describe('grpcAuthResolve (Phase 4D)', () => {
     )).rejects.toThrow(/invalid_scope/i);
   });
 
+  it('throws when oauth2 auth is missing its nested config', async () => {
+    const tokenService = {
+      acquireToken: vi.fn(),
+    } as unknown as GrpcOAuth2TokenService;
+
+    await expect(resolveGrpcExecuteAuthMetadata(
+      {},
+      { type: 'oauth2' },
+      tokenService,
+    )).rejects.toThrow(/OAuth2 configuration is required/);
+    expect(tokenService.acquireToken).not.toHaveBeenCalled();
+  });
+
+  it('resolves non-oauth2 auth synchronously', async () => {
+    const tokenService = {
+      acquireToken: vi.fn(),
+    } as unknown as GrpcOAuth2TokenService;
+
+    await expect(resolveGrpcExecuteAuthMetadata(
+      { 'x-trace': '1' },
+      { type: 'bearer', bearerToken: 'token-123' },
+      tokenService,
+    )).resolves.toEqual({
+      'x-trace': '1',
+      authorization: 'Bearer token-123',
+    });
+    expect(tokenService.acquireToken).not.toHaveBeenCalled();
+  });
+
   it('sanitizes auth resolve error messages before envelope mapping', () => {
     const mapped = mapGrpcAuthResolveErrorForEnvelope(
       new Error('client_secret=super-secret access_token=abc123'),

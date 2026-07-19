@@ -1,22 +1,21 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { GraphqlAuth, GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
 import type { GqlTlsSettings } from '../../../shared/types/gqlTls';
-import { deriveOperationType, extractOperations } from '../utils/monacoGraphqlSetup';
+import { extractOperations } from '../utils/monacoGraphqlSetup';
 import { disposeTabModels } from '../utils/tabPersistence';
 import type { ConnectionProfile } from '../utils/connectionProfileStorage';
 import {
   resolveTabRawEndpoint,
-  resolveTabLabelEndpoint,
   findProfileById,
   isTabProfileLinked,
   isTabProfileLinkPending,
   isTabAuthOverridden,
 } from '../utils/tabConnectionResolution';
-import { withAutoTabLabel, isAutoLabelEligible } from '../utils/tabLabelUtils';
-import { clampPollingIntervalSeconds } from '../utils/pollingIntervalUtils';
+import { withAutoTabLabel } from '../utils/tabLabelUtils';
 import {
   type GqlStudioTab,
   advanceSeqPastRestoredIds,
+  isDemoTab,
   loadActiveTabId,
   loadTabs,
   makeBlankTab,
@@ -26,8 +25,6 @@ import {
   MAX_TABS,
   MAX_USER_TABS,
   countUserTabs,
-  computeTabAuthStoredValue,
-  graphqlAuthEquals,
 } from '../utils/tabPersistence';
 import {
   GQL_TABS_RELOAD_EVENT,
@@ -37,39 +34,27 @@ import {
   purgeOrphanDemoTabs,
   type GqlDemoSession,
 } from '../utils/gqlDemoWorkspace';
+import { resolveTabLabelEndpoint } from '../utils/tabConnectionResolution';
+import { useGqlTabFieldUpdaters } from './useGqlTabFieldUpdaters';
+import type { GqlTabFieldPageDefaults } from './useGqlTabFieldUpdaters';
 
 export interface UseGqlStudioTabsOptions {
-  /** Cancel in-flight execution for the tab being closed (Phase 6E). */
   onCancelExecution: (tabId: string) => void;
-  /** Returns true when the given tab has a loading execution (Phase 6E). */
   isTabExecuting?: (tabId: string) => boolean;
-  /** Called to clear file entries when a tab is closed or switched. */
   onClearFileEntries: () => void;
-  /** Called to reset the subscription engine on unmount. */
   onResetSubscription: () => void;
-  /** Live monaco ref so tab model disposal does not cause a stale closure. */
   monacoRef: React.MutableRefObject<import('@monaco-editor/react').Monaco | null>;
-  /** Page-level default endpoint (raw, before env resolution). Phase 6. */
   pageDefaultEndpoint?: string;
-  /** Page-level default endpoint after env resolution — used for auto tab labels. */
   pageDefaultEndpointResolved?: string;
-  /** Page-level default TLS skip setting. Phase 6. */
   pageDefaultSkipTlsVerify?: boolean;
-  /** Page-level default CA / mTLS PEM fields. */
   pageDefaultTlsCaCert?: string;
   pageDefaultTlsClientCert?: string;
   pageDefaultTlsClientKey?: string;
-  /** Page-level default polling enabled. Phase 6F. */
   pageDefaultPollingEnabled?: boolean;
-  /** Page-level default polling interval (seconds). Phase 6F. */
   pageDefaultPollingIntervalSeconds?: number;
-  /** Page-level default auth. Phase 6H. */
   pageDefaultAuth?: GraphqlAuth | null;
-  /** Saved connection profiles for endpoint resolution (Phase 6F). */
   profiles?: ConnectionProfile[];
-  /** True after profile catalog has loaded from storage (Phase 6F). */
   profilesReady?: boolean;
-  /** Called after a tab is actually removed (not on unsaved-change confirmation prompt). Phase 6 PT-4. */
   onTabClosed?: (tabId: string) => void;
 }
 
@@ -87,6 +72,10 @@ export interface UseGqlStudioTabsResult {
   handleTabClick:         (tabId: string) => void;
   closeTab:               (tabId: string, e: React.MouseEvent) => void;
   renameTab:              (tabId: string, label: string) => void;
+  reorderTabs:            (fromIndex: number, toIndex: number) => void;
+  duplicateTab:           (tabId: string) => void;
+  closeOtherTabs:         (keepTabId: string) => void;
+  closeTabsToRight:       (tabId: string) => void;
   updateActiveTab:        (patch: Partial<GqlStudioTab>) => void;
   updateActiveTabEndpoint: (endpoint: string) => void;
   clearActiveTabEndpoint: () => void;
@@ -99,13 +88,11 @@ export interface UseGqlStudioTabsResult {
   resolvedTabEndpoint:    string;
   hasActiveTabEndpointOverride: boolean;
   hasActiveTabProfileLink: boolean;
-  /** True when connectionId resolves to a saved profile (excludes profiles-loading pending state). */
   hasResolvedProfileLink: boolean;
   hasActiveTabSkipTlsOverride: boolean;
   hasActiveTabTlsCertOverride: boolean;
   hasActiveTabPollingOverride: boolean;
   hasActiveTabAuthOverride: boolean;
-  /** True while connectionId is set but profile catalog has not resolved it yet (Phase 6F). */
   hasPendingProfileEndpoint: boolean;
   applyProfileToActiveTab: (profile: ConnectionProfile) => void;
   clearConnectionIdsForProfile: (profileId: string) => void;
@@ -116,14 +103,8 @@ export interface UseGqlStudioTabsResult {
   handleHeadersChange:    (headers: GqlStudioTab['headers']) => void;
   handleAssertionsChange: (assertions: GraphqlSubscriptionAssertion[]) => void;
   handleSubscriptionTransportChange: (t: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse') => void;
-  /** Active Demo Hub lesson id when a demo session is loaded (§11.0 batch/tab isolation). */
   activeDemoLessonId: string | null;
 }
-
-/**
- * Encapsulates all tab lifecycle state for GraphqlStudioPage:
- * creation, switching, closing, persistence, and per-tab content callbacks.
- */
 export function useGqlStudioTabs({
   onCancelExecution,
   isTabExecuting,
@@ -171,6 +152,33 @@ export function useGqlStudioTabs({
   onClearFileEntriesRef.current = onClearFileEntries;
   const demoSessionRef          = useRef<GqlDemoSession | null>(null);
 
+  // ─── Field updaters (extracted hook) ───────────────────────────
+  const pageDefaults: GqlTabFieldPageDefaults = useMemo(() => ({
+    endpoint: pageDefaultEndpoint,
+    endpointResolved: pageDefaultEndpointResolved,
+    skipTlsVerify: pageDefaultSkipTlsVerify,
+    tlsCaCert: pageDefaultTlsCaCert,
+    tlsClientCert: pageDefaultTlsClientCert,
+    tlsClientKey: pageDefaultTlsClientKey,
+    pollingEnabled: pageDefaultPollingEnabled,
+    pollingIntervalSeconds: pageDefaultPollingIntervalSeconds,
+    auth: pageDefaultAuth,
+  }), [
+    pageDefaultEndpoint, pageDefaultEndpointResolved, pageDefaultSkipTlsVerify,
+    pageDefaultTlsCaCert, pageDefaultTlsClientCert, pageDefaultTlsClientKey,
+    pageDefaultPollingEnabled, pageDefaultPollingIntervalSeconds, pageDefaultAuth,
+  ]);
+
+  const fieldUpdaters = useGqlTabFieldUpdaters({
+    setTabs,
+    activeTabIdRef,
+    pageDefaults,
+    profiles,
+    tabCount: tabs.length,
+  });
+
+  // ─── Persistence ───────────────────────────────────────────────
+
   const refreshDemoSession = useCallback(async () => {
     const session = await loadDemoSession();
     demoSessionRef.current = session;
@@ -182,8 +190,6 @@ export function useGqlStudioTabs({
       const session = await loadDemoSession();
       demoSessionRef.current = session;
       setActiveDemoLessonId(session?.lessonId ?? null);
-      // Demo Hub may write demo tabs to storage before React reload applies them.
-      // Skip persist until the in-memory tab list includes the session demo tab.
       if (session?.demoTabId && !tabsRef.current.some((t) => t.id === session.demoTabId)) {
         return;
       }
@@ -193,7 +199,6 @@ export function useGqlStudioTabs({
     })();
   }, []);
 
-  // ── Restore from storage on mount ──────────────────────────────────────────
   const reloadFromStorage = useCallback(async () => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     await purgeOrphanDemoTabs();
@@ -249,7 +254,6 @@ export function useGqlStudioTabs({
     return () => window.removeEventListener(GQL_TABS_RELOAD_EVENT, handler);
   }, [reloadFromStorage]);
 
-  // ── Flush on unmount ────────────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
@@ -261,7 +265,6 @@ export function useGqlStudioTabs({
     };
   }, [persistTabsToStorage]);
 
-  // ── Persist on change ───────────────────────────────────────────────────────
   useEffect(() => {
     if (!loadedRef.current) return;
     if (tabs.length === 0) return;
@@ -274,7 +277,6 @@ export function useGqlStudioTabs({
     };
   }, [tabs, activeTabId, persistTabsToStorage]);
 
-  // ── Tab CRUD ────────────────────────────────────────────────────────────────
   const persistTabsNow = useCallback(async (nextTabs: GqlStudioTab[], nextActiveId: string) => {
     const session = await loadDemoSession();
     demoSessionRef.current = session;
@@ -286,6 +288,8 @@ export function useGqlStudioTabs({
     const activeId = pickPersistedActiveTabId(filtered, nextActiveId);
     await saveTabs(filtered, activeId);
   }, []);
+
+  // ─── Tab lifecycle ─────────────────────────────────────────────
 
   const addTab = useCallback(() => {
     const session = demoSessionRef.current;
@@ -344,6 +348,96 @@ export function useGqlStudioTabs({
     );
   }, []);
 
+  const reorderTabs = useCallback((fromIndex: number, toIndex: number) => {
+    setTabs((prev) => {
+      if (fromIndex < 0 || fromIndex >= prev.length) return prev;
+      if (toIndex < 0 || toIndex >= prev.length) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(fromIndex, 1);
+      next.splice(toIndex, 0, moved);
+      return next;
+    });
+  }, []);
+
+  const duplicateTab = useCallback((tabId: string) => {
+    const tab = tabsRef.current.find((t) => t.id === tabId);
+    if (!tab || isDemoTab(tab)) return;
+    if (countUserTabs(tabsRef.current) >= MAX_USER_TABS || tabsRef.current.length >= MAX_TABS) return;
+    const newTab = makeBlankTab();
+    const clone: GqlStudioTab = {
+      ...newTab,
+      label: `${tab.label} (copy)`,
+      labelManual: true,
+      query: tab.query,
+      variables: tab.variables,
+      headers: tab.headers ? [...tab.headers] : [],
+      operationType: tab.operationType,
+      selectedOperation: tab.selectedOperation,
+      endpoint: tab.endpoint,
+      connectionId: tab.connectionId,
+      auth: tab.auth ? { ...tab.auth } : undefined,
+      skipTlsVerify: tab.skipTlsVerify,
+      tlsCaCert: tab.tlsCaCert,
+      tlsClientCert: tab.tlsClientCert,
+      tlsClientKey: tab.tlsClientKey,
+      pollingEnabled: tab.pollingEnabled,
+      pollingIntervalSeconds: tab.pollingIntervalSeconds,
+      subscriptionTransport: tab.subscriptionTransport,
+      subscriptionAssertions: tab.subscriptionAssertions
+        ? tab.subscriptionAssertions.map((a) => ({ ...a }))
+        : undefined,
+      unsavedChanges: true,
+    };
+    let added = false;
+    setTabs((prev) => {
+      if (countUserTabs(prev) >= MAX_USER_TABS || prev.length >= MAX_TABS) return prev;
+      added = true;
+      return [...prev, clone];
+    });
+    if (!added) return;
+    setActiveTabId(clone.id);
+    onClearFileEntriesRef.current();
+  }, []);
+
+  const closeOtherTabs = useCallback((keepTabId: string) => {
+    setTabs((prev) => {
+      const toClose = prev.filter((t) => t.id !== keepTabId && !isDemoTab(t));
+      if (toClose.length === 0) return prev;
+      for (const t of toClose) {
+        if (isTabExecuting?.(t.id)) cancelForCloseRef.current(t.id);
+        const mc = monacoRef.current;
+        if (mc) disposeTabModels(mc as Parameters<typeof disposeTabModels>[0], t);
+        onTabClosedRef.current?.(t.id);
+      }
+      const next = prev.filter((t) => t.id === keepTabId || isDemoTab(t));
+      if (!next.some((t) => t.id === activeTabIdRef.current)) {
+        setActiveTabId(keepTabId);
+      }
+      return next;
+    });
+  }, [isTabExecuting, monacoRef]);
+
+  const closeTabsToRight = useCallback((tabId: string) => {
+    setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.id === tabId);
+      if (idx < 0 || idx >= prev.length - 1) return prev;
+      const toClose = prev.slice(idx + 1).filter((t) => !isDemoTab(t));
+      if (toClose.length === 0) return prev;
+      for (const t of toClose) {
+        if (isTabExecuting?.(t.id)) cancelForCloseRef.current(t.id);
+        const mc = monacoRef.current;
+        if (mc) disposeTabModels(mc as Parameters<typeof disposeTabModels>[0], t);
+        onTabClosedRef.current?.(t.id);
+      }
+      const toCloseIds = new Set(toClose.map((t) => t.id));
+      const next = prev.filter((t) => !toCloseIds.has(t.id));
+      if (!next.some((t) => t.id === activeTabIdRef.current)) {
+        setActiveTabId(tabId);
+      }
+      return next;
+    });
+  }, [isTabExecuting, monacoRef]);
+
   const closeTab = useCallback(
     (tabId: string, e: React.MouseEvent) => {
       e.stopPropagation();
@@ -390,127 +484,14 @@ export function useGqlStudioTabs({
     [tabs, confirmingCloseTabId, isTabExecuting, monacoRef, onClearFileEntries],
   );
 
-  // ── Expose a stable ref for keyboard shortcut "close active tab" ────────────
   const closeActiveTabRef = useRef<() => void>(() => {});
   closeActiveTabRef.current = () => {
     const tid = activeTabIdRef.current;
     if (tid) closeTab(tid, { stopPropagation: () => {} } as React.MouseEvent);
   };
 
-  // ── Per-tab content updaters ─────────────────────────────────────────────────
-  const updateActiveTab = useCallback(
-    (patch: Partial<GqlStudioTab>) => {
-      setTabs((prev) =>
-        prev.map((t) =>
-          t.id === activeTabIdRef.current ? { ...t, ...patch, unsavedChanges: true } : t,
-        ),
-      );
-    },
-    [],
-  );
+  // ─── Profile / label sync effects ─────────────────────────────
 
-  const relabelTab = useCallback(
-    (tab: GqlStudioTab): GqlStudioTab => {
-      if (!isAutoLabelEligible(tab)) return tab;
-      const profile = findProfileById(profiles, tab.connectionId);
-      const labelEndpoint = resolveTabLabelEndpoint(
-        tab,
-        profiles,
-        pageDefaultEndpoint,
-        pageDefaultEndpointResolved,
-      );
-      return withAutoTabLabel(tab, profile?.name ?? null, labelEndpoint);
-    },
-    [profiles, pageDefaultEndpoint, pageDefaultEndpointResolved],
-  );
-
-  const clearActiveTabEndpoint = useCallback(() => {
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabIdRef.current) return t;
-        if (t.endpoint === undefined && t.connectionId === undefined) return t;
-        return relabelTab({
-          ...t,
-          endpoint: undefined,
-          connectionId: undefined,
-          unsavedChanges: true,
-        });
-      }),
-    );
-  }, [relabelTab]);
-
-  const updateActiveTabEndpoint = useCallback((endpoint: string) => {
-    const trimmed = endpoint.trim();
-    const pageDefault = pageDefaultEndpoint.trim();
-    let nextEndpoint: string | undefined;
-    if (!trimmed) {
-      // Multi-tab: blank field is an explicit empty override; single-tab clears to page inherit.
-      nextEndpoint = tabs.length > 1 ? '' : undefined;
-    } else if (trimmed === pageDefault) {
-      nextEndpoint = undefined;
-    } else {
-      nextEndpoint = trimmed;
-    }
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabIdRef.current) return t;
-        if (t.endpoint === nextEndpoint && t.connectionId === undefined) return t;
-        return relabelTab({
-          ...t,
-          endpoint: nextEndpoint,
-          connectionId: undefined,
-          unsavedChanges: true,
-        });
-      }),
-    );
-  }, [pageDefaultEndpoint, relabelTab, tabs.length]);
-
-  const applyProfileToActiveTab = useCallback((profile: ConnectionProfile) => {
-    const trimmed = profile.endpoint.trim();
-    // Always persist profile URL on the tab (even when it matches the page default) so
-    // restored tabs resolve correctly before the profile catalog finishes loading.
-    const nextEndpoint = trimmed || undefined;
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabIdRef.current) return t;
-        if (
-          t.connectionId === profile.id
-          && t.endpoint === nextEndpoint
-          && !isTabAuthOverridden(t)
-        ) {
-          return t;
-        }
-        const { auth: _auth, ...base } = t;
-        return relabelTab({
-          ...base,
-          connectionId: profile.id,
-          endpoint: nextEndpoint,
-          unsavedChanges: true,
-        });
-      }),
-    );
-  }, [relabelTab]);
-
-  const clearConnectionIdsForProfile = useCallback((profileId: string) => {
-    setTabs((prev) =>
-      prev.map((t) =>
-        t.connectionId === profileId
-          ? { ...t, connectionId: undefined, unsavedChanges: true }
-          : t,
-      ),
-    );
-  }, []);
-
-  const clearActiveTabProfileLink = useCallback(() => {
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabIdRef.current || t.connectionId === undefined) return t;
-        return relabelTab({ ...t, connectionId: undefined, unsavedChanges: true });
-      }),
-    );
-  }, [relabelTab]);
-
-  // Phase 6F — drop stale profile links and refresh auto labels once profiles load.
   useEffect(() => {
     if (!storageHydrated || !profilesReady) return;
     setTabs((prev) => {
@@ -537,189 +518,21 @@ export function useGqlStudioTabs({
     });
   }, [profiles, profilesReady, storageHydrated, pageDefaultEndpoint, pageDefaultEndpointResolved]);
 
-  // Relabel tabs when page-level default endpoint changes (e.g. tab 1 inheriting page URL).
   useEffect(() => {
     if (!storageHydrated) return;
     setTabs((prev) => {
       let changed = false;
       const next = prev.map((t) => {
-        const updated = relabelTab(t);
+        const updated = fieldUpdaters.relabelTab(t);
         if (updated !== t) changed = true;
         return updated;
       });
       return changed ? next : prev;
     });
-  }, [pageDefaultEndpoint, pageDefaultEndpointResolved, storageHydrated, relabelTab]);
+  }, [pageDefaultEndpoint, pageDefaultEndpointResolved, storageHydrated, fieldUpdaters.relabelTab]);
 
-  const updateActiveTabSkipTlsVerify = useCallback((skip: boolean) => {
-    const nextSkip = skip === pageDefaultSkipTlsVerify ? undefined : skip;
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabIdRef.current) return t;
-        if (t.skipTlsVerify === nextSkip) return t;
-        return { ...t, skipTlsVerify: nextSkip, unsavedChanges: true };
-      }),
-    );
-  }, [pageDefaultSkipTlsVerify]);
+  // ─── Derived state ─────────────────────────────────────────────
 
-  const updateActiveTabTlsSettings = useCallback((patch: Partial<GqlTlsSettings>) => {
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabIdRef.current) return t;
-        let next = t;
-        if (patch.skipTlsVerify !== undefined) {
-          const nextSkip = patch.skipTlsVerify === pageDefaultSkipTlsVerify ? undefined : patch.skipTlsVerify;
-          if (next.skipTlsVerify !== nextSkip) {
-            next = { ...next, skipTlsVerify: nextSkip };
-          }
-        }
-        if ('caCert' in patch) {
-          const nextCa = patch.caCert || undefined;
-          const inherited = nextCa === (pageDefaultTlsCaCert || undefined);
-          const tabCa = inherited ? undefined : nextCa;
-          if (next.tlsCaCert !== tabCa) {
-            next = { ...next, tlsCaCert: tabCa };
-          }
-        }
-        if ('clientCert' in patch) {
-          const nextCert = patch.clientCert || undefined;
-          const inherited = nextCert === (pageDefaultTlsClientCert || undefined);
-          const tabCert = inherited ? undefined : nextCert;
-          if (next.tlsClientCert !== tabCert) {
-            next = { ...next, tlsClientCert: tabCert };
-          }
-        }
-        if ('clientKey' in patch) {
-          const nextKey = patch.clientKey || undefined;
-          const inherited = nextKey === (pageDefaultTlsClientKey || undefined);
-          const tabKey = inherited ? undefined : nextKey;
-          if (next.tlsClientKey !== tabKey) {
-            next = { ...next, tlsClientKey: tabKey };
-          }
-        }
-        if (next === t) return t;
-        return { ...next, unsavedChanges: true };
-      }),
-    );
-  }, [pageDefaultSkipTlsVerify, pageDefaultTlsCaCert, pageDefaultTlsClientCert, pageDefaultTlsClientKey]);
-
-  const updateActiveTabPolling = useCallback((enabled: boolean, intervalSeconds: number) => {
-    const clamped = clampPollingIntervalSeconds(intervalSeconds);
-    const nextEnabled = enabled === pageDefaultPollingEnabled ? undefined : enabled;
-    const nextInterval = clamped === pageDefaultPollingIntervalSeconds ? undefined : clamped;
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabIdRef.current) return t;
-        if (t.pollingEnabled === nextEnabled && t.pollingIntervalSeconds === nextInterval) return t;
-        return {
-          ...t,
-          pollingEnabled: nextEnabled,
-          pollingIntervalSeconds: nextInterval,
-          unsavedChanges: true,
-        };
-      }),
-    );
-  }, [pageDefaultPollingEnabled, pageDefaultPollingIntervalSeconds]);
-
-  const clearActiveTabPolling = useCallback(() => {
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabIdRef.current) return t;
-        if (t.pollingEnabled === undefined && t.pollingIntervalSeconds === undefined) return t;
-        return {
-          ...t,
-          pollingEnabled: undefined,
-          pollingIntervalSeconds: undefined,
-          unsavedChanges: true,
-        };
-      }),
-    );
-  }, []);
-
-  const updateActiveTabAuth = useCallback((
-    newAuth: GraphqlAuth | null,
-    options?: { clearProfileLink?: boolean },
-  ) => {
-    const nextStored = computeTabAuthStoredValue(newAuth, pageDefaultAuth);
-    const shouldClearProfileLink = options?.clearProfileLink && nextStored !== undefined;
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabIdRef.current) return t;
-
-        let next = t;
-        if (shouldClearProfileLink && t.connectionId !== undefined) {
-          next = relabelTab({ ...next, connectionId: undefined });
-        }
-
-        if (nextStored === undefined) {
-          if (next.auth === undefined) {
-            return next === t ? next : { ...next, unsavedChanges: true };
-          }
-          const { auth: _auth, ...rest } = next;
-          return { ...rest, unsavedChanges: true };
-        }
-
-        if (graphqlAuthEquals(next.auth, nextStored)) {
-          return next === t ? next : { ...next, unsavedChanges: true };
-        }
-
-        return { ...next, auth: nextStored, unsavedChanges: true };
-      }),
-    );
-  }, [pageDefaultAuth, relabelTab]);
-
-  const clearActiveTabAuth = useCallback(() => {
-    setTabs((prev) =>
-      prev.map((t) => {
-        if (t.id !== activeTabIdRef.current) return t;
-        if (t.auth === undefined) return t;
-        const { auth: _auth, ...rest } = t;
-        return { ...rest, unsavedChanges: true };
-      }),
-    );
-  }, []);
-
-  const handleQueryChange = useCallback(
-    (value: string) => {
-      const operationType = deriveOperationType(value);
-      setTabs((prev) =>
-        prev.map((t) => {
-          if (t.id !== activeTabIdRef.current) return t;
-          const nextTab = { ...t, query: value, operationType, unsavedChanges: true };
-          return relabelTab(nextTab);
-        }),
-      );
-    },
-    [relabelTab],
-  );
-
-  const handleVariablesChange = useCallback(
-    (value: string) => updateActiveTab({ variables: value }),
-    [updateActiveTab],
-  );
-
-  const handleHeadersChange = useCallback(
-    (headers: GqlStudioTab['headers']) => updateActiveTab({ headers }),
-    [updateActiveTab],
-  );
-
-  const handleAssertionsChange = useCallback(
-    (assertions: GraphqlSubscriptionAssertion[]) => updateActiveTab({ subscriptionAssertions: assertions }),
-    [updateActiveTab],
-  );
-
-  const handleSubscriptionTransportChange = useCallback(
-    (t: 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse') => {
-      setTabs((prev) =>
-        prev.map((tab) =>
-          tab.id === activeTabIdRef.current ? { ...tab, subscriptionTransport: t } : tab,
-        ),
-      );
-    },
-    [],
-  );
-
-  // ── Derived tab state ───────────────────────────────────────────────────────
   const activeTab = tabs.find((t) => t.id === activeTabId) ?? tabs[0];
   const resolvedTabEndpoint = useMemo(() => {
     if (!activeTab) return pageDefaultEndpoint;
@@ -759,12 +572,6 @@ export function useGqlStudioTabs({
       ? (operations.includes(activeTab?.selectedOperation ?? '') ? activeTab?.selectedOperation : operations[0])
       : undefined;
 
-  const handleSelectOperation = useCallback(
-    (name: string) => updateActiveTab({ selectedOperation: name }),
-    [updateActiveTab],
-  );
-
-  // Sync selectedOperation when query operations change
   const prevTabQueryRef = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (!activeTab || activeTab.query === prevTabQueryRef.current) return;
@@ -801,15 +608,11 @@ export function useGqlStudioTabs({
     handleTabClick,
     closeTab,
     renameTab,
-    updateActiveTab,
-    updateActiveTabEndpoint,
-    clearActiveTabEndpoint,
-    updateActiveTabSkipTlsVerify,
-    updateActiveTabTlsSettings,
-    updateActiveTabPolling,
-    clearActiveTabPolling,
-    updateActiveTabAuth,
-    clearActiveTabAuth,
+    reorderTabs,
+    duplicateTab,
+    closeOtherTabs,
+    closeTabsToRight,
+    ...fieldUpdaters,
     resolvedTabEndpoint,
     hasActiveTabEndpointOverride,
     hasActiveTabProfileLink,
@@ -819,15 +622,6 @@ export function useGqlStudioTabs({
     hasActiveTabPollingOverride,
     hasActiveTabAuthOverride,
     hasPendingProfileEndpoint,
-    applyProfileToActiveTab,
-    clearConnectionIdsForProfile,
-    clearActiveTabProfileLink,
-    handleSelectOperation,
-    handleQueryChange,
-    handleVariablesChange,
-    handleHeadersChange,
-    handleAssertionsChange,
-    handleSubscriptionTransportChange,
     activeDemoLessonId,
   };
 }

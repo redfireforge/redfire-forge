@@ -18,6 +18,7 @@ describe('shared selectors req', () => {
     expect(REQ.galleryCard('req-1')).toBe('[data-testid="gallery-card-req-1"]');
     expect(REQ.colByName('Orders')).toBe('[data-col-name="Orders"]');
     expect(REQ.reqByName('Get all')).toBe('[data-req-name="Get all"]');
+    expect(REQ.tabById('tab-1')).toBe('[data-testid="req-tab-item"][data-tab-id="tab-1"]');
     expect(REQ.envPillByName('prod')).toBe('[data-testid="req-env-pill"][data-env-name="prod"]');
     expect(REQ.reqInCollection('Orders', 'Get all')).toBe('.req-col-group:has([data-col-name="Orders"]) [data-req-name="Get all"]');
   });

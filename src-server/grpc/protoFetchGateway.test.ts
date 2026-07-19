@@ -68,4 +68,29 @@ describe('protoFetchGateway', () => {
     expect(result.notModified).toBe(true);
     expect(result.etag).toBe('etag-1');
   });
+
+  it('passes through a quoted If-None-Match value without double quoting', async () => {
+    const fetchPort = {
+      fetch: vi.fn(async (_url, init) => {
+        expect(init?.headers).toMatchObject({ 'if-none-match': '"etag-2"' });
+        return new Response(FIXTURE_ECHO_PROTO, { status: 200 });
+      }),
+    };
+
+    const result = await fetchProtoFromUrl('https://example.com/echo.proto', {
+      fetchPort,
+      ifNoneMatch: '"etag-2"',
+    });
+
+    expect(result.content).toContain('EchoService');
+  });
+
+  it('rejects a 304 response when no cached etag was provided', async () => {
+    const fetchPort = {
+      fetch: vi.fn(async () => new Response(null, { status: 304 })),
+    };
+
+    await expect(fetchProtoFromUrl('https://example.com/echo.proto', { fetchPort }))
+      .rejects.toThrow(/304 without a cached etag/);
+  });
 });
