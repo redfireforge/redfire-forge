@@ -42,8 +42,8 @@ export function useWorkbenchActions({ wb, activeTab, setActiveTab }: UseWorkbenc
     setShowWbCollectionModal(false); setEditingWbCollection(null); setNewColGroupId(undefined); setNewColMode(undefined);
   }, [wb, newColGroupId]);
 
-  const handleWbNewRequest = useCallback((colId: string, folderId?: string) => {
-    wb.addRequest(colId, folderId);
+  const handleWbNewRequest = useCallback((colId: string, folderId?: string, name?: string) => {
+    wb.addRequest(colId, folderId, name);
     if (activeTab !== 'requests') setActiveTab('requests');
   }, [wb, activeTab, setActiveTab]);
 

@@ -73,7 +73,7 @@ describe('TestDefinitionVersionDiff', () => {
     const v1 = mkVersion('v1', 1000, mkSnapshot());
     const v2 = mkVersion('v2', 2000, mkSnapshot());
     render(<TestDefinitionVersionDiff open older={v1} newer={v2} onClose={onClose} />);
-    fireEvent.click(screen.getByText('×'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalled();
   });
 

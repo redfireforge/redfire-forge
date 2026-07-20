@@ -68,6 +68,17 @@ user must *see* it, it belongs in `action()` (with delays) or in its own step.
 Misaligned spotlight (narration says “watch the schema badge” but ring is on the
 endpoint field) is a common reason demos feel broken even when E2E passes.
 
+### Spotlight size — minimal, not maximal
+
+- Always spotlight the **smallest meaningful element** that shows the change or action target.
+  The viewer must focus on the specific content, not scan an entire container.
+- **Correct**: spotlight the diff row, the checkbox, the URL input, the badge, the specific button
+- **Wrong**: spotlight the entire panel, the full modal, the whole body container
+- When multiple items changed (e.g. diff rows), loop and spotlight **each row individually**
+  with delays — the viewer sees each change one at a time.
+- Exception: if the entire panel IS the payoff (e.g. "History tab now exists"), the panel
+  spotlight is appropriate. But prefer the first item inside it.
+
 ### Action speed — minimum delays between visible beats
 
 Every **visible** sub-action inside `action()` needs `ctx.delay()` after it. The

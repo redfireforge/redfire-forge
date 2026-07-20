@@ -23,6 +23,8 @@ import {
   selectRequestByName,
   ensureCollectionExpanded,
   closeExtraRequestTabs,
+  fillNewRequestPrompt,
+  cleanupOtherRequestDemoCollections,
 } from './req-demo-helpers';
 import {
   ensureSettingsEnvironment,
@@ -154,14 +156,8 @@ async function ensureRequestExists(ctx: DemoActionContext): Promise<void> {
   const opened = await openContextMenuForElement(ctx, col);
   if (!opened) return;
   await clickContextItemVisible(ctx, 'Add Request');
+  await fillNewRequestPrompt(ctx, REQUEST_NAME);
   await ctx.waitFor(REQ.URL_INPUT, 2200);
-  const nameDisplay = firstVisible('.req-req-name-display');
-  if (nameDisplay) {
-    nameDisplay.click();
-    await ctx.delay(60);
-    const nameInput = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-    if (nameInput) { fillControlledInput(nameInput, REQUEST_NAME); nameInput.blur(); await ctx.delay(60); }
-  }
   const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
   if (urlInput) fillControlledInput(urlInput, REQUEST_URL);
 }
@@ -254,6 +250,7 @@ export const reqSendHarnessLesson: DemoLesson = {
     await closeExtraRequestTabs(ctx);
     await closeOpenOverlays(ctx);
     await deleteCollectionByName(ctx, COLLECTION_NAME);
+    await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
     removeSettingsMicroservice(SVC_NAME);
     removeSettingsEnvironment(ENV_NAME);
     await shrinkAllCollections();
@@ -263,6 +260,7 @@ export const reqSendHarnessLesson: DemoLesson = {
     await closeOpenOverlays(ctx);
     await closeExtraRequestTabs(ctx);
     await deleteCollectionByName(ctx, COLLECTION_NAME);
+    await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
     removeSettingsMicroservice(SVC_NAME);
     removeSettingsEnvironment(ENV_NAME);
     ctx.navigateToTab('requests');
@@ -309,16 +307,10 @@ export const reqSendHarnessLesson: DemoLesson = {
         const opened = await openContextMenuForElement(ctx, col);
         if (!opened) return;
         await clickContextItemVisible(ctx, 'Add Request');
+        await ctx.delay(300);
+        await fillNewRequestPrompt(ctx, REQUEST_NAME);
         await ctx.waitFor(REQ.URL_INPUT, 2200);
         await ctx.delay(200);
-
-        const reqNameDisplay = firstVisible('.req-req-name-display');
-        if (reqNameDisplay) {
-          reqNameDisplay.click();
-          await ctx.delay(80);
-          const reqNameInput = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-          if (reqNameInput) { fillControlledInput(reqNameInput, REQUEST_NAME); reqNameInput.blur(); await ctx.delay(80); }
-        }
 
         const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
         if (urlInput) {

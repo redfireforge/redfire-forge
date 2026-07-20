@@ -1201,9 +1201,13 @@
   min-height: 480px;
   max-height: 88vh;
   background: var(--bg-elevated, var(--surface));
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 20px 60px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.3);
   overflow: hidden;
   animation: gql-modal-pop-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
@@ -5114,9 +5118,13 @@
 
 .gql-profile-modal {
   background: var(--bg-elevated, var(--surface));
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.55), 0 4px 16px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 20px 60px rgba(0, 0, 0, 0.55),
+    0 4px 16px rgba(0, 0, 0, 0.3);
   width: 540px;
   max-width: 96vw;
   max-height: 82vh;
@@ -9820,15 +9828,17 @@
 .gql-diff-modal {
   position: relative;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 12px;
   width: min(900px, 96vw);
   max-height: 86vh;
   display: flex;
   flex-direction: column;
   box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--primary) 8%, var(--border)),
-    0 16px 48px color-mix(in srgb, var(--bg) 65%, transparent);
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 16px 48px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
 .gql-diff-modal--wide {
@@ -12636,9 +12646,13 @@
   width: 440px;
   max-width: 95vw;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
-  box-shadow: 0 16px 48px rgba(0,0,0,0.55);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 16px 48px rgba(0,0,0,0.55),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   padding: 24px;
   display: flex;
   flex-direction: column;

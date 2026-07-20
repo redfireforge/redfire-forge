@@ -268,12 +268,14 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
                 <h3 id="wf-expand-title">{node.type.toUpperCase()} — {(node.data as HttpNodeData).label || 'Step Config'}</h3>
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexShrink: 0 }}>
                   <button type="button" className="btn btn-sm" onClick={(e) => { e.stopPropagation(); collapse(); }} title="Shrink back to side panel">⛶</button>
-                  <button type="button" className="ram-modal-close" onClick={(e) => { e.stopPropagation(); collapse(); }} aria-label="Close">&times;</button>
                 </div>
               </div>
               <WorkflowModalScrollBody className="wf-expand-modal-body" viewportClassName="wf-config-modal-scroll">
                 {configContent}
               </WorkflowModalScrollBody>
+              <div className="wf-expand-modal-footer">
+                <button type="button" className="btn btn-primary" onClick={(e) => { e.stopPropagation(); collapse(); }}>Close</button>
+              </div>
             </div>
           </div>
         </>

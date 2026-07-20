@@ -284,8 +284,18 @@ The UI must be **professional, clean, and user-friendly** — matching the dark 
 ## Modal Design Rules
 
 - **Background overlay**: Always use `background: transparent` for modal overlays. Never use opaque or semi-transparent backdrops (`rgba(0,0,0,0.5)` etc.) or `backdrop-filter: blur()`.
-- **No redundant close buttons**: Do NOT add an "×" close button in the modal header if the modal already has a "Cancel" button in the footer. One close mechanism is sufficient. Escape key should always close modals.
+- **No × close button**: Do NOT add an "×" close button in the modal header. Close/Cancel always lives in the **footer**, never in the header. Escape key should always close modals.
 - **Action buttons at bottom-right**: Copy, Close, Cancel, Save — always place these in a footer bar at the bottom-right of the modal. Never in the header.
+- **Subtle white edges on all four sides (MANDATORY)**: Every modal must use the canonical white-edge treatment on its container. Never use a flat `1px solid var(--border)` alone — always `color-mix(in srgb, white 28%, ...)` border plus the 4-layer box-shadow:
+  ```css
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+  ```
+  Drop-shadow values (last two layers) may vary to fit the modal. Never use legacy `rgba(255,255,255,...)` for the border/ring layers — always `color-mix` for theme consistency.
 - **Search bar**: If the modal displays content (code, JSON, logs, etc.), always include a search bar in the header with match counter (`N/M`) and up/down arrow navigation (▲/▼). Reuse the existing console search pattern (`WorkflowConsolePanel` / `ResultsExplorerConsolePanel`). Cmd+F should focus search. Enter/Shift+Enter for next/prev. Do not reinvent the wheel.
 - **Pretty-print JSON**: Always pretty-print JSON content (`JSON.stringify(parsed, null, 2)`). Never show minified JSON in modals.
 - **Undo/Redo**: Modals with editors (expression editor, code editor) must provide undo/redo buttons in the header.

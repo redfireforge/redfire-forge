@@ -144,7 +144,6 @@ export default function ColumnOrderPopover<T extends OrderableItem>({ items, onA
     <div className="col-order-popover" ref={popoverRef}>
       <div className="col-order-header">
         <span className="col-order-title">Column Order</span>
-        <button type="button" className="col-order-close" onClick={onClose}>×</button>
       </div>
 
       {/* Quick-sort shortcuts — only when indexed array columns exist */}

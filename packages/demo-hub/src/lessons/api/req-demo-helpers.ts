@@ -394,6 +394,112 @@ export async function cleanupLessonArtifacts(
   lessonCleanupBaselines.delete(lessonId);
 }
 
+/**
+ * Force-delete every collection matching `name`, ignoring any cleanup baseline.
+ *
+ * Used in lesson *setup* to clear stale collections left over from a previous
+ * incomplete run before capturing the baseline — otherwise the stale collection
+ * is counted as pre-existing and `createCollectionViaModal` fails with a
+ * "Name already exists" error.
+ */
+export async function forceDeleteCollectionsByExactName(
+  ctx: DemoActionContext,
+  name: string,
+  maxDeletes = 8,
+): Promise<void> {
+  ensureRequestsTab(ctx);
+  await ctx.delay(80);
+  await expandAllCollections();
+  dismissContextMenu();
+
+  let guard = 0;
+  while (countCollectionsByExactName(name) > 0 && guard < maxDeletes) {
+    const deleted = await deleteOneCollectionByExactName(ctx, name);
+    if (!deleted) break;
+    guard++;
+    await ctx.delay(80);
+  }
+}
+
+/**
+ * Every request-domain demo collection name created across the API lessons.
+ * Kept in one place so each lesson can reliably clean up artifacts left behind
+ * by ANY other lesson (prevents cross-lesson leftover-collection drift).
+ */
+export const REQUEST_DEMO_COLLECTION_NAMES = [
+  'My API',          // req-quick-start
+  'User Service',    // req-collections
+  'DummyJSON',       // req-multi-env
+  'Product Service', // req-multi-env (linked)
+  'API Demos',       // req-body-auth
+  'Multi-Tab Demo',  // req-multi-tab
+  'Promotion Demo',  // req-send-harness
+  'Version Demo',    // req-versioning
+] as const;
+
+/**
+ * Delete every known demo collection except those in `keep`. Call from a
+ * lesson's setup so it starts from a clean slate regardless of which lesson
+ * ran before it. Own collections passed in `keep` are left untouched (the
+ * lesson recreates/uses them itself).
+ */
+export async function cleanupOtherRequestDemoCollections(
+  ctx: DemoActionContext,
+  keep: readonly string[] = [],
+): Promise<void> {
+  for (const name of REQUEST_DEMO_COLLECTION_NAMES) {
+    if (keep.includes(name)) continue;
+    await forceDeleteCollectionsByExactName(ctx, name);
+  }
+}
+
+// ─── New Request Prompt Helper ─────────────────────────────────────────
+//
+// Since the naming prompt was introduced, clicking "Add Request" in a context
+// menu no longer directly creates the request — the prompt must be filled first.
+// This helper handles the prompt in both visible (demo spotlight) and silent
+// (preAction guard) modes.
+
+/**
+ * After clicking "Add Request" in a context menu, fill the naming prompt
+ * and submit. Call immediately after `clickContextItemVisible(ctx, 'Add Request')`.
+ * Returns true if the prompt was found and handled.
+ */
+export async function fillNewRequestPrompt(
+  ctx: DemoActionContext,
+  reqName: string,
+): Promise<boolean> {
+  await ctx.delay(300);
+  const promptInput = document.querySelector<HTMLInputElement>(REQ.NEW_REQ_NAME);
+  if (!promptInput) return false;
+  fillControlledInput(promptInput, reqName);
+  await ctx.delay(100);
+  const createBtn = document.querySelector<HTMLButtonElement>(`${REQ.NEW_REQ_PROMPT} .btn-primary`);
+  if (createBtn) createBtn.click();
+  await ctx.delay(400);
+  return true;
+}
+
+/**
+ * Dismiss the new-request naming prompt if it's open (e.g. from a prior
+ * step's incomplete action). Used in preAction guards.
+ */
+export function dismissNewRequestPrompt(): void {
+  const prompt = document.querySelector(REQ.NEW_REQ_PROMPT);
+  if (prompt) {
+    const cancelBtn = prompt.querySelector<HTMLButtonElement>('.req-confirm-cancel');
+    if (cancelBtn) cancelBtn.click();
+  }
+}
+
+export function dismissDuplicateRequestPrompt(): void {
+  const prompt = document.querySelector(REQ.DUP_REQ_PROMPT);
+  if (prompt) {
+    const cancelBtn = prompt.querySelector<HTMLButtonElement>('.req-confirm-cancel');
+    if (cancelBtn) cancelBtn.click();
+  }
+}
+
 // ─── REQ-2 Helpers: Context menu & collection management ──────────────
 
 /**
@@ -485,10 +591,11 @@ export async function createFolderViaContextMenu(
 }
 
 /**
- * Move a request to a folder via context menu → Move to... submenu.
+ * Move a request to a folder via context menu → navigable Move to... submenu.
+ * Flow: Click "Move to..." → click collection to drill down → click folder → click "Move here".
  */
 export async function moveRequestToFolder(
-  ctx: DemoActionContext, reqName: string, folderName: string,
+  ctx: DemoActionContext, reqName: string, folderName: string, collectionName?: string,
 ): Promise<void> {
   const reqEl = document.querySelector<HTMLElement>(REQ.reqByName(reqName));
   if (!reqEl) return;
@@ -498,33 +605,57 @@ export async function moveRequestToFolder(
   if (!menu) return;
   const moveBtn = Array.from(menu.querySelectorAll('button'))
     .find(b => b.textContent?.trim().startsWith('Move to'));
-  if (moveBtn) {
-    moveBtn.click();
+  if (!moveBtn) return;
+
+  moveBtn.click();
+  await ctx.delay(300);
+  const submenu = document.querySelector('.req-ctx-submenu');
+  if (!submenu) return;
+
+  if (collectionName) {
+    const colBtn = Array.from(submenu.querySelectorAll('button'))
+      .find(b => b.textContent?.includes(collectionName));
+    if (colBtn) { colBtn.click(); await ctx.delay(300); }
+  }
+
+  const folderBtn = Array.from(submenu.querySelectorAll('button'))
+    .find(b => b.textContent?.includes(folderName));
+  if (folderBtn) {
+    folderBtn.click();
     await ctx.delay(300);
-    const submenu = document.querySelector('.req-ctx-submenu');
-    if (submenu) {
-      const folderBtn = Array.from(submenu.querySelectorAll('button'))
-        .find(b => b.textContent?.includes(folderName));
-      if (folderBtn) {
-        folderBtn.click();
-        await ctx.delay(300);
-      }
-    }
+  }
+
+  const moveHereBtn = Array.from(submenu.querySelectorAll('button'))
+    .find(b => b.textContent?.includes('Move here'));
+  if (moveHereBtn) {
+    moveHereBtn.click();
+    await ctx.delay(300);
   }
 }
 
 /**
- * Duplicate a request via context menu.
+ * Duplicate a request via context menu. Now shows a naming prompt —
+ * accepts the default pre-filled name by clicking the confirm button.
  */
 export async function duplicateRequestViaContextMenu(
-  ctx: DemoActionContext, reqName: string,
+  ctx: DemoActionContext, reqName: string, newName?: string,
 ): Promise<void> {
   const reqEl = document.querySelector<HTMLElement>(REQ.reqByName(reqName));
   if (!reqEl) return;
   triggerContextMenu(reqEl);
   await ctx.delay(300);
   await clickContextMenuItem(ctx, 'Duplicate');
-  await ctx.delay(300);
+  await ctx.delay(400);
+  const prompt = document.querySelector<HTMLElement>(REQ.DUP_REQ_PROMPT);
+  if (prompt) {
+    if (newName) {
+      const input = prompt.querySelector<HTMLInputElement>('[data-testid="req-dup-request-name"]');
+      if (input) { input.focus(); fillControlledInput(input, newName); await ctx.delay(100); }
+    }
+    const confirmBtn = prompt.querySelector<HTMLButtonElement>('.btn-primary');
+    if (confirmBtn) confirmBtn.click();
+    await ctx.delay(300);
+  }
 }
 
 /**

@@ -104,7 +104,6 @@ export default function ResultsExplorerDetailPanel({
       <div className="explorer-detail-header">
         <div className="explorer-detail-title-row">
           <span className="explorer-detail-type">{formatNodeType(nodeType)}</span>
-          <button className="explorer-detail-close" onClick={onClose} title="Close (Escape)">✕</button>
         </div>
         <h3 className="explorer-detail-name">{nodeLabel}</h3>
         
@@ -250,6 +249,9 @@ export default function ResultsExplorerDetailPanel({
         {activeTab === 'assertions' && currentEvent && (
           <AssertionsTab event={currentEvent} />
         )}
+      </div>
+      <div className="explorer-detail-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
     </div>
   );

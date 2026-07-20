@@ -93,7 +93,6 @@ export default function ScriptLibraryVersionPanel({
           {canCompare && (
             <button className="btn btn-xs btn-primary" onClick={handleCompare} title="Compare selected versions">Compare</button>
           )}
-          <button className="wf-config-remove-btn" onClick={onClose} aria-label="Close">✕</button>
         </div>
       </div>
 
@@ -168,6 +167,9 @@ export default function ScriptLibraryVersionPanel({
         {selectedIds.size > 0 && (
           <button className="script-lib-version-footer-clear" onClick={() => setSelectedIds(new Set())}>Clear selection</button>
         )}
+      </div>
+      <div className="script-lib-version-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
     </div>
   );

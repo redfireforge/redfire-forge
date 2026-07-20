@@ -32,6 +32,7 @@ interface Props {
   onDuplicateTab?: (tabId: string) => void;
   onCloseOtherTabs?: (tabId: string) => void;
   onCloseTabsToRight?: (tabId: string) => void;
+  onCloseAllTabs?: () => void;
   onEnvChange: (envId: string | undefined) => void;
   onUpdateTabUI: (tabId: string, patch: Partial<Pick<RequestTab, 'activeSubTab' | 'responseSubTab' | 'inputMode' | 'envId' | 'activeHistoryId'>>) => void;
   onSyncTabLabel?: (reqId: string, name: string) => void;
@@ -41,18 +42,18 @@ export default function Requests({
   wb, appGlobalAuthProfiles, appMicroservices, appEnvironments,
   previewRequest, onClearPreview, onImportPreview, onSendToHarness, harnessRequestIds,
   tabs, activeTabId, activeTab, onSelectTab, onCloseTab, onAddTab, onRenameTab,
-  onReorderTabs, onDuplicateTab, onCloseOtherTabs, onCloseTabsToRight,
+  onReorderTabs, onDuplicateTab, onCloseOtherTabs, onCloseTabsToRight, onCloseAllTabs,
   onEnvChange, onUpdateTabUI, onSyncTabLabel,
 }: Props) {
   const tabCollection = useMemo(() => {
     if (!activeTab) return null;
     return wb.collections.find(c => c.id === activeTab.collectionId) ?? null;
-  }, [wb.collections, activeTab?.collectionId]);
+  }, [wb.collections, activeTab]);
 
   const tabRequest = useMemo(() => {
     if (!tabCollection || !activeTab) return null;
     return findRequestInCollection(tabCollection, activeTab.requestId);
-  }, [tabCollection, activeTab?.requestId]);
+  }, [tabCollection, activeTab]);
 
   const collection = previewRequest ? previewRequest.collection : (tabCollection ?? wb.selectedCollection);
   const request = previewRequest ? previewRequest.request : (tabRequest ?? wb.selectedRequest);
@@ -122,6 +123,7 @@ export default function Requests({
             onDuplicate={onDuplicateTab}
             onCloseOthers={onCloseOtherTabs}
             onCloseRight={onCloseTabsToRight}
+            onCloseAll={onCloseAllTabs}
           />
         )}
         {previewRequest && (

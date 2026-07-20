@@ -17,6 +17,8 @@ import {
   selectRequestByName,
   ensureCollectionExpanded,
   closeExtraRequestTabs,
+  fillNewRequestPrompt,
+  cleanupOtherRequestDemoCollections,
 } from './req-demo-helpers';
 
 const COLLECTION_NAME = 'Version Demo';
@@ -27,6 +29,22 @@ const REQUEST_2_URL = 'https://jsonplaceholder.typicode.com/posts';
 const EDITED_URL_SUFFIX = '?_limit=5';
 const HEADER_KEY = 'X-Demo-Version';
 const HEADER_VALUE = 'v2';
+
+/**
+ * Human-paced timing. Viewers need time to (1) locate the spotlight ring,
+ * (2) read/understand what it points at, and (3) see the outcome settle.
+ * Rings that flash for <1s and back-to-back actions with no gap feel "too fast".
+ */
+const T = {
+  spotBrief: 1100, // minor element — a quick, confident glance
+  spotRead: 1500, // element the viewer must actually read/understand
+  spotOutcome: 2000, // the payoff the step is teaching (diff modal, reverted URL)
+  afterSpot: 450, // breathing room after a ring clears, before the next beat
+  afterType: 650, // after filling an input, so the typed value registers
+  afterClick: 550, // generic settle after a click
+  formOpen: 800, // after a form/modal/dropdown opens (empty)
+  tabSwitch: 1000, // after switching a tab/panel
+};
 
 let activeSpotlightCleanup: (() => void) | null = null;
 
@@ -41,14 +59,6 @@ async function spotlight(ctx: DemoActionContext, selector: string, holdMs: numbe
   try { await ctx.delay(holdMs); } finally { remove(); if (activeSpotlightCleanup === remove) activeSpotlightCleanup = null; }
 }
 
-async function spotlightEl(ctx: DemoActionContext, el: HTMLElement, holdMs: number): Promise<void> {
-  activeSpotlightCleanup?.();
-  activeSpotlightCleanup = null;
-  el.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  const remove = showSpotlightRing(el);
-  activeSpotlightCleanup = remove;
-  try { await ctx.delay(holdMs); } finally { remove(); if (activeSpotlightCleanup === remove) activeSpotlightCleanup = null; }
-}
 
 async function spotlightElNoScroll(ctx: DemoActionContext, el: HTMLElement, holdMs: number): Promise<void> {
   activeSpotlightCleanup?.();
@@ -114,8 +124,10 @@ async function closeOpenOverlays(ctx: DemoActionContext): Promise<void> {
   const modalClose = document.querySelector<HTMLElement>('.req-col-modal .btn-secondary')
     ?? document.querySelector<HTMLElement>('.req-col-modal .btn-ghost');
   if (modalClose) { modalClose.click(); await ctx.delay(60); }
-  const diffModal = document.querySelector<HTMLElement>('.test-def-diff-modal .btn');
-  if (diffModal) { diffModal.click(); await ctx.delay(60); }
+  const diffClose = document.querySelector<HTMLElement>('.test-def-diff-footer .btn');
+  if (diffClose) { diffClose.click(); await ctx.delay(60); }
+  const viewClose = document.querySelector<HTMLElement>('.test-def-version-view-footer .btn');
+  if (viewClose) { viewClose.click(); await ctx.delay(60); }
 }
 
 async function createCollectionIfNeeded(ctx: DemoActionContext): Promise<void> {
@@ -139,14 +151,8 @@ async function addRequestSilently(ctx: DemoActionContext, name: string, url: str
   const opened = await openContextMenuForElement(ctx, col);
   if (!opened) return;
   await clickContextItemVisible(ctx, 'Add Request');
+  await fillNewRequestPrompt(ctx, name);
   await ctx.waitFor(REQ.URL_INPUT, 2200);
-  const nameDisplay = firstVisible('.req-req-name-display');
-  if (nameDisplay) {
-    nameDisplay.click();
-    await ctx.delay(60);
-    const nameInput = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-    if (nameInput) { fillControlledInput(nameInput, name); nameInput.blur(); await ctx.delay(60); }
-  }
   const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
   if (urlInput) fillControlledInput(urlInput, url);
   await ctx.delay(80);
@@ -167,7 +173,7 @@ export const reqVersioningLesson: DemoLesson = {
   description:
     'Never lose a working request. Learn how auto-snapshots capture every change, ' +
     'compare versions side-by-side, and restore previous definitions with one click.',
-  estimatedMinutes: 3,
+  estimatedMinutes: 5,
   initialTab: 'requests',
   allowedTabs: ['requests'],
 
@@ -215,6 +221,7 @@ export const reqVersioningLesson: DemoLesson = {
     await closeExtraRequestTabs(ctx);
     await closeOpenOverlays(ctx);
     await deleteCollectionByName(ctx, COLLECTION_NAME);
+    await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
     await shrinkAllCollections();
   },
 
@@ -222,6 +229,7 @@ export const reqVersioningLesson: DemoLesson = {
     await closeOpenOverlays(ctx);
     await closeExtraRequestTabs(ctx);
     await deleteCollectionByName(ctx, COLLECTION_NAME);
+    await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
     ctx.navigateToTab('requests');
     await ctx.delay(60);
   },
@@ -243,17 +251,21 @@ export const reqVersioningLesson: DemoLesson = {
         await deleteCollectionByName(ctx, COLLECTION_NAME);
       },
       action: async (ctx) => {
-        // Create collection
-        await spotlight(ctx, REQ.SIDEBAR_ADD_BTN, 800);
+        // Create collection — show the + button, then open the menu
+        await spotlight(ctx, REQ.SIDEBAR_ADD_BTN, T.spotRead);
+        await ctx.delay(T.afterSpot);
         await ctx.click(REQ.SIDEBAR_ADD_BTN);
         await ctx.waitFor(REQ.ADD_DROPDOWN, 1500);
+        await ctx.delay(T.formOpen);
         await ctx.click(REQ.ADD_URL_COLLECTION);
         await ctx.waitFor(REQ.COLLECTION_MODAL, 2000);
+        await ctx.delay(T.formOpen);
         const nameInput = document.querySelector<HTMLInputElement>('.req-col-modal .req-input');
-        if (nameInput) { nameInput.focus(); fillControlledInput(nameInput, COLLECTION_NAME); await ctx.delay(200); }
+        if (nameInput) { nameInput.focus(); fillControlledInput(nameInput, COLLECTION_NAME); await ctx.delay(T.afterType); }
         document.querySelector<HTMLButtonElement>('.req-col-modal .btn-primary')?.click();
-        await ctx.delay(300);
-        await spotlight(ctx, REQ.colByName(COLLECTION_NAME), 900);
+        await ctx.delay(T.afterClick);
+        await spotlight(ctx, REQ.colByName(COLLECTION_NAME), T.spotRead);
+        await ctx.delay(T.afterSpot);
 
         // Add "Users" request
         const col = firstVisible(REQ.colByName(COLLECTION_NAME));
@@ -261,20 +273,15 @@ export const reqVersioningLesson: DemoLesson = {
         let opened = await openContextMenuForElement(ctx, col);
         if (!opened) return;
         await clickContextItemVisible(ctx, 'Add Request');
+        await fillNewRequestPrompt(ctx, REQUEST_1_NAME);
         await ctx.waitFor(REQ.URL_INPUT, 2200);
-        await ctx.delay(200);
-        const nameDisplay1 = firstVisible('.req-req-name-display');
-        if (nameDisplay1) {
-          nameDisplay1.click();
-          await ctx.delay(80);
-          const ni = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-          if (ni) { fillControlledInput(ni, REQUEST_1_NAME); ni.blur(); await ctx.delay(80); }
-        }
+        await ctx.delay(T.afterClick);
         const urlInput1 = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
         if (urlInput1) {
           fillControlledInput(urlInput1, REQUEST_1_URL);
-          await ctx.delay(300);
-          await spotlightElNoScroll(ctx, urlInput1, 800);
+          await ctx.delay(T.afterType);
+          await spotlightElNoScroll(ctx, urlInput1, T.spotRead);
+          await ctx.delay(T.afterSpot);
         }
 
         // Add "Posts" request
@@ -283,27 +290,22 @@ export const reqVersioningLesson: DemoLesson = {
         opened = await openContextMenuForElement(ctx, col2);
         if (!opened) return;
         await clickContextItemVisible(ctx, 'Add Request');
+        await fillNewRequestPrompt(ctx, REQUEST_2_NAME);
         await ctx.waitFor(REQ.URL_INPUT, 2200);
-        await ctx.delay(200);
-        const nameDisplay2 = firstVisible('.req-req-name-display');
-        if (nameDisplay2) {
-          nameDisplay2.click();
-          await ctx.delay(80);
-          const ni2 = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-          if (ni2) { fillControlledInput(ni2, REQUEST_2_NAME); ni2.blur(); await ctx.delay(80); }
-        }
+        await ctx.delay(T.afterClick);
         const urlInput2 = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
         if (urlInput2) {
           fillControlledInput(urlInput2, REQUEST_2_URL);
-          await ctx.delay(300);
-          await spotlightElNoScroll(ctx, urlInput2, 800);
+          await ctx.delay(T.afterType);
+          await spotlightElNoScroll(ctx, urlInput2, T.spotRead);
+          await ctx.delay(T.afterSpot);
         }
 
-        // Spotlight both in the sidebar
+        // Spotlight both in the sidebar — the outcome: two requests ready to version
         const req1 = firstVisible(REQ.reqByName(REQUEST_1_NAME));
         const req2 = firstVisible(REQ.reqByName(REQUEST_2_NAME));
-        if (req1) await spotlightElNoScroll(ctx, req1, 800);
-        if (req2) await spotlightElNoScroll(ctx, req2, 800);
+        if (req1) { await spotlightElNoScroll(ctx, req1, T.spotRead); await ctx.delay(T.afterSpot); }
+        if (req2) { await spotlightElNoScroll(ctx, req2, T.spotOutcome); await ctx.delay(T.afterSpot); }
       },
     },
 
@@ -327,67 +329,87 @@ export const reqVersioningLesson: DemoLesson = {
       action: async (ctx) => {
         // Select "Users"
         await selectRequestByName(ctx, REQUEST_1_NAME, COLLECTION_NAME);
-        await ctx.delay(300);
+        await ctx.delay(T.afterClick);
 
-        // Edit URL — append limit
+        // Edit URL — append limit. Show the field first, then the edited value.
         const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
         if (urlInput) {
-          await spotlightElNoScroll(ctx, urlInput, 800);
+          await spotlightElNoScroll(ctx, urlInput, T.spotRead);
+          await ctx.delay(T.afterSpot);
           const currentUrl = urlInput.value;
           if (!currentUrl.includes(EDITED_URL_SUFFIX)) {
             fillControlledInput(urlInput, currentUrl + EDITED_URL_SUFFIX);
           }
-          await ctx.delay(400);
-          await spotlightElNoScroll(ctx, urlInput, 900);
+          await ctx.delay(T.afterType);
+          await spotlightElNoScroll(ctx, urlInput, T.spotRead);
+          await ctx.delay(T.afterSpot);
         }
 
-        // Add header
+        // Add header — switch to the Headers tab
         const headersTab = document.querySelector<HTMLElement>(REQ.TAB_HEADERS);
         if (headersTab) {
-          await spotlightElNoScroll(ctx, headersTab, 700);
+          await spotlightElNoScroll(ctx, headersTab, T.spotBrief);
           headersTab.click();
-          await ctx.delay(400);
+          await ctx.delay(T.tabSwitch);
         }
-        const addBtn = document.querySelector<HTMLElement>('[data-testid="req-headers-add-btn"]');
-        if (addBtn) {
-          addBtn.click();
-          await ctx.delay(250);
+
+        // Find an empty row to reuse; only click + Add if all rows are filled
+        let rows = document.querySelectorAll('[data-testid^="req-headers-row-"]');
+        let targetRow: Element | null = null;
+        for (const row of rows) {
+          const ki = row.querySelector<HTMLInputElement>('.ws-connect-kv-key');
+          if (ki && !ki.value.trim()) { targetRow = row; break; }
         }
-        const rows = document.querySelectorAll('[data-testid^="req-headers-row-"]');
-        const lastRow = rows[rows.length - 1];
-        if (lastRow) {
-          const keyInput = lastRow.querySelector<HTMLInputElement>('.ws-connect-kv-key');
-          const valueInput = lastRow.querySelector<HTMLInputElement>('.ws-connect-kv-value');
-          if (keyInput) { fillControlledInput(keyInput, HEADER_KEY); await ctx.delay(200); }
+        if (!targetRow) {
+          const addBtn = document.querySelector<HTMLElement>('[data-testid="req-headers-add-btn"]');
+          if (addBtn) { addBtn.click(); await ctx.delay(T.formOpen); }
+          rows = document.querySelectorAll('[data-testid^="req-headers-row-"]');
+          targetRow = rows[rows.length - 1] ?? null;
+        }
+        if (targetRow) {
+          const keyInput = targetRow.querySelector<HTMLInputElement>('.ws-connect-kv-key');
+          const valueInput = targetRow.querySelector<HTMLInputElement>('.ws-connect-kv-value');
+          if (keyInput) { fillControlledInput(keyInput, HEADER_KEY); await ctx.delay(T.afterType); }
           if (valueInput) {
             fillControlledInput(valueInput, HEADER_VALUE);
-            await ctx.delay(300);
-            if (valueInput instanceof HTMLElement) await spotlightElNoScroll(ctx, valueInput, 800);
+            await ctx.delay(T.afterType);
+            if (valueInput instanceof HTMLElement) { await spotlightElNoScroll(ctx, valueInput, T.spotRead); await ctx.delay(T.afterSpot); }
           }
         }
 
-        // Navigate to "Posts" → triggers auto-snapshot
+        // Navigate to "Posts" → triggers auto-snapshot (the key concept)
         const postsReq = firstVisible(REQ.reqByName(REQUEST_2_NAME));
         if (postsReq) {
-          await spotlightElNoScroll(ctx, postsReq, 900);
+          await spotlightElNoScroll(ctx, postsReq, T.spotRead);
+          await ctx.delay(T.afterSpot);
           postsReq.click();
-          await ctx.delay(600);
+          await ctx.delay(T.tabSwitch);
         }
 
         // Navigate back to "Users"
         await selectRequestByName(ctx, REQUEST_1_NAME, COLLECTION_NAME);
-        await ctx.delay(400);
+        await ctx.delay(T.tabSwitch);
 
         // Open History tab
         const historyTab = document.querySelector<HTMLElement>(REQ.TAB_HISTORY);
         if (historyTab) {
-          await spotlightElNoScroll(ctx, historyTab, 800);
+          await spotlightElNoScroll(ctx, historyTab, T.spotBrief);
           historyTab.click();
-          await ctx.delay(500);
+          await ctx.delay(T.tabSwitch);
         }
 
-        // Spotlight the version list
-        await spotlight(ctx, REQ.VERSION_PANEL, 1200);
+        // Spotlight the first version item — the outcome: the captured snapshot
+        const firstVersionItem = document.querySelector<HTMLElement>(REQ.VERSION_ITEM);
+        if (firstVersionItem) {
+          await spotlightElNoScroll(ctx, firstVersionItem, T.spotOutcome);
+          await ctx.delay(T.afterSpot);
+          // Also spotlight the change summary text so the viewer reads it
+          const summary = firstVersionItem.querySelector<HTMLElement>('.test-def-version-item-summary');
+          if (summary && summary.textContent?.trim()) {
+            await spotlightElNoScroll(ctx, summary, T.spotRead);
+            await ctx.delay(T.afterSpot);
+          }
+        }
       },
     },
 
@@ -418,33 +440,73 @@ export const reqVersioningLesson: DemoLesson = {
       action: async (ctx) => {
         const items = document.querySelectorAll<HTMLElement>(REQ.VERSION_ITEM);
         if (items.length >= 2) {
-          // Select two versions
-          await spotlightElNoScroll(ctx, items[0], 800);
+          // Select two versions — spotlight each checkbox specifically
+          const check0 = items[0].querySelector<HTMLElement>('input[type="checkbox"]');
+          const check1 = items[1].querySelector<HTMLElement>('input[type="checkbox"]');
+          if (check0) { await spotlightElNoScroll(ctx, check0, T.spotRead); await ctx.delay(T.afterSpot); }
           items[0].click();
-          await ctx.delay(300);
-          await spotlightElNoScroll(ctx, items[1], 800);
+          await ctx.delay(T.afterClick);
+          if (check1) { await spotlightElNoScroll(ctx, check1, T.spotRead); await ctx.delay(T.afterSpot); }
           items[1].click();
-          await ctx.delay(400);
+          await ctx.delay(T.afterClick);
 
           // Click Compare
           const compareBtn = document.querySelector<HTMLElement>(REQ.VERSION_COMPARE_BTN);
           if (compareBtn) {
-            await spotlightElNoScroll(ctx, compareBtn, 900);
+            await spotlightElNoScroll(ctx, compareBtn, T.spotRead);
+            await ctx.delay(T.afterSpot);
             compareBtn.click();
-            await ctx.delay(800);
+            await ctx.delay(T.formOpen);
           }
 
-          // Spotlight the diff modal
           const diffModal = document.querySelector<HTMLElement>('.test-def-diff-modal');
           if (diffModal) {
-            await spotlightEl(ctx, diffModal, 1500);
-            // Close it
-            const closeBtn = diffModal.querySelector<HTMLElement>('.test-def-diff-header .btn');
-            if (closeBtn) { closeBtn.click(); await ctx.delay(300); }
+            // Overview: spotlight each diff row (URL change, etc.) individually
+            const overviewRows = diffModal.querySelectorAll<HTMLElement>('.test-def-diff-row');
+            for (const row of overviewRows) {
+              await spotlightElNoScroll(ctx, row, T.spotRead);
+              await ctx.delay(T.afterSpot);
+            }
+            // If no rows (empty overview), spotlight the body briefly
+            if (overviewRows.length === 0) {
+              const body = diffModal.querySelector<HTMLElement>('.test-def-diff-body');
+              if (body) { await spotlightElNoScroll(ctx, body, T.spotRead); await ctx.delay(T.afterSpot); }
+            }
+
+            // Switch to the Headers tab
+            const hdrTab = Array.from(diffModal.querySelectorAll<HTMLElement>('.test-def-diff-tab'))
+              .find(t => t.textContent?.includes('Headers'));
+            if (hdrTab) {
+              await spotlightElNoScroll(ctx, hdrTab, T.spotBrief);
+              await ctx.delay(T.afterSpot);
+              hdrTab.click();
+              await ctx.delay(T.tabSwitch);
+
+              // Spotlight each header row in the table
+              const hdrRows = diffModal.querySelectorAll<HTMLElement>('.test-def-diff-headers-tr');
+              for (const row of hdrRows) {
+                await spotlightElNoScroll(ctx, row, T.spotRead);
+                await ctx.delay(T.afterSpot);
+              }
+              // Fallback: if no table rows, spotlight the body
+              if (hdrRows.length === 0) {
+                const body = diffModal.querySelector<HTMLElement>('.test-def-diff-body');
+                if (body) { await spotlightElNoScroll(ctx, body, T.spotRead); await ctx.delay(T.afterSpot); }
+              }
+            }
+
+            // Close it (footer Close button)
+            const closeBtn = diffModal.querySelector<HTMLElement>('.test-def-diff-footer .btn')
+              ?? diffModal.querySelector<HTMLElement>('.btn');
+            if (closeBtn) { closeBtn.click(); await ctx.delay(T.afterClick); }
           }
         } else {
-          // Not enough versions yet — spotlight what's there
-          await spotlight(ctx, REQ.VERSION_PANEL, 1200);
+          // Not enough versions yet — spotlight the first item if any
+          const singleItem = document.querySelector<HTMLElement>(REQ.VERSION_ITEM);
+          if (singleItem) {
+            await spotlightElNoScroll(ctx, singleItem, T.spotOutcome);
+            await ctx.delay(T.afterSpot);
+          }
         }
       },
     },
@@ -454,61 +516,100 @@ export const reqVersioningLesson: DemoLesson = {
       id: 'req6-restore',
       title: 'Restore & Rename',
       description:
-        'Click **"↩ Restore"** on the original version to revert — `?_limit=5` disappears, ' +
-        'the extra header is removed. Restore creates a new version entry before reverting, ' +
-        'so you can always undo.\n\n' +
-        'Then click **"✏ Rename"** on any version and type a meaningful label like ' +
-        '"before pagination" — easier to find than timestamps.',
-      highlight: REQ.VERSION_RESTORE_BTN,
+        'First, notice the current URL still has `?_limit=5`. Now open **History** and click ' +
+        '**"↩ Restore"** on the **initial version** (the bottom entry) to revert.\n\n' +
+        'Watch the URL: `?_limit=5` disappears and the extra header is removed. ' +
+        'Restore always creates a new version entry first, so you can always undo.\n\n' +
+        'Finally, click **"✏ Rename"** on any version and type a meaningful label like ' +
+        '"before pagination" — much easier to find than timestamps.',
+      highlight: REQ.TAB_HISTORY,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await closeOpenOverlays(ctx);
         await ensureBothRequests(ctx);
         await selectRequestByName(ctx, REQUEST_1_NAME, COLLECTION_NAME);
-        const historyTab = document.querySelector<HTMLElement>(REQ.TAB_HISTORY);
-        if (historyTab && !document.querySelector(REQ.VERSION_PANEL)) {
-          historyTab.click();
-          await ctx.delay(150);
-        }
       },
       action: async (ctx) => {
-        // Restore the original (last item in the list)
+        // ── BEFORE: show the current edited URL so the viewer registers it ──
+        const paramsTab = document.querySelector<HTMLElement>(REQ.TAB_PARAMS);
+        if (paramsTab) {
+          paramsTab.click();
+          await ctx.delay(T.tabSwitch);
+        }
+        const urlBefore = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
+        if (urlBefore) {
+          await spotlightElNoScroll(ctx, urlBefore, T.spotOutcome);
+          await ctx.delay(T.afterSpot);
+        }
+
+        // ── Switch to History tab ──
+        const historyTab = document.querySelector<HTMLElement>(REQ.TAB_HISTORY);
+        if (historyTab) {
+          await spotlightElNoScroll(ctx, historyTab, T.spotBrief);
+          await ctx.delay(T.afterSpot);
+          historyTab.click();
+          await ctx.delay(T.tabSwitch);
+        }
+
+        // ── Spotlight the "initial version" item (the last/bottom entry) ──
         const items = document.querySelectorAll<HTMLElement>(REQ.VERSION_ITEM);
         if (items.length > 0) {
           const lastItem = items[items.length - 1];
+          await spotlightElNoScroll(ctx, lastItem, T.spotRead);
+          await ctx.delay(T.afterSpot);
+
+          // Spotlight only this item's Restore button — no ambiguity
           const restoreBtn = lastItem.querySelector<HTMLElement>(REQ.VERSION_RESTORE_BTN);
           if (restoreBtn) {
-            await spotlightElNoScroll(ctx, restoreBtn, 900);
+            await spotlightElNoScroll(ctx, restoreBtn, T.spotRead);
+            await ctx.delay(T.afterSpot);
             restoreBtn.click();
-            await ctx.delay(700);
+            await ctx.delay(T.afterClick);
           }
         }
 
-        // Spotlight the reverted URL
-        const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
-        if (urlInput) await spotlightElNoScroll(ctx, urlInput, 1000);
+        // ── AFTER: switch to Params and show the reverted URL — ?_limit=5 gone ──
+        const paramsTab2 = document.querySelector<HTMLElement>(REQ.TAB_PARAMS);
+        if (paramsTab2) {
+          paramsTab2.click();
+          await ctx.delay(T.tabSwitch);
+        }
+        const urlAfter = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
+        if (urlAfter) {
+          await spotlightElNoScroll(ctx, urlAfter, T.spotOutcome);
+          await ctx.delay(T.afterSpot);
+        }
 
-        // Rename a version
+        // ── Switch back to History for Rename ──
+        const historyTab2 = document.querySelector<HTMLElement>(REQ.TAB_HISTORY);
+        if (historyTab2) {
+          historyTab2.click();
+          await ctx.delay(T.tabSwitch);
+        }
+
+        // ── Rename a version ──
         const updatedItems = document.querySelectorAll<HTMLElement>(REQ.VERSION_ITEM);
         if (updatedItems.length > 0) {
           const firstItem = updatedItems[0];
           const renameBtn = firstItem.querySelector<HTMLElement>(REQ.VERSION_RENAME_BTN);
           if (renameBtn) {
-            await spotlightElNoScroll(ctx, renameBtn, 800);
+            await spotlightElNoScroll(ctx, renameBtn, T.spotRead);
+            await ctx.delay(T.afterSpot);
             renameBtn.click();
-            await ctx.delay(300);
+            await ctx.delay(T.formOpen);
           }
           const renameInput = document.querySelector<HTMLInputElement>(REQ.VERSION_RENAME_INPUT);
           if (renameInput) {
-            await spotlightElNoScroll(ctx, renameInput, 700);
+            await spotlightElNoScroll(ctx, renameInput, T.spotBrief);
+            await ctx.delay(T.afterSpot);
             fillControlledInput(renameInput, 'before pagination');
-            await ctx.delay(400);
+            await ctx.delay(T.afterType);
             renameInput.blur();
-            await ctx.delay(400);
+            await ctx.delay(T.afterClick);
           }
           // Spotlight the renamed entry
           const renamedItem = document.querySelectorAll<HTMLElement>(REQ.VERSION_ITEM)[0];
-          if (renamedItem) await spotlightElNoScroll(ctx, renamedItem, 1000);
+          if (renamedItem) { await spotlightElNoScroll(ctx, renamedItem, T.spotOutcome); await ctx.delay(T.afterSpot); }
         }
       },
     },

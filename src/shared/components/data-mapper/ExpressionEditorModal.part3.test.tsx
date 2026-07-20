@@ -383,7 +383,7 @@ describe('ExpressionEditorModal – branch coverage extras', () => {
       if (results.length > 0) {
         fireEvent.click(results[0]);
         expect(document.querySelector('.dm-expr-detail-modal')).toBeTruthy();
-        const closeBtn = document.querySelector('.dm-expr-detail-close');
+        const closeBtn = document.querySelector('.dm-expr-detail-footer button');
         if (closeBtn) {
           fireEvent.click(closeBtn);
           expect(document.querySelector('.dm-expr-detail-modal')).toBeNull();

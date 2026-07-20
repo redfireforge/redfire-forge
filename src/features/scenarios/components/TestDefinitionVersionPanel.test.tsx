@@ -162,7 +162,7 @@ describe('TestDefinitionVersionPanel', () => {
     expect(screen.getByText('Headers')).toBeTruthy();
     expect(screen.getByText('Body')).toBeTruthy();
     expect(screen.getByText(/1 extraction/)).toBeTruthy();
-    fireEvent.click(screen.getByText('×'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByText('Version Snapshot')).toBeNull();
   });
 

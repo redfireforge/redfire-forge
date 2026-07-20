@@ -47,8 +47,25 @@ export const REQ = {
   TAB_ADD:                  '[data-testid="req-tab-add"]',
   TAB_ITEM:                 '[data-testid="req-tab-item"]',
   TAB_CLOSE:                '[data-testid="req-tab-close"]',
+  TAB_CLOSE_ALL:            '[data-testid="req-tab-close-all"]',
   TAB_LABEL:                '[data-testid="req-tab-label"]',
   tabById: (id: string) => `[data-testid="req-tab-item"][data-tab-id="${id}"]`,
+
+  // ── New Request Prompt ──────────────────────────────────────
+  NEW_REQ_PROMPT:           '[data-testid="req-new-request-prompt"]',
+  NEW_REQ_NAME:             '[data-testid="req-new-request-name"]',
+
+  // ── Duplicate Request Prompt ──────────────────────────────
+  DUP_REQ_PROMPT:           '[data-testid="req-dup-request-prompt"]',
+  DUP_REQ_NAME:             '[data-testid="req-dup-request-name"]',
+
+  // ── Bulk Select ─────────────────────────────────────────────
+  BULK_CHECKBOX:            '[data-testid="req-bulk-checkbox"]',
+  BULK_BAR:                 '[data-testid="req-bulk-bar"]',
+  BULK_DELETE:              '[data-testid="req-bulk-delete"]',
+  BULK_DELETE_CONFIRM:      '[data-testid="req-bulk-delete-confirm"]',
+  BULK_DELETE_CONFIRM_OK:   '[data-testid="req-bulk-delete-confirm-ok"]',
+  CLEAR_SELECTION:          '[data-testid="req-sidebar-clear-selection"]',
 
   // ── Request Editor ────────────────────────────────────────────
   EDITOR:                   '[data-testid="req-editor"]',
@@ -138,6 +155,7 @@ export const REQ = {
   VERSION_PANEL:            '[data-testid="version-history-panel"]',
   VERSION_ITEM:             '[data-testid="version-item"]',
   VERSION_COMPARE_BTN:      '[data-testid="version-compare-btn"]',
+  VERSION_VIEW_BTN:         '[data-testid="version-view-btn"]',
   VERSION_RESTORE_BTN:      '[data-testid="version-restore-btn"]',
   VERSION_RENAME_BTN:       '[data-testid="version-rename-btn"]',
   VERSION_RENAME_INPUT:     '[data-testid="version-rename-input"]',

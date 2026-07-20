@@ -280,8 +280,8 @@ export function useRequests() {
 
   // ─── Requests ──────────────────────────────────────────
 
-  const addRequest = useCallback((colId: string, folderId?: string) => {
-    const req = EMPTY_REQUEST();
+  const addRequest = useCallback((colId: string, folderId?: string, name?: string) => {
+    const req = { ...EMPTY_REQUEST(), ...(name ? { name } : {}) };
     setData((prev) => ({
       ...prev,
       collections: prev.collections.map((c) => {
@@ -314,13 +314,13 @@ export function useRequests() {
     }));
   }, []);
 
-  const duplicateRequest = useCallback((colId: string, reqId: string) => {
+  const duplicateRequest = useCallback((colId: string, reqId: string, name?: string) => {
     setData((prev) => {
       const col = prev.collections.find((c) => c.id === colId);
       if (!col) return prev;
       const orig = findRequestInCollection(col, reqId);
       if (!orig) return prev;
-      const dup: RequestItem = { ...orig, id: uuidv4(), name: `${orig.name || 'Request'} (copy)` };
+      const dup: RequestItem = { ...orig, id: uuidv4(), name: name ?? `${orig.name || 'Request'} (copy)` };
       const parentFolder = findReqParentFolder(col.folders ?? [], reqId);
       return {
         ...prev,

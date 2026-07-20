@@ -591,11 +591,13 @@ describe('sse-studio-advanced lesson', () => {
     const step = sseStudioAdvancedLesson.steps.find((s) => s.id === 'sse-adv-clear')!;
     expect(step).toBeDefined();
 
+    const footer = document.createElement('div');
+    footer.className = 'sse-detail-footer';
     const closeBtn = document.createElement('button');
-    closeBtn.className = 'sse-detail-close';
+    footer.appendChild(closeBtn);
     const clickSpy = vi.fn();
     closeBtn.addEventListener('click', clickSpy);
-    document.body.appendChild(closeBtn);
+    document.body.appendChild(footer);
 
     const ctx = makeCtx();
     await step.action!(ctx);

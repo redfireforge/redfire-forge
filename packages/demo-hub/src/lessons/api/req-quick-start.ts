@@ -18,12 +18,13 @@ import {
   shrinkAllCollections,
   ensureCollectionExpanded,
   closeExtraRequestTabs,
+  fillNewRequestPrompt,
+  dismissNewRequestPrompt,
+  cleanupOtherRequestDemoCollections,
 } from './req-demo-helpers';
 
 const COLLECTION_NAME = 'My API';
-const REQUEST_NAME = 'New Request';
-const LESSON2_COLLECTION_NAME = 'User Service';
-const LESSON3_COLLECTION_NAME = 'DummyJSON';
+const REQUEST_NAME = 'Get Users';
 const REQUEST_URL = 'https://jsonplaceholder.typicode.com/users';
 let activeSpotlightCleanup: (() => void) | null = null;
 
@@ -138,18 +139,20 @@ async function deleteCollectionByName(ctx: DemoActionContext, collectionName: st
 
 async function cleanupLessonCollections(ctx: DemoActionContext): Promise<void> {
   // Remove leftovers from sibling Request lessons so Lesson 1 starts clean.
-  await deleteCollectionByName(ctx, LESSON3_COLLECTION_NAME);
-  await deleteCollectionByName(ctx, LESSON2_COLLECTION_NAME);
   await deleteCollectionByName(ctx, COLLECTION_NAME);
+  await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
 }
 
 async function ensureCollectionAndRequest(ctx: DemoActionContext): Promise<void> {
   ensureRequestsTab(ctx);
+  dismissNewRequestPrompt();
+
   if (document.querySelector(REQ.colByName(COLLECTION_NAME))) {
     if (document.querySelector(REQ.URL_INPUT)) return;
     const opened = await openCollectionContextMenu(ctx);
     if (opened) {
       await clickContextItemVisible(ctx, 'Add Request');
+      await fillNewRequestPrompt(ctx, REQUEST_NAME);
       await ctx.waitFor(REQ.URL_INPUT, 2200);
       const urlInput = firstVisible(REQ.URL_INPUT) as HTMLInputElement | null;
       if (urlInput) { urlInput.focus(); fillControlledInput(urlInput, REQUEST_URL); }
@@ -175,6 +178,7 @@ async function ensureCollectionAndRequest(ctx: DemoActionContext): Promise<void>
     const opened = await openCollectionContextMenu(ctx);
     if (opened) {
       await clickContextItemVisible(ctx, 'Add Request');
+      await fillNewRequestPrompt(ctx, REQUEST_NAME);
     }
     await ctx.waitFor(REQ.URL_INPUT, 2200);
     const urlInput = firstVisible(REQ.URL_INPUT) as HTMLInputElement | null;
@@ -246,6 +250,7 @@ export const reqQuickStartLesson: DemoLesson = {
 
   cleanup: async (ctx) => {
     dismissContextMenu();
+    dismissNewRequestPrompt();
     const modalClose = document.querySelector<HTMLElement>('.req-col-modal .btn-secondary');
     if (modalClose) { modalClose.click(); await ctx.delay(60); }
     if (document.querySelector(REQ.HISTORY_DROPDOWN)) {
@@ -286,9 +291,8 @@ export const reqQuickStartLesson: DemoLesson = {
         // Reading phase already highlights + — click once, then pause on dropdown options.
         await ctx.click(REQ.SIDEBAR_ADD_BTN);
         await ctx.waitFor(REQ.ADD_DROPDOWN, 1500);
-        await spotlight(ctx, REQ.ADD_DROPDOWN, 1200);
+        await ctx.delay(400);
 
-        // One focused option spotlight, then click (no extra flashes).
         await spotlight(ctx, REQ.ADD_URL_COLLECTION, 900);
         await ctx.click(REQ.ADD_URL_COLLECTION);
         await ctx.waitFor(REQ.COLLECTION_MODAL, 2000);
@@ -331,10 +335,10 @@ export const reqQuickStartLesson: DemoLesson = {
       // No reading-phase highlight — Step 1 already showed My API; re-highlighting it is noise.
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
+        dismissNewRequestPrompt();
         if (!document.querySelector(REQ.colByName(COLLECTION_NAME))) {
           await ensureCollectionAndRequest(ctx);
         }
-        // No expand/click on My API — avoids repeated collection selection flashes.
       },
       action: async (ctx) => {
         const hasEditor = !!firstVisible(REQ.URL_INPUT);
@@ -343,9 +347,24 @@ export const reqQuickStartLesson: DemoLesson = {
           if (!opened) {
             await ensureCollectionAndRequest(ctx);
           } else {
-            // Highlight only Add Request — never re-spotlight My API.
             await spotlightContextItem(ctx, 'Add Request', 1100);
             await clickContextItemVisible(ctx, 'Add Request');
+            await ctx.delay(400);
+
+            // Spotlight the naming prompt, fill the request name
+            const prompt = firstVisible(REQ.NEW_REQ_PROMPT);
+            if (prompt) {
+              await spotlightElNoScroll(ctx, prompt, 1000);
+              const promptInput = document.querySelector<HTMLInputElement>(REQ.NEW_REQ_NAME);
+              if (promptInput) {
+                fillControlledInput(promptInput, REQUEST_NAME);
+                await ctx.delay(400);
+              }
+              const createBtn = document.querySelector<HTMLButtonElement>(`${REQ.NEW_REQ_PROMPT} .btn-primary`);
+              if (createBtn) createBtn.click();
+              await ctx.delay(500);
+            }
+
             await ctx.waitFor(REQ.URL_INPUT, 2200);
             await ctx.delay(260);
           }
@@ -364,7 +383,6 @@ export const reqQuickStartLesson: DemoLesson = {
           await spotlightElNoScroll(ctx, input, 900);
         }
 
-        // Expand collection so the new request is visible in the sidebar (no My API ring).
         await ensureCollectionExpanded(ctx, COLLECTION_NAME);
         const createdReq =
           firstVisible(REQ.reqInCollection(COLLECTION_NAME, REQUEST_NAME))

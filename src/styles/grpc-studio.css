@@ -999,10 +999,10 @@
   overflow: hidden;
   border-radius: 10px !important;
   background: var(--surface) !important;
-  border: 1px solid rgba(255, 255, 255, 0.30) !important;
+  border: 1px solid color-mix(in srgb, white 28%, var(--border)) !important;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
     0 20px 60px rgba(0, 0, 0, 0.55),
     0 4px 16px rgba(0, 0, 0, 0.3);
 }
@@ -6055,12 +6055,12 @@
   width: min(920px, calc(100vw - 48px));
   height: min(640px, calc(100vh - 48px));
   max-height: min(640px, calc(100vh - 48px));
-  border: 1px solid rgba(255, 255, 255, 0.30);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
   background: var(--surface);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
     0 12px 40px color-mix(in srgb, var(--bg) 35%, transparent);
   overflow: hidden;
 }
@@ -7671,10 +7671,14 @@
   min-height: 260px;
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 24px);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
   background: var(--bg);
-  box-shadow: 0 20px 42px rgba(0, 0, 0, 0.34);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 20px 42px rgba(0, 0, 0, 0.34),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -8661,12 +8665,16 @@
   transform: translate(-50%, -50%);
   width: min(520px, calc(100vw - 32px));
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 8px;
   z-index: 1200;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 40px color-mix(in srgb, var(--bg) 40%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .grpc-import-grpcurl-modal {
@@ -8923,12 +8931,16 @@
   width: min(760px, calc(100vw - 32px));
   max-height: min(80vh, 720px);
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 8px;
   z-index: 1300;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 12px 40px color-mix(in srgb, var(--bg) 40%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 .grpc-snapshot-diff-modal__header {
@@ -11443,10 +11455,10 @@
 
 /* Dry-Run Tester — stronger subtle white edge, matching gRPC session settings. */
 .professional-modal.grpc-dry-run-tester-modal {
-  border: 1px solid rgba(255, 255, 255, 0.30);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
     0 20px 60px rgba(0, 0, 0, 0.55),
     0 4px 16px rgba(0, 0, 0, 0.3);
 }
@@ -11691,9 +11703,11 @@
   overflow: hidden;
   border-radius: 12px;
   padding: 0;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.035) inset,
-              0 10px 28px rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 10px 28px rgba(0, 0, 0, 0.35);
 }
 
 .grpc-mock-tester-modal .modal-header {
