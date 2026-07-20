@@ -15,7 +15,7 @@
 | **WebSocket Studio** | **Yes** | 8 | Yes | Yes | Yes (dbl-click, F2) | **Yes** (drag) | **Yes** (P4) | Yes (localStorage) | Full (connection, messages, draft, mock port, console) |
 | **SSE Studio** | **Yes** (P2) | 8 | Yes | Yes | Yes (dbl-click, F2) | **Yes** (drag) | **Yes** (P4) | Yes (localStorage) | Full (connection, events, console, auth, headers) |
 | **Kafka Studio** | **No** (won't do) | 1 cluster | — | — | — | — | — | Cluster config only | N/A — single session, feature-nav tabs only |
-| **Requests** | **Yes** (P1) | 8 | Yes | Yes | Yes (dbl-click) | **Yes** (drag, P4) | **Yes** (P4) | Yes (localStorage) | Full (sub-tab, response cache, env override, history) |
+| **Requests** | **Yes** (P1) | 50 | Yes | Yes | Yes (dbl-click) | **Yes** (drag, P4) | **Yes** (P4) | Yes (localStorage) | Full (sub-tab, response cache, env override, history) |
 
 ### Maturity Tiers
 
@@ -25,7 +25,7 @@ Tier 1 — Full multi-tab
 ├── gRPC Studio:     8 tabs, per-tab method/body/auth/TLS, duplicate, localStorage
 ├── WebSocket Studio: 8 tabs, per-tab connection/messages, reorder (drag), localStorage
 ├── SSE Studio:      8 tabs, per-tab connection/events, reorder (drag), localStorage (P2)
-└── Requests:        8 tabs, per-tab sub-tab state/response cache, localStorage (P1)
+└── Requests:        50 tabs, per-tab sub-tab state/response cache, localStorage (P1)
 
 Tier 2 — Single session with pane/feature navigation (no multi-tab planned)
 └── Kafka Studio: 4 feature views (Publish / Consume / Topics / Schema)
@@ -101,7 +101,7 @@ export interface RequestTab {
 export type RequestSubTab = 'params' | 'body' | 'auth' | 'headers' | 'history';
 export type ResponseSubTab = 'preview' | 'headers' | 'console';
 export type RequestInputMode = 'builder' | 'curlImport' | 'curlExport';
-export const REQUEST_MAX_TABS = 8;
+export const REQUEST_MAX_TABS = 50;
 ```
 
 **New hook: `src/features/requests/hooks/useRequestTabs.ts`**
@@ -143,7 +143,7 @@ Design (consistent with `GrpcTabBar` + `WsConnectionTabBar`):
 |---------|---------------|
 | **Layout** | Horizontal scrollable row above editor; `role="tablist"` |
 | **Tab button** | Method badge (GET=green, POST=blue, PUT=amber, DELETE=red, PATCH=purple) + label + close `×` |
-| **Add** | `+` button at right end; disabled at `REQUEST_MAX_TABS`; tooltip "N/8" counter |
+| **Add** | `+` button at right end; disabled at `REQUEST_MAX_TABS`; tooltip "N/50" counter |
 | **Close** | `×` per tab; hidden when `tabs.length === 1`; confirm if `sending` |
 | **Rename** | Double-click label → inline `<input>`; Enter/blur commit, Escape cancel; max 40 chars |
 | **Switch** | Click tab; `aria-selected="true"` on active |
@@ -372,7 +372,7 @@ These bugs exist today regardless of multi-tab, but must be fixed as part of the
 - Middle-click close, Delete key close
 - Drag-and-drop reorder
 - Keyboard navigation (Arrow Left/Right, Home/End, Enter/Space)
-- Max tabs indicator (N/8) on add button
+- Max tabs indicator (N/50) on add button
 - Close button hidden when only 1 tab
 
 **Shell — `SseStudioShell.tsx`:** (unchanged)
@@ -419,7 +419,7 @@ Added selectors to `selectors/sse.ts`:
 | Connection status dot | ✅ 5-state color mapping |
 | Reorder (drag-and-drop) | ✅ |
 | Keyboard nav | ✅ Arrow/Home/End/Enter/Space/Delete/F2 |
-| Max tabs indicator | ✅ "N/8" tooltip on add button |
+| Max tabs indicator | ✅ "N/50" tooltip on add button |
 
 **Test: `SseConnectionTabBar.test.tsx`** — 19 tests covering all features + `computeDropIndex`.
 
@@ -786,7 +786,7 @@ P3: Kafka Multi-Tab         ██             ❌ Won't Do — dropped (July 20
 
 ### Closed
 
-1. **Max tabs: 8** — Consistent across all studios. Proven in GQL/gRPC/WS/SSE/Requests.
+1. **Max tabs: 8** for GraphQL/gRPC/WS/SSE; **50** for Requests. Proven in GQL/gRPC/WS/SSE/Requests.
 2. **Tab IDs: `{prefix}-tab-{n}` with gap-filling** — Consistent naming. GQL uses `gql-tab-{n}`, gRPC uses `grpc-tab-{n}`, WS uses `ws-tab-{n}`.
 3. **Close last tab: prevent** — Cannot close the last tab. All studios enforce this.
 4. **Persistence: IDB for web, storage abstraction for Tauri** — Proven pattern.

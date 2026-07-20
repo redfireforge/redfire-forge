@@ -67,11 +67,6 @@ export function GalleryDetailPanel<T = unknown>({
         <div className="gallery-detail-title-group">
           <div className="gallery-detail-name">{entry.name}</div>
         </div>
-        {onClose && (
-          <button className="gallery-detail-close" onClick={onClose} type="button" aria-label="Close detail panel" data-testid="gallery-detail-close">
-            ✕
-          </button>
-        )}
       </div>
 
       <div className="gallery-detail-desc">{entry.description}</div>
@@ -177,6 +172,9 @@ export function GalleryDetailPanel<T = unknown>({
           >
             {secondaryLabel}
           </button>
+        )}
+        {onClose && (
+          <button type="button" className="btn btn-primary" onClick={onClose} data-testid="gallery-detail-close">Close</button>
         )}
       </div>
 

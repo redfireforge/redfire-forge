@@ -91,11 +91,6 @@ export default function WorkflowVersionDiff({ open, older, newer, onClose }: Pro
               <span className="wf-version-diff-summary-count">{totalChanges}</span>
               <span className="wf-version-diff-summary-text">change{totalChanges !== 1 ? 's' : ''}</span>
             </div>
-            <button className="wf-version-diff-close" onClick={onClose} title="Close">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="M18 6L6 18M6 6l12 12" />
-              </svg>
-            </button>
           </div>
         </div>
 
@@ -120,6 +115,9 @@ export default function WorkflowVersionDiff({ open, older, newer, onClose }: Pro
           {activeTab === 'edges' && <EdgesDiffView diff={diff} />}
           {activeTab === 'variables' && <VariablesDiffView diff={diff} />}
           {activeTab === 'services' && <ServicesDiffView diff={diff} />}
+        </div>
+        <div className="wf-version-diff-footer">
+          <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>

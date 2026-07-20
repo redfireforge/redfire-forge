@@ -1777,9 +1777,13 @@
   display: flex;
   flex-direction: column;
   background: var(--surface, #252525);
-  border: 1px solid var(--border, #444);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #444));
   border-radius: var(--radius, 10px);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.5);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
 
@@ -2565,9 +2569,13 @@
   display: flex;
   flex-direction: column;
   background: var(--surface, #1e293b);
-  border: 1px solid var(--border, #3b4a60);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #3b4a60));
   border-radius: 10px;
-  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.55), 0 4px 12px rgba(0, 0, 0, 0.35);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 48px rgba(0, 0, 0, 0.55),
+    0 4px 12px rgba(0, 0, 0, 0.35);
   animation: ws-tpl-modal-in 0.15s ease;
   overflow: hidden;
 }
@@ -2692,6 +2700,7 @@
   background: color-mix(in srgb, var(--bg, #0f172a) 30%, var(--surface, #1e293b));
   flex-shrink: 0;
 }
+.ws-tpl-close-btn { align-self: flex-end; }
 
 /* ── Message row selected state ── */
 
@@ -3449,12 +3458,13 @@
   display: flex;
   flex-direction: column;
   background: var(--surface, #252525);
-  border: 1px solid rgba(255, 255, 255, 0.30);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: var(--radius, 10px);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 16px 48px rgba(0, 0, 0, 0.5);
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 16px 48px rgba(0, 0, 0, 0.5),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   pointer-events: auto;
   overflow: hidden;
 }
@@ -5240,9 +5250,13 @@
   width: min(90vw, 900px);
   max-height: 80vh;
   background: var(--bg-primary, #1e1e1e);
-  border: 1px solid var(--border-color, #444);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border-color, #444));
   border-radius: 6px;
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 8px 30px rgba(0, 0, 0, 0.6),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
 .ws-diff-header {

@@ -25,7 +25,6 @@ export default function MappingTraceOverlay({
             <span className="mapper-trace-badge mapper-trace-badge--pass">{passCount} passed</span>
             <span className="mapper-trace-badge mapper-trace-badge--fail">{failCount} failed</span>
           </div>
-          <button className="mapper-trace-overlay-close" onClick={onClose} aria-label="Close mapping traces">✕</button>
         </div>
         <div className="mapper-trace-overlay-body">
           <table className="mapper-trace-table">
@@ -65,6 +64,9 @@ export default function MappingTraceOverlay({
               })}
             </tbody>
           </table>
+        </div>
+        <div className="mapper-trace-overlay-footer">
+          <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>

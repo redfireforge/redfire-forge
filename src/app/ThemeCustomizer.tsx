@@ -143,7 +143,6 @@ export default function ThemeCustomizer({ currentTheme, onClose, onApply }: Prop
       <div className="tc-panel" role="dialog" onClick={e => e.stopPropagation()} style={modalStyle}>
         <div className="tc-header" onMouseDown={onDragStart} style={{ cursor: 'move' }}>
           <h3>🎨 Theme Customizer</h3>
-          <button className="tc-close" onClick={handleCancel}>✕</button>
         </div>
 
         <div className="tc-body">

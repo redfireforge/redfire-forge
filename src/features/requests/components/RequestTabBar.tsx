@@ -20,6 +20,7 @@ export interface RequestTabBarProps {
   onDuplicate?: (tabId: string) => void;
   onCloseOthers?: (tabId: string) => void;
   onCloseRight?: (tabId: string) => void;
+  onCloseAll?: () => void;
 }
 
 export function RequestTabBar({
@@ -34,6 +35,7 @@ export function RequestTabBar({
   onDuplicate,
   onCloseOthers,
   onCloseRight,
+  onCloseAll,
 }: RequestTabBarProps) {
   const [editingTabId, setEditingTabId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
@@ -261,6 +263,23 @@ export function RequestTabBar({
           {tabs.length}/{REQUEST_MAX_TABS}
         </span>
       </button>
+
+      {tabs.length > 1 && onCloseAll && (
+        <button
+          type="button"
+          className="req-tab-bar__close-all"
+          data-testid="req-tab-close-all"
+          onClick={onCloseAll}
+          aria-label="Close other tabs"
+          title="Close other tabs (keep active)"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <rect x="1" y="1" width="9" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+            <path d="M4.5 4.5l4 4M8.5 4.5l-4 4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+            <path d="M12.5 5v7.5a1.5 1.5 0 01-1.5 1.5H5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+          </svg>
+        </button>
+      )}
 
       {ctxMenu.renderMenu(
         ctxMenu.menuState

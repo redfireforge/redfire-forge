@@ -1,7 +1,8 @@
 /**
  * @vitest-environment jsdom
  */
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SseMessageLog } from './SseMessageLog';
 import type { SseEvent, SseStats } from './sseTypes';
@@ -42,6 +43,15 @@ const defaultStats: SseStats = {
 };
 
 describe('SseMessageLog', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-20T12:00:00.000Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('renders empty state when no events', () => {
     render(
       <SseMessageLog
@@ -172,7 +182,7 @@ describe('SseMessageLog', () => {
     fireEvent.click(screen.getByTestId('sse-event-row'));
     expect(screen.getByTestId('sse-event-detail')).toBeDefined();
 
-    fireEvent.click(screen.getByLabelText('Close detail'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByTestId('sse-event-detail')).toBeNull();
   });
 
@@ -380,5 +390,118 @@ describe('SseMessageLog', () => {
     // Should show only 1 bookmarked event
     const statusBar = screen.getByTestId('sse-status-bar');
     expect(statusBar.textContent).toContain('Showing: 1');
+  });
+
+  it('truncates long row preview and shows full data in title', () => {
+    const longText = 'x'.repeat(130);
+    render(
+      <SseMessageLog
+        events={[makeEvent({ id: 'long', data: longText })]}
+        stats={{ eventCount: 1, startedAt: null, eventTypeCounts: { message: 1 } }}
+        bookmarkedIds={new Set()}
+        onToggleBookmark={vi.fn()}
+        onClear={vi.fn()}
+        lastEventId=""
+        uptime={null}
+      />,
+    );
+
+    const preview = document.querySelector('.sse-row-data') as HTMLElement;
+    expect(preview.textContent?.endsWith('…')).toBe(true);
+    expect(preview.title).toBe(longText);
+  });
+
+  it('shows bookmarked row state and remove-bookmark label', () => {
+    render(
+      <SseMessageLog
+        events={[makeEvent({ id: 'e1' })]}
+        stats={{ eventCount: 1, startedAt: null, eventTypeCounts: { message: 1 } }}
+        bookmarkedIds={new Set(['e1'])}
+        onToggleBookmark={vi.fn()}
+        onClear={vi.fn()}
+        lastEventId=""
+        uptime={null}
+      />,
+    );
+
+    const button = screen.getByLabelText('Remove bookmark');
+    expect(button.textContent).toContain('★');
+    expect(button.className).toContain('active');
+  });
+
+  it('search matches by event type and bookmark filter toggles title text', () => {
+    const events = [
+      makeEvent({ id: 'e1', eventType: 'update', data: 'first' }),
+      makeEvent({ id: 'e2', eventType: 'delete', data: 'second' }),
+    ];
+    render(
+      <SseMessageLog
+        events={events}
+        stats={{ eventCount: 2, startedAt: null, eventTypeCounts: { update: 1, delete: 1 } }}
+        bookmarkedIds={new Set(['e1'])}
+        onToggleBookmark={vi.fn()}
+        onClear={vi.fn()}
+        lastEventId=""
+        uptime={null}
+      />,
+    );
+
+    fireEvent.change(screen.getByTestId('sse-search'), { target: { value: 'DELETE' } });
+    expect(screen.getAllByTestId('sse-event-row')).toHaveLength(1);
+
+    const bookmarkFilter = screen.getByTestId('sse-bookmark-filter');
+    expect(bookmarkFilter.getAttribute('title')).toBe('Show bookmarked');
+    fireEvent.click(bookmarkFilter);
+    expect(bookmarkFilter.getAttribute('title')).toBe('Show all');
+  });
+
+  it('shows seconds uptime for sub-minute durations and no type summary when empty', () => {
+    render(
+      <SseMessageLog
+        events={[]}
+        stats={{ eventCount: 0, startedAt: null, eventTypeCounts: {} }}
+        bookmarkedIds={new Set()}
+        onToggleBookmark={vi.fn()}
+        onClear={vi.fn()}
+        lastEventId=""
+        uptime={Date.now() - 15000}
+      />,
+    );
+
+    const statusBar = screen.getByTestId('sse-status-bar');
+    expect(statusBar.textContent).toContain('Uptime: 15s');
+    expect(statusBar.textContent).not.toContain('Types:');
+  });
+
+  it('does not render detail panel when selected event no longer exists after rerender', () => {
+    const events = [makeEvent({ id: 'e1' }), makeEvent({ id: 'e2' })];
+    const { rerender } = render(
+      <SseMessageLog
+        events={events}
+        stats={{ eventCount: 2, startedAt: null, eventTypeCounts: { message: 2 } }}
+        bookmarkedIds={new Set()}
+        onToggleBookmark={vi.fn()}
+        onClear={vi.fn()}
+        lastEventId=""
+        uptime={null}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByTestId('sse-event-row')[0]);
+    expect(screen.getByTestId('sse-event-detail')).toBeInTheDocument();
+
+    rerender(
+      <SseMessageLog
+        events={[events[1]]}
+        stats={{ eventCount: 1, startedAt: null, eventTypeCounts: { message: 1 } }}
+        bookmarkedIds={new Set()}
+        onToggleBookmark={vi.fn()}
+        onClear={vi.fn()}
+        lastEventId=""
+        uptime={null}
+      />,
+    );
+
+    expect(screen.queryByTestId('sse-event-detail')).toBeNull();
   });
 });

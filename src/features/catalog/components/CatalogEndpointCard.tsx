@@ -191,7 +191,6 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
         <div className="sw-coverage-popover">
           <div className="sw-coverage-popover-header">
             <span>Exported to {coverage.count} request{coverage.count > 1 ? 's' : ''}</span>
-            <button className="sw-coverage-popover-close" onClick={() => setShowCoveragePopover(false)}>&times;</button>
           </div>
           <div className="sw-coverage-popover-list">
             {coverage.locations.map(loc => (
@@ -210,6 +209,9 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                 <span className="sw-coverage-popover-arrow">→</span>
               </button>
             ))}
+          </div>
+          <div className="sw-coverage-popover-footer">
+            <button type="button" className="btn btn-primary btn-sm" onClick={() => setShowCoveragePopover(false)}>Close</button>
           </div>
         </div>
       )}

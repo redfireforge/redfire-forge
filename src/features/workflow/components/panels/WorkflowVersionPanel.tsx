@@ -98,11 +98,6 @@ export default function WorkflowVersionPanel({
             </svg>
             Compare
           </button>
-          <button className="wfv-close-btn" onClick={onClose} title="Close panel">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <path d="M18 6L6 18M6 6l12 12" />
-            </svg>
-          </button>
         </div>
       </div>
 
@@ -256,6 +251,7 @@ export default function WorkflowVersionPanel({
         {canCompare && (
           <span className="wfv-footer-hint">Click Compare to view differences</span>
         )}
+        <button type="button" className="btn btn-primary wfv-footer-close" onClick={onClose}>Close</button>
       </div>
     </div>
   );

@@ -3618,6 +3618,7 @@ button.dm-mismatch-badge {
   font-size: 11px;
   word-break: break-word;
 }
+.dm-error-popover-footer { display: flex; justify-content: flex-end; margin-top: 8px; }
 
 /* ═══════════════════════════════════════════════════════════
    Phase 9D — Mapping Comparison
@@ -3972,9 +3973,13 @@ button.dm-mismatch-badge {
   display: flex;
   flex-direction: column;
   background: var(--surface, #1e1e2e);
-  border: 1px solid var(--border, #313244);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #313244));
   border-radius: 12px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(137, 180, 250, 0.06);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 24px 64px rgba(0, 0, 0, 0.55),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
 

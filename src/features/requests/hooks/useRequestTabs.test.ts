@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import type { RequestCollection, RequestItem, RequestTab } from '../../../shared/types';
+import type { RequestCollection, RequestItem } from '../../../shared/types';
 import { REQUEST_MAX_TABS } from '../../../shared/types/requests';
 import { useRequestTabs } from './useRequestTabs';
 
@@ -370,13 +370,13 @@ describe('useRequestTabs', () => {
       expect(result.current.tabs[0].label).toBe('Alpha Renamed');
     });
 
-    it('does not sync label for manually-renamed tabs', () => {
+    it('syncs label even for manually-renamed tabs (bidirectional sync)', () => {
       const { result } = setup();
       act(() => result.current.openTab('c1', 'r1', 'Alpha'));
       const tabId = result.current.tabs[0].id;
       act(() => result.current.renameTab(tabId, 'My Custom'));
       act(() => result.current.syncTabLabel('r1', 'Alpha Renamed'));
-      expect(result.current.tabs[0].label).toBe('My Custom');
+      expect(result.current.tabs[0].label).toBe('Alpha Renamed');
     });
 
     it('syncs all tabs referencing the same request', () => {
