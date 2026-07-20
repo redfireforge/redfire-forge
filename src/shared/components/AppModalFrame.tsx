@@ -64,7 +64,7 @@ export default function AppModalFrame({
   footerClassName,
   controlsClassName,
   titleClassName,
-  closeButtonKind = 'icon',
+  closeButtonKind = 'none',
   closeButtonClassName,
   closeButtonLabel = 'Close',
   closeButtonText = 'Close',

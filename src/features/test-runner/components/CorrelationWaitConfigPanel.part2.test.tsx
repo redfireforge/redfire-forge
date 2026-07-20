@@ -388,7 +388,7 @@ describe('CorrelationWaitConfigPanel', () => {
         expect(mockFetch).toHaveBeenCalled();
       });
       fireEvent.click(screen.getAllByRole('button', { name: /^curl$/i })[0]);
-      fireEvent.click(document.querySelector('.wf-curl-modal-close') as HTMLButtonElement);
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
       await waitFor(() => {
         expect(screen.queryByRole('heading', { name: /curl Command/ })).not.toBeInTheDocument();
       });

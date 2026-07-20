@@ -126,9 +126,9 @@ describe('ThemeCustomizer — close paths', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('closes via the ✕ button', () => {
-    const { container, onClose } = setup('dark');
-    fireEvent.click(container.querySelector('.tc-close') as HTMLButtonElement);
+  it('closes via the Cancel button', () => {
+    const { onClose } = setup('dark');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(onClose).toHaveBeenCalled();
   });
 

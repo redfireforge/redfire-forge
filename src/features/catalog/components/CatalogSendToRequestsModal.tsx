@@ -439,7 +439,6 @@ export default function CatalogSendToRequestsModal({ entry, appEnvironments, app
       <div className="cat-send-modal" onClick={e => e.stopPropagation()}>
         <div className="cat-modal-header">
           <h3>Export to Requests</h3>
-          <button className="cat-modal-close" onClick={onClose}>&times;</button>
         </div>
         {renderBody()}
       </div>

@@ -1,9 +1,28 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
-import type { RequestCollection, RequestFolder, CatalogRequestMeta, Environment, Microservice } from '../../../shared/types';
-import { countGroupRequests, findFolderDeep, findSiblingFolders, countFolderReqs } from '../utils/requestTree';
-import { computeEligibleSubColEnvs, type SubColEnvOption } from '../utils/subCollectionEnvs';
+import type { RequestCollection, RequestFolder, Environment, Microservice } from '../../../shared/types';
+import { findSiblingFolders, collectGroupAncestors } from '../utils/requestTree';
 import { toggleSetItem } from '../../../shared/utils/setToggle';
 import SidebarContextMenu from './SidebarContextMenu';
+import { RequestsSidebarDialogs } from './RequestsSidebarDialogs';
+import { RequestsSidebarTree } from './RequestsSidebarTree';
+import {
+  addCollectionRequestsToSelection,
+  authLabel,
+  getDuplicateRequestSiblings,
+  getNewFolderSiblings,
+  getNewRequestSiblings,
+  getSelectedRequestCollection,
+  getSelectedRequestFolderIds,
+  getSubColEligibleEnvsForCollection,
+  hasAuth,
+  mergeExpandedIds,
+  modeBadge,
+  modeIcon,
+  removeCollectionRequestsFromSelection,
+  resolveSubCollectionEnv,
+  scrollSelectedRequestIntoView,
+  startDuplicateRequestState,
+} from './RequestsSidebarLogic';
 import { useToast } from '../../../shared/hooks/useToast';
 import { useRequestsSidebarSearch } from '../hooks/useRequestsSidebarSearch';
 import { useRequestsSidebarDnD } from '../hooks/useRequestsSidebarDnD';
@@ -28,9 +47,9 @@ interface Props {
   onEditCollection: (col: RequestCollection) => void;
   onDeleteCollection: (colId: string) => void;
   onDuplicateCollection: (colId: string) => void;
-  onNewRequest: (colId: string, folderId?: string) => void;
+  onNewRequest: (colId: string, folderId?: string, name?: string) => void;
   onDeleteRequest: (colId: string, reqId: string) => void;
-  onDuplicateRequest: (colId: string, reqId: string) => void;
+  onDuplicateRequest: (colId: string, reqId: string, name?: string) => void;
   onAddFolder: (colId: string, name: string, parentFolderId?: string) => void;
   onAddSubCollection: (colId: string, name: string, parentFolderId?: string, selectedEnvId?: string) => void;
   onEditSubCollection: (colId: string, folderId: string) => void;
@@ -60,39 +79,12 @@ interface Props {
   onOpenInNewTab?: (colId: string, reqId: string) => void;
 }
 
-import { METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
-
-function hasAuth(col: RequestCollection): boolean {
-  return !!col.auth && col.auth.type !== 'none' && col.auth.type !== 'inherit';
-}
-
-function authLabel(col: RequestCollection): string {
-  if (!col.auth) return '';
-  switch (col.auth.type) {
-    case 'bearer': return 'Bearer'; case 'basic': return 'Basic';
-    case 'apikey': return 'API Key'; case 'oauth2': return 'OAuth2'; default: return '';
-  }
-}
-
-
 export type CtxMenuData = {
   x: number; y: number;
   type: 'collection' | 'folder' | 'request' | 'group';
   colId: string; folderId?: string; reqId?: string;
 };
 type CtxMenu = CtxMenuData | null;
-
-function modeIcon(mode: RequestCollection['mode']): string {
-  if (mode === 'group') return '\uD83D\uDDC2\uFE0F';
-  if (mode === 'multi-env') return '\uD83C\uDF10';
-  return '\uD83D\uDCE1';
-}
-
-function modeBadge(mode: RequestCollection['mode']): string {
-  if (mode === 'group') return 'GRP';
-  if (mode === 'multi-env') return 'ENV';
-  return 'URL';
-}
 
 export default function RequestsSidebar({
   collections, environments, microservices, selectedCollectionId, selectedRequestId,
@@ -128,6 +120,49 @@ export default function RequestsSidebar({
   const [showNewGroupInput, setShowNewGroupInput] = useState(false);
   const [showAddMenu, setShowAddMenu] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
+
+  const [newReqTarget, setNewReqTarget] = useState<{ colId: string; folderId?: string } | null>(null);
+  const [newReqName, setNewReqName] = useState('');
+  const [newReqError, setNewReqError] = useState('');
+
+  const [dupReqTarget, setDupReqTarget] = useState<{ colId: string; reqId: string } | null>(null);
+  const [dupReqName, setDupReqName] = useState('');
+  const [dupReqError, setDupReqError] = useState('');
+
+  // ─── Multi-select state ──────────────────────────────
+  const [selectedReqIds, setSelectedReqIds] = useState<Map<string, { colId: string; name: string; method: string }>>(new Map());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const selectMode = selectedReqIds.size > 0;
+
+  const clearSelection = useCallback(() => {
+    setSelectedReqIds(new Map());
+  }, []);
+
+  const toggleReqSelection = useCallback((e: React.MouseEvent, reqId: string, colId: string, name: string, method: string) => {
+    e.stopPropagation();
+    setSelectedReqIds(prev => {
+      const next = new Map(prev);
+      if (next.has(reqId)) next.delete(reqId);
+      else next.set(reqId, { colId, name, method });
+      return next;
+    });
+  }, []);
+
+  const selectAllInCollection = useCallback((col: RequestCollection) => {
+    setSelectedReqIds(prev => addCollectionRequestsToSelection(prev, col));
+  }, []);
+
+  const deselectAllInCollection = useCallback((col: RequestCollection) => {
+    setSelectedReqIds(prev => removeCollectionRequestsFromSelection(prev, col));
+  }, []);
+
+  const confirmBulkDelete = useCallback(() => {
+    for (const [reqId, { colId }] of selectedReqIds) {
+      onDeleteRequest(colId, reqId);
+    }
+    setSelectedReqIds(new Map());
+    setBulkDeleteConfirm(false);
+  }, [selectedReqIds, onDeleteRequest]);
 
   const nonGroupCollections = useMemo(() => collections.filter(c => c.mode !== 'group'), [collections]);
 
@@ -224,6 +259,24 @@ export default function RequestsSidebar({
     return () => document.removeEventListener('click', handler);
   }, [showAddMenu]);
 
+  // ─── Reveal selected request in sidebar (expand ancestors + scroll) ───
+  useEffect(() => {
+    if (!selectedRequestId || !selectedCollectionId) return;
+    const col = getSelectedRequestCollection(collections, selectedCollectionId);
+    if (!col) return;
+
+    const groupIds = collectGroupAncestors(col.id, collections);
+    const folderIds = getSelectedRequestFolderIds(col, selectedRequestId);
+
+    setExpandedCols(prev => mergeExpandedIds(prev, [col.id, ...groupIds]));
+
+    if (folderIds.length > 0) {
+      setExpandedFolders(prev => mergeExpandedIds(prev, folderIds));
+    }
+
+    requestAnimationFrame(() => scrollSelectedRequestIntoView(selectedRequestId));
+  }, [selectedRequestId, selectedCollectionId, collections]);
+
   const toggleCol = (colId: string) => {
     toggleSetItem(setExpandedCols, colId);
   };
@@ -237,14 +290,9 @@ export default function RequestsSidebar({
     setShowMoveMenu(false); setShowFolderMoveMenu(false);
   };
 
-  const getSubColEligibleEnvs = useCallback((colId: string, parentFolderId?: string): SubColEnvOption[] => {
-    const col = collections.find(c => c.id === colId);
-    if (!col) return [];
-    const siblings = parentFolderId
-      ? findFolderDeep(col.folders ?? [], parentFolderId)?.folders ?? []
-      : col.folders ?? [];
-    return computeEligibleSubColEnvs(col, siblings, environments, microservices);
-  }, [collections, environments, microservices]);
+  const getSubColEligibleEnvs = useCallback((colId: string, parentFolderId?: string) => (
+    getSubColEligibleEnvsForCollection(collections, environments, microservices, colId, parentFolderId)
+  ), [collections, environments, microservices]);
 
   const startAddFolder = (colId: string, parentFolderId?: string, isSubCollection?: boolean) => {
     if (isSubCollection && getSubColEligibleEnvs(colId, parentFolderId).length === 0) {
@@ -258,22 +306,20 @@ export default function RequestsSidebar({
     if (parentFolderId) setExpandedFolders((prev) => new Set(prev).add(parentFolderId));
   };
   const commitAddSubCollection = (envId: string) => {
-    const target = newFolderTarget;
-    if (!target || !envId) { setNewFolderTarget(null); return; }
-    const env = environments.find(e => e.id === envId);
-    if (!env) { setNewFolderTarget(null); return; }
-    onAddSubCollection(target.colId, env.name, target.parentFolderId, env.id);
-    setExpandedCols((prev) => new Set(prev).add(target.colId));
-    if (target.parentFolderId) setExpandedFolders((prev) => new Set(prev).add(target.parentFolderId!));
+    const resolved = resolveSubCollectionEnv(newFolderTarget, envId, environments);
+    if (!resolved) { setNewFolderTarget(null); return; }
+    onAddSubCollection(resolved.target.colId, resolved.env.name, resolved.target.parentFolderId, resolved.env.id);
+    setExpandedCols((prev) => new Set(prev).add(resolved.target.colId));
+    if (resolved.target.parentFolderId) {
+      const parentFolderId = resolved.target.parentFolderId;
+      setExpandedFolders((prev) => new Set(prev).add(parentFolderId));
+    }
     setNewFolderTarget(null); setNewFolderName('');
   };
   const commitAddFolder = () => {
     // Sub-collections are created via the eligible-env dropdown (commitAddSubCollection), not here.
     if (newFolderTarget && !newFolderTarget.isSubCollection && newFolderName.trim()) {
-      const col = collections.find(c => c.id === newFolderTarget.colId);
-      const siblings = newFolderTarget.parentFolderId
-        ? findFolderDeep(col?.folders ?? [], newFolderTarget.parentFolderId)?.folders ?? []
-        : col?.folders ?? [];
+      const siblings = getNewFolderSiblings(collections, newFolderTarget);
       const nameExists = siblings.some(f => f.name.toLowerCase() === newFolderName.trim().toLowerCase());
       if (nameExists) {
         toast.show('warning', 'Name already exists', `A folder or sub-collection with the name "${newFolderName.trim()}" already exists at this level.`);
@@ -311,6 +357,75 @@ export default function RequestsSidebar({
           onKeyDown={(e) => { if (e.key === 'Enter') commitAddFolder(); if (e.key === 'Escape') setNewFolderTarget(null); }} autoFocus />
       </div>
     );
+  };
+
+  // ─── New Request prompt ──────────────────────────────
+  const startNewRequest = (colId: string, folderId?: string) => {
+    setNewReqTarget({ colId, folderId });
+    setNewReqName('');
+    setNewReqError('');
+    setContextMenu(null);
+    setExpandedCols(prev => new Set(prev).add(colId));
+    if (folderId) setExpandedFolders(prev => new Set(prev).add(folderId));
+  };
+
+  const commitNewRequest = () => {
+    if (!newReqTarget) return;
+    const trimmed = newReqName.trim();
+    if (!trimmed) { setNewReqError('Name is required'); return; }
+
+    const siblingsAtLevel = getNewRequestSiblings(collections, newReqTarget);
+    if (siblingsAtLevel) {
+      if (siblingsAtLevel.some(r => r.name.toLowerCase() === trimmed.toLowerCase())) {
+        setNewReqError(`"${trimmed}" already exists`);
+        return;
+      }
+    }
+
+    onNewRequest(newReqTarget.colId, newReqTarget.folderId, trimmed);
+    setNewReqTarget(null);
+    setNewReqName('');
+    setNewReqError('');
+  };
+
+  const cancelNewRequest = () => {
+    setNewReqTarget(null);
+    setNewReqName('');
+    setNewReqError('');
+  };
+
+  const startDuplicateRequest = (colId: string, reqId: string) => {
+    const nextState = startDuplicateRequestState(collections, colId, reqId);
+    if (!nextState) return;
+    setDupReqTarget(nextState.target);
+    setDupReqName(nextState.name);
+    setDupReqError('');
+    setContextMenu(null);
+  };
+
+  const commitDuplicateRequest = () => {
+    if (!dupReqTarget) return;
+    const trimmed = dupReqName.trim();
+    if (!trimmed) { setDupReqError('Name is required'); return; }
+
+    const siblingsAtLevel = getDuplicateRequestSiblings(collections, dupReqTarget);
+    if (siblingsAtLevel) {
+      if (siblingsAtLevel.some(r => r.name.toLowerCase() === trimmed.toLowerCase())) {
+        setDupReqError(`"${trimmed}" already exists`);
+        return;
+      }
+    }
+
+    onDuplicateRequest(dupReqTarget.colId, dupReqTarget.reqId, trimmed);
+    setDupReqTarget(null);
+    setDupReqName('');
+    setDupReqError('');
+  };
+
+  const cancelDuplicateRequest = () => {
+    setDupReqTarget(null);
+    setDupReqName('');
+    setDupReqError('');
   };
 
   const startRenameFolder = (colId: string, folderId: string, currentName: string) => {
@@ -399,223 +514,24 @@ export default function RequestsSidebar({
     });
   };
 
-  // ─── Render helpers ──────────────────────────────────
-
-  const renderRequest = (colId: string, reqId: string, method: string, name: string, url: string, inFolderId?: string, siblingRequests?: { id: string }[], meta?: CatalogRequestMeta) => {
-    const isDragging = dragItem?.kind === 'request' && dragItem.reqId === reqId;
-    const showBefore = dropInsert?.beforeReqId === reqId;
-    const showAfter = dropInsert?.beforeReqId === reqId + ':after';
-    const inHarness = harnessRequestIds?.has(reqId);
-    return (
-      <div key={reqId} className="req-req-drop-wrapper">
-        {showBefore && <div className="req-drop-indicator" />}
-        <div
-          className={`req-req-item ${selectedRequestId === reqId ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${meta?.deprecated ? 'deprecated' : ''}`}
-          onClick={() => onSelectRequest(colId, reqId)}
-          onContextMenu={(e) => handleContext(e, 'request', colId, inFolderId, reqId)}
-          onDragOver={(e) => handleReqDragOver(e, colId, reqId, inFolderId)}
-          onDragLeave={() => setDropInsert(null)}
-          onDrop={(e) => handleReqDrop(e, colId, inFolderId, siblingRequests ?? [])}
-          data-testid="req-req-item" data-req-name={name || url || 'Untitled'}
-          draggable onDragStart={(e) => handleReqDragStart(e, colId, reqId)} onDragEnd={handleDragEnd}>
-          <span className="req-req-method" style={{ color: METHOD_COLORS[method] || '#94a3b8' }}>{method}</span>
-          <span className={`req-req-name ${meta?.deprecated ? 'deprecated' : ''}`} title={name || url}>{name || url || 'Untitled'}</span>
-          {meta && <span className="req-req-catalog-badge" title={meta.sourceSpec ? `From: ${meta.sourceSpec}` : 'From API Catalog'}>&#128203;</span>}
-          {meta?.deprecated && <span className="req-req-deprecated-badge" title="Deprecated">&#9888;&#65039;</span>}
-          {inHarness && <span className="req-req-harness-badge" data-testid="req-in-harness-badge" title="Promoted to Harness">IN HARNESS</span>}
-          {openTabRequestIds?.has(reqId) && <span className="req-req-tab-dot" title="Open in tab" />}
-        </div>
-        {showAfter && <div className="req-drop-indicator" />}
-      </div>
-    );
-  };
-
-  const renderFolder = (col: RequestCollection, folder: RequestFolder, depth: number) => {
-    if (searchLower && !folderMatchesSearch(folder)) return null;
-    const isExpanded = expandedFolders.has(folder.id) || !!searchLower;
-    const isRenaming = renamingFolder?.folderId === folder.id;
-    const isDropTgt = dropTarget === folder.id;
-    const isDraggingThis = dragItem?.kind === 'folder' && dragItem.folderId === folder.id;
-    const subFolders = folder.folders ?? [];
-    const isNewFolderHere = newFolderTarget?.parentFolderId === folder.id;
-    const filteredRequests = searchLower ? folder.requests.filter(requestMatchesSearch) : folder.requests;
-
-    return (
-      <div key={folder.id}
-        className={`req-folder-group ${isDropTgt ? 'drop-target' : ''} ${isDraggingThis ? 'dragging' : ''}`}
-        style={{ paddingLeft: depth > 0 ? 8 : 0 }}
-        onDragOver={(e) => handleDragOver(e, folder.id)}
-        onDragLeave={handleDragLeave}
-        onDrop={(e) => handleFolderDrop(e, col.id, folder.id)}>
-        <div className="req-folder-header"
-          onClick={() => toggleFolder(folder.id)}
-          onContextMenu={(e) => handleContext(e, 'folder', col.id, folder.id)}
-          draggable onDragStart={(e) => handleFolderDragStart(e, col.id, folder.id)} onDragEnd={handleDragEnd}>
-          <span className="req-folder-arrow">{isExpanded ? '▾' : '▸'}</span>
-          <span className="req-folder-icon">{folder.isSubCollection ? '📦' : '📁'}</span>
-          {isRenaming ? (
-            <input ref={renameRef} className="req-inline-input" value={renameVal}
-              onChange={(e) => setRenameVal(e.target.value)} onBlur={commitRenameFolder}
-              onKeyDown={(e) => { if (e.key === 'Enter') commitRenameFolder(); if (e.key === 'Escape') setRenamingFolder(null); }}
-              onClick={(e) => e.stopPropagation()} autoFocus />
-          ) : (
-            <span className="req-folder-name" title={folder.name}>{folder.name}</span>
-          )}
-          <span className="req-folder-count">{countFolderReqs(folder)}</span>
-        </div>
-        {isExpanded && (
-          <div className="req-folder-requests">
-            {filteredRequests.map((req) => renderRequest(col.id, req.id, req.method, req.name, req.url, folder.id, folder.requests, req.catalogMeta))}
-            {subFolders.map((sf) => renderFolder(col, sf, depth + 1))}
-            {isNewFolderHere && renderNewFolderInput(col.id, folder.id)}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderCollection = (col: RequestCollection, depth: number) => {
-    if (searchLower && !matchesSearch(col, col.folders, col.requests)) return null;
-    const isExpCol = expandedCols.has(col.id) || !!searchLower;
-    const isRootDropTarget = dropTarget === `root-${col.id}` || dropTarget === `col-header-${col.id}`;
-    const filteredRootReqs = searchLower ? col.requests.filter(requestMatchesSearch) : col.requests;
-    return (
-      <div key={col.id} className={`req-col-group ${dropTarget === `col-header-${col.id}` ? 'col-drop-target' : ''}`}
-        style={{ paddingLeft: depth > 0 ? 12 : 0 }}
-        onDragOver={(e) => {
-          const di = dragItemRef.current;
-          if (!di) return;
-          e.preventDefault();
-          e.dataTransfer.dropEffect = 'move';
-          if (di.colId === col.id) return;
-          setDropTarget(`col-header-${col.id}`);
-          if (!expandedCols.has(col.id) && !autoExpandTimerRef.current) {
-            autoExpandTimerRef.current = setTimeout(() => {
-              setExpandedCols(prev => new Set(prev).add(col.id));
-              autoExpandTimerRef.current = null;
-            }, 500);
-          }
-        }}
-        onDragLeave={handleContainerDragLeave}
-        onDrop={(e) => {
-          e.preventDefault();
-          const di = dragItemRef.current;
-          if (!di || di.colId === col.id) return;
-          if (autoExpandTimerRef.current) { clearTimeout(autoExpandTimerRef.current); autoExpandTimerRef.current = null; }
-          handleDrop(e, col.id, null);
-        }}>
-        <div className={`req-col-header ${selectedCollectionId === col.id && !selectedRequestId ? 'selected' : ''} ${dropTarget === `col-header-${col.id}` ? 'drop-target' : ''} ${dragItem?.kind === 'collection' && dragItem.colId === col.id ? 'dragging' : ''}`}
-          onClick={() => { toggleCol(col.id); onSelectCollection(col.id); }}
-          onContextMenu={(e) => handleContext(e, 'collection', col.id)}
-          data-testid="req-col-item" data-col-name={col.name}
-          draggable onDragStart={(e) => handleCollectionDragStart(e, col.id)} onDragEnd={handleDragEnd}>
-          <span className="req-col-arrow">{isExpCol ? '▾' : '▸'}</span>
-          <span className="req-col-icon">{modeIcon(col.mode)}</span>
-          <span className="req-col-name" title={col.name}>{col.name}</span>
-          <span className={`req-col-mode-badge ${col.mode}`}>{modeBadge(col.mode)}</span>
-          {hasAuth(col) && <span className="req-col-auth-badge" title={`Auth: ${authLabel(col)}`}>&#128274;</span>}
-          <span className="req-col-count">{countAllRequests(col)}</span>
-          <button className="req-col-edit-btn" title="Edit collection settings"
-            onClick={(e) => { e.stopPropagation(); onEditCollection(col); }}>&#9998;</button>
-        </div>
-
-        {isExpCol && (
-          <div className="req-req-list"
-            onDragOver={(e) => { if (dragItemRef.current) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }}
-            onDrop={(e) => { e.preventDefault(); handleDrop(e, col.id, null); }}>
-            <div className={`req-root-drop ${isRootDropTarget ? 'drop-target' : ''}`}
-              onDragOver={(e) => handleDragOver(e, `root-${col.id}`)}
-              onDragLeave={handleDragLeave}
-              onDrop={(e) => handleDrop(e, col.id, null)}>
-              {filteredRootReqs.map((req) => renderRequest(col.id, req.id, req.method, req.name, req.url, undefined, col.requests, req.catalogMeta))}
-            </div>
-            {(col.folders ?? []).map((folder) => renderFolder(col, folder, 0))}
-            {newFolderTarget?.colId === col.id && !newFolderTarget.parentFolderId && renderNewFolderInput(col.id, undefined)}
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const renderGroup = (group: RequestCollection, depth: number) => {
-    if (searchLower && !groupMatchesSearch(group)) return null;
-    const isExpanded = expandedCols.has(group.id) || !!searchLower;
-    const isDropTgt = dropTarget === `group-${group.id}`;
-    const isDraggingThis = dragItem?.kind === 'collection' && dragItem.colId === group.id;
-    const isRenaming = renamingGroup === group.id;
-    const groupReqCount = countGroupRequests(group.id, collections);
-    const isNewGroupHere = showNewGroupInput && newGroupTarget === group.id;
-
-    const children = collections.filter(c => c.groupId === group.id);
-
-    return (
-      <div key={group.id}
-        className={`req-group-wrapper ${isDropTgt ? 'drop-target' : ''} ${isDraggingThis ? 'dragging' : ''}`}
-        style={{ paddingLeft: depth > 0 ? 12 : 0 }}
-        onDragOver={(e) => {
-          const di = dragItemRef.current;
-          if (!di || di.kind !== 'collection') return;
-          if (di.colId === group.id) return;
-          e.preventDefault(); e.stopPropagation();
-          e.dataTransfer.dropEffect = 'move';
-          setDropTarget(`group-${group.id}`);
-          if (!expandedCols.has(group.id) && !autoExpandTimerRef.current) {
-            autoExpandTimerRef.current = setTimeout(() => {
-              setExpandedCols(prev => new Set(prev).add(group.id));
-              autoExpandTimerRef.current = null;
-            }, 500);
-          }
-        }}
-        onDragLeave={handleContainerDragLeave}
-        onDrop={(e) => handleGroupDrop(e, group.id)}>
-
-        <div className={`req-group-header ${isDraggingThis ? 'dragging' : ''} ${isDropTgt ? 'drop-target' : ''}`}
-          onClick={() => toggleCol(group.id)}
-          onContextMenu={(e) => handleContext(e, 'group', group.id)}
-          draggable onDragStart={(e) => handleCollectionDragStart(e, group.id)} onDragEnd={handleDragEnd}>
-          <span className="req-col-arrow">{isExpanded ? '▾' : '▸'}</span>
-          <span className="req-col-icon">{modeIcon('group')}</span>
-          {isRenaming ? (
-            <input ref={renameGroupRef} className="req-inline-input" value={renameGroupVal}
-              onChange={(e) => setRenameGroupVal(e.target.value)} onBlur={commitRenameGroup}
-              onKeyDown={(e) => { if (e.key === 'Enter') commitRenameGroup(); if (e.key === 'Escape') setRenamingGroup(null); }}
-              onClick={(e) => e.stopPropagation()} autoFocus />
-          ) : (
-            <span className="req-col-name" title={group.name}>{group.name}</span>
-          )}
-          <span className="req-col-mode-badge group">GRP</span>
-          <span className="req-col-count">{groupReqCount}</span>
-        </div>
-
-        {isExpanded && (
-          <div className="req-group-children">
-            {children.map(child =>
-              child.mode === 'group'
-                ? renderGroup(child, depth + 1)
-                : renderCollection(child, depth + 1)
-            )}
-            {isNewGroupHere && (
-              <div className="req-new-folder-row" style={{ paddingLeft: 12 }}>
-                <span className="req-folder-icon">{modeIcon('group')}</span>
-                <input className="req-inline-input" value={newGroupName} placeholder="Group name"
-                  onChange={(e) => setNewGroupName(e.target.value)} onBlur={commitAddGroup}
-                  onKeyDown={(e) => { if (e.key === 'Enter') commitAddGroup(); if (e.key === 'Escape') { setShowNewGroupInput(false); setNewGroupName(''); } }} autoFocus />
-              </div>
-            )}
-            {children.length === 0 && !isNewGroupHere && (
-              <div className="req-group-empty" style={{ paddingLeft: (depth + 1) * 12 + 8 }}>Empty group</div>
-            )}
-          </div>
-        )}
-      </div>
-    );
-  };
-
   return (
     <div className="req-sidebar" data-testid="req-sidebar">
       <div className="req-sidebar-header">
         <span className="req-sidebar-title">COLLECTIONS</span>
         <div className="req-sidebar-actions">
+          {selectMode && (
+            <button
+              className="req-icon-btn req-select-mode-btn active"
+              onClick={clearSelection}
+              title="Clear selection"
+              aria-label="Clear selection"
+              data-testid="req-sidebar-clear-selection"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
           <button
             className={`req-icon-btn ${isAllExpanded ? 'active' : ''}`}
             onClick={toggleExpandAll}
@@ -664,38 +580,79 @@ export default function RequestsSidebar({
         )}
       </div>
 
-      <div className="req-sidebar-list"
-        onClick={() => { setContextMenu(null); setShowMoveMenu(false); setShowFolderMoveMenu(false); }}
-        onDragOver={(e) => {
-          const di = dragItemRef.current;
-          if (!di || di.kind !== 'collection') return;
-          const col = collections.find(c => c.id === di.colId);
-          if (col?.groupId) {
-            e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
-            setDropTarget('sidebar-root');
-          }
-        }}
-        onDrop={handleRootDrop}>
-        {collections.length === 0 && (
-          <div className="req-sidebar-empty">No collections yet. <button className="btn-link-sm" onClick={() => onNewCollection()}>Create one</button></div>
-        )}
-
-        {filteredCollections.map(col =>
-          col.mode === 'group'
-            ? renderGroup(col, 0)
-            : renderCollection(col, 0)
-        )}
-
-        {showNewGroupInput && newGroupTarget === undefined && (
-          <div className="req-new-folder-row">
-            <span className="req-folder-icon">{modeIcon('group')}</span>
-            <input className="req-inline-input" value={newGroupName} placeholder="Group name"
-              onChange={(e) => setNewGroupName(e.target.value)} onBlur={commitAddGroup}
-              onKeyDown={(e) => { if (e.key === 'Enter') commitAddGroup(); if (e.key === 'Escape') { setShowNewGroupInput(false); setNewGroupName(''); } }} autoFocus />
-          </div>
-        )}
-      </div>
+      <RequestsSidebarTree
+        collections={collections}
+        filteredCollections={filteredCollections}
+        searchLower={searchLower}
+        matchesSearch={matchesSearch}
+        folderMatchesSearch={folderMatchesSearch}
+        requestMatchesSearch={requestMatchesSearch}
+        groupMatchesSearch={groupMatchesSearch}
+        expandedCols={expandedCols}
+        expandedFolders={expandedFolders}
+        selectedCollectionId={selectedCollectionId}
+        selectedRequestId={selectedRequestId}
+        renamingFolder={renamingFolder}
+        renameVal={renameVal}
+        setRenameVal={setRenameVal}
+        commitRenameFolder={commitRenameFolder}
+        setRenamingFolder={setRenamingFolder}
+        renameRef={renameRef}
+        renamingGroup={renamingGroup}
+        renameGroupVal={renameGroupVal}
+        setRenameGroupVal={setRenameGroupVal}
+        commitRenameGroup={commitRenameGroup}
+        setRenamingGroup={setRenamingGroup}
+        renameGroupRef={renameGroupRef}
+        newFolderTarget={newFolderTarget}
+        renderNewFolderInput={renderNewFolderInput}
+        showNewGroupInput={showNewGroupInput}
+        newGroupTarget={newGroupTarget}
+        newGroupName={newGroupName}
+        setNewGroupName={setNewGroupName}
+        commitAddGroup={commitAddGroup}
+        setShowNewGroupInput={setShowNewGroupInput}
+        dropTarget={dropTarget}
+        dragItem={dragItem}
+        dragItemRef={dragItemRef}
+        autoExpandTimerRef={autoExpandTimerRef}
+        handleContainerDragLeave={handleContainerDragLeave}
+        handleDragOver={handleDragOver}
+        handleDragLeave={handleDragLeave}
+        handleDrop={handleDrop}
+        handleGroupDrop={handleGroupDrop}
+        handleFolderDrop={handleFolderDrop}
+        handleReqDragOver={handleReqDragOver}
+        handleReqDrop={handleReqDrop}
+        handleRootDrop={handleRootDrop}
+        handleCollectionDragStart={handleCollectionDragStart}
+        handleReqDragStart={handleReqDragStart}
+        handleFolderDragStart={handleFolderDragStart}
+        handleDragEnd={handleDragEnd}
+        toggleCol={toggleCol}
+        toggleFolder={toggleFolder}
+        handleContext={handleContext}
+        onSelectCollection={onSelectCollection}
+        onSelectRequest={onSelectRequest}
+        onEditCollection={onEditCollection}
+        countAllRequests={countAllRequests}
+        hasAuth={hasAuth}
+        authLabel={authLabel}
+        modeIcon={modeIcon}
+        modeBadge={modeBadge}
+        selectedReqIds={selectedReqIds}
+        toggleReqSelection={toggleReqSelection}
+        clearSelection={clearSelection}
+        selectMode={selectMode}
+        selectAllInCollection={selectAllInCollection}
+        deselectAllInCollection={deselectAllInCollection}
+        setDropInsert={setDropInsert}
+        dropInsert={dropInsert}
+        openTabRequestIds={openTabRequestIds}
+        harnessRequestIds={harnessRequestIds}
+        onNewCollection={() => onNewCollection()}
+        dismissContextMenus={dismissCtx}
+      />
 
       {contextMenu && (
         <SidebarContextMenu
@@ -707,13 +664,13 @@ export default function RequestsSidebar({
           setShowMoveMenu={setShowMoveMenu}
           setShowFolderMoveMenu={setShowFolderMoveMenu}
           dismiss={dismissCtx}
-          onNewRequest={onNewRequest}
+          onNewRequest={startNewRequest}
           onEditCollection={onEditCollection}
           onDuplicateCollection={onDuplicateCollection}
           onDeleteCollection={onDeleteCollection}
           onEditSubCollection={onEditSubCollection}
           onDuplicateFolder={onDuplicateFolder}
-          onDuplicateRequest={onDuplicateRequest}
+          onDuplicateRequest={startDuplicateRequest}
           onDeleteFolder={onDeleteFolder}
           onDeleteRequest={onDeleteRequest}
           onMoveFolder={onMoveFolder}
@@ -744,17 +701,31 @@ export default function RequestsSidebar({
         />
       )}
 
-      {confirmDelete && (
-        <div className="req-confirm-overlay" onClick={() => setConfirmDelete(null)}>
-          <div className="req-confirm-dialog" onClick={(e) => e.stopPropagation()}>
-            <p>{confirmDelete.message}</p>
-            <div className="req-confirm-actions">
-              <button className="req-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
-              <button className="req-confirm-ok" onClick={() => { confirmDelete.onConfirm(); setConfirmDelete(null); }}>Delete</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <RequestsSidebarDialogs
+        confirmDelete={confirmDelete}
+        setConfirmDelete={setConfirmDelete}
+        newReqTarget={newReqTarget}
+        newReqName={newReqName}
+        setNewReqName={setNewReqName}
+        newReqError={newReqError}
+        setNewReqError={setNewReqError}
+        commitNewRequest={commitNewRequest}
+        cancelNewRequest={cancelNewRequest}
+        dupReqTarget={dupReqTarget}
+        dupReqName={dupReqName}
+        setDupReqName={setDupReqName}
+        dupReqError={dupReqError}
+        setDupReqError={setDupReqError}
+        commitDuplicateRequest={commitDuplicateRequest}
+        cancelDuplicateRequest={cancelDuplicateRequest}
+        selectMode={selectMode}
+        selectedReqIds={selectedReqIds}
+        clearSelection={clearSelection}
+        bulkDeleteConfirm={bulkDeleteConfirm}
+        setBulkDeleteConfirm={setBulkDeleteConfirm}
+        confirmBulkDelete={confirmBulkDelete}
+        setSelectedReqIds={setSelectedReqIds}
+      />
 
     </div>
   );

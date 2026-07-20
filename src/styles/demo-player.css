@@ -353,8 +353,12 @@
   max-height: calc(100vh - 80px);
   border-radius: 16px;
   background: var(--surface, #1e293b);
-  border: 1px solid var(--border, #3b4a60);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #3b4a60));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 16px 48px rgba(0, 0, 0, 0.35),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   color: var(--text, #f1f5f9);
   font-family: var(--font, 'Inter'), sans-serif;
   overflow-y: auto;
