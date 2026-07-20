@@ -765,7 +765,7 @@ describe('GraphqlHistoryPanel', () => {
     fireEvent.click(marks[0]);
     fireEvent.click(marks[1]);
     fireEvent.click(screen.getByTestId('gql-history-compare-btn'));
-    fireEvent.click(screen.getByTestId('gql-history-compare-close'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByTestId('gql-history-compare-panel')).not.toBeInTheDocument();
     expect(screen.getByTestId('gql-history-compare-toggle')).not.toHaveClass('gql-history-compare-toggle--active');
   });

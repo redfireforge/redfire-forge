@@ -94,7 +94,6 @@ export default function ScriptLibraryManager({
     <div className="wf-script-library-manager">
       <div className="wf-script-library-header">
         <h4>Script Libraries</h4>
-        <button className="wf-config-remove-btn" onClick={onClose} aria-label="Close">✕</button>
       </div>
 
       <p className="wf-config-hint">
@@ -166,6 +165,9 @@ export default function ScriptLibraryManager({
       ) : (
         <button className="wf-config-add-btn" onClick={() => setShowCreate(true)}>+ New Library</button>
       )}
+      <div className="wf-script-library-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
+      </div>
     </div>
   );
 }

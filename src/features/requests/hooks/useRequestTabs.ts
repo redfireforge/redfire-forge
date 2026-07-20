@@ -229,7 +229,7 @@ export function useRequestTabs(
     setState(prev => ({
       ...prev,
       tabs: prev.tabs.map(t =>
-        t.requestId === reqId && !t.labelManual ? { ...t, label: name } : t,
+        t.requestId === reqId ? { ...t, label: name } : t,
       ),
     }));
   }, []);

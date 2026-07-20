@@ -32,8 +32,12 @@
   position: fixed;
   z-index: 1200;
   border-radius: 10px;
-  border: 1px solid var(--border, #30363d);
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45), 0 4px 16px rgba(0, 0, 0, 0.3);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #30363d));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 16px 48px rgba(0, 0, 0, 0.45),
+    0 4px 16px rgba(0, 0, 0, 0.3);
 }
 
 /* ─── Maximized Mode (covers full viewport) ─────────────── */
@@ -1064,3 +1068,4 @@
   color: var(--text-muted, #6c7086);
   text-align: center;
 }
+.vr-ref-footer { display: flex; justify-content: flex-end; padding: 8px 10px; border-top: 1px solid var(--border); }

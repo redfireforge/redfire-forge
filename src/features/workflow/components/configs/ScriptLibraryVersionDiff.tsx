@@ -42,7 +42,6 @@ export default function ScriptLibraryVersionDiff({ older, newer, diff, onClose }
       <div className="script-lib-diff-header">
         <h4>Script Library Comparison</h4>
         <span className="script-lib-diff-range">{olderLabel} → {newerLabel}</span>
-        <button className="wf-config-remove-btn" onClick={onClose} aria-label="Close">✕</button>
       </div>
 
       <div className="script-lib-diff-tabs">
@@ -115,6 +114,9 @@ export default function ScriptLibraryVersionDiff({ older, newer, diff, onClose }
             )}
           </div>
         )}
+      </div>
+      <div className="script-lib-diff-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
     </div>
   );

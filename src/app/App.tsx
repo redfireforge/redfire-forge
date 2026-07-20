@@ -669,6 +669,7 @@ export default function App() {
               onDuplicateTab={reqTabs.duplicateTab}
               onCloseOtherTabs={reqTabs.closeOtherTabs}
               onCloseTabsToRight={reqTabs.closeTabsToRight}
+              onCloseAllTabs={() => reqTabs.closeOtherTabs(reqTabs.activeTabId)}
               onEnvChange={reqTabs.envChange}
               onUpdateTabUI={reqTabs.updateTabUI}
               onSyncTabLabel={reqTabs.syncTabLabel}

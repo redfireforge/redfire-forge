@@ -67,6 +67,14 @@ function makeMockWb(overrides: Partial<UseRequestsReturn> = {}): UseRequestsRetu
   } as unknown as UseRequestsReturn;
 }
 
+function reqInCollection(reqId: string, name = 'Req', _url = ''): RequestsData {
+  return {
+    collections: [makeCol('c1', [makeReq(reqId, name)])],
+    selectedCollectionId: 'c1',
+    selectedRequestId: reqId,
+  } as RequestsData;
+}
+
 // ─── Setup ───────────────────────────────────────────────────────
 
 beforeEach(() => {
@@ -479,5 +487,65 @@ describe('useRequestTabCoordinator', () => {
     const { result } = renderHook(() => useRequestTabCoordinator(wb));
     act(() => { result.current.selectRequest('c1', 'r1'); });
     expect(result.current.activeTab?.label).toBe('Untitled');
+  });
+
+  it('renameTab syncs the underlying request name', () => {
+    const wb = makeMockWb();
+    const { result } = renderHook(() => useRequestTabCoordinator(wb));
+
+    act(() => { result.current.selectRequest('c1', 'r1'); });
+    const tabId = result.current.activeTab!.id;
+
+    act(() => { result.current.renameTab(tabId, 'Renamed From Tab'); });
+
+    expect(wb.updateRequest).toHaveBeenCalledWith('c1', 'r1', { name: 'Renamed From Tab' });
+  });
+
+  it('auto-open effect no-ops when selected request does not resolve in collection', async () => {
+    const wb = makeMockWb({
+      data: {
+        collections: [makeCol('c1', [makeReq('r1', 'Existing')])],
+        selectedCollectionId: 'c1',
+        selectedRequestId: 'r1',
+      } as RequestsData,
+    });
+
+    const { result, rerender } = renderHook(({ value }) => useRequestTabCoordinator(value), {
+      initialProps: { value: wb },
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    rerender({
+      value: {
+        ...wb,
+        data: {
+          ...wb.data,
+          selectedRequestId: 'missing-r',
+        },
+      } as UseRequestsReturn,
+    });
+
+    expect(result.current.tabs.every(t => t.requestId !== 'missing-r')).toBe(true);
+  });
+
+  it('auto-open effect no-ops when selected collection id is missing', async () => {
+    const wb = makeMockWb({ data: reqInCollection('r1', 'One') });
+    const { result, rerender } = renderHook(({ value }) => useRequestTabCoordinator(value), {
+      initialProps: { value: wb },
+    });
+    await act(async () => { await Promise.resolve(); });
+
+    rerender({
+      value: {
+        ...wb,
+        data: {
+          ...wb.data,
+          selectedCollectionId: 'missing-c',
+          selectedRequestId: 'r2',
+        },
+      } as UseRequestsReturn,
+    });
+
+    expect(result.current.tabs.every(t => t.requestId !== 'r2')).toBe(true);
   });
 });

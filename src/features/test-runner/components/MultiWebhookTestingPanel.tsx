@@ -706,7 +706,6 @@ export default function MultiWebhookTestingPanel({
           <div className="mwt-modal" onClick={(e) => e.stopPropagation()}>
             <div className="mwt-modal-header">
               <h3>Save Webhook Scenario</h3>
-              <button className="mwt-modal-close" onClick={() => setShowScenarioModal(false)}>×</button>
             </div>
             <div className="mwt-modal-body">
               <label className="mwt-modal-label">

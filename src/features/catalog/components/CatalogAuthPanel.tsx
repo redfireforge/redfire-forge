@@ -122,7 +122,6 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
     <div className="ceb-auth-panel">
       <div className="ceb-auth-header">
         <h3>Authorization</h3>
-        <button className="cat-modal-close" onClick={onClose}>&times;</button>
       </div>
       <div className="ceb-auth-body">
         <div className="cep-tryit-field">
@@ -271,6 +270,9 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
             )}
           </div>
         )}
+      </div>
+      <div className="ceb-auth-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
     </div>
   );

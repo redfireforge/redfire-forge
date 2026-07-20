@@ -1,8 +1,8 @@
 /**
  * REQ-4 v2: Request Body & Authentication
  *
- * 6 steps: create a URL collection → add a request via right-click → add a JSON
- * body → send & see 201 → configure Bearer Token auth → cURL import/export.
+ * 4 steps: create a URL collection & add a POST request → add a JSON body & send
+ * (see 201) → configure Bearer Token auth → cURL import/export.
  * Public APIs: JSONPlaceholder (POST), HTTPBin (echo for cURL).
  * Follows v2 principles: create from scratch, rich spotlights, no Gallery.
  */
@@ -17,14 +17,14 @@ import {
   shrinkAllCollections,
   selectRequestByName,
   closeExtraRequestTabs,
+  fillNewRequestPrompt,
+  cleanupOtherRequestDemoCollections,
 } from './req-demo-helpers';
 
 const COLLECTION_NAME = 'API Demos';
 const REQUEST_NAME = 'Create Post';
 const POST_URL = 'https://jsonplaceholder.typicode.com/posts';
 
-/** Sibling lesson collections to clean up if left behind by prior lessons. */
-const SIBLING_COLLECTIONS = ['DummyJSON', 'Product Service', 'My API', 'User Service'] as const;
 const JSON_BODY = JSON.stringify({ title: 'Hello World', body: 'My first post via RedfireForge', userId: 1 }, null, 2);
 const DEMO_TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJ1c2VyIjoiZGVtbyJ9.sample-demo-token';
 const CURL_IMPORT_CMD = `curl -X POST https://httpbin.org/post \\
@@ -173,14 +173,8 @@ async function ensureRequestExists(ctx: DemoActionContext): Promise<void> {
   const opened = await openContextMenuForElement(ctx, col);
   if (!opened) return;
   await clickContextItemVisible(ctx, 'Add Request');
+  await fillNewRequestPrompt(ctx, REQUEST_NAME);
   await ctx.waitFor(REQ.URL_INPUT, 2200);
-  const nameDisplay = firstVisible('.req-req-name-display');
-  if (nameDisplay) {
-    nameDisplay.click();
-    await ctx.delay(60);
-    const nameInput = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-    if (nameInput) { fillControlledInput(nameInput, REQUEST_NAME); nameInput.blur(); await ctx.delay(60); }
-  }
 }
 
 async function ensurePostMethodAndUrl(ctx: DemoActionContext): Promise<void> {
@@ -210,7 +204,7 @@ export const reqBodyAuthLesson: DemoLesson = {
   description:
     'Create a POST request from scratch with a JSON body, send it to see a 201 Created response, ' +
     'configure Bearer Token authentication, and learn cURL import/export for sharing requests.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 4,
   initialTab: 'requests',
   allowedTabs: ['requests'],
 
@@ -260,7 +254,7 @@ export const reqBodyAuthLesson: DemoLesson = {
     await closeExtraRequestTabs(ctx);
     await closeOpenOverlays(ctx);
     await deleteCollectionByName(ctx, COLLECTION_NAME);
-    for (const name of SIBLING_COLLECTIONS) await deleteCollectionByName(ctx, name);
+    await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
     await shrinkAllCollections();
   },
 
@@ -268,77 +262,54 @@ export const reqBodyAuthLesson: DemoLesson = {
     await closeOpenOverlays(ctx);
     await closeExtraRequestTabs(ctx);
     await deleteCollectionByName(ctx, COLLECTION_NAME);
-    for (const name of SIBLING_COLLECTIONS) await deleteCollectionByName(ctx, name);
+    await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
     ctx.navigateToTab('requests');
     await ctx.delay(60);
   },
 
   steps: [
-    // ── Step 1: Create a URL Collection ──
+    // ── Step 1: Create a Collection & Add a POST Request ──
     {
-      id: 'req4-collection',
-      title: 'Create a URL Collection',
+      id: 'req4-setup',
+      title: 'Create a Collection & Add a Request',
       description:
-        'Collections group related requests. Click the **+** button in the sidebar and choose ' +
-        '**URL Collection**, then name it **"API Demos"** and save.\n\n' +
-        'A **URL Collection** holds requests that each carry their own full URL — perfect for ' +
-        'ad-hoc APIs you\'re exploring.',
+        'Collections group related requests. Click the **+** button, choose **URL Collection**, ' +
+        'name it **"API Demos"**, and save. A URL Collection holds requests that each carry their ' +
+        'own full URL — perfect for ad-hoc APIs you\'re exploring.\n\n' +
+        'Then **right-click** the collection and choose **Add Request**. Name it **"Create Post"**, ' +
+        'switch the method to **POST**, and set the URL to `jsonplaceholder.typicode.com/posts`.',
       highlight: REQ.SIDEBAR_ADD_BTN,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await closeOpenOverlays(ctx);
         await deleteCollectionByName(ctx, COLLECTION_NAME);
-        for (const name of SIBLING_COLLECTIONS) await deleteCollectionByName(ctx, name);
+        await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
         await shrinkAllCollections();
       },
       action: async (ctx) => {
-        // Rapid Next / restart guard — collection already there.
-        if (document.querySelector(REQ.colByName(COLLECTION_NAME))) {
+        // ── Create the collection (skip if it already exists) ──
+        if (!document.querySelector(REQ.colByName(COLLECTION_NAME))) {
+          await spotlight(ctx, REQ.SIDEBAR_ADD_BTN, 800);
+          await ctx.click(REQ.SIDEBAR_ADD_BTN);
+          await ctx.waitFor(REQ.ADD_DROPDOWN, 1500);
+          await spotlight(ctx, REQ.ADD_URL_COLLECTION, 900);
+          await ctx.click(REQ.ADD_URL_COLLECTION);
+          await ctx.waitFor(REQ.COLLECTION_MODAL, 2000);
+          await ctx.delay(300);
+
+          const nameInput = document.querySelector<HTMLInputElement>('.req-col-modal .req-input');
+          if (nameInput) {
+            await spotlightElNoScroll(ctx, nameInput, 800);
+            nameInput.focus();
+            fillControlledInput(nameInput, COLLECTION_NAME);
+            await ctx.delay(350);
+          }
+          document.querySelector<HTMLButtonElement>('.req-col-modal .btn-primary')?.click();
+          await ctx.delay(400);
           await spotlight(ctx, REQ.colByName(COLLECTION_NAME), 1100);
-          return;
         }
 
-        await spotlight(ctx, REQ.SIDEBAR_ADD_BTN, 800);
-        await ctx.click(REQ.SIDEBAR_ADD_BTN);
-        await ctx.waitFor(REQ.ADD_DROPDOWN, 1500);
-        await spotlight(ctx, REQ.ADD_DROPDOWN, 1000);
-        await spotlight(ctx, REQ.ADD_URL_COLLECTION, 900);
-        await ctx.click(REQ.ADD_URL_COLLECTION);
-        await ctx.waitFor(REQ.COLLECTION_MODAL, 2000);
-        await ctx.delay(300);
-
-        const nameInput = document.querySelector<HTMLInputElement>('.req-col-modal .req-input');
-        if (nameInput) {
-          await spotlightElNoScroll(ctx, nameInput, 800);
-          nameInput.focus();
-          fillControlledInput(nameInput, COLLECTION_NAME);
-          await ctx.delay(350);
-        }
-        document.querySelector<HTMLButtonElement>('.req-col-modal .btn-primary')?.click();
-        await ctx.delay(400);
-
-        // Confirm the new collection appears in the sidebar.
-        await spotlight(ctx, REQ.colByName(COLLECTION_NAME), 1200);
-      },
-    },
-
-    // ── Step 2: Add a Request via right-click ──
-    {
-      id: 'req4-request',
-      title: 'Add a Request (right-click)',
-      description:
-        '**Right-click** the **"API Demos"** collection to open its context menu, then choose ' +
-        '**Add Request**. The new request opens in its own **tab**. Rename it to **"Create Post"**, ' +
-        'switch the method to **POST**, and set the URL to `jsonplaceholder.typicode.com/posts`.\n\n' +
-        'Right-click menus are the fastest way to add requests, folders, and sub-collections.',
-      highlight: REQ.colByName(COLLECTION_NAME),
-      preAction: async (ctx) => {
-        ensureRequestsTab(ctx);
-        await closeOpenOverlays(ctx);
-        await createCollectionIfNeeded(ctx);
-      },
-      action: async (ctx) => {
-        // Rapid Next / restart guard — request already exists.
+        // ── Add the request (rapid Next / restart guard) ──
         if (document.querySelector(REQ.reqInCollection(COLLECTION_NAME, REQUEST_NAME))) {
           await ensurePostMethodAndUrl(ctx);
           await selectRequestByName(ctx, REQUEST_NAME, COLLECTION_NAME);
@@ -347,34 +318,22 @@ export const reqBodyAuthLesson: DemoLesson = {
           return;
         }
 
-        // 1. Right-click the collection → show the context menu → highlight Add Request.
+        // Right-click the collection → show the context menu → highlight Add Request.
         const col = firstVisible(REQ.colByName(COLLECTION_NAME));
         if (!col) return;
         await spotlightEl(ctx, col, 800);
         const opened = await openContextMenuForElement(ctx, col);
         if (!opened) return;
-        await spotlight(ctx, REQ.CONTEXT_MENU, 900);
         await spotlightContextItem(ctx, 'Add Request', 1100);
         await clickContextItemVisible(ctx, 'Add Request');
+        await ctx.delay(300);
+        const prompt = document.querySelector<HTMLElement>('[data-testid="req-new-request-prompt"]');
+        if (prompt) await spotlightElNoScroll(ctx, prompt, 900);
+        await fillNewRequestPrompt(ctx, REQUEST_NAME);
         await ctx.waitFor(REQ.URL_INPUT, 2200);
         await ctx.delay(240);
 
-        // 2. Rename the request to "Create Post".
-        const nameDisplay = firstVisible('.req-req-name-display');
-        if (nameDisplay) {
-          await spotlightElNoScroll(ctx, nameDisplay, 700);
-          nameDisplay.click();
-          await ctx.delay(120);
-          const reqNameInput = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-          if (reqNameInput) {
-            fillControlledInput(reqNameInput, REQUEST_NAME);
-            await ctx.delay(220);
-            reqNameInput.blur();
-          }
-          await ctx.delay(120);
-        }
-
-        // 3. Change method to POST (show the full method list).
+        // Change method to POST (show the full method list).
         const methodWrapper = document.querySelector<HTMLElement>(REQ.METHOD_SELECT);
         if (methodWrapper) {
           await spotlightElNoScroll(ctx, methodWrapper, 900);
@@ -382,8 +341,6 @@ export const reqBodyAuthLesson: DemoLesson = {
           if (trigger) {
             trigger.click();
             await ctx.delay(400);
-            const listbox = document.querySelector<HTMLElement>('[role="listbox"]');
-            if (listbox) await spotlightElNoScroll(ctx, listbox, 1100);
             const postOption = Array.from(document.querySelectorAll<HTMLElement>('[role="option"]'))
               .find(o => o.textContent?.includes('POST'));
             if (postOption) {
@@ -394,7 +351,7 @@ export const reqBodyAuthLesson: DemoLesson = {
           }
         }
 
-        // 4. Fill the URL.
+        // Fill the URL.
         const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
         if (urlInput) {
           await spotlightElNoScroll(ctx, urlInput, 800);
@@ -404,7 +361,7 @@ export const reqBodyAuthLesson: DemoLesson = {
           await spotlightElNoScroll(ctx, urlInput, 900);
         }
 
-        // 5. Reveal & select the new request in the sidebar.
+        // Reveal & select the new request in the sidebar.
         await selectRequestByName(ctx, REQUEST_NAME, COLLECTION_NAME);
         await ctx.delay(300);
         const createdReq = firstVisible(REQ.reqByName(REQUEST_NAME))
@@ -413,14 +370,17 @@ export const reqBodyAuthLesson: DemoLesson = {
       },
     },
 
-    // ── Step 3: Add a JSON Body ──
+    // ── Step 2: Add a JSON Body & Send (see 201) ──
     {
-      id: 'req4-body',
-      title: 'Add a JSON Body',
+      id: 'req4-body-send',
+      title: 'Add a JSON Body & Send',
       description:
-        'Open the **Body** tab and pick the **JSON** body type. The selector offers every mode — ' +
-        '**JSON**, **Form Data**, **URL Encoded**, **XML**, **Plain Text**, **File**, and **None**.\n\n' +
-        'Paste a JSON payload — this is the data the POST request sends to the server.',
+        'Open the **Body** tab and pick the **JSON** body type — the selector offers **JSON**, ' +
+        '**Form Data**, **URL Encoded**, **XML**, **Plain Text**, **File**, and **None**. ' +
+        'Paste a JSON payload; this is the data the POST request sends to the server.\n\n' +
+        'Then click **Send**. Watch the response: **201 Created** means the server accepted the ' +
+        'new post, and the body includes a generated `id`. Status colors: **green** = 2xx success, ' +
+        '**yellow** = 3xx redirect, **red** = 4xx/5xx error.',
       highlight: REQ.TAB_BODY,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
@@ -428,7 +388,7 @@ export const reqBodyAuthLesson: DemoLesson = {
         await ensurePostMethodAndUrl(ctx);
       },
       action: async (ctx) => {
-        // 1. Open the Body tab.
+        // ── Add the JSON body ──
         const bodyTab = document.querySelector<HTMLElement>(REQ.TAB_BODY);
         if (bodyTab) {
           await spotlightElNoScroll(ctx, bodyTab, 800);
@@ -436,14 +396,12 @@ export const reqBodyAuthLesson: DemoLesson = {
           await ctx.delay(500);
         }
 
-        // 2. Open the body-type selector and pick JSON (show all modes first).
+        // Open the body-type selector and pick JSON (show all modes first).
         const bodyTypeTrigger = document.querySelector<HTMLElement>(REQ.BODY_TYPE_TRIGGER);
         if (bodyTypeTrigger) {
           await spotlightElNoScroll(ctx, bodyTypeTrigger, 1000);
           bodyTypeTrigger.click();
           await ctx.delay(400);
-          const bodyDropdown = document.querySelector<HTMLElement>(REQ.BODY_TYPE_DROPDOWN);
-          if (bodyDropdown) await spotlightElNoScroll(ctx, bodyDropdown, 1300);
           const jsonOption = Array.from(document.querySelectorAll<HTMLElement>('.body-type-dropdown-item'))
             .find(o => o.textContent?.includes('JSON'));
           if (jsonOption) {
@@ -453,7 +411,7 @@ export const reqBodyAuthLesson: DemoLesson = {
           }
         }
 
-        // 3. Paste the JSON payload.
+        // Paste the JSON payload.
         const bodyTextarea = document.querySelector<HTMLTextAreaElement>('.body-code-textarea');
         if (bodyTextarea) {
           bodyTextarea.focus();
@@ -461,25 +419,8 @@ export const reqBodyAuthLesson: DemoLesson = {
           await ctx.delay(400);
           await spotlightElNoScroll(ctx, bodyTextarea, 1400);
         }
-      },
-    },
 
-    // ── Step 4: Send POST & See 201 ──
-    {
-      id: 'req4-send',
-      title: 'Send POST & See 201 Created',
-      description:
-        'Click **Send** to fire the POST request to `jsonplaceholder.typicode.com/posts`. ' +
-        'Watch the response: **201 Created** means the server accepted the new post. ' +
-        'The response body includes a generated `id` field — proof the resource was created.\n\n' +
-        'Status colors: **green** = 2xx success, **yellow** = 3xx redirect, **red** = 4xx/5xx error.',
-      highlight: REQ.SEND_BTN,
-      preAction: async (ctx) => {
-        ensureRequestsTab(ctx);
-        await closeOpenOverlays(ctx);
-        await ensurePostMethodAndUrl(ctx);
-      },
-      action: async (ctx) => {
+        // ── Send & inspect the 201 response ──
         await spotlight(ctx, REQ.SEND_BTN, 1000);
         await ctx.click(REQ.SEND_BTN);
         await ctx.waitFor(REQ.STATUS_PILL, 5000);
@@ -493,7 +434,7 @@ export const reqBodyAuthLesson: DemoLesson = {
       },
     },
 
-    // ── Step 5: Configure Bearer Token Auth ──
+    // ── Step 3: Configure Bearer Token Auth ──
     {
       id: 'req4-auth',
       title: 'Configure Bearer Token',
@@ -525,10 +466,6 @@ export const reqBodyAuthLesson: DemoLesson = {
           if (trigger) {
             trigger.click();
             await ctx.delay(400);
-            // Spotlight the listbox showing all auth options
-            const listbox = authWrapper.querySelector<HTMLElement>('[role="listbox"]');
-            if (listbox) await spotlightElNoScroll(ctx, listbox, 1200);
-            // Select Bearer Token
             const bearerOption = Array.from(authWrapper.querySelectorAll<HTMLElement>('[role="option"]'))
               .find(o => o.textContent?.includes('Bearer'));
             if (bearerOption) {
@@ -556,12 +493,10 @@ export const reqBodyAuthLesson: DemoLesson = {
           await spotlightElNoScroll(ctx, prefixInput, 800);
         }
 
-        // Spotlight the entire auth editor
-        await spotlight(ctx, REQ.AUTH_BEARER_FIELDS, 1000);
       },
     },
 
-    // ── Step 6: cURL Import & Export ──
+    // ── Step 4: cURL Import & Export ──
     {
       id: 'req4-curl',
       title: 'cURL Import & Export',
@@ -581,9 +516,9 @@ export const reqBodyAuthLesson: DemoLesson = {
         await spotlight(ctx, REQ.ACTION_MENU_BTN, 900);
         await ctx.click(REQ.ACTION_MENU_BTN);
         await ctx.waitFor(REQ.ACTION_DROPDOWN, 1500);
-        await spotlight(ctx, REQ.ACTION_DROPDOWN, 1000);
+        await ctx.delay(400);
 
-        // Spotlight import button
+        // Spotlight import button only
         const importBtn = document.querySelector<HTMLElement>(REQ.CURL_IMPORT_BTN);
         if (importBtn) {
           await spotlightElNoScroll(ctx, importBtn, 800);

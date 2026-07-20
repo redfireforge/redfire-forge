@@ -68,7 +68,7 @@ describe('ExpressionDebugDetailModal', () => {
   it('calls onClose when close button clicked', () => {
     const onClose = vi.fn();
     render(<ExpressionDebugDetailModal step={makeStep()} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText('Close'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -84,16 +84,6 @@ describe('ExpressionDebugDetailModal', () => {
     });
     const modal = document.querySelector('.dm-expr-detail-modal') as HTMLElement;
     expect(modal.style.transform).toBe('translate(50px, 20px)');
-  });
-
-  it('ignores drag when clicking a button inside the header', () => {
-    render(<ExpressionDebugDetailModal step={makeStep()} onClose={vi.fn()} />);
-    const closeBtn = screen.getByLabelText('Close');
-    fireEvent.mouseDown(closeBtn, { clientX: 100, clientY: 100 });
-    fireEvent.mouseMove(window, { clientX: 150, clientY: 120 });
-    fireEvent.mouseUp(window);
-    const modal = document.querySelector('.dm-expr-detail-modal') as HTMLElement;
-    expect(modal.style.transform).toBe('');
   });
 
   it('applies error CSS class when step has error', () => {

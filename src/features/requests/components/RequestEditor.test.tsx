@@ -723,7 +723,7 @@ describe('RequestEditor request/response workflows', () => {
     fireEvent.click(historyCompare);
 
     expect(await screen.findByRole('heading', { name: 'Request Definition Comparison' })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('heading', { name: 'Request Definition Comparison' }).parentElement!.querySelector('button')!);
+    fireEvent.click(document.querySelector('.test-def-diff-footer button')!);
 
     fireEvent.click(screen.getByRole('button', { name: /^Body\b/ }));
   });

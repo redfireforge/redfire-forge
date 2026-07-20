@@ -113,16 +113,6 @@ export function GraphqlHistoryComparePanel({
             {result.querySame ? ' · same query text' : ' · query text differs'}
           </span>
         </div>
-        <button
-          type="button"
-          className="gql-history-preview-close"
-          onClick={onClose}
-          aria-label="Close comparison and exit compare mode"
-          title="Close and exit compare mode"
-          data-testid="gql-history-compare-close"
-        >
-          ✕
-        </button>
       </div>
 
       <div className="gql-history-compare-body">
@@ -141,6 +131,9 @@ export function GraphqlHistoryComparePanel({
       <div className="gql-history-compare-labels" aria-hidden="true">
         <span className="gql-history-compare-slot-label gql-history-compare-slot-label--a">A — {labelA}</span>
         <span className="gql-history-compare-slot-label gql-history-compare-slot-label--b">B — {labelB}</span>
+      </div>
+      <div className="gql-history-compare-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
     </div>
   );

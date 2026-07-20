@@ -547,13 +547,17 @@
 }
 .tg-modal {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 12px;
   width: min(720px, 90vw);
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 8px 32px rgba(0,0,0,0.4),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   animation: slideUp 0.2s ease;
 }
 @keyframes slideUp {
@@ -712,13 +716,17 @@
 }
 .fp-dialog {
   background: var(--surface, #1e1e2e);
-  border: 1px solid var(--border, #333);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border, #333));
   border-radius: 12px;
   width: 360px;
   max-height: 480px;
   display: flex;
   flex-direction: column;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.4);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 16px 48px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .fp-header {
   display: flex;
@@ -1919,7 +1927,12 @@
   overflow: hidden;
   transition: max-width 0.2s ease, max-height 0.2s ease;
   pointer-events: auto;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .wf-var-insert-modal .ram-header {
   gap: 10px;
@@ -3471,8 +3484,12 @@
   max-height: min(85vh, 720px);
   margin: 0;
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45), 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.06);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 8px 32px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   flex: 0 1 auto;
   align-self: center;
   pointer-events: auto;
@@ -3820,6 +3837,12 @@
   display: flex;
   flex-direction: column;
   border-radius: 14px;
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 .wf-detail-modal.wf-detail-modal--wide {
   max-width: min(1020px, 95vw);
@@ -6743,9 +6766,14 @@
 }
 .wf-shortcuts-overlay {
   position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-  background: rgba(15,23,42,0.95); border: 1px solid var(--border);
+  background: rgba(15,23,42,0.95); border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 16px; padding: 24px 28px; max-width: 560px; width: 90vw;
-  box-shadow: 0 25px 50px rgba(0,0,0,0.5); z-index: 501;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 25px 50px rgba(0,0,0,0.5),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+  z-index: 501;
   animation: slideUp 0.2s ease;
   max-height: 80vh; overflow-y: auto;
   scrollbar-width: thin; scrollbar-color: var(--border) transparent;
@@ -7972,6 +8000,7 @@
 .wf-script-template-vars {
   color: var(--text-muted); font-family: 'SF Mono', monospace;
 }
+.wf-script-template-footer { display: flex; justify-content: flex-end; padding: 8px 0 0; border-top: 1px solid var(--border); margin-top: 8px; }
 
 /* ── Script Library Manager ────────────────────── */
 .wf-script-library-manager {
@@ -8024,6 +8053,11 @@
 .wf-script-library-create textarea {
   font-family: 'SF Mono', monospace; font-size: 0.75rem; resize: vertical;
 }
+.wf-script-library-footer,
+.wf-script-value-panel-footer,
+.script-lib-version-footer,
+.script-lib-diff-footer,
+.wf-expand-modal-footer { display: flex; justify-content: flex-end; padding: 8px 10px; border-top: 1px solid var(--border); margin-top: 6px; }
 
 /* ── Available Variables (collapsible) ─────────── */
 .wf-avail-vars {
@@ -9094,6 +9128,7 @@
   padding: 12px;
   text-align: center;
 }
+.node-detail-footer { display: flex; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
 
 /* Iteration selector in replay modal header */
 .replay-iteration-selector {

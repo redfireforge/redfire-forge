@@ -29,6 +29,8 @@ import {
   ensureCollectionExpanded,
   selectRequestByName,
   closeExtraRequestTabs,
+  fillNewRequestPrompt,
+  cleanupOtherRequestDemoCollections,
 } from './req-demo-helpers';
 import {
   ensureSettingsEnvironment,
@@ -49,9 +51,6 @@ const LINKED_COLLECTION_NAME = 'Product Service';
 const LINKED_SVC_NAME = 'product-api';
 const LINKED_REQUEST_NAME = 'Get Products';
 const LINKED_REQUEST_PATH = '/products?limit=5';
-
-/** Sibling lesson collections — remove so this lesson starts clean. */
-const SIBLING_COLLECTIONS = ['My API', 'User Service'] as const;
 
 async function deleteCollectionByName(ctx: DemoActionContext, collectionName: string): Promise<void> {
   ensureRequestsTab(ctx);
@@ -78,11 +77,11 @@ async function deleteCollectionByName(ctx: DemoActionContext, collectionName: st
 }
 
 async function cleanupLessonCollections(ctx: DemoActionContext): Promise<void> {
-  for (const name of SIBLING_COLLECTIONS) {
-    await deleteCollectionByName(ctx, name);
-  }
   await deleteCollectionByName(ctx, COLLECTION_NAME);
   await deleteCollectionByName(ctx, LINKED_COLLECTION_NAME);
+  // Remove demo collections left behind by any other lesson (keep our own two,
+  // which this lesson recreates itself).
+  await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME, LINKED_COLLECTION_NAME]);
 }
 
 async function closeOpenOverlays(ctx: DemoActionContext): Promise<void> {
@@ -291,19 +290,8 @@ async function ensureRequestReady(ctx: DemoActionContext): Promise<void> {
   const opened = await openContextMenuForElement(ctx, col);
   if (!opened) return;
   await clickContextItemVisible(ctx, 'Add Request');
+  await fillNewRequestPrompt(ctx, REQUEST_NAME);
   await ctx.waitFor(REQ.URL_INPUT, 2200);
-
-  const nameDisplay = firstVisible('.req-req-name-display');
-  if (nameDisplay) {
-    nameDisplay.click();
-    await ctx.delay(80);
-    const nameInput = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-    if (nameInput) {
-      fillControlledInput(nameInput, REQUEST_NAME);
-      nameInput.blur();
-      await ctx.delay(80);
-    }
-  }
 
   const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
   if (urlInput) fillControlledInput(urlInput, REQUEST_PATH);
@@ -402,7 +390,7 @@ export const reqMultiEnvLesson: DemoLesson = {
         // Reading already highlights + — click once, then pause on dropdown.
         await ctx.click(REQ.SIDEBAR_ADD_BTN);
         await ctx.waitFor(REQ.ADD_DROPDOWN, 1500);
-        await spotlight(ctx, REQ.ADD_DROPDOWN, 1200);
+        await ctx.delay(400);
 
         await spotlight(ctx, REQ.ADD_ENV_COLLECTION, 1000);
         await ctx.click(REQ.ADD_ENV_COLLECTION);
@@ -491,22 +479,12 @@ export const reqMultiEnvLesson: DemoLesson = {
           // Highlight only the menu action we take — not the whole menu then the item.
           await spotlightContextItem(ctx, 'Add Request', 1100);
           await clickContextItemVisible(ctx, 'Add Request');
+          await ctx.delay(300);
+          const prompt = document.querySelector<HTMLElement>('[data-testid="req-new-request-prompt"]');
+          if (prompt) await spotlightElNoScroll(ctx, prompt, 900);
+          await fillNewRequestPrompt(ctx, REQUEST_NAME);
           await ctx.waitFor(REQ.URL_INPUT, 2200);
           await ctx.delay(240);
-
-          const nameDisplay = firstVisible('.req-req-name-display');
-          if (nameDisplay) {
-            nameDisplay.click();
-            await ctx.delay(120);
-            const nameInput = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-            if (nameInput) {
-              await spotlightElNoScroll(ctx, nameInput, 900);
-              fillControlledInput(nameInput, REQUEST_NAME);
-              await ctx.delay(220);
-              nameInput.blur();
-            }
-            await ctx.delay(120);
-          }
         } else {
           existing.click();
           await ctx.delay(120);
@@ -796,21 +774,9 @@ export const reqMultiEnvLesson: DemoLesson = {
           const opened = await openContextMenuForElement(ctx, col);
           if (!opened) return;
           await clickContextItemVisible(ctx, 'Add Request');
+          await fillNewRequestPrompt(ctx, LINKED_REQUEST_NAME);
           await ctx.waitFor(REQ.URL_INPUT, 2200);
           await ctx.delay(240);
-
-          const nameDisplay = firstVisible('.req-req-name-display');
-          if (nameDisplay) {
-            nameDisplay.click();
-            await ctx.delay(120);
-            const nameInput = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-            if (nameInput) {
-              fillControlledInput(nameInput, LINKED_REQUEST_NAME);
-              await ctx.delay(200);
-              nameInput.blur();
-            }
-            await ctx.delay(120);
-          }
         } else {
           existing.click();
           await ctx.delay(120);

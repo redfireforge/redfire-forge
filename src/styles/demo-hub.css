@@ -1633,11 +1633,11 @@
   min-width: 280px;
   min-height: 300px;
   background: var(--surface, #1e293b);
-  border: 1px solid rgba(255, 255, 255, 0.30);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 14px;
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.16),
-    inset 0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
     0 20px 60px rgba(0, 0, 0, 0.55),
     0 4px 16px rgba(0, 0, 0, 0.3);
   display: flex;
@@ -1930,12 +1930,16 @@
 }
 
 .demo-overview-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   padding: 8px 14px;
   border-top: 1px solid var(--border, #3b4a60);
+  flex-shrink: 0;
+}
+.demo-overview-modal-footer-hint {
   font-size: 10px;
   color: rgba(168, 184, 204, 0.4);
-  text-align: center;
-  flex-shrink: 0;
 }
 
 /* ─── LessonPlayer sidebar — expandable steps ────────────────── */
