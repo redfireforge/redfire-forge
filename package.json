@@ -62,6 +62,7 @@
     "test:product": "vitest run --project product",
     "test:demo": "vitest run --project demo",
     "test:product:coverage": "RUN_ID=$(date +%Y%m%d-%H%M%S)-$$ && RUN_DIR=.tmp/product-coverage-runs/product-$RUN_ID && mkdir -p \"$RUN_DIR/.tmp\" coverage && vitest run --project product --coverage --maxWorkers=1 --no-file-parallelism --coverage.reportsDirectory=\"$RUN_DIR\" && PRODUCT_COVERAGE_DIR=\"$RUN_DIR\" npx tsx scripts/product-coverage-filter.ts && PRODUCT_COVERAGE_DIR=\"$RUN_DIR\" npx tsx scripts/verify-product-coverage-gaps.ts && cp \"$RUN_DIR/coverage-final.json\" coverage/coverage-final.json && cp \"$RUN_DIR/coverage-summary.json\" coverage/coverage-summary.json && cp \"$RUN_DIR/coverage-final.product.json\" coverage/coverage-final.product.json && cp \"$RUN_DIR/coverage-summary.product.json\" coverage/coverage-summary.product.json",
+    "test:product:coverage:fast": "bash scripts/run-product-coverage-fast.sh",
     "verify:product:coverage": "npx tsx scripts/verify-product-coverage-gaps.ts",
     "test:demo:coverage": "bash scripts/run-demo-coverage-full.sh",
     "test:demo:coverage:scope": "bash scripts/run-demo-coverage-scope.sh",

@@ -359,7 +359,7 @@ In production, SSE streams can run for hours and push thousands of events. Bookm
       },
       action: async (ctx) => {
         // Close detail panel if open
-        const closeBtn = document.querySelector('.sse-detail-close') as HTMLElement | null;
+        const closeBtn = document.querySelector('.sse-detail-footer button') as HTMLElement | null;
         if (closeBtn) {
           closeBtn.click();
           await ctx.delay(300);

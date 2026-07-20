@@ -48,7 +48,7 @@ export interface AppSidebarRegionProps {
   handleWorkflowImport: () => void;
   handleWbNewCollection: (mode?: 'direct' | 'multi-env', groupId?: string) => void;
   handleWbEditCollection: (col: RequestCollection) => void;
-  handleWbNewRequest: (colId: string, folderId?: string) => void;
+  handleWbNewRequest: (colId: string, folderId?: string, name?: string) => void;
   handleEditSubCollection: (colId: string, folderId: string) => void;
   reqTabs: UseRequestTabCoordinatorReturn;
 }

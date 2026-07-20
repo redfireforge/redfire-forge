@@ -493,7 +493,6 @@ export function useWebSocketSend({
                       <span className="ws-tpl-modal-badge">{templates.length}</span>
                     )}
                   </div>
-                  <button className="ws-tpl-modal-close" onClick={() => setTemplateModalOpen(false)} aria-label="Close" type="button">&times;</button>
                 </div>
 
                 <div className="ws-tpl-modal-body">
@@ -563,6 +562,7 @@ export function useWebSocketSend({
                       Save
                     </button>
                   </div>
+                  <button type="button" className="btn btn-primary ws-tpl-close-btn" onClick={() => setTemplateModalOpen(false)}>Close</button>
                 </div>
               </div>
             </div>,

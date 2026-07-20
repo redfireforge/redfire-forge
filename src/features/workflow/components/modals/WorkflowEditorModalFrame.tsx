@@ -56,7 +56,7 @@ export default function WorkflowEditorModalFrame({
   headerClassName,
   forceExpanded,
   hideExpandButton,
-  hideCloseButton,
+  hideCloseButton = true,
   initialExpanded,
   expandMode,
   minWidth,

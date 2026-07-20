@@ -95,7 +95,6 @@ export default function SchemaDiffModal({
               <span className="dm-diff-count dm-diff-count--info">{counts.info} info</span>
             )}
           </div>
-          <button className="dm-btn-icon" onClick={onClose} aria-label="Close schema diff">×</button>
         </div>
         {onApplyRepairBatch && batchRepairs.length > 0 && (
           <div className="dm-diff-batch-actions">

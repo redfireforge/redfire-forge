@@ -116,9 +116,6 @@ export function GraphqlHistoryPreviewPanel({
             <span className="gql-history-preview-subtitle">{operationTypeLabel(opType)}</span>
           </div>
         </div>
-        <button type="button" className="gql-history-preview-close" onClick={onClose} aria-label="Close preview" title="Close (Esc)">
-          ✕
-        </button>
       </div>
 
       <div className="gql-history-preview-meta" aria-label="Execution metadata">
@@ -231,6 +228,7 @@ export function GraphqlHistoryPreviewPanel({
         >
           Save to Collection
         </button>
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
     </div>
   );

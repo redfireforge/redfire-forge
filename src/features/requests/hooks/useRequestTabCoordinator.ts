@@ -103,6 +103,25 @@ export function useRequestTabCoordinator(wb: UseRequestsReturn) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab?.id]);
 
+  // ─── Auto-open tab when a new request is selected without a tab ──
+  const prevSelectedReqRef = useRef(wb.data.selectedRequestId);
+  useEffect(() => {
+    const prev = prevSelectedReqRef.current;
+    const { selectedCollectionId, selectedRequestId } = wb.data;
+    prevSelectedReqRef.current = selectedRequestId;
+    if (!selectedCollectionId || !selectedRequestId) return;
+    if (selectedRequestId === prev) return;
+    const alreadyOpen = tabsRef.current.some(
+      t => t.collectionId === selectedCollectionId && t.requestId === selectedRequestId,
+    );
+    if (alreadyOpen) return;
+    const col = dataRef.current.collections.find(c => c.id === selectedCollectionId);
+    if (!col) return;
+    const req = findRequestInCollection(col, selectedRequestId);
+    if (!req) return;
+    openTab(selectedCollectionId, selectedRequestId, req.name || req.url || 'Untitled');
+  }, [wb.data.selectedRequestId, wb.data.selectedCollectionId, wb.data, openTab]);
+
   // ─── Deletion side-effects ─────────────────────────────────────
 
   const removeRequestWithCleanup = useCallback((colId: string, reqId: string) => {
@@ -180,6 +199,16 @@ export function useRequestTabCoordinator(wb: UseRequestsReturn) {
     }
   }, [updateTabUI]);
 
+  // ─── Bidirectional tab ↔ request name sync ─────────────────────
+
+  const handleRenameTab = useCallback((tabId: string, label: string) => {
+    renameTab(tabId, label);
+    const tab = tabsRef.current.find(t => t.id === tabId);
+    if (tab) {
+      wbRef.current.updateRequest(tab.collectionId, tab.requestId, { name: label });
+    }
+  }, [renameTab]);
+
   // ─── Sidebar: open tab on request click ────────────────────────
 
   const handleSelectRequest = useCallback((colId: string, reqId: string) => {
@@ -208,7 +237,7 @@ export function useRequestTabCoordinator(wb: UseRequestsReturn) {
     selectTab,
     closeTab,
     addTab: handleTabAdd,
-    renameTab,
+    renameTab: handleRenameTab,
     reorderTabs,
     duplicateTab,
     closeOtherTabs,

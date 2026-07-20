@@ -16,6 +16,10 @@ import {
   shrinkAllCollections,
   ensureCollectionExpanded,
   closeExtraRequestTabs,
+  fillNewRequestPrompt,
+  dismissNewRequestPrompt,
+  dismissDuplicateRequestPrompt,
+  cleanupOtherRequestDemoCollections,
 } from './req-demo-helpers';
 
 const COLLECTION_NAME = 'User Service';
@@ -24,6 +28,7 @@ const REQ_1_URL = 'https://jsonplaceholder.typicode.com/users';
 const REQ_2_NAME = 'Get User';
 const REQ_2_URL = 'https://jsonplaceholder.typicode.com/users/1';
 const FOLDER_NAME = 'Single';
+const DUP_NAME = 'List Users (page 2)';
 let activeSpotlightCleanup: (() => void) | null = null;
 
 // ─── Helpers ─────────────────────────────────────────────────────
@@ -155,12 +160,12 @@ async function spotlightContextItem(
   return btn;
 }
 
-async function deleteCollectionIfExists(ctx: DemoActionContext): Promise<void> {
+async function deleteCollectionByName(ctx: DemoActionContext, collectionName: string): Promise<void> {
   ensureRequestsTab(ctx);
   await ctx.delay(60);
   let guard = 0;
-  while (document.querySelector(REQ.colByName(COLLECTION_NAME)) && guard < 3) {
-    const col = firstVisible(REQ.colByName(COLLECTION_NAME));
+  while (document.querySelector(REQ.colByName(collectionName)) && guard < 4) {
+    const col = firstVisible(REQ.colByName(collectionName));
     if (!col) break;
     const opened = await openContextMenuForElement(ctx, col);
     if (!opened) break;
@@ -170,6 +175,10 @@ async function deleteCollectionIfExists(ctx: DemoActionContext): Promise<void> {
     if (confirmBtn) { confirmBtn.click(); await ctx.delay(100); }
     guard++;
   }
+}
+
+async function deleteCollectionIfExists(ctx: DemoActionContext): Promise<void> {
+  await deleteCollectionByName(ctx, COLLECTION_NAME);
 }
 
 async function ensureCollectionWithRequests(ctx: DemoActionContext): Promise<void> {
@@ -194,16 +203,8 @@ async function ensureCollectionWithRequests(ctx: DemoActionContext): Promise<voi
       const opened = await openContextMenuForElement(ctx, col);
       if (!opened) return;
       await clickContextItemVisible(ctx, 'Add Request');
+      await fillNewRequestPrompt(ctx, REQ_1_NAME);
       await ctx.waitFor(REQ.URL_INPUT, 2000);
-      // Rename
-      const nameDisplay = document.querySelector<HTMLElement>('.req-req-name-display');
-      if (nameDisplay) {
-        nameDisplay.click();
-        await ctx.delay(80);
-        const nameInput = document.querySelector<HTMLInputElement>('.req-req-name-input');
-        if (nameInput) { fillControlledInput(nameInput, REQ_1_NAME); nameInput.blur(); }
-        await ctx.delay(80);
-      }
       const urlInput = firstVisible(REQ.URL_INPUT) as HTMLInputElement | null;
       if (urlInput) { urlInput.focus(); fillControlledInput(urlInput, REQ_1_URL); }
       await ctx.delay(100);
@@ -217,15 +218,8 @@ async function ensureCollectionWithRequests(ctx: DemoActionContext): Promise<voi
       const opened = await openContextMenuForElement(ctx, col);
       if (!opened) return;
       await clickContextItemVisible(ctx, 'Add Request');
+      await fillNewRequestPrompt(ctx, REQ_2_NAME);
       await ctx.waitFor(REQ.URL_INPUT, 2000);
-      const nameDisplay = document.querySelector<HTMLElement>('.req-req-name-display');
-      if (nameDisplay) {
-        nameDisplay.click();
-        await ctx.delay(80);
-        const nameInput = document.querySelector<HTMLInputElement>('.req-req-name-input');
-        if (nameInput) { fillControlledInput(nameInput, REQ_2_NAME); nameInput.blur(); }
-        await ctx.delay(80);
-      }
       const urlInput = firstVisible(REQ.URL_INPUT) as HTMLInputElement | null;
       if (urlInput) { urlInput.focus(); fillControlledInput(urlInput, REQ_2_URL); }
       await ctx.delay(100);
@@ -245,7 +239,9 @@ export const reqCollectionsLesson: DemoLesson = {
     'and learn all the tools for managing your API workspace.',
   estimatedMinutes: 3,
   initialTab: 'requests',
-  allowedTabs: ['requests'],
+  // 'gallery' is allowed so Step 4 can navigate to the Gallery page without
+  // triggering the "Leave the live demo?" exit confirmation.
+  allowedTabs: ['requests', 'gallery'],
 
   concept: {
     title: 'Organizing Your API Library',
@@ -301,7 +297,9 @@ export const reqCollectionsLesson: DemoLesson = {
   setup: async (ctx) => {
     ctx.navigateToTab('requests');
     await ctx.delay(80);
+    dismissNewRequestPrompt();
     await closeExtraRequestTabs(ctx);
+    await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
     await deleteCollectionIfExists(ctx);
     await shrinkAllCollections();
     const sidebar = document.querySelector<HTMLElement>(REQ.SIDEBAR);
@@ -310,12 +308,15 @@ export const reqCollectionsLesson: DemoLesson = {
 
   cleanup: async (ctx) => {
     dismissContextMenu();
+    dismissNewRequestPrompt();
+    dismissDuplicateRequestPrompt();
     const modalClose = document.querySelector<HTMLElement>('.req-col-modal .btn-secondary');
     if (modalClose) { modalClose.click(); await ctx.delay(60); }
     const search = document.querySelector<HTMLInputElement>(REQ.SIDEBAR_SEARCH);
     if (search && search.value) fillControlledInput(search, '');
     await closeExtraRequestTabs(ctx);
     await deleteCollectionIfExists(ctx);
+    await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
     ctx.navigateToTab('requests');
     await ctx.delay(60);
   },
@@ -347,7 +348,7 @@ export const reqCollectionsLesson: DemoLesson = {
         // 1. Click + and spotlight dropdown (skip + spotlight to avoid flashing)
         await ctx.click(REQ.SIDEBAR_ADD_BTN);
         await ctx.waitFor(REQ.ADD_DROPDOWN, 1500);
-        await spotlight(ctx, REQ.ADD_DROPDOWN, 1400);
+        await ctx.delay(400);
 
         // 2. Click URL Collection → modal
         await spotlight(ctx, REQ.ADD_URL_COLLECTION, 1100);
@@ -390,23 +391,14 @@ export const reqCollectionsLesson: DemoLesson = {
         if (!opened1) return;
         await spotlightContextItem(ctx, 'Add Request', 1100);
         await clickContextItemVisible(ctx, 'Add Request');
+        await ctx.delay(300);
+        const prompt1 = document.querySelector<HTMLElement>(REQ.NEW_REQ_PROMPT);
+        if (prompt1) await spotlightElNoScroll(ctx, prompt1, 900);
+        await fillNewRequestPrompt(ctx, REQ_1_NAME);
         await ctx.waitFor(REQ.URL_INPUT, 2000);
         await ctx.delay(320);
 
-        // 6. Rename to "List Users" and fill URL
-        const nameDisplay1 = firstVisible('.req-req-name-display');
-        if (nameDisplay1) {
-          nameDisplay1.click();
-          await ctx.delay(160);
-          const ni = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-          if (ni) {
-            await spotlightElNoScroll(ctx, ni, 1000);
-            fillControlledInput(ni, REQ_1_NAME);
-            await ctx.delay(240);
-            ni.blur();
-          }
-          await ctx.delay(160);
-        }
+        // 6. Fill URL for "List Users"
         const urlInput1 = firstVisible(REQ.URL_INPUT) as HTMLInputElement | null;
         if (urlInput1) {
           await spotlightEl(ctx, urlInput1, 900);
@@ -423,22 +415,13 @@ export const reqCollectionsLesson: DemoLesson = {
         if (!opened2) return;
         await spotlightContextItem(ctx, 'Add Request', 1100);
         await clickContextItemVisible(ctx, 'Add Request');
+        await ctx.delay(300);
+        const prompt2 = document.querySelector<HTMLElement>(REQ.NEW_REQ_PROMPT);
+        if (prompt2) await spotlightElNoScroll(ctx, prompt2, 900);
+        await fillNewRequestPrompt(ctx, REQ_2_NAME);
         await ctx.waitFor(REQ.URL_INPUT, 2000);
         await ctx.delay(320);
 
-        const nameDisplay2 = firstVisible('.req-req-name-display');
-        if (nameDisplay2) {
-          nameDisplay2.click();
-          await ctx.delay(160);
-          const ni = firstVisible('.req-req-name-input') as HTMLInputElement | null;
-          if (ni) {
-            await spotlightElNoScroll(ctx, ni, 1000);
-            fillControlledInput(ni, REQ_2_NAME);
-            await ctx.delay(240);
-            ni.blur();
-          }
-          await ctx.delay(160);
-        }
         const urlInput2 = firstVisible(REQ.URL_INPUT) as HTMLInputElement | null;
         if (urlInput2) {
           await spotlightEl(ctx, urlInput2, 900);
@@ -446,9 +429,8 @@ export const reqCollectionsLesson: DemoLesson = {
           fillControlledInput(urlInput2, REQ_2_URL);
         }
         await ctx.delay(300);
-        // Immediately show the second created request in the sidebar (expand if collapsed).
-        const createdReq2 = await ensureRequestVisible(ctx, REQ.reqInCollection(COLLECTION_NAME, REQ_2_NAME));
-        if (createdReq2) await spotlightElNoScroll(ctx, createdReq2, 1400);
+        // Ensure the second created request is visible in the sidebar (expand if collapsed).
+        await ensureRequestVisible(ctx, REQ.reqInCollection(COLLECTION_NAME, REQ_2_NAME));
       },
     },
 
@@ -476,7 +458,7 @@ export const reqCollectionsLesson: DemoLesson = {
         if (!col) return;
         const opened1 = await openContextMenuForElement(ctx, col);
         if (!opened1) return;
-        await spotlight(ctx, REQ.CONTEXT_MENU, 1200);
+        await ctx.delay(400);
 
         // 2. Click "Add Folder"
         await spotlightContextItem(ctx, 'Add Folder', 1100);
@@ -503,9 +485,9 @@ export const reqCollectionsLesson: DemoLesson = {
         if (!reqEl) return;
         const opened2 = await openContextMenuForElement(ctx, reqEl);
         if (!opened2) return;
-        await spotlight(ctx, REQ.CONTEXT_MENU, 1200);
+        await ctx.delay(400);
 
-        // 6. Hover "Move to…" → spotlight submenu
+        // 6. Click "Move to…" → navigable submenu
         const menu = document.querySelector(REQ.CONTEXT_MENU);
         if (!menu) return;
         const moveBtn = Array.from(menu.querySelectorAll('button'))
@@ -513,15 +495,35 @@ export const reqCollectionsLesson: DemoLesson = {
         if (moveBtn) {
           await spotlightEl(ctx, moveBtn as HTMLElement, 1000);
           (moveBtn as HTMLElement).click();
-          await ctx.delay(300);
+          await ctx.delay(400);
+
+          // 6a. Submenu shows collection list — click our collection to drill down
           const submenu = document.querySelector<HTMLElement>('.req-ctx-submenu');
           if (submenu) {
-            await spotlightEl(ctx, submenu, 1300);
+            await spotlightEl(ctx, submenu, 1200);
+            const colBtn = Array.from(submenu.querySelectorAll('button'))
+              .find(b => b.textContent?.includes(COLLECTION_NAME));
+            if (colBtn) {
+              await spotlightEl(ctx, colBtn as HTMLElement, 900);
+              (colBtn as HTMLElement).click();
+              await ctx.delay(400);
+            }
+
+            // 6b. Now inside collection — click the folder to drill into it
             const folderBtn = Array.from(submenu.querySelectorAll('button'))
               .find(b => b.textContent?.includes(FOLDER_NAME));
             if (folderBtn) {
-              await spotlightEl(ctx, folderBtn as HTMLElement, 1000);
+              await spotlightEl(ctx, folderBtn as HTMLElement, 900);
               (folderBtn as HTMLElement).click();
+              await ctx.delay(400);
+            }
+
+            // 6c. Now inside folder — click "Move here"
+            const moveHereBtn = Array.from(submenu.querySelectorAll('button'))
+              .find(b => b.textContent?.includes('Move here'));
+            if (moveHereBtn) {
+              await spotlightEl(ctx, moveHereBtn as HTMLElement, 1000);
+              (moveHereBtn as HTMLElement).click();
               await ctx.delay(400);
             }
           }
@@ -544,12 +546,13 @@ export const reqCollectionsLesson: DemoLesson = {
       description:
         'The **search bar** instantly filters all collections and requests as you type — ' +
         'perfect for large API libraries with dozens of endpoints.\n\n' +
-        'Then right-click a request and choose **"Duplicate"** to create an instant copy. ' +
-        'This is the fastest way to create request variations (different query params, ' +
-        'pagination offsets, etc.).',
+        'Then right-click a request and choose **"Duplicate"** — a prompt lets you name ' +
+        'the copy (e.g. **"List Users (page 2)"**). This is the fastest way to create ' +
+        'request variations with different query params, pagination offsets, etc.',
       highlight: REQ.SIDEBAR_SEARCH,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
+        dismissDuplicateRequestPrompt();
         if (!document.querySelector(REQ.colByName(COLLECTION_NAME))) {
           await ensureCollectionWithRequests(ctx);
         }
@@ -585,18 +588,27 @@ export const reqCollectionsLesson: DemoLesson = {
         const opened = await openContextMenuForElement(ctx, reqEl);
         if (!opened) return;
 
-        // 6. Spotlight context menu with "Duplicate" visible
-        await spotlight(ctx, REQ.CONTEXT_MENU, 1200);
+        // 6. Spotlight the Duplicate menu item
+        await ctx.delay(400);
         await spotlightContextItem(ctx, 'Duplicate', 1000);
 
-        // 7. Click Duplicate
+        // 7. Click Duplicate → naming prompt appears
         await clickContextItemVisible(ctx, 'Duplicate');
         await ctx.delay(400);
 
-        // 8. Spotlight the duplicated copy
-        const copyEl = firstVisible(REQ.reqByName(REQ_1_NAME + ' (copy)'));
-        if (copyEl) {
-          await spotlightEl(ctx, copyEl, 1300);
+        // 8. Spotlight the duplicate naming prompt, type a custom name, and confirm
+        const dupPrompt = document.querySelector<HTMLElement>(REQ.DUP_REQ_PROMPT);
+        if (dupPrompt) {
+          await spotlightElNoScroll(ctx, dupPrompt, 1000);
+          const nameInput = dupPrompt.querySelector<HTMLInputElement>('[data-testid="req-dup-request-name"]');
+          if (nameInput) {
+            nameInput.focus();
+            fillControlledInput(nameInput, DUP_NAME);
+            await ctx.delay(600);
+          }
+          const confirmBtn = dupPrompt.querySelector<HTMLButtonElement>('.btn-primary');
+          if (confirmBtn) confirmBtn.click();
+          await ctx.delay(400);
         }
       },
     },
@@ -610,8 +622,9 @@ export const reqCollectionsLesson: DemoLesson = {
         '- **Export** (↑) — exports all collections as a single JSON file for team sharing\n' +
         '- **Import** (↓) — imports JSON collections with deduplication\n' +
         '- **Expand/Shrink All** — bulk collapse or expand the entire tree\n\n' +
-        'And the **Gallery** tab has **50+ pre-built samples** against live APIs ' +
-        '(JSONPlaceholder, DummyJSON, PokéAPI, etc.) — one-click import into your workspace.',
+        'And the **Gallery** page (in the left activity bar) has **50+ pre-built samples** ' +
+        'against live APIs (JSONPlaceholder, DummyJSON, PokéAPI, etc.) — one-click import ' +
+        'into your workspace.',
       highlight: REQ.SIDEBAR_EXPORT_BTN,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
@@ -627,7 +640,22 @@ export const reqCollectionsLesson: DemoLesson = {
         // 3. Spotlight Expand/Shrink All toggle
         await spotlight(ctx, REQ.SIDEBAR_EXPAND_ALL, 800);
 
-        // Avoid extra + highlight flashes in this step.
+        // 4. Click Gallery in the activity bar to show pre-built samples
+        const galleryBtn = document.querySelector<HTMLElement>('.ab-btn[title="Gallery"]');
+        if (galleryBtn) {
+          await spotlightEl(ctx, galleryBtn, 900);
+          galleryBtn.click();
+          await ctx.delay(600);
+        }
+
+        // 5. Spotlight the Gallery page
+        const galleryPage = document.querySelector<HTMLElement>('.gallery-page');
+        if (galleryPage) await spotlightEl(ctx, galleryPage, 1800);
+
+        // 6. Navigate back to Requests
+        await ctx.delay(400);
+        ctx.navigateToTab('requests');
+        await ctx.delay(300);
       },
     },
   ],

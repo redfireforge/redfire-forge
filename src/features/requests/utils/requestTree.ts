@@ -267,6 +267,34 @@ export function findReqParentFolder(folders: RequestFolder[], reqId: string): Re
   return null;
 }
 
+/**
+ * Return the IDs of every ancestor folder from root to the immediate parent
+ * of `reqId`. Returns an empty array if the request lives at the collection root.
+ */
+export function findReqFolderAncestors(folders: RequestFolder[], reqId: string, trail: string[] = []): string[] {
+  for (const f of folders) {
+    const next = [...trail, f.id];
+    if (f.requests.some((r) => r.id === reqId)) return next;
+    const deep = findReqFolderAncestors(f.folders ?? [], reqId, next);
+    if (deep.length > 0) return deep;
+  }
+  return [];
+}
+
+/**
+ * Collect the chain of group IDs from a collection up to the root group.
+ * Returns the IDs bottom-up (immediate parent first).
+ */
+export function collectGroupAncestors(colOrGroupId: string, collections: RequestCollection[]): string[] {
+  const ids: string[] = [];
+  let current = collections.find(c => c.id === colOrGroupId);
+  while (current?.groupId) {
+    ids.push(current.groupId);
+    current = collections.find(c => c.id === current!.groupId);
+  }
+  return ids;
+}
+
 export function reorderInFolders(folders: RequestFolder[], folderId: string, beforeId: string | null): RequestFolder[] {
   const flat = [...folders];
   const srcIdx = flat.findIndex((f) => f.id === folderId);
