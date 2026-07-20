@@ -185,9 +185,6 @@ export default function DslReferencePanel({ onInsert, onClose }: DslReferencePan
           <div className="vr-ref-header-btns">
             <button type="button" className="vr-ref-toggle-btn" onClick={expandAll} title="Expand all" aria-label="Expand all sections">&#x25BC;</button>
             <button type="button" className="vr-ref-toggle-btn" onClick={collapseAll} title="Collapse all" aria-label="Collapse all sections">&#x25B2;</button>
-            {onClose && (
-              <button type="button" className="vr-ref-close-btn" onClick={onClose} title="Hide reference" aria-label="Hide reference panel">&#x2715;</button>
-            )}
           </div>
         </div>
         <div className="vr-ref-search-wrap">
@@ -277,6 +274,11 @@ export default function DslReferencePanel({ onInsert, onClose }: DslReferencePan
           </div>
         )}
       </div>
+      {onClose && (
+        <div className="vr-ref-footer">
+          <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
+        </div>
+      )}
     </div>
   );
 }

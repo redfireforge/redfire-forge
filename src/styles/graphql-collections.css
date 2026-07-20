@@ -866,6 +866,7 @@
 .gql-history-compare-labels {
   display: none;
 }
+.gql-history-compare-footer { display: flex; justify-content: flex-end; padding: 10px 14px; border-top: 1px solid var(--border); }
 
 /* ── Context menu (shared by history and collections) ──────────────────────── */
 
@@ -1761,11 +1762,13 @@
   display: flex;
   flex-direction: column;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 12px;
   box-shadow:
-    0 24px 64px color-mix(in srgb, var(--bg) 55%, transparent),
-    0 0 0 1px color-mix(in srgb, var(--border) 60%, transparent);
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 24px 64px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
 
@@ -2292,12 +2295,16 @@
 
 .gql-import-mode-panel {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
   width: min(520px, calc(100% - 24px));
   max-width: 520px;
   max-height: min(85vh, 720px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 8px 32px rgba(0,0,0,0.4),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -2623,11 +2630,15 @@
 }
 .gql-save-col-panel {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
   padding: 24px 28px;
   width: 380px;
-  box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0,0,0,0.5),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -2708,11 +2719,15 @@
 }
 .gql-wf-import-col-panel {
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 10px;
   width: min(520px, calc(100vw - 32px));
   max-height: min(70vh, 560px);
-  box-shadow: 0 12px 40px color-mix(in srgb, var(--bg) 55%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   display: flex;
   flex-direction: column;
   overflow: hidden;

@@ -82,15 +82,6 @@ interface Props {
   onOpenInNewTab?: (colId: string, reqId: string) => void;
 }
 
-function collectAllFolders(folders: RequestFolder[], depth = 0): { folder: RequestFolder; depth: number }[] {
-  const result: { folder: RequestFolder; depth: number }[] = [];
-  for (const f of folders) {
-    result.push({ folder: f, depth });
-    result.push(...collectAllFolders(f.folders ?? [], depth + 1));
-  }
-  return result;
-}
-
 function findReqInFoldersDeep(folders: RequestFolder[], reqId: string): string | undefined {
   for (const f of folders) {
     if (f.requests.some(r => r.id === reqId)) return f.id;
@@ -160,6 +151,8 @@ export default function SidebarContextMenu({
   onOpenInNewTab,
 }: Props) {
   const [showColMoveMenu, setShowColMoveMenu] = useState(false);
+  const [reqMoveNav, setReqMoveNav] = useState<{ colId: string; folderId: string | null } | null>(null);
+  const [folderMoveNav, setFolderMoveNav] = useState<{ colId: string; folderId: string | null } | null>(null);
   const ctxCol = collections.find(c => c.id === contextMenu.colId) ?? null;
   const ctxReqLocation = contextMenu.type === 'request' && ctxCol && contextMenu.reqId
     ? findRequestLocation(ctxCol, contextMenu.reqId) : undefined;
@@ -337,44 +330,97 @@ export default function SidebarContextMenu({
           })()}
           {ctxCol && (
             <div className="req-ctx-submenu-wrapper">
-              <button onClick={() => setShowFolderMoveMenu(!showFolderMoveMenu)}>
+              <button onClick={() => { setShowFolderMoveMenu(!showFolderMoveMenu); setFolderMoveNav(null); }}>
                 Move to... <span className="req-ctx-arrow">&#9656;</span>
               </button>
               <PositionedSubmenu show={showFolderMoveMenu}>
-                  {ctxFolderLocation !== null && (
-                    <button onClick={() => { onMoveFolderTo(contextMenu.colId, contextMenu.folderId!, null); dismiss(); setShowFolderMoveMenu(false); }}>
-                      &#128203; Collection Root
-                    </button>
-                  )}
-                  {collectAllFolders(ctxCol.folders ?? [])
-                    .filter(({ folder: f }) =>
-                      f.id !== contextMenu.folderId &&
-                      f.id !== ctxFolderLocation &&
-                      !isAncestorOf(ctxCol.folders ?? [], contextMenu.folderId!, f.id)
-                    )
-                    .map(({ folder: f, depth }) => (
-                      <button key={f.id} style={{ paddingLeft: 8 + depth * 12 }} onClick={() => {
-                        onMoveFolderTo(contextMenu.colId, contextMenu.folderId!, f.id);
-                        dismiss(); setShowFolderMoveMenu(false);
+                {folderMoveNav === null ? (() => {
+                  const ordered = [
+                    ...nonGroupCollections.filter(c => c.id === contextMenu.colId),
+                    ...nonGroupCollections.filter(c => c.id !== contextMenu.colId),
+                  ];
+                  return ordered.map(c => {
+                    const hasFolders = (() => {
+                      if (c.id !== contextMenu.colId) return (c.folders ?? []).length > 0;
+                      return (c.folders ?? []).some(f =>
+                        f.id !== contextMenu.folderId &&
+                        !isAncestorOf(c.folders ?? [], contextMenu.folderId!, f.id)
+                      );
+                    })();
+                    const isSameCol = c.id === contextMenu.colId;
+                    if (isSameCol && ctxFolderLocation === null && !hasFolders) return null;
+                    return (
+                      <button key={c.id} onClick={() => {
+                        if (hasFolders) {
+                          setFolderMoveNav({ colId: c.id, folderId: null });
+                        } else if (isSameCol) {
+                          onMoveFolderTo(contextMenu.colId, contextMenu.folderId!, null);
+                          dismiss(); setShowFolderMoveMenu(false);
+                        } else {
+                          onMoveFolderToCollection(contextMenu.colId, contextMenu.folderId!, c.id, null);
+                          dismiss(); setShowFolderMoveMenu(false);
+                        }
                       }}>
-                        &#128193; {f.name}
+                        {isSameCol ? '\u{1F4CB}' : '\u{1F4E6}'} {c.name}
+                        {hasFolders && <span className="req-ctx-arrow">&#9656;</span>}
                       </button>
-                    ))}
-                  {nonGroupCollections.filter(c => c.id !== contextMenu.colId).length > 0 && (
-                    <div className="req-dropdown-divider" />
-                  )}
-                  {nonGroupCollections.filter(c => c.id !== contextMenu.colId).map((c) => (
-                    <div key={c.id}>
-                      <button onClick={() => { onMoveFolderToCollection(contextMenu.colId, contextMenu.folderId!, c.id, null); dismiss(); setShowFolderMoveMenu(false); }}>
-                        &#128230; {c.name}
+                    );
+                  });
+                })() : (() => {
+                  const navCol = collections.find(c => c.id === folderMoveNav.colId);
+                  if (!navCol) return null;
+                  const curFolder = folderMoveNav.folderId
+                    ? findFolderDeep(navCol.folders ?? [], folderMoveNav.folderId)
+                    : null;
+                  const rawChildren = curFolder ? (curFolder.folders ?? []) : (navCol.folders ?? []);
+                  const childFolders = rawChildren.filter(f =>
+                    f.id !== contextMenu.folderId! &&
+                    !isAncestorOf(ctxCol?.folders ?? [], contextMenu.folderId!, f.id)
+                  );
+                  const isSameCol = folderMoveNav.colId === contextMenu.colId;
+                  const isCurrentLoc = isSameCol && (folderMoveNav.folderId ?? null) === (ctxFolderLocation ?? null);
+                  return (
+                    <>
+                      <button className="req-move-nav-back" onClick={() => {
+                        if (folderMoveNav.folderId === null) {
+                          setFolderMoveNav(null);
+                        } else {
+                          const pid = findParentFolderId(navCol.folders ?? [], folderMoveNav.folderId!);
+                          setFolderMoveNav({ colId: folderMoveNav.colId, folderId: pid ?? null });
+                        }
+                      }}>
+                        &#8592; Back
                       </button>
-                      {collectAllFolders(c.folders ?? []).map(({ folder: f, depth }) => (
-                        <button key={f.id} style={{ paddingLeft: 20 + depth * 12 }} onClick={() => { onMoveFolderToCollection(contextMenu.colId, contextMenu.folderId!, c.id, f.id); dismiss(); setShowFolderMoveMenu(false); }}>
+                      <div className="req-move-nav-header">
+                        {curFolder ? curFolder.name : navCol.name}
+                      </div>
+                      {isCurrentLoc ? (
+                        <div className="req-move-nav-current">&#10003; Current location</div>
+                      ) : (
+                        <button onClick={() => {
+                          if (isSameCol) {
+                            onMoveFolderTo(contextMenu.colId, contextMenu.folderId!, folderMoveNav.folderId);
+                          } else {
+                            onMoveFolderToCollection(contextMenu.colId, contextMenu.folderId!, folderMoveNav.colId, folderMoveNav.folderId);
+                          }
+                          dismiss(); setShowFolderMoveMenu(false);
+                        }}>
+                          &#128229; Move here
+                        </button>
+                      )}
+                      {childFolders.length > 0 && <hr className="req-ctx-divider" />}
+                      {childFolders.map(f => (
+                        <button key={f.id} onClick={() => setFolderMoveNav({ colId: folderMoveNav.colId, folderId: f.id })}>
                           &#128193; {f.name}
+                          {(f.folders ?? []).length > 0 && <span className="req-ctx-arrow">&#9656;</span>}
                         </button>
                       ))}
-                    </div>
-                  ))}
+                      {childFolders.length === 0 && (
+                        <div className="req-move-nav-empty">No sub-folders</div>
+                      )}
+                    </>
+                  );
+                })()}
               </PositionedSubmenu>
             </div>
           )}
@@ -419,35 +465,87 @@ export default function SidebarContextMenu({
 
         {ctxCol && (
           <div className="req-ctx-submenu-wrapper">
-            <button onClick={() => setShowMoveMenu(!showMoveMenu)}>
+            <button onClick={() => { setShowMoveMenu(!showMoveMenu); setReqMoveNav(null); }}>
               Move to... <span className="req-ctx-arrow">&#9656;</span>
             </button>
             <PositionedSubmenu show={showMoveMenu}>
-                {ctxReqLocation !== null && (
-                  <button onClick={() => { onMoveRequest(contextMenu.colId, contextMenu.reqId!, null); dismiss(); setShowMoveMenu(false); }}>
-                    &#128203; Collection Root
-                  </button>
-                )}
-                {collectAllFolders(ctxCol.folders ?? []).filter(({ folder: f }) => f.id !== ctxReqLocation).map(({ folder: f, depth }) => (
-                  <button key={f.id} style={{ paddingLeft: 8 + depth * 12 }} onClick={() => { onMoveRequest(contextMenu.colId, contextMenu.reqId!, f.id); dismiss(); setShowMoveMenu(false); }}>
-                    &#128193; {f.name}
-                  </button>
-                ))}
-                {nonGroupCollections.filter(c => c.id !== contextMenu.colId).length > 0 && (
-                  <div className="req-dropdown-divider" />
-                )}
-                {nonGroupCollections.filter(c => c.id !== contextMenu.colId).map((c) => (
-                  <div key={c.id}>
-                    <button onClick={() => { onMoveRequestToCollection(contextMenu.colId, contextMenu.reqId!, c.id, null); dismiss(); setShowMoveMenu(false); }}>
-                      &#128230; {c.name}
+              {reqMoveNav === null ? (() => {
+                const ordered = [
+                  ...nonGroupCollections.filter(c => c.id === contextMenu.colId),
+                  ...nonGroupCollections.filter(c => c.id !== contextMenu.colId),
+                ];
+                return ordered.map(c => {
+                  const hasFolders = (c.folders ?? []).length > 0;
+                  const isSameCol = c.id === contextMenu.colId;
+                  if (isSameCol && ctxReqLocation === null && !hasFolders) return null;
+                  return (
+                    <button key={c.id} onClick={() => {
+                      if (hasFolders) {
+                        setReqMoveNav({ colId: c.id, folderId: null });
+                      } else if (isSameCol) {
+                        onMoveRequest(contextMenu.colId, contextMenu.reqId!, null);
+                        dismiss(); setShowMoveMenu(false);
+                      } else {
+                        onMoveRequestToCollection(contextMenu.colId, contextMenu.reqId!, c.id, null);
+                        dismiss(); setShowMoveMenu(false);
+                      }
+                    }}>
+                      {isSameCol ? '\u{1F4CB}' : '\u{1F4E6}'} {c.name}
+                      {hasFolders && <span className="req-ctx-arrow">&#9656;</span>}
                     </button>
-                    {collectAllFolders(c.folders ?? []).map(({ folder: f, depth }) => (
-                      <button key={f.id} style={{ paddingLeft: 20 + depth * 12 }} onClick={() => { onMoveRequestToCollection(contextMenu.colId, contextMenu.reqId!, c.id, f.id); dismiss(); setShowMoveMenu(false); }}>
+                  );
+                });
+              })() : (() => {
+                const navCol = collections.find(c => c.id === reqMoveNav.colId);
+                if (!navCol) return null;
+                const curFolder = reqMoveNav.folderId
+                  ? findFolderDeep(navCol.folders ?? [], reqMoveNav.folderId)
+                  : null;
+                const childFolders = curFolder ? (curFolder.folders ?? []) : (navCol.folders ?? []);
+                const isSameCol = reqMoveNav.colId === contextMenu.colId;
+                const isCurrentLoc = isSameCol && (reqMoveNav.folderId ?? null) === (ctxReqLocation ?? null);
+                return (
+                  <>
+                    <button className="req-move-nav-back" onClick={() => {
+                      if (reqMoveNav.folderId === null) {
+                        setReqMoveNav(null);
+                      } else {
+                        const pid = findParentFolderId(navCol.folders ?? [], reqMoveNav.folderId!);
+                        setReqMoveNav({ colId: reqMoveNav.colId, folderId: pid ?? null });
+                      }
+                    }}>
+                      &#8592; Back
+                    </button>
+                    <div className="req-move-nav-header">
+                      {curFolder ? curFolder.name : navCol.name}
+                    </div>
+                    {isCurrentLoc ? (
+                      <div className="req-move-nav-current">&#10003; Current location</div>
+                    ) : (
+                      <button onClick={() => {
+                        if (isSameCol) {
+                          onMoveRequest(contextMenu.colId, contextMenu.reqId!, reqMoveNav.folderId);
+                        } else {
+                          onMoveRequestToCollection(contextMenu.colId, contextMenu.reqId!, reqMoveNav.colId, reqMoveNav.folderId);
+                        }
+                        dismiss(); setShowMoveMenu(false);
+                      }}>
+                        &#128229; Move here
+                      </button>
+                    )}
+                    {childFolders.length > 0 && <hr className="req-ctx-divider" />}
+                    {childFolders.map(f => (
+                      <button key={f.id} onClick={() => setReqMoveNav({ colId: reqMoveNav.colId, folderId: f.id })}>
                         &#128193; {f.name}
+                        {(f.folders ?? []).length > 0 && <span className="req-ctx-arrow">&#9656;</span>}
                       </button>
                     ))}
-                  </div>
-                ))}
+                    {childFolders.length === 0 && (
+                      <div className="req-move-nav-empty">No sub-folders</div>
+                    )}
+                  </>
+                );
+              })()}
             </PositionedSubmenu>
           </div>
         )}

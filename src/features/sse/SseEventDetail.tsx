@@ -21,7 +21,6 @@ export function SseEventDetail({ event, onClose }: SseEventDetailProps) {
     <div className="sse-detail" data-testid="sse-event-detail">
       <div className="sse-detail-header">
         <span className="sse-detail-title">Event Detail</span>
-        <button className="sse-detail-close" onClick={onClose} aria-label="Close detail">&times;</button>
       </div>
       <div className="sse-detail-body">
         <div className="sse-detail-meta">
@@ -46,6 +45,9 @@ export function SseEventDetail({ event, onClose }: SseEventDetailProps) {
         </div>
         <div className="sse-detail-data-header">Data {json && <span className="sse-detail-json-badge">JSON</span>}</div>
         <pre className="sse-detail-data">{formatted}</pre>
+      </div>
+      <div className="sse-detail-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
     </div>
   );

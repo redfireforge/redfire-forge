@@ -583,6 +583,41 @@ describe('useRequests', () => {
       act(() => result.current.duplicateGroup(colId));
       expect(result.current.collections).toHaveLength(before);
     });
+
+    it('duplicateGroup skips stale child ids returned by collectGroupChildren', async () => {
+      const { result } = await setup();
+      let g1 = '';
+      act(() => { g1 = result.current.addGroup('G1'); });
+      let c1 = '';
+      act(() => { c1 = result.current.addCollection({ name: 'C1' }); });
+      act(() => result.current.moveToGroup(c1, g1));
+
+      // Introduce a stale child id reference to hit the defensive `if (!orig) continue` path.
+      act(() => result.current.updateCollection(c1, { groupId: 'ghost-group-id' }));
+      act(() => result.current.duplicateGroup(g1));
+
+      expect(result.current.collections.some((c) => c.mode === 'group' && c.name === 'G1 (copy)')).toBe(true);
+    });
+
+    it('duplicateGroup remaps child groupId when parent group is duplicated too', async () => {
+      const { result } = await setup();
+      let g1 = '';
+      let g2 = '';
+      let c1 = '';
+      act(() => { g1 = result.current.addGroup('G1'); });
+      act(() => { g2 = result.current.addGroup('G2', g1); });
+      act(() => { c1 = result.current.addCollection({ name: 'C1' }); });
+      act(() => result.current.moveToGroup(c1, g2));
+
+      act(() => result.current.duplicateGroup(g1));
+
+      const copiedRoot = result.current.collections.find((c) => c.mode === 'group' && c.name === 'G1 (copy)');
+      const copiedNested = result.current.collections.find((c) => c.mode === 'group' && c.name === 'G2' && c.groupId === copiedRoot?.id);
+      const copiedCollection = result.current.collections.find((c) => c.mode !== 'group' && c.name === 'C1' && c.groupId === copiedNested?.id);
+      expect(copiedRoot).toBeTruthy();
+      expect(copiedNested).toBeTruthy();
+      expect(copiedCollection).toBeTruthy();
+    });
   });
 
   describe('imports', () => {
@@ -607,6 +642,14 @@ describe('useRequests', () => {
       act(() => { result.current.addCollection({ name: 'C' }); });
       act(() => result.current.importFolder('nope', { id: 'x', name: 'x', requests: [], folders: [] }));
       expect(result.current.collections[0].folders ?? []).toHaveLength(0);
+    });
+
+    it('importFolder appends to root when parent id is missing', async () => {
+      const { result } = await setup();
+      let colId = '';
+      act(() => { colId = result.current.addCollection({ name: 'C' }); });
+      act(() => result.current.importFolder(colId, { id: 'f-orphan', name: 'orphan', requests: [], folders: [] }, 'missing-parent'));
+      expect(result.current.collections[0].folders?.some((f) => f.id === 'f-orphan')).toBe(true);
     });
 
     it('imports requests into a folder', async () => {

@@ -141,7 +141,6 @@ export default function NodeExecutionDetailPanel({
           <span className="node-detail-type">{nodeType}</span>
           <h3>{nodeLabel}</h3>
         </div>
-        <button className="node-detail-close" onClick={onClose} title="Close (Escape)">✕</button>
       </div>
 
       <div className="node-detail-body">
@@ -312,6 +311,9 @@ export default function NodeExecutionDetailPanel({
             </div>
           </section>
         )}
+      </div>
+      <div className="node-detail-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
       </div>
     </div>
   );

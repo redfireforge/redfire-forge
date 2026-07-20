@@ -141,7 +141,6 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
           >
             {isPretty ? '{ }' : '{ … }'}
           </button>
-          <button className="ram-modal-close" onClick={onClose} aria-label="Close">&times;</button>
         </div>
       </div>
 
@@ -170,6 +169,9 @@ function TestValuePanel({ varName, initialValue, onApply, onClose, style }: {
         />
       )}
 
+      <div className="wf-script-value-panel-footer">
+        <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
+      </div>
     </div>
   );
 }

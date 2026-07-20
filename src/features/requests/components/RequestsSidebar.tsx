@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import type { RequestCollection, RequestFolder, CatalogRequestMeta, Environment, Microservice } from '../../../shared/types';
-import { countGroupRequests, findFolderDeep, findSiblingFolders, countFolderReqs } from '../utils/requestTree';
+import { countGroupRequests, findFolderDeep, findSiblingFolders, countFolderReqs, findReqFolderAncestors, collectGroupAncestors, findRequestInCollection, findReqParentFolder } from '../utils/requestTree';
 import { computeEligibleSubColEnvs, type SubColEnvOption } from '../utils/subCollectionEnvs';
 import { toggleSetItem } from '../../../shared/utils/setToggle';
 import SidebarContextMenu from './SidebarContextMenu';
@@ -28,9 +28,9 @@ interface Props {
   onEditCollection: (col: RequestCollection) => void;
   onDeleteCollection: (colId: string) => void;
   onDuplicateCollection: (colId: string) => void;
-  onNewRequest: (colId: string, folderId?: string) => void;
+  onNewRequest: (colId: string, folderId?: string, name?: string) => void;
   onDeleteRequest: (colId: string, reqId: string) => void;
-  onDuplicateRequest: (colId: string, reqId: string) => void;
+  onDuplicateRequest: (colId: string, reqId: string, name?: string) => void;
   onAddFolder: (colId: string, name: string, parentFolderId?: string) => void;
   onAddSubCollection: (colId: string, name: string, parentFolderId?: string, selectedEnvId?: string) => void;
   onEditSubCollection: (colId: string, folderId: string) => void;
@@ -129,6 +129,77 @@ export default function RequestsSidebar({
   const [showAddMenu, setShowAddMenu] = useState(false);
   const addMenuRef = useRef<HTMLDivElement>(null);
 
+  const [newReqTarget, setNewReqTarget] = useState<{ colId: string; folderId?: string } | null>(null);
+  const [newReqName, setNewReqName] = useState('');
+  const [newReqError, setNewReqError] = useState('');
+
+  const [dupReqTarget, setDupReqTarget] = useState<{ colId: string; reqId: string } | null>(null);
+  const [dupReqName, setDupReqName] = useState('');
+  const [dupReqError, setDupReqError] = useState('');
+
+  // ─── Multi-select state ──────────────────────────────
+  const [selectedReqIds, setSelectedReqIds] = useState<Map<string, { colId: string; name: string; method: string }>>(new Map());
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
+  const selectMode = selectedReqIds.size > 0;
+
+  const clearSelection = useCallback(() => {
+    setSelectedReqIds(new Map());
+  }, []);
+
+  const toggleReqSelection = useCallback((e: React.MouseEvent, reqId: string, colId: string, name: string, method: string) => {
+    e.stopPropagation();
+    setSelectedReqIds(prev => {
+      const next = new Map(prev);
+      if (next.has(reqId)) next.delete(reqId);
+      else next.set(reqId, { colId, name, method });
+      return next;
+    });
+  }, []);
+
+  const selectAllInCollection = useCallback((col: RequestCollection) => {
+    setSelectedReqIds(prev => {
+      const next = new Map(prev);
+      const addReqs = (reqs: { id: string; name: string; url: string; method: string }[], cId: string) => {
+        for (const r of reqs) next.set(r.id, { colId: cId, name: r.name || r.url || 'Untitled', method: r.method });
+      };
+      const walkFolders = (folders: RequestFolder[], cId: string) => {
+        for (const f of folders) {
+          addReqs(f.requests, cId);
+          walkFolders(f.folders ?? [], cId);
+        }
+      };
+      addReqs(col.requests, col.id);
+      walkFolders(col.folders ?? [], col.id);
+      return next;
+    });
+  }, []);
+
+  const deselectAllInCollection = useCallback((col: RequestCollection) => {
+    setSelectedReqIds(prev => {
+      const next = new Map(prev);
+      const removeReqs = (reqs: { id: string }[]) => {
+        for (const r of reqs) next.delete(r.id);
+      };
+      const walkFolders = (folders: RequestFolder[]) => {
+        for (const f of folders) {
+          removeReqs(f.requests);
+          walkFolders(f.folders ?? []);
+        }
+      };
+      removeReqs(col.requests);
+      walkFolders(col.folders ?? []);
+      return next;
+    });
+  }, []);
+
+  const confirmBulkDelete = useCallback(() => {
+    for (const [reqId, { colId }] of selectedReqIds) {
+      onDeleteRequest(colId, reqId);
+    }
+    setSelectedReqIds(new Map());
+    setBulkDeleteConfirm(false);
+  }, [selectedReqIds, onDeleteRequest]);
+
   const nonGroupCollections = useMemo(() => collections.filter(c => c.mode !== 'group'), [collections]);
 
   const allColIds = useMemo(() => collections.map(c => c.id), [collections]);
@@ -224,6 +295,40 @@ export default function RequestsSidebar({
     return () => document.removeEventListener('click', handler);
   }, [showAddMenu]);
 
+  // ─── Reveal selected request in sidebar (expand ancestors + scroll) ───
+  useEffect(() => {
+    if (!selectedRequestId || !selectedCollectionId) return;
+    const col = collections.find(c => c.id === selectedCollectionId);
+    if (!col) return;
+
+    const groupIds = collectGroupAncestors(col.id, collections);
+    const folderIds = findReqFolderAncestors(col.folders ?? [], selectedRequestId);
+
+    setExpandedCols(prev => {
+      const next = new Set(prev);
+      next.add(col.id);
+      for (const gid of groupIds) next.add(gid);
+      if (next.size === prev.size && [...next].every(id => prev.has(id))) return prev;
+      return next;
+    });
+
+    if (folderIds.length > 0) {
+      setExpandedFolders(prev => {
+        const next = new Set(prev);
+        for (const fid of folderIds) next.add(fid);
+        if (next.size === prev.size && [...next].every(id => prev.has(id))) return prev;
+        return next;
+      });
+    }
+
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`[data-req-id="${selectedRequestId}"]`);
+      if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
+    });
+  }, [selectedRequestId, selectedCollectionId, collections]);
+
   const toggleCol = (colId: string) => {
     toggleSetItem(setExpandedCols, colId);
   };
@@ -311,6 +416,82 @@ export default function RequestsSidebar({
           onKeyDown={(e) => { if (e.key === 'Enter') commitAddFolder(); if (e.key === 'Escape') setNewFolderTarget(null); }} autoFocus />
       </div>
     );
+  };
+
+  // ─── New Request prompt ──────────────────────────────
+  const startNewRequest = (colId: string, folderId?: string) => {
+    setNewReqTarget({ colId, folderId });
+    setNewReqName('');
+    setNewReqError('');
+    setContextMenu(null);
+    setExpandedCols(prev => new Set(prev).add(colId));
+    if (folderId) setExpandedFolders(prev => new Set(prev).add(folderId));
+  };
+
+  const commitNewRequest = () => {
+    if (!newReqTarget) return;
+    const trimmed = newReqName.trim();
+    if (!trimmed) { setNewReqError('Name is required'); return; }
+
+    const col = collections.find(c => c.id === newReqTarget.colId);
+    if (col) {
+      const siblingsAtLevel = newReqTarget.folderId
+        ? (findFolderDeep(col.folders ?? [], newReqTarget.folderId)?.requests ?? [])
+        : col.requests;
+      if (siblingsAtLevel.some(r => r.name.toLowerCase() === trimmed.toLowerCase())) {
+        setNewReqError(`"${trimmed}" already exists`);
+        return;
+      }
+    }
+
+    onNewRequest(newReqTarget.colId, newReqTarget.folderId, trimmed);
+    setNewReqTarget(null);
+    setNewReqName('');
+    setNewReqError('');
+  };
+
+  const cancelNewRequest = () => {
+    setNewReqTarget(null);
+    setNewReqName('');
+    setNewReqError('');
+  };
+
+  const startDuplicateRequest = (colId: string, reqId: string) => {
+    const col = collections.find(c => c.id === colId);
+    if (!col) return;
+    const orig = findRequestInCollection(col, reqId);
+    if (!orig) return;
+    setDupReqTarget({ colId, reqId });
+    setDupReqName(`${orig.name || 'Request'} (copy)`);
+    setDupReqError('');
+    setContextMenu(null);
+  };
+
+  const commitDuplicateRequest = () => {
+    if (!dupReqTarget) return;
+    const trimmed = dupReqName.trim();
+    if (!trimmed) { setDupReqError('Name is required'); return; }
+
+    const col = collections.find(c => c.id === dupReqTarget.colId);
+    if (col) {
+      const parentFolder = findReqParentFolder(col.folders ?? [], dupReqTarget.reqId);
+      const siblingsAtLevel = parentFolder ? parentFolder.requests : col.requests;
+      if (siblingsAtLevel.some(r => r.name.toLowerCase() === trimmed.toLowerCase())) {
+        setDupReqError(`"${trimmed}" already exists`);
+        return;
+      }
+    }
+
+    onDuplicateRequest(dupReqTarget.colId, dupReqTarget.reqId, trimmed);
+    setDupReqTarget(null);
+    setDupReqName('');
+    setDupReqError('');
+  };
+
+  const cancelDuplicateRequest = () => {
+    setDupReqTarget(null);
+    setDupReqName('');
+    setDupReqError('');
   };
 
   const startRenameFolder = (colId: string, folderId: string, currentName: string) => {
@@ -406,18 +587,27 @@ export default function RequestsSidebar({
     const showBefore = dropInsert?.beforeReqId === reqId;
     const showAfter = dropInsert?.beforeReqId === reqId + ':after';
     const inHarness = harnessRequestIds?.has(reqId);
+    const isChecked = selectedReqIds.has(reqId);
     return (
       <div key={reqId} className="req-req-drop-wrapper">
         {showBefore && <div className="req-drop-indicator" />}
         <div
-          className={`req-req-item ${selectedRequestId === reqId ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${meta?.deprecated ? 'deprecated' : ''}`}
+          className={`req-req-item ${selectedRequestId === reqId ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${meta?.deprecated ? 'deprecated' : ''} ${isChecked ? 'bulk-selected' : ''}`}
           onClick={() => onSelectRequest(colId, reqId)}
           onContextMenu={(e) => handleContext(e, 'request', colId, inFolderId, reqId)}
           onDragOver={(e) => handleReqDragOver(e, colId, reqId, inFolderId)}
           onDragLeave={() => setDropInsert(null)}
           onDrop={(e) => handleReqDrop(e, colId, inFolderId, siblingRequests ?? [])}
-          data-testid="req-req-item" data-req-name={name || url || 'Untitled'}
+          data-testid="req-req-item" data-req-name={name || url || 'Untitled'} data-req-id={reqId}
           draggable onDragStart={(e) => handleReqDragStart(e, colId, reqId)} onDragEnd={handleDragEnd}>
+          <span
+            className={`req-bulk-check ${isChecked ? 'checked' : ''}`}
+            role="checkbox"
+            aria-checked={isChecked}
+            aria-label={`Select ${name || url || 'Untitled'}`}
+            data-testid="req-bulk-checkbox"
+            onClick={(e) => toggleReqSelection(e, reqId, colId, name || url || 'Untitled', method)}
+          />
           <span className="req-req-method" style={{ color: METHOD_COLORS[method] || '#94a3b8' }}>{method}</span>
           <span className={`req-req-name ${meta?.deprecated ? 'deprecated' : ''}`} title={name || url}>{name || url || 'Untitled'}</span>
           {meta && <span className="req-req-catalog-badge" title={meta.sourceSpec ? `From: ${meta.sourceSpec}` : 'From API Catalog'}>&#128203;</span>}
@@ -487,7 +677,7 @@ export default function RequestsSidebar({
           if (!di) return;
           e.preventDefault();
           e.dataTransfer.dropEffect = 'move';
-          if (di.colId === col.id) return;
+          if (di.kind === 'collection' && di.colId === col.id) return;
           setDropTarget(`col-header-${col.id}`);
           if (!expandedCols.has(col.id) && !autoExpandTimerRef.current) {
             autoExpandTimerRef.current = setTimeout(() => {
@@ -500,7 +690,8 @@ export default function RequestsSidebar({
         onDrop={(e) => {
           e.preventDefault();
           const di = dragItemRef.current;
-          if (!di || di.colId === col.id) return;
+          if (!di) return;
+          if (di.kind === 'collection' && di.colId === col.id) return;
           if (autoExpandTimerRef.current) { clearTimeout(autoExpandTimerRef.current); autoExpandTimerRef.current = null; }
           handleDrop(e, col.id, null);
         }}>
@@ -515,6 +706,26 @@ export default function RequestsSidebar({
           <span className={`req-col-mode-badge ${col.mode}`}>{modeBadge(col.mode)}</span>
           {hasAuth(col) && <span className="req-col-auth-badge" title={`Auth: ${authLabel(col)}`}>&#128274;</span>}
           <span className="req-col-count">{countAllRequests(col)}</span>
+          {selectMode && countAllRequests(col) > 0 && (() => {
+            const allReqIds: string[] = [];
+            const gatherIds = (reqs: { id: string }[]) => { for (const r of reqs) allReqIds.push(r.id); };
+            const walkFlds = (folders: RequestFolder[]) => { for (const f of folders) { gatherIds(f.requests); walkFlds(f.folders ?? []); } };
+            gatherIds(col.requests); walkFlds(col.folders ?? []);
+            const allSelected = allReqIds.length > 0 && allReqIds.every(id => selectedReqIds.has(id));
+            return (
+              <button
+                className={`req-col-select-all-btn ${allSelected ? 'active' : ''}`}
+                title={allSelected ? 'Deselect all in collection' : 'Select all in collection'}
+                aria-label={allSelected ? 'Deselect all' : 'Select all'}
+                data-testid="req-col-select-all"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (allSelected) deselectAllInCollection(col);
+                    else selectAllInCollection(col);
+                  }}
+              >{allSelected ? '☑' : '☐'}</button>
+            );
+          })()}
           <button className="req-col-edit-btn" title="Edit collection settings"
             onClick={(e) => { e.stopPropagation(); onEditCollection(col); }}>&#9998;</button>
         </div>
@@ -616,6 +827,19 @@ export default function RequestsSidebar({
       <div className="req-sidebar-header">
         <span className="req-sidebar-title">COLLECTIONS</span>
         <div className="req-sidebar-actions">
+          {selectMode && (
+            <button
+              className="req-icon-btn req-select-mode-btn active"
+              onClick={clearSelection}
+              title="Clear selection"
+              aria-label="Clear selection"
+              data-testid="req-sidebar-clear-selection"
+            >
+              <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                <path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
           <button
             className={`req-icon-btn ${isAllExpanded ? 'active' : ''}`}
             onClick={toggleExpandAll}
@@ -707,13 +931,13 @@ export default function RequestsSidebar({
           setShowMoveMenu={setShowMoveMenu}
           setShowFolderMoveMenu={setShowFolderMoveMenu}
           dismiss={dismissCtx}
-          onNewRequest={onNewRequest}
+          onNewRequest={startNewRequest}
           onEditCollection={onEditCollection}
           onDuplicateCollection={onDuplicateCollection}
           onDeleteCollection={onDeleteCollection}
           onEditSubCollection={onEditSubCollection}
           onDuplicateFolder={onDuplicateFolder}
-          onDuplicateRequest={onDuplicateRequest}
+          onDuplicateRequest={startDuplicateRequest}
           onDeleteFolder={onDeleteFolder}
           onDeleteRequest={onDeleteRequest}
           onMoveFolder={onMoveFolder}
@@ -751,6 +975,103 @@ export default function RequestsSidebar({
             <div className="req-confirm-actions">
               <button className="req-confirm-cancel" onClick={() => setConfirmDelete(null)}>Cancel</button>
               <button className="req-confirm-ok" onClick={() => { confirmDelete.onConfirm(); setConfirmDelete(null); }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {newReqTarget && (
+        <div className="req-confirm-overlay" onClick={cancelNewRequest}>
+          <div className="req-confirm-dialog" onClick={(e) => e.stopPropagation()} data-testid="req-new-request-prompt">
+            <p style={{ fontWeight: 500, marginBottom: 8 }}>New Request</p>
+            <input
+              className="req-input"
+              value={newReqName}
+              onChange={(e) => { setNewReqName(e.target.value); setNewReqError(''); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitNewRequest();
+                if (e.key === 'Escape') cancelNewRequest();
+              }}
+              placeholder="Request name"
+              autoFocus
+              data-testid="req-new-request-name"
+            />
+            {newReqError && <p style={{ color: '#f87171', fontSize: '0.75rem', margin: '4px 0 0' }}>{newReqError}</p>}
+            <div className="req-confirm-actions" style={{ marginTop: 10 }}>
+              <button className="req-confirm-cancel" onClick={cancelNewRequest}>Cancel</button>
+              <button className="btn btn-primary" onClick={commitNewRequest} disabled={!newReqName.trim()}>Create</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {dupReqTarget && (
+        <div className="req-confirm-overlay" onClick={cancelDuplicateRequest}>
+          <div className="req-confirm-dialog" onClick={(e) => e.stopPropagation()} data-testid="req-dup-request-prompt">
+            <p style={{ fontWeight: 500, marginBottom: 8 }}>Duplicate Request</p>
+            <input
+              className="req-input"
+              value={dupReqName}
+              onChange={(e) => { setDupReqName(e.target.value); setDupReqError(''); }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitDuplicateRequest();
+                if (e.key === 'Escape') cancelDuplicateRequest();
+              }}
+              placeholder="Request name"
+              autoFocus
+              data-testid="req-dup-request-name"
+            />
+            {dupReqError && <p style={{ color: '#f87171', fontSize: '0.75rem', margin: '4px 0 0' }}>{dupReqError}</p>}
+            <div className="req-confirm-actions" style={{ marginTop: 10 }}>
+              <button className="req-confirm-cancel" onClick={cancelDuplicateRequest}>Cancel</button>
+              <button className="btn btn-primary" onClick={commitDuplicateRequest} disabled={!dupReqName.trim()}>Duplicate</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectMode && (
+        <div className="req-bulk-bar" data-testid="req-bulk-bar">
+          <div className="req-bulk-bar__left">
+            <span className="req-bulk-bar__badge">{selectedReqIds.size}</span>
+            <span className="req-bulk-bar__label">selected</span>
+          </div>
+          <div className="req-bulk-bar__right">
+            <button className="req-bulk-bar__clear" onClick={clearSelection} aria-label="Clear selection">Deselect</button>
+            <button className="req-bulk-bar__delete" onClick={() => setBulkDeleteConfirm(true)} data-testid="req-bulk-delete" aria-label="Delete selected">
+              Delete
+            </button>
+          </div>
+        </div>
+      )}
+
+      {bulkDeleteConfirm && (
+        <div className="req-confirm-overlay" onClick={() => setBulkDeleteConfirm(false)}>
+          <div className="req-bulk-modal" onClick={(e) => e.stopPropagation()} data-testid="req-bulk-delete-confirm">
+            <div className="req-bulk-modal__header">
+              <h3 className="req-bulk-modal__title">Delete {selectedReqIds.size} request{selectedReqIds.size > 1 ? 's' : ''}</h3>
+            </div>
+            <p className="req-bulk-modal__desc">This cannot be undone. These requests will be permanently removed:</p>
+            <div className="req-bulk-modal__list">
+              {[...selectedReqIds.entries()].slice(0, 12).map(([id, { name, method }]) => (
+                <div key={id} className="req-bulk-modal__item">
+                  <span className="req-bulk-modal__method" style={{ color: METHOD_COLORS[method] || '#94a3b8' }}>{method}</span>
+                  <span className="req-bulk-modal__name">{name}</span>
+                  <button className="req-bulk-modal__uncheck" title="Remove from selection" aria-label={`Deselect ${name}`}
+                    onClick={() => setSelectedReqIds(prev => { const n = new Map(prev); n.delete(id); return n; })}>
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                  </button>
+                </div>
+              ))}
+              {selectedReqIds.size > 12 && (
+                <div className="req-bulk-modal__overflow">+{selectedReqIds.size - 12} more</div>
+              )}
+            </div>
+            <div className="req-bulk-modal__footer">
+              <button className="req-bulk-modal__cancel" onClick={() => setBulkDeleteConfirm(false)}>Cancel</button>
+              <button className="req-bulk-modal__confirm" onClick={confirmBulkDelete} data-testid="req-bulk-delete-confirm-ok">
+                Delete {selectedReqIds.size} request{selectedReqIds.size > 1 ? 's' : ''}
+              </button>
             </div>
           </div>
         </div>

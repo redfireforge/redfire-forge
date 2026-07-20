@@ -42,7 +42,6 @@ function VersionSnapshotView({ version, onClose }: { version: TestDefinitionVers
         <div className="test-def-version-view-header">
           <h4>Version Snapshot</h4>
           <span className="test-def-version-view-label">{label}</span>
-          <button className="btn btn-sm" onClick={onClose}>×</button>
         </div>
         <div className="test-def-version-view-body">
           <div className="test-def-version-view-row">
@@ -81,6 +80,9 @@ function VersionSnapshotView({ version, onClose }: { version: TestDefinitionVers
               <span className="test-def-version-view-val">{s.extractions.length} extraction(s)</span>
             </div>
           )}
+        </div>
+        <div className="test-def-version-view-footer">
+          <button className="btn btn-primary" onClick={onClose}>Close</button>
         </div>
       </div>
     </div>
