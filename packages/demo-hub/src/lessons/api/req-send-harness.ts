@@ -1,8 +1,9 @@
 /**
  * REQ-5 v2: Send to Harness (Promotion)
  *
- * 5 steps: create request from scratch → set up env + microservice →
- * open promotion modal + select target → confirm + see badge → batch promote.
+ * 7 steps: set up env + microservice → create request from scratch →
+ * open promotion modal + select target → review options panel →
+ * confirm + see badge + explore promoted test → edit test → batch promote.
  * Public API: JSONPlaceholder. Follows v2 principles: create from scratch, rich spotlights.
  */
 import type { DemoLesson, DemoActionContext } from '../../types';
@@ -33,14 +34,20 @@ import {
   removeSettingsMicroservice,
 } from '../../adapters';
 import { getDemoBridgeWindow } from '../../adapters/bridgeWindow';
+import {
+  reqSendHarnessConcept,
+  reqSendHarnessLessonDescription,
+  reqSendHarnessStepDescriptions,
+} from './req-send-harness-content';
 
 const COLLECTION_NAME = 'Promotion Demo';
 const REQUEST_NAME = 'Get Users';
 const REQUEST_URL = 'https://jsonplaceholder.typicode.com/users';
+const REQUEST2_NAME = 'Get Todos';
+const REQUEST2_URL = 'https://jsonplaceholder.typicode.com/todos';
 const ENV_NAME = 'demo';
 const SVC_NAME = 'jsonplaceholder';
 const SVC_BASE_URL = 'https://jsonplaceholder.typicode.com';
-
 let activeSpotlightCleanup: (() => void) | null = null;
 
 async function spotlight(ctx: DemoActionContext, selector: string, holdMs: number): Promise<void> {
@@ -97,13 +104,12 @@ async function clickContextItemVisible(ctx: DemoActionContext, text: string): Pr
   const menu = firstVisible(REQ.CONTEXT_MENU);
   if (!menu) return false;
   const btn = Array.from(menu.querySelectorAll<HTMLButtonElement>('button'))
-    .find(b => b.textContent?.trim() === text);
+    .find((button) => button.textContent?.trim() === text);
   if (!btn) return false;
   btn.click();
   await ctx.delay(180);
   return true;
 }
-
 async function deleteCollectionByName(ctx: DemoActionContext, collectionName: string): Promise<void> {
   ensureRequestsTab(ctx);
   await ctx.delay(40);
@@ -121,7 +127,6 @@ async function deleteCollectionByName(ctx: DemoActionContext, collectionName: st
     guard += 1;
   }
 }
-
 async function closeOpenOverlays(ctx: DemoActionContext): Promise<void> {
   dismissContextMenu();
   const modalClose = document.querySelector<HTMLElement>('.req-col-modal .btn-secondary')
@@ -129,11 +134,11 @@ async function closeOpenOverlays(ctx: DemoActionContext): Promise<void> {
   if (modalClose) { modalClose.click(); await ctx.delay(60); }
   const harness = document.querySelector(REQ.HARNESS_MODAL) || document.querySelector(REQ.BATCH_HARNESS_MODAL);
   if (harness) {
-    const cancel = harness.querySelector<HTMLElement>('[data-testid="send-harness-cancel"]');
+    const cancel = harness.querySelector<HTMLElement>('[data-testid="send-harness-cancel"]')
+      ?? harness.querySelector<HTMLElement>('.send-harness-cancel-btn');
     if (cancel) { cancel.click(); await ctx.delay(150); }
   }
 }
-
 async function createCollectionIfNeeded(ctx: DemoActionContext): Promise<void> {
   if (document.querySelector(REQ.colByName(COLLECTION_NAME))) return;
   await ctx.click(REQ.SIDEBAR_ADD_BTN);
@@ -146,7 +151,6 @@ async function createCollectionIfNeeded(ctx: DemoActionContext): Promise<void> {
   document.querySelector<HTMLButtonElement>('.req-col-modal .btn-primary')?.click();
   await ctx.delay(200);
 }
-
 async function ensureRequestExists(ctx: DemoActionContext): Promise<void> {
   await createCollectionIfNeeded(ctx);
   const existing = document.querySelector(REQ.reqByName(REQUEST_NAME));
@@ -161,88 +165,63 @@ async function ensureRequestExists(ctx: DemoActionContext): Promise<void> {
   const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
   if (urlInput) fillControlledInput(urlInput, REQUEST_URL);
 }
-
-function seedHarnessTarget(): { envId: string; svcId: string } | null {
-  return getDemoBridgeWindow().__demoSeedHarnessTarget?.() ?? null;
+const FG_NAME = 'API Tests';
+function cleanupDemoFeatureGroups(): void {
+  getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(FG_NAME);
 }
-
-async function fillCascadeSelections(
+async function clickCascadeOption(
   ctx: { delay: (ms: number) => Promise<void> },
-  target: { envId: string; svcId: string },
+  containerSel: string,
+  matchText: string,
 ): Promise<void> {
-  const envSelect = document.querySelector<HTMLSelectElement>(`${REQ.HARNESS_CASCADE_ENV} select`);
-  if (envSelect && envSelect.value !== target.envId) {
-    envSelect.value = target.envId;
-    envSelect.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-  await ctx.delay(80);
-  const svcSelect = document.querySelector<HTMLSelectElement>(`${REQ.HARNESS_CASCADE_SVC} select`);
-  if (svcSelect && target.svcId && svcSelect.value !== target.svcId) {
-    svcSelect.value = target.svcId;
-    svcSelect.dispatchEvent(new Event('change', { bubbles: true }));
-  }
-  await ctx.delay(80);
-  const groupSelect = document.querySelector<HTMLSelectElement>(`${REQ.HARNESS_CASCADE_GROUP} select`);
-  if (groupSelect && !groupSelect.value) {
-    groupSelect.value = '__new__';
-    groupSelect.dispatchEvent(new Event('change', { bubbles: true }));
-    await ctx.delay(50);
-    const groupInput = document.querySelector<HTMLInputElement>(`${REQ.HARNESS_CASCADE_GROUP} input`);
-    if (groupInput) fillControlledInput(groupInput, 'API Tests');
-    await ctx.delay(50);
-    const scenarioInput = document.querySelector<HTMLInputElement>(`${REQ.HARNESS_CASCADE_SCENARIO} input`);
-    if (scenarioInput) fillControlledInput(scenarioInput, 'User Endpoints');
-  }
+  const field = document.querySelector<HTMLElement>(containerSel);
+  if (!field) return;
+  const trigger = field.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+  if (!trigger) return;
+  trigger.click();
+  await ctx.delay(120);
+  const item = Array.from(field.querySelectorAll<HTMLButtonElement>('.cascade-dropdown-item'))
+    .find(i => {
+      const name = i.querySelector('.cascade-dropdown-item-name')?.textContent?.trim().toLowerCase();
+      return name === matchText.toLowerCase();
+    });
+  if (item) { item.scrollIntoView({ block: 'nearest' }); await ctx.delay(60); item.click(); await ctx.delay(80); }
+}
+async function clickCascadeCreate(
+  ctx: { delay: (ms: number) => Promise<void> },
+  containerSel: string,
+  newName: string,
+): Promise<void> {
+  const field = document.querySelector<HTMLElement>(containerSel);
+  if (!field) return;
+  const trigger = field.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+  if (!trigger) return;
+  trigger.click();
+  await ctx.delay(120);
+  const createBtn = field.querySelector<HTMLButtonElement>('.cascade-dropdown-create');
+  if (createBtn) { createBtn.click(); await ctx.delay(80); }
+  const input = field.querySelector<HTMLInputElement>('input');
+  if (input) fillControlledInput(input, newName);
   await ctx.delay(50);
 }
-
+async function fillCascadeSelections(
+  ctx: { delay: (ms: number) => Promise<void> },
+): Promise<void> {
+  await clickCascadeOption(ctx, REQ.HARNESS_CASCADE_ENV, ENV_NAME);
+  await clickCascadeOption(ctx, REQ.HARNESS_CASCADE_SVC, SVC_NAME);
+  await clickCascadeCreate(ctx, REQ.HARNESS_CASCADE_GROUP, FG_NAME);
+  await clickCascadeCreate(ctx, REQ.HARNESS_CASCADE_SCENARIO, 'User Endpoints');
+}
 export const reqSendHarnessLesson: DemoLesson = {
   id: 'req-send-harness',
   domainId: 'api',
   category: 'requests',
   name: 'Send to Harness (Promotion)',
-  description:
-    'Create a request, set up a demo environment and microservice target, then promote ' +
-    'into the Test Harness. Learn the full promotion flow: target selection, confirmation, ' +
-    'the IN HARNESS badge, and batch collection promotion.',
-  estimatedMinutes: 4,
+  description: reqSendHarnessLessonDescription,
+  estimatedMinutes: 7,
   initialTab: 'requests',
-  allowedTabs: ['requests', 'environments'],
-
-  concept: {
-    title: 'From Exploration to Automated Testing',
-    body:
-      '**Requests** are for exploring APIs. The **Test Harness** runs repeatable, validated suites.\n\n' +
-      'Promotion needs a place to land: an **Environment** and **Microservice** in Settings. ' +
-      'We create **demo** + **jsonplaceholder** once, then reuse them as harness targets.\n\n' +
-      '**Send to Harness** creates a one-time **snapshot** of your request:\n' +
-      '- Absolute URL (resolved from env when relative)\n' +
-      '- Frozen auth config\n' +
-      '- Body, headers, method\n\n' +
-      'The snapshot is **independent** — editing the original request does NOT change the test.\n\n' +
-      '**Promotion path:**\n' +
-      'Request → Environment → Microservice → Feature Group → Scenario → Test',
-    keyTerms: [
-      { term: 'Promotion', definition: 'Snapshot a request configuration into a test scenario (one-time copy)' },
-      { term: 'Feature Group', definition: 'Target container in Test Harness that holds scenarios and tests' },
-      { term: 'IN HARNESS Badge', definition: 'Visual indicator that a request has been promoted to the Test Harness' },
-      { term: 'Batch Promote', definition: 'Send an entire collection at once, preserving folder → scenario structure' },
-    ],
-    diagram: `<svg viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
-      <rect x="10" y="10" width="100" height="35" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
-      <text x="60" y="31" text-anchor="middle" fill="#3b82f6" font-size="9">Request</text>
-      <path d="M110 27 L155 27" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr5)"/>
-      <text x="133" y="22" text-anchor="middle" fill="#f59e0b" font-size="7">snapshot</text>
-      <rect x="155" y="10" width="90" height="35" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
-      <text x="200" y="31" text-anchor="middle" fill="#f59e0b" font-size="9">Promotion</text>
-      <path d="M245 27 L290 27" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arr5)"/>
-      <rect x="290" y="10" width="100" height="35" rx="5" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
-      <text x="340" y="31" text-anchor="middle" fill="#10b981" font-size="9">Test Harness</text>
-      <rect x="10" y="60" width="380" height="30" rx="4" fill="#1e293b" stroke="#94a3b8" stroke-width="1" stroke-dasharray="3"/>
-      <text x="200" y="79" text-anchor="middle" fill="#94a3b8" font-size="8">Env → Microservice → Feature Group → Scenario → Test</text>
-      <defs><marker id="arr5" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="#94a3b8" stroke-width="1"/></marker></defs>
-    </svg>`,
-  },
+  allowedTabs: ['requests', 'environments', 'scenarios'],
+  concept: reqSendHarnessConcept,
 
   setup: async (ctx) => {
     ctx.navigateToTab('requests');
@@ -251,6 +230,7 @@ export const reqSendHarnessLesson: DemoLesson = {
     await closeOpenOverlays(ctx);
     await deleteCollectionByName(ctx, COLLECTION_NAME);
     await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
+    cleanupDemoFeatureGroups();
     removeSettingsMicroservice(SVC_NAME);
     removeSettingsEnvironment(ENV_NAME);
     await shrinkAllCollections();
@@ -261,23 +241,17 @@ export const reqSendHarnessLesson: DemoLesson = {
     await closeExtraRequestTabs(ctx);
     await deleteCollectionByName(ctx, COLLECTION_NAME);
     await cleanupOtherRequestDemoCollections(ctx, [COLLECTION_NAME]);
+    cleanupDemoFeatureGroups();
     removeSettingsMicroservice(SVC_NAME);
     removeSettingsEnvironment(ENV_NAME);
     ctx.navigateToTab('requests');
     await ctx.delay(60);
   },
-
   steps: [
-    // ── Step 1: Create Collection & Request ──
     {
-      id: 'req5-setup',
-      title: 'Create Collection & Request',
-      description:
-        'Create a **"Promotion Demo"** URL Collection and add a **"Get Users"** request ' +
-        'pointed at `jsonplaceholder.typicode.com/users` — notice it opens in its own **tab**. ' +
-        'Send it to confirm it returns **200 OK**.\n\n' +
-        'Once we have a working request, we\'ll promote it into the Test Harness.',
-      highlight: REQ.SIDEBAR_ADD_BTN,
+      id: 'req5-env',
+      title: 'Create Demo Environment',
+      description: reqSendHarnessStepDescriptions.env,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await closeOpenOverlays(ctx);
@@ -286,75 +260,9 @@ export const reqSendHarnessLesson: DemoLesson = {
         removeSettingsEnvironment(ENV_NAME);
       },
       action: async (ctx) => {
-        // Create collection
-        await spotlight(ctx, REQ.SIDEBAR_ADD_BTN, 800);
-        await ctx.click(REQ.SIDEBAR_ADD_BTN);
-        await ctx.waitFor(REQ.ADD_DROPDOWN, 1500);
-        await ctx.click(REQ.ADD_URL_COLLECTION);
-        await ctx.waitFor(REQ.COLLECTION_MODAL, 2000);
-        const nameInput = document.querySelector<HTMLInputElement>('.req-col-modal .req-input');
-        if (nameInput) {
-          nameInput.focus();
-          fillControlledInput(nameInput, COLLECTION_NAME);
-          await ctx.delay(200);
-        }
-        document.querySelector<HTMLButtonElement>('.req-col-modal .btn-primary')?.click();
-        await ctx.delay(300);
-
-        // Add request
-        const col = firstVisible(REQ.colByName(COLLECTION_NAME));
-        if (!col) return;
-        const opened = await openContextMenuForElement(ctx, col);
-        if (!opened) return;
-        await clickContextItemVisible(ctx, 'Add Request');
-        await ctx.delay(300);
-        await fillNewRequestPrompt(ctx, REQUEST_NAME);
-        await ctx.waitFor(REQ.URL_INPUT, 2200);
-        await ctx.delay(200);
-
-        const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
-        if (urlInput) {
-          urlInput.focus();
-          fillControlledInput(urlInput, REQUEST_URL);
-          await ctx.delay(300);
-          await spotlightElNoScroll(ctx, urlInput, 900);
-        }
-
-        // Send
-        await spotlight(ctx, REQ.SEND_BTN, 800);
-        await ctx.click(REQ.SEND_BTN);
-        await ctx.waitFor(REQ.STATUS_PILL, 5000);
-        await spotlight(ctx, REQ.STATUS_PILL, 1100);
-      },
-    },
-
-    // ── Step 2: Create Demo Environment & Microservice ──
-    {
-      id: 'req5-env',
-      title: 'Create Demo Environment',
-      description:
-        'Open **Settings** and create the promotion target. Add environment **"demo"**, ' +
-        'then add microservice **"jsonplaceholder"**. Click **Configure**, add the **HTTP** ' +
-        'protocol, enable the deploy checkbox, and set the base URL to ' +
-        '`https://jsonplaceholder.typicode.com`.\n\n' +
-        'This gives the Test Harness a destination for promoted requests.',
-      highlight: EM.ADD_ENV_INPUT,
-      preAction: async (ctx) => {
-        ensureRequestsTab(ctx);
-        await closeOpenOverlays(ctx);
-        if (!document.querySelector(REQ.colByName(COLLECTION_NAME))) {
-          await createCollectionIfNeeded(ctx);
-        }
-        removeSettingsMicroservice(SVC_NAME);
-        removeSettingsEnvironment(ENV_NAME);
-      },
-      action: async (ctx) => {
-        // Navigate to Settings
         ctx.navigateToTab('environments');
         await ctx.delay(700);
         await ctx.waitFor(EM.ADD_ENV_INPUT, 2200);
-
-        // Create environment "demo"
         if (!document.querySelector(emEnvByNameSel(ENV_NAME))) {
           const envInput = document.querySelector<HTMLInputElement>(EM.ADD_ENV_INPUT);
           if (envInput) {
@@ -370,8 +278,6 @@ export const reqSendHarnessLesson: DemoLesson = {
         }
         const envRow = document.querySelector<HTMLElement>(emEnvByNameSel(ENV_NAME));
         if (envRow) { envRow.click(); await spotlightEl(ctx, envRow, 1100); }
-
-        // Create microservice "jsonplaceholder"
         await ctx.waitFor(EM.ADD_SVC_INPUT, 2200);
         if (!document.querySelector(emSvcByNameSel(SVC_NAME))) {
           const svcInput = document.querySelector<HTMLInputElement>(EM.ADD_SVC_INPUT);
@@ -388,8 +294,6 @@ export const reqSendHarnessLesson: DemoLesson = {
         }
         const svcRow = document.querySelector<HTMLElement>(emSvcByNameSel(SVC_NAME));
         if (svcRow) await spotlightEl(ctx, svcRow, 1100);
-
-        // Configure → Add HTTP protocol
         const configureBtn = document.querySelector<HTMLButtonElement>(emSvcConfigureByNameSel(SVC_NAME));
         if (configureBtn?.textContent?.includes('Configure')) {
           await spotlight(ctx, emSvcConfigureByNameSel(SVC_NAME), 900);
@@ -411,8 +315,6 @@ export const reqSendHarnessLesson: DemoLesson = {
         await ctx.click(EM.PROTOCOL_TAB_HTTP);
         await ctx.delay(600);
         await spotlight(ctx, EM.PROTOCOL_TAB_HTTP, 800);
-
-        // Enable deploy + set base URL for "demo"
         const svcSel = emSvcByNameSel(SVC_NAME);
         const envChip = document.querySelector<HTMLElement>(
           `${svcSel} .svc-env-table [data-env-name="${ENV_NAME}"]`,
@@ -438,30 +340,91 @@ export const reqSendHarnessLesson: DemoLesson = {
             if (saveBtn) { saveBtn.click(); await ctx.delay(700); }
           }
         }
-
-        // Pause on configured table
         const envTable = document.querySelector<HTMLElement>(`${svcSel} .svc-env-table`);
         if (envTable) await spotlightEl(ctx, envTable, 1200);
       },
     },
-
-    // ── Step 3: Open Promotion Modal & Select Target ──
     {
-      id: 'req5-promote',
-      title: 'Open Promotion Modal',
-      description:
-        'Back on the request, click **"Send to Harness"**. The promotion modal has a **2-step flow**:\n\n' +
-        '**Step 1 — Target:** Select where the test will live:\n' +
-        '- Environment (**demo**)\n' +
-        '- Microservice (**jsonplaceholder**)\n' +
-        '- Feature Group (create **"API Tests"**)\n' +
-        '- Scenario (create **"User Endpoints"**)\n\n' +
-        'Each cascade narrows the next — like a folder path for your test.',
-      highlight: REQ.SEND_HARNESS_BTN,
+      id: 'req5-setup',
+      title: 'Create Collection & Request',
+      description: reqSendHarnessStepDescriptions.setup,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await closeOpenOverlays(ctx);
-        // Ensure env + svc exist via bridge (rapid-Next recovery)
+        await deleteCollectionByName(ctx, COLLECTION_NAME);
+        await shrinkAllCollections();
+        const envId = ensureSettingsEnvironment(ENV_NAME);
+        if (envId) ensureSettingsMicroservice(SVC_NAME, { [envId]: SVC_BASE_URL });
+      },
+      action: async (ctx) => {
+        ctx.navigateToTab('requests');
+        await ctx.delay(300);
+        await shrinkAllCollections();
+        await spotlight(ctx, REQ.SIDEBAR_ADD_BTN, 900);
+        await ctx.click(REQ.SIDEBAR_ADD_BTN);
+        await ctx.waitFor(REQ.ADD_DROPDOWN, 1500);
+        await ctx.delay(400);
+        const addColItem = firstVisible(REQ.ADD_URL_COLLECTION);
+        if (addColItem) await spotlightElNoScroll(ctx, addColItem, 800);
+        await ctx.click(REQ.ADD_URL_COLLECTION);
+        await ctx.waitFor(REQ.COLLECTION_MODAL, 2000);
+        await ctx.delay(500);
+        const nameInput = document.querySelector<HTMLInputElement>('.req-col-modal .req-input');
+        if (nameInput) {
+          await spotlightElNoScroll(ctx, nameInput, 700);
+          nameInput.focus();
+          fillControlledInput(nameInput, COLLECTION_NAME);
+          nameInput.blur();
+          await ctx.delay(500);
+          await spotlightElNoScroll(ctx, nameInput, 800);
+        }
+        const createBtn = document.querySelector<HTMLButtonElement>('.req-col-modal .btn-primary');
+        if (createBtn) {
+          await spotlightElNoScroll(ctx, createBtn, 700);
+          createBtn.click();
+        }
+        await ctx.delay(500);
+        const col = firstVisible(REQ.colByName(COLLECTION_NAME));
+        if (!col) return;
+        await spotlightEl(ctx, col, 900);
+        const opened = await openContextMenuForElement(ctx, col);
+        if (!opened) return;
+        await ctx.delay(400);
+        const menu = firstVisible(REQ.CONTEXT_MENU);
+        if (menu) {
+          const addReqItem = Array.from(menu.querySelectorAll<HTMLButtonElement>('button'))
+            .find(b => b.textContent?.trim() === 'Add Request');
+          if (addReqItem) await spotlightElNoScroll(ctx, addReqItem, 800);
+        }
+        await clickContextItemVisible(ctx, 'Add Request');
+        await ctx.delay(500);
+        await fillNewRequestPrompt(ctx, REQUEST_NAME);
+        await ctx.waitFor(REQ.URL_INPUT, 2200);
+        await ctx.delay(400);
+        const reqItem = firstVisible(REQ.reqByName(REQUEST_NAME));
+        if (reqItem) await spotlightEl(ctx, reqItem, 900);
+        const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
+        if (urlInput) {
+          await spotlightElNoScroll(ctx, urlInput, 700);
+          urlInput.focus();
+          fillControlledInput(urlInput, REQUEST_URL);
+          urlInput.blur();
+          await ctx.delay(400);
+          await spotlightElNoScroll(ctx, urlInput, 900);
+        }
+        await spotlight(ctx, REQ.SEND_BTN, 900);
+        await ctx.click(REQ.SEND_BTN);
+        await ctx.waitFor(REQ.STATUS_PILL, 5000);
+        await spotlight(ctx, REQ.STATUS_PILL, 1200);
+      },
+    },
+    {
+      id: 'req5-promote',
+      title: 'Open Promotion Modal',
+      description: reqSendHarnessStepDescriptions.promote,
+      preAction: async (ctx) => {
+        ensureRequestsTab(ctx);
+        await closeOpenOverlays(ctx);
         const envId = ensureSettingsEnvironment(ENV_NAME);
         if (envId) ensureSettingsMicroservice(SVC_NAME, { [envId]: SVC_BASE_URL });
         if (!document.querySelector(REQ.colByName(COLLECTION_NAME))) {
@@ -475,64 +438,98 @@ export const reqSendHarnessLesson: DemoLesson = {
         await ensureCollectionExpanded(ctx, COLLECTION_NAME);
         await selectRequestByName(ctx, REQUEST_NAME, COLLECTION_NAME);
         await ctx.delay(300);
-
-        // Click Send to Harness
         await spotlight(ctx, REQ.SEND_HARNESS_BTN, 1000);
         await ctx.click(REQ.SEND_HARNESS_BTN);
         await ctx.waitFor(REQ.HARNESS_MODAL, 2000);
         await ctx.delay(600);
-        await spotlight(ctx, REQ.HARNESS_MODAL, 1000);
-
-        // Fill cascade selections
-        const target = seedHarnessTarget();
-        if (target) {
-          await fillCascadeSelections(ctx, target);
-        } else {
-          // Fallback: resolve by option labels
-          const envSelect = document.querySelector<HTMLSelectElement>(`${REQ.HARNESS_CASCADE_ENV} select`);
-          if (envSelect) {
-            const envOpt = Array.from(envSelect.options).find(o => o.textContent?.trim().toLowerCase() === ENV_NAME);
-            if (envOpt) { envSelect.value = envOpt.value; envSelect.dispatchEvent(new Event('change', { bubbles: true })); }
-          }
-          await ctx.delay(200);
-          const svcSelect = document.querySelector<HTMLSelectElement>(`${REQ.HARNESS_CASCADE_SVC} select`);
-          if (svcSelect) {
-            const svcOpt = Array.from(svcSelect.options).find(o => o.textContent?.trim().toLowerCase() === SVC_NAME);
-            if (svcOpt) { svcSelect.value = svcOpt.value; svcSelect.dispatchEvent(new Event('change', { bubbles: true })); }
-          }
-          await ctx.delay(200);
-          const groupSelect = document.querySelector<HTMLSelectElement>(`${REQ.HARNESS_CASCADE_GROUP} select`);
-          if (groupSelect) {
-            groupSelect.value = '__new__';
-            groupSelect.dispatchEvent(new Event('change', { bubbles: true }));
-            await ctx.delay(50);
-            const groupInput = document.querySelector<HTMLInputElement>(`${REQ.HARNESS_CASCADE_GROUP} input`);
-            if (groupInput) fillControlledInput(groupInput, 'API Tests');
-            await ctx.delay(50);
-            const scenarioInput = document.querySelector<HTMLInputElement>(`${REQ.HARNESS_CASCADE_SCENARIO} input`);
-            if (scenarioInput) fillControlledInput(scenarioInput, 'User Endpoints');
+        await spotlight(ctx, REQ.HARNESS_CASCADE_ENV, 1000);
+        const envField = document.querySelector<HTMLElement>(REQ.HARNESS_CASCADE_ENV);
+        if (envField) {
+          const envTrigger = envField.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+          if (envTrigger) {
+            envTrigger.click();
+            await ctx.delay(500);
+            const envItem = Array.from(envField.querySelectorAll<HTMLButtonElement>('.cascade-dropdown-item'))
+              .find(i => i.querySelector('.cascade-dropdown-item-name')?.textContent?.trim().toLowerCase() === ENV_NAME);
+            if (envItem) {
+              envItem.scrollIntoView({ block: 'nearest' });
+              await ctx.delay(300);
+              await spotlightElNoScroll(ctx, envItem, 800);
+              envItem.click();
+              await ctx.delay(500);
+            }
           }
         }
-        await ctx.delay(300);
-
-        // Spotlight each cascade
         await spotlight(ctx, REQ.HARNESS_CASCADE_ENV, 900);
+        await spotlight(ctx, REQ.HARNESS_CASCADE_SVC, 1000);
+        const svcField = document.querySelector<HTMLElement>(REQ.HARNESS_CASCADE_SVC);
+        if (svcField) {
+          const svcTrigger = svcField.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+          if (svcTrigger) {
+            svcTrigger.click();
+            await ctx.delay(500);
+            const svcItem = Array.from(svcField.querySelectorAll<HTMLButtonElement>('.cascade-dropdown-item'))
+              .find(i => i.querySelector('.cascade-dropdown-item-name')?.textContent?.trim().toLowerCase() === SVC_NAME);
+            if (svcItem) {
+              svcItem.scrollIntoView({ block: 'nearest' });
+              await ctx.delay(300);
+              await spotlightElNoScroll(ctx, svcItem, 800);
+              svcItem.click();
+              await ctx.delay(500);
+            }
+          }
+        }
         await spotlight(ctx, REQ.HARNESS_CASCADE_SVC, 900);
+        await spotlight(ctx, REQ.HARNESS_CASCADE_GROUP, 1000);
+        const groupField = document.querySelector<HTMLElement>(REQ.HARNESS_CASCADE_GROUP);
+        if (groupField) {
+          const groupTrigger = groupField.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+          if (groupTrigger) {
+            groupTrigger.click();
+            await ctx.delay(400);
+            const createBtn = groupField.querySelector<HTMLButtonElement>('.cascade-dropdown-create');
+            if (createBtn) {
+              await spotlightElNoScroll(ctx, createBtn, 700);
+              createBtn.click();
+              await ctx.delay(350);
+            }
+          }
+          const groupInput = groupField.querySelector<HTMLInputElement>('input');
+          if (groupInput) {
+            fillControlledInput(groupInput, FG_NAME);
+            groupInput.blur();
+          }
+        }
+        await ctx.delay(500);
         await spotlight(ctx, REQ.HARNESS_CASCADE_GROUP, 900);
+        await spotlight(ctx, REQ.HARNESS_CASCADE_SCENARIO, 1000);
+        const scenarioField = document.querySelector<HTMLElement>(REQ.HARNESS_CASCADE_SCENARIO);
+        if (scenarioField) {
+          const scenarioTrigger = scenarioField.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+          if (scenarioTrigger) {
+            scenarioTrigger.click();
+            await ctx.delay(400);
+            const createBtn = scenarioField.querySelector<HTMLButtonElement>('.cascade-dropdown-create');
+            if (createBtn) {
+              await spotlightElNoScroll(ctx, createBtn, 700);
+              createBtn.click();
+              await ctx.delay(350);
+            }
+          }
+          const scenarioInput = scenarioField.querySelector<HTMLInputElement>('input');
+          if (scenarioInput) {
+            fillControlledInput(scenarioInput, 'User Endpoints');
+            scenarioInput.blur();
+          }
+        }
+        await ctx.delay(500);
         await spotlight(ctx, REQ.HARNESS_CASCADE_SCENARIO, 900);
       },
     },
-
-    // ── Step 4: Confirm & See Badge ──
     {
       id: 'req5-confirm',
-      title: 'Confirm & See Badge',
-      description:
-        'Click **Next** to see the preview panel — it shows the snapshot that will be created ' +
-        '(method, URL, auth). Click **"Send to Harness"** to confirm.\n\n' +
-        'After confirmation, notice the **IN HARNESS** badge on the request in the sidebar — ' +
-        'a visual reminder that this request has been promoted to automated testing.',
-      highlight: REQ.HARNESS_NEXT_BTN,
+      title: 'Review Options & Preview',
+      description: reqSendHarnessStepDescriptions.confirm,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         const envId = ensureSettingsEnvironment(ENV_NAME);
@@ -543,57 +540,215 @@ export const reqSendHarnessLesson: DemoLesson = {
           const btn = document.querySelector<HTMLElement>(REQ.SEND_HARNESS_BTN);
           if (btn) btn.click();
           await ctx.delay(200);
-          const target = seedHarnessTarget();
-          if (target) await fillCascadeSelections(ctx, target);
+          await fillCascadeSelections(ctx);
         }
       },
       action: async (ctx) => {
-        // Click Next
         const nextBtn = document.querySelector<HTMLButtonElement>(REQ.HARNESS_NEXT_BTN);
         if (nextBtn && !nextBtn.disabled) {
           await spotlight(ctx, REQ.HARNESS_NEXT_BTN, 900);
           nextBtn.click();
-          await ctx.delay(700);
+          await ctx.delay(800);
         }
-
-        // Spotlight confirm
+        const summary = document.querySelector<HTMLElement>('.send-harness-target-summary');
+        if (summary) await spotlightElNoScroll(ctx, summary, 1000);
+        const previewCard = document.querySelector<HTMLElement>('.send-harness-preview-card');
+        if (previewCard) await spotlightElNoScroll(ctx, previewCard, 1200);
+        const authGroup = document.querySelector<HTMLElement>('.send-harness-option-group:first-child');
+        if (authGroup) await spotlightElNoScroll(ctx, authGroup, 1100);
+        const validationGroup = document.querySelector<HTMLElement>('.send-harness-option-group:last-child');
+        if (validationGroup) await spotlightElNoScroll(ctx, validationGroup, 1100);
+      },
+    },
+    {
+      id: 'req5-explore',
+      title: 'Confirm & Explore Promoted Test',
+      description: reqSendHarnessStepDescriptions.explore,
+      preAction: async (ctx) => {
+        ensureRequestsTab(ctx);
+        const envId = ensureSettingsEnvironment(ENV_NAME);
+        if (envId) ensureSettingsMicroservice(SVC_NAME, { [envId]: SVC_BASE_URL });
+        if (!document.querySelector(REQ.HARNESS_MODAL)) {
+          if (!document.querySelector(REQ.colByName(COLLECTION_NAME))) await createCollectionIfNeeded(ctx);
+          await ensureRequestExists(ctx);
+          const btn = document.querySelector<HTMLElement>(REQ.SEND_HARNESS_BTN);
+          if (btn) btn.click();
+          await ctx.delay(200);
+          await fillCascadeSelections(ctx);
+          const nextBtn = document.querySelector<HTMLButtonElement>(REQ.HARNESS_NEXT_BTN);
+          if (nextBtn && !nextBtn.disabled) { nextBtn.click(); await ctx.delay(150); }
+        }
+      },
+      action: async (ctx) => {
+        await spotlight(ctx, REQ.HARNESS_CONFIRM_BTN, 1000);
         const confirmBtn = document.querySelector<HTMLButtonElement>(REQ.HARNESS_CONFIRM_BTN);
         if (confirmBtn) {
-          await spotlight(ctx, REQ.HARNESS_CONFIRM_BTN, 1000);
           confirmBtn.click();
-          await ctx.delay(500);
+          await ctx.delay(600);
         }
-
-        // Badge spotlight
         await ctx.delay(400);
         const reqItem = firstVisible(REQ.reqByName(REQUEST_NAME));
         if (reqItem) await spotlightEl(ctx, reqItem, 1200);
+        ctx.navigateToTab('scenarios');
+        await ctx.delay(800);
+        const fgHeader = Array.from(document.querySelectorAll<HTMLElement>('.feature-group-header'))
+          .find(h => h.querySelector('.feature-group-name')?.textContent?.trim() === FG_NAME);
+        if (fgHeader) {
+          fgHeader.scrollIntoView({ block: 'nearest' });
+          await spotlightElNoScroll(ctx, fgHeader, 1000);
+          const expandIcon = fgHeader.querySelector<HTMLElement>('.expand-icon');
+          if (expandIcon && !expandIcon.classList.contains('expanded')) {
+            fgHeader.click();
+            await ctx.delay(600);
+          }
+          const actions = fgHeader.querySelector<HTMLElement>('.feature-group-actions');
+          if (actions) await spotlightElNoScroll(ctx, actions, 1200);
+        }
+        await ctx.delay(400);
+        const scHeader = Array.from(document.querySelectorAll<HTMLElement>('.scenario-group-header'))
+          .find(h => h.querySelector('.scenario-group-name')?.textContent?.trim() === 'User Endpoints');
+        if (scHeader) {
+          scHeader.scrollIntoView({ block: 'nearest' });
+          await spotlightElNoScroll(ctx, scHeader, 1000);
+          const expandIcon = scHeader.querySelector<HTMLElement>('.expand-icon');
+          if (expandIcon && !expandIcon.classList.contains('expanded')) {
+            scHeader.click();
+            await ctx.delay(600);
+          }
+        }
+        await ctx.delay(400);
+        const testCard = Array.from(document.querySelectorAll<HTMLElement>('.test-card'))
+          .find(tc => tc.querySelector('strong')?.textContent?.trim() === REQUEST_NAME);
+        if (testCard) {
+          testCard.scrollIntoView({ block: 'nearest' });
+          await spotlightElNoScroll(ctx, testCard, 1200);
+          const info = testCard.querySelector<HTMLElement>('.test-card-info');
+          if (info) await spotlightElNoScroll(ctx, info, 1000);
+          const meta = testCard.querySelector<HTMLElement>('.test-card-meta');
+          if (meta) await spotlightElNoScroll(ctx, meta, 1000);
+          const testActions = testCard.querySelector<HTMLElement>('.test-card-actions');
+          if (testActions) await spotlightElNoScroll(ctx, testActions, 1200);
+        }
       },
     },
-
-    // ── Step 5: Batch Promotion ──
+    {
+      id: 'req5-edit',
+      title: 'Edit the Promoted Test',
+      description: reqSendHarnessStepDescriptions.edit,
+      preAction: async (ctx) => {
+        const envId = ensureSettingsEnvironment(ENV_NAME);
+        if (envId) ensureSettingsMicroservice(SVC_NAME, { [envId]: SVC_BASE_URL });
+        ctx.navigateToTab('scenarios');
+        await ctx.delay(300);
+      },
+      action: async (ctx) => {
+        const testCard = Array.from(document.querySelectorAll<HTMLElement>('.test-card'))
+          .find(tc => tc.querySelector('strong')?.textContent?.trim() === REQUEST_NAME);
+        if (!testCard) return;
+        testCard.scrollIntoView({ block: 'nearest' });
+        const editBtn = Array.from(testCard.querySelectorAll<HTMLButtonElement>('.btn'))
+          .find(b => b.textContent?.trim() === 'Edit');
+        if (!editBtn) return;
+        await spotlightElNoScroll(ctx, editBtn, 1000);
+        editBtn.click();
+        await ctx.delay(800);
+        await ctx.waitFor('.insomnia-modal .builder-panel', 3000);
+        await ctx.delay(600);
+        const propCard = document.querySelector<HTMLElement>('.insomnia-modal .te-prop-card');
+        if (propCard) await spotlightElNoScroll(ctx, propCard, 1200);
+        const propRows = document.querySelectorAll<HTMLElement>('.insomnia-modal .te-prop-row');
+        if (propRows[0]) await spotlightElNoScroll(ctx, propRows[0], 900);
+        const urlRow = Array.from(propRows).find(r =>
+          r.querySelector('.te-prop-label')?.textContent?.trim() === 'URL',
+        );
+        if (urlRow) await spotlightElNoScroll(ctx, urlRow, 900);
+        const toolbar = document.querySelector<HTMLElement>('.insomnia-modal .mode-toggle');
+        if (toolbar) await spotlightElNoScroll(ctx, toolbar, 1100);
+        const tabBar = document.querySelector<HTMLElement>('.insomnia-modal .builder-tabs');
+        if (tabBar) await spotlightElNoScroll(ctx, tabBar, 1100);
+        const validationTab = Array.from(
+          document.querySelectorAll<HTMLButtonElement>('.insomnia-modal .builder-tab'),
+        ).find(t => t.textContent?.trim().startsWith('Validation'));
+        if (validationTab) {
+          validationTab.click();
+          await ctx.delay(600);
+          await spotlightElNoScroll(ctx, validationTab, 900);
+        }
+        const tabContent = document.querySelector<HTMLElement>('.insomnia-modal .builder-tab-content');
+        if (tabContent) await spotlightElNoScroll(ctx, tabContent, 1100);
+        const saveBtn = document.querySelector<HTMLElement>('.insomnia-modal .ram-modal-footer .btn-primary');
+        if (saveBtn) await spotlightElNoScroll(ctx, saveBtn, 900);
+        await ctx.delay(400);
+        const cancelBtn = document.querySelector<HTMLElement>('.insomnia-modal .ram-modal-footer .btn-secondary');
+        if (cancelBtn) {
+          await spotlightElNoScroll(ctx, cancelBtn, 700);
+          cancelBtn.click();
+          await ctx.delay(400);
+        }
+      },
+    },
     {
       id: 'req5-batch',
       title: 'Batch Promote a Collection',
-      description:
-        'For bulk workflows, right-click the collection and select **"Send to Harness"**. ' +
-        'This opens the batch modal where you can:\n\n' +
-        '- Select/deselect individual requests with checkboxes\n' +
-        '- See a preview of what will be created\n' +
-        '- Apply validation presets to all tests at once\n\n' +
-        'Folder structure is preserved: each folder becomes a Test Scenario.',
+      description: reqSendHarnessStepDescriptions.batch,
       highlight: REQ.colByName(COLLECTION_NAME),
       preAction: async (ctx) => {
-        ensureRequestsTab(ctx);
+        dismissContextMenu();
         await closeOpenOverlays(ctx);
         const envId = ensureSettingsEnvironment(ENV_NAME);
         if (envId) ensureSettingsMicroservice(SVC_NAME, { [envId]: SVC_BASE_URL });
+        ctx.navigateToTab('requests');
+        await ctx.delay(120);
         if (!document.querySelector(REQ.colByName(COLLECTION_NAME))) {
           await createCollectionIfNeeded(ctx);
           await ensureRequestExists(ctx);
         }
+        const existing2 = document.querySelector<HTMLElement>(REQ.reqByName(REQUEST2_NAME));
+        if (existing2) {
+          const opened = await openContextMenuForElement(ctx, existing2);
+          if (opened) {
+            await clickContextItemVisible(ctx, 'Delete Request');
+            const confirmBtn = document.querySelector<HTMLElement>('.req-confirm-dialog .req-confirm-ok');
+            if (confirmBtn) { confirmBtn.click(); await ctx.delay(120); }
+          }
+        }
       },
       action: async (ctx) => {
+        ctx.navigateToTab('requests');
+        await ctx.delay(300);
+        await ensureCollectionExpanded(ctx, COLLECTION_NAME);
+        {
+          const col = firstVisible(REQ.colByName(COLLECTION_NAME));
+          if (!col) return;
+          const opened = await openContextMenuForElement(ctx, col);
+          if (!opened) return;
+          await ctx.delay(400);
+          const menu = firstVisible(REQ.CONTEXT_MENU);
+          if (menu) {
+            const addReqItem = Array.from(menu.querySelectorAll<HTMLButtonElement>('button'))
+              .find(b => b.textContent?.trim() === 'Add Request');
+            if (addReqItem) await spotlightElNoScroll(ctx, addReqItem, 800);
+          }
+          await clickContextItemVisible(ctx, 'Add Request');
+          await ctx.delay(500);
+          await fillNewRequestPrompt(ctx, REQUEST2_NAME);
+          await ctx.waitFor(REQ.URL_INPUT, 2200);
+          await ctx.delay(400);
+
+          const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
+          if (urlInput) {
+            await spotlightElNoScroll(ctx, urlInput, 700);
+            urlInput.focus();
+            fillControlledInput(urlInput, REQUEST2_URL);
+            urlInput.blur();
+            await ctx.delay(400);
+            await spotlightElNoScroll(ctx, urlInput, 800);
+          }
+        }
+        const req2Item = firstVisible(REQ.reqByName(REQUEST2_NAME));
+        if (req2Item) await spotlightEl(ctx, req2Item, 900);
+        const req1Item = firstVisible(REQ.reqByName(REQUEST_NAME));
+        if (req1Item) await spotlightEl(ctx, req1Item, 900);
         const col = firstVisible(REQ.colByName(COLLECTION_NAME));
         if (!col) return;
         await spotlightEl(ctx, col, 800);
@@ -601,7 +756,6 @@ export const reqSendHarnessLesson: DemoLesson = {
         const opened = await openContextMenuForElement(ctx, col);
         if (!opened) return;
         await ctx.delay(400);
-
         const menu = firstVisible(REQ.CONTEXT_MENU);
         if (menu) {
           const batchBtn = Array.from(menu.querySelectorAll<HTMLButtonElement>('button'))
@@ -613,14 +767,68 @@ export const reqSendHarnessLesson: DemoLesson = {
         }
         await ctx.delay(600);
         await ctx.waitFor(REQ.BATCH_HARNESS_MODAL, 2000);
-        await spotlight(ctx, REQ.BATCH_HARNESS_MODAL, 1500);
-
-        // Close batch modal
-        const modal = document.querySelector(REQ.BATCH_HARNESS_MODAL);
-        if (modal) {
-          const cancel = modal.querySelector<HTMLElement>('[data-testid="send-harness-cancel"]');
-          if (cancel) { cancel.click(); await ctx.delay(300); }
+        await ctx.delay(400);
+        const envField = document.querySelector<HTMLElement>(REQ.HARNESS_CASCADE_ENV);
+        if (envField) {
+          await spotlightElNoScroll(ctx, envField, 900);
+          const envTrigger = envField.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+          if (envTrigger) {
+            envTrigger.click();
+            await ctx.delay(500);
+            const envItem = Array.from(envField.querySelectorAll<HTMLButtonElement>('.cascade-dropdown-item'))
+              .find(i => i.querySelector('.cascade-dropdown-item-name')?.textContent?.trim().toLowerCase() === ENV_NAME);
+            if (envItem) {
+              envItem.scrollIntoView({ block: 'nearest' });
+              await ctx.delay(300);
+              await spotlightElNoScroll(ctx, envItem, 800);
+              envItem.click();
+              await ctx.delay(500);
+            }
+          }
         }
+        const svcField = document.querySelector<HTMLElement>(REQ.HARNESS_CASCADE_SVC);
+        if (svcField) {
+          await spotlightElNoScroll(ctx, svcField, 900);
+          const svcTrigger = svcField.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+          if (svcTrigger) {
+            svcTrigger.click();
+            await ctx.delay(500);
+            const svcItem = Array.from(svcField.querySelectorAll<HTMLButtonElement>('.cascade-dropdown-item'))
+              .find(i => i.querySelector('.cascade-dropdown-item-name')?.textContent?.trim().toLowerCase() === SVC_NAME);
+            if (svcItem) {
+              svcItem.scrollIntoView({ block: 'nearest' });
+              await ctx.delay(300);
+              await spotlightElNoScroll(ctx, svcItem, 800);
+              svcItem.click();
+              await ctx.delay(500);
+            }
+          }
+        }
+        const nextBtn = document.querySelector<HTMLButtonElement>('.send-harness-next-btn');
+        if (nextBtn && !nextBtn.disabled) {
+          await spotlightElNoScroll(ctx, nextBtn, 900);
+          nextBtn.click();
+          await ctx.delay(800);
+        }
+        const modal = document.querySelector<HTMLElement>(REQ.BATCH_HARNESS_MODAL);
+        if (!modal) return;
+        const summary = modal.querySelector<HTMLElement>('.send-harness-target-summary');
+        if (summary) await spotlightElNoScroll(ctx, summary, 1000);
+        const listHeader = modal.querySelector<HTMLElement>('.batch-harness-list-header');
+        if (listHeader) await spotlightElNoScroll(ctx, listHeader, 1000);
+        const rows = modal.querySelectorAll<HTMLElement>('.batch-harness-row');
+        for (const row of rows) {
+          await spotlightElNoScroll(ctx, row, 800);
+        }
+        const previewCard = modal.querySelector<HTMLElement>('.send-harness-preview-card');
+        if (previewCard) await spotlightElNoScroll(ctx, previewCard, 1200);
+        const optionsGrid = modal.querySelector<HTMLElement>('.send-harness-options-grid');
+        if (optionsGrid) await spotlightElNoScroll(ctx, optionsGrid, 1200);
+        const confirmBtn = modal.querySelector<HTMLElement>('.send-harness-confirm-btn');
+        if (confirmBtn) await spotlightElNoScroll(ctx, confirmBtn, 1000);
+        await ctx.delay(400);
+        const cancel = modal.querySelector<HTMLElement>('[data-testid="send-harness-cancel"]');
+        if (cancel) { cancel.click(); await ctx.delay(300); }
       },
     },
   ],

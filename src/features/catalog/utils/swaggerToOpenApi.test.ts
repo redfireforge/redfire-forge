@@ -271,6 +271,32 @@ describe('validateOpenApi3', () => {
     };
     expect(validateOpenApi3(doc).some(e => e.includes('(path item)'))).toBe(true);
   });
+
+  it('ignores external refs and unknown component sections without flagging the document invalid', () => {
+    const doc = {
+      ...validDoc,
+      paths: {
+        '/x': {
+          get: {
+            responses: {
+              '200': {
+                description: 'ok',
+                content: {
+                  'application/json': {
+                    schema: { $ref: 'https://example.com/schema.json' },
+                  },
+                },
+              },
+            },
+          },
+        },
+        '/noop': 'skip-me',
+      },
+      components: { schemas: {}, 'x-internal': {} },
+    };
+
+    expect(validateOpenApi3(doc)).toEqual([]);
+  });
 });
 
 // ─── normalizeConvertedOpenApi3 ──────────────────────────
@@ -389,6 +415,57 @@ describe('normalizeConvertedOpenApi3', () => {
   it('is a no-op when paths is missing or not an object', () => {
     expect(normalizeConvertedOpenApi3({ openapi: '3.0.4' }).doc.paths).toBeUndefined();
     expect(normalizeConvertedOpenApi3({ openapi: '3.0.4', paths: [] }).doc.paths).toEqual([]);
+  });
+
+  it('reorders extra top-level keys, derives tag descriptions, and ignores non-object path items', () => {
+    const input = {
+      info: { title: 'Tagged', version: '1' },
+      openapi: '3.1.0',
+      paths: {
+        '/noop': null,
+        '/widgets': {
+          get: { responses: { '200': { description: 'ok' } }, tags: ['VehiclePurchaseOffers', 'Status.', ''] },
+          post: { responses: { '201': { description: 'created' } }, tags: ['VehiclePurchaseOffers'] },
+        },
+      },
+      components: {},
+      'x-extra': { keep: true },
+    };
+
+    const { doc } = normalizeConvertedOpenApi3(input);
+    expect(Object.keys(doc)).toEqual(['openapi', 'info', 'tags', 'paths', 'components', 'x-extra']);
+    expect(doc.tags).toEqual([
+      { name: 'VehiclePurchaseOffers', description: 'Vehicle purchase offers.' },
+      { name: 'Status.', description: 'Status.' },
+      { name: '', description: '' },
+    ]);
+  });
+
+  it('preserves an existing tags array and expands JSON-encoded schema examples', () => {
+    const input = {
+      openapi: '3.1.0',
+      info: { title: 'Examples', version: '1' },
+      tags: [{ name: 'Existing', description: 'Keep me' }],
+      paths: {
+        '/widgets': {
+          get: { responses: { '200': { description: 'ok' } } },
+        },
+      },
+      components: {
+        schemas: {
+          Widget: { type: 'object', example: '{"id":1,"items":[1,2]}' },
+          WidgetList: { type: 'array', example: '[{"id":2}]' },
+          Raw: { type: 'string', example: '{oops' },
+        },
+      },
+    };
+
+    const { doc } = normalizeConvertedOpenApi3(input);
+    expect(doc.tags).toEqual([{ name: 'Existing', description: 'Keep me' }]);
+    const schemas = (doc.components as Record<string, unknown>).schemas as Record<string, Record<string, unknown>>;
+    expect(schemas.Widget.example).toEqual({ id: 1, items: [1, 2] });
+    expect(schemas.WidgetList.example).toEqual([{ id: 2 }]);
+    expect(schemas.Raw.example).toBe('{oops');
   });
 });
 
