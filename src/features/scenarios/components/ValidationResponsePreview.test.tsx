@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import ValidationResponsePreview from './ValidationResponsePreview';
@@ -119,5 +119,32 @@ describe('ValidationResponsePreview', () => {
     fireEvent.change(input, { target: { value: 'a' } });
     fireEvent.click(screen.getByRole('button', { name: 'Clear search' }));
     expect(input).toHaveValue('');
+  });
+
+  it('toggles the preview from the header click and keyboard handlers', () => {
+    render(<ValidationResponsePreview responsePreviewJson='{"ab":"ab"}' isPending={false} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse sample response' }));
+    expect(screen.queryByLabelText('Search sample response')).toBeNull();
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Expand sample response' }), { key: ' ' });
+    expect(screen.getByLabelText('Search sample response')).toBeInTheDocument();
+
+    fireEvent.keyDown(screen.getByRole('button', { name: 'Collapse sample response' }), { key: 'Enter' });
+    expect(screen.queryByLabelText('Search sample response')).toBeNull();
+  });
+
+  it('focuses and selects the active match when navigating results', () => {
+    render(<ValidationResponsePreview responsePreviewJson='line1\n{"ab":"ab"}' isPending={false} />);
+    const textarea = screen.getByLabelText('Current sample response') as HTMLTextAreaElement;
+    const focusSpy = vi.spyOn(textarea, 'focus');
+    const selectionSpy = vi.spyOn(textarea, 'setSelectionRange');
+    Object.defineProperty(textarea, 'clientHeight', { value: 48, configurable: true });
+
+    fireEvent.change(screen.getByLabelText('Search sample response'), { target: { value: 'ab' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Next match' }));
+
+    expect(focusSpy).toHaveBeenCalled();
+    expect(selectionSpy).toHaveBeenCalledWith(expect.any(Number), expect.any(Number));
   });
 });

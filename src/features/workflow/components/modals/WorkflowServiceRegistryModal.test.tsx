@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, selectOptionByIndex } from '../../../../test-utils/customSelectHelper';
 import WorkflowServiceRegistryModal, {
   resolveInheritLabel,
   authSummary,
@@ -104,11 +105,9 @@ describe('WorkflowServiceRegistryModal', () => {
 
   it('links a microservice and auto-populates urls', () => {
     render(<WorkflowServiceRegistryModal {...baseProps} />);
-    const msSelect = document.querySelector('.wf-svc-top-fields select') as HTMLSelectElement;
-    fireEvent.change(msSelect, { target: { value: 'ms1' } });
+    selectOption(document.querySelector('.wf-svc-top-fields')!, 'Users');
     expect(screen.getByText(/URLs auto-populated/)).toBeTruthy();
-    // unlink
-    fireEvent.change(msSelect, { target: { value: '' } });
+    selectOption(document.querySelector('.wf-svc-top-fields')!, 'None (manual)');
   });
 
   it('toggles endpoint enabled and edits url', () => {
@@ -124,41 +123,40 @@ describe('WorkflowServiceRegistryModal', () => {
     render(<WorkflowServiceRegistryModal {...baseProps} />);
     const toggle = document.querySelector('.wf-svc-auth-toggle') as HTMLButtonElement;
     fireEvent.click(toggle);
-    const authSelect = document.querySelector('.wf-svc-matrix-auth-expanded select') as HTMLSelectElement;
-    fireEvent.change(authSelect, { target: { value: 'bearer' } });
+    const expanded = document.querySelector('.wf-svc-matrix-auth-expanded')!;
+    selectOption(expanded, 'Bearer Token');
     expect(screen.getByText('Token')).toBeTruthy();
-    fireEvent.change(authSelect, { target: { value: 'basic' } });
+    selectOption(expanded, 'Basic Auth');
     expect(screen.getByText('Username')).toBeTruthy();
-    fireEvent.change(authSelect, { target: { value: 'apikey' } });
+    selectOption(expanded, 'API Key');
     expect(screen.getByText('Key Name')).toBeTruthy();
-    fireEvent.change(authSelect, { target: { value: 'oauth2' } });
+    selectOption(expanded, 'OAuth2 Client Credentials');
     expect(screen.getByText('Token URL')).toBeTruthy();
-    fireEvent.change(authSelect, { target: { value: 'global-profile' } });
+    selectOption(expanded, 'Global Auth Profile');
     expect(screen.getByText('Profile')).toBeTruthy();
   });
 
   it('edits inline bearer fields and resets to inherit', () => {
     render(<WorkflowServiceRegistryModal {...baseProps} />);
     fireEvent.click(document.querySelector('.wf-svc-auth-toggle') as HTMLButtonElement);
-    const authSelect = document.querySelector('.wf-svc-matrix-auth-expanded select') as HTMLSelectElement;
-    fireEvent.change(authSelect, { target: { value: 'bearer' } });
+    const expanded = document.querySelector('.wf-svc-matrix-auth-expanded')!;
+    selectOption(expanded, 'Bearer Token');
     const prefix = screen.getByText('Prefix').parentElement!.querySelector('input') as HTMLInputElement;
     fireEvent.change(prefix, { target: { value: 'JWT' } });
     const token = screen.getByText('Token').parentElement!.querySelector('input') as HTMLInputElement;
     fireEvent.change(token, { target: { value: 'tok' } });
-    fireEvent.change(authSelect, { target: { value: 'basic' } });
+    selectOption(expanded, 'Basic Auth');
     fireEvent.change(screen.getByText('Username').parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 'u' } });
     fireEvent.change(screen.getByText('Password').parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 'p' } });
-    fireEvent.change(authSelect, { target: { value: 'apikey' } });
+    selectOption(expanded, 'API Key');
     fireEvent.change(screen.getByText('Key Name').parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 'X' } });
     fireEvent.change(screen.getByText('Key Value').parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 'v' } });
-    fireEvent.change(screen.getByText('In').parentElement!.querySelector('select') as HTMLSelectElement, { target: { value: 'query' } });
-    fireEvent.change(authSelect, { target: { value: 'oauth2' } });
+    selectOption(screen.getByText('In').closest('.wf-config-field')!, 'Query');
+    selectOption(expanded, 'OAuth2 Client Credentials');
     fireEvent.change(screen.getByText('Token URL').parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 'http://t' } });
     fireEvent.change(screen.getByText('Client ID').parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 'c' } });
     fireEvent.change(screen.getByText('Client Secret').parentElement!.querySelector('input') as HTMLInputElement, { target: { value: 's' } });
     fireEvent.click(screen.getByText('Reset to Inherit'));
-    // after reset, expanded panel closes
     expect(document.querySelector('.wf-svc-matrix-auth-expanded')).toBeNull();
   });
 
@@ -173,7 +171,7 @@ describe('WorkflowServiceRegistryModal', () => {
 
   it('expands inline auth when microservice linked (prefills from env profile)', () => {
     render(<WorkflowServiceRegistryModal {...baseProps} />);
-    fireEvent.change(document.querySelector('.wf-svc-top-fields select') as HTMLSelectElement, { target: { value: 'ms1' } });
+    selectOption(document.querySelector('.wf-svc-top-fields')!, 'Users');
     const toggle = document.querySelector('.wf-svc-auth-toggle') as HTMLButtonElement;
     fireEvent.click(toggle);
     expect(document.querySelector('.wf-svc-matrix-auth-expanded')).toBeTruthy();
@@ -245,13 +243,55 @@ describe('WorkflowServiceRegistryModal', () => {
     ];
     render(<WorkflowServiceRegistryModal {...baseProps} globalAuthProfiles={profiles} />);
     fireEvent.click(document.querySelector('.wf-svc-auth-toggle') as HTMLButtonElement);
-    const authSelect = document.querySelector('.wf-svc-matrix-auth-expanded select') as HTMLSelectElement;
-    fireEvent.change(authSelect, { target: { value: 'global-profile' } });
-    const profileSelect = Array.from(document.querySelectorAll('.wf-svc-matrix-auth-expanded select')).find(
-      (s) => Array.from(s.options).some((o) => o.value === 'gp2'),
-    ) as HTMLSelectElement;
-    fireEvent.change(profileSelect, { target: { value: 'gp2' } });
-    expect(profileSelect.value).toBe('gp2');
+    const expanded = document.querySelector('.wf-svc-matrix-auth-expanded')!;
+    selectOption(expanded, 'Global Auth Profile');
+    selectOptionByIndex(expanded, 1, 'Alt (basic)');
+    expect(expanded.querySelectorAll('.cs-wrapper')[1]?.querySelector('.cs-text')?.textContent).toBe('Alt (basic)');
+  });
+
+  it('omits the global profile auth option when no profiles are available', () => {
+    render(<WorkflowServiceRegistryModal {...baseProps} globalAuthProfiles={[]} />);
+    fireEvent.click(document.querySelector('.wf-svc-auth-toggle') as HTMLButtonElement);
+
+    const expanded = document.querySelector('.wf-svc-matrix-auth-expanded')!;
+    fireEvent.click(expanded.querySelector('.cs-trigger') as HTMLButtonElement);
+
+    expect(screen.queryByText('Global Auth Profile')).toBeNull();
+  });
+
+  it('treats whitespace-only urls as disabled in counts and fills missing microservice urls with empty strings', () => {
+    const sparseServices: WorkflowService[] = [
+      {
+        id: 's1',
+        name: 'svc-a',
+        endpoints: [
+          { envId: 'env1', url: '   ', enabled: true, authMode: 'inherit', source: 'manual' },
+        ],
+        defaultAuth: { type: 'none' },
+      } as unknown as WorkflowService,
+    ];
+    const sparseMicroservices: Microservice[] = [
+      {
+        id: 'ms1',
+        name: 'Users',
+        baseUrls: { env1: 'http://users.dev' },
+      } as unknown as Microservice,
+    ];
+
+    render(
+      <WorkflowServiceRegistryModal
+        {...baseProps}
+        services={sparseServices}
+        microservices={sparseMicroservices}
+        selectedEnvId="env2"
+      />,
+    );
+
+    expect(screen.getByText('0/3 envs')).toBeTruthy();
+
+    selectOption(document.querySelector('.wf-svc-top-fields')!, 'Users');
+    const urlInputs = document.querySelectorAll('.wf-svc-matrix-col-url input');
+    expect((urlInputs[1] as HTMLInputElement).value).toBe('');
   });
 
   describe('resolveInheritLabel', () => {

@@ -8,13 +8,15 @@ MAX_LINES="${MAX_LINES:-900}"
 EXCLUDE_PATTERN='(^|/)(packages/demo-hub/|e2e/|playwright/|test-data/|artifacts/|build-artifacts/|coverage/|coverage-|cov-|dist/|dist-cli/|dist-server/|src-tauri/target/|docker/graphql/node_modules/)|(^|/)(__tests__/|tests?/)|\.(test|spec|demo)\.(ts|tsx|js|jsx|mjs|cjs)$'
 
 mapfile -t files < <(
-  git ls-files '*.{ts,tsx,js,jsx,mjs,cjs,rs,java,kt,kts,go,py,cs}'
+  git ls-files -- \
+    '*.ts' '*.tsx' '*.js' '*.jsx' '*.mjs' '*.cjs' \
+    '*.rs' '*.java' '*.kt' '*.kts' '*.go' '*.py' '*.cs'
 )
 
 violations=()
 
 for file in "${files[@]}"; do
-  if [[ "$file" =~ $EXCLUDE_PATTERN ]]; then
+  if [[ "$file" =~ $EXCLUDE_PATTERN || "$file" =~ (_test|_spec)\.(rs|go|py|kt|kts|java|cs)$ ]]; then
     continue
   fi
 
