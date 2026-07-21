@@ -14,6 +14,7 @@ const rows = [];
 for (const [file, cov] of Object.entries(raw)) {
   const normalized = file.replace(/\\/g, '/');
   if (!normalized.includes('/src/') && !normalized.includes('/src-server/') && !normalized.includes('/cli/')) continue;
+  if (file.includes('/src/test-utils/')) continue;
   if (file.includes('__test-utils__')) continue;
   if (file.includes('.test-utils.')) continue;
   if (file.endsWith('shared/types/index.ts')) continue;

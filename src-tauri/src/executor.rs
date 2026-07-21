@@ -1,3 +1,4 @@
+pub(crate) use crate::executor_detail_level::filter_batch;
 use crate::histogram::{MetricsSnapshot, StreamingMetrics};
 use crate::types::*;
 use crate::validation_result::build_validation_result;
@@ -14,8 +15,6 @@ use tokio_util::sync::CancellationToken;
 
 const MAX_BODY_LEN: usize = 2000;
 const BATCH_INTERVAL: Duration = Duration::from_millis(100);
-const SAMPLED_BATCH_CAP: usize = 10;
-
 static RESULT_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 pub fn reset_result_counter() {
@@ -571,22 +570,6 @@ pub async fn run_pool(
         Some(metrics.lock().unwrap().snapshot(final_elapsed))
     };
     (all_results, tripped, final_metrics)
-}
-
-pub(crate) fn filter_batch(detail_level: &DetailLevel, batch: &mut Vec<ExecutionResult>) -> Vec<ExecutionResult> {
-    match detail_level {
-        DetailLevel::Full => std::mem::take(batch),
-        DetailLevel::MetricsOnly => {
-            batch.clear();
-            vec![]
-        }
-        DetailLevel::Sampled => {
-            let cap = batch.len().min(SAMPLED_BATCH_CAP);
-            let sampled: Vec<ExecutionResult> = batch.drain(..cap).collect();
-            batch.clear();
-            sampled
-        }
-    }
 }
 
 // ── Load Profile Executor ────────────────────────────────
