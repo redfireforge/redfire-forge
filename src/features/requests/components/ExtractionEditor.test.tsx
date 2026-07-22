@@ -163,15 +163,19 @@ describe('ExtractionEditor', () => {
 
   it('renders source select with Body, Header, Status options', () => {
     render(<ExtractionEditor extractions={[makeExtraction()]} onChange={vi.fn()} />);
-    const select = screen.getByLabelText('Source') as HTMLSelectElement;
-    const options = Array.from(select.options).map(o => o.value);
-    expect(options).toEqual(['body', 'header', 'status']);
+    const trigger = document.querySelector('.ext-cell-source .cs-trigger')!;
+    fireEvent.click(trigger);
+    const items = Array.from(document.querySelectorAll('.ext-cell-source .cs-item'));
+    const labels = items.map(el => el.querySelector('.cs-item-label')?.textContent);
+    expect(labels).toEqual(['Body', 'Header', 'Status']);
   });
 
   it('updates source on change', () => {
     const onChange = vi.fn();
     render(<ExtractionEditor extractions={[makeExtraction()]} onChange={onChange} />);
-    fireEvent.change(screen.getByLabelText('Source'), { target: { value: 'header' } });
+    const trigger = document.querySelector('.ext-cell-source .cs-trigger')!;
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByText('Header'));
     expect(onChange).toHaveBeenCalledWith([expect.objectContaining({ source: 'header' })]);
   });
 
@@ -464,9 +468,11 @@ describe('ExtractionEditor', () => {
         onChange={vi.fn()}
       />,
     );
-    const sourceSelect = screen.getByLabelText('Source') as HTMLSelectElement;
-    expect(sourceSelect.options).toHaveLength(1);
-    expect(sourceSelect.options[0].text).toBe('Body');
+    const trigger = document.querySelector('.ext-cell-source .cs-trigger')!;
+    fireEvent.click(trigger);
+    const items = Array.from(document.querySelectorAll('.ext-cell-source .cs-item'));
+    expect(items).toHaveLength(1);
+    expect(items[0].querySelector('.cs-item-label')?.textContent).toBe('Body');
   });
 
   it('applies fallback from path picker save', () => {

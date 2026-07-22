@@ -1,7 +1,7 @@
 /**
  * REQ-6 v2: Definition Versioning & History
  *
- * 4 steps: create two requests from scratch → edit & navigate (auto-snapshot) →
+ * 5 steps: create two requests from scratch → edit request → navigate (auto-snapshot) →
  * compare versions side-by-side → restore & rename.
  * Public API: JSONPlaceholder. Follows v2 principles: create from scratch, rich spotlights.
  */
@@ -173,7 +173,7 @@ export const reqVersioningLesson: DemoLesson = {
   description:
     'Never lose a working request. Learn how auto-snapshots capture every change, ' +
     'compare versions side-by-side, and restore previous definitions with one click.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 6,
   initialTab: 'requests',
   allowedTabs: ['requests'],
 
@@ -244,82 +244,125 @@ export const reqVersioningLesson: DemoLesson = {
         '- **"Users"** → `https://jsonplaceholder.typicode.com/users`\n' +
         '- **"Posts"** → `https://jsonplaceholder.typicode.com/posts`\n\n' +
         'We need two requests because auto-snapshot triggers when you **navigate away** from one to another.',
-      highlight: REQ.SIDEBAR_ADD_BTN,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await closeOpenOverlays(ctx);
         await deleteCollectionByName(ctx, COLLECTION_NAME);
       },
       action: async (ctx) => {
-        // Create collection — show the + button, then open the menu
+        // ── Create collection ──
         await spotlight(ctx, REQ.SIDEBAR_ADD_BTN, T.spotRead);
         await ctx.delay(T.afterSpot);
         await ctx.click(REQ.SIDEBAR_ADD_BTN);
         await ctx.waitFor(REQ.ADD_DROPDOWN, 1500);
         await ctx.delay(T.formOpen);
+
+        // Spotlight the "URL Collection" option before clicking
+        const addColItem = firstVisible(REQ.ADD_URL_COLLECTION);
+        if (addColItem) await spotlightElNoScroll(ctx, addColItem, T.spotBrief);
         await ctx.click(REQ.ADD_URL_COLLECTION);
         await ctx.waitFor(REQ.COLLECTION_MODAL, 2000);
         await ctx.delay(T.formOpen);
-        const nameInput = document.querySelector<HTMLInputElement>('.req-col-modal .req-input');
-        if (nameInput) { nameInput.focus(); fillControlledInput(nameInput, COLLECTION_NAME); await ctx.delay(T.afterType); }
-        document.querySelector<HTMLButtonElement>('.req-col-modal .btn-primary')?.click();
-        await ctx.delay(T.afterClick);
-        await spotlight(ctx, REQ.colByName(COLLECTION_NAME), T.spotRead);
-        await ctx.delay(T.afterSpot);
 
-        // Add "Users" request
+        // Fill collection name — spotlight the input, type, then spotlight the filled value
+        const nameInput = document.querySelector<HTMLInputElement>('.req-col-modal .req-input');
+        if (nameInput) {
+          await spotlightElNoScroll(ctx, nameInput, T.spotBrief);
+          nameInput.focus();
+          fillControlledInput(nameInput, COLLECTION_NAME);
+          await ctx.delay(T.afterType);
+          await spotlightElNoScroll(ctx, nameInput, T.spotRead);
+        }
+
+        // Spotlight the Create button, then click
+        const createBtn = document.querySelector<HTMLButtonElement>('.req-col-modal .btn-primary');
+        if (createBtn) {
+          await spotlightElNoScroll(ctx, createBtn, T.spotBrief);
+          createBtn.click();
+        }
+        await ctx.delay(T.afterClick);
+
+        // ── Add "Users" request ──
         const col = firstVisible(REQ.colByName(COLLECTION_NAME));
         if (!col) return;
         let opened = await openContextMenuForElement(ctx, col);
         if (!opened) return;
+        await ctx.delay(400);
+
+        // Spotlight the "Add Request" menu item before clicking
+        const menu1 = firstVisible(REQ.CONTEXT_MENU);
+        if (menu1) {
+          const addReqBtn = Array.from(menu1.querySelectorAll<HTMLButtonElement>('button'))
+            .find(b => b.textContent?.trim() === 'Add Request');
+          if (addReqBtn) await spotlightElNoScroll(ctx, addReqBtn, T.spotBrief);
+        }
         await clickContextItemVisible(ctx, 'Add Request');
+        await ctx.delay(T.formOpen);
+
+        // Fill the request name prompt
         await fillNewRequestPrompt(ctx, REQUEST_1_NAME);
         await ctx.waitFor(REQ.URL_INPUT, 2200);
-        await ctx.delay(T.afterClick);
+        await ctx.delay(T.formOpen);
+
+        // Fill URL — spotlight empty input, type, spotlight filled value
         const urlInput1 = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
         if (urlInput1) {
+          await spotlightElNoScroll(ctx, urlInput1, T.spotBrief);
+          urlInput1.focus();
           fillControlledInput(urlInput1, REQUEST_1_URL);
+          urlInput1.blur();
           await ctx.delay(T.afterType);
           await spotlightElNoScroll(ctx, urlInput1, T.spotRead);
           await ctx.delay(T.afterSpot);
         }
 
-        // Add "Posts" request
+        // ── Add "Posts" request ──
         const col2 = firstVisible(REQ.colByName(COLLECTION_NAME));
         if (!col2) return;
         opened = await openContextMenuForElement(ctx, col2);
         if (!opened) return;
+        await ctx.delay(400);
+
+        // Spotlight the "Add Request" menu item
+        const menu2 = firstVisible(REQ.CONTEXT_MENU);
+        if (menu2) {
+          const addReqBtn2 = Array.from(menu2.querySelectorAll<HTMLButtonElement>('button'))
+            .find(b => b.textContent?.trim() === 'Add Request');
+          if (addReqBtn2) await spotlightElNoScroll(ctx, addReqBtn2, T.spotBrief);
+        }
         await clickContextItemVisible(ctx, 'Add Request');
+        await ctx.delay(T.formOpen);
+
+        // Fill the request name prompt
         await fillNewRequestPrompt(ctx, REQUEST_2_NAME);
         await ctx.waitFor(REQ.URL_INPUT, 2200);
-        await ctx.delay(T.afterClick);
+        await ctx.delay(T.formOpen);
+
+        // Fill URL
         const urlInput2 = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
         if (urlInput2) {
+          await spotlightElNoScroll(ctx, urlInput2, T.spotBrief);
+          urlInput2.focus();
           fillControlledInput(urlInput2, REQUEST_2_URL);
+          urlInput2.blur();
           await ctx.delay(T.afterType);
           await spotlightElNoScroll(ctx, urlInput2, T.spotRead);
           await ctx.delay(T.afterSpot);
         }
-
-        // Spotlight both in the sidebar — the outcome: two requests ready to version
-        const req1 = firstVisible(REQ.reqByName(REQUEST_1_NAME));
-        const req2 = firstVisible(REQ.reqByName(REQUEST_2_NAME));
-        if (req1) { await spotlightElNoScroll(ctx, req1, T.spotRead); await ctx.delay(T.afterSpot); }
-        if (req2) { await spotlightElNoScroll(ctx, req2, T.spotOutcome); await ctx.delay(T.afterSpot); }
       },
     },
 
-    // ── Step 2: Edit & Navigate (Auto-Snapshot) ──
+    // ── Step 2: Edit the Request ──
     {
       id: 'req6-edit',
-      title: 'Edit & Navigate (Auto-Snapshot)',
+      title: 'Edit the Request',
       description:
-        'Select **"Users"**, append `?_limit=5` to the URL, then add a custom header ' +
-        '`X-Demo-Version: v2`. Now click **"Posts"** in the sidebar (or switch tabs) — ' +
-        'this triggers an **auto-snapshot** of the edited "Users" request.\n\n' +
-        'Click back to "Users" and open the **History** tab to see the captured version ' +
-        'with a change summary.',
-      highlight: REQ.URL_INPUT,
+        'Select **"Users"** and make two visible changes:\n\n' +
+        '1. **URL** — append `?_limit=5` to limit the response to 5 items\n' +
+        '2. **Header** — switch to the **Headers** tab and add `X-Demo-Version: v2`\n\n' +
+        'These edits are **not saved yet** — they only exist in the editor. ' +
+        'The next step shows how navigating away triggers the auto-snapshot.',
+      highlight: REQ.reqByName(REQUEST_1_NAME),
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await closeOpenOverlays(ctx);
@@ -327,33 +370,38 @@ export const reqVersioningLesson: DemoLesson = {
         await selectRequestByName(ctx, REQUEST_1_NAME, COLLECTION_NAME);
       },
       action: async (ctx) => {
-        // Select "Users"
+        // Select "Users" and spotlight it in the sidebar
+        const usersItem = firstVisible(REQ.reqByName(REQUEST_1_NAME));
+        if (usersItem) await spotlightElNoScroll(ctx, usersItem, T.spotRead);
         await selectRequestByName(ctx, REQUEST_1_NAME, COLLECTION_NAME);
-        await ctx.delay(T.afterClick);
+        await ctx.delay(T.tabSwitch);
 
-        // Edit URL — append limit. Show the field first, then the edited value.
+        // ── 1. Edit URL — spotlight the original, then the edited value ──
         const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
         if (urlInput) {
           await spotlightElNoScroll(ctx, urlInput, T.spotRead);
           await ctx.delay(T.afterSpot);
           const currentUrl = urlInput.value;
           if (!currentUrl.includes(EDITED_URL_SUFFIX)) {
+            urlInput.focus();
             fillControlledInput(urlInput, currentUrl + EDITED_URL_SUFFIX);
+            urlInput.blur();
           }
           await ctx.delay(T.afterType);
-          await spotlightElNoScroll(ctx, urlInput, T.spotRead);
+          await spotlightElNoScroll(ctx, urlInput, T.spotOutcome);
           await ctx.delay(T.afterSpot);
         }
 
-        // Add header — switch to the Headers tab
+        // ── 2. Switch to Headers tab ──
         const headersTab = document.querySelector<HTMLElement>(REQ.TAB_HEADERS);
         if (headersTab) {
-          await spotlightElNoScroll(ctx, headersTab, T.spotBrief);
+          await spotlightElNoScroll(ctx, headersTab, T.spotRead);
+          await ctx.delay(T.afterSpot);
           headersTab.click();
           await ctx.delay(T.tabSwitch);
         }
 
-        // Find an empty row to reuse; only click + Add if all rows are filled
+        // Find an empty header row or add one
         let rows = document.querySelectorAll('[data-testid^="req-headers-row-"]');
         let targetRow: Element | null = null;
         for (const row of rows) {
@@ -362,22 +410,78 @@ export const reqVersioningLesson: DemoLesson = {
         }
         if (!targetRow) {
           const addBtn = document.querySelector<HTMLElement>('[data-testid="req-headers-add-btn"]');
-          if (addBtn) { addBtn.click(); await ctx.delay(T.formOpen); }
+          if (addBtn) {
+            await spotlightElNoScroll(ctx, addBtn, T.spotBrief);
+            addBtn.click();
+            await ctx.delay(T.formOpen);
+          }
           rows = document.querySelectorAll('[data-testid^="req-headers-row-"]');
           targetRow = rows[rows.length - 1] ?? null;
         }
+
+        // Fill the header key and value with spotlights
         if (targetRow) {
           const keyInput = targetRow.querySelector<HTMLInputElement>('.ws-connect-kv-key');
           const valueInput = targetRow.querySelector<HTMLInputElement>('.ws-connect-kv-value');
-          if (keyInput) { fillControlledInput(keyInput, HEADER_KEY); await ctx.delay(T.afterType); }
+          if (keyInput) {
+            if (keyInput instanceof HTMLElement) await spotlightElNoScroll(ctx, keyInput, T.spotBrief);
+            fillControlledInput(keyInput, HEADER_KEY);
+            await ctx.delay(T.afterType);
+            if (keyInput instanceof HTMLElement) await spotlightElNoScroll(ctx, keyInput, T.spotRead);
+            await ctx.delay(T.afterSpot);
+          }
           if (valueInput) {
             fillControlledInput(valueInput, HEADER_VALUE);
             await ctx.delay(T.afterType);
-            if (valueInput instanceof HTMLElement) { await spotlightElNoScroll(ctx, valueInput, T.spotRead); await ctx.delay(T.afterSpot); }
+            if (valueInput instanceof HTMLElement) await spotlightElNoScroll(ctx, valueInput, T.spotRead);
+            await ctx.delay(T.afterSpot);
+          }
+
+          // Spotlight the entire header row as the outcome
+          if (targetRow instanceof HTMLElement) {
+            await spotlightElNoScroll(ctx, targetRow, T.spotOutcome);
+            await ctx.delay(T.afterSpot);
           }
         }
+      },
+    },
 
-        // Navigate to "Posts" → triggers auto-snapshot (the key concept)
+    // ── Step 3: Navigate & See Auto-Snapshot ──
+    {
+      id: 'req6-snapshot',
+      title: 'Navigate & See Auto-Snapshot',
+      description:
+        'Now click **"Posts"** in the sidebar. This navigation triggers an **auto-snapshot** ' +
+        'of the edited "Users" request — no save button needed.\n\n' +
+        'Navigate back to **"Users"** and open the **History** tab. You\'ll see a new version ' +
+        'entry with a **change summary** showing exactly what changed: URL modified, 1 header added.',
+      preAction: async (ctx) => {
+        ensureRequestsTab(ctx);
+        await closeOpenOverlays(ctx);
+        await ensureBothRequests(ctx);
+        await selectRequestByName(ctx, REQUEST_1_NAME, COLLECTION_NAME);
+        // Ensure the edits exist (rapid-Next guard)
+        const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
+        if (urlInput && !urlInput.value.includes(EDITED_URL_SUFFIX)) {
+          fillControlledInput(urlInput, urlInput.value + EDITED_URL_SUFFIX);
+        }
+      },
+      action: async (ctx) => {
+        // Spotlight "Users" in sidebar — the request we just edited
+        const usersItem = firstVisible(REQ.reqByName(REQUEST_1_NAME));
+        if (usersItem) {
+          await spotlightElNoScroll(ctx, usersItem, T.spotRead);
+          await ctx.delay(T.afterSpot);
+        }
+
+        // Spotlight the edited URL so the viewer remembers the change
+        const urlBefore = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
+        if (urlBefore) {
+          await spotlightElNoScroll(ctx, urlBefore, T.spotRead);
+          await ctx.delay(T.afterSpot);
+        }
+
+        // ── Navigate to "Posts" → triggers auto-snapshot ──
         const postsReq = firstVisible(REQ.reqByName(REQUEST_2_NAME));
         if (postsReq) {
           await spotlightElNoScroll(ctx, postsReq, T.spotRead);
@@ -386,27 +490,44 @@ export const reqVersioningLesson: DemoLesson = {
           await ctx.delay(T.tabSwitch);
         }
 
-        // Navigate back to "Users"
+        // Pause on "Posts" so the viewer sees we navigated away
+        await ctx.delay(T.spotRead);
+
+        // ── Navigate back to "Users" ──
+        const usersBack = firstVisible(REQ.reqByName(REQUEST_1_NAME));
+        if (usersBack) {
+          await spotlightElNoScroll(ctx, usersBack, T.spotRead);
+          await ctx.delay(T.afterSpot);
+        }
         await selectRequestByName(ctx, REQUEST_1_NAME, COLLECTION_NAME);
         await ctx.delay(T.tabSwitch);
 
-        // Open History tab
+        // ── Open History tab ──
         const historyTab = document.querySelector<HTMLElement>(REQ.TAB_HISTORY);
         if (historyTab) {
-          await spotlightElNoScroll(ctx, historyTab, T.spotBrief);
+          await spotlightElNoScroll(ctx, historyTab, T.spotRead);
+          await ctx.delay(T.afterSpot);
           historyTab.click();
           await ctx.delay(T.tabSwitch);
         }
 
-        // Spotlight the first version item — the outcome: the captured snapshot
+        // ── Spotlight the captured version entry ──
         const firstVersionItem = document.querySelector<HTMLElement>(REQ.VERSION_ITEM);
         if (firstVersionItem) {
           await spotlightElNoScroll(ctx, firstVersionItem, T.spotOutcome);
           await ctx.delay(T.afterSpot);
-          // Also spotlight the change summary text so the viewer reads it
+
+          // Spotlight the change summary text
           const summary = firstVersionItem.querySelector<HTMLElement>('.test-def-version-item-summary');
           if (summary && summary.textContent?.trim()) {
-            await spotlightElNoScroll(ctx, summary, T.spotRead);
+            await spotlightElNoScroll(ctx, summary, T.spotOutcome);
+            await ctx.delay(T.afterSpot);
+          }
+
+          // Spotlight the action buttons (View, Restore, Rename, Delete)
+          const actions = firstVersionItem.querySelector<HTMLElement>('.test-def-version-item-actions');
+          if (actions) {
+            await spotlightElNoScroll(ctx, actions, T.spotRead);
             await ctx.delay(T.afterSpot);
           }
         }

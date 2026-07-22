@@ -5,6 +5,7 @@ import type { TopicHealthFilter, TopicPartitionBucket, TopicRetentionBucket } fr
 import { useTopicMessageBrowser } from './useTopicMessageBrowser';
 import { KafkaTopicDetailPanel } from './KafkaTopicDetailPanel';
 import { useCallback } from 'react';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 
 interface KafkaTopicExplorerPageProps {
   kafkaState: UseKafkaStateReturn;
@@ -48,36 +49,44 @@ export function KafkaTopicExplorerContent({ kafkaState }: KafkaTopicExplorerCont
             data-testid="topic-search"
           />
           <div className="kafka-explorer-filter-row" data-testid="topic-filter-row">
-            <select
+            <CustomSelect
               value={explorer.healthFilter}
-              onChange={(e) => explorer.setHealthFilter(e.target.value as TopicHealthFilter)}
+              onChange={(v) => explorer.setHealthFilter(v as TopicHealthFilter)}
               disabled={!explorer.hasCachedDetails}
-              title={explorer.hasCachedDetails ? undefined : 'Load a topic to populate this filter'}
               data-testid="health-filter"
-            >
-              <option value="all">Health: All</option>
-              <option value="healthy">Healthy</option>
-              <option value="degraded">Warning</option>
-              <option value="unknown">Unknown</option>
-            </select>
-            <select value={explorer.partitionFilter} onChange={(e) => explorer.setPartitionFilter(e.target.value as TopicPartitionBucket)} data-testid="partition-filter">
-              <option value="any">Parts: Any</option>
-              <option value="1-4">1–4</option>
-              <option value="5-12">5–12</option>
-              <option value="12+">12+</option>
-            </select>
-            <select
+              options={[
+                { value: 'all', label: 'Health: All' },
+                { value: 'healthy', label: 'Healthy' },
+                { value: 'degraded', label: 'Warning' },
+                { value: 'unknown', label: 'Unknown' },
+              ]}
+              aria-label="Health filter"
+            />
+            <CustomSelect
+              value={explorer.partitionFilter}
+              onChange={(v) => explorer.setPartitionFilter(v as TopicPartitionBucket)}
+              data-testid="partition-filter"
+              options={[
+                { value: 'any', label: 'Parts: Any' },
+                { value: '1-4', label: '1–4' },
+                { value: '5-12', label: '5–12' },
+                { value: '12+', label: '12+' },
+              ]}
+              aria-label="Partition filter"
+            />
+            <CustomSelect
               value={explorer.retentionFilter}
-              onChange={(e) => explorer.setRetentionFilter(e.target.value as TopicRetentionBucket)}
+              onChange={(v) => explorer.setRetentionFilter(v as TopicRetentionBucket)}
               disabled={!explorer.hasCachedDetails}
-              title={explorer.hasCachedDetails ? undefined : 'Load a topic to populate this filter'}
               data-testid="retention-filter"
-            >
-              <option value="any">Retention: Any</option>
-              <option value="<1d">{'< 1 day'}</option>
-              <option value="1-7d">1–7 days</option>
-              <option value=">7d">{'> 7 days'}</option>
-            </select>
+              options={[
+                { value: 'any', label: 'Retention: Any' },
+                { value: '<1d', label: '< 1 day' },
+                { value: '1-7d', label: '1–7 days' },
+                { value: '>7d', label: '> 7 days' },
+              ]}
+              aria-label="Retention filter"
+            />
             <label className="kafka-explorer-internal-toggle">
               <input type="checkbox" checked={explorer.showInternal} onChange={(e) => explorer.setShowInternal(e.target.checked)} />
               Internal

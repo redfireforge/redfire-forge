@@ -1,3 +1,4 @@
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import { formatUptime } from '../../shared/websocket/types';
 import type { WsReplaySpeed } from '../../shared/websocket/types';
 
@@ -66,19 +67,20 @@ export function WebSocketReplayBar({
         </button>
         <div className="ws-replay-speed-group">
           <span className="ws-replay-speed-label">Speed</span>
-          <select
+          <CustomSelect
             className="ws-replay-speed"
-            value={replaySpeed}
-            onChange={(e) => onSetReplaySpeed?.(Number(e.target.value) as WsReplaySpeed)}
+            value={String(replaySpeed)}
+            onChange={(v) => onSetReplaySpeed?.(Number(v) as WsReplaySpeed)}
+            options={[
+              { value: '1', label: '1×' },
+              { value: '2', label: '2×' },
+              { value: '5', label: '5×' },
+              { value: '10', label: '10×' },
+              { value: '0', label: 'Max' },
+            ]}
             data-testid="replay-speed-select"
             aria-label="Replay speed"
-          >
-            <option value={1}>1×</option>
-            <option value={2}>2×</option>
-            <option value={5}>5×</option>
-            <option value={10}>10×</option>
-            <option value={0}>Max</option>
-          </select>
+          />
         </div>
       </div>
 

@@ -9,6 +9,7 @@ import type { WorkflowExecutionTrace } from '../../../shared/types';
 import { isSampledIteration } from '../utils/sampledIterations';
 import { type PanelMode, loadPanelMode, savePanelMode } from '../../../shared/utils/panelMode';
 import { useFloatingPanel } from '../../../shared/hooks/useFloatingPanel';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 const RE_CONSOLE_MODE_KEY = 're-console-default-mode';
 
@@ -237,20 +238,22 @@ export default function ResultsExplorerConsolePanel({
           Search
         </button>
         <span className="re-console-actions-sep" />
-        <select
+        <CustomSelect
           className="re-console-mode-select"
           value={mode}
-          onChange={(e) => {
-            const m = e.target.value as PanelMode;
+          onChange={(v) => {
+            const m = v as PanelMode;
             setMode(m);
             setAsDefault(m);
           }}
-          title="Console display mode (saved as default)"
-        >
-          <option value="docked">⬓ Bottom</option>
-          <option value="floating">⧉ Floating</option>
-          <option value="maximized">⬜ Full Screen</option>
-        </select>
+          options={[
+            { value: 'docked', label: '⬓ Bottom' },
+            { value: 'floating', label: '⧉ Floating' },
+            { value: 'maximized', label: '⬜ Full Screen' },
+          ]}
+          aria-label="Console display mode (saved as default)"
+          size="sm"
+        />
       </div>
     </div>
   );

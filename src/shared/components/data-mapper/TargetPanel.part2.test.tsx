@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import TargetPanel from './TargetPanel';
 import type { MapperTarget, Mapping } from './types';
 import type { Assertion } from '../../types';
@@ -345,7 +346,7 @@ describe('TargetPanel', () => {
       const { rerender } = render(<TargetPanel {...props} resetViewSignal={null} />);
       rerender(<TargetPanel {...props} resetViewSignal={42} />);
       expect(screen.getByText(/No target schema/)).toBeTruthy();
-      expect((screen.getByLabelText('Filter target fields') as HTMLSelectElement).value).toBe('all');
+      expect(getCustomSelectValue(screen.getByLabelText('Filter target fields').closest('.cs-wrapper')!)).toBe('All');
     });
 
     it('togglePasteMode catches invalid string sampleData and sets empty paste text', () => {
@@ -377,7 +378,7 @@ describe('TargetPanel', () => {
       };
       const { rerender } = render(<TargetPanel {...props} filterFailedSignal={null} />);
       rerender(<TargetPanel {...props} filterFailedSignal={1} />);
-      expect((screen.getByLabelText('Filter target fields') as HTMLSelectElement).value).toBe('failed');
+      expect(getCustomSelectValue(screen.getByLabelText('Filter target fields').closest('.cs-wrapper')!)).toBe('Failed');
     });
 
     it('filters tree leaves by verification passed paths', () => {
@@ -388,7 +389,7 @@ describe('TargetPanel', () => {
           ['email', 'fail'],
         ]),
       });
-      fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'passed' } });
+      selectOption(screen.getByLabelText('Filter target fields').closest('.cs-wrapper')!, 'Passed');
       expect(screen.getByText('userName')).toBeTruthy();
       expect(screen.queryByText('email')).toBeNull();
     });
@@ -441,7 +442,7 @@ describe('TargetPanel', () => {
         arrayAssertions: [arrAssertion],
         assertionVerifyMap: new Map([[0, { passed: true, actual: '0', expected: '0' }]]),
       });
-      fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'passed' } });
+      selectOption(screen.getByLabelText('Filter target fields').closest('.cs-wrapper')!, 'Passed');
       expect(screen.queryByText('userName')).toBeNull();
       expect(screen.getByText('email')).toBeTruthy();
     });
@@ -461,7 +462,7 @@ describe('TargetPanel', () => {
         arrayAssertions: [arrAssertion],
         assertionVerifyMap: new Map([[0, { passed: false, actual: 'x', expected: 'y' }]]),
       });
-      fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'failed' } });
+      selectOption(screen.getByLabelText('Filter target fields').closest('.cs-wrapper')!, 'Failed');
       expect(screen.getByText('userName')).toBeTruthy();
       expect(screen.queryByText('email')).toBeNull();
     });
@@ -474,7 +475,7 @@ describe('TargetPanel', () => {
         arrayAssertions: [statusAssertion],
         assertionVerifyMap: new Map([[0, { passed: true }]]),
       });
-      fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'passed' } });
+      selectOption(screen.getByLabelText('Filter target fields').closest('.cs-wrapper')!, 'Passed');
       expect(screen.getByText('userName')).toBeTruthy();
     });
   });

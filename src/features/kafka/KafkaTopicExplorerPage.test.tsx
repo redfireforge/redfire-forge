@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, isCustomSelectDisabled } from '../../test-utils/customSelectHelper';
 import { KafkaTopicExplorerPage } from './KafkaTopicExplorerPage';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import * as kafkaClient from '../../shared/kafka/kafkaClient';
@@ -168,7 +169,7 @@ describe('KafkaTopicExplorerPage', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('partition-filter'), { target: { value: '1-4' } });
+    selectOption(screen.getByTestId('partition-filter'), '1–4');
     expect(screen.getByTestId('topic-row-orders.created')).toBeTruthy();
     expect(screen.queryByTestId('topic-row-orders.updated')).toBeNull();
   });
@@ -253,7 +254,7 @@ describe('KafkaTopicExplorerPage', () => {
     expect(screen.queryByTestId('topic-row-orders.updated')).toBeNull();
   });
 
-  it('internal toggle and retention filter work', () => {
+  it('internal toggle and retention filter work', async () => {
     const state = makeKafkaState({
       topics: [
         { name: 'orders.created', partitions: 3, isInternal: false },
@@ -271,10 +272,13 @@ describe('KafkaTopicExplorerPage', () => {
     fireEvent.click(internalLabel.querySelector('input')!);
     expect(screen.getByTestId('topic-row-__consumer_offsets')).toBeTruthy();
 
-    fireEvent.change(screen.getByTestId('health-filter'), { target: { value: 'healthy' } });
+    fireEvent.click(screen.getByTestId('topic-row-orders.created'));
+    await waitFor(() => expect(isCustomSelectDisabled(screen.getByTestId('health-filter'))).toBe(false));
+
+    selectOption(screen.getByTestId('health-filter'), 'Healthy');
     expect(screen.getByTestId('topic-row-orders.created')).toBeTruthy();
 
-    fireEvent.change(screen.getByTestId('retention-filter'), { target: { value: '1-7d' } });
+    selectOption(screen.getByTestId('retention-filter'), '1–7 days');
     expect(screen.getByTestId('topic-row-orders.created')).toBeTruthy();
   });
 
@@ -370,13 +374,13 @@ describe('KafkaTopicExplorerPage', () => {
       />,
     );
 
-    const healthFilter = screen.getByTestId('health-filter') as HTMLSelectElement;
-    const retentionFilter = screen.getByTestId('retention-filter') as HTMLSelectElement;
+    const healthFilter = screen.getByTestId('health-filter');
+    const retentionFilter = screen.getByTestId('retention-filter');
     const activeChip = screen.getByRole('button', { name: /Recently Active/ });
     const laggingChip = screen.getByRole('button', { name: /Lagging Consumers/ });
 
-    expect(healthFilter.disabled).toBe(true);
-    expect(retentionFilter.disabled).toBe(true);
+    expect(isCustomSelectDisabled(healthFilter)).toBe(true);
+    expect(isCustomSelectDisabled(retentionFilter)).toBe(true);
     expect(activeChip).toHaveProperty('disabled', true);
     expect(laggingChip).toHaveProperty('disabled', true);
 
@@ -384,8 +388,8 @@ describe('KafkaTopicExplorerPage', () => {
     await waitFor(() => expect(mockDispatch).toHaveBeenCalledWith('topic-detail', expect.anything()));
 
     await waitFor(() => {
-      expect(healthFilter.disabled).toBe(false);
-      expect(retentionFilter.disabled).toBe(false);
+      expect(isCustomSelectDisabled(healthFilter)).toBe(false);
+      expect(isCustomSelectDisabled(retentionFilter)).toBe(false);
     });
   });
 });

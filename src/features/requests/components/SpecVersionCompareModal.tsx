@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { RequestItem } from '../../../shared/types';
 import { useEscapeKey } from '../../../shared/hooks/useEscapeKey';
 import { computeSpecVersionDiff } from '../../catalog/utils/versionDiff';
@@ -31,17 +32,19 @@ export function SpecVersionCompareModal({ request, onClose }: Props) {
         </div>
 
         <div className="spec-compare-selectors">
-          <select value={leftId} onChange={e => setLeftId(e.target.value)} aria-label="Left version">
-            {versions.map(v => (
-              <option key={v.id} value={v.id}>v{v.catalogVersion}</option>
-            ))}
-          </select>
+          <CustomSelect
+            value={leftId}
+            onChange={setLeftId}
+            options={versions.map(v => ({ value: v.id, label: `v${v.catalogVersion}` }))}
+            aria-label="Left version"
+          />
           <span className="spec-compare-arrow">&rarr;</span>
-          <select value={rightId} onChange={e => setRightId(e.target.value)} aria-label="Right version">
-            {versions.map(v => (
-              <option key={v.id} value={v.id}>v{v.catalogVersion}</option>
-            ))}
-          </select>
+          <CustomSelect
+            value={rightId}
+            onChange={setRightId}
+            options={versions.map(v => ({ value: v.id, label: `v${v.catalogVersion}` }))}
+            aria-label="Right version"
+          />
         </div>
 
         <div className="spec-compare-body">

@@ -3,6 +3,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { getCustomSelectValue, selectOption } from '../../../../test-utils/customSelectHelper';
 import { createInitialGrpcTabAdvancedFeaturesUiState } from '../../grpcStudioAdvancedTypes';
 import { buildAdvancedMock, makeLoadTestSummary } from '../../test-helpers/grpcAdvancedPanel.testHelpers';
 import { GrpcLoadTestPanel } from './GrpcLoadTestPanel';
@@ -139,8 +140,8 @@ describe('GrpcLoadTestPanel results coverage gaps', () => {
       />,
     );
 
-    const compareSelect = screen.getByTestId('grpc-load-test-run-compare-select') as HTMLSelectElement;
-    expect(compareSelect.value).toBe('run-baseline');
+    const compareSelect = screen.getByTestId('grpc-load-test-run-compare-select');
+    expect(getCustomSelectValue(compareSelect)).toBe('run-baseline');
     expect(screen.getByText('p99 latency (ms)')).toBeTruthy();
     expect(screen.getByText('Measured attempts')).toBeTruthy();
     expect(screen.getByText('70.00')).toBeTruthy();
@@ -181,9 +182,9 @@ describe('GrpcLoadTestPanel results coverage gaps', () => {
       />,
     );
 
-    const compareSelect = screen.getByTestId('grpc-load-test-run-compare-select') as HTMLSelectElement;
-    fireEvent.change(compareSelect, { target: { value: 'run-baseline-b' } });
-    expect(compareSelect.value).toBe('run-baseline-b');
+    const compareSelect = screen.getByTestId('grpc-load-test-run-compare-select');
+    selectOption(compareSelect, 'run-baseline-b');
+    expect(getCustomSelectValue(compareSelect)).toBe('run-baseline-b');
     expect(screen.getByText('90.00')).toBeTruthy();
     expect(screen.getByText('70')).toBeTruthy();
   });
@@ -338,7 +339,7 @@ describe('GrpcLoadTestPanel results coverage gaps', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-load-test-profile-select'), { target: { value: 'prof-2' } });
+    selectOption(screen.getByTestId('grpc-load-test-profile-select'), 'Second profile');
     expect(setSelectedLoadTestProfileId).toHaveBeenCalledWith('prof-2');
     fireEvent.click(screen.getByTestId('grpc-load-test-export-json'));
     fireEvent.click(screen.getByTestId('grpc-load-test-export-csv'));

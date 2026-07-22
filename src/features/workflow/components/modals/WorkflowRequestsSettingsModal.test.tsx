@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import WorkflowRequestsSettingsModal from './WorkflowRequestsSettingsModal';
 import type { Workflow, WorkflowNode } from '../../types/workflow';
 import type { Environment, GlobalAuthProfile, Microservice } from '../../../../shared/types';
@@ -77,6 +78,18 @@ const baseProps = {
   onClose: vi.fn(),
 };
 
+function configField(label: string): HTMLElement {
+  const field = Array.from(document.querySelectorAll('.wf-config-field')).find(
+    (el) => el.querySelector('label')?.textContent === label,
+  );
+  if (!field) throw new Error(`Missing config field: ${label}`);
+  return field as HTMLElement;
+}
+
+function switchToRequestOnlyHost() {
+  fireEvent.click(document.querySelectorAll('input[name="wf-bulk-host-mode"]')[1]);
+}
+
 describe('WorkflowRequestsSettingsModal', () => {
   it('renders nothing when closed or workflow null', () => {
     const { container: c1 } = render(<WorkflowRequestsSettingsModal {...baseProps} open={false} />);
@@ -116,31 +129,24 @@ describe('WorkflowRequestsSettingsModal', () => {
 
   it('switches to "this request only" host mode and shows env/microservice selects', () => {
     render(<WorkflowRequestsSettingsModal {...baseProps} />);
-    const radios = document.querySelectorAll('input[name="wf-bulk-host-mode"]');
-    fireEvent.click(radios[1]);
-    const selects = document.querySelectorAll('.wf-config-field select');
-    // env + microservice + auth type
-    expect(selects.length).toBeGreaterThanOrEqual(3);
+    switchToRequestOnlyHost();
+    const customSelects = document.querySelectorAll('.wf-config-field .cs-wrapper');
+    expect(customSelects.length).toBeGreaterThanOrEqual(3);
     expect(screen.getByText('Environment')).toBeTruthy();
     expect(screen.getByText('Microservice')).toBeTruthy();
   });
 
   it('changes environment select', () => {
     render(<WorkflowRequestsSettingsModal {...baseProps} />);
-    fireEvent.click(document.querySelectorAll('input[name="wf-bulk-host-mode"]')[1]);
-    const envSelect = document.querySelectorAll('.wf-config-field select')[0] as HTMLSelectElement;
-    fireEvent.change(envSelect, { target: { value: 'env1' } });
-    expect(envSelect.value).toBe('env1');
-    // reset env to empty
-    fireEvent.change(envSelect, { target: { value: '' } });
+    switchToRequestOnlyHost();
+    selectOption(configField('Environment'), 'Dev');
+    expect(configField('Environment').querySelector('.cs-text')?.textContent).toBe('Dev');
+    selectOption(configField('Environment'), 'Environment...');
   });
 
   it('changes auth type to bearer and edits token', () => {
     render(<WorkflowRequestsSettingsModal {...baseProps} />);
-    const authSelect = Array.from(document.querySelectorAll('select')).find(s =>
-      Array.from(s.options).some(o => o.value === 'bearer'),
-    ) as HTMLSelectElement;
-    fireEvent.change(authSelect, { target: { value: 'bearer' } });
+    selectOption(configField('Auth Type'), 'Bearer Token');
     expect(screen.getByText('Token')).toBeTruthy();
     const prefixInput = screen.getByText('Prefix').parentElement!.querySelector('input') as HTMLInputElement;
     fireEvent.change(prefixInput, { target: { value: 'JWT' } });
@@ -151,10 +157,7 @@ describe('WorkflowRequestsSettingsModal', () => {
 
   it('changes auth type to basic', () => {
     render(<WorkflowRequestsSettingsModal {...baseProps} />);
-    const authSelect = Array.from(document.querySelectorAll('select')).find(s =>
-      Array.from(s.options).some(o => o.value === 'basic'),
-    ) as HTMLSelectElement;
-    fireEvent.change(authSelect, { target: { value: 'basic' } });
+    selectOption(configField('Auth Type'), 'Basic Auth');
     expect(screen.getByText('Username')).toBeTruthy();
     expect(screen.getByText('Password')).toBeTruthy();
     const userInput = screen.getByText('Username').parentElement!.querySelector('input') as HTMLInputElement;
@@ -166,16 +169,10 @@ describe('WorkflowRequestsSettingsModal', () => {
 
   it('selects a global auth profile', () => {
     render(<WorkflowRequestsSettingsModal {...baseProps} />);
-    const authSelect = Array.from(document.querySelectorAll('select')).find(s =>
-      Array.from(s.options).some(o => o.value === 'global-profile'),
-    ) as HTMLSelectElement;
-    fireEvent.change(authSelect, { target: { value: 'global-profile' } });
+    selectOption(configField('Auth Type'), 'Global Auth Profile');
     expect(screen.getByText('Corp (bearer)')).toBeTruthy();
-    const profileSelect = Array.from(document.querySelectorAll('select')).find(s =>
-      Array.from(s.options).some(o => o.value === 'gp1'),
-    ) as HTMLSelectElement;
-    fireEvent.change(profileSelect, { target: { value: 'gp1' } });
-    expect(profileSelect.value).toBe('gp1');
+    selectOption(configField('Global Auth Profile'), 'Corp (bearer)');
+    expect(configField('Global Auth Profile').querySelector('.cs-text')?.textContent).toBe('Corp (bearer)');
   });
 
   it('Apply calls onApply with workflow id and nodes, then onClose', () => {
@@ -196,14 +193,10 @@ describe('WorkflowRequestsSettingsModal', () => {
 
   it('switches back to harness bar host mode and changes microservice', () => {
     render(<WorkflowRequestsSettingsModal {...baseProps} />);
-    const radios = document.querySelectorAll('input[name="wf-bulk-host-mode"]');
-    fireEvent.click(radios[1]);
-    const msSelect = Array.from(document.querySelectorAll('.wf-config-field select')).find(
-      (s) => Array.from(s.options).some((o) => o.value === 'ms1'),
-    ) as HTMLSelectElement;
-    fireEvent.change(msSelect, { target: { value: 'ms1' } });
-    expect(msSelect.value).toBe('ms1');
-    fireEvent.click(radios[0]);
+    switchToRequestOnlyHost();
+    selectOption(configField('Microservice'), 'Users');
+    expect(configField('Microservice').querySelector('.cs-text')?.textContent).toBe('Users');
+    fireEvent.click(document.querySelectorAll('input[name="wf-bulk-host-mode"]')[0]);
     expect(screen.queryByText('Environment')).toBeNull();
   });
 
@@ -223,20 +216,17 @@ describe('WorkflowRequestsSettingsModal', () => {
 
   it('changes auth type to apikey and oauth2', () => {
     render(<WorkflowRequestsSettingsModal {...baseProps} />);
-    const authSelect = Array.from(document.querySelectorAll('select')).find((s) =>
-      Array.from(s.options).some((o) => o.value === 'apikey'),
-    ) as HTMLSelectElement;
-    fireEvent.change(authSelect, { target: { value: 'apikey' } });
-    fireEvent.change(authSelect, { target: { value: 'oauth2' } });
-    expect(authSelect.value).toBe('oauth2');
+    selectOption(configField('Auth Type'), 'API Key');
+    selectOption(configField('Auth Type'), 'OAuth2 Client Credentials');
+    expect(configField('Auth Type').querySelector('.cs-text')?.textContent).toBe('OAuth2 Client Credentials');
   });
 
   it('global-profile option does nothing when no profiles exist', () => {
     render(<WorkflowRequestsSettingsModal {...baseProps} globalAuthProfiles={[]} />);
-    const authSelect = Array.from(document.querySelectorAll('select')).find((s) =>
-      Array.from(s.options).some((o) => o.value === 'bearer'),
-    ) as HTMLSelectElement;
-    expect(Array.from(authSelect.options).some((o) => o.value === 'global-profile')).toBe(false);
+    const authField = configField('Auth Type');
+    fireEvent.click(authField.querySelector('.cs-trigger')!);
+    const labels = Array.from(authField.querySelectorAll('.cs-item-label')).map((el) => el.textContent);
+    expect(labels.some((l) => l === 'Global Auth Profile')).toBe(false);
   });
 
   it('changes environment and clears microservice when env reset', () => {
@@ -245,14 +235,11 @@ describe('WorkflowRequestsSettingsModal', () => {
       { id: 'ms2', name: 'Orders', baseUrls: { env2: 'http://orders.prod' } } as unknown as Microservice,
     ];
     render(<WorkflowRequestsSettingsModal {...baseProps} microservices={extraMs} />);
-    fireEvent.click(document.querySelectorAll('input[name="wf-bulk-host-mode"]')[1]);
-    const selects = document.querySelectorAll('.wf-config-field select');
-    const envSelect = selects[0] as HTMLSelectElement;
-    fireEvent.change(envSelect, { target: { value: 'env2' } });
-    expect(envSelect.value).toBe('env2');
-    const msSelect = selects[1] as HTMLSelectElement;
-    fireEvent.change(msSelect, { target: { value: '' } });
-    expect(msSelect.value).toBe('');
+    switchToRequestOnlyHost();
+    selectOption(configField('Environment'), 'Prod');
+    expect(configField('Environment').querySelector('.cs-text')?.textContent).toBe('Prod');
+    selectOption(configField('Microservice'), 'Microservice...');
+    expect(configField('Microservice').querySelector('.cs-text')?.textContent).toBe('Microservice...');
   });
 
   it('does not switch to per-request host mode when no environments exist', () => {

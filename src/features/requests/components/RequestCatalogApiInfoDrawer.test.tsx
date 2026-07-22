@@ -55,7 +55,7 @@ describe('RequestCatalogApiInfoDrawer', () => {
     expect(screen.getByText(/Deprecated/)).toBeInTheDocument();
     expect(screen.getByText('Fetches profile')).toBeInTheDocument();
     expect(screen.getAllByRole('table')).toHaveLength(2);
-    fireEvent.click(screen.getByTitle('Close'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalled();
   });
 

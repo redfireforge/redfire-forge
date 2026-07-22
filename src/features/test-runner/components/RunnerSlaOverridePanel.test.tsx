@@ -3,6 +3,12 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import {
+  selectOption,
+  getCustomSelectValue,
+  getCustomSelectOptionLabels,
+  isCustomSelectDisabled,
+} from '../../../test-utils/customSelectHelper';
 import RunnerSlaOverridePanel from './RunnerSlaOverridePanel';
 import type { SlaTarget } from '../../../shared/types';
 
@@ -132,7 +138,7 @@ describe('RunnerSlaOverridePanel', () => {
     // New row has "new" badge
     expect(screen.getByText('new')).toBeTruthy();
     // Has editable dropdowns (select elements)
-    const selects = screen.getAllByRole('combobox');
+    const selects = document.querySelectorAll('.sla-ovr-select');
     expect(selects.length).toBeGreaterThanOrEqual(2); // scope + metric
   });
 
@@ -322,22 +328,19 @@ describe('RunnerSlaOverridePanel', () => {
       render(<RunnerSlaOverridePanel {...defaultProps} />);
       fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
       fireEvent.click(screen.getByText('+ Add Target'));
-      const scopeSelect = screen.getAllByRole('combobox')[0];
-      fireEvent.change(scopeSelect, { target: { value: 'Login' } });
-      expect((scopeSelect as HTMLSelectElement).value).toBe('Login');
+      selectOption(document.querySelectorAll('.sla-ovr-select')[0]!, 'Login');
+      expect(getCustomSelectValue(document.querySelectorAll('.sla-ovr-select')[0]!)).toBe('Login');
       // Switch back to aggregate
-      fireEvent.change(scopeSelect, { target: { value: 'aggregate' } });
-      expect((scopeSelect as HTMLSelectElement).value).toBe('aggregate');
+      selectOption(document.querySelectorAll('.sla-ovr-select')[0]!, 'Aggregate');
+      expect(getCustomSelectValue(document.querySelectorAll('.sla-ovr-select')[0]!)).toBe('Aggregate');
     });
 
     it('changes metric via dropdown on new row', () => {
       render(<RunnerSlaOverridePanel {...defaultProps} />);
       fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
       fireEvent.click(screen.getByText('+ Add Target'));
-      const selects = screen.getAllByRole('combobox');
-      const metricSelect = selects[1]; // second dropdown is metric
-      fireEvent.change(metricSelect, { target: { value: 'tps' } });
-      expect((metricSelect as HTMLSelectElement).value).toBe('tps');
+      selectOption(document.querySelectorAll('.sla-ovr-select')[1]!, 'TPS');
+      expect(getCustomSelectValue(document.querySelectorAll('.sla-ovr-select')[1]!)).toBe('TPS');
     });
 
     it('edits warnAt input on override row', () => {
@@ -415,18 +418,16 @@ describe('RunnerSlaOverridePanel', () => {
         />
       );
       fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
-      const scopeSelect = screen.getAllByRole('combobox')[0] as HTMLSelectElement;
-      expect(scopeSelect.value).toBe('Payments');
+      expect(getCustomSelectValue(document.querySelectorAll('.sla-ovr-select')[0]!)).toBe('Payments');
     });
 
     it('includes testNames in scope dropdown options', () => {
       render(<RunnerSlaOverridePanel {...defaultProps} testNames={['GetUsers', 'CreatePost']} />);
       fireEvent.click(screen.getByRole('button', { name: /Configure/ }));
       fireEvent.click(screen.getByText('+ Add Target'));
-      const scopeSelect = screen.getAllByRole('combobox')[0] as HTMLSelectElement;
-      const optionValues = Array.from(scopeSelect.options).map(o => o.value);
-      expect(optionValues).toContain('GetUsers');
-      expect(optionValues).toContain('CreatePost');
+      const labels = getCustomSelectOptionLabels(document.querySelectorAll('.sla-ovr-select')[0]!);
+      expect(labels).toContain('GetUsers');
+      expect(labels).toContain('CreatePost');
     });
 
     it('disables Save when validation errors exist', () => {

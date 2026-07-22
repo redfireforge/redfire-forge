@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
 import type { WsFrame, WsMessageTemplate } from '../../shared/websocket/types';
 
@@ -236,7 +237,7 @@ describe('WebSocketMessageLog — coverage gaps', () => {
       onSetReplaySpeed,
       replayProgress: { current: 1, total: 10, elapsedMs: 100, durationMs: 1000 },
     });
-    fireEvent.change(screen.getByTestId('replay-speed-select'), { target: { value: '0' } });
+    selectOption(screen.getByTestId('replay-speed-select'), 'Max');
     expect(onSetReplaySpeed).toHaveBeenCalledWith(0);
   });
 

@@ -2740,11 +2740,15 @@
   background: transparent;
 }
 .send-harness-modal {
+  /* Alias shim: map non-canonical tokens onto the shared theme tokens so this
+     modal's shell + nested surfaces stay consistent with every other modal. */
+  --bg-primary: var(--surface);
+  --bg-secondary: var(--surface-hover);
   width: 600px;
   min-height: 480px;
   max-height: 92vh;
   overflow-y: auto;
-  background: var(--bg-primary, #1e1e2e);
+  background: var(--surface);
   border: 1px solid color-mix(in srgb, white 28%, var(--border, #3a3a4a));
   border-radius: 12px;
   box-shadow:
@@ -2909,6 +2913,113 @@
   font-size: 13px;
   cursor: pointer;
   transition: border-color 0.15s;
+}
+
+/* ── Custom CascadeSelect dropdown ── */
+.cascade-dropdown-wrapper {
+  position: relative;
+}
+.cascade-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border, #3a3a4a);
+  background: var(--bg, #0f172a);
+  color: var(--text, #e0e0e0);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  text-align: left;
+  gap: 8px;
+}
+.cascade-dropdown-trigger.placeholder .cascade-dropdown-text {
+  color: var(--text-muted, #888);
+}
+.cascade-dropdown-trigger:hover {
+  border-color: var(--primary, #3b82f6);
+}
+.cascade-dropdown-trigger:focus {
+  border-color: var(--primary, #3b82f6);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.cascade-dropdown-trigger[aria-expanded="true"] {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.cascade-dropdown-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cascade-dropdown-arrow {
+  flex-shrink: 0;
+  font-size: 9px;
+  color: var(--text-muted, #888);
+  margin-left: 4px;
+}
+.cascade-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 120;
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--border, #3a3a4a);
+  border-radius: 6px;
+  padding: 4px 0;
+  max-height: 220px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.cascade-dropdown-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 8px 12px;
+  border: none;
+  background: transparent;
+  color: var(--text, #e0e0e0);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  gap: 6px;
+  transition: background 0.1s;
+}
+.cascade-dropdown-item:hover {
+  background: var(--surface-hover, #2d3a4d);
+}
+.cascade-dropdown-item.active {
+  background: color-mix(in srgb, var(--primary) 15%, transparent);
+  color: var(--primary, #3b82f6);
+}
+.cascade-dropdown-item-name {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cascade-dropdown-item-detail {
+  font-size: 11px;
+  color: var(--text-muted, #888);
+  flex-shrink: 0;
+}
+.cascade-dropdown-check {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--primary, #3b82f6);
+  margin-left: auto;
+}
+.cascade-dropdown-create {
+  color: var(--primary, #3b82f6);
+  font-weight: 500;
+  border-top: 1px solid var(--border, #3a3a4a);
+  margin-top: 2px;
+  padding-top: 8px;
   appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23888' fill='none' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;

@@ -1,11 +1,16 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, within } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import ResultsExplorerConsolePanel from './ResultsExplorerConsolePanel';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace, ExecutionEvent } from '../../../shared/types';
 import * as reconstructLogLinesModule from '../utils/reconstructLogLines';
 
 const RE_CONSOLE_MODE_KEY = 're-console-default-mode';
+
+function consoleModeSelect(): Element {
+  return screen.getByLabelText('Console display mode (saved as default)').closest('.cs-wrapper')!;
+}
 
 function makeEvent(overrides?: Partial<ExecutionEvent>): ExecutionEvent {
   return {
@@ -416,51 +421,45 @@ describe('ResultsExplorerConsolePanel', () => {
 
   it('renders mode selector with docked/floating/fullscreen options', () => {
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    const modeSelect = screen.getByTitle('Console display mode (saved as default)') as HTMLSelectElement;
-    expect(modeSelect).toBeTruthy();
-    expect(modeSelect.value).toBe('docked');
+    expect(getCustomSelectValue(consoleModeSelect())).toBe('⬓ Bottom');
   });
 
   it('loads default mode floating from localStorage', () => {
     localStorage.setItem(RE_CONSOLE_MODE_KEY, 'floating');
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    const modeSelect = screen.getByTitle('Console display mode (saved as default)') as HTMLSelectElement;
-    expect(modeSelect.value).toBe('floating');
+    expect(getCustomSelectValue(consoleModeSelect())).toBe('⧉ Floating');
     expect(screen.getByTestId('results-console-panel').className).toContain('re-console-floating');
   });
 
   it('loads default mode maximized from localStorage', () => {
     localStorage.setItem(RE_CONSOLE_MODE_KEY, 'maximized');
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    const modeSelect = screen.getByTitle('Console display mode (saved as default)') as HTMLSelectElement;
-    expect(modeSelect.value).toBe('maximized');
+    expect(getCustomSelectValue(consoleModeSelect())).toBe('⬜ Full Screen');
     expect(screen.getByTestId('results-console-panel').className).toContain('re-console-maximized');
   });
 
   it('falls back to docked when localStorage mode is invalid', () => {
     localStorage.setItem(RE_CONSOLE_MODE_KEY, 'invalid-mode');
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    expect((screen.getByTitle('Console display mode (saved as default)') as HTMLSelectElement).value).toBe('docked');
+    expect(getCustomSelectValue(consoleModeSelect())).toBe('⬓ Bottom');
   });
 
   it('persists mode to localStorage when changed', () => {
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    const modeSelect = screen.getByTitle('Console display mode (saved as default)');
-    fireEvent.change(modeSelect, { target: { value: 'maximized' } });
+    selectOption(consoleModeSelect(), '⬜ Full Screen');
     expect(localStorage.getItem(RE_CONSOLE_MODE_KEY)).toBe('maximized');
   });
 
   it('switches to maximized mode via mode selector', () => {
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    const modeSelect = screen.getByTitle('Console display mode (saved as default)');
-    fireEvent.change(modeSelect, { target: { value: 'maximized' } });
+    selectOption(consoleModeSelect(), '⬜ Full Screen');
     const panel = screen.getByTestId('results-console-panel');
     expect(panel.className).toContain('re-console-maximized');
   });
 
   it('switches to floating mode and shows resize handles', () => {
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    fireEvent.change(screen.getByTitle('Console display mode (saved as default)'), { target: { value: 'floating' } });
+    selectOption(consoleModeSelect(), '⧉ Floating');
     const panel = screen.getByTestId('results-console-panel');
     expect(panel.className).toContain('re-console-floating');
     expect(document.querySelector('.re-console-float-grip')).toBeTruthy();
@@ -483,7 +482,7 @@ describe('ResultsExplorerConsolePanel', () => {
 
   it('drags floating panel by header', () => {
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    fireEvent.change(screen.getByTitle('Console display mode (saved as default)'), { target: { value: 'floating' } });
+    selectOption(consoleModeSelect(), '⧉ Floating');
     const header = document.querySelector('.re-console-header') as HTMLElement;
     act(() => {
       fireEvent.mouseDown(header, { clientX: 100, clientY: 100, button: 0 });
@@ -496,7 +495,7 @@ describe('ResultsExplorerConsolePanel', () => {
 
   it('does not start float drag when mousedown on control inside header', () => {
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    fireEvent.change(screen.getByTitle('Console display mode (saved as default)'), { target: { value: 'floating' } });
+    selectOption(consoleModeSelect(), '⧉ Floating');
     const panel = screen.getByTestId('results-console-panel') as HTMLElement;
     const leftBefore = panel.style.left;
     const searchBtn = screen.getByText('Search');
@@ -510,7 +509,7 @@ describe('ResultsExplorerConsolePanel', () => {
 
   it('resizes floating panel from corner grip', () => {
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    fireEvent.change(screen.getByTitle('Console display mode (saved as default)'), { target: { value: 'floating' } });
+    selectOption(consoleModeSelect(), '⧉ Floating');
     const grip = document.querySelector('.re-console-float-grip') as HTMLElement;
     const startW = (screen.getByTestId('results-console-panel') as HTMLElement).style.width;
     act(() => {
@@ -525,7 +524,7 @@ describe('ResultsExplorerConsolePanel', () => {
 
   it('resizes floating panel from right edge', () => {
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    fireEvent.change(screen.getByTitle('Console display mode (saved as default)'), { target: { value: 'floating' } });
+    selectOption(consoleModeSelect(), '⧉ Floating');
     const edge = document.querySelector('.re-console-float-edge-right') as HTMLElement;
     const panel = screen.getByTestId('results-console-panel') as HTMLElement;
     const wBefore = panel.style.width;
@@ -539,7 +538,7 @@ describe('ResultsExplorerConsolePanel', () => {
 
   it('shows minimal floating handles when trace level minimal', () => {
     render(<ResultsExplorerConsolePanel {...defaultProps} captureLevel="minimal" />);
-    fireEvent.change(screen.getByTitle('Console display mode (saved as default)'), { target: { value: 'floating' } });
+    selectOption(consoleModeSelect(), '⧉ Floating');
     expect(document.querySelector('.re-console-float-grip')).toBeTruthy();
   });
 
@@ -682,8 +681,7 @@ describe('ResultsExplorerConsolePanel', () => {
       throw new Error('denied');
     });
     expect(() => render(<ResultsExplorerConsolePanel {...defaultProps} />)).not.toThrow();
-    const modeSelect = screen.getByTitle('Console display mode (saved as default)') as HTMLSelectElement;
-    expect(modeSelect.value).toBe('docked');
+    expect(getCustomSelectValue(consoleModeSelect())).toBe('⬓ Bottom');
     getItem.mockRestore();
   });
 
@@ -692,11 +690,7 @@ describe('ResultsExplorerConsolePanel', () => {
       throw new Error('quota');
     });
     render(<ResultsExplorerConsolePanel {...defaultProps} />);
-    expect(() =>
-      fireEvent.change(screen.getByTitle('Console display mode (saved as default)'), {
-        target: { value: 'floating' },
-      }),
-    ).not.toThrow();
+    expect(() => selectOption(consoleModeSelect(), '⧉ Floating')).not.toThrow();
     setItem.mockRestore();
   });
 });

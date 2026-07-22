@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect } from 'react';
+import { CustomSelect } from '../CustomSelect';
 import type { MapperSource, FetchErrorDetail } from './types';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
 import type { FocusRegion } from './hooks/useKeyboardNavigation';
@@ -358,16 +359,17 @@ export default function SourcePanel({
             {search && (
               <button className="dm-search-clear" onClick={() => setSearch('')} aria-label="Clear search">×</button>
             )}
-            <select
+            <CustomSelect
               className="dm-filter-select"
               aria-label="Filter source fields"
               value={mappingFilter}
-              onChange={(e) => setMappingFilter(e.target.value as 'all' | 'mapped' | 'unmapped')}
-            >
-              <option value="all">All</option>
-              <option value="mapped">Mapped</option>
-              <option value="unmapped">Unmapped</option>
-            </select>
+              onChange={(v) => setMappingFilter(v as 'all' | 'mapped' | 'unmapped')}
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'mapped', label: 'Mapped' },
+                { value: 'unmapped', label: 'Unmapped' },
+              ]}
+            />
             <span className="dm-filter-count" aria-live="polite">
               {mappedLeafCount} mapped / {unmappedLeafCount} unmapped
             </span>

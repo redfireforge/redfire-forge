@@ -8,6 +8,12 @@
 import '@testing-library/jest-dom/vitest';
 import { render, fireEvent, screen, act, createEvent } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach } from 'vitest';
+import {
+  selectOption,
+  getCustomSelectValue,
+  getCustomSelectOptionLabels,
+  isCustomSelectDisabled,
+} from '../../../test-utils/customSelectHelper';
 import { GraphqlConnectionBar } from './GraphqlConnectionBar';
 
 // Prevent Monaco from loading in test environment
@@ -367,8 +373,7 @@ describe('GraphqlConnectionBar — operations selector', () => {
       selectedOperation: 'GetUser',
       onSelectOperation,
     })} />);
-    const select = screen.getByTestId('gql-op-selector');
-    fireEvent.change(select, { target: { value: 'GetProfile' } });
+    selectOption(screen.getByTestId('gql-op-selector'), 'GetProfile');
     expect(onSelectOperation).toHaveBeenCalledWith('GetProfile');
   });
 
@@ -411,67 +416,57 @@ describe('GraphqlConnectionBar — Sprint 3 transport selector', () => {
 
   it('shows current transport value as selected option', () => {
     render(<GraphqlConnectionBar {...subProps({ subscriptionTransport: 'sse' })} />);
-    const select = screen.getByTestId('gql-transport-select') as HTMLSelectElement;
-    expect(select.value).toBe('sse');
+    expect(getCustomSelectValue(screen.getByTestId('gql-transport-select'))).toBe('SSE');
   });
 
   it('shows "auto" as selected when transport is auto', () => {
     render(<GraphqlConnectionBar {...subProps({ subscriptionTransport: 'auto' })} />);
-    const select = screen.getByTestId('gql-transport-select') as HTMLSelectElement;
-    expect(select.value).toBe('auto');
+    expect(getCustomSelectValue(screen.getByTestId('gql-transport-select'))).toBe('Auto');
   });
 
   it('calls onSubscriptionTransportChange when selection changes', () => {
     const onChange = vi.fn();
     render(<GraphqlConnectionBar {...subProps({ onSubscriptionTransportChange: onChange })} />);
-    const select = screen.getByTestId('gql-transport-select');
-    fireEvent.change(select, { target: { value: 'graphql-transport-ws' } });
+    selectOption(screen.getByTestId('gql-transport-select'), 'WS (modern)');
     expect(onChange).toHaveBeenCalledWith('graphql-transport-ws');
   });
 
   it('calls onSubscriptionTransportChange with "sse" when SSE is selected', () => {
     const onChange = vi.fn();
     render(<GraphqlConnectionBar {...subProps({ onSubscriptionTransportChange: onChange })} />);
-    const select = screen.getByTestId('gql-transport-select');
-    fireEvent.change(select, { target: { value: 'sse' } });
+    selectOption(screen.getByTestId('gql-transport-select'), 'SSE');
     expect(onChange).toHaveBeenCalledWith('sse');
   });
 
   it('disables transport select while subscription is connecting', () => {
     render(<GraphqlConnectionBar {...subProps({ subscriptionState: 'connecting' })} />);
-    const select = screen.getByTestId('gql-transport-select') as HTMLSelectElement;
-    expect(select.disabled).toBe(true);
+    expect(isCustomSelectDisabled(screen.getByTestId('gql-transport-select'))).toBe(true);
   });
 
   it('disables transport select while subscription is active', () => {
     render(<GraphqlConnectionBar {...subProps({ subscriptionState: 'active' })} />);
-    const select = screen.getByTestId('gql-transport-select') as HTMLSelectElement;
-    expect(select.disabled).toBe(true);
+    expect(isCustomSelectDisabled(screen.getByTestId('gql-transport-select'))).toBe(true);
   });
 
   it('disables transport select while subscription is reconnecting', () => {
     render(<GraphqlConnectionBar {...subProps({ subscriptionState: 'reconnecting' })} />);
-    const select = screen.getByTestId('gql-transport-select') as HTMLSelectElement;
-    expect(select.disabled).toBe(true);
+    expect(isCustomSelectDisabled(screen.getByTestId('gql-transport-select'))).toBe(true);
   });
 
   it('enables transport select when subscription is idle', () => {
     render(<GraphqlConnectionBar {...subProps({ subscriptionState: 'idle' })} />);
-    const select = screen.getByTestId('gql-transport-select') as HTMLSelectElement;
-    expect(select.disabled).toBe(false);
+    expect(isCustomSelectDisabled(screen.getByTestId('gql-transport-select'))).toBe(false);
   });
 
   it('enables transport select when subscription is closed', () => {
     render(<GraphqlConnectionBar {...subProps({ subscriptionState: 'closed' })} />);
-    const select = screen.getByTestId('gql-transport-select') as HTMLSelectElement;
-    expect(select.disabled).toBe(false);
+    expect(isCustomSelectDisabled(screen.getByTestId('gql-transport-select'))).toBe(false);
   });
 
   it('has all four transport options', () => {
     render(<GraphqlConnectionBar {...subProps()} />);
-    const select = screen.getByTestId('gql-transport-select') as HTMLSelectElement;
-    const values = Array.from(select.options).map((o) => o.value);
-    expect(values).toEqual(['auto', 'graphql-transport-ws', 'graphql-ws', 'sse']);
+    const labels = getCustomSelectOptionLabels(screen.getByTestId('gql-transport-select'));
+    expect(labels).toEqual(['Auto', 'WS (modern)', 'WS (legacy)', 'SSE']);
   });
 
   it('has correct aria-label for accessibility', () => {

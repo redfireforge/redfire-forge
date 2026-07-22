@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import CsvImportModal from './CsvImportModal';
 import type { FeatureGroup, Scenario } from '../../../shared/types';
 import type { CsvParseResult, ParsedRow } from '../utils/csvTemplateTypes';
@@ -82,6 +83,22 @@ function makeProps(over: Partial<React.ComponentProps<typeof CsvImportModal>> = 
 
 function csvFile(name = 'data.csv') {
   return new File(['name,method,url\nA,GET,u'], name, { type: 'text/csv' });
+}
+
+function csvPopup() {
+  return screen.getByTestId('popup-body');
+}
+
+function selectScenarioInPopup() {
+  selectOptionByIndex(csvPopup(), 1, 'Scenario A');
+}
+
+function selectParameterizedModeInPopup() {
+  selectOptionByIndex(csvPopup(), 2, 'Parameterized Test');
+}
+
+function selectSkipDuplicatesInPopup() {
+  selectOptionByIndex(csvPopup(), 3, 'Skip duplicates');
 }
 
 beforeEach(() => {
@@ -263,9 +280,7 @@ describe('CsvImportModal', () => {
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
     await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
     // pick scenario among multiple selects
-    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
-    const scenSelect = selects.find(s => within(s).queryByText(/Scenario A/)) as HTMLSelectElement;
-    fireEvent.change(scenSelect, { target: { value: 'sc1' } });
+    selectScenarioInPopup();
     expect(screen.getByText('Import 1 Test')).toBeEnabled();
     fireEvent.click(screen.getByText('Import 1 Test'));
     expect(onImport).toHaveBeenCalledWith('fg1', 'sc1', [expect.objectContaining({ name: 'Get Items' })]);
@@ -301,10 +316,8 @@ describe('CsvImportModal', () => {
     const { container } = render(<CsvImportModal {...makeProps()} />);
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
     await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
-    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
-    const fgSelect = selects.find(s => within(s).queryByText('Group Two')) as HTMLSelectElement;
-    fireEvent.change(fgSelect, { target: { value: 'fg2' } });
-    expect(fgSelect.value).toBe('fg2');
+    selectOptionByIndex(csvPopup(), 0, 'Group Two');
+    expect(getCustomSelectValue(csvPopup(), 0)).toBe('Group Two');
   });
 
   it('imports as a parameterized test covering all column prefixes', async () => {
@@ -344,12 +357,8 @@ describe('CsvImportModal', () => {
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
     await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
     // set import mode to parameterized
-    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
-    const modeSelect = selects.find(s => within(s).queryByText(/Parameterized Test/)) as HTMLSelectElement;
-    fireEvent.change(modeSelect, { target: { value: 'parameterized' } });
-    // pick scenario
-    const scenSelect = selects.find(s => within(s).queryByText(/Scenario A/)) as HTMLSelectElement;
-    fireEvent.change(scenSelect, { target: { value: 'sc1' } });
+    selectParameterizedModeInPopup();
+    selectScenarioInPopup();
     fireEvent.click(screen.getByText(/Import as Parameterized Test/));
     expect(onImport).toHaveBeenCalledWith('fg1', 'sc1', [expect.objectContaining({
       name: 'Order',
@@ -364,10 +373,8 @@ describe('CsvImportModal', () => {
     const { container } = render(<CsvImportModal {...makeProps()} />);
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
     await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
-    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
-    const dupSelect = selects.find(s => within(s).queryByText(/Skip duplicates/)) as HTMLSelectElement;
-    fireEvent.change(dupSelect, { target: { value: 'skip' } });
-    expect(dupSelect.value).toBe('skip');
+    selectSkipDuplicatesInPopup();
+    expect(getCustomSelectValue(csvPopup(), 3)).toBe('Skip duplicates');
   });
 
   it('handles drag enter/leave/drop document events', async () => {
@@ -475,11 +482,8 @@ describe('CsvImportModal', () => {
     const { container } = render(<CsvImportModal {...makeProps({ onImport })} />);
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
     await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
-    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
-    const modeSelect = selects.find(s => within(s).queryByText(/Parameterized Test/)) as HTMLSelectElement;
-    fireEvent.change(modeSelect, { target: { value: 'parameterized' } });
-    const scenSelect = selects.find(s => within(s).queryByText(/Scenario A/)) as HTMLSelectElement;
-    fireEvent.change(scenSelect, { target: { value: 'sc1' } });
+    selectParameterizedModeInPopup();
+    selectScenarioInPopup();
     fireEvent.click(screen.getByText(/Import as Parameterized Test/));
     expect(onImport).toHaveBeenCalledWith('fg1', 'sc1', [expect.objectContaining({
       dataSource: expect.objectContaining({
@@ -512,9 +516,8 @@ describe('CsvImportModal', () => {
     const { container } = render(<CsvImportModal {...makeProps({ onImport })} />);
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
     await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
-    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
-    fireEvent.change(selects.find(s => within(s).queryByText(/Parameterized Test/))!, { target: { value: 'parameterized' } });
-    fireEvent.change(selects.find(s => within(s).queryByText(/Scenario A/))!, { target: { value: 'sc1' } });
+    selectParameterizedModeInPopup();
+    selectScenarioInPopup();
     fireEvent.click(screen.getByText(/Import as Parameterized Test/));
     expect(onImport).toHaveBeenCalledWith('fg1', 'sc1', [expect.objectContaining({
       dataSource: expect.objectContaining({ validationContract: undefined, rows: expect.any(Array) }),
@@ -556,9 +559,8 @@ describe('CsvImportModal', () => {
     const { container } = render(<CsvImportModal {...makeProps({ onImport })} />);
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
     await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
-    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
-    fireEvent.change(selects.find(s => within(s).queryByText(/Parameterized Test/))!, { target: { value: 'parameterized' } });
-    fireEvent.change(selects.find(s => within(s).queryByText(/Scenario A/))!, { target: { value: 'sc1' } });
+    selectParameterizedModeInPopup();
+    selectScenarioInPopup();
     fireEvent.click(screen.getByText(/Import as Parameterized Test/));
     expect(onImport).toHaveBeenCalledWith('fg1', 'sc1', [expect.objectContaining({
       dataSource: expect.objectContaining({
@@ -603,9 +605,8 @@ describe('CsvImportModal', () => {
     const { container } = render(<CsvImportModal {...makeProps({ onImport })} />);
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [csvFile()] } });
     await waitFor(() => expect(screen.getByText('Step 4 — Select destination')).toBeInTheDocument());
-    const selects = within(screen.getByTestId('popup-body')).getAllByRole('combobox');
-    fireEvent.change(selects.find(s => within(s).queryByText(/Parameterized Test/))!, { target: { value: 'parameterized' } });
-    fireEvent.change(selects.find(s => within(s).queryByText(/Scenario A/))!, { target: { value: 'sc1' } });
+    selectParameterizedModeInPopup();
+    selectScenarioInPopup();
     fireEvent.click(screen.getByText(/Import as Parameterized Test/));
     expect(onImport).toHaveBeenCalledWith('fg1', 'sc1', [expect.objectContaining({
       name: 'Checkout',

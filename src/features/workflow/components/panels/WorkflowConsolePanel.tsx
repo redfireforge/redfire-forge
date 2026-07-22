@@ -9,6 +9,7 @@ import {
   useFloatingPanel,
 } from '../../../../shared/hooks/useFloatingPanel';
 import { useCopyToClipboard } from '../../../../shared/hooks/useCopyToClipboard';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 type LogLevel = 'all' | 'error' | 'info' | 'request';
 
@@ -238,20 +239,22 @@ export default function WorkflowConsolePanel({ lines, onClear, onClose, stepSumm
             {runBehavior === 'clear' ? <><svg className="wf-inline-icon" viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="12" cy="12" r="6"/></svg> Auto-clear</> : <><svg className="wf-inline-icon" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="6"/></svg> Append</>}
           </button>
           <span className="wf-console-actions-sep" />
-          <select
+          <CustomSelect
             className="wf-console-mode-select"
             value={mode}
-            onChange={(e) => {
-              const m = e.target.value as PanelMode;
+            onChange={(v) => {
+              const m = v as PanelMode;
               setMode(m);
               setAsDefault(m);
             }}
-            title="Console display mode (saved as default)"
-          >
-            <option value="docked">⬓ Bottom</option>
-            <option value="floating">⧉ Floating</option>
-            <option value="maximized">⬜ Full Screen</option>
-          </select>
+            size="sm"
+            aria-label="Console display mode"
+            options={[
+              { value: 'docked', label: '⬓ Bottom' },
+              { value: 'floating', label: '⧉ Floating' },
+              { value: 'maximized', label: '⬜ Full Screen' },
+            ]}
+          />
           <button type="button" className="wf-console-action-btn" onClick={onClose} title="Close console">
             ✕
           </button>

@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import { makeDraft, makeProps } from './TestEditorValidationTab.test-utils';
 import type { Assertion, Scenario } from '../../../shared/types';
@@ -254,8 +255,8 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      const kindSel = screen.getByDisplayValue('fixed date');
-      fireEvent.change(kindSel, { target: { value: 'today' } });
+      const row = screen.getByText('DATE').closest('.assertion-row')!;
+      selectOption(row.querySelector('.cs-wrapper')!, 'today');
       expect(onDraftChange).toHaveBeenCalledWith(
         expect.objectContaining({
           validation: expect.objectContaining({

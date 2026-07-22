@@ -5,6 +5,7 @@ import FullPanelModal from '../../../shared/components/FullPanelModal';
 import { formatDurationMs } from '../../../shared/utils/formatDuration';
 import WorkflowExecutionCanvas from './WorkflowExecutionCanvas';
 import NodeExecutionDetailPanel from './NodeExecutionDetailPanel';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 type ReplaySnapshotNode = {
   id: string;
@@ -112,20 +113,18 @@ export default function WorkflowExecutionReplayModal({ trace, onClose }: Props) 
           {/* Iteration Selector */}
           {trace.totalIterations > 1 && (
             <div className="replay-iteration-selector">
-              <select
-                value={selectedIteration === undefined ? 'aggregate' : selectedIteration}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setSelectedIteration(val === 'aggregate' ? undefined : Number(val));
-                }}
-              >
-                <option value="aggregate">All Iterations (Aggregate)</option>
-                {trace.iterations.map((iter, i) => (
-                  <option key={i} value={i}>
-                    Iteration #{i + 1} — {iter.passed ? '✓ Pass' : '✗ Fail'} ({Math.round(iter.durationMs)}ms)
-                  </option>
-                ))}
-              </select>
+              <CustomSelect
+                value={selectedIteration === undefined ? 'aggregate' : String(selectedIteration)}
+                onChange={(v) => setSelectedIteration(v === 'aggregate' ? undefined : Number(v))}
+                options={[
+                  { value: 'aggregate', label: 'All Iterations (Aggregate)' },
+                  ...trace.iterations.map((iter, i) => ({
+                    value: String(i),
+                    label: `Iteration #${i + 1} — ${iter.passed ? '✓ Pass' : '✗ Fail'} (${Math.round(iter.durationMs)}ms)`,
+                  })),
+                ]}
+                size="sm"
+              />
               <div className="replay-iteration-nav">
                 <button
                   onClick={() => setSelectedIteration(prev => prev !== undefined && prev > 0 ? prev - 1 : prev)}

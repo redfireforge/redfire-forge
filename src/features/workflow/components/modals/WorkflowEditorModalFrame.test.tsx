@@ -62,7 +62,7 @@ describe('WorkflowEditorModalFrame', () => {
   });
 
   it('calls onClose when × button clicked', () => {
-    render(<WorkflowEditorModalFrame {...defaultProps} />);
+    render(<WorkflowEditorModalFrame {...defaultProps} hideCloseButton={false} />);
     fireEvent.click(screen.getByLabelText('Close'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
@@ -151,7 +151,7 @@ describe('WorkflowEditorModalFrame', () => {
   });
 
   it('uses custom closeAriaLabel', () => {
-    render(<WorkflowEditorModalFrame {...defaultProps} closeAriaLabel="Dismiss" />);
+    render(<WorkflowEditorModalFrame {...defaultProps} hideCloseButton={false} closeAriaLabel="Dismiss" />);
     expect(screen.getByLabelText('Dismiss')).toBeTruthy();
   });
 

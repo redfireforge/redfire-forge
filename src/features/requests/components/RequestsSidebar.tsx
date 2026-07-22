@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { RequestCollection, RequestFolder, Environment, Microservice } from '../../../shared/types';
 import { findSiblingFolders, collectGroupAncestors } from '../utils/requestTree';
 import { toggleSetItem } from '../../../shared/utils/setToggle';
@@ -335,17 +336,15 @@ export default function RequestsSidebar({
       return (
         <div className="req-new-folder-row">
           <span className="req-folder-icon">📦</span>
-          <select className="req-inline-input" data-testid="req-subcol-env-select" autoFocus
+          <CustomSelect
+            className="req-inline-input"
+            data-testid="req-subcol-env-select"
+            value=""
+            onChange={commitAddSubCollection}
+            options={eligible.map((env) => ({ value: env.id, label: env.name }))}
+            placeholder="Select environment…"
             aria-label="Sub-collection environment"
-            defaultValue=""
-            onChange={(e) => commitAddSubCollection(e.target.value)}
-            onBlur={() => setNewFolderTarget(null)}
-            onKeyDown={(e) => { if (e.key === 'Escape') setNewFolderTarget(null); }}>
-            <option value="" disabled>Select environment…</option>
-            {eligible.map((env) => (
-              <option key={env.id} value={env.id}>{env.name}</option>
-            ))}
-          </select>
+          />
         </div>
       );
     }

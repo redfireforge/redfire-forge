@@ -19,6 +19,7 @@ interface Props {
   resizable?: boolean;
   minWidth?: number;
   minHeight?: number;
+  'data-testid'?: string;
 }
 
 /**
@@ -38,7 +39,9 @@ export default function FullPanelModal({
   resizable = false,
   minWidth,
   minHeight,
+  ...rest
 }: Props) {
+  const testId = rest['data-testid'];
   const {
     overlayStyle,
     dialogStyle,
@@ -74,6 +77,7 @@ export default function FullPanelModal({
         className={dialogClasses}
         role="dialog"
         aria-modal="true"
+        data-testid={testId}
         onClick={e => e.stopPropagation()}
         style={(dragEnabled || resizeEnabled) ? dialogStyle : undefined}
       >

@@ -1,6 +1,7 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { AuthConfig, AuthType, GlobalAuthProfile } from '../../../shared/types';
 import type { AuthVerifyResult } from '../hooks/useAuthVerify';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 export interface AuthConfigPanelProps {
   auth: AuthConfig;
@@ -58,29 +59,23 @@ export default function AuthConfigPanel({
       </div>
       <div className="auth-type-select">
         <label>Type</label>
-        <select
+        <CustomSelect
           value={auth.type}
-          onChange={(e) => onChange({ ...auth, type: e.target.value as AuthType })}
-        >
-          {authTypeOptions.map((opt) => (
-            <option key={opt.value} value={opt.value}>{opt.label}</option>
-          ))}
-        </select>
+          onChange={(v) => onChange({ ...auth, type: v as AuthType })}
+          options={authTypeOptions}
+        />
       </div>
       {showProfileSelector && auth.type === 'inherit' && allAuthProfiles.length > 0 && (() => {
         const selectedProfile = allAuthProfiles.find((p) => p.id === globalAuthProfileId);
         return (
           <div className="global-profile-selector">
             <label>Auth Profile</label>
-            <select
+            <CustomSelect
               value={globalAuthProfileId || ''}
-              onChange={(e) => onProfileChange?.(e.target.value || undefined)}
-            >
-              <option value="">— Select a profile —</option>
-              {allAuthProfiles.map((p) => (
-                <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-              ))}
-            </select>
+              onChange={(v) => onProfileChange?.(v || undefined)}
+              options={allAuthProfiles.map(p => ({ value: p.id, label: p.name, detail: p.auth.type }))}
+              placeholder="— Select a profile —"
+            />
             {selectedProfile && (
               <span className="auth-inherit-hint">
                 Using <strong>{selectedProfile.name}</strong> — {selectedProfile.auth.type.toUpperCase()}

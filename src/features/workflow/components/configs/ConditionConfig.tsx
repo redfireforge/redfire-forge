@@ -10,6 +10,7 @@ import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import SearchableVariableSelect from '../expression/SearchableVariableSelect';
 import ExpressionTextarea from '../expression/ExpressionTextarea';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const CUSTOM_SELECT = '__custom__';
 
@@ -167,17 +168,21 @@ export default function ConditionConfig({
       </div>
       <div className="wf-config-field">
         <label>Operator</label>
-        <select value={data.operator} onChange={(e) => onChange({ ...data, operator: e.target.value as ConditionNodeData['operator'] })}>
-          <option value="==">== (equals)</option>
-          <option value="!=">!= (not equals)</option>
-          <option value=">">{'>'} (greater than)</option>
-          <option value="<">{'<'} (less than)</option>
-          <option value=">=">{'≥'} (greater or equal)</option>
-          <option value="<=">{'≤'} (less or equal)</option>
-          <option value="contains">contains</option>
-          <option value="not-contains">not contains</option>
-          <option value="regex">regex match</option>
-        </select>
+        <CustomSelect
+          value={data.operator}
+          onChange={(v) => onChange({ ...data, operator: v as ConditionNodeData['operator'] })}
+          options={[
+            { value: '==', label: '== (equals)' },
+            { value: '!=', label: '!= (not equals)' },
+            { value: '>', label: '> (greater than)' },
+            { value: '<', label: '< (less than)' },
+            { value: '>=', label: '≥ (greater or equal)' },
+            { value: '<=', label: '≤ (less or equal)' },
+            { value: 'contains', label: 'contains' },
+            { value: 'not-contains', label: 'not contains' },
+            { value: 'regex', label: 'regex match' },
+          ]}
+        />
       </div>
       <div className="wf-config-field">
         <label>Right (value to compare)</label>

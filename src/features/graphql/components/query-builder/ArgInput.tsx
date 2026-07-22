@@ -1,4 +1,5 @@
 import { memo, useCallback } from 'react';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import type { GraphqlTypeNode } from '../../../../shared/types/graphql';
 import type { FieldPath } from '../../hooks/useGraphqlQueryBuilder';
 import { stripTypeModifiers } from '../../utils/queryBuilderGenerator';
@@ -48,28 +49,28 @@ export const ArgInput = memo(function ArgInput({
           spellCheck={false}
         />
       ) : enumNode ? (
-        <select
+        <CustomSelect
           className="gql-qb-arg-select"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(v) => onChange(v)}
+          options={[
+            { value: '', label: '(any)' },
+            ...(enumNode.enumValues?.map((v) => ({ value: v, label: v })) ?? []),
+          ]}
           aria-label={`${argName} value`}
-        >
-          <option value="">(any)</option>
-          {enumNode.enumValues?.map((v) => (
-            <option key={v} value={v}>{v}</option>
-          ))}
-        </select>
+        />
       ) : isBoolean ? (
-        <select
+        <CustomSelect
           className="gql-qb-arg-select"
           value={value}
-          onChange={(e) => onChange(e.target.value)}
+          onChange={(v) => onChange(v)}
+          options={[
+            { value: '', label: '(any)' },
+            { value: 'true', label: 'true' },
+            { value: 'false', label: 'false' },
+          ]}
           aria-label={`${argName} value`}
-        >
-          <option value="">(any)</option>
-          <option value="true">true</option>
-          <option value="false">false</option>
-        </select>
+        />
       ) : (
         <input
           type={isNumeric ? 'number' : 'text'}

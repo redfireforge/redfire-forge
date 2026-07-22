@@ -3,6 +3,7 @@
  */
 import { fireEvent, render, screen, waitFor, act } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_CANCEL_SUCCESS_ENVELOPE,
@@ -313,7 +314,7 @@ describe('GrpcStudioPage coverage gaps — streaming, drift, and calls', () => {
   it('updates auth from the bottom tab and timeout from the settings drawer', async () => {
     render(<GrpcStudioPage resolvedBaseUrl="localhost:50051" />);
     fireEvent.click(screen.getByTestId('grpc-auth-badge'));
-    fireEvent.change(screen.getByTestId('grpc-auth-type-select'), { target: { value: 'bearer' } });
+    selectOption(screen.getByTestId('grpc-auth-type-select'), 'Bearer Token');
     fireEvent.change(screen.getByTestId('grpc-auth-bearer-token'), { target: { value: 'studio-token' } });
     fireEvent.click(screen.getByTestId('grpc-deadline-badge'));
     fireEvent.change(screen.getByTestId('grpc-call-settings-timeout'), { target: { value: '15000' } });

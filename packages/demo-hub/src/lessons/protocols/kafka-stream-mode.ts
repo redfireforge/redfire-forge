@@ -207,7 +207,7 @@ Key UI elements in Stream mode:
           await ctx.delay(500);
         }
       },
-      verify: KAFKA.CON_DETAIL_PANE,
+      verify: KAFKA.CON_DETAIL_MODAL,
     },
 
     // Step 7: Stop the stream

@@ -1,12 +1,18 @@
 /**
- * GRPC-Tabs: Multi-Tab gRPC Calls
+ * GRPC-25 (grpc-tabs): Multi-Tab gRPC Calls
  *
  * 7 steps: tour tab bar → reflect on tab 1 → select method + fill → send →
  * add tab 2 → duplicate tab (gRPC unique) → close a tab.
  * Backfill lesson — gRPC has had full multi-tab with no lesson until now.
  */
-import type { DemoLesson, DemoActionContext } from '../../types';
+import type { DemoActionContext } from '../../types';
 import { GRPC } from '@shared/selectors';
+import {
+  buildGrpcContractMetaFromRoster,
+  buildGrpcLessonShellFromRoster,
+  getGrpcLessonRosterEntry,
+  type GrpcDemoLesson,
+} from './grpc-lesson-contract';
 import {
   grpcFirstCallSetup,
   grpcFirstCallCleanup,
@@ -14,6 +20,8 @@ import {
   ensureGrpcStudioSubNavQuiet,
 } from './grpc-lesson-helpers';
 import { GRPC_DEMO_TARGET } from './grpc-lesson-helpers/constants';
+
+const GRPC25_ROSTER = getGrpcLessonRosterEntry('grpc-tabs')!;
 
 const GRPC_TAB_SELECTOR = `${GRPC.TAB_BAR} [role="tab"]`;
 
@@ -30,16 +38,14 @@ async function switchToGrpcTab(ctx: DemoActionContext, index: number): Promise<v
   }
 }
 
-export const grpcTabsLesson: DemoLesson = {
-  id: 'grpc-tabs',
+export const grpcTabsLesson: GrpcDemoLesson = {
+  ...buildGrpcLessonShellFromRoster(GRPC25_ROSTER),
   domainId: 'protocols',
   category: 'grpc',
-  name: 'Multi-Tab gRPC Calls',
   description:
     'Work with multiple gRPC method calls simultaneously. Each tab binds to its own method, ' +
     'request body, metadata, and streaming session — plus gRPC\'s unique Duplicate tab feature.',
-  estimatedMinutes: 4,
-  initialTab: 'grpc-studio',
+  grpc: buildGrpcContractMetaFromRoster(GRPC25_ROSTER),
 
   setup: async (ctx) => {
     await grpcFirstCallSetup(ctx, { resetSchemaDrafts: false });
@@ -98,7 +104,7 @@ Unlike REST where each request is a URL, gRPC binds to a **service + method** pa
 
   steps: [
     {
-      id: 'grpc-tabs-intro',
+      id: 'grpc25-intro',
       title: 'Your gRPC Tab Bar',
       description:
         'The **tab bar** at the top of gRPC Studio lets you work with multiple method calls simultaneously. ' +
@@ -113,7 +119,7 @@ Unlike REST where each request is a URL, gRPC binds to a **service + method** pa
     },
 
     {
-      id: 'grpc-tabs-reflect',
+      id: 'grpc25-reflect',
       title: 'Tab 1 — Reflect and Select Method',
       description:
         'On **Tab 1**, set the target to `localhost:50051` and click **Reflect** to discover available services. ' +
@@ -139,7 +145,7 @@ Unlike REST where each request is a URL, gRPC binds to a **service + method** pa
     },
 
     {
-      id: 'grpc-tabs-send',
+      id: 'grpc25-send',
       title: 'Fill Request and Send',
       description:
         'Enter `Hello from Tab 1` in the message field and click **Send Unary**. ' +
@@ -164,7 +170,7 @@ Unlike REST where each request is a URL, gRPC binds to a **service + method** pa
     },
 
     {
-      id: 'grpc-tabs-add',
+      id: 'grpc25-add',
       title: 'Add Tab 2 — Fresh Workspace',
       description:
         'Click **+** to create a new tab. Tab 2 starts with a **clean slate** — no method binding, ' +
@@ -184,7 +190,7 @@ Unlike REST where each request is a URL, gRPC binds to a **service + method** pa
     },
 
     {
-      id: 'grpc-tabs-duplicate',
+      id: 'grpc25-duplicate',
       title: 'Duplicate Tab — Clone a Configured Call',
       description:
         'Switch back to **Tab 1** and click the **duplicate** icon on its tab. A new tab appears with ' +
@@ -213,7 +219,7 @@ Unlike REST where each request is a URL, gRPC binds to a **service + method** pa
     },
 
     {
-      id: 'grpc-tabs-switch',
+      id: 'grpc25-switch',
       title: 'Switch Tabs — Responses Persist',
       description:
         'Click through your tabs — each one restores its cached response instantly. ' +
@@ -244,7 +250,7 @@ Unlike REST where each request is a URL, gRPC binds to a **service + method** pa
     },
 
     {
-      id: 'grpc-tabs-close',
+      id: 'grpc25-close',
       title: 'Close a Tab — Stream Cancelled',
       description:
         'Click **x** on any extra tab to close it. If a tab has an **active streaming session**, ' +
@@ -268,6 +274,7 @@ Unlike REST where each request is a URL, gRPC binds to a **service + method** pa
           }
         }
       },
+      verify: GRPC.TAB_BAR,
       pauseAfter: true,
     },
   ],

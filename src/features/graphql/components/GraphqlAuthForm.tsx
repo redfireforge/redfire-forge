@@ -5,6 +5,7 @@
  */
 
 import { useMemo, type ReactNode } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { GlobalAuthProfile } from '../../../shared/types';
 import type { GraphqlAuth } from '../../../shared/types/graphql';
 import {
@@ -171,33 +172,29 @@ export function GraphqlAuthForm({
       )}
 
       <AuthField label="Auth type" labelFor="gql-auth-type-select">
-        <select
-          id="gql-auth-type-select"
+        <CustomSelect
           className="gql-select gql-auth-type-select"
           value={selectedType}
-          onChange={(e) => handleTypeChange(e.target.value as GqlAuthPopoverSelectableType)}
+          onChange={(v) => handleTypeChange(v as GqlAuthPopoverSelectableType)}
+          options={authTypeOptions.map((t) => ({
+            value: t.value,
+            label: t.label,
+            disabled: t.disabled,
+          }))}
           data-testid="gql-auth-type-select"
-        >
-          {authTypeOptions.map((t) => (
-            <option key={t.value} value={t.value} disabled={t.disabled}>{t.label}</option>
-          ))}
-        </select>
+        />
       </AuthField>
 
       {storedAuth?.type === 'inherit' && globalAuthProfiles.length > 0 && (
         <AuthField label="Auth profile" labelFor="gql-auth-profile-select">
-          <select
-            id="gql-auth-profile-select"
+          <CustomSelect
             className="gql-select gql-auth-type-select"
             value={storedAuth.globalProfileId ?? ''}
-            onChange={(e) => handleProfileChange(e.target.value)}
+            onChange={(v) => handleProfileChange(v)}
+            options={globalAuthProfiles.map((p) => ({ value: p.id, label: p.name }))}
+            placeholder="— Select a profile —"
             data-testid="gql-auth-profile-select"
-          >
-            <option value="">— Select a profile —</option>
-            {globalAuthProfiles.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
+          />
         </AuthField>
       )}
 

@@ -516,7 +516,7 @@ describe('LiveDemo', () => {
     Element.prototype.scrollIntoView = vi.fn();
     render(<LiveDemo {...liveProps} />);
     fireEvent.click(screen.getByLabelText('Toggle steps overview'));
-    fireEvent.click(screen.getByLabelText('Close steps overview'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(document.querySelector('.demo-overview-modal')).toBeNull();
   });
 

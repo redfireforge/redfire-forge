@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import KafkaWaitConfig from './KafkaWaitConfig';
 import type { KafkaWaitNodeData } from '../../types/workflow';
 
@@ -116,23 +117,21 @@ describe('KafkaWaitConfig', () => {
 
   // ── Correlation Source ────────────────────────────────────────────────────
   it('renders correlation source select defaulting to body', () => {
-    render(<Host />);
-    expect(screen.getByDisplayValue('Body (JSONPath)')).toBeTruthy();
+    const { container } = render(<Host />);
+    expect(getCustomSelectValue(container, 0)).toBe('Body (JSONPath)');
   });
 
   it('calls onChange when correlation source changes to header', () => {
     const onChange = vi.fn();
-    render(<KafkaWaitConfig data={makeData()} onChange={onChange} variableHints={[]} />);
-    const sel = screen.getByDisplayValue('Body (JSONPath)');
-    fireEvent.change(sel, { target: { value: 'header' } });
+    const { container } = render(<KafkaWaitConfig data={makeData()} onChange={onChange} variableHints={[]} />);
+    selectOptionByIndex(container, 0, 'Header');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ correlationSource: 'header' }));
   });
 
   it('calls onChange when correlation source changes to key', () => {
     const onChange = vi.fn();
-    render(<KafkaWaitConfig data={makeData()} onChange={onChange} variableHints={[]} />);
-    const sel = screen.getByDisplayValue('Body (JSONPath)');
-    fireEvent.change(sel, { target: { value: 'key' } });
+    const { container } = render(<KafkaWaitConfig data={makeData()} onChange={onChange} variableHints={[]} />);
+    selectOptionByIndex(container, 0, 'Message Key');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ correlationSource: 'key' }));
   });
 
@@ -413,15 +412,14 @@ describe('KafkaWaitConfig', () => {
 
   // ── Load Test Behavior ────────────────────────────────────────────────────
   it('renders load test select defaulting to wait-for-real', () => {
-    render(<Host />);
-    expect(screen.getByDisplayValue('Wait for real')).toBeTruthy();
+    const { container } = render(<Host />);
+    expect(getCustomSelectValue(container, 1)).toBe('Wait for real');
   });
 
   it('calls onChange when load test mode changes to auto-resume', () => {
     const onChange = vi.fn();
-    render(<KafkaWaitConfig data={makeData()} onChange={onChange} variableHints={[]} />);
-    const sel = screen.getByDisplayValue('Wait for real');
-    fireEvent.change(sel, { target: { value: 'auto-resume' } });
+    const { container } = render(<KafkaWaitConfig data={makeData()} onChange={onChange} variableHints={[]} />);
+    selectOptionByIndex(container, 1, 'Auto resume');
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ loadTestBehavior: expect.objectContaining({ mode: 'auto-resume' }) }),
     );
@@ -429,9 +427,8 @@ describe('KafkaWaitConfig', () => {
 
   it('calls onChange when load test mode changes to synthetic-inject', () => {
     const onChange = vi.fn();
-    render(<KafkaWaitConfig data={makeData()} onChange={onChange} variableHints={[]} />);
-    const sel = screen.getByDisplayValue('Wait for real');
-    fireEvent.change(sel, { target: { value: 'synthetic-inject' } });
+    const { container } = render(<KafkaWaitConfig data={makeData()} onChange={onChange} variableHints={[]} />);
+    selectOptionByIndex(container, 1, 'Synthetic inject');
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ loadTestBehavior: expect.objectContaining({ mode: 'synthetic-inject' }) }),
     );
@@ -499,7 +496,7 @@ describe('KafkaWaitConfig', () => {
 
   // ── mockPayload external update syncs textarea ────────────────────────────
   it('syncs mockPayloadText when data.loadTestBehavior.mockPayload changes externally', () => {
-    render(
+    const { container } = render(
       <Host
         initial={makeData({ loadTestBehavior: { mode: 'auto-resume', mockPayload: { status: 'ok' } } })}
       />,
@@ -509,8 +506,7 @@ describe('KafkaWaitConfig', () => {
     expect((ta as HTMLTextAreaElement).value).toContain('"status"');
 
     // Change load test mode to force re-render with new mockPayload (synthetic cycle)
-    const sel = screen.getByDisplayValue('Auto resume');
-    fireEvent.change(sel, { target: { value: 'synthetic-inject' } });
+    selectOptionByIndex(container, 1, 'Synthetic inject');
   });
 
   // ── Notes ─────────────────────────────────────────────────────────────────
@@ -524,7 +520,7 @@ describe('KafkaWaitConfig', () => {
 
   // ── Combined stateful render ──────────────────────────────────────────────
   it('full stateful: add header + extract variable, switch load test mode', () => {
-    render(<Host />);
+    const { container } = render(<Host />);
 
     // Add header filter
     fireEvent.click(screen.getAllByText('+ Add')[0]);
@@ -535,7 +531,7 @@ describe('KafkaWaitConfig', () => {
     fireEvent.change(screen.getByPlaceholderText('Variable name'), { target: { value: 'status' } });
 
     // Switch load test to auto-resume
-    fireEvent.change(screen.getByDisplayValue('Wait for real'), { target: { value: 'auto-resume' } });
+    selectOptionByIndex(container, 1, 'Auto resume');
 
     expect(screen.getByDisplayValue('X-Env')).toBeTruthy();
     expect(screen.getByDisplayValue('status')).toBeTruthy();

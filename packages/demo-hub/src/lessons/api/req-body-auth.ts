@@ -23,6 +23,7 @@ import {
 
 const COLLECTION_NAME = 'API Demos';
 const REQUEST_NAME = 'Create Post';
+const CURL_REQUEST_NAME = 'Import from cURL';
 const POST_URL = 'https://jsonplaceholder.typicode.com/posts';
 
 const JSON_BODY = JSON.stringify({ title: 'Hello World', body: 'My first post via RedfireForge', userId: 1 }, null, 2);
@@ -87,6 +88,17 @@ function isVisible(el: Element | null): el is HTMLElement {
 
 function firstVisible(selector: string): HTMLElement | null {
   return Array.from(document.querySelectorAll<HTMLElement>(selector)).find(isVisible) ?? null;
+}
+
+/**
+ * Spotlight just the JSON response message (the root tree node, sized to its content)
+ * rather than the `.jt-tree` container, which flexes to fill the whole response pane.
+ */
+async function spotlightJsonResponse(ctx: DemoActionContext, holdMs: number): Promise<void> {
+  const el = document.querySelector<HTMLElement>(`${REQ.JSON_PREVIEW} .jt-tree > div`)
+    ?? document.querySelector<HTMLElement>(`${REQ.JSON_PREVIEW} .jt-tree`)
+    ?? firstVisible(REQ.JSON_PREVIEW);
+  if (el) await spotlightEl(ctx, el, holdMs);
 }
 
 async function openContextMenuForElement(ctx: DemoActionContext, el: HTMLElement): Promise<boolean> {
@@ -175,6 +187,26 @@ async function ensureRequestExists(ctx: DemoActionContext): Promise<void> {
   await clickContextItemVisible(ctx, 'Add Request');
   await fillNewRequestPrompt(ctx, REQUEST_NAME);
   await ctx.waitFor(REQ.URL_INPUT, 2200);
+}
+
+/** Create a new named request in the collection via right-click → Add Request. */
+async function createNamedRequest(ctx: DemoActionContext, requestName: string): Promise<void> {
+  await createCollectionIfNeeded(ctx);
+  const col = firstVisible(REQ.colByName(COLLECTION_NAME));
+  if (!col) return;
+  await spotlightEl(ctx, col, 700);
+  const opened = await openContextMenuForElement(ctx, col);
+  if (!opened) return;
+  await spotlightContextItem(ctx, 'Add Request', 1000);
+  await clickContextItemVisible(ctx, 'Add Request');
+  await ctx.delay(300);
+  const prompt = document.querySelector<HTMLElement>('[data-testid="req-new-request-prompt"]');
+  if (prompt) await spotlightElNoScroll(ctx, prompt, 800);
+  await fillNewRequestPrompt(ctx, requestName);
+  await ctx.waitFor(REQ.URL_INPUT, 2200);
+  await ctx.delay(240);
+  await selectRequestByName(ctx, requestName, COLLECTION_NAME);
+  await ctx.delay(200);
 }
 
 async function ensurePostMethodAndUrl(ctx: DemoActionContext): Promise<void> {
@@ -278,7 +310,6 @@ export const reqBodyAuthLesson: DemoLesson = {
         'own full URL — perfect for ad-hoc APIs you\'re exploring.\n\n' +
         'Then **right-click** the collection and choose **Add Request**. Name it **"Create Post"**, ' +
         'switch the method to **POST**, and set the URL to `jsonplaceholder.typicode.com/posts`.',
-      highlight: REQ.SIDEBAR_ADD_BTN,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await closeOpenOverlays(ctx);
@@ -417,7 +448,12 @@ export const reqBodyAuthLesson: DemoLesson = {
           bodyTextarea.focus();
           fillControlledInput(bodyTextarea, JSON_BODY);
           await ctx.delay(400);
-          await spotlightElNoScroll(ctx, bodyTextarea, 1400);
+          // Click outside first so the textarea's blue focus box clears...
+          bodyTextarea.blur();
+          await ctx.delay(300);
+          // ...then highlight just the JSON message (the code area, not the whole box/toolbar).
+          const bodyEditor = document.querySelector<HTMLElement>('.body-code-editor') ?? bodyTextarea;
+          await spotlightElNoScroll(ctx, bodyEditor, 1400);
         }
 
         // ── Send & inspect the 201 response ──
@@ -429,8 +465,8 @@ export const reqBodyAuthLesson: DemoLesson = {
         await spotlight(ctx, REQ.RESPONSE_TIME, 800);
         await spotlight(ctx, REQ.RESPONSE_SIZE, 800);
 
-        const json = firstVisible(REQ.JSON_PREVIEW);
-        if (json) await spotlightEl(ctx, json, 1200);
+        // Highlight just the JSON response message (rows), not the full-height box.
+        await spotlightJsonResponse(ctx, 1200);
       },
     },
 
@@ -442,7 +478,9 @@ export const reqBodyAuthLesson: DemoLesson = {
         'Click the **Auth** tab to configure authentication. Select **Bearer Token** from the ' +
         'auth type dropdown. This adds an `Authorization: Bearer <token>` header to every request.\n\n' +
         'The dropdown shows all auth options: **Inherit from Collection**, **No Auth**, ' +
-        '**Bearer Token**, **Basic Auth**, **API Key**, and **Global Auth Profile**.',
+        '**Bearer Token**, **Basic Auth**, **API Key**, and **Global Auth Profile**.\n\n' +
+        'Then click **Send** — the request now carries the Bearer token, and you still get a ' +
+        '**201 Created** response.',
       highlight: REQ.TAB_AUTH,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
@@ -493,84 +531,165 @@ export const reqBodyAuthLesson: DemoLesson = {
           await spotlightElNoScroll(ctx, prefixInput, 800);
         }
 
+        // Blur the token field so its focus ring clears before sending.
+        tokenInput?.blur();
+        await ctx.delay(150);
+
+        // ── Send with the Bearer token applied & highlight the response ──
+        await spotlight(ctx, REQ.SEND_BTN, 1000);
+        await ctx.click(REQ.SEND_BTN);
+        await ctx.waitFor(REQ.STATUS_PILL, 5000);
+
+        await spotlight(ctx, REQ.STATUS_PILL, 1100);
+        await spotlightJsonResponse(ctx, 1300);
       },
     },
 
-    // ── Step 4: cURL Import & Export ──
+    // ── Step 4: cURL Export from one request → Import into another ──
     {
       id: 'req4-curl',
-      title: 'cURL Import & Export',
+      title: 'cURL Export & Import',
       description:
-        'Click the **action menu** (▾) and select **cURL Import**. Paste a `curl` command — ' +
-        'the request method, URL, headers, and body are auto-populated.\n\n' +
-        'Then export back to cURL to share with teammates. The generated command includes ' +
-        'your method, URL, headers, body, and auth — ready to paste into a terminal.',
-      highlight: REQ.ACTION_MENU_BTN,
+        'cURL is the universal way to share requests. First, create a second request called ' +
+        '**"Import from cURL"**. Then open **"Create Post"**, use the **action menu** (▾) → ' +
+        '**cURL Export**, and click **Copy** to grab the full command.\n\n' +
+        'Switch to **"Import from cURL"**, open the **action menu** (▾) → **cURL Import**, paste ' +
+        'the command, and click **Import & Apply**. The method, URL, headers, and body are ' +
+        'copied over — a request cloned entirely through cURL.\n\n' +
+        'Finally, click **Pretty Format** to tidy the imported body, then **Send** to confirm ' +
+        'the cloned request returns **201 Created**.',
+      highlight: REQ.SIDEBAR_ADD_BTN,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await closeOpenOverlays(ctx);
         await ensurePostMethodAndUrl(ctx);
       },
       action: async (ctx) => {
-        // 1. Open action menu
+        // ── 1. Create the second request "Import from cURL" (rapid-Next / restart guard) ──
+        if (!document.querySelector(REQ.reqInCollection(COLLECTION_NAME, CURL_REQUEST_NAME))) {
+          await createNamedRequest(ctx, CURL_REQUEST_NAME);
+        }
+        const newReq = firstVisible(REQ.reqByName(CURL_REQUEST_NAME))
+          ?? document.querySelector<HTMLElement>(REQ.reqInCollection(COLLECTION_NAME, CURL_REQUEST_NAME));
+        if (newReq) await spotlightEl(ctx, newReq, 1100);
+
+        // ── 2. From "Create Post" → cURL Export → Copy ──
+        await selectRequestByName(ctx, REQUEST_NAME, COLLECTION_NAME);
+        await ctx.delay(300);
+        const createPostReq = firstVisible(REQ.reqByName(REQUEST_NAME));
+        if (createPostReq) await spotlightEl(ctx, createPostReq, 1000);
+
         await spotlight(ctx, REQ.ACTION_MENU_BTN, 900);
         await ctx.click(REQ.ACTION_MENU_BTN);
         await ctx.waitFor(REQ.ACTION_DROPDOWN, 1500);
         await ctx.delay(400);
 
-        // Spotlight import button only
-        const importBtn = document.querySelector<HTMLElement>(REQ.CURL_IMPORT_BTN);
-        if (importBtn) {
-          await spotlightElNoScroll(ctx, importBtn, 800);
-          importBtn.click();
-          await ctx.delay(400);
-        }
-        await ctx.waitFor(REQ.CURL_TEXTAREA, 2000);
-
-        // Fill cURL command
-        const textarea = document.querySelector<HTMLTextAreaElement>(REQ.CURL_TEXTAREA);
-        if (textarea) {
-          await spotlightElNoScroll(ctx, textarea, 800);
-          textarea.focus();
-          fillControlledInput(textarea, CURL_IMPORT_CMD);
-          await ctx.delay(500);
-          await spotlightElNoScroll(ctx, textarea, 1000);
-        }
-
-        // Click Apply
-        const applyBtn = document.querySelector<HTMLElement>(REQ.CURL_APPLY_BTN);
-        if (applyBtn) {
-          await spotlightElNoScroll(ctx, applyBtn as HTMLElement, 800);
-          (applyBtn as HTMLButtonElement).click();
-          await ctx.delay(600);
-        }
-
-        // Spotlight the populated URL (from httpbin)
-        const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
-        if (urlInput) await spotlightElNoScroll(ctx, urlInput, 1000);
-
-        // Now export — open action menu again
-        await ctx.delay(400);
-        await ctx.click(REQ.ACTION_MENU_BTN);
-        await ctx.waitFor(REQ.ACTION_DROPDOWN, 1500);
         const exportBtn = document.querySelector<HTMLElement>(REQ.CURL_EXPORT_BTN);
         if (exportBtn) {
-          await spotlightElNoScroll(ctx, exportBtn, 800);
+          await spotlightElNoScroll(ctx, exportBtn, 1000);
           exportBtn.click();
           await ctx.delay(400);
         }
         await ctx.waitFor(REQ.CURL_EXPORT_PANEL, 2000);
 
-        // Spotlight the generated cURL output
-        const exportTextarea = document.querySelector<HTMLElement>(REQ.CURL_EXPORT_TEXTAREA);
-        if (exportTextarea) {
-          await spotlightElNoScroll(ctx, exportTextarea, 1500);
+        // Wait for the cURL to finish generating, then capture it for the import step.
+        let capturedCurl = '';
+        for (let i = 0; i < 12; i += 1) {
+          const ta = document.querySelector<HTMLTextAreaElement>(REQ.CURL_EXPORT_TEXTAREA);
+          const v = ta?.value ?? '';
+          if (v && v !== 'Generating...') { capturedCurl = v; break; }
+          await ctx.delay(200);
         }
 
-        // Close the export panel
+        const exportTextarea = document.querySelector<HTMLElement>(REQ.CURL_EXPORT_TEXTAREA);
+        if (exportTextarea) await spotlightElNoScroll(ctx, exportTextarea, 1600);
+
+        // Spotlight + click the Copy button (shows the "Copied!" confirmation).
+        const exportPanel = document.querySelector<HTMLElement>(REQ.CURL_EXPORT_PANEL);
+        const copyBtn = Array.from(exportPanel?.querySelectorAll<HTMLButtonElement>('.req-curl-actions button') ?? [])
+          .find(b => b.textContent?.trim().startsWith('Copy'));
+        if (copyBtn) {
+          await spotlightElNoScroll(ctx, copyBtn, 1000);
+          copyBtn.click();
+          await ctx.delay(500);
+          await spotlightElNoScroll(ctx, copyBtn, 1000);
+        }
+
+        // Close the export panel before switching requests.
         await ctx.delay(300);
-        const closeBtn = document.querySelector<HTMLElement>('.req-curl-actions .btn-ghost');
-        if (closeBtn) { closeBtn.click(); await ctx.delay(300); }
+        const exportClose = Array.from(exportPanel?.querySelectorAll<HTMLButtonElement>('.req-curl-actions button') ?? [])
+          .find(b => b.textContent?.trim() === 'Close');
+        if (exportClose) { exportClose.click(); await ctx.delay(300); }
+
+        // ── 3. From "Import from cURL" → cURL Import → paste → Import & Apply ──
+        await selectRequestByName(ctx, CURL_REQUEST_NAME, COLLECTION_NAME);
+        await ctx.delay(300);
+        const importReq = firstVisible(REQ.reqByName(CURL_REQUEST_NAME));
+        if (importReq) await spotlightEl(ctx, importReq, 1000);
+
+        await spotlight(ctx, REQ.ACTION_MENU_BTN, 900);
+        await ctx.click(REQ.ACTION_MENU_BTN);
+        await ctx.waitFor(REQ.ACTION_DROPDOWN, 1500);
+        await ctx.delay(400);
+
+        const importBtn = document.querySelector<HTMLElement>(REQ.CURL_IMPORT_BTN);
+        if (importBtn) {
+          await spotlightElNoScroll(ctx, importBtn, 1000);
+          importBtn.click();
+          await ctx.delay(400);
+        }
+        await ctx.waitFor(REQ.CURL_TEXTAREA, 2000);
+
+        // Paste the copied cURL (fall back to a sample command if capture failed).
+        const textarea = document.querySelector<HTMLTextAreaElement>(REQ.CURL_TEXTAREA);
+        if (textarea) {
+          await spotlightElNoScroll(ctx, textarea, 800);
+          textarea.focus();
+          fillControlledInput(textarea, capturedCurl || CURL_IMPORT_CMD);
+          await ctx.delay(500);
+          await spotlightElNoScroll(ctx, textarea, 1400);
+          textarea.blur();
+          await ctx.delay(150);
+        }
+
+        // Spotlight + click "Import & Apply".
+        const applyBtn = document.querySelector<HTMLElement>(REQ.CURL_APPLY_BTN);
+        if (applyBtn) {
+          await spotlightElNoScroll(ctx, applyBtn, 1200);
+          (applyBtn as HTMLButtonElement).click();
+          await ctx.delay(600);
+        }
+
+        // Show the auto-populated method + URL on the "Import from cURL" request.
+        const methodWrapper = document.querySelector<HTMLElement>(REQ.METHOD_SELECT);
+        if (methodWrapper) await spotlightElNoScroll(ctx, methodWrapper, 900);
+        const urlInput = document.querySelector<HTMLInputElement>(REQ.URL_INPUT);
+        if (urlInput) await spotlightElNoScroll(ctx, urlInput, 1200);
+
+        // ── Open the Body tab and Pretty Format the imported (minified) JSON ──
+        const bodyTab = document.querySelector<HTMLElement>(REQ.TAB_BODY);
+        if (bodyTab) {
+          await spotlightElNoScroll(ctx, bodyTab, 800);
+          bodyTab.click();
+          await ctx.delay(500);
+        }
+        const prettyBtn = Array.from(document.querySelectorAll<HTMLButtonElement>('.body-code-toolbar-actions .body-code-btn'))
+          .find(b => b.textContent?.trim() === 'Pretty Format');
+        if (prettyBtn) {
+          await spotlightElNoScroll(ctx, prettyBtn, 1000);
+          prettyBtn.click();
+          await ctx.delay(500);
+          const bodyTextarea = document.querySelector<HTMLTextAreaElement>('.body-code-textarea');
+          if (bodyTextarea) await spotlightElNoScroll(ctx, bodyTextarea, 1300);
+        }
+
+        // ── Send the cloned request & highlight the response ──
+        await spotlight(ctx, REQ.SEND_BTN, 1000);
+        await ctx.click(REQ.SEND_BTN);
+        await ctx.waitFor(REQ.STATUS_PILL, 5000);
+
+        await spotlight(ctx, REQ.STATUS_PILL, 1100);
+        await spotlightJsonResponse(ctx, 1300);
       },
     },
   ],

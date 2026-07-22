@@ -7,6 +7,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { createRef } from 'react';
 import { WsConnectionTabContent, type WsConnectionTabContentHandle, type WsConnectionTabContentProps } from './WsConnectionTabContent';
 import * as hookModule from './useWebSocketStudio';
@@ -301,9 +302,7 @@ describe('WsConnectionTabContent — coverage', () => {
           {...makeProps({ controlledMode: 'client', controlledLeftTab: 'auth' })}
         />,
       );
-      const select = document.querySelector('.auth-type-select select') as HTMLSelectElement;
-      expect(select).toBeTruthy();
-      fireEvent.change(select, { target: { value: 'bearer' } });
+      selectOption(document.querySelector('.auth-type-select .cs-wrapper')!, 'Bearer Token');
       expect(mockStudio.setDraft).toHaveBeenCalledWith(
         expect.objectContaining({ auth: expect.objectContaining({ type: 'bearer' }) }),
       );

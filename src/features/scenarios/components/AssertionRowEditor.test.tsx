@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import AssertionRowEditor from './AssertionRowEditor';
 import type { Assertion } from '../../../shared/types';
 import { installClipboardReadMock, installEmptyClipboard } from '../../../test-utils/clipboardMock';
@@ -17,6 +18,17 @@ const baseProps = {
   onRemove: mockOnRemove,
   onOpenRegexBuilder: mockOnOpenRegexBuilder,
 };
+
+function csByLabel(label: string): Element {
+  return screen.getByLabelText(label).closest('.cs-wrapper')!;
+}
+
+function csShowing(display: string): Element {
+  const wrappers = document.querySelectorAll('.cs-wrapper');
+  const found = Array.from(wrappers).find(w => getCustomSelectValue(w) === display);
+  if (!found) throw new Error(`No CustomSelect showing "${display}"`);
+  return found;
+}
 
 describe('AssertionRowEditor', () => {
   beforeEach(() => {
@@ -196,7 +208,7 @@ describe('AssertionRowEditor', () => {
 
     it('shows timezone select for today reference', () => {
       render(<AssertionRowEditor assertion={dateAssertion} {...baseProps} />);
-      expect(screen.getByDisplayValue('UTC')).toBeInTheDocument();
+      expect(screen.getByText('UTC')).toBeInTheDocument();
     });
 
     it('shows date input for fixed reference', () => {
@@ -296,7 +308,7 @@ describe('AssertionRowEditor', () => {
     it('renders wsField assertion with badge', () => {
       render(<AssertionRowEditor assertion={wsFieldAssertion} {...baseProps} />);
       expect(screen.getByText('WS')).toBeInTheDocument();
-      expect(screen.getByLabelText('WS target')).toHaveValue('ws.body');
+      expect(getCustomSelectValue(csByLabel('WS target'))).toBe('ws.body');
     });
 
     it('shows value input for non-exists operator', () => {
@@ -324,7 +336,7 @@ describe('AssertionRowEditor', () => {
 
     it('calls onUpdate when target changes', () => {
       render(<AssertionRowEditor assertion={wsFieldAssertion} {...baseProps} />);
-      fireEvent.change(screen.getByLabelText('WS target'), { target: { value: 'ws.type' } });
+      selectOption(csByLabel('WS target'), 'ws.type');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { target: 'ws.type' });
     });
   });
@@ -335,7 +347,7 @@ describe('AssertionRowEditor', () => {
     it('renders wsNumericField assertion with badge', () => {
       render(<AssertionRowEditor assertion={wsNumAssertion} {...baseProps} />);
       expect(screen.getByText('WS#')).toBeInTheDocument();
-      expect(screen.getByLabelText('WS numeric target')).toHaveValue('ws.latencyMs');
+      expect(getCustomSelectValue(csByLabel('WS numeric target'))).toBe('ws.latencyMs');
     });
 
     it('renders numeric value input', () => {
@@ -356,7 +368,7 @@ describe('AssertionRowEditor', () => {
     it('renders kafkaField assertion with badge', () => {
       render(<AssertionRowEditor assertion={kafkaAssertion} {...baseProps} />);
       expect(screen.getByText('KAFKA')).toBeInTheDocument();
-      expect(screen.getByLabelText('Kafka target')).toHaveValue('kafka.body');
+      expect(getCustomSelectValue(csByLabel('Kafka target'))).toBe('kafka.body');
     });
 
     it('shows header name input for kafka.header.* targets', () => {
@@ -367,10 +379,7 @@ describe('AssertionRowEditor', () => {
 
     it('calls onUpdate when operator changes', () => {
       render(<AssertionRowEditor assertion={kafkaAssertion} {...baseProps} />);
-      const selects = screen.getAllByRole('combobox');
-      const operatorSelect = selects.find(s => (s as HTMLSelectElement).value === 'contains');
-      expect(operatorSelect).toBeTruthy();
-      fireEvent.change(operatorSelect!, { target: { value: 'equals' } });
+      selectOption(csShowing('contains'), 'equals');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: 'equals' });
     });
   });
@@ -433,10 +442,7 @@ describe('AssertionRowEditor', () => {
 
     it('switches reference kind to fixed', () => {
       render(<AssertionRowEditor assertion={dateAssertion} {...baseProps} />);
-      const selects = screen.getAllByRole('combobox');
-      const kindSelect = selects.find(s => (s as HTMLSelectElement).value === 'today');
-      expect(kindSelect).toBeTruthy();
-      fireEvent.change(kindSelect!, { target: { value: 'fixed' } });
+      selectOption(csShowing('today'), 'fixed date');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, expect.objectContaining({
         reference: expect.objectContaining({ kind: 'fixed' }),
       }));
@@ -450,9 +456,7 @@ describe('AssertionRowEditor', () => {
         reference: { kind: 'fixed', iso: '2024-01-01' },
       };
       render(<AssertionRowEditor assertion={fixedAssertion} {...baseProps} />);
-      const selects = screen.getAllByRole('combobox');
-      const kindSelect = selects.find(s => (s as HTMLSelectElement).value === 'fixed');
-      fireEvent.change(kindSelect!, { target: { value: 'today' } });
+      selectOption(csShowing('fixed date'), 'today');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, expect.objectContaining({
         reference: expect.objectContaining({ kind: 'today', timezone: 'utc' }),
       }));
@@ -475,8 +479,7 @@ describe('AssertionRowEditor', () => {
 
     it('updates timezone for today reference', () => {
       render(<AssertionRowEditor assertion={dateAssertion} {...baseProps} />);
-      const tzSelect = screen.getByDisplayValue('UTC');
-      fireEvent.change(tzSelect, { target: { value: 'local' } });
+      selectOption(csShowing('UTC'), 'Local');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, {
         reference: { kind: 'today', timezone: 'local' },
       });
@@ -490,8 +493,7 @@ describe('AssertionRowEditor', () => {
 
     it('updates unit', () => {
       render(<AssertionRowEditor assertion={bodySizeAssertion} {...baseProps} />);
-      const unitSelect = screen.getByDisplayValue('Bytes');
-      fireEvent.change(unitSelect, { target: { value: 'kb' } });
+      selectOption(csShowing('Bytes'), 'KB');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { unit: 'kb' });
     });
 
@@ -504,8 +506,7 @@ describe('AssertionRowEditor', () => {
 
     it('updates operator', () => {
       render(<AssertionRowEditor assertion={bodySizeAssertion} {...baseProps} />);
-      const opSelect = screen.getByDisplayValue('less than');
-      fireEvent.change(opSelect, { target: { value: '>=' } });
+      selectOption(csShowing('less than'), 'at least');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: '>=' });
     });
   });
@@ -537,8 +538,7 @@ describe('AssertionRowEditor', () => {
 
     it('updates ws target', () => {
       render(<AssertionRowEditor assertion={wsAssertion} {...baseProps} />);
-      const select = screen.getByLabelText('WS target');
-      fireEvent.change(select, { target: { value: 'ws.type' } });
+      selectOption(csByLabel('WS target'), 'ws.type');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { target: 'ws.type' });
     });
   });
@@ -571,9 +571,7 @@ describe('AssertionRowEditor', () => {
 
     it('updates operator to no-value type', () => {
       render(<AssertionRowEditor assertion={eachAssertion} {...baseProps} />);
-      const selects = screen.getAllByRole('combobox');
-      const opSelect = selects.find(s => (s as HTMLSelectElement).value === 'equals');
-      fireEvent.change(opSelect!, { target: { value: 'is_true' } });
+      selectOption(csShowing('equals'), 'is true');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: 'is_true' });
     });
   });
@@ -585,9 +583,7 @@ describe('AssertionRowEditor', () => {
 
     it('updates mode', () => {
       render(<AssertionRowEditor assertion={arrayAssertion} {...baseProps} />);
-      const selects = screen.getAllByRole('combobox');
-      const modeSelect = selects.find(s => (s as HTMLSelectElement).value === 'any');
-      fireEvent.change(modeSelect!, { target: { value: 'all' } });
+      selectOption(csShowing('any (at least one)'), 'all (every item)');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { mode: 'all' });
     });
   });
@@ -658,8 +654,7 @@ describe('AssertionRowEditor', () => {
       fireEvent.change(screen.getByDisplayValue('$.id'), { target: { value: '$.name' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { jsonPath: '$.name' });
       pickPath();
-      const typeSelect = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === 'number');
-      fireEvent.change(typeSelect!, { target: { value: 'string' } });
+      selectOption(csShowing('number'), 'string');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { expectedType: 'string' });
     });
 
@@ -669,8 +664,7 @@ describe('AssertionRowEditor', () => {
       fireEvent.change(screen.getByDisplayValue('$.field'), { target: { value: '$.id' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { jsonPath: '$.id' });
       pickPath();
-      const select = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === 'exists');
-      fireEvent.change(select!, { target: { value: 'not_exists' } });
+      selectOption(csShowing('exists'), 'does not exist');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { expectExists: false });
     });
 
@@ -719,7 +713,7 @@ describe('AssertionRowEditor', () => {
       render(<AssertionRowEditor assertion={a} {...baseProps} />);
       fireEvent.change(screen.getByDisplayValue('Content-Type'), { target: { value: 'Accept' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { name: 'Accept' });
-      fireEvent.change(screen.getByDisplayValue('equals'), { target: { value: 'contains' } });
+      selectOption(csShowing('equals'), 'contains');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: 'contains' });
       fireEvent.change(screen.getByDisplayValue('application/json'), { target: { value: 'text/html' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { value: 'text/html' });
@@ -758,8 +752,7 @@ describe('AssertionRowEditor', () => {
       fireEvent.change(screen.getByDisplayValue('$.timestamp'), { target: { value: '$.ts' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { jsonPath: '$.ts' });
       pickPath();
-      const opSelect = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === '=');
-      fireEvent.change(opSelect!, { target: { value: '>' } });
+      selectOption(csShowing('equals'), 'after');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: '>' });
       const dt = document.querySelector('input[type="datetime-local"]') as HTMLInputElement;
       fireEvent.change(dt, { target: { value: '2025-06-15T08:30' } });
@@ -767,8 +760,7 @@ describe('AssertionRowEditor', () => {
       fireEvent.change(dt, { target: { value: '' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { reference: '' });
       fireEvent.click(screen.getByTitle('Pick date/time'));
-      const precisionSelect = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === 'minute');
-      fireEvent.change(precisionSelect!, { target: { value: 'second' } });
+      selectOption(csShowing('Minute'), 'Second');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { precision: 'second' });
     });
   });
@@ -808,8 +800,7 @@ describe('AssertionRowEditor', () => {
     it('updates operator', () => {
       const a: Assertion = { type: 'wsField', target: 'ws.body', operator: 'contains', value: 'v' };
       render(<AssertionRowEditor assertion={a} {...baseProps} />);
-      const opSelect = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === 'contains');
-      fireEvent.change(opSelect!, { target: { value: 'equals' } });
+      selectOption(csShowing('contains'), 'equals');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: 'equals' });
     });
   });
@@ -820,7 +811,7 @@ describe('AssertionRowEditor', () => {
     it('updates numeric target', () => {
       const a: Assertion = { type: 'wsNumericField', target: 'ws.latencyMs', operator: '<', value: 1 };
       render(<AssertionRowEditor assertion={a} {...baseProps} />);
-      fireEvent.change(screen.getByLabelText('WS numeric target'), { target: { value: 'ws.size' } });
+      selectOption(csByLabel('WS numeric target'), 'ws.size');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { target: 'ws.size' });
     });
   });
@@ -831,7 +822,7 @@ describe('AssertionRowEditor', () => {
     it('updates target select', () => {
       const a: Assertion = { type: 'kafkaField', target: 'kafka.body', operator: 'contains', value: 'v' };
       render(<AssertionRowEditor assertion={a} {...baseProps} />);
-      fireEvent.change(screen.getByLabelText('Kafka target'), { target: { value: 'kafka.key' } });
+      selectOption(csByLabel('Kafka target'), 'kafka.key');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { target: 'kafka.key' });
     });
 
@@ -931,8 +922,7 @@ describe('AssertionRowEditor', () => {
 
     it('renders existence with expectExists false', () => {
       render(<AssertionRowEditor assertion={{ type: 'existence', jsonPath: '$.a', expectExists: false }} {...baseProps} />);
-      const select = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === 'not_exists');
-      expect(select).toBeTruthy();
+      expect(getCustomSelectValue(csShowing('does not exist'))).toBe('does not exist');
     });
 
     it('renders datePrecise with empty reference', () => {
@@ -957,15 +947,13 @@ describe('AssertionRowEditor', () => {
 
     it('date: keeps timezone when switching today→today', () => {
       render(<AssertionRowEditor assertion={{ type: 'date', jsonPath: '$.a', operator: '>', reference: { kind: 'today', timezone: 'local' } }} {...baseProps} />);
-      const kindSelect = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === 'today');
-      fireEvent.change(kindSelect!, { target: { value: 'today' } });
+      selectOption(csShowing('today'), 'today');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { reference: { kind: 'today', timezone: 'local' } });
     });
 
     it('date: keeps iso when switching fixed→fixed', () => {
       render(<AssertionRowEditor assertion={{ type: 'date', jsonPath: '$.a', operator: '>', reference: { kind: 'fixed', iso: '2023-05-05' } }} {...baseProps} />);
-      const kindSelect = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === 'fixed');
-      fireEvent.change(kindSelect!, { target: { value: 'fixed' } });
+      selectOption(csShowing('fixed date'), 'fixed date');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { reference: { kind: 'fixed', iso: '2023-05-05' } });
     });
   });

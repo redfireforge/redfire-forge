@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import ScriptConfig from './ScriptConfig';
 import type { ScriptNodeData } from '../../types/workflow';
 
@@ -98,9 +99,9 @@ describe('ScriptConfig', () => {
   });
 
   it('renders all mode options', () => {
-    render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
-    const options = screen.getAllByRole('option');
-    const labels = options.map(o => o.textContent);
+    const { container } = render(<ScriptConfig data={makeData()} onChange={vi.fn()} />);
+    fireEvent.click(container.querySelector('.cs-trigger')!);
+    const labels = Array.from(container.querySelectorAll('.cs-item-label')).map(el => el.textContent);
     expect(labels).toContain('Transform');
     expect(labels).toContain('Validate');
     expect(labels).toContain('Generate');
@@ -124,8 +125,8 @@ describe('ScriptConfig', () => {
 
   it('calls onChange when mode is changed', () => {
     const onChange = vi.fn();
-    render(<ScriptConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('Transform'), { target: { value: 'validate' } });
+    const { container } = render(<ScriptConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'Validate');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mode: 'validate' }));
   });
 

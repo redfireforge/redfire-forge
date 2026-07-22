@@ -1,3 +1,5 @@
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
+
 interface VersionOption {
   id: string;
   label: string;
@@ -20,22 +22,26 @@ export default function VersionDiffSelectors({
     <div className="version-diff-modal-selectors">
       <label>
         <span className="version-diff-selector-label">Left</span>
-        <select value={compareLeft || ''} onChange={(e) => setCompareLeft(e.target.value)}>
-          <option value="">Select...</option>
-          {options.map((o) => (
-            <option key={o.id} value={o.id}>{o.label}</option>
-          ))}
-        </select>
+        <CustomSelect
+          value={compareLeft || ''}
+          onChange={setCompareLeft}
+          options={[
+            { value: '', label: 'Select...' },
+            ...options.map((o) => ({ value: o.id, label: o.label })),
+          ]}
+        />
       </label>
       <span className="version-diff-vs">vs</span>
       <label>
         <span className="version-diff-selector-label">Right</span>
-        <select value={compareRight || ''} onChange={(e) => setCompareRight(e.target.value)}>
-          <option value="">Select...</option>
-          {options.map((o) => (
-            <option key={o.id} value={o.id}>{o.label}</option>
-          ))}
-        </select>
+        <CustomSelect
+          value={compareRight || ''}
+          onChange={setCompareRight}
+          options={[
+            { value: '', label: 'Select...' },
+            ...options.map((o) => ({ value: o.id, label: o.label })),
+          ]}
+        />
       </label>
     </div>
   );

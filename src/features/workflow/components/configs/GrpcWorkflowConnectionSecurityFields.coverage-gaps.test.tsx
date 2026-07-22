@@ -3,6 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render } from '@testing-library/react';
+import { selectOptionByTestId } from '../../../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import GrpcWorkflowConnectionSecurityFields from './GrpcWorkflowConnectionSecurityFields';
 
@@ -62,7 +63,7 @@ describe('GrpcWorkflowConnectionSecurityFields coverage gaps', () => {
       />,
     );
 
-    fireEvent.change(getByTestId('grpc-unary-config-tls-mode'), { target: { value: 'tls' } });
+    selectOptionByTestId('grpc-unary-config-tls-mode', 'TLS');
     rerender(
       <GrpcWorkflowConnectionSecurityFields
         data={{ ...baseData, tlsMode: 'tls' }}
@@ -99,7 +100,7 @@ describe('GrpcWorkflowConnectionSecurityFields coverage gaps', () => {
 
     expect(getByTestId('grpc-stream-config-tls-panel')).toBeInTheDocument();
 
-    fireEvent.change(getByTestId('grpc-stream-config-tls-mode'), { target: { value: 'disabled' } });
+    selectOptionByTestId('grpc-stream-config-tls-mode', 'Plaintext');
     rerender(
       <GrpcWorkflowConnectionSecurityFields
         data={{ ...baseData, target: '', tlsMode: 'disabled', tlsConfig: { caCert: 'x' } }}

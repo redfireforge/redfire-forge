@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOption, selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 import PopulateMapStep from './PopulateMapStep';
 import type { DetectedArray, FieldMapping } from '../utils/populateFromApiUtils';
 
@@ -43,7 +44,7 @@ describe('PopulateMapStep', () => {
   it('renders array selector when multiple arrays', () => {
     render(<PopulateMapStep {...defaultProps} />);
     expect(screen.getByText('Array source:')).toBeInTheDocument();
-    expect(screen.getAllByRole('combobox').length).toBeGreaterThan(0);
+    expect(document.querySelectorAll('.cs-wrapper').length).toBeGreaterThan(0);
   });
 
   it('shows array info when single array', () => {
@@ -61,10 +62,7 @@ describe('PopulateMapStep', () => {
     const onArrayChange = vi.fn();
     render(<PopulateMapStep {...defaultProps} onArrayChange={onArrayChange} />);
 
-    const comboboxes = screen.getAllByRole('combobox');
-    const arraySelector = comboboxes.find(el => el.querySelector('option[value="products"]'));
-    expect(arraySelector).toBeDefined();
-    fireEvent.change(arraySelector!, { target: { value: 'products' } });
+    selectOption(document.body, 'products');
     expect(onArrayChange).toHaveBeenCalledWith('products');
   });
 
@@ -92,7 +90,7 @@ describe('PopulateMapStep', () => {
 
   it('shows column type selectors', () => {
     render(<PopulateMapStep {...defaultProps} />);
-    const selects = screen.getAllByRole('combobox');
+    const selects = document.querySelectorAll('.populate-api-field-row .cs-wrapper');
     expect(selects.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -100,11 +98,9 @@ describe('PopulateMapStep', () => {
     const onChangeFieldType = vi.fn();
     render(<PopulateMapStep {...defaultProps} onChangeFieldType={onChangeFieldType} />);
 
-    const typeSelects = screen.getAllByRole('combobox').filter(
-      el => el.querySelector('option[value="path"]')
-    );
+    const typeSelects = document.querySelectorAll('.populate-api-field-row .cs-wrapper');
     if (typeSelects.length > 0) {
-      fireEvent.change(typeSelects[0], { target: { value: 'header' } });
+      selectOption(typeSelects[0]!, 'Header');
       expect(onChangeFieldType).toHaveBeenCalled();
     }
   });

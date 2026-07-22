@@ -693,11 +693,11 @@
 
 .kafka-topic-context-chip {
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: 4px;
   padding: 2px 8px;
   font-size: 0.68rem;
   color: var(--text-muted);
-  background: rgba(255, 255, 255, 0.03);
+  background: var(--bg);
 }
 
 .kafka-topic-browser-filter-row {
@@ -730,20 +730,26 @@
 }
 
 .kafka-topic-chip {
-  border: 1px solid rgba(255,255,255,0.1);
+  border: 1px solid var(--border);
   border-radius: 999px;
-  padding: 4px 10px;
-  background: rgba(255,255,255,0.06);
+  padding: 4px 12px;
+  background: var(--bg);
   color: var(--text-muted);
   font-size: 0.72rem;
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 
+.kafka-topic-chip:hover:not(.disabled) {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--border));
+  color: var(--text);
+}
 .kafka-topic-chip.active {
-  border-color: rgba(95, 177, 255, 0.35);
-  background: rgba(95, 177, 255, 0.14);
-  color: #cbe5ff;
+  border-color: color-mix(in srgb, var(--primary) 45%, transparent);
+  background: color-mix(in srgb, var(--primary) 14%, transparent);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .kafka-topic-table {
@@ -759,12 +765,12 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-muted);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: 1px solid var(--border);
 }
 
 .kafka-topic-table tbody tr {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-  transition: background 0.12s;
+  border-bottom: 1px solid var(--border);
+  transition: background 0.15s;
 }
 
 .kafka-topic-table tbody tr:last-child {
@@ -772,7 +778,7 @@
 }
 
 .kafka-topic-table tbody tr:hover {
-  background: rgba(95, 177, 255, 0.07);
+  background: color-mix(in srgb, var(--surface-hover) 50%, transparent);
 }
 
 .kafka-topic-table tbody td {
@@ -784,7 +790,7 @@
 .kafka-topic-browser-list {
   overflow: hidden;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border);
 }
 
 .kafka-topic-browser-list-head {
@@ -808,13 +814,17 @@
 }
 
 .kafka-topic-kind-badge {
-  padding: 3px 8px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.06);
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
   color: var(--text-muted);
-  font-size: 0.7rem;
+  font-size: 0.66rem;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-left: 6px;
+  vertical-align: middle;
 }
 
 .kafka-editor-grid {
@@ -1606,9 +1616,9 @@ label.kafka-editor-checkbox {
   padding: 8px 14px;
   margin: 0 4px 6px;
   font-size: 0.8rem;
-  color: var(--danger, #f44336);
-  background: rgba(244,67,54,0.08);
-  border: 1px solid rgba(244,67,54,0.2);
+  color: var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger, #ef4444) 8%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 22%, transparent);
   border-radius: 5px;
 }
 
@@ -1626,31 +1636,36 @@ label.kafka-editor-checkbox {
   padding-top: 18px;
 }
 
-/* Card */
+/* Card — outer container */
 .kafka-ms-card {
   border-radius: 10px;
-  background:
-    radial-gradient(circle at top right, rgba(255,138,61,0.09), transparent 36%),
-    radial-gradient(circle at top left, rgba(95,177,255,0.08), transparent 32%),
-    linear-gradient(180deg, rgba(22,32,56,0.98), rgba(12,18,33,0.98));
-  border: 1px solid rgba(255,255,255,0.07);
-  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 10%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 5%, transparent),
+    0 4px 20px rgba(0, 0, 0, 0.25),
+    0 1px 4px rgba(0, 0, 0, 0.15);
+  overflow: visible;
 }
 .kafka-ms-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px 8px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 10px 10px 0 0;
 }
 .kafka-ms-card-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-primary, #e0e6f0);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
 }
 .kafka-ms-card-subtitle {
-  font-size: 0.78rem;
-  color: var(--text-muted, #7a8ea8);
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 1px;
 }
 
 /* ── Template controls (Phase 2) ─────────────────────────────────────────── */
@@ -1672,8 +1687,8 @@ label.kafka-editor-checkbox {
   display: inline-block;
   width: 1px;
   height: 16px;
-  background: rgba(255,255,255,0.1);
-  margin: 0 2px;
+  background: var(--border);
+  margin: 0 3px;
   flex-shrink: 0;
 }
 
@@ -1698,26 +1713,25 @@ label.kafka-editor-checkbox {
 
 /* Load: neutral outline */
 .kafka-ms-template-btn--load {
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.13);
-  color: var(--text-secondary, #a0b4cc);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
 }
 .kafka-ms-template-btn--load:hover:not(:disabled) {
-  background: rgba(255,255,255,0.10);
-  border-color: rgba(255,255,255,0.22);
-  color: var(--text-primary, #e0e6f0);
+  background: var(--surface-hover);
+  border-color: color-mix(in srgb, white 20%, var(--border));
+  color: var(--text);
 }
 
 /* Save: accent-tinted */
 .kafka-ms-template-btn--save {
-  background: rgba(95,177,255,0.08);
-  border: 1px solid rgba(95,177,255,0.28);
-  color: var(--accent, #5fb1ff);
+  background: color-mix(in srgb, var(--primary) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  color: var(--primary);
 }
 .kafka-ms-template-btn--save:hover:not(:disabled) {
-  background: rgba(95,177,255,0.16);
-  border-color: rgba(95,177,255,0.45);
-  color: #82c4ff;
+  background: color-mix(in srgb, var(--primary) 18%, var(--surface));
+  border-color: color-mix(in srgb, var(--primary) 50%, transparent);
 }
 
 /* Load icon + chevron */
@@ -1736,13 +1750,13 @@ label.kafka-editor-checkbox {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border-radius: 8px;
-  background: rgba(95,177,255,0.2);
-  border: 1px solid rgba(95,177,255,0.3);
-  color: var(--accent, #5fb1ff);
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  color: var(--primary);
   font-size: 0.68rem;
   font-weight: 700;
   line-height: 1;
@@ -1758,12 +1772,16 @@ label.kafka-editor-checkbox {
   position: absolute;
   top: calc(100% + 5px);
   right: 0;
-  min-width: 200px;
-  max-width: 280px;
-  background: var(--bg-surface, #1a2540);
-  border: 1px solid rgba(255,255,255,0.13);
-  border-radius: 7px;
-  box-shadow: 0 10px 32px rgba(0,0,0,0.5);
+  min-width: 220px;
+  max-width: 300px;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  border-radius: 8px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
   z-index: 120;
   overflow: hidden;
 }
@@ -1773,26 +1791,26 @@ label.kafka-editor-checkbox {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 12px 6px;
+  padding: 9px 14px 7px;
   font-size: 0.7rem;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--text-muted, #7a8ea8);
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
 }
 .kafka-ms-template-dropdown-count {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: 18px;
-  height: 16px;
+  height: 18px;
   padding: 0 5px;
-  border-radius: 8px;
-  background: rgba(255,255,255,0.08);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
   font-size: 0.68rem;
   font-weight: 700;
-  color: var(--text-secondary, #a0b4cc);
+  color: var(--primary);
 }
 
 /* Scrollable list inside dropdown */
@@ -1827,24 +1845,25 @@ label.kafka-editor-checkbox {
 .kafka-ms-template-item {
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 8px 12px;
+  gap: 8px;
+  padding: 8px 14px;
   cursor: pointer;
   transition: background 0.12s;
 }
 .kafka-ms-template-item:hover {
-  background: rgba(255,255,255,0.07);
+  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
 }
 .kafka-ms-template-item-icon {
   flex-shrink: 0;
   font-size: 0.72rem;
-  color: var(--accent, #5fb1ff);
-  opacity: 0.55;
+  color: var(--primary);
+  opacity: 0.6;
 }
 .kafka-ms-template-item-name {
   flex: 1 1 auto;
   font-size: 0.82rem;
-  color: var(--text-primary, #e0e6f0);
+  font-weight: 500;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1854,32 +1873,34 @@ label.kafka-editor-checkbox {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
-  border-radius: 3px;
-  background: transparent;
-  border: none;
-  color: var(--text-muted, #7a8ea8);
-  font-size: 0.85rem;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  background: color-mix(in srgb, #ff6b6b 10%, transparent);
+  border: 1px solid color-mix(in srgb, #ff6b6b 25%, transparent);
+  color: #ff6b6b;
+  font-size: 0.78rem;
+  font-weight: 700;
   cursor: pointer;
-  opacity: 0;
-  transition: opacity 0.12s, color 0.12s, background 0.12s;
+  opacity: 0.7;
+  transition: opacity 0.12s, background 0.12s, border-color 0.12s;
 }
 .kafka-ms-template-item:hover .kafka-ms-template-item-delete {
   opacity: 1;
 }
 .kafka-ms-template-item-delete:hover {
-  color: #ff6b6b;
-  background: rgba(255,107,107,0.12);
+  color: #ff4444;
+  background: color-mix(in srgb, #ff6b6b 20%, transparent);
+  border-color: #ff6b6b;
 }
 
 /* Dropdown footer hint */
 .kafka-ms-template-dropdown-hint {
-  padding: 5px 12px;
-  font-size: 0.67rem;
-  color: var(--text-muted, #7a8ea8);
-  opacity: 0.6;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  padding: 6px 14px;
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  border-top: 1px solid var(--border);
   text-align: center;
 }
 
@@ -1890,19 +1911,20 @@ label.kafka-editor-checkbox {
   gap: 4px;
 }
 .kafka-ms-template-save-input {
-  background: rgba(255,255,255,0.06);
-  border: 1px solid rgba(95,177,255,0.3);
+  background: var(--bg);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, var(--border));
   border-radius: 5px;
   padding: 4px 8px;
   font-size: 0.76rem;
-  color: var(--text-primary, #e0e6f0);
+  color: var(--text);
   width: 160px;
   outline: none;
   transition: border-color 0.15s, background 0.15s;
 }
 .kafka-ms-template-save-input:focus {
-  border-color: rgba(95,177,255,0.55);
-  background: rgba(95,177,255,0.06);
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 5%, var(--bg));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 .kafka-ms-template-confirm-btn,
 .kafka-ms-template-cancel-btn {
@@ -1918,13 +1940,13 @@ label.kafka-editor-checkbox {
   flex-shrink: 0;
 }
 .kafka-ms-template-confirm-btn {
-  background: rgba(95,177,255,0.12);
-  border: 1px solid rgba(95,177,255,0.35);
-  color: var(--accent, #5fb1ff);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  color: var(--primary);
 }
 .kafka-ms-template-confirm-btn:hover:not(:disabled) {
-  background: rgba(95,177,255,0.22);
-  border-color: rgba(95,177,255,0.55);
+  background: color-mix(in srgb, var(--primary) 22%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 55%, transparent);
 }
 .kafka-ms-template-confirm-btn:disabled {
   opacity: 0.35;
@@ -1932,19 +1954,19 @@ label.kafka-editor-checkbox {
 }
 .kafka-ms-template-cancel-btn {
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-muted, #7a8ea8);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
 }
 .kafka-ms-template-cancel-btn:hover {
-  background: rgba(255,255,255,0.07);
-  color: var(--text-primary, #e0e6f0);
+  background: var(--surface-hover);
+  color: var(--text);
 }
 /* ── End template controls ───────────────────────────────────────────────── */
 .kafka-ms-body {
-  padding: 14px 16px;
+  padding: 16px 20px 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 /* Field grid */
@@ -1963,11 +1985,11 @@ label.kafka-editor-checkbox {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-size: 0.73rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-muted, #7a8ea8);
+  color: var(--text-muted);
   user-select: none;
 }
 .kafka-ms-field-label-row {
@@ -1982,12 +2004,13 @@ label.kafka-editor-checkbox {
 }
 /* Compact inline serde selector (String / JSON / Base64 / Hex) */
 .kafka-ms-serde-select {
-  padding: 1px 4px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
-  color: var(--text-muted, #7a8ea8);
-  font-size: 0.7rem;
+  padding: 3px 8px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 600;
   font-weight: 500;
   cursor: pointer;
   outline: none;
@@ -1995,8 +2018,8 @@ label.kafka-editor-checkbox {
 }
 .kafka-ms-serde-select:hover,
 .kafka-ms-serde-select:focus {
-  border-color: rgba(99,179,237,0.4);
-  color: var(--accent, #63b3ed);
+  border-color: var(--primary);
+  color: var(--primary);
 }
 /* Decode preview result line shown below the textarea */
 .kafka-ms-decode-preview {
@@ -2013,11 +2036,11 @@ label.kafka-editor-checkbox {
   display: inline-flex;
   align-items: center;
   gap: 3px;
-  padding: 2px 7px;
-  border-radius: 10px;
-  border: 1px solid rgba(99, 179, 237, 0.35);
-  background: rgba(99, 179, 237, 0.08);
-  color: var(--accent, #63b3ed);
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--primary) 35%, transparent);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
+  color: var(--primary);
   font-size: 0.7rem;
   font-weight: 600;
   font-family: monospace;
@@ -2027,34 +2050,55 @@ label.kafka-editor-checkbox {
   line-height: 1.4;
 }
 .kafka-ms-pretty-badge:hover {
-  background: rgba(99, 179, 237, 0.18);
-  border-color: rgba(99, 179, 237, 0.6);
-  color: #90cdf4;
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  border-color: color-mix(in srgb, var(--primary) 60%, transparent);
 }
 .kafka-ms-pretty-badge:active {
-  background: rgba(99, 179, 237, 0.28);
+  background: color-mix(in srgb, var(--primary) 25%, transparent);
 }
 .kafka-ms-field input,
 .kafka-ms-field select {
-  padding: 5px 8px;
+  padding: 6px 10px;
   border-radius: 5px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary, #e0e6f0);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
   font-size: 0.82rem;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.kafka-ms-field input:hover,
+.kafka-ms-field select:hover { border-color: var(--primary); }
+.kafka-ms-field input:focus,
+.kafka-ms-field select:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 .kafka-ms-textarea {
   width: 100%;
   box-sizing: border-box;
-  padding: 7px 9px;
-  border-radius: 5px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary, #e0e6f0);
-  font-family: monospace;
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.8rem;
+  line-height: 1.6;
   resize: vertical;
-  min-height: 90px;
+  min-height: 120px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.kafka-ms-textarea:hover { border-color: var(--primary); }
+.kafka-ms-textarea:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+.kafka-ms-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.45;
+  font-style: italic;
 }
 
 /* ── Publish Studio redesign — field layout ───────────────────────────── */
@@ -2109,19 +2153,20 @@ label.kafka-editor-checkbox {
 
 /* Required asterisk */
 .kafka-ms-required-dot {
-  color: var(--color-danger, #ef4444);
-  font-size: 0.8rem;
+  color: var(--danger, #ef4444);
+  font-size: 0.75rem;
   line-height: 1;
+  margin-left: 1px;
 }
 
 /* Optional tag inline */
 .kafka-ms-optional-tag {
-  font-size: 0.63rem;
-  font-weight: 500;
-  letter-spacing: 0;
-  text-transform: none;
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
   color: var(--text-muted);
-  background: var(--surface-hover);
+  background: color-mix(in srgb, var(--border) 60%, transparent);
   border: 1px solid var(--border);
   border-radius: 3px;
   padding: 0 4px;
@@ -2147,9 +2192,17 @@ label.kafka-editor-checkbox {
   display: flex;
   flex-direction: column;
   border-radius: 8px;
-  overflow: hidden;
+  overflow: visible;
   border: 1px solid var(--border);
   background: var(--surface);
+}
+.kafka-ms-form-row:first-child {
+  border-top-left-radius: 7px;
+  border-top-right-radius: 7px;
+}
+.kafka-ms-form-row:last-child {
+  border-bottom-left-radius: 7px;
+  border-bottom-right-radius: 7px;
 }
 
 .kafka-ms-form-row {
@@ -2157,22 +2210,25 @@ label.kafka-editor-checkbox {
   align-items: stretch;
   min-height: 48px;
   max-height: 74px;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
   border-bottom: 1px solid var(--border);
-  transition: background 0.12s;
+  transition: background 0.15s;
 }
 .kafka-ms-form-row--tall { max-height: 92px; }
 .kafka-ms-form-row:last-child { border-bottom: none; }
-.kafka-ms-form-row:hover { background: var(--surface-hover); }
+.kafka-ms-form-row:hover {
+  background: color-mix(in srgb, var(--surface-hover) 60%, var(--surface));
+}
 .kafka-ms-form-row:focus-within {
-  background: color-mix(in srgb, var(--primary) 8%, var(--surface));
+  background: color-mix(in srgb, var(--primary) 6%, var(--surface));
 }
 
 /* Label column — clearly darker than the surface row */
 .kafka-ms-form-label {
-  flex: 0 0 152px;
-  font-size: 0.76rem;
-  font-weight: 500;
+  flex: 0 0 130px;
+  font-size: 0.75rem;
+  font-weight: 600;
   color: var(--text-muted);
   background: var(--bg);
   border-right: 1px solid var(--border);
@@ -2182,13 +2238,14 @@ label.kafka-editor-checkbox {
   gap: 6px;
   padding: 0 14px 0 16px;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 /* Control (input) area — inherits surface background from row */
 .kafka-ms-form-ctrl {
   flex: 1;
   min-width: 0;
-  padding: 8px 12px;
+  padding: 8px 14px;
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -2198,12 +2255,11 @@ label.kafka-editor-checkbox {
   flex-direction: row;
   align-items: center;
   justify-content: flex-start;
-  gap: 8px;
+  gap: 10px;
 }
 
-/* ── Inputs & selects ─────────────────────────────────────────────────────── */
-.kafka-ms-form-input,
-.kafka-ms-form-select {
+/* ── Inputs ────────────────────────────────────────────────────────────────── */
+.kafka-ms-form-input {
   box-sizing: border-box;
   padding: 6px 10px;
   border-radius: 5px;
@@ -2217,21 +2273,8 @@ label.kafka-editor-checkbox {
 .kafka-ms-form-ctrl:not(.kafka-ms-form-ctrl--inline) .kafka-ms-form-input {
   width: 100%;
 }
-.kafka-ms-form-select {
-  cursor: pointer;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23a8b8cc' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-  background-color: var(--bg);
-  background-repeat: no-repeat;
-  background-position: right 10px center;
-  padding-right: 28px;
-  height: 32px;
-}
-
-.kafka-ms-form-input:hover,
-.kafka-ms-form-select:hover { border-color: var(--primary); }
-.kafka-ms-form-input:focus,
-.kafka-ms-form-select:focus {
+.kafka-ms-form-input:hover { border-color: var(--primary); }
+.kafka-ms-form-input:focus {
   border-color: var(--primary);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
 }
@@ -2266,32 +2309,102 @@ label.kafka-editor-checkbox {
   user-select: none;
 }
 
-/* Acks / position / sort dropdowns */
-.kafka-ms-form-select--acks { width: 260px; flex: 0 0 260px; }
-
-/* Key-format pill: String / Base64 / Hex */
-.kafka-ms-form-select--fmt {
-  flex: 0 0 88px;
-  width: 88px;
-  padding: 5px 22px 5px 8px;
-  font-size: 0.73rem;
-  font-weight: 600;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  background: var(--bg)
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5' viewBox='0 0 8 5'%3E%3Cpath d='M1 1l3 3 3-3' stroke='%23a8b8cc' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E")
-    no-repeat right 7px center;
-  color: var(--text-muted);
-  cursor: pointer;
-  outline: none;
-  appearance: none;
-  height: 32px;
+/* ── CustomSelect overrides (match Auth dropdown style) ──────────────────── */
+.kafka-ms-form-select.cs-wrapper {
+  display: inline-flex;
+  min-width: 0;
 }
-.kafka-ms-form-select--fmt:hover { border-color: var(--primary); }
-.kafka-ms-form-select--fmt:focus {
-  border-color: var(--primary);
+.kafka-ms-form-select .cs-trigger {
+  padding: 9px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.84rem;
+  font-weight: 500;
   color: var(--text);
+  transition: border-color 0.12s, background 0.12s;
+  gap: 8px;
+}
+.kafka-ms-form-select .cs-trigger:hover:not(:disabled) {
+  border-color: var(--primary);
+  background: var(--surface-hover);
+}
+.kafka-ms-form-select .cs-trigger:focus:not(:disabled),
+.kafka-ms-form-select .cs-trigger[aria-expanded="true"] {
+  border-color: var(--primary);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.kafka-ms-form-select .cs-text {
+  flex: 1;
+  text-align: left;
+  font-weight: 500;
+}
+.kafka-ms-form-select .cs-arrow {
+  font-size: 0.55rem;
+  opacity: 0.6;
+}
+.kafka-ms-form-select .cs-menu {
+  min-width: 280px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2);
+  padding: 4px;
+  z-index: 1000;
+  animation: kafka-select-in 0.12s ease-out;
+}
+@keyframes kafka-select-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.kafka-ms-form-select .cs-item {
+  padding: 9px 10px;
+  border-radius: 6px;
+  gap: 8px;
+  font-size: 0.8rem;
+  align-items: center;
+}
+.kafka-ms-form-select .cs-item:hover:not(:disabled) {
+  background: var(--surface-hover);
+}
+.kafka-ms-form-select .cs-item.active {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+}
+.kafka-ms-form-select .cs-item-label {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+.kafka-ms-form-select .cs-item-detail {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  margin-left: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.kafka-ms-form-select .cs-check {
+  font-size: 0.75rem;
+  color: var(--primary);
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+/* Full-width variant — Acks, Start Position, Sort Order */
+.kafka-ms-form-select--acks { flex: 1 1 auto; min-width: 0; }
+
+/* Compact variant — Key format selector / body format */
+.kafka-ms-form-select--fmt { flex: 0 0 auto; min-width: 0; }
+.kafka-ms-form-select--fmt .cs-trigger {
+  padding: 7px 10px;
+  font-size: 0.78rem;
+  border-radius: 5px;
+}
+.kafka-ms-form-select--fmt .cs-menu {
+  min-width: 220px;
+}
+/* Body format — right-aligned dropdown (sits near right edge) */
+.kafka-ms-form-select--body .cs-menu {
+  left: auto;
+  right: 0;
 }
 
 /* Hint text beside input in inline row */
@@ -2341,62 +2454,84 @@ label.kafka-editor-checkbox {
 }
 
 /* KV list section */
-.kafka-ms-section { display: flex; flex-direction: column; gap: 6px; }
+.kafka-ms-section { display: flex; flex-direction: column; gap: 8px; }
 .kafka-ms-section-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding-bottom: 2px;
 }
 .kafka-ms-section-title {
-  font-size: 0.72rem;
+  font-size: 0.73rem;
   font-weight: 700;
-  color: var(--text-muted, #7a8ea8);
+  color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.07em;
+  letter-spacing: 0.06em;
 }
 
 /* Filters sub-section in Consume */
-.kafka-ms-con-filters { display: flex; flex-direction: column; gap: 8px; }
+.kafka-ms-con-filters { display: flex; flex-direction: column; gap: 10px; }
 .kafka-ms-con-filters-header {
-  padding: 2px 4px;
+  padding: 4px 0 0;
   gap: 12px;
 }
 .kafka-ms-add-btn {
-  font-size: 0.75rem;
-  padding: 3px 10px;
-  border-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: transparent;
-  color: var(--text-secondary, #a0b4cc);
+  font-size: 0.73rem;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
   cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
-.kafka-ms-add-btn:hover { background: rgba(255,255,255,0.07); }
-.kafka-ms-kv-list { display: flex; flex-direction: column; gap: 6px; }
+.kafka-ms-add-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 8%, var(--bg));
+}
+.kafka-ms-kv-list { display: flex; flex-direction: column; gap: 4px; }
 .kafka-ms-kv-row {
   display: grid;
-  grid-template-columns: 20px 1fr 1fr 44px;
+  grid-template-columns: 22px 1fr 1fr 44px;
   gap: 8px;
   align-items: center;
+  padding: 4px 6px;
+  border-radius: 5px;
+  transition: background 0.12s;
+}
+.kafka-ms-kv-row:hover {
+  background: color-mix(in srgb, var(--surface-hover) 50%, transparent);
 }
 .kafka-ms-kv-row input[type="text"],
 .kafka-ms-kv-row input[type="password"] {
   padding: 6px 10px;
-  border-radius: 4px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary, #e0e6f0);
+  border-radius: 5px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
   font-size: 0.82rem;
   min-width: 0;
-}
-.kafka-ms-kv-row input[type="text"]:focus {
-  border-color: rgba(255,255,255,0.25);
   outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.kafka-ms-kv-row input[type="text"]:focus,
+.kafka-ms-kv-row input[type="password"]:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent);
+}
+.kafka-ms-kv-row input[type="text"]::placeholder {
+  color: var(--text-muted);
+  opacity: 0.5;
+  font-style: italic;
 }
 .kafka-ms-kv-row input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   margin: 0;
   cursor: pointer;
+  accent-color: var(--primary);
 }
 .kafka-ms-kv-actions {
   display: flex;
@@ -2410,151 +2545,205 @@ label.kafka-editor-checkbox {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   background: transparent;
   border: none;
-  color: var(--text-muted, #7a8ea8);
+  color: var(--text-muted);
   cursor: pointer;
   font-size: 0.85rem;
   padding: 0;
-  border-radius: 3px;
-  opacity: 0.6;
-  transition: opacity 0.15s, color 0.15s;
+  border-radius: 4px;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
 .kafka-ms-kv-row:hover .kafka-ms-remove-btn,
-.kafka-ms-kv-row:hover .kafka-ms-move-btn { opacity: 1; }
-.kafka-ms-remove-btn:hover { color: var(--danger, #f44336); opacity: 1; }
-.kafka-ms-move-btn:hover { color: var(--text-primary, #e0e6f0); opacity: 1; }
+.kafka-ms-kv-row:hover .kafka-ms-move-btn { opacity: 0.7; }
+.kafka-ms-remove-btn:hover {
+  color: var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger, #ef4444) 12%, transparent);
+  opacity: 1;
+}
+.kafka-ms-move-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  opacity: 1;
+}
 
-/* Action row */
+/* ── Action row ─────────────────────────────────────────────────────────── */
 .kafka-ms-action-row {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
   flex-wrap: wrap;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
 }
 .kafka-ms-primary-btn {
-  padding: 6px 18px;
+  padding: 8px 22px;
   border-radius: 6px;
   border: none;
-  background: var(--accent, #5fb1ff);
+  background: #22c55e;
   color: #fff;
-  font-weight: 600;
-  font-size: 0.85rem;
-  cursor: pointer;
-}
-.kafka-ms-primary-btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.kafka-ms-primary-btn:not(:disabled):hover { background: #82c4ff; }
-.kafka-ms-secondary-btn {
-  padding: 6px 14px;
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: transparent;
-  color: var(--text-secondary, #a0b4cc);
+  font-weight: 700;
   font-size: 0.84rem;
   cursor: pointer;
+  letter-spacing: 0.01em;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  box-shadow: 0 1px 3px rgba(34, 197, 94, 0.3);
+}
+.kafka-ms-primary-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.kafka-ms-primary-btn:not(:disabled):hover {
+  background: #16a34a;
+  box-shadow: 0 2px 8px rgba(34, 197, 94, 0.35);
+}
+.kafka-ms-primary-btn:not(:disabled):active {
+  transform: scale(0.97);
+}
+.kafka-ms-disconnected-hint {
+  font-size: 0.73rem;
+  font-weight: 600;
+  color: #f59e0b;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 5px;
+  background: color-mix(in srgb, #f59e0b 10%, transparent);
+  border: 1px solid color-mix(in srgb, #f59e0b 25%, transparent);
+}
+.kafka-ms-secondary-btn {
+  padding: 7px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 .kafka-ms-secondary-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.kafka-ms-secondary-btn:not(:disabled):hover { background: rgba(255,255,255,0.07); }
+.kafka-ms-secondary-btn:not(:disabled):hover {
+  border-color: var(--primary);
+  color: var(--text);
+  background: color-mix(in srgb, var(--primary) 6%, var(--bg));
+}
 .kafka-ms-ghost-btn {
-  padding: 5px 12px;
+  padding: 6px 12px;
   border-radius: 6px;
   border: none;
   background: transparent;
-  color: var(--text-muted, #7a8ea8);
-  font-size: 0.82rem;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
   cursor: pointer;
+  transition: color 0.15s, background 0.15s;
 }
-.kafka-ms-ghost-btn:hover { color: var(--text-primary, #e0e6f0); }
+.kafka-ms-ghost-btn:hover {
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-hover) 50%, transparent);
+}
 
-/* Error / result feedback */
+/* ── Error / result feedback ─────────────────────────────────────────────── */
 .kafka-ms-inline-error {
   display: flex;
   align-items: flex-start;
   gap: 8px;
-  padding: 8px 12px;
-  background: rgba(244,67,54,0.1);
-  border: 1px solid rgba(244,67,54,0.25);
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--danger, #ef4444) 8%, var(--bg));
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, transparent);
   border-radius: 6px;
+  font-size: 0.82rem;
+  color: var(--text);
+  line-height: 1.5;
 }
 .kafka-ms-error-tag {
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  color: var(--danger, #f44336);
-  background: rgba(244,67,54,0.18);
-  padding: 2px 6px;
-  border-radius: 3px;
+  color: var(--danger, #ef4444);
+  background: color-mix(in srgb, var(--danger, #ef4444) 15%, transparent);
+  padding: 2px 7px;
+  border-radius: 4px;
   white-space: nowrap;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .kafka-ms-field-hint {
   display: block;
-  font-size: 0.75rem;
-  color: var(--danger, #f44336);
+  font-size: 0.74rem;
+  color: var(--danger, #ef4444);
   margin-top: 3px;
+  font-weight: 500;
 }
 .kafka-ms-max-reached {
   font-size: 0.8rem;
-  color: var(--warning, #ff9800);
+  color: var(--warning, #f59e0b);
   font-weight: 600;
 }
 .kafka-ms-result-success {
-  padding: 10px 12px;
-  background: rgba(76,175,80,0.1);
-  border: 1px solid rgba(76,175,80,0.25);
+  padding: 10px 14px;
+  background: color-mix(in srgb, #22c55e 8%, var(--bg));
+  border: 1px solid color-mix(in srgb, #22c55e 30%, transparent);
   border-radius: 6px;
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
 .kafka-ms-result-sent {
-  font-size: 0.8rem;
-  color: var(--color-success, #4caf50);
+  font-size: 0.82rem;
+  color: #22c55e;
   font-weight: 600;
 }
 .kafka-ms-result-record {
   font-size: 0.78rem;
-  color: var(--text-muted, #7a8ea8);
+  color: var(--text-muted);
+  font-family: monospace;
 }
 .kafka-ms-result-encoding {
   font-size: 0.75rem;
-  color: var(--text-muted, #7a8ea8);
+  color: var(--text-muted);
 }
 
 /* Consume results zone */
 .kafka-ms-results-zone {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
 }
 .kafka-ms-results-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 .kafka-ms-results-count {
-  font-size: 0.78rem;
-  color: var(--text-muted, #7a8ea8);
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
 }
 .kafka-ms-timed-out-badge {
   font-size: 0.72rem;
   padding: 2px 8px;
   border-radius: 10px;
-  background: rgba(255,165,0,0.18);
-  color: #ffa500;
+  background: color-mix(in srgb, #f59e0b 15%, transparent);
+  color: #f59e0b;
   font-weight: 600;
 }
 .kafka-ms-results-table-wrap {
   overflow-y: auto;
   max-height: 320px;
   border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid var(--border);
 }
 .kafka-ms-load-more-row {
   display: flex;
   justify-content: center;
   padding: 10px 0;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  border-top: 1px solid var(--border);
 }
 .kafka-ms-results-table {
   width: 100%;
@@ -2562,27 +2751,34 @@ label.kafka-editor-checkbox {
   font-size: 0.78rem;
 }
 .kafka-ms-results-table th {
-  padding: 6px 10px;
+  padding: 7px 10px;
   text-align: left;
-  background: rgba(255,255,255,0.05);
-  color: var(--text-muted, #7a8ea8);
+  background: var(--bg);
+  color: var(--text-muted);
   font-weight: 600;
+  font-size: 0.73rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
   position: sticky;
   top: 0;
   z-index: 1;
 }
 .kafka-ms-results-table td {
-  padding: 5px 10px;
-  border-top: 1px solid rgba(255,255,255,0.05);
-  color: var(--text-primary, #e0e6f0);
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 180px;
 }
 .kafka-ms-results-table tr { cursor: pointer; }
-.kafka-ms-results-table tr:hover td { background: rgba(255,255,255,0.04); }
-.kafka-ms-results-table tr.selected td { background: rgba(95,177,255,0.1); }
+.kafka-ms-results-table tr:hover td {
+  background: color-mix(in srgb, var(--surface-hover) 50%, transparent);
+}
+.kafka-ms-results-table tr.selected td {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+}
 
 /* ── Timestamp column ──────────────────────────────────────────── */
 .kafka-ts-th {
@@ -2591,56 +2787,84 @@ label.kafka-editor-checkbox {
 
 .kafka-ts-cell {
   white-space: nowrap;
-  color: rgba(160, 200, 255, 0.75);
+  color: var(--text-muted);
   font-size: 0.75rem;
   cursor: default;
   min-width: 72px;
 }
 
 .kafka-ts-cell:hover {
-  color: rgba(160, 200, 255, 1);
+  color: var(--text);
 }
 
 /* Muted dash when timestamp is absent */
 .kafka-ts-missing {
-  color: rgba(255, 255, 255, 0.25) !important;
+  color: var(--text-muted) !important;
+  opacity: 0.4;
 }
 
 /* Detail pane (Zone B) */
 .kafka-ms-detail-pane {
-  border-radius: 6px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.03);
+  border-radius: 7px;
+  border: 1px solid color-mix(in srgb, white 10%, var(--border));
+  background: var(--bg);
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 .kafka-ms-detail-actions {
   display: flex;
-  gap: 6px;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
 }
 .kafka-ms-detail-body {
-  font-family: monospace;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
   font-size: 0.78rem;
-  color: var(--text-primary, #e0e6f0);
+  line-height: 1.6;
+  color: var(--text);
   white-space: pre;
   overflow: auto;
-  max-height: 220px;
-  padding: 10px 12px;
+  max-height: 240px;
+  padding: 12px 14px;
+  margin: 0;
 }
 .kafka-ms-detail-headers {
-  padding: 8px 12px;
-  border-top: 1px solid rgba(255,255,255,0.07);
+  width: 100%;
+  border-collapse: collapse;
+  border-top: 1px solid var(--border);
   font-size: 0.75rem;
-  color: var(--text-muted, #7a8ea8);
+  color: var(--text-muted);
+}
+.kafka-ms-detail-headers th {
+  padding: 6px 14px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: color-mix(in srgb, var(--surface) 50%, var(--bg));
+}
+.kafka-ms-detail-headers td {
+  padding: 5px 14px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-family: monospace;
+  font-size: 0.78rem;
 }
 
 /* Misc */
 .kafka-ms-empty-state {
   text-align: center;
-  padding: 24px;
-  color: var(--text-muted, #7a8ea8);
-  font-size: 0.85rem;
+  padding: 18px 16px;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-style: italic;
+  opacity: 0.7;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--bg) 50%, transparent);
 }
 .kafka-ms-loading {
   text-align: center;
@@ -2666,12 +2890,13 @@ label.kafka-editor-checkbox {
 }
 
 .kafka-explorer-list-card {
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid color-mix(in srgb, white 10%, var(--border));
   border-radius: 10px;
-  background:
-    radial-gradient(circle at top right, rgba(255,138,61,0.07), transparent 36%),
-    radial-gradient(circle at top left, rgba(95,177,255,0.07), transparent 32%),
-    linear-gradient(180deg, rgba(22,32,56,0.98), rgba(12,18,33,0.98));
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 5%, transparent),
+    0 4px 20px rgba(0, 0, 0, 0.25),
+    0 1px 4px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2682,29 +2907,40 @@ label.kafka-editor-checkbox {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px 8px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 10px 10px 0 0;
 }
 
 .kafka-explorer-filters {
-  padding: 10px 16px;
+  padding: 12px 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .kafka-explorer-search {
   width: 100%;
-  padding: 6px 10px;
-  border-radius: 5px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary, #e0e6f0);
+  box-sizing: border-box;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
   font-size: 0.82rem;
-}
-.kafka-explorer-search:focus {
   outline: none;
-  border-color: rgba(95,177,255,0.45);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.kafka-explorer-search::placeholder {
+  color: var(--text-muted);
+  opacity: 0.55;
+  font-style: italic;
+}
+.kafka-explorer-search:hover { border-color: var(--primary); }
+.kafka-explorer-search:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 
 .kafka-explorer-filter-row {
@@ -2714,13 +2950,16 @@ label.kafka-editor-checkbox {
   align-items: center;
 }
 .kafka-explorer-filter-row select {
-  padding: 5px 10px;
+  padding: 6px 10px;
   border-radius: 5px;
-  border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
-  color: var(--text-primary, #e0e6f0);
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
   font-size: 0.78rem;
+  outline: none;
+  transition: border-color 0.15s;
 }
+.kafka-explorer-filter-row select:hover { border-color: var(--primary); }
 .kafka-explorer-filter-row select:disabled {
   opacity: 0.45;
   cursor: not-allowed;
@@ -2729,17 +2968,22 @@ label.kafka-editor-checkbox {
 .kafka-explorer-internal-toggle {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   font-size: 0.78rem;
-  color: var(--text-muted, #7a8ea8);
+  font-weight: 500;
+  color: var(--text-muted);
   cursor: pointer;
+  user-select: none;
+}
+.kafka-explorer-internal-toggle input[type="checkbox"] {
+  accent-color: var(--primary);
 }
 
 .kafka-explorer-chipbar {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  padding: 0 16px 10px;
+  padding: 0 20px 12px;
 }
 
 .kafka-topic-chip-special {
@@ -2766,40 +3010,50 @@ label.kafka-editor-checkbox {
   top: 0;
   z-index: 1;
   text-align: left;
-  font-weight: 600;
-  padding: 8px 10px;
-  background: rgba(12,18,33,0.98);
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  font-weight: 700;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 9px 12px;
+  background: var(--bg);
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border);
   color: var(--text-muted, #7a8ea8);
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
 .kafka-explorer-topic-table tbody td {
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  color: var(--text-primary, #e0e6f0);
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+.kafka-explorer-topic-table tbody tr:last-child td {
+  border-bottom: none;
 }
 .kafka-explorer-topic-table tbody tr:hover {
-  background: rgba(95,177,255,0.06);
+  background: color-mix(in srgb, var(--surface-hover) 50%, transparent);
 }
 .kafka-explorer-topic-table tbody tr.selected {
-  background: rgba(95,177,255,0.12);
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
 }
 
 .kafka-explorer-topic-name {
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 0.82rem;
 }
 
 /* ── Detail card ── */
 
 .kafka-explorer-detail-card {
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid color-mix(in srgb, white 10%, var(--border));
   border-radius: 10px;
-  background:
-    radial-gradient(circle at top right, rgba(255,138,61,0.07), transparent 36%),
-    radial-gradient(circle at top left, rgba(95,177,255,0.07), transparent 32%),
-    linear-gradient(180deg, rgba(22,32,56,0.98), rgba(12,18,33,0.98));
+  background: var(--surface);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 5%, transparent),
+    0 4px 20px rgba(0, 0, 0, 0.25),
+    0 1px 4px rgba(0, 0, 0, 0.15);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -2810,52 +3064,59 @@ label.kafka-editor-checkbox {
 .kafka-explorer-detail-empty {
   text-align: center;
   padding: 40px;
-  color: var(--text-muted, #7a8ea8);
+  color: var(--text-muted);
   font-size: 0.85rem;
+  font-style: italic;
 }
 
 .kafka-explorer-detail-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px 8px;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 10px 10px 0 0;
 }
 
 .kafka-explorer-detail-title {
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: var(--text-primary, #e0e6f0);
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
 }
 
 .kafka-explorer-detail-tabs {
   display: flex;
   gap: 0;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+  border-bottom: 1px solid var(--border);
 }
 
 .kafka-explorer-detail-tab {
-  padding: 8px 16px;
+  padding: 8px 20px;
   border: none;
   background: transparent;
-  color: var(--text-muted, #7a8ea8);
-  font-size: 0.8rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
   cursor: pointer;
   border-bottom: 2px solid transparent;
-  transition: color 0.15s, border-color 0.15s;
+  border-radius: 5px 5px 0 0;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
 }
 .kafka-explorer-detail-tab:hover {
-  color: var(--text-primary, #e0e6f0);
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-hover) 40%, transparent);
 }
 .kafka-explorer-detail-tab.active {
-  color: #5fb1ff;
-  border-bottom-color: #5fb1ff;
+  color: var(--primary);
+  border-bottom-color: var(--primary);
 }
 
 .kafka-explorer-detail-body {
   flex: 1;
   overflow: auto;
-  padding: 14px 16px;
+  padding: 16px 20px;
   min-height: 0;
 }
 
@@ -2865,57 +3126,65 @@ label.kafka-editor-checkbox {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 16px;
 }
 
 .kafka-explorer-metric-box {
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 6px;
-  padding: 10px 12px;
-  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  padding: 12px 14px;
+  background: var(--bg);
   text-align: center;
+  transition: border-color 0.15s;
+}
+.kafka-explorer-metric-box:hover {
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--border));
 }
 
 .kafka-explorer-metric-label {
   display: block;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 600;
   text-transform: uppercase;
-  color: var(--text-muted, #7a8ea8);
-  letter-spacing: 0.04em;
-  margin-bottom: 4px;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+  margin-bottom: 5px;
 }
 
 .kafka-explorer-metric-value {
   display: block;
-  font-size: 1.1rem;
-  font-weight: 600;
-  color: var(--text-primary, #e0e6f0);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.01em;
 }
 
 /* ── Health badges ── */
 
 .kafka-topic-health-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 3px 10px;
+  border-radius: 5px;
   font-size: 0.72rem;
   font-weight: 600;
   white-space: nowrap;
 }
 .kafka-topic-health-healthy {
-  background: rgba(76,175,80,0.15);
-  color: #81c784;
-  border: 1px solid rgba(76,175,80,0.3);
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+  color: #4ade80;
+  border: 1px solid color-mix(in srgb, #22c55e 30%, transparent);
 }
 .kafka-topic-health-degraded {
-  background: rgba(255,152,0,0.12);
-  color: #ffb74d;
-  border: 1px solid rgba(255,152,0,0.3);
+  background: color-mix(in srgb, #f59e0b 10%, transparent);
+  color: #fbbf24;
+  border: 1px solid color-mix(in srgb, #f59e0b 30%, transparent);
 }
 .kafka-topic-health-unknown {
-  background: rgba(158,158,158,0.12);
-  color: #bdbdbd;
-  border: 1px solid rgba(158,158,158,0.2);
+  background: color-mix(in srgb, var(--border) 40%, transparent);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
 
 /* ── Partition table ── */
@@ -2927,29 +3196,37 @@ label.kafka-editor-checkbox {
 }
 .kafka-partition-table thead th {
   text-align: left;
-  font-weight: 600;
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-muted, #7a8ea8);
-  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.72rem;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .kafka-partition-table tbody td {
-  padding: 7px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  color: var(--text-primary, #e0e6f0);
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.kafka-partition-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.kafka-partition-table tbody tr:hover {
+  background: color-mix(in srgb, var(--surface-hover) 40%, transparent);
 }
 .kafka-partition-table tfoot td {
-  padding: 8px 10px;
-  border-top: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-primary, #e0e6f0);
+  padding: 8px 12px;
+  border-top: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 600;
 }
 
 .kafka-isr-fraction {
-  color: #81c784;
+  color: #4ade80;
 }
 .kafka-isr-amber {
-  color: #ffb74d;
+  color: #fbbf24;
 }
 
 /* ── Consumer group table ── */
@@ -2961,44 +3238,55 @@ label.kafka-editor-checkbox {
 }
 .kafka-consumer-group-table thead th {
   text-align: left;
-  font-weight: 600;
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
-  color: var(--text-muted, #7a8ea8);
-  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.72rem;
   text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 .kafka-consumer-group-table tbody td {
-  padding: 7px 10px;
-  border-bottom: 1px solid rgba(255,255,255,0.04);
-  color: var(--text-primary, #e0e6f0);
+  padding: 7px 12px;
+  border-bottom: 1px solid var(--border);
+  color: var(--text);
+}
+.kafka-consumer-group-table tbody tr:last-child td {
+  border-bottom: none;
+}
+.kafka-consumer-group-table tbody tr:hover {
+  background: color-mix(in srgb, var(--surface-hover) 40%, transparent);
 }
 
 .kafka-cg-state-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 5px;
   font-size: 0.72rem;
   font-weight: 600;
 }
 .kafka-cg-state-green {
-  background: rgba(76,175,80,0.15);
-  color: #81c784;
+  background: color-mix(in srgb, #22c55e 12%, transparent);
+  color: #4ade80;
+  border: 1px solid color-mix(in srgb, #22c55e 25%, transparent);
 }
 .kafka-cg-state-amber {
-  background: rgba(255,152,0,0.12);
-  color: #ffb74d;
+  background: color-mix(in srgb, #f59e0b 10%, transparent);
+  color: #fbbf24;
+  border: 1px solid color-mix(in srgb, #f59e0b 25%, transparent);
 }
 .kafka-cg-state-grey {
-  background: rgba(158,158,158,0.1);
-  color: #bdbdbd;
+  background: color-mix(in srgb, var(--border) 40%, transparent);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
 }
 
 .kafka-lag-green {
-  color: #81c784;
+  color: #4ade80;
 }
 .kafka-lag-amber {
-  color: #ffb74d;
+  color: #fbbf24;
 }
 
 /* ── Config table ── */
@@ -3031,26 +3319,28 @@ label.kafka-editor-checkbox {
 .kafka-ms-mode-tabs {
   display: flex;
   gap: 0;
-  margin: 10px 0 6px;
-  border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.08));
+  margin: 4px 0 0;
+  border-bottom: 1px solid var(--border);
 }
 .kafka-ms-mode-tab {
-  padding: 6px 16px;
+  padding: 8px 20px;
   font-size: 0.82rem;
-  font-weight: 500;
-  color: var(--text-muted, #7a8ea8);
+  font-weight: 600;
+  color: var(--text-muted);
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+  border-radius: 5px 5px 0 0;
 }
 .kafka-ms-mode-tab:hover {
-  color: var(--text-primary, #e0e6f0);
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-hover) 40%, transparent);
 }
 .kafka-ms-mode-tab.active {
-  color: var(--accent-color, #4ea8ff);
-  border-bottom-color: var(--accent-color, #4ea8ff);
+  color: var(--primary);
+  border-bottom-color: var(--primary);
 }
 
 /* Stream table wrapper — scrollable with max-height */
@@ -3061,24 +3351,26 @@ label.kafka-editor-checkbox {
 
 /* Stream row animation */
 .kafka-ms-stream-row {
-  animation: kafka-stream-fadein 0.3s ease-out;
+  animation: kafka-stream-fadein 0.4s ease-out;
 }
 @keyframes kafka-stream-fadein {
-  from { background: rgba(78,168,255,0.12); }
+  from { background: color-mix(in srgb, var(--primary) 12%, transparent); }
   to   { background: transparent; }
 }
 
 /* LIVE streaming badge */
 .kafka-ms-streaming-badge {
-  display: inline-block;
-  padding: 2px 8px;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: #4caf50;
-  background: rgba(76,175,80,0.12);
-  border: 1px solid rgba(76,175,80,0.3);
-  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  color: #22c55e;
+  background: color-mix(in srgb, #22c55e 10%, transparent);
+  border: 1px solid color-mix(in srgb, #22c55e 30%, transparent);
+  border-radius: 5px;
   animation: kafka-live-pulse 1.5s ease-in-out infinite;
 }
 @keyframes kafka-live-pulse {
@@ -3088,30 +3380,38 @@ label.kafka-editor-checkbox {
 
 /* Cursor gap warning badge */
 .kafka-ms-cursor-gap-badge {
-  display: inline-block;
-  padding: 2px 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
   font-size: 0.72rem;
-  font-weight: 500;
-  color: #ffa726;
-  background: rgba(255,167,38,0.1);
-  border: 1px solid rgba(255,167,38,0.25);
-  border-radius: 4px;
+  font-weight: 600;
+  color: #f59e0b;
+  background: color-mix(in srgb, #f59e0b 10%, transparent);
+  border: 1px solid color-mix(in srgb, #f59e0b 25%, transparent);
+  border-radius: 5px;
 }
 
 /* Danger button (Stop Stream) */
 .kafka-ms-danger-btn {
-  padding: 6px 16px;
-  font-size: 0.82rem;
-  font-weight: 500;
+  padding: 8px 20px;
+  font-size: 0.84rem;
+  font-weight: 700;
   color: #fff;
-  background: var(--danger, #f44336);
+  background: var(--danger, #ef4444);
   border: none;
-  border-radius: 5px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, box-shadow 0.15s, transform 0.1s;
+  box-shadow: 0 1px 3px rgba(239, 68, 68, 0.3);
+  letter-spacing: 0.01em;
 }
 .kafka-ms-danger-btn:hover {
-  background: #d32f2f;
+  background: #dc2626;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
+}
+.kafka-ms-danger-btn:active {
+  transform: scale(0.97);
 }
 
 /* Workflow Input button in detail pane */
@@ -3131,18 +3431,19 @@ label.kafka-editor-checkbox {
   min-width: 280px;
   max-width: 400px;
   margin-top: 4px;
-  background: var(--dropdown-bg, #1e2430);
-  border: 1px solid var(--border-color, rgba(255,255,255,0.1));
-  border-radius: 6px;
-  box-shadow: 0 6px 20px rgba(0,0,0,0.35);
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 14%, var(--border));
+  border-radius: 7px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 .kafka-ms-wf-search {
   width: 100%;
   padding: 8px 10px;
   font-size: 0.8rem;
-  color: var(--text-primary, #e0e6f0);
+  color: var(--text);
   background: transparent;
   border: none;
+  border-bottom: 1px solid var(--border);
   border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.08));
   outline: none;
   box-sizing: border-box;
@@ -3160,25 +3461,27 @@ label.kafka-editor-checkbox {
   transition: background 0.1s;
 }
 .kafka-ms-wf-item:hover {
-  background: rgba(78,168,255,0.08);
+  background: var(--surface-hover);
 }
 .kafka-ms-wf-item-name {
   font-size: 0.8rem;
   font-weight: 500;
-  color: var(--text-primary, #e0e6f0);
+  color: var(--text);
 }
 .kafka-ms-wf-item-preview {
   font-size: 0.72rem;
-  color: var(--text-muted, #7a8ea8);
+  color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-family: monospace;
 }
 .kafka-ms-wf-empty {
   padding: 12px 10px;
   font-size: 0.78rem;
-  color: var(--text-muted, #7a8ea8);
+  color: var(--text-muted);
   text-align: center;
+  font-style: italic;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -3483,4 +3786,498 @@ label.kafka-editor-checkbox {
   font-size: 0.78rem;
   color: var(--text-muted, #7a8ea8);
   font-style: italic;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Kafka Body Editor Modal
+   ═══════════════════════════════════════════════════════════════════════════ */
+.kbe-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+}
+.kbe-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(90vw, 900px);
+  height: min(85vh, 720px);
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  border-radius: 12px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+.kbe-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.kbe-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+.kbe-title {
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+}
+.kbe-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+.kbe-json-badge {
+  padding: 1px 7px;
+  border-radius: 4px;
+  font-size: 0.66rem;
+  font-weight: 600;
+}
+.kbe-json-badge--ok {
+  background: color-mix(in srgb, #22c55e 15%, transparent);
+  color: #4ade80;
+}
+.kbe-json-badge--err {
+  background: color-mix(in srgb, #ef4444 15%, transparent);
+  color: #f87171;
+}
+.kbe-header-right { flex-shrink: 0; }
+.kbe-search {
+  min-width: 220px;
+}
+.kbe-search input {
+  background: var(--surface) !important;
+  border-color: var(--border) !important;
+  font-size: 0.78rem !important;
+}
+
+/* ── Toolbar ─────────────────────────────────────────────────────────────── */
+.kbe-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding: 6px 16px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.kbe-toolbar-actions {
+  display: flex;
+  gap: 6px;
+}
+.kbe-action-btn {
+  padding: 4px 12px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: var(--bg);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.kbe-action-btn:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+/* ── Body (editor + preview) ─────────────────────────────────────────────── */
+.kbe-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.kbe-editor-wrap {
+  display: flex;
+  height: 100%;
+  overflow: auto;
+}
+.kbe-line-numbers {
+  flex: 0 0 44px;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 0;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  user-select: none;
+  text-align: right;
+  overflow: hidden;
+}
+.kbe-line-num {
+  display: block;
+  padding: 0 8px 0 0;
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.72rem;
+  line-height: 1.65;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+.kbe-textarea {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 12px 14px;
+  border: none;
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'SF Mono', 'Fira Code', 'Cascadia Code', monospace;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  resize: none;
+  outline: none;
+  white-space: pre;
+  overflow-wrap: normal;
+  tab-size: 2;
+}
+.kbe-textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+/* ── Footer ──────────────────────────────────────────────────────────────── */
+.kbe-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}
+.kbe-footer-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.65;
+}
+.kbe-footer-actions {
+  display: flex;
+  gap: 8px;
+}
+.kbe-btn {
+  padding: 6px 18px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+.kbe-btn--secondary {
+  background: var(--surface);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+.kbe-btn--secondary:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+.kbe-btn--primary {
+  background: var(--primary);
+  color: #fff;
+  border: 1px solid var(--primary);
+}
+.kbe-btn--primary:hover {
+  background: color-mix(in srgb, var(--primary) 85%, white);
+}
+
+/* ── Expand button on body header ────────────────────────────────────────── */
+.kafka-ms-expand-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: border-color 0.12s, color 0.12s;
+}
+.kafka-ms-expand-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   Kafka Message Detail Modal
+   ═══════════════════════════════════════════════════════════════════════════ */
+.kmd-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.kmd-modal {
+  position: absolute;
+  width: 620px;
+  min-width: 420px;
+  max-width: 90vw;
+  max-height: 85vh;
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  border-radius: 10px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+}
+
+/* ── Header (drag handle) ── */
+.kmd-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: grab;
+  user-select: none;
+  flex-shrink: 0;
+}
+.kmd-header:active { cursor: grabbing; }
+.kmd-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.kmd-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text);
+}
+.kmd-subtitle {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+/* ── Scrollable body ── */
+.kmd-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* ── Metadata grid ── */
+.kmd-meta-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 16px;
+}
+.kmd-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.kmd-meta-label {
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+.kmd-meta-value {
+  font-size: 0.82rem;
+  color: var(--text);
+  font-weight: 500;
+  word-break: break-all;
+}
+.kmd-meta-mono {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+}
+.kmd-meta-dim {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+}
+
+/* ── Sections (Key, Headers, Body) ── */
+.kmd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.kmd-section--body {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.kmd-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.kmd-section-title {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.kmd-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  margin-left: 6px;
+  border-radius: 9px;
+  font-size: 0.65rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  color: var(--primary);
+}
+
+/* Copy button */
+.kmd-copy-btn {
+  padding: 3px 10px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.kmd-copy-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.kmd-copy-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Pre blocks */
+.kmd-pre {
+  margin: 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+  line-height: 1.5;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-all;
+  overflow-y: auto;
+}
+.kmd-pre--key {
+  max-height: 48px;
+}
+.kmd-pre--body {
+  max-height: 320px;
+  flex: 1 1 auto;
+}
+
+/* Headers table */
+.kmd-headers-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.78rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.kmd-headers-table th {
+  padding: 6px 10px;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.kmd-headers-table td {
+  padding: 6px 10px;
+  color: var(--text);
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+  word-break: break-all;
+}
+.kmd-headers-table tr:last-child td {
+  border-bottom: none;
+}
+.kmd-header-key {
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-weight: 600;
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+/* ── Footer ── */
+.kmd-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 18px;
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.kmd-close-btn {
+  padding: 6px 18px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+.kmd-close-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.kmd-workflow-btn {
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, transparent);
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.kmd-workflow-btn:hover {
+  background: color-mix(in srgb, var(--primary) 20%, transparent);
+  border-color: var(--primary);
 }

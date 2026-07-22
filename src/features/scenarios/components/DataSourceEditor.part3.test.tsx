@@ -4,6 +4,7 @@
 import { useState, type ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act, within } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import DataSourceEditor from './DataSourceEditor';
 import {
   makeScenario,
@@ -422,8 +423,8 @@ describe('DataSourceEditor', () => {
       const rows = document.querySelectorAll('.data-source-row');
       fireEvent.click(rows[0]);
       fireEvent.click(rows[1]);
-      const bulkAdd = document.querySelectorAll('select.data-source-tag-select')[0] as HTMLSelectElement;
-      fireEvent.change(bulkAdd, { target: { value: 'smoke' } });
+      const bulkAdd = document.querySelectorAll('.data-source-tag-select')[0]!;
+      selectOption(bulkAdd, 'smoke');
       expect(onChange).toHaveBeenCalled();
     });
 
@@ -435,9 +436,9 @@ describe('DataSourceEditor', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: ds })} onDraftChange={onChange} />);
       const rows = document.querySelectorAll('.data-source-row');
       fireEvent.click(rows[0]);
-      const selects = document.querySelectorAll('select.data-source-tag-select');
-      expect(selects.length).toBeGreaterThanOrEqual(2);
-      fireEvent.change(selects[1], { target: { value: 'a' } });
+      const tagSelects = document.querySelectorAll('.data-source-tag-select');
+      expect(tagSelects.length).toBeGreaterThanOrEqual(2);
+      selectOption(tagSelects[1]!, 'a');
       expect(onChange).toHaveBeenCalled();
     });
   });

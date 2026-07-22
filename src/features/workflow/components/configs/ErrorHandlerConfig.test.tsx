@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import ErrorHandlerConfig from './ErrorHandlerConfig';
 import type { ErrorHandlerNodeData } from '../../types/workflow';
 
@@ -33,8 +34,9 @@ describe('ErrorHandlerConfig', () => {
   });
 
   it('renders error filter dropdown with all options', () => {
-    render(<ErrorHandlerConfig data={makeData()} onChange={vi.fn()} />);
-    expect(screen.getByDisplayValue('All Errors')).toBeTruthy();
+    const { container } = render(<ErrorHandlerConfig data={makeData()} onChange={vi.fn()} />);
+    expect(getCustomSelectValue(container, 0)).toBe('All Errors');
+    fireEvent.click(container.querySelectorAll('.cs-trigger')[0]!);
     expect(screen.getByText('HTTP Errors')).toBeTruthy();
     expect(screen.getByText('Assertion Failures')).toBeTruthy();
     expect(screen.getByText('Network Errors')).toBeTruthy();
@@ -42,8 +44,8 @@ describe('ErrorHandlerConfig', () => {
 
   it('calls onChange when error filter changes', () => {
     const onChange = vi.fn();
-    render(<ErrorHandlerConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('All Errors'), { target: { value: 'http-error' } });
+    const { container } = render(<ErrorHandlerConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'HTTP Errors');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ errorFilter: 'http-error' }));
   });
 
@@ -96,15 +98,16 @@ describe('ErrorHandlerConfig', () => {
   });
 
   it('renders backoff strategy selector', () => {
-    render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={vi.fn()} />);
-    expect(screen.getByDisplayValue('Fixed')).toBeTruthy();
+    const { container } = render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={vi.fn()} />);
+    expect(getCustomSelectValue(container, 1)).toBe('Fixed');
+    fireEvent.click(container.querySelectorAll('.cs-trigger')[1]!);
     expect(screen.getByText('Exponential')).toBeTruthy();
   });
 
   it('calls onChange when backoff strategy changes', () => {
     const onChange = vi.fn();
-    render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('Fixed'), { target: { value: 'exponential' } });
+    const { container } = render(<ErrorHandlerConfig data={makeData({ retryCount: 2 })} onChange={onChange} />);
+    selectOptionByIndex(container, 1, 'Exponential');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ retryBackoff: 'exponential' }));
   });
 

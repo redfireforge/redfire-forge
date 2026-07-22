@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useState } from 'react';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import EnvironmentManager, { type EnvironmentManagerProps } from './EnvironmentManager';
 import type { Environment, Microservice, GlobalAuthProfile, FeatureGroup } from '../../shared/types';
 
@@ -294,11 +295,10 @@ describe('EnvironmentManager', () => {
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'p1' } });
+    selectOption(document.body, 'Bearer Profile (bearer)');
     expect(mockedSvcUpdated).toHaveBeenCalled();
     mockedSvcUpdated.mockClear();
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '' } });
+    selectOption(document.body, 'No Auth');
     expect(mockedSvcUpdated).toHaveBeenCalled();
   });
 
@@ -352,7 +352,7 @@ describe('EnvironmentManager', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
     expect(screen.getAllByText('http://staging2b').length).toBeGreaterThan(0);
     // Set auth on custom env
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'p1' } });
+    selectOption(document.body, 'Bearer (bearer)');
     // Delete the additional env
     fireEvent.click(screen.getByTitle('Remove additional environment'));
     expect(screen.queryByLabelText('Deploy staging-2')).not.toBeInTheDocument();
@@ -474,7 +474,7 @@ describe('EnvironmentManager', () => {
       />,
     );
     fireEvent.click(screen.getByRole('button', { name: 'Configure' }));
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'p1' } });
+    selectOption(document.body, 'Bearer Profile (bearer)');
     expect(mockedSvcUpdated).not.toHaveBeenCalled();
   });
 

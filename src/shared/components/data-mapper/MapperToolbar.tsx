@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { CustomSelect } from '../CustomSelect';
 import type { Mapping, AdapterCapabilities } from './types';
 import type { MappingProfile } from './utils/mappingProfiles';
 import { loadProfiles, saveProfile, deleteProfile, renameProfile } from './utils/mappingProfiles';
@@ -506,20 +507,20 @@ export default function MapperToolbar({
           {advancedOpen && (
             <div className="dm-toolbar-advanced-panel">
               {hasConfidenceControl && onConfidenceThresholdChange && (
-                <select
+                <CustomSelect
                   className="dm-toolbar-threshold"
-                  value={confidenceThreshold ?? 50}
-                  onChange={(e) => onConfidenceThresholdChange(Number(e.target.value))}
-                  title="Minimum confidence for auto-map suggestions"
+                  value={String(confidenceThreshold ?? 50)}
+                  onChange={(v) => onConfidenceThresholdChange(Number(v))}
+                  options={[
+                    { value: '0', label: 'All' },
+                    { value: '50', label: '≥ 50%' },
+                    { value: '60', label: '≥ 60%' },
+                    { value: '75', label: '≥ 75%' },
+                    { value: '80', label: '≥ 80%' },
+                    { value: '90', label: '≥ 90%' },
+                  ]}
                   aria-label="Auto-map confidence threshold"
-                >
-                  <option value={0}>All</option>
-                  <option value={50}>≥ 50%</option>
-                  <option value={60}>≥ 60%</option>
-                  <option value={75}>≥ 75%</option>
-                  <option value={80}>≥ 80%</option>
-                  <option value={90}>≥ 90%</option>
-                </select>
+                />
               )}
               {onLearnFromExamples && (
                 <button

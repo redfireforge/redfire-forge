@@ -7,6 +7,7 @@ import {
 import { createGrpcSavedRequestIdentity } from '../../../shared/grpc/grpcPersistenceSchema';
 import type { GrpcTabExecuteSnapshot } from '../../../shared/grpc/contracts';
 import type { GrpcSavedRequestTabContext } from '../../../shared/grpc/grpcReplayTemplateCompatibility';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 const DEFAULT_NEW_COLLECTION_NAME = 'Saved Requests';
 
@@ -57,9 +58,10 @@ export function GrpcSaveRequestModal({
   const canSave = Boolean(previewSnapshot && name.trim() && (collectionId || newCollectionName.trim()));
 
   const collectionOptions = useMemo(
-    () => collections.map((collection) => (
-      <option key={collection.id} value={collection.id}>{collection.name}</option>
-    )),
+    () => collections.map((collection) => ({
+      value: collection.id,
+      label: collection.name,
+    })),
     [collections],
   );
 
@@ -139,16 +141,17 @@ export function GrpcSaveRequestModal({
         </label>
         <label className="grpc-form-row">
           <span className="grpc-form-row__label">Collection</span>
-          <select
+          <CustomSelect
             className="grpc-form-row__input"
             data-testid="grpc-save-request-collection"
             value={collectionId}
-            onChange={(event) => setCollectionId(event.target.value)}
+            onChange={(v) => setCollectionId(v)}
             disabled={busy || collections.length === 0}
-          >
-            {collections.length === 0 && <option value="">No collections yet</option>}
-            {collectionOptions}
-          </select>
+            placeholder={collections.length === 0 ? 'No collections yet' : undefined}
+            options={collections.length === 0
+              ? [{ value: '', label: 'No collections yet' }]
+              : collectionOptions}
+          />
         </label>
         {onCreateCollection && (
           <label className="grpc-form-row">

@@ -11,6 +11,7 @@ import type {
 import { formatUptime, WS_CLOSE_CODE_PRESETS } from '../../shared/websocket/types';
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 import type { SioServerParams } from './wsProtocolHelpers';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import { WebSocketProtocolSelector } from './WebSocketProtocolSelector';
 import { resolveEffectiveProtocol } from '../../shared/websocket/protocols/protocolDetector';
 import { getProtocolInfo } from '../../shared/websocket/protocols/protocolTypes';
@@ -460,18 +461,19 @@ export function WebSocketConnectPanel({
             </div>
             <div className="ws-reconnect-settings-field">
               <label className="ws-connect-label" htmlFor="ws-backoff-multiplier">Backoff Multiplier</label>
-              <select
-                id="ws-backoff-multiplier"
+              <CustomSelect
                 className="ws-connect-subprotocols"
-                value={backoffMultiplier}
-                onChange={(e) => onBackoffMultiplierChange?.(Number(e.target.value) as WsBackoffMultiplier)}
+                value={String(backoffMultiplier)}
+                onChange={(v) => onBackoffMultiplierChange?.(Number(v) as WsBackoffMultiplier)}
+                options={[
+                  { value: '1', label: 'None (fixed interval)' },
+                  { value: '1.5', label: '1.5×' },
+                  { value: '2', label: '2× (recommended)' },
+                ]}
                 disabled={inputsDisabled || !autoReconnect}
                 data-testid="backoff-multiplier"
-              >
-                <option value={1}>None (fixed interval)</option>
-                <option value={1.5}>1.5×</option>
-                <option value={2}>2× (recommended)</option>
-              </select>
+                aria-label="Backoff multiplier"
+              />
               <span className="ws-reconnect-field-hint">Multiply interval after each failure</span>
             </div>
           </div>

@@ -3,6 +3,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { getCustomSelectValue, selectOption } from '../../../../test-utils/customSelectHelper';
 import { buildAdvancedMock, makeLoadTestSummary } from '../../test-helpers/grpcAdvancedPanel.testHelpers';
 import { GrpcLoadTestPanel } from './GrpcLoadTestPanel';
 
@@ -145,9 +146,7 @@ describe('GrpcLoadTestPanel (inner) coverage gaps', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-load-test-run-compare-select'), {
-      target: { value: 'run-c' },
-    });
+    selectOption(screen.getByTestId('grpc-load-test-run-compare-select'), 'run-c');
 
     rerender(
       <GrpcLoadTestPanel
@@ -166,7 +165,7 @@ describe('GrpcLoadTestPanel (inner) coverage gaps', () => {
       />,
     );
 
-    expect((screen.getByTestId('grpc-load-test-run-compare-select') as HTMLSelectElement).value).toBe('run-c');
+    expect(getCustomSelectValue(screen.getByTestId('grpc-load-test-run-compare-select'))).toBe('run-c');
   });
 
   it('clears compare run when history has no alternate run id', () => {
@@ -187,7 +186,7 @@ describe('GrpcLoadTestPanel (inner) coverage gaps', () => {
       />,
     );
 
-    expect((screen.getByTestId('grpc-load-test-run-compare-select') as HTMLSelectElement).value).toBe('');
+    expect(getCustomSelectValue(screen.getByTestId('grpc-load-test-run-compare-select'))).toBe('Select baseline run…');
   });
 
   it('clears profile name when selected profile id is cleared', () => {
