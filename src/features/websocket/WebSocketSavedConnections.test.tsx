@@ -232,7 +232,7 @@ describe('WebSocketSavedConnections', () => {
       fireEvent.click(screen.getByTestId('new-profile-btn'));
       expect(screen.getByTestId('profile-editor-modal')).toBeTruthy();
 
-      fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+      fireEvent.click(screen.getByTestId('profile-cancel-btn'));
       expect(screen.queryByTestId('profile-editor-modal')).toBeNull();
     });
   });

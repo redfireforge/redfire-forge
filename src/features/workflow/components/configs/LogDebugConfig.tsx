@@ -2,6 +2,7 @@ import type { LogDebugNodeData, LogLevel } from '../../types/workflow';
 import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import InsertVarField from '../expression/InsertVarField';
 import AvailableVariables from '../expression/AvailableVariables';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const LEVEL_OPTIONS: { value: LogLevel; label: string }[] = [
   { value: 'info', label: 'Info' },
@@ -30,12 +31,11 @@ export default function LogDebugConfig({
 
       <div className="wf-config-field">
         <label>Log Level</label>
-        <select
+        <CustomSelect
           value={data.logLevel}
-          onChange={(e) => onChange({ ...data, logLevel: e.target.value as LogLevel })}
-        >
-          {LEVEL_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+          onChange={(v) => onChange({ ...data, logLevel: v as LogLevel })}
+          options={LEVEL_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+        />
       </div>
 
       <div className="wf-config-field">

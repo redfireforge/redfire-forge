@@ -537,8 +537,8 @@ describe('DataMapper – coverage: toolbar profiles, pending, preview custom fns
     await act(async () => { fireEvent.click(container.querySelector('.dm-toolbar-btn--debug')!); });
     await waitFor(() => expect(container.querySelector('.dm-error-inline')).toBeTruthy());
     await act(async () => { fireEvent.click(container.querySelector('.dm-error-inline')!); });
-    await waitFor(() => expect(container.querySelector('.dm-error-popover-close')).toBeTruthy());
-    await act(async () => { fireEvent.click(container.querySelector('.dm-error-popover-close')!); });
+    await waitFor(() => expect(container.querySelector('.dm-error-popover button')).toBeTruthy());
+    await act(async () => { fireEvent.click(container.querySelector('.dm-error-popover button')!); });
     expect(container.querySelector('.dm-error-popover')).toBeNull();
   });
 

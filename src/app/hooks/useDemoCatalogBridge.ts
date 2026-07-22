@@ -50,14 +50,30 @@ export function useDemoCatalogBridge(catalog: UseCatalogReturn, enabled: boolean
       return true;
     };
 
+    /** Add a new version to an existing entry (by display name). */
+    const addVersionByName = async (name: string, rawSpec: string): Promise<boolean> => {
+      const target = ref.current.entries.find(e => e.name.toLowerCase() === name.toLowerCase());
+      if (!target) return false;
+      try {
+        const parsed = await parseOpenApiSpec(rawSpec);
+        await ref.current.addVersionToEntry(target.id, parsed);
+        ref.current.selectEntry(target.id);
+        return true;
+      } catch {
+        return false;
+      }
+    };
+
     win.__demoSeedCatalogSwagger2 = seedSwagger2;
     win.__demoDeleteCatalogByName = deleteByName;
     win.__demoSelectCatalogByName = selectByName;
+    win.__demoAddVersionByName = addVersionByName;
 
     return () => {
       delete win.__demoSeedCatalogSwagger2;
       delete win.__demoDeleteCatalogByName;
       delete win.__demoSelectCatalogByName;
+      delete win.__demoAddVersionByName;
     };
   }, [enabled]);
 

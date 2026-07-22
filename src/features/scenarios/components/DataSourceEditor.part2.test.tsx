@@ -4,6 +4,7 @@
 import { type ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { selectOption, selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 import DataSourceEditor from './DataSourceEditor';
 import {
   makeScenario,
@@ -337,9 +338,8 @@ describe('DataSourceEditor', () => {
   describe('validation mode', () => {
     it('changes validation mode', () => {
       const onChange = vi.fn();
-      render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={onChange} />);
-      const select = screen.getByTitle(/Which rows to validate/);
-      fireEvent.change(select, { target: { value: 'full' } });
+      const { container } = render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={onChange} />);
+      selectOptionByIndex(container, 1, 'Validate: All Rows');
       const updated = onChange.mock.calls[0][0] as Scenario;
       expect(updated.dataSource!.validationMode).toBe('full');
     });

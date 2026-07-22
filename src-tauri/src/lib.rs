@@ -8,6 +8,7 @@ mod websocket;
 pub mod date_helpers;
 pub mod histogram;
 pub mod deep_compare;
+mod executor_detail_level;
 mod executor;
 pub mod field_operator;
 pub mod http_helpers;

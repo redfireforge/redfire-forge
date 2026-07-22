@@ -1,9 +1,10 @@
-import type { RefObject } from 'react';
+import { useMemo, type RefObject } from 'react';
 import type { Environment, Microservice } from '../../shared/types';
 import type { KafkaConnectionSnapshot } from '../../shared/kafka/kafkaConfig';
 import { isCustomThemeId, findSavedTheme } from '../themeCustomizerUtils';
 import type { Tab } from '../utils/appTabUtils';
 import { resolveHeaderProtocolIndicator } from '../utils/headerProtocolUtils';
+import { CustomSelect, type CustomSelectItems } from '../../shared/components/CustomSelect';
 import HeaderProtocolIndicator from './HeaderProtocolIndicator';
 import KafkaConnectionIndicator from './KafkaConnectionIndicator';
 
@@ -72,6 +73,24 @@ export default function AppHeader({
     environments,
   );
 
+  const hasCustomEnvs = microservices.some(s => (s.customEnvs ?? []).length > 0);
+  const envOptions: CustomSelectItems = useMemo(() => {
+    const main = environments.map(env => ({ value: env.id, label: env.name }));
+    if (!hasCustomEnvs) return main;
+    const additional = microservices.flatMap(s =>
+      (s.customEnvs ?? []).map(ce => ({ value: ce.id, label: `${ce.name} (${s.name})` })),
+    );
+    return [
+      { label: 'Environments', options: main },
+      { label: 'Additional', options: additional },
+    ];
+  }, [environments, microservices, hasCustomEnvs]);
+
+  const svcOptions = useMemo(
+    () => microservices.map(svc => ({ value: svc.id, label: svc.name })),
+    [microservices],
+  );
+
   return (
     <header ref={headerRef} className="app-header">
       <h1>🔥 RedfireForge
@@ -79,23 +98,24 @@ export default function AppHeader({
       </h1>
       <div className="header-selectors" data-testid="header-selectors">
         <div className="header-select-group">
-          <select data-testid="header-env-select" value={selectedEnvId} onChange={(e) => setSelectedEnvId(e.target.value)}>
-            <option value="">Environment…</option>
-            {environments.map((env) => <option key={env.id} value={env.id}>{env.name}</option>)}
-            {microservices.some(s => (s.customEnvs ?? []).length > 0) && (
-              <optgroup label="Additional">
-                {microservices.flatMap(s => (s.customEnvs ?? []).map(ce => (
-                  <option key={ce.id} value={ce.id}>{ce.name} ({s.name})</option>
-                )))}
-              </optgroup>
-            )}
-          </select>
+          <CustomSelect
+            data-testid="header-env-select"
+            value={selectedEnvId}
+            onChange={setSelectedEnvId}
+            options={envOptions}
+            placeholder="Environment…"
+            size="sm"
+          />
         </div>
         <div className="header-select-group">
-          <select data-testid="header-svc-select" value={selectedSvcId} onChange={(e) => setSelectedSvcId(e.target.value)}>
-            <option value="">Service…</option>
-            {microservices.map((svc) => <option key={svc.id} value={svc.id}>{svc.name}</option>)}
-          </select>
+          <CustomSelect
+            data-testid="header-svc-select"
+            value={selectedSvcId}
+            onChange={setSelectedSvcId}
+            options={svcOptions}
+            placeholder="Service…"
+            size="sm"
+          />
         </div>
         {protocolIndicator && <HeaderProtocolIndicator state={protocolIndicator} />}
         <KafkaConnectionIndicator

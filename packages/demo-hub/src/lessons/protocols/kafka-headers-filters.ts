@@ -2,17 +2,86 @@
 import type { DemoLesson } from '../../types';
 import { kafkaPublishSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '@shared/selectors';
+import { dispatchKafkaOperation } from '@shared/kafka/kafkaClient';
 
-/** Topic used throughout this lesson. */
-const DEMO_TOPIC = 'headers.demo';
+/**
+ * Unique topic per lesson session — prevents duplicate messages from accumulating
+ * across multiple lesson runs (Kafka topics are append-only).
+ */
+let sessionTopic = '';
+function getDemoTopic(): string {
+  if (!sessionTopic) sessionTopic = `headers.demo-${Date.now()}`;
+  return sessionTopic;
+}
 /** Key used on the published message — also used in the keyEquals filter. */
 const DEMO_KEY = 'HDR-001';
-/** Message body. */
-const DEMO_BODY = '{"orderId":"HDR-001","status":"CREATED","region":"us-east"}';
+/** Message body (minified for produce; pretty-printed in the demo via the Pretty Format button). */
+const DEMO_BODY = JSON.stringify({ orderId: 'HDR-001', status: 'CREATED', region: 'us-east' });
 /** Header key — a correlation / trace field. */
 const HEADER_KEY = 'traceId';
 /** Header value. */
 const HEADER_VALUE = 'abc-001';
+
+/** Resolve the currently connected cluster ID from the Kafka server status. */
+async function getActiveClusterId(): Promise<string | null> {
+  try {
+    const status = await dispatchKafkaOperation<{ state: string; clusterId?: string }>('status');
+    if (status.data?.state === 'connected' && status.data.clusterId) {
+      return status.data.clusterId;
+    }
+  } catch { /* server not running */ }
+  return null;
+}
+
+/** Prevents duplicate seeding across setup + preAction calls within one lesson run. */
+let headerSeeded = false;
+
+/** Reset the seed flag (call from setup). */
+function resetHeaderSeedFlag(): void { headerSeeded = false; }
+
+/**
+ * Pre-seed a message with the header so consume steps always find data.
+ * Idempotent per lesson run — only produces once to avoid duplicates.
+ */
+async function seedHeaderMessage(): Promise<void> {
+  if (headerSeeded) return;
+  const clusterId = await getActiveClusterId();
+  if (!clusterId) return;
+  try {
+    await dispatchKafkaOperation('produce', {
+      clusterId,
+      topic: getDemoTopic(),
+      messages: [{
+        key: DEMO_KEY,
+        value: DEMO_BODY,
+        headers: { [HEADER_KEY]: HEADER_VALUE },
+      }],
+    });
+    headerSeeded = true;
+  } catch {
+    // Broker may not be running — fail silently
+  }
+}
+
+/**
+ * Select "Earliest" in the Start Position CustomSelect by clicking the
+ * trigger and then the "Earliest" menu item. `ctx.selectOption` does not
+ * work with CustomSelect components.
+ */
+async function selectEarliestPosition(ctx: { delay: (ms: number) => Promise<void> }): Promise<void> {
+  const posSelect = document.querySelector<HTMLElement>(KAFKA.CON_POSITION_SELECT);
+  if (!posSelect) return;
+  const currentValue = posSelect.querySelector('.cs-trigger')?.textContent?.trim();
+  if (currentValue === 'Earliest') return; // already set
+  const trigger = posSelect.querySelector<HTMLElement>('.cs-trigger');
+  if (trigger) trigger.click();
+  await ctx.delay(200);
+  const items = posSelect.querySelectorAll<HTMLElement>('.cs-item');
+  for (const item of items) {
+    if (item.textContent?.includes('Earliest')) { item.click(); break; }
+  }
+  await ctx.delay(200);
+}
 
 // ── File-private selectors ────────────────────────────────────────────────────
 // Use :last-child — the "+ Add" button always appends, so the newest row is
@@ -33,7 +102,7 @@ export const kafkaHeadersFiltersLesson: DemoLesson = {
   name: 'Headers & Filters',
   description:
     'Annotate messages with custom headers for traceability, then consume selectively using Key, Header-Match, and JSONPath filters.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 4,
   initialTab: 'kafka-message-studio',
   allowedTabs: ['kafka-settings'],
 
@@ -41,7 +110,15 @@ export const kafkaHeadersFiltersLesson: DemoLesson = {
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
   tag: '🐳 Docker',
 
-  setup: kafkaPublishSetup,
+  setup: async (ctx) => {
+    // Generate a fresh topic each run so no stale duplicates accumulate
+    sessionTopic = `headers.demo-${Date.now()}`;
+    resetHeaderSeedFlag();
+    await kafkaPublishSetup(ctx);
+    // Pre-seed a message with header so consume steps always find data
+    await seedHeaderMessage();
+    await ctx.delay(300);
+  },
   cleanup: kafkaCleanup,
 
   concept: {
@@ -121,66 +198,109 @@ Filters are applied server-side before messages are returned — you never downl
   },
 
   steps: [
-    // ── Step 1: Intro — what headers are ───────────────────────────────────
+    // ── Step 1: Fill everything — Topic, Key, Body, then Headers ─────────
     {
-      id: 'hf-headers-intro',
-      title: 'Adding Message Headers',
+      id: 'hf-fill-all',
+      title: 'Fill Header, Topic, Key, and Body',
       description:
-        'Headers are key-value pairs attached to a message **outside the body**. They are great for correlation IDs, source tags, or environment markers — the broker stores and forwards them without touching the payload. The **Headers** section in the Publish panel is where you add them.',
+        'Prepare a message with all its metadata:\n\n' +
+        '- **Topic**: a demo topic — the destination\n' +
+        `- **Key**: \`${DEMO_KEY}\` — routes the message to a partition\n` +
+        '- **Body**: the JSON order event payload\n' +
+        `- **Header**: \`${HEADER_KEY}: ${HEADER_VALUE}\` — a trace correlation ID attached **outside** the body\n\n` +
+        'Headers are key-value pairs the broker stores and forwards without touching the payload. ' +
+        'They are ideal for correlation IDs, source tags, and environment markers.',
       highlight: KAFKA.PUB_HEADER_ADD_BTN,
       preAction: async (ctx) => {
         await ctx.click(KAFKA.PUBLISH_TAB);
         await ctx.delay(300);
         // Clear any header rows left over from a previous lesson run.
-        // ctx.click is a no-op when the selector matches nothing, so this is
-        // safe on first run and removes up to two stale rows on repeat runs.
         await ctx.click(HEADER_REMOVE_BTN);
         await ctx.delay(150);
         await ctx.click(HEADER_REMOVE_BTN);
         await ctx.delay(150);
       },
-    },
-
-    // ── Step 2: Click "+ Add" to create a header row ───────────────────────
-    {
-      id: 'hf-add-header',
-      title: '+ Add a Header Row',
-      description:
-        'Click **+ Add** to create a new header row. A key input and a value input appear — one row per header. You can add as many as you need.',
-      highlight: KAFKA.PUB_HEADER_ADD_BTN,
       action: async (ctx) => {
-        await ctx.click(KAFKA.PUB_HEADER_ADD_BTN);
-        await ctx.delay(400);
-      },
-      // Confirms the row actually appeared — if the click silently failed,
-      // the next step's fill would target nothing.
-      verify: HEADER_ROW_KEY,
-    },
+        const { showSpotlightRing } = await import('../../demoRipple');
 
-    // ── Step 3: Fill header key + value + topic + key + body ──────────────
-    {
-      id: 'hf-fill-header',
-      title: 'Fill Header, Topic, Key, and Body',
-      description:
-        `The header key is set to \`${HEADER_KEY}\` and the value to \`${HEADER_VALUE}\` — a trace correlation ID. The topic is \`${DEMO_TOPIC}\`, the message key is \`${DEMO_KEY}\` (used for partition routing), and the body carries the order event.`,
-      // Spotlight the header value field so the viewer can see both the key
-      // and value inline. PUB_BODY_TEXTAREA (previous choice) scrolled past
-      // the header section, hiding the main point of this step.
-      highlight: HEADER_ROW_VAL,
-      preAction: async (ctx) => {
-        // Fill header row first (silently, before reading phase)
-        await ctx.fill(HEADER_ROW_KEY, HEADER_KEY);
-        await ctx.delay(200);
-        await ctx.fill(HEADER_ROW_VAL, HEADER_VALUE);
-        await ctx.delay(200);
-        // Fill message fields
-        await ctx.fill(KAFKA.PUB_TOPIC_INPUT, DEMO_TOPIC);
-        await ctx.delay(200);
+        // ── 1. Topic ────────────────────────────────────────
+        const topicInput = document.querySelector<HTMLElement>(KAFKA.PUB_TOPIC_INPUT);
+        if (topicInput) {
+          topicInput.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(topicInput);
+          await ctx.delay(800);
+          rm();
+        }
+        await ctx.fill(KAFKA.PUB_TOPIC_INPUT, getDemoTopic());
+        await ctx.delay(600);
+
+        // ── 2. Key ──────────────────────────────────────────
+        const keyInput = document.querySelector<HTMLElement>(KAFKA.PUB_KEY_INPUT);
+        if (keyInput) {
+          keyInput.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(keyInput);
+          await ctx.delay(800);
+          rm();
+        }
         await ctx.fill(KAFKA.PUB_KEY_INPUT, DEMO_KEY);
-        await ctx.delay(200);
+        await ctx.delay(600);
+
+        // ── 3. Message Body ─────────────────────────────────
+        const bodyEl = document.querySelector<HTMLElement>(KAFKA.PUB_BODY_TEXTAREA);
+        if (bodyEl) {
+          bodyEl.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(bodyEl);
+          await ctx.delay(800);
+          rm();
+        }
         await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, DEMO_BODY);
-        await ctx.delay(300);
+        await ctx.delay(600);
+
+        // Click Pretty Format so the viewer sees readable JSON
+        const prettyBtn = document.querySelector<HTMLElement>('[data-testid="pub-pretty-format-badge"]');
+        if (prettyBtn) {
+          prettyBtn.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(prettyBtn);
+          await ctx.delay(500);
+          rm();
+          await ctx.click('[data-testid="pub-pretty-format-badge"]');
+          await ctx.delay(800);
+        }
+
+        // ── 4. Headers — + Add, then fill key & value ───────
+        const addBtn = document.querySelector<HTMLElement>(KAFKA.PUB_HEADER_ADD_BTN);
+        if (addBtn) {
+          addBtn.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(addBtn);
+          await ctx.delay(800);
+          rm();
+        }
+        await ctx.click(KAFKA.PUB_HEADER_ADD_BTN);
+        await ctx.delay(500);
+
+        // Spotlight & fill header key
+        const hKeyInput = document.querySelector<HTMLElement>(HEADER_ROW_KEY);
+        if (hKeyInput) {
+          hKeyInput.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(hKeyInput);
+          await ctx.delay(600);
+          rm();
+        }
+        await ctx.fill(HEADER_ROW_KEY, HEADER_KEY);
+        await ctx.delay(500);
+
+        // Spotlight & fill header value
+        const hValInput = document.querySelector<HTMLElement>(HEADER_ROW_VAL);
+        if (hValInput) {
+          hValInput.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(hValInput);
+          await ctx.delay(600);
+          rm();
+        }
+        await ctx.fill(HEADER_ROW_VAL, HEADER_VALUE);
+        await ctx.delay(1000);
       },
+      verify: HEADER_ROW_VAL,
     },
 
     // ── Step 4: Send the message ───────────────────────────────────────────
@@ -199,7 +319,7 @@ Filters are applied server-side before messages are returned — you never downl
       pauseAfter: true,
     },
 
-    // ── Step 5: Switch to Consume tab ─────────────────────────────────────
+    // ── Step 3: Switch to Consume tab ─────────────────────────────────────
     {
       id: 'hf-filter-intro',
       title: 'Consume Filters',
@@ -213,11 +333,11 @@ Filters are applied server-side before messages are returned — you never downl
         // con-consume-btn is not rendered and all consume steps would silently fail.
         await ctx.click(KAFKA.CON_MODE_ONCE);
         await ctx.delay(200);
+        // Set topic + Earliest position so consume steps find our seeded message
+        await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
+        await ctx.delay(100);
+        await selectEarliestPosition(ctx);
         // Clear the group ID so each consume step generates a fresh random group.
-        // The draft initialises with a fixed auto-generated ID; once step 6 commits
-        // that group's offset past the published message, steps 7/8 would start AFTER
-        // the message and return 0 results even with fromBeginning=true (KafkaJS
-        // ignores fromBeginning when committed offsets already exist for the group).
         await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
         await ctx.delay(100);
         // Set maxMessages=1 so the consumer settles immediately after finding the
@@ -225,7 +345,6 @@ Filters are applied server-side before messages are returned — you never downl
         await ctx.fill(KAFKA.CON_MAX_INPUT, '1');
         await ctx.delay(100);
         // Clear every filter input before the three filter steps begin.
-        // On a repeat run, the previous K4 execution leaves stale values.
         await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
         await ctx.delay(100);
         await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
@@ -237,106 +356,272 @@ Filters are applied server-side before messages are returned — you never downl
       },
     },
 
-    // ── Step 6: Key filter ─────────────────────────────────────────────────
+    // ── Step 4: Key filter ─────────────────────────────────────────────────
     {
       id: 'hf-key-filter',
       title: 'Filter by Key',
       description:
-        `Topic is \`${DEMO_TOPIC}\`, position is **Earliest**, key filter is \`${DEMO_KEY}\`. **Key Equals** returns only messages whose key matches exactly — watch **Consume Once** fetch just that one message.`,
+        `Type \`${DEMO_KEY}\` in **Key Equals**, then click **Consume Once**. Only messages whose key matches exactly are returned — watch the result appear below.`,
       highlight: KAFKA.CON_KEY_FILTER_INPUT,
       preAction: async (ctx) => {
-        await ctx.fill(KAFKA.CON_TOPIC_INPUT, DEMO_TOPIC);
-        await ctx.delay(200);
-        await ctx.selectOption(KAFKA.CON_POSITION_SELECT, 'earliest');
-        await ctx.delay(200);
-        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, DEMO_KEY);
-        await ctx.delay(200);
+        await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
+        await ctx.delay(100);
+        await selectEarliestPosition(ctx);
+        await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
+        await ctx.delay(100);
+        // Clear all filters first
+        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
+        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
+        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
+        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+        await ctx.delay(100);
+        await seedHeaderMessage();
+        await ctx.delay(100);
+        // Clear old results so waitFor detects genuinely new results
+        const clearBtn = document.querySelector<HTMLElement>(KAFKA.CON_CLEAR_BTN);
+        if (clearBtn) { clearBtn.click(); await ctx.delay(200); }
       },
       action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        // 1. Spotlight and fill the Key filter
+        const keyInput = document.querySelector<HTMLElement>(KAFKA.CON_KEY_FILTER_INPUT);
+        if (keyInput) {
+          keyInput.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(keyInput);
+          await ctx.delay(800);
+          rm();
+        }
+        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, DEMO_KEY);
+        await ctx.delay(600);
+
+        // 2. Spotlight and click Consume Once
+        const consumeBtn = document.querySelector<HTMLElement>(KAFKA.CON_CONSUME_BTN);
+        if (consumeBtn) {
+          consumeBtn.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(consumeBtn);
+          await ctx.delay(600);
+          rm();
+        }
         await ctx.click(KAFKA.CON_CONSUME_BTN);
-        // Wait up to 15s for the results zone — the backend consume timeout is
-        // ~10s at most (with maxMessages=1 it settles much faster).
         await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
-        await ctx.delay(800);
+        await ctx.delay(500);
+
+        // 3. Spotlight the results so the viewer sees the filtered message
+        const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
+        if (results) {
+          results.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(results);
+          await ctx.delay(1500);
+          rm();
+        }
       },
-      // Let viewers study the filtered results before auto-advancing.
       pauseAfter: true,
     },
 
-    // ── Step 7: Header Match filter ───────────────────────────────────────
+    // ── Step 5: Header Match filter ───────────────────────────────────────
     {
       id: 'hf-header-filter',
       title: 'Filter by Header',
       description:
-        `Key filter cleared. **Header Match** is set to \`${HEADER_KEY}=${HEADER_VALUE}\` — the \`key=value\` notation returns only messages that carry that exact header. Since we published with \`traceId: abc-001\`, this fetch returns our message.`,
+        `Key filter cleared. Type \`${HEADER_KEY}=${HEADER_VALUE}\` in **Header Match**, then **Consume Once**. Only messages carrying that exact header are returned.`,
       highlight: KAFKA.CON_HEADER_FILTER_INPUT,
       preAction: async (ctx) => {
-        // Clear group ID again so this consume gets a fresh group (avoids committed-offset issue).
+        await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
+        await ctx.delay(100);
+        await selectEarliestPosition(ctx);
         await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
         await ctx.delay(100);
+        // Clear all filters
         await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
-        await ctx.delay(200);
-        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, `${HEADER_KEY}=${HEADER_VALUE}`);
-        await ctx.delay(200);
+        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
+        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
+        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+        await ctx.delay(100);
+        await seedHeaderMessage();
+        await ctx.delay(100);
+        // Clear old results
+        const clearBtn = document.querySelector<HTMLElement>(KAFKA.CON_CLEAR_BTN);
+        if (clearBtn) { clearBtn.click(); await ctx.delay(200); }
       },
       action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        // 1. Spotlight and fill Header Match
+        const headerInput = document.querySelector<HTMLElement>(KAFKA.CON_HEADER_FILTER_INPUT);
+        if (headerInput) {
+          headerInput.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(headerInput);
+          await ctx.delay(800);
+          rm();
+        }
+        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, `${HEADER_KEY}=${HEADER_VALUE}`);
+        await ctx.delay(600);
+
+        // 2. Spotlight and click Consume Once
+        const consumeBtn = document.querySelector<HTMLElement>(KAFKA.CON_CONSUME_BTN);
+        if (consumeBtn) {
+          consumeBtn.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(consumeBtn);
+          await ctx.delay(600);
+          rm();
+        }
         await ctx.click(KAFKA.CON_CONSUME_BTN);
         await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
-        await ctx.delay(800);
+        await ctx.delay(500);
+
+        // 3. Spotlight the results
+        const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
+        if (results) {
+          results.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(results);
+          await ctx.delay(1500);
+          rm();
+        }
       },
-      // Let viewers see the header-filtered result before advancing.
       pauseAfter: true,
     },
 
-    // ── Step 8: JSONPath filter ────────────────────────────────────────────
+    // ── Step 6: JSONPath filter ────────────────────────────────────────────
     {
       id: 'hf-jsonpath',
       title: 'JSONPath Filter',
       description:
-        'Header filter cleared. **JSONPath** is `$.status` and **JSONPath Equals** is `CREATED`. Watch **Consume Once** return only messages where `status == "CREATED"` — the broker filters before sending, so nothing unnecessary is downloaded.',
+        'All other filters cleared. Set **JSONPath** to `$.status` and **JSONPath Equals** to `CREATED`, then **Consume Once**. Only messages where `status == "CREATED"` are returned.',
       highlight: KAFKA.CON_JSONPATH_INPUT,
       preAction: async (ctx) => {
-        // Clear group ID — fresh group ensures fromBeginning=true is honoured.
+        await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
+        await ctx.delay(100);
+        await selectEarliestPosition(ctx);
         await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
         await ctx.delay(100);
-        // Clear header filter from the previous step, then set JSONPath filters.
+        // Clear ALL filters
+        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
         await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
-        await ctx.delay(200);
-        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '$.status');
-        await ctx.delay(200);
-        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, 'CREATED');
-        await ctx.delay(200);
+        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
+        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+        await ctx.delay(100);
+        await seedHeaderMessage();
+        await ctx.delay(100);
+        // Clear old results
+        const clearBtn = document.querySelector<HTMLElement>(KAFKA.CON_CLEAR_BTN);
+        if (clearBtn) { clearBtn.click(); await ctx.delay(200); }
       },
       action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        // 1. Spotlight and fill JSONPath
+        const jpInput = document.querySelector<HTMLElement>(KAFKA.CON_JSONPATH_INPUT);
+        if (jpInput) {
+          jpInput.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(jpInput);
+          await ctx.delay(800);
+          rm();
+        }
+        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '$.status');
+        await ctx.delay(500);
+
+        // Spotlight and fill JSONPath Equals
+        const jpValInput = document.querySelector<HTMLElement>(KAFKA.CON_JSONVAL_INPUT);
+        if (jpValInput) {
+          jpValInput.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(jpValInput);
+          await ctx.delay(600);
+          rm();
+        }
+        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, 'CREATED');
+        await ctx.delay(600);
+
+        // 2. Spotlight and click Consume Once
+        const consumeBtn = document.querySelector<HTMLElement>(KAFKA.CON_CONSUME_BTN);
+        if (consumeBtn) {
+          consumeBtn.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(consumeBtn);
+          await ctx.delay(600);
+          rm();
+        }
         await ctx.click(KAFKA.CON_CONSUME_BTN);
         await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
-        await ctx.delay(800);
+        await ctx.delay(500);
+
+        // 3. Spotlight the results
+        const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
+        if (results) {
+          results.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(results);
+          await ctx.delay(1500);
+          rm();
+        }
       },
-      // Let viewers study the JSONPath-filtered results before moving on.
       pauseAfter: true,
     },
 
-    // ── Step 9: Click a result row to show headers in detail pane ─────────
+    // ── Step 7: Click a result row to show headers in detail modal ─────────
     {
       id: 'hf-detail',
-      title: 'Headers in the Detail Pane',
+      title: 'Headers in the Message Detail',
       description:
-        'Click the first result row to open the **Detail Pane**. The **Headers** section appears below the payload — `traceId: abc-001` is listed there. Headers travel with the message end-to-end and are always available to the consumer.',
-      // Spotlight the first data row so viewers know exactly what to click.
-      // CON_DETAIL_PANE doesn't exist until after the row is selected — spotlighting
-      // it during the reading phase would render an invisible ring.
+        'Click the first result row to open the **Message Detail** modal. Offset, partition, timestamp, key, pretty-printed body, and **headers** — everything in one view. `traceId: abc-001` is listed in the Headers table.',
       highlight: '[data-testid="con-row-0"]',
-      action: async (ctx) => {
-        // Wait for the row to exist (step 8's consume may still be in-flight
-        // when the reading phase ends at high speed settings).
-        await ctx.waitFor('[data-testid="con-row-0"]', 15000);
-        // Use the data-testid row selector, NOT tr:first-child which would match
-        // the <thead> column-header row (no onClick handler — detail pane never opens).
-        await ctx.click('[data-testid="con-row-0"]');
-        await ctx.waitFor(KAFKA.CON_DETAIL_PANE, 5000);
-        await ctx.delay(600);
+      preAction: async (ctx) => {
+        // Guard: if the user skipped step 6, run a consume so results exist
+        if (!document.querySelector('[data-testid="con-row-0"]')) {
+          await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
+          await ctx.delay(100);
+          await selectEarliestPosition(ctx);
+          await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
+          await ctx.delay(100);
+          // Clear all filters for a plain consume — we just need any result row
+          await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
+          await ctx.delay(50);
+          await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
+          await ctx.delay(50);
+          await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
+          await ctx.delay(50);
+          await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+          await ctx.delay(50);
+          await seedHeaderMessage();
+          await ctx.delay(200);
+          await ctx.click(KAFKA.CON_CONSUME_BTN);
+          try { await ctx.waitFor('[data-testid="con-row-0"]', 15000); } catch { /* */ }
+          await ctx.delay(300);
+        }
       },
-      // Final payoff of the lesson — hold so viewers can see traceId in the pane.
+      action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        await ctx.waitFor('[data-testid="con-row-0"]', 15000);
+        await ctx.click('[data-testid="con-row-0"]');
+        await ctx.waitFor(KAFKA.CON_DETAIL_MODAL, 5000);
+        await ctx.delay(600);
+
+        // Spotlight Key
+        const keyEl = document.querySelector<HTMLElement>('[data-testid="kmd-key"]');
+        if (keyEl) {
+          keyEl.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(keyEl);
+          await ctx.delay(1200);
+          rm();
+        }
+
+        // Spotlight Headers table
+        const headersEl = document.querySelector<HTMLElement>('[data-testid="kmd-headers"]');
+        if (headersEl) {
+          headersEl.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(headersEl);
+          await ctx.delay(1200);
+          rm();
+        }
+
+        // Spotlight Message Body
+        const bodyEl = document.querySelector<HTMLElement>('[data-testid="kmd-body"]');
+        if (bodyEl) {
+          bodyEl.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(bodyEl);
+          await ctx.delay(1500);
+          rm();
+        }
+      },
       pauseAfter: true,
     },
   ],

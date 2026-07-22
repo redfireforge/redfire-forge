@@ -6,6 +6,7 @@
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
 import { ArgInput } from './ArgInput';
 import type { GraphqlTypeNode } from '../../../../shared/types/graphql';
 
@@ -33,10 +34,9 @@ describe('ArgInput', () => {
 
   it('renders a boolean select for Boolean type', () => {
     render(<ArgInput fieldPath="root" argName="active" argType="Boolean" value="" types={NO_TYPES} onChange={vi.fn()} />);
-    const select = screen.getByRole('combobox');
-    expect(select).toBeInTheDocument();
-    expect(screen.getByText('true')).toBeInTheDocument();
-    expect(screen.getByText('false')).toBeInTheDocument();
+    const row = screen.getByTestId('gql-qb-arg-root-active');
+    expect(row.querySelector('.cs-wrapper')).toBeInTheDocument();
+    expect(getCustomSelectOptionLabels(row.querySelector('.cs-wrapper')!)).toEqual(['(any)', 'true', 'false']);
   });
 
   it('renders an enum select when type matches an ENUM node', () => {
@@ -44,10 +44,9 @@ describe('ArgInput', () => {
       { name: 'Status', kind: 'ENUM', fields: [], enumValues: ['ACTIVE', 'INACTIVE'] },
     ];
     render(<ArgInput fieldPath="root" argName="status" argType="Status" value="" types={types} onChange={vi.fn()} />);
-    const select = screen.getByRole('combobox');
-    expect(select).toBeInTheDocument();
-    expect(screen.getByText('ACTIVE')).toBeInTheDocument();
-    expect(screen.getByText('INACTIVE')).toBeInTheDocument();
+    const row = screen.getByTestId('gql-qb-arg-root-status');
+    expect(row.querySelector('.cs-wrapper')).toBeInTheDocument();
+    expect(getCustomSelectOptionLabels(row.querySelector('.cs-wrapper')!)).toEqual(['(any)', 'ACTIVE', 'INACTIVE']);
   });
 
   it('calls onChange when text input changes', () => {
@@ -67,7 +66,7 @@ describe('ArgInput', () => {
   it('calls onChange when boolean select changes', () => {
     const onChange = vi.fn();
     render(<ArgInput fieldPath="root" argName="active" argType="Boolean" value="" types={NO_TYPES} onChange={onChange} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'true' } });
+    selectOption(screen.getByTestId('gql-qb-arg-root-active'), 'true');
     expect(onChange).toHaveBeenCalledWith('true');
   });
 
@@ -77,7 +76,7 @@ describe('ArgInput', () => {
       { name: 'Status', kind: 'ENUM', fields: [], enumValues: ['ACTIVE', 'INACTIVE'] },
     ];
     render(<ArgInput fieldPath="root" argName="status" argType="Status" value="" types={types} onChange={onChange} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'ACTIVE' } });
+    selectOption(screen.getByTestId('gql-qb-arg-root-status'), 'ACTIVE');
     expect(onChange).toHaveBeenCalledWith('ACTIVE');
   });
 

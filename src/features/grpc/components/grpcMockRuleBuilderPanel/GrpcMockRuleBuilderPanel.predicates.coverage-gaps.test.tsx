@@ -3,6 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import { resetGrpcMockBuilderNodeIdsForTests, createGrpcMockBuilderNodeId, createDefaultGrpcMockBuilderPredicateLeaf } from '../../utils/grpcMockRuleBuilderModel';
 import * as grpcMockRuleBuilderModel from '../../utils/grpcMockRuleBuilderModel';
 import { buildAdvancedMock } from '../../test-helpers/grpcAdvancedPanel.testHelpers';
@@ -594,9 +595,7 @@ describe('GrpcMockRuleBuilderPanel coverage gaps — predicates and drag-drop', 
       <StatefulMockBuilder onPatch={patchMockRulesJson} initialRulesJson={rulesJson} />,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-mock-builder-status-response-fields'), {
-      target: { value: '5' },
-    });
+    selectOption(screen.getByTestId('grpc-mock-builder-status-response-fields'), '5 - NOT_FOUND');
     fireEvent.change(screen.getByTestId('grpc-mock-builder-latency-response-fields'), {
       target: { value: '120' },
     });

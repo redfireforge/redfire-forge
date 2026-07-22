@@ -4,6 +4,7 @@ import type { RequestResult, TestRun } from '../../../shared/types';
 import type { GroupNode, GroupByLevel } from '../../test-runner/utils/resultsGrouping';
 import { DataRowSummaryTable } from './DataRowSummaryTable';
 import { formatTransportStatus, getTransportMethodLabel } from '../utils/transportStatus';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 interface Props {
   selectedRun: TestRun | null;
@@ -177,30 +178,41 @@ export function ResultsRequestDetailsTab({
   return (
     <div className="section">
       <div className="filter-row">
-        <select value={filterPassed} onChange={(e) => { setFilterPassed(e.target.value); setPage(0); }}>
-          <option value="all">All Results</option>
-          <option value="passed">Passed Only</option>
-          <option value="failed">Failed Only</option>
-          {selectedRun?.results.some(r => r.dataRowId) && (
-            <option value="failed-data-rows">Failed Data Rows</option>
-          )}
-        </select>
+        <CustomSelect
+          value={filterPassed}
+          onChange={(v) => { setFilterPassed(v); setPage(0); }}
+          options={[
+            { value: 'all', label: 'All Results' },
+            { value: 'passed', label: 'Passed Only' },
+            { value: 'failed', label: 'Failed Only' },
+            ...(selectedRun?.results.some(r => r.dataRowId)
+              ? [{ value: 'failed-data-rows', label: 'Failed Data Rows' }]
+              : []),
+          ]}
+          size="sm"
+        />
 
         <div className="group-by-controls">
           <label className="group-by-label">Group by</label>
-          <select value={groupBy} onChange={(e) => handleGroupByChange(e.target.value as GroupByLevel)}>
-            <option value="feature">Feature</option>
-            <option value="group">Scenario</option>
-            <option value="test">Test Name (flat)</option>
-            {isWorkflowRun && <option value="iteration">Iteration</option>}
-            {isWorkflowRun && <option value="workflowStep">Workflow Step</option>}
-          </select>
+          <CustomSelect
+            value={groupBy}
+            onChange={(v) => handleGroupByChange(v as GroupByLevel)}
+            options={[
+              { value: 'feature', label: 'Feature' },
+              { value: 'group', label: 'Scenario' },
+              { value: 'test', label: 'Test Name (flat)' },
+              ...(isWorkflowRun ? [{ value: 'iteration', label: 'Iteration' }] : []),
+              ...(isWorkflowRun ? [{ value: 'workflowStep', label: 'Workflow Step' }] : []),
+            ]}
+            size="sm"
+          />
           {subGroupOptions.length > 0 && (
-            <select value={subGroupBy} onChange={(e) => { setSubGroupBy(e.target.value as GroupByLevel); setExpanded(new Set()); }}>
-              {subGroupOptions.map((o) => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
+            <CustomSelect
+              value={subGroupBy}
+              onChange={(v) => { setSubGroupBy(v as GroupByLevel); setExpanded(new Set()); }}
+              options={subGroupOptions.map((o) => ({ value: o.value, label: o.label }))}
+              size="sm"
+            />
           )}
         </div>
 

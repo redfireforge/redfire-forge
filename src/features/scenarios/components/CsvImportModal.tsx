@@ -5,6 +5,7 @@ import { parseCsvToScenarios, parseExcelToScenarios, downloadCsv } from '../util
 import { parseJsonToScenarios } from '../utils/csvTemplateJson';
 import type { CsvParseResult } from '../utils/csvTemplate';
 import PopupModal from '../../../shared/components/PopupModal';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 type ImportMode = 'tests' | 'parameterized';
 
@@ -377,11 +378,12 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                 <div className="csv-dest-row">
                   <span className="csv-dest-row-label">Feature Group</span>
                   {!createNewFg ? (
-                    <select className="csv-dest-select" value={selectedFgId} onChange={(e) => { setSelectedFgId(e.target.value); setSelectedScenarioId(''); setCreateNewScenario(false); }}>
-                      {featureGroups.map(fg => (
-                        <option key={fg.id} value={fg.id}>{fg.name}</option>
-                      ))}
-                    </select>
+                    <CustomSelect
+                      className="csv-dest-select"
+                      value={selectedFgId}
+                      onChange={(v) => { setSelectedFgId(v); setSelectedScenarioId(''); setCreateNewScenario(false); }}
+                      options={featureGroups.map((fg) => ({ value: fg.id, label: fg.name }))}
+                    />
                   ) : (
                     <input
                       className="csv-dest-select"
@@ -412,12 +414,16 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                 <div className="csv-dest-row">
                   <span className="csv-dest-row-label">Scenario</span>
                   {(!createNewScenario && !createNewFg) ? (
-                    <select className="csv-dest-select" value={selectedScenarioId} onChange={(e) => setSelectedScenarioId(e.target.value)}>
-                      <option value="">— Select —</option>
-                      {scenarios.map(sc => (
-                        <option key={sc.id} value={sc.id}>{sc.name} ({sc.tests.length} tests)</option>
-                      ))}
-                    </select>
+                    <CustomSelect
+                      className="csv-dest-select"
+                      value={selectedScenarioId}
+                      onChange={(v) => setSelectedScenarioId(v)}
+                      placeholder="— Select —"
+                      options={scenarios.map((sc) => ({
+                        value: sc.id,
+                        label: `${sc.name} (${sc.tests.length} tests)`,
+                      }))}
+                    />
                   ) : (
                     <input
                       className="csv-dest-select"
@@ -441,19 +447,29 @@ export default function CsvImportModal({ featureGroups, onImport, onClose }: Pro
                 {/* Import mode */}
                 <div className="csv-dest-row">
                   <span className="csv-dest-row-label">Import As</span>
-                  <select className="csv-dest-select" value={importMode} onChange={(e) => setImportMode(e.target.value as ImportMode)}>
-                    <option value="tests">Individual Tests — each row becomes a separate test</option>
-                    <option value="parameterized">Parameterized Test — one test with all rows as data source</option>
-                  </select>
+                  <CustomSelect
+                    className="csv-dest-select"
+                    value={importMode}
+                    onChange={(v) => setImportMode(v as ImportMode)}
+                    options={[
+                      { value: 'tests', label: 'Individual Tests — each row becomes a separate test' },
+                      { value: 'parameterized', label: 'Parameterized Test — one test with all rows as data source' },
+                    ]}
+                  />
                 </div>
 
                 {/* Duplicate handling */}
                 <div className="csv-dest-row">
                   <span className="csv-dest-row-label">Duplicates</span>
-                  <select className="csv-dest-select" value={duplicateMode} onChange={(e) => setDuplicateMode(e.target.value as 'skip' | 'append')}>
-                    <option value="append">Add anyway (allow duplicates)</option>
-                    <option value="skip">Skip duplicates</option>
-                  </select>
+                  <CustomSelect
+                    className="csv-dest-select"
+                    value={duplicateMode}
+                    onChange={(v) => setDuplicateMode(v as 'skip' | 'append')}
+                    options={[
+                      { value: 'append', label: 'Add anyway (allow duplicates)' },
+                      { value: 'skip', label: 'Skip duplicates' },
+                    ]}
+                  />
                 </div>
               </div>
             </div>

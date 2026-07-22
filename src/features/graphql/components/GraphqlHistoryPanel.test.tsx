@@ -218,7 +218,7 @@ describe('GraphqlHistoryPanel', () => {
     fireEvent.click(screen.getByTestId('gql-history-entry'));
     expect(screen.getByTestId('gql-history-preview')).toBeInTheDocument();
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
-    fireEvent.click(screen.getByLabelText('Close preview'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByTestId('gql-history-preview')).not.toBeInTheDocument();
     expect(screen.getByRole('listbox')).toBeInTheDocument();
   });

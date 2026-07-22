@@ -1342,6 +1342,16 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .body-validation-header { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
 .body-validation-title { font-weight: 600; font-size: 0.82rem; }
 .body-validation-hint { font-size: 0.72rem; color: var(--text-muted); }
+.body-validation-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.body-validation-inline .radio-group {
+  margin-bottom: 0;
+  gap: 14px;
+}
 .validation-empty-warning {
   margin-top: 8px; padding: 8px 12px; border-radius: 6px;
   background: rgba(234, 179, 8, 0.1); border: 1px solid rgba(234, 179, 8, 0.3);
@@ -4576,3 +4586,147 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .trend-controls { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 .trend-scope-select { padding: 3px 6px; font-size: 0.78rem; border: 1px solid var(--border); border-radius: 3px; background: var(--input-bg); color: var(--text); cursor: pointer; }
 .trend-metric-select2 { padding: 3px 6px; font-size: 0.78rem; border: 1px solid var(--border); border-radius: 3px; background: var(--input-bg); color: var(--text); cursor: pointer; }
+
+/* ── CustomSelect — reusable styled dropdown ── */
+.cs-wrapper {
+  position: relative;
+  display: inline-flex;
+  min-width: 0;
+}
+.cs-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: 5px;
+  border: 1px solid var(--border, #3b4a60);
+  background: var(--bg, #0f172a);
+  color: var(--text, #f1f5f9);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  text-align: left;
+  gap: 6px;
+  line-height: 1.4;
+}
+.cs-trigger:hover:not(:disabled) {
+  border-color: var(--primary, #3b82f6);
+}
+.cs-trigger:focus:not(:disabled) {
+  border-color: var(--primary, #3b82f6);
+  outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.cs-trigger[aria-expanded="true"] {
+  border-color: var(--primary, #3b82f6);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 20%, transparent);
+}
+.cs-trigger.cs-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cs-trigger.cs-placeholder .cs-text {
+  color: var(--text-muted, #a8b8cc);
+}
+.cs-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+.cs-arrow {
+  flex-shrink: 0;
+  font-size: 8px;
+  color: var(--text-muted, #a8b8cc);
+  margin-left: 4px;
+}
+.cs-menu {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  right: 0;
+  min-width: 100%;
+  z-index: 200;
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--border, #3b4a60);
+  border-radius: 6px;
+  padding: 3px 0;
+  max-height: 240px;
+  overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.cs-item {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: var(--text, #f1f5f9);
+  font-size: 13px;
+  cursor: pointer;
+  text-align: left;
+  gap: 6px;
+  transition: background 0.1s;
+  line-height: 1.4;
+}
+.cs-item:hover:not(:disabled) {
+  background: var(--surface-hover, #2d3a4d);
+}
+.cs-item.active {
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary, #3b82f6);
+}
+.cs-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.cs-item-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cs-item-detail {
+  font-size: 11px;
+  color: var(--text-muted, #a8b8cc);
+  flex-shrink: 0;
+}
+.cs-check {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--primary, #3b82f6);
+  margin-left: auto;
+}
+.cs-group {
+  padding: 2px 0;
+}
+.cs-group + .cs-group {
+  border-top: 1px solid var(--border, #3b4a60);
+}
+.cs-group-label {
+  padding: 4px 10px 2px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted, #a8b8cc);
+}
+/* Small variant — compact for toolbars/inline */
+.cs-sm .cs-trigger {
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+.cs-sm .cs-arrow {
+  font-size: 7px;
+}
+.cs-sm .cs-menu {
+  font-size: 12px;
+}
+.cs-sm .cs-item {
+  padding: 5px 8px;
+  font-size: 12px;
+}

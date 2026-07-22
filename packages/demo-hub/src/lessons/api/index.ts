@@ -8,6 +8,10 @@ import { reqSendHarnessLesson } from './req-send-harness';
 import { reqVersioningLesson } from './req-versioning';
 import { reqMultiTabLesson } from './req-multi-tab';
 import { catConvertOpenApiLesson } from './cat-convert-openapi';
+import { catImportBrowseLesson } from './cat-import-browse';
+import { catTryItOutLesson } from './cat-try-it-out';
+import { catExportPromoteLesson } from './cat-export-promote';
+import { catVersionLifecycleLesson } from './cat-version-lifecycle';
 
 export const requestLessons: DemoLesson[] = [
   reqQuickStartLesson,
@@ -20,6 +24,10 @@ export const requestLessons: DemoLesson[] = [
 ];
 
 export const catalogLessons: DemoLesson[] = [
+  catImportBrowseLesson,
+  catTryItOutLesson,
+  catExportPromoteLesson,
+  catVersionLifecycleLesson,
   catConvertOpenApiLesson,
 ];
 

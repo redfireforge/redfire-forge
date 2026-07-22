@@ -17,7 +17,7 @@ export const kafkaPublishLesson: DemoLesson = {
   name: 'Publish Studio',
   description:
     'Send a Kafka message and immediately see the partition, offset, and timestamp in the success panel.',
-  estimatedMinutes: 4,
+  estimatedMinutes: 5,
   initialTab: 'kafka-message-studio',
   // Setup navigates to kafka-settings to auto-create + connect the cluster —
   // declare it as allowed so useDemoShortcuts does not auto-exit during setup.
@@ -145,11 +145,75 @@ export const kafkaPublishLesson: DemoLesson = {
       id: 'pub-body',
       title: 'Write the Message Body',
       description:
-        'The **Message Body** is the event payload — any valid JSON. Here we send an order event with `orderId`, `status`, and `amount`. We will format and validate it in a moment.',
+        'The **Message Body** is the event payload — any valid JSON. Here we send an order event with `orderId`, `status`, and `amount`. For large payloads you can open the **full editor**.',
       highlight: KAFKA.PUB_BODY_TEXTAREA,
       action: async (ctx) => {
         await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, DEMO_BODY);
         await ctx.delay(400);
+      },
+    },
+    {
+      id: 'pub-expand',
+      title: 'Full Body Editor',
+      description:
+        'Click **⤢ Expand** to open the full-screen body editor. Inside you get **line numbers**, a **search bar** with match navigation (⌘F), and **Pretty / Minify** formatting — essential when working with large JSON payloads. Click **Apply** to save changes back.',
+      highlight: KAFKA.PUB_BODY_EXPAND,
+      action: async (ctx) => {
+        const ring = (el: HTMLElement) => {
+          el.style.outline = '2px solid var(--primary)';
+          el.style.outlineOffset = '2px';
+          el.style.borderRadius = '6px';
+        };
+        const unring = (el: HTMLElement) => {
+          el.style.outline = '';
+          el.style.outlineOffset = '';
+          el.style.borderRadius = '';
+        };
+
+        await ctx.click(KAFKA.PUB_BODY_EXPAND);
+        await ctx.delay(1500);
+
+        // Spotlight the editor content area (textarea)
+        const textarea = document.querySelector<HTMLElement>('.kbe-textarea');
+        if (textarea) {
+          ring(textarea);
+          await ctx.delay(1500);
+          unring(textarea);
+        }
+
+        // Spotlight the search bar
+        const searchInput = document.querySelector<HTMLElement>('.kbe-search');
+        if (searchInput) {
+          ring(searchInput);
+          await ctx.delay(1200);
+          unring(searchInput);
+        }
+
+        // Spotlight Pretty & Minify buttons together
+        const toolbar = document.querySelector<HTMLElement>('.kbe-toolbar-actions');
+        if (toolbar) {
+          ring(toolbar);
+          await ctx.delay(1200);
+          // Click Pretty while highlighted
+          const prettyBtn = toolbar.querySelector<HTMLElement>('.kbe-action-btn');
+          if (prettyBtn) {
+            prettyBtn.click();
+            await ctx.delay(1500);
+          }
+          unring(toolbar);
+        }
+
+        // Pause on the formatted result
+        await ctx.delay(800);
+
+        // Click Apply to close
+        const applyBtn = document.querySelector<HTMLElement>('.kbe-btn--primary');
+        if (applyBtn) {
+          ring(applyBtn);
+          await ctx.delay(1000);
+          applyBtn.click();
+          await ctx.delay(600);
+        }
       },
     },
     {

@@ -3,6 +3,7 @@ import '@testing-library/jest-dom';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRef } from 'react';
+import { getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
 import VersionDiffModal from './VersionDiffModal';
 
 // Sub-components: mock heavy ones (json-diff-kit Viewer) to avoid jsdom issues
@@ -101,9 +102,9 @@ describe('VersionDiffModal', () => {
       { id: 'v1', label: 'Version 1' },
       { id: 'v2', label: 'Version 2' },
     ];
-    render(<VersionDiffModal {...defaultProps({ options })} />);
-    // Options appear in both Left and Right selects
-    expect(screen.getAllByText('Version 1').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getAllByText('Version 2').length).toBeGreaterThanOrEqual(1);
+    const { container } = render(<VersionDiffModal {...defaultProps({ options })} />);
+    expect(container.querySelectorAll('.cs-wrapper')).toHaveLength(2);
+    expect(getCustomSelectOptionLabels(container, 0)).toEqual(['Select...', 'Version 1', 'Version 2']);
+    expect(getCustomSelectOptionLabels(container, 1)).toEqual(['Select...', 'Version 1', 'Version 2']);
   });
 });

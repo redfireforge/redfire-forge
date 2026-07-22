@@ -3,6 +3,12 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import {
+  selectOption,
+  getCustomSelectValue,
+  getCustomSelectOptionLabels,
+  isCustomSelectDisabled,
+} from '../../test-utils/customSelectHelper';
 import { WebSocketProtocolSelector } from './WebSocketProtocolSelector';
 import type { WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 
@@ -21,52 +27,50 @@ describe('WebSocketProtocolSelector', () => {
 
   it('shows all protocol options', () => {
     render(<WebSocketProtocolSelector {...defaultProps} />);
-    const select = screen.getByTestId('protocol-select') as HTMLSelectElement;
-    const options = Array.from(select.options);
-    expect(options).toHaveLength(5);
-    expect(options[0].textContent).toBe('Auto-detect');
-    expect(options[1].textContent).toBe('Raw');
-    expect(options[2].textContent).toContain('Socket.IO');
-    expect(options[3].textContent).toContain('STOMP');
-    expect(options[4].textContent).toContain('GraphQL-WS');
+    const labels = getCustomSelectOptionLabels(screen.getByTestId('protocol-select'));
+    expect(labels).toHaveLength(5);
+    expect(labels[0]).toBe('Auto-detect');
+    expect(labels[1]).toBe('Raw');
+    expect(labels[2]).toContain('Socket.IO');
+    expect(labels[3]).toContain('STOMP');
+    expect(labels[4]).toContain('GraphQL-WS');
   });
 
   it('has no protocols marked as coming soon (all available)', () => {
     render(<WebSocketProtocolSelector {...defaultProps} />);
-    const select = screen.getByTestId('protocol-select') as HTMLSelectElement;
-    const options = Array.from(select.options);
-    for (const opt of options) {
-      expect(opt.textContent).not.toContain('(coming soon)');
+    const labels = getCustomSelectOptionLabels(screen.getByTestId('protocol-select'));
+    for (const label of labels) {
+      expect(label).not.toContain('(coming soon)');
     }
   });
 
   it('all protocol options are enabled', () => {
     render(<WebSocketProtocolSelector {...defaultProps} />);
-    const select = screen.getByTestId('protocol-select') as HTMLSelectElement;
-    const options = Array.from(select.options);
-    expect(options[0].disabled).toBe(false); // auto
-    expect(options[1].disabled).toBe(false); // raw
-    expect(options[2].disabled).toBe(false); // socket-io
-    expect(options[3].disabled).toBe(false); // stomp
-    expect(options[4].disabled).toBe(false); // graphql-ws
+    const wrapper = screen.getByTestId('protocol-select');
+    fireEvent.click(wrapper.querySelector('.cs-trigger')!);
+    const items = wrapper.querySelectorAll('.cs-item');
+    expect(items).toHaveLength(5);
+    items.forEach((item) => {
+      expect(item.classList.contains('disabled')).toBe(false);
+    });
+    fireEvent.click(wrapper.querySelector('.cs-trigger')!);
   });
 
   it('reflects the current protocolMode value', () => {
     render(<WebSocketProtocolSelector {...defaultProps} protocolMode="raw" />);
-    const select = screen.getByTestId('protocol-select') as HTMLSelectElement;
-    expect(select.value).toBe('raw');
+    expect(getCustomSelectValue(screen.getByTestId('protocol-select'))).toBe('Raw');
   });
 
   it('calls onProtocolModeChange when selection changes', () => {
     const onChange = vi.fn();
     render(<WebSocketProtocolSelector {...defaultProps} onProtocolModeChange={onChange} />);
-    fireEvent.change(screen.getByTestId('protocol-select'), { target: { value: 'raw' } });
+    selectOption(screen.getByTestId('protocol-select'), 'Raw');
     expect(onChange).toHaveBeenCalledWith('raw');
   });
 
   it('disables the select when disabled prop is true', () => {
     render(<WebSocketProtocolSelector {...defaultProps} disabled={true} />);
-    expect((screen.getByTestId('protocol-select') as HTMLSelectElement).disabled).toBe(true);
+    expect(isCustomSelectDisabled(screen.getByTestId('protocol-select'))).toBe(true);
   });
 
   it('does not show detected badge when no detection result', () => {

@@ -5,6 +5,7 @@ import type { WorkflowService, ServiceEndpoint } from '../../types/workflow';
 import type { EnvAuthState } from '../../../requests/utils/requestAuthState';
 import { authToState, stateToAuth, emptyAuthState } from '../../../requests/utils/requestAuthState';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const ADHOC_ENV_ID = '__adhoc__';
 
@@ -244,15 +245,15 @@ export default function WorkflowServiceRegistryModal({
                   </div>
                   <div className="wf-config-field">
                     <label>Linked Microservice</label>
-                    <select
+                    <CustomSelect
                       value={selected.microserviceId ?? ''}
-                      onChange={(e) => handleMicroserviceChange(e.target.value || undefined)}
-                    >
-                      <option value="">None (manual)</option>
-                      {microservices.map((m) => (
-                        <option key={m.id} value={m.id}>{m.name}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => handleMicroserviceChange(v || undefined)}
+                      placeholder="None (manual)"
+                      options={[
+                        { value: '', label: 'None (manual)' },
+                        ...microservices.map((m) => ({ value: m.id, label: m.name })),
+                      ]}
+                    />
                   </div>
                 </div>
 
@@ -330,17 +331,18 @@ export default function WorkflowServiceRegistryModal({
                             <div className="wf-svc-inline-auth-row">
                               <div className="wf-config-field">
                                 <label>Auth Type</label>
-                                <select
+                                <CustomSelect
                                   value={epAuth.authType}
-                                  onChange={(e) => updateEndpointAuth(ep.envId, { authType: e.target.value as EnvAuthState['authType'] })}
-                                >
-                                  <option value="none">No Auth</option>
-                                  {globalAuthProfiles.length > 0 && <option value="global-profile">Global Auth Profile</option>}
-                                  <option value="bearer">Bearer Token</option>
-                                  <option value="basic">Basic Auth</option>
-                                  <option value="apikey">API Key</option>
-                                  <option value="oauth2">OAuth2 Client Credentials</option>
-                                </select>
+                                  onChange={(v) => updateEndpointAuth(ep.envId, { authType: v as EnvAuthState['authType'] })}
+                                  options={[
+                                    { value: 'none', label: 'No Auth' },
+                                    ...(globalAuthProfiles.length > 0 ? [{ value: 'global-profile', label: 'Global Auth Profile' }] : []),
+                                    { value: 'bearer', label: 'Bearer Token' },
+                                    { value: 'basic', label: 'Basic Auth' },
+                                    { value: 'apikey', label: 'API Key' },
+                                    { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+                                  ]}
+                                />
                               </div>
                               {renderInlineAuthFields(epAuth, (p) => updateEndpointAuth(ep.envId, p), globalAuthProfiles)}
                             </div>
@@ -376,9 +378,14 @@ function renderInlineAuthFields(
     return (
       <div className="wf-config-field">
         <label>Profile</label>
-        <select value={authState.selectedProfileId} onChange={(e) => updateAuth({ selectedProfileId: e.target.value })}>
-          {globalAuthProfiles.map((p) => (<option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>))}
-        </select>
+        <CustomSelect
+          value={authState.selectedProfileId}
+          onChange={(v) => updateAuth({ selectedProfileId: v })}
+          options={globalAuthProfiles.map((p) => ({
+            value: p.id,
+            label: `${p.name} (${p.auth.type})`,
+          }))}
+        />
       </div>
     );
   }
@@ -404,9 +411,14 @@ function renderInlineAuthFields(
         <div className="wf-config-field"><label>Key Name</label><input value={authState.apiKeyName} onChange={(e) => updateAuth({ apiKeyName: e.target.value })} placeholder="X-API-Key" /></div>
         <div className="wf-config-field"><label>Key Value</label><input value={authState.apiKeyValue} onChange={(e) => updateAuth({ apiKeyValue: e.target.value })} /></div>
         <div className="wf-config-field"><label>In</label>
-          <select value={authState.apiKeyIn} onChange={(e) => updateAuth({ apiKeyIn: e.target.value as 'header' | 'query' })}>
-            <option value="header">Header</option><option value="query">Query</option>
-          </select>
+          <CustomSelect
+            value={authState.apiKeyIn}
+            onChange={(v) => updateAuth({ apiKeyIn: v as 'header' | 'query' })}
+            options={[
+              { value: 'header', label: 'Header' },
+              { value: 'query', label: 'Query' },
+            ]}
+          />
         </div>
       </>
     );

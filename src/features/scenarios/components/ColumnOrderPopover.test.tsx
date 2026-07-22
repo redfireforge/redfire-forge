@@ -45,7 +45,7 @@ describe('ColumnOrderPopover', () => {
 
   it('shows close button', () => {
     render(<ColumnOrderPopover {...defaultProps} />);
-    fireEvent.click(screen.getAllByText('×')[0]);
+    fireEvent.click(screen.getByText('Cancel'));
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
 

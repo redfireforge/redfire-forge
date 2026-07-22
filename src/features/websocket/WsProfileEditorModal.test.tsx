@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { ProfileEditorModal } from './WsProfileEditorModal';
 import type { WsConnectionProfile } from '../../shared/websocket/types';
 
@@ -159,7 +160,7 @@ describe('ProfileEditorModal', () => {
     const retryInterval = spinners.find((el) => el.max === '60000')!;
     fireEvent.change(maxAttempts, { target: { value: '9' } });
     fireEvent.change(retryInterval, { target: { value: '5000' } });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: '1.5' } });
+    selectOption(screen.getByLabelText('Backoff multiplier').closest('.cs-wrapper')!, '1.5×');
     fireEvent.click(screen.getByTestId('profile-save-btn'));
     expect(onSave.mock.calls[0][0]).toMatchObject({
       autoReconnect: true,

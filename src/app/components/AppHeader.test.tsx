@@ -107,26 +107,36 @@ describe('AppHeader', () => {
   });
 
   it('routes environment and service select changes', () => {
-    const { container, setSelectedEnvId, setSelectedSvcId } = setup();
-    const [envSelect, svcSelect] = Array.from(container.querySelectorAll('select'));
-    fireEvent.change(envSelect, { target: { value: 'e1' } });
-    fireEvent.change(svcSelect, { target: { value: 's1' } });
+    const { setSelectedEnvId, setSelectedSvcId } = setup();
+    const envWrapper = document.querySelector('[data-testid="header-env-select"]') as HTMLElement;
+    const svcWrapper = document.querySelector('[data-testid="header-svc-select"]') as HTMLElement;
+    // Open env dropdown and select "Dev"
+    fireEvent.click(envWrapper.querySelector('.cs-trigger')!);
+    fireEvent.click(screen.getByText('Dev'));
     expect(setSelectedEnvId).toHaveBeenCalledWith('e1');
+    // Open svc dropdown and select "Orders"
+    fireEvent.click(svcWrapper.querySelector('.cs-trigger')!);
+    fireEvent.click(screen.getByText('Orders'));
     expect(setSelectedSvcId).toHaveBeenCalledWith('s1');
   });
 
-  it('renders the Additional optgroup when a microservice has custom envs', () => {
+  it('renders the Additional group when a microservice has custom envs', () => {
     setup({
       microservices: [
         { id: 's1', name: 'Orders', baseUrls: {}, customEnvs: [{ id: 'ce1', name: 'QA Sandbox' }] },
       ],
     });
+    const envWrapper = document.querySelector('[data-testid="header-env-select"]') as HTMLElement;
+    fireEvent.click(envWrapper.querySelector('.cs-trigger')!);
     expect(screen.getByText('QA Sandbox (Orders)')).toBeTruthy();
+    expect(screen.getByText('Additional')).toBeTruthy();
   });
 
-  it('omits the Additional optgroup when no microservice has custom envs', () => {
-    const { container } = setup({ microservices: [{ id: 's1', name: 'Orders', baseUrls: {} }] });
-    expect(container.querySelector('optgroup')).toBeNull();
+  it('omits the Additional group when no microservice has custom envs', () => {
+    setup({ microservices: [{ id: 's1', name: 'Orders', baseUrls: {} }] });
+    const envWrapper = document.querySelector('[data-testid="header-env-select"]') as HTMLElement;
+    fireEvent.click(envWrapper.querySelector('.cs-trigger')!);
+    expect(screen.queryByText('Additional')).toBeNull();
   });
 
   it('hides the kafka indicator without clusters and shows it with clusters', () => {

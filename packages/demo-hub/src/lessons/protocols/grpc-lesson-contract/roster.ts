@@ -379,6 +379,20 @@ export const GRPC_LESSON_ROSTER: readonly GrpcLessonRosterEntry[] = [
     allowedTabs: [...STUDIO_TABS, 'workflow', 'workflow-runner', 'results'],
     estimatedMinutes: 10,
   },
+  {
+    number: 25,
+    id: 'grpc-tabs',
+    title: 'Multi-Tab gRPC Calls',
+    keyConcept: 'Per-tab method binding, duplicate tab, independent responses',
+    phaseDependencies: [5],
+    fixtures: GO_ECHO_FIXTURE,
+    implementationStatus: 'shipped',
+    introducedInSchemaVersion: 1,
+    ...GO_ECHO_DOCKER,
+    initialTab: 'grpc-studio',
+    allowedTabs: STUDIO_TABS,
+    estimatedMinutes: 4,
+  },
 ] as const;
 
 export const GRPC_LESSON_ROSTER_BY_ID: Readonly<Record<string, GrpcLessonRosterEntry>> =

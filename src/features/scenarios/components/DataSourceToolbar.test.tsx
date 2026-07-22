@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOption, selectOptionByIndex, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import DataSourceToolbar from './DataSourceToolbar';
 import type { DataSource, SharedDataSource } from '../../../shared/types';
 import { createRef } from 'react';
@@ -145,17 +146,14 @@ describe('DataSourceToolbar', () => {
 
   describe('distribution and validation mode', () => {
     it('calls onDistributionChange when selecting distribution', () => {
-      render(<DataSourceToolbar {...defaultProps} />);
-      const select = screen.getByRole('combobox', { name: /row distribution/i });
-      fireEvent.change(select, { target: { value: 'random' } });
+      const { container } = render(<DataSourceToolbar {...defaultProps} />);
+      selectOption(container, 'Random');
       expect(mockHandlers.onDistributionChange).toHaveBeenCalledWith('random');
     });
 
     it('calls onValidationModeChange when selecting validation mode', () => {
-      render(<DataSourceToolbar {...defaultProps} />);
-      const selects = screen.getAllByRole('combobox');
-      const validationSelect = selects.find(s => s.getAttribute('title')?.includes('Which rows to validate'));
-      fireEvent.change(validationSelect!, { target: { value: 'full' } });
+      const { container } = render(<DataSourceToolbar {...defaultProps} />);
+      selectOptionByIndex(container, 1, 'Validate: All Rows');
       expect(mockHandlers.onValidationModeChange).toHaveBeenCalledWith('full');
     });
   });
@@ -242,9 +240,8 @@ describe('DataSourceToolbar', () => {
 
     it('calls onLinkSharedDs when selecting a shared DS', () => {
       const availableDs = [createMockSharedDs('shared-1', 'Shared Users')];
-      render(<DataSourceToolbar {...defaultProps} availableSharedDs={availableDs} />);
-      const select = screen.getByRole('combobox', { name: /link to a shared data source/i });
-      fireEvent.change(select, { target: { value: 'shared-1' } });
+      const { container } = render(<DataSourceToolbar {...defaultProps} availableSharedDs={availableDs} />);
+      selectOptionByIndex(container, 0, 'Shared Users (5 rows)');
       expect(mockHandlers.onLinkSharedDs).toHaveBeenCalledWith('shared-1');
     });
 

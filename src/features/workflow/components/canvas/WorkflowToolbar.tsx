@@ -5,6 +5,7 @@ import { checkAllEnvReadiness } from '../../utils/workflowEnvReadiness';
 import { buildFolderTree, getFolderPath, getUnfiledWorkflows, countNodeWorkflows } from '../../utils/workflowFolderTree';
 import type { FolderTreeNode } from '../../utils/workflowFolderTree';
 import { highlightSearchMatch } from '../../../../shared/utils/consoleLogUtils';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 export interface RunProgress {
   completed: number;
@@ -342,20 +343,20 @@ export default function WorkflowToolbar({
 
             {!isPreview && (
               <span className="wf-toolbar-env-wrap">
-                <select
+                <CustomSelect
                   className="wf-toolbar-env-select"
                   value={selectedEnvId}
-                  onChange={(e) => onEnvSelect?.(e.target.value)}
+                  onChange={(v) => onEnvSelect?.(v)}
                   disabled={isRunning}
-                  title="Select target environment for Quick Test"
-                >
-                  <option value="">Env…</option>
-                  {environments.map((e) => {
+                  size="sm"
+                  placeholder="Env…"
+                  options={environments.map((e) => {
                     const r = envReadinessMap.get(e.id);
                     const warn = r && !r.ready ? ` ! ${r.issues.length} missing` : '';
-                    return <option key={e.id} value={e.id}>{e.name}{warn}</option>;
+                    return { value: e.id, label: `${e.name}${warn}` };
                   })}
-                </select>
+                  aria-label="Select target environment for Quick Test"
+                />
                 {currentReadiness && !currentReadiness.ready && (
                   <span
                     className="wf-toolbar-env-warn"

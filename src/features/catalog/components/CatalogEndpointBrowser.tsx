@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { CatalogEntry, CatalogEndpoint, SavedEndpointValues } from '../types/catalog';
 import type { AuthConfig, GlobalAuthProfile, Environment, Microservice } from '../../../shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
@@ -121,7 +122,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
   const baseUrl = resolveBaseUrl(entry.hostConfig, entry.servers, entry.environments, linkedSvc);
 
   return (
-    <div className="ceb-container">
+    <div className="ceb-container" data-testid="catalog-endpoint-browser">
       {/* ── Top header bar ──────────────────────── */}
       <div className="ceb-header">
         <div className="ceb-title-row">
@@ -132,9 +133,10 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
 
         <div className="ceb-toolbar">
           <div className="ceb-host-bar">
-            <div className="ceb-host-strategy">
+            <div className="ceb-host-strategy" data-testid="catalog-host-strategy">
               <button
                 className={`ceb-strat-btn ${entry.hostConfig.strategy === 'inherited' ? 'active' : ''}`}
+                data-testid="catalog-host-from-spec"
                 onClick={() => onHostChange({ strategy: 'inherited', selectedServerIndex: entry.hostConfig.selectedServerIndex ?? 0 })}
                 disabled={entry.servers.length === 0}
                 title={entry.servers.length === 0 ? 'No servers defined in spec' : 'Use server URL from the spec'}
@@ -144,6 +146,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               {showEnvButton && (
                 <button
                   className={`ceb-strat-btn ${entry.hostConfig.strategy === 'environment' ? 'active' : ''}`}
+                  data-testid="catalog-host-environment"
                   onClick={() => {
                     if (!hasEnvOptions) {
                       onEditEntry?.();
@@ -165,6 +168,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               )}
               <button
                 className={`ceb-strat-btn ${entry.hostConfig.strategy === 'hardcoded' ? 'active' : ''}`}
+                data-testid="catalog-host-custom-url"
                 onClick={() => onHostChange({ strategy: 'hardcoded', hardcodedUrl: entry.hostConfig.hardcodedUrl ?? baseUrl ?? '' })}
                 title="Enter a custom base URL"
               >
@@ -173,35 +177,34 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
             </div>
 
             {entry.hostConfig.strategy === 'inherited' && entry.servers.length > 0 && (
-              <select
+              <CustomSelect
                 className="ceb-server-select"
-                value={entry.hostConfig.selectedServerIndex ?? 0}
-                onChange={e => onHostChange({ strategy: 'inherited', selectedServerIndex: Number(e.target.value) })}
-              >
-                {entry.servers.map((s, i) => (
-                  <option key={i} value={i}>
-                    {s.url}{s.description ? ` — ${s.description}` : ''}
-                  </option>
-                ))}
-              </select>
+                value={String(entry.hostConfig.selectedServerIndex ?? 0)}
+                onChange={(v) => onHostChange({ strategy: 'inherited', selectedServerIndex: Number(v) })}
+                options={entry.servers.map((s, i) => ({
+                  value: String(i),
+                  label: `${s.url}${s.description ? ` — ${s.description}` : ''}`,
+                }))}
+              />
             )}
 
             {entry.hostConfig.strategy === 'environment' && hasEnvOptions && (
-              <select
+              <CustomSelect
                 className="ceb-server-select"
                 value={entry.hostConfig.environmentId ?? ''}
-                onChange={e => onHostChange({ strategy: 'environment', environmentId: e.target.value })}
-              >
-                {linkedSvc ? svcEnvOptions.map(opt => (
-                  <option key={opt.envId} value={opt.envId}>
-                    {opt.envName}{opt.baseUrl ? ` — ${opt.baseUrl}` : ' (no base URL)'}
-                  </option>
-                )) : entry.environments!.map(env => (
-                  <option key={env.id} value={env.id}>
-                    {env.name} — {env.baseUrl}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => onHostChange({ strategy: 'environment', environmentId: v })}
+                options={
+                  linkedSvc
+                    ? svcEnvOptions.map(opt => ({
+                        value: opt.envId,
+                        label: `${opt.envName}${opt.baseUrl ? ` — ${opt.baseUrl}` : ' (no base URL)'}`,
+                      }))
+                    : entry.environments!.map(env => ({
+                        value: env.id,
+                        label: `${env.name} — ${env.baseUrl}`,
+                      }))
+                }
+              />
             )}
 
             {entry.hostConfig.strategy === 'hardcoded' && (
@@ -216,6 +219,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
             <button
               className={`ceb-auth-btn ${auth.type !== 'none' && auth.type !== 'inherit' ? 'active' : ''}`}
               onClick={() => setShowAuthPanel(!showAuthPanel)}
+              data-testid="catalog-authorize-btn"
             >
               🔒 Authorize
             </button>
@@ -226,6 +230,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
               className="ceb-filter"
               type="text"
               placeholder="Filter endpoints..."
+              data-testid="catalog-endpoint-filter"
               value={filter}
               onChange={e => setFilter(e.target.value)}
             />
@@ -239,7 +244,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
         </div>
 
         {baseUrl && (
-          <div className="ceb-base-url">Base URL: <code>{baseUrl}</code></div>
+          <div className="ceb-base-url" data-testid="catalog-base-url">Base URL: <code>{baseUrl}</code></div>
         )}
       </div>
 
@@ -255,9 +260,9 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
       )}
 
       {/* ── Endpoint list ───────────────────────── */}
-      <div className="ceb-endpoints" key={`${entry.id}-${epLoaded}`}>
+      <div className="ceb-endpoints" data-testid="catalog-endpoint-list" key={`${entry.id}-${epLoaded}`}>
         {filteredFolders.map(folder => (
-          <div key={folder.id} className="ceb-tag-group">
+          <div key={folder.id} className="ceb-tag-group" data-testid="catalog-tag-group" data-tag-name={folder.name}>
             <div className="ceb-tag-header" onClick={() => toggleTag(folder.id)}>
               <span className={`ceb-tag-chevron ${collapsedTags.has(folder.id) ? '' : 'open'}`}>▾</span>
               <span className="ceb-tag-name">{folder.name}</span>

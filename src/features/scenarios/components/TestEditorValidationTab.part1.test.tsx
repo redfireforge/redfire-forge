@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import { createRef } from 'react';
 import { makeDraft, makeProps } from './TestEditorValidationTab.test-utils';
@@ -830,7 +831,8 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
       expect(screen.getByText('DATE')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('today')).toBeInTheDocument();
+      const row = screen.getByText('DATE').closest('.assertion-row')!;
+      expect(getCustomSelectValue(row.querySelector('.cs-wrapper')!)).toBe('today');
     });
 
     it('renders fixed date picker when reference kind is fixed', () => {

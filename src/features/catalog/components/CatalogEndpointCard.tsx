@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect, useRef, useMemo, type MouseEvent, type ReactNode } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
 import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
 import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter, SavedEndpointValues, CatalogEnvironment } from '../types/catalog';
@@ -162,7 +163,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
   const color = SWAGGER_METHOD_COLORS[endpoint.method] ?? '#888';
 
   return (
-    <div className="sw-card" style={{ borderColor: color }}>
+    <div className="sw-card" data-testid="catalog-endpoint-card" data-endpoint-path={endpoint.path} data-endpoint-method={endpoint.method} style={{ borderColor: color }}>
       {/* ── HEADER ────────────────────────────────── */}
       <div className="sw-header" role="button" tabIndex={0} style={{ background: MBG[endpoint.method] }}
         onClick={() => setExpanded(v => !v)}
@@ -172,7 +173,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
         <span className="sw-path">{endpoint.path}</span>
         <span className="sw-summary">{endpoint.summary}</span>
         {coverage?.exported && (
-          <span className="sw-coverage-badge"
+          <span className="sw-coverage-badge" data-testid="catalog-coverage-badge"
             title={`Exported to Requests (${coverage.count})`}
             role="button"
             tabIndex={0}
@@ -188,7 +189,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
 
       {/* ── COVERAGE POPOVER ────────────────────────── */}
       {showCoveragePopover && coverage?.locations && coverage.locations.length > 0 && (
-        <div className="sw-coverage-popover">
+        <div className="sw-coverage-popover" data-testid="catalog-coverage-popover">
           <div className="sw-coverage-popover-header">
             <span>Exported to {coverage.count} request{coverage.count > 1 ? 's' : ''}</span>
           </div>
@@ -233,7 +234,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
           <div className="sw-section">
             <div className="sw-section-bar">
               <span className="sw-section-title">Parameters</span>
-              <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} onClick={handleTryIt}>
+              <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} data-testid="catalog-tryit-btn" onClick={handleTryIt}>
                 {tryItOpen ? 'Cancel' : 'Try it out'}
               </button>
             </div>
@@ -268,7 +269,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                 {endpoint.requestBody!.required && <span className="sw-req-label">required</span>}
               </div>
               {tryItOpen ? (
-                <textarea className="sw-body-editor" rows={12} value={bodyText}
+                <textarea className="sw-body-editor" data-testid="catalog-body-editor" rows={12} value={bodyText}
                   onChange={e => updateBody(e.target.value)} spellCheck={false} />
               ) : (
                 <JsonBlock json={generateStubJson(jsonCT!.schema)} label="Example Value" />
@@ -284,15 +285,15 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
           {/* ── EXECUTE BAR ───────────────────────── */}
           {tryItOpen && (
             <div className="sw-exec-bar">
-              <button className="sw-exec-btn" style={{ background: color }}
+              <button className="sw-exec-btn" data-testid="catalog-execute-btn" style={{ background: color }}
                 onClick={handleExecute} disabled={loading}>
                 {loading ? 'Executing...' : 'Execute'}
               </button>
-              <button className="sw-curl-btn" onClick={() => setShowCurl(v => !v)}>
+              <button className="sw-curl-btn" data-testid="catalog-curl-btn" onClick={() => setShowCurl(v => !v)}>
                 {showCurl ? 'Hide cURL' : 'cURL'}
               </button>
               {onExportSingle && (
-                <button className="sw-export-btn" onClick={() => onExportSingle(endpoint, {
+                <button className="sw-export-btn" data-testid="catalog-export-to-req-btn" onClick={() => onExportSingle(endpoint, {
                   params: paramValues,
                   headers: headerValues,
                   body: bodyText,
@@ -301,12 +302,12 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                 </button>
               )}
               {onSendToHarness && (
-                <button className="sw-export-btn" style={{ borderColor: '#6c63ff44', color: '#6c63ff' }} onClick={() => onSendToHarness(endpoint)}>
+                <button className="sw-export-btn" data-testid="catalog-send-to-harness-btn" style={{ borderColor: '#6c63ff44', color: '#6c63ff' }} onClick={() => onSendToHarness(endpoint)}>
                   Send to Harness
                 </button>
               )}
               {onToggleWorkflowExpose && (
-                <label className="sw-workflow-expose" title="When checked, this endpoint (with current values) is available in the Workflow Designer's Catalog tab">
+                <label className="sw-workflow-expose" data-testid="catalog-expose-to-workflow" title="When checked, this endpoint (with current values) is available in the Workflow Designer's Catalog tab">
                   <input
                     type="checkbox"
                     checked={!!endpoint.exposedToWorkflow}
@@ -331,7 +332,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
           )}
 
           {showCurl && tryItOpen && (
-            <div className="sw-curl-box">
+            <div className="sw-curl-box" data-testid="catalog-curl-box">
               <div className="sw-curl-bar">
                 <span>Curl</span>
                 <div className="sw-curl-actions">
@@ -348,7 +349,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
 
           {/* ── LIVE RESPONSE ─────────────────────── */}
           {liveResponse && tryItOpen && (
-            <div className="sw-section">
+            <div className="sw-section" data-testid="catalog-live-response">
               <div className="sw-section-bar">
                 <span className="sw-section-title">Server response</span>
               </div>
@@ -408,6 +409,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                     className="sw-export-btn"
                     style={{ borderColor: '#6c63ff44', color: '#6c63ff' }}
                     onClick={() => onSendToHarness(endpoint, true)}
+                    data-testid="catalog-save-as-test-btn"
                   >
                     Save as Test
                   </button>
@@ -471,12 +473,15 @@ function ParamRow({ param: p, tryItOpen, value, onChange }: {
         )}
         {tryItOpen ? (
           hasEnum ? (
-            <select className="sw-pinput" value={value || defaultVal || ''} onChange={e => onChange(e.target.value)}>
-              <option value="">--</option>
-              {enumVals!.map(v => <option key={v} value={v}>{v}</option>)}
-            </select>
+            <CustomSelect
+              className="sw-pinput"
+              value={value || defaultVal || ''}
+              onChange={onChange}
+              options={enumVals!.map(v => ({ value: v, label: v }))}
+              placeholder="--"
+            />
           ) : (
-            <input className="sw-pinput" placeholder={exampleVal ?? defaultVal ?? p.name}
+            <input className="sw-pinput" data-testid={`catalog-param-${p.name}`} placeholder={exampleVal ?? defaultVal ?? p.name}
               value={value} onChange={e => onChange(e.target.value)} />
           )
         ) : (

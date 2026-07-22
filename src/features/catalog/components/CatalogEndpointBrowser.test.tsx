@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import CatalogEndpointBrowser from './CatalogEndpointBrowser';
 import { makeEntry, makeEndpoint, makeFolder, makeServer, makeHostConfig, makeVersion } from './catalogTestFactories';
 import type { AuthConfig, Microservice } from '../../../shared/types';
@@ -109,8 +110,8 @@ describe('CatalogEndpointBrowser', () => {
       endpoints: [],
     });
     const { onHostChange } = renderBrowser({ entry });
-    const select = document.querySelector('.ceb-server-select') as HTMLSelectElement;
-    await userEvent.selectOptions(select, '1');
+    const serverSelect = document.querySelector('.ceb-server-select')!;
+    selectOption(serverSelect, 'https://b.com — B');
     expect(onHostChange).toHaveBeenCalledWith(expect.objectContaining({ selectedServerIndex: 1 }));
   });
 
@@ -252,8 +253,8 @@ describe('CatalogEndpointBrowser', () => {
       />,
     );
     expect(screen.getByText('Staging — https://staging.example.com')).toBeInTheDocument();
-    const select = document.querySelector('.ceb-server-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'env1' } });
+    const serverSelect = document.querySelector('.ceb-server-select')!;
+    selectOption(serverSelect, 'Staging — https://staging.example.com');
     expect(onHostChange).toHaveBeenCalledWith(expect.objectContaining({ strategy: 'environment', environmentId: 'env1' }));
   });
 

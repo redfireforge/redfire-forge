@@ -17,6 +17,7 @@ import { MessageRow } from './WebSocketMessageRow';
 import { useWebSocketFilterPresets } from './useWebSocketFilterPresets';
 import { WebSocketFilterBar } from './WebSocketFilterBar';
 import { WebSocketCompareBanner, WebSocketMessagesStatusBar, WebSocketReplayBar } from './WebSocketMessageLogBars';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 
 const ROW_HEIGHT = 26;
 const VIRTUALIZER_OVERSCAN = 15;
@@ -489,31 +490,34 @@ export function WebSocketMessageLog({
             {displayMessages.length} of {totalCount}
           </span>
         )}
-        <select
+        <CustomSelect
           className="ws-message-direction-filter"
           value={directionFilter}
-          onChange={(e) => setDirectionFilter(e.target.value as WsDirectionFilter)}
+          onChange={(v) => setDirectionFilter(v as WsDirectionFilter)}
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'sent', label: 'Sent' },
+            { value: 'received', label: 'Received' },
+            {
+              value: 'bookmarked',
+              label: bookmarkCount > 0 ? `Bookmarked (${bookmarkCount})` : 'Bookmarked',
+            },
+          ]}
           aria-label="Direction filter"
-        >
-          <option value="all">All</option>
-          <option value="sent">Sent</option>
-          <option value="received">Received</option>
-          <option value="bookmarked">
-            {bookmarkCount > 0 ? `Bookmarked (${bookmarkCount})` : 'Bookmarked'}
-          </option>
-        </select>
+        />
         {validationEnabled && hasEnabledSchemas && setValidationFilter && (
-          <select
+          <CustomSelect
             className="ws-validation-filter"
             value={validationFilter}
-            onChange={(e) => setValidationFilter(e.target.value as WsValidationFilter)}
+            onChange={(v) => setValidationFilter(v as WsValidationFilter)}
+            options={[
+              { value: 'all', label: 'Validation: All' },
+              { value: 'valid', label: 'Valid only' },
+              { value: 'invalid', label: 'Invalid only' },
+            ]}
             aria-label="Validation filter"
             data-testid="validation-filter"
-          >
-            <option value="all">Validation: All</option>
-            <option value="valid">Valid only</option>
-            <option value="invalid">Invalid only</option>
-          </select>
+          />
         )}
         </div>
         <div className="ws-message-log-toolbar-row ws-message-log-toolbar-row-actions">

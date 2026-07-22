@@ -49,7 +49,8 @@ describe('TestEditorAuthTab', () => {
   it('changes auth type via the select', () => {
     const onDraftChange = vi.fn();
     render(<TestEditorAuthTab {...makeProps({ onDraftChange })} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'basic' } });
+    fireEvent.click(screen.getByRole('button', { expanded: false }));
+    fireEvent.click(screen.getByText('Basic Auth'));
     expect(onDraftChange).toHaveBeenCalledWith(expect.objectContaining({ auth: { type: 'basic' } }));
   });
 

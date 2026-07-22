@@ -7,6 +7,7 @@ import { DataMapperModal, createWebhookExtractionAdapter } from '../../../../sha
 import type { WebhookExtractionOutput } from '../../../../shared/components/data-mapper';
 import { getByPath, setByPath } from '../../../../shared/utils/jsonPath';
 import { toErrorMessage } from '../../../../shared/utils/helpers';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const EMPTY_EXTRACT_VARS: WebhookExtractionOutput = [];
 
@@ -167,12 +168,11 @@ export default function CorrelationWaitConfig({
       {/* ── Correlation Source ── */}
       <div className="wf-config-field">
         <label>Correlation Source</label>
-        <select
+        <CustomSelect
           value={data.correlationSource}
-          onChange={(e) => onChange({ ...data, correlationSource: e.target.value as CorrelationWaitNodeData['correlationSource'] })}
-        >
-          {SOURCE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+          onChange={(v) => onChange({ ...data, correlationSource: v as CorrelationWaitNodeData['correlationSource'] })}
+          options={SOURCE_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+        />
         <span className="wf-config-hint">
           Where to extract the correlation ID from the incoming webhook.
         </span>

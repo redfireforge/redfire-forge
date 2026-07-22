@@ -5,6 +5,7 @@ import {
   resolveGrpcCompressionEncoding,
 } from '../../../shared/grpc/grpcCompressionPolicy';
 import type { GrpcCompressionAlgorithm, GrpcCompressionConfig } from '../../../shared/grpc/contracts';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 const ALGORITHM_LABELS: Record<GrpcCompressionAlgorithm, string> = {
   identity: 'identity (none)',
@@ -93,22 +94,20 @@ export function GrpcCompressionPanel({
                   </span>
                 </div>
                 <div className="grpc-settings-form-row__ctrl">
-                  <select
-                    id="grpc-compression-algorithm"
+                  <CustomSelect
                     className="grpc-compression-select grpc-settings-select"
                     data-testid="grpc-compression-algorithm"
+                    aria-label="Request compression algorithm"
                     value={config.algorithm}
                     disabled={disabled || !config.enabled}
-                    onChange={(event) => {
-                      patch({ algorithm: event.target.value as GrpcCompressionAlgorithm });
+                    onChange={(v) => {
+                      patch({ algorithm: v as GrpcCompressionAlgorithm });
                     }}
-                  >
-                    {(Object.keys(ALGORITHM_LABELS) as GrpcCompressionAlgorithm[]).map((algorithm) => (
-                      <option key={algorithm} value={algorithm}>
-                        {ALGORITHM_LABELS[algorithm]}
-                      </option>
-                    ))}
-                  </select>
+                    options={(Object.keys(ALGORITHM_LABELS) as GrpcCompressionAlgorithm[]).map((algorithm) => ({
+                      value: algorithm,
+                      label: ALGORITHM_LABELS[algorithm],
+                    }))}
+                  />
                 </div>
               </div>
 

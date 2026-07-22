@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../test-utils/customSelectHelper';
 import { KafkaSchemaRegistryPage } from './KafkaSchemaRegistryPage';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 
@@ -176,7 +177,7 @@ describe('KafkaSchemaRegistryPage', () => {
 
     expect(screen.getByTestId('schema-content').textContent).toContain('V2');
 
-    fireEvent.change(screen.getByTestId('version-select'), { target: { value: '1' } });
+    selectOption(screen.getByTestId('version-select'), 'v1');
 
     await waitFor(() => {
       expect(screen.getByTestId('schema-content').textContent).toContain('V1');
@@ -554,8 +555,7 @@ describe('KafkaSchemaRegistryPage', () => {
 
     // Version list loaded but is empty → selectedVersion is null → select value = ''
     await waitFor(() => {
-      const select = screen.queryByTestId('version-select') as HTMLSelectElement | null;
-      if (select) expect(select.value).toBe('');
+      expect(getCustomSelectValue(screen.getByTestId('version-select'))).toBe('');
     });
   });
 });

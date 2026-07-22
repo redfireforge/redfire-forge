@@ -71,7 +71,7 @@ describe('SseEventDetail', () => {
   it('calls onClose when close button clicked', () => {
     const onClose = vi.fn();
     render(<SseEventDetail event={makeEvent()} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText('Close detail'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledOnce();
   });
 

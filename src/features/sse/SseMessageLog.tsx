@@ -1,5 +1,6 @@
 import { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import type { SseEvent, SseStats } from './sseTypes';
 import { SseEventDetail } from './SseEventDetail';
 import { saveJsonFile } from '../../shared/utils/fileSaver';
@@ -135,17 +136,17 @@ export function SseMessageLog({
           onChange={(e) => setSearchText(e.target.value)}
           data-testid="sse-search"
         />
-        <select
+        <CustomSelect
           className="sse-type-filter"
           value={eventTypeFilter}
-          onChange={(e) => setEventTypeFilter(e.target.value)}
+          onChange={setEventTypeFilter}
+          options={eventTypes.map((t) => ({
+            value: t,
+            label: `${t} (${stats.eventTypeCounts[t] || 0})`,
+          }))}
+          placeholder="All types"
           data-testid="sse-type-filter"
-        >
-          <option value="">All types</option>
-          {eventTypes.map((t) => (
-            <option key={t} value={t}>{t} ({stats.eventTypeCounts[t] || 0})</option>
-          ))}
-        </select>
+        />
         <button
           className={`sse-toolbar-btn ${showBookmarked ? 'active' : ''}`}
           onClick={() => setShowBookmarked((v) => !v)}

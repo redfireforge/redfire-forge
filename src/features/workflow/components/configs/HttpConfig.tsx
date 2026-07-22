@@ -28,6 +28,7 @@ import {
   rebuildUrl as rebuildUrlShared,
 } from '../../../../shared/utils/queryParams';
 import { stripTrailingSlash } from '../../utils/workflowHostResolve';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 export type HttpTab = 'url' | 'body' | 'auth' | 'headers' | 'validation' | 'extract' | 'data';
 
@@ -224,10 +225,10 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
       )}
       <div className="wf-config-managed-note" role="note" aria-label="Host and auth are managed at workflow level">
         <span className="wf-config-managed-note-title">Service</span>
-        <select
+        <CustomSelect
           value={data.serviceId ?? ''}
-          onChange={(e) => {
-            const svcId = e.target.value || undefined;
+          onChange={(svcIdRaw) => {
+            const svcId = svcIdRaw || undefined;
             const svc = workflowServices.find((s) => s.id === svcId);
             const patch: Partial<HttpNodeData> = {
               serviceId: svcId,
@@ -256,12 +257,12 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
             onChange(patch);
           }}
           className="wf-config-service-select"
-        >
-          <option value="">None (raw URL)</option>
-          {workflowServices.map((svc) => (
-            <option key={svc.id} value={svc.id}>{svc.name}</option>
-          ))}
-        </select>
+          placeholder="None (raw URL)"
+          options={[
+            { value: '', label: 'None (raw URL)' },
+            ...workflowServices.map((svc) => ({ value: svc.id, label: svc.name })),
+          ]}
+        />
         {workflowServices.length === 0 && (
           <p className="wf-config-managed-note-text">
             Click the <strong>Services</strong> button in the toolbar to register external services.
@@ -280,15 +281,15 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
         return (
           <div className="wf-config-env-override">
             <label>Environment</label>
-            <select
+            <CustomSelect
               value={data.envOverride ?? ''}
-              onChange={(e) => onChange({ envOverride: e.target.value || undefined })}
-            >
-              <option value="">Use global ({globalLabel})</option>
-              {enabledEps.map((ep: ServiceEndpoint) => (
-                <option key={ep.envId} value={ep.envId}>{envLabel(ep.envId)}</option>
-              ))}
-            </select>
+              onChange={(v) => onChange({ envOverride: v || undefined })}
+              placeholder={`Use global (${globalLabel})`}
+              options={[
+                { value: '', label: `Use global (${globalLabel})` },
+                ...enabledEps.map((ep: ServiceEndpoint) => ({ value: ep.envId, label: envLabel(ep.envId) })),
+              ]}
+            />
             {data.envOverride && (
               <span className="wf-config-env-override-badge" title="This step uses a different environment than the global selection">
                 {envLabel(data.envOverride)}
@@ -318,14 +319,18 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
         <div className="wf-config-field wf-config-version-mode">
           <label>Spec Version</label>
           <div className="wf-config-version-mode-row">
-            <select
+            <CustomSelect
               value={data.specVersionMode ?? 'latest'}
-              onChange={(e) => onChange({ specVersionMode: e.target.value as 'pinned' | 'latest' })}
+              onChange={(v) => onChange({ specVersionMode: v as 'pinned' | 'latest' })}
               className="wf-config-version-select"
-            >
-              <option value="latest">Latest (tracks active version)</option>
-              <option value="pinned">Pinned{data.sourceSpecVersionLabel ? ` — v${data.sourceSpecVersionLabel}` : ''}</option>
-            </select>
+              options={[
+                { value: 'latest', label: 'Latest (tracks active version)' },
+                {
+                  value: 'pinned',
+                  label: `Pinned${data.sourceSpecVersionLabel ? ` — v${data.sourceSpecVersionLabel}` : ''}`,
+                },
+              ]}
+            />
             {data.sourceSpecVersionLabel && (
               <span className="wf-config-version-label">v{data.sourceSpecVersionLabel}</span>
             )}
@@ -334,9 +339,12 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
       )}
 
       <div className="wf-config-url-row">
-        <select value={s.method} onChange={(e) => update({ method: e.target.value as Scenario['method'] })} className="wf-config-method-select">
-          {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => <option key={m}>{m}</option>)}
-        </select>
+        <CustomSelect
+          value={s.method}
+          onChange={(v) => update({ method: v as Scenario['method'] })}
+          className="wf-config-method-select"
+          options={['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => ({ value: m, label: m }))}
+        />
         <div className="wf-config-url-field-wrap">
           <ExpressionInput
             ref={urlInputRef}
@@ -547,18 +555,19 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           <div className="wf-config-auth-section">
             <div className="auth-type-select">
               <label>Type</label>
-              <select
+              <CustomSelect
                 value={s.auth.type}
-                onChange={(e) => update({ auth: { ...s.auth, type: e.target.value as AuthType } })}
-              >
-                <option value="inherit">Inherit from Service</option>
-                <option value="none">No Auth</option>
-                <option value="basic">Basic Auth</option>
-                <option value="bearer">Bearer Token</option>
-                <option value="apikey">API Key</option>
-                <option value="digest">Digest Auth</option>
-                <option value="oauth2">OAuth2 Client Credentials</option>
-              </select>
+                onChange={(v) => update({ auth: { ...s.auth, type: v as AuthType } })}
+                options={[
+                  { value: 'inherit', label: 'Inherit from Service' },
+                  { value: 'none', label: 'No Auth' },
+                  { value: 'basic', label: 'Basic Auth' },
+                  { value: 'bearer', label: 'Bearer Token' },
+                  { value: 'apikey', label: 'API Key' },
+                  { value: 'digest', label: 'Digest Auth' },
+                  { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+                ]}
+              />
             </div>
             {s.auth.type === 'inherit' && (
               <div className="auth-inherit-hint">

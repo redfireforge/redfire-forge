@@ -2,6 +2,7 @@ import type { SubWorkflowNodeData } from '../../types/workflow';
 import { parseClampedInteger } from './subWorkflowConfigUtils';
 import { addMappingEntry, removeMappingEntry, updateMappingEntry } from '../workflowMappingUtils';
 import ConfigSectionGroup from './ConfigSectionGroup';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 export interface WorkflowPickerItem {
   id: string;
@@ -111,17 +112,15 @@ export default function SubWorkflowConfig({
             </>
           ) : (
             <>
-              <select
+              <CustomSelect
                 value={data.workflowId}
-                onChange={(e) => handleWorkflowSelect(e.target.value)}
-              >
-                <option value="">— Select workflow —</option>
-                {available.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
+                onChange={(v) => handleWorkflowSelect(v)}
+                placeholder="— Select workflow —"
+                options={[
+                  { value: '', label: '— Select workflow —' },
+                  ...available.map((w) => ({ value: w.id, label: w.name })),
+                ]}
+              />
               {available.length === 0 && (
                 <span className="wf-config-hint">No other workflows available. Create one first.</span>
               )}
@@ -287,15 +286,14 @@ export default function SubWorkflowConfig({
 
         <div className="wf-config-field">
           <label>On Child Failure</label>
-          <select
+          <CustomSelect
             value={data.onChildFailure ?? 'fail'}
-            onChange={(e) =>
-              onChange({ ...data, onChildFailure: e.target.value as 'fail' | 'continue' })
-            }
-          >
-            <option value="fail">Fail parent node</option>
-            <option value="continue">Continue (set __subWorkflowFailed variable)</option>
-          </select>
+            onChange={(v) => onChange({ ...data, onChildFailure: v as 'fail' | 'continue' })}
+            options={[
+              { value: 'fail', label: 'Fail parent node' },
+              { value: 'continue', label: 'Continue (set __subWorkflowFailed variable)' },
+            ]}
+          />
           <span className="wf-config-hint">
             How to handle child workflow failure. &quot;Continue&quot; marks the node as passed and sets a
             <code>__subWorkflowFailed</code> variable to &quot;true&quot;.
@@ -353,15 +351,16 @@ export default function SubWorkflowConfig({
             </div>
             <div className="wf-config-field">
               <label>Execution Mode</label>
-              <select
+              <CustomSelect
                 value={data.multiInstance.mode}
-                onChange={(e) =>
-                  onChange({ ...data, multiInstance: { ...data.multiInstance!, mode: e.target.value as 'sequential' | 'parallel' } })
+                onChange={(v) =>
+                  onChange({ ...data, multiInstance: { ...data.multiInstance!, mode: v as 'sequential' | 'parallel' } })
                 }
-              >
-                <option value="sequential">Sequential</option>
-                <option value="parallel">Parallel</option>
-              </select>
+                options={[
+                  { value: 'sequential', label: 'Sequential' },
+                  { value: 'parallel', label: 'Parallel' },
+                ]}
+              />
               <span className="wf-config-hint">
                 Sequential runs items one-by-one; parallel runs all concurrently.
               </span>

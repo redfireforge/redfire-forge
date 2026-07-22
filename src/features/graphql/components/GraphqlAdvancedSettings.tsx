@@ -6,6 +6,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { useModalEscapeClose } from '../../../shared/hooks/useModalEscapeClose';
 import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 import { GqlBatchSettingsPanel, type GqlBatchSettingsPanelProps } from './GqlBatchSettingsPanel';
@@ -509,21 +510,22 @@ export function GraphqlAdvancedSettings({
 
             <AdvFormCard>
               <AdvFormRow label="Subscription transport" hint="Live subscription protocol.">
-                <select
+                <CustomSelect
                   value={draft.subscriptionTransport}
-                  onChange={(e) =>
+                  onChange={(v) =>
                     patchDraft({
-                      subscriptionTransport: e.target.value as AdvancedSettingsValues['subscriptionTransport'],
+                      subscriptionTransport: v as AdvancedSettingsValues['subscriptionTransport'],
                     })
                   }
+                  options={[
+                    { value: 'auto', label: 'Auto (negotiate)' },
+                    { value: 'graphql-transport-ws', label: 'graphql-transport-ws' },
+                    { value: 'graphql-ws', label: 'graphql-ws (legacy)' },
+                    { value: 'sse', label: 'Server-Sent Events' },
+                  ]}
                   className="gql-advsettings-select"
                   aria-label="Subscription transport protocol"
-                >
-                  <option value="auto">Auto (negotiate)</option>
-                  <option value="graphql-transport-ws">graphql-transport-ws</option>
-                  <option value="graphql-ws">graphql-ws (legacy)</option>
-                  <option value="sse">Server-Sent Events</option>
-                </select>
+                />
               </AdvFormRow>
 
               {draft.subscriptionTransport === 'sse' && (

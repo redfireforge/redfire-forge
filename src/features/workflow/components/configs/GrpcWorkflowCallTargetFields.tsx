@@ -6,6 +6,7 @@ import type { GrpcConnectionProfile } from '../../../grpc/utils/resolveGrpcTabCo
 import { useGrpcWorkflowTargetReflection } from '../../hooks/useGrpcWorkflowTargetReflection';
 import type { GrpcWorkflowBaseConfig } from '../../types/workflow/node-grpc';
 import { buildGrpcWorkflowReflectionPatch, listGrpcWorkflowMethods } from '../../utils/grpcWorkflowReflection';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 type GrpcWorkflowCallConfig = Pick<
   GrpcWorkflowBaseConfig,
@@ -184,35 +185,34 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
 
       <div className="wf-config-field--row">
         <label>Connection profile</label>
-        <select
+        <CustomSelect
           data-testid={`${testIdPrefix}-connection-profile`}
           value={data.connectionId ?? ''}
-          onChange={(e) => handleProfileChange(e.target.value)}
-        >
-          <option value="">Custom target…</option>
-          {profiles.map((profile: GrpcConnectionProfile) => (
-            <option key={profile.id} value={profile.id}>
-              {profile.name} ({profile.target || 'no target'})
-            </option>
-          ))}
-        </select>
+          onChange={(v) => handleProfileChange(v)}
+          placeholder="Custom target…"
+          options={[
+            { value: '', label: 'Custom target…' },
+            ...profiles.map((profile: GrpcConnectionProfile) => ({
+              value: profile.id,
+              label: `${profile.name} (${profile.target || 'no target'})`,
+            })),
+          ]}
+        />
       </div>
 
       <div className="wf-config-field--row">
         <label>Service</label>
         {useServiceSelect ? (
-          <select
+          <CustomSelect
             data-testid={`${testIdPrefix}-service`}
             value={data.service}
-            onChange={(e) => update({ service: e.target.value, method: '' } as Partial<T>)}
-          >
-            <option value="">Select service…</option>
-            {services.map((service) => (
-              <option key={service.fullName} value={service.fullName}>
-                {service.fullName}
-              </option>
-            ))}
-          </select>
+            onChange={(v) => update({ service: v, method: '' } as Partial<T>)}
+            placeholder="Select service…"
+            options={[
+              { value: '', label: 'Select service…' },
+              ...services.map((service) => ({ value: service.fullName, label: service.fullName })),
+            ]}
+          />
         ) : (
           <input
             data-testid={`${testIdPrefix}-service`}
@@ -226,18 +226,19 @@ export default function GrpcWorkflowCallTargetFields<T extends GrpcWorkflowCallC
       <div className="wf-config-field--row">
         <label>Method</label>
         {useMethodSelect ? (
-          <select
+          <CustomSelect
             data-testid={`${testIdPrefix}-method`}
             value={data.method}
-            onChange={(e) => update({ method: e.target.value } as Partial<T>)}
-          >
-            <option value="">Select method…</option>
-            {methods.map((method) => (
-              <option key={method.name} value={method.name}>
-                {method.name} ({method.callType.replace('_', ' ')})
-              </option>
-            ))}
-          </select>
+            onChange={(v) => update({ method: v } as Partial<T>)}
+            placeholder="Select method…"
+            options={[
+              { value: '', label: 'Select method…' },
+              ...methods.map((method) => ({
+                value: method.name,
+                label: `${method.name} (${method.callType.replace('_', ' ')})`,
+              })),
+            ]}
+          />
         ) : (
           <input
             data-testid={`${testIdPrefix}-method`}

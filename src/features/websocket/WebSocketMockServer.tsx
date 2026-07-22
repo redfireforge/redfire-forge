@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type DragEvent, type KeyboardEvent } from 'react';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import type { WsMockRule, WsMockMatchType, WsMockResponseType, WsMockFallbackMode } from '../../shared/websocket/types';
 import { formatUptime } from '../../shared/websocket/types';
 import { evaluateRules } from './wsMockRuleEngine';
@@ -31,7 +32,7 @@ export interface MockUi {
   startedAt: number | null;
   testResult: ReturnType<typeof evaluateRules> | null;
   reversedLogs: UseWebSocketMockServerReturn['logs'];
-  handleFallbackChange: (e: ChangeEvent<HTMLSelectElement>) => void;
+  handleFallbackChange: (value: string) => void;
   handleStart: () => void;
   handleStop: () => void;
   handleBroadcast: () => void;
@@ -108,8 +109,8 @@ export function useMockServerUi(mock: UseWebSocketMockServerReturn): MockUi {
     }
   }, [status.running]);
 
-  const handleFallbackChange = useCallback((e: ChangeEvent<HTMLSelectElement>) => {
-    const nextFallback = e.target.value as WsMockFallbackMode;
+  const handleFallbackChange = useCallback((value: string) => {
+    const nextFallback = value as WsMockFallbackMode;
     mock.setConfig({ ...config, fallback: nextFallback });
     if (status.running) {
       void mock.pushRulesToServer(rules, nextFallback);
@@ -358,17 +359,14 @@ export function WebSocketMockServerBar({ ui, onPortChange }: { ui: MockUi; onPor
         <span className="ws-mock-strip-stat">Rules <b>{enabledRuleCount}</b> active</span>
         <span className="ws-mock-strip-stat ws-mock-strip-fallback">
           Fallback
-          <select
+          <CustomSelect
             className="ws-mock-fallback-select"
             value={config.fallback}
             onChange={ui.handleFallbackChange}
+            options={FALLBACK_MODES}
             aria-label="Fallback mode"
             data-testid="mock-fallback-select"
-          >
-            {FALLBACK_MODES.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
-            ))}
-          </select>
+          />
         </span>
         <span className="ws-mock-strip-spacer" />
         {status.running && startedAt != null && (
@@ -575,18 +573,16 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
 
             <label className="ws-mock-editor-label">Match</label>
             <div className="ws-mock-editor-field-group">
-              <select
+              <CustomSelect
                 className="ws-mock-editor-select"
                 value={rule.match.type}
-                onChange={(e) => ui.handleUpdateRule(rule.id, {
-                  match: { ...rule.match, type: e.target.value as WsMockMatchType },
+                onChange={(v) => ui.handleUpdateRule(rule.id, {
+                  match: { ...rule.match, type: v as WsMockMatchType },
                 })}
+                options={MATCH_TYPES}
                 data-testid={`rule-match-type-${rule.id}`}
-              >
-                {MATCH_TYPES.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
+                aria-label="Match type"
+              />
               {rule.match.type !== 'any' && (
                 <input
                   className="ws-mock-editor-input ws-mock-editor-pattern"
@@ -607,18 +603,16 @@ function MockRuleCard({ ui, rule, idx }: { ui: MockUi; rule: WsMockRule; idx: nu
 
             <label className="ws-mock-editor-label">Response</label>
             <div className="ws-mock-editor-field-group">
-              <select
+              <CustomSelect
                 className="ws-mock-editor-select"
                 value={rule.response.type}
-                onChange={(e) => ui.handleUpdateRule(rule.id, {
-                  response: { ...rule.response, type: e.target.value as WsMockResponseType },
+                onChange={(v) => ui.handleUpdateRule(rule.id, {
+                  response: { ...rule.response, type: v as WsMockResponseType },
                 })}
+                options={RESPONSE_TYPES}
                 data-testid={`rule-response-type-${rule.id}`}
-              >
-                {RESPONSE_TYPES.map((r) => (
-                  <option key={r.value} value={r.value}>{r.label}</option>
-                ))}
-              </select>
+                aria-label="Response type"
+              />
               {(rule.response.type === 'static' || rule.response.type === 'template') && (
                 <textarea
                   className="ws-mock-editor-textarea"

@@ -3,11 +3,7 @@ import type { Scenario, FeatureGroup, KeyValue, GlobalAuthProfile, SharedDataSou
 import { isWsActionType } from '../../../shared/types';
 import { parseCurl } from '../../../shared/utils/curlParser';
 import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
-import {
-  getBaseUrl,
-  parseQueryParams,
-  rebuildUrl,
-} from '../utils/testEditorUtils';
+import { getBaseUrl, parseQueryParams, rebuildUrl } from '../utils/testEditorUtils';
 import { toErrorMessage } from '../../../shared/utils/helpers';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
 import TestDefinitionVersionPanel from './TestDefinitionVersionPanel';
@@ -26,17 +22,11 @@ import ExtractionEditor from '../../requests/components/ExtractionEditor';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
 import DataSourceEditor from './DataSourceEditor';
 import type { ImportChoice, ExportChoice } from './ImportExportChoiceModal';
+import TestEditorModalHeaderActions from './TestEditorModalHeaderActions';
 import WsScenarioEditor from './WsScenarioEditor';
-import {
-  createDefaultWsConnectAction,
-  createDefaultWsSendAction,
-  createDefaultWsReceiveAction,
-} from '../../../shared/utils/wsScenarioDefaults';
+import { createDefaultWsConnectAction, createDefaultWsSendAction, createDefaultWsReceiveAction } from '../../../shared/utils/wsScenarioDefaults';
 import { makeDefaultGrpcHarnessCallAction } from '../../../shared/utils/grpcHarnessScenarioContracts';
-import {
-  createTestEditorExportHandler,
-  createTestEditorImportHandler,
-} from '../utils/testEditorModalImportExport';
+import { createTestEditorExportHandler, createTestEditorImportHandler } from '../utils/testEditorModalImportExport';
 
 // emptyTest is imported directly from '../utils/testEditorUtils' by consumers
 
@@ -80,6 +70,18 @@ export interface TestEditorModalProps {
   /** Called when user clicks the shared DS badge to open the modal */
   onOpenSharedDsModal?: () => void;
 }
+
+const TRANSPORT_GROUPS: { label: string; options: { value: ScenarioActionType; label: string }[] }[] = [
+  { label: 'HTTP', options: [{ value: 'http', label: 'HTTP' }] },
+  { label: 'WebSocket', options: [{ value: 'wsConnect', label: 'WS Connect' }, { value: 'wsSend', label: 'WS Send' }, { value: 'wsReceive', label: 'WS Receive' }] },
+  { label: 'Kafka', options: [{ value: 'kafkaProduce', label: 'Kafka Produce' }, { value: 'kafkaConsume', label: 'Kafka Consume' }] },
+];
+
+const TRANSPORT_LABEL_MAP: Record<string, string> = Object.fromEntries(
+  TRANSPORT_GROUPS.flatMap(g => g.options.map(o => [o.value, o.label])),
+);
+
+const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
 
 export default function TestEditorModal({
   draft,
@@ -259,6 +261,19 @@ export default function TestEditorModal({
 
   const [csvExportOpen, setCsvExportOpen] = useState(false);
   const [diffVersions, setDiffVersions] = useState<{ older: import('../../../shared/types').TestDefinitionVersion; newer: import('../../../shared/types').TestDefinitionVersion } | null>(null);
+  const [transportDropOpen, setTransportDropOpen] = useState(false);
+  const [methodDropOpen, setMethodDropOpen] = useState(false);
+  const transportDropRef = useRef<HTMLDivElement>(null);
+  const methodDropRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClick = (e: MouseEvent) => {
+      if (transportDropRef.current && !transportDropRef.current.contains(e.target as Node)) setTransportDropOpen(false);
+      if (methodDropRef.current && !methodDropRef.current.contains(e.target as Node)) setMethodDropOpen(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   const defVersions = draft.definitionVersions ?? [];
   const defVersionCount = defVersions.length;
@@ -398,79 +413,29 @@ export default function TestEditorModal({
         overlayClassName="insomnia-modal-overlay"
         dialogClassName="insomnia-modal"
         expandMode="fullscreen"
+        minWidth={520}
+        minHeight={340}
         headerActions={
-          <>
-            <div className="mode-toggle">
-              <button type="button" className={`mode-btn ${inputMode === 'builder' ? 'active' : ''}`} onClick={() => onInputModeChange('builder')}>Builder</button>
-              {isHttp && (
-                <button type="button" className={`mode-btn ${inputMode === 'curlImport' ? 'active' : ''}`} onClick={() => onInputModeChange('curlImport')}>cURL Import</button>
-              )}
-              {isHttp && (
-                <button
-                  type="button"
-                  className={`mode-btn ${inputMode === 'curlExport' ? 'active' : ''}`}
-                  onClick={() => {
-                    onInputModeChange('curlExport');
-                    void triggerCurlGeneration();
-                  }}
-                >
-                  cURL Export
-                </button>
-              )}
-              <div className="mode-btn-dropdown-wrapper" ref={importDropdownRef}>
-                <button
-                  type="button"
-                  className={`mode-btn ${importDropdownOpen ? 'active' : ''}`}
-                  onClick={() => { setImportDropdownOpen(v => !v); setExportDropdownOpen(false); }}
-                >
-                  Import ▾
-                </button>
-                {importDropdownOpen && (
-                  <div className="mode-btn-dropdown">
-                    <button type="button" className="mode-btn-dropdown-item" onClick={() => handleImportChoice('test-definition')}>
-                      <span className="mode-btn-dropdown-label">Test Definition</span>
-                      <span className="mode-btn-dropdown-desc">Load a saved test configuration (.json)</span>
-                    </button>
-                    <button type="button" className="mode-btn-dropdown-item" disabled={!draft.dataSource} onClick={() => handleImportChoice('data-rows')}>
-                      <span className="mode-btn-dropdown-label">Data Rows</span>
-                      <span className="mode-btn-dropdown-desc">Import CSV or JSON data into the Data Source</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-              <div className="mode-btn-dropdown-wrapper" ref={exportDropdownRef}>
-                <button
-                  type="button"
-                  className={`mode-btn ${exportDropdownOpen ? 'active' : ''}`}
-                  onClick={() => { setExportDropdownOpen(v => !v); setImportDropdownOpen(false); }}
-                >
-                  Export ▾
-                </button>
-                {exportDropdownOpen && (
-                  <div className="mode-btn-dropdown">
-                    <button type="button" className="mode-btn-dropdown-item" onClick={() => handleExportChoice('test-definition')}>
-                      <span className="mode-btn-dropdown-label">Test Definition</span>
-                      <span className="mode-btn-dropdown-desc">Save test configuration as .json</span>
-                    </button>
-                    <button type="button" className="mode-btn-dropdown-item" onClick={() => handleExportChoice('excel-template')}>
-                      <span className="mode-btn-dropdown-label">Excel Template</span>
-                      <span className="mode-btn-dropdown-desc">Structured .xlsx with metadata and data rows</span>
-                    </button>
-                    <button type="button" className="mode-btn-dropdown-item" disabled={!draft.dataSource} onClick={() => handleExportChoice('data-csv')}>
-                      <span className="mode-btn-dropdown-label">Data as CSV</span>
-                      <span className="mode-btn-dropdown-desc">Export Data Source rows as .csv</span>
-                    </button>
-                    <button type="button" className="mode-btn-dropdown-item" disabled={!draft.dataSource} onClick={() => handleExportChoice('data-json')}>
-                      <span className="mode-btn-dropdown-label">Data as JSON</span>
-                      <span className="mode-btn-dropdown-desc">Export Data Source rows as .json</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-            <button type="button" className="btn" onClick={onCancel}>Cancel</button>
-            <button type="button" className="btn btn-primary" onClick={onSave} disabled={!canSave}>Save</button>
-          </>
+          <TestEditorModalHeaderActions
+            inputMode={inputMode}
+            onInputModeChange={onInputModeChange}
+            isHttp={isHttp}
+            triggerCurlGeneration={() => {
+              void triggerCurlGeneration();
+            }}
+            importDropdownOpen={importDropdownOpen}
+            setImportDropdownOpen={setImportDropdownOpen}
+            exportDropdownOpen={exportDropdownOpen}
+            setExportDropdownOpen={setExportDropdownOpen}
+            importDropdownRef={importDropdownRef}
+            exportDropdownRef={exportDropdownRef}
+            hasDataSource={!!draft.dataSource}
+            onImportChoice={handleImportChoice}
+            onExportChoice={handleExportChoice}
+            onCancel={onCancel}
+            onSave={onSave}
+            canSave={canSave}
+          />
         }
       >
 
@@ -534,67 +499,105 @@ export default function TestEditorModal({
 
         {inputMode === 'builder' && (
           <div className="builder-panel">
-            <div className="form-row">
-              <label>Name</label>
-              <input value={draft.name} onChange={(e) => onDraftChange({ ...draft, name: e.target.value })} placeholder="e.g. Get User Profile" />
-            </div>
-
-            <div className="form-row form-row--transport">
-              <label>Transport</label>
-              <select
-                value={effectiveTransport}
-                onChange={(e) => handleTransportChange(e.target.value as ScenarioActionType)}
-                className="transport-select"
-                aria-label="Transport type"
-              >
-                <optgroup label="HTTP">
-                  <option value="http">HTTP</option>
-                </optgroup>
-                <optgroup label="WebSocket">
-                  <option value="wsConnect">WS Connect</option>
-                  <option value="wsSend">WS Send</option>
-                  <option value="wsReceive">WS Receive</option>
-                </optgroup>
-                <optgroup label="Kafka">
-                  <option value="kafkaProduce">Kafka Produce</option>
-                  <option value="kafkaConsume">Kafka Consume</option>
-                </optgroup>
-              </select>
-            </div>
-
-            {isHttp && (
-              <>
-                <div className="url-bar">
-                  <select
-                    className={`method-select method-color-${draft.method.toLowerCase()}`}
-                    value={draft.method}
-                    onChange={(e) => onDraftChange({ ...draft, method: e.target.value as Scenario['method'] })}
-                  >
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="PATCH">PATCH</option>
-                    <option value="DELETE">DELETE</option>
-                  </select>
-                  <input
-                    className="url-input"
-                    value={baseUrl}
-                    onChange={(e) => handleBaseUrlChange(e.target.value)}
-                    placeholder={resolvedBaseUrl ? `${resolvedBaseUrl}/...` : 'https://api.example.com/endpoint'}
-                  />
-                  {resolvedBaseUrl && !draft.url && (
-                    <button type="button" className="btn btn-sm url-fill-btn" onClick={() => handleBaseUrlChange(resolvedBaseUrl)} title="Use resolved base URL">Use</button>
-                  )}
+            <div className="te-prop-card">
+              <div className="te-prop-row">
+                <div className="te-prop-label">Name</div>
+                <div className="te-prop-ctrl">
+                  <input value={draft.name} onChange={(e) => onDraftChange({ ...draft, name: e.target.value })} placeholder="e.g. Get User Profile" />
                 </div>
+              </div>
 
-                {draft.url && (
-                  <div className="url-preview">
-                    <span className="url-preview-label">URL PREVIEW</span>
-                    <code>{displayUrl}</code>
+              <div className="te-prop-row">
+                <div className="te-prop-label">Transport</div>
+                <div className="te-prop-ctrl">
+                  <div className="te-dropdown-wrapper" ref={transportDropRef}>
+                    <button
+                      type="button"
+                      className="te-dropdown-trigger"
+                      aria-label="Transport type"
+                      onClick={() => setTransportDropOpen(o => !o)}
+                    >
+                      <span>{TRANSPORT_LABEL_MAP[effectiveTransport] ?? effectiveTransport}</span>
+                      <span className="te-dropdown-arrow">{transportDropOpen ? '▲' : '▼'}</span>
+                    </button>
+                    {transportDropOpen && (
+                      <div className="te-dropdown-menu">
+                        {TRANSPORT_GROUPS.map(g => (
+                          <div key={g.label} className="te-dropdown-group">
+                            <span className="te-dropdown-group-label">{g.label}</span>
+                            {g.options.map(o => (
+                              <button
+                                key={o.value}
+                                type="button"
+                                className={`te-dropdown-item ${effectiveTransport === o.value ? 'active' : ''}`}
+                                onClick={() => { handleTransportChange(o.value); setTransportDropOpen(false); }}
+                              >
+                                {o.label}
+                                {effectiveTransport === o.value && <span className="te-dropdown-check">✓</span>}
+                              </button>
+                            ))}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                )}
-              </>
-            )}
+                </div>
+              </div>
+
+              {isHttp && (
+                <>
+                  <div className="te-prop-row">
+                    <div className="te-prop-label">URL</div>
+                    <div className="te-prop-ctrl te-prop-ctrl--url">
+                      <div className="te-method-wrapper" ref={methodDropRef}>
+                        <button
+                          type="button"
+                          className={`te-method-trigger method-color-${draft.method.toLowerCase()}`}
+                          onClick={() => setMethodDropOpen(o => !o)}
+                          aria-label="HTTP method"
+                        >
+                          {draft.method}
+                          <span className="te-dropdown-arrow">{methodDropOpen ? '▲' : '▼'}</span>
+                        </button>
+                        {methodDropOpen && (
+                          <div className="te-dropdown-menu te-method-menu">
+                            {HTTP_METHODS.map(m => (
+                              <button
+                                key={m}
+                                type="button"
+                                className={`te-dropdown-item method-color-${m.toLowerCase()} ${draft.method === m ? 'active' : ''}`}
+                                onClick={() => { onDraftChange({ ...draft, method: m as Scenario['method'] }); setMethodDropOpen(false); }}
+                              >
+                                {m}
+                                {draft.method === m && <span className="te-dropdown-check">✓</span>}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        className="url-input"
+                        value={baseUrl}
+                        onChange={(e) => handleBaseUrlChange(e.target.value)}
+                        placeholder={resolvedBaseUrl ? `${resolvedBaseUrl}/...` : 'https://api.example.com/endpoint'}
+                      />
+                      {resolvedBaseUrl && !draft.url && (
+                        <button type="button" className="btn btn-sm url-fill-btn" onClick={() => handleBaseUrlChange(resolvedBaseUrl)} title="Use resolved base URL">Use</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {draft.url && (
+                    <div className="te-prop-row">
+                      <div className="te-prop-label">URL Preview</div>
+                      <div className="te-prop-ctrl">
+                        <code className="te-url-preview-code">{displayUrl}</code>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
 
             {isWs && (
               <WsScenarioEditor

@@ -1,5 +1,6 @@
 import { defaultValueForGrpcField, resolveActiveOneofMember } from '../../utils/grpcProtoFormValues';
 import { GrpcProtoFieldRow } from './GrpcProtoFieldRow';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import type { GrpcProtoOneofGroupRowProps } from './grpcProtoFormBuilderTypes';
 
 export function GrpcProtoOneofGroupRow({
@@ -51,22 +52,18 @@ export function GrpcProtoOneofGroupRow({
         <label className="grpc-proto-oneof-label visually-hidden" htmlFor={`grpc-proto-oneof-select-${oneofName}`}>
           Active field
         </label>
-        <select
-          id={`grpc-proto-oneof-select-${oneofName}`}
+        <CustomSelect
           className="grpc-proto-oneof-select visually-hidden"
           data-testid={`grpc-proto-oneof-select-${oneofName}`}
+          aria-label="Active field"
           value={activeMember.name}
           disabled={disabled}
-          onChange={(event) => handleMemberChange(event.target.value)}
-          tabIndex={-1}
-          aria-hidden="true"
-        >
-          {members.map((member) => (
-            <option key={member.name} value={member.name}>
-              {member.name}
-            </option>
-          ))}
-        </select>
+          onChange={(v) => handleMemberChange(v)}
+          options={members.map((member) => ({
+            value: member.name,
+            label: member.name,
+          }))}
+        />
       </div>
       <GrpcProtoFieldRow
         key={activeMember.name}

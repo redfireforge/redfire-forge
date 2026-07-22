@@ -1,5 +1,6 @@
 import type { DragEvent, KeyboardEvent, MouseEvent, RefObject } from 'react';
 import type { DataSource, DataSourceColumn, DataSourceRow, SharedDataSource } from '../../../shared/types';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { COLUMN_TYPES } from '../utils/dataSourceEditorUtils';
 
 export interface DataSourceGridTableProps {
@@ -150,16 +151,13 @@ export default function DataSourceGridTable(props: DataSourceGridTableProps) {
                     {sortCol === col.id ? (sortDir === 'asc' ? '▲' : '▼') : '⇅'}
                   </button>
                   <div className="data-source-col-controls">
-                    <select
+                    <CustomSelect
                       className="data-source-col-type-select"
                       value={col.type}
-                      onChange={(e) => updateColumn(col.id, { type: e.target.value as DataSourceColumn['type'] })}
-                      title="Column type"
-                    >
-                      {COLUMN_TYPES.map(t => (
-                        <option key={t.value} value={t.value}>{t.label}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => updateColumn(col.id, { type: v as DataSourceColumn['type'] })}
+                      options={COLUMN_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+                      aria-label="Column type"
+                    />
                     <button
                       type="button"
                       className="params-delete"

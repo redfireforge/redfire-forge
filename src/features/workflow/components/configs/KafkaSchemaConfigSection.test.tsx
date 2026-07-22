@@ -6,6 +6,7 @@
 import { useState } from 'react';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
 import KafkaSchemaConfigSection from './KafkaSchemaConfigSection';
 import type { KafkaSchemaConfig } from '../../../../shared/kafka/kafkaClient';
 import * as kafkaClientModule from '../../../../shared/kafka/kafkaClient';
@@ -87,7 +88,7 @@ describe('KafkaSchemaConfigSection', () => {
   it('updates format field', () => {
     const initial: KafkaSchemaConfig = { registryUrl: 'http://r:8081', format: 'avro' };
     render(<Host initial={initial} />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'protobuf' } });
+    selectOption(document, 'Protobuf');
     const output = JSON.parse(screen.getByTestId('output').textContent!);
     expect(output.format).toBe('protobuf');
   });
@@ -113,8 +114,9 @@ describe('KafkaSchemaConfigSection', () => {
     fireEvent.click(subjectBtn!);
 
     await waitFor(() => {
-      expect(screen.getByText('orders-value')).toBeTruthy();
+      expect(screen.getByTestId('schema-subjects-dropdown')).toBeTruthy();
     });
+    expect(getCustomSelectOptionLabels(screen.getByTestId('schema-subjects-dropdown'))).toContain('orders-value');
     expect(mockDispatch).toHaveBeenCalledWith('schema-subjects', expect.anything());
   });
 
@@ -170,8 +172,9 @@ describe('KafkaSchemaConfigSection', () => {
     fireEvent.click(versionBtn!);
 
     await waitFor(() => {
-      expect(screen.getByText('1')).toBeTruthy();
+      expect(screen.getByTestId('schema-versions-dropdown')).toBeTruthy();
     });
+    expect(getCustomSelectOptionLabels(screen.getByTestId('schema-versions-dropdown'))).toContain('1');
     expect(mockDispatch).toHaveBeenCalledWith('schema-versions', expect.anything());
   });
 
@@ -247,12 +250,10 @@ describe('KafkaSchemaConfigSection', () => {
     fireEvent.click(subjectBtn!);
 
     await waitFor(() => {
-      expect(screen.getByText('orders-value')).toBeTruthy();
+      expect(screen.getByTestId('schema-subjects-dropdown')).toBeTruthy();
     });
 
-    // Select 'payments-value' from the dropdown
-    const select = screen.getAllByRole('listbox')[0] as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'payments-value' } });
+    selectOption(screen.getByTestId('schema-subjects-dropdown'), 'payments-value');
 
     const output = JSON.parse(screen.getByTestId('output').textContent!);
     expect(output.subject).toBe('payments-value');
@@ -272,11 +273,10 @@ describe('KafkaSchemaConfigSection', () => {
     fireEvent.click(subjectBtn!);
 
     await waitFor(() => {
-      expect(screen.getByText('orders-value')).toBeTruthy();
+      expect(screen.getByTestId('schema-subjects-dropdown')).toBeTruthy();
     });
 
-    const select = screen.getAllByRole('listbox')[0] as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: '' } });
+    selectOption(screen.getByTestId('schema-subjects-dropdown'), '(default — orders-value)');
 
     const output = JSON.parse(screen.getByTestId('output').textContent!);
     expect(output.subject).toBeUndefined();
@@ -296,12 +296,10 @@ describe('KafkaSchemaConfigSection', () => {
     fireEvent.click(versionBtn!);
 
     await waitFor(() => {
-      expect(screen.getByText('3')).toBeTruthy();
+      expect(screen.getByTestId('schema-versions-dropdown')).toBeTruthy();
     });
 
-    const listboxes = screen.getAllByRole('listbox');
-    const versionSelect = listboxes[listboxes.length - 1] as HTMLSelectElement;
-    fireEvent.change(versionSelect, { target: { value: '2' } });
+    selectOption(screen.getByTestId('schema-versions-dropdown'), '2');
 
     const output = JSON.parse(screen.getByTestId('output').textContent!);
     expect(output.version).toBe(2);
@@ -321,12 +319,10 @@ describe('KafkaSchemaConfigSection', () => {
     fireEvent.click(versionBtn!);
 
     await waitFor(() => {
-      expect(screen.getByText('3')).toBeTruthy();
+      expect(screen.getByTestId('schema-versions-dropdown')).toBeTruthy();
     });
 
-    const listboxes = screen.getAllByRole('listbox');
-    const versionSelect = listboxes[listboxes.length - 1] as HTMLSelectElement;
-    fireEvent.change(versionSelect, { target: { value: '' } });
+    selectOption(screen.getByTestId('schema-versions-dropdown'), '(latest)');
 
     const output = JSON.parse(screen.getByTestId('output').textContent!);
     expect(output.version).toBeUndefined();
@@ -354,11 +350,11 @@ describe('KafkaSchemaConfigSection — additional branch coverage', () => {
     const subjectBtn = btns.find((b) => b.title?.includes('subject'));
     // First click: load subjects
     fireEvent.click(subjectBtn!);
-    await waitFor(() => expect(screen.getByText('orders-value')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('schema-subjects-dropdown')).toBeTruthy());
 
     // Second click: hide subjects (subjects.length > 0 → setSubjects([]))
     fireEvent.click(subjectBtn!);
-    await waitFor(() => expect(screen.queryByText('orders-value')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('schema-subjects-dropdown')).toBeNull());
   });
 
   it('subject select option with empty value → clears subject and defaults to topic-name-value', async () => {
@@ -374,11 +370,10 @@ describe('KafkaSchemaConfigSection — additional branch coverage', () => {
     const btns = screen.getAllByRole('button');
     const subjectBtn = btns.find((b) => b.title?.includes('subject'));
     fireEvent.click(subjectBtn!);
-    await waitFor(() => expect(screen.getByText('orders-value')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('schema-subjects-dropdown')).toBeTruthy());
 
     // Select the default (empty) option — clears subject
-    const listboxes = screen.getAllByRole('listbox');
-    fireEvent.change(listboxes[0] as HTMLSelectElement, { target: { value: '' } });
+    selectOption(screen.getByTestId('schema-subjects-dropdown'), '(default — orders-value)');
 
     const output = JSON.parse(screen.getByTestId('output').textContent!);
     expect(output.subject).toBeUndefined();
@@ -398,10 +393,10 @@ describe('KafkaSchemaConfigSection — additional branch coverage', () => {
     const btns = screen.getAllByRole('button');
     const subjectBtn = btns.find((b) => b.title?.includes('subject'));
     fireEvent.click(subjectBtn!);
-    await waitFor(() => expect(screen.getByText('a-value')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('schema-subjects-dropdown')).toBeTruthy());
 
     // Default option text includes 'topic-value' fallback
-    expect(screen.getByText('(default — topic-value)')).toBeTruthy();
+    expect(getCustomSelectOptionLabels(screen.getByTestId('schema-subjects-dropdown'))).toContain('(default — topic-value)');
   });
 
   it('version toggle: hides version list when button clicked a second time', async () => {
@@ -418,11 +413,11 @@ describe('KafkaSchemaConfigSection — additional branch coverage', () => {
     const versionBtn = btns.find((b) => b.title?.includes('ersion'));
     // First click: load versions
     fireEvent.click(versionBtn!);
-    await waitFor(() => expect(screen.getByText('3')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('schema-versions-dropdown')).toBeTruthy());
 
     // Second click: hide versions (versions.length > 0 → setVersions([]))
     fireEvent.click(versionBtn!);
-    await waitFor(() => expect(screen.queryByText('3')).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId('schema-versions-dropdown')).toBeNull());
   });
 
   it('subject input change with empty string clears subject to undefined', () => {
@@ -545,7 +540,7 @@ describe('KafkaSchemaConfigSection — additional branch coverage', () => {
       (b) => b.getAttribute('title')?.includes('Load subjects'),
     );
     fireEvent.click(loadBtn!);
-    await waitFor(() => expect(screen.getByText('s1')).toBeTruthy());
+    await waitFor(() => expect(screen.getByTestId('schema-subjects-dropdown')).toBeTruthy());
 
     // Now uncheck the toggle to disable → handleToggle(false) clears subjects state
     fireEvent.click(screen.getByRole('checkbox'));

@@ -3,6 +3,7 @@
  */
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { GrpcK8sPortForwardPanel } from './GrpcK8sPortForwardPanel';
 import { DEFAULT_GRPC_K8S_PORT_FORWARD_CONFIG } from '../utils/grpcK8sPortForward';
 
@@ -322,7 +323,7 @@ describe('GrpcK8sPortForwardPanel coverage gaps', () => {
         onSessionChange={onSessionChange}
       />,
     );
-    fireEvent.change(screen.getByTestId('grpc-k8s-target-type'), { target: { value: 'deployment' } });
+    selectOption(screen.getByTestId('grpc-k8s-target-type'), 'deployment');
     fireEvent.change(screen.getByTestId('grpc-k8s-context'), { target: { value: 'minikube' } });
     expect(onSessionChange).toHaveBeenCalled();
   });
@@ -624,7 +625,7 @@ describe('GrpcK8sPortForwardPanel coverage gaps', () => {
         onSessionChange={onSessionChange}
       />,
     );
-    fireEvent.change(screen.getByTestId('grpc-k8s-target-type'), { target: { value: 'pod' } });
+    selectOption(screen.getByTestId('grpc-k8s-target-type'), 'pod');
     const callsBefore = onSessionChange.mock.calls.length;
     fireEvent.change(screen.getByTestId('grpc-k8s-remote-port'), { target: { value: 'abc' } });
     expect(onSessionChange.mock.calls.length).toBe(callsBefore);

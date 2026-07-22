@@ -5,6 +5,7 @@ import { useListCrud } from '../../../../shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const STRATEGY_OPTIONS: { value: AggregateStrategy; label: string; desc: string }[] = [
   { value: 'concat', label: 'Concat', desc: 'Join all values into a JSON array' },
@@ -71,15 +72,12 @@ export default function AggregateConfig({
                 />
               </div>
               <div className="wf-aggregate-mapping-strategy-row">
-                <select
+                <CustomSelect
                   className="wf-aggregate-mapping-strategy"
                   value={m.strategy}
-                  onChange={(e) => updateMapping(i, { strategy: e.target.value as AggregateStrategy })}
-                >
-                  {STRATEGY_OPTIONS.map(o => (
-                    <option key={o.value} value={o.value} title={o.desc}>{o.label}</option>
-                  ))}
-                </select>
+                  onChange={(v) => updateMapping(i, { strategy: v as AggregateStrategy })}
+                  options={STRATEGY_OPTIONS.map(o => ({ value: o.value, label: o.label, detail: o.desc }))}
+                />
                 {m.strategy === 'custom' && (
                   <input
                     className="wf-aggregate-mapping-custom"

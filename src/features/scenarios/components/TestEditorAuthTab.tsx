@@ -1,5 +1,6 @@
 import type { Dispatch, SetStateAction } from 'react';
 import type { AuthConfig, AuthType, FeatureGroup, GlobalAuthProfile, Scenario } from '../../../shared/types';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 export interface TestEditorAuthEditingContext {
   fgId: string;
@@ -40,18 +41,19 @@ export default function TestEditorAuthTab({
     <div>
       <div className="auth-type-select">
         <label>Type</label>
-        <select
+        <CustomSelect
           value={draft.auth.type}
-          onChange={(e) => onDraftChange({ ...draft, auth: { ...draft.auth, type: e.target.value as AuthType } })}
-        >
-          <option value="inherit">Inherit from Scenario</option>
-          <option value="none">No Auth</option>
-          <option value="basic">Basic Auth</option>
-          <option value="bearer">Bearer Token</option>
-          <option value="apikey">API Key</option>
-          <option value="digest">Digest Auth</option>
-          <option value="oauth2">OAuth2 Client Credentials</option>
-        </select>
+          onChange={(v) => onDraftChange({ ...draft, auth: { ...draft.auth, type: v as AuthType } })}
+          options={[
+            { value: 'inherit', label: 'Inherit from Scenario' },
+            { value: 'none', label: 'No Auth' },
+            { value: 'basic', label: 'Basic Auth' },
+            { value: 'bearer', label: 'Bearer Token' },
+            { value: 'apikey', label: 'API Key' },
+            { value: 'digest', label: 'Digest Auth' },
+            { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+          ]}
+        />
       </div>
       {draft.auth.type === 'inherit' && (() => {
         const fg = featureGroups.find((f) => f.id === editingTest.fgId);

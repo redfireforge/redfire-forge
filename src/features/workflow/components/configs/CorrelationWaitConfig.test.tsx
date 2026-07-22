@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import CorrelationWaitConfig from './CorrelationWaitConfig';
 import type { CorrelationWaitNodeData } from '../../types/workflow';
 
@@ -89,14 +90,14 @@ describe('CorrelationWaitConfig', () => {
 
   // ── Correlation Source ──
   it('renders correlation source select with body selected', () => {
-    render(<CorrelationWaitConfig data={makeData({ correlationSource: 'body' })} onChange={vi.fn()} />);
-    expect(screen.getByDisplayValue('Request Body (JSONPath)')).toBeTruthy();
+    const { container } = render(<CorrelationWaitConfig data={makeData({ correlationSource: 'body' })} onChange={vi.fn()} />);
+    expect(getCustomSelectValue(container)).toBe('Request Body (JSONPath)');
   });
 
   it('calls onChange when correlation source changes', () => {
     const onChange = vi.fn();
-    render(<CorrelationWaitConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('Request Body (JSONPath)'), { target: { value: 'header' } });
+    const { container } = render(<CorrelationWaitConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'HTTP Header');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ correlationSource: 'header' }));
   });
 

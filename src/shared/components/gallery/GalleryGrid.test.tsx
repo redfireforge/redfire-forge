@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import type { GalleryEntry } from '../../../data/galleries/types';
 import { GalleryGrid } from './GalleryGrid';
 
@@ -202,7 +203,7 @@ describe('GalleryGrid', () => {
     const entries = [baseEntry('e1', { name: 'Close me' })];
     render(<GalleryGrid entries={entries} onAction={vi.fn()} actionLabel="Go" />);
     fireEvent.click(screen.getByText('Close me'));
-    fireEvent.click(screen.getByRole('button', { name: 'Close detail panel' }));
+    fireEvent.click(screen.getByTestId('gallery-detail-close'));
     expect(document.querySelector('.gallery-detail-panel')).toBeNull();
   });
 
@@ -238,8 +239,7 @@ describe('GalleryGrid', () => {
       baseEntry('b', { name: 'Beta', liveApis: ['https://dogs.example.com/api'] }),
     ];
     render(<GalleryGrid entries={entries} />);
-    const select = screen.getByLabelText('Filter by live API');
-    fireEvent.change(select, { target: { value: 'cats.example.com' } });
+    selectOption(screen.getByLabelText('Filter by live API').closest('.cs-wrapper')!, 'cats.example.com');
     expect(screen.getByText(/1 sample/)).toBeTruthy();
     expect(screen.getByText('Alpha')).toBeTruthy();
     expect(screen.queryByText('Beta')).toBeNull();
@@ -251,8 +251,7 @@ describe('GalleryGrid', () => {
       baseEntry('md', { difficulty: 'medium' }),
     ];
     render(<GalleryGrid entries={entries} />);
-    const select = screen.getByLabelText('Filter by difficulty');
-    fireEvent.change(select, { target: { value: 'medium' } });
+    selectOption(screen.getByLabelText('Filter by difficulty').closest('.cs-wrapper')!, 'Medium');
     expect(screen.getByText(/1 sample/)).toBeTruthy();
     expect(screen.getByText('Sample md')).toBeTruthy();
     expect(screen.queryByText('Sample ez')).toBeNull();

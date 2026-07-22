@@ -266,7 +266,6 @@ API development rarely involves a single endpoint. You might test a GET to list 
         'Watch the **New Request prompt** — it asks for a name before creating. ' +
         'The name is validated: empty and duplicate names are rejected. ' +
         'Once created, the request appears in the sidebar **and** a tab opens automatically.',
-      highlight: REQ.SIDEBAR,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await ctx.delay(200);
@@ -309,20 +308,9 @@ API development rarely involves a single endpoint. You might test a GET to list 
           }
         }
 
-        // Spotlight the request in sidebar + its auto-opened tab
-        const reqEl = document.querySelector<HTMLElement>(REQ.reqByName(REQ_GET_NAME));
-        if (reqEl) {
-          const remove2 = showSpotlightRing(reqEl);
-          await ctx.delay(1000);
-          remove2();
-        }
-
-        const tabBar = document.querySelector<HTMLElement>(REQ.TAB_BAR);
-        if (tabBar) {
-          const remove3 = showSpotlightRing(tabBar);
-          await ctx.delay(1200);
-          remove3();
-        }
+        // Ensure the new request is visible/selected
+        await ensureRequestOpen(ctx, REQ_GET_NAME);
+        await ctx.delay(600);
       },
       verify: REQ.TAB_ITEM,
       pauseAfter: true,
@@ -337,7 +325,6 @@ API development rarely involves a single endpoint. You might test a GET to list 
         'Once created, a **second tab** appears automatically with a blue **POST** badge.\n\n' +
         'Both tabs stay open — method badges make them easy to tell apart: ' +
         '**green** for GET, **blue** for POST, **amber** for PUT, **red** for DELETE.',
-      highlight: REQ.SIDEBAR,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await ensureCollectionExpanded(ctx, COLLECTION_NAME);
@@ -353,30 +340,11 @@ API development rarely involves a single endpoint. You might test a GET to list 
           const opened = await openAddRequestPrompt(ctx);
           if (!opened) return;
 
-          // Spotlight the prompt briefly
-          const prompt = document.querySelector<HTMLElement>(REQ.NEW_REQ_PROMPT);
-          if (prompt) {
-            const removeP = showSpotlightRing(prompt);
-            await ctx.delay(800);
-            removeP();
-          }
-
           await addRequestWithPrompt(ctx, COLLECTION_NAME, REQ_POST_NAME, POST_URL, 'POST');
           await ctx.delay(600);
         } else {
           await selectRequestByName(ctx, REQ_POST_NAME, COLLECTION_NAME);
           await ctx.delay(400);
-        }
-
-        // Spotlight both tabs
-        const tabs = document.querySelectorAll<HTMLElement>(`${REQ.TAB_BAR} [role="tab"]`);
-        if (tabs.length >= 2) {
-          const remove = showSpotlightRing(tabs[0]);
-          await ctx.delay(900);
-          remove();
-          const remove2 = showSpotlightRing(tabs[1]);
-          await ctx.delay(900);
-          remove2();
         }
       },
       pauseAfter: true,
@@ -411,30 +379,17 @@ API development rarely involves a single endpoint. You might test a GET to list 
         await ctx.waitFor(REQ.STATUS_PILL, 8000);
         await ctx.delay(1200);
 
-        // Spotlight the response status
+        // Switch to tab 2 — no response there
+        await clickRequestTabByIndex(ctx, 1, 800);
+        await ctx.delay(800);
+
+        // Switch back — response preserved (the key teaching moment)
+        await clickRequestTabByIndex(ctx, 0, 800);
         const statusEl = document.querySelector<HTMLElement>(REQ.STATUS_PILL);
         if (statusEl) {
           const remove = showSpotlightRing(statusEl);
-          await ctx.delay(1200);
-          remove();
-        }
-
-        // Switch to tab 2 — no response there
-        await clickRequestTabByIndex(ctx, 1, 800);
-        const placeholder = document.querySelector<HTMLElement>(REQ.RESP_PLACEHOLDER);
-        if (placeholder) {
-          const remove2 = showSpotlightRing(placeholder);
-          await ctx.delay(1000);
-          remove2();
-        }
-
-        // Switch back — response preserved
-        await clickRequestTabByIndex(ctx, 0, 800);
-        const statusEl2 = document.querySelector<HTMLElement>(REQ.STATUS_PILL);
-        if (statusEl2) {
-          const remove3 = showSpotlightRing(statusEl2);
           await ctx.delay(1500);
-          remove3();
+          remove();
         }
       },
       verify: REQ.STATUS_PILL,
@@ -530,13 +485,7 @@ API development rarely involves a single endpoint. You might test a GET to list 
           await ctx.delay(800);
         }
 
-        // Show single remaining tab
-        const remaining = document.querySelectorAll<HTMLElement>(`${REQ.TAB_BAR} [role="tab"]`);
-        if (remaining.length === 1 && remaining[0]) {
-          const remove2 = showSpotlightRing(remaining[0]);
-          await ctx.delay(1200);
-          remove2();
-        }
+        await ctx.delay(600);
       },
       pauseAfter: true,
     },
@@ -551,7 +500,6 @@ API development rarely involves a single endpoint. You might test a GET to list 
         'and a **floating action bar** slides in at the bottom.\n\n' +
         'Select multiple requests, click **Delete**, and review the **confirmation modal** — ' +
         'each item shows its HTTP method badge. You can deselect items right from the modal.',
-      highlight: REQ.SIDEBAR,
       preAction: async (ctx) => {
         ensureRequestsTab(ctx);
         await ensureCollectionExpanded(ctx, COLLECTION_NAME);

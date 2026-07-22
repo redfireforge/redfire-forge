@@ -6,6 +6,7 @@
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { selectOption, isCustomSelectDisabled } from '../../../../test-utils/customSelectHelper';
 import { GqlSubscriptionControls } from './GqlSubscriptionControls';
 
 function defaultProps(overrides = {}) {
@@ -86,7 +87,7 @@ describe('GqlSubscriptionControls', () => {
   it('calls onSubscriptionTransportChange on select change', () => {
     const onChange = vi.fn();
     render(<GqlSubscriptionControls {...defaultProps({ onSubscriptionTransportChange: onChange })} />);
-    fireEvent.change(screen.getByTestId('gql-transport-select'), { target: { value: 'sse' } });
+    selectOption(screen.getByTestId('gql-transport-select'), 'SSE');
     expect(onChange).toHaveBeenCalledWith('sse');
   });
 
@@ -133,7 +134,7 @@ describe('GqlSubscriptionControls', () => {
 
   it('disables transport selector while active', () => {
     render(<GqlSubscriptionControls {...defaultProps({ subscriptionState: 'active' as const })} />);
-    expect(screen.getByTestId('gql-transport-select')).toBeDisabled();
+    expect(isCustomSelectDisabled(screen.getByTestId('gql-transport-select'))).toBe(true);
   });
 
   it('hides transport selector when no onSubscriptionTransportChange provided', () => {

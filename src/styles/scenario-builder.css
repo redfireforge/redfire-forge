@@ -7,11 +7,39 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  backdrop-filter: blur(1px);
 }
-.insomnia-modal.wf-config-modal.modal.ram-modal {
-  max-width: 900px;
+.insomnia-modal-overlay.modal-overlay,
+.insomnia-modal-overlay.modal-overlay:has(> .modal-fullscreen) {
+  align-items: center !important;
+  justify-content: center !important;
+  background: transparent !important;
 }
+/* Edit Test modal — default size, centered, white edges, resizable */
+.insomnia-modal-overlay .insomnia-modal.modal.ram-modal {
+  width: min(920px, 94vw);
+  max-width: none;
+  height: min(82vh, 860px);
+  max-height: none;
+  min-width: 520px;
+  min-height: 340px;
+  border-radius: 10px !important;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid color-mix(in srgb, white 28%, var(--border)) !important;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+.insomnia-modal-overlay .insomnia-modal.modal.ram-modal.modal-fullscreen {
+  width: 100% !important;
+  max-width: 100% !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  border-radius: 0 !important;
+}
+
 /* Hide redundant expand and close buttons — Cancel/Save already exist */
 .insomnia-modal .modal-expand-btn,
 .insomnia-modal .ram-modal-close {
@@ -19,10 +47,6 @@
 }
 .insomnia-modal .modal-header {
   cursor: default;
-}
-.insomnia-modal .modal-resize-edge-right,
-.insomnia-modal .modal-resize-corner {
-  display: none !important;
 }
 /* Insomnia-style modal */
 .insomnia-modal { padding: 0; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
@@ -97,10 +121,210 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
+  overflow: visible;
   padding: 20px 24px 0;
 }
-.builder-panel:has(.body-type-dropdown) { overflow: visible; }
+
+/* ── Test-editor property card (Name / Transport / URL / URL Preview) ── */
+.te-prop-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.te-prop-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  position: relative;
+  z-index: 1;
+}
+.te-prop-row:has(.te-method-wrapper),
+.te-prop-row:has(.te-dropdown-wrapper) {
+  z-index: 2;
+}
+.te-prop-row:has(.te-dropdown-menu) {
+  z-index: 100;
+}
+.te-prop-label {
+  flex: 0 0 90px;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  text-align: right;
+  padding-right: 2px;
+}
+.te-prop-ctrl {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.te-prop-ctrl > input {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+}
+.te-prop-ctrl > input:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
+.te-prop-ctrl > input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.te-prop-ctrl > input::placeholder { color: var(--text-muted); opacity: 0.55; font-style: italic; }
+
+/* URL row — method pill + input fused */
+.te-prop-ctrl--url {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: visible;
+  background: var(--bg);
+  transition: border-color 0.15s;
+}
+.te-prop-ctrl--url:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.te-prop-ctrl--url .url-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  border-radius: 0;
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  background: transparent;
+  color: var(--text);
+}
+.te-prop-ctrl--url .url-input:focus { box-shadow: none; outline: none; }
+.te-prop-ctrl--url .url-fill-btn { margin: 0 6px; flex-shrink: 0; }
+
+/* URL Preview row — read-only mono */
+.te-url-preview-code {
+  flex: 1;
+  padding: 7px 10px;
+  font-family: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  background: var(--bg);
+  border: 1px dashed color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 6px;
+  word-break: break-all;
+  cursor: default;
+}
+
+/* ── Custom dropdowns (Transport & Method) ── */
+.te-dropdown-wrapper,
+.te-method-wrapper {
+  position: relative;
+}
+.te-dropdown-wrapper { flex: 1; min-width: 0; }
+.te-method-wrapper { flex: 0 0 auto; }
+
+.te-dropdown-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.82rem;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s;
+}
+.te-dropdown-trigger:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
+
+.te-method-trigger {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: none;
+  border-right: 1px solid var(--border);
+  border-radius: 6px 0 0 6px;
+  background: color-mix(in srgb, var(--surface) 80%, var(--bg));
+  font-weight: 700;
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s;
+}
+.te-method-trigger:hover { background: var(--surface-hover); }
+
+.te-dropdown-arrow {
+  font-size: 0.55rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.te-dropdown-menu {
+  position: absolute;
+  top: calc(100% + 3px);
+  left: 0;
+  min-width: 180px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 4px;
+  z-index: 200;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.5);
+}
+.te-method-menu {
+  min-width: 110px;
+}
+
+.te-dropdown-group { padding: 2px 0; }
+.te-dropdown-group + .te-dropdown-group {
+  border-top: 1px solid var(--border);
+  margin-top: 2px;
+  padding-top: 4px;
+}
+.te-dropdown-group-label {
+  display: block;
+  padding: 4px 10px 2px;
+  font-size: 0.64rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.te-dropdown-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+}
+.te-dropdown-item:hover { background: var(--surface-hover); }
+.te-dropdown-item.active {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary);
+}
+.te-dropdown-check {
+  font-size: 0.72rem;
+  color: var(--primary);
+}
 
 /* URL bar */
 .url-bar {
@@ -243,6 +467,213 @@
   padding: 8px 12px;
   font-size: 0.85rem;
 }
+
+/* ── WS editor — shared additions for te-prop-card in WS modes ── */
+.ws-editor { display: flex; flex-direction: column; gap: 4px; }
+
+.te-prop-ctrl > select,
+.te-prop-ctrl select.te-input-sm {
+  padding: 7px 10px;
+  font-size: 0.82rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  transition: border-color 0.15s;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23a8b8cc'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+.te-prop-ctrl > select { flex: 1; min-width: 0; }
+.te-prop-ctrl > select:hover,
+.te-prop-ctrl select.te-input-sm:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
+.te-prop-ctrl > select:focus,
+.te-prop-ctrl select.te-input-sm:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+
+.te-prop-ctrl > textarea {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  font-size: 0.8rem;
+  font-family: 'SF Mono', 'Fira Code', monospace;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+.te-prop-ctrl > textarea:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
+.te-prop-ctrl > textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.te-prop-ctrl > textarea::placeholder { color: var(--text-muted); opacity: 0.55; font-style: italic; }
+
+.te-input-sm { width: 110px; flex: 0 0 auto !important; }
+.te-prop-unit {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  opacity: 0.7;
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+.te-prop-hint {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.65;
+  margin-left: 8px;
+  white-space: nowrap;
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.te-prop-ctrl--with-hint { flex-wrap: wrap; }
+.te-prop-ctrl--with-hint > input { flex: 1 1 100%; }
+.te-prop-ctrl--with-hint > .te-prop-hint { flex: 1 1 100%; margin-left: 0; margin-top: 2px; }
+
+.te-prop-ctrl--inline-group { gap: 8px; }
+.te-prop-ctrl--inline-group > input { flex: 0 0 auto; }
+.te-prop-ctrl--inline-group > input.te-input-sm { width: 100px; }
+
+.te-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.te-checkbox-label input[type="checkbox"] { accent-color: var(--primary); }
+
+.te-prop-warn {
+  font-size: 0.72rem;
+  color: #f59e0b;
+  opacity: 0.85;
+}
+
+.te-prop-row--textarea { align-items: flex-start; }
+.te-prop-row--textarea .te-prop-label { padding-top: 8px; }
+
+.te-prop-hint-row {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.65;
+  padding-left: 102px;
+  margin-top: -4px;
+}
+
+/* ── WS section card (Match Criteria) ── */
+.te-section-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.te-section-header {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  padding: 8px 14px;
+  background: color-mix(in srgb, var(--bg) 60%, var(--surface));
+  border-bottom: 1px solid var(--border);
+}
+.te-section-card .te-prop-card { margin-bottom: 0; padding: 8px 6px; gap: 6px; }
+
+/* ── WS KV editor (Headers / Query Params) — professional table ── */
+.te-kv-section { margin-top: 4px; }
+.te-kv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 0;
+}
+.te-kv-header > span {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.te-kv-add-btn {
+  font-size: 0.72rem;
+  color: var(--primary);
+  background: none;
+  border: 1px solid color-mix(in srgb, var(--primary) 40%, transparent);
+  border-radius: 5px;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.te-kv-add-btn:hover {
+  background: color-mix(in srgb, var(--primary) 10%, transparent);
+  border-color: var(--primary);
+}
+.te-kv-table { margin-bottom: 2px; }
+.te-kv-cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr 28px;
+  gap: 6px;
+  padding: 0 0 4px;
+}
+.te-kv-cols > span {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: 0.7;
+}
+.te-kv-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 28px;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+.te-kv-row input {
+  padding: 6px 10px;
+  font-size: 0.8rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  transition: border-color 0.15s;
+}
+.te-kv-row input:hover { border-color: color-mix(in srgb, var(--primary) 50%, var(--border)); }
+.te-kv-row input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.te-kv-row input::placeholder { color: var(--text-muted); opacity: 0.5; font-style: italic; }
+.te-kv-remove {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1rem;
+  cursor: pointer;
+  border-radius: 4px;
+  opacity: 0.5;
+  transition: opacity 0.15s, color 0.15s, background 0.15s;
+}
+.te-kv-remove:hover { opacity: 1; color: #ef4444; background: color-mix(in srgb, #ef4444 10%, transparent); }
 
 /* ─── Params Editor (Insomnia-style) ─── */
 .params-editor {
@@ -3186,16 +3617,31 @@
 .validation-response-preview-header {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 8px;
   padding: 7px 10px;
   border-bottom: 1px solid var(--border);
   background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+}
+.validation-response-preview-header:hover {
+  background: var(--surface-hover);
+}
+.validation-response-preview--collapsed .validation-response-preview-header {
+  border-bottom: none;
+}
+.validation-response-preview-toggle {
+  font-size: 0.62rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  width: 12px;
+  text-align: center;
 }
 .validation-response-preview-title {
   font-size: 0.78rem;
   font-weight: 600;
   color: var(--text-secondary);
+  flex: 1;
 }
 .validation-response-preview-meta {
   font-size: 0.72rem;
@@ -4543,6 +4989,41 @@
   border-radius: 8px;
   overflow: auto;
   max-height: 400px;
+}
+
+/* json-diff-kit theme override — the library's default light line colors (bright
+ * amber #ffe082 for modify) are unreadable on our dark surface. Retint the diff
+ * lines with subtle, theme-aware backgrounds and keep the text at full contrast. */
+.test-def-diff-json-viewer .json-diff-viewer {
+  background: var(--bg);
+  color: var(--text);
+}
+.test-def-diff-json-viewer .json-diff-viewer pre {
+  color: var(--text);
+}
+.test-def-diff-json-viewer .json-diff-viewer td.line-number {
+  color: var(--text-muted);
+  border-right-color: var(--border);
+}
+.test-def-diff-json-viewer .json-diff-viewer tr .line-add {
+  background: rgba(34, 197, 94, 0.16);
+}
+.test-def-diff-json-viewer .json-diff-viewer tr .line-remove {
+  background: rgba(239, 68, 68, 0.16);
+}
+.test-def-diff-json-viewer .json-diff-viewer tr .line-modify {
+  background: rgba(234, 179, 8, 0.14);
+}
+/* Inline (intra-line) change highlights — stronger tint, no strike/underline noise. */
+.test-def-diff-json-viewer .json-diff-viewer pre .inline-diff-add {
+  background: rgba(34, 197, 94, 0.34);
+  color: var(--text);
+  text-decoration: none;
+}
+.test-def-diff-json-viewer .json-diff-viewer pre .inline-diff-remove {
+  background: rgba(239, 68, 68, 0.34);
+  color: var(--text);
+  text-decoration: none;
 }
 
 /* ── Structure Change Log Panel ── */

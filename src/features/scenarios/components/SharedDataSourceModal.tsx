@@ -12,6 +12,7 @@ import type { SharedDataSource, FeatureGroup, DataSource, Scenario, SharedDataSo
 import AppModalFrame from '../../../shared/components/AppModalFrame';
 import ConfirmModal from '../../../shared/components/ConfirmModal';
 import PopupModal from '../../../shared/components/PopupModal';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import SharedDsSaveConfirmModal from './SharedDsSaveConfirmModal';
 import DataSourceEditor from './DataSourceEditor';
 import { DataMapperModal, createSharedDsFetchAdapter, type SharedDsFetchOutput } from '../../../shared/components/data-mapper';
@@ -408,17 +409,18 @@ export default function SharedDataSourceModal({
 
                 {/* ─── Method + URL bar ─── */}
                 <div className="shared-ds-fetch-url-bar" ref={editorPanel.fetchUrlRowRef}>
-                  <select
+                  <CustomSelect
                     className="shared-ds-fetch-method"
                     value={selected.fetchConfig?.method ?? 'GET'}
-                    onChange={e => fetchConfig.handleFetchConfigChange({ method: e.target.value as SharedDataSourceFetchConfig['method'] })}
-                  >
-                    <option value="GET">GET</option>
-                    <option value="POST">POST</option>
-                    <option value="PUT">PUT</option>
-                    <option value="PATCH">PATCH</option>
-                    <option value="DELETE">DELETE</option>
-                  </select>
+                    onChange={(v) => fetchConfig.handleFetchConfigChange({ method: v as SharedDataSourceFetchConfig['method'] })}
+                    options={[
+                      { value: 'GET', label: 'GET' },
+                      { value: 'POST', label: 'POST' },
+                      { value: 'PUT', label: 'PUT' },
+                      { value: 'PATCH', label: 'PATCH' },
+                      { value: 'DELETE', label: 'DELETE' },
+                    ]}
+                  />
                   <input
                     className="shared-ds-fetch-url"
                     type="text"
@@ -529,18 +531,19 @@ export default function SharedDataSourceModal({
                     {/* Auth tab */}
                     {editorPanel.fetchTab === 'auth' && (
                       <div className="shared-ds-auth-tab" ref={editorPanel.fetchAuthRef}>
-                        <select
+                        <CustomSelect
                           className="shared-ds-fetch-auth-type"
                           value={selected.fetchConfig?.auth?.type ?? 'none'}
-                          onChange={e => fetchConfig.handleFetchAuthTypeChange(e.target.value as 'none' | 'inherit' | 'basic' | 'bearer' | 'apikey' | 'digest' | 'oauth2')}
-                        >
-                          <option value="inherit">Inherit</option>
-                          <option value="none">No Auth</option>
-                          <option value="bearer">Bearer Token</option>
-                          <option value="basic">Basic Auth</option>
-                          <option value="apikey">API Key</option>
-                          <option value="oauth2">OAuth2 Client Credentials</option>
-                        </select>
+                          onChange={(v) => fetchConfig.handleFetchAuthTypeChange(v as 'none' | 'inherit' | 'basic' | 'bearer' | 'apikey' | 'digest' | 'oauth2')}
+                          options={[
+                            { value: 'inherit', label: 'Inherit' },
+                            { value: 'none', label: 'No Auth' },
+                            { value: 'bearer', label: 'Bearer Token' },
+                            { value: 'basic', label: 'Basic Auth' },
+                            { value: 'apikey', label: 'API Key' },
+                            { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+                          ]}
+                        />
 
                         {(selected.fetchConfig?.auth?.type ?? 'none') === 'bearer' && (
                           <div className="shared-ds-fetch-auth-fields">
@@ -560,10 +563,15 @@ export default function SharedDataSourceModal({
                           <div className="shared-ds-fetch-auth-fields">
                             <input className="shared-ds-fetch-auth-input" type="text" placeholder="Key Name" value={selected.fetchConfig?.auth?.apiKeyName ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ apiKeyName: e.target.value })} />
                             <input className="shared-ds-fetch-auth-input" type="text" placeholder="Key Value" value={selected.fetchConfig?.auth?.apiKeyValue ?? ''} onChange={e => fetchConfig.handleFetchAuthPatch({ apiKeyValue: e.target.value })} />
-                            <select className="shared-ds-fetch-auth-type" value={selected.fetchConfig?.auth?.apiKeyIn ?? 'header'} onChange={e => fetchConfig.handleFetchAuthPatch({ apiKeyIn: e.target.value as 'header' | 'query' })}>
-                              <option value="header">Header</option>
-                              <option value="query">Query String</option>
-                            </select>
+                            <CustomSelect
+                              className="shared-ds-fetch-auth-type"
+                              value={selected.fetchConfig?.auth?.apiKeyIn ?? 'header'}
+                              onChange={(v) => fetchConfig.handleFetchAuthPatch({ apiKeyIn: v as 'header' | 'query' })}
+                              options={[
+                                { value: 'header', label: 'Header' },
+                                { value: 'query', label: 'Query String' },
+                              ]}
+                            />
                           </div>
                         )}
 
@@ -738,29 +746,26 @@ export default function SharedDataSourceModal({
           </div>
           <div className="popup-modal-field">
             <label>Target Feature Group</label>
-            <select
+            <CustomSelect
               value={createTestTargetFgId}
-              onChange={e => {
-                setCreateTestTargetFgId(e.target.value);
-                const fg = featureGroups.find(f => f.id === e.target.value);
+              onChange={(v) => {
+                setCreateTestTargetFgId(v);
+                const fg = featureGroups.find((f) => f.id === v);
                 setCreateTestTargetScId(fg?.scenarios[0]?.id ?? '');
               }}
-            >
-              {featureGroups.map(fg => (
-                <option key={fg.id} value={fg.id}>{fg.name}</option>
-              ))}
-            </select>
+              options={featureGroups.map((fg) => ({ value: fg.id, label: fg.name }))}
+            />
           </div>
           <div className="popup-modal-field">
             <label>Target Scenario</label>
-            <select
+            <CustomSelect
               value={createTestTargetScId}
-              onChange={e => setCreateTestTargetScId(e.target.value)}
-            >
-              {(featureGroups.find(f => f.id === createTestTargetFgId)?.scenarios ?? []).map(sc => (
-                <option key={sc.id} value={sc.id}>{sc.name}</option>
-              ))}
-            </select>
+              onChange={(v) => setCreateTestTargetScId(v)}
+              options={(featureGroups.find((f) => f.id === createTestTargetFgId)?.scenarios ?? []).map((sc) => ({
+                value: sc.id,
+                label: sc.name,
+              }))}
+            />
           </div>
           <div className="popup-modal-preview">
             <div className="preview-row"><span className="preview-label">Data Source:</span> {selected.name}</div>

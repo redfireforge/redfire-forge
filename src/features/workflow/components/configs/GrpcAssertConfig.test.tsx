@@ -3,6 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import GrpcAssertConfig from './GrpcAssertConfig';
 import type { GrpcAssertNodeData } from '../../types/workflow/node-grpc';
 
@@ -37,7 +38,7 @@ describe('GrpcAssertConfig', () => {
 
     expect((screen.getByTestId('grpc-assert-config-label') as HTMLInputElement).value).toBe('Assert result');
     expect((screen.getByTestId('grpc-assert-config-source') as HTMLInputElement).value).toBe('grpc-unary-1');
-    expect((screen.getByTestId('grpc-assert-config-on-error') as HTMLSelectElement).value).toBe('fail');
+    expect(screen.getByTestId('grpc-assert-config-on-error').querySelector('.cs-text')?.textContent).toBe('Fail workflow');
     expect((screen.getByTestId('grpc-assert-config-assertions') as HTMLTextAreaElement).value).toBe('[\n  {\n    "grpcStatus": 0\n  }\n]');
   });
 
@@ -48,7 +49,7 @@ describe('GrpcAssertConfig', () => {
 
     fireEvent.change(screen.getByTestId('grpc-assert-config-label'), { target: { value: 'New label' } });
     fireEvent.change(screen.getByTestId('grpc-assert-config-source'), { target: { value: 'savedAlias' } });
-    fireEvent.change(screen.getByTestId('grpc-assert-config-on-error'), { target: { value: 'continue' } });
+    selectOption(screen.getByTestId('grpc-assert-config-on-error'), 'Continue workflow');
 
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ label: 'New label' }));
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ source: 'savedAlias' }));

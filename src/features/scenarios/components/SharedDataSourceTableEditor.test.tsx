@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 import SharedDataSourceTableEditor from './SharedDataSourceTableEditor';
 import type { DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
 
@@ -166,7 +167,7 @@ describe('SharedDataSourceTableEditor', () => {
   it('changes a column type', () => {
     const onChange = vi.fn();
     render(<SharedDataSourceTableEditor dataSource={makeDs()} onChange={onChange} />);
-    fireEvent.change(screen.getAllByRole('combobox')[0], { target: { value: 'body' } });
+    selectOptionByIndex(document.body, 0, 'Body');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       columns: [expect.objectContaining({ id: 'c1', type: 'body' }), COLS[1]],
     }));

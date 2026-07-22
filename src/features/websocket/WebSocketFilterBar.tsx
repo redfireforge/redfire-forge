@@ -1,3 +1,4 @@
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import type { WsFilterPreset } from '../../shared/websocket/types';
 import type { WsSizeFilter, WsTimeFilter, WsContentTypeFilter } from './useWebSocketStudioTypes';
 
@@ -29,43 +30,46 @@ export function WebSocketFilterBar({
 }: WebSocketFilterBarProps) {
   return (
     <div className="ws-filter-bar" data-testid="filter-bar">
-      <select
+      <CustomSelect
         className="ws-filter-select"
         value={sizeFilter}
-        onChange={(e) => setSizeFilter(e.target.value as WsSizeFilter)}
+        onChange={(v) => setSizeFilter(v as WsSizeFilter)}
+        options={[
+          { value: 'all', label: 'Size: All' },
+          { value: 'lt1k', label: '< 1KB' },
+          { value: '1k-10k', label: '1–10KB' },
+          { value: 'gt10k', label: '> 10KB' },
+        ]}
         aria-label="Size filter"
         data-testid="size-filter"
-      >
-        <option value="all">Size: All</option>
-        <option value="lt1k">&lt; 1KB</option>
-        <option value="1k-10k">1–10KB</option>
-        <option value="gt10k">&gt; 10KB</option>
-      </select>
-      <select
+      />
+      <CustomSelect
         className="ws-filter-select"
         value={timeFilter}
-        onChange={(e) => setTimeFilter(e.target.value as WsTimeFilter)}
+        onChange={(v) => setTimeFilter(v as WsTimeFilter)}
+        options={[
+          { value: 'all', label: 'Time: All' },
+          { value: 'last30s', label: 'Last 30s' },
+          { value: 'last5m', label: 'Last 5m' },
+          { value: 'last30m', label: 'Last 30m' },
+        ]}
         aria-label="Time filter"
         data-testid="time-filter"
-      >
-        <option value="all">Time: All</option>
-        <option value="last30s">Last 30s</option>
-        <option value="last5m">Last 5m</option>
-        <option value="last30m">Last 30m</option>
-      </select>
-      <select
+      />
+      <CustomSelect
         className="ws-filter-select"
         value={contentTypeFilter}
-        onChange={(e) => setContentTypeFilter(e.target.value as WsContentTypeFilter)}
+        onChange={(v) => setContentTypeFilter(v as WsContentTypeFilter)}
+        options={[
+          { value: 'all', label: 'Type: All' },
+          { value: 'json', label: 'JSON' },
+          { value: 'text', label: 'Text' },
+          { value: 'binary', label: 'Binary' },
+          { value: 'control', label: 'Control' },
+        ]}
         aria-label="Content type filter"
         data-testid="content-type-filter"
-      >
-        <option value="all">Type: All</option>
-        <option value="json">JSON</option>
-        <option value="text">Text</option>
-        <option value="binary">Binary</option>
-        <option value="control">Control</option>
-      </select>
+      />
       {activeFilterCount > 0 && (
         <button
           className="ws-filter-clear-btn"

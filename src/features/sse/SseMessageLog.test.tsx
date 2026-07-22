@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { SseMessageLog } from './SseMessageLog';
 import type { SseEvent, SseStats } from './sseTypes';
 
@@ -122,7 +123,7 @@ describe('SseMessageLog', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('sse-type-filter'), { target: { value: 'delete' } });
+    selectOption(screen.getByTestId('sse-type-filter'), 'delete (1)');
     expect(screen.getAllByTestId('sse-event-row')).toHaveLength(1);
   });
 

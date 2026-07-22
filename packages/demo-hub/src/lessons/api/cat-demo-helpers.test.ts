@@ -7,8 +7,11 @@ import { makeCtx } from '../protocols/ws-test-utils';
 vi.mock('../../demoRipple', () => ({ showSpotlightRing: () => () => {} }));
 vi.mock('../../adapters', () => ({
   seedSwagger2CatalogEntry: vi.fn().mockResolvedValue('e1'),
+  seedCatalogEntry: vi.fn().mockResolvedValue('e1'),
   deleteCatalogEntryByName: vi.fn(),
   selectCatalogEntryByName: vi.fn().mockReturnValue(true),
+  addVersionByName: vi.fn().mockResolvedValue(true),
+  deleteCollectionsByName: vi.fn().mockReturnValue(0),
 }));
 
 import {

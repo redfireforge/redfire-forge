@@ -3,6 +3,7 @@
  */
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
@@ -321,12 +322,10 @@ describe('GrpcHistoryPanel coverage gaps (Phase 5H)', () => {
     fireEvent.change(screen.getByTestId('grpc-history-search'), { target: { value: 'echo' } });
     expect(setFilters).toHaveBeenCalledWith({ text: 'echo' });
 
-    fireEvent.change(screen.getByTestId('grpc-history-filter-service'), {
-      target: { value: 'echo.EchoService' },
-    });
+    selectOption(screen.getByTestId('grpc-history-filter-service'), 'echo.EchoService');
     expect(setFilters).toHaveBeenCalledWith({ service: 'echo.EchoService' });
 
-    fireEvent.change(screen.getByTestId('grpc-history-filter-status'), { target: { value: 'error' } });
+    selectOption(screen.getByTestId('grpc-history-filter-status'), 'Errors');
     expect(setFilters).toHaveBeenCalledWith({ outcome: 'error', grpcStatus: undefined });
 
     fireEvent.click(screen.getByTestId('grpc-history-clear-filtered'));

@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import WorkflowExecutionHistory from './WorkflowExecutionHistory';
 
 vi.mock('../requests/components/JsonTreePreview', () => ({
@@ -81,11 +82,9 @@ describe('WorkflowExecutionHistory — Paused Tab', () => {
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
 
-    const select = screen.getByRole('combobox');
-    expect(select).toBeTruthy();
-    // Should have Paused option
-    const options = select.querySelectorAll('option');
-    const pausedOption = [...options].find(o => o.textContent?.includes('Paused'));
+    fireEvent.click(document.querySelector('.cs-trigger')!);
+    const items = document.querySelectorAll('.cs-item');
+    const pausedOption = [...items].find(o => o.textContent?.includes('Paused'));
     expect(pausedOption).toBeTruthy();
   });
 
@@ -99,8 +98,7 @@ describe('WorkflowExecutionHistory — Paused Tab', () => {
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
 
     // Switch to paused filter
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
 
     await waitFor(() => {
       expect(screen.getByText('No paused workflows')).toBeTruthy();
@@ -116,8 +114,7 @@ describe('WorkflowExecutionHistory — Paused Tab', () => {
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
 
     await waitFor(() => {
       expect(screen.getByText('pay_123')).toBeTruthy();
@@ -134,8 +131,7 @@ describe('WorkflowExecutionHistory — Paused Tab', () => {
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
 
     await waitFor(() => {
       expect(screen.getByText('pay_123')).toBeTruthy();
@@ -154,8 +150,7 @@ describe('WorkflowExecutionHistory — Paused Tab', () => {
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
 
     await waitFor(() => {
       const btn = screen.getByTestId('exh-resume-btn');
@@ -176,8 +171,7 @@ describe('WorkflowExecutionHistory — Paused Tab', () => {
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
 
     await waitFor(() => {
       expect(screen.getByTestId('exh-resume-btn')).toBeTruthy();
@@ -200,8 +194,7 @@ describe('WorkflowExecutionHistory — Paused Tab', () => {
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
 
     await waitFor(() => {
       expect(screen.getByText('No timeout')).toBeTruthy();
@@ -217,8 +210,7 @@ describe('WorkflowExecutionHistory — Paused Tab', () => {
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
 
     await waitFor(() => {
       expect(screen.getByText('⏸ PAUSED')).toBeTruthy();
@@ -237,8 +229,7 @@ describe('WorkflowExecutionHistory — Paused Tab', () => {
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
     await waitFor(() => expect(screen.getByTestId('exh-resume-btn')).toBeTruthy());
     fireEvent.click(screen.getByTestId('exh-resume-btn'));
 
@@ -259,8 +250,7 @@ describe('WorkflowExecutionHistory — Paused Tab', () => {
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
     await waitFor(() => expect(screen.getByTestId('exh-resume-btn')).toBeTruthy());
     fireEvent.click(screen.getByTestId('exh-resume-btn'));
 
@@ -419,8 +409,7 @@ describe('WorkflowExecutionHistory — Execution List', () => {
     await waitFor(() => {
       expect(screen.getAllByText('wf-main').length).toBeGreaterThan(0);
     });
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'webhook' } });
+    selectOption(document, 'Webhooks');
     expect(screen.getAllByText('wf-main').length).toBeGreaterThan(0);
     expect(screen.queryByText('wf-other')).not.toBeInTheDocument();
   });
@@ -441,8 +430,7 @@ describe('WorkflowExecutionHistory — Execution List', () => {
     await waitFor(() => {
       expect(screen.getAllByText('wf-main').length).toBeGreaterThan(0);
     });
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: 'webhook' } });
+    selectOption(document, 'Webhooks');
     expect(screen.getByText(/2 total/)).toBeInTheDocument();
   });
 
@@ -499,7 +487,7 @@ describe('WorkflowExecutionHistory — Execution List', () => {
     });
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
     expect(screen.getByText('Loading paused workflows...')).toBeInTheDocument();
   });
 
@@ -511,7 +499,7 @@ describe('WorkflowExecutionHistory — Execution List', () => {
     });
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
     await waitFor(() => {
       expect(errSpy).toHaveBeenCalled();
     });
@@ -530,7 +518,7 @@ describe('WorkflowExecutionHistory — Execution List', () => {
     });
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
     await waitFor(() => {
       expect(screen.getByText(/2h ago/)).toBeInTheDocument();
     });
@@ -548,7 +536,7 @@ describe('WorkflowExecutionHistory — Execution List', () => {
     });
     render(<WorkflowExecutionHistory />);
     await waitFor(() => expect(screen.queryByText('Loading executions...')).toBeNull());
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'paused' } });
+    selectOption(document, 'Paused');
     await waitFor(() => {
       expect(screen.getByText('Expired')).toBeInTheDocument();
     });

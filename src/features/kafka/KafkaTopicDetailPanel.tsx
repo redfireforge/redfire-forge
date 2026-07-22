@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import type { KafkaTopicDetail } from './useTopicExplorer';
 import type { UseTopicMessageBrowserReturn } from './useTopicMessageBrowser';
 import type { TimeWindow } from './useTopicMessageBrowser';
@@ -125,21 +126,32 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
             <div className="kafka-ms-field-grid">
               <div className="kafka-ms-field">
                 <label>Time Window</label>
-                <select value={browser.draft.timeWindow} onChange={(e) => browser.setDraft({ timeWindow: e.target.value as TimeWindow })}>
-                  <option value="latest">Latest</option>
-                  <option value="last-1h">Last 1 Hour</option>
-                  <option value="last-24h">Last 24 Hours</option>
-                  <option value="earliest">Earliest</option>
-                </select>
+                <CustomSelect
+                  value={browser.draft.timeWindow}
+                  onChange={(v) => browser.setDraft({ timeWindow: v as TimeWindow })}
+                  options={[
+                    { value: 'latest', label: 'Latest' },
+                    { value: 'last-1h', label: 'Last 1 Hour' },
+                    { value: 'last-24h', label: 'Last 24 Hours' },
+                    { value: 'earliest', label: 'Earliest' },
+                  ]}
+                  aria-label="Time Window"
+                />
               </div>
               <div className="kafka-ms-field">
                 <label>Partition</label>
-                <select value={browser.draft.partition} onChange={(e) => browser.setDraft({ partition: e.target.value })}>
-                  <option value="">Any</option>
-                  {detail.partitions.map((p) => (
-                    <option key={p.partitionId} value={String(p.partitionId)}>{p.partitionId}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  value={browser.draft.partition}
+                  onChange={(v) => browser.setDraft({ partition: v })}
+                  options={[
+                    { value: '', label: 'Any' },
+                    ...detail.partitions.map((p) => ({
+                      value: String(p.partitionId),
+                      label: String(p.partitionId),
+                    })),
+                  ]}
+                  aria-label="Partition"
+                />
               </div>
             </div>
             <div className="kafka-ms-field-grid">
@@ -169,14 +181,16 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
               </div>
               <div className="kafka-ms-field">
                 <label>Sort Order</label>
-                <select
+                <CustomSelect
                   value={browser.draft.sortOrder}
-                  onChange={(e) => browser.setDraft({ sortOrder: e.target.value as 'asc' | 'desc' })}
+                  onChange={(v) => browser.setDraft({ sortOrder: v as 'asc' | 'desc' })}
                   data-testid="detail-sort-order"
-                >
-                  <option value="asc">Oldest First</option>
-                  <option value="desc">Newest First</option>
-                </select>
+                  options={[
+                    { value: 'asc', label: 'Oldest First' },
+                    { value: 'desc', label: 'Newest First' },
+                  ]}
+                  aria-label="Sort Order"
+                />
               </div>
             </div>
 

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import type { GlobalAuthProfile, Microservice, ProtocolKey } from '../../../../shared/types';
 import {
   PROTOCOL_TABS,
@@ -22,17 +23,16 @@ export function AuthSelect({
   onSetAuthProfile: (envId: string, profileId: string | undefined) => void;
 }) {
   return (
-    <select
+    <CustomSelect
       className="env-auth-select"
       aria-label="Auth profile"
       value={svc.authProfileIds?.[envId] ?? ''}
-      onChange={(e) => onSetAuthProfile(envId, e.target.value || undefined)}
-    >
-      <option value="">No Auth</option>
-      {profiles.map((p) => (
-        <option key={p.id} value={p.id}>{p.name} ({p.auth.type})</option>
-      ))}
-    </select>
+      onChange={(v) => onSetAuthProfile(envId, v || undefined)}
+      options={[
+        { value: '', label: 'No Auth' },
+        ...profiles.map((p) => ({ value: p.id, label: `${p.name} (${p.auth.type})` })),
+      ]}
+    />
   );
 }
 

@@ -3,6 +3,7 @@
  */
 import { fireEvent, render } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { GrpcConsoleModal, type GrpcConsoleWireEvent } from './GrpcConsoleModal';
 
 function makeMultiEvents(): GrpcConsoleWireEvent[] {
@@ -196,7 +197,7 @@ describe('GrpcConsoleModal coverage gaps', () => {
     const descList = getByTestId('grpc-console-wire-list').textContent ?? '';
     expect(descList.indexOf('Alpha')).toBeGreaterThanOrEqual(0);
 
-    fireEvent.change(getByTestId('grpc-console-sort-order'), { target: { value: 'asc' } });
+    selectOption(getByTestId('grpc-console-sort-order'), 'Time: Asc');
     const ascList = getByTestId('grpc-console-wire-list').textContent ?? '';
     expect(ascList.indexOf('Alpha')).toBeGreaterThanOrEqual(0);
   });

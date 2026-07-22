@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import TestEditorValidationTab from './TestEditorValidationTab';
 import { makeDraft, makeProps } from './TestEditorValidationTab.test-utils';
 import { Assertion, Scenario } from '../../../shared/types';
@@ -206,7 +207,8 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      fireEvent.change(screen.getByDisplayValue('today'), { target: { value: 'today' } });
+      const row = screen.getByText('DATE').closest('.assertion-row')!;
+      selectOption(row.querySelector('.cs-wrapper')!, 'today');
       expect(onDraftChange).toHaveBeenCalledWith(
         expect.objectContaining({
           validation: expect.objectContaining({
@@ -226,7 +228,8 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      fireEvent.change(screen.getByDisplayValue('fixed date'), { target: { value: 'fixed' } });
+      const row = screen.getByText('DATE').closest('.assertion-row')!;
+      selectOption(row.querySelector('.cs-wrapper')!, 'fixed date');
       expect(onDraftChange).toHaveBeenCalledWith(
         expect.objectContaining({
           validation: expect.objectContaining({
