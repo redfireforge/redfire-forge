@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import KafkaProduceConfig from './KafkaProduceConfig';
 import type { KafkaProduceNodeData } from '../../types/workflow';
 
@@ -66,9 +67,9 @@ describe('KafkaProduceConfig', () => {
 
   it('updates ack mode dropdown', () => {
     const onChange = vi.fn();
-    render(<KafkaProduceConfig data={makeData()} onChange={onChange} variableHints={[]} />);
+    const { container } = render(<KafkaProduceConfig data={makeData()} onChange={onChange} variableHints={[]} />);
 
-    fireEvent.change(screen.getByDisplayValue('All'), { target: { value: 'leader' } });
+    selectOption(container, 'Leader');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ ackMode: 'leader' }));
   });
 
@@ -139,10 +140,11 @@ describe('KafkaProduceConfig', () => {
   });
 
   it('updates output binding source', () => {
-    render(<Host initial={makeData({ outputBindings: [{ id: 'b1', source: 'topic', targetVariable: 'myVar', enabled: true }] })} />);
+    const { container } = render(<Host initial={makeData({ outputBindings: [{ id: 'b1', source: 'topic', targetVariable: 'myVar', enabled: true }] })} />);
 
-    fireEvent.change(screen.getByDisplayValue('topic'), { target: { value: 'offset' } });
-    expect(screen.getByDisplayValue('offset')).toBeTruthy();
+    const section = container.querySelector('[data-testid="output-bindings-section"]')!;
+    selectOption(section, 'offset');
+    expect(getCustomSelectValue(section)).toBe('offset');
   });
 
   it('updates output binding targetVariable', () => {

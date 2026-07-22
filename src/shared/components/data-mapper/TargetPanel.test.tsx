@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import TargetPanel from './TargetPanel';
 import { MapperTarget, Mapping } from './types';
 const target: MapperTarget = {
@@ -123,7 +124,7 @@ describe('TargetPanel', () => {
 
   it('filters to mapped target fields only and shows mapped/unmapped counts', () => {
     renderPanel({ mappings: [mapping] });
-    fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'mapped' } });
+    selectOption(screen.getByLabelText('Filter target fields').closest('.cs-wrapper')!, 'Mapped');
     expect(screen.getByText('userName')).toBeTruthy();
     expect(screen.queryByText('email')).toBeNull();
     expect(screen.getByText('1 mapped / 2 unmapped')).toBeTruthy();
@@ -131,7 +132,7 @@ describe('TargetPanel', () => {
 
   it('filters to unmapped target fields only', () => {
     renderPanel({ mappings: [mapping] });
-    fireEvent.change(screen.getByLabelText('Filter target fields'), { target: { value: 'unmapped' } });
+    selectOption(screen.getByLabelText('Filter target fields').closest('.cs-wrapper')!, 'Unmapped');
     expect(screen.getByText('email')).toBeTruthy();
     expect(screen.queryByText('userName')).toBeNull();
   });

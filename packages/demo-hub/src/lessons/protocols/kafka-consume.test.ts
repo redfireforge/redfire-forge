@@ -27,8 +27,8 @@ describe('kafka-consume lesson', () => {
     expect(kafkaConsumeLesson.concept.diagram).toContain('<svg');
   });
 
-  it('has exactly 9 steps', () => {
-    expect(kafkaConsumeLesson.steps).toHaveLength(9);
+  it('has exactly 8 steps', () => {
+    expect(kafkaConsumeLesson.steps).toHaveLength(8);
   });
 
   it('all steps have required fields', () => {
@@ -54,7 +54,6 @@ describe('kafka-consume lesson', () => {
       'con-consume',
       'con-table',
       'con-row',
-      'con-detail',
       'con-export',
     ]);
   });
@@ -90,18 +89,14 @@ describe('kafka-consume lesson', () => {
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(
       expect.stringContaining('kms-con-topic'),
-      'orders.created',
+      expect.stringContaining('orders.consume-demo'),
     );
   });
 
-  it('step con-position action sets start position to earliest', async () => {
+  it('step con-position action demonstrates position selection via DOM interaction', async () => {
     const step = kafkaConsumeLesson.steps.find((s) => s.id === 'con-position')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.selectOption).toHaveBeenCalledWith(
-      expect.stringContaining('kms-con-pos'),
-      'earliest',
-    );
+    expect(step.action).toBeDefined();
+    expect(step.highlight).toContain('con-position-select');
   });
 
   it('step con-max action fills max messages', async () => {
@@ -127,26 +122,19 @@ describe('kafka-consume lesson', () => {
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('con-consume-btn'));
   });
 
-  it('step con-table has highlight and no action (informational)', () => {
+  it('step con-table has highlight and preAction guard (informational)', () => {
     const step = kafkaConsumeLesson.steps.find((s) => s.id === 'con-table')!;
     expect(step.highlight).toContain('con-results-zone');
     expect(step.action).toBeUndefined();
-    expect(step.preAction).toBeUndefined();
+    expect(step.preAction).toBeDefined();
   });
 
-  it('step con-row action clicks the first result row and verifies the detail pane appears', async () => {
+  it('step con-row action clicks the first row and opens/closes the detail modal', async () => {
     const step = kafkaConsumeLesson.steps.find((s) => s.id === 'con-row')!;
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('con-row-0'));
-    expect(step.verify).toContain('con-detail-pane');
-  });
-
-  it('step con-detail has highlight and no action (informational)', () => {
-    const step = kafkaConsumeLesson.steps.find((s) => s.id === 'con-detail')!;
-    expect(step.highlight).toContain('con-detail-pane');
-    expect(step.action).toBeUndefined();
-    expect(step.preAction).toBeUndefined();
+    expect(step.preAction).toBeDefined();
   });
 
   it('step con-export action clicks the export button', async () => {

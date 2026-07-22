@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import { ConsolePanel } from './ConsolePanel';
 import { WS_CONSOLE_DEFAULT_SETTINGS, type WsConsoleEntry, type WsConsoleSettings } from './wsConsoleTypes';
@@ -157,7 +158,7 @@ describe('ConsolePanel', () => {
 
   it('changes the category filter via the select', () => {
     const { onSettingsChange } = renderPanel();
-    fireEvent.change(screen.getByTestId('ws-console-category'), { target: { value: 'reconnect' } });
+    selectOption(screen.getByTestId('ws-console-category'), 'Reconnect');
     expect(onSettingsChange).toHaveBeenCalledWith(expect.objectContaining({ categoryFilter: 'reconnect' }));
   });
 

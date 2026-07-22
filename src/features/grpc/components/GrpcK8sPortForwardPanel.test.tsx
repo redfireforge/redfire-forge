@@ -3,6 +3,7 @@
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { GrpcK8sPortForwardPanel } from './GrpcK8sPortForwardPanel';
 import { DEFAULT_GRPC_K8S_PORT_FORWARD_CONFIG } from '../utils/grpcK8sPortForward';
 
@@ -114,9 +115,9 @@ describe('GrpcK8sPortForwardPanel', () => {
       />,
     );
     const namespace = screen.getByTestId('grpc-k8s-namespace') as HTMLInputElement;
-    const targetType = screen.getByTestId('grpc-k8s-target-type') as HTMLSelectElement;
+    const targetType = screen.getByTestId('grpc-k8s-target-type');
     expect(namespace.disabled).toBe(true);
-    expect(targetType.disabled).toBe(true);
+    expect(targetType.querySelector('.cs-trigger')).toHaveProperty('disabled', true);
   });
 
   it('updates config when inactive and ignores invalid port input', () => {
@@ -128,7 +129,7 @@ describe('GrpcK8sPortForwardPanel', () => {
       />,
     );
     fireEvent.change(screen.getByTestId('grpc-k8s-namespace'), { target: { value: 'staging' } });
-    fireEvent.change(screen.getByTestId('grpc-k8s-target-type'), { target: { value: 'deployment' } });
+    selectOption(screen.getByTestId('grpc-k8s-target-type'), 'deployment');
     fireEvent.change(screen.getByTestId('grpc-k8s-name'), { target: { value: 'api' } });
     fireEvent.change(screen.getByTestId('grpc-k8s-remote-port'), { target: { value: '9090' } });
     fireEvent.change(screen.getByTestId('grpc-k8s-context'), { target: { value: 'minikube' } });

@@ -14,6 +14,7 @@ import {
   type ForkJoinTopology,
 } from '../utils/forkJoinDetection';
 import OverviewTab from './DetailOverviewTab';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 type TabId = 'overview' | 'request' | 'response' | 'variables' | 'assertions';
 
@@ -123,20 +124,18 @@ export default function ResultsExplorerDetailPanel({
         {/* Iteration selector */}
         {iterations.length > 1 && (
           <div className="explorer-detail-iteration-select">
-            <select
-              value={selectedIteration === undefined ? 'all' : selectedIteration}
-              onChange={(e) => {
-                const val = e.target.value;
-                onIterationChange(val === 'all' ? undefined : Number(val));
-              }}
-            >
-              <option value="all">All Iterations (Aggregate)</option>
-              {iterations.map((iter) => (
-                <option key={iter.index} value={iter.index}>
-                  #{iter.index + 1} — {iter.passed ? '✓' : '✗'} {formatDurationMs(iter.durationMs)}
-                </option>
-              ))}
-            </select>
+            <CustomSelect
+              value={selectedIteration === undefined ? 'all' : String(selectedIteration)}
+              onChange={(v) => onIterationChange(v === 'all' ? undefined : Number(v))}
+              options={[
+                { value: 'all', label: 'All Iterations (Aggregate)' },
+                ...iterations.map((iter) => ({
+                  value: String(iter.index),
+                  label: `#${iter.index + 1} — ${iter.passed ? '✓' : '✗'} ${formatDurationMs(iter.durationMs)}`,
+                })),
+              ]}
+              size="sm"
+            />
           </div>
         )}
       </div>

@@ -9,6 +9,7 @@ vi.mock('../../adapters', () => ({
   seedSwagger2CatalogEntry: vi.fn().mockResolvedValue('e1'),
   deleteCatalogEntryByName: vi.fn(),
   selectCatalogEntryByName: vi.fn().mockReturnValue(true),
+  deleteCollectionsByName: vi.fn().mockReturnValue(0),
 }));
 
 import { catConvertOpenApiLesson } from './cat-convert-openapi';
@@ -26,24 +27,21 @@ describe('cat-convert-openapi lesson', () => {
     expect(catConvertOpenApiLesson.category).toBe('catalog');
     expect(catConvertOpenApiLesson.initialTab).toBe('catalog');
     expect(catConvertOpenApiLesson.allowedTabs).toEqual(['catalog']);
-    expect(catConvertOpenApiLesson.estimatedMinutes).toBe(5);
+    expect(catConvertOpenApiLesson.estimatedMinutes).toBe(4);
   });
 
   it('is registered in the catalog lessons barrel', () => {
     expect(catalogLessons).toContain(catConvertOpenApiLesson);
   });
 
-  it('has the 8 convert steps in order, each with a preAction', () => {
+  it('has 5 consolidated convert steps in order, each with a preAction', () => {
     const ids = catConvertOpenApiLesson.steps.map((s) => s.id);
     expect(ids).toEqual([
-      'cat-convert-select',
-      'cat-convert-open',
-      'cat-convert-engine',
-      'cat-convert-target',
-      'cat-convert-search',
-      'cat-convert-lint',
-      'cat-convert-preview',
-      'cat-convert-save',
+      'cat5-swagger-badge',
+      'cat5-convert-open',
+      'cat5-lint-search',
+      'cat5-prettify',
+      'cat5-save',
     ]);
     for (const step of catConvertOpenApiLesson.steps) {
       expect(step.preAction).toBeTypeOf('function');

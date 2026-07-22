@@ -5,6 +5,7 @@
 import type { Scenario } from '../../../shared/types';
 import type { PathSegmentChoice } from '../utils/csvTemplateTypes';
 import { sanitizeVariableName } from '../utils/dataSourceSetupUtils';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 interface HeaderCandidate {
   key: string;
@@ -237,18 +238,19 @@ export default function SetupStepVariables({
           </div>
           <div className="step-section-body">
             <div className="csv-auth-config">
-              <select
+              <CustomSelect
                 className="csv-auth-select"
                 value={workingAuth.type}
-                onChange={(e) => setWorkingAuthType(e.target.value as Scenario['auth']['type'])}
-              >
-                <option value="inherit">Inherit</option>
-                <option value="none">No Auth</option>
-                <option value="bearer">Bearer Token</option>
-                <option value="basic">Basic Auth</option>
-                <option value="apikey">API Key</option>
-                <option value="oauth2">OAuth2 Client Credentials</option>
-              </select>
+                onChange={(v) => setWorkingAuthType(v as Scenario['auth']['type'])}
+                options={[
+                  { value: 'inherit', label: 'Inherit' },
+                  { value: 'none', label: 'No Auth' },
+                  { value: 'bearer', label: 'Bearer Token' },
+                  { value: 'basic', label: 'Basic Auth' },
+                  { value: 'apikey', label: 'API Key' },
+                  { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+                ]}
+              />
 
               {workingAuth.type === 'bearer' && (
                 <div className="csv-auth-fields">
@@ -304,14 +306,15 @@ export default function SetupStepVariables({
                     value={workingAuth.apiKeyValue ?? ''}
                     onChange={(e) => patchWorkingAuth({ apiKeyValue: e.target.value })}
                   />
-                  <select
+                  <CustomSelect
                     className="csv-auth-select"
                     value={workingAuth.apiKeyIn ?? 'header'}
-                    onChange={(e) => patchWorkingAuth({ apiKeyIn: e.target.value as 'header' | 'query' })}
-                  >
-                    <option value="header">Header</option>
-                    <option value="query">Query String</option>
-                  </select>
+                    onChange={(v) => patchWorkingAuth({ apiKeyIn: v as 'header' | 'query' })}
+                    options={[
+                      { value: 'header', label: 'Header' },
+                      { value: 'query', label: 'Query String' },
+                    ]}
+                  />
                 </div>
               )}
 

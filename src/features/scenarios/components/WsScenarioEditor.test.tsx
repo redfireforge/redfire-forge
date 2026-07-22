@@ -2,6 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOption, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import WsScenarioEditor from './WsScenarioEditor';
 import type { Scenario } from '../../../shared/types';
 import { createDefaultWsConnectAction, createDefaultWsSendAction, createDefaultWsReceiveAction } from '../../../shared/utils/wsScenarioDefaults';
@@ -116,20 +117,19 @@ describe('WsScenarioEditor', () => {
 
     it('renders connection ref dropdown with sibling connect tests', () => {
       render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[siblingConnectTest, sendDraft]} />);
-      const select = screen.getByLabelText('Connection reference');
-      expect(select).toBeInTheDocument();
-      expect(screen.getByText('Open Chat')).toBeInTheDocument();
+      const connRef = screen.getByLabelText('Connection reference').closest('.cs-wrapper')!;
+      expect(connRef).toBeInTheDocument();
+      expect(getCustomSelectOptionLabels(connRef)).toContain('Open Chat');
     });
 
     it('shows manual input warning when no connect tests exist', () => {
       render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[sendDraft]} />);
-      expect(screen.getByText(/No wsConnect tests found/)).toBeInTheDocument();
+      expect(screen.getByText(/No wsConnect tests in this scenario/)).toBeInTheDocument();
     });
 
     it('renders format selector with text/binary options', () => {
       render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      const select = screen.getByLabelText('Message type');
-      expect(select).toHaveValue('text');
+      expect(getCustomSelectValue(screen.getByLabelText('Message type').closest('.cs-wrapper')!)).toBe('Text');
     });
 
     it('renders wait-for-response checkbox', () => {
@@ -175,7 +175,7 @@ describe('WsScenarioEditor', () => {
 
     it('renders match criteria fieldset', () => {
       render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      expect(screen.getByText('Match Criteria (optional)')).toBeInTheDocument();
+      expect(screen.getByText('Match Criteria')).toBeInTheDocument();
     });
 
     it('renders content contains input', () => {
@@ -196,7 +196,7 @@ describe('WsScenarioEditor', () => {
 
     it('renders frame type selector', () => {
       render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      expect(screen.getByLabelText('Frame type filter')).toHaveValue('any');
+      expect(getCustomSelectValue(screen.getByLabelText('Frame type filter').closest('.cs-wrapper')!)).toBe('Any');
     });
 
     it('calls onDraftChange when match criteria content changes', () => {
@@ -238,7 +238,8 @@ describe('WsScenarioEditor', () => {
         wsSendAction: createDefaultWsSendAction(),
       });
       render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[connectTest, sendDraft]} />);
-      expect(screen.getByText('Open Chat')).toBeInTheDocument();
+      const connRef = screen.getByLabelText('Connection reference').closest('.cs-wrapper')!;
+      expect(getCustomSelectOptionLabels(connRef)).toContain('Open Chat');
     });
 
     it('excludes connect tests without connectionId from dropdown', () => {
@@ -265,7 +266,7 @@ describe('WsScenarioEditor', () => {
         wsSendAction: createDefaultWsSendAction(),
       });
       render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[sendDraft]} />);
-      expect(screen.getByText(/No wsConnect tests found/)).toBeInTheDocument();
+      expect(screen.getByText(/No wsConnect tests in this scenario/)).toBeInTheDocument();
     });
   });
 
@@ -293,7 +294,7 @@ describe('WsScenarioEditor', () => {
         wsConnectAction: { ...createDefaultWsConnectAction(), headers: [{ key: 'Auth', value: 'token' }] },
       });
       render(<WsScenarioEditor draft={draft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      const inputs = screen.getAllByPlaceholderText('Headers name');
+      const inputs = screen.getAllByPlaceholderText('name');
       fireEvent.change(inputs[0], { target: { value: 'X-Custom' } });
       expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
         wsConnectAction: expect.objectContaining({
@@ -308,7 +309,7 @@ describe('WsScenarioEditor', () => {
         wsConnectAction: { ...createDefaultWsConnectAction(), headers: [{ key: 'Auth', value: 'old' }] },
       });
       render(<WsScenarioEditor draft={draft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      const inputs = screen.getAllByPlaceholderText('Headers value');
+      const inputs = screen.getAllByPlaceholderText('value');
       fireEvent.change(inputs[0], { target: { value: 'new' } });
       expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
         wsConnectAction: expect.objectContaining({
@@ -418,7 +419,7 @@ describe('WsScenarioEditor', () => {
         wsSendAction: createDefaultWsSendAction(),
       });
       render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[connectTest, sendDraft]} />);
-      fireEvent.change(screen.getByLabelText('Connection reference'), { target: { value: 'chat' } });
+      selectOption(screen.getByLabelText('Connection reference').closest('.cs-wrapper')!, 'Open Chat');
       expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
         wsSendAction: expect.objectContaining({ connectionRef: 'chat' }),
       }));
@@ -430,7 +431,7 @@ describe('WsScenarioEditor', () => {
         wsSendAction: createDefaultWsSendAction(),
       });
       render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      fireEvent.change(screen.getByLabelText('Message type'), { target: { value: 'binary' } });
+      selectOption(screen.getByLabelText('Message type').closest('.cs-wrapper')!, 'Binary');
       expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
         wsSendAction: expect.objectContaining({ messageType: 'binary' }),
       }));
@@ -498,7 +499,7 @@ describe('WsScenarioEditor', () => {
         wsReceiveAction: createDefaultWsReceiveAction(),
       });
       render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[connectTest, receiveDraft]} />);
-      fireEvent.change(screen.getByLabelText('Connection reference'), { target: { value: 'chat' } });
+      selectOption(screen.getByLabelText('Connection reference').closest('.cs-wrapper')!, 'Open Chat');
       expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
         wsReceiveAction: expect.objectContaining({ connectionRef: 'chat' }),
       }));
@@ -564,7 +565,7 @@ describe('WsScenarioEditor', () => {
         wsReceiveAction: createDefaultWsReceiveAction(),
       });
       render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      fireEvent.change(screen.getByLabelText('Frame type filter'), { target: { value: 'text' } });
+      selectOption(screen.getByLabelText('Frame type filter').closest('.cs-wrapper')!, 'Text');
       expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
         wsReceiveAction: expect.objectContaining({
           matchCriteria: expect.objectContaining({ messageType: 'text' }),
@@ -578,7 +579,7 @@ describe('WsScenarioEditor', () => {
         wsReceiveAction: { ...createDefaultWsReceiveAction(), matchCriteria: { messageType: 'text' } },
       });
       render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      fireEvent.change(screen.getByLabelText('Frame type filter'), { target: { value: 'any' } });
+      selectOption(screen.getByLabelText('Frame type filter').closest('.cs-wrapper')!, 'Any');
       expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
         wsReceiveAction: expect.objectContaining({
           matchCriteria: expect.objectContaining({ messageType: undefined }),
@@ -670,7 +671,7 @@ describe('WsScenarioEditor', () => {
         wsSendAction: createDefaultWsSendAction(),
       });
       render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[connectTest, sendDraft]} />);
-      expect(screen.getByText('fallback-id')).toBeInTheDocument();
+      expect(getCustomSelectOptionLabels(screen.getByLabelText('Connection reference').closest('.cs-wrapper')!)).toContain('fallback-id');
     });
 
     it('clears subprotocols to undefined', () => {
@@ -736,7 +737,7 @@ describe('WsScenarioEditor', () => {
         wsSendAction: { ...createDefaultWsSendAction(), connectionRef: 'chat' },
       });
       render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[connectTest, sendDraft]} />);
-      fireEvent.change(screen.getByLabelText('Connection reference'), { target: { value: '' } });
+      selectOption(screen.getByLabelText('Connection reference').closest('.cs-wrapper')!, '— select a connection —');
       expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
         wsSendAction: expect.objectContaining({ connectionRef: undefined }),
       }));
@@ -760,7 +761,7 @@ describe('WsScenarioEditor', () => {
         wsSendAction: { ...createDefaultWsSendAction(), messageType: undefined },
       });
       render(<WsScenarioEditor draft={sendDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      expect(screen.getByLabelText('Message type')).toHaveValue('text');
+      expect(getCustomSelectValue(screen.getByLabelText('Message type').closest('.cs-wrapper')!)).toBe('Text');
     });
 
     it('unchecks wait-for-response', () => {
@@ -814,7 +815,7 @@ describe('WsScenarioEditor', () => {
         wsReceiveAction: { ...createDefaultWsReceiveAction(), connectionRef: 'chat' },
       });
       render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[connectTest, receiveDraft]} />);
-      fireEvent.change(screen.getByLabelText('Connection reference'), { target: { value: '' } });
+      selectOption(screen.getByLabelText('Connection reference').closest('.cs-wrapper')!, '— select a connection —');
       expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
         wsReceiveAction: expect.objectContaining({ connectionRef: undefined }),
       }));
@@ -847,7 +848,7 @@ describe('WsScenarioEditor', () => {
         wsReceiveAction: createDefaultWsReceiveAction(),
       });
       render(<WsScenarioEditor draft={receiveDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      fireEvent.change(screen.getByLabelText('Frame type filter'), { target: { value: 'binary' } });
+      selectOption(screen.getByLabelText('Frame type filter').closest('.cs-wrapper')!, 'Binary');
       expect(mockOnDraftChange).toHaveBeenCalledWith(expect.objectContaining({
         wsReceiveAction: expect.objectContaining({
           matchCriteria: expect.objectContaining({ messageType: 'binary' }),

@@ -4,6 +4,7 @@
 import { type ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, selectOptionByIndex, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
 import DataSourceEditor from './DataSourceEditor';
 import {
   makeScenario,
@@ -359,9 +360,8 @@ describe('DataSourceEditor', () => {
 
     it('changes distribution strategy', () => {
       const onChange = vi.fn();
-      render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={onChange} />);
-      const select = screen.getByTitle('Row distribution strategy');
-      fireEvent.change(select, { target: { value: 'random' } });
+      const { container } = render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={onChange} />);
+      selectOption(container, 'Random');
       const updated = onChange.mock.calls[0][0] as Scenario;
       expect(updated.dataSource!.distribution).toBe('random');
     });
@@ -425,8 +425,7 @@ describe('DataSourceEditor', () => {
     it('changes column type', () => {
       const onChange = vi.fn();
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={onChange} />);
-      const typeSelects = screen.getAllByTitle('Column type');
-      fireEvent.change(typeSelects[0], { target: { value: 'header' } });
+      selectOption(screen.getAllByLabelText('Column type')[0].closest('.cs-wrapper')!, 'Header');
       const updated = onChange.mock.calls[0][0] as Scenario;
       expect(updated.dataSource!.columns[0].type).toBe('header');
     });
@@ -526,15 +525,14 @@ describe('DataSourceEditor', () => {
     it('links a shared data source via select', () => {
       const shared = makeSharedDs();
       const onChange = vi.fn();
-      render(
+      const { container } = render(
         <DataSourceEditor
           draft={makeScenario({ dataSource: makeDataSource() })}
           onDraftChange={onChange}
           sharedDataSources={[shared]}
         />
       );
-      const select = screen.getByTitle('Link to a shared data source');
-      fireEvent.change(select, { target: { value: 'shared-1' } });
+      selectOptionByIndex(container, 0, 'Shared Users (2 rows)');
       expect(onChange).toHaveBeenCalled();
       const updated = onChange.mock.calls[0][0] as Scenario;
       expect(updated.sharedDataSourceId).toBe('shared-1');

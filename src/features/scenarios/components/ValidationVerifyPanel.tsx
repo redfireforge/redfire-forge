@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { FailureDetail } from '../../../shared/types';
 import { highlightJsonHtml } from '../../../shared/utils/jsonHighlightHtml';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { prettyJson } from '../../../shared/utils/helpers';
 
 interface ValidationResultData {
@@ -66,16 +67,18 @@ export default function ValidationVerifyPanel({
         >
           {validating ? 'Validating...' : 'Verify'}
         </button>
-        <select
-          className="assertion-select verify-scope-select"
-          value={verifyScope}
-          onChange={(e) => onVerifyScopeChange(e.target.value as 'assertions' | 'rules' | 'all')}
-          style={expectedFieldCount === 0 ? { display: 'none' } : undefined}
-        >
-          <option value="all">All</option>
-          <option value="assertions">Assertions Only</option>
-          <option value="rules">Validation Rules Only</option>
-        </select>
+        <div style={expectedFieldCount === 0 ? { display: 'none' } : undefined}>
+          <CustomSelect
+            className="assertion-select verify-scope-select"
+            value={verifyScope}
+            onChange={(v) => onVerifyScopeChange(v as 'assertions' | 'rules' | 'all')}
+            options={[
+              { value: 'all', label: 'All' },
+              { value: 'assertions', label: 'Assertions Only' },
+              { value: 'rules', label: 'Validation Rules Only' },
+            ]}
+          />
+        </div>
         <label className="checkbox-label fetch-host-toggle">
           <input
             type="checkbox"

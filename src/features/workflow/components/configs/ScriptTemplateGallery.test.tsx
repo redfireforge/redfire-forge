@@ -68,7 +68,7 @@ describe('ScriptTemplateGallery', () => {
 
   it('calls onClose when close button is clicked', () => {
     render(<ScriptTemplateGallery onSelect={onSelect} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText('Close'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalled();
   });
 

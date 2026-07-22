@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import type { GraphqlSchemaInfo } from '../../../../shared/types/graphql';
 import type { BuilderFieldDirectives, BuilderFragment, BuilderState, FieldPath } from '../../hooks/useGraphqlQueryBuilder';
 import {
@@ -559,16 +560,15 @@ function FragmentSection({
             data-testid="gql-qb-frag-name-input"
           />
           {objectTypeNames.length > 0 ? (
-            <select
+            <CustomSelect
               className="gql-qb-frag-type-select"
               value={newType}
-              onChange={(e) => { setNewType(e.target.value); setError(''); }}
+              onChange={(v) => { setNewType(v); setError(''); }}
+              options={objectTypeNames.map((t) => ({ value: t, label: t }))}
+              placeholder="On type…"
               aria-label="Fragment on type"
               data-testid="gql-qb-frag-type-select"
-            >
-              <option value="">On type…</option>
-              {objectTypeNames.map((t) => <option key={t} value={t}>{t}</option>)}
-            </select>
+            />
           ) : (
             <input
               type="text"

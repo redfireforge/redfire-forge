@@ -38,6 +38,7 @@ function getLevel(t: SlaTarget): SlaLevel {
 
 import { validateRow, METRIC_OPTIONS } from './slaEditorUtils';
 import type { RowError } from './slaEditorUtils';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 // ── Target Editor ──
 
@@ -108,17 +109,16 @@ export function SlaTargetEditor({ draft, onChange, onSave, onCancel, saving, sce
               return (
                 <tr key={t.id}>
                   <td>
-                    <select
+                    <CustomSelect
                       className="sla-editor-select"
                       value={t.metric}
-                      onChange={(e) => updateRow(idx, { metric: e.target.value as SlaMetric })}
-                    >
-                      {METRIC_OPTIONS.map((m) => (
-                        <option key={m} value={m}>
-                          {SLA_METRIC_LABELS[m]}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(v) => updateRow(idx, { metric: v as SlaMetric })}
+                      options={METRIC_OPTIONS.map((m) => ({
+                        value: m,
+                        label: SLA_METRIC_LABELS[m],
+                      }))}
+                      size="sm"
+                    />
                   </td>
                   <td>
                     <span className="sla-operator-display">
@@ -168,11 +168,11 @@ export function SlaTargetEditor({ draft, onChange, onSave, onCancel, saving, sce
                     />
                   </td>
                   <td className="sla-scope-cell">
-                    <select
+                    <CustomSelect
                       className="sla-level-select"
                       value={getLevel(t)}
-                      onChange={(e) => {
-                        const newLevel = e.target.value as SlaLevel;
+                      onChange={(v) => {
+                        const newLevel = v as SlaLevel;
                         if (newLevel === 'aggregate') {
                           updateRow(idx, { scenarioName: undefined, featureGroupName: undefined });
                         } else if (newLevel === 'scenario') {
@@ -181,13 +181,15 @@ export function SlaTargetEditor({ draft, onChange, onSave, onCancel, saving, sce
                           updateRow(idx, { featureGroupName: (featureGroupNames ?? [])[0] ?? '', scenarioName: undefined });
                         }
                       }}
-                    >
-                      <option value="aggregate">Aggregate</option>
-                      <option value="scenario">Scenario</option>
-                      {(featureGroupNames ?? []).length > 0 && (
-                        <option value="feature">Feature Group</option>
-                      )}
-                    </select>
+                      options={[
+                        { value: 'aggregate', label: 'Aggregate' },
+                        { value: 'scenario', label: 'Scenario' },
+                        ...(featureGroupNames ?? []).length > 0
+                          ? [{ value: 'feature', label: 'Feature Group' }]
+                          : [],
+                      ]}
+                      size="sm"
+                    />
                     {(() => {
                       const level = getLevel(t);
 
@@ -195,18 +197,15 @@ export function SlaTargetEditor({ draft, onChange, onSave, onCancel, saving, sce
                         const scenarioName = t.scenarioName as string;
                         const scenarioOptions = [...new Set([scenarioName, ...scenarioNames])];
                         return (
-                          <select
+                          <CustomSelect
                             className="sla-name-select"
                             value={scenarioName}
-                            onChange={(e) =>
-                              updateRow(idx, { scenarioName: e.target.value || undefined })
+                            onChange={(v) =>
+                              updateRow(idx, { scenarioName: v || undefined })
                             }
-                          >
-                            {/* Always include the current value so the select is never blank */}
-                            {scenarioOptions.map((name) => (
-                              <option key={name} value={name}>{name}</option>
-                            ))}
-                          </select>
+                            options={scenarioOptions.map((name) => ({ value: name, label: name }))}
+                            size="sm"
+                          />
                         );
                       }
 
@@ -214,18 +213,15 @@ export function SlaTargetEditor({ draft, onChange, onSave, onCancel, saving, sce
                         const featureGroupName = t.featureGroupName as string;
                         const featureGroupOptions = [...new Set([featureGroupName, ...(featureGroupNames ?? [])])];
                         return (
-                          <select
+                          <CustomSelect
                             className="sla-fg-select sla-name-select"
                             value={featureGroupName}
-                            onChange={(e) =>
-                              updateRow(idx, { featureGroupName: e.target.value || undefined })
+                            onChange={(v) =>
+                              updateRow(idx, { featureGroupName: v || undefined })
                             }
-                          >
-                            {/* Always include the current value so the select is never blank */}
-                            {featureGroupOptions.map((name) => (
-                              <option key={name} value={name}>{name}</option>
-                            ))}
-                          </select>
+                            options={featureGroupOptions.map((name) => ({ value: name, label: name }))}
+                            size="sm"
+                          />
                         );
                       }
 

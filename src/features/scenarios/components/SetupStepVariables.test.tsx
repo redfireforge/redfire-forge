@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import SetupStepVariables from './SetupStepVariables';
 import { SetupStepVariablesProps } from './SetupStepVariables';
 
@@ -310,14 +311,13 @@ describe('SetupStepVariables', () => {
   describe('auth configuration', () => {
     it('shows auth type select', () => {
       render(<SetupStepVariables {...makeProps()} />);
-      expect(screen.getByDisplayValue('No Auth')).toBeInTheDocument();
+      expect(getCustomSelectValue(document.body)).toBe('No Auth');
     });
 
     it('calls setWorkingAuthType on change', () => {
       const setWorkingAuthType = vi.fn();
       render(<SetupStepVariables {...makeProps({ setWorkingAuthType })} />);
-      const select = screen.getByDisplayValue('No Auth');
-      fireEvent.change(select, { target: { value: 'bearer' } });
+      selectOption(document.body, 'Bearer Token');
       expect(setWorkingAuthType).toHaveBeenCalledWith('bearer');
     });
 
@@ -395,8 +395,8 @@ describe('SetupStepVariables', () => {
       })} />);
       expect(screen.getByDisplayValue('X-Key')).toBeInTheDocument();
       expect(screen.getByDisplayValue('secret')).toBeInTheDocument();
-      expect(screen.getByDisplayValue('Header')).toBeInTheDocument();
-      fireEvent.change(screen.getByDisplayValue('Header'), { target: { value: 'query' } });
+      expect(screen.getByText('Header')).toBeInTheDocument();
+      selectOptionByIndex(document.body, 1, 'Query String');
       expect(patchWorkingAuth).toHaveBeenCalledWith({ apiKeyIn: 'query' });
     });
 
@@ -404,7 +404,7 @@ describe('SetupStepVariables', () => {
       render(<SetupStepVariables {...makeProps({
         workingAuth: { type: 'apikey', apiKeyName: 'K', apiKeyValue: 'v' },
       })} />);
-      expect(screen.getByDisplayValue('Header')).toBeInTheDocument();
+      expect(screen.getByText('Header')).toBeInTheDocument();
     });
 
     it('shows empty api key name and value fields when omitted', () => {

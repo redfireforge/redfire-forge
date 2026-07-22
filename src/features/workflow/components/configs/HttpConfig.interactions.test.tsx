@@ -11,6 +11,7 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import { KeyValue, Scenario } from '../../../../shared/types';
 import { makeHttpData, makeScenario, makeDefaultProps } from './__test-utils__/httpConfigTestHelpers';
@@ -315,10 +316,9 @@ describe('HttpConfig — interactions', () => {
       sourceSpecVersionLabel: '3.4.5',
     });
     render(<HttpConfig {...defaultProps} data={data} onChange={onChange} />);
-    const modeSelect = document.querySelector('.wf-config-version-select') as HTMLSelectElement;
-    expect(modeSelect).toBeTruthy();
-    expect(modeSelect.value).toBe('latest');
-    fireEvent.change(modeSelect, { target: { value: 'pinned' } });
+    const versionWrap = document.querySelector('.wf-config-version-select')!;
+    expect(versionWrap.querySelector('.cs-text')?.textContent).toContain('Latest');
+    selectOption(versionWrap, 'Pinned');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ specVersionMode: 'pinned' }));
     expect(document.querySelector('.wf-config-version-label')?.textContent).toContain('3.4.5');
   });
@@ -329,8 +329,7 @@ describe('HttpConfig — interactions', () => {
       specVersionMode: 'pinned',
     });
     render(<HttpConfig {...defaultProps} data={data} />);
-    const pinned = Array.from(document.querySelectorAll('.wf-config-version-select option')).find(o => (o as HTMLOptionElement).value === 'pinned');
-    expect(pinned?.textContent).toBe('Pinned');
+    expect(document.querySelector('.wf-config-version-select .cs-text')?.textContent).toBe('Pinned');
     expect(document.querySelector('.wf-config-version-label')).toBeNull();
   });
 

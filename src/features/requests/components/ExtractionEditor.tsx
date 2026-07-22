@@ -3,6 +3,7 @@ import type { Extraction, ExtractionSource } from '../../../shared/types';
 import type { WorkflowVariableHint } from '../../workflow/utils/workflowVariableHints';
 import type { FetchErrorDetail } from '../../../shared/components/data-mapper/types';
 import { suggestedVariableNameFromJsonPath, buildJsonTree, type JsonTreeNode } from '../../../shared/utils/jsonTreeModel';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import ExpressionInput from '../../workflow/components/expression/ExpressionInput';
 import FetchErrorBanner from '../../../shared/components/data-mapper/FetchErrorBanner';
 
@@ -251,14 +252,14 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                 </span>
 
                 <span className="ext-cell ext-cell-source">
-                  <select
+                  <CustomSelect
                     value={ext.source}
-                    onChange={(e) => update(i, { source: e.target.value as ExtractionSource })}
+                    onChange={(v) => update(i, { source: v as ExtractionSource })}
+                    options={activeSources}
                     className="ext-select"
                     aria-label="Source"
-                  >
-                    {activeSources.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                  </select>
+                    size="sm"
+                  />
                 </span>
 
                 <span className="ext-cell ext-cell-expr">

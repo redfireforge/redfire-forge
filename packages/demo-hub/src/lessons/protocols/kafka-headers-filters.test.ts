@@ -43,8 +43,8 @@ describe('kafka-headers-filters lesson', () => {
     expect(kafkaHeadersFiltersLesson.concept.diagram).toContain('<svg');
   });
 
-  it('has exactly 9 steps', () => {
-    expect(kafkaHeadersFiltersLesson.steps.length).toBe(9);
+  it('has exactly 7 steps', () => {
+    expect(kafkaHeadersFiltersLesson.steps.length).toBe(7);
   });
 
   it('all steps have required fields (id, title, description)', () => {
@@ -63,9 +63,7 @@ describe('kafka-headers-filters lesson', () => {
   it('has expected step IDs in order', () => {
     const ids = kafkaHeadersFiltersLesson.steps.map((s) => s.id);
     expect(ids).toEqual([
-      'hf-headers-intro',
-      'hf-add-header',
-      'hf-fill-header',
+      'hf-fill-all',
       'hf-send-header',
       'hf-filter-intro',
       'hf-key-filter',
@@ -75,47 +73,20 @@ describe('kafka-headers-filters lesson', () => {
     ]);
   });
 
-  it('step hf-headers-intro has highlight and preAction but no action', () => {
-    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-headers-intro')!;
+  it('step hf-fill-all has preAction (navigate + cleanup) and action (fill all fields)', () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-fill-all')!;
     expect(step.highlight).toBeTruthy();
     expect(typeof step.preAction).toBe('function');
-    expect(step.action).toBeUndefined();
+    expect(typeof step.action).toBe('function');
+    expect(step.verify).toBeTruthy();
   });
 
-  it('step hf-headers-intro preAction navigates to publish tab and clears stale header rows', async () => {
-    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-headers-intro')!;
+  it('step hf-fill-all preAction navigates to publish tab and clears stale header rows', async () => {
+    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-fill-all')!;
     const ctx = makeCtx();
     await step.preAction!(ctx);
     expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('tab-publish'));
-    // Cleanup clicks remove up to 2 leftover header rows from previous runs;
-    // ctx.click is a no-op when the selector matches nothing so this is safe on first run.
     expect(ctx.click).toHaveBeenCalledWith('.kafka-ms-remove-btn');
-  });
-
-  it('step hf-add-header action clicks the add-header button', async () => {
-    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-add-header')!;
-    const ctx = makeCtx();
-    await step.action!(ctx);
-    expect(ctx.click).toHaveBeenCalledWith(expect.stringContaining('add-btn'));
-  });
-
-  it('step hf-fill-header has preAction that fills header + topic + key + body', async () => {
-    const step = kafkaHeadersFiltersLesson.steps.find((s) => s.id === 'hf-fill-header')!;
-    expect(typeof step.preAction).toBe('function');
-    expect(step.action).toBeUndefined();
-    const ctx = makeCtx();
-    await step.preAction!(ctx);
-    const fillCalls = (ctx.fill as ReturnType<typeof vi.fn>).mock.calls;
-    const fillValues = fillCalls.map((c: unknown[]) => c[1]);
-    expect(fillValues).toContain('traceId');
-    expect(fillValues).toContain('abc-001');
-    expect(fillValues).toContain('headers.demo');
-    expect(fillValues).toContain('HDR-001');
-    expect(fillValues).toEqual(expect.arrayContaining([expect.stringContaining('"orderId"')]));
-    // Header key selector must use placeholder="header-key" (not "key")
-    const headerKeyCall = fillCalls.find((c: unknown[]) => c[1] === 'traceId');
-    expect(headerKeyCall).toBeDefined();
-    expect((headerKeyCall![0] as string)).toContain('placeholder="header-key"');
   });
 
   it('step hf-send-header action clicks send and waits for result', async () => {

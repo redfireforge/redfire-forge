@@ -427,14 +427,16 @@ export async function forceDeleteCollectionsByExactName(
  * by ANY other lesson (prevents cross-lesson leftover-collection drift).
  */
 export const REQUEST_DEMO_COLLECTION_NAMES = [
-  'My API',          // req-quick-start
-  'User Service',    // req-collections
-  'DummyJSON',       // req-multi-env
-  'Product Service', // req-multi-env (linked)
-  'API Demos',       // req-body-auth
-  'Multi-Tab Demo',  // req-multi-tab
-  'Promotion Demo',  // req-send-harness
-  'Version Demo',    // req-versioning
+  'My API',              // req-quick-start
+  'User Service',        // req-collections
+  'DummyJSON',           // req-multi-env
+  'Product Service',     // req-multi-env (linked)
+  'API Demos',           // req-body-auth
+  'Multi-Tab Demo',      // req-multi-tab
+  'Promotion Demo',      // req-send-harness
+  'Version Demo',        // req-versioning
+  'JSONPlaceholder API', // cat-export-promote (catalog → Requests export)
+  'Gallery Samples',     // gallery import sidebar
 ] as const;
 
 /**

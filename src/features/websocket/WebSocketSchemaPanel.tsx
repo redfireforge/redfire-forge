@@ -5,6 +5,7 @@ import { memo, useCallback, useState } from 'react';
 import type React from 'react';
 import type { WsFrame } from '../../shared/websocket/types';
 import type { WsSchemaDefinition, WsSchemaDirection } from './wsSchemaTypes';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 
 interface WebSocketSchemaPanelProps {
   schemas: WsSchemaDefinition[];
@@ -273,16 +274,18 @@ function EditorForm({
           onChange={(e) => setEditor((prev) => ({ ...prev, name: e.target.value, error: null }))}
           data-testid="ws-schema-name-input"
         />
-        <select
+        <CustomSelect
           className="ws-schema-direction-select"
           value={editor.direction}
-          onChange={(e) => setEditor((prev) => ({ ...prev, direction: e.target.value as WsSchemaDirection }))}
+          onChange={(v) => setEditor((prev) => ({ ...prev, direction: v as WsSchemaDirection }))}
+          options={[
+            { value: 'received', label: 'Received' },
+            { value: 'sent', label: 'Sent' },
+            { value: 'both', label: 'Both' },
+          ]}
           data-testid="ws-schema-direction-select"
-        >
-          <option value="received">Received</option>
-          <option value="sent">Sent</option>
-          <option value="both">Both</option>
-        </select>
+          aria-label="Validation direction"
+        />
       </div>
       <textarea
         className="ws-schema-textarea"

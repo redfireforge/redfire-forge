@@ -16,6 +16,7 @@
 
 import { useMemo } from 'react';
 import type React from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { GraphqlAuth, GraphqlEnvironment, SubscriptionState } from '../../../shared/types/graphql';
 import type { GlobalAuthProfile } from '../../../shared/types';
 import type { ConnectionProfile } from '../hooks/useGraphqlConnectionProfiles';
@@ -373,17 +374,14 @@ export function GraphqlConnectionBar({
       {operations.length > 1 && (
         <div className="gql-op-selector-wrap">
           <span className="gql-op-selector-label">Executing:</span>
-          <select
+          <CustomSelect
             className="gql-op-selector gql-select"
-            value={selectedOperation}
-            onChange={(e) => onSelectOperation?.(e.target.value)}
+            value={selectedOperation ?? ''}
+            onChange={(v) => onSelectOperation?.(v)}
+            options={operations.map((name) => ({ value: name, label: name }))}
             data-testid="gql-op-selector"
             aria-label="Select operation to execute"
-          >
-            {operations.map((name, idx) => (
-              <option key={`${name}-${idx}`} value={name}>{name}</option>
-            ))}
-          </select>
+          />
         </div>
       )}
 

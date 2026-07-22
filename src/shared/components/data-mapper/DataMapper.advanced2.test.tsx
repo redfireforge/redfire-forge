@@ -116,7 +116,7 @@ describe('DataMapper – error popover', () => {
       if (popover) {
         expect(popover.textContent).toContain('Mapping Error');
         // Close the popover
-        const closeBtn = container.querySelector('.dm-error-popover-close');
+        const closeBtn = popover.querySelector('button');
         await act(async () => { fireEvent.click(closeBtn!); });
         expect(container.querySelector('.dm-error-popover')).toBeNull();
       }

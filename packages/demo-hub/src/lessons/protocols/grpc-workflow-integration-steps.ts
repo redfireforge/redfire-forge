@@ -226,7 +226,7 @@ export const grpcWorkflowIntegrationSteps: GrpcDemoLesson['steps'] = [
       await clickWfFitView(ctx);
       await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 700);
     },
-    verify: WF.NODE_GRPC_UNARY,
+    verify: GRPC.CANVAS_UNARY_NODE,
   },
 
   // =========================================================================
@@ -315,7 +315,7 @@ export const grpcWorkflowIntegrationSteps: GrpcDemoLesson['steps'] = [
       await clickWfFitView(ctx);
       await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 500);
     },
-    verify: WF.NODE_GRPC_UNARY,
+    verify: GRPC.CANVAS_UNARY_NODE,
   },
 
   // =========================================================================
@@ -355,7 +355,7 @@ export const grpcWorkflowIntegrationSteps: GrpcDemoLesson['steps'] = [
       await clickWfFitView(ctx);
       await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 500);
     },
-    verify: WF.NODE_GRPC_UNARY,
+    verify: GRPC.CANVAS_UNARY_NODE,
   },
 
   // =========================================================================
@@ -403,7 +403,7 @@ export const grpcWorkflowIntegrationSteps: GrpcDemoLesson['steps'] = [
       await clickWfFitView(ctx);
       await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 700);
     },
-    verify: WF.NODE_GRPC_ASSERT,
+    verify: GRPC.CANVAS_ASSERT_NODE,
   },
 
   // =========================================================================
@@ -454,7 +454,7 @@ export const grpcWorkflowIntegrationSteps: GrpcDemoLesson['steps'] = [
       await clickWfFitView(ctx);
       await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 500);
     },
-    verify: WF.NODE_GRPC_ASSERT,
+    verify: GRPC.CANVAS_ASSERT_NODE,
   },
 
   // =========================================================================

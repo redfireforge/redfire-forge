@@ -265,6 +265,7 @@ export default defineConfig({
       '@scalar/openapi-upgrader',
       '@scalar/openapi-upgrader/2.0-to-3.0',
       'openapi-format',
+      'swagger2openapi',
     ],
   },
   resolve: {

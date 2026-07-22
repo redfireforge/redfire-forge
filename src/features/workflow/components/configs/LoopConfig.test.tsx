@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import LoopConfig from './LoopConfig';
 import { LoopNodeData } from '../../types/workflow';
 
@@ -49,8 +50,7 @@ describe('LoopConfig', () => {
   it('renders mode selector with count selected', () => {
     const onChange = vi.fn();
     const { container } = render(<LoopConfig data={makeData()} onChange={onChange} />);
-    const modeSelect = container.querySelector('select') as HTMLSelectElement;
-    expect(modeSelect.value).toBe('count');
+    expect(getCustomSelectValue(container)).toBe('Repeat N times');
   });
 
   it('renders iterations input in count mode', () => {
@@ -69,8 +69,7 @@ describe('LoopConfig', () => {
   it('updates mode', () => {
     const onChange = vi.fn();
     const { container } = render(<LoopConfig data={makeData()} onChange={onChange} />);
-    const modeSelect = container.querySelector('select') as HTMLSelectElement;
-    fireEvent.change(modeSelect, { target: { value: 'forEach' } });
+    selectOption(container, 'For Each');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mode: 'forEach' }));
   });
 
@@ -156,10 +155,7 @@ describe('LoopConfig', () => {
     const onChange = vi.fn();
     const data = makeData({ mode: 'while', whileLeft: '{{status}}', whileOperator: '==', whileRight: '200' });
     const { container } = render(<LoopConfig data={data} onChange={onChange} />);
-    // The operator select is the second select (first is mode)
-    const selects = container.querySelectorAll('select');
-    const opSelect = selects[1] as HTMLSelectElement;
-    fireEvent.change(opSelect, { target: { value: '!=' } });
+    selectOptionByIndex(container, 1, '!=');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ whileOperator: '!=' }));
   });
 
@@ -228,9 +224,7 @@ describe('LoopConfig', () => {
     const onChange = vi.fn();
     const data = makeData({ mode: 'while', whileLeft: undefined, whileOperator: undefined, whileRight: undefined });
     const { container } = render(<LoopConfig data={data} onChange={onChange} />);
-    const selects = container.querySelectorAll('select');
-    const opSelect = selects[1] as HTMLSelectElement;
-    expect(opSelect.value).toBe('==');
+    expect(getCustomSelectValue(container, 1)).toBe('==');
   });
 
   it('calls onRequestVariableInsert with apply callback for forEach source', () => {

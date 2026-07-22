@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { UseGrpcStudioAdvancedFeaturesReturn } from '../../hooks/useGrpcStudioAdvancedFeatures';
 import StandardProfessionalModal from '../../../../shared/components/StandardProfessionalModal';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import { parseGrpcMockRuleSetJsonForBuilder, summarizeMockRulePredicate } from '../../utils/grpcStudioAdvancedModel';
 import {
   createDefaultGrpcMockBuilderRuleRow,
@@ -580,24 +581,22 @@ export function GrpcMockRuleBuilderPanel({ advanced, toolbarHost = null }: GrpcM
                 <div className="grpc-mock-builder-response-row">
                   <label className="grpc-mock-builder-field grpc-mock-builder-field--inline grpc-mock-builder-field--inline-fixed-label-response">
                     <span className="grpc-mock-builder-field__label">Status code</span>
-                    <select
+                    <CustomSelect
                       className="grpc-mock-builder-input grpc-mock-builder-status-select"
                       data-testid={`grpc-mock-builder-status-${rule.id}`}
                       value={String(responseStatusCode)}
                       disabled={disabled}
-                      onChange={(event) => {
-                        const next = Number.parseInt(event.target.value, 10);
+                      onChange={(v) => {
+                        const next = Number.parseInt(v, 10);
                         applyModel(updateGrpcMockBuilderRuleRow(builderModel, rule.id, {
                           responseStatusCode: Number.isFinite(next) ? next : undefined,
                         }));
                       }}
-                    >
-                      {statusSelectOptions.map((entry) => (
-                        <option key={entry.code} value={entry.code}>
-                          {entry.code} - {entry.name}: {entry.description}
-                        </option>
-                      ))}
-                    </select>
+                      options={statusSelectOptions.map((entry) => ({
+                        value: String(entry.code),
+                        label: `${entry.code} - ${entry.name}: ${entry.description}`,
+                      }))}
+                    />
                   </label>
                   <label className="grpc-mock-builder-field grpc-mock-builder-field--inline">
                     <span className="grpc-mock-builder-field__label">Latency (ms)</span>

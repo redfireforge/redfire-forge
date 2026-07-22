@@ -6,6 +6,7 @@ import { compareRuns, computeTrend, computeScopedTrend, computePerScenarioTrend 
 import { ResponseTimeOverlayHistogram } from './ResponseTimeHistogram';
 import { generateComparisonMarkdown, generateComparisonJson } from '../utils/comparisonReport';
 import { saveFile } from '../../../shared/utils/fileSaver';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 interface ComparisonProps {
   baselineRun: TestRun;
@@ -446,49 +447,49 @@ export function TrendChart({ runs, baselines, selectedRun }: TrendProps) {
         {/* Controls row: scope + metric selectors */}
         <div className="trend-controls">
           {/* Scope filter */}
-          <select
+          <CustomSelect
             value={scope}
-            onChange={(e) => setScope(e.target.value as TrendScope)}
+            onChange={(v) => setScope(v as TrendScope)}
             className="trend-scope-select"
-            title="Limit trend to runs from the same suite"
-          >
-            <option value="all">All runs</option>
-            <option value="service" disabled={!selectedRun?.svcName}>By service</option>
-            <option value="env" disabled={!selectedRun?.svcName || !selectedRun?.envName}>By service + env</option>
-            <option value="workflow" disabled={!selectedRun?.workflowName}>By workflow</option>
-          </select>
+            aria-label="Limit trend to runs from the same suite"
+            options={[
+              { value: 'all', label: 'All runs' },
+              { value: 'service', label: 'By service', disabled: !selectedRun?.svcName },
+              { value: 'env', label: 'By service + env', disabled: !selectedRun?.svcName || !selectedRun?.envName },
+              { value: 'workflow', label: 'By workflow', disabled: !selectedRun?.workflowName },
+            ]}
+            size="sm"
+          />
 
           {chartTab === 'overall' && (
             <>
-              {/* Primary metric */}
-              <select
+              <CustomSelect
                 value={metric}
-                onChange={(e) => {
-                  const m = e.target.value as TrendMetric;
+                onChange={(v) => {
+                  const m = v as TrendMetric;
                   setMetric(m);
-                  // If the new primary equals the current secondary, clear the secondary
-                  // to avoid a controlled <select> with a value not present in its options.
                   if (m === metric2) setMetric2('none');
                 }}
                 className="trend-metric-select"
-              >
-                {METRIC_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+                options={METRIC_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+                size="sm"
+              />
 
-              {/* Secondary metric overlay */}
-              <select
+              <CustomSelect
                 value={metric2}
-                onChange={(e) => setMetric2(e.target.value as TrendMetric | 'none')}
+                onChange={(v) => setMetric2(v as TrendMetric | 'none')}
                 className="trend-metric-select2"
-                title="Add a second metric line (right axis)"
-              >
-                <option value="none">+ overlay metric</option>
-                {METRIC_OPTIONS.filter((o) => o.value !== metric).map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+                aria-label="Add a second metric line (right axis)"
+                placeholder="+ overlay metric"
+                options={[
+                  { value: 'none', label: '+ overlay metric' },
+                  ...METRIC_OPTIONS.filter((o) => o.value !== metric).map((o) => ({
+                    value: o.value,
+                    label: o.label,
+                  })),
+                ]}
+                size="sm"
+              />
             </>
           )}
         </div>

@@ -4,6 +4,7 @@ import { useListCrud } from '../../../../shared/hooks/useListCrud';
 import InsertVarField from '../expression/InsertVarField';
 import AvailableVariables from '../expression/AvailableVariables';
 import { WsConnectionIdField, WsOutputBindingsSection } from './WsConfigShared';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const MSG_TYPE_OPTIONS: { value: 'text' | 'binary'; label: string }[] = [
   { value: 'text', label: 'Text' },
@@ -45,9 +46,11 @@ export default function WsSendConfig({
 
       <div className="wf-config-field--row">
         <label>Message Type</label>
-        <select value={data.messageType} onChange={(e) => update({ messageType: e.target.value as 'text' | 'binary' })}>
-          {MSG_TYPE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-        </select>
+        <CustomSelect
+          value={data.messageType}
+          onChange={(v) => update({ messageType: v as 'text' | 'binary' })}
+          options={MSG_TYPE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+        />
       </div>
 
       <div className="wf-config-field">

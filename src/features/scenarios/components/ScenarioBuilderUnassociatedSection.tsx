@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { FeatureGroup, Environment, Microservice } from '../../../shared/types';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 interface Props {
   unassociatedFeatureGroups: FeatureGroup[];
@@ -21,6 +23,8 @@ export default function ScenarioBuilderUnassociatedSection({
   environments,
   showConfirm,
 }: Props) {
+  const [assignments, setAssignments] = useState<Record<string, { svcId: string; envId: string }>>({});
+
   if (unassociatedFeatureGroups.length === 0) return null;
 
   return (
@@ -40,25 +44,33 @@ export default function ScenarioBuilderUnassociatedSection({
               </button>
             ) : (
               <>
-                <select id={`svc-${fg.id}`} defaultValue="">
-                  <option value="" disabled>Microservice…</option>
-                  {microservices.map((svc) => (
-                    <option key={svc.id} value={svc.id}>{svc.name}</option>
-                  ))}
-                </select>
-                <select id={`env-${fg.id}`} defaultValue="">
-                  <option value="" disabled>Environment…</option>
-                  {environments.map((env) => (
-                    <option key={env.id} value={env.id}>{env.name}</option>
-                  ))}
-                  {microservices.flatMap((s) => (s.customEnvs ?? []).map((ce) => (
-                    <option key={ce.id} value={ce.id}>{ce.name} ({s.name})</option>
-                  )))}
-                </select>
+                <CustomSelect
+                  value={assignments[fg.id]?.svcId ?? ''}
+                  onChange={(v) => setAssignments((prev) => ({
+                    ...prev,
+                    [fg.id]: { svcId: v, envId: prev[fg.id]?.envId ?? '' },
+                  }))}
+                  placeholder="Microservice…"
+                  options={microservices.map((svc) => ({ value: svc.id, label: svc.name }))}
+                />
+                <CustomSelect
+                  value={assignments[fg.id]?.envId ?? ''}
+                  onChange={(v) => setAssignments((prev) => ({
+                    ...prev,
+                    [fg.id]: { svcId: prev[fg.id]?.svcId ?? '', envId: v },
+                  }))}
+                  placeholder="Environment…"
+                  options={[
+                    ...environments.map((env) => ({ value: env.id, label: env.name })),
+                    ...microservices.flatMap((s) => (s.customEnvs ?? []).map((ce) => ({
+                      value: ce.id,
+                      label: `${ce.name} (${s.name})`,
+                    }))),
+                  ]}
+                />
                 <button className="btn btn-sm btn-primary" onClick={() => {
-                  const svcEl = document.getElementById(`svc-${fg.id}`) as HTMLSelectElement;
-                  const envEl = document.getElementById(`env-${fg.id}`) as HTMLSelectElement;
-                  if (svcEl?.value && envEl?.value) assignFeatureGroup(fg.id, svcEl.value, envEl.value);
+                  const a = assignments[fg.id];
+                  if (a?.svcId && a?.envId) assignFeatureGroup(fg.id, a.svcId, a.envId);
                   else showConfirm('Assign Error', 'Select both a microservice and an environment.', () => {});
                 }}>Assign</button>
               </>

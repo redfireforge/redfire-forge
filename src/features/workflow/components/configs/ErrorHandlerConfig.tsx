@@ -1,5 +1,6 @@
 import type { ErrorHandlerNodeData, ErrorFilter, RetryBackoffStrategy } from '../../types/workflow';
 import ConfigSectionGroup from './ConfigSectionGroup';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const FILTER_OPTIONS: { value: ErrorFilter; label: string; desc: string }[] = [
   { value: 'all', label: 'All Errors', desc: 'Catch HTTP errors, assertion failures, and network errors' },
@@ -30,12 +31,11 @@ export default function ErrorHandlerConfig({
       <ConfigSectionGroup title="Error Handling">
       <div className="wf-config-field">
         <label>Error Filter</label>
-        <select
+        <CustomSelect
           value={data.errorFilter}
-          onChange={(e) => onChange({ ...data, errorFilter: e.target.value as ErrorFilter })}
-        >
-          {FILTER_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+          onChange={(v) => onChange({ ...data, errorFilter: v as ErrorFilter })}
+          options={FILTER_OPTIONS.map(o => ({ value: o.value, label: o.label, detail: o.desc }))}
+        />
         <span className="wf-config-hint">{FILTER_OPTIONS.find(o => o.value === data.errorFilter)?.desc}</span>
       </div>
 
@@ -69,12 +69,11 @@ export default function ErrorHandlerConfig({
 
           <div className="wf-config-field">
             <label>Backoff Strategy</label>
-            <select
+            <CustomSelect
               value={data.retryBackoff}
-              onChange={(e) => onChange({ ...data, retryBackoff: e.target.value as RetryBackoffStrategy })}
-            >
-              {BACKOFF_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+              onChange={(v) => onChange({ ...data, retryBackoff: v as RetryBackoffStrategy })}
+              options={BACKOFF_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+            />
             <span className="wf-config-hint">
               {data.retryBackoff === 'fixed'
                 ? `Wait ${data.retryDelayMs}ms between each retry`

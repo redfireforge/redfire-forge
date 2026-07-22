@@ -40,14 +40,14 @@ describe('NodeExecutionDetailPanel', () => {
     render(<NodeExecutionDetailPanel {...defaultProps} />);
     
     expect(screen.getByText('Test Node')).toBeInTheDocument();
-    expect(screen.getByTitle('Close (Escape)')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
 
   it('calls onClose when close button clicked', () => {
     const onClose = vi.fn();
     render(<NodeExecutionDetailPanel {...defaultProps} onClose={onClose} />);
     
-    fireEvent.click(screen.getByTitle('Close (Escape)'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalled();
   });
 

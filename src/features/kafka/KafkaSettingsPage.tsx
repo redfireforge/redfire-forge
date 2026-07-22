@@ -6,6 +6,7 @@ import {
   defaultClusterDraft,
   draftFromCluster,
   hasDraftErrors,
+  normalizeBrokerEntries,
   type KafkaClusterDraft,
   type KafkaClusterDraftErrors,
   validateKafkaClusterDraft,
@@ -183,7 +184,7 @@ export default function KafkaSettingsPage({ kafkaState }: KafkaSettingsPageProps
       : undefined;
     const nextClusterId = draft.clusterId.trim();
     const now = Date.now();
-    const cleanedBrokers = [...new Set(draft.brokers.map((broker) => broker.trim()).filter(Boolean))];
+    const cleanedBrokers = normalizeBrokerEntries(draft.brokers);
 
     if (editorMode === 'edit' && editingClusterId && editingClusterId !== nextClusterId) {
       removeCluster(editingClusterId);

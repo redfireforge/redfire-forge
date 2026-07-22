@@ -4,6 +4,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import {
+  selectOption,
+  getCustomSelectValue,
+  getCustomSelectOptionLabels,
+} from '../../../test-utils/customSelectHelper';
 import ResultsExplorerDetailPanel from './ResultsExplorerDetailPanel';
 import type { ExecutionEvent, WorkflowIterationTrace } from '../../../shared/types';
 import { mockEvents, mockIterations } from './__test-utils__/resultsExplorerDetailPanelTestHelpers';
@@ -11,6 +16,10 @@ import { mockEvents, mockIterations } from './__test-utils__/resultsExplorerDeta
 describe('ResultsExplorerDetailPanel', () => {
   const mockOnIterationChange = vi.fn();
   const mockOnClose = vi.fn();
+
+  function iterationSelect(): Element {
+    return document.querySelector('.explorer-detail-iteration-select .cs-wrapper')!;
+  }
 
   afterEach(() => {
     cleanup();
@@ -142,9 +151,8 @@ describe('ResultsExplorerDetailPanel', () => {
       />
     );
 
-    const select = screen.getByRole('combobox');
-    expect(select).toBeInTheDocument();
-    expect(screen.getByText('All Iterations (Aggregate)')).toBeInTheDocument();
+    expect(iterationSelect()).toBeTruthy();
+    expect(getCustomSelectValue(iterationSelect())).toBe('All Iterations (Aggregate)');
   });
 
   it('calls onIterationChange when iteration is selected', () => {
@@ -160,11 +168,10 @@ describe('ResultsExplorerDetailPanel', () => {
       />
     );
 
-    const select = screen.getByRole('combobox');
-    fireEvent.change(select, { target: { value: '0' } });
+    selectOption(iterationSelect(), '#1 — ✓ 250ms');
     expect(mockOnIterationChange).toHaveBeenCalledWith(0);
     mockOnIterationChange.mockClear();
-    fireEvent.change(select, { target: { value: 'all' } });
+    selectOption(iterationSelect(), 'All Iterations (Aggregate)');
     expect(mockOnIterationChange).toHaveBeenCalledWith(undefined);
   });
 
@@ -217,8 +224,7 @@ describe('ResultsExplorerDetailPanel', () => {
       />
     );
 
-    const closeButton = screen.getByRole('button', { name: '✕' });
-    fireEvent.click(closeButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(mockOnClose).toHaveBeenCalled();
   });
 
@@ -284,8 +290,9 @@ describe('ResultsExplorerDetailPanel', () => {
       />
     );
 
-    expect(screen.getByText('#1 — ✓ <1ms')).toBeInTheDocument();
-    expect(screen.getByText('#2 — ✗ 1.50s')).toBeInTheDocument();
+    const labels = getCustomSelectOptionLabels(iterationSelect());
+    expect(labels.some((label) => label.includes('#1 — ✓ <1ms'))).toBe(true);
+    expect(labels.some((label) => label.includes('#2 — ✗ 1.50s'))).toBe(true);
   });
 
   it('shows timing bar from responseTimeMs when durationMs is absent', () => {
@@ -408,8 +415,8 @@ describe('ResultsExplorerDetailPanel', () => {
       />
     );
 
-    // No combobox when only 1 iteration
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument();
+    // No iteration selector when only 1 iteration
+    expect(document.querySelector('.explorer-detail-iteration-select')).not.toBeInTheDocument();
   });
 
   it('shows 100% pass rate with green color', () => {

@@ -21,6 +21,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { isTauri } from '../../../shared/utils/platform';
 import type {
   GraphqlMockConfig,
@@ -644,33 +645,31 @@ function ScalarFactoryRow({ scalarName, factory, mockServer }: ScalarFactoryRowP
   return (
     <div className="gql-mock-scalar-row" data-testid="gql-mock-scalar-row">
       <span className="gql-mock-scalar-name">{scalarName}</span>
-      <select
+      <CustomSelect
         className="gql-mock-resolver-select"
         value={mode}
-        onChange={(e) => {
-          const m = e.target.value as typeof mode;
+        onChange={(v) => {
+          const m = v as typeof mode;
           setMode(m);
           // Don't sync 'script' mode immediately with empty script — wait for onBlur
           if (m === 'script' && !script.trim()) return;
           apply(m, preset, script);
         }}
+        options={[
+          { value: 'random', label: 'Random (default)' },
+          { value: 'preset', label: 'Preset' },
+          { value: 'script', label: 'Script' },
+        ]}
         data-testid="gql-mock-scalar-mode-select"
-      >
-        <option value="random">Random (default)</option>
-        <option value="preset">Preset</option>
-        <option value="script">Script</option>
-      </select>
+      />
       {mode === 'preset' && (
-        <select
+        <CustomSelect
           className="gql-mock-resolver-select"
           value={preset}
-          onChange={(e) => { const p = e.target.value as MockScalarPreset; setPreset(p); apply('preset', p, script); }}
+          onChange={(v) => { const p = v as MockScalarPreset; setPreset(p); apply('preset', p, script); }}
+          options={SCALAR_PRESETS.map((sp) => ({ value: sp.value, label: sp.label }))}
           data-testid="gql-mock-scalar-preset-select"
-        >
-          {SCALAR_PRESETS.map((sp) => (
-            <option key={sp.value} value={sp.value}>{sp.label}</option>
-          ))}
-        </select>
+        />
       )}
       {mode === 'script' && (
         <input

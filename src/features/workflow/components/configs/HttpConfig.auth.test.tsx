@@ -10,6 +10,7 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import type { Scenario } from '../../../../shared/types';
 import type { WorkflowService } from '../../types/workflow';
@@ -53,15 +54,15 @@ describe('HttpConfig — auth tab', () => {
 
   it('renders auth type select with inherit default', () => {
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'inherit' } }) });
-    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
-    expect(screen.getByDisplayValue('Inherit from Service')).toBeTruthy();
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+    expect(container.querySelector('.auth-type-select .cs-text')?.textContent).toBe('Inherit from Service');
   });
 
   it('calls onChange when auth type changes', () => {
     const onChange = vi.fn();
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'none' } }) });
-    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('No Auth'), { target: { value: 'basic' } });
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} onChange={onChange} />);
+    selectOption(container.querySelector('.auth-type-select')!, 'Basic Auth');
     expect(onChange).toHaveBeenCalled();
     const call = onChange.mock.calls[0][0] as { scenario: Scenario };
     expect(call.scenario.auth.type).toBe('basic');
@@ -69,16 +70,17 @@ describe('HttpConfig — auth tab', () => {
 
   it('renders all auth type options', () => {
     const data = makeHttpData({ scenario: makeScenario({ auth: { type: 'none' } }) });
-    render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
-    const select = screen.getByDisplayValue('No Auth') as HTMLSelectElement;
-    const options = Array.from(select.options).map(o => o.value);
-    expect(options).toContain('inherit');
-    expect(options).toContain('none');
-    expect(options).toContain('basic');
-    expect(options).toContain('bearer');
-    expect(options).toContain('apikey');
-    expect(options).toContain('digest');
-    expect(options).toContain('oauth2');
+    const { container } = render(<HttpConfig {...defaultProps} activeTab="auth" data={data} />);
+    const wrap = container.querySelector('.auth-type-select')!;
+    fireEvent.click(wrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(wrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels).toContain('Inherit from Service');
+    expect(labels).toContain('No Auth');
+    expect(labels).toContain('Basic Auth');
+    expect(labels).toContain('Bearer Token');
+    expect(labels).toContain('API Key');
+    expect(labels).toContain('Digest Auth');
+    expect(labels).toContain('OAuth2 Client Credentials');
   });
 
   describe('inherit auth', () => {
@@ -418,8 +420,7 @@ describe('HttpConfig — spec version mode', () => {
     const onChange = vi.fn();
     const data = makeHttpData({ sourceSpecVersionId: 'v1', specVersionMode: 'latest' });
     render(<HttpConfig {...defaultProps} data={data} onChange={onChange} />);
-    const select = screen.getByDisplayValue(/Latest/) as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'pinned' } });
+    selectOption(document.querySelector('.wf-config-version-select')!, 'Pinned');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ specVersionMode: 'pinned' }));
   });
 });

@@ -5,6 +5,7 @@
  * Phase 4 — Step 3 (4C-5)
  */
 import { useState } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type {
   GraphqlAssertNodeData,
   GraphqlWorkflowAssertion,
@@ -300,16 +301,13 @@ function AssertionRow({
 
         <label className="gql-wf-assert-field gql-wf-assert-field--operator">
           <span className="gql-wf-assert-field-label">Operator</span>
-          <select
+          <CustomSelect
             value={assertion.operator}
-            onChange={(e) => crud.update(index, { operator: e.target.value as FieldOperator })}
+            onChange={(v) => crud.update(index, { operator: v as FieldOperator })}
+            options={FIELD_OP_OPTIONS.map(({ value, label }) => ({ value, label }))}
             aria-label="Operator"
             data-testid="gql-wf-assert-operator"
-          >
-            {FIELD_OP_OPTIONS.map(({ value, label }) => (
-              <option key={value} value={value}>{label}</option>
-            ))}
-          </select>
+          />
         </label>
 
         {!noValue && (

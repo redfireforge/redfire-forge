@@ -1,6 +1,11 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
+import {
+  selectOption,
+  getCustomSelectValue,
+  getCustomSelectOptionLabels,
+} from '../../../test-utils/customSelectHelper';
 import { RunComparisonPanel, TrendChart } from './RunComparisonPanel';
 import type { TestRun, RequestResult } from '../../../shared/types';
 import type { BaselineMark, RunComparison } from '../utils/runBaselines';
@@ -311,7 +316,7 @@ describe('TrendChart', () => {
     const { container } = render(<TrendChart runs={runs} baselines={[]} />);
     const select = container.querySelector('.trend-metric-select');
     expect(select).toBeTruthy();
-    expect(select?.querySelectorAll('option').length).toBe(7);
+    expect(getCustomSelectOptionLabels(select!)).toHaveLength(7);
   });
 
   it('changes displayed metric when select changes', () => {
@@ -320,9 +325,9 @@ describe('TrendChart', () => {
       { ...makeRun('r2'), timestamp: 2000 },
     ];
     const { container } = render(<TrendChart runs={runs} baselines={[]} />);
-    const select = container.querySelector('.trend-metric-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'tps' } });
-    expect(select.value).toBe('tps');
+    const select = container.querySelector('.trend-metric-select')!;
+    selectOption(select, 'TPS');
+    expect(getCustomSelectValue(select)).toBe('TPS');
   });
 
   it('renders Line dot renderer for baseline highlighting', () => {
@@ -344,7 +349,7 @@ describe('TrendChart', () => {
     const { container } = render(<TrendChart runs={runs} baselines={[]} />);
     const select = container.querySelector('.trend-scope-select');
     expect(select).toBeTruthy();
-    expect(select?.querySelectorAll('option').length).toBe(4);
+    expect(getCustomSelectOptionLabels(select!)).toHaveLength(4);
   });
 
   it('metric2 select renders and excludes the currently selected primary metric', () => {
@@ -353,11 +358,11 @@ describe('TrendChart', () => {
       { ...makeRun('r2'), timestamp: 2000 },
     ];
     const { container } = render(<TrendChart runs={runs} baselines={[]} />);
-    const metric2Select = container.querySelector('.trend-metric-select2') as HTMLSelectElement;
+    const metric2Select = container.querySelector('.trend-metric-select2')!;
     expect(metric2Select).toBeTruthy();
     // Default primary is p95ResponseTime — it should NOT appear in secondary options
-    const options = [...metric2Select.querySelectorAll('option')].map((o) => o.getAttribute('value'));
-    expect(options).not.toContain('p95ResponseTime');
+    const options = getCustomSelectOptionLabels(metric2Select);
+    expect(options).not.toContain('P95 Response Time');
     // All other 6 metrics + 'none' placeholder = 7 options
     expect(options.length).toBe(7);
   });
@@ -368,16 +373,16 @@ describe('TrendChart', () => {
       { ...makeRun('r2'), timestamp: 2000 },
     ];
     const { container } = render(<TrendChart runs={runs} baselines={[]} />);
-    const metric1Select = container.querySelector('.trend-metric-select') as HTMLSelectElement;
-    const metric2Select = container.querySelector('.trend-metric-select2') as HTMLSelectElement;
+    const metric1Select = container.querySelector('.trend-metric-select')!;
+    const metric2Select = container.querySelector('.trend-metric-select2')!;
 
     // Set metric2 to 'tps'
-    fireEvent.change(metric2Select, { target: { value: 'tps' } });
-    expect(metric2Select.value).toBe('tps');
+    selectOption(metric2Select, 'TPS');
+    expect(getCustomSelectValue(metric2Select)).toBe('TPS');
 
     // Now change metric1 to 'tps' — metric2 must clear to 'none'
-    fireEvent.change(metric1Select, { target: { value: 'tps' } });
-    expect(metric2Select.value).toBe('none');
+    selectOption(metric1Select, 'TPS');
+    expect(getCustomSelectValue(metric2Select)).toBe('+ overlay metric');
   });
 
   it('per-scenario tab shows empty hint when no scenario data', () => {
@@ -412,8 +417,8 @@ describe('TrendChart', () => {
     const r2 = { ...makeRun('r2'), svcName: 'svc-b', timestamp: 2000 };
     const { container } = render(<TrendChart runs={[r1, r2]} baselines={[]} selectedRun={r1} />);
     // Scope 'service' — only r1 (svc-a) matches → 1 data point < 2 → scope-aware message
-    const scopeSelect = container.querySelector('.trend-scope-select') as HTMLSelectElement;
-    fireEvent.change(scopeSelect, { target: { value: 'service' } });
+    const scopeSelect = container.querySelector('.trend-scope-select')!;
+    selectOption(scopeSelect, 'By service');
     expect(container.textContent).toContain('try "All runs" for a broader view');
   });
 
@@ -424,8 +429,8 @@ describe('TrendChart', () => {
     // No metric2 line initially
     expect(container.querySelector('[data-testid="chart-line"]')).toBeNull();
     // Select tps as secondary metric
-    const metric2Select = container.querySelector('.trend-metric-select2') as HTMLSelectElement;
-    fireEvent.change(metric2Select, { target: { value: 'tps' } });
+    const metric2Select = container.querySelector('.trend-metric-select2')!;
+    selectOption(metric2Select, 'TPS');
     // Metric2 line (dot={false}) should now render
     expect(container.querySelector('[data-testid="chart-line"][data-key="tps"]')).toBeTruthy();
   });

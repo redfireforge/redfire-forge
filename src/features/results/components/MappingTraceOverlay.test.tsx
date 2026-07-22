@@ -113,7 +113,7 @@ describe('MappingTraceOverlay', () => {
   it('calls onClose when close button is clicked', () => {
     const onClose = vi.fn();
     render(<MappingTraceOverlay traces={[]} nodeLabel="N2" onClose={onClose} />);
-    fireEvent.click(screen.getByRole('button', { name: /close mapping traces/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

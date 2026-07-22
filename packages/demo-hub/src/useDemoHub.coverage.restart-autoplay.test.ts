@@ -147,29 +147,30 @@ describe('useDemoHub (branch coverage — restart & autoplay)', () => {
       steps: [
         {
           id: 's1', title: 'Slow', description: 'Slow step',
-          // A 4-second action — longer than the 1500ms breathing pause
+          pauseAfter: 100,
+          // A 4-second action — longer than the 4200ms auto-play breathing pause
           action: async (ctx) => { await ctx.delay(4000); },
         },
-        { id: 's2', title: 'S2', description: 'Step 2' },
+        { id: 's2', title: 'S2', description: 'Step 2', pauseAfter: 100 },
       ],
     });
     act(() => result.current.selectLesson(lesson));
 
-    // Start live demo and advance only partway — step 0's 4s action is still running
+    // Start live demo and advance into step 0's long action
     await act(async () => {
-      result.current.startLiveDemo();
-      await vi.advanceTimersByTimeAsync(600); // past preAction but deep into action
+      void result.current.startLiveDemo();
+      await vi.advanceTimersByTimeAsync(500); // past pre + short reading, into action
     });
 
     // Toggle auto-play while step 0 is executing (executingRef.current = true)
-    // Effect fires and sets a 1500ms breathing pause.
+    // Effect fires and sets a 4200ms breathing pause.
     // When that fires, executingRef is still true → while loop runs (lines 425-426)
     act(() => result.current.toggleAutoPlay());
 
-    // Advance enough for: breathing pause (1500ms) + polling (200ms×N) + step 0
-    // completion (4000ms - 600ms already elapsed = 3400ms) + step 1 + settle
+    // Advance enough for: breathing pause (4200ms) + polling (200ms×N) + step 0
+    // action completion + step 1 pipeline
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(10000);
+      await vi.advanceTimersByTimeAsync(15000);
     });
 
     // After polling loop exits and auto-play advances, we should be past step 0

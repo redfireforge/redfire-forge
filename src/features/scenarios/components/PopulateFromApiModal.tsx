@@ -17,6 +17,7 @@
 import { createPortal } from 'react-dom';
 import type { Scenario, DataSource, DataSourceColumn, DataSourceRow } from '../../../shared/types';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { usePopulateFromApi, type ExtendedHttpResponse } from '../hooks/usePopulateFromApi';
 import PopulateFetchStep from './PopulateFetchStep';
 import PopulateMapStep from './PopulateMapStep';
@@ -84,14 +85,15 @@ export default function PopulateFromApiModal({ draft, dataTable, onApply, onClos
                 }
               </div>
               <div className="populate-api-footer-controls">
-                <select
+                <CustomSelect
                   className="populate-api-mode-select"
                   value={insertMode}
-                  onChange={e => setInsertMode(e.target.value as 'append' | 'replace')}
-                >
-                  <option value="append">Append to existing rows</option>
-                  <option value="replace">Replace all rows</option>
-                </select>
+                  onChange={(v) => setInsertMode(v as 'append' | 'replace')}
+                  options={[
+                    { value: 'append', label: 'Append to existing rows' },
+                    { value: 'replace', label: 'Replace all rows' },
+                  ]}
+                />
               </div>
             </div>
             <div className="populate-api-footer-actions">

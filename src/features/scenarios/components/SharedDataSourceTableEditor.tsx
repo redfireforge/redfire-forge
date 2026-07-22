@@ -4,6 +4,7 @@
  */
 import { useState, useCallback, useMemo } from 'react';
 import type { DataSource, DataSourceColumn } from '../../../shared/types';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import { createEmptyRow, createEmptyColumn } from '../utils/dataSourceUtils';
 
 interface SharedDataSourceTableEditorProps {
@@ -224,17 +225,18 @@ export default function SharedDataSourceTableEditor({ dataSource, onChange }: Sh
                       onChange={e => handleRenameColumn(col.id, e.target.value)}
                       placeholder="Column name"
                     />
-                    <select
+                    <CustomSelect
                       className="shared-ds-col-type"
                       value={col.type}
-                      onChange={e => handleChangeColumnType(col.id, e.target.value as DataSourceColumn['type'])}
-                    >
-                      <option value="path">Path</option>
-                      <option value="param">Param</option>
-                      <option value="body">Body</option>
-                      <option value="header">Header</option>
-                      <option value="validate">Validate</option>
-                    </select>
+                      onChange={(v) => handleChangeColumnType(col.id, v as DataSourceColumn['type'])}
+                      options={[
+                        { value: 'path', label: 'Path' },
+                        { value: 'param', label: 'Param' },
+                        { value: 'body', label: 'Body' },
+                        { value: 'header', label: 'Header' },
+                        { value: 'validate', label: 'Validate' },
+                      ]}
+                    />
                     <button
                       className="btn-icon shared-ds-col-delete"
                       onClick={() => handleDeleteColumn(col.id)}

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import KafkaSchemaConfigSection from '../workflow/components/configs/KafkaSchemaConfigSection';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
 import type { UseKafkaStreamModeReturn } from '../../app/hooks/useKafkaStreamMode';
@@ -7,6 +8,7 @@ import type { KafkaConsumeResultRow } from './types';
 import type { KafkaConsumeTemplate } from '../../shared/kafka/kafkaStorage';
 import { KafkaTemplateControls } from './KafkaTemplateControls';
 import { parseKafkaTimestamp, formatRelativeAge, formatTimestampTooltip } from './kafkaTimestamp';
+import KafkaMessageDetailModal from './KafkaMessageDetailModal';
 
 type ConsumeMode = 'once' | 'stream';
 
@@ -121,15 +123,6 @@ export function KafkaConsumeStudio({
     }
   }, [consumeDraft.topic]);
 
-  const handleCopyKey = useCallback(() => {
-    const msg = mode === 'stream' ? selectedStreamMessage : selectedMessage;
-    if (msg?.key) void navigator.clipboard.writeText(msg.key);
-  }, [mode, selectedMessage, selectedStreamMessage]);
-
-  const handleCopyPayload = useCallback(() => {
-    const msg = mode === 'stream' ? selectedStreamMessage : selectedMessage;
-    if (msg) void navigator.clipboard.writeText(msg.value);
-  }, [mode, selectedMessage, selectedStreamMessage]);
 
   const handleStartStream = useCallback(() => {
     void startStream(consumeDraft, clusterId);
@@ -164,62 +157,11 @@ export function KafkaConsumeStudio({
     );
   };
 
-  const renderDetailPane = (msg: KafkaConsumeResultRow) => (
-    <div className="kafka-ms-detail-pane" data-testid="con-detail-pane">
-      <div className="kafka-ms-detail-actions">
-        <button
-          className="kafka-ms-ghost-btn"
-          onClick={handleCopyKey}
-          disabled={!msg.key}
-          data-testid="con-copy-key-btn"
-        >
-          Copy Key
-        </button>
-        <button
-          className="kafka-ms-ghost-btn"
-          onClick={handleCopyPayload}
-          data-testid="con-copy-payload-btn"
-        >
-          Copy Payload
-        </button>
-        {onUseAsWorkflowInput && (
-          <button
-            className="kafka-ms-secondary-btn kafka-ms-workflow-btn"
-            onClick={handleUseAsWorkflowInput}
-            data-testid="con-workflow-input-btn"
-          >
-            Use as Workflow Input
-          </button>
-        )}
-        <button
-          className="kafka-ms-ghost-btn"
-          onClick={() => mode === 'stream' ? streamMode.selectStreamMessage(null) : selectMessage(null)}
-          aria-label="Close detail"
-        >
-          ✕
-        </button>
-      </div>
-      <pre className="kafka-ms-detail-body" data-testid="con-detail-body">
-        {(() => {
-          try { return JSON.stringify(JSON.parse(msg.value), null, 2); }
-          catch { return msg.value; }
-        })()}
-      </pre>
-      {msg.headers &&
-        Object.keys(msg.headers).length > 0 && (
-          <table className="kafka-ms-detail-headers">
-            <thead>
-              <tr><th>Header Key</th><th>Header Value</th></tr>
-            </thead>
-            <tbody>
-              {Object.entries(msg.headers).map(([k, v]) => (
-                <tr key={k}><td>{k}</td><td>{v}</td></tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-    </div>
-  );
+  const activeDetailMessage = mode === 'stream' ? selectedStreamMessage : selectedMessage;
+  const handleCloseDetail = useCallback(() => {
+    if (mode === 'stream') streamMode.selectStreamMessage(null);
+    else selectMessage(null);
+  }, [mode, selectMessage, streamMode]);
 
   return (
     <div className="kafka-ms-card">
@@ -283,16 +225,18 @@ export function KafkaConsumeStudio({
           {/* Start Position */}
           <div className="kafka-ms-form-row">
             <label className="kafka-ms-form-label" htmlFor="kms-con-pos">Start Position</label>
-            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
-              <select
-                id="kms-con-pos"
+            <div className="kafka-ms-form-ctrl">
+              <CustomSelect
                 className="kafka-ms-form-select kafka-ms-form-select--acks"
+                data-testid="con-position-select"
                 value={consumeDraft.startPosition}
-                onChange={(e) => setConsumeDraft({ startPosition: e.target.value as 'latest' | 'earliest' })}
-              >
-                <option value="latest">Latest — start from newest messages</option>
-                <option value="earliest">Earliest — replay from beginning</option>
-              </select>
+                onChange={(v) => setConsumeDraft({ startPosition: v as 'latest' | 'earliest' })}
+                options={[
+                  { value: 'latest', label: 'Latest', detail: 'Start from newest messages' },
+                  { value: 'earliest', label: 'Earliest', detail: 'Replay from beginning' },
+                ]}
+                aria-label="Start Position"
+              />
             </div>
           </div>
 
@@ -327,17 +271,18 @@ export function KafkaConsumeStudio({
           {/* Sort Order */}
           <div className="kafka-ms-form-row">
             <label className="kafka-ms-form-label" htmlFor="kms-con-sort">Sort Order</label>
-            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
-              <select
-                id="kms-con-sort"
+            <div className="kafka-ms-form-ctrl">
+              <CustomSelect
                 className="kafka-ms-form-select kafka-ms-form-select--acks"
                 value={consumeDraft.sortOrder ?? 'asc'}
-                onChange={(e) => setConsumeDraft({ sortOrder: e.target.value as 'asc' | 'desc' })}
+                onChange={(v) => setConsumeDraft({ sortOrder: v as 'asc' | 'desc' })}
                 data-testid="con-sort-order"
-              >
-                <option value="asc">Oldest First</option>
-                <option value="desc">Newest First</option>
-              </select>
+                options={[
+                  { value: 'asc', label: 'Oldest First', detail: 'Ascending chronological order' },
+                  { value: 'desc', label: 'Newest First', detail: 'Descending chronological order' },
+                ]}
+                aria-label="Sort Order"
+              />
             </div>
           </div>
 
@@ -546,7 +491,6 @@ export function KafkaConsumeStudio({
               </div>
             )}
 
-            {selectedMessage && renderDetailPane(selectedMessage)}
           </>
         )}
 
@@ -661,8 +605,16 @@ export function KafkaConsumeStudio({
               )}
             </div>
 
-            {streamMode.selectedStreamMessage && renderDetailPane(streamMode.selectedStreamMessage)}
           </>
+        )}
+
+        {/* ── Message Detail Modal (shared for both modes) ── */}
+        {activeDetailMessage && (
+          <KafkaMessageDetailModal
+            message={activeDetailMessage}
+            onClose={handleCloseDetail}
+            onUseAsWorkflowInput={onUseAsWorkflowInput ? handleUseAsWorkflowInput : undefined}
+          />
         )}
       </div>
     </div>

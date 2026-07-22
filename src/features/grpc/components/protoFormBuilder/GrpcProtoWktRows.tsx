@@ -12,6 +12,7 @@ import {
 } from '../../utils/grpcProtoFormFieldLabels';
 import { GrpcProtoJsonObjectEditor } from './GrpcProtoJsonObjectEditor';
 import type { GrpcProtoFieldRowProps } from './grpcProtoFormBuilderTypes';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 export function GrpcProtoWktScalarFieldRow({
   field,
@@ -72,16 +73,17 @@ export function GrpcProtoWktScalarFieldRow({
       </div>
       <div className="grpc-proto-field-control">
         {field.type === 'google.protobuf.BoolValue' ? (
-          <select
+          <CustomSelect
             className="grpc-proto-input"
             data-testid={`grpc-proto-field-input-${field.name}`}
             value={displayValue === 'true' ? 'true' : 'false'}
             disabled={disabled}
-            onChange={(event) => handleChange(event.target.value)}
-          >
-            <option value="false">false</option>
-            <option value="true">true</option>
-          </select>
+            onChange={(v) => handleChange(v)}
+            options={[
+              { value: 'false', label: 'false' },
+              { value: 'true', label: 'true' },
+            ]}
+          />
         ) : (
           <input
             type="text"
@@ -160,19 +162,21 @@ export function GrpcProtoAnyFieldRow({
           <label className="grpc-proto-field-note" htmlFor={`grpc-proto-any-type-${field.name}`}>
             Message type
           </label>
-          <select
-            id={`grpc-proto-any-type-${field.name}`}
+          <CustomSelect
             className="grpc-proto-input"
             data-testid={`grpc-proto-any-type-select-${field.name}`}
             value={selectedTypeSupported ? selectedTypeName : ''}
             disabled={disabled}
-            onChange={(event) => handleAnyTypeSelect(event.target.value)}
-          >
-            <option value="">Select message type…</option>
-            {anyTypeOptions.map((typeName) => (
-              <option key={typeName} value={typeName}>{typeName}</option>
-            ))}
-          </select>
+            placeholder="Select message type…"
+            onChange={(v) => handleAnyTypeSelect(v)}
+            options={[
+              { value: '', label: 'Select message type…' },
+              ...anyTypeOptions.map((typeName) => ({
+                value: typeName,
+                label: typeName,
+              })),
+            ]}
+          />
           {selectedTypeName && !selectedTypeSupported && (
             <p
               className="grpc-proto-field-note"

@@ -81,6 +81,8 @@ export type DemoBridgeWindow = Window &
     __demoDeleteCatalogByName?: (name: string) => void;
     /** Select a Catalog entry by display name. Returns false when absent. */
     __demoSelectCatalogByName?: (name: string) => boolean;
+    /** Add a new version to an existing Catalog entry (by name). Returns true on success. */
+    __demoAddVersionByName?: (name: string, rawSpec: string) => Promise<boolean>;
     /** True once the Catalog store has hydrated from storage. */
     __demoCatalogLoaded?: boolean;
     /** Ensure a Settings environment exists by name; returns its ID. */
@@ -91,6 +93,10 @@ export type DemoBridgeWindow = Window &
     __demoEnsureSettingsSvc?: (name: string, baseUrls?: Record<string, string>) => string;
     /** Remove a Settings microservice by name (demo cleanup). */
     __demoRemoveSettingsSvc?: (name: string) => void;
+    /** Delete all feature groups whose name matches (demo cleanup). */
+    __demoDeleteFeatureGroupsByName?: (name: string) => void;
+    /** Delete all request collections whose name matches exactly (demo cleanup). Returns count deleted. */
+    __demoDeleteCollectionsByName?: (name: string) => number;
   };
 
 export function getDemoBridgeWindow(): DemoBridgeWindow {

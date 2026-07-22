@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOptionByIndex, getCustomSelectOptionLabels } from '../../test-utils/customSelectHelper';
 import type { FeatureGroup } from '../../shared/types';
 import ScenarioBuilder from './ScenarioBuilder';
 import type { ScenarioBuilderProps } from './scenarioBuilderTypes';
@@ -613,11 +614,9 @@ describe('ScenarioBuilder', () => {
 
   it('renders unassociated section with selects when no svc/env', () => {
     const una: FeatureGroup[] = [{ id: 'u1', name: 'Una', scenarios: [] }];
-    render(<ScenarioBuilder {...makeProps({ selectedSvcId: undefined, selectedEnvId: undefined, unassociatedFeatureGroups: una })} />);
-    const svcSel = document.getElementById('svc-u1') as HTMLSelectElement;
-    const envSel = document.getElementById('env-u1') as HTMLSelectElement;
-    fireEvent.change(svcSel, { target: { value: 'svc1' } });
-    fireEvent.change(envSel, { target: { value: 'env1' } });
+    const { container } = render(<ScenarioBuilder {...makeProps({ selectedSvcId: undefined, selectedEnvId: undefined, unassociatedFeatureGroups: una })} />);
+    selectOptionByIndex(container, 0, 'Svc');
+    selectOptionByIndex(container, 1, 'Env');
     fireEvent.click(screen.getByText('Assign'));
     expect(h.mut.assignFeatureGroup).toHaveBeenCalledWith('u1', 'svc1', 'env1');
   });
@@ -939,14 +938,14 @@ describe('ScenarioBuilder', () => {
           { id: 's2', name: 'B', kind: 'standard', tests: [] },
         ],
       }];
-      render(<ScenarioBuilder {...makeProps({
+      const { container } = render(<ScenarioBuilder {...makeProps({
         selectedSvcId: undefined,
         selectedEnvId: undefined,
         unassociatedFeatureGroups: una,
         microservices: [{ id: 'svc1', name: 'Svc', customEnvs: [{ id: 'ce1', name: 'Custom Env' }] } as never],
       })} />);
       expect(screen.getByText('2 scenarios')).toBeInTheDocument();
-      expect(screen.getByText('Custom Env (Svc)')).toBeInTheDocument();
+      expect(getCustomSelectOptionLabels(container, 1)).toContain('Custom Env (Svc)');
     });
 
     it('renders auth source badges for scenario, feature, and global resolution', () => {
