@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketMockServer, WebSocketMockRulesPane, useMockServerUi } from './WebSocketMockServer';
 import type { UseWebSocketMockServerReturn } from './useWebSocketMockServer';
 import type { WsMockRule, WsMockLogEntry } from '../../shared/websocket/types';
@@ -269,7 +270,7 @@ describe('WebSocketMockServer', () => {
     const setConfig = vi.fn();
     const mock = makeMockReturn({ setConfig });
     render(<WebSocketMockServer mock={mock} />);
-    fireEvent.change(screen.getByTestId('mock-fallback-select'), { target: { value: 'ignore' } });
+    selectOption(screen.getByTestId('mock-fallback-select'), 'Ignore');
     expect(setConfig).toHaveBeenCalledWith(expect.objectContaining({ fallback: 'ignore' }));
   });
 
@@ -284,7 +285,7 @@ describe('WebSocketMockServer', () => {
       rules,
     });
     render(<WebSocketMockServer mock={mock} />);
-    fireEvent.change(screen.getByTestId('mock-fallback-select'), { target: { value: 'close' } });
+    selectOption(screen.getByTestId('mock-fallback-select'), 'Close connection');
     expect(pushRulesToServer).toHaveBeenCalledWith(rules, 'close');
   });
 
@@ -370,7 +371,7 @@ describe('WebSocketMockServer', () => {
     const mock = makeMockReturn({ rules, setRules });
     render(<WebSocketMockServer mock={mock} />);
     fireEvent.click(screen.getByText('Rule'));
-    fireEvent.change(screen.getByTestId('rule-match-type-r1'), { target: { value: 'exact' } });
+    selectOption(screen.getByTestId('rule-match-type-r1'), 'Exact');
     expect(setRules).toHaveBeenCalledWith([expect.objectContaining({ match: { type: 'exact', pattern: '' } })]);
   });
 
@@ -823,7 +824,7 @@ describe('WebSocketMockServer', () => {
     const mock = makeMockReturn({ rules, setRules });
     render(<WebSocketMockServer mock={mock} />);
     fireEvent.click(screen.getByText('TypeRule'));
-    fireEvent.change(screen.getByTestId('rule-response-type-r1'), { target: { value: 'static' } });
+    selectOption(screen.getByTestId('rule-response-type-r1'), 'Static');
     expect(setRules).toHaveBeenCalled();
   });
 

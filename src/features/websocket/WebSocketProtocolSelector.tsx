@@ -1,5 +1,6 @@
 import type { WsProtocolMode, WsProtocolDetectionResult } from '../../shared/websocket/protocols/protocolTypes';
 import { PROTOCOL_REGISTRY, getProtocolInfo } from '../../shared/websocket/protocols/protocolTypes';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 
 interface WebSocketProtocolSelectorProps {
   protocolMode: WsProtocolMode;
@@ -23,25 +24,19 @@ export function WebSocketProtocolSelector({
         Protocol
       </label>
       <div className="ws-protocol-selector-wrapper">
-        <select
-          id="ws-protocol-select"
+        <CustomSelect
           className="ws-protocol-select"
           value={protocolMode}
-          onChange={(e) => onProtocolModeChange(e.target.value as WsProtocolMode)}
+          onChange={(v) => onProtocolModeChange(v as WsProtocolMode)}
+          options={PROTOCOL_REGISTRY.map((p) => ({
+            value: p.id,
+            label: `${p.label}${!p.available ? ' (coming soon)' : ''}`,
+            disabled: !p.available,
+          }))}
           disabled={disabled}
           aria-label="Protocol mode"
           data-testid="protocol-select"
-        >
-          {PROTOCOL_REGISTRY.map((p) => (
-            <option
-              key={p.id}
-              value={p.id}
-              disabled={!p.available}
-            >
-              {p.label}{!p.available ? ' (coming soon)' : ''}
-            </option>
-          ))}
-        </select>
+        />
         {showDetected && detectedInfo && (
           <span
             className="ws-protocol-detected-badge"

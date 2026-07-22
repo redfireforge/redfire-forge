@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { FeatureGroup, GlobalAuthProfile, AuthConfig, ScenarioKind } from '../../../shared/types';
 import type { RunnerConfig, UnorderedOverride } from '../hooks/runnerConfigDefaults';
 import { buildSelectedTests } from '../utils/buildSelectedTests';
@@ -245,21 +246,24 @@ export default function ScenarioSelector({
           <button className="btn btn-sm" onClick={deselectAll} disabled={disabled}>Deselect All</button>
           <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem', whiteSpace: 'nowrap' }} title="Controls JSON response body matching (expected fields, schema). Use Default to respect each test's own setting.">
             Body Validation
-            <select
-              value={skipValidation ? 'none' : validationOverride}
-              onChange={(e) => {
-                const val = e.target.value as RunnerConfig['validationOverride'];
-                onValidationOverrideChange(val);
-                onSkipValidationChange(val === 'none');
-              }}
-              disabled={disabled}
-              style={{ fontSize: '0.78rem', marginLeft: 4 }}
-            >
-              <option value="default">Default</option>
-              <option value="none">None</option>
-              <option value="selective">Selective</option>
-              <option value="full">Full</option>
-            </select>
+            <span style={{ marginLeft: 4, display: 'inline-block' }}>
+              <CustomSelect
+                value={skipValidation ? 'none' : validationOverride}
+                onChange={(val) => {
+                  const next = val as RunnerConfig['validationOverride'];
+                  onValidationOverrideChange(next);
+                  onSkipValidationChange(next === 'none');
+                }}
+                disabled={disabled}
+                size="sm"
+                options={[
+                  { value: 'default', label: 'Default' },
+                  { value: 'none', label: 'None' },
+                  { value: 'selective', label: 'Selective' },
+                  { value: 'full', label: 'Full' },
+                ]}
+              />
+            </span>
           </label>
           <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem' }} title="Run status, header, and custom assertions. Uncheck to skip all assertions.">
             <input
@@ -272,16 +276,19 @@ export default function ScenarioSelector({
           </label>
           <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem', whiteSpace: 'nowrap' }} title="Array matching: Default respects each test's setting, On forces unordered, Off forces ordered">
             Unordered arrays
-            <select
-              value={forceUnordered}
-              onChange={(e) => onForceUnorderedChange(e.target.value as UnorderedOverride)}
-              disabled={disabled || validationOverride === 'none' || skipValidation}
-              style={{ fontSize: '0.78rem', marginLeft: 4 }}
-            >
-              <option value="default">Default</option>
-              <option value="force-on">On</option>
-              <option value="force-off">Off</option>
-            </select>
+            <span style={{ marginLeft: 4, display: 'inline-block' }}>
+              <CustomSelect
+                value={forceUnordered}
+                onChange={(v) => onForceUnorderedChange(v as UnorderedOverride)}
+                disabled={disabled || validationOverride === 'none' || skipValidation}
+                size="sm"
+                options={[
+                  { value: 'default', label: 'Default' },
+                  { value: 'force-on', label: 'On' },
+                  { value: 'force-off', label: 'Off' },
+                ]}
+              />
+            </span>
           </label>
           <label className="checkbox-label" style={{ marginLeft: 8, fontSize: '0.82rem', whiteSpace: 'nowrap' }} title="Automatically download a report when the test finishes">
             <input
@@ -292,16 +299,19 @@ export default function ScenarioSelector({
             />
             Auto-report
             {autoReport && (
-              <select
-                value={autoReportFormat}
-                onChange={(e) => onAutoReportFormatChange(e.target.value as 'html' | 'json' | 'markdown')}
-                disabled={disabled}
-                style={{ fontSize: '0.78rem', marginLeft: 4 }}
-              >
-                <option value="html">HTML</option>
-                <option value="json">JSON</option>
-                <option value="markdown">Markdown</option>
-              </select>
+              <span style={{ marginLeft: 4, display: 'inline-block' }}>
+                <CustomSelect
+                  value={autoReportFormat}
+                  onChange={(v) => onAutoReportFormatChange(v as 'html' | 'json' | 'markdown')}
+                  disabled={disabled}
+                  size="sm"
+                  options={[
+                    { value: 'html', label: 'HTML' },
+                    { value: 'json', label: 'JSON' },
+                    { value: 'markdown', label: 'Markdown' },
+                  ]}
+                />
+              </span>
             )}
           </label>
           <span className="filter-count">

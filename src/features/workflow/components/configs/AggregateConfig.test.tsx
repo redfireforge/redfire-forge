@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import AggregateConfig from './AggregateConfig';
 import type { AggregateNodeData } from '../../types/workflow';
 
@@ -58,8 +59,8 @@ describe('AggregateConfig', () => {
       mappings: [{ id: 'm1', sourceExpression: '{{item}}', targetVariable: 'result', strategy: 'concat' }],
     });
     const { container } = render(<AggregateConfig data={data} onChange={onChange} />);
-    const strategySelect = container.querySelector('.wf-aggregate-mapping-strategy') as HTMLSelectElement;
-    fireEvent.change(strategySelect, { target: { value: 'sum' } });
+    const strategyWrapper = container.querySelector('.wf-aggregate-mapping-strategy')!;
+    selectOption(strategyWrapper, 'Sum');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       mappings: [expect.objectContaining({ strategy: 'sum' })],
     }));

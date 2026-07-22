@@ -183,7 +183,11 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
     <FullPanelModal
       title={reimportEntryId ? 'Re-import / Update Specification' : 'Import OpenAPI Specification'}
       onClose={onClose}
-      dialogClassName="cat-modal"
+      dialogClassName="cat-modal cat-import-dialog"
+      movable
+      resizable
+      minWidth={480}
+      minHeight={360}
       footer={(
         <>
           <button
@@ -193,7 +197,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
             {step === 'pick' ? 'Close' : 'Back'}
           </button>
           {step === 'preview' && (
-            <button className="cat-btn cat-btn-primary" onClick={handleImport}>
+            <button className="cat-btn cat-btn-primary" data-testid="catalog-import-confirm-btn" onClick={handleImport}>
               {duplicate && !hashMatch ? 'Update' : hashMatch ? 'Import Anyway' : 'Import'}
             </button>
           )}
@@ -210,6 +214,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                 <button className={`cat-import-tab ${inputMode === 'url' ? 'active' : ''}`}
                   onClick={() => setInputMode('url')}>From URL</button>
                 <button className={`cat-import-tab ${inputMode === 'gallery' ? 'active' : ''}`}
+                  data-testid="catalog-import-tab-gallery"
                   onClick={() => setInputMode('gallery')}>Sample Gallery</button>
               </div>
 
@@ -332,7 +337,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                       ))}
                     </div>
                   </div>
-                  <div className="cat-gallery-grid">
+                  <div className="cat-gallery-grid" data-testid="catalog-import-gallery-grid">
                     {catalogSpecCatalog
                       .filter(s => galleryCategory === 'all' || s.category === galleryCategory)
                       .filter(s => !gallerySearch || s.name.toLowerCase().includes(gallerySearch.toLowerCase()) || s.description.toLowerCase().includes(gallerySearch.toLowerCase()))
@@ -340,6 +345,8 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
                         <button
                           key={sample.id}
                           className="cat-gallery-card"
+                          data-testid="catalog-import-gallery-card"
+                          data-gallery-id={sample.id}
                           onClick={() => handleFile(sample.specYaml, `${sample.name}.yaml`)}
                         >
                           <div className="cat-gallery-card-header">
@@ -366,7 +373,7 @@ export default function CatalogImportModal({ existingEntries, onImport, onReimpo
           )}
 
           {step === 'preview' && parsed && (
-            <div className="cat-import-preview">
+            <div className="cat-import-preview" data-testid="catalog-import-preview">
               <div className="cat-preview-status cat-preview-success">
                 ✅ Valid {getSpecFormatLabel(parsed.rawSpec)} specification
               </div>

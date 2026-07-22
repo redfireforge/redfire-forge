@@ -4,6 +4,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import { GrpcProtoFormBuilder } from '../GrpcProtoFormBuilder';
 import {
   MAP_SCHEMA,
@@ -26,7 +27,7 @@ describe('GrpcProtoFormBuilder coverage gaps — well-known and guided cards', (
         onChange={onChange}
       />,
     );
-    fireEvent.change(screen.getByTestId('grpc-proto-field-input-flags-0'), { target: { value: 'true' } });
+    selectOption(screen.getByTestId('grpc-proto-field-input-flags-0'), 'true');
     fireEvent.change(screen.getByTestId('grpc-proto-field-input-ratio'), { target: { value: '2.5' } });
     expect(onChange).toHaveBeenCalled();
   });
@@ -252,9 +253,7 @@ describe('GrpcProtoFormBuilder coverage gaps — well-known and guided cards', (
       />,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-proto-any-type-select-payload'), {
-      target: { value: 'demo.OrderCreated' },
-    });
+    selectOption(screen.getByTestId('grpc-proto-any-type-select-payload'), 'demo.OrderCreated');
     expect(onChange).toHaveBeenCalledWith({
       payload: {
         '@type': 'type.googleapis.com/demo.OrderCreated',
@@ -304,7 +303,7 @@ describe('GrpcProtoFormBuilder coverage gaps — well-known and guided cards', (
       );
     }
     render(<OneofHarness />);
-    fireEvent.change(screen.getByTestId('grpc-proto-oneof-select-payload'), { target: { value: 'count' } });
+    selectOption(screen.getByTestId('grpc-proto-oneof-select-payload'), 'count');
     expect(onChange).toHaveBeenCalledWith({ count: 0 });
   });
 
@@ -337,7 +336,7 @@ describe('GrpcProtoFormBuilder coverage gaps — well-known and guided cards', (
         onChange={onChange}
       />,
     );
-    fireEvent.change(screen.getByTestId('grpc-proto-oneof-select-payload'), { target: { value: 'missing-member' } });
+    expect(() => selectOption(screen.getByTestId('grpc-proto-oneof-select-payload'), 'missing-member')).toThrow();
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -459,9 +458,7 @@ describe('GrpcProtoFormBuilder coverage gaps — well-known and guided cards', (
         ]}
       />,
     );
-    fireEvent.change(screen.getByTestId('grpc-proto-any-type-select-payload'), {
-      target: { value: 'custom.example.com/demo.ExternalMessage' },
-    });
+    selectOption(screen.getByTestId('grpc-proto-any-type-select-payload'), 'custom.example.com/demo.ExternalMessage');
     expect(onChange).toHaveBeenCalledWith({
       payload: {
         '@type': 'custom.example.com/demo.ExternalMessage',
@@ -488,7 +485,7 @@ describe('GrpcProtoFormBuilder coverage gaps — well-known and guided cards', (
       />,
     );
     onChange.mockClear();
-    fireEvent.change(screen.getByTestId('grpc-proto-any-type-select-payload'), { target: { value: '' } });
+    selectOption(screen.getByTestId('grpc-proto-any-type-select-payload'), 'Select message type…');
     expect(onChange).not.toHaveBeenCalled();
   });
 
@@ -590,7 +587,7 @@ describe('GrpcProtoFormBuilder coverage gaps — well-known and guided cards', (
         onChange={onChange}
       />,
     );
-    fireEvent.change(screen.getByTestId('grpc-proto-field-input-enabled'), { target: { value: 'true' } });
+    selectOption(screen.getByTestId('grpc-proto-field-input-enabled'), 'true');
     expect(onChange).toHaveBeenCalledWith({ enabled: { value: true } });
   });
 

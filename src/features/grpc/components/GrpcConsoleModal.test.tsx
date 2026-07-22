@@ -3,6 +3,7 @@
  */
 import { fireEvent, render } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { GrpcConsoleModal, type GrpcConsoleWireEvent } from './GrpcConsoleModal';
 
 function makeEvents(): GrpcConsoleWireEvent[] {
@@ -134,7 +135,7 @@ describe('GrpcConsoleModal', () => {
       />,
     );
 
-    fireEvent.change(getByTestId('grpc-console-sort-order'), { target: { value: 'asc' } });
+    selectOption(getByTestId('grpc-console-sort-order'), 'Time: Asc');
     const list = getByTestId('grpc-console-wire-list');
     expect(list.textContent).toMatch(/Unary request/);
     fireEvent.click(getByTestId('grpc-console-modal-clear'));
@@ -215,7 +216,7 @@ describe('GrpcConsoleModal', () => {
     fireEvent.click(getByTestId('grpc-console-wire-row-evt-2'));
     expect(getByTestId('grpc-console-wire-detail').textContent).toContain('Unary response');
 
-    fireEvent.change(getByTestId('grpc-console-sort-order'), { target: { value: 'asc' } });
+    selectOption(getByTestId('grpc-console-sort-order'), 'Time: Asc');
     expect(getByTestId('grpc-console-wire-detail').textContent).toContain('Unary response');
     expect(getByTestId('grpc-console-wire-row-evt-2').className).toContain('grpc-console-wire-row--active');
   });

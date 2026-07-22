@@ -90,7 +90,7 @@ describe('WorkflowVersionDiff', () => {
 
   it('calls onClose when close button clicked', () => {
     render(<WorkflowVersionDiff open older={olderVersion} newer={newerVersion} onClose={onClose} />);
-    fireEvent.click(screen.getByTitle('Close'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

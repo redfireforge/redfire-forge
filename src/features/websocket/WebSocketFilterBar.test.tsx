@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketFilterBar } from './WebSocketFilterBar';
 
 describe('WebSocketFilterBar', () => {
@@ -33,19 +34,19 @@ describe('WebSocketFilterBar', () => {
 
   it('updates size filter on change', () => {
     render(<WebSocketFilterBar {...defaultProps} />);
-    fireEvent.change(screen.getByLabelText('Size filter'), { target: { value: 'lt1k' } });
+    selectOption(screen.getByTestId('size-filter'), '< 1KB');
     expect(defaultProps.setSizeFilter).toHaveBeenCalledWith('lt1k');
   });
 
   it('updates time filter on change', () => {
     render(<WebSocketFilterBar {...defaultProps} />);
-    fireEvent.change(screen.getByLabelText('Time filter'), { target: { value: 'last30s' } });
+    selectOption(screen.getByTestId('time-filter'), 'Last 30s');
     expect(defaultProps.setTimeFilter).toHaveBeenCalledWith('last30s');
   });
 
   it('updates content type filter on change', () => {
     render(<WebSocketFilterBar {...defaultProps} />);
-    fireEvent.change(screen.getByLabelText('Content type filter'), { target: { value: 'json' } });
+    selectOption(screen.getByTestId('content-type-filter'), 'JSON');
     expect(defaultProps.setContentTypeFilter).toHaveBeenCalledWith('json');
   });
 

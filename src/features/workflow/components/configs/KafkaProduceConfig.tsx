@@ -7,6 +7,7 @@ import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import KafkaSchemaConfigSection from './KafkaSchemaConfigSection';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const ACK_OPTIONS: { value: KafkaAckMode; label: string }[] = [
   { value: 'all', label: 'All' },
@@ -89,9 +90,11 @@ export default function KafkaProduceConfig({
         </div>
         <div className="wf-config-field--row">
           <label>Ack Mode</label>
-          <select value={data.ackMode ?? 'all'} onChange={(e) => update({ ackMode: e.target.value as KafkaAckMode })}>
-            {ACK_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <CustomSelect
+            value={data.ackMode ?? 'all'}
+            onChange={(v) => update({ ackMode: v as KafkaAckMode })}
+            options={ACK_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+          />
         </div>
       </div>
 
@@ -188,9 +191,11 @@ export default function KafkaProduceConfig({
               <div className="wf-kv-toggle">
                 <input type="checkbox" checked={row.enabled} onChange={(e) => bindingCrud.update(index, { enabled: e.target.checked })} />
               </div>
-              <select value={row.source} onChange={(e) => bindingCrud.update(index, { source: e.target.value as KafkaNodeMetadataBinding['source'] })}>
-                {OUTPUT_SOURCE_OPTIONS.map((source) => <option key={source} value={source}>{source}</option>)}
-              </select>
+              <CustomSelect
+                value={row.source}
+                onChange={(v) => bindingCrud.update(index, { source: v as KafkaNodeMetadataBinding['source'] })}
+                options={OUTPUT_SOURCE_OPTIONS.map((source) => ({ value: source, label: source }))}
+              />
               <input
                 value={row.targetVariable}
                 onChange={(e) => bindingCrud.update(index, { targetVariable: e.target.value })}

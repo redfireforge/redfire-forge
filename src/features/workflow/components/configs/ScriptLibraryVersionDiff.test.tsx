@@ -51,7 +51,7 @@ describe('ScriptLibraryVersionDiff', () => {
 
   it('calls onClose when close button clicked', () => {
     render(<ScriptLibraryVersionDiff older={older} newer={newer} diff={baseDiff} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText('Close'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalled();
   });
 

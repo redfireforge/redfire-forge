@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketConnectPanel } from './WebSocketConnectPanel';
 import type { WsConnectionDraft, WsConnectionSnapshot } from '../../shared/websocket/types';
 
@@ -904,7 +905,7 @@ describe('WebSocketConnectPanel', () => {
       render(<WebSocketConnectPanel {...defaultProps()} />);
       // No onProtocolModeChange passed -> uses the () => {} fallback
       expect(() =>
-        fireEvent.change(screen.getByTestId('protocol-select'), { target: { value: 'socketio' } }),
+        selectOption(screen.getByTestId('protocol-select'), 'Socket.IO'),
       ).not.toThrow();
     });
 
@@ -956,7 +957,7 @@ describe('WebSocketConnectPanel', () => {
           onBackoffMultiplierChange={onBackoffMultiplierChange}
         />,
       );
-      fireEvent.change(screen.getByTestId('backoff-multiplier'), { target: { value: '1.5' } });
+      selectOption(screen.getByTestId('backoff-multiplier'), '1.5×');
       expect(onBackoffMultiplierChange).toHaveBeenCalledWith(1.5);
     });
 

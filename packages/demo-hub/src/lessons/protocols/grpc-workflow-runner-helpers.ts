@@ -1,6 +1,6 @@
 /** GRPC-24 Workflow Runner lesson — shared helpers, session, setup/cleanup */
 import type { DemoActionContext } from '../../types';
-import { WF } from '@shared/selectors';
+import { WF, GRPC } from '@shared/selectors';
 import { RES } from '@shared/selectors/res';
 import { REX } from '@shared/selectors/rex';
 import { FIXTURE_DESCRIPTOR_KEY } from '@shared/grpc/contractFixtures';
@@ -53,7 +53,7 @@ export const GRPCWR_EXPLORER_BTN = 'button[title="Explore execution results"]';
 export const GRPCWR_VARS_SECTION = '.workflow-vars-section';
 export const GRPCWR_CONFIG_SECTION = '.workflow-runner-config-section';
 export const GRPCWR_COMPLETION = '.completion-section';
-export const GRPCWR_VIEW_RESULTS_BTN = '.completion-section .btn-primary, .wfp-view-results-btn, [data-testid="view-results-btn"]';
+export const GRPCWR_VIEW_RESULTS_BTN = GRPC.WF_VIEW_RESULTS_BTN;
 export const GRPCWR_PROGRESS = '.progress-section';
 export const GRPCWR_REQUEST_ROW = '.clickable-row';
 export const GRPCWR_EXPLORER_DETAIL = '.results-explorer-detail';

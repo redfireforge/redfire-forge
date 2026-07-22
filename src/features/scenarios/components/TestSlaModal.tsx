@@ -7,6 +7,7 @@
  */
 import { useState } from 'react';
 import AppModalFrame from '../../../shared/components/AppModalFrame';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { SlaTarget, Scenario } from '../../../shared/types';
 import {
   SLA_METRIC_LABELS,
@@ -130,15 +131,12 @@ export default function TestSlaModal({ test, onSave, onClose }: TestSlaModalProp
               return (
                 <tr key={t.id}>
                   <td>
-                    <select
+                    <CustomSelect
                       className="sla-editor-select"
                       value={t.metric}
-                      onChange={(e) => updateRow(idx, { metric: e.target.value as SlaMetric })}
-                    >
-                      {METRIC_OPTIONS.map((m) => (
-                        <option key={m} value={m}>{SLA_METRIC_LABELS[m]}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => updateRow(idx, { metric: v as SlaMetric })}
+                      options={METRIC_OPTIONS.map((m) => ({ value: m, label: SLA_METRIC_LABELS[m] }))}
+                    />
                   </td>
                   <td>
                     <span className="sla-operator-display">{t.operator === 'lte' ? '≤' : '≥'}</span>

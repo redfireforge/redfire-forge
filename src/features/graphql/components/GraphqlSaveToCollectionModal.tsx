@@ -4,6 +4,7 @@
  * Extracted from GraphqlCollections.tsx to reduce its line count.
  */
 import { useState, useEffect, useRef } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { CollectionTree } from '../hooks/useGraphqlCollections';
 
 export interface SaveToCollectionModalProps {
@@ -74,34 +75,26 @@ export function SaveToCollectionModal({ defaultName, trees, operationVariables, 
         {trees.length === 0 ? (
           <p className="gql-save-col-empty">No collections yet. Create one first.</p>
         ) : (
-          <select
-            id="gql-save-col-collection"
+          <CustomSelect
             className="gql-save-col-select"
             value={selectedCollectionId}
-            onChange={(e) => { setSelectedCollectionId(e.target.value); setSelectedFolderId(''); }}
+            onChange={(v) => { setSelectedCollectionId(v); setSelectedFolderId(''); }}
+            options={trees.map((t) => ({ value: t.collection.id, label: t.collection.name }))}
             data-testid="gql-save-col-collection"
-          >
-            {trees.map((t) => (
-              <option key={t.collection.id} value={t.collection.id}>{t.collection.name}</option>
-            ))}
-          </select>
+          />
         )}
 
         {folders.length > 0 && (
           <>
             <label className="gql-save-col-label" htmlFor="gql-save-col-folder">Folder (optional)</label>
-            <select
-              id="gql-save-col-folder"
+            <CustomSelect
               className="gql-save-col-select"
               value={selectedFolderId}
-              onChange={(e) => setSelectedFolderId(e.target.value)}
+              onChange={(v) => setSelectedFolderId(v)}
+              options={folders.map((f) => ({ value: f.id, label: f.name }))}
+              placeholder="— No folder —"
               data-testid="gql-save-col-folder"
-            >
-              <option value="">— No folder —</option>
-              {folders.map((f) => (
-                <option key={f.id} value={f.id}>{f.name}</option>
-              ))}
-            </select>
+            />
           </>
         )}
 

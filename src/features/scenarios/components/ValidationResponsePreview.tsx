@@ -6,6 +6,7 @@ interface ValidationResponsePreviewProps {
 }
 
 export default function ValidationResponsePreview({ responsePreviewJson, isPending }: ValidationResponsePreviewProps) {
+  const [collapsed, setCollapsed] = useState(false);
   const [responseSearchTerm, setResponseSearchTerm] = useState('');
   const [responseSearchIndex, setResponseSearchIndex] = useState(-1);
   const responseTextareaRef = useRef<HTMLTextAreaElement>(null);
@@ -44,8 +45,17 @@ export default function ValidationResponsePreview({ responsePreviewJson, isPendi
   }, [responseSearchMatches, responseSearchTerm, responsePreviewJson]);
 
   return (
-    <div className={`validation-response-preview ${isPending ? 'validation-response-preview--pending' : ''}`}>
-      <div className="validation-response-preview-header">
+    <div className={`validation-response-preview ${isPending ? 'validation-response-preview--pending' : ''} ${collapsed ? 'validation-response-preview--collapsed' : ''}`}>
+      <div
+        className="validation-response-preview-header"
+        onClick={() => setCollapsed(c => !c)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setCollapsed(c => !c); } }}
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? 'Expand sample response' : 'Collapse sample response'}
+      >
+        <span className="validation-response-preview-toggle">{collapsed ? '▶' : '▼'}</span>
         <span className="validation-response-preview-title">
           {isPending ? 'Fetched response (pending apply)' : 'Current sample response'}
         </span>
@@ -53,78 +63,82 @@ export default function ValidationResponsePreview({ responsePreviewJson, isPendi
           {(responsePreviewJson.length / 1024).toFixed(1)} KB
         </span>
       </div>
-      <div className="validation-response-preview-search">
-        <input
-          type="text"
-          className="validation-response-preview-search-input"
-          placeholder="Search response…"
-          value={responseSearchTerm}
-          onChange={(e) => setResponseSearchTerm(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault();
-              if (responseSearchMatches.length > 0) {
-                const next = responseSearchIndex < 0
-                  ? (e.shiftKey ? responseSearchMatches.length - 1 : 0)
-                  : responseSearchIndex + (e.shiftKey ? -1 : 1);
-                focusResponseMatch(next);
-              }
-            } else if (e.key === 'Escape' && responseSearchTerm) {
-              e.preventDefault();
-              setResponseSearchTerm('');
-            }
-          }}
-          aria-label="Search sample response"
-        />
-        {responseSearchTerm && (
-          <span className="validation-response-preview-search-count">
-            {responseSearchMatches.length === 0
-              ? 'No matches'
-              : responseSearchIndex < 0
-                ? `${responseSearchMatches.length} match${responseSearchMatches.length === 1 ? '' : 'es'}`
-                : `${responseSearchIndex + 1} / ${responseSearchMatches.length}`}
-          </span>
-        )}
-        <button
-          type="button"
-          className="btn btn-xs"
-          onClick={() => focusResponseMatch(responseSearchIndex < 0 ? responseSearchMatches.length - 1 : responseSearchIndex - 1)}
-          disabled={responseSearchMatches.length === 0}
-          title="Previous match (Shift+Enter)"
-          aria-label="Previous match"
-        >
-          ↑
-        </button>
-        <button
-          type="button"
-          className="btn btn-xs"
-          onClick={() => focusResponseMatch(responseSearchIndex < 0 ? 0 : responseSearchIndex + 1)}
-          disabled={responseSearchMatches.length === 0}
-          title="Next match (Enter)"
-          aria-label="Next match"
-        >
-          ↓
-        </button>
-        {responseSearchTerm && (
-          <button
-            type="button"
-            className="btn btn-xs"
-            onClick={() => setResponseSearchTerm('')}
-            title="Clear search (Esc)"
-            aria-label="Clear search"
-          >
-            ×
-          </button>
-        )}
-      </div>
-      <textarea
-        ref={responseTextareaRef}
-        className="validation-response-preview-textarea"
-        value={responsePreviewJson}
-        readOnly
-        rows={8}
-        aria-label={isPending ? 'Fetched response preview' : 'Current sample response'}
-      />
+      {!collapsed && (
+        <>
+          <div className="validation-response-preview-search">
+            <input
+              type="text"
+              className="validation-response-preview-search-input"
+              placeholder="Search response…"
+              value={responseSearchTerm}
+              onChange={(e) => setResponseSearchTerm(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  if (responseSearchMatches.length > 0) {
+                    const next = responseSearchIndex < 0
+                      ? (e.shiftKey ? responseSearchMatches.length - 1 : 0)
+                      : responseSearchIndex + (e.shiftKey ? -1 : 1);
+                    focusResponseMatch(next);
+                  }
+                } else if (e.key === 'Escape' && responseSearchTerm) {
+                  e.preventDefault();
+                  setResponseSearchTerm('');
+                }
+              }}
+              aria-label="Search sample response"
+            />
+            {responseSearchTerm && (
+              <span className="validation-response-preview-search-count">
+                {responseSearchMatches.length === 0
+                  ? 'No matches'
+                  : responseSearchIndex < 0
+                    ? `${responseSearchMatches.length} match${responseSearchMatches.length === 1 ? '' : 'es'}`
+                    : `${responseSearchIndex + 1} / ${responseSearchMatches.length}`}
+              </span>
+            )}
+            <button
+              type="button"
+              className="btn btn-xs"
+              onClick={() => focusResponseMatch(responseSearchIndex < 0 ? responseSearchMatches.length - 1 : responseSearchIndex - 1)}
+              disabled={responseSearchMatches.length === 0}
+              title="Previous match (Shift+Enter)"
+              aria-label="Previous match"
+            >
+              ↑
+            </button>
+            <button
+              type="button"
+              className="btn btn-xs"
+              onClick={() => focusResponseMatch(responseSearchIndex < 0 ? 0 : responseSearchIndex + 1)}
+              disabled={responseSearchMatches.length === 0}
+              title="Next match (Enter)"
+              aria-label="Next match"
+            >
+              ↓
+            </button>
+            {responseSearchTerm && (
+              <button
+                type="button"
+                className="btn btn-xs"
+                onClick={() => setResponseSearchTerm('')}
+                title="Clear search (Esc)"
+                aria-label="Clear search"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <textarea
+            ref={responseTextareaRef}
+            className="validation-response-preview-textarea"
+            value={responsePreviewJson}
+            readOnly
+            rows={8}
+            aria-label={isPending ? 'Fetched response preview' : 'Current sample response'}
+          />
+        </>
+      )}
     </div>
   );
 }

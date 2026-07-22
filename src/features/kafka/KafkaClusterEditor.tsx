@@ -1,3 +1,4 @@
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import {
   clusterIdFromName,
   type KafkaClusterDraft,
@@ -203,18 +204,19 @@ export function KafkaClusterEditor({
                   </div>
                   <div className="kafka-editor-field">
                     <label htmlFor="kafka-auth-mode">Mechanism</label>
-                    <select
-                      id="kafka-auth-mode"
+                    <CustomSelect
                       value={draft.authMode ?? 'none'}
-                      onChange={(event) =>
-                        updateDraft({ authMode: event.target.value as KafkaClusterDraft['authMode'] })
+                      onChange={(v) =>
+                        updateDraft({ authMode: v as KafkaClusterDraft['authMode'] })
                       }
-                    >
-                      <option value="none">No authentication</option>
-                      <option value="plain">SASL / PLAIN</option>
-                      <option value="scram-sha-256">SCRAM-SHA-256</option>
-                      <option value="scram-sha-512">SCRAM-SHA-512</option>
-                    </select>
+                      options={[
+                        { value: 'none', label: 'No authentication' },
+                        { value: 'plain', label: 'SASL / PLAIN' },
+                        { value: 'scram-sha-256', label: 'SCRAM-SHA-256' },
+                        { value: 'scram-sha-512', label: 'SCRAM-SHA-512' },
+                      ]}
+                      aria-label="Mechanism"
+                    />
                   </div>
                   {(draft.authMode ?? 'none') !== 'none' && (
                     <div className="kafka-subcard-fields">

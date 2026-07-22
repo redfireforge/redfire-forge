@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { CustomSelect } from '../CustomSelect';
 import type { MapperTarget, Mapping, TargetField, TargetFieldOrigin, AdapterCapabilities, FieldOperator, FetchErrorDetail } from './types';
 import type { Assertion } from '../../types';
 import type { JsonTreeNode } from '../../utils/jsonTreeModel';
@@ -531,22 +532,20 @@ export default function TargetPanel({
             {search && (
               <button className="dm-search-clear" onClick={() => setSearch('')} aria-label="Clear search">×</button>
             )}
-            <select
+            <CustomSelect
               className="dm-filter-select"
               aria-label="Filter target fields"
               value={mappingFilter}
-              onChange={(e) => setMappingFilter(e.target.value as 'all' | 'mapped' | 'unmapped' | 'passed' | 'failed')}
-            >
-              <option value="all">All</option>
-              <option value="mapped">Mapped</option>
-              <option value="unmapped">Unmapped</option>
-              {nodeStatusMap && (
-                <>
-                  <option value="passed">Passed</option>
-                  <option value="failed">Failed</option>
-                </>
-              )}
-            </select>
+              onChange={(v) => setMappingFilter(v as 'all' | 'mapped' | 'unmapped' | 'passed' | 'failed')}
+              options={[
+                { value: 'all', label: 'All' },
+                { value: 'mapped', label: 'Mapped' },
+                { value: 'unmapped', label: 'Unmapped' },
+                ...(nodeStatusMap
+                  ? [{ value: 'passed', label: 'Passed' }, { value: 'failed', label: 'Failed' }]
+                  : []),
+              ]}
+            />
             <span className="dm-filter-count" aria-live="polite">
               {mappedLeafCount} mapped / {unmappedLeafCount} unmapped
             </span>

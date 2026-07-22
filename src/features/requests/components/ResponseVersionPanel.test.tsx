@@ -6,6 +6,7 @@ import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import ResponseVersionPanel from './ResponseVersionPanel';
 import { ResponseVersion, ValidationConfig } from '../../../shared/types';
+import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 
 const diffKitCtl = vi.hoisted(() => ({
   throwOnSecondDiffInRender: false,
@@ -420,7 +421,7 @@ describe('ResponseVersionPanel', { timeout: 30_000 }, () => {
     it('shows "Same version selected" when comparing same version', () => {
       const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'first' });
       const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000, label: 'second' });
-      render(
+      const { container } = render(
         <ResponseVersionPanel
           {...defaultProps()}
           versions={[v1, v2]}
@@ -428,10 +429,8 @@ describe('ResponseVersionPanel', { timeout: 30_000 }, () => {
         />,
       );
       fireEvent.click(screen.getByText('Compare'));
-      const leftSelect = screen.getAllByRole('combobox')[0];
-      fireEvent.change(leftSelect, { target: { value: v2.id } });
-      const rightSelect = screen.getAllByRole('combobox')[1];
-      fireEvent.change(rightSelect, { target: { value: v2.id } });
+      selectOptionByIndex(container, 0, 'second');
+      selectOptionByIndex(container, 1, 'second');
       expect(screen.getByText('Same version selected')).toBeTruthy();
     });
 

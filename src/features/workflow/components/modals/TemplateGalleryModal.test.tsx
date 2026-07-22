@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import type { SampleWorkflowEntry } from '../../../../data/galleries/workflows';
 
@@ -133,17 +134,16 @@ describe('TemplateGalleryModal', () => {
 
   it('filters by node type and clears the active filter', () => {
     render(<TemplateGalleryContent onSelect={vi.fn()} />);
-    const sel = screen.getByLabelText('Filter by node type') as HTMLSelectElement;
-    fireEvent.change(sel, { target: { value: 'HTTP' } });
+    const filter = screen.getByLabelText('Filter by node type').closest('.cs-wrapper')!;
+    selectOption(filter, 'HTTP Request');
     expect(screen.getByText(/Showing samples using:/)).toBeInTheDocument();
     fireEvent.click(screen.getByLabelText('Clear node filter'));
-    expect(sel.value).toBe('');
+    expect(filter.querySelector('.cs-text')?.textContent).toBe('All Nodes');
   });
 
   it('uses singular result label when exactly one template matches node filter', () => {
     render(<TemplateGalleryContent onSelect={vi.fn()} />);
-    const sel = screen.getByLabelText('Filter by node type') as HTMLSelectElement;
-    fireEvent.change(sel, { target: { value: 'WaitCondition' } });
+    selectOption(screen.getByLabelText('Filter by node type').closest('.cs-wrapper')!, 'Wait for Condition');
     expect(screen.getByText(/Showing samples using:/).textContent).toMatch(/\(1 result\)/);
   });
 

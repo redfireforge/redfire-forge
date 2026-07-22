@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import { ChangelogPanel } from './ChangelogPanel';
 import type { GraphqlSchemaSnapshot } from '../../../../shared/types/graphql';
 import { CHANGELOG_VISIBLE_CAP } from '../../utils/changelogPanelUtils';
@@ -102,7 +103,7 @@ describe('ChangelogPanel — list and selection', () => {
     const onOpenDiff = vi.fn();
     const snaps = [makeSnapshot('a'), makeSnapshot('b', { capturedAt: Date.now() - 1000 })];
     render(<ChangelogPanel snapshots={snaps} currentSdl={SDL} onOpenDiff={onOpenDiff} />);
-    fireEvent.change(screen.getByTestId('gql-changelog-compare-select'), { target: { value: 'b' } });
+    selectOption(screen.getByTestId('gql-changelog-compare-select'), 'Snapshot b');
     fireEvent.click(screen.getByTestId('gql-changelog-diff-btn'));
     expect(onOpenDiff).toHaveBeenCalledWith(expect.objectContaining({ id: 'a' }), 'b');
   });
@@ -163,8 +164,8 @@ describe('ChangelogPanel — list and selection', () => {
   it('clears compareToId when compared snapshot is removed', () => {
     const snaps = [makeSnapshot('a'), makeSnapshot('b', { capturedAt: Date.now() - 1000 })];
     const { rerender } = render(<ChangelogPanel snapshots={snaps} currentSdl={SDL} />);
-    fireEvent.change(screen.getByTestId('gql-changelog-compare-select'), { target: { value: 'b' } });
+    selectOption(screen.getByTestId('gql-changelog-compare-select'), 'Snapshot b');
     rerender(<ChangelogPanel snapshots={[snaps[0]]} currentSdl={SDL} />);
-    expect((screen.getByTestId('gql-changelog-compare-select') as HTMLSelectElement).value).toBe('');
+    expect(getCustomSelectValue(screen.getByTestId('gql-changelog-compare-select'))).toBe('Current schema');
   });
 });

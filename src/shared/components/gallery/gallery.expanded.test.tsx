@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { GalleryCard } from './GalleryCard';
 import { GalleryDetailPanel } from './GalleryDetailPanel';
 import { GalleryFilters } from './GalleryFilters';
@@ -108,7 +109,7 @@ describe('GalleryDetailPanel — expanded coverage', () => {
 
   it('hides close button when onClose is not provided', () => {
     render(<GalleryDetailPanel entry={makeEntry()} />);
-    expect(screen.queryByLabelText('Close detail panel')).toBeNull();
+    expect(screen.queryByTestId('gallery-detail-close')).toBeNull();
   });
 
   it('hides action button when actionLabel is not provided', () => {
@@ -184,8 +185,7 @@ describe('GalleryFilters — expanded coverage', () => {
         {...defaultFilterProps}
       />,
     );
-    const select = screen.getByLabelText('Filter by difficulty');
-    fireEvent.change(select, { target: { value: 'advanced' } });
+    selectOption(screen.getByLabelText('Filter by difficulty').closest('.cs-wrapper')!, 'Advanced');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ difficulty: 'advanced' }));
   });
 
@@ -202,8 +202,7 @@ describe('GalleryFilters — expanded coverage', () => {
         {...defaultFilterProps}
       />,
     );
-    const select = screen.getByLabelText('Filter by category');
-    fireEvent.change(select, { target: { value: 'crud' } });
+    selectOption(screen.getByLabelText('Filter by category').closest('.cs-wrapper')!, 'crud');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ category: 'crud' }));
   });
 
@@ -250,8 +249,7 @@ describe('GalleryFilters — expanded coverage', () => {
         {...defaultFilterProps}
       />,
     );
-    const select = screen.getByLabelText('Filter by live API');
-    fireEvent.change(select, { target: { value: 'api.example.com' } });
+    selectOption(screen.getByLabelText('Filter by live API').closest('.cs-wrapper')!, 'api.example.com');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ liveApi: 'api.example.com' }));
   });
 

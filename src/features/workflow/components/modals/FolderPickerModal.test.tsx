@@ -83,7 +83,7 @@ describe('FolderPickerModal', () => {
   it('calls onCancel when close button is clicked', () => {
     const onCancel = vi.fn();
     render(<FolderPickerModal open={true} folders={folders} onPick={vi.fn()} onCancel={onCancel} />);
-    fireEvent.click(screen.getByLabelText('Close'));
+    fireEvent.click(screen.getByText('Cancel'));
     expect(onCancel).toHaveBeenCalled();
   });
 

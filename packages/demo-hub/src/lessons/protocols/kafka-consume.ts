@@ -2,9 +2,161 @@
 import type { DemoLesson } from '../../types';
 import { kafkaPublishSetup, kafkaCleanup } from '../setup-helpers';
 import { KAFKA } from '@shared/selectors';
+import { dispatchKafkaOperation } from '@shared/kafka/kafkaClient';
 
-/** Topic to consume from — same topic K2 published to. */
-const DEMO_TOPIC = 'orders.created';
+/**
+ * Unique topic per lesson session — prevents duplicate messages from accumulating
+ * across multiple lesson runs (Kafka topics are append-only).
+ */
+let sessionTopic = '';
+function getDemoTopic(): string {
+  if (!sessionTopic) sessionTopic = `orders.consume-demo-${Date.now()}`;
+  return sessionTopic;
+}
+
+/** Resolve the currently connected cluster ID from the Kafka server status. */
+async function getActiveClusterId(): Promise<string | null> {
+  try {
+    const status = await dispatchKafkaOperation<{ state: string; clusterId?: string }>('status');
+    if (status.data?.state === 'connected' && status.data.clusterId) {
+      return status.data.clusterId;
+    }
+  } catch { /* server not running */ }
+  return null;
+}
+
+/** Clear all filter inputs so leftover values from other lessons don't hide results. */
+async function clearAllFilters(ctx: { fill: (sel: string, val: string) => Promise<void>; delay: (ms: number) => Promise<void> }): Promise<void> {
+  await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
+  await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
+  await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
+  await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
+  await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+  await ctx.delay(100);
+}
+
+/** Prevents duplicate seeding across setup + preAction calls within one lesson run. */
+let seeded = false;
+
+/** Reset the seed flag (call from setup before seeding). */
+function resetSeedFlag(): void { seeded = false; }
+
+/**
+ * Pre-seed 5 varied messages so each result row shows distinct data.
+ * Idempotent per lesson run — only produces once to avoid duplicates.
+ */
+async function seedDemoMessages(): Promise<void> {
+  if (seeded) return;
+  const clusterId = await getActiveClusterId();
+  if (!clusterId) return; // not connected — nothing to seed
+
+  const messages = [
+    {
+      key: 'user-alice',
+      value: JSON.stringify({
+        orderId: 'ORD-7001',
+        customer: 'Alice Chen',
+        status: 'CREATED',
+        items: [{ sku: 'WIDGET-A', qty: 2, price: 24.99 }],
+        total: 49.98,
+        region: 'us-east',
+        priority: 'standard',
+      }),
+      headers: { traceId: 'trc-a1b2c3', source: 'web-checkout', env: 'production' },
+    },
+    {
+      key: 'user-bob',
+      value: JSON.stringify({
+        orderId: 'ORD-7002',
+        customer: 'Bob Smith',
+        status: 'SHIPPED',
+        items: [{ sku: 'GADGET-X', qty: 1, price: 129.00 }],
+        total: 129.00,
+        region: 'eu-west',
+        priority: 'express',
+        trackingId: 'TRK-88421',
+      }),
+      headers: { traceId: 'trc-d4e5f6', source: 'fulfillment-svc', env: 'production' },
+    },
+    {
+      key: 'user-carol',
+      value: JSON.stringify({
+        orderId: 'ORD-7003',
+        customer: 'Carol Davis',
+        status: 'DELIVERED',
+        items: [
+          { sku: 'SENSOR-M', qty: 3, price: 18.50 },
+          { sku: 'CABLE-USB', qty: 1, price: 12.00 },
+        ],
+        total: 67.50,
+        region: 'ap-south',
+        priority: 'standard',
+        deliveredAt: '2026-07-20T14:32:00Z',
+      }),
+      headers: { traceId: 'trc-g7h8i9', source: 'delivery-svc', env: 'production' },
+    },
+    {
+      key: 'user-dan',
+      value: JSON.stringify({
+        orderId: 'ORD-7004',
+        customer: 'Dan Park',
+        status: 'REFUNDED',
+        items: [{ sku: 'MONITOR-27', qty: 1, price: 349.00 }],
+        total: 349.00,
+        region: 'us-west',
+        priority: 'express',
+        refundReason: 'defective pixel cluster',
+      }),
+      headers: { traceId: 'trc-j0k1l2', source: 'returns-portal', env: 'production', refundApprover: 'auto' },
+    },
+    {
+      key: 'user-eve',
+      value: JSON.stringify({
+        orderId: 'ORD-7005',
+        customer: 'Eve Lopez',
+        status: 'PROCESSING',
+        items: [
+          { sku: 'KEYBOARD-K2', qty: 1, price: 89.00 },
+          { sku: 'MOUSEPAD-XL', qty: 1, price: 19.99 },
+        ],
+        total: 108.99,
+        region: 'eu-central',
+        priority: 'standard',
+      }),
+      headers: { traceId: 'trc-m3n4o5', source: 'mobile-app', env: 'staging' },
+    },
+  ];
+
+  // Produce all in a single batch call for speed
+  try {
+    await dispatchKafkaOperation('produce', {
+      clusterId,
+      topic: getDemoTopic(),
+      messages,
+    });
+    seeded = true;
+  } catch {
+    // Broker may not be running — fail silently; lesson will show empty results
+  }
+}
+
+/** Ensure the Consume tab has results — navigate, clear filters, seed, and consume if needed. */
+async function ensureConsumeResults(ctx: { click: (sel: string) => Promise<void>; fill: (sel: string, val: string) => Promise<void>; delay: (ms: number) => Promise<void>; waitFor: (sel: string, timeout: number) => Promise<void> }): Promise<void> {
+  await ctx.click(KAFKA.CONSUME_TAB);
+  await ctx.delay(200);
+  if (!document.querySelector(KAFKA.CON_RESULTS_ZONE)) {
+    const topicInput = document.querySelector<HTMLInputElement>(KAFKA.CON_TOPIC_INPUT);
+    if (topicInput && (!topicInput.value || topicInput.value.trim() === '')) {
+      await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
+    }
+    await clearAllFilters(ctx);
+    await seedDemoMessages();
+    await ctx.delay(200);
+    await ctx.click(KAFKA.CON_CONSUME_BTN);
+    try { await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000); } catch { /* */ }
+    await ctx.delay(300);
+  }
+}
 
 export const kafkaConsumeLesson: DemoLesson = {
   id: 'kafka-consume',
@@ -21,7 +173,15 @@ export const kafkaConsumeLesson: DemoLesson = {
   dockerCommand: 'cd docker/kafka/plaintext && docker compose up -d',
   tag: '🐳 Docker',
 
-  setup: kafkaPublishSetup,
+  setup: async (ctx) => {
+    // Generate a fresh topic each run so no stale duplicates accumulate
+    sessionTopic = `orders.consume-demo-${Date.now()}`;
+    resetSeedFlag();
+    await kafkaPublishSetup(ctx);
+    // Pre-seed sample messages so the consume step always finds data
+    await seedDemoMessages();
+    await ctx.delay(300);
+  },
   cleanup: kafkaCleanup,
 
   concept: {
@@ -109,6 +269,9 @@ export const kafkaConsumeLesson: DemoLesson = {
         // step would silently fail.
         await ctx.click(KAFKA.CON_MODE_ONCE);
         await ctx.delay(200);
+        // Clear stale filters left by prior lessons (e.g. K4 Headers & Filters
+        // leaves JSONPath $.status = CREATED which silently filters out results)
+        await clearAllFilters(ctx);
       },
     },
 
@@ -117,10 +280,10 @@ export const kafkaConsumeLesson: DemoLesson = {
       id: 'con-topic',
       title: 'Set the Topic',
       description:
-        'Type `orders.created` — the same topic the Publish lesson sent its demo message to. The Consume Studio will read messages from this topic.',
+        'Type the demo topic name — the topic our setup pre-seeded with varied order events. The Consume Studio will read messages from this topic.',
       highlight: KAFKA.CON_TOPIC_INPUT,
       action: async (ctx) => {
-        await ctx.fill(KAFKA.CON_TOPIC_INPUT, DEMO_TOPIC);
+        await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
         await ctx.delay(400);
       },
     },
@@ -133,8 +296,41 @@ export const kafkaConsumeLesson: DemoLesson = {
         '**Start Position** controls where reading begins in the partition log. `Earliest` starts from offset 0 — you will see every message ever written. `Latest` skips history and only reads new arrivals.',
       highlight: KAFKA.CON_POSITION_SELECT,
       action: async (ctx) => {
-        await ctx.selectOption(KAFKA.CON_POSITION_SELECT, 'earliest');
-        await ctx.delay(300);
+        // Spotlight the Start Position dropdown
+        const posSelect = document.querySelector<HTMLElement>(KAFKA.CON_POSITION_SELECT);
+        if (posSelect) {
+          posSelect.scrollIntoView({ block: 'nearest' });
+          posSelect.style.outline = '2px solid var(--primary)';
+          posSelect.style.outlineOffset = '2px';
+          posSelect.style.borderRadius = '6px';
+          await ctx.delay(800);
+
+          // Open the dropdown
+          const trigger = posSelect.querySelector<HTMLElement>('.cs-trigger');
+          if (trigger) trigger.click();
+          await ctx.delay(600);
+
+          // Click "Earliest" option
+          const items = posSelect.querySelectorAll<HTMLElement>('.cs-item');
+          for (const item of items) {
+            if (item.textContent?.includes('Earliest')) {
+              item.style.outline = '2px solid var(--primary)';
+              item.style.outlineOffset = '1px';
+              item.style.borderRadius = '4px';
+              await ctx.delay(600);
+              item.click();
+              item.style.outline = '';
+              item.style.outlineOffset = '';
+              item.style.borderRadius = '';
+              break;
+            }
+          }
+          await ctx.delay(600);
+
+          posSelect.style.outline = '';
+          posSelect.style.outlineOffset = '';
+          posSelect.style.borderRadius = '';
+        }
       },
     },
 
@@ -158,9 +354,39 @@ export const kafkaConsumeLesson: DemoLesson = {
       description:
         'Click **Consume Once** to pull messages from the broker. Watch the button switch to **Consuming…** while the request is in flight — results appear as a table once the broker responds.',
       highlight: KAFKA.CON_CONSUME_BTN,
+      preAction: async (ctx) => {
+        // Guard: ensure topic + Earliest are set even if the user skipped steps
+        const topicInput = document.querySelector<HTMLInputElement>(KAFKA.CON_TOPIC_INPUT);
+        if (topicInput && (!topicInput.value || topicInput.value.trim() === '')) {
+          await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
+        }
+        // Clear consumer group + all filters — leftover values from a prior lesson
+        // (e.g. K4 Headers & Filters) would silently filter out results or cause
+        // committed-offset skips
+        await clearAllFilters(ctx);
+        // Ensure Start Position is "Earliest" so we see seeded messages
+        const posSelect = document.querySelector<HTMLElement>(KAFKA.CON_POSITION_SELECT);
+        if (posSelect) {
+          const currentValue = posSelect.querySelector('.cs-trigger')?.textContent?.trim();
+          if (currentValue !== 'Earliest') {
+            const trigger = posSelect.querySelector<HTMLElement>('.cs-trigger');
+            if (trigger) trigger.click();
+            await ctx.delay(200);
+            const items = posSelect.querySelectorAll<HTMLElement>('.cs-item');
+            for (const item of items) {
+              if (item.textContent?.includes('Earliest')) { item.click(); break; }
+            }
+            await ctx.delay(200);
+          }
+        }
+        // Seed messages again in case setup didn't run or broker was slow
+        await seedDemoMessages();
+        await ctx.delay(200);
+      },
       action: async (ctx) => {
         await ctx.click(KAFKA.CON_CONSUME_BTN);
-        // Give the "Consuming…" loading state enough screen time to be visible.
+        // Wait for results or error — give the broker time to respond
+        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
         await ctx.delay(700);
       },
       verify: KAFKA.CON_RESULTS_ZONE,
@@ -173,33 +399,65 @@ export const kafkaConsumeLesson: DemoLesson = {
       description:
         'Each row shows **#** (row number), **Offset**, **Partition**, **Key**, and a **Value** preview. The header shows total message count. Click any row to open the detail pane.',
       highlight: KAFKA.CON_RESULTS_ZONE,
-      // Informational — no action.
+      preAction: async (ctx) => {
+        await ensureConsumeResults(ctx);
+      },
     },
 
-    // ── Step 7: Click the first row ──────────────────────────────────────────
+    // ── Step 7: Click a row → Message Detail modal ─────────────────────────
     {
       id: 'con-row',
       title: 'Click a Row',
       description:
-        'Click the first result row to open the **Detail Pane**. It slides in alongside the table — showing the full message payload, key, partition, offset, and any headers.',
-      // Spotlight the first row specifically so viewers know exactly what to click.
-      highlight: '[data-testid="con-row-0"]',
-      action: async (ctx) => {
-        await ctx.click('[data-testid="con-row-0"]');
-        await ctx.delay(400);
+        'Click a result row to open the **Message Detail** modal — it shows the full pretty-printed payload, metadata (offset, partition, timestamp, topic), key, and headers. Use **Copy Key** / **Copy Payload** or **Use as Workflow Input** to forward data.',
+      highlight: KAFKA.CON_RESULTS_ZONE,
+      preAction: async (ctx) => {
+        await ensureConsumeResults(ctx);
+        // Close any existing modal so we get a fresh open
+        const closeBtn = document.querySelector<HTMLElement>(KAFKA.CON_DETAIL_CLOSE);
+        if (closeBtn) { closeBtn.click(); await ctx.delay(200); }
       },
-      // Wait for the detail pane — con-detail spotlights it, so it must be in the DOM.
-      verify: KAFKA.CON_DETAIL_PANE,
-    },
+      action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
 
-    // ── Step 8: Inspect the detail pane ─────────────────────────────────────
-    {
-      id: 'con-detail',
-      title: 'The Detail Pane',
-      description:
-        'The **Detail Pane** shows the full pretty-printed payload alongside **Copy Key** and **Copy Payload** buttons. Use it to trace, debug, or forward message data without leaving the UI.',
-      highlight: KAFKA.CON_DETAIL_PANE,
-      // Informational — no action.
+        await ctx.click('[data-testid="con-row-0"]');
+        await ctx.waitFor(KAFKA.CON_DETAIL_MODAL, 3000);
+        await ctx.delay(600);
+
+        // 1. Spotlight Key
+        const keyEl = document.querySelector<HTMLElement>('[data-testid="kmd-key"]');
+        if (keyEl) {
+          keyEl.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(keyEl);
+          await ctx.delay(1200);
+          rm();
+        }
+
+        // 2. Spotlight Headers table
+        const headersEl = document.querySelector<HTMLElement>('[data-testid="kmd-headers"]');
+        if (headersEl) {
+          headersEl.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(headersEl);
+          await ctx.delay(1200);
+          rm();
+        }
+
+        // 3. Spotlight Message Body
+        const bodyEl = document.querySelector<HTMLElement>('[data-testid="kmd-body"]');
+        if (bodyEl) {
+          bodyEl.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(bodyEl);
+          await ctx.delay(1500);
+          rm();
+        }
+
+        // Close the modal and deselect the row so the highlight clears
+        const closeBtn = document.querySelector<HTMLElement>(KAFKA.CON_DETAIL_CLOSE);
+        if (closeBtn) {
+          closeBtn.click();
+          await ctx.delay(400);
+        }
+      },
     },
 
     // ── Step 9: Export the result set ───────────────────────────────────────
@@ -209,6 +467,9 @@ export const kafkaConsumeLesson: DemoLesson = {
       description:
         'Click **Export Result Set** to download the full result set as a JSON file. Every row — offset, partition, key, value, headers — is included. Ideal for sharing evidence or feeding into other tools.',
       highlight: KAFKA.CON_EXPORT_BTN,
+      preAction: async (ctx) => {
+        await ensureConsumeResults(ctx);
+      },
       action: async (ctx) => {
         await ctx.click(KAFKA.CON_EXPORT_BTN);
         await ctx.delay(400);

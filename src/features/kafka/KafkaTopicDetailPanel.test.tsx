@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOptionByIndex } from '../../test-utils/customSelectHelper';
 import { KafkaTopicDetailPanel } from './KafkaTopicDetailPanel';
 import type { KafkaTopicDetail } from './useTopicExplorer';
 import type { UseTopicMessageBrowserReturn } from './useTopicMessageBrowser';
@@ -397,11 +398,10 @@ describe('KafkaTopicDetailPanel', () => {
     );
 
     const tab = screen.getByTestId('detail-messages-tab');
-    const selects = tab.querySelectorAll('select');
     const inputs = tab.querySelectorAll('input');
 
-    fireEvent.change(selects[0], { target: { value: 'last-1h' } });
-    fireEvent.change(selects[1], { target: { value: '0' } });
+    selectOptionByIndex(tab, 0, 'Last 1 Hour');
+    selectOptionByIndex(tab, 1, '0');
     fireEvent.change(inputs[0], { target: { value: 'order-1' } });
     fireEvent.change(inputs[1], { target: { value: 'x-trace=abc' } });
     fireEvent.change(inputs[2], { target: { value: '$.name' } });

@@ -10,6 +10,7 @@ vi.mock('../utils/monacoGraphqlSetup', () => ({
   deriveTabLabel: vi.fn(() => 'Untitled'),
 }));
 
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { GqlBatchSettingsPanel } from './GqlBatchSettingsPanel';
 import type { GqlStudioTab } from '../utils/tabPersistence';
 
@@ -155,9 +156,7 @@ describe('GqlBatchSettingsPanel', () => {
         tabs={[makeTab('t1'), makeTab('t2'), makeTab('t3')]}
       />,
     );
-    fireEvent.change(screen.getByTestId('gql-adv-batch-group-select'), {
-      target: { value: groups[1]!.key },
-    });
+    selectOption(screen.getByTestId('gql-adv-batch-group-select'), 'b.com · 1 tab');
     expect(onGroupChange).toHaveBeenCalledWith(groups[1]!.key);
   });
 

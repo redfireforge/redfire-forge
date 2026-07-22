@@ -3,6 +3,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import { resetGrpcMockBuilderNodeIdsForTests} from '../../utils/grpcMockRuleBuilderModel';
 import { buildAdvancedMock, FIXTURE_DESCRIPTOR } from '../../test-helpers/grpcAdvancedPanel.testHelpers';
 import {GrpcMockRuleBuilderPanel } from '../GrpcMockRuleBuilderPanel';
@@ -68,8 +69,8 @@ describe('GrpcMockRuleBuilderPanel coverage gaps — authoring', () => {
     fireEvent.change(screen.getByTestId('grpc-mock-builder-priority-rule-a'), { target: { value: '5' } });
     fireEvent.change(screen.getByTestId('grpc-mock-builder-priority-rule-a'), { target: { value: 'abc' } });
     fireEvent.click(screen.getByTestId('grpc-mock-builder-fallthrough-rule-a'));
-    fireEvent.change(screen.getByTestId('grpc-mock-builder-status-rule-a'), { target: { value: '7' } });
-    fireEvent.change(screen.getByTestId('grpc-mock-builder-status-rule-a'), { target: { value: 'bad' } });
+    selectOption(screen.getByTestId('grpc-mock-builder-status-rule-a'), 'PERMISSION_DENIED');
+    selectOption(screen.getByTestId('grpc-mock-builder-status-rule-a'), 'OK');
     fireEvent.change(screen.getByTestId('grpc-mock-builder-body-rule-a'), { target: { value: '{"x":1}' } });
     expect(patchMockRulesJson).toHaveBeenCalled();
   });
@@ -228,7 +229,7 @@ describe('GrpcMockRuleBuilderPanel coverage gaps — authoring', () => {
       <StatefulMockBuilder onPatch={patchMockRulesJson} initialRulesJson={groupRulesJson} />,
     );
 
-    fireEvent.change(leafField('grpc-mock-builder-group-combinator-') as HTMLSelectElement, { target: { value: 'or' } });
+    selectOption(leafField('grpc-mock-builder-group-combinator-')!, 'OR');
     fireEvent.click(leafField('grpc-mock-builder-add-leaf-') as HTMLButtonElement);
     expect(patchMockRulesJson).toHaveBeenCalled();
   });
@@ -296,14 +297,14 @@ describe('GrpcMockRuleBuilderPanel coverage gaps — authoring', () => {
       <StatefulMockBuilder onPatch={patchMockRulesJson} initialRulesJson={rulesJson} />,
     );
 
-    const kindSelect = leafField('grpc-mock-builder-leaf-kind-') as HTMLSelectElement;
+    const kindSelect = leafField('grpc-mock-builder-leaf-kind-')!;
 
-    fireEvent.change(kindSelect, { target: { value: 'service_equals' } });
+    selectOption(kindSelect, 'Service equals');
     fireEvent.change(leafField('grpc-mock-builder-leaf-service-') as HTMLInputElement, {
       target: { value: 'echo.EchoService' },
     });
 
-    fireEvent.change(kindSelect, { target: { value: 'metadata_equals' } });
+    selectOption(kindSelect, 'Metadata equals');
     fireEvent.change(leafField('grpc-mock-builder-leaf-key-') as HTMLInputElement, {
       target: { value: 'x-token' },
     });
@@ -311,12 +312,12 @@ describe('GrpcMockRuleBuilderPanel coverage gaps — authoring', () => {
       target: { value: 'secret' },
     });
 
-    fireEvent.change(kindSelect, { target: { value: 'metadata_exists' } });
+    selectOption(kindSelect, 'Metadata exists');
     fireEvent.change(leafField('grpc-mock-builder-leaf-key-') as HTMLInputElement, {
       target: { value: 'trace-id' },
     });
 
-    fireEvent.change(kindSelect, { target: { value: 'body_path_equals' } });
+    selectOption(kindSelect, 'Body path equals');
     fireEvent.change(leafField('grpc-mock-builder-leaf-path-') as HTMLInputElement, {
       target: { value: 'message' },
     });
@@ -324,12 +325,12 @@ describe('GrpcMockRuleBuilderPanel coverage gaps — authoring', () => {
       target: { value: 'hello' },
     });
 
-    fireEvent.change(kindSelect, { target: { value: 'body_path_exists' } });
+    selectOption(kindSelect, 'Body path exists');
     fireEvent.change(leafField('grpc-mock-builder-leaf-path-') as HTMLInputElement, {
       target: { value: 'payload' },
     });
 
-    fireEvent.change(kindSelect, { target: { value: 'method_equals' } });
+    selectOption(kindSelect, 'Method equals');
     fireEvent.change(leafField('grpc-mock-builder-leaf-method-') as HTMLInputElement, {
       target: { value: 'Ping' },
     });

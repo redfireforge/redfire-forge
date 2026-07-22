@@ -6,6 +6,11 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import {
+  selectOptionByIndex,
+  getCustomSelectValue,
+  isCustomSelectDisabled,
+} from '../../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import ScenarioSelector from './ScenarioSelector';
 import { defaultProps, mockFeatureGroups } from './ScenarioSelector.test.utils';
@@ -101,9 +106,7 @@ describe('ScenarioSelector - Rendering', () => {
       />
     );
 
-    const selects = screen.getAllByDisplayValue('Default');
-    const bodySelect = selects[0];
-    fireEvent.change(bodySelect, { target: { value: 'none' } });
+    selectOptionByIndex(document.querySelector('.selection-actions')!, 0, 'None');
     expect(onValidationOverrideChange).toHaveBeenCalledWith('none');
     expect(onSkipValidationChange).toHaveBeenCalledWith(true);
   });
@@ -190,9 +193,7 @@ describe('ScenarioSelector - Rendering', () => {
       />
     );
 
-    const selects = screen.getAllByDisplayValue('Default');
-    const bodySelect = selects[0];
-    fireEvent.change(bodySelect, { target: { value: 'full' } });
+    selectOptionByIndex(document.querySelector('.selection-actions')!, 0, 'Full');
     expect(onValidationOverrideChange).toHaveBeenCalledWith('full');
   });
 
@@ -205,9 +206,7 @@ describe('ScenarioSelector - Rendering', () => {
       />
     );
 
-    const selects = screen.getAllByDisplayValue('Default');
-    const unorderedSelect = selects[1];
-    fireEvent.change(unorderedSelect, { target: { value: 'force-on' } });
+    selectOptionByIndex(document.querySelector('.selection-actions')!, 1, 'On');
     expect(onForceUnorderedChange).toHaveBeenCalledWith('force-on');
   });
 
@@ -217,8 +216,7 @@ describe('ScenarioSelector - Rendering', () => {
     );
 
     // Body Validation shows "None" when skipValidation=true, so only one "Default" select remains
-    const unorderedSelect = screen.getByDisplayValue('Default');
-    expect(unorderedSelect).toBeDisabled();
+    expect(isCustomSelectDisabled(document.querySelectorAll('.selection-actions .cs-wrapper')[1]!)).toBe(true);
   });
 
   it('disables unordered arrays dropdown when validationOverride is none', () => {
@@ -227,8 +225,7 @@ describe('ScenarioSelector - Rendering', () => {
     );
 
     // Body Validation shows "None", so only one "Default" select remains
-    const unorderedSelect = screen.getByDisplayValue('Default');
-    expect(unorderedSelect).toBeDisabled();
+    expect(isCustomSelectDisabled(document.querySelectorAll('.selection-actions .cs-wrapper')[1]!)).toBe(true);
   });
 
   it('shows auto-report checkbox and calls handler', () => {
@@ -255,14 +252,15 @@ describe('ScenarioSelector - Rendering', () => {
       />
     );
 
-    const select = screen.getByDisplayValue('HTML');
-    fireEvent.change(select, { target: { value: 'json' } });
+    selectOptionByIndex(document.querySelector('.selection-actions')!, 2, 'JSON');
     expect(onAutoReportFormatChange).toHaveBeenCalledWith('json');
   });
 
   it('hides auto-report format select when autoReport is disabled', () => {
     render(<ScenarioSelector {...defaultProps} autoReport={false} />);
-    expect(screen.queryByDisplayValue('HTML')).not.toBeInTheDocument();
+    const actions = document.querySelector('.selection-actions')!;
+    expect(actions.querySelectorAll('.cs-wrapper')).toHaveLength(2);
+    expect(Array.from(actions.querySelectorAll('.cs-text')).some((el) => el.textContent === 'HTML')).toBe(false);
   });
 
   it('shows Select All button and selects all user tests', () => {

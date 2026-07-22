@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { ReactNode } from 'react';
 import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { SseStudioPage } from './SseStudioPage';
 import type { UseSseConnectionReturn } from './useSseConnection';
 import type { SseConnectionConfig, SseConnectionSnapshot, SseStats, SseEvent } from './sseTypes';
@@ -677,9 +678,7 @@ describe('SseStudioPage', () => {
   it('calls setConfig when the auth type changes in the auth pane', async () => {
     await renderPage();
     fireEvent.click(screen.getByTestId('sse-left-tab-auth'));
-    const select = configBody().querySelector('.sse-auth-pane select') as HTMLSelectElement;
-    expect(select).toBeTruthy();
-    fireEvent.change(select, { target: { value: 'bearer' } });
+    selectOption(configBody().querySelector('.sse-auth-pane .auth-type-select .cs-wrapper')!, 'Bearer Token');
     expect(mockSseReturn.setConfig).toHaveBeenCalledWith({
       auth: expect.objectContaining({ type: 'bearer' }),
     });

@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { FeatureGroup, ScenarioKind } from '../../../shared/types';
 import PopupModal from '../../../shared/components/PopupModal';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 export type MoveType = 'scenario' | 'test';
 
@@ -84,23 +85,21 @@ export default function MoveModal({
             {featureGroups.length === 0 ? (
               <div className="popup-modal-empty">No feature groups available</div>
             ) : (
-              <select
+              <CustomSelect
                 value={targetFgId}
-                onChange={(e) => {
-                  setTargetFgId(e.target.value);
+                onChange={(v) => {
+                  setTargetFgId(v);
                   setTargetScenarioId('');
                 }}
-              >
-                <option value="">— Select Feature Group —</option>
-                {featureGroups.map((fg) => {
+                placeholder="— Select Feature Group —"
+                options={featureGroups.map((fg) => {
                   const isCurrent = fg.id === currentFgId;
-                  return (
-                    <option key={fg.id} value={fg.id}>
-                      {fg.name} ({fg.scenarios.length} scenarios){isCurrent ? ' (current)' : ''}
-                    </option>
-                  );
+                  return {
+                    value: fg.id,
+                    label: `${fg.name} (${fg.scenarios.length} scenarios)${isCurrent ? ' (current)' : ''}`,
+                  };
                 })}
-              </select>
+              />
             )}
           </div>
 
@@ -114,20 +113,18 @@ export default function MoveModal({
                   : 'No scenarios in this feature group'}
               </div>
               ) : (
-                <select
+                <CustomSelect
                   value={targetScenarioId}
-                  onChange={(e) => setTargetScenarioId(e.target.value)}
-                >
-                  <option value="">— Select Scenario —</option>
-                  {availableScenarios.map((sc) => {
+                  onChange={(v) => setTargetScenarioId(v)}
+                  placeholder="— Select Scenario —"
+                  options={availableScenarios.map((sc) => {
                     const isCurrent = sc.id === currentScenarioId && targetFgId === currentFgId;
-                    return (
-                      <option key={sc.id} value={sc.id}>
-                        {sc.name} ({sc.tests.length} tests){isCurrent ? ' (current)' : ''}
-                      </option>
-                    );
+                    return {
+                      value: sc.id,
+                      label: `${sc.name} (${sc.tests.length} tests)${isCurrent ? ' (current)' : ''}`,
+                    };
                   })}
-                </select>
+                />
               )}
             </div>
           )}

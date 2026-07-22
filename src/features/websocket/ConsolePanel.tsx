@@ -27,6 +27,7 @@ import {
 } from './wsConsoleEntries';
 import { navigateHistory } from './wsConsoleCommands';
 import { saveFile } from '../../shared/utils/fileSaver';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import '../../styles/console-panel.css';
 
 export interface ConsolePanelProps {
@@ -140,22 +141,20 @@ export function ConsolePanel(props: ConsolePanelProps): React.ReactElement {
           ))}
         </div>
 
-        <select
+        <CustomSelect
           className="ws-console-category-filter"
           value={settings.categoryFilter}
-          onChange={(e) =>
-            patch({ categoryFilter: e.target.value as WsConsoleCategoryFilter })
-          }
+          onChange={(v) => patch({ categoryFilter: v as WsConsoleCategoryFilter })}
+          options={[
+            { value: 'all', label: 'All categories' },
+            ...WS_CONSOLE_CATEGORIES.map((c) => ({
+              value: c,
+              label: WS_CONSOLE_CATEGORY_LABELS[c],
+            })),
+          ]}
           aria-label="Category"
           data-testid={`${variant}-console-category`}
-        >
-          <option value="all">All categories</option>
-          {WS_CONSOLE_CATEGORIES.map((c) => (
-            <option key={c} value={c}>
-              {WS_CONSOLE_CATEGORY_LABELS[c]}
-            </option>
-          ))}
-        </select>
+        />
 
         <input
           className="ws-console-search"

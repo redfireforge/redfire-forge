@@ -18,12 +18,12 @@ export default function CatalogVersionDiff({ diff }: Props) {
   }
 
   return (
-    <div className="cat-vd">
+    <div className="cat-vd" data-testid="catalog-version-diff">
       <div className="cat-vd-header">
         Changes from v{diff.fromVersion} → v{diff.toVersion}
       </div>
 
-      <div className="cat-vd-summary">
+      <div className="cat-vd-summary" data-testid="catalog-version-diff-summary">
         {diff.summary.totalAdded > 0 && (
           <span className="cat-vd-badge cat-vd-added">+ {diff.summary.totalAdded} added</span>
         )}

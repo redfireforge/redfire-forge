@@ -6,6 +6,7 @@ import { render, screen, fireEvent, within, waitFor } from '@testing-library/rea
 import '@testing-library/jest-dom/vitest';
 import ResponseVersionPanel from './ResponseVersionPanel';
 import type { ResponseVersion, ValidationConfig } from '../../../shared/types';
+import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 
 const diffKitCtl = vi.hoisted(() => ({
   throwOnSecondDiffInRender: false,
@@ -139,7 +140,7 @@ describe('ResponseVersionPanel', { timeout: 30_000 }, () => {
     it('shows select-two-versions prompt when a side is cleared', () => {
       const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000, label: 'L' });
       const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000, label: 'R' });
-      render(
+      const { container } = render(
         <ResponseVersionPanel
           {...defaultProps()}
           versions={[v1, v2]}
@@ -147,24 +148,31 @@ describe('ResponseVersionPanel', { timeout: 30_000 }, () => {
         />,
       );
       fireEvent.click(screen.getByText('Compare'));
-      const leftSelect = screen.getAllByRole('combobox')[0];
-      fireEvent.change(leftSelect, { target: { value: '' } });
+      selectOptionByIndex(container, 0, 'Select...');
       expect(screen.getByText('Select two versions above to compare.')).toBeTruthy();
     });
 
     it('hides info bar when compare id string is set but version missing', () => {
       const v1 = mkVersion({ json: '{"a":1}', timestamp: 1000 });
       const v2 = mkVersion({ json: '{"b":2}', timestamp: 2000 });
-      render(
+      const props = defaultProps();
+      const { rerender } = render(
         <ResponseVersionPanel
-          {...defaultProps()}
+          {...props}
           versions={[v1, v2]}
           currentJson='{"c":3}'
         />,
       );
       fireEvent.click(screen.getByText('Compare'));
-      const leftSelect = screen.getAllByRole('combobox')[0];
-      fireEvent.change(leftSelect, { target: { value: 'definitely-missing-id' } });
+      expect(document.querySelector('.version-diff-info-bar')).toBeTruthy();
+      const v3 = mkVersion({ json: '{"c":3}', timestamp: 3000 });
+      rerender(
+        <ResponseVersionPanel
+          {...props}
+          versions={[v3]}
+          currentJson='{"c":3}'
+        />,
+      );
       expect(screen.queryByText('Changes detected')).toBeNull();
       expect(screen.queryByText('Same version selected')).toBeNull();
     });

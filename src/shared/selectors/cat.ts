@@ -17,6 +17,9 @@ export const CAT = {
   CTX_MENU:                 '[data-testid="catalog-ctx-menu"]',
   CTX_CONVERT:              '[data-testid="catalog-ctx-convert"]',
 
+  // ── Welcome screen ───────────────────────────────────────────
+  WELCOME_IMPORT_BTN:       '[data-testid="catalog-welcome-import-btn"]',
+
   // ── Main-panel sub-tabs (Overview / Endpoints / Export) ───────
   VIEW_OVERVIEW:            '[data-testid="catalog-view-overview"]',
   VIEW_ENDPOINTS:           '[data-testid="catalog-view-endpoints"]',
@@ -25,7 +28,90 @@ export const CAT = {
   // ── Overview panel ────────────────────────────────────────────
   OVERVIEW:                 '[data-testid="catalog-overview"]',
   OVERVIEW_SPEC_FORMAT:     '[data-testid="catalog-overview-spec-format"]',
+  OVERVIEW_METHOD_STATS:    '[data-testid="catalog-overview-method-stats"]',
+  OVERVIEW_SERVERS:         '[data-testid="catalog-overview-servers"]',
+  OVERVIEW_BY_TAG:          '[data-testid="catalog-overview-by-tag"]',
+  OVERVIEW_QUICK_ACTIONS:   '[data-testid="catalog-overview-quick-actions"]',
+  REIMPORT_BTN:             '[data-testid="catalog-reimport-btn"]',
+  EXPORT_SPEC_BTN:          '[data-testid="catalog-export-spec-btn"]',
+  VERSION_HISTORY_BTN:      '[data-testid="catalog-version-history-btn"]',
   CONVERT_BTN:              '[data-testid="catalog-convert-btn"]',
+
+  // ── Auth panel ──────────────────────────────────────────────────
+  AUTHORIZE_BTN:            '[data-testid="catalog-authorize-btn"]',
+  AUTH_PANEL:               '[data-testid="catalog-auth-panel"]',
+  AUTH_TYPE_SELECT:          '[data-testid="catalog-auth-type-select"]',
+  AUTH_TOKEN_INPUT:          '[data-testid="catalog-auth-token-input"]',
+  AUTH_PREFIX_INPUT:         '[data-testid="catalog-auth-prefix-input"]',
+  VERIFY_AUTH_BTN:          '[data-testid="catalog-verify-auth-btn"]',
+  AUTH_CLOSE_BTN:           '[data-testid="catalog-auth-close-btn"]',
+
+  // ── Version History modal ───────────────────────────────────────
+  VERSION_HISTORY_MODAL:    '[data-testid="catalog-version-history-modal"]',
+  VERSION_LIST:             '[data-testid="catalog-version-list"]',
+  VERSION_ITEM:             '[data-testid="catalog-version-item"]',
+  VERSION_COMPARE_BTN:      '[data-testid="catalog-version-compare-btn"]',
+  VERSION_RESTORE_BTN:      '[data-testid="catalog-version-restore-btn"]',
+  VERSION_DIFF:             '[data-testid="catalog-version-diff"]',
+  VERSION_DIFF_SUMMARY:     '[data-testid="catalog-version-diff-summary"]',
+  VERSION_CHECKBOX:         '[data-testid="catalog-version-checkbox"]',
+
+  // ── Import modal ──────────────────────────────────────────────
+  IMPORT_TAB_GALLERY:       '[data-testid="catalog-import-tab-gallery"]',
+  IMPORT_GALLERY_GRID:      '[data-testid="catalog-import-gallery-grid"]',
+  IMPORT_GALLERY_CARD:      '[data-testid="catalog-import-gallery-card"]',
+  /** Gallery card addressed by sample id. */
+  importGalleryCard: (id: string) => `[data-testid="catalog-import-gallery-card"][data-gallery-id="${id}"]`,
+  IMPORT_PREVIEW:           '[data-testid="catalog-import-preview"]',
+  IMPORT_CONFIRM_BTN:       '[data-testid="catalog-import-confirm-btn"]',
+
+  // ── Endpoint browser ──────────────────────────────────────────
+  ENDPOINT_BROWSER:         '[data-testid="catalog-endpoint-browser"]',
+  ENDPOINT_FILTER:          '[data-testid="catalog-endpoint-filter"]',
+  ENDPOINT_LIST:            '[data-testid="catalog-endpoint-list"]',
+  HIDE_DEPRECATED:          '[data-testid="catalog-hide-deprecated"]',
+
+  // ── Host Strategy ───────────────────────────────────────────
+  HOST_STRATEGY:            '[data-testid="catalog-host-strategy"]',
+  HOST_FROM_SPEC:           '[data-testid="catalog-host-from-spec"]',
+  HOST_ENVIRONMENT:         '[data-testid="catalog-host-environment"]',
+  HOST_CUSTOM_URL:          '[data-testid="catalog-host-custom-url"]',
+  BASE_URL:                 '[data-testid="catalog-base-url"]',
+  TAG_GROUP:                '[data-testid="catalog-tag-group"]',
+  /** Tag group addressed by tag name (case-sensitive). */
+  tagByName: (name: string) => `[data-testid="catalog-tag-group"][data-tag-name="${name}"]`,
+  ENDPOINT_CARD:            '[data-testid="catalog-endpoint-card"]',
+  /** Endpoint card addressed by method + path. */
+  endpointCard: (method: string, path: string) => `[data-testid="catalog-endpoint-card"][data-endpoint-method="${method}"][data-endpoint-path="${path}"]`,
+
+  // ── Endpoint card: Try It Out ────────────────────────────────
+  TRYIT_BTN:                '[data-testid="catalog-tryit-btn"]',
+  BODY_EDITOR:              '[data-testid="catalog-body-editor"]',
+  EXECUTE_BTN:              '[data-testid="catalog-execute-btn"]',
+  CURL_BTN:                 '[data-testid="catalog-curl-btn"]',
+  CURL_BOX:                 '[data-testid="catalog-curl-box"]',
+  LIVE_RESPONSE:            '[data-testid="catalog-live-response"]',
+  /** Parameter input addressed by param name (e.g. `id`, `userId`). */
+  paramInput: (name: string) => `[data-testid="catalog-param-${name}"]`,
+
+  // ── Endpoint card: Actions / Export / Coverage ──────────────
+  EXPORT_TO_REQ_BTN:        '[data-testid="catalog-export-to-req-btn"]',
+  SEND_TO_HARNESS_BTN:      '[data-testid="catalog-send-to-harness-btn"]',
+  SAVE_AS_TEST_BTN:         '[data-testid="catalog-save-as-test-btn"]',
+  EXPOSE_TO_WORKFLOW:       '[data-testid="catalog-expose-to-workflow"]',
+  COVERAGE_BADGE:           '[data-testid="catalog-coverage-badge"]',
+  COVERAGE_POPOVER:         '[data-testid="catalog-coverage-popover"]',
+
+  // ── Export to Requests modal / inline ──────────────────────
+  EXPORT_MODAL:             '[data-testid="catalog-export-modal"]',
+  EXPORT_INLINE:            '[data-testid="catalog-export-inline"]',
+  EXPORT_COL_NAME:          '[data-testid="catalog-export-col-name"]',
+  EXPORT_TARGET_GROUP:      '[data-testid="catalog-export-target-group"]',
+  EXPORT_ENV_TABLE:         '[data-testid="catalog-export-env-table"]',
+  EXPORT_EP_TABLE:          '[data-testid="catalog-export-ep-table"]',
+  EXPORT_SAMPLE_TOGGLE:     '[data-testid="catalog-export-sample-toggle"]',
+  EXPORT_PREVIEW:           '[data-testid="catalog-export-preview"]',
+  EXPORT_CONFIRM_BTN:       '[data-testid="catalog-export-confirm-btn"]',
 
   // ── Convert / Upgrade modal ───────────────────────────────────
   CONVERT_MODAL:            '[data-testid="catalog-convert-modal"]',

@@ -4,6 +4,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { WebSocketMessageLog } from './WebSocketMessageLog';
 import type { WsFrame, WsMessageTemplate } from '../../shared/websocket/types';
 
@@ -529,7 +530,7 @@ describe('WebSocketMessageLog', () => {
         onStopReplay: vi.fn(),
         onSetReplaySpeed: onSetSpeed,
       })} />);
-      fireEvent.change(screen.getByTestId('replay-speed-select'), { target: { value: '5' } });
+      selectOption(screen.getByTestId('replay-speed-select'), '5×');
       expect(onSetSpeed).toHaveBeenCalledWith(5);
     });
 
@@ -725,7 +726,7 @@ describe('WebSocketMessageLog', () => {
     it('calls setDirectionFilter on change', () => {
       const setDir = vi.fn();
       render(<WebSocketMessageLog {...defaultProps({ setDirectionFilter: setDir })} />);
-      fireEvent.change(screen.getByLabelText('Direction filter'), { target: { value: 'sent' } });
+      selectOption(screen.getByLabelText('Direction filter').closest('.cs-wrapper')!, 'Sent');
       expect(setDir).toHaveBeenCalledWith('sent');
     });
   });
@@ -738,7 +739,7 @@ describe('WebSocketMessageLog', () => {
         hasEnabledSchemas: true,
         setValidationFilter: setFilter,
       })} />);
-      fireEvent.change(screen.getByTestId('validation-filter'), { target: { value: 'invalid' } });
+      selectOption(screen.getByTestId('validation-filter'), 'Invalid only');
       expect(setFilter).toHaveBeenCalledWith('invalid');
     });
   });

@@ -3,6 +3,7 @@ import JsonPreview, { buildJTree, type JNode } from '../requests/components/Json
 import type { ExecutionResult } from '../../shared/types/server-api';
 import { formatTimestamp } from '../test-runner/utils/serverFormatters';
 import { toErrorMessage } from '../../shared/utils/helpers';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import '../../styles/execution-history.css';
 
 // ── Paused correlation type (from /api/correlations) ──
@@ -226,16 +227,17 @@ export default function WorkflowExecutionHistory() {
           </p>
         </div>
         <div className="exh-controls">
-          <select
+          <CustomSelect
             className="exh-select"
             value={filter}
-            onChange={(e) => setFilter(e.target.value as 'all' | 'webhook' | 'schedule' | 'paused')}
-          >
-            <option value="all">All Types</option>
-            <option value="webhook">Webhooks</option>
-            <option value="schedule">Schedules</option>
-            <option value="paused">⏸ Paused ({pausedCorrelations.length})</option>
-          </select>
+            onChange={(v) => setFilter(v as 'all' | 'webhook' | 'schedule' | 'paused')}
+            options={[
+              { value: 'all', label: 'All Types' },
+              { value: 'webhook', label: 'Webhooks' },
+              { value: 'schedule', label: 'Schedules' },
+              { value: 'paused', label: `⏸ Paused (${pausedCorrelations.length})` },
+            ]}
+          />
           <button className="exh-btn exh-btn-primary" onClick={loadExecutions}>Refresh</button>
         </div>
       </div>

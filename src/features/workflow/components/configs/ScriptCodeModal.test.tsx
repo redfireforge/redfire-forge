@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { useEffect } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import ScriptCodeModal from './ScriptCodeModal';
 import type { ScriptNodeData } from '../../types/workflow';
@@ -159,7 +160,7 @@ describe('ScriptCodeModal', () => {
 
     it('renders mode select', () => {
       render(<ScriptCodeModal {...defaultProps} />);
-      expect(screen.getByTitle('Script mode')).toBeInTheDocument();
+      expect(screen.getByLabelText('Script mode')).toBeInTheDocument();
     });
 
     it('renders input variables section', () => {
@@ -222,10 +223,10 @@ describe('ScriptCodeModal', () => {
 
     it('changes script mode', () => {
       render(<ScriptCodeModal {...defaultProps} />);
-      fireEvent.change(screen.getByTitle('Script mode'), { target: { value: 'filter' } });
+      selectOption(screen.getByLabelText('Script mode').closest('.cs-wrapper')!, 'Assert');
       fireEvent.click(screen.getByText('Save'));
       expect(defaultProps.onSave).toHaveBeenCalledWith(expect.objectContaining({
-        mode: 'filter',
+        mode: 'assert',
       }));
     });
 
@@ -423,8 +424,8 @@ describe('ScriptCodeModal', () => {
       render(<ScriptCodeModal {...defaultProps} />);
       const valueBtn = screen.getByText('userId');
       fireEvent.click(valueBtn.closest('button')!);
-      const closeBtn = screen.getByLabelText('Close');
-      fireEvent.click(closeBtn);
+      const panel = document.querySelector('.wf-script-value-panel')!;
+      fireEvent.click(panel.querySelector('.wf-script-value-panel-footer button')!);
       expect(document.querySelector('.wf-script-value-panel')).not.toBeInTheDocument();
     });
 

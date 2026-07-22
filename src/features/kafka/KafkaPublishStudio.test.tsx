@@ -3,9 +3,19 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import { KafkaPublishStudio } from './KafkaPublishStudio';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
 import type { KafkaPublishDraft } from './types';
+
+vi.mock('./KafkaBodyEditorModal', () => ({
+  default: ({ onChange, onClose, format }: { onChange: (v: string) => void; onClose: () => void; format: string }) => (
+    <div data-testid="mock-kafka-body-editor" data-format={format}>
+      <button type="button" data-testid="mock-kafka-body-editor-change" onClick={() => onChange('{"from":"editor"}')}>change</button>
+      <button type="button" data-testid="mock-kafka-body-editor-close" onClick={onClose}>close</button>
+    </div>
+  ),
+}));
 
 function basePublishDraft(): KafkaPublishDraft {
   return {
@@ -150,7 +160,7 @@ describe('KafkaPublishStudio', () => {
 
   it('shows "No headers" when headers array is empty', () => {
     render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" {...defaultTemplateProps()} />);
-    expect(screen.getByText(/no headers/i)).toBeTruthy();
+    expect(screen.getByText(/no custom headers/i)).toBeTruthy();
   });
 
   it('shows inline validation hint when topic is blurred while empty', () => {
@@ -343,8 +353,14 @@ describe('KafkaPublishStudio — Form Fields', () => {
 
   it('calls setPublishDraft when Acks select changes', () => {
     render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Acks'), { target: { value: '1' } });
+    selectOption(screen.getByLabelText('Acks').closest('.cs-wrapper')!, 'Leader (1)');
     expect(studio.setPublishDraft).toHaveBeenCalledWith({ acks: 1 });
+  });
+
+  it('calls setPublishDraft when Key format select changes', () => {
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+    selectOption(screen.getByLabelText('Key format').closest('.cs-wrapper')!, 'Hex');
+    expect(studio.setPublishDraft).toHaveBeenCalledWith({ keyFormat: 'hex' });
   });
 
   it('calls setPublishDraft when Key input changes', () => {
@@ -553,20 +569,53 @@ describe('KafkaPublishStudio — Header Row Actions', () => {
     });
   });
 
-  it('acks 0 shows "fire and forget" hint, acks -1 shows durability hint (lines 169/170)', () => {
-    // Test acks = 0 hint
+  it('shows disconnected hint and disabled Send title when not connected', () => {
+    render(<KafkaPublishStudio studio={makeStudio()} clusterId="c" connected={false} {...defaultTemplateProps()} />);
+    expect(screen.getByTestId('pub-disconnected-hint')).toBeTruthy();
+    expect(screen.getByTestId('pub-send-btn').getAttribute('title')).toContain('Not connected');
+  });
+
+  it('truncates long workflow variable previews in map dropdown', () => {
+    const longVal = 'x'.repeat(80);
+    render(
+      <KafkaPublishStudio
+        studio={makeStudio()}
+        clusterId="c"
+        {...defaultTemplateProps()}
+        lastWorkflowOutput={{ long_output: longVal }}
+      />,
+    );
+    fireEvent.click(screen.getByTestId('pub-map-workflow-btn'));
+    expect(screen.getByTestId('pub-wf-var-long_output').textContent).toContain('…');
+  });
+
+  it('opens body editor and applies updates from lazy modal callbacks', async () => {
+    const studio = makeStudio({ publishDraft: { ...basePublishDraft(), bodyFormat: undefined as unknown as 'json' } });
+    render(<KafkaPublishStudio studio={studio} clusterId="c" {...defaultTemplateProps()} />);
+
+    fireEvent.click(screen.getByTestId('pub-body-expand'));
+    await waitFor(() => expect(screen.getByTestId('mock-kafka-body-editor')).toBeTruthy());
+    expect(screen.getByTestId('mock-kafka-body-editor').getAttribute('data-format')).toBe('json');
+
+    fireEvent.click(screen.getByTestId('mock-kafka-body-editor-change'));
+    expect(studio.setPublishDraft).toHaveBeenCalledWith({ body: '{"from":"editor"}' });
+
+    fireEvent.click(screen.getByTestId('mock-kafka-body-editor-close'));
+    await waitFor(() => expect(screen.queryByTestId('mock-kafka-body-editor')).toBeNull());
+  });
+
+  it('acks 0 shows "None (0)" label, acks -1 shows "All (–1)" label (lines 169/170)', () => {
     const studio0 = makeStudio({
       publishDraft: { topic: 't', body: '', bodyFormat: 'json', acks: 0, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
     });
     const { unmount } = render(<KafkaPublishStudio studio={studio0} clusterId="c" {...defaultTemplateProps()} />);
-    expect(document.body.textContent).toContain('fire and forget');
+    expect(document.body.textContent).toContain('None (0)');
     unmount();
 
-    // Test acks = -1 hint
     const studioN1 = makeStudio({
       publishDraft: { topic: 't', body: '', bodyFormat: 'json', acks: -1, headers: [] } as Parameters<typeof makeStudio>[0]['publishDraft'],
     });
     render(<KafkaPublishStudio studio={studioN1} clusterId="c" {...defaultTemplateProps()} />);
-    expect(document.body.textContent).toContain('strongest durability');
+    expect(document.body.textContent).toContain('All (–1)');
   });
 });

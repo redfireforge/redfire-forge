@@ -184,7 +184,7 @@ export default function BatchSendToHarnessModal({ collection, environments, micr
 
         {/* Footer */}
         <div className="send-harness-footer">
-          <button className="send-harness-cancel-btn" onClick={onClose}>Cancel</button>
+          <button className="send-harness-cancel-btn" data-testid="send-harness-cancel" onClick={onClose}>Cancel</button>
           <div className="send-harness-footer-right">
             {step === 'options' && (
               <button className="send-harness-back-btn" onClick={() => setStep('target')}>Back</button>
