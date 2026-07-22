@@ -399,7 +399,7 @@ describe('DataMapperModal', () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     await act(async () => { fireEvent.click(screen.getByText('Show Diff')); });
     expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
-    await act(async () => { fireEvent.click(screen.getByLabelText('Close schema diff')); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Close' })); });
     expect(container.querySelector('.dm-diff-overlay')).toBeNull();
   });
 

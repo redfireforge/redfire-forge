@@ -198,13 +198,13 @@ function isSchemaLikeObject(obj: Record<string, unknown>): boolean {
  * Keep schema examples compatible with older tooling by preferring `example`
  * over JSON Schema's `examples` array when both are present in schema objects.
  */
-function collapseSchemaExamples(node: unknown, notes: string[], path: string[] = [], seen = new Set<unknown>()): void {
+function collapseSchemaExamples(node: unknown, notes: string[], path: string[] = [], seen = new Set<unknown>(), counter = { count: 0 }): void {
   if (node === null || typeof node !== 'object' || seen.has(node)) return;
   seen.add(node);
 
   if (Array.isArray(node)) {
     for (let i = 0; i < node.length; i += 1) {
-      collapseSchemaExamples(node[i], notes, [...path, String(i)], seen);
+      collapseSchemaExamples(node[i], notes, [...path, String(i)], seen, counter);
     }
     return;
   }
@@ -213,13 +213,17 @@ function collapseSchemaExamples(node: unknown, notes: string[], path: string[] =
   if (isSchemaLikeObject(obj) && Array.isArray(obj.examples) && obj.example === undefined) {
     if (obj.examples.length > 0) {
       obj.example = obj.examples[0];
-      notes.push(`Collapsed schema examples[] to example at ${path.join('.') || '<root>'}.`);
+      counter.count++;
     }
     delete obj.examples;
   }
 
   for (const [key, value] of Object.entries(obj)) {
-    collapseSchemaExamples(value, notes, [...path, key], seen);
+    collapseSchemaExamples(value, notes, [...path, key], seen, counter);
+  }
+
+  if (path.length === 0 && counter.count > 0) {
+    notes.push(`Collapsed schema examples[] to example in ${counter.count} location${counter.count === 1 ? '' : 's'}.`);
   }
 }
 
@@ -354,6 +358,93 @@ function extractMisplacedRequestBodyRef(holder: Record<string, unknown>, where: 
  * Purely corrective — never invents data, only relocates or drops what `validateOpenApi3`
  * already flags as leftover/misplaced. Safe to run unconditionally on any engine output.
  */
+/** Canonical top-level key order for OpenAPI 3.x documents. */
+const OAS3_KEY_ORDER = ['openapi', 'servers', 'info', 'tags', 'security', 'paths', 'components', 'webhooks'];
+
+/**
+ * Reorder top-level keys to the canonical order expected by most tooling.
+ * Keys not in the canonical list are appended at the end in their original order.
+ */
+function reorderTopLevelKeys(doc: Record<string, unknown>): Record<string, unknown> {
+  const ordered: Record<string, unknown> = {};
+  for (const key of OAS3_KEY_ORDER) {
+    if (key in doc) ordered[key] = doc[key];
+  }
+  for (const key of Object.keys(doc)) {
+    if (!(key in ordered)) ordered[key] = doc[key];
+  }
+  return ordered;
+}
+
+/**
+ * Derive a human-readable description from a tag name.
+ * "VehiclePurchaseOffers" → "Vehicle purchase offers."
+ * "Offers Static Metadata" → "Offers static metadata."
+ */
+function tagNameToDescription(name: string): string {
+  const spaced = name
+    .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+  const words = spaced.split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '';
+  const sentence = words
+    .map((w, i) => (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w.toLowerCase()))
+    .join(' ');
+  return sentence.endsWith('.') ? sentence : `${sentence}.`;
+}
+
+/**
+ * Collect unique tag names from all operations and create a top-level `tags` array
+ * with auto-derived descriptions if one doesn't exist yet.
+ */
+function ensureTopLevelTags(doc: Record<string, unknown>): void {
+  if (doc.tags && Array.isArray(doc.tags) && (doc.tags as unknown[]).length > 0) return;
+  const paths = doc.paths;
+  if (!paths || typeof paths !== 'object') return;
+  const seen = new Set<string>();
+  const tags: Array<{ name: string; description: string }> = [];
+  for (const pathItem of Object.values(paths as Record<string, unknown>)) {
+    if (!pathItem || typeof pathItem !== 'object') continue;
+    for (const method of HTTP_METHODS) {
+      const op = (pathItem as Record<string, unknown>)[method];
+      if (!op || typeof op !== 'object') continue;
+      const opTags = (op as Record<string, unknown>).tags;
+      if (!Array.isArray(opTags)) continue;
+      for (const t of opTags) {
+        if (typeof t === 'string' && !seen.has(t)) {
+          seen.add(t);
+          tags.push({ name: t, description: tagNameToDescription(t) });
+        }
+      }
+    }
+  }
+  if (tags.length > 0) doc.tags = tags;
+}
+
+/**
+ * Walk schema trees and expand any `example` value that is a JSON-encoded string
+ * into a parsed object/array, so YAML serialization produces readable structure
+ * instead of a single-line JSON blob.
+ */
+function expandJsonStringExamples(node: unknown, seen = new Set<unknown>()): void {
+  if (node === null || typeof node !== 'object' || seen.has(node)) return;
+  seen.add(node);
+  if (Array.isArray(node)) {
+    for (const item of node) expandJsonStringExamples(item, seen);
+    return;
+  }
+  const obj = node as Record<string, unknown>;
+  if (typeof obj.example === 'string') {
+    const raw = obj.example.trim();
+    if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
+      try {
+        obj.example = JSON.parse(raw);
+      } catch { /* keep as string if not valid JSON */ }
+    }
+  }
+  for (const value of Object.values(obj)) expandJsonStringExamples(value, seen);
+}
+
 export function normalizeConvertedOpenApi3(openapi: Record<string, unknown>): { doc: Record<string, unknown>; notes: string[] } {
   const doc = structuredClone(openapi) as Record<string, unknown>;
   const notes: string[] = [];
@@ -364,6 +455,8 @@ export function normalizeConvertedOpenApi3(openapi: Record<string, unknown>): { 
   }
 
   collapseSchemaExamples(doc, notes);
+  expandJsonStringExamples(doc);
+  ensureTopLevelTags(doc);
 
   const paths = doc.paths;
   if (paths && typeof paths === 'object' && !Array.isArray(paths)) {
@@ -394,7 +487,7 @@ export function normalizeConvertedOpenApi3(openapi: Record<string, unknown>): { 
     }
   }
 
-  return { doc, notes };
+  return { doc: reorderTopLevelKeys(doc), notes };
 }
 
 

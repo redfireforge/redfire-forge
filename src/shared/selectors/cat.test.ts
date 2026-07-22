@@ -33,4 +33,17 @@ describe('shared selectors cat', () => {
     expect(CAT.convertTarget('3.1')).toBe('[data-testid="catalog-convert-target-3.1"]');
     expect(CAT.convertTarget('3.2')).toBe('[data-testid="catalog-convert-target-3.2"]');
   });
+
+  it('builds dynamic selectors for import cards and endpoint metadata', () => {
+    expect(CAT.importGalleryCard('petstore')).toBe(
+      '[data-testid="catalog-import-gallery-card"][data-gallery-id="petstore"]',
+    );
+    expect(CAT.tagByName('Billing')).toBe(
+      '[data-testid="catalog-tag-group"][data-tag-name="Billing"]',
+    );
+    expect(CAT.endpointCard('POST', '/orders')).toBe(
+      '[data-testid="catalog-endpoint-card"][data-endpoint-method="POST"][data-endpoint-path="/orders"]',
+    );
+    expect(CAT.paramInput('orderId')).toBe('[data-testid="catalog-param-orderId"]');
+  });
 });

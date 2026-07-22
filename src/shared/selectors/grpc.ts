@@ -547,6 +547,9 @@ export const GRPC = {
   WF_ASSERT_CONFIG: '[data-testid="grpc-assert-config"]',
   WF_ASSERT_CFG_SOURCE: '[data-testid="grpc-assert-config-source"]',
   WF_ASSERT_CFG_ASSERTIONS: '[data-testid="grpc-assert-config-assertions"]',
+  // Workflow Designer canvas nodes (gRPC unary / assert)
+  CANVAS_UNARY_NODE: '[data-testid="grpc-canvas-unary-node"]',
+  CANVAS_ASSERT_NODE: '[data-testid="grpc-canvas-assert-node"]',
   // GRPC-24 Workflow Runner lesson — cross-feature selectors (Workflow Runner / Results)
   LESSON24_WF_VARIABLES_BTN: '[data-testid="wf-toolbar-variables-btn"]',
   LESSON24_QUICK_TEST_VERIFY: '[data-testid="exec-summary"]',
@@ -555,4 +558,5 @@ export const GRPC = {
   LESSON24_REQUEST_DETAILS_TAB: '[data-testid="results-tab-requests"]',
   LESSON24_RESULTS_EXPLORER_DIAGRAM: '[data-testid="results-explorer-diagram"]',
   LESSON24_EXPORT_JSON_BTN: '[data-testid="results-export-json-btn"]',
+  WF_VIEW_RESULTS_BTN: '.completion-section .btn-primary, .wfp-view-results-btn, [data-testid="view-results-btn"]',
 } as const;

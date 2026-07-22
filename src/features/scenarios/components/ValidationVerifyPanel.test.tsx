@@ -5,6 +5,7 @@ import type { ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import ValidationVerifyPanel from './ValidationVerifyPanel';
 
 type PanelProps = ComponentProps<typeof ValidationVerifyPanel>;
@@ -81,9 +82,9 @@ describe('ValidationVerifyPanel', () => {
   it('calls onVerifyScopeChange when scope select changes', () => {
     const onVerifyScopeChange = vi.fn();
     renderPanel({ onVerifyScopeChange, verifyScope: 'rules' });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'assertions' } });
+    selectOption(document.body, 'Assertions Only');
     expect(onVerifyScopeChange).toHaveBeenCalledWith('assertions');
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'all' } });
+    selectOption(document.body, 'All');
     expect(onVerifyScopeChange).toHaveBeenCalledWith('all');
   });
 

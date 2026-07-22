@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import SetupStepReview from './SetupStepReview';
 import type { SetupStepReviewProps } from './SetupStepReview';
 
@@ -202,8 +203,7 @@ describe('SetupStepReview', () => {
         })}
       />,
     );
-    const fgSelect = screen.getAllByRole('combobox')[0];
-    fireEvent.change(fgSelect, { target: { value: 'fg-b' } });
+    selectOptionByIndex(document.body, 0, 'B');
     expect(setTargetFgId).toHaveBeenCalledWith('fg-b');
     expect(setTargetScenarioId).not.toHaveBeenCalled();
   });
@@ -234,8 +234,7 @@ describe('SetupStepReview', () => {
         })}
       />,
     );
-    const fgSelect = screen.getAllByRole('combobox')[0];
-    fireEvent.change(fgSelect, { target: { value: 'fg-b' } });
+    selectOptionByIndex(document.body, 0, 'B');
     expect(setTargetFgId).toHaveBeenCalledWith('fg-b');
     expect(setTargetScenarioId).toHaveBeenCalledWith('s2');
   });
@@ -262,8 +261,7 @@ describe('SetupStepReview', () => {
         })}
       />,
     );
-    const scenarioSelect = screen.getByDisplayValue('Scenario 1').closest('select')!;
-    fireEvent.change(scenarioSelect, { target: { value: 'sc-2' } });
+    selectOptionByIndex(document.body, 1, 'Scenario 2');
     expect(setTargetScenarioId).toHaveBeenCalledWith('sc-2');
   });
 });

@@ -50,7 +50,6 @@ import {
   GRPCWR_VARS_SECTION,
   GRPCWR_CONFIG_SECTION,
   GRPCWR_COMPLETION,
-  GRPCWR_VIEW_RESULTS_BTN,
   grpcWRSession,
   resolveDescriptorKey,
   ensureChainConnected,
@@ -255,7 +254,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         await clickWfFitView(ctx);
         await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 900);
       },
-      verify: WF.NODE_GRPC_UNARY,
+      verify: GRPC.CANVAS_UNARY_NODE,
     },
 
     // ── Step 4: Configure gRPC Unary ───────────────────────────────────────
@@ -331,7 +330,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         await clickWfFitView(ctx);
         await spotlightWfCanvasNode(ctx, WF14_NODE_GRPC, 700);
       },
-      verify: WF.NODE_GRPC_UNARY,
+      verify: GRPC.CANVAS_UNARY_NODE,
     },
 
     // ── Step 5: Add gRPC Assert node ────────────────────────────────────────
@@ -380,7 +379,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         await clickWfFitView(ctx);
         await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 900);
       },
-      verify: WF.NODE_GRPC_ASSERT,
+      verify: GRPC.CANVAS_ASSERT_NODE,
     },
 
     // ── Step 6: Configure Assert ────────────────────────────────────────────
@@ -440,7 +439,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         await clickWfFitView(ctx);
         await spotlightWfCanvasNode(ctx, WF14_NODE_ASSERT, 700);
       },
-      verify: WF.NODE_GRPC_ASSERT,
+      verify: GRPC.CANVAS_ASSERT_NODE,
     },
 
     // ── Step 7: Quick Test ──────────────────────────────────────────────────
@@ -624,7 +623,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         `If errors appear, confirm Docker (\`${GRPC_DEMO_DOCKER_COMMAND}\`) and Quick Test against \`${GRPCWR_TARGET_DEFAULT}\`.\n\n` +
         `Click **View Full Results →**.`,
       pauseAfter: READ_STD_MS,
-      highlight: GRPCWR_VIEW_RESULTS_BTN,
+      highlight: GRPC.WF_VIEW_RESULTS_BTN,
       preAction: async (ctx) => {
         if (!document.querySelector(GRPCWR_COMPLETION)) {
           await ensureRunnerReady(ctx);

@@ -8,6 +8,7 @@ import {
   type GrpcMockBuilderPredicateLeafKind,
 } from '../../utils/grpcMockRuleBuilderModel';
 import { GRPC_MOCK_PREDICATE_KIND_OPTIONS } from '../../utils/grpcMockRuleBuilderPanelHelpers';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import type { GrpcMockPredicateEditorProps } from './grpcMockPredicateEditorTypes';
 
 function LeafPredicateEditor({
@@ -24,13 +25,13 @@ function LeafPredicateEditor({
       <div className="grpc-mock-builder-predicate-row">
         <label className="grpc-mock-builder-field grpc-mock-builder-field--inline grpc-mock-builder-field--inline-fixed-label">
           <span className="grpc-mock-builder-field__label">Predicate</span>
-          <select
+          <CustomSelect
             className="grpc-mock-builder-input"
             data-testid={`grpc-mock-builder-leaf-kind-${leaf.nodeId}`}
             value={leaf.kind}
             disabled={disabled}
-            onChange={(event) => {
-              const kind = event.target.value as GrpcMockBuilderPredicateLeafKind;
+            onChange={(v) => {
+              const kind = v as GrpcMockBuilderPredicateLeafKind;
               onChange({
                 ...leaf,
                 kind,
@@ -41,11 +42,11 @@ function LeafPredicateEditor({
                 path: undefined,
               });
             }}
-          >
-            {GRPC_MOCK_PREDICATE_KIND_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+            options={GRPC_MOCK_PREDICATE_KIND_OPTIONS.map((option) => ({
+              value: option.value,
+              label: option.label,
+            }))}
+          />
         </label>
         <label className="grpc-mock-builder-check grpc-mock-builder-check--not">
           <input
@@ -216,21 +217,22 @@ export function GrpcMockPredicateEditor({
       <div className="grpc-mock-builder-group__header">
         <label className="grpc-mock-builder-field grpc-mock-builder-field--inline">
           <span className="grpc-mock-builder-field__label">Group</span>
-          <select
+          <CustomSelect
             className="grpc-mock-builder-input"
             data-testid={`grpc-mock-builder-group-combinator-${group.nodeId}`}
             value={group.combinator}
             disabled={disabled}
-            onChange={(event) => {
+            onChange={(v) => {
               onChange({
                 ...group,
-                combinator: event.target.value as GrpcMockBuilderPredicateGroup['combinator'],
+                combinator: v as GrpcMockBuilderPredicateGroup['combinator'],
               });
             }}
-          >
-            <option value="and">AND</option>
-            <option value="or">OR</option>
-          </select>
+            options={[
+              { value: 'and', label: 'AND' },
+              { value: 'or', label: 'OR' },
+            ]}
+          />
         </label>
         {onRemove && (
           <button

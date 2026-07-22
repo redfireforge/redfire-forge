@@ -5,6 +5,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import userEvent from '@testing-library/user-event';
+import {
+  selectOption,
+  getCustomSelectValue,
+  getCustomSelectOptionLabels,
+} from '../../../test-utils/customSelectHelper';
 import WorkflowExecutionReplayModal from './WorkflowExecutionReplayModal';
 import type { WorkflowExecutionTrace, WorkflowIterationTrace } from '../../../shared/types';
 
@@ -14,6 +19,10 @@ function getReplayFooterStatusHost(): HTMLElement {
   const first = row?.querySelector(':scope > div:first-child');
   if (!first) throw new Error('replay footer status host not found');
   return first as HTMLElement;
+}
+
+function replayIterationSelect(): Element {
+  return document.querySelector('.replay-iteration-selector .cs-wrapper')!;
 }
 
 const baseIteration = (overrides: Partial<WorkflowIterationTrace> & Pick<WorkflowIterationTrace, 'index'>): WorkflowIterationTrace => ({
@@ -342,15 +351,14 @@ describe('WorkflowExecutionReplayModal', () => {
     const user = userEvent.setup();
     render(<WorkflowExecutionReplayModal trace={trace} onClose={onCloseMock} />);
 
-    const select = screen.getByRole('combobox');
-    expect(select).toHaveValue('aggregate');
+    expect(getCustomSelectValue(replayIterationSelect())).toBe('All Iterations (Aggregate)');
 
     const prev = screen.getByTitle('Previous iteration (←)');
     const next = screen.getByTitle('Next iteration (→)');
     expect(prev).toBeDisabled();
     expect(next).toBeDisabled();
 
-    await user.selectOptions(select, '1');
+    selectOption(replayIterationSelect(), 'Iteration #2 — ✗ Fail');
     expect(within(getReplayFooterStatusHost()).getByText(/Iteration #2 — Failed/)).toBeInTheDocument();
     expect(screen.getByText(/⟵ All/)).toBeInTheDocument();
     expect(prev).not.toBeDisabled();
@@ -431,7 +439,7 @@ describe('WorkflowExecutionReplayModal', () => {
     expect(screen.queryByTestId('panel-jump-iteration')).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('panel-close'));
-    await user.selectOptions(screen.getByRole('combobox'), 'aggregate');
+    selectOption(replayIterationSelect(), 'All Iterations (Aggregate)');
     await waitFor(() =>
       expect(within(getReplayFooterStatusHost()).getByText(/Total Duration/)).toBeInTheDocument(),
     );
@@ -450,7 +458,7 @@ describe('WorkflowExecutionReplayModal', () => {
     const user = userEvent.setup();
     render(<WorkflowExecutionReplayModal trace={trace} onClose={onCloseMock} />);
 
-    await user.selectOptions(screen.getByRole('combobox'), '1');
+    selectOption(replayIterationSelect(), 'Iteration #2 — ✗ Fail');
 
     await waitFor(() => {
       const footerSummary = screen.getByRole('dialog').querySelector('.wf-config-modal-footer');
@@ -475,8 +483,9 @@ describe('WorkflowExecutionReplayModal', () => {
     const trace = createMultiIterationTrace();
     render(<WorkflowExecutionReplayModal trace={trace} onClose={onCloseMock} />);
 
-    expect(screen.getByRole('option', { name: /Iteration #1 — ✓ Pass/ })).toBeInTheDocument();
-    expect(screen.getByRole('option', { name: /Iteration #2 — ✗ Fail/ })).toBeInTheDocument();
+    const labels = getCustomSelectOptionLabels(replayIterationSelect());
+    expect(labels.some((label) => /Iteration #1 — ✓ Pass/.test(label))).toBe(true);
+    expect(labels.some((label) => /Iteration #2 — ✗ Fail/.test(label))).toBe(true);
   });
 
   it('cleans up keyboard listener on unmount', () => {

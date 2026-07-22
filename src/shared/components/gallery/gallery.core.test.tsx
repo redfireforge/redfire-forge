@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import { DifficultyDots } from './DifficultyDots';
 import { LiveApiBadge } from './LiveApiBadge';
 import { DomainBadge } from './DomainBadge';
@@ -255,7 +256,7 @@ describe('GalleryDetailPanel', () => {
   it('calls onClose when close button clicked', () => {
     const onClose = vi.fn();
     render(<GalleryDetailPanel entry={makeEntry()} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText('Close detail panel'));
+    fireEvent.click(screen.getByTestId('gallery-detail-close'));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
@@ -383,24 +384,24 @@ describe('GalleryGrid', () => {
     const firstCard = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(firstCard);
     // detail panel should now be visible
-    expect(screen.getByLabelText('Close detail panel')).toBeTruthy();
+    expect(screen.getByTestId('gallery-detail-close')).toBeTruthy();
   });
 
   it('closes detail panel on close button', () => {
     const { container } = render(<GalleryGrid entries={entries} />);
     const firstCard = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(firstCard);
-    fireEvent.click(screen.getByLabelText('Close detail panel'));
-    expect(screen.queryByLabelText('Close detail panel')).toBeNull();
+    fireEvent.click(screen.getByTestId('gallery-detail-close'));
+    expect(screen.queryByTestId('gallery-detail-close')).toBeNull();
   });
 
   it('toggles detail panel on same card click', () => {
     const { container } = render(<GalleryGrid entries={entries} />);
     const firstCard = container.querySelector('.gallery-card') as HTMLElement;
     fireEvent.click(firstCard);
-    expect(screen.getByLabelText('Close detail panel')).toBeTruthy();
+    expect(screen.getByTestId('gallery-detail-close')).toBeTruthy();
     fireEvent.click(firstCard);
-    expect(screen.queryByLabelText('Close detail panel')).toBeNull();
+    expect(screen.queryByTestId('gallery-detail-close')).toBeNull();
   });
 
   it('does not show pagination when entries fit on one page', () => {
@@ -462,8 +463,7 @@ describe('GalleryGrid', () => {
       makeEntry({ id: 'c2', name: 'Search Item', category: 'search' }),
     ];
     const { container } = render(<GalleryGrid entries={entries} />);
-    const catSelect = screen.getByLabelText('Filter by category');
-    fireEvent.change(catSelect, { target: { value: 'crud' } });
+    selectOption(screen.getByLabelText('Filter by category').closest('.cs-wrapper')!, 'crud');
     expect(container.querySelectorAll('.gallery-card')).toHaveLength(1);
     expect(screen.getByText('Crud Item')).toBeTruthy();
   });
@@ -474,8 +474,7 @@ describe('GalleryGrid', () => {
       makeEntry({ id: 'd2', name: 'Hard', difficulty: 'advanced' }),
     ];
     const { container } = render(<GalleryGrid entries={entries} />);
-    const diffSelect = screen.getByLabelText('Filter by difficulty');
-    fireEvent.change(diffSelect, { target: { value: 'advanced' } });
+    selectOption(screen.getByLabelText('Filter by difficulty').closest('.cs-wrapper')!, 'Advanced');
     expect(container.querySelectorAll('.gallery-card')).toHaveLength(1);
     expect(screen.getByText('Hard')).toBeTruthy();
   });
@@ -486,8 +485,7 @@ describe('GalleryGrid', () => {
       makeEntry({ id: 'a2', name: 'Poke', liveApis: ['https://pokeapi.co'] }),
     ];
     const { container } = render(<GalleryGrid entries={entries} />);
-    const apiSelect = screen.getByLabelText('Filter by live API');
-    fireEvent.change(apiSelect, { target: { value: 'pokeapi.co' } });
+    selectOption(screen.getByLabelText('Filter by live API').closest('.cs-wrapper')!, 'pokeapi.co');
     expect(container.querySelectorAll('.gallery-card')).toHaveLength(1);
     expect(screen.getByText('Poke')).toBeTruthy();
   });

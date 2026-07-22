@@ -6,6 +6,10 @@ import { render, screen, fireEvent, act, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import RequestsSidebar from './RequestsSidebar';
 import type { RequestCollection } from '../../../shared/types';
+import {
+  getCustomSelectOptionLabels,
+  selectOption,
+} from '../../../test-utils/customSelectHelper';
 
 const h = vi.hoisted(() => ({
   ctx: null as unknown as Record<string, (...a: unknown[]) => unknown>,
@@ -295,7 +299,7 @@ describe('RequestsSidebar', () => {
     openCollectionCtx();
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', 'f1', true); });
     const select = screen.getByTestId('req-subcol-env-select');
-    fireEvent.change(select, { target: { value: 'e-dev' } });
+    selectOption(select, 'dev');
     expect(props.onAddSubCollection).toHaveBeenCalledWith('c1', 'dev', 'f1', 'e-dev');
   });
 
@@ -906,8 +910,7 @@ describe('RequestsSidebar', () => {
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });
     const select = screen.getByTestId('req-subcol-env-select');
     expect(select).toBeInTheDocument();
-    expect(within(select).getByRole('option', { name: 'dev' })).toBeInTheDocument();
-    expect(within(select).getByRole('option', { name: 'staging' })).toBeInTheDocument();
+    expect(getCustomSelectOptionLabels(select)).toEqual(expect.arrayContaining(['dev', 'staging']));
   });
 
   it('imports a collection with nested folders and a mixed all-collections payload', async () => {
@@ -962,9 +965,13 @@ describe('RequestsSidebar', () => {
     fireEvent.keyDown(fInput, { key: 'Escape' }); // folder-level Escape arm
     expect(screen.queryByPlaceholderText('Folder name')).not.toBeInTheDocument();
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', 'f1', true); });
-    const sSelect = screen.getByTestId('req-subcol-env-select'); // sub-collection dropdown arms
-    fireEvent.keyDown(sSelect, { key: 'Escape' }); // Escape closes the dropdown
-    expect(screen.queryByTestId('req-subcol-env-select')).not.toBeInTheDocument();
+    const sSelect = screen.getByTestId('req-subcol-env-select');
+    const trigger = within(sSelect).getByRole('button');
+    fireEvent.click(trigger);
+    expect(within(sSelect).getByRole('listbox')).toBeInTheDocument();
+    fireEvent.keyDown(trigger, { key: 'Escape' });
+    expect(within(sSelect).queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.getByTestId('req-subcol-env-select')).toBeInTheDocument();
   });
 
   it('renders method-color fallback for an unknown HTTP method', () => {
@@ -1048,18 +1055,16 @@ describe('RequestsSidebar', () => {
     openCollectionCtx();
 
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });
-    let select = screen.getByTestId('req-subcol-env-select');
-    fireEvent.change(select, { target: { value: '' } });
+    const select = screen.getByTestId('req-subcol-env-select');
     expect(props.onAddSubCollection).not.toHaveBeenCalled();
 
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });
-    select = screen.getByTestId('req-subcol-env-select');
-    fireEvent.change(select, { target: { value: 'missing-env' } });
+    const selectAgain = screen.getByTestId('req-subcol-env-select');
+    expect(getCustomSelectOptionLabels(selectAgain)).not.toContain('missing-env');
     expect(props.onAddSubCollection).not.toHaveBeenCalled();
 
     act(() => { (h.ctx.startAddFolder as (c: string, p?: string, s?: boolean) => void)('c1', undefined, true); });
-    select = screen.getByTestId('req-subcol-env-select');
-    fireEvent.change(select, { target: { value: 'e-dev' } });
+    selectOption(screen.getByTestId('req-subcol-env-select'), 'dev');
     expect(props.onAddSubCollection).toHaveBeenCalledWith('c1', 'dev', undefined, 'e-dev');
   });
 

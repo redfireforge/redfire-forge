@@ -11,6 +11,7 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import { WorkflowService } from '../../types/workflow';
 import { Scenario, KeyValue } from '../../../../shared/types';
@@ -64,22 +65,23 @@ describe('HttpConfig — basic rendering', () => {
   });
 
   it('renders method select with current value', () => {
-    render(<HttpConfig {...defaultProps} />);
-    expect(screen.getByDisplayValue('GET')).toBeTruthy();
+    const { container } = render(<HttpConfig {...defaultProps} />);
+    expect(container.querySelector('.wf-config-method-select .cs-text')?.textContent).toBe('GET');
   });
 
   it('calls onChange when method changes', () => {
     const onChange = vi.fn();
-    render(<HttpConfig {...defaultProps} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('GET'), { target: { value: 'POST' } });
+    const { container } = render(<HttpConfig {...defaultProps} onChange={onChange} />);
+    selectOption(container.querySelector('.wf-config-method-select')!, 'POST');
     expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it('renders all 5 HTTP method options', () => {
-    render(<HttpConfig {...defaultProps} />);
-    const select = screen.getByDisplayValue('GET') as HTMLSelectElement;
-    const options = Array.from(select.options).map(o => o.value);
-    expect(options).toEqual(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+    const { container } = render(<HttpConfig {...defaultProps} />);
+    const wrap = container.querySelector('.wf-config-method-select')!;
+    fireEvent.click(wrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(wrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels).toEqual(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
   });
 
   it('renders tab buttons for url, headers, body, extract', () => {
@@ -144,16 +146,22 @@ describe('HttpConfig — basic rendering', () => {
   });
 
   it('renders Service select with None option', () => {
-    render(<HttpConfig {...defaultProps} />);
-    expect(screen.getByText('None (raw URL)')).toBeTruthy();
+    const { container } = render(<HttpConfig {...defaultProps} />);
+    const wrap = container.querySelector('.wf-config-service-select')!;
+    fireEvent.click(wrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(wrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels).toContain('None (raw URL)');
   });
 
   it('renders services in the select when provided', () => {
     const services: WorkflowService[] = [
       { id: 'svc1', name: 'Users API', baseUrl: 'http://users.api', auth: { type: 'none' } },
     ];
-    render(<HttpConfig {...defaultProps} workflowServices={services} />);
-    expect(screen.getByText('Users API')).toBeTruthy();
+    const { container } = render(<HttpConfig {...defaultProps} workflowServices={services} />);
+    const wrap = container.querySelector('.wf-config-service-select')!;
+    fireEvent.click(wrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(wrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels).toContain('Users API');
   });
 
   it('calls onChange with serviceId when service is selected', () => {
@@ -162,8 +170,7 @@ describe('HttpConfig — basic rendering', () => {
       { id: 'svc1', name: 'Users API', baseUrl: 'http://users.api', auth: { type: 'none' } },
     ];
     render(<HttpConfig {...defaultProps} onChange={onChange} workflowServices={services} />);
-    const serviceSelect = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(serviceSelect, { target: { value: 'svc1' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'Users API');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ serviceId: 'svc1' }));
     expect(onChange.mock.calls[0][0]).not.toHaveProperty('label');
   });
@@ -249,8 +256,7 @@ describe('HttpConfig — basic rendering', () => {
       { id: 'svc1', name: 'Users API', baseUrl: 'http://users.api', auth: { type: 'none' } },
     ];
     render(<HttpConfig {...defaultProps} onChange={onChange} workflowServices={services} data={makeHttpData({ serviceId: 'svc1' })} />);
-    const serviceSelect = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(serviceSelect, { target: { value: '' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'None (raw URL)');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ serviceId: undefined }));
   });
 
@@ -343,8 +349,7 @@ describe('HttpConfig — basic rendering', () => {
     const onChange = vi.fn();
     const services = [{ id: 'svc1', name: 'My API', baseUrl: 'http://my.api', auth: { type: 'none' as const } }];
     render(<HttpConfig {...defaultProps} onChange={onChange} workflowServices={services} />);
-    const select = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'svc1' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'My API');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ serviceId: 'svc1' }));
     expect(onChange.mock.calls[0][0]).not.toHaveProperty('label');
   });
@@ -446,7 +451,7 @@ describe('HttpConfig — service binding and env override', () => {
 
   it('shows environment override when service has multiple enabled endpoints', () => {
     const data = makeHttpData({ serviceId: 'svc-multi' });
-    render(
+    const { container } = render(
       <HttpConfig
         {...defaultProps}
         data={data}
@@ -456,14 +461,17 @@ describe('HttpConfig — service binding and env override', () => {
       />,
     );
     expect(screen.getByText('Environment')).toBeTruthy();
-    expect(screen.getByText(/Use global \(Development\)/)).toBeTruthy();
-    expect(screen.getByText('Production')).toBeTruthy();
-    expect(screen.getByText('adhoc')).toBeTruthy();
+    const envWrap = container.querySelector('.wf-config-env-override')!;
+    fireEvent.click(envWrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(envWrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels.some(t => t?.includes('Use global (Development)'))).toBe(true);
+    expect(labels).toContain('Production');
+    expect(labels).toContain('adhoc');
   });
 
   it('uses global label when no selectedEnvId', () => {
     const data = makeHttpData({ serviceId: 'svc-multi' });
-    render(
+    const { container } = render(
       <HttpConfig
         {...defaultProps}
         data={data}
@@ -471,7 +479,10 @@ describe('HttpConfig — service binding and env override', () => {
         environments={environments}
       />,
     );
-    expect(screen.getByText(/Use global \(global\)/)).toBeTruthy();
+    const envWrap = container.querySelector('.wf-config-env-override')!;
+    fireEvent.click(envWrap.querySelector('.cs-trigger')!);
+    const labels = Array.from(envWrap.querySelectorAll('.cs-item-label')).map(el => el.textContent);
+    expect(labels.some(t => t?.includes('Use global (global)'))).toBe(true);
   });
 
   it('shows env override badge and calls onChange when override is selected', () => {
@@ -488,8 +499,7 @@ describe('HttpConfig — service binding and env override', () => {
       />,
     );
     expect(screen.getAllByText('Production').length).toBeGreaterThan(0);
-    const envSelect = document.querySelector('.wf-config-env-override select') as HTMLSelectElement;
-    fireEvent.change(envSelect, { target: { value: 'env-dev' } });
+    selectOption(document.querySelector('.wf-config-env-override')!, 'Development');
     expect(onChange).toHaveBeenCalledWith({ envOverride: 'env-dev' });
   });
 
@@ -506,8 +516,7 @@ describe('HttpConfig — service binding and env override', () => {
         selectedEnvId="env-dev"
       />,
     );
-    const envSelect = document.querySelector('.wf-config-env-override select') as HTMLSelectElement;
-    fireEvent.change(envSelect, { target: { value: '' } });
+    selectOption(document.querySelector('.wf-config-env-override')!, 'Use global (Development)');
     expect(onChange).toHaveBeenCalledWith({ envOverride: undefined });
   });
 
@@ -536,8 +545,7 @@ describe('HttpConfig — service binding and env override', () => {
       scenario: makeScenario({ url: 'http://users.api/v1/users' }),
     });
     render(<HttpConfig {...defaultProps} data={data} onChange={onChange} workflowServices={services} />);
-    const serviceSelect = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(serviceSelect, { target: { value: 'svc1' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'Users API');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       serviceId: 'svc1',
       envOverride: undefined,
@@ -557,8 +565,7 @@ describe('HttpConfig — service binding and env override', () => {
       scenario: makeScenario({ url: '/v1/users' }),
     });
     render(<HttpConfig {...defaultProps} data={data} onChange={onChange} workflowServices={services} />);
-    const serviceSelect = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(serviceSelect, { target: { value: '' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'None (raw URL)');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       serviceId: undefined,
       scenario: expect.objectContaining({ url: 'http://users.api/v1/users' }),
@@ -577,8 +584,7 @@ describe('HttpConfig — service binding and env override', () => {
       scenario: makeScenario({ url: 'http://other.api/v1/users' }),
     });
     render(<HttpConfig {...defaultProps} data={data} onChange={onChange} workflowServices={services} />);
-    const serviceSelect = document.querySelector('.wf-config-service-select') as HTMLSelectElement;
-    fireEvent.change(serviceSelect, { target: { value: '' } });
+    selectOption(document.querySelector('.wf-config-service-select')!, 'None (raw URL)');
     const patch = onChange.mock.calls[0][0] as { scenario?: Scenario };
     expect(patch.scenario?.url).toBeUndefined();
   });

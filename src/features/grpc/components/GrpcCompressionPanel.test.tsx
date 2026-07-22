@@ -3,6 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import userEvent from '@testing-library/user-event';
 import { GrpcCompressionPanel } from './GrpcCompressionPanel';
 
@@ -59,9 +60,7 @@ describe('GrpcCompressionPanel (Phase 4J-D)', () => {
         onChange={onChange}
       />,
     );
-    fireEvent.change(screen.getByTestId('grpc-compression-algorithm'), {
-      target: { value: 'deflate' },
-    });
+    selectOption(screen.getByTestId('grpc-compression-algorithm'), 'deflate');
     expect(onChange).toHaveBeenCalledWith({ enabled: true, algorithm: 'deflate' });
   });
 });

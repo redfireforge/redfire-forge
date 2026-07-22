@@ -10,6 +10,7 @@ import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import { createHeaderFilter, createExtractVariable } from './kafkaConfigFactories';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const CORRELATION_SOURCE_OPTIONS: { value: KafkaWaitCorrelationSource; label: string }[] = [
   { value: 'body', label: 'Body (JSONPath)' },
@@ -116,9 +117,11 @@ export default function KafkaWaitConfig({
 
         <div className="wf-config-field--row">
           <label>Source</label>
-          <select value={data.correlationSource ?? 'body'} onChange={(e) => update({ correlationSource: e.target.value as KafkaWaitCorrelationSource })}>
-            {CORRELATION_SOURCE_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </select>
+          <CustomSelect
+            value={data.correlationSource ?? 'body'}
+            onChange={(v) => update({ correlationSource: v as KafkaWaitCorrelationSource })}
+            options={CORRELATION_SOURCE_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+          />
         </div>
 
         {(data.correlationSource ?? 'body') === 'body' && (
@@ -290,9 +293,12 @@ export default function KafkaWaitConfig({
 
       <div className="wf-config-field--row">
         <label>Load Test</label>
-        <select data-testid="wait-load-mode" value={loadTestBehavior.mode} onChange={(e) => applyLoadTestBehavior({ mode: e.target.value as KafkaConsumeLoadTestBehavior['mode'] })}>
-          {LOAD_TEST_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-        </select>
+        <CustomSelect
+          data-testid="wait-load-mode"
+          value={loadTestBehavior.mode}
+          onChange={(v) => applyLoadTestBehavior({ mode: v as KafkaConsumeLoadTestBehavior['mode'] })}
+          options={LOAD_TEST_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+        />
       </div>
 
       {loadTestBehavior.mode !== 'wait-for-real' && (

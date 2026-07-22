@@ -3,6 +3,7 @@ import type { GrpcTlsConfig, GrpcTlsMode } from '../../../../shared/grpc/contrac
 import type { GlobalAuthProfile } from '../../../../shared/types';
 import { GrpcTlsConfigBody } from '../../../grpc/components/GrpcTlsConfigBody';
 import { GrpcAuthPanel } from '../../../grpc/components/GrpcAuthPanel';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import { useGrpcTls } from '../../../grpc/hooks/useGrpcTls';
 import { buildGrpcAuthPreviewWithProfiles } from '../../../grpc/utils/grpcAuthProfileResolve';
 import type { GrpcWorkflowBaseConfig } from '../../types/workflow/node-grpc';
@@ -61,15 +62,12 @@ export default function GrpcWorkflowConnectionSecurityFields<T extends GrpcWorkf
       <div className="wf-config-field--row">
         <label>TLS mode</label>
         <div className="wf-config-inline-ctrls">
-          <select
+          <CustomSelect
             data-testid={`${testIdPrefix}-tls-mode`}
             value={tlsMode}
-            onChange={(e) => handleTlsModeChange(e.target.value as GrpcTlsMode)}
-          >
-            {TLS_MODE_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>{option.label}</option>
-            ))}
-          </select>
+            onChange={(v) => handleTlsModeChange(v as GrpcTlsMode)}
+            options={TLS_MODE_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+          />
           {tlsMode !== 'disabled' && (
             <button
               type="button"

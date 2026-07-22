@@ -1,4 +1,5 @@
 import type { DelayNodeData } from '../../types/workflow';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 export default function DelayConfig({ data, onChange }: { data: DelayNodeData; onChange: (d: DelayNodeData) => void }) {
   return (
@@ -9,10 +10,14 @@ export default function DelayConfig({ data, onChange }: { data: DelayNodeData; o
       </div>
       <div className="wf-config-field">
         <label>Mode</label>
-        <select value={data.mode} onChange={(e) => onChange({ ...data, mode: e.target.value as 'fixed' | 'random' })}>
-          <option value="fixed">Fixed</option>
-          <option value="random">Random Range</option>
-        </select>
+        <CustomSelect
+          value={data.mode}
+          onChange={(v) => onChange({ ...data, mode: v as 'fixed' | 'random' })}
+          options={[
+            { value: 'fixed', label: 'Fixed' },
+            { value: 'random', label: 'Random Range' },
+          ]}
+        />
       </div>
       {data.mode === 'fixed' && (
         <div className="wf-config-field">

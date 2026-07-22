@@ -17,6 +17,7 @@
 import { useState, useCallback } from 'react';
 import type { KafkaSchemaConfig } from '../../../../shared/kafka/kafkaClient';
 import { dispatchKafkaOperation } from '../../../../shared/kafka/kafkaClient';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const FORMAT_OPTIONS: { value: KafkaSchemaConfig['format']; label: string }[] = [
   { value: 'avro', label: 'Avro' },
@@ -145,15 +146,12 @@ export default function KafkaSchemaConfigSection({
 
           <div className="wf-config-field--row">
             <label>Format</label>
-            <select
+            <CustomSelect
               data-testid="schema-format-select"
               value={value.format}
-              onChange={(e) => patch({ format: e.target.value as KafkaSchemaConfig['format'] })}
-            >
-              {FORMAT_OPTIONS.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
+              onChange={(v) => patch({ format: v as KafkaSchemaConfig['format'] })}
+              options={FORMAT_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+            />
           </div>
 
           <div className="wf-config-field-pair">
@@ -226,35 +224,37 @@ export default function KafkaSchemaConfigSection({
           </div>
           {subjectsError && <span className="wf-config-error">{subjectsError}</span>}
           {subjects.length > 0 && (
-            <select
+            <CustomSelect
               data-testid="schema-subjects-dropdown"
-              size={Math.min(subjects.length + 1, 6)}
-              style={{ marginTop: 4, width: '100%' }}
-              onChange={(e) => {
-                patch({ subject: e.target.value || undefined });
+              className="wf-schema-subjects-dropdown"
+              value={value.subject ?? ''}
+              onChange={(v) => {
+                patch({ subject: v || undefined });
                 setSubjects([]);
               }}
-              value={value.subject ?? ''}
-            >
-              <option value="">(default — {topic ? `${topic}-value` : 'topic-value'})</option>
-              {subjects.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
+              placeholder={topic ? `(default — ${topic}-value)` : '(default — topic-value)'}
+              options={[
+                { value: '', label: topic ? `(default — ${topic}-value)` : '(default — topic-value)' },
+                ...subjects.map((s) => ({ value: s, label: s })),
+              ]}
+            />
           )}
           {versionsError && <span className="wf-config-error">{versionsError}</span>}
           {versions.length > 0 && (
-            <select
+            <CustomSelect
               data-testid="schema-versions-dropdown"
-              size={Math.min(versions.length + 1, 6)}
-              style={{ marginTop: 4, width: '100%' }}
-              onChange={(e) => {
-                patch({ version: e.target.value === '' ? undefined : Number(e.target.value) });
+              className="wf-schema-versions-dropdown"
+              value={value.version != null ? String(value.version) : ''}
+              onChange={(v) => {
+                patch({ version: v === '' ? undefined : Number(v) });
                 setVersions([]);
               }}
-              value={value.version ?? ''}
-            >
-              <option value="">(latest)</option>
-              {versions.map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
+              placeholder="(latest)"
+              options={[
+                { value: '', label: '(latest)' },
+                ...versions.map((v) => ({ value: String(v), label: String(v) })),
+              ]}
+            />
           )}
         </div>
       )}

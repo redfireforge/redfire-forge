@@ -3,6 +3,7 @@ import type { AuditEntry, AuditEntityType, AuditAction } from '../utils/auditLog
 import { loadAuditLog, clearAuditLog, formatAction, formatEntityType, auditLogToCsv } from '../utils/auditLog';
 import { saveFile } from '../../../shared/utils/fileSaver';
 import { formatTimestamp } from '../../../shared/utils/formatRelativeTime';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 const ENTITY_TYPES: AuditEntityType[] = ['environment', 'microservice', 'authProfile'];
 const ACTION_TYPES: AuditAction[] = ['created', 'updated', 'deleted', 'renamed'];
@@ -95,26 +96,26 @@ export default function AuditLogPanel() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
-        <select
+        <CustomSelect
           className="audit-log-filter"
           value={filterType}
-          onChange={(e) => setFilterType(e.target.value as AuditEntityType | '')}
-        >
-          <option value="">All Types</option>
-          {ENTITY_TYPES.map((t) => (
-            <option key={t} value={t}>{formatEntityType(t)}</option>
-          ))}
-        </select>
-        <select
+          onChange={(v) => setFilterType(v as AuditEntityType | '')}
+          options={[
+            { value: '', label: 'All Types' },
+            ...ENTITY_TYPES.map(t => ({ value: t, label: formatEntityType(t) })),
+          ]}
+          size="sm"
+        />
+        <CustomSelect
           className="audit-log-filter"
           value={filterAction}
-          onChange={(e) => setFilterAction(e.target.value as AuditAction | '')}
-        >
-          <option value="">All Actions</option>
-          {ACTION_TYPES.map((a) => (
-            <option key={a} value={a}>{formatAction(a)}</option>
-          ))}
-        </select>
+          onChange={(v) => setFilterAction(v as AuditAction | '')}
+          options={[
+            { value: '', label: 'All Actions' },
+            ...ACTION_TYPES.map(a => ({ value: a, label: formatAction(a) })),
+          ]}
+          size="sm"
+        />
       </div>
 
       {/* Actions */}

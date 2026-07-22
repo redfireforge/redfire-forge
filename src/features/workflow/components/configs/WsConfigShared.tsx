@@ -9,6 +9,7 @@ import type { WorkflowVariableHint } from '../../utils/workflowVariableHints';
 import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import { MSG_TYPE_FILTER_OPTIONS, createWsExtractionRule } from './wsConfigFactories';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 // ── Key-Value Row Section (Headers / Query Parameters) ─────────────────────
 
@@ -91,20 +92,21 @@ export function WsConnectionIdField({
     <div className="wf-config-field--row">
       <label>Connection ID</label>
       {availableConnectionIds.length > 0 && (
-        <select
+        <CustomSelect
           value={customConnId ? '__custom__' : connectionId}
-          onChange={(e) => {
-            if (e.target.value === '__custom__') {
+          onChange={(v) => {
+            if (v === '__custom__') {
               setForceCustom(true);
             } else {
               setForceCustom(false);
-              onChange(e.target.value);
+              onChange(v);
             }
           }}
-        >
-          {availableConnectionIds.map((id) => <option key={id} value={id}>{id}</option>)}
-          <option value="__custom__">(custom)</option>
-        </select>
+          options={[
+            ...availableConnectionIds.map((id) => ({ value: id, label: id })),
+            { value: '__custom__', label: '(custom)' },
+          ]}
+        />
       )}
       {(availableConnectionIds.length === 0 || customConnId) && (
         <input
@@ -140,9 +142,11 @@ export function WsMatchCriteriaSection({
 
       <div className="wf-config-field">
         <label>Message Type</label>
-        <select value={mc.messageType ?? 'any'} onChange={(e) => updateMatch({ messageType: e.target.value as WsMatchCriteria['messageType'] })}>
-          {MSG_TYPE_FILTER_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-        </select>
+        <CustomSelect
+          value={mc.messageType ?? 'any'}
+          onChange={(v) => updateMatch({ messageType: v as WsMatchCriteria['messageType'] })}
+          options={MSG_TYPE_FILTER_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+        />
       </div>
 
       <div className="wf-config-field">
@@ -276,9 +280,11 @@ export function WsOutputBindingsSection<F extends string>({
               <input type="checkbox" checked={row.enabled} onChange={(e) => bindingCrud.update(index, { enabled: e.target.checked })} />
               Enabled
             </label>
-            <select value={row.field} onChange={(e) => bindingCrud.update(index, { field: e.target.value as F })}>
-              {fieldOptions.map((f) => <option key={f} value={f}>{f}</option>)}
-            </select>
+            <CustomSelect
+              value={row.field}
+              onChange={(v) => bindingCrud.update(index, { field: v as F })}
+              options={fieldOptions.map((f) => ({ value: f, label: f }))}
+            />
             <input
               value={row.variableName}
               onChange={(e) => bindingCrud.update(index, { variableName: e.target.value })}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import type { GraphqlSchemaSnapshot } from '../../../../shared/types/graphql';
 import {
   CHANGELOG_VISIBLE_CAP,
@@ -250,25 +251,24 @@ export function ChangelogPanel({ snapshots, currentSdl, onDelete, onClearOlder, 
           <div className="gql-changelog-compare-row">
             <span className="gql-changelog-compare-label">Compare against</span>
             <div className="gql-changelog-row-actions">
-              <select
+              <CustomSelect
                 className="gql-changelog-compare-select"
                 value={compareToId}
-                onChange={(e) => setCompareToId(e.target.value)}
-                title="Compare against…"
+                onChange={(v) => setCompareToId(v)}
+                options={[
+                  { value: '', label: 'Current schema' },
+                  ...sortedSnapshots
+                    .filter((s) => s.id !== selectedSnapshot.id)
+                    .map((s) => ({
+                      value: s.id,
+                      label: s.label && !isGenericSnapshotLabel(s.label)
+                        ? s.label
+                        : formatSnapshotDate(s.capturedAt),
+                    })),
+                ]}
                 aria-label={`Compare ${selectedSnapshot.label ?? 'snapshot'} against`}
                 data-testid="gql-changelog-compare-select"
-              >
-                <option value="">Current schema</option>
-                {sortedSnapshots
-                  .filter((s) => s.id !== selectedSnapshot.id)
-                  .map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.label && !isGenericSnapshotLabel(s.label)
-                        ? s.label
-                        : formatSnapshotDate(s.capturedAt)}
-                    </option>
-                  ))}
-              </select>
+              />
               <button
                 type="button"
                 className="gql-changelog-diff-btn"

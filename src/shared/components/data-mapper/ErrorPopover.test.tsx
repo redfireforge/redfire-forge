@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
-import { render, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import ErrorPopover from './ErrorPopover';
 import type { ErrorDetailData } from './MappingCanvas';
 
@@ -72,7 +72,7 @@ describe('ErrorPopover', () => {
     const { container } = render(
       <ErrorPopover data={baseData} y={100} onClose={onClose} />,
     );
-    fireEvent.click(container.querySelector('.dm-error-popover-close')!);
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 

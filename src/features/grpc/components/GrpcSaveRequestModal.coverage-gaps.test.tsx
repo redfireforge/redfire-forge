@@ -3,6 +3,7 @@
  */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { getCustomSelectValue, selectOption } from '../../../test-utils/customSelectHelper';
 import { FIXTURE_UNARY_CALL_REQUEST } from '../../../shared/grpc/contractFixtures';
 import { GrpcSaveRequestModal } from './GrpcSaveRequestModal';
 
@@ -67,10 +68,10 @@ describe('GrpcSaveRequestModal coverage gaps', () => {
     );
 
     fireEvent.change(screen.getByTestId('grpc-save-request-name'), { target: { value: 'Renamed' } });
-    fireEvent.change(screen.getByTestId('grpc-save-request-collection'), { target: { value: 'col-2' } });
+    selectOption(screen.getByTestId('grpc-save-request-collection'), 'Staging');
 
     expect(screen.getByTestId('grpc-save-request-name')).toHaveProperty('value', 'Renamed');
-    expect(screen.getByTestId('grpc-save-request-collection')).toHaveProperty('value', 'col-2');
+    expect(getCustomSelectValue(screen.getByTestId('grpc-save-request-collection'))).toBe('Staging');
   });
 
   it('does not close on Escape while busy', async () => {

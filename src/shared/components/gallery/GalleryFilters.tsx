@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CustomSelect } from '../CustomSelect';
 import type { GalleryDifficulty, GalleryDomain } from '../../../data/galleries/types';
 import type { GalleryDomainConfig } from '../../../data/galleries/registry';
 import type { TrainingPath } from '../../../data/galleries/trainingPaths';
@@ -106,47 +107,42 @@ export function GalleryFilters({
 
       <div className="gallery-filter-section">
         <div className="gallery-filter-heading">Category</div>
-        <select
+        <CustomSelect
           className="gallery-filter-select"
           value={value.category}
-          onChange={e => set('category', e.target.value)}
+          onChange={(v) => set('category', v)}
+          options={[
+            { value: '', label: 'All Categories' },
+            ...categories.map(c => ({ value: c, label: c })),
+          ]}
           aria-label="Filter by category"
-        >
-          <option value="">All Categories</option>
-          {categories.map(c => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+        />
       </div>
 
       <div className="gallery-filter-section">
         <div className="gallery-filter-heading">Difficulty</div>
-        <select
+        <CustomSelect
           className="gallery-filter-select"
           value={value.difficulty}
-          onChange={e => set('difficulty', e.target.value as GalleryDifficulty | 'all')}
+          onChange={(v) => set('difficulty', v as GalleryDifficulty | 'all')}
+          options={DIFFICULTY_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
           aria-label="Filter by difficulty"
-        >
-          {DIFFICULTY_OPTIONS.map(o => (
-            <option key={o.value} value={o.value}>{o.label}</option>
-          ))}
-        </select>
+        />
       </div>
 
       {liveApis.length > 0 && (
         <div className="gallery-filter-section">
           <div className="gallery-filter-heading">Live API</div>
-          <select
+          <CustomSelect
             className="gallery-filter-select"
             value={value.liveApi}
-            onChange={e => set('liveApi', e.target.value)}
+            onChange={(v) => set('liveApi', v)}
+            options={[
+              { value: '', label: 'All APIs' },
+              ...liveApis.map(a => ({ value: a, label: a })),
+            ]}
             aria-label="Filter by live API"
-          >
-            <option value="">All APIs</option>
-            {liveApis.map(a => (
-              <option key={a} value={a}>{a}</option>
-            ))}
-          </select>
+          />
         </div>
       )}
 

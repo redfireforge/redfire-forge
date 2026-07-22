@@ -10,6 +10,7 @@
  */
 
 import { useCallback, useRef } from 'react';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import type { UseKafkaStateReturn } from '../../app/hooks/useKafkaState';
 import { KafkaStudioGuard } from './KafkaStudioGuard';
 import {
@@ -240,19 +241,18 @@ export function KafkaSchemaRegistryContent({
                 <span className="kafka-schema-loading-text">Loading versions…</span>
               ) : (
                 <>
-                  <select
+                  <CustomSelect
                     className="kafka-schema-version-select"
-                    value={reg.selectedVersion ?? ''}
-                    onChange={(e) => reg.selectVersion(Number(e.target.value))}
+                    value={String(reg.selectedVersion ?? '')}
+                    onChange={(v) => reg.selectVersion(Number(v))}
                     disabled={reg.versions.length === 0}
                     data-testid="version-select"
-                  >
-                    {reg.versions.map((v, i) => (
-                      <option key={v} value={v}>
-                        v{v}{i === reg.versions.length - 1 ? ' (latest)' : ''}
-                      </option>
-                    ))}
-                  </select>
+                    options={reg.versions.map((v, i) => ({
+                      value: String(v),
+                      label: `v${v}${i === reg.versions.length - 1 ? ' (latest)' : ''}`,
+                    }))}
+                    aria-label="Schema version"
+                  />
                   {reg.schemaDetail && (
                     <span
                       className={`kafka-schema-format-badge kafka-schema-format-${deriveSchemaFormat(reg.schemaDetail.schemaType, reg.schemaDetail.schema) ?? 'unknown'}`}

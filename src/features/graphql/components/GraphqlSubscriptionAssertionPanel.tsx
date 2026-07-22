@@ -16,6 +16,7 @@
  */
 
 import { useCallback, useState } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { GraphqlSubscriptionAssertion } from '../../../shared/types/graphql';
 import { ASSERTION_OPERATORS, isNoValueOperator } from '../utils/subscriptionAssertions';
 
@@ -78,17 +79,14 @@ function AssertionRow({ assertion, onUpdate, onDelete }: AssertionRowProps) {
       />
 
       {/* Operator */}
-      <select
+      <CustomSelect
         className="gql-assert-select"
         value={assertion.operator}
-        onChange={(e) => handleField('operator', e.target.value)}
+        onChange={(v) => handleField('operator', v)}
+        options={ASSERTION_OPERATORS.map((op) => ({ value: op.value, label: op.label }))}
         aria-label="Assertion operator"
         data-testid="gql-assertion-operator"
-      >
-        {ASSERTION_OPERATORS.map((op) => (
-          <option key={op.value} value={op.value}>{op.label}</option>
-        ))}
-      </select>
+      />
 
       {/* Expected value — hidden for no-value operators */}
       {!noValue && (

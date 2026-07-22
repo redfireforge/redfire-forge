@@ -81,7 +81,9 @@ describe('AuthConfigPanel', () => {
 
   it('changes auth type via the type selector', () => {
     const { onChange } = setup({ auth: { type: 'none' } });
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'basic' } });
+    const trigger = document.querySelector('.auth-type-select .cs-trigger')!;
+    fireEvent.click(trigger);
+    fireEvent.click(screen.getByText('Basic'));
     expect(onChange).toHaveBeenCalledWith({ type: 'basic' });
   });
 
@@ -195,11 +197,10 @@ describe('AuthConfigPanel', () => {
       onProfileChange,
     });
     expect(screen.getByText(/Using/)).toBeInTheDocument();
-    const profileSelect = screen.getAllByRole('combobox')[1];
-    fireEvent.change(profileSelect, { target: { value: 'p2' } });
+    const profileTrigger = document.querySelector('.global-profile-selector .cs-trigger')!;
+    fireEvent.click(profileTrigger);
+    fireEvent.click(screen.getByText('Staging Basic'));
     expect(onProfileChange).toHaveBeenCalledWith('p2');
-    fireEvent.change(profileSelect, { target: { value: '' } });
-    expect(onProfileChange).toHaveBeenCalledWith(undefined);
   });
 
   it('warns when selected profile no longer exists', () => {

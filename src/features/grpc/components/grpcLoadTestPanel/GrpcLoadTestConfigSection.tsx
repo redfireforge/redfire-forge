@@ -7,6 +7,7 @@ import {
   parsePositiveSecondsToMs,
   presentMsAsSeconds,
 } from './grpcLoadTestPanelUtils';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 export interface GrpcLoadTestConfigSectionProps {
   advanced: UseGrpcStudioAdvancedFeaturesReturn;
@@ -97,22 +98,25 @@ export function GrpcLoadTestConfigSection({
         <div className="grpc-advanced-form-grid">
           <label className="grpc-advanced-field grpc-advanced-field--full-width grpc-advanced-field--inline grpc-advanced-field--inline-w4">
             <span className="grpc-advanced-field__label">Method under test</span>
-            <select
+            <CustomSelect
               className="grpc-advanced-select"
               data-testid="grpc-load-test-method-select"
               value={advanced.selectedLoadTestMethodKey ?? ''}
               disabled={advanced.loadTestRunning}
-              onChange={(event) => {
-                advanced.setLoadTestMethodOverride(event.target.value);
+              onChange={(v) => {
+                advanced.setLoadTestMethodOverride(v);
               }}
-            >
-              <option value="">Use active Studio method ({advanced.activeRpcLabel ?? 'none selected'})</option>
-              {(advanced.loadTestMethodOptions ?? []).map((option) => (
-                <option key={option.key} value={option.key}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+              options={[
+                {
+                  value: '',
+                  label: `Use active Studio method (${advanced.activeRpcLabel ?? 'none selected'})`,
+                },
+                ...(advanced.loadTestMethodOptions ?? []).map((option) => ({
+                  value: option.key,
+                  label: option.label,
+                })),
+              ]}
+            />
           </label>
           <div className="grpc-advanced-nums-row grpc-advanced-field--full-width">
             <label className="grpc-advanced-field">
@@ -260,21 +264,24 @@ export function GrpcLoadTestConfigSection({
         <div className="grpc-advanced-card grpc-advanced-card--nested" data-testid="grpc-load-test-profiles">
           <div className="grpc-advanced-profiles-row">
             <span className="grpc-advanced-profiles-row__heading">Saved profiles</span>
-            <select
+            <CustomSelect
               className="grpc-advanced-select grpc-advanced-profiles-row__select"
               data-testid="grpc-load-test-profile-select"
               value={advanced.selectedLoadTestProfileId}
               disabled={advanced.loadTestProfilesLoading || advanced.loadTestRunning}
-              onChange={(event) => {
+              placeholder="Select a profile…"
+              onChange={(v) => {
                 advanced.clearLoadTestProfileError();
-                advanced.setSelectedLoadTestProfileId(event.target.value);
+                advanced.setSelectedLoadTestProfileId(v);
               }}
-            >
-              <option value="">Select a profile…</option>
-              {(advanced.loadTestProfiles ?? []).map((profile) => (
-                <option key={profile.id} value={profile.id}>{profile.name}</option>
-              ))}
-            </select>
+              options={[
+                { value: '', label: 'Select a profile…' },
+                ...(advanced.loadTestProfiles ?? []).map((profile) => ({
+                  value: profile.id,
+                  label: profile.name,
+                })),
+              ]}
+            />
             <input
               type="text"
               className="grpc-advanced-input grpc-advanced-profiles-row__name"

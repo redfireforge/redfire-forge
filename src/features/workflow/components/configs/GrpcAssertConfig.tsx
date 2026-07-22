@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { GrpcAssertNodeData } from '../../types/workflow/node-grpc';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 export default function GrpcAssertConfig({
   data,
@@ -44,10 +45,15 @@ export default function GrpcAssertConfig({
       </div>
       <div className="wf-config-field--row">
         <label>On Error</label>
-        <select data-testid="grpc-assert-config-on-error" value={data.onError ?? 'fail'} onChange={(e) => update({ onError: e.target.value as 'fail' | 'continue' })}>
-          <option value="fail">Fail workflow</option>
-          <option value="continue">Continue workflow</option>
-        </select>
+        <CustomSelect
+          data-testid="grpc-assert-config-on-error"
+          value={data.onError ?? 'fail'}
+          onChange={(v) => update({ onError: v as 'fail' | 'continue' })}
+          options={[
+            { value: 'fail', label: 'Fail workflow' },
+            { value: 'continue', label: 'Continue workflow' },
+          ]}
+        />
       </div>
       <div className="wf-config-field wf-grpc-assertions-field">
         <label>Assertions (JSON array)</label>

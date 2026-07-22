@@ -6,6 +6,10 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { RequestItem } from '../../../shared/types';
+import {
+  getCustomSelectOptionLabels,
+  selectOptionByIndex,
+} from '../../../test-utils/customSelectHelper';
 import { SpecVersionCompareModal } from './SpecVersionCompareModal';
 
 const computeSpecVersionDiff = vi.fn();
@@ -58,10 +62,11 @@ describe('SpecVersionCompareModal', () => {
 
     render(<SpecVersionCompareModal request={request} onClose={onClose} />);
 
-    fireEvent.change(screen.getByLabelText(/Left/i), { target: { value: 'vb' } });
+    const modal = document.querySelector('.spec-compare-modal')!;
+    selectOptionByIndex(modal, 0, 'v2.2');
     expect(computeSpecVersionDiff).toHaveBeenCalled();
 
-    fireEvent.change(screen.getByLabelText(/Right/i), { target: { value: 'va' } });
+    selectOptionByIndex(modal, 1, 'v1.1');
     expect(screen.getByText(/No differences/)).toBeInTheDocument();
 
     fireEvent.click(document.querySelector('.spec-compare-overlay')!);
@@ -135,10 +140,12 @@ describe('SpecVersionCompareModal', () => {
 
     render(<SpecVersionCompareModal request={request} onClose={() => {}} />);
 
-    expect(screen.getAllByRole('option').filter(o => /^v\d/.test(o.textContent ?? ''))).toHaveLength(6);
+    const modal = document.querySelector('.spec-compare-modal')!;
+    expect(getCustomSelectOptionLabels(modal, 0).filter(l => /^v\d/.test(l))).toHaveLength(3);
+    expect(getCustomSelectOptionLabels(modal, 1).filter(l => /^v\d/.test(l))).toHaveLength(3);
 
-    fireEvent.change(screen.getByLabelText(/Left/i), { target: { value: 'vc' } });
-    fireEvent.change(screen.getByLabelText(/Right/i), { target: { value: 'va' } });
+    selectOptionByIndex(modal, 0, 'v2.0.0-rc');
+    selectOptionByIndex(modal, 1, 'v1.0.0');
     expect(screen.getByText('path')).toBeInTheDocument();
     expect(screen.getByText('deprecated')).toBeInTheDocument();
   });
@@ -181,6 +188,8 @@ describe('SpecVersionCompareModal', () => {
 
     render(<SpecVersionCompareModal request={solo} onClose={() => {}} />);
     expect(document.querySelector('.spec-compare-row.added .spec-compare-icon')).toHaveTextContent('+');
-    expect(screen.getAllByRole('option', { name: /^v0\.9$/ })).toHaveLength(2);
+    const modal = document.querySelector('.spec-compare-modal')!;
+    expect(getCustomSelectOptionLabels(modal, 0)).toContain('v0.9');
+    expect(getCustomSelectOptionLabels(modal, 1)).toContain('v0.9');
   });
 });

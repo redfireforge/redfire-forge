@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { CustomSelect } from '../CustomSelect';
 import type { TargetField, TargetFieldLocation } from './types';
 import { extractDragPayload } from './utils/targetTreeHelpers';
 const FIELD_TYPES = ['string', 'number', 'boolean', 'object', 'array'] as const;
@@ -138,16 +139,13 @@ export default function AddFieldRow({ existingPaths, onAdd, location, onDrop, ge
         aria-label="Field name"
         aria-invalid={!!error}
       />
-      <select
+      <CustomSelect
         className="dm-add-field-type"
         value={fieldType}
-        onChange={(e) => setFieldType(e.target.value)}
+        onChange={setFieldType}
+        options={FIELD_TYPES.map((t) => ({ value: t, label: t }))}
         aria-label="Field type"
-      >
-        {FIELD_TYPES.map((t) => (
-          <option key={t} value={t}>{t}</option>
-        ))}
-      </select>
+      />
       <button className="dm-add-field-confirm" onClick={handleSubmit} aria-label="Confirm add field">
         ✓
       </button>

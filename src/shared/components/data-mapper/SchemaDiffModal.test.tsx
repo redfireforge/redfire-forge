@@ -88,7 +88,7 @@ describe('SchemaDiffModal', () => {
     const onClose = vi.fn();
     const drifts = [makeDrift({ path: 'a' })];
     render(<SchemaDiffModal drifts={drifts} onClose={onClose} />);
-    fireEvent.click(screen.getByLabelText('Close schema diff'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalledOnce();
   });
 

@@ -5,6 +5,7 @@ import {
   defaultClusterDraft,
   draftFromCluster,
   hasDraftErrors,
+  normalizeBrokerEntries,
   validateKafkaClusterDraft,
 } from './kafkaClusterForm';
 
@@ -212,5 +213,26 @@ describe('kafkaClusterForm helpers', () => {
     // No error for duplicates (they're silently deduplicated) but draft is valid
     expect(errors.brokers).toBeUndefined();
     expect(errors.brokerRows).toBeUndefined();
+  });
+
+  it('normalizeBrokerEntries supports comma-delimited broker rows', () => {
+    const normalized = normalizeBrokerEntries([
+      'kafka1.example.com:9092, kafka2.example.com:9092',
+      'kafka2.example.com:9092',
+      '  kafka3.example.com:9093  ',
+    ]);
+    expect(normalized).toEqual([
+      'kafka1.example.com:9092',
+      'kafka2.example.com:9092',
+      'kafka3.example.com:9093',
+    ]);
+  });
+
+  it('validateKafkaClusterDraft accepts comma-delimited brokers in a single row', () => {
+    const draft = defaultClusterDraft(99);
+    draft.brokers = ['kafka1.example.com:9092, kafka2.example.com:9092'];
+    const errors = validateKafkaClusterDraft(draft, [], null);
+    expect(errors.brokerRows).toBeUndefined();
+    expect(errors.brokers).toBeUndefined();
   });
 });

@@ -11,6 +11,7 @@ import { useDataSourceFetch } from '../hooks/useDataSourceFetch';
 import { useDataSourceGrid } from '../hooks/useDataSourceGrid';
 import { useDataSourceImport } from '../hooks/useDataSourceImport';
 import { useValidationContract } from '../hooks/useValidationContract';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import DataSourceSetupModal from './DataSourceSetupModal';
 import DataSourceRowDetailModal from './DataSourceRowDetailModal';
 import DataSourceVerifyModal from './DataSourceVerifyModal';
@@ -499,23 +500,21 @@ export default function DataSourceEditor({ draft, onDraftChange, onFetchRow, onC
               <button type="button" className="data-source-action-btn" onClick={bulkDuplicate} title="Duplicate selected rows">⧉ Duplicate</button>
             </div>
             <div className="data-source-bulk-group">
-              <select
+              <CustomSelect
                 className="data-source-action-btn data-source-tag-select"
                 value=""
-                onChange={(e) => { if (e.target.value) bulkAddTag(e.target.value); e.target.value = ''; }}
-              >
-                <option value="">+ Tag…</option>
-                {tagSuggestions.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
+                onChange={(v) => { if (v) bulkAddTag(v); }}
+                placeholder="+ Tag…"
+                options={tagSuggestions.map((t) => ({ value: t, label: t }))}
+              />
               {allTags.length > 0 && (
-                <select
+                <CustomSelect
                   className="data-source-action-btn data-source-tag-select"
                   value=""
-                  onChange={(e) => { if (e.target.value) bulkRemoveTag(e.target.value); e.target.value = ''; }}
-                >
-                  <option value="">− Untag…</option>
-                  {allTags.map(t => <option key={t} value={t}>{t}</option>)}
-                </select>
+                  onChange={(v) => { if (v) bulkRemoveTag(v); }}
+                  placeholder="− Untag…"
+                  options={allTags.map((t) => ({ value: t, label: t }))}
+                />
               )}
             </div>
             <button type="button" className="data-source-action-btn data-source-action-btn-danger" onClick={bulkDelete} title="Delete selected rows">✕ Delete</button>

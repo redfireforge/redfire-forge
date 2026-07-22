@@ -1,6 +1,10 @@
 // @vitest-environment jsdom
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import {
+  selectOptionByIndex,
+  getCustomSelectOptionLabels,
+} from '../../../test-utils/customSelectHelper';
 import { ResultsRequestDetailsTab } from './ResultsRequestDetailsTab';
 import { makeResult, makeTestRun } from '../../../test-utils/factories';
 import type { GroupNode } from '../../test-runner/utils/resultsGrouping';
@@ -70,8 +74,8 @@ describe('ResultsRequestDetailsTab', () => {
     const props = makeBaseProps();
     render(<ResultsRequestDetailsTab {...props} />);
 
-    fireEvent.change(screen.getByDisplayValue('All Results'), { target: { value: 'failed' } });
-    fireEvent.change(screen.getAllByRole('combobox')[1], { target: { value: 'group' } });
+    selectOptionByIndex(document.body, 0, 'Failed Only');
+    selectOptionByIndex(document.body, 1, 'Scenario');
     fireEvent.change(screen.getByPlaceholderText('Search...'), { target: { value: 'users' } });
 
     expect(props.setFilterPassed).toHaveBeenCalledWith('failed');
@@ -94,7 +98,7 @@ describe('ResultsRequestDetailsTab', () => {
   it('shows failed-data-rows filter option when selected run has data rows', () => {
     const props = makeBaseProps();
     render(<ResultsRequestDetailsTab {...props} />);
-    expect(screen.getByRole('option', { name: 'Failed Data Rows' })).toBeTruthy();
+    expect(getCustomSelectOptionLabels(document.body, 0)).toContain('Failed Data Rows');
   });
 
   it('renders flat table rows and row click forwards result', () => {
@@ -197,7 +201,7 @@ describe('ResultsRequestDetailsTab', () => {
     fireEvent.click(screen.getByRole('button', { name: 'critical' }));
     expect(props.setResultTagFilter).toHaveBeenCalledWith('critical');
 
-    fireEvent.change(screen.getAllByRole('combobox')[2], { target: { value: 'group' } });
+    selectOptionByIndex(document.body, 2, 'Scenario');
     expect(props.setSubGroupBy).toHaveBeenCalledWith('group');
     expect(props.setExpanded).toHaveBeenCalled();
   });
@@ -205,8 +209,9 @@ describe('ResultsRequestDetailsTab', () => {
   it('shows workflow-specific group options when isWorkflowRun is true', () => {
     const props = makeBaseProps();
     render(<ResultsRequestDetailsTab {...props} isWorkflowRun />);
-    expect(screen.getByRole('option', { name: 'Iteration' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Workflow Step' })).toBeTruthy();
+    const groupByLabels = getCustomSelectOptionLabels(document.body, 1);
+    expect(groupByLabels).toContain('Iteration');
+    expect(groupByLabels).toContain('Workflow Step');
   });
 
   it('renders pagination and fires navigation actions in flat view', () => {

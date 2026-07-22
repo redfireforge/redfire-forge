@@ -8,6 +8,7 @@ import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import KafkaSchemaConfigSection from './KafkaSchemaConfigSection';
 import { createHeaderFilter, createJsonPathFilter } from './kafkaConfigFactories';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const START_OPTIONS: { value: KafkaConsumeStartPosition; label: string }[] = [
   { value: 'latest', label: 'Latest' },
@@ -218,15 +219,19 @@ export default function KafkaConsumeConfig({
       <div className="wf-config-field-pair">
         <div className="wf-config-field--row">
           <label>Start Position</label>
-          <select value={data.startPosition ?? 'latest'} onChange={(e) => update({ startPosition: e.target.value as KafkaConsumeStartPosition })}>
-            {START_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <CustomSelect
+            value={data.startPosition ?? 'latest'}
+            onChange={(v) => update({ startPosition: v as KafkaConsumeStartPosition })}
+            options={START_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+          />
         </div>
         <div className="wf-config-field--row">
           <label>Load Test</label>
-          <select value={loadTestBehavior.mode} onChange={(e) => applyLoadTestBehavior({ mode: e.target.value as KafkaConsumeLoadTestBehavior['mode'] })}>
-            {LOAD_TEST_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
+          <CustomSelect
+            value={loadTestBehavior.mode}
+            onChange={(v) => applyLoadTestBehavior({ mode: v as KafkaConsumeLoadTestBehavior['mode'] })}
+            options={LOAD_TEST_OPTIONS.map((option) => ({ value: option.value, label: option.label }))}
+          />
         </div>
       </div>
 
@@ -288,9 +293,11 @@ export default function KafkaConsumeConfig({
               <div className="wf-kv-toggle">
                 <input type="checkbox" checked={row.enabled} onChange={(e) => bindingCrud.update(index, { enabled: e.target.checked })} />
               </div>
-              <select value={row.source} onChange={(e) => bindingCrud.update(index, { source: e.target.value as KafkaNodeMetadataBinding['source'] })}>
-                {OUTPUT_SOURCE_OPTIONS.map((source) => <option key={source} value={source}>{source}</option>)}
-              </select>
+              <CustomSelect
+                value={row.source}
+                onChange={(v) => bindingCrud.update(index, { source: v as KafkaNodeMetadataBinding['source'] })}
+                options={OUTPUT_SOURCE_OPTIONS.map((source) => ({ value: source, label: source }))}
+              />
               <input
                 value={row.targetVariable}
                 onChange={(e) => bindingCrud.update(index, { targetVariable: e.target.value })}

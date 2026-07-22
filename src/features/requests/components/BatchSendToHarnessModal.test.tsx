@@ -40,6 +40,20 @@ function nestedFolder(): RequestFolder {
   };
 }
 
+function selectCascadeOption(fieldTestId: string, optionText: string) {
+  const field = document.querySelector(`[data-testid="${fieldTestId}"]`)!;
+  const trigger = field.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger')!;
+  fireEvent.click(trigger);
+  const items = field.querySelectorAll<HTMLButtonElement>('.cascade-dropdown-item');
+  const target = Array.from(items).find(item => item.textContent?.includes(optionText));
+  if (target) fireEvent.click(target);
+}
+
+function selectEnvAndSvc() {
+  selectCascadeOption('send-harness-cascade-environment', 'Dev');
+  selectCascadeOption('send-harness-cascade-microservice', 'Payments');
+}
+
 describe('BatchSendToHarnessModal', () => {
   it('gates Next until env and microservice then surfaces request checklist and totals', () => {
     render(
@@ -74,15 +88,10 @@ describe('BatchSendToHarnessModal', () => {
     expect(screen.getByText(/Send Collection to Harness/)).toBeInTheDocument();
     expect(screen.getByText(/My API/)).toBeInTheDocument();
 
-    const [envSel, svcSel] = document.querySelectorAll(
-      '.send-harness-cascade-select',
-    ) as NodeListOf<HTMLSelectElement>;
-    expect(envSel!.value).toBe('');
     const next = screen.getByRole('button', { name: 'Next' });
     expect(next).toBeDisabled();
 
-    fireEvent.change(envSel!, { target: { value: 'e1' } });
-    fireEvent.change(svcSel!, { target: { value: 'm1' } });
+    selectEnvAndSvc();
 
     fireEvent.click(next);
 
@@ -138,9 +147,7 @@ describe('BatchSendToHarnessModal', () => {
       />,
     );
 
-    const selects = document.querySelectorAll('.send-harness-cascade-select') as NodeListOf<HTMLSelectElement>;
-    fireEvent.change(selects[0]!, { target: { value: 'e1' } });
-    fireEvent.change(selects[1]!, { target: { value: 'm1' } });
+    selectEnvAndSvc();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     fireEvent.click(screen.getByText('Snapshot'));
@@ -215,9 +222,7 @@ describe('BatchSendToHarnessModal', () => {
       />,
     );
 
-    const selects = document.querySelectorAll('.send-harness-cascade-select') as NodeListOf<HTMLSelectElement>;
-    fireEvent.change(selects[0]!, { target: { value: 'e1' } });
-    fireEvent.change(selects[1]!, { target: { value: 'm1' } });
+    selectEnvAndSvc();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     fireEvent.click(screen.getByRole('button', { name: /Deselect All/ }));
@@ -256,9 +261,7 @@ describe('BatchSendToHarnessModal', () => {
       />,
     );
 
-    const selects = document.querySelectorAll('.send-harness-cascade-select') as NodeListOf<HTMLSelectElement>;
-    fireEvent.change(selects[0]!, { target: { value: 'e1' } });
-    fireEvent.change(selects[1]!, { target: { value: 'm1' } });
+    selectEnvAndSvc();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Back' }));
@@ -305,10 +308,14 @@ describe('BatchSendToHarnessModal', () => {
       />,
     );
 
-    const envSel = document.querySelector('.send-harness-cascade-select') as HTMLSelectElement;
-    const opt = [...envSel.querySelectorAll('option')].map(o => o.value);
-    expect(opt).toContain('cust1');
-    fireEvent.change(envSel, { target: { value: 'cust1' } });
+    const envField = document.querySelector('[data-testid="send-harness-cascade-environment"]')!;
+    const trigger = envField.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger')!;
+    fireEvent.click(trigger);
+    const items = envField.querySelectorAll('.cascade-dropdown-item');
+    const itemTexts = Array.from(items).map(i => i.textContent);
+    expect(itemTexts.some(t => t?.includes('Edge'))).toBe(true);
+    const edgeItem = Array.from(items).find(i => i.textContent?.includes('Edge'));
+    if (edgeItem) fireEvent.click(edgeItem);
   });
 
   it('filters microservices to those wired for the chosen custom-only environment', () => {
@@ -342,15 +349,30 @@ describe('BatchSendToHarnessModal', () => {
         onClose={vi.fn()}
       />,
     );
-    const [envSel, svcSel] = document.querySelectorAll('.send-harness-cascade-select') as NodeListOf<HTMLSelectElement>;
-    fireEvent.change(envSel!, { target: { value: 'edge' } });
-    const svcOptionsEdge = [...svcSel!.querySelectorAll('option')].slice(1).map(o => o.value);
-    expect(svcOptionsEdge).toEqual(['only-edge']);
-    fireEvent.change(envSel!, { target: { value: 'e1' } });
-    expect(svcSel!.value).toBe('');
-    const namesAfterTenant = [...svcSel!.querySelectorAll('option')].slice(1).map(o => o.textContent);
-    expect(namesAfterTenant).toContain('ClassicSvc');
-    expect(namesAfterTenant).not.toContain('EdgeSvc');
+
+    selectCascadeOption('send-harness-cascade-environment', 'Edge');
+
+    {
+      const svcField = document.querySelector('[data-testid="send-harness-cascade-microservice"]')!;
+      const svcTrigger = svcField.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger')!;
+      fireEvent.click(svcTrigger);
+      const svcItems = svcField.querySelectorAll('.cascade-dropdown-item');
+      const svcNames = Array.from(svcItems).map(i => i.querySelector('.cascade-dropdown-item-name')?.textContent);
+      expect(svcNames).toEqual(['EdgeSvc']);
+      fireEvent.click(svcTrigger); // close
+    }
+
+    selectCascadeOption('send-harness-cascade-environment', 'Dev');
+
+    {
+      const svcField = document.querySelector('[data-testid="send-harness-cascade-microservice"]')!;
+      const svcTrigger = svcField.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger')!;
+      fireEvent.click(svcTrigger);
+      const svcItems = svcField.querySelectorAll('.cascade-dropdown-item');
+      const svcNames = Array.from(svcItems).map(i => i.querySelector('.cascade-dropdown-item-name')?.textContent);
+      expect(svcNames).toContain('ClassicSvc');
+      expect(svcNames).not.toContain('EdgeSvc');
+    }
   });
 
   it('dedupes cascade environment ids shared between tenants and embedded custom envs', () => {
@@ -388,9 +410,13 @@ describe('BatchSendToHarnessModal', () => {
         onClose={vi.fn()}
       />,
     );
-    const envSel = document.querySelector('.send-harness-cascade-select') as HTMLSelectElement;
-    const envIds = [...envSel.querySelectorAll('option')].filter(o => o.value).map(o => o.value);
-    expect(envIds.filter(id => id === 'shared')).toHaveLength(1);
+    const envField = document.querySelector('[data-testid="send-harness-cascade-environment"]')!;
+    const trigger = envField.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger')!;
+    fireEvent.click(trigger);
+    const items = envField.querySelectorAll('.cascade-dropdown-item');
+    const envIds = Array.from(items).map(i => i.querySelector('.cascade-dropdown-item-name')?.textContent);
+    const sharedCount = envIds.filter(n => n === 'Shared Tenant').length;
+    expect(sharedCount).toBe(1);
   });
 
   it('falls back styling for unrecognized HTTP verbs and renders singular summaries', () => {
@@ -421,9 +447,7 @@ describe('BatchSendToHarnessModal', () => {
         onClose={vi.fn()}
       />,
     );
-    const selects = document.querySelectorAll('.send-harness-cascade-select');
-    fireEvent.change(selects[0]!, { target: { value: 'e1' } });
-    fireEvent.change(selects[1]!, { target: { value: 'm1' } });
+    selectEnvAndSvc();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     expect(document.querySelector('.batch-harness-method')!.getAttribute('style')).toMatch(/94a3b8|rgb\(148, 163, 184\)/);
@@ -494,9 +518,7 @@ describe('BatchSendToHarnessModal', () => {
         onClose={vi.fn()}
       />,
     );
-    const selects = document.querySelectorAll('.send-harness-cascade-select');
-    fireEvent.change(selects[0]!, { target: { value: 'e1' } });
-    fireEvent.change(selects[1]!, { target: { value: 'm1' } });
+    selectEnvAndSvc();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     const radios = screen.getAllByRole('radio');
@@ -537,9 +559,7 @@ describe('BatchSendToHarnessModal', () => {
         onClose={vi.fn()}
       />,
     );
-    const selects = document.querySelectorAll('.send-harness-cascade-select');
-    fireEvent.change(selects[0]!, { target: { value: 'e1' } });
-    fireEvent.change(selects[1]!, { target: { value: 'm1' } });
+    selectEnvAndSvc();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     expect(screen.getByTitle('Untitled')).toHaveTextContent('Untitled');
@@ -585,9 +605,7 @@ describe('BatchSendToHarnessModal', () => {
         onClose={vi.fn()}
       />,
     );
-    const selects = document.querySelectorAll('.send-harness-cascade-select');
-    fireEvent.change(selects[0]!, { target: { value: 'e1' } });
-    fireEvent.change(selects[1]!, { target: { value: 'm1' } });
+    selectEnvAndSvc();
     fireEvent.click(screen.getByRole('button', { name: 'Next' }));
 
     expect(screen.getByText(/3 Test Scenarios/)).toBeInTheDocument();

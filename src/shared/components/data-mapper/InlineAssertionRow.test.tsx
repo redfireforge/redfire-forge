@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom/vitest';
 import InlineAssertionRow from './InlineAssertionRow';
 import type { Assertion } from '../../types';
@@ -36,15 +37,13 @@ describe('InlineAssertionRow', () => {
   it('renders comparison operator select when arrayLength + onUpdate provided', () => {
     const onUpdate = vi.fn();
     renderRow({ onUpdate });
-    const select = screen.getByLabelText('Comparison operator') as HTMLSelectElement;
-    expect(select.value).toBe('>=');
+    expect(getCustomSelectValue(screen.getByLabelText('Comparison operator').closest('.cs-wrapper')!)).toBe('>=');
   });
 
   it('changes operator via select dispatches onUpdate', () => {
     const onUpdate = vi.fn();
     renderRow({ onUpdate });
-    const select = screen.getByLabelText('Comparison operator');
-    fireEvent.change(select, { target: { value: '<' } });
+    selectOption(screen.getByLabelText('Comparison operator').closest('.cs-wrapper')!, '<');
     expect(onUpdate).toHaveBeenCalledWith(0, { operator: '<' });
   });
 

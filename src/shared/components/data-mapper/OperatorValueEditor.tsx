@@ -1,4 +1,5 @@
 import { useCallback, type RefObject } from 'react';
+import { CustomSelect } from '../CustomSelect';
 import type { Mapping } from './types';
 import type { OperatorMeta } from './utils/operatorRegistry';
 
@@ -35,7 +36,7 @@ export default function OperatorValueEditor({
   localOperatorValue,
   operatorValueRef,
   rangeSecondRef,
-  typeSelectRef,
+  typeSelectRef: _typeSelectRef,
   setLocalOperatorValue,
   setEditingOperatorValue,
   handleTypeSelectChange,
@@ -84,23 +85,23 @@ export default function OperatorValueEditor({
 
   if (currentOp === 'is_type') {
     return (
-      <select
-        ref={typeSelectRef}
-        className="dm-operator-value-input dm-type-select"
-        value={localOperatorValue}
-        onChange={(e) => handleTypeSelectChange(e.target.value)}
-        onBlur={handleOperatorValueCommit}
-        onClick={(e) => e.stopPropagation()}
-        aria-label="Select expected type"
-      >
-        <option value="">select type…</option>
-        <option value="string">string</option>
-        <option value="number">number</option>
-        <option value="boolean">boolean</option>
-        <option value="object">object</option>
-        <option value="array">array</option>
-        <option value="null">null</option>
-      </select>
+      <div onClick={(e) => e.stopPropagation()}>
+        <CustomSelect
+          className="dm-operator-value-input dm-type-select"
+          value={localOperatorValue}
+          onChange={handleTypeSelectChange}
+          options={[
+            { value: 'string', label: 'string' },
+            { value: 'number', label: 'number' },
+            { value: 'boolean', label: 'boolean' },
+            { value: 'object', label: 'object' },
+            { value: 'array', label: 'array' },
+            { value: 'null', label: 'null' },
+          ]}
+          placeholder="select type…"
+          aria-label="Select expected type"
+        />
+      </div>
     );
   }
 

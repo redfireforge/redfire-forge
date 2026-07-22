@@ -68,13 +68,13 @@ export default function CatalogOverview({ entry, onReimport, onVersionHistory, o
       </div>
 
       {/* ── Quick Actions ──────────────────────── */}
-      <div className="cat-ov-actions">
-        <button className="cat-btn cat-btn-outline" onClick={onReimport}>Re-import</button>
-        <button className="cat-btn cat-btn-outline" onClick={onExportSpec}>Export Spec</button>
+      <div className="cat-ov-actions" data-testid="catalog-overview-quick-actions">
+        <button className="cat-btn cat-btn-outline" data-testid="catalog-reimport-btn" onClick={onReimport}>Re-import</button>
+        <button className="cat-btn cat-btn-outline" data-testid="catalog-export-spec-btn" onClick={onExportSpec}>Export Spec</button>
         {onConvertToOpenApi && (
           <button className="cat-btn cat-btn-outline" data-testid="catalog-convert-btn" onClick={onConvertToOpenApi}>Convert / Upgrade OpenAPI</button>
         )}
-        <button className="cat-btn cat-btn-outline" onClick={onVersionHistory}>Version History</button>
+        <button className="cat-btn cat-btn-outline" data-testid="catalog-version-history-btn" onClick={onVersionHistory}>Version History</button>
       </div>
 
       {/* ── Servers ────────────────────────────── */}
@@ -99,7 +99,7 @@ export default function CatalogOverview({ entry, onReimport, onVersionHistory, o
       <div className="cat-ov-section">
         <h3 className="cat-ov-section-title">Endpoints ({totalEndpoints})</h3>
 
-        <div className="cat-ov-method-stats">
+        <div className="cat-ov-method-stats" data-testid="catalog-overview-method-stats">
           {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map(m => {
             const count = methodCounts[m] ?? 0;
             if (count === 0) return null;

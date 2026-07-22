@@ -1,7 +1,7 @@
 /**
- * Catalog convert adapter — stable bridge surface for the Catalog convert lesson
- * (CAT / P4-E). Wraps the imperative `window.__demo*` catalog functions mounted by
- * the App shell hook `useDemoCatalogBridge` so lessons never touch product internals.
+ * Catalog adapter — stable bridge surface for Catalog demo lessons (CAT-*).
+ * Wraps the imperative `window.__demo*` catalog functions mounted by the App
+ * shell hook `useDemoCatalogBridge` so lessons never touch product internals.
  */
 import { getDemoBridgeWindow } from './bridgeWindow';
 
@@ -15,6 +15,15 @@ export async function seedSwagger2CatalogEntry(name: string, rawSpec: string): P
   return fn(name, rawSpec);
 }
 
+/**
+ * Seed any OpenAPI / Swagger spec as a Catalog entry (idempotent by name).
+ * The bridge uses `parseOpenApiSpec` internally, so this works for OpenAPI 3.x
+ * as well as Swagger 2.0 — the bridge function name is a historical artifact.
+ */
+export async function seedCatalogEntry(name: string, rawSpec: string): Promise<string | null> {
+  return seedSwagger2CatalogEntry(name, rawSpec);
+}
+
 /** Remove a Catalog entry by display name (demo cleanup). No-op when absent. */
 export function deleteCatalogEntryByName(name: string): void {
   getDemoBridgeWindow().__demoDeleteCatalogByName?.(name);
@@ -25,7 +34,23 @@ export function selectCatalogEntryByName(name: string): boolean {
   return getDemoBridgeWindow().__demoSelectCatalogByName?.(name) ?? false;
 }
 
+/** Add a new version to an existing Catalog entry (by name). Returns true on success. */
+export async function addVersionByName(name: string, rawSpec: string): Promise<boolean> {
+  const fn = getDemoBridgeWindow().__demoAddVersionByName;
+  if (!fn) return false;
+  return fn(name, rawSpec);
+}
+
 /** True once the Catalog store has hydrated from storage. */
 export function isCatalogLoaded(): boolean {
   return getDemoBridgeWindow().__demoCatalogLoaded === true;
+}
+
+/**
+ * Delete all request collections whose name matches exactly (case-insensitive).
+ * Used by CAT-* lesson cleanup to remove orphaned exported collections.
+ * Returns the number deleted, or 0 when the bridge is absent.
+ */
+export function deleteCollectionsByName(name: string): number {
+  return getDemoBridgeWindow().__demoDeleteCollectionsByName?.(name) ?? 0;
 }

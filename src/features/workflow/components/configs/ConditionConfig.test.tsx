@@ -4,6 +4,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import type { ComponentProps } from 'react';
 import { render, fireEvent, screen } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import ConditionConfig from './ConditionConfig';
 
 vi.mock('../expression/SearchableVariableSelect', async (importOriginal) => {
@@ -56,8 +57,8 @@ describe('ConditionConfig', () => {
 
   it('calls onChange when operator is changed', () => {
     const onChange = vi.fn();
-    render(<ConditionConfig data={makeData()} onChange={onChange} variableHints={defaultHints} />);
-    fireEvent.change(screen.getByDisplayValue('== (equals)'), { target: { value: '!=' } });
+    const { container } = render(<ConditionConfig data={makeData()} onChange={onChange} variableHints={defaultHints} />);
+    selectOption(container, '!= (not equals)');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ operator: '!=' }));
   });
 
@@ -147,8 +148,8 @@ describe('ConditionConfig', () => {
   it('renders with empty variable hints without crashing', () => {
     const { container } = render(<ConditionConfig data={makeData({ left: '' })} onChange={vi.fn()} variableHints={[]} />);
     // Should render without errors and have operator select even with no hints
-    expect(container.querySelector('select')).toBeTruthy();
-    expect(screen.getByDisplayValue('== (equals)')).toBeTruthy();
+    expect(container.querySelector('.cs-wrapper')).toBeTruthy();
+    expect(getCustomSelectValue(container)).toBe('== (equals)');
   });
 
   it('renders Insert button only for right operand in pick mode', () => {

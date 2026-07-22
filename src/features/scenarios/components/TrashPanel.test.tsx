@@ -178,25 +178,29 @@ describe('TrashPanel', () => {
 
   it('renders retention dropdown with current setting', () => {
     renderPanel([], { settings: { retentionDays: 14, maxItems: 200 } });
-    const retentionSelect = screen.getByLabelText('Trash retention period') as HTMLSelectElement;
-    expect(retentionSelect.value).toBe('14');
+    const retentionTrigger = screen.getByLabelText('Trash retention period');
+    expect(retentionTrigger.querySelector('.cs-text')?.textContent).toBe('14 days');
   });
 
   it('renders max items dropdown with current setting', () => {
     renderPanel([], { settings: { retentionDays: 30, maxItems: 200 } });
-    const maxSelect = screen.getByLabelText('Maximum trash items') as HTMLSelectElement;
-    expect(maxSelect.value).toBe('200');
+    const maxTrigger = screen.getByLabelText('Maximum trash items');
+    expect(maxTrigger.querySelector('.cs-text')?.textContent).toBe('200');
   });
 
   it('calls onUpdateSettings when retention is changed', () => {
     renderPanel([]);
-    fireEvent.change(screen.getByLabelText('Trash retention period'), { target: { value: '7' } });
+    const retentionTrigger = screen.getByLabelText('Trash retention period');
+    fireEvent.click(retentionTrigger);
+    fireEvent.click(screen.getByText('7 days'));
     expect(onUpdateSettings).toHaveBeenCalledWith({ retentionDays: 7 });
   });
 
   it('calls onUpdateSettings when max items is changed', () => {
     renderPanel([]);
-    fireEvent.change(screen.getByLabelText('Maximum trash items'), { target: { value: '50' } });
+    const maxTrigger = screen.getByLabelText('Maximum trash items');
+    fireEvent.click(maxTrigger);
+    fireEvent.click(screen.getByText('50'));
     expect(onUpdateSettings).toHaveBeenCalledWith({ maxItems: 50 });
   });
 

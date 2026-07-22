@@ -12,6 +12,7 @@ import type { UseGrpcStudioReturn } from '../hooks/useGrpcStudio';
 import type { GrpcTabConnectionPageDefaults, GrpcConnectionProfile } from '../utils/resolveGrpcTabConnection';
 import { prepareGrpcCallMetadata } from '../../../shared/grpc/grpcCompressionPolicy';
 import { redactGrpcMetadataForHistory } from '../../../shared/grpc/grpcRedaction';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 export interface GrpcHistoryPanelProps {
   history: UseGrpcCallHistoryResult;
@@ -424,35 +425,39 @@ export function GrpcHistoryPanel({
             placeholder="Search history…"
             aria-label="Search call history"
           />
-          <select
+          <CustomSelect
             className="grpc-history-filters__select"
             data-testid="grpc-history-filter-service"
             value={history.filters.service ?? ''}
-            onChange={(event) => history.setFilters({ service: event.target.value || undefined })}
+            onChange={(v) => history.setFilters({ service: v || undefined })}
             aria-label="Filter by service"
-          >
-            <option value="">All services</option>
-            {history.filterOptions.services.map((service) => (
-              <option key={service} value={service}>{service}</option>
-            ))}
-          </select>
-          <select
+            placeholder="All services"
+            options={[
+              { value: '', label: 'All services' },
+              ...history.filterOptions.services.map((service) => ({
+                value: service,
+                label: service,
+              })),
+            ]}
+          />
+          <CustomSelect
             className="grpc-history-filters__select"
             data-testid="grpc-history-filter-status"
             value={history.filters.outcome ?? ''}
-            onChange={(event) => {
-              const value = event.target.value;
+            onChange={(v) => {
               history.setFilters({
-                outcome: value === '' ? undefined : value as 'ok' | 'error',
+                outcome: v === '' ? undefined : v as 'ok' | 'error',
                 grpcStatus: undefined,
               });
             }}
             aria-label="Filter by status"
-          >
-            <option value="">All statuses</option>
-            {history.filterOptions.hasOkEntries && <option value="ok">OK</option>}
-            {history.filterOptions.hasErrorEntries && <option value="error">Errors</option>}
-          </select>
+            placeholder="All statuses"
+            options={[
+              { value: '', label: 'All statuses' },
+              ...(history.filterOptions.hasOkEntries ? [{ value: 'ok', label: 'OK' }] : []),
+              ...(history.filterOptions.hasErrorEntries ? [{ value: 'error', label: 'Errors' }] : []),
+            ]}
+          />
           <div className="grpc-history-filters__actions">
             <button
               type="button"

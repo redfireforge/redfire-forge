@@ -306,7 +306,7 @@ describe('RequestEditor - API Info', () => {
     fireEvent.click(screen.getByTitle('Show API Info'));
     expect(screen.getByText('ⓘ API Reference')).toBeInTheDocument();
     
-    fireEvent.click(screen.getByTitle('Close'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(screen.queryByText('ⓘ API Reference')).toBeNull();
   });
 

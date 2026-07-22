@@ -9,6 +9,7 @@ import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import { createHeaderFilter, createJsonPathFilter, createExtractVariable } from './kafkaConfigFactories';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const OFFSET_OPTIONS: { value: KafkaTriggerOffsetPolicy; label: string }[] = [
   { value: 'latest', label: 'Latest (no replay)' },
@@ -76,9 +77,11 @@ export default function KafkaTriggerConfig({
       <div className="wf-config-field-pair">
         <div className="wf-config-field--row">
           <label>Offset Policy</label>
-          <select value={data.startPosition ?? 'latest'} onChange={(e) => update({ startPosition: e.target.value as KafkaTriggerOffsetPolicy })}>
-            {OFFSET_OPTIONS.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-          </select>
+          <CustomSelect
+            value={data.startPosition ?? 'latest'}
+            onChange={(v) => update({ startPosition: v as KafkaTriggerOffsetPolicy })}
+            options={OFFSET_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label }))}
+          />
         </div>
         <div className="wf-config-field--row">
           <label>Max Concurrent</label>

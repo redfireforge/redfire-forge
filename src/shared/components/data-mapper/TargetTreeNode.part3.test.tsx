@@ -2,6 +2,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import '@testing-library/jest-dom';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import TargetTreeNode from './TargetTreeNode';
 import { JsonTreeNode } from '../../utils/jsonTreeModel';
 import { Mapping } from './types';
@@ -619,7 +620,7 @@ describe('TargetTreeNode – is_type dropdown', () => {
   const capsOp = { operators: true, arrayAssertions: false, codeEditor: false } as const;
   const typeMapping: Mapping = { id: 'mT', sourcePath: 'src', sourceId: 's1', targetPath: 'userName', operator: 'is_type' as import('./types').FieldOperator, operatorValue: 'string' };
 
-  it('renders a <select> when operator is is_type and value display is clicked', () => {
+  it('renders a type CustomSelect when operator is is_type and value display is clicked', () => {
     const onUpdate = vi.fn();
     const { container } = render(
       <TargetTreeNode
@@ -633,10 +634,9 @@ describe('TargetTreeNode – is_type dropdown', () => {
     const valueDisplay = container.querySelector('.dm-operator-value-display');
     expect(valueDisplay).not.toBeNull();
     fireEvent.click(valueDisplay!);
-    const select = container.querySelector('.dm-type-select') as HTMLSelectElement;
-    expect(select).not.toBeNull();
-    expect(select.tagName).toBe('SELECT');
-    expect(select.value).toBe('string');
+    const typeSelect = container.querySelector('.dm-type-select.cs-wrapper');
+    expect(typeSelect).not.toBeNull();
+    expect(getCustomSelectValue(typeSelect!)).toBe('string');
   });
 
   it('commits type selection on change', () => {
@@ -652,8 +652,7 @@ describe('TargetTreeNode – is_type dropdown', () => {
     );
     const valueDisplay = container.querySelector('.dm-operator-value-display');
     fireEvent.click(valueDisplay!);
-    const select = container.querySelector('.dm-type-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'number' } });
+    selectOption(container.querySelector('.dm-type-select')!, 'number');
     expect(onUpdate).toHaveBeenCalledWith('mT', 'is_type', 'number');
   });
 });

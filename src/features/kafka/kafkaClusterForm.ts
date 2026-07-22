@@ -66,6 +66,23 @@ export function defaultClusterDraft(seed = Date.now()): KafkaClusterDraft {
   };
 }
 
+/**
+ * Normalize broker row inputs into unique host:port entries.
+ * Supports comma-delimited input in a single row, e.g. "a:9092, b:9092".
+ */
+export function normalizeBrokerEntries(values: string[]): string[] {
+  const normalized: string[] = [];
+  for (const value of values) {
+    const parts = value.split(',').map((part) => part.trim()).filter(Boolean);
+    for (const part of parts) {
+      if (!normalized.includes(part)) {
+        normalized.push(part);
+      }
+    }
+  }
+  return normalized;
+}
+
 export function draftFromCluster(cluster: KafkaClusterConfig): KafkaClusterDraft {
   return {
     clusterId: cluster.clusterId,
@@ -167,19 +184,16 @@ export function validateKafkaClusterDraft(
   }
 
   const brokerRows: Record<number, string> = {};
-  const normalizedBrokers: string[] = [];
+  const normalizedBrokers = normalizeBrokerEntries(draft.brokers);
   draft.brokers.forEach((value, idx) => {
-    const trimmed = value.trim();
-    if (!trimmed) {
+    const entries = value.split(',').map((entry) => entry.trim()).filter(Boolean);
+    if (entries.length === 0) {
       brokerRows[idx] = 'Broker host:port is required';
       return;
     }
-    if (!BROKER_PATTERN.test(trimmed)) {
-      brokerRows[idx] = 'Broker must use host:port format';
-      return;
-    }
-    if (!normalizedBrokers.includes(trimmed)) {
-      normalizedBrokers.push(trimmed);
+    const invalidEntry = entries.find((entry) => !BROKER_PATTERN.test(entry));
+    if (invalidEntry) {
+      brokerRows[idx] = 'Each broker must use host:port format (comma-separated supported)';
     }
   });
 

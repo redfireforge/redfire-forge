@@ -6,6 +6,7 @@ import type { Dispatch, SetStateAction } from 'react';
 import type { Scenario, FeatureGroup, TestScenario } from '../../../shared/types';
 import type { ColumnDef } from '../utils/csvTemplate';
 import { formatAuthLabel } from '../utils/dataSourceSetupUtils';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 export interface SetupStepReviewProps {
   copyName: string;
@@ -70,23 +71,25 @@ export default function SetupStepReview({
             <>
               <label className="parameterize-form-label">
                 Feature Group
-                <select className="parameterize-select" value={targetFgId} onChange={(e) => {
-                  setTargetFgId(e.target.value);
-                  const fg = featureGroups.find(f => f.id === e.target.value);
-                  if (fg && fg.scenarios.length > 0) setTargetScenarioId(fg.scenarios[0].id);
-                }}>
-                  {featureGroups.map(fg => (
-                    <option key={fg.id} value={fg.id}>{fg.name}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  className="parameterize-select"
+                  value={targetFgId}
+                  onChange={(v) => {
+                    setTargetFgId(v);
+                    const fg = featureGroups.find((f) => f.id === v);
+                    if (fg && fg.scenarios.length > 0) setTargetScenarioId(fg.scenarios[0].id);
+                  }}
+                  options={featureGroups.map((fg) => ({ value: fg.id, label: fg.name }))}
+                />
               </label>
               <label className="parameterize-form-label">
                 Scenario
-                <select className="parameterize-select" value={targetScenarioId} onChange={(e) => setTargetScenarioId(e.target.value)}>
-                  {targetFg?.scenarios.map(sc => (
-                    <option key={sc.id} value={sc.id}>{sc.name}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  className="parameterize-select"
+                  value={targetScenarioId}
+                  onChange={(v) => setTargetScenarioId(v)}
+                  options={(targetFg?.scenarios ?? []).map((sc) => ({ value: sc.id, label: sc.name }))}
+                />
               </label>
             </>
           )}

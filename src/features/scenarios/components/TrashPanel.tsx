@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import PopupModal from '../../../shared/components/PopupModal';
 import ConfirmModal from '../../../shared/components/ConfirmModal';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { TrashItem, TrashEntityType, TrashSettings } from '../../../shared/types';
 import { formatRelativeTime, formatTimestamp } from '../../../shared/utils/formatRelativeTime';
 import { TRASH_MS_PER_DAY, TRASH_RETENTION_OPTIONS, TRASH_MAX_ITEMS_OPTIONS } from '../../../shared/utils/trashConstants';
@@ -86,29 +87,25 @@ export default function TrashPanel({
             <div className="trash-panel-settings">
               <label className="trash-panel-setting-label">
                 Retention
-                <select
+                <CustomSelect
                   className="trash-panel-setting-select"
-                  value={trashSettings.retentionDays}
-                  onChange={e => onUpdateSettings({ retentionDays: Number(e.target.value) })}
+                  value={String(trashSettings.retentionDays)}
+                  onChange={v => onUpdateSettings({ retentionDays: Number(v) })}
+                  options={RETENTION_OPTIONS.map(d => ({ value: String(d), label: `${d} days` }))}
                   aria-label="Trash retention period"
-                >
-                  {RETENTION_OPTIONS.map(d => (
-                    <option key={d} value={d}>{d} days</option>
-                  ))}
-                </select>
+                  size="sm"
+                />
               </label>
               <label className="trash-panel-setting-label">
                 Max items
-                <select
+                <CustomSelect
                   className="trash-panel-setting-select"
-                  value={trashSettings.maxItems}
-                  onChange={e => onUpdateSettings({ maxItems: Number(e.target.value) })}
+                  value={String(trashSettings.maxItems)}
+                  onChange={v => onUpdateSettings({ maxItems: Number(v) })}
+                  options={MAX_ITEMS_OPTIONS.map(n => ({ value: String(n), label: String(n) }))}
                   aria-label="Maximum trash items"
-                >
-                  {MAX_ITEMS_OPTIONS.map(n => (
-                    <option key={n} value={n}>{n}</option>
-                  ))}
-                </select>
+                  size="sm"
+                />
               </label>
             </div>
             <button

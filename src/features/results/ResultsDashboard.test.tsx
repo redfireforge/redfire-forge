@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../test-utils/customSelectHelper';
 import ResultsDashboard from './ResultsDashboard';
 import { makeResult, makeSummary, makeTestRun } from '../../test-utils/factories';
 import { generateReport, downloadReport } from './utils/reportGenerator';
@@ -233,6 +234,10 @@ vi.mock('./components/ResultsRequestDetailsTab', () => ({
 }));
 
 describe('ResultsDashboard', () => {
+  function compareSelectEl(): Element {
+    return document.querySelector('.baseline-compare-select')!;
+  }
+
   beforeEach(async () => {
     resetAllMocks();
     storageMocks.loadTraceForRun.mockResolvedValue(null);
@@ -487,8 +492,9 @@ describe('ResultsDashboard', () => {
     render(<ResultsDashboard />);
     fireEvent.click(await screen.findByRole('tab', { name: 'Comparison & Trends (2)' }));
 
-    const compareSelect = document.querySelector('.baseline-compare-select') as HTMLSelectElement;
-    await waitFor(() => expect(compareSelect.value).toBe('new-baseline'));
+    await waitFor(() => {
+      expect(screen.getByTestId('run-comparison-panel').textContent).toContain('new-baseline vs selected-run');
+    });
     expect(screen.getByTestId('run-comparison-panel').textContent).toContain('new-baseline vs selected-run');
   });
 
@@ -572,7 +578,7 @@ describe('ResultsDashboard', () => {
     await waitFor(() => expect(runBaselineMocks.markAsBaseline).toHaveBeenCalledWith('selected-run'));
 
     fireEvent.click(screen.getByRole('tab', { name: /Comparison & Trends/i }));
-    fireEvent.change(document.querySelector('.baseline-compare-select') as HTMLSelectElement, { target: { value: 'baseline-run' } });
+    selectOption(compareSelectEl(), 'Initial');
     fireEvent.click(screen.getByRole('button', { name: 'mock-rename-from-comparison' }));
     await waitFor(() => {
       expect(runBaselineMocks.renameBaseline).toHaveBeenCalledWith('baseline-run', 'Renamed Baseline');
@@ -616,14 +622,12 @@ describe('ResultsDashboard', () => {
 
     fireEvent.click(await screen.findByRole('tab', { name: 'Comparison & Trends (1)' }));
     await waitFor(() => {
-      const compareSelect = document.querySelector('.baseline-compare-select') as HTMLSelectElement;
-      expect(compareSelect.value).toBe('baseline-run');
+      expect(getCustomSelectValue(compareSelectEl())).toMatch(/^★/);
     });
 
     fireEvent.click(document.querySelector('.baseline-compare-chip-clear') as HTMLButtonElement);
     await waitFor(() => {
-      const compareSelect = document.querySelector('.baseline-compare-select') as HTMLSelectElement;
-      expect(compareSelect.value).toBe('');
+      expect(getCustomSelectValue(compareSelectEl())).toBe('Compare against run...');
       expect(screen.getByText('Ad-hoc Mode')).toBeTruthy();
       expect(screen.getByText('Manual compare target (or none).')).toBeTruthy();
     });
@@ -632,8 +636,7 @@ describe('ResultsDashboard', () => {
     fireEvent.click(screen.getByRole('option', { name: /other project/i }));
 
     await waitFor(() => {
-      const compareSelect = document.querySelector('.baseline-compare-select') as HTMLSelectElement;
-      expect(compareSelect.value).toBe('');
+      expect(getCustomSelectValue(compareSelectEl())).toBe('Compare against run...');
       expect(screen.getByText('Ad-hoc Mode')).toBeTruthy();
     });
   });
@@ -667,8 +670,7 @@ describe('ResultsDashboard', () => {
 
     await waitFor(() => {
       expect(screen.queryByText('Choose Comparison Action')).toBeNull();
-      const compareSelect = document.querySelector('.baseline-compare-select') as HTMLSelectElement;
-      expect(compareSelect.value).toBe('baseline-run');
+      expect(getCustomSelectValue(compareSelectEl())).toMatch(/^★/);
     });
   });
 
@@ -699,8 +701,7 @@ describe('ResultsDashboard', () => {
     await waitFor(() => {
       expect(screen.queryByText('Choose Comparison Action')).toBeNull();
       expect(screen.getByRole('button', { name: /Baseline Project/i })).toBeTruthy();
-      const compareSelect = document.querySelector('.baseline-compare-select') as HTMLSelectElement;
-      expect(compareSelect.value).toBe('selected-run');
+      expect(getCustomSelectValue(compareSelectEl())).not.toMatch(/^★/);
     });
   });
 

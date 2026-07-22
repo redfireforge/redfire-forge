@@ -6,6 +6,7 @@ import InsertVarField from '../expression/InsertVarField';
 import ExpressionInput from '../expression/ExpressionInput';
 import AvailableVariables from '../expression/AvailableVariables';
 import DataSourceEditor from '../../../scenarios/components/DataSourceEditor';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 const MODE_OPTIONS: { value: LoopMode; label: string; desc: string }[] = [
   { value: 'count', label: 'Repeat N times', desc: 'Execute the body a fixed number of times' },
@@ -64,9 +65,11 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
 
       <div className="wf-config-field">
         <label>Mode</label>
-        <select value={data.mode} onChange={(e) => onChange({ ...data, mode: e.target.value as LoopMode })}>
-          {MODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <CustomSelect
+          value={data.mode}
+          onChange={(v) => onChange({ ...data, mode: v as LoopMode })}
+          options={MODE_OPTIONS.map(o => ({ value: o.value, label: o.label, detail: o.desc }))}
+        />
         <span className="wf-config-hint">{MODE_OPTIONS.find(o => o.value === data.mode)?.desc}</span>
       </div>
 
@@ -182,12 +185,11 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
           </div>
           <div className="wf-config-field">
             <label>Operator</label>
-            <select
+            <CustomSelect
               value={data.whileOperator ?? '=='}
-              onChange={(e) => onChange({ ...data, whileOperator: e.target.value as LoopNodeData['whileOperator'] })}
-            >
-              {OPERATORS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+              onChange={(v) => onChange({ ...data, whileOperator: v as LoopNodeData['whileOperator'] })}
+              options={OPERATORS.map(o => ({ value: o.value, label: o.label }))}
+            />
           </div>
           <div className="wf-config-field">
             <label>Right operand</label>

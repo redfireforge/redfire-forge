@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import type { WsMessageFormat, WsMessageTemplate } from '../../shared/websocket/types';
 import type { WsProtocolMode } from '../../shared/websocket/protocols/protocolTypes';
 import { isValidJson, isValidBase64 } from './wsMessageUtils';
@@ -234,22 +235,23 @@ export function useWebSocketSend({
       )}
       {isStompMode && (
         <div className="ws-stomp-compose-fields" data-testid="stomp-compose-fields">
-          <select
+          <CustomSelect
             className="ws-stomp-command-select"
             value={stompCommand}
-            onChange={(e) => setStompCommand(e.target.value)}
+            onChange={setStompCommand}
             disabled={!isConnected}
+            options={[
+              { value: 'SEND', label: 'SEND' },
+              { value: 'SUBSCRIBE', label: 'SUBSCRIBE' },
+              { value: 'UNSUBSCRIBE', label: 'UNSUBSCRIBE' },
+              { value: 'CONNECT', label: 'CONNECT' },
+              { value: 'DISCONNECT', label: 'DISCONNECT' },
+              { value: 'ACK', label: 'ACK' },
+              { value: 'NACK', label: 'NACK' },
+            ]}
             aria-label="STOMP command"
             data-testid="stomp-command"
-          >
-            <option value="SEND">SEND</option>
-            <option value="SUBSCRIBE">SUBSCRIBE</option>
-            <option value="UNSUBSCRIBE">UNSUBSCRIBE</option>
-            <option value="CONNECT">CONNECT</option>
-            <option value="DISCONNECT">DISCONNECT</option>
-            <option value="ACK">ACK</option>
-            <option value="NACK">NACK</option>
-          </select>
+          />
           <input
             className="ws-stomp-destination-input"
             type="text"

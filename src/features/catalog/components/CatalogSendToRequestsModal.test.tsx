@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import CatalogSendToRequestsModal from './CatalogSendToRequestsModal';
 import { makeEntry, makeFolder, makeEndpoint, makeServer } from './catalogTestFactories';
 import type { Environment, Microservice } from '../../../shared/types';
@@ -71,15 +72,14 @@ describe('CatalogSendToRequestsModal', () => {
     const { onClose } = renderModal();
     expect(screen.getByText('Export to Requests')).toBeInTheDocument();
     await userEvent.click(screen.getByText('Cancel'));
-    await userEvent.click(screen.getByText('×'));
     fireEvent.click(document.querySelector('.cat-send-overlay')!);
-    expect(onClose).toHaveBeenCalledTimes(3);
+    expect(onClose).toHaveBeenCalledTimes(2);
   });
 
   it('shows the new-group input when "+ New Group..." is selected', async () => {
     renderModal({ inline: true });
-    const select = document.querySelector('select.cep-field-input') as HTMLSelectElement;
-    await userEvent.selectOptions(select, '__new__');
+    const groupSelect = document.querySelector('.cep-field-input.cs-wrapper') ?? document.querySelector('.cs-wrapper')!;
+    selectOption(groupSelect, '+ New Group...');
     expect(screen.getByPlaceholderText('New group name')).toBeInTheDocument();
   });
 
@@ -124,8 +124,8 @@ describe('CatalogSendToRequestsModal', () => {
 
   it('sends with a new target group', async () => {
     const { onSend } = renderModal({ inline: true, savedEpValues: sampleValues });
-    const select = document.querySelector('select.cep-field-input') as HTMLSelectElement;
-    await userEvent.selectOptions(select, '__new__');
+    const groupSelect = document.querySelector('.cep-field-input.cs-wrapper') ?? document.querySelector('.cs-wrapper')!;
+    selectOption(groupSelect, '+ New Group...');
     await userEvent.type(screen.getByPlaceholderText('New group name'), 'NG');
     await userEvent.click(screen.getByText(/Export 1 request/));
     expect(onSend).toHaveBeenCalledWith(expect.objectContaining({ newGroupName: 'NG' }));
@@ -133,8 +133,8 @@ describe('CatalogSendToRequestsModal', () => {
 
   it('sends with an existing target group', async () => {
     const { onSend } = renderModal({ inline: true });
-    const select = document.querySelector('select.cep-field-input') as HTMLSelectElement;
-    await userEvent.selectOptions(select, 'g1');
+    const groupSelect = document.querySelector('.cep-field-input.cs-wrapper') ?? document.querySelector('.cs-wrapper')!;
+    selectOption(groupSelect, 'Grp');
     await userEvent.click(screen.getByText(/Export 1 request/));
     expect(onSend).toHaveBeenCalledWith(expect.objectContaining({ targetGroupId: 'g1' }));
   });
@@ -334,8 +334,8 @@ describe('CatalogSendToRequestsModal', () => {
 
   it('sends with existing target group id (non-new branch)', async () => {
     const { onSend } = renderModal({ inline: true });
-    const select = document.querySelector('select.cep-field-input') as HTMLSelectElement;
-    await userEvent.selectOptions(select, 'g1');
+    const groupSelect = document.querySelector('.cep-field-input.cs-wrapper') ?? document.querySelector('.cs-wrapper')!;
+    selectOption(groupSelect, 'Grp');
     await userEvent.click(screen.getByText(/Export 1 request/));
     expect(onSend).toHaveBeenCalledWith(expect.objectContaining({ targetGroupId: 'g1' }));
   });

@@ -3,6 +3,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import { buildAdvancedMock, makeLoadTestSummary } from '../../test-helpers/grpcAdvancedPanel.testHelpers';
 import { GrpcLoadTestResultsSection } from './GrpcLoadTestResultsSection';
 import { makeExportSource, makeSummaryWithAttempts } from './grpcLoadTestPanelCoverageGaps.testHelpers';
@@ -79,9 +80,7 @@ describe('GrpcLoadTestResultsSection coverage gaps', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-load-test-run-history-select'), {
-      target: { value: 'run-prior' },
-    });
+    selectOption(screen.getByTestId('grpc-load-test-run-history-select'), 'run-prior');
     expect(selectLoadTestRunSummary).toHaveBeenCalledWith('run-prior');
 
     fireEvent.click(screen.getByTestId('grpc-load-test-download-json'));
@@ -368,9 +367,7 @@ describe('GrpcLoadTestResultsSection coverage gaps', () => {
 
     expect(screen.getAllByText(/No measured attempts yet/i).length).toBeGreaterThan(0);
     expect(screen.getByTestId('grpc-load-test-run-compare')).toBeTruthy();
-    fireEvent.change(screen.getByTestId('grpc-load-test-run-compare-select'), {
-      target: { value: baseline.runId },
-    });
+    selectOption(screen.getByTestId('grpc-load-test-run-compare-select'), baseline.runId);
     expect(setCompareRunId).toHaveBeenCalledWith(baseline.runId);
 
     rerender(

@@ -1,18 +1,27 @@
 /**
- * Shared helpers for the API Catalog demo lessons (CAT / P4-E).
+ * Shared helpers for the API Catalog demo lessons (CAT-*).
  *
  * Seeding goes through the `catalogConvertAdapter` bridge (mounted by the App
  * shell hook `useDemoCatalogBridge`) rather than driving the multi-step Import
- * modal — so the lesson focuses on the Convert / Upgrade flow itself.
+ * modal — so lessons focus on their specific feature flow.
  */
 import type { DemoActionContext } from '../../types';
 import { CAT } from '@shared/selectors';
 import { showSpotlightRing } from '../../demoRipple';
 import {
   seedSwagger2CatalogEntry,
+  seedCatalogEntry,
   deleteCatalogEntryByName,
   selectCatalogEntryByName,
+  addVersionByName,
+  deleteCollectionsByName,
 } from '../../adapters';
+import { JSONPLACEHOLDER_API_SPEC } from '../../../../../src/data/galleries/catalog-specs/specs';
+
+export { seedCatalogEntry, deleteCatalogEntryByName, selectCatalogEntryByName, deleteCollectionsByName };
+
+/** Gallery spec YAML for the JSONPlaceholder API (OpenAPI 3.0.3, 12 endpoints). */
+export { JSONPLACEHOLDER_API_SPEC };
 
 /** Display name of the seeded demo API entry. */
 export const DEMO_CATALOG_NAME = 'Swagger Petstore (demo)';
@@ -241,9 +250,507 @@ export async function ensureConvertPrettyToggle(ctx: DemoActionContext, on: bool
   }
 }
 
-/** Remove the seeded entry + close any open modal (cleanup). */
+// ─── JSONPlaceholder helpers ─────────────────────────────────────
+
+/** Ensure JSONPlaceholder entry exists (seeds if missing). */
+export async function ensureJsonPlaceholderEntry(ctx: DemoActionContext): Promise<void> {
+  const entryName = 'JSONPlaceholder API';
+  ensureCatalogTab(ctx);
+  if (!document.querySelector(CAT.entryByName(entryName))) {
+    await seedCatalogEntry(entryName, JSONPLACEHOLDER_API_SPEC);
+    await ctx.waitFor(CAT.entryByName(entryName), 3000);
+    await ctx.delay(120);
+  }
+}
+
+/** Ensure JSONPlaceholder entry exists + is selected (seeds if missing). */
+export async function ensureJsonPlaceholderSelected(ctx: DemoActionContext): Promise<void> {
+  await ensureJsonPlaceholderEntry(ctx);
+  selectCatalogEntryByName('JSONPlaceholder API');
+  await ctx.delay(100);
+}
+
+/** Ensure the Endpoints sub-tab is active. */
+export async function ensureEndpointsView(ctx: DemoActionContext): Promise<void> {
+  const tab = document.querySelector<HTMLElement>(CAT.VIEW_ENDPOINTS);
+  if (tab && !tab.classList.contains('active')) {
+    tab.click();
+    await ctx.delay(300);
+  }
+}
+
+/** Collapse all currently expanded endpoint cards (quiet). */
+export function collapseAllCards(): void {
+  document.querySelectorAll<HTMLElement>('.sw-card .sw-body').forEach(body => {
+    const header = body.closest('.sw-card')?.querySelector<HTMLElement>('.sw-header');
+    if (header) header.click();
+  });
+}
+
+/** Close the export modal overlay if open (quiet). */
+export function closeExportModalIfOpen(): void {
+  const overlay = document.querySelector<HTMLElement>(CAT.EXPORT_MODAL);
+  if (!overlay) return;
+  const cancel = overlay.querySelector<HTMLButtonElement>('.cat-btn:not(.cat-btn-primary)');
+  if (cancel) cancel.click();
+}
+
+/** Close the Version History modal if open (quiet). */
+export function closeVersionHistoryIfOpen(): void {
+  const modal = document.querySelector<HTMLElement>(CAT.VERSION_HISTORY_MODAL);
+  if (!modal) return;
+  const close = modal.querySelector<HTMLButtonElement>('.cat-btn:not(.cat-btn-primary)');
+  if (close) close.click();
+}
+
+/** Close the auth panel if open (quiet). */
+export function closeAuthPanelIfOpen(): void {
+  const panel = document.querySelector<HTMLElement>(CAT.AUTH_PANEL);
+  if (!panel) return;
+  const closeBtn = panel.querySelector<HTMLButtonElement>(CAT.AUTH_CLOSE_BTN)
+    ?? panel.querySelector<HTMLButtonElement>('.cat-btn:not(.cat-btn-primary)');
+  if (closeBtn) closeBtn.click();
+}
+
+/**
+ * A slightly modified JSONPlaceholder spec to simulate a re-import with changes.
+ * Adds `POST /posts/{id}/comments` + `GET /albums` (2 new operations) and bumps
+ * the version to `2.0.0`. This is a self-contained YAML — NOT derived from V1
+ * via string manipulation, which avoids duplicate-key YAML parse errors.
+ */
+export const JSONPLACEHOLDER_API_SPEC_V2 = `openapi: "3.0.3"
+info:
+  title: JSONPlaceholder API
+  version: "2.0.0"
+  description: >
+    Free fake REST API for testing and prototyping. Provides users, posts,
+    comments, albums, photos, and todos — all with full CRUD support.
+  contact:
+    url: https://jsonplaceholder.typicode.com
+
+servers:
+  - url: https://jsonplaceholder.typicode.com
+    description: Production
+
+tags:
+  - name: posts
+    description: Blog post operations
+  - name: users
+    description: User data
+  - name: comments
+    description: Post comments
+  - name: todos
+    description: Todo items
+  - name: albums
+    description: Photo albums
+
+paths:
+  /posts:
+    get:
+      operationId: listPosts
+      summary: List all posts
+      tags: [posts]
+      parameters:
+        - name: userId
+          in: query
+          schema:
+            type: integer
+          description: Filter by author
+      responses:
+        "200":
+          description: Array of posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+    post:
+      operationId: createPost
+      summary: Create a post
+      tags: [posts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostInput"
+      responses:
+        "201":
+          description: Created post
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+
+  /posts/{id}:
+    get:
+      operationId: getPost
+      summary: Get a post by ID
+      tags: [posts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Post detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Post"
+    put:
+      operationId: updatePost
+      summary: Update a post
+      tags: [posts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PostInput"
+      responses:
+        "200":
+          description: Updated post
+    delete:
+      operationId: deletePost
+      summary: Delete a post
+      tags: [posts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Deleted
+
+  /posts/{id}/comments:
+    get:
+      operationId: getPostComments
+      summary: Get comments for a post
+      tags: [comments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Array of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+    post:
+      operationId: createPostComment
+      summary: Add a comment to a post
+      tags: [comments]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, email, body]
+              properties:
+                name: { type: string }
+                email: { type: string }
+                body: { type: string }
+      responses:
+        "201":
+          description: Created comment
+
+  /albums:
+    get:
+      operationId: listAlbums
+      summary: List all albums
+      tags: [albums]
+      responses:
+        "200":
+          description: Array of albums
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Album"
+
+  /users:
+    get:
+      operationId: listUsers
+      summary: List all users
+      tags: [users]
+      responses:
+        "200":
+          description: Array of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/User"
+
+  /users/{id}:
+    get:
+      operationId: getUser
+      summary: Get a user by ID
+      tags: [users]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: User detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /users/{id}/posts:
+    get:
+      operationId: getUserPosts
+      summary: Get posts by a user
+      tags: [posts]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Array of posts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Post"
+
+  /users/{id}/todos:
+    get:
+      operationId: getUserTodos
+      summary: Get todos for a user
+      tags: [todos]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Array of todos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Todo"
+
+  /todos:
+    get:
+      operationId: listTodos
+      summary: List all todos
+      tags: [todos]
+      responses:
+        "200":
+          description: Array of todos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Todo"
+
+  /comments:
+    get:
+      operationId: listComments
+      summary: List all comments
+      tags: [comments]
+      parameters:
+        - name: postId
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Array of comments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Comment"
+
+components:
+  schemas:
+    Post:
+      type: object
+      properties:
+        userId: { type: integer }
+        id: { type: integer }
+        title: { type: string }
+        body: { type: string }
+    PostInput:
+      type: object
+      required: [title, body, userId]
+      properties:
+        title: { type: string }
+        body: { type: string }
+        userId: { type: integer }
+    Comment:
+      type: object
+      properties:
+        postId: { type: integer }
+        id: { type: integer }
+        name: { type: string }
+        email: { type: string }
+        body: { type: string }
+    User:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string }
+        username: { type: string }
+        email: { type: string }
+        phone: { type: string }
+        website: { type: string }
+    Todo:
+      type: object
+      properties:
+        userId: { type: integer }
+        id: { type: integer }
+        title: { type: string }
+        completed: { type: boolean }
+    Album:
+      type: object
+      properties:
+        userId: { type: integer }
+        id: { type: integer }
+        title: { type: string }
+`;
+
+/** Seed a second version of the JSONPlaceholder entry by adding a new version. */
+
+/** Track whether v2 was seeded this session to avoid duplicates. */
+let secondVersionSeeded = false;
+
+export async function seedSecondVersion(ctx: DemoActionContext): Promise<void> {
+  const entryName = 'JSONPlaceholder API';
+  await ensureJsonPlaceholderSelected(ctx);
+  if (secondVersionSeeded) return;
+  const success = await addVersionByName(entryName, JSONPLACEHOLDER_API_SPEC_V2);
+  if (success) {
+    secondVersionSeeded = true;
+    await ctx.delay(400);
+  } else {
+    // Retry once after giving React time to commit the entry state
+    await ctx.delay(500);
+    const retry = await addVersionByName(entryName, JSONPLACEHOLDER_API_SPEC_V2);
+    if (retry) secondVersionSeeded = true;
+    await ctx.delay(400);
+  }
+}
+
+/**
+ * Quietly ensures the JSONPlaceholder entry has at least 2 versions.
+ * Used in preAction guards for steps that depend on version history.
+ * Retries with delay if the first attempt fails (React state timing).
+ */
+export async function ensureSecondVersionSeeded(): Promise<void> {
+  if (secondVersionSeeded) return;
+  const entryName = 'JSONPlaceholder API';
+  const success = await addVersionByName(entryName, JSONPLACEHOLDER_API_SPEC_V2);
+  if (success) {
+    secondVersionSeeded = true;
+    return;
+  }
+  // First attempt failed — wait for React to commit the entry state and retry
+  await new Promise(r => setTimeout(r, 600));
+  const retry = await addVersionByName(entryName, JSONPLACEHOLDER_API_SPEC_V2);
+  if (retry) secondVersionSeeded = true;
+}
+
+/** Reset the version-seeded flag (call from cleanup). */
+export function resetSecondVersionFlag(): void {
+  secondVersionSeeded = false;
+}
+
+/** Open the Version History modal from the Overview quick actions. */
+export async function openVersionHistoryModal(ctx: DemoActionContext): Promise<void> {
+  if (document.querySelector(CAT.VERSION_HISTORY_MODAL)) return;
+  await ensureJsonPlaceholderSelected(ctx);
+  await ensureCatalogOverviewView(ctx);
+  const btn = document.querySelector<HTMLElement>(CAT.VERSION_HISTORY_BTN);
+  if (btn) btn.click();
+  await ctx.waitFor(CAT.VERSION_HISTORY_MODAL, 3000);
+  await ctx.delay(200);
+}
+
+/** Ensure a specific endpoint card is expanded with Try It Out open. */
+export async function ensureCardTryItOpen(method: string, path: string): Promise<HTMLElement | null> {
+  const card = document.querySelector<HTMLElement>(CAT.endpointCard(method, path));
+  if (!card) return null;
+
+  // Expand if collapsed
+  if (!card.querySelector('.sw-body')) {
+    const header = card.querySelector<HTMLElement>('.sw-header');
+    if (header) header.click();
+    await new Promise(r => setTimeout(r, 400));
+  }
+
+  // Open Try It Out if not active
+  const tryitBtn = card.querySelector<HTMLButtonElement>(CAT.TRYIT_BTN);
+  if (tryitBtn && !tryitBtn.classList.contains('cancel')) {
+    tryitBtn.click();
+    await new Promise(r => setTimeout(r, 300));
+  }
+
+  return card;
+}
+
+/** Simple selector wait (no demo ctx dependency). */
+export function waitForSelector(sel: string, timeout: number): Promise<HTMLElement> {
+  return new Promise((resolve, reject) => {
+    const el = document.querySelector<HTMLElement>(sel);
+    if (el) { resolve(el); return; }
+    const t0 = Date.now();
+    const check = setInterval(() => {
+      const found = document.querySelector<HTMLElement>(sel);
+      if (found) { clearInterval(check); resolve(found); }
+      else if (Date.now() - t0 > timeout) { clearInterval(check); reject(new Error(`Timeout waiting for ${sel}`)); }
+    }, 80);
+  });
+}
+
+/** Remove the seeded entry + close any open modal + orphaned collections (cleanup). */
 export async function cleanupDemoCatalog(ctx: DemoActionContext): Promise<void> {
   await closeConvertModalIfOpen(ctx);
   deleteCatalogEntryByName(DEMO_CATALOG_NAME);
+  deleteCollectionsByName(DEMO_CATALOG_NAME);
+  deleteCollectionsByName('JSONPlaceholder API');
   await ctx.delay(80);
 }
