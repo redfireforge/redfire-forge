@@ -4,6 +4,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import {
   FIXTURE_DESCRIPTOR,
   FIXTURE_DESCRIPTOR_KEY,
@@ -611,7 +612,7 @@ describe('Grpc advanced panels coverage gaps', () => {
     fireEvent.click(screen.getByTestId('grpc-schema-diff-capture-baseline'));
     fireEvent.click(screen.getByTestId('grpc-schema-diff-compare-btn'));
     fireEvent.click(screen.getByTestId('grpc-schema-diff-clear-baseline'));
-    fireEvent.change(screen.getByTestId('grpc-schema-diff-severity-filter'), { target: { value: 'breaking' } });
+    selectOption(screen.getByTestId('grpc-schema-diff-severity-filter'), 'Breaking only');
     fireEvent.click(screen.getByTestId('grpc-schema-diff-export-json'));
     fireEvent.click(screen.getByTestId('grpc-schema-diff-export-markdown'));
     await Promise.resolve();

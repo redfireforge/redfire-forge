@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import TestSlaModal from './TestSlaModal';
 import type { Scenario, SlaTarget } from '../../../shared/types';
 
@@ -75,8 +76,7 @@ describe('TestSlaModal', () => {
   it('resets operator and warnAt when metric changes', () => {
     const test = makeTest([{ id: 's1', metric: 'p95', operator: 'lte', value: 800, warnAt: 600 }]);
     render(<TestSlaModal test={test} onSave={vi.fn()} onClose={vi.fn()} />);
-    const metricSelect = screen.getByRole('combobox') as HTMLSelectElement;
-    fireEvent.change(metricSelect, { target: { value: 'tps' } });
+    selectOption(document.body, 'TPS');
     // tps default operator is gte
     expect(screen.getByText('≥')).toBeInTheDocument();
   });
@@ -168,9 +168,8 @@ describe('TestSlaModal', () => {
   it('keeps explicit operator when metric and operator are patched together', () => {
     const test = makeTest([{ id: 's1', metric: 'p95', operator: 'lte', value: 500, warnAt: 300 }]);
     render(<TestSlaModal test={test} onSave={vi.fn()} onClose={vi.fn()} />);
-    const metricSelect = screen.getByRole('combobox') as HTMLSelectElement;
     // Simulate updateRow with both metric and operator defined (no auto-reset)
-    fireEvent.change(metricSelect, { target: { value: 'errorRate' } });
+    selectOption(document.body, 'Error Rate');
     expect(screen.getByText('≤')).toBeInTheDocument();
   });
 
@@ -186,10 +185,9 @@ describe('TestSlaModal', () => {
       { id: 's2', metric: 'tps', operator: 'gte', value: 10 },
     ]);
     render(<TestSlaModal test={test} onSave={vi.fn()} onClose={vi.fn()} />);
-    const selects = screen.getAllByRole('combobox');
-    fireEvent.change(selects[1], { target: { value: 'avg' } });
-    expect(selects[0]).toHaveValue('p95');
-    expect(selects[1]).toHaveValue('avg');
+    selectOptionByIndex(document.body, 1, 'Avg Response Time');
+    expect(getCustomSelectValue(document.body, 0)).toBe('P95 Response Time');
+    expect(getCustomSelectValue(document.body, 1)).toBe('Avg Response Time');
   });
 
   it('saves an empty target list after removing all rows', () => {

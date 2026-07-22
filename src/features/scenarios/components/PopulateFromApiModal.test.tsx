@@ -4,6 +4,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import type { Scenario, DataSource } from '../../../shared/types';
 import PopulateFromApiModal from './PopulateFromApiModal';
 
@@ -181,7 +182,7 @@ describe('PopulateFromApiModal', () => {
       <PopulateFromApiModal draft={makeDraft()} dataTable={makeDataTable()} onApply={vi.fn()} onClose={vi.fn()} />,
     );
 
-    fireEvent.change(screen.getByDisplayValue('Append to existing rows'), { target: { value: 'replace' } });
+    selectOption(document.body, 'Replace all rows');
     expect(setInsertMode).toHaveBeenCalledWith('replace');
   });
 

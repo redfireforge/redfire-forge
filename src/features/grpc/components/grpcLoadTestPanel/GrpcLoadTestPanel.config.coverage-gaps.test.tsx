@@ -3,6 +3,7 @@
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
+import { getCustomSelectValue, selectOption } from '../../../../test-utils/customSelectHelper';
 import { createInitialGrpcTabAdvancedFeaturesUiState } from '../../grpcStudioAdvancedTypes';
 import { buildAdvancedMock, makeLoadTestSummary } from '../../test-helpers/grpcAdvancedPanel.testHelpers';
 import { GrpcLoadTestPanel } from './GrpcLoadTestPanel';
@@ -45,7 +46,7 @@ describe('GrpcLoadTestPanel config coverage gaps', () => {
     );
 
     expect(screen.getByTestId('grpc-load-test-call-type-badge').textContent).toMatch(/Server stream/i);
-    fireEvent.change(screen.getByTestId('grpc-load-test-method-select'), { target: { value: '' } });
+    selectOption(screen.getByTestId('grpc-load-test-method-select'), 'Use active Studio method (echo.EchoService / Echo)');
     expect(setLoadTestMethodOverride).toHaveBeenCalledWith('');
     expect(screen.getByTestId('grpc-load-test-max-messages-per-stream')).toBeTruthy();
     fireEvent.change(screen.getByTestId('grpc-load-test-max-messages-per-stream'), { target: { value: '25' } });
@@ -144,14 +145,13 @@ describe('GrpcLoadTestPanel config coverage gaps', () => {
       />,
     );
 
-    expect(screen.getByText(/Use active Studio method \(none selected\)/)).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'echo.EchoService / ServerStream' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'Burst profile' })).toBeTruthy();
+    expect(getCustomSelectValue(screen.getByTestId('grpc-load-test-method-select'))).toMatch(/Use active Studio method \(none selected\)/);
+    expect(getCustomSelectValue(screen.getByTestId('grpc-load-test-profile-select'))).toBe('Burst profile');
 
     fireEvent.change(screen.getByTestId('grpc-load-test-concurrency'), { target: { value: 'abc' } });
     expect(patchLoadTestConfig).not.toHaveBeenCalled();
 
-    fireEvent.change(screen.getByTestId('grpc-load-test-profile-select'), { target: { value: 'prof-1' } });
+    selectOption(screen.getByTestId('grpc-load-test-profile-select'), 'Smoke profile');
     expect(setSelectedLoadTestProfileId).toHaveBeenCalledWith('prof-1');
     expect(clearLoadTestProfileError).toHaveBeenCalledTimes(1);
 
@@ -310,7 +310,7 @@ describe('GrpcLoadTestPanel config coverage gaps', () => {
         })}
       />,
     );
-    expect((screen.getByTestId('grpc-load-test-profile-select') as HTMLSelectElement).disabled).toBe(true);
+    expect(screen.getByTestId('grpc-load-test-profile-select').querySelector('.cs-trigger')).toHaveProperty('disabled', true);
   });
 
   it('renders run history selector and compare card for multiple summaries', () => {
@@ -354,9 +354,7 @@ describe('GrpcLoadTestPanel config coverage gaps', () => {
       />,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-load-test-run-history-select'), {
-      target: { value: baseline.runId },
-    });
+    selectOption(screen.getByTestId('grpc-load-test-run-history-select'), baseline.runId);
     expect(selectLoadTestRunSummary).toHaveBeenCalledWith(baseline.runId);
     expect(screen.getByTestId('grpc-load-test-run-compare')).toBeTruthy();
     expect(screen.getByTestId('grpc-load-test-run-compare-select')).toBeTruthy();

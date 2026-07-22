@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import { useListCrud } from '../../shared/hooks/useListCrud';
 import KafkaSchemaConfigSection from '../workflow/components/configs/KafkaSchemaConfigSection';
 import type { UseKafkaMessageStudioReturn } from '../../app/hooks/useKafkaMessageStudio';
@@ -6,6 +7,8 @@ import type { KafkaPublishTemplate } from '../../shared/kafka/kafkaStorage';
 import type { KafkaSerdeFormat } from './types';
 import { validateBase64, validateHex } from './kafkaMessageStudioUtils';
 import { KafkaTemplateControls } from './KafkaTemplateControls';
+
+const KafkaBodyEditorModal = lazy(() => import('./KafkaBodyEditorModal'));
 
 interface KafkaPublishStudioProps {
   studio: UseKafkaMessageStudioReturn;
@@ -50,6 +53,7 @@ export function KafkaPublishStudio({
 
   const [touched, setTouched] = useState<Record<string, boolean>>({});
   const [decodePreview, setDecodePreview] = useState<{ text: string; ok: boolean } | null>(null);
+  const [bodyEditorOpen, setBodyEditorOpen] = useState(false);
   const topicEmpty = publishDraft.topic.trim() === '';
   const bodyEmpty = publishDraft.body.trim() === '';
   const canSend = !topicEmpty && !publishLoading && connected;
@@ -153,42 +157,40 @@ export function KafkaPublishStudio({
           {/* Acks */}
           <div className="kafka-ms-form-row">
             <label className="kafka-ms-form-label" htmlFor="kms-pub-acks">Acks</label>
-            <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
-              <select
-                id="kms-pub-acks"
+            <div className="kafka-ms-form-ctrl">
+              <CustomSelect
                 className="kafka-ms-form-select kafka-ms-form-select--acks"
                 value={String(publishDraft.acks)}
-                onChange={(e) => setPublishDraft({ acks: Number(e.target.value) as -1 | 0 | 1 })}
-              >
-                <option value="-1">all (–1)</option>
-                <option value="1">leader (1)</option>
-                <option value="0">none (0)</option>
-              </select>
-              <span className="kafka-ms-form-hint">
-                {publishDraft.acks === -1 && 'Wait for all in-sync replicas — strongest durability'}
-                {publishDraft.acks === 1  && 'Wait for leader only — balanced'}
-                {publishDraft.acks === 0  && 'No acknowledgement — fire and forget'}
-              </span>
+                onChange={(v) => setPublishDraft({ acks: Number(v) as -1 | 0 | 1 })}
+                options={[
+                  { value: '-1', label: 'All (–1)', detail: 'Wait for all in-sync replicas — strongest durability' },
+                  { value: '1', label: 'Leader (1)', detail: 'Wait for leader only — balanced' },
+                  { value: '0', label: 'None (0)', detail: 'No acknowledgement — fire and forget' },
+                ]}
+                aria-label="Acks"
+                data-testid="pub-acks-select"
+              />
             </div>
           </div>
 
           {/* Key */}
           <div className="kafka-ms-form-row">
             <label className="kafka-ms-form-label" htmlFor="kms-pub-key">
-              Key<span className="kafka-ms-optional-tag">opt</span>
+              Key<span className="kafka-ms-optional-tag">optional</span>
             </label>
             <div className="kafka-ms-form-ctrl kafka-ms-form-ctrl--inline">
-              <select
+              <CustomSelect
                 aria-label="Key format"
                 className="kafka-ms-form-select kafka-ms-form-select--fmt"
                 value={publishDraft.keyFormat ?? 'string'}
-                onChange={(e) => setPublishDraft({ keyFormat: e.target.value as KafkaSerdeFormat })}
+                onChange={(v) => setPublishDraft({ keyFormat: v as KafkaSerdeFormat })}
                 data-testid="pub-key-format"
-              >
-                <option value="string">String</option>
-                <option value="base64">Base64</option>
-                <option value="hex">Hex</option>
-              </select>
+                options={[
+                  { value: 'string', label: 'String', detail: 'UTF-8 text' },
+                  { value: 'base64', label: 'Base64', detail: 'Binary encoding' },
+                  { value: 'hex', label: 'Hex', detail: 'Hexadecimal' },
+                ]}
+              />
               <input
                 id="kms-pub-key"
                 className="kafka-ms-form-input kafka-ms-form-input--mono kafka-ms-form-input--grow"
@@ -247,7 +249,7 @@ export function KafkaPublishStudio({
             </button>
           </div>
           {publishDraft.headers.length === 0 ? (
-            <p className="kafka-ms-empty-state">No headers — click Add to include custom Kafka headers</p>
+            <p className="kafka-ms-empty-state">No custom headers configured</p>
           ) : (
             <div className="kafka-ms-kv-list">
               {publishDraft.headers.map((row, idx) => (
@@ -299,21 +301,31 @@ export function KafkaPublishStudio({
           <div className="kafka-ms-field-label-row">
             <label htmlFor="kms-pub-body">Message Body</label>
             <div className="kafka-ms-field-label-actions">
-              <select
+              <button
+                type="button"
+                className="kafka-ms-expand-btn"
+                onClick={() => setBodyEditorOpen(true)}
+                title="Open full editor"
+                data-testid="pub-body-expand"
+              >
+                ⤢ Expand
+              </button>
+              <CustomSelect
                 aria-label="Body format"
-                className="kafka-ms-serde-select"
+                className="kafka-ms-form-select kafka-ms-form-select--fmt kafka-ms-form-select--body"
                 value={publishDraft.bodyFormat ?? 'json'}
-                onChange={(e) => {
-                  setPublishDraft({ bodyFormat: e.target.value as KafkaSerdeFormat });
+                onChange={(v) => {
+                  setPublishDraft({ bodyFormat: v as KafkaSerdeFormat });
                   setDecodePreview(null);
                 }}
                 data-testid="pub-body-format"
-              >
-                <option value="json">JSON</option>
-                <option value="string">String</option>
-                <option value="base64">Base64</option>
-                <option value="hex">Hex</option>
-              </select>
+                options={[
+                  { value: 'json', label: 'JSON', detail: 'Structured data' },
+                  { value: 'string', label: 'String', detail: 'Plain text' },
+                  { value: 'base64', label: 'Base64', detail: 'Binary encoding' },
+                  { value: 'hex', label: 'Hex', detail: 'Hexadecimal' },
+                ]}
+              />
               {(publishDraft.bodyFormat == null || publishDraft.bodyFormat === 'json') && (
                 <button
                   type="button"
@@ -378,9 +390,15 @@ export function KafkaPublishStudio({
             disabled={!canSend}
             onClick={handleSend}
             data-testid="pub-send-btn"
+            title={!connected ? 'Not connected — configure a Kafka cluster first' : topicEmpty ? 'Topic is required' : undefined}
           >
             {publishLoading ? 'Sending…' : 'Send Once'}
           </button>
+          {!connected && (
+            <span className="kafka-ms-disconnected-hint" data-testid="pub-disconnected-hint">
+              ⚠ Not connected
+            </span>
+          )}
           <button
             className="kafka-ms-secondary-btn"
             onClick={handleFormatJson}
@@ -472,6 +490,17 @@ export function KafkaPublishStudio({
           </div>
         )}
       </div>
+
+      {bodyEditorOpen && (
+        <Suspense fallback={null}>
+          <KafkaBodyEditorModal
+            value={publishDraft.body}
+            onChange={(v) => setPublishDraft({ body: v })}
+            onClose={() => setBodyEditorOpen(false)}
+            format={publishDraft.bodyFormat ?? 'json'}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

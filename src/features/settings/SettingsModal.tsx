@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 import type { GlobalAuthProfile, AuthType, Environment, Microservice, FeatureGroup } from '../../shared/types';
 import { useAuthVerify } from '../requests/hooks/useAuthVerify';
 import { getStorageUsage, getMaxRuns } from '../../shared/utils/storage';
@@ -157,24 +158,25 @@ export default function SettingsPage({
                     <div className="global-auth-profile-body">
                       <div className="auth-type-select">
                         <label>Type</label>
-                        <select
+                        <CustomSelect
                           value={profileAuth.type}
-                          onChange={(e) => {
-                            const newType = e.target.value as AuthType;
+                          onChange={(v) => {
+                            const newType = v as AuthType;
                             const oldType = profileAuth.type;
                             setAppGlobalAuthProfiles((prev) => prev.map((authProfile) => authProfile.id === profile.id ? { ...authProfile, auth: { ...profileAuth, type: newType } } : authProfile));
                             if (oldType !== newType) {
                               void logAuthProfileUpdated(profile.name, profile.id, [{ field: 'type', oldValue: oldType, newValue: newType }]);
                             }
                           }}
-                        >
-                          <option value="none">No Auth</option>
-                          <option value="basic">Basic Auth</option>
-                          <option value="bearer">Bearer Token</option>
-                          <option value="apikey">API Key</option>
-                          <option value="digest">Digest Auth</option>
-                          <option value="oauth2">OAuth2 Client Credentials</option>
-                        </select>
+                          options={[
+                            { value: 'none', label: 'No Auth' },
+                            { value: 'basic', label: 'Basic Auth' },
+                            { value: 'bearer', label: 'Bearer Token' },
+                            { value: 'apikey', label: 'API Key' },
+                            { value: 'digest', label: 'Digest Auth' },
+                            { value: 'oauth2', label: 'OAuth2 Client Credentials' },
+                          ]}
+                        />
                       </div>
 
                       {profileAuth.type === 'basic' && (

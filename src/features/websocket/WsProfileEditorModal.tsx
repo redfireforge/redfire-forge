@@ -10,6 +10,7 @@ import type {
 import { DEFAULT_BACKOFF_MULTIPLIER, resolveBackoffMultiplier } from '../../shared/websocket/types';
 import { isValidWsUrl } from './wsMessageUtils';
 import { KeyValueEditor } from './KeyValueEditor';
+import { CustomSelect } from '../../shared/components/CustomSelect';
 
 // ── Profile Editor Modal ─────────────────────────────────────────────
 
@@ -241,16 +242,18 @@ export function ProfileEditorModal({ initial, prefill, existingNames, onSave, on
               </div>
               <div className="ws-editor-inline-field">
                 <label className="ws-editor-field-label">Backoff Multiplier</label>
-                <select
+                <CustomSelect
                   className="ws-editor-input ws-editor-input-sm"
-                  value={backoffMultiplier}
-                  onChange={(e) => setBackoffMultiplier(Number(e.target.value) as WsBackoffMultiplier)}
+                  value={String(backoffMultiplier)}
+                  onChange={(v) => setBackoffMultiplier(Number(v) as WsBackoffMultiplier)}
+                  options={[
+                    { value: '1', label: 'None (fixed interval)' },
+                    { value: '1.5', label: '1.5×' },
+                    { value: '2', label: '2× (recommended)' },
+                  ]}
                   disabled={!autoReconnect}
-                >
-                  <option value={1}>None (fixed interval)</option>
-                  <option value={1.5}>1.5×</option>
-                  <option value={2}>2× (recommended)</option>
-                </select>
+                  aria-label="Backoff multiplier"
+                />
               </div>
             </div>
           </div>

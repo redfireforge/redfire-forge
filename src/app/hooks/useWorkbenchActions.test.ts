@@ -60,7 +60,7 @@ describe('useWorkbenchActions', () => {
   it('adds a request and switches to the requests tab when needed', () => {
     const { hook, wb, setActiveTab } = setup([], 'environments');
     act(() => hook.result.current.handleWbNewRequest('c1', 'f1'));
-    expect(wb.addRequest).toHaveBeenCalledWith('c1', 'f1');
+    expect(wb.addRequest).toHaveBeenCalledWith('c1', 'f1', undefined);
     expect(setActiveTab).toHaveBeenCalledWith('requests');
   });
 

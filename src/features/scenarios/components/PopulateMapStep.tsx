@@ -9,6 +9,7 @@
 import type { DataSourceColumn } from '../../../shared/types';
 import type { DetectedArray, FieldMapping } from '../utils/populateFromApiUtils';
 import { formatCellValue } from '../utils/populateFromApiUtils';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 interface PopulateMapStepProps {
   detectedArrays: DetectedArray[];
@@ -46,16 +47,14 @@ export default function PopulateMapStep({
       {detectedArrays.length > 1 && (
         <div className="populate-api-array-selector">
           <label>Array source:</label>
-          <select
+          <CustomSelect
             value={selectedArray}
-            onChange={e => onArrayChange(e.target.value)}
-          >
-            {detectedArrays.map(a => (
-              <option key={a.path} value={a.path}>
-                {a.path === '$' ? '$ (root)' : a.path} — {a.length} items
-              </option>
-            ))}
-          </select>
+            onChange={(v) => onArrayChange(v)}
+            options={detectedArrays.map((a) => ({
+              value: a.path,
+              label: `${a.path === '$' ? '$ (root)' : a.path} — ${a.length} items`,
+            }))}
+          />
         </div>
       )}
       {detectedArrays.length === 1 && (
@@ -82,17 +81,18 @@ export default function PopulateMapStep({
                 onChange={() => onToggleField(m.field)}
               />
               <code className="populate-api-field-name">{m.field}</code>
-              <select
+              <CustomSelect
                 value={m.colType}
-                onChange={e => onChangeFieldType(m.field, e.target.value as DataSourceColumn['type'])}
+                onChange={(v) => onChangeFieldType(m.field, v as DataSourceColumn['type'])}
                 disabled={!m.enabled}
-              >
-                <option value="path">Path</option>
-                <option value="param">Param</option>
-                <option value="body">Body</option>
-                <option value="header">Header</option>
-                <option value="validate">Validate</option>
-              </select>
+                options={[
+                  { value: 'path', label: 'Path' },
+                  { value: 'param', label: 'Param' },
+                  { value: 'body', label: 'Body' },
+                  { value: 'header', label: 'Header' },
+                  { value: 'validate', label: 'Validate' },
+                ]}
+              />
               <span className="populate-api-sample-val" title={displayVal}>
                 {displayVal.length > 50 ? displayVal.slice(0, 50) + '…' : displayVal}
               </span>

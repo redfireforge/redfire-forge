@@ -5,6 +5,7 @@
  * Phase 4 — Step 3 (4C-3)
  */
 import { useState } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type {
   GraphqlSubscriptionNodeData,
   GraphqlSubscriptionOutputBinding,
@@ -120,18 +121,19 @@ export default function GraphqlSubscriptionConfigPanel({
               </GqlWfFormRow>
 
               <GqlWfFormRow label="Transport">
-                <select
+                <CustomSelect
                   value={data.subscriptionTransport ?? 'auto'}
-                  onChange={(e) =>
-                    update({ subscriptionTransport: e.target.value as GraphqlSubscriptionNodeData['subscriptionTransport'] })
+                  onChange={(v) =>
+                    update({ subscriptionTransport: v as GraphqlSubscriptionNodeData['subscriptionTransport'] })
                   }
+                  options={[
+                    { value: 'auto', label: 'Auto (detect)' },
+                    { value: 'graphql-transport-ws', label: 'graphql-transport-ws' },
+                    { value: 'graphql-ws', label: 'graphql-ws (legacy)' },
+                    { value: 'sse', label: 'SSE' },
+                  ]}
                   data-testid="gql-wf-sub-transport-select"
-                >
-                  <option value="auto">Auto (detect)</option>
-                  <option value="graphql-transport-ws">graphql-transport-ws</option>
-                  <option value="graphql-ws">graphql-ws (legacy)</option>
-                  <option value="sse">SSE</option>
-                </select>
+                />
               </GqlWfFormRow>
 
               <GqlWfCodeField

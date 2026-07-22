@@ -1,4 +1,5 @@
 import type { SubscriptionState } from '../../../../shared/types/graphql';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 export interface GqlSubscriptionControlsProps {
   subscriptionTransport?:         'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse';
@@ -33,12 +34,18 @@ export function GqlSubscriptionControls({
     <>
       {onSubscriptionTransportChange && (
         <div className="gql-transport-wrap">
-          <select
+          <CustomSelect
             className="gql-transport-select"
             value={subscriptionTransport}
-            onChange={(e) => onSubscriptionTransportChange(
-              e.target.value as 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse'
+            onChange={(v) => onSubscriptionTransportChange(
+              v as 'auto' | 'graphql-transport-ws' | 'graphql-ws' | 'sse'
             )}
+            options={[
+              { value: 'auto', label: 'Auto' },
+              { value: 'graphql-transport-ws', label: 'WS (modern)' },
+              { value: 'graphql-ws', label: 'WS (legacy)' },
+              { value: 'sse', label: 'SSE' },
+            ]}
             disabled={
               subscriptionState === 'connecting' ||
               subscriptionState === 'active' ||
@@ -46,17 +53,7 @@ export function GqlSubscriptionControls({
             }
             aria-label="Subscription transport protocol"
             data-testid="gql-transport-select"
-            title={
-              autoDetectsSSE
-                ? 'Auto mode: this endpoint matches the /stream convention — SSE (graphql-sse) will be used automatically. Override below if needed.'
-                : 'Subscription transport: Auto (WS by default, SSE for /stream URLs), WS modern (graphql-transport-ws), WS legacy (graphql-ws), or SSE (graphql-sse)'
-            }
-          >
-            <option value="auto">Auto</option>
-            <option value="graphql-transport-ws">WS (modern)</option>
-            <option value="graphql-ws">WS (legacy)</option>
-            <option value="sse">SSE</option>
-          </select>
+          />
 
           {autoDetectsSSE && (
             <span

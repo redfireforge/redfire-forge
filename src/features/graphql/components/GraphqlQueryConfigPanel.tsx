@@ -5,6 +5,7 @@
  * Phase 4 — Step 3 (4C-1, 4C-2)
  */
 import { useState } from 'react';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type {
   GraphqlQueryNodeData,
   GraphqlNodeHeaderRow,
@@ -158,15 +159,21 @@ export function GqlAuthSection({
     <div data-testid="gql-wf-auth-section">
       <div className="wf-config-field--row">
         <label>Auth type</label>
-        <select value={type} onChange={(e) => setType(e.target.value)} data-testid="gql-wf-auth-type-select">
-          <option value="none">None</option>
-          <option value="bearer">Bearer Token</option>
-          <option value="basic">Basic Auth</option>
-          <option value="apiKey">API Key</option>
-          <option value="custom">Custom Header</option>
-          {/* oauth2 is defined in GraphqlAuth but not yet supported in the workflow panel */}
-          {type === 'oauth2' && <option value="oauth2" disabled>OAuth 2.0 (not yet supported)</option>}
-        </select>
+        <CustomSelect
+          value={type}
+          onChange={(v) => setType(v)}
+          options={[
+            { value: 'none', label: 'None' },
+            { value: 'bearer', label: 'Bearer Token' },
+            { value: 'basic', label: 'Basic Auth' },
+            { value: 'apiKey', label: 'API Key' },
+            { value: 'custom', label: 'Custom Header' },
+            ...(type === 'oauth2'
+              ? [{ value: 'oauth2', label: 'OAuth 2.0 (not yet supported)', disabled: true }]
+              : []),
+          ]}
+          data-testid="gql-wf-auth-type-select"
+        />
       </div>
 
       {type === 'bearer' && (
@@ -440,14 +447,13 @@ export function GqlOutputSection({
                     />
                   </div>
                   <div className="gql-wf-output-col gql-wf-output-col-field">
-                    <select
+                    <CustomSelect
                       value={binding.field}
-                      onChange={(e) => crud.update(index, { field: e.target.value })}
+                      onChange={(v) => crud.update(index, { field: v })}
+                      options={fieldOptions.map((f) => ({ value: f, label: f }))}
                       data-testid="gql-wf-output-field-select"
                       aria-label={`Response field for binding ${index + 1}`}
-                    >
-                      {fieldOptions.map((f) => <option key={f} value={f}>{f}</option>)}
-                    </select>
+                    />
                   </div>
                   <div className="gql-wf-output-col gql-wf-output-col-arrow" aria-hidden="true">
                     <span className="gql-wf-output-map-arrow" title="Maps to">→</span>

@@ -17,6 +17,7 @@ function useHarnessBridgeHarness(initialEnv: Environment[] = [], initialSvc: Mic
 describe('useDemoHarnessBridge', () => {
   afterEach(() => {
     delete (window as unknown as Record<string, unknown>).__demoSeedHarnessTarget;
+    delete (window as unknown as Record<string, unknown>).__demoDeleteFeatureGroupsByName;
   });
 
   it('seeds demo environment and jsonplaceholder service when missing', async () => {
@@ -101,5 +102,6 @@ describe('useDemoHarnessBridge', () => {
 
     unmount();
     expect((window as unknown as Record<string, unknown>).__demoSeedHarnessTarget).toBeUndefined();
+    expect((window as unknown as Record<string, unknown>).__demoDeleteFeatureGroupsByName).toBeUndefined();
   });
 });

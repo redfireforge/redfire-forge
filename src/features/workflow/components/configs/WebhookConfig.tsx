@@ -4,6 +4,7 @@ import ConfigSectionGroup from './ConfigSectionGroup';
 import { DataMapperModal, createWebhookExtractionAdapter } from '../../../../shared/components/data-mapper';
 import type { WebhookExtractionOutput } from '../../../../shared/components/data-mapper';
 import { useCopyToClipboard } from '../../../../shared/hooks/useCopyToClipboard';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 interface Props {
   data: WebhookTriggerNodeData;
@@ -79,15 +80,16 @@ export default function WebhookConfig({ data, onChange, workflowId, nodeId }: Pr
         <div className="wf-config-section">
           <label className="wf-config-label">
             HTTP Method
-            <select
+            <CustomSelect
               className="wf-config-input"
               value={data.method}
-              onChange={(e) => onChange({ method: e.target.value as 'POST' | 'PUT' | 'PATCH' })}
-            >
-              <option value="POST">POST</option>
-              <option value="PUT">PUT</option>
-              <option value="PATCH">PATCH</option>
-            </select>
+              onChange={(v) => onChange({ method: v as 'POST' | 'PUT' | 'PATCH' })}
+              options={[
+                { value: 'POST', label: 'POST' },
+                { value: 'PUT', label: 'PUT' },
+                { value: 'PATCH', label: 'PATCH' },
+              ]}
+            />
           </label>
         </div>
         <div className="wf-config-section">

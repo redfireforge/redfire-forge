@@ -115,7 +115,7 @@ describe('ScriptLibraryVersionPanel', () => {
         onClose={onClose}
       />,
     );
-    fireEvent.click(screen.getByLabelText('Close'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
     expect(onClose).toHaveBeenCalled();
   });
 

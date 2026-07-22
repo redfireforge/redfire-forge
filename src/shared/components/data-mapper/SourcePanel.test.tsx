@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import SourcePanel from './SourcePanel';
 import type { MapperSource } from './types';
 
@@ -70,7 +71,7 @@ describe('SourcePanel – tree view', () => {
 
   it('filters to mapped fields only and shows mapped/unmapped counts', () => {
     renderPanel({ mappedPaths: new Set(['name']) });
-    fireEvent.change(screen.getByLabelText('Filter source fields'), { target: { value: 'mapped' } });
+    selectOption(screen.getByLabelText('Filter source fields').closest('.cs-wrapper')!, 'Mapped');
     expect(screen.getByText('name')).toBeTruthy();
     expect(screen.queryByText('age')).toBeNull();
     expect(screen.getByText('1 mapped / 1 unmapped')).toBeTruthy();
@@ -78,7 +79,7 @@ describe('SourcePanel – tree view', () => {
 
   it('filters to unmapped fields only', () => {
     renderPanel({ mappedPaths: new Set(['name']) });
-    fireEvent.change(screen.getByLabelText('Filter source fields'), { target: { value: 'unmapped' } });
+    selectOption(screen.getByLabelText('Filter source fields').closest('.cs-wrapper')!, 'Unmapped');
     expect(screen.getByText('age')).toBeTruthy();
     expect(screen.queryByText('name')).toBeNull();
   });

@@ -4,6 +4,7 @@
 import React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import WsSendConfig from './WsSendConfig';
 import WsConnectConfig from './WsConnectConfig';
 import WsReceiveConfig from './WsReceiveConfig';
@@ -180,8 +181,7 @@ describe('WsConnectConfig', () => {
     fireEvent.change(screen.getByDisplayValue('proto'), { target: { value: 'myProto' } });
     expect(onChange).toHaveBeenCalled();
     // Change field select
-    const select = screen.getByDisplayValue('protocol');
-    fireEvent.change(select, { target: { value: 'extensions' } });
+    selectOption(screen.getByDisplayValue('proto').closest('.wf-config-kv-row')!, 'extensions');
     expect(onChange).toHaveBeenCalled();
     // Toggle binding enabled
     const checkbox = screen.getByRole('checkbox');
@@ -256,8 +256,8 @@ describe('WsSendConfig', () => {
 
   it('updates message type via select', () => {
     const onChange = vi.fn();
-    render(<WsSendConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('Text'), { target: { value: 'binary' } });
+    const { container } = render(<WsSendConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'Binary');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ messageType: 'binary' }));
   });
 
@@ -276,17 +276,15 @@ describe('WsSendConfig', () => {
 
   it('shows connection dropdown when availableConnectionIds provided', () => {
     const onChange = vi.fn();
-    render(<WsSendConfig data={makeData()} onChange={onChange} availableConnectionIds={['ws1', 'ws2']} />);
-    const select = screen.getByDisplayValue('ws1');
-    fireEvent.change(select, { target: { value: 'ws2' } });
+    const { container } = render(<WsSendConfig data={makeData()} onChange={onChange} availableConnectionIds={['ws1', 'ws2']} />);
+    selectOption(container, 'ws2');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ connectionId: 'ws2' }));
   });
 
   it('shows custom input when "__custom__" selected', () => {
     const onChange = vi.fn();
-    render(<WsSendConfig data={makeData()} onChange={onChange} availableConnectionIds={['ws1']} />);
-    const select = screen.getByDisplayValue('ws1');
-    fireEvent.change(select, { target: { value: '__custom__' } });
+    const { container } = render(<WsSendConfig data={makeData()} onChange={onChange} availableConnectionIds={['ws1']} />);
+    selectOption(container, '(custom)');
     // After selecting custom, the text input should appear
     expect(screen.getByPlaceholderText('ws1')).toBeTruthy();
   });
@@ -321,7 +319,8 @@ describe('WsSendConfig', () => {
     const bindingCheckbox = checkboxes.find(cb => cb !== screen.getByRole('checkbox', { name: /wait/i }));
     if (bindingCheckbox) fireEvent.click(bindingCheckbox);
     // Change binding field
-    fireEvent.change(screen.getByDisplayValue('responseBody'), { target: { value: 'latencyMs' } });
+    const bindingRow = screen.getByDisplayValue('body').closest('.wf-config-kv-row')!;
+    selectOption(bindingRow, 'latencyMs');
     expect(onChange).toHaveBeenCalled();
     // Remove binding
     fireEvent.click(screen.getByText('×'));
@@ -344,10 +343,8 @@ describe('WsSendConfig', () => {
 
   it('selects back from custom to known connection', () => {
     const onChange = vi.fn();
-    render(<WsSendConfig data={makeData({ connectionId: 'unknown' })} onChange={onChange} availableConnectionIds={['ws1', 'ws2']} />);
-    // The select shows __custom__ since unknown is not in list
-    const select = screen.getByDisplayValue('(custom)');
-    fireEvent.change(select, { target: { value: 'ws2' } });
+    const { container } = render(<WsSendConfig data={makeData({ connectionId: 'unknown' })} onChange={onChange} availableConnectionIds={['ws1', 'ws2']} />);
+    selectOption(container, 'ws2');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ connectionId: 'ws2' }));
   });
 
@@ -397,9 +394,8 @@ describe('WsReceiveConfig', () => {
 
   it('shows connection dropdown with custom option', () => {
     const onChange = vi.fn();
-    render(<WsReceiveConfig data={makeData()} onChange={onChange} availableConnectionIds={['ws1', 'ws2']} />);
-    const select = screen.getByDisplayValue('ws1');
-    fireEvent.change(select, { target: { value: '__custom__' } });
+    const { container } = render(<WsReceiveConfig data={makeData()} onChange={onChange} availableConnectionIds={['ws1', 'ws2']} />);
+    selectOption(container, '(custom)');
     expect(screen.getByPlaceholderText('ws1')).toBeTruthy();
   });
 
@@ -410,8 +406,8 @@ describe('WsReceiveConfig', () => {
 
   it('updates match criteria - message type', () => {
     const onChange = vi.fn();
-    render(<WsReceiveConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('Any'), { target: { value: 'text' } });
+    const { container } = render(<WsReceiveConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'Text only');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       matchCriteria: expect.objectContaining({ messageType: 'text' }),
     }));
@@ -481,9 +477,10 @@ describe('WsReceiveConfig', () => {
       outputBindings: [{ field: 'messageBody' as const, variableName: 'msg', enabled: true }],
     });
     rerender(<WsReceiveConfig data={withBinding} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('msg'), { target: { value: 'body' } });
+    fireEvent.change(screen.getByDisplayValue('msg'), { target: { value: 'respVar' } });
     expect(onChange).toHaveBeenCalled();
-    fireEvent.change(screen.getByDisplayValue('messageBody'), { target: { value: 'latencyMs' } });
+    const bindingRow = screen.getByDisplayValue('msg').closest('.wf-config-kv-row')!;
+    selectOption(bindingRow, 'latencyMs');
     expect(onChange).toHaveBeenCalled();
     const checkbox = screen.getByRole('checkbox');
     fireEvent.click(checkbox);
@@ -578,8 +575,8 @@ describe('WsTriggerConfig', () => {
 
   it('updates match criteria - message type', () => {
     const onChange = vi.fn();
-    render(<WsTriggerConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('Any'), { target: { value: 'binary' } });
+    const { container } = render(<WsTriggerConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'Binary only');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       matchCriteria: expect.objectContaining({ messageType: 'binary' }),
     }));

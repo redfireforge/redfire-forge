@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../test-utils/customSelectHelper';
 
 vi.mock('./kafkaMessageStudioUtils', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./kafkaMessageStudioUtils')>();
@@ -204,10 +205,10 @@ describe('KafkaConsumeStudio — Consume Once', () => {
     expect(screen.getByTestId('con-max-reached').textContent).toContain('max reached');
   });
 
-  it('shows detail pane when selectedMessage is set', () => {
+  it('shows detail modal when selectedMessage is set', () => {
     renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0] } });
-    expect(screen.getByTestId('con-detail-pane')).toBeTruthy();
-    expect(screen.getByTestId('con-detail-body').textContent).toContain('"id"');
+    expect(screen.getByTestId('kafka-message-detail-modal')).toBeTruthy();
+    expect(screen.getByTestId('kmd-body').textContent).toContain('"id"');
   });
 
   it('calls selectMessage when a row is clicked', () => {
@@ -240,7 +241,7 @@ describe('KafkaConsumeStudio — Consume Once', () => {
 
   it('Copy Key button disabled when no key', () => {
     renderConsume({ studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, selectedMessageIndex: 1, selectedMessage: SAMPLE_MESSAGES[1] } });
-    expect((screen.getByTestId('con-copy-key-btn') as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByTestId('kmd-copy-key') as HTMLButtonElement).disabled).toBe(true);
   });
 
   it('shows inline validation hint when topic is blurred while empty', () => {
@@ -273,14 +274,13 @@ describe('KafkaConsumeStudio — Consume Once', () => {
 describe('KafkaConsumeStudio — Sort Order', () => {
   it('renders Sort Order select', () => {
     renderConsume();
-    const select = screen.getByLabelText('Sort Order') as HTMLSelectElement;
-    expect(select.value).toBe('asc');
+    expect(getCustomSelectValue(screen.getByLabelText('Sort Order').closest('.cs-wrapper')!)).toBe('Oldest First');
   });
 
   it('calls setConsumeDraft when sort order changes to desc', () => {
     const studio = makeStudio();
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Sort Order'), { target: { value: 'desc' } });
+    selectOption(screen.getByLabelText('Sort Order').closest('.cs-wrapper')!, 'Newest First');
     expect(studio.setConsumeDraft).toHaveBeenCalledWith({ sortOrder: 'desc' });
   });
 });
@@ -454,8 +454,8 @@ describe('KafkaConsumeStudio — Stream Mode', () => {
         selectedStreamMessage: STREAM_MESSAGES[0],
       },
     });
-    expect(screen.getByTestId('con-detail-pane')).toBeTruthy();
-    expect(screen.getByTestId('con-detail-body').textContent).toContain('"seq"');
+    expect(screen.getByTestId('kafka-message-detail-modal')).toBeTruthy();
+    expect(screen.getByTestId('kmd-body').textContent).toContain('"seq"');
   });
 
   it('calls selectStreamMessage when a stream row is clicked', () => {
@@ -476,14 +476,14 @@ describe('KafkaConsumeStudio — Workflow Input', () => {
       studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0] },
       onUseAsWorkflowInput: handler,
     });
-    expect(screen.getByTestId('con-workflow-input-btn')).toBeTruthy();
+    expect(screen.getByTestId('kmd-workflow-btn')).toBeTruthy();
   });
 
   it('[Use as Workflow Input] hidden when prop not provided', () => {
     renderConsume({
       studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0] },
     });
-    expect(screen.queryByTestId('con-workflow-input-btn')).toBeNull();
+    expect(screen.queryByTestId('kmd-workflow-btn')).toBeNull();
   });
 
   it('clicking calls onUseAsWorkflowInput with correct payload + meta', () => {
@@ -492,7 +492,7 @@ describe('KafkaConsumeStudio — Workflow Input', () => {
       studio: { consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2, selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0] },
       onUseAsWorkflowInput: handler,
     });
-    fireEvent.click(screen.getByTestId('con-workflow-input-btn'));
+    fireEvent.click(screen.getByTestId('kmd-workflow-btn'));
     expect(handler).toHaveBeenCalledWith('{"id":1}', { topic: 'orders.events', partition: 0, offset: '10' });
   });
 
@@ -507,7 +507,7 @@ describe('KafkaConsumeStudio — Workflow Input', () => {
       onUseAsWorkflowInput: handler,
     });
     fireEvent.click(screen.getByTestId('con-mode-stream'));
-    fireEvent.click(screen.getByTestId('con-workflow-input-btn'));
+    fireEvent.click(screen.getByTestId('kmd-workflow-btn'));
     expect(handler).toHaveBeenCalledWith('{"seq":1}', { topic: 'orders.events', partition: 0, offset: '100' });
   });
 });
@@ -621,7 +621,7 @@ describe('KafkaConsumeStudio — Form Fields', () => {
   it('calls setConsumeDraft when start position changes to earliest', () => {
     const studio = makeStudio();
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.change(screen.getByLabelText('Start Position'), { target: { value: 'earliest' } });
+    selectOption(screen.getByLabelText('Start Position').closest('.cs-wrapper')!, 'Earliest');
     expect(studio.setConsumeDraft).toHaveBeenCalledWith({ startPosition: 'earliest' });
   });
 
@@ -694,8 +694,8 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
         selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0],
       },
     });
-    fireEvent.click(screen.getByTestId('con-copy-payload-btn'));
-    await waitFor(() => expect(clipboardMock).toHaveBeenCalledWith('{"id":1}'));
+    fireEvent.click(screen.getByTestId('kmd-copy-payload'));
+    await waitFor(() => expect(clipboardMock).toHaveBeenCalledWith(JSON.stringify({ id: 1 }, null, 2)));
   });
 
   it('copies key to clipboard when Copy Key clicked with key present', async () => {
@@ -706,21 +706,21 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
         selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0],
       },
     });
-    fireEvent.click(screen.getByTestId('con-copy-key-btn'));
+    fireEvent.click(screen.getByTestId('kmd-copy-key'));
     await waitFor(() => expect(clipboardMock).toHaveBeenCalledWith('order-1'));
   });
 
-  it('close detail pane button deselects message', () => {
+  it('close detail modal button deselects message', () => {
     const studio = makeStudio({
       consumeResult: SAMPLE_MESSAGES, consumeMessageCount: 2,
       selectedMessageIndex: 0, selectedMessage: SAMPLE_MESSAGES[0],
     });
     render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
-    fireEvent.click(screen.getByLabelText('Close detail'));
+    fireEvent.click(screen.getByTestId('kmd-close-btn'));
     expect(studio.selectMessage).toHaveBeenCalledWith(null);
   });
 
-  it('close stream detail pane button deselects stream message', () => {
+  it('close detail modal button deselects stream message', () => {
     const sm = makeStreamMode({
       streamMessages: STREAM_MESSAGES,
       selectedStreamIndex: 0,
@@ -728,7 +728,7 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
     });
     render(<KafkaConsumeStudio studio={makeStudio()} clusterId="c" streamMode={sm} {...defaultTemplateProps()} />);
     fireEvent.click(screen.getByTestId('con-mode-stream'));
-    fireEvent.click(screen.getByLabelText('Close detail'));
+    fireEvent.click(screen.getByTestId('kmd-close-btn'));
     expect(sm.selectStreamMessage).toHaveBeenCalledWith(null);
   });
 
@@ -742,7 +742,44 @@ describe('KafkaConsumeStudio — Detail Pane Extras', () => {
         selectedMessageIndex: 0, selectedMessage: rawMsg,
       },
     });
-    expect(screen.getByTestId('con-detail-body').textContent).toBe('not-json');
+    expect(screen.getByTestId('kmd-body').textContent).toBe('not-json');
+  });
+
+  it('pressing Escape in detail modal closes it', () => {
+    const studio = makeStudio({
+      consumeResult: SAMPLE_MESSAGES,
+      consumeMessageCount: 2,
+      selectedMessageIndex: 0,
+      selectedMessage: SAMPLE_MESSAGES[0],
+    });
+    render(<KafkaConsumeStudio studio={studio} clusterId="c" streamMode={makeStreamMode()} {...defaultTemplateProps()} />);
+    fireEvent.keyDown(screen.getByTestId('kafka-message-detail-modal').parentElement as HTMLElement, { key: 'Escape' });
+    expect(studio.selectMessage).toHaveBeenCalledWith(null);
+  });
+
+  it('copy handlers clear copied state after timeout', async () => {
+    vi.useFakeTimers();
+    try {
+      const clipboardMock = installClipboardMock();
+      renderConsume({
+        studio: {
+          consumeResult: SAMPLE_MESSAGES,
+          consumeMessageCount: 2,
+          selectedMessageIndex: 0,
+          selectedMessage: SAMPLE_MESSAGES[0],
+        },
+      });
+
+      fireEvent.click(screen.getByTestId('kmd-copy-key'));
+      expect(clipboardMock).toHaveBeenCalledWith('order-1');
+      vi.advanceTimersByTime(1600);
+
+      fireEvent.click(screen.getByTestId('kmd-copy-payload'));
+      expect(clipboardMock).toHaveBeenCalledWith(JSON.stringify({ id: 1 }, null, 2));
+      vi.advanceTimersByTime(1600);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

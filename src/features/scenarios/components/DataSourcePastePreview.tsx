@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import type { DataSourceColumn, DataSourceRow } from '../../../shared/types';
+import { CustomSelect } from '../../../shared/components/CustomSelect';
 
 interface PastePreviewProps {
   pasteData: { headers: string[]; rows: string[][] };
@@ -79,20 +80,19 @@ export default function DataSourcePastePreview({ pasteData, existingColumns, onC
                 <th key={i} className="data-source-th">
                   <div className="data-source-paste-col-map">
                     <span className="data-source-paste-header">{h}</span>
-                    <select
+                    <CustomSelect
                       className="data-source-col-type-select"
                       value={mapping[i]}
-                      onChange={(e) => {
+                      onChange={(v) => {
                         const next = [...mapping];
-                        next[i] = e.target.value;
+                        next[i] = v;
                         setMapping(next);
                       }}
-                    >
-                      <option value="__new__">+ New Column</option>
-                      {existingColumns.map(col => (
-                        <option key={col.id} value={col.id}>{col.name}</option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: '__new__', label: '+ New Column' },
+                        ...existingColumns.map((col) => ({ value: col.id, label: col.name })),
+                      ]}
+                    />
                   </div>
                 </th>
               ))}

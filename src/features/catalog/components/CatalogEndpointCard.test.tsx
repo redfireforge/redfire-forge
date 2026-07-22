@@ -5,6 +5,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import { selectOption, getCustomSelectValue } from '../../../test-utils/customSelectHelper';
 import CatalogEndpointCard from './CatalogEndpointCard';
 import { resolveBaseUrl } from '../utils/catalogCurlGenerator';
 import { makeEndpoint, makeServer, makeParam, makeResponse, makeHostConfig } from './catalogTestFactories';
@@ -131,7 +132,7 @@ describe('CatalogEndpointCard', () => {
     const badge = screen.getByText('IN REQUESTS');
     fireEvent.keyDown(badge, { key: 'Enter' });
     expect(screen.getByText('Exported to 1 request')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('×'));
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
   });
 
   it('opens context menu and copies default curl', async () => {
@@ -161,9 +162,9 @@ describe('CatalogEndpointCard', () => {
     const idInput = screen.getByPlaceholderText('abc') as HTMLInputElement;
     await userEvent.type(idInput, '123');
     expect(idInput.value).toBe('123');
-    const sel = document.querySelector('select.sw-pinput') as HTMLSelectElement;
-    await userEvent.selectOptions(sel, 'b');
-    expect(sel.value).toBe('b');
+    const enumSelect = document.querySelector('.cs-wrapper.sw-pinput')!;
+    selectOption(enumSelect, 'b');
+    expect(getCustomSelectValue(enumSelect)).toBe('b');
     await userEvent.click(screen.getByText('Cancel'));
   });
 

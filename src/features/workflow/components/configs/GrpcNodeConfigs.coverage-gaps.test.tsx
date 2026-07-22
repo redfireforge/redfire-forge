@@ -4,6 +4,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
+import { selectOption, selectOptionByTestId, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom';
 import GrpcAssertConfig from './GrpcAssertConfig';
 import GrpcLoadTestConfig from './GrpcLoadTestConfig';
@@ -54,6 +55,19 @@ function textareaByLabel(container: HTMLElement, labelText: string): HTMLTextAre
   return control as HTMLTextAreaElement;
 }
 
+function rowSelectWrapper(container: HTMLElement, labelText: string): Element {
+  const label = Array.from(container.querySelectorAll('label')).find((l) => l.textContent?.trim() === labelText);
+  const wrapper = label?.parentElement?.querySelector('.cs-wrapper');
+  if (!wrapper) {
+    throw new Error(`Could not find CustomSelect for label "${labelText}"`);
+  }
+  return wrapper;
+}
+
+function rowSelectText(container: HTMLElement, labelText: string): string {
+  return rowSelectWrapper(container, labelText).querySelector('.cs-text')?.textContent ?? '';
+}
+
 function rowControl<T extends HTMLElement>(container: HTMLElement, labelText: string, selector: string): T {
   const label = Array.from(container.querySelectorAll('label')).find((l) => l.textContent?.trim() === labelText);
   const control = label?.parentElement?.querySelector(selector);
@@ -80,7 +94,7 @@ describe('Grpc node config coverage gaps', () => {
     fireEvent.change(getByDisplayValue('grpc-unary-1'), { target: { value: 'saved.alias' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ source: 'saved.alias' }));
 
-    fireEvent.change(container.querySelector('select')!, { target: { value: 'continue' } });
+    selectOption(container, 'Continue workflow');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onError: 'continue' }));
 
     const textarea = getTextareas(container)[0];
@@ -100,7 +114,7 @@ describe('Grpc node config coverage gaps', () => {
 
     // Cover undefined fallback branches.
     rerender(<GrpcAssertConfig data={{ ...data, onError: undefined, assertions: undefined }} onChange={onChange} />);
-    expect(container.querySelector('select')).toHaveValue('fail');
+    expect(rowSelectText(container, 'On Error')).toBe('Fail workflow');
     expect(textarea).toHaveValue('[]');
 
     // Cover useState initializer undefined branch on first mount.
@@ -108,7 +122,7 @@ describe('Grpc node config coverage gaps', () => {
       <GrpcAssertConfig data={{ ...data, assertions: undefined, onError: undefined }} onChange={vi.fn()} />,
     );
     expect(getTextareas(initUndefined.container)[0]).toHaveValue('[]');
-    expect(initUndefined.container.querySelector('select')).toHaveValue('fail');
+    expect(rowSelectText(initUndefined.container, 'On Error')).toBe('Fail workflow');
   });
 
   it('GrpcLoadTestConfig handles object JSON parsing and optional fields', () => {
@@ -156,7 +170,7 @@ describe('Grpc node config coverage gaps', () => {
     fireEvent.change(rowControl<HTMLInputElement>(container, 'Timeout (ms)', 'input'), { target: { value: '9000' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: 9000 }));
 
-    fireEvent.change(rowControl<HTMLSelectElement>(container, 'On Error', 'select'), { target: { value: 'continue' } });
+    selectOption(rowSelectWrapper(container, 'On Error'), 'Continue workflow');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onError: 'continue' }));
 
     fireEvent.change(rowControl<HTMLInputElement>(container, 'Save As', 'input'), { target: { value: '' } });
@@ -190,7 +204,7 @@ describe('Grpc node config coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    expect(rowControl<HTMLSelectElement>(container, 'On Error', 'select')).toHaveValue('fail');
+    expect(rowSelectText(container, 'On Error')).toBe('Fail workflow');
     expect(rowControl<HTMLInputElement>(container, 'Profile ID', 'input')).toHaveValue('');
     expect(rowControl<HTMLInputElement>(container, 'Timeout (ms)', 'input')).toHaveValue(null);
     expect(rowControl<HTMLInputElement>(container, 'Save As', 'input')).toHaveValue('');
@@ -204,7 +218,7 @@ describe('Grpc node config coverage gaps', () => {
     );
     expect(textareaByLabel(initUndefined.container, 'Request Body (JSON object)')).toHaveValue('{}');
     expect(textareaByLabel(initUndefined.container, 'Load Test Config (JSON object)')).toHaveValue('{}');
-    expect(rowControl<HTMLSelectElement>(initUndefined.container, 'On Error', 'select')).toHaveValue('fail');
+    expect(rowSelectText(initUndefined.container, 'On Error')).toBe('Fail workflow');
     expect(rowControl<HTMLInputElement>(initUndefined.container, 'Save As', 'input')).toHaveValue('');
     expect(rowControl<HTMLInputElement>(initUndefined.container, 'Timeout (ms)', 'input')).toHaveValue(null);
   });
@@ -255,7 +269,7 @@ describe('Grpc node config coverage gaps', () => {
     fireEvent.change(inputs[7], { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ timeoutMs: undefined }));
 
-    fireEvent.change(container.querySelector('select')!, { target: { value: 'continue' } });
+    selectOption(container, 'Continue workflow');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onError: 'continue' }));
 
     fireEvent.change(inputs[8], { target: { value: '' } });
@@ -300,7 +314,7 @@ describe('Grpc node config coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    expect(container.querySelector('select')).toHaveValue('fail');
+    expect(rowSelectText(container, 'On Error')).toBe('Fail workflow');
     expect(inputs[5]).toHaveValue(0);
     expect(inputs[6]).toHaveValue('');
     expect(inputs[7]).toHaveValue(null);
@@ -324,7 +338,7 @@ describe('Grpc node config coverage gaps', () => {
     const initInputs = Array.from(initUndefined.container.querySelectorAll('input')) as HTMLInputElement[];
     const initTextareas = getTextareas(initUndefined.container);
     expect(initInputs[7]).toHaveValue(null);
-    expect(initUndefined.container.querySelector('select')).toHaveValue('fail');
+    expect(rowSelectText(initUndefined.container, 'On Error')).toBe('Fail workflow');
     expect(initTextareas[0]).toHaveValue('{}');
     expect(initTextareas[1]).toHaveValue('{}');
     expect(initTextareas[2]).toHaveValue('');
@@ -374,7 +388,7 @@ describe('Grpc node config coverage gaps', () => {
     fireEvent.change(screen.getByTestId(`${prefix}-save-as`), { target: { value: 'u.alias' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ saveAs: 'u.alias' }));
 
-    fireEvent.change(screen.getByTestId(`${prefix}-on-error`), { target: { value: 'continue' } });
+    selectOptionByTestId(`${prefix}-on-error`, 'Continue workflow');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onError: 'continue' }));
 
     fireEvent.change(screen.getByTestId(`${prefix}-body`), { target: { value: '{"v":1}' } });
@@ -395,7 +409,7 @@ describe('Grpc node config coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    expect(screen.getByTestId(`${prefix}-on-error`)).toHaveValue('fail');
+    expect(getCustomSelectValue(document.querySelector(`[data-testid="${prefix}-on-error"]`)!)).toBe('Fail workflow');
     expect(screen.getByTestId(`${prefix}-timeout`)).toHaveValue(null);
     expect(screen.getByTestId(`${prefix}-save-as`)).toHaveValue('');
     expect(container).toBeTruthy();
@@ -408,7 +422,7 @@ describe('Grpc node config coverage gaps', () => {
       />,
     );
     const q = (testId: string) => initUndefined.container.querySelector(`[data-testid="${testId}"]`) as HTMLElement;
-    expect(q(`${prefix}-on-error`)).toHaveValue('fail');
+    expect(getCustomSelectValue(q(`${prefix}-on-error`))).toBe('Fail workflow');
     expect(q(`${prefix}-timeout`)).toHaveValue(null);
     expect(q(`${prefix}-save-as`)).toHaveValue('');
     expect(q(`${prefix}-body`)).toHaveValue('{}');
@@ -474,7 +488,7 @@ describe('Grpc node config coverage gaps', () => {
     fireEvent.change(rowControl<HTMLInputElement>(container, 'Collect Until Expression', 'input'), { target: { value: '{{grpc.stream.count}} >= 7' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ collect: expect.objectContaining({ untilExpression: '{{grpc.stream.count}} >= 7' }) }));
 
-    fireEvent.change(rowControl<HTMLSelectElement>(container, 'On Error', 'select'), { target: { value: 'continue' } });
+    selectOption(rowSelectWrapper(container, 'On Error'), 'Continue workflow');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onError: 'continue' }));
 
     fireEvent.change(rowControl<HTMLInputElement>(container, 'Save As', 'input'), { target: { value: '' } });
@@ -511,7 +525,7 @@ describe('Grpc node config coverage gaps', () => {
         onChange={onChange}
       />,
     );
-    expect(rowControl<HTMLSelectElement>(container, 'On Error', 'select')).toHaveValue('fail');
+    expect(rowSelectText(container, 'On Error')).toBe('Fail workflow');
     expect(rowControl<HTMLInputElement>(container, 'Timeout (ms)', 'input')).toHaveValue(null);
     expect(rowControl<HTMLInputElement>(container, 'Collect Max Messages', 'input')).toHaveValue(null);
     expect(rowControl<HTMLInputElement>(container, 'Collect Max Duration (ms)', 'input')).toHaveValue(null);
@@ -535,7 +549,7 @@ describe('Grpc node config coverage gaps', () => {
     );
     expect(textareaByLabel(initUndefined.container, 'Request Body (JSON object)')).toHaveValue('{}');
     expect(textareaByLabel(initUndefined.container, 'Metadata (JSON object)')).toHaveValue('{}');
-    expect(rowControl<HTMLSelectElement>(initUndefined.container, 'On Error', 'select')).toHaveValue('fail');
+    expect(rowSelectText(initUndefined.container, 'On Error')).toBe('Fail workflow');
     expect(rowControl<HTMLInputElement>(initUndefined.container, 'Timeout (ms)', 'input')).toHaveValue(null);
     expect(rowControl<HTMLInputElement>(initUndefined.container, 'Save As', 'input')).toHaveValue('');
   });
@@ -572,7 +586,7 @@ describe('Grpc node config coverage gaps', () => {
     fireEvent.change(saveAsInput, { target: { value: '' } });
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ saveAs: undefined }));
 
-    fireEvent.change(container.querySelector('select')!, { target: { value: 'continue' } });
+    selectOption(container, 'Continue workflow');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onError: 'continue' }));
 
     rerender(<GrpcSchemaDiffConfig data={{ ...data, failOnBreaking: false }} onChange={onChange} />);
@@ -580,7 +594,7 @@ describe('Grpc node config coverage gaps', () => {
 
     // Cover onError/saveAs undefined render defaults.
     rerender(<GrpcSchemaDiffConfig data={{ ...data, onError: undefined, saveAs: undefined }} onChange={onChange} />);
-    expect(container.querySelector('select')).toHaveValue('fail');
+    expect(rowSelectText(container, 'On Error')).toBe('Fail workflow');
     expect(saveAsInput).toHaveValue('');
   });
 });

@@ -4,6 +4,7 @@
 import '@testing-library/jest-dom';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import { selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 import ScenarioBuilderUnassociatedSection from './ScenarioBuilderUnassociatedSection';
 
 const baseFeatureGroups = [
@@ -69,10 +70,8 @@ describe('ScenarioBuilderUnassociatedSection', () => {
     fireEvent.click(screen.getByRole('button', { name: /^Assign$/i }));
     expect(showConfirm).toHaveBeenCalled();
 
-    const svcSelect = document.getElementById('svc-fg-1') as HTMLSelectElement;
-    const envSelect = document.getElementById('env-fg-1') as HTMLSelectElement;
-    fireEvent.change(svcSelect, { target: { value: 'svc-1' } });
-    fireEvent.change(envSelect, { target: { value: 'env-1' } });
+    selectOptionByIndex(document.body, 0, 'orders');
+    selectOptionByIndex(document.body, 1, 'prod');
     fireEvent.click(screen.getByRole('button', { name: /^Assign$/i }));
 
     expect(assignFeatureGroup).toHaveBeenCalledWith('fg-1', 'svc-1', 'env-1');

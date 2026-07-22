@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../../test-utils/customSelectHelper';
 import OperatorValueEditor from './OperatorValueEditor';
 import type { Mapping } from './types';
 import type { OperatorMeta } from './utils/operatorRegistry';
@@ -101,7 +102,7 @@ describe('OperatorValueEditor', () => {
         handleTypeSelectChange={handleChange}
       />,
     );
-    fireEvent.change(screen.getByLabelText('Select expected type'), { target: { value: 'number' } });
+    selectOption(screen.getByLabelText('Select expected type').closest('.cs-wrapper')!, 'number');
     expect(handleChange).toHaveBeenCalledWith('number');
   });
 

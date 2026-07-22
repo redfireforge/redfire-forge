@@ -13,6 +13,7 @@ import { useSplitterDrag } from '../../../../shared/hooks/useSplitterDrag';
 import { prettyJson, isValidJson } from '../../../../shared/utils/helpers';
 import { SearchMatchBar } from '../../../../shared/components/SearchMatchBar';
 import { useSearchMatchNavigation } from '../../../../shared/hooks/useSearchMatchNavigation';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import { useJsonTreeCollapseState } from '../../../../shared/hooks/useJsonTreeCollapseState';
 
 const collectAllPaths = collectJTreePaths;
@@ -231,14 +232,14 @@ export default function ScriptCodeModal({ data: initialData, onSave, onClose, on
       expandMode="fullscreen"
       forceExpanded={!!valuePopup}
       headerActions={
-        <select
+        <CustomSelect
           className="wf-script-modal-mode-select"
           value={data.mode}
-          onChange={(e) => setData(prev => ({ ...prev, mode: e.target.value as ScriptMode }))}
-          title="Script mode"
-        >
-          {SCRIPT_MODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+          onChange={(v) => setData(prev => ({ ...prev, mode: v as ScriptMode }))}
+          options={SCRIPT_MODE_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+          size="sm"
+          aria-label="Script mode"
+        />
       }
       footer={
         <>

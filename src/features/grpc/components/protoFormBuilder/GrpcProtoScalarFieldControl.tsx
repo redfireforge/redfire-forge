@@ -5,6 +5,7 @@ import {
   isWideIntegralScalarField,
 } from '../../utils/grpcProtoFormFieldLabels';
 import type { GrpcProtoFieldRowProps } from './grpcProtoFormBuilderTypes';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 
 export function GrpcProtoScalarFieldControl({
   field,
@@ -61,32 +62,33 @@ export function GrpcProtoScalarFieldControl({
 
   if (field.type === 'bool') {
     return (
-      <select
+      <CustomSelect
         className="grpc-proto-input"
         data-testid={controlTestId}
         value={value === true ? 'true' : 'false'}
         disabled={disabled}
-        onChange={(event) => onChange(event.target.value === 'true')}
-      >
-        <option value="false">false</option>
-        <option value="true">true</option>
-      </select>
+        onChange={(v) => onChange(v === 'true')}
+        options={[
+          { value: 'false', label: 'false' },
+          { value: 'true', label: 'true' },
+        ]}
+      />
     );
   }
 
   if (field.type === 'enum' && field.enumValues?.length) {
     return (
-      <select
+      <CustomSelect
         className="grpc-proto-input"
         data-testid={controlTestId}
         value={String(value ?? field.enumValues[0]!.number)}
         disabled={disabled}
-        onChange={(event) => onChange(Number(event.target.value))}
-      >
-        {field.enumValues.map((entry) => (
-          <option key={entry.number} value={entry.number}>{entry.name}</option>
-        ))}
-      </select>
+        onChange={(v) => onChange(Number(v))}
+        options={field.enumValues.map((entry) => ({
+          value: String(entry.number),
+          label: entry.name,
+        }))}
+      />
     );
   }
 

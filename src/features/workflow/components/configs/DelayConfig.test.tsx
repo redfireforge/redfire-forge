@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import DelayConfig from './DelayConfig';
 import type { DelayNodeData } from '../../types/workflow';
 
@@ -24,15 +25,14 @@ describe('DelayConfig', () => {
   });
 
   it('renders mode select with fixed selected', () => {
-    render(<DelayConfig data={makeData({ mode: 'fixed' })} onChange={vi.fn()} />);
-    const select = screen.getByDisplayValue('Fixed');
-    expect(select).toBeTruthy();
+    const { container } = render(<DelayConfig data={makeData({ mode: 'fixed' })} onChange={vi.fn()} />);
+    expect(getCustomSelectValue(container)).toBe('Fixed');
   });
 
   it('switches mode to random', () => {
     const onChange = vi.fn();
-    render(<DelayConfig data={makeData()} onChange={onChange} />);
-    fireEvent.change(screen.getByDisplayValue('Fixed'), { target: { value: 'random' } });
+    const { container } = render(<DelayConfig data={makeData()} onChange={onChange} />);
+    selectOption(container, 'Random Range');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ mode: 'random' }));
   });
 

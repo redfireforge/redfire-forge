@@ -7,6 +7,10 @@ import { render, screen, fireEvent, waitFor} from '@testing-library/react';
 import RulesVersionPanel from './RulesVersionPanel';
 import type { RulesVersion, ValidationConfig } from '../../../shared/types';
 import { stubScrollIntoView } from '../../../test-utils/domMocks';
+import {
+  getCustomSelectOptionLabels,
+  selectOptionByIndex,
+} from '../../../test-utils/customSelectHelper';
 
 const mocks = vi.hoisted(() => ({
   differDiff: vi.fn(),
@@ -339,7 +343,7 @@ describe('RulesVersionPanel', () => {
     it('opens compare modal with version selectors', () => {
       const v1 = mkRulesVersion({ timestamp: 1000, label: 'first', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
       const v2 = mkRulesVersion({ timestamp: 2000, label: 'second', expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
-      render(
+      const { container } = render(
         <RulesVersionPanel
           {...defaultProps()}
           versions={[v1, v2]}
@@ -347,11 +351,12 @@ describe('RulesVersionPanel', () => {
       );
       fireEvent.click(screen.getByText('Compare'));
       expect(screen.getByText('Compare Rules Versions')).toBeTruthy();
-      // Both versions appear as options
-      const options = screen.getAllByRole('option');
-      const optionTexts = options.map(o => o.textContent);
-      expect(optionTexts.some(t => t?.includes('first'))).toBe(true);
-      expect(optionTexts.some(t => t?.includes('second'))).toBe(true);
+      const leftLabels = getCustomSelectOptionLabels(container, 0);
+      const rightLabels = getCustomSelectOptionLabels(container, 1);
+      expect(leftLabels.some(t => t.includes('first'))).toBe(true);
+      expect(leftLabels.some(t => t.includes('second'))).toBe(true);
+      expect(rightLabels.some(t => t.includes('first'))).toBe(true);
+      expect(rightLabels.some(t => t.includes('second'))).toBe(true);
     });
 
     it('closes modal on backdrop click', () => {
@@ -373,17 +378,15 @@ describe('RulesVersionPanel', () => {
     it('shows identical banner when same version selected on both sides', () => {
       const v1 = mkRulesVersion({ timestamp: 1000, label: 'first', expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
       const v2 = mkRulesVersion({ timestamp: 2000, label: 'second', expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
-      render(
+      const { container } = render(
         <RulesVersionPanel
           {...defaultProps()}
           versions={[v1, v2]}
         />,
       );
       fireEvent.click(screen.getByText('Compare'));
-      // Select same version on both sides
-      const selects = screen.getAllByRole('combobox');
-      fireEvent.change(selects[0], { target: { value: v1.id } });
-      fireEvent.change(selects[1], { target: { value: v1.id } });
+      selectOptionByIndex(container, 0, 'first');
+      selectOptionByIndex(container, 1, 'first');
       expect(screen.getByText('Same version selected')).toBeTruthy();
     });
 
@@ -438,10 +441,9 @@ describe('RulesVersionPanel', () => {
     it('shows placeholder when compare sides not fully selected', () => {
       const v1 = mkRulesVersion({ timestamp: 1000, expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
       const v2 = mkRulesVersion({ timestamp: 2000, expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
-      render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
+      const { container } = render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
       fireEvent.click(screen.getByText('Compare'));
-      const selects = screen.getAllByRole('combobox');
-      fireEvent.change(selects[0], { target: { value: '' } });
+      selectOptionByIndex(container, 0, 'Select...');
       expect(screen.getByText('Select two versions above to compare.')).toBeTruthy();
     });
   });
@@ -740,11 +742,10 @@ describe('RulesVersionPanel', () => {
     it('evaluates || fallback on selectors when both sides are cleared', () => {
       const v1 = mkRulesVersion({ timestamp: 1000, expectedFields: [{ jsonPath: '$.a', expectedValue: '1' }] });
       const v2 = mkRulesVersion({ timestamp: 2000, expectedFields: [{ jsonPath: '$.b', expectedValue: '2' }] });
-      render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
+      const { container } = render(<RulesVersionPanel {...defaultProps()} versions={[v1, v2]} />);
       fireEvent.click(screen.getByText('Compare'));
-      const selects = screen.getAllByRole('combobox');
-      fireEvent.change(selects[0], { target: { value: '' } });
-      fireEvent.change(selects[1], { target: { value: '' } });
+      selectOptionByIndex(container, 0, 'Select...');
+      selectOptionByIndex(container, 1, 'Select...');
       expect(screen.getByText('Select two versions above to compare.')).toBeTruthy();
     });
 

@@ -3,9 +3,26 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import {
+  selectOption,
+  getCustomSelectValue,
+  getCustomSelectOptionLabels,
+} from '../../../test-utils/customSelectHelper';
 import { SlaTargetEditor } from './SlaTargetEditor';
 import { validateRow, METRIC_OPTIONS } from './slaEditorUtils';
 import type { SlaTarget } from '../utils/slaTargets';
+
+function metricSelect(): Element {
+  return document.querySelector('.sla-editor-select')!;
+}
+
+function levelSelectEl(): Element {
+  return document.querySelector('.sla-level-select')!;
+}
+
+function nameSelectEl(): Element {
+  return document.querySelector('.sla-name-select')!;
+}
 
 function makeDraft(overrides?: Partial<SlaTarget>): SlaTarget {
   return {
@@ -162,8 +179,7 @@ describe('SlaTargetEditor', () => {
   it('updates metric and auto-sets operator', () => {
     const onChange = vi.fn();
     render(<SlaTargetEditor draft={[makeDraft()]} onChange={onChange} {...defaultProps} />);
-    const metricSelect = screen.getByDisplayValue('P95 Response Time');
-    fireEvent.change(metricSelect, { target: { value: 'tps' } });
+    selectOption(metricSelect(), 'TPS');
     expect(onChange).toHaveBeenCalledTimes(1);
     const updated = onChange.mock.calls[0][0][0];
     expect(updated.metric).toBe('tps');
@@ -238,8 +254,7 @@ describe('SlaTargetEditor', () => {
   it('changes scope to scenario and shows scenario select', () => {
     const onChange = vi.fn();
     render(<SlaTargetEditor draft={[makeDraft()]} onChange={onChange} {...defaultProps} />);
-    const levelSelect = screen.getByDisplayValue('Aggregate');
-    fireEvent.change(levelSelect, { target: { value: 'scenario' } });
+    selectOption(levelSelectEl(), 'Scenario');
     expect(onChange).toHaveBeenCalledTimes(1);
     const updated = onChange.mock.calls[0][0][0];
     expect(updated.scenarioName).toBe('Login');
@@ -249,8 +264,7 @@ describe('SlaTargetEditor', () => {
   it('changes scope to feature group', () => {
     const onChange = vi.fn();
     render(<SlaTargetEditor draft={[makeDraft()]} onChange={onChange} {...defaultProps} />);
-    const levelSelect = screen.getByDisplayValue('Aggregate');
-    fireEvent.change(levelSelect, { target: { value: 'feature' } });
+    selectOption(levelSelectEl(), 'Feature Group');
     const updated = onChange.mock.calls[0][0][0];
     expect(updated.featureGroupName).toBe('Auth');
     expect(updated.scenarioName).toBeUndefined();
@@ -260,8 +274,7 @@ describe('SlaTargetEditor', () => {
     const onChange = vi.fn();
     const draft = [makeDraft({ scenarioName: 'Login' })];
     render(<SlaTargetEditor draft={draft} onChange={onChange} {...defaultProps} />);
-    const levelSelect = screen.getByDisplayValue('Scenario');
-    fireEvent.change(levelSelect, { target: { value: 'aggregate' } });
+    selectOption(levelSelectEl(), 'Aggregate');
     const updated = onChange.mock.calls[0][0][0];
     expect(updated.scenarioName).toBeUndefined();
     expect(updated.featureGroupName).toBeUndefined();
@@ -271,38 +284,35 @@ describe('SlaTargetEditor', () => {
     const draft = [makeDraft({ scenarioName: 'Login' })];
     render(<SlaTargetEditor draft={draft} onChange={vi.fn()} {...defaultProps} />);
     // The scenario select should display with Login as current value
-    expect(screen.getByDisplayValue('Login')).toBeTruthy();
+    expect(getCustomSelectValue(nameSelectEl())).toBe('Login');
   });
 
   it('changes scenario name', () => {
     const onChange = vi.fn();
     const draft = [makeDraft({ scenarioName: 'Login' })];
     render(<SlaTargetEditor draft={draft} onChange={onChange} {...defaultProps} />);
-    const scenarioSelect = screen.getByDisplayValue('Login');
-    fireEvent.change(scenarioSelect, { target: { value: 'Search' } });
+    selectOption(nameSelectEl(), 'Search');
     expect(onChange.mock.calls[0][0][0].scenarioName).toBe('Search');
   });
 
   it('shows feature group dropdown for feature-scoped target', () => {
     const draft = [makeDraft({ featureGroupName: 'Auth' })];
     render(<SlaTargetEditor draft={draft} onChange={vi.fn()} {...defaultProps} />);
-    expect(screen.getByDisplayValue('Auth')).toBeTruthy();
+    expect(getCustomSelectValue(nameSelectEl())).toBe('Auth');
   });
 
   it('changes feature group name', () => {
     const onChange = vi.fn();
     const draft = [makeDraft({ featureGroupName: 'Auth' })];
     render(<SlaTargetEditor draft={draft} onChange={onChange} {...defaultProps} />);
-    const fgSelect = screen.getByDisplayValue('Auth');
-    fireEvent.change(fgSelect, { target: { value: 'Catalog' } });
+    selectOption(nameSelectEl(), 'Catalog');
     expect(onChange.mock.calls[0][0][0].featureGroupName).toBe('Catalog');
   });
 
   it('does not show feature group option when no featureGroupNames', () => {
     render(<SlaTargetEditor draft={[makeDraft()]} onChange={vi.fn()} {...defaultProps} featureGroupNames={[]} />);
-    const levelSelect = screen.getByDisplayValue('Aggregate');
-    const options = Array.from(levelSelect.querySelectorAll('option'));
-    expect(options.map(o => o.value)).not.toContain('feature');
+    const labels = getCustomSelectOptionLabels(levelSelectEl());
+    expect(labels).not.toContain('Feature Group');
   });
 
   it('shows validation errors inline', () => {
@@ -343,20 +353,19 @@ describe('SlaTargetEditor', () => {
       />
     );
     // Feature Group option should not appear
-    const levelSelect = screen.getByDisplayValue('Aggregate');
-    expect(levelSelect.querySelectorAll('option').length).toBe(2); // Aggregate + Scenario only
+    expect(getCustomSelectOptionLabels(levelSelectEl())).toHaveLength(2);
   });
 
   it('includes custom scenario name not in scenarioNames list', () => {
     const draft = [makeDraft({ scenarioName: 'CustomScenario' })];
     render(<SlaTargetEditor draft={draft} onChange={vi.fn()} {...defaultProps} scenarioNames={['Login', 'Signup']} />);
-    expect(screen.getByDisplayValue('CustomScenario')).toBeTruthy();
+    expect(getCustomSelectValue(nameSelectEl())).toBe('CustomScenario');
   });
 
   it('includes custom feature group name not in featureGroupNames list', () => {
     const draft = [makeDraft({ featureGroupName: 'CustomFG' })];
     render(<SlaTargetEditor draft={draft} onChange={vi.fn()} {...defaultProps} featureGroupNames={['Auth', 'API']} />);
-    expect(screen.getByDisplayValue('CustomFG')).toBeTruthy();
+    expect(getCustomSelectValue(nameSelectEl())).toBe('CustomFG');
   });
 
   it('renders label input with existing label value', () => {
@@ -377,8 +386,7 @@ describe('SlaTargetEditor', () => {
     const onChange = vi.fn();
     const draft = [makeDraft({ featureGroupName: 'Auth' })];
     render(<SlaTargetEditor draft={draft} onChange={onChange} {...defaultProps} featureGroupNames={['Auth']} />);
-    const levelSelect = screen.getByDisplayValue('Feature Group');
-    fireEvent.change(levelSelect, { target: { value: 'scenario' } });
+    selectOption(levelSelectEl(), 'Scenario');
     const updated = onChange.mock.calls[0][0][0];
     expect(updated.scenarioName).toBe('Login');
     expect(updated.featureGroupName).toBeUndefined();
@@ -396,22 +404,20 @@ describe('SlaTargetEditor', () => {
     expect(container.querySelector('.sla-editor-table')).toBeTruthy();
   });
 
-  it('clears scenario name to undefined when select is emptied', () => {
+  it('clears scenario name to undefined when scope returns to aggregate', () => {
     const onChange = vi.fn();
     const draft = [makeDraft({ scenarioName: 'Login' })];
     render(<SlaTargetEditor draft={draft} onChange={onChange} {...defaultProps} />);
-    const scenarioSelect = screen.getByDisplayValue('Login');
-    fireEvent.change(scenarioSelect, { target: { value: '' } });
+    selectOption(levelSelectEl(), 'Aggregate');
     const updated = onChange.mock.calls[0][0][0];
     expect(updated.scenarioName).toBeUndefined();
   });
 
-  it('clears feature group name to undefined when select is emptied', () => {
+  it('clears feature group name to undefined when scope returns to aggregate', () => {
     const onChange = vi.fn();
     const draft = [makeDraft({ featureGroupName: 'Auth' })];
     render(<SlaTargetEditor draft={draft} onChange={onChange} {...defaultProps} featureGroupNames={['Auth']} />);
-    const fgSelect = screen.getByDisplayValue('Auth');
-    fireEvent.change(fgSelect, { target: { value: '' } });
+    selectOption(levelSelectEl(), 'Aggregate');
     const updated = onChange.mock.calls[0][0][0];
     expect(updated.featureGroupName).toBeUndefined();
   });
@@ -422,11 +428,9 @@ describe('SlaTargetEditor', () => {
     const { container } = render(
       <SlaTargetEditor draft={draft} onChange={vi.fn()} {...defaultProps} scenarioNames={['Login', 'Signup']} />
     );
-    const options = container.querySelectorAll('.sla-name-select option');
-    const values = Array.from(options).map(o => (o as HTMLOptionElement).value);
-    // Should have Login once (not twice), plus Signup
-    expect(values.filter(v => v === 'Login').length).toBe(1);
-    expect(values).toContain('Signup');
+    const labels = getCustomSelectOptionLabels(nameSelectEl());
+    expect(labels.filter(v => v === 'Login').length).toBe(1);
+    expect(labels).toContain('Signup');
   });
 
   it('deduplicates feature group name in dropdown options', () => {
@@ -434,10 +438,9 @@ describe('SlaTargetEditor', () => {
     const { container } = render(
       <SlaTargetEditor draft={draft} onChange={vi.fn()} {...defaultProps} featureGroupNames={['Auth', 'API']} />
     );
-    const options = container.querySelectorAll('.sla-fg-select option');
-    const values = Array.from(options).map(o => (o as HTMLOptionElement).value);
-    expect(values.filter(v => v === 'Auth').length).toBe(1);
-    expect(values).toContain('API');
+    const labels = getCustomSelectOptionLabels(nameSelectEl());
+    expect(labels.filter(v => v === 'Auth').length).toBe(1);
+    expect(labels).toContain('API');
   });
 
   it('renders metric without unit (errorRate has % unit)', () => {
@@ -463,8 +466,7 @@ describe('SlaTargetEditor', () => {
     const { container } = render(
       <SlaTargetEditor draft={[makeDraft()]} onChange={onChange} {...defaultProps} scenarioNames={[]} />
     );
-    const levelSelect = container.querySelector('.sla-level-select') as HTMLSelectElement;
-    fireEvent.change(levelSelect, { target: { value: 'scenario' } });
+    selectOption(levelSelectEl(), 'Scenario');
     const updated = onChange.mock.calls[0][0][0];
     expect(updated.scenarioName).toBe('');
   });

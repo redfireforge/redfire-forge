@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import { selectOptionByTestId, getCustomSelectOptionLabels } from '../../../../test-utils/customSelectHelper';
 import GrpcWorkflowCallTargetFields from './GrpcWorkflowCallTargetFields';
 
 const reflectNow = vi.fn(async () => {});
@@ -177,13 +178,13 @@ describe('GrpcWorkflowCallTargetFields', () => {
 
     const service = screen.getByTestId('grpc-test-service');
     const method = screen.getByTestId('grpc-test-method');
-    expect(service.tagName).toBe('SELECT');
-    expect(method.tagName).toBe('SELECT');
+    expect(service.querySelector('.cs-trigger')).toBeTruthy();
+    expect(method.querySelector('.cs-trigger')).toBeTruthy();
 
-    fireEvent.change(service, { target: { value: 'pkg.Greeter' } });
+    selectOptionByTestId('grpc-test-service', 'pkg.Greeter');
     expect(onChange).toHaveBeenCalled();
 
-    fireEvent.change(method, { target: { value: 'SayHello' } });
+    selectOptionByTestId('grpc-test-method', 'SayHello');
     expect(onChange).toHaveBeenCalled();
   });
 
@@ -243,9 +244,7 @@ describe('GrpcWorkflowCallTargetFields', () => {
       onChange,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-test-connection-profile'), {
-      target: { value: 'local-echo' },
-    });
+    selectOptionByTestId('grpc-test-connection-profile', 'Local Echo');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       connectionId: 'local-echo',
       target: 'custom:50051',
@@ -262,7 +261,8 @@ describe('GrpcWorkflowCallTargetFields', () => {
 
   it('renders profile option label when profile target is empty', () => {
     renderComponent({ target: '127.0.0.1:50051', descriptorKey: '', service: '', method: '' });
-    expect(screen.getByText('No Target (no target)')).toBeTruthy();
+    const labels = getCustomSelectOptionLabels(screen.getByTestId('grpc-test-connection-profile'));
+    expect(labels).toContain('No Target (no target)');
   });
 
   it('updates connection profile from the paired row', () => {
@@ -272,9 +272,7 @@ describe('GrpcWorkflowCallTargetFields', () => {
       onChange,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-test-connection-profile'), {
-      target: { value: 'local-echo' },
-    });
+    selectOptionByTestId('grpc-test-connection-profile', 'Local Echo');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       connectionId: 'local-echo',
       target: 'localhost:50051',
@@ -324,9 +322,7 @@ describe('GrpcWorkflowCallTargetFields', () => {
       onChange,
     );
 
-    fireEvent.change(screen.getByTestId('grpc-test-connection-profile'), {
-      target: { value: '' },
-    });
+    selectOptionByTestId('grpc-test-connection-profile', 'Custom target');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({
       connectionId: undefined,
     }));

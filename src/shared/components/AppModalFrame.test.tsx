@@ -119,7 +119,7 @@ describe('AppModalFrame', () => {
 
   it('applies closeButtonClassName to the icon close button', () => {
     render(
-      <AppModalFrame title="T" onClose={vi.fn()} closeButtonClassName="icon-extra">
+      <AppModalFrame title="T" onClose={vi.fn()} closeButtonKind="icon" closeButtonClassName="icon-extra">
         B
       </AppModalFrame>,
     );

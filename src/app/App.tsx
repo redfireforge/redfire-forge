@@ -64,6 +64,7 @@ import { useDemoWorkflowBridge } from './hooks/useDemoWorkflowBridge';
 import { useDemoWorkspaceDefaultsBridge } from './hooks/useDemoWorkspaceDefaultsBridge';
 import { useDemoHarnessBridge } from './hooks/useDemoHarnessBridge';
 import { useDemoCatalogBridge } from './hooks/useDemoCatalogBridge';
+import { useDemoRequestsBridge } from './hooks/useDemoRequestsBridge';
 import { RustExecutorTestPanel } from './rustExecutorDevPanel';
 
 const DemoShellHost = lazy(() =>
@@ -85,7 +86,7 @@ export default function App() {
     initialTheme,
   } = useProjects();
   useDemoWorkspaceDefaultsBridge(setWorkspaceDefaults);
-  useDemoHarnessBridge(environments, microservices, setEnvironments, setMicroservices);
+  useDemoHarnessBridge(environments, microservices, setEnvironments, setMicroservices, setFeatureGroups);
 
   const [sidebarView, setSidebarView] = useState<'env' | 'svc'>('env');
 
@@ -93,6 +94,7 @@ export default function App() {
   const reqTabs = useRequestTabCoordinator(wb);
   const catalog = useCatalog();
   useDemoCatalogBridge(catalog, DEMO_HUB_ENABLED);
+  useDemoRequestsBridge(wb, DEMO_HUB_ENABLED);
   const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
   const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
   const wfHook = useWorkflows();

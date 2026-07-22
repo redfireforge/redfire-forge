@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import '@testing-library/jest-dom/vitest';
 import { WebSocketSchemaPanel } from './WebSocketSchemaPanel';
 import type { WsSchemaDefinition } from './wsSchemaTypes';
@@ -161,7 +162,7 @@ describe('WebSocketSchemaPanel', () => {
     const onAdd = vi.fn(() => ({ ok: true }));
     render(<WebSocketSchemaPanel {...defaultProps} onAddSchema={onAdd} />);
     fireEvent.click(screen.getByTestId('ws-schema-add-btn'));
-    fireEvent.change(screen.getByTestId('ws-schema-direction-select'), { target: { value: 'sent' } });
+    selectOption(screen.getByTestId('ws-schema-direction-select'), 'Sent');
     fireEvent.change(screen.getByTestId('ws-schema-name-input'), { target: { value: 'Sent Schema' } });
     fireEvent.change(screen.getByTestId('ws-schema-textarea'), { target: { value: '{"type":"object"}' } });
     fireEvent.click(screen.getByTestId('ws-schema-save-btn'));

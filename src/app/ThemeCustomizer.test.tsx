@@ -29,13 +29,15 @@ describe('ThemeCustomizer — base rendering', () => {
     const { container } = setup('light');
     expect(container.querySelector('.tc-panel')).toBeTruthy();
     expect(container.querySelector('.tc-section-label')?.textContent).toBe('Base Theme');
-    expect((container.querySelector('.tc-base-select') as HTMLSelectElement).value).toBe('light');
+    const baseTrigger = container.querySelector('.tc-base-select .cs-trigger .cs-text');
+    expect(baseTrigger?.textContent).toBe('Light');
     expect(screen.queryByText('My Themes')).toBeNull();
   });
 
   it('treats the literal "custom" theme as a dark base', () => {
     const { container } = setup('custom');
-    expect((container.querySelector('.tc-base-select') as HTMLSelectElement).value).toBe('dark');
+    const baseTrigger = container.querySelector('.tc-base-select .cs-trigger .cs-text');
+    expect(baseTrigger?.textContent).toBe('Dark');
   });
 
   it('loads an existing saved custom theme for editing', () => {
@@ -49,7 +51,8 @@ describe('ThemeCustomizer — base rendering', () => {
     persistSavedThemes([saved]);
     const { container } = setup('custom:abc');
     expect(screen.getByText('My Themes')).toBeTruthy();
-    expect((container.querySelector('.tc-base-select') as HTMLSelectElement).value).toBe('steel');
+    const baseText = container.querySelector('.tc-base-select .cs-trigger .cs-text');
+    expect(baseText?.textContent).toBe('Steel');
     expect((container.querySelector('.tc-name-input') as HTMLInputElement).value).toBe('Sunset');
     // editing → "+ New" button is visible
     expect(screen.getByTitle('Save as new theme')).toBeTruthy();
@@ -90,9 +93,11 @@ describe('ThemeCustomizer — base & contrast', () => {
     const firstInput = container.querySelector('.tc-color-input') as HTMLInputElement;
     fireEvent.change(firstInput, { target: { value: '#abcdef' } });
     expect(container.querySelector('.tc-color-row.modified')).toBeTruthy();
-    const select = container.querySelector('.tc-base-select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'frost' } });
-    expect(select.value).toBe('frost');
+    const baseTrigger = container.querySelector('.tc-base-select .cs-trigger')!;
+    fireEvent.click(baseTrigger);
+    fireEvent.click(screen.getByText('Frost'));
+    const baseText = container.querySelector('.tc-base-select .cs-trigger .cs-text');
+    expect(baseText?.textContent).toBe('Frost');
     expect(container.querySelector('.tc-color-row.modified')).toBeNull();
   });
 
@@ -188,7 +193,8 @@ describe('ThemeCustomizer — saved theme management', () => {
     seed();
     const { container } = setup('dark');
     fireEvent.click(screen.getByText('Beta'));
-    expect((container.querySelector('.tc-base-select') as HTMLSelectElement).value).toBe('light');
+    const baseText = container.querySelector('.tc-base-select .cs-trigger .cs-text');
+    expect(baseText?.textContent).toBe('Light');
     expect((container.querySelector('.tc-name-input') as HTMLInputElement).value).toBe('Beta');
   });
 

@@ -9,6 +9,7 @@ import ScriptTemplateGallery from './ScriptTemplateGallery';
 import ScriptLibraryManager from './ScriptLibraryManager';
 import ScriptTestResult from './ScriptTestResult';
 import { SCRIPT_MODE_OPTIONS, useScriptTest } from './useScriptTest';
+import { CustomSelect } from '../../../../shared/components/CustomSelect';
 import { saveScriptLibraries } from '../../engine/scriptLibraries';
 import type { ScriptTemplate } from '../../engine/scriptTemplates';
 import type { ScriptLibrary } from '../../engine/scriptLibraries';
@@ -100,12 +101,11 @@ export default function ScriptConfig({
 
       <div className="wf-config-field">
         <label>Mode</label>
-        <select
+        <CustomSelect
           value={data.mode}
-          onChange={(e) => onChange({ ...data, mode: e.target.value as import('../../types/workflow').ScriptMode })}
-        >
-          {SCRIPT_MODE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+          onChange={(v) => onChange({ ...data, mode: v as import('../../types/workflow').ScriptMode })}
+          options={SCRIPT_MODE_OPTIONS.map(o => ({ value: o.value, label: o.label }))}
+        />
         <span className="wf-config-hint">
           {SCRIPT_MODE_OPTIONS.find(o => o.value === data.mode)?.description}
         </span>

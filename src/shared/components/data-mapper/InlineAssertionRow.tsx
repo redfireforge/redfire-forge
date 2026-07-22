@@ -1,4 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { CustomSelect } from '../CustomSelect';
 import type { Assertion, ComparisonOperator } from '../../types';
 import {
   ARRAY_ASSERTION_LABELS,
@@ -116,15 +117,13 @@ export default function InlineAssertionRow({
         {meta.icon} {meta.label}
       </span>
       {assertion.type === 'arrayLength' && onUpdate && (
-        <select
+        <CustomSelect
           className="dm-array-assertion-op-select"
           value={assertion.operator}
-          onChange={(e) => onUpdate(globalIndex, { operator: e.target.value as ComparisonOperator } as Partial<Assertion>)}
+          onChange={(v) => onUpdate(globalIndex, { operator: v as ComparisonOperator } as Partial<Assertion>)}
+          options={COMPARISON_OPS.map(op => ({ value: op, label: op }))}
           aria-label="Comparison operator"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {COMPARISON_OPS.map(op => <option key={op} value={op}>{op}</option>)}
-        </select>
+        />
       )}
       {assertion.type === 'arrayLength' && !onUpdate && (
         <span className="dm-array-assertion-op-label">{assertion.operator}</span>

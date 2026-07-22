@@ -3,6 +3,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent, screen } from '@testing-library/react';
+import { selectOption, selectOptionByIndex, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
 import SubWorkflowConfig from './SubWorkflowConfig';
 import type { SubWorkflowNodeData } from '../../types/workflow';
 import type { WorkflowPickerItem } from './SubWorkflowConfig';
@@ -37,14 +38,15 @@ describe('SubWorkflowConfig', () => {
   });
 
   it('renders workflow picker with available workflows', () => {
-    render(<SubWorkflowConfig data={makeData()} onChange={vi.fn()} workflows={sampleWorkflows} />);
+    const { container } = render(<SubWorkflowConfig data={makeData()} onChange={vi.fn()} workflows={sampleWorkflows} />);
+    fireEvent.click(container.querySelector('.cs-trigger')!);
     expect(screen.getByText('Auth Flow')).toBeTruthy();
     expect(screen.getByText('Checkout Flow')).toBeTruthy();
     expect(screen.getByText('Signup Flow')).toBeTruthy();
   });
 
   it('filters out the current workflow from picker', () => {
-    render(
+    const { container } = render(
       <SubWorkflowConfig
         data={makeData()}
         onChange={vi.fn()}
@@ -52,6 +54,7 @@ describe('SubWorkflowConfig', () => {
         currentWorkflowId="wf-2"
       />,
     );
+    fireEvent.click(container.querySelector('.cs-trigger')!);
     expect(screen.getByText('Auth Flow')).toBeTruthy();
     expect(screen.queryByText('Checkout Flow')).toBeNull();
     expect(screen.getByText('Signup Flow')).toBeTruthy();
@@ -59,9 +62,8 @@ describe('SubWorkflowConfig', () => {
 
   it('calls onChange with workflowId and workflowName when workflow is selected', () => {
     const onChange = vi.fn();
-    render(<SubWorkflowConfig data={makeData()} onChange={onChange} workflows={sampleWorkflows} />);
-    const select = screen.getByDisplayValue('— Select workflow —');
-    fireEvent.change(select, { target: { value: 'wf-1' } });
+    const { container } = render(<SubWorkflowConfig data={makeData()} onChange={onChange} workflows={sampleWorkflows} />);
+    selectOption(container, 'Auth Flow');
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ workflowId: 'wf-1', workflowName: 'Auth Flow' }),
     );
@@ -283,14 +285,14 @@ describe('SubWorkflowConfig', () => {
   // ── On-Failure Strategy (E2) ──
 
   it('renders on-child-failure selector with default "fail"', () => {
-    render(<SubWorkflowConfig data={makeData()} onChange={vi.fn()} workflows={sampleWorkflows} />);
-    expect(screen.getByDisplayValue('Fail parent node')).toBeTruthy();
+    const { container } = render(<SubWorkflowConfig data={makeData()} onChange={vi.fn()} workflows={sampleWorkflows} />);
+    expect(getCustomSelectValue(container, 1)).toBe('Fail parent node');
   });
 
   it('calls onChange when on-child-failure is changed to continue', () => {
     const onChange = vi.fn();
-    render(<SubWorkflowConfig data={makeData()} onChange={onChange} workflows={sampleWorkflows} />);
-    fireEvent.change(screen.getByDisplayValue('Fail parent node'), { target: { value: 'continue' } });
+    const { container } = render(<SubWorkflowConfig data={makeData()} onChange={onChange} workflows={sampleWorkflows} />);
+    selectOptionByIndex(container, 1, 'Continue (set __subWorkflowFailed variable)');
     expect(onChange).toHaveBeenCalledWith(expect.objectContaining({ onChildFailure: 'continue' }));
   });
 
@@ -355,7 +357,7 @@ describe('SubWorkflowConfig', () => {
   });
 
   it('shows collection and element variable inputs when multi-instance enabled', () => {
-    render(
+    const { container } = render(
       <SubWorkflowConfig
         data={makeData({ multiInstance: { collection: '{{users}}', elementVariable: 'user', mode: 'sequential' } })}
         onChange={vi.fn()}
@@ -364,7 +366,7 @@ describe('SubWorkflowConfig', () => {
     );
     expect(screen.getByDisplayValue('{{users}}')).toBeTruthy();
     expect(screen.getByDisplayValue('user')).toBeTruthy();
-    expect(screen.getByDisplayValue('Sequential')).toBeTruthy();
+    expect(getCustomSelectValue(container, 2)).toBe('Sequential');
   });
 
   it('toggles multi-instance execution mode to parallel', () => {
@@ -373,9 +375,7 @@ describe('SubWorkflowConfig', () => {
       multiInstance: { collection: '{{u}}', elementVariable: 'item', mode: 'sequential' },
     });
     const { container } = render(<SubWorkflowConfig data={data} onChange={onChange} workflows={sampleWorkflows} />);
-    const selects = container.querySelectorAll('select');
-    const modeSelect = Array.from(selects).find(s => s.value === 'sequential') as HTMLSelectElement;
-    fireEvent.change(modeSelect, { target: { value: 'parallel' } });
+    selectOptionByIndex(container, 2, 'Parallel');
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         multiInstance: expect.objectContaining({ mode: 'parallel' }),
@@ -436,17 +436,10 @@ describe('SubWorkflowConfig', () => {
     );
   });
 
-  it('sets empty workflowName when selecting id not in list', () => {
-    const onChange = vi.fn();
-    render(<SubWorkflowConfig data={makeData({ workflowId: '' })} onChange={onChange} workflows={sampleWorkflows} />);
-    const select = screen.getByDisplayValue('— Select workflow —') as HTMLSelectElement;
-    const opt = document.createElement('option');
-    opt.value = 'missing-id';
-    opt.text = 'Ghost';
-    select.appendChild(opt);
-    fireEvent.change(select, { target: { value: 'missing-id' } });
-    expect(onChange).toHaveBeenCalledWith(
-      expect.objectContaining({ workflowId: 'missing-id', workflowName: '' }),
+  it('shows placeholder when workflowId is not in available list', () => {
+    const { container } = render(
+      <SubWorkflowConfig data={makeData({ workflowId: 'missing-id' })} onChange={vi.fn()} workflows={sampleWorkflows} />,
     );
+    expect(getCustomSelectValue(container)).toBe('— Select workflow —');
   });
 });

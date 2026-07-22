@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import React, { useState } from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { selectOption } from '../../test-utils/customSelectHelper';
 import SettingsPage from './SettingsModal';
 import type { GlobalAuthProfile, AuthType } from '../../shared/types';
 
@@ -209,8 +210,7 @@ describe('SettingsPage — auth type fields', () => {
 
   it('changes the auth type and logs the update', () => {
     openConfig([makeProfile('p1', 'a', 'none')]);
-    const select = document.querySelector('.auth-type-select select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'bearer' } });
+    selectOption(document.querySelector('.auth-type-select')!, 'Bearer Token');
     expect(mUpdated).toHaveBeenCalledWith('a', 'p1', [
       { field: 'type', oldValue: 'none', newValue: 'bearer' },
     ]);
@@ -218,8 +218,7 @@ describe('SettingsPage — auth type fields', () => {
 
   it('does not log when the selected type is unchanged', () => {
     openConfig([makeProfile('p1', 'a', 'bearer')]);
-    const select = document.querySelector('.auth-type-select select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'bearer' } });
+    selectOption(document.querySelector('.auth-type-select')!, 'Bearer Token');
     expect(mUpdated).not.toHaveBeenCalled();
   });
 
@@ -407,8 +406,7 @@ describe('SettingsPage — verify auth', () => {
     ]} />);
     const configureButtons = screen.getAllByRole('button', { name: 'Configure' });
     fireEvent.click(configureButtons[0]);
-    const select = document.querySelector('.auth-type-select select') as HTMLSelectElement;
-    fireEvent.change(select, { target: { value: 'basic' } });
+    selectOption(document.querySelector('.auth-type-select')!, 'Basic Auth');
     fireEvent.click(screen.getAllByRole('button', { name: 'Collapse' })[0]);
     expect(screen.getByText('BEARER')).toBeTruthy();
   });
