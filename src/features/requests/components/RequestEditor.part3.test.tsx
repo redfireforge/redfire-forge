@@ -498,7 +498,7 @@ describe('RequestEditor interaction branches', () => {
       />,
     );
 
-    const left = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const left = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(left).getByRole('button', { name: /^Headers\b/ }));
 
     fireEvent.click(within(left).getByTestId('req-headers-add-btn'));

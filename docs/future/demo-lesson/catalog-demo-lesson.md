@@ -31,7 +31,7 @@ The existing 4 lessons (CAT-1 through CAT-4) leave major Catalog features uncove
 | **Version Restore** | ❌ Not covered |
 | **Auth panel (Authorize)** | ❌ Not covered |
 | **Verify Auth** | ❌ Not covered |
-| **Save as Test (after 2xx)** | ❌ Not covered |
+| **Send to Harness (after 2xx)** | ✅ CAT-2 steps 4–5 |
 | **Export to Requests — full walkthrough** | ❌ Incomplete (env table, custom names, sample toggles, target group, preview tree) |
 | **Edit / Microservice linking** | ❌ Not covered |
 
@@ -57,10 +57,10 @@ The existing lessons also have structural issues:
 | # | ID | Title | Steps | Est. Time | Key Features Covered |
 |---|---|---|---|---|---|
 | CAT-1 | `cat-import-browse` | Import & Explore Your API | 4 | 4 min | Import (Gallery), Overview tab, Browse endpoints, Filter |
-| CAT-2 | `cat-try-execute` | Live API Execution | 5 | 5 min | Host Strategy, Try It Out (POST + GET), Auth panel, cURL |
-| CAT-3 | `cat-export-requests` | Export to Requests | 5 | 5 min | Single export, Export tab walkthrough, Envs/names/preview, Coverage badges, Send to Harness |
+| CAT-2 | `cat-try-execute` | Live API Execution | 7 | 8 min | Host Strategy, Try It Out (POST + GET), Send to Harness Target + Options, Auth panel, cURL |
+| CAT-3 | `cat-export-requests` | Export to Requests | 7 | 7 min | Single export, Export tab walkthrough, Envs/names/preview, Coverage badges, Send to Harness (full modal), Expose to Workflow Preview + Published |
 | CAT-4 | `cat-version-lifecycle` | Version Management & Spec Lifecycle | 5 | 5 min | Export Spec, Re-import/Update, Version History, Compare, Restore |
-| CAT-5 | `cat-convert-openapi` | Convert Swagger 2.0 → OpenAPI 3 | 5 | 4 min | Convert modal, Engine selection, Lint, Prettify, Save as version |
+| CAT-5 | `cat-convert-openapi` | Convert Swagger 2.0 → OpenAPI 3 | 6 | 5 min | Convert modal, Engine selection, Lint, Prettify, Save as version, Batch Convert |
 | **Total** | | | **24** | **~23 min** | |
 
 ---
@@ -106,8 +106,8 @@ CAT-5 additionally seeds a **Swagger 2.0 Petstore** entry.
 | Field | Value |
 |---|---|
 | `id` | `cat-try-execute` |
-| `estimatedMinutes` | 5 |
-| Steps | 5 |
+| `estimatedMinutes` | 8 |
+| Steps | 7 |
 | `initialTab` | `catalog` |
 | `allowedTabs` | `['catalog']` |
 
@@ -117,13 +117,15 @@ CAT-5 additionally seeds a **Swagger 2.0 Petstore** entry.
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `cat2-host` | Host Strategy — Where Requests Go | `CAT.HOST_STRATEGY` | Spotlight the **3 Host Strategy buttons** — **From Spec** (selected, uses spec servers), **Environment** (linked microservice base URLs), **Custom URL** (free-text override). Spotlight each button (800ms each) with description of when to use it. Spotlight the **resolved Base URL** showing the active URL. Click **Custom URL** → spotlight text input → type a URL → spotlight resolved URL change → switch back to **From Spec** |
+| 1 | `cat2-host` | Host Strategy — Where Requests Go | `CAT.HOST_STRATEGY` | Spotlight **From Spec** + server dropdown + Base URL. Click **Environment** → if unlinked, Edit modal opens → spotlight **Microservice** select → pick a service → Save → click Environment again → open env dropdown, spotlight options (env name + base URL), select one → spotlight Base URL change. Click **Custom URL** → type `https://staging.example.com` → spotlight input + Base URL. Switch back to **From Spec**. |
 | 2 | `cat2-try-post` | Try It Out — POST /posts | `CAT.endpointCard('POST', '/posts')` | Expand **POST /posts** → click **Try it out** → spotlight **auto-generated request body** from schema (1200ms, explain schema-based stub generation) → edit body `{"title":"Hello","body":"Demo","userId":1}` → spotlight edited body (600ms) → click **Execute** → spotlight **201 Created** status + timing (1000ms) → spotlight **response body** with generated `id: 101` (800ms) |
 | 3 | `cat2-path-param` | Path Parameters — GET /posts/{id} | `CAT.endpointCard('GET', '/posts/{id}')` | Expand **GET /posts/{id}** → click **Try it out** → spotlight **Parameters table** with `{id}` editable input (1000ms) → fill `id=1` → **Execute** → spotlight **200 OK** response (800ms) → spotlight JSON body with resolved post data |
-| 4 | `cat2-auth` | Authorize Your Requests | `CAT.AUTHORIZE_BTN` | Click **Authorize** → auth panel opens → spotlight **auth type selector** (Inherit from Spec, From Environment, No Auth, Bearer, Basic, API Key — 1200ms) → select **Bearer Token** → spotlight **token input** → fill `demo-token-2024` → spotlight **prefix field** (customizable) → spotlight **Verify Auth** button (explain it tests credentials) → close auth panel |
-| 5 | `cat2-curl` | Copy as cURL | `CAT.CURL_BTN` | On expanded POST /posts → spotlight **cURL** button in execute bar → click → spotlight **cURL preview** with syntax highlighting (1000ms) → spotlight **multiline/single-line toggle** → spotlight **Copy** button → click Copy → close cURL popover |
+| 4 | `cat2-save-test` | Send to Harness — Choose Target | `CAT.SAVE_AS_TEST_BTN` | Click **Send to Harness** → modal opens → spotlight + select **Environment**, **Microservice** → create **Feature Group** + **Test Scenario** with paced highlights → click **Next** |
+| 5 | `cat2-save-options` | Send to Harness — Options | `REQ.HARNESS_MODAL` | Spotlight target breadcrumb + preview card → Auth Mode cards → Validation cards → select **Status 200** → spotlight Confirm → **Cancel** (full confirm covered in Requests lesson) |
+| 6 | `cat2-auth` | Authorize Your Requests | `CAT.AUTHORIZE_BTN` | Click **Authorize** → auth panel opens → spotlight **auth type selector** (Inherit from Spec, From Environment, No Auth, Bearer, Basic, API Key — 1200ms) → select **Bearer Token** → spotlight **token input** → fill `demo-token-2024` → spotlight **prefix field** (customizable) → spotlight **Verify Auth** button (explain it tests credentials) → close auth panel |
+| 7 | `cat2-curl` | Copy as cURL | `CAT.CURL_BTN` | On expanded GET /posts/{id} → spotlight **cURL** button in execute bar → click → spotlight **cURL preview** with syntax highlighting (1000ms) → spotlight **multiline/single-line toggle** → spotlight **Copy** button → click Copy → close cURL popover |
 
-**Cleanup:** Reset host strategy to From Spec. Clear auth. Collapse all cards.
+**Cleanup:** Close harness modal. Reset host strategy to From Spec. Clear auth. Collapse all cards. Delete demo feature groups.
 
 ---
 
@@ -149,7 +151,9 @@ CAT-5 additionally seeds a **Swagger 2.0 Petstore** entry.
 | 2 | `cat3-configure` | Configure Export Options | `CAT.EXPORT_MODAL` | Spotlight **Sample toggle** on the endpoint row (include saved Try It Out values as sample body) → spotlight **preview tree** on the right panel (collection → env folder → method + name hierarchy — 1200ms, explain the tree structure) → confirm export → navigate to Requests tab → spotlight **created collection** (1000ms) → spotlight individual request item (800ms) |
 | 3 | `cat3-bulk-tab` | Bulk Export — The Export Tab | `CAT.EXPORT_TAB` | Return to Catalog → switch to **Export to Requests** tab → spotlight full endpoint table (all 12 endpoints with checkboxes, groups, methods, descriptions, custom names, version badges — 1500ms) → spotlight **Select All** checkbox → deselect a few endpoints → spotlight **version badges** (NEW vs "from v1.0.0" for re-exports) |
 | 4 | `cat3-coverage` | Coverage Badges — IN REQUESTS | `CAT.ENDPOINTS_TAB` | Switch back to Endpoints tab → spotlight **IN REQUESTS** badge on the exported GET /posts endpoint (1000ms) → hover badge → spotlight **coverage popover** showing the collection/folder path (800ms) → explain: click navigates to the request in the Requests workspace |
-| 5 | `cat3-harness` | Send to Harness & Expose to Workflow | `CAT.SEND_TO_HARNESS_BTN` | Expand **POST /posts** with Try It Out active → spotlight **Send to Harness** button (800ms, explain: creates automated test scenario from this endpoint) → spotlight **Expose to Workflow** checkbox (800ms, explain: makes endpoint available in Workflow Designer palette with saved param/body values) → check the checkbox → spotlight confirmation of expose |
+| 5 | `cat3-harness` | Send to Harness | `CAT.SEND_TO_HARNESS_BTN` | Expand **POST /posts** with Try It Out → click **Send to Harness** → modal opens → fill Target cascade (Environment, Microservice, create Feature Group, create Scenario) → Next → spotlight Options (Auth Mode, Validation — select Status 200) → Confirm |
+| 6 | `cat3-expose-preview` | Expose to Workflow — Preview | `CAT.EXPOSE_TO_WORKFLOW` | Expand **POST /posts** → open **Workflow Exposure** → select **Preview** → navigate to **Workflow Designer** → **Catalog** palette → spotlight **POST /posts** (◇ Preview badge) |
+| 7 | `cat3-expose-published` | Expose to Workflow — Published | `CAT.EXPOSE_TO_WORKFLOW` | Return to Catalog → select **Published** → navigate to **Workflow Designer** → **Catalog** palette → spotlight **POST /posts** (📌 Published badge; canvas nodes deselected) |
 
 **Cleanup:** Delete created Request collection. Unexpose workflow endpoints. Close modals.
 
@@ -174,7 +178,7 @@ CAT-5 additionally seeds a **Swagger 2.0 Petstore** entry.
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
 | 1 | `cat4-export-spec` | Export the Original Spec | `CAT.EXPORT_SPEC_BTN` | On the **Overview** tab → spotlight **Export Spec** button (800ms, explain: downloads the original imported YAML/JSON, not a re-serialized version) → click → spec file downloads → spotlight success feedback (800ms) |
-| 2 | `cat4-reimport` | Re-import — Update the Spec | `CAT.REIMPORT_BTN` | Spotlight **Re-import** button on Overview (800ms) → click → import modal opens in **re-import mode** (title shows "Re-import / Update Specification") → spotlight **duplicate detection** (same title match) → paste/load an updated spec with additional endpoints → spotlight preview showing **"will add new version"** message → click **Update** → spotlight updated overview (new endpoint count, version count incremented) |
+| 2 | `cat4-reimport` | Re-import — Update the Spec | `CAT.REIMPORT_BTN` | Spotlight **Re-import** button on Overview (800ms) → click → import modal opens in **re-import mode** (title shows "Re-import / Update Specification") → spotlight **duplicate detection** (same title match) → paste/load an updated spec with additional endpoints → spotlight preview showing **"will add new version"** message → click **Update** → return to Overview (version count / endpoint totals visible; no whole-panel spotlight) |
 | 3 | `cat4-history` | Browse Version History | `CAT.VERSION_HISTORY_BTN` | Click **Version History** on Overview → modal opens → spotlight **version list** (2 entries: original + updated — 1200ms) → spotlight per-version metadata: version label, format badge, CURRENT badge, import timestamp, spec size, changelog → spotlight **checkbox selectors** (for compare) |
 | 4 | `cat4-compare` | Compare Two Versions | `CAT.VERSION_COMPARE_BTN` | Check both version checkboxes → spotlight **Compare** button → click → spotlight **diff summary** badges (+ added, − removed, ~ changed — 1000ms) → spotlight **Added endpoints** section (new endpoints from re-import) → spotlight **Changed endpoints** section (detail bullets: params, body, responses — 1000ms) |
 | 5 | `cat4-restore` | Restore a Previous Version | `CAT.VERSION_RESTORE_BTN` | Spotlight **Restore** button on the original version (800ms) → click Restore → spotlight **confirmation** (original becomes active again) → close history modal → spotlight **Overview** showing restored version's endpoint count and format badge (1000ms, explain: Catalog now shows the original spec, but the updated version is still in history for future reference) |
@@ -190,8 +194,8 @@ CAT-5 additionally seeds a **Swagger 2.0 Petstore** entry.
 | Field | Value |
 |---|---|
 | `id` | `cat-convert-openapi` |
-| `estimatedMinutes` | 4 |
-| Steps | 5 |
+| `estimatedMinutes` | 5 |
+| Steps | 6 |
 | `initialTab` | `catalog` |
 | `allowedTabs` | `['catalog']` |
 
@@ -206,6 +210,7 @@ CAT-5 additionally seeds a **Swagger 2.0 Petstore** entry.
 | 3 | `cat5-lint-search` | Validate & Search | `CAT.CONVERT_SEARCH` | Spotlight **search bar** → search for `openapi: 3.1` → spotlight highlighted match in preview (800ms) → clear search → switch target to **3.0** → click **Deep lint** → spotlight lint results (advisory best-practice rules — 1000ms) → spotlight conversion **warnings** list (1000ms) |
 | 4 | `cat5-prettify` | Prettify the Output | `CAT.CONVERT_PRETTIFY` | Spotlight **Prettify** toggle → click ON → spotlight re-ordered YAML (canonical key order: openapi, info, paths, components — 1000ms) → spotlight **Copy YAML** button (explain: copies prettified output to clipboard) |
 | 5 | `cat5-save` | Save as New Version | `CAT.CONVERT_SAVE_BTN` | Spotlight **Save as new version** button (800ms) → click → modal closes → spotlight **Overview format badge** now showing **OpenAPI 3.0.3** (1200ms) → spotlight **version count** incremented → explain: original Swagger 2.0 preserved in Version History, new OpenAPI 3 is now active |
+| 6 | `cat5-batch` | Batch Convert | `CAT.BATCH_CONVERT_BTN` | Re-seed Swagger 2.0 entry → spotlight **Batch Convert** sidebar button → click → toast confirms conversion → spotlight entry format badge now OpenAPI 3.x |
 
 **Cleanup:** Remove seeded Petstore entry (or restore to Swagger 2.0). Close modals.
 
@@ -249,8 +254,8 @@ Every Catalog feature mapped to its lesson:
 | **Version badges (NEW vs re-export)** | CAT-3 | Step 3 |
 | **Coverage badges — IN REQUESTS** | CAT-3 | Step 4 |
 | **Coverage popover (navigate to request)** | CAT-3 | Step 4 |
-| **Send to Harness** | CAT-3 | Step 5 |
-| **Expose to Workflow** | CAT-3 | Step 5 |
+| **Send to Harness (full modal walkthrough)** | CAT-3 | Step 5 |
+| **Expose to Workflow** | CAT-3 | Step 6 |
 | **Export Original Spec (download)** | CAT-4 | Step 1 |
 | **Re-import / Update** | CAT-4 | Step 2 |
 | **Re-import — duplicate detection** | CAT-4 | Step 2 |
@@ -262,6 +267,7 @@ Every Catalog feature mapped to its lesson:
 | **Added/Removed/Changed endpoint sections** | CAT-4 | Step 4 |
 | **Version Restore** | CAT-4 | Step 5 |
 | **Convert Swagger 2.0 → OpenAPI 3** | CAT-5 | Steps 1-5 |
+| **Batch Convert** | CAT-5 | Step 6 |
 | **Engine selector (swagger2openapi vs Scalar)** | CAT-5 | Step 2 |
 | **Target version selection** | CAT-5 | Step 2 |
 | **Validation badge** | CAT-5 | Step 2 |

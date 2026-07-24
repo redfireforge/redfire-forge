@@ -120,7 +120,7 @@ describe('WorkflowConfigPanel', () => {
     render(<WorkflowConfigPanel {...baseProps} onUpdateNode={onUpdateNode} node={makeNode('http', { label: 'Get' })} />);
     await user.click(screen.getByText('http-change'));
     expect(onUpdateNode).toHaveBeenCalledWith('n1', { label: 'x' });
-    await user.click(screen.getByText('update-Initial variables (this step)'));
+    await user.click(screen.getByText('update-Initial Variables (this step)'));
     expect(onUpdateNode).toHaveBeenCalledWith('n1', { initialVariables: { k: 'v' } });
   });
 

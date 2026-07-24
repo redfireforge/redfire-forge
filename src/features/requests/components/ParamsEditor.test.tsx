@@ -52,7 +52,7 @@ describe('fromParamEntries', () => {
 describe('ParamsEditor', () => {
   it('renders section label and active count badge', () => {
     render(<ParamsEditor params={makeParams()} onChange={vi.fn()} />);
-    expect(screen.getByText('QUERY PARAMETERS')).toBeTruthy();
+    expect(screen.getByText('Query Parameters')).toBeTruthy();
     expect(screen.getByText('2')).toBeTruthy(); // badge for 2 active params
   });
 

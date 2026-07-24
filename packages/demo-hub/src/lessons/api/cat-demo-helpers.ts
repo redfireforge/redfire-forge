@@ -283,7 +283,7 @@ export async function ensureEndpointsView(ctx: DemoActionContext): Promise<void>
 export function collapseAllCards(): void {
   document.querySelectorAll<HTMLElement>('.sw-card .sw-body').forEach(body => {
     const header = body.closest('.sw-card')?.querySelector<HTMLElement>('.sw-header');
-    if (header) header.click();
+    if (header) simulateReactClick(header);
   });
 }
 
@@ -303,13 +303,36 @@ export function closeVersionHistoryIfOpen(): void {
   if (close) close.click();
 }
 
-/** Close the auth panel if open (quiet). */
+/** Close the auth panel if open (quiet — toggles the Authorize button). */
 export function closeAuthPanelIfOpen(): void {
   const panel = document.querySelector<HTMLElement>(CAT.AUTH_PANEL);
   if (!panel) return;
-  const closeBtn = panel.querySelector<HTMLButtonElement>(CAT.AUTH_CLOSE_BTN)
-    ?? panel.querySelector<HTMLButtonElement>('.cat-btn:not(.cat-btn-primary)');
-  if (closeBtn) closeBtn.click();
+  const authorizeBtn = document.querySelector<HTMLButtonElement>(CAT.AUTHORIZE_BTN);
+  if (authorizeBtn) authorizeBtn.click();
+}
+
+/** Close the Catalog Edit (link microservice) modal if open (quiet). */
+export function closeEditModalIfOpen(): void {
+  const modal = document.querySelector<HTMLElement>(CAT.EDIT_MODAL);
+  if (!modal) return;
+  const cancel = document.querySelector<HTMLButtonElement>(CAT.EDIT_CANCEL_BTN);
+  if (cancel) {
+    cancel.click();
+    return;
+  }
+  // Fallback: try the overlay backdrop or dispatch Escape
+  const overlay = document.querySelector<HTMLElement>('.cat-edit-overlay');
+  if (overlay) overlay.click();
+  modal.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+}
+
+/** Reset host strategy to From Spec so later Execute steps hit the live API. */
+export function resetHostStrategyToFromSpec(): void {
+  closeEditModalIfOpen();
+  const fromSpec = document.querySelector<HTMLElement>(CAT.HOST_FROM_SPEC);
+  if (fromSpec && !fromSpec.classList.contains('active')) {
+    fromSpec.click();
+  }
 }
 
 /**
@@ -710,23 +733,30 @@ export async function openVersionHistoryModal(ctx: DemoActionContext): Promise<v
   await ctx.delay(200);
 }
 
+/** Simulate a user click that React 18 event delegation reliably captures. */
+function simulateReactClick(el: HTMLElement): void {
+  el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+}
+
 /** Ensure a specific endpoint card is expanded with Try It Out open. */
 export async function ensureCardTryItOpen(method: string, path: string): Promise<HTMLElement | null> {
-  const card = document.querySelector<HTMLElement>(CAT.endpointCard(method, path));
+  let card = document.querySelector<HTMLElement>(CAT.endpointCard(method, path));
   if (!card) return null;
 
-  // Expand if collapsed
+  // Expand if collapsed — use dispatchEvent for reliable React 18 handling
   if (!card.querySelector('.sw-body')) {
     const header = card.querySelector<HTMLElement>('.sw-header');
-    if (header) header.click();
-    await new Promise(r => setTimeout(r, 400));
+    if (header) simulateReactClick(header);
+    await new Promise(r => setTimeout(r, 500));
+    card = document.querySelector<HTMLElement>(CAT.endpointCard(method, path));
+    if (!card) return null;
   }
 
   // Open Try It Out if not active
   const tryitBtn = card.querySelector<HTMLButtonElement>(CAT.TRYIT_BTN);
   if (tryitBtn && !tryitBtn.classList.contains('cancel')) {
-    tryitBtn.click();
-    await new Promise(r => setTimeout(r, 300));
+    simulateReactClick(tryitBtn);
+    await new Promise(r => setTimeout(r, 400));
   }
 
   return card;
@@ -752,5 +782,6 @@ export async function cleanupDemoCatalog(ctx: DemoActionContext): Promise<void> 
   deleteCatalogEntryByName(DEMO_CATALOG_NAME);
   deleteCollectionsByName(DEMO_CATALOG_NAME);
   deleteCollectionsByName('JSONPlaceholder API');
+  deleteCollectionsByName('JSONPlaceholder API (1.0.0)');
   await ctx.delay(80);
 }

@@ -17,7 +17,7 @@ import { MessageRow } from './WebSocketMessageRow';
 import { useWebSocketFilterPresets } from './useWebSocketFilterPresets';
 import { WebSocketFilterBar } from './WebSocketFilterBar';
 import { WebSocketCompareBanner, WebSocketMessagesStatusBar, WebSocketReplayBar } from './WebSocketMessageLogBars';
-import { CustomSelect } from '../../shared/components/CustomSelect';
+import { WebSocketMessageLogToolbar } from './WebSocketMessageLogToolbar';
 
 const ROW_HEIGHT = 26;
 const VIRTUALIZER_OVERSCAN = 15;
@@ -459,191 +459,48 @@ export function WebSocketMessageLog({
         />
       )}
 
-      {/* Toolbar */}
-      <div className="ws-message-log-toolbar">
-        <div className="ws-message-log-toolbar-row ws-message-log-toolbar-row-search">
-        <div className="ws-search-mode-pills" data-testid="search-mode-pills">
-          {(['text', 'regex', 'jsonpath'] as const).map((mode) => (
-            <button
-              key={mode}
-              className={`ws-search-mode-pill ${searchMode === mode ? 'ws-search-mode-pill-active' : ''}`}
-              onClick={() => setSearchMode(mode)}
-              data-testid={`search-mode-${mode}`}
-              title={mode === 'text' ? 'Text search' : mode === 'regex' ? 'Regex search' : 'JSONPath query'}
-            >
-              {mode === 'text' ? 'Text' : mode === 'regex' ? 'Regex' : 'JSONPath'}
-            </button>
-          ))}
-        </div>
-        <input
-          className={`ws-message-search ${isRegexInvalid ? 'ws-search-invalid' : ''}`}
-          type="text"
-          value={searchText}
-          onChange={handleSearchChange}
-          placeholder={searchMode === 'jsonpath' ? '$.path or $.path=value' : searchMode === 'regex' ? 'regex pattern\u2026' : 'Search messages\u2026'}
-          aria-label="Search messages"
-          data-testid="search-input"
-          title={isRegexInvalid ? 'Invalid regex' : undefined}
-        />
-        {totalCount > 0 && displayMessages.length < totalCount && (
-          <span className="ws-filter-match-counter" data-testid="match-counter">
-            {displayMessages.length} of {totalCount}
-          </span>
-        )}
-        <CustomSelect
-          className="ws-message-direction-filter"
-          value={directionFilter}
-          onChange={(v) => setDirectionFilter(v as WsDirectionFilter)}
-          options={[
-            { value: 'all', label: 'All' },
-            { value: 'sent', label: 'Sent' },
-            { value: 'received', label: 'Received' },
-            {
-              value: 'bookmarked',
-              label: bookmarkCount > 0 ? `Bookmarked (${bookmarkCount})` : 'Bookmarked',
-            },
-          ]}
-          aria-label="Direction filter"
-        />
-        {validationEnabled && hasEnabledSchemas && setValidationFilter && (
-          <CustomSelect
-            className="ws-validation-filter"
-            value={validationFilter}
-            onChange={(v) => setValidationFilter(v as WsValidationFilter)}
-            options={[
-              { value: 'all', label: 'Validation: All' },
-              { value: 'valid', label: 'Valid only' },
-              { value: 'invalid', label: 'Invalid only' },
-            ]}
-            aria-label="Validation filter"
-            data-testid="validation-filter"
-          />
-        )}
-        </div>
-        <div className="ws-message-log-toolbar-row ws-message-log-toolbar-row-actions">
-        <button
-          className={`ws-filter-toggle-btn ${showFilterBar ? 'ws-filter-toggle-active' : ''}`}
-          onClick={() => setShowFilterBar((v) => !v)}
-          data-testid="filter-toggle-btn"
-          title={showFilterBar ? 'Hide filters' : 'Show filters'}
-        >
-          Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-        </button>
-        <button
-          className={`ws-filter-toggle-btn ${compareMode ? 'ws-filter-toggle-active' : ''}`}
-          onClick={toggleCompare}
-          disabled={totalCount < 2}
-          data-testid="compare-btn"
-          title={compareMode ? 'Exit compare mode' : 'Compare two messages'}
-        >
-          Compare
-        </button>
-        {showAuxPanels && onToggleSchemasVisible && (
-          <button
-            className={`ws-filter-toggle-btn ${schemasVisible ? 'ws-filter-toggle-active' : ''}`}
-            onClick={onToggleSchemasVisible}
-            data-testid="schema-toggle-btn"
-            title={schemasVisible ? 'Hide schema panel' : 'Show schema panel'}
-          >
-            Schema{hasEnabledSchemas && validationEnabled ? ' ●' : ''}
-          </button>
-        )}
-        <button
-          className="ws-message-clear-btn"
-          onClick={onClear}
-          disabled={totalCount === 0}
-          data-testid="clear-btn"
-        >
-          Clear
-        </button>
-        <button
-          className="ws-message-export-btn"
-          onClick={handleExportMessages}
-          disabled={allMessages.length === 0}
-          data-testid="export-messages-btn"
-        >
-          Export
-        </button>
-        {showAuxPanels && metrics && (
-          <button
-            className={`ws-stats-toggle-btn ${showStats ? 'ws-stats-toggle-active' : ''}`}
-            onClick={() => setShowStats((v) => !v)}
-            data-testid="stats-toggle-btn"
-            title={showStats ? 'Hide stats' : 'Show stats'}
-          >
-            Stats
-          </button>
-        )}
-        {showAuxPanels && onToggleLoadTest && (
-          <button
-            className={`ws-stats-toggle-btn ${loadTestActive ? 'ws-stats-toggle-active' : ''}`}
-            onClick={onToggleLoadTest}
-            data-testid="load-test-toggle-btn"
-            title={loadTestActive ? 'Hide load test' : 'Show load test'}
-          >
-            Load Test
-          </button>
-        )}
-        {recordingState === 'idle' && !hasLoadedRecording && (
-          <button
-            className="ws-recording-btn"
-            onClick={onStartRecording}
-            data-testid="start-recording-btn"
-            title="Start recording session"
-          >
-            ● Rec
-          </button>
-        )}
-        {recordingState === 'recording' && (
-          <button
-            className="ws-recording-btn ws-recording-active"
-            onClick={onStopRecording}
-            data-testid="stop-recording-btn"
-            title="Stop recording and save"
-          >
-            ■ Stop
-          </button>
-        )}
-        {recordingState === 'idle' && !hasLoadedRecording && (
-          <>
-            <button
-              className="ws-recording-import-btn"
-              onClick={() => recordingFileInputRef.current?.click()}
-              data-testid="import-recording-btn"
-              title="Import recording"
-            >
-              Import
-            </button>
-            <input
-              ref={recordingFileInputRef}
-              type="file"
-              accept=".json,.wsrecording.json"
-              style={{ display: 'none' }}
-              onChange={handleRecordingFileChange}
-              data-testid="recording-file-input"
-            />
-            {importError && (
-              <span className="ws-import-error" data-testid="import-error">{importError}</span>
-            )}
-          </>
-        )}
-        {hasLoadedRecording && recordingState === 'idle' && (
-          <button
-            className="ws-replay-start-btn"
-            onClick={onStartReplay}
-            data-testid="start-replay-btn"
-            title="Start replay"
-          >
-            ▶ Play
-          </button>
-        )}
-        {isMaxReached && (
-          <span className="ws-message-max-reached" data-testid="max-reached">
-            {totalCount}/{maxMessages} — max reached
-          </span>
-        )}
-        </div>
-      </div>
+      <WebSocketMessageLogToolbar
+        searchMode={searchMode}
+        setSearchMode={setSearchMode}
+        searchText={searchText}
+        onSearchChange={handleSearchChange}
+        isRegexInvalid={isRegexInvalid}
+        totalCount={totalCount}
+        displayMessageCount={displayMessages.length}
+        directionFilter={directionFilter}
+        setDirectionFilter={setDirectionFilter}
+        bookmarkCount={bookmarkCount}
+        validationEnabled={validationEnabled}
+        hasEnabledSchemas={hasEnabledSchemas}
+        validationFilter={validationFilter}
+        setValidationFilter={setValidationFilter}
+        showFilterBar={showFilterBar}
+        onToggleFilterBar={() => setShowFilterBar((v) => !v)}
+        activeFilterCount={activeFilterCount}
+        compareMode={compareMode}
+        onToggleCompare={toggleCompare}
+        showAuxPanels={showAuxPanels}
+        onToggleSchemasVisible={onToggleSchemasVisible}
+        schemasVisible={schemasVisible}
+        onClear={onClear}
+        onExportMessages={handleExportMessages}
+        allMessagesCount={allMessages.length}
+        showStats={showStats}
+        onToggleStats={() => setShowStats((v) => !v)}
+        metrics={metrics}
+        onToggleLoadTest={onToggleLoadTest}
+        loadTestActive={loadTestActive}
+        recordingState={recordingState}
+        hasLoadedRecording={hasLoadedRecording}
+        onStartRecording={onStartRecording}
+        onStopRecording={onStopRecording}
+        recordingFileInputRef={recordingFileInputRef}
+        onRecordingFileChange={handleRecordingFileChange}
+        importError={importError}
+        onStartReplay={onStartReplay}
+        isMaxReached={isMaxReached}
+        maxMessages={maxMessages}
+      />
 
       {/* Filter Bar */}
       {showFilterBar && (

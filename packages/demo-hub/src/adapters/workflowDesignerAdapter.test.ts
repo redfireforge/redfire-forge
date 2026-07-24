@@ -15,6 +15,7 @@ import {
   patchDemoWorkflowNodeDataByType,
   patchWorkflowNodeDataByType,
   patchWorkflowByName,
+  syncLiveWorkflowFromPatch,
   removeWorkflowEdge,
   closeWorkflowConfigModal,
   seedNamedWorkflow,
@@ -35,6 +36,7 @@ describe('workflowDesignerAdapter', () => {
     delete w.__wfRemoveEdge;
     delete w.__wfPatchNodeDataByType;
     delete w.__wfPatchWorkflowByName;
+    delete w.__wfSyncLiveWorkflowFromPatch;
     delete w.__wfAddNode;
     delete w.__wfQuickTest;
     delete w.__wfSetConsoleFloatLayout;
@@ -115,6 +117,17 @@ describe('workflowDesignerAdapter', () => {
 
   it('patchWorkflowByName returns false when bridge missing', () => {
     expect(patchWorkflowByName('wf', {})).toBe(false);
+  });
+
+  it('syncLiveWorkflowFromPatch delegates to bridge', () => {
+    const spy = vi.fn(() => true);
+    (window as unknown as Record<string, unknown>).__wfSyncLiveWorkflowFromPatch = spy;
+    expect(syncLiveWorkflowFromPatch('Variables Demo', { variables: { baseUrl: 'x' } })).toBe(true);
+    expect(spy).toHaveBeenCalledWith('Variables Demo', { variables: { baseUrl: 'x' } });
+  });
+
+  it('syncLiveWorkflowFromPatch returns false when bridge missing', () => {
+    expect(syncLiveWorkflowFromPatch('wf', {})).toBe(false);
   });
 
   it('insertWorkflow and addWorkflowNode delegate to bridges', () => {

@@ -406,6 +406,7 @@ export default function WorkflowSidebar({
               {folderTree.map((node) => renderFolderNode(node, 0))}
               {unfiled.length > 0 && (
                 <div
+                  key="unfiled"
                   className={`wf-folder-unfiled ${dropTarget?.type === 'unfiled' ? 'wf-drop-inside' : ''}`}
                   onDragOver={(e) => {
                     e.preventDefault();
@@ -423,6 +424,7 @@ export default function WorkflowSidebar({
               )}
               {unfiled.length === 0 && dragSource && (
                 <div
+                  key="unfiled-drop"
                   className={`wf-folder-unfiled wf-folder-unfiled-drop ${dropTarget?.type === 'unfiled' ? 'wf-drop-inside' : ''}`}
                   onDragOver={(e) => {
                     e.preventDefault();

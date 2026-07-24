@@ -1,9 +1,9 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useMemo } from 'react';
 import { CustomSelect } from '../../shared/components/CustomSelect';
+import KafkaMessageDetailModal from './KafkaMessageDetailModal';
 import type { KafkaTopicDetail } from './useTopicExplorer';
 import type { UseTopicMessageBrowserReturn } from './useTopicMessageBrowser';
 import type { TimeWindow } from './useTopicMessageBrowser';
-import type { KafkaConsumeResultRow } from './types';
 import { valuePreview, exportResultSet } from './kafkaMessageStudioUtils';
 import type { KafkaUiSafeError } from '../../shared/kafka/kafkaClient';
 
@@ -38,6 +38,7 @@ function stateColor(state: string): string {
 
 export function KafkaTopicDetailPanel({ detail, loading, error, browser }: KafkaTopicDetailPanelProps) {
   const [tab, setTab] = useState<DetailTab>('messages');
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const handleConsume = useCallback(() => { void browser.consumeOnce(); }, [browser]);
   const handleLoadMore = useCallback(() => { void browser.loadMore(); }, [browser]);
@@ -45,13 +46,18 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
     if (browser.result) void exportResultSet(browser.result, detail?.name ?? 'topic');
   }, [browser.result, detail?.name]);
 
-  const handleCopyKey = useCallback((msg: KafkaConsumeResultRow) => {
-    if (msg.key) void navigator.clipboard.writeText(msg.key);
-  }, []);
+  const handleCloseDetail = useCallback(() => {
+    browser.selectMessage(null);
+  }, [browser]);
 
-  const handleCopyPayload = useCallback((msg: KafkaConsumeResultRow) => {
-    void navigator.clipboard.writeText(msg.value);
-  }, []);
+  const activeFilterCount = useMemo(() => {
+    let count = 0;
+    if (browser.draft.keyEquals?.trim()) count++;
+    if (browser.draft.headerMatch?.trim()) count++;
+    if (browser.draft.jsonPath?.trim()) count++;
+    if (browser.draft.bodyContains?.trim()) count++;
+    return count;
+  }, [browser.draft.keyEquals, browser.draft.headerMatch, browser.draft.jsonPath, browser.draft.bodyContains]);
 
   if (loading) {
     return (
@@ -103,7 +109,8 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
 
       <div className="kafka-explorer-detail-body">
         {tab === 'messages' && (
-          <div data-testid="detail-messages-tab">
+          <div data-testid="detail-messages-tab" className="td-messages-tab">
+            {/* ── Metrics ── */}
             <div className="kafka-explorer-metrics-row">
               <div className="kafka-explorer-metric-box">
                 <span className="kafka-explorer-metric-label">Partitions</span>
@@ -123,78 +130,93 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
               </div>
             </div>
 
-            <div className="kafka-ms-field-grid">
-              <div className="kafka-ms-field">
-                <label>Time Window</label>
-                <CustomSelect
-                  value={browser.draft.timeWindow}
-                  onChange={(v) => browser.setDraft({ timeWindow: v as TimeWindow })}
-                  options={[
-                    { value: 'latest', label: 'Latest' },
-                    { value: 'last-1h', label: 'Last 1 Hour' },
-                    { value: 'last-24h', label: 'Last 24 Hours' },
-                    { value: 'earliest', label: 'Earliest' },
-                  ]}
-                  aria-label="Time Window"
+            {/* ── Compact browse toolbar ── */}
+            <div className="td-browse-bar">
+              <CustomSelect
+                value={browser.draft.timeWindow}
+                onChange={(v) => browser.setDraft({ timeWindow: v as TimeWindow })}
+                options={[
+                  { value: 'latest', label: 'Latest' },
+                  { value: 'last-1h', label: 'Last 1h' },
+                  { value: 'last-24h', label: 'Last 24h' },
+                  { value: 'earliest', label: 'Earliest' },
+                ]}
+                aria-label="Time Window"
+              />
+              <CustomSelect
+                value={browser.draft.partition}
+                onChange={(v) => browser.setDraft({ partition: v })}
+                options={[
+                  { value: '', label: 'Partition: Any' },
+                  ...detail.partitions.map((p) => ({
+                    value: String(p.partitionId),
+                    label: `Partition ${p.partitionId}`,
+                  })),
+                ]}
+                aria-label="Partition"
+              />
+              <CustomSelect
+                value={browser.draft.sortOrder}
+                onChange={(v) => browser.setDraft({ sortOrder: v as 'asc' | 'desc' })}
+                data-testid="detail-sort-order"
+                options={[
+                  { value: 'asc', label: 'Oldest first' },
+                  { value: 'desc', label: 'Newest first' },
+                ]}
+                aria-label="Sort Order"
+              />
+              <div className="td-max-wrap">
+                <span className="td-max-label">Max</span>
+                <input
+                  type="text"
+                  className="td-max-input"
+                  value={browser.draft.maxMessages}
+                  onChange={(e) => browser.setDraft({ maxMessages: e.target.value })}
+                  title="Max messages to consume"
+                  aria-label="Max messages"
                 />
               </div>
-              <div className="kafka-ms-field">
-                <label>Partition</label>
-                <CustomSelect
-                  value={browser.draft.partition}
-                  onChange={(v) => browser.setDraft({ partition: v })}
-                  options={[
-                    { value: '', label: 'Any' },
-                    ...detail.partitions.map((p) => ({
-                      value: String(p.partitionId),
-                      label: String(p.partitionId),
-                    })),
-                  ]}
-                  aria-label="Partition"
-                />
-              </div>
-            </div>
-            <div className="kafka-ms-field-grid">
-              <div className="kafka-ms-field">
-                <label>Key Match</label>
-                <input type="text" placeholder="exact key" value={browser.draft.keyEquals} onChange={(e) => browser.setDraft({ keyEquals: e.target.value })} />
-              </div>
-              <div className="kafka-ms-field">
-                <label>Header Match</label>
-                <input type="text" placeholder="key=value" value={browser.draft.headerMatch} onChange={(e) => browser.setDraft({ headerMatch: e.target.value })} data-testid="detail-header-match" />
-              </div>
-            </div>
-            <div className="kafka-ms-field-grid">
-              <div className="kafka-ms-field">
-                <label>JSONPath</label>
-                <input type="text" placeholder="$.store.name" value={browser.draft.jsonPath} onChange={(e) => browser.setDraft({ jsonPath: e.target.value })} data-testid="detail-jsonpath" />
-              </div>
-              <div className="kafka-ms-field">
-                <label>JSONPath Expected</label>
-                <input type="text" placeholder="expected value" value={browser.draft.jsonPathEquals} onChange={(e) => browser.setDraft({ jsonPathEquals: e.target.value })} data-testid="detail-jsonpath-expected" />
-              </div>
-            </div>
-            <div className="kafka-ms-field-grid">
-              <div className="kafka-ms-field">
-                <label>Max Messages</label>
-                <input type="text" value={browser.draft.maxMessages} onChange={(e) => browser.setDraft({ maxMessages: e.target.value })} />
-              </div>
-              <div className="kafka-ms-field">
-                <label>Sort Order</label>
-                <CustomSelect
-                  value={browser.draft.sortOrder}
-                  onChange={(v) => browser.setDraft({ sortOrder: v as 'asc' | 'desc' })}
-                  data-testid="detail-sort-order"
-                  options={[
-                    { value: 'asc', label: 'Oldest First' },
-                    { value: 'desc', label: 'Newest First' },
-                  ]}
-                  aria-label="Sort Order"
-                />
-              </div>
+              <button
+                type="button"
+                className={`td-filter-toggle${filtersOpen ? ' td-filter-toggle--open' : ''}${activeFilterCount > 0 ? ' td-filter-toggle--active' : ''}`}
+                onClick={() => setFiltersOpen((o) => !o)}
+                title={filtersOpen ? 'Hide filters' : 'Show filters'}
+                aria-label={filtersOpen ? 'Hide filters' : 'Show filters'}
+              >
+                ⫧ Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+              </button>
             </div>
 
-            <div className="kafka-ms-action-row">
+            {/* ── Collapsible filter section ── */}
+            {filtersOpen && (
+              <div className="td-filter-section">
+                <div className="td-filter-grid">
+                  <div className="td-filter-field">
+                    <label>Key</label>
+                    <input type="text" placeholder="exact key" value={browser.draft.keyEquals} onChange={(e) => browser.setDraft({ keyEquals: e.target.value })} />
+                  </div>
+                  <div className="td-filter-field">
+                    <label>Header</label>
+                    <input type="text" placeholder="key=value" value={browser.draft.headerMatch} onChange={(e) => browser.setDraft({ headerMatch: e.target.value })} data-testid="detail-header-match" />
+                  </div>
+                  <div className="td-filter-field">
+                    <label>JSONPath</label>
+                    <input type="text" placeholder="$.store.name" value={browser.draft.jsonPath} onChange={(e) => browser.setDraft({ jsonPath: e.target.value })} data-testid="detail-jsonpath" />
+                  </div>
+                  <div className="td-filter-field">
+                    <label>Expected</label>
+                    <input type="text" placeholder="expected value" value={browser.draft.jsonPathEquals} onChange={(e) => browser.setDraft({ jsonPathEquals: e.target.value })} data-testid="detail-jsonpath-expected" />
+                  </div>
+                  <div className="td-filter-field td-filter-field--wide">
+                    <label>Body contains</label>
+                    <input type="text" placeholder="search text in body" value={browser.draft.bodyContains} onChange={(e) => browser.setDraft({ bodyContains: e.target.value })} data-testid="detail-body-contains" />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Action row ── */}
+            <div className="td-action-row">
               <button className="kafka-ms-primary-btn" disabled={browser.loading} onClick={handleConsume} data-testid="detail-consume-btn">
                 {browser.loading ? 'Consuming…' : 'Consume Once'}
               </button>
@@ -204,20 +226,21 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
                   <button className="kafka-ms-ghost-btn" onClick={browser.clearResult}>Clear</button>
                 </>
               )}
+              {browser.result !== null && !browser.error && (
+                <span className="td-result-summary">
+                  {browser.messageCount} message{browser.messageCount !== 1 ? 's' : ''}
+                  {browser.timedOut && <span className="kafka-ms-timed-out-badge">timed out</span>}
+                </span>
+              )}
             </div>
 
             {browser.error && (
               <div className="kafka-ms-inline-error">{browser.error.message}</div>
             )}
 
+            {/* ── Results table ── */}
             {browser.result !== null && !browser.error && (
               <div className="kafka-ms-results-zone" data-testid="detail-results">
-                <div className="kafka-ms-results-header">
-                  <span className="kafka-ms-results-count">
-                    {browser.messageCount} message{browser.messageCount !== 1 ? 's' : ''}
-                  </span>
-                  {browser.timedOut && <span className="kafka-ms-timed-out-badge">timed out</span>}
-                </div>
                 {browser.messageCount === 0 ? (
                   <p className="kafka-ms-empty-state">No messages received</p>
                 ) : (
@@ -263,26 +286,10 @@ export function KafkaTopicDetailPanel({ detail, loading, error, browser }: Kafka
             )}
 
             {browser.selectedMessage && (
-              <div className="kafka-ms-detail-pane" data-testid="detail-msg-pane">
-                <div className="kafka-ms-detail-actions">
-                  <button className="kafka-ms-ghost-btn" onClick={() => handleCopyKey(browser.selectedMessage!)} disabled={!browser.selectedMessage.key}>Copy Key</button>
-                  <button className="kafka-ms-ghost-btn" onClick={() => handleCopyPayload(browser.selectedMessage!)}>Copy Value</button>
-                  <button className="kafka-ms-ghost-btn" onClick={() => browser.selectMessage(null)} aria-label="Close detail">✕</button>
-                </div>
-                <pre className="kafka-ms-detail-body">
-                  {(() => { try { return JSON.stringify(JSON.parse(browser.selectedMessage.value), null, 2); } catch { return browser.selectedMessage.value; } })()}
-                </pre>
-                {browser.selectedMessage.headers && Object.keys(browser.selectedMessage.headers).length > 0 && (
-                  <table className="kafka-ms-detail-headers">
-                    <thead><tr><th>Header Key</th><th>Header Value</th></tr></thead>
-                    <tbody>
-                      {Object.entries(browser.selectedMessage.headers).map(([k, v]) => (
-                        <tr key={k}><td>{k}</td><td>{v}</td></tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-              </div>
+              <KafkaMessageDetailModal
+                message={browser.selectedMessage}
+                onClose={handleCloseDetail}
+              />
             )}
           </div>
         )}

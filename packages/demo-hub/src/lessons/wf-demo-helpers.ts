@@ -280,6 +280,12 @@ export async function collapseWfDemoAppSidebar(ctx: DemoActionContext): Promise<
   await ctx.delay(400);
 }
 
+/** Reset palette to Blocks tab — prevents stale CATALOG/REQUESTS from a prior session. */
+export function resetWfPaletteToBlocks(): void {
+  const blocksTab = document.querySelector<HTMLElement>(WF.PAL_TAB_BLOCKS);
+  if (blocksTab && !blocksTab.classList.contains('active')) blocksTab.click();
+}
+
 /** Show the Workflows sidebar (+ New, pick workflow) — only for create/select beats. */
 export async function expandWfDemoAppSidebar(ctx: DemoActionContext): Promise<void> {
   expandAppSidebar();

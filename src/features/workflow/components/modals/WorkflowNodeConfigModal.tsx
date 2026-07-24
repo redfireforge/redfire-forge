@@ -721,7 +721,7 @@ export default function WorkflowNodeConfigModal({
 
             {isHttpWorkflowNode(draftNode) && (
               <VariablesSection
-                title="Initial variables (this step)"
+                title="Initial Variables (this step)"
                 hint="Per-step values override upstream for the same name."
                 variables={(draftNode.data as HttpNodeData).initialVariables ?? {}}
                 onUpdateVariables={(vars) => updateDraft({ initialVariables: vars })}

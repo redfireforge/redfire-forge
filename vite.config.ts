@@ -260,13 +260,29 @@ const pkg = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf-8')
 export default defineConfig({
   plugins: [demoHubRootImportsPlugin(), monacoDevNoisePlugin(), react(), proxyPlugin(), demoLiveGuardPlugin(), docsPlugin()],
   customLogger: createMonacoAwareLogger(),
+  define: {
+    'process.env': '{}',
+    '__dirname': '"/"',
+    '__filename': '"/index.js"',
+    __APP_VERSION__: JSON.stringify(pkg.version),
+  },
   optimizeDeps: {
     include: [
       '@scalar/openapi-upgrader',
       '@scalar/openapi-upgrader/2.0-to-3.0',
       'openapi-format',
       'swagger2openapi',
+      'oas-validator',
     ],
+    rolldownOptions: {
+      transform: {
+        define: {
+          'process.env': '{}',
+          '__dirname': '"/"',
+          '__filename': '"/index.js"',
+        },
+      },
+    },
   },
   resolve: {
     alias: {
@@ -289,6 +305,8 @@ export default defineConfig({
       'node:http': resolve(__dirname, 'src/shims/http-browser.ts'),
       https: resolve(__dirname, 'src/shims/https-browser.ts'),
       'node:https': resolve(__dirname, 'src/shims/https-browser.ts'),
+      url: resolve(__dirname, 'src/shims/url-browser.ts'),
+      'node:url': resolve(__dirname, 'src/shims/url-browser.ts'),
     },
   },
   clearScreen: false,
@@ -334,8 +352,5 @@ export default defineConfig({
   },
   preview: {
     strictPort: true,
-  },
-  define: {
-    __APP_VERSION__: JSON.stringify(pkg.version),
   },
 })

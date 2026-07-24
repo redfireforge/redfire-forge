@@ -2,7 +2,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import { selectOption, selectOptionByIndex, getCustomSelectValue, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 import DataSourceToolbar from './DataSourceToolbar';
 import type { DataSource, SharedDataSource } from '../../../shared/types';
 import { createRef } from 'react';
@@ -79,7 +79,7 @@ describe('DataSourceToolbar', () => {
   describe('basic rendering', () => {
     it('renders DATA SOURCE label', () => {
       render(<DataSourceToolbar {...defaultProps} />);
-      expect(screen.getByText('DATA SOURCE')).toBeInTheDocument();
+      expect(screen.getByText('Data Source')).toBeInTheDocument();
     });
 
     it('shows enabled row count', () => {

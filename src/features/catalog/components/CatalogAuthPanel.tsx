@@ -9,7 +9,7 @@ interface Props {
   onAuthChange: (auth: AuthConfig) => void;
   securitySchemes: Record<string, CatalogSecurityScheme>;
   globalAuthProfiles?: GlobalAuthProfile[];
-  onClose: () => void;
+  onClose?: () => void;
 }
 
 type AuthMode = 'inherit' | 'global' | 'none' | 'bearer' | 'basic' | 'apikey' | 'oauth2';
@@ -34,7 +34,7 @@ function describeScheme(name: string, s: CatalogSecurityScheme): string {
   return parts.join(' ');
 }
 
-export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, globalAuthProfiles = [], onClose }: Props) {
+export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, globalAuthProfiles = [] }: Props) {
   const schemeEntries = useMemo(() => Object.entries(securitySchemes), [securitySchemes]);
   const hasSchemes = schemeEntries.length > 0;
   const hasGlobal = globalAuthProfiles.length > 0;
@@ -278,17 +278,18 @@ export default function CatalogAuthPanel({ auth, onAuthChange, securitySchemes, 
             {authVerifyResult && (
               <div className={`ceb-verify-result ${authVerifyResult.ok ? 'ceb-verify-ok' : 'ceb-verify-fail'}`}>
                 <span className="ceb-verify-icon">{authVerifyResult.ok ? '✓' : '✗'}</span>
-                <div className="ceb-verify-body">
-                  <span className="ceb-verify-msg">{authVerifyResult.message}</span>
-                  {authVerifyResult.detail && <pre className="ceb-verify-detail">{authVerifyResult.detail}</pre>}
-                </div>
+                <span className="ceb-verify-msg">{authVerifyResult.message}</span>
+                {authVerifyResult.detail && <span className="ceb-verify-detail-inline">{authVerifyResult.detail}</span>}
+                <button
+                  className="ceb-verify-close"
+                  onClick={() => setAuthVerifyResult(null)}
+                  aria-label="Dismiss verification result"
+                  data-testid="catalog-verify-close-btn"
+                >✕</button>
               </div>
             )}
           </div>
         )}
-      </div>
-      <div className="ceb-auth-footer">
-        <button type="button" className="btn btn-primary" onClick={onClose} data-testid="catalog-auth-close-btn">Close</button>
       </div>
     </div>
   );

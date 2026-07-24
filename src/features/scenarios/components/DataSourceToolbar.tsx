@@ -76,7 +76,7 @@ export default function DataSourceToolbar({
   return (
     <div className="data-source-toolbar-unified">
       <div className="data-source-toolbar-title">
-        <span className="params-section-label">DATA SOURCE</span>
+        <span className="params-section-label">Data Source</span>
         {linkedSharedDs && (
           <button
             type="button"
