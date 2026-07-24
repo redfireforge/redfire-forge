@@ -239,6 +239,7 @@ const sampleConsumeTemplate: KafkaConsumeTemplate = {
     headerMatch: '',
     jsonPath: '',
     jsonPathEquals: '',
+    bodyContains: '',
   },
 };
 

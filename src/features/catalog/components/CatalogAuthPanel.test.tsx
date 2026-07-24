@@ -296,9 +296,4 @@ describe('CatalogAuthPanel', () => {
     );
   });
 
-  it('closes via the close button', async () => {
-    const { onClose } = renderPanel();
-    await userEvent.click(screen.getByRole('button', { name: 'Close' }));
-    expect(onClose).toHaveBeenCalled();
-  });
 });

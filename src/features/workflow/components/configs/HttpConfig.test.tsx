@@ -11,7 +11,7 @@
 import '@testing-library/jest-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption, getCustomSelectValue } from '../../../../test-utils/customSelectHelper';
+import { selectOption } from '../../../../test-utils/customSelectHelper';
 import HttpConfig from './HttpConfig';
 import { WorkflowService } from '../../types/workflow';
 import { Scenario, KeyValue } from '../../../../shared/types';
@@ -101,7 +101,7 @@ describe('HttpConfig — basic rendering', () => {
 
   it('renders Params tab content when activeTab=url', () => {
     render(<HttpConfig {...defaultProps} activeTab="url" />);
-    expect(screen.getByText('QUERY PARAMETERS')).toBeTruthy();
+    expect(screen.getByText('Query Parameters')).toBeTruthy();
   });
 
   it('renders headers tab content when activeTab=headers', () => {
@@ -301,7 +301,7 @@ describe('HttpConfig — basic rendering', () => {
   it('parses query params from URL', () => {
     const data = makeHttpData({ scenario: makeScenario({ url: '/api/users?page=1&limit=10' }) });
     render(<HttpConfig {...defaultProps} activeTab="url" data={data} />);
-    expect(screen.getByText('QUERY PARAMETERS')).toBeTruthy();
+    expect(screen.getByText('Query Parameters')).toBeTruthy();
   });
 
   it('shows absolute URL as-is in preview', () => {
@@ -367,7 +367,7 @@ describe('HttpConfig — basic rendering', () => {
     const onChange = vi.fn();
     const data = makeHttpData({ scenario: makeScenario({ url: '/api?key=val' }) });
     render(<HttpConfig {...defaultProps} activeTab="url" data={data} onChange={onChange} />);
-    expect(screen.getByText('QUERY PARAMETERS')).toBeTruthy();
+    expect(screen.getByText('Query Parameters')).toBeTruthy();
   });
 
   it('does not show Services hint when services are provided', () => {

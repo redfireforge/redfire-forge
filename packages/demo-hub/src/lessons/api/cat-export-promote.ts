@@ -1,17 +1,18 @@
 /**
  * CAT-3 — Export to Requests
  *
- * 5 steps: export one endpoint from the Try It Out bar → configure the export
+ * 7 steps: export one endpoint from the Try It Out bar → configure the export
  * modal (sample toggle, preview tree, environments, target group) → tour the
  * bulk Export tab with version badges → see coverage badges on exported
- * endpoints → demonstrate Send to Harness and Expose to Workflow (actually
- * clicking them, not just spotlight-only).
+ * endpoints → click Send to Harness and walk through the full modal (target
+ * cascade + options) → expose to Workflow in Preview mode → expose to Workflow
+ * in Published mode (navigates to Workflow Designer palette).
  *
  * This lesson bridges Catalog → Requests → Harness/Workflow — showing the full
  * promotion pipeline from API spec to automated testing.
  */
-import type { DemoLesson } from '../../types';
-import { CAT } from '@shared/selectors';
+import type { DemoLesson, DemoActionContext } from '../../types';
+import { CAT, REQ } from '@shared/selectors';
 import {
   JSONPLACEHOLDER_API_SPEC,
   seedCatalogEntry,
@@ -26,18 +27,106 @@ import {
   spotlightEl,
   waitForSelector,
 } from './cat-demo-helpers';
+import { fillControlledInput } from '../setup-helpers';
+import {
+  cleanupOtherRequestDemoCollections,
+  shrinkAllCollections,
+  ensureCollectionExpanded,
+} from './req-demo-helpers';
+import {
+  ensureSettingsEnvironment,
+  ensureSettingsMicroservice,
+  getDemoBridgeWindow,
+  deselectAllWorkflowNodes,
+  expandAppSidebar,
+  insertWorkflow,
+  deleteWorkflowByName,
+} from '../../adapters';
+import { collapseWfDemoAppSidebar } from '../wf-demo-helpers';
 
 // ─── Constants ──────────────────────────────────────────────────
 
 const DEMO_ENTRY_NAME = 'JSONPlaceholder API';
+const DEMO_ENTRY_NAME_VERSIONED = 'JSONPlaceholder API (1.0.0)';
+const CAT3_ENV_NAME = 'demo';
+const CAT3_SVC_NAME = 'jsonplaceholder';
+const CAT3_SVC_BASE = 'https://jsonplaceholder.typicode.com';
+const CAT3_FG_NAME = 'Catalog Export Tests';
+const CAT3_SCENARIO_NAME = 'Post Operations';
+const CAT3_TEMP_WF_NAME = '_demo_cat3_temp_workflow';
+
+function ensureHarnessTargets(): void {
+  const envId = ensureSettingsEnvironment(CAT3_ENV_NAME);
+  if (envId) ensureSettingsMicroservice(CAT3_SVC_NAME, { [envId]: CAT3_SVC_BASE });
+}
+
+function cleanupDemoFeatureGroups(): void {
+  getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(CAT3_FG_NAME);
+}
+
+async function closeHarnessModalIfOpen(ctx: DemoActionContext): Promise<void> {
+  const modal = document.querySelector(REQ.HARNESS_MODAL);
+  if (!modal) return;
+  const cancel = document.querySelector<HTMLElement>(REQ.HARNESS_CANCEL_BTN)
+    ?? document.querySelector<HTMLElement>('.send-harness-cancel-btn');
+  cancel?.click();
+  await ctx.delay(250);
+}
+
+async function selectCascadeByName(
+  ctx: DemoActionContext, fieldSel: string, matchName: string, holdMs = 1000,
+): Promise<void> {
+  const field = document.querySelector<HTMLElement>(fieldSel);
+  if (!field) return;
+  await spotlightEl(ctx, field, holdMs);
+  const trigger = field.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+  if (!trigger) return;
+  trigger.click();
+  await ctx.delay(450);
+  const items = Array.from(field.querySelectorAll<HTMLButtonElement>('.cascade-dropdown-item:not(.cascade-dropdown-create)'));
+  const match = items.find((i) => {
+    const name = i.querySelector('.cascade-dropdown-item-name')?.textContent?.trim().toLowerCase();
+    return name === matchName.toLowerCase();
+  }) ?? items[0];
+  if (match) {
+    match.scrollIntoView({ block: 'nearest' });
+    await spotlightEl(ctx, match, 900);
+    match.click();
+    await ctx.delay(550);
+  }
+}
+
+async function createCascadeItem(
+  ctx: DemoActionContext, fieldSel: string, newName: string, holdMs = 1000,
+): Promise<void> {
+  const field = document.querySelector<HTMLElement>(fieldSel);
+  if (!field) return;
+  await spotlightEl(ctx, field, holdMs);
+  let input = field.querySelector<HTMLInputElement>('input');
+  if (!input) {
+    const trigger = field.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+    if (trigger) { trigger.click(); await ctx.delay(400); }
+    const createBtn = field.querySelector<HTMLButtonElement>('.cascade-dropdown-create');
+    if (createBtn) { await spotlightEl(ctx, createBtn, 800); createBtn.click(); await ctx.delay(400); }
+    input = field.querySelector<HTMLInputElement>('input');
+  }
+  if (input) {
+    await spotlightEl(ctx, input, 700);
+    fillControlledInput(input, newName);
+    input.blur();
+    await ctx.delay(500);
+  }
+  await spotlightEl(ctx, field, 900);
+}
 
 // ─── Helpers ────────────────────────────────────────────────────
 
 /** Ensure the demo entry exists in the sidebar. Seeds it if missing. */
 async function ensureDemoEntry(): Promise<void> {
+  try { await waitForSelector(CAT.SIDEBAR, 3000); } catch { /* sidebar not mounted yet */ }
   if (document.querySelector(CAT.entryByName(DEMO_ENTRY_NAME))) return;
   await seedCatalogEntry(DEMO_ENTRY_NAME, JSONPLACEHOLDER_API_SPEC);
-  await waitForSelector(CAT.entryByName(DEMO_ENTRY_NAME), 3000);
+  await waitForSelector(CAT.entryByName(DEMO_ENTRY_NAME), 4000);
 }
 
 /** Ensure the demo entry is selected. */
@@ -45,6 +134,195 @@ async function ensureDemoEntrySelected(): Promise<void> {
   await ensureDemoEntry();
   selectCatalogEntryByName(DEMO_ENTRY_NAME);
   await new Promise(r => setTimeout(r, 150));
+}
+
+/**
+ * Quietly force the POST /posts exposure to a specific mode (no spotlight),
+ * so each run of steps 6/7 shows a real, visible transition in `action`.
+ * Exposure persists across replays, so without this the menu selection would
+ * look like a no-op on the second run.
+ */
+async function setExposureQuiet(
+  ctx: DemoActionContext,
+  mode: 'preview' | 'published' | 'none',
+): Promise<void> {
+  const card = document.querySelector<HTMLElement>(CAT.endpointCard('POST', '/posts'));
+  const exposure = card?.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
+  if (!exposure) return;
+  const want = mode === 'none' ? 'Not Exposed' : mode === 'preview' ? 'Preview' : 'Published';
+  const label = exposure.querySelector('.sw-wf-exposure-label')?.textContent?.trim();
+  if (label === want) return;
+
+  const trigger = exposure.querySelector<HTMLButtonElement>('.sw-wf-exposure-trigger');
+  trigger?.click();
+  await ctx.delay(250);
+  const sel = mode === 'none'
+    ? CAT.EXPOSE_OPTION_NONE
+    : mode === 'preview' ? CAT.EXPOSE_OPTION_PREVIEW : CAT.EXPOSE_OPTION_PUBLISHED;
+  document.querySelector<HTMLButtonElement>(sel)?.click();
+  await ctx.delay(250);
+  // Dismiss the un-publish confirmation if it appears (endpoint not wired into a
+  // workflow in the demo, so this is normally a no-op).
+  const paletteOnly = document.querySelector<HTMLButtonElement>('.sw-unpublish-btn--palette');
+  paletteOnly?.click();
+  await ctx.delay(150);
+}
+
+/** Open the Workflow Exposure dropdown and select Preview or Published. */
+async function selectWorkflowExposure(
+  ctx: DemoActionContext,
+  mode: 'preview' | 'published',
+): Promise<boolean> {
+  const cardSel = CAT.endpointCard('POST', '/posts');
+  let postCard = document.querySelector<HTMLElement>(cardSel);
+  if (!postCard) return false;
+  postCard.scrollIntoView({ block: 'center' });
+  await ctx.delay(400);
+
+  // Expand card if collapsed (the preAction should have done this, but
+  // header.click() can miss React state updates in some timing scenarios).
+  if (!postCard.querySelector('.sw-body')) {
+    await ctx.click(`${cardSel} .sw-header`);
+    await ctx.delay(600);
+    postCard = document.querySelector<HTMLElement>(cardSel);
+    if (!postCard?.querySelector('.sw-body')) return false;
+  }
+
+  // Open Try It Out if not active — the exposure dropdown lives in the execute bar
+  const tryitBtn = postCard.querySelector<HTMLButtonElement>(CAT.TRYIT_BTN);
+  if (tryitBtn && !tryitBtn.classList.contains('cancel')) {
+    await ctx.click(`${cardSel} ${CAT.TRYIT_BTN}`);
+    await ctx.delay(600);
+  }
+
+  const execBar = postCard.querySelector<HTMLElement>('.sw-exec-bar');
+  if (execBar) {
+    execBar.scrollIntoView({ block: 'center' });
+    await ctx.delay(400);
+  }
+
+  let exposureEl = postCard.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
+  if (!exposureEl) {
+    try {
+      exposureEl = await waitForSelector(`${cardSel} ${CAT.EXPOSE_TO_WORKFLOW}`, 3000);
+    } catch {
+      return false;
+    }
+  }
+  await spotlightEl(ctx, exposureEl, 1000);
+
+  // Always open the menu and make a visible selection — even if the endpoint
+  // is already on this mode (exposure persists across replays, so skipping the
+  // menu here would make the step look like it does nothing on a second run).
+  const trigger = exposureEl.querySelector<HTMLButtonElement>('.sw-wf-exposure-trigger');
+  if (!trigger) return false;
+  trigger.click();
+  await ctx.delay(700);
+
+  const optionSel = mode === 'preview' ? CAT.EXPOSE_OPTION_PREVIEW : CAT.EXPOSE_OPTION_PUBLISHED;
+  let option = exposureEl.querySelector<HTMLButtonElement>(optionSel);
+  if (!option) {
+    try {
+      option = await waitForSelector(optionSel, 2000) as HTMLButtonElement;
+    } catch {
+      return false;
+    }
+  }
+
+  const menu = exposureEl.querySelector<HTMLElement>('.sw-wf-exposure-menu');
+  if (menu) await spotlightEl(ctx, menu, 900);
+
+  await spotlightEl(ctx, option, 1100);
+  option.click();
+  await ctx.delay(500);
+
+  // Wait for React to commit the new exposure mode onto the trigger label
+  const expected = mode === 'preview' ? 'Preview' : 'Published';
+  const deadline = Date.now() + 2500;
+  while (Date.now() < deadline) {
+    const nextLabel = exposureEl.querySelector('.sw-wf-exposure-label')?.textContent?.trim();
+    if (nextLabel === expected) break;
+    await ctx.delay(100);
+  }
+
+  await spotlightEl(ctx, exposureEl, 1200);
+  return exposureEl.querySelector('.sw-wf-exposure-label')?.textContent?.trim() === expected;
+}
+
+/** Navigate to Workflow Designer → Catalog palette and spotlight POST /posts. */
+async function showExposedEndpointInWorkflowPalette(ctx: DemoActionContext): Promise<void> {
+  ctx.navigateToTab('workflow');
+  await ctx.delay(800);
+
+  // The palette only renders when a workflow is open. Create a temp workflow
+  // if none exists so the Catalog tab with the exposed endpoint is visible.
+  if (!document.querySelector('.wf-palette')) {
+    insertWorkflow({ name: CAT3_TEMP_WF_NAME });
+    await ctx.delay(1200);
+  }
+
+  await collapseWfDemoAppSidebar(ctx);
+  deselectAllWorkflowNodes();
+  await ctx.delay(300);
+
+  const paletteTabs = document.querySelectorAll<HTMLButtonElement>('.wf-palette-tab');
+  for (const tab of paletteTabs) {
+    if (tab.textContent?.trim() === 'Catalog') {
+      await spotlightEl(ctx, tab, 900);
+      tab.click();
+      await ctx.delay(800);
+      break;
+    }
+  }
+
+  const groupHeaders = document.querySelectorAll<HTMLButtonElement>('.wf-palette-group-header');
+  for (const gh of groupHeaders) {
+    if (!gh.textContent?.includes(DEMO_ENTRY_NAME)) continue;
+    gh.scrollIntoView({ block: 'center' });
+    await spotlightEl(ctx, gh, 1000);
+    const parent = gh.closest('.wf-palette-group');
+    if (parent && !parent.querySelector('.wf-palette-children')) {
+      gh.click();
+      await ctx.delay(600);
+    }
+    break;
+  }
+
+  const folderHeaders = document.querySelectorAll<HTMLButtonElement>('.wf-palette-folder-header');
+  for (const fh of folderHeaders) {
+    if (!fh.textContent?.includes('posts')) continue;
+    fh.scrollIntoView({ block: 'nearest' });
+    const folder = fh.closest('.wf-palette-folder');
+    const items = folder?.querySelectorAll('.wf-palette-item');
+    if (!items || items.length === 0) {
+      fh.click();
+      await ctx.delay(600);
+    }
+    break;
+  }
+
+  // Keep focus on the palette item — never leave a canvas node selected
+  deselectAllWorkflowNodes();
+  await ctx.delay(200);
+
+  const byTitle = document.querySelector<HTMLElement>(
+    '.wf-palette-item[title="POST /posts"], .wf-palette-item[title="post /posts"]',
+  );
+  if (byTitle) {
+    byTitle.scrollIntoView({ block: 'center' });
+    await spotlightEl(ctx, byTitle, 2000);
+    return;
+  }
+
+  const paletteItems = document.querySelectorAll<HTMLElement>('.wf-palette-item');
+  for (const item of paletteItems) {
+    const text = item.textContent ?? '';
+    if (text.includes('Create a post') || /POST\s*\/posts/i.test(text)) {
+      item.scrollIntoView({ block: 'center' });
+      await spotlightEl(ctx, item, 2000);
+      break;
+    }
+  }
 }
 
 // ─── Lesson ─────────────────────────────────────────────────────
@@ -57,9 +335,9 @@ export const catExportPromoteLesson: DemoLesson = {
   description:
     'Move API definitions from the Catalog into the Requests workspace — single endpoint export, ' +
     'bulk export with environments, coverage tracking, and integration with Harness and Workflow.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 7,
   initialTab: 'catalog',
-  allowedTabs: ['catalog', 'requests'],
+  allowedTabs: ['catalog', 'requests', 'scenarios', 'workflow', 'environments'],
 
   concept: {
     title: 'From API Spec to Request Collection',
@@ -103,10 +381,16 @@ export const catExportPromoteLesson: DemoLesson = {
   },
 
   setup: async (ctx) => {
-    // Pre-clean orphaned request collections from previous runs
+    expandAppSidebar();
+    deleteWorkflowByName(CAT3_TEMP_WF_NAME);
     deleteCollectionsByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    await ctx.delay(200);
+    await cleanupOtherRequestDemoCollections(ctx);
+    ensureHarnessTargets();
+    await ctx.delay(400);
     ensureCatalogTab(ctx);
-    await ctx.delay(80);
+    await ctx.delay(400);
     await seedCatalogEntry(DEMO_ENTRY_NAME, JSONPLACEHOLDER_API_SPEC);
     await waitForSelector(CAT.entryByName(DEMO_ENTRY_NAME), 3000);
     selectCatalogEntryByName(DEMO_ENTRY_NAME);
@@ -114,11 +398,15 @@ export const catExportPromoteLesson: DemoLesson = {
   },
 
   cleanup: async (ctx) => {
+    await closeHarnessModalIfOpen(ctx);
     closeExportModalIfOpen();
     collapseAllCards();
+    cleanupDemoFeatureGroups();
     deleteCatalogEntryByName(DEMO_ENTRY_NAME);
-    // Remove exported request collections (created in step 2)
     deleteCollectionsByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    deleteWorkflowByName(CAT3_TEMP_WF_NAME);
+    await cleanupOtherRequestDemoCollections(ctx);
     ensureCatalogTab(ctx);
     await ctx.delay(60);
   },
@@ -135,7 +423,6 @@ export const catExportPromoteLesson: DemoLesson = {
         'In the modal, spotlight the **Collection Name** field (pre-filled with the API name ' +
         'and "1 new endpoint" badge), the **Target Group** selector (None, existing groups, or ' +
         '+ New Group), and the **Environments table** with checkboxes per environment.',
-      highlight: CAT.EXPORT_TO_REQ_BTN,
 
       preAction: async (ctx) => {
         ensureCatalogTab(ctx);
@@ -180,6 +467,22 @@ export const catExportPromoteLesson: DemoLesson = {
         } catch { return; }
         await ctx.delay(900);
 
+        // Spotlight the "List all posts" endpoint row — find by exact text match
+        const epTable = document.querySelector('.cat-send-ep-table');
+        if (epTable) {
+          const descCells = epTable.querySelectorAll<HTMLElement>('td.cat-send-ept-desc');
+          for (const cell of descCells) {
+            if (cell.textContent?.trim() === 'List all posts') {
+              const row = cell.closest('tr');
+              if (row instanceof HTMLElement) {
+                row.scrollIntoView({ block: 'nearest' });
+                await spotlightEl(ctx, row, 1200);
+              }
+              break;
+            }
+          }
+        }
+
         // Spotlight the collection name field
         const colNameInput = document.querySelector<HTMLElement>(CAT.EXPORT_COL_NAME);
         if (colNameInput) {
@@ -212,7 +515,6 @@ export const catExportPromoteLesson: DemoLesson = {
         'The **preview tree** on the right panel shows exactly what will be created: ' +
         'collection → environment folder → method + name hierarchy. Confirm the export, ' +
         'then watch the app navigate to the **Requests** tab showing the created collection.',
-      highlight: CAT.EXPORT_MODAL,
 
       preAction: async (ctx) => {
         ensureCatalogTab(ctx);
@@ -250,13 +552,45 @@ export const catExportPromoteLesson: DemoLesson = {
         if (confirmBtn && !confirmBtn.hasAttribute('disabled')) {
           await spotlightEl(ctx, confirmBtn, 900);
           confirmBtn.click();
-          // App navigates to Requests tab — viewer sees created collection
           await ctx.delay(1500);
 
-          // Spotlight the created request in the Requests workspace
-          const reqItem = document.querySelector<HTMLElement>('[data-testid="request-item"]');
-          if (reqItem) {
-            await spotlightEl(ctx, reqItem, 1200);
+          // Collapse all collections so the exported one stands out
+          await shrinkAllCollections();
+          await ctx.delay(600);
+
+          // Expand the exported collection (versioned name from export)
+          const expanded = await ensureCollectionExpanded(ctx, DEMO_ENTRY_NAME_VERSIONED);
+          if (!expanded) await ensureCollectionExpanded(ctx, DEMO_ENTRY_NAME);
+          await ctx.delay(600);
+
+          // Expand sub-folders (e.g. "Production") inside the collection
+          const colEl = document.querySelector<HTMLElement>(`[data-col-name="${DEMO_ENTRY_NAME_VERSIONED}"]`)
+            ?? document.querySelector<HTMLElement>(`[data-col-name="${DEMO_ENTRY_NAME}"]`);
+          const colGroup = colEl?.closest('.req-col-group');
+          if (colGroup) {
+            const folders = colGroup.querySelectorAll<HTMLElement>('.req-folder-header');
+            for (const folder of folders) {
+              const folderGroup = folder.closest('.req-folder-group');
+              const reqList = folderGroup?.querySelector('.req-req-list');
+              if (!reqList || reqList.getBoundingClientRect().height === 0) {
+                folder.click();
+                await ctx.delay(300);
+              }
+            }
+          }
+          await ctx.delay(400);
+
+          // Click the exported "List all posts" request to show it
+          const reqItems = document.querySelectorAll<HTMLElement>('[data-testid="req-req-item"]');
+          for (const item of reqItems) {
+            const name = item.getAttribute('data-req-name') || item.textContent || '';
+            if (name.includes('List all posts') || name.includes('list all posts')) {
+              item.scrollIntoView({ block: 'center' });
+              item.click();
+              await ctx.delay(800);
+              await spotlightEl(ctx, item, 1500);
+              break;
+            }
           }
         } else {
           // Cannot confirm — close gracefully
@@ -277,7 +611,7 @@ export const catExportPromoteLesson: DemoLesson = {
         'Version badges show **NEW** (never exported before) or **"from v1.0.0"** (already in ' +
         'a collection from a prior export). The **Select All** checkbox at the top lets you ' +
         'quickly toggle the full list. This prevents duplicate work across spec updates.',
-      highlight: CAT.VIEW_EXPORT,
+      highlight: CAT.EXPORT_EP_TABLE,
 
       preAction: async (ctx) => {
         // Navigate back to Catalog (step 2 may have landed on Requests)
@@ -285,40 +619,65 @@ export const catExportPromoteLesson: DemoLesson = {
         await ctx.delay(200);
         await ensureDemoEntrySelected();
         closeExportModalIfOpen();
+        // Switch to Export tab in preAction so the table is visible during reading
+        const exportTab = document.querySelector<HTMLElement>(CAT.VIEW_EXPORT);
+        if (exportTab) {
+          exportTab.click();
+          await ctx.delay(400);
+        }
       },
 
       action: async (ctx) => {
-        // Click the Export to Requests tab
+        // Ensure Export tab is active (preAction should have done this)
         const exportTab = document.querySelector<HTMLElement>(CAT.VIEW_EXPORT);
-        if (!exportTab) return;
-        await spotlightEl(ctx, exportTab, 800);
-        exportTab.click();
-        await ctx.delay(900);
+        if (exportTab && !exportTab.classList.contains('active')) {
+          exportTab.click();
+          await ctx.delay(900);
+          try { await waitForSelector(CAT.EXPORT_INLINE, 3000); } catch { /* best-effort */ }
+          await ctx.delay(700);
+        }
 
-        // Wait for the inline export panel
-        try {
-          await waitForSelector(CAT.EXPORT_INLINE, 3000);
-        } catch { /* tab may not have inline panel wired */ }
-        await ctx.delay(700);
-
-        // Spotlight the full endpoint table — viewer sees all 12 endpoints
         const epTable = document.querySelector<HTMLElement>(CAT.EXPORT_EP_TABLE);
-        if (epTable) {
-          epTable.scrollIntoView({ block: 'nearest' });
-          await spotlightEl(ctx, epTable, 1800);
-        }
 
-        // Spotlight Select All checkbox at top
-        const selectAll = epTable?.querySelector<HTMLElement>('input[type="checkbox"]');
-        if (selectAll) {
-          await spotlightEl(ctx, selectAll, 900);
-        }
-
-        // Spotlight version badges — NEW vs "from v1.0.0"
+        // Spotlight a version badge — NEW vs "from v1.0.0"
         const versionBadge = epTable?.querySelector<HTMLElement>('.cat-version-badge');
         if (versionBadge) {
           versionBadge.scrollIntoView({ block: 'nearest' });
           await spotlightEl(ctx, versionBadge, 1200);
+        }
+
+        // Uncheck one endpoint to demonstrate exclusion
+        let targetRow: HTMLElement | null = null;
+        const descCells = epTable?.querySelectorAll<HTMLElement>('td.cat-send-ept-desc');
+        if (descCells) {
+          for (const cell of descCells) {
+            if (cell.textContent?.trim() === 'Delete a post') {
+              targetRow = cell.closest('tr') as HTMLElement | null;
+              break;
+            }
+          }
+        }
+        if (targetRow) {
+          targetRow.scrollIntoView({ block: 'nearest' });
+          await spotlightEl(ctx, targetRow, 1000);
+          const cb = targetRow.querySelector<HTMLInputElement>('input[type="checkbox"]');
+          if (cb?.checked) {
+            cb.click();
+            await ctx.delay(800);
+          }
+          // Spotlight the updated count (e.g. "11 of 12") to show the change
+          const countBadge = document.querySelector<HTMLElement>('.cat-send-count');
+          if (countBadge) {
+            countBadge.scrollIntoView({ block: 'nearest' });
+            await spotlightEl(ctx, countBadge, 1000);
+          }
+        }
+
+        // Spotlight the Export button at the bottom
+        const exportBtn = document.querySelector<HTMLElement>('.cat-send-confirm-btn');
+        if (exportBtn) {
+          exportBtn.scrollIntoView({ block: 'nearest' });
+          await spotlightEl(ctx, exportBtn, 1200);
         }
       },
     },
@@ -371,10 +730,28 @@ export const catExportPromoteLesson: DemoLesson = {
           if (popover) {
             await spotlightEl(ctx, popover, 1600);
 
-            // Close the popover
-            const closeBtn = popover.querySelector<HTMLButtonElement>('.btn');
-            if (closeBtn) closeBtn.click();
-            await ctx.delay(400);
+            // Spotlight and click the "Go to →" button to navigate
+            const gotoBtn = popover.querySelector<HTMLElement>('.sw-coverage-popover-item');
+            if (gotoBtn) {
+              await spotlightEl(ctx, gotoBtn, 1200);
+              gotoBtn.click();
+              await ctx.delay(1200);
+
+              // Spotlight the request in the Requests tab
+              const reqItems = document.querySelectorAll<HTMLElement>('[data-testid="req-req-item"]');
+              for (const item of reqItems) {
+                const name = item.getAttribute('data-req-name') || item.textContent || '';
+                if (name.includes('List all posts')) {
+                  item.scrollIntoView({ block: 'center' });
+                  await spotlightEl(ctx, item, 1500);
+                  break;
+                }
+              }
+            } else {
+              const closeBtn = popover.querySelector<HTMLButtonElement>('.btn');
+              if (closeBtn) closeBtn.click();
+              await ctx.delay(400);
+            }
           }
         } else {
           // No badge visible — explain context (no prior export in this session)
@@ -386,25 +763,26 @@ export const catExportPromoteLesson: DemoLesson = {
       },
     },
 
-    // ── Step 5: Send to Harness & Expose to Workflow ────────────
+    // ── Step 5: Send to Harness ───────────────────────────────────
     {
       id: 'cat3-harness',
-      title: 'Send to Harness & Expose to Workflow',
+      title: 'Send to Harness',
       description:
-        'Expand **POST /posts** with Try It Out active. Two integration shortcuts live ' +
-        'in the execute bar:\n\n' +
-        '- **Send to Harness** — promotes the endpoint (with its current parameters and body) ' +
-        'directly to the **Test Harness** as a test scenario. No collection needed.\n' +
-        '- **Expose to Workflow** checkbox — when checked, this endpoint becomes available as a ' +
-        'node in the **Workflow Designer\'s** Catalog palette. Build multi-step test flows by ' +
-        'combining exposed endpoints with other node types.\n\n' +
-        'Watch as we check the **Expose to Workflow** checkbox to demonstrate the action.',
+        'Click **Send to Harness** in the execute bar to promote `POST /posts` directly ' +
+        'to the Test Harness — no Requests collection needed.\n\n' +
+        'The **Target** cascade picks where the test lands:\n' +
+        '- **Environment** → **Microservice** → **Feature Group** (create) → **Scenario** (create)\n\n' +
+        'Then the **Options** step shows Auth Mode and Validation — select **Status 200**. ' +
+        'Click **Send to Harness** to confirm — then watch as we navigate to the Harness ' +
+        'and spotlight the created **Feature Group**, **Scenario**, and the **Create a post** test.',
       highlight: CAT.SEND_TO_HARNESS_BTN,
 
       preAction: async (ctx) => {
         ensureCatalogTab(ctx);
+        try { await ctx.waitFor(CAT.SIDEBAR, 3000); } catch { /* best-effort */ }
         await ensureDemoEntrySelected();
         await ensureEndpointsView(ctx);
+        await closeHarnessModalIfOpen(ctx);
         collapseAllCards();
         await ensureCardTryItOpen('POST', '/posts');
       },
@@ -415,42 +793,181 @@ export const catExportPromoteLesson: DemoLesson = {
         postCard.scrollIntoView({ block: 'center' });
         await ctx.delay(500);
 
-        // Spotlight the "Send to Harness" button
         const harnessBtn = postCard.querySelector<HTMLElement>(CAT.SEND_TO_HARNESS_BTN);
-        if (harnessBtn) {
-          harnessBtn.scrollIntoView({ block: 'nearest' });
-          await spotlightEl(ctx, harnessBtn, 1200);
+        if (!harnessBtn) return;
+        harnessBtn.scrollIntoView({ block: 'nearest' });
+        await spotlightEl(ctx, harnessBtn, 1200);
+        harnessBtn.click();
+
+        try { await waitForSelector(REQ.HARNESS_MODAL, 3000); } catch { return; }
+        await ctx.delay(700);
+
+        const modal = document.querySelector<HTMLElement>(REQ.HARNESS_MODAL);
+        if (modal) await spotlightEl(ctx, modal, 900);
+
+        // Target cascade
+        await selectCascadeByName(ctx, REQ.HARNESS_CASCADE_ENV, CAT3_ENV_NAME, 1200);
+        await selectCascadeByName(ctx, REQ.HARNESS_CASCADE_SVC, CAT3_SVC_NAME, 1200);
+        await createCascadeItem(ctx, REQ.HARNESS_CASCADE_GROUP, CAT3_FG_NAME, 1100);
+        await createCascadeItem(ctx, REQ.HARNESS_CASCADE_SCENARIO, CAT3_SCENARIO_NAME, 1100);
+
+        // Next → Options
+        const nextBtn = document.querySelector<HTMLButtonElement>(REQ.HARNESS_NEXT_BTN);
+        if (nextBtn) {
+          await spotlightEl(ctx, nextBtn, 1000);
+          if (!nextBtn.disabled) { nextBtn.click(); await ctx.delay(800); }
         }
 
-        await ctx.delay(400);
+        // Options — spotlight each section
+        const modal2 = document.querySelector<HTMLElement>(REQ.HARNESS_MODAL);
+        if (modal2) {
+          const summary = modal2.querySelector<HTMLElement>('.send-harness-target-summary');
+          if (summary) await spotlightEl(ctx, summary, 1200);
 
-        // Spotlight the "Expose to Workflow" checkbox
-        const exposeCheckbox = postCard.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
-        if (exposeCheckbox) {
-          await spotlightEl(ctx, exposeCheckbox, 1200);
+          const preview = modal2.querySelector<HTMLElement>('.send-harness-preview-card');
+          if (preview) await spotlightEl(ctx, preview, 1200);
 
-          // Actually check the Expose to Workflow checkbox — demonstrate the action
-          const input = exposeCheckbox.querySelector<HTMLInputElement>('input[type="checkbox"]')
-            ?? (exposeCheckbox.tagName === 'INPUT' ? exposeCheckbox as unknown as HTMLInputElement : null);
-          if (input && !input.checked) {
-            input.click();
-            await ctx.delay(900);
+          const authGroup = modal2.querySelectorAll<HTMLElement>('.send-harness-option-group')[0];
+          if (authGroup) await spotlightEl(ctx, authGroup, 1200);
 
-            // Spotlight confirmation — viewer sees the endpoint is now exposed
-            await spotlightEl(ctx, exposeCheckbox, 1000);
-          } else if (exposeCheckbox.tagName === 'LABEL') {
-            exposeCheckbox.click();
-            await ctx.delay(900);
-            await spotlightEl(ctx, exposeCheckbox, 1000);
+          const validationGroup = modal2.querySelectorAll<HTMLElement>('.send-harness-option-group')[1];
+          if (validationGroup) {
+            await spotlightEl(ctx, validationGroup, 1100);
+            const status200 = Array.from(validationGroup.querySelectorAll<HTMLLabelElement>('.send-harness-option-card'))
+              .find((c) => c.textContent?.includes('Status 200'));
+            if (status200) {
+              await spotlightEl(ctx, status200, 900);
+              status200.click();
+              await ctx.delay(600);
+            }
+          }
+
+          // Confirm — actually create the test
+          const confirmBtn = modal2.querySelector<HTMLElement>(REQ.HARNESS_CONFIRM_BTN);
+          if (confirmBtn) {
+            await spotlightEl(ctx, confirmBtn, 1200);
+            confirmBtn.click();
+            await ctx.delay(1200);
           }
         }
 
-        // Brief spotlight on the full execute bar to show both actions in context
-        const execBar = postCard.querySelector<HTMLElement>('.sw-exec-bar');
-        if (execBar) {
-          execBar.scrollIntoView({ block: 'nearest' });
-          await spotlightEl(ctx, execBar, 1200);
+        // Navigate to Harness to show the created test
+        ctx.navigateToTab('scenarios');
+        await ctx.delay(1200);
+
+        // Find and expand the Feature Group
+        const fgHeaders = document.querySelectorAll<HTMLElement>('.feature-group-header');
+        let targetFg: HTMLElement | null = null;
+        for (const h of fgHeaders) {
+          if (h.querySelector('.feature-group-name')?.textContent?.includes(CAT3_FG_NAME)) {
+            targetFg = h; break;
+          }
         }
+        if (targetFg) {
+          targetFg.scrollIntoView({ block: 'center' });
+          await spotlightEl(ctx, targetFg, 1400);
+          // Expand if collapsed
+          const fgCard = targetFg.closest<HTMLElement>('.feature-group-card');
+          if (fgCard && !fgCard.querySelector('.feature-group-body')) {
+            targetFg.click();
+            await ctx.delay(600);
+          }
+        }
+
+        // Find and spotlight the Scenario
+        const scHeaders = document.querySelectorAll<HTMLElement>('.scenario-group-header');
+        let targetSc: HTMLElement | null = null;
+        for (const h of scHeaders) {
+          if (h.querySelector('.scenario-group-name')?.textContent?.includes(CAT3_SCENARIO_NAME)) {
+            targetSc = h; break;
+          }
+        }
+        if (targetSc) {
+          targetSc.scrollIntoView({ block: 'center' });
+          await spotlightEl(ctx, targetSc, 1400);
+          // Expand if collapsed
+          const scCard = targetSc.closest<HTMLElement>('.scenario-group-card');
+          if (scCard && !scCard.querySelector('.scenario-group-body')) {
+            targetSc.click();
+            await ctx.delay(600);
+          }
+        }
+
+        // Find and spotlight the test (e.g. "Create a post")
+        const testCards = document.querySelectorAll<HTMLElement>('.test-card');
+        for (const tc of testCards) {
+          const name = tc.querySelector('.test-card-info strong')?.textContent ?? '';
+          if (name.toLowerCase().includes('create') || name.toLowerCase().includes('post')) {
+            tc.scrollIntoView({ block: 'center' });
+            await spotlightEl(ctx, tc, 1800);
+            break;
+          }
+        }
+      },
+    },
+
+    // ── Step 6: Expose to Workflow — Preview Mode ──────────────
+    {
+      id: 'cat3-expose-preview',
+      title: 'Expose to Workflow — Preview',
+      description:
+        'Each endpoint has a **Workflow Exposure** dropdown in the execute bar. ' +
+        'Open it and select **Preview** — this makes the endpoint *temporarily* available ' +
+        'in the Workflow Designer palette for testing.\n\n' +
+        '**Preview** mode is ideal during development: the endpoint appears in the palette ' +
+        'so you can wire it into workflow drafts, but it won\'t persist permanently — ' +
+        'a reset or spec re-import will clear it. After selecting Preview, we switch to the ' +
+        '**Workflow Designer** → **Catalog** palette so you can see **POST /posts** listed.',
+      highlight: CAT.EXPOSE_TO_WORKFLOW,
+
+      preAction: async (ctx) => {
+        ensureCatalogTab(ctx);
+        try { await ctx.waitFor(CAT.SIDEBAR, 3000); } catch { /* best-effort */ }
+        await ensureDemoEntrySelected();
+        await ensureEndpointsView(ctx);
+        await closeHarnessModalIfOpen(ctx);
+        collapseAllCards();
+        await ensureCardTryItOpen('POST', '/posts');
+        await setExposureQuiet(ctx, 'none');
+      },
+
+      action: async (ctx) => {
+        const ok = await selectWorkflowExposure(ctx, 'preview');
+        if (!ok) return;
+        await ctx.delay(500);
+        await showExposedEndpointInWorkflowPalette(ctx);
+      },
+    },
+
+    // ── Step 7: Expose to Workflow — Published Mode ───────────
+    {
+      id: 'cat3-expose-published',
+      title: 'Expose to Workflow — Published',
+      description:
+        'Now switch to **Published** — this *permanently* registers the endpoint as a ' +
+        'drag-and-drop node in the Workflow Designer.\n\n' +
+        '**Published** mode means the node persists across sessions, spec re-imports, and ' +
+        'resets. It\'s the final "this endpoint is production-ready for automation" stamp.\n\n' +
+        'After publishing, switch to the **Workflow Designer** — open the palette\'s ' +
+        '**Catalog** tab and you\'ll see **POST /posts** listed as a ready-to-use workflow node.',
+      highlight: CAT.EXPOSE_TO_WORKFLOW,
+
+      preAction: async (ctx) => {
+        ensureCatalogTab(ctx);
+        try { await ctx.waitFor(CAT.SIDEBAR, 3000); } catch { /* best-effort */ }
+        await ensureDemoEntrySelected();
+        await ensureEndpointsView(ctx);
+        await closeHarnessModalIfOpen(ctx);
+        collapseAllCards();
+        await ensureCardTryItOpen('POST', '/posts');
+        await setExposureQuiet(ctx, 'preview');
+      },
+
+      action: async (ctx) => {
+        const ok = await selectWorkflowExposure(ctx, 'published');
+        if (!ok) return;
+        await ctx.delay(500);
+        await showExposedEndpointInWorkflowPalette(ctx);
       },
     },
   ],

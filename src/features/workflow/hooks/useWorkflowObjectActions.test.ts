@@ -48,6 +48,11 @@ vi.mock('../utils/workflowRequestHost', () => ({
 vi.mock('../utils/workflowExtractSubWorkflow', () => ({
   extractToSubWorkflow: vi.fn(() => null),
 }));
+vi.mock('@xyflow/react', () => ({
+  useReactFlow: () => ({
+    getViewport: () => ({ x: 0, y: 0, zoom: 1 }),
+  }),
+}));
 
 import { extractToSubWorkflow } from '../utils/workflowExtractSubWorkflow';
 const mockExtract = vi.mocked(extractToSubWorkflow);
@@ -97,7 +102,7 @@ describe('useWorkflowObjectActions (useWorkflowNodeActions)', () => {
     opts.nextNodeYRef.current = 100;
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
     act(() => result.current.handleAddNode('http'));
-    expect(opts.nextNodeYRef.current).toBe(220);
+    expect(opts.nextNodeYRef.current).toBe(375);
   });
 
   it('does nothing when selected is null', () => {

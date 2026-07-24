@@ -27,8 +27,8 @@ describe('kafka-publish lesson', () => {
     expect(kafkaPublishLesson.concept.diagram).toContain('<svg');
   });
 
-  it('has exactly 9 steps', () => {
-    expect(kafkaPublishLesson.steps).toHaveLength(9);
+  it('has exactly 10 steps', () => {
+    expect(kafkaPublishLesson.steps).toHaveLength(10);
   });
 
   it('all steps have required fields', () => {
@@ -50,6 +50,7 @@ describe('kafka-publish lesson', () => {
       'pub-intro',
       'pub-topic',
       'pub-body',
+      'pub-expand',
       'pub-key',
       'pub-acks',
       'pub-format',

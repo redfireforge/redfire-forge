@@ -12,6 +12,8 @@ import { diffSchemas, findAffectedMappings, classifyDrift } from './utils/schema
 import { suggestRepairs, applyRepair } from './utils/schemaRepair';
 import type { RepairSuggestion } from './utils/schemaRepair';
 import { toErrorMessage } from '../../utils/helpers';
+import { useModalFrame } from '../../hooks/useModalFrame';
+import ModalResizeHandles from '../ModalResizeHandles';
 import '../../../styles/data-mapper-modal.css';
 
 interface DataMapperModalProps<TOutput = unknown> {
@@ -91,6 +93,24 @@ export default function DataMapperModal<TOutput = unknown>({
     : adapter.contextId;
   const titleId = useId();
   const [isFullScreen, setIsFullScreen] = useState(fullScreenDefault);
+  const {
+    isDragged,
+    overlayStyle,
+    dialogStyle,
+    headerDragStyle,
+    onHeaderMouseDown,
+    onHeaderPointerDown,
+    dialogRef,
+    onRightEdge,
+    onCorner,
+    onBottomEdge,
+  } = useModalFrame({
+    open: true,
+    minWidth: 600,
+    minHeight: 400,
+    constrainDragToViewport: true,
+    dragViewportPadding: 8,
+  });
   const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
   const [driftEntries, setDriftEntries] = useState<ClassifiedDrift[]>([]);
   const [showDriftBanner, setShowDriftBanner] = useState(false);
@@ -462,9 +482,19 @@ export default function DataMapperModal<TOutput = unknown>({
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
+      style={!isFullScreen ? overlayStyle : undefined}
     >
-      <div className="dm-modal-shell">
-        <div className="dm-modal-header">
+      <div
+        className={`dm-modal-shell${isDragged ? ' dm-modal--dragged' : ''}`}
+        ref={dialogRef}
+        style={!isFullScreen ? dialogStyle : undefined}
+      >
+        <div
+          className="dm-modal-header"
+          style={!isFullScreen ? headerDragStyle : undefined}
+          onMouseDown={!isFullScreen ? onHeaderMouseDown : undefined}
+          onPointerDown={!isFullScreen ? onHeaderPointerDown : undefined}
+        >
           <div className="dm-modal-title-block">
             <h2 id={titleId} className="dm-modal-title">
               Data Mapper
@@ -575,6 +605,7 @@ export default function DataMapperModal<TOutput = unknown>({
             </button>
           </div>
         </div>
+        {!isFullScreen && <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} />}
       </div>
       {showDiffModal && driftEntries.length > 0 && (
         <SchemaDiffModal

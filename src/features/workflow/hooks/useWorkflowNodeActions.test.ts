@@ -12,6 +12,12 @@ import { CatalogEntry } from '../../catalog/types/catalog';
 import { ToastApi } from '../components/WorkflowToastProvider';
 import { ExtractResult } from '../utils/workflowExtractSubWorkflow';
 
+vi.mock('@xyflow/react', () => ({
+  useReactFlow: () => ({
+    getViewport: () => ({ x: 0, y: 0, zoom: 1 }),
+  }),
+}));
+
 type NodeActionsOpts = Parameters<typeof useWorkflowNodeActions>[0];
 
 const minimalWorkflow = (): Workflow => ({
@@ -99,7 +105,46 @@ describe('useWorkflowNodeActions', () => {
     opts.nextNodeYRef.current = 100;
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
     act(() => result.current.handleAddNode('http'));
-    expect(opts.nextNodeYRef.current).toBe(220);
+    // Node placed in visible viewport center; nextNodeYRef advances by 120 from placement Y
+    expect(opts.nextNodeYRef.current).toBeGreaterThan(100);
+  });
+
+  it('finds non-overlapping placement when center is occupied', () => {
+    const opts = defaultOpts();
+    opts.nodesRef.current = [
+      { id: 'a', type: 'http', position: { x: 290, y: 255 }, data: { label: 'a' } as WorkflowNodeData },
+      { id: 'b', type: 'http', position: { x: 290, y: 405 }, data: { label: 'b' } as WorkflowNodeData },
+    ];
+    let capturedNodes: WorkflowRFNode[] = [];
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+      capturedNodes = typeof fn === 'function' ? fn(opts.nodesRef.current) : fn;
+      return capturedNodes;
+    });
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddNode('http'));
+    expect(capturedNodes.length).toBe(3);
+    const added = capturedNodes[2];
+    expect(added.position).not.toEqual({ x: 290, y: 255 });
+  });
+
+  it('falls back to spiral search when initial fallback still overlaps', () => {
+    const opts = defaultOpts();
+    opts.nodesRef.current = [
+      { id: 'a', type: 'http', position: { x: 290, y: 255 }, data: { label: 'a' } as WorkflowNodeData },
+      { id: 'b', type: 'http', position: { x: 290, y: 405 }, data: { label: 'b' } as WorkflowNodeData },
+    ];
+    const maxSpy = vi.spyOn(Math, 'max').mockReturnValue(255);
+    let capturedNodes: WorkflowRFNode[] = [];
+    opts.setNodes = vi.fn((fn: SetStateAction<WorkflowRFNode[]>) => {
+      capturedNodes = typeof fn === 'function' ? fn(opts.nodesRef.current) : fn;
+      return capturedNodes;
+    });
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleAddNode('http'));
+    expect(capturedNodes.length).toBe(3);
+    const added = capturedNodes[2];
+    expect(added.position).toEqual({ x: 570, y: 255 });
+    maxSpy.mockRestore();
   });
 
   it('does nothing when selected is null', () => {
@@ -120,6 +165,15 @@ describe('useWorkflowNodeActions', () => {
     expect(opts.undoRedo.takeSnapshot).toHaveBeenCalledWith('Add node');
     unmount();
     expect(win.__wfAddNode).toBeUndefined();
+  });
+
+  it('exposes __wfAddNode simple mode and returns last added id', () => {
+    const opts = defaultOpts();
+    const { unmount } = renderHook(() => useWorkflowNodeActions(opts));
+    const win = window as unknown as Record<string, (t: string) => string | undefined>;
+    const addedId = win.__wfAddNode('http');
+    expect(addedId).toBe('mock-uuid');
+    unmount();
   });
 
   it('addNodeToCanvasWithPreset is idempotent for duplicate ids', () => {
@@ -204,6 +258,19 @@ describe('useWorkflowNodeActions', () => {
     const { result } = renderHook(() => useWorkflowNodeActions(opts));
     act(() => result.current.handleDeleteNode('n1'));
     expect(opts.setSelectedNodeId).not.toHaveBeenCalled();
+  });
+
+  it('handleDeleteNode initial-vars cleanup updater removes deleted key', () => {
+    const opts = defaultOpts();
+    let state: Record<string, Record<string, unknown>> = { n1: { token: 'x' }, keep: { y: 1 } };
+    opts.setNodeInitialVars = vi.fn((fn: SetStateAction<Record<string, Record<string, unknown>>>) => {
+      state = typeof fn === 'function' ? fn(state) : fn;
+      return state;
+    });
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleDeleteNode('n1'));
+    expect(state.n1).toBeUndefined();
+    expect(state.keep).toEqual({ y: 1 });
   });
 
   it('handleUpdateNode with initialVariables updates nodeInitialVarsRef', () => {
@@ -367,7 +434,7 @@ describe('useWorkflowNodeActions', () => {
         ],
         workflowValues: {
           paramValues: { userId: '42', status: 'active' },
-          headerValues: { 'X-Correlation-Id': 'abc-123' },
+          headerValues: { 'X-Correlation-Id': 'abc-123', 'X-Extra': 'extra' },
           body: '{"filter":"recent"}',
         },
       }],
@@ -381,8 +448,10 @@ describe('useWorkflowNodeActions', () => {
     expect(data.scenario.url).toBe('https://api.example.com/users/42/orders?status=active');
     expect(data.scenario.headers).toEqual(expect.arrayContaining([
       { key: 'X-Correlation-Id', value: 'abc-123' },
+      { key: 'X-Extra', value: 'extra' },
     ]));
     expect(data.scenario.body).toBe('{"filter":"recent"}');
+    expect(data.catalogRef).toEqual({ entryId: 'cat-1', endpointId: 'ep-1', method: 'GET', path: '/users/{userId}/orders' });
   });
 
   it('handleAddFromRequest does nothing when request not found anywhere', () => {
@@ -504,6 +573,18 @@ describe('useWorkflowNodeActions', () => {
     expect(opts.nodeInitialVarsRef.current.n1).toEqual({ token: 'x' });
     expect(opts.setNodeInitialVars).toHaveBeenCalled();
     expect(opts.setNodes).toHaveBeenCalled();
+  });
+
+  it('handleUpdateNode initialVariables-only applies callback updater', () => {
+    const opts = defaultOpts();
+    let state: Record<string, Record<string, unknown>> = { old: { k: 'v' } };
+    opts.setNodeInitialVars = vi.fn((fn: SetStateAction<Record<string, Record<string, unknown>>>) => {
+      state = typeof fn === 'function' ? fn(state) : fn;
+      return state;
+    });
+    const { result } = renderHook(() => useWorkflowNodeActions(opts));
+    act(() => result.current.handleUpdateNode('n-iv', { initialVariables: { token: 'abc' } }));
+    expect(state['n-iv']).toEqual({ token: 'abc' });
   });
 
   describe('handleExtractToSubWorkflow', () => {

@@ -84,12 +84,12 @@ describe('WsScenarioEditor', () => {
 
     it('renders Headers KV section', () => {
       render(<WsScenarioEditor draft={connectDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      expect(screen.getByText('HEADERS')).toBeInTheDocument();
+      expect(screen.getByText('Headers')).toBeInTheDocument();
     });
 
     it('renders Query Parameters KV section', () => {
       render(<WsScenarioEditor draft={connectDraft} onDraftChange={mockOnDraftChange} resolvedBaseUrl="" siblingTests={[]} />);
-      expect(screen.getByText('QUERY PARAMETERS')).toBeInTheDocument();
+      expect(screen.getByText('Query Parameters')).toBeInTheDocument();
     });
   });
 

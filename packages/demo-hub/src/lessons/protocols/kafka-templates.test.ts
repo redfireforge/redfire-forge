@@ -108,7 +108,7 @@ describe('kafka-templates lesson', () => {
     const ctx = makeCtx();
     await step.action!(ctx);
     expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('kms-pub-topic'), 'orders.events');
-    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('kms-pub-body'), '{"type":"test"}');
+    expect(ctx.fill).toHaveBeenCalledWith(expect.stringContaining('kms-pub-body'), '{"type":"test","source":"template-demo","priority":"high"}');
   });
 
   it('step tmpl-fill-pub has no preAction', () => {

@@ -861,7 +861,7 @@ describe('WorkflowNodeConfigModal', () => {
   it('updates HTTP initial variables via VariablesSection', () => {
     const onUpdateNode = vi.fn();
     render(<WorkflowNodeConfigModal {...defaultProps} onUpdateNode={onUpdateNode} />);
-    const section = screen.getByText('Initial variables (this step)').closest('.wf-config-vars')!;
+    const section = screen.getByText('Initial Variables (this step)').closest('.wf-config-vars')!;
     const nameInput = within(section).getByPlaceholderText('name');
     const valueInput = within(section).getByPlaceholderText('value');
     fireEvent.change(nameInput, { target: { value: 'myKey' } });

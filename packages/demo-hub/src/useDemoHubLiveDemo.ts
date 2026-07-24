@@ -3,7 +3,6 @@ import { useCallback, useEffect, type Dispatch, type MutableRefObject, type SetS
 import type { DemoHubState, DemoLesson, SpeedMultiplier, StepPhase } from './types';
 import type { useDemoProgress } from './useDemoProgress';
 import { isLessonDesktopOnlyBlocked } from './utils/lessonPlatform';
-import { isWorkflowDesignerLesson } from './utils/workflowLessonUi';
 import {
   closeWorkflowConfigModal,
   dispatchGqlTabsReload,
@@ -113,9 +112,7 @@ export function useDemoHubLiveDemo({
   const runLiveLessonCleanup = useCallback(async (lesson: DemoLesson | null | undefined) => {
     if (!lesson) return;
     try {
-      if (isWorkflowDesignerLesson(lesson)) {
-        expandAppSidebar();
-      }
+      expandAppSidebar();
       const ctx = buildQuietContext();
       if (isGraphqlStudioLesson(lesson)) {
         await runGqlStudioLessonTeardown(lesson, ctx);
@@ -136,9 +133,7 @@ export function useDemoHubLiveDemo({
     try {
       await closeIsolatedStudioDemoTabSession({ restorePreviousTab: false });
       if (lesson.initialTab) navigateToTab(lesson.initialTab);
-      if (isWorkflowDesignerLesson(lesson)) {
-        expandAppSidebar();
-      }
+      expandAppSidebar();
       await new Promise(r => setTimeout(r, 350));
       if (isGraphqlStudioLesson(lesson)) {
         await runGqlDemoStorageHygiene();
@@ -271,9 +266,7 @@ export function useDemoHubLiveDemo({
           /* v8 ignore next */
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           if (replayLesson.initialTab) ctx.navigateToTab(replayLesson.initialTab);
-          if (isWorkflowDesignerLesson(replayLesson)) {
-            expandAppSidebar();
-          }
+          expandAppSidebar();
           await new Promise(r => setTimeout(r, 120));
           if (!isMountedRef.current || autoPlayGenRef.current !== atEndGen) return;
           if (isGraphqlStudioLesson(replayLesson)) {
@@ -368,9 +361,7 @@ export function useDemoHubLiveDemo({
     suppressLiveTabExitRef.current = true;
     try {
       if (lesson.initialTab) navigateToTab(lesson.initialTab);
-      if (isWorkflowDesignerLesson(lesson)) {
-        expandAppSidebar();
-      }
+      expandAppSidebar();
       await new Promise(r => setTimeout(r, 120));
       if (isGraphqlStudioLesson(lesson)) {
         await runGqlDemoStorageHygiene();
@@ -423,9 +414,7 @@ export function useDemoHubLiveDemo({
     await pause(60);
 
     if (lesson) {
-      if (isWorkflowDesignerLesson(lesson)) {
-        expandAppSidebar();
-      }
+      expandAppSidebar();
       const ctx = buildQuietContext();
       if (isGraphqlStudioLesson(lesson)) {
         try { await runGqlStudioLessonTeardown(lesson, ctx); } catch (e) {

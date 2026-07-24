@@ -152,6 +152,8 @@ export interface KafkaMessageFilter {
   headersMatch?: Record<string, string>;
   jsonPath?: string;
   jsonEquals?: string;
+  /** Case-insensitive substring search within the raw message body. */
+  bodyContains?: string;
 }
 
 export interface KafkaConsumeOnceRequest {

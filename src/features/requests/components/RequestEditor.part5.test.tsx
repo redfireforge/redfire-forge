@@ -456,7 +456,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /History/ }));
 
     const deleteButtons = screen.getAllByTitle('Delete this version');
