@@ -99,7 +99,7 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
     <div className="params-editor">
       <div className="params-toolbar">
         <div className="params-toolbar-left">
-          <span className="params-section-label">QUERY PARAMETERS</span>
+          <span className="params-section-label">Query Parameters</span>
           {activeCount > 0 && <span className="tab-badge">{activeCount}</span>}
         </div>
         <div className="params-toolbar-right">
@@ -147,10 +147,10 @@ export function ParamsEditor({ params, onChange, onInsertVariable, variableHints
 
           <div className={`params-grid-header ${showDesc ? 'with-desc' : ''} ${!showSource ? 'no-source' : ''}`}>
             <span />
-            <span>name</span>
-            {showSource && <span>source</span>}
-            <span>value</span>
-            {showDesc && <span>description</span>}
+            <span>Name</span>
+            {showSource && <span>Source</span>}
+            <span>Value</span>
+            {showDesc && <span>Description</span>}
             <span />
             <span />
           </div>

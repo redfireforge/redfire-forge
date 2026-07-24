@@ -8,6 +8,13 @@ export interface HttpNodeData {
   scenario: Scenario;
   sourceType?: 'requests' | 'catalog';
   sourceId?: string;
+  /** Tracks the catalog origin so un-publishing can locate nodes that reference a catalog endpoint. */
+  catalogRef?: {
+    entryId: string;
+    endpointId: string;
+    method: string;
+    path: string;
+  };
   /** Binding to a workflow-level service from the Service Registry. */
   serviceId?: string;
   /** @deprecated Use serviceId instead. */

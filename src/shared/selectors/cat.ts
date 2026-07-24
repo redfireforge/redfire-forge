@@ -44,6 +44,7 @@ export const CAT = {
   AUTH_TOKEN_INPUT:          '[data-testid="catalog-auth-token-input"]',
   AUTH_PREFIX_INPUT:         '[data-testid="catalog-auth-prefix-input"]',
   VERIFY_AUTH_BTN:          '[data-testid="catalog-verify-auth-btn"]',
+  /** @deprecated Panel close is now via Authorize toggle — no dedicated close button */
   AUTH_CLOSE_BTN:           '[data-testid="catalog-auth-close-btn"]',
 
   // ── Version History modal ───────────────────────────────────────
@@ -76,7 +77,15 @@ export const CAT = {
   HOST_FROM_SPEC:           '[data-testid="catalog-host-from-spec"]',
   HOST_ENVIRONMENT:         '[data-testid="catalog-host-environment"]',
   HOST_CUSTOM_URL:          '[data-testid="catalog-host-custom-url"]',
+  HOST_SERVER_SELECT:       '[data-testid="catalog-host-server-select"]',
+  HOST_ENV_SELECT:          '[data-testid="catalog-host-env-select"]',
+  HOST_INPUT:               '[data-testid="catalog-host-input"]',
   BASE_URL:                 '[data-testid="catalog-base-url"]',
+  /** Edit modal — link catalog entry to a microservice. */
+  EDIT_MICROSERVICE_SELECT: '[data-testid="catalog-edit-microservice-select"]',
+  EDIT_MODAL:               '.cat-edit-modal',
+  EDIT_SAVE_BTN:            '.cat-edit-footer .cat-btn-primary',
+  EDIT_CANCEL_BTN:          '.cat-edit-footer .cat-btn:not(.cat-btn-primary)',
   TAG_GROUP:                '[data-testid="catalog-tag-group"]',
   /** Tag group addressed by tag name (case-sensitive). */
   tagByName: (name: string) => `[data-testid="catalog-tag-group"][data-tag-name="${name}"]`,
@@ -99,8 +108,12 @@ export const CAT = {
   SEND_TO_HARNESS_BTN:      '[data-testid="catalog-send-to-harness-btn"]',
   SAVE_AS_TEST_BTN:         '[data-testid="catalog-save-as-test-btn"]',
   EXPOSE_TO_WORKFLOW:       '[data-testid="catalog-expose-to-workflow"]',
+  EXPOSE_OPTION_NONE:       '[data-testid="catalog-expose-option-none"]',
+  EXPOSE_OPTION_PREVIEW:    '[data-testid="catalog-expose-option-preview"]',
+  EXPOSE_OPTION_PUBLISHED:  '[data-testid="catalog-expose-option-published"]',
   COVERAGE_BADGE:           '[data-testid="catalog-coverage-badge"]',
   COVERAGE_POPOVER:         '[data-testid="catalog-coverage-popover"]',
+  COVERAGE_GOTO:            '[data-testid="catalog-coverage-goto"]',
 
   // ── Export to Requests modal / inline ──────────────────────
   EXPORT_MODAL:             '[data-testid="catalog-export-modal"]',

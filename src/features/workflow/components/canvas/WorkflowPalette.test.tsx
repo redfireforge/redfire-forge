@@ -32,12 +32,12 @@ const catalogEntries: CatalogEntry[] = [
   {
     id: 'e1',
     name: 'Catalog One',
-    endpoints: [{ id: 'ep0', method: 'get', path: '/root', summary: 'Root EP', exposedToWorkflow: true }],
+    endpoints: [{ id: 'ep0', method: 'get', path: '/root', summary: 'Root EP', workflowExposure: 'published' }],
     folders: [
       {
         id: 'cf1',
         name: 'Cat Folder',
-        endpoints: [{ id: 'ep1', method: 'post', path: '/create', summary: 'Create thing', exposedToWorkflow: true }],
+        endpoints: [{ id: 'ep1', method: 'post', path: '/create', summary: 'Create thing', workflowExposure: 'preview' }],
         folders: [
           { id: 'cf2', name: 'Cat Nested', endpoints: [{ id: 'ep2', method: 'put', path: '/edit', summary: 'Edit thing', exposedToWorkflow: true }], folders: [] },
         ],

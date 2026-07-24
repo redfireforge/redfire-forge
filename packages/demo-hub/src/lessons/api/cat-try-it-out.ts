@@ -1,10 +1,11 @@
 /**
  * CAT-2 — Live API Execution
  *
- * 6 steps: configure the Host Strategy (From Spec / Environment / Custom URL) →
- * open Try It Out on POST /posts with auto-generated body → execute GET /posts/{id}
- * with a path parameter → save the response as a Test → authorize requests via
- * the Auth panel (Bearer token) → copy as cURL.
+ * 7 steps: configure the Host Strategy (From Spec → Environment + Microservice →
+ * Custom URL hostname → back to From Spec) → open Try It Out on POST /posts with
+ * auto-generated body → execute GET /posts/{id} with a path parameter → Send to
+ * Harness (Target cascade) → Send to Harness Options → authorize via Auth panel →
+ * copy as cURL.
  *
  * This lesson teaches everything about live execution from the Catalog: where
  * requests go, how to fill parameters, how to authenticate, and how to export
@@ -12,8 +13,8 @@
  *
  * Uses the real JSONPlaceholder API (CORS-friendly, no auth required for GETs).
  */
-import type { DemoLesson } from '../../types';
-import { CAT } from '@shared/selectors';
+import type { DemoLesson, DemoActionContext } from '../../types';
+import { CAT, REQ } from '@shared/selectors';
 import {
   JSONPLACEHOLDER_API_SPEC,
   seedCatalogEntry,
@@ -28,12 +29,228 @@ import {
   spotlight,
   spotlightEl,
   waitForSelector,
+  closeEditModalIfOpen,
+  resetHostStrategyToFromSpec,
 } from './cat-demo-helpers';
 import { fillControlledInput } from '../setup-helpers';
+import { cleanupOtherRequestDemoCollections } from './req-demo-helpers';
+import {
+  ensureSettingsEnvironment,
+  ensureSettingsMicroservice,
+  getDemoBridgeWindow,
+} from '../../adapters';
 
 // ─── Constants ──────────────────────────────────────────────────
 
 const DEMO_ENTRY_NAME = 'JSONPlaceholder API';
+const DEMO_ENTRY_NAME_VERSIONED = 'JSONPlaceholder API (1.0.0)';
+const DEMO_CUSTOM_HOST = 'https://staging.example.com';
+const CAT2_ENV_NAME = 'demo';
+const CAT2_SVC_NAME = 'jsonplaceholder';
+const CAT2_FG_NAME = 'Catalog Demo Tests';
+const CAT2_SCENARIO_NAME = 'GET Post by ID';
+const CAT2_SVC_BASE = 'https://jsonplaceholder.typicode.com';
+
+/** Quietly close the Send to Harness modal if open. */
+async function closeHarnessModalIfOpen(ctx: DemoActionContext): Promise<void> {
+  const modal = document.querySelector(REQ.HARNESS_MODAL);
+  if (!modal) return;
+  const cancel = document.querySelector<HTMLElement>(REQ.HARNESS_CANCEL_BTN)
+    ?? document.querySelector<HTMLElement>('.send-harness-cancel-btn');
+  cancel?.click();
+  await ctx.delay(250);
+}
+
+function cleanupDemoFeatureGroups(): void {
+  getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(CAT2_FG_NAME);
+}
+
+/** Ensure env + microservice exist so the Target cascade can be filled. */
+function ensureHarnessTargets(): void {
+  const envId = ensureSettingsEnvironment(CAT2_ENV_NAME);
+  if (envId) {
+    ensureSettingsMicroservice(CAT2_SVC_NAME, { [envId]: CAT2_SVC_BASE });
+  }
+}
+
+/** Execute GET /posts/{id} if needed so Send to Harness appears. */
+async function ensureGetPostExecuted(ctx: DemoActionContext): Promise<void> {
+  await ensureCardTryItOpen('GET', '/posts/{id}');
+  const getCard = document.querySelector<HTMLElement>(CAT.endpointCard('GET', '/posts/{id}'));
+  if (!getCard) return;
+  if (getCard.querySelector(CAT.LIVE_RESPONSE) && getCard.querySelector(CAT.SAVE_AS_TEST_BTN)) {
+    return;
+  }
+  const paramInput = getCard.querySelector<HTMLInputElement>(CAT.paramInput('id'));
+  if (paramInput && !paramInput.value) {
+    fillControlledInput(paramInput, '1');
+  }
+  const execBtn = getCard.querySelector<HTMLElement>(CAT.EXECUTE_BTN);
+  if (execBtn) execBtn.click();
+  try {
+    await waitForSelector(
+      `${CAT.endpointCard('GET', '/posts/{id}')} ${CAT.SAVE_AS_TEST_BTN}`,
+      10000,
+    );
+  } catch {
+    try {
+      await waitForSelector(
+        `${CAT.endpointCard('GET', '/posts/{id}')} ${CAT.LIVE_RESPONSE}`,
+        4000,
+      );
+    } catch { /* network may fail */ }
+  }
+  await ctx.delay(200);
+}
+
+/** Open a cascade field, spotlight options, pick by name (or first item). */
+async function selectCascadeByName(
+  ctx: DemoActionContext,
+  fieldSel: string,
+  matchName: string,
+  holdMs = 1000,
+): Promise<void> {
+  const field = document.querySelector<HTMLElement>(fieldSel);
+  if (!field) return;
+  await spotlightEl(ctx, field, holdMs);
+  const trigger = field.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+  if (!trigger) return;
+  trigger.click();
+  await ctx.delay(450);
+  const items = Array.from(field.querySelectorAll<HTMLButtonElement>('.cascade-dropdown-item:not(.cascade-dropdown-create)'));
+  const match = items.find((i) => {
+    const name = i.querySelector('.cascade-dropdown-item-name')?.textContent?.trim().toLowerCase();
+    return name === matchName.toLowerCase();
+  }) ?? items[0];
+  if (match) {
+    match.scrollIntoView({ block: 'nearest' });
+    await spotlightEl(ctx, match, 900);
+    match.click();
+    await ctx.delay(550);
+  }
+}
+
+/** Open cascade → + Create New → fill name, with spotlights. */
+async function createCascadeItem(
+  ctx: DemoActionContext,
+  fieldSel: string,
+  newName: string,
+  holdMs = 1000,
+): Promise<void> {
+  const field = document.querySelector<HTMLElement>(fieldSel);
+  if (!field) return;
+  await spotlightEl(ctx, field, holdMs);
+
+  // Already in create mode (e.g. Scenario auto-opens after new Feature Group)
+  let input = field.querySelector<HTMLInputElement>('input');
+  if (!input) {
+    const trigger = field.querySelector<HTMLButtonElement>('.cascade-dropdown-trigger');
+    if (trigger) {
+      trigger.click();
+      await ctx.delay(400);
+    }
+    const createBtn = field.querySelector<HTMLButtonElement>('.cascade-dropdown-create');
+    if (createBtn) {
+      await spotlightEl(ctx, createBtn, 800);
+      createBtn.click();
+      await ctx.delay(400);
+    }
+    input = field.querySelector<HTMLInputElement>('input');
+  }
+
+  if (input) {
+    await spotlightEl(ctx, input, 700);
+    fillControlledInput(input, newName);
+    input.blur();
+    await ctx.delay(500);
+  }
+  await spotlightEl(ctx, field, 900);
+}
+
+/**
+ * Environment mode: if no microservice is linked, the Edit modal opens —
+ * pick the first real microservice, save, then activate Environment.
+ * Otherwise open the env dropdown and select an option (prefer index 1 to
+ * show a Base URL change when multiple envs exist).
+ */
+async function demonstrateEnvironmentMode(ctx: DemoActionContext): Promise<void> {
+  const envBtn = document.querySelector<HTMLElement>(CAT.HOST_ENVIRONMENT);
+  if (!envBtn) return;
+
+  await spotlightEl(ctx, envBtn, 900);
+  envBtn.click();
+  await ctx.delay(700);
+
+  // Path A — Edit modal: link a microservice first
+  const msSelect = document.querySelector<HTMLElement>(CAT.EDIT_MICROSERVICE_SELECT);
+  if (msSelect) {
+    await spotlightEl(ctx, msSelect, 1100);
+    const trigger = msSelect.querySelector<HTMLElement>('.cat-dark-select__trigger');
+    trigger?.click();
+    await ctx.delay(500);
+
+    const options = Array.from(
+      document.querySelectorAll<HTMLElement>('.cat-dark-select__option'),
+    );
+    const firstSvc = options.find((opt) => {
+      const label = opt.querySelector('.cat-dark-select__option-label')?.textContent?.trim() ?? '';
+      return Boolean(label) && !label.includes('None');
+    });
+    if (firstSvc) {
+      await spotlightEl(ctx, firstSvc, 1200);
+      firstSvc.click();
+      await ctx.delay(700);
+    }
+
+    const preview = document.querySelector<HTMLElement>('.cat-edit-env-preview');
+    if (preview) {
+      await spotlightEl(ctx, preview, 1400);
+    }
+
+    const saveBtn = document.querySelector<HTMLElement>(CAT.EDIT_SAVE_BTN);
+    if (saveBtn) {
+      await spotlightEl(ctx, saveBtn, 700);
+      saveBtn.click();
+      await ctx.delay(900);
+    }
+
+    // Linking does not switch strategy — click Environment again to activate it
+    const envBtn2 = document.querySelector<HTMLElement>(CAT.HOST_ENVIRONMENT);
+    if (envBtn2) {
+      await spotlightEl(ctx, envBtn2, 700);
+      envBtn2.click();
+      await ctx.delay(700);
+    }
+  }
+
+  // Path B / after link — env CustomSelect (microservice environments)
+  const envSelect = document.querySelector<HTMLElement>(CAT.HOST_ENV_SELECT);
+  if (envSelect) {
+    await spotlightEl(ctx, envSelect, 1100);
+    const trigger = envSelect.querySelector<HTMLElement>('.cs-trigger, button');
+    trigger?.click();
+    await ctx.delay(500);
+
+    const items = Array.from(document.querySelectorAll<HTMLElement>('.cs-menu .cs-item, .cs-item'));
+    // Spotlight each option so the viewer sees env name + base URL
+    for (let i = 0; i < Math.min(items.length, 3); i++) {
+      await spotlightEl(ctx, items[i], 900);
+    }
+    // Prefer a non-first option when available so Base URL visibly changes
+    const pick = items[Math.min(1, items.length - 1)] ?? items[0];
+    if (pick) {
+      pick.click();
+      await ctx.delay(600);
+    } else {
+      trigger?.click();
+    }
+  }
+
+  const baseUrl = document.querySelector<HTMLElement>(CAT.BASE_URL);
+  if (baseUrl) {
+    await spotlightEl(ctx, baseUrl, 1200);
+  }
+}
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -59,11 +276,11 @@ export const catTryItOutLesson: DemoLesson = {
   category: 'catalog',
   name: 'Live API Execution',
   description:
-    'Execute real API calls from the Catalog — configure where requests go (Host Strategy), ' +
-    'fill parameters, authenticate with Bearer tokens, and copy cURL commands.',
-  estimatedMinutes: 6,
+    'Execute real API calls from the Catalog — configure Host Strategy, Try It Out, ' +
+    'Send to Harness, authenticate with Bearer tokens, and copy cURL.',
+  estimatedMinutes: 8,
   initialTab: 'catalog',
-  allowedTabs: ['catalog'],
+  allowedTabs: ['catalog', 'environments'],
 
   concept: {
     title: 'Live API Testing, Right Inside the Catalog',
@@ -75,6 +292,7 @@ export const catTryItOutLesson: DemoLesson = {
       '- How the **Host Strategy** controls where requests are sent (From Spec / Environment / Custom URL)\n' +
       '- How to open **Try It Out**, edit the auto-generated body, and **Execute** a live POST\n' +
       '- How **path parameters** (like `/posts/{id}`) become dedicated input fields\n' +
+      '- How **Send to Harness** promotes a live response into the Harness (Target + Options)\n' +
       '- How the **Auth panel** lets you configure Bearer tokens, API keys, or Basic auth\n' +
       '- How to export the configured request as a **cURL** command\n\n' +
       '**Why Host Strategy matters:** Before executing any request, you need to decide where ' +
@@ -85,6 +303,7 @@ export const catTryItOutLesson: DemoLesson = {
       { term: 'Try It Out', definition: 'Turns an endpoint card into an interactive form — fill parameters, edit the body, and execute a live request' },
       { term: 'Schema Stub', definition: 'Auto-generated JSON from the request body schema — field names and types pre-filled so you can edit, not start from scratch' },
       { term: 'Path Parameter', definition: 'A URL template variable like {id} — Try It Out creates a dedicated input field so you can fill it before executing' },
+      { term: 'Send to Harness', definition: 'After a 2xx Execute response, promotes the Try It Out config into the Test Harness via a Target + Options wizard' },
       { term: 'Authorize', definition: 'Opens the auth configuration panel — set Bearer tokens, API keys, or Basic auth that apply to all subsequent requests' },
     ],
     diagram: `<svg viewBox="0 0 460 90" xmlns="http://www.w3.org/2000/svg">
@@ -109,8 +328,15 @@ export const catTryItOutLesson: DemoLesson = {
   },
 
   setup: async (ctx) => {
+    closeEditModalIfOpen();
+    closeAuthPanelIfOpen();
     ensureCatalogTab(ctx);
     await ctx.delay(80);
+    deleteCollectionsByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    await ctx.delay(200);
+    await cleanupOtherRequestDemoCollections(ctx);
+    ensureHarnessTargets();
     await seedCatalogEntry(DEMO_ENTRY_NAME, JSONPLACEHOLDER_API_SPEC);
     await waitForSelector(CAT.entryByName(DEMO_ENTRY_NAME), 3000);
     selectCatalogEntryByName(DEMO_ENTRY_NAME);
@@ -118,10 +344,15 @@ export const catTryItOutLesson: DemoLesson = {
   },
 
   cleanup: async (ctx) => {
+    await closeHarnessModalIfOpen(ctx);
+    closeEditModalIfOpen();
     closeAuthPanelIfOpen();
     collapseAllCards();
+    cleanupDemoFeatureGroups();
     deleteCatalogEntryByName(DEMO_ENTRY_NAME);
     deleteCollectionsByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    await cleanupOtherRequestDemoCollections(ctx);
     ensureCatalogTab(ctx);
     await ctx.delay(60);
   },
@@ -132,66 +363,75 @@ export const catTryItOutLesson: DemoLesson = {
       id: 'cat2-host',
       title: 'Host Strategy — Where Requests Go',
       description:
-        'Before executing any request, you need to know **where it goes**. The Host Strategy ' +
-        'selector above the endpoint list offers three modes:\n\n' +
-        '- **From Spec** (default) — uses the `servers` URL defined in the OpenAPI spec\n' +
-        '- **Environment** — uses a base URL from a linked microservice or app environment\n' +
-        '- **Custom URL** — lets you type any URL (localhost, staging, production)\n\n' +
-        'The **resolved Base URL** below the buttons shows the active target. Watch it ' +
-        'change when you switch to **Custom URL** and back to **From Spec**.',
+        'Before executing any request, you need to know **where it goes**. Watch how ' +
+        'each Host Strategy mode changes the **resolved Base URL**:\n\n' +
+        '- **From Spec** (default) — uses the `servers` URL from the OpenAPI spec\n' +
+        '- **Environment** — links a **Microservice** and picks an env so the base URL ' +
+        'comes from your Environments settings\n' +
+        '- **Custom URL** — type any hostname (staging, localhost, production)\n\n' +
+        'We end back on **From Spec** so the live Execute steps hit JSONPlaceholder.',
       highlight: CAT.HOST_STRATEGY,
 
       preAction: async (ctx) => {
         ensureCatalogTab(ctx);
         await ensureDemoEntrySelected();
         await ensureEndpointsView(ctx);
+        closeEditModalIfOpen();
+        resetHostStrategyToFromSpec();
       },
 
       action: async (ctx) => {
-        // Spotlight the Host Strategy button group — the 3 modes
-        await spotlight(ctx, CAT.HOST_STRATEGY, 1200);
+        // ── 1. From Spec (default) ──────────────────────────────
+        await spotlight(ctx, CAT.HOST_STRATEGY, 1000);
 
-        // Spotlight "From Spec" — the active default (800ms per button as spec says)
         const fromSpecBtn = document.querySelector<HTMLElement>(CAT.HOST_FROM_SPEC);
         if (fromSpecBtn) {
           await spotlightEl(ctx, fromSpecBtn, 900);
         }
 
-        // Spotlight "Environment" button
-        const envBtn = document.querySelector<HTMLElement>(CAT.HOST_ENVIRONMENT);
-        if (envBtn) {
-          await spotlightEl(ctx, envBtn, 800);
+        const serverSelect = document.querySelector<HTMLElement>(CAT.HOST_SERVER_SELECT);
+        if (serverSelect) {
+          await spotlightEl(ctx, serverSelect, 1000);
         }
 
-        // Spotlight "Custom URL" button
-        const customBtn = document.querySelector<HTMLElement>(CAT.HOST_CUSTOM_URL);
-        if (customBtn) {
-          await spotlightEl(ctx, customBtn, 800);
-        }
-
-        // Spotlight the base URL display — viewer sees the resolved URL
         const baseUrl = document.querySelector<HTMLElement>(CAT.BASE_URL);
         if (baseUrl) {
           await spotlightEl(ctx, baseUrl, 1100);
         }
 
-        // Switch to Custom URL to demonstrate the URL change
-        if (customBtn) {
-          customBtn.click();
-          await ctx.delay(800);
+        // ── 2. Environment — link Microservice + pick env ───────
+        await demonstrateEnvironmentMode(ctx);
 
-          // Spotlight the updated base URL — viewer sees it changed
-          const updatedBaseUrl = document.querySelector<HTMLElement>(CAT.BASE_URL);
-          if (updatedBaseUrl) {
-            await spotlightEl(ctx, updatedBaseUrl, 1000);
+        // ── 3. Custom URL — type a different hostname ───────────
+        const customBtn = document.querySelector<HTMLElement>(CAT.HOST_CUSTOM_URL);
+        if (customBtn) {
+          await spotlightEl(ctx, customBtn, 900);
+          customBtn.click();
+          await ctx.delay(600);
+
+          const hostInput = document.querySelector<HTMLInputElement>(CAT.HOST_INPUT);
+          if (hostInput) {
+            await spotlightEl(ctx, hostInput, 800);
+            fillControlledInput(hostInput, DEMO_CUSTOM_HOST);
+            await ctx.delay(700);
+            await spotlightEl(ctx, hostInput, 1000);
+          }
+
+          const customBase = document.querySelector<HTMLElement>(CAT.BASE_URL);
+          if (customBase) {
+            await spotlightEl(ctx, customBase, 1200);
           }
         }
 
-        // Switch back to From Spec
+        // ── 4. Back to From Spec for live Execute steps ─────────
         if (fromSpecBtn) {
           fromSpecBtn.click();
           await ctx.delay(600);
           await spotlightEl(ctx, fromSpecBtn, 800);
+          const restoredBase = document.querySelector<HTMLElement>(CAT.BASE_URL);
+          if (restoredBase) {
+            await spotlightEl(ctx, restoredBase, 1000);
+          }
         }
       },
     },
@@ -207,12 +447,13 @@ export const catTryItOutLesson: DemoLesson = {
         'Edit the body to meaningful values, then click **Execute**. The real JSONPlaceholder ' +
         'API returns a **201 Created** response with a generated `id: 101`, your title echoed ' +
         'back, and the response time in milliseconds. This is a live HTTP call, not a mock.',
-      highlight: CAT.endpointCard('POST', '/posts'),
 
       preAction: async (ctx) => {
         ensureCatalogTab(ctx);
         await ensureDemoEntrySelected();
         await ensureEndpointsView(ctx);
+        closeEditModalIfOpen();
+        resetHostStrategyToFromSpec();
         collapseAllCards();
       },
 
@@ -263,20 +504,20 @@ export const catTryItOutLesson: DemoLesson = {
           execBtn.click();
         }
 
-        // Wait for the live response
+        // Wait for the live response to appear
         try {
           await waitForSelector(
             `${CAT.endpointCard('POST', '/posts')} ${CAT.LIVE_RESPONSE}`,
             8000,
           );
         } catch { /* Network may fail — still continue */ }
-        await ctx.delay(1000);
+        await ctx.delay(800);
 
-        // Spotlight the response — status code, body, timing
+        // Scroll the response into view so the viewer can read it
         const response = postCard.querySelector<HTMLElement>(CAT.LIVE_RESPONSE);
         if (response) {
           response.scrollIntoView({ block: 'nearest' });
-          await spotlightEl(ctx, response, 1800);
+          await ctx.delay(600);
         }
       },
     },
@@ -291,7 +532,6 @@ export const catTryItOutLesson: DemoLesson = {
         'fill `id = 1` in the **Parameters table**.\n\n' +
         'Click **Execute** — the API returns a single post (id: 1), proving the `{id}` was ' +
         'correctly substituted into the URL. This is how you test individual resources.',
-      highlight: CAT.endpointCard('GET', '/posts/{id}'),
 
       preAction: async (ctx) => {
         ensureCatalogTab(ctx);
@@ -360,63 +600,174 @@ export const catTryItOutLesson: DemoLesson = {
       },
     },
 
-    // ── Step 4: Save as Test ─────────────────────────────────────
+    // ── Step 4: Send to Harness — Target ─────────────────────────
     {
       id: 'cat2-save-test',
-      title: 'Save as Test',
+      title: 'Send to Harness — Choose Target',
       description:
-        'After a successful Execute, a **Save as Test** button appears below the response. ' +
-        'Click it to promote the endpoint — with its current parameters, body, and response — ' +
-        'directly into the **Test Harness** as a ready-to-run test scenario.\n\n' +
-        'This shortcut skips the Requests collection entirely: you go straight from a live ' +
-        'API call in the Catalog to a repeatable performance test. The saved test inherits ' +
-        'the method, URL, headers, and body you configured in Try It Out.',
+        'After a successful Execute, **Send to Harness** appears under the response. Click it ' +
+        'to open the **Send to Harness** modal — a two-step promotion wizard.\n\n' +
+        '**Step 1 — Target** picks where the test lands:\n' +
+        '- **Environment** — which env the harness run uses\n' +
+        '- **Microservice** — which service under that env\n' +
+        '- **Feature Group** — create or pick a group\n' +
+        '- **Test Scenario** — create or pick a scenario\n\n' +
+        'Fill each cascade field, then click **Next** to continue to Options.',
       highlight: CAT.SAVE_AS_TEST_BTN,
 
       preAction: async (ctx) => {
         ensureCatalogTab(ctx);
+        await ctx.delay(400);
         await ensureDemoEntrySelected();
         await ensureEndpointsView(ctx);
         closeAuthPanelIfOpen();
-        // Need a successful response on GET /posts/{id} for the button to appear
-        await ensureCardTryItOpen('GET', '/posts/{id}');
-        const getCard = document.querySelector<HTMLElement>(CAT.endpointCard('GET', '/posts/{id}'));
-        if (getCard) {
-          const hasResponse = getCard.querySelector(CAT.LIVE_RESPONSE);
-          if (!hasResponse) {
-            // Execute the request silently
-            const paramInput = getCard.querySelector<HTMLInputElement>(CAT.paramInput('id'));
-            if (paramInput && !paramInput.value) {
-              fillControlledInput(paramInput, '1');
-            }
-            const execBtn = getCard.querySelector<HTMLElement>(CAT.EXECUTE_BTN);
-            if (execBtn) execBtn.click();
-            try {
-              await waitForSelector(
-                `${CAT.endpointCard('GET', '/posts/{id}')} ${CAT.LIVE_RESPONSE}`,
-                8000,
-              );
-            } catch { /* Network may fail */ }
-          }
-        }
+        closeEditModalIfOpen();
+        await closeHarnessModalIfOpen(ctx);
+        resetHostStrategyToFromSpec();
+        await ensureGetPostExecuted(ctx);
       },
 
       action: async (ctx) => {
         const getCard = document.querySelector<HTMLElement>(CAT.endpointCard('GET', '/posts/{id}'));
         if (!getCard) return;
 
-        // Scroll to the response area so the Save as Test button is visible
         const response = getCard.querySelector<HTMLElement>(CAT.LIVE_RESPONSE);
         if (response) {
           response.scrollIntoView({ block: 'nearest' });
-          await ctx.delay(600);
+          await ctx.delay(500);
         }
 
-        // Spotlight the Save as Test button
         const saveBtn = getCard.querySelector<HTMLElement>(CAT.SAVE_AS_TEST_BTN);
-        if (saveBtn) {
-          saveBtn.scrollIntoView({ block: 'nearest' });
-          await spotlightEl(ctx, saveBtn, 2000);
+        if (!saveBtn) return;
+        saveBtn.scrollIntoView({ block: 'nearest' });
+        await spotlightEl(ctx, saveBtn, 1400);
+        saveBtn.click();
+
+        await waitForSelector(REQ.HARNESS_MODAL, 3000);
+        await ctx.delay(700);
+
+        const modal = document.querySelector<HTMLElement>(REQ.HARNESS_MODAL);
+        if (modal) {
+          await spotlightEl(ctx, modal, 1000);
+        }
+
+        // Walk each Target cascade field with content-based pauses
+        await selectCascadeByName(ctx, REQ.HARNESS_CASCADE_ENV, CAT2_ENV_NAME, 1200);
+        await selectCascadeByName(ctx, REQ.HARNESS_CASCADE_SVC, CAT2_SVC_NAME, 1200);
+        await createCascadeItem(ctx, REQ.HARNESS_CASCADE_GROUP, CAT2_FG_NAME, 1100);
+        await createCascadeItem(ctx, REQ.HARNESS_CASCADE_SCENARIO, CAT2_SCENARIO_NAME, 1100);
+
+        // Spotlight the Next button — viewer sees it's ready
+        const nextBtn = document.querySelector<HTMLButtonElement>(REQ.HARNESS_NEXT_BTN);
+        if (nextBtn) {
+          await spotlightEl(ctx, nextBtn, 1100);
+        }
+      },
+    },
+
+    // ── Step 5: Send to Harness — Options ────────────────────────
+    {
+      id: 'cat2-save-options',
+      title: 'Send to Harness — Options',
+      description:
+        '**Step 2 — Options** confirms the target path and lets you tune the harness test:\n\n' +
+        '- **Target summary** — Environment / Microservice / Feature Group / Scenario breadcrumb\n' +
+        '- **Preview card** — method, URL, and auth inherited from Try It Out\n' +
+        '- **Auth Mode** — Snapshot (freeze current auth) or Inherit (use Harness auth)\n' +
+        '- **Validation** — None, or assert **Status 200**\n\n' +
+        'We select **Status 200**, then **Cancel** — the full **Send to Harness** confirm is ' +
+        'covered in the Requests promotion lesson.',
+      highlight: REQ.HARNESS_MODAL,
+
+      preAction: async (ctx) => {
+        ensureCatalogTab(ctx);
+        await ctx.delay(400);
+        await ensureDemoEntrySelected();
+        await ensureEndpointsView(ctx);
+        closeAuthPanelIfOpen();
+        resetHostStrategyToFromSpec();
+        await ensureGetPostExecuted(ctx);
+
+        // Rebuild Target → Options if the modal was closed / skipped
+        if (!document.querySelector(REQ.HARNESS_MODAL)) {
+          const getCard = document.querySelector<HTMLElement>(CAT.endpointCard('GET', '/posts/{id}'));
+          const saveBtn = getCard?.querySelector<HTMLElement>(CAT.SAVE_AS_TEST_BTN);
+          if (saveBtn) {
+            saveBtn.click();
+            await waitForSelector(REQ.HARNESS_MODAL, 3000).catch(() => {});
+            await ctx.delay(400);
+            await selectCascadeByName(ctx, REQ.HARNESS_CASCADE_ENV, CAT2_ENV_NAME, 200);
+            await selectCascadeByName(ctx, REQ.HARNESS_CASCADE_SVC, CAT2_SVC_NAME, 200);
+            await createCascadeItem(ctx, REQ.HARNESS_CASCADE_GROUP, CAT2_FG_NAME, 200);
+            await createCascadeItem(ctx, REQ.HARNESS_CASCADE_SCENARIO, CAT2_SCENARIO_NAME, 200);
+          }
+        }
+        // Ensure we're still on the Target step (not yet on Options)
+        // — step action will click Next to transition visibly
+      },
+
+      action: async (ctx) => {
+        const modal = document.querySelector<HTMLElement>(REQ.HARNESS_MODAL);
+        if (!modal) return;
+
+        // Click Next to transition to Options — viewer sees the page change
+        const nextBtn = modal.querySelector<HTMLButtonElement>(REQ.HARNESS_NEXT_BTN);
+        if (nextBtn && !nextBtn.disabled) {
+          await spotlightEl(ctx, nextBtn, 900);
+          nextBtn.click();
+          await ctx.delay(800);
+        }
+
+        // Step indicator — Options active
+        const optionsStep = modal.querySelector<HTMLElement>('.send-harness-step.active');
+        if (optionsStep) {
+          await spotlightEl(ctx, optionsStep, 900);
+        }
+
+        const summary = modal.querySelector<HTMLElement>('.send-harness-target-summary');
+        if (summary) {
+          await spotlightEl(ctx, summary, 1400);
+        }
+
+        const preview = modal.querySelector<HTMLElement>('.send-harness-preview-card');
+        if (preview) {
+          await spotlightEl(ctx, preview, 1300);
+        }
+
+        const authGroup = modal.querySelectorAll<HTMLElement>('.send-harness-option-group')[0];
+        if (authGroup) {
+          await spotlightEl(ctx, authGroup, 1400);
+        }
+
+        const validationGroup = modal.querySelectorAll<HTMLElement>('.send-harness-option-group')[1];
+        if (validationGroup) {
+          await spotlightEl(ctx, validationGroup, 1200);
+          const status200 = Array.from(validationGroup.querySelectorAll<HTMLLabelElement>('.send-harness-option-card'))
+            .find((card) => card.textContent?.includes('Status 200'));
+          if (status200) {
+            await spotlightEl(ctx, status200, 1000);
+            status200.click();
+            await ctx.delay(700);
+            await spotlightEl(ctx, status200, 900);
+          }
+        }
+
+        const editorToggle = modal.querySelector<HTMLElement>('.send-harness-editor-toggle');
+        if (editorToggle) {
+          await spotlightEl(ctx, editorToggle, 900);
+        }
+
+        const confirmBtn = modal.querySelector<HTMLElement>(REQ.HARNESS_CONFIRM_BTN);
+        if (confirmBtn) {
+          await spotlightEl(ctx, confirmBtn, 1000);
+        }
+
+        // Close without creating — keep Catalog lesson focused
+        const cancelBtn = modal.querySelector<HTMLElement>(REQ.HARNESS_CANCEL_BTN);
+        if (cancelBtn) {
+          await spotlightEl(ctx, cancelBtn, 800);
+          cancelBtn.click();
+          await ctx.delay(600);
         }
       },
     },
@@ -425,75 +776,106 @@ export const catTryItOutLesson: DemoLesson = {
       id: 'cat2-auth',
       title: 'Authorize Your Requests',
       description:
-        'Click **Authorize** to open the auth configuration panel. The **auth type selector** ' +
-        'offers multiple options: Inherit from Spec, From Environment, No Auth, Bearer, Basic, ' +
-        'and API Key.\n\n' +
+        'Click **Authorize** to open the auth panel, then open the **Type** dropdown. ' +
+        'It lists every auth mode: Inherit from Spec, From Environment, No Auth, Bearer, ' +
+        'Basic, and API Key.\n\n' +
         'Select **Bearer Token** and type a token value. The **prefix field** lets you customize ' +
         'the `Authorization` header format (default: "Bearer"). The **Verify Auth** button tests ' +
         'your credentials against the API. Once set, all subsequent Execute calls include this auth.',
-      highlight: CAT.AUTHORIZE_BTN,
+      highlight: CAT.AUTH_TYPE_SELECT,
 
       preAction: async (ctx) => {
         ensureCatalogTab(ctx);
         await ensureDemoEntrySelected();
         await ensureEndpointsView(ctx);
-        closeAuthPanelIfOpen();
+        await closeHarnessModalIfOpen(ctx);
+        // Open the auth panel so the Type dropdown is visible for reading spotlight
+        if (!document.querySelector(CAT.AUTH_PANEL)) {
+          const authBtn = document.querySelector<HTMLElement>(CAT.AUTHORIZE_BTN);
+          authBtn?.click();
+          await waitForSelector(CAT.AUTH_PANEL, 2000);
+          await ctx.delay(300);
+        }
       },
 
       action: async (ctx) => {
-        // Spotlight and click the Authorize button
-        await spotlight(ctx, CAT.AUTHORIZE_BTN, 1000);
-        await ctx.click(CAT.AUTHORIZE_BTN);
-        await ctx.delay(800);
+        // Ensure panel is open
+        if (!document.querySelector(CAT.AUTH_PANEL)) {
+          await spotlight(ctx, CAT.AUTHORIZE_BTN, 900);
+          await ctx.click(CAT.AUTHORIZE_BTN);
+          await waitForSelector(CAT.AUTH_PANEL, 2000);
+          await ctx.delay(600);
+        }
 
-        // Wait for and spotlight the auth panel
         const authPanel = document.querySelector<HTMLElement>(CAT.AUTH_PANEL);
         if (!authPanel) return;
-        await spotlightEl(ctx, authPanel, 800);
 
-        // Spotlight the auth type selector — viewer sees all options
+        // Spotlight the Type CustomSelect, then open its menu
         const typeSelect = authPanel.querySelector<HTMLElement>(CAT.AUTH_TYPE_SELECT);
-        if (typeSelect) {
-          await spotlightEl(ctx, typeSelect, 1400);
+        if (!typeSelect) return;
+        await spotlightEl(ctx, typeSelect, 1200);
+
+        const trigger = typeSelect.querySelector<HTMLElement>('.cs-trigger');
+        if (trigger) {
+          await spotlightEl(ctx, trigger, 800);
+          trigger.click();
+          await ctx.delay(500);
         }
 
-        // Select Bearer Token (click the option or change the select)
-        if (typeSelect) {
-          const selectEl = typeSelect as HTMLSelectElement;
-          if (selectEl.tagName === 'SELECT') {
-            selectEl.value = 'bearer';
-            selectEl.dispatchEvent(new Event('change', { bubbles: true }));
+        // Spotlight the open menu, then each option so the viewer sees all modes
+        const menu = document.querySelector<HTMLElement>('.cs-menu');
+        if (menu) {
+          await spotlightEl(ctx, menu, 1000);
+          const items = Array.from(menu.querySelectorAll<HTMLElement>('.cs-item'));
+          for (const item of items.slice(0, 6)) {
+            await spotlightEl(ctx, item, 700);
+          }
+
+          // Select Bearer Token
+          const bearerOpt = items.find((item) => {
+            const label = item.querySelector('.cs-item-label')?.textContent?.trim().toLowerCase()
+              ?? item.textContent?.trim().toLowerCase()
+              ?? '';
+            return label.includes('bearer');
+          });
+          if (bearerOpt) {
+            await spotlightEl(ctx, bearerOpt, 1000);
+            bearerOpt.click();
+            await ctx.delay(700);
           } else {
-            // It might be a custom dropdown — try clicking Bearer option
-            const bearerOpt = authPanel.querySelector<HTMLElement>('[data-auth-type="bearer"]');
-            if (bearerOpt) bearerOpt.click();
+            // Close menu if Bearer not found
+            trigger?.click();
           }
         }
-        await ctx.delay(800);
 
         // Spotlight the token input field
         const tokenInput = authPanel.querySelector<HTMLInputElement>(CAT.AUTH_TOKEN_INPUT);
         if (tokenInput) {
-          await spotlightEl(ctx, tokenInput, 900);
-
-          // Fill in a demo token
+          await spotlightEl(ctx, tokenInput, 1000);
           tokenInput.focus();
           fillControlledInput(tokenInput, 'demo-token-2024');
-          tokenInput.dispatchEvent(new Event('input', { bubbles: true }));
-          tokenInput.dispatchEvent(new Event('change', { bubbles: true }));
-          await ctx.delay(600);
+          await ctx.delay(700);
+          await spotlightEl(ctx, tokenInput, 800);
         }
 
         // Spotlight the prefix field (customizable Authorization header format)
         const prefixInput = authPanel.querySelector<HTMLElement>(CAT.AUTH_PREFIX_INPUT);
         if (prefixInput) {
-          await spotlightEl(ctx, prefixInput, 900);
+          await spotlightEl(ctx, prefixInput, 1000);
         }
 
-        // Spotlight the Verify Auth button — explain it tests credentials
+        // Spotlight and click the Verify Auth button
         const verifyBtn = authPanel.querySelector<HTMLElement>(CAT.VERIFY_AUTH_BTN);
         if (verifyBtn) {
-          await spotlightEl(ctx, verifyBtn, 1200);
+          await spotlightEl(ctx, verifyBtn, 1000);
+          await ctx.click(CAT.VERIFY_AUTH_BTN);
+          await ctx.delay(1500);
+
+          // Spotlight the result badge (one-line with close button)
+          const verifyResult = authPanel.querySelector<HTMLElement>('.ceb-verify-result');
+          if (verifyResult) {
+            await spotlightEl(ctx, verifyResult, 1800);
+          }
         }
 
         // Close the auth panel
@@ -508,45 +890,60 @@ export const catTryItOutLesson: DemoLesson = {
       id: 'cat2-curl',
       title: 'Copy as cURL',
       description:
-        'On any endpoint with Try It Out active, click the **cURL** button in the execute ' +
-        'bar. The generated curl command appears with syntax highlighting — multi-line, with ' +
-        'all headers, the URL, and your auth token already filled in.\n\n' +
-        'Toggle between **multi-line** and **single-line** formats. Click **Copy** to grab ' +
-        'it to the clipboard — ready to paste into a terminal or CI script.',
+        'Switch to **POST /posts** — a richer endpoint with method, headers, and a JSON body. ' +
+        'Click the **cURL** button in the execute bar to see the full command: `-X POST`, ' +
+        '`Content-Type` header, and `-d` body data.\n\n' +
+        'Toggle between **multi-line** (readable) and **single-line** (paste-ready) formats. ' +
+        'Click **Copy** to grab it — ready to paste into a terminal or CI script.',
       highlight: CAT.CURL_BTN,
 
       preAction: async (ctx) => {
         ensureCatalogTab(ctx);
         await ensureDemoEntrySelected();
         await ensureEndpointsView(ctx);
+        await closeHarnessModalIfOpen(ctx);
         closeAuthPanelIfOpen();
-        await ensureCardTryItOpen('GET', '/posts/{id}');
+        collapseAllCards();
+        await ensureCardTryItOpen('POST', '/posts');
       },
 
       action: async (ctx) => {
-        const getCard = document.querySelector<HTMLElement>(CAT.endpointCard('GET', '/posts/{id}'));
-        if (!getCard) return;
-        getCard.scrollIntoView({ block: 'center' });
+        const postCard = document.querySelector<HTMLElement>(CAT.endpointCard('POST', '/posts'));
+        if (!postCard) return;
+        postCard.scrollIntoView({ block: 'center' });
         await ctx.delay(400);
 
         // Click the cURL button
-        const curlBtn = getCard.querySelector<HTMLElement>(CAT.CURL_BTN);
+        const curlBtn = postCard.querySelector<HTMLElement>(CAT.CURL_BTN);
         if (curlBtn) {
+          curlBtn.scrollIntoView({ block: 'nearest' });
           await spotlightEl(ctx, curlBtn, 900);
           curlBtn.click();
         }
         await ctx.delay(900);
 
         // Spotlight the cURL syntax-highlighted box
-        const curlBox = getCard.querySelector<HTMLElement>(CAT.CURL_BOX);
+        const curlBox = postCard.querySelector<HTMLElement>(CAT.CURL_BOX);
         if (curlBox) {
           curlBox.scrollIntoView({ block: 'nearest' });
           await spotlightEl(ctx, curlBox, 1800);
 
-          // Spotlight the multi-line/single-line toggle if present
-          const toggleBtn = curlBox.querySelector<HTMLElement>('.sw-curl-toggle');
-          if (toggleBtn) {
-            await spotlightEl(ctx, toggleBtn, 800);
+          // Toggle to single-line — viewer sees the command collapse
+          const toggleBtns = curlBox.querySelectorAll<HTMLElement>('.sw-curl-toggle');
+          const multiBtn = toggleBtns[0]; // ⏎ multi-line
+          const singleBtn = toggleBtns[1]; // ― single-line
+          if (singleBtn) {
+            await spotlightEl(ctx, singleBtn, 900);
+            singleBtn.click();
+            await ctx.delay(1200);
+            await spotlightEl(ctx, curlBox.querySelector<HTMLElement>('.sw-curl-hl') ?? curlBox, 1400);
+          }
+          // Toggle back to multi-line — viewer sees it expand
+          if (multiBtn) {
+            await spotlightEl(ctx, multiBtn, 900);
+            multiBtn.click();
+            await ctx.delay(1200);
+            await spotlightEl(ctx, curlBox.querySelector<HTMLElement>('.sw-curl-hl') ?? curlBox, 1400);
           }
 
           // Click Copy button

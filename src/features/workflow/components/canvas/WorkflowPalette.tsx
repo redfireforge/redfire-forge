@@ -109,7 +109,7 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
   }, [q, collections]);
 
   const filteredCatalog = useMemo(() => {
-    const filterExposed = (ep: CatalogEntry['endpoints'][number]) => !!ep.exposedToWorkflow;
+    const filterExposed = (ep: CatalogEntry['endpoints'][number]) => !!ep.workflowExposure || !!ep.exposedToWorkflow;
     const filterFolder = (folder: CatalogFolder): CatalogFolder => ({
       ...folder,
       endpoints: folder.endpoints.filter(filterExposed),
@@ -158,9 +158,9 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
   return (
     <div className="wf-palette">
       <div className="wf-palette-tabs">
-        <button className={`wf-palette-tab ${section === 'blocks' ? 'active' : ''}`} onClick={() => setSection('blocks')}>Blocks</button>
-        <button className={`wf-palette-tab ${section === 'requests' ? 'active' : ''}`} onClick={() => setSection('requests')}>Requests</button>
-        <button className={`wf-palette-tab ${section === 'catalog' ? 'active' : ''}`} onClick={() => setSection('catalog')}>Catalog</button>
+        <button data-testid="wf-palette-tab-blocks" className={`wf-palette-tab ${section === 'blocks' ? 'active' : ''}`} onClick={() => setSection('blocks')}>Blocks</button>
+        <button data-testid="wf-palette-tab-requests" className={`wf-palette-tab ${section === 'requests' ? 'active' : ''}`} onClick={() => setSection('requests')}>Requests</button>
+        <button data-testid="wf-palette-tab-catalog" className={`wf-palette-tab ${section === 'catalog' ? 'active' : ''}`} onClick={() => setSection('catalog')}>Catalog</button>
       </div>
 
       <div className="wf-palette-search-wrap">
@@ -241,7 +241,7 @@ export default function WorkflowPalette({ collections, catalogEntries, onAddNode
 
         {section === 'catalog' && (
           <div className="wf-palette-tree">
-            {filteredCatalog.length === 0 && <p className="wf-palette-empty">{q ? `No exposed endpoints matching "${searchQuery.trim()}"` : 'No endpoints exposed to Workflow. Use the "Expose to Workflow" checkbox on the Catalog page.'}</p>}
+            {filteredCatalog.length === 0 && <p className="wf-palette-empty">{q ? `No exposed endpoints matching "${searchQuery.trim()}"` : 'No endpoints exposed to Workflow. Use the exposure dropdown on the Catalog page to Preview or Publish endpoints.'}</p>}
             {filteredCatalog.map(entry => {
               const totalEpCount = countCatalogEndpoints(entry);
               return (
@@ -407,12 +407,17 @@ function CatalogFolderTree({ folders, rootEndpoints, entryId, expanded, onToggle
             </button>
             {isOpen && (
               <>
-                {filteredEps.map(ep => (
-                  <button key={ep.id} className="wf-palette-item" style={{ paddingLeft: depth * 12 + 24 }} onClick={() => onAdd(entryId, ep.id)} title={`${ep.method.toUpperCase()} ${ep.path}`}>
-                    <span className="wf-method-mini" style={{ color: METHOD_COLORS[ep.method.toUpperCase()] ?? '#6b7280' }}>{ep.method.toUpperCase()}</span>
-                    <span className="wf-palette-item-name">{ep.summary || ep.path}</span>
-                  </button>
-                ))}
+                {filteredEps.map(ep => {
+                  const exposure = ep.workflowExposure ?? (ep.exposedToWorkflow ? 'preview' : undefined);
+                  return (
+                    <button key={ep.id} className="wf-palette-item" style={{ paddingLeft: depth * 12 + 24 }} onClick={() => onAdd(entryId, ep.id)} title={`${ep.method.toUpperCase()} ${ep.path}`}>
+                      <span className="wf-method-mini" style={{ color: METHOD_COLORS[ep.method.toUpperCase()] ?? '#6b7280' }}>{ep.method.toUpperCase()}</span>
+                      <span className="wf-palette-item-name">{ep.summary || ep.path}</span>
+                      {exposure === 'published' && <span className="wf-palette-badge wf-palette-badge--published" title="Published">📌</span>}
+                      {exposure === 'preview' && <span className="wf-palette-badge wf-palette-badge--preview" title="Preview">◇</span>}
+                    </button>
+                  );
+                })}
                 {folder.folders.length > 0 && (
                   <CatalogFolderTree
                     folders={folder.folders}
@@ -432,12 +437,17 @@ function CatalogFolderTree({ folders, rootEndpoints, entryId, expanded, onToggle
       })}
       {rootEndpoints
         .filter(ep => matchesSearch(ep, q))
-        .map(ep => (
-          <button key={ep.id} className="wf-palette-item" style={{ paddingLeft: depth * 12 + 16 }} onClick={() => onAdd(entryId, ep.id)} title={`${ep.method.toUpperCase()} ${ep.path}`}>
-            <span className="wf-method-mini" style={{ color: METHOD_COLORS[ep.method.toUpperCase()] ?? '#6b7280' }}>{ep.method.toUpperCase()}</span>
-            <span className="wf-palette-item-name">{ep.summary || ep.path}</span>
-          </button>
-        ))}
+        .map(ep => {
+          const exposure = ep.workflowExposure ?? (ep.exposedToWorkflow ? 'preview' : undefined);
+          return (
+            <button key={ep.id} className="wf-palette-item" style={{ paddingLeft: depth * 12 + 16 }} onClick={() => onAdd(entryId, ep.id)} title={`${ep.method.toUpperCase()} ${ep.path}`}>
+              <span className="wf-method-mini" style={{ color: METHOD_COLORS[ep.method.toUpperCase()] ?? '#6b7280' }}>{ep.method.toUpperCase()}</span>
+              <span className="wf-palette-item-name">{ep.summary || ep.path}</span>
+              {exposure === 'published' && <span className="wf-palette-badge wf-palette-badge--published" title="Published">📌</span>}
+              {exposure === 'preview' && <span className="wf-palette-badge wf-palette-badge--preview" title="Preview">◇</span>}
+            </button>
+          );
+        })}
     </>
   );
 }

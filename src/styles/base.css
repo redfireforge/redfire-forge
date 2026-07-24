@@ -996,9 +996,12 @@ input:focus, select:focus, textarea:focus { outline: none; border-color: var(--p
 textarea { resize: vertical; }
 select { cursor: pointer; }
 
-.form-row { margin-bottom: 12px; }
-.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.three-col { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+.form-row { margin-bottom: 14px; }
+.form-row label { font-size: 0.75rem; font-weight: 600; color: var(--text-muted); margin-bottom: 5px; display: block; }
+.form-row input { padding: 7px 10px; background: var(--bg); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-size: 0.8rem; width: 100%; transition: border-color 0.12s; }
+.form-row input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent); }
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.three-col { display: grid; grid-template-columns: 1fr 1fr auto; gap: 10px; align-items: end; }
 .flex-grow { flex: 1; }
 .form-actions { margin-top: 20px; display: flex; gap: 12px; }
 
@@ -2305,8 +2308,8 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 /* ═══ Extraction Editor ═══ */
 
 .extraction-editor { padding: 4px 0; }
-.extraction-hint { font-size: 0.78rem; color: var(--text-muted); margin-bottom: 10px; }
-.extraction-hint code { color: #f59e0b; background: var(--surface); padding: 1px 4px; border-radius: 3px; }
+.extraction-hint { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 12px; line-height: 1.5; }
+.extraction-hint code { color: #f59e0b; background: var(--surface); padding: 2px 5px; border-radius: 3px; font-size: 0.72rem; }
 .extraction-empty { font-size: 0.8rem; color: var(--text-muted); font-style: italic; }
 
 /* ── Compact table layout ── */
@@ -2314,22 +2317,22 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 
 .ext-thead {
   display: grid;
-  grid-template-columns: 22px 0.8fr 72px 1.8fr 0.6fr 26px;
+  grid-template-columns: 22px 0.8fr 96px 1.8fr 0.6fr 26px;
   gap: 4px;
   padding: 0 2px 4px;
 }
 .ext-th {
-  font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase;
-  letter-spacing: 0.4px; font-weight: 600; user-select: none;
+  font-size: 0.66rem; color: var(--text-muted);
+  letter-spacing: 0.2px; font-weight: 600; user-select: none;
 }
 .ext-th-grip { /* empty column for drag handle */ }
 
 .ext-row {
   display: grid;
-  grid-template-columns: 22px 0.8fr 72px 1.8fr 0.6fr 26px;
-  gap: 4px;
+  grid-template-columns: 22px 0.8fr 96px 1.8fr 0.6fr 26px;
+  gap: 6px;
   align-items: center;
-  padding: 4px 2px;
+  padding: 5px 2px;
   border-radius: 6px;
   transition: background 0.15s;
 }
@@ -2348,10 +2351,11 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .ext-cell-expr { gap: 4px; }
 
 .ext-input {
-  width: 100%; padding: 4px 6px; background: var(--bg); border: 1px solid var(--border);
-  border-radius: 4px; color: var(--text); font-size: 0.8rem; font-family: 'SF Mono', ui-monospace, monospace;
+  width: 100%; padding: 5px 8px; background: var(--bg); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--text); font-size: 0.78rem; font-family: 'SF Mono', ui-monospace, monospace;
+  transition: border-color 0.12s;
 }
-.ext-input:focus { border-color: var(--accent); outline: none; }
+.ext-input:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent); }
 .ext-input:disabled { opacity: 0.45; }
 .ext-input::placeholder { color: var(--text-muted); font-family: inherit; opacity: 0.6; }
 
@@ -2359,6 +2363,7 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   width: 100%; padding: 4px 4px; background: var(--bg); border: 1px solid var(--border);
   border-radius: 4px; color: var(--text); font-size: 0.78rem; cursor: pointer;
 }
+.ext-select .cs-menu { min-width: 110px; }
 .ext-select:focus { border-color: var(--accent); outline: none; }
 
 .ext-pick-btn {
@@ -4656,6 +4661,11 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   max-height: 240px;
   overflow-y: auto;
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+.cs-menu-up {
+  top: auto;
+  bottom: calc(100% + 3px);
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35), 0 -2px 6px rgba(0, 0, 0, 0.2);
 }
 .cs-item {
   display: flex;

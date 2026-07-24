@@ -8,7 +8,11 @@ import CatalogWelcome from './components/CatalogWelcome';
 import CatalogEndpointBrowser from './components/CatalogEndpointBrowser';
 import CatalogOverview from './components/CatalogOverview';
 import CatalogSendToRequestsModal from './components/CatalogSendToRequestsModal';
-import { loadCatalogView, saveCatalogView } from '../../shared/utils/storageCatalog';
+import CatalogYamlViewerModal from './components/CatalogYamlViewerModal';
+import UnpublishConfirmDialog from './components/UnpublishConfirmDialog';
+import type { UnpublishRequest } from './components/UnpublishConfirmDialog';
+import { scanWorkflowsForCatalogRef, removeCatalogNodesFromWorkflows } from './utils/workflowExposureScanner';
+import { loadCatalogView, saveCatalogView, loadCatalogRawSpec } from '../../shared/utils/storageCatalog';
 
 interface Props {
   catalog: UseCatalogReturn;
@@ -35,6 +39,8 @@ type View = 'overview' | 'endpoints' | 'export';
 export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHistory, onExportSpec, onConvertToOpenApi, onSendToRequests, onExportSingleEndpoint, onEditEntry, globalAuthProfiles, appEnvironments, appMicroservices, collections, onNavigateToRequest, savedEpValues, onExportConfirm, onSendEndpointToHarness }: Props) {
   const [auth, setAuth] = useState<AuthConfig>({ type: 'none' });
   const [view, setView] = useState<View>('endpoints');
+  const [yamlContent, setYamlContent] = useState<string | null>(null);
+  const [showYamlModal, setShowYamlModal] = useState(false);
   const prevEntryId = useRef<string | undefined>(undefined);
   const prevEnvId = useRef<string | undefined>(undefined);
 
@@ -138,12 +144,28 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
     }
   }, [catalog.selectedEntry, onSendEndpointToHarness]);
 
-  const handleToggleWorkflowExpose = useCallback((ep: CatalogEndpoint, exposed: boolean, values: SavedEndpointValues) => {
+  const handleViewYaml = useCallback(async () => {
+    const entry = catalog.selectedEntry;
+    if (!entry?.currentVersionId) return;
+    const raw = await loadCatalogRawSpec(entry.id, entry.currentVersionId);
+    setYamlContent(raw || '# No raw spec available for this entry.');
+    setShowYamlModal(true);
+  }, [catalog.selectedEntry]);
+
+  const [unpublishRequest, setUnpublishRequest] = useState<UnpublishRequest | null>(null);
+  const pendingUnpublishRef = useRef<{ ep: CatalogEndpoint; mode: 'preview' | 'published' | undefined; values: SavedEndpointValues } | null>(null);
+
+  const applyExposure = useCallback((ep: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => {
     const entry = catalog.selectedEntry;
     if (!entry) return;
     const patchEp = (e: CatalogEndpoint): CatalogEndpoint =>
       e.id === ep.id
-        ? { ...e, exposedToWorkflow: exposed, workflowValues: exposed ? { paramValues: values.params, headerValues: values.headers, body: values.body || undefined } : undefined }
+        ? {
+            ...e,
+            exposedToWorkflow: !!mode,
+            workflowExposure: mode,
+            workflowValues: mode ? { paramValues: values.params, headerValues: values.headers, body: values.body || undefined } : undefined,
+          }
         : e;
     const patchFolders = (folders: typeof entry.folders): typeof entry.folders =>
       folders.map(f => ({ ...f, endpoints: f.endpoints.map(patchEp), folders: patchFolders(f.folders) }));
@@ -152,6 +174,59 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
       folders: patchFolders(entry.folders),
     });
   }, [catalog]);
+
+  const handleSetWorkflowExposure = useCallback((ep: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => {
+    const entry = catalog.selectedEntry;
+    if (!entry) return;
+
+    const wasPublished = ep.workflowExposure === 'published' || (!ep.workflowExposure && ep.exposedToWorkflow);
+    const isDowngrading = wasPublished && mode !== 'published';
+
+    if (isDowngrading) {
+      pendingUnpublishRef.current = { ep, mode, values };
+      scanWorkflowsForCatalogRef(entry.id, ep.id).then(affected => {
+        if (affected.length === 0) {
+          applyExposure(ep, mode, values);
+          pendingUnpublishRef.current = null;
+        } else {
+          setUnpublishRequest({
+            endpointLabel: ep.summary || ep.path,
+            method: ep.method,
+            path: ep.path,
+            entryId: entry.id,
+            endpointId: ep.id,
+            affected,
+          });
+        }
+      });
+      return;
+    }
+
+    applyExposure(ep, mode, values);
+  }, [catalog, applyExposure]);
+
+  const handleUnpublishPaletteOnly = useCallback(() => {
+    const pending = pendingUnpublishRef.current;
+    if (pending) applyExposure(pending.ep, pending.mode, pending.values);
+    pendingUnpublishRef.current = null;
+    setUnpublishRequest(null);
+  }, [applyExposure]);
+
+  const handleUnpublishPaletteAndWorkflows = useCallback(async () => {
+    const pending = pendingUnpublishRef.current;
+    const req = unpublishRequest;
+    if (pending && req) {
+      await removeCatalogNodesFromWorkflows(req.entryId, req.endpointId);
+      applyExposure(pending.ep, pending.mode, pending.values);
+    }
+    pendingUnpublishRef.current = null;
+    setUnpublishRequest(null);
+  }, [applyExposure, unpublishRequest]);
+
+  const handleUnpublishCancel = useCallback(() => {
+    pendingUnpublishRef.current = null;
+    setUnpublishRequest(null);
+  }, []);
 
   const coverageMap = useMemo(
     () => catalog.selectedEntry && collections
@@ -218,6 +293,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           onVersionHistory={() => onVersionHistory?.(entry.id)}
           onExportSpec={() => onExportSpec?.(entry.id)}
           onConvertToOpenApi={onConvertToOpenApi ? () => onConvertToOpenApi(entry.id) : undefined}
+          onViewYaml={handleViewYaml}
         />
       </div>
       <div className="cat-view-pane" style={{ display: view === 'endpoints' ? 'flex' : 'none' }}>
@@ -234,7 +310,7 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
           onSendToHarness={onSendEndpointToHarness ? handleSendToHarness : undefined}
           coverageMap={coverageMap}
           onNavigateToRequest={onNavigateToRequest}
-          onToggleWorkflowExpose={handleToggleWorkflowExpose}
+          onSetWorkflowExposure={handleSetWorkflowExposure}
         />
       </div>
       {view === 'export' && onExportConfirm && (
@@ -250,6 +326,21 @@ export default function ApiCatalog({ catalog, onImport, onReimport, onVersionHis
             inline
           />
         </div>
+      )}
+      {showYamlModal && yamlContent !== null && (
+        <CatalogYamlViewerModal
+          yaml={yamlContent}
+          title={entry.name}
+          onClose={() => { setShowYamlModal(false); setYamlContent(null); }}
+        />
+      )}
+      {unpublishRequest && (
+        <UnpublishConfirmDialog
+          request={unpublishRequest}
+          onPaletteOnly={handleUnpublishPaletteOnly}
+          onPaletteAndWorkflows={handleUnpublishPaletteAndWorkflows}
+          onCancel={handleUnpublishCancel}
+        />
       )}
     </div>
   );

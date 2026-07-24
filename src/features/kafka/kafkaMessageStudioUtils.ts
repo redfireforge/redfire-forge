@@ -127,6 +127,10 @@ export function buildConsumeFilter(draft: KafkaConsumeDraft): Record<string, unk
     filter.jsonEquals = draft.jsonPathEquals.trim();
   }
 
+  if (draft.bodyContains?.trim()) {
+    filter.bodyContains = draft.bodyContains.trim();
+  }
+
   return Object.keys(filter).length > 0 ? filter : undefined;
 }
 

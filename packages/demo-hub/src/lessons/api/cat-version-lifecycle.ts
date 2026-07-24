@@ -29,10 +29,12 @@ import {
   spotlightEl,
   waitForSelector,
 } from './cat-demo-helpers';
+import { cleanupOtherRequestDemoCollections } from './req-demo-helpers';
 
 // ─── Constants ──────────────────────────────────────────────────
 
 const DEMO_ENTRY_NAME = 'JSONPlaceholder API';
+const DEMO_ENTRY_NAME_VERSIONED = 'JSONPlaceholder API (1.0.0)';
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -112,15 +114,16 @@ export const catVersionLifecycleLesson: DemoLesson = {
     ensureCatalogTab(ctx);
     await ctx.delay(80);
     closeVersionHistoryIfOpen();
-    // Start fresh: seed JSONPlaceholder v1 + v2 so all steps have 2 versions
     deleteCatalogEntryByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    await ctx.delay(200);
+    await cleanupOtherRequestDemoCollections(ctx);
     await ctx.delay(400);
     await seedCatalogEntry(DEMO_ENTRY_NAME, JSONPLACEHOLDER_API_SPEC);
     await waitForSelector(CAT.entryByName(DEMO_ENTRY_NAME), 3000);
     selectCatalogEntryByName(DEMO_ENTRY_NAME);
-    // Give React time to commit the entry state before adding v2
     await ctx.delay(600);
-    // Seed the second version (v2) so Compare works even if user skips Step 2
     await ensureSecondVersionSeeded();
     await ctx.delay(300);
   },
@@ -129,6 +132,8 @@ export const catVersionLifecycleLesson: DemoLesson = {
     closeVersionHistoryIfOpen();
     deleteCatalogEntryByName(DEMO_ENTRY_NAME);
     deleteCollectionsByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    await cleanupOtherRequestDemoCollections(ctx);
     resetSecondVersionFlag();
     ensureCatalogTab(ctx);
     await ctx.delay(60);
@@ -214,12 +219,23 @@ export const catVersionLifecycleLesson: DemoLesson = {
         }
         await ctx.delay(1000);
 
-        // Wait for the re-import modal/flow
-        const importPreview = document.querySelector<HTMLElement>(CAT.IMPORT_PREVIEW);
-        if (importPreview) {
-          // Spotlight the "duplicate detection" indicator
-          await spotlightEl(ctx, importPreview, 1200);
+        // Walk through each import tab with highlights
+        const tabLabels = ['Upload File', 'Paste YAML / JSON', 'From URL', 'Sample Gallery'];
+        for (const label of tabLabels) {
+          const tabs = document.querySelectorAll<HTMLButtonElement>('.cat-import-tab');
+          for (const tab of tabs) {
+            if (tab.textContent?.trim() === label) {
+              await spotlightEl(ctx, tab, 800);
+              tab.click();
+              await ctx.delay(600);
+              break;
+            }
+          }
         }
+        // Return to Upload File (default)
+        const firstTab = document.querySelector<HTMLButtonElement>('.cat-import-tab');
+        if (firstTab) firstTab.click();
+        await ctx.delay(400);
 
         // Programmatically seed the v2 spec (simulates the re-import action)
         await seedSecondVersion(ctx);
@@ -233,15 +249,9 @@ export const catVersionLifecycleLesson: DemoLesson = {
           await ctx.delay(300);
         }
 
-        // Spotlight the updated overview — new endpoint count, version count
+        // Return to Overview so version count / endpoint totals are visible
         await ensureCatalogOverviewView(ctx);
         await ctx.delay(800);
-
-        const overview = document.querySelector<HTMLElement>(CAT.OVERVIEW);
-        if (overview) {
-          overview.scrollIntoView({ block: 'start' });
-          await spotlightEl(ctx, overview, 1400);
-        }
       },
     },
 
@@ -322,44 +332,77 @@ export const catVersionLifecycleLesson: DemoLesson = {
         ensureCatalogTab(ctx);
         await ensureDemoEntry();
         selectCatalogEntryByName(DEMO_ENTRY_NAME);
-        // Guard: ensure v2 exists (user may have skipped step 2)
         await ensureSecondVersionSeeded();
         if (!document.querySelector(CAT.VERSION_HISTORY_MODAL)) {
           await openVersionHistoryModal(ctx);
+          await new Promise(r => setTimeout(r, 600));
         }
+        // Reset: deselect all checked versions so the action can visibly select them.
+        // The checkboxes are custom <span class="cat-vh-checkbox checked"> with
+        // click handler on the parent .cat-vh-card-select div.
+        const checked = document.querySelectorAll<HTMLElement>(
+          `${CAT.VERSION_LIST} .cat-vh-checkbox.checked`,
+        );
+        checked.forEach(cb => {
+          const clickable = cb.closest<HTMLElement>('.cat-vh-card-select');
+          if (clickable) clickable.click();
+        });
       },
 
       action: async (ctx) => {
-        // Check both version checkboxes
-        const checkboxes = document.querySelectorAll<HTMLInputElement>(
-          `${CAT.VERSION_LIST} input[type="checkbox"]`,
-        );
-        checkboxes.forEach(cb => {
-          if (!cb.checked) cb.click();
-        });
-        await ctx.delay(800);
+        // Spotlight the version list to orient the viewer
+        await spotlight(ctx, CAT.VERSION_LIST, 1000);
 
-        // Spotlight the Compare button
-        await spotlight(ctx, CAT.VERSION_COMPARE_BTN, 900);
+        // Spotlight and select v2.0.0 (first item — the current version)
+        const items = document.querySelectorAll<HTMLElement>(CAT.VERSION_ITEM);
+        if (items.length >= 2) {
+          // Click the first version's checkbox area
+          const select1 = items[0].querySelector<HTMLElement>('.cat-vh-card-select');
+          if (select1) {
+            await spotlightEl(ctx, items[0], 1200);
+            select1.click();
+            await ctx.delay(800);
+          }
 
-        // Click Compare
+          // Click the second version's checkbox area
+          const select2 = items[1].querySelector<HTMLElement>('.cat-vh-card-select');
+          if (select2) {
+            await spotlightEl(ctx, items[1], 1200);
+            select2.click();
+            await ctx.delay(800);
+          }
+        }
+
+        // Spotlight the Compare button (now enabled) and click it
+        await ctx.delay(400);
         const compareBtn = document.querySelector<HTMLElement>(CAT.VERSION_COMPARE_BTN);
         if (compareBtn) {
+          await spotlightEl(ctx, compareBtn, 1400);
           compareBtn.click();
         }
-        await ctx.delay(1200);
+        await ctx.delay(2000);
 
         // Spotlight the diff summary badges (+ added, − removed, ~ changed)
         const diffSummary = document.querySelector<HTMLElement>(CAT.VERSION_DIFF_SUMMARY);
         if (diffSummary) {
-          await spotlightEl(ctx, diffSummary, 1200);
+          diffSummary.scrollIntoView({ block: 'nearest' });
+          await spotlightEl(ctx, diffSummary, 1500);
         }
 
-        // Spotlight the full diff panel — added/changed/removed sections
+        // Spotlight individual sections in the diff panel
         const diffPanel = document.querySelector<HTMLElement>(CAT.VERSION_DIFF);
         if (diffPanel) {
-          diffPanel.scrollIntoView({ block: 'nearest' });
-          await spotlightEl(ctx, diffPanel, 1800);
+          // Spotlight each added endpoint entry
+          const addedEntries = diffPanel.querySelectorAll<HTMLElement>('.cat-vd-section:first-of-type .cat-vd-endpoint');
+          for (const entry of addedEntries) {
+            entry.scrollIntoView({ block: 'nearest' });
+            await spotlightEl(ctx, entry, 1000);
+          }
+          // Fallback: spotlight the full diff panel
+          if (addedEntries.length === 0) {
+            diffPanel.scrollIntoView({ block: 'nearest' });
+            await spotlightEl(ctx, diffPanel, 2000);
+          }
         }
       },
     },

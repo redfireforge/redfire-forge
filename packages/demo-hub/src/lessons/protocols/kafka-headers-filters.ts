@@ -101,8 +101,8 @@ export const kafkaHeadersFiltersLesson: DemoLesson = {
   category: 'kafka',
   name: 'Headers & Filters',
   description:
-    'Annotate messages with custom headers for traceability, then consume selectively using Key, Header-Match, and JSONPath filters.',
-  estimatedMinutes: 4,
+    'Annotate messages with custom headers for traceability, then consume selectively using Key, Header-Match, JSONPath, and Body Contains filters.',
+  estimatedMinutes: 5,
   initialTab: 'kafka-message-studio',
   allowedTabs: ['kafka-settings'],
 
@@ -139,6 +139,7 @@ export const kafkaHeadersFiltersLesson: DemoLesson = {
 | **Header Match** | header \`key=value\` is present on the message |
 | **JSONPath** | a JSON field path exists in the value |
 | **JSONPath Equals** | that field's value == expected string |
+| **Body Contains** | message body includes the search text (case-insensitive) |
 
 Filters are applied server-side before messages are returned — you never download messages you don't need.`,
     keyTerms: [
@@ -162,6 +163,11 @@ Filters are applied server-side before messages are returned — you never downl
         definition:
           'A consume filter using a JSONPath expression (e.g. $.status). Combined with JSONPath Equals, it returns only messages whose body contains that field with the expected value.',
       },
+      {
+        term: 'Body Contains Filter',
+        definition:
+          'A free-text consume filter. Returns only messages whose raw body includes the search string (case-insensitive). Ideal for quickly finding messages mentioning a specific ID, keyword, or error code.',
+      },
     ],
     diagram: `<svg viewBox="0 0 420 160" xmlns="http://www.w3.org/2000/svg">
   <!-- Producer -->
@@ -184,12 +190,13 @@ Filters are applied server-side before messages are returned — you never downl
   <line x1="250" y1="80" x2="290" y2="80" stroke="var(--success,#22c55e)" stroke-width="1.5" marker-end="url(#hf-a2)"/>
   <text x="270" y="73" text-anchor="middle" fill="var(--text-muted)" font-size="8">filtered</text>
   <!-- Consumer / Filters -->
-  <rect x="290" y="38" width="120" height="84" rx="6" fill="var(--success,#22c55e)" opacity="0.12" stroke="var(--success,#22c55e)" stroke-width="1.5"/>
-  <text x="350" y="58" text-anchor="middle" fill="var(--text)" font-size="11" font-family="system-ui">Consumer</text>
-  <text x="350" y="72" text-anchor="middle" fill="var(--text-muted)" font-size="8">key = HDR-001</text>
-  <text x="350" y="84" text-anchor="middle" fill="var(--text-muted)" font-size="8">traceId=abc-001</text>
-  <text x="350" y="96" text-anchor="middle" fill="var(--text-muted)" font-size="8">$.status = CREATED</text>
-  <text x="350" y="112" text-anchor="middle" fill="var(--text-muted)" font-size="8">→ detail pane</text>
+  <rect x="290" y="30" width="120" height="100" rx="6" fill="var(--success,#22c55e)" opacity="0.12" stroke="var(--success,#22c55e)" stroke-width="1.5"/>
+  <text x="350" y="50" text-anchor="middle" fill="var(--text)" font-size="11" font-family="system-ui">Consumer</text>
+  <text x="350" y="64" text-anchor="middle" fill="var(--text-muted)" font-size="8">key = HDR-001</text>
+  <text x="350" y="76" text-anchor="middle" fill="var(--text-muted)" font-size="8">traceId=abc-001</text>
+  <text x="350" y="88" text-anchor="middle" fill="var(--text-muted)" font-size="8">$.status = CREATED</text>
+  <text x="350" y="100" text-anchor="middle" fill="var(--text-muted)" font-size="8">body ∋ "us-east"</text>
+  <text x="350" y="122" text-anchor="middle" fill="var(--text-muted)" font-size="8">→ detail modal</text>
   <defs>
     <marker id="hf-a1" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="none" stroke="var(--primary)" stroke-width="1.5"/></marker>
     <marker id="hf-a2" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8" fill="none" stroke="var(--success,#22c55e)" stroke-width="1.5"/></marker>
@@ -324,7 +331,7 @@ Filters are applied server-side before messages are returned — you never downl
       id: 'hf-filter-intro',
       title: 'Consume Filters',
       description:
-        'Now on the **Consume** tab. Scroll down below the basic fields to find the **Filters** section with four inputs: **Key Equals**, **Header Match**, **JSONPath**, and **JSONPath Equals**. These narrow a batch fetch to only the messages you care about — filtering happens server-side, so you never download what you don\'t need.',
+        'Now on the **Consume** tab. Scroll down below the basic fields to find the **Filters** section with five inputs: **Key Equals**, **Header Match**, **JSONPath / JSONPath Equals**, and the new **Body Contains**. These narrow a batch fetch to only the messages you care about — filtering happens server-side, so you never download what you don\'t need.',
       highlight: FILTERS_SECTION,
       preAction: async (ctx) => {
         await ctx.click(KAFKA.CONSUME_TAB);
@@ -344,7 +351,7 @@ Filters are applied server-side before messages are returned — you never downl
         // first match instead of waiting the full 10-second timeout.
         await ctx.fill(KAFKA.CON_MAX_INPUT, '1');
         await ctx.delay(100);
-        // Clear every filter input before the three filter steps begin.
+        // Clear every filter input before the filter steps begin.
         await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
         await ctx.delay(100);
         await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
@@ -352,6 +359,8 @@ Filters are applied server-side before messages are returned — you never downl
         await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
         await ctx.delay(100);
         await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+        await ctx.delay(100);
+        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
         await ctx.delay(100);
       },
     },
@@ -374,6 +383,7 @@ Filters are applied server-side before messages are returned — you never downl
         await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
         await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
         await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
         await ctx.delay(100);
         await seedHeaderMessage();
         await ctx.delay(100);
@@ -437,6 +447,7 @@ Filters are applied server-side before messages are returned — you never downl
         await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
         await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
         await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
         await ctx.delay(100);
         await seedHeaderMessage();
         await ctx.delay(100);
@@ -500,6 +511,7 @@ Filters are applied server-side before messages are returned — you never downl
         await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
         await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
         await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
         await ctx.delay(100);
         await seedHeaderMessage();
         await ctx.delay(100);
@@ -556,7 +568,73 @@ Filters are applied server-side before messages are returned — you never downl
       pauseAfter: true,
     },
 
-    // ── Step 7: Click a result row to show headers in detail modal ─────────
+    // ── Step 7: Body Contains filter ─────────────────────────────────────────
+    {
+      id: 'hf-body-contains',
+      title: 'Body Contains Filter',
+      description:
+        'All other filters cleared. Type `us-east` in **Body Contains**, then **Consume Once**. ' +
+        'Only messages whose raw body includes that text (case-insensitive) are returned — ' +
+        'perfect for quickly finding messages by any keyword, ID, or error code without writing a JSONPath.',
+      highlight: KAFKA.CON_BODY_CONTAINS_INPUT,
+      preAction: async (ctx) => {
+        await ctx.fill(KAFKA.CON_TOPIC_INPUT, getDemoTopic());
+        await ctx.delay(100);
+        await selectEarliestPosition(ctx);
+        await ctx.fill(KAFKA.CON_GROUP_INPUT, '');
+        await ctx.delay(100);
+        // Clear ALL filters
+        await ctx.fill(KAFKA.CON_KEY_FILTER_INPUT, '');
+        await ctx.fill(KAFKA.CON_HEADER_FILTER_INPUT, '');
+        await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
+        await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
+        await ctx.delay(100);
+        await seedHeaderMessage();
+        await ctx.delay(100);
+        // Clear old results
+        const clearBtn = document.querySelector<HTMLElement>(KAFKA.CON_CLEAR_BTN);
+        if (clearBtn) { clearBtn.click(); await ctx.delay(200); }
+      },
+      action: async (ctx) => {
+        const { showSpotlightRing } = await import('../../demoRipple');
+
+        // 1. Spotlight and fill Body Contains
+        const bodyInput = document.querySelector<HTMLElement>(KAFKA.CON_BODY_CONTAINS_INPUT);
+        if (bodyInput) {
+          bodyInput.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(bodyInput);
+          await ctx.delay(800);
+          rm();
+        }
+        await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, 'us-east');
+        await ctx.delay(600);
+
+        // 2. Spotlight and click Consume Once
+        const consumeBtn = document.querySelector<HTMLElement>(KAFKA.CON_CONSUME_BTN);
+        if (consumeBtn) {
+          consumeBtn.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(consumeBtn);
+          await ctx.delay(600);
+          rm();
+        }
+        await ctx.click(KAFKA.CON_CONSUME_BTN);
+        await ctx.waitFor(KAFKA.CON_RESULTS_ZONE, 15000);
+        await ctx.delay(500);
+
+        // 3. Spotlight the results
+        const results = document.querySelector<HTMLElement>(KAFKA.CON_RESULTS_ZONE);
+        if (results) {
+          results.scrollIntoView({ block: 'nearest' });
+          const rm = showSpotlightRing(results);
+          await ctx.delay(1500);
+          rm();
+        }
+      },
+      pauseAfter: true,
+    },
+
+    // ── Step 8: Click a result row to show headers in detail modal ─────────
     {
       id: 'hf-detail',
       title: 'Headers in the Message Detail',
@@ -579,6 +657,8 @@ Filters are applied server-side before messages are returned — you never downl
           await ctx.fill(KAFKA.CON_JSONPATH_INPUT, '');
           await ctx.delay(50);
           await ctx.fill(KAFKA.CON_JSONVAL_INPUT, '');
+          await ctx.delay(50);
+          await ctx.fill(KAFKA.CON_BODY_CONTAINS_INPUT, '');
           await ctx.delay(50);
           await seedHeaderMessage();
           await ctx.delay(200);

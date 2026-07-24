@@ -403,14 +403,14 @@ function WsKvEditor({
   return (
     <div className="te-kv-section">
       <div className="te-kv-header">
-        <span>{label.toUpperCase()}</span>
+        <span>{label}</span>
         <button type="button" className="te-kv-add-btn" onClick={add}>+ Add</button>
       </div>
       {items.length > 0 && (
         <div className="te-kv-table">
           <div className="te-kv-cols">
-            <span>NAME</span>
-            <span>VALUE</span>
+            <span>Name</span>
+            <span>Value</span>
             <span />
           </div>
           {items.map((kv, i) => (

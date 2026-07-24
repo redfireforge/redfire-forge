@@ -352,6 +352,22 @@ export function KafkaConsumeStudio({
               </div>
             </div>
 
+            <div className="kafka-ms-form-row">
+              <label className="kafka-ms-form-label" htmlFor="kms-con-body">Body Contains</label>
+              <div className="kafka-ms-form-ctrl">
+                <input
+                  id="kms-con-body"
+                  className="kafka-ms-form-input"
+                  type="text"
+                  placeholder="search text in body"
+                  value={consumeDraft.bodyContains}
+                  onChange={(e) => setConsumeDraft({ bodyContains: e.target.value })}
+                  data-testid="con-body-contains-input"
+                  aria-label="Body contains"
+                />
+              </div>
+            </div>
+
           </div>
         </div>
 

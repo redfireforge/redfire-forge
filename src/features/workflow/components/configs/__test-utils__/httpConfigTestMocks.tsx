@@ -174,7 +174,7 @@ export function createParamsEditorModuleMock(options?: { captureProps?: boolean 
       if (options?.captureProps) {
         Object.assign(httpConfigMockState.lastParamsEditorProps, props);
       }
-      return <div data-testid="params-editor">QUERY PARAMETERS</div>;
+      return <div data-testid="params-editor">Query Parameters</div>;
     }),
   };
 }

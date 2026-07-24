@@ -101,6 +101,39 @@ function highlightRawLine(rawLine: string, re: RegExp, active: boolean): string 
 }
 
 /**
+ * Extract a YAML-searchable term from a conversion warning string.
+ * Attempts multiple patterns and returns the best search keyword.
+ */
+function extractWarningSearchTerm(warning: string): string | null {
+  // Skip "Removed" warnings — the field won't exist in the output YAML
+  if (/^Removed\b/i.test(warning)) return null;
+
+  // Pattern 1: JSON pointer component ref — "#/components/.../Name" → "Name"
+  const refMatch = warning.match(/#\/components\/[^/]+\/(\w+)/);
+  if (refMatch) return refMatch[1];
+
+  // Pattern 2: HTTP path — "at (METHOD) /path/..." → "/path"
+  const pathMatch = warning.match(/at (?:GET|POST|PUT|DELETE|PATCH|OPTIONS|HEAD)\s+(\/[^\s:]+)/i);
+  if (pathMatch) return pathMatch[1];
+
+  // Pattern 3: Quoted field name — "'fieldName'" → "fieldName:"
+  const quotedField = warning.match(/'([a-zA-Z][\w-]*)'/);
+  if (quotedField) return quotedField[1] + ':';
+
+  // Pattern 4: "example" keyword (collapsed examples[] pattern) → "example:"
+  if (/\bexamples?\[\].*\bexample\b/i.test(warning)) return 'example:';
+
+  // Pattern 5: External $ref — "$ref not resolved: <url>" → the ref path
+  const extRef = warning.match(/\$ref[^:]*:\s*(.+)/);
+  if (extRef) return extRef[1].trim();
+
+  // Pattern 6: requestBody / parameters keyword → "requestBody:"
+  if (/\brequestBody\b/.test(warning)) return 'requestBody:';
+
+  return null;
+}
+
+/**
  * Convert / Upgrade to OpenAPI modal (P1 + P4-A/D). Auto-routes on the source format:
  * Convert Swagger 2.0 → 3.0/3.1 (selectable engine) or Upgrade OpenAPI 3.0/3.1 → 3.1/3.2
  * (Scalar-only). Live-converts on engine/target change and shows a structural validation
@@ -127,6 +160,7 @@ export default function CatalogConvertOpenApiModal({ specName, rawSpec, onClose,
 
   const searchInputRef = useRef<HTMLInputElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const pendingScrollRef = useRef(false);
 
   // ── Source format drives Convert (Swagger 2) vs Upgrade (OpenAPI 3.0/3.1) routing ──
   const format = useMemo(() => detectSpecFormat(rawSpec), [rawSpec]);
@@ -247,6 +281,25 @@ export default function CatalogConvertOpenApiModal({ specName, rawSpec, onClose,
     const el = gutter[lineIdx] as HTMLElement | undefined;
     el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
   }, [matchLineIndices]);
+
+  // Auto-scroll to first match when triggered by warning click
+  useEffect(() => {
+    if (pendingScrollRef.current && matchLineIndices.length > 0) {
+      pendingScrollRef.current = false;
+      const lineIdx = matchLineIndices[0];
+      const gutter = bodyRef.current?.querySelectorAll('.cat-convert-lineno');
+      const el = gutter?.[lineIdx] as HTMLElement | undefined;
+      el?.scrollIntoView?.({ block: 'center', behavior: 'smooth' });
+    }
+  }, [matchLineIndices]);
+
+  const handleWarningClick = useCallback((warning: string) => {
+    const term = extractWarningSearchTerm(warning);
+    if (!term) return;
+    pendingScrollRef.current = true;
+    setSearchQuery(term);
+    searchInputRef.current?.focus();
+  }, [setSearchQuery]);
 
   const goNext = useCallback(() => {
     if (matchCount === 0) return;
@@ -528,10 +581,23 @@ export default function CatalogConvertOpenApiModal({ specName, rawSpec, onClose,
 
         {/* ── Warnings ── */}
         {result && result.warnings.length > 0 && (
-          <details className="cat-convert-warnings">
+          <details className="cat-convert-warnings" open>
             <summary>{result.warnings.length} conversion warning{result.warnings.length === 1 ? '' : 's'}</summary>
             <ul>
-              {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
+              {result.warnings.map((w, i) => {
+                const searchable = extractWarningSearchTerm(w);
+                return (
+                  <li
+                    key={i}
+                    className={searchable ? 'cat-convert-warning-clickable' : undefined}
+                    onClick={searchable ? () => handleWarningClick(w) : undefined}
+                    title={searchable ? `Search YAML for "${searchable}"` : undefined}
+                  >
+                    {w}
+                    {searchable && <span className="cat-convert-warning-search-icon" aria-hidden="true">⌕</span>}
+                  </li>
+                );
+              })}
             </ul>
           </details>
         )}

@@ -1,5 +1,6 @@
 /** Lesson registry — all domains and lesson definitions */
 import type { DemoDomain } from '../types';
+import { workflowLessons } from './workflow';
 import { wsMockServerLesson } from './protocols/ws-mock-server';
 import { wsBasicsLesson } from './protocols/ws-basics';
 import { wsConsoleLesson } from './protocols/ws-console';
@@ -74,9 +75,14 @@ export const workflowDomain: DemoDomain = {
   id: 'workflow',
   name: 'Workflows',
   icon: '⚡',
-  description: 'Build automated test sequences with conditional logic.',
-  available: false,
-  lessons: [],
+  description: 'Build automated multi-step test sequences with visual flow logic.',
+  available: true,
+  categories: [
+    { id: 'fundamentals', label: 'Fundamentals', icon: '📐' },
+    { id: 'logic', label: 'Logic & Flow', icon: '🔀' },
+    { id: 'tooling', label: 'Tools & Debug', icon: '🔧' },
+  ],
+  lessons: workflowLessons,
 };
 
 export const harnessDomain: DemoDomain = {
