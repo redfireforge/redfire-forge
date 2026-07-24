@@ -22,10 +22,10 @@ interface Props {
   onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
   coverageMap?: Map<string, EndpointCoverage>;
   onNavigateToRequest?: (collectionId: string, requestId: string) => void;
-  onToggleWorkflowExpose?: (endpoint: CatalogEndpoint, exposed: boolean, values: SavedEndpointValues) => void;
+  onSetWorkflowExposure?: (endpoint: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => void;
 }
 
-export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, coverageMap, onNavigateToRequest, onToggleWorkflowExpose }: Props) {
+export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, coverageMap, onNavigateToRequest, onSetWorkflowExposure }: Props) {
   const [filter, setFilter] = useState('');
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [showAuthPanel, setShowAuthPanel] = useState(false);
@@ -179,6 +179,8 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
             {entry.hostConfig.strategy === 'inherited' && entry.servers.length > 0 && (
               <CustomSelect
                 className="ceb-server-select"
+                data-testid="catalog-host-server-select"
+                aria-label="Spec server"
                 value={String(entry.hostConfig.selectedServerIndex ?? 0)}
                 onChange={(v) => onHostChange({ strategy: 'inherited', selectedServerIndex: Number(v) })}
                 options={entry.servers.map((s, i) => ({
@@ -189,27 +191,47 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
             )}
 
             {entry.hostConfig.strategy === 'environment' && hasEnvOptions && (
-              <CustomSelect
-                className="ceb-server-select"
-                value={entry.hostConfig.environmentId ?? ''}
-                onChange={(v) => onHostChange({ strategy: 'environment', environmentId: v })}
-                options={
-                  linkedSvc
-                    ? svcEnvOptions.map(opt => ({
-                        value: opt.envId,
-                        label: `${opt.envName}${opt.baseUrl ? ` — ${opt.baseUrl}` : ' (no base URL)'}`,
-                      }))
-                    : entry.environments!.map(env => ({
-                        value: env.id,
-                        label: `${env.name} — ${env.baseUrl}`,
-                      }))
-                }
-              />
+              <>
+                {linkedSvc && (
+                  <span className="ceb-svc-label" data-testid="catalog-host-svc-label">
+                    {linkedSvc.name}
+                    {onEditEntry && (
+                      <button
+                        className="ceb-svc-change-btn"
+                        data-testid="catalog-host-svc-change"
+                        onClick={onEditEntry}
+                        title="Change linked microservice"
+                      >
+                        Change
+                      </button>
+                    )}
+                  </span>
+                )}
+                <CustomSelect
+                  className="ceb-server-select"
+                  data-testid="catalog-host-env-select"
+                  aria-label="Microservice environment"
+                  value={entry.hostConfig.environmentId ?? ''}
+                  onChange={(v) => onHostChange({ strategy: 'environment', environmentId: v })}
+                  options={
+                    linkedSvc
+                      ? svcEnvOptions.map(opt => ({
+                          value: opt.envId,
+                          label: `${opt.envName}${opt.baseUrl ? ` — ${opt.baseUrl}` : ' (no base URL)'}`,
+                        }))
+                      : entry.environments!.map(env => ({
+                          value: env.id,
+                          label: `${env.name} — ${env.baseUrl}`,
+                        }))
+                  }
+                />
+              </>
             )}
 
             {entry.hostConfig.strategy === 'hardcoded' && (
               <input
                 className="ceb-host-input"
+                data-testid="catalog-host-input"
                 placeholder="https://api.example.com/v1"
                 value={entry.hostConfig.hardcodedUrl ?? ''}
                 onChange={e => onHostChange({ strategy: 'hardcoded', hardcodedUrl: e.target.value })}
@@ -284,7 +306,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     linkedMicroservice={linkedSvc}
                     onExportSingle={onExportSingle}
                     onSendToHarness={onSendToHarness}
-                    onToggleWorkflowExpose={onToggleWorkflowExpose}
+                    onSetWorkflowExposure={onSetWorkflowExposure}
                     coverage={coverageMap ? getEndpointCoverage(ep.method, ep.path, coverageMap) : undefined}
                     onNavigateToRequest={onNavigateToRequest}
                   />
@@ -316,7 +338,7 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     linkedMicroservice={linkedSvc}
                     onExportSingle={onExportSingle}
                     onSendToHarness={onSendToHarness}
-                    onToggleWorkflowExpose={onToggleWorkflowExpose}
+                    onSetWorkflowExposure={onSetWorkflowExposure}
                     coverage={coverageMap ? getEndpointCoverage(ep.method, ep.path, coverageMap) : undefined}
                     onNavigateToRequest={onNavigateToRequest}
                   />

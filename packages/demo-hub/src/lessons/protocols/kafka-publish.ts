@@ -145,11 +145,17 @@ export const kafkaPublishLesson: DemoLesson = {
       id: 'pub-body',
       title: 'Write the Message Body',
       description:
-        'The **Message Body** is the event payload — any valid JSON. Here we send an order event with `orderId`, `status`, and `amount`. For large payloads you can open the **full editor**.',
+        'The **Message Body** is the event payload — any valid JSON. Here we send an order event with `orderId`, `status`, and `amount`. Click **Pretty Format** to auto-indent the JSON for readability.',
       highlight: KAFKA.PUB_BODY_TEXTAREA,
       action: async (ctx) => {
         await ctx.fill(KAFKA.PUB_BODY_TEXTAREA, DEMO_BODY);
-        await ctx.delay(400);
+        await ctx.delay(600);
+        // Click Pretty Format to auto-indent the JSON
+        const prettyBtn = document.querySelector<HTMLElement>('[data-testid="pub-pretty-format-badge"]');
+        if (prettyBtn) {
+          prettyBtn.click();
+          await ctx.delay(800);
+        }
       },
     },
     {

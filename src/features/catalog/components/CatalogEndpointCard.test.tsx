@@ -54,7 +54,7 @@ function renderCard(props: Partial<React.ComponentProps<typeof CatalogEndpointCa
   const onValuesChange = vi.fn();
   const onExportSingle = vi.fn();
   const onSendToHarness = vi.fn();
-  const onToggleWorkflowExpose = vi.fn();
+  const onSetWorkflowExposure = vi.fn();
   const onNavigateToRequest = vi.fn();
   render(
     <CatalogEndpointCard
@@ -66,12 +66,12 @@ function renderCard(props: Partial<React.ComponentProps<typeof CatalogEndpointCa
       onValuesChange={onValuesChange}
       onExportSingle={onExportSingle}
       onSendToHarness={onSendToHarness}
-      onToggleWorkflowExpose={onToggleWorkflowExpose}
+      onSetWorkflowExposure={onSetWorkflowExposure}
       onNavigateToRequest={onNavigateToRequest}
       coverage={props.coverage}
     />,
   );
-  return { onValuesChange, onExportSingle, onSendToHarness, onToggleWorkflowExpose, onNavigateToRequest };
+  return { onValuesChange, onExportSingle, onSendToHarness, onSetWorkflowExposure, onNavigateToRequest };
 }
 
 beforeEach(() => {
@@ -88,15 +88,23 @@ describe('CatalogEndpointCard', () => {
     expect(screen.getByText('/users/{id}')).toBeInTheDocument();
     expect(screen.getByText('Get user')).toBeInTheDocument();
     await userEvent.click(screen.getByText('/users/{id}'));
+    // No-parameter endpoints omit the empty Parameters section
+    expect(screen.queryByText('No parameters')).not.toBeInTheDocument();
+    expect(screen.getByTestId('catalog-tryit-btn')).toBeInTheDocument();
+  });
+
+  it('shows Parameters section only when the endpoint has parameters', async () => {
+    renderCard({ endpoint: makeEndpoint({ parameters: [makeParam({ name: 'id', in: 'query' })] }) });
+    await userEvent.click(screen.getByText('/users/{id}'));
     expect(screen.getByText('Parameters')).toBeInTheDocument();
-    expect(screen.getByText('No parameters')).toBeInTheDocument();
+    expect(screen.queryByText('No parameters')).not.toBeInTheDocument();
   });
 
   it('expands via keyboard Enter and space', () => {
     renderCard();
     const header = screen.getByText('/users/{id}').closest('.sw-header')!;
     fireEvent.keyDown(header, { key: 'Enter' });
-    expect(screen.getByText('Parameters')).toBeInTheDocument();
+    expect(screen.getByTestId('catalog-tryit-btn')).toBeInTheDocument();
     fireEvent.keyDown(header, { key: ' ' });
   });
 
@@ -205,13 +213,14 @@ describe('CatalogEndpointCard', () => {
     expect(screen.getByText('Response headers')).toBeInTheDocument();
   });
 
-  it('shows Save as Test button on a 2xx response', async () => {
+  it('shows Send to Harness button on a 2xx response', async () => {
     const { onSendToHarness } = renderCard();
     fireEvent.click(screen.getByText('/users/{id}'));
     await userEvent.click(screen.getByText('Try it out'));
     await userEvent.click(screen.getByText('Execute'));
-    await waitFor(() => expect(screen.getByText('Save as Test')).toBeInTheDocument());
-    await userEvent.click(screen.getByText('Save as Test'));
+    await waitFor(() => expect(screen.getAllByText('Send to Harness').length).toBeGreaterThanOrEqual(1));
+    const btns = screen.getAllByText('Send to Harness');
+    await userEvent.click(btns[btns.length - 1]);
     expect(onSendToHarness).toHaveBeenCalledWith(expect.objectContaining({ id: 'ep1' }), true);
   });
 
@@ -247,17 +256,22 @@ describe('CatalogEndpointCard', () => {
     await userEvent.click(screen.getByText('Hide cURL'));
   });
 
-  it('fires Export, Send to Harness and Workflow expose callbacks', async () => {
-    const { onExportSingle, onSendToHarness, onToggleWorkflowExpose } = renderCard();
+  it('fires Export, Send to Harness and Workflow exposure callbacks', async () => {
+    const { onExportSingle, onSendToHarness, onSetWorkflowExposure } = renderCard();
     fireEvent.click(screen.getByText('/users/{id}'));
     await userEvent.click(screen.getByText('Try it out'));
     await userEvent.click(screen.getByText('Export to Requests'));
     expect(onExportSingle).toHaveBeenCalled();
     await userEvent.click(screen.getByText('Send to Harness'));
     expect(onSendToHarness).toHaveBeenCalledWith(expect.objectContaining({ id: 'ep1' }));
-    const checkbox = screen.getByLabelText(/Expose to Workflow/);
-    await userEvent.click(checkbox);
-    expect(onToggleWorkflowExpose).toHaveBeenCalled();
+    const trigger = screen.getByTestId('catalog-expose-to-workflow').querySelector('.sw-wf-exposure-trigger')!;
+    await userEvent.click(trigger);
+    await userEvent.click(screen.getByText('Preview'));
+    expect(onSetWorkflowExposure).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'ep1' }),
+      'preview',
+      expect.objectContaining({ params: expect.any(Object) }),
+    );
   });
 
   it('shows a host warning for placeholder spec URLs', async () => {

@@ -207,6 +207,18 @@ export function patchWorkflowByName(
   return getDemoBridgeWindow().__wfPatchWorkflowByName?.(name, patch) ?? false;
 }
 
+/**
+ * Push a patch into the LIVE canvas workflow (currently-selected) so Quick Test
+ * picks up new variables / start-node inputs immediately — `patchWorkflowByName`
+ * only updates the stored copy. Returns false if the workflow isn't selected.
+ */
+export function syncLiveWorkflowFromPatch(
+  name: string,
+  patch: Record<string, unknown>,
+): boolean {
+  return getDemoBridgeWindow().__wfSyncLiveWorkflowFromPatch?.(name, patch) ?? false;
+}
+
 export function addWorkflowNode(type: string): string | undefined {
   return getDemoBridgeWindow().__wfAddNode?.(type);
 }

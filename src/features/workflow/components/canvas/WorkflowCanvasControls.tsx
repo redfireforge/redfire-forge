@@ -31,9 +31,9 @@ export default function WorkflowCanvasControls({
 
   const handleFitView = useCallback(() => {
     const opts = {
-      padding: 0.1,
+      padding: 0.15,
       maxZoom: 1.5,
-      minZoom: 0.85,
+      minZoom: 0.4,
       duration: 300,
       includeHiddenNodes: true,
     } as const;

@@ -26,10 +26,12 @@ import {
   waitForSelector,
 } from './cat-demo-helpers';
 import { fillControlledInput } from '../setup-helpers';
+import { cleanupOtherRequestDemoCollections } from './req-demo-helpers';
 
 // ─── Constants ──────────────────────────────────────────────────
 
 const DEMO_ENTRY_NAME = 'JSONPlaceholder API';
+const DEMO_ENTRY_NAME_VERSIONED = 'JSONPlaceholder API (1.0.0)';
 const GALLERY_SAMPLE_ID = 'catalog-jsonplaceholder';
 
 // ─── Helpers ────────────────────────────────────────────────────
@@ -113,6 +115,10 @@ export const catImportBrowseLesson: DemoLesson = {
     await ctx.delay(80);
     await closeImportModalIfOpen();
     deleteCatalogEntryByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    await ctx.delay(200);
+    await cleanupOtherRequestDemoCollections(ctx);
     await ctx.delay(200);
   },
 
@@ -120,6 +126,8 @@ export const catImportBrowseLesson: DemoLesson = {
     await closeImportModalIfOpen();
     deleteCatalogEntryByName(DEMO_ENTRY_NAME);
     deleteCollectionsByName(DEMO_ENTRY_NAME);
+    deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    await cleanupOtherRequestDemoCollections(ctx);
     ensureCatalogTab(ctx);
     await ctx.delay(60);
   },

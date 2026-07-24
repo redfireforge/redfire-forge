@@ -78,6 +78,8 @@ export interface KafkaConsumeActionConfig {
     jsonPath?: string;
     /** Expected value at the JSONPath (exact equality). */
     jsonEquals?: string;
+    /** Case-insensitive substring search within the raw message body. */
+    bodyContains?: string;
   };
 }
 

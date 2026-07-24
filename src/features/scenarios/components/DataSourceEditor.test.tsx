@@ -4,7 +4,7 @@
 import { type ComponentProps } from 'react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { selectOption, selectOptionByIndex, getCustomSelectOptionLabels } from '../../../test-utils/customSelectHelper';
+import { selectOption, selectOptionByIndex } from '../../../test-utils/customSelectHelper';
 import DataSourceEditor from './DataSourceEditor';
 import {
   makeScenario,
@@ -229,7 +229,7 @@ describe('DataSourceEditor', () => {
   describe('with data source', () => {
     it('renders DATA SOURCE label and row count', () => {
       render(<DataSourceEditor draft={makeScenario({ dataSource: makeDataSource() })} onDraftChange={vi.fn()} />);
-      expect(screen.getByText('DATA SOURCE')).toBeTruthy();
+      expect(screen.getByText('Data Source')).toBeTruthy();
       expect(screen.getByText('2')).toBeTruthy(); // badge
     });
 

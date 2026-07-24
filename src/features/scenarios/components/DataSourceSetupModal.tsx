@@ -611,6 +611,10 @@ export default function DataSourceSetupModal({ test, mode, onApply, onClose, onF
         </div>
       )}
       onClose={handleClose}
+      movable
+      resizable
+      minWidth={700}
+      minHeight={450}
       footer={(
         <>
           {prevStep && (

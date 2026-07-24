@@ -1,9 +1,9 @@
 /**
  * CAT-5 — Convert Swagger 2.0 → OpenAPI 3
  *
- * 5 steps (consolidated from 9): select the Swagger 2.0 API and see the format
+ * 6 steps (consolidated from 9): select the Swagger 2.0 API and see the format
  * badge → open the converter and choose engine + target → validate + search +
- * deep lint → prettify the output → save as a new version.
+ * deep lint → prettify the output → save as a new version → batch convert.
  *
  * Combined steps for better pacing: engine + target in one step, search + lint
  * in one step. The viewer sees a cohesive flow instead of 9 tiny actions.
@@ -25,7 +25,9 @@ import {
   ensureCatalogTab,
   ensureCatalogOverviewView,
   spotlight,
+  spotlightEl,
 } from './cat-demo-helpers';
+import { cleanupOtherRequestDemoCollections } from './req-demo-helpers';
 
 export const catConvertOpenApiLesson: DemoLesson = {
   id: 'cat-convert-openapi',
@@ -34,8 +36,8 @@ export const catConvertOpenApiLesson: DemoLesson = {
   name: 'Convert Swagger 2.0 → OpenAPI 3',
   description:
     'Take a legacy Swagger 2.0 spec and convert it to OpenAPI 3.0/3.1 in-app — pick an engine, ' +
-    'validate the output, deep-lint it, and save the result as a new Catalog version.',
-  estimatedMinutes: 4,
+    'validate the output, deep-lint it, save as a new version, and batch-convert all remaining Swagger entries.',
+  estimatedMinutes: 5,
   initialTab: 'catalog',
   allowedTabs: ['catalog'],
 
@@ -50,7 +52,8 @@ export const catConvertOpenApiLesson: DemoLesson = {
       '- Open the **Convert / Upgrade** modal and choose engine + target version\n' +
       '- **Validate** the output, **search** the preview, and run **Deep lint** for best practices\n' +
       '- Toggle **Prettify** for canonical, diff-friendly YAML key ordering\n' +
-      '- **Save as a new version** — the converted spec lives alongside the original in history\n\n' +
+      '- **Save as a new version** — the converted spec lives alongside the original in history\n' +
+      '- **Batch Convert** — one-click conversion of all remaining Swagger 2.0 entries\n\n' +
       '**Why two engines?** `swagger2openapi` is the reference 2.0→3.0 converter and the safe ' +
       'default. Scalar is the only in-app engine that can emit **3.1 / 3.2**, so it powers upgrades ' +
       'of already-3.x specs.',
@@ -60,6 +63,7 @@ export const catConvertOpenApiLesson: DemoLesson = {
       { term: 'Validation gate', definition: 'A fast structural check that blocks Download / Save until the converted document is valid' },
       { term: 'Deep lint', definition: 'Advisory schema + best-practice validation (oas-validator) for OpenAPI 3.0 output — never blocks saving' },
       { term: 'Prettify', definition: 'Sorts the output into a canonical, diff-friendly key order (openapi-format) — cosmetic only, never changes meaning' },
+      { term: 'Batch Convert', definition: 'Sidebar button that scans all imported specs and converts every remaining Swagger 2.0 entry to OpenAPI 3.0 in one click' },
     ],
     diagram: `<svg viewBox="0 0 400 100" xmlns="http://www.w3.org/2000/svg">
       <rect x="10" y="30" width="100" height="40" rx="6" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
@@ -80,11 +84,13 @@ export const catConvertOpenApiLesson: DemoLesson = {
   setup: async (ctx) => {
     ensureCatalogTab(ctx);
     await ctx.delay(80);
+    await cleanupOtherRequestDemoCollections(ctx);
     await resetDemoCatalog(ctx);
   },
 
   cleanup: async (ctx) => {
     await cleanupDemoCatalog(ctx);
+    await cleanupOtherRequestDemoCollections(ctx);
     ensureCatalogTab(ctx);
     await ctx.delay(60);
   },
@@ -301,6 +307,68 @@ export const catConvertOpenApiLesson: DemoLesson = {
         await spotlight(ctx, CAT.OVERVIEW_SPEC_FORMAT, 1500);
       },
       verify: CAT.OVERVIEW,
+    },
+
+    // ── Step 6: Batch Convert ────────────────────────────────────
+    {
+      id: 'cat5-batch',
+      title: 'Batch Convert',
+      description:
+        'The sidebar\'s **Batch Convert** button scans every imported spec and converts all ' +
+        'remaining **Swagger 2.0** entries to OpenAPI 3.0 in one click — no modal, no per-entry ' +
+        'setup.\n\n' +
+        'Watch as we re-seed a Swagger 2.0 entry, then click **Batch Convert**. A toast ' +
+        'confirms how many entries were converted. If every entry is already OpenAPI 3.x, ' +
+        'the button shows "No Swagger entries found" instead.',
+      highlight: CAT.BATCH_CONVERT_BTN,
+
+      preAction: async (ctx) => {
+        ensureCatalogTab(ctx);
+        await ctx.delay(200);
+        await resetDemoCatalog(ctx);
+        await ensureCatalogOverviewView(ctx);
+      },
+
+      action: async (ctx) => {
+        // Spotlight the Swagger 2.0 badge before conversion so viewer sees "before"
+        await spotlight(ctx, CAT.OVERVIEW_SPEC_FORMAT, 1200);
+
+        // Spotlight the Batch Convert button
+        const batchBtn = document.querySelector<HTMLElement>(CAT.BATCH_CONVERT_BTN);
+        if (batchBtn) {
+          batchBtn.scrollIntoView({ block: 'nearest' });
+          await spotlightEl(ctx, batchBtn, 1400);
+
+          // Click it — triggers batch conversion + toast
+          await ctx.click(CAT.BATCH_CONVERT_BTN);
+        }
+
+        // Wait for the toast and spotlight it
+        for (let i = 0; i < 20; i++) {
+          await ctx.delay(250);
+          const toast = document.querySelector<HTMLElement>('.wf-toast');
+          if (toast) {
+            await spotlightEl(ctx, toast, 2000);
+            break;
+          }
+        }
+
+        // Wait for overview badge to refresh (React re-renders after version add)
+        await ctx.delay(800);
+
+        // Select the entry and switch to Overview to show the new format badge
+        const entry = document.querySelector<HTMLElement>(CAT.entryByName(DEMO_CATALOG_NAME));
+        if (entry) {
+          entry.scrollIntoView({ block: 'center' });
+          entry.click();
+        }
+        await ensureCatalogOverviewView(ctx);
+        try { await ctx.waitFor(CAT.OVERVIEW_SPEC_FORMAT, 3000); } catch { /* ok */ }
+        await ctx.delay(600);
+
+        // Spotlight the new OpenAPI 3.x badge — the payoff
+        await spotlight(ctx, CAT.OVERVIEW_SPEC_FORMAT, 2000);
+      },
     },
   ],
 };

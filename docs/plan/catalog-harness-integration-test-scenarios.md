@@ -745,16 +745,16 @@ Look at the **Version** column in the endpoint table:
 1. Go to **Catalog** → select an endpoint → "Try It Out" area
 2. Send a request → get a 200 response
 
-##### 2. Save as Test
+##### 2. Send to Harness (from Try It Out)
 
-1. Look for **"Save as Test"** button near the response
+1. Look for **"Send to Harness"** button near the response
 2. Click it → Send to Harness modal opens
 3. On the preview step, **"Check status 200"** should be **pre-selected** (auto-preset)
 4. Complete the flow → promoted test should have status-200 validation
 
 ##### 3. Compare with regular "Send to Harness"
 
-1. Click the regular **"Send to Harness"** button (not "Save as Test")
+1. Click the regular **"Send to Harness"** button (from the action bar, not the post-response button)
 2. On the preview step, **"No validation"** should be selected by default
 
 ---
@@ -786,7 +786,7 @@ Look at the **Version** column in the endpoint table:
 | 6E.3 | Batch | Checkbox selection works | ☐ |
 | 6F.1 | Catalog | "Send to Harness" on endpoint cards | ☐ |
 | 6F.2 | Catalog | Direct catalog → harness promotion works | ☐ |
-| 6G.1 | Try Out | "Save as Test" after 200 response | ☐ |
+| 6G.1 | Try Out | "Send to Harness" after 200 response | ☐ |
 | 6G.2 | Try Out | Created test has status-200 validation (auto-preset) | ☐ |
 | 6G.3 | Try Out | Regular "Send to Harness" defaults to "No validation" | ☐ |
 

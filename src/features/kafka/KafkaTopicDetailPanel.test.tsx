@@ -306,7 +306,7 @@ describe('KafkaTopicDetailPanel', () => {
     expect(screen.getByTestId('detail-results')).toBeTruthy();
     expect(screen.getByText('timed out')).toBeTruthy();
     expect(screen.getByTestId('detail-row-0')).toBeTruthy();
-    expect(screen.getByTestId('detail-msg-pane')).toBeTruthy();
+    expect(screen.getByTestId('kafka-message-detail-modal')).toBeTruthy();
 
     fireEvent.click(screen.getByTestId('detail-row-0'));
     expect(browser.selectMessage).toHaveBeenCalled();
@@ -376,13 +376,13 @@ describe('KafkaTopicDetailPanel', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
     expect(browser.clearResult).toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Key' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Copy Value' }));
+    fireEvent.click(screen.getByTestId('kmd-copy-key'));
+    fireEvent.click(screen.getByTestId('kmd-copy-payload'));
     expect(writeText).toHaveBeenCalledWith('my-key');
-    expect(writeText).toHaveBeenCalledWith('{"id":1}');
+    expect(writeText).toHaveBeenCalledWith(JSON.stringify({ id: 1 }, null, 2));
 
     expect(screen.getByText('x-trace')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('Close detail'));
+    fireEvent.click(screen.getByTestId('kmd-close-btn'));
     expect(browser.selectMessage).toHaveBeenCalledWith(null);
   });
 
@@ -398,15 +398,25 @@ describe('KafkaTopicDetailPanel', () => {
     );
 
     const tab = screen.getByTestId('detail-messages-tab');
-    const inputs = tab.querySelectorAll('input');
 
-    selectOptionByIndex(tab, 0, 'Last 1 Hour');
-    selectOptionByIndex(tab, 1, '0');
-    fireEvent.change(inputs[0], { target: { value: 'order-1' } });
-    fireEvent.change(inputs[1], { target: { value: 'x-trace=abc' } });
-    fireEvent.change(inputs[2], { target: { value: '$.name' } });
-    fireEvent.change(inputs[3], { target: { value: 'expected-value' } });
-    fireEvent.change(inputs[4], { target: { value: '25' } });
+    // Browse bar selects
+    selectOptionByIndex(tab, 0, 'Last 1h');
+    selectOptionByIndex(tab, 1, 'Partition 0');
+
+    // Max messages input is in the browse bar
+    const maxInput = tab.querySelector<HTMLInputElement>('.td-max-input')!;
+    fireEvent.change(maxInput, { target: { value: '25' } });
+
+    // Open the collapsible filters
+    fireEvent.click(screen.getByLabelText('Show filters'));
+
+    // Filter inputs inside the collapsible section
+    const filterInputs = tab.querySelectorAll('.td-filter-field input');
+    fireEvent.change(filterInputs[0], { target: { value: 'order-1' } });
+    fireEvent.change(filterInputs[1], { target: { value: 'x-trace=abc' } });
+    fireEvent.change(filterInputs[2], { target: { value: '$.name' } });
+    fireEvent.change(filterInputs[3], { target: { value: 'expected-value' } });
+    fireEvent.change(filterInputs[4], { target: { value: 'search-body' } });
 
     expect(browser.setDraft).toHaveBeenCalledWith({ timeWindow: 'last-1h' });
     expect(browser.setDraft).toHaveBeenCalledWith({ partition: '0' });
@@ -414,6 +424,7 @@ describe('KafkaTopicDetailPanel', () => {
     expect(browser.setDraft).toHaveBeenCalledWith({ headerMatch: 'x-trace=abc' });
     expect(browser.setDraft).toHaveBeenCalledWith({ jsonPath: '$.name' });
     expect(browser.setDraft).toHaveBeenCalledWith({ jsonPathEquals: 'expected-value' });
+    expect(browser.setDraft).toHaveBeenCalledWith({ bodyContains: 'search-body' });
     expect(browser.setDraft).toHaveBeenCalledWith({ maxMessages: '25' });
   });
 
@@ -487,6 +498,122 @@ describe('KafkaTopicDetailPanel', () => {
         })}
       />,
     );
-    expect(screen.getByTestId('detail-msg-pane').querySelector('.kafka-ms-detail-body')?.textContent).toBe('not-json');
+    expect(screen.getByTestId('kmd-body')?.textContent).toBe('not-json');
+  });
+
+  it('messages tab: invalid numeric timestamp renders em dash', () => {
+    const rows = [{ topic: 't', partition: 0, offset: '1', value: '{}', timestamp: '0' }];
+    render(
+      <KafkaTopicDetailPanel
+        detail={makeDetail()}
+        loading={false}
+        error={null}
+        browser={makeBrowser({ result: rows, messageCount: 1 })}
+      />,
+    );
+    expect(screen.getByTestId('detail-row-0').textContent).toContain('—');
+  });
+
+  it('messages tab: load-more calls browser.loadMore and shows loading label states', () => {
+    const row = { topic: 'orders.created', partition: 0, offset: '10', value: '{}' };
+    const loadMore = vi.fn().mockResolvedValue(undefined);
+
+    const { rerender } = render(
+      <KafkaTopicDetailPanel
+        detail={makeDetail()}
+        loading={false}
+        error={null}
+        browser={makeBrowser({
+          result: [row],
+          messageCount: 1,
+          hasMore: true,
+          loadMore,
+          loadMoreLoading: false,
+        } as unknown as Partial<UseTopicMessageBrowserReturn>)}
+      />,
+    );
+
+    const enabledLoadMoreBtn = screen.getByTestId('detail-load-more-btn');
+    expect(enabledLoadMoreBtn.textContent).toBe('Load More');
+    fireEvent.click(enabledLoadMoreBtn);
+    expect(loadMore).toHaveBeenCalledOnce();
+
+    rerender(
+      <KafkaTopicDetailPanel
+        detail={makeDetail()}
+        loading={false}
+        error={null}
+        browser={makeBrowser({
+          result: [row],
+          messageCount: 1,
+          hasMore: true,
+          loadMore,
+          loadMoreLoading: true,
+        } as unknown as Partial<UseTopicMessageBrowserReturn>)}
+      />,
+    );
+
+    expect(screen.getByTestId('detail-load-more-btn').textContent).toBe('Loading…');
+  });
+
+  it('messages tab: selected row click toggles to null selection', () => {
+    const rows = [{ topic: 'orders.created', partition: 0, offset: '10', value: '{}' }];
+    const browser = makeBrowser({ result: rows, messageCount: 1, selectedIndex: 0 });
+
+    render(
+      <KafkaTopicDetailPanel
+        detail={makeDetail()}
+        loading={false}
+        error={null}
+        browser={browser}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('detail-row-0'));
+    expect(browser.selectMessage).toHaveBeenCalledWith(null);
+  });
+
+  it('messages tab: active filter badge count reflects all non-empty filter fields', () => {
+    render(
+      <KafkaTopicDetailPanel
+        detail={makeDetail()}
+        loading={false}
+        error={null}
+        browser={makeBrowser({
+          draft: {
+            groupId: 'rf',
+            timeWindow: 'latest',
+            partition: '',
+            timeoutMs: '10000',
+            maxMessages: '50',
+            keyEquals: 'k',
+            headerMatch: 'h=v',
+            jsonPath: '$.id',
+            jsonPathEquals: '',
+            bodyContains: 'text',
+            sortOrder: 'desc',
+          },
+        } as unknown as Partial<UseTopicMessageBrowserReturn>)}
+      />,
+    );
+
+    const filterBtn = screen.getByRole('button', { name: 'Show filters' });
+    expect(filterBtn.textContent).toContain('Filters (4)');
+    expect(filterBtn.className).toContain('td-filter-toggle--active');
+  });
+
+  it('messages tab: sort order select updates draft', () => {
+    const browser = makeBrowser();
+    render(
+      <KafkaTopicDetailPanel
+        detail={makeDetail()}
+        loading={false}
+        error={null}
+        browser={browser}
+      />,
+    );
+
+    selectOptionByIndex(screen.getByTestId('detail-messages-tab'), 2, 'Newest first');
+    expect(browser.setDraft).toHaveBeenCalledWith({ sortOrder: 'desc' });
   });
 });

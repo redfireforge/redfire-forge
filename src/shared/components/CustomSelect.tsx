@@ -63,6 +63,15 @@ export function CustomSelect({
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  const [openUp, setOpenUp] = useState(false);
+
+  useEffect(() => {
+    if (!open || !wrapperRef.current) { setOpenUp(false); return; }
+    const rect = wrapperRef.current.getBoundingClientRect();
+    const spaceBelow = window.innerHeight - rect.bottom;
+    setOpenUp(spaceBelow < 200);
+  }, [open]);
+
   useEffect(() => {
     if (!open || !menuRef.current) return;
     const active = menuRef.current.querySelector('.cs-item.active');
@@ -125,7 +134,7 @@ export function CustomSelect({
         <span className="cs-arrow">{open ? '▲' : '▼'}</span>
       </button>
       {open && (
-        <div className="cs-menu" role="listbox" ref={menuRef}>
+        <div className={`cs-menu${openUp ? ' cs-menu-up' : ''}`} role="listbox" ref={menuRef}>
           {isGrouped(options)
             ? options.map(g => (
                 <div key={g.label} className="cs-group">

@@ -619,6 +619,52 @@ describe('CatalogConvertOpenApiModal', () => {
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Compare engines' })); });
     expect(await screen.findByText('Engines produced different YAML output for target 3.0.')).toBeInTheDocument();
   });
+
+  it('makes searchable warnings clickable and focuses search on click', async () => {
+    vi.mocked(convertSwaggerToOpenApiYaml).mockResolvedValue(makeResult({
+      warnings: [
+        'at GET /pets/{id}: something changed',
+        "Removed 'obsoleteField' from schema",
+        "requestBody examples[] should include example",
+      ],
+      yaml: 'paths:\n  /pets/{id}:\n    get:\n      requestBody:\n        example: {}\n',
+      openapi: { openapi: '3.0.4', paths: { '/pets/{id}': { get: { requestBody: { example: {} } } } } },
+    }));
+    renderModal();
+    await screen.findByText('Valid OpenAPI 3.0.4');
+
+    const warningRows = document.querySelectorAll('.cat-convert-warnings li');
+    expect(warningRows.length).toBe(3);
+    // "Removed ..." warnings are intentionally not searchable/clickable.
+    expect(warningRows[1].classList.contains('cat-convert-warning-clickable')).toBe(false);
+    expect(warningRows[0].classList.contains('cat-convert-warning-clickable')).toBe(true);
+    expect(warningRows[2].classList.contains('cat-convert-warning-clickable')).toBe(true);
+
+    fireEvent.click(warningRows[0]);
+    const search = screen.getByPlaceholderText('Search… (Cmd+F)') as HTMLInputElement;
+    expect(search.value).toContain('/pets/{id}');
+    expect(document.activeElement).toBe(search);
+  });
+
+  it('extracts component ref and external ref warning search terms', async () => {
+    vi.mocked(convertSwaggerToOpenApiYaml).mockResolvedValue(makeResult({
+      warnings: [
+        'problem at #/components/schemas/User',
+        '$ref not resolved: https://example.com/common.yaml',
+      ],
+      yaml: 'components:\n  schemas:\n    User: {}\nexternal: https://example.com/common.yaml\n',
+      openapi: {
+        openapi: '3.0.4',
+        components: { schemas: { User: {} } },
+        paths: {},
+      },
+    }));
+    renderModal();
+    await screen.findByText('Valid OpenAPI 3.0.4');
+    const warningRows = document.querySelectorAll('.cat-convert-warnings li');
+    expect(warningRows[0].getAttribute('title')).toContain('User');
+    expect(warningRows[1].getAttribute('title')).toContain('https://example.com/common.yaml');
+  });
 });
 
 // ─── Upgrade flow (OpenAPI 3.0 / 3.1 source) — P4-A ──────
