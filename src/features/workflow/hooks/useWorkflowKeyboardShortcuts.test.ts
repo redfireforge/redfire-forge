@@ -168,7 +168,7 @@ describe('useWorkflowKeyboardShortcuts', () => {
     const opts = makeOpts();
     renderHook(() => useWorkflowKeyboardShortcuts(opts));
     press('0', { metaKey: true });
-    expect(fitView).toHaveBeenCalledWith({ padding: 0.2, duration: 300 });
+    expect(fitView).toHaveBeenCalledWith({ padding: 0.15, minZoom: 0.4, duration: 300 });
   });
 
   it('Cmd+Z undoes outside inputs', () => {

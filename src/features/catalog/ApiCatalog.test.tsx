@@ -12,8 +12,15 @@ import type { GlobalAuthProfile, Microservice } from '../../shared/types';
 import type { CatalogEndpoint, CatalogEntry } from './types/catalog';
 
 const buildCoverageMap = vi.fn();
+const scanWorkflowsForCatalogRef = vi.fn();
+const removeCatalogNodesFromWorkflows = vi.fn();
+const loadCatalogRawSpec = vi.fn();
 vi.mock('./utils/coverageChecker', () => ({
   buildCoverageMap: (...args: unknown[]) => buildCoverageMap(...args),
+}));
+vi.mock('./utils/workflowExposureScanner', () => ({
+  scanWorkflowsForCatalogRef: (...args: unknown[]) => scanWorkflowsForCatalogRef(...args),
+  removeCatalogNodesFromWorkflows: (...args: unknown[]) => removeCatalogNodesFromWorkflows(...args),
 }));
 
 vi.mock('./components/CatalogWelcome', () => ({
@@ -25,11 +32,19 @@ vi.mock('./components/CatalogWelcome', () => ({
 }));
 
 vi.mock('./components/CatalogOverview', () => ({
-  default: ({ onReimport, onVersionHistory, onExportSpec }: { onReimport: () => void; onVersionHistory: () => void; onExportSpec: () => void }) => (
+  default: ({ onReimport, onVersionHistory, onExportSpec, onConvertToOpenApi, onViewYaml }: {
+    onReimport: () => void;
+    onVersionHistory: () => void;
+    onExportSpec: () => void;
+    onConvertToOpenApi?: () => void;
+    onViewYaml?: () => void;
+  }) => (
     <div data-testid="overview">
       <button onClick={onReimport}>reimport</button>
       <button onClick={onVersionHistory}>history</button>
       <button onClick={onExportSpec}>export-spec</button>
+      <button onClick={() => onConvertToOpenApi?.()}>convert-openapi</button>
+      <button onClick={() => onViewYaml?.()}>view-yaml</button>
     </div>
   ),
 }));
@@ -37,13 +52,13 @@ vi.mock('./components/CatalogOverview', () => ({
 const fakeEndpoint = { id: 'ep1' } as unknown as CatalogEndpoint;
 
 vi.mock('./components/CatalogEndpointBrowser', () => ({
-  default: ({ onAuthChange, onHostChange, onEditEntry, onExportSingle, onSendToHarness, onToggleWorkflowExpose }: {
+  default: ({ onAuthChange, onHostChange, onEditEntry, onExportSingle, onSendToHarness, onSetWorkflowExposure }: {
     onAuthChange: (a: unknown) => void;
     onHostChange: (p: unknown) => void;
     onEditEntry?: () => void;
     onExportSingle?: (ep: unknown, vals?: unknown) => void;
     onSendToHarness?: (ep: unknown, t?: boolean) => void;
-    onToggleWorkflowExpose?: (ep: unknown, exposed: boolean, vals: unknown) => void;
+    onSetWorkflowExposure?: (ep: unknown, mode: string | undefined, vals: unknown) => void;
   }) => (
     <div data-testid="browser">
       <button onClick={() => onAuthChange({ type: 'bearer', token: 't' })}>auth-change</button>
@@ -51,8 +66,17 @@ vi.mock('./components/CatalogEndpointBrowser', () => ({
       <button onClick={() => onEditEntry?.()}>edit-entry</button>
       <button onClick={() => onExportSingle?.({ id: 'ep1' }, { params: {}, headers: {}, body: '' })}>export-single</button>
       <button onClick={() => onSendToHarness?.({ id: 'ep1' }, true)}>send-harness</button>
-      <button onClick={() => onToggleWorkflowExpose?.({ id: 'ep1' }, true, { params: { a: '1' }, headers: { h: '2' }, body: '{}' })}>toggle-expose</button>
-      <button onClick={() => onToggleWorkflowExpose?.({ id: 'ep1' }, false, { params: {}, headers: {}, body: '' })}>toggle-hide</button>
+      <button onClick={() => onSetWorkflowExposure?.({ id: 'ep1' }, 'preview', { params: { a: '1' }, headers: { h: '2' }, body: '{}' })}>toggle-expose</button>
+      <button onClick={() => onSetWorkflowExposure?.({ id: 'ep1' }, undefined, { params: {}, headers: {}, body: '' })}>toggle-hide</button>
+      <button
+        onClick={() => onSetWorkflowExposure?.(
+          { id: 'ep1', summary: 'Endpoint 1', path: '/ep1', method: 'POST', workflowExposure: 'published', exposedToWorkflow: true },
+          undefined,
+          { params: {}, headers: {}, body: '' },
+        )}
+      >
+        toggle-hide-published
+      </button>
     </div>
   ),
 }));
@@ -65,11 +89,39 @@ vi.mock('./components/CatalogSendToRequestsModal', () => ({
   ),
 }));
 
+vi.mock('./components/CatalogYamlViewerModal', () => ({
+  default: ({ yaml, onClose }: { yaml: string; onClose: () => void }) => (
+    <div data-testid="yaml-modal">
+      <div>{yaml}</div>
+      <button onClick={onClose}>close-yaml</button>
+    </div>
+  ),
+}));
+
+vi.mock('./components/UnpublishConfirmDialog', () => ({
+  default: ({
+    onPaletteOnly,
+    onPaletteAndWorkflows,
+    onCancel,
+  }: {
+    onPaletteOnly: () => void;
+    onPaletteAndWorkflows: () => void;
+    onCancel: () => void;
+  }) => (
+    <div data-testid="unpublish-dialog">
+      <button onClick={onPaletteOnly}>palette-only</button>
+      <button onClick={onPaletteAndWorkflows}>palette-and-workflows</button>
+      <button onClick={onCancel}>cancel-unpublish</button>
+    </div>
+  ),
+}));
+
 const loadCatalogView = vi.fn();
 const saveCatalogView = vi.fn();
 vi.mock('../../shared/utils/storageCatalog', () => ({
   loadCatalogView: (...args: unknown[]) => loadCatalogView(...args),
   saveCatalogView: (...args: unknown[]) => saveCatalogView(...args),
+  loadCatalogRawSpec: (...args: unknown[]) => loadCatalogRawSpec(...args),
 }));
 
 function makeCatalog(entry: CatalogEntry | null, loaded = true): UseCatalogReturn {
@@ -96,6 +148,9 @@ beforeEach(() => {
   buildCoverageMap.mockReturnValue(new Map());
   loadCatalogView.mockResolvedValue(null);
   saveCatalogView.mockResolvedValue(undefined);
+  loadCatalogRawSpec.mockResolvedValue('openapi: 3.0.4');
+  scanWorkflowsForCatalogRef.mockResolvedValue([]);
+  removeCatalogNodesFromWorkflows.mockResolvedValue(undefined);
 });
 
 describe('ApiCatalog', () => {
@@ -141,6 +196,15 @@ describe('ApiCatalog', () => {
     await waitFor(() => expect(saveCatalogView).toHaveBeenCalledWith('entry1', 'overview'));
   });
 
+  it('ignores invalid saved view values from storage', async () => {
+    const entry = makeEntry();
+    loadCatalogView.mockResolvedValue('invalid-tab-name');
+    render(<ApiCatalog catalog={makeCatalog(entry)} onImport={vi.fn()} />);
+    await waitFor(() => expect(loadCatalogView).toHaveBeenCalledWith('entry1'));
+    const endpointsTab = screen.getByRole('button', { name: 'Endpoints' });
+    expect(endpointsTab.className.includes('active')).toBe(true);
+  });
+
   it('forwards Overview actions', async () => {
     const entry = makeEntry();
     const onReimport = vi.fn();
@@ -179,6 +243,19 @@ describe('ApiCatalog', () => {
     expect(screen.getByTestId('send-modal')).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'close-modal' }));
     expect(screen.getByTestId('browser')).toBeInTheDocument();
+  });
+
+  it('renders export modal with fallback empty arrays/objects when optional props are omitted', async () => {
+    const entry = makeEntry();
+    render(
+      <ApiCatalog
+        catalog={makeCatalog(entry)}
+        onImport={vi.fn()}
+        onExportConfirm={vi.fn()}
+      />,
+    );
+    await userEvent.click(screen.getByText('Export to Requests'));
+    expect(screen.getByTestId('send-modal')).toBeInTheDocument();
   });
 
   it('forwards endpoint browser callbacks to the catalog', async () => {
@@ -466,5 +543,83 @@ describe('ApiCatalog', () => {
     const catalog2 = { ...catalog, selectedEntry: entry2, entries: [entry2] } as unknown as UseCatalogReturn;
     rerender(<ApiCatalog catalog={catalog2} onImport={vi.fn()} globalAuthProfiles={profiles} appMicroservices={[svc]} />);
     expect(catalog2.updateEntry).toHaveBeenCalledWith('entry1', expect.objectContaining({ savedAuth: expect.any(Object) }));
+  });
+
+  it('forwards convert action from overview when callback is provided', async () => {
+    const onConvertToOpenApi = vi.fn();
+    render(
+      <ApiCatalog
+        catalog={makeCatalog(makeEntry())}
+        onImport={vi.fn()}
+        onConvertToOpenApi={onConvertToOpenApi}
+      />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Overview' }));
+    await userEvent.click(screen.getByRole('button', { name: 'convert-openapi' }));
+    expect(onConvertToOpenApi).toHaveBeenCalledWith('entry1');
+  });
+
+  it('loads and opens YAML modal from overview then closes it', async () => {
+    render(<ApiCatalog catalog={makeCatalog(makeEntry())} onImport={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Overview' }));
+    await userEvent.click(screen.getByRole('button', { name: 'view-yaml' }));
+    await waitFor(() => expect(loadCatalogRawSpec).toHaveBeenCalledWith('entry1', 'v1'));
+    expect(await screen.findByTestId('yaml-modal')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'close-yaml' }));
+    expect(screen.queryByTestId('yaml-modal')).not.toBeInTheDocument();
+  });
+
+  it('downgrades published workflow exposure directly when no workflows are affected', async () => {
+    const entry = makeEntry({
+      endpoints: [{ id: 'ep1', method: 'POST', path: '/ep1', summary: 'Endpoint 1', parameters: [], responses: [], tags: [], workflowExposure: 'published', exposedToWorkflow: true }],
+    });
+    const catalog = makeCatalog(entry);
+    scanWorkflowsForCatalogRef.mockResolvedValue([]);
+    render(<ApiCatalog catalog={catalog} onImport={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'toggle-hide-published' }));
+    await waitFor(() => expect(scanWorkflowsForCatalogRef).toHaveBeenCalledWith('entry1', 'ep1'));
+    await waitFor(() => expect(catalog.updateEntry).toHaveBeenCalled());
+    expect(screen.queryByTestId('unpublish-dialog')).not.toBeInTheDocument();
+  });
+
+  it('shows unpublish dialog when downgrading published exposure with affected workflows', async () => {
+    const entry = makeEntry({
+      endpoints: [{ id: 'ep1', method: 'POST', path: '/ep1', summary: 'Endpoint 1', parameters: [], responses: [], tags: [], workflowExposure: 'published', exposedToWorkflow: true }],
+    });
+    const catalog = makeCatalog(entry);
+    scanWorkflowsForCatalogRef.mockResolvedValue([{ workflowId: 'wf1', workflowName: 'W1', nodeCount: 1 }]);
+    render(<ApiCatalog catalog={catalog} onImport={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'toggle-hide-published' }));
+    expect(await screen.findByTestId('unpublish-dialog')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'palette-only' }));
+    await waitFor(() => expect(catalog.updateEntry).toHaveBeenCalled());
+  });
+
+  it('removes nodes from workflows when confirmed in unpublish dialog', async () => {
+    const entry = makeEntry({
+      endpoints: [{ id: 'ep1', method: 'POST', path: '/ep1', summary: 'Endpoint 1', parameters: [], responses: [], tags: [], workflowExposure: 'published', exposedToWorkflow: true }],
+    });
+    const catalog = makeCatalog(entry);
+    scanWorkflowsForCatalogRef.mockResolvedValue([{ workflowId: 'wf1', workflowName: 'W1', nodeCount: 1 }]);
+    render(<ApiCatalog catalog={catalog} onImport={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'toggle-hide-published' }));
+    expect(await screen.findByTestId('unpublish-dialog')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'palette-and-workflows' }));
+    await waitFor(() => expect(removeCatalogNodesFromWorkflows).toHaveBeenCalledWith('entry1', 'ep1'));
+    await waitFor(() => expect(catalog.updateEntry).toHaveBeenCalled());
+  });
+
+  it('cancels unpublish flow without applying exposure changes', async () => {
+    const entry = makeEntry({
+      endpoints: [{ id: 'ep1', method: 'POST', path: '/ep1', summary: 'Endpoint 1', parameters: [], responses: [], tags: [], workflowExposure: 'published', exposedToWorkflow: true }],
+    });
+    const catalog = makeCatalog(entry);
+    scanWorkflowsForCatalogRef.mockResolvedValue([{ workflowId: 'wf1', workflowName: 'W1', nodeCount: 1 }]);
+    render(<ApiCatalog catalog={catalog} onImport={vi.fn()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'toggle-hide-published' }));
+    expect(await screen.findByTestId('unpublish-dialog')).toBeInTheDocument();
+    vi.mocked(catalog.updateEntry).mockClear();
+    await userEvent.click(screen.getByRole('button', { name: 'cancel-unpublish' }));
+    expect(catalog.updateEntry).not.toHaveBeenCalled();
   });
 });

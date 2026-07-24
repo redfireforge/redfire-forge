@@ -27,14 +27,14 @@ describe('cat-convert-openapi lesson', () => {
     expect(catConvertOpenApiLesson.category).toBe('catalog');
     expect(catConvertOpenApiLesson.initialTab).toBe('catalog');
     expect(catConvertOpenApiLesson.allowedTabs).toEqual(['catalog']);
-    expect(catConvertOpenApiLesson.estimatedMinutes).toBe(4);
+    expect(catConvertOpenApiLesson.estimatedMinutes).toBe(5);
   });
 
   it('is registered in the catalog lessons barrel', () => {
     expect(catalogLessons).toContain(catConvertOpenApiLesson);
   });
 
-  it('has 5 consolidated convert steps in order, each with a preAction', () => {
+  it('has 6 convert steps in order, each with a preAction', () => {
     const ids = catConvertOpenApiLesson.steps.map((s) => s.id);
     expect(ids).toEqual([
       'cat5-swagger-badge',
@@ -42,15 +42,16 @@ describe('cat-convert-openapi lesson', () => {
       'cat5-lint-search',
       'cat5-prettify',
       'cat5-save',
+      'cat5-batch',
     ]);
     for (const step of catConvertOpenApiLesson.steps) {
       expect(step.preAction).toBeTypeOf('function');
     }
   });
 
-  it('the final step verifies the overview surface (modal closed)', () => {
-    const last = catConvertOpenApiLesson.steps.at(-1)!;
-    expect(last.verify).toBe('[data-testid="catalog-overview"]');
+  it('step cat5-save verifies the overview surface (modal closed)', () => {
+    const saveStep = catConvertOpenApiLesson.steps.find((s) => s.id === 'cat5-save')!;
+    expect(saveStep.verify).toBe('[data-testid="catalog-overview"]');
   });
 
   it('concept lists the key spec-format terms', () => {
@@ -59,6 +60,7 @@ describe('cat-convert-openapi lesson', () => {
     expect(terms).toContain('OpenAPI 3.x');
     expect(terms).toContain('Validation gate');
     expect(terms).toContain('Deep lint');
+    expect(terms).toContain('Batch Convert');
   });
 
   it('setup navigates to the catalog tab', async () => {

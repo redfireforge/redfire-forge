@@ -381,7 +381,7 @@ describe('RequestEditor interaction branches', () => {
       />,
     );
 
-    const paramsRoot = screen.getByText('QUERY PARAMETERS').closest('.params-editor')!;
+    const paramsRoot = screen.getByText('Query Parameters').closest('.params-editor')!;
     const pageInput = await within(paramsRoot).findByDisplayValue('99');
     fireEvent.change(pageInput, { target: { value: '100' } });
 
@@ -473,7 +473,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const reqPaneLeft = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const reqPaneLeft = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(reqPaneLeft).getByRole('button', { name: /^Headers\b/ }));
     fireEvent.click(screen.getByTestId('req-headers-delete-all-btn'));
     expect(onUpdateRequest).toHaveBeenCalledWith({ headers: [{ key: '', value: '' }] });
@@ -597,7 +597,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
     fireEvent.click(document.querySelector('.ws-connect-kv-remove-btn')!);
 

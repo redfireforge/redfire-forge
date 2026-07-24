@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-describe('Save as Test display logic', () => {
+describe('Send to Harness (post-response) display logic', () => {
   it('shows only after successful response (2xx)', () => {
     const status = 200;
     const error = undefined;

@@ -89,7 +89,7 @@ export function useWorkflowKeyboardShortcuts({
           if (!isInput) { e.preventDefault(); setShowMinimap((v) => !v); }
           break;
         case '0':
-          if (!isInput) { e.preventDefault(); rfInstance.fitView({ padding: 0.2, duration: 300 }); }
+          if (!isInput) { e.preventDefault(); rfInstance.fitView({ padding: 0.15, minZoom: 0.4, duration: 300 }); }
           break;
         case 'z':
           if (!isInput) {

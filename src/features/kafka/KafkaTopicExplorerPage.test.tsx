@@ -392,4 +392,64 @@ describe('KafkaTopicExplorerPage', () => {
       expect(isCustomSelectDisabled(retentionFilter)).toBe(false);
     });
   });
+
+  it('renders traffic in K and M units once details are cached', async () => {
+    mockDispatch.mockImplementation((op: string, body: Record<string, unknown>) => {
+      if (op === 'topic-detail') {
+        const name = String(body.topicName);
+        const messageCount = name === 'orders.created' ? 1500 : 1_250_000;
+        return Promise.resolve({
+          ok: true,
+          data: {
+            ...topicDetail(name),
+            partitions: [{ partitionId: 0, leader: 1, replicas: [1], isr: [1], earliestOffset: '0', latestOffset: '10', messageCount }],
+          },
+        });
+      }
+      return Promise.resolve({ ok: true, data: { messages: [] } });
+    });
+
+    render(
+      <KafkaTopicExplorerPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('topic-row-orders.created'));
+    await waitFor(() => expect(screen.getByTestId('topic-row-orders.created').textContent).toContain('1.5K'));
+
+    fireEvent.click(screen.getByTestId('topic-row-orders.updated'));
+    await waitFor(() => expect(screen.getByTestId('topic-row-orders.updated').textContent).toContain('1.3M'));
+  });
+
+  it('collapse button toggles collapsed layout and label/title states', async () => {
+    render(
+      <KafkaTopicExplorerPage
+        kafkaState={makeKafkaState()}
+        onNavigateToKafkaSettings={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId('topic-row-orders.created'));
+    await waitFor(() => expect(screen.getByTestId('topic-list-collapse-btn')).toBeTruthy());
+
+    const page = screen.getByTestId('topic-explorer-page');
+    const collapseBtn = screen.getByTestId('topic-list-collapse-btn') as HTMLButtonElement;
+
+    expect(page.className).not.toContain('kafka-explorer-layout--collapsed');
+    expect(collapseBtn.getAttribute('title')).toBe('Collapse topic list');
+
+    fireEvent.click(collapseBtn);
+
+    expect(page.className).toContain('kafka-explorer-layout--collapsed');
+    expect(screen.getByText('Topics')).toBeTruthy();
+    expect(page.querySelector('.kafka-explorer-collapsed-topic')?.textContent).toBe('orders.created');
+    expect(collapseBtn.getAttribute('title')).toBe('Expand topic list');
+    expect(collapseBtn.getAttribute('aria-label')).toBe('Expand topic list');
+
+    fireEvent.click(collapseBtn);
+    expect(page.className).not.toContain('kafka-explorer-layout--collapsed');
+    expect(collapseBtn.getAttribute('title')).toBe('Collapse topic list');
+  });
 });

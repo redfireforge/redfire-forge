@@ -21,6 +21,7 @@ export interface TopicMessageBrowserDraft {
   headerMatch: string;
   jsonPath: string;
   jsonPathEquals: string;
+  bodyContains: string;
   sortOrder: SortOrder;
 }
 
@@ -61,6 +62,7 @@ function makeDefaultDraft(): TopicMessageBrowserDraft {
     headerMatch: '',
     jsonPath: '',
     jsonPathEquals: '',
+    bodyContains: '',
     sortOrder: 'asc',
   };
 }
@@ -109,6 +111,7 @@ export function useTopicMessageBrowser(
       headerMatch: draft.headerMatch,
       jsonPath: draft.jsonPath,
       jsonPathEquals: draft.jsonPathEquals,
+      bodyContains: draft.bodyContains,
     });
 
     const body: Record<string, unknown> = {

@@ -237,7 +237,7 @@ describe('DataSourceEditor', () => {
           sharedDataSources={[shared]}
         />,
       );
-      expect(screen.getByText('DATA SOURCE')).toBeTruthy();
+      expect(screen.getByText('Data Source')).toBeTruthy();
       expect(screen.getByDisplayValue('1GYVUZ')).toBeTruthy();
     });
 

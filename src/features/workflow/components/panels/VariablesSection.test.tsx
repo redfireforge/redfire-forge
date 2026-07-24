@@ -235,9 +235,9 @@ describe('VariablesSection', () => {
 
   it('renders column headers', () => {
     renderVars();
-    expect(screen.getByText('name')).toBeTruthy();
-    expect(screen.getByText('source')).toBeTruthy();
-    expect(screen.getByText('value')).toBeTruthy();
+    expect(screen.getByText('Name')).toBeTruthy();
+    expect(screen.getByText('Source')).toBeTruthy();
+    expect(screen.getByText('Value')).toBeTruthy();
   });
 
   it('handles resize drag on divider', () => {

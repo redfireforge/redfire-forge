@@ -25,7 +25,7 @@ function makeDiff(overrides: Partial<CatalogSpecDiff> = {}): CatalogSpecDiff {
 describe('CatalogVersionDiff', () => {
   it('renders empty state when there are no differences', () => {
     render(<CatalogVersionDiff diff={makeDiff()} />);
-    expect(screen.getByText(/No endpoint differences found/)).toBeInTheDocument();
+    expect(screen.getByText(/No differences found/)).toBeInTheDocument();
     expect(screen.getByText(/v1.0.0 and v2.0.0/)).toBeInTheDocument();
   });
 
@@ -63,5 +63,33 @@ describe('CatalogVersionDiff', () => {
     expect(screen.queryByText('Removed Endpoints')).not.toBeInTheDocument();
     expect(screen.queryByText('Changed Endpoints')).not.toBeInTheDocument();
     expect(screen.getByText('TRACE')).toBeInTheDocument();
+  });
+
+  it('renders metadata section and badge when metadata exists', () => {
+    const diff = makeDiff({
+      metadata: ['Title changed', 'Servers changed'],
+    });
+    render(<CatalogVersionDiff diff={diff} />);
+    expect(screen.getByText('⚙ metadata')).toBeInTheDocument();
+    expect(screen.getByText('Metadata Changes')).toBeInTheDocument();
+    expect(screen.getByText('Title changed')).toBeInTheDocument();
+    expect(screen.getByText('Servers changed')).toBeInTheDocument();
+  });
+
+  it('renders sub-detail rows trimmed with sub class', () => {
+    const diff = makeDiff({
+      changed: [{
+        method: 'PATCH',
+        path: '/users/{id}',
+        changeType: 'changed',
+        details: ['Request body content types changed', '  Before: application/json', '  After: application/xml'],
+      }],
+      summary: { totalAdded: 0, totalRemoved: 0, totalChanged: 1 },
+    });
+    const { container } = render(<CatalogVersionDiff diff={diff} />);
+    const subItems = container.querySelectorAll('.cat-vd-sub');
+    expect(subItems.length).toBe(2);
+    expect(screen.getByText('Before: application/json')).toBeInTheDocument();
+    expect(screen.getByText('After: application/xml')).toBeInTheDocument();
   });
 });

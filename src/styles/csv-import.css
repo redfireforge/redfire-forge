@@ -479,6 +479,118 @@
   opacity: 0.7;
 }
 
+/* ─── Redesigned DS Section (replaces step-section-card for Step 1) ─── */
+.ds-section {
+  padding-bottom: 14px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.ds-section:last-child {
+  border-bottom: none;
+  margin-bottom: 0;
+  padding-bottom: 0;
+}
+.ds-section--muted {
+  opacity: 0.65;
+}
+.ds-section-heading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.ds-section-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: 0.01em;
+}
+.ds-section-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent, var(--primary)) 14%, transparent);
+  color: var(--accent, var(--primary));
+  font-weight: 600;
+}
+.ds-section-hint {
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+  line-height: 1.4;
+}
+
+/* Auth config — redesigned */
+.ds-auth-config {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ds-auth-select {
+  width: 100%;
+}
+.ds-auth-select .cs-trigger {
+  padding: 7px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  font-size: 0.82rem;
+}
+.ds-auth-select .cs-trigger:hover {
+  border-color: var(--primary);
+}
+.ds-auth-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+.ds-auth-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.82rem;
+  transition: border-color 0.15s;
+}
+.ds-auth-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 18%, transparent);
+}
+.ds-auth-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+/* Fixed configuration summary */
+.ds-fixed-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.ds-fixed-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 4px 0;
+}
+.ds-fixed-key {
+  font-size: 0.78rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  min-width: 60px;
+}
+.ds-fixed-row span:not(.ds-fixed-key):not(.method-badge) {
+  font-size: 0.78rem;
+  color: var(--text);
+}
+
 /* Path segments */
 .path-segment-list {
   display: flex;

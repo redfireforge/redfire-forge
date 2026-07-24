@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface KafkaTemplate {
   id: string;
@@ -15,6 +16,12 @@ interface KafkaTemplateControlsProps {
   testIdPrefix: string;
 }
 
+// ── Toast state ────────────────────────────────────────────────────────────
+interface TemplateToast {
+  message: string;
+  kind: 'load' | 'save' | 'delete';
+}
+
 export function KafkaTemplateControls({
   templates,
   templatesLoading,
@@ -26,8 +33,20 @@ export function KafkaTemplateControls({
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [showSaveInput, setShowSaveInput] = useState(false);
   const [saveName, setSaveName] = useState('');
+  const [toast, setToast] = useState<TemplateToast | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const saveInputRef = useRef<HTMLInputElement>(null);
+
+  const showToast = useCallback((message: string, kind: TemplateToast['kind']) => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    setToast({ message, kind });
+    toastTimerRef.current = setTimeout(() => setToast(null), 2500);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (toastTimerRef.current) clearTimeout(toastTimerRef.current); };
+  }, []);
 
   useEffect(() => {
     if (!dropdownOpen) return;
@@ -46,7 +65,8 @@ export function KafkaTemplateControls({
     await onSave(name);
     setSaveName('');
     setShowSaveInput(false);
-  }, [saveName, onSave]);
+    showToast(`Template "${name}" saved`, 'save');
+  }, [saveName, onSave, showToast]);
 
   const handleSaveKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -59,9 +79,12 @@ export function KafkaTemplateControls({
   const handleDeleteTemplate = useCallback(
     (e: React.MouseEvent, id: string) => {
       e.stopPropagation();
-      void onDelete(id);
+      const tpl = templates.find((t) => t.id === id);
+      void onDelete(id).then(() => {
+        showToast(`Template "${tpl?.name ?? id}" deleted`, 'delete');
+      });
     },
-    [onDelete],
+    [onDelete, templates, showToast],
   );
 
   const handleOpenSave = useCallback(() => {
@@ -118,7 +141,7 @@ export function KafkaTemplateControls({
                     className="kafka-ms-template-item"
                     role="option"
                     aria-selected={false}
-                    onClick={() => { onLoad(t.id); setDropdownOpen(false); }}
+                    onClick={() => { onLoad(t.id); setDropdownOpen(false); showToast(`Template "${t.name}" loaded`, 'load'); }}
                     data-testid={`${testIdPrefix}-tmpl-item-${t.id}`}
                   >
                     <span className="kafka-ms-template-item-icon" aria-hidden>◈</span>
@@ -187,6 +210,22 @@ export function KafkaTemplateControls({
         >
           Save
         </button>
+      )}
+
+      {/* ── Template toast notification (portal to body to avoid clipping) ── */}
+      {toast && createPortal(
+        <div
+          className={`kafka-ms-template-toast kafka-ms-template-toast--${toast.kind}`}
+          role="status"
+          aria-live="polite"
+          data-testid={`${testIdPrefix}-tmpl-toast`}
+        >
+          <span className="kafka-ms-template-toast-icon">
+            {toast.kind === 'load' ? '↻' : toast.kind === 'save' ? '✓' : '🗑'}
+          </span>
+          {toast.message}
+        </div>,
+        document.body,
       )}
     </div>
   );

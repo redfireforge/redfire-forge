@@ -76,7 +76,7 @@ export default function WorkflowDefaultsModal({
         onClose={handleCancel}
         hideExpandButton
         hideCloseButton
-        minWidth={520}
+        minWidth={580}
         minHeight={280}
         dialogClassName="wf-config-modal wf-defaults-modal"
         footer={(

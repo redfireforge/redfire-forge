@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Swagger 2.0 → OpenAPI 3.0.3 Converter</title>
+  <!-- Libraries are bundled inline by build-converter.mjs -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 2rem;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 0.5rem;
+      color: #fff;
+    }
+    .subtitle {
+      text-align: center;
+      color: #888;
+      margin-bottom: 2rem;
+      font-size: 0.9rem;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+    }
+    .drop-zone {
+      border: 2px dashed #4a4a6a;
+      border-radius: 12px;
+      padding: 3rem 2rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      background: #16213e;
+    }
+    .drop-zone:hover, .drop-zone.dragover {
+      border-color: #4fc3f7;
+      background: #1a2a4a;
+    }
+    .drop-zone p {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+    }
+    .drop-zone .hint {
+      font-size: 0.85rem;
+      color: #666;
+    }
+    input[type="file"] { display: none; }
+    .result {
+      margin-top: 2rem;
+      display: none;
+    }
+    .result.visible { display: block; }
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.75rem;
+    }
+    .result-header h3 { color: #4fc3f7; }
+    .btn {
+      background: #4fc3f7;
+      color: #1a1a2e;
+      border: none;
+      padding: 0.5rem 1.2rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.9rem;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #81d4fa; }
+    .btn-group { display: flex; gap: 0.5rem; }
+    .output {
+      background: #0f1525;
+      border: 1px solid #333;
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: 'JetBrains Mono', 'Fira Code', monospace;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      max-height: 500px;
+      overflow: auto;
+      white-space: pre;
+      color: #c8e6c9;
+    }
+    .error {
+      background: #2d1b1b;
+      border-color: #e57373;
+      color: #ef9a9a;
+    }
+    .info-bar {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: #1b3a2a;
+      border: 1px solid #2e7d50;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      color: #a5d6a7;
+      display: none;
+    }
+    .info-bar.visible { display: block; }
+    .file-name {
+      margin-top: 1rem;
+      font-size: 0.85rem;
+      color: #aaa;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Swagger 2.0 → OpenAPI 3.0.3</h1>
+    <p class="subtitle">Drop or select a Swagger 2.0 YAML/JSON file to convert</p>
+
+    <div class="drop-zone" id="dropZone">
+      <p>📂 Drop Swagger file here or click to browse</p>
+      <span class="hint">Supports .yaml, .yml, and .json files</span>
+    </div>
+    <input type="file" id="fileInput" accept=".yaml,.yml,.json">
+    <div class="file-name" id="fileName"></div>
+
+    <div class="info-bar" id="infoBar"></div>
+
+    <div class="result" id="result">
+      <div class="result-header">
+        <h3>Converted OpenAPI 3.0.3</h3>
+        <div class="btn-group">
+          <button class="btn" id="downloadYaml">Download YAML</button>
+          <button class="btn" id="downloadJson">Download JSON</button>
+          <button class="btn" id="copyBtn">Copy</button>
+        </div>
+      </div>
+      <pre class="output" id="output"></pre>
+    </div>
+  </div>
+
+  <script>
+    const dropZone = document.getElementById('dropZone');
+    const fileInput = document.getElementById('fileInput');
+    const result = document.getElementById('result');
+    const output = document.getElementById('output');
+    const infoBar = document.getElementById('infoBar');
+    const fileNameEl = document.getElementById('fileName');
+
+    let convertedSpec = null;
+    let originalFileName = '';
+
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+    dropZone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      const file = e.dataTransfer.files[0];
+      if (file) handleFile(file);
+    });
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) handleFile(file);
+    });
+
+    function handleFile(file) {
+      originalFileName = file.name.replace(/\.(yaml|yml|json)$/i, '');
+      fileNameEl.textContent = `File: ${file.name}`;
+      const reader = new FileReader();
+      reader.onload = (e) => convert(e.target.result, file.name);
+      reader.readAsText(file);
+    }
+
+    // ─── Normalization (mirrors RedfireForge Catalog logic) ───
+
+    const OAS3_KEY_ORDER = ['openapi', 'servers', 'info', 'tags', 'security', 'paths', 'components', 'webhooks'];
+    const HTTP_METHODS = ['get', 'post', 'put', 'patch', 'delete', 'options', 'head', 'trace'];
+
+    function reorderTopLevelKeys(doc) {
+      const ordered = {};
+      for (const key of OAS3_KEY_ORDER) {
+        if (key in doc) ordered[key] = doc[key];
+      }
+      for (const key of Object.keys(doc)) {
+        if (!(key in ordered)) ordered[key] = doc[key];
+      }
+      return ordered;
+    }
+
+    function tagNameToDescription(name) {
+      const spaced = name
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .replace(/([A-Z]+)([A-Z][a-z])/g, '$1 $2');
+      const words = spaced.split(/\s+/).filter(Boolean);
+      if (words.length === 0) return '';
+      const sentence = words
+        .map((w, i) => (i === 0 ? w.charAt(0).toUpperCase() + w.slice(1) : w.toLowerCase()))
+        .join(' ');
+      return sentence.endsWith('.') ? sentence : `${sentence}.`;
+    }
+
+    function ensureTopLevelTags(doc) {
+      if (doc.tags && Array.isArray(doc.tags) && doc.tags.length > 0) return;
+      const paths = doc.paths;
+      if (!paths || typeof paths !== 'object') return;
+      const seen = new Set();
+      const tags = [];
+      for (const pathItem of Object.values(paths)) {
+        if (!pathItem || typeof pathItem !== 'object') continue;
+        for (const method of HTTP_METHODS) {
+          const op = pathItem[method];
+          if (!op || typeof op !== 'object') continue;
+          const opTags = op.tags;
+          if (!Array.isArray(opTags)) continue;
+          for (const t of opTags) {
+            if (typeof t === 'string' && !seen.has(t)) {
+              seen.add(t);
+              tags.push({ name: t, description: tagNameToDescription(t) });
+            }
+          }
+        }
+      }
+      if (tags.length > 0) doc.tags = tags;
+    }
+
+    function expandJsonStringExamples(node, seen = new Set()) {
+      if (node === null || typeof node !== 'object' || seen.has(node)) return;
+      seen.add(node);
+      if (Array.isArray(node)) {
+        for (const item of node) expandJsonStringExamples(item, seen);
+        return;
+      }
+      if (typeof node.example === 'string') {
+        const raw = node.example.trim();
+        if ((raw.startsWith('{') && raw.endsWith('}')) || (raw.startsWith('[') && raw.endsWith(']'))) {
+          try { node.example = JSON.parse(raw); } catch {}
+        }
+      }
+      for (const value of Object.values(node)) expandJsonStringExamples(value, seen);
+    }
+
+    function extractMisplacedRequestBodyRef(holder, notes) {
+      const params = holder.parameters;
+      if (!Array.isArray(params)) return undefined;
+      let found;
+      const kept = params.filter((p) => {
+        if (p && typeof p === 'object' && typeof p.$ref === 'string') {
+          if (p.$ref.includes('/requestBodies/')) {
+            found = found ?? p.$ref;
+            return false;
+          }
+        }
+        return true;
+      });
+      if (found) {
+        if (kept.length === 0) delete holder.parameters;
+        else holder.parameters = kept;
+      }
+      return found;
+    }
+
+    function normalizeConvertedOpenApi3(openapi, originalSwagger) {
+      const doc = JSON.parse(JSON.stringify(openapi));
+      const notes = [];
+
+      // Build a map of path+method → original body param name from Swagger 2.0 spec
+      const bodyParamNames = {};
+      if (originalSwagger && originalSwagger.paths && originalSwagger.parameters) {
+        for (const [pathKey, pathItem] of Object.entries(originalSwagger.paths)) {
+          if (!pathItem || typeof pathItem !== 'object') continue;
+          for (const method of HTTP_METHODS) {
+            const op = pathItem[method];
+            if (!op || typeof op !== 'object' || !op.parameters) continue;
+            for (const param of op.parameters) {
+              if (param && param.$ref) {
+                const refName = param.$ref.replace('#/parameters/', '');
+                const resolved = originalSwagger.parameters[refName];
+                if (resolved && resolved.in === 'body') {
+                  bodyParamNames[`${pathKey}:${method}`] = refName;
+                }
+              } else if (param && param.in === 'body') {
+                bodyParamNames[`${pathKey}:${method}`] = param.name || 'body';
+              }
+            }
+          }
+        }
+      }
+
+      // Remove leftover Swagger 2.0 keys
+      delete doc.schemes;
+      delete doc.swagger;
+
+      expandJsonStringExamples(doc);
+      ensureTopLevelTags(doc);
+
+      // Fix misplaced requestBody refs in parameters
+      const paths = doc.paths;
+      if (paths && typeof paths === 'object') {
+        for (const [pathKey, pathItem] of Object.entries(paths)) {
+          if (!pathItem || typeof pathItem !== 'object') continue;
+          const sharedRef = extractMisplacedRequestBodyRef(pathItem, notes);
+          if (sharedRef) {
+            for (const method of HTTP_METHODS) {
+              const op = pathItem[method];
+              if (op && typeof op === 'object' && !op.requestBody) {
+                op.requestBody = { $ref: sharedRef };
+              }
+            }
+          }
+          for (const method of HTTP_METHODS) {
+            const op = pathItem[method];
+            if (!op || typeof op !== 'object') continue;
+            const ref = extractMisplacedRequestBodyRef(op, notes);
+            if (ref && !op.requestBody) {
+              op.requestBody = { $ref: ref };
+            }
+          }
+        }
+      }
+
+      // Reorder parameter fields: put schema first, then in, name, description, required
+      if (doc.components && doc.components.parameters) {
+        const params = doc.components.parameters;
+        for (const [name, param] of Object.entries(params)) {
+          if (!param || typeof param !== 'object') continue;
+          const reorderedParam = {};
+          // schema first
+          if (param.schema) reorderedParam.schema = param.schema;
+          if (param.in) reorderedParam.in = param.in;
+          if (param.name) reorderedParam.name = param.name;
+          if (param.description !== undefined) reorderedParam.description = param.description;
+          if (param.required !== undefined) reorderedParam.required = param.required;
+          // any remaining keys
+          for (const k of Object.keys(param)) {
+            if (!(k in reorderedParam)) reorderedParam[k] = param[k];
+          }
+          params[name] = reorderedParam;
+        }
+      }
+
+      // Extract inline requestBody to components/requestBodies with $ref
+      if (paths && typeof paths === 'object') {
+        for (const [pathKey, pathItem] of Object.entries(paths)) {
+          if (!pathItem || typeof pathItem !== 'object') continue;
+          for (const method of HTTP_METHODS) {
+            const op = pathItem[method];
+            if (!op || typeof op !== 'object' || !op.requestBody) continue;
+            // Skip if already a $ref
+            if (op.requestBody.$ref) continue;
+            // Use original body param name if available, else generate from operationId
+            const bodyName = bodyParamNames[`${pathKey}:${method}`]
+              || (op.operationId
+                ? op.operationId.charAt(0).toUpperCase() + op.operationId.slice(1) + 'Request'
+                : `${method}${pathKey.replace(/[^a-zA-Z]/g, '')}Request`);
+            // Extract schema to components/schemas if it's an inline object
+            if (!doc.components) doc.components = {};
+            if (!doc.components.schemas) doc.components.schemas = {};
+            if (!doc.components.requestBodies) doc.components.requestBodies = {};
+            const rb = op.requestBody;
+            const contentType = Object.keys(rb.content || {})[0];
+            const mediaObj = contentType && rb.content[contentType];
+            if (mediaObj && mediaObj.schema && !mediaObj.schema.$ref) {
+              // Move inline schema to components/schemas
+              doc.components.schemas[bodyName] = mediaObj.schema;
+              mediaObj.schema = { $ref: `#/components/schemas/${bodyName}` };
+            }
+            doc.components.requestBodies[bodyName] = rb;
+            op.requestBody = { $ref: `#/components/requestBodies/${bodyName}` };
+          }
+        }
+      }
+
+      // Reorder components sub-sections: schemas → parameters → requestBodies → responses → securitySchemes
+      if (doc.components && typeof doc.components === 'object') {
+        const COMP_ORDER = ['schemas', 'parameters', 'requestBodies', 'responses', 'securitySchemes', 'headers', 'examples', 'links', 'callbacks'];
+        const reordered = {};
+        for (const key of COMP_ORDER) {
+          if (key in doc.components) reordered[key] = doc.components[key];
+        }
+        for (const key of Object.keys(doc.components)) {
+          if (!(key in reordered)) reordered[key] = doc.components[key];
+        }
+        doc.components = reordered;
+      }
+
+      // Reorder operation fields to match RedfireForge output
+      if (paths && typeof paths === 'object') {
+        for (const [pathKey, pathItem] of Object.entries(paths)) {
+          if (!pathItem || typeof pathItem !== 'object') continue;
+          for (const method of HTTP_METHODS) {
+            const op = pathItem[method];
+            if (!op || typeof op !== 'object') continue;
+            const reorderedOp = {};
+            const OP_ORDER = ['operationId', 'summary', 'description', 'parameters', 'tags'];
+            for (const key of OP_ORDER) {
+              if (key in op) reorderedOp[key] = op[key];
+            }
+            // x- extensions
+            for (const key of Object.keys(op)) {
+              if (key.startsWith('x-')) reorderedOp[key] = op[key];
+            }
+            // responses, requestBody, and remaining
+            if (op.responses) reorderedOp.responses = op.responses;
+            if (op.requestBody) reorderedOp.requestBody = op.requestBody;
+            for (const key of Object.keys(op)) {
+              if (!(key in reorderedOp)) reorderedOp[key] = op[key];
+            }
+            pathItem[method] = reorderedOp;
+          }
+        }
+      }
+
+      return reorderTopLevelKeys(doc);
+    }
+
+    // ─── Conversion ─────────────────────────────
+
+    async function convert(content, fileName) {
+      try {
+        // Parse input (YAML or JSON)
+        let spec;
+        try {
+          spec = YAML.parse(content);
+        } catch {
+          spec = JSON.parse(content);
+        }
+
+        // Validate it's Swagger 2.0
+        if (!spec || typeof spec !== 'object') {
+          showError('Could not parse file as YAML or JSON.');
+          return;
+        }
+        if (!spec.swagger || !spec.swagger.startsWith('2')) {
+          if (spec.openapi) {
+            showError(`This file is already OpenAPI ${spec.openapi}. No conversion needed.`);
+            return;
+          }
+          showError('This does not appear to be a Swagger 2.0 spec (missing "swagger": "2.0" field).');
+          return;
+        }
+
+        // Convert using swagger2openapi (same engine as RedfireForge Catalog)
+        const converted = await swagger2openapi.convertObj(structuredClone(spec), {
+          patch: true,
+          warnOnly: true,
+          targetVersion: '3.0.3',
+          resolve: false,
+        });
+
+        // Normalize (same pipeline as RedfireForge)
+        convertedSpec = normalizeConvertedOpenApi3(converted.openapi, spec);
+
+        // Display as YAML
+        const yamlOutput = YAML.stringify(convertedSpec, { lineWidth: 0 });
+
+        output.textContent = yamlOutput;
+        output.classList.remove('error');
+        result.classList.add('visible');
+
+        // Show info
+        const paths = Object.keys(convertedSpec.paths || {}).length;
+        const title = convertedSpec.info?.title || 'Unknown';
+        const version = convertedSpec.info?.version || '?';
+        infoBar.innerHTML = `✅ Converted <strong>${title}</strong> v${version} — ${paths} paths`;
+        infoBar.classList.add('visible');
+
+      } catch (err) {
+        showError(`Conversion failed: ${err.message}`);
+      }
+    }
+
+    function showError(msg) {
+      output.textContent = msg;
+      output.classList.add('error');
+      result.classList.add('visible');
+      infoBar.classList.remove('visible');
+      convertedSpec = null;
+    }
+
+    document.getElementById('downloadYaml').addEventListener('click', () => {
+      if (!convertedSpec) return;
+      const yaml = YAML.stringify(convertedSpec, { lineWidth: 0 });
+      download(yaml, `${originalFileName}-openapi3.yaml`, 'text/yaml');
+    });
+
+    document.getElementById('downloadJson').addEventListener('click', () => {
+      if (!convertedSpec) return;
+      const json = JSON.stringify(convertedSpec, null, 2);
+      download(json, `${originalFileName}-openapi3.json`, 'application/json');
+    });
+
+    document.getElementById('copyBtn').addEventListener('click', () => {
+      if (!convertedSpec) return;
+      const yaml = YAML.stringify(convertedSpec, { lineWidth: 0 });
+      navigator.clipboard.writeText(yaml).then(() => {
+        const btn = document.getElementById('copyBtn');
+        btn.textContent = 'Copied!';
+        setTimeout(() => btn.textContent = 'Copy', 1500);
+      });
+    });
+
+    function download(content, filename, type) {
+      const blob = new Blob([content], { type });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>

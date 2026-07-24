@@ -435,7 +435,9 @@ export const REQUEST_DEMO_COLLECTION_NAMES = [
   'Multi-Tab Demo',      // req-multi-tab
   'Promotion Demo',      // req-send-harness
   'Version Demo',        // req-versioning
-  'JSONPlaceholder API', // cat-export-promote (catalog → Requests export)
+  'JSONPlaceholder API',          // cat-export-promote (catalog → Requests export)
+  'JSONPlaceholder API (1.0.0)',   // cat-export-promote (versioned export name)
+  'From Catalog Spec',             // cat-export-promote (export target group)
   'Gallery Samples',     // gallery import sidebar
 ] as const;
 

@@ -26,7 +26,7 @@ export default function DataSourceEmptyState({
     <div className="params-editor">
       <div className="params-toolbar">
         <div className="params-toolbar-left">
-          <span className="params-section-label">{onCreateParameterizedCopy ? 'PARAMETERIZE' : 'DATA SOURCE'}</span>
+          <span className="params-section-label">{onCreateParameterizedCopy ? 'Parameterize' : 'Data Source'}</span>
         </div>
       </div>
       {onCreateParameterizedCopy ? (
