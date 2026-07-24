@@ -41,7 +41,8 @@ The existing protocol-specific workflow lessons cover:
 | WF-5 | `wf-error-handling` | Error Handling & Recovery | 4 | 4 min | Error Handler node, retry config, catch path, error variables, graceful degradation |
 | WF-6 | `wf-debug-console` | Quick Test & Debug Mode | 5 | 5 min | Quick Test, Console panel, step-through Debug, variable inspection, exec summary |
 | WF-7 | `wf-version-services` | Versioning & Services | 4 | 4 min | Version snapshot, compare diff, restore, Service Registry, multi-env resolution |
-| **Total** | | | **33** | **~33 min** | |
+| WF-8 | `wf-protocol-nodes` | Protocol Nodes Overview | 4 | 4 min | gRPC/Kafka/WS/GraphQL palette blocks, multi-protocol workflow, links to deep-dive lessons |
+| **Total** | | | **37** | **~37 min** | |
 
 ---
 
@@ -100,9 +101,9 @@ The existing protocol-specific workflow lessons cover:
 |---|---|---|---|---|
 | 1 | `wf2-extraction` | Extract Data from a Response | `WF.NODE_CONFIG` | Double-click the POST /posts HTTP node → config modal opens → click **Output** tab → spotlight the **Extraction** section (1200ms, explain: pull values from the response into variables) → add extraction: JSONPath `$.id` → variable name `postId` → spotlight the configured extraction (1000ms) → Save |
 | 2 | `wf2-second-node` | Add a Second HTTP Node | `WF.PALETTE` | Drag a second **HTTP Request** from palette → place it after the first → connect first HTTP output → second HTTP input → spotlight the chain (1200ms) |
-| 3 | `wf2-use-variable` | Use the Extracted Variable | `WF.NODE_CONFIG` | Double-click the second HTTP node → URL field → type `https://jsonplaceholder.typicode.com/posts/{{postId}}` → spotlight the `{{postId}}` expression highlighted in the URL (1500ms, explain: double-curly syntax resolves at runtime) → spotlight the **expression autocomplete** dropdown showing `postId` (1000ms) → Save |
-| 4 | `wf2-variables-panel` | The Variables Panel | `WF.VARIABLES_BTN` | Click **Variables** in toolbar → Variables modal opens → spotlight the **workflow-level defaults** section (1000ms) → add a new variable: key `baseUrl`, value `https://jsonplaceholder.typicode.com` → Save → spotlight how the variable appears in the variable context bar on canvas (1200ms) |
-| 5 | `wf2-run-chain` | Run the Data Chain | `WF.QUICK_TEST_BTN` | Click **▶ Quick Test** → first node executes (POST creates post, gets id=101) → extraction runs → second node executes (GET /posts/101 using extracted id) → both nodes green → spotlight the **Console** panel showing the variable flow: `postId = 101` in the log (1500ms) → spotlight the second node's result showing the fetched post (1200ms) |
+| 3 | `wf2-variables-panel` | The Variables Panel | `WF.VARIABLES_BTN` | **Define the shared variable first.** Click **Variables** in toolbar → Variables modal opens → type key `baseUrl`, value `https://jsonplaceholder.typicode.com` → click **+** to commit the row into the list (1000ms) → Save → the POST already uses `{{baseUrl}}/posts`; next the GET will too → spotlight the **Variables** toolbar button now showing a **count badge** (1600ms) |
+| 4 | `wf2-use-variable` | Use the Extracted Variable | `WF.NODE_HTTP` | Open the second HTTP node → URL field → type `{{baseUrl}}/users/{{userId}}` (uses **two** variables: the shared `{{baseUrl}}` host you just defined + the extracted `{{userId}}`) → scroll input to end + spotlight the URL expression (1500ms) → spotlight the **Resolved URL (preview)** row echoing the template (1600ms) → Save & close → re-fit canvas |
+| 5 | `wf2-run-chain` | Run the Data Chain | `WF.QUICK_TEST_BTN` | Open the **Console** first → click **▶ Quick Test** → POST executes (`{{baseUrl}}/posts` → returns `userId: 1`) → extraction stores `userId` → GET executes (`{{baseUrl}}/users/1`) → both nodes green → open Console search, type `userId`, spotlight the highlighted match in the live log (2000ms) |
 
 **Cleanup:** Delete seeded workflow.
 
@@ -299,6 +300,8 @@ Every Workflow Designer feature mapped to its lesson:
 | **Multi-environment URLs** | WF-7 | Step 4 |
 | **Log/Debug node** | WF-3, WF-5 | Multiple |
 | **Set Variable node** | WF-2 | Step 4 (conceptual) |
+| **Protocol nodes (gRPC, Kafka, WS, GQL) overview** | WF-8 | Steps 1-3 |
+| **Multi-protocol orchestration** | WF-8 | Step 3 |
 
 ---
 
@@ -316,6 +319,36 @@ Every Workflow Designer feature mapped to its lesson:
 | Sub-Workflow node | Future lesson |
 | Script node | Future lesson |
 | Aggregate node | WF-4 mentions; deep dive future |
+
+> **Note:** WF-8 (Protocol Nodes Overview) provides a high-level tour of these protocol
+> blocks in the palette and links to the dedicated deep-dive lessons. It does NOT replace them.
+
+---
+
+## WF-8: Protocol Nodes Overview
+
+**Goal:** Show that the Workflow Designer palette contains protocol-specific blocks (gRPC, Kafka, WebSocket, GraphQL) and demonstrate how they differ from HTTP — then direct users to the dedicated protocol lessons for deep dives.
+
+| Field | Value |
+|---|---|
+| `id` | `wf-protocol-nodes` |
+| `estimatedMinutes` | 4 |
+| Steps | 4 |
+| `initialTab` | `workflows` |
+| `allowedTabs` | `['workflows']` |
+
+**Prerequisite:** Seeded workflow with Start → HTTP (GET /posts/1) already configured.
+
+### Steps
+
+| # | ID | Title | Highlight | What happens |
+|---|---|---|---|---|
+| 1 | `wf8-palette-tour` | Protocol Blocks in the Palette | `WF.PALETTE` | Spotlight the palette → scroll to show all protocol-specific blocks (1000ms each): **gRPC Unary**, **Kafka Produce**, **WS Connect**, **GraphQL Query** → explain: these are full-featured nodes for each protocol, not wrappers — they have their own config tabs, schema pickers, and connection settings |
+| 2 | `wf8-kafka-node` | Drag a Kafka Produce Node | `.wf-palette-block-kafkaProduce` | Drag **Kafka Produce** from palette → spotlight its config modal briefly (1200ms) → show: Topic, Key, Value, Headers tabs — contrast with HTTP's URL/Method → close without saving → explain: each protocol has specialized config that matches its semantics |
+| 3 | `wf8-multi-protocol` | Multi-Protocol Orchestration | `WF.CANVAS` | Show a concept: HTTP → Extract userId → Kafka Produce (event) → WS Notify (push) → demonstrate that one workflow can orchestrate across protocols seamlessly (pre-built, spotlight each node 1000ms) |
+| 4 | `wf8-deep-dive-links` | Where to Learn More | Demo Hub nav | Narrate: "Each protocol has dedicated deep-dive lessons in the **Protocols** domain" → list: GraphQL (4 lessons), gRPC (2 lessons), Kafka (2 lessons), WebSocket (1 lesson) → spotlight the Demo Hub nav or show a concept diagram linking to each protocol domain |
+
+**Cleanup:** Delete seeded workflow.
 
 ---
 
@@ -428,8 +461,8 @@ export const workflowDomain: DemoDomain = {
 
 Category mapping:
 - **Fundamentals:** WF-1, WF-2
-- **Logic & Flow:** WF-3, WF-4, WF-5
-- **Tools & Debug:** WF-6, WF-7
+- **Logic & Flow:** WF-3, WF-4
+- **Tools & Debug:** WF-5, WF-6, WF-7, WF-8
 
 ---
 
@@ -454,13 +487,13 @@ Since workflows involve canvas interactions (drag, connect, double-click), delay
 
 ## Future Expansion (Phase 2)
 
-After the core 7 lessons are complete, consider:
+After the core 8 lessons are complete, consider:
 
 | Lesson | Focus |
 |---|---|
-| WF-8 | Event-Driven: Webhook Trigger + Schedule + polling |
-| WF-9 | Async Correlation: CorrelationWait + simulators |
-| WF-10 | Sub-Workflows: parent/child composition + shared variables |
-| WF-11 | Script Node: JS sandbox, data transformation, cross-API validation |
-| WF-12 | Workflow Runner: iterations, concurrency, SLA, Results Explorer |
-| WF-13 | Command Palette & Shortcuts: power-user efficiency |
+| WF-9 | Event-Driven: Webhook Trigger + Schedule + polling |
+| WF-10 | Async Correlation: CorrelationWait + simulators |
+| WF-11 | Sub-Workflows: parent/child composition + shared variables |
+| WF-12 | Script Node: JS sandbox, data transformation, cross-API validation |
+| WF-13 | Workflow Runner: iterations, concurrency, SLA, Results Explorer |
+| WF-14 | Command Palette & Shortcuts: power-user efficiency |

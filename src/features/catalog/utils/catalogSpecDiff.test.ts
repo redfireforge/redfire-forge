@@ -71,7 +71,7 @@ describe('diffCatalogEntries', () => {
 
     const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
     expect(diff.changed).toHaveLength(1);
-    expect(diff.changed[0].details).toContain('Summary changed');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('Summary:')]));
   });
 
   it('detects parameter addition', () => {
@@ -111,7 +111,7 @@ describe('diffCatalogEntries', () => {
 
     const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
     expect(diff.changed).toHaveLength(1);
-    expect(diff.changed[0].details).toContain('Request body added');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('Request body added')]));
   });
 
   it('detects response code changes', () => {
@@ -206,7 +206,7 @@ describe('diffCatalogEntries', () => {
     const oldEntry = makeEntry({ endpoints: [makeEp({ parameters: [oldParam] })] });
     const newEntry = makeEntry({ endpoints: [makeEp({ parameters: [newParam] })] });
     const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
-    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('schema changed')]));
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('type: string → integer')]));
   });
 
   it('detects request body removal', () => {
@@ -227,7 +227,15 @@ describe('diffCatalogEntries', () => {
     const oldEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: oldBody })] });
     const newEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: newBody })] });
     const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
-    expect(diff.changed[0].details).toContain('Request body content types changed');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([
+      expect.stringContaining('Request body content types changed'),
+    ]));
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([
+      expect.stringContaining('removed: application/json'),
+    ]));
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([
+      expect.stringContaining('added: application/xml'),
+    ]));
   });
 
   it('detects request body required change', () => {
@@ -236,14 +244,14 @@ describe('diffCatalogEntries', () => {
     const oldEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: oldBody })] });
     const newEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: newBody })] });
     const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
-    expect(diff.changed[0].details).toContain('Request body required changed');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('Request body required: true → false')]));
   });
 
   it('detects security changes', () => {
     const oldEntry = makeEntry({ endpoints: [makeEp({ security: [{ bearerAuth: [] }] })] });
     const newEntry = makeEntry({ endpoints: [makeEp({ security: [{ apiKeyAuth: [] }] })] });
     const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
-    expect(diff.changed[0].details).toContain('Security requirements changed');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('Security:')]));
   });
 
   it('detects removed response codes', () => {
@@ -255,5 +263,135 @@ describe('diffCatalogEntries', () => {
     });
     const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
     expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('Removed response codes: 404')]));
+  });
+
+  it('detects metadata changes', () => {
+    const oldEntry = makeEntry({ name: 'Old API', servers: [{ url: 'http://old.com', description: '' }] });
+    const newEntry = makeEntry({ name: 'New API', servers: [{ url: 'http://new.com', description: '' }] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.metadata).toBeDefined();
+    expect(diff.metadata).toEqual(expect.arrayContaining([expect.stringContaining('Title:')]));
+    expect(diff.metadata).toEqual(expect.arrayContaining([expect.stringContaining('Servers:')]));
+  });
+
+  it('detects request body schema field changes', () => {
+    const oldBody = { required: true, contentTypes: [{ mediaType: 'application/json', schema: { type: 'object', properties: { name: { type: 'string' } } } }] };
+    const newBody = { required: true, contentTypes: [{ mediaType: 'application/json', schema: { type: 'object', properties: { name: { type: 'string' }, email: { type: 'string' } } } }] };
+    const oldEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: oldBody })] });
+    const newEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: newBody })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('added fields: email')]));
+  });
+
+  it('detects generic parameter schema change when type is unchanged', () => {
+    const oldParam = { name: 'q', in: 'query' as const, required: false, schema: { type: 'string', maxLength: 10 } };
+    const newParam = { name: 'q', in: 'query' as const, required: false, schema: { type: 'string', maxLength: 20 } };
+    const oldEntry = makeEntry({ endpoints: [makeEp({ parameters: [oldParam] })] });
+    const newEntry = makeEntry({ endpoints: [makeEp({ parameters: [newParam] })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('schema changed')]));
+  });
+
+  it('detects request body schema removed fields and fallback message', () => {
+    const oldBody = {
+      required: true,
+      contentTypes: [{
+        mediaType: 'application/json',
+        schema: { type: 'object', properties: { a: { type: 'string' }, b: { type: 'number' } } },
+      }],
+    };
+    const newBody = {
+      required: true,
+      contentTypes: [{
+        mediaType: 'application/json',
+        schema: { type: 'object', properties: { a: { type: 'string', minLength: 1 }, b: { type: 'number' } } },
+      }],
+    };
+    const oldEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: oldBody })] });
+    const newEntry = makeEntry({ endpoints: [makeEp({ method: 'POST', requestBody: newBody })] });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([expect.stringContaining('body schema changed')]));
+  });
+
+  it('detects response description changes including empty fallback text', () => {
+    const oldEntry = makeEntry({
+      endpoints: [makeEp({ responses: [{ statusCode: '200', description: undefined }] })],
+    });
+    const newEntry = makeEntry({
+      endpoints: [makeEp({ responses: [{ statusCode: '200', description: 'OK' }] })],
+    });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([
+      expect.stringContaining('Response 200 description: "" → "OK"'),
+    ]));
+  });
+
+  it('detects metadata description and security scheme changes', () => {
+    const oldEntry = makeEntry({
+      description: 'old desc',
+      securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer' } as never },
+    });
+    const newEntry = makeEntry({
+      description: 'new desc',
+      securitySchemes: { apiKeyAuth: { type: 'apiKey', in: 'header', name: 'X-API-Key' } as never },
+    });
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.metadata).toEqual(expect.arrayContaining([
+      'API description changed',
+      expect.stringContaining('Security schemes:'),
+    ]));
+  });
+
+  it('covers fallback branches for summary/schema/response/security/server metadata', () => {
+    const oldEntry = makeEntry({
+      servers: [],
+      securitySchemes: {},
+      endpoints: [makeEp({
+        summary: undefined,
+        parameters: [{ name: 'id', in: 'path', required: true, schema: undefined as unknown as { type: string } }],
+        requestBody: {
+          required: true,
+          contentTypes: [{
+            mediaType: 'application/json',
+            schema: { type: 'object', properties: { a: { type: 'string' }, b: { type: 'string' } } },
+          }],
+        },
+        responses: [{ statusCode: '200', description: undefined }, { statusCode: '500', description: undefined }],
+        security: undefined,
+      })],
+    });
+    const newEntry = makeEntry({
+      servers: [{ url: 'https://new.example.com', description: '' }],
+      securitySchemes: { bearerAuth: { type: 'http', scheme: 'bearer' } as never },
+      endpoints: [makeEp({
+        summary: 'Now has summary',
+        parameters: [{ name: 'id', in: 'path', required: true, schema: { type: 'string' } }],
+        requestBody: {
+          required: true,
+          contentTypes: [{
+            mediaType: 'application/json',
+            schema: { type: 'object', properties: { a: { type: 'string' } } },
+          }],
+        },
+        responses: [{ statusCode: '200', description: '' }, { statusCode: '201', description: undefined }],
+        security: [{ bearerAuth: [] }],
+      })],
+    });
+
+    const diff = diffCatalogEntries(oldEntry, newEntry, '1.0', '2.0');
+    expect(diff.changed).toHaveLength(1);
+    expect(diff.changed[0].details).toEqual(expect.arrayContaining([
+      'Summary: "(none)" → "Now has summary"',
+      'Parameter "id" type: unknown → string',
+      '  application/json: removed fields: b',
+      'Added response codes: 201 (no description)',
+      'Removed response codes: 500 (no description)',
+      'Response 200 description: "" → ""',
+      expect.stringContaining('Security:'),
+    ]));
+    expect(diff.metadata).toEqual(expect.arrayContaining([
+      'Servers: (none) → https://new.example.com',
+      expect.stringContaining('Security schemes: (none) → bearerAuth'),
+    ]));
   });
 });

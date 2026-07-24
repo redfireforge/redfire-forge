@@ -348,28 +348,44 @@ export async function ensureKafkaSchemaRegistryConnected(): Promise<void> {
  * If a cluster is already configured and connected, this is a fast no-op.
  */
 export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
-  // ── Step 0: If already connected, skip the entire settings detour ───────
+  // ── Step 0: If already connected AND React has clusters, skip settings ──
   // Navigating to kafka-settings can change React's selectedClusterId to a
   // stale cluster card (e.g. "Demo Cluster") that differs from the server's
   // active connection, causing 409 KAFKA_CLUSTER_MISMATCH on produce/consume.
   try {
     const statusEnv = await dispatchKafkaOperation<{ state: string }>('status');
     if (statusEnv.data?.state === 'connected') {
+      // Verify React state also has clusters — if the browser was refreshed
+      // the server stays connected but the React state loses its cluster config.
       ctx.navigateToTab('kafka-message-studio');
-      await ctx.delay(400);
-      return;
+      await ctx.delay(600);
+      const noCluster = document.querySelector('.kafka-studio-guard, [data-testid="kafka-empty-create-btn"]');
+      if (!noCluster) {
+        return;
+      }
+      // React app has no clusters — disconnect server so UI flow can reconnect
+      // with a matching clusterId (prevents KAFKA_CLUSTER_MISMATCH).
+      try { await dispatchKafkaOperation('disconnect'); } catch { /* ok */ }
+      // Fall through to UI-based setup
+    } else {
+      await ensureKafkaConnected();
     }
-    await ensureKafkaConnected();
   } catch {
     // API call failed (server might not be running) — fall through to UI-based setup
   }
 
   // ── Step 1: Navigate to Kafka Settings ──────────────────────────────────
   ctx.navigateToTab('kafka-settings');
-  await ctx.delay(600);
+  await ctx.delay(1200);
 
   // ── Step 2: Ensure at least one cluster exists ───────────────────────────
-  const settingsPage = document.querySelector(KAFKA.SETTINGS_PAGE);
+  // Wait for page to render (may need a bit more time after tab navigation)
+  let settingsPage: Element | null = null;
+  for (let i = 0; i < 10; i++) {
+    settingsPage = document.querySelector(KAFKA.SETTINGS_PAGE);
+    if (settingsPage) break;
+    await ctx.delay(300);
+  }
   if (!settingsPage) {
     ctx.navigateToTab('kafka-message-studio');
     await ctx.delay(300);
@@ -381,9 +397,15 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
   const emptyCreateBtn = document.querySelector<HTMLElement>('[data-testid="kafka-empty-create-btn"]');
   if (emptyCreateBtn) {
     emptyCreateBtn.click();
-    await ctx.delay(500);
+    await ctx.delay(800);
 
-    const nameInput = document.querySelector<HTMLInputElement>('#kafka-cluster-name');
+    // Wait for name input to render
+    let nameInput: HTMLInputElement | null = null;
+    for (let i = 0; i < 10; i++) {
+      nameInput = document.querySelector<HTMLInputElement>('#kafka-cluster-name');
+      if (nameInput) break;
+      await ctx.delay(200);
+    }
     if (nameInput) {
       const proto = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
       proto?.call(nameInput, 'Demo Cluster');
@@ -395,7 +417,7 @@ export async function kafkaPublishSetup(ctx: DemoActionContext): Promise<void> {
     const saveBtn = document.querySelector<HTMLElement>(KAFKA.SAVE_BTN);
     if (saveBtn) {
       saveBtn.click();
-      await ctx.delay(600);
+      await ctx.delay(800);
     }
   }
 

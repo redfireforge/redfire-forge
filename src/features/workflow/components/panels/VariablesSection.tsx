@@ -76,14 +76,14 @@ export default function VariablesSection({ title, hint, variables, onUpdateVaria
       </p>
       <div className="wf-config-kv-row wf-config-kv-row-vars wf-config-kv-header">
         <div className="wf-var-name-cell" style={{ width: nameColWidth }}>
-          <span className="wf-var-col-label">name</span>
+          <span className="wf-var-col-label">Name</span>
         </div>
         <div className="wf-var-col-resize wf-var-col-resize-inert" aria-hidden />
         <div className="wf-var-source-cell-header">
-          <span className="wf-var-col-label">source</span>
+          <span className="wf-var-col-label">Source</span>
         </div>
         <div className="wf-var-value-with-insert">
-          <span className="wf-var-col-label">value</span>
+          <span className="wf-var-col-label">Value</span>
         </div>
         <span className="wf-var-col-label wf-var-actions-label" />
       </div>

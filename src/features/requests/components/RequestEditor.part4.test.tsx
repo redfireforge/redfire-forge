@@ -277,7 +277,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
     fireEvent.change(screen.getByLabelText('Headers value 1'), { target: { value: 'new-value' } });
     expect(onUpdateRequest).toHaveBeenCalledWith({
@@ -296,7 +296,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
     fireEvent.change(screen.getByLabelText('Headers key 1'), { target: { value: 'New-Key' } });
     expect(onUpdateRequest).toHaveBeenCalledWith({
@@ -315,7 +315,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
     fireEvent.click(screen.getByTestId('req-headers-add-btn'));
     expect(onUpdateRequest).toHaveBeenCalledWith({
@@ -334,7 +334,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
     fireEvent.click(document.querySelector('.ws-connect-kv-remove-btn')!);
     expect(onUpdateRequest).toHaveBeenCalledWith({
@@ -353,7 +353,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
     fireEvent.click(screen.getByLabelText('Enable headers 1'));
     expect(onUpdateRequest).toHaveBeenCalledWith({
@@ -372,7 +372,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /^Headers\b/ }));
     fireEvent.click(screen.getByLabelText('Enable headers 1'));
     expect(onUpdateRequest).toHaveBeenCalledWith({
@@ -391,7 +391,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /History/ }));
     expect(screen.getByText('v1')).toBeInTheDocument();
   });
@@ -409,7 +409,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    expect(screen.getByText('QUERY PARAMETERS')).toBeInTheDocument();
+    expect(screen.getByText('Query Parameters')).toBeInTheDocument();
   });
 
   it('shows cURL export textarea with URL and allows copy and refresh', async () => {
@@ -664,7 +664,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    expect(screen.getByText('QUERY PARAMETERS')).toBeInTheDocument();
+    expect(screen.getByText('Query Parameters')).toBeInTheDocument();
   });
 
   it('toggles tree node collapsed state when clicking a JSON node', async () => {
@@ -691,7 +691,7 @@ describe('RequestEditor interaction branches', () => {
 
   it('shows active state on each request tab when clicked', () => {
     render(<RequestEditor {...defaultProps} />);
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     const tabs = within(pane).getAllByRole('button').filter(b => b.classList.contains('req-tab'));
     const bodyTab = tabs.find(t => t.textContent?.includes('Body'));
     const authTab = tabs.find(t => t.textContent?.includes('Auth'));
@@ -769,7 +769,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /History/ }));
     expect(screen.getByText('v1.0')).toBeInTheDocument();
     expect(screen.getByText('v2.0')).toBeInTheDocument();
@@ -789,7 +789,7 @@ describe('RequestEditor interaction branches', () => {
         })}
       />,
     );
-    const pane = screen.getByText('QUERY PARAMETERS').closest('.req-pane-left')!;
+    const pane = screen.getByText('Query Parameters').closest('.req-pane-left')!;
     fireEvent.click(within(pane).getByRole('button', { name: /History/ }));
     const restoreBtn = screen.getByTitle('Restore this version');
     fireEvent.click(restoreBtn);

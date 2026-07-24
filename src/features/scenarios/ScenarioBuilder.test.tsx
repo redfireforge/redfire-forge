@@ -722,6 +722,26 @@ describe('ScenarioBuilder', () => {
     expect(h.dnd.handleDragEnd).toHaveBeenCalled();
   });
 
+  it('applies drop-zone-hover class on end zones when dropTarget matches', () => {
+    h.mut.expandedFeatures = new Set(['fg1', 'fg2']);
+    h.mut.expandedScenarios = new Set(['sc1', 'sc2']);
+    h.dnd.dragScenario = { scenarioId: 'scX', fromFeatureId: 'fgZ' };
+    h.dnd.dropTarget = { type: 'scenario', featureId: 'fg1' };
+    render(<ScenarioBuilder {...makeProps()} />);
+    const endZone = document.querySelector('.drop-zone-end') as HTMLElement;
+    expect(endZone?.classList.contains('drop-zone-hover')).toBe(true);
+  });
+
+  it('applies drop-zone-hover class on test end zones when dropTarget matches', () => {
+    h.mut.expandedFeatures = new Set(['fg1']);
+    h.mut.expandedScenarios = new Set(['sc1']);
+    h.dnd.dragTest = { testId: 'tX', fromFeatureId: 'fgZ', fromScenarioId: 'scZ' };
+    h.dnd.dropTarget = { type: 'test', featureId: 'fg1', scenarioId: 'sc1' };
+    render(<ScenarioBuilder {...makeProps()} />);
+    const endSmZone = document.querySelector('.drop-zone-end-sm') as HTMLElement;
+    expect(endSmZone?.classList.contains('drop-zone-hover')).toBe(true);
+  });
+
   it('renders tree summary', () => {
     render(<ScenarioBuilder {...makeProps()} />);
     expect(screen.getByText(/feature groups/)).toBeInTheDocument();

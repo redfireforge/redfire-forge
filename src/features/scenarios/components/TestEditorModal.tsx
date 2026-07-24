@@ -6,21 +6,16 @@ import { buildCurlCommand } from '../../../shared/utils/curlGenerator';
 import { getBaseUrl, parseQueryParams, rebuildUrl } from '../utils/testEditorUtils';
 import { toErrorMessage } from '../../../shared/utils/helpers';
 import type { VersionExportOptions } from '../utils/scenarioImportExport';
-import TestDefinitionVersionPanel from './TestDefinitionVersionPanel';
 import TestDefinitionVersionDiff from './TestDefinitionVersionDiff';
-import { createSnapshot } from '../utils/testDefinitionVersioning';
-import { BodyEditor } from '../../requests/components/BodyEditor';
-import { ParamsEditor, toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
+import { toParamEntries, fromParamEntries, type ParamEntry } from '../../requests/components/ParamsEditor';
 import { useToast } from '../../../shared/hooks/useToast';
 import { useAuthVerify } from '../../requests/hooks/useAuthVerify';
 import { useTestFetch } from '../hooks/useTestFetch';
 import DataSourceSetupModal from './DataSourceSetupModal';
-import TestEditorAuthTab from './TestEditorAuthTab';
-import TestEditorValidationTab from './TestEditorValidationTab';
 import { TestEditorTabs } from './TestEditorTabs';
-import ExtractionEditor from '../../requests/components/ExtractionEditor';
+import TestEditorPropertyCard from './TestEditorPropertyCard';
+import TestEditorTabContent from './TestEditorTabContent';
 import WorkflowEditorModalFrame from '../../workflow/components/modals/WorkflowEditorModalFrame';
-import DataSourceEditor from './DataSourceEditor';
 import type { ImportChoice, ExportChoice } from './ImportExportChoiceModal';
 import TestEditorModalHeaderActions from './TestEditorModalHeaderActions';
 import WsScenarioEditor from './WsScenarioEditor';
@@ -70,18 +65,6 @@ export interface TestEditorModalProps {
   /** Called when user clicks the shared DS badge to open the modal */
   onOpenSharedDsModal?: () => void;
 }
-
-const TRANSPORT_GROUPS: { label: string; options: { value: ScenarioActionType; label: string }[] }[] = [
-  { label: 'HTTP', options: [{ value: 'http', label: 'HTTP' }] },
-  { label: 'WebSocket', options: [{ value: 'wsConnect', label: 'WS Connect' }, { value: 'wsSend', label: 'WS Send' }, { value: 'wsReceive', label: 'WS Receive' }] },
-  { label: 'Kafka', options: [{ value: 'kafkaProduce', label: 'Kafka Produce' }, { value: 'kafkaConsume', label: 'Kafka Consume' }] },
-];
-
-const TRANSPORT_LABEL_MAP: Record<string, string> = Object.fromEntries(
-  TRANSPORT_GROUPS.flatMap(g => g.options.map(o => [o.value, o.label])),
-);
-
-const HTTP_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] as const;
 
 export default function TestEditorModal({
   draft,
@@ -499,105 +482,23 @@ export default function TestEditorModal({
 
         {inputMode === 'builder' && (
           <div className="builder-panel">
-            <div className="te-prop-card">
-              <div className="te-prop-row">
-                <div className="te-prop-label">Name</div>
-                <div className="te-prop-ctrl">
-                  <input value={draft.name} onChange={(e) => onDraftChange({ ...draft, name: e.target.value })} placeholder="e.g. Get User Profile" />
-                </div>
-              </div>
-
-              <div className="te-prop-row">
-                <div className="te-prop-label">Transport</div>
-                <div className="te-prop-ctrl">
-                  <div className="te-dropdown-wrapper" ref={transportDropRef}>
-                    <button
-                      type="button"
-                      className="te-dropdown-trigger"
-                      aria-label="Transport type"
-                      onClick={() => setTransportDropOpen(o => !o)}
-                    >
-                      <span>{TRANSPORT_LABEL_MAP[effectiveTransport] ?? effectiveTransport}</span>
-                      <span className="te-dropdown-arrow">{transportDropOpen ? '▲' : '▼'}</span>
-                    </button>
-                    {transportDropOpen && (
-                      <div className="te-dropdown-menu">
-                        {TRANSPORT_GROUPS.map(g => (
-                          <div key={g.label} className="te-dropdown-group">
-                            <span className="te-dropdown-group-label">{g.label}</span>
-                            {g.options.map(o => (
-                              <button
-                                key={o.value}
-                                type="button"
-                                className={`te-dropdown-item ${effectiveTransport === o.value ? 'active' : ''}`}
-                                onClick={() => { handleTransportChange(o.value); setTransportDropOpen(false); }}
-                              >
-                                {o.label}
-                                {effectiveTransport === o.value && <span className="te-dropdown-check">✓</span>}
-                              </button>
-                            ))}
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {isHttp && (
-                <>
-                  <div className="te-prop-row">
-                    <div className="te-prop-label">URL</div>
-                    <div className="te-prop-ctrl te-prop-ctrl--url">
-                      <div className="te-method-wrapper" ref={methodDropRef}>
-                        <button
-                          type="button"
-                          className={`te-method-trigger method-color-${draft.method.toLowerCase()}`}
-                          onClick={() => setMethodDropOpen(o => !o)}
-                          aria-label="HTTP method"
-                        >
-                          {draft.method}
-                          <span className="te-dropdown-arrow">{methodDropOpen ? '▲' : '▼'}</span>
-                        </button>
-                        {methodDropOpen && (
-                          <div className="te-dropdown-menu te-method-menu">
-                            {HTTP_METHODS.map(m => (
-                              <button
-                                key={m}
-                                type="button"
-                                className={`te-dropdown-item method-color-${m.toLowerCase()} ${draft.method === m ? 'active' : ''}`}
-                                onClick={() => { onDraftChange({ ...draft, method: m as Scenario['method'] }); setMethodDropOpen(false); }}
-                              >
-                                {m}
-                                {draft.method === m && <span className="te-dropdown-check">✓</span>}
-                              </button>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                      <input
-                        className="url-input"
-                        value={baseUrl}
-                        onChange={(e) => handleBaseUrlChange(e.target.value)}
-                        placeholder={resolvedBaseUrl ? `${resolvedBaseUrl}/...` : 'https://api.example.com/endpoint'}
-                      />
-                      {resolvedBaseUrl && !draft.url && (
-                        <button type="button" className="btn btn-sm url-fill-btn" onClick={() => handleBaseUrlChange(resolvedBaseUrl)} title="Use resolved base URL">Use</button>
-                      )}
-                    </div>
-                  </div>
-
-                  {draft.url && (
-                    <div className="te-prop-row">
-                      <div className="te-prop-label">URL Preview</div>
-                      <div className="te-prop-ctrl">
-                        <code className="te-url-preview-code">{displayUrl}</code>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+            <TestEditorPropertyCard
+              draft={draft}
+              onDraftChange={onDraftChange}
+              effectiveTransport={effectiveTransport}
+              isHttp={isHttp}
+              transportDropOpen={transportDropOpen}
+              setTransportDropOpen={setTransportDropOpen}
+              transportDropRef={transportDropRef}
+              handleTransportChange={handleTransportChange}
+              methodDropOpen={methodDropOpen}
+              setMethodDropOpen={setMethodDropOpen}
+              methodDropRef={methodDropRef}
+              baseUrl={baseUrl}
+              handleBaseUrlChange={handleBaseUrlChange}
+              resolvedBaseUrl={resolvedBaseUrl}
+              displayUrl={displayUrl}
+            />
 
             {isWs && (
               <WsScenarioEditor
@@ -633,137 +534,57 @@ export default function TestEditorModal({
               defVersionCount={defVersionCount}
             />
 
-            <div className="builder-tab-content">
-              {activeTab === 'params' && isHttp && (
-                <ParamsEditor params={queryParams} onChange={handleParamsChange} onImportFromUrl={handleImportFromUrl} />
-              )}
-
-              {activeTab === 'body' && isHttp && draft.method !== 'GET' && (
-                <BodyEditor draft={draft} onDraftChange={onDraftChange} />
-              )}
-
-              {activeTab === 'auth' && isHttp && (
-                <TestEditorAuthTab
-                  draft={draft}
-                  onDraftChange={onDraftChange}
-                  featureGroups={featureGroups}
-                  editingTest={editingTest}
-                  allAuthProfiles={allAuthProfiles}
-                  verifyAuth={verifyAuth}
-                  resolveEffectiveAuth={resolveEffectiveAuth}
-                  authVerifying={authVerifying}
-                  authVerifyResult={authVerifyResult}
-                  setAuthVerifyResult={setAuthVerifyResult}
-                  showSecret={showSecret}
-                  setShowSecret={setShowSecret}
-                />
-              )}
-
-              {activeTab === 'headers' && isHttp && (
-                <div className="kv-section">
-                  <div className="kv-header">
-                    <span>REQUEST HEADERS</span>
-                  </div>
-                  {draft.headers.map((h: KeyValue, i: number) => (
-                    <div key={i} className="kv-row">
-                      <input value={h.key} onChange={(e) => updateHeader(i, 'key', e.target.value)} placeholder="Header name" />
-                      <input value={h.value} onChange={(e) => updateHeader(i, 'value', e.target.value)} placeholder="Header value" />
-                      <button type="button" className="btn btn-sm btn-danger" onClick={() => removeHeader(i)}>×</button>
-                    </div>
-                  ))}
-                  <button type="button" className="btn btn-sm" onClick={addHeader}>+ Add</button>
-                </div>
-              )}
-
-              {activeTab === 'validation' && (
-                <TestEditorValidationTab
-                  draft={draft}
-                  onDraftChange={onDraftChange}
-                  draftRef={draftRef}
-                  resolvedBaseUrl={resolvedBaseUrl}
-                  fetchingResponse={fetchingResponse}
-                  fetchError={fetchError}
-                  fetchHostOverride={fetchHostOverride}
-                  setFetchHostOverride={setFetchHostOverride}
-                  fetchHostEnabled={fetchHostEnabled}
-                  setFetchHostEnabled={setFetchHostEnabled}
-                  onFetchSampleResponse={handleFetchSampleResponse}
-                  fetchSampleDataForMapper={fetchSampleDataForMapper}
-                  validating={validating}
-                  validationResult={validationResult}
-                  setValidationResult={setValidationResult}
-                  onValidateResponse={handleValidateResponse}
-                  pendingFetchResponse={pendingFetchResponse}
-                  onFetchKeepRules={handleFetchKeepRules}
-                  onFetchReplaceAll={handleFetchReplaceAll}
-                  onFetchCancel={handleFetchCancel}
-                />
-              )}
-
-              {activeTab === 'extract' && isHttp && (
-                <ExtractionEditor
-                  extractions={draft.extractions ?? []}
-                  onChange={(extractions) => onDraftChange({ ...draft, extractions })}
-                  sampleResponseBody={
-                    (draft.validation.sampleJson && draft.validation.sampleJson.trim())
-                      ? draft.validation.sampleJson
-                      : validationResult?.responseJson
-                  }
-                  fetchSample={{
-                    onFetch: handleFetchSampleResponse,
-                    fetching: fetchingResponse,
-                    error: fetchError,
-                    host: {
-                      enabled: fetchHostEnabled,
-                      setEnabled: setFetchHostEnabled,
-                      override: fetchHostOverride,
-                      setOverride: setFetchHostOverride,
-                      resolvedBaseUrl,
-                    },
-                  }}
-                  contextScope={draft.id}
-                />
-              )}
-
-              {activeTab === 'extract' && isWs && (
-                <ExtractionEditor
-                  extractions={draft.extractions ?? []}
-                  onChange={(extractions) => onDraftChange({ ...draft, extractions })}
-                  sampleResponseBody={
-                    (draft.validation.sampleJson && draft.validation.sampleJson.trim())
-                      ? draft.validation.sampleJson
-                      : validationResult?.responseJson
-                  }
-                  contextScope={draft.id}
-                  transportType="ws"
-                />
-              )}
-
-              {activeTab === 'data' && (
-                <DataSourceEditor
-                  draft={draft}
-                  onDraftChange={onDraftChange}
-                  onFetchRow={handleFetchRow}
-                  onCreateParameterizedCopy={onCreateParameterizedCopy}
-                  featureGroups={featureGroups}
-                  editingTest={editingTest}
-                  sharedDataSources={sharedDataSources}
-                  onPromoteToShared={onPromoteToShared}
-                  onOpenSharedDsModal={onOpenSharedDsModal}
-                />
-              )}
-
-              {activeTab === 'history' && (
-                <TestDefinitionVersionPanel
-                  versions={defVersions}
-                  currentSnapshot={createSnapshot(draft)}
-                  onRestore={onVersionRestore}
-                  onDelete={onVersionDelete}
-                  onRename={onVersionRename}
-                  onCompare={(older, newer) => setDiffVersions({ older, newer })}
-                />
-              )}
-            </div>
+            <TestEditorTabContent
+              activeTab={activeTab}
+              isHttp={isHttp}
+              isWs={isWs}
+              queryParams={queryParams}
+              handleParamsChange={handleParamsChange}
+              handleImportFromUrl={handleImportFromUrl}
+              draft={draft}
+              onDraftChange={onDraftChange}
+              featureGroups={featureGroups}
+              editingTest={editingTest}
+              allAuthProfiles={allAuthProfiles}
+              verifyAuth={verifyAuth}
+              resolveEffectiveAuth={resolveEffectiveAuth}
+              authVerifying={authVerifying}
+              authVerifyResult={authVerifyResult}
+              setAuthVerifyResult={setAuthVerifyResult}
+              showSecret={showSecret}
+              setShowSecret={setShowSecret}
+              updateHeader={updateHeader}
+              addHeader={addHeader}
+              removeHeader={removeHeader}
+              draftRef={draftRef}
+              resolvedBaseUrl={resolvedBaseUrl}
+              fetchingResponse={fetchingResponse}
+              fetchError={fetchError}
+              fetchHostOverride={fetchHostOverride}
+              setFetchHostOverride={setFetchHostOverride}
+              fetchHostEnabled={fetchHostEnabled}
+              setFetchHostEnabled={setFetchHostEnabled}
+              handleFetchSampleResponse={handleFetchSampleResponse}
+              fetchSampleDataForMapper={fetchSampleDataForMapper}
+              validating={validating}
+              validationResult={validationResult}
+              setValidationResult={setValidationResult}
+              handleValidateResponse={handleValidateResponse}
+              pendingFetchResponse={pendingFetchResponse}
+              handleFetchKeepRules={handleFetchKeepRules}
+              handleFetchReplaceAll={handleFetchReplaceAll}
+              handleFetchCancel={handleFetchCancel}
+              handleFetchRow={handleFetchRow}
+              onCreateParameterizedCopy={onCreateParameterizedCopy}
+              sharedDataSources={sharedDataSources}
+              onPromoteToShared={onPromoteToShared}
+              onOpenSharedDsModal={onOpenSharedDsModal}
+              defVersions={defVersions}
+              onVersionRestore={onVersionRestore}
+              onVersionDelete={onVersionDelete}
+              onVersionRename={onVersionRename}
+              setDiffVersions={setDiffVersions}
+            />
           </div>
         )}
       </WorkflowEditorModalFrame>

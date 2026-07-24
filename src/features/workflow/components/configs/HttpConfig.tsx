@@ -223,8 +223,8 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           <code className="wf-config-last-req-url-value" title={displayUrl}>{displayUrl}</code>
         </div>
       )}
-      <div className="wf-config-managed-note" role="note" aria-label="Host and auth are managed at workflow level">
-        <span className="wf-config-managed-note-title">Service</span>
+      <div className="wf-config-field--row">
+        <label>Service</label>
         <CustomSelect
           value={data.serviceId ?? ''}
           onChange={(svcIdRaw) => {
@@ -263,12 +263,12 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
             ...workflowServices.map((svc) => ({ value: svc.id, label: svc.name })),
           ]}
         />
-        {workflowServices.length === 0 && (
-          <p className="wf-config-managed-note-text">
-            Click the <strong>Services</strong> button in the toolbar to register external services.
-          </p>
-        )}
       </div>
+      {workflowServices.length === 0 && (
+        <p className="wf-config-managed-note-text">
+          Click the <strong>Services</strong> button in the toolbar to register external services.
+        </p>
+      )}
       {data.serviceId && (() => {
         const svc = workflowServices.find((s) => s.id === data.serviceId);
         const enabledEps = (svc?.endpoints ?? []).filter((ep: ServiceEndpoint) => ep.enabled && ep.url.trim());
@@ -298,11 +298,11 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
           </div>
         );
       })()}
-      <div className="wf-config-inline-field">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => onChange({ label: e.target.value })} />
       </div>
-      <div className="wf-config-inline-field">
+      <div className="wf-config-field--row">
         <label>Timeout</label>
         <input
           type="number"
@@ -338,7 +338,8 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
         </div>
       )}
 
-      <div className="wf-config-url-row">
+      <div className="wf-config-field--row">
+        <label>URL</label>
         <CustomSelect
           value={s.method}
           onChange={(v) => update({ method: v as Scenario['method'] })}
@@ -479,10 +480,9 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
 
         {activeTab === 'body' && (
           <div className="wf-config-field wf-config-body-field-wrap">
-            <div className="wf-config-body-header">
-              <label>Body (supports {'{{var}}'})</label>
-            </div>
             <div className="wf-config-body-insert-row">
+              <label>Body (supports {'{{var}}'})</label>
+              <span className="wf-config-body-btn-group">
               <button
                 type="button"
                 className="btn btn-sm"
@@ -525,12 +525,13 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
               >
                 ⚡ Data Mapper
               </button>
+              </span>
             </div>
             <ExpressionTextarea
               value={s.body}
               onChange={(val) => bodySync.onBodyChange(val)}
               placeholder='{"key": "{{value}}"}'
-              rows={6}
+              rows={8}
               className="wf-config-textarea"
               variableHints={variableHints}
             />

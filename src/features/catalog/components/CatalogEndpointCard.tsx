@@ -23,7 +23,7 @@ interface Props {
   linkedMicroservice?: Microservice;
   onExportSingle?: (endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
   onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
-  onToggleWorkflowExpose?: (endpoint: CatalogEndpoint, exposed: boolean, values: SavedEndpointValues) => void;
+  onSetWorkflowExposure?: (endpoint: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => void;
   coverage?: EndpointCoverage;
   onNavigateToRequest?: (collectionId: string, requestId: string) => void;
 }
@@ -34,7 +34,7 @@ const MBG: Record<string, string> = {
   DELETE: 'rgba(249,62,62,0.1)',
 };
 
-export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, onToggleWorkflowExpose, coverage, onNavigateToRequest }: Props) {
+export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, onSetWorkflowExposure, coverage, onNavigateToRequest }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [tryItOpen, setTryItOpen] = useState(false);
   const [paramValues, setParamValues] = useState<Record<string, string>>(() => savedValues?.params ?? {});
@@ -207,7 +207,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                 title={loc.folderPath}
               >
                 <span className="sw-coverage-popover-path">{loc.folderPath}</span>
-                <span className="sw-coverage-popover-arrow">→</span>
+                <span className="sw-coverage-popover-arrow" data-testid="catalog-coverage-goto">Go to →</span>
               </button>
             ))}
           </div>
@@ -231,17 +231,14 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
           {endpoint.description && <p className="sw-desc">{endpoint.description}</p>}
 
           {/* ── PARAMETERS ────────────────────────── */}
-          <div className="sw-section">
-            <div className="sw-section-bar">
-              <span className="sw-section-title">Parameters</span>
-              <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} data-testid="catalog-tryit-btn" onClick={handleTryIt}>
-                {tryItOpen ? 'Cancel' : 'Try it out'}
-              </button>
-            </div>
-
-            {endpoint.parameters.length === 0 ? (
-              <div className="sw-no-params">No parameters</div>
-            ) : (
+          {endpoint.parameters.length > 0 && (
+            <div className="sw-section">
+              <div className="sw-section-bar">
+                <span className="sw-section-title">Parameters</span>
+                <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} data-testid="catalog-tryit-btn" onClick={handleTryIt}>
+                  {tryItOpen ? 'Cancel' : 'Try it out'}
+                </button>
+              </div>
               <div className="sw-param-table">
                 <div className="sw-param-thead">
                   <div className="sw-param-col-name">Name</div>
@@ -257,8 +254,19 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                   />
                 ))}
               </div>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Try it out when there are no parameters (body-only / no-input endpoints) */}
+          {endpoint.parameters.length === 0 && !hasBody && (
+            <div className="sw-section sw-section--tryit-only">
+              <div className="sw-section-bar">
+                <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} data-testid="catalog-tryit-btn" onClick={handleTryIt}>
+                  {tryItOpen ? 'Cancel' : 'Try it out'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── REQUEST BODY ──────────────────────── */}
           {hasBody && (
@@ -267,6 +275,11 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                 <span className="sw-section-title">Request body</span>
                 <span className="sw-ct-badge">{jsonCT!.mediaType}</span>
                 {endpoint.requestBody!.required && <span className="sw-req-label">required</span>}
+                {endpoint.parameters.length === 0 && (
+                  <button className={`sw-tryit-btn ${tryItOpen ? 'cancel' : ''}`} data-testid="catalog-tryit-btn" onClick={handleTryIt}>
+                    {tryItOpen ? 'Cancel' : 'Try it out'}
+                  </button>
+                )}
               </div>
               {tryItOpen ? (
                 <textarea className="sw-body-editor" data-testid="catalog-body-editor" rows={12} value={bodyText}
@@ -306,19 +319,15 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                   Send to Harness
                 </button>
               )}
-              {onToggleWorkflowExpose && (
-                <label className="sw-workflow-expose" data-testid="catalog-expose-to-workflow" title="When checked, this endpoint (with current values) is available in the Workflow Designer's Catalog tab">
-                  <input
-                    type="checkbox"
-                    checked={!!endpoint.exposedToWorkflow}
-                    onChange={(e) => onToggleWorkflowExpose(endpoint, e.target.checked, {
-                      params: paramValues,
-                      headers: headerValues,
-                      body: bodyText,
-                    })}
-                  />
-                  Expose to Workflow
-                </label>
+              {onSetWorkflowExposure && (
+                <WorkflowExposureDropdown
+                  mode={endpoint.workflowExposure ?? (endpoint.exposedToWorkflow ? 'preview' : undefined)}
+                  onChange={(mode) => onSetWorkflowExposure(endpoint, mode, {
+                    params: paramValues,
+                    headers: headerValues,
+                    body: bodyText,
+                  })}
+                />
               )}
               <span className="sw-auth-status">
                 {auth.type === 'none' ? '⚠ No auth' :
@@ -411,7 +420,7 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
                     onClick={() => onSendToHarness(endpoint, true)}
                     data-testid="catalog-save-as-test-btn"
                   >
-                    Save as Test
+                    Send to Harness
                   </button>
                 </div>
               )}
@@ -613,4 +622,67 @@ function highlightCurl(cmd: string): ReactNode[] {
     }
   }
   return parts;
+}
+
+// ── Workflow Exposure Dropdown ────────────────────────────
+
+const EXPOSURE_OPTIONS: { value: 'preview' | 'published' | undefined; label: string; icon: string; hint: string }[] = [
+  { value: undefined,   label: 'Not Exposed', icon: '—', hint: 'Not available in Workflow Designer' },
+  { value: 'preview',   label: 'Preview',     icon: '◇', hint: 'Temporarily available for testing' },
+  { value: 'published', label: 'Published',   icon: '📌', hint: 'Permanently registered as a workflow block' },
+];
+
+function WorkflowExposureDropdown({ mode, onChange }: {
+  mode: 'preview' | 'published' | undefined;
+  onChange: (mode: 'preview' | 'published' | undefined) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: globalThis.MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [open]);
+
+  const current = EXPOSURE_OPTIONS.find(o => o.value === mode) ?? EXPOSURE_OPTIONS[0];
+  const cls = mode === 'published' ? 'sw-wf-exposure published' : mode === 'preview' ? 'sw-wf-exposure preview' : 'sw-wf-exposure';
+
+  return (
+    <div className={cls} ref={ref} data-testid="catalog-expose-to-workflow">
+      <button
+        type="button"
+        className="sw-wf-exposure-trigger"
+        onClick={() => setOpen(p => !p)}
+        title={current.hint}
+      >
+        <span className="sw-wf-exposure-icon">{current.icon}</span>
+        <span className="sw-wf-exposure-label">{current.label}</span>
+        <span className="sw-wf-exposure-caret">▾</span>
+      </button>
+      {open && (
+        <div className="sw-wf-exposure-menu">
+          {EXPOSURE_OPTIONS.map(opt => (
+            <button
+              key={opt.label}
+              type="button"
+              className={`sw-wf-exposure-option${opt.value === mode ? ' active' : ''}`}
+              data-testid={`catalog-expose-option-${opt.value ?? 'none'}`}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+            >
+              <span className="sw-wf-exposure-opt-icon">{opt.icon}</span>
+              <div className="sw-wf-exposure-opt-text">
+                <span className="sw-wf-exposure-opt-label">{opt.label}</span>
+                <span className="sw-wf-exposure-opt-hint">{opt.hint}</span>
+              </div>
+              {opt.value === mode && <span className="sw-wf-exposure-check">✓</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }

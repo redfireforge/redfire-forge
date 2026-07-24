@@ -194,7 +194,7 @@ export default function WorkflowConfigPanel({ node, workflowVariables, onUpdateW
 
       {(!node || isHttpWorkflowNode(node)) && (
         <VariablesSection
-          title={node && isHttpWorkflowNode(node) ? 'Initial variables (this step)' : 'Workflow defaults'}
+          title={node && isHttpWorkflowNode(node) ? 'Initial Variables (this step)' : 'Workflow defaults'}
           hint={
             node && isHttpWorkflowNode(node)
               ? 'Per-step values override upstream for the same name. To target a specific earlier HTTP step, use {{node:<step id>.name}} in Params or the URL (see the list under Params), or remove this row so {{name}} resolves from upstream.'

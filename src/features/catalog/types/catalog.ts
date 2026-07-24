@@ -82,8 +82,17 @@ export interface CatalogEndpoint {
   security?: string[];
   deprecated?: boolean;
   tags: string[];
-  /** When true, this endpoint is visible in the Workflow Designer's CATALOG palette. */
+  /**
+   * @deprecated Use `workflowExposure` instead. Kept for migration only.
+   */
   exposedToWorkflow?: boolean;
+  /**
+   * Controls how this endpoint appears in the Workflow Designer's Catalog palette.
+   * - `'preview'`   — Temporary; disappears when set back to undefined.
+   * - `'published'` — Permanent; shows a pin icon. Un-publishing warns about in-use workflows.
+   * - `undefined`    — Not exposed.
+   */
+  workflowExposure?: 'preview' | 'published';
   /** Saved parameter/header/body values captured when exposing to workflow. */
   workflowValues?: CatalogEndpointWorkflowValues;
 }
@@ -195,6 +204,7 @@ export interface CatalogSpecDiff {
   added: EndpointDiff[];
   removed: EndpointDiff[];
   changed: EndpointDiff[];
+  metadata?: string[];
   summary: {
     totalAdded: number;
     totalRemoved: number;

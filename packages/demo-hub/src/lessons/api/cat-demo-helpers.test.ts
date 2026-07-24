@@ -287,4 +287,44 @@ describe('cat-demo-helpers', () => {
       expect(deleteCatalogEntryByName).toHaveBeenCalledWith(DEMO_CATALOG_NAME);
     });
   });
+
+  describe('closeEditModalIfOpen / resetHostStrategyToFromSpec', () => {
+    it('closeEditModalIfOpen clicks Cancel when the edit modal is present', async () => {
+      const { closeEditModalIfOpen } = await import('./cat-demo-helpers');
+      const modal = document.createElement('div');
+      modal.className = 'cat-edit-modal';
+      document.body.appendChild(modal);
+      const footer = document.createElement('div');
+      footer.className = 'cat-edit-footer';
+      const cancel = document.createElement('button');
+      cancel.className = 'cat-btn';
+      cancel.textContent = 'Cancel';
+      const save = document.createElement('button');
+      save.className = 'cat-btn cat-btn-primary';
+      save.textContent = 'Save';
+      footer.append(cancel, save);
+      document.body.appendChild(footer);
+      const clickSpy = vi.spyOn(cancel, 'click');
+
+      closeEditModalIfOpen();
+      expect(clickSpy).toHaveBeenCalled();
+    });
+
+    it('resetHostStrategyToFromSpec clicks From Spec when it is not active', async () => {
+      const { resetHostStrategyToFromSpec } = await import('./cat-demo-helpers');
+      const btn = document.createElement('button');
+      btn.setAttribute('data-testid', 'catalog-host-from-spec');
+      btn.className = 'ceb-strat-btn';
+      document.body.appendChild(btn);
+      const clickSpy = vi.spyOn(btn, 'click');
+
+      resetHostStrategyToFromSpec();
+      expect(clickSpy).toHaveBeenCalled();
+
+      clickSpy.mockClear();
+      btn.classList.add('active');
+      resetHostStrategyToFromSpec();
+      expect(clickSpy).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -8,6 +8,7 @@ interface Props {
   onVersionHistory: () => void;
   onExportSpec: () => void;
   onConvertToOpenApi?: () => void;
+  onViewYaml?: () => void;
 }
 
 import { SWAGGER_METHOD_COLORS as METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
@@ -24,7 +25,7 @@ function collectAllEndpoints(entry: CatalogEntry): CatalogEndpoint[] {
   return eps;
 }
 
-export default function CatalogOverview({ entry, onReimport, onVersionHistory, onExportSpec, onConvertToOpenApi }: Props) {
+export default function CatalogOverview({ entry, onReimport, onVersionHistory, onExportSpec, onConvertToOpenApi, onViewYaml }: Props) {
   const currentVersion = entry.versions.find(v => v.id === entry.currentVersionId);
   const allEps = collectAllEndpoints(entry);
   const totalEndpoints = countEndpoints(entry);
@@ -75,6 +76,9 @@ export default function CatalogOverview({ entry, onReimport, onVersionHistory, o
           <button className="cat-btn cat-btn-outline" data-testid="catalog-convert-btn" onClick={onConvertToOpenApi}>Convert / Upgrade OpenAPI</button>
         )}
         <button className="cat-btn cat-btn-outline" data-testid="catalog-version-history-btn" onClick={onVersionHistory}>Version History</button>
+        {onViewYaml && (
+          <button className="cat-btn cat-btn-outline" data-testid="catalog-view-yaml-btn" onClick={onViewYaml}>View YAML</button>
+        )}
       </div>
 
       {/* ── Servers ────────────────────────────── */}
