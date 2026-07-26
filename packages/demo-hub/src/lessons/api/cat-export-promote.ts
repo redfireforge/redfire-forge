@@ -1,15 +1,18 @@
 /**
- * CAT-3 — Export to Requests
+ * CAT-3 — Export & Workflow Exposure
  *
- * 7 steps: export one endpoint from the Try It Out bar → configure the export
+ * 10 steps: export one endpoint from the Try It Out bar → configure the export
  * modal (sample toggle, preview tree, environments, target group) → tour the
  * bulk Export tab with version badges → see coverage badges on exported
  * endpoints → click Send to Harness and walk through the full modal (target
- * cascade + options) → expose to Workflow in Preview mode → expose to Workflow
- * in Published mode (navigates to Workflow Designer palette).
+ * cascade + options) → expose POST /posts to Workflow in Preview mode →
+ * publish GET /posts to Workflow (different endpoint) → tour the Published
+ * management panel (filter pills, status badges) → View Usage + Republish
+ * Stale (D1, D2) → Promote POST /posts Preview → Published from panel (D4).
  *
  * This lesson bridges Catalog → Requests → Harness/Workflow — showing the full
- * promotion pipeline from API spec to automated testing.
+ * promotion pipeline from API spec to automated testing, including the
+ * governance features (Published panel management).
  */
 import type { DemoLesson, DemoActionContext } from '../../types';
 import { CAT, REQ } from '@shared/selectors';
@@ -21,7 +24,6 @@ import {
   selectCatalogEntryByName,
   ensureCatalogTab,
   ensureEndpointsView,
-  ensureCardTryItOpen,
   collapseAllCards,
   closeExportModalIfOpen,
   spotlightEl,
@@ -41,6 +43,7 @@ import {
   expandAppSidebar,
   insertWorkflow,
   deleteWorkflowByName,
+  clearAllWorkflowPreviews,
 } from '../../adapters';
 import { collapseWfDemoAppSidebar } from '../wf-demo-helpers';
 
@@ -121,9 +124,41 @@ async function createCascadeItem(
 
 // ─── Helpers ────────────────────────────────────────────────────
 
+/** Close the Publish Endpoint modal if open (preAction defense). */
+function closePublishModalIfOpen(): void {
+  const modal = document.querySelector<HTMLElement>(CAT.PUBLISH_MODAL);
+  if (!modal) return;
+  const cancel = modal.querySelector<HTMLElement>(CAT.PUBLISH_CANCEL_BTN);
+  if (cancel) cancel.click();
+  else modal.remove();
+}
+
+/**
+ * Fast version of ensureCardTryItOpen for preAction use — shorter delays since
+ * the viewer cannot see preAction work anyway.
+ */
+async function ensureCardTryItOpenFast(method: string, path: string): Promise<HTMLElement | null> {
+  let card = document.querySelector<HTMLElement>(CAT.endpointCard(method, path));
+  if (!card) return null;
+  if (!card.querySelector('.sw-body')) {
+    const header = card.querySelector<HTMLElement>('.sw-header');
+    if (header) header.click();
+    await new Promise(r => setTimeout(r, 200));
+    card = document.querySelector<HTMLElement>(CAT.endpointCard(method, path));
+    if (!card) return null;
+  }
+  const tryitBtn = card.querySelector<HTMLButtonElement>(CAT.TRYIT_BTN);
+  if (tryitBtn && !tryitBtn.classList.contains('cancel')) {
+    tryitBtn.click();
+    await new Promise(r => setTimeout(r, 150));
+  }
+  return card;
+}
+
 /** Ensure the demo entry exists in the sidebar. Seeds it if missing. */
 async function ensureDemoEntry(): Promise<void> {
-  try { await waitForSelector(CAT.SIDEBAR, 3000); } catch { /* sidebar not mounted yet */ }
+  if (document.querySelector(CAT.entryByName(DEMO_ENTRY_NAME))) return;
+  try { await waitForSelector(CAT.SIDEBAR, 2000); } catch { /* sidebar not mounted yet */ }
   if (document.querySelector(CAT.entryByName(DEMO_ENTRY_NAME))) return;
   await seedCatalogEntry(DEMO_ENTRY_NAME, JSONPLACEHOLDER_API_SPEC);
   await waitForSelector(CAT.entryByName(DEMO_ENTRY_NAME), 4000);
@@ -133,11 +168,11 @@ async function ensureDemoEntry(): Promise<void> {
 async function ensureDemoEntrySelected(): Promise<void> {
   await ensureDemoEntry();
   selectCatalogEntryByName(DEMO_ENTRY_NAME);
-  await new Promise(r => setTimeout(r, 150));
+  await new Promise(r => setTimeout(r, 80));
 }
 
 /**
- * Quietly force the POST /posts exposure to a specific mode (no spotlight),
+ * Quietly force an endpoint's exposure to a specific mode (no spotlight),
  * so each run of steps 6/7 shows a real, visible transition in `action`.
  * Exposure persists across replays, so without this the menu selection would
  * look like a no-op on the second run.
@@ -145,8 +180,10 @@ async function ensureDemoEntrySelected(): Promise<void> {
 async function setExposureQuiet(
   ctx: DemoActionContext,
   mode: 'preview' | 'published' | 'none',
+  method = 'POST',
+  path = '/posts',
 ): Promise<void> {
-  const card = document.querySelector<HTMLElement>(CAT.endpointCard('POST', '/posts'));
+  const card = document.querySelector<HTMLElement>(CAT.endpointCard(method, path));
   const exposure = card?.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
   if (!exposure) return;
   const want = mode === 'none' ? 'Not Exposed' : mode === 'preview' ? 'Preview' : 'Published';
@@ -155,25 +192,43 @@ async function setExposureQuiet(
 
   const trigger = exposure.querySelector<HTMLButtonElement>('.sw-wf-exposure-trigger');
   trigger?.click();
-  await ctx.delay(250);
+  await ctx.delay(120);
   const sel = mode === 'none'
     ? CAT.EXPOSE_OPTION_NONE
     : mode === 'preview' ? CAT.EXPOSE_OPTION_PREVIEW : CAT.EXPOSE_OPTION_PUBLISHED;
   document.querySelector<HTMLButtonElement>(sel)?.click();
-  await ctx.delay(250);
-  // Dismiss the un-publish confirmation if it appears (endpoint not wired into a
-  // workflow in the demo, so this is normally a no-op).
+  await ctx.delay(150);
+
+  // "Published" opens a confirmation modal — auto-confirm it
+  if (mode === 'published') {
+    let modal = document.querySelector<HTMLElement>(CAT.PUBLISH_MODAL);
+    if (!modal) {
+      try { modal = await waitForSelector(CAT.PUBLISH_MODAL, 1500); } catch { /* no modal */ }
+    }
+    if (modal) {
+      document.querySelector<HTMLElement>(CAT.PUBLISH_CONFIRM_BTN)?.click();
+      await ctx.delay(120);
+    }
+  }
+
+  // Dismiss the preview-promote alert if it appears
+  const dismissAlert = document.querySelector<HTMLButtonElement>('[data-testid="preview-promote-dismiss-btn"]');
+  dismissAlert?.click();
+
+  // Dismiss the un-publish confirmation if it appears
   const paletteOnly = document.querySelector<HTMLButtonElement>('.sw-unpublish-btn--palette');
   paletteOnly?.click();
-  await ctx.delay(150);
+  await ctx.delay(80);
 }
 
 /** Open the Workflow Exposure dropdown and select Preview or Published. */
 async function selectWorkflowExposure(
   ctx: DemoActionContext,
   mode: 'preview' | 'published',
+  method = 'POST',
+  path = '/posts',
 ): Promise<boolean> {
-  const cardSel = CAT.endpointCard('POST', '/posts');
+  const cardSel = CAT.endpointCard(method, path);
   let postCard = document.querySelector<HTMLElement>(cardSel);
   if (!postCard) return false;
   postCard.scrollIntoView({ block: 'center' });
@@ -236,6 +291,35 @@ async function selectWorkflowExposure(
   option.click();
   await ctx.delay(500);
 
+  // "Published" opens a confirmation modal — wait for it and confirm
+  if (mode === 'published') {
+    const publishModal = document.querySelector<HTMLElement>(CAT.PUBLISH_MODAL);
+    if (publishModal) {
+      await spotlightEl(ctx, publishModal.querySelector<HTMLElement>('.sw-publish-dialog') ?? publishModal, 1200);
+      const confirmBtn = publishModal.querySelector<HTMLElement>(CAT.PUBLISH_CONFIRM_BTN);
+      if (confirmBtn) {
+        await spotlightEl(ctx, confirmBtn, 900);
+        confirmBtn.click();
+        await ctx.delay(600);
+      }
+    } else {
+      // Modal may appear with a slight delay
+      try {
+        await waitForSelector(CAT.PUBLISH_MODAL, 2000);
+        const modal2 = document.querySelector<HTMLElement>(CAT.PUBLISH_MODAL);
+        if (modal2) {
+          await spotlightEl(ctx, modal2.querySelector<HTMLElement>('.sw-publish-dialog') ?? modal2, 1200);
+          const btn = modal2.querySelector<HTMLElement>(CAT.PUBLISH_CONFIRM_BTN);
+          if (btn) {
+            await spotlightEl(ctx, btn, 900);
+            btn.click();
+            await ctx.delay(600);
+          }
+        }
+      } catch { /* no modal — endpoint may already be published */ }
+    }
+  }
+
   // Wait for React to commit the new exposure mode onto the trigger label
   const expected = mode === 'preview' ? 'Preview' : 'Published';
   const deadline = Date.now() + 2500;
@@ -249,13 +333,15 @@ async function selectWorkflowExposure(
   return exposureEl.querySelector('.sw-wf-exposure-label')?.textContent?.trim() === expected;
 }
 
-/** Navigate to Workflow Designer → Catalog palette and spotlight POST /posts. */
-async function showExposedEndpointInWorkflowPalette(ctx: DemoActionContext): Promise<void> {
+/** Navigate to Workflow Designer → Catalog palette and spotlight an exposed endpoint. */
+async function showExposedEndpointInWorkflowPalette(
+  ctx: DemoActionContext,
+  method = 'POST',
+  path = '/posts',
+): Promise<void> {
   ctx.navigateToTab('workflow');
   await ctx.delay(800);
 
-  // The palette only renders when a workflow is open. Create a temp workflow
-  // if none exists so the Catalog tab with the exposed endpoint is visible.
   if (!document.querySelector('.wf-palette')) {
     insertWorkflow({ name: CAT3_TEMP_WF_NAME });
     await ctx.delay(1200);
@@ -275,6 +361,17 @@ async function showExposedEndpointInWorkflowPalette(ctx: DemoActionContext): Pro
     }
   }
 
+  // Expand both Published and Preview sections so items are visible
+  const sectionHeaders = document.querySelectorAll<HTMLButtonElement>('.wf-palette-section-header');
+  for (const sh of sectionHeaders) {
+    const caret = sh.querySelector('.wf-palette-caret');
+    if (caret?.textContent?.trim() === '▸') {
+      sh.click();
+      await ctx.delay(300);
+    }
+  }
+
+  // For Published endpoints, expand the entry group + folder
   const groupHeaders = document.querySelectorAll<HTMLButtonElement>('.wf-palette-group-header');
   for (const gh of groupHeaders) {
     if (!gh.textContent?.includes(DEMO_ENTRY_NAME)) continue;
@@ -301,25 +398,28 @@ async function showExposedEndpointInWorkflowPalette(ctx: DemoActionContext): Pro
     break;
   }
 
-  // Keep focus on the palette item — never leave a canvas node selected
   deselectAllWorkflowNodes();
   await ctx.delay(200);
 
+  // Title attribute includes the entry name, e.g. "POST /posts (JSONPlaceholder API)"
+  const titleContains = `${method} ${path}`;
   const byTitle = document.querySelector<HTMLElement>(
-    '.wf-palette-item[title="POST /posts"], .wf-palette-item[title="post /posts"]',
+    `.wf-palette-item[title*="${titleContains}"], .wf-palette-item[title*="${titleContains.toLowerCase()}"]`,
   );
   if (byTitle) {
     byTitle.scrollIntoView({ block: 'center' });
-    await spotlightEl(ctx, byTitle, 2000);
+    await spotlightEl(ctx, byTitle, 3000);
     return;
   }
 
+  // Fallback: search by text content
+  const methodPattern = new RegExp(`${method}\\s*${path.replace(/\//g, '\\/')}`, 'i');
   const paletteItems = document.querySelectorAll<HTMLElement>('.wf-palette-item');
   for (const item of paletteItems) {
-    const text = item.textContent ?? '';
-    if (text.includes('Create a post') || /POST\s*\/posts/i.test(text)) {
+    const text = (item.textContent ?? '') + ' ' + (item.getAttribute('title') ?? '');
+    if (methodPattern.test(text)) {
       item.scrollIntoView({ block: 'center' });
-      await spotlightEl(ctx, item, 2000);
+      await spotlightEl(ctx, item, 3000);
       break;
     }
   }
@@ -331,11 +431,12 @@ export const catExportPromoteLesson: DemoLesson = {
   id: 'cat-export-requests',
   domainId: 'api',
   category: 'catalog',
-  name: 'Export to Requests',
+  name: 'Export & Workflow Exposure',
   description:
-    'Move API definitions from the Catalog into the Requests workspace — single endpoint export, ' +
-    'bulk export with environments, coverage tracking, and integration with Harness and Workflow.',
-  estimatedMinutes: 7,
+    'Move API definitions from the Catalog into Requests, Harness, and Workflow — single export, ' +
+    'bulk export with environments, coverage tracking, Preview/Published workflow exposure, and ' +
+    'the Published management panel with View Usage, Republish Stale, and Promote Preview.',
+  estimatedMinutes: 10,
   initialTab: 'catalog',
   allowedTabs: ['catalog', 'requests', 'scenarios', 'workflow', 'environments'],
 
@@ -354,13 +455,15 @@ export const catExportPromoteLesson: DemoLesson = {
       '- How the bulk **Export tab** provides full-table export with version-aware deduplication\n' +
       '- How **coverage badges** track what\'s already exported\n' +
       '- How **Send to Harness** promotes directly to automated testing\n' +
-      '- How **Expose to Workflow** makes endpoints available in the Workflow Designer',
+      '- How **Expose to Workflow** (Preview → Published) makes endpoints available in the Workflow Designer\n' +
+      '- How the **Published panel** provides governance: filter pills, View Usage, Republish Stale, Promote Preview',
     keyTerms: [
       { term: 'Export to Requests', definition: 'Creates request entries in a collection from catalog endpoints — method, path, params, and base URL pre-configured' },
       { term: 'Coverage Badge', definition: '"IN REQUESTS" badge on endpoint cards showing which endpoints are already exported — click to see the collection path' },
       { term: 'Version Tracking', definition: 'The export panel marks endpoints as "NEW" or "from v1" to avoid duplicate exports when a spec is updated' },
       { term: 'Send to Harness', definition: 'Promotes the endpoint directly to the Test Harness as a test scenario — skipping the Requests collection step' },
       { term: 'Expose to Workflow', definition: 'Makes the endpoint (with current values) available as a node in the Workflow Designer palette' },
+      { term: 'Published Panel', definition: 'Management tab showing all Published/Preview endpoints — filter, search, View Usage, Republish Stale, Promote Preview' },
     ],
     diagram: `<svg viewBox="0 0 460 90" xmlns="http://www.w3.org/2000/svg">
       <rect x="5" y="25" width="100" height="40" rx="6" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
@@ -385,6 +488,7 @@ export const catExportPromoteLesson: DemoLesson = {
     deleteWorkflowByName(CAT3_TEMP_WF_NAME);
     deleteCollectionsByName(DEMO_ENTRY_NAME);
     deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
+    await clearAllWorkflowPreviews();
     await ctx.delay(200);
     await cleanupOtherRequestDemoCollections(ctx);
     ensureHarnessTargets();
@@ -398,6 +502,7 @@ export const catExportPromoteLesson: DemoLesson = {
   },
 
   cleanup: async (ctx) => {
+    closePublishModalIfOpen();
     await closeHarnessModalIfOpen(ctx);
     closeExportModalIfOpen();
     collapseAllCards();
@@ -406,6 +511,7 @@ export const catExportPromoteLesson: DemoLesson = {
     deleteCollectionsByName(DEMO_ENTRY_NAME);
     deleteCollectionsByName(DEMO_ENTRY_NAME_VERSIONED);
     deleteWorkflowByName(CAT3_TEMP_WF_NAME);
+    await clearAllWorkflowPreviews();
     await cleanupOtherRequestDemoCollections(ctx);
     ensureCatalogTab(ctx);
     await ctx.delay(60);
@@ -522,7 +628,7 @@ export const catExportPromoteLesson: DemoLesson = {
         await ensureEndpointsView(ctx);
         // Ensure export modal is open
         if (!document.querySelector(CAT.EXPORT_MODAL)) {
-          const card = await ensureCardTryItOpen('GET', '/posts');
+          const card = await ensureCardTryItOpenFast('GET', '/posts');
           if (card) {
             const btn = card.querySelector<HTMLElement>(CAT.EXPORT_TO_REQ_BTN);
             if (btn) btn.click();
@@ -778,13 +884,19 @@ export const catExportPromoteLesson: DemoLesson = {
       highlight: CAT.SEND_TO_HARNESS_BTN,
 
       preAction: async (ctx) => {
+        await closeHarnessModalIfOpen(ctx);
         ensureCatalogTab(ctx);
-        try { await ctx.waitFor(CAT.SIDEBAR, 3000); } catch { /* best-effort */ }
+        if (!document.querySelector(CAT.endpointCard('POST', '/posts'))) {
+          await new Promise(r => setTimeout(r, 120));
+        }
+        // Fast path: card already expanded with Try It Out
+        const postCard = document.querySelector<HTMLElement>(CAT.endpointCard('POST', '/posts'));
+        if (postCard?.querySelector('.sw-body') && postCard.querySelector(CAT.SEND_TO_HARNESS_BTN)) return;
+        // Recovery path
         await ensureDemoEntrySelected();
         await ensureEndpointsView(ctx);
-        await closeHarnessModalIfOpen(ctx);
         collapseAllCards();
-        await ensureCardTryItOpen('POST', '/posts');
+        await ensureCardTryItOpenFast('POST', '/posts');
       },
 
       action: async (ctx) => {
@@ -921,13 +1033,20 @@ export const catExportPromoteLesson: DemoLesson = {
       highlight: CAT.EXPOSE_TO_WORKFLOW,
 
       preAction: async (ctx) => {
+        await closeHarnessModalIfOpen(ctx);
         ensureCatalogTab(ctx);
-        try { await ctx.waitFor(CAT.SIDEBAR, 3000); } catch { /* best-effort */ }
+        if (!document.querySelector(CAT.endpointCard('POST', '/posts'))) {
+          await new Promise(r => setTimeout(r, 120));
+        }
+        const postCard = document.querySelector<HTMLElement>(CAT.endpointCard('POST', '/posts'));
+        if (postCard?.querySelector('.sw-body')) {
+          await setExposureQuiet(ctx, 'none');
+          return;
+        }
         await ensureDemoEntrySelected();
         await ensureEndpointsView(ctx);
-        await closeHarnessModalIfOpen(ctx);
         collapseAllCards();
-        await ensureCardTryItOpen('POST', '/posts');
+        await ensureCardTryItOpenFast('POST', '/posts');
         await setExposureQuiet(ctx, 'none');
       },
 
@@ -944,30 +1063,325 @@ export const catExportPromoteLesson: DemoLesson = {
       id: 'cat3-expose-published',
       title: 'Expose to Workflow — Published',
       description:
-        'Now switch to **Published** — this *permanently* registers the endpoint as a ' +
-        'drag-and-drop node in the Workflow Designer.\n\n' +
+        'Now let\'s publish a *different* endpoint — **GET /posts**. Select **Published** to ' +
+        '*permanently* register it as a drag-and-drop node in the Workflow Designer.\n\n' +
         '**Published** mode means the node persists across sessions, spec re-imports, and ' +
         'resets. It\'s the final "this endpoint is production-ready for automation" stamp.\n\n' +
         'After publishing, switch to the **Workflow Designer** — open the palette\'s ' +
-        '**Catalog** tab and you\'ll see **POST /posts** listed as a ready-to-use workflow node.',
+        '**Catalog** tab and you\'ll see **GET /posts** listed as a ready-to-use workflow node.\n\n' +
+        '*Note:* If an endpoint is already in **Preview** and you try to publish it directly, ' +
+        'the app redirects you to use the **Promote** action from the Published panel instead.',
       highlight: CAT.EXPOSE_TO_WORKFLOW,
 
       preAction: async (ctx) => {
+        closePublishModalIfOpen();
         ensureCatalogTab(ctx);
-        try { await ctx.waitFor(CAT.SIDEBAR, 3000); } catch { /* best-effort */ }
+        // One RAF for React to render after tab switch
+        await new Promise(r => requestAnimationFrame(r));
+
+        // Fast path: GET /posts card already visible and open
+        let card = document.querySelector<HTMLElement>(CAT.endpointCard('GET', '/posts'));
+        if (!card) {
+          // Cards may need one more frame after catalog mount
+          await new Promise(r => setTimeout(r, 60));
+          card = document.querySelector<HTMLElement>(CAT.endpointCard('GET', '/posts'));
+        }
+        if (card) {
+          if (!card.querySelector('.sw-body')) {
+            card.querySelector<HTMLElement>('.sw-header')?.click();
+            await new Promise(r => setTimeout(r, 100));
+          }
+          const tryit = card.querySelector<HTMLButtonElement>(CAT.TRYIT_BTN);
+          if (tryit && !tryit.classList.contains('cancel')) {
+            tryit.click();
+            await new Promise(r => setTimeout(r, 80));
+          }
+          return;
+        }
+        // Recovery: entry not loaded yet
         await ensureDemoEntrySelected();
         await ensureEndpointsView(ctx);
-        await closeHarnessModalIfOpen(ctx);
         collapseAllCards();
-        await ensureCardTryItOpen('POST', '/posts');
-        await setExposureQuiet(ctx, 'preview');
+        await ensureCardTryItOpenFast('GET', '/posts');
       },
 
       action: async (ctx) => {
-        const ok = await selectWorkflowExposure(ctx, 'published');
+        const ok = await selectWorkflowExposure(ctx, 'published', 'GET', '/posts');
         if (!ok) return;
         await ctx.delay(500);
-        await showExposedEndpointInWorkflowPalette(ctx);
+        await showExposedEndpointInWorkflowPalette(ctx, 'GET', '/posts');
+      },
+    },
+
+    // ── Step 8: Published Management Panel ──────────────────────
+    {
+      id: 'cat3-published-panel',
+      title: 'Published Management Panel',
+      description:
+        'Switch to the **Published** tab — this management panel lists every endpoint ' +
+        'you\'ve exposed to the Workflow Designer.\n\n' +
+        'The toolbar provides:\n' +
+        '- **Filter pills** — All / Current / Stale / Preview — to quickly narrow the view\n' +
+        '- **Search** — find endpoints by method, path, or API name\n' +
+        '- **Status badges** — "Current" (green) for up-to-date and "Stale" (amber) for endpoints ' +
+        'whose spec version has changed since publication\n\n' +
+        'Each row shows the method badge, path, API name, publish date, and a **⋮ actions menu** ' +
+        'with View in Catalog, View Usage, Republish, and Unpublish.',
+      highlight: CAT.VIEW_PUBLISHED,
+
+      preAction: async (ctx) => {
+        closePublishModalIfOpen();
+        ensureCatalogTab(ctx);
+        // Wait for catalog DOM after tab switch (Step 7 ends on Workflow tab)
+        if (!document.querySelector(CAT.SIDEBAR)) {
+          await new Promise(r => setTimeout(r, 150));
+        }
+        // Fast path: Published panel visible with at least one row
+        if (document.querySelector(CAT.PUB_PANEL) && document.querySelector(CAT.PUB_ROW)) return;
+        // The endpoint may already be Published — just switch to the Published tab
+        document.querySelector<HTMLElement>(CAT.VIEW_PUBLISHED)?.click();
+        await new Promise(r => setTimeout(r, 100));
+        if (document.querySelector(CAT.PUB_ROW)) return;
+        // Recovery: endpoint not yet published — publish GET /posts
+        await ensureEndpointsView(ctx);
+        collapseAllCards();
+        await ensureCardTryItOpenFast('GET', '/posts');
+        await setExposureQuiet(ctx, 'published', 'GET', '/posts');
+        document.querySelector<HTMLElement>(CAT.VIEW_PUBLISHED)?.click();
+        await new Promise(r => setTimeout(r, 100));
+      },
+
+      action: async (ctx) => {
+        await ctx.click(CAT.VIEW_PUBLISHED);
+        await ctx.delay(800);
+
+        // Spotlight the panel
+        const panel = document.querySelector<HTMLElement>(CAT.PUB_PANEL);
+        if (panel) await spotlightEl(ctx, panel, 1000);
+
+        // Spotlight filter pills
+        const pills = document.querySelector<HTMLElement>('.pub-filter-pills');
+        if (pills) await spotlightEl(ctx, pills, 1200);
+
+        // Click the "Current" filter pill to show it works
+        const currentPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_CURRENT);
+        if (currentPill) {
+          await spotlightEl(ctx, currentPill, 800);
+          currentPill.click();
+          await ctx.delay(600);
+        }
+
+        // Click back to "All" filter
+        const allPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_ALL);
+        if (allPill) {
+          allPill.click();
+          await ctx.delay(500);
+        }
+
+        // Spotlight a published row
+        const row = document.querySelector<HTMLElement>(CAT.PUB_ROW);
+        if (row) {
+          row.scrollIntoView({ block: 'center' });
+          await spotlightEl(ctx, row, 1200);
+
+          // Spotlight the status badge
+          const status = row.querySelector<HTMLElement>('.pub-status');
+          if (status) await spotlightEl(ctx, status, 1000);
+        }
+
+        // Spotlight the ⋮ actions button
+        const actionsBtn = document.querySelector<HTMLElement>(CAT.PUB_ACTIONS_BTN);
+        if (actionsBtn) {
+          await spotlightEl(ctx, actionsBtn, 800);
+          actionsBtn.click();
+          await ctx.delay(600);
+
+          // Spotlight the actions menu
+          const menu = document.querySelector<HTMLElement>(CAT.PUB_ACTIONS_MENU);
+          if (menu) {
+            await spotlightEl(ctx, menu, 1400);
+            // Close menu
+            document.body.click();
+            await ctx.delay(300);
+          }
+        }
+      },
+    },
+
+    // ── Step 9: View Usage + Republish Stale ────────────────────
+    {
+      id: 'cat3-view-usage',
+      title: 'View Usage & Republish',
+      description:
+        'Click the **⋮ menu** on a published row and select **View Usage** — an inline row ' +
+        'expands below showing which **workflows** reference this endpoint and which **nodes** ' +
+        'inside each workflow use it.\n\n' +
+        'When an endpoint\'s spec version changes after publication, the status badge turns ' +
+        '**Stale** (amber). Use the per-row **Republish** action or the toolbar\'s **Republish ' +
+        'All Stale** button to update all stale endpoints in one click.',
+      highlight: CAT.PUB_TABLE,
+
+      preAction: async (ctx) => {
+        closePublishModalIfOpen();
+        // Normal flow: already on Published tab from step 8
+        if (document.querySelector(CAT.PUB_PANEL)) {
+          const allPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_ALL);
+          if (allPill && !allPill.classList.contains('active')) allPill.click();
+          return;
+        }
+        ensureCatalogTab(ctx);
+        await ensureDemoEntrySelected();
+        document.querySelector<HTMLElement>(CAT.VIEW_PUBLISHED)?.click();
+        await new Promise(r => setTimeout(r, 100));
+        document.querySelector<HTMLElement>(CAT.PUB_FILTER_ALL)?.click();
+      },
+
+      action: async (ctx) => {
+        const actionsBtn = document.querySelector<HTMLElement>(CAT.PUB_ACTIONS_BTN);
+        if (!actionsBtn) return;
+        await spotlightEl(ctx, actionsBtn, 800);
+        actionsBtn.click();
+        await ctx.delay(600);
+
+        // Click View Usage
+        const viewUsage = document.querySelector<HTMLElement>(CAT.PUB_ACTION_USAGE);
+        if (viewUsage) {
+          await spotlightEl(ctx, viewUsage, 1000);
+          viewUsage.click();
+          await ctx.delay(1200);
+
+          // Spotlight the usage row that expands
+          const usageRow = document.querySelector<HTMLElement>(CAT.PUB_USAGE_ROW);
+          if (usageRow) {
+            usageRow.scrollIntoView({ block: 'center' });
+            await spotlightEl(ctx, usageRow, 1800);
+          }
+        }
+
+        // Spotlight the Republish All Stale button (if visible)
+        const republishBtn = document.querySelector<HTMLElement>(CAT.PUB_BULK_REPUBLISH);
+        if (republishBtn) {
+          republishBtn.scrollIntoView({ block: 'nearest' });
+          await spotlightEl(ctx, republishBtn, 1200);
+        }
+
+        // Spotlight the stale hint at the bottom (if visible)
+        const staleHint = document.querySelector<HTMLElement>(CAT.PUB_STALE_HINT);
+        if (staleHint) {
+          staleHint.scrollIntoView({ block: 'nearest' });
+          await spotlightEl(ctx, staleHint, 1000);
+        }
+      },
+    },
+
+    // ── Step 10: Promote Preview ────────────────────────────────
+    {
+      id: 'cat3-promote-preview',
+      title: 'Promote Preview to Published',
+      description:
+        'Remember **POST /posts** from Step 6? It\'s still in **Preview** mode. Previewed ' +
+        'endpoints appear in the Published panel under a separate section.\n\n' +
+        'Click the **Preview** filter pill to isolate them, then open the **⋮ menu** and ' +
+        'select **Promote to Published** — the endpoint is immediately upgraded to Published ' +
+        'status. The **parameter values** you entered during Preview are **carried over** to ' +
+        'the publication, so nothing is lost.\n\n' +
+        'This is the recommended way to go from Preview → Published. You can also **Remove** ' +
+        'a preview, or **View in Catalog** to jump back to its endpoint card.',
+      highlight: CAT.PUB_FILTER_PREVIEW,
+
+      preAction: async (ctx) => {
+        closePublishModalIfOpen();
+        // Fast path: if Previews pill is visible, a preview endpoint is already registered
+        if (document.querySelector(CAT.PUB_FILTER_PREVIEW)) return;
+
+        // Need to set POST /posts to Preview. Switch to Endpoints tab first.
+        ensureCatalogTab(ctx);
+        const epTab = document.querySelector<HTMLElement>(CAT.VIEW_ENDPOINTS);
+        if (epTab) { epTab.click(); await new Promise(r => setTimeout(r, 200)); }
+
+        const card = await ensureCardTryItOpenFast('POST', '/posts');
+        if (card) {
+          const exposure = card.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
+          if (exposure) {
+            const label = exposure.querySelector('.sw-wf-exposure-label')?.textContent?.trim();
+            if (label !== 'Preview') {
+              const trigger = exposure.querySelector<HTMLButtonElement>('.sw-wf-exposure-trigger');
+              if (trigger) {
+                trigger.click();
+                await new Promise(r => setTimeout(r, 150));
+                document.querySelector<HTMLButtonElement>(CAT.EXPOSE_OPTION_PREVIEW)?.click();
+                await new Promise(r => setTimeout(r, 150));
+              }
+            }
+          }
+        }
+        collapseAllCards();
+        document.querySelector<HTMLElement>(CAT.VIEW_PUBLISHED)?.click();
+        await new Promise(r => setTimeout(r, 150));
+        const deadline = Date.now() + 2000;
+        while (Date.now() < deadline) {
+          if (document.querySelector(CAT.PUB_FILTER_PREVIEW)) break;
+          await new Promise(r => setTimeout(r, 80));
+        }
+      },
+
+      action: async (ctx) => {
+        const previewPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_PREVIEW);
+        if (previewPill) {
+          await spotlightEl(ctx, previewPill, 1000);
+          previewPill.click();
+          await ctx.delay(800);
+        }
+
+        const previewTable = document.querySelector<HTMLElement>(CAT.PUB_PREVIEW_TABLE);
+        if (previewTable) {
+          await spotlightEl(ctx, previewTable, 1200);
+        }
+
+        const previewRow = document.querySelector<HTMLElement>(CAT.PUB_PREVIEW_ROW);
+        if (previewRow) {
+          previewRow.scrollIntoView({ block: 'center' });
+          await spotlightEl(ctx, previewRow, 1000);
+        }
+
+        const actionsBtn = document.querySelector<HTMLElement>(CAT.PUB_PREVIEW_ACTIONS_BTN);
+        if (actionsBtn) {
+          await spotlightEl(ctx, actionsBtn, 800);
+          actionsBtn.click();
+          await ctx.delay(600);
+
+          const menu = document.querySelector<HTMLElement>('[data-testid="pub-preview-actions-menu"]');
+          if (menu) {
+            await spotlightEl(ctx, menu, 1000);
+
+            const promoteAction = document.querySelector<HTMLElement>(CAT.PUB_PREVIEW_ACTION_PROMOTE);
+            if (promoteAction) {
+              await spotlightEl(ctx, promoteAction, 1200);
+              promoteAction.click();
+              await ctx.delay(1500);
+
+              const allPill = document.querySelector<HTMLElement>(CAT.PUB_FILTER_ALL);
+              if (allPill) {
+                allPill.click();
+                await ctx.delay(800);
+              }
+
+              // Spotlight the newly promoted row (POST /posts now in the published table)
+              const rows = document.querySelectorAll<HTMLElement>(CAT.PUB_ROW);
+              for (const row of rows) {
+                const rPath = row.querySelector('.pub-path')?.textContent?.trim();
+                if (rPath === '/posts' && row.querySelector('.pub-method')?.textContent?.trim() === 'POST') {
+                  row.scrollIntoView({ block: 'center' });
+                  await spotlightEl(ctx, row, 1800);
+                  break;
+                }
+              }
+            } else {
+              document.body.click();
+              await ctx.delay(300);
+            }
+          }
+        }
       },
     },
   ],

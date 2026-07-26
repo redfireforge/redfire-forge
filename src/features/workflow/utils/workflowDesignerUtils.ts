@@ -73,6 +73,10 @@ export function getNodeMiniMapColor(
   if (node.type === 'delay') return '#94a3b8';
   if (node.type === 'start') return '#22c55e';
   if (node.type === 'fork') return '#a855f7';
+  if (node.type?.startsWith('kafka')) return '#b5944f';
+  if (node.type?.startsWith('ws')) return '#8a82bf';
+  if (node.type?.startsWith('graphql')) return '#4da8b5';
+  if (node.type?.startsWith('grpc')) return '#5f8fb5';
   return '#3b82f6';
 }
 

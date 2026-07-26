@@ -4,10 +4,18 @@ import type { CatalogEntry, CatalogEndpoint, SavedEndpointValues } from '../type
 import type { AuthConfig, GlobalAuthProfile, Environment, Microservice } from '../../../shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
 import { getEndpointCoverage } from '../utils/coverageChecker';
+import { isPublicationStale } from '../utils/publicationDrift';
+import type { PublishPermission } from '../hooks/usePublishPermission';
 import CatalogEndpointCard from './CatalogEndpointCard';
 import CatalogAuthPanel from './CatalogAuthPanel';
 import { resolveBaseUrl } from '../utils/catalogCurlGenerator';
 import { loadCatalogEndpointValues, saveCatalogEndpointValues } from '../../../shared/utils/storage';
+
+function resolveExposureMode(ep: CatalogEndpoint, previewIds?: Set<string>): 'preview' | 'published' | undefined {
+  if (ep.workflowPublication || ep.workflowExposure === 'published') return 'published';
+  if (previewIds?.has(ep.id)) return 'preview';
+  return undefined;
+}
 
 interface Props {
   entry: CatalogEntry;
@@ -23,9 +31,13 @@ interface Props {
   coverageMap?: Map<string, EndpointCoverage>;
   onNavigateToRequest?: (collectionId: string, requestId: string) => void;
   onSetWorkflowExposure?: (endpoint: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => void;
+  /** Endpoint IDs that are currently in user-local preview storage. */
+  previewedEndpointIds?: Set<string>;
+  /** Access control for publish/unpublish actions. */
+  publishPermission?: PublishPermission;
 }
 
-export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, coverageMap, onNavigateToRequest, onSetWorkflowExposure }: Props) {
+export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHostChange, globalAuthProfiles, appEnvironments, appMicroservices, onEditEntry, onExportSingle, onSendToHarness, coverageMap, onNavigateToRequest, onSetWorkflowExposure, previewedEndpointIds, publishPermission }: Props) {
   const [filter, setFilter] = useState('');
   const [collapsedTags, setCollapsedTags] = useState<Set<string>>(new Set());
   const [showAuthPanel, setShowAuthPanel] = useState(false);
@@ -307,6 +319,9 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     onExportSingle={onExportSingle}
                     onSendToHarness={onSendToHarness}
                     onSetWorkflowExposure={onSetWorkflowExposure}
+                    currentExposureMode={resolveExposureMode(ep, previewedEndpointIds)}
+                    isPublicationStale={isPublicationStale(ep, entry.currentVersionId)}
+                    publishPermission={publishPermission}
                     coverage={coverageMap ? getEndpointCoverage(ep.method, ep.path, coverageMap) : undefined}
                     onNavigateToRequest={onNavigateToRequest}
                   />
@@ -339,6 +354,9 @@ export default function CatalogEndpointBrowser({ entry, auth, onAuthChange, onHo
                     onExportSingle={onExportSingle}
                     onSendToHarness={onSendToHarness}
                     onSetWorkflowExposure={onSetWorkflowExposure}
+                    currentExposureMode={resolveExposureMode(ep, previewedEndpointIds)}
+                    isPublicationStale={isPublicationStale(ep, entry.currentVersionId)}
+                    publishPermission={publishPermission}
                     coverage={coverageMap ? getEndpointCoverage(ep.method, ep.path, coverageMap) : undefined}
                     onNavigateToRequest={onNavigateToRequest}
                   />

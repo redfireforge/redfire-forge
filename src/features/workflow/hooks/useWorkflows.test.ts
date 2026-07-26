@@ -228,6 +228,21 @@ describe('useWorkflows', () => {
     expect(result.current.selectedId).toBe('imported-1');
   });
 
+  it('insert assigns an id when the workflow arrives without one', async () => {
+    const { result } = renderHook(() => useWorkflows());
+    await waitFor(() => expect(result.current.loaded).toBe(true));
+
+    // Demo lessons seed via the bridge with no top-level id — a missing id would
+    // render as key={undefined} in the sidebar ("unique key prop" warning).
+    const seeded = makeWorkflow({ name: 'Seeded Demo' });
+    delete (seeded as { id?: string }).id;
+    act(() => result.current.insert(seeded as typeof seeded));
+
+    const inserted = result.current.workflows.find((w) => w.name === 'Seeded Demo');
+    expect(inserted?.id).toBeTruthy();
+    expect(result.current.selectedId).toBe(inserted?.id);
+  });
+
   it('insert does not duplicate existing workflow', async () => {
     mockLoadWorkflows.mockResolvedValue([makeWorkflow({ id: 'wf-1' })]);
 

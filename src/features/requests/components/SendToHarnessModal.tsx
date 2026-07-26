@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { SWAGGER_METHOD_COLORS } from '../../../shared/constants/httpMethodColors';
+import { useModalDrag } from '../../../shared/hooks/useModalDrag';
 import HarnessOptionsGrid from './send-harness-shared/HarnessOptionsGrid';
 import type {
   Environment,
@@ -43,6 +44,7 @@ export default function SendToHarnessModal({
   request, promotionContext, featureGroups, environments, microservices, onConfirm, onClose, defaultValidationPreset,
 }: Props) {
   const [step, setStep] = useState<Step>('target');
+  const { modalStyle, onPointerDragStart } = useModalDrag(true, { constrainToViewport: true });
 
   // Cascade selections
   const [envId, setEnvId] = useState('');
@@ -168,9 +170,9 @@ export default function SendToHarnessModal({
 
   return (
     <div className="send-harness-overlay">
-      <div className="send-harness-modal" data-testid="req-send-harness-modal" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="send-harness-header">
+      <div className="send-harness-modal" data-testid="req-send-harness-modal" role="dialog" style={modalStyle} onClick={e => e.stopPropagation()}>
+        {/* Header — draggable */}
+        <div className="send-harness-header" style={{ cursor: 'grab' }} onPointerDown={onPointerDragStart}>
           <div className="send-harness-title-row">
             <h3>Send to Harness</h3>
             <div className="send-harness-steps">

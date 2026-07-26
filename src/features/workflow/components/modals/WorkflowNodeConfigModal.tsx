@@ -3,29 +3,7 @@ import WorkflowVariableInsertModal from './WorkflowVariableInsertModal';
 import type {
   WorkflowNode,
   HttpNodeData,
-  ConditionNodeData,
-  DelayNodeData,
-  StartNodeData,
-  WebhookTriggerNodeData,
-  ScheduleTriggerNodeData,
-  SwitchNodeData,
-  LoopNodeData,
-  SetVariableNodeData,
-  AggregateNodeData,
-  ErrorHandlerNodeData,
-  LogDebugNodeData,
-  WaitForConditionNodeData,
-  SubWorkflowNodeData,
-  ScriptNodeData,
-  CorrelationWaitNodeData,
-  KafkaProduceNodeData,
-  KafkaConsumeNodeData,
-  KafkaTriggerNodeData,
-  KafkaWaitNodeData,
   WsConnectNodeData,
-  WsSendNodeData,
-  WsReceiveNodeData,
-  WsTriggerNodeData,
   GraphqlQueryNodeData,
   GraphqlSubscriptionNodeData,
   GraphqlIntrospectNodeData,
@@ -41,63 +19,20 @@ import {
 } from '../../utils/workflowVariableHints';
 import { snapshot } from '../../../../shared/utils/helpers';
 import { useVariableInsertModal } from '../../hooks/useVariableInsertModal';
-import HttpConfig from '../configs/HttpConfig';
 import type { HttpTab } from '../configs/HttpConfig';
-import ConditionConfig from '../configs/ConditionConfig';
-import DelayConfig from '../configs/DelayConfig';
-import SwitchConfig from '../configs/SwitchConfig';
-import LoopConfig from '../configs/LoopConfig';
-import SetVariableConfig from '../configs/SetVariableConfig';
-import AggregateConfig from '../configs/AggregateConfig';
-import ErrorHandlerConfig from '../configs/ErrorHandlerConfig';
-import LogDebugConfig from '../configs/LogDebugConfig';
-import WaitForConditionConfig from '../configs/WaitForConditionConfig';
-import SubWorkflowConfig from '../configs/SubWorkflowConfig';
 import type { WorkflowPickerItem } from '../configs/SubWorkflowConfig';
-import ScriptConfig from '../configs/ScriptConfig';
-import CorrelationWaitConfig from '../configs/CorrelationWaitConfig';
-import WebhookConfig from '../configs/WebhookConfig';
-import ScheduleConfig from '../configs/ScheduleConfig';
-import KafkaProduceConfig from '../configs/KafkaProduceConfig';
-import KafkaConsumeConfig from '../configs/KafkaConsumeConfig';
-import KafkaTriggerConfig from '../configs/KafkaTriggerConfig';
-import KafkaWaitConfig from '../configs/KafkaWaitConfig';
-import WsConnectConfig from '../configs/WsConnectConfig';
-import WsSendConfig from '../configs/WsSendConfig';
-import WsReceiveConfig from '../configs/WsReceiveConfig';
-import WsTriggerConfig from '../configs/WsTriggerConfig';
-import GraphqlQueryConfigPanel from '../../../graphql/components/GraphqlQueryConfigPanel';
-import GraphqlSubscriptionConfigPanel from '../../../graphql/components/GraphqlSubscriptionConfigPanel';
-import GraphqlIntrospectConfigPanel from '../../../graphql/components/GraphqlIntrospectConfigPanel';
-import GraphqlAssertConfigPanel from '../../../graphql/components/GraphqlAssertConfigPanel';
-import GrpcLoadTestConfig from '../configs/GrpcLoadTestConfig';
-import GrpcSchemaDiffConfig from '../configs/GrpcSchemaDiffConfig';
-import GrpcMockAssertConfig from '../configs/GrpcMockAssertConfig';
-import GrpcUnaryConfig from '../configs/GrpcUnaryConfig';
-import GrpcServerStreamConfig from '../configs/GrpcServerStreamConfig';
-import GrpcAssertConfig from '../configs/GrpcAssertConfig';
 import {
   hasGraphqlNodeConfigErrors,
   isGraphqlWorkflowNodeType,
 } from '../../../graphql/utils/graphqlPanelHelpers';
-import VariablesSection from '../panels/VariablesSection';
 import NodeConfigInputTab from '../configs/NodeConfigInputTab';
 import NodeConfigOutputTab from '../configs/NodeConfigOutputTab';
 import NodeConfigLogsTab from '../configs/NodeConfigLogsTab';
 import WorkflowEditorModalFrame from './WorkflowEditorModalFrame';
+import WorkflowNodeConfigTypePanels from './WorkflowNodeConfigTypePanels';
 import type { ExtractionFetchSampleProps } from '../../../requests/components/ExtractionEditor';
 import { useWorkflowValidationFetch } from '../../hooks/useWorkflowValidationFetch';
 import type { Environment, Scenario, GlobalAuthProfile } from '../../../../shared/types';
-import type {
-  GrpcAssertNodeData,
-  GrpcServerStreamNodeData,
-  GrpcUnaryNodeData,
-} from '../../types/workflow/node-grpc';
-import type {
-  GrpcLoadTestNodeData,
-  GrpcMockAssertNodeData,
-  GrpcSchemaDiffNodeData,
-} from '../../types/workflow/node-grpc-advanced';
 
 type ConfigPanelTab = 'config' | 'input' | 'output' | 'logs';
 
@@ -125,6 +60,17 @@ const NODE_TYPE_LABELS: Record<string, string> = {
 function formatNodeTypeLabel(type: string): string {
   return NODE_TYPE_LABELS[type] ?? type.replace(/([A-Z])/g, ' $1').trim();
 }
+
+// Per-node-type modal height modifier. Applied to the dialog frame (not the tab body)
+// so the modal keeps a constant, content-snug height across all four tabs.
+const COMPACT_MODAL_HEIGHT_CLASS: Record<string, string> = {
+  logDebug: 'wf-config-modal--h-logdebug',
+  loop: 'wf-config-modal--h-loop',
+  condition: 'wf-config-modal--h-condition',
+  fork: 'wf-config-modal--h-forkjoin',
+  join: 'wf-config-modal--h-forkjoin',
+  end: 'wf-config-modal--h-forkjoin',
+};
 
 interface Props {
   node: WorkflowNode;
@@ -307,9 +253,18 @@ export default function WorkflowNodeConfigModal({
   const title = nodeUserLabel && nodeUserLabel !== nodeTypeLabel
     ? `${nodeTypeLabel} — ${nodeUserLabel}`
     : nodeTypeLabel;
-  const dialogClassName = isGraphqlNode
-    ? 'wf-config-modal wf-config-modal--gql'
-    : 'wf-config-modal';
+  // Node types whose config body hugs content — give the whole modal a stable, snug
+  // height that stays constant across the Config/Input/Output/Logs tabs. A tab-scoped
+  // `:has([data-testid="…-config"])` rule only applies on the Config tab (the body
+  // unmounts on other tabs), so the modal would otherwise jump to the default size.
+  const compactHeightClass = COMPACT_MODAL_HEIGHT_CLASS[node.type];
+  const dialogClassName = [
+    'wf-config-modal',
+    isGraphqlNode ? 'wf-config-modal--gql' : '',
+    compactHeightClass ?? '',
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   return (
     <>
@@ -358,23 +313,33 @@ export default function WorkflowNodeConfigModal({
         )}
       >
           <div>
-            {panelTab === 'config' && (<>
-            {isHttpWorkflowNode(draftNode) && (
-              <HttpConfig
-                data={draftNode.data as HttpNodeData}
-                onChange={(patch) => updateDraft(patch)}
-                activeTab={httpTab}
-                onTabChange={setHttpTab}
-                lastRunError={lastRunStepError ?? undefined}
-                lastQuickTestRequestUrl={lastQuickTestRequestUrl}
-                effectiveQuickTestBaseUrl={draftEffectiveBaseUrl}
-                extractionSampleResponseBody={extractionSampleResponseBody}
-                extractionFetchSample={extractionFetchSample}
-                variableHints={draftVariableHints}
-                onRequestVariableInsert={requestVariableInsert}
+            {panelTab === 'config' && (
+              <WorkflowNodeConfigTypePanels
+                draftNode={draftNode}
+                draft={draft}
+                updateDraft={updateDraft}
+                workflowVariables={workflowVariables}
+                runtimeVariables={runtimeVariables}
+                conditionVariableHints={conditionVariableHints}
+                variableInsertHints={variableInsertHints}
+                draftVariableHints={draftVariableHints}
+                requestVariableInsert={requestVariableInsert}
+                workflows={workflows}
+                workflowId={workflowId}
+                nodeId={node.id}
+                nodeRunStatus={nodeRunStatus}
+                wsConnectionIds={wsConnectionIds}
                 workflowServices={workflowServices}
                 environments={environments}
                 selectedEnvId={selectedEnvId}
+                globalAuthProfiles={globalAuthProfiles}
+                httpTab={httpTab}
+                setHttpTab={setHttpTab}
+                lastRunStepError={lastRunStepError}
+                lastQuickTestRequestUrl={lastQuickTestRequestUrl}
+                draftEffectiveBaseUrl={draftEffectiveBaseUrl}
+                extractionSampleResponseBody={extractionSampleResponseBody}
+                extractionFetchSample={extractionFetchSample}
                 validationProps={{
                   resolvedBaseUrl: draftEffectiveBaseUrl,
                   fetchingResponse: validationFetch.fetchingResponse,
@@ -394,347 +359,12 @@ export default function WorkflowNodeConfigModal({
                   onFetchReplaceAll: validationFetch.handleFetchReplaceAll,
                   onFetchCancel: validationFetch.handleFetchCancel,
                 }}
-              />
-            )}
-
-            {draftNode.type === 'condition' && (
-              <ConditionConfig
-                key={draftNode.id}
-                data={draftNode.data as ConditionNodeData}
-                onChange={(data) => updateDraft(data)}
-                variableHints={conditionVariableHints}
-                onRequestVariableInsert={requestVariableInsert}
-              />
-            )}
-
-            {draftNode.type === 'delay' && (
-              <DelayConfig
-                data={draftNode.data as DelayNodeData}
-                onChange={(data) => updateDraft(data)}
-              />
-            )}
-
-            {draftNode.type === 'start' && (
-              <VariablesSection
-                title="Trigger input variables"
-                hint="Variables seeded when the workflow starts. Available as {{name}} in all downstream steps."
-                variables={(draftNode.data as StartNodeData).inputVariables ?? {}}
-                onUpdateVariables={(vars) => updateDraft({ inputVariables: vars })}
                 newVarKey={newVarKey}
                 setNewVarKey={setNewVarKey}
                 newVarValue={newVarValue}
                 setNewVarValue={setNewVarValue}
-                workflowVariables={workflowVariables}
               />
             )}
-
-            {draftNode.type === 'webhook' && (
-              <WebhookConfig
-                data={draftNode.data as WebhookTriggerNodeData}
-                onChange={updateDraft}
-                workflowId={workflowId}
-                nodeId={node.id}
-              />
-            )}
-
-            {draftNode.type === 'schedule' && (
-              <ScheduleConfig
-                data={draftNode.data as ScheduleTriggerNodeData}
-                onChange={updateDraft}
-                newVarKey={newVarKey}
-                setNewVarKey={setNewVarKey}
-                newVarValue={newVarValue}
-                setNewVarValue={setNewVarValue}
-                workflowVariables={workflowVariables}
-              />
-            )}
-
-            {draftNode.type === 'switch' && (
-              <SwitchConfig
-                data={draftNode.data as SwitchNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={conditionVariableHints}
-              />
-            )}
-
-            {draftNode.type === 'loop' && (
-              <LoopConfig
-                data={draftNode.data as LoopNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={conditionVariableHints}
-              />
-            )}
-
-            {draftNode.type === 'setVariable' && (
-              <SetVariableConfig
-                data={draftNode.data as SetVariableNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={conditionVariableHints}
-              />
-            )}
-
-            {draftNode.type === 'aggregate' && (
-              <AggregateConfig
-                data={draftNode.data as AggregateNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={conditionVariableHints}
-              />
-            )}
-
-            {draftNode.type === 'errorHandler' && (
-              <ErrorHandlerConfig
-                data={draftNode.data as ErrorHandlerNodeData}
-                onChange={(data) => updateDraft(data)}
-              />
-            )}
-
-            {draftNode.type === 'logDebug' && (
-              <LogDebugConfig
-                data={draftNode.data as LogDebugNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={conditionVariableHints}
-              />
-            )}
-
-            {draftNode.type === 'waitForCondition' && (
-              <WaitForConditionConfig
-                data={draftNode.data as WaitForConditionNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={conditionVariableHints}
-              />
-            )}
-
-            {draftNode.type === 'subWorkflow' && (
-              <SubWorkflowConfig
-                data={draftNode.data as SubWorkflowNodeData}
-                onChange={(data) => updateDraft(data)}
-                workflows={workflows}
-                currentWorkflowId={workflowId}
-              />
-            )}
-
-            {draftNode.type === 'script' && (
-              <ScriptConfig
-                data={draftNode.data as ScriptNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-                workflowVariables={runtimeVariables ?? workflowVariables}
-              />
-            )}
-
-            {draftNode.type === 'correlationWait' && (
-              <CorrelationWaitConfig
-                data={draftNode.data as CorrelationWaitNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-              />
-            )}
-
-            {draftNode.type === 'kafkaProduce' && (
-              <KafkaProduceConfig
-                data={draftNode.data as KafkaProduceNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-              />
-            )}
-
-            {draftNode.type === 'kafkaConsume' && (
-              <KafkaConsumeConfig
-                data={draftNode.data as KafkaConsumeNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-              />
-            )}
-
-            {draftNode.type === 'kafkaTrigger' && (
-              <KafkaTriggerConfig
-                data={draftNode.data as KafkaTriggerNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-              />
-            )}
-
-            {draftNode.type === 'kafkaWait' && (
-              <KafkaWaitConfig
-                data={draftNode.data as KafkaWaitNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-              />
-            )}
-
-            {draftNode.type === 'wsConnect' && (
-              <WsConnectConfig
-                data={draftNode.data as WsConnectNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-              />
-            )}
-
-            {draftNode.type === 'wsSend' && (
-              <WsSendConfig
-                key={draftNode.id}
-                data={draftNode.data as WsSendNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-                availableConnectionIds={wsConnectionIds}
-              />
-            )}
-
-            {draftNode.type === 'wsReceive' && (
-              <WsReceiveConfig
-                key={draftNode.id}
-                data={draftNode.data as WsReceiveNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                availableConnectionIds={wsConnectionIds}
-                variableHints={variableInsertHints}
-              />
-            )}
-
-            {draftNode.type === 'wsTrigger' && (
-              <WsTriggerConfig
-                data={draftNode.data as WsTriggerNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-              />
-            )}
-
-            {(draftNode.type === 'graphqlQuery' || draftNode.type === 'graphqlMutation') && (
-              <GraphqlQueryConfigPanel
-                data={draftNode.data as GraphqlQueryNodeData}
-                nodeType={draftNode.type as 'graphqlQuery' | 'graphqlMutation'}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-                nodeRunStatus={nodeRunStatus}
-              />
-            )}
-
-            {draftNode.type === 'graphqlSubscription' && (
-              <GraphqlSubscriptionConfigPanel
-                data={draftNode.data as GraphqlSubscriptionNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-                nodeRunStatus={nodeRunStatus}
-              />
-            )}
-
-            {draftNode.type === 'graphqlIntrospect' && (
-              <GraphqlIntrospectConfigPanel
-                data={draftNode.data as GraphqlIntrospectNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-              />
-            )}
-
-            {draftNode.type === 'graphqlAssert' && (
-              <GraphqlAssertConfigPanel
-                data={draftNode.data as GraphqlAssertNodeData}
-                onChange={(data) => updateDraft(data)}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={variableInsertHints}
-                runtimeVariables={runtimeVariables}
-              />
-            )}
-
-            {draftNode.type === 'grpcUnary' && (
-              <GrpcUnaryConfig
-                data={draftNode.data as GrpcUnaryNodeData}
-                onChange={(data) => updateDraft(data)}
-                globalAuthProfiles={globalAuthProfiles}
-                workflowVariables={workflowVariables}
-              />
-            )}
-
-            {draftNode.type === 'grpcServerStream' && (
-              <GrpcServerStreamConfig
-                data={draftNode.data as GrpcServerStreamNodeData}
-                onChange={(data) => updateDraft(data)}
-                globalAuthProfiles={globalAuthProfiles}
-                workflowVariables={workflowVariables}
-              />
-            )}
-
-            {draftNode.type === 'grpcAssert' && (
-              <GrpcAssertConfig
-                data={draftNode.data as GrpcAssertNodeData}
-                onChange={(data) => updateDraft(data)}
-              />
-            )}
-
-            {draftNode.type === 'grpcLoadTest' && (
-              <GrpcLoadTestConfig
-                data={draftNode.data as GrpcLoadTestNodeData}
-                onChange={(data) => updateDraft(data)}
-                globalAuthProfiles={globalAuthProfiles}
-                workflowVariables={workflowVariables}
-              />
-            )}
-
-            {draftNode.type === 'grpcSchemaDiff' && (
-              <GrpcSchemaDiffConfig
-                data={draftNode.data as GrpcSchemaDiffNodeData}
-                onChange={(data) => updateDraft(data)}
-              />
-            )}
-
-            {draftNode.type === 'grpcMockAssert' && (
-              <GrpcMockAssertConfig
-                data={draftNode.data as GrpcMockAssertNodeData}
-                onChange={(data) => updateDraft(data)}
-              />
-            )}
-
-            {/* Generic label editor for fork, join, end nodes */}
-            {(draftNode.type === 'fork' || draftNode.type === 'join' || draftNode.type === 'end') && (
-              <div className="wf-config-section">
-                <label className="wf-config-label">
-                  Label
-                  <input
-                    type="text"
-                    className="wf-config-input"
-                    value={draft.label || ''}
-                    onChange={(e) => updateDraft({ label: e.target.value })}
-                    placeholder={`${draftNode.type.charAt(0).toUpperCase() + draftNode.type.slice(1)} node`}
-                  />
-                  <span className="wf-config-hint">Display name for this {draftNode.type} node</span>
-                </label>
-              </div>
-            )}
-
-            {isHttpWorkflowNode(draftNode) && (
-              <VariablesSection
-                title="Initial Variables (this step)"
-                hint="Per-step values override upstream for the same name."
-                variables={(draftNode.data as HttpNodeData).initialVariables ?? {}}
-                onUpdateVariables={(vars) => updateDraft({ initialVariables: vars })}
-                newVarKey={newVarKey}
-                setNewVarKey={setNewVarKey}
-                newVarValue={newVarValue}
-                setNewVarValue={setNewVarValue}
-                onRequestVariableInsert={requestVariableInsert}
-                variableHints={draftVariableHints}
-                workflowVariables={workflowVariables}
-              />
-            )}
-            </>)}
 
             {panelTab === 'input' && (
               <NodeConfigInputTab hints={inputTabHints} />

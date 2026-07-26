@@ -57,6 +57,14 @@ describe('HttpConfig — basic rendering', () => {
     expect(screen.getByDisplayValue('Get Users')).toBeTruthy();
   });
 
+  it('does not crash when the scenario has no validation object', () => {
+    // Legacy / externally-seeded nodes may omit `scenario.validation` entirely.
+    // Accessing `s.validation.assertions` on undefined used to throw and blank the app.
+    const data = makeHttpData({ scenario: makeScenario({ validation: undefined }) });
+    expect(() => render(<HttpConfig {...defaultProps} data={data} />)).not.toThrow();
+    expect(screen.getByDisplayValue('Get Users')).toBeTruthy();
+  });
+
   it('calls onChange when label changes', () => {
     const onChange = vi.fn();
     render(<HttpConfig {...defaultProps} onChange={onChange} />);
@@ -343,6 +351,16 @@ describe('HttpConfig — basic rendering', () => {
     const urlPreview = document.querySelector('.wf-config-last-req-url-value');
     expect(urlPreview?.textContent).toContain('{{userId}}');
     expect(urlPreview?.textContent).not.toContain('node:');
+  });
+
+  it('resolves template-variable URL using variableHints defaults', () => {
+    const data = makeHttpData({ scenario: makeScenario({ url: '{{baseUrl}}/users/{{userId}}' }) });
+    const hints = [
+      { ref: 'baseUrl', label: 'baseUrl', defaultValue: 'https://api.example.com' },
+    ];
+    render(<HttpConfig {...defaultProps} data={data} variableHints={hints} effectiveQuickTestBaseUrl="http://localhost:3000" />);
+    const urlPreview = document.querySelector('.wf-config-last-req-url-value');
+    expect(urlPreview?.textContent).toBe('https://api.example.com/users/{{userId}}');
   });
 
   it('renders service select label when service is selected', () => {

@@ -2,10 +2,13 @@ import type { RequestCollection, Environment, Microservice, GlobalAuthProfile } 
 import type { CatalogEntry } from '../../catalog/types/catalog';
 import type { Workflow, WorkflowFolder } from '../types/workflow';
 import type { WorkflowHook } from '../hooks/useWorkflows';
+import type { WorkflowPreviewEntry } from '../../../shared/utils/workflowPreviewStorage';
 
 export interface WorkflowDesignerProps {
   collections: RequestCollection[];
   catalogEntries: CatalogEntry[];
+  /** User-local preview endpoints for the palette Catalog tab. */
+  previewEndpoints?: WorkflowPreviewEntry[];
   wfHook: WorkflowHook;
   /**
    * Same Environment + Microservice selection as Harness; Quick Test injects `{{baseUrl}}`.

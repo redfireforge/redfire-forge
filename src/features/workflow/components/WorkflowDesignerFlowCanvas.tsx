@@ -13,6 +13,7 @@ import type { SubWorkflowNodeData, Workflow } from '../types/workflow';
 import type { WorkflowDesignerViewModel } from '../hooks/useWorkflowDesignerController';
 import { nodeTypes, type WorkflowRFNode, type WorkflowRFEdge } from '../utils/workflowNodeFactory';
 import { WorkflowNodeRunContext, WorkflowDebugStepContext } from './panels/WorkflowNodeRunContext';
+import { PublishedCatalogContext } from '../contexts/PublishedCatalogContext';
 import { getNodeMiniMapColor } from '../utils/workflowDesignerUtils';
 import WorkflowExecSummary from './panels/WorkflowExecSummary';
 import VariableContextBadge from './panels/VariableContextBar';
@@ -21,6 +22,7 @@ import WorkflowCanvasControls from './canvas/WorkflowCanvasControls';
 import EmptyCanvasTemplates from './canvas/EmptyCanvasTemplates';
 import OnboardingTooltip from './canvas/OnboardingTooltip';
 import type { EmptyCanvasTemplate } from '../data/emptyCanvasTemplates';
+import type { CatalogFolder } from '../../catalog/types/catalog';
 
 /** Drop overlay, preview banner, React Flow instance, variable badge, and node context menu. */
 export function WorkflowDesignerFlowCanvas({
@@ -83,7 +85,25 @@ export function WorkflowDesignerFlowCanvas({
     onLoadTemplate,
     onBrowseGallery,
     onboarding,
+    catalogEntries = [],
   } = vm;
+
+  const publishedCatalogKeys = useMemo(() => {
+    const keys = new Set<string>();
+    const isPublished = (ep: { workflowPublication?: unknown; workflowExposure?: string }) =>
+      !!(ep.workflowPublication || ep.workflowExposure === 'published');
+    const scanFolders = (folders: CatalogFolder[], entryId: string) => {
+      for (const f of folders) {
+        for (const ep of f.endpoints) if (isPublished(ep)) keys.add(`${entryId}::${ep.id}`);
+        scanFolders(f.folders, entryId);
+      }
+    };
+    for (const entry of catalogEntries) {
+      for (const ep of entry.endpoints) if (isPublished(ep)) keys.add(`${entry.id}::${ep.id}`);
+      scanFolders(entry.folders, entry.id);
+    }
+    return keys;
+  }, [catalogEntries]);
 
   const { getViewport, setViewport, fitView } = useReactFlow();
 
@@ -263,6 +283,7 @@ export function WorkflowDesignerFlowCanvas({
           </div>
         </div>
       )}
+      <PublishedCatalogContext.Provider value={publishedCatalogKeys}>
       <WorkflowNodeRunContext.Provider value={nodeStatuses}>
       <WorkflowDebugStepContext.Provider value={isDebugMode ? handleDebugStep : null}>
         <ReactFlow<WorkflowRFNode, WorkflowRFEdge>
@@ -329,6 +350,7 @@ export function WorkflowDesignerFlowCanvas({
         </ReactFlow>
       </WorkflowDebugStepContext.Provider>
       </WorkflowNodeRunContext.Provider>
+      </PublishedCatalogContext.Provider>
 
       {Object.keys(runVariableSnapshot ?? workflowVariables).length > 0 && (
         <VariableContextBadge variables={runVariableSnapshot ?? workflowVariables} />
