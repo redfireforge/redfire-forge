@@ -24,7 +24,7 @@ vi.mock('./useNodeBase', () => ({
 
 vi.mock('./NodeIcon', () => ({
   NodeIcon: ({ type }: { type: string }) => <div data-testid={`icon-${type}`} />,
-  getNodeCategory: (type: string) => (type === 'kafkaWait' ? 'Integrations' : ''),
+  getNodeCategory: (type: string) => (type === 'kafkaWait' ? 'Kafka' : ''),
 }));
 
 vi.mock('./NodeConfigureButton', () => ({
@@ -152,6 +152,6 @@ describe('KafkaWaitNode', () => {
 
   it('renders getNodeCategory sublabel', () => {
     const { container } = render(<KafkaWaitNode {...makeProps()} />);
-    expect(container.textContent).toContain('Integrations');
+    expect(container.textContent).toContain('Kafka');
   });
 });

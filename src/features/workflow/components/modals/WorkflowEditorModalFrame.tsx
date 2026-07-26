@@ -61,6 +61,8 @@ export default function WorkflowEditorModalFrame({
   expandMode,
   minWidth,
   minHeight,
+  constrainDragToViewport,
+  dragViewportPadding,
 }: Props) {
   const { expanded, setExpanded, toggleExpand, expandClass, overlayStyle, dialogStyle, headerDragStyle, onHeaderMouseDown, onRightEdge, onCorner, onBottomEdge } = useModalFrame({
     open,
@@ -68,6 +70,8 @@ export default function WorkflowEditorModalFrame({
     expandMode,
     minWidth,
     minHeight,
+    constrainDragToViewport,
+    dragViewportPadding,
   });
 
   useEffect(() => {

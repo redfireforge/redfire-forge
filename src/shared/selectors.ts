@@ -20,3 +20,4 @@ export { GQL } from './selectors/gql';
 export { GRPC } from './selectors/grpc';
 export { REQ } from './selectors/req';
 export { CAT } from './selectors/cat';
+export { HAR } from './selectors/har';

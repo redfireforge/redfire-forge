@@ -66,6 +66,7 @@ export default function AppActivityBar({ activeTab, setActiveTab }: AppActivityB
         className={`ab-btn ${domainOf(activeTab) === 'testing' ? 'active' : ''}`}
         onClick={() => { if (!isHarnessTab(activeTab)) setActiveTab('scenarios'); }}
         title="Harness"
+        data-testid="nav-harness"
       >
         <span className="ab-icon">
           <ActivityBarIcon>

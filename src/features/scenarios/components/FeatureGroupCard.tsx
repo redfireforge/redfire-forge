@@ -206,8 +206,8 @@ export default function FeatureGroupCard({
   exportTest,
 }: FeatureGroupCardProps) {
   return (
-    <div className="feature-group-card">
-      <div className="feature-group-header" onClick={() => toggleFeature(fg.id)}>
+    <div className="feature-group-card" data-testid="har-fg-card">
+      <div className="feature-group-header" data-testid="har-fg-expand" onClick={() => toggleFeature(fg.id)}>
         <span className={`expand-icon ${(expandedFeatures.has(fg.id) || isSearching) ? 'expanded' : ''}`}>&#9654;</span>
         {editingFeatureName === fg.id ? (
           <input className="inline-edit-input" autoFocus value={editName}
@@ -215,7 +215,7 @@ export default function FeatureGroupCard({
             onKeyDown={(e) => { if (e.key === 'Enter') renameFeatureGroup(fg.id); if (e.key === 'Escape') setEditingFeatureName(null); }}
             onBlur={() => renameFeatureGroup(fg.id)} />
         ) : (
-          <strong className="feature-group-name">{fg.name}</strong>
+          <strong className="feature-group-name" data-testid="har-fg-name">{fg.name}</strong>
         )}
         {(() => {
           const std = fg.scenarios.filter(sc => sc.kind !== 'parameterized').length;
@@ -251,7 +251,7 @@ export default function FeatureGroupCard({
             className={`btn btn-sm ${editingFeatureAuth === fg.id ? 'btn-active' : ''}`}
             onClick={() => toggleFeatureAuth(fg.id)}
           >Auth</button>
-          <button className="btn btn-sm" onClick={() => { setNamingScenario(fg.id); setNewName(''); }}>+ Scenario</button>
+          <button className="btn btn-sm" data-testid="har-add-scenario-btn" onClick={() => { setNamingScenario(fg.id); setNewName(''); }}>+ Scenario</button>
 
           <button className="btn btn-sm" onClick={() => importScenariosInto(fg.id)} title="Import scenarios into this feature group">Import</button>
           <span className="export-opts-anchor">
@@ -314,7 +314,7 @@ export default function FeatureGroupCard({
                   Parameterized
                 </label>
               </div>
-              <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
+              <input autoFocus data-testid="har-scenario-name-input" value={newName} onChange={(e) => setNewName(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') addScenario(fg.id); if (e.key === 'Escape') setNamingScenario(null); }}
                 placeholder={newScenarioKind === 'standard' ? 'Scenario name (e.g. Happy Path)' : 'Parameterized scenario name (e.g. User Sweep)'} />
               <button className="btn btn-primary btn-sm" onClick={() => addScenario(fg.id)} disabled={!newName.trim()}>Create</button>
@@ -339,6 +339,7 @@ export default function FeatureGroupCard({
             <div
               key={`${fg.id}-${sc.id}`}
               className={`scenario-group-card ${isSelfScDrag ? 'dragging' : ''} ${isScDragOver ? 'drop-target-before' : ''}`}
+              data-testid="har-scenario-card"
               draggable
               onDragStart={(e) => {
                 if (!dragHandleActive.current) { e.preventDefault(); return; }
@@ -360,6 +361,7 @@ export default function FeatureGroupCard({
             >
               <div
                 className="scenario-group-header"
+                data-testid="har-scenario-header"
                 onClick={() => toggleScenario(sc.id)}
                 onContextMenu={(e) => {
                   e.preventDefault();
@@ -455,7 +457,7 @@ export default function FeatureGroupCard({
                     onClick={() => toggleScenarioAuth(fg.id, sc.id)}
                   >Auth</button>
                   {sc.kind !== 'parameterized' && (
-                    <button className="btn btn-sm" onClick={() => startNewTest(fg.id, sc.id)}>+ Test</button>
+                    <button className="btn btn-sm" data-testid="har-add-test-btn" onClick={() => startNewTest(fg.id, sc.id)}>+ Test</button>
                   )}
                   {sc.kind !== 'standard' && (
                     <>
@@ -522,6 +524,7 @@ export default function FeatureGroupCard({
                     <div
                       key={`${fg.id}-${sc.id}-${t.id}`}
                       className={`test-card ${t.dataSource ? 'test-card-parameterized' : ''} ${isSelfTestDrag ? 'dragging' : ''} ${isTestDragOver ? 'drop-target-before' : ''} ${isSearching && testMatches(t) ? 'search-match' : ''}`}
+                      data-testid="har-test-card"
                       draggable
                       onDragStart={(e) => {
                         if (!dragHandleActive.current) { e.preventDefault(); return; }
@@ -586,7 +589,7 @@ export default function FeatureGroupCard({
                         >
                           🎯{(t.slaTargets?.length ?? 0) > 0 ? ` ${t.slaTargets!.length}` : ''}
                         </button>
-                        <button className="btn btn-sm" onClick={() => startEditTest(fg.id, sc.id, t)}>Edit</button>
+                        <button className="btn btn-sm" data-testid="har-test-edit-btn" onClick={() => startEditTest(fg.id, sc.id, t)}>Edit</button>
                         <button className="btn btn-sm" onClick={() => startCopyTest(fg.id, sc.id, t)} title="Copy to another scenario">Copy</button>
                         {!t.dataSource && sc.kind !== 'standard' && (
                           <button className="btn btn-sm" onClick={() => createParameterizedCopy(fg.id, sc.id, t)} title="Create a parameterized copy with data source">Parameterize</button>

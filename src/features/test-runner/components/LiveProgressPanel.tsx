@@ -63,7 +63,7 @@ export default function LiveProgressPanel({
   const executionModeMeta = getExecutionModeMeta(executionMode);
 
   return (
-    <div className="progress-section">
+    <div className="progress-section" data-testid="har-live-progress">
       <div className="progress-header-row">
         <h3>Progress <span className="progress-mode-tag">
           {isArrivalRate && arrivalRate ? (
