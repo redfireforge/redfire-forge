@@ -1,0 +1,436 @@
+/**
+ * TH-19: Schema Drift & Repair
+ *
+ * 5 steps: Drift Banner → Schema Diff Modal →
+ * Repair Suggestions → Accept & Update → Health Dashboard.
+ *
+ * Demonstrates how the Data Mapper detects when the API response
+ * schema changes, classifies severity, suggests repairs, and tracks
+ * mapping quality.
+ */
+import type { DemoLesson, DemoActionContext } from '../../types';
+import { HAR } from '@shared/selectors';
+import {
+  spotlight,
+  seedDemoEnvAndService,
+  deleteTh19DemoFg,
+  seedTh19FeatureGroup,
+  ensureTh19FgExists,
+  injectTh19OldSnapshot,
+  expandFirstFg,
+  expandFirstScenario,
+  isTestEditorOpen,
+  closeTestEditorQuiet,
+  closeInlineNameFormQuiet,
+  closeDataMapperModal,
+  isDataMapperOpen,
+  clickValidationTab,
+  closeDiffModal,
+  isDiffModalOpen,
+  isDriftBannerVisible,
+} from './th-demo-helpers';
+
+/* ── local helpers ──────────────────────────────────────────── */
+
+async function ensureTh19Ready(ctx: DemoActionContext): Promise<void> {
+  await ensureTh19FgExists(ctx);
+  if (!document.querySelector(HAR.FG_CARD)) {
+    ctx.navigateToTab('scenarios');
+    await ctx.delay(500);
+  }
+  await expandFirstFg(ctx);
+  await expandFirstScenario(ctx);
+}
+
+async function openTh19TestEditor(ctx: DemoActionContext): Promise<void> {
+  if (isTestEditorOpen()) return;
+  await expandFirstFg(ctx);
+  await expandFirstScenario(ctx);
+  await ctx.delay(300);
+  const editBtn = document.querySelector<HTMLElement>(HAR.TEST_EDIT_BTN);
+  if (editBtn) {
+    editBtn.click();
+    await ctx.delay(600);
+  }
+}
+
+async function ensureEditorOnValidation(ctx: DemoActionContext): Promise<void> {
+  if (!isTestEditorOpen()) {
+    await openTh19TestEditor(ctx);
+    await ctx.waitFor(HAR.TE_PROP_CARD, 5000);
+    await ctx.delay(400);
+  }
+  await clickValidationTab(ctx);
+}
+
+async function ensureMapperOpen(ctx: DemoActionContext): Promise<void> {
+  if (isDataMapperOpen()) return;
+  await ensureEditorOnValidation(ctx);
+  const mapperBtn = document.querySelector<HTMLElement>(HAR.TE_MAPPER_BTN);
+  if (mapperBtn && !mapperBtn.hasAttribute('disabled')) {
+    mapperBtn.click();
+    await ctx.delay(1200);
+  }
+}
+
+/* ── lesson definition ──────────────────────────────────────── */
+
+export const thSchemaDriftRepairLesson: DemoLesson = {
+  id: 'th-schema-drift-repair',
+  domainId: 'harness',
+  category: 'validation',
+  name: 'Schema Drift & Repair',
+  description:
+    'See how the Data Mapper detects API schema changes, classifies drift severity, ' +
+    'suggests repairs for broken mappings, and tracks quality via the Health Dashboard.',
+  estimatedMinutes: 5,
+  initialTab: 'scenarios',
+  allowedTabs: ['scenarios'],
+
+  concept: {
+    title: 'Schema Drift Detection',
+    body:
+      'APIs evolve — fields get added, removed, renamed, or change type. The Data Mapper ' +
+      'detects these changes automatically by comparing a saved **schema snapshot** against ' +
+      'the current response.\n\n' +
+      '**Drift types:**\n' +
+      '- **Added** (info) — new field in the response\n' +
+      '- **Removed** (breaking) — field disappeared, mappings may break\n' +
+      '- **Type Changed** (warning) — field exists but type differs\n' +
+      '- **Nullable Changed** (info) — field nullability changed\n\n' +
+      '**Repair engine:** For removed fields, fuzzy name matching (Levenshtein distance) ' +
+      'suggests similarly-named new fields as replacements.\n\n' +
+      '**Health Dashboard:** Continuous quality score showing coverage, broken mappings, ' +
+      'drift warnings, and type mismatches.',
+    keyTerms: [
+      { term: 'Schema Snapshot', definition: 'Saved response structure — the baseline for drift comparison.' },
+      { term: 'Drift Detection', definition: 'Automatic comparison between saved snapshot and current response.' },
+      { term: 'Repair Suggestion', definition: 'Fuzzy match recommendation for fixing broken mappings.' },
+      { term: 'Health Dashboard', definition: 'Quality metrics bar: coverage, broken, drift, type mismatches.' },
+    ],
+    diagram: `<svg viewBox="0 0 360 80" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="5" width="80" height="70" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="45" y="20" text-anchor="middle" fill="#3b82f6" font-size="7" font-weight="700">Old Snapshot</text>
+      <text x="45" y="34" text-anchor="middle" fill="#94a3b8" font-size="5">$.userName</text>
+      <text x="45" y="46" text-anchor="middle" fill="#94a3b8" font-size="5">$.age: string</text>
+      <text x="45" y="58" text-anchor="middle" fill="#ef4444" font-size="5">7 fields</text>
+      <path d="M90 40 L120 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th19arr)"/>
+      <rect x="125" y="5" width="100" height="70" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="175" y="20" text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="700">Drift Detection</text>
+      <text x="175" y="34" text-anchor="middle" fill="#a6e3a1" font-size="5">+ metadata.version</text>
+      <text x="175" y="46" text-anchor="middle" fill="#eb6f92" font-size="5">− userName</text>
+      <text x="175" y="58" text-anchor="middle" fill="#f5a623" font-size="5">≠ age: string→number</text>
+      <path d="M230 40 L260 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th19arr)"/>
+      <rect x="265" y="5" width="90" height="70" rx="5" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
+      <text x="310" y="20" text-anchor="middle" fill="#10b981" font-size="7" font-weight="700">Repair</text>
+      <text x="310" y="36" text-anchor="middle" fill="#94a3b8" font-size="5">userName →</text>
+      <text x="310" y="48" text-anchor="middle" fill="#94a3b8" font-size="5">user_name</text>
+      <text x="310" y="62" text-anchor="middle" fill="#94a3b8" font-size="5">(distance: 1)</text>
+      <defs><marker id="th19arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#64748b"/></marker></defs>
+    </svg>`,
+  },
+
+  // ── Setup ────────────────────────────────────────────────────
+  setup: async (ctx) => {
+    ctx.navigateToTab('scenarios');
+    await ctx.delay(300);
+    deleteTh19DemoFg();
+    closeInlineNameFormQuiet();
+    if (isDataMapperOpen()) closeDataMapperModal();
+    await closeTestEditorQuiet(ctx);
+    await ctx.delay(200);
+    await seedDemoEnvAndService(ctx);
+    await seedTh19FeatureGroup(ctx);
+    injectTh19OldSnapshot();
+    await ctx.delay(300);
+    await expandFirstFg(ctx);
+    await expandFirstScenario(ctx);
+  },
+
+  // ── Cleanup ──────────────────────────────────────────────────
+  cleanup: async (ctx) => {
+    closeDiffModal();
+    if (isDataMapperOpen()) closeDataMapperModal();
+    await ctx.delay(200);
+    await closeTestEditorQuiet(ctx);
+    closeInlineNameFormQuiet();
+    deleteTh19DemoFg();
+    delete (window as unknown as Record<string, unknown>).__demoTh19Ids;
+    await ctx.delay(200);
+  },
+
+  steps: [
+    // ── Step 1: Schema Drift Detection ────────────────────────────
+    {
+      id: 'th19-drift-banner',
+      title: 'Schema Drift Detection',
+      description:
+        'Open the Data Mapper and notice the **Drift Banner** at the top — the Data Mapper ' +
+        'saves a schema snapshot every time you click Done. When the API response changes ' +
+        'shape, it detects the differences automatically.\n\n' +
+        'The banner shows:\n' +
+        '- Whether changes are **breaking** (⛔ red — removed fields with active mappings) ' +
+        'or **non-breaking** (⚠ amber — type changes, new fields)\n' +
+        '- A count of changes: added, removed, type changed\n' +
+        '- Three actions: **Show Diff**, **Accept & Update**, or dismiss',
+      highlight: HAR.DRIFT_BANNER,
+
+      preAction: async (ctx) => {
+        await ensureTh19Ready(ctx);
+        closeDiffModal();
+        if (isDataMapperOpen() && !isDriftBannerVisible()) {
+          closeDataMapperModal();
+          await ctx.delay(400);
+          injectTh19OldSnapshot();
+          await ensureMapperOpen(ctx);
+          await ctx.delay(800);
+        } else if (!isDataMapperOpen()) {
+          injectTh19OldSnapshot();
+          await ensureMapperOpen(ctx);
+          await ctx.delay(800);
+        }
+      },
+
+      action: async (ctx) => {
+        const banner = document.querySelector<HTMLElement>(HAR.DRIFT_BANNER);
+        if (!banner) return;
+
+        const title = banner.querySelector<HTMLElement>('.dm-drift-banner-title');
+        if (title) {
+          await spotlight(title, 1200, ctx);
+        }
+
+        const detail = banner.querySelector<HTMLElement>('.dm-drift-banner-detail');
+        if (detail) {
+          await spotlight(detail, 1000, ctx);
+        }
+
+        const actions = banner.querySelector<HTMLElement>('.dm-drift-banner-actions');
+        if (actions) {
+          await spotlight(actions, 1200, ctx);
+        }
+      },
+
+      verify: HAR.DRIFT_BANNER,
+    },
+
+    // ── Step 2: Schema Diff Modal ─────────────────────────────────
+    {
+      id: 'th19-diff-modal',
+      title: 'Schema Diff Modal',
+      description:
+        'Click **Show Diff** to see every schema change in a tabular view. Each row shows:\n\n' +
+        '- **Severity** — 🔴 Breaking (removed field with affected mappings), 🟡 Warning ' +
+        '(type changed), 🟢 Info (added field)\n' +
+        '- **Field Path** — the JSON path that changed\n' +
+        '- **Change Type** — added (+), removed (−), type changed (≠), nullable (~)\n' +
+        '- **Saved vs Current Type** — what the field type was before and after\n' +
+        '- **Affected Mappings** — how many mappings reference this field\n' +
+        '- **Repair** — suggestions for fixing broken mappings',
+      highlight: HAR.DIFF_SHELL,
+
+      preAction: async (ctx) => {
+        await ensureTh19Ready(ctx);
+        if (isDataMapperOpen() && !isDriftBannerVisible()) {
+          closeDataMapperModal();
+          await ctx.delay(400);
+          injectTh19OldSnapshot();
+          await ensureMapperOpen(ctx);
+          await ctx.delay(800);
+        } else if (!isDataMapperOpen()) {
+          injectTh19OldSnapshot();
+          await ensureMapperOpen(ctx);
+          await ctx.delay(800);
+        }
+        if (!isDiffModalOpen()) {
+          const diffBtn = document.querySelector<HTMLElement>(HAR.DRIFT_DIFF_BTN);
+          if (diffBtn) {
+            diffBtn.click();
+            await ctx.delay(600);
+          }
+        }
+      },
+
+      action: async (ctx) => {
+        const modal = document.querySelector<HTMLElement>(HAR.DIFF_SHELL);
+        if (!modal) return;
+
+        const summaryBadges = modal.querySelector<HTMLElement>('.dm-diff-summary-badges');
+        if (summaryBadges) {
+          await spotlight(summaryBadges, 1200, ctx);
+        }
+
+        const table = modal.querySelector<HTMLElement>(HAR.DIFF_TABLE);
+        if (table) {
+          const rows = table.querySelectorAll<HTMLElement>('tbody tr');
+          if (rows.length > 0) {
+            await spotlight(rows[0], 1000, ctx);
+          }
+          if (rows.length > 1) {
+            await spotlight(rows[1], 1000, ctx);
+          }
+        }
+
+        const affected = modal.querySelector<HTMLElement>(HAR.DIFF_AFFECTED);
+        if (affected) {
+          await spotlight(affected, 800, ctx);
+        }
+      },
+
+      verify: HAR.DIFF_SHELL,
+    },
+
+    // ── Step 3: Repair Suggestions ────────────────────────────────
+    {
+      id: 'th19-repair',
+      title: 'Repair Suggestions',
+      description:
+        'The **Repair** column shows suggestions for fixing broken mappings. For removed fields, ' +
+        'the engine uses **Levenshtein fuzzy name matching** to find similarly-named new fields.\n\n' +
+        'For example, if `$.userName` was removed and `$.user_name` was added, the repair ' +
+        'engine suggests the new path with a confidence score (high/medium/low) based on edit ' +
+        'distance.\n\n' +
+        'Click **Apply** on individual suggestions, or use **Apply all repairs** to batch-fix ' +
+        'all recoverable mappings at once.',
+      highlight: HAR.DIFF_SHELL,
+
+      preAction: async (ctx) => {
+        await ensureTh19Ready(ctx);
+        if (isDataMapperOpen() && !isDriftBannerVisible()) {
+          closeDataMapperModal();
+          await ctx.delay(400);
+          injectTh19OldSnapshot();
+          await ensureMapperOpen(ctx);
+          await ctx.delay(800);
+        } else if (!isDataMapperOpen()) {
+          injectTh19OldSnapshot();
+          await ensureMapperOpen(ctx);
+          await ctx.delay(800);
+        }
+        if (!isDiffModalOpen()) {
+          const diffBtn = document.querySelector<HTMLElement>(HAR.DRIFT_DIFF_BTN);
+          if (diffBtn) {
+            diffBtn.click();
+            await ctx.delay(600);
+          }
+        }
+      },
+
+      action: async (ctx) => {
+        const modal = document.querySelector<HTMLElement>(HAR.DIFF_SHELL);
+        if (!modal) return;
+
+        const repairCells = modal.querySelectorAll<HTMLElement>(HAR.DIFF_REPAIR_CELL);
+        for (const cell of repairCells) {
+          const repairBtn = cell.querySelector<HTMLElement>(HAR.REPAIR_BTN);
+          if (repairBtn) {
+            await spotlight(cell, 1200, ctx);
+            break;
+          }
+        }
+
+        const batchBtn = modal.querySelector<HTMLElement>(HAR.REPAIR_BATCH);
+        if (batchBtn) {
+          await spotlight(batchBtn, 1000, ctx);
+        }
+
+        closeDiffModal();
+        await ctx.delay(600);
+      },
+
+      verify: HAR.DRIFT_BANNER,
+    },
+
+    // ── Step 4: Accept & Update Snapshot ──────────────────────────
+    {
+      id: 'th19-accept-update',
+      title: 'Accept & Update Snapshot',
+      description:
+        'Click **Accept & Update** to save the current response schema as the new baseline. ' +
+        'The drift banner dismisses and the mapper returns to normal state.\n\n' +
+        'Future drift comparisons will be against this updated snapshot — not the old one. ' +
+        'Any remaining broken mappings should be fixed manually before saving.\n\n' +
+        'The schema snapshot is automatically updated every time you click Done in the ' +
+        'Data Mapper, so snapshots stay in sync with your latest mappings.',
+      highlight: HAR.DRIFT_BANNER,
+
+      preAction: async (ctx) => {
+        await ensureTh19Ready(ctx);
+        closeDiffModal();
+        if (isDataMapperOpen() && !isDriftBannerVisible()) {
+          closeDataMapperModal();
+          await ctx.delay(400);
+          injectTh19OldSnapshot();
+          await ensureMapperOpen(ctx);
+          await ctx.delay(800);
+        } else if (!isDataMapperOpen()) {
+          injectTh19OldSnapshot();
+          await ensureMapperOpen(ctx);
+          await ctx.delay(800);
+        }
+      },
+
+      action: async (ctx) => {
+        const acceptBtn = document.querySelector<HTMLElement>(HAR.DRIFT_ACCEPT_BTN);
+        if (acceptBtn) {
+          await spotlight(acceptBtn, 1200, ctx);
+          acceptBtn.click();
+          await ctx.delay(1000);
+        }
+
+        if (!isDriftBannerVisible()) {
+          const toolbar = document.querySelector<HTMLElement>(HAR.MAPPER_TOOLBAR);
+          if (toolbar) {
+            await spotlight(toolbar, 800, ctx);
+          }
+        }
+      },
+
+      verify: HAR.MAPPER_TOOLBAR,
+    },
+
+    // ── Step 5: Mapping Health Dashboard ──────────────────────────
+    {
+      id: 'th19-health-dashboard',
+      title: 'Mapping Health Dashboard',
+      description:
+        'The **Health Dashboard** bar sits below the toolbar and provides a continuous ' +
+        'quality score for your validation mappings.\n\n' +
+        'Five metrics at a glance:\n' +
+        '- **Status** — Healthy (green), Warnings (amber), or Broken (red)\n' +
+        '- **Coverage** — percentage of response fields covered by mappings\n' +
+        '- **Broken** — mappings referencing non-existent paths (clickable → opens diff)\n' +
+        '- **Drift** — schema change warnings since last snapshot (clickable → opens diff)\n' +
+        '- **Type mismatches** — source/target type conflicts\n\n' +
+        'Aim for high coverage, zero broken, and zero drift for reliable test results.',
+      highlight: HAR.MAPPER_HEALTH,
+
+      preAction: async (ctx) => {
+        await ensureTh19Ready(ctx);
+        closeDiffModal();
+        if (!isDataMapperOpen()) {
+          await ensureMapperOpen(ctx);
+          await ctx.delay(600);
+        }
+      },
+
+      action: async (ctx) => {
+        const health = document.querySelector<HTMLElement>(HAR.MAPPER_HEALTH);
+        if (!health) return;
+
+        await spotlight(health, 1500, ctx);
+
+        const clickableMetrics = health.querySelectorAll<HTMLElement>('.dm-health-metric--critical, .dm-health-metric--warning');
+        if (clickableMetrics.length > 0) {
+          await spotlight(clickableMetrics[0], 1000, ctx);
+        } else {
+          const status = health.querySelector<HTMLElement>('.dm-health-status');
+          if (status) await spotlight(status, 1000, ctx);
+        }
+      },
+
+      verify: HAR.MAPPER_HEALTH,
+    },
+  ],
+};

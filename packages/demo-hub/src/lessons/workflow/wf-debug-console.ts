@@ -40,8 +40,6 @@ import {
 const WF_NAME = 'Debug Demo';
 const BASE_URL = 'https://jsonplaceholder.typicode.com';
 
-const SAVE_BTN = '.wf-toolbar-save-wrap button';
-
 const SEED_WORKFLOW = {
   name: WF_NAME,
   nodes: [
@@ -147,11 +145,6 @@ function fitCanvasCentered(): void {
   fitWorkflowCanvasView();
 }
 
-function clickSave(): void {
-  const btn = document.querySelector<HTMLElement>(SAVE_BTN);
-  if (btn) btn.click();
-}
-
 async function ensureSeededWorkflow(ctx: DemoActionContext): Promise<void> {
   await waitForWorkflowBridge(ctx);
 
@@ -172,8 +165,6 @@ async function ensureSeededWorkflow(ctx: DemoActionContext): Promise<void> {
   await seedNamedWorkflow(ctx, WF_NAME, SEED_WORKFLOW as Record<string, unknown>);
   await ctx.delay(600);
   fitCanvasCentered();
-  await ctx.delay(600);
-  clickSave();
   await ctx.delay(400);
 }
 
@@ -243,8 +234,6 @@ export const wfDebugConsoleLesson: DemoLesson = {
     await seedNamedWorkflow(ctx, WF_NAME, SEED_WORKFLOW as Record<string, unknown>);
     await ctx.delay(600);
     fitCanvasCentered();
-    await ctx.delay(600);
-    clickSave();
     await ctx.delay(400);
     await collapseWfDemoAppSidebar(ctx);
   },

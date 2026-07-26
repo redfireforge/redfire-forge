@@ -39,6 +39,7 @@ import { kafkaTestRunnerLesson } from './protocols/kafka-test-runner';
 import { graphqlLessons } from './protocols/graphql-lessons';
 import { grpcLessons } from './protocols/grpc-lessons';
 import { apiLessons } from './api';
+import { harnessLessons } from './harness';
 
 // ─── Domains ─────────────────────────────────────────────────────
 
@@ -89,9 +90,16 @@ export const harnessDomain: DemoDomain = {
   id: 'harness',
   name: 'Test Harness',
   icon: '🧪',
-  description: 'SLA validation, parallel runs, and CI/CD integration.',
-  available: false,
-  lessons: [],
+  description: 'Build, validate, and run API test suites with SLA targets, data-driven testing, and CI/CD integration.',
+  available: true,
+  categories: [
+    { id: 'fundamentals', label: 'Fundamentals', icon: '📐' },
+    { id: 'validation',   label: 'Validation & Assertions', icon: '✓' },
+    { id: 'data-driven',  label: 'Data-Driven Testing', icon: '📊' },
+    { id: 'execution',    label: 'Runners & Execution', icon: '▶' },
+    { id: 'analysis',     label: 'Results & Analysis', icon: '📈' },
+  ],
+  lessons: harnessLessons,
 };
 
 // ─── All domains in display order ────────────────────────────────

@@ -116,7 +116,7 @@ export default function RunnerExecutionConfig({
   const effectiveIterations = forceSingleIteration ? 1 : iterations;
 
   return (
-    <div className="execution-group">
+    <div className="execution-group" data-testid="har-exec-config">
       <div className="runner-option-boxes">
         <div className="runner-option-box" style={{ flex: 1 }}>
           <span className="runner-exec-label">Execution Mode:</span>

@@ -238,7 +238,7 @@ export default function ScenarioSelector({
   };
 
   return (
-    <div className="config-form">
+    <div className="config-form" data-testid="har-scenario-selector">
       <div className="selection-header">
         <h3>Select Scenarios to Test</h3>
         <div className="selection-actions">
