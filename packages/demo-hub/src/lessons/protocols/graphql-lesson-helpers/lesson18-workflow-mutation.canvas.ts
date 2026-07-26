@@ -14,6 +14,7 @@ import {
   openWfConsoleIfClosed,
   openWfNodeConfigModal,
   pauseWfConfigSection,
+  revealPaletteBlock,
   saveAndCloseWfConfigModal,
   selectWfConfigOption,
   selectWorkflowFromAppSidebar,
@@ -125,9 +126,7 @@ async function addLesson18PaletteNode(
   position: { x: number; y: number },
   paletteSelector: string,
 ): Promise<void> {
-  const pal = document.querySelector<HTMLElement>(paletteSelector);
-  pal?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-  await ctx.delay(400);
+  await revealPaletteBlock(ctx, paletteSelector);
   if (!addWorkflowNodeWithPreset(type, nodeId, label, position)) {
     await ctx.click(paletteSelector);
   }
@@ -462,6 +461,7 @@ export async function ensureLesson18DeleteNodeAdded(ctx: DemoActionContext): Pro
 
   if (!isLesson18DeleteOnCanvas()) {
     if (!addWorkflowNodeWithPreset('graphqlMutation', LESSON18_NODE_DELETE, 'Delete User', { x: 780, y: 280 })) {
+      await revealPaletteBlock(ctx, WF.PAL_GQL_MUTATION, { quiet: true });
       await ctx.click(WF.PAL_GQL_MUTATION);
       await ctx.delay(600);
     }
@@ -482,9 +482,7 @@ export async function demonstrateLesson18DeleteNodeAdded(ctx: DemoActionContext)
     return;
   }
 
-  const pal = document.querySelector<HTMLElement>(WF.PAL_GQL_MUTATION);
-  pal?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-  await ctx.delay(400);
+  await revealPaletteBlock(ctx, WF.PAL_GQL_MUTATION);
   await ctx.click(WF.PAL_GQL_MUTATION);
   await ctx.waitFor(LESSON18_DELETE_NODE_SELECTOR);
   await ctx.delay(400);

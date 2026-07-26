@@ -1,5 +1,6 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { AffectedWorkflowInfo } from '../utils/workflowExposureScanner';
+import type { WorkflowPublication } from '../types/catalog';
 
 export interface UnpublishRequest {
   endpointLabel: string;
@@ -8,6 +9,7 @@ export interface UnpublishRequest {
   entryId: string;
   endpointId: string;
   affected: AffectedWorkflowInfo[];
+  publication?: WorkflowPublication;
 }
 
 interface Props {
@@ -19,6 +21,12 @@ interface Props {
 
 export default function UnpublishConfirmDialog({ request, onPaletteOnly, onPaletteAndWorkflows, onCancel }: Props) {
   const [removing, setRemoving] = useState(false);
+
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
+    document.addEventListener('keydown', handleEsc);
+    return () => document.removeEventListener('keydown', handleEsc);
+  }, [onCancel]);
 
   const totalNodes = request.affected.reduce((sum, a) => sum + a.nodeIds.length, 0);
 
@@ -40,6 +48,18 @@ export default function UnpublishConfirmDialog({ request, onPaletteOnly, onPalet
             <strong>{request.affected.length}</strong> workflow{request.affected.length > 1 ? 's' : ''}{' '}
             ({totalNodes} node{totalNodes > 1 ? 's' : ''} total).
           </p>
+          {request.publication && (
+            <div className="sw-unpublish-pub-meta">
+              <span className="sw-publish-pub-date" data-testid="unpublish-pub-date">
+                Published {new Date(request.publication.publishedAt).toLocaleDateString()}
+              </span>
+              {request.publication.note && (
+                <span className="sw-publish-pub-note" data-testid="unpublish-pub-note">
+                  Note: {request.publication.note}
+                </span>
+              )}
+            </div>
+          )}
 
           <div className="sw-unpublish-list">
             {request.affected.map(a => (

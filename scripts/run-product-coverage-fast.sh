@@ -20,8 +20,10 @@ product_coverage_ensure_batch_dirs
 
 # Run shards in parallel using Vitest's --shard flag
 echo "▶ Starting $SHARDS coverage shards in parallel..."
-SHARD_DIR="coverage/.tmp/shards"
-rm -rf "$SHARD_DIR" && mkdir -p "$SHARD_DIR"
+RUN_ID="run-$(date +%s)-$$"
+SHARD_DIR="coverage/.tmp/shards/$RUN_ID"
+mkdir -p "$SHARD_DIR"
+echo "  Shard output dir: $SHARD_DIR"
 
 PIDS=()
 for i in $(seq 1 "$SHARDS"); do
@@ -48,15 +50,85 @@ done
 BATCH_END=$(date +%s)
 echo "  All shards done in $((BATCH_END - START_TIME))s ($FAILURES non-zero exits)"
 
+# Newer Vitest/V8 runs can emit many coverage-*.json fragments in nested
+# shard temp dirs (e.g. s1/.tmp-1-4/) instead of a top-level coverage-final.json.
+# Normalize each shard output so downstream checks/merge stay stable.
+echo "▶ Normalizing shard coverage fragments..."
+node -e "
+const fs = require('fs');
+const path = require('path');
+const libCoverage = require('istanbul-lib-coverage');
+const shardDir = '$SHARD_DIR';
+const numShards = $SHARDS;
+
+function walkFiles(dir, out = []) {
+  if (!fs.existsSync(dir)) return out;
+  for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, ent.name);
+    if (ent.isDirectory()) {
+      walkFiles(p, out);
+    } else {
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+for (let i = 1; i <= numShards; i++) {
+  const shardPath = path.join(shardDir, 's' + i);
+  if (!fs.existsSync(shardPath)) continue;
+  const finalPath = path.join(shardPath, 'coverage-final.json');
+  if (fs.existsSync(finalPath)) continue;
+
+  const files = walkFiles(shardPath);
+  const fragments = files.filter((f) => {
+    const base = path.basename(f);
+    if (f === finalPath) return false;
+    return /^coverage-(\\d+)\\.json$/.test(base) || base === 'coverage-final.json';
+  });
+
+  if (fragments.length === 0) continue;
+
+  const map = libCoverage.createCoverageMap({});
+  let merged = 0;
+  for (const f of fragments) {
+    try {
+      const raw = JSON.parse(fs.readFileSync(f, 'utf8'));
+      map.merge(libCoverage.createCoverageMap(raw));
+      merged++;
+    } catch {
+      // Ignore malformed fragments and keep merging usable files.
+    }
+  }
+
+  if (merged > 0) {
+    fs.writeFileSync(finalPath, JSON.stringify(map.toJSON(), null, 0));
+    console.log('  normalized shard ' + i + ': merged ' + merged + ' fragment(s)');
+  }
+}
+"
+
 # Check shard outputs
 SHARD_COUNT=0
 for i in $(seq 1 "$SHARDS"); do
-  if [[ -f "$SHARD_DIR/s$i/coverage-final.json" ]]; then
-    SIZE=$(stat -f '%z' "$SHARD_DIR/s$i/coverage-final.json" 2>/dev/null || stat --printf='%s' "$SHARD_DIR/s$i/coverage-final.json" 2>/dev/null || echo "0")
+  SHARD_FINAL="$SHARD_DIR/s$i/coverage-final.json"
+  if [[ ! -f "$SHARD_FINAL" ]]; then
+    # Fallback: some providers may place a final map in nested temp dirs.
+    NESTED_FINAL=$(find "$SHARD_DIR/s$i" -type f -name 'coverage-final.json' 2>/dev/null | head -n 1 || true)
+    if [[ -n "$NESTED_FINAL" ]]; then
+      cp "$NESTED_FINAL" "$SHARD_FINAL"
+    fi
+  fi
+
+  if [[ -f "$SHARD_FINAL" ]]; then
+    SIZE=$(stat -f '%z' "$SHARD_FINAL" 2>/dev/null || stat --printf='%s' "$SHARD_FINAL" 2>/dev/null || echo "0")
     echo "  ✓ shard $i: $(( SIZE / 1048576 ))MB"
     ((SHARD_COUNT++)) || true
   else
-    echo "  ✗ shard $i: coverage-final.json MISSING (check $SHARD_DIR/s$i/vitest.log)"
+    echo "  ✗ shard $i: coverage-final.json MISSING"
+    echo "    log: $SHARD_DIR/s$i/vitest.log"
+    echo "    files:"
+    find "$SHARD_DIR/s$i" -maxdepth 3 -type f | sed 's/^/      - /' | head -n 20 || true
   fi
 done
 

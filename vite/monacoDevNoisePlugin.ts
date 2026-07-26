@@ -28,6 +28,11 @@ function isMonacoSourcemapLog(message: string): boolean {
     || (message.includes('Failed to load source map') && message.includes('monaco-editor'));
 }
 
+function isExpectedProxyNoise(message: string): boolean {
+  return message.includes('http proxy error:')
+    || message.includes('[vite] http proxy error:');
+}
+
 /**
  * Monaco packages ship broken sourcemaps (missing `src/` and `.map` peers).
  * Serve stripped JS and stub `.map` files before Vite parses sourcemap comments.
@@ -74,6 +79,7 @@ export function monacoDevNoisePlugin(): Plugin {
 /** Wrap Vite's logger to drop known Monaco sourcemap warnings (dev + vitest). */
 export function createMonacoAwareLogger(baseLogger?: Logger): Logger {
   const logger = baseLogger ?? createLogger();
+  const suppressProxyNoise = process.env.VITE_SUPPRESS_PROXY_ERRORS === '1';
   const wrap = (method: 'warn' | 'warnOnce' | 'info') => {
     const original = logger[method].bind(logger);
     logger[method] = (msg, options) => {
@@ -83,6 +89,18 @@ export function createMonacoAwareLogger(baseLogger?: Logger): Logger {
       original(msg, options);
     };
   };
+
+  const originalError = logger.error.bind(logger);
+  logger.error = (msg, options) => {
+    if (typeof msg === 'string' && isMonacoSourcemapLog(msg)) {
+      return;
+    }
+    if (suppressProxyNoise && typeof msg === 'string' && isExpectedProxyNoise(msg)) {
+      return;
+    }
+    originalError(msg, options);
+  };
+
   wrap('warn');
   wrap('warnOnce');
   wrap('info');

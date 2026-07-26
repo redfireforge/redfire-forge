@@ -226,32 +226,37 @@ test.describe('Execution Mode Selector', () => {
   });
 
   test('execution mode selector exists on scenarios tab', async ({ page }) => {
-    // Look for execution mode dropdown - should be in the scenarios interface
-    // May need to wait for scenarios to load first
     await page.waitForLoadState('networkidle');
-    
-    // Look for any select that might contain execution modes
-    const allSelects = page.locator('select');
-    const selectCount = await allSelects.count();
-    
-    // Just verify selects exist on the page (execution mode is one of them)
-    expect(selectCount).toBeGreaterThan(0);
+
+    // Scenarios page may be empty for the seeded env/svc pair, so assert on
+    // stable controls that are always present in this tab context.
+    const featureGroupsTab = page.getByRole('button', { name: 'Feature Groups' })
+      .or(page.locator('.builder-tab[title*="Feature Group"]'));
+    const testRunnerTab = page.getByRole('button', { name: 'Test Runner' })
+      .or(page.locator('.builder-tab[title*="Test Runner"]'));
+    await expect(featureGroupsTab.first()).toBeVisible();
+    await expect(testRunnerTab.first()).toBeVisible();
+    await expect(page.getByRole('button', { name: '+ Add Feature Group' })).toBeVisible();
+
+    // Header environment/service selectors now use CustomSelect wrappers.
+    await expect(page.getByTestId('header-env-select').locator('.cs-trigger')).toBeVisible();
+    await expect(page.getByTestId('header-svc-select').locator('.cs-trigger')).toBeVisible();
   });
 
   test('can interact with select elements on scenarios tab', async ({ page }) => {
     await page.waitForLoadState('networkidle');
-    
-    const selects = page.locator('select');
-    const count = await selects.count();
-    
-    if (count > 0) {
-      // Try first select
-      const firstSelect = selects.first();
-      if (await firstSelect.isVisible()) {
-        const options = await firstSelect.locator('option').count();
-        expect(options).toBeGreaterThan(0);
-      }
-    }
+
+    const envSelect = page.getByTestId('header-env-select');
+    await envSelect.locator('.cs-trigger').click();
+    const envItemCount = await page.locator('.cs-menu .cs-item').count();
+    expect(envItemCount).toBeGreaterThan(0);
+    await page.keyboard.press('Escape');
+
+    const svcSelect = page.getByTestId('header-svc-select');
+    await svcSelect.locator('.cs-trigger').click();
+    const svcItemCount = await page.locator('.cs-menu .cs-item').count();
+    expect(svcItemCount).toBeGreaterThan(0);
+    await page.keyboard.press('Escape');
   });
 
   test('execution mode selector is on runner tab', async ({ page }) => {

@@ -19,6 +19,7 @@ import {
   scrollWfConfigFieldIntoView,
   scrollWfConfigModalToTop,
   selectWfConfigOption,
+  revealPaletteBlock,
   waitForWfConfigPanel,
 } from '../wf-demo-helpers';
 import type { GrpcDemoLesson } from './grpc-lesson-contract';
@@ -201,11 +202,7 @@ export const grpcWorkflowIntegrationSteps: GrpcDemoLesson['steps'] = [
     },
     action: async (ctx) => {
       // Spotlight the palette gRPC Unary block.
-      const unaryBlock = document.querySelector<HTMLElement>(WF.PAL_GRPC_UNARY);
-      if (unaryBlock) {
-        unaryBlock.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(200);
-      }
+      await revealPaletteBlock(ctx, WF.PAL_GRPC_UNARY);
       await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 700);
 
       // Add node via bridge (same as clicking in palette).
@@ -383,11 +380,7 @@ export const grpcWorkflowIntegrationSteps: GrpcDemoLesson['steps'] = [
       }
     },
     action: async (ctx) => {
-      const assertBlock = document.querySelector<HTMLElement>(WF.PAL_GRPC_ASSERT);
-      if (assertBlock) {
-        assertBlock.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(150);
-      }
+      await revealPaletteBlock(ctx, WF.PAL_GRPC_ASSERT);
       await spotlightAndPause(ctx, WF.PAL_GRPC_ASSERT, 450);
 
       if (!isNodeOnCanvas(WF14_NODE_ASSERT)) {

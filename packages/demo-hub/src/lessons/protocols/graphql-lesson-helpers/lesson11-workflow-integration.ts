@@ -26,6 +26,7 @@ import {
   pauseWfConfigSection,
   saveAndCloseWfConfigModal,
   selectWfConfigOption,
+  revealPaletteBlock,
   startWfDebugRun,
   waitForWfConfigPanel,
 } from '../../wf-demo-helpers';
@@ -278,8 +279,7 @@ export async function ensureLesson11QueryNodeAdded(ctx: DemoActionContext): Prom
   await ensureLesson11WorkflowVariablesConfigured(ctx);
   if (_lesson11QueryAdded && document.querySelector(GQL.WF_CANVAS_QUERY_NODE)) return;
 
-  const pal = document.querySelector<HTMLElement>(WF.PAL_GQL_QUERY);
-  pal?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  await revealPaletteBlock(ctx, WF.PAL_GQL_QUERY);
   await ctx.click(WF.PAL_GQL_QUERY);
   await ctx.delay(600);
   connectWfNodes(WF.NODE_START, WF.NODE_GQL_QUERY, 'out');
@@ -323,8 +323,7 @@ export async function ensureLesson11AssertNodeAdded(ctx: DemoActionContext): Pro
   await ensureLesson11QueryConfigured(ctx);
   if (_lesson11AssertAdded && document.querySelector(GQL.WF_CANVAS_ASSERT_NODE)) return;
 
-  const pal = document.querySelector<HTMLElement>(WF.PAL_GQL_ASSERT);
-  pal?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+  await revealPaletteBlock(ctx, WF.PAL_GQL_ASSERT);
   await ctx.click(WF.PAL_GQL_ASSERT);
   await ctx.delay(600);
   connectWfNodes(WF.NODE_GQL_QUERY, WF.NODE_GQL_ASSERT);

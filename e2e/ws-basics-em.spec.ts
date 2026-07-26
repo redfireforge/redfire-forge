@@ -38,7 +38,7 @@ test.describe('WebSocket Basics — Environment Manager', () => {
     await advanceSteps(page, 2, 90_000);
 
     await expect(page.locator('.env-manager')).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator('[data-env-name="WebSocket Demo"]')).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('.em-env-chip[data-env-name="WebSocket Demo"]').first()).toBeVisible({ timeout: 15_000 });
     await expect(page.locator('[data-svc-name="ws-demo"]')).toBeVisible();
     await expect(page.locator('[data-testid="em-protocol-tab-http"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="em-protocol-tab-websocket"]')).toBeVisible();

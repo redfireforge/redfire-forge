@@ -338,6 +338,15 @@ export function useKafkaState(): UseKafkaStateReturn {
           return;
         }
 
+        // Once the cluster has been unreachable for the full failure-streak budget,
+        // stop auto-polling — otherwise a dead backend emits a 502 to the console
+        // every 30s indefinitely. Re-selecting the cluster or reconnecting bumps
+        // refreshNonce, which re-runs this effect and resumes polling.
+        if (statusPollFailureStreakRef.current >= STATUS_POLL_MAX_FAILURE_STREAK) {
+          clearPollTimer();
+          return;
+        }
+
         schedulePoll(nextBackoffDelayMs(statusPollFailureStreakRef.current));
       }, delayMs);
     };
