@@ -313,6 +313,7 @@ export async function seedTh3FeatureGroup(ctx: DemoActionContext): Promise<void>
         method: 'GET',
         url: TH3_TEST_URL,
         headers: [{ key: 'Accept', value: 'application/json' }],
+        auth: { type: 'none' },
         assertions: { statusCode: '' },
         validation: {
           mode: 'selective',

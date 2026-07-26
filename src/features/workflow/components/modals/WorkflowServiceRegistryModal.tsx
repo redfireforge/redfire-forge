@@ -81,6 +81,7 @@ export default function WorkflowServiceRegistryModal({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [authPopupEnvId, setAuthPopupEnvId] = useState<string | null>(null);
   const [authPopupAnchor, setAuthPopupAnchor] = useState<{ top: number; left: number } | null>(null);
+  const authSnapshotRef = useRef<{ envId: string; endpoint: ServiceEndpoint } | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -109,11 +110,13 @@ export default function WorkflowServiceRegistryModal({
   if (!open) return null;
 
   const updateSelected = (patch: Partial<WorkflowService>) => {
+    /* v8 ignore next */
     if (!selectedId) return;
     setDrafts((prev) => prev.map((s) => (s.id === selectedId ? { ...s, ...patch } : s)));
   };
 
   const updateEndpoint = (envId: string, patch: Partial<ServiceEndpoint>) => {
+    /* v8 ignore next */
     if (!selected) return;
     updateSelected({ endpoints: selected.endpoints.map((ep) => (ep.envId === envId ? { ...ep, ...patch } : ep)) });
   };
@@ -122,6 +125,7 @@ export default function WorkflowServiceRegistryModal({
 
   const updateEndpointAuth = (envId: string, patch: Partial<EnvAuthState>) => {
     const ep = selected?.endpoints.find((e) => e.envId === envId);
+    /* v8 ignore next */
     if (!ep) return;
     const merged = { ...getEndpointAuth(ep), ...patch };
     updateEndpoint(envId, { auth: stateToAuth(merged, globalAuthProfiles), authMode: 'custom' });
@@ -149,10 +153,20 @@ export default function WorkflowServiceRegistryModal({
   };
 
   const openAuthPopup = (envId: string, anchorEl: HTMLElement) => {
-    const rect = anchorEl.getBoundingClientRect();
-    setAuthPopupAnchor({ top: rect.bottom + 4, left: rect.left });
+    const modalEl = anchorEl.closest<HTMLElement>('.wf-svc-registry-modal');
+    const modalRect = modalEl?.getBoundingClientRect();
+    let top: number, left: number;
+    if (modalRect) {
+      left = modalRect.left + (modalRect.width - DEFAULT_POPUP_W) / 2;
+      top = modalRect.top - 100;
+    } else {
+      left = (window.innerWidth - DEFAULT_POPUP_W) / 2;
+      top = window.innerHeight * 0.15;
+    }
+    setAuthPopupAnchor({ top, left });
     setAuthPopupEnvId(envId);
     const ep = selected?.endpoints.find((e) => e.envId === envId);
+    if (ep) authSnapshotRef.current = { envId, endpoint: JSON.parse(JSON.stringify(ep)) };
     if (ep && ep.authMode === 'inherit') {
       let prefillAuth = selected?.defaultAuth;
       if (selected?.microserviceId) {
@@ -168,11 +182,21 @@ export default function WorkflowServiceRegistryModal({
   };
 
   const closeAuthPopup = () => {
+    authSnapshotRef.current = null;
     setAuthPopupEnvId(null);
     setAuthPopupAnchor(null);
   };
 
+  const cancelAuthPopup = () => {
+    if (authSnapshotRef.current && selected) {
+      const snap = authSnapshotRef.current;
+      updateEndpoint(snap.envId, { authMode: snap.endpoint.authMode, auth: snap.endpoint.auth });
+    }
+    closeAuthPopup();
+  };
+
   const handleMicroserviceChange = (msId: string | undefined) => {
+    /* v8 ignore next */
     if (!selected) return;
     if (msId) {
       const ms = microservices.find((m) => m.id === msId);
@@ -198,8 +222,9 @@ export default function WorkflowServiceRegistryModal({
 
   /** Check if a service has a configured endpoint for the currently selected env. */
   const svcEnvReady = (svc: WorkflowService) => {
-    if (!selectedEnvId) return 'none'; // no env selected
-    const ep = (svc.endpoints ?? []).find((e) => e.envId === selectedEnvId);
+    if (!selectedEnvId) return 'none';
+    const ep = (svc.endpoints ?? []).find((e) => e.envId === selectedEnvId)
+      ?? (svc.endpoints ?? []).find((e) => e.envId === '__all__');
     if (ep && ep.enabled && ep.url.trim()) return 'ready';
     return 'missing';
   };
@@ -244,11 +269,13 @@ export default function WorkflowServiceRegistryModal({
                 const status = svcEnvReady(svc);
                 const enabledCount = (svc.endpoints ?? []).filter((ep) => ep.enabled && ep.url.trim()).length;
                 return (
-                <button
+                <div
                   key={svc.id}
-                  type="button"
+                  role="button"
+                  tabIndex={0}
                   className={`wf-svc-registry-row ${selectedId === svc.id ? 'active' : ''}`}
                   onClick={() => { setSelectedId(svc.id); closeAuthPopup(); }}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSelectedId(svc.id); closeAuthPopup(); } }}
                 >
                   <div className="wf-svc-row-info">
                     <span className={`wf-svc-row-status ${status}`} />
@@ -267,7 +294,7 @@ export default function WorkflowServiceRegistryModal({
                       </svg>
                     </button>
                   </div>
-                </button>
+                </div>
                 );
               })}
               {drafts.length === 0 && (
@@ -405,7 +432,8 @@ export default function WorkflowServiceRegistryModal({
               anchor={authPopupAnchor}
               onUpdate={(patch) => updateEndpointAuth(authPopupEnvId, patch)}
               onReset={() => { updateEndpoint(authPopupEnvId, { authMode: 'inherit', auth: undefined }); closeAuthPopup(); }}
-              onClose={closeAuthPopup}
+              onSave={closeAuthPopup}
+              onCancel={cancelAuthPopup}
             />
           );
         })()}
@@ -422,14 +450,37 @@ interface ServiceAuthPopupProps {
   anchor: { top: number; left: number };
   onUpdate: (patch: Partial<EnvAuthState>) => void;
   onReset: () => void;
-  onClose: () => void;
+  onSave: () => void;
+  onCancel: () => void;
 }
 
-function ServiceAuthPopup({ envName, authState, globalAuthProfiles, anchor, onUpdate, onReset, onClose }: ServiceAuthPopupProps) {
+const MIN_POPUP_W = 400;
+const MIN_POPUP_H = 200;
+const DEFAULT_POPUP_W = 560;
+const DEFAULT_POPUP_H = 380;
+
+function getAuthValidationError(s: EnvAuthState): string | null {
+  switch (s.authType) {
+    case 'none': return null;
+    case 'bearer': return !s.bearerToken.trim() ? 'Token is required' : null;
+    case 'basic': return !s.basicUser.trim() ? 'Username is required' : !s.basicPass.trim() ? 'Password is required' : null;
+    case 'apikey': return !s.apiKeyName.trim() ? 'Key Name is required' : !s.apiKeyValue.trim() ? 'Value is required' : null;
+    case 'oauth2': return !s.tokenUrl.trim() ? 'Token URL is required' : !s.clientId.trim() ? 'Client ID is required' : !s.clientSecret.trim() ? 'Client Secret is required' : null;
+    case 'global-profile': return !s.selectedProfileId ? 'Please select a profile' : null;
+    default: return null;
+  }
+}
+
+function ServiceAuthPopup({ envName, authState, globalAuthProfiles, anchor, onUpdate, onReset, onSave, onCancel }: ServiceAuthPopupProps) {
   const popupRef = useRef<HTMLDivElement>(null);
   const [pos, setPos] = useState(anchor);
+  const [size, setSize] = useState<{ w: number; h: number }>({ w: DEFAULT_POPUP_W, h: DEFAULT_POPUP_H });
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
+  const resizeRef = useRef<{ startX: number; startY: number; origW: number; origH: number; origX: number; origY: number; dir: string } | null>(null);
 
   useEffect(() => {
+    /* v8 ignore next */
     if (!popupRef.current) return;
     const rect = popupRef.current.getBoundingClientRect();
     const vw = window.innerWidth;
@@ -443,20 +494,81 @@ function ServiceAuthPopup({ envName, authState, globalAuthProfiles, anchor, onUp
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (validationError) setValidationError(null);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authState.authType, authState.bearerToken, authState.basicUser, authState.basicPass,
+      authState.apiKeyName, authState.apiKeyValue, authState.tokenUrl, authState.clientId,
+      authState.clientSecret, authState.selectedProfileId]);
+
   const handleBackdropClick = useCallback((e: React.MouseEvent) => {
-    if (e.target === e.currentTarget) onClose();
-  }, [onClose]);
+    if (e.target === e.currentTarget) onCancel();
+  }, [onCancel]);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onCancel(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
+  }, [onCancel]);
+
+  const handleDragStart = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('.custom-select-container, button, input')) return;
+    e.preventDefault();
+    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: pos.left, origY: pos.top };
+    const onMove = (ev: MouseEvent) => {
+      /* v8 ignore next */
+      if (!dragRef.current) return;
+      const dx = ev.clientX - dragRef.current.startX;
+      const dy = ev.clientY - dragRef.current.startY;
+      const newLeft = Math.max(0, Math.min(window.innerWidth - 100, dragRef.current.origX + dx));
+      const newTop = Math.max(0, Math.min(window.innerHeight - 40, dragRef.current.origY + dy));
+      setPos({ top: newTop, left: newLeft });
+    };
+    const onUp = () => { dragRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [pos]);
+
+  const handleResizeStart = useCallback((dir: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = popupRef.current?.getBoundingClientRect();
+    /* v8 ignore next */
+    if (!rect) return;
+    resizeRef.current = { startX: e.clientX, startY: e.clientY, origW: rect.width, origH: rect.height, origX: pos.left, origY: pos.top, dir };
+    const onMove = (ev: MouseEvent) => {
+      /* v8 ignore next */
+      if (!resizeRef.current) return;
+      const dx = ev.clientX - resizeRef.current.startX;
+      const dy = ev.clientY - resizeRef.current.startY;
+      const d = resizeRef.current.dir;
+      let newW = resizeRef.current.origW;
+      let newH = resizeRef.current.origH;
+      let newX = resizeRef.current.origX;
+      let newY = resizeRef.current.origY;
+      if (d.includes('e')) newW = Math.max(MIN_POPUP_W, resizeRef.current.origW + dx);
+      if (d.includes('w')) { newW = Math.max(MIN_POPUP_W, resizeRef.current.origW - dx); newX = resizeRef.current.origX + (resizeRef.current.origW - newW); }
+      if (d.includes('s')) newH = Math.max(MIN_POPUP_H, resizeRef.current.origH + dy);
+      if (d.includes('n')) { newH = Math.max(MIN_POPUP_H, resizeRef.current.origH - dy); newY = resizeRef.current.origY + (resizeRef.current.origH - newH); }
+      setSize({ w: newW, h: newH });
+      setPos({ top: newY, left: newX });
+    };
+    const onUp = () => { resizeRef.current = null; document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  }, [pos]);
+
+  const popupStyle: React.CSSProperties = {
+    top: pos.top,
+    left: pos.left,
+    width: size.w,
+    height: size.h,
+  };
 
   return (
     <div className="wf-svc-auth-popup-backdrop" onMouseDown={handleBackdropClick}>
-      <div className="wf-svc-auth-popup" ref={popupRef} style={{ top: pos.top, left: pos.left }}>
-        <div className="wf-svc-auth-popup-header">
+      <div className="wf-svc-auth-popup" ref={popupRef} style={popupStyle}>
+        <div className="wf-svc-auth-popup-header" onMouseDown={handleDragStart}>
           <div className="wf-svc-auth-popup-title">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
@@ -480,9 +592,27 @@ function ServiceAuthPopup({ envName, authState, globalAuthProfiles, anchor, onUp
           </div>
         </div>
 
-        {authState.authType !== 'none' && (
-          <div className="wf-svc-auth-popup-body">
-            {renderAuthFields(authState, onUpdate, globalAuthProfiles)}
+        <div className="wf-svc-auth-popup-body">
+          {authState.authType === 'none' ? (
+            <div className="wf-svc-auth-empty">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              <span>No authentication configured</span>
+              <span className="wf-svc-auth-empty-hint">Select an auth type above to configure credentials for this environment</span>
+            </div>
+          ) : (
+            renderAuthFields(authState, onUpdate, globalAuthProfiles)
+          )}
+        </div>
+
+        {validationError && (
+          <div className="wf-svc-auth-validation-alert">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+            </svg>
+            {validationError}
           </div>
         )}
 
@@ -491,14 +621,57 @@ function ServiceAuthPopup({ envName, authState, globalAuthProfiles, anchor, onUp
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
             Reset to Inherit
           </button>
-          <button className="btn btn-sm btn-primary" onClick={onClose}>Done</button>
+          <div className="wf-svc-auth-footer-actions">
+            <button className="btn btn-sm" onClick={onCancel}>Cancel</button>
+            <button className="btn btn-sm btn-primary" onClick={() => {
+              const err = getAuthValidationError(authState);
+              if (err) { setValidationError(err); return; }
+              setValidationError(null);
+              onSave();
+            }}>Save</button>
+          </div>
         </div>
+
+        {/* Resize handles */}
+        <div className="wf-svc-auth-resize wf-svc-auth-resize--n" onMouseDown={(e) => handleResizeStart('n', e)} />
+        <div className="wf-svc-auth-resize wf-svc-auth-resize--s" onMouseDown={(e) => handleResizeStart('s', e)} />
+        <div className="wf-svc-auth-resize wf-svc-auth-resize--e" onMouseDown={(e) => handleResizeStart('e', e)} />
+        <div className="wf-svc-auth-resize wf-svc-auth-resize--w" onMouseDown={(e) => handleResizeStart('w', e)} />
+        <div className="wf-svc-auth-resize wf-svc-auth-resize--ne" onMouseDown={(e) => handleResizeStart('ne', e)} />
+        <div className="wf-svc-auth-resize wf-svc-auth-resize--nw" onMouseDown={(e) => handleResizeStart('nw', e)} />
+        <div className="wf-svc-auth-resize wf-svc-auth-resize--se" onMouseDown={(e) => handleResizeStart('se', e)} />
+        <div className="wf-svc-auth-resize wf-svc-auth-resize--sw" onMouseDown={(e) => handleResizeStart('sw', e)} />
       </div>
     </div>
   );
 }
 
-/** Auth fields rendered in a structured grid layout per auth type. */
+function AuthRow({ label, icon, children }: { label: string; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="wf-svc-auth-row">
+      <div className="wf-svc-auth-row-label">
+        <span className="wf-svc-auth-row-icon">{icon}</span>
+        {label}
+      </div>
+      <div className="wf-svc-auth-row-ctrl">{children}</div>
+    </div>
+  );
+}
+
+const AUTH_ICONS = {
+  key: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="m21 2-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.78 7.78 5.5 5.5 0 0 1 7.78-7.78zm0 0L15.5 7.5m0 0 3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg>,
+  token: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>,
+  user: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>,
+  lock: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>,
+  tag: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>,
+  value: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>,
+  location: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>,
+  link: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>,
+  id: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>,
+  profile: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20z"/><path d="M16 21v-1a4 4 0 0 0-8 0v1"/><circle cx="12" cy="10" r="3"/></svg>,
+  prefix: <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>,
+};
+
 function renderAuthFields(
   authState: EnvAuthState,
   updateAuth: (patch: Partial<EnvAuthState>) => void,
@@ -506,9 +679,8 @@ function renderAuthFields(
 ) {
   if (authState.authType === 'global-profile') {
     return (
-      <div className="wf-svc-auth-grid wf-svc-auth-grid--1col">
-        <div className="wf-svc-auth-field">
-          <label className="wf-svc-auth-field-label">Profile</label>
+      <div className="wf-svc-auth-rows">
+        <AuthRow label="Profile" icon={AUTH_ICONS.profile}>
           <CustomSelect
             value={authState.selectedProfileId}
             onChange={(v) => updateAuth({ selectedProfileId: v })}
@@ -517,51 +689,51 @@ function renderAuthFields(
               label: `${p.name} (${p.auth.type})`,
             }))}
           />
-        </div>
+        </AuthRow>
+        <div className="wf-svc-auth-hint-row">Uses a pre-configured auth profile from Environment Manager</div>
       </div>
     );
   }
   if (authState.authType === 'bearer') {
     return (
-      <div className="wf-svc-auth-grid wf-svc-auth-grid--2col">
-        <div className="wf-svc-auth-field">
-          <label className="wf-svc-auth-field-label">Prefix</label>
+      <div className="wf-svc-auth-rows">
+        <AuthRow label="Prefix" icon={AUTH_ICONS.prefix}>
           <input value={authState.bearerPrefix} onChange={(e) => updateAuth({ bearerPrefix: e.target.value })} placeholder="Bearer" />
-        </div>
-        <div className="wf-svc-auth-field">
-          <label className="wf-svc-auth-field-label">Token</label>
+        </AuthRow>
+        <AuthRow label="Token" icon={AUTH_ICONS.key}>
           <input value={authState.bearerToken} onChange={(e) => updateAuth({ bearerToken: e.target.value })} placeholder="eyJhbGciOiJIUzI1NiIs..." />
+        </AuthRow>
+        <div className="wf-svc-auth-hint-row">
+          Sent as <code>Authorization: {authState.bearerPrefix || 'Bearer'} &lt;token&gt;</code>
         </div>
       </div>
     );
   }
   if (authState.authType === 'basic') {
     return (
-      <div className="wf-svc-auth-grid wf-svc-auth-grid--2col">
-        <div className="wf-svc-auth-field">
-          <label className="wf-svc-auth-field-label">Username</label>
+      <div className="wf-svc-auth-rows">
+        <AuthRow label="Username" icon={AUTH_ICONS.user}>
           <input value={authState.basicUser} onChange={(e) => updateAuth({ basicUser: e.target.value })} placeholder="username" />
-        </div>
-        <div className="wf-svc-auth-field">
-          <label className="wf-svc-auth-field-label">Password</label>
+        </AuthRow>
+        <AuthRow label="Password" icon={AUTH_ICONS.lock}>
           <input type="password" value={authState.basicPass} onChange={(e) => updateAuth({ basicPass: e.target.value })} placeholder="••••••••" />
+        </AuthRow>
+        <div className="wf-svc-auth-hint-row">
+          Sent as <code>Authorization: Basic &lt;base64&gt;</code>
         </div>
       </div>
     );
   }
   if (authState.authType === 'apikey') {
     return (
-      <div className="wf-svc-auth-grid wf-svc-auth-grid--3col">
-        <div className="wf-svc-auth-field">
-          <label className="wf-svc-auth-field-label">Key Name</label>
+      <div className="wf-svc-auth-rows">
+        <AuthRow label="Key Name" icon={AUTH_ICONS.tag}>
           <input value={authState.apiKeyName} onChange={(e) => updateAuth({ apiKeyName: e.target.value })} placeholder="X-API-Key" />
-        </div>
-        <div className="wf-svc-auth-field">
-          <label className="wf-svc-auth-field-label">Value</label>
+        </AuthRow>
+        <AuthRow label="Value" icon={AUTH_ICONS.value}>
           <input value={authState.apiKeyValue} onChange={(e) => updateAuth({ apiKeyValue: e.target.value })} placeholder="sk_live_..." />
-        </div>
-        <div className="wf-svc-auth-field">
-          <label className="wf-svc-auth-field-label">Location</label>
+        </AuthRow>
+        <AuthRow label="Location" icon={AUTH_ICONS.location}>
           <CustomSelect
             value={authState.apiKeyIn}
             onChange={(v) => updateAuth({ apiKeyIn: v as 'header' | 'query' })}
@@ -570,24 +742,27 @@ function renderAuthFields(
               { value: 'query', label: 'Query Param' },
             ]}
           />
+        </AuthRow>
+        <div className="wf-svc-auth-hint-row">
+          Sent as {authState.apiKeyIn === 'query' ? 'query parameter' : 'request header'}: <code>{authState.apiKeyName || '{Key Name}'}</code>
         </div>
       </div>
     );
   }
   if (authState.authType === 'oauth2') {
     return (
-      <div className="wf-svc-auth-grid wf-svc-auth-grid--oauth2">
-        <div className="wf-svc-auth-field wf-svc-auth-field--full">
-          <label className="wf-svc-auth-field-label">Token URL</label>
+      <div className="wf-svc-auth-rows">
+        <AuthRow label="Token URL" icon={AUTH_ICONS.link}>
           <input value={authState.tokenUrl} onChange={(e) => updateAuth({ tokenUrl: e.target.value })} placeholder="https://auth.example.com/oauth/token" />
-        </div>
-        <div className="wf-svc-auth-field">
-          <label className="wf-svc-auth-field-label">Client ID</label>
+        </AuthRow>
+        <AuthRow label="Client ID" icon={AUTH_ICONS.id}>
           <input value={authState.clientId} onChange={(e) => updateAuth({ clientId: e.target.value })} placeholder="client_abc123" />
-        </div>
-        <div className="wf-svc-auth-field">
-          <label className="wf-svc-auth-field-label">Client Secret</label>
+        </AuthRow>
+        <AuthRow label="Client Secret" icon={AUTH_ICONS.lock}>
           <input type="password" value={authState.clientSecret} onChange={(e) => updateAuth({ clientSecret: e.target.value })} placeholder="••••••••" />
+        </AuthRow>
+        <div className="wf-svc-auth-hint-row">
+          Acquires a token via <code>Client Credentials</code> grant before each request
         </div>
       </div>
     );

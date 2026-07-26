@@ -31,7 +31,9 @@ async function selectWorkflowInDesignerToolbar(page: import('@playwright/test').
   await page.locator('[data-testid="wf-toolbar-select"]').click();
   await page.locator('.wft-dropdown-panel').waitFor({ state: 'visible', timeout: 3000 });
   await page.locator('.wft-dropdown-panel .wft-dropdown-item').filter({ hasText: new RegExp(`^${workflowName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`) }).click();
-  await page.waitForTimeout(300);
+  // Wait for the dropdown to close and the toolbar to reflect the new selection
+  await page.locator('.wft-dropdown-panel').waitFor({ state: 'hidden', timeout: 3000 });
+  await expect(page.locator('[data-testid="wf-toolbar-select"]')).toContainText(workflowName, { timeout: 3000 });
 }
 
 test.describe('Run in Harness Navigation', () => {
@@ -81,10 +83,10 @@ test.describe('Run in Harness Navigation', () => {
     // Workflow A should be selected
     await expect(page.getByTestId('workflow-select')).toContainText('Workflow A');
     
-    // Go back to Designer
-    await page.goto('/?tab=workflow', { waitUntil: 'domcontentloaded' });
-    await expect(page.locator('.app-header')).toBeVisible({ timeout: 25000 });
+    // Go back to Designer using the tab navigation (avoid full page reload)
+    await page.locator('button', { hasText: 'Workflow' }).first().click();
     await expect(page.locator('.wf-designer')).toBeVisible({ timeout: 25000 });
+    await expect(page.locator('[data-testid="wf-toolbar-select"]')).toBeVisible({ timeout: 5000 });
     
     // Select Workflow B
     await selectWorkflowInDesignerToolbar(page, 'Workflow B');
