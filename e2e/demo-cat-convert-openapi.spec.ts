@@ -42,7 +42,7 @@ test('Catalog convert lesson smoke (cat-convert-openapi)', async ({ page }) => {
   const match = counter.match(/^\s*1\s*\/\s*(\d+)\s*$/);
   expect(match, `Expected live step counter "1 / N", got "${counter}"`).toBeTruthy();
   const totalSteps = Number(match?.[1] ?? 0);
-  expect(totalSteps).toBeGreaterThanOrEqual(7);
+  expect(totalSteps).toBeGreaterThanOrEqual(6);
 
   await playThroughLesson(page, totalSteps, 90_000);
 

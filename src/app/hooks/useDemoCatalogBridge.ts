@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import type { UseCatalogReturn } from '../../features/catalog/hooks/useCatalog';
 import { parseOpenApiSpec } from '../../features/catalog/utils/openApiParser';
+import { clearAllPreviews } from '../../shared/utils/workflowPreviewStorage';
 
 /**
  * Demo-player bridge for the API Catalog. Mounts imperative `window.__demo*`
@@ -64,16 +65,25 @@ export function useDemoCatalogBridge(catalog: UseCatalogReturn, enabled: boolean
       }
     };
 
+    const getEntryByName = (name: string) => {
+      const target = ref.current.entries.find(e => e.name.toLowerCase() === name.toLowerCase());
+      return target ?? null;
+    };
+
     win.__demoSeedCatalogSwagger2 = seedSwagger2;
     win.__demoDeleteCatalogByName = deleteByName;
     win.__demoSelectCatalogByName = selectByName;
     win.__demoAddVersionByName = addVersionByName;
+    win.__demoClearAllWorkflowPreviews = clearAllPreviews;
+    win.__demoGetCatalogEntryByName = getEntryByName;
 
     return () => {
       delete win.__demoSeedCatalogSwagger2;
       delete win.__demoDeleteCatalogByName;
       delete win.__demoSelectCatalogByName;
       delete win.__demoAddVersionByName;
+      delete win.__demoClearAllWorkflowPreviews;
+      delete win.__demoGetCatalogEntryByName;
     };
   }, [enabled]);
 

@@ -20,10 +20,11 @@ export const CAT = {
   // ── Welcome screen ───────────────────────────────────────────
   WELCOME_IMPORT_BTN:       '[data-testid="catalog-welcome-import-btn"]',
 
-  // ── Main-panel sub-tabs (Overview / Endpoints / Export) ───────
+  // ── Main-panel sub-tabs (Overview / Endpoints / Export / Published) ──
   VIEW_OVERVIEW:            '[data-testid="catalog-view-overview"]',
   VIEW_ENDPOINTS:           '[data-testid="catalog-view-endpoints"]',
   VIEW_EXPORT:              '[data-testid="catalog-view-export"]',
+  VIEW_PUBLISHED:           '[data-testid="catalog-view-published"]',
 
   // ── Overview panel ────────────────────────────────────────────
   OVERVIEW:                 '[data-testid="catalog-overview"]',
@@ -125,6 +126,49 @@ export const CAT = {
   EXPORT_SAMPLE_TOGGLE:     '[data-testid="catalog-export-sample-toggle"]',
   EXPORT_PREVIEW:           '[data-testid="catalog-export-preview"]',
   EXPORT_CONFIRM_BTN:       '[data-testid="catalog-export-confirm-btn"]',
+
+  // ── Publish Endpoint modal ───────────────────────────────────
+  PUBLISH_MODAL:            '[data-testid="publish-endpoint-modal"]',
+  PUBLISH_CONFIRM_BTN:      '[data-testid="publish-confirm-btn"]',
+  PUBLISH_CANCEL_BTN:       '[data-testid="publish-cancel-btn"]',
+  PUBLISH_NOTE_INPUT:       '[data-testid="publish-note-input"]',
+  PUBLISH_INCLUDE_VALUES:   '[data-testid="publish-include-values"]',
+
+  // ── Preview Promote Alert ───────────────────────────────────
+  PREVIEW_PROMOTE_ALERT:    '[data-testid="preview-promote-alert"]',
+  PREVIEW_PROMOTE_GO_BTN:   '[data-testid="preview-promote-go-btn"]',
+  PREVIEW_PROMOTE_DISMISS:  '[data-testid="preview-promote-dismiss-btn"]',
+
+  // ── Published Endpoints panel ─────────────────────────────────
+  PUB_PANEL:                '[data-testid="published-endpoints-panel"]',
+  PUB_SEARCH:               '[data-testid="pub-search"]',
+  PUB_FILTER_ALL:           '[data-testid="pub-filter-all"]',
+  PUB_FILTER_CURRENT:       '[data-testid="pub-filter-current"]',
+  PUB_FILTER_STALE:         '[data-testid="pub-filter-stale"]',
+  PUB_FILTER_PREVIEW:       '[data-testid="pub-filter-preview"]',
+  PUB_BULK_UNPUBLISH:       '[data-testid="pub-bulk-unpublish"]',
+  PUB_BULK_REPUBLISH:       '[data-testid="pub-bulk-republish"]',
+  PUB_TABLE:                '[data-testid="pub-table"]',
+  PUB_PREVIEW_TABLE:        '[data-testid="pub-preview-table"]',
+  PUB_ROW:                  '[data-testid="pub-row"]',
+  PUB_PREVIEW_ROW:          '[data-testid="pub-preview-row"]',
+  PUB_SELECT_ALL:           '[data-testid="pub-select-all"]',
+  PUB_STATUS_STALE:         '[data-testid="pub-status-stale"]',
+  PUB_STATUS_CURRENT:       '[data-testid="pub-status-current"]',
+  PUB_ACTIONS_BTN:          '[data-testid="pub-actions-btn"]',
+  PUB_ACTIONS_MENU:         '[data-testid="pub-actions-menu"]',
+  PUB_ACTION_VIEW:          '[data-testid="pub-action-view"]',
+  PUB_ACTION_USAGE:         '[data-testid="pub-action-usage"]',
+  PUB_ACTION_REPUBLISH:     '[data-testid="pub-action-republish"]',
+  PUB_ACTION_UNPUBLISH:     '[data-testid="pub-action-unpublish"]',
+  PUB_PREVIEW_ACTIONS_BTN:  '[data-testid="pub-preview-actions-btn"]',
+  PUB_PREVIEW_ACTION_VIEW:  '[data-testid="pub-preview-action-view"]',
+  PUB_PREVIEW_ACTION_PROMOTE: '[data-testid="pub-preview-action-promote"]',
+  PUB_PREVIEW_ACTION_REMOVE:  '[data-testid="pub-preview-action-remove"]',
+  PUB_USAGE_ROW:            '[data-testid="pub-usage-row"]',
+  PUB_USAGE_LIST:           '[data-testid="pub-usage-list"]',
+  PUB_USAGE_EMPTY:          '[data-testid="pub-usage-empty"]',
+  PUB_STALE_HINT:           '[data-testid="pub-stale-hint"]',
 
   // ── Convert / Upgrade modal ───────────────────────────────────
   CONVERT_MODAL:            '[data-testid="catalog-convert-modal"]',

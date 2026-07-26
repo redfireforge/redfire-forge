@@ -30,6 +30,12 @@ async function ensureSchemaTabOpen(page: Page): Promise<void> {
   });
 }
 
+async function chooseChangelogCompareTarget(page: Page, label: string): Promise<void> {
+  const wrapper = page.locator('[data-testid="gql-changelog-compare-select"]');
+  await wrapper.locator('.cs-trigger').click();
+  await page.locator('.cs-menu .cs-item', { hasText: label }).first().click();
+}
+
 /** Unlock the Docker prerequisite gate when port 4010 is not running locally. */
 async function mockGraphqlHealthProbe(page: Parameters<typeof silenceLogStream>[0]): Promise<void> {
   await page.route(GQL_HEALTH, (route) =>
@@ -82,7 +88,7 @@ test.describe('GQL-12 — full lesson (Docker)', () => {
       .filter({ hasText: 'Prior release (demo)' })
       .first()
       .click({ force: true });
-    await page.locator('[data-testid="gql-changelog-compare-select"]').selectOption({ label: 'Current schema' });
+    await chooseChangelogCompareTarget(page, 'Current schema');
     await page.evaluate(() => {
       document.querySelector<HTMLElement>('[data-testid="gql-changelog-diff-btn"]')?.click();
     });

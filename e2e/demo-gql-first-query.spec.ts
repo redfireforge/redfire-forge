@@ -79,8 +79,8 @@ test.describe('GQL-1 — Environment Manager', () => {
     await advanceSteps(page, 2, DEMO_ACTION_TIMEOUT);
 
     await expect(page.locator('.env-manager')).toBeVisible({ timeout: 15_000 });
-    await expect(page.locator(`[data-env-name="${GQL_DEMO_ENV}"]`)).toBeVisible();
-    await expect(page.locator(`[data-svc-name="${GQL_DEMO_SVC}"]`)).toBeVisible();
+    await expect(page.locator(`.settings-chip[data-env-name="${GQL_DEMO_ENV}"]`)).toBeVisible();
+    await expect(page.locator(`.settings-svc-card[data-svc-name="${GQL_DEMO_SVC}"]`).first()).toBeVisible();
     await expect(page.locator('[data-testid="em-protocol-tab-http"]')).toHaveCount(0);
     await expect(page.locator('[data-testid="em-protocol-tab-graphql"]')).toBeVisible();
 

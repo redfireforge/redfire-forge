@@ -12,6 +12,7 @@ import {
   closeWfConsoleIfOpen,
   cleanupWorkflowDemoRunUi,
   collapseWfDemoAppSidebar,
+  ensureLessonWorkflowShown,
   resetWorkflowRunStateQuiet,
   ensureWfNodeConfigModalOpen,
   fillWfConfigField,
@@ -21,6 +22,7 @@ import {
   openWfNodeConfigModal,
   pauseWfConfigDemo,
   pauseWfConfigSection,
+  revealPaletteBlock,
   saveAndCloseWfConfigModal,
   selectWfConfigOption,
   scrollWfConfigFieldIntoView,
@@ -53,7 +55,73 @@ describe('wf-demo-helpers', () => {
     delete (window as unknown as Record<string, unknown>).__wfDeselectAll;
     delete (window as unknown as Record<string, unknown>).__wfResetRunState;
     delete (window as unknown as Record<string, unknown>).__wfSetConsoleFloatLayout;
+    delete (window as unknown as Record<string, unknown>).__wfGetSelectedName;
+    delete (window as unknown as Record<string, unknown>).__wfGetWorkflowByName;
+    delete (window as unknown as Record<string, unknown>).__wfSelectByName;
     localStorage.removeItem(WF_CONSOLE_MODE_STORAGE_KEY);
+  });
+
+  describe('ensureLessonWorkflowShown', () => {
+    const win = () => window as unknown as Record<string, unknown>;
+
+    it('returns "ready" and does not re-select when this lesson\'s workflow is already shown', async () => {
+      document.body.innerHTML = '<div class="wf-canvas-area"></div>';
+      win().__wfGetSelectedName = () => 'Variables Demo';
+      const select = vi.fn(() => true);
+      win().__wfSelectByName = select;
+
+      const result = await ensureLessonWorkflowShown(makeCtx(), 'Variables Demo');
+
+      expect(result).toBe('ready');
+      expect(select).not.toHaveBeenCalled();
+    });
+
+    it('returns "ready" when a canvas is shown but the selected name is unknown', async () => {
+      document.body.innerHTML = '<div class="wf-canvas-area"></div>';
+      // no __wfGetSelectedName bridge → undefined
+      const select = vi.fn(() => true);
+      win().__wfSelectByName = select;
+
+      const result = await ensureLessonWorkflowShown(makeCtx(), 'Variables Demo');
+
+      expect(result).toBe('ready');
+      expect(select).not.toHaveBeenCalled();
+    });
+
+    it('switches to this lesson\'s workflow when a foreign one is displayed', async () => {
+      document.body.innerHTML = '<div class="wf-canvas-area"></div>';
+      win().__wfGetSelectedName = () => 'Conditional Demo';
+      win().__wfGetWorkflowByName = (name: string) =>
+        name === 'Variables Demo' ? { id: 'v1', name } : null;
+      const select = vi.fn(() => true);
+      win().__wfSelectByName = select;
+
+      const result = await ensureLessonWorkflowShown(makeCtx(), 'Variables Demo');
+
+      expect(result).toBe('selected');
+      expect(select).toHaveBeenCalledWith('Variables Demo');
+    });
+
+    it('returns "missing" when a foreign workflow is displayed and ours is not in the store', async () => {
+      document.body.innerHTML = '<div class="wf-canvas-area"></div>';
+      win().__wfGetSelectedName = () => 'Conditional Demo';
+      win().__wfGetWorkflowByName = () => null;
+      const select = vi.fn(() => true);
+      win().__wfSelectByName = select;
+
+      const result = await ensureLessonWorkflowShown(makeCtx(), 'Variables Demo');
+
+      expect(result).toBe('missing');
+      expect(select).not.toHaveBeenCalled();
+    });
+
+    it('returns "missing" when no canvas is shown and the workflow does not exist', async () => {
+      win().__wfGetWorkflowByName = () => null;
+
+      const result = await ensureLessonWorkflowShown(makeCtx(), 'Variables Demo');
+
+      expect(result).toBe('missing');
+    });
   });
 
   it('openWfConsoleIfClosed uses floating mode on the left before opening', async () => {
@@ -610,5 +678,157 @@ describe('wf-demo-helpers', () => {
     const ok = await saveAndCloseWfConfigModal(ctx);
     expect(ok).toBe(true);
     expect(ctx.click).toHaveBeenCalledWith(WF.CFG_SAVE);
+  });
+});
+
+describe('revealPaletteBlock', () => {
+  beforeEach(() => { document.body.innerHTML = ''; });
+
+  function renderPaletteBlock(type: string): HTMLElement {
+    const block = document.createElement('div');
+    block.className = `wf-palette-block wf-palette-block-${type}`;
+    block.scrollIntoView = vi.fn();
+    document.body.appendChild(block);
+    return block;
+  }
+
+  function renderBlocksTab(active = true): void {
+    const tab = document.createElement('button');
+    tab.setAttribute('data-testid', 'wf-palette-tab-blocks');
+    if (active) tab.classList.add('active');
+    document.body.appendChild(tab);
+  }
+
+  function renderRailButton(categoryId: string): HTMLElement {
+    const btn = document.createElement('button');
+    btn.className = 'wf-palette-rail-btn';
+    btn.setAttribute('data-rail', categoryId);
+    document.body.appendChild(btn);
+    return btn;
+  }
+
+  it('returns element immediately when block is already in DOM', async () => {
+    renderBlocksTab();
+    const block = renderPaletteBlock('http');
+    const ctx = makeCtx();
+    const result = await revealPaletteBlock(ctx, WF.PAL_HTTP);
+    expect(result).toBe(block);
+    expect(block.scrollIntoView).toHaveBeenCalledWith({ behavior: 'smooth', block: 'center' });
+  });
+
+  it('returns null for unknown block type', async () => {
+    renderBlocksTab();
+    const ctx = makeCtx();
+    const result = await revealPaletteBlock(ctx, '.wf-palette-block-nonexistent');
+    expect(result).toBeNull();
+  });
+
+  it('clicks rail button to reveal a block in a different category', async () => {
+    renderBlocksTab();
+    const railBtn = renderRailButton('logic');
+    const ctx = makeCtx();
+
+    const origClick = railBtn.click.bind(railBtn);
+    const clickSpy = vi.spyOn(railBtn, 'click').mockImplementation(() => {
+      origClick();
+      const block = renderPaletteBlock('condition');
+      block.scrollIntoView = vi.fn();
+    });
+
+    const result = await revealPaletteBlock(ctx, WF.PAL_CONDITION);
+    expect(clickSpy).toHaveBeenCalled();
+    expect(result).not.toBeNull();
+    expect(result?.classList.contains('wf-palette-block-condition')).toBe(true);
+  });
+
+  it('skips delays in quiet mode', async () => {
+    renderBlocksTab();
+    renderPaletteBlock('http');
+    const ctx = makeCtx();
+    await revealPaletteBlock(ctx, WF.PAL_HTTP, { quiet: true });
+    expect(ctx.delay).not.toHaveBeenCalled();
+  });
+
+  it('scrolls block into view in quiet mode', async () => {
+    renderBlocksTab();
+    const block = renderPaletteBlock('http');
+    const ctx = makeCtx();
+    await revealPaletteBlock(ctx, WF.PAL_HTTP, { quiet: true });
+    expect(block.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('handles actions subgroup blocks', async () => {
+    renderBlocksTab();
+    const block = renderPaletteBlock('kafkaProduce');
+    const ctx = makeCtx();
+    const result = await revealPaletteBlock(ctx, WF.PAL_KAFKA_PRODUCE);
+    expect(result).toBe(block);
+  });
+
+  it('handles graphqlAssert in logic category (no subGroup)', async () => {
+    renderBlocksTab();
+    const block = renderPaletteBlock('graphqlAssert');
+    const ctx = makeCtx();
+    const result = await revealPaletteBlock(ctx, WF.PAL_GQL_ASSERT);
+    expect(result).toBe(block);
+  });
+
+  it('handles grpcAssert in logic category (no subGroup)', async () => {
+    renderBlocksTab();
+    const block = renderPaletteBlock('grpcAssert');
+    const ctx = makeCtx();
+    const result = await revealPaletteBlock(ctx, WF.PAL_GRPC_ASSERT);
+    expect(result).toBe(block);
+  });
+
+  it('clears active search filter before finding block', async () => {
+    renderBlocksTab();
+    // Simulate an active search — clear button only exists when search is active
+    const clearBtn = document.createElement('button');
+    clearBtn.className = 'wf-palette-search-clear';
+    const clickSpy = vi.fn(() => {
+      // Simulate React clearing the search: remove the clear button
+      clearBtn.remove();
+    });
+    clearBtn.onclick = clickSpy;
+    document.body.appendChild(clearBtn);
+
+    const block = renderPaletteBlock('http');
+    const ctx = makeCtx();
+    await revealPaletteBlock(ctx, WF.PAL_HTTP);
+    expect(clickSpy).toHaveBeenCalled();
+    expect(document.querySelector('.wf-palette-search-clear')).toBeNull();
+    expect(block.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it('does not error when no search is active', async () => {
+    renderBlocksTab();
+    // No clear button in DOM — search is inactive
+    const block = renderPaletteBlock('http');
+    const ctx = makeCtx();
+    const result = await revealPaletteBlock(ctx, WF.PAL_HTTP);
+    expect(result).toBe(block);
+  });
+
+  it('handles all protocol block types correctly', async () => {
+    renderBlocksTab();
+    const types = [
+      { type: 'wsConnect',           sel: WF.PAL_WS_CONNECT },
+      { type: 'wsSend',              sel: WF.PAL_WS_SEND },
+      { type: 'wsReceive',           sel: WF.PAL_WS_RECEIVE },
+      { type: 'grpcUnary',           sel: WF.PAL_GRPC_UNARY },
+      { type: 'grpcServerStream',    sel: WF.PAL_GRPC_SERVER_STREAM },
+      { type: 'graphqlQuery',        sel: WF.PAL_GQL_QUERY },
+      { type: 'graphqlMutation',     sel: WF.PAL_GQL_MUTATION },
+      { type: 'graphqlSubscription', sel: WF.PAL_GQL_SUBSCRIPTION },
+    ];
+    for (const { type, sel } of types) {
+      document.body.innerHTML = '';
+      renderBlocksTab();
+      const block = renderPaletteBlock(type);
+      const ctx = makeCtx();
+      const result = await revealPaletteBlock(ctx, sel);
+      expect(result).toBe(block);
+    }
   });
 });

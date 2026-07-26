@@ -119,6 +119,12 @@ async function clickDataTab(page: Page) {
   await tab.click();
 }
 
+async function setCustomSelectOption(wrapper: import('@playwright/test').Locator, optionLabel: string, page: Page) {
+  await wrapper.locator('.cs-trigger').click();
+  await page.locator('.cs-menu .cs-item', { hasText: optionLabel }).first().click();
+  await expect(wrapper.locator('.cs-text')).toContainText(optionLabel);
+}
+
 /** Locate the Data / Parameterize tab */
 function dataTabLocator(page: Page) {
   return page.locator('.builder-tab', { hasText: /Parameterize|Data Source/ });
@@ -264,11 +270,11 @@ test.describe('Data Source Editor (Phase 2A)', () => {
     await openTestEditor(page);
     await clickDataTab(page);
 
-    const select = page.locator('select[title="Row distribution strategy"]');
-    await expect(select).toHaveValue('sequential');
+    const select = page.locator('.data-source-toolbar-select').first();
+    await expect(select.locator('.cs-text')).toContainText('Sequential');
 
-    await select.selectOption('random');
-    await expect(select).toHaveValue('random');
+    await setCustomSelectOption(select, 'Random', page);
+    await expect(select.locator('.cs-text')).toContainText('Random');
   });
 
   test('Run preview shows correct count', async ({ page }) => {
@@ -287,11 +293,11 @@ test.describe('Data Source Editor (Phase 2A)', () => {
 
     // First column should be 'path' type (vin)
     const typeSelect = page.locator('.data-source-col-type-select').first();
-    await expect(typeSelect).toHaveValue('path');
+    await expect(typeSelect.locator('.cs-text')).toContainText('Path');
 
     // Change to body type
-    await typeSelect.selectOption('body');
-    await expect(typeSelect).toHaveValue('body');
+    await setCustomSelectOption(typeSelect, 'Body', page);
+    await expect(typeSelect.locator('.cs-text')).toContainText('Body');
   });
 
   test('Data table badge shows on tab when rows exist', async ({ page }) => {

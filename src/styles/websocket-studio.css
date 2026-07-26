@@ -1024,17 +1024,11 @@
 .ws-message-direction-filter {
   flex: 0 0 auto;
   width: auto;
-  padding: 6px 10px;
-  background: var(--input-bg, #2a2a2a);
-  border: 1px solid var(--border-color, #444);
-  border-radius: 6px;
-  color: var(--text-primary, #e0e0e0);
-  font-size: 12px;
-  outline: none;
-  transition: border-color 0.15s;
 }
-.ws-message-direction-filter:focus {
-  border-color: var(--accent-color, #4fc3f7);
+.ws-message-direction-filter .cs-trigger {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
 }
 
 .ws-message-clear-btn {
@@ -7008,12 +7002,11 @@
 .ws-validation-filter {
   flex: 0 0 auto;
   width: auto;
-  font-size: 12px;
-  background: var(--bg-secondary, #1e1e1e);
-  color: var(--text-primary, #e0e0e0);
-  border: 1px solid var(--border-color, #333);
-  border-radius: 4px;
+}
+.ws-validation-filter .cs-trigger {
   padding: 2px 4px;
+  font-size: 12px;
+  border-radius: 4px;
   height: 24px;
 }
 
@@ -7210,12 +7203,11 @@
 .ws-schema-direction-select {
   flex-shrink: 0;
   width: 110px;
-  font-size: 12px;
+}
+.ws-schema-direction-select .cs-trigger {
   padding: 4px 8px;
-  border: 1px solid var(--border-color, #444);
+  font-size: 12px;
   border-radius: 4px;
-  background: var(--bg-secondary, #1e1e1e);
-  color: var(--text-primary, #e0e0e0);
 }
 .ws-schema-textarea {
   width: 100%;

@@ -58,10 +58,10 @@ The existing lessons also have structural issues:
 |---|---|---|---|---|---|
 | CAT-1 | `cat-import-browse` | Import & Explore Your API | 4 | 4 min | Import (Gallery), Overview tab, Browse endpoints, Filter |
 | CAT-2 | `cat-try-execute` | Live API Execution | 7 | 8 min | Host Strategy, Try It Out (POST + GET), Send to Harness Target + Options, Auth panel, cURL |
-| CAT-3 | `cat-export-requests` | Export to Requests | 7 | 7 min | Single export, Export tab walkthrough, Envs/names/preview, Coverage badges, Send to Harness (full modal), Expose to Workflow Preview + Published |
+| CAT-3 | `cat-export-requests` | Export & Workflow Exposure | 10 | 10 min | Single export, Export tab walkthrough, Envs/names/preview, Coverage badges, Send to Harness, Expose to Workflow (Preview + Published), Published panel (View Usage, Republish Stale, Promote Preview) |
 | CAT-4 | `cat-version-lifecycle` | Version Management & Spec Lifecycle | 5 | 5 min | Export Spec, Re-import/Update, Version History, Compare, Restore |
 | CAT-5 | `cat-convert-openapi` | Convert Swagger 2.0 → OpenAPI 3 | 6 | 5 min | Convert modal, Engine selection, Lint, Prettify, Save as version, Batch Convert |
-| **Total** | | | **24** | **~23 min** | |
+| **Total** | | | **30** | **~29 min** | |
 
 ---
 
@@ -129,19 +129,19 @@ CAT-5 additionally seeds a **Swagger 2.0 Petstore** entry.
 
 ---
 
-## CAT-3: Export to Requests
+## CAT-3: Export & Workflow Exposure
 
-**Goal:** Move API definitions from the Catalog into the Requests workspace — single endpoint export, bulk export with environments, and track coverage.
+**Goal:** Move API definitions from the Catalog into the Requests workspace, expose endpoints to the Workflow Designer (Preview and Published), and manage published endpoints from the governance panel — View Usage, Republish Stale, and Promote Previewed.
 
 | Field | Value |
 |---|---|
 | `id` | `cat-export-requests` |
-| `estimatedMinutes` | 5 |
-| Steps | 5 |
+| `estimatedMinutes` | 10 |
+| Steps | 10 |
 | `initialTab` | `catalog` |
-| `allowedTabs` | `['catalog', 'requests']` |
+| `allowedTabs` | `['catalog', 'requests', 'workflows']` |
 
-**Prerequisite:** JSONPlaceholder entry exists (seeded)
+**Prerequisite:** JSONPlaceholder entry exists (seeded). A workflow with an HTTP node referencing POST /posts via `catalogRef` (seeded, for D1/D3 demos).
 
 ### Steps
 
@@ -152,10 +152,13 @@ CAT-5 additionally seeds a **Swagger 2.0 Petstore** entry.
 | 3 | `cat3-bulk-tab` | Bulk Export — The Export Tab | `CAT.EXPORT_TAB` | Return to Catalog → switch to **Export to Requests** tab → spotlight full endpoint table (all 12 endpoints with checkboxes, groups, methods, descriptions, custom names, version badges — 1500ms) → spotlight **Select All** checkbox → deselect a few endpoints → spotlight **version badges** (NEW vs "from v1.0.0" for re-exports) |
 | 4 | `cat3-coverage` | Coverage Badges — IN REQUESTS | `CAT.ENDPOINTS_TAB` | Switch back to Endpoints tab → spotlight **IN REQUESTS** badge on the exported GET /posts endpoint (1000ms) → hover badge → spotlight **coverage popover** showing the collection/folder path (800ms) → explain: click navigates to the request in the Requests workspace |
 | 5 | `cat3-harness` | Send to Harness | `CAT.SEND_TO_HARNESS_BTN` | Expand **POST /posts** with Try It Out → click **Send to Harness** → modal opens → fill Target cascade (Environment, Microservice, create Feature Group, create Scenario) → Next → spotlight Options (Auth Mode, Validation — select Status 200) → Confirm |
-| 6 | `cat3-expose-preview` | Expose to Workflow — Preview | `CAT.EXPOSE_TO_WORKFLOW` | Expand **POST /posts** → open **Workflow Exposure** → select **Preview** → navigate to **Workflow Designer** → **Catalog** palette → spotlight **POST /posts** (◇ Preview badge) |
-| 7 | `cat3-expose-published` | Expose to Workflow — Published | `CAT.EXPOSE_TO_WORKFLOW` | Return to Catalog → select **Published** → navigate to **Workflow Designer** → **Catalog** palette → spotlight **POST /posts** (📌 Published badge; canvas nodes deselected) |
+| 6 | `cat3-expose-preview` | Expose to Workflow — Preview | `CAT.EXPOSE_TO_WORKFLOW` | Expand **POST /posts** → fill param values (e.g. `title=Demo`, `userId=1`) → open **Workflow Exposure** dropdown → select **Preview** → spotlight the saved Preview badge (◇) on the card (1000ms, explain: Preview is user-local, only you see this in the palette) → navigate to **Workflow Designer** → **Catalog** palette → spotlight **POST /posts** with Preview indicator |
+| 7 | `cat3-expose-published` | Expose to Workflow — Published | `CAT.EXPOSE_TO_WORKFLOW` | Return to Catalog → open Workflow Exposure → select **Published** → **Publish modal** opens → spotlight **pre-filled values** from Preview carry-over (params, headers — 1200ms, explain: values entered during Preview are carried over so you don't re-type them) → spotlight **Version** badge + **Note** field → confirm → navigate to Workflow Designer palette → spotlight **POST /posts** with Published badge (📌) |
+| 8 | `cat3-published-panel` | The Published Management Panel | `CAT.PUBLISHED_TAB` | Return to Catalog → switch to **Published** tab → spotlight the **Published Endpoints Panel** (table with all published endpoints — 1200ms) → spotlight **filter pills**: All / Current / Stale / Previews (1000ms each) → spotlight **method badge + path + API name** columns → spotlight **Status** column (Current vs Stale badges) → click **Stale** pill → spotlight filtered stale endpoints (1000ms, explain: stale = published from an older spec version) |
+| 9 | `cat3-view-usage` | View Usage & Republish | `CAT.PUB_ACTIONS_MENU` | Click **⋮** on a published endpoint → spotlight menu items (View in Catalog, **View Usage**, Republish, Unpublish — 1200ms) → click **View Usage** → spotlight **inline usage row** expanding below showing "Referenced by 1 workflow — My Workflow (2 nodes: POST Create, POST Update)" (1500ms, explain: see which workflows depend on this endpoint before changing it) → close menu → spotlight **Republish All Stale** button in toolbar (1000ms, explain: one click to update all stale endpoints to the current spec version) |
+| 10 | `cat3-promote-preview` | Promote Preview from Panel | `CAT.PUB_FILTER_PREVIEW` | Click **Previews** filter pill → spotlight the preview table (different columns: no checkbox, no Status — 1000ms) → click **⋮** on a preview item → spotlight **Promote to Published** action (800ms, explain: skip the endpoint card — promote directly from this panel) → click Promote → Publish modal opens with preview values pre-filled → confirm → spotlight the item now appearing in **All** published list with **Current** status (1200ms) |
 
-**Cleanup:** Delete created Request collection. Unexpose workflow endpoints. Close modals.
+**Cleanup:** Delete created Request collection. Unpublish workflow endpoints. Remove previews. Close modals.
 
 ---
 
@@ -255,7 +258,15 @@ Every Catalog feature mapped to its lesson:
 | **Coverage badges — IN REQUESTS** | CAT-3 | Step 4 |
 | **Coverage popover (navigate to request)** | CAT-3 | Step 4 |
 | **Send to Harness (full modal walkthrough)** | CAT-3 | Step 5 |
-| **Expose to Workflow** | CAT-3 | Step 6 |
+| **Expose to Workflow — Preview** | CAT-3 | Step 6 |
+| **Expose to Workflow — Published** | CAT-3 | Step 7 |
+| **Preview-to-Published values carry-over (D5)** | CAT-3 | Step 7 |
+| **Published Endpoints management panel** | CAT-3 | Step 8 |
+| **Filter pills (All/Current/Stale/Previews)** | CAT-3 | Step 8 |
+| **Stale vs Current status badges** | CAT-3 | Step 8 |
+| **View Usage — workflow references (D1)** | CAT-3 | Step 9 |
+| **Republish All Stale (D2)** | CAT-3 | Step 9 |
+| **Promote Preview from panel (D4)** | CAT-3 | Step 10 |
 | **Export Original Spec (download)** | CAT-4 | Step 1 |
 | **Re-import / Update** | CAT-4 | Step 2 |
 | **Re-import — duplicate detection** | CAT-4 | Step 2 |
@@ -305,11 +316,16 @@ Every Catalog feature mapped to its lesson:
 - **Keep** POST Try It Out + Path parameters + cURL
 - **Remove** "Send to Harness" and "Expose to Workflow" text-only spotlights (moved to CAT-3 where they're demonstrated properly)
 
-### CAT-3 (was: Export to Requests & Coverage → expanded significantly)
-- **Expand** from 3 steps to 5 — the Export to Requests feature is too rich for 3 steps
+### CAT-3 (was: Export to Requests & Coverage → renamed Export & Workflow Exposure, expanded significantly)
+- **Expand** from 3 steps to 10 — the Export + Workflow Exposure features deserve thorough coverage
 - **Add** full walkthrough of Export modal (collection name, target group, environments, custom names, sample toggles, preview tree)
 - **Add** actual Send to Harness + Expose to Workflow demonstration (not just spotlight)
 - **Move** Coverage badges to after export (natural flow)
+- **Add** Expose to Workflow — Preview with parameter values (Step 6)
+- **Add** Expose to Workflow — Published with values carry-over from Preview (D5) (Step 7)
+- **Add** Published Endpoints management panel tour: filter pills, status badges (Step 8)
+- **Add** View Usage inline row + Republish All Stale button (D1, D2) (Step 9)
+- **Add** Promote Preview to Published from management panel (D4) (Step 10)
 
 ### CAT-4 (NEW: Version Management & Spec Lifecycle)
 - **New lesson** covering Re-import, Export Spec, Version History, Compare, Restore
@@ -335,6 +351,11 @@ New helpers needed:
 - `openVersionHistoryModal()` — open from Overview quick actions
 - `closeVersionHistoryModal()` — close history modal
 - `seedSecondVersion()` — re-import with modified spec (for CAT-4)
+- `seedWorkflowWithCatalogRef(entryId, endpointId)` — seed a workflow with HTTP nodes that have `catalogRef` pointing to the given endpoint (for CAT-3 steps 8-10, D1/D3 demos)
+- `ensurePublishedTab()` — navigate to the Published management tab
+- `ensurePreviewEndpoint(entryId, endpointId, values)` — set Preview exposure with param values (for D4 promote demo)
+- `publishEndpointForDemo(entryId, endpointId)` — quick publish for seeding stale state
+- `republishStaleForDemo(entryId, endpointId)` — seed a stale state by updating spec version after publish
 
 ---
 
@@ -347,7 +368,21 @@ Existing selectors to verify:
 - `CAT.SEND_TO_HARNESS_BTN`, `CAT.EXPOSE_TO_WORKFLOW`
 - `CAT.CURL_BTN`, `CAT.EXPORT_TO_REQ_BTN`
 
-New selectors needed:
+New selectors needed (D1–D5 management panel):
+- `CAT.PUBLISHED_TAB` — Published view tab button
+- `CAT.PUB_PANEL` — Published Endpoints Panel container
+- `CAT.PUB_FILTER_ALL` — "All" filter pill
+- `CAT.PUB_FILTER_CURRENT` — "Current" filter pill
+- `CAT.PUB_FILTER_STALE` — "Stale" filter pill
+- `CAT.PUB_FILTER_PREVIEW` — "Previews" filter pill
+- `CAT.PUB_ACTIONS_MENU` — ⋮ actions menu on published row
+- `CAT.PUB_ACTION_USAGE` — "View Usage" menu item
+- `CAT.PUB_USAGE_ROW` — inline usage expansion row
+- `CAT.PUB_BULK_REPUBLISH` — "Republish All Stale" toolbar button
+- `CAT.PUB_PREVIEW_PROMOTE` — "Promote to Published" menu item
+- `CAT.PUB_PREVIEW_REMOVE` — "Remove Preview" menu item
+
+New selectors needed (existing features):
 - `CAT.FORMAT_BADGE` — spec format badge on Overview
 - `CAT.SERVERS_SECTION` — servers list on Overview
 - `CAT.METHOD_STATS` — method bar chart on Overview

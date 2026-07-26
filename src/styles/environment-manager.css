@@ -221,12 +221,11 @@
 }
 .env-auth-select {
   width: 100%;
-  font-size: 0.8rem;
+}
+.env-auth-select .cs-trigger {
   padding: 3px 6px;
+  font-size: 0.8rem;
   border-radius: var(--radius);
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
 }
 
 /* ── Additional env separator ── */

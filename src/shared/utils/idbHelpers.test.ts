@@ -247,6 +247,12 @@ describe('idbHelpers', () => {
         expect(await store.migrate('my-key')).toBe(false);
       });
 
+      it('returns false for empty arrays even when validator accepts arrays', async () => {
+        localStorage.setItem('empty-arr', JSON.stringify([]));
+        const store = createIdbBlobStore<number[]>('test-store', (data) => Array.isArray(data));
+        expect(await store.migrate('empty-arr')).toBe(false);
+      });
+
       it('migrates valid data: saves to IDB and removes from localStorage', async () => {
         const data = [1, 2, 3];
         localStorage.setItem('my-key', JSON.stringify(data));
@@ -261,6 +267,14 @@ describe('idbHelpers', () => {
         localStorage.setItem('bad-key', 'not-valid-json{{{');
         const store = createIdbBlobStore('test-store');
         expect(await store.migrate('bad-key')).toBe(false);
+      });
+
+      it('migrates non-array truthy payloads with default validator', async () => {
+        localStorage.setItem('obj-key', JSON.stringify({ enabled: true }));
+        const store = createIdbBlobStore<{ enabled: boolean }>('test-store');
+        const result = await store.migrate('obj-key');
+        expect(result).toBe(true);
+        expect(mockPutCalls[0].data).toEqual({ enabled: true });
       });
     });
   });

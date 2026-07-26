@@ -16,6 +16,7 @@ import {
   patchWorkflowNodeDataByType,
   patchWorkflowByName,
   syncLiveWorkflowFromPatch,
+  getSelectedWorkflowName,
   removeWorkflowEdge,
   closeWorkflowConfigModal,
   seedNamedWorkflow,
@@ -37,6 +38,7 @@ describe('workflowDesignerAdapter', () => {
     delete w.__wfPatchNodeDataByType;
     delete w.__wfPatchWorkflowByName;
     delete w.__wfSyncLiveWorkflowFromPatch;
+    delete w.__wfGetSelectedName;
     delete w.__wfAddNode;
     delete w.__wfQuickTest;
     delete w.__wfSetConsoleFloatLayout;
@@ -128,6 +130,15 @@ describe('workflowDesignerAdapter', () => {
 
   it('syncLiveWorkflowFromPatch returns false when bridge missing', () => {
     expect(syncLiveWorkflowFromPatch('wf', {})).toBe(false);
+  });
+
+  it('getSelectedWorkflowName delegates to bridge', () => {
+    (window as unknown as Record<string, unknown>).__wfGetSelectedName = () => 'Variables Demo';
+    expect(getSelectedWorkflowName()).toBe('Variables Demo');
+  });
+
+  it('getSelectedWorkflowName returns undefined when bridge missing', () => {
+    expect(getSelectedWorkflowName()).toBeUndefined();
   });
 
   it('insertWorkflow and addWorkflowNode delegate to bridges', () => {

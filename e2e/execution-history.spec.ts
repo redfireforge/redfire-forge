@@ -6,6 +6,12 @@
 import { test, expect } from '@playwright/test';
 import { seedAppData } from './helpers';
 
+async function chooseExhFilter(page: import('@playwright/test').Page, label: string) {
+  const select = page.locator('.exh-select').first();
+  await select.locator('.cs-trigger').click();
+  await page.locator('.cs-menu .cs-item', { hasText: label }).first().click();
+}
+
 const MOCK_EXECUTIONS = [
   {
     id: 'exec-1',
@@ -94,16 +100,16 @@ test.describe('Workflow Execution History', () => {
     await tab.click();
 
     // Filter to webhooks only
-    await page.selectOption('.exh-select', 'webhook');
+    await chooseExhFilter(page, 'Webhooks');
     const cards = page.locator('.exh-card');
     await expect(cards).toHaveCount(2); // exec-1 and exec-3
 
     // Filter to schedules only
-    await page.selectOption('.exh-select', 'schedule');
+    await chooseExhFilter(page, 'Schedules');
     await expect(cards).toHaveCount(1); // exec-2
 
     // Back to all
-    await page.selectOption('.exh-select', 'all');
+    await chooseExhFilter(page, 'All Types');
     await expect(cards).toHaveCount(3);
   });
 

@@ -21,6 +21,7 @@ import {
   pauseWfConfigSection,
   saveAndCloseWfConfigModal,
   scrollWfConfigFieldIntoView,
+  revealPaletteBlock,
   waitForWfConfigPanel,
 } from '../wf-demo-helpers';
 import {
@@ -135,8 +136,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         await ctx.waitFor(WF.NODE_START, 3000);
         await spotlightAndPause(ctx, WF.NODE_START, 900);
         // Narration mentions the three gRPC palette blocks — show Unary as the entry point.
-        const unary = document.querySelector<HTMLElement>(WF.PAL_GRPC_UNARY);
-        unary?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+        await revealPaletteBlock(ctx, WF.PAL_GRPC_UNARY);
         await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 700);
       },
       verify: WF.NODE_START,
@@ -240,9 +240,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         }
       },
       action: async (ctx) => {
-        const palBlock = document.querySelector<HTMLElement>(WF.PAL_GRPC_UNARY);
-        palBlock?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(250);
+        await revealPaletteBlock(ctx, WF.PAL_GRPC_UNARY);
         await spotlightAndPause(ctx, WF.PAL_GRPC_UNARY, 800);
         if (!isNodeOnCanvas(WF14_NODE_GRPC)) {
           addWorkflowNodeWithPreset('grpcUnary', WF14_NODE_GRPC, 'Echo Call', { x: 320, y: 200 });
@@ -365,9 +363,7 @@ export const grpcWorkflowRunnerSteps: DemoLesson['steps'] = [
         }
       },
       action: async (ctx) => {
-        const assertBlock = document.querySelector<HTMLElement>(WF.PAL_GRPC_ASSERT);
-        assertBlock?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
-        await ctx.delay(250);
+        await revealPaletteBlock(ctx, WF.PAL_GRPC_ASSERT);
         await spotlightAndPause(ctx, WF.PAL_GRPC_ASSERT, 800);
         if (!isNodeOnCanvas(WF14_NODE_ASSERT)) {
           addWorkflowNodeWithPreset('grpcAssert', WF14_NODE_ASSERT, 'Assert Echo', { x: 580, y: 200 });

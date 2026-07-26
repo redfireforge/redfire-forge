@@ -57,13 +57,13 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
   };
 
   return (
-    <div className="wf-config-body">
-      <div className="wf-config-field">
+    <div className="wf-config-body wf-loop-config" data-testid="loop-config">
+      <div className="wf-config-field--row">
         <label>Label</label>
         <input value={data.label} onChange={(e) => onChange({ ...data, label: e.target.value })} />
       </div>
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Mode</label>
         <CustomSelect
           value={data.mode}
@@ -76,7 +76,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
       {/* Count mode */}
       {data.mode === 'count' && (
         <>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Iterations</label>
             <input
               type="number"
@@ -86,7 +86,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               onChange={(e) => onChange({ ...data, count: parseInt(e.target.value) || 1 })}
             />
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Or expression</label>
             <InsertVarField
               onRequestVariableInsert={onRequestVariableInsert}
@@ -100,7 +100,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               />
             </InsertVarField>
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Index variable</label>
             <input
               value={data.indexVariable ?? 'i'}
@@ -115,7 +115,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
       {/* ForEach mode */}
       {data.mode === 'forEach' && (
         <>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Source array{hasDataSource ? ' (overridden by data source)' : ''}</label>
             <InsertVarField
               onRequestVariableInsert={onRequestVariableInsert}
@@ -131,7 +131,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
             </InsertVarField>
             <span className="wf-config-hint">{hasDataSource ? `Using data source (${enabledRowCount} enabled rows) — expression is ignored` : 'Expression that resolves to a JSON array'}</span>
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Item variable</label>
             <input
               value={data.itemVariable ?? 'item'}
@@ -140,7 +140,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
             />
             <span className="wf-config-hint">Each element available as {'{{item}}'}</span>
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Index variable</label>
             <input
               value={data.indexVariable ?? 'i'}
@@ -169,7 +169,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
       {/* While mode */}
       {data.mode === 'while' && (
         <>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Left operand</label>
             <InsertVarField
               onRequestVariableInsert={onRequestVariableInsert}
@@ -183,7 +183,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               />
             </InsertVarField>
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Operator</label>
             <CustomSelect
               value={data.whileOperator ?? '=='}
@@ -191,7 +191,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
               options={OPERATORS.map(o => ({ value: o.value, label: o.label }))}
             />
           </div>
-          <div className="wf-config-field">
+          <div className="wf-config-field--row">
             <label>Right operand</label>
             <InsertVarField
               onRequestVariableInsert={onRequestVariableInsert}
@@ -208,7 +208,7 @@ export default function LoopConfig({ data, onChange, onRequestVariableInsert, va
         </>
       )}
 
-      <div className="wf-config-field">
+      <div className="wf-config-field--row">
         <label>Max iterations (safety)</label>
         <input
           type="number"

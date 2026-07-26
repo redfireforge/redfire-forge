@@ -48,6 +48,7 @@ export type DemoBridgeWindow = Window &
       workflowName: string,
       patch: Record<string, unknown>,
     ) => boolean;
+    __wfGetSelectedName?: () => string | undefined;
     __wfWorkflowsLoaded?: boolean;
     __wfOpenNodeConfig?: (nodeId: string) => void;
     __wfFitView?: (opts?: {
@@ -83,6 +84,8 @@ export type DemoBridgeWindow = Window &
     __demoSelectCatalogByName?: (name: string) => boolean;
     /** Add a new version to an existing Catalog entry (by name). Returns true on success. */
     __demoAddVersionByName?: (name: string, rawSpec: string) => Promise<boolean>;
+    /** Look up a Catalog entry by display name. Returns the entry object or null. */
+    __demoGetCatalogEntryByName?: (name: string) => Record<string, unknown> | null;
     /** True once the Catalog store has hydrated from storage. */
     __demoCatalogLoaded?: boolean;
     /** Ensure a Settings environment exists by name; returns its ID. */
@@ -97,6 +100,8 @@ export type DemoBridgeWindow = Window &
     __demoDeleteFeatureGroupsByName?: (name: string) => void;
     /** Delete all request collections whose name matches exactly (demo cleanup). Returns count deleted. */
     __demoDeleteCollectionsByName?: (name: string) => number;
+    /** Remove all workflow preview endpoints from storage (demo cleanup). */
+    __demoClearAllWorkflowPreviews?: () => Promise<void>;
   };
 
 export function getDemoBridgeWindow(): DemoBridgeWindow {

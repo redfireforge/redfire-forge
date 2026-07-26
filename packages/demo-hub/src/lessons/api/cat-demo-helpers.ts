@@ -13,12 +13,13 @@ import {
   seedCatalogEntry,
   deleteCatalogEntryByName,
   selectCatalogEntryByName,
+  getCatalogEntryByName,
   addVersionByName,
   deleteCollectionsByName,
 } from '../../adapters';
 import { JSONPLACEHOLDER_API_SPEC } from '../../../../../src/data/galleries/catalog-specs/specs';
 
-export { seedCatalogEntry, deleteCatalogEntryByName, selectCatalogEntryByName, deleteCollectionsByName };
+export { seedCatalogEntry, deleteCatalogEntryByName, selectCatalogEntryByName, getCatalogEntryByName, deleteCollectionsByName };
 
 /** Gallery spec YAML for the JSONPlaceholder API (OpenAPI 3.0.3, 12 endpoints). */
 export { JSONPLACEHOLDER_API_SPEC };

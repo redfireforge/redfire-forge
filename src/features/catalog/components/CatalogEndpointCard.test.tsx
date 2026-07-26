@@ -586,3 +586,128 @@ describe('CatalogEndpointCard', () => {
     await waitFor(() => expect(screen.getByText('✓ Copied')).toBeInTheDocument());
   });
 });
+
+describe('stale publication badge', () => {
+  it('shows stale badge when published and stale', () => {
+    render(
+      <CatalogEndpointCard
+        endpoint={makeEndpoint()}
+        servers={[server]}
+        hostConfig={hostConfig}
+        auth={noAuth}
+        currentExposureMode="published"
+        isPublicationStale={true}
+      />,
+    );
+    expect(screen.getByTestId('catalog-stale-badge')).toBeInTheDocument();
+    expect(screen.getByTestId('catalog-stale-badge')).toHaveTextContent('⚠ Stale');
+  });
+
+  it('does not show stale badge when published and not stale', () => {
+    render(
+      <CatalogEndpointCard
+        endpoint={makeEndpoint()}
+        servers={[server]}
+        hostConfig={hostConfig}
+        auth={noAuth}
+        currentExposureMode="published"
+        isPublicationStale={false}
+      />,
+    );
+    expect(screen.queryByTestId('catalog-stale-badge')).not.toBeInTheDocument();
+  });
+
+  it('does not show stale badge when preview mode even if stale', () => {
+    render(
+      <CatalogEndpointCard
+        endpoint={makeEndpoint()}
+        servers={[server]}
+        hostConfig={hostConfig}
+        auth={noAuth}
+        currentExposureMode="preview"
+        isPublicationStale={true}
+      />,
+    );
+    expect(screen.queryByTestId('catalog-stale-badge')).not.toBeInTheDocument();
+  });
+
+  it('does not show stale badge when no exposure mode', () => {
+    render(
+      <CatalogEndpointCard
+        endpoint={makeEndpoint()}
+        servers={[server]}
+        hostConfig={hostConfig}
+        auth={noAuth}
+        isPublicationStale={true}
+      />,
+    );
+    expect(screen.queryByTestId('catalog-stale-badge')).not.toBeInTheDocument();
+  });
+});
+
+describe('WorkflowExposureDropdown — permission gating', () => {
+  it('disables Published option when canPublish is false', async () => {
+    const onExposure = vi.fn();
+    render(
+      <CatalogEndpointCard
+        endpoint={makeEndpoint()}
+        servers={[server]}
+        hostConfig={hostConfig}
+        auth={noAuth}
+        onSetWorkflowExposure={onExposure}
+        publishPermission={{ canPublish: false, canUnpublish: true, canRepublish: true, reason: 'Admins only' }}
+      />,
+    );
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    const trigger = screen.getByTestId('catalog-expose-to-workflow').querySelector('.sw-wf-exposure-trigger')!;
+    await userEvent.click(trigger);
+    const publishedBtn = screen.getByTestId('catalog-expose-option-published');
+    expect(publishedBtn).toBeDisabled();
+    await userEvent.click(publishedBtn);
+    expect(onExposure).not.toHaveBeenCalled();
+  });
+
+  it('disables downgrade options when canUnpublish is false', async () => {
+    const onExposure = vi.fn();
+    render(
+      <CatalogEndpointCard
+        endpoint={makeEndpoint()}
+        servers={[server]}
+        hostConfig={hostConfig}
+        auth={noAuth}
+        currentExposureMode="published"
+        onSetWorkflowExposure={onExposure}
+        publishPermission={{ canPublish: true, canUnpublish: false, canRepublish: true, reason: 'Cannot unpublish' }}
+      />,
+    );
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    const trigger = screen.getByTestId('catalog-expose-to-workflow').querySelector('.sw-wf-exposure-trigger')!;
+    await userEvent.click(trigger);
+    const previewBtn = screen.getByTestId('catalog-expose-option-preview');
+    const noneBtn = screen.getByTestId('catalog-expose-option-none');
+    expect(previewBtn).toBeDisabled();
+    expect(noneBtn).toBeDisabled();
+  });
+
+  it('enables all options when no permission prop provided', async () => {
+    const onExposure = vi.fn();
+    render(
+      <CatalogEndpointCard
+        endpoint={makeEndpoint()}
+        servers={[server]}
+        hostConfig={hostConfig}
+        auth={noAuth}
+        onSetWorkflowExposure={onExposure}
+      />,
+    );
+    fireEvent.click(screen.getByText('/users/{id}'));
+    await userEvent.click(screen.getByText('Try it out'));
+    const trigger = screen.getByTestId('catalog-expose-to-workflow').querySelector('.sw-wf-exposure-trigger')!;
+    await userEvent.click(trigger);
+    expect(screen.getByTestId('catalog-expose-option-published')).not.toBeDisabled();
+    expect(screen.getByTestId('catalog-expose-option-preview')).not.toBeDisabled();
+    expect(screen.getByTestId('catalog-expose-option-none')).not.toBeDisabled();
+  });
+});
