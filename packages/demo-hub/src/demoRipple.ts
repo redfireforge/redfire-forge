@@ -73,3 +73,16 @@ export function showSpotlightRing(el: HTMLElement): () => void {
     endManualSpotlight();
   };
 }
+
+/**
+ * Remove ALL imperative spotlight ring elements from the DOM and reset the
+ * manual spotlight counter. Called on step transitions to prevent ghost rings
+ * from lingering when actions are interrupted.
+ */
+export function purgeAllSpotlightRings(): void {
+  const rings = document.querySelectorAll<HTMLElement>('body > .demo-spotlight-ring');
+  rings.forEach(r => r.remove());
+  if (readManualSpotlightCount() > 0) {
+    setManualSpotlightCount(0);
+  }
+}

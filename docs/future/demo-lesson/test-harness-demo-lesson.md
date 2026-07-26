@@ -52,7 +52,15 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | TH-11 | `th-data-mapper-validation` | Data Mapper for Validation | 8 | 9 min | Source/Target panels, auto-map (coverage %), drag-to-map, operator pills, custom predicates, Code/Preview/Table/Rules views, subtree ops, Verify All, Fetch & Verify |
 | TH-12 | `th-validation-versioning` | Validation Versioning | 6 | 6 min | Response Versions (save/preview/restore/delete/compare), Rules Versions, version badges, version diff, baseline tracking |
 | TH-13 | `th-sla-configuration` | SLA Targets & Acceptance Criteria | 7 | 7 min | SLA Targets modal (test-level), 7 metrics (P50/P95/P99/P99.9/Avg/TPS/Error Rate), scope levels (aggregate/scenario/FG), warn thresholds, Scenario SLA summary, Runner SLA overrides, Results SLA evaluation (pass/warn/fail) |
-| **Total** | | | **83** | **~87 min** | |
+| TH-14 | `th-auth-inheritance` | Auth & Inheritance Chain | 7 | 7 min | 7 auth types (none/inherit/basic/bearer/apikey/digest/OAuth2), 4-level inheritance (test→scenario→FG→global profile), effective auth badge, verify auth, show/hide secrets, global auth profiles |
+| TH-15 | `th-import-export-curl` | Import, Export & cURL | 7 | 7 min | cURL Import/Export (with OAuth2 tokens), FG/scenario/test JSON export with version checkboxes, CSV/Excel/JSON template import wizard, results import, auto-report |
+| TH-16 | `th-advanced-search` | Advanced Search & Drag-Drop | 6 | 6 min | Query syntax (AND/OR/NOT, parentheses, phrases), search across all fields, match count, drag-drop reorder (scenarios/tests), copy/move modals |
+| TH-17 | `th-mapper-expressions-dsl` | Data Mapper Expressions & DSL Editor | 8 | 9 min | Expression editor (Monaco), function catalog, live preview, step-through debugger, expression snippets, DSL editor with syntax highlighting/autocomplete, DSL Reference Panel (39 entries), visual↔code sync |
+| TH-18 | `th-data-source-advanced` | Data Source Advanced Features | 7 | 7 min | Row detail modal, verify all modal, validation contract panel, populate from API (Data Mapper), map columns, row distribution modes, shared DS fetch configuration, create test from shared DS |
+| TH-19 | `th-schema-drift-repair` | Schema Drift & Contract Testing | 6 | 6 min | Schema snapshots, drift detection (added/removed/type changes), severity classification, drift banner, diff modal with repair suggestions, schema contract modes (strict/lenient lock), mapping health dashboard |
+| TH-20 | `th-baseline-regression` | Baseline & Regression Analysis | 6 | 6 min | Baseline management (mark/unmark/rename/list), regression thresholds (configurable warn/critical), regression status per run, trend charts, per-scenario trends, comparison report export (JSON/Markdown), overlay histograms |
+| TH-21 | `th-workflow-runner` | The Workflow Runner | 7 | 8 min | Workflow picker (searchable tree), variables editor, trace options, run config presets (save/load), correlation wait config, multi-webhook testing panel, webhook load driver, live progress |
+| **Total** | | | **144** | **~150 min** | |
 
 ---
 
@@ -83,11 +91,11 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th1-domain-tour` | The Testing Domain | `APP.NAV_HARNESS` | Navigate to **Testing** in the activity bar → spotlight the 5 sub-nav tabs: **Feature Groups**, **Test Runner**, **Parameterized Runner**, **Workflow Runner**, **Results** (1000ms each) → explain: Feature Groups is where you author tests, the runners execute them, Results stores history |
-| 2 | `th1-env-scope` | Environment & Microservice Scoping | `APP.ENV_SELECTOR` | Spotlight the **Environment** selector in the header (1000ms) → select an environment → spotlight the **Microservice** selector (1000ms) → select a microservice → spotlight the empty Feature Groups area + explain: all tests you create are scoped to this env/svc pair. Switch env → show different (or empty) test set → switch back |
-| 3 | `th1-import-gallery` | Import from Gallery | `HAR.IMPORT_BTN` | Click **Import** button → spotlight the import modal → switch to **Gallery** tab → spotlight available test samples (1200ms, explain: pre-built test suites for learning) → select **User API Smoke Test** → spotlight the preview (endpoint list, assertion counts, difficulty badge — 1000ms) → click **Import** → Feature Group appears in tree |
-| 4 | `th1-tree-nav` | Navigate the Test Hierarchy | `HAR.FG_CARD` | Spotlight the imported **Feature Group** card → expand it → spotlight the **Test Scenario** container (kind badge: "Standard") → expand scenario → spotlight individual **Test** rows (method + URL + status dot — 1200ms) → spotlight the **test count badges** on FG and scenario level → spotlight the context menu (⋮) on a test row (rename, move, copy, delete — 1000ms) |
-| 5 | `th1-tabs-preview` | Preview the Other Tabs | `APP.SUBNAV` | Click **Test Runner** tab → spotlight empty runner waiting for scenarios (800ms) → click **Parameterized Runner** → spotlight "No parameterized scenarios" message (800ms) → click **Results** → spotlight empty dashboard (800ms) → return to **Feature Groups** → explain: we'll fill these tabs in the upcoming lessons |
+| 1 | `th1-domain-tour` | The Testing Domain | `.sub-nav-tabs` | Navigate to **Testing** in the activity bar → spotlight the **sub-nav bar** showing all 5 tabs at once: Feature Groups, Test Runner, Parameterized Runner, Workflow Runner, Results (1500ms, explain: Feature Groups is where you author and organize tests, the three runners execute them in different modes, and Results stores all run history) |
+| 2 | `th1-env-scope` | Environment & Microservice Scoping | `APP.HEADER_ENV_SELECT` | Spotlight the **Environment** selector in the header (1200ms, explain: tests are scoped to an environment + microservice pair) → spotlight the **Microservice** selector (1200ms, explain: switch microservice to see different test suites — each microservice has its own Feature Groups) → spotlight the empty Feature Groups area below (1000ms, explain: this is where your test hierarchy will appear once you create content) |
+| 3 | `th1-seed-tests` | A Pre-Built Test Suite | `HAR.FG_CARD` | A pre-configured Feature Group "User API Tests" appears in the tree (seeded programmatically) → spotlight the new **Feature Group card** (1500ms, explain: Feature Groups are the top-level organizer — group tests by API area, business domain, or team ownership. You can create them manually or import them from JSON files) |
+| 4 | `th1-tree-nav` | Navigate the Test Hierarchy | `HAR.FG_EXPAND` | Click to **expand** the Feature Group → spotlight the **Scenario** container with its kind badge "Standard" and test count (1200ms) → click to expand the scenario → spotlight the individual **test cards**: method badge (GET/POST), test name, and status indicators (1500ms, explain: the hierarchy is Feature Group → Scenario → Tests. Each test defines one HTTP request with its URL, method, headers, body, and validation rules) |
+| 5 | `th1-tabs-preview` | Preview Runner & Results | `[data-testid="nav-tab-runner"]` | Click **Test Runner** tab → spotlight the runner page with host selector and execution config (1200ms, explain: this is where you execute your test suites — configure iterations, concurrency, and watch live progress) → click **Results** tab → spotlight the empty results dashboard (1000ms, explain: run history, metrics, SLA evaluation, and baseline comparisons all live here) → return to **Feature Groups** |
 
 **Cleanup:** Delete imported gallery sample. Reset env/svc to demo defaults.
 
@@ -109,50 +117,49 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th2-create-fg` | Create a Feature Group | `HAR.ADD_FG_BTN` | Click **+ Add Feature Group** → spotlight the inline name input (800ms) → type "JSONPlaceholder API" → confirm (Enter) → spotlight the new FG card with expand arrow and action buttons (1200ms, explain: Feature Groups organize tests by API area or business capability) |
-| 2 | `th2-create-scenario` | Create a Test Scenario | `HAR.ADD_SCENARIO_BTN` | Click **+ Add Scenario** within the FG → spotlight **Scenario name** input → type "Posts CRUD" → select kind: **Standard** → confirm → spotlight the scenario with its empty test list and kind badge (1000ms, explain: Standard scenarios run each test once per iteration; Parameterized scenarios run tests once per data row) |
-| 3 | `th2-create-test` | Create Your First Test | `HAR.ADD_TEST_BTN` | Click **+ Add Test** → spotlight the **Test Editor** modal opening (1000ms) → spotlight the **8 tabs** across the top: Params, Body, Auth, Headers, Validation, Extract, Data, History (1500ms, explain: each tab configures a different aspect of the HTTP request and its validation) |
-| 4 | `th2-configure-request` | Configure the HTTP Request | `HAR.TEST_EDITOR` | In the **Params** tab → spotlight **URL** field → type `https://jsonplaceholder.typicode.com/posts/1` (800ms) → spotlight **Method** selector → select **GET** (600ms) → spotlight the **test name** field (auto-populated from URL, editable) → rename to "Get Post by ID" → switch to **Headers** tab → spotlight empty headers table → add `Accept: application/json` row (800ms) |
-| 5 | `th2-fetch-response` | Fetch a Sample Response | `HAR.FETCH_BTN` | Switch to **Validation** tab → spotlight **Fetch Response** button (800ms, explain: sends the request once to capture a sample response for validation setup) → click Fetch → spotlight the **loading spinner** → response arrives → spotlight the **response preview** panel showing JSON with `userId`, `id`, `title`, `body` fields (1500ms) → spotlight **status 200** badge |
-| 6 | `th2-save-test` | Save and See the Tree | `HAR.SAVE_BTN` | Click **Save** in the editor footer → modal closes → spotlight the new test row in the tree: **GET** badge + "Get Post by ID" + green dot (1200ms) → expand FG to show the full hierarchy: FG → Scenario → Test → spotlight the count badge updated to "1 test" (1000ms) |
+| 1 | `th2-create-fg` | Create a Feature Group | `HAR.ADD_FG_BTN` | Click **+ Add Feature Group** → type "JSONPlaceholder API" → confirm (Enter) → spotlight the new FG card with expand arrow and action buttons (1200ms, explain: Feature Groups organize tests by API area or business capability) |
+| 2 | `th2-create-scenario` | Create a Test Scenario | `HAR.ADD_SCENARIO_BTN` | Click **+ Scenario** within the FG → type "User Endpoints" → confirm → spotlight the scenario card (1500ms, explain: Standard scenarios run each test once per iteration; Parameterized scenarios run tests once per data row) |
+| 3 | `th2-open-editor` | Open the Test Editor | `HAR.ADD_TEST_BTN` | Click **+ Test** → spotlight the **Test Editor** property card (1500ms): Name, Transport, URL, Method → spotlight the **tab bar** (1200ms): Params, Auth, Headers, Validation, Extract |
+| 4 | `th2-configure-request` | Configure the HTTP Request | `HAR.TE_URL_INPUT` | Spotlight **URL** field (800ms) → type `https://jsonplaceholder.typicode.com/users/1` → spotlight **Name** field (600ms) → type "Get User by ID" → switch to **Headers** tab → spotlight headers section (600ms) → fill `Accept: application/json` |
+| 5 | `th2-fetch-response` | Fetch a Sample Response | `HAR.TE_TABS` | Switch to **Validation** tab → select **Selective Fields** mode → spotlight **Fetch Response** button (1000ms) → click Fetch → wait for response → spotlight **response preview** (2000ms) |
+| 6 | `th2-save-test` | Save and See the Tree | `HAR.TEST_CARD` | Click **Save** in the editor header → modal closes → spotlight the new test row in the tree: **GET** badge + "Get User by ID" (1200ms) |
 
-**Cleanup:** Keep the created FG for TH-3 usage (or rely on `preAction` seeding).
+**Cleanup:** Deletes the "JSONPlaceholder API" FG on exit/restart. TH-3 relies on its own `preAction` seeding.
 
 ---
 
 ## TH-3: Validation & Assertions
 
-**Goal:** Add validation rules to tests — understand the three validation modes, configure expected fields with operators, add assertion presets, use the Data Mapper for visual validation, and verify rules against live responses. This is the overview lesson; see **TH-10** (Assertions Deep Dive), **TH-11** (Data Mapper), and **TH-12** (Validation Versioning) for dedicated deep dives.
+**Goal:** Add validation rules to tests — understand the three validation modes, add assertions (status code, response time), see the sample response and Data Mapper entry point, and verify rules against a live response. This is the overview lesson; see **TH-10** (Assertions Deep Dive), **TH-11** (Data Mapper), and **TH-12** (Validation Versioning) for dedicated deep dives.
 
 | Field | Value |
 |---|---|
 | `id` | `th-validation-assertions` |
-| `estimatedMinutes` | 8 |
-| Steps | 7 |
+| `estimatedMinutes` | 6 |
+| Steps | 6 |
 | `initialTab` | `scenarios` |
 | `allowedTabs` | `['scenarios']` |
 
-**Prerequisite:** Seeded FG with "Posts CRUD" scenario containing a GET /posts/1 test with a fetched sample response.
+**Prerequisite:** Seeded FG with "User Endpoints" scenario containing a GET /users/1 test with `validation.mode: 'selective'` and `validation.sampleJson` pre-populated (simulating a previously fetched response). No assertions or expected fields yet.
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th3-modes` | Validation Modes | `HAR.VALIDATION_MODE` | Open the GET /posts/1 test editor → **Validation** tab → spotlight the **Mode** selector (1200ms): **None** (no checking), **Selective** (check specific fields), **Full** (deep body comparison) → select **Selective** → spotlight the mode switching (800ms, explain: Selective is the most common — check what matters, ignore the rest) |
-| 2 | `th3-expected-fields` | Expected Fields & Operators | `HAR.EXPECTED_FIELDS` | Spotlight the **Expected Fields** section → click **+ Add Field** → spotlight **JSONPath** input → type `$.userId` → spotlight **Operator** dropdown (1200ms): equals, contains, regex, greater_than, is_not_empty, type_is, between, … (24 operators) → select **equals** → type expected value `1` → Save row → add second field: `$.title` with operator **is_not_empty** → spotlight the two rules (1500ms) |
-| 3 | `th3-assertions` | Assertion Presets | `HAR.ASSERTION_MENU` | Spotlight the **+ Add Assertion** button → click → spotlight the **categorized assertion menu** (1200ms): Status (2xx, 4xx patterns), Timing (< 500ms), Headers (content-type), Body (array length, regex), Type checks → click **Status — 2xx Success** → assertion row appears: "Status matches 2xx" → click **Response Time < 1000ms** → second assertion row appears (1000ms) → spotlight both assertions with their inline edit controls |
-| 4 | `th3-data-mapper` | Visual Validation (Data Mapper) | `HAR.OPEN_MAPPER_BTN` | Spotlight **Open Data Mapper** button below expected fields (800ms) → click → Data Mapper modal opens → spotlight **source tree** (response JSON: userId, id, title, body — 1200ms) → spotlight **target tree** (validation rules) → drag `$.userId` from source to target → operator pill appears (equals) → set value `1` → spotlight the **connection line** between source and target (1000ms) → click **Done** → rules sync back to expected fields list |
-| 5 | `th3-verify` | Verify Against Live Response | `HAR.VERIFY_BTN` | Spotlight the **Verify** button in the validation tab footer (800ms) → click → verification runs → spotlight **pass/fail badges** on each field rule (green ✓ for `$.userId === 1`, green ✓ for `$.title is_not_empty`) → spotlight assertion results (Status ✓, Response Time ✓) → spotlight the **summary bar**: "4/4 passed" (1500ms, explain: Verify tests your rules against the fetched sample without running through the Runner) |
-| 6 | `th3-full-mode` | Full Body Validation | `HAR.VALIDATION_MODE` | Switch mode to **Full** → spotlight the **Expected JSON** panel appearing (1000ms, pre-populated from the fetched response) → spotlight **Exclude Paths** list (explain: paths you don't care about — timestamps, random IDs) → add `$.id` to excludes → spotlight the updated comparison config (800ms) → switch back to **Selective** (explain: Full mode catches unexpected field additions but is brittle for dynamic responses) |
-| 7 | `th3-extraction` | Extract Values for Chaining | `HAR.EXTRACT_TAB` | Switch to **Extract** tab → spotlight the empty extractions list (800ms) → click **+ Add Extraction** → type JSONPath `$.id` → variable name `postId` → spotlight the extraction rule (1200ms, explain: extracted values become variables available to subsequent tests in the scenario — `{{postId}}` in URLs/bodies) → Save & close editor |
+| 1 | `th3-modes` | Three Validation Modes | `HAR.TE_RADIO_GROUP` | Open the seeded test (click Edit) → navigate to **Validation** tab → spotlight the **3 radio modes** (1200ms): **No Body Validation** (assertions only), **Full JSON Match** (deep comparison), **Selective Fields** (check specific fields) → explain Selective is the most common choice |
+| 2 | `th3-add-status` | Add a Status Code Assertion | `HAR.TE_ASSERTIONS_ADD_BTN` | Spotlight the **+ Add** button in the Assertions section → click → spotlight the **categorized assertion menu** (1200ms): Response, Field Validation, Array & Structure, Schema & Advanced → click **Status Code** → assertion row appears with input pre-filled "200" → close menu → spotlight the new assertion row (1200ms) |
+| 3 | `th3-add-timing` | Add a Response Time Assertion | `HAR.TE_ASSERTIONS_LIST` | Click **+ Add** again → click **Response Time SLA** → row appears with max ms input showing "500" → close menu → spotlight both assertion rows (1500ms, explain: assertions run on every request regardless of body validation mode — they check HTTP-level properties) |
+| 4 | `th3-response-preview` | Sample Response & Data Mapper | `HAR.TE_RESPONSE_PREVIEW` | Spotlight the **response preview** panel showing the fetched JSON (1500ms, explain: this is the captured sample used to build field-level rules) → spotlight the **⚡ Data Mapper** button (1000ms, explain: the Data Mapper lets you visually create field validation rules by mapping source paths to operators — deep dive in TH-11) |
+| 5 | `th3-verify` | Verify Against Live Response | `HAR.TE_VERIFY_BTN` | Spotlight the **Verify** button (800ms) → click → verification runs against the live API → spotlight the **result summary** showing pass/fail badges (1500ms, explain: Verify sends the request and evaluates all assertions — use it to test your rules before running the full suite) |
+| 6 | `th3-save` | Save the Validated Test | `HAR.TEST_CARD` | Click **Save** → modal closes → spotlight the test card in the tree showing validation indicators (1200ms) |
 
-**Cleanup:** Keep the validated test for TH-4.
+**Cleanup:** Deletes the seeded FG on exit/restart. TH-4 relies on its own `preAction` seeding.
 
 ---
 
 ## TH-4: The Test Runner
 
-**Goal:** Execute tests using the standard Test Runner — configure the host, choose an execution mode, set concurrency and iterations, preview the execution plan, run, and monitor live progress.
+**Goal:** Execute tests using the standard Test Runner — configure the host, choose an execution mode, set iterations, preview the execution plan, run, and monitor live progress.
 
 | Field | Value |
 |---|---|
@@ -162,89 +169,94 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | `initialTab` | `runner` |
 | `allowedTabs` | `['scenarios', 'runner', 'results']` |
 
-**Prerequisite:** Seeded FG with 3 tests: GET /posts/1, POST /posts, GET /users/1 — all with basic validation (status 2xx + timing assertion).
+**Prerequisite:** Seeded FG "Runner Demo" with a standard scenario containing 3 tests: GET /users (status 200), GET /users/1 (status 200), POST /users (status 201) — all with response time assertion (max 5000ms). URLs are absolute jsonplaceholder.typicode.com.
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th4-host-selector` | Host Configuration | `HAR.HOST_SELECTOR` | Navigate to **Test Runner** tab → spotlight the **Host Selector** at the top (1200ms) → spotlight 3 modes: **As authored** (uses URLs in tests verbatim), **Settings** (replaces host with microservice base URL), **Custom** (override URL) → select **As authored** (explain: for JSONPlaceholder tests, URLs are already absolute) |
-| 2 | `th4-execution-config` | Execution Mode & Concurrency | `HAR.EXEC_CONFIG` | Spotlight the **Execution Config** panel → spotlight **Execution Mode** selector (1200ms): Sequential, Batch, Pool, Load Profile, Constant Arrival → select **Batch** (explain: runs all tests in parallel batches) → spotlight **Concurrency** slider → set to 3 → spotlight **Iterations** field → set to 2 → spotlight **Timeout** → leave at 30s (800ms) |
-| 3 | `th4-scenario-select` | Select Scenarios to Run | `HAR.SCENARIO_SELECTOR` | Spotlight the **Scenario Selector** section → checkbox the "Posts CRUD" scenario → spotlight **Validation Overrides** toolbar: Skip Validation toggle, Force Unordered, Skip Assertions (1000ms, explain: temporary overrides without editing test definitions) → spotlight **test count** badge: "3 tests selected" (800ms) |
-| 4 | `th4-exec-plan` | Execution Plan Preview | `HAR.EXEC_PLAN` | Spotlight the **Execution Plan Preview** panel expanding (1200ms) → spotlight the formula: `2 iterations × 3 tests = 6 total requests` → spotlight per-scenario breakdown (scenario name + test names + iteration allocation) → spotlight the **estimated duration** calculation (800ms, explain: the plan shows exactly what will run before you commit) |
-| 5 | `th4-run` | Run & Monitor Progress | `HAR.RUN_BTN` | Click **▶ Run** → spotlight the **Live Progress Panel** appearing (1000ms) → spotlight the **progress bar** filling → spotlight **live metrics**: requests/sec, active connections, pass/fail counts (1500ms) → spotlight individual **test rows** turning green as they complete → spotlight the **Stop** button (explain: safely abort at any time) → run completes → spotlight **final summary**: 6/6 passed, avg latency (1500ms) |
-| 6 | `th4-results` | Navigate to Results | `HAR.VIEW_RESULTS_BTN` | Spotlight **View Results** link/button → click → navigate to **Results** tab → spotlight the new **TestRun** entry at the top of the run list (1200ms) → spotlight run metadata: timestamp, env/svc, "6 requests, 100% pass", execution mode badge → explain: every run is saved here for future comparison and export |
+| 1 | `th4-host-selector` | Host Configuration | `HAR.HOST_SELECTOR` | Spotlight the **Host Selector** at the top (1500ms) — three radio modes: **Original** (uses URLs as authored — correct for absolute jsonplaceholder URLs), **Settings** (replaces host with the microservice's base URL from Settings), **Custom** (enter an override URL). Explain: since our tests use absolute URLs, Original is the right choice |
+| 2 | `th4-execution-config` | Execution Mode & Concurrency | `HAR.EXEC_CONFIG` | Spotlight the **Execution Mode** radios (1200ms): Sequential, Batch, Continuous Pool, Load Profile, Constant Arrival — Batch is selected by default (fires N requests, waits for all, then fires next N). Spotlight the **Iterations** input → set to **2** (1000ms, explain: each test runs twice). Leave Concurrency at 1 and Timeout at 10 sec |
+| 3 | `th4-scenario-select` | Select Scenarios to Run | `HAR.SCENARIO_SELECTOR` | Spotlight the **Select Scenarios** section → check the seeded scenario checkbox (selects all 3 tests) → spotlight the **count badge** "1 scenario(s) selected (3 test(s))" (1200ms) → spotlight the **override controls**: Body Validation dropdown, Assertions checkbox, Unordered arrays (1000ms, explain: temporary overrides without editing test definitions) |
+| 4 | `th4-exec-plan` | Execution Plan Preview | `HAR.EXEC_PLAN` | Spotlight the **Execution Plan** summary (1500ms): `2 iterations × 3 tests = 6 requests` — this shows exactly what will execute before you commit to running. The total request count helps estimate time and resource usage |
+| 5 | `th4-run` | Run & Monitor Progress | `HAR.RUN_BTN` | Click **▶ Run Test** → spotlight the **progress bar** filling (1000ms) → spotlight the **live metrics**: TPS, Avg Response, Error Rate, Validation Failures (1500ms, explain: these update in real-time as requests complete) → run completes → spotlight the **completion banner** with total requests and elapsed time (1500ms) |
+| 6 | `th4-results` | View Full Results | `HAR.VIEW_RESULTS_BTN` | Spotlight **View Full Results →** button in the completion banner → click → navigate to **Results** tab → spotlight the new run entry at the top of the results list (1200ms, explain: every run is saved here for comparison, export, and baseline analysis) |
 
-**Cleanup:** Keep the run result for TH-6.
+**Cleanup:** Deletes the seeded FG on exit/restart. TH-5 relies on its own seeding.
 
 ---
 
 ## TH-5: Data Source Authoring
 
-**Goal:** Transform a single test into a data-driven suite — understand parameterized scenarios, configure data source columns, add data rows with tags, import from CSV, and link to Shared Data Sources.
+**Goal:** Understand data-driven testing — see a parameterized scenario with a data source, understand column types, add data rows with tags, filter by tags, and preview execution.
 
 | Field | Value |
 |---|---|
 | `id` | `th-data-sources` |
-| `estimatedMinutes` | 7 |
-| Steps | 7 |
+| `estimatedMinutes` | 6 |
+| Steps | 6 |
 | `initialTab` | `scenarios` |
 | `allowedTabs` | `['scenarios']` |
 
-**Prerequisite:** Seeded FG "User API" with a standard scenario containing a GET test using `https://jsonplaceholder.typicode.com/users/1` and basic validation (`$.name` is_not_empty, status 2xx).
+**Prerequisite:** Seeded FG "Data-Driven Demo" with a **parameterized** scenario "User Tests" containing a test "Get User by ID" with:
+- URL template: `https://jsonplaceholder.typicode.com/users/{{userId}}`
+- Data source: one `userId` column (type: path, mapping: `userId`), 2 pre-filled rows (userId=1, userId=2, both enabled)
+- Validation: status 200 assertion
+
+**Note:** The Parameterize/Data Source tab only appears for tests inside parameterized scenarios (`kind !== 'standard'`). The setup wizard (5 steps: detect variables → columns → validate → order → review) is how users create data sources from scratch; here we seed a pre-configured data source so the lesson focuses on the grid.
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th5-parameterize` | Create a Parameterized Copy | `HAR.TEST_EDITOR` | Open the existing GET /users/1 test editor → click the **Parameterize** tab (last tab, if kind=standard) → spotlight the **"Parameterize This Test"** empty state (1200ms, explain: a parameterized copy preserves your original test and creates a data-driven version) → spotlight the **Create Parameterized Copy** button (800ms) → click → the **Setup Wizard** opens |
-| 2 | `th5-wizard` | The Parameterize Wizard | `HAR.DS_SETUP_MODAL` | Spotlight the wizard **step 1**: auto-detected `{{variables}}` in the URL (1200ms, explain: the wizard found `1` in `/users/1` and proposes replacing it with `{{userId}}`) → spotlight the URL template preview: `https://jsonplaceholder.typicode.com/users/{{userId}}` → spotlight the detected column `userId` with type **path** (1000ms) → proceed to **step 2**: validation columns → spotlight the option to add a `validate:` column for `$.name` (800ms, explain: validate columns let each row define its own expected value) → add `expectedName` validate column → proceed to **review** step → spotlight the summary: 2 columns, URL template, source test preserved (1000ms) → click **Apply** → wizard closes → a new **Parameterized** scenario appears in the FG with the new test, URL now shows `{{userId}}` |
-| 3 | `th5-grid` | The Data Source Grid | `HAR.DS_EDITOR` | Open the new parameterized test → click **Data Source** tab → spotlight the **data grid** (1500ms): two columns (`userId` path, `expectedName` validate), one empty row → spotlight the **column headers** with type badges (path = blue, validate = purple — 1000ms) → spotlight the toolbar: **+ Row**, **+ Column**, **Import**, **Populate from API**, **Verify**, **Link Shared DS** (1200ms) |
-| 4 | `th5-add-rows` | Add & Tag Data Rows | `HAR.DS_ADD_ROW_BTN` | Click **+ Row** 5 times → 5 rows appear → fill `userId` values: `1`, `2`, `3`, `4`, `5` → fill `expectedName` values: `Leanne Graham`, `Ervin Howell`, `Clementine Bauch`, `Patricia Lebsack`, `Chelsey Dietrich` → spotlight the filled grid with all 5 rows (1500ms) → spotlight the **enable/disable** checkbox on row 5 (explain: disable individual rows to skip them during runs — 800ms) → spotlight the **tags** column → add tag `smoke` to rows 1–3, tag `regression` to rows 4–5 → spotlight the tag pills (1000ms, explain: tags let you filter which rows run in the Parameterized Runner) |
-| 5 | `th5-column-types` | Column Types Deep Dive | `HAR.DS_ADD_COL_BTN` | Click **+ Column** → spotlight the column type selector (1500ms): **path** (URL path segments `{{var}}`), **param** (query string `?key=val`), **body** (JSON body `{{var}}`), **header** (HTTP header values), **validate** (per-row expected values) → add a `param` column named `_fields` (800ms, explain: param columns inject query parameters — `/users/1?_fields=name,email`) → fill one cell with `name,email` → spotlight the URL preview showing the full resolved URL with query params (1200ms) → Save |
-| 6 | `th5-csv-import` | Import from CSV | `HAR.DS_IMPORT_BTN` | Spotlight the **Import** button above the grid → click → spotlight file type options: **CSV**, **JSON**, **Excel** (1000ms) → select CSV → spotlight the **column mapping** step (1200ms, explain: map CSV columns to existing DS columns or create new ones — the mapper auto-matches by name) → spotlight the preview of mapped rows → confirm → grid updates with imported rows merged below existing data → spotlight the updated row count badge (1000ms) |
-| 7 | `th5-shared-ds` | Shared Data Sources | `HAR.SHARED_DS_BTN` | Return to **Feature Groups** view → spotlight **Shared Data Sources** button in header → click → modal opens → spotlight the empty shared DS list (800ms, explain: shared data sources are reusable across tests and Feature Groups — change once, all linked tests update) → click **+ Create** → name it "User IDs" → add 10 user ID rows → spotlight the fetch config option (explain: optionally fetch rows from an API at run time — 1000ms) → Save → close modal → back in test editor → Data Source tab → spotlight **Link Shared DS** dropdown → select "User IDs" → spotlight the **linked badge** replacing inline rows (1200ms, explain: the test now pulls data from the shared source — no duplication) → spotlight the **Promote to Shared** button on the toolbar (800ms, explain: you can also promote an inline data source to shared) |
+| 1 | `th5-param-scenario` | Parameterized Scenarios | `.kind-badge-param` | Navigate to Scenarios → expand the seeded FG → spotlight the **PARAM** badge on the scenario (1500ms, explain: parameterized scenarios support data-driven testing — each data row becomes a separate request with substituted values) → spotlight the test card showing the `{{userId}}` template URL |
+| 2 | `th5-data-tab` | The Data Source Tab | `.builder-tab:has(.tab-badge)` | Open the test editor (click Edit) → spotlight the **Data Source** tab with its row-count badge (1500ms, explain: the Data Source tab appears for parameterized tests and shows how many rows are enabled) → click it → grid appears |
+| 3 | `th5-grid-overview` | The Data Source Grid | `.data-source-grid` | Spotlight the grid showing 2 rows with the `userId` column (1500ms) → spotlight the column header with its **Path** type dropdown (1200ms, explain: 5 column types — Path replaces URL path segments, Param adds query params, Body fills JSON body fields, Header sets HTTP header values, Validate defines per-row expected values) → spotlight the **Run Preview** footer: "2 enabled rows → 2 requests" (1000ms) |
+| 4 | `th5-add-rows` | Add Data Rows | `.data-source-toolbar-unified` | Click **+ Row** three times → fill userId values: 3, 4, 5 → spotlight the filled grid with all 5 rows (1500ms) → spotlight a row's enable/disable checkbox (800ms, explain: uncheck to skip individual rows without deleting them) → spotlight the updated Run Preview: "5 enabled rows → 5 requests" (1000ms) |
+| 5 | `th5-tags` | Tag & Filter Rows | `.data-source-row-tags` | Click the **+** tag button on row 1 → type "smoke" → repeat for row 2 → spotlight the tag pills (1200ms) → spotlight the **tag filter bar** that appeared: All (5), smoke (2), untagged (3) → click **smoke** filter → grid shows only tagged rows (1000ms, explain: tags let you run subsets in the Parameterized Runner without editing the data source) → click **All** to restore full view |
+| 6 | `th5-save` | Save & Review | `[data-testid="te-save-btn"]` | Click **Save** → editor closes → spotlight the test card back in the tree (1200ms, explain: this test now runs 5 times in the Parameterized Runner — once per enabled data row. Use Shared Data Sources for reusable row sets, or the Import menu for CSV/Excel bulk loading) |
 
-**Cleanup:** Keep the parameterized FG for TH-6.
+**Cleanup:** Deletes the seeded FG on exit/restart. TH-6 relies on its own seeding.
 
 ---
 
 ## TH-6: The Parameterized Runner
 
-**Goal:** Execute parameterized tests at scale — understand how the Parameterized Runner differs from the standard Test Runner, configure execution with data-aware options (tag filters, row counts, per-row progress), run data-driven test suites, analyze per-row results, and re-run only failed rows.
+**Goal:** Execute parameterized tests — understand how the Parameterized Runner differs from the standard Test Runner, see the per-test execution plan with row counts, use tag filtering, run the suite, and monitor per-row live progress.
 
 | Field | Value |
 |---|---|
 | `id` | `th-parameterized-runner` |
-| `estimatedMinutes` | 9 |
-| Steps | 8 |
+| `estimatedMinutes` | 6 |
+| Steps | 6 |
 | `initialTab` | `param-runner` |
 | `allowedTabs` | `['scenarios', 'param-runner', 'results']` |
 
-**Prerequisite:** Seeded FG "User API" with a **parameterized** scenario containing:
-- **Test 1:** GET `https://jsonplaceholder.typicode.com/users/{{userId}}` — 10 data rows (`userId` 1–10), `expectedName` validate column, rows tagged `smoke` (1–5) and `regression` (6–10), validation: `$.name` equals `{{expectedName}}`, status 2xx assertion. Row 8 has a deliberately **wrong** `expectedName` to trigger a failure.
-- **Test 2:** GET `https://jsonplaceholder.typicode.com/posts?userId={{userId}}` — same 10 rows linked to a **Shared Data Source** "User IDs", validation: `$.length` greater_than `0`. Row 8 is correct (no seeded failure here — only Test 1 fails on row 8).
+**Prerequisite:** Seeded FG "Param Runner Demo" with a **parameterized** scenario "User Tests" containing one test "Get User by ID":
+- URL template: `https://jsonplaceholder.typicode.com/users/{{userId}}`
+- Data source: `userId` column (path), 5 rows (userId 1–5, all enabled), rows 1–3 tagged `smoke`, rows 4–5 tagged `regression`
+- Validation: status 200 assertion
+
+**Note:** The Parameterized Runner is a **separate sub-tab** (`param-runner`) from the standard Test Runner (`runner`). It shares the same `RunnerPage` component but filters to show only `kind === 'parameterized'` scenarios. The run button reads "▶ Run Parameterized Test" and the execution plan shows per-test `iterations × rows = N` breakdowns. Per-test row progress is visible only **during** the run (not after completion). "Re-run Failed" lives on the Results tab — see TH-7.
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th6-param-tab` | The Parameterized Runner Tab | `HAR.NAV_PARAM_RUNNER` | Navigate to the **Parameterized Runner** sub-tab → spotlight the page title "Parameterized Runner" (800ms, explain: this runner is dedicated to parameterized scenarios — standard scenarios don't appear here) → if no parameterized scenarios exist, spotlight the empty state: *"No parameterized scenarios defined. Go to Feature Groups tab and create a parameterized scenario with data sources."* → since we have seeded data, spotlight the **Scenario Selector** section showing only the parameterized scenario (1200ms) → spotlight the key difference from the standard runner: each test row shows a **📊 N rows** badge next to the method badge (1500ms, explain: the row count tells you how many data rows will execute per iteration) |
-| 2 | `th6-scenario-select` | Select Scenarios & Review Weights | `HAR.SCENARIO_SELECTOR` | Checkbox the "User API" parameterized scenario → spotlight the 2 tests appearing with row count badges: **Test 1** `GET /users/{{userId}}` **📊 10 rows**, **Test 2** `GET /posts?userId={{userId}}` **📊 10 rows** (1500ms) → expand **Test Distribution (weights)** section → spotlight the weight inputs (default 1 each — 1000ms, explain: set a weight to 0 to skip a test, higher weights increase the proportion during random distribution) → spotlight the **Validation Overrides** toolbar: Skip Validation toggle, Skip Assertions, Force Unordered (800ms, explain: these toggles let you temporarily disable validation without editing test definitions — useful for baseline performance runs) |
-| 3 | `th6-execution-plan` | The Execution Plan (iterations × rows) | `HAR.EXEC_PLAN` | Set **Iterations** to 2 → spotlight the **Execution Plan Preview** panel expanding (1200ms) → spotlight the parameterized-specific plan layout — it shows each test individually: **Test 1:** `2 iterations × 10 rows = 20 requests` → **Test 2:** `2 iterations × 10 rows = 20 requests` → **Total: 40 requests** (2000ms, explain: unlike the standard runner's simple `iterations × tests` formula, the parameterized runner multiplies iterations by the number of **enabled data rows** per test — each row becomes a real HTTP request with its own substituted values) → spotlight the **Concurrency** slider → set to 5 → spotlight the plan updating with concurrency note: "Total: 40 requests · Concurrency: 5" (800ms) |
-| 4 | `th6-tag-filter` | Tag Filter — Run a Subset | `HAR.TAG_FILTER` | Spotlight the **Tag Filter** fieldset (1200ms, explain: tag filter lets you run a subset of data rows without editing the data source — only rows matching the specified tags will execute) → type `smoke` in the tag filter input → spotlight the hint text: *"Only rows matching these tags will run"* (800ms) → spotlight the **Execution Plan** updating: **Test 1:** `2 × 5 rows = 10`, **Test 2:** `2 × 5 rows = 10`, **Total: 20 requests** (1500ms, explain: the plan now reflects only the 5 `smoke`-tagged rows per test — half the original 40) → clear the tag filter to show all 10 rows again (for the run step) |
-| 5 | `th6-run` | Run the Parameterized Test | `HAR.RUN_BTN` | Set **Iterations** back to 1 (for demo speed — 10+10 = 20 requests) → spotlight the **▶ Run Parameterized Test** button (1000ms, explain: the run button label changes to remind you this is the parameterized runner) → click → spotlight the **Live Progress Panel** appearing (1000ms) → spotlight the **progress bar** filling: `0/20 → 5/20 → 10/20 → ...` → spotlight the **live metrics**: requests/sec, active connections, pass/fail counts updating in real time (1500ms) |
-| 6 | `th6-per-row-progress` | Per-Row Live Progress | `HAR.LIVE_PROGRESS` | While the run is in progress (or just completed), spotlight the **per-test row progress** section below the progress bar (1800ms, explain: the parameterized runner shows per-test completion with row-level detail that the standard runner doesn't have) → spotlight **Test 1**: progress showing `9/10 ✓ · 1/10 ✗` (Test 1 row 8 failed due to wrong `expectedName`) → spotlight **Test 2**: progress showing `10/10 ✓` (all rows passed — 1200ms) → spotlight the **overall summary**: `19 passed, 1 failed` → spotlight the failed row's **data row label** in the results: `"Row 8: userId=8, expectedName=..."` highlighted in red (1500ms, explain: each result is tagged with its data row so you can trace exactly which input combination failed) |
-| 7 | `th6-rerun-failed` | Re-Run Only Failed Rows | `HAR.RERUN_FAILED_BTN` | Spotlight the **Re-run Failed** button that appears after completion (1000ms, explain: instead of re-running all 20 requests, this re-executes only the rows that failed — saving time on large data sets with hundreds of rows) → click → spotlight a single request executing: `GET /users/8` with the bad expected name (800ms) → result: still fails (the expected value is wrong, not the API) → spotlight the merged results: `19 passed, 1 failed (re-run)` (1000ms) → navigate back to **Feature Groups** → open the test editor → Data Source tab → spotlight row 8's `expectedName` column → fix the value to the correct name ("Nicholas Runolfsdottir V") → spotlight the corrected cell highlighted (800ms) → Save → return to Parameterized Runner → Re-run Failed again → spotlight: now `20/20 ✓` all green (1500ms) |
-| 8 | `th6-data-row-results` | Data Row Results Analysis | `HAR.VIEW_RESULTS_BTN` | Spotlight the **View Full Results →** button → click → navigate to **Results** tab → spotlight the new run entry at the top (1000ms) → click it → spotlight the **Group By** selector → select **Data Row** → spotlight the results grouped by data row: each row shows its label (`userId=1`, `userId=2`, …), pass/fail status, response time (1800ms) → spotlight the **Failed Data Rows** filter → click it → spotlight only row 8's result isolated (the original failure, before re-run fix — 1000ms) → spotlight the **per-row detail** showing: resolved URL `https://jsonplaceholder.typicode.com/users/8`, response body, validation result with the mismatched `$.name` field highlighted (1500ms, explain: this is the data-driven advantage — when one row fails out of hundreds, you pinpoint exactly which input combination caused it and fix just that row) |
+| 1 | `th6-param-tab` | The Parameterized Runner | `.param-runner-page .page-header` | Navigate to the **Parameterized Runner** tab → spotlight the page title "Parameterized Runner" (1200ms, explain: this is a dedicated runner for parameterized scenarios only — standard scenarios appear in the Test Runner tab instead) → spotlight the **Scenario Selector** showing only the seeded parameterized scenario with its aggregate row count badge `📊 5 rows` (1500ms) |
+| 2 | `th6-select-weights` | Select & Review Weights | `.collapsible-legend` | Select the scenario checkbox → spotlight the **Test Distribution (weights)** section that appears (1500ms) → spotlight the per-test weight row showing the test name, method badge, `📊 5 rows` badge, and weight input (1200ms, explain: weights control test proportion — set to 0 to skip, higher values increase share during random distribution) |
+| 3 | `th6-exec-plan` | Execution Plan (Rows × Iterations) | `HAR.EXEC_PLAN` | Set **Iterations** to 2 → spotlight the **Execution Plan** showing the per-test breakdown: `Get User by ID: 2 × 5 = 10` → `Total: 10 requests · Concurrency: 1` (1800ms, explain: the parameterized runner multiplies iterations by the number of **enabled data rows** per test — each row becomes a real HTTP request with substituted values from the data source) |
+| 4 | `th6-tag-filter` | Tag Filter | `.runner-tag-filter-input` | Spotlight the **Tag Filter** input that appeared because rows have tags (1200ms) → type "smoke" → spotlight the hint: "Only rows matching these tags will run" (1200ms, explain: the tag filter applies at **run time** — only rows tagged `smoke` will execute, cutting our 5 rows to 3 per iteration) → clear the filter for the full run |
+| 5 | `th6-run` | Run & Monitor Progress | `HAR.RUN_BTN` | Set iterations back to 1 → click **▶ Run Parameterized Test** → spotlight the **live progress bar** filling (1200ms) → spotlight the **per-test row progress** showing completion counts (1500ms, explain: this real-time row-level breakdown is unique to the parameterized runner — see exactly how many rows passed or failed per test) → spotlight **live metrics** (TPS, Avg Response, Error Rate) updating in real time (1500ms) |
+| 6 | `th6-results` | Completion & Results | `HAR.COMPLETION` | Run completes → spotlight the **completion banner** showing total requests and elapsed time (1200ms) → click **View Full Results →** → navigate to Results tab → spotlight the new run entry (1500ms, explain: every parameterized run is saved for comparison, re-run of failed rows, and baseline analysis — see TH-7 for Results & Analysis deep dive) |
 
-**Cleanup:** Keep results for TH-7. Delete seeded FG if standalone.
+**Cleanup:** Deletes the seeded FG on exit/restart.
 
 ---
 
 ## TH-7: Results & Analysis
 
-**Goal:** Analyze completed test runs — explore the Results Dashboard, interpret metrics, compare runs, set baselines, configure SLA thresholds, and export reports.
+**Goal:** Explore the Results Dashboard — understand the run selector, read metrics and response time distribution, drill into request details with grouping and filters, mark a baseline, and export reports.
 
 | Field | Value |
 |---|---|
@@ -252,28 +264,30 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | `estimatedMinutes` | 6 |
 | Steps | 6 |
 | `initialTab` | `results` |
-| `allowedTabs` | `['scenarios', 'runner', 'results']` |
+| `allowedTabs` | `['scenarios', 'runner', 'param-runner', 'results']` |
 
-**Prerequisite:** 2 seeded TestRuns (one standard, one parameterized) with realistic timing data and mixed pass/fail results.
+**Prerequisite:** 1 seeded TestRun (5 results with realistic timing data, 4 passed + 1 failed validation) saved to storage. The dashboard loads runs from IndexedDB on mount, so seeding before navigating to the results tab is sufficient.
+
+**Note:** The Results Dashboard is a **single-column layout** (not left/right split). Runs are selected via a **dropdown** (`.results-run-select`), not a sidebar list. View tabs are: **Overview**, **Request Details** (not "Requests"), **SLA**, and **Comparison & Trends** (not "Analysis"). Status filtering uses a **dropdown** (not pills). Group By primary options are Feature, Scenario, Test Name (flat), not "Data Row" at top level. Export is split across **Export JSON**, **Export CSV**, and **Generate Report ▾** (HTML/JSON/Markdown downloads — no in-app preview).
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th7-dashboard` | The Results Dashboard | `HAR.RESULTS_DASHBOARD` | Navigate to **Results** tab → spotlight the **run list** on the left (2 entries with timestamps, pass rates, badges — 1200ms) → click the first run → spotlight the **4 dashboard tabs**: Overview, Requests, SLA, Analysis (1000ms each) → spotlight the **run type filter**: All / Test / Workflow (800ms) |
-| 2 | `th7-metrics` | Metrics Cards & Timing | `HAR.METRICS_CARDS` | On the **Overview** tab → spotlight **Metrics Cards** row: Throughput (req/s), Avg Latency, P95, P99, Error Rate (1500ms) → spotlight the **Response Time Histogram** chart (distribution of response times — 1000ms) → spotlight the **Waterfall Breakdown** bar (DNS, TCP, TLS, TTFB, transfer — 1000ms, explain: see where time is spent) |
-| 3 | `th7-grouping` | Group & Filter Results | `HAR.RESULTS_GROUP` | Spotlight **Group By** selector: Feature Group, Scenario, Test, Data Row (1000ms) → switch to **by Test** → spotlight the grouped table (each test shows pass count, avg time, error rate — 1200ms) → spotlight the **filter by status** pills: All / Passed / Failed → click **Failed** → spotlight narrowed results (800ms) |
-| 4 | `th7-sla` | SLA Targets & Status | `HAR.SLA_TAB` | Switch to **SLA** tab → spotlight the **SLA Status Accordion** (1200ms): per-scenario/test targets with pass/warn/fail indicators → spotlight a **P95 < 500ms** target showing green pass → spotlight a **Error Rate < 1%** target showing amber warn → explain: SLA targets are defined on Feature Groups, Scenarios, or Tests and evaluated automatically after each run (for full SLA authoring, see **TH-13**) |
-| 5 | `th7-comparison` | Run Comparison & Baselines | `HAR.COMPARE_BTN` | Click **Compare** → select the second run as comparison → spotlight the **Run Comparison Panel** (1200ms): side-by-side metrics, delta percentages, regression indicators → spotlight a metric showing **+15ms P95 regression** highlighted in red → spotlight **Set as Baseline** button (800ms) → click → baseline pinned → spotlight future runs showing delta from baseline |
-| 6 | `th7-export` | Export Reports | `HAR.EXPORT_BTN` | Spotlight the **Export** button → click → spotlight export format options: JSON, CSV, HTML Report, Markdown (1200ms) → select **HTML Report** → spotlight the generated report preview (1000ms, explain: shareable standalone HTML with embedded charts and metrics — great for CI artifacts or team sharing) → close export |
+| 1 | `th7-dashboard` | The Results Dashboard | `.results-top` | Navigate to **Results** tab → spotlight the **run type filter tabs**: All Runs / 🧪 Test Runs / ⚡ Workflow Runs (1200ms, explain: filter which run types are shown in the dropdown) → spotlight the **run dropdown** showing the seeded run with its timestamp, request count, and TPS (1500ms) → select the run |
+| 2 | `th7-metrics` | Metrics & Distribution | `[data-testid="results-metrics-cards"]` | On the **Overview** tab → spotlight the **Metrics Cards**: TPS, Avg Response, Min, Max on the first row (1500ms) → spotlight the **second row**: P50, P95, P99, Error Rate, Total Duration, Total Requests, Validation Failures (1500ms) → spotlight the **Response Time Distribution** histogram below (1200ms, explain: shows how response times are distributed — the P95/P99 reference lines help identify outliers) |
+| 3 | `th7-request-details` | Request Details & Grouping | `#results-tab-requests` | Click the **Request Details** tab → spotlight the **Group By** selector (1200ms): options are Feature, Scenario, Test Name (flat) → select **Scenario** → spotlight the grouped table showing pass/fail counts, avg/min/max timing per scenario (1500ms) → spotlight the **status filter** dropdown → select **Failed Only** → spotlight the filtered view showing only the failed request (1200ms) |
+| 4 | `th7-baseline` | Set a Baseline | `.baseline-toggle` | Spotlight the **☆ Set Baseline** button next to the run dropdown (1200ms, explain: baselines anchor your performance expectations — future runs are compared against the baseline to detect regressions) → click → button changes to **★ Baseline** (active state, 1000ms) → spotlight the **Comparison & Trends** tab label (800ms, explain: open this tab to compare runs against the baseline and see trend charts) |
+| 5 | `th7-sla` | SLA Status | `#results-tab-sla` | Click the **SLA** tab → spotlight the SLA panel (1500ms, explain: SLA targets defined on Feature Groups or Scenarios are evaluated automatically after each run — see TH-13 for authoring SLA targets). If targets exist: spotlight pass/warn/fail indicators. If empty: spotlight the message and explain where to define targets |
+| 6 | `th7-export` | Export Reports | `[data-testid="results-export-json-btn"]` | Spotlight the **Export JSON** button (1000ms) → spotlight the **Generate Report ▾** dropdown nearby (1200ms, explain: three report formats — **HTML** for shareable standalone reports with charts, **JSON** for CI integration, **Markdown** for documentation) → click Generate Report → click **HTML Report** to download (800ms) |
 
-**Cleanup:** Keep results for reference. Clear baseline.
+**Cleanup:** Deletes seeded TestRun and unmarks baseline on exit/restart.
 
 ---
 
-## TH-8: Load Profiles & Performance
+## TH-8: Load Profiles & Advanced Execution
 
-**Goal:** Configure advanced load testing — ramp-up/sustained/spike profiles, constant arrival rate, think time delays, error policies, and performance regression detection.
+**Goal:** Configure advanced execution modes — load profiles (ramp-up/sustained/spike), think time delays, error policies, and constant arrival rate. This lesson focuses on the configuration UI; actual load test execution and results analysis are covered in TH-4 and TH-7.
 
 | Field | Value |
 |---|---|
@@ -281,27 +295,39 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | `estimatedMinutes` | 5 |
 | Steps | 5 |
 | `initialTab` | `runner` |
-| `allowedTabs` | `['runner', 'results']` |
+| `allowedTabs` | `['runner']` |
 
-**Prerequisite:** Seeded FG with 3 fast endpoints (GET /posts, GET /users, GET /comments) — ideal for load testing against JSONPlaceholder.
+**Prerequisite:** Seeded FG "Load Test Demo" with 3 fast GET endpoints (absolute jsonplaceholder URLs) and a standard scenario pre-selected in the runner.
+
+**Note — UI realities (verified against `RunnerExecutionConfig.tsx`):**
+- Execution Mode is a horizontal radio group: Sequential, Batch, Continuous Pool, Load Profile, Constant Arrival
+- Load Profile shows `.load-profile-section` with 3 profile type **buttons** (not radios): Ramp-Up, Sustained, Spike
+- Ramp-Up fields: Duration (sec), Max Concurrency, Ramp (sec) — no "Start Concurrency" (always starts from 1)
+- Profile preview is `ProfilePreview` (SVG chart), not Recharts
+- Think Time is a **radio group** (None/Constant/Uniform/Gaussian), not a toggle+mode
+- Error Policy is inside `.resilience-row` under "On Error" label: Continue, Stop 1st, Threshold
+- Threshold enables both Max Errors and Error Rate % fields
+- Constant Arrival is **desktop-only** (`isTauri()` gated) — disabled at 50% opacity on web
+- Concurrency/Iterations are disabled and show hints ("Set in profile" / "Time-based") for Load Profile and Constant Arrival
+- `ExecutionPlanPreview` is hidden for Load Profile and Constant Arrival modes
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th8-load-profile` | Load Profile Mode | `HAR.EXEC_MODE` | Switch **Execution Mode** to **Load Profile** → spotlight the **Load Profile configurator** appearing (1200ms) → spotlight **Profile Type** selector: Ramp-Up, Sustained, Spike (1000ms each, explain: Ramp-Up gradually increases concurrency, Sustained holds steady, Spike creates burst patterns) → select **Ramp-Up** → configure: start 1 → end 10 → duration 30s → spotlight the visual ramp-up curve (1200ms) |
-| 2 | `th8-think-time` | Think Time & Error Policies | `HAR.THINK_TIME` | Spotlight **Think Time** section → enable it → spotlight config: **Fixed** 200ms (explain: simulates user delays between requests for realistic load) → spotlight **Error Policy** section (1000ms): Continue, Stop on First Failure, Stop at Error Rate → select **Stop at Error Rate** → set threshold to 10% → spotlight **Max Errors** field (800ms) |
-| 3 | `th8-constant-arrival` | Constant Arrival Rate | `HAR.EXEC_MODE` | Switch to **Constant Arrival** mode → spotlight the **Target RPS** field (1000ms) → set to 5 req/sec → spotlight explanation text (explain: maintains a fixed arrival rate regardless of response time — true load test semantics, not constrained by concurrency) → spotlight the execution plan showing time-based run (1200ms) |
-| 4 | `th8-run-load` | Run Under Load | `HAR.RUN_BTN` | Switch back to **Load Profile** (Ramp-Up) → select all 3 tests → click **▶ Run** → spotlight the **Live Progress Panel** with real-time charts (1500ms): concurrent users line climbing, response time chart, throughput bars → spotlight **percentile metrics** updating live: P50, P95, P99 (1200ms) → let it run 10-15 seconds → spotlight the **stop** button → click stop (graceful) |
-| 5 | `th8-perf-results` | Performance Results | `HAR.RESULTS_TAB` | Navigate to Results → select the load run → spotlight **Performance-specific metrics**: peak RPS, max concurrency, P99.9, total duration (1500ms) → spotlight the **Analysis** tab → spotlight latency percentile distribution (1000ms) → spotlight **regression indicator** if a baseline exists (1200ms, explain: the app automatically flags P95/P99 regressions when you have a baseline set) |
+| 1 | `th8-load-profile` | Load Profile Mode | `HAR.EXEC_CONFIG` | On the Runner tab with the seeded scenario selected, switch **Execution Mode** from Batch to **Load Profile** (800ms pause for section to appear) → spotlight the **Profile Type selector** (Ramp-Up / Sustained / Spike buttons, 1500ms) → configure: Duration 10s, Max Concurrency 5, Ramp 5s → spotlight the **fields** (1200ms) → spotlight the **SVG preview chart** showing the ramp curve (1500ms). Note: highlight is on EXEC_CONFIG (not LOAD_PROFILE_SEC) because the load profile section doesn't exist during reading phase |
+| 2 | `th8-profile-types` | Profile Types | `HAR.PROFILE_TYPE_SEL` | Brief pause (400ms) → click **Sustained** → spotlight SVG preview showing flat line (1000ms) → click **Spike** → spotlight extra fields (Spike Concurrency, Spike Start, Spike Duration, 1200ms) → spotlight SVG preview with spike shape (1000ms) → click **Ramp-Up** to return → spotlight restored ramp curve (800ms) |
+| 3 | `th8-think-time` | Think Time Delays | `HAR.THINK_TIME_SEC` | Click **Constant** radio (no re-spotlight — highlight already shown during reading) → inline ms input appears → set to **200** → spotlight the hint "Fixed 200ms delay" (1000ms) → click **None** to reset |
+| 4 | `th8-error-policy` | Error Policies | `HAR.ERROR_POLICY` | Click **Threshold** radio (no re-spotlight — highlight already shown during reading) → spotlight **Max Errors** field, then **Error Rate %** field individually (800ms each) → set Error Rate to **10%** → spotlight the **Timeout** field (800ms, explain: complementary resilience controls) |
+| 5 | `th8-constant-arrival` | Constant Arrival Rate | `HAR.EXEC_MODE_ROW` | Spotlight the **Constant Arrival** radio label at 50% opacity (1200ms, narrate: Constant Arrival fires requests at a fixed rate regardless of response time — an open model like k6's constant-arrival-rate. It's available in the desktop app and configures Target RPS, Duration, Max In-Flight, and optional ramp) → switch back to **Batch** mode to restore defaults → explain: for most testing, Batch or Load Profile covers your needs; Constant Arrival is for strict throughput targets on the desktop app |
 
-**Cleanup:** Delete load test run if desired.
+**Cleanup:** Resets execution mode to Batch, Think Time to None, Error Policy to Continue on exit/restart. Deletes the seeded FG.
 
 ---
 
 ## TH-9: Advanced — Versioning, Trash & Organization
 
-**Goal:** Manage test definitions over time — version snapshots, find tests with search and tags, reorganize with move/copy, and recover accidentally deleted items from the Trash.
+**Goal:** Manage test definitions over time — version snapshots, find tests with search and tags, and recover accidentally deleted items from the Trash.
 
 | Field | Value |
 |---|---|
@@ -311,86 +337,116 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | `initialTab` | `scenarios` |
 | `allowedTabs` | `['scenarios']` |
 
-**Prerequisite:** Seeded FG with 2 scenarios (5 tests total), some tests tagged, and 1 test definition with 2 version snapshots in history.
+**Prerequisite:** Seeded FG "Organization Demo" with 2 scenarios (3 tests total), one scenario tagged `smoke`, and 1 test with 2 pre-built `definitionVersions` entries (URL changed between versions). The seeded test data includes version snapshots so the History tab has content to show.
+
+**Note — UI realities (verified against codebase):**
+- **Version History** is the last tab in the Test Editor (only shown for existing tests, not new). `TestDefinitionVersionPanel` → shared `VersionHistoryPanel`. Versions track request definition fields (name, URL, method, headers, body, auth, extractions) — NOT assertions/validation (that's TH-12).
+- **Compare** requires selecting exactly 2 version checkboxes → "Compare" button appears → opens `TestDefinitionVersionDiff` modal with tabs (Overview, Headers, Body, Auth, Extractions).
+- **Restore** is per-row ↩ button. Updates editor draft only — user must Save to persist.
+- **Tags** are **scenario-level only** (`.scenario-tag-pill`). Add via `.scenario-tag-add-btn` (`+` icon) → inline input. No test-level tags. No "Tag Filter" bar in search.
+- **Search** bar (`ScenarioBuilderSearchBar`) searches tests/scenarios/FGs by name, URL, method, tags. Match count in `.builder-search-count`. Only matching **test cards** get `.search-match` highlight; FGs/scenarios are filtered in/out.
+- **Test actions** are **inline buttons** on `.test-card-actions` (Edit, Copy, Move, Export, Delete) — no right-click context menu.
+- **Trash** button in header (no `data-testid`). Delete → `ConfirmModal` → undo toast (5s countdown) → Trash panel with Restore/Permanent Delete.
+- **Structure History** is the FG "History" button (not "Structure Change Log"). Opens inline panel, not modal.
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th9-versioning` | Test Definition Versions | `HAR.TEST_EDITOR` | Open a test with version history → switch to **History** tab → spotlight the **Version Panel** (1200ms): 2 snapshots with timestamps, change summaries → spotlight **Compare** button → click → spotlight the diff view showing changed URL and added assertion (1500ms) → spotlight **Restore** button (800ms, explain: restore any previous test definition without losing history) → close editor |
-| 2 | `th9-tags` | Scenario & Test Tags | `HAR.TAGS` | Spotlight a scenario with existing tags (smoke, regression) → spotlight **+ Add Tag** → type "edge-case" → confirm → spotlight the tag pills on the scenario card (1000ms) → spotlight the **Tag Filter** in the search bar → type "smoke" → spotlight only tagged scenarios visible (1200ms, explain: tags help organize test subsets for targeted runs in the Runner) |
-| 3 | `th9-search` | Search Across Everything | `HAR.SEARCH_BAR` | Spotlight the **Search Bar** at the top of Feature Groups → type "user" → spotlight results filtering: matching FGs, scenarios, and tests highlighted (1200ms) → spotlight the match count badge → clear search → spotlight **Structure Change Log** button on FG → click → spotlight the log showing add/delete/move/rename events with timestamps (1200ms) |
-| 4 | `th9-move-copy` | Move & Copy Tests | `HAR.CONTEXT_MENU` | Right-click a test → spotlight context menu items: Edit, Duplicate, Move, Copy, Delete (1000ms) → click **Copy** → spotlight the **Copy modal** with target selector: FG → Scenario → confirm copy → spotlight the test appearing in the destination scenario (1000ms) → right-click another test → **Move** → select target → confirm → original location empty, test in new location (800ms) |
-| 5 | `th9-trash` | Trash & Undo | `HAR.TRASH_BTN` | Delete a test (right-click → Delete) → spotlight the **Undo Toast** appearing at bottom with 5-second countdown bar (1200ms, explain: 5 seconds to undo before it goes to Trash) → let toast expire → spotlight **Trash** button in header (count badge incremented) → click → Trash Panel opens → spotlight the deleted item with restore/permanent-delete options (1200ms) → click **Restore** → item returns to original location → close Trash panel |
+| 1 | `th9-search` | Search & Filter | `.builder-search-wrapper` | Spotlight the **Search Bar** at top of the Feature Groups tree → type "user" → spotlight the **match count** `.builder-search-count` and test cards with `.search-match` highlight (1500ms, explain: search matches test name, URL, method, and scenario tags) → clear the search → tree restores to full view |
+| 2 | `th9-tags` | Scenario Tags | `.scenario-tag-pill` | Spotlight the seeded scenario's existing **smoke** tag pill (1200ms) → click the **+** button (`.scenario-tag-add-btn`) → type "regression" in the inline input → press Enter → spotlight the new tag pill appearing (1000ms, explain: tags organize scenarios for filtered runs in the Parameterized Runner and are searchable) |
+| 3 | `th9-versioning` | Test Definition Versions | `[data-testid="version-history-panel"]` | Open the seeded test (click Edit) → click the **History** tab → spotlight the **version list** with 2 entries showing timestamps and change summaries (1500ms) → spotlight the **↩ Restore** button on the older version (1000ms, explain: Restore loads that snapshot into the editor draft — you must Save to persist) → close the editor |
+| 4 | `th9-delete-undo` | Delete & Undo | `.trash-toast` | Click the **Delete** button on a test card → confirm in the dialog → spotlight the **Undo Toast** with its 5-second countdown bar (1500ms, explain: you have 5 seconds to undo before the item moves to Trash) → click **Undo** → test reappears in its original location |
+| 5 | `th9-trash-panel` | The Trash Panel | `.trash-panel-modal` | Delete a different test → let the undo toast expire → spotlight the **Trash** button in the header showing count badge (1200ms) → click it → Trash Panel opens → spotlight the deleted item row with Restore and Permanent Delete buttons (1500ms) → click **Restore** → item returns to tree → close Trash panel |
 
-**Cleanup:** Restore all trashed items. Remove extra tags. Delete seeded FG.
+**Cleanup:** Restore any trashed items, remove added tags, delete seeded FG.
 
 ---
 
 ## TH-10: Assertions Deep Dive
 
-**Goal:** Master all assertion types available in RedfireForge — from basic status checks to JSON Schema validation, date comparisons, array element assertions, and custom predicates. Understand the 6 assertion categories, the NOT modifier, and how to build complex validation rules without writing code.
+**Goal:** Master assertion types in RedfireForge — from basic status checks to JSON Schema validation, array assertions, and the Regex Builder. Understand the 4 HTTP assertion categories, the NOT modifier, presets, and the Regex Builder modal.
 
 | Field | Value |
 |---|---|
 | `id` | `th-assertions-deep-dive` |
-| `estimatedMinutes` | 8 |
-| Steps | 7 |
+| `estimatedMinutes` | 6 |
+| Steps | 6 |
 | `initialTab` | `scenarios` |
 | `allowedTabs` | `['scenarios']` |
 
-**Prerequisite:** Seeded FG with a GET test against `https://dummyjson.com/products/1` (returns rich JSON with arrays, nested objects, dates, numeric values — ideal for demonstrating all assertion types). Test has a fetched sample response already saved.
+**Prerequisite:** Seeded FG with a GET test against `https://jsonplaceholder.typicode.com/users/1` with `validation.mode: 'selective'` and `validation.sampleJson` pre-populated with a cached user response (rich JSON with nested objects for `address`, `company`, arrays). No assertions initially.
+
+**Note — UI realities (verified against codebase):**
+- Assertion menu is a **portal popover** (`.assertions-add-menu`) — not a modal. 4 categories visible for HTTP tests (WS/Kafka hidden): Response, Field Validation, Array & Structure, Schema & Advanced.
+- Badge labels differ from type names: `responseTime` → `TIME`, `numeric` → `NUMBER`, `arrayLength` → `ARRAY`, `arrayContains` → `CONTAINS`, `existence` → `EXISTS`, `containsSubset` → `SUBSET`.
+- **NOT modifier** is a toggle button (`.assertion-negate-toggle`) on every row. It does NOT change the badge text — only the toggle and row styling change.
+- **Presets** button (`📋 Presets`) opens a dropdown panel (`.assertion-preset-menu`) with 3 category tabs (API Validation, Data Quality, Security) and 7 curated presets. **Save as Preset** does not exist.
+- **Regex Builder** opens as a two-column modal via `RegexAssertionBuilderModal`. Tree picker on left, pattern/preview on right. Pattern library has 5 categories (Text, Identifiers, Formats, Numbers, Arrays).
+- **Date Compare** only supports `today` + `fixed date` references (not "yesterday" or "7 days ago"). Precision selector is on **Date Precise** only.
+- JSON Schema editor is an inline `textarea` with toolbar buttons (Paste Schema, Pretty Format, Minify, Generate from Response). Generate requires `sampleJson`.
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th10-assertion-menu` | The Assertion Menu (6 Categories) | `HAR.ASSERTION_MENU` | Open the test editor → **Validation** tab → spotlight the **Assertions** section with its count badge (800ms) → click **+ Add** → spotlight the **categorized assertion menu** opening (1500ms) → spotlight each category header: **Response** (Status Code, Response Time SLA, Response Header, Body Size), **Field Validation** (Regex Match, Regex Builder, Numeric Compare, Date Compare, Date Precise, Type Check, Field Exists), **Array & Structure** (Array Length, Array Contains, Each Element, Contains Subset), **Schema & Advanced** (JSON Schema, Custom Predicate) — pause on each category (1000ms per group, explain: 24+ assertion types organized by what you're checking) → close the menu without selecting |
-| 2 | `th10-response-assertions` | Response Assertions | `HAR.ASSERTION_ROW` | Click **+ Add** → select **Status Code** → spotlight the new assertion row: type pill `STATUS`, expected value `200` (800ms) → edit to `2xx` (explain: pattern matching — `2xx` matches any 200-range status) → add **Response Time SLA** → spotlight: `RESPONSE TIME`, max `500` ms (800ms) → add **Response Header** → spotlight: `HEADER`, name `content-type`, operator `contains`, value `json` (1000ms) → add **Body Size** → spotlight: `SIZE`, operator `<=`, value `1024`, unit `KB` (1000ms) → spotlight the **NOT** toggle on Body Size → click it → pill changes to `SIZE NOT` (800ms, explain: the NOT modifier inverts any assertion — "body is NOT larger than 1024 KB") |
-| 3 | `th10-field-assertions` | Field Validation Assertions | `HAR.ASSERTION_ROW` | Add **Numeric Compare** → spotlight: `NUMERIC`, JSONPath `$.price`, operator `>`, value `0` (1000ms) → add **Date Compare** → spotlight: `DATE`, JSONPath `$.meta.createdAt`, operator `on or after`, reference **today** (1200ms, explain: dynamic date references — "today", "yesterday", "7 days ago" — so assertions don't break over time) → spotlight the **precision selector**: Day, Hour, Minute, Second (800ms) → add **Type Check** → spotlight: `TYPE`, JSONPath `$.title`, expected type `string` (800ms) → add **Field Exists** → spotlight: `EXISTS`, JSONPath `$.thumbnail`, expect exists: true (800ms, explain: verify the field is present without caring about its value) |
-| 4 | `th10-array-assertions` | Array & Structure Assertions | `HAR.ASSERTION_ROW` | Add **Array Length** → spotlight: `LENGTH`, JSONPath `$.images`, operator `>=`, value `1` (1000ms, explain: assert the images array has at least one item) → add **Array Contains** → spotlight: `CONTAINS`, JSONPath `$.tags`, mode selector with 3 options: **any (at least one)**, **all (every one)**, **none** (1500ms) → select `any` → type value `"electronics"` → spotlight the matching mode (800ms, explain: "any" means at least one element must match the criteria) → add **Each Element** → spotlight: `EACH`, JSONPath `$.images`, field path `url`, operator `is_not_empty` (1200ms, explain: assert that every element in the images array has a non-empty url property — no image is missing its URL) → add **Contains Subset** → spotlight: `SUBSET`, JSONPath `$`, expected `{"brand": "Apple"}` (1000ms, explain: partial deep match — the response must contain these fields with these values, but can have other fields too) |
-| 5 | `th10-schema-custom` | JSON Schema & Custom Predicates | `HAR.ASSERTION_ROW` | Add **JSON Schema** → spotlight: `SCHEMA`, the JSON Schema editor with **Paste Schema**, **Pretty Format**, **Minify**, **Generate from Response** buttons (1500ms) → click **Generate from Response** → spotlight the auto-generated schema populating (1200ms, explain: the app builds a complete JSON Schema from your sample response — types, required fields, array items, all inferred automatically) → spotlight the generated schema content (1000ms) → add **Custom Predicate** → spotlight: `CUSTOM`, expression editor, description field (1000ms) → type expression: `$gt($count($.body.images), 0)` → type description: "Has at least one image" → spotlight the expression syntax (1200ms, explain: custom predicates use the same expression engine as the Data Mapper — `$gt`, `$sum`, `$map`, `$all` — for assertions that go beyond built-in operators) |
-| 6 | `th10-presets` | Assertion Presets (Quick Setup) | `HAR.PRESETS_BTN` | Spotlight the **Presets** button next to + Add (800ms) → click → spotlight the **Assertion Presets Library** panel (1200ms): curated preset groups like "API Health" (status 2xx + timing + content-type), "CRUD Validation" (status + body exists + id exists), "Performance SLA" (P95 < 500ms + throughput), "Security Headers" (CORS + CSP + X-Frame-Options) → select **API Health** preset → spotlight 3 assertions added at once (1000ms, explain: presets let you apply a validated set of assertions with one click — great for consistency across tests) → spotlight the **Save as Preset** option on the assertions section (800ms, explain: create your own reusable assertion sets from what you've configured) |
-| 7 | `th10-regex-builder` | The Regex Builder | `HAR.ASSERTION_ROW` | Click **+ Add** → select **Regex Builder...** → spotlight the **Regex Assertion Builder modal** opening (1200ms) → spotlight the **JSON tree picker** on the left (select source field from the response tree — 1000ms) → select `$.sku` → spotlight the **Pattern Library** with common patterns: email, UUID, ISO date, URL, phone, hex color (1200ms) → select **UUID** pattern → spotlight the **live preview** showing the field value matched against the pattern with green/red highlighting (1500ms) → spotlight the pattern input: `^[A-Z0-9-]+$` → modify to a custom pattern → spotlight preview updating live (800ms) → click **Apply** → assertion row added with the regex rule → save test |
+| 1 | `th10-assertion-menu` | The Assertion Menu | `HAR.TE_ASSERTIONS_ADD_BTN` | Open the test editor → **Validation** tab → click **+ Add** → spotlight the **categorized assertion menu** (`.assertions-add-menu`) opening with search and 4 category headers: **Response** (Status Code, Response Time SLA, Response Header, Body Size), **Field Validation** (Regex Match, Regex Builder, Numeric, Date, Date Precise, Type Check, Field Exists), **Array & Structure** (Array Length, Array Contains, Each Element, Contains Subset), **Schema & Advanced** (JSON Schema, Custom Predicate) — 1500ms pause → close menu |
+| 2 | `th10-response` | Response Assertions & NOT | `HAR.TE_ASSERTION_ROW` | Click **+ Add** → **Status Code** → spotlight the new assertion row with `STATUS` badge and value `200` (1000ms) → add **Response Time SLA** → spotlight: `TIME` badge, max `500` ms (1000ms) → spotlight the **NOT** toggle on the timing row (`.assertion-negate-toggle`) → click it → row gets negated styling (1000ms, explain: the NOT modifier inverts any assertion — available on every assertion type) → click NOT again to restore |
+| 3 | `th10-field-type` | Field & Type Assertions | `HAR.TE_ASSERTION_ROW` | Add **Numeric Compare** → spotlight: `NUMBER` badge, JSONPath input, operator, value (1200ms) → spotlight the **⎆ JSONPath picker** button → click → spotlight the `.jpp-menu` popover showing response fields as a searchable tree (1200ms) → select `$.address.geo.lat` → picker closes → set operator `>=` value `-90` → add **Field Exists** → spotlight: `EXISTS` badge, JSONPath `$.company`, expect exists checked (1000ms, explain: verify a field is present without checking its value) |
+| 4 | `th10-schema-custom` | JSON Schema & Custom | `HAR.TE_ASSERTION_ROW` | Add **JSON Schema** → spotlight the schema textarea with toolbar: **Paste Schema**, **Pretty Format**, **Minify**, **Generate from Response** (1200ms) → click **Generate from Response** → spotlight the auto-generated schema populating the textarea (1500ms, explain: builds a complete JSON Schema from the sample response — types, required fields, nested objects, all inferred) → add **Custom Predicate** → spotlight: `CUSTOM` badge, inline expression input + description field (1000ms) → type expression: `$gt($count($.body.address), 0)` → type description: "Has address data" |
+| 5 | `th10-presets` | Assertion Presets | `.assertion-preset-wrap` | Spotlight the **📋 Presets** button (800ms) → click → spotlight the **Presets panel** with category tabs: All, API Validation, Data Quality, Security (1200ms) → spotlight the **API Health Check** card (1000ms, explain: presets apply a curated set of assertions in one click — great for consistency across your test suite) → click it → spotlight the assertions appended to the list (1000ms) → close presets panel |
+| 6 | `th10-regex-builder` | The Regex Builder | `.assertion-builder-btn` | Click **+ Add** → **Regex Builder…** → spotlight the **Regex Builder modal** opening with two-column layout (1200ms) → spotlight the **JSON tree** on the left showing response fields → select `$.email` → path populates (1000ms) → spotlight the **Pattern Library** toggle → click → spotlight pattern categories (Formats section: Email address, URL, ISO date, etc.) (1200ms) → select **Email address** → spotlight the **live preview** showing MATCH/NO MATCH against the field value (1500ms) → click **Apply Assertion** → modal closes → regex row added → save test |
 
-**Cleanup:** Keep the assertions for validation testing reference.
+**Cleanup:** Keep assertions for reference. Close editor.
 
 ---
 
 ## TH-11: Data Mapper for Validation
 
-**Goal:** Use the visual Data Mapper to build validation rules by dragging response fields to assertion targets — understand auto-mapping, coverage tracking, custom predicates, subtree operations, verification, and the 5 view modes (Code, Preview, Table, Rules, Lines).
+**Goal:** Use the visual Data Mapper to build validation rules — understand the two-panel layout, auto-mapping, operator pills, view modes, and verification. This is an overview tour; see TH-10 for assertion types and TH-12 for versioning.
 
 | Field | Value |
 |---|---|
 | `id` | `th-data-mapper-validation` |
-| `estimatedMinutes` | 9 |
-| Steps | 8 |
+| `estimatedMinutes` | 6 |
+| Steps | 6 |
 | `initialTab` | `scenarios` |
 | `allowedTabs` | `['scenarios']` |
 
-**Prerequisite:** Seeded FG with a GET test against `https://dummyjson.com/products/1` that has a fetched sample response (rich JSON with arrays, nested objects). The test has Selective Fields validation mode enabled with 2 basic expected fields already configured (so the Data Mapper opens with some initial state). Unordered array matching is checked.
+**Prerequisite:** Seeded FG with a GET test against `https://jsonplaceholder.typicode.com/users/1` with `validation.mode: 'selective'`, `sampleJson` pre-populated, and 2 basic `expectedFields` already configured (so the mapper opens with initial state).
+
+**Note — UI realities (verified against codebase):**
+- The **⚡ Data Mapper** button is in `.fetch-host-override-row` (uses `HAR.TE_MAPPER_BTN`), enabled when `sampleJson` or `expectedFields` exist in selective mode.
+- Modal shell uses `.dm-modal-overlay` / `.dm-modal-shell` (NOT `.data-mapper-modal`). Full screen toggle in header (`.dm-modal-header-btn`).
+- Layout: **Source** panel (`.dm-panel--source`) on left with JSON tree + type pills (`obj`, `arr`, `str`, `num`, `bool`) + search input (`.dm-search-input`). **Target** panel (`.dm-panel--target`) on right with mapped rules + operator pills (`.dm-operator-pill`). **Canvas** (`.dm-canvas`) between them with SVG connection lines.
+- **Toolbar** (`.dm-toolbar`): Auto-map (`.dm-toolbar-btn--primary`), Clear all, status text, view mode buttons (Code/Preview/Table/Rules/Lines), Verify All (`.dm-toolbar-btn--verify`), Undo/Redo.
+- **Auto-map** uses 3-tier name matching (exact path, fuzzy name, type-compatible). Button shows count badge.
+- **Coverage** lives in `MappingHealthDashboard` (`.dm-health-dashboard`): separate health status + coverage % metric.
+- **Operator picker**: click a pill → portal dropdown (`.dm-operator-picker`) with categorized, searchable 24-operator list.
+- **View modes**: Code + Preview + Table are bottom dock tabs; Rules opens a separate `ValidationRulesModal`; Lines toggles SVG canvas visibility.
+- **Verify All**: runs verification on all mappings → each gets pass/fail badge (`.dm-verify-badge--pass/fail`).
+- **Custom predicates section** exists (`.dm-custom-predicates-section`) but has **no "+ Add Custom" button** — predicates are added via Rules DSL or seeded in initial data.
+- **Subtree operations** use `BulkActionsBar` (click-select source + target nodes, then toolbar buttons) — NOT right-click context menu on source.
+- **Save** button in footer (`.dm-modal-btn--primary`), label "Save".
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th11-open-mapper` | Open the Data Mapper | `HAR.OPEN_MAPPER_BTN` | Open the test editor → **Validation** tab → spotlight the **Data Mapper** button below the expected fields section (800ms, explain: the Data Mapper provides a visual way to build validation rules — drag response fields to assertion targets instead of typing JSONPaths manually) → click → Data Mapper modal opens → spotlight the **Full screen** toggle (600ms) → click to enter full screen → spotlight the two-panel layout: **Source** (response JSON tree) on the left, **Target** (validation rules) on the right (1500ms) → spotlight the **toolbar** row: Auto-map, Clear all, N mappings ready, Code/Preview/Table/Rules/Lines toggle buttons, Verify All, Fetch & Verify, Auto, Compact, Undo, Redo (1200ms) |
-| 2 | `th11-source-tree` | The Source Panel (Response Tree) | `HAR.MAPPER_SOURCE` | Spotlight the **Source** panel header showing "Source: none" (800ms) → spotlight the JSON tree with type indicators: `obj (root)`, `arr offers`, `str offerName`, `num rank`, `obj duration` with children `str unit`, `num value` (1500ms, explain: every field in the response is shown with its type — obj, arr, str, num, bool — so you know what you're mapping) → spotlight the **Search fields** input → type "offer" → spotlight the tree filtering to show only matching paths (1000ms) → clear search → spotlight the **Map all** button (800ms, explain: maps every source field to a target rule automatically — use for initial coverage, then refine) → spotlight **coverage indicator**: "29% HEALTHY" badge (1000ms, explain: coverage tracks what percentage of the response is covered by validation rules — aim for higher coverage on critical APIs) |
-| 3 | `th11-auto-map` | Auto-Map & Coverage | `HAR.MAPPER_AUTOMAP` | Click the **Auto-map** button (showing count badge, e.g., "Auto-map 23") → spotlight the mappings populating: connection lines appear between source fields and target rules (1500ms) → spotlight the **N mappings ready** counter updating → spotlight coverage jumping from 29% to a higher value (1000ms, explain: auto-map uses 3-tier name matching — exact path, fuzzy name, type-compatible — to create mappings automatically) → spotlight a few individual mappings: source `$.offers[0].offerName` → target with `equals` operator pill → source `$.offers[0].rank` → target with `equals` operator (1200ms) → click **Clear all** to start fresh for the manual demo |
-| 4 | `th11-drag-map` | Drag-to-Map & Operator Pills | `HAR.MAPPER_TARGET` | Drag `$.title` from source to the target panel → a new mapping appears with an **operator pill** (defaults to `equals`) and the value auto-filled from the sample response (1200ms) → spotlight the **operator pill** → click it → spotlight the **operator picker dropdown**: categorized, searchable, with icon + name + description per operator (1500ms, explain: 24 operators available — equals, contains, regex, greater_than, is_not_empty, type_is, between, …) → change operator to `is_not_empty` → pill updates → drag `$.price` → change operator to `greater_than` → set value `0` → drag `$.images` → spotlight the **array handling** controls appearing: `unordered` badge, item count, assertion mode (1200ms) → spotlight **inline value editors** appearing next to operators that need values vs hidden for no-value operators like `is_not_empty` (800ms) |
-| 5 | `th11-custom-predicates` | Custom Predicates | `HAR.MAPPER_PREDICATES` | Spotlight the **CUSTOM PREDICATES** section at the top of the Target panel (1000ms) → click **+ Add Custom** → spotlight the expression input → type `$gt($count($.body.offers), 0)` → spotlight the predicate row showing: `f CUSTOM` badge + expression (1200ms, explain: custom predicates use the expression engine for assertions that go beyond field-level operators — aggregate checks, cross-field comparisons, computed validations) → add another: `$all($.body.offers, x => $gte(x.rank, 1))` (explain: assert every offer has a rank >= 1) → spotlight both predicates (1000ms) → spotlight the **NOT** toggle available on custom predicates (800ms) |
-| 6 | `th11-views` | Five View Modes | `HAR.MAPPER_TOOLBAR` | Click **Code** tab → spotlight the **Code View** showing all mappings as `target ← source` text with line numbers (1200ms) → click **Preview** → spotlight the **Preview** panel showing the evaluated output with values from the sample response (1000ms) → click **Table** → spotlight the **tabular rules view** with JSON PATH, OPERATOR (color-coded pills), EXPECTED VALUE columns (1500ms, explain: this is the same table you see in the Validation tab — the Data Mapper just provides a visual way to build it) → click **Rules** → spotlight the **DSL rules view** with syntax-highlighted assertion expressions (1000ms) → click **Lines** → spotlight the **connection lines canvas** showing SVG lines connecting source nodes to target nodes (800ms) |
-| 7 | `th11-subtree-ops` | Subtree Operations | `HAR.MAPPER_SOURCE` | Right-click the `offers` array node in the source tree → spotlight the **context menu**: **Map subtree**, **Map siblings**, **Clear subtree**, **Replace subtree**, **Preview propagate** (1500ms) → click **Map subtree** → spotlight all children of `offers[0]` getting mapped at once: `associatedOfferingCode`, `rank`, `offerName`, `productCode`, `billingCadence`, `planType` (1200ms, explain: subtree operations let you map an entire branch of the response in one action — then refine individual rules) → spotlight the **Anchor mapping** dropdown in the toolbar (800ms, explain: anchor mapping controls how the target tree root is aligned with the source — useful for deeply nested responses) |
-| 8 | `th11-verify` | Verify All & Fetch & Verify | `HAR.MAPPER_VERIFY` | Spotlight the **Verify All** button in the toolbar (800ms) → click → spotlight the verification running: each mapping gets a **pass/fail badge** (green ✓ / red ✗) (1500ms) → spotlight a passing rule: `$.title equals "iPhone 9"` ✓ → spotlight a failing rule (if any seeded mismatch) with red ✗ and the actual vs expected diff (1000ms) → spotlight the **Fetch & Verify** button (800ms, explain: fetches a fresh response from the API and verifies all rules against it — catches cases where the sample response is stale) → click → spotlight the fresh fetch happening + verification results updating (1200ms) → spotlight the **summary bar** at the bottom: "9 mapped · Review mappings and save when ready" → click **Save** → Data Mapper closes → spotlight the expected fields list updated with all the rules from the mapper (1000ms) |
+| 1 | `th11-open-mapper` | Open the Data Mapper | `HAR.TE_MAPPER_BTN` | Open the test editor → **Validation** tab → click the **⚡ Data Mapper** button → modal opens → spotlight the two-panel layout: **Source** tree (left) showing the JSON response with type pills, **Target** rules (right) with the 2 pre-configured expected fields, and **Canvas** (center) with connection lines (1500ms) → spotlight the **toolbar** with Auto-map, view mode buttons, and Verify All (1200ms) |
+| 2 | `th11-source-panel` | The Source Panel | `.dm-panel--source` | Spotlight the **Source** panel header showing "Source" (800ms) → spotlight a few tree nodes with their **type pills**: `obj` (root), `str` (name), `num` (id), `obj` (address), `arr` (nested) (1500ms, explain: every response field is shown with its type so you know what you're mapping) → spotlight the **search** input → type "address" → spotlight the tree filtering to matching paths (1000ms) → clear search → spotlight the **coverage** dashboard showing health status + coverage percentage (1000ms, explain: coverage tracks how much of the response is validated — aim higher on critical APIs) |
+| 3 | `th11-auto-map` | Auto-Map | `.dm-toolbar` | Spotlight the **Auto-map** button with its count badge (800ms) → click → spotlight mappings populating on both panels with connection lines appearing on the canvas (1500ms, explain: auto-map uses 3-tier matching — exact path, fuzzy name, type-compatible — to map source fields to target rules automatically) → spotlight the **toolbar status** updating with mapping count (1000ms) → spotlight an individual mapping on the target panel showing the **operator pill** (`.dm-operator-pill`) defaulting to `equals` (1200ms) |
+| 4 | `th11-operator-pill` | Operator Pills | `.dm-operator-pill` | Spotlight an **operator pill** on a mapped target node (800ms) → click it → spotlight the **operator picker** dropdown (`.dm-operator-picker`) with categorized, searchable list of 24 operators: equals, contains, regex, greater_than, is_not_empty, type_is, between, and more (1500ms, explain: each mapping can have a different comparison operator — pick the one that matches your validation intent) → select **is_not_empty** → pill updates → spotlight the pill change (800ms) |
+| 5 | `th11-views-verify` | View Modes & Verify | `.dm-toolbar` | Click **Code** in the toolbar → spotlight the **Code View** dock showing mappings as `target ← source` text with line numbers (1200ms) → click **Table** → spotlight the **Table View** with JSON Path and Expected Value columns (1200ms) → click **Verify All** → spotlight verification running: each mapping gets a **pass/fail badge** (green ✓ / red ✗) on target nodes (1500ms, explain: Verify checks all rules against the sample response — green means the field matches, red means a mismatch) → spotlight the **verify summary** in the toolbar (1000ms) |
+| 6 | `th11-save` | Save Rules | `.dm-modal-btn--primary` | Spotlight the **Save** button in the footer (800ms) → click → Data Mapper closes → spotlight the updated **expected fields** list in the Validation tab now reflecting all mapped rules (1200ms, explain: rules built in the Data Mapper are saved back to the test's validation configuration — you can re-open the mapper anytime to refine) → save the test |
 
-**Cleanup:** Keep the validation rules for TH-12 versioning demo.
+**Cleanup:** Keep validation rules for TH-12 versioning demo. Close editor.
 
 ---
 
 ## TH-12: Validation Versioning
 
-**Goal:** Track validation changes over time with Response Versions and Rules Versions — save snapshots, preview historical validation state, compare versions side by side, restore previous configurations, and understand the version metadata badges.
+**Goal:** Track validation changes over time with Response Versions and Rules Versions — save snapshots, preview historical validation state, compare versions side by side, and restore previous configurations.
 
 | Field | Value |
 |---|---|
@@ -400,18 +456,30 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 | `initialTab` | `scenarios` |
 | `allowedTabs` | `['scenarios']` |
 
-**Prerequisite:** Seeded FG with a GET test that has 3 Response Versions (v1: initial fetch, v2: updated response with new fields, v3: current) and 3 Rules Versions (r1: 12 rules SELECTIVE·INCLUDE·UNORDERED, r2: refined to 6 rules, r3: current 6 rules with updated operators). Validation is set to Selective Fields with Unordered array matching.
+**Prerequisite:** Seeded FG with a GET test in Selective Fields mode. The test has 3 `responseVersions` (v1: initial response with fewer fields, v2: updated response with new fields, v3: current) and 2 `rulesVersions` (r1: 4 rules Selective·Include·Unordered, r2: current 2 rules Selective·Include). Validation has `sampleJson` pre-populated and 2 basic expected fields.
+
+**Note — UI realities (verified against codebase):**
+- Version panels render **only in Selective mode** (`validation.mode === 'selective'`), at the **bottom** of the Validation tab (below assertions, expected fields, fetch row).
+- **Response Versions** panel uses `.version-panel` root class. Header `<h4>Response Versions (N)</h4>` — count in title text, NOT a separate badge. Collapsible via `.version-collapse-toggle`.
+- **Rules Versions** panel uses `.rules-version-panel` root class. Header `<h4>Rules Versions (N)</h4>`. Same collapse pattern. Hidden entirely when no rules AND no saved versions.
+- Version rows use `VersionListItem` (`.version-item`). Each shows: editable label (`.version-label`), timestamp (`.version-time`), optional badge (`.version-rules-tag`), and `current` green pill (`.version-current-tag`) on the latest matching version.
+- Row actions: **Preview** (`.btn.btn-xs`), **Restore** (`.btn.btn-xs`, hidden on current row), **Delete** (`.btn.btn-xs.btn-danger`).
+- **Restore is immediate** — no confirmation dialog. The system does NOT auto-save current state before restore.
+- **Preview** opens `VersionPreviewModal` (`.vp-modal`). Response previews show pretty-printed JSON + validation mode tags. Rules previews show DSL text + tag pills (mode, rule count, unordered).
+- **Compare** opens `VersionDiffModal` (`.version-diff-modal`). Uses `json-diff-kit` side-by-side diff. Info bar shows "Changes detected" / "✔ Identical" / "Same version selected" — **no numeric delta summary** like "3 added, 1 removed". Response compare has Response + Validation Rules tab toggle.
+- Section buttons: **Save as Version** / **Save Rules Version** (`.btn-accent`), **Compare** (`.btn.btn-sm`, only when ≥2 versions).
+- No `data-testid` attributes on validation version elements. Use CSS class selectors.
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th12-response-versions` | Response Versions | `HAR.RESPONSE_VERSIONS` | Open the test editor → **Validation** tab → scroll down past the expected fields and assertions → spotlight the **Response Versions** section with count badge `(3)` and the **Save as Version** + **Compare** buttons (1200ms) → spotlight the 3 version rows: **v3** with timestamp + `SELECTIVE · INCLUDE` badge + `current` tag (green), **v2** with timestamp + badge + **Preview** / **Restore** / **Delete** buttons, **v1** oldest with same controls (1800ms, explain: every time you fetch a new response or manually save, you can snapshot the current validation state — the response body, validation mode, and settings are all captured) |
-| 2 | `th12-preview-response` | Preview a Previous Response | `HAR.VERSION_PREVIEW_BTN` | Click **Preview** on v1 → spotlight the **Preview panel** opening (1000ms): shows the response body at the time of v1, with the validation mode badge (`SELECTIVE · INCLUDE`), timestamp, and response size → spotlight the JSON content (different from v3 — maybe fewer fields, different values — 1200ms, explain: Preview lets you see exactly what the API returned when this version was saved — useful for debugging regression in API responses) → close preview |
-| 3 | `th12-compare-responses` | Compare Response Versions | `HAR.VERSION_COMPARE_BTN` | Click **Compare** button at the section header → spotlight the **version comparison modal** opening (1000ms) → spotlight the **two-column selector**: left = v1, right = v3 → spotlight the **side-by-side diff** view: added fields highlighted green, removed fields highlighted red, changed values highlighted yellow (1800ms, explain: response comparison shows exactly how the API evolved between versions — new fields added, old fields removed, value changes) → spotlight the **delta summary** at the top: "3 added, 1 removed, 2 changed" (800ms) → close comparison |
-| 4 | `th12-rules-versions` | Rules Versions | `HAR.RULES_VERSIONS` | Scroll to the **Rules Versions** section with count badge `(3)` → spotlight the 3 rules version rows: **r3** current with `SELECTIVE · INCLUDE · 6 RULES · UNORDERED` badge, **r2** with `SELECTIVE · INCLUDE · 6 RULES · UNORDERED`, **r1** with `SELECTIVE · INCLUDE · 12 RULES · UNORDERED` (1500ms, explain: rules versions are separate from response versions — they track changes to your validation configuration: expected fields, operators, values, assertion count, and validation mode settings) → spotlight the **Save Rules Version** button (800ms, explain: save a rules snapshot before making changes — if your edits break things, you can restore) |
-| 5 | `th12-restore-rules` | Restore a Previous Rules Version | `HAR.VERSION_RESTORE_BTN` | Spotlight the **Restore** button on r1 (the version with 12 rules) → click → spotlight a confirmation dialog (800ms, explain: restoring replaces current rules with the historical version — the current version is still in history, nothing is lost) → confirm → spotlight the Validation Rules table updating: 12 rules now visible instead of 6 (1200ms, explain: the 6 rules from r3 were a refined subset; restoring r1 brings back all original 12) → spotlight the expected fields count updating → spotlight the rules version list gaining a new entry (r4 = the pre-restore state auto-saved — 1000ms, explain: the system auto-saves the current state before a restore so you can always undo) |
-| 6 | `th12-compare-rules` | Compare Rules Versions | `HAR.VERSION_COMPARE_BTN` | Click **Compare** at the Rules Versions header → spotlight the **rules comparison modal** (1000ms) → select r1 (12 rules) vs r3 (6 rules) → spotlight the diff showing: **removed rules** (6 rules that were dropped during refinement, struck through in red), **changed operators** (e.g., `equals` → `is_not_empty` highlighted in yellow), **unchanged rules** (grayed out for context — 1800ms) → spotlight the **summary**: "6 removed, 2 changed, 4 unchanged" (800ms, explain: rules comparison is essential when refactoring validation — see exactly which assertions were added, removed, or modified between versions) → close comparison → restore back to r3 (the refined 6-rule version) → save test |
+| 1 | `th12-response-versions` | Response Versions | `.version-panel` | Open the test editor → **Validation** tab → spotlight the **Response Versions** section showing `Response Versions (3)` in the header with **Save as Version** and **Compare** buttons (1200ms) → spotlight the version rows: **v3** with timestamp + `SELECTIVE · INCLUDE` badge + `current` green pill, **v2** with timestamp + badge + Preview/Restore/Delete buttons, **v1** oldest (1500ms, explain: every time you fetch a response or click Save as Version, a snapshot captures the response body plus your validation settings — mode, fields, everything) |
+| 2 | `th12-preview-response` | Preview a Response Version | `.vp-modal` | Click **Preview** on v1 (the oldest version) → spotlight the **Preview modal** showing the response JSON with validation mode tags in the header, timestamp, and line count in the footer (1200ms, explain: Preview lets you see exactly what the API returned when this version was saved — useful for debugging regression in API responses) → spotlight the JSON content showing a simpler response than the current v3 (1000ms) → close the preview modal |
+| 3 | `th12-compare-responses` | Compare Response Versions | `.version-diff-modal` | Click the **Compare** button in the Response Versions header → spotlight the **comparison modal** with two version selectors (left and right dropdowns), an info bar showing "Changes detected", and a side-by-side diff viewer (1500ms) → spotlight the diff view highlighting added fields in green and changed values (1200ms, explain: response comparison shows how the API evolved between versions — added fields, removed fields, value changes — all at a glance) → spotlight the **Validation Rules** tab toggle at the top to see how rules changed between the same response versions (1000ms) → close the comparison |
+| 4 | `th12-rules-versions` | Rules Versions | `.rules-version-panel` | Spotlight the **Rules Versions** section below Response Versions, showing `Rules Versions (2)` in the header with **Save Rules Version** and **Compare** buttons (1200ms) → spotlight the version rows: **r2** current with badge `SELECTIVE · INCLUDE · 2 RULES` + `current` green pill, **r1** with `SELECTIVE · INCLUDE · 4 RULES · UNORDERED` badge + Preview/Restore/Delete buttons (1500ms, explain: rules versions are separate from response versions — they track changes to your validation configuration: expected fields, operators, assertions, and validation mode settings) |
+| 5 | `th12-restore-rules` | Restore a Rules Version | `.rules-version-panel` | Spotlight the **Restore** button on r1 (800ms, explain: restoring replaces the current rules with a previous version — use this when recent edits broke your validation and you want to roll back) → click Restore → spotlight the validation rules updating immediately — the expected fields list now shows 4 rules instead of 2, with Unordered array matching restored (1200ms) → spotlight the rules version rows: r1 is now marked `current` (1000ms) |
+| 6 | `th12-compare-rules` | Compare Rules Versions | `.version-diff-modal` | Click **Compare** in the Rules Versions header → spotlight the **rules comparison modal** with version selectors and side-by-side diff (1200ms) → spotlight the diff highlighting differences between r1 and r2: added/removed rules, changed operators, different field paths (1500ms, explain: rules comparison is essential when refactoring validation — see exactly which assertions were added, removed, or modified between versions) → close the comparison |
 
 **Cleanup:** Keep versions for reference. Close editor.
 
@@ -419,31 +487,287 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 
 ## TH-13: SLA Targets & Acceptance Criteria
 
-**Goal:** Define absolute performance contracts on tests — set thresholds for response time percentiles, throughput, and error rate at test, scenario, and Feature Group levels. Understand the warn/fail two-tier system, see how the Runner evaluates SLA targets, and learn to use Runner overrides for ad-hoc adjustments.
+**Goal:** Define absolute performance contracts on tests — set thresholds for response time percentiles, throughput, and error rate. Understand the warn/fail two-tier system, the Scenario SLA Summary, and the Runner SLA Override panel.
 
 | Field | Value |
 |---|---|
 | `id` | `th-sla-configuration` |
-| `estimatedMinutes` | 7 |
-| Steps | 7 |
+| `estimatedMinutes` | 5 |
+| Steps | 5 |
 | `initialTab` | `scenarios` |
-| `allowedTabs` | `['scenarios', 'runner', 'results']` |
+| `allowedTabs` | `['scenarios', 'runner']` |
 
-**Prerequisite:** Seeded FG "User API" with a scenario containing 2 tests (GET /users/1, GET /users) — both already have a fetched sample response and basic validation configured. At least one completed test run exists in Results so SLA evaluation can be demonstrated.
+**Prerequisite:** Seeded FG "SLA Demo" with a scenario containing 1 test (GET /users/1) — validation mode selective with basic expected fields. No SLA targets initially (empty state shown first).
+
+**Note — UI realities (verified against codebase):**
+- The **🎯** SLA button is on each test card in `FeatureGroupCard.tsx` (`.test-card-actions .btn`), with tooltip `"Configure SLA targets for this test"`. Shows `🎯 N` count when targets configured, with class `.btn-sla-active`.
+- **TestSlaModal** (`.test-sla-modal`) opens on click. Title: `"🎯 SLA Targets — {test.name}"`. Footer has `"+ Add Target"` button (`.sla-add-btn`). Empty state: `.sla-empty-hint`.
+- **Row structure**: `.sla-editor-table.sla-editor-table--test` with columns: Metric (`CustomSelect .sla-editor-select`), Operator (read-only `.sla-operator-display` — auto `≤` or `≥`), Fail at (`.sla-editor-input`), warn arrow, Warn at (`.sla-editor-input`), Label (`.sla-editor-input-label`), Delete (`.sla-delete-btn`).
+- **No Scope column in test modal** — test-level targets are implicitly test-scoped. Scope column exists only in `SlaTargetEditor` (Results/Workflow).
+- **7 metrics**: P50, P95, P99, P99.9, Avg Response Time (ms); TPS; Error Rate (%). Latency defaults to `≤`, TPS to `≥`.
+- **ScenarioSlaPanel** (`.scenario-sla-panel`) appears below test cards when any test has SLA targets. Collapsible header `🎯 SLA Summary` + count badge. Body is a `.sla-summary-table` with rows per target. Row click opens TestSlaModal.
+- **Runner SLA Override**: trigger bar (`.sla-trigger`) with stats + Configure button (`.sla-trigger-btn`). Override modal (`.sla-override-modal`) shows configured targets + override section.
+- **SLA compact bar on runner completion does NOT exist** — runner shows duration + "View Full Results →". SLA compact bar is on Results → Overview tab (`.sla-compact-bar`).
+- **Override indicator in Results ("was 500ms → 300ms") does NOT exist** in `SlaStatusAccordion`.
+- Save/close: TestSlaModal footer has Save (`.btn-primary`) and Cancel (`.btn`). Override modal footer has Save (`.btn-primary`) and Cancel (`.btn`) inside `.sla-modal-footer-actions`.
 
 ### Steps
 
 | # | ID | Title | Highlight | What happens |
 |---|---|---|---|---|
-| 1 | `th13-open-sla-modal` | The SLA Targets Modal | `HAR.SLA_BTN` | Navigate to Feature Groups → spotlight the **🎯 SLA** button on the test card "GET /users/1" (800ms, explain: SLA targets define absolute acceptance criteria — "P95 must always be ≤ 500ms", "error rate must be ≤ 1%" — unlike regression detection which compares run-to-run) → click → spotlight the **SLA Targets** modal opening with "+ Add Target" and "No SLA targets yet" empty state (1200ms) → spotlight the modal title showing the test name (800ms) |
-| 2 | `th13-add-targets` | Add SLA Targets (7 Metrics) | `HAR.SLA_TARGET_ROW` | Click **+ Add Target** → spotlight a new row appearing with 4 columns: **Metric** dropdown, **Operator**, **Fail at** value, **Warn at** value (1200ms) → spotlight the **Metric** dropdown → open it → spotlight all 7 metrics: **P50 Response Time** (ms), **P95 Response Time** (ms), **P99 Response Time** (ms), **P99.9 Response Time** (ms), **Avg Response Time** (ms), **TPS** (throughput), **Error Rate** (%) (1500ms, explain: latency metrics use ≤ by default — "must be at or below"; TPS uses ≥ — "must be at or above") → select **P95 Response Time** → operator auto-sets to **≤** → set fail value to `500` → spotlight the **Warn at** field → set to `300` (1000ms, explain: warn threshold is the early warning — amber indicator before the red fail; it must be stricter than the fail value) → add a second target: **Error Rate ≤ 1%**, warn at `0.5%` → add third: **TPS ≥ 10**, warn at `15` (1200ms) → spotlight all 3 rows configured (800ms) |
-| 3 | `th13-scope-levels` | Scope Levels (Aggregate / Scenario / FG) | `HAR.SLA_SCOPE` | Spotlight the **Scope** column on a target row (if using `SlaTargetEditor` from Results view — 1000ms) → spotlight the 3 scope options: **Aggregate** (evaluated against the entire run's combined metrics), **Scenario** (only metrics from the named scenario), **Feature Group** (only metrics from tests in the named FG) (1500ms, explain: Aggregate is the default — the target applies to the overall run; Scenario scope lets you set different thresholds per scenario; FG scope groups all scenarios in a Feature Group) → change one target's scope to **Scenario → "GET Users"** (800ms) → click **Save** → modal closes → spotlight the test card now showing a **🎯 3** badge (1000ms, explain: the badge shows how many SLA targets are configured on this test) |
-| 4 | `th13-scenario-summary` | Scenario SLA Summary | `HAR.SCENARIO_SLA_PANEL` | Scroll up to the scenario card → spotlight the **🎯 SLA Summary** collapsible panel that appeared (the scenario now has tests with SLA targets — 1000ms) → click to expand → spotlight the **summary table**: Test name, Metric, Operator, Fail at, Warn at — grouped by test (1500ms) → spotlight "GET /users/1" row showing P95 ≤ 500ms, Error Rate ≤ 1%, TPS ≥ 10 → spotlight the row is clickable (800ms, explain: click any row to open the SLA modal for that test and edit targets) → click the second test "GET /users" → spotlight the SLA modal opening empty for this test (800ms) → add one quick target: **P99 ≤ 1000ms** → save → scenario summary updates to show 4 total targets across 2 tests (1000ms) |
-| 5 | `th13-runner-override` | Runner SLA Overrides | `HAR.RUNNER_SLA_OVERRIDE` | Navigate to **Test Runner** tab → spotlight the **SLA** section in the runner config (1000ms) → spotlight the **compact trigger bar** showing "3 configured · 0 overrides" (800ms) → click **Configure** → spotlight the **SLA Override modal** opening (1200ms) → spotlight **Configured Targets** section (read-only table grouped by scope) showing the 4 defined targets → spotlight the **Override** button on the P95 row → click → spotlight the target cloned into the **Overrides** section with locked metric + scope, but editable thresholds (1000ms, explain: runner overrides are temporary — they apply only to this run, not persisted to the test definition. Useful for "can we handle 300ms instead of 500ms?" experiments) → change the P95 fail threshold from 500 to 300 → spotlight the "was 500ms" hint (800ms) → close the override modal |
-| 6 | `th13-run-with-sla` | Run and Evaluate SLA | `HAR.RUN_BTN` | Select both tests → set 3 iterations → click **▶ Run** → spotlight the **live progress** showing execution (1500ms) → run completes → spotlight the **SLA compact bar** at the bottom of the runner results (1000ms): "3 targets: 2 pass · 1 warn" with colored indicators → spotlight a **green pass** indicator (P99 ≤ 1000ms ✓), an **amber warn** indicator (P95 between 300–500ms ⚠), and the override result (1200ms) |
-| 7 | `th13-sla-results` | SLA in the Results Dashboard | `HAR.SLA_TAB` | Navigate to **Results** tab → select the run → spotlight the **SLA** tab in the results dashboard (800ms) → click → spotlight the **SLA Status Accordion** expanding (1200ms): each target as a row with **metric name**, **threshold**, **actual value**, and **pass/warn/fail** badge → spotlight a **pass** row: P99 = 420ms vs target ≤ 1000ms (green) → spotlight a **warn** row: P95 = 380ms vs warn 300ms, fail 500ms (amber) → spotlight a **fail** row if present (red, explain: fail = actual value crossed the fail threshold, warn = crossed the warn threshold but not yet failing) → spotlight the **SLA override indicator** on overridden targets: "Override: was 500ms → 300ms" (1000ms) → spotlight the accordion grouping: **Aggregate** section, **Per-Scenario** section with separate results per scenario name (800ms) |
+| 1 | `th13-open-sla-modal` | The SLA Targets Modal | `.test-sla-modal` | Spotlight the **🎯** SLA button on the test card (800ms, explain: SLA targets define absolute acceptance criteria — "P95 must always be ≤ 500ms" or "error rate must be ≤ 1%" — these are hard contracts, not relative comparisons) → click → spotlight the **SLA Targets** modal opening with the test name in the title and "No SLA targets yet" empty state (1200ms) → spotlight the **+ Add Target** button in the footer (800ms) |
+| 2 | `th13-add-targets` | Add SLA Targets | `.sla-editor-table` | Click **+ Add Target** → spotlight the new row with **Metric** dropdown, **Operator** (auto-set), **Fail at**, and **Warn at** columns (1200ms) → open the Metric dropdown → spotlight the 7 available metrics: P50, P95, P99, P99.9, Avg Response Time (ms), TPS, Error Rate (%) (1500ms, explain: latency metrics default to ≤ — "must be at or below"; TPS defaults to ≥ — "must be at or above") → select **P95 Response Time** → operator auto-sets to **≤** → set Fail at `500` and Warn at `300` (1000ms, explain: warn is the early warning threshold — amber before the red fail) → add a second target: **Error Rate ≤ 1%**, warn `0.5%` → spotlight both rows configured (800ms) → click **Save** |
+| 3 | `th13-sla-badge` | SLA Badge & Summary | `.scenario-sla-panel` | Spotlight the test card now showing **🎯 2** badge — indicating 2 SLA targets configured (800ms) → scroll to spotlight the **🎯 SLA Summary** panel that appeared at the bottom of the scenario (1000ms) → spotlight the **summary table** showing Test name, Metric, Operator, Fail at, Warn at columns with the 2 configured targets (1500ms, explain: the SLA Summary aggregates all targets across tests in a scenario — click any row to edit that test's SLA configuration) |
+| 4 | `th13-runner-trigger` | Runner SLA Override | `.sla-trigger` | Navigate to **Test Runner** → spotlight the **🎯 SLA Override** trigger bar showing "2 configured" with a blue indicator dot (1200ms) → spotlight the **Configure** button (800ms) → click → spotlight the **SLA Override modal** opening with the configured targets section showing the 2 test-level targets (1200ms, explain: runner overrides are temporary — they apply only to this run and are not saved to the test definition. Useful for experimenting with tighter thresholds) |
+| 5 | `th13-override-target` | Create an Override | `.sla-override-modal` | Expand the Configured Targets section → spotlight the **Override** button on the P95 row (800ms) → click → spotlight the target cloned into the **Overrides for This Run** section with metric locked but thresholds editable (1000ms) → close the override modal → spotlight the trigger bar updating to show "2 configured · 1 override" (800ms) |
 
-**Cleanup:** Remove runner overrides (they're session-only). Keep SLA targets on tests for future runs.
+**Cleanup:** Close any open modals. Remove seeded data.
+
+**Note:** Step 6 (SLA in Results) was removed because `allowedTabs` does not include `results` and a real test run (with SLA evaluation data) cannot be executed in the demo environment. The Results SLA compact bar and SLA Status Accordion are covered in the TH-7 Results Analysis lesson when SLA targets are present.
+
+---
+
+## TH-14: Auth & Inheritance Chain
+
+**Goal:** Understand the 4-level auth inheritance system (test → scenario → FG → global profile), configure auth at each level, and see effective auth resolution badges showing where each test's auth comes from.
+
+| Field | Value |
+|---|---|
+| `id` | `th-auth-inheritance` |
+| `estimatedMinutes` | 5 |
+| Steps | 5 |
+| `initialTab` | `scenarios` |
+| `allowedTabs` | `['scenarios']` |
+
+**Prerequisite:** Seeded global auth profile "Corp OAuth2" (oauth2). Seeded FG "Auth Demo" with 1 scenario containing 2 tests — FG auth set to "inherit" + linked to the global profile. All tests start with `{ type: 'inherit' }`, so badges initially show `Auth: oauth2 (Corp OAuth2) (global)`.
+
+**Note — UI realities (verified against codebase):**
+- **Global profiles** are created in **Settings → Global Auth Profiles** (not Environment Manager). FG references via `globalAuthProfileId`.
+- **FG Auth button**: `.feature-group-actions .btn` (text "Auth"), toggles `editingFeatureAuth`. Panel: `.scenario-auth-panel.feature-auth-panel`. Profile dropdown: `.global-profile-selector` (only visible when auth type is "Inherit from Auth Profile").
+- **Scenario Auth button**: `.scenario-group-actions .btn` (text "Auth"), toggles `editingScenarioAuth`. Panel: `.scenario-auth-panel`.
+- **Test card badges**: `.test-card-meta .auth-badge` with sub-classes: `auth-badge-test-own` (green), `auth-badge-test-scenario` (blue), `auth-badge-test-feature` (purple), `auth-badge-test-global` (orange). Format: `Auth: {type} ({source})` or `Auth: {type} ({profileName}) (global)`.
+- **Test editor Auth tab**: `.builder-tabs .builder-tab` (text "Auth"). Type select: `.auth-type-select`. 7 types: Inherit from Scenario, No Auth, Basic Auth, Bearer Token, API Key, Digest Auth, OAuth2 Client Credentials.
+- **Inherit hint**: `.auth-inherit-hint` — text like `"Will use global profile "Corp OAuth2" (oauth2 Client Credentials) (via scenario → feature → global)"`.
+- **Verify Auth button**: `.auth-verify-section .btn-verify`. Result: `.auth-verify-result`.
+- **No Auth button on test cards** — use Edit → Auth tab.
+- **No realm field** on Digest Auth, **no scope field** on OAuth2.
+- **Secret toggle** (`.secret-toggle`) exists only for OAuth2 client secret.
+- **No "Effective Auth Summary" view** — mixed badges on test cards are the visual summary.
+- Demo bridge: `__demoUpsertGlobalAuthProfile(profile)` and `__demoPurgeGlobalAuthProfiles(names, ids)`.
+
+### Steps
+
+| # | ID | Title | Highlight | What happens |
+|---|---|---|---|---|
+| 1 | `th14-fg-auth-profile` | FG Auth & Global Profile | `.feature-auth-panel` | Spotlight the **Auth** button on the FG card (800ms) → click to open the **Feature Auth** panel (1000ms) → spotlight the auth type showing **Inherit from Auth Profile** with the **Auth Profile** dropdown (`.global-profile-selector`) showing "Corp OAuth2" (1200ms, explain: global profiles are created in Settings and shared across Feature Groups — the FG links to one via this dropdown, forming the bottom of the inheritance chain) → spotlight the hint text showing the profile's auth type (800ms) → close the panel |
+| 2 | `th14-auth-badges` | Auth Badges & Inheritance | `.auth-badge` | Spotlight the test card badges — both showing **Auth: oauth2 (Corp OAuth2) (global)** in orange (1200ms, explain: auth resolves bottom-up — test checks its own auth, then scenario, then FG, then global profile. The first non-inherit level wins. The badge color and label show exactly where auth comes from at a glance) |
+| 3 | `th14-scenario-override` | Scenario Auth Override | `.scenario-auth-panel` | Spotlight the **Auth** button on the scenario card (800ms) → click to open the **Scenario Auth** panel (1000ms) → spotlight the auth type selector showing "Inherit from Feature" → change to **Bearer Token** → fill the token field with a demo token (1000ms, explain: scenario-level auth overrides the FG/global chain for all tests in this scenario unless a test has its own auth) → spotlight both test badges updating from orange "global" to blue "bearer (scenario)" (1000ms) |
+| 4 | `th14-test-override` | Test-Level Auth Override | `.auth-type-select` | Open first test via Edit → switch to **Auth** tab → spotlight the auth type selector (1000ms) → spotlight the inherit hint: "Will use scenario-level Bearer Token" → change to **API Key** → fill API Key Name `X-API-Key`, Value `demo-key-123`, placement **Header** (1200ms, explain: test-level is the highest priority — overrides everything above it) → save → spotlight the first test badge now showing green **Auth: apikey (own)** while the second test still shows blue **Auth: bearer (scenario)** (1000ms) |
+| 5 | `th14-mixed-badges` | Mixed Auth Summary | `.test-card-meta` | Spotlight the scenario's test cards showing the mixed auth badges side by side: green **apikey (own)** on the first test, blue **bearer (scenario)** on the second (1500ms, explain: badge colors and labels make it clear at a glance — green means the test has its own auth, blue means it inherits from the scenario, orange would mean from a global profile. No need to open each test to check) |
+
+**Cleanup:** Remove seeded global profile and FG. Close panels.
+
+---
+
+## TH-15: Import, Export & cURL
+
+**Goal:** Explore the import/export capabilities in the test editor — cURL import to auto-populate fields from a command, cURL export to generate a ready-to-paste command, the Import/Export dropdown menus for test definitions and data, FG-level export with version options, and the auto-report toggle on the runner.
+
+| Field | Value |
+|---|---|
+| `id` | `th-import-export-curl` |
+| `estimatedMinutes` | 5 |
+| Steps | 5 |
+| `initialTab` | `scenarios` |
+| `allowedTabs` | `['scenarios', 'runner']` |
+
+**Prerequisite:** Seeded FG with 1 scenario containing a configured HTTP POST test (with headers, body, and response versions for export popover demonstration).
+
+### Steps
+
+| # | ID | Title | Highlight | What happens |
+|---|---|---|---|---|
+| 1 | `th15-curl-import` | cURL Import | `.curl-mode-panel` | Open test editor → spotlight the **cURL Import** mode button (`.mode-btn`, 800ms) → click it to switch to cURL Import mode → spotlight the **paste textarea** (`.curl-mode-panel textarea`, 1000ms) → paste a cURL command: `curl -X POST https://api.example.com/users -H "Authorization: Bearer tok123" -H "Content-Type: application/json" -d '{"name":"Alice"}'` → spotlight the **Import & Switch to Builder** button (800ms) → click it → fields auto-populate (method=POST, URL, headers, body) → spotlight the populated URL input (`.url-input`, 1200ms, explain: cURL import parses the command and fills all fields instantly — URL, method, headers, body, auth) |
+| 2 | `th15-curl-export` | cURL Export | `.curl-export-textarea` | Switch to **cURL Export** mode (`.mode-btn`, click) → spotlight the generated cURL command textarea (`.curl-export-textarea`, 1200ms) → spotlight the **Copy to Clipboard** button (800ms) → spotlight the **Refresh** button (600ms, explain: when auth is OAuth2, the export acquires a real token and includes it. Click Refresh to regenerate with a fresh token) → switch back to Builder mode |
+| 3 | `th15-editor-menus` | Import & Export Menus | `.mode-btn-dropdown` | Spotlight the **Import ▾** dropdown button → click to open → spotlight the dropdown showing: **Test Definition** (load .json) and **Data Rows** (CSV/JSON into Data Source) (1000ms) → close → spotlight the **Export ▾** dropdown → click to open → spotlight the dropdown showing: **Test Definition**, **Excel Template**, **Data as CSV**, **Data as JSON** (1200ms, explain: the test editor gives you multiple import/export paths — full test definitions, structured Excel templates, or raw data rows for the Data Source tab) → close dropdown → close editor |
+| 4 | `th15-fg-export-versions` | FG Export with Version Options | `.export-opts-popover` | Spotlight the **Export** button on the FG card (`.feature-group-actions`, 800ms) → click to open the **Export Options** popover → spotlight the version checkboxes: Response Versions, Rules Versions, Definition Versions, Structure History with counts (1200ms, explain: version data can be large — choose what to include based on whether you need the full history or just current state. Uncheck to reduce file size for sharing) → click Cancel to close |
+| 5 | `th15-auto-report` | Auto-Report Toggle | `.selection-actions` | Navigate to **Runner** tab → spotlight the **Auto-report** checkbox in the scenario selector toolbar (1000ms) → enable it → spotlight the format dropdown showing HTML, JSON, Markdown options (1000ms, explain: auto-report generates and downloads a shareable standalone report every time a run completes — ideal for CI pipelines or team sharing. HTML gives a rich visual report, JSON for programmatic consumption, Markdown for docs) |
+
+**Cleanup:** Close test editor if open. Delete seeded FG.
+
+---
+
+## TH-16: Advanced Search & Drag-Drop
+
+**Goal:** Use boolean search operators to find tests across all properties, reorganize your test hierarchy with copy/move actions, and understand the unassigned Feature Groups section.
+
+| Field | Value |
+|---|---|
+| `id` | `th-advanced-search` |
+| `estimatedMinutes` | 5 |
+| Steps | 5 |
+| `initialTab` | `scenarios` |
+| `allowedTabs` | `['scenarios']` |
+
+**Prerequisite:** Seeded env with 2 FGs containing 3 scenarios, 6+ tests across different URLs, methods, and tags, so search, copy, and move have meaningful targets.
+
+### Steps
+
+| # | ID | Title | Highlight | What happens |
+|---|---|---|---|---|
+| 1 | `th16-search-filter` | Search & Boolean Operators | `HAR.SEARCH_INPUT` | Spotlight the **Search bar** (`.builder-search-input`, 800ms) → type "user" → spotlight the tree filtering: only matching items visible, tests highlighted with `.search-match` accent border (1200ms) → spotlight the **match count** badge (`.builder-search-count`, 800ms) → clear → type `POST AND users` → spotlight results filtering to POST tests with "users" (1200ms, explain: search uses boolean AND/OR/NOT with parentheses, searching across name, URL, method, headers, body, auth type, and tags) → clear search |
+| 2 | `th16-search-help` | Search Syntax Help Panel | `.search-help` | Spotlight the **?** help icon button (800ms) → click to open the syntax help panel → spotlight the panel showing: substring, "exact phrase", AND/OR/NOT, grouping with parentheses, `-term` exclusion (1200ms) → close the help panel |
+| 3 | `th16-copy-test` | Copy Test to Another Scenario | `.popup-modal` | Spotlight the **Copy** button on a test card (`.test-card-actions`, 800ms) → click to open the **Copy Test To...** modal → spotlight the modal with FG and Scenario dropdowns (1200ms, explain: copy creates an independent duplicate in the target location — changes to the copy don't affect the original) → close the modal |
+| 4 | `th16-move-test` | Move Test Between Scenarios | `.popup-modal` | Spotlight the **Move** button on a test card (800ms) → click to open the **Move Test** modal → spotlight the Target Feature Group dropdown and Target Scenario dropdown (1200ms, explain: move relocates the test permanently — the original location loses it. This is useful for reorganizing as your suite grows) → close the modal |
+| 5 | `th16-test-actions` | Test Card Action Bar | `.test-card-actions` | Spotlight the full action bar on a test card showing all available actions: **Edit**, **Copy**, **Move**, **Export**, **Delete** (1500ms, explain: every test card has inline action buttons for quick access. The drag handle ⠿ on the left lets you reorder tests within a scenario or drag between scenarios and Feature Groups) → spotlight the drag handle (`.drag-handle`, 800ms) |
+
+**Cleanup:** Clear search. Close any open modals. Delete seeded FGs.
+
+---
+
+## TH-17: Data Mapper Expressions & DSL Editor
+
+**Goal:** Explore the Expression Editor's three-panel layout (function catalog, Monaco editor, documentation/snippets), the step-through debugger, and the DSL Rules editor with syntax highlighting, autocomplete, inline verification, and the reference panel.
+
+| Field | Value |
+|---|---|
+| `id` | `th-mapper-expressions-dsl` |
+| `estimatedMinutes` | 5 |
+| Steps | 5 |
+| `initialTab` | `scenarios` |
+| `allowedTabs` | `['scenarios']` |
+
+**Prerequisite:** Seeded test with selective validation, sample JSON response, and at least 2 expectedFields. Data Mapper opened from the Validation tab. At least one mapping exists so the expression editor can be opened via double-click on a mapped badge.
+
+### Steps
+
+| # | ID | Title | Highlight | What happens |
+|---|---|---|---|---|
+| 1 | `th17-expression-editor` | Expression Editor Layout | `.dm-expr-modal` | Open the Expression Editor by double-clicking a mapped badge on a target node → spotlight the 3-panel layout (1200ms): **left** = function catalog (`.dm-expr-sidebar`) with 8 categories and search, **center** = Monaco editor with the current expression, **right** = documentation panel (`.dm-expr-docs`) with function details and reusable snippets → spotlight the **live preview** section (`.dm-expr-preview-section`) showing the evaluated value from sample data (1000ms, explain: the expression editor lets you write complex transformations — not just simple `$.path` references) |
+| 2 | `th17-catalog-debug` | Function Catalog & Step Debugger | `.dm-expr-sidebar` | Spotlight the function catalog search (`.dm-expr-fn-search`, 800ms) → spotlight the function list filtered by a category (800ms) → spotlight a selected function's documentation in the right panel (`.dm-expr-docs`, 1200ms): signature, description, examples, Insert button → spotlight the **Step Debug** toggle (`.dm-expr-debug-toggle`) in the preview section (800ms) → spotlight the step debugger panel (`.dm-expr-step-debugger`, 1200ms) showing the expression broken into incremental evaluation steps with step badges, expression fragments, and intermediate results |
+| 3 | `th17-snippets-templates` | Snippets & Function Templates | `.dm-expr-docs` | Spotlight the **Reusable Snippets** section in the right panel (`.dm-expr-snippets`, 1000ms): shows saved expressions with Use/Delete buttons and a name input for saving the current expression → spotlight the **Function Templates** panel (`.dm-expr-template-panel`, 1000ms): a searchable library of ~35 transformation templates that can be inserted at the cursor, with a "Compose current" checkbox to wrap the existing expression → close the expression editor |
+| 4 | `th17-dsl-rules-editor` | DSL Rules Editor & Reference | `.vr-modal-panel` | Click the **Rules** button in the Data Mapper toolbar → spotlight the **Validation Rules Modal** opening in docked mode (1200ms): Monaco editor with custom `validation-dsl` syntax highlighting (operators, paths, values in distinct colors) → spotlight the **Reference** toggle → spotlight the **DSL Reference Panel** (`.vr-reference-pane`, 1200ms): 8 categories (Equality, Comparison, String, Boolean & Null, Type & Existence, Set, Collection, Custom), 34 operator entries with search, Insert, and Copy buttons |
+| 5 | `th17-dsl-verify` | DSL Inline Verify | `.vr-modal-panel` | Spotlight the **▶ Verify** button in the Rules modal header (`.vr-modal-action-btn--verify`, 800ms) → spotlight gutter markers on each rule line: green pass bars + inline ✓, red fail bars + inline "← Got: …" annotations (1200ms) → spotlight the **pass/fail stats** in the header (`.vr-modal-stat--pass`, `.vr-modal-stat--fail`, 800ms, explain: inline verify evaluates every DSL rule against the sample response — gutter markers show pass/fail per line, and failing lines show what the API actually returned) → close the Rules modal |
+
+**Cleanup:** Close expression editor and Rules modal if open. Close Data Mapper. Close test editor.
+
+---
+
+## TH-18: Data Source Advanced Features
+
+**Goal:** Explore advanced data source capabilities — per-row detail editing with URL preview and fetch, batch verification with progress tracking, validation contracts for array consistency, and the toolbar's Data Mapper integrations (Populate from API, Map Columns) plus distribution modes.
+
+| Field | Value |
+|---|---|
+| `id` | `th-data-source-advanced` |
+| `estimatedMinutes` | 5 |
+| Steps | 5 |
+| `initialTab` | `scenarios` |
+| `allowedTabs` | `['scenarios']` |
+
+**Prerequisite:** Seeded parameterized scenario with 3 data rows, 2 columns (userId: path, expectedName: validate). Test editor open on the test with the Data tab visible.
+
+### Steps
+
+| # | ID | Title | Highlight | What happens |
+|---|---|---|---|---|
+| 1 | `th18-row-detail` | Row Detail Modal | `.row-detail-modal` | In the data grid, click the **✎** (edit) button on a row → spotlight the **Row Detail Modal** (1000ms): shows column values grouped by type (path, validate) with type badges, **Row Name** input field for labeling, **URL Preview** showing the resolved method + URL with substitutions, and a **Fetch Response** button for single-row API fetch → spotlight the Fetch Response button (`.row-detail-fetch-btn`, 800ms) → close the modal |
+| 2 | `th18-verify-modal` | Verify & Inspect Modal | `.verify-modal` | Spotlight the **▶ Verify All** button in the toolbar (`.data-source-toolbar-btn-primary`, 800ms) → click to open the **Data Source — Verify & Inspect** modal → spotlight the modal header with row/column summary (1000ms) → spotlight the progress bar area and the action buttons: **▶ Verify All** (compare) and **⬇ Run & Capture** (populate validate columns from live responses) → spotlight per-row verify cards (`.verify-row-cards`, 1200ms, explain: Verify All sends the request for every enabled row and checks validate columns against actual responses — catches stale test data) → close the modal |
+| 3 | `th18-contract-panel` | Validation Contract Panel | `.data-source-contract-panel` | Click the **Contract** button in the toolbar → spotlight the **Validation Contract Panel** (1200ms) → spotlight the **Dynamic vs Fixed** mode buttons: Dynamic allows array sizes to vary between rows, Fixed enforces all rows to have the same structure → spotlight the **Ordered vs Unordered** toggle for array matching (1000ms, explain: validation contracts enforce consistency across parameterized data — "every row must return exactly 3 items in any order" prevents flaky tests from server-side shuffling) → click Contract button again to close the panel |
+| 4 | `th18-toolbar-mappers` | Data Mapper Integrations | `HAR.DS_TOOLBAR` | Spotlight the **⬇ From API** button (800ms, explain: opens the Data Mapper in populate mode — fetch an API response and map array items into data rows automatically, no manual data entry) → spotlight the **🔗 Map Columns** button (800ms, explain: opens the Data Mapper in column mapping mode — visually connect data columns to where they're used in the request template: path params, query params, body fields, headers) → spotlight the **Distribution** dropdown showing 3 modes: Sequential, Random, Round Robin (1000ms, explain: distribution controls how rows are assigned to iterations — random simulates real-world usage, sequential is predictable for debugging, round-robin ensures even coverage) |
+| 5 | `th18-shared-ds` | Shared Data Sources | `.shared-ds-modal` | Open the **Shared Data Sources** modal from the toolbar badge or header button → spotlight the modal with list panel on the left and editor panel on the right (1200ms) → spotlight the **Fetch Panel** (`.shared-ds-fetch-panel`) showing: URL bar, method, mapping chips preview, Params/Auth/Headers tabs, **cURL Import** button, and **Populate Rows from API** button → spotlight the **Used by** section showing tests linked to this shared data source (1000ms, explain: shared data sources let you maintain one dataset used by multiple tests — when the API changes, re-fetch updates all linked tests automatically) → close the modal |
+
+**Cleanup:** Close all open modals. Delete seeded data.
+
+---
+
+## TH-19: Schema Drift & Repair
+
+**Goal:** Understand how the Data Mapper detects schema changes between API versions, classifies drift severity, shows repair suggestions for broken mappings, and tracks mapping quality via the Health Dashboard.
+
+| Field | Value |
+|---|---|
+| `id` | `th-schema-drift-repair` |
+| `estimatedMinutes` | 5 |
+| Steps | 5 |
+| `initialTab` | `scenarios` |
+| `allowedTabs` | `['scenarios']` |
+
+**Prerequisite:** Seeded test with validation mappings and a pre-saved schema snapshot from a "previous API version." The current sample response has 2 new fields added, 1 field removed, and 1 field type changed compared to the snapshot — triggering automatic drift detection when the Data Mapper opens.
+
+**Note:** The drift engine detects four change types: `added` (info), `removed` (breaking if mappings reference it, warning otherwise), `typeChanged` (warning), and `nullableChanged` (info). There is no explicit "renamed" type — renames appear as `removed` + repair suggestion pointing to a similarly-named new field. The Schema Contract UI (strict/lenient mode toggle) exists as an engine only — no toolbar button or mode selector is built yet.
+
+### Steps
+
+| # | ID | Title | Highlight | What happens |
+|---|---|---|---|---|
+| 1 | `th19-drift-banner` | Schema Drift Detection | `.dm-drift-banner` | Open the Data Mapper for the test → spotlight the **Drift Banner** appearing between header and body (1500ms): shows either "Source schema has breaking changes" (red, with ⛔) or "Source schema changed since last mapping" (amber, with ⚠), a detail line counting added/removed/type-changed fields, and three action buttons: **Show Diff**, **Accept & Update**, and dismiss **×** (explain: the Data Mapper captures a schema snapshot every time you save — when the API response changes shape, drift detection warns you before broken mappings cause silent test failures) |
+| 2 | `th19-diff-modal` | Schema Diff Modal | `.dm-diff-shell` | Click **Show Diff** → spotlight the **Schema Diff Modal** (1200ms): tabular view with 7 columns — Severity, Field Path, Change, Saved Type, Current Type, Mappings, Repair → spotlight a **severity badge row**: 🔴 Breaking (removed field with affected mappings), 🟡 Warning (type changed), 🟢 Info (added field) — each row color-coded by severity (1200ms) → spotlight the **Affected Mappings** count badge showing how many mappings reference changed fields (800ms) |
+| 3 | `th19-repair` | Repair Suggestions | `.dm-diff-shell` | Spotlight the **Repair** column in the diff modal (1000ms): for removed fields with similarly-named new fields, a 🔧 **Repair** dropdown shows suggestions with confidence percentage (high/medium/low) and an **Apply** button → spotlight the **Apply all repairs** batch button at the top for bulk fixing (800ms, explain: the repair engine uses Levenshtein fuzzy name matching — if `$.userName` was removed and `$.user_name` was added, it suggests the new path with confidence based on edit distance) → close the diff modal |
+| 4 | `th19-accept-update` | Accept & Update Snapshot | `.dm-drift-banner` | Spotlight the **Accept & Update** button on the drift banner (1000ms) → click → spotlight the banner dismissing and the mapper returning to normal state (800ms, explain: Accept & Update saves the current response schema as the new baseline — future drift comparisons will be against this version, not the old one. Any remaining broken mappings should be fixed manually before saving) |
+| 5 | `th19-health-dashboard` | Mapping Health Dashboard | `HAR.MAPPER_HEALTH` | Spotlight the **Health Dashboard** bar below the toolbar (1200ms): shows Status (Healthy/Warnings/Broken), Coverage % (percentage of response fields covered by mappings), Broken count, Drift warnings count, and Type mismatches count — each with color-coded indicators (green/amber/red) → spotlight the clickable Broken and Drift metrics that open the diff modal when non-zero (1000ms, explain: the Health Dashboard is your continuous quality score — aim for high coverage, zero broken mappings, and zero drift warnings for reliable test results) |
+
+**Cleanup:** Close Data Mapper. Close test editor. Delete seeded data.
+
+---
+
+## TH-20: Baseline & Regression Analysis
+
+**Goal:** Explore the Comparison & Trends tab — set baselines, configure regression thresholds, compare runs side-by-side, view trend charts, and export comparison reports.
+
+| Field | Value |
+|---|---|
+| `id` | `th-baseline-regression` |
+| `estimatedMinutes` | 5 |
+| Steps | 5 |
+| `initialTab` | `results` |
+| `allowedTabs` | `['results']` |
+
+**Prerequisite:** 2 seeded test runs: Run 1 (fast baseline) and Run 2 (slower, with regressions). Run 1 is pre-marked as baseline.
+
+**Note — TH-7 overlap:** TH-7 (step 4) already introduces the ☆ Set Baseline button and mentions the Comparison & Trends tab exists. TH-20 goes deep into the tab's features: baseline list management, thresholds, side-by-side comparison, trends, and export.
+
+### Steps
+
+| # | ID | Title | Highlight | What happens |
+|---|---|---|---|---|
+| 1 | `th20-baseline-list` | Baseline List & Management | `HAR.TAB_ANALYSIS` | Navigate to Comparison & Trends tab → spotlight the **Baseline List Panel** in the sidebar (1200ms): shows the pre-marked baseline with ★ star, label, and timestamp → spotlight the **Rename** action (click label to edit inline) and **Unmark** button → spotlight the **Set Compare Target** button that opens the CompareActionModal (1000ms, explain: baselines are named reference points stored in the sidebar — rename them for clarity, unmark when no longer needed, and set them as the comparison target for side-by-side analysis) |
+| 2 | `th20-thresholds` | Regression Thresholds | `.thresholds-panel` | Spotlight the **Regression Thresholds Panel** in the sidebar (1200ms) — 7 configurable metrics: Avg, P50, P95, P99, P99.9 (% change), TPS drop (%), Error Rate (absolute pp) → spotlight the P95 input and explain the 2× critical multiplier (800ms, explain: set a warning threshold per metric — critical fires at 2× that value; e.g. P95 warn 10% means critical at 20% — tailor to your API's tolerance) → spotlight Save/Cancel actions (600ms) |
+| 3 | `th20-comparison` | Run Comparison Panel | `.run-comparison-panel` | Spotlight the **comparison toolbar**: mode badge (Baseline/Ad-hoc) + compare dropdown (1000ms) → the comparison auto-selects the baseline run → spotlight the **Run Comparison Panel** (1500ms): side-by-side metrics table with Baseline vs Current columns, delta % with color-coded indicators (green OK / amber warn / red critical) → spotlight the **sub-tabs**: Overview, Per-Scenario, Regressions, Distribution (1000ms, explain: the comparison panel evaluates every metric's delta against your configured thresholds and color-codes results at a glance) |
+| 4 | `th20-trends` | Trend Chart | `.trend-chart-container` | Spotlight the **Show Trend** button in the toolbar (800ms) → click to enable → spotlight the **multi-run trend chart** (1500ms): X-axis = runs over time, Y-axis = selected metric, baseline runs shown as larger orange dots → spotlight the **per-scenario tab** inside the trend chart (1000ms) → spotlight the **scope filter** dropdown: All runs / By service / By service+env (800ms, explain: trends visualize performance over time — baseline runs are highlighted so you can see regression patterns across multiple releases) |
+| 5 | `th20-export` | Export Comparison Report | `.run-comparison-export-btn` | Spotlight the **Export ▾** button in the comparison panel (800ms) → spotlight the dropdown menu with **JSON** and **Markdown** format options (1000ms, explain: comparison reports capture the baseline vs current analysis as a shareable document — JSON for CI pipelines, Markdown for PR reviews — includes summary table, per-scenario deltas, and threshold violations) |
+
+**Cleanup:** Remove seeded test runs and baselines.
+
+---
+
+## TH-21: The Workflow Runner
+
+**Goal:** Run workflows as performance tests — select a workflow, configure variables, set trace level, manage variable presets, explore execution config, and learn about CorrelationWait support.
+
+| Field | Value |
+|---|---|
+| `id` | `th-workflow-runner` |
+| `estimatedMinutes` | 5 |
+| Steps | 5 |
+| `initialTab` | `workflow-runner` |
+| `allowedTabs` | `['workflow-runner']` |
+
+**Prerequisite:** At least 1 workflow in the user's workflow list (seeded via demo bridge or gallery samples available). No live execution — focuses on UI tour and configuration.
+
+**Note — Plan vs Actual UI:** Trace levels are **Minimal/Standard/Full/Debug** (not Metrics/Sampled). Variable presets save **variables only** (not full run configs). The Multi-Webhook Testing Panel only appears when CorrelationWait mode is set to "Wait for Real Webhook" (conditional). The lesson covers what every user will see without requiring external webhook infrastructure.
+
+### Steps
+
+| # | ID | Title | Highlight | What happens |
+|---|---|---|---|---|
+| 1 | `th21-picker` | Workflow Picker | `.workflow-picker` | Navigate to **Workflow Runner** tab → spotlight the **Workflow Picker** dropdown trigger (1000ms) → open it → spotlight the **searchable dropdown panel** with folder navigation, workflow items, and gallery samples (1200ms) → spotlight the **search input** (800ms) → select a workflow → spotlight the **HTTP node summary** showing step count and node labels (1200ms, explain: the picker shows your workflow library with folder drill-down — after selecting, a summary shows the HTTP step pipeline at a glance) |
+| 2 | `th21-variables` | Initial Variables & Presets | `.workflow-vars-section` | Spotlight the **Initial Variables** section (1000ms) → spotlight the **editable variable rows**: each row shows variable name (code) + value input → spotlight the **variable actions bar**: Reset, Save preset, and Presets toggle (1000ms) → spotlight the **history panel** when open: saved variable presets with labels, relative timestamps ("2 min ago"), and Restore/Rename/Delete actions (1200ms, explain: variables are the workflow inputs — `{{variableName}}` placeholders in HTTP node URLs, headers, and bodies get replaced at runtime; save presets to quickly switch between test profiles) |
+| 3 | `th21-trace-config` | Trace Level & Execution Config | `.wf-runner-inline-options` | Spotlight the **Trace Level** radio buttons: Minimal, Standard, Full, Debug (1200ms) → spotlight the **Sampling** checkbox and threshold input that appear on Full/Debug (800ms, explain: trace level controls how much data is captured per node — Minimal for fast load tests, Full for debugging; Sampling captures every Nth iteration to reduce overhead) → spotlight the **execution config** section: iterations, concurrency, execution mode, think time, resilience settings (1200ms) |
+| 4 | `th21-run-button` | Run & Completion Flow | `[data-testid="workflow-runner-run-btn"]` | Spotlight the **▶ Run Workflow** button (1000ms, explain: clicking Run executes the selected workflow with the configured variables, trace level, and execution settings — the live progress panel shows iteration count, timing metrics, and error rate in real time) → spotlight the **completion section** below: banner with request count, duration, and **View Full Results →** link that navigates to the Results Dashboard filtered to workflow runs (1200ms) |
+| 5 | `th21-correlation` | CorrelationWait Support | `.wf-runner-correlation-section` | Spotlight the **CorrelationWait Behavior** panel (1200ms, explain: when a workflow includes CorrelationWait nodes, this panel appears with 3 modes — **Auto-Resume** skips the wait for fast testing, **Synthetic Inject** fires a delayed mock payload, **Wait for Real Webhook** pauses until an external callback arrives) → spotlight the **mode radio cards**: Auto-Resume, Synthetic Inject, Wait for Real Webhook (1000ms) → spotlight the **Multi-Webhook Testing Panel** that appears in Wait-for-Real mode: per-node state tracker, payload editor, fire button, and saved scenarios (1200ms) |
+
+**Cleanup:** None needed (no runs executed).
 
 ---
 
@@ -599,23 +923,100 @@ Every Test Harness feature mapped to its lesson:
 | **SLA Status Accordion in Results** | TH-13 | Step 7 |
 | **Per-scope SLA evaluation (aggregate vs per-scenario)** | TH-13 | Step 7 |
 | **SLA override indicator in results** | TH-13 | Step 7 |
+| **Global auth profiles** | TH-14 | Step 1 |
+| **4-level auth inheritance chain (test→scenario→FG→global)** | TH-14 | Step 2 |
+| **Effective auth badge (own/scenario/feature/global)** | TH-14 | Step 2 |
+| **7 auth types (none/inherit/basic/bearer/apikey/digest/OAuth2)** | TH-14 | Step 3 |
+| **Show/Hide secrets toggle** | TH-14 | Step 3 |
+| **Verify Auth (live validation)** | TH-14 | Step 4 |
+| **Scenario-level auth override** | TH-14 | Step 5 |
+| **Test-level auth override (highest priority)** | TH-14 | Step 6 |
+| **Auth resolution summary view** | TH-14 | Step 7 |
+| **cURL Import (paste → auto-populate test fields)** | TH-15 | Step 1 |
+| **cURL Export (with resolved OAuth2 tokens)** | TH-15 | Step 2 |
+| **Test JSON Export with version checkboxes** | TH-15 | Step 3 |
+| **Feature Group Import/Export** | TH-15 | Step 4 |
+| **CSV/Excel/JSON Template Import wizard** | TH-15 | Step 5 |
+| **Results Import (CLI/external JSON)** | TH-15 | Step 6 |
+| **Auto-Report on Complete (HTML/JSON/Markdown)** | TH-15 | Step 7 |
+| **Advanced search (AND/OR/NOT, phrases, parentheses)** | TH-16 | Steps 1–2 |
+| **Search across all fields (URL, method, headers, body, auth)** | TH-16 | Step 2 |
+| **Match count + syntax help panel** | TH-16 | Step 1 |
+| **Drag-and-drop scenarios between FGs** | TH-16 | Step 3 |
+| **Drag-and-drop tests (reorder + move)** | TH-16 | Step 4 |
+| **Copy Test modal (cross-scenario)** | TH-16 | Step 5 |
+| **Move Test/Scenario modal** | TH-16 | Step 5 |
+| **Unassigned Feature Groups (assign env/svc)** | TH-16 | Step 6 |
+| **Expression Editor (Monaco-based)** | TH-17 | Step 1 |
+| **Function catalog (browse/search)** | TH-17 | Step 2 |
+| **Inline function documentation** | TH-17 | Step 2 |
+| **Live expression preview** | TH-17 | Step 3 |
+| **Complex expressions ($map, $filter, $sum, $reduce)** | TH-17 | Step 3 |
+| **Step-through expression debugger** | TH-17 | Step 4 |
+| **Expression snippets (save/load named)** | TH-17 | Step 5 |
+| **Lambda insert templates** | TH-17 | Step 5 |
+| **DSL Code Editor (Monaco, custom language)** | TH-17 | Step 6 |
+| **DSL syntax highlighting + autocomplete** | TH-17 | Steps 6–7 |
+| **DSL Reference Panel (39 entries, 10 categories)** | TH-17 | Step 7 |
+| **Bi-directional visual ↔ DSL sync** | TH-17 | Step 7 |
+| **DSL line-level verify (pass/fail gutter markers)** | TH-17 | Step 8 |
+| **DSL rule/error counts** | TH-17 | Step 8 |
+| **Row Detail modal (per-row fetch/validate/notes)** | TH-18 | Step 1 |
+| **Verify All modal (batch verify rows)** | TH-18 | Step 2 |
+| **Validation Contract panel (dynamic/fixed, ordered/unordered)** | TH-18 | Step 3 |
+| **Populate from API (Data Mapper)** | TH-18 | Step 4 |
+| **Map Columns (Data Mapper)** | TH-18 | Step 5 |
+| **Row Distribution (Sequential/Random/Round-Robin)** | TH-18 | Step 6 |
+| **Shared DS Fetch Configuration (URL/method/headers/auth)** | TH-18 | Step 7 |
+| **Shared DS Linked Tests list** | TH-18 | Step 7 |
+| **Create Test from Shared DS** | TH-18 | Step 7 |
+| **Schema snapshot capture + fingerprinting** | TH-19 | Step 1 |
+| **Schema drift detection (added/removed/type/renamed)** | TH-19 | Step 1 |
+| **Drift Banner (Accept & Update / Show Diff)** | TH-19 | Step 1 |
+| **Schema Diff modal (tabular view with severity badges)** | TH-19 | Step 2 |
+| **Affected Mappings column** | TH-19 | Step 2 |
+| **Severity classification (Breaking/Warning/Info)** | TH-19 | Step 2 |
+| **Repair suggestions (Levenshtein fuzzy matching)** | TH-19 | Step 3 |
+| **Auto-apply repair (Apply button per suggestion)** | TH-19 | Step 3 |
+| **Schema contract modes (Strict/Lenient)** | TH-19 | Step 5 |
+| **Mapping Health Dashboard (coverage/broken/drift/mismatch)** | TH-19 | Step 6 |
+| **Type mismatch detection + quick-fix** | TH-19 | Step 6 |
+| **Set Performance Baseline** | TH-20 | Step 1 |
+| **Baseline management (mark/unmark/rename/list)** | TH-20 | Step 1 |
+| **Regression thresholds (configurable warn/critical)** | TH-20 | Step 2 |
+| **Run Comparison panel (side-by-side deltas)** | TH-20 | Step 3 |
+| **Scenario-level regression alerts** | TH-20 | Step 3 |
+| **Regression status badges per run (Pass/Warn/Critical)** | TH-20 | Step 4 |
+| **Multi-run trend charts** | TH-20 | Step 5 |
+| **Per-scenario trend filter** | TH-20 | Step 5 |
+| **Response time overlay histogram (baseline vs current)** | TH-20 | Step 5 |
+| **Comparison report export (JSON/Markdown)** | TH-20 | Step 6 |
+| **Workflow Picker (searchable folder-tree)** | TH-21 | Step 1 |
+| **Workflow variables editor (initial values)** | TH-21 | Step 2 |
+| **HTTP node summary** | TH-21 | Step 1 |
+| **Trace options (Full/Metrics Only/Sampled)** | TH-21 | Step 3 |
+| **Run Config Presets (save/load/rename/delete)** | TH-21 | Step 4 |
+| **Workflow Runner live progress** | TH-21 | Step 5 |
+| **Results Explorer launch from runner** | TH-21 | Step 5 |
+| **Correlation Wait config (payload builder, cURL generator)** | TH-21 | Step 6 |
+| **Multi-Webhook Testing panel** | TH-21 | Step 7 |
+| **Webhook payload presets per node** | TH-21 | Step 7 |
+| **Saved webhook test scenarios** | TH-21 | Step 7 |
 
 ---
 
-## Not Covered (Handled by Other Lessons)
+## Not Covered (Handled by Other Lessons or Future Expansion)
 
 | Feature | Covered by |
 |---|---|
 | Send to Harness from Requests | **REQ-5** `req-send-harness` |
 | Send to Harness from Catalog | **CAT-3** `cat-export-requests` |
-| Workflow Runner (workflow execution under load) | Protocol lessons (WS/Kafka/GQL/gRPC) + **WF-6** quick test |
-| Workflow Results Explorer (3-panel replay) | Protocol workflow runner lessons |
-| Auth tab deep dive (OAuth, mTLS, certificate) | Future "Auth & Security" lesson series |
-| Body Builder (visual JSON body construction) | Future TH-17 lesson |
-| Regex Assertion Builder modal | **TH-10** Step 7 (full deep dive) |
-| CLI test execution | Future TH-16 lesson |
-| Schema Drift & Contract Testing | Future TH-20 lesson |
-| Validation DSL Editor | Future TH-21 lesson |
+| Workflow Results Explorer (3-panel replay) | Future **TH-26** |
+| Body Builder (visual JSON body construction) | Future **TH-23** |
+| CLI test execution | Future **TH-22** |
+| Multi-Protocol Harness (Kafka/WS/gRPC scenarios) | Future **TH-24** — protocol lessons also cover |
+| Data Mapper Gallery & Profiles | Future **TH-27** |
+| Execution Strategies deep dive (5 modes) | Future **TH-28** |
 
 ---
 
@@ -625,17 +1026,25 @@ Every Test Harness feature mapped to its lesson:
 |---|---|---|
 | 1 | TH-1 | Foundation — understand the domain before anything else |
 | 2 | TH-2 | Core authoring — can't validate or run without tests |
-| 3 | TH-3 | Core value — validation basics (modes, expected fields, verify) |
-| 4 | TH-4 | First execution — the "see it work" moment |
-| 5 | TH-10 | Assertion mastery — all 24+ types, NOT modifier, presets, regex builder |
-| 6 | TH-11 | Data Mapper — visual validation, auto-map, custom predicates, verify |
-| 7 | TH-12 | Validation versioning — response/rules snapshots, compare, restore |
-| 8 | TH-5 | Data authoring — configure the data that powers parameterized tests |
-| 9 | TH-6 | Parameterized Runner — data-driven execution at scale |
-| 10 | TH-7 | Analysis — understand what happened after a run |
-| 11 | TH-8 | Performance — advanced load testing for power users |
-| 12 | TH-13 | SLA — define acceptance criteria, evaluate results, runner overrides |
-| 13 | TH-9 | Organization — long-term test management |
+| 3 | TH-14 | Auth — critical for any real API testing (all tests need auth) |
+| 4 | TH-3 | Core value — validation basics (modes, expected fields, verify) |
+| 5 | TH-4 | First execution — the "see it work" moment |
+| 6 | TH-15 | Import/Export — cURL import is a top productivity feature |
+| 7 | TH-10 | Assertion mastery — all 24+ types, NOT modifier, presets, regex builder |
+| 8 | TH-11 | Data Mapper — visual validation, auto-map, custom predicates, verify |
+| 9 | TH-17 | Expressions & DSL — power-user validation authoring |
+| 10 | TH-12 | Validation versioning — response/rules snapshots, compare, restore |
+| 11 | TH-19 | Schema drift — contract testing and mapping health |
+| 12 | TH-5 | Data authoring — configure the data that powers parameterized tests |
+| 13 | TH-18 | Data Source advanced — row detail, verify, populate from API |
+| 14 | TH-6 | Parameterized Runner — data-driven execution at scale |
+| 15 | TH-7 | Analysis — understand what happened after a run |
+| 16 | TH-20 | Baseline & regression — performance tracking over time |
+| 17 | TH-8 | Performance — advanced load testing for power users |
+| 18 | TH-13 | SLA — define acceptance criteria, evaluate results, runner overrides |
+| 19 | TH-21 | Workflow Runner — workflow execution as test harness |
+| 20 | TH-16 | Advanced search — power-user organization and navigation |
+| 21 | TH-9 | Organization — long-term test management |
 
 ---
 
@@ -712,6 +1121,91 @@ Every Test Harness feature mapped to its lesson:
 | `cloneOverride(ctx, index)` | Click Override button on target N |
 | `spotlightSlaCompactBar(ctx)` | Highlight the compact pass/warn/fail bar |
 | `spotlightSlaAccordion(ctx)` | Highlight the Results SLA accordion |
+| **TH-14: Auth & Inheritance** | |
+| `seedAuthDemoFg(ctx)` | Create FG with scenarios + global auth profile |
+| `openFgAuthPanel(ctx, fgName)` | Click Auth button on FG card |
+| `selectGlobalAuthProfile(ctx, profileName)` | Select a global auth profile from dropdown |
+| `closeFgAuthPanel(ctx)` | Close FG auth panel |
+| `openScenarioAuth(ctx, scenarioName)` | Click Auth on scenario card |
+| `configureAuthType(ctx, type, fields)` | Set auth type + fill type-specific fields |
+| `clickVerifyAuth(ctx)` | Click Verify Auth and wait for result |
+| `toggleSecretVisibility(ctx)` | Click Show/Hide secrets toggle |
+| `spotlightAuthBadge(ctx, testSelector)` | Highlight the "Auth: type (source)" badge |
+| `spotlightInheritanceHint(ctx)` | Highlight the inheritance preview text |
+| **TH-15: Import, Export & cURL** | |
+| `clickCurlImport(ctx)` | Click cURL Import in test editor header |
+| `pasteCurlCommand(ctx, curl)` | Paste cURL text into the import area |
+| `clickCurlExport(ctx)` | Click cURL Export in header |
+| `spotlightCurlOutput(ctx)` | Highlight the generated cURL |
+| `openExportDropdown(ctx)` | Click Export dropdown in test editor header |
+| `clickExportWithOptions(ctx, options)` | Export with version checkbox selections |
+| `openCsvImportModal(ctx)` | Click Import Template in page header |
+| `configureCsvImport(ctx, config)` | Set file, mode, target FG/scenario |
+| `clickImportResults(ctx)` | Click Import in Results tab |
+| `toggleAutoReport(ctx, format)` | Enable auto-report with format selection |
+| **TH-16: Advanced Search & Drag-Drop** | |
+| `openSearchHelp(ctx)` | Click the search ? help icon |
+| `typeSearchQuery(ctx, query)` | Fill the search bar with advanced query |
+| `spotlightSearchResults(ctx)` | Highlight match count and filtered tree |
+| `dragScenarioToFg(ctx, scenarioName, targetFg)` | Drag scenario to another FG |
+| `dragTestToScenario(ctx, testName, targetScenario)` | Drag test to another scenario |
+| `openCopyModal(ctx, testName)` | Right-click → Copy |
+| `openMoveModal(ctx, testName)` | Right-click → Move |
+| `assignUnassociatedFg(ctx, fgName, env, svc)` | Assign env/svc to an unassigned FG |
+| **TH-17: Expressions & DSL** | |
+| `openExpressionEditor(ctx, mappingIndex)` | Double-click mapping to open expression editor |
+| `searchFunctionCatalog(ctx, query)` | Search the function catalog |
+| `insertFunction(ctx, funcName)` | Insert function from catalog |
+| `typeExpression(ctx, expr)` | Type an expression in the Monaco editor |
+| `openStepDebugger(ctx)` | Click Debug button in expression editor |
+| `spotlightDebugStep(ctx, index)` | Highlight a step in the debugger |
+| `saveExpressionSnippet(ctx, name)` | Save current expression as named snippet |
+| `openDslEditor(ctx)` | Click Rules in Data Mapper toolbar |
+| `typeDslRule(ctx, rule)` | Type a DSL rule in the Monaco editor |
+| `openDslReference(ctx)` | Toggle DSL Reference Panel |
+| `insertFromReference(ctx, operator)` | Click Insert on a reference entry |
+| `verifyDslLines(ctx)` | Click Verify in DSL editor |
+| `spotlightGutterMarkers(ctx)` | Highlight pass/fail gutter markers |
+| **TH-18: Data Source Advanced** | |
+| `openRowDetail(ctx, rowIndex)` | Click row number to open detail modal |
+| `fetchSingleRow(ctx)` | Click Fetch in row detail modal |
+| `openVerifyAll(ctx)` | Click Verify All in toolbar |
+| `openValidationContract(ctx)` | Click Contract in toolbar |
+| `setContractMode(ctx, mode)` | Set Dynamic/Fixed and Ordered/Unordered |
+| `openPopulateFromApi(ctx)` | Click From API in toolbar |
+| `openMapColumns(ctx)` | Click Map Columns in toolbar |
+| `setRowDistribution(ctx, mode)` | Select Sequential/Random/Round-Robin |
+| `openSharedDsFetchConfig(ctx, dsName)` | Open fetch config for a shared DS |
+| `configureSharedDsFetch(ctx, config)` | Set URL/method/headers/auth |
+| **TH-19: Schema Drift & Repair** | |
+| `seedDriftScenario(ctx)` | Create test with old schema snapshot + changed response |
+| `spotlightDriftBanner(ctx)` | Highlight the drift banner |
+| `openSchemaDiffModal(ctx)` | Click Show Diff on drift banner |
+| `applyRepairSuggestion(ctx, index)` | Click Apply on a repair suggestion |
+| `clickAcceptUpdate(ctx)` | Click Accept & Update on drift banner |
+| `setSchemaContract(ctx, mode)` | Set Strict/Lenient contract mode |
+| `spotlightHealthDashboard(ctx)` | Highlight the mapping health dashboard |
+| **TH-20: Baseline & Regression** | |
+| `seedTestRunsWithRegression(ctx)` | Create 4 runs with varying performance |
+| `clickSetBaseline(ctx)` | Click Set as Baseline on selected run |
+| `openBaselineList(ctx)` | Open Baseline List Panel |
+| `configureRegressionThresholds(ctx, config)` | Set warn/critical thresholds |
+| `clickCompareToBaseline(ctx)` | Click Compare to Baseline |
+| `spotlightRegressionBadges(ctx)` | Highlight regression status on runs |
+| `toggleTrendChart(ctx)` | Toggle trend visualization |
+| `exportComparisonReport(ctx, format)` | Export comparison as JSON/Markdown |
+| **TH-21: Workflow Runner** | |
+| `seedWorkflowForRunner(ctx, name, nodes[])` | Create a workflow for runner testing |
+| `openWorkflowPicker(ctx)` | Click Workflow Picker dropdown |
+| `selectWorkflow(ctx, name)` | Select workflow from picker |
+| `editWorkflowVariable(ctx, name, value)` | Edit a workflow variable value |
+| `setTraceOption(ctx, level)` | Set Full/Metrics Only/Sampled |
+| `saveRunConfigPreset(ctx, name)` | Save current config as named preset |
+| `loadRunConfigPreset(ctx, name)` | Load a saved preset |
+| `runWorkflow(ctx)` | Click Run Workflow |
+| `spotlightCorrelationWait(ctx)` | Highlight correlation wait config |
+| `openMultiWebhookPanel(ctx)` | Open multi-webhook testing panel |
+| `fireWebhook(ctx, nodeId, payload)` | Fire a webhook with payload |
 
 ### Reuse from existing infrastructure
 
@@ -881,6 +1375,89 @@ New selector namespace `HAR` for the Test Harness:
 | `RUNNER_SLA_OVERRIDE` | `[data-testid="har-runner-sla-override"]` |
 | `SLA_OVERRIDE_BTN` | `[data-testid="har-sla-override-btn"]` |
 | `SLA_COMPACT_BAR` | `[data-testid="har-sla-compact-bar"]` |
+| **Auth (TH-14)** | |
+| `AUTH_PROFILE` | `[data-testid="har-auth-profile"]` |
+| `AUTH_PANEL` | `[data-testid="har-auth-panel"]` |
+| `AUTH_TYPE_SELECT` | `[data-testid="har-auth-type-select"]` |
+| `AUTH_INHERIT_HINT` | `[data-testid="har-auth-inherit-hint"]` |
+| `AUTH_VERIFY` | `[data-testid="har-auth-verify"]` |
+| `AUTH_VERIFY_RESULT` | `[data-testid="har-auth-verify-result"]` |
+| `AUTH_SECRETS_TOGGLE` | `[data-testid="har-auth-secrets-toggle"]` |
+| `AUTH_BADGE` | `[data-testid="har-auth-badge"]` |
+| `SCENARIO_AUTH` | `[data-testid="har-scenario-auth"]` |
+| **Import/Export (TH-15)** | |
+| `CURL_IMPORT` | `[data-testid="har-curl-import"]` |
+| `CURL_PASTE_AREA` | `[data-testid="har-curl-paste-area"]` |
+| `CURL_EXPORT` | `[data-testid="har-curl-export"]` |
+| `CURL_OUTPUT` | `[data-testid="har-curl-output"]` |
+| `EXPORT_DROPDOWN` | `[data-testid="har-export-dropdown"]` |
+| `EXPORT_VERSION_OPTS` | `[data-testid="har-export-version-opts"]` |
+| `FG_EXPORT` | `[data-testid="har-fg-export"]` |
+| `FG_IMPORT` | `[data-testid="har-fg-import"]` |
+| `IMPORT_TEMPLATE` | `[data-testid="har-import-template"]` |
+| `CSV_IMPORT_MODAL` | `[data-testid="har-csv-import-modal"]` |
+| `CSV_DROP_ZONE` | `[data-testid="har-csv-drop-zone"]` |
+| `CSV_IMPORT_MODE` | `[data-testid="har-csv-import-mode"]` |
+| `CSV_PARSE_PREVIEW` | `[data-testid="har-csv-parse-preview"]` |
+| `IMPORT_RESULTS` | `[data-testid="har-import-results"]` |
+| `AUTO_REPORT` | `[data-testid="har-auto-report"]` |
+| **Search & Drag-Drop (TH-16)** | |
+| `SEARCH_HELP` | `[data-testid="har-search-help"]` |
+| `SEARCH_MATCH_COUNT` | `[data-testid="har-search-match-count"]` |
+| `DRAG_HANDLE` | `[data-testid="har-drag-handle"]` |
+| `DROP_ZONE` | `[data-testid="har-drop-zone"]` |
+| `COPY_TEST_MODAL` | `[data-testid="har-copy-test-modal"]` |
+| `MOVE_MODAL` | `[data-testid="har-move-modal"]` |
+| `UNASSIGNED` | `[data-testid="har-unassigned-section"]` |
+| **Expression & DSL Editor (TH-17)** | |
+| `MAPPER_EXPR` | `[data-testid="har-mapper-expr-editor"]` |
+| `MAPPER_FUNCTIONS` | `[data-testid="har-mapper-function-catalog"]` |
+| `MAPPER_DEBUG` | `[data-testid="har-mapper-debug-btn"]` |
+| `MAPPER_DEBUG_STEPS` | `[data-testid="har-mapper-debug-steps"]` |
+| `MAPPER_SNIPPETS` | `[data-testid="har-mapper-snippets"]` |
+| `MAPPER_DSL` | `[data-testid="har-mapper-dsl-editor"]` |
+| `MAPPER_DSL_REF` | `[data-testid="har-mapper-dsl-reference"]` |
+| `MAPPER_DSL_VERIFY` | `[data-testid="har-mapper-dsl-verify"]` |
+| `MAPPER_DSL_GUTTER` | `.mapper-dsl-gutter-marker` |
+| **Data Source Advanced (TH-18)** | |
+| `DS_ROW_DETAIL` | `[data-testid="har-ds-row-detail"]` |
+| `DS_ROW_FETCH` | `[data-testid="har-ds-row-fetch"]` |
+| `DS_ROW_NOTES` | `[data-testid="har-ds-row-notes"]` |
+| `DS_VERIFY` | `[data-testid="har-ds-verify-all"]` |
+| `DS_VERIFY_MODAL` | `[data-testid="har-ds-verify-modal"]` |
+| `DS_CONTRACT` | `[data-testid="har-ds-contract"]` |
+| `DS_CONTRACT_PANEL` | `[data-testid="har-ds-contract-panel"]` |
+| `DS_FROM_API` | `[data-testid="har-ds-from-api"]` |
+| `DS_MAP_COLUMNS` | `[data-testid="har-ds-map-columns"]` |
+| `DS_DISTRIBUTION` | `[data-testid="har-ds-distribution"]` |
+| `SHARED_DS_FETCH` | `[data-testid="har-shared-ds-fetch"]` |
+| `SHARED_DS_LINKED` | `[data-testid="har-shared-ds-linked"]` |
+| **Schema Drift (TH-19)** | |
+| `MAPPER_DRIFT` | `[data-testid="har-mapper-drift-banner"]` |
+| `MAPPER_DIFF` | `[data-testid="har-mapper-diff-modal"]` |
+| `MAPPER_REPAIR` | `[data-testid="har-mapper-repair"]` |
+| `MAPPER_ACCEPT` | `[data-testid="har-mapper-accept-update"]` |
+| `MAPPER_CONTRACT` | `[data-testid="har-mapper-contract"]` |
+| `MAPPER_HEALTH` | `[data-testid="har-mapper-health-dashboard"]` |
+| **Baseline & Regression (TH-20)** | |
+| `BASELINE_BTN` | `[data-testid="har-baseline-btn"]` |
+| `BASELINE_LIST` | `[data-testid="har-baseline-list"]` |
+| `BASELINE_STAR` | `[data-testid="har-baseline-star"]` |
+| `REGRESSION_CONFIG` | `[data-testid="har-regression-config"]` |
+| `REGRESSION_BADGE` | `[data-testid="har-regression-badge"]` |
+| `COMPARE_BTN` | `[data-testid="har-compare-btn"]` |
+| `COMPARISON_PANEL` | `[data-testid="har-comparison-panel"]` |
+| `TREND_CHART` | `[data-testid="har-trend-chart"]` |
+| `COMPARISON_EXPORT` | `[data-testid="har-comparison-export"]` |
+| **Workflow Runner (TH-21)** | |
+| `WF_PICKER` | `[data-testid="har-wf-picker"]` |
+| `WF_VARIABLES` | `[data-testid="har-wf-variables"]` |
+| `WF_TRACE` | `[data-testid="har-wf-trace"]` |
+| `WF_PRESETS` | `[data-testid="har-wf-presets"]` |
+| `WF_RUN` | `[data-testid="har-wf-run"]` |
+| `WF_CORRELATION` | `[data-testid="har-wf-correlation"]` |
+| `WF_WEBHOOK` | `[data-testid="har-wf-webhook"]` |
+| `WF_PROGRESS` | `[data-testid="har-wf-progress"]` |
 
 ---
 
@@ -898,20 +1475,20 @@ export const harnessDomain: DemoDomain = {
   categories: [
     { id: 'fundamentals', label: 'Fundamentals', icon: '📐' },
     { id: 'validation',   label: 'Validation & Assertions', icon: '✓' },
+    { id: 'data-driven',  label: 'Data-Driven Testing', icon: '📊' },
     { id: 'execution',    label: 'Runners & Execution', icon: '▶' },
-    { id: 'performance',  label: 'Performance & SLA', icon: '🎯' },
-    { id: 'analysis',     label: 'Results & Analysis', icon: '📊' },
+    { id: 'analysis',     label: 'Results & Analysis', icon: '📈' },
   ],
   lessons: harnessLessons,
 };
 ```
 
 Category mapping:
-- **Fundamentals:** TH-1, TH-2
-- **Validation & Assertions:** TH-3, TH-10, TH-11, TH-12
-- **Runners & Execution:** TH-4, TH-5, TH-6, TH-8
-- **Results & Analysis:** TH-7, TH-9
-- **Performance & SLA:** TH-8, TH-13
+- **Fundamentals:** TH-1, TH-2, TH-14, TH-15, TH-16
+- **Validation & Assertions:** TH-3, TH-10, TH-11, TH-12, TH-17, TH-19
+- **Data-Driven Testing:** TH-5, TH-6, TH-18
+- **Runners & Execution:** TH-4, TH-8, TH-13, TH-21
+- **Results & Analysis:** TH-7, TH-9, TH-20
 
 ---
 
@@ -945,49 +1522,62 @@ Test Harness lessons involve form-heavy interactions (editor tabs, data grids, m
 | This Lesson | References | Lesson |
 |---|---|---|
 | TH-1 Step 3 (Gallery import) | "For how to promote from Requests, see..." | REQ-5 |
+| TH-2 Step 3 (Auth tab in tour) | "For a deep dive into all auth types..." | TH-14 |
 | TH-3 Step 4 (Data Mapper) | "For the full Data Mapper deep dive..." | TH-11 |
 | TH-3 Step 3 (Assertion presets) | "For all assertion types and Regex Builder..." | TH-10 |
-| TH-5 Step 7 (Shared DS) | Links to full Shared DS training manuals | Training path Phase 5 |
+| TH-5 Step 7 (Shared DS) | "For advanced shared DS fetch config..." | TH-18 Step 7 |
 | TH-6 Step 4 (Tag Filter) | Cross-ref tag authoring | TH-5 Step 4 |
 | TH-6 Step 8 (Data Row Results) | Cross-ref Results Dashboard details | TH-7 |
-| TH-8 (Load testing) | "For workflow-based load testing..." | Protocol workflow runner lessons |
+| TH-7 Step 5 (Baseline) | "For full baseline & regression management..." | TH-20 |
+| TH-8 (Load testing) | "For workflow-based load testing..." | TH-21 |
 | TH-10 Step 5 (Custom predicates) | "Same expression engine as the Data Mapper" | TH-11 Step 5 |
+| TH-11 Step 5 (Expressions) | "For the expression editor deep dive..." | TH-17 |
+| TH-11 Step 6 (Rules/DSL view) | "For the full DSL editor..." | TH-17 Step 6 |
 | TH-11 Step 6 (Table view) | "Same rules table as Validation tab" | TH-3 Step 2 |
 | TH-12 (Validation versioning) | "Test definition versioning is separate — see..." | TH-9 Step 1 |
 | TH-13 Step 6 (SLA compact bar) | "For detailed SLA results analysis..." | TH-7 Step 4 |
 | TH-13 Step 5 (Runner overrides) | "Runner config and execution details..." | TH-4 |
 | TH-8 Step 5 (Performance results) | "For SLA target authoring..." | TH-13 |
+| TH-14 Step 1 (Global profiles) | "Global profiles are defined in Environment Manager" | ENV lesson |
+| TH-15 Step 5 (CSV import) | "For data source setup..." | TH-5 |
+| TH-15 Step 7 (Auto-report) | "For runner execution details..." | TH-4 |
+| TH-17 Step 3 (Expressions) | "For Data Mapper visual mapping basics..." | TH-11 |
+| TH-18 Step 4 (Populate from API) | "For Data Mapper operation basics..." | TH-11 |
+| TH-19 (Schema drift) | "For Data Mapper basics..." | TH-11 |
+| TH-20 (Regression) | "For SLA target configuration..." | TH-13 |
+| TH-21 Step 5 (Results Explorer) | "For Results Dashboard overview..." | TH-7 |
 
 ### Training path alignment:
 
 | Training Path Phase | Demo Lesson Equivalent |
 |---|---|
-| Phase 1 — Getting Started | TH-1, TH-2 |
+| Phase 1 — Getting Started | TH-1, TH-2, TH-14 |
+| Phase 1b — Productivity Tools | TH-15, TH-16 |
 | Phase 2 — Intermediate Suites | TH-3, TH-4 |
-| Phase 2b — Validation Mastery | TH-10, TH-11, TH-12 |
-| Phase 3 — Advanced Suites | TH-8, TH-13 |
-| Phase 4 — Parameterized Testing | TH-5, TH-6 |
-| Phase 5 — Shared Data Sources | TH-5 Step 7 (intro) |
-| Phase 6 — Runners & Scenario Types | TH-4, TH-6, TH-8 |
+| Phase 2b — Validation Mastery | TH-10, TH-11, TH-17, TH-12, TH-19 |
+| Phase 3 — Advanced Suites | TH-8, TH-13, TH-20 |
+| Phase 4 — Parameterized Testing | TH-5, TH-18, TH-6 |
+| Phase 5 — Shared Data Sources | TH-5 Step 7, TH-18 Step 7 |
+| Phase 6 — Runners & Scenario Types | TH-4, TH-6, TH-8, TH-21 |
+| Phase 7 — Advanced Analysis | TH-7, TH-20, TH-9 |
 
 ---
 
 ## Future Expansion (Phase 2)
 
-After the core 13 lessons are complete, consider:
+After the core 21 lessons are complete, consider:
 
 | Lesson | Focus |
 |---|---|
-| TH-14 | Shared Data Sources Deep Dive — fetch config, cross-FG reuse, promote/demote, impact warnings |
-| TH-15 | Auth Inheritance Chain — test → scenario → FG → global profile → env fallback |
-| TH-16 | CI/CD Integration — CLI execution, JSON export for CI, exit codes, report artifacts |
-| TH-17 | Body Builder & Request Templates — visual JSON body construction, `{{variable}}` substitution |
-| TH-18 | Multi-Protocol Harness — Kafka/WS/gRPC test scenarios (non-workflow), transport-specific assertions |
-| TH-19 | Parameterized Load Testing — data-driven load profiles, per-row SLA targets, large-scale row execution |
-| TH-20 | Schema Drift & Contract Testing — schema snapshots, drift detection, contract lock modes, repair suggestions |
-| TH-21 | Validation DSL Editor — Monaco-based DSL authoring, autocomplete, inline errors, bi-directional sync with visual mode |
+| TH-22 | CI/CD Integration — CLI execution, JSON export for CI, exit codes, report artifacts, pipeline templates |
+| TH-23 | Body Builder & Request Templates — visual JSON body construction (3-mode), `{{variable}}` substitution, bi-directional sync |
+| TH-24 | Multi-Protocol Harness — Kafka/WS/gRPC test scenarios (non-workflow), transport-specific assertions |
+| TH-25 | Parameterized Load Testing — data-driven load profiles, per-row SLA targets, large-scale row execution |
+| TH-26 | Workflow Results Explorer — 3-panel explorer, execution canvas, timeline, iteration matrix, console, bottleneck analysis, fork/join detection |
+| TH-27 | Data Mapper Gallery & Profiles — gallery presets, example inference ("Learn from Examples"), mapping profiles, array mapping detection |
+| TH-28 | Execution Strategies — 5 execution modes deep dive (Sequential/Batch/Pool/Load/Constant Arrival), resilience controls, test weights, runtime overrides |
 
-> **Note:** TH-10 (Assertions Deep Dive), TH-11 (Data Mapper), TH-12 (Validation Versioning), and TH-13 (SLA Configuration) now cover features previously in the Future Expansion section.
+> **Note:** Features previously in Future Expansion that are now core lessons: Auth (TH-14), Import/Export (TH-15), Schema Drift (TH-19), DSL Editor (TH-17), Baseline/Regression (TH-20), Workflow Runner (TH-21), Advanced Search (TH-16), Data Source Advanced (TH-18).
 
 ---
 
@@ -1002,5 +1592,12 @@ These existing gallery samples are leveraged for lesson seeding where appropriat
 | `test-shared-user-ids` | TH-5 Step 7 shared DS pattern |
 | `test-api-health-sla` | TH-6 SLA reference |
 | `test-performance-regression-baseline` | TH-7 baseline reference |
+| `test-auth-chain-demo` | TH-14 auth inheritance demo FG |
+| `test-export-versioned` | TH-15 versioned export demo |
+| `test-search-diverse-suite` | TH-16 diverse test suite for search demo |
+| `test-drift-before-after` | TH-19 schema drift scenario (old vs new response) |
+| `test-regression-runs-4x` | TH-20 four runs with varying performance |
+| `workflow-user-registration` | TH-21 HTTP-only workflow for runner demo |
+| `workflow-order-webhook` | TH-21 webhook/correlation-wait workflow |
 
 However, **no gallery import is used as the primary teaching vehicle** (except TH-1 Step 3 as a brief overview). All other lessons author tests from scratch so the viewer understands construction, not just consumption.

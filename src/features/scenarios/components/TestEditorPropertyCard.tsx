@@ -52,7 +52,7 @@ export default function TestEditorPropertyCard({
       <div className="te-prop-row">
         <div className="te-prop-label">Name</div>
         <div className="te-prop-ctrl">
-          <input value={draft.name} onChange={(e) => onDraftChange({ ...draft, name: e.target.value })} placeholder="e.g. Get User Profile" />
+          <input data-testid="te-name-input" value={draft.name} onChange={(e) => onDraftChange({ ...draft, name: e.target.value })} placeholder="e.g. Get User Profile" />
         </div>
       </div>
 

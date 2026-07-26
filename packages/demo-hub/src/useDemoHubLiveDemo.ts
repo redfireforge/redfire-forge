@@ -31,6 +31,7 @@ import {
   runGqlStudioLessonTeardown,
   runGrpcDemoStorageHygiene,
 } from './useDemoHubHelpers';
+import { purgeAllSpotlightRings } from './demoRipple';
 import type { DemoStep } from './types';
 
 export interface UseDemoHubLiveDemoOptions {
@@ -100,6 +101,7 @@ export function useDemoHubLiveDemo({
     autoPlayGenRef.current++;
     isPlayingRef.current = false;
     abortRef.current?.abort();
+    purgeAllSpotlightRings();
     skipReadingRef.current?.();
     skipReadingRef.current = null;
     setStepPhase('done');
@@ -111,6 +113,7 @@ export function useDemoHubLiveDemo({
 
   const runLiveLessonCleanup = useCallback(async (lesson: DemoLesson | null | undefined) => {
     if (!lesson) return;
+    purgeAllSpotlightRings();
     try {
       expandAppSidebar();
       const ctx = buildQuietContext();

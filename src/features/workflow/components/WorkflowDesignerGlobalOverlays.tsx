@@ -61,7 +61,7 @@ export function WorkflowDesignerGlobalOverlays({ vm }: { vm: WorkflowDesignerVie
         selectedEnvId={selectedEnvId}
         workflowName={selected?.name}
         onApply={handleServiceRegistryApply}
-        onClose={() => setServiceRegistryMode('closed')}
+        onClose={() => setServiceRegistryMode('panel')}
       />
 
       {isDebugMode && debugControllerRef.current && (
