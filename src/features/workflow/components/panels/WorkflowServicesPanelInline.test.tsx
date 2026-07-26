@@ -88,8 +88,8 @@ describe('WorkflowServicesPanelInline', () => {
     render(
       <WorkflowServicesPanelInline {...baseProps} services={[]} onExpand={onExpand} onClose={onClose} />,
     );
-    await user.click(screen.getByTitle('Expand to full screen'));
-    await user.click(screen.getByTitle('Close'));
+    await user.click(screen.getByTitle('Open Service Registry'));
+    await user.click(screen.getByTitle('Close panel'));
     expect(onExpand).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });

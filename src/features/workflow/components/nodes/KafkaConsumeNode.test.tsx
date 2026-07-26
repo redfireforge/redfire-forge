@@ -28,7 +28,7 @@ vi.mock('./useNodeBase', () => ({
 // Mock NodeIcon
 vi.mock('./NodeIcon', () => ({
   NodeIcon: ({ type }: { type: string }) => <div data-testid={`icon-${type}`} />,
-  getNodeCategory: (type: string) => type === 'kafkaConsume' ? 'Integration' : '',
+  getNodeCategory: (type: string) => type === 'kafkaConsume' ? 'Kafka' : '',
 }));
 
 // Mock sub-components
@@ -168,7 +168,7 @@ describe('KafkaConsumeNode', () => {
 
   it('renders category sublabel', () => {
     const { container } = render(<KafkaConsumeNode {...makeProps()} />);
-    expect(container.textContent).toContain('Integration');
+    expect(container.textContent).toContain('Kafka');
   });
 
   it('renders configure button in footer', () => {

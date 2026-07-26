@@ -169,6 +169,15 @@ function closeVersionPanel(): void {
 }
 
 function closeServicePanel(): void {
+  // Close the full-page Service Registry modal if expanded
+  const fullModalCancel = document.querySelector<HTMLElement>('.wf-svc-registry-modal .wf-config-modal-footer .btn:not(.btn-primary)');
+  if (fullModalCancel) { fullModalCancel.click(); }
+  // Also try the generic config modal close (belt-and-suspenders)
+  if (!fullModalCancel) {
+    const genericCancel = document.querySelector<HTMLElement>('.wf-config-modal .wf-config-modal-footer .btn:not(.btn-primary)');
+    if (genericCancel) { genericCancel.click(); }
+  }
+  // Close the inline panel
   const panel = document.querySelector<HTMLElement>(WF.SVC_PANEL);
   if (!panel) return;
   const closeBtn = panel.querySelector<HTMLElement>('button[title="Close"]');
@@ -573,12 +582,11 @@ export const wfVersionServicesLesson: DemoLesson = {
           }
         }
 
-        // Close the version panel and spotlight the restored canvas
+        // Close the version panel and fit the restored canvas
         closeVersionPanel();
         await ctx.delay(600);
         fitCanvasCentered();
-        await ctx.delay(600);
-        await spotlightSel(ctx, WF.CANVAS, 1500);
+        await ctx.delay(800);
 
         // Save so the restoration is persisted
         clickSave();
@@ -606,9 +614,6 @@ export const wfVersionServicesLesson: DemoLesson = {
         await ensureSeededWorkflow(ctx);
         closeVersionPanel();
         closeServicePanel();
-        // Close the full Service Registry modal if it was left open
-        const cancelBtn = document.querySelector<HTMLElement>('.wf-config-modal .wf-config-modal-footer .btn:not(.btn-primary)');
-        if (cancelBtn) { cancelBtn.click(); await ctx.delay(200); }
       },
 
       action: async (ctx) => {
@@ -632,7 +637,7 @@ export const wfVersionServicesLesson: DemoLesson = {
         }
 
         // 4. Spotlight the service name in the full modal
-        const nameInput = document.querySelector<HTMLElement>('.wf-svc-top-fields input[type="text"]');
+        const nameInput = document.querySelector<HTMLElement>('.wf-svc-identity-fields input[type="text"]');
         if (nameInput) {
           await spotlight(nameInput, 1200, ctx);
         }
@@ -658,16 +663,9 @@ export const wfVersionServicesLesson: DemoLesson = {
           await spotlight(authCol, 800, ctx);
         }
 
-        // Close the modal (Cancel button)
-        const cancelBtn = document.querySelector<HTMLElement>('.wf-config-modal .wf-config-modal-footer .btn:not(.btn-primary)');
-        if (cancelBtn) {
-          cancelBtn.click();
-          await ctx.delay(500);
-        }
-
-        // Close the inline panel too
+        // Close everything — modal + inline panel
         closeServicePanel();
-        await ctx.delay(400);
+        await ctx.delay(500);
       },
 
       verify: WF.CANVAS,
@@ -678,8 +676,8 @@ export const wfVersionServicesLesson: DemoLesson = {
       id: 'wf7-catalog-setup',
       title: 'Published Catalog Endpoint',
       description:
-        'Before understanding the Catalog → Workflow connection, let\'s look at the source. ' +
-        'Navigate to the **Catalog** tab — you\'ll see an imported API spec for **JSONPlaceholder**.\n\n' +
+        'Now let\'s look at the **Catalog** — the source for Catalog-linked workflow nodes. ' +
+        'An imported API spec for **JSONPlaceholder** is already here.\n\n' +
         'The endpoint `GET /posts/{id}` has its Workflow Exposure set to **Published** — ' +
         'this means it\'s available as a node in the Workflow Designer.',
       highlight: CAT.SIDEBAR,
@@ -688,6 +686,7 @@ export const wfVersionServicesLesson: DemoLesson = {
         await ensureSeededWorkflow(ctx);
         closeVersionPanel();
         closeServicePanel();
+        await ctx.delay(200);
         await ensureCatalogPublished(ctx);
         // Stay on Catalog — action starts there
       },
@@ -740,9 +739,8 @@ export const wfVersionServicesLesson: DemoLesson = {
       id: 'wf7-cat-badge',
       title: 'CAT Badge on Workflow Node',
       description:
-        'Back in the **Workflow Designer**, the **Get Post** HTTP node shows a green ' +
-        '**CAT** source badge. This badge means the node was created from a published ' +
-        'Catalog endpoint.\n\n' +
+        'The **Get Post** HTTP node now shows a green **CAT** source badge. ' +
+        'This badge means the node was created from a published Catalog endpoint.\n\n' +
         'The connection is live — the node\'s URL, method, and headers are all derived from ' +
         'the Catalog spec. If the spec is updated and re-imported, the node can be refreshed.',
       highlight: WF.NODE_HTTP,
@@ -751,11 +749,12 @@ export const wfVersionServicesLesson: DemoLesson = {
         await ensureSeededWorkflow(ctx);
         closeVersionPanel();
         closeServicePanel();
+        await ctx.delay(200);
         await ensureCatalogPublished(ctx);
         applyCatalogRef();
         await ctx.delay(200);
         ctx.navigateToTab('workflow');
-        await ctx.delay(300);
+        await ctx.delay(400);
         fitCanvasCentered();
       },
 
@@ -798,11 +797,12 @@ export const wfVersionServicesLesson: DemoLesson = {
         await ensureSeededWorkflow(ctx);
         closeVersionPanel();
         closeServicePanel();
+        await ctx.delay(200);
         await ensureCatalogPublished(ctx);
         applyCatalogRef();
         await ctx.delay(200);
         ctx.navigateToTab('workflow');
-        await ctx.delay(300);
+        await ctx.delay(400);
         fitCanvasCentered();
       },
 

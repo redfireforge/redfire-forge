@@ -76,6 +76,12 @@ export type DemoBridgeWindow = Window &
     __wfQuickTest?: () => void;
     __wfCloseConfigModal?: () => void;
     __demoSeedHarnessTarget?: () => { envId: string; svcId: string } | null;
+    __demoSeedFeatureGroup?: (fg: Record<string, unknown>) => void;
+    __demoSelectEnvSvc?: (envId: string, svcId: string) => void;
+    /** Seed a TestRun into storage (for Results Dashboard demos). */
+    __demoSeedTestRun?: (run: Record<string, unknown>) => Promise<void>;
+    /** Delete TestRuns whose IDs start with the given prefix (demo cleanup). */
+    __demoDeleteTestRuns?: (prefix: string) => Promise<void>;
     /** Seed a Swagger 2.0 spec as a Catalog entry (idempotent by name). Returns the entry id. */
     __demoSeedCatalogSwagger2?: (name: string, rawSpec: string) => Promise<string | null>;
     /** Remove a Catalog entry by display name (demo cleanup). */

@@ -224,11 +224,11 @@ export default function RunnerPage({
 
               <div className="form-actions">
                 {!isRunning ? (
-                  <button className="btn btn-primary btn-lg" onClick={handleRun} disabled={selectedTests.length === 0}>
+                  <button className="btn btn-primary btn-lg" data-testid="har-run-btn" onClick={handleRun} disabled={selectedTests.length === 0}>
                     {variant.runButtonLabel}
                   </button>
                 ) : (
-                  <button className="btn btn-danger btn-lg" onClick={abort}>
+                  <button className="btn btn-danger btn-lg" data-testid="har-stop-btn" onClick={abort}>
                     ■ Stop
                   </button>
                 )}
@@ -258,21 +258,21 @@ export default function RunnerPage({
           )}
 
           {finalRun && !isRunning && (
-            <div className="completion-section">
+            <div className="completion-section" data-testid="har-completion">
               <div className="completion-banner">
                 Test completed — {finalRun.results.length} requests in {(finalRun.summary.totalDurationMs / 1000).toFixed(2)}s
               </div>
-              <button className="btn btn-primary" onClick={() => onComplete('test')}>
+              <button className="btn btn-primary" data-testid="har-view-results" onClick={() => onComplete('test')}>
                 View Full Results →
               </button>
             </div>
           )}
           {!isRunning && !finalRun && savedProgress && (
-            <div className="completion-section">
+            <div className="completion-section" data-testid="har-completion">
               <div className="completion-banner">
                 Last run — {savedProgress.resultCount} requests in {(savedProgress.durationMs / 1000).toFixed(2)}s
               </div>
-              <button className="btn btn-primary" onClick={() => onComplete('test')}>
+              <button className="btn btn-primary" data-testid="har-view-results" onClick={() => onComplete('test')}>
                 View Full Results →
               </button>
             </div>
