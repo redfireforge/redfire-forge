@@ -91,6 +91,11 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
   const [isRunning, setIsRunning] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const [lastQuickTestRequestUrl, setLastQuickTestRequestUrl] = useState<string | null>(null);
+  // Per-node resolved request URL from the last run. `lastQuickTestRequestUrl` is a
+  // single workflow-wide value (last/failed step) — showing it in every node's config
+  // is misleading (e.g. the POST node displaying the GET step's URL). This map lets the
+  // config modal show the URL that each specific node actually requested.
+  const [lastQuickTestRequestUrlByNode, setLastQuickTestRequestUrlByNode] = useState<Record<string, string>>({});
 
   // ── Debug Mode ──
   const [isDebugMode, setIsDebugMode] = useState(false);
@@ -181,6 +186,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
     setLastRunStatus('running');
     setLastRunError(null);
     setLastQuickTestRequestUrl(null);
+    setLastQuickTestRequestUrlByNode({});
     setNodeStatuses({});
     if (consoleRunBehaviorRef.current === 'append' && consoleLinesRef.current.length > 0) {
       pushConsoleLine({ prefix: '---', text: `Run  ·  ${new Date().toLocaleTimeString()}`, ts: Date.now() });
@@ -263,6 +269,16 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
         setLastRunError(errorMsg);
         const urlForDebug = failedResult?.url ?? results[results.length - 1]?.url;
         setLastQuickTestRequestUrl(urlForDebug ?? null);
+        // Map each node to the URL it resolved to (last result per node wins, so loops/
+        // retries show the final URL). Consumed by the node config modal so each node
+        // shows its own request URL rather than the workflow's last step.
+        const urlByNode: Record<string, string> = {};
+        for (const r of results) {
+          if (r.workflowNodeId && typeof r.url === 'string' && r.url) {
+            urlByNode[r.workflowNodeId] = r.url;
+          }
+        }
+        setLastQuickTestRequestUrlByNode(urlByNode);
         pushRunHistory({
           timestamp: Date.now(),
           durationMs,
@@ -413,6 +429,7 @@ export function useWorkflowExecution(opts: UseWorkflowExecutionOptions) {
     runProgress,
     failedStepLabel,
     lastQuickTestRequestUrl,
+    lastQuickTestRequestUrlByNode,
     setLastQuickTestRequestUrl,
     handleQuickTest,
     handleDebugQuickTest,

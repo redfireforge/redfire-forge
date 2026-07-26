@@ -143,4 +143,52 @@ describe('UnpublishConfirmDialog', () => {
     fireEvent.mouseDown(document.querySelector('.sw-unpublish-dialog')!);
     expect(onCancel).not.toHaveBeenCalled();
   });
+
+  it('shows publication date when publication metadata is present', () => {
+    renderDialog({
+      publication: {
+        publishedAt: new Date('2026-07-24T12:00:00Z').getTime(),
+        publishedFromVersionId: 'v1',
+      },
+    });
+
+    expect(screen.getByTestId('unpublish-pub-date')).toBeInTheDocument();
+    expect(screen.getByTestId('unpublish-pub-date').textContent).toContain('Published');
+  });
+
+  it('shows publication note when present', () => {
+    renderDialog({
+      publication: {
+        publishedAt: Date.now(),
+        publishedFromVersionId: 'v1',
+        note: 'Approved for load testing',
+      },
+    });
+
+    expect(screen.getByTestId('unpublish-pub-note')).toHaveTextContent('Note: Approved for load testing');
+  });
+
+  it('does not show publication metadata section when publication is undefined', () => {
+    renderDialog({});
+    expect(screen.queryByTestId('unpublish-pub-date')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('unpublish-pub-note')).not.toBeInTheDocument();
+  });
+
+  it('does not show note when publication has no note', () => {
+    renderDialog({
+      publication: {
+        publishedAt: Date.now(),
+        publishedFromVersionId: 'v1',
+      },
+    });
+
+    expect(screen.getByTestId('unpublish-pub-date')).toBeInTheDocument();
+    expect(screen.queryByTestId('unpublish-pub-note')).not.toBeInTheDocument();
+  });
+
+  it('calls onCancel when Escape key is pressed', () => {
+    const { onCancel } = renderDialog();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(onCancel).toHaveBeenCalledTimes(1);
+  });
 });

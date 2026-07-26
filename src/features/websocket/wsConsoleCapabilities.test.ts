@@ -43,6 +43,13 @@ describe('buildWsConsoleCapabilities', () => {
     expect(deps.connect).toHaveBeenCalledTimes(1);
   });
 
+  it('connect treats empty url as no-op for draft update', () => {
+    const deps = makeDeps();
+    buildWsConsoleCapabilities(deps).connect('');
+    expect(deps.setDraft).not.toHaveBeenCalled();
+    expect(deps.connect).toHaveBeenCalledTimes(1);
+  });
+
   it('disconnect forwards the code/reason when provided', () => {
     const deps = makeDeps();
     buildWsConsoleCapabilities(deps).disconnect({ code: 1000, reason: 'bye' });
@@ -55,6 +62,12 @@ describe('buildWsConsoleCapabilities', () => {
     expect(deps.disconnect).toHaveBeenCalledWith(undefined);
     buildWsConsoleCapabilities(deps).disconnect({ code: undefined as unknown as number });
     expect(deps.disconnect).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it('disconnect forwards detail when code is nullish-safe but present', () => {
+    const deps = makeDeps();
+    buildWsConsoleCapabilities(deps).disconnect({ code: 3001 });
+    expect(deps.disconnect).toHaveBeenCalledWith({ code: 3001, reason: undefined });
   });
 
   it('ping and send delegate to the studio actions', () => {
@@ -94,5 +107,12 @@ describe('buildWsConsoleCapabilities', () => {
     const result = buildWsConsoleCapabilities(deps).sendTemplate?.('missing');
     expect(result).toBe(false);
     expect(deps.send).not.toHaveBeenCalled();
+  });
+
+  it('sendTemplate supports template without explicit format', () => {
+    const deps = makeDeps({ templates: [{ name: 'No Format', body: 'plain-body' }] });
+    const result = buildWsConsoleCapabilities(deps).sendTemplate?.('no format');
+    expect(result).toBe(true);
+    expect(deps.send).toHaveBeenCalledWith('plain-body', undefined);
   });
 });

@@ -41,8 +41,11 @@ async function enableAutoPlay(page: Parameters<typeof waitForReadingPhase>[0]): 
   }
 }
 
-/** Wait until auto-play reaches the last step and its action finishes (1× — no reading skip). */
-async function waitForAutoPlayComplete(page: Parameters<typeof waitForReadingPhase>[0]): Promise<void> {
+/** Wait until auto-play reaches the last step and its action finishes (1x — no reading skip). */
+async function waitForAutoPlayComplete(
+  page: Parameters<typeof waitForReadingPhase>[0],
+  actionTimeoutMs = MUTATION_TIMEOUT,
+): Promise<void> {
   const deadline = Date.now() + 480_000;
   while (Date.now() < deadline) {
     const info = await getStepInfo(page);
@@ -52,7 +55,14 @@ async function waitForAutoPlayComplete(page: Parameters<typeof waitForReadingPha
     if (match) {
       const current = parseInt(match[1], 10);
       const total = parseInt(match[2], 10);
-      if (current === TOTAL_STEPS && total === TOTAL_STEPS && phase === 'done') return;
+      if (current === TOTAL_STEPS && total === TOTAL_STEPS) {
+        if (phase === 'done') return;
+        if (phase === 'reading') {
+          // Final step keeps Next disabled; explicitly finish it when auto-play stalls in reading.
+          await finishDemoStep(page, actionTimeoutMs);
+          return;
+        }
+      }
     }
     await page.waitForTimeout(5_000);
   }

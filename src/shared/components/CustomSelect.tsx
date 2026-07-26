@@ -103,6 +103,7 @@ export function CustomSelect({
       key={o.value}
       type="button"
       role="option"
+      data-value={o.value}
       aria-selected={value === o.value}
       className={`cs-item${value === o.value ? ' active' : ''}${o.disabled ? ' disabled' : ''}`}
       onClick={() => { if (!o.disabled) handleSelect(o.value); }}

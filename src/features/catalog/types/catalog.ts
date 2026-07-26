@@ -69,6 +69,18 @@ export interface CatalogEndpointWorkflowValues {
   body?: string;
 }
 
+/** Rich metadata for a Published endpoint (P2+). Presence means the endpoint is published. */
+export interface WorkflowPublication {
+  /** When this endpoint was published. */
+  publishedAt: number;
+  /** The catalog version ID at time of publishing. */
+  publishedFromVersionId: string;
+  /** Captured parameter/header/body defaults for workflow nodes. */
+  values?: CatalogEndpointWorkflowValues;
+  /** Optional note from the publisher (e.g. "Approved for load testing"). */
+  note?: string;
+}
+
 export interface CatalogEndpoint {
   id: string;
   operationId?: string;
@@ -87,14 +99,17 @@ export interface CatalogEndpoint {
    */
   exposedToWorkflow?: boolean;
   /**
-   * Controls how this endpoint appears in the Workflow Designer's Catalog palette.
-   * - `'preview'`   — Temporary; disappears when set back to undefined.
-   * - `'published'` — Permanent; shows a pin icon. Un-publishing warns about in-use workflows.
-   * - `undefined`    — Not exposed.
+   * @deprecated Use `workflowPublication` for Published state. Preview is user-local.
+   * Kept for migration from P0/P1. Cleared by P2 migration.
    */
   workflowExposure?: 'preview' | 'published';
-  /** Saved parameter/header/body values captured when exposing to workflow. */
+  /** @deprecated Superseded by `workflowPublication.values`. Kept for migration only. */
   workflowValues?: CatalogEndpointWorkflowValues;
+  /**
+   * Publication metadata. Present = endpoint is published to Workflow Designer.
+   * Absent = not published. Preview state is stored in user-local storage (P1).
+   */
+  workflowPublication?: WorkflowPublication;
 }
 
 // ─── Parameters ──────────────────────────────────────────

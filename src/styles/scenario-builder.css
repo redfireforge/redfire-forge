@@ -842,13 +842,13 @@
   border-color: color-mix(in srgb, #f85149 25%, transparent);
 }
 .data-source-toolbar-select {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  color: var(--text);
   font-size: 0.75rem;
-  padding: 4px 8px;
-  border-radius: 4px;
   cursor: pointer;
+}
+.data-source-toolbar-select .cs-trigger {
+  padding: 4px 8px;
+  font-size: 0.75rem;
+  border-radius: 4px;
 }
 
 /* Detach dropdown */
@@ -907,7 +907,9 @@
 
 .params-grid-header {
   display: grid;
-  grid-template-columns: 16px 200px 160px 1fr auto auto;
+  /* Value is the primary column (holds {{var}} templates) — give it the largest
+     share; Name/Source shrink first so the value stays readable in narrow modals. */
+  grid-template-columns: 16px minmax(110px, 0.9fr) minmax(92px, 0.7fr) minmax(180px, 2fr) auto auto;
   gap: 6px;
   align-items: center;
   padding: 0 4px;
@@ -925,18 +927,18 @@
   padding-left: 2px; /* align with source cell text */
 }
 .params-grid-header.with-desc {
-  grid-template-columns: 16px 200px 160px 1fr 1fr auto auto;
+  grid-template-columns: 16px minmax(110px, 0.9fr) minmax(92px, 0.7fr) minmax(160px, 1.7fr) minmax(110px, 1fr) auto auto;
 }
 .params-grid-header.no-source {
-  grid-template-columns: 16px 200px 1fr auto auto;
+  grid-template-columns: 16px minmax(120px, 1fr) minmax(180px, 2fr) auto auto;
 }
 .params-grid-header.no-source.with-desc {
-  grid-template-columns: 16px 200px 1fr 1fr auto auto;
+  grid-template-columns: 16px minmax(120px, 1fr) minmax(160px, 1.7fr) minmax(120px, 1fr) auto auto;
 }
 
 .params-row {
   display: grid;
-  grid-template-columns: 16px 200px 160px 1fr auto auto;
+  grid-template-columns: 16px minmax(110px, 0.9fr) minmax(92px, 0.7fr) minmax(180px, 2fr) auto auto;
   gap: 6px;
   align-items: center;
   padding: 4px 4px;
@@ -956,13 +958,13 @@
   box-shadow: inset 0 2px 0 0 var(--primary);
 }
 .params-row.with-desc {
-  grid-template-columns: 16px 200px 160px 1fr 1fr auto auto;
+  grid-template-columns: 16px minmax(110px, 0.9fr) minmax(92px, 0.7fr) minmax(160px, 1.7fr) minmax(110px, 1fr) auto auto;
 }
 .params-row.no-source {
-  grid-template-columns: 16px 200px 1fr auto auto;
+  grid-template-columns: 16px minmax(120px, 1fr) minmax(180px, 2fr) auto auto;
 }
 .params-row.no-source.with-desc {
-  grid-template-columns: 16px 200px 1fr 1fr auto auto;
+  grid-template-columns: 16px minmax(120px, 1fr) minmax(160px, 1.7fr) minmax(120px, 1fr) auto auto;
 }
 
 .params-drag-handle {

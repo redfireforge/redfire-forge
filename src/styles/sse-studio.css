@@ -539,17 +539,12 @@
 }
 
 .sse-type-filter {
-  padding: 5px 10px;
-  background: var(--input-bg, #1e1e2e);
-  border: 1px solid var(--border-color, #333);
-  border-radius: 6px;
-  color: var(--text-primary, #e0e0e0);
   font-size: 12px;
-  transition: border-color 0.15s;
 }
-.sse-type-filter:focus {
-  border-color: var(--ws-accent-color, #7c6bf0);
-  outline: none;
+.sse-type-filter .cs-trigger {
+  padding: 5px 10px;
+  border-radius: 6px;
+  font-size: 12px;
 }
 
 .sse-toolbar-btn {

@@ -14,9 +14,46 @@ export const SSE_DEMO_SVC_NAME = 'sse-demo';
 export const SSE_DEMO_BASE_URL = 'http://localhost:3001';
 
 function isNamedHeaderOptionAvailable(selectSelector: string, name: string): boolean {
-  const select = document.querySelector<HTMLSelectElement>(selectSelector);
-  if (!select) return false;
-  return Array.from(select.options).some((o) => o.text.trim() === name);
+  const target = document.querySelector<HTMLElement>(selectSelector);
+  if (!target) return false;
+
+  if (target instanceof HTMLSelectElement) {
+    return Array.from(target.options).some((option) => option.text.trim() === name);
+  }
+
+  const selectedLabel = target.querySelector<HTMLElement>('.cs-text')?.textContent?.trim();
+  return selectedLabel === name || !!target.querySelector<HTMLElement>('.cs-trigger');
+}
+
+async function selectNamedHeaderOption(
+  ctx: DemoActionContext,
+  selectSelector: string,
+  label: string,
+): Promise<void> {
+  const target = document.querySelector<HTMLElement>(selectSelector);
+  if (!target) return;
+
+  if (target instanceof HTMLSelectElement) {
+    const option = Array.from(target.options).find((entry) => entry.text.trim() === label);
+    if (!option || target.value === option.value) return;
+    await ctx.selectOption(selectSelector, option.value);
+    await ctx.delay(300);
+    return;
+  }
+
+  const selectedLabel = target.querySelector<HTMLElement>('.cs-text')?.textContent?.trim();
+  if (selectedLabel === label) return;
+
+  const trigger = target.querySelector<HTMLElement>('.cs-trigger');
+  if (!trigger) return;
+  trigger.click();
+  await ctx.delay(150);
+
+  const option = Array.from(document.querySelectorAll<HTMLElement>('.cs-menu .cs-item'))
+    .find((entry) => entry.textContent?.trim().includes(label));
+  if (!option) return;
+  option.click();
+  await ctx.delay(300);
 }
 
 /**
@@ -776,13 +813,7 @@ export async function selectEnvInHeader(
   ctx: DemoActionContext,
   envName: string,
 ): Promise<void> {
-  const select = document.querySelector<HTMLSelectElement>(APP.HEADER_ENV_SELECT);
-  if (!select) return;
-  const option = Array.from(select.options).find(o => o.text.trim() === envName);
-  if (!option) return;
-  if (select.value === option.value) return; // already selected — skip to prevent visible re-flash
-  await ctx.selectOption(APP.HEADER_ENV_SELECT, option.value);
-  await ctx.delay(300);
+  await selectNamedHeaderOption(ctx, APP.HEADER_ENV_SELECT, envName);
 }
 
 /**
@@ -794,13 +825,7 @@ export async function selectSvcInHeader(
   ctx: DemoActionContext,
   svcName: string,
 ): Promise<void> {
-  const select = document.querySelector<HTMLSelectElement>(APP.HEADER_SVC_SELECT);
-  if (!select) return;
-  const option = Array.from(select.options).find(o => o.text.trim() === svcName);
-  if (!option) return;
-  if (select.value === option.value) return; // already selected — skip to prevent visible re-flash
-  await ctx.selectOption(APP.HEADER_SVC_SELECT, option.value);
-  await ctx.delay(300);
+  await selectNamedHeaderOption(ctx, APP.HEADER_SVC_SELECT, svcName);
 }
 
 export async function navigateToWebSocketStudio(ctx: DemoActionContext): Promise<void> {

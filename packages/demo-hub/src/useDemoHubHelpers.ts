@@ -235,14 +235,34 @@ export function buildDemoActionContext(navigateToTab: (tab: string) => void): De
       }
     },
     selectOption: async (selector: string, value: string) => {
-      const el = firstVisible(selector) as HTMLSelectElement | null;
-      if (el) {
+      const el = firstVisible(selector);
+      if (!el) return;
+
+      if (el instanceof HTMLSelectElement) {
         showClickRipple(el);
         await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
         const nativeSet = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')?.set;
         nativeSet?.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
+        return;
       }
+
+      const wrapper = el.classList.contains('cs-wrapper')
+        ? el
+        : el.closest('.cs-wrapper');
+      if (!wrapper) return;
+
+      const trigger = wrapper.querySelector<HTMLButtonElement>('.cs-trigger');
+      if (!trigger || trigger.disabled) return;
+      showClickRipple(trigger);
+      await new Promise(r => setTimeout(r, DEMO_VISIBLE_FILL_PAUSE_MS));
+      trigger.click();
+      await new Promise(r => setTimeout(r, 40));
+      const escValue = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(value)
+        : value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const item = wrapper.querySelector<HTMLButtonElement>(`.cs-item[data-value="${escValue}"]`);
+      item?.click();
     },
     waitFor: async (selector: string, timeout = 5000) => {
       const start = Date.now();
@@ -270,12 +290,29 @@ export function buildQuietDemoActionContext(navigateToTab: (tab: string) => void
       }
     },
     selectOption: async (selector: string, value: string) => {
-      const el = firstVisible(selector) as HTMLSelectElement | null;
-      if (el) {
+      const el = firstVisible(selector);
+      if (!el) return;
+
+      if (el instanceof HTMLSelectElement) {
         const desc = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
         if (desc?.set) desc.set.call(el, value);
         el.dispatchEvent(new Event('change', { bubbles: true }));
+        return;
       }
+
+      const wrapper = el.classList.contains('cs-wrapper')
+        ? el
+        : el.closest('.cs-wrapper');
+      if (!wrapper) return;
+      const trigger = wrapper.querySelector<HTMLButtonElement>('.cs-trigger');
+      if (!trigger || trigger.disabled) return;
+      trigger.click();
+      await new Promise(r => setTimeout(r, 20));
+      const escValue = typeof CSS !== 'undefined' && typeof CSS.escape === 'function'
+        ? CSS.escape(value)
+        : value.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const item = wrapper.querySelector<HTMLButtonElement>(`.cs-item[data-value="${escValue}"]`);
+      item?.click();
     },
     waitFor: async (selector: string, timeout = 5000) => {
       const start = Date.now();

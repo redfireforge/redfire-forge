@@ -351,7 +351,7 @@ export function useWorkflowNodeActions({
     if (!ep) return;
 
     const baseUrl = entry.servers[0]?.url ?? '';
-    const wv = ep.workflowValues;
+    const wv = ep.workflowPublication?.values ?? ep.workflowValues;
     const paramValues = wv?.paramValues ?? {};
 
     const params = ep.parameters ?? [];
