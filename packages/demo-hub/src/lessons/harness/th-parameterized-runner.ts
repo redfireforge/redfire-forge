@@ -297,7 +297,7 @@ export const thParameterizedRunnerLesson: DemoLesson = {
         'The run completes with a summary showing total requests and elapsed time.\n\n' +
         'Click **View Full Results →** to see every request outcome in the Results tab. ' +
         'Every parameterized run is saved for comparison, **re-run of failed rows**, and ' +
-        'baseline analysis — covered in TH-7 (Results & Analysis).',
+        'baseline analysis — covered in the **Results & Analysis** lesson.',
       highlight: pr(HAR.COMPLETION),
 
       preAction: async (ctx) => {

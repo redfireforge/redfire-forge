@@ -108,7 +108,7 @@ describe('WorkflowDesignerGlobalOverlays', () => {
     render(<WorkflowDesignerGlobalOverlays vm={makeVm({ serviceRegistryMode: 'fullscreen', setServiceRegistryMode })} />);
     expect(screen.getByTestId('svc-reg')).toBeTruthy();
     fireEvent.click(screen.getByTestId('svc-close'));
-    expect(setServiceRegistryMode).toHaveBeenCalledWith('closed');
+    expect(setServiceRegistryMode).toHaveBeenCalledWith('panel');
   });
 
   it('renders debug bar with paused sub-workflow and steps into it', () => {

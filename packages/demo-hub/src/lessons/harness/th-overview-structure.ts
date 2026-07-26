@@ -124,9 +124,19 @@ export const thOverviewStructureLesson: DemoLesson = {
           await ctx.delay(800);
         }
 
-        // Spotlight the sub-nav bar with all 5 tabs
-        const subNav = document.querySelector<HTMLElement>('.sub-nav-tabs');
-        if (subNav) await spotlight(subNav, 2000, ctx);
+        // Spotlight each of the 5 sub-nav tabs individually so the viewer reads each one
+        const tabs = [
+          { sel: HAR.NAV_SCENARIOS, hold: 1200 },
+          { sel: HAR.NAV_RUNNER, hold: 1000 },
+          { sel: HAR.NAV_PARAM_RUNNER, hold: 1000 },
+          { sel: HAR.NAV_WF_RUNNER, hold: 1000 },
+          { sel: HAR.NAV_RESULTS, hold: 1000 },
+        ];
+        for (const { sel, hold } of tabs) {
+          const tab = document.querySelector<HTMLElement>(sel);
+          if (tab) await spotlight(tab, hold, ctx);
+          await ctx.delay(300);
+        }
       },
 
       verify: HAR.NAV_SCENARIOS,
@@ -156,11 +166,21 @@ export const thOverviewStructureLesson: DemoLesson = {
         const ids = await seedDemoEnvAndService(ctx);
         await ctx.delay(600);
 
-        // Spotlight the Environment selector
-        await spotlightSel(ctx, APP.HEADER_ENV_SELECT, 1500);
+        // Spotlight and click the Environment selector to open its dropdown
+        await spotlightSel(ctx, APP.HEADER_ENV_SELECT, 1000);
+        await ctx.click(APP.HEADER_ENV_SELECT);
+        await ctx.delay(1200);
+        // Close by clicking the selector again (toggle)
+        await ctx.click(APP.HEADER_ENV_SELECT);
+        await ctx.delay(400);
 
-        // Spotlight the Microservice selector
-        await spotlightSel(ctx, APP.HEADER_SVC_SELECT, 1500);
+        // Spotlight and click the Microservice selector to open its dropdown
+        await spotlightSel(ctx, APP.HEADER_SVC_SELECT, 1000);
+        await ctx.click(APP.HEADER_SVC_SELECT);
+        await ctx.delay(1200);
+        // Close by clicking the selector again
+        await ctx.click(APP.HEADER_SVC_SELECT);
+        await ctx.delay(400);
 
         // Store ids for next step
         if (ids) {
@@ -206,7 +226,10 @@ export const thOverviewStructureLesson: DemoLesson = {
 
         // Spotlight the Feature Group card
         const fgCard = document.querySelector<HTMLElement>(HAR.FG_CARD);
-        if (fgCard) await spotlight(fgCard, 2000, ctx);
+        if (fgCard) await spotlight(fgCard, 1500, ctx);
+
+        // Spotlight the "+ Add Feature Group" button
+        await spotlightSel(ctx, HAR.ADD_FG_BTN, 1200);
       },
 
       verify: HAR.FG_CARD,
@@ -233,21 +256,27 @@ export const thOverviewStructureLesson: DemoLesson = {
       action: async (ctx) => {
         // Expand the Feature Group
         await expandFirstFg(ctx);
-        await ctx.delay(600);
+        await ctx.delay(800);
 
         // Spotlight the Scenario card
         const scenarioCard = document.querySelector<HTMLElement>(HAR.SCENARIO_CARD);
-        if (scenarioCard) await spotlight(scenarioCard, 1500, ctx);
+        if (scenarioCard) await spotlight(scenarioCard, 1800, ctx);
+        await ctx.delay(400);
 
         // Expand the Scenario to reveal tests
         await expandFirstScenario(ctx);
-        await ctx.delay(600);
+        await ctx.delay(800);
 
-        // Spotlight the first test card — the payoff showing method + name
+        // Spotlight the first test card
         const testCards = document.querySelectorAll<HTMLElement>(HAR.TEST_CARD);
         if (testCards.length > 0) {
           await spotlight(testCards[0], 1500, ctx);
         }
+        await ctx.delay(400);
+
+        // Spotlight the entire expanded content (Feature Group + Scenario + Tests)
+        const fgCard = document.querySelector<HTMLElement>(HAR.FG_CARD);
+        if (fgCard) await spotlight(fgCard, 2200, ctx);
       },
 
       verify: HAR.TEST_CARD,

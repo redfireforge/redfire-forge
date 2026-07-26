@@ -231,7 +231,7 @@ export const thResultsAnalysisLesson: DemoLesson = {
         'or Scenarios.\n\n' +
         'Targets like **P95 < 500ms** or **Error Rate < 1%** are checked automatically ' +
         'after each run. Pass/warn/fail indicators show at a glance whether your API ' +
-        'meets its service level agreements. See **TH-13** for defining SLA targets.',
+        'meets its service level agreements. See the **SLA Targets & Acceptance Criteria** lesson for defining SLA targets.',
       highlight: HAR.TAB_SLA,
 
       preAction: async (ctx) => {

@@ -341,7 +341,7 @@ export const thDataSourcesLesson: DemoLesson = {
       description:
         'Click **Save** to persist your data source configuration.\n\n' +
         'Back in the tree, the test now has 5 data rows. In the **Parameterized Runner** ' +
-        '(TH-6), each row generates a separate request with its own substituted URL.\n\n' +
+        'lesson, each row generates a separate request with its own substituted URL.\n\n' +
         'For larger data sets, use **Import** in the editor header to load CSV/JSON/Excel files, ' +
         'or link to **Shared Data Sources** for reusable row sets across multiple tests.',
       highlight: HAR.TE_SAVE_BTN,

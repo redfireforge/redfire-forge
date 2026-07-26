@@ -256,14 +256,14 @@ export const thValidationAssertionsLesson: DemoLesson = {
       title: 'Sample Response & Data Mapper',
       description:
         'Below the body validation mode, the **response preview** shows the JSON that was ' +
-        'captured when you last used **Fetch Response** (in TH-2).\n\n' +
+        'captured when you last used **Fetch Response** (in the **Author Your First Tests** lesson).\n\n' +
         'This captured data is the foundation for building **field-level validation rules**. ' +
         'The **⚡ Data Mapper** button opens a visual editor where you can:\n' +
         '- Browse the response tree (source) and validation rules (target)\n' +
         '- Drag fields from source to target to create rules\n' +
         '- Choose operators (equals, contains, regex, is_not_empty, etc.)\n' +
         '- See live connection lines between mapped fields\n\n' +
-        'We\'ll deep-dive into the Data Mapper in **TH-11**.',
+        'We\'ll deep-dive into the Data Mapper in the **Data Mapper for Validation** lesson.',
       highlight: HAR.TE_RESPONSE_PREVIEW,
 
       preAction: async (ctx) => {
@@ -375,7 +375,7 @@ export const thValidationAssertionsLesson: DemoLesson = {
         'Your test now has **two assertions** (status code 200, response time ≤ 500ms) ' +
         'and a captured sample response for building field rules later.\n\n' +
         'In the tree, the test card shows the configured assertions. ' +
-        'From here you can add more tests, configure **SLA targets** (TH-13), ' +
+        'From here you can add more tests, configure **SLA targets** (in the **SLA Targets & Acceptance Criteria** lesson), ' +
         'or head to the **Test Runner** to execute your suite.',
       highlight: HAR.TE_SAVE_BTN,
 

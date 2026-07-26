@@ -18,6 +18,7 @@ import {
   isElementVisible,
   waitForElement,
 } from './useDemoHubHelpers';
+import { purgeAllSpotlightRings } from './demoRipple';
 
 /** Step pipeline timing — tuned for snappy Preparing/Acting badges without skipping UI feedback. */
 export const DEMO_PRE_SETTLE_MS = 240;
@@ -103,6 +104,7 @@ export function useDemoHubStepPipeline({
     options?: { skipReading?: boolean; stepIndex?: number },
   ) => {
     abortRef.current?.abort();
+    purgeAllSpotlightRings();
     const ac = new AbortController();
     abortRef.current = ac;
     const { signal } = ac;
@@ -198,6 +200,7 @@ export function useDemoHubStepPipeline({
 
   const finishCurrentStepFromReading = useCallback(async (step: DemoStep, speed: SpeedMultiplier) => {
     abortRef.current?.abort();
+    purgeAllSpotlightRings();
     skipReadingRef.current?.();
     skipReadingRef.current = null;
 

@@ -328,7 +328,6 @@ export const thAssertionsDeepDiveLesson: DemoLesson = {
         'Pick a response field from the **JSON tree**, browse the **Pattern Library** for common patterns ' +
         '(email, UUID, URL, ISO date), and see a **live preview** showing MATCH or NO MATCH ' +
         'against the actual field value.',
-      highlight: HAR.TE_ASSERTIONS_ADD_BTN,
       action: async (ctx) => {
         await openAssertionAddMenu(ctx);
         await selectAssertionType(ctx, 'Regex Builder\u2026');
