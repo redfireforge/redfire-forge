@@ -17,6 +17,7 @@
 /* ── Modal Container ────────────────────────────────────────────────────────── */
 
 .wf-version-diff-modal {
+  position: relative;
   display: flex;
   flex-direction: column;
   width: 90%;
@@ -32,6 +33,25 @@
     0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
+
+.wf-version-diff-modal--positioned {
+  margin: 0;
+}
+
+/* ── Resize Handles ────────────────────────────────────────────────────────── */
+
+.wf-vd-resize {
+  position: absolute;
+  z-index: 10;
+}
+.wf-vd-resize-n { top: 0; left: 8px; right: 8px; height: 5px; cursor: n-resize; }
+.wf-vd-resize-s { bottom: 0; left: 8px; right: 8px; height: 5px; cursor: s-resize; }
+.wf-vd-resize-e { top: 8px; right: 0; bottom: 8px; width: 5px; cursor: e-resize; }
+.wf-vd-resize-w { top: 8px; left: 0; bottom: 8px; width: 5px; cursor: w-resize; }
+.wf-vd-resize-ne { top: 0; right: 0; width: 12px; height: 12px; cursor: ne-resize; }
+.wf-vd-resize-nw { top: 0; left: 0; width: 12px; height: 12px; cursor: nw-resize; }
+.wf-vd-resize-se { bottom: 0; right: 0; width: 12px; height: 12px; cursor: se-resize; }
+.wf-vd-resize-sw { bottom: 0; left: 0; width: 12px; height: 12px; cursor: sw-resize; }
 
 /* ── Header ─────────────────────────────────────────────────────────────────── */
 

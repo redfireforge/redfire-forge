@@ -68,12 +68,12 @@ const SEED_WORKFLOW = {
   variables: {},
 };
 
-// Protocol blocks to tour in Step 1 (representative — one per protocol)
-const PALETTE_TOUR_BLOCKS: { selector: string; label: string }[] = [
-  { selector: WF.PAL_KAFKA_PRODUCE, label: 'Kafka Produce' },
-  { selector: WF.PAL_GRPC_UNARY, label: 'gRPC Unary' },
-  { selector: WF.PAL_WS_CONNECT, label: 'WS Connect' },
-  { selector: WF.PAL_GQL_QUERY, label: 'GraphQL Query' },
+// Protocol chip badges to click in Step 1 (Actions category filter)
+const PROTOCOL_CHIPS: { id: string; label: string }[] = [
+  { id: 'kafka', label: 'Kafka' },
+  { id: 'websocket', label: 'WebSocket' },
+  { id: 'graphql', label: 'GraphQL' },
+  { id: 'grpc', label: 'gRPC' },
 ];
 
 // ─── Helpers ────────────────────────────────────────────────────────
@@ -89,11 +89,6 @@ function spotlight(el: HTMLElement, holdMs: number, ctx: DemoActionContext): Pro
   const remove = showSpotlightRing(el);
   activeCleanup = remove;
   return ctx.delay(holdMs).then(() => { remove(); if (activeCleanup === remove) activeCleanup = null; });
-}
-
-async function spotlightSel(ctx: DemoActionContext, sel: string, holdMs: number): Promise<void> {
-  const el = document.querySelector<HTMLElement>(sel);
-  if (el) await spotlight(el, holdMs, ctx);
 }
 
 function fitCanvasCentered(): void {
@@ -232,15 +227,32 @@ export const wfProtocolNodesLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        // Spotlight the palette first
-        await spotlightSel(ctx, WF.PALETTE, 1000);
+        // Ensure the Actions category is active (contains protocol chips)
+        const actionsRail = document.querySelector<HTMLElement>('[data-testid="wf-palette-rail-actions"]');
+        if (actionsRail) {
+          actionsRail.click();
+          await ctx.delay(600);
+        }
 
-        // Tour each representative protocol block
-        for (const block of PALETTE_TOUR_BLOCKS) {
-          const el = await revealPaletteBlock(ctx, block.selector);
-          if (el) {
-            await spotlight(el, 1200, ctx);
+        // Spotlight the chips bar area
+        const chipsBar = document.querySelector<HTMLElement>('.wf-palette-chips');
+        if (chipsBar) await spotlight(chipsBar, 1200, ctx);
+
+        // Click through each protocol badge — viewer sees filtered blocks per protocol
+        for (const proto of PROTOCOL_CHIPS) {
+          const chip = document.querySelector<HTMLElement>(`[data-testid="wf-palette-chip-${proto.id}"]`);
+          if (chip) {
+            chip.click();
+            await ctx.delay(400);
+            await spotlight(chip, 1400, ctx);
           }
+        }
+
+        // Reset back to "All" so the full palette is visible for subsequent steps
+        const firstChip = document.querySelector<HTMLElement>('.wf-palette-chips .wf-palette-chip');
+        if (firstChip && firstChip.textContent?.trim() === 'All') {
+          firstChip.click();
+          await ctx.delay(400);
         }
       },
 
@@ -316,7 +328,6 @@ export const wfProtocolNodesLesson: DemoLesson = {
         'Kafka message, which triggers a WebSocket notification, followed by a GraphQL query. ' +
         'This is the power of multi-protocol orchestration: one workflow, multiple protocols, ' +
         'seamless data flow.',
-      highlight: WF.CANVAS,
 
       preAction: async (ctx) => {
         await ensureSeededWorkflow(ctx);
@@ -331,30 +342,33 @@ export const wfProtocolNodesLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        // WS: add → connect
+        // WS: highlight palette block → add → connect → fit → spotlight canvas node
+        const wsBlock = await revealPaletteBlock(ctx, WF.PAL_WS_CONNECT);
+        if (wsBlock) await spotlight(wsBlock, 1200, ctx);
+
         addWorkflowNodeWithPreset('wsConnect', WS_ID, 'Open Socket', { x: 760, y: 200 });
         await ctx.delay(800);
         connectWorkflowNodes(KAFKA_ID, WS_ID);
         await ctx.delay(600);
+        fitCanvasCentered();
+        await ctx.delay(800);
 
-        // GQL: add → connect
+        const wsNode = document.querySelector<HTMLElement>(WF.NODE_WS_CONNECT);
+        if (wsNode) await spotlight(wsNode, 1200, ctx);
+
+        // GQL: highlight palette block → add → connect → fit → spotlight canvas node
+        const gqlBlock = await revealPaletteBlock(ctx, WF.PAL_GQL_QUERY);
+        if (gqlBlock) await spotlight(gqlBlock, 1200, ctx);
+
         addWorkflowNodeWithPreset('graphqlQuery', GQL_ID, 'Fetch Data', { x: 1000, y: 200 });
         await ctx.delay(800);
         connectWorkflowNodes(WS_ID, GQL_ID);
         await ctx.delay(600);
-
-        // Single fit after all nodes are wired
         fitCanvasCentered();
         await ctx.delay(800);
 
-        // Spotlight each protocol node sequentially
-        await spotlightSel(ctx, WF.NODE_HTTP, 1000);
-        await spotlightSel(ctx, WF.NODE_KAFKA_PRODUCE, 1000);
-        await spotlightSel(ctx, WF.NODE_WS_CONNECT, 1000);
-        await spotlightSel(ctx, WF.NODE_GQL_QUERY, 1000);
-
-        // Spotlight the entire canvas
-        await spotlightSel(ctx, WF.CANVAS, 1500);
+        const gqlNode = document.querySelector<HTMLElement>(WF.NODE_GQL_QUERY);
+        if (gqlNode) await spotlight(gqlNode, 1200, ctx);
       },
 
       verify: WF.NODE_GQL_QUERY,
@@ -374,7 +388,6 @@ export const wfProtocolNodesLesson: DemoLesson = {
         'This lesson gave you the **big picture** — protocol nodes exist, they have rich configs, ' +
         'and they chain together seamlessly. Head to the Protocols domain for hands-on ' +
         'practice with each protocol.',
-      highlight: WF.CANVAS,
 
       diagram: `<svg viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
         <text x="200" y="16" text-anchor="middle" fill="#f1f5f9" font-size="9" font-weight="700">Protocol Deep-Dive Lessons</text>
@@ -429,10 +442,7 @@ export const wfProtocolNodesLesson: DemoLesson = {
       action: async (ctx) => {
         // Fit View to show the full multi-protocol chain
         fitCanvasCentered();
-        await ctx.delay(600);
-
-        // Spotlight the canvas showing all protocol nodes
-        await spotlightSel(ctx, WF.CANVAS, 2000);
+        await ctx.delay(1200);
       },
 
       verify: WF.CANVAS,

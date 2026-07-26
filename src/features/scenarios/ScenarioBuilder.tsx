@@ -202,7 +202,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
 
   return (
     <div className="page">
-      <div className="page-header">
+      <div className="page-header" data-testid="har-page-header">
         <div className="page-title-block">
           <h2>Feature Groups</h2>
           <div className="context-tags">
@@ -211,7 +211,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
           </div>
         </div>
         <div className="header-actions">
-          <button className="btn" onClick={() => importAll()} disabled={!selectedSvcId || !selectedEnvId}>Import</button>
+          <button className="btn" onClick={() => importAll()} disabled={!selectedSvcId || !selectedEnvId} data-testid="har-import-btn">Import</button>
           <span className="export-opts-anchor">
             <button className="btn" onClick={() => setExportPopover({ id: '__all__', data: featureGroups, exportFn: (o) => { exportAll(o); setExportPopover(null); } })} disabled={featureGroups.length === 0}>Export</button>
             {exportPopover?.id === '__all__' && <ExportOptionsPopover data={exportPopover.data} onExport={exportPopover.exportFn} onClose={() => setExportPopover(null)} />}
@@ -225,17 +225,17 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
             📦 Shared Data Sources
             {sharedDataSources && sharedDataSources.length > 0 && <span className="count-badge" style={{ background: 'var(--accent)' }}>{sharedDataSources.length}</span>}
           </button>
-          <button className="btn btn-primary" onClick={() => { setNamingFeature(true); setNewName(''); }} disabled={!selectedSvcId || !selectedEnvId}>+ Add Feature Group</button>
+          <button className="btn btn-primary" onClick={() => { setNamingFeature(true); setNewName(''); }} disabled={!selectedSvcId || !selectedEnvId} data-testid="har-add-fg-btn">+ Add Feature Group</button>
         </div>
       </div>
 
       {(!selectedSvcId || !selectedEnvId) && (
-        <div className="empty-state">Select both a microservice and an environment from the sidebar to view and manage feature groups.</div>
+        <div className="empty-state" data-testid="har-empty-state">Select both a microservice and an environment from the sidebar to view and manage feature groups.</div>
       )}
 
       {selectedSvcId && selectedEnvId && namingFeature && (
         <div className="inline-name-form">
-          <input autoFocus value={newName} onChange={(e) => setNewName(e.target.value)}
+          <input autoFocus data-testid="har-fg-name-input" value={newName} onChange={(e) => setNewName(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') addFeatureGroup(); if (e.key === 'Escape') setNamingFeature(false); }}
             placeholder="Feature group name (e.g. Onboarding)" />
           <button className="btn btn-primary btn-sm" onClick={addFeatureGroup} disabled={!newName.trim()}>Create</button>
@@ -258,7 +258,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
         />
       )}
 
-      <div className="feature-tree">
+      <div className="feature-tree" data-testid="har-feature-tree">
         {featureGroups.filter((fg) => !isSearching || featureMatches(fg)).map((fg) => (
           <FeatureGroupCard
             key={fg.id}
@@ -344,7 +344,7 @@ export default function ScenarioBuilder({ featureGroups, setFeatureGroups, share
       </div>
 
       {featureGroups.length > 0 && (
-        <div className="tree-summary">
+        <div className="tree-summary" data-testid="har-tree-summary">
           {featureGroups.length} feature group{featureGroups.length !== 1 ? 's' : ''} &middot; {featureGroups.reduce((s, fg) => s + fg.scenarios.length, 0)} scenario{featureGroups.reduce((s, fg) => s + fg.scenarios.length, 0) !== 1 ? 's' : ''} &middot; {totalTests} test{totalTests !== 1 ? 's' : ''}
         </div>
       )}

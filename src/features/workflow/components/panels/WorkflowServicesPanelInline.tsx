@@ -36,8 +36,8 @@ export default function WorkflowServicesPanelInline({
       <div className="wf-config-header">
         <span className="wf-config-type"><svg className="wf-inline-icon" viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg> Services</span>
         <div style={{ display: 'flex', gap: 4 }}>
-          <button className="btn btn-sm" onClick={onExpand} title="Expand to full screen"><svg className="wf-inline-icon" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
-          <button className="btn btn-sm" onClick={onClose} title="Close">×</button>
+          <button className="btn btn-sm" onClick={onExpand} title="Open Service Registry"><svg className="wf-inline-icon" viewBox="0 0 24 24"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><line x1="21" y1="3" x2="14" y2="10"/><line x1="3" y1="21" x2="10" y2="14"/></svg></button>
+          <button className="btn btn-sm wf-svc-close-badge" onClick={onClose} title="Close panel"><svg className="wf-inline-icon" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
         </div>
       </div>
 

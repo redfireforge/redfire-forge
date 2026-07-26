@@ -111,8 +111,8 @@ export default function TestEditorModalHeaderActions({
           )}
         </div>
       </div>
-      <button type="button" className="btn" onClick={onCancel}>Cancel</button>
-      <button type="button" className="btn btn-primary" onClick={onSave} disabled={!canSave}>Save</button>
+      <button type="button" className="btn" data-testid="te-cancel-btn" onClick={onCancel}>Cancel</button>
+      <button type="button" className="btn btn-primary" data-testid="te-save-btn" onClick={onSave} disabled={!canSave}>Save</button>
     </>
   );
 }

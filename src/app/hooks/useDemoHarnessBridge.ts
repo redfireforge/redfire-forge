@@ -1,5 +1,6 @@
 import { useEffect, useCallback, type Dispatch, type SetStateAction } from 'react';
-import type { Environment, Microservice, FeatureGroup } from '../../shared/types';
+import type { Environment, Microservice, FeatureGroup, TestRun } from '../../shared/types';
+import { saveTestRun, loadTestRuns, deleteTestRun } from '../../shared/utils/storage';
 
 /**
  * Demo-player bridge for seeding a target environment + microservice
@@ -12,6 +13,8 @@ export function useDemoHarnessBridge(
   setEnvironments: Dispatch<SetStateAction<Environment[]>>,
   setMicroservices: Dispatch<SetStateAction<Microservice[]>>,
   setFeatureGroups?: Dispatch<SetStateAction<FeatureGroup[]>>,
+  setSelectedEnvId?: (id: string) => void,
+  setSelectedSvcId?: (id: string) => void,
 ): void {
   const seedTarget = useCallback(() => {
     const DEMO_ENV_NAME = 'demo';
@@ -40,13 +43,44 @@ export function useDemoHarnessBridge(
     setFeatureGroups?.(prev => prev.filter(fg => fg.name !== name));
   }, [setFeatureGroups]);
 
+  const seedFeatureGroup = useCallback((fg: FeatureGroup) => {
+    setFeatureGroups?.(prev => {
+      if (prev.some(existing => existing.name === fg.name)) return prev;
+      return [...prev, fg];
+    });
+  }, [setFeatureGroups]);
+
+  const selectEnvSvc = useCallback((envId: string, svcId: string) => {
+    setSelectedEnvId?.(envId);
+    setSelectedSvcId?.(svcId);
+  }, [setSelectedEnvId, setSelectedSvcId]);
+
+  const seedDemoTestRun = useCallback(async (run: TestRun) => {
+    await saveTestRun(run);
+  }, []);
+
+  const deleteDemoTestRuns = useCallback(async (prefix: string) => {
+    const all = await loadTestRuns();
+    for (const r of all) {
+      if (r.id.startsWith(prefix)) await deleteTestRun(r.id);
+    }
+  }, []);
+
   useEffect(() => {
     const w = window as unknown as Record<string, unknown>;
     w.__demoSeedHarnessTarget = seedTarget;
     w.__demoDeleteFeatureGroupsByName = deleteFeatureGroupsByName;
+    w.__demoSeedFeatureGroup = seedFeatureGroup;
+    w.__demoSelectEnvSvc = selectEnvSvc;
+    w.__demoSeedTestRun = seedDemoTestRun;
+    w.__demoDeleteTestRuns = deleteDemoTestRuns;
     return () => {
       delete w.__demoSeedHarnessTarget;
       delete w.__demoDeleteFeatureGroupsByName;
+      delete w.__demoSeedFeatureGroup;
+      delete w.__demoSelectEnvSvc;
+      delete w.__demoSeedTestRun;
+      delete w.__demoDeleteTestRuns;
     };
-  }, [seedTarget, deleteFeatureGroupsByName]);
+  }, [seedTarget, deleteFeatureGroupsByName, seedFeatureGroup, selectEnvSvc, seedDemoTestRun, deleteDemoTestRuns]);
 }
