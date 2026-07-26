@@ -117,6 +117,26 @@ describe('getNodeMiniMapColor', () => {
     expect(getNodeMiniMapColor({ id: 'n1', type: 'fork' }, {})).toBe('#a855f7');
   });
 
+  it('returns kafka color for kafka-prefixed types', () => {
+    expect(getNodeMiniMapColor({ id: 'n1', type: 'kafkaProduce' }, {})).toBe('#b5944f');
+  });
+
+  it('returns ws color for ws-prefixed types', () => {
+    expect(getNodeMiniMapColor({ id: 'n1', type: 'wsSend' }, {})).toBe('#8a82bf');
+  });
+
+  it('returns graphql color for graphql-prefixed types', () => {
+    expect(getNodeMiniMapColor({ id: 'n1', type: 'graphqlQuery' }, {})).toBe('#4da8b5');
+  });
+
+  it('returns grpc color for grpc-prefixed types', () => {
+    expect(getNodeMiniMapColor({ id: 'n1', type: 'grpcUnary' }, {})).toBe('#5f8fb5');
+  });
+
+  it('returns default color when type does not match ws lowercase prefix', () => {
+    expect(getNodeMiniMapColor({ id: 'n1', type: 'WebSocket' }, {})).toBe('#3b82f6');
+  });
+
   it('returns blue as default color', () => {
     expect(getNodeMiniMapColor({ id: 'n1', type: 'http' }, {})).toBe('#3b82f6');
   });

@@ -12,6 +12,7 @@ import {
   expandWfDemoAppSidebar,
   fillWfConfigField,
   openWfNodeConfigModal,
+  revealPaletteBlock,
   saveWfConfigModal,
   waitForWfConfigPanel,
 } from '../wf-demo-helpers';
@@ -227,10 +228,10 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       highlight: WF.PAL_WS_CONNECT,
       preAction: async (ctx) => {
         await ensureWsEchoDemoWorkflow(ctx);
-        scrollIntoParent(WF.PAL_WS_CONNECT);
+        await revealPaletteBlock(ctx, WF.PAL_WS_CONNECT, { quiet: true });
       },
       action: async (ctx) => {
-        scrollIntoParent(WF.PAL_WS_CONNECT);
+        await revealPaletteBlock(ctx, WF.PAL_WS_CONNECT);
         await ctx.click(WF.PAL_WS_CONNECT);
         await ctx.delay(600);
         // Connect Start → WS Connect
@@ -301,9 +302,9 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       description:
         'Click "WS Send" in the palette to add a send node and connect it after WS Connect. This node sends a message over the established connection.',
       highlight: WF.PAL_WS_SEND,
-      preAction: async () => { scrollIntoParent(WF.PAL_WS_SEND); },
+      preAction: async (ctx) => { await revealPaletteBlock(ctx, WF.PAL_WS_SEND, { quiet: true }); },
       action: async (ctx) => {
-        scrollIntoParent(WF.PAL_WS_SEND);
+        await revealPaletteBlock(ctx, WF.PAL_WS_SEND);
         await ctx.click(WF.PAL_WS_SEND);
         await ctx.delay(600);
         // Connect WS Connect → WS Send
@@ -342,9 +343,9 @@ export const wsWorkflowBuilderLesson: DemoLesson = {
       description:
         'Click "WS Receive" in the palette to add a receive node and connect it after WS Send. This node waits for the echo server\'s response message.',
       highlight: WF.PAL_WS_RECEIVE,
-      preAction: async () => { scrollIntoParent(WF.PAL_WS_RECEIVE); },
+      preAction: async (ctx) => { await revealPaletteBlock(ctx, WF.PAL_WS_RECEIVE, { quiet: true }); },
       action: async (ctx) => {
-        scrollIntoParent(WF.PAL_WS_RECEIVE);
+        await revealPaletteBlock(ctx, WF.PAL_WS_RECEIVE);
         await ctx.click(WF.PAL_WS_RECEIVE);
         await ctx.delay(600);
         // Connect WS Send → WS Receive

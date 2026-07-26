@@ -19,6 +19,8 @@ import {
   closeWfConfigModalIfOpen,
   cleanupWorkflowDemoRunUi,
   resetWfPaletteToBlocks,
+  revealPaletteBlock,
+  ensureLessonWorkflowShown,
 } from '../wf-demo-helpers';
 import {
   deleteWorkflowByName,
@@ -64,7 +66,12 @@ async function dismissOnboarding(ctx: DemoActionContext): Promise<void> {
 
 /** Ensure canvas is showing (create workflow if needed — for preAction guards). */
 async function ensureWorkflowCanvas(ctx: DemoActionContext): Promise<void> {
-  if (document.querySelector(WF.CANVAS)) return;
+  // If this lesson's workflow is already shown (or an existing copy can be
+  // re-selected), we're done. This also switches away from a previous lesson's
+  // workflow that would otherwise satisfy the old "any canvas" check and cause
+  // this lesson's nodes to be added onto the wrong graph.
+  if ((await ensureLessonWorkflowShown(ctx, WF_NAME)) !== 'missing') return;
+
   ctx.navigateToTab('workflow');
   await ctx.delay(400);
   await dismissOnboarding(ctx);
@@ -230,10 +237,8 @@ export const wfFirstWorkflowLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
-        const httpBlock = document.querySelector<HTMLElement>(WF.PAL_HTTP);
+        const httpBlock = await revealPaletteBlock(ctx, WF.PAL_HTTP);
         if (httpBlock) {
-          httpBlock.scrollIntoView({ block: 'center' });
-          await ctx.delay(400);
           await spotlight(httpBlock, 1400, ctx);
         }
 
@@ -318,7 +323,6 @@ export const wfFirstWorkflowLesson: DemoLesson = {
           connectWorkflowNodes(startId, httpId);
           await ctx.delay(300);
         }
-        fitCanvasCentered();
       },
 
       action: async (ctx) => {
@@ -372,7 +376,6 @@ export const wfFirstWorkflowLesson: DemoLesson = {
           connectWorkflowNodes(startId, httpId);
           await ctx.delay(300);
         }
-        fitCanvasCentered();
       },
 
       action: async (ctx) => {
@@ -409,7 +412,6 @@ export const wfFirstWorkflowLesson: DemoLesson = {
 
       preAction: async (ctx) => {
         await ensureWorkflowCanvas(ctx);
-        fitCanvasCentered();
       },
 
       action: async (ctx) => {

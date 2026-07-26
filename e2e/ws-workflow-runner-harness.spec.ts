@@ -10,6 +10,22 @@ import {
   startMockServer,
 } from './helpers/ws-workflow-runner-helpers';
 
+const TRANSPORT_LABELS: Record<string, string> = {
+  http: 'HTTP',
+  wsConnect: 'WS Connect',
+  wsSend: 'WS Send',
+  wsReceive: 'WS Receive',
+  kafkaProduce: 'Kafka Produce',
+  kafkaConsume: 'Kafka Consume',
+};
+
+async function selectTransport(page: import('@playwright/test').Page, value: string): Promise<void> {
+  await page.getByLabel('Transport type').click();
+  const item = page.locator('.te-dropdown-item', { hasText: TRANSPORT_LABELS[value] }).first();
+  await expect(item).toBeVisible({ timeout: 5000 });
+  await item.click();
+}
+
 test.describe('Part B — Harness WS Transport & Assertions', () => {
 
   test('WR-15/16: Feature group with WS transport test', async ({ page }) => {
@@ -41,13 +57,14 @@ test.describe('Part B — Harness WS Transport & Assertions', () => {
     await expect(page.locator('.modal-overlay')).toBeVisible({ timeout: 5000 });
 
     // Find the transport selector
-    const transportSelect = page.locator('.transport-select, [aria-label="Transport type"], select:has(option[value="wsConnect"])').first();
+    const transportSelect = page.getByLabel('Transport type');
     await expect(transportSelect).toBeVisible({ timeout: 5000 });
 
     // Verify WS options exist
-    await expect(transportSelect.locator('option[value="wsConnect"]')).toBeAttached();
-    await expect(transportSelect.locator('option[value="wsSend"]')).toBeAttached();
-    await expect(transportSelect.locator('option[value="wsReceive"]')).toBeAttached();
+    await transportSelect.click();
+    await expect(page.locator('.te-dropdown-item', { hasText: 'WS Connect' }).first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.te-dropdown-item', { hasText: 'WS Send' }).first()).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('.te-dropdown-item', { hasText: 'WS Receive' }).first()).toBeVisible({ timeout: 5000 });
   });
 
   test('WR-18: WS Connect scenario editor fields', async ({ page }) => {
@@ -64,9 +81,7 @@ test.describe('Part B — Harness WS Transport & Assertions', () => {
     await expect(page.locator('.modal-overlay')).toBeVisible({ timeout: 5000 });
 
     // Select WS Connect transport
-    const transportSelect = page.locator('.transport-select, [aria-label="Transport type"], select:has(option[value="wsConnect"])').first();
-    await expect(transportSelect).toBeVisible({ timeout: 5000 });
-    await transportSelect.selectOption('wsConnect');
+    await selectTransport(page, 'wsConnect');
     await page.waitForTimeout(300);
 
     // WS Connect fields should appear
@@ -88,9 +103,7 @@ test.describe('Part B — Harness WS Transport & Assertions', () => {
     await expect(page.locator('.modal-overlay')).toBeVisible({ timeout: 5000 });
 
     // Select WS Connect transport
-    const transportSelect = page.locator('.transport-select, [aria-label="Transport type"], select:has(option[value="wsConnect"])').first();
-    await expect(transportSelect).toBeVisible({ timeout: 5000 });
-    await transportSelect.selectOption('wsConnect');
+    await selectTransport(page, 'wsConnect');
     await page.waitForTimeout(300);
 
     // Navigate to Validation tab in the test editor
@@ -117,9 +130,7 @@ test.describe('Part B — Harness WS Transport & Assertions', () => {
     await expect(page.locator('.modal-overlay')).toBeVisible({ timeout: 5000 });
 
     // Select WS Connect transport
-    const transportSelect = page.locator('.transport-select, [aria-label="Transport type"], select:has(option[value="wsConnect"])').first();
-    await expect(transportSelect).toBeVisible({ timeout: 5000 });
-    await transportSelect.selectOption('wsConnect');
+    await selectTransport(page, 'wsConnect');
     await page.waitForTimeout(300);
 
     // Navigate to Validation tab within the modal

@@ -13,7 +13,23 @@ export const WS_DEFAULT_MOCK_URL = `ws://localhost:${WS_DEFAULT_MOCK_PORT}`;
 
 /** Navigate to the WebSocket Studio tab and wait for the mode selector. */
 export async function gotoWsStudio(page: Page, opts?: { timeout?: number }): Promise<void> {
-  await page.goto(WS_STUDIO_BASE, { waitUntil: 'networkidle' });
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 5; attempt += 1) {
+    try {
+      await page.goto(WS_STUDIO_BASE, { waitUntil: 'networkidle' });
+      break;
+    } catch (error) {
+      lastError = error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (!message.includes('ERR_CONNECTION_REFUSED') || attempt === 5) {
+        throw error;
+      }
+      await page.waitForTimeout(1_000);
+    }
+  }
+  if (lastError && page.url() !== WS_STUDIO_BASE) {
+    throw lastError instanceof Error ? lastError : new Error(String(lastError));
+  }
   await page.waitForSelector('[data-testid="mode-client"]', { timeout: opts?.timeout ?? 8000 });
 }
 

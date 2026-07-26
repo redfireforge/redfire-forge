@@ -24,6 +24,15 @@ export function selectWorkflowByName(name: string): boolean {
   return getDemoBridgeWindow().__wfSelectByName?.(name) ?? false;
 }
 
+/**
+ * Name of the workflow currently open in the Designer canvas, or undefined when
+ * the bridge isn't mounted / nothing is selected. Lessons use this to detect a
+ * stale workflow from a previous lesson still on screen.
+ */
+export function getSelectedWorkflowName(): string | undefined {
+  return getDemoBridgeWindow().__wfGetSelectedName?.();
+}
+
 /** Select a workflow in Workflow Runner by name — keeps runner ID in sync after re-seed. */
 export function selectRunnerWorkflowByName(name: string): boolean {
   const win = getDemoBridgeWindow();

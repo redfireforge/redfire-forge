@@ -5,6 +5,7 @@ import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
 import type { CatalogEndpoint, CatalogServer, HostConfig, CatalogResponse, CatalogParameter, SavedEndpointValues, CatalogEnvironment } from '../types/catalog';
 import type { AuthConfig, Microservice } from '../../../shared/types';
 import type { EndpointCoverage } from '../utils/coverageChecker';
+import type { PublishPermission } from '../hooks/usePublishPermission';
 import { generateStubJson } from '../utils/schemaStubGenerator';
 import { prettyJson, toErrorMessage } from '../../../shared/utils/helpers';
 import { buildCatalogCurlCommand, buildCatalogCurlSingleLine, buildDefaultCurlCommand, resolveBaseUrl, buildFullUrl } from '../utils/catalogCurlGenerator';
@@ -24,6 +25,12 @@ interface Props {
   onExportSingle?: (endpoint: CatalogEndpoint, savedValues?: SavedEndpointValues) => void;
   onSendToHarness?: (endpoint: CatalogEndpoint, fromTryItOut?: boolean) => void;
   onSetWorkflowExposure?: (endpoint: CatalogEndpoint, mode: 'preview' | 'published' | undefined, values: SavedEndpointValues) => void;
+  /** Merged exposure mode from both CatalogEndpoint (published) and user-local preview storage. */
+  currentExposureMode?: 'preview' | 'published';
+  /** True when published endpoint's spec has been updated since publication. */
+  isPublicationStale?: boolean;
+  /** Access control for publish/unpublish actions. All-true when not provided. */
+  publishPermission?: PublishPermission;
   coverage?: EndpointCoverage;
   onNavigateToRequest?: (collectionId: string, requestId: string) => void;
 }
@@ -34,7 +41,7 @@ const MBG: Record<string, string> = {
   DELETE: 'rgba(249,62,62,0.1)',
 };
 
-export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, onSetWorkflowExposure, coverage, onNavigateToRequest }: Props) {
+export default function CatalogEndpointCard({ endpoint, servers, hostConfig, auth, savedValues, onValuesChange, environments, linkedMicroservice, onExportSingle, onSendToHarness, onSetWorkflowExposure, currentExposureMode, isPublicationStale, publishPermission, coverage, onNavigateToRequest }: Props) {
   const [expanded, setExpanded] = useState(false);
   const [tryItOpen, setTryItOpen] = useState(false);
   const [paramValues, setParamValues] = useState<Record<string, string>>(() => savedValues?.params ?? {});
@@ -182,6 +189,9 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
             IN REQUESTS{coverage.count > 1 ? ` (${coverage.count})` : ''}
           </span>
         )}
+        {currentExposureMode === 'published' && isPublicationStale && (
+          <span className="sw-stale-badge" data-testid="catalog-stale-badge" title="Spec updated since publication">⚠ Stale</span>
+        )}
         {endpoint.deprecated && <span className="sw-deprecated">deprecated</span>}
         {hasSec && <span className="sw-lock">🔒</span>}
         <span className={`sw-chevron ${expanded ? 'open' : ''}`}>&#9662;</span>
@@ -321,7 +331,8 @@ export default function CatalogEndpointCard({ endpoint, servers, hostConfig, aut
               )}
               {onSetWorkflowExposure && (
                 <WorkflowExposureDropdown
-                  mode={endpoint.workflowExposure ?? (endpoint.exposedToWorkflow ? 'preview' : undefined)}
+                  mode={currentExposureMode}
+                  permission={publishPermission}
                   onChange={(mode) => onSetWorkflowExposure(endpoint, mode, {
                     params: paramValues,
                     headers: headerValues,
@@ -632,8 +643,9 @@ const EXPOSURE_OPTIONS: { value: 'preview' | 'published' | undefined; label: str
   { value: 'published', label: 'Published',   icon: '📌', hint: 'Permanently registered as a workflow block' },
 ];
 
-function WorkflowExposureDropdown({ mode, onChange }: {
+function WorkflowExposureDropdown({ mode, permission, onChange }: {
   mode: 'preview' | 'published' | undefined;
+  permission?: PublishPermission;
   onChange: (mode: 'preview' | 'published' | undefined) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -651,6 +663,13 @@ function WorkflowExposureDropdown({ mode, onChange }: {
   const current = EXPOSURE_OPTIONS.find(o => o.value === mode) ?? EXPOSURE_OPTIONS[0];
   const cls = mode === 'published' ? 'sw-wf-exposure published' : mode === 'preview' ? 'sw-wf-exposure preview' : 'sw-wf-exposure';
 
+  const isOptionDisabled = (optValue: 'preview' | 'published' | undefined): boolean => {
+    if (!permission) return false;
+    if (optValue === 'published' && !permission.canPublish) return true;
+    if (mode === 'published' && optValue !== 'published' && !permission.canUnpublish) return true;
+    return false;
+  };
+
   return (
     <div className={cls} ref={ref} data-testid="catalog-expose-to-workflow">
       <button
@@ -665,22 +684,27 @@ function WorkflowExposureDropdown({ mode, onChange }: {
       </button>
       {open && (
         <div className="sw-wf-exposure-menu">
-          {EXPOSURE_OPTIONS.map(opt => (
-            <button
-              key={opt.label}
-              type="button"
-              className={`sw-wf-exposure-option${opt.value === mode ? ' active' : ''}`}
-              data-testid={`catalog-expose-option-${opt.value ?? 'none'}`}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-            >
-              <span className="sw-wf-exposure-opt-icon">{opt.icon}</span>
-              <div className="sw-wf-exposure-opt-text">
-                <span className="sw-wf-exposure-opt-label">{opt.label}</span>
-                <span className="sw-wf-exposure-opt-hint">{opt.hint}</span>
-              </div>
-              {opt.value === mode && <span className="sw-wf-exposure-check">✓</span>}
-            </button>
-          ))}
+          {EXPOSURE_OPTIONS.map(opt => {
+            const disabled = isOptionDisabled(opt.value);
+            return (
+              <button
+                key={opt.label}
+                type="button"
+                className={`sw-wf-exposure-option${opt.value === mode ? ' active' : ''}${disabled ? ' disabled' : ''}`}
+                data-testid={`catalog-expose-option-${opt.value ?? 'none'}`}
+                onClick={() => { if (!disabled) { onChange(opt.value); setOpen(false); } }}
+                disabled={disabled}
+                title={disabled ? (permission?.reason ?? 'Insufficient permission') : opt.hint}
+              >
+                <span className="sw-wf-exposure-opt-icon">{opt.icon}</span>
+                <div className="sw-wf-exposure-opt-text">
+                  <span className="sw-wf-exposure-opt-label">{opt.label}</span>
+                  <span className="sw-wf-exposure-opt-hint">{disabled ? (permission?.reason ?? 'Insufficient permission') : opt.hint}</span>
+                </div>
+                {opt.value === mode && <span className="sw-wf-exposure-check">✓</span>}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>

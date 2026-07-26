@@ -258,7 +258,6 @@ export default function ExtractionEditor({ extractions, onChange, sampleResponse
                     options={activeSources}
                     className="ext-select"
                     aria-label="Source"
-                    size="sm"
                   />
                 </span>
 

@@ -35,12 +35,24 @@ export const WF = {
   PAL_WS_SEND:         '.wf-palette-block-wsSend',
   PAL_WS_RECEIVE:      '.wf-palette-block-wsReceive',
   PAL_HTTP:            '.wf-palette-block-http',
+  // Kafka palette blocks
+  PAL_KAFKA_PRODUCE:   '.wf-palette-block-kafkaProduce',
+  PAL_KAFKA_CONSUME:   '.wf-palette-block-kafkaConsume',
+  PAL_KAFKA_TRIGGER:   '.wf-palette-block-kafkaTrigger',
+  PAL_KAFKA_WAIT:      '.wf-palette-block-kafkaWait',
+  // WS trigger (supplement existing WS palette selectors)
+  PAL_WS_TRIGGER:      '.wf-palette-block-wsTrigger',
+  // GraphQL introspect (supplement existing GQL palette selectors)
+  PAL_GQL_INTROSPECT:  '.wf-palette-block-graphqlIntrospect',
   PAL_CONDITION:       '.wf-palette-block-condition',
   PAL_SWITCH:          '.wf-palette-block-switch',
   PAL_LOG_DEBUG:       '.wf-palette-block-logDebug',
   // Node config fields
   CFG_WS_URL:          '[data-testid="ws-connect-config"] .expr-input-wrapper input',
   CFG_WS_MSG:          '[data-testid="ws-send-config"] textarea.wf-config-textarea',
+  // Log/Debug config fields
+  CFG_LOG_LEVEL:       '[data-testid="logdebug-config"] .cs-wrapper',
+  CFG_LOG_MESSAGE:     '[data-testid="logdebug-config"] textarea.wf-config-textarea',
   CFG_SAVE:            '.wf-config-modal-footer-actions .btn-primary',
   CFG_CANCEL:          '.wf-config-modal-footer-actions .btn-ghost',
   // Canvas nodes
@@ -86,6 +98,12 @@ export const WF = {
   NODE_GQL_MUTATION:   '.react-flow__node-graphqlMutation',
   NODE_GQL_SUBSCRIPTION:'.react-flow__node-graphqlSubscription',
   NODE_GQL_ASSERT:     '.react-flow__node-graphqlAssert',
+  NODE_GQL_INTROSPECT: '.react-flow__node-graphqlIntrospect',
+  // Kafka canvas nodes
+  NODE_KAFKA_PRODUCE:  '.react-flow__node-kafkaProduce',
+  NODE_KAFKA_CONSUME:  '.react-flow__node-kafkaConsume',
+  // WS canvas nodes (supplement existing WS selectors)
+  NODE_WS_TRIGGER:     '.react-flow__node-wsTrigger',
   WF_GQL_MUTATION_ENDPOINT:'[data-testid="gql-wf-endpoint-input"]',
   WF_GQL_SUBSCRIPTION_ENDPOINT:'[data-testid="gql-wf-endpoint-input"]',
   NODE_START:          '.react-flow__node-start',
@@ -96,6 +114,9 @@ export const WF = {
   PAL_LOOP:            '.wf-palette-block-loop',
   PAL_FORK:            '.wf-palette-block-fork',
   PAL_JOIN:            '.wf-palette-block-join',
+  PAL_ERROR_HANDLER:   '.wf-palette-block-errorHandler',
+  // Error Handler canvas node
+  NODE_ERROR_HANDLER:  '.react-flow__node-errorHandler',
   WF_GQL_ENDPOINT:     '[data-testid="gql-wf-endpoint-input"]',
   WF_GQL_ASSERT_SOURCE:'[data-testid="gql-wf-assert-source-var"]',
   WORKFLOW_SELECT:     '[data-testid="workflow-select"]',
@@ -107,9 +128,41 @@ export const WF = {
   CONSOLE_SEARCH_INPUT:'.wf-console-search-input',
   CONSOLE_MATCH:       '.wf-console-panel .wf-console-match',
   CONSOLE_LINE_MATCH:  '.wf-console-panel .wf-cl-line-current-match, .wf-console-panel .wf-cl-line-match',
+  // The ACTIVE match line + the highlighted term inside it (updates as you press
+  // Next/Prev). Use these — not CONSOLE_MATCH — to spotlight the *current* match.
+  CONSOLE_CURRENT_LINE:  '.wf-console-panel .wf-cl-line-current-match',
+  CONSOLE_CURRENT_MATCH: '.wf-console-panel .wf-cl-line-current-match .wf-console-match',
+  CONSOLE_NEXT_MATCH_BTN:'.wf-console-panel button[title="Next match (Enter)"]',
   DEBUG_BTN:           'button[title="Run workflow step-by-step"]',
   DEBUG_STEP_BTN:      '.wf-debug-step-btn',
+  DEBUG_BAR:           '.wf-debug-bar',
+  DEBUG_RESUME_BTN:    '.wf-debug-bar button[title="Run remaining nodes without pausing"]',
+  DEBUG_STEP_ALL_BTN:  '.wf-debug-bar button[title="Step all paused nodes simultaneously"]',
+  DEBUG_STOP_BTN:      '.wf-debug-bar button[title="Stop debug session"]',
+  // Variable context badge + modal
+  VAR_CONTEXT_BADGE:   '.wf-var-badge',
+  VAR_CONTEXT_MODAL:   '.wf-vars-modal',
+  // Run History
+  RUN_HISTORY_TRIGGER: '.wf-run-history-trigger',
+  RUN_HISTORY_DROPDOWN:'.wf-run-history-dropdown',
+  // Exec summary pass state
+  EXEC_SUMMARY_PASS:   '.wf-exec-strip-pass',
   RUN_IN_HARNESS_BTN:  '.wf-toolbar-harness-btn',
+  // Version history
+  VERSIONS_BTN:        '.wf-toolbar-versions-btn',
+  VERSION_PANEL:       '.wfv-panel',
+  VERSION_ITEM:        '.wfv-item',
+  VERSION_CHECKBOX:    '.wfv-checkbox',
+  VERSION_COMPARE_BTN: '.wfv-compare-btn',
+  VERSION_RESTORE_BTN: '.wfv-action-restore',
+  VERSION_DIFF_MODAL:  '.wf-version-diff-modal',
+  VERSION_DIFF_TAB:    '.wf-version-diff-tab',
+  VERSION_CLOSE_BTN:   '.wfv-footer-close',
+  // Orphan badge
+  ORPHAN_BADGE:        '[data-testid="wf-orphan-badge"]',
+  // Services panel
+  SVC_PANEL:           '.wf-services-panel',
+  SVC_MATRIX:          '.wf-svc-endpoint-matrix',
   // Defaults (Variables) modal
   DEFAULTS_MODAL:      '.wf-defaults-modal',
   DEFAULTS_NEW_KEY:    '.wf-defaults-modal .wf-var-key-input[placeholder="name"]',

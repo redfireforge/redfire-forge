@@ -68,4 +68,21 @@ describe('useMatchCountChange', () => {
     });
     expect(setMatchIdx).not.toHaveBeenCalled();
   });
+
+  it('clamps to zero when count becomes zero', () => {
+    const setMatchCount = vi.fn();
+    const setMatchIdx = vi.fn();
+    const currentMatchIdxRef = { current: 2 } as React.RefObject<number>;
+
+    const { result } = renderHook(() =>
+      useMatchCountChange(setMatchCount, setMatchIdx, currentMatchIdxRef),
+    );
+
+    act(() => {
+      result.current(0);
+    });
+
+    expect(setMatchCount).toHaveBeenCalledWith(0);
+    expect(setMatchIdx).toHaveBeenCalledWith(0);
+  });
 });
