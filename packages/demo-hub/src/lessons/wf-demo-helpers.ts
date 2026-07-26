@@ -4,6 +4,7 @@ import {
   collapseAppSidebar,
   deselectAllWorkflowNodes,
   expandAppSidebar,
+  getSelectedWorkflowName,
   getWorkflowByName,
   openWorkflowNodeConfig,
   resetWorkflowRunState,
@@ -59,6 +60,49 @@ export const WF_CONFIG_DEMO_TIMING_BRISK = {
 
 export type WfConfigDemoTimingKey = keyof typeof WF_CONFIG_DEMO_TIMING;
 export type WfConfigDemoTimingTable = Record<WfConfigDemoTimingKey, number>;
+
+/**
+ * Outcome of {@link ensureLessonWorkflowShown}:
+ *  - `ready`    — this lesson's workflow is already on the canvas; caller may just fit.
+ *  - `selected` — the workflow existed in the store and was switched to (foreign one was showing).
+ *  - `missing`  — the workflow doesn't exist yet; caller must seed / create it.
+ */
+export type LessonWorkflowState = 'ready' | 'selected' | 'missing';
+
+/**
+ * Guarantee the DISPLAYED workflow is this lesson's — switching away from any
+ * stale workflow left over from a previous lesson.
+ *
+ * Every workflow lesson previously guarded canvas steps with just
+ * `if (document.querySelector(WF.CANVAS)) return;`, which is satisfied by *any*
+ * workflow. Moving between two different workflow lessons therefore left the
+ * prior lesson's graph on screen and the new lesson piled its nodes onto it.
+ *
+ * This helper compares the live selected-workflow name (via the demo bridge) to
+ * the lesson's expected name and, when they differ, re-selects the correct one
+ * (or reports `missing` so the caller can seed/create it). It never re-selects
+ * when the lesson's own workflow is already shown, so in-progress live edits are
+ * preserved across steps within a lesson.
+ */
+export async function ensureLessonWorkflowShown(
+  ctx: DemoActionContext,
+  wfName: string,
+): Promise<LessonWorkflowState> {
+  const selected = getSelectedWorkflowName();
+  const canvasShown = !!document.querySelector(WF.CANVAS);
+
+  // Our workflow is already up (or the bridge can't tell but a canvas is shown and
+  // it's not a *known* foreign workflow) → leave the live canvas untouched.
+  if (canvasShown && (selected == null || selected === wfName)) return 'ready';
+
+  // A different workflow is displayed (or nothing is). Switch to ours if it exists.
+  if (getWorkflowByName(wfName)) {
+    selectWorkflowByName(wfName);
+    await ctx.delay(500);
+    return 'selected';
+  }
+  return 'missing';
+}
 
 let activeWfConfigTiming: WfConfigDemoTimingTable = WF_CONFIG_DEMO_TIMING;
 
@@ -284,6 +328,107 @@ export async function collapseWfDemoAppSidebar(ctx: DemoActionContext): Promise<
 export function resetWfPaletteToBlocks(): void {
   const blocksTab = document.querySelector<HTMLElement>(WF.PAL_TAB_BLOCKS);
   if (blocksTab && !blocksTab.classList.contains('active')) blocksTab.click();
+}
+
+/**
+ * Block-type → palette category + optional subGroup mapping.
+ * Mirrors `ALL_BLOCKS` in WorkflowPalette.tsx so the helper can
+ * navigate the accordion (or any future layout) to reveal a block.
+ */
+const PALETTE_BLOCK_MAP: Record<string, { category: string; subGroup?: string }> = {
+  start:               { category: 'triggers' },
+  webhook:             { category: 'triggers' },
+  schedule:            { category: 'triggers' },
+  kafkaTrigger:        { category: 'triggers' },
+  wsTrigger:           { category: 'triggers' },
+  http:                { category: 'actions', subGroup: 'http' },
+  delay:               { category: 'actions', subGroup: 'http' },
+  correlationWait:     { category: 'actions', subGroup: 'http' },
+  kafkaProduce:        { category: 'actions', subGroup: 'kafka' },
+  kafkaConsume:        { category: 'actions', subGroup: 'kafka' },
+  kafkaWait:           { category: 'actions', subGroup: 'kafka' },
+  wsConnect:           { category: 'actions', subGroup: 'websocket' },
+  wsSend:              { category: 'actions', subGroup: 'websocket' },
+  wsReceive:           { category: 'actions', subGroup: 'websocket' },
+  graphqlQuery:        { category: 'actions', subGroup: 'graphql' },
+  graphqlMutation:     { category: 'actions', subGroup: 'graphql' },
+  graphqlSubscription: { category: 'actions', subGroup: 'graphql' },
+  graphqlIntrospect:   { category: 'actions', subGroup: 'graphql' },
+  grpcUnary:           { category: 'actions', subGroup: 'grpc' },
+  grpcServerStream:    { category: 'actions', subGroup: 'grpc' },
+  condition:           { category: 'logic' },
+  switch:              { category: 'logic' },
+  loop:                { category: 'logic' },
+  waitForCondition:    { category: 'logic' },
+  graphqlAssert:       { category: 'logic' },
+  grpcAssert:          { category: 'logic' },
+  setVariable:         { category: 'data' },
+  aggregate:           { category: 'data' },
+  logDebug:            { category: 'data' },
+  script:              { category: 'data' },
+  errorHandler:        { category: 'flow' },
+  subWorkflow:         { category: 'flow' },
+  fork:                { category: 'flow' },
+  join:                { category: 'flow' },
+  end:                 { category: 'flow' },
+};
+
+/**
+ * Ensure a palette block is visible in the DOM and scrolled into view.
+ *
+ * Works with the rail layout: clicks the correct category rail button,
+ * then waits for React to render the blocks for that category.
+ * For Actions blocks with a subGroup, the "All" chip is used by default
+ * (all protocol blocks are visible when "All" is selected).
+ *
+ * @param ctx      Demo action context (for delays)
+ * @param selector The `WF.PAL_*` CSS selector (e.g. `WF.PAL_HTTP`)
+ * @param options  `quiet` suppresses delays (for preAction guards)
+ * @returns The block element, or null if it could not be revealed
+ */
+export async function revealPaletteBlock(
+  ctx: DemoActionContext,
+  selector: string,
+  options?: { quiet?: boolean },
+): Promise<HTMLElement | null> {
+  resetWfPaletteToBlocks();
+
+  const clearBtn = document.querySelector<HTMLElement>('.wf-palette-search-clear');
+  if (clearBtn) clearBtn.click();
+
+  const existing = document.querySelector<HTMLElement>(selector);
+  if (existing) {
+    existing.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    if (!options?.quiet) await ctx.delay(300);
+    return existing;
+  }
+
+  const blockType = selector.replace('.wf-palette-block-', '');
+  const mapping = PALETTE_BLOCK_MAP[blockType];
+  if (!mapping) return null;
+
+  selectPaletteRailCategory(mapping.category);
+  if (!options?.quiet) await ctx.delay(200);
+
+  for (let attempt = 0; attempt < 10; attempt++) {
+    const el = document.querySelector<HTMLElement>(selector);
+    if (el) {
+      el.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+      if (!options?.quiet) await ctx.delay(300);
+      return el;
+    }
+    await ctx.delay(100);
+  }
+
+  return null;
+}
+
+/** Click the rail button for a category (data-rail attribute). */
+function selectPaletteRailCategory(categoryId: string): void {
+  const btn = document.querySelector<HTMLElement>(
+    `.wf-palette-rail-btn[data-rail="${categoryId}"]`,
+  );
+  if (btn && !btn.classList.contains('active')) btn.click();
 }
 
 /** Show the Workflows sidebar (+ New, pick workflow) — only for create/select beats. */

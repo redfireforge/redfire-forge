@@ -20,6 +20,7 @@ export function WorkflowDesignerBody({
     startDrag,
     collections,
     catalogEntries,
+    previewEndpoints,
     handleAddNode,
     handleAddFromRequest,
     handleAddFromCatalog,
@@ -39,6 +40,7 @@ export function WorkflowDesignerBody({
         <WorkflowPalette
           collections={collections}
           catalogEntries={catalogEntries}
+          previewEndpoints={previewEndpoints}
           onAddNode={handleAddNode}
           onAddFromRequest={handleAddFromRequest}
           onAddFromCatalog={handleAddFromCatalog}

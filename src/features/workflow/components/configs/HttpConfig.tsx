@@ -173,9 +173,9 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
 
   const paramCount = useMemo(() => queryParams.filter(p => p.key.trim() && p.enabled).length, [queryParams]);
   const dataSourceRowCount = useMemo(() => s.dataSource?.rows?.filter(r => r.enabled).length ?? 0, [s.dataSource]);
-  const hasValidationConfig = (s.validation.assertions ?? []).length > 0
-    || (s.validation.mode === 'selective' || (s.validation.mode === 'full' && !!s.validation.expectedJson?.trim()))
-    || (s.validation.expectedFields?.length ?? 0) > 0;
+  const hasValidationConfig = (s.validation?.assertions ?? []).length > 0
+    || (s.validation?.mode === 'selective' || (s.validation?.mode === 'full' && !!s.validation?.expectedJson?.trim()))
+    || (s.validation?.expectedFields?.length ?? 0) > 0;
 
   const handleParamsChange = useCallback((entries: ParamEntry[]) => {
     // Count trailing empty rows to preserve them as local state
@@ -195,16 +195,26 @@ export default function HttpConfig({ data, onChange, activeTab, onTabChange, las
   /** Strip node-scoped refs to simple form: {{node:"Step".var}} → {{var}} */
   const simplifyRefs = (u: string) => u.replace(/\{\{node:"[^"]+"\.([^}]+)\}\}/g, '{{$1}}');
 
+  /** Resolve known workflow variables in a URL string using variableHints defaults. */
+  const resolveKnownVars = useCallback((u: string) =>
+    u.replace(/\{\{([^}]+)\}\}/g, (match, name) => {
+      const hint = variableHints.find(h => h.ref === name || h.label === name);
+      return hint?.defaultValue ?? match;
+    }), [variableHints]);
+
   // Live preview: combine effective base URL + current path
   const previewUrl = useMemo(() => {
     const url = simplifyRefs(decodeTemplateVars(s.url.trim()));
     if (!url) return effectiveQuickTestBaseUrl || '';
     // If URL is already absolute, show it as-is
     if (/^https?:\/\//i.test(url)) return simplifyRefs(decodeTemplateVars(url));
+    // Try resolving known workflow variables (e.g. {{baseUrl}} → https://...)
+    const resolved = resolveKnownVars(url);
+    if (/^https?:\/\//i.test(resolved)) return resolved;
     const base = effectiveQuickTestBaseUrl.replace(/\/+$/, '');
-    const path = url.startsWith('/') ? url : `/${url}`;
+    const path = resolved.startsWith('/') ? resolved : `/${resolved}`;
     return simplifyRefs(decodeTemplateVars(`${base}${path}`));
-  }, [s.url, effectiveQuickTestBaseUrl]);
+  }, [s.url, effectiveQuickTestBaseUrl, resolveKnownVars]);
 
   // Show last Quick Test URL when available, otherwise the live preview
   const displayUrl = lastQuickTestRequestUrl || previewUrl;

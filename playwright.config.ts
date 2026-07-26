@@ -207,6 +207,8 @@ export default defineConfig({
         DEMO_GQL15_SPEC,
         DEMO_GQL16_SPEC,
         DEMO_GQL17_SPEC,
+        ...DEMO_GQL18_SPEC,
+        DEMO_GQL19_SPEC,
         DEMO_GQL110_SPEC,
         DEMO_GQL_LESSONS_SPEC,
         DEMO_GRPC1_SPEC,
@@ -454,10 +456,22 @@ export default defineConfig({
         ]
       : []),
   ],
-  webServer: {
-    command: 'npm run dev',
-    url: 'http://localhost:5173',
-    reuseExistingServer: true,
-    timeout: 15_000,
-  },
+  webServer: [
+    {
+      command: 'VITE_SUPPRESS_PROXY_ERRORS=1 npm run server',
+      url: 'http://localhost:3001/health',
+      // Backend may already be running from local dev or another batch.
+      // Reuse it to avoid false startup failures on port 3001.
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+    {
+      command: 'VITE_SUPPRESS_PROXY_ERRORS=1 npm run dev',
+      url: 'http://localhost:5173',
+      // Reuse existing frontend server to avoid startup collisions on 5173
+      // when running strict small-batch E2E loops.
+      reuseExistingServer: true,
+      timeout: 30_000,
+    },
+  ],
 });

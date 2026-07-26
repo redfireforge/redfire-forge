@@ -10,13 +10,23 @@ import CatalogEndpointBrowser from './CatalogEndpointBrowser';
 import { makeEntry, makeEndpoint, makeFolder, makeServer, makeHostConfig, makeVersion } from './catalogTestFactories';
 import type { AuthConfig, Microservice } from '../../../shared/types';
 
+const endpointCardPropsSpy = vi.hoisted(() => vi.fn());
+
 vi.mock('./CatalogEndpointCard', () => ({
-  default: ({ endpoint, onValuesChange }: { endpoint: { id: string; path: string }; onValuesChange?: (v: unknown) => void }) => (
-    <div data-testid="endpoint-card">
-      <span>{endpoint.path}</span>
-      <button onClick={() => onValuesChange?.({ pathParams: {} })}>vals-{endpoint.id}</button>
-    </div>
-  ),
+  default: (props: {
+    endpoint: { id: string; path: string };
+    onValuesChange?: (v: unknown) => void;
+    currentExposureMode?: 'preview' | 'published' | undefined;
+  }) => {
+    endpointCardPropsSpy(props);
+    const { endpoint, onValuesChange } = props;
+    return (
+      <div data-testid="endpoint-card">
+        <span>{endpoint.path}</span>
+        <button onClick={() => onValuesChange?.({ pathParams: {} })}>vals-{endpoint.id}</button>
+      </div>
+    );
+  },
 }));
 
 vi.mock('./CatalogAuthPanel', () => ({
@@ -72,6 +82,7 @@ function renderBrowser(over: {
 }
 
 beforeEach(() => {
+  endpointCardPropsSpy.mockClear();
   resolveBaseUrl.mockReturnValue('https://api.example.com');
   loadCatalogEndpointValues.mockResolvedValue({});
   saveCatalogEndpointValues.mockReset();
@@ -389,5 +400,135 @@ describe('CatalogEndpointBrowser', () => {
     );
     resolveLoad({ ep1: { params: {}, headers: {}, body: '' } });
     await waitFor(() => expect(screen.getByText('Late API')).toBeInTheDocument());
+  });
+
+  it('renders exposure as published when workflowPublication is present', async () => {
+    const entry = makeEntry({
+      folders: [],
+      endpoints: [
+        makeEndpoint({
+          id: 'pub-1',
+          path: '/published',
+          workflowPublication: { publishedAt: Date.now(), publishedFromVersionId: 'v1' },
+        }),
+      ],
+    });
+    renderBrowser({ entry });
+    await waitFor(() => expect(loadCatalogEndpointValues).toHaveBeenCalled());
+    expect(screen.getByText('/published')).toBeInTheDocument();
+    expect(endpointCardPropsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: expect.objectContaining({ id: 'pub-1' }),
+        currentExposureMode: 'published',
+      }),
+    );
+  });
+
+  it('renders exposure as published when workflowExposure is published', async () => {
+    const entry = makeEntry({
+      folders: [],
+      endpoints: [
+        makeEndpoint({ id: 'pub-2', path: '/published-flag', workflowExposure: 'published' }),
+      ],
+    });
+    renderBrowser({ entry });
+    await waitFor(() => expect(loadCatalogEndpointValues).toHaveBeenCalled());
+    expect(screen.getByText('/published-flag')).toBeInTheDocument();
+    expect(endpointCardPropsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: expect.objectContaining({ id: 'pub-2' }),
+        currentExposureMode: 'published',
+      }),
+    );
+  });
+
+  it('renders exposure as preview when endpoint id is in preview set', async () => {
+    const entry = makeEntry({
+      folders: [],
+      endpoints: [makeEndpoint({ id: 'prev-1', path: '/previewed' })],
+    });
+    render(
+      <CatalogEndpointBrowser
+        entry={entry}
+        auth={noAuth}
+        onAuthChange={vi.fn()}
+        onHostChange={vi.fn()}
+        previewedEndpointIds={new Set(['prev-1'])}
+      />, 
+    );
+    await waitFor(() => expect(loadCatalogEndpointValues).toHaveBeenCalled());
+    expect(screen.getByText('/previewed')).toBeInTheDocument();
+    expect(endpointCardPropsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: expect.objectContaining({ id: 'prev-1' }),
+        currentExposureMode: 'preview',
+      }),
+    );
+  });
+
+  it('leaves exposure undefined when endpoint is neither published nor previewed', async () => {
+    const entry = makeEntry({
+      folders: [],
+      endpoints: [makeEndpoint({ id: 'none-1', path: '/no-exposure' })],
+    });
+    render(
+      <CatalogEndpointBrowser
+        entry={entry}
+        auth={noAuth}
+        onAuthChange={vi.fn()}
+        onHostChange={vi.fn()}
+      />,
+    );
+    await waitFor(() => expect(loadCatalogEndpointValues).toHaveBeenCalled());
+    expect(endpointCardPropsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: expect.objectContaining({ id: 'none-1' }),
+        currentExposureMode: undefined,
+      }),
+    );
+  });
+
+  it('prioritizes published over preview when both are present', async () => {
+    const entry = makeEntry({
+      folders: [],
+      endpoints: [
+        makeEndpoint({
+          id: 'both-1',
+          path: '/both',
+          workflowPublication: { publishedAt: Date.now(), publishedFromVersionId: 'v1' },
+        }),
+      ],
+    });
+    render(
+      <CatalogEndpointBrowser
+        entry={entry}
+        auth={noAuth}
+        onAuthChange={vi.fn()}
+        onHostChange={vi.fn()}
+        previewedEndpointIds={new Set(['both-1'])}
+      />,
+    );
+    await waitFor(() => expect(loadCatalogEndpointValues).toHaveBeenCalled());
+    expect(endpointCardPropsSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        endpoint: expect.objectContaining({ id: 'both-1' }),
+        currentExposureMode: 'published',
+      }),
+    );
+  });
+
+  it('renders environment button from appMicroservices even when no env options exist', () => {
+    const entry = makeEntry({ folders: [], endpoints: [] });
+    const svc: Microservice = { id: 'svc1', name: 'Svc', baseUrls: {} };
+    render(
+      <CatalogEndpointBrowser
+        entry={entry}
+        auth={noAuth}
+        onAuthChange={vi.fn()}
+        onHostChange={vi.fn()}
+        appMicroservices={[svc]}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Environment' })).toBeInTheDocument();
   });
 });

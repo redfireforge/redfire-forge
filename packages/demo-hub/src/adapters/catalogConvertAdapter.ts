@@ -41,6 +41,11 @@ export async function addVersionByName(name: string, rawSpec: string): Promise<b
   return fn(name, rawSpec);
 }
 
+/** Look up a Catalog entry by display name. Returns the entry object or null. */
+export function getCatalogEntryByName(name: string): Record<string, unknown> | null {
+  return getDemoBridgeWindow().__demoGetCatalogEntryByName?.(name) ?? null;
+}
+
 /** True once the Catalog store has hydrated from storage. */
 export function isCatalogLoaded(): boolean {
   return getDemoBridgeWindow().__demoCatalogLoaded === true;
@@ -53,4 +58,9 @@ export function isCatalogLoaded(): boolean {
  */
 export function deleteCollectionsByName(name: string): number {
   return getDemoBridgeWindow().__demoDeleteCollectionsByName?.(name) ?? 0;
+}
+
+/** Remove all workflow preview endpoints from storage (demo cleanup). */
+export async function clearAllWorkflowPreviews(): Promise<void> {
+  await getDemoBridgeWindow().__demoClearAllWorkflowPreviews?.();
 }

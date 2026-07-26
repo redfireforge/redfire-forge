@@ -5,7 +5,7 @@ import { buildVariableSourceMap, resolveVariableSource } from '../../utils/workf
 
 const VAR_NAME_COL_MIN = 100;
 const VAR_NAME_COL_MAX = 420;
-const VAR_NAME_COL_DEFAULT = 200;
+const VAR_NAME_COL_DEFAULT = 150;
 /** Values longer than this use View + modal instead of a cramped single-line input. */
 const VAR_VALUE_LONG = 100;
 

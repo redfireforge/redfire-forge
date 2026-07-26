@@ -57,6 +57,9 @@ import {
 } from './utils/appTabUtils';
 import { writeKey } from '../shared/utils/storage';
 import { useKafkaState } from './hooks/useKafkaState';
+import { loadWorkflowPreviews, getPreviewEntriesForPalette } from '../shared/utils/workflowPreviewStorage';
+import type { WorkflowPreviewEntry } from '../shared/utils/workflowPreviewStorage';
+import { migratePreviewsToLocalStorage, migratePublishedToWorkflowPublication } from '../shared/utils/workflowPreviewMigration';
 import '../styles/index.css';
 import { DEMO_HUB_ENABLED } from '../config/features';
 import { DEMO_HUB_MOUNT_ID } from './demo/demoHubRuntimeRef';
@@ -94,6 +97,24 @@ export default function App() {
   const reqTabs = useRequestTabCoordinator(wb);
   const catalog = useCatalog();
   useDemoCatalogBridge(catalog, DEMO_HUB_ENABLED);
+
+  const [wfPreviewEndpoints, setWfPreviewEndpoints] = useState<WorkflowPreviewEntry[]>([]);
+  const refreshWfPreviews = useCallback(() => {
+    loadWorkflowPreviews().then(map => setWfPreviewEndpoints(getPreviewEntriesForPalette(map)));
+  }, []);
+  useEffect(() => {
+    if (!catalog.loaded) return;
+    let cancelled = false;
+    migratePreviewsToLocalStorage(catalog.entries, catalog.updateEntry)
+      .then(() => migratePublishedToWorkflowPublication(catalog.entries, catalog.updateEntry))
+      .then(() =>
+        loadWorkflowPreviews().then(map => {
+          if (!cancelled) setWfPreviewEndpoints(getPreviewEntriesForPalette(map));
+        }),
+      );
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [catalog.loaded]);
   useDemoRequestsBridge(wb, DEMO_HUB_ENABLED);
   const [workflowRunnerInitialId, setWorkflowRunnerInitialId] = useState<string | null>(null);
   const [workflowRunnerInitialVariables, setWorkflowRunnerInitialVariables] = useState<Record<string, string> | null>(null);
@@ -421,6 +442,7 @@ export default function App() {
             <WorkflowDesigner
               collections={wb.collections}
               catalogEntries={catalog.entries}
+              previewEndpoints={wfPreviewEndpoints}
               wfHook={wfHook}
               folders={wfFolders.folders}
               environments={environments}
@@ -647,6 +669,7 @@ export default function App() {
                 setCatalogHarnessEndpoint({ entry, endpoint, fromTryItOut });
                 setShowSendToHarness(true);
               }}
+              onPreviewsChanged={refreshWfPreviews}
             />
           </div>
           <div className="app-tab-pane" style={{ display: activeTab === 'requests' ? 'flex' : 'none' }}>

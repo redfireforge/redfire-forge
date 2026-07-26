@@ -28,6 +28,11 @@ export function useDemoWorkflowLivePatchSync(
   useEffect(() => {
     const win = window as unknown as Record<string, unknown>;
 
+    // Expose the currently-selected workflow name so demo lessons can detect when
+    // a *different* lesson's workflow is still on screen and switch/re-seed their
+    // own — otherwise lesson actions pile nodes onto the previous graph.
+    win.__wfGetSelectedName = (): string | undefined => selectedNameRef.current;
+
     win.__wfSyncLiveWorkflowFromPatch = (
       workflowName: string,
       patch: Partial<Omit<Workflow, 'id' | 'createdAt'>>,
@@ -61,6 +66,7 @@ export function useDemoWorkflowLivePatchSync(
 
     return () => {
       delete win.__wfSyncLiveWorkflowFromPatch;
+      delete win.__wfGetSelectedName;
     };
   }, []);
 }

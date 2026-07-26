@@ -462,11 +462,6 @@ export const catVersionLifecycleLesson: DemoLesson = {
         if (formatBadge) {
           await spotlightEl(ctx, formatBadge, 1200);
         }
-
-        const overview = document.querySelector<HTMLElement>(CAT.OVERVIEW);
-        if (overview) {
-          await spotlightEl(ctx, overview, 1000);
-        }
       },
       verify: CAT.OVERVIEW,
     },

@@ -472,12 +472,11 @@
 .shared-ds-fetch-method {
   width: 100px;
   min-width: 100px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--bg);
-  color: var(--text);
+}
+.shared-ds-fetch-method .cs-trigger {
   padding: 7px 8px;
   font-size: 12px;
+  border-radius: var(--radius-sm, 4px);
 }
 
 .shared-ds-fetch-url {
@@ -492,14 +491,13 @@
 }
 
 .shared-ds-fetch-auth-type {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-sm, 4px);
-  background: var(--bg);
-  color: var(--text);
-  padding: 7px 8px;
-  font-size: 12px;
   width: 260px;
   max-width: 100%;
+}
+.shared-ds-fetch-auth-type .cs-trigger {
+  padding: 7px 8px;
+  font-size: 12px;
+  border-radius: var(--radius-sm, 4px);
 }
 
 .shared-ds-fetch-auth-fields {
