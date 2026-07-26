@@ -47,7 +47,6 @@ const TAB_ICONS: Record<DiffTab, ReactElement> = {
 
 const MIN_WIDTH = 480;
 const MIN_HEIGHT = 360;
-const DEFAULT_WIDTH = 720;
 
 export default function WorkflowVersionDiff({ open, older, newer, onClose }: Props) {
   const [activeTab, setActiveTab] = useState<DiffTab>('nodes');
@@ -71,6 +70,8 @@ export default function WorkflowVersionDiff({ open, older, newer, onClose }: Pro
     if (!modal) return;
     const rect = modal.getBoundingClientRect();
     dragRef.current = { startX: e.clientX, startY: e.clientY, origX: rect.left, origY: rect.top };
+    // Lock the current size on first drag so the modal doesn't jump
+    setSize((prev) => prev ?? { w: rect.width, h: rect.height });
 
     const onMove = (ev: MouseEvent) => {
       const d = dragRef.current;
@@ -141,7 +142,7 @@ export default function WorkflowVersionDiff({ open, older, newer, onClose }: Pro
     position: 'fixed',
     left: pos ? `${pos.x}px` : undefined,
     top: pos ? `${pos.y}px` : undefined,
-    width: size ? `${size.w}px` : `${DEFAULT_WIDTH}px`,
+    width: size ? `${size.w}px` : undefined,
     height: size ? `${size.h}px` : undefined,
     maxWidth: 'none',
     maxHeight: 'none',

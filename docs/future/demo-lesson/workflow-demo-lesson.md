@@ -40,9 +40,9 @@ The existing protocol-specific workflow lessons cover:
 | WF-4 | `wf-loops-parallel` | Loops & Parallel Execution | 5 | 5 min | Loop node (forEach/count), Fork/Join, Aggregate, parallel API calls |
 | WF-5 | `wf-error-handling` | Error Handling & Recovery | 4 | 4 min | Error Handler node, retry config, catch path, error variables, graceful degradation |
 | WF-6 | `wf-debug-console` | Quick Test & Debug Mode | 5 | 5 min | Quick Test, Console panel, step-through Debug, variable inspection, exec summary |
-| WF-7 | `wf-version-services` | Versioning, Services & Catalog Integration | 5 | 5 min | Version snapshot, compare diff, restore, Service Registry, multi-env resolution, Catalog orphan badge (D3) |
+| WF-7 | `wf-version-services` | Versioning, Services & Catalog Integration | 8 | 8 min | Version snapshot, compare diff, restore, Service Registry, Linked Microservice, per-env URLs & auth, Catalog orphan badge (D3) |
 | WF-8 | `wf-protocol-nodes` | Protocol Nodes Overview | 4 | 4 min | gRPC/Kafka/WS/GraphQL palette blocks, multi-protocol workflow, links to deep-dive lessons |
-| **Total** | | | **38** | **~38 min** | |
+| **Total** | | | **41** | **~41 min** | |
 
 ---
 
@@ -227,12 +227,12 @@ The existing protocol-specific workflow lessons cover:
 | Field | Value |
 |---|---|
 | `id` | `wf-version-services` |
-| `estimatedMinutes` | 5 |
-| Steps | 5 |
+| `estimatedMinutes` | 8 |
+| Steps | 8 |
 | `initialTab` | `workflow` |
 | `allowedTabs` | `['workflow', 'catalog']` |
 
-**Prerequisite:** Seeded workflow with 2 versions in history (v1: 3 nodes, v2: 5 nodes with added condition branch). One HTTP node has `catalogRef` pointing to a published Catalog endpoint (seeded via JSONPlaceholder API spec + DOM publish).
+**Prerequisite:** Seeded workflow with 2 versions in history (v1: 3 nodes, v2: 5 nodes with added condition branch). One HTTP node has `catalogRef` pointing to a published Catalog endpoint (seeded via JSONPlaceholder API spec + DOM publish). Services seeded with per-environment endpoints (d01, t01, t02, p01) to avoid "missing" warnings.
 
 ### Steps
 
@@ -241,8 +241,11 @@ The existing protocol-specific workflow lessons cover:
 | 1 | `wf7-versions-panel` | Browse Version History | `WF.VERSIONS_BTN` | Spotlight **Versions** button in toolbar → click → Version panel slides open on the right rail (1000ms) → spotlight the **version list** (2 entries: "Added condition branch" + "Initial workflow") with timestamps, node/edge counts, and change summaries (1500ms) → explain: every Save creates a snapshot if the graph changed |
 | 2 | `wf7-compare` | Compare Two Versions | `WF.VERSION_PANEL` | Select both versions with checkboxes → click **Compare** → Version Diff modal opens → spotlight **Nodes tab** showing added Condition + Log nodes (1500ms) → spotlight **Edges tab** showing new connections (1000ms) → spotlight **Variables tab** showing added `userId` variable (1000ms) → close diff modal |
 | 3 | `wf7-restore` | Restore a Previous Version | `WF.VERSION_PANEL` | Spotlight **Restore** button on v1 ("Initial workflow") → click → canvas updates (2 nodes disappear back to original 3-node layout) → spotlight the restored canvas (1500ms, explain: the old version is still in history, nothing deleted) → close Version panel |
-| 4 | `wf7-services` | Service Registry | `WF.SERVICES_BTN` | Click **Services** in toolbar → Services panel opens → spotlight the panel (1200ms, explain: named services with per-environment URLs) → spotlight the environment matrix → close panel |
-| 5 | `wf7-orphan-badge` | Catalog Endpoint Awareness | `WF.ORPHAN_BADGE` | Spotlight the HTTP node with **CAT** source badge (1000ms, explain: this node was created from a published Catalog endpoint) → navigate to **Catalog** → unpublish the endpoint (Palette Only) → return to **Workflow Designer** → Fit View → spotlight the same node now showing **⚠ orphan badge** (1500ms) → navigate to Catalog → re-publish → return to Workflow Designer → Fit View → spotlight badge disappearing (1000ms) |
+| 4 | `wf7-services` | Service Registry | `WF.SERVICES_BTN` | Click **Services** in toolbar → open full Service Registry modal → spotlight service list (JSONPlaceholder + Create Post) → select JSONPlaceholder → spotlight Service Name → spotlight **Linked Microservice** dropdown (key feature for auto-filling env URLs) |
+| 5 | `wf7-env-auth` | Per-Environment URLs & Auth | `.wf-svc-registry-modal` | Spotlight Environments section → spotlight endpoint matrix with per-env rows (d01, t01, t02, p01) → spotlight individual rows showing URLs → spotlight auth pill → close modal → show SVC badges on canvas HTTP nodes |
+| 6 | `wf7-catalog-setup` | Published Catalog Endpoint | `CAT.SIDEBAR` | Navigate to Catalog → spotlight `GET /posts/{id}` endpoint card → spotlight Workflow Exposure set to **Published** |
+| 7 | `wf7-cat-badge` | CAT Badge on Workflow Node | `WF.CANVAS` | Return to Workflow Designer → spotlight Get Post node → spotlight green **CAT** source badge (node created from published Catalog endpoint) |
+| 8 | `wf7-orphan-badge` | Orphan Badge (Unpublish & Re-publish) | `WF.CANVAS` | Unpublish endpoint in Catalog → switch to Workflow → spotlight **⚠ orphan badge** → switch back to Catalog → re-publish → switch to Workflow → spotlight badge disappearing |
 
 **Cleanup:** Delete seeded workflow. Delete seeded catalog entry. Close panels.
 

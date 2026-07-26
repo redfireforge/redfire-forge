@@ -1,8 +1,9 @@
 /**
  * WF-7 — Versioning, Services & Catalog Integration
  *
- * 7 steps: browse version history → compare two versions → restore an older
- * version → explore the Service Registry → view published Catalog endpoint →
+ * 8 steps: browse version history → compare two versions → restore an older
+ * version → add & configure service (name, link microservice, auth) →
+ * apply & assign service to HTTP nodes → view published Catalog endpoint →
  * see CAT badge on workflow node → demonstrate orphan badge (unpublish/re-publish).
  *
  * Prerequisite: seeded 5-node workflow with 2 pre-built version snapshots
@@ -31,18 +32,26 @@ import {
   waitForWorkflowBridge,
   fitWorkflowCanvasView,
   patchWorkflowNodeDataById,
+  patchWorkflowByName,
+  syncLiveWorkflowFromPatch,
+  ensureSettingsEnvironment,
+  ensureSettingsMicroservice,
+  removeSettingsEnvironment,
+  removeSettingsMicroservice,
 } from '../../adapters';
 
 // ─── Constants ──────────────────────────────────────────────────────
 
 const WF_NAME = 'Version Demo';
 const BASE_URL = 'https://jsonplaceholder.typicode.com';
-const SAVE_BTN = '.wf-toolbar-save-wrap button';
-
 const CATALOG_ENTRY_NAME = 'JSONPlaceholder API';
 const CATALOG_METHOD = 'GET';
 const CATALOG_PATH = '/posts/{id}';
 const CAT_HTTP_NODE_ID = 'http-get';
+const DEMO_ENV_NAME = 'demo';
+const DEMO_MS_NAME = 'jsonplaceholder';
+let seededEnvId = '';
+let seededMsId = '';
 
 // ─── Version snapshots ──────────────────────────────────────────────
 
@@ -111,23 +120,26 @@ function makeVersion(
   };
 }
 
-const SEED_SERVICE = {
+const SEED_SERVICE_JSON = {
   id: 'svc-jsonplaceholder',
   name: 'JSONPlaceholder',
   endpoints: [
     { envId: '__adhoc__', url: BASE_URL, enabled: true, authMode: 'inherit', source: 'manual' },
+    { envId: '__all__', url: BASE_URL, enabled: true, authMode: 'inherit', source: 'manual' },
   ],
   notes: 'Demo service for JSONPlaceholder REST API',
 };
+
+const SEED_SERVICES = [SEED_SERVICE_JSON];
 
 const SEED_WORKFLOW = {
   name: WF_NAME,
   nodes: V2_NODES,
   edges: V2_EDGES,
   variables: { userId: '42' },
-  services: [SEED_SERVICE],
+  services: [],
   versions: [
-    makeVersion('v2', 'Added condition branch', 3600_000, V2_NODES, V2_EDGES, { userId: '42' }, [SEED_SERVICE]),
+    makeVersion('v2', 'Added condition branch', 3600_000, V2_NODES, V2_EDGES, { userId: '42' }, SEED_SERVICES),
     makeVersion('v1', 'Initial workflow', 86400_000, V1_NODES, V1_EDGES, {}),
   ],
 };
@@ -156,11 +168,6 @@ function fitCanvasCentered(): void {
   const btn = document.querySelector<HTMLElement>(WF.FIT_VIEW_BTN);
   if (btn) { btn.click(); return; }
   fitWorkflowCanvasView();
-}
-
-function clickSave(): void {
-  const btn = document.querySelector<HTMLElement>(SAVE_BTN);
-  if (btn) btn.click();
 }
 
 function closeVersionPanel(): void {
@@ -236,6 +243,27 @@ async function ensureSeededWorkflow(ctx: DemoActionContext): Promise<void> {
  * Navigates to Catalog tab and stays there — caller navigates back if needed.
  */
 async function ensureCatalogPublished(ctx: DemoActionContext): Promise<void> {
+  // Fast-path: check data layer — if entry exists and endpoint is already published, skip tab navigation
+  const existing = getCatalogEntryByName(CATALOG_ENTRY_NAME);
+  if (existing) {
+    const queue: Array<Record<string, unknown>> = [
+      ...((existing.endpoints ?? []) as Array<Record<string, unknown>>),
+      ...((existing.folders ?? []) as Array<Record<string, unknown>>),
+    ];
+    while (queue.length > 0) {
+      const item = queue.shift()!;
+      if (item.endpoints) { queue.push(...(item.endpoints as Array<Record<string, unknown>>)); continue; }
+      if (item.folders) { queue.push(...(item.folders as Array<Record<string, unknown>>)); continue; }
+      if (
+        (item.method as string)?.toUpperCase() === CATALOG_METHOD &&
+        item.path === CATALOG_PATH &&
+        (item.workflowExposure === 'published' || (item.workflowPublication as Record<string, unknown>)?.status === 'published')
+      ) {
+        return; // already published — no tab switch needed
+      }
+    }
+  }
+
   ctx.navigateToTab('catalog');
   await ctx.delay(600);
   try { await ctx.waitFor(CAT.SIDEBAR, 3000); } catch { /* */ }
@@ -318,27 +346,6 @@ function applyCatalogRef(): void {
   });
 }
 
-/**
- * Unpublish the endpoint from the catalog (palette only — keeps nodes).
- * Must be called while on the Catalog tab with the entry selected.
- */
-async function unpublishEndpointQuiet(ctx: DemoActionContext): Promise<void> {
-  const card = document.querySelector<HTMLElement>(CAT.endpointCard(CATALOG_METHOD, CATALOG_PATH));
-  const exposure = card?.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
-  if (!exposure) return;
-
-  const label = exposure.querySelector('.sw-wf-exposure-label')?.textContent?.trim();
-  if (label === 'Not Exposed') return;
-
-  const trigger = exposure.querySelector<HTMLButtonElement>('.sw-wf-exposure-trigger');
-  if (trigger) { trigger.click(); await ctx.delay(120); }
-  document.querySelector<HTMLButtonElement>(CAT.EXPOSE_OPTION_NONE)?.click();
-  await ctx.delay(200);
-
-  // Click "Remove from Palette Only" (not destructive)
-  const paletteOnly = await waitForSelector('.sw-unpublish-btn--palette', 2000);
-  if (paletteOnly) { paletteOnly.click(); await ctx.delay(200); }
-}
 
 // ─── Lesson ─────────────────────────────────────────────────────────
 
@@ -349,7 +356,7 @@ export const wfVersionServicesLesson: DemoLesson = {
   name: 'Versioning, Services & Catalog Integration',
   description:
     'Track workflow changes with version snapshots, compare diffs, restore, and understand how workflow nodes relate to Catalog endpoints.',
-  estimatedMinutes: 7,
+  estimatedMinutes: 8,
   initialTab: 'workflow',
   allowedTabs: ['workflow', 'catalog'],
 
@@ -412,6 +419,11 @@ export const wfVersionServicesLesson: DemoLesson = {
     await ctx.delay(400);
     await collapseWfDemoAppSidebar(ctx);
 
+    // Seed a Settings environment + microservice so the Service Registry
+    // "Linked Microservice" dropdown has an option to select.
+    seededEnvId = ensureSettingsEnvironment(DEMO_ENV_NAME);
+    seededMsId = ensureSettingsMicroservice(DEMO_MS_NAME, seededEnvId ? { [seededEnvId]: BASE_URL } : {});
+
     // Seed catalog entry via bridge only (no tab navigation — stays on workflow)
     try {
       if (!getCatalogEntryByName(CATALOG_ENTRY_NAME)) {
@@ -429,6 +441,8 @@ export const wfVersionServicesLesson: DemoLesson = {
     await cleanupWorkflowDemoRunUi(ctx);
     deleteWorkflowByName(WF_NAME);
     deleteCatalogEntryByName(CATALOG_ENTRY_NAME);
+    removeSettingsMicroservice(DEMO_MS_NAME);
+    removeSettingsEnvironment(DEMO_ENV_NAME);
     await collapseWfDemoAppSidebar(ctx);
     await ctx.delay(100);
   },
@@ -587,91 +601,334 @@ export const wfVersionServicesLesson: DemoLesson = {
         await ctx.delay(600);
         fitCanvasCentered();
         await ctx.delay(800);
-
-        // Save so the restoration is persisted
-        clickSave();
-        await ctx.delay(400);
       },
 
       verify: WF.CANVAS,
     },
 
-    // ── Step 4: Service Registry ────────────────────────────────────
+    // ── Step 4: Add & Configure a Service ────────────────────────────
     {
       id: 'wf7-services',
-      title: 'Service Registry',
+      title: 'Add & Configure a Service',
       description:
-        'Click **Services** in the toolbar to open the Service Registry. ' +
-        'A service defines a **named API** with per-environment base URLs and auth.\n\n' +
-        'Here "JSONPlaceholder" is configured with:\n' +
-        '- **URL**: `https://jsonplaceholder.typicode.com`\n' +
-        '- **Auth**: none (public API)\n\n' +
-        'HTTP nodes can **bind** to this service instead of hardcoding URLs — when you switch ' +
-        'environments, all bound nodes automatically resolve to the correct base URL.',
+        'Click **Services** in the toolbar to open the **Service Registry** — it starts empty.\n\n' +
+        'Click **+ Add**, name the service **JSONPlaceholder**, and select **jsonplaceholder** ' +
+        'from the **Linked Microservice** dropdown — watch the environment URLs auto-fill.\n\n' +
+        'Then click the **auth pill** on the demo environment row to configure ' +
+        '**Bearer Token** authentication. Click **Save** to confirm.',
       highlight: WF.SERVICES_BTN,
 
       preAction: async (ctx) => {
         await ensureSeededWorkflow(ctx);
         closeVersionPanel();
         closeServicePanel();
+
+        // Ensure the Settings microservice exists (in case setup was skipped / replayed)
+        if (!seededEnvId) seededEnvId = ensureSettingsEnvironment(DEMO_ENV_NAME);
+        if (!seededMsId) seededMsId = ensureSettingsMicroservice(DEMO_MS_NAME, seededEnvId ? { [seededEnvId]: BASE_URL } : {});
+
+        // On replay: clear services at the data layer so the registry starts empty
+        patchWorkflowByName(WF_NAME, { services: [] });
+        syncLiveWorkflowFromPatch(WF_NAME, { services: [] });
+        await ctx.delay(100);
       },
 
       action: async (ctx) => {
-        // 1. Spotlight and click the Services button to open inline panel
-        await spotlightSel(ctx, WF.SERVICES_BTN, 1000);
+        // 1. Spotlight the Services button
+        await spotlightSel(ctx, WF.SERVICES_BTN, 1200);
+
+        // 2. Click Services → inline panel → expand to full modal
         const svcBtn = document.querySelector<HTMLElement>(WF.SERVICES_BTN);
         if (svcBtn) svcBtn.click();
-        await ctx.delay(800);
-
-        // 2. Spotlight the inline panel showing the service row
-        const svcRow = document.querySelector<HTMLElement>('.wf-svc-inline-row');
-        if (svcRow) {
-          await spotlight(svcRow, 1200, ctx);
-        }
-
-        // 3. Click the expand button to open the full Service Registry Modal
-        const expandBtn = document.querySelector<HTMLElement>('.wf-services-panel button[title="Expand to full screen"]');
+        await ctx.delay(300);
+        const expandBtn = document.querySelector<HTMLElement>('.wf-services-panel button[title="Open Service Registry"]');
         if (expandBtn) {
           expandBtn.click();
-          await ctx.delay(1000);
+          await ctx.delay(1200);
         }
 
-        // 4. Spotlight the service name in the full modal
-        const nameInput = document.querySelector<HTMLElement>('.wf-svc-identity-fields input[type="text"]');
+        // 3. Spotlight the empty service list
+        const svcList = document.querySelector<HTMLElement>('.wf-svc-registry-list');
+        if (svcList) await spotlight(svcList, 1200, ctx);
+
+        // 4. Click "+ Add" to create a new service
+        const addBtn = document.querySelector<HTMLElement>('.wf-svc-add-btn');
+        if (addBtn) {
+          await spotlight(addBtn, 1000, ctx);
+          addBtn.click();
+          await ctx.delay(800);
+        }
+
+        // 5. Fill in the service name "JSONPlaceholder"
+        const nameInput = document.querySelector<HTMLInputElement>('.wf-svc-field-input');
         if (nameInput) {
-          await spotlight(nameInput, 1200, ctx);
+          await spotlight(nameInput, 800, ctx);
+          await ctx.fill('.wf-svc-field-input', 'JSONPlaceholder');
+          await ctx.delay(600);
         }
 
-        // 5. Spotlight the endpoint matrix — URLs per environment
-        const matrix = document.querySelector<HTMLElement>('.wf-svc-endpoint-matrix');
-        if (matrix) {
-          await spotlight(matrix, 1500, ctx);
+        // 6. Open the Linked Microservice dropdown and select "jsonplaceholder"
+        const linkedMsField = document.querySelector<HTMLElement>('.wf-svc-identity-fields .cs-wrapper');
+        if (linkedMsField) {
+          await spotlight(linkedMsField, 1000, ctx);
+          const trigger = linkedMsField.querySelector<HTMLElement>('.cs-trigger');
+          if (trigger) {
+            trigger.click();
+            await ctx.delay(600);
+            const options = linkedMsField.querySelectorAll<HTMLElement>('.cs-item');
+            for (const opt of options) {
+              if (opt.textContent?.toLowerCase().includes('jsonplaceholder')) {
+                await spotlight(opt, 1000, ctx);
+                opt.click();
+                await ctx.delay(1000);
+                break;
+              }
+            }
+          }
         }
 
-        // 6. Spotlight a specific URL row (adhoc row with the actual URL)
-        const urlInputs = document.querySelectorAll<HTMLElement>('.wf-svc-matrix-entry input[type="text"]');
-        for (const urlInput of urlInputs) {
-          if ((urlInput as HTMLInputElement).value.includes('jsonplaceholder')) {
-            await spotlight(urlInput, 1200, ctx);
+        // 7. Spotlight the "URLs managed by" notice (appears after linking)
+        const linkedNotice = document.querySelector<HTMLElement>('.wf-svc-linked-notice');
+        if (linkedNotice) await spotlight(linkedNotice, 1500, ctx);
+
+        // 8. Spotlight the demo environment row with auto-filled URL
+        const matrixRows = document.querySelectorAll<HTMLElement>('.wf-svc-matrix-entry');
+        for (const row of matrixRows) {
+          const urlInput = row.querySelector<HTMLInputElement>('.wf-svc-matrix-col-url input');
+          if (urlInput?.value?.includes('jsonplaceholder')) {
+            await spotlight(row, 1500, ctx);
+            // 9. Click the auth pill on this row
+            const authPill = row.querySelector<HTMLElement>('.wf-svc-auth-pill');
+            if (authPill) {
+              await spotlight(authPill, 1000, ctx);
+              authPill.click();
+              await ctx.delay(1000);
+            }
             break;
           }
         }
 
-        // 7. Spotlight the Auth column header briefly
-        const authCol = document.querySelector<HTMLElement>('.wf-svc-matrix-col-auth');
-        if (authCol) {
-          await spotlight(authCol, 800, ctx);
+        // 10. In the auth popup, select "Bearer Token"
+        const authPopup = document.querySelector<HTMLElement>('.wf-svc-auth-popup');
+        if (authPopup) {
+          await spotlight(authPopup, 800, ctx);
+          const authTypeSelect = authPopup.querySelector<HTMLElement>('.wf-svc-auth-popup-type .cs-trigger');
+          if (authTypeSelect) {
+            authTypeSelect.click();
+            await ctx.delay(600);
+            const authOptions = authPopup.querySelectorAll<HTMLElement>('.cs-item');
+            for (const opt of authOptions) {
+              if (opt.textContent?.includes('Bearer')) {
+                await spotlight(opt, 800, ctx);
+                opt.click();
+                await ctx.delay(800);
+                break;
+              }
+            }
+          }
+
+          // 11. Fill the token field
+          const authRows = authPopup.querySelectorAll<HTMLElement>('.wf-svc-auth-row');
+          for (const row of authRows) {
+            const label = row.querySelector('.wf-svc-auth-row-label');
+            if (label?.textContent?.includes('Token')) {
+              const tokenInput = row.querySelector<HTMLInputElement>('.wf-svc-auth-row-ctrl input');
+              if (tokenInput) {
+                await spotlight(tokenInput, 800, ctx);
+                const nativeSet = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+                if (nativeSet) nativeSet.call(tokenInput, 'my-demo-token-123');
+                tokenInput.dispatchEvent(new Event('input', { bubbles: true }));
+                tokenInput.dispatchEvent(new Event('change', { bubbles: true }));
+                await ctx.delay(800);
+              }
+              break;
+            }
+          }
+
+          // 12. Click Save on the auth popup
+          const saveBtn = authPopup.querySelector<HTMLElement>('.wf-svc-auth-footer-actions .btn-primary');
+          if (saveBtn) {
+            await spotlight(saveBtn, 800, ctx);
+            saveBtn.click();
+            await ctx.delay(800);
+          }
+        }
+      },
+
+      verify: '.wf-svc-registry-modal',
+    },
+
+    // ── Step 5: Apply Service & Assign to Nodes ────────────────────
+    {
+      id: 'wf7-env-auth',
+      title: 'Apply & Assign Service to Nodes',
+      description:
+        'Click **Apply** to save the **JSONPlaceholder** service to the workflow.\n\n' +
+        'Then open each HTTP node — **Create Post** and **Get Post** — and set their ' +
+        '**Service** dropdown to **JSONPlaceholder** so they use the service\'s base URL and auth.\n\n' +
+        'Finally, select the **demo** environment to see the resolved URL and auth in the **SERVICES** panel.',
+      highlight: '.wf-svc-registry-modal',
+
+      preAction: async (ctx) => {
+        closeVersionPanel();
+
+        const modalEl = document.querySelector('.wf-svc-registry-modal');
+
+        if (!modalEl) {
+          await ensureSeededWorkflow(ctx);
+          if (!seededEnvId) seededEnvId = ensureSettingsEnvironment(DEMO_ENV_NAME);
+          if (!seededMsId) seededMsId = ensureSettingsMicroservice(DEMO_MS_NAME, seededEnvId ? { [seededEnvId]: BASE_URL } : {});
+
+          patchWorkflowByName(WF_NAME, { services: [SEED_SERVICE_JSON] });
+          syncLiveWorkflowFromPatch(WF_NAME, { services: [SEED_SERVICE_JSON] });
+          await ctx.delay(200);
+
+          const svcBtn = document.querySelector<HTMLElement>(WF.SERVICES_BTN);
+          if (svcBtn) svcBtn.click();
+          await ctx.delay(300);
+          const expandBtn = document.querySelector<HTMLElement>('.wf-services-panel button[title="Open Service Registry"]');
+          if (expandBtn) { expandBtn.click(); await ctx.delay(600); }
         }
 
-        // Close everything — modal + inline panel
-        closeServicePanel();
-        await ctx.delay(500);
+        // Clean up: keep only JSONPlaceholder
+        await ctx.delay(200);
+        const allRows = document.querySelectorAll<HTMLElement>('.wf-svc-registry-row');
+        for (const row of allRows) {
+          const name = row.querySelector('.wf-svc-row-name')?.textContent?.trim();
+          if (name && name !== 'JSONPlaceholder') {
+            const delBtn = row.querySelector<HTMLElement>('.wf-svc-row-delete');
+            if (delBtn) { delBtn.click(); await ctx.delay(150); }
+          }
+        }
+        await ctx.delay(100);
+
+        // Select the JSONPlaceholder row
+        const rows = document.querySelectorAll<HTMLElement>('.wf-svc-registry-row');
+        for (const row of rows) {
+          const name = row.querySelector('.wf-svc-row-name')?.textContent?.trim();
+          if (name === 'JSONPlaceholder') {
+            row.click(); break;
+          }
+        }
+        await ctx.delay(200);
+      },
+
+      action: async (ctx) => {
+        await ctx.delay(600);
+
+        // 1. Spotlight JSONPlaceholder row (configured in Step 4)
+        const jpRow = document.querySelector<HTMLElement>('.wf-svc-registry-row.active');
+        if (jpRow) await spotlight(jpRow, 1200, ctx);
+
+        // 2. Click Apply
+        const allPrimary = document.querySelectorAll<HTMLElement>('.wf-svc-registry-modal .btn-primary');
+        let applyBtn: HTMLElement | null = null;
+        for (const b of allPrimary) {
+          if (b.textContent?.trim() === 'Apply') { applyBtn = b; break; }
+        }
+        if (applyBtn) {
+          await spotlight(applyBtn, 1000, ctx);
+          applyBtn.click();
+          await ctx.delay(1500);
+        }
+
+        // 3. Select "demo" environment from the toolbar — with highlight
+        const envWrap = document.querySelector<HTMLElement>('.wf-toolbar-env-select');
+        if (envWrap) {
+          await spotlight(envWrap, 1200, ctx);
+          const trigger = envWrap.querySelector<HTMLElement>('.cs-trigger');
+          if (trigger) {
+            trigger.click();
+            await ctx.delay(600);
+            const items = envWrap.querySelectorAll<HTMLElement>('.cs-item');
+            for (const item of items) {
+              if (item.textContent?.trim().toLowerCase() === 'demo') {
+                await spotlight(item, 1000, ctx);
+                item.click();
+                await ctx.delay(800);
+                break;
+              }
+            }
+          }
+        }
+
+        // 4. Spotlight the SERVICES panel showing JSONPlaceholder with URL & auth
+        const svcPanel = document.querySelector<HTMLElement>(WF.SVC_PANEL);
+        if (svcPanel) await spotlight(svcPanel, 2000, ctx);
+
+        // ── Assign service to HTTP nodes ─────────────────────────────
+        const assignServiceToNode = async (nodeLabel: string) => {
+          // 1. Spotlight the node on canvas before opening
+          const nodes = document.querySelectorAll<HTMLElement>('.react-flow__node');
+          for (const node of nodes) {
+            if (node.textContent?.includes(nodeLabel)) {
+              await spotlight(node, 1200, ctx);
+              node.dispatchEvent(new MouseEvent('dblclick', { bubbles: true }));
+              await ctx.delay(1500);
+              break;
+            }
+          }
+
+          // 2. Spotlight the modal title so the viewer sees which node is being configured
+          const modalTitle = document.querySelector<HTMLElement>('#wf-config-modal-title');
+          if (modalTitle) await spotlight(modalTitle, 1000, ctx);
+
+          // 3. Spotlight the Service dropdown showing "None (raw URL)"
+          const svcSelect = document.querySelector<HTMLElement>('.wf-config-service-select');
+          if (svcSelect) {
+            await spotlight(svcSelect, 1200, ctx);
+
+            // 4. Open the dropdown
+            const trigger = svcSelect.querySelector<HTMLElement>('.cs-trigger');
+            if (trigger) {
+              trigger.click();
+              await ctx.delay(600);
+
+              // 5. Spotlight "JSONPlaceholder" option and select it
+              const items = svcSelect.querySelectorAll<HTMLElement>('.cs-item');
+              for (const item of items) {
+                if (item.textContent?.includes('JSONPlaceholder')) {
+                  await spotlight(item, 1000, ctx);
+                  item.click();
+                  await ctx.delay(1000);
+                  break;
+                }
+              }
+            }
+          }
+
+          // 6. Spotlight the Resolved URL preview (shows the service base URL)
+          const resolvedUrl = document.querySelector<HTMLElement>('.wf-config-last-req-url');
+          if (resolvedUrl) await spotlight(resolvedUrl, 1500, ctx);
+
+          // 7. Click Save to apply the service binding
+          const saveBtn = document.querySelector<HTMLElement>('.wf-config-modal-footer .btn-primary');
+          if (saveBtn) {
+            await spotlight(saveBtn, 800, ctx);
+            saveBtn.click();
+            await ctx.delay(800);
+          }
+
+          // 8. Fit View after modal closes so canvas stays clean
+          fitCanvasCentered();
+          await ctx.delay(800);
+        };
+
+        // 5. Assign to "Create Post" node
+        await assignServiceToNode('Create Post');
+
+        // 6. Assign to "Get Post" node
+        await assignServiceToNode('Get Post');
+
+        // 7. Final spotlight on SERVICES panel
+        const svcPanelFinal = document.querySelector<HTMLElement>(WF.SVC_PANEL);
+        if (svcPanelFinal) await spotlight(svcPanelFinal, 2000, ctx);
       },
 
       verify: WF.CANVAS,
     },
 
-    // ── Step 5: Published Catalog Endpoint ─────────────────────────────
+    // ── Step 6: Published Catalog Endpoint ─────────────────────────────
     {
       id: 'wf7-catalog-setup',
       title: 'Published Catalog Endpoint',
@@ -680,70 +937,72 @@ export const wfVersionServicesLesson: DemoLesson = {
         'An imported API spec for **JSONPlaceholder** is already here.\n\n' +
         'The endpoint `GET /posts/{id}` has its Workflow Exposure set to **Published** — ' +
         'this means it\'s available as a node in the Workflow Designer.',
-      highlight: CAT.SIDEBAR,
 
       preAction: async (ctx) => {
-        await ensureSeededWorkflow(ctx);
         closeVersionPanel();
         closeServicePanel();
-        await ctx.delay(200);
         await ensureCatalogPublished(ctx);
-        // Stay on Catalog — action starts there
+        // Navigate to Catalog if not already there
+        if (!document.querySelector(CAT.SIDEBAR)) {
+          ctx.navigateToTab('catalog');
+          await ctx.delay(400);
+        }
+        // Select the entry quietly
+        selectCatalogEntryByName(CATALOG_ENTRY_NAME);
+        await ctx.delay(200);
       },
 
       action: async (ctx) => {
-        // Already on Catalog from preAction
-        ctx.navigateToTab('catalog');
-        await ctx.delay(800);
-        try { await ctx.waitFor(CAT.SIDEBAR, 3000); } catch { /* */ }
+        await ctx.delay(600);
 
-        // Select the JSONPlaceholder entry
-        selectCatalogEntryByName(CATALOG_ENTRY_NAME);
-        await ctx.delay(800);
-
-        // Spotlight the sidebar entry
-        const sidebarEntry = document.querySelector<HTMLElement>(CAT.entryByName(CATALOG_ENTRY_NAME));
-        if (sidebarEntry) await spotlight(sidebarEntry, 1200, ctx);
-
-        // Find and expand the endpoint card
-        const card = await waitForSelector(CAT.endpointCard(CATALOG_METHOD, CATALOG_PATH), 3000);
+        // 1. Highlight the endpoint card (GET /posts/{id})
+        const card = document.querySelector<HTMLElement>(CAT.endpointCard(CATALOG_METHOD, CATALOG_PATH));
         if (card) {
+          // Ensure card is expanded
           if (!card.querySelector('.sw-body')) {
             const header = card.querySelector<HTMLElement>('.sw-header');
-            if (header) { header.click(); await ctx.delay(300); }
+            if (header) { header.click(); await ctx.delay(400); }
           }
-          // Spotlight the endpoint card header (GET /posts/{id})
-          const cardHeader = card.querySelector<HTMLElement>('.sw-header');
-          if (cardHeader) await spotlight(cardHeader, 1200, ctx);
-
-          // Open Try It Out
+          // Ensure Try It Out is open (so exposure control is visible)
           const tryitBtn = card.querySelector<HTMLButtonElement>(CAT.TRYIT_BTN);
           if (tryitBtn && !tryitBtn.classList.contains('cancel')) {
             tryitBtn.click();
             await ctx.delay(400);
           }
 
-          // Spotlight the Workflow Exposure dropdown showing "Published"
-          const exposure = card.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
-          if (exposure) {
-            await spotlight(exposure, 1500, ctx);
+          // Fill the id parameter with a sample value
+          const idInput = card.querySelector<HTMLInputElement>('input[placeholder*="id"]');
+          if (idInput) {
+            idInput.focus();
+            idInput.value = '1';
+            idInput.dispatchEvent(new Event('input', { bubbles: true }));
+            idInput.dispatchEvent(new Event('change', { bubbles: true }));
+            await ctx.delay(400);
           }
+
+          // Spotlight the endpoint card header — the viewer reads "GET /posts/{id}"
+          const cardHeader = card.querySelector<HTMLElement>('.sw-header');
+          if (cardHeader) await spotlight(cardHeader, 2000, ctx);
+
+          // Spotlight the Workflow Exposure showing "Published" — the key point of this step
+          const exposure = card.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
+          if (exposure) await spotlight(exposure, 2500, ctx);
         }
       },
 
       verify: CAT.SIDEBAR,
     },
 
-    // ── Step 6: CAT Badge on Workflow Node ────────────────────────────
+    // ── Step 7: CAT Badge on Workflow Node ────────────────────────────
     {
       id: 'wf7-cat-badge',
       title: 'CAT Badge on Workflow Node',
       description:
-        'The **Get Post** HTTP node now shows a green **CAT** source badge. ' +
-        'This badge means the node was created from a published Catalog endpoint.\n\n' +
+        'Back in the Workflow Designer, the **Get Post** HTTP node now shows a green ' +
+        '**CAT** source badge. This badge means the node was created from a published ' +
+        'Catalog endpoint.\n\n' +
         'The connection is live — the node\'s URL, method, and headers are all derived from ' +
         'the Catalog spec. If the spec is updated and re-imported, the node can be refreshed.',
-      highlight: WF.NODE_HTTP,
 
       preAction: async (ctx) => {
         await ensureSeededWorkflow(ctx);
@@ -755,43 +1014,89 @@ export const wfVersionServicesLesson: DemoLesson = {
         await ctx.delay(200);
         ctx.navigateToTab('workflow');
         await ctx.delay(400);
+        resetWfPaletteToBlocks();
         fitCanvasCentered();
       },
 
       action: async (ctx) => {
-        ctx.navigateToTab('workflow');
         await ctx.delay(600);
-        fitCanvasCentered();
-        await ctx.delay(800);
 
-        // Spotlight the HTTP node
+        // 1. Switch palette to CATALOG tab and show the published endpoint
+        const catTab = document.querySelector<HTMLElement>('[data-testid="wf-palette-tab-catalog"]');
+        if (catTab) {
+          await spotlight(catTab, 1000, ctx);
+          catTab.click();
+          await ctx.delay(800);
+        }
+
+        // 2. Expand Published section if collapsed
+        const pubSection = document.querySelector<HTMLElement>('[data-testid="wf-palette-pub-section"]');
+        if (pubSection) {
+          const caret = pubSection.querySelector('.wf-palette-caret');
+          if (caret?.textContent?.trim() === '▸') { pubSection.click(); await ctx.delay(400); }
+        }
+
+        // 3. Expand the entry group (JSONPlaceholder API)
+        const groupHeaders = document.querySelectorAll<HTMLElement>('.wf-palette-group-header');
+        for (const gh of groupHeaders) {
+          if (gh.textContent?.includes('JSONPlaceholder')) {
+            const caret = gh.querySelector('.wf-palette-caret');
+            if (caret?.textContent?.trim() === '▸') { gh.click(); await ctx.delay(400); }
+            break;
+          }
+        }
+
+        // 4. Expand "posts" folder if collapsed
+        const folderHeaders = document.querySelectorAll<HTMLElement>('.wf-palette-folder-header');
+        for (const fh of folderHeaders) {
+          if (fh.textContent?.includes('posts')) {
+            const caret = fh.querySelector('.wf-palette-caret');
+            if (caret?.textContent?.trim() === '▸') { fh.click(); await ctx.delay(400); }
+            break;
+          }
+        }
+
+        // 5. Spotlight "Get a post by ID" palette item
+        const items = document.querySelectorAll<HTMLElement>('.wf-palette-item');
+        for (const item of items) {
+          if (item.title?.includes('/posts/{id}') || item.textContent?.includes('Get a post by ID')) {
+            await spotlight(item, 2500, ctx);
+            break;
+          }
+        }
+
+        // 6. Switch back to BLOCKS tab
+        const blocksTab = document.querySelector<HTMLElement>('[data-testid="wf-palette-tab-blocks"]');
+        if (blocksTab) { blocksTab.click(); await ctx.delay(600); }
+
+        // 7. Spotlight the "Get Post" node and its CAT badge
         const httpNode = document.querySelector<HTMLElement>(`[data-id="${CAT_HTTP_NODE_ID}"]`);
         if (httpNode) {
           const flowNode = httpNode.closest<HTMLElement>('.react-flow__node') ?? httpNode;
-          await spotlight(flowNode, 1200, ctx);
+          await spotlight(flowNode, 2000, ctx);
 
-          // Spotlight the CAT badge specifically
-          const catBadge = flowNode.querySelector<HTMLElement>('.wf-source-badge');
+          const catBadge = flowNode.querySelector<HTMLElement>('.wf-source-badge:not(.wf-svc-badge)');
           if (catBadge) {
-            await spotlight(catBadge, 2000, ctx);
+            await spotlight(catBadge, 3000, ctx);
           }
         }
       },
 
-      verify: WF.NODE_HTTP,
+      verify: WF.CANVAS,
     },
 
-    // ── Step 7: Orphan Badge (Unpublish & Re-publish) ────────────────
+    // ── Step 8: Orphan Badge (Unpublish & Re-publish) ────────────────
     {
       id: 'wf7-orphan-badge',
       title: 'Orphan Badge (Unpublish & Re-publish)',
       description:
-        'What happens when the source endpoint is **unpublished** from the Catalog? ' +
-        'The node still works — but an **⚠ orphan badge** appears warning that ' +
-        'the Catalog link is broken.\n\n' +
-        'Watch: we\'ll unpublish the endpoint, then return to the Workflow to see the warning. ' +
-        'Re-publishing removes the warning and restores the live connection.',
-      highlight: WF.NODE_HTTP,
+        'When a Catalog endpoint is **unpublished**, any workflow node linked to it shows ' +
+        'an **⚠ orphan badge** as a warning.\n\n' +
+        '**Watch this sequence:**\n' +
+        '1. We unpublish the endpoint in the Catalog\n' +
+        '2. The ⚠ orphan badge appears on the workflow node\n' +
+        '3. We re-publish — the orphan badge disappears\n\n' +
+        'This helps detect stale references when APIs are removed from the Catalog.',
 
       preAction: async (ctx) => {
         await ensureSeededWorkflow(ctx);
@@ -801,100 +1106,137 @@ export const wfVersionServicesLesson: DemoLesson = {
         await ensureCatalogPublished(ctx);
         applyCatalogRef();
         await ctx.delay(200);
-        ctx.navigateToTab('workflow');
-        await ctx.delay(400);
-        fitCanvasCentered();
+        // Navigate to Catalog and prepare — the action starts here
+        // Entry is already selected from ensureCatalogPublished
       },
 
       action: async (ctx) => {
-        // Navigate to Catalog → unpublish
-        ctx.navigateToTab('catalog');
-        await ctx.delay(800);
-        try { await ctx.waitFor(CAT.SIDEBAR, 3000); } catch { /* */ }
-        selectCatalogEntryByName(CATALOG_ENTRY_NAME);
+        // ── Part 1: Unpublish the endpoint ──
+        // We're on Catalog from preAction — endpoint card should be visible
         await ctx.delay(600);
-
-        // Open the endpoint card
-        const card = await waitForSelector(CAT.endpointCard(CATALOG_METHOD, CATALOG_PATH), 3000);
+        const card = document.querySelector<HTMLElement>(CAT.endpointCard(CATALOG_METHOD, CATALOG_PATH));
         if (card) {
           if (!card.querySelector('.sw-body')) {
             const header = card.querySelector<HTMLElement>('.sw-header');
-            if (header) { header.click(); await ctx.delay(200); }
+            if (header) { header.click(); await ctx.delay(400); }
           }
           const tryitBtn = card.querySelector<HTMLButtonElement>(CAT.TRYIT_BTN);
           if (tryitBtn && !tryitBtn.classList.contains('cancel')) {
             tryitBtn.click();
-            await ctx.delay(200);
+            await ctx.delay(400);
           }
         }
 
-        // Spotlight the exposure dropdown before unpublishing
+        // Scroll the exposure control into view so the dropdown is fully visible
         const exposure = card?.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
-        if (exposure) await spotlight(exposure, 1000, ctx);
+        if (exposure) {
+          exposure.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          await ctx.delay(600);
+          await spotlight(exposure, 2500, ctx);
 
-        // Unpublish
-        await unpublishEndpointQuiet(ctx);
-        await ctx.delay(500);
+          // Open the dropdown visibly
+          const trigger = exposure.querySelector<HTMLButtonElement>('.sw-wf-exposure-trigger');
+          if (trigger) {
+            trigger.click();
+            await ctx.delay(800);
+          }
 
-        // Return to Workflow Designer → spotlight orphan badge
-        ctx.navigateToTab('workflow');
-        await ctx.delay(800);
-        fitCanvasCentered();
-        await ctx.delay(800);
+          // Spotlight "Not Exposed" option before clicking
+          const noneOpt = document.querySelector<HTMLElement>(CAT.EXPOSE_OPTION_NONE);
+          if (noneOpt) {
+            await spotlight(noneOpt, 1500, ctx);
+            noneOpt.click();
+            await ctx.delay(800);
+          }
 
-        const orphanBadge = await waitForSelector(WF.ORPHAN_BADGE, 3000);
-        if (orphanBadge) {
-          await spotlight(orphanBadge, 2000, ctx);
+          // Confirm "Remove from Palette Only"
+          const paletteOnly = await waitForSelector('.sw-unpublish-btn--palette', 2000);
+          if (paletteOnly) {
+            await spotlight(paletteOnly, 1200, ctx);
+            paletteOnly.click();
+            await ctx.delay(1000);
+          }
         }
 
-        // Navigate back to Catalog → re-publish
-        ctx.navigateToTab('catalog');
-        await ctx.delay(800);
-        selectCatalogEntryByName(CATALOG_ENTRY_NAME);
-        await ctx.delay(400);
+        // ── Part 2: Switch to Workflow — see orphan badge ──
+        ctx.navigateToTab('workflow');
+        await ctx.delay(1500);
+        fitCanvasCentered();
+        await ctx.delay(1000);
 
-        const card2 = await waitForSelector(CAT.endpointCard(CATALOG_METHOD, CATALOG_PATH), 3000);
+        // Spotlight the orphan badge — this is the key moment, give plenty of time
+        const orphanBadge = await waitForSelector(WF.ORPHAN_BADGE, 3000);
+        if (orphanBadge) {
+          await spotlight(orphanBadge, 3500, ctx);
+        }
+
+        // ── Part 3: Switch back to Catalog and re-publish ──
+        ctx.navigateToTab('catalog');
+        await ctx.delay(1000);
+
+        // Card should still be expanded from Part 1
+        const card2 = document.querySelector<HTMLElement>(CAT.endpointCard(CATALOG_METHOD, CATALOG_PATH));
         if (card2) {
           if (!card2.querySelector('.sw-body')) {
             const header = card2.querySelector<HTMLElement>('.sw-header');
-            if (header) { header.click(); await ctx.delay(200); }
+            if (header) { header.click(); await ctx.delay(400); }
           }
           const tryitBtn = card2.querySelector<HTMLButtonElement>(CAT.TRYIT_BTN);
           if (tryitBtn && !tryitBtn.classList.contains('cancel')) {
             tryitBtn.click();
-            await ctx.delay(200);
+            await ctx.delay(400);
           }
 
-          // Re-publish
           const exposure2 = card2.querySelector<HTMLElement>(CAT.EXPOSE_TO_WORKFLOW);
           if (exposure2) {
+            // Scroll into view so dropdown is fully visible
+            exposure2.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            await ctx.delay(600);
+            await spotlight(exposure2, 2500, ctx);
+
+            // Open the dropdown visibly
             const trigger = exposure2.querySelector<HTMLButtonElement>('.sw-wf-exposure-trigger');
-            if (trigger) { trigger.click(); await ctx.delay(120); }
-            document.querySelector<HTMLButtonElement>(CAT.EXPOSE_OPTION_PUBLISHED)?.click();
-            await ctx.delay(150);
+            if (trigger) { trigger.click(); await ctx.delay(800); }
+
+            // Spotlight "Published" option before clicking
+            const pubOpt = document.querySelector<HTMLElement>(CAT.EXPOSE_OPTION_PUBLISHED);
+            if (pubOpt) {
+              await spotlight(pubOpt, 1500, ctx);
+              pubOpt.click();
+              await ctx.delay(800);
+            }
+
+            // Confirm publish modal
             const modal = await waitForSelector(CAT.PUBLISH_MODAL, 1500);
             if (modal) {
+              await spotlight(modal, 1200, ctx);
               document.querySelector<HTMLElement>(CAT.PUBLISH_CONFIRM_BTN)?.click();
-              await ctx.delay(200);
+              await ctx.delay(1000);
             }
           }
         }
+        await ctx.delay(1000);
 
-        // Return to Workflow Designer → spotlight badge gone
+        // ── Part 4: Switch to Workflow — orphan badge gone, CAT badge restored ──
         ctx.navigateToTab('workflow');
-        await ctx.delay(800);
+        await ctx.delay(1500);
         fitCanvasCentered();
-        await ctx.delay(800);
+        await ctx.delay(1000);
 
-        // The orphan badge should be gone now — spotlight the clean node
+        // Spotlight the clean node — healthy CAT badge, no orphan warning
         const cleanNode = document.querySelector<HTMLElement>(`[data-id="${CAT_HTTP_NODE_ID}"]`);
         if (cleanNode) {
           const flowNode = cleanNode.closest<HTMLElement>('.react-flow__node') ?? cleanNode;
-          await spotlight(flowNode, 1200, ctx);
+          const catBadge = flowNode.querySelector<HTMLElement>('.wf-source-badge:not(.wf-svc-badge)');
+          if (catBadge) {
+            await spotlight(catBadge, 3000, ctx);
+          } else {
+            await spotlight(flowNode, 3000, ctx);
+          }
         }
       },
 
-      verify: WF.NODE_HTTP,
+      verify: WF.CANVAS,
     },
   ],
 };
