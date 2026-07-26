@@ -117,9 +117,13 @@ export default function WorkflowRunner({ workflows, folders, onComplete, initial
   }, [selectedWorkflowId]);
 
   useEffect(() => {
-    if (!configLoaded || !initialWorkflowId || initialWorkflowId === selectedWorkflowId) return;
+    if (!configLoaded || !initialWorkflowId) return;
+    if (initialWorkflowId === selectedWorkflowId) {
+      onClearInitialWorkflowId?.();
+      return;
+    }
     const wf = workflows.find(w => w.id === initialWorkflowId);
-    if (!wf) return;
+    if (!wf) { onClearInitialWorkflowId?.(); return; }
     setSelectedWorkflowId(initialWorkflowId);
     setWorkflowVariables(buildInitialRunnerVariables(wf));
     setVariablesInitialized(true);

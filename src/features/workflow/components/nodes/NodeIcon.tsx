@@ -3,7 +3,7 @@
  * Each icon is a Lucide-style SVG rendered in a colored badge container.
  */
 
-type Category = 'trigger' | 'action' | 'logic' | 'data' | 'flow' | 'terminal' | 'integration';
+type Category = 'trigger' | 'action' | 'logic' | 'data' | 'flow' | 'terminal' | 'integration' | 'kafka' | 'websocket' | 'graphql' | 'grpc';
 
 interface NodeIconProps {
   type: string;
@@ -28,7 +28,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   kafkaProduce: {
-    category: 'integration',
+    category: 'kafka',
     svg: (
       <>
         <rect x="4" y="5" width="14" height="14" rx="2" />
@@ -38,7 +38,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   kafkaConsume: {
-    category: 'integration',
+    category: 'kafka',
     svg: (
       <>
         <rect x="6" y="5" width="14" height="14" rx="2" />
@@ -57,7 +57,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   kafkaWait: {
-    category: 'integration',
+    category: 'kafka',
     svg: (
       <>
         {/* Pause bars inside a rounded rect — represents wait/correlation */}
@@ -233,7 +233,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   wsConnect: {
-    category: 'integration',
+    category: 'websocket',
     svg: (
       <>
         <path d="M5 12h14" />
@@ -244,7 +244,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   wsSend: {
-    category: 'integration',
+    category: 'websocket',
     svg: (
       <>
         <path d="M22 2L11 13" />
@@ -253,7 +253,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   wsReceive: {
-    category: 'integration',
+    category: 'websocket',
     svg: (
       <>
         <polyline points="22 12 16 12 14 15 10 9 8 12 2 12" />
@@ -270,7 +270,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   graphqlQuery: {
-    category: 'integration',
+    category: 'graphql',
     svg: (
       <>
         <circle cx="12" cy="12" r="9" />
@@ -282,7 +282,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   graphqlMutation: {
-    category: 'integration',
+    category: 'graphql',
     svg: (
       <>
         <circle cx="12" cy="12" r="9" />
@@ -293,7 +293,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   graphqlSubscription: {
-    category: 'integration',
+    category: 'graphql',
     svg: (
       <>
         <circle cx="12" cy="12" r="9" />
@@ -323,7 +323,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   grpcUnary: {
-    category: 'integration',
+    category: 'grpc',
     svg: (
       <>
         <circle cx="12" cy="12" r="9" />
@@ -333,7 +333,7 @@ const ICON_MAP: Record<string, { category: Category; svg: React.ReactElement }> 
     ),
   },
   grpcServerStream: {
-    category: 'integration',
+    category: 'grpc',
     svg: (
       <>
         <circle cx="12" cy="12" r="9" />
@@ -377,6 +377,10 @@ export function getNodeCategory(type: string): string {
     flow: 'Flow',
     terminal: 'Terminal',
     integration: 'Integration',
+    kafka: 'Kafka',
+    websocket: 'WebSocket',
+    graphql: 'GraphQL',
+    grpc: 'gRPC',
   };
   return labels[entry.category];
 }

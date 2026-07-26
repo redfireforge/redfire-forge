@@ -349,7 +349,8 @@ describe('WorkflowRunner', () => {
       expect(screen.queryByText('▶ Run Workflow')).not.toBeInTheDocument();
     });
 
-    expect(onClearInitialWorkflowId).not.toHaveBeenCalled();
+    // Should still clear the initialWorkflowId to prevent stale state
+    expect(onClearInitialWorkflowId).toHaveBeenCalled();
   });
 
   it('shows completion banner and calls onComplete after final run', async () => {

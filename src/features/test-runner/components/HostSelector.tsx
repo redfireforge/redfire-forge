@@ -20,7 +20,7 @@ export default function HostSelector({
 }: Props) {
   if (isGalleryEnv) {
     return (
-      <div className="runner-host-selector">
+      <div className="runner-host-selector" data-testid="har-host-selector">
         <span className="runner-host-label">Host:</span>
         <span className="runner-host-gallery-hint">🏪 Gallery samples use their own hardcoded URLs — no host override needed</span>
       </div>
@@ -28,7 +28,7 @@ export default function HostSelector({
   }
 
   return (
-    <div className="runner-host-selector">
+    <div className="runner-host-selector" data-testid="har-host-selector">
       <span className="runner-host-label">Host:</span>
       <label className="radio-label">
         <input

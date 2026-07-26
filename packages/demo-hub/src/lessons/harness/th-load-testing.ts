@@ -1,0 +1,255 @@
+/**
+ * TH-8: Load Profiles & Advanced Execution
+ *
+ * Teaches the advanced execution configuration UI — load profiles
+ * (ramp-up/sustained/spike), think time delays, error policies,
+ * and constant arrival rate (desktop-only narration).
+ *
+ * This lesson is configuration-focused; it does NOT run a test.
+ * Actual execution is covered in TH-4 and TH-7.
+ */
+import type { DemoLesson, DemoActionContext } from '../../types';
+import { HAR } from '@shared/selectors';
+import {
+  seedDemoEnvAndService,
+  seedTh8FeatureGroup,
+  deleteTh8DemoFg,
+  ensureTh8FgExists,
+  selectFirstScenarioInRunner,
+  spotlight,
+  spotlightSel,
+  clickRadioByLabel,
+  clickProfileType,
+  setFieldByLabel,
+  setThinkTimeMs,
+} from './th-demo-helpers';
+
+const EXEC_CONFIG = HAR.EXEC_CONFIG;
+const EXEC_MODE_BOX = '.execution-group .runner-option-box';
+const THINK_TIME_BOX = '.think-time-section .runner-option-box';
+
+async function ensureTh8Ready(ctx: DemoActionContext): Promise<void> {
+  await ensureTh8FgExists(ctx);
+  if (!document.querySelector('.test-runner-page')) {
+    ctx.navigateToTab('runner');
+    await ctx.delay(600);
+  }
+  await selectFirstScenarioInRunner(ctx);
+}
+
+function switchExecMode(label: string): void {
+  clickRadioByLabel(EXEC_MODE_BOX, label);
+}
+
+function ensureLoadProfileMode(ctx: DemoActionContext): Promise<void> {
+  if (!document.querySelector(HAR.LOAD_PROFILE_SEC)) {
+    switchExecMode('Load Profile');
+    return ctx.delay(500);
+  }
+  return Promise.resolve();
+}
+
+export const thLoadTestingLesson: DemoLesson = {
+  id: 'th-load-testing',
+  domainId: 'harness',
+  category: 'execution',
+  name: 'Load Profiles & Advanced Execution',
+  description:
+    'Configure advanced execution modes — load profiles with ramp-up, sustained, and spike patterns, ' +
+    'think time delays, error policies, and constant arrival rate.',
+  estimatedMinutes: 5,
+  initialTab: 'runner',
+  allowedTabs: ['runner'],
+  concept: {
+    title: 'Advanced Execution Configuration',
+    body:
+      'Beyond simple sequential or batch execution, RedfireForge offers **Load Profiles** that shape ' +
+      'concurrency over time (ramp-up, sustained, spike), **Think Time** delays for realistic user simulation, ' +
+      '**Error Policies** to control run behavior on failures, and **Constant Arrival Rate** for open-model load testing.\n\n' +
+      'This lesson walks through each configuration section so you know how to set up any load testing scenario.',
+  },
+
+  setup: async (ctx) => {
+    deleteTh8DemoFg();
+    await ctx.delay(200);
+    await seedDemoEnvAndService(ctx);
+    await seedTh8FeatureGroup(ctx);
+    await ctx.delay(300);
+    ctx.navigateToTab('runner');
+    await ctx.delay(600);
+    await selectFirstScenarioInRunner(ctx);
+  },
+
+  cleanup: async (ctx) => {
+    switchExecMode('Batch');
+    await ctx.delay(200);
+    clickRadioByLabel(THINK_TIME_BOX, 'None');
+    await ctx.delay(100);
+    clickRadioByLabel(EXEC_CONFIG, 'Continue');
+    await ctx.delay(100);
+    deleteTh8DemoFg();
+    await ctx.delay(200);
+  },
+
+  steps: [
+    // ── Step 1: Load Profile Mode ────────────────────────────────
+    {
+      id: 'th8-load-profile',
+      title: 'Load Profile Mode',
+      description:
+        'The **Execution Mode** row offers five modes. Switch to **Load Profile** to reveal ' +
+        'the profile configurator — a time-based execution model where concurrency follows a ' +
+        'defined shape. The SVG preview chart shows exactly how concurrency scales over the run duration.',
+      highlight: HAR.EXEC_CONFIG,
+      action: async (ctx) => {
+        await ensureTh8Ready(ctx);
+
+        switchExecMode('Load Profile');
+        await ctx.delay(800);
+
+        await spotlightSel(ctx, HAR.PROFILE_TYPE_SEL, 1500);
+
+        setFieldByLabel(HAR.LOAD_PROFILE_SEC, 'Duration (sec)', 10);
+        await ctx.delay(300);
+        setFieldByLabel(HAR.LOAD_PROFILE_SEC, 'Max Concurrency', 5);
+        await ctx.delay(300);
+        setFieldByLabel(HAR.LOAD_PROFILE_SEC, 'Ramp (sec)', 5);
+        await ctx.delay(500);
+
+        await spotlightSel(ctx, HAR.PROFILE_FIELDS, 1200);
+        await spotlightSel(ctx, HAR.PROFILE_PREVIEW, 1500);
+      },
+      preAction: async (ctx) => {
+        await ensureTh8Ready(ctx);
+      },
+      verify: HAR.LOAD_PROFILE_SEC,
+    },
+
+    // ── Step 2: Profile Types ────────────────────────────────────
+    {
+      id: 'th8-profile-types',
+      title: 'Profile Types',
+      description:
+        'Three profile types shape the load curve differently. **Ramp-Up** gradually increases ' +
+        'concurrency from 1 to your max — ideal for capacity testing. **Sustained** holds steady ' +
+        'concurrency for endurance testing. **Spike** creates a burst pattern to test how your system handles sudden traffic surges.',
+      highlight: HAR.PROFILE_TYPE_SEL,
+      action: async (ctx) => {
+        await ctx.delay(400);
+
+        clickProfileType('Sustained');
+        await ctx.delay(600);
+        await spotlightSel(ctx, HAR.PROFILE_PREVIEW, 1000);
+
+        clickProfileType('Spike');
+        await ctx.delay(600);
+        await spotlightSel(ctx, HAR.PROFILE_FIELDS, 1200);
+        await spotlightSel(ctx, HAR.PROFILE_PREVIEW, 1000);
+
+        clickProfileType('Ramp-Up');
+        await ctx.delay(400);
+        await spotlightSel(ctx, HAR.PROFILE_PREVIEW, 800);
+      },
+      preAction: async (ctx) => {
+        await ensureTh8Ready(ctx);
+        await ensureLoadProfileMode(ctx);
+      },
+      verify: HAR.PROFILE_TYPE_SEL,
+    },
+
+    // ── Step 3: Think Time ───────────────────────────────────────
+    {
+      id: 'th8-think-time',
+      title: 'Think Time Delays',
+      description:
+        'Think Time adds realistic delays between requests, simulating how real users pause ' +
+        'between actions. Choose **Constant** for a fixed delay, **Uniform** for a random range, ' +
+        'or **Gaussian** for bell-curve variation around a mean.',
+      highlight: HAR.THINK_TIME_SEC,
+      action: async (ctx) => {
+        clickRadioByLabel(THINK_TIME_BOX, 'Constant');
+        await ctx.delay(500);
+
+        setThinkTimeMs(200);
+        await ctx.delay(400);
+
+        const hint = document.querySelector<HTMLElement>('.think-time-section .exec-mode-hint');
+        if (hint) await spotlight(hint, 1000, ctx);
+
+        clickRadioByLabel(THINK_TIME_BOX, 'None');
+        await ctx.delay(300);
+      },
+      preAction: async (ctx) => {
+        await ensureTh8Ready(ctx);
+        await ensureLoadProfileMode(ctx);
+      },
+      verify: HAR.THINK_TIME_SEC,
+    },
+
+    // ── Step 4: Error Policies ───────────────────────────────────
+    {
+      id: 'th8-error-policy',
+      title: 'Error Policies',
+      description:
+        'The **On Error** section in the resilience row controls what happens when requests fail. ' +
+        '**Continue** keeps running regardless. **Stop 1st** halts immediately on the first failure — ' +
+        'useful for strict validation. **Threshold** stops when the error rate exceeds a percentage you set, ' +
+        'plus a max error count safety net.',
+      highlight: HAR.ERROR_POLICY,
+      action: async (ctx) => {
+        clickRadioByLabel(EXEC_CONFIG, 'Threshold');
+        await ctx.delay(600);
+
+        const xsFields = document.querySelectorAll<HTMLElement>('.resilience-field-xs');
+        if (xsFields.length >= 2) {
+          await spotlight(xsFields[0], 800, ctx);
+          await spotlight(xsFields[1], 800, ctx);
+        }
+
+        setFieldByLabel(HAR.RESILIENCE_ROW, 'Error Rate', 10);
+        await ctx.delay(600);
+
+        const timeoutEl = Array.from(document.querySelectorAll<HTMLElement>('.resilience-field-sm'))
+          .find(f => f.querySelector('label')?.textContent?.includes('Timeout'));
+        if (timeoutEl) await spotlight(timeoutEl, 800, ctx);
+      },
+      preAction: async (ctx) => {
+        await ensureTh8Ready(ctx);
+        await ensureLoadProfileMode(ctx);
+      },
+      verify: HAR.ERROR_POLICY,
+    },
+
+    // ── Step 5: Constant Arrival Rate ────────────────────────────
+    {
+      id: 'th8-constant-arrival',
+      title: 'Constant Arrival Rate',
+      description:
+        'The **Constant Arrival** mode fires requests at a fixed rate regardless of response time — ' +
+        'an open model similar to k6\'s constant-arrival-rate. It configures Target RPS, Duration, ' +
+        'Max In-Flight, and an optional ramp. This mode requires the **desktop app** and is shown ' +
+        'dimmed in the web version. For most testing, Batch or Load Profile covers your needs; ' +
+        'use Constant Arrival for strict throughput targets.',
+      highlight: HAR.EXEC_MODE_ROW,
+      action: async (ctx) => {
+        const labels = document.querySelectorAll<HTMLElement>(EXEC_MODE_BOX + ' .radio-label');
+        const arrivalLabel = Array.from(labels).find(l => l.textContent?.includes('Constant Arrival'));
+        if (arrivalLabel) {
+          await spotlight(arrivalLabel, 1500, ctx);
+        }
+
+        switchExecMode('Batch');
+        await ctx.delay(500);
+
+        clickRadioByLabel(EXEC_CONFIG, 'Continue');
+        await ctx.delay(300);
+
+        await spotlightSel(ctx, EXEC_MODE_BOX, 1000);
+      },
+      preAction: async (ctx) => {
+        await ensureTh8Ready(ctx);
+      },
+      verify: EXEC_MODE_BOX,
+    },
+  ],
+};
