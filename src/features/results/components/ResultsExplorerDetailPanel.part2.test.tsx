@@ -80,7 +80,7 @@ describe('ResultsExplorerDetailPanel — part2', () => {
         timestamp: 1000,
         state: 'pass',
         durationMs: 50,
-        details: { statusCode: 200, mappingTraces },
+        details: { statusCode: 200, mappingTraces, request: { method: 'GET', url: '/trace', headers: {} } },
       }];
       const { container } = render(
         <ResultsExplorerDetailPanel
@@ -91,6 +91,7 @@ describe('ResultsExplorerDetailPanel — part2', () => {
           iterations={[{ index: 0, passed: true, durationMs: 50, traversedEdges: [], events: traceOnlyEvents, finalVariables: {} }]}
           onIterationChange={mockOnIterationChange}
           onClose={mockOnClose}
+          fullTraceCaptured
         />,
       );
       const variablesBtn = screen.getByRole('button', { name: 'Variables' });

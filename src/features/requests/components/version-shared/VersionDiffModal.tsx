@@ -1,5 +1,7 @@
-import type { ReactNode, RefObject } from 'react';
+import { useId, type ReactNode, type RefObject } from 'react';
 import type { DiffResult } from 'json-diff-kit';
+import { useModalFrame } from '../../../../shared/hooks/useModalFrame';
+import ModalResizeHandles from '../../../../shared/components/ModalResizeHandles';
 import VersionDiffSearchBar from './VersionDiffSearchBar';
 import VersionDiffSelectors from './VersionDiffSelectors';
 import VersionDiffViewerSection from './VersionDiffViewerSection';
@@ -60,13 +62,50 @@ export default function VersionDiffModal({
   searchBarProps,
   children,
 }: Props) {
+  const titleId = useId();
+  const {
+    isDragged,
+    overlayStyle,
+    dialogStyle,
+    headerDragStyle,
+    onHeaderMouseDown,
+    onHeaderPointerDown,
+    dialogRef,
+    onRightEdge,
+    onCorner,
+    onBottomEdge,
+  } = useModalFrame({
+    open: show,
+    minWidth: 640,
+    minHeight: 360,
+    constrainDragToViewport: true,
+    dragViewportPadding: 12,
+  });
+
   if (!show) return null;
 
   return (
-    <div className="version-diff-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="version-diff-modal">
-        <div className="version-diff-modal-header">
-          <h3>{title}</h3>
+    <div
+      className="version-diff-overlay"
+      style={overlayStyle}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className={`version-diff-modal${isDragged ? ' version-diff-modal--dragged' : ''}`}
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        style={dialogStyle}
+      >
+        {/* Header doubles as the drag handle. */}
+        <div
+          className="version-diff-modal-header"
+          style={headerDragStyle}
+          onMouseDown={onHeaderMouseDown}
+          onPointerDown={onHeaderPointerDown}
+        >
+          <h3 id={titleId}>{title}</h3>
           <div className="version-diff-modal-controls">
             {headerControls}
             <VersionDiffSearchBar
@@ -98,6 +137,10 @@ export default function VersionDiffModal({
         <div className="version-diff-footer">
           <button type="button" className="btn btn-sm" onClick={onClose}>Close</button>
         </div>
+
+        {/* Must stay a direct child of the role="dialog" box — the resize hook
+            measures the handle's parent to compute the drag origin. */}
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} />
       </div>
     </div>
   );

@@ -89,26 +89,19 @@ export function useOperatorEditing({
     e.stopPropagation();
     if (!showOperatorPicker && operatorPillRef.current) {
       const rect = operatorPillRef.current.getBoundingClientRect();
-      const dmBody = operatorPillRef.current.closest('.dm-body');
-      const sourcePanel = dmBody?.querySelector('.dm-panel-wrapper');
-      const sourcePanelRect = sourcePanel?.getBoundingClientRect();
       const pickerWidth = 240;
       const pickerHeight = 400;
-      let left: number;
-      if (sourcePanelRect) {
-        const fitWidth = Math.min(pickerWidth, sourcePanelRect.width - 16);
-        left = sourcePanelRect.left + 8;
-        if (fitWidth < pickerWidth) {
-          left = sourcePanelRect.left + 4;
-        }
-      } else {
-        left = 8;
+      // Position below the pill, aligned to its left edge
+      let left = rect.left;
+      // Prevent overflow on the right
+      if (left + pickerWidth > window.innerWidth - 8) {
+        left = Math.max(8, window.innerWidth - pickerWidth - 8);
       }
-      const spaceBelow = window.innerHeight - rect.top;
+      const spaceBelow = window.innerHeight - rect.bottom;
       const openUp = spaceBelow < pickerHeight && rect.top > spaceBelow;
       setPickerPos({
-        top: openUp ? Math.max(8, rect.top - pickerHeight + 30) : rect.top,
-        left: Math.max(8, left),
+        top: openUp ? Math.max(8, rect.top - pickerHeight) : rect.bottom + 4,
+        left,
         openUp,
       });
     }

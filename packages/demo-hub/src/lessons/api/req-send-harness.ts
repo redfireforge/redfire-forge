@@ -652,34 +652,34 @@ export const reqSendHarnessLesson: DemoLesson = {
         await spotlightElNoScroll(ctx, editBtn, 1000);
         editBtn.click();
         await ctx.delay(800);
-        await ctx.waitFor('.insomnia-modal .builder-panel', 3000);
+        await ctx.waitFor('.rf-builder-modal .builder-panel', 3000);
         await ctx.delay(600);
-        const propCard = document.querySelector<HTMLElement>('.insomnia-modal .te-prop-card');
+        const propCard = document.querySelector<HTMLElement>('.rf-builder-modal .te-prop-card');
         if (propCard) await spotlightElNoScroll(ctx, propCard, 1200);
-        const propRows = document.querySelectorAll<HTMLElement>('.insomnia-modal .te-prop-row');
+        const propRows = document.querySelectorAll<HTMLElement>('.rf-builder-modal .te-prop-row');
         if (propRows[0]) await spotlightElNoScroll(ctx, propRows[0], 900);
         const urlRow = Array.from(propRows).find(r =>
           r.querySelector('.te-prop-label')?.textContent?.trim() === 'URL',
         );
         if (urlRow) await spotlightElNoScroll(ctx, urlRow, 900);
-        const toolbar = document.querySelector<HTMLElement>('.insomnia-modal .mode-toggle');
+        const toolbar = document.querySelector<HTMLElement>('.rf-builder-modal .mode-toggle');
         if (toolbar) await spotlightElNoScroll(ctx, toolbar, 1100);
-        const tabBar = document.querySelector<HTMLElement>('.insomnia-modal .builder-tabs');
+        const tabBar = document.querySelector<HTMLElement>('.rf-builder-modal .builder-tabs');
         if (tabBar) await spotlightElNoScroll(ctx, tabBar, 1100);
         const validationTab = Array.from(
-          document.querySelectorAll<HTMLButtonElement>('.insomnia-modal .builder-tab'),
+          document.querySelectorAll<HTMLButtonElement>('.rf-builder-modal .builder-tab'),
         ).find(t => t.textContent?.trim().startsWith('Validation'));
         if (validationTab) {
           validationTab.click();
           await ctx.delay(600);
           await spotlightElNoScroll(ctx, validationTab, 900);
         }
-        const tabContent = document.querySelector<HTMLElement>('.insomnia-modal .builder-tab-content');
+        const tabContent = document.querySelector<HTMLElement>('.rf-builder-modal .builder-tab-content');
         if (tabContent) await spotlightElNoScroll(ctx, tabContent, 1100);
-        const saveBtn = document.querySelector<HTMLElement>('.insomnia-modal .ram-modal-footer .btn-primary');
+        const saveBtn = document.querySelector<HTMLElement>('.rf-builder-modal .ram-modal-footer .btn-primary');
         if (saveBtn) await spotlightElNoScroll(ctx, saveBtn, 900);
         await ctx.delay(400);
-        const cancelBtn = document.querySelector<HTMLElement>('.insomnia-modal .ram-modal-footer .btn-secondary');
+        const cancelBtn = document.querySelector<HTMLElement>('.rf-builder-modal .ram-modal-footer .btn-secondary');
         if (cancelBtn) {
           await spotlightElNoScroll(ctx, cancelBtn, 700);
           cancelBtn.click();

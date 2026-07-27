@@ -316,7 +316,7 @@ export async function seedTh3FeatureGroup(ctx: DemoActionContext): Promise<void>
         auth: { type: 'none' },
         assertions: { statusCode: '' },
         validation: {
-          mode: 'selective',
+          mode: 'none',
           sampleJson: TH3_SAMPLE_RESPONSE,
         },
       }],
@@ -1293,7 +1293,6 @@ const TH11_SAMPLE_JSON = JSON.stringify({
     suite: 'Apt. 556',
     city: 'Gwenborough',
     zipcode: '92998-3874',
-    geo: { lat: '-37.3159', lng: '81.1496' },
   },
   phone: '1-770-736-8031 x56442',
   website: 'hildegard.org',
@@ -1302,7 +1301,7 @@ const TH11_SAMPLE_JSON = JSON.stringify({
     catchPhrase: 'Multi-layered client-server neural-net',
     bs: 'harness real-time e-markets',
   },
-});
+}, null, 2);
 
 export function deleteTh11DemoFg(): void {
   getDemoBridgeWindow().__demoDeleteFeatureGroupsByName?.(TH11_FG_NAME);

@@ -289,6 +289,7 @@ export default function AssertionRowEditor({
             className="assertion-input assertion-input-path"
           />
           <JsonPathPicker sampleJson={sampleJson} onSelect={(p) => updateAssertion({ jsonPath: p })} />
+          <span className="assertion-field-label assertion-field-label-fixed">&nbsp;</span>
           <CustomSelect
             value={a.expectExists ? 'exists' : 'not_exists'}
             onChange={(v) => updateAssertion({ expectExists: v === 'exists' })}
@@ -487,13 +488,14 @@ export default function AssertionRowEditor({
             value={a.operator}
             onChange={(v) => updateAssertion({ operator: v as ComparisonOperator })}
             className="assertion-select assertion-select--operator"
+            showDetailInTrigger
             options={[
-              { value: '<', label: 'less than' },
-              { value: '<=', label: 'at most' },
-              { value: '=', label: 'exactly' },
-              { value: '>=', label: 'at least' },
-              { value: '>', label: 'more than' },
-              { value: '!=', label: 'not equal' },
+              { value: '<', label: 'less than', detail: '<' },
+              { value: '<=', label: 'at most', detail: '≤' },
+              { value: '=', label: 'exactly', detail: '=' },
+              { value: '>=', label: 'at least', detail: '≥' },
+              { value: '>', label: 'more than', detail: '>' },
+              { value: '!=', label: 'not equal', detail: '≠' },
             ]}
           />
           <input
@@ -530,13 +532,14 @@ export default function AssertionRowEditor({
             value={a.operator}
             onChange={(v) => updateAssertion({ operator: v as ComparisonOperator })}
             className="assertion-select assertion-select--operator"
+            showDetailInTrigger
             options={[
-              { value: '=', label: 'equals' },
-              { value: '!=', label: 'not equals' },
-              { value: '>', label: 'after' },
-              { value: '>=', label: 'on or after' },
-              { value: '<', label: 'before' },
-              { value: '<=', label: 'on or before' },
+              { value: '=', label: 'equals', detail: '=' },
+              { value: '!=', label: 'not equals', detail: '≠' },
+              { value: '>', label: 'after', detail: '>' },
+              { value: '>=', label: 'on or after', detail: '≥' },
+              { value: '<', label: 'before', detail: '<' },
+              { value: '<=', label: 'on or before', detail: '≤' },
             ]}
           />
           <div className="assertion-date-wrap">
@@ -594,12 +597,30 @@ export default function AssertionRowEditor({
             className="assertion-input assertion-input--desc-inline"
             aria-label="Custom predicate description"
           />
-          <span
+          <button
+            type="button"
             className="assertion-custom-hint-tip"
             title="Use $.body, $.status, $.headers, $.responseTime — supports all 113 expression functions including lambdas"
+            onClick={(e) => {
+              const btn = e.currentTarget;
+              const existing = btn.parentElement?.querySelector('.assertion-custom-hint-pop');
+              if (existing) { existing.remove(); return; }
+              const pop = document.createElement('div');
+              pop.className = 'assertion-custom-hint-pop';
+              pop.textContent = 'Use $.body, $.status, $.headers, $.responseTime — supports all 113 expression functions including lambdas';
+              btn.parentElement?.appendChild(pop);
+              const dismiss = (ev: MouseEvent) => {
+                if (!pop.contains(ev.target as Node) && ev.target !== btn) {
+                  pop.remove();
+                  document.removeEventListener('mousedown', dismiss);
+                }
+              };
+              setTimeout(() => document.addEventListener('mousedown', dismiss), 0);
+            }}
+            aria-label="Expression syntax help"
           >
             i
-          </span>
+          </button>
         </div>
       )}
 

@@ -96,14 +96,15 @@ describe('CatalogConvertOpenApiModal', () => {
     await waitFor(() => expect(convertSwaggerToOpenApiYaml).toHaveBeenCalledWith(RAW, { engine: 'swagger2openapi', target: '3.0' }));
     expect(await screen.findByText('Valid OpenAPI 3.0.4')).toBeInTheDocument();
 
-    const download = screen.getByRole('button', { name: /Download YAML/ });
-    expect(download).toBeEnabled();
+    // The validation badge and the YAML text land in separate state updates,
+    // so the badge alone does not mean the yaml-gated controls are live yet.
+    await waitFor(() => expect(screen.getByRole('button', { name: /Download YAML/ })).toBeEnabled());
   });
 
   it('renders the converted YAML in the preview', async () => {
     renderModal();
     await screen.findByText('Valid OpenAPI 3.0.4');
-    expect(screen.getByText(/openapi: 3.0.4/)).toBeInTheDocument();
+    expect(await screen.findByText(/openapi: 3.0.4/)).toBeInTheDocument();
   });
 
   it('copies the YAML preview to the clipboard and shows transient "Copied" feedback', async () => {
@@ -111,7 +112,7 @@ describe('CatalogConvertOpenApiModal', () => {
     await screen.findByText('Valid OpenAPI 3.0.4');
 
     const copyBtn = screen.getByTestId('catalog-convert-copy-btn');
-    expect(copyBtn).toBeEnabled();
+    await waitFor(() => expect(copyBtn).toBeEnabled());
 
     fireEvent.click(copyBtn);
 
@@ -452,7 +453,7 @@ describe('CatalogConvertOpenApiModal', () => {
     await screen.findByText('Valid OpenAPI 3.0.4');
 
     const save = screen.getByRole('button', { name: 'Save as new version' });
-    expect(save).toBeEnabled();
+    await waitFor(() => expect(save).toBeEnabled());
 
     await act(async () => { fireEvent.click(save); });
 
@@ -480,7 +481,7 @@ describe('CatalogConvertOpenApiModal', () => {
       vi.mocked(loadPrettyPref).mockResolvedValue(false);
       renderModal();
       await screen.findByText('Valid OpenAPI 3.0.4');
-      expect(screen.getByText(/openapi: 3.0.4/)).toBeInTheDocument();
+      expect(await screen.findByText(/openapi: 3.0.4/)).toBeInTheDocument();
       expect(screen.queryByText('PRETTY_YAML')).not.toBeInTheDocument();
       expect(prettifyOpenApiYaml).not.toHaveBeenCalled();
     });

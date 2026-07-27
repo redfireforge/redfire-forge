@@ -19,7 +19,7 @@ import {
 } from './th-demo-helpers';
 import { fillControlledInput } from '../setup-helpers';
 
-const TEST_EDITOR_SEL = '.insomnia-modal';
+const TEST_EDITOR_SEL = '.rf-builder-modal';
 
 const CURL_EXAMPLE =
   `curl -X POST https://api.example.com/users \\
@@ -100,6 +100,30 @@ export const thImportExportCurlLesson: DemoLesson = {
       '- **Import/Export ▾** — menus for test definitions, Excel templates, and data rows\n' +
       '- **FG Export** — card-level export with version checkboxes\n' +
       '- **Auto-report** — auto-download reports after each runner completion',
+    keyTerms: [
+      { term: 'cURL Import', definition: 'Paste a cURL command to auto-populate URL, method, headers, and body.' },
+      { term: 'cURL Export', definition: 'Generate a ready-to-paste cURL with resolved variables and auth tokens.' },
+      { term: 'FG Export', definition: 'Export an entire Feature Group with optional version snapshots.' },
+    ],
+    diagram: `<svg viewBox="0 0 380 80" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="10" width="75" height="60" rx="5" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
+      <text x="42" y="28" text-anchor="middle" fill="#10b981" font-size="7" font-weight="700">Import</text>
+      <text x="42" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">cURL paste</text>
+      <text x="42" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">JSON / CSV</text>
+      <path d="M85 40 L115 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th15arr)"/>
+      <rect x="120" y="5" width="100" height="70" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="170" y="22" text-anchor="middle" fill="#3b82f6" font-size="7" font-weight="700">Test Editor</text>
+      <text x="170" y="36" text-anchor="middle" fill="#94a3b8" font-size="5.5">URL + Method</text>
+      <text x="170" y="48" text-anchor="middle" fill="#94a3b8" font-size="5.5">Headers + Body</text>
+      <text x="170" y="60" text-anchor="middle" fill="#94a3b8" font-size="5.5">Auth + Validation</text>
+      <path d="M225 40 L255 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th15arr)"/>
+      <rect x="260" y="10" width="75" height="60" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="297" y="28" text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="700">Export</text>
+      <text x="297" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">cURL command</text>
+      <text x="297" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">FG + versions</text>
+      <defs><marker id="th15arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#64748b"/></marker></defs>
+    </svg>`,
   },
 
   setup: async (ctx) => {

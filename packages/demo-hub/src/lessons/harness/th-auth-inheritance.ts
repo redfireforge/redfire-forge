@@ -22,7 +22,7 @@ import {
 } from './th-demo-helpers';
 import { fillControlledInput } from '../setup-helpers';
 
-const TEST_EDITOR_SEL = '.insomnia-modal';
+const TEST_EDITOR_SEL = '.rf-builder-modal';
 
 /* ── local helpers ──────────────────────────────────────────── */
 
@@ -117,6 +117,36 @@ export const thAuthInheritanceLesson: DemoLesson = {
       '3. **Feature Group** — applies to all scenarios unless overridden\n' +
       '4. **Global Profile** — defined in Settings, linked to FGs via dropdown\n\n' +
       'Badge colors show the source: green (own), blue (scenario), purple (feature), orange (global).',
+    keyTerms: [
+      { term: 'Auth Inheritance', definition: 'Bottom-up resolution: Test > Scenario > Feature Group > Global Profile.' },
+      { term: 'Auth Badge', definition: 'Color-coded indicator showing where a test gets its auth from.' },
+      { term: 'Global Profile', definition: 'Reusable auth config defined in Settings, linked to Feature Groups.' },
+    ],
+    diagram: `<svg viewBox="0 0 380 90" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="5" width="80" height="80" rx="5" fill="#1e293b" stroke="#f97316" stroke-width="1.5"/>
+      <text x="45" y="20" text-anchor="middle" fill="#f97316" font-size="6.5" font-weight="700">Global Profile</text>
+      <text x="45" y="34" text-anchor="middle" fill="#94a3b8" font-size="5">Bearer token</text>
+      <rect x="15" y="42" width="60" height="38" rx="4" fill="#1e293b" stroke="#a855f7" stroke-width="1.2"/>
+      <text x="45" y="55" text-anchor="middle" fill="#a855f7" font-size="6" font-weight="600">Feature Group</text>
+      <text x="45" y="68" text-anchor="middle" fill="#94a3b8" font-size="5">inherits</text>
+      <path d="M90 45 L120 45" stroke="#64748b" stroke-width="1.2" marker-end="url(#th14arr)"/>
+      <rect x="125" y="5" width="90" height="80" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="170" y="20" text-anchor="middle" fill="#3b82f6" font-size="6.5" font-weight="700">Scenario</text>
+      <text x="170" y="34" text-anchor="middle" fill="#94a3b8" font-size="5">can override</text>
+      <rect x="135" y="42" width="70" height="38" rx="4" fill="#1e293b" stroke="#10b981" stroke-width="1.2"/>
+      <text x="170" y="55" text-anchor="middle" fill="#10b981" font-size="6" font-weight="600">Test</text>
+      <text x="170" y="68" text-anchor="middle" fill="#94a3b8" font-size="5">highest priority</text>
+      <path d="M220 45 L250 45" stroke="#64748b" stroke-width="1.2" marker-end="url(#th14arr)"/>
+      <rect x="255" y="15" width="60" height="20" rx="4" fill="#10b981" fill-opacity="0.15" stroke="#10b981" stroke-width="1"/>
+      <text x="285" y="29" text-anchor="middle" fill="#10b981" font-size="6">Own auth</text>
+      <rect x="255" y="40" width="60" height="20" rx="4" fill="#3b82f6" fill-opacity="0.15" stroke="#3b82f6" stroke-width="1"/>
+      <text x="285" y="54" text-anchor="middle" fill="#3b82f6" font-size="6">Scenario</text>
+      <rect x="255" y="65" width="60" height="20" rx="4" fill="#f97316" fill-opacity="0.15" stroke="#f97316" stroke-width="1"/>
+      <text x="285" y="79" text-anchor="middle" fill="#f97316" font-size="6">Global</text>
+      <text x="340" y="29" text-anchor="start" fill="#94a3b8" font-size="5.5">Badges</text>
+      <defs><marker id="th14arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#64748b"/></marker></defs>
+    </svg>`,
   },
 
   setup: async (ctx) => {

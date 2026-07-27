@@ -98,6 +98,36 @@ export const thSlaConfigurationLesson: DemoLesson = {
       '- **Warn/Fail two tiers**: amber warning before the red failure threshold\n' +
       '- **Runner overrides**: temporary threshold changes for a single run\n' +
       '- **Results evaluation**: pass/warn/fail status per target after execution',
+    keyTerms: [
+      { term: 'SLA Target', definition: 'An absolute threshold for a metric (e.g., P95 < 200ms).' },
+      { term: 'Warn/Fail', definition: 'Two-tier system: amber warning before the red failure threshold.' },
+      { term: 'Runner Override', definition: 'Temporary threshold change for a single run without editing the definition.' },
+    ],
+    diagram: `<svg viewBox="0 0 380 80" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="10" width="80" height="60" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="45" y="28" text-anchor="middle" fill="#3b82f6" font-size="7" font-weight="700">Define</text>
+      <text x="45" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">P95 &lt; 200ms</text>
+      <text x="45" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">TPS &gt; 50</text>
+      <path d="M90 40 L120 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th13arr)"/>
+      <rect x="125" y="10" width="75" height="60" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="162" y="25" text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="700">Thresholds</text>
+      <rect x="135" y="33" width="55" height="10" rx="2" fill="#1e293b" stroke="#f59e0b" stroke-width="0.8"/>
+      <text x="162" y="41" text-anchor="middle" fill="#f59e0b" font-size="5">Warn: 180ms</text>
+      <rect x="135" y="48" width="55" height="10" rx="2" fill="#1e293b" stroke="#ef4444" stroke-width="0.8"/>
+      <text x="162" y="56" text-anchor="middle" fill="#ef4444" font-size="5">Fail: 200ms</text>
+      <path d="M205 40 L235 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th13arr)"/>
+      <rect x="240" y="10" width="60" height="60" rx="5" fill="#1e293b" stroke="#a855f7" stroke-width="1.5"/>
+      <text x="270" y="28" text-anchor="middle" fill="#a855f7" font-size="7" font-weight="700">Run</text>
+      <text x="270" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">Execute</text>
+      <text x="270" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">Measure</text>
+      <path d="M305 40 L330 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th13arr)"/>
+      <rect x="335" y="10" width="40" height="60" rx="5" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
+      <text x="355" y="30" text-anchor="middle" fill="#10b981" font-size="7" font-weight="700">SLA</text>
+      <text x="355" y="44" text-anchor="middle" fill="#10b981" font-size="6">Pass</text>
+      <text x="355" y="56" text-anchor="middle" fill="#94a3b8" font-size="5">or Fail</text>
+      <defs><marker id="th13arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#64748b"/></marker></defs>
+    </svg>`,
   },
 
   setup: async (ctx) => {
