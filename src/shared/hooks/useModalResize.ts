@@ -27,9 +27,11 @@ export function useModalResize(minWidth = 320, minHeight = 200) {
       e.preventDefault();
       e.stopPropagation();
       const handle = e.currentTarget as HTMLElement;
-      // First try to find closest dialog element (AppModalFrame structure)
-      // Fall back to parentElement for test compatibility
-      const modal = (handle.closest('[role="dialog"]') || handle.parentElement) as HTMLElement | null;
+      // Handles are always direct children of the box they resize (see
+      // ModalResizeHandles). Measuring any other ancestor — e.g. a full-viewport
+      // overlay carrying role="dialog" — snaps the modal to that ancestor's size
+      // on the first pointer move.
+      const modal = (handle.parentElement ?? handle.closest('[role="dialog"]')) as HTMLElement | null;
       if (!modal) {
         return;
       }

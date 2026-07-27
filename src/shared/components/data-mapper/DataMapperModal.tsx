@@ -21,7 +21,6 @@ interface DataMapperModalProps<TOutput = unknown> {
   initialData?: TOutput;
   onSave: (output: TOutput, options?: { unorderedArrays?: boolean }) => void;
   onCancel: () => void;
-  fullScreenDefault?: boolean;
   doneLabel?: string;
   unorderedArrays?: boolean;
   /** Scope prefix for schema snapshots (e.g. test ID) to prevent cross-instance drift false positives. */
@@ -82,7 +81,6 @@ export default function DataMapperModal<TOutput = unknown>({
   initialData,
   onSave,
   onCancel,
-  fullScreenDefault = false,
   doneLabel = 'Save',
   unorderedArrays: initialUnorderedArrays,
   contextScope,
@@ -92,7 +90,6 @@ export default function DataMapperModal<TOutput = unknown>({
     ? `${adapter.contextId}:${contextScope}`
     : adapter.contextId;
   const titleId = useId();
-  const [isFullScreen, setIsFullScreen] = useState(fullScreenDefault);
   const {
     isDragged,
     overlayStyle,
@@ -477,23 +474,24 @@ export default function DataMapperModal<TOutput = unknown>({
 
   return (
     <div
-      className={`dm-modal-overlay ${isFullScreen ? 'dm-modal--fullscreen' : ''}`}
+      className="dm-modal-overlay"
       tabIndex={-1}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby={titleId}
-      style={!isFullScreen ? overlayStyle : undefined}
+      role="presentation"
+      style={overlayStyle}
     >
       <div
         className={`dm-modal-shell${isDragged ? ' dm-modal--dragged' : ''}`}
         ref={dialogRef}
-        style={!isFullScreen ? dialogStyle : undefined}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        style={dialogStyle}
       >
         <div
           className="dm-modal-header"
-          style={!isFullScreen ? headerDragStyle : undefined}
-          onMouseDown={!isFullScreen ? onHeaderMouseDown : undefined}
-          onPointerDown={!isFullScreen ? onHeaderPointerDown : undefined}
+          style={headerDragStyle}
+          onMouseDown={onHeaderMouseDown}
+          onPointerDown={onHeaderPointerDown}
         >
           <div className="dm-modal-title-block">
             <h2 id={titleId} className="dm-modal-title">
@@ -502,16 +500,6 @@ export default function DataMapperModal<TOutput = unknown>({
                 {adapter.title}
               </span>
             </h2>
-          </div>
-          <div className="dm-modal-header-actions">
-            <button
-              className="dm-modal-header-btn"
-              onClick={() => setIsFullScreen((f) => !f)}
-              aria-label={isFullScreen ? 'Exit full screen' : 'Enter full screen'}
-              title={isFullScreen ? 'Restore modal size' : 'Use full screen workspace'}
-            >
-              {isFullScreen ? 'Exit full screen' : 'Full screen'}
-            </button>
           </div>
         </div>
 
@@ -605,7 +593,7 @@ export default function DataMapperModal<TOutput = unknown>({
             </button>
           </div>
         </div>
-        {!isFullScreen && <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} />}
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} />
       </div>
       {showDiffModal && driftEntries.length > 0 && (
         <SchemaDiffModal

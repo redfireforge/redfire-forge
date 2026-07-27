@@ -417,7 +417,7 @@ The `harnessDomain` is registered but has zero lessons — despite 40+ training 
 
 **Note — UI realities (verified against codebase):**
 - The **⚡ Data Mapper** button is in `.fetch-host-override-row` (uses `HAR.TE_MAPPER_BTN`), enabled when `sampleJson` or `expectedFields` exist in selective mode.
-- Modal shell uses `.dm-modal-overlay` / `.dm-modal-shell` (NOT `.data-mapper-modal`). Full screen toggle in header (`.dm-modal-header-btn`).
+- Modal shell uses `.dm-modal-overlay` (backdrop, `role="presentation"`) / `.dm-modal-shell` (the dialog box, carries `role="dialog"`) — NOT `.data-mapper-modal`. There is no full screen toggle; the modal is drag-moveable by its header and resizable via the right/bottom/corner handles.
 - Layout: **Source** panel (`.dm-panel--source`) on left with JSON tree + type pills (`obj`, `arr`, `str`, `num`, `bool`) + search input (`.dm-search-input`). **Target** panel (`.dm-panel--target`) on right with mapped rules + operator pills (`.dm-operator-pill`). **Canvas** (`.dm-canvas`) between them with SVG connection lines.
 - **Toolbar** (`.dm-toolbar`): Auto-map (`.dm-toolbar-btn--primary`), Clear all, status text, view mode buttons (Code/Preview/Table/Rules/Lines), Verify All (`.dm-toolbar-btn--verify`), Undo/Redo.
 - **Auto-map** uses 3-tier name matching (exact path, fuzzy name, type-compatible). Button shows count badge.

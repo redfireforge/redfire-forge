@@ -169,7 +169,10 @@ export function useModalDrag(open: boolean, options?: UseModalDragOptions) {
       : e.target instanceof Node
         ? e.target.parentElement
         : null;
-    if (targetElement?.closest('button, input, select, textarea')) return;
+    // Interactive controls are never drag surfaces. `label` matters because its
+    // text sits outside the wrapped input, so dragging from a checkbox caption
+    // would move the modal while the user was only trying to toggle it.
+    if (targetElement?.closest('button, input, select, textarea, label, a[href], [data-no-drag]')) return;
     e.preventDefault();
     const modal = (e.currentTarget as HTMLElement).closest('[role="dialog"]') as HTMLElement;
     if (!modal) return;

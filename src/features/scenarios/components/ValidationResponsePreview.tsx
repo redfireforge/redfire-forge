@@ -5,16 +5,32 @@ interface ValidationResponsePreviewProps {
   isPending: boolean;
 }
 
+function tryPrettyPrint(json: string): string {
+  try {
+    return JSON.stringify(JSON.parse(json), null, 2);
+  } catch {
+    return json;
+  }
+}
+
 export default function ValidationResponsePreview({ responsePreviewJson, isPending }: ValidationResponsePreviewProps) {
   const [collapsed, setCollapsed] = useState(false);
+  // Sample responses arrive minified from the wire; formatted is the readable
+  // default. The toggle exists for reading the payload exactly as received.
+  const [pretty, setPretty] = useState(true);
   const [responseSearchTerm, setResponseSearchTerm] = useState('');
   const [responseSearchIndex, setResponseSearchIndex] = useState(-1);
   const responseTextareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const displayJson = useMemo(
+    () => pretty ? tryPrettyPrint(responsePreviewJson) : responsePreviewJson,
+    [pretty, responsePreviewJson],
+  );
+
   const responseSearchMatches = useMemo(() => {
-    if (!responseSearchTerm || !responsePreviewJson) return [];
+    if (!responseSearchTerm || !displayJson) return [];
     const lower = responseSearchTerm.toLowerCase();
-    const text = responsePreviewJson.toLowerCase();
+    const text = displayJson.toLowerCase();
     const matches: number[] = [];
     let idx = 0;
     while (idx < text.length) {
@@ -24,7 +40,7 @@ export default function ValidationResponsePreview({ responsePreviewJson, isPendi
       idx = found + 1;
     }
     return matches;
-  }, [responseSearchTerm, responsePreviewJson]);
+  }, [responseSearchTerm, displayJson]);
 
   useEffect(() => {
     setResponseSearchIndex(-1);
@@ -39,10 +55,10 @@ export default function ValidationResponsePreview({ responsePreviewJson, isPendi
       const start = responseSearchMatches[wrapped];
       el.focus();
       el.setSelectionRange(start, start + responseSearchTerm.length);
-      const linesBefore = responsePreviewJson.slice(0, start).split('\n').length - 1;
+      const linesBefore = displayJson.slice(0, start).split('\n').length - 1;
       el.scrollTop = linesBefore * 16 - el.clientHeight / 2;
     }
-  }, [responseSearchMatches, responseSearchTerm, responsePreviewJson]);
+  }, [responseSearchMatches, responseSearchTerm, displayJson]);
 
   return (
     <div className={`validation-response-preview ${isPending ? 'validation-response-preview--pending' : ''} ${collapsed ? 'validation-response-preview--collapsed' : ''}`}>
@@ -62,6 +78,16 @@ export default function ValidationResponsePreview({ responsePreviewJson, isPendi
         <span className="validation-response-preview-meta">
           {(responsePreviewJson.length / 1024).toFixed(1)} KB
         </span>
+        <button
+          type="button"
+          className={`validation-response-pretty-btn${pretty ? ' validation-response-pretty-btn--active' : ''}`}
+          onClick={(e) => { e.stopPropagation(); setPretty(p => !p); }}
+          title="Pretty-print JSON"
+          aria-label="Pretty-print JSON"
+          aria-pressed={pretty}
+        >
+          Pretty
+        </button>
       </div>
       {!collapsed && (
         <>
@@ -132,9 +158,9 @@ export default function ValidationResponsePreview({ responsePreviewJson, isPendi
           <textarea
             ref={responseTextareaRef}
             className="validation-response-preview-textarea"
-            value={responsePreviewJson}
+            value={displayJson}
             readOnly
-            rows={8}
+            rows={pretty ? 16 : 8}
             aria-label={isPending ? 'Fetched response preview' : 'Current sample response'}
           />
         </>

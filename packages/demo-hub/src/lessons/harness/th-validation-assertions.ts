@@ -130,15 +130,48 @@ export const thValidationAssertionsLesson: DemoLesson = {
         await ensureTh3FgExists(ctx);
         await ctx.delay(400);
 
-        await openTh3TestEditor(ctx);
+        await expandFirstFg(ctx);
+        await expandFirstScenario(ctx);
+        await ctx.delay(400);
+
+        // Highlight the Edit Test button so the viewer sees what we're about to click
+        const editBtn = document.querySelector<HTMLElement>(HAR.TEST_EDIT_BTN);
+        if (editBtn) {
+          await spotlight(editBtn, 2000, ctx);
+          editBtn.click();
+          await ctx.delay(600);
+        }
+
         await ctx.waitFor(HAR.TE_PROP_CARD, 5000);
         await ctx.delay(800);
 
-        await navigateToValidationTab(ctx);
-        await ctx.delay(800);
+        // Highlight the Validation tab before clicking it
+        const validationTab = Array.from(document.querySelectorAll<HTMLElement>('.builder-tab'))
+          .find(t => t.textContent?.includes('Validation'));
+        if (validationTab) {
+          await spotlight(validationTab, 2000, ctx);
+          validationTab.click();
+          await ctx.delay(800);
+        }
 
+        // Highlight the radio group showing the three modes
         const radioGroup = document.querySelector<HTMLElement>(HAR.TE_RADIO_GROUP);
-        if (radioGroup) await spotlight(radioGroup, 1800, ctx);
+        if (radioGroup) await spotlight(radioGroup, 1500, ctx);
+
+        // Switch to "Selective Fields" — the most common and feature-rich mode
+        if (radioGroup) {
+          const labels = radioGroup.querySelectorAll<HTMLLabelElement>('label.radio-label');
+          const selectiveLabel = Array.from(labels).find(l => l.textContent?.includes('Selective Fields'));
+          if (selectiveLabel) {
+            await spotlight(selectiveLabel, 2000, ctx);
+            const radio = selectiveLabel.querySelector<HTMLInputElement>('input[type="radio"]');
+            if (radio && !radio.checked) {
+              radio.click();
+              selectiveLabel.click();
+            }
+            await ctx.delay(800);
+          }
+        }
       },
 
       verify: HAR.TE_RADIO_GROUP,
@@ -181,6 +214,7 @@ export const thValidationAssertionsLesson: DemoLesson = {
         ).find(el => el.querySelector('.aam-label')?.textContent?.includes('Status Code'));
 
         if (statusItem) {
+          await spotlight(statusItem, 2000, ctx);
           statusItem.click();
           await ctx.delay(800);
         }
@@ -239,6 +273,7 @@ export const thValidationAssertionsLesson: DemoLesson = {
         ).find(el => el.querySelector('.aam-label')?.textContent?.includes('Response Time'));
 
         if (timeItem) {
+          await spotlight(timeItem, 2000, ctx);
           timeItem.click();
           await ctx.delay(800);
         }
@@ -255,16 +290,16 @@ export const thValidationAssertionsLesson: DemoLesson = {
       id: 'th3-response-preview',
       title: 'Sample Response & Data Mapper',
       description:
-        'Below the body validation mode, the **response preview** shows the JSON that was ' +
-        'captured when you last used **Fetch Response** (in the **Author Your First Tests** lesson).\n\n' +
-        'This captured data is the foundation for building **field-level validation rules**. ' +
+        'Select **Selective Fields** mode — this unlocks the **Fetch Response** button and the ' +
+        '**Data Mapper**.\n\n' +
+        'Click **Fetch Response** to capture a live JSON response from the API. ' +
+        'This captured data is the foundation for building **field-level validation rules**.\n\n' +
         'The **⚡ Data Mapper** button opens a visual editor where you can:\n' +
         '- Browse the response tree (source) and validation rules (target)\n' +
         '- Drag fields from source to target to create rules\n' +
         '- Choose operators (equals, contains, regex, is_not_empty, etc.)\n' +
         '- See live connection lines between mapped fields\n\n' +
         'We\'ll deep-dive into the Data Mapper in the **Data Mapper for Validation** lesson.',
-      highlight: HAR.TE_RESPONSE_PREVIEW,
 
       preAction: async (ctx) => {
         if (!isTestEditorOpen()) {
@@ -276,20 +311,52 @@ export const thValidationAssertionsLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
+        // 1. Highlight and click "Selective Fields" radio to show the mode switch
+        const radioGroup = document.querySelector<HTMLElement>(HAR.TE_RADIO_GROUP);
+        if (radioGroup) {
+          const labels = radioGroup.querySelectorAll<HTMLLabelElement>('label.radio-label');
+          const selectiveLabel = Array.from(labels).find(l => l.textContent?.includes('Selective Fields'));
+          if (selectiveLabel) {
+            await spotlight(selectiveLabel, 2000, ctx);
+            const radio = selectiveLabel.querySelector<HTMLInputElement>('input[type="radio"]');
+            if (radio && !radio.checked) {
+              radio.click();
+              selectiveLabel.click();
+              await ctx.delay(800);
+            }
+          }
+        }
+
+        // 2. Highlight the Fetch Response button
+        const fetchBtn = document.querySelector<HTMLElement>(HAR.TE_FETCH_BTN);
+        if (fetchBtn) {
+          await spotlight(fetchBtn, 2000, ctx);
+          fetchBtn.click();
+          await ctx.delay(600);
+
+          // Wait for the response to arrive
+          const start = Date.now();
+          while (Date.now() - start < 8000) {
+            const preview = document.querySelector<HTMLElement>(HAR.TE_RESPONSE_PREVIEW);
+            if (preview && !preview.classList.contains('validation-response-preview--collapsed')) break;
+            await ctx.delay(500);
+          }
+          await ctx.delay(800);
+        }
+
+        // 3. Spotlight the response preview showing the fetched JSON
         const preview = document.querySelector<HTMLElement>(HAR.TE_RESPONSE_PREVIEW);
         if (preview) {
           if (preview.classList.contains('validation-response-preview--collapsed')) {
             const header = preview.querySelector<HTMLElement>('.validation-response-preview-header');
-            if (header) {
-              header.click();
-              await ctx.delay(600);
-            }
+            if (header) { header.click(); await ctx.delay(600); }
           }
           await spotlight(preview, 2000, ctx);
         }
 
+        // 4. Spotlight the Data Mapper button
         const mapperBtn = document.querySelector<HTMLElement>(HAR.TE_MAPPER_BTN);
-        if (mapperBtn) await spotlight(mapperBtn, 1200, ctx);
+        if (mapperBtn) await spotlight(mapperBtn, 1500, ctx);
       },
 
       verify: HAR.TE_RESPONSE_PREVIEW,
@@ -345,7 +412,7 @@ export const thValidationAssertionsLesson: DemoLesson = {
       action: async (ctx) => {
         const verifyBtn = document.querySelector<HTMLElement>(HAR.TE_VERIFY_BTN);
         if (verifyBtn) {
-          await spotlight(verifyBtn, 1000, ctx);
+          await spotlight(verifyBtn, 2000, ctx);
 
           verifyBtn.click();
           await ctx.delay(500);
@@ -356,11 +423,26 @@ export const thValidationAssertionsLesson: DemoLesson = {
             if (result) break;
             await ctx.delay(500);
           }
-          await ctx.delay(500);
+          await ctx.delay(800);
         }
 
+        // Spotlight the PASSED/FAILED result bar
         const result = document.querySelector<HTMLElement>(HAR.TE_VERIFY_RESULT);
-        if (result) await spotlight(result, 2000, ctx);
+        if (result) {
+          await spotlight(result, 2000, ctx);
+
+          // Click "▸ Response" to expand and show the response details
+          const responseToggle = result.querySelector<HTMLElement>('button[aria-label="Toggle response details"]');
+          if (responseToggle) {
+            await spotlight(responseToggle, 1500, ctx);
+            responseToggle.click();
+            await ctx.delay(800);
+
+            // Spotlight the expanded response content
+            const responseDetail = result.querySelector<HTMLElement>('.validate-response-detail');
+            if (responseDetail) await spotlight(responseDetail, 2500, ctx);
+          }
+        }
       },
 
       verify: HAR.TE_VERIFY_BTN,
@@ -397,7 +479,32 @@ export const thValidationAssertionsLesson: DemoLesson = {
         await ctx.delay(600);
 
         const testCard = document.querySelector<HTMLElement>(HAR.TEST_CARD);
-        if (testCard) await spotlight(testCard, 1500, ctx);
+        if (testCard) {
+          await spotlight(testCard, 1500, ctx);
+
+          // Highlight "Validation: selective", "STATUS", and "SLA" badges
+          const tags = testCard.querySelectorAll<HTMLElement>('.tag');
+          const badgesToHighlight: HTMLElement[] = [];
+          tags.forEach(tag => {
+            const text = tag.textContent ?? '';
+            if (text.includes('Validation:') || text.includes('Status') || text === 'SLA') {
+              badgesToHighlight.push(tag);
+            }
+          });
+          if (badgesToHighlight.length > 0) {
+            const wrapper = document.createElement('span');
+            wrapper.style.display = 'inline-flex';
+            wrapper.style.gap = '4px';
+            wrapper.style.alignItems = 'center';
+            const parent = badgesToHighlight[0].parentElement!;
+            parent.insertBefore(wrapper, badgesToHighlight[0]);
+            badgesToHighlight.forEach(b => wrapper.appendChild(b));
+            await spotlight(wrapper, 2500, ctx);
+            // Restore DOM
+            badgesToHighlight.forEach(b => parent.insertBefore(b, wrapper));
+            wrapper.remove();
+          }
+        }
       },
 
       verify: HAR.TEST_CARD,

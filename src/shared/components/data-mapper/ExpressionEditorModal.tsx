@@ -24,6 +24,8 @@ import {
 import { createExpressionEditorMonacoMount } from './expressionEditorMonacoMount';
 import ExpressionEditorDocsPanel from './ExpressionEditorDocsPanel';
 import ExpressionEditorStepDebugger from './ExpressionEditorStepDebugger';
+import { useModalFrame } from '../../hooks/useModalFrame';
+import ModalResizeHandles from '../ModalResizeHandles';
 
 const Editor = lazy(() => import('@monaco-editor/react'));
 
@@ -49,7 +51,26 @@ export default function ExpressionEditorModal({
   onRename,
 }: ExpressionEditorModalProps) {
   const titleId = useId();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const {
+    expanded: isExpanded,
+    toggleExpand,
+    isDragged,
+    overlayStyle,
+    dialogStyle,
+    headerDragStyle,
+    onHeaderMouseDown,
+    dialogRef,
+    onRightEdge,
+    onCorner,
+    onBottomEdge,
+    resetSize,
+  } = useModalFrame({
+    open: true,
+    minWidth: 400,
+    minHeight: 280,
+    constrainDragToViewport: true,
+    dragViewportPadding: 8,
+  });
   const [expression, setExpression] = useState(mapping.expression ?? /* v8 ignore next */ mapping.sourcePath);
   const [targetNameValue, setTargetNameValue] = useState(mapping.targetPath);
   const targetNameRef = useRef<HTMLInputElement>(null);
@@ -63,37 +84,12 @@ export default function ExpressionEditorModal({
   const [snippets, setSnippets] = useState<ExpressionSnippet[]>([]);
   const [snippetName, setSnippetName] = useState('');
   const [snippetBusy, setSnippetBusy] = useState(false);
-  const modalRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
   const completionDisposableRef = useRef<IDisposable | null>(null);
   const prevMappingIdRef = useRef(mapping.id);
   const expressionRef = useRef(expression);
   expressionRef.current = expression;
   const handleSaveRef = useRef<() => void>(() => {});
-
-  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
-  const dragRef = useRef<{ startX: number; startY: number; origX: number; origY: number } | null>(null);
-
-  /* v8 ignore next 20 */
-  const handleDragStart = useCallback((e: React.MouseEvent) => {
-    if ((e.target as HTMLElement).closest('button, input, select')) return;
-    e.preventDefault();
-    dragRef.current = { startX: e.clientX, startY: e.clientY, origX: dragOffset.x, origY: dragOffset.y };
-    const handleMove = (ev: MouseEvent) => {
-      if (!dragRef.current) return;
-      setDragOffset({
-        x: dragRef.current.origX + ev.clientX - dragRef.current.startX,
-        y: dragRef.current.origY + ev.clientY - dragRef.current.startY,
-      });
-    };
-    const handleUp = () => {
-      dragRef.current = null;
-      window.removeEventListener('mousemove', handleMove);
-      window.removeEventListener('mouseup', handleUp);
-    };
-    window.addEventListener('mousemove', handleMove);
-    window.addEventListener('mouseup', handleUp);
-  }, [dragOffset]);
 
   /* v8 ignore next 6 */
   const handleUndo = useCallback(() => {
@@ -372,15 +368,34 @@ export default function ExpressionEditorModal({
     />
   );
 
-  const portalTarget = useMemo(() => {
-    /* v8 ignore next */
-    return document.querySelector('.dm-modal-shell') ?? document.body;
-  }, []);
+  // Portal to document.body so the editor can be dragged outside the Data Mapper shell
+  // (shell uses overflow:hidden and would clip movement).
+  const portalTarget = useMemo(() => document.body, []);
+
+  const combinedDialogStyle = isExpanded
+    ? undefined
+    : dialogStyle;
 
   return createPortal(
-    <div className={`dm-expr-overlay ${isExpanded ? 'dm-expr--expanded' : ''}`} onKeyDown={handleKeyDown} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={titleId}>
-      <div ref={modalRef} className="dm-expr-modal" style={!isExpanded && (dragOffset.x || dragOffset.y) ? { transform: `translate(${dragOffset.x}px, ${dragOffset.y}px)` } : undefined}>
-        <div className="dm-expr-header" onMouseDown={!isExpanded ? handleDragStart : undefined} style={!isExpanded ? { cursor: 'grab' } : undefined}>
+    <div
+      className={`dm-expr-overlay ${isExpanded ? 'dm-expr--expanded' : ''}`}
+      style={overlayStyle}
+      onKeyDown={handleKeyDown}
+      tabIndex={-1}
+    >
+      <div
+        ref={dialogRef}
+        className={`dm-expr-modal${isDragged ? ' dm-expr-modal--positioned' : ''}`}
+        style={combinedDialogStyle}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+      >
+        <div
+          className="dm-expr-header"
+          onMouseDown={onHeaderMouseDown}
+          style={headerDragStyle}
+        >
           <span id={titleId} className="dm-expr-title">Expression Editor</span>
           {!onRename && (
             <span className="dm-expr-target-path">Target: {mapping.targetPath}</span>
@@ -409,13 +424,8 @@ export default function ExpressionEditorModal({
               type="button"
               className="dm-expr-action-btn"
               onClick={() => {
-                /* v8 ignore next */
-                if (modalRef.current) {
-                  modalRef.current.style.width = '';
-                  modalRef.current.style.height = '';
-                }
-                setIsExpanded((v) => !v);
-                setDragOffset({ x: 0, y: 0 });
+                toggleExpand();
+                resetSize();
               }}
               title={isExpanded ? 'Shrink to default size' : 'Expand to full screen'}
               aria-label={isExpanded ? 'Shrink' : 'Expand'}
@@ -660,6 +670,14 @@ export default function ExpressionEditorModal({
             Save Expression
           </button>
         </div>
+
+        {!isExpanded && (
+          <ModalResizeHandles
+            onRightEdge={onRightEdge}
+            onCorner={onCorner}
+            onBottomEdge={onBottomEdge}
+          />
+        )}
       </div>
 
       {detailStep && (

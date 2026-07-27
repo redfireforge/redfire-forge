@@ -241,7 +241,7 @@ export default function ResultsExplorerDetailPanel({
         {activeTab === 'variables' && currentEvent && (
           <VariablesTab
             event={currentEvent}
-            hasFullTrace={!!hasVariables}
+            hasFullTrace={!!hasFullTrace}
             onOpenMapper={onOpenMapper ? (traces) => onOpenMapper(traces, nodeLabel) : undefined}
           />
         )}

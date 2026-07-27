@@ -207,7 +207,7 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
       const row = screen.getByText('DATE').closest('.assertion-row')!;
-      selectOption(row.querySelector('.cs-wrapper')!, 'fixed date');
+      selectOption(row.querySelectorAll('.cs-wrapper')[1]!, 'fixed date');
       expect(onDraftChange).toHaveBeenCalled();
     });
 
@@ -222,7 +222,7 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
       const row = screen.getByText('DATE').closest('.assertion-row')!;
-      const tzWrapper = row.querySelectorAll('.cs-wrapper')[1]!;
+      const tzWrapper = row.querySelectorAll('.cs-wrapper')[2]!;
       selectOption(tzWrapper, 'Local');
       expect(onDraftChange).toHaveBeenCalled();
     });
@@ -252,8 +252,8 @@ describe('TestEditorValidationTab', () => {
       });
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
-      const opSelect = screen.getByDisplayValue('after (>)');
-      fireEvent.change(opSelect, { target: { value: '<' } });
+      const row = screen.getByText('DATE').closest('.assertion-row')!;
+      selectOption(row.querySelectorAll('.cs-wrapper')[0]!, 'before');
       expect(onDraftChange).toHaveBeenCalled();
     });
   });

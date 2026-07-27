@@ -62,6 +62,8 @@ export const HAR = {
   TE_ASSERTION_ROW:    '.assertion-row',
   TE_VERIFY_BTN:       '.btn-validate',
   TE_VERIFY_RESULT:    '.validate-result',
+  TE_HOST_OVERRIDE:    '.validate-response-row .fetch-host-toggle',
+  TE_HOST_INPUT:       '.validate-host-input',
   TE_VALIDATION_RULES: '.validation-fields-summary',
   TE_MAPPER_BTN:       '.fetch-host-override-row .btn-accent:last-of-type',
 
@@ -204,6 +206,8 @@ export const HAR = {
   MAPPER_VERIFY_SUMMARY: '.dm-toolbar-verify-summary',
   MAPPER_CODE_VIEW:      '.dm-code-view',
   MAPPER_TABLE_VIEW:     '.dm-table-view',
+  MAPPER_CODE_BTN:       '[data-testid="dm-view-code"]',
+  MAPPER_TABLE_BTN:      '[data-testid="dm-view-table"]',
   MAPPER_SEARCH:         '.dm-search-input',
   MAPPER_TYPE_PILL:      '.dm-type-pill',
   MAPPER_SAVE_BTN:       '.dm-modal-btn--primary',

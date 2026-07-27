@@ -778,4 +778,141 @@ describe('trace overlay', () => {
     );
     expect(screen.getByText('name')).toBeTruthy();
   });
+
+  it('renders verify status pass badge', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        verifyStatus="pass"
+      />,
+    );
+    expect(container.querySelector('.dm-verify-badge--pass')).toBeTruthy();
+  });
+
+  it('renders verify status fail badge with actual value', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        verifyStatus="fail"
+        verifyActual="unexpected_value"
+      />,
+    );
+    expect(container.querySelector('.dm-verify-badge--fail')).toBeTruthy();
+    expect(screen.getByText(/Got:/)).toBeTruthy();
+  });
+
+  it('renders negate badge on mapping', () => {
+    const negatedMapping: Mapping = { ...mapping, negate: true };
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[negatedMapping]}
+        capabilities={{ operators: true } as Required<import('./types').AdapterCapabilities>}
+        onUpdateMappingOperator={vi.fn()}
+      />,
+    );
+    expect(container.querySelector('.dm-negate-badge')).toBeTruthy();
+  });
+
+  it('calls onToggleMappingNegate when negate badge clicked', () => {
+    const onToggleMappingNegate = vi.fn();
+    const negatedMapping: Mapping = { ...mapping, negate: true };
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[negatedMapping]}
+        capabilities={{ operators: true } as Required<import('./types').AdapterCapabilities>}
+        onUpdateMappingOperator={vi.fn()}
+        onToggleMappingNegate={onToggleMappingNegate}
+      />,
+    );
+    const badge = container.querySelector('.dm-negate-badge');
+    fireEvent.click(badge!);
+    expect(onToggleMappingNegate).toHaveBeenCalledWith('m1');
+  });
+
+  it('renders fetched origin badge', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        fieldOrigins={new Map([[leaf.path, 'fetched']])}
+      />,
+    );
+    expect(container.querySelector('.dm-origin-badge--fetched')).toBeTruthy();
+  });
+
+  it('opens context menu on right-click', () => {
+    const capabilities = { operators: true } as Required<import('./types').AdapterCapabilities>;
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        capabilities={capabilities}
+      />,
+    );
+    const nodeRow = screen.getByText('userName').closest('.dm-tree-node');
+    fireEvent.contextMenu(nodeRow!);
+    expect(document.querySelector('.dm-context-menu')).toBeTruthy();
+  });
+
+  it('filters out node when mappingFilter is mapped but node has no mapping', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[]}
+        mappingFilter="mapped"
+      />,
+    );
+    expect(container.firstChild).toBeNull();
+  });
+
+  it('shows node when mappingFilter is mapped and node has mapping', () => {
+    const { container } = render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        mappings={[mapping]}
+        mappedTargetPaths={new Set([leaf.path])}
+        mappingFilter="mapped"
+      />,
+    );
+    expect(container.querySelector('.dm-tree-node')).toBeTruthy();
+  });
+
+  it('renders array node with unordered toggle', () => {
+    const arrayNode: JsonTreeNode = { key: 'items', path: 'items', type: 'array', value: undefined, children: [leaf] };
+    const onToggleUnorderedArray = vi.fn();
+    render(
+      <TargetTreeNode
+        node={arrayNode}
+        {...defaults}
+        onToggleUnorderedArray={onToggleUnorderedArray}
+      />,
+    );
+    expect(screen.getByText('items')).toBeTruthy();
+  });
+
+  it('handles double-click to start rename on custom field', () => {
+    const onUpdateCustomField = vi.fn();
+    render(
+      <TargetTreeNode
+        node={leaf}
+        {...defaults}
+        fieldOrigins={new Map([[leaf.path, 'custom']])}
+        onUpdateCustomField={onUpdateCustomField}
+      />,
+    );
+    const nodeRow = screen.getByText('userName').closest('.dm-tree-node');
+    fireEvent.doubleClick(nodeRow!);
+    expect(document.querySelector('.dm-rename-input')).toBeTruthy();
+  });
 });

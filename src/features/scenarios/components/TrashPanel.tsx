@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import PopupModal from '../../../shared/components/PopupModal';
+import AppModalFrame from '../../../shared/components/AppModalFrame';
 import ConfirmModal from '../../../shared/components/ConfirmModal';
 import { CustomSelect } from '../../../shared/components/CustomSelect';
 import type { TrashItem, TrashEntityType, TrashSettings } from '../../../shared/types';
@@ -78,17 +78,36 @@ export default function TrashPanel({
 
   return (
     <>
-      <PopupModal
-        title={`Trash (${trashItems.length})`}
+      <AppModalFrame
+        open
+        title={
+          <span className="trash-modal-title">
+            <span className="trash-modal-title-icon">🗑</span>
+            Trash
+            {trashItems.length > 0 && (
+              <span className="trash-modal-title-count">{trashItems.length}</span>
+            )}
+          </span>
+        }
         onClose={onClose}
-        dialogClassName="trash-panel-modal"
+        overlayClassName="modal-overlay"
+        dialogClassName="trash-modal"
+        closeButtonKind="none"
+        showExpandButton={false}
+        closeOnOverlayClick={false}
+        constrainDragToViewport
+        dragViewportPadding={12}
+        minWidth={480}
+        minHeight={300}
+        bodyClassName="trash-modal-body"
+        footerClassName="trash-modal-footer"
         footer={
-          <>
-            <div className="trash-panel-settings">
-              <label className="trash-panel-setting-label">
-                Retention
+          <div className="trash-footer-bar">
+            <div className="trash-footer-settings">
+              <label className="trash-footer-setting">
+                <span className="trash-footer-setting-label">Retention</span>
                 <CustomSelect
-                  className="trash-panel-setting-select"
+                  className="trash-footer-select"
                   value={String(trashSettings.retentionDays)}
                   onChange={v => onUpdateSettings({ retentionDays: Number(v) })}
                   options={RETENTION_OPTIONS.map(d => ({ value: String(d), label: `${d} days` }))}
@@ -96,10 +115,10 @@ export default function TrashPanel({
                   size="sm"
                 />
               </label>
-              <label className="trash-panel-setting-label">
-                Max items
+              <label className="trash-footer-setting">
+                <span className="trash-footer-setting-label">Max items</span>
                 <CustomSelect
-                  className="trash-panel-setting-select"
+                  className="trash-footer-select"
                   value={String(trashSettings.maxItems)}
                   onChange={v => onUpdateSettings({ maxItems: Number(v) })}
                   options={MAX_ITEMS_OPTIONS.map(n => ({ value: String(n), label: String(n) }))}
@@ -108,75 +127,82 @@ export default function TrashPanel({
                 />
               </label>
             </div>
-            <button
-              className="trash-panel-empty-footer-btn"
-              onClick={() => setConfirmEmpty(true)}
-              disabled={trashItems.length === 0}
-              aria-label="Empty trash"
-            >
-              Empty Trash
-            </button>
-            <button className="btn" onClick={onClose}>Close</button>
-          </>
+            <div className="trash-footer-actions">
+              <button
+                className="trash-empty-btn"
+                onClick={() => setConfirmEmpty(true)}
+                disabled={trashItems.length === 0}
+                aria-label="Empty trash"
+              >
+                Empty Trash
+              </button>
+              <button className="btn btn-sm" onClick={onClose}>Close</button>
+            </div>
+          </div>
         }
       >
-        <div className="trash-panel-header">
+        <div className="trash-search-wrap">
+          <svg className="trash-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input
-            className="trash-panel-search"
+            className="trash-search-input"
             type="text"
             placeholder="Search trash…"
             value={search}
             onChange={e => setSearch(e.target.value)}
             aria-label="Search trash"
           />
+          {search && (
+            <button className="trash-search-clear" onClick={() => setSearch('')} aria-label="Clear search">&times;</button>
+          )}
         </div>
 
         {loading ? (
-          <div className="trash-panel-empty">
-            <span className="trash-panel-empty-icon">&#x2026;</span>
-            <span>Loading trash{'\u2026'}</span>
+          <div className="trash-empty-state">
+            <span className="trash-empty-state-icon">⋯</span>
+            <span className="trash-empty-state-text">Loading trash…</span>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="trash-panel-empty">
-            <span className="trash-panel-empty-icon">{search ? '\u{1F50D}' : '\u{2212}'}</span>
-            <span>{search ? 'No items match your search' : 'Trash is empty'}</span>
+          <div className="trash-empty-state">
+            <span className="trash-empty-state-icon">{search ? '🔍' : '🗑'}</span>
+            <span className="trash-empty-state-text">{search ? 'No items match your search' : 'Trash is empty'}</span>
+            {!search && <span className="trash-empty-state-hint">Deleted items will appear here</span>}
           </div>
         ) : (
-          <div className="trash-panel-list" role="list">
+          <div className="trash-list" role="list">
             {filtered.map(item => {
               const counts = formatChildCounts(item);
               return (
-                <div key={item.id} className="trash-item" role="listitem">
-                  <span className="trash-item-icon" aria-hidden="true">
+                <div key={item.id} className="trash-card" role="listitem">
+                  <div className="trash-card-icon" aria-hidden="true">
                     {ENTITY_ICONS[item.entityType]}
-                  </span>
-                  <div className="trash-item-body">
-                    <div className="trash-item-name" title={item.entityName}>
-                      {item.entityName}
+                  </div>
+                  <div className="trash-card-body">
+                    <div className="trash-card-row-1">
+                      <span className="trash-card-name" title={item.entityName}>
+                        {item.entityName}
+                      </span>
+                      {counts && <span className="trash-card-counts">{counts}</span>}
+                      <span className="trash-card-type">{ENTITY_LABELS[item.entityType]}</span>
                     </div>
                     {item.parentPath && (
-                      <div className="trash-item-meta">
-                        {item.parentPath}
-                      </div>
+                      <div className="trash-card-path">{item.parentPath}</div>
                     )}
-                    {counts && <div className="trash-item-counts">{counts}</div>}
-                    <div className="trash-item-meta">
+                    <div className="trash-card-meta">
                       Deleted {formatRelativeTime(item.deletedAt, formatTimestamp)}
-                      <span className="trash-item-meta-sep" />
+                      <span className="trash-card-sep">·</span>
                       {formatExpiry(item.expiresAt)}
                     </div>
-                    <span className="trash-item-type">{ENTITY_LABELS[item.entityType]}</span>
                   </div>
-                  <div className="trash-item-actions">
+                  <div className="trash-card-actions">
                     <button
-                      className="trash-item-restore"
+                      className="trash-card-restore"
                       onClick={() => onRestore(item.id)}
                       aria-label={`Restore ${item.entityName}`}
                     >
                       Restore
                     </button>
                     <button
-                      className="trash-item-delete"
+                      className="trash-card-delete"
                       onClick={() => setPendingDeleteId(item.id)}
                       aria-label={`Delete ${item.entityName} permanently`}
                     >
@@ -188,7 +214,7 @@ export default function TrashPanel({
             })}
           </div>
         )}
-      </PopupModal>
+      </AppModalFrame>
 
       {pendingItem && (
         <ConfirmModal
