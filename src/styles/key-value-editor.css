@@ -1,5 +1,5 @@
 /* ── Key-Value Editor (shared: WebSocket Headers/Query Params, SSE Headers) ──
-   Insomnia-style borderless table with drag-to-reorder grip + enable toggle.
+   Borderless table with drag-to-reorder grip + enable toggle.
    Uses theme-alias tokens (--border-color, --text-secondary, --accent-color,
    etc.) which each host page maps to canonical theme tokens via its own shim
    (.ws-studio-page / .sse-studio). The selectors below are global so the
@@ -65,7 +65,7 @@
   font-weight: 600;
 }
 
-/* Borderless table: one outer border + thin row dividers (Insomnia style). */
+/* Borderless table: one outer border + thin row dividers. */
 .ws-connect-kv-table {
   border: 1px solid var(--border-color, #444);
   border-radius: 8px;

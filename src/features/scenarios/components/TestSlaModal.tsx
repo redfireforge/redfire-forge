@@ -66,8 +66,11 @@ export default function TestSlaModal({ test, onSave, onClose }: TestSlaModalProp
     <AppModalFrame
       open
       title={
-        <span>
-          🎯 SLA Targets — <strong>{test.name}</strong>
+        <span className="test-sla-modal-title">
+          <span className="test-sla-modal-icon">🎯</span>
+          SLA Targets
+          <span className="test-sla-modal-separator">—</span>
+          <strong>{test.name}</strong>
         </span>
       }
       onClose={onClose}
@@ -76,14 +79,19 @@ export default function TestSlaModal({ test, onSave, onClose }: TestSlaModalProp
       closeButtonKind="none"
       showExpandButton={false}
       closeOnOverlayClick={false}
+      constrainDragToViewport
+      dragViewportPadding={12}
+      minWidth={680}
+      minHeight={260}
       bodyClassName="test-sla-modal-body"
       footerClassName="test-sla-modal-footer"
       footer={
-        <div className="sla-editor-footer">
-          <button className="btn btn-sm sla-add-btn" onClick={addRow}>
-            + Add Target
+        <div className="test-sla-footer-bar">
+          <button className="btn btn-sm test-sla-add-btn" onClick={addRow}>
+            <span className="test-sla-add-icon">+</span>
+            Add Target
           </button>
-          <div className="sla-editor-actions">
+          <div className="test-sla-footer-actions">
             <button className="btn btn-sm" onClick={onClose}>
               Cancel
             </button>
@@ -99,91 +107,96 @@ export default function TestSlaModal({ test, onSave, onClose }: TestSlaModalProp
       }
     >
       {draft.length === 0 ? (
-        <div className="sla-empty-hint">
-          No SLA targets yet. Click <strong>+ Add Target</strong> to define acceptance criteria for this test.
+        <div className="test-sla-empty">
+          <div className="test-sla-empty-icon">🎯</div>
+          <div className="test-sla-empty-text">No SLA targets yet</div>
+          <div className="test-sla-empty-hint">
+            Click <strong>+ Add Target</strong> to define acceptance criteria for this test.
+          </div>
         </div>
       ) : (
-        <table className="sla-editor-table sla-editor-table--test">
-          <colgroup>
-            <col className="col-metric" />
-            <col className="col-op" />
-            <col className="col-fail" />
-            <col className="col-arrow" />
-            <col className="col-warn" />
-            <col className="col-label" />
-            <col className="col-del" />
-          </colgroup>
-          <thead>
-            <tr>
-              <th>Metric</th>
-              <th>Op</th>
-              <th>Fail at</th>
-              <th></th>
-              <th>Warn at</th>
-              <th>Label</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {draft.map((t, idx) => {
-              const err = errors[idx];
-              const unit = SLA_METRIC_UNITS[t.metric];
-              return (
-                <tr key={t.id}>
-                  <td>
-                    <CustomSelect
-                      className="sla-editor-select"
-                      value={t.metric}
-                      onChange={(v) => updateRow(idx, { metric: v as SlaMetric })}
-                      options={METRIC_OPTIONS.map((m) => ({ value: m, label: SLA_METRIC_LABELS[m] }))}
-                    />
-                  </td>
-                  <td>
-                    <span className="sla-operator-display">{t.operator === 'lte' ? '≤' : '≥'}</span>
-                  </td>
-                  <td>
-                    <input
-                      type="number"
-                      className={`sla-editor-input${err.value ? ' sla-input-error' : ''}`}
-                      value={t.value}
-                      min={0}
-                      step="any"
-                      onChange={(e) => updateRow(idx, { value: e.target.value === '' ? 0 : Number(e.target.value) })}
-                    />
-                    {unit && <span className="sla-editor-unit">{unit}</span>}
-                    {err.value && <div className="sla-editor-error">{err.value}</div>}
-                  </td>
-                  <td><span className="sla-arrow">warn →</span></td>
-                  <td>
-                    <input
-                      type="number"
-                      className={`sla-editor-input${err.warnAt ? ' sla-input-error' : ''}`}
-                      value={t.warnAt ?? ''}
-                      min={0}
-                      step="any"
-                      placeholder="—"
-                      onChange={(e) => updateRow(idx, { warnAt: e.target.value === '' ? undefined : Number(e.target.value) })}
-                    />
-                    {unit && <span className="sla-editor-unit">{unit}</span>}
-                    {err.warnAt && <div className="sla-editor-error">{err.warnAt}</div>}
-                  </td>
-                  <td>
-                    <input
-                      type="text"
-                      className="sla-editor-input sla-editor-input-label"
-                      value={t.label ?? ''}
-                      placeholder="optional"
-                      onChange={(e) => updateRow(idx, { label: e.target.value || undefined })}
-                    />
-                  </td>
-                  <td>
-                    <button className="btn btn-sm sla-delete-btn" onClick={() => removeRow(idx)} aria-label="Delete target">✕</button>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <div className="test-sla-table-wrap">
+          <table className="test-sla-table">
+            <thead>
+              <tr>
+                <th className="test-sla-th-idx">#</th>
+                <th className="test-sla-th-metric">Metric</th>
+                <th className="test-sla-th-op">Op</th>
+                <th className="test-sla-th-fail">Fail at</th>
+                <th className="test-sla-th-arrow"></th>
+                <th className="test-sla-th-warn">Warn at</th>
+                <th className="test-sla-th-label">Label</th>
+                <th className="test-sla-th-del"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {draft.map((t, idx) => {
+                const err = errors[idx];
+                const unit = SLA_METRIC_UNITS[t.metric];
+                return (
+                  <tr key={t.id} className="test-sla-row">
+                    <td className="test-sla-cell-idx">{idx + 1}</td>
+                    <td className="test-sla-cell-metric">
+                      <CustomSelect
+                        className="test-sla-select"
+                        value={t.metric}
+                        onChange={(v) => updateRow(idx, { metric: v as SlaMetric })}
+                        options={METRIC_OPTIONS.map((m) => ({ value: m, label: SLA_METRIC_LABELS[m] }))}
+                      />
+                    </td>
+                    <td className="test-sla-cell-op">
+                      <span className="test-sla-operator">{t.operator === 'lte' ? '≤' : '≥'}</span>
+                    </td>
+                    <td className="test-sla-cell-fail">
+                      <div className="test-sla-input-group">
+                        <input
+                          type="number"
+                          className={`test-sla-input${err.value ? ' test-sla-input--error' : ''}`}
+                          value={t.value}
+                          min={0}
+                          step="any"
+                          onChange={(e) => updateRow(idx, { value: e.target.value === '' ? 0 : Number(e.target.value) })}
+                        />
+                        {unit && <span className="test-sla-unit">{unit}</span>}
+                      </div>
+                      {err.value && <div className="test-sla-error">{err.value}</div>}
+                    </td>
+                    <td className="test-sla-cell-arrow">
+                      <span className="test-sla-warn-arrow">warn →</span>
+                    </td>
+                    <td className="test-sla-cell-warn">
+                      <div className="test-sla-input-group">
+                        <input
+                          type="number"
+                          className={`test-sla-input${err.warnAt ? ' test-sla-input--error' : ''}`}
+                          value={t.warnAt ?? ''}
+                          min={0}
+                          step="any"
+                          placeholder="—"
+                          onChange={(e) => updateRow(idx, { warnAt: e.target.value === '' ? undefined : Number(e.target.value) })}
+                        />
+                        {unit && <span className="test-sla-unit">{unit}</span>}
+                      </div>
+                      {err.warnAt && <div className="test-sla-error">{err.warnAt}</div>}
+                    </td>
+                    <td className="test-sla-cell-label">
+                      <input
+                        type="text"
+                        className="test-sla-input test-sla-input--label"
+                        value={t.label ?? ''}
+                        placeholder="optional"
+                        onChange={(e) => updateRow(idx, { label: e.target.value || undefined })}
+                      />
+                    </td>
+                    <td className="test-sla-cell-del">
+                      <button className="test-sla-delete-btn" onClick={() => removeRow(idx)} aria-label="Delete target">✕</button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </AppModalFrame>
   );

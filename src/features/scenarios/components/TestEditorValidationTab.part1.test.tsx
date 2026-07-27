@@ -420,7 +420,8 @@ describe('TestEditorValidationTab', () => {
       });
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef: { current: draft } })} />);
       expect(screen.getByText('Current sample response')).toBeInTheDocument();
-      expect(screen.getByLabelText('Current sample response')).toHaveValue('{"id":1}');
+      // The preview pretty-prints by default.
+      expect(screen.getByLabelText('Current sample response')).toHaveValue('{\n  "id": 1\n}');
     });
 
     describe('response search box', () => {
@@ -560,7 +561,8 @@ describe('TestEditorValidationTab', () => {
       expect(screen.getByText('Keep Rules & Update Response')).toBeInTheDocument();
       expect(screen.getByText('Replace All')).toBeInTheDocument();
       expect(screen.getByText('Fetched response (pending apply)')).toBeInTheDocument();
-      expect(screen.getByLabelText('Fetched response preview')).toHaveValue('{"id":2}');
+      // The preview pretty-prints by default.
+      expect(screen.getByLabelText('Fetched response preview')).toHaveValue('{\n  "id": 2\n}');
     });
 
     it('calls onFetchKeepRules when "Keep Rules" clicked', () => {
@@ -832,7 +834,7 @@ describe('TestEditorValidationTab', () => {
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef })} />);
       expect(screen.getByText('DATE')).toBeInTheDocument();
       const row = screen.getByText('DATE').closest('.assertion-row')!;
-      expect(getCustomSelectValue(row.querySelector('.cs-wrapper')!)).toBe('today');
+      expect(getCustomSelectValue(row.querySelectorAll('.cs-wrapper')[1]!)).toBe('today');
     });
 
     it('renders fixed date picker when reference kind is fixed', () => {

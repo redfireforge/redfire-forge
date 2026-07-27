@@ -748,7 +748,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════
-   Editor — Insomnia-style split-pane layout
+   Editor — Split-pane layout
    ═══════════════════════════════════════════════════════ */
 
 .req-editor { display: flex; flex-direction: column; height: 100%; overflow: hidden; }

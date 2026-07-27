@@ -1465,8 +1465,10 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   background: #ef444420; color: #f87171; border-color: #ef4444;
   box-shadow: 0 0 0 1px #ef444430;
 }
-.assertion-field { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
-.assertion-field-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex-shrink: 0; }
+/* Positioning context for .jpp-menu so the popover lines up with the path input. */
+.assertion-field { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; position: relative; }
+.assertion-field .jpp-wrap { position: static; }
+.assertion-field-label { font-size: 11px; color: var(--text-muted); white-space: nowrap; flex: 0 0 52px; min-width: 52px; }
 .assertion-field-label-fixed { flex: 0 0 42px; min-width: 42px; text-align: center; }
 .assertion-input {
   background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
@@ -1592,10 +1594,21 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   flex-shrink: 0; width: 16px; height: 16px; display: inline-flex;
   align-items: center; justify-content: center; border-radius: 50%;
   background: #d946ef20; color: #e879f9; font-size: 10px; font-weight: 700;
-  font-style: italic; line-height: 1; cursor: help;
-  transition: background .15s;
+  font-style: italic; line-height: 1; cursor: pointer;
+  border: none; padding: 0; transition: background .15s;
+  position: relative;
 }
 .assertion-custom-hint-tip:hover { background: #d946ef40; }
+.assertion-custom-hint-pop {
+  position: absolute; bottom: calc(100% + 6px); right: 0;
+  width: 260px; padding: 8px 10px; border-radius: 6px;
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--border, #3b4a60);
+  color: var(--text-muted, #a8b8cc); font-size: 11px;
+  font-style: normal; font-weight: 400; line-height: 1.45;
+  box-shadow: 0 4px 12px rgba(0,0,0,.35);
+  z-index: 100; white-space: normal; text-align: left;
+}
 
 /* Lambda icon in Add Assertion menu */
 .aam-icon--lambda {
@@ -1629,17 +1642,28 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   flex-shrink: 0; max-width: 200px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* .assertion-select lands on .cs-wrapper — the bordered box is drawn by the inner
+   .cs-trigger, so never add border/background/padding here (causes double box). */
 .assertion-select {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 4px;
-  padding: 5px 22px 5px 6px; color: var(--text); font-size: 12px; flex: 0 0 auto; width: auto;
-  transition: border-color .15s, box-shadow .15s;
-  -webkit-appearance: none; -moz-appearance: none; appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23e2e8f0' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 6px center;
+  flex: 0 0 auto; width: auto; min-width: 120px;
 }
-.assertion-select-operator { flex: 0 0 155px; min-width: 155px; }
-.assertion-select:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(99, 102, 241, .15); }
+.assertion-select .cs-trigger {
+  font-size: 12px; padding: 5px 10px; border-radius: 4px;
+}
+.assertion-select-operator { flex: 0 0 auto; min-width: 130px; }
+.assertion-select-operator .cs-item-detail {
+  font-family: 'SF Mono', 'Consolas', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--primary);
+  flex-shrink: 0;
+  min-width: 24px;
+  text-align: center;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  border-radius: 4px;
+  padding: 1px 6px;
+  line-height: 1.4;
+}
 .assertion-select-sm { max-width: 100px; }
 .assertion-unit { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
 .assertion-regex-slash { font-size: 13px; color: var(--text-muted); font-family: monospace; flex-shrink: 0; }
@@ -1712,9 +1736,18 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
 .jpp-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
 .jpp-btn:disabled { opacity: .3; cursor: not-allowed; }
 .jpp-menu {
-  position: absolute; right: 0; top: 100%; margin-top: 4px; z-index: 22;
-  background: var(--surface); border: 1px solid var(--border); border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.5); width: 560px; padding: 0;
+  /* Left-aligned with the path input (containing block is .assertion-field).
+     Anchoring to the ⎆ button instead overflows the modal scroll viewport,
+     which clips the border and the $.path column. */
+  position: absolute; left: 0; top: 100%; margin-top: 4px; z-index: 22;
+  background: var(--surface); border-radius: 10px;
+  border: 1px solid color-mix(in srgb, white 28%, var(--border));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, white 14%, transparent),
+    inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
+    0 12px 40px rgba(0, 0, 0, 0.45),
+    0 2px 8px rgba(0, 0, 0, 0.25);
+  width: min(520px, 52vw); padding: 0;
   max-height: 380px; display: flex; flex-direction: column;
 }
 .jpp-search {
@@ -4016,50 +4049,270 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   color: #86efac !important;
 }
 
-/* TestSlaModal — resizable dialog */
+/* ── TestSlaModal ─────────────────────────────────────────────────── */
 .test-sla-modal {
-  min-width: 780px;
-  max-width: 960px;
-  background: var(--surface-hover, #2d3a4d);
+  min-width: 720px;
+  max-width: 920px;
+  width: 860px;
+  background: var(--surface);
   border: 1px solid color-mix(in srgb, white 28%, var(--border));
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow:
     0 0 0 1px color-mix(in srgb, white 14%, transparent),
     inset 0 0 0 1px color-mix(in srgb, white 7%, transparent),
     0 12px 40px rgba(0, 0, 0, 0.45),
     0 2px 8px rgba(0, 0, 0, 0.25);
   align-self: flex-start;
-  margin-top: 40px;
-  max-height: 90vh;
+  margin-top: 60px;
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
+
+/* Header */
 .test-sla-modal .modal-header {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 12px 12px 0 0;
+  cursor: grab;
 }
+.test-sla-modal .modal-header:active { cursor: grabbing; }
+
+.test-sla-modal-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text);
+  user-select: none;
+}
+.test-sla-modal-icon { font-size: 1rem; }
+.test-sla-modal-separator {
+  color: var(--text-muted);
+  opacity: 0.5;
+  margin: 0 2px;
+}
+.test-sla-modal-title strong {
+  font-weight: 600;
+  color: var(--primary);
+  max-width: 320px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Body */
 .test-sla-modal > .test-sla-modal-body {
   flex: 1 1 auto;
   overflow-y: auto;
   min-height: 0;
-  padding-bottom: 0;
+  padding: 16px 20px 8px;
 }
+
+/* Empty state */
+.test-sla-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  text-align: center;
+}
+.test-sla-empty-icon { font-size: 2rem; margin-bottom: 12px; opacity: 0.6; }
+.test-sla-empty-text {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 6px;
+}
+.test-sla-empty-hint {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+/* Table */
+.test-sla-table-wrap {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+.test-sla-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.82rem;
+}
+.test-sla-table thead {
+  background: var(--bg);
+}
+.test-sla-table th {
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+  white-space: nowrap;
+}
+.test-sla-th-idx   { width: 32px; text-align: center; }
+.test-sla-th-metric { width: 170px; }
+.test-sla-th-op    { width: 36px; text-align: center; }
+.test-sla-th-fail  { width: 120px; }
+.test-sla-th-arrow { width: 50px; text-align: center; }
+.test-sla-th-warn  { width: 120px; }
+.test-sla-th-del   { width: 36px; }
+
+/* Rows */
+.test-sla-row td {
+  padding: 8px 10px;
+  vertical-align: middle;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.test-sla-row:last-child td { border-bottom: none; }
+.test-sla-row:hover td {
+  background: color-mix(in srgb, var(--primary) 4%, var(--surface));
+}
+
+.test-sla-cell-idx {
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+/* Operator */
+.test-sla-operator {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
+  color: var(--primary);
+  font-size: 0.88rem;
+  font-weight: 700;
+}
+
+/* Inputs */
+.test-sla-input-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+.test-sla-input {
+  width: 80px;
+  padding: 5px 8px;
+  font-size: 0.82rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  color: var(--text);
+  transition: border-color 0.15s;
+}
+.test-sla-input:hover { border-color: var(--primary); }
+.test-sla-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 20%, transparent);
+  outline: none;
+}
+.test-sla-input--error { border-color: var(--danger, #ef4444) !important; }
+.test-sla-input--label { width: 100%; min-width: 0; }
+.test-sla-unit {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.75;
+  white-space: nowrap;
+}
+.test-sla-error {
+  color: #f87171;
+  font-size: 0.68rem;
+  margin-top: 2px;
+}
+
+/* Warn arrow */
+.test-sla-warn-arrow {
+  font-size: 0.68rem;
+  color: var(--text-muted);
+  opacity: 0.55;
+  white-space: nowrap;
+}
+
+/* Select */
+.test-sla-select { font-size: 0.8rem; width: 100%; }
+
+/* Delete button */
+.test-sla-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 5px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.test-sla-delete-btn:hover {
+  color: #f87171;
+  background: rgba(248, 113, 113, 0.1);
+  border-color: rgba(248, 113, 113, 0.2);
+}
+
+/* Footer */
 .test-sla-modal > .test-sla-modal-footer {
   flex-shrink: 0;
-  padding: 0 48px 20px;
+  padding: 12px 20px 16px;
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  border-radius: 0 0 12px 12px;
 }
-/* TestSlaModal column widths (7 cols: Metric, Op, Fail, Arrow, Warn, Label, ✕) */
-.sla-editor-table--test colgroup .col-metric { width: 180px; }
-.sla-editor-table--test colgroup .col-op     { width: 36px; }
-.sla-editor-table--test colgroup .col-fail   { width: 120px; }
-.sla-editor-table--test colgroup .col-arrow  { width: 56px; }
-.sla-editor-table--test colgroup .col-warn   { width: 120px; }
-/* .col-label fills remaining space */
-.sla-editor-table--test colgroup .col-del    { width: 36px; }
+.test-sla-footer-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.test-sla-footer-actions {
+  display: flex;
+  gap: 8px;
+}
+.test-sla-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.76rem;
+  border: 1px dashed color-mix(in srgb, var(--border) 80%, transparent);
+  background: transparent;
+  color: var(--text-muted);
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.test-sla-add-btn:hover {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--primary) 40%, transparent);
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 6%, transparent);
+}
+.test-sla-add-icon {
+  font-size: 0.9rem;
+  font-weight: 700;
+  line-height: 1;
+}
 
 /* ── SLA Override Panel (RunnerPage) ── */
 /* ── SLA Override — Compact Trigger Bar ── */
@@ -4708,6 +4961,10 @@ legend { font-size: 0.85rem; font-weight: 600; color: var(--text); padding: 0 8p
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.cs-text-detail {
+  color: var(--text-muted, #a8b8cc);
+  opacity: 0.7;
 }
 .cs-item-detail {
   font-size: 11px;

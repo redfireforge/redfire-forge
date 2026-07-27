@@ -71,6 +71,33 @@ export const thAdvancedSearchLesson: DemoLesson = {
       '- **Copy** to duplicate a test to any scenario in any Feature Group\n' +
       '- **Move** to relocate a test permanently\n' +
       '- **Drag handles** (⠿) for quick reorder within scenarios or cross-scenario moves',
+    keyTerms: [
+      { term: 'Boolean Search', definition: 'AND, OR, NOT operators with parentheses for complex queries.' },
+      { term: 'Copy / Move', definition: 'Duplicate or relocate tests across scenarios and Feature Groups.' },
+      { term: 'Drag Handle', definition: 'Grip icon for reordering tests within or between scenarios.' },
+    ],
+    diagram: `<svg viewBox="0 0 380 80" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="10" width="100" height="60" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="55" y="28" text-anchor="middle" fill="#3b82f6" font-size="7" font-weight="700">Search Bar</text>
+      <text x="55" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">GET AND users</text>
+      <text x="55" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">NOT auth OR admin</text>
+      <path d="M110 40 L140 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th16arr)"/>
+      <rect x="145" y="10" width="80" height="60" rx="5" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
+      <text x="185" y="28" text-anchor="middle" fill="#10b981" font-size="7" font-weight="700">Results</text>
+      <text x="185" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">Filtered tests</text>
+      <text x="185" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">Highlighted</text>
+      <path d="M230 25 L260 15" stroke="#64748b" stroke-width="1" marker-end="url(#th16arr)"/>
+      <path d="M230 55 L260 65" stroke="#64748b" stroke-width="1" marker-end="url(#th16arr)"/>
+      <rect x="265" y="5" width="50" height="25" rx="4" fill="#1e293b" stroke="#a855f7" stroke-width="1.2"/>
+      <text x="290" y="21" text-anchor="middle" fill="#a855f7" font-size="6.5" font-weight="600">Copy</text>
+      <rect x="265" y="50" width="50" height="25" rx="4" fill="#1e293b" stroke="#f59e0b" stroke-width="1.2"/>
+      <text x="290" y="66" text-anchor="middle" fill="#f59e0b" font-size="6.5" font-weight="600">Move</text>
+      <rect x="330" y="20" width="45" height="40" rx="4" fill="#1e293b" stroke="#64748b" stroke-width="1.2"/>
+      <text x="352" y="37" text-anchor="middle" fill="#94a3b8" font-size="6.5">⠿</text>
+      <text x="352" y="51" text-anchor="middle" fill="#94a3b8" font-size="5.5">Drag</text>
+      <defs><marker id="th16arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#64748b"/></marker></defs>
+    </svg>`,
   },
 
   setup: async (ctx) => {

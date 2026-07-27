@@ -98,6 +98,8 @@ export const harnessDomain: DemoDomain = {
     { id: 'data-driven',  label: 'Data-Driven Testing', icon: '📊' },
     { id: 'execution',    label: 'Runners & Execution', icon: '▶' },
     { id: 'analysis',     label: 'Results & Analysis', icon: '📈' },
+    { id: 'authoring',    label: 'Authoring & Config', icon: '✏️' },
+    { id: 'runner',       label: 'Runner Advanced', icon: '🎯' },
   ],
   lessons: harnessLessons,
 };

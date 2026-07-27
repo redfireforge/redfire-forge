@@ -65,6 +65,32 @@ export const thAdvancedFeaturesLesson: DemoLesson = {
       '- **Tags** on scenarios (smoke, regression, critical) help categorize and filter runs\n' +
       '- **Version History** automatically snapshots test definitions on save so you can compare and restore\n' +
       '- **Trash** with a 5-second undo and a recovery panel protects against accidental deletion',
+    keyTerms: [
+      { term: 'Tags', definition: 'Labels on scenarios (smoke, regression) for filtering and organizing runs.' },
+      { term: 'Version History', definition: 'Auto-saved snapshots of test definitions with compare and restore.' },
+      { term: 'Trash', definition: 'Soft-delete with 5-second undo and a recovery panel.' },
+    ],
+    diagram: `<svg viewBox="0 0 380 80" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="10" width="70" height="60" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="40" y="28" text-anchor="middle" fill="#3b82f6" font-size="7" font-weight="700">Search</text>
+      <text x="40" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">AND / OR</text>
+      <text x="40" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">NOT / ( )</text>
+      <rect x="90" y="10" width="65" height="60" rx="5" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
+      <text x="122" y="28" text-anchor="middle" fill="#10b981" font-size="7" font-weight="700">Tags</text>
+      <text x="122" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">smoke</text>
+      <text x="122" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">regression</text>
+      <rect x="170" y="10" width="80" height="60" rx="5" fill="#1e293b" stroke="#a855f7" stroke-width="1.5"/>
+      <text x="210" y="28" text-anchor="middle" fill="#a855f7" font-size="7" font-weight="700">Versions</text>
+      <text x="210" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">Compare</text>
+      <text x="210" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">Restore</text>
+      <rect x="265" y="10" width="55" height="60" rx="5" fill="#1e293b" stroke="#ef4444" stroke-width="1.5"/>
+      <text x="292" y="28" text-anchor="middle" fill="#ef4444" font-size="7" font-weight="700">Trash</text>
+      <text x="292" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">Undo 5s</text>
+      <text x="292" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">Recover</text>
+      <rect x="335" y="10" width="40" height="60" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="355" y="35" text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="700">Suite</text>
+      <text x="355" y="49" text-anchor="middle" fill="#94a3b8" font-size="5.5">Organized</text>
+    </svg>`,
   },
 
   setup: async (ctx) => {
