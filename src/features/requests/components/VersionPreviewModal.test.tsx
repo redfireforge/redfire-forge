@@ -32,6 +32,109 @@ describe('VersionPreviewModal', { timeout: 30_000 }, () => {
     );
   }
 
+  describe('drag + resize', () => {
+    it('renders resize handles as direct children of the dialog box', () => {
+      const { container } = renderModal();
+      const modal = container.querySelector('.vp-modal');
+      expect(modal?.getAttribute('role')).toBe('dialog');
+      for (const cls of ['modal-resize-edge-right', 'modal-resize-edge-bottom', 'modal-resize-corner']) {
+        const handle = container.querySelector(`.${cls}`);
+        expect(handle).toBeTruthy();
+        // Guard: the resize hook measures the handle's parent for the drag
+        // origin — nesting these would size the modal from the wrong box.
+        expect(handle?.parentElement).toBe(modal);
+      }
+    });
+
+    it('marks the header as a drag handle', () => {
+      const { container } = renderModal();
+      const header = container.querySelector('.vp-header') as HTMLElement;
+      expect(header.style.cursor).toBe('move');
+    });
+
+    it('moves the modal when the header is dragged', () => {
+      const { container } = renderModal();
+      const modal = container.querySelector('.vp-modal') as HTMLElement;
+      const header = container.querySelector('.vp-header') as HTMLElement;
+      modal.getBoundingClientRect = () => ({
+        x: 200, y: 100, width: 400, height: 300,
+        top: 100, left: 200, right: 600, bottom: 400, toJSON: () => ({}),
+      }) as DOMRect;
+
+      fireEvent.mouseDown(header, { clientX: 300, clientY: 120 });
+      act(() => { window.dispatchEvent(new MouseEvent('mousemove', { clientX: 260, clientY: 190 })); });
+      act(() => { window.dispatchEvent(new MouseEvent('mouseup')); });
+
+      expect(modal.style.position).toBe('fixed');
+      expect(modal.style.left).toBe('160px'); // 200 - 40
+      expect(modal.style.top).toBe('170px');  // 100 + 70
+    });
+
+    it('keeps the modal inside the viewport when dragged far off-screen', () => {
+      const { container } = renderModal();
+      const modal = container.querySelector('.vp-modal') as HTMLElement;
+      const header = container.querySelector('.vp-header') as HTMLElement;
+      modal.getBoundingClientRect = () => ({
+        x: 200, y: 100, width: 400, height: 300,
+        top: 100, left: 200, right: 600, bottom: 400, toJSON: () => ({}),
+      }) as DOMRect;
+
+      fireEvent.mouseDown(header, { clientX: 300, clientY: 120 });
+      act(() => { window.dispatchEvent(new MouseEvent('mousemove', { clientX: -5000, clientY: -5000 })); });
+      act(() => { window.dispatchEvent(new MouseEvent('mouseup')); });
+
+      // Clamped to the 12px drag padding rather than escaping off-screen.
+      expect(modal.style.left).toBe('12px');
+      expect(modal.style.top).toBe('12px');
+    });
+
+    it('does not drag when the header search input is pressed', () => {
+      const { container } = renderModal();
+      const modal = container.querySelector('.vp-modal') as HTMLElement;
+      const input = container.querySelector('.vp-search-input') as HTMLElement;
+
+      fireEvent.mouseDown(input, { clientX: 300, clientY: 120 });
+      act(() => { window.dispatchEvent(new MouseEvent('mousemove', { clientX: 500, clientY: 400 })); });
+      act(() => { window.dispatchEvent(new MouseEvent('mouseup')); });
+
+      expect(modal.style.position).toBe('');
+    });
+
+    it('resizes from the corner handle relative to the modal box', () => {
+      const { container } = renderModal();
+      const modal = container.querySelector('.vp-modal') as HTMLElement;
+      const corner = container.querySelector('.modal-resize-corner') as HTMLElement;
+      modal.getBoundingClientRect = () => ({
+        x: 0, y: 0, width: 800, height: 600,
+        top: 0, left: 0, right: 800, bottom: 600, toJSON: () => ({}),
+      }) as DOMRect;
+
+      fireEvent.mouseDown(corner, { clientX: 800, clientY: 600 });
+      act(() => { window.dispatchEvent(new MouseEvent('mousemove', { clientX: 900, clientY: 680 })); });
+      act(() => { window.dispatchEvent(new MouseEvent('mouseup')); });
+
+      expect(modal.style.width).toBe('900px');
+      expect(modal.style.height).toBe('680px');
+    });
+
+    it('clamps resizing at the minimum size', () => {
+      const { container } = renderModal();
+      const modal = container.querySelector('.vp-modal') as HTMLElement;
+      const corner = container.querySelector('.modal-resize-corner') as HTMLElement;
+      modal.getBoundingClientRect = () => ({
+        x: 0, y: 0, width: 800, height: 600,
+        top: 0, left: 0, right: 800, bottom: 600, toJSON: () => ({}),
+      }) as DOMRect;
+
+      fireEvent.mouseDown(corner, { clientX: 800, clientY: 600 });
+      act(() => { window.dispatchEvent(new MouseEvent('mousemove', { clientX: -2000, clientY: -2000 })); });
+      act(() => { window.dispatchEvent(new MouseEvent('mouseup')); });
+
+      expect(modal.style.width).toBe('480px');
+      expect(modal.style.height).toBe('280px');
+    });
+  });
+
   it('renders title, line count, Copy and Close', () => {
     renderModal({ content: 'a\nb', language: 'dsl' });
     expect(screen.getByRole('dialog', { name: 'Preview' })).toBeTruthy();

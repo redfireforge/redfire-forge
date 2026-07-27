@@ -241,6 +241,31 @@ describe('useGraphqlConnectionProfiles — updateProfile', () => {
     expect(result.current.profiles[0].auth).toBeNull();
     expect(mockWriteKey).not.toHaveBeenCalled();
   });
+
+  it('updates only endpoint without auth', async () => {
+    const stored = [makeProfile({ id: 'p-1', endpoint: 'http://old' })];
+    mockReadKey.mockResolvedValue(JSON.stringify(stored));
+
+    const { result } = renderHook(() => useGraphqlConnectionProfiles());
+    await waitFor(() => expect(result.current.profiles).toHaveLength(1));
+
+    act(() => { result.current.updateProfile('p-1', { endpoint: 'http://new' }); });
+
+    expect(result.current.profiles[0].endpoint).toBe('http://new');
+    expect(mockWriteKey).toHaveBeenCalled();
+  });
+
+  it('no-ops when endpoint and auth are unchanged', async () => {
+    const stored = [makeProfile({ id: 'p-1', endpoint: 'http://same', auth: null })];
+    mockReadKey.mockResolvedValue(JSON.stringify(stored));
+
+    const { result } = renderHook(() => useGraphqlConnectionProfiles());
+    await waitFor(() => expect(result.current.profiles).toHaveLength(1));
+
+    act(() => { result.current.updateProfile('p-1', { endpoint: 'http://same', auth: null }); });
+
+    expect(mockWriteKey).not.toHaveBeenCalled();
+  });
 });
 
 describe('useGraphqlConnectionProfiles — renameProfile', () => {

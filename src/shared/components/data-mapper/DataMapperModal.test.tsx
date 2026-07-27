@@ -158,31 +158,6 @@ describe('DataMapperModal', () => {
     // full DnD, but the callback pattern is verified by DataMapper.test.tsx.
   });
 
-  it('toggles full screen mode', () => {
-    const adapter = createAdapter();
-    const { container } = render(
-      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
-    );
-    expect(container.querySelector('.dm-modal--fullscreen')).toBeNull();
-    fireEvent.click(screen.getByLabelText('Enter full screen'));
-    expect(container.querySelector('.dm-modal--fullscreen')).toBeTruthy();
-    fireEvent.click(screen.getByLabelText('Exit full screen'));
-    expect(container.querySelector('.dm-modal--fullscreen')).toBeNull();
-  });
-
-  it('starts in full screen when fullScreenDefault is true', () => {
-    const adapter = createAdapter();
-    const { container } = render(
-      <DataMapperModal
-        adapter={adapter}
-        onSave={vi.fn()}
-        onCancel={vi.fn()}
-        fullScreenDefault
-      />,
-    );
-    expect(container.querySelector('.dm-modal--fullscreen')).toBeTruthy();
-  });
-
   it('renders DataMapper inside the modal', () => {
     const adapter = createAdapter();
     const { container } = render(
@@ -445,10 +420,27 @@ describe('DataMapperModal', () => {
     const { container } = render(
       <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
     );
+    // role="dialog" must sit on the modal box, not the full-viewport overlay —
+    // resize handles measure their parent box to compute the drag origin.
     const overlay = container.querySelector('.dm-modal-overlay');
-    expect(overlay?.getAttribute('role')).toBe('dialog');
-    expect(overlay?.getAttribute('aria-modal')).toBe('true');
-    expect(overlay?.getAttribute('aria-labelledby')).toBeTruthy();
+    expect(overlay?.getAttribute('role')).toBe('presentation');
+    const shell = container.querySelector('.dm-modal-shell');
+    expect(shell?.getAttribute('role')).toBe('dialog');
+    expect(shell?.getAttribute('aria-modal')).toBe('true');
+    expect(shell?.getAttribute('aria-labelledby')).toBeTruthy();
+  });
+
+  it('renders resize handles as direct children of the modal box', () => {
+    const adapter = createAdapter();
+    const { container } = render(
+      <DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />,
+    );
+    const shell = container.querySelector('.dm-modal-shell');
+    for (const cls of ['modal-resize-edge-right', 'modal-resize-edge-bottom', 'modal-resize-corner']) {
+      const handle = container.querySelector(`.${cls}`);
+      expect(handle).toBeTruthy();
+      expect(handle?.parentElement).toBe(shell);
+    }
   });
 
   it('saves schema snapshot on successful save', async () => {

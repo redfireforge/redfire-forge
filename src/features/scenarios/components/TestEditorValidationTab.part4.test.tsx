@@ -208,7 +208,7 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
       const row = screen.getByText('DATE').closest('.assertion-row')!;
-      selectOption(row.querySelector('.cs-wrapper')!, 'today');
+      selectOption(row.querySelectorAll('.cs-wrapper')[1]!, 'today');
       expect(onDraftChange).toHaveBeenCalledWith(
         expect.objectContaining({
           validation: expect.objectContaining({
@@ -229,7 +229,7 @@ describe('TestEditorValidationTab', () => {
       const draftRef = { current: draft };
       render(<TestEditorValidationTab {...makeProps({ draft, draftRef, onDraftChange })} />);
       const row = screen.getByText('DATE').closest('.assertion-row')!;
-      selectOption(row.querySelector('.cs-wrapper')!, 'fixed date');
+      selectOption(row.querySelectorAll('.cs-wrapper')[1]!, 'fixed date');
       expect(onDraftChange).toHaveBeenCalledWith(
         expect.objectContaining({
           validation: expect.objectContaining({

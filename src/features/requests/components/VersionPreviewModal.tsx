@@ -3,6 +3,8 @@ import { prettyJson } from '../../../shared/utils/helpers';
 import { SearchMatchBar } from '../../../shared/components/SearchMatchBar';
 import { useSearchMatchNavigation } from '../../../shared/hooks/useSearchMatchNavigation';
 import { useCopyToClipboard } from '../../../shared/hooks/useCopyToClipboard';
+import { useModalFrame } from '../../../shared/hooks/useModalFrame';
+import ModalResizeHandles from '../../../shared/components/ModalResizeHandles';
 
 interface Props {
   title: string;
@@ -65,6 +67,24 @@ export default function VersionPreviewModal({ title, subtitle, tags, content: ra
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [copied, copyToClipboard] = useCopyToClipboard(2000);
   const [searchQuery, setSearchQueryRaw] = useState('');
+
+  const {
+    isDragged,
+    overlayStyle,
+    dialogStyle,
+    headerDragStyle,
+    onHeaderMouseDown,
+    onHeaderPointerDown,
+    dialogRef,
+    onRightEdge,
+    onCorner,
+    onBottomEdge,
+  } = useModalFrame({
+    minWidth: 480,
+    minHeight: 280,
+    constrainDragToViewport: true,
+    dragViewportPadding: 12,
+  });
 
   const content = language === 'json' ? prettyJson(rawContent) : rawContent;
 
@@ -156,11 +176,23 @@ export default function VersionPreviewModal({ title, subtitle, tags, content: ra
     <div
       className="vp-overlay"
       ref={overlayRef}
+      style={overlayStyle}
       onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
     >
-      <div className="vp-modal" role="dialog" aria-label={title}>
-        {/* Header: title + tags + search */}
-        <div className="vp-header">
+      <div
+        className={`vp-modal${isDragged ? ' vp-modal--dragged' : ''}`}
+        ref={dialogRef}
+        role="dialog"
+        aria-label={title}
+        style={dialogStyle}
+      >
+        {/* Header: title + tags + search — also the drag handle */}
+        <div
+          className="vp-header"
+          style={headerDragStyle}
+          onMouseDown={onHeaderMouseDown}
+          onPointerDown={onHeaderPointerDown}
+        >
           <div className="vp-header-left">
             <h3 className="vp-title">{title}</h3>
             {subtitle && <span className="vp-subtitle">{subtitle}</span>}
@@ -229,6 +261,10 @@ export default function VersionPreviewModal({ title, subtitle, tags, content: ra
             </button>
           </div>
         </div>
+
+        {/* Must stay a direct child of the role="dialog" box — the resize hook
+            measures the handle's parent to compute the drag origin. */}
+        <ModalResizeHandles onRightEdge={onRightEdge} onCorner={onCorner} onBottomEdge={onBottomEdge} />
       </div>
     </div>
   );

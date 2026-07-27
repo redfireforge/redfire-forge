@@ -288,16 +288,11 @@ describe('DataMapperModal', () => {
     expect(screen.getByText(/Required field "y" is not mapped/)).toBeTruthy();
   });
 
-  it('toggles fullscreen mode', () => {
+  it('has no fullscreen affordance', () => {
     const adapter = createAdapter();
     const { container } = render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     expect(container.querySelector('.dm-modal--fullscreen')).toBeNull();
-    const fsBtn = screen.getByLabelText('Enter full screen');
-    fireEvent.click(fsBtn);
-    expect(container.querySelector('.dm-modal--fullscreen')).toBeTruthy();
-    const exitBtn = screen.getByLabelText('Exit full screen');
-    fireEvent.click(exitBtn);
-    expect(container.querySelector('.dm-modal--fullscreen')).toBeNull();
+    expect(screen.queryByLabelText('Enter full screen')).toBeNull();
   });
 
   it('renders custom doneLabel', () => {

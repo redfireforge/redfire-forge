@@ -48,6 +48,48 @@ describe('useModalResize', () => {
     } as unknown as React.MouseEvent;
   }
 
+  it('measures the handle parent box, not an outer role="dialog" ancestor', () => {
+    // Regression: DataMapperModal put role="dialog" on its full-viewport overlay.
+    // Resolving via closest('[role="dialog"]') measured the overlay, so the first
+    // pointer move snapped the modal to the whole viewport.
+    const { result } = renderHook(() => useModalResize(320, 200));
+
+    const overlay = document.createElement('div');
+    overlay.setAttribute('role', 'dialog');
+    overlay.getBoundingClientRect = () => ({
+      x: 0, y: 0, width: 1728, height: 912,
+      top: 0, left: 0, right: 1728, bottom: 912, toJSON: () => ({}),
+    }) as DOMRect;
+
+    const box = document.createElement('div');
+    box.getBoundingClientRect = () => ({
+      x: 100, y: 100, width: 600, height: 400,
+      top: 100, left: 100, right: 700, bottom: 500, toJSON: () => ({}),
+    }) as DOMRect;
+
+    const handle = document.createElement('div');
+    box.appendChild(handle);
+    overlay.appendChild(box);
+
+    const evt = {
+      clientX: 500, clientY: 300,
+      currentTarget: handle,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+    } as unknown as React.MouseEvent;
+
+    act(() => { result.current.onCorner(evt); });
+    act(() => {
+      window.dispatchEvent(new MouseEvent('mousemove', { clientX: 501, clientY: 301 }));
+    });
+
+    // Origin must come from the 600x400 box, not the 1728x912 overlay.
+    expect(result.current.resizeStyle!.width).toBe(601);
+    expect(result.current.resizeStyle!.height).toBe(401);
+
+    act(() => { window.dispatchEvent(new MouseEvent('mouseup')); });
+  });
+
   it('onRightEdge drag changes width only', () => {
     const { result } = renderHook(() => useModalResize(320, 200));
     act(() => {
