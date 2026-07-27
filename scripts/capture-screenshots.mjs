@@ -235,7 +235,7 @@ async function main() {
 
       // Scroll down in the test editor to see more fields
       await page.evaluate(() => {
-        const editor = document.querySelector('.test-editor-pane, .editor-panel, .insomnia-panel');
+        const editor = document.querySelector('.test-editor-pane, .editor-panel, .rf-builder-panel');
         if (editor) editor.scrollTop += 300;
         else window.scrollBy(0, 300);
       });
@@ -243,7 +243,7 @@ async function main() {
       await shot(page, 'test-editor-more-fields');
 
       // Save the test
-      const saveBtn = page.locator('.insomnia-top-actions button:has-text("Save")');
+      const saveBtn = page.locator('.rf-builder-top-actions button:has-text("Save")');
       if (await saveBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
         const disabled = await saveBtn.isDisabled();
         if (!disabled) {
@@ -299,7 +299,7 @@ async function main() {
 
       // Scroll to see validation/auth
       await page.evaluate(() => {
-        const editor = document.querySelector('.test-editor-pane, .editor-panel, .insomnia-panel, .insomnia-layout');
+        const editor = document.querySelector('.test-editor-pane, .editor-panel, .rf-builder-panel, .rf-builder-layout');
         if (editor) editor.scrollTop += 400;
         else window.scrollBy(0, 400);
       });

@@ -33,6 +33,13 @@ export interface CustomSelectProps {
   'data-testid'?: string;
   'aria-label'?: string;
   size?: 'default' | 'sm';
+  /**
+   * Echo the selected option's `detail` next to the label in the closed trigger.
+   * Only enable when `detail` is a short glyph (an operator symbol like `≥`).
+   * Most callers use `detail` for a sentence-long description that belongs in
+   * the menu only — rendering that in the trigger would overflow it.
+   */
+  showDetailInTrigger?: boolean;
 }
 
 export function CustomSelect({
@@ -43,6 +50,7 @@ export function CustomSelect({
   disabled,
   className,
   size = 'default',
+  showDetailInTrigger = false,
   ...rest
 }: CustomSelectProps) {
   const [open, setOpen] = useState(false);
@@ -131,7 +139,12 @@ export function CustomSelect({
         aria-label={ariaLabel}
         disabled={disabled}
       >
-        <span className="cs-text">{displayText}</span>
+        <span className="cs-text">
+          {displayText}
+          {showDetailInTrigger && selected?.detail
+            ? <span className="cs-text-detail"> ({selected.detail})</span>
+            : null}
+        </span>
         <span className="cs-arrow">{open ? '▲' : '▼'}</span>
       </button>
       {open && (

@@ -459,7 +459,7 @@ export default function ValidationRulesModal({
   );
 
   // Portal into the closest modal overlay ancestor so the panel participates
-  // in the same stacking context (e.g. insomnia-modal-overlay z-index: 10080).
+  // in the same stacking context (e.g. rf-builder-overlay z-index: 10080).
   // Falls back to document.body when used outside a modal shell.
   const portalTarget = portalContainerRef?.current?.closest('.dm-modal-overlay')
     ?? portalContainerRef?.current?.closest('.modal-overlay')

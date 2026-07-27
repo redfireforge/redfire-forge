@@ -506,7 +506,7 @@ describe('AssertionRowEditor', () => {
 
     it('updates operator', () => {
       render(<AssertionRowEditor assertion={bodySizeAssertion} {...baseProps} />);
-      selectOption(csShowing('less than'), 'at least');
+      selectOption(csShowing('less than (<)'), 'at least');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: '>=' });
     });
   });
@@ -550,9 +550,9 @@ describe('AssertionRowEditor', () => {
 
     it('updates operator', () => {
       render(<AssertionRowEditor assertion={wsNumericAssertion} {...baseProps} />);
-      const selects = screen.getAllByRole('combobox');
-      const opSelect = selects.find(s => (s as HTMLSelectElement).value === '<');
-      fireEvent.change(opSelect!, { target: { value: '>=' } });
+      const trigger = screen.getByText('less than').closest('button')!;
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByRole('option', { name: /at least/ }));
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: '>=' });
     });
   });
@@ -628,8 +628,9 @@ describe('AssertionRowEditor', () => {
       fireEvent.change(screen.getByDisplayValue('$.items'), { target: { value: '$.list' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { jsonPath: '$.list' });
       pickPath();
-      const opSelect = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === '=');
-      fireEvent.change(opSelect!, { target: { value: '>' } });
+      const trigger = screen.getByText('equals').closest('button')!;
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByRole('option', { name: /greater than/ }));
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: '>' });
       fireEvent.change(screen.getByDisplayValue('3'), { target: { value: '5' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { value: 5 });
@@ -641,8 +642,9 @@ describe('AssertionRowEditor', () => {
       fireEvent.change(screen.getByDisplayValue('$.price'), { target: { value: '$.qty' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { jsonPath: '$.qty' });
       pickPath();
-      const opSelect = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === '>');
-      fireEvent.change(opSelect!, { target: { value: '<' } });
+      const trigger = screen.getByText('greater than').closest('button')!;
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByRole('option', { name: /^less than/ }));
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: '<' });
       fireEvent.change(screen.getByDisplayValue('100'), { target: { value: '200' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { value: 200 });
@@ -732,8 +734,9 @@ describe('AssertionRowEditor', () => {
       fireEvent.change(screen.getByDisplayValue('$.createdAt'), { target: { value: '$.updatedAt' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { jsonPath: '$.updatedAt' });
       pickPath();
-      const opSelect = screen.getAllByRole('combobox').find(s => (s as HTMLSelectElement).value === '>');
-      fireEvent.change(opSelect!, { target: { value: '<' } });
+      const trigger = screen.getByText('after').closest('button')!;
+      fireEvent.click(trigger);
+      fireEvent.click(screen.getByRole('option', { name: /^before/ }));
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: '<' });
       fireEvent.click(screen.getByTitle('Pick date'));
     });
@@ -752,7 +755,7 @@ describe('AssertionRowEditor', () => {
       fireEvent.change(screen.getByDisplayValue('$.timestamp'), { target: { value: '$.ts' } });
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { jsonPath: '$.ts' });
       pickPath();
-      selectOption(csShowing('equals'), 'after');
+      selectOption(csShowing('equals (=)'), 'after');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { operator: '>' });
       const dt = document.querySelector('input[type="datetime-local"]') as HTMLInputElement;
       fireEvent.change(dt, { target: { value: '2025-06-15T08:30' } });
@@ -955,6 +958,59 @@ describe('AssertionRowEditor', () => {
       render(<AssertionRowEditor assertion={{ type: 'date', jsonPath: '$.a', operator: '>', reference: { kind: 'fixed', iso: '2023-05-05' } }} {...baseProps} />);
       selectOption(csShowing('fixed date'), 'fixed date');
       expect(mockOnUpdate).toHaveBeenCalledWith(0, { reference: { kind: 'fixed', iso: '2023-05-05' } });
+    });
+  });
+
+  // ── custom predicate hint popover ──────────────────────────────────────────
+
+  describe('custom predicate hint popover', () => {
+    const customAssertion: Assertion = { type: 'custom', expression: '$.body.x', description: '' };
+
+    it('shows and removes hint popover on toggle', () => {
+      render(<AssertionRowEditor assertion={customAssertion} {...baseProps} />);
+      const hintBtn = screen.getByLabelText('Expression syntax help');
+      fireEvent.click(hintBtn);
+      expect(document.querySelector('.assertion-custom-hint-pop')).toBeTruthy();
+      // Click again to remove
+      fireEvent.click(hintBtn);
+      expect(document.querySelector('.assertion-custom-hint-pop')).toBeNull();
+    });
+
+    it('dismisses hint popover on outside mousedown', async () => {
+      render(<AssertionRowEditor assertion={customAssertion} {...baseProps} />);
+      const hintBtn = screen.getByLabelText('Expression syntax help');
+      fireEvent.click(hintBtn);
+      expect(document.querySelector('.assertion-custom-hint-pop')).toBeTruthy();
+      // Wait for setTimeout to register the dismiss listener
+      await new Promise((r) => setTimeout(r, 10));
+      // Click outside
+      fireEvent.mouseDown(document.body);
+      expect(document.querySelector('.assertion-custom-hint-pop')).toBeNull();
+    });
+
+    it('does not dismiss when clicking inside the popover', async () => {
+      render(<AssertionRowEditor assertion={customAssertion} {...baseProps} />);
+      const hintBtn = screen.getByLabelText('Expression syntax help');
+      fireEvent.click(hintBtn);
+      const pop = document.querySelector('.assertion-custom-hint-pop') as HTMLElement;
+      expect(pop).toBeTruthy();
+      await new Promise((r) => setTimeout(r, 10));
+      fireEvent.mouseDown(pop);
+      expect(document.querySelector('.assertion-custom-hint-pop')).toBeTruthy();
+    });
+  });
+
+  // ── jsonSchema generate with invalid sampleJson ──────────────────────────────
+
+  describe('jsonSchema generate error handling', () => {
+    it('does not crash when sampleJson is malformed', () => {
+      const schemaAssertion: Assertion = { type: 'jsonSchema', schema: '' };
+      const { container } = render(<AssertionRowEditor assertion={schemaAssertion} {...baseProps} sampleJson="not-valid-json{" />);
+      const generateBtn = container.querySelector('.assertion-schema-action--generate') as HTMLButtonElement;
+      expect(generateBtn).toBeTruthy();
+      fireEvent.click(generateBtn);
+      // Should not throw, and should not call update with bad schema
+      expect(mockOnUpdate).not.toHaveBeenCalled();
     });
   });
 });

@@ -67,6 +67,33 @@ export const thLoadTestingLesson: DemoLesson = {
       'concurrency over time (ramp-up, sustained, spike), **Think Time** delays for realistic user simulation, ' +
       '**Error Policies** to control run behavior on failures, and **Constant Arrival Rate** for open-model load testing.\n\n' +
       'This lesson walks through each configuration section so you know how to set up any load testing scenario.',
+    keyTerms: [
+      { term: 'Load Profile', definition: 'Shapes concurrency over time: ramp-up, sustained, spike.' },
+      { term: 'Think Time', definition: 'Pauses between requests to simulate real user behavior.' },
+      { term: 'Error Policy', definition: 'Controls whether the run stops or continues on failures.' },
+    ],
+    diagram: `<svg viewBox="0 0 380 80" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="10" width="80" height="60" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="45" y="28" text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="700">Load Profile</text>
+      <text x="45" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">Ramp / Spike</text>
+      <text x="45" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">Sustained</text>
+      <path d="M90 40 L115 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th8arr)"/>
+      <rect x="120" y="10" width="75" height="60" rx="5" fill="#1e293b" stroke="#10b981" stroke-width="1.5"/>
+      <text x="157" y="28" text-anchor="middle" fill="#10b981" font-size="7" font-weight="700">Think Time</text>
+      <text x="157" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">Fixed / Random</text>
+      <text x="157" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">Pacing delay</text>
+      <path d="M200 40 L225 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th8arr)"/>
+      <rect x="230" y="10" width="70" height="60" rx="5" fill="#1e293b" stroke="#ef4444" stroke-width="1.5"/>
+      <text x="265" y="28" text-anchor="middle" fill="#ef4444" font-size="7" font-weight="700">Resilience</text>
+      <text x="265" y="42" text-anchor="middle" fill="#94a3b8" font-size="5.5">Error policy</text>
+      <text x="265" y="54" text-anchor="middle" fill="#94a3b8" font-size="5.5">Max errors</text>
+      <path d="M305 40 L325 40" stroke="#64748b" stroke-width="1.2" marker-end="url(#th8arr)"/>
+      <rect x="330" y="15" width="45" height="50" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="352" y="35" text-anchor="middle" fill="#3b82f6" font-size="7" font-weight="700">Run</text>
+      <text x="352" y="49" text-anchor="middle" fill="#94a3b8" font-size="5.5">Execute</text>
+      <defs><marker id="th8arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#64748b"/></marker></defs>
+    </svg>`,
   },
 
   setup: async (ctx) => {

@@ -99,6 +99,37 @@ export const thValidationVersioningLesson: DemoLesson = {
       '- **Response Versions** — snapshot the API response body + validation settings whenever you fetch or save\n' +
       '- **Rules Versions** — snapshot your validation rules (expected fields, operators, assertions) independently\n\n' +
       'Each version can be **previewed**, **compared** side-by-side, or **restored** to roll back changes.',
+    keyTerms: [
+      { term: 'Response Version', definition: 'Snapshot of the API response body and validation settings.' },
+      { term: 'Rules Version', definition: 'Snapshot of validation rules, operators, and assertions.' },
+      { term: 'Version Diff', definition: 'Side-by-side comparison highlighting added, removed, and changed lines.' },
+    ],
+    diagram: `<svg viewBox="0 0 380 80" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="5" width="80" height="70" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="45" y="22" text-anchor="middle" fill="#3b82f6" font-size="7" font-weight="700">Response</text>
+      <text x="45" y="36" text-anchor="middle" fill="#94a3b8" font-size="5.5">v1 (initial)</text>
+      <text x="45" y="48" text-anchor="middle" fill="#94a3b8" font-size="5.5">v2 (updated)</text>
+      <text x="45" y="60" text-anchor="middle" fill="#94a3b8" font-size="5.5">v3 (current)</text>
+      <rect x="105" y="5" width="80" height="70" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="145" y="22" text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="700">Rules</text>
+      <text x="145" y="36" text-anchor="middle" fill="#94a3b8" font-size="5.5">v1 (3 rules)</text>
+      <text x="145" y="48" text-anchor="middle" fill="#94a3b8" font-size="5.5">v2 (5 rules)</text>
+      <text x="145" y="60" text-anchor="middle" fill="#94a3b8" font-size="5.5">v3 (current)</text>
+      <path d="M190 30 L230 30" stroke="#64748b" stroke-width="1.2" marker-end="url(#th12arr)"/>
+      <path d="M190 55 L230 55" stroke="#64748b" stroke-width="1.2" marker-end="url(#th12arr)"/>
+      <rect x="235" y="5" width="65" height="30" rx="4" fill="#1e293b" stroke="#a855f7" stroke-width="1.2"/>
+      <text x="267" y="24" text-anchor="middle" fill="#a855f7" font-size="6.5" font-weight="600">Preview</text>
+      <rect x="235" y="45" width="65" height="30" rx="4" fill="#1e293b" stroke="#10b981" stroke-width="1.2"/>
+      <text x="267" y="64" text-anchor="middle" fill="#10b981" font-size="6.5" font-weight="600">Compare</text>
+      <path d="M305 20 L330 20" stroke="#64748b" stroke-width="1" marker-end="url(#th12arr)"/>
+      <path d="M305 60 L330 60" stroke="#64748b" stroke-width="1" marker-end="url(#th12arr)"/>
+      <rect x="335" y="5" width="40" height="30" rx="4" fill="#1e293b" stroke="#ef4444" stroke-width="1.2"/>
+      <text x="355" y="24" text-anchor="middle" fill="#ef4444" font-size="6" font-weight="600">Restore</text>
+      <rect x="335" y="45" width="40" height="30" rx="4" fill="#1e293b" stroke="#3b82f6" stroke-width="1.2"/>
+      <text x="355" y="64" text-anchor="middle" fill="#3b82f6" font-size="6" font-weight="600">Diff</text>
+      <defs><marker id="th12arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+        <polygon points="0 0, 8 3, 0 6" fill="#64748b"/></marker></defs>
+    </svg>`,
   },
 
   setup: async (ctx) => {

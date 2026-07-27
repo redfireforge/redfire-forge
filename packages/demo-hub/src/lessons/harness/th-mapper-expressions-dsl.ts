@@ -93,6 +93,25 @@ export const thMapperExpressionsDslLesson: DemoLesson = {
       '- **DSL Rules Editor** — a Monaco-based text editor with custom syntax highlighting, ' +
       'autocomplete, 8-category reference panel (34 operators), and per-line verification with ' +
       'pass/fail gutter markers',
+    keyTerms: [
+      { term: 'Expression Editor', definition: 'Visual editor with function catalog, live preview, and step debugger.' },
+      { term: 'DSL Rules Editor', definition: 'Text-based Monaco editor with custom syntax and autocomplete.' },
+      { term: 'Step Debugger', definition: 'Breaks expressions into steps and shows intermediate values.' },
+    ],
+    diagram: `<svg viewBox="0 0 380 80" xmlns="http://www.w3.org/2000/svg">
+      <rect x="5" y="5" width="120" height="70" rx="5" fill="#1e293b" stroke="#3b82f6" stroke-width="1.5"/>
+      <text x="65" y="20" text-anchor="middle" fill="#3b82f6" font-size="7" font-weight="700">Expression Editor</text>
+      <text x="30" y="36" text-anchor="middle" fill="#94a3b8" font-size="5">Functions</text>
+      <text x="90" y="36" text-anchor="middle" fill="#94a3b8" font-size="5">Code</text>
+      <text x="65" y="50" text-anchor="middle" fill="#94a3b8" font-size="5">Preview + Debug</text>
+      <text x="65" y="62" text-anchor="middle" fill="#94a3b8" font-size="5">Snippets + Templates</text>
+      <text x="190" y="44" text-anchor="middle" fill="#64748b" font-size="9" font-weight="700">or</text>
+      <rect x="225" y="5" width="150" height="70" rx="5" fill="#1e293b" stroke="#f59e0b" stroke-width="1.5"/>
+      <text x="300" y="20" text-anchor="middle" fill="#f59e0b" font-size="7" font-weight="700">DSL Rules Editor</text>
+      <text x="300" y="36" text-anchor="middle" fill="#94a3b8" font-size="5">$.name equals "Alice"</text>
+      <text x="300" y="48" text-anchor="middle" fill="#94a3b8" font-size="5">$.age greater_than 18</text>
+      <text x="300" y="60" text-anchor="middle" fill="#94a3b8" font-size="5">Reference + Verify</text>
+    </svg>`,
   },
 
   setup: async (ctx) => {
