@@ -54,7 +54,8 @@ describe('TrashPanel', () => {
 
   it('renders title with item count', () => {
     renderPanel(makeItems());
-    expect(screen.getByText('Trash (4)')).toBeInTheDocument();
+    expect(screen.getByText('Trash')).toBeInTheDocument();
+    expect(screen.getByText('4')).toBeInTheDocument();
   });
 
   it('renders all items in the list', () => {

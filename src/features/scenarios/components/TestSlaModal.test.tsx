@@ -58,7 +58,7 @@ describe('TestSlaModal', () => {
 
   it('adds a target row', () => {
     render(<TestSlaModal test={makeTest()} onSave={vi.fn()} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByRole('button', { name: '+ Add Target' }));
+    fireEvent.click(screen.getByRole('button', { name: /Add Target/ }));
     expect(screen.getByRole('button', { name: 'Delete target' })).toBeInTheDocument();
     expect(screen.getByText('≤')).toBeInTheDocument();
   });
@@ -151,7 +151,7 @@ describe('TestSlaModal', () => {
     const test = makeTest([{ id: 's1', metric: 'p95', operator: 'lte', value: -1 }]);
     render(<TestSlaModal test={test} onSave={vi.fn()} onClose={vi.fn()} />);
     expect(screen.getByText('Must be a non-negative number')).toBeInTheDocument();
-    expect(document.querySelector('.sla-input-error')).toBeInTheDocument();
+    expect(document.querySelector('.test-sla-input--error')).toBeInTheDocument();
   });
 
   it('shows metric unit labels for ms and tps metrics', () => {

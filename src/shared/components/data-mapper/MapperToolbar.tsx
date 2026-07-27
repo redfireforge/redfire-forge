@@ -317,6 +317,7 @@ export default function MapperToolbar({
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showCodeView ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleCodeView}
             title={showCodeView ? 'Hide code view' : 'Show code view'}
+            data-testid="dm-view-code"
           >
             Code
           </button>
@@ -326,6 +327,7 @@ export default function MapperToolbar({
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showPreview ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onTogglePreview}
             title={showPreview ? 'Hide preview' : 'Show preview'}
+            data-testid="dm-view-preview"
           >
             Preview
           </button>
@@ -335,6 +337,7 @@ export default function MapperToolbar({
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showTableView ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleTableView}
             title={showTableView ? 'Hide table view' : 'Show mapping table'}
+            data-testid="dm-view-table"
           >
             Table
           </button>

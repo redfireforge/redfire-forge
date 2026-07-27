@@ -1,5 +1,5 @@
-/* Insomnia-style modal overlay */
-.insomnia-modal-overlay.modal-overlay {
+/* Builder modal overlay */
+.rf-builder-overlay.modal-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
   z-index: 10080;
@@ -8,14 +8,14 @@
   justify-content: center;
   background: transparent;
 }
-.insomnia-modal-overlay.modal-overlay,
-.insomnia-modal-overlay.modal-overlay:has(> .modal-fullscreen) {
+.rf-builder-overlay.modal-overlay,
+.rf-builder-overlay.modal-overlay:has(> .modal-fullscreen) {
   align-items: center !important;
   justify-content: center !important;
   background: transparent !important;
 }
 /* Edit Test modal — default size, centered, white edges, resizable */
-.insomnia-modal-overlay .insomnia-modal.modal.ram-modal {
+.rf-builder-overlay .rf-builder-modal.modal.ram-modal {
   width: min(920px, 94vw);
   max-width: none;
   height: min(82vh, 860px);
@@ -32,7 +32,7 @@
     0 12px 40px rgba(0, 0, 0, 0.45),
     0 2px 8px rgba(0, 0, 0, 0.25) !important;
 }
-.insomnia-modal-overlay .insomnia-modal.modal.ram-modal.modal-fullscreen {
+.rf-builder-overlay .rf-builder-modal.modal.ram-modal.modal-fullscreen {
   width: 100% !important;
   max-width: 100% !important;
   height: 100% !important;
@@ -41,18 +41,18 @@
 }
 
 /* Hide redundant expand and close buttons — Cancel/Save already exist */
-.insomnia-modal .modal-expand-btn,
-.insomnia-modal .ram-modal-close {
+.rf-builder-modal .modal-expand-btn,
+.rf-builder-modal .ram-modal-close {
   display: none;
 }
-.insomnia-modal .modal-header {
+.rf-builder-modal .modal-header {
   cursor: default;
 }
-/* Insomnia-style modal */
-.insomnia-modal { padding: 0; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
-.insomnia-modal h3 { margin: 0; font-size: 1.1rem; }
+/* Builder modal */
+.rf-builder-modal { padding: 0; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.rf-builder-modal h3 { margin: 0; font-size: 1.1rem; }
 
-.insomnia-top-bar {
+.rf-builder-top-bar {
   display: flex;
   align-items: center;
   gap: 16px;
@@ -61,7 +61,7 @@
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
-.insomnia-top-actions { margin-left: auto; display: flex; gap: 8px; }
+.rf-builder-top-actions { margin-left: auto; display: flex; gap: 8px; }
 
 /* Mode toggle (Builder / cURL) */
 .mode-toggle {
@@ -440,9 +440,11 @@
   overflow-y: auto;
   padding: 16px 0 24px;
 }
-.insomnia-modal:has(.body-type-dropdown) { overflow: visible; }
-.builder-tab-content:has(.body-type-dropdown) { overflow: visible;
-}
+.rf-builder-modal:has(.body-type-dropdown) { overflow: visible; }
+.builder-tab-content:has(.body-type-dropdown) { overflow: visible; }
+.rf-builder-overlay .rf-builder-modal.modal.ram-modal:has(.auth-tab-type-select .cs-menu),
+.rf-builder-modal:has(.auth-tab-type-select .cs-menu) { overflow: visible !important; }
+.builder-tab-content:has(.auth-tab-type-select .cs-menu) { overflow: visible; }
 
 /* Key-Value sections (params, headers, expected fields) */
 .kv-header {
@@ -675,7 +677,7 @@
 }
 .te-kv-remove:hover { opacity: 1; color: #ef4444; background: color-mix(in srgb, #ef4444 10%, transparent); }
 
-/* ─── Params Editor (Insomnia-style) ─── */
+/* ─── Params Editor ─── */
 .params-editor {
   display: flex;
   flex-direction: column;
@@ -2584,6 +2586,200 @@
   font-weight: 400;
   font-style: italic;
 }
+/* ── Auth Tab (TestEditorAuthTab) ──────────────────────── */
+.auth-tab { padding: 4px 0; }
+
+.auth-tab-type-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+.auth-tab-type-label {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+  min-width: 64px;
+}
+.auth-tab-type-select { min-width: 220px; }
+.auth-tab-type-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  opacity: 0.65;
+  font-style: italic;
+  white-space: nowrap;
+}
+
+.auth-tab-inherit-hint {
+  padding: 10px 14px;
+  background: color-mix(in srgb, var(--primary) 5%, var(--bg));
+  border-radius: 8px;
+  border-left: 3px solid var(--primary);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-bottom: 12px;
+  line-height: 1.5;
+}
+
+/* Fields container */
+.auth-tab-fields {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin-bottom: 12px;
+}
+
+/* Two-tone field row */
+.auth-tab-field-row {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  border-bottom: 1px solid color-mix(in srgb, var(--border) 50%, transparent);
+}
+.auth-tab-field-row:last-child { border-bottom: none; }
+.auth-tab-field-label {
+  flex: 0 0 120px;
+  padding: 0 14px;
+  font-size: 0.76rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg);
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  border-right: 1px solid var(--border);
+}
+.auth-tab-input {
+  flex: 1;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  background: var(--surface);
+  border: none;
+  color: var(--text);
+  outline: none;
+  transition: background 0.15s;
+}
+.auth-tab-input:focus {
+  background: color-mix(in srgb, var(--primary) 5%, var(--surface));
+}
+.auth-tab-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.45;
+  font-style: italic;
+}
+
+/* Radio group */
+.auth-tab-radio-group {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 12px;
+}
+.auth-tab-radio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+}
+.auth-tab-radio input[type="radio"] {
+  accent-color: var(--primary);
+  margin: 0;
+}
+
+/* Secret toggle */
+.auth-tab-secret-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+}
+.auth-tab-secret-wrap .auth-tab-input { padding-right: 36px; }
+.auth-tab-secret-toggle {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 2px 4px;
+  line-height: 1;
+  opacity: 0.5;
+  transition: opacity 0.15s;
+}
+.auth-tab-secret-toggle:hover { opacity: 1; }
+
+/* Verify section */
+.auth-tab-verify {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.auth-tab-verify-btn {
+  background: transparent;
+  border: 1px solid var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+  padding: 5px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.auth-tab-verify-btn:hover:not(:disabled) {
+  background: var(--primary);
+  color: #fff;
+}
+.auth-tab-verify-btn:disabled { opacity: 0.5; cursor: default; }
+
+.auth-tab-verify-result {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+.auth-tab-verify-ok {
+  background: rgba(46, 204, 113, 0.08);
+  border: 1px solid rgba(46, 204, 113, 0.35);
+}
+.auth-tab-verify-fail {
+  background: rgba(231, 76, 60, 0.08);
+  border: 1px solid rgba(231, 76, 60, 0.35);
+}
+.auth-tab-verify-icon {
+  font-size: 1rem;
+  font-weight: 700;
+  flex-shrink: 0;
+  line-height: 1.4;
+}
+.auth-tab-verify-ok .auth-tab-verify-icon { color: #2ecc71; }
+.auth-tab-verify-fail .auth-tab-verify-icon { color: #e74c3c; }
+.auth-tab-verify-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.auth-tab-verify-msg { font-weight: 600; }
+.auth-tab-verify-detail {
+  margin: 0;
+  padding: 6px 10px;
+  background: var(--bg);
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  white-space: pre-wrap;
+  word-break: break-all;
+  color: var(--text-muted);
+}
+
+/* Legacy compat — keep old class names for other auth sections */
 .auth-type-select {
   display: flex;
   align-items: center;
@@ -2595,22 +2791,6 @@
   font-weight: 600;
   white-space: nowrap;
   color: var(--text-muted);
-}
-.auth-type-select select {
-  flex: 1;
-  max-width: 280px;
-  padding: 7px 10px;
-  font-size: 0.82rem;
-  border-radius: 5px;
-  border: 1px solid var(--border);
-  background: var(--bg);
-  color: var(--text);
-  transition: border-color 0.12s;
-}
-.auth-type-select select:focus {
-  border-color: var(--primary);
-  outline: none;
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 15%, transparent);
 }
 .auth-inherit-hint {
   padding: 10px 14px;
@@ -3134,12 +3314,15 @@
   justify-content: center;
 }
 .version-diff-modal {
+  position: relative; /* containing block for the resize handles */
   background: var(--bg);
   border: 1px solid color-mix(in srgb, white 28%, var(--border));
   border-radius: 12px;
   width: 92vw;
   max-width: 1200px;
   height: 85vh;
+  min-width: 640px;
+  min-height: 360px;
   display: flex;
   flex-direction: column;
   box-shadow:
@@ -3149,6 +3332,30 @@
     0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
+/*
+ * The shared handles default to negative offsets so they straddle the modal
+ * edge. `.version-diff-modal` clips overflow, so pull them fully inside —
+ * otherwise only a ~3px sliver stays hittable.
+ */
+.version-diff-modal .modal-resize-edge-right {
+  top: 0;
+  right: 0;
+  width: 8px;
+}
+.version-diff-modal .modal-resize-edge-bottom {
+  bottom: 0;
+  left: 0;
+  right: 18px;
+  height: 8px;
+}
+.version-diff-modal .modal-resize-corner {
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+}
+.version-diff-modal .modal-resize-corner::after { opacity: 0.5; }
+.version-diff-modal:hover .modal-resize-corner::after { opacity: 0.85; }
 .version-diff-modal-header {
   display: flex;
   align-items: center;
@@ -3157,6 +3364,7 @@
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-shrink: 0;
+  user-select: none;
 }
 .version-diff-modal-header h3 {
   margin: 0;
@@ -3598,6 +3806,25 @@
   align-items: center;
   gap: 12px;
 }
+/* Match Verify / scope select typography — not the global .checkbox-label 0.9rem */
+.validate-response-row .fetch-host-toggle,
+.fetch-host-override-row .fetch-host-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-family: var(--font);
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.validate-response-row .fetch-host-toggle:has(input:checked),
+.fetch-host-override-row .fetch-host-toggle:has(input:checked) {
+  color: var(--text);
+}
 .verify-scope-select {
   min-width: 160px;
   max-width: 180px;
@@ -3657,6 +3884,29 @@
   font-size: 0.72rem;
   color: var(--text-muted);
   white-space: nowrap;
+}
+.validation-response-pretty-btn {
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.3;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.validation-response-pretty-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text);
+  border-color: var(--primary);
+}
+.validation-response-pretty-btn--active {
+  background: color-mix(in srgb, var(--primary) 18%, transparent);
+  color: var(--primary);
+  border-color: var(--primary);
 }
 .validation-response-preview-textarea {
   width: 100%;
@@ -6569,12 +6819,15 @@
   justify-content: center;
 }
 .vp-modal {
+  position: relative; /* containing block for the resize handles */
   background: var(--bg, #1e1e2e);
   border: 1px solid color-mix(in srgb, white 28%, var(--border, #313244));
   border-radius: 12px;
   width: 80vw;
   max-width: 960px;
   height: 75vh;
+  min-width: 480px;
+  min-height: 280px;
   display: flex;
   flex-direction: column;
   box-shadow:
@@ -6584,6 +6837,30 @@
     0 2px 8px rgba(0, 0, 0, 0.25);
   overflow: hidden;
 }
+/*
+ * The shared handles default to negative offsets so they straddle the modal
+ * edge. `.vp-modal` clips overflow, so pull them fully inside — otherwise only
+ * a ~3px sliver stays hittable.
+ */
+.vp-modal .modal-resize-edge-right {
+  top: 0;
+  right: 0;
+  width: 8px;
+}
+.vp-modal .modal-resize-edge-bottom {
+  bottom: 0;
+  left: 0;
+  right: 18px;
+  height: 8px;
+}
+.vp-modal .modal-resize-corner {
+  bottom: 0;
+  right: 0;
+  width: 18px;
+  height: 18px;
+}
+.vp-modal .modal-resize-corner::after { opacity: 0.5; }
+.vp-modal:hover .modal-resize-corner::after { opacity: 0.85; }
 .vp-header {
   display: flex;
   align-items: center;
@@ -6593,6 +6870,7 @@
   background: var(--surface, #181825);
   flex-shrink: 0;
   gap: 12px;
+  user-select: none;
 }
 .vp-header-left {
   display: flex;

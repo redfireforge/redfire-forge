@@ -330,4 +330,48 @@ describe('AuthConfigPanel', () => {
     fireEvent.click(screen.getByTitle('Hide'));
     expect(setShowSecret).toHaveBeenCalled();
   });
+
+  it('renders pre-filled values for basic auth fields', () => {
+    setup({ auth: { type: 'basic', username: 'usr', password: 'pw' } });
+    expect(screen.getByDisplayValue('usr')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('pw')).toBeInTheDocument();
+  });
+
+  it('renders pre-filled values for bearer auth fields', () => {
+    setup({ auth: { type: 'bearer', token: 'tok123', prefix: 'Token' } });
+    expect(screen.getByDisplayValue('tok123')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('Token')).toBeInTheDocument();
+  });
+
+  it('renders pre-filled values for apikey auth fields', () => {
+    setup({ auth: { type: 'apikey', apiKeyName: 'X-Key', apiKeyValue: 'val1', apiKeyIn: 'query' } });
+    expect(screen.getByDisplayValue('X-Key')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('val1')).toBeInTheDocument();
+  });
+
+  it('renders pre-filled values for digest auth fields', () => {
+    setup({ auth: { type: 'digest', username: 'dUser', password: 'dPass' } });
+    expect(screen.getByDisplayValue('dUser')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('dPass')).toBeInTheDocument();
+  });
+
+  it('renders pre-filled oauth2 fields', () => {
+    setup({ auth: { type: 'oauth2', tokenUrl: 'https://auth.io/token', clientId: 'cid', clientSecret: 'csecret' } });
+    expect(screen.getByDisplayValue('https://auth.io/token')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('cid')).toBeInTheDocument();
+    expect(screen.getByDisplayValue('csecret')).toBeInTheDocument();
+  });
+
+  it('renders profile selector with selected profile showing hint', () => {
+    const onProfileChange = vi.fn();
+    setup({
+      auth: { type: 'inherit' },
+      showProfileSelector: true,
+      globalAuthProfileId: 'p1',
+      onProfileChange,
+      allAuthProfiles: PROFILES,
+    });
+    expect(screen.getByText(/Using/)).toBeInTheDocument();
+    expect(screen.getByText(/BEARER/)).toBeInTheDocument();
+  });
 });

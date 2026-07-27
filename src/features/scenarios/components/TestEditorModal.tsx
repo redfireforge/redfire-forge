@@ -393,8 +393,8 @@ export default function TestEditorModal({
       <WorkflowEditorModalFrame
         title={isNew ? (isParameterized ? 'New Parameterized Test' : 'New Test') : (isParameterized ? 'Edit Parameterized Test' : 'Edit Test')}
         onClose={onCancel}
-        overlayClassName="insomnia-modal-overlay"
-        dialogClassName="insomnia-modal"
+        overlayClassName="rf-builder-overlay"
+        dialogClassName="rf-builder-modal"
         expandMode="fullscreen"
         minWidth={520}
         minHeight={340}
