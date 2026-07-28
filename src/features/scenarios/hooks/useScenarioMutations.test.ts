@@ -671,18 +671,21 @@ describe('useScenarioMutations', () => {
       expect(getFeatureGroups()[1].scenarios[0].tests[0].name).toBe('T3');
     });
 
-    it('saveTest bails when parameterized scenario has no dataSource', () => {
-      const test = scenarioFixture({ id: 't-param', name: 'Param Test', url: '/api' });
+    it('saveTest auto-creates dataSource when parameterized scenario has none', () => {
+      const test = scenarioFixture({ id: 't-param', name: 'Param Test', url: 'https://api.example.com/users/{{userId}}' });
       const fg = makeFg({
         scenarios: [{ id: 'sc-param', name: 'Parameterized Sc', kind: 'parameterized', tests: [test] }],
       });
       const { result, getFeatureGroups } = setup([fg]);
       act(() => { result.current.startEditTest('fg-1', 'sc-param', test); });
       act(() => {
-        result.current.setDraft((prev: Scenario) => ({ ...prev, name: 'Changed', url: '/changed' }));
+        result.current.setDraft((prev: Scenario) => ({ ...prev, name: 'Changed', url: 'https://api.example.com/users/{{userId}}' }));
       });
       act(() => { result.current.saveTest(); });
-      expect(getFeatureGroups()[0].scenarios[0].tests[0].name).toBe('Param Test');
+      const saved = getFeatureGroups()[0].scenarios[0].tests[0];
+      expect(saved.name).toBe('Changed');
+      expect(saved.dataSource).toBeTruthy();
+      expect(saved.dataSource!.columns.some((c) => c.name === 'userId')).toBe(true);
     });
 
     it('saveTest downgrades full validation when no expected JSON', () => {
@@ -834,11 +837,12 @@ describe('useScenarioMutations', () => {
   });
 
   describe('startNewParameterizedTest', () => {
-    it('sets parameterized flag and data tab', () => {
+    it('sets parameterized flag, data tab, and empty data source', () => {
       const { result, clearAuthVerifyResult } = setup();
       act(() => { result.current.startNewParameterizedTest('fg-1', 'sc-1'); });
       expect(result.current.editingTest?.parameterized).toBe(true);
       expect(result.current.activeTab).toBe('data');
+      expect(result.current.draft.dataSource).toBeTruthy();
       expect(clearAuthVerifyResult).toHaveBeenCalled();
     });
   });

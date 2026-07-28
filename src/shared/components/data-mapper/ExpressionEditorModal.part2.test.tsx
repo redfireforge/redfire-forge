@@ -260,6 +260,7 @@ describe('ExpressionEditorModal – editor onMount and completion', () => {
     monacoTestState.suppressOnMount = true;
     renderModal();
     fireEvent.click(screen.getByText('$upper'));
+    fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
     const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
     expect(textarea.value).toContain('$upper(');
   });
@@ -280,6 +281,7 @@ describe('ExpressionEditorModal – editor onMount and completion', () => {
     await act(async () => { vi.advanceTimersByTime(300); });
     await flushMonacoMount();
     await act(async () => { fireEvent.click(screen.getByText('noDollarFn')); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert' })); });
     const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
     expect(editorTextarea.value).toContain('$noDollarFn');
     vi.useRealTimers();
@@ -287,7 +289,7 @@ describe('ExpressionEditorModal – editor onMount and completion', () => {
 });
 
 describe('ExpressionEditorModal – function insert with Monaco', () => {
-  it('wraps source path when editor is empty and function is clicked', async () => {
+  it('wraps source path when editor is empty and Insert is clicked', async () => {
     vi.useFakeTimers();
     const onSave = vi.fn();
     render(
@@ -302,6 +304,7 @@ describe('ExpressionEditorModal – function insert with Monaco', () => {
     await act(async () => { vi.advanceTimersByTime(300); });
     expect(monacoTestState.lastEditor).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByText('$upper')); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert' })); });
     const editorTextarea = screen.getByTestId('monaco-editor') as HTMLTextAreaElement;
     expect(editorTextarea.value).toContain('$upper(');
     expect(editorTextarea.value).toContain('$.name');
@@ -316,6 +319,7 @@ describe('ExpressionEditorModal – function insert with Monaco', () => {
     const ed = monacoTestState.lastEditor;
     expect(ed).toBeTruthy();
     fireEvent.click(screen.getByText('$upper'));
+    fireEvent.click(screen.getByRole('button', { name: 'Insert' }));
     expect(ed?.executeEdits).not.toHaveBeenCalled();
     vi.useRealTimers();
   });
@@ -479,9 +483,10 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
     };
     renderModal({ customFunctions: [multiArgFn] });
     await act(async () => { fireEvent.click(screen.getByText('$custom')); });
-    // Sidebar click wraps the current expression (name) as first arg
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert' })); });
+    // Insert builds a fresh template from the mapping source path
     const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
-    expect(textarea.value).toBe('$custom(name, 0, false)');
+    expect(textarea.value).toBe('$custom($.name, 0, false)');
   });
 
   it('compose button updates expression with function wrapping current input', async () => {
@@ -527,8 +532,9 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
     };
     renderModal({ customFunctions: [fn] });
     await act(async () => { fireEvent.click(screen.getByText('$exotic')); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert' })); });
     const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
-    expect(textarea.value).toBe('$exotic(name, opts)');
+    expect(textarea.value).toBe('$exotic($.name, opts)');
   });
 
   it('compose with current uses arg name for unknown arg types', async () => {
@@ -554,24 +560,26 @@ describe('ExpressionEditorModal – handleComposeWithFunction', () => {
     expect(textarea.value).toContain('opts');
   });
 
-  it('uses lambda template for $map when sidebar-clicked', async () => {
+  it('uses lambda template for $map when Insert is clicked', async () => {
     renderModal();
     const mapItem = Array.from(document.querySelectorAll('.dm-expr-fn-item'))
       .find(el => el.textContent?.includes('$map'));
     expect(mapItem).toBeTruthy();
     await act(async () => { fireEvent.click(mapItem!); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert' })); });
     const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
-    expect(textarea.value).toBe('$map(name, x => x)');
+    expect(textarea.value).toBe('$map($.name, x => x)');
   });
 
-  it('uses lambda template for $filter when sidebar-clicked', async () => {
+  it('uses lambda template for $filter when Insert is clicked', async () => {
     renderModal();
     const filterItem = Array.from(document.querySelectorAll('.dm-expr-fn-item'))
       .find(el => el.textContent?.includes('$filter'));
     expect(filterItem).toBeTruthy();
     await act(async () => { fireEvent.click(filterItem!); });
+    await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Insert' })); });
     const textarea = screen.getByPlaceholderText(/\$upper/) as HTMLTextAreaElement;
-    expect(textarea.value).toBe('$filter(name, x => $gt(x, 0))');
+    expect(textarea.value).toBe('$filter($.name, x => $gt(x, 0))');
   });
 
   it('Compose-with-current uses lambda template for lambda-supporting function', async () => {

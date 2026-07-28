@@ -1068,4 +1068,3 @@
   color: var(--text-muted, #6c7086);
   text-align: center;
 }
-.vr-ref-footer { display: flex; justify-content: flex-end; padding: 8px 10px; border-top: 1px solid var(--border); }
