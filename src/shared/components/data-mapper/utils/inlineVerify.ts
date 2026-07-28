@@ -213,6 +213,10 @@ function buildCollectionDebugSteps(
   return steps;
 }
 
+function normalizeRulePath(path: string): string {
+  return path.replace(/^\$\.?/, '');
+}
+
 /**
  * Pure function: runs inline verification of DSL rules against sample response data.
  * Extracted from ValidationRulesModal for testability.
@@ -232,7 +236,14 @@ export function runInlineVerify(dslText: string, sampleResponseData: unknown): I
 
   // Field assertions
   for (const field of model.fields) {
-    const rule = rules.find(r => r.path && (`$.${r.path}` === field.jsonPath || r.path === field.jsonPath.replace(/^\$\.?/, '')));
+    const fieldKey = normalizeRulePath(field.jsonPath);
+    const rule = rules.find((r) => {
+      if (!r.path || r.path === '(custom)') return false;
+      const ruleKey = normalizeRulePath(r.path);
+      return ruleKey === fieldKey
+        || `$.${ruleKey}` === field.jsonPath
+        || r.path === field.jsonPath;
+    });
     /* v8 ignore next 2 */
     const lineNumber = rule?.lineNumber ?? 0;
     if (!lineNumber) continue;

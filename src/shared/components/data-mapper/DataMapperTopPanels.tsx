@@ -4,13 +4,29 @@ import DataMapperDebugTraceBar from './DataMapperDebugTraceBar';
 import MappingHealthDashboard from './MappingHealthDashboard';
 import ValidationRepairPanel from './ValidationRepairPanel';
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function DataMapperTopPanels(props: any) {
   // c8 ignore next
   const toggleDebugMode = () => props.setDebugMode((d: boolean) => !d);
   // c8 ignore next
   const toggleMappingLines = () => props.setShowMappingLines((s: boolean) => !s);
   // c8 ignore next
-  const toggleNodeFocusMode = () => props.setNodeFocusMode((s: boolean) => !s);
+  const toggleNodeFocusMode = () => {
+    const next = !props.nodeFocusMode;
+    props.setNodeFocusMode(next);
+    if (!next) {
+      props.setLineFocusNode?.(null);
+      return;
+    }
+    const selectedPath = props.selectedMapping?.targetPath as string | undefined;
+    if (selectedPath) {
+      props.setLineFocusNode?.({ region: 'target', path: selectedPath });
+      props.setToast?.(`Focusing ${selectedPath}`);
+      return;
+    }
+    props.setLineFocusNode?.(null);
+    props.setToast?.('Focus on — click a Source or Target field to show its lines');
+  };
 
   return (
     <>

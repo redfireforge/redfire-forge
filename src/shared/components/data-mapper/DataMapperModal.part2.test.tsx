@@ -87,7 +87,7 @@ describe('DataMapperModal', () => {
         allowCustomFields: false,
       },
     });
-    const { container } = render(
+    render(
       <DataMapperModal
         adapter={adapter}
         initialData={initialMappings}
@@ -101,7 +101,7 @@ describe('DataMapperModal', () => {
 
     fireEvent.click(screen.getByText('Save'));
     expect(onSave).not.toHaveBeenCalled();
-    expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
+    expect(document.body.querySelector('.dm-diff-overlay')).toBeTruthy();
   });
 
   it('applies batch repairs and then allows save', async () => {
@@ -141,7 +141,7 @@ describe('DataMapperModal', () => {
     const adapter = createAdapter({
       deserialize: () => initialMappings,
     });
-    const { container } = render(
+    render(
       <DataMapperModal
         adapter={adapter}
         initialData={initialMappings}
@@ -151,7 +151,7 @@ describe('DataMapperModal', () => {
     );
     await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     await act(async () => { fireEvent.click(screen.getByText('Show Diff')); });
-    expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
+    expect(document.body.querySelector('.dm-diff-overlay')).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByText('Apply all repairs (1)')); });
 
     fireEvent.click(screen.getByText('Save'));
@@ -353,11 +353,18 @@ describe('DataMapperModal', () => {
     });
     vi.mocked(saveSnapshot).mockRejectedValueOnce(new Error('disk full'));
     const adapter = createAdapter();
-    const { container } = await act(async () => {
+    await act(async () => {
       return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
     await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     await act(async () => { fireEvent.click(screen.getByText('Accept & Update')); });
+    // Diff modal opens; confirm accept via modal button
+    const modalOverlay = document.body.querySelector('.dm-diff-overlay');
+    expect(modalOverlay).toBeTruthy();
+    const modalAcceptBtn = Array.from(modalOverlay!.querySelectorAll('.dm-diff-footer button'))
+      .find((btn) => /Accept/.test(btn.textContent ?? '')) as HTMLElement;
+    expect(modalAcceptBtn).toBeTruthy();
+    await act(async () => { fireEvent.click(modalAcceptBtn); });
     expect(container.querySelector('.dm-drift-banner')).toBeNull();
   });
 
@@ -388,14 +395,14 @@ describe('DataMapperModal', () => {
       topLevelKeyCount: 1,
     });
     const adapter = createAdapter();
-    const { container } = await act(async () => {
+    await act(async () => {
       return render(<DataMapperModal adapter={adapter} onSave={vi.fn()} onCancel={vi.fn()} />);
     });
     await act(async () => { await vi.advanceTimersByTimeAsync(550); });
     await act(async () => { fireEvent.click(screen.getByText('Show Diff')); });
-    expect(container.querySelector('.dm-diff-overlay')).toBeTruthy();
+    expect(document.body.querySelector('.dm-diff-overlay')).toBeTruthy();
     await act(async () => { fireEvent.click(screen.getByRole('button', { name: 'Close' })); });
-    expect(container.querySelector('.dm-diff-overlay')).toBeNull();
+    expect(document.body.querySelector('.dm-diff-overlay')).toBeNull();
   });
 
   it('applies repair from schema diff for breaking drift', async () => {
@@ -437,7 +444,7 @@ describe('DataMapperModal', () => {
     const adapter = createAdapter({
       deserialize: () => initialMappings,
     });
-    const { container } = render(
+    render(
       <DataMapperModal
         adapter={adapter}
         initialData={initialMappings}
@@ -448,7 +455,7 @@ describe('DataMapperModal', () => {
     await act(async () => { await new Promise((r) => setTimeout(r, 600)); });
     await act(async () => { fireEvent.click(screen.getByText('Show Diff')); });
     const diffOverlay = await waitFor(() => {
-      const el = container.querySelector('.dm-diff-overlay');
+      const el = document.body.querySelector('.dm-diff-overlay');
       if (!el) {
         throw new Error('diff overlay missing');
       }

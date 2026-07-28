@@ -344,6 +344,8 @@ export default function MapperToolbar({
         )}
         {onToggleRulesView && (
           <button
+            type="button"
+            data-testid="dm-view-rules"
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${showRulesView ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleRulesView}
             title={showRulesView ? 'Hide rules editor' : 'Edit validation rules as code'}
@@ -364,7 +366,13 @@ export default function MapperToolbar({
           <button
             className={`dm-toolbar-btn dm-toolbar-btn--quiet ${nodeFocusMode ? 'dm-toolbar-btn--active' : ''}`}
             onClick={onToggleNodeFocusMode}
+            aria-pressed={nodeFocusMode}
             title={nodeFocusMode ? 'Disable node-focus lines' : 'Enable node-focus lines'}
+            aria-label={
+              nodeFocusMode
+                ? 'Focus mode on — click a field to show only its lines'
+                : 'Enable focus mode — then click a Source or Target field to show its lines'
+            }
           >
             Focus
           </button>
