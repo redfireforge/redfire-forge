@@ -33,7 +33,9 @@ export default function VersionDiffViewerSection({
             diff={activeResult}
             indent={2}
             lineNumbers={true}
-            highlightInlineDiff={true}
+            // Line-level only: character LCS inline diffs fragment whole-value
+            // changes (e.g. "name" ↔ "email") into unreadable per-char boxes.
+            highlightInlineDiff={false}
             syntaxHighlight={{ theme: 'monokai' }}
           />
         ) : compareLeft && compareRight && compareLeft !== compareRight ? (

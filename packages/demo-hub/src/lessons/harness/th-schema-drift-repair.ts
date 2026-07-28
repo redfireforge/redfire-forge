@@ -28,6 +28,7 @@ import {
   closeDiffModal,
   isDiffModalOpen,
   isDriftBannerVisible,
+  waitForDriftBanner,
 } from './th-demo-helpers';
 
 /* ── local helpers ──────────────────────────────────────────── */
@@ -73,6 +74,30 @@ async function ensureMapperOpen(ctx: DemoActionContext): Promise<void> {
   }
 }
 
+/**
+ * Open the Data Mapper with a stale schema snapshot so the Drift Banner is
+ * visible. Re-injects + reopens once if detection hasn't fired yet.
+ */
+async function ensureMapperWithDrift(ctx: DemoActionContext): Promise<void> {
+  closeDiffModal();
+  if (isDataMapperOpen() && isDriftBannerVisible()) return;
+
+  if (isDataMapperOpen()) {
+    closeDataMapperModal();
+    await ctx.delay(400);
+  }
+
+  injectTh19OldSnapshot();
+  await ensureMapperOpen(ctx);
+  if (await waitForDriftBanner(ctx, 2500)) return;
+
+  closeDataMapperModal();
+  await ctx.delay(400);
+  injectTh19OldSnapshot();
+  await ensureMapperOpen(ctx);
+  await waitForDriftBanner(ctx, 2500);
+}
+
 /* ── lesson definition ──────────────────────────────────────── */
 
 export const thSchemaDriftRepairLesson: DemoLesson = {
@@ -83,7 +108,7 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
   description:
     'See how the Data Mapper detects API schema changes, classifies drift severity, ' +
     'suggests repairs for broken mappings, and tracks quality via the Health Dashboard.',
-  estimatedMinutes: 5,
+  estimatedMinutes: 8,
   initialTab: 'scenarios',
   allowedTabs: ['scenarios'],
 
@@ -178,37 +203,44 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
 
       preAction: async (ctx) => {
         await ensureTh19Ready(ctx);
-        closeDiffModal();
-        if (isDataMapperOpen() && !isDriftBannerVisible()) {
-          closeDataMapperModal();
-          await ctx.delay(400);
-          injectTh19OldSnapshot();
-          await ensureMapperOpen(ctx);
-          await ctx.delay(800);
-        } else if (!isDataMapperOpen()) {
-          injectTh19OldSnapshot();
-          await ensureMapperOpen(ctx);
-          await ctx.delay(800);
-        }
+        await ensureMapperWithDrift(ctx);
       },
 
       action: async (ctx) => {
+        // Belt for rapid Next — detection can finish after preAction.
+        if (!isDriftBannerVisible()) {
+          await ensureMapperWithDrift(ctx);
+        }
+
         const banner = document.querySelector<HTMLElement>(HAR.DRIFT_BANNER);
         if (!banner) return;
 
+        banner.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        await spotlight(banner, 2500, ctx);
+        await ctx.delay(600);
+
         const title = banner.querySelector<HTMLElement>('.dm-drift-banner-title');
         if (title) {
-          await spotlight(title, 1200, ctx);
+          await spotlight(title, 1800, ctx);
+          await ctx.delay(500);
         }
 
         const detail = banner.querySelector<HTMLElement>('.dm-drift-banner-detail');
         if (detail) {
-          await spotlight(detail, 1000, ctx);
+          await spotlight(detail, 1800, ctx);
+          await ctx.delay(500);
+        }
+
+        const breakingItems = banner.querySelectorAll<HTMLElement>('.dm-drift-item--breaking');
+        for (const item of Array.from(breakingItems).slice(0, 2)) {
+          await spotlight(item, 1600, ctx);
+          await ctx.delay(400);
         }
 
         const actions = banner.querySelector<HTMLElement>('.dm-drift-banner-actions');
         if (actions) {
-          await spotlight(actions, 1200, ctx);
+          await spotlight(actions, 2000, ctx);
+          await ctx.delay(600);
         }
       },
 
@@ -228,53 +260,62 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
         '- **Saved vs Current Type** — what the field type was before and after\n' +
         '- **Affected Mappings** — how many mappings reference this field\n' +
         '- **Repair** — suggestions for fixing broken mappings',
-      highlight: HAR.DIFF_SHELL,
+      highlight: HAR.DRIFT_DIFF_BTN,
 
       preAction: async (ctx) => {
         await ensureTh19Ready(ctx);
-        if (isDataMapperOpen() && !isDriftBannerVisible()) {
-          closeDataMapperModal();
-          await ctx.delay(400);
-          injectTh19OldSnapshot();
-          await ensureMapperOpen(ctx);
-          await ctx.delay(800);
-        } else if (!isDataMapperOpen()) {
-          injectTh19OldSnapshot();
-          await ensureMapperOpen(ctx);
-          await ctx.delay(800);
-        }
-        if (!isDiffModalOpen()) {
-          const diffBtn = document.querySelector<HTMLElement>(HAR.DRIFT_DIFF_BTN);
-          if (diffBtn) {
-            diffBtn.click();
-            await ctx.delay(600);
-          }
-        }
+        closeDiffModal();
+        await ensureMapperWithDrift(ctx);
       },
 
       action: async (ctx) => {
+        if (!isDriftBannerVisible()) {
+          await ensureMapperWithDrift(ctx);
+        }
+
+        // Viewer must SEE the Show Diff click — never hide it in preAction.
+        const diffBtn = document.querySelector<HTMLElement>(HAR.DRIFT_DIFF_BTN);
+        if (diffBtn && !isDiffModalOpen()) {
+          diffBtn.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          await spotlight(diffBtn, 2200, ctx);
+          await ctx.delay(500);
+          await ctx.click(HAR.DRIFT_DIFF_BTN);
+          await ctx.waitFor(HAR.DIFF_SHELL, 5000);
+          await ctx.delay(1400);
+        }
+
         const modal = document.querySelector<HTMLElement>(HAR.DIFF_SHELL);
         if (!modal) return;
 
+        await spotlight(modal, 1800, ctx);
+        await ctx.delay(600);
+
         const summaryBadges = modal.querySelector<HTMLElement>('.dm-diff-summary-badges');
         if (summaryBadges) {
-          await spotlight(summaryBadges, 1200, ctx);
+          await spotlight(summaryBadges, 2000, ctx);
+          await ctx.delay(600);
         }
 
+        // Spotlight only actionable severities — breaking + warning.
+        // Info rows (added fields) are summarized by the badge; walking each is noisy.
         const table = modal.querySelector<HTMLElement>(HAR.DIFF_TABLE);
         if (table) {
-          const rows = table.querySelectorAll<HTMLElement>('tbody tr');
-          if (rows.length > 0) {
-            await spotlight(rows[0], 1000, ctx);
-          }
-          if (rows.length > 1) {
-            await spotlight(rows[1], 1000, ctx);
+          const focusRows = Array.from(table.querySelectorAll<HTMLElement>('tbody tr')).filter(
+            (row) =>
+              row.classList.contains('dm-diff-row--breaking')
+              || row.classList.contains('dm-diff-row--warning'),
+          );
+          for (const row of focusRows) {
+            row.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+            await spotlight(row, 1800, ctx);
+            await ctx.delay(500);
           }
         }
 
-        const affected = modal.querySelector<HTMLElement>(HAR.DIFF_AFFECTED);
-        if (affected) {
-          await spotlight(affected, 800, ctx);
+        const affected = modal.querySelectorAll<HTMLElement>(HAR.DIFF_AFFECTED);
+        if (affected.length > 0) {
+          await spotlight(affected[0], 1600, ctx);
+          await ctx.delay(600);
         }
       },
 
@@ -297,46 +338,58 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
 
       preAction: async (ctx) => {
         await ensureTh19Ready(ctx);
-        if (isDataMapperOpen() && !isDriftBannerVisible()) {
-          closeDataMapperModal();
-          await ctx.delay(400);
-          injectTh19OldSnapshot();
-          await ensureMapperOpen(ctx);
-          await ctx.delay(800);
-        } else if (!isDataMapperOpen()) {
-          injectTh19OldSnapshot();
-          await ensureMapperOpen(ctx);
-          await ctx.delay(800);
-        }
+        await ensureMapperWithDrift(ctx);
+        // Quiet recovery only — if modal already open, leave it; otherwise open without tour.
         if (!isDiffModalOpen()) {
           const diffBtn = document.querySelector<HTMLElement>(HAR.DRIFT_DIFF_BTN);
           if (diffBtn) {
             diffBtn.click();
+            await ctx.waitFor(HAR.DIFF_SHELL, 4000);
             await ctx.delay(600);
           }
         }
       },
 
       action: async (ctx) => {
+        if (!isDiffModalOpen()) {
+          const diffBtn = document.querySelector<HTMLElement>(HAR.DRIFT_DIFF_BTN);
+          if (diffBtn) {
+            await spotlight(diffBtn, 1500, ctx);
+            await ctx.delay(400);
+            await ctx.click(HAR.DRIFT_DIFF_BTN);
+            await ctx.waitFor(HAR.DIFF_SHELL, 5000);
+            await ctx.delay(1000);
+          }
+        }
+
         const modal = document.querySelector<HTMLElement>(HAR.DIFF_SHELL);
         if (!modal) return;
 
+        await spotlight(modal, 1500, ctx);
+        await ctx.delay(500);
+
         const repairCells = modal.querySelectorAll<HTMLElement>(HAR.DIFF_REPAIR_CELL);
+        let shown = 0;
         for (const cell of repairCells) {
           const repairBtn = cell.querySelector<HTMLElement>(HAR.REPAIR_BTN);
-          if (repairBtn) {
-            await spotlight(cell, 1200, ctx);
-            break;
-          }
+          if (!repairBtn) continue;
+          cell.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          await spotlight(cell, 2200, ctx);
+          await ctx.delay(600);
+          shown += 1;
+          if (shown >= 2) break;
         }
 
         const batchBtn = modal.querySelector<HTMLElement>(HAR.REPAIR_BATCH);
         if (batchBtn) {
-          await spotlight(batchBtn, 1000, ctx);
+          await spotlight(batchBtn, 2000, ctx);
+          await ctx.delay(800);
         }
 
+        // Pause on the payoff before closing so the viewer absorbs the repair UI.
+        await ctx.delay(1000);
         closeDiffModal();
-        await ctx.delay(600);
+        await ctx.delay(900);
       },
 
       verify: HAR.DRIFT_BANNER,
@@ -347,42 +400,62 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
       id: 'th19-accept-update',
       title: 'Accept & Update Snapshot',
       description:
-        'Click **Accept & Update** to save the current response schema as the new baseline. ' +
-        'The drift banner dismisses and the mapper returns to normal state.\n\n' +
-        'Future drift comparisons will be against this updated snapshot — not the old one. ' +
-        'Any remaining broken mappings should be fixed manually before saving.\n\n' +
-        'The schema snapshot is automatically updated every time you click Done in the ' +
-        'Data Mapper, so snapshots stay in sync with your latest mappings.',
-      highlight: HAR.DRIFT_BANNER,
+        'Click **Accept & Update** to review the schema changes, then confirm in the ' +
+        'Schema Diff footer. That saves the current response schema as the new baseline.\n\n' +
+        'The drift banner dismisses and the mapper returns to normal state. Future drift ' +
+        'comparisons will be against this updated snapshot — not the old one.\n\n' +
+        'Any remaining broken mappings should be fixed manually before saving. The schema ' +
+        'snapshot is also updated automatically when you click Done in the Data Mapper.',
+      highlight: HAR.DRIFT_ACCEPT_BTN,
 
       preAction: async (ctx) => {
         await ensureTh19Ready(ctx);
         closeDiffModal();
-        if (isDataMapperOpen() && !isDriftBannerVisible()) {
-          closeDataMapperModal();
-          await ctx.delay(400);
-          injectTh19OldSnapshot();
-          await ensureMapperOpen(ctx);
-          await ctx.delay(800);
-        } else if (!isDataMapperOpen()) {
-          injectTh19OldSnapshot();
-          await ensureMapperOpen(ctx);
-          await ctx.delay(800);
-        }
+        await ensureMapperWithDrift(ctx);
       },
 
       action: async (ctx) => {
-        const acceptBtn = document.querySelector<HTMLElement>(HAR.DRIFT_ACCEPT_BTN);
-        if (acceptBtn) {
-          await spotlight(acceptBtn, 1200, ctx);
-          acceptBtn.click();
-          await ctx.delay(1000);
+        if (!isDriftBannerVisible()) {
+          await ensureMapperWithDrift(ctx);
         }
 
+        const banner = document.querySelector<HTMLElement>(HAR.DRIFT_BANNER);
+        if (banner) {
+          await spotlight(banner, 1800, ctx);
+          await ctx.delay(500);
+        }
+
+        const acceptBtn = document.querySelector<HTMLElement>(HAR.DRIFT_ACCEPT_BTN);
+        if (acceptBtn) {
+          await spotlight(acceptBtn, 2200, ctx);
+          await ctx.delay(600);
+          // Banner Accept opens Schema Diff in acceptMode; confirm in the footer.
+          await ctx.click(HAR.DRIFT_ACCEPT_BTN);
+          await ctx.waitFor(HAR.DIFF_SHELL, 5000);
+          await ctx.delay(1000);
+
+          const modal = document.querySelector<HTMLElement>(HAR.DIFF_SHELL);
+          if (modal) {
+            await spotlight(modal, 1600, ctx);
+            await ctx.delay(500);
+            const confirmBtn = Array.from(
+              modal.querySelectorAll<HTMLElement>('.dm-diff-footer button'),
+            ).find((btn) => /Accept/.test(btn.textContent ?? ''));
+            if (confirmBtn) {
+              await spotlight(confirmBtn, 1800, ctx);
+              await ctx.delay(400);
+              confirmBtn.click();
+              await ctx.delay(1200);
+            }
+          }
+        }
+
+        // Confirm banner is gone — outcome pause for the viewer.
         if (!isDriftBannerVisible()) {
           const toolbar = document.querySelector<HTMLElement>(HAR.MAPPER_TOOLBAR);
           if (toolbar) {
-            await spotlight(toolbar, 800, ctx);
+            await spotlight(toolbar, 1600, ctx);
+            await ctx.delay(700);
           }
         }
       },
@@ -416,17 +489,36 @@ export const thSchemaDriftRepairLesson: DemoLesson = {
       },
 
       action: async (ctx) => {
+        if (!isDataMapperOpen()) {
+          await ensureMapperOpen(ctx);
+          await ctx.delay(800);
+        }
+
         const health = document.querySelector<HTMLElement>(HAR.MAPPER_HEALTH);
         if (!health) return;
 
-        await spotlight(health, 1500, ctx);
+        health.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+        await spotlight(health, 2500, ctx);
+        await ctx.delay(700);
 
-        const clickableMetrics = health.querySelectorAll<HTMLElement>('.dm-health-metric--critical, .dm-health-metric--warning');
+        const status = health.querySelector<HTMLElement>('.dm-health-status');
+        if (status) {
+          await spotlight(status, 1600, ctx);
+          await ctx.delay(500);
+        }
+
+        const metrics = health.querySelectorAll<HTMLElement>('.dm-health-metric');
+        for (const metric of Array.from(metrics).slice(0, 4)) {
+          await spotlight(metric, 1400, ctx);
+          await ctx.delay(400);
+        }
+
+        const clickableMetrics = health.querySelectorAll<HTMLElement>(
+          '.dm-health-metric--critical, .dm-health-metric--warning',
+        );
         if (clickableMetrics.length > 0) {
-          await spotlight(clickableMetrics[0], 1000, ctx);
-        } else {
-          const status = health.querySelector<HTMLElement>('.dm-health-status');
-          if (status) await spotlight(status, 1000, ctx);
+          await spotlight(clickableMetrics[0], 1800, ctx);
+          await ctx.delay(700);
         }
       },
 

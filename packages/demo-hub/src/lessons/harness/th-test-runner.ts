@@ -264,21 +264,28 @@ export const thTestRunnerLesson: DemoLesson = {
 
       action: async (ctx) => {
         await ctx.click(HAR.RUN_BTN);
-        await ctx.delay(1000);
 
+        // Wait briefly for the Live Progress panel to mount, then scroll it
+        // into view immediately so the viewer sees bar + metrics + completion.
         const start = Date.now();
         while (Date.now() - start < 3000) {
           if (document.querySelector(HAR.LIVE_PROGRESS)) break;
-          await ctx.delay(300);
+          await ctx.delay(100);
         }
 
         const progress = document.querySelector<HTMLElement>(HAR.LIVE_PROGRESS);
         if (progress) {
+          progress.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          await ctx.delay(800);
+
           const bar = progress.querySelector<HTMLElement>('.progress-bar-container');
           if (bar) await spotlight(bar, 1200, ctx);
 
           const metrics = progress.querySelector<HTMLElement>('.live-metrics');
-          if (metrics) await spotlight(metrics, 1800, ctx);
+          if (metrics) {
+            metrics.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            await spotlight(metrics, 1800, ctx);
+          }
         }
 
         const runEnd = Date.now();
@@ -289,7 +296,11 @@ export const thTestRunnerLesson: DemoLesson = {
         await ctx.delay(500);
 
         const completion = document.querySelector<HTMLElement>(HAR.COMPLETION);
-        if (completion) await spotlight(completion, 1800, ctx);
+        if (completion) {
+          completion.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          await ctx.delay(400);
+          await spotlight(completion, 1800, ctx);
+        }
       },
 
       verify: HAR.RUN_BTN,

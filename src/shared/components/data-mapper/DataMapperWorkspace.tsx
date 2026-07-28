@@ -8,6 +8,18 @@ import type { TypeMismatch } from './utils/typeMismatch';
 import type { FocusRegion } from './hooks/useKeyboardNavigation';
 import type { DriftIndicator } from './SourceTreeNode';
 import type { Assertion } from '../../types';
+import type { ConnectionLine } from './hooks/useConnectionLines';
+import type { ExpressionSuggestion } from './utils/expressionSuggestions';
+import type { RepairSuggestion } from './utils/schemaRepair';
+import type { VerifyResult } from './hooks/useValidationVerify';
+import type { MappingTrace } from './utils/mappingTrace';
+
+type MergedFieldResult = {
+  passed: boolean;
+  actual?: string;
+  expected?: string;
+  matchContext?: string;
+};
 
 export function DataMapperWorkspace(props: {
   panelsCollapsed: boolean;
@@ -47,7 +59,8 @@ export function DataMapperWorkspace(props: {
   handleMapSelectedFields: (paths: string[], sourceId: string) => void;
   handleUnmapSelectedFields: (paths: string[]) => void;
   highlightedSourcePaths: Set<string> | null | undefined;
-  visibleLines: any[];
+  visibleLines: ConnectionLine[];
+  nodeFocusMode: boolean;
   handleSelectMappingExclusive: (id: string | null) => void;
   selectedIds: Set<string>;
   handleToggleSelectMapping: (id: string) => void;
@@ -57,13 +70,17 @@ export function DataMapperWorkspace(props: {
   rejectPending: (id: string) => void;
   debugMode: boolean;
   targetTraceOverlay: Map<string, TraceValueOverlay> | undefined;
-  traceByMappingId: Map<string, import('./utils/mappingTrace').MappingTrace> | null;
+  traceByMappingId: Map<string, MappingTrace> | null;
   handleShowErrorDetail: (data: import('./MappingCanvas').ErrorDetailData, y: number) => void;
-  expressionSuggestions: any;
+  expressionSuggestions: Map<string, ExpressionSuggestion[]> | undefined;
   handleApplySuggestion: (mappingId: string, expression: string) => void;
-  repairSuggestions: any;
-  onApplyRepair?: (mappingId: string, suggestion: import('./utils/schemaRepair').RepairSuggestion) => void;
-  verifyHook: any;
+  repairSuggestions: Map<string, RepairSuggestion[]> | undefined;
+  onApplyRepair?: (mappingId: string, suggestion: RepairSuggestion) => void;
+  verifyHook: {
+    result: VerifyResult;
+    nodeStatusMap: Map<string, 'pass' | 'fail'>;
+    mergedFieldResults: Map<string, MergedFieldResult>;
+  };
   highlightedMappingIds: Set<string> | null;
   handleRemapDragStart: (id: string) => void;
   handleRemapDragEnd: () => void;
@@ -163,6 +180,7 @@ export function DataMapperWorkspace(props: {
           repairSuggestions={props.repairSuggestions}
           onApplyRepair={props.onApplyRepair}
           totalMappingCount={props.state.mappings.length}
+          nodeFocusMode={props.nodeFocusMode}
           failedMappingIds={props.verifyHook.result.status === 'complete' ? props.verifyHook.result.failedMappingIds : undefined}
           highlightedMappingIds={props.highlightedMappingIds}
           onRemapDragStart={props.handleRemapDragStart}

@@ -16,7 +16,20 @@ interface MappingTableViewProps {
 interface TableRow {
   id: string;
   jsonPath: string;
+  sourceLabel: string;
+  isExpression: boolean;
   expectedValue: string;
+  resolved: boolean;
+}
+
+function formatExpectedValue(raw: unknown): string {
+  if (raw === undefined) return '';
+  if (typeof raw === 'string') return raw;
+  try {
+    return JSON.stringify(raw);
+  } catch {
+    return String(raw);
+  }
 }
 
 export default function MappingTableView({
@@ -35,20 +48,43 @@ export default function MappingTableView({
 
     return mappings.map((m) => {
       const path = normalizeMapperPath(m.targetPath);
+      const isExpression = !!m.expression?.trim();
+      const sourceLabel = isExpression
+        ? m.expression!.trim()
+        : normalizeMapperPath(m.sourcePath);
       let value = '';
+      let resolved = false;
       if (parsed != null) {
         const raw = getByPath(parsed, m.expression ?? m.sourcePath);
         if (raw !== undefined) {
-          value = typeof raw === 'string' ? raw : JSON.stringify(raw);
+          value = formatExpectedValue(raw);
+          resolved = true;
         }
       }
-      return { id: m.id, jsonPath: path, expectedValue: value };
+      return {
+        id: m.id,
+        jsonPath: path,
+        sourceLabel,
+        isExpression,
+        expectedValue: value,
+        resolved,
+      };
     });
   }, [mappings, sources, activeSourceId]);
 
+  const stats = useMemo(() => {
+    let mapped = 0;
+    let unresolved = 0;
+    for (const row of rows) {
+      if (row.resolved) mapped += 1;
+      else unresolved += 1;
+    }
+    return { mapped, unresolved, total: rows.length };
+  }, [rows]);
+
   const pivotData = useMemo(() => {
     const colSet = new Set<string>();
-    const rowMap = new Map<string, Map<string, { value: string; id: string }>>();
+    const rowMap = new Map<string, Map<string, { value: string; id: string; resolved: boolean }>>();
 
     for (const r of rows) {
       const lastDot = r.jsonPath.lastIndexOf('.');
@@ -57,7 +93,7 @@ export default function MappingTableView({
       colSet.add(field);
       let row = rowMap.get(rowKey);
       if (!row) { row = new Map(); rowMap.set(rowKey, row); }
-      row.set(field, { value: r.expectedValue, id: r.id });
+      row.set(field, { value: r.expectedValue, id: r.id, resolved: r.resolved });
     }
 
     const columns = Array.from(colSet);
@@ -84,20 +120,43 @@ export default function MappingTableView({
   if (rows.length === 0) {
     return (
       <div className="dm-table-view">
-        <div className="dm-table-empty">No mappings yet. Drag fields or use "Map filtered" to add.</div>
+        <div className="dm-table-empty" role="status">
+          <div className="dm-table-empty-title">No mappings yet</div>
+          <div className="dm-table-empty-hint">
+            Drag a source field onto a target, or use Auto-map to populate this table.
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="dm-table-view">
-      {canPivot && (
-        <div className="dm-table-toolbar-row">
-          <span className="dm-table-toolbar-label">
-            {layout === 'list'
-              ? `${rows.length} row${rows.length !== 1 ? 's' : ''}`
-              : `${pivotData.rows.length} × ${pivotData.columns.length}`}
+      <div className="dm-table-toolbar-row">
+        <div className="dm-table-stats" aria-live="polite">
+          {canPivot && layout === 'pivot' ? (
+            <span className="dm-table-stat">
+              <span className="dm-table-stat-value">
+                {pivotData.rows.length} × {pivotData.columns.length}
+              </span>
+            </span>
+          ) : (
+            <span className="dm-table-stat">
+              <span className="dm-table-stat-value">
+                {stats.total === 1 ? '1 row' : `${stats.total} rows`}
+              </span>
+            </span>
+          )}
+          <span className="dm-table-stat dm-table-stat--mapped">
+            <span className="dm-table-stat-value">{stats.mapped}</span> mapped
           </span>
+          {stats.unresolved > 0 && (
+            <span className="dm-table-stat dm-table-stat--unresolved">
+              <span className="dm-table-stat-value">{stats.unresolved}</span> unresolved
+            </span>
+          )}
+        </div>
+        {canPivot && (
           <div className="validation-fields-view-toggle" role="tablist" aria-label="Table layout mode">
             <button
               type="button"
@@ -118,46 +177,86 @@ export default function MappingTableView({
               Table
             </button>
           </div>
-        </div>
-      )}
-      <div className="dm-table-header-row">
-        <span className="dm-table-cell dm-table-cell--path">JSON Path</span>
-        <span className="dm-table-cell dm-table-cell--value">Expected Value</span>
-        <span className="dm-table-cell dm-table-cell--action" />
+        )}
       </div>
 
       {(!canPivot || layout === 'list') ? (
-        <div className="dm-table-body">
-          {rows.map((row) => (
-            <div
-              key={row.id}
-              className={`dm-table-row ${selectedMappingId === row.id ? 'dm-table-row--selected' : ''}`}
-              onClick={() => onSelectMapping?.(row.id)}
-            >
-              <span className="dm-table-cell dm-table-cell--path" title={row.jsonPath}>
-                {row.jsonPath}
-              </span>
-              <span className="dm-table-cell dm-table-cell--value" title={row.expectedValue}>
-                {row.expectedValue ? `"${row.expectedValue}"` : '—'}
-              </span>
-              <span className="dm-table-cell dm-table-cell--action">
-                {onRemoveMapping && (
-                  <button
-                    className="dm-table-delete-btn"
-                    onClick={(e) => { e.stopPropagation(); onRemoveMapping(row.id); }}
-                    aria-label={`Remove mapping ${row.jsonPath}`}
-                    title="Remove"
-                  >
-                    ×
-                  </button>
-                )}
-              </span>
-            </div>
-          ))}
+        <div className="dm-table-scroll">
+          <table className="dm-mapping-table">
+            <thead>
+              <tr>
+                <th scope="col" className="dm-mapping-table-th dm-mapping-table-th--status">Status</th>
+                <th scope="col" className="dm-mapping-table-th dm-mapping-table-th--path">Target path</th>
+                <th scope="col" className="dm-mapping-table-th dm-mapping-table-th--source">Source</th>
+                <th scope="col" className="dm-mapping-table-th dm-mapping-table-th--value">Expected value</th>
+                <th scope="col" className="dm-mapping-table-th dm-mapping-table-th--action">
+                  <span className="sr-only">Actions</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr
+                  key={row.id}
+                  className={`dm-table-row ${selectedMappingId === row.id ? 'dm-table-row--selected' : ''} ${row.resolved ? 'dm-table-row--mapped' : 'dm-table-row--unresolved'}`}
+                  onClick={() => onSelectMapping?.(row.id)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      onSelectMapping?.(row.id);
+                    }
+                  }}
+                  aria-selected={selectedMappingId === row.id}
+                >
+                  <td className="dm-mapping-table-td dm-mapping-table-td--status">
+                    <span
+                      className={`dm-table-status-pill ${row.resolved ? 'dm-table-status-pill--mapped' : 'dm-table-status-pill--unresolved'}`}
+                    >
+                      {row.resolved ? 'Mapped' : 'Unresolved'}
+                    </span>
+                  </td>
+                  <td className="dm-mapping-table-td dm-mapping-table-td--path" title={row.jsonPath}>
+                    <code className="dm-table-path">{row.jsonPath}</code>
+                  </td>
+                  <td className="dm-mapping-table-td dm-mapping-table-td--source" title={row.sourceLabel}>
+                    {row.isExpression ? (
+                      <span className="dm-table-source-fx">
+                        <span className="dm-table-fx-badge" aria-hidden="true">fx</span>
+                        <code className="dm-table-path">{row.sourceLabel}</code>
+                      </span>
+                    ) : (
+                      <code className="dm-table-path dm-table-path--muted">{row.sourceLabel}</code>
+                    )}
+                  </td>
+                  <td className="dm-mapping-table-td dm-mapping-table-td--value" title={row.expectedValue || undefined}>
+                    {row.expectedValue ? (
+                      <code className="dm-table-value">{`"${row.expectedValue}"`}</code>
+                    ) : (
+                      <span className="dm-table-value-empty" aria-label="No value">—</span>
+                    )}
+                  </td>
+                  <td className="dm-mapping-table-td dm-mapping-table-td--action">
+                    {onRemoveMapping && (
+                      <button
+                        type="button"
+                        className="dm-table-delete-btn"
+                        onClick={(e) => { e.stopPropagation(); onRemoveMapping(row.id); }}
+                        aria-label={`Remove mapping ${row.jsonPath}`}
+                        title="Remove mapping"
+                      >
+                        ×
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
-        <div className="dm-table-body">
-          <table className="validation-fields-pivot-table">
+        <div className="dm-table-scroll">
+          <table className="validation-fields-pivot-table dm-mapping-pivot-table">
             <thead>
               <tr>
                 <th className="validation-fields-pivot-row-header">{pivotData.arrayPrefix}</th>
@@ -178,7 +277,9 @@ export default function MappingTableView({
                       return (
                         <td key={col}>
                           {cell ? (
-                            <code className="validation-fields-pivot-val">{cell.value ? `"${cell.value}"` : '—'}</code>
+                            <code className="validation-fields-pivot-val">
+                              {cell.value ? `"${cell.value}"` : '—'}
+                            </code>
                           ) : (
                             <span className="validation-fields-pivot-empty">—</span>
                           )}

@@ -3446,17 +3446,26 @@
   font-size: 0.85rem;
 }
 .version-diff-viewer .json-diff-viewer {
-  background: #1a1a2e !important;
-  color: #e0e0e0 !important;
+  background: var(--bg, #0f172a) !important;
+  color: var(--text, #f1f5f9) !important;
 }
-/* === IntelliJ-style diff === */
-/* Override monokai theme: remove ALL row-level and cell background colors */
+/* Soften Monokai token colors — hot pink keys + red remove tints felt "too reddish" */
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai .key {
+  color: #7dd3fc !important; /* soft sky — keys stay distinct without alarm red */
+}
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai .string {
+  color: #e2e8f0 !important; /* near-white strings — easiest to read as human text */
+}
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai .number,
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai .boolean,
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai .null {
+  color: #c4b5fd !important;
+}
+/* === Line-level diff (GitHub-style) === */
 .version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai tr td,
 .version-diff-viewer .json-diff-viewer tr td {
-  background: transparent !important;
   border-bottom: none !important;
 }
-/* Remove row hover background */
 .version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai tr:hover,
 .version-diff-viewer .json-diff-viewer tr:hover {
   background: transparent !important;
@@ -3464,50 +3473,58 @@
 .version-diff-viewer .json-diff-viewer tr:hover td:before {
   background: transparent !important;
 }
-/* Left-edge stripe on content cells only (not line-number cells) */
-.version-diff-viewer .json-diff-viewer td.line-add:not(.line-number) {
-  border-left: 3px solid #2ecc71 !important;
+/* Soft full-line tint — no per-character boxes */
+.version-diff-viewer .json-diff-viewer td.line-add:not(.line-number),
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai tr .line-add:not(.line-number) {
+  background: color-mix(in srgb, #22c55e 14%, transparent) !important;
+  border-left: 3px solid #22c55e !important;
 }
-.version-diff-viewer .json-diff-viewer td.line-remove:not(.line-number) {
-  border-left: 3px solid #e74c3c !important;
+.version-diff-viewer .json-diff-viewer td.line-remove:not(.line-number),
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai tr .line-remove:not(.line-number) {
+  background: color-mix(in srgb, #ef4444 12%, transparent) !important;
+  border-left: 3px solid #f87171 !important;
 }
-.version-diff-viewer .json-diff-viewer td.line-modify:not(.line-number) {
-  border-left: 3px solid #3498db !important;
+.version-diff-viewer .json-diff-viewer td.line-modify:not(.line-number),
+.version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai tr .line-modify:not(.line-number) {
+  background: color-mix(in srgb, #3b82f6 12%, transparent) !important;
+  border-left: 3px solid #60a5fa !important;
 }
-/* Inline diff: highlight only the changed text (IntelliJ-style) */
+/* Keep inline styles readable if a caller re-enables highlightInlineDiff */
+.version-diff-viewer .json-diff-viewer pre .inline-diff-add,
+.version-diff-viewer .json-diff-viewer pre .inline-diff-remove {
+  padding: 0 !important;
+  border-radius: 0 !important;
+  font-weight: inherit !important;
+  text-decoration: none !important;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
 .version-diff-viewer .json-diff-viewer pre .inline-diff-add {
-  background: rgba(39, 174, 96, 0.35) !important;
-  color: #2ecc71 !important;
-  padding: 1px 3px;
-  border-radius: 2px;
-  font-weight: 700;
-  text-decoration: none;
+  background: color-mix(in srgb, #22c55e 32%, transparent) !important;
+  color: var(--text, #f1f5f9) !important;
 }
 .version-diff-viewer .json-diff-viewer pre .inline-diff-remove {
-  background: rgba(231, 76, 60, 0.30) !important;
-  color: #e74c3c !important;
-  padding: 1px 3px;
-  border-radius: 2px;
-  text-decoration: line-through;
+  background: color-mix(in srgb, #ef4444 28%, transparent) !important;
+  color: var(--text, #f1f5f9) !important;
 }
 /* Line numbers */
 .version-diff-viewer .json-diff-viewer td.line-number,
 .version-diff-viewer .json-diff-viewer.json-diff-viewer-theme-monokai .line-number {
-  color: #555 !important;
-  border-right-color: rgba(255, 255, 255, 0.06) !important;
+  color: var(--text-muted, #a8b8cc) !important;
+  border-right-color: var(--border, #3b4a60) !important;
   min-width: 36px;
   font-size: 0.75rem;
   background: transparent !important;
 }
 /* Changed-line line numbers get accent color */
 .version-diff-viewer .json-diff-viewer td.line-number.line-add {
-  color: #2ecc71 !important;
+  color: #4ade80 !important;
 }
 .version-diff-viewer .json-diff-viewer td.line-number.line-remove {
-  color: #e74c3c !important;
+  color: #fca5a5 !important;
 }
 .version-diff-viewer .json-diff-viewer td.line-number.line-modify {
-  color: #3498db !important;
+  color: #93c5fd !important;
 }
 /* Center gutter divider */
 .version-diff-viewer .json-diff-viewer td:nth-child(2) {

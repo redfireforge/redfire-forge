@@ -122,10 +122,9 @@ const REF_SECTIONS: RefSection[] = [
 
 interface DslReferencePanelProps {
   onInsert: (text: string) => void;
-  onClose?: () => void;
 }
 
-export default function DslReferencePanel({ onInsert, onClose }: DslReferencePanelProps) {
+export default function DslReferencePanel({ onInsert }: DslReferencePanelProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [openSections, setOpenSections] = useState<Set<string>>(
     () => new Set<string>(),
@@ -274,11 +273,6 @@ export default function DslReferencePanel({ onInsert, onClose }: DslReferencePan
           </div>
         )}
       </div>
-      {onClose && (
-        <div className="vr-ref-footer">
-          <button type="button" className="btn btn-primary" onClick={onClose}>Close</button>
-        </div>
-      )}
     </div>
   );
 }

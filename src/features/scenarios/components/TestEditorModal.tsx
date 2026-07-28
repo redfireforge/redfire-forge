@@ -398,6 +398,8 @@ export default function TestEditorModal({
         expandMode="fullscreen"
         minWidth={520}
         minHeight={340}
+        constrainDragToViewport
+        dragViewportPadding={8}
         headerActions={
           <TestEditorModalHeaderActions
             inputMode={inputMode}

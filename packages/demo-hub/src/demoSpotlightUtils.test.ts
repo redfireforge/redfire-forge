@@ -188,6 +188,77 @@ describe('demoSpotlightUtils', () => {
     expect(findVisibleAppModal()).toBe(dialog);
   });
 
+  it('findVisibleAppModal returns the topmost stacked modal (nested Data Mapper)', () => {
+    const editOverlay = document.createElement('div');
+    editOverlay.className = 'modal-overlay rf-builder-overlay';
+    mockRect(editOverlay, 400, 400);
+    const editDialog = document.createElement('div');
+    editDialog.setAttribute('role', 'dialog');
+    editDialog.setAttribute('aria-modal', 'true');
+    const validationRules = document.createElement('div');
+    validationRules.className = 'validation-fields-summary';
+    mockRect(validationRules, 200, 80);
+    editDialog.appendChild(validationRules);
+
+    const dmOverlay = document.createElement('div');
+    dmOverlay.className = 'dm-modal-overlay';
+    mockRect(dmOverlay, 300, 300);
+    const dmDialog = document.createElement('div');
+    dmDialog.setAttribute('role', 'dialog');
+    dmDialog.setAttribute('aria-modal', 'true');
+    dmOverlay.appendChild(dmDialog);
+    editDialog.appendChild(dmOverlay);
+    editOverlay.appendChild(editDialog);
+    document.body.appendChild(editOverlay);
+
+    expect(findVisibleAppModal()).toBe(dmDialog);
+    expect(isSpotlightSuppressedForModal(validationRules)).toBe(true);
+  });
+
+  it('findVisibleAppModal prefers Expression Editor overlay when stacked on body', () => {
+    const dmOverlay = document.createElement('div');
+    dmOverlay.className = 'dm-modal-overlay';
+    mockRect(dmOverlay, 300, 300);
+    const dmDialog = document.createElement('div');
+    dmDialog.setAttribute('role', 'dialog');
+    dmDialog.setAttribute('aria-modal', 'true');
+    dmOverlay.appendChild(dmDialog);
+
+    const exprOverlay = document.createElement('div');
+    exprOverlay.className = 'dm-expr-overlay';
+    mockRect(exprOverlay, 280, 280);
+    const exprDialog = document.createElement('div');
+    exprDialog.setAttribute('role', 'dialog');
+    exprDialog.setAttribute('aria-modal', 'true');
+    exprOverlay.appendChild(exprDialog);
+
+    document.body.append(dmOverlay, exprOverlay);
+    expect(findVisibleAppModal()).toBe(exprDialog);
+    expect(isSpotlightSuppressedForModal(dmDialog)).toBe(true);
+    expect(isSpotlightSuppressedForModal(exprDialog)).toBe(false);
+  });
+
+  it('findVisibleAppModal prefers Schema Diff overlay when stacked on body', () => {
+    const dmOverlay = document.createElement('div');
+    dmOverlay.className = 'dm-modal-overlay';
+    mockRect(dmOverlay, 300, 300);
+    const dmDialog = document.createElement('div');
+    dmDialog.setAttribute('role', 'dialog');
+    dmDialog.setAttribute('aria-modal', 'true');
+    dmOverlay.appendChild(dmDialog);
+
+    const diffOverlay = document.createElement('div');
+    diffOverlay.className = 'dm-diff-overlay';
+    diffOverlay.setAttribute('role', 'dialog');
+    diffOverlay.setAttribute('aria-modal', 'true');
+    mockRect(diffOverlay, 280, 280);
+
+    document.body.append(dmOverlay, diffOverlay);
+    expect(findVisibleAppModal()).toBe(diffOverlay);
+    expect(isSpotlightSuppressedForModal(dmDialog)).toBe(true);
+    expect(isSpotlightSuppressedForModal(diffOverlay)).toBe(false);
+  });
+
   it('hasDemoHubTextSelection detects selection in demo-live-panel via text node parent', () => {
     document.body.innerHTML = `
       <div class="demo-live-panel"><p id="narration">Step text</p></div>
@@ -200,6 +271,46 @@ describe('demoSpotlightUtils', () => {
     sel.addRange(range);
     expect(hasDemoHubTextSelection()).toBe(true);
     sel.removeAllRanges();
+  });
+
+  it('isSpotlightSuppressedForModal is true when Validation Rules panel covers a toolbar target', () => {
+    const toolbarBtn = document.createElement('button');
+    toolbarBtn.setAttribute('data-testid', 'dm-view-rules');
+    mockRect(toolbarBtn, 40, 20);
+    const dmOverlay = document.createElement('div');
+    dmOverlay.className = 'dm-modal-overlay';
+    mockRect(dmOverlay, 400, 400);
+    const dmDialog = document.createElement('div');
+    dmDialog.setAttribute('role', 'dialog');
+    dmDialog.setAttribute('aria-modal', 'true');
+    dmDialog.appendChild(toolbarBtn);
+    const vrPanel = document.createElement('div');
+    vrPanel.className = 'vr-modal-panel';
+    mockRect(vrPanel, 300, 300);
+    dmDialog.append(toolbarBtn, vrPanel);
+    dmOverlay.appendChild(dmDialog);
+    document.body.appendChild(dmOverlay);
+    expect(isSpotlightSuppressedForModal(toolbarBtn)).toBe(true);
+  });
+
+  it('isSpotlightSuppressedForModal is false when target is inside Validation Rules panel', () => {
+    const dmOverlay = document.createElement('div');
+    dmOverlay.className = 'dm-modal-overlay';
+    mockRect(dmOverlay, 400, 400);
+    const dmDialog = document.createElement('div');
+    dmDialog.setAttribute('role', 'dialog');
+    dmDialog.setAttribute('aria-modal', 'true');
+    const vrPanel = document.createElement('div');
+    vrPanel.className = 'vr-modal-panel';
+    mockRect(vrPanel, 300, 300);
+    const verifyBtn = document.createElement('button');
+    verifyBtn.className = 'vr-modal-action-btn--verify';
+    mockRect(verifyBtn, 60, 24);
+    vrPanel.appendChild(verifyBtn);
+    dmDialog.appendChild(vrPanel);
+    dmOverlay.appendChild(dmDialog);
+    document.body.appendChild(dmOverlay);
+    expect(isSpotlightSuppressedForModal(verifyBtn)).toBe(false);
   });
 
   it('isSpotlightSuppressedForModal is false when no modal is open', () => {
