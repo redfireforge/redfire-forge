@@ -67,6 +67,7 @@ export default function ExpressionEditorStepDebugger({
       <div className="dm-expr-step-list">
         {debugSteps.map((step, i) => {
           const isOpen = expandedSteps.has(i);
+          const isFinal = i === debugSteps.length - 1;
           return (
             <div
               key={i}
@@ -82,7 +83,7 @@ export default function ExpressionEditorStepDebugger({
                   onKeyDown={(e) => stepHeaderKeyDown(i, e)}
                 >
                   <span className={`dm-expr-step-chevron ${isOpen ? 'dm-expr-step-chevron--open' : ''}`}>▸</span>
-                  <span className="dm-expr-step-label">{step.label}</span>
+                  <span className={`dm-expr-step-label${isFinal ? ' dm-expr-step-label--final' : ''}`}>{step.label}</span>
                   <code className="dm-expr-step-expression">{truncateDebugValue(step.expression)}</code>
                 </div>
                 {isOpen && (

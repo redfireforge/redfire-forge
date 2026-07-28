@@ -208,6 +208,7 @@ export const HAR = {
   MAPPER_TABLE_VIEW:     '.dm-table-view',
   MAPPER_CODE_BTN:       '[data-testid="dm-view-code"]',
   MAPPER_TABLE_BTN:      '[data-testid="dm-view-table"]',
+  MAPPER_RULES_BTN:      '[data-testid="dm-view-rules"]',
   MAPPER_SEARCH:         '.dm-search-input',
   MAPPER_TYPE_PILL:      '.dm-type-pill',
   MAPPER_SAVE_BTN:       '.dm-modal-btn--primary',
@@ -295,6 +296,8 @@ export const HAR = {
   VR_STAT_PASS:          '.vr-modal-stat--pass',
   VR_STAT_FAIL:          '.vr-modal-stat--fail',
   VR_RESULTS_STRIP:      '.vr-results-strip',
+  VR_VIEW_LINE:          '.vr-modal-editor-pane .view-lines .view-line',
+  VR_CURRENT_LINE:       '.vr-modal-editor-pane .current-line',
 
   // ── Data Source Advanced (TH-18) ─────────────────────
   ROW_DETAIL_MODAL:      '.row-detail-modal',
@@ -318,8 +321,9 @@ export const HAR = {
   // ── Schema Drift & Repair (TH-19) ───────────────────────
   DRIFT_BANNER:          '.dm-drift-banner',
   DRIFT_ACCEPT_BTN:      '.dm-drift-btn--accept',
-  DRIFT_DIFF_BTN:        '.dm-drift-btn--diff',
+  DRIFT_DIFF_BTN:        '[data-testid="dm-drift-show-diff"]',
   DIFF_SHELL:            '.dm-diff-shell',
+  DIFF_OVERLAY:          '.dm-diff-overlay',
   DIFF_TABLE:            '.dm-diff-table',
   DIFF_SEVERITY:         '.dm-diff-severity',
   DIFF_AFFECTED:         '.dm-diff-affected',

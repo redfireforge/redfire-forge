@@ -2165,9 +2165,11 @@ export function closeRulesModal(): void {
 
 /** Click the "Rules" button in the Data Mapper toolbar. */
 export function clickRulesToolbarButton(): void {
+  const btn = document.querySelector<HTMLElement>(HAR.MAPPER_RULES_BTN);
+  if (btn) { btn.click(); return; }
   const btns = document.querySelectorAll<HTMLElement>('.dm-toolbar-btn--quiet');
-  for (const btn of btns) {
-    if (btn.textContent?.trim() === 'Rules') { btn.click(); return; }
+  for (const el of btns) {
+    if (el.textContent?.trim() === 'Rules') { el.click(); return; }
   }
 }
 
@@ -2348,7 +2350,9 @@ function buildOldSnapshot(): Record<string, unknown> {
       id: `snap-${contextId}-src`,
       contextId,
       side: 'source',
-      sourceId: undefined,
+      // Must match validationAdapter source id — otherwise drift detection
+      // cannot resolve sample data and silently skips the snapshot.
+      sourceId: 'response-body',
       fields: TH19_OLD_SNAPSHOT_FIELDS,
       capturedAt: new Date(Date.now() - 86400000).toISOString(),
       topLevelKeyCount: TH19_OLD_SNAPSHOT_FIELDS.length,
@@ -2432,13 +2436,27 @@ export function closeDiffModal(): void {
   if (!modal) return;
   const btns = modal.querySelectorAll<HTMLElement>('.dm-diff-footer button');
   for (const btn of btns) {
-    if (btn.textContent?.trim() === 'Close') { btn.click(); return; }
+    const label = btn.textContent?.trim();
+    if (label === 'Close' || label === 'Cancel') { btn.click(); return; }
   }
 }
 
 /** Check if the Drift Banner is visible. */
 export function isDriftBannerVisible(): boolean {
   return !!document.querySelector(HAR.DRIFT_BANNER);
+}
+
+/** Poll until the Drift Banner appears (async detection after mapper open). */
+export async function waitForDriftBanner(
+  ctx: DemoActionContext,
+  timeoutMs = 3000,
+): Promise<boolean> {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (isDriftBannerVisible()) return true;
+    await ctx.delay(100);
+  }
+  return isDriftBannerVisible();
 }
 
 /** Check if the Schema Diff Modal is open. */

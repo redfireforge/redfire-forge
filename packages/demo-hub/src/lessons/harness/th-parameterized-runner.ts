@@ -268,21 +268,45 @@ export const thParameterizedRunnerLesson: DemoLesson = {
         await ctx.delay(300);
 
         await ctx.click(pr(HAR.RUN_BTN));
-        await ctx.delay(1200);
+
+        // Wait for Live Progress to mount, then scroll it into view immediately
+        // so the viewer sees bar + per-test rows + metrics without manual scroll.
+        const start = Date.now();
+        while (Date.now() - start < 3000) {
+          if (document.querySelector(pr(HAR.LIVE_PROGRESS))) break;
+          await ctx.delay(100);
+        }
 
         const progress = document.querySelector<HTMLElement>(pr(HAR.LIVE_PROGRESS));
-        if (progress) await spotlight(progress, 1200, ctx);
+        if (progress) {
+          progress.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          await ctx.delay(800);
+          await spotlight(progress, 1200, ctx);
+        }
 
         const perTest = document.querySelector<HTMLElement>(pr(HAR.PER_TEST_PROGRESS));
-        if (perTest) await spotlight(perTest, 1200, ctx);
+        if (perTest) {
+          perTest.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          await spotlight(perTest, 1200, ctx);
+        }
 
         const metrics = document.querySelector<HTMLElement>(pr(HAR.LIVE_METRICS));
-        if (metrics) await spotlight(metrics, 1200, ctx);
+        if (metrics) {
+          metrics.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          await spotlight(metrics, 1200, ctx);
+        }
 
         try {
           await ctx.waitFor(pr(HAR.COMPLETION), 30000);
         } catch {
           await ctx.delay(8000);
+        }
+
+        const completion = document.querySelector<HTMLElement>(pr(HAR.COMPLETION));
+        if (completion) {
+          completion.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          await ctx.delay(400);
+          await spotlight(completion, 1500, ctx);
         }
       },
 
